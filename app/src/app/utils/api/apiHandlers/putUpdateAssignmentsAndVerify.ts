@@ -22,20 +22,22 @@ export const putUpdateAssignmentsAndVerify = async ({
   mapDocument,
   zoneAssignments,
   shatterIds,
-  shatterMappings,
+  parentToChild,
+  childToParent,
   overwrite = false,
 }: {
   mapDocument: DocumentObject;
   zoneAssignments: Map<string, NullableZone>;
   shatterIds: AssignmentsStore['shatterIds'];
-  shatterMappings: AssignmentsStore['shatterMappings'];
+  parentToChild: AssignmentsStore['parentToChild'];
+  childToParent: AssignmentsStore['childToParent'];
   overwrite?: boolean;
 }): Promise<PutUpdateAssignmentsAndVerifyResponse> => {
   const formattedAssignments = formatAssignmentsFromState(
     mapDocument.document_id,
     zoneAssignments,
     shatterIds,
-    shatterMappings,
+    childToParent,
     'assignment_array'
   );
   const assignmentsPostResponse = await putUpdateAssignments({

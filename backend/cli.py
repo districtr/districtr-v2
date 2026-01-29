@@ -1,10 +1,12 @@
 import click
 import logging
 import re
+import uuid
+import json
 
 from app.core.db import engine
 from app.core.config import settings
-from sqlalchemy import text
+from sqlalchemy import text, update, select
 from app.utils import (
     create_districtr_map as _create_districtr_map,
     create_map_group as _create_map_group,
@@ -21,13 +23,15 @@ from app.contiguity.main import write_graph, graph_from_gpkg, GraphFileFormat
 from functools import wraps
 from contextlib import contextmanager
 from sqlmodel import Session
-from typing import Callable, TypeVar, Any
+from typing import Callable, TypeVar, Any, Literal
 from management.load_data import (
     load_sample_data,
     Config,
     import_gerrydb_view as _import_gerrydb_view,
 )
 from os import environ
+from app.models import DistrictrMap, Overlay
+
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -86,19 +90,31 @@ def import_gerrydb_view(session: Session, layer: str, gpkg: str, rm: bool):
 
 
 @cli.command("create-parent-child-edges")
-@click.option("--districtr-map-slug", "-d", help="Districtr map slug", required=True)
+@click.option("--districtr-map-slug", "-d", help="Districtr map slug", required=False)
+@click.option("--districtr-map-uuid", "-u", help="Districtr map UUID", required=False)
 @with_session
-def create_parent_child_edges(session: Session, districtr_map_slug: str):
+def create_parent_child_edges(
+    session: Session, districtr_map_slug: str | None, districtr_map_uuid: str | None
+):
+    """
+    Create parent-child edges for a districtr map.
+    Inlined equivalent of add_parent_child_relationships (parent_child_relationships.sql).
+    """
+    if not districtr_map_slug and not districtr_map_uuid:
+        raise ValueError(
+            "Either slug (--districtr-map-slug) or UUID (--districtr-map-uuid) must be provided"
+        )
+
+    if districtr_map_slug:
+        districtr_map_uuid = session.exec(
+            select(DistrictrMap.uuid).where(
+                DistrictrMap.districtr_map_slug == districtr_map_slug
+            )
+        ).first()
+        if not districtr_map_uuid:
+            raise ValueError(f"Districtr map with slug {districtr_map_slug} not found")
+
     logger.info("Creating parent-child edges...")
-
-    stmt = text(
-        "SELECT uuid FROM districtrmap WHERE districtr_map_slug = :districtr_map_slug"
-    )
-    (districtr_map_uuid,) = session.execute(
-        stmt, params={"districtr_map_slug": districtr_map_slug}
-    ).one()
-    logger.info(f"Found districtmap uuid: {districtr_map_uuid}")
-
     _create_parent_child_edges(session=session, districtr_map_uuid=districtr_map_uuid)
     logger.info("Parent-child relationship upserted successfully.")
 
@@ -146,6 +162,13 @@ def delete_parent_child_edges(session: Session, districtr_map: str):
     default=None,
     nargs=4,
 )
+@click.option(
+    "--statefps",
+    help="State FIPS codes (can be specified multiple times)",
+    required=False,
+    type=str,
+    multiple=True,
+)
 @with_session
 def create_districtr_map(
     session: Session,
@@ -160,8 +183,10 @@ def create_districtr_map(
     bounds: list[float] | None = None,
     group_slug: str = "states",
     map_type: str = "default",
+    statefps: tuple[str, ...] = (),
 ):
     logger.info("Creating districtr map...")
+    statefps_list = list(statefps) if statefps else None
     districtr_map_uuid = _create_districtr_map(
         session=session,
         name=name,
@@ -173,6 +198,7 @@ def create_districtr_map(
         gerrydb_table_name=gerrydb_table_name,
         num_districts=num_districts,
         tiles_s3_path=tiles_s3_path,
+        statefps=statefps_list,
     )
 
     if not no_extent:
@@ -452,6 +478,350 @@ def add_districtr_map_to_map_group(
         autocommit=True,
     )
     logger.info(f"Added {districtr_map_slug} to `{map_group_slug}`.")
+
+
+@cli.command("create-overlay")
+@click.option("--name", "-n", help="Overlay name", required=True)
+@click.option("--description", "-d", help="Overlay description", required=False)
+@click.option(
+    "--data-type",
+    "-dt",
+    type=click.Choice(["geojson", "pmtiles"]),
+    help="Data type (geojson or pmtiles)",
+    required=True,
+)
+@click.option(
+    "--layer-type",
+    "-lt",
+    type=click.Choice(["fill", "line", "text"]),
+    help="Layer type (fill, line, or text)",
+    required=True,
+)
+@click.option("--source", "-s", help="Source URL or S3 path", required=False)
+@click.option(
+    "--source-layer", "-sl", help="Source layer name for pmtiles", required=False
+)
+@click.option(
+    "--custom-style", "-cs", help="Custom style as JSON string", required=False
+)
+@click.option(
+    "--id-property",
+    "-ip",
+    help="Property name to use for text labels (for text layer type)",
+    required=False,
+)
+@click.option(
+    "--districtr-map-slugs",
+    "-m",
+    help="DistrictrMap slug(s) to add the overlay to (can be specified multiple times)",
+    multiple=True,
+    required=False,
+)
+@with_session
+def create_overlay(
+    session: Session,
+    name: str,
+    description: str | None,
+    data_type: str,
+    layer_type: Literal["fill", "line", "text"],
+    source: str | None,
+    source_layer: str | None,
+    custom_style: str | None,
+    id_property: str | None,
+    districtr_map_slugs: tuple[str, ...],
+):
+    overlay_id = str(uuid.uuid4())
+    parsed_style = None
+    if custom_style:
+        try:
+            parsed_style = json.loads(custom_style)
+        except json.JSONDecodeError:
+            logger.error("Invalid JSON for custom-style")
+            return
+
+    stmt = text(
+        """INSERT INTO overlay (overlay_id, name, description, data_type, layer_type, source, source_layer, custom_style, id_property)
+        VALUES (:overlay_id, :name, :description, :data_type, :layer_type, :source, :source_layer, :custom_style, :id_property)
+        RETURNING overlay_id"""
+    )
+    result = session.execute(
+        stmt,
+        {
+            "overlay_id": overlay_id,
+            "name": name,
+            "description": description,
+            "data_type": data_type,
+            "layer_type": layer_type,
+            "source": source,
+            "source_layer": source_layer,
+            "custom_style": json.dumps(parsed_style) if parsed_style else None,
+            "id_property": id_property,
+        },
+    )
+    inserted_id = result.scalar()
+    logger.info(f"Created overlay with ID: {inserted_id}")
+
+    # Add overlay to specified maps via junction table
+    if districtr_map_slugs:
+        for map_slug in districtr_map_slugs:
+            add_stmt = text(
+                """INSERT INTO districtrmap_overlays (districtr_map_id, overlay_id)
+                SELECT uuid, CAST(:overlay_id AS uuid) FROM districtrmap
+                WHERE districtr_map_slug = :districtr_map_slug
+                ON CONFLICT (districtr_map_id, overlay_id) DO NOTHING
+                RETURNING districtr_map_id"""
+            )
+            add_result = session.execute(
+                add_stmt,
+                {"districtr_map_slug": map_slug, "overlay_id": overlay_id},
+            )
+            updated = add_result.scalar()
+            if updated:
+                logger.info(f"Added overlay to map {map_slug}")
+            else:
+                logger.warning(f"Map with slug {map_slug} not found")
+
+
+@cli.command("add-overlay-to-map")
+@click.option("--districtr-map-slug", "-d", help="DistrictrMap slug", required=True)
+@click.option("--overlay-id", "-o", help="Overlay ID to add", required=True)
+@with_session
+def add_overlay_to_map(session: Session, districtr_map_slug: str, overlay_id: str):
+    # Validate UUID format
+    try:
+        overlay_uuid = uuid.UUID(overlay_id)
+    except ValueError:
+        logger.error(
+            f"Invalid UUID format: {overlay_id}. Overlay ID must be a valid UUID."
+        )
+        return
+
+    # First verify the overlay exists
+    overlay_check = session.execute(
+        text("SELECT overlay_id FROM overlay WHERE overlay_id = :overlay_id"),
+        {"overlay_id": str(overlay_uuid)},
+    ).one_or_none()
+
+    if not overlay_check:
+        logger.error(f"Overlay with ID {overlay_id} not found")
+        return
+
+    stmt = text(
+        """INSERT INTO districtrmap_overlays (districtr_map_id, overlay_id)
+        SELECT uuid, CAST(:overlay_id AS uuid) FROM districtrmap
+        WHERE districtr_map_slug = :districtr_map_slug
+        ON CONFLICT (districtr_map_id, overlay_id) DO NOTHING
+        RETURNING districtr_map_id"""
+    )
+    result = session.execute(
+        stmt,
+        {"districtr_map_slug": districtr_map_slug, "overlay_id": str(overlay_uuid)},
+    )
+    updated = result.scalar()
+
+    if updated:
+        logger.info(f"Added overlay {overlay_id} to map {districtr_map_slug}")
+    else:
+        logger.error(f"Map with slug {districtr_map_slug} not found")
+
+
+@cli.command("remove-overlay-from-map")
+@click.option("--districtr-map-slug", "-d", help="DistrictrMap slug", required=True)
+@click.option("--overlay-id", "-o", help="Overlay ID to remove", required=True)
+@with_session
+def remove_overlay_from_map(session: Session, districtr_map_slug: str, overlay_id: str):
+    # Validate UUID format
+    try:
+        overlay_uuid = uuid.UUID(overlay_id)
+    except ValueError:
+        logger.error(
+            f"Invalid UUID format: {overlay_id}. Overlay ID must be a valid UUID."
+        )
+        return
+
+    stmt = text(
+        """DELETE FROM districtrmap_overlays
+        WHERE overlay_id = CAST(:overlay_id AS uuid)
+        AND districtr_map_id = (SELECT uuid FROM districtrmap WHERE districtr_map_slug = :districtr_map_slug)
+        RETURNING districtr_map_id"""
+    )
+    result = session.execute(
+        stmt,
+        {"districtr_map_slug": districtr_map_slug, "overlay_id": str(overlay_uuid)},
+    )
+    updated = result.scalar()
+
+    if updated:
+        logger.info(f"Removed overlay {overlay_id} from map {districtr_map_slug}")
+    else:
+        logger.error(f"Map with slug {districtr_map_slug} not found")
+
+
+@cli.command("update-overlay")
+@click.option("--overlay-id", "-o", help="Overlay ID to update", required=True)
+@click.option("--name", "-n", help="Overlay name", required=False)
+@click.option("--description", "-d", help="Overlay description", required=False)
+@click.option(
+    "--data-type",
+    "-dt",
+    type=click.Choice(["geojson", "pmtiles"]),
+    help="Data type (geojson or pmtiles)",
+    required=False,
+)
+@click.option(
+    "--layer-type",
+    "-lt",
+    type=click.Choice(["fill", "line", "text"]),
+    help="Layer type (fill, line, or text)",
+    required=False,
+)
+@click.option("--source", "-s", help="Source URL or S3 path", required=False)
+@click.option(
+    "--source-layer", "-sl", help="Source layer name for pmtiles", required=False
+)
+@click.option(
+    "--custom-style", "-cs", help="Custom style as JSON string", required=False
+)
+@click.option(
+    "--id-property",
+    "-ip",
+    help="Property name to use for text labels (for text layer type)",
+    required=False,
+)
+@with_session
+def update_overlay(
+    session: Session,
+    overlay_id: str,
+    name: str | None,
+    description: str | None,
+    data_type: str | None,
+    layer_type: str | None,
+    source: str | None,
+    source_layer: str | None,
+    custom_style: str | None,
+    id_property: str | None,
+):
+    import json
+
+    # Validate UUID format
+    try:
+        overlay_uuid = uuid.UUID(overlay_id)
+    except ValueError:
+        logger.error(
+            f"Invalid UUID format: {overlay_id}. Overlay ID must be a valid UUID."
+        )
+        return
+
+    # First verify the overlay exists
+    overlay_check = session.execute(
+        text("SELECT overlay_id FROM overlay WHERE overlay_id = :overlay_id"),
+        {"overlay_id": str(overlay_uuid)},
+    ).one_or_none()
+
+    if not overlay_check:
+        logger.error(f"Overlay with ID {overlay_id} not found")
+        return
+
+    # Build update query dynamically based on provided parameters
+    update_fields = []
+    params = {"overlay_id": str(overlay_uuid)}
+
+    if name is not None:
+        update_fields.append("name = :name")
+        params["name"] = name
+
+    if description is not None:
+        update_fields.append("description = :description")
+        params["description"] = description
+
+    if data_type is not None:
+        update_fields.append("data_type = :data_type")
+        params["data_type"] = data_type
+
+    if layer_type is not None:
+        update_fields.append("layer_type = :layer_type")
+        params["layer_type"] = layer_type
+
+    if source is not None:
+        update_fields.append("source = :source")
+        params["source"] = source
+
+    if source_layer is not None:
+        update_fields.append("source_layer = :source_layer")
+        params["source_layer"] = source_layer
+
+    if custom_style is not None:
+        try:
+            parsed_style = json.loads(custom_style)
+            update_fields.append("custom_style = :custom_style")
+            params["custom_style"] = json.dumps(parsed_style)
+        except json.JSONDecodeError:
+            logger.error("Invalid JSON for custom-style")
+            return
+
+    if id_property is not None:
+        update_fields.append("id_property = :id_property")
+        params["id_property"] = id_property
+
+    if not update_fields:
+        logger.warning("No fields to update. Provide at least one field to update.")
+        return
+
+    # Add updated_at timestamp
+    update_fields.append("updated_at = CURRENT_TIMESTAMP")
+
+    update_stmt = (
+        update(Overlay)
+        .where(Overlay.overlay_id == params["overlay_id"])
+        .values(
+            {
+                field.split(" = ")[0]: params[field.split(" = ")[0]]
+                for field in update_fields
+                if field != "updated_at = CURRENT_TIMESTAMP"
+            }
+        )
+        .returning(Overlay.overlay_id)
+    )
+
+    # Handle the updated_at separately, because SQLAlchemy expects a datetime object
+    if "updated_at = CURRENT_TIMESTAMP" in update_fields:
+        import datetime
+
+        update_stmt = update_stmt.values(updated_at=datetime.datetime.utcnow())
+
+    result = session.execute(update_stmt, params)
+    updated = result.scalar()
+
+    if updated:
+        logger.info(f"Updated overlay {overlay_id}")
+    else:
+        logger.error(f"Failed to update overlay {overlay_id}")
+
+
+@cli.command("delete-overlay")
+@click.option("--overlay-id", "-o", help="Overlay ID to delete", required=True)
+@with_session
+def delete_overlay(session: Session, overlay_id: str):
+    # Validate UUID format
+    try:
+        overlay_uuid = uuid.UUID(overlay_id)
+    except ValueError:
+        logger.error(
+            f"Invalid UUID format: {overlay_id}. Overlay ID must be a valid UUID."
+        )
+        return
+
+    # Junction rows are removed by ON DELETE CASCADE on overlay.overlay_id
+    result = session.execute(
+        text("DELETE FROM overlay WHERE overlay_id = :overlay_id RETURNING overlay_id"),
+        {"overlay_id": str(overlay_uuid)},
+    )
+    deleted = result.scalar()
+
+    if deleted:
+        logger.info(f"Deleted overlay {overlay_id}")
+    else:
+        logger.error(f"Overlay with ID {overlay_id} not found")
 
 
 if __name__ == "__main__":

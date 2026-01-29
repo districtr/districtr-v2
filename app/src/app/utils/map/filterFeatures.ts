@@ -3,8 +3,11 @@ import {fastUniqBy} from '../arrays';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
-import {MapStore} from '@/app/store/mapStore';
+import {useOverlayStore} from '@/app/store/overlayStore';
+import {booleanIntersects, area, intersect} from '@turf/turf';
+import {MultiPolygon, Polygon} from 'geojson';
 
+const MINIMUM_INTERSECTION_AREA_RATIO = 0.25;
 /**
  * filterFeatures
  * Filters the provided features based on certain criteria, such as locked features and captive IDs.
@@ -23,17 +26,25 @@ import {MapStore} from '@/app/store/mapStore';
  *
  * The function returns an array of features that pass all the filtering criteria.
  */
-export const filterFeatures = (
-  _features: MapGeoJSONFeature[],
-  filterLocked: boolean = true,
-  additionalFilters: Array<(f: MapGeoJSONFeature) => boolean> = [],
-  allowOutsideCaptiveIds: boolean = false
-) => {
+export const filterFeatures = ({
+  _features,
+  filterLocked = true,
+  additionalFilters = [],
+  allowOutsideCaptiveIds = false,
+  filterOverlayFeatures = true,
+}: {
+  _features: MapGeoJSONFeature[];
+  filterLocked?: boolean;
+  additionalFilters?: Array<(f: MapGeoJSONFeature) => boolean>;
+  allowOutsideCaptiveIds?: boolean;
+  filterOverlayFeatures?: boolean;
+}) => {
   // first, dedupe
   const features: MapGeoJSONFeature[] = fastUniqBy(_features, 'id');
   const {captiveIds, mapDocument} = useMapStore.getState();
   const {mapOptions, selectedZone, activeTool} = useMapControlsStore.getState();
   const {zoneAssignments, shatterIds} = useAssignmentsStore.getState();
+  const {paintConstraint, _idCache} = useOverlayStore.getState();
   const filterFunctions: Array<(f: MapGeoJSONFeature) => boolean> = [...additionalFilters];
   if (captiveIds.size && !allowOutsideCaptiveIds) {
     filterFunctions.push(f => captiveIds.has(f.id?.toString() || ''));
@@ -47,6 +58,50 @@ export const filterFeatures = (
         f => !lockedAreas.includes(zoneAssignments.get(f.id?.toString() || '') || null)
       );
     }
+  }
+  if (filterOverlayFeatures && paintConstraint) {
+    filterFunctions.push(f => {
+      if (!f.id) return false;
+      if (_idCache.has(f.id.toString())) {
+        return _idCache.get(f.id.toString()) ?? false;
+      } else {
+        let intersected = false;
+        if (f.geometry.type === 'Point') {
+          intersected = paintConstraint.features.some(constraintFeature =>
+            booleanIntersects(constraintFeature.geometry, f.geometry)
+          );
+        } else {
+          const geomArea = area(f.geometry);
+          let clippedArea = 0;
+          for (const constraintFeature of paintConstraint.features) {
+            const clipped = intersect({
+              type: 'FeatureCollection',
+              features: [
+                {
+                  type: 'Feature',
+                  geometry: constraintFeature.geometry as Polygon | MultiPolygon,
+                  properties: {},
+                },
+                {
+                  type: 'Feature',
+                  geometry: f.geometry as Polygon | MultiPolygon,
+                  properties: {},
+                },
+              ],
+            });
+            if (clipped) {
+              clippedArea += area(clipped.geometry);
+              intersected = clippedArea / geomArea > MINIMUM_INTERSECTION_AREA_RATIO;
+            }
+            if (intersected) {
+              break;
+            }
+          }
+        }
+        _idCache.set(f.id.toString(), intersected);
+        return intersected;
+      }
+    });
   }
   if (mapDocument?.child_layer && shatterIds.parents.size) {
     filterFunctions.push(f => {

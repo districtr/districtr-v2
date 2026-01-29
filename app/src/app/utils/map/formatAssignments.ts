@@ -6,7 +6,7 @@ export function formatAssignmentsFromState(
   document_id: string,
   zoneAssignments: AssignmentsStore['zoneAssignments'],
   shatterIds: AssignmentsStore['shatterIds'],
-  shatterMappings: AssignmentsStore['shatterMappings'],
+  childToParent: AssignmentsStore['childToParent'],
   type: 'assignment'
 ): Assignment[];
 
@@ -14,7 +14,7 @@ export function formatAssignmentsFromState(
   document_id: string,
   zoneAssignments: AssignmentsStore['zoneAssignments'],
   shatterIds: AssignmentsStore['shatterIds'],
-  shatterMappings: AssignmentsStore['shatterMappings'],
+  childToParent: AssignmentsStore['childToParent'],
   type: 'assignment_array'
 ): AssignmentArray[];
 
@@ -22,7 +22,7 @@ export function formatAssignmentsFromState(
   document_id: string,
   zoneAssignments: AssignmentsStore['zoneAssignments'],
   shatterIds: AssignmentsStore['shatterIds'],
-  shatterMappings: AssignmentsStore['shatterMappings'],
+  childToParent: AssignmentsStore['childToParent'],
   type: 'assignment' | 'assignment_array'
 ): Assignment[] | AssignmentArray[] {
   switch (type) {
@@ -31,9 +31,7 @@ export function formatAssignmentsFromState(
       for (const [geo_id, zone] of zoneAssignments.entries()) {
         let parent_path = null;
         if (shatterIds.children.has(geo_id)) {
-          parent_path =
-            Object.entries(shatterMappings).find(([_, children]) => children.has(geo_id))?.[0] ??
-            null;
+          parent_path = childToParent.get(geo_id) ?? null;
         }
         assignments.push({
           document_id,
@@ -63,18 +61,24 @@ export const formatAssignmentsFromDocument = (assignments: Assignment[]) => {
     parents: new Set<string>(),
     children: new Set<string>(),
   };
-  const shatterMappings: Record<string, Set<string>> = {};
+  const parentToChild = new Map<string, Set<string>>();
+  const childToParent = new Map<string, string>();
   for (const assignment of assignments) {
     zoneAssignments.set(assignment.geo_id, assignment.zone);
     if (assignment.parent_path) {
       shatterIds.parents.add(assignment.parent_path);
       shatterIds.children.add(assignment.geo_id);
-      if (!shatterMappings[assignment.parent_path]) {
-        shatterMappings[assignment.parent_path] = new Set([assignment.geo_id]);
+
+      // Build parentToChild
+      if (!parentToChild.has(assignment.parent_path)) {
+        parentToChild.set(assignment.parent_path, new Set([assignment.geo_id]));
       } else {
-        shatterMappings[assignment.parent_path].add(assignment.geo_id);
+        parentToChild.get(assignment.parent_path)!.add(assignment.geo_id);
       }
+
+      // Build childToParent
+      childToParent.set(assignment.geo_id, assignment.parent_path);
     }
   }
-  return {zoneAssignments, shatterIds, shatterMappings} as const;
+  return {zoneAssignments, shatterIds, parentToChild, childToParent} as const;
 };

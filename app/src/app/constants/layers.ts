@@ -29,6 +29,10 @@ export const EMPTY_FT_COLLECTION: GeoJSON.FeatureCollection<any> = {
   features: [],
 };
 
+// Sometimes, maplibre requires non-empty arrays for specifications
+// This serves as a placeholder for otherwise empty arrays
+export const SENTINEL_EMPTY_ARRAY: string[] = ['-999'];
+
 export const COUNTY_LAYER_IDS: string[] = ['counties_boundary', 'counties_labels'];
 
 export const LABELS_BREAK_LAYER_ID = 'places_subplace';

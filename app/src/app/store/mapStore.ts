@@ -225,14 +225,22 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       useDemographyStore.getState().clear();
       useUnassignFeaturesStore.getState().reset();
 
+      let newStateFipsSet: Set<string> = new Set();
+      if (mapDocument.statefps) {
+        newStateFipsSet = new Set(mapDocument.statefps);
+      } else if (
+        currentMapDocument?.parent_layer &&
+        mapDocument?.parent_layer &&
+        currentMapDocument.parent_layer === mapDocument.parent_layer
+      ) {
+        newStateFipsSet = new Set(mapControlsState.mapOptions.stateFipsSet);
+      }
+
       useMapControlsStore.setState({
         mapOptions: {
           ...DEFAULT_MAP_OPTIONS,
           bounds: mapDocument.extent,
-          currentStateFp:
-            currentMapDocument?.parent_layer === mapDocument?.parent_layer
-              ? mapControlsState.mapOptions.currentStateFp
-              : undefined,
+          stateFipsSet: newStateFipsSet,
         },
         activeTool: mapDocument.access === 'edit' ? mapControlsState.activeTool : 'pan',
         selectedZone: 1,
@@ -290,7 +298,8 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const updateHash = new Date().toISOString();
       const {
         shatterIds,
-        shatterMappings: _shatterMappings,
+        parentToChild: _parentToChild,
+        childToParent: _childToParent,
         zoneAssignments: currentZoneAssignments,
         setShatterState,
       } = useAssignmentsStore.getState();
@@ -314,29 +323,26 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       let parents = new Set(shatterIds.parents);
       let children = new Set(shatterIds.children);
       let captiveIds = new Set<string>();
-      let shatterMappings = Object.entries(_shatterMappings).reduce(
-        (acc, [parent, children]) => {
-          acc[parent] = new Set(children);
-          return acc;
-        },
-        {} as Record<string, Set<string>>
-      );
+      let parentToChild = new Map(_parentToChild);
+      let childToParent = new Map(_childToParent);
       const zoneAssignments = new Map(currentZoneAssignments);
       const zonesToSet: Record<string, Set<string>> = {};
       edgesResult.forEach(edge => {
         parents.add(edge.parent_path);
         children.add(edge.child_path);
         captiveIds.add(edge.child_path);
+        childToParent.set(edge.child_path, edge.parent_path);
         if (!zonesToSet[edge.parent_path]) {
           zonesToSet[edge.parent_path] = new Set([edge.child_path]);
         } else {
           zonesToSet[edge.parent_path].add(edge.child_path);
         }
 
-        if (!shatterMappings[edge.parent_path]) {
-          shatterMappings[edge.parent_path] = new Set([edge.child_path]);
+        // Update parentToChild
+        if (!parentToChild.has(edge.parent_path)) {
+          parentToChild.set(edge.parent_path, new Set([edge.child_path]));
         } else {
-          shatterMappings[edge.parent_path].add(edge.child_path);
+          parentToChild.get(edge.parent_path)!.add(edge.child_path);
         }
       });
 
@@ -355,7 +361,8 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           parents,
           children,
         },
-        shatterMappings,
+        parentToChild,
+        childToParent,
         zoneAssignments: zoneAssignments,
       });
 

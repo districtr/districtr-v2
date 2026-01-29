@@ -276,7 +276,6 @@ def test_create_shatterable_gerrydb_view(
 def test_create_parent_child_edges(
     session: Session,
     simple_shatterable_districtr_map_no_edges_yet: str,
-    gerrydb_simple_geos_view,
 ):
     create_parent_child_edges(
         session=session,
