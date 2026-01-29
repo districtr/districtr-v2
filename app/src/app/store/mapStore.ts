@@ -231,8 +231,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       } else if (
         currentMapDocument?.parent_layer &&
         mapDocument?.parent_layer &&
-        currentMapDocument.parent_layer === mapDocument.parent_layer) {
-          newStateFipsSet = new Set(mapControlsState.mapOptions.stateFipsSet)
+        currentMapDocument.parent_layer === mapDocument.parent_layer
+      ) {
+        newStateFipsSet = new Set(mapControlsState.mapOptions.stateFipsSet);
       }
 
       useMapControlsStore.setState({

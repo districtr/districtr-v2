@@ -56,7 +56,7 @@ from app.models import (
     ShatterResult,
     BBoxGeoJSONs,
     MapGroup,
-    AssignmentsCreate
+    AssignmentsCreate,
 )
 from app.comments.models import DocumentComment, Tag, CommentTag
 from pydantic_geojson import PolygonModel
