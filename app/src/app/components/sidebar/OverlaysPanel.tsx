@@ -1,17 +1,33 @@
 'use client';
-import {Flex, Text, Switch} from '@radix-ui/themes';
+import {Flex, Text, Switch, Spinner, Button, Callout, IconButton} from '@radix-ui/themes';
+import {CrossCircledIcon, TargetIcon} from '@radix-ui/react-icons';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import { fastUniqBy } from '@/app/utils/arrays';
-import { useMemo } from 'react';
+import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
+import {fastUniqBy} from '@/app/utils/arrays';
+import {useMemo} from 'react';
+import {useMapStore} from '@/app/store/mapStore';
 
 export const OverlaysPanel = () => {
-  const availableOverlays = useOverlayStore(state => state.availableOverlays);
+  const availableOverlays = useMapStore(state => state.mapDocument?.overlays ?? []);
   const enabledOverlayIds = useOverlayStore(state => state.enabledOverlayIds);
   const toggleOverlay = useOverlayStore(state => state.toggleOverlay);
+  const paintConstraint = useOverlayStore(state => state.paintConstraint);
+  const selectOverlayFeature = useOverlayStore(state => state.selectOverlayFeature);
+  const clearPaintConstraint = useOverlayStore(state => state.clearPaintConstraint);
+  const setPaintFunction = useMapControlsStore(state => state.setPaintFunction);
+
+  const handleLocateClick = (overlayId: string) => {
+    selectOverlayFeature(overlayId);
+  };
+
+  const handleReleaseConstraint = () => {
+    clearPaintConstraint();
+    setPaintFunction(getFeaturesInBbox);
+  };
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
-  
+
   const uniqueOverlays = useMemo(() => {
     const sortedOverlays = availableOverlays.sort((a, b) => {
       if (a.name === b.name) {
@@ -26,6 +42,22 @@ export const OverlaysPanel = () => {
 
   return (
     <Flex gap="3" direction="column">
+      {paintConstraint && (
+        <Callout.Root color="orange" size="1">
+          <Callout.Icon>
+            <TargetIcon />
+          </Callout.Icon>
+          <Callout.Text>
+            <Flex justify="between" align="center" gap="2">
+              <Text size="1">Paint constrained to: {paintConstraint.featureName}</Text>
+              <Button size="1" variant="ghost" color="orange" onClick={handleReleaseConstraint}>
+                <CrossCircledIcon />
+                Release
+              </Button>
+            </Flex>
+          </Callout.Text>
+        </Callout.Root>
+      )}
       {/* County Layer Controls - Always shown as pseudo-overlay */}
       <Flex justify="between" align="center" gap="2">
         <Flex direction="column" gap="1">
@@ -38,7 +70,7 @@ export const OverlaysPanel = () => {
         </Flex>
         <Switch
           checked={mapOptions.showCountyBoundaries ?? false}
-          onCheckedChange={(checked) =>
+          onCheckedChange={checked =>
             setMapOptions({
               showCountyBoundaries: checked,
               prominentCountyNames: checked,
@@ -60,10 +92,26 @@ export const OverlaysPanel = () => {
                 </Text>
               )}
             </Flex>
-            <Switch
-              checked={enabledOverlayIds.has(overlay.name)}
-              onCheckedChange={() => toggleOverlay(overlay.name)}
-            />
+            <Flex direction="row" gap="2" align="center" justify="center">
+              <Switch
+                checked={enabledOverlayIds.has(overlay.name)}
+                onCheckedChange={() => toggleOverlay(overlay.name)}
+              />
+              <IconButton
+                onClick={() => handleLocateClick(overlay.overlay_id)}
+                disabled={!enabledOverlayIds.has(overlay.name)}
+                variant="ghost"
+                color="blue"
+                size="1"
+                radius="full"
+                className="cursor-pointer"
+                style={{
+                  opacity: enabledOverlayIds.has(overlay.name) ? 1 : 0.5,
+                }}
+              >
+                <TargetIcon />
+              </IconButton>
+            </Flex>
           </Flex>
         ))
       ) : null}

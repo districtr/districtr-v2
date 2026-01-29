@@ -4,6 +4,7 @@ import {Layer, Source} from 'react-map-gl/maplibre';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {Overlay} from '@/app/utils/api/apiHandlers/types';
 import {FillLayerSpecification, LineLayerSpecification, SymbolLayerSpecification} from 'maplibre-gl';
+import { useMapStore } from '@/app/store/mapStore';
 
 const DEFAULT_FILL_STYLE: Partial<FillLayerSpecification['paint']> = {
   'fill-color': '#627BC1',
@@ -30,24 +31,65 @@ const DEFAULT_TEXT_LAYOUT: Partial<SymbolLayerSpecification['layout']> = {
   'text-max-width': 10,
 };
 
+// Hover highlight style for constraint selection mode
+const HOVER_FILL_STYLE: Partial<FillLayerSpecification['paint']> = {
+  'fill-color': '#FF9500',
+  'fill-opacity': 0.4,
+};
+
+// Selected constraint highlight style
+const SELECTED_FILL_STYLE: Partial<FillLayerSpecification['paint']> = {
+  'fill-color': '#FF6B00',
+  'fill-opacity': 0.5,
+};
+
+const SELECTED_LINE_STYLE: Partial<LineLayerSpecification['paint']> = {
+  'line-color': '#FF6B00',
+  'line-width': 3,
+  'line-opacity': 1,
+};
+
+const HIGHLIGHT_FILL_COLOR: Partial<FillLayerSpecification['paint']> = {
+  'fill-color': '#000000',
+  'fill-opacity': [
+    'case',
+    ['boolean', ['feature-state', 'hover'], false],
+    0.7,
+    0
+  ]
+};
+
 interface OverlayLayerProps {
   overlay: Overlay;
+  selectedFeatureId: string | null;
+  isConstraintOverlay: boolean;
 }
 
-const OverlayLayer = ({overlay}: OverlayLayerProps) => {
+const OverlayLayer = ({
+  overlay,
+  selectedFeatureId,
+  isConstraintOverlay,
+}: OverlayLayerProps) => {
   const sourceId = `overlay-source-${overlay.overlay_id}`;
   const layerId = `overlay-layer-${overlay.overlay_id}`;
+  const clickLayerId = `overlay-click-${overlay.overlay_id}`;
+  const selectedLayerId = `overlay-selected-${overlay.overlay_id}`;
+  const paintConstraint = useOverlayStore(state => state.paintConstraint);
+
+  const idProperty = overlay.id_property || 'id';
 
   const sourceProps = useMemo(() => {
     if (overlay.data_type === 'pmtiles') {
       return {
         type: 'vector' as const,
         url: overlay.source ? `pmtiles://${overlay.source}` : undefined,
+        promoteId: idProperty,
       };
     }
     return {
       type: 'geojson' as const,
       data: overlay.source || undefined,
+      promoteId: idProperty,
     };
   }, [overlay.data_type, overlay.source]);
 
@@ -107,20 +149,76 @@ const OverlayLayer = ({overlay}: OverlayLayerProps) => {
     }
   }, [layerId, overlay]);
 
+  // Click detection layer for line overlays (invisible fill)
+  const clickLayerProps = useMemo(() => {
+    if (overlay.layer_type !== 'line') return null;
+
+    const baseProps: any = {
+      id: clickLayerId,
+      type: 'fill' as const,
+      beforeId: layerId,
+      paint: {
+        'fill-color': '#FFFFFF',
+        'fill-opacity': 0,
+      },
+    };
+
+    if (overlay.data_type === 'pmtiles' && overlay.source_layer) {
+      baseProps['source-layer'] = overlay.source_layer;
+    }
+    if (paintConstraint?.featureId) {
+      baseProps.filter = ['!', ['==', ['get', idProperty], paintConstraint.featureId]];
+      baseProps.paint['fill-opacity'] = 0.75;
+    }
+
+    return baseProps;
+  }, [clickLayerId, layerId, overlay, paintConstraint?.featureId]);
+
+  // Selected constraint outline layer (for emphasis)
+  const selectedOutlineProps = useMemo(() => {
+    if (!isConstraintOverlay || !selectedFeatureId) return null;
+
+    const baseProps: any = {
+      id: `${selectedLayerId}-outline`,
+      type: 'line' as const,
+      paint: SELECTED_LINE_STYLE,
+      filter: ['==', ['get', idProperty], selectedFeatureId],
+    };
+
+    if (overlay.data_type === 'pmtiles' && overlay.source_layer) {
+      baseProps['source-layer'] = overlay.source_layer;
+    }
+
+    return baseProps;
+  }, [selectedLayerId, isConstraintOverlay, selectedFeatureId, idProperty, overlay]);
+
   if (!overlay.source) {
     return null;
   }
 
   return (
+    <>
     <Source id={sourceId} {...sourceProps}>
+      {/* Main overlay layer */}
       <Layer {...layerProps} />
+      {/* Hover highlight layer */}
+      <Layer 
+        type="fill"
+        paint={HIGHLIGHT_FILL_COLOR}
+      />
+      {/* Selected constraint outline layer */}
+      {selectedOutlineProps && <Layer {...selectedOutlineProps} />}
+      {/* Invisible click layer for line overlays */}
+      {clickLayerProps && <Layer {...clickLayerProps} />}
     </Source>
+    </>
   );
 };
 
 export const OverlayLayers = () => {
-  const availableOverlays = useOverlayStore(state => state.availableOverlays);
+  const availableOverlays = useMapStore(state => state.mapDocument?.overlays ?? []);
   const enabledOverlayIds = useOverlayStore(state => state.enabledOverlayIds);
+  const paintConstraint = useOverlayStore(state => state.paintConstraint);
 
   const enabledOverlays = useMemo(() => {
     return availableOverlays.filter(overlay => enabledOverlayIds.has(overlay.name));
@@ -128,9 +226,18 @@ export const OverlayLayers = () => {
 
   return (
     <>
-      {enabledOverlays.map(overlay => (
-        <OverlayLayer key={overlay.overlay_id} overlay={overlay} />
-      ))}
+      {enabledOverlays.map(overlay => {
+        const isConstraintOverlay = paintConstraint?.overlayId === overlay.overlay_id;
+
+        return (
+          <OverlayLayer
+            key={overlay.overlay_id}
+            overlay={overlay}
+            selectedFeatureId={isConstraintOverlay ? paintConstraint.featureId : null}
+            isConstraintOverlay={isConstraintOverlay}
+          />
+        );
+      })}
     </>
   );
 };

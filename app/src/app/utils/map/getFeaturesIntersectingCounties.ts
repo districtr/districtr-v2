@@ -30,5 +30,8 @@ export const getFeaturesIntersectingCounties = (
 
   if (!countyFeatures?.length) return;
   const fips = countyFeatures[0].properties.STATEFP + countyFeatures[0].properties.COUNTYFP;
-  return filterFeatures(demographyCache.getFiltered(fips), true);
+  return filterFeatures({
+    _features: demographyCache.getFiltered(fips),
+    filterLocked: true,
+  });
 };

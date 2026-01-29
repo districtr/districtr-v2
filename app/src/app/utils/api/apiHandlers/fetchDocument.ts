@@ -90,9 +90,12 @@ export const fetchDocument = async (
       ok: true,
       response: {
         document: {
-          // in case of new info, like overlays
+          // in case of missing fields
           ...remoteMetadata.response,
           ...idbDocument.document_metadata,
+          // always override with remote
+          overlays: remoteMetadata.response.overlays,
+          statefps: remoteMetadata.response.statefps,
         },
         assignments: idbDocument.assignments,
       },
