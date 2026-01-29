@@ -30,7 +30,7 @@ from management.load_data import (
     import_gerrydb_view as _import_gerrydb_view,
 )
 from os import environ
-from app.core.models import Overlay
+from app.models import Overlay
 
 
 logger = logging.getLogger(__name__)
@@ -594,7 +594,9 @@ def add_overlay_to_map(session: Session, districtr_map_slug: str, overlay_id: st
     try:
         overlay_uuid = uuid.UUID(overlay_id)
     except ValueError:
-        logger.error(f"Invalid UUID format: {overlay_id}. Overlay ID must be a valid UUID.")
+        logger.error(
+            f"Invalid UUID format: {overlay_id}. Overlay ID must be a valid UUID."
+        )
         return
 
     # First verify the overlay exists
@@ -640,7 +642,9 @@ def remove_overlay_from_map(session: Session, districtr_map_slug: str, overlay_i
     try:
         overlay_uuid = uuid.UUID(overlay_id)
     except ValueError:
-        logger.error(f"Invalid UUID format: {overlay_id}. Overlay ID must be a valid UUID.")
+        logger.error(
+            f"Invalid UUID format: {overlay_id}. Overlay ID must be a valid UUID."
+        )
         return
 
     stmt = text(
@@ -711,7 +715,9 @@ def update_overlay(
     try:
         overlay_uuid = uuid.UUID(overlay_id)
     except ValueError:
-        logger.error(f"Invalid UUID format: {overlay_id}. Overlay ID must be a valid UUID.")
+        logger.error(
+            f"Invalid UUID format: {overlay_id}. Overlay ID must be a valid UUID."
+        )
         return
 
     # First verify the overlay exists
@@ -775,13 +781,20 @@ def update_overlay(
     update_stmt = (
         update(Overlay)
         .where(Overlay.overlay_id == params["overlay_id"])
-        .values({field.split(' = ')[0]: params[field.split(' = ')[0]] for field in update_fields if field != "updated_at = CURRENT_TIMESTAMP"})
+        .values(
+            {
+                field.split(" = ")[0]: params[field.split(" = ")[0]]
+                for field in update_fields
+                if field != "updated_at = CURRENT_TIMESTAMP"
+            }
+        )
         .returning(Overlay.overlay_id)
     )
 
     # Handle the updated_at separately, because SQLAlchemy expects a datetime object
     if "updated_at = CURRENT_TIMESTAMP" in update_fields:
         import datetime
+
         update_stmt = update_stmt.values(updated_at=datetime.datetime.utcnow())
 
     result = session.execute(text(update_query), params)
@@ -801,7 +814,9 @@ def delete_overlay(session: Session, overlay_id: str):
     try:
         overlay_uuid = uuid.UUID(overlay_id)
     except ValueError:
-        logger.error(f"Invalid UUID format: {overlay_id}. Overlay ID must be a valid UUID.")
+        logger.error(
+            f"Invalid UUID format: {overlay_id}. Overlay ID must be a valid UUID."
+        )
         return
 
     # First remove this overlay from all districtrmap overlay_ids arrays
