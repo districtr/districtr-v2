@@ -417,10 +417,10 @@ async def update_assignments(
     # Update num_districts if provided
     if data.metadata is not None:
         if data.metadata.num_districts is not None:
-            if data.metadata.num_districts < 1:
+            if data.metadata.num_districts < 2 or data.metadata.num_districts > 538:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Number of districts must be at least 1",
+                    detail="Number of districts must be at least 2 and less than 538",
                 )
             stmt = text(
                 """UPDATE document.document
