@@ -1,5 +1,5 @@
 'use client';
-import {Flex, Text, Switch, Spinner} from '@radix-ui/themes';
+import {Flex, Text, Switch} from '@radix-ui/themes';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import { fastUniqBy } from '@/app/utils/arrays';
@@ -9,7 +9,6 @@ export const OverlaysPanel = () => {
   const availableOverlays = useOverlayStore(state => state.availableOverlays);
   const enabledOverlayIds = useOverlayStore(state => state.enabledOverlayIds);
   const toggleOverlay = useOverlayStore(state => state.toggleOverlay);
-  const isLoading = useOverlayStore(state => state.isLoading);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   
@@ -48,14 +47,7 @@ export const OverlaysPanel = () => {
         />
       </Flex>
       {/* Regular Overlay Layers */}
-      {isLoading ? (
-        <Flex direction="column" justify="center" align="center" p="4">
-          <Spinner />
-          <Text size="2" className="ml-2">
-            Loading overlays...
-          </Text>
-        </Flex>
-      ) : hasOverlays ? (
+      {hasOverlays ? (
         uniqueOverlays.map(overlay => (
           <Flex key={overlay.overlay_id} justify="between" align="center" gap="2">
             <Flex direction="column" gap="1">
