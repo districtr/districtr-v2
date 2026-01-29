@@ -539,7 +539,6 @@ def create_overlay(
             logger.error("Invalid JSON for custom-style")
             return
 
-    
     stmt = text(
         """INSERT INTO overlay (overlay_id, name, description, data_type, layer_type, source, source_layer, custom_style, id_property)
         VALUES (:overlay_id, :name, :description, :data_type, :layer_type, :source, :source_layer, :custom_style, :id_property)

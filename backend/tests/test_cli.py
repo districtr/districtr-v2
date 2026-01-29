@@ -1,7 +1,5 @@
-from app.models import Overlay, DistrictrMap
+from app.models import Overlay
 from sqlmodel import Session
-from cli import cli
-from click.testing import CliRunner
 from tests.constants import (
     POSTGRES_TEST_DB,
     POSTGRES_USER,
@@ -11,10 +9,9 @@ from tests.constants import (
     POSTGRES_SCHEME,
 )
 from pathlib import Path
-import time
 import subprocess
 import os
-from sqlalchemy import text, select 
+from sqlalchemy import select
 import json
 
 test_env = os.environ.copy()
@@ -24,8 +21,11 @@ test_env["POSTGRES_PASSWORD"] = POSTGRES_PASSWORD
 test_env["POSTGRES_SERVER"] = POSTGRES_SERVER
 test_env["POSTGRES_PORT"] = str(POSTGRES_PORT)
 # Set DATABASE_URL to ensure the CLI uses the test database
-test_env["DATABASE_URL"] = f"{POSTGRES_SCHEME}://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_SERVER}:{POSTGRES_PORT}/{POSTGRES_TEST_DB}"
+test_env["DATABASE_URL"] = (
+    f"{POSTGRES_SCHEME}://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_SERVER}:{POSTGRES_PORT}/{POSTGRES_TEST_DB}"
+)
 backend_dir = Path(__file__).parent.parent
+
 
 def cleanup_overlay(session: Session, overlay_name: str):
     stmt = select(Overlay).where(Overlay.name == overlay_name)
@@ -34,13 +34,14 @@ def cleanup_overlay(session: Session, overlay_name: str):
         session.delete(overlay)
         session.commit()
 
+
 def test_create_overlay(session: Session):
     """Test creating an overlay via CLI"""
     # Configure environment variables for test database
     # Construct arguments as would be passed to the CLI
     cli_args = [
-        'python',
-        'cli.py',
+        "python",
+        "cli.py",
         "create-overlay",
         "--name",
         "Test Overlay",
@@ -63,11 +64,13 @@ def test_create_overlay(session: Session):
         text=True,
     )
 
-    assert result_proc.returncode == 0, f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert (
+        result_proc.returncode == 0
+    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
 
     # Refresh the session to ensure we can see committed data from the subprocess
     session.commit()
-    
+
     # Verify overlay was created using session.exec() which returns model instances directly
     stmt = select(Overlay).where(Overlay.name == "Test Overlay")
     (overlay,) = session.exec(stmt).one_or_none()
@@ -84,8 +87,8 @@ def test_create_overlay(session: Session):
 def test_create_overlay_with_pmtiles(session: Session):
     """Test creating a pmtiles overlay via CLI"""
     cli_args = [
-        'python',
-        'cli.py',
+        "python",
+        "cli.py",
         "create-overlay",
         "--name",
         "PMTiles Overlay",
@@ -106,7 +109,9 @@ def test_create_overlay_with_pmtiles(session: Session):
         text=True,
     )
 
-    assert result_proc.returncode == 0, f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert (
+        result_proc.returncode == 0
+    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
 
     # Verify overlay was created
     stmt = select(Overlay).where(Overlay.name == "PMTiles Overlay")
@@ -120,13 +125,14 @@ def test_create_overlay_with_pmtiles(session: Session):
     assert overlay.source_layer == "counties"
     cleanup_overlay(session, "PMTiles Overlay")
 
+
 def test_create_overlay_with_custom_style(session: Session):
     """Test creating an overlay with custom style via CLI"""
     custom_style_json = '{"paint": {"fill-color": "#ff0000", "fill-opacity": 0.5}}'
 
     cli_args = [
-        'python',
-        'cli.py',
+        "python",
+        "cli.py",
         "create-overlay",
         "--name",
         "Styled Overlay",
@@ -145,7 +151,9 @@ def test_create_overlay_with_custom_style(session: Session):
         text=True,
     )
 
-    assert result_proc.returncode == 0, f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert (
+        result_proc.returncode == 0
+    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
 
     # Verify overlay was created with custom style
     stmt = select(Overlay).where(Overlay.name == "Styled Overlay")
@@ -166,8 +174,8 @@ def test_create_overlay_and_add_to_map(
 ):
     """Test creating an overlay and adding it to a map via CLI"""
     cli_args = [
-        'python',
-        'cli.py',
+        "python",
+        "cli.py",
         "create-overlay",
         "--name",
         "Map Overlay",
@@ -177,7 +185,7 @@ def test_create_overlay_and_add_to_map(
         "fill",
         "--districtr-map-slug",
         "ks_demo_view_census_blocks_summary_stats",
-    ]       
+    ]
 
     result_proc = subprocess.run(
         cli_args,
@@ -187,7 +195,9 @@ def test_create_overlay_and_add_to_map(
         text=True,
     )
 
-    assert result_proc.returncode == 0, f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert (
+        result_proc.returncode == 0
+    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
 
     # Verify overlay was created
     stmt = select(Overlay).where(Overlay.name == "Map Overlay")
@@ -199,11 +209,12 @@ def test_create_overlay_and_add_to_map(
 
     # TODO: Verify overlay was added to map
 
+
 def test_update_overlay(session: Session):
     """Test updating an overlay via CLI"""
     cli_args = [
-        'python',
-        'cli.py',
+        "python",
+        "cli.py",
         "create-overlay",
         "--name",
         "Original Overlay",
@@ -223,7 +234,9 @@ def test_update_overlay(session: Session):
         capture_output=True,
         text=True,
     )
-    assert create_result.returncode == 0, f"CLI command failed: {create_result.stderr or create_result.stdout}"
+    assert (
+        create_result.returncode == 0
+    ), f"CLI command failed: {create_result.stderr or create_result.stdout}"
 
     # Get the overlay ID
     original_overlay_stmt = select(Overlay).where(Overlay.name == "Original Overlay")
@@ -232,8 +245,8 @@ def test_update_overlay(session: Session):
     original_overlay_id = str(original_overlay.overlay_id)
 
     update_cli_args = [
-        'python',
-        'cli.py',
+        "python",
+        "cli.py",
         "update-overlay",
         "--overlay-id",
         original_overlay_id,
@@ -249,5 +262,7 @@ def test_update_overlay(session: Session):
         text=True,
     )
     result_output = update_result.stderr or update_result.stdout
-    assert f"Updated overlay {original_overlay_id}" in result_output, "Overlay not updated"
+    assert (
+        f"Updated overlay {original_overlay_id}" in result_output
+    ), "Overlay not updated"
     cleanup_overlay(session, "Updated Overlay")
