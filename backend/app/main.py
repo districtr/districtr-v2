@@ -276,6 +276,7 @@ async def create_document(
             coalesce(Document.num_districts, DistrictrMap.num_districts).label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
             DistrictrMap.map_type.label("map_type"),  # pyright: ignore
+            DistrictrMap.statefps.label("statefps"),  # pyright: ignore
             coalesce(total_assignments).label("inserted_assignments"),
             Document.map_metadata,
         )

@@ -22,9 +22,9 @@ export class DocumentsDB extends Dexie {
     this.version(1).stores({
       documents: 'id, clientLastUpdated',
     });
-    
+
     if (typeof window !== 'undefined') {
-      window.addEventListener('beforeunload', (e) => {
+      window.addEventListener('beforeunload', e => {
         if (this.pendingUpdate) {
           // Block unload until save completes
           e.preventDefault();
@@ -74,7 +74,7 @@ export class DocumentsDB extends Dexie {
    * Debounced version of updateIdbAssignments that batches rapid updates.
    * Saves to IDB after the user pauses painting for DEBOUNCE_DELAY ms.
    * Use flushPendingUpdate() to force immediate save.
-   * 
+   *
    * @param immediate - If true, saves immediately without debouncing
    */
   updateIdbAssignments = (
@@ -93,12 +93,12 @@ export class DocumentsDB extends Dexie {
 
     // Store the latest parameters, capturing current state
     const {shatterIds, childToParent} = useAssignmentsStore.getState();
-    
+
     // If immediate save requested, save synchronously without debouncing
     if (immediate) {
       const document_id = mapDocument?.document_id;
       if (!document_id) return;
-      
+
       const assignmentsToSave = formatAssignmentsFromState(
         document_id,
         zoneAssignments,
@@ -106,7 +106,7 @@ export class DocumentsDB extends Dexie {
         childToParent,
         'assignment'
       );
-      
+
       // Fire and forget - don't set pending update
       this.updateDocument({
         id: document_id,
