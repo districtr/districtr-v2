@@ -9,6 +9,7 @@ import {AxisBottom} from '@visx/axis';
 import {useChartStore} from '@/app/store/chartStore';
 import {PopulationLabels} from './PopulationLabels';
 import {SummaryRecord} from '@/app/utils/api/summaryStats';
+import { useColorScheme } from '@/app/hooks/useColorScheme';
 
 export const PopulationChart: React.FC<{
   width: number;
@@ -24,7 +25,7 @@ export const PopulationChart: React.FC<{
   margins = {left: 5, right: 20, top: 20, bottom: 80},
 }) => {
   const chartOptions = useChartStore(state => state.chartOptions);
-  const colorScheme = useMapStore(state => state.colorScheme);
+  const colorScheme = useColorScheme();
   const setSelectedZone = useMapControlsStore(state => state.setSelectedZone);
   const selectedZone = useMapControlsStore(state => state.selectedZone);
 

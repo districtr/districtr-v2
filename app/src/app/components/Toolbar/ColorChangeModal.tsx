@@ -6,14 +6,15 @@ import {Box, Flex, Dialog, Heading, Button} from '@radix-ui/themes';
 import {ColorPicker} from './ColorPicker';
 import {colorScheme as DefaultColorScheme} from '@constants/colors';
 import {idb} from '@/app/utils/idb/idb';
+import { useColorScheme } from '@/app/hooks/useColorScheme';
 
 export const ColorChangeModal: React.FC<{
   open?: boolean;
   onClose?: () => void;
   showTrigger?: boolean;
 }> = ({open, onClose, showTrigger}) => {
-  const colorScheme = useMapStore(store => store.colorScheme);
-  const setColorScheme = useMapStore(store => store.setColorScheme);
+  const colorScheme = useColorScheme();
+  const mutateMapDocument = useMapStore(store => store.mutateMapDocument);
   const mapDocument = useMapStore(store => store.mapDocument);
   const numDistricts = mapDocument?.num_districts ?? 4;
   const [dialogOpen, setDialogOpen] = React.useState(open || false);
@@ -48,7 +49,7 @@ export const ColorChangeModal: React.FC<{
   const handleSave = async () => {
     if (!mapDocument?.document_id) return;
     const _idbResult = await idb.updateColorScheme(mapDocument.document_id, innerColorScheme);
-    setColorScheme(innerColorScheme);
+    mutateMapDocument({color_scheme: innerColorScheme});
     onClose?.();
   };
 

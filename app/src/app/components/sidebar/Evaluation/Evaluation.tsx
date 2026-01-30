@@ -24,9 +24,9 @@ import {
   numberFormats,
   summaryStatLabels,
 } from '@/app/store/demography/evaluationConfig';
-import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {PARTISAN_SCALE} from '@/app/store/demography/constants';
 import {GearIcon} from '@radix-ui/react-icons';
+import { useColorScheme } from '@/app/hooks/useColorScheme';
 
 type EvaluationProps = {
   summaryType: keyof SummaryStatConfig;
@@ -41,7 +41,7 @@ const Evaluation: React.FC<EvaluationProps> = ({summaryType, columnConfig}) => {
   const {zoneStats, demoIsLoaded, zoneData} = useSummaryStats(showUnassigned);
 
   const maxValues = zoneStats?.maxValues;
-  const colorScheme = useMapStore(state => state.colorScheme);
+  const colorScheme = useColorScheme();
   const summaryStatConfig = summaryStatLabels.find(f => f.value === summaryType);
   const showModeButtons = Boolean(
     summaryStatConfig?.supportedModes?.length && summaryStatConfig?.supportedModes?.length > 1

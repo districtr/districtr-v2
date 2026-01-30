@@ -5,7 +5,7 @@ import {ColorPickerProps} from './ColorPicker';
 import {CheckIcon} from '@radix-ui/react-icons';
 
 export const ColorMultiDropdown: React.FC<{
-  colorScheme: MapStore['colorScheme'];
+  colorScheme: string[];
   mapDocument: MapStore['mapDocument'];
   onValueChange: (value: number[], colors: string[]) => void;
   value: number[];

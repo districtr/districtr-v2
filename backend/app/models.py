@@ -14,7 +14,7 @@ from sqlmodel import (
 )
 from sqlalchemy.types import ARRAY
 from sqlalchemy.dialects.postgresql import JSON, ENUM
-from sqlalchemy import Float
+from sqlalchemy import Float, text
 import pydantic_geojson
 from app.constants import DOCUMENT_SCHEMA
 from app.core.models import UUIDType, TimeStampMixin, SQLModel
@@ -157,10 +157,16 @@ class Document(TimeStampMixin, SQLModel, table=True):
     # and the document id can remain the universal unique identifier for documents.
     # Whether the document can be accessed with the public id should be determined
     # in the API business logic.
-    public_id: int = Field(
+    public_id: int | None = Field(
+        default=None,
         sa_column=Column(
-            Integer, nullable=False, unique=True, autoincrement=True, index=True
-        )
+            Integer,
+            nullable=False,
+            unique=True,
+            autoincrement=True,
+            index=True,
+            server_default=text("nextval('document.document_public_id_seq')"),
+        ),
     )
     districtr_map_slug: str = Field(
         sa_column=Column(
@@ -170,6 +176,7 @@ class Document(TimeStampMixin, SQLModel, table=True):
         )
     )
     gerrydb_table: str | None = Field(nullable=True)
+    num_districts: int | None = Field(nullable=True, default=None)
     color_scheme: list[str] | None = Field(
         sa_column=Column(ARRAY(String), nullable=True)
     )
@@ -239,11 +246,17 @@ class Assignments(SQLModel, table=True):
     zone: int | None
 
 
+class AssignmentsMetadata(BaseModel):
+    color_scheme: list[str] | None = None
+    num_districts: int | None = None
+
+
 class AssignmentsCreate(BaseModel):
     document_id: str
     assignments: list[list[str | int | None]]  # [[geo_id, zone], ...]
     last_updated_at: datetime
     overwrite: bool = False
+    metadata: AssignmentsMetadata | None = None
 
 
 class AssignmentsResponse(SQLModel):
@@ -280,6 +293,10 @@ class BBoxGeoJSONs(BaseModel):
 
 class ColorsSetResult(BaseModel):
     colors: list[str]
+
+
+class NumDistrictsSetResult(BaseModel):
+    num_districts: int
 
 
 class MapGroup(SQLModel, table=True):

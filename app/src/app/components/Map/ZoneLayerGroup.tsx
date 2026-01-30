@@ -15,11 +15,12 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useMemo} from 'react';
 import {Layer} from 'react-map-gl/maplibre';
+import { useColorScheme } from '@/app/hooks/useColorScheme';
 
 export const ZoneLayerGroup: React.FC<{
   child?: boolean;
 }> = ({child = false}) => {
-  const colorScheme = useMapStore(state => state.colorScheme);
+  const colorScheme = useColorScheme();
   const mapDocument = useMapStore(state => state.mapDocument);
   const captiveIds = useMapStore(state => state.captiveIds);
   const id = child ? mapDocument?.child_layer : mapDocument?.parent_layer;
