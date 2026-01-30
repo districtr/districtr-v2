@@ -1,21 +1,21 @@
 """add num_districts to document
 
 Revision ID: a1b2c3d4e5f6
-Revises: 5600a4bfe3c4
+Revises: 24137793FE9B
 Create Date: 2026-01-26 00:00:00.000000
 
 """
 
-from typing import Sequence, Union
+from typing import Sequence
 
 from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = "a1b2c3d4e5f6"
-down_revision: Union[str, None] = "5600a4bfe3c4"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "24137793FE9B"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
