@@ -1,7 +1,14 @@
 from fastapi import Depends, HTTPException, status
 from sqlmodel import select, Session, literal
 from app.core.models import DocumentID
-from app.models import Document, DocumentPublic, DistrictrMap
+from app.models import (
+    Document,
+    DocumentPublic,
+    DistrictrMap,
+    DistrictrMapOverlays,
+    Overlay,
+    OverlayPublic,
+)
 from app.save_share.models import (
     DocumentShareStatus,
     MapDocumentToken,
@@ -112,6 +119,7 @@ def get_document_public(
         DistrictrMap.child_geo_unit_type.label("child_geo_unit_type"),  # pyright: ignore
         DistrictrMap.data_source_name.label("data_source_name"),  # pyright: ignore
         DistrictrMap.comment.label("comment"),  # pyright: ignore
+        DistrictrMap.uuid.label("districtr_map_uuid"),  # pyright: ignore
         DistrictrMap.statefps.label("statefps"),  # pyright: ignore
         # get metadata as a json object
         Document.map_metadata.label("map_metadata"),  # pyright: ignore
@@ -129,9 +137,61 @@ def get_document_public(
     else:
         stmt = stmt.where(Document.document_id == document_id.value)
 
-    result = session.exec(stmt)
+    result = session.exec(stmt).one()
 
-    return result.one()
+    # Fetch overlays via junction table if map has any
+    overlays_list = None
+    if result.districtr_map_uuid:
+        junction_overlay_ids = session.exec(
+            select(DistrictrMapOverlays.overlay_id).where(
+                DistrictrMapOverlays.districtr_map_id == result.districtr_map_uuid
+            )
+        ).all()
+        if junction_overlay_ids:
+            overlays = session.exec(
+                select(Overlay).where(
+                    Overlay.overlay_id.in_(junction_overlay_ids)  # pyright: ignore
+                )
+            ).all()
+            overlays_list = [
+                OverlayPublic(
+                    overlay_id=str(overlay.overlay_id),
+                    name=overlay.name,
+                    description=overlay.description,
+                    data_type=overlay.data_type,
+                    layer_type=overlay.layer_type,
+                    custom_style=overlay.custom_style,
+                    source=overlay.source,
+                    source_layer=overlay.source_layer,
+                    id_property=overlay.id_property,
+                )
+                for overlay in overlays
+            ]
+
+    # Convert result to DocumentPublic with overlays
+    return DocumentPublic(
+        document_id=result.document_id,
+        public_id=result.public_id,
+        districtr_map_slug=result.districtr_map_slug,
+        gerrydb_table=result.gerrydb_table,
+        parent_layer=result.parent_layer,
+        child_layer=result.child_layer,
+        tiles_s3_path=result.tiles_s3_path,
+        num_districts=result.num_districts,
+        created_at=result.created_at,
+        updated_at=result.updated_at,
+        extent=result.extent,
+        map_metadata=result.map_metadata,
+        access=result.access,
+        color_scheme=result.color_scheme,
+        map_type=result.map_type,
+        map_module=result.map_module,
+        comment=result.comment,
+        parent_geo_unit_type=result.parent_geo_unit_type,
+        child_geo_unit_type=result.child_geo_unit_type,
+        data_source_name=result.data_source_name,
+        overlays=overlays_list,
+    )
 
 
 def get_districtr_map(

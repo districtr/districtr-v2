@@ -10,7 +10,6 @@ import {DemographicLayer} from './DemographicLayer';
 import {HighlightOverlayerLayerGroup} from './HighlightOverlayLayerGroup';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
 import {useClearMap} from '@/app/hooks/useClearMap';
-import {PointSelectionLayer} from './PointSelectionLayer';
 import {TILESET_URL} from '@/app/utils/api/constants';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 
@@ -103,8 +102,6 @@ export const VtdBlockLayers: React.FC<{
         <HighlightOverlayerLayerGroup />
         <HighlightOverlayerLayerGroup child />
       </Source>
-      <PointSelectionLayer />
-      <PointSelectionLayer child />
     </>
   );
 };

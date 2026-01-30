@@ -16,6 +16,7 @@ import type {
 } from 'react-map-gl/maplibre';
 import {MapStore, useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useOverlayStore} from '@/app/store/overlayStore';
 import {
   BLOCK_HOVER_LAYER_ID,
   BLOCK_HOVER_LAYER_ID_CHILD,
@@ -104,10 +105,21 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
   const mapRef = e.target;
   const mapStore = useMapStore.getState();
   const mapControls = useMapControlsStore.getState();
+  const {selectingLayerId, setPaintConstraint} = useOverlayStore.getState();
   const {activeTool, paintFunction, brushSize} = mapControls;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   let selectedFeatures: MapGeoJSONFeature[] | undefined = undefined;
 
+  if (selectingLayerId) {
+    const features = mapRef.queryRenderedFeatures(e.point, {
+      layers: [`overlay-click-${selectingLayerId}`],
+    });
+    if (features.length > 0) {
+      setPaintConstraint(selectingLayerId, features[0].id as string);
+      setHoverFeatures(EMPTY_FEATURE_ARRAY);
+    }
+    return;
+  }
   if (POINT_SELECT_TOOLS.includes(activeTool)) {
     selectedFeatures = paintFunction(mapRef, e, 0, [BLOCK_HOVER_LAYER_ID]);
   } else if (AREA_SELECT_TOOLS.includes(activeTool)) {
@@ -178,10 +190,12 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   const mapRef = e.target;
   const mapStore = useMapStore.getState();
   const mapControls = useMapControlsStore.getState();
+
   const {mapOptions, activeTool, isPainting, paintFunction, brushSize} = mapControls;
   const {mapDocument} = mapStore;
   const {selectedZone} = mapControls;
   const {mutateZoneAssignments} = useAssignmentsStore.getState();
+  const {selectingLayerId} = useOverlayStore.getState();
   const setTooltip = useTooltipStore.getState().setTooltip;
   const sourceLayer = mapDocument?.parent_layer;
   const paintLayers = getLayerIdsToPaint(
@@ -191,7 +205,16 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   );
 
   const isBrushingTool = sourceLayer && ALL_BRUSHING_TOOLS.includes(activeTool);
-
+  if (selectingLayerId) {
+    const features = mapRef.queryRenderedFeatures(e.point, {
+      layers: [`overlay-click-${selectingLayerId}`],
+    });
+    if (features.length > 0) {
+      setHoverFeatures([features[0]]);
+      setTooltip(null);
+    }
+    return;
+  }
   if (!isBrushingTool) {
     setHoverFeatures(EMPTY_FEATURE_ARRAY);
     setTooltip(null);
@@ -316,15 +339,6 @@ export const handleDataLoad = (e: MapSourceDataEvent) => {
     stateFipsSet && setStateFp(stateFipsSet);
   }
   setMapRenderingState('loaded');
-  if (mapDocument) {
-    GeometryWorker?.loadTileData({
-      tileData: e.tile.latestRawTileData,
-      tileID: e.tile.tileID.canonical,
-      mapDocument,
-      idProp: 'path',
-    });
-    throttledSetWorkerHash(new Date().toISOString());
-  }
 };
 
 export const mapEventHandlers = {

@@ -226,6 +226,7 @@ class DocumentPublic(BaseModel):
     parent_geo_unit_type: str | None = None
     child_geo_unit_type: str | None = None
     data_source_name: str | None = None
+    overlays: list["OverlayPublic"] | None = None
     statefps: list[str] | None = None
 
 
@@ -316,6 +317,59 @@ class DistrictrMapsToGroups(SQLModel, table=True):
             primary_key=True,
         )
     )
+
+
+class DistrictrMapOverlays(SQLModel, table=True):
+    __tablename__ = "districtrmap_overlays"  # pyright: ignore
+    districtr_map_id: str = Field(
+        sa_column=Column(
+            UUIDType,
+            ForeignKey("districtrmap.uuid", ondelete="CASCADE"),
+            primary_key=True,
+        )
+    )
+    overlay_id: str = Field(
+        sa_column=Column(
+            UUIDType,
+            ForeignKey("overlay.overlay_id", ondelete="CASCADE"),
+            primary_key=True,
+        )
+    )
+
+
+class Overlay(TimeStampMixin, SQLModel, table=True):
+    __tablename__ = "overlay"  # pyright: ignore
+    overlay_id: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
+    name: str = Field(nullable=False)
+    description: str | None = Field(nullable=True)
+    data_type: str = Field(
+        sa_column=Column(
+            ENUM("geojson", "pmtiles", name="overlaydatatype", create_type=False),
+            nullable=False,
+        )
+    )
+    layer_type: str = Field(
+        sa_column=Column(
+            ENUM("fill", "line", "text", name="overlaylayertype", create_type=False),
+            nullable=False,
+        )
+    )
+    custom_style: dict | None = Field(sa_column=Column(JSON, nullable=True))
+    source: str | None = Field(nullable=True)
+    source_layer: str | None = Field(nullable=True)
+    id_property: str | None = Field(nullable=True)  # Property name for text labels
+
+
+class OverlayPublic(BaseModel):
+    overlay_id: str
+    name: str
+    description: str | None
+    data_type: str
+    layer_type: str
+    custom_style: dict | None
+    source: str | None
+    source_layer: str | None
+    id_property: str | None
 
 
 class DistrictUnions(TimeStampMixin, SQLModel, table=True):
