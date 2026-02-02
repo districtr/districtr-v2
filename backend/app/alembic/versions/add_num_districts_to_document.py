@@ -44,8 +44,8 @@ def upgrade() -> None:
         ),
     )
 
-    # Update create_districtr_map UDF to accept num_districts_modifiable
-    # Drop both possible overloads (9-arg from af62f0e0276b, 10-arg from this migration)
+    # create_districtr_map is now implemented in Python (app.utils), not as a UDF.
+    # Drop the old UDF overloads if present.
     op.execute(
         sa.text(
             "DROP FUNCTION IF EXISTS create_districtr_map(VARCHAR, VARCHAR, VARCHAR, "
@@ -58,10 +58,6 @@ def upgrade() -> None:
             "INTEGER, VARCHAR, VARCHAR, VARCHAR, BOOLEAN, VARCHAR, BOOLEAN)"
         )
     )
-    with open(
-        settings.SQL_DIR / "versions" / revision / "create_districtr_map_udf.sql", "r"
-    ) as f:
-        op.execute(sa.text(f.read()))
     # ### end Alembic commands ###
 
 

@@ -1,3 +1,4 @@
+from uuid import uuid4
 from sqlalchemy import text, update, Table, MetaData, func
 from sqlalchemy import bindparam, Integer, String, Text
 from sqlalchemy.types import UUID
@@ -67,49 +68,23 @@ def create_districtr_map(
     Returns:
         The UUID of the inserted map.
     """
-    stmt = text(
-        """
-    SELECT *
-    FROM create_districtr_map(
-        :map_name,
-        :districtr_map_slug,
-        :gerrydb_table_name,
-        :num_districts,
-        :tiles_s3_path,
-        :parent_layer_name,
-        :child_layer_name,
-        :visibility,
-        :map_type,
-        :num_districts_modifiable
-    )"""
-    ).bindparams(
-        bindparam(key="map_name", type_=String),
-        bindparam(key="districtr_map_slug", type_=String),
-        bindparam(key="gerrydb_table_name", type_=String),
-        bindparam(key="num_districts", type_=Integer),
-        bindparam(key="tiles_s3_path", type_=String),
-        bindparam(key="parent_layer_name", type_=String),
-        bindparam(key="child_layer_name", type_=String),
-        bindparam(key="visibility", type_=Boolean),
-        bindparam(key="map_type", type_=String),
-        bindparam(key="num_districts_modifiable", type_=Boolean),
+    map_uuid = str(uuid4())
+    districtr_map = DistrictrMap(
+        uuid=map_uuid,
+        name=name,
+        districtr_map_slug=districtr_map_slug,
+        gerrydb_table_name=gerrydb_table_name,
+        num_districts=num_districts,
+        tiles_s3_path=tiles_s3_path,
+        parent_layer=parent_layer,
+        child_layer=child_layer,
+        visible=visibility,
+        map_type=map_type,
+        num_districts_modifiable=num_districts_modifiable,
+        statefps=statefps,
     )
-
-    (inserted_map_uuid,) = session.execute(
-        stmt,
-        {
-            "map_name": name,
-            "districtr_map_slug": districtr_map_slug,
-            "gerrydb_table_name": gerrydb_table_name,
-            "num_districts": num_districts,
-            "tiles_s3_path": tiles_s3_path,
-            "parent_layer_name": parent_layer,
-            "child_layer_name": child_layer,
-            "visibility": visibility,
-            "map_type": map_type,
-            "num_districts_modifiable": num_districts_modifiable,
-        },
-    )
+    session.add(districtr_map)
+    session.flush()
 
     if group_slug is not None:
         add_districtr_map_to_map_group(
@@ -118,16 +93,7 @@ def create_districtr_map(
             group_slug=group_slug,
         )
 
-    # Update statefps if provided (since the stored function doesn't handle it)
-    if statefps is not None:
-        update_stmt = (
-            update(DistrictrMap)
-            .where(DistrictrMap.uuid == inserted_map_uuid[0])
-            .values(statefps=statefps)
-        )
-        session.execute(update_stmt)
-
-    return inserted_map_uuid[0]  # pyright: ignore
+    return districtr_map.uuid
 
 
 def update_districtrmap(
