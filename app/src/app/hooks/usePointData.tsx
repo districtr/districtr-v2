@@ -21,7 +21,6 @@ const updateData = async (
   // @ts-expect-error
   const parentWithSameLayer = !isChild && data.current?.metadata?.layer === layer;
   if (childWithNoneBroken) {
-    console.log('childWithNoneBroken is true');
     data.current = EMPTY_FT_COLLECTION;
     return new Date().toISOString();
   } else if (parentWithSameLayer) {
@@ -36,9 +35,7 @@ const updateData = async (
     filterIds: isChild ? exposedChildIds : undefined,
     source: isChild ? BLOCK_LAYER_ID_CHILD : BLOCK_LAYER_ID,
   });
-  console.log('result', result.features.length);
   data.current = result;
-  console.log('data', isChild ? 'CHILD' : 'PARENT', data.current.features.length);
 
   // Send point data to GeometryWorker if this is the parent layer (not child)
   if (!isChild && GeometryWorker) {
@@ -55,9 +52,6 @@ export const usePointData = (isChild?: boolean) => {
   const exposedChildIds = useAssignmentsStore(state => state.shatterIds.children);
   const layer = isChild ? mapDocument?.child_layer : mapDocument?.parent_layer;
   useEffect(() => {
-    console.log('layer', layer);
-    console.log('isChild', isChild);
-    console.log('exposedChildIds', exposedChildIds);
     if (layer) {
       updateData(layer, Boolean(isChild), exposedChildIds, data).then((hash) => {
         setDataHash(hash);

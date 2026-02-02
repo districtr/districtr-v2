@@ -121,7 +121,7 @@ const ZoneNumbersLayer = () => {
   const addZoneMetaLayers = async (
   ) => {
     const showZoneNumbers = useMapControlsStore.getState().mapOptions.showZoneNumbers;
-    const map = getMapRef();
+    const map = useMapStore.getState().getMapRef();
     if (!map) return;
     const currentView = map.getBounds();
     const bounds = [
