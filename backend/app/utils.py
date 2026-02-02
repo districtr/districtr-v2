@@ -229,16 +229,22 @@ def create_parent_child_edges(
     )
     session.execute(create_sql)
 
+    # Use the session's connection for partition reflection so we see the
+    # just-created table in the same transaction (other connections would not).
+    conn = session.connection()
     parent = Table(
-        parent_layer, metadata, schema=GERRY_DB_SCHEMA, autoload_with=session.bind
+        parent_layer, metadata, schema=GERRY_DB_SCHEMA, autoload_with=conn
     )
     child = Table(
-        child_layer, metadata, schema=GERRY_DB_SCHEMA, autoload_with=session.bind
+        child_layer, metadata, schema=GERRY_DB_SCHEMA, autoload_with=conn
     )
     partition = Table(
-        partition_name, metadata, schema=PUBLIC_SCHEMA, autoload_with=session.bind
+        partition_name, metadata, schema=PUBLIC_SCHEMA, autoload_with=conn
     )
 
+    spatial_join = func.ST_Contains(
+        parent.c.geometry, func.ST_PointOnSurface(child.c.geometry)
+    )
     stmt = partition.insert().from_select(
         ["created_at", "districtr_map", "parent_path", "child_path"],
         select(
@@ -246,11 +252,9 @@ def create_parent_child_edges(
             bindparam("uuid"),
             parent.c.path,
             child.c.path,
-        ).where(
-            func.ST_Contains(
-                parent.c.geometry, func.ST_PointOnSurface(child.c.geometry)
-            )
-        ),
+        )
+        .select_from(parent)
+        .join(child, spatial_join),
     )
 
     session.execute(stmt, params={"uuid": districtr_map_uuid})
