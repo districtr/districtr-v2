@@ -106,7 +106,7 @@ def create_parent_child_edges(
         )
 
     if districtr_map_slug:
-        districtr_map_uuid = session.exec(
+        districtr_map_uuid = session.scalars(
             select(DistrictrMap.uuid).where(
                 DistrictrMap.districtr_map_slug == districtr_map_slug
             )
