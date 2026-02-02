@@ -31,6 +31,7 @@ from management.load_data import (
 )
 from os import environ
 from app.models import DistrictrMap, Overlay
+from datetime import datetime, timezone
 
 
 logger = logging.getLogger(__name__)
@@ -767,27 +768,14 @@ def update_overlay(
         logger.warning("No fields to update. Provide at least one field to update.")
         return
 
-    # Add updated_at timestamp
-    update_fields.append("updated_at = CURRENT_TIMESTAMP")
+    params["updated_at"] = datetime.now(timezone.utc)
 
     update_stmt = (
         update(Overlay)
         .where(Overlay.overlay_id == params["overlay_id"])
-        .values(
-            {
-                field.split(" = ")[0]: params[field.split(" = ")[0]]
-                for field in update_fields
-                if field != "updated_at = CURRENT_TIMESTAMP"
-            }
-        )
+        .values({k: v for k, v in params.items() if k != "overlay_id"})
         .returning(Overlay.overlay_id)
     )
-
-    # Handle the updated_at separately, because SQLAlchemy expects a datetime object
-    if "updated_at = CURRENT_TIMESTAMP" in update_fields:
-        import datetime
-
-        update_stmt = update_stmt.values(updated_at=datetime.datetime.utcnow())
 
     result = session.execute(update_stmt, params)
     updated = result.scalar()
