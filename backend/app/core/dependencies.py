@@ -113,6 +113,7 @@ def get_document_public(
         coalesce(Document.num_districts, DistrictrMap.num_districts).label(
             "num_districts"
         ),  # pyright: ignore
+        DistrictrMap.num_districts_modifiable.label("num_districts_modifiable"),  # pyright: ignore
         DistrictrMap.extent.label("extent"),  # pyright: ignore
         DistrictrMap.map_type.label("map_type"),  # pyright: ignore
         DistrictrMap.parent_geo_unit_type.label("parent_geo_unit_type"),  # pyright: ignore
@@ -178,6 +179,9 @@ def get_document_public(
         child_layer=result.child_layer,
         tiles_s3_path=result.tiles_s3_path,
         num_districts=result.num_districts,
+        num_districts_modifiable=getattr(
+            result, "num_districts_modifiable", True
+        ),
         created_at=result.created_at,
         updated_at=result.updated_at,
         extent=result.extent,

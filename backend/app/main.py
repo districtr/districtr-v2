@@ -281,6 +281,7 @@ async def create_document(
             coalesce(Document.num_districts, DistrictrMap.num_districts).label(
                 "num_districts"
             ),  # pyright: ignore
+            DistrictrMap.num_districts_modifiable.label("num_districts_modifiable"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
             DistrictrMap.map_type.label("map_type"),  # pyright: ignore
             DistrictrMap.statefps.label("statefps"),  # pyright: ignore
@@ -423,6 +424,22 @@ async def update_assignments(
     # Update num_districts if provided
     if data.metadata is not None:
         if data.metadata.num_districts is not None:
+            # Reject if map has num_districts_modifiable=False
+            districtr_map = session.exec(
+                select(DistrictrMap)
+                .join(
+                    Document,
+                    Document.districtr_map_slug == DistrictrMap.districtr_map_slug,
+                )
+                .where(Document.document_id == document_id)
+            ).first()
+            if districtr_map and not getattr(
+                districtr_map, "num_districts_modifiable", True
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Number of districts is not modifiable for this map",
+                )
             if data.metadata.num_districts < 2 or data.metadata.num_districts > 538:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -578,6 +595,19 @@ async def update_num_districts(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Number of districts must be at least 2",
+        )
+
+    districtr_map = session.exec(
+        select(DistrictrMap).where(
+            DistrictrMap.districtr_map_slug == document.districtr_map_slug
+        )
+    ).first()
+    if districtr_map and not getattr(
+        districtr_map, "num_districts_modifiable", True
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Number of districts is not modifiable for this map",
         )
 
     stmt = text(

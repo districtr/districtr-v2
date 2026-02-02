@@ -67,6 +67,8 @@ export interface DocumentObject extends StatusObject {
   child_layer: string | null;
   tiles_s3_path: string | null;
   num_districts: number | null;
+  /** If false, users cannot change the number of districts on the frontend. */
+  num_districts_modifiable?: boolean;
   map_module: string | null;
   created_at: string;
   updated_at: string;

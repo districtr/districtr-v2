@@ -150,6 +150,12 @@ def delete_parent_child_edges(session: Session, districtr_map: str):
 @click.option("--map-type", help="Map UI type", type=str, required=False)
 @click.option("--gerrydb-table-name", help="Name of the GerryDB table", required=True)
 @click.option("--num-districts", help="Number of districts", required=False)
+@click.option(
+    "--num-districts-modifiable/--no-num-districts-modifiable",
+    "num_districts_modifiable",
+    default=True,
+    help="Whether users can change the number of districts on the frontend (default: True)",
+)
 @click.option("--tiles-s3-path", help="S3 path to the tileset", required=False)
 @click.option(
     "--no-extent", help="Do not calculate extent", is_flag=True, default=False
@@ -179,6 +185,7 @@ def create_districtr_map(
     child_layer_name: str | None,
     gerrydb_table_name: str,
     num_districts: int | None,
+    num_districts_modifiable: bool,
     tiles_s3_path: str | None,
     no_extent: bool = False,
     bounds: list[float] | None = None,
@@ -198,6 +205,7 @@ def create_districtr_map(
         map_type=map_type,
         gerrydb_table_name=gerrydb_table_name,
         num_districts=num_districts,
+        num_districts_modifiable=num_districts_modifiable,
         tiles_s3_path=tiles_s3_path,
         statefps=statefps_list,
     )
@@ -229,6 +237,12 @@ def create_districtr_map(
     "--child-layer-name", help="Child gerrydb layer name", type=str, required=False
 )
 @click.option("--num-districts", help="Number of districts", type=str, required=False)
+@click.option(
+    "--num-districts-modifiable/--no-num-districts-modifiable",
+    "num_districts_modifiable",
+    default=None,
+    help="Whether users can change the number of districts on the frontend",
+)
 @click.option(
     "--tiles-s3-path", help="S3 path to the tileset", type=str, required=False
 )
@@ -267,6 +281,7 @@ def update_districtr_map(
     parent_layer_name: str | None,
     child_layer_name: str | None,
     num_districts: int | None,
+    num_districts_modifiable: bool | None,
     tiles_s3_path: str | None,
     visibility: bool = False,
     bounds: list[float] | None = None,
@@ -290,6 +305,7 @@ def update_districtr_map(
         parent_layer=parent_layer_name,
         child_layer=child_layer_name,
         num_districts=num_districts,
+        num_districts_modifiable=num_districts_modifiable,
         tiles_s3_path=tiles_s3_path,
         visible=visibility,
         map_type=map_type,

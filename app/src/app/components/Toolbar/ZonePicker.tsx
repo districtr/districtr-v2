@@ -20,6 +20,7 @@ export function ZonePicker() {
   );
 
   const numDistricts = mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
+  const numDistrictsModifiable = mapDocument?.num_districts_modifiable !== false;
 
   const handleRadioChange = (index: number, _color: string) => {
     const value = index + 1;
@@ -44,6 +45,7 @@ export function ZonePicker() {
   };
 
   const isReadOnly = access === 'read';
+  const canEditNumDistricts = numDistrictsModifiable && !isReadOnly;
 
   return (
     <Box className={isReadOnly ? 'pointer-events-none opacity-50' : ''}>
@@ -52,13 +54,13 @@ export function ZonePicker() {
           <Text size="2" weight="medium">
             Districts:
           </Text>
-          {showNumDistrictEditor ? (
+          {canEditNumDistricts && showNumDistrictEditor ? (
             <>
               <Button
                 variant="ghost"
                 size="1"
                 onClick={handleDecreaseDistricts}
-                disabled={isReadOnly || numDistricts <= 2}
+                disabled={numDistricts <= 2}
               >
                 <MinusIcon />
               </Button>
@@ -67,7 +69,6 @@ export function ZonePicker() {
                 min={2}
                 max={538}
                 value={numDistricts}
-                disabled={isReadOnly}
                 variant="soft"
                 size="1"
                 onChange={e => {
@@ -83,7 +84,7 @@ export function ZonePicker() {
                 variant="ghost"
                 size="1"
                 onClick={handleIncreaseDistricts}
-                disabled={isReadOnly || numDistricts >= 538}
+                disabled={numDistricts >= 538}
               >
                 <PlusIcon />
               </Button>
@@ -93,15 +94,17 @@ export function ZonePicker() {
               <Text size="2" weight="bold">
                 {numDistricts}
               </Text>
-              <Tooltip content="Edit the number of districts in your plan">
-                <IconButton
-                  variant="ghost"
-                  onClick={() => setShowNumDistrictEditor(true)}
-                  aria-label="Edit the number of districts in your plan"
-                >
-                  <Pencil1Icon />
-                </IconButton>
-              </Tooltip>
+              {canEditNumDistricts && (
+                <Tooltip content="Edit the number of districts in your plan">
+                  <IconButton
+                    variant="ghost"
+                    onClick={() => setShowNumDistrictEditor(true)}
+                    aria-label="Edit the number of districts in your plan"
+                  >
+                    <Pencil1Icon />
+                  </IconButton>
+                </Tooltip>
+              )}
             </>
           )}
         </Flex>

@@ -85,6 +85,8 @@ GERRY_DB_NO_POP_FIXTURE_NAME = "ks_demo_view_census_blocks_no_pop"
 GERRY_DB_TOTPOP_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats"
 GERRY_DB_VAP_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats_vap"
 GERRY_DB_ALL_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats_all_stats"
+# Map slug for fixture with num_districts_modifiable=False
+GERRY_DB_ALL_STATS_FIXED_NUM_DISTRICTS_SLUG = "ks_demo_all_stats_fixed_num_districts"
 
 ## Test DB
 
@@ -675,12 +677,44 @@ def ks_demo_view_census_blocks_summary_stats_all_stats(session: Session):
         districtr_map_slug=layer,
         gerrydb_table_name=layer,
         num_districts=4,
+        num_districts_modifiable=True,
     )
     session.commit()
 
     if result.returncode != 0:
         print(f"ogr2ogr failed. Got {result}")
         raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
+
+
+@pytest.fixture(name="ks_demo_all_stats_fixed_num_districts_map")
+def ks_demo_all_stats_fixed_num_districts_map_fixture(
+    session: Session, ks_demo_view_census_blocks_summary_stats_all_stats
+):
+    """Map with same layer as all_stats but num_districts_modifiable=False."""
+    create_districtr_map(
+        session=session,
+        name="DistrictMap fixed num districts",
+        parent_layer=GERRY_DB_ALL_FIXTURE_NAME,
+        districtr_map_slug=GERRY_DB_ALL_STATS_FIXED_NUM_DISTRICTS_SLUG,
+        gerrydb_table_name=GERRY_DB_ALL_FIXTURE_NAME,
+        num_districts=4,
+        num_districts_modifiable=False,
+    )
+    session.commit()
+
+
+@pytest.fixture(name="document_id_fixed_num_districts")
+def document_id_fixed_num_districts_fixture(
+    client, ks_demo_all_stats_fixed_num_districts_map
+):
+    """Document whose map has num_districts_modifiable=False."""
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_ALL_STATS_FIXED_NUM_DISTRICTS_SLUG,
+        },
+    )
+    return response.json()["document_id"]
 
 
 def test_change_colors(
@@ -1306,6 +1340,45 @@ def test_put_num_districts_endpoint(
     )
     assert r_bad.status_code == 400
     assert "at least" in r_bad.json().get("detail", "").lower()
+
+
+def test_put_num_districts_forbidden_when_not_modifiable(
+    client, document_id_fixed_num_districts
+):
+    """PUT /document/{id}/num_districts returns 403 when map has num_districts_modifiable=False."""
+    r = client.put(
+        f"/api/document/{document_id_fixed_num_districts}/num_districts?num_districts=5"
+    )
+    assert r.status_code == 403
+    assert "not modifiable" in r.json().get("detail", "").lower()
+
+
+def test_put_assignments_metadata_num_districts_forbidden_when_not_modifiable(
+    client, document_id_fixed_num_districts
+):
+    """PUT /assignments with metadata.num_districts returns 403 when map has num_districts_modifiable=False."""
+    r = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_fixed_num_districts,
+            "assignments": [["202090441022004", 1]],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+            "metadata": {"num_districts": 6, "color_scheme": None},
+        },
+    )
+    assert r.status_code == 403
+    assert "not modifiable" in r.json().get("detail", "").lower()
+
+
+def test_get_document_returns_num_districts_modifiable(
+    client, document_id_all_stats, document_id_fixed_num_districts
+):
+    """GET /document returns num_districts_modifiable from map (true or false)."""
+    doc_modifiable = client.get(f"/api/document/{document_id_all_stats}").json()
+    assert doc_modifiable.get("num_districts_modifiable") is True
+
+    doc_fixed = client.get(f"/api/document/{document_id_fixed_num_districts}").json()
+    assert doc_fixed.get("num_districts_modifiable") is False
 
 
 def test_copy_document_duplicates_assignments(

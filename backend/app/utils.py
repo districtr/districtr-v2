@@ -44,6 +44,7 @@ def create_districtr_map(
     map_type: str = "default",
     visibility: bool = True,
     statefps: list[str] | None = None,
+    num_districts_modifiable: bool = True,
 ) -> str:
     """
     Create a new districtr map.
@@ -61,6 +62,7 @@ def create_districtr_map(
         map_type: The type of map.
         visibility: The visibility of the map.
         statefps: The state FIPS codes associated with the map.
+        num_districts_modifiable: If False, users cannot change the number of districts on the frontend.
 
     Returns:
         The UUID of the inserted map.
@@ -77,7 +79,8 @@ def create_districtr_map(
         :parent_layer_name,
         :child_layer_name,
         :visibility,
-        :map_type
+        :map_type,
+        :num_districts_modifiable
     )"""
     ).bindparams(
         bindparam(key="map_name", type_=String),
@@ -89,6 +92,7 @@ def create_districtr_map(
         bindparam(key="child_layer_name", type_=String),
         bindparam(key="visibility", type_=Boolean),
         bindparam(key="map_type", type_=String),
+        bindparam(key="num_districts_modifiable", type_=Boolean),
     )
 
     (inserted_map_uuid,) = session.execute(
@@ -103,6 +107,7 @@ def create_districtr_map(
             "child_layer_name": child_layer,
             "visibility": visibility,
             "map_type": map_type,
+            "num_districts_modifiable": num_districts_modifiable,
         },
     )
 

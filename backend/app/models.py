@@ -37,6 +37,10 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     gerrydb_table_name: str | None = Field(nullable=True)
     # Null means default number of districts? Should we have a sensible default?
     num_districts: int | None = Field(nullable=True, default=None)
+    # If False, users cannot change the number of districts on the frontend.
+    num_districts_modifiable: bool = Field(
+        sa_column=Column(Boolean, nullable=False, server_default="true")
+    )
     tiles_s3_path: str | None = Field(nullable=True)
     parent_layer: str = Field(
         sa_column=Column(String, ForeignKey("gerrydbtable.name"), nullable=False)
@@ -79,6 +83,7 @@ class DistrictrMapPublic(BaseModel):
     child_layer: str | None = None
     tiles_s3_path: str | None = None
     num_districts: int | None = None
+    num_districts_modifiable: bool = True
     visible: bool = True
 
 
@@ -95,6 +100,7 @@ class DistrictrMapUpdate(BaseModel):
     child_layer: str | None = None
     tiles_s3_path: str | None = None
     num_districts: int | None = None
+    num_districts_modifiable: bool | None = None
     visible: bool | None = None
     map_type: str = "default"
     comment: str | None = None
@@ -214,6 +220,7 @@ class DocumentPublic(BaseModel):
     child_layer: str | None
     tiles_s3_path: str | None = None
     num_districts: int | None = None
+    num_districts_modifiable: bool = True
     created_at: datetime
     updated_at: datetime
     extent: list[float] | None = None
