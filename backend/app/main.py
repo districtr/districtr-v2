@@ -443,7 +443,7 @@ async def update_assignments(
             if data.metadata.num_districts < 2 or data.metadata.num_districts > 538:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Number of districts must be between 2 and 538",
+                    detail="Number of districts must be at least 2 and at most 538",
                 )
             stmt = text(
                 """UPDATE document.document
@@ -594,7 +594,7 @@ async def update_num_districts(
     if num_districts < 2 or num_districts > 538:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Number of districts must be between 2 and 538",
+            detail="Number of districts must be at least 2 and at most 538",
         )
 
     districtr_map = session.exec(
