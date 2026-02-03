@@ -232,12 +232,8 @@ def create_parent_child_edges(
     # Use the session's connection for partition reflection so we see the
     # just-created table in the same transaction (other connections would not).
     conn = session.connection()
-    parent = Table(
-        parent_layer, metadata, schema=GERRY_DB_SCHEMA, autoload_with=conn
-    )
-    child = Table(
-        child_layer, metadata, schema=GERRY_DB_SCHEMA, autoload_with=conn
-    )
+    parent = Table(parent_layer, metadata, schema=GERRY_DB_SCHEMA, autoload_with=conn)
+    child = Table(child_layer, metadata, schema=GERRY_DB_SCHEMA, autoload_with=conn)
     partition = Table(
         partition_name, metadata, schema=PUBLIC_SCHEMA, autoload_with=conn
     )
