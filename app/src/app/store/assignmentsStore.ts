@@ -21,7 +21,6 @@ import {
 import {createMapDocument} from '../utils/api/apiHandlers/createMapDocument';
 import {createWithFullMiddlewares} from './middlewares';
 import {confirmMapDocumentUrlParameter} from '../utils/map/confirmMapDocumentUrlParameter';
-import {shallowCompareArray} from '@utils/arrays';
 
 export interface AssignmentsStore {
   /** Map of geoid -> zone assignments currently in memory */

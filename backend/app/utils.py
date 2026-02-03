@@ -1,8 +1,8 @@
 from uuid import uuid4
 from sqlalchemy import text, update, Table, MetaData, func
-from sqlalchemy import bindparam, Integer, String, Text
+from sqlalchemy import bindparam, Text
 from sqlalchemy.types import UUID
-from sqlmodel import Session, select, Float, Boolean
+from sqlmodel import Session, select, Float
 import logging
 from app.constants import GERRY_DB_SCHEMA, PUBLIC_SCHEMA
 from typing import List

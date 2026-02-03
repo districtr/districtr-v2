@@ -20,7 +20,6 @@ export const useIdbDocument = (document_id: string | null | undefined) => {
       if (!document_id) {
         setDocumentFromIdb(null);
       } else {
-
         const documentFromIdb = await idb.documents
           .where('id')
           .equals(document_id ?? '')
