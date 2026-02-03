@@ -48,7 +48,7 @@ export const putUpdateAssignmentsAndVerify = async ({
     // TODO: Have metadata confirmed after put and make it possible to update metadata without assignments
     metadata: {
       color_scheme: mapDocument.color_scheme ?? undefined,
-      num_districts: mapDocument.num_districts ?? undefined,
+      num_districts: mapDocument.num_districts && mapDocument.num_districts_modifiable ? mapDocument.num_districts : undefined,
     },
   });
   if (!assignmentsPostResponse.ok) {

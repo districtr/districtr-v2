@@ -535,7 +535,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     await idb.flushPendingUpdate();
 
     const {zoneAssignments, shatterIds, parentToChild, childToParent} = get();
-    const {mapDocument, setMapLock, mutateMapDocument} = useMapStore.getState();
+    const {mapDocument, setMapLock, setErrorNotification} = useMapStore.getState();
     if (!mapDocument?.document_id || !mapDocument.updated_at) return;
     const idbDocument = await idb.getDocument(mapDocument?.document_id);
     if (!idbDocument) return;
@@ -558,7 +558,10 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         showSaveConflictModal: true,
       });
     } else if (!assignmentsPostResponse.ok) {
-      throw new Error(assignmentsPostResponse.error);
+      setErrorNotification({
+        message: assignmentsPostResponse.error,
+        severity: 2,
+      });
     } else if (assignmentsPostResponse.ok) {
       set({
         showSaveConflictModal: false,
