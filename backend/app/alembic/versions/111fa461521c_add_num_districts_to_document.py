@@ -1,6 +1,6 @@
 """add num_districts to document
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: 111fa461521c
 Revises: 24137793FE9B
 Create Date: 2026-01-26 00:00:00.000000
 
@@ -14,7 +14,7 @@ import sqlalchemy as sa
 from app.core.config import settings
 
 # revision identifiers, used by Alembic.
-revision: str = "a1b2c3d4e5f6"
+revision: str = "111fa461521c"
 down_revision: str | None = "24137793FE9B"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
