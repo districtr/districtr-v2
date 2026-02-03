@@ -276,6 +276,8 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     initiateFlushMapState: async () => {
       set({flushMapState: true});
       // wait for 50ms
+      // This is enough time to trigger a state update on esesntially all machines
+      // This forces an unmount and remount of the map sources, flushing the rendering state
       await new Promise(resolve => setTimeout(resolve, 50));
       set({flushMapState: false});
     },

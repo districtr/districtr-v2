@@ -4,7 +4,7 @@ import {useMapStore} from '../../store/mapStore';
 import {useMapControlsStore} from '../../store/mapControlsStore';
 import {useAssignmentsStore} from '../../store/assignmentsStore';
 import {ColorPicker} from './ColorPicker';
-import {FALLBACK_NUM_DISTRICTS} from '../../constants/layers';
+import {FALLBACK_NUM_DISTRICTS, MAX_NUM_DISTRICTS, MIN_NUM_DISTRICTS} from '@/app/constants/mapDefaults';
 import {MinusIcon, PlusIcon, Pencil1Icon} from '@radix-ui/react-icons';
 import {useState} from 'react';
 
@@ -33,7 +33,7 @@ export function ZonePicker() {
   };
 
   const handleDecreaseDistricts = () => {
-    if (numDistricts <= 2) return;
+    if (numDistricts <= MIN_NUM_DISTRICTS) return;
     const newNumDistricts = numDistricts - 1;
     setNumDistricts(newNumDistricts);
     // Remove assignments for zones above the new max
@@ -60,19 +60,19 @@ export function ZonePicker() {
                 variant="ghost"
                 size="1"
                 onClick={handleDecreaseDistricts}
-                disabled={numDistricts <= 2}
+                disabled={numDistricts <= MIN_NUM_DISTRICTS}
               >
                 <MinusIcon />
               </Button>
               <TextField.Root
                 type="number"
                 min={2}
-                max={538}
+                max={MAX_NUM_DISTRICTS}
                 value={numDistricts}
                 variant="soft"
                 size="1"
                 onChange={e => {
-                  const val = Math.max(2, Math.min(538, Number(e.target.value)));
+                  const val = Math.max(MIN_NUM_DISTRICTS, Math.min(MAX_NUM_DISTRICTS, Number(e.target.value)));
                   if (!isNaN(val)) {
                     setNumDistricts(val);
                   }
@@ -84,7 +84,7 @@ export function ZonePicker() {
                 variant="ghost"
                 size="1"
                 onClick={handleIncreaseDistricts}
-                disabled={numDistricts >= 538}
+                disabled={numDistricts >= MAX_NUM_DISTRICTS}
               >
                 <PlusIcon />
               </Button>
