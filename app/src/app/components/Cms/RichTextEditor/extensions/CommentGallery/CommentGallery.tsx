@@ -363,8 +363,8 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
           getPublicComments({...filters, limit, offset})
         }
         selectItems={data => (data?.ok ? data.response : [])}
-        isError={data => !Boolean(data?.ok)}
-        errorMessage={data => (data?.ok ? null : data?.error?.detail)}
+        isError={data => data !== undefined && !data.ok}
+        errorMessage={data => (data?.ok ? undefined : data?.error?.detail)}
         gridRenderer={(comment, i) => (
           <CommentCard key={i} comment={comment} options={displayOptions} />
         )}

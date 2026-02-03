@@ -55,7 +55,7 @@ export interface ReviewListParams {
 export const getAdminCommentsList = async (params: ReviewListParams = {}, session?: any) => {
   const searchParams: Record<string, string | number | boolean | (string | number)[]> = {};
   for (const [key, value] of Object.entries(params)) {
-    if (value) {
+    if (value !== undefined && value !== null) {
       searchParams[key] = value;
     }
   }
