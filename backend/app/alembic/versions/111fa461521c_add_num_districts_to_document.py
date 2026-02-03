@@ -40,7 +40,7 @@ def upgrade() -> None:
             "num_districts_modifiable",
             sa.Boolean(),
             nullable=False,
-            server_default="true",
+            server_default="false",
         ),
     )
 
