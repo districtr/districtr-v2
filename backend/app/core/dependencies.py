@@ -195,6 +195,7 @@ def get_document_public(
         child_geo_unit_type=result.child_geo_unit_type,
         data_source_name=result.data_source_name,
         overlays=overlays_list,
+        statefps=result.statefps,
     )
 
 

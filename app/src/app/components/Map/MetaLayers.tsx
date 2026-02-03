@@ -117,6 +117,7 @@ const ZoneNumbersLayer = () => {
     state => state.mapOptions.showBlockPopulationNumbers
   );
   const shouldHide = showBlockPopulationNumbers && focusFeaturesLength;
+  const demogHash = useDemographyStore(state => state.dataHash);
 
   const addZoneMetaLayers = async (
   ) => {
@@ -158,6 +159,7 @@ const ZoneNumbersLayer = () => {
     zoneAssignments,
     mapRenderingState,
     appLoadingState,
+    demogHash,
   ]);
 
   useEffect(() => {
