@@ -443,7 +443,7 @@ async def update_assignments(
             if data.metadata.num_districts < 2 or data.metadata.num_districts > 538:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Number of districts must be at least 2 and less than 538",
+                    detail="Number of districts must be between 2 and 538",
                 )
             stmt = text(
                 """UPDATE document.document
@@ -591,10 +591,10 @@ async def update_num_districts(
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
 ):
-    if num_districts < 1:
+    if num_districts < 2 or num_districts > 538:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Number of districts must be at least 2",
+            detail="Number of districts must be between 2 and 538",
         )
 
     districtr_map = session.exec(
@@ -602,9 +602,7 @@ async def update_num_districts(
             DistrictrMap.districtr_map_slug == document.districtr_map_slug
         )
     ).first()
-    if districtr_map and not getattr(
-        districtr_map, "num_districts_modifiable", True
-    ):
+    if districtr_map and not getattr(districtr_map, "num_districts_modifiable", True):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Number of districts is not modifiable for this map",
