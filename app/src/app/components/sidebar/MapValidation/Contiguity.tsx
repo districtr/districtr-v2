@@ -7,10 +7,11 @@ import {useEffect, useMemo} from 'react';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/layers';
 import {RefreshButton, TimestampDisplay} from '@/app/components/Time/TimestampDisplay';
 import ContiguityDetail from './ContiguityDetail';
+import { useColorScheme } from '@/app/hooks/useColorScheme';
 
 export const Contiguity = () => {
   const mapDocument = useMapStore(store => store.mapDocument);
-  const colorScheme = useMapStore(store => store.colorScheme);
+  const colorScheme = useColorScheme();
   const {data, isLoading, refetch, dataUpdatedAt} = useQuery(
     {
       queryKey: ['Contiguity', mapDocument?.document_id, mapDocument?.updated_at],

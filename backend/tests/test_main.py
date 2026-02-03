@@ -85,6 +85,8 @@ GERRY_DB_NO_POP_FIXTURE_NAME = "ks_demo_view_census_blocks_no_pop"
 GERRY_DB_TOTPOP_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats"
 GERRY_DB_VAP_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats_vap"
 GERRY_DB_ALL_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats_all_stats"
+# Map slug for fixture with num_districts_modifiable=False
+GERRY_DB_ALL_STATS_FIXED_NUM_DISTRICTS_SLUG = "ks_demo_all_stats_fixed_num_districts"
 
 ## Test DB
 
@@ -675,12 +677,44 @@ def ks_demo_view_census_blocks_summary_stats_all_stats(session: Session):
         districtr_map_slug=layer,
         gerrydb_table_name=layer,
         num_districts=4,
+        num_districts_modifiable=True,
     )
     session.commit()
 
     if result.returncode != 0:
         print(f"ogr2ogr failed. Got {result}")
         raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
+
+
+@pytest.fixture(name="ks_demo_all_stats_fixed_num_districts_map")
+def ks_demo_all_stats_fixed_num_districts_map_fixture(
+    session: Session, ks_demo_view_census_blocks_summary_stats_all_stats
+):
+    """Map with same layer as all_stats but num_districts_modifiable=False."""
+    create_districtr_map(
+        session=session,
+        name="DistrictMap fixed num districts",
+        parent_layer=GERRY_DB_ALL_FIXTURE_NAME,
+        districtr_map_slug=GERRY_DB_ALL_STATS_FIXED_NUM_DISTRICTS_SLUG,
+        gerrydb_table_name=GERRY_DB_ALL_FIXTURE_NAME,
+        num_districts=4,
+        num_districts_modifiable=False,
+    )
+    session.commit()
+
+
+@pytest.fixture(name="document_id_fixed_num_districts")
+def document_id_fixed_num_districts_fixture(
+    client, ks_demo_all_stats_fixed_num_districts_map
+):
+    """Document whose map has num_districts_modifiable=False."""
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_ALL_STATS_FIXED_NUM_DISTRICTS_SLUG,
+        },
+    )
+    return response.json()["document_id"]
 
 
 def test_change_colors(
@@ -1150,3 +1184,235 @@ def test_get_district_unions(client, document_id_total_vap):
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
+
+
+# --- Variable num_districts / metadata backend tests ---
+
+
+def test_create_document_num_districts_from_map(
+    client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
+):
+    """create_document stores num_districts from DistrictrMap (all_stats has 4)."""
+    response = client.get(f"/api/document/{document_id_all_stats}")
+    assert response.status_code == 200
+    data = response.json()
+    assert data.get("num_districts") == 4
+
+
+def test_create_document_copy_inherits_num_districts(
+    client,
+    document_id_all_stats,
+    ks_demo_view_census_blocks_summary_stats_all_stats,
+):
+    """copy_from_doc inherits num_districts from source document."""
+    # Set source document num_districts to 6 via PUT assignments + metadata
+    r = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_all_stats,
+            "assignments": [["202090441022004", 1]],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+            "metadata": {"num_districts": 6, "color_scheme": None},
+        },
+    )
+    assert r.status_code == 200
+
+    # Create new doc via copy
+    r2 = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_ALL_FIXTURE_NAME,
+            "copy_from_doc": document_id_all_stats,
+        },
+    )
+    assert r2.status_code == 201
+    copy_id = r2.json()["document_id"]
+
+    doc = client.get(f"/api/document/{copy_id}").json()
+    assert doc.get("num_districts") == 6
+
+
+def test_put_assignments_with_metadata_num_districts_and_color_scheme(
+    client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
+):
+    """PUT /assignments with metadata updates document num_districts and color_scheme."""
+    colors = ["#FF0001", "#FF0002", "#FF0003", "#FF0004", "#FF0005", "#FF0006"]
+    r = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_all_stats,
+            "assignments": [
+                ["202090441022004", 1],
+                ["202090428002008", 2],
+            ],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+            "metadata": {"num_districts": 6, "color_scheme": colors},
+        },
+    )
+    assert r.status_code == 200
+
+    doc = client.get(f"/api/document/{document_id_all_stats}").json()
+    assert doc.get("num_districts") == 6
+    assert doc.get("color_scheme") == colors
+
+
+def test_put_assignments_metadata_num_districts_validation(
+    client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
+):
+    """PUT /assignments metadata num_districts must be in [2, 538]."""
+    base = {
+        "document_id": document_id_all_stats,
+        "assignments": [["202090441022004", 1]],
+        "last_updated_at": datetime.now().astimezone().isoformat(),
+    }
+    r1 = client.put(
+        "/api/assignments",
+        json={**base, "metadata": {"num_districts": 1, "color_scheme": None}},
+    )
+    assert r1.status_code == 400
+    assert "at least 2" in r1.json().get("detail", "")
+
+    r2 = client.put(
+        "/api/assignments",
+        json={**base, "metadata": {"num_districts": 539, "color_scheme": None}},
+    )
+    assert r2.status_code == 400
+    assert "538" in r2.json().get("detail", "")
+
+    for n in (2, 538):
+        r = client.put(
+            "/api/assignments",
+            json={
+                **base,
+                "overwrite": True,
+                "metadata": {"num_districts": n, "color_scheme": None},
+            },
+        )
+        assert r.status_code == 200, f"num_districts={n} should succeed"
+        base["last_updated_at"] = r.json()["updated_at"]
+
+
+def test_update_colors_uses_document_num_districts(
+    client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
+):
+    """PATCH update_colors uses document num_districts when set (overrides map default)."""
+    # Set document num_districts to 5
+    client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_all_stats,
+            "assignments": [["202090441022004", 1]],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+            "metadata": {"num_districts": 5, "color_scheme": None},
+        },
+    )
+
+    five = ["#A00001", "#A00002", "#A00003", "#A00004", "#A00005"]
+    r_ok = client.patch(
+        f"/api/document/{document_id_all_stats}/update_colors", json=five
+    )
+    assert r_ok.status_code == 200
+    assert r_ok.json()["colors"] == five
+
+    r_bad = client.patch(
+        f"/api/document/{document_id_all_stats}/update_colors",
+        json=["#B00001", "#B00002", "#B00003", "#B00004"],
+    )
+    assert r_bad.status_code == 400
+    assert "does not match number of zones (5)" in r_bad.json().get("detail", "")
+
+
+def test_put_num_districts_endpoint(
+    client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
+):
+    """PUT /document/{id}/num_districts updates document num_districts."""
+    r = client.put(
+        f"/api/document/{document_id_all_stats}/num_districts?num_districts=5"
+    )
+    assert r.status_code == 200
+    assert r.json()["num_districts"] == 5
+
+    doc = client.get(f"/api/document/{document_id_all_stats}").json()
+    assert doc.get("num_districts") == 5
+
+    r_bad = client.put(
+        f"/api/document/{document_id_all_stats}/num_districts?num_districts=0"
+    )
+    assert r_bad.status_code == 400
+    assert "at least" in r_bad.json().get("detail", "").lower()
+
+
+def test_put_num_districts_forbidden_when_not_modifiable(
+    client, document_id_fixed_num_districts
+):
+    """PUT /document/{id}/num_districts returns 403 when map has num_districts_modifiable=False."""
+    r = client.put(
+        f"/api/document/{document_id_fixed_num_districts}/num_districts?num_districts=5"
+    )
+    assert r.status_code == 403
+    assert "not modifiable" in r.json().get("detail", "").lower()
+
+
+def test_put_assignments_metadata_num_districts_forbidden_when_not_modifiable(
+    client, document_id_fixed_num_districts
+):
+    """PUT /assignments with metadata.num_districts returns 403 when map has num_districts_modifiable=False."""
+    r = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_fixed_num_districts,
+            "assignments": [["202090441022004", 1]],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+            "metadata": {"num_districts": 6, "color_scheme": None},
+        },
+    )
+    assert r.status_code == 403
+    assert "not modifiable" in r.json().get("detail", "").lower()
+
+
+def test_get_document_returns_num_districts_modifiable(
+    client, document_id_all_stats, document_id_fixed_num_districts
+):
+    """GET /document returns num_districts_modifiable from map (true or false)."""
+    doc_modifiable = client.get(f"/api/document/{document_id_all_stats}").json()
+    assert doc_modifiable.get("num_districts_modifiable") is True
+
+    doc_fixed = client.get(f"/api/document/{document_id_fixed_num_districts}").json()
+    assert doc_fixed.get("num_districts_modifiable") is False
+
+
+def test_copy_document_duplicates_assignments(
+    client,
+    document_id_all_stats,
+    ks_demo_view_census_blocks_summary_stats_all_stats,
+):
+    """Creating a document via copy_from_doc duplicates assignments (UUID fix)."""
+    client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_all_stats,
+            "assignments": [
+                ["202090441022004", 1],
+                ["202090428002008", 1],
+                ["200979691001108", 2],
+            ],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+        },
+    )
+
+    r = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_ALL_FIXTURE_NAME,
+            "copy_from_doc": document_id_all_stats,
+        },
+    )
+    assert r.status_code == 201
+    copy_id = r.json()["document_id"]
+
+    orig = client.get(f"/api/get_assignments/{document_id_all_stats}").json()
+    copied = client.get(f"/api/get_assignments/{copy_id}").json()
+    assert len(copied) == len(orig) == 3
+    orig_map = {(a["geo_id"], a["zone"]) for a in orig}
+    copied_map = {(a["geo_id"], a["zone"]) for a in copied}
+    assert orig_map == copied_map

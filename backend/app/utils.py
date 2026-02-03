@@ -1,7 +1,8 @@
+from uuid import uuid4
 from sqlalchemy import text, update, Table, MetaData, func
-from sqlalchemy import bindparam, Integer, String, Text
+from sqlalchemy import bindparam, Text
 from sqlalchemy.types import UUID
-from sqlmodel import Session, select, Float, Boolean
+from sqlmodel import Session, select, Float
 import logging
 from app.constants import GERRY_DB_SCHEMA, PUBLIC_SCHEMA
 from typing import List
@@ -44,6 +45,7 @@ def create_districtr_map(
     map_type: str = "default",
     visibility: bool = True,
     statefps: list[str] | None = None,
+    num_districts_modifiable: bool = True,
 ) -> str:
     """
     Create a new districtr map.
@@ -61,50 +63,28 @@ def create_districtr_map(
         map_type: The type of map.
         visibility: The visibility of the map.
         statefps: The state FIPS codes associated with the map.
+        num_districts_modifiable: If False, users cannot change the number of districts on the frontend.
 
     Returns:
         The UUID of the inserted map.
     """
-    stmt = text(
-        """
-    SELECT *
-    FROM create_districtr_map(
-        :map_name,
-        :districtr_map_slug,
-        :gerrydb_table_name,
-        :num_districts,
-        :tiles_s3_path,
-        :parent_layer_name,
-        :child_layer_name,
-        :visibility,
-        :map_type
-    )"""
-    ).bindparams(
-        bindparam(key="map_name", type_=String),
-        bindparam(key="districtr_map_slug", type_=String),
-        bindparam(key="gerrydb_table_name", type_=String),
-        bindparam(key="num_districts", type_=Integer),
-        bindparam(key="tiles_s3_path", type_=String),
-        bindparam(key="parent_layer_name", type_=String),
-        bindparam(key="child_layer_name", type_=String),
-        bindparam(key="visibility", type_=Boolean),
-        bindparam(key="map_type", type_=String),
+    map_uuid = str(uuid4())
+    districtr_map = DistrictrMap(
+        uuid=map_uuid,
+        name=name,
+        districtr_map_slug=districtr_map_slug,
+        gerrydb_table_name=gerrydb_table_name,
+        num_districts=num_districts,
+        tiles_s3_path=tiles_s3_path,
+        parent_layer=parent_layer,
+        child_layer=child_layer,
+        visible=visibility,
+        map_type=map_type,
+        num_districts_modifiable=num_districts_modifiable,
+        statefps=statefps,
     )
-
-    (inserted_map_uuid,) = session.execute(
-        stmt,
-        {
-            "map_name": name,
-            "districtr_map_slug": districtr_map_slug,
-            "gerrydb_table_name": gerrydb_table_name,
-            "num_districts": num_districts,
-            "tiles_s3_path": tiles_s3_path,
-            "parent_layer_name": parent_layer,
-            "child_layer_name": child_layer,
-            "visibility": visibility,
-            "map_type": map_type,
-        },
-    )
+    session.add(districtr_map)
+    session.flush()
 
     if group_slug is not None:
         add_districtr_map_to_map_group(
@@ -113,16 +93,7 @@ def create_districtr_map(
             group_slug=group_slug,
         )
 
-    # Update statefps if provided (since the stored function doesn't handle it)
-    if statefps is not None:
-        update_stmt = (
-            update(DistrictrMap)
-            .where(DistrictrMap.uuid == inserted_map_uuid[0])
-            .values(statefps=statefps)
-        )
-        session.execute(update_stmt)
-
-    return inserted_map_uuid[0]  # pyright: ignore
+    return districtr_map.uuid
 
 
 def update_districtrmap(
@@ -232,12 +203,8 @@ def create_parent_child_edges(
     # Use the session's connection for partition reflection so we see the
     # just-created table in the same transaction (other connections would not).
     conn = session.connection()
-    parent = Table(
-        parent_layer, metadata, schema=GERRY_DB_SCHEMA, autoload_with=conn
-    )
-    child = Table(
-        child_layer, metadata, schema=GERRY_DB_SCHEMA, autoload_with=conn
-    )
+    parent = Table(parent_layer, metadata, schema=GERRY_DB_SCHEMA, autoload_with=conn)
+    child = Table(child_layer, metadata, schema=GERRY_DB_SCHEMA, autoload_with=conn)
     partition = Table(
         partition_name, metadata, schema=PUBLIC_SCHEMA, autoload_with=conn
     )

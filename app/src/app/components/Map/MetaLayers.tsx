@@ -12,7 +12,8 @@ import {demographyCache} from '@/app/utils/demography/demographyCache';
 import GeometryWorker from '@/app/utils/GeometryWorker';
 import React, {useLayoutEffect, useMemo, useState} from 'react';
 import {useEffect} from 'react';
-import {Layer, Source} from 'react-map-gl/maplibre';
+import {Source, Layer} from 'react-map-gl/maplibre';
+import { useColorScheme } from '@/app/hooks/useColorScheme';
 import {throttle} from 'lodash';
 import {FilterSpecification} from 'maplibre-gl';
 
@@ -103,7 +104,7 @@ const ZoneNumbersLayer = () => {
   const showZoneNumbers = useMapControlsStore(state => state.mapOptions.showZoneNumbers);
   const showPaintedDistricts = useMapControlsStore(state => state.mapOptions.showPaintedDistricts);
   const zoneAssignments = useAssignmentsStore(state => state.zoneAssignments);
-  const colorScheme = useMapStore(state => state.colorScheme);
+  const colorScheme = useColorScheme();
   const mapDocumentId = useMapStore(state => state.mapDocument?.document_id);
   const getMapRef = useMapStore(state => state.getMapRef);
   const lockedAreas = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);

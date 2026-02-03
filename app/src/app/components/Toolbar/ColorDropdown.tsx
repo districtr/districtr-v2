@@ -4,7 +4,7 @@ import React from 'react';
 import {ColorPickerProps} from './ColorPicker';
 
 export const ColorDropdown: React.FC<{
-  colorScheme: MapStore['colorScheme'];
+  colorScheme: string[];
   mapDocument: MapStore['mapDocument'];
   onValueChange: ColorPickerProps['onValueChange'];
   value: ColorPickerProps['value'];
