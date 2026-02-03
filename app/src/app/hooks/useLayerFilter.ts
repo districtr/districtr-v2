@@ -26,7 +26,7 @@ export const useLayerFilter = (child: boolean) => {
         ? ['match', ['get', 'path'], idsArray, true, false]
         : // nothing will ever match "__never__"
           ['==', ['get', 'path'], '__never__'];
-    
+
     return child ? filterBase : ['!', filterBase];
   }, [idsArray, child]);
 

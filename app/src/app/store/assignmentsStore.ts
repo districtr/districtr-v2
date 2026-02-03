@@ -69,7 +69,10 @@ export interface AssignmentsStore {
   resetZoneAssignments: () => void;
   /** Replaces or merges shatter state */
   setShatterState: (
-    state: Pick<AssignmentsStore, 'shatterIds' | 'parentToChild' | 'zoneAssignments' | 'childToParent'>
+    state: Pick<
+      AssignmentsStore,
+      'shatterIds' | 'parentToChild' | 'zoneAssignments' | 'childToParent'
+    >
   ) => void;
   /** Clears all shatter state */
   resetShatterState: () => void;
@@ -231,7 +234,15 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
   },
 
   healParentsIfAllChildrenInSameZone: (
-    {_parentIds, _zoneAssignments, _parentToChild, _shatterIds, _childToParent, _mapRef, _mapDocument},
+    {
+      _parentIds,
+      _zoneAssignments,
+      _parentToChild,
+      _shatterIds,
+      _childToParent,
+      _mapRef,
+      _mapDocument,
+    },
     mutation
   ) => {
     const state = get();
@@ -416,32 +427,34 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
 
   setShatterState: ({shatterIds, parentToChild, zoneAssignments, childToParent}) => {
     // Ensure both maps are provided or build from each other
-    const _parentToChild = parentToChild && parentToChild.size > 0
-      ? new Map(parentToChild)
-      : (() => {
-          const map = new Map<string, Set<string>>();
-          childToParent.forEach((parentId, childId) => {
-            if (!map.has(parentId)) {
-              map.set(parentId, new Set([childId]));
-            } else {
-              map.get(parentId)!.add(childId);
-            }
-          });
-          return map;
-        })();
-    
-    const _childToParent = childToParent && childToParent.size > 0
-      ? new Map(childToParent)
-      : (() => {
-          const map = new Map<string, string>();
-          parentToChild.forEach((children, parentId) => {
-            children.forEach(childId => {
-              map.set(childId, parentId);
+    const _parentToChild =
+      parentToChild && parentToChild.size > 0
+        ? new Map(parentToChild)
+        : (() => {
+            const map = new Map<string, Set<string>>();
+            childToParent.forEach((parentId, childId) => {
+              if (!map.has(parentId)) {
+                map.set(parentId, new Set([childId]));
+              } else {
+                map.get(parentId)!.add(childId);
+              }
             });
-          });
-          return map;
-        })();
-    
+            return map;
+          })();
+
+    const _childToParent =
+      childToParent && childToParent.size > 0
+        ? new Map(childToParent)
+        : (() => {
+            const map = new Map<string, string>();
+            parentToChild.forEach((children, parentId) => {
+              children.forEach(childId => {
+                map.set(childId, parentId);
+              });
+            });
+            return map;
+          })();
+
     set({
       shatterIds: {
         parents: new Set(shatterIds.parents),
@@ -467,7 +480,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
   handlePutAssignments: async (overwrite = false) => {
     // Flush any pending IDB updates before explicit save
     await idb.flushPendingUpdate();
-    
+
     const {zoneAssignments, shatterIds, parentToChild, childToParent} = get();
     const {mapDocument, setMapLock} = useMapStore.getState();
     if (!mapDocument?.document_id || !mapDocument.updated_at) return;

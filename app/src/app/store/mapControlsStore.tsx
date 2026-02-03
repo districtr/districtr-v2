@@ -10,7 +10,7 @@ import {useMapStore} from './mapStore';
 import {PaintEventHandler} from '@utils/map/types';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 
-type SidebarPanel = 'layers' | 'population' | 'demography' | 'election' | 'mapValidation';
+type SidebarPanel = 'layers' | 'population' | 'demography' | 'election' | 'mapValidation' | 'overlays';
 
 export interface MapControlsStore {
   selectedZone: Zone;
@@ -27,6 +27,7 @@ export interface MapControlsStore {
   setPaintFunction: (paintFunction: PaintEventHandler) => void;
   mapOptions: MapOptions & DistrictrMapOptions;
   setMapOptions: (options: Partial<MapControlsStore['mapOptions']>) => void;
+  setStateFp: (stateFp: string) => void;
   setLockedZones: (zones: Array<NullableZone>) => void;
   toggleLockAllAreas: () => void;
   spatialUnit: SpatialUnit;
@@ -42,7 +43,7 @@ export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
   bearing: 0,
   container: '',
   bounds: undefined,
-  currentStateFp: undefined,
+  stateFipsSet: undefined,
   highlightBrokenDistricts: false,
   higlightUnassigned: false,
   lockPaintedAreas: [],
@@ -91,6 +92,20 @@ export const useMapControlsStore = create<MapControlsStore>()(
     setPaintFunction: paintFunction => set({paintFunction}),
     mapOptions: DEFAULT_MAP_OPTIONS,
     setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
+    setStateFp: stateFp => {
+      const mapOptions = get().mapOptions;
+      const stateFipsSet = mapOptions.stateFipsSet;
+      if (!stateFipsSet) {
+        set({mapOptions: {...mapOptions, stateFipsSet: new Set([stateFp])}});
+      } else if (stateFipsSet.has(stateFp)) {
+        // Do nothing and do not trigger a re-render
+        return;
+      } else {
+        const newSet = new Set(stateFipsSet);
+        newSet.add(stateFp);
+        set({mapOptions: {...mapOptions, stateFipsSet: newSet}});
+      }
+    },
     setLockedZones: zones =>
       set({
         mapOptions: {

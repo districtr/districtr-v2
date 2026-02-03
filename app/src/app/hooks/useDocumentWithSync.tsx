@@ -1,6 +1,7 @@
 import {useState, useEffect} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
+import {useOverlayStore} from '@/app/store/overlayStore';
 import {
   fetchDocument,
   SyncConflictInfo,
@@ -89,6 +90,8 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
           },
           result.response.updateLocal ? result.response.document : undefined
         );
+        // Set overlays from document response
+        setMapDocument(result.response.document);
         setIsLoading(false);
         setAppLoadingState('loaded');
         return;

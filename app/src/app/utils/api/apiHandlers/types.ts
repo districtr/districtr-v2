@@ -74,6 +74,8 @@ export interface DocumentObject extends StatusObject {
   parent_geo_unit_type: string | null;
   child_geo_unit_type: string | null;
   data_source_name: string | null;
+  overlays: Overlay[] | null;
+  statefps: string[] | null;
 }
 
 export interface MinPublicDocument {
@@ -171,4 +173,28 @@ export interface FullCommentFormResponse {
   comment: CommentPublic;
   commenter: CommenterPublic;
   tags: TagPublic[];
+}
+
+export interface CommentListing {
+  comment: {
+    comment: string;
+    commenter_id: number;
+    document_id: string;
+    created_at: Date;
+    title: string;
+    updated_at: Date;
+  };
+  tags?: string[];
+}
+
+export interface Overlay {
+  overlay_id: string;
+  name: string;
+  description: string | null;
+  data_type: 'geojson' | 'pmtiles';
+  layer_type: 'fill' | 'line' | 'text';
+  custom_style: Record<string, any> | null;
+  source: string | null;
+  source_layer: string | null;
+  id_property: string | null;
 }
