@@ -15,6 +15,10 @@ export interface AssignmentsCreate {
   document_id: string;
   last_updated_at: string;
   overwrite: boolean;
+  metadata?: {
+    color_scheme?: string[] | null;
+    num_districts?: number | null;
+  };
 }
 export interface AssignmentsCreateResponse {
   assignments_inserted: number;
@@ -63,6 +67,8 @@ export interface DocumentObject extends StatusObject {
   child_layer: string | null;
   tiles_s3_path: string | null;
   num_districts: number | null;
+  /** If false, users cannot change the number of districts on the frontend. */
+  num_districts_modifiable?: boolean;
   map_module: string | null;
   created_at: string;
   updated_at: string;

@@ -24,7 +24,7 @@ const StyledCheckboxGroupItem = styled(CheckboxGroup.Item, {
 });
 
 export const ColorCheckbox: React.FC<{
-  colorScheme: MapStore['colorScheme'];
+  colorScheme: string[];
   mapDocument: MapStore['mapDocument'];
   onValueChange: (value: number[], colors: string[]) => void;
   value: number[];

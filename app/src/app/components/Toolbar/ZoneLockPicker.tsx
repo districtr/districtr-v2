@@ -1,14 +1,14 @@
-import React from 'react';
 import {Button, Box} from '@radix-ui/themes';
 import {useMapStore} from '../../store/mapStore';
 import {useMapControlsStore} from '../../store/mapControlsStore';
 import {ColorPicker} from './ColorPicker';
 import {LockClosedIcon, LockOpen2Icon} from '@radix-ui/react-icons';
+import { useColorScheme } from '@/app/hooks/useColorScheme';
 
 export function ZoneLockPicker() {
   const lockedZones = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);
   const mapDocument = useMapStore(state => state.mapDocument);
-  const colorScheme = useMapStore(state => state.colorScheme);
+  const colorScheme = useColorScheme();
   const access = useMapStore(state => state.mapStatus?.access);
   const numDistricts = mapDocument?.num_districts || 40;
   const allDistrictsNumbers = new Array(numDistricts).fill(null).map((_, i) => i + 1);

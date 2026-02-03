@@ -32,6 +32,7 @@ import {patchUnShatterParents} from '../utils/api/apiHandlers/patchUnShatterPare
 import {DEFAULT_MAP_OPTIONS, useMapControlsStore} from './mapControlsStore';
 import {useAssignmentsStore} from './assignmentsStore';
 import {patchUpdateReset} from '../utils/api/apiHandlers/patchUpdateReset';
+import {idb} from '../utils/idb/idb';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -71,11 +72,12 @@ export interface MapStore {
   setMapViews: (maps: MapStore['mapViews']) => void;
   mapDocument: DocumentObject | null;
   setMapDocument: (mapDocument: DocumentObject) => void;
+  flushMapState: boolean;
+  initiateFlushMapState: () => Promise<void>;
   mutateMapDocument: (mapDocument: Partial<DocumentObject>) => void;
   mapStatus: StatusObject | null;
   setMapStatus: (mapStatus: Partial<StatusObject>) => void;
-  colorScheme: string[];
-  setColorScheme: (colors: string[]) => void;
+  setNumDistricts: (numDistricts: number) => void;
 
   // SHATTERING
   /**
@@ -259,10 +261,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           token: mapDocument.token,
           password: mapDocument.password,
         },
-        colorScheme: extendColorArray(
-          mapDocument.color_scheme ?? DefaultColorScheme,
-          mapDocument.num_districts ?? FALLBACK_NUM_DISTRICTS
-        ),
         captiveIds: new Set(),
         focusFeatures: [],
         mapLock: null,
@@ -274,14 +272,63 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         workerUpdateHash: new Date().toISOString(),
       });
     },
+    flushMapState: false,
+    initiateFlushMapState: async () => {
+      set({flushMapState: true});
+      // wait for 50ms
+      // This is enough time to trigger a state update on esesntially all machines
+      // This forces an unmount and remount of the map sources, flushing the rendering state
+      await new Promise(resolve => setTimeout(resolve, 50));
+      set({flushMapState: false});
+    },
     mutateMapDocument: mapDocument => set({mapDocument: {...get().mapDocument!, ...mapDocument}}),
     mapStatus: null,
     setMapStatus: mapStatus => {
       const prev = get().mapStatus || {};
       set({mapStatus: {...prev, ...mapStatus} as StatusObject});
     },
-    colorScheme: DefaultColorScheme,
-    setColorScheme: colorScheme => set({colorScheme}),
+    setNumDistricts: numDistricts => {
+      const {mapDocument} = get();
+      if (!mapDocument) return;
+      const newColorScheme = extendColorArray(
+        mapDocument.color_scheme ?? DefaultColorScheme,
+        numDistricts
+      );
+      const updatedDocument = {
+        ...mapDocument,
+        num_districts: numDistricts,
+        color_scheme: newColorScheme,
+      };
+      set({
+        mapDocument: updatedDocument,
+      });
+      // Update IDB to persist the change locally
+      if (mapDocument.document_id) {
+        const newClientLastUpdated = new Date().toISOString();
+        // Update assignments store's clientLastUpdated so SavePopover detects the change
+        useAssignmentsStore.getState().setClientLastUpdated(newClientLastUpdated);
+
+        idb
+          .getDocument(mapDocument.document_id)
+          .then(idbDoc => {
+            if (idbDoc) {
+              idb
+                .updateDocument({
+                  id: mapDocument.document_id,
+                  document_metadata: updatedDocument,
+                  assignments: idbDoc.assignments,
+                  clientLastUpdated: newClientLastUpdated,
+                })
+                .catch(err => {
+                  console.error('Failed to update IDB with num_districts:', err);
+                });
+            }
+          })
+          .catch(err => {
+            console.error('Failed to get IDB document:', err);
+          });
+      }
+    },
     handleShatter: async features => {
       const {mapDocument, mapLock, setMapLock} = get();
       if (!features.length) {
@@ -426,7 +473,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         set({
           appLoadingState: 'loaded',
           mapLock: null,
-          colorScheme: DefaultColorScheme,
           assignmentsHash: updateHash,
           lastUpdatedHash: updateHash,
         });

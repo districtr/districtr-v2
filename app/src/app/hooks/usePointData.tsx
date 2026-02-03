@@ -13,7 +13,6 @@ const updateData = async (
   data: MutableRefObject<GeoJSON.FeatureCollection<GeoJSON.Point>>
 ) => {
   if (!layer) {
-    console.log('No layer provided');
     data.current = EMPTY_FT_COLLECTION;
     return new Date().toISOString();
   }
@@ -24,7 +23,6 @@ const updateData = async (
     data.current = EMPTY_FT_COLLECTION;
     return new Date().toISOString();
   } else if (parentWithSameLayer) {
-    console.log('parentWithSameLayer is true');
     // Do nothing
     return new Date().toISOString();
   }

@@ -23,7 +23,7 @@ const StyledRadioGroupItem = styled(RadioGroup.Item, {
 });
 
 export const ColorRadioGroup: React.FC<{
-  colorScheme: MapStore['colorScheme'];
+  colorScheme: string[];
   mapDocument: MapStore['mapDocument'];
   onValueChange: ColorPickerProps['onValueChange'];
   value: ColorPickerProps['value'];
