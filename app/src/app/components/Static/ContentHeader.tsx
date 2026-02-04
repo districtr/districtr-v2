@@ -1,9 +1,11 @@
 import {Heading} from '@radix-ui/themes';
 import React from 'react';
 
-export const ContentHeader: React.FC<{
+export interface ContentHeaderProps {
   title: string;
-}> = ({title}) => {
+}
+
+export const ContentHeader: React.FC<ContentHeaderProps> = ({title}) => {
   return (
     <Heading as="h2" className="font-bold p-4 bg-gray-100" size="6">
       {title}

@@ -8,7 +8,7 @@ import Color from '@tiptap/extension-color';
 import Link from '@tiptap/extension-link';
 import {boilerplateContent} from './BoilerplateContent';
 
-interface BoilerplateNodeRendererProps {
+export interface BoilerplateNodeRendererProps {
   customContent?: object;
 }
 
