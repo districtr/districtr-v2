@@ -238,6 +238,12 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         newStateFipsSet = new Set(mapControlsState.mapOptions.stateFipsSet);
       }
 
+      // If the color scheme does not cover all districts, extend it
+      let colorScheme = mapDocument.color_scheme ?? DefaultColorScheme;
+      if (mapDocument.num_districts && mapDocument.num_districts > colorScheme.length) {
+        colorScheme = extendColorArray(colorScheme, mapDocument.num_districts);
+      }
+
       useMapControlsStore.setState({
         mapOptions: {
           ...DEFAULT_MAP_OPTIONS,
@@ -254,7 +260,10 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       useAssignmentsStore.getState().resetShatterState();
 
       set({
-        mapDocument,
+        mapDocument: {
+          ...mapDocument,
+          color_scheme: colorScheme,
+        },
         mapStatus: {
           access: mapDocument.access,
           genesis: mapDocument.genesis,
