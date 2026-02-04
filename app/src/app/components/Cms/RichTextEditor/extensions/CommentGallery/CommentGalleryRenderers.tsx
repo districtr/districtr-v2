@@ -72,40 +72,37 @@ export const CommentCard: React.FC<CommentRenderersProps> = ({comment, options})
         <Flex align="start" justify="between" gap="3">
           <Flex direction="column" gap="1" className="flex-1 min-w-0">
             {options.showTitles && comment.title && (
-              <Heading
-                size="3"
-                className="text-slate-800 line-clamp-2"
-                title={comment.title}
-              >
+              <Heading size="2" as="h3" className="text-slate-800 line-clamp-2 pt-0 mt-0" title={comment.title}>
                 {comment.title}
               </Heading>
             )}
-            {options.showIdentifier && (
-              <Flex align="center" gap="1.5">
-                <PersonIcon className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                <Text size="2" color="gray" className="truncate">
-                  {getCommenterName(comment)}
-                </Text>
+            {!!(options.showIdentifier || options.showCreatedAt) && (
+              <Flex direction="row" justify="between" align="center" gap="1.5">
+                {options.showIdentifier && (
+                  <Flex align="center" gap="1.5">
+                    <PersonIcon className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                    <Text size="1" color="gray" className="truncate">
+                      {getCommenterName(comment)}
+                    </Text>
+                  </Flex>
+                )}
+                {options.showCreatedAt && comment.created_at && (
+                  <Flex align="center" gap="1" className="flex-shrink-0">
+                    <CalendarIcon className="w-3 h-3 text-slate-400" />
+                    <Text size="1" color="gray" className="whitespace-nowrap">
+                      {formatDistanceToNow(new Date(comment.created_at), {addSuffix: true})}
+                    </Text>
+                  </Flex>
+                )}
               </Flex>
             )}
           </Flex>
-          {options.showCreatedAt && comment.created_at && (
-            <Flex align="center" gap="1" className="flex-shrink-0">
-              <CalendarIcon className="w-3 h-3 text-slate-400" />
-              <Text size="1" color="gray" className="whitespace-nowrap">
-                {formatDistanceToNow(new Date(comment.created_at), {addSuffix: true})}
-              </Text>
-            </Flex>
-          )}
         </Flex>
       </Box>
 
       {/* Content */}
       <Box className="px-4 py-3 flex-1">
-        <Text
-          size="2"
-          className="text-slate-600 whitespace-pre-line line-clamp-4"
-        >
+        <Text size="2" className="text-slate-600 whitespace-pre-line line-clamp-4">
           {comment.comment}
         </Text>
       </Box>
@@ -122,13 +119,7 @@ export const CommentCard: React.FC<CommentRenderersProps> = ({comment, options})
         {/* Tags and Map */}
         <Flex wrap="wrap" gap="2" align="center">
           {comment.tags?.map(tag => (
-            <Badge
-              key={tag}
-              size="1"
-              variant="surface"
-              color="purple"
-              className="cursor-default"
-            >
+            <Badge key={tag} size="1" variant="surface" color="purple" className="cursor-default">
               #{tag}
             </Badge>
           ))}
