@@ -8,6 +8,7 @@ import {
   DocumentObject,
   DocumentMetadata,
   StatusObject,
+  ZoneComment,
 } from '@utils/api/apiHandlers/types';
 import maplibregl from 'maplibre-gl';
 import type {MutableRefObject} from 'react';
@@ -78,6 +79,17 @@ export interface MapStore {
   mapStatus: StatusObject | null;
   setMapStatus: (mapStatus: Partial<StatusObject>) => void;
   setNumDistricts: (numDistricts: number) => void;
+
+  // ZONE COMMENTS
+  pinnedCommentZone: number | null;
+  setPinnedCommentZone: (zone: number | null) => void;
+  addZoneComment: (zone: number, title: string, comment: string) => void;
+  editZoneComment: (zone: number, index: number, title: string, comment: string) => void;
+  removeZoneComment: (zone: number, index: number) => void;
+  getZoneCommentsForZone: (zone: number) => ZoneComment[];
+  getZonesWithComments: () => number[];
+  getDirtyZoneComments: () => ZoneComment[];
+  clearZoneCommentsDirtyState: () => void;
 
   // SHATTERING
   /**
@@ -291,6 +303,117 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       set({flushMapState: false});
     },
     mutateMapDocument: mapDocument => set({mapDocument: {...get().mapDocument!, ...mapDocument}}),
+
+    // ZONE COMMENTS
+    pinnedCommentZone: null,
+    setPinnedCommentZone: zone => set({pinnedCommentZone: zone}),
+
+    addZoneComment: (zone, title, comment) => {
+      const {mapDocument} = get();
+      if (!mapDocument) return;
+
+      const currentComments = mapDocument.zone_comments || [];
+      const newComment: ZoneComment = {
+        zone,
+        title,
+        comment,
+        isLocal: true,
+      };
+
+      set({
+        mapDocument: {
+          ...mapDocument,
+          zone_comments: [...currentComments, newComment],
+        },
+      });
+    },
+
+    editZoneComment: (zone, index, title, comment) => {
+      const {mapDocument} = get();
+      if (!mapDocument) return;
+
+      const currentComments = mapDocument.zone_comments || [];
+      // Find the comment at the specified index for this zone
+      let zoneIndex = 0;
+      const updatedComments = currentComments.map(c => {
+        if (c.zone === zone) {
+          if (zoneIndex === index) {
+            zoneIndex++;
+            return {...c, title, comment, isLocal: true};
+          }
+          zoneIndex++;
+        }
+        return c;
+      });
+
+      set({
+        mapDocument: {
+          ...mapDocument,
+          zone_comments: updatedComments,
+        },
+      });
+    },
+
+    removeZoneComment: (zone, index) => {
+      const {mapDocument} = get();
+      if (!mapDocument) return;
+
+      const currentComments = mapDocument.zone_comments || [];
+      // Find and remove the comment at the specified index for this zone
+      let zoneIndex = 0;
+      const updatedComments = currentComments.filter(c => {
+        if (c.zone === zone) {
+          if (zoneIndex === index) {
+            zoneIndex++;
+            return false; // Remove this one
+          }
+          zoneIndex++;
+        }
+        return true;
+      });
+
+      set({
+        mapDocument: {
+          ...mapDocument,
+          zone_comments: updatedComments,
+        },
+      });
+    },
+
+    getZoneCommentsForZone: (zone: number) => {
+      const {mapDocument} = get();
+      return (mapDocument?.zone_comments || []).filter(c => c.zone === zone);
+    },
+
+    getZonesWithComments: () => {
+      const {mapDocument} = get();
+      const zones = new Set<number>();
+      (mapDocument?.zone_comments || []).forEach(c => zones.add(c.zone));
+      return Array.from(zones).sort((a, b) => a - b);
+    },
+
+    getDirtyZoneComments: () => {
+      const {mapDocument} = get();
+      return (mapDocument?.zone_comments || []).filter(c => c.isLocal);
+    },
+
+    clearZoneCommentsDirtyState: () => {
+      const {mapDocument} = get();
+      if (!mapDocument?.zone_comments) return;
+
+      const updatedComments = mapDocument.zone_comments.map(c => ({
+        ...c,
+        isLocal: false,
+      }));
+
+      set({
+        mapDocument: {
+          ...mapDocument,
+          zone_comments: updatedComments,
+        },
+      });
+    },
+
     mapStatus: null,
     setMapStatus: mapStatus => {
       const prev = get().mapStatus || {};

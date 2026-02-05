@@ -118,6 +118,14 @@ const ZoneNumbersLayer = () => {
   );
   const shouldHide = showBlockPopulationNumbers && focusFeaturesLength;
   const demogHash = useDemographyStore(state => state.dataHash);
+  const zoneComments = useMapStore(state => state.mapDocument?.zone_comments);
+
+  // Get zones that have comments
+  const zonesWithComments = useMemo(() => {
+    const zones = new Set<number>();
+    (zoneComments || []).forEach(c => zones.add(c.zone));
+    return Array.from(zones);
+  }, [zoneComments]);
 
   const addZoneMetaLayers = async (
   ) => {
@@ -133,6 +141,9 @@ const ZoneNumbersLayer = () => {
     ] as [number, number, number, number];
     const id = `${mapDocumentId}`;
     const activeZones = demographyCache.populations.filter(p => p.total_pop_20 > 0).map(p => p.zone);
+    const mapState = useMapStore.getState();
+    const currentComments = mapState.mapDocument?.zone_comments || [];
+    const zonesWithCommentSet = new Set(currentComments.map(c => c.zone));
     if (showZoneNumbers && GeometryWorker) {
       const geoms = await GeometryWorker.getCentroidsFromView({
         activeZones,
@@ -140,7 +151,18 @@ const ZoneNumbersLayer = () => {
         strategy: 'median-point',
       });
       if (geoms && mapDocumentId === id) {
-        setZoneNumberData(geoms.centroids);
+        // Add hasComments property to each feature
+        const enrichedFeatures = geoms.centroids.features.map(feature => ({
+          ...feature,
+          properties: {
+            ...feature.properties,
+            hasComments: zonesWithCommentSet.has(feature.properties?.zone),
+          },
+        }));
+        setZoneNumberData({
+          ...geoms.centroids,
+          features: enrichedFeatures,
+        });
       }
     } else {
       setZoneNumberData(EMPTY_FT_COLLECTION);
@@ -160,6 +182,7 @@ const ZoneNumbersLayer = () => {
     mapRenderingState,
     appLoadingState,
     demogHash,
+    zonesWithComments,
   ]);
 
   useEffect(() => {
@@ -279,6 +302,31 @@ const ZoneNumbersLayer = () => {
           // get zone not in lockedAreas
           ['in', ['get', 'zone'], ['literal', lockedAreas]]
         }
+      ></Layer>
+      {/* Comment indicator for zones with comments */}
+      <Layer
+        id="ZONE_COMMENT_INDICATOR"
+        type="symbol"
+        source="zone-label"
+        layout={{
+          visibility: shouldHide ? 'none' : 'visible',
+          'text-field': '💬',
+          'text-size': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            5,
+            10,
+            10,
+            14,
+            15,
+            18,
+          ],
+          'text-anchor': 'top-left',
+          'text-offset': [0.8, -0.8],
+          'text-allow-overlap': true,
+        }}
+        filter={['==', ['get', 'hasComments'], true]}
       ></Layer>
     </Source>
   );

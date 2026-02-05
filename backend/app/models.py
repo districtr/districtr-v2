@@ -211,6 +211,16 @@ class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
     document_id: str = Field(sa_column=Column(UUIDType, nullable=False))
 
 
+class ZoneCommentPublic(BaseModel):
+    """Public representation of a zone-level comment."""
+
+    id: int
+    zone: int
+    title: str
+    comment: str
+    created_at: datetime | None = None
+
+
 class DocumentPublic(BaseModel):
     document_id: str
     public_id: int | None = None
@@ -235,6 +245,7 @@ class DocumentPublic(BaseModel):
     data_source_name: str | None = None
     overlays: list["OverlayPublic"] | None = None
     statefps: list[str] | None = None
+    zone_comments: list["ZoneCommentPublic"] | None = None
 
 
 class DocumentCreatePublic(DocumentPublic):

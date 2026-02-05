@@ -1,5 +1,5 @@
 from fastapi import Depends, HTTPException, status
-from sqlmodel import select, Session, literal
+from sqlmodel import select, Session, literal, col
 from app.core.models import DocumentID
 from app.models import (
     Document,
@@ -8,7 +8,9 @@ from app.models import (
     DistrictrMapOverlays,
     Overlay,
     OverlayPublic,
+    ZoneCommentPublic,
 )
+from app.comments.models import Comment, DocumentComment
 from app.save_share.models import (
     DocumentShareStatus,
     MapDocumentToken,
@@ -100,6 +102,8 @@ def get_document_public(
         literal(
             "anonymous" if document_id.is_public else document_id.document_id
         ).label("document_id"),
+        # Real document ID for internal use (fetching comments, etc.)
+        Document.document_id.label("real_document_id"),
         Document.created_at,
         Document.districtr_map_slug,
         Document.updated_at,
@@ -169,7 +173,35 @@ def get_document_public(
                 for overlay in overlays
             ]
 
-    # Convert result to DocumentPublic with overlays
+    # Fetch zone comments for this document
+    zone_comments_list = None
+    if result.real_document_id:
+        zone_comments_results = session.exec(
+            select(
+                col(Comment.id),
+                col(Comment.title),
+                col(Comment.comment),
+                col(Comment.created_at),
+                col(DocumentComment.zone),
+            )
+            .select_from(Comment)
+            .join(DocumentComment, col(DocumentComment.comment_id) == Comment.id)
+            .where(col(DocumentComment.document_id) == result.real_document_id)
+            .where(col(DocumentComment.zone).isnot(None))
+        ).all()
+        if zone_comments_results:
+            zone_comments_list = [
+                ZoneCommentPublic(
+                    id=zc.id,
+                    zone=zc.zone,
+                    title=zc.title,
+                    comment=zc.comment,
+                    created_at=zc.created_at,
+                )
+                for zc in zone_comments_results
+            ]
+
+    # Convert result to DocumentPublic with overlays and zone comments
     return DocumentPublic(
         document_id=result.document_id,
         public_id=result.public_id,
@@ -194,6 +226,7 @@ def get_document_public(
         data_source_name=result.data_source_name,
         overlays=overlays_list,
         statefps=result.statefps,
+        zone_comments=zone_comments_list,
     )
 
 

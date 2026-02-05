@@ -16,7 +16,7 @@ from sqlalchemy import text, func, select, String, Select
 from app.core.security import auth, TokenScope
 from sqlalchemy.sql import or_, and_, exists, literal, cast, case
 
-from app.core.dependencies import get_protected_document
+from app.core.dependencies import get_protected_document, get_document
 from app.core.db import get_session
 from app.comments.models import (
     Commenter,
@@ -40,6 +40,8 @@ from app.comments.models import (
     ReviewStatusUpdate,
     ReviewUpdateResponse,
     CommentFilterParams,
+    BatchZoneCommentsCreate,
+    BatchZoneCommentsResponse,
 )
 from app.comments.moderation import (
     moderate_submission,
@@ -260,6 +262,83 @@ async def create_comment(
 
     background_tasks.add_task(moderate_comment, comment, session)
     return comment
+
+
+@router.post(
+    "/batch_zone_comments",
+    response_model=BatchZoneCommentsResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_batch_zone_comments(
+    data: BatchZoneCommentsCreate,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+):
+    """
+    Create multiple zone comments for a document.
+    This endpoint is used for saving district-level comments from the map editor.
+    Requires the document's private UUID (not public ID).
+    """
+    # Validate document exists and get it
+    try:
+        document = get_document(
+            document_id=DocumentID(document_id=data.document_id),
+            session=session,
+        )
+    except HTTPException:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document {data.document_id} not found",
+        )
+
+    created_comments: list[CommentPublic] = []
+
+    try:
+        for zone_comment in data.comments:
+            # Create the comment
+            comment = Comment(
+                title=zone_comment.title,
+                comment=zone_comment.comment,
+            )
+            session.add(comment)
+            session.flush()
+
+            # Create the document-comment association with zone
+            stmt = insert(DocumentComment).values(
+                comment_id=comment.id,
+                document_id=document.document_id,
+                zone=zone_comment.zone,
+            )
+            session.execute(stmt)
+
+            created_comments.append(
+                CommentPublic(
+                    id=comment.id,
+                    title=comment.title,
+                    comment=comment.comment,
+                    zone=zone_comment.zone,
+                    created_at=comment.created_at,
+                    updated_at=comment.updated_at,
+                )
+            )
+
+            # Queue moderation in background
+            background_tasks.add_task(moderate_comment, comment, session)
+
+        session.commit()
+
+    except (DataError, IntegrityError) as e:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e),
+        )
+
+    return BatchZoneCommentsResponse(
+        document_id=data.document_id,
+        created_count=len(created_comments),
+        comments=created_comments,
+    )
 
 
 @router.post("/tag", response_model=TagWithId, status_code=status.HTTP_201_CREATED)
