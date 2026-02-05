@@ -15,6 +15,10 @@ export interface AssignmentsCreate {
   document_id: string;
   last_updated_at: string;
   overwrite: boolean;
+  metadata?: {
+    color_scheme?: string[] | null;
+    num_districts?: number | null;
+  };
 }
 export interface AssignmentsCreateResponse {
   assignments_inserted: number;
@@ -63,6 +67,8 @@ export interface DocumentObject extends StatusObject {
   child_layer: string | null;
   tiles_s3_path: string | null;
   num_districts: number | null;
+  /** If false, users cannot change the number of districts on the frontend. */
+  num_districts_modifiable?: boolean;
   map_module: string | null;
   created_at: string;
   updated_at: string;
@@ -74,6 +80,8 @@ export interface DocumentObject extends StatusObject {
   parent_geo_unit_type: string | null;
   child_geo_unit_type: string | null;
   data_source_name: string | null;
+  overlays: Overlay[] | null;
+  statefps: string[] | null;
 }
 
 export interface MinPublicDocument {
@@ -183,4 +191,16 @@ export interface CommentListing {
     updated_at: Date;
   };
   tags?: string[];
+}
+
+export interface Overlay {
+  overlay_id: string;
+  name: string;
+  description: string | null;
+  data_type: 'geojson' | 'pmtiles';
+  layer_type: 'fill' | 'line' | 'text';
+  custom_style: Record<string, any> | null;
+  source: string | null;
+  source_layer: string | null;
+  id_property: string | null;
 }

@@ -34,5 +34,8 @@ export const getFeaturesInBbox = (
       : [BLOCK_HOVER_LAYER_ID];
 
   let features = map?.queryRenderedFeatures(bbox, {layers}) || [];
-  return filterFeatures(features, filterLocked);
+  return filterFeatures({
+    _features: features,
+    filterLocked,
+  });
 };

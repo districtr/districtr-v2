@@ -18,6 +18,7 @@ import {
 import {PlanGallery, PlanGalleryProps} from './PlanGallery';
 import {GearIcon, TrashIcon} from '@radix-ui/react-icons';
 import {NoFocusBoundary} from '../NoFocusBoundary';
+import {CmsSettingsChips} from '../EditHelpers/CmsSettingsChips';
 
 const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, deleteNode}) => {
   const parentRef = useRef<HTMLDivElement>(null);
@@ -46,7 +47,7 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
   };
 
   return (
-    <NodeViewWrapper className="relative" ref={parentRef} contentEditable={false}>
+    <NodeViewWrapper className="relative border-[1px] border-blue-500 my-4 rounded-md border-dashed" ref={parentRef} contentEditable={false}>
       <NoFocusBoundary parentRef={parentRef}>
         <PlanGallery
           ids={ids}
@@ -147,14 +148,14 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
                     <Tabs.Trigger value="tags">Tags</Tabs.Trigger>
                   </Tabs.List>
                   <Tabs.Content value="ids">
-                    <ChipsPlanGalleryNodeView
+                    <CmsSettingsChips
                       entries={ids || []}
                       handleUpdate={handleUpdate}
                       property="ids"
                     />
                   </Tabs.Content>
                   <Tabs.Content value="tags">
-                    <ChipsPlanGalleryNodeView
+                    <CmsSettingsChips
                       entries={tags || []}
                       handleUpdate={handleUpdate}
                       property="tags"

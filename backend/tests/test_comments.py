@@ -1124,13 +1124,13 @@ class TestCommentListEndpoints:
         assert comments[0]["title"] == "Moderate Comment"
 
         # Test with higher threshold (should include both)
-        response = client.get("/api/comments/admin/list?min_moderation_score=0.6")
+        response = client.get("/api/comments/admin/list?max_moderation_score=0.6")
         assert response.status_code == 200
         comments = response.json()
         assert len(comments) == 1
 
         # Test with lower threshold (should exclude both)
-        response = client.get("/api/comments/admin/list?min_moderation_score=0.2")
+        response = client.get("/api/comments/admin/list?max_moderation_score=0.2")
         assert response.status_code == 200
         comments = response.json()
         assert len(comments) == 0

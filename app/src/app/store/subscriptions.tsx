@@ -5,6 +5,7 @@ import {getMapEditSubs} from './mapEditSubs';
 import {MapStore, useMapStore} from './mapStore';
 import {useMapControlsStore} from './mapControlsStore';
 import {useAssignmentsStore} from './assignmentsStore';
+import { demographyCache } from '../utils/demography/demographyCache';
 
 export const initSubs = () => {
   // these need to initialize after the map store
@@ -29,6 +30,13 @@ export const initSubs = () => {
     (curr, prev) => {
       if (!curr || prev === curr || prev?.document_id === curr.document_id) return;
       useDemographyStore.getState().updateData(curr);
+    }
+  );
+  const numDistrictsSub = useMapStore.subscribe(
+    state => state.mapDocument?.num_districts,
+    (curr, prev) => {
+      if (!curr || prev === curr) return;
+      demographyCache.updateSummaryStats();
     }
   );
 

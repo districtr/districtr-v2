@@ -9,7 +9,6 @@ export const CommentFormTagSelector: React.FC<{
   const tags = useFormState(state => state.tags);
   const setTags = useFormState(state => state.setTags);
   const [tagInput, setTagInput] = useState('');
-
   useEffect(() => {
     const tagsIsArray = Array.isArray(tags);
     mandatoryTags?.forEach(tag => {

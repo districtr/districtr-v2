@@ -53,10 +53,11 @@ export const temporalConfig: ZundoOptions<any, AssignmentsStore> = {
   limit: 20,
   // @ts-ignore: save only partial store
   partialize: state => {
-    const {shatterIds, shatterMappings, zoneAssignments, clientLastUpdated} = state;
+    const {shatterIds, parentToChild, zoneAssignments, clientLastUpdated, childToParent} = state;
     return {
       shatterIds,
-      shatterMappings,
+      parentToChild,
+      childToParent,
       zoneAssignments,
       clientLastUpdated,
     } as Partial<AssignmentsStore>;

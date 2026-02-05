@@ -259,6 +259,7 @@ export class MapRenderSubscriber {
           state.mapOptions.lockPaintedAreas,
           state.mapOptions.showZoneNumbers,
           state.mapOptions.showDemographicMap,
+          state.isPainting,
         ],
         () => this.renderColorZones(),
         {equalityFn: shallowCompareArray}

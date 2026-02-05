@@ -309,7 +309,9 @@ class PublicCommentResponse(BaseModel):
     state: str | None = None
     zip_code: str | None = None
     tags: list[str | None] = []
+    created_at: datetime | None = None
     zone: int | None = None
+    public_id: int | None = None
 
 
 class AdminCommentResponse(PublicCommentResponse):
@@ -340,3 +342,15 @@ class ReviewUpdateResponse(BaseModel):
     message: str
     id: int
     new_status: ReviewStatus
+
+
+class CommentFilterParams(BaseModel):
+    """Common filter parameters for comment queries."""
+
+    tags: list[str] | None = None
+    place: str | None = None
+    state: str | None = None
+    zip_code: str | None = None
+    limit: int = 100
+    offset: int = 0
+    public_id: int | None = None

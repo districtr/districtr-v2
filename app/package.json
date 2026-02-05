@@ -1,6 +1,6 @@
 {
   "name": "districtr-reboot",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
@@ -22,6 +22,9 @@
     "@emotion/react": "^11.13.0",
     "@emotion/styled": "^11.13.0",
     "@mapbox/mapbox-gl-sync-move": "^0.3.1",
+    "@mdx-js/loader": "^3.1.1",
+    "@mdx-js/react": "^3.1.1",
+    "@next/mdx": "^16.1.1",
     "@radix-ui/colors": "^3.0.0",
     "@radix-ui/react-accordion": "^1.2.2",
     "@radix-ui/react-icons": "^1.3.0",
@@ -40,6 +43,7 @@
     "@tiptap/starter-kit": "^2.11.5",
     "@turf/turf": "^7.2.0",
     "@types/d3-scale": "^4.0.9",
+    "@types/mdx": "^2.0.13",
     "@types/papaparse": "^5.3.15",
     "@types/react-color": "^3.0.13",
     "@types/react-google-recaptcha": "^2.1.9",

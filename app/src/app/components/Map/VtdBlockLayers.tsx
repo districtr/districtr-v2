@@ -10,7 +10,6 @@ import {DemographicLayer} from './DemographicLayer';
 import {HighlightOverlayerLayerGroup} from './HighlightOverlayLayerGroup';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
 import {useClearMap} from '@/app/hooks/useClearMap';
-import {PointSelectionLayer} from './PointSelectionLayer';
 import {TILESET_URL} from '@/app/utils/api/constants';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 
@@ -22,6 +21,7 @@ export const VtdBlockLayers: React.FC<{
   const showDemographicMap = useMapControlsStore(state => state.mapOptions.showDemographicMap);
   const demographicVariable = useDemographyStore(state => state.variable);
   const demographicVariant = useDemographyStore(state => state.variant);
+  const flushMapState = useMapStore(state => state.flushMapState);
   const [loadedTiles, setLoadedTiles] = useState('');
   const setScale = useDemographyStore(state => state.setScale);
   const demographyDataHash = useDemographyStore(state => state.dataHash);
@@ -85,7 +85,7 @@ export const VtdBlockLayers: React.FC<{
     mapDocument,
     demographicVariant,
   ]);
-  if (!mapDocument || loadedTiles !== mapDocument.tiles_s3_path) return null;
+  if (!mapDocument || loadedTiles !== mapDocument.tiles_s3_path || flushMapState) return null;
 
   return (
     <>
@@ -102,8 +102,6 @@ export const VtdBlockLayers: React.FC<{
         <HighlightOverlayerLayerGroup />
         <HighlightOverlayerLayerGroup child />
       </Source>
-      <PointSelectionLayer />
-      <PointSelectionLayer child />
     </>
   );
 };

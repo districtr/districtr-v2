@@ -14,6 +14,7 @@ from sqlalchemy.exc import (
     IntegrityError,
 )
 from sqlalchemy import text
+from sqlalchemy.types import Integer
 from sqlmodel import Session, String, select, true, update, col
 from starlette.middleware.cors import CORSMiddleware
 import logging
@@ -57,6 +58,7 @@ from app.models import (
     BBoxGeoJSONs,
     MapGroup,
     AssignmentsCreate,
+    NumDistrictsSetResult,
 )
 from app.comments.models import DocumentComment, Tag, CommentTag
 from pydantic_geojson import PolygonModel
@@ -159,27 +161,64 @@ async def get_document_stats(
 async def create_document(
     data: DocumentCreate, session: Session = Depends(get_session)
 ):
-    results = session.execute(
-        text("SELECT create_document(:districtr_map_slug);"),
-        {"districtr_map_slug": data.districtr_map_slug},
+    # Get DistrictrMap to inherit num_districts and other fields
+    districtr_map_stmt = select(DistrictrMap).where(
+        DistrictrMap.districtr_map_slug == data.districtr_map_slug
     )
-    document_id = results.one()[0]  # create_document only returns the ID
-    created_document = get_document(
-        document_id=DocumentID(document_id=str(document_id)), session=session
-    )
+    districtr_map = session.exec(districtr_map_stmt).first()
+    if not districtr_map:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"DistrictrMap matching {data.districtr_map_slug} does not exist.",
+        )
 
-    total_assignments = 0
+    # Determine num_districts: from copied document if copying, otherwise from DistrictrMap
+    num_districts = districtr_map.num_districts
+    copied_document = None
 
     if data.copy_from_doc is not None:
-        logger.info(
-            f"Copying document. Origin document: {data.copy_from_doc} to {document_id}"
-        )
         copy_document_id = parse_document_id(data.copy_from_doc)
         if not copy_document_id:
             raise HTTPException(status_code=404, detail="Document not found")
         data.copy_from_doc = copy_document_id
         copied_document = get_protected_document(
             document_id=data.copy_from_doc, session=session
+        )
+        # Inherit num_districts from source document, with fallback to DistrictrMap
+        num_districts = copied_document.num_districts or districtr_map.num_districts
+
+    # Generate UUID for document_id
+    document_id = str(uuid4())
+
+    # Create Document object
+    new_document = Document(
+        document_id=document_id,
+        districtr_map_slug=data.districtr_map_slug,
+        num_districts=num_districts,
+    )
+    session.add(new_document)
+    session.flush()  # Flush to get the public_id assigned
+    # Under most circumstances, we DO NOT want to use f-strings in SQL statements.
+    # However, in this case, we are using a dynamic table name, and SQLAlchemy / Postgres do not
+    # support bind params for identifiers or partition values, so we need to use f-strings.
+    partition_name = f"document.assignments_{document_id}"
+    # Create assignment partition
+    stmt = text(f"""
+        CREATE TABLE "{partition_name}"
+        PARTITION OF document.assignments
+        FOR VALUES IN ('{document_id}')
+    """)
+    session.execute(stmt)
+
+    created_document = get_document(
+        document_id=DocumentID(document_id=document_id), session=session
+    )
+
+    total_assignments = 0
+
+    if copied_document is not None:
+        logger.info(
+            f"Copying document. Origin document: {copied_document.document_id} to {document_id}"
         )
         assert copied_document.document_id is not None
         total_assignments = duplicate_document_assignments(
@@ -239,9 +278,13 @@ async def create_document(
             DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.name.label("map_module"),  # pyright: ignore
-            DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
+            coalesce(Document.num_districts, DistrictrMap.num_districts).label(
+                "num_districts"
+            ),  # pyright: ignore
+            DistrictrMap.num_districts_modifiable.label("num_districts_modifiable"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
             DistrictrMap.map_type.label("map_type"),  # pyright: ignore
+            DistrictrMap.statefps.label("statefps"),  # pyright: ignore
             coalesce(total_assignments).label("inserted_assignments"),
             Document.map_metadata,
         )
@@ -307,6 +350,7 @@ async def update_assignments(
             - assignments: List of assignment pairs [[geo_id, zone], ...]
             - last_updated_at: Timestamp of the client's last known update (for conflict detection)
             - overwrite: If True, allows overwriting even if document was updated by another client
+            - metadata: Optional metadata to update the document
         session (Session): Database session dependency
 
     Returns:
@@ -376,6 +420,59 @@ async def update_assignments(
     if len(data.assignments) > 0:
         updated_at = update_timestamp(session, document_id)
         logger.info(f"Document updated at {updated_at}")
+
+    # Update num_districts if provided
+    if data.metadata is not None:
+        if data.metadata.num_districts is not None:
+            # Reject if map has num_districts_modifiable=False
+            districtr_map = session.exec(
+                select(DistrictrMap)
+                .join(
+                    Document,
+                    Document.districtr_map_slug == DistrictrMap.districtr_map_slug,
+                )
+                .where(Document.document_id == document_id)
+            ).first()
+            if districtr_map and not getattr(
+                districtr_map, "num_districts_modifiable", True
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Number of districts is not modifiable for this map",
+                )
+            if data.metadata.num_districts < 2 or data.metadata.num_districts > 538:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Number of districts must be at least 2 and at most 538",
+                )
+            stmt = text(
+                """UPDATE document.document
+                SET num_districts = :num_districts
+                WHERE document_id = :document_id"""
+            ).bindparams(
+                bindparam(key="document_id", type_=UUIDType),
+                bindparam(key="num_districts", type_=Integer),
+            )
+            session.execute(
+                stmt,
+                {
+                    "document_id": document_id,
+                    "num_districts": data.metadata.num_districts,
+                },
+            )
+
+        if data.metadata.color_scheme is not None:
+            stmt = text(
+                """UPDATE document.document
+                SET color_scheme = :colors
+                WHERE document_id = :document_id"""
+            ).bindparams(
+                bindparam(key="document_id", type_=UUIDType),
+                bindparam(key="colors", type_=ARRAY(String)),
+            )
+            session.execute(
+                stmt, {"document_id": document_id, "colors": data.metadata.color_scheme}
+            )
 
     session.commit()
     return {"assignments_inserted": inserted_count, "updated_at": updated_at}
@@ -454,23 +551,22 @@ async def reset_map(
 )
 async def update_colors(
     colors: list[str],
-    document_id: DocumentID = Depends(parse_document_id),
+    document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
 ):
+    # Get num_districts from Document, with fallback to DistrictrMap
     districtr_map = session.exec(
-        select(DistrictrMap)
-        .join(
-            Document,
-            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,  # pyright: ignore
-            isouter=True,
+        select(DistrictrMap).where(
+            DistrictrMap.districtr_map_slug == document.districtr_map_slug
         )
-        .where(Document.document_id == document_id.value)
     ).one()
 
-    if districtr_map.num_districts != len(colors):
+    num_districts = document.num_districts or districtr_map.num_districts
+
+    if num_districts is not None and num_districts != len(colors):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Number of colors provided ({len(colors)}) does not match number of zones ({districtr_map.num_districts})",
+            detail=f"Number of colors provided ({len(colors)}) does not match number of zones ({num_districts})",
         )
 
     stmt = text(
@@ -481,9 +577,50 @@ async def update_colors(
         bindparam(key="document_id", type_=UUIDType),
         bindparam(key="colors", type_=ARRAY(String)),
     )
-    session.execute(stmt, {"document_id": document_id.value, "colors": colors})
+    session.execute(stmt, {"document_id": document.document_id, "colors": colors})
     session.commit()
     return ColorsSetResult(colors=colors)
+
+
+@app.put(
+    "/api/document/{document_id}/num_districts",
+    response_model=NumDistrictsSetResult,
+)
+async def update_num_districts(
+    num_districts: int,
+    document: Annotated[Document, Depends(get_document)],
+    session: Session = Depends(get_session),
+):
+    if num_districts < 2 or num_districts > 538:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Number of districts must be at least 2 and at most 538",
+        )
+
+    districtr_map = session.exec(
+        select(DistrictrMap).where(
+            DistrictrMap.districtr_map_slug == document.districtr_map_slug
+        )
+    ).first()
+    if districtr_map and not getattr(districtr_map, "num_districts_modifiable", True):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Number of districts is not modifiable for this map",
+        )
+
+    stmt = text(
+        """UPDATE document.document
+        SET num_districts = :num_districts
+        WHERE document_id = :document_id"""
+    ).bindparams(
+        bindparam(key="document_id", type_=UUIDType),
+        bindparam(key="num_districts", type_=Integer),
+    )
+    session.execute(
+        stmt, {"document_id": document.document_id, "num_districts": num_districts}
+    )
+    session.commit()
+    return NumDistrictsSetResult(num_districts=num_districts)
 
 
 # called by getAssignments in apiHandlers.ts
