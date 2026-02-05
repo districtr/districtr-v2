@@ -103,12 +103,8 @@ test.describe('Map Navigation', () => {
     }
     
     // Check for navigation control (zoom buttons)
-    const navControl = page.locator(testSelectors.navigationZoomIn);
+    const navControl = page.getByRole('button', { name: 'Zoom in' })
     await expect(navControl).toBeVisible();
-    
-    // Check for zoom in button
-    const zoomInButton = navControl.locator('button').first();
-    await expect(zoomInButton).toBeVisible();
   });
 
   test('should zoom out via navigation control button', async ({ page }) => {

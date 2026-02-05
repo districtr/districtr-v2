@@ -91,7 +91,7 @@ test.describe('Individual Place Page', () => {
     await page.getByRole('heading', { level: 1 }).waitFor({ state: 'visible', timeout: 10000 });
     
     // Look for create plan buttons
-    const createButtons = page.locator('button');
+    const createButtons = page.getByRole('button');
     await createButtons.first().waitFor({ state: 'visible', timeout: 10000 });
     
     const buttonCount = await createButtons.count();
