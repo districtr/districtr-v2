@@ -89,7 +89,7 @@ export const ZoneCommentPopover: React.FC<ZoneCommentPopoverProps> = ({zone, col
   const editZoneComment = useMapStore(state => state.editZoneComment);
   const removeZoneComment = useMapStore(state => state.removeZoneComment);
   const mapDocument = useMapStore(state => state.mapDocument);
-  const isEditing = mapDocument?.access === 'edit' && !disabled;
+  const isEditing = useMapControlsStore(state => state.isEditing);
   const selectedZone = useMapControlsStore(state => state.selectedZone);
 
   const handleAddComment = (title: string, comment: string) => {
@@ -118,12 +118,11 @@ export const ZoneCommentPopover: React.FC<ZoneCommentPopoverProps> = ({zone, col
         <IconButton
           variant="ghost"
           size="1"
-          className={`relative mr-4
+          className={`relative mr-2
             ${shouldShowPublic || shouldShowEditing ? 'opacity-100' : 'opacity-0'}
-            hover:opacity-100
+            ${isEditing && 'hover:opacity-100'}
             transition-opacity duration-200
             `}
-          disabled={disabled}
           style={{
             color: commentCount > 0 ? color : undefined,
           }}

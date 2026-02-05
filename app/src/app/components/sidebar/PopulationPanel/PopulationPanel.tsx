@@ -42,6 +42,7 @@ export const PopulationPanel = () => {
   const selectedZone = useMapControlsStore(state => state.selectedZone);
   const access = useMapStore(state => state.mapStatus?.access);
   const colorScheme = useColorScheme();
+  const isEditing = useMapControlsStore(state => state.isEditing);
   const handleLockChange = (zone: number) => {
     if (lockPaintedAreas.includes(zone)) {
       setLockedZones(lockPaintedAreas.filter(f => f !== zone));
@@ -94,11 +95,11 @@ export const PopulationPanel = () => {
           className="flex-grow-0 p-0 pb-[80px]"
           justify={'between'}
         >
-          <Flex justify="end">
+          {!!isEditing && <Flex justify="end">
             <IconButton onClick={toggleLockAllAreas} variant="ghost" disabled={access === 'read'}>
               {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
             </IconButton>
-          </Flex>
+          </Flex>}
           {/* @ts-ignore */}
           {populationData.map((d, i) => (
             <Flex
@@ -121,13 +122,13 @@ export const PopulationPanel = () => {
                   color={colorScheme[(d.zone - 1) % colorScheme.length]}
                   disabled={access === 'read'}
                 />
-                <IconButton
+                {!!isEditing && <IconButton
                   onClick={() => handleLockChange(d.zone)}
                   variant="ghost"
                   disabled={access === 'read'}
                 >
                   {lockPaintedAreas.includes(d.zone) ? <LockClosedIcon /> : <LockOpen2Icon />}
-                </IconButton>
+                </IconButton>}
               </Flex>
             </Flex>
           ))}

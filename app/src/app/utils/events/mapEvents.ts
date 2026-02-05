@@ -251,8 +251,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
 
   if (zoneLabelFeatures.length > 0 && activeTool === 'pan') {
     const zone = zoneLabelFeatures[0].properties?.zone;
-    const hasComments = zoneLabelFeatures[0].properties?.hasComments;
-    if (zone !== undefined && hasComments) {
+    if (zone !== undefined) {
       setZoneCommentTooltip({
         zone,
         x: e.point.x,

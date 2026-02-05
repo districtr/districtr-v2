@@ -14,8 +14,6 @@ export const ZoneCommentTooltip: React.FC<ZoneCommentTooltipProps> = ({zone, x, 
   const colorScheme = useColorScheme();
   const color = colorScheme[(zone - 1) % colorScheme.length];
 
-  if (!comments.length) return null;
-
   return (
     <Box
       className="fixed bg-white rounded-lg shadow-lg border border-gray-200 p-3 z-50 max-w-xs pointer-events-none"
@@ -34,7 +32,7 @@ export const ZoneCommentTooltip: React.FC<ZoneCommentTooltipProps> = ({zone, x, 
         </Text>
       </Flex>
       <Flex direction="column" gap="2">
-        {comments.slice(0, 3).map((comment, index) => (
+        {!!(comments.length) ? comments.slice(0, 3).map((comment, index) => (
           <Box key={index}>
             {index > 0 && <Separator size="4" className="my-1" />}
             <Text size="1" weight="medium" className="block">
@@ -53,16 +51,13 @@ export const ZoneCommentTooltip: React.FC<ZoneCommentTooltipProps> = ({zone, x, 
               {comment.comment}
             </Text>
           </Box>
-        ))}
+        )) : <Text size="1" color="gray">No comments</Text>}
         {comments.length > 3 && (
           <Text size="1" color="blue">
             +{comments.length - 3} more comment{comments.length - 3 > 1 ? 's' : ''}
           </Text>
         )}
       </Flex>
-      <Text size="1" color="gray" className="mt-2 block italic">
-        Click to pin in sidebar
-      </Text>
     </Box>
   );
 };
