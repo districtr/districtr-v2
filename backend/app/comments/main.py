@@ -41,8 +41,9 @@ from app.comments.models import (
     ReviewUpdateResponse,
     CommentFilterParams,
     BatchZoneCommentsCreate,
-    BatchZoneCommentsResponse,
+    BatchZoneCommentsResponse
 )
+
 from app.comments.moderation import (
     moderate_submission,
     moderate_commenter,
