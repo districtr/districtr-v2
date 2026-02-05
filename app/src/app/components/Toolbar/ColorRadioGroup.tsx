@@ -48,6 +48,7 @@ export const ColorRadioGroup: React.FC<{
               <Flex direction="column" align="center" key={i} pb="2">
                 <StyledRadioGroupItem
                   key={i}
+                  data-testid={`zone-${i + 1}`}
                   style={{backgroundColor: color}}
                   value={color}
                   disabled={disabledValues?.includes(i)}

@@ -48,7 +48,9 @@ export function ZonePicker() {
   const canEditNumDistricts = numDistrictsModifiable && !isReadOnly;
 
   return (
-    <Box className={isReadOnly ? 'pointer-events-none opacity-50' : ''}>
+    <Box className={isReadOnly ? 'pointer-events-none opacity-50' : ''}
+    data-testid="zone-picker"
+    >
       <Flex direction="column" gap="2">
         <Flex align="center" gap="2">
           <Text size="2" weight="medium">

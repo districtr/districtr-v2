@@ -89,3 +89,6 @@ pipelines/build/*
 # editors
 .vscode/
 .zed/
+/app/test-results
+/app/playwright-report
+app/playwright-report/index.html
