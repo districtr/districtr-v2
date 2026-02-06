@@ -81,6 +81,7 @@ function createTypedFormData<T extends CmsContentTypes>(
 interface CmsFormStore {
   // State
   content: AllCmsLists | null;
+  allContent: Record<CmsContentTypes, AllCmsLists | null>;
   contentType: CmsContentTypes | null;
   maps: DistrictrMap[];
   formData: TypedFormData<CmsContentTypes> | null;
@@ -93,6 +94,8 @@ interface CmsFormStore {
   setContent: (content: AllCmsLists) => void;
   setPreviewData: (data: MinimalPreviewData) => void;
   loadData: (contentType: CmsContentTypes) => Promise<void>;
+  loadAllData: () => Promise<void>;
+  switchContentType: (contentType: CmsContentTypes) => void;
   loadMapList: () => Promise<DistrictrMap[] | undefined>;
   handleChange: <T extends keyof BaseFormData | 'districtr_map_slug' | 'districtr_map_slugs'>(
     property: T,
@@ -101,7 +104,7 @@ interface CmsFormStore {
   handleSubmit: () => Promise<void>;
   handleDelete: (id: string) => Promise<void>;
   handlePublish: (id: string) => Promise<void>;
-  handleEdit: (item: AllCmsEntries['content']) => void;
+  handleEdit: (item: AllCmsEntries['content'], type?: CmsContentTypes) => void;
   cancelEdit: () => void;
 
   // Auth
@@ -112,6 +115,7 @@ interface CmsFormStore {
 export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
   // Initial state
   content: null,
+  allContent: {tags: null, places: null},
   contentType: null,
   maps: [],
   formData: null,
@@ -130,6 +134,53 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
     if (existingMaps.length) return existingMaps;
     const maps = await getAvailableDistrictrMaps({limit: 200});
     return maps.ok ? maps.response : [];
+  },
+
+  // Load all content types at once
+  loadAllData: async () => {
+    const {session} = get();
+    if (!session) return;
+
+    try {
+      const [tagsContent, placesContent, mapsData] = await Promise.all([
+        listEditorCMSContent('tags', {}, session),
+        listEditorCMSContent('places', {}, session),
+        get().loadMapList(),
+      ]);
+
+      const currentType = get().contentType || 'tags';
+      const currentContent = currentType === 'tags' ? tagsContent : placesContent;
+
+      set({
+        allContent: {tags: tagsContent, places: placesContent},
+        content: currentContent,
+        contentType: currentType,
+        maps: mapsData,
+        formData:
+          get().formData ||
+          createTypedFormData(currentType, structuredClone(defaultFormData[currentType])),
+      });
+    } catch (err) {
+      console.error('Error fetching all data:', err);
+      set({error: `Failed to load data. Please try again. ${err}`});
+    }
+  },
+
+  // Switch content type using already-loaded data
+  switchContentType: contentType => {
+    const {allContent, editingContent} = get();
+    const content = allContent[contentType];
+
+    // If currently editing, cancel first
+    if (editingContent) {
+      set({editingContent: null});
+    }
+
+    set({
+      contentType,
+      content,
+      formData: createTypedFormData(contentType, structuredClone(defaultFormData[contentType])),
+    });
   },
 
   // Load content for a specific type
@@ -158,6 +209,10 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
         contentType,
         maps: mapsData,
         formData,
+        allContent: {
+          ...get().allContent,
+          [contentType]: content,
+        },
       });
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -240,7 +295,14 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
       }
       const r = await updateCMSContent({body: content, session});
       if (r.ok) {
-        set({success: 'Content updated successfully!', editingContent: null});
+        // Refresh content list for this type
+        const newContent = await listEditorCMSContent(contentType, {}, session);
+        set({
+          success: 'Content updated successfully!',
+          editingContent: null,
+          content: newContent,
+          allContent: {...get().allContent, [contentType]: newContent},
+        });
       } else {
         set({error: r.error?.detail, success: undefined});
       }
@@ -277,6 +339,7 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
           formData: resetFormData,
           content: newContent,
           editingContent: null,
+          allContent: {...get().allContent, [contentType]: newContent},
         });
       } else {
         set({error: r.error?.detail, success: undefined});
@@ -313,6 +376,7 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
       set({
         success: 'Content deleted successfully!',
         content: updatedContent,
+        allContent: {...get().allContent, [contentType]: updatedContent},
       });
     } else {
       set({error: r.error?.detail, success: undefined});
@@ -342,6 +406,7 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
       set({
         success: 'Content published successfully!',
         content: updatedContent,
+        allContent: {...get().allContent, [contentType]: updatedContent},
       });
     } else {
       set({error: r.error?.detail, success: undefined});
@@ -349,9 +414,14 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
   },
 
   // Edit existing content
-  handleEdit: _item => {
-    const contentType = get().contentType;
+  handleEdit: (_item, type) => {
+    const contentType = type || get().contentType;
     if (!contentType) return;
+
+    // If switching content type to edit, update it
+    if (type && type !== get().contentType) {
+      set({contentType: type, content: get().allContent[type]});
+    }
 
     // Prepare item with proper content and status
     const item = {
