@@ -83,13 +83,11 @@ export interface MapStore {
   // ZONE COMMENTS
   pinnedCommentZone: number | null;
   setPinnedCommentZone: (zone: number | null) => void;
-  addZoneComment: (zone: number, title: string, comment: string) => void;
+  addZoneComment: (zone: number, comment: ZoneComment) => void;
   editZoneComment: (zone: number, index: number, title: string, comment: string) => void;
   removeZoneComment: (zone: number, index: number) => void;
   getZoneCommentsForZone: (zone: number) => ZoneComment[];
   getZonesWithComments: () => number[];
-  getDirtyZoneComments: () => ZoneComment[];
-  clearZoneCommentsDirtyState: () => void;
 
   // SHATTERING
   /**
@@ -308,22 +306,15 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     pinnedCommentZone: null,
     setPinnedCommentZone: zone => set({pinnedCommentZone: zone}),
 
-    addZoneComment: (zone, title, comment) => {
+    addZoneComment: (zone, comment) => {
       const {mapDocument} = get();
       if (!mapDocument) return;
 
       const currentComments = mapDocument.zone_comments || [];
-      const newComment: ZoneComment = {
-        zone,
-        title,
-        comment,
-        isLocal: true,
-      };
-
       set({
         mapDocument: {
           ...mapDocument,
-          zone_comments: [...currentComments, newComment],
+          zone_comments: [...currentComments, {...comment, zone}],
         },
       });
     },
@@ -333,13 +324,12 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       if (!mapDocument) return;
 
       const currentComments = mapDocument.zone_comments || [];
-      // Find the comment at the specified index for this zone
       let zoneIndex = 0;
       const updatedComments = currentComments.map(c => {
         if (c.zone === zone) {
           if (zoneIndex === index) {
             zoneIndex++;
-            return {...c, title, comment, isLocal: true};
+            return {...c, title, comment};
           }
           zoneIndex++;
         }
@@ -390,28 +380,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const zones = new Set<number>();
       (mapDocument?.zone_comments || []).forEach(c => zones.add(c.zone));
       return Array.from(zones).sort((a, b) => a - b);
-    },
-
-    getDirtyZoneComments: () => {
-      const {mapDocument} = get();
-      return (mapDocument?.zone_comments || []).filter(c => c.isLocal);
-    },
-
-    clearZoneCommentsDirtyState: () => {
-      const {mapDocument} = get();
-      if (!mapDocument?.zone_comments) return;
-
-      const updatedComments = mapDocument.zone_comments.map(c => ({
-        ...c,
-        isLocal: false,
-      }));
-
-      set({
-        mapDocument: {
-          ...mapDocument,
-          zone_comments: updatedComments,
-        },
-      });
     },
 
     mapStatus: null,

@@ -1,3 +1,4 @@
+from pydantic import BaseModel
 from fastapi import (
     APIRouter,
     Depends,
@@ -11,7 +12,7 @@ from fastapi import (
 from sqlmodel import Session, col
 from sqlalchemy.exc import IntegrityError, DataError
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy import text, func, select, String, Select
+from sqlalchemy import text, func, select, String, Select, delete
 
 from app.core.security import auth, TokenScope
 from sqlalchemy.sql import or_, and_, exists, literal, cast, case
@@ -340,6 +341,88 @@ async def create_batch_zone_comments(
         created_count=len(created_comments),
         comments=created_comments,
     )
+
+
+class ZoneCommentUpdate(BaseModel):
+    """Update zone comment title and/or comment text."""
+
+    title: str
+    comment: str
+
+
+@router.patch(
+    "/zone_comments/{comment_id}",
+    response_model=CommentPublic,
+)
+async def update_zone_comment(
+    comment_id: int,
+    data: ZoneCommentUpdate,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+):
+    """
+    Update an existing zone comment by comment ID.
+    """
+    comment = session.get(Comment, comment_id)
+    if not comment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Comment {comment_id} not found",
+        )
+
+    comment.title = data.title
+    comment.comment = data.comment
+    session.add(comment)
+    session.commit()
+    session.refresh(comment)
+
+    background_tasks.add_task(moderate_comment, comment, session)
+
+    doc_comment = session.exec(
+        select(DocumentComment).where(DocumentComment.comment_id == comment_id)
+    ).first()
+    zone = doc_comment.zone if doc_comment else None
+
+    return CommentPublic(
+        id=comment.id,
+        title=comment.title,
+        comment=comment.comment,
+        zone=zone,
+        created_at=comment.created_at,
+        updated_at=comment.updated_at,
+    )
+
+
+@router.delete(
+    "/zone_comments/{comment_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_zone_comment(
+    comment_id: int,
+    session: Session = Depends(get_session),
+):
+    """
+    Delete a zone comment by comment ID.
+    """
+    comment = session.get(Comment, comment_id)
+    if not comment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Comment {comment_id} not found",
+        )
+
+    doc_comment = session.get(DocumentComment, comment_id)
+    if not doc_comment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document comment association not found for comment {comment_id}",
+        )
+
+    # Delete in order: CommentTag -> DocumentComment -> Comment (respect FK constraints)
+    session.exec(delete(CommentTag).where(CommentTag.comment_id == comment_id))
+    session.exec(delete(DocumentComment).where(DocumentComment.comment_id == comment_id))
+    session.exec(delete(Comment).where(Comment.id == comment_id))
+    session.commit()
 
 
 @router.post("/tag", response_model=TagWithId, status_code=status.HTTP_201_CREATED)

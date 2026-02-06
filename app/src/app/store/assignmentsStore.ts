@@ -21,7 +21,6 @@ import {
 import {createMapDocument} from '../utils/api/apiHandlers/createMapDocument';
 import {createWithFullMiddlewares} from './middlewares';
 import {confirmMapDocumentUrlParameter} from '../utils/map/confirmMapDocumentUrlParameter';
-import {postBatchZoneComments} from '../utils/api/apiHandlers/zoneComments';
 
 export interface AssignmentsStore {
   /** Map of geoid -> zone assignments currently in memory */
@@ -567,24 +566,6 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       set({
         showSaveConflictModal: false,
       });
-
-      // Save zone comments if there are any dirty ones
-      const mapState = useMapStore.getState();
-      const dirtyComments = mapState.getDirtyZoneComments();
-      if (dirtyComments.length > 0) {
-        const commentsResponse = await postBatchZoneComments(
-          mapDocument.document_id,
-          dirtyComments
-        );
-        if (commentsResponse.ok) {
-          mapState.clearZoneCommentsDirtyState();
-        } else {
-          setErrorNotification({
-            message: `Failed to save comments: ${commentsResponse.error}`,
-            severity: 1,
-          });
-        }
-      }
     }
     setMapLock(null);
   },
