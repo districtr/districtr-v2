@@ -82,6 +82,16 @@ export interface DocumentObject extends StatusObject {
   data_source_name: string | null;
   overlays: Overlay[] | null;
   statefps: string[] | null;
+  zone_comments?: ZoneComment[] | null;
+}
+
+export interface ZoneComment {
+  id?: number; // undefined for local-only comments
+  zone: number;
+  title: string;
+  comment: string;
+  created_at?: string;
+  isLocal?: boolean; // Track unsaved comments
 }
 
 export interface MinPublicDocument {

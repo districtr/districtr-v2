@@ -83,7 +83,7 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
           12,
           12,
           14,
-          14, // At zoom level 18, text size is 18
+          14, 
         ],
         'text-anchor': 'center',
         'text-offset': [0, 0],
@@ -109,7 +109,7 @@ const ZoneNumbersLayer = () => {
   const getMapRef = useMapStore(state => state.getMapRef);
   const lockedAreas = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);
   const [zoneNumberData, setZoneNumberData] =
-    useState<GeoJSON.FeatureCollection>(EMPTY_FT_COLLECTION);
+  useState<GeoJSON.FeatureCollection>(EMPTY_FT_COLLECTION);
   const mapRenderingState = useMapStore(state => state.mapRenderingState);
   const appLoadingState = useMapStore(state => state.appLoadingState);
   const focusFeaturesLength = useMapStore(state => state.focusFeatures.length);
@@ -118,6 +118,14 @@ const ZoneNumbersLayer = () => {
   );
   const shouldHide = showBlockPopulationNumbers && focusFeaturesLength;
   const demogHash = useDemographyStore(state => state.dataHash);
+  const zoneComments = useMapStore(state => state.mapDocument?.zone_comments);
+  
+  // Get zones that have comments
+  const zonesWithComments = useMemo(() => {
+    const zones = new Set<number>();
+    (zoneComments || []).forEach(c => zones.add(c.zone));
+    return Array.from(zones);
+  }, [zoneComments]);
 
   const addZoneMetaLayers = async (
   ) => {
@@ -133,6 +141,9 @@ const ZoneNumbersLayer = () => {
     ] as [number, number, number, number];
     const id = `${mapDocumentId}`;
     const activeZones = demographyCache.populations.filter(p => p.total_pop_20 > 0).map(p => p.zone);
+    const mapState = useMapStore.getState();
+    const currentComments = mapState.mapDocument?.zone_comments || [];
+    const zonesWithCommentSet = new Set(currentComments.map(c => c.zone));
     if (showZoneNumbers && GeometryWorker) {
       const geoms = await GeometryWorker.getCentroidsFromView({
         activeZones,
@@ -140,7 +151,18 @@ const ZoneNumbersLayer = () => {
         strategy: 'median-point',
       });
       if (geoms && mapDocumentId === id) {
-        setZoneNumberData(geoms.centroids);
+        // Add hasComments property to each feature
+        const enrichedFeatures = geoms.centroids.features.map(feature => ({
+          ...feature,
+          properties: {
+            ...feature.properties,
+            hasComments: zonesWithCommentSet.has(feature.properties?.zone),
+          },
+        }));
+        setZoneNumberData({
+          ...geoms.centroids,
+          features: enrichedFeatures,
+        });
       }
     } else {
       setZoneNumberData(EMPTY_FT_COLLECTION);
@@ -160,6 +182,7 @@ const ZoneNumbersLayer = () => {
     mapRenderingState,
     appLoadingState,
     demogHash,
+    zonesWithComments,
   ]);
 
   useEffect(() => {
@@ -205,11 +228,11 @@ const ZoneNumbersLayer = () => {
             ['linear'],
             ['zoom'],
             5,
-            10, // At zoom level 5, radius is 10 (increased from 8)
+            10, 
             10,
-            15, // At zoom level 10, radius is 15 (increased from 12)
+            15, 
             15,
-            18, // At zoom level 15 and above, radius is 18 (increased from 15)
+            18, 
           ],
           'circle-opacity': 0.8,
           'circle-stroke-color': ZONE_LABEL_STYLE(colorScheme) || '#000',
@@ -218,9 +241,9 @@ const ZoneNumbersLayer = () => {
             ['linear'],
             ['zoom'],
             5,
-            1.5, // At zoom level 5, stroke width is 1.5 (increased from 1)
+            1.5, 
             15,
-            2.5, // At zoom level 15 and above, stroke width is 2.5 (increased from 2)
+            2.5, 
           ],
         }}
       ></Layer>
@@ -237,11 +260,11 @@ const ZoneNumbersLayer = () => {
             ['linear'],
             ['zoom'],
             5,
-            12, // At zoom level 5, text size is 12 (increased from 10)
+            12,
             10,
-            16, // At zoom level 10, text size is 16 (increased from 14)
+            16,
             15,
-            20, // At zoom level 15 and above, text size is 20 (increased from 18)
+            20,
           ],
           'text-anchor': 'center',
           'text-offset': [0, 0],
@@ -267,11 +290,11 @@ const ZoneNumbersLayer = () => {
             ['linear'],
             ['zoom'],
             5,
-            0.8, // At zoom level 5, icon size is 0.8 (increased from 0.6)
+            0.8, 
             10,
-            1.0, // At zoom level 10, icon size is 1.0 (increased from 0.8)
+            1.0, 
             15,
-            1.2, // At zoom level 15 and above, icon size is 1.2 (increased from 1)
+            1.2, 
           ],
           'icon-allow-overlap': true,
         }}
@@ -280,6 +303,46 @@ const ZoneNumbersLayer = () => {
           ['in', ['get', 'zone'], ['literal', lockedAreas]]
         }
       ></Layer>
+      {/* Simple circle indicator for zones with comments */}
+      <Layer
+        id="ZONE_COMMENT_INDICATOR"
+        type="circle"
+        source="zone-label"
+        paint={{
+          'circle-radius': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            5,
+            10 / 3,  // matches general zone icon size at low zoom
+            10,
+            10 / 3,  // matches at medium zoom
+            15,
+            15 / 3,  // matches at high zoom
+          ],
+          'circle-color': ZONE_LABEL_STYLE(colorScheme) || '#000',
+          'circle-stroke-width' : 2,
+          // offset
+          'circle-stroke-color': '#fff', // white stroke for visibility
+          'circle-opacity': 1,
+          'circle-translate': 
+          [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            5,
+            ['literal', [7, -7]],
+            10,
+            ['literal', [9, -9]],
+            15,
+            ['literal', [11, -11]],
+          ]
+        }}
+        layout={{
+          visibility: shouldHide ? 'none' : 'visible'
+        }}
+        filter={['==', ['get', 'hasComments'], true]}
+      />
     </Source>
   );
 };

@@ -1,3 +1,4 @@
+from pydantic import BaseModel
 from fastapi import (
     APIRouter,
     Depends,
@@ -11,12 +12,12 @@ from fastapi import (
 from sqlmodel import Session, col
 from sqlalchemy.exc import IntegrityError, DataError
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy import text, func, select, String, Select
+from sqlalchemy import text, func, select, String, Select, delete
 
 from app.core.security import auth, TokenScope
 from sqlalchemy.sql import or_, and_, exists, literal, cast, case
 
-from app.core.dependencies import get_protected_document
+from app.core.dependencies import get_protected_document, get_document
 from app.core.db import get_session
 from app.comments.models import (
     Commenter,
@@ -40,7 +41,10 @@ from app.comments.models import (
     ReviewStatusUpdate,
     ReviewUpdateResponse,
     CommentFilterParams,
+    BatchZoneCommentsCreate,
+    BatchZoneCommentsResponse
 )
+
 from app.comments.moderation import (
     moderate_submission,
     moderate_commenter,
@@ -260,6 +264,165 @@ async def create_comment(
 
     background_tasks.add_task(moderate_comment, comment, session)
     return comment
+
+
+@router.post(
+    "/batch_zone_comments",
+    response_model=BatchZoneCommentsResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_batch_zone_comments(
+    data: BatchZoneCommentsCreate,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+):
+    """
+    Create multiple zone comments for a document.
+    This endpoint is used for saving district-level comments from the map editor.
+    Requires the document's private UUID (not public ID).
+    """
+    # Validate document exists and get it
+    try:
+        document = get_document(
+            document_id=DocumentID(document_id=data.document_id),
+            session=session,
+        )
+    except HTTPException:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document {data.document_id} not found",
+        )
+
+    created_comments: list[CommentPublic] = []
+
+    try:
+        for zone_comment in data.comments:
+            # Create the comment
+            comment = Comment(
+                title=zone_comment.title,
+                comment=zone_comment.comment,
+            )
+            session.add(comment)
+            session.flush()
+
+            # Create the document-comment association with zone
+            stmt = insert(DocumentComment).values(
+                comment_id=comment.id,
+                document_id=document.document_id,
+                zone=zone_comment.zone,
+            )
+            session.execute(stmt)
+
+            created_comments.append(
+                CommentPublic(
+                    id=comment.id,
+                    title=comment.title,
+                    comment=comment.comment,
+                    zone=zone_comment.zone,
+                    created_at=comment.created_at,
+                    updated_at=comment.updated_at,
+                )
+            )
+
+            # Queue moderation in background
+            background_tasks.add_task(moderate_comment, comment, session)
+
+        session.commit()
+
+    except (DataError, IntegrityError) as e:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e),
+        )
+
+    return BatchZoneCommentsResponse(
+        document_id=data.document_id,
+        created_count=len(created_comments),
+        comments=created_comments,
+    )
+
+
+class ZoneCommentUpdate(BaseModel):
+    """Update zone comment title and/or comment text."""
+
+    title: str
+    comment: str
+
+
+@router.patch(
+    "/zone_comments/{comment_id}",
+    response_model=CommentPublic,
+)
+async def update_zone_comment(
+    comment_id: int,
+    data: ZoneCommentUpdate,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+):
+    """
+    Update an existing zone comment by comment ID.
+    """
+    comment = session.get(Comment, comment_id)
+    if not comment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Comment {comment_id} not found",
+        )
+
+    comment.title = data.title
+    comment.comment = data.comment
+    session.add(comment)
+    session.commit()
+    session.refresh(comment)
+
+    background_tasks.add_task(moderate_comment, comment, session)
+
+    doc_comment = session.exec(
+        select(DocumentComment).where(DocumentComment.comment_id == comment_id)
+    ).first()
+    zone = doc_comment.zone if doc_comment else None
+
+    return CommentPublic(
+        id=comment.id,
+        title=comment.title,
+        comment=comment.comment,
+        zone=zone,
+        created_at=comment.created_at,
+        updated_at=comment.updated_at,
+    )
+
+
+@router.delete(
+    "/zone_comments/{comment_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_zone_comment(
+    comment_id: int,
+    session: Session = Depends(get_session),
+):
+    """
+    Delete a zone comment by comment ID.
+    """
+    comment = session.get(Comment, comment_id)
+    if not comment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Comment {comment_id} not found",
+        )
+
+    doc_comment = session.get(DocumentComment, comment_id)
+    if not doc_comment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document comment association not found for comment {comment_id}",
+        )
+
+    # Delete in order: CommentTag -> DocumentComment -> Comment (respect FK constraints)
+    session.exec(delete(CommentTag).where(CommentTag.comment_id == comment_id))
+    session.exec(delete(DocumentComment).where(DocumentComment.comment_id == comment_id))
+    session.exec(delete(Comment).where(Comment.id == comment_id))
+    session.commit()
 
 
 @router.post("/tag", response_model=TagWithId, status_code=status.HTTP_201_CREATED)

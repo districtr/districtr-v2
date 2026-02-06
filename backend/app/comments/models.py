@@ -179,6 +179,29 @@ class CommentPublic(CommentCreate):
     zone: int | None = None
 
 
+class ZoneCommentCreate(BaseModel):
+    """Simple zone comment for batch creation."""
+
+    title: str
+    comment: str
+    zone: int
+
+
+class BatchZoneCommentsCreate(BaseModel):
+    """Batch create zone comments for a document."""
+
+    document_id: str
+    comments: list[ZoneCommentCreate]
+
+
+class BatchZoneCommentsResponse(BaseModel):
+    """Response for batch zone comments creation."""
+
+    document_id: str
+    created_count: int
+    comments: list[CommentPublic]
+
+
 class Tag(TimeStampMixin, SQLModel, table=True):
     metadata = MetaData(schema=COMMENTS_SCHEMA)
     __table_args__ = (CheckConstraint("LENGTH(slug) > 0", name="slug_not_empty"),)
