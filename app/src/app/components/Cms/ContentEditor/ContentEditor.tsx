@@ -1,7 +1,7 @@
-import React, {useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import {useCmsFormStore} from '@/app/store/cmsFormStore';
 import {LANG_MAPPING} from '@/app/utils/language';
-import {Box, Button, Flex, Grid, Heading, Select, Text, TextField} from '@radix-ui/themes';
+import {Badge, Button, Flex, Grid, Heading, Select, Separator, Spinner, Text, TextField} from '@radix-ui/themes';
 import dynamic from 'next/dynamic';
 import {CheckCircledIcon} from '@radix-ui/react-icons';
 import {PlacesCMSContent} from '@/app/utils/api/cms';
@@ -14,35 +14,6 @@ export const ContentEditor: React.FC = () => {
   const handleChange = useCmsFormStore(state => state.handleChange);
   const formData = useCmsFormStore(state => state.formData);
   const maps = useCmsFormStore(state => state.maps);
-  // const setFormData = useCmsFormStore(state => state.setFormData);
-  const cancelEdit = useCmsFormStore(state => state.cancelEdit);
-  const handleSubmit = useCmsFormStore(state => state.handleSubmit);
-  const setPreviewData = useCmsFormStore(state => state.setPreviewData);
-  const [contentHasChanged, setContentHasChanged] = useState(false);
-
-  useEffect(() => {
-    if (
-      !editingContent &&
-      formData?.content.slug &&
-      formData?.content.language &&
-      formData?.content.title
-    ) {
-      setContentHasChanged(true);
-    } else if (editingContent) {
-      const currentEditContent =
-        editingContent.content.draft_content || editingContent.content.published_content;
-      if (!currentEditContent) {
-        setContentHasChanged(false);
-      } else {
-        const contentChanged =
-          JSON.stringify({title: currentEditContent.title, body: currentEditContent.body}) !==
-          JSON.stringify({title: formData?.content.title, body: formData?.content.body});
-        setContentHasChanged(contentChanged);
-      }
-    } else {
-      setContentHasChanged(false);
-    }
-  }, [editingContent, formData]);
 
   return (
     <Flex direction="column" gapY="4" p="6" className="bg-white shadow rounded-lg">
@@ -182,28 +153,141 @@ export const ContentEditor: React.FC = () => {
         />
         <Text>Use the toolbar to format text, add links, and insert images.</Text>
       </Flex>
+    </Flex>
+  );
+};
 
-      <Flex direction="row" gapX="4" justify={'end'}>
-        {editingContent && (
-          <Button variant="outline" onClick={cancelEdit} disabled={!contentHasChanged}>
+/** Sticky action panel displayed in a right column next to the editor */
+export const EditorActions: React.FC = () => {
+  const editingContent = useCmsFormStore(state => state.editingContent);
+  const formData = useCmsFormStore(state => state.formData);
+  const cancelEdit = useCmsFormStore(state => state.cancelEdit);
+  const handleSubmit = useCmsFormStore(state => state.handleSubmit);
+  const setPreviewData = useCmsFormStore(state => state.setPreviewData);
+  const session = useCmsFormStore(state => state.session);
+  const handlePublish = useCmsFormStore(state => state.handlePublish);
+  const contentType = useCmsFormStore(state => state.contentType);
+
+  const [contentHasChanged, setContentHasChanged] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const canPublish = session?.tokenSet?.scope?.includes('update:publish') ?? false;
+
+  useEffect(() => {
+    if (
+      !editingContent &&
+      formData?.content.slug &&
+      formData?.content.language &&
+      formData?.content.title
+    ) {
+      setContentHasChanged(true);
+    } else if (editingContent) {
+      const currentEditContent =
+        editingContent.content.draft_content || editingContent.content.published_content;
+      if (!currentEditContent) {
+        setContentHasChanged(false);
+      } else {
+        const contentChanged =
+          JSON.stringify({title: currentEditContent.title, body: currentEditContent.body}) !==
+          JSON.stringify({title: formData?.content.title, body: formData?.content.body});
+        setContentHasChanged(contentChanged);
+      }
+    } else {
+      setContentHasChanged(false);
+    }
+  }, [editingContent, formData]);
+
+  const onSubmit = useCallback(async () => {
+    setIsSubmitting(true);
+    try {
+      await handleSubmit();
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [handleSubmit]);
+
+  const status = editingContent
+    ? editingContent.content.published_content && editingContent.content.draft_content
+      ? 'edited'
+      : editingContent.content.published_content
+        ? 'published'
+        : 'draft'
+    : 'new';
+
+  return (
+    <Flex
+      direction="column"
+      gap="3"
+      p="4"
+      className="bg-white border border-gray-200 rounded-lg shadow-sm"
+    >
+      <Heading size="3" as="h3">
+        Actions
+      </Heading>
+
+      {/* Status info */}
+      <Flex direction="column" gap="1">
+        <Text size="1" className="text-gray-500">
+          Status
+        </Text>
+        {status === 'new' && <Badge color="gray">New</Badge>}
+        {status === 'draft' && <Badge color="orange">Draft</Badge>}
+        {status === 'published' && <Badge color="green">Published</Badge>}
+        {status === 'edited' && <Badge color="blue">Unpublished Edits</Badge>}
+      </Flex>
+
+      {contentType && (
+        <Flex direction="column" gap="1">
+          <Text size="1" className="text-gray-500">
+            Type
+          </Text>
+          <Text size="2" weight="medium">
+            {contentType.charAt(0).toUpperCase() + contentType.slice(1)}
+          </Text>
+        </Flex>
+      )}
+
+      <Separator size="4" />
+
+      {/* Primary action */}
+      <Button onClick={onSubmit} disabled={!contentHasChanged || isSubmitting} className="w-full">
+        {isSubmitting && <Spinner size="1" />}
+        {editingContent ? 'Update Content' : 'Create Content'}
+      </Button>
+
+      {/* Secondary actions */}
+      <Button
+        variant="outline"
+        className="w-full"
+        onClick={() =>
+          setPreviewData({
+            title: formData!.content.title,
+            body: formData!.content.body,
+          })
+        }
+      >
+        Preview
+      </Button>
+
+      {canPublish && editingContent && editingContent.content.draft_content && (
+        <Button
+          variant="soft"
+          color="grass"
+          className="w-full"
+          onClick={() => handlePublish(editingContent.content.id)}
+        >
+          Publish
+        </Button>
+      )}
+
+      {editingContent && (
+        <>
+          <Separator size="4" />
+          <Button variant="outline" color="gray" className="w-full" onClick={cancelEdit}>
             Cancel Edit
           </Button>
-        )}
-        <Button
-          variant="outline"
-          onClick={() =>
-            setPreviewData({
-              title: formData!.content.title,
-              body: formData!.content.body,
-            })
-          }
-        >
-          Preview
-        </Button>
-        <Button onClick={handleSubmit} disabled={!contentHasChanged}>
-          {editingContent ? 'Update Content' : 'Create Content'}
-        </Button>
-      </Flex>
+        </>
+      )}
     </Flex>
   );
 };

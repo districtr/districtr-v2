@@ -12,9 +12,25 @@ export const pages = [
     cta: 'Go to Review',
   },
   {
-    title: 'Thumbnail Generation',
-    description: 'Generate or update thumbnails for maps',
+    title: 'Thumbnails',
+    description: 'Generate or update thumbnails for maps.',
     href: '/admin/thumbnails',
-    cta: 'Go to Thumbnail Generation',
+    cta: 'Go to Thumbnails',
+  },
+];
+
+export const cmsSubPages = [
+  {
+    title: 'Tags',
+    description:
+      'Pages for specific problems, like Cook County Redistricting or Detroit School Board Districts.',
+    href: '/admin/cms/tags',
+    cta: 'Manage Tags',
+  },
+  {
+    title: 'Places',
+    description: 'General pages for places, like states or counties.',
+    href: '/admin/cms/places',
+    cta: 'Manage Places',
   },
 ];
