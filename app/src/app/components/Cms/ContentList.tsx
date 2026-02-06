@@ -446,7 +446,7 @@ export const ContentList: React.FC = () => {
           <Flex gap="1">
             <Tooltip content={showFilters ? 'Hide filters' : 'Show filters'}>
               <IconButton
-                variant={showFilters || hasActiveFilters ? 'soft' : 'ghost'}
+                variant={showFilters || hasActiveFilters ? 'soft' : 'outline'}
                 color={hasActiveFilters ? 'blue' : 'gray'}
                 size="1"
                 onClick={() => setShowFilters(v => !v)}
