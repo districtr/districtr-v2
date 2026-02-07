@@ -1,8 +1,7 @@
-import React from 'react';
-import {Box} from '@radix-ui/themes';
-import {useMapStore} from '../../store/mapStore';
-import {useMapControlsStore} from '../../store/mapControlsStore';
-import {ColorPicker} from './ColorPicker';
+import { Box } from '@radix-ui/themes';
+import { useMapStore } from '../../store/mapStore';
+import { useMapControlsStore } from '../../store/mapControlsStore';
+import { ColorPicker } from './ColorPicker';
 
 export function ZonePicker() {
   const selectedZone = useMapControlsStore(state => state.selectedZone);

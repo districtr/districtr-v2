@@ -1,9 +1,60 @@
-import {PersistOptions} from 'zustand/middleware';
-import {NullableZone} from '../constants/types';
-import {AxiosError, AxiosResponse} from 'axios';
-import {StoreApi, UseBoundStore} from 'zustand';
-import {TemporalState} from 'zundo';
-import {MapStore} from './mapStore';
+import { PersistOptions } from 'zustand/middleware';
+import { NullableZone } from '../constants/types';
+import { AxiosError, AxiosResponse } from 'axios';
+import { StoreApi, UseBoundStore } from 'zustand';
+import { TemporalState } from 'zundo';
+import { MapStore } from './mapStore';
+
+// This comment also appears in the MapControlsStore file, but is copied here for context.
+// Let's make it so that "id" is the same as "postion in the array" to make it faster
+// to grab attributes of the community without having to loop through the array to find
+// the right community object later. The "displayPosition" attribute will control order of
+// display in the UI, so that we can restore things later.
+export type Community = {
+  id: number;
+  name: string;
+  color: string; // hex string
+  opacity: number; // 0..1
+  visible: boolean;
+  displayPosition: number;
+};
+
+export const DEFAULT_COMMUNITY = {
+  name: 'New Community',
+  color: '#bbbbbb',
+  opacity: 1,
+  visible: true,
+} satisfies Omit<Community, 'id' | 'displayPosition'>;
+
+type MakeCommunityOpts = { id: number } & Partial<Omit<Community, 'id'>>; // allows name/color/opacity/visible/displayPosition
+
+export function makeCommunity({
+  id,
+  displayPosition = id,
+  ...overrides
+}: MakeCommunityOpts): Community {
+  return {
+    id,
+    displayPosition,
+    ...DEFAULT_COMMUNITY,
+    ...overrides, // name/color/opacity/visible can override defaults
+  };
+}
+
+export type CommunityMapOptions = {
+  mode: 'default' | 'break';
+  paintCommunity?: boolean;
+  paintByCounty?: boolean;
+  stateFipsSet?: Set<string>;
+  showPopulationTooltip?: boolean;
+  prominentCountyNames?: boolean;
+  showCountyBoundaries?: boolean;
+  showBlockPopulationNumbers?: boolean;
+  showPopulationNumbers?: boolean;
+  showDemographicMap?: undefined | 'side-by-side' | 'overlay';
+  showPaintedDistricts?: boolean;
+  overlayOpacity: number;
+};
 
 export type DistrictrMapOptions = {
   highlightBrokenDistricts?: boolean;
@@ -97,9 +148,9 @@ export type Cast<T, U> = T extends U ? T : U;
 export type Action =
   | string
   | {
-      type: string;
-      [x: string | number | symbol]: unknown;
-    };
+    type: string;
+    [x: string | number | symbol]: unknown;
+  };
 export type StoreDevtools<S> = S extends {
   setState: {
     // capture both overloads of setState
@@ -108,30 +159,30 @@ export type StoreDevtools<S> = S extends {
   };
 }
   ? {
-      setState(...a: [...a: TakeTwo<Sa1>, action?: Action]): Sr1;
-      setState(...a: [...a: TakeTwo<Sa2>, action?: Action]): Sr2;
-    }
+    setState(...a: [...a: TakeTwo<Sa1>, action?: Action]): Sr1;
+    setState(...a: [...a: TakeTwo<Sa2>, action?: Action]): Sr2;
+  }
   : never;
 
-export type TakeTwo<T> = T extends {length: 0}
+export type TakeTwo<T> = T extends { length: 0 }
   ? [undefined, undefined]
-  : T extends {length: 1}
-    ? [...a0: Cast<T, unknown[]>, a1: undefined]
-    : T extends {length: 0 | 1}
-      ? [...a0: Cast<T, unknown[]>, a1: undefined]
-      : T extends {length: 2}
-        ? T
-        : T extends {length: 1 | 2}
-          ? T
-          : T extends {length: 0 | 1 | 2}
-            ? T
-            : T extends [infer A0, infer A1, ...unknown[]]
-              ? [A0, A1]
-              : T extends [infer A0, (infer A1)?, ...unknown[]]
-                ? [A0, A1?]
-                : T extends [(infer A0)?, (infer A1)?, ...unknown[]]
-                  ? [A0?, A1?]
-                  : never;
+  : T extends { length: 1 }
+  ? [...a0: Cast<T, unknown[]>, a1: undefined]
+  : T extends { length: 0 | 1 }
+  ? [...a0: Cast<T, unknown[]>, a1: undefined]
+  : T extends { length: 2 }
+  ? T
+  : T extends { length: 1 | 2 }
+  ? T
+  : T extends { length: 0 | 1 | 2 }
+  ? T
+  : T extends [infer A0, infer A1, ...unknown[]]
+  ? [A0, A1]
+  : T extends [infer A0, (infer A1)?, ...unknown[]]
+  ? [A0, A1?]
+  : T extends [(infer A0)?, (infer A1)?, ...unknown[]]
+  ? [A0?, A1?]
+  : never;
 // persist middleware
 type PersistListener<S> = (state: S) => void;
 export type StorePersist<S, Ps> = {

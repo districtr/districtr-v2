@@ -4,16 +4,29 @@ import {subscribeWithSelector} from 'zustand/middleware';
 import type {MapOptions} from 'maplibre-gl';
 import {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from '../constants/mapDefaults';
 import {ActiveTool, NullableZone, SpatialUnit, Zone} from '../constants/types';
-import {DistrictrMapOptions} from './types';
+import {DistrictrMapOptions, CommunityMapOptions, Community, makeCommunity} from './types';
 import {useAssignmentsStore} from './assignmentsStore';
 import {useMapStore} from './mapStore';
 import {PaintEventHandler} from '@utils/map/types';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 
-type SidebarPanel = 'layers' | 'population' | 'demography' | 'election' | 'mapValidation' | 'overlays';
+type SidebarPanel =
+  | 'layers'
+  | 'population'
+  | 'demography'
+  | 'election'
+  | 'mapValidation'
+  | 'overlays';
 
 export interface MapControlsStore {
   selectedZone: Zone;
+  communityList: Community[];
+  selectedCommunityId: number;
+  setSelectedCommunityId: (communityId: number) => void;
+  addCommunity: () => void;
+  removeCommunities: (ids: number[]) => void;
+  setCommunityName: ({communityId, newName}: {communityId: number; newName: string}) => void;
+  setCommunityColor: ({communityId, newColor}: {communityId: number; newColor: string}) => void;
   setSelectedZone: (zone: Zone) => void;
   isPainting: boolean;
   setIsPainting: (isPainting: boolean) => void;
@@ -25,7 +38,7 @@ export interface MapControlsStore {
   setBrushSize: (size: number) => void;
   paintFunction: PaintEventHandler;
   setPaintFunction: (paintFunction: PaintEventHandler) => void;
-  mapOptions: MapOptions & DistrictrMapOptions;
+  mapOptions: MapOptions & DistrictrMapOptions & CommunityMapOptions;
   setMapOptions: (options: Partial<MapControlsStore['mapOptions']>) => void;
   setStateFp: (stateFp: string) => void;
   setLockedZones: (zones: Array<NullableZone>) => void;
@@ -36,7 +49,7 @@ export interface MapControlsStore {
   setSidebarPanels: (panels: SidebarPanel[]) => void;
 }
 
-export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
+export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions & CommunityMapOptions = {
   center: [-98.5795, 39.8283],
   zoom: 3,
   pitch: 0,
@@ -49,6 +62,7 @@ export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
   lockPaintedAreas: [],
   mode: 'default',
   paintByCounty: false,
+  paintCommunity: false,
   prominentCountyNames: true,
   showCountyBoundaries: true,
   showPaintedDistricts: true,
@@ -69,6 +83,81 @@ export const useMapControlsStore = create<MapControlsStore>()(
       if (zone <= numDistricts && !get().isPainting) {
         set({selectedZone: zone});
       }
+    },
+    // Let's make it so that "id" is the same as "postion in the array" to make it faster
+    // to grab attributes of the community without having to loop through the array to find
+    // the right community object later. The "displayPosition" attribute will control order of
+    // display in the UI, so that we can restore things later.
+    communityList: [makeCommunity({id: 0, displayPosition: 0})],
+    selectedCommunityId: 0,
+    setSelectedCommunityId: communityId => set({selectedCommunityId: communityId}),
+    addCommunity: () => {
+      const {communityList: communities} = get();
+
+      let nextId = 0;
+      const allIds = new Set(communities.map(c => c.id));
+
+      for (let i = 1; i <= allIds.size + 1; i++) {
+        if (!allIds.has(i)) {
+          nextId = i;
+          break;
+        }
+      }
+
+      const newCommunity = makeCommunity({
+        id: nextId,
+        displayPosition: communities.length,
+      });
+      set({communityList: [...communities, newCommunity], selectedCommunityId: nextId});
+    },
+    removeCommunities: (ids: number[]) => {
+      const {communityList, selectedCommunityId} = get();
+      const currentPosition = communityList[selectedCommunityId]?.displayPosition ?? 0;
+      const idsToRemove = new Set(ids);
+      const newCommunityList = communityList.filter(c => !idsToRemove.has(c.id));
+      // Now find the item with the displayPosition below the selected Community that isn't being
+      // removed, and set that as the new selected community. If there isn't one, set the selected
+      // community to 0 (the "unassigned" community)
+      // const maxRemainingDisplayBelowRemoved = newCommunityList.filter(
+      //   c => c.displayPosition < currentPosition
+      // );
+      //
+      // const maxBelowPos = Math.max(
+      //   -Infinity,
+      //   ...maxRemainingDisplayBelowRemoved.map(c => c.displayPosition)
+      // );
+      // const nextSelected =
+      //   maxRemainingDisplayBelowRemoved.find(c => c.displayPosition === maxBelowPos)?.id ?? 0;
+
+      const nextSelected =
+        newCommunityList
+          .filter(c => c.displayPosition < currentPosition)
+          .reduce<{id: number; displayPosition: number} | null>((best, c) => {
+            if (!best || c.displayPosition > best.displayPosition) {
+              return {id: c.id, displayPosition: c.displayPosition};
+            }
+            return best;
+          }, null)?.id ?? 0;
+      // now update the display positions to be sequential starting from 0, to maintain our
+      set({communityList: newCommunityList, selectedCommunityId: nextSelected});
+    },
+    setCommunityName: ({communityId, newName}: {communityId: number; newName: string}) => {
+      // Following functional update example at
+      // https://github.com/pmndrs/zustand/blob/main/docs/guides/updating-state.md?utm_source=chatgpt.com#normal-approach
+      // Should make it so we don't accidentally capture stale state when this function is used in
+      // a component
+      set(state => ({
+        communityList: state.communityList.map(c =>
+          c.id === communityId ? {...c, name: newName} : c
+        ),
+      }));
+    },
+    setCommunityColor: ({communityId, newColor}: {communityId: number; newColor: string}) => {
+      set(state => ({
+        communityList: state.communityList.map(c =>
+          c.id === communityId ? {...c, color: newColor} : c
+        ),
+      }));
     },
     isPainting: false,
     setIsPainting: isPainting => {
