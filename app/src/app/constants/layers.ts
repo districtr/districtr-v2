@@ -1,5 +1,5 @@
-import {DataDrivenPropertyValueSpecification, ExpressionSpecification} from 'maplibre-gl';
-export {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from './mapDefaults';
+import { DataDrivenPropertyValueSpecification, ExpressionSpecification } from 'maplibre-gl';
+export { FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY } from './mapDefaults';
 export const BLOCK_SOURCE_ID = 'blocks';
 export const BLOCK_LAYER_ID = 'blocks';
 export const BLOCK_POINTS_LAYER_ID = 'blocks-points';
@@ -11,6 +11,15 @@ export const SELECTION_POINTS_SOURCE_ID = 'SELECTION_POINTS';
 export const SELECTION_POINTS_SOURCE_ID_CHILD = 'SELECTION_POINTS_child';
 export const BLOCK_HOVER_LAYER_ID = `${BLOCK_LAYER_ID}-hover`;
 export const BLOCK_HOVER_LAYER_ID_CHILD = `${BLOCK_LAYER_ID_CHILD}-hover`;
+
+// There are two layers for all communities: a "draw" layer that sits above
+// everything so that you can see what you are drawing, and a "mix" layer that sits below
+// labels and other map features so that you can see the community colors as you are drawing.
+// Both layers have a child and parent version.
+export const COMMUNITY_DRAW_LAYER_ID = `${BLOCK_LAYER_ID}-community-draw`;
+export const COMMUNITY_DRAW_LAYER_ID_CHILD = `${BLOCK_LAYER_ID_CHILD}-community-draw`;
+export const COMMUNITY_MIX_LAYER_ID = `${BLOCK_LAYER_ID}-community-mix`;
+export const COMMUNITY_MIX_LAYER_ID_CHILD = `${BLOCK_LAYER_ID_CHILD}-community-mix`;
 
 export const INTERACTIVE_LAYERS = [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD];
 export const LINE_LAYERS = [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD] as const;
@@ -66,7 +75,6 @@ export const LAYER_LINE_WIDTHS = {
 
 export function getLayerFill(
   captiveIds?: Set<string>,
-  child?: boolean,
   isDemographic?: boolean
 ): DataDrivenPropertyValueSpecification<number> {
   const baseOpacity = isDemographic ? 1 : 0.6;

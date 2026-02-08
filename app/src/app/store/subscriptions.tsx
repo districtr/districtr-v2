@@ -5,6 +5,7 @@ import {getMapEditSubs} from './mapEditSubs';
 import {MapStore, useMapStore} from './mapStore';
 import {useMapControlsStore} from './mapControlsStore';
 import {useAssignmentsStore} from './assignmentsStore';
+import {idb} from '@/app/utils/idb/idb';
 
 export const initSubs = () => {
   // these need to initialize after the map store
@@ -49,6 +50,16 @@ export const initSubs = () => {
     }
   );
 
+  const communityPersistenceSub = useMapControlsStore.subscribe(
+    state => [state.communityList, state.selectedCommunityId],
+    () => {
+      const {mapDocument, mapStatus} = useMapStore.getState();
+      if (!mapDocument?.document_id || mapStatus?.access !== 'edit') return;
+      const {zoneAssignments} = useAssignmentsStore.getState();
+      idb.updateIdbAssignments(mapDocument, zoneAssignments, new Date().toISOString());
+    }
+  );
+
   const unsub = () => {
     querySubs();
     mapEditSubs.forEach(sub => sub());
@@ -56,6 +67,7 @@ export const initSubs = () => {
     demogMapDocumentSub();
     demogShatterSub();
     featureFlagSub();
+    communityPersistenceSub();
   };
   return unsub;
 };

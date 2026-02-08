@@ -1,21 +1,21 @@
-import {BLOCK_SOURCE_ID} from '@/app/constants/layers';
-import {useDemographyStore} from '@/app/store/demography/demographyStore';
-import {useMapStore} from '@/app/store/mapStore';
-import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import {useLayoutEffect, useState} from 'react';
-import {useEffect} from 'react';
-import {Source, useMap} from 'react-map-gl/maplibre';
-import {ZoneLayerGroup} from './ZoneLayerGroup';
-import {DemographicLayer} from './DemographicLayer';
-import {HighlightOverlayerLayerGroup} from './HighlightOverlayLayerGroup';
-import {demographyCache} from '@/app/utils/demography/demographyCache';
-import {useClearMap} from '@/app/hooks/useClearMap';
-import {TILESET_URL} from '@/app/utils/api/constants';
-import {useAssignmentsStore} from '@/app/store/assignmentsStore';
+import { BLOCK_SOURCE_ID } from '@/app/constants/layers';
+import { useDemographyStore } from '@/app/store/demography/demographyStore';
+import { useMapStore } from '@/app/store/mapStore';
+import { useMapControlsStore } from '@/app/store/mapControlsStore';
+import { useLayoutEffect, useState } from 'react';
+import { Source, useMap } from 'react-map-gl/maplibre';
+import { ZoneLayerGroup } from './ZoneLayerGroup';
+import { CommunityLayerGroup } from './CommunityLayerGroup';
+import { DemographicLayer } from './DemographicLayer';
+import { HighlightOverlayerLayerGroup } from './HighlightOverlayLayerGroup';
+import { demographyCache } from '@/app/utils/demography/demographyCache';
+import { useClearMap } from '@/app/hooks/useClearMap';
+import { TILESET_URL } from '@/app/utils/api/constants';
+import { useAssignmentsStore } from '@/app/store/assignmentsStore';
 
 export const VtdBlockLayers: React.FC<{
   isDemographicMap?: boolean;
-}> = ({isDemographicMap}) => {
+}> = ({ isDemographicMap }) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const setMapRenderingState = useMapStore(state => state.setMapRenderingState);
   const showDemographicMap = useMapControlsStore(state => state.mapOptions.showDemographicMap);
@@ -41,7 +41,7 @@ export const VtdBlockLayers: React.FC<{
     }
   }, [mapDocument?.tiles_s3_path]);
 
-  const handleChoroplethRender = ({numberOfBins}: {numberOfBins?: number}) => {
+  const handleChoroplethRender = ({ numberOfBins }: { numberOfBins?: number }) => {
     const _map = mapRef.current?.getMap();
     if (_map) {
       const updateFn = () => {
@@ -73,7 +73,7 @@ export const VtdBlockLayers: React.FC<{
 
   useLayoutEffect(() => {
     if (showDemography) {
-      handleChoroplethRender({numberOfBins});
+      handleChoroplethRender({ numberOfBins });
     }
   }, [
     numberOfBins,
@@ -94,8 +94,12 @@ export const VtdBlockLayers: React.FC<{
         url={`pmtiles://${TILESET_URL}/${mapDocument.tiles_s3_path}`}
         promoteId="path"
       >
+        <CommunityLayerGroup child mode="mix" />
+        <CommunityLayerGroup mode="mix" />
         {!isDemographicMap && <ZoneLayerGroup child />}
         {!isDemographicMap && <ZoneLayerGroup />}
+        <CommunityLayerGroup child mode="draw" />
+        <CommunityLayerGroup mode="draw" />
         {!!showDemography && <DemographicLayer child />}
         {!!showDemography && <DemographicLayer />}
         <HighlightOverlayerLayerGroup />

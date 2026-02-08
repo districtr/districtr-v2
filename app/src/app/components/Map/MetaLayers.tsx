@@ -164,7 +164,12 @@ const ZoneNumbersLayer = () => {
   useEffect(() => {
     const map = getMapRef();
     if (map && !map.hasImage('lock')) {
-      map.loadImage('/lock.png').then(image => map.addImage('lock', image.data));
+      map.loadImage('/lock.png').then(image => {
+        // Re-check after async load to avoid duplicate addImage races on remount/re-render.
+        if (!map.hasImage('lock')) {
+          map.addImage('lock', image.data);
+        }
+      });
       map.on('moveend', handleUpdate);
       map.on('zoomend', handleUpdate);
       map.on('resize', handleUpdate);

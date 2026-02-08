@@ -13,13 +13,10 @@ import maplibregl from 'maplibre-gl';
 import type {MutableRefObject} from 'react';
 import {QueryObserverResult} from '@tanstack/react-query';
 import {ContextMenuState} from '@utils/map/types';
-import {checkIfSameZone} from '@utils/map/checkIfSameZone';
 import {resetZoneColors} from '@utils/map/resetZoneColors';
 import {setZones} from '@utils/map/setZones';
 import bbox from '@turf/bbox';
 import {BLOCK_SOURCE_ID, FALLBACK_NUM_DISTRICTS} from '../constants/layers';
-import {onlyUnique} from '../utils/arrays';
-import {queryClient} from '../utils/api/queryClient';
 import {createWithDevWrapperAndSubscribe} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
 import {nanoid} from 'nanoid';
@@ -28,10 +25,10 @@ import {demographyCache} from '../utils/demography/demographyCache';
 import {useDemographyStore} from './demography/demographyStore';
 import {extendColorArray} from '../utils/colors';
 import {getChildEdges} from '../utils/api/apiHandlers/getChildEdges';
-import {patchUnShatterParents} from '../utils/api/apiHandlers/patchUnShatterParents';
 import {DEFAULT_MAP_OPTIONS, useMapControlsStore} from './mapControlsStore';
 import {useAssignmentsStore} from './assignmentsStore';
 import {patchUpdateReset} from '../utils/api/apiHandlers/patchUpdateReset';
+import {communityAssignments, resolveMaxCommunities} from '../utils/community/communityAssignments';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -216,6 +213,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         return;
       }
 
+      const rawCommunityMax = mapDocument?.map_metadata?.max_communities;
+      communityAssignments.reset({maxCommunities: resolveMaxCommunities(rawCommunityMax)});
+
       if (currentMapDocument?.tiles_s3_path !== mapDocument.tiles_s3_path) {
         GeometryWorker?.clear();
       }
@@ -318,7 +318,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         });
         return;
       }
-      // TODO Need to return child edges even if the parent is already shattered
+      // TODO: Need to return child edges even if the parent is already shattered
       // currently returns nothing
       let parents = new Set(shatterIds.parents);
       let children = new Set(shatterIds.children);
@@ -332,6 +332,10 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         children.add(edge.child_path);
         captiveIds.add(edge.child_path);
         childToParent.set(edge.child_path, edge.parent_path);
+
+        // This will create the child item in the LUT if needed
+        communityAssignments.copyAssignments(edge.parent_path, edge.child_path);
+
         if (!zonesToSet[edge.parent_path]) {
           zonesToSet[edge.parent_path] = new Set([edge.child_path]);
         } else {
@@ -344,6 +348,12 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         } else {
           parentToChild.get(edge.parent_path)!.add(edge.child_path);
         }
+      });
+
+      // The parent features will no longer be able to be painted on, so we will set them
+      // to inactive in the LUT so we can skip them during render events and the like.
+      parents.forEach(parentId => {
+        communityAssignments.setActiveByGeoid(parentId, false);
       });
 
       Object.entries(zonesToSet).forEach(([parent, children]) => {
@@ -412,7 +422,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       }
 
       if (resetResponse.response.document_id === document_id) {
-        const initialState = useMapStore.getInitialState();
         GeometryWorker?.resetZones();
         resetZoneColors({
           zoneAssignments,

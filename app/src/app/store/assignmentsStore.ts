@@ -23,6 +23,8 @@ import { confirmMapDocumentUrlParameter } from '../utils/map/confirmMapDocumentU
 import { communityAssignments, resolveMaxCommunities } from '../utils/community/communityAssignments';
 import { mixRgbaColors, parseHexColor } from '../utils/community/communityMix';
 import { useMapControlsStore } from './mapControlsStore';
+import type {LocalCommunityState} from '../utils/idb/idb';
+import {makeCommunity} from './types';
 
 export interface AssignmentsStore {
   /** Map of geoid -> zone assignments currently in memory */
@@ -76,7 +78,8 @@ export interface AssignmentsStore {
       parentToChild: AssignmentsStore['parentToChild'];
       childToParent: AssignmentsStore['childToParent'];
     },
-    mapDocument?: DocumentObject
+    mapDocument?: DocumentObject,
+    localCommunityState?: LocalCommunityState
   ) => void;
   /** Replaces the entire assignment map (e.g. after loading from API) */
   replaceZoneAssignments: (assignments: Map<string, NullableZone>) => void;
@@ -283,12 +286,84 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
   },
 
   flushCommunityAssignments: (): void => {
-    const { communityPaintedGeoids, shatterIds } = get();
-    if (!communityPaintedGeoids.size) return;
+    const {
+      communityPaintedGeoids,
+      shatterIds,
+      childToParent,
+      parentToChild,
+      zoneAssignments,
+      healParentsIfAllChildrenInSameZone,
+    } = get();
+    if (communityPaintedGeoids.size <= 0) return;
     const mapRef = useMapStore.getState().getMapRef();
     const mapDocument = useMapStore.getState().mapDocument;
+    let activeShatterIds = shatterIds;
+    let activeZoneAssignments = zoneAssignments;
+    let activeParentToChild = parentToChild;
+    let activeChildToParent = childToParent;
+    const geoidsToRepaint = new Set(communityPaintedGeoids);
+
+    /*
+     * Previous broader heal sweep (easy revert):
+     * const parentsToCheck = new Set<string>(shatterIds.parents);
+     */
+    // Fast path: evaluate parents touched by currently painted child geoids.
+    const parentsToCheck = new Set<string>();
+    communityPaintedGeoids.forEach(geoid => {
+      if (!shatterIds.children.has(geoid)) return;
+      const parentId = childToParent.get(geoid);
+      if (parentId) {
+        parentsToCheck.add(parentId);
+      }
+    });
+
+    // In break mode, always evaluate focused broken parent(s) as well.
+    // This protects heal when a paint event updates child assignments but the touched-id
+    // set is incomplete for a given frame.
+    const focusFeatures = useMapStore.getState().focusFeatures;
+    focusFeatures.forEach(feature => {
+      const parentId = feature.id?.toString();
+      if (parentId && shatterIds.parents.has(parentId)) {
+        parentsToCheck.add(parentId);
+      }
+    });
+
+    // Fallback safety: if nothing was touched, run a full broken-parent sweep.
+    if (!parentsToCheck.size && shatterIds.parents.size) {
+      shatterIds.parents.forEach(parentId => parentsToCheck.add(parentId));
+    }
+
+    if (parentsToCheck.size) {
+      const healResult = healParentsIfAllChildrenInSameZone(
+        {
+          _parentIds: parentsToCheck,
+          _zoneAssignments: new Map(zoneAssignments),
+          _parentToChild: new Map(parentToChild),
+          _shatterIds: {
+            parents: new Set(shatterIds.parents),
+            children: new Set(shatterIds.children),
+          },
+          _childToParent: new Map(childToParent),
+          _mapRef: mapRef,
+          _mapDocument: mapDocument ?? undefined,
+        },
+        'refs'
+      );
+      if (healResult) {
+        activeZoneAssignments = healResult.zoneAssignments;
+        activeShatterIds = healResult.shatterIds;
+        activeParentToChild = healResult.parentToChild;
+        activeChildToParent = healResult.childToParent;
+        parentsToCheck.forEach(parentId => {
+          if (!activeShatterIds.parents.has(parentId)) {
+            geoidsToRepaint.add(parentId);
+          }
+        });
+      }
+    }
+
     if (!mapRef || !mapDocument) {
-      set({ communityPaintedGeoids: new Set<string>() });
+      // Keep queued geoids so a later flush (when map refs are ready) can repaint.
       return;
     }
 
@@ -298,7 +373,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     const slowPower = 1.4;
     const darkenStep = 0.1;
     const darkenCap = 0.8;
-    const colorCache = new Map<number, { rgb: { r: number; g: number; b: number }; alpha: number }>();
+    type MixEntry = { rgb: { r: number; g: number; b: number }; alpha: number };
+    const colorCache = new Map<number, MixEntry>();
     communityList.forEach(c => {
       if (!c.visible) return;
       const rgb = parseHexColor(c.color);
@@ -308,16 +384,15 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       colorCache.set(c.id, { rgb, alpha });
     });
 
-    communityPaintedGeoids.forEach(geoid => {
-      const assignedIds: number[] = communityAssignments
-        .getAssignmentsForGeoid(geoid)
-        .sort((a: number, b: number) => a - b);
-      const colors = assignedIds
-        .map(id => colorCache.get(id))
-        .filter(
-          (entry): entry is { rgb: { r: number; g: number; b: number }; alpha: number } => !!entry
-        )
-        .map(entry => ({ rgb: entry.rgb, alpha: entry.alpha }));
+    geoidsToRepaint.forEach(geoid => {
+      const assignedIds = communityAssignments.getAssignmentsForGeoid(geoid);
+      const colors: MixEntry[] = [];
+      for (let i = 0; i < assignedIds.length; i++) {
+        const entry = colorCache.get(assignedIds[i]);
+        if (entry) {
+          colors.push(entry);
+        }
+      }
       const mixedColor = mixRgbaColors(colors, {
         maxAlpha,
         slowPower,
@@ -325,34 +400,78 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         darkenCap,
         overlapCount: colors.length,
       });
-      const isChild = shatterIds.children.has(geoid);
+      const isChild = activeShatterIds.children.has(geoid);
       const sourceLayer = isChild ? mapDocument.child_layer : mapDocument.parent_layer;
       if (!sourceLayer) return;
-      mapRef.setFeatureState(
-        {
-          source: BLOCK_SOURCE_ID,
-          id: geoid,
-          sourceLayer,
-        },
-        {
-          community_mix: mixedColor,
-          community_draw: null,
-        }
-      );
+      const targetFeature = {
+        source: BLOCK_SOURCE_ID,
+        id: geoid,
+        sourceLayer,
+      };
+      const existingState = mapRef.getFeatureState(targetFeature) as
+        | {community_mix?: string | null; community_draw?: string | null}
+        | undefined;
+      if (
+        existingState?.community_mix === mixedColor &&
+        (existingState?.community_draw ?? null) === null
+      ) {
+        return;
+      }
+      mapRef.setFeatureState(targetFeature, {
+        community_mix: mixedColor,
+        community_draw: null,
+      });
     });
 
-    set({ communityPaintedGeoids: new Set<string>() });
+    const nowIso = new Date().toISOString();
+    if (mapDocument) {
+      // Keep persistence off the immediate render hot path.
+      if (typeof queueMicrotask === 'function') {
+        queueMicrotask(() => {
+          idb.updateIdbAssignments(mapDocument, activeZoneAssignments, nowIso);
+        });
+      } else {
+        setTimeout(() => {
+          idb.updateIdbAssignments(mapDocument, activeZoneAssignments, nowIso);
+        }, 0);
+      }
+    }
+    set({
+      zoneAssignments: activeZoneAssignments,
+      shatterIds: activeShatterIds,
+      parentToChild: activeParentToChild,
+      childToParent: activeChildToParent,
+      communityPaintedGeoids: new Set<string>(),
+      clientLastUpdated: nowIso,
+      zonesLastUpdated: new Map(get().zonesLastUpdated),
+    });
   },
 
-  ingestFromDocument: (data, mapDocument) => {
+  ingestFromDocument: (data, mapDocument, localCommunityState) => {
     const rawMax = mapDocument?.map_metadata?.max_communities;
     communityAssignments.reset({ maxCommunities: resolveMaxCommunities(rawMax) });
+    if (localCommunityState?.assignments?.length) {
+      localCommunityState.assignments.forEach(([geoid, communityIds]) => {
+        communityIds.forEach(communityId => communityAssignments.addAssignment(geoid, communityId));
+      });
+    }
+    const rehydratedCommunityGeoids = new Set(
+      (localCommunityState?.assignments ?? []).map(([geoid]) => geoid)
+    );
+    const defaultCommunityList = [makeCommunity({id: 0, displayPosition: 0})];
+    const nextCommunityList =
+      localCommunityState?.communityList?.length ? localCommunityState.communityList : defaultCommunityList;
+    const selectedExists = nextCommunityList.some(c => c.id === localCommunityState?.selectedCommunityId);
+    useMapControlsStore.setState({
+      communityList: nextCommunityList,
+      selectedCommunityId: selectedExists ? localCommunityState!.selectedCommunityId : 0,
+    });
     set({
       zoneAssignments: new Map(data.zoneAssignments),
       shatterIds: data.shatterIds,
       parentToChild: new Map(data.parentToChild),
       childToParent: new Map(data.childToParent),
-      communityPaintedGeoids: new Set<string>(),
+      communityPaintedGeoids: rehydratedCommunityGeoids,
       clientLastUpdated: mapDocument?.updated_at ?? new Date().toISOString(),
     });
     if (mapDocument) {
@@ -385,7 +504,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     const mapRef = _mapRef ?? mapStoreState.getMapRef();
     const mapDocument = _mapDocument ?? mapStoreState.mapDocument;
 
-    if (!mapRef || !mapDocument) return;
+    if (mutation === 'state' && (!mapRef || !mapDocument)) return;
 
     const healedParents: Array<{
       parentId: string;
@@ -421,7 +540,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         shatterIds.children.delete(childId);
         childToParent.delete(childId);
         communityAssignments.releaseGeomByGeoid(childId);
-        if (mapRef && mapDocument.child_layer) {
+        if (mapRef && mapDocument?.child_layer) {
           mapRef.setFeatureState(
             {
               source: BLOCK_SOURCE_ID,
@@ -437,7 +556,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       parentToChild.delete(parentId);
       shatterIds.parents.delete(parentId);
       zoneAssignments.set(parentId, zone);
-      if (mapRef && mapDocument.parent_layer) {
+      if (mapRef && mapDocument?.parent_layer) {
         mapRef.setFeatureState(
           {
             source: BLOCK_SOURCE_ID,
@@ -706,7 +825,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
             shatterIds: data.shatterIds,
             parentToChild: data.parentToChild,
             childToParent: data.childToParent,
-          });
+          }, undefined, assignments.localCommunityState);
         }
         set({
           showSaveConflictModal: false,
@@ -735,7 +854,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
             shatterIds: data.shatterIds,
             parentToChild: data.parentToChild,
             childToParent: data.childToParent,
-          });
+          }, undefined, assignments.localCommunityState);
           const response = await putUpdateAssignmentsAndVerify({
             mapDocument: conflict.localDocument,
             zoneAssignments: data.zoneAssignments,

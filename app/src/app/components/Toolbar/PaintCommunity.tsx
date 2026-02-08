@@ -28,9 +28,9 @@ export default function PaintCommunity() {
       // Clear overlay constraint when enabling county paint
       // NOTE: Peter: This secondary clear paint might cause issues
       clearPaintConstraint();
-      setPaintFunction(getFeaturesIntersectingCounties);
-    } else {
       setPaintFunction(getFeaturesInBbox);
+    } else {
+      setPaintFunction(getFeaturesIntersectingCounties);
     }
   };
 
