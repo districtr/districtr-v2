@@ -9,6 +9,7 @@ import {useAssignmentsStore} from './assignmentsStore';
 import {useMapStore} from './mapStore';
 import {PaintEventHandler} from '@utils/map/types';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
+import {communityAssignments} from '../utils/community/communityAssignments';
 
 type SidebarPanel =
   | 'layers'
@@ -93,6 +94,7 @@ export const useMapControlsStore = create<MapControlsStore>()(
     setSelectedCommunityId: communityId => set({selectedCommunityId: communityId}),
     addCommunity: () => {
       const {communityList: communities} = get();
+      if (communities.length >= communityAssignments.getMaxCommunities()) return;
 
       let nextId = 0;
       const allIds = new Set(communities.map(c => c.id));
@@ -106,14 +108,48 @@ export const useMapControlsStore = create<MapControlsStore>()(
 
       const newCommunity = makeCommunity({
         id: nextId,
-        displayPosition: communities.length,
+        displayPosition:
+          communities.reduce((max, c) => (c.displayPosition > max ? c.displayPosition : max), -1) +
+          1,
       });
       set({communityList: [...communities, newCommunity], selectedCommunityId: nextId});
     },
     removeCommunities: (ids: number[]) => {
       const {communityList, selectedCommunityId} = get();
-      const currentPosition = communityList[selectedCommunityId]?.displayPosition ?? 0;
+      const selectedCommunity = communityList.find(c => c.id === selectedCommunityId);
+      const currentPosition = selectedCommunity?.displayPosition ?? 0;
       const idsToRemove = new Set(ids);
+      // If any broken geometries were assigned to removed communities, attempt a heal pass.
+      const {
+        childToParent,
+        shatterIds,
+        healParentsIfAllChildrenInSameZone,
+        queueCommunityGeoids,
+        flushCommunityAssignments,
+      } = useAssignmentsStore.getState();
+      const parentsToCheck = new Set<string>();
+      const geoidsToRepaint = new Set<string>();
+      ids.forEach(id => {
+        const geoids = communityAssignments.getGeoidsForCommunity(id, true);
+        geoids.forEach(geoid => {
+          geoidsToRepaint.add(geoid);
+          if (shatterIds.children.has(geoid)) {
+            const parentId = childToParent.get(geoid);
+            parentId && parentsToCheck.add(parentId);
+          }
+        });
+      });
+
+      ids.forEach(id => communityAssignments.clearAssignmentsForCommunity(id));
+      communityAssignments.compactAssignedGeomIndices();
+
+      if (parentsToCheck.size) {
+        healParentsIfAllChildrenInSameZone({_parentIds: parentsToCheck}, 'state');
+      }
+      if (geoidsToRepaint.size) {
+        queueCommunityGeoids(geoidsToRepaint);
+        flushCommunityAssignments();
+      }
       const newCommunityList = communityList.filter(c => !idsToRemove.has(c.id));
       // Now find the item with the displayPosition below the selected Community that isn't being
       // removed, and set that as the new selected community. If there isn't one, set the selected
@@ -129,15 +165,16 @@ export const useMapControlsStore = create<MapControlsStore>()(
       // const nextSelected =
       //   maxRemainingDisplayBelowRemoved.find(c => c.displayPosition === maxBelowPos)?.id ?? 0;
 
-      const nextSelected =
-        newCommunityList
-          .filter(c => c.displayPosition < currentPosition)
-          .reduce<{id: number; displayPosition: number} | null>((best, c) => {
-            if (!best || c.displayPosition > best.displayPosition) {
-              return {id: c.id, displayPosition: c.displayPosition};
-            }
-            return best;
-          }, null)?.id ?? 0;
+      const nextSelected = idsToRemove.has(selectedCommunityId)
+        ? newCommunityList
+            .filter(c => c.displayPosition < currentPosition)
+            .reduce<{id: number; displayPosition: number} | null>((best, c) => {
+              if (!best || c.displayPosition > best.displayPosition) {
+                return {id: c.id, displayPosition: c.displayPosition};
+              }
+              return best;
+            }, null)?.id ?? 0
+        : selectedCommunityId;
       // now update the display positions to be sequential starting from 0, to maintain our
       set({communityList: newCommunityList, selectedCommunityId: nextSelected});
     },
@@ -162,7 +199,12 @@ export const useMapControlsStore = create<MapControlsStore>()(
     isPainting: false,
     setIsPainting: isPainting => {
       if (!isPainting) {
-        useAssignmentsStore.getState().ingestAccumulatedAssignments();
+        const {mapOptions} = get();
+        if (mapOptions.paintCommunity) {
+          useAssignmentsStore.getState().flushCommunityAssignments();
+        } else {
+          useAssignmentsStore.getState().ingestAccumulatedAssignments();
+        }
       }
       set({isPainting});
     },

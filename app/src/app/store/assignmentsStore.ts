@@ -1,26 +1,28 @@
-import {NullableZone} from '../constants/types';
-import {Zone, GDBPath} from '@constants/types';
+import { NullableZone } from '../constants/types';
+import { Zone, GDBPath } from '@constants/types';
 import GeometryWorker from '../utils/GeometryWorker';
-import {demographyCache} from '../utils/demography/demographyCache';
-import {idb} from '../utils/idb/idb';
-import {useMapStore} from './mapStore';
-import {BLOCK_SOURCE_ID} from '../constants/layers';
-import {checkIfSameZone} from '../utils/map/checkIfSameZone';
-import {formatAssignmentsFromDocument} from '../utils/map/formatAssignments';
-import {getAssignments} from '../utils/api/apiHandlers/getAssignments';
-import {MapGeoJSONFeature} from 'maplibre-gl';
-import {useChartStore} from './chartStore';
-import {subscribeWithSelector} from 'zustand/middleware';
-import {putUpdateAssignmentsAndVerify} from '../utils/api/apiHandlers/putUpdateAssignmentsAndVerify';
-import {DocumentObject} from '../utils/api/apiHandlers/types';
+import { demographyCache } from '../utils/demography/demographyCache';
+import { idb } from '../utils/idb/idb';
+import { useMapStore } from './mapStore';
+import { BLOCK_SOURCE_ID } from '../constants/layers';
+import { checkIfSameZone } from '../utils/map/checkIfSameZone';
+import { formatAssignmentsFromDocument } from '../utils/map/formatAssignments';
+import { getAssignments } from '../utils/api/apiHandlers/getAssignments';
+import { MapGeoJSONFeature } from 'maplibre-gl';
+import { useChartStore } from './chartStore';
+import { putUpdateAssignmentsAndVerify } from '../utils/api/apiHandlers/putUpdateAssignmentsAndVerify';
+import { DocumentObject } from '../utils/api/apiHandlers/types';
 import {
   fetchDocument,
   SyncConflictInfo,
   SyncConflictResolution,
 } from '../utils/api/apiHandlers/fetchDocument';
-import {createMapDocument} from '../utils/api/apiHandlers/createMapDocument';
-import {createWithFullMiddlewares} from './middlewares';
-import {confirmMapDocumentUrlParameter} from '../utils/map/confirmMapDocumentUrlParameter';
+import { createMapDocument } from '../utils/api/apiHandlers/createMapDocument';
+import { createWithFullMiddlewares } from './middlewares';
+import { confirmMapDocumentUrlParameter } from '../utils/map/confirmMapDocumentUrlParameter';
+import { communityAssignments, resolveMaxCommunities } from '../utils/community/communityAssignments';
+import { mixRgbaColors, parseHexColor } from '../utils/community/communityMix';
+import { useMapControlsStore } from './mapControlsStore';
 
 export interface AssignmentsStore {
   /** Map of geoid -> zone assignments currently in memory */
@@ -39,6 +41,19 @@ export interface AssignmentsStore {
     features: Array<MapGeoJSONFeature>,
     zone: NullableZone
   ) => void;
+  /** Updates community assignments for a set of painted features */
+  mutateCommunityAssignments: (
+    mapRef: maplibregl.Map,
+    features: Array<MapGeoJSONFeature>,
+    communityId: number,
+    action: 'add' | 'remove'
+  ) => void;
+  /** Geoids touched during an in-progress community paint interaction */
+  communityPaintedGeoids: Set<string>;
+  /** Queue geoids for a mixed-color refresh */
+  queueCommunityGeoids: (geoids: Iterable<string>) => void;
+  /** Flush mixed community colors to the map after painting */
+  flushCommunityAssignments: () => void;
   /** Bi-directional mapping of parent ids to their shattered children */
   parentToChild: Map<string, Set<string>>;
   /** Bi-directional mapping of child ids to their parent id for O(1) lookups */
@@ -106,11 +121,11 @@ export interface AssignmentsStore {
     mutation: 'refs' | 'state'
   ) =>
     | {
-        zoneAssignments: Map<string, NullableZone>;
-        shatterIds: AssignmentsStore['shatterIds'];
-        parentToChild: AssignmentsStore['parentToChild'];
-        childToParent: AssignmentsStore['childToParent'];
-      }
+      zoneAssignments: Map<string, NullableZone>;
+      shatterIds: AssignmentsStore['shatterIds'];
+      parentToChild: AssignmentsStore['parentToChild'];
+      childToParent: AssignmentsStore['childToParent'];
+    }
     | undefined;
 }
 
@@ -122,6 +137,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
   zoneAssignments: new Map(),
   zonesLastUpdated: new Map(),
   accumulatedAssignments: new Map<string, NullableZone>(),
+  communityPaintedGeoids: new Set<string>(),
   shatterIds: {
     parents: new Set<string>(),
     children: new Set<string>(),
@@ -152,9 +168,13 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       zonesLastUpdated,
     });
   },
-  mutateZoneAssignments: (mapRef, features, zone) => {
-    const {accumulatedAssignments, zonesLastUpdated, zoneAssignments} = get();
-    const {setPaintedChanges} = useChartStore.getState();
+  mutateZoneAssignments: (
+    mapRef: maplibregl.Map,
+    features: Array<MapGeoJSONFeature>,
+    zone: NullableZone
+  ): void => {
+    const { accumulatedAssignments, zonesLastUpdated, zoneAssignments } = get();
+    const { setPaintedChanges } = useChartStore.getState();
     // We can access the inner state of the map in a more ergonomic way than the convenience method `getFeatureState`
     // the inner state here gives us access to { [sourceLayer]: { [id]: { ...stateProperties }}}
     // So, we get things like `zone` and `locked` and `broken` etc without needing to check a bunch of different places
@@ -196,10 +216,46 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
           id,
           sourceLayer,
         },
-        {selected: true, zone: zone}
+        { selected: true, zone: zone }
       );
     });
     setPaintedChanges(popChanges);
+  },
+
+  mutateCommunityAssignments: (
+    mapRef: maplibregl.Map,
+    features: Array<MapGeoJSONFeature>,
+    communityId: number,
+    action: 'add' | 'remove'
+  ): void => {
+    if (!features?.length) return;
+    if (communityId < 0) return;
+    const { communityPaintedGeoids } = get();
+    const updated = new Set(communityPaintedGeoids);
+    const { communityList } = useMapControlsStore.getState();
+    const drawColor = communityList.find(c => c.id === communityId)?.color ?? null;
+    features.forEach(feature => {
+      const id = feature?.id?.toString() ?? undefined;
+      const sourceLayer = feature.properties.__sourceLayer || feature.sourceLayer;
+      if (!id || !sourceLayer) return;
+      if (action === 'add') {
+        communityAssignments.addAssignment(id, communityId);
+      } else {
+        communityAssignments.removeAssignment(id, communityId);
+      }
+      updated.add(id);
+      mapRef.setFeatureState(
+        {
+          source: BLOCK_SOURCE_ID,
+          id,
+          sourceLayer,
+        },
+        {
+          community_draw: action === 'add' ? drawColor : null,
+        }
+      );
+    });
+    set({ communityPaintedGeoids: updated });
   },
 
   setAccumulatedAssignments: (accumulatedAssignments, zonesUpdated) => {
@@ -217,12 +273,86 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     });
   },
 
+  queueCommunityGeoids: (geoids: Iterable<string>): void => {
+    const { communityPaintedGeoids } = get();
+    const updated = new Set(communityPaintedGeoids);
+    for (const geoid of geoids) {
+      updated.add(geoid);
+    }
+    set({ communityPaintedGeoids: updated });
+  },
+
+  flushCommunityAssignments: (): void => {
+    const { communityPaintedGeoids, shatterIds } = get();
+    if (!communityPaintedGeoids.size) return;
+    const mapRef = useMapStore.getState().getMapRef();
+    const mapDocument = useMapStore.getState().mapDocument;
+    if (!mapRef || !mapDocument) {
+      set({ communityPaintedGeoids: new Set<string>() });
+      return;
+    }
+
+    const { communityList } = useMapControlsStore.getState();
+    const baseAlpha = 0.5;
+    const maxAlpha = 0.8;
+    const slowPower = 1.4;
+    const darkenStep = 0.1;
+    const darkenCap = 0.8;
+    const colorCache = new Map<number, { rgb: { r: number; g: number; b: number }; alpha: number }>();
+    communityList.forEach(c => {
+      if (!c.visible) return;
+      const rgb = parseHexColor(c.color);
+      if (!rgb) return;
+      const alpha = Math.max(0, Math.min(1, baseAlpha * c.opacity));
+      if (alpha <= 0) return;
+      colorCache.set(c.id, { rgb, alpha });
+    });
+
+    communityPaintedGeoids.forEach(geoid => {
+      const assignedIds: number[] = communityAssignments
+        .getAssignmentsForGeoid(geoid)
+        .sort((a: number, b: number) => a - b);
+      const colors = assignedIds
+        .map(id => colorCache.get(id))
+        .filter(
+          (entry): entry is { rgb: { r: number; g: number; b: number }; alpha: number } => !!entry
+        )
+        .map(entry => ({ rgb: entry.rgb, alpha: entry.alpha }));
+      const mixedColor = mixRgbaColors(colors, {
+        maxAlpha,
+        slowPower,
+        darkenStep,
+        darkenCap,
+        overlapCount: colors.length,
+      });
+      const isChild = shatterIds.children.has(geoid);
+      const sourceLayer = isChild ? mapDocument.child_layer : mapDocument.parent_layer;
+      if (!sourceLayer) return;
+      mapRef.setFeatureState(
+        {
+          source: BLOCK_SOURCE_ID,
+          id: geoid,
+          sourceLayer,
+        },
+        {
+          community_mix: mixedColor,
+          community_draw: null,
+        }
+      );
+    });
+
+    set({ communityPaintedGeoids: new Set<string>() });
+  },
+
   ingestFromDocument: (data, mapDocument) => {
+    const rawMax = mapDocument?.map_metadata?.max_communities;
+    communityAssignments.reset({ maxCommunities: resolveMaxCommunities(rawMax) });
     set({
       zoneAssignments: new Map(data.zoneAssignments),
       shatterIds: data.shatterIds,
       parentToChild: new Map(data.parentToChild),
       childToParent: new Map(data.childToParent),
+      communityPaintedGeoids: new Set<string>(),
       clientLastUpdated: mapDocument?.updated_at ?? new Date().toISOString(),
     });
     if (mapDocument) {
@@ -266,22 +396,31 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     parentIds.forEach(parentId => {
       const children = parentToChild.get(parentId);
       if (!children || !children.size) return;
-      const {shouldHeal, zone} = checkIfSameZone(children, zoneAssignments);
-      if (shouldHeal) {
-        healedParents.push({parentId, zone, children: new Set(children)});
+      const { shouldHeal, zone } = checkIfSameZone(children, zoneAssignments);
+      const childList = Array.from(children);
+      const sameCommunityAssignments =
+        childList.length <= 1
+          ? true
+          : childList
+            .slice(1)
+            .every(childId => communityAssignments.haveSameAssignments(childList[0], childId));
+      if (shouldHeal && sameCommunityAssignments) {
+        healedParents.push({ parentId, zone, children: new Set(children) });
       }
     });
 
     const healedChildIds = new Set<string>();
     const healedParentIds = new Set<string>();
 
-    healedParents.forEach(({parentId, zone, children}) => {
+    healedParents.forEach(({ parentId, zone, children }) => {
       healedParentIds.add(parentId);
+      communityAssignments.unionAssignments(children, parentId);
       children.forEach(childId => {
         healedChildIds.add(childId);
         zoneAssignments.delete(childId);
         shatterIds.children.delete(childId);
         childToParent.delete(childId);
+        communityAssignments.releaseGeomByGeoid(childId);
         if (mapRef && mapDocument.child_layer) {
           mapRef.setFeatureState(
             {
@@ -322,6 +461,10 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         childToParent,
       };
     } else {
+      const { communityPaintedGeoids } = get();
+      const queued = new Set(communityPaintedGeoids);
+      healedParentIds.forEach(id => queued.add(id));
+      communityAssignments.compactAssignedGeomIndices();
       set({
         zoneAssignments: new Map(zoneAssignments),
         accumulatedAssignments: new Map<string, NullableZone>(),
@@ -331,9 +474,11 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         },
         parentToChild: new Map(parentToChild),
         childToParent: new Map(childToParent),
+        communityPaintedGeoids: queued,
         clientLastUpdated: new Date().toISOString(),
         zonesLastUpdated: new Map(get().zonesLastUpdated),
       });
+      get().flushCommunityAssignments();
     }
   },
   ingestAccumulatedAssignments: () => {
@@ -347,7 +492,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       healParentsIfAllChildrenInSameZone,
     } = get();
 
-    const {mapDocument, getMapRef} = useMapStore.getState();
+    const { mapDocument, getMapRef } = useMapStore.getState();
     const isFocused = useMapStore.getState().captiveIds.size > 0;
     const mapRef = getMapRef();
     if (!mapDocument || !getMapRef || !accumulatedAssignments.size) return;
@@ -390,7 +535,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     );
 
     if (!result) return;
-    const {zoneAssignments, shatterIds, parentToChild, childToParent} = result;
+    const { zoneAssignments, shatterIds, parentToChild, childToParent } = result;
+    communityAssignments.compactAssignedGeomIndices();
     demographyCache.updatePopulations(zoneAssignments);
     idb.updateIdbAssignments(mapDocument, zoneAssignments);
 
@@ -411,7 +557,9 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     });
   },
 
-  resetZoneAssignments: () => {
+  resetZoneAssignments: (): void => {
+    const rawMax = useMapStore.getState().mapDocument?.map_metadata?.max_communities;
+    communityAssignments.reset({ maxCommunities: resolveMaxCommunities(rawMax) });
     set({
       zoneAssignments: new Map(),
       accumulatedAssignments: new Map<string, NullableZone>(),
@@ -422,38 +570,39 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       },
       parentToChild: new Map<string, Set<string>>(),
       childToParent: new Map<string, string>(),
+      communityPaintedGeoids: new Set<string>(),
     });
   },
 
-  setShatterState: ({shatterIds, parentToChild, zoneAssignments, childToParent}) => {
+  setShatterState: ({ shatterIds, parentToChild, zoneAssignments, childToParent }) => {
     // Ensure both maps are provided or build from each other
     const _parentToChild =
       parentToChild && parentToChild.size > 0
         ? new Map(parentToChild)
         : (() => {
-            const map = new Map<string, Set<string>>();
-            childToParent.forEach((parentId, childId) => {
-              if (!map.has(parentId)) {
-                map.set(parentId, new Set([childId]));
-              } else {
-                map.get(parentId)!.add(childId);
-              }
-            });
-            return map;
-          })();
+          const map = new Map<string, Set<string>>();
+          childToParent.forEach((parentId, childId) => {
+            if (!map.has(parentId)) {
+              map.set(parentId, new Set([childId]));
+            } else {
+              map.get(parentId)!.add(childId);
+            }
+          });
+          return map;
+        })();
 
     const _childToParent =
       childToParent && childToParent.size > 0
         ? new Map(childToParent)
         : (() => {
-            const map = new Map<string, string>();
-            parentToChild.forEach((children, parentId) => {
-              children.forEach(childId => {
-                map.set(childId, parentId);
-              });
+          const map = new Map<string, string>();
+          parentToChild.forEach((children, parentId) => {
+            children.forEach(childId => {
+              map.set(childId, parentId);
             });
-            return map;
-          })();
+          });
+          return map;
+        })();
 
     set({
       shatterIds: {
@@ -481,12 +630,12 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     // Flush any pending IDB updates before explicit save
     await idb.flushPendingUpdate();
 
-    const {zoneAssignments, shatterIds, parentToChild, childToParent} = get();
-    const {mapDocument, setMapLock} = useMapStore.getState();
+    const { zoneAssignments, shatterIds, parentToChild, childToParent } = get();
+    const { mapDocument, setMapLock } = useMapStore.getState();
     if (!mapDocument?.document_id || !mapDocument.updated_at) return;
     const idbDocument = await idb.getDocument(mapDocument?.document_id);
     if (!idbDocument) return;
-    setMapLock({isLocked: true, reason: 'Saving plan'});
+    setMapLock({ isLocked: true, reason: 'Saving plan' });
     const assignmentsPostResponse = await putUpdateAssignmentsAndVerify({
       mapDocument: idbDocument.document_metadata,
       zoneAssignments,
@@ -514,8 +663,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
   handleRevert: async (mapDocument: DocumentObject) => {
     // before doing this operation
     const confirmedMapDocument = confirmMapDocumentUrlParameter(mapDocument.document_id);
-    const {setErrorNotification, setMapLock} = useMapStore.getState();
-    const {ingestFromDocument} = get();
+    const { setErrorNotification, setMapLock } = useMapStore.getState();
+    const { ingestFromDocument } = get();
     if (!confirmedMapDocument) {
       setErrorNotification({
         message:
@@ -524,7 +673,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       });
       return;
     }
-    setMapLock({isLocked: true, reason: 'Reverting map to last save.'});
+    setMapLock({ isLocked: true, reason: 'Reverting map to last save.' });
     const documentResult = await fetchDocument(mapDocument.document_id, 'remote');
     if (!documentResult.ok) {
       setErrorNotification({
@@ -539,8 +688,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
   },
   showSaveConflictModal: false,
   resolveConflict: async (resolution, conflict, options = {}) => {
-    const {onNavigate, onComplete, context = 'save'} = options;
-    const {setMapDocument, setMapLock, setAppLoadingState} = useMapStore.getState();
+    const { onNavigate, onComplete, context = 'save' } = options;
+    const { setMapDocument, setMapLock, setAppLoadingState } = useMapStore.getState();
     const state = get();
 
     switch (resolution) {
@@ -574,7 +723,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
           await state.handlePutAssignments(true);
         } else {
           // For load conflicts, upload local assignments to server
-          setMapLock({isLocked: true, reason: 'Loading local version, overwriting cloud version.'});
+          setMapLock({ isLocked: true, reason: 'Loading local version, overwriting cloud version.' });
           setMapDocument(conflict.localDocument);
           const assignments = await idb.getDocument(conflict.localDocument.document_id);
           if (!assignments) {
@@ -635,7 +784,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         set({
           showSaveConflictModal: false,
         });
-        setMapLock({isLocked: true, reason: 'Creating a new plan from your changes.'});
+        setMapLock({ isLocked: true, reason: 'Creating a new plan from your changes.' });
         const createMapDocumentResponse = await createMapDocument(conflict.serverDocument);
         if (!createMapDocumentResponse.ok) {
           throw new Error('Failed to create map document');

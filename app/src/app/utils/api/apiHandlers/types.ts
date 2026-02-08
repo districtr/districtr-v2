@@ -52,6 +52,7 @@ export interface DocumentMetadata {
   description: string | null;
   eventId: string | null;
   draft_status: DraftStatus | null;
+  max_communities?: number | null;
 }
 
 export interface DocumentObject extends StatusObject {
