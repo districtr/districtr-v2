@@ -1,6 +1,7 @@
 import {DocumentObject, Assignment} from './types';
 import {getDocument} from './getDocument';
 import {idb} from '@/app/utils/idb/idb';
+import type {LocalCommunityState} from '@/app/utils/idb/idb';
 import {getAssignments} from './getAssignments';
 import {isUUID} from '../../metadata/isUUID';
 
@@ -29,6 +30,7 @@ type FetchDocumentResult = Promise<
         document: DocumentObject;
         assignments: Assignment[];
         updateLocal?: boolean;
+        localCommunityState?: LocalCommunityState;
       };
     }
   | {
@@ -78,6 +80,7 @@ export const fetchDocument = async (
       response: {
         document: remoteMetadata.response,
         assignments: remoteAssignments.response,
+        localCommunityState: idbDocument?.localCommunityState,
         updateLocal: true,
       },
     };
@@ -98,6 +101,7 @@ export const fetchDocument = async (
           statefps: remoteMetadata.response.statefps,
         },
         assignments: idbDocument.assignments,
+        localCommunityState: idbDocument.localCommunityState,
       },
     };
   }

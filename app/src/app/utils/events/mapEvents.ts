@@ -14,24 +14,23 @@ import type {
   MapRef,
   ViewStateChangeEvent,
 } from 'react-map-gl/maplibre';
-import {MapStore, useMapStore} from '@/app/store/mapStore';
-import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import {useOverlayStore} from '@/app/store/overlayStore';
+import { MapStore, useMapStore } from '@/app/store/mapStore';
+import { useMapControlsStore } from '@/app/store/mapControlsStore';
+import { useOverlayStore } from '@/app/store/overlayStore';
 import {
   BLOCK_HOVER_LAYER_ID,
   BLOCK_HOVER_LAYER_ID_CHILD,
   BLOCK_POINTS_LAYER_ID,
   BLOCK_POINTS_LAYER_ID_CHILD,
-  BLOCK_SOURCE_ID,
   INTERACTIVE_LAYERS,
 } from '@/app/constants/layers';
-import {ResetMapSelectState} from '@utils/events/handlers';
+import { ResetMapSelectState } from '@utils/events/handlers';
 import GeometryWorker from '../GeometryWorker';
-import {ActiveTool} from '@/app/constants/types';
-import {throttle} from 'lodash';
-import {useTooltipStore} from '@/app/store/tooltipStore';
-import {useAssignmentsStore} from '@/app/store/assignmentsStore';
-import {setHoverFeatures} from '../map/hoverFeatures';
+import { ActiveTool } from '@/app/constants/types';
+import { throttle } from 'lodash';
+import { useTooltipStore } from '@/app/store/tooltipStore';
+import { useAssignmentsStore } from '@/app/store/assignmentsStore';
+import { setHoverFeatures } from '../map/hoverFeatures';
 
 export const AREA_SELECT_TOOLS = ['brush', 'eraser', 'inspector'];
 export const POINT_SELECT_TOOLS = ['shatter'];
@@ -60,11 +59,11 @@ function getLayerIdsToPaint(child_layer: string | undefined | null, activeTool: 
 
   return child_layer
     ? [
-        BLOCK_POINTS_LAYER_ID,
-        BLOCK_POINTS_LAYER_ID_CHILD,
-        BLOCK_HOVER_LAYER_ID,
-        BLOCK_HOVER_LAYER_ID_CHILD,
-      ]
+      BLOCK_POINTS_LAYER_ID,
+      BLOCK_POINTS_LAYER_ID_CHILD,
+      BLOCK_HOVER_LAYER_ID,
+      BLOCK_HOVER_LAYER_ID_CHILD,
+    ]
     : [BLOCK_POINTS_LAYER_ID, BLOCK_HOVER_LAYER_ID];
 }
 
@@ -74,8 +73,9 @@ export const handleFeatureSelection = (
   sourceLayer: string | undefined,
   mapRef: (MapLayerMouseEvent | MapLayerTouchEvent)['target'] | null
 ) => {
-  const {activeTool, selectedZone, setIsPainting} = useMapControlsStore.getState();
-  const {mutateZoneAssignments} = useAssignmentsStore.getState();
+  const { activeTool, selectedZone, setIsPainting, mapOptions, selectedCommunityId } =
+    useMapControlsStore.getState();
+  const { mutateZoneAssignments, mutateCommunityAssignments } = useAssignmentsStore.getState();
   switch (activeTool) {
     case 'shatter':
       const documentId = mapStore.mapDocument?.document_id;
@@ -86,12 +86,21 @@ export const handleFeatureSelection = (
     case 'brush':
     case 'eraser':
       if (sourceLayer && selectedFeatures && mapRef && mapStore) {
-        // select on both the map object and the store
-        mutateZoneAssignments(
-          mapRef,
-          selectedFeatures || [],
-          activeTool === 'brush' ? selectedZone : null
-        );
+        if (mapOptions.paintCommunity) {
+          mutateCommunityAssignments(
+            mapRef,
+            selectedFeatures || [],
+            selectedCommunityId,
+            activeTool === 'brush' ? 'add' : 'remove'
+          );
+        } else {
+          // select on both the map object and the store
+          mutateZoneAssignments(
+            mapRef,
+            selectedFeatures || [],
+            activeTool === 'brush' ? selectedZone : null
+          );
+        }
         setIsPainting(false);
       }
   }
@@ -105,8 +114,8 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
   const mapRef = e.target;
   const mapStore = useMapStore.getState();
   const mapControls = useMapControlsStore.getState();
-  const {selectingLayerId, setPaintConstraint} = useOverlayStore.getState();
-  const {activeTool, paintFunction, brushSize} = mapControls;
+  const { selectingLayerId, setPaintConstraint } = useOverlayStore.getState();
+  const { activeTool, paintFunction, brushSize } = mapControls;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   let selectedFeatures: MapGeoJSONFeature[] | undefined = undefined;
 
@@ -145,7 +154,6 @@ export const handleMapMouseUp = (e: MapLayerMouseEvent | MapLayerTouchEvent) => 
 
 export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const mapRef = e.target;
-  const mapStore = useMapStore.getState();
   const mapControls = useMapControlsStore.getState();
   const activeTool = mapControls.activeTool;
 
@@ -164,11 +172,14 @@ export const handleMapMouseEnter = (e: MapLayerMouseEvent | MapLayerTouchEvent) 
   // if so, set is painting true
   // @ts-ignore this is the correct behavior but event types are incorrect
   if (e.originalEvent?.buttons === 1) {
-    useMapControlsStore.getState().setIsPainting(true);
+    const activeTool = useMapControlsStore.getState().activeTool;
+    if (activeTool === 'brush' || activeTool === 'eraser') {
+      useMapControlsStore.getState().setIsPainting(true);
+    }
   }
 };
 
-export const handleMapMouseOver = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {};
+export const handleMapMouseOver = (e: MapLayerMouseEvent | MapLayerTouchEvent) => { };
 
 export const handleMapMouseLeave = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   setTimeout(() => {
@@ -191,11 +202,12 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   const mapStore = useMapStore.getState();
   const mapControls = useMapControlsStore.getState();
 
-  const {mapOptions, activeTool, isPainting, paintFunction, brushSize} = mapControls;
-  const {mapDocument} = mapStore;
-  const {selectedZone} = mapControls;
-  const {mutateZoneAssignments} = useAssignmentsStore.getState();
-  const {selectingLayerId} = useOverlayStore.getState();
+  const { mapOptions, activeTool, isPainting, paintFunction, brushSize, selectedCommunityId } =
+    mapControls;
+  const { mapDocument } = mapStore;
+  const { selectedZone } = mapControls;
+  const { mutateZoneAssignments, mutateCommunityAssignments } = useAssignmentsStore.getState();
+  const { selectingLayerId } = useOverlayStore.getState();
   const setTooltip = useTooltipStore.getState().setTooltip;
   const sourceLayer = mapDocument?.parent_layer;
   const paintLayers = getLayerIdsToPaint(
@@ -205,6 +217,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   );
 
   const isBrushingTool = sourceLayer && ALL_BRUSHING_TOOLS.includes(activeTool);
+  const isPaintTool = activeTool === 'brush' || activeTool === 'eraser';
   if (selectingLayerId) {
     const features = mapRef.queryRenderedFeatures(e.point, {
       layers: [`overlay-click-${selectingLayerId}`],
@@ -223,17 +236,26 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
 
   const selectedFeatures = paintFunction(mapRef, e, brushSize, paintLayers);
   // sourceCapabilities exists on the UIEvent constructor, which does not appear
-  // properly tpyed in the default map events
+  // properly typed in the default map events
   // https://developer.mozilla.org/en-US/docs/Web/API/UIEvent/sourceCapabilities
   const isTouchEvent =
     'touches' in e || (e.originalEvent as any)?.sourceCapabilities?.firesTouchEvents;
   if (isBrushingTool && !isTouchEvent && !isPainting) {
     setHoverFeatures(selectedFeatures || []);
   }
-  if (selectedFeatures && isBrushingTool && isPainting) {
+  if (selectedFeatures && isPaintTool && isPainting) {
     // selects in the map object; the store object
     // is updated in the mouseup event
-    mutateZoneAssignments(mapRef, selectedFeatures, activeTool === 'brush' ? selectedZone : null);
+    if (mapOptions.paintCommunity) {
+      mutateCommunityAssignments(
+        mapRef,
+        selectedFeatures,
+        selectedCommunityId,
+        activeTool === 'brush' ? 'add' : 'remove'
+      );
+    } else {
+      mutateZoneAssignments(mapRef, selectedFeatures, activeTool === 'brush' ? selectedZone : null);
+    }
   }
 
   if (
@@ -245,15 +267,15 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
       ...e.point,
       data: mapOptions.showPopulationTooltip
         ? [
-            {
-              label: 'Total Pop',
-              value:
-                selectedFeatures?.reduce(
-                  (acc, curr) => acc + parseInt(curr.properties.total_pop_20),
-                  0
-                ) ?? 'N/A',
-            },
-          ]
+          {
+            label: 'Total Pop',
+            value:
+              selectedFeatures?.reduce(
+                (acc, curr) => acc + parseInt(curr.properties.total_pop_20),
+                0
+              ) ?? 'N/A',
+          },
+        ]
         : [],
     });
   } else {
@@ -261,7 +283,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   }
 }, 5);
 
-export const handleMapZoom = (e: ViewStateChangeEvent) => {};
+export const handleMapZoom = (e: ViewStateChangeEvent) => { };
 
 export const handleMapIdle = (e: MapEvent) => {
   const mapDocument = useMapStore.getState().mapDocument;
@@ -271,9 +293,9 @@ export const handleMapIdle = (e: MapEvent) => {
   }
 };
 
-export const handleMapMoveEnd = () => {};
+export const handleMapMoveEnd = () => { };
 
-export const handleMapZoomEnd = (e: ViewStateChangeEvent) => {};
+export const handleMapZoomEnd = (e: ViewStateChangeEvent) => { };
 
 export const handleResetMapSelectState = (map: MapLibreMap | null) => {
   const mapStore = useMapStore.getState();
@@ -324,9 +346,9 @@ export const throttledSetWorkerHash = throttle((hash: string) => {
 }, 1000);
 
 export const handleDataLoad = (e: MapSourceDataEvent) => {
-  const {mapDocument, setMapRenderingState, setWorkerUpdateHash} = useMapStore.getState();
-  const {setStateFp} = useMapControlsStore.getState();
-  const {tiles_s3_path, parent_layer} = mapDocument || {};
+  const { mapDocument, setMapRenderingState } = useMapStore.getState();
+  const { setStateFp } = useMapControlsStore.getState();
+  const { tiles_s3_path, parent_layer } = mapDocument || {};
   if (!tiles_s3_path || !parent_layer || !(e?.source as any)?.url?.includes(tiles_s3_path)) return;
   const tileData = e?.tile?.latestFeatureIndex;
   if (!tileData) return;
@@ -372,4 +394,4 @@ export const handleWheelOrPinch = (e: MouseEvent | TouchEvent, map: MapRef | nul
   // map.scrollZoom.setWheelZoomRate(1 / wheelRate);
   // map.scrollZoom.setZoomRate(1 / zoomRate);
 };
-export const mapContainerEvents = [{action: 'wheel', handler: handleWheelOrPinch}];
+export const mapContainerEvents = [{ action: 'wheel', handler: handleWheelOrPinch }];

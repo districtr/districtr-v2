@@ -1,9 +1,18 @@
-import {Assignment, DocumentMetadata, DocumentObject} from '../api/apiHandlers/types';
-import Dexie, {Table} from 'dexie';
-import {NullableZone} from '@/app/constants/types';
-import {formatAssignmentsFromState} from '../map/formatAssignments';
-import {useAssignmentsStore} from '@/app/store/assignmentsStore';
+import { Assignment, DocumentMetadata, DocumentObject } from '../api/apiHandlers/types';
+import Dexie, { Table } from 'dexie';
+import { NullableZone } from '@/app/constants/types';
+import { formatAssignmentsFromState } from '../map/formatAssignments';
+import { useAssignmentsStore } from '@/app/store/assignmentsStore';
+import { useMapControlsStore } from '@/app/store/mapControlsStore';
+import { communityAssignments } from '../community/communityAssignments';
+import { Community } from '@/app/store/types';
 // --- Main Document Entry ---
+export interface LocalCommunityState {
+  communityList: Community[];
+  selectedCommunityId: number;
+  assignments: Array<[string, number[]]>;
+}
+
 export interface StoredDocument {
   id: string; // UUID key
   document_metadata: DocumentObject;
@@ -11,6 +20,7 @@ export interface StoredDocument {
   clientLastUpdated: string; // ISO date string
   password?: string | null;
   shouldFetchAssignments?: boolean;
+  localCommunityState?: LocalCommunityState;
 }
 
 // --- Dexie Setup ---
@@ -61,7 +71,7 @@ export class DocumentsDB extends Dexie {
   private pendingUpdate: {
     mapDocument: DocumentObject;
     zoneAssignments: Map<string, NullableZone>;
-    shatterIds: {parents: Set<string>; children: Set<string>};
+    shatterIds: { parents: Set<string>; children: Set<string> };
     childToParent: Map<string, string>;
     clientLastUpdated: string;
     timeoutId: ReturnType<typeof setTimeout> | null;
@@ -92,7 +102,7 @@ export class DocumentsDB extends Dexie {
     }
 
     // Store the latest parameters, capturing current state
-    const {shatterIds, childToParent} = useAssignmentsStore.getState();
+    const { shatterIds, childToParent } = useAssignmentsStore.getState();
 
     // If immediate save requested, save synchronously without debouncing
     if (immediate) {
@@ -106,6 +116,7 @@ export class DocumentsDB extends Dexie {
         childToParent,
         'assignment'
       );
+      const localCommunityState = this.buildLocalCommunityState(shatterIds);
 
       // Fire and forget - don't set pending update
       this.updateDocument({
@@ -113,6 +124,7 @@ export class DocumentsDB extends Dexie {
         document_metadata: mapDocument,
         assignments: assignmentsToSave,
         clientLastUpdated: clientLastUpdated,
+        localCommunityState,
       });
       return;
     }
@@ -142,7 +154,7 @@ export class DocumentsDB extends Dexie {
   flushPendingUpdate = async () => {
     if (!this.pendingUpdate) return;
 
-    const {mapDocument, zoneAssignments, shatterIds, childToParent, clientLastUpdated} =
+    const { mapDocument, zoneAssignments, shatterIds, childToParent, clientLastUpdated } =
       this.pendingUpdate;
 
     // Clear the pending update
@@ -162,14 +174,41 @@ export class DocumentsDB extends Dexie {
       childToParent,
       'assignment'
     );
+    const localCommunityState = this.buildLocalCommunityState(shatterIds);
 
     await this.updateDocument({
       id: document_id,
       document_metadata: mapDocument,
       assignments: assignmentsToSave,
       clientLastUpdated: clientLastUpdated,
+      localCommunityState,
     });
   };
+
+  private buildLocalCommunityState(shatterIds: {
+    parents: Set<string>;
+    children: Set<string>;
+  }): LocalCommunityState {
+    const { communityList, selectedCommunityId } = useMapControlsStore.getState();
+    const geoids = new Set<string>();
+    communityList.forEach(c => {
+      communityAssignments.getGeoidsForCommunity(c.id, true).forEach(geoid => {
+        geoids.add(geoid);
+      });
+    });
+    shatterIds.parents.forEach(id => geoids.add(id));
+    shatterIds.children.forEach(id => geoids.add(id));
+    const assignments: Array<[string, number[]]> = [];
+    geoids.forEach(geoid => {
+      const ids = communityAssignments.getAssignmentsForGeoid(geoid);
+      if (ids.length) assignments.push([geoid, ids]);
+    });
+    return {
+      communityList: communityList.map(c => ({ ...c })),
+      selectedCommunityId,
+      assignments,
+    };
+  }
 
   updateIdbMetadata = async (document_id: string, metadata: Partial<DocumentMetadata>) => {
     const currDocument = await this.getDocument(document_id);
@@ -185,6 +224,7 @@ export class DocumentsDB extends Dexie {
       },
       assignments: currDocument.assignments,
       clientLastUpdated: currDocument.clientLastUpdated,
+      localCommunityState: currDocument.localCommunityState,
     });
   };
 

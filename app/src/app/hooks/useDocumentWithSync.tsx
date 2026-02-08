@@ -1,15 +1,14 @@
-import {useState, useEffect} from 'react';
-import {useMapStore} from '@/app/store/mapStore';
-import {useAssignmentsStore} from '@/app/store/assignmentsStore';
-import {useOverlayStore} from '@/app/store/overlayStore';
+import { useState, useEffect } from 'react';
+import { useMapStore } from '@/app/store/mapStore';
+import { useAssignmentsStore } from '@/app/store/assignmentsStore';
 import {
   fetchDocument,
   SyncConflictInfo,
   SyncConflictResolution,
 } from '@/app/utils/api/apiHandlers/fetchDocument';
-import {SyncConflictModal} from '@/app/components/SyncConflictModal';
-import {formatAssignmentsFromDocument} from '../utils/map/formatAssignments';
-import {useRouter} from 'next/navigation';
+import { SyncConflictModal } from '@/app/components/SyncConflictModal';
+import { formatAssignmentsFromDocument } from '../utils/map/formatAssignments';
+import { useRouter } from 'next/navigation';
 interface UseDocumentWithSyncOptions {
   document_id: string | null | undefined;
   enabled?: boolean;
@@ -19,7 +18,7 @@ interface UseDocumentWithSyncOptions {
  * Hook to fetch a document with sync support between IDB and server.
  * Handles conflict resolution and loads assignments accordingly.
  */
-export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWithSyncOptions) {
+export function useDocumentWithSync({ document_id, enabled = true }: UseDocumentWithSyncOptions) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [conflictInfo, setConflictInfo] = useState<SyncConflictInfo | null>(null);
@@ -88,7 +87,8 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
             parentToChild: data.parentToChild,
             childToParent: data.childToParent,
           },
-          result.response.updateLocal ? result.response.document : undefined
+          result.response.updateLocal ? result.response.document : undefined,
+          result.response.localCommunityState
         );
         // Set overlays from document response
         setMapDocument(result.response.document);

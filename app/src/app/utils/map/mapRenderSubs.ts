@@ -221,6 +221,15 @@ export class MapRenderSubscriber {
       return;
     }
 
+    // On reload, force communities to render in an earlier frame than zones.
+    if (assignmentsState.communityPaintedGeoids.size) {
+      assignmentsState.flushCommunityAssignments();
+      requestAnimationFrame(() => {
+        this.renderColorZones();
+      });
+      return;
+    }
+
     const renderSuccess = colorZoneAssignments(this.mapRef, currentState, this.previousColorState);
     if (renderSuccess) {
       this.previousColorState = currentState;
