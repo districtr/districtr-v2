@@ -21,7 +21,7 @@ export type Community = {
 
 export const DEFAULT_COMMUNITY = {
   name: 'New Community',
-  color: '#bbbbbb',
+  color: '#9CA3AF',
   opacity: 1,
   visible: true,
 } satisfies Omit<Community, 'id' | 'displayPosition'>;
