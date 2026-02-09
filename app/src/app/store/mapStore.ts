@@ -8,7 +8,7 @@ import {
   DocumentObject,
   DocumentMetadata,
   StatusObject,
-  ZoneComment,
+  DocumentComment,
 } from '@utils/api/apiHandlers/types';
 import maplibregl from 'maplibre-gl';
 import type {MutableRefObject} from 'react';
@@ -83,10 +83,10 @@ export interface MapStore {
   // ZONE COMMENTS
   pinnedCommentZone: number | null;
   setPinnedCommentZone: (zone: number | null) => void;
-  addZoneComment: (zone: number, comment: ZoneComment) => void;
-  editZoneComment: (zone: number, index: number, title: string, comment: string) => void;
+  addZoneComment: (zone: number, comment: DocumentComment) => void;
+  editZoneComment: (zone: number, index: number, text: string) => void;
   removeZoneComment: (zone: number, index: number) => void;
-  getZoneCommentsForZone: (zone: number) => ZoneComment[];
+  getZoneCommentsForZone: (zone: number) => DocumentComment[];
   getZonesWithComments: () => number[];
 
   // SHATTERING
@@ -310,26 +310,26 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const {mapDocument} = get();
       if (!mapDocument) return;
 
-      const currentComments = mapDocument.zone_comments || [];
+      const currentComments = mapDocument.document_comments || [];
       set({
         mapDocument: {
           ...mapDocument,
-          zone_comments: [...currentComments, {...comment, zone}],
+          document_comments: [...currentComments, {...comment, zone}],
         },
       });
     },
 
-    editZoneComment: (zone, index, title, comment) => {
+    editZoneComment: (zone, index, text) => {
       const {mapDocument} = get();
       if (!mapDocument) return;
 
-      const currentComments = mapDocument.zone_comments || [];
+      const currentComments = mapDocument.document_comments || [];
       let zoneIndex = 0;
       const updatedComments = currentComments.map(c => {
         if (c.zone === zone) {
           if (zoneIndex === index) {
             zoneIndex++;
-            return {...c, title, comment};
+            return {...c, text};
           }
           zoneIndex++;
         }
@@ -339,7 +339,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       set({
         mapDocument: {
           ...mapDocument,
-          zone_comments: updatedComments,
+          document_comments: updatedComments,
         },
       });
     },
@@ -348,7 +348,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const {mapDocument} = get();
       if (!mapDocument) return;
 
-      const currentComments = mapDocument.zone_comments || [];
+      const currentComments = mapDocument.document_comments || [];
       // Find and remove the comment at the specified index for this zone
       let zoneIndex = 0;
       const updatedComments = currentComments.filter(c => {
@@ -365,20 +365,22 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       set({
         mapDocument: {
           ...mapDocument,
-          zone_comments: updatedComments,
+          document_comments: updatedComments,
         },
       });
     },
 
     getZoneCommentsForZone: (zone: number) => {
       const {mapDocument} = get();
-      return (mapDocument?.zone_comments || []).filter(c => c.zone === zone);
+      return (mapDocument?.document_comments || []).filter(c => c.zone === zone);
     },
 
     getZonesWithComments: () => {
       const {mapDocument} = get();
       const zones = new Set<number>();
-      (mapDocument?.zone_comments || []).forEach(c => zones.add(c.zone));
+      (mapDocument?.document_comments || []).forEach(c => {
+        if (c.zone != null) zones.add(c.zone);
+      });
       return Array.from(zones).sort((a, b) => a - b);
     },
 

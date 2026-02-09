@@ -118,12 +118,14 @@ const ZoneNumbersLayer = () => {
   );
   const shouldHide = showBlockPopulationNumbers && focusFeaturesLength;
   const demogHash = useDemographyStore(state => state.dataHash);
-  const zoneComments = useMapStore(state => state.mapDocument?.zone_comments);
+  const zoneComments = useMapStore(state => state.mapDocument?.document_comments);
   
   // Get zones that have comments
   const zonesWithComments = useMemo(() => {
     const zones = new Set<number>();
-    (zoneComments || []).forEach(c => zones.add(c.zone));
+    (zoneComments || []).forEach(c => {
+      if (c.zone != null) zones.add(c.zone);
+    });
     return Array.from(zones);
   }, [zoneComments]);
 
@@ -142,8 +144,8 @@ const ZoneNumbersLayer = () => {
     const id = `${mapDocumentId}`;
     const activeZones = demographyCache.populations.filter(p => p.total_pop_20 > 0).map(p => p.zone);
     const mapState = useMapStore.getState();
-    const currentComments = mapState.mapDocument?.zone_comments || [];
-    const zonesWithCommentSet = new Set(currentComments.map(c => c.zone));
+    const currentComments = mapState.mapDocument?.document_comments || [];
+    const zonesWithCommentSet = new Set(currentComments.filter(c => c.zone != null).map(c => c.zone));
     if (showZoneNumbers && GeometryWorker) {
       const geoms = await GeometryWorker.getCentroidsFromView({
         activeZones,

@@ -4,7 +4,6 @@ import {
   Text,
   Button,
   TextArea,
-  TextField,
   IconButton,
   Badge,
   Box,
@@ -22,7 +21,7 @@ import {
 } from '@radix-ui/react-icons';
 import {useMapStore} from '@/app/store/mapStore';
 import {useState} from 'react';
-import {ZoneComment} from '@/app/utils/api/apiHandlers/types';
+import {DocumentComment} from '@/app/utils/api/apiHandlers/types';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {
   postZoneComment,
@@ -31,8 +30,8 @@ import {
 } from '@/app/utils/api/apiHandlers/zoneComments';
 
 interface CommentEditorProps {
-  existingComment?: ZoneComment;
-  onSave: (title: string, comment: string) => void;
+  existingComment?: DocumentComment;
+  onSave: (text: string) => void;
   onCancel: () => void;
   isSaving?: boolean;
 }
@@ -44,27 +43,20 @@ const CommentEditor: React.FC<CommentEditorProps> = ({
   isSaving = false,
 }) => {
   // Local state while actively typing - state lives in mapDocument only when not editing
-  const [title, setTitle] = useState(existingComment?.title || '');
-  const [comment, setComment] = useState(existingComment?.comment || '');
+  const [text, setText] = useState(existingComment?.text || '');
 
   const handleSave = () => {
-    if (title.trim() && comment.trim()) {
-      onSave(title.trim(), comment.trim());
+    if (text.trim()) {
+      onSave(text.trim());
     }
   };
 
   return (
     <Flex direction="column" gap="2" className="p-2 bg-gray-50 rounded-md">
-      <TextField.Root
-        placeholder="Comment title"
-        value={title}
-        onChange={e => setTitle(e.target.value)}
-        size="1"
-      />
       <TextArea
         placeholder="Enter your comment..."
-        value={comment}
-        onChange={e => setComment(e.target.value)}
+        value={text}
+        onChange={e => setText(e.target.value)}
         size="1"
         rows={3}
       />
@@ -76,7 +68,7 @@ const CommentEditor: React.FC<CommentEditorProps> = ({
           size="1"
           variant="solid"
           onClick={handleSave}
-          disabled={!title.trim() || !comment.trim() || isSaving}
+          disabled={!text.trim() || isSaving}
         >
           <CheckIcon />
           {isSaving ? 'Saving...' : 'Save'}
@@ -113,17 +105,16 @@ export const ZoneCommentPopover: React.FC<ZoneCommentPopoverProps> = ({
   const isEditing = useMapControlsStore(state => state.isEditing);
   const selectedZone = useMapControlsStore(state => state.selectedZone);
 
-  const handleAddComment = async (title: string, comment: string) => {
+  const handleAddComment = async (text: string) => {
     if (!mapDocument?.document_id) return;
     setIsSaving(true);
     setSaveError(null);
-    const result = await postZoneComment(mapDocument.document_id, zone, title, comment);
+    const result = await postZoneComment(mapDocument.document_id, zone, text);
     if (result.ok) {
       addZoneComment(zone, {
-        id: result.response.id,
+        comment_id: result.response.comment_id,
         zone,
-        title: result.response.title,
-        comment: result.response.comment,
+        text: result.response.text,
         created_at: result.response.created_at,
       });
       setIsAddingComment(false);
@@ -137,14 +128,14 @@ export const ZoneCommentPopover: React.FC<ZoneCommentPopoverProps> = ({
     setIsSaving(false);
   };
 
-  const handleEditComment = async (index: number, title: string, comment: string) => {
+  const handleEditComment = async (index: number, text: string) => {
     const existingComment = comments[index];
-    if (!existingComment?.id) return;
+    if (!existingComment?.comment_id) return;
     setIsSaving(true);
     setSaveError(null);
-    const result = await patchZoneComment(existingComment.id, title, comment);
+    const result = await patchZoneComment(existingComment.comment_id, text);
     if (result.ok) {
-      editZoneComment(zone, index, result.response.title, result.response.comment);
+      editZoneComment(zone, index, result.response.text);
       setEditingIndex(null);
     } else {
       setSaveError(result.error);
@@ -166,9 +157,9 @@ export const ZoneCommentPopover: React.FC<ZoneCommentPopoverProps> = ({
     setDeleteConfirmIndex(null);
 
     const existingComment = comments[index];
-    if (existingComment?.id) {
+    if (existingComment?.comment_id && mapDocument?.document_id) {
       setIsSaving(true);
-      const result = await deleteZoneComment(existingComment.id);
+      const result = await deleteZoneComment(mapDocument.document_id, existingComment.comment_id);
       if (result.ok) {
         removeZoneComment(zone, index);
       } else {
@@ -264,12 +255,12 @@ export const ZoneCommentPopover: React.FC<ZoneCommentPopoverProps> = ({
             <ScrollArea style={{maxHeight: 250}}>
               <Flex direction="column" gap="2">
                 {comments.map((comment, index) => (
-                  <Box key={comment.id ?? index}>
+                  <Box key={comment.comment_id ?? index}>
                     {editingIndex === index ? (
                       <CommentEditor
                         existingComment={comment}
-                        onSave={(title, commentText) =>
-                          handleEditComment(index, title, commentText)
+                        onSave={(text) =>
+                          handleEditComment(index, text)
                         }
                         onCancel={() => {
                           setEditingIndex(null);
@@ -280,11 +271,11 @@ export const ZoneCommentPopover: React.FC<ZoneCommentPopoverProps> = ({
                     ) : (
                       <Flex direction="column" gap="1" className="p-2 bg-gray-50 rounded">
                         <Flex justify="between" align="start">
-                          <Text size="1" weight="medium">
-                            {comment.title}
+                          <Text size="1" style={{flex: 1}}>
+                            {comment.text}
                           </Text>
                           {isEditing && (
-                            <Flex gap="1">
+                            <Flex gap="1" style={{flexShrink: 0}}>
                               <IconButton
                                 size="1"
                                 variant="ghost"
@@ -305,9 +296,6 @@ export const ZoneCommentPopover: React.FC<ZoneCommentPopoverProps> = ({
                             </Flex>
                           )}
                         </Flex>
-                        <Text size="1" color="gray">
-                          {comment.comment}
-                        </Text>
                       </Flex>
                     )}
                     {index < comments.length - 1 && <Separator size="4" className="my-1" />}

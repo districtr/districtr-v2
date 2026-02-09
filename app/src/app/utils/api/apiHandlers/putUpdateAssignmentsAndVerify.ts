@@ -40,6 +40,13 @@ export const putUpdateAssignmentsAndVerify = async ({
     childToParent,
     'assignment_array'
   );
+  // Build comments payload from document_comments
+  const comments = (mapDocument.document_comments || []).map(c => ({
+    comment_id: c.comment_id ?? undefined,
+    zone: c.zone ?? undefined,
+    text: c.text,
+  }));
+
   const assignmentsPostResponse = await putUpdateDocument({
     assignments: formattedAssignments,
     document_id: mapDocument.document_id,
@@ -53,6 +60,7 @@ export const putUpdateAssignmentsAndVerify = async ({
           ? mapDocument.num_districts
           : undefined,
     },
+    comments: comments.length > 0 ? comments : undefined,
   });
   if (!assignmentsPostResponse.ok) {
     return {

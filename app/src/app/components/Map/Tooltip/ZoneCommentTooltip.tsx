@@ -35,9 +35,6 @@ export const ZoneCommentTooltip: React.FC<ZoneCommentTooltipProps> = ({zone, x, 
         {!!(comments.length) ? comments.slice(0, 3).map((comment, index) => (
           <Box key={index}>
             {index > 0 && <Separator size="4" className="my-1" />}
-            <Text size="1" weight="medium" className="block">
-              {comment.title}
-            </Text>
             <Text
               size="1"
               color="gray"
@@ -48,7 +45,7 @@ export const ZoneCommentTooltip: React.FC<ZoneCommentTooltipProps> = ({zone, x, 
                 overflow: 'hidden',
               }}
             >
-              {comment.comment}
+              {comment.text}
             </Text>
           </Box>
         )) : <Text size="1" color="gray">No comments</Text>}

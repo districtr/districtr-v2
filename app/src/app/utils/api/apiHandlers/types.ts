@@ -10,6 +10,12 @@ export interface Assignment {
 
 export type AssignmentArray = [string, NullableZone];
 
+export interface DocumentCommentCreate {
+  comment_id?: string | null;
+  zone?: number | null;
+  text: string;
+}
+
 export interface AssignmentsCreate {
   assignments: AssignmentArray[];
   document_id: string;
@@ -19,6 +25,7 @@ export interface AssignmentsCreate {
     color_scheme?: string[] | null;
     num_districts?: number | null;
   };
+  comments?: DocumentCommentCreate[] | null;
 }
 export interface AssignmentsCreateResponse {
   assignments_inserted: number;
@@ -82,16 +89,15 @@ export interface DocumentObject extends StatusObject {
   data_source_name: string | null;
   overlays: Overlay[] | null;
   statefps: string[] | null;
-  zone_comments?: ZoneComment[] | null;
+  document_comments?: DocumentComment[] | null;
 }
 
-export interface ZoneComment {
-  id?: number; // undefined for local-only comments
-  zone: number;
-  title: string;
-  comment: string;
+export interface DocumentComment {
+  comment_id?: string; // undefined for local-only comments
+  zone?: number | null;
+  text: string;
   created_at?: string;
-  isLocal?: boolean; // Track unsaved comments
+  updated_at?: string;
 }
 
 export interface MinPublicDocument {

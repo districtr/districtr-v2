@@ -59,8 +59,13 @@ from app.models import (
     MapGroup,
     AssignmentsCreate,
     NumDistrictsSetResult,
+    DocumentComment,
 )
-from app.comments.models import DocumentComment, Tag, CommentTag
+from app.comments.models import (
+    DocumentComment as FormDocumentComment,
+    Tag,
+    CommentTag,
+)
 from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
@@ -474,6 +479,32 @@ async def update_assignments(
                 stmt, {"document_id": document_id, "colors": data.metadata.color_scheme}
             )
 
+    # Upsert document comments if provided
+    if data.comments is not None and len(data.comments) > 0:
+        comment_rows = [
+            {
+                "comment_id": c.comment_id or str(uuid4()),
+                "document_id": document_id,
+                "zone": c.zone,
+                "text": c.text,
+            }
+            for c in data.comments
+        ]
+        session.execute(
+            text(
+                """INSERT INTO document.document_comment (comment_id, document_id, zone, text)
+                VALUES (:comment_id, :document_id, :zone, :text)
+                ON CONFLICT (comment_id) DO UPDATE
+                SET text = EXCLUDED.text,
+                    zone = EXCLUDED.zone,
+                    updated_at = CURRENT_TIMESTAMP"""
+            ).bindparams(
+                bindparam(key="comment_id", type_=UUIDType),
+                bindparam(key="document_id", type_=UUIDType),
+            ),
+            comment_rows,
+        )
+
     session.commit()
     return {"assignments_inserted": inserted_count, "updated_at": updated_at}
 
@@ -674,6 +705,34 @@ async def get_document_object(
         )
 
 
+@app.delete(
+    "/api/document/{document_id}/comments/{comment_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_document_comment(
+    comment_id: str,
+    document: Annotated[Document, Depends(get_document)],
+    session: Session = Depends(get_session),
+):
+    """Delete a document comment by comment_id. Requires the private document UUID."""
+    result = session.execute(
+        text(
+            """DELETE FROM document.document_comment
+            WHERE comment_id = :comment_id AND document_id = :document_id"""
+        ).bindparams(
+            bindparam(key="comment_id", type_=UUIDType),
+            bindparam(key="document_id", type_=UUIDType),
+        ),
+        {"comment_id": comment_id, "document_id": document.document_id},
+    )
+    if result.rowcount == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Comment {comment_id} not found for document",
+        )
+    session.commit()
+
+
 @app.get("/api/documents/list")
 async def get_document_list(
     session: Session = Depends(get_session),
@@ -704,12 +763,12 @@ async def get_document_list(
     if len(tags) > 0:
         stmt = (
             stmt.join(
-                DocumentComment,
-                DocumentComment.document_id == Document.document_id,
+                FormDocumentComment,
+                FormDocumentComment.document_id == Document.document_id,
             )
             .join(
                 CommentTag,
-                CommentTag.comment_id == DocumentComment.comment_id,
+                CommentTag.comment_id == FormDocumentComment.comment_id,
             )
             .join(
                 Tag,

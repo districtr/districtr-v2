@@ -1,117 +1,67 @@
 /**
- * API handlers for zone-level comments.
- * Comments are saved on clicking Save in the comment popover - no need to save the map.
+ * API handlers for document-level comments (zone comments).
+ * Create and update are optimistic -- persisted when the map is saved
+ * via PUT /api/assignments (putUpdateAssignmentsAndVerify).
+ * Delete uses DELETE /api/document/{document_id}/comments/{comment_id}.
  */
-import {post, patch, del} from '../factory';
-import {ZoneComment} from './types';
+import {del} from '../factory';
 
-interface ZoneCommentCreate {
-  title: string;
-  comment: string;
-  zone: number;
-}
-
-interface BatchZoneCommentsRequest {
-  document_id: string;
-  comments: ZoneCommentCreate[];
-}
-
-interface ZoneCommentResponse {
-  id: number;
-  title: string;
-  comment: string;
-  zone: number;
+interface DocumentCommentResponse {
+  comment_id: string;
+  zone?: number | null;
+  text: string;
   created_at?: string;
   updated_at?: string;
 }
 
-interface BatchZoneCommentsResponse {
-  document_id: string;
-  created_count: number;
-  comments: ZoneCommentResponse[];
-}
-
 /**
- * Create a single zone comment. Use when saving a new comment from the popover.
+ * Create a single document comment optimistically.
+ * A temporary comment_id is generated; it will be replaced on the next save.
  */
 export const postZoneComment = async (
   documentId: string,
   zone: number,
-  title: string,
-  comment: string
-): Promise<
-  | {ok: true; response: ZoneCommentResponse}
-  | {ok: false; error: string}
-> => {
-  const response = await post<BatchZoneCommentsRequest, BatchZoneCommentsResponse>(
-    'comments/batch_zone_comments'
-  )({
-    body: {
-      document_id: documentId,
-      comments: [{zone, title, comment}],
-    },
-  });
-
-  if (!response.ok) {
-    return {
-      ok: false,
-      error: response.error.detail,
-    };
-  }
-
-  const created = response.response.comments[0];
-  if (!created) {
-    return {
-      ok: false,
-      error: 'No comment returned from server',
-    };
-  }
-
+  text: string
+): Promise<{ok: true; response: DocumentCommentResponse} | {ok: false; error: string}> => {
   return {
     ok: true,
-    response: created,
+    response: {
+      comment_id: crypto.randomUUID(),
+      zone,
+      text,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
   };
 };
 
 /**
- * Update an existing zone comment.
+ * Update an existing document comment optimistically.
+ * Actual persistence happens on save.
  */
 export const patchZoneComment = async (
-  commentId: number,
-  title: string,
-  comment: string
-): Promise<
-  | {ok: true; response: ZoneCommentResponse}
-  | {ok: false; error: string}
-> => {
-  const response = await patch<{title: string; comment: string}, ZoneCommentResponse>(
-    `comments/zone_comments/${commentId}`
-  )({
-    body: {title, comment},
-  });
-
-  if (!response.ok) {
-    return {
-      ok: false,
-      error: response.error.detail,
-    };
-  }
-
+  commentId: string,
+  text: string
+): Promise<{ok: true; response: DocumentCommentResponse} | {ok: false; error: string}> => {
   return {
     ok: true,
-    response: response.response,
+    response: {
+      comment_id: commentId,
+      text,
+      updated_at: new Date().toISOString(),
+    },
   };
 };
 
 /**
- * Delete a zone comment.
+ * Delete a document comment by ID via the backend.
  */
-export const deleteZoneComment = async (commentId: number): Promise<
-  | {ok: true}
-  | {ok: false; error: string}
-> => {
+export const deleteZoneComment = async (
+  documentId: string,
+  commentId: string
+): Promise<{ok: true} | {ok: false; error: string}> => {
   const response = await del<object, object>(
-    `comments/zone_comments/${commentId}`
+    `document/${documentId}/comments/${commentId}`
   )({});
 
   if (!response.ok) {

@@ -127,7 +127,7 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
   if (zoneLabelFeatures.length > 0) {
     const zone = zoneLabelFeatures[0].properties?.zone;
     if (zone !== undefined) {
-      const comments = mapStore.mapDocument?.zone_comments || [];
+      const comments = mapStore.mapDocument?.document_comments || [];
       const hasComments = comments.some(c => c.zone === zone);
       if (hasComments) {
         // Pin the zone for reference and open the population panel where comments are shown

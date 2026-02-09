@@ -211,14 +211,48 @@ class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
     document_id: str = Field(sa_column=Column(UUIDType, nullable=False))
 
 
-class ZoneCommentPublic(BaseModel):
-    """Public representation of a zone-level comment."""
+class DocumentComment(TimeStampMixin, SQLModel, table=True):
+    """Standalone document-level comments (e.g. district/zone notes)."""
 
-    id: int
-    zone: int
-    title: str
-    comment: str
+    __tablename__ = "document_comment"  # pyright: ignore
+    metadata = MetaData(schema=DOCUMENT_SCHEMA)
+
+    comment_id: str = Field(
+        sa_column=Column(
+            UUIDType,
+            primary_key=True,
+            nullable=False,
+            server_default=text("gen_random_uuid()"),
+        )
+    )
+    document_id: str = Field(
+        sa_column=Column(
+            UUIDType,
+            ForeignKey("document.document.document_id"),
+            nullable=False,
+            index=True,
+        )
+    )
+    zone: int | None = Field(sa_column=Column(Integer, nullable=True, index=True))
+    text: str = Field(sa_column=Column(Text, nullable=False))
+
+
+class DocumentCommentPublic(BaseModel):
+    """Public representation of a document comment."""
+
+    comment_id: str
+    zone: int | None = None
+    text: str
     created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class DocumentCommentCreate(BaseModel):
+    """Create/update a document comment. If comment_id is provided, it's an update."""
+
+    comment_id: str | None = None
+    zone: int | None = None
+    text: str
 
 
 class DocumentPublic(BaseModel):
@@ -245,7 +279,7 @@ class DocumentPublic(BaseModel):
     data_source_name: str | None = None
     overlays: list["OverlayPublic"] | None = None
     statefps: list[str] | None = None
-    zone_comments: list["ZoneCommentPublic"] | None = None
+    document_comments: list["DocumentCommentPublic"] | None = None
 
 
 class DocumentCreatePublic(DocumentPublic):
@@ -275,6 +309,7 @@ class AssignmentsCreate(BaseModel):
     last_updated_at: datetime
     overwrite: bool = False
     metadata: AssignmentsMetadata | None = None
+    comments: list[DocumentCommentCreate] | None = None
 
 
 class AssignmentsResponse(SQLModel):

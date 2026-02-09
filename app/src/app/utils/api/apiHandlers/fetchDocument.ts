@@ -95,8 +95,7 @@ export const fetchDocument = async (
           ...idbDocument.document_metadata,
           // always override with remote
           overlays: remoteMetadata.response.overlays,
-          statefps: remoteMetadata.response.statefps,
-          zone_comments: remoteMetadata.response.zone_comments
+          statefps: remoteMetadata.response.statefps
         },
         assignments: idbDocument.assignments,
       },

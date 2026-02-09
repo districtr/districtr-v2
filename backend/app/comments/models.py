@@ -164,7 +164,6 @@ class CommentCreate(BaseModel):
     comment: str
     commenter_id: int | None = None
     document_id: str | None = None
-    zone: int | None = None
 
 
 class CommentCreateWithRecaptcha(BaseModel):
@@ -176,30 +175,6 @@ class CommentPublic(CommentCreate):
     id: int
     created_at: datetime | None
     updated_at: datetime | None
-    zone: int | None = None
-
-
-class ZoneCommentCreate(BaseModel):
-    """Simple zone comment for batch creation."""
-
-    title: str
-    comment: str
-    zone: int
-
-
-class BatchZoneCommentsCreate(BaseModel):
-    """Batch create zone comments for a document."""
-
-    document_id: str
-    comments: list[ZoneCommentCreate]
-
-
-class BatchZoneCommentsResponse(BaseModel):
-    """Response for batch zone comments creation."""
-
-    document_id: str
-    created_count: int
-    comments: list[CommentPublic]
 
 
 class Tag(TimeStampMixin, SQLModel, table=True):
@@ -295,7 +270,6 @@ class DocumentComment(SQLModel, table=True):
             index=True,
         )
     )
-    zone: int | None = Field(sa_column=Column(Integer, nullable=True))
 
 
 class FullCommentFormCreate(BaseModel):
@@ -333,7 +307,6 @@ class PublicCommentResponse(BaseModel):
     zip_code: str | None = None
     tags: list[str | None] = []
     created_at: datetime | None = None
-    zone: int | None = None
     public_id: int | None = None
 
 
