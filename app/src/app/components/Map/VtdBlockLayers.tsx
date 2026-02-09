@@ -12,6 +12,7 @@ import { demographyCache } from '@/app/utils/demography/demographyCache';
 import { useClearMap } from '@/app/hooks/useClearMap';
 import { TILESET_URL } from '@/app/utils/api/constants';
 import { useAssignmentsStore } from '@/app/store/assignmentsStore';
+import { BackgroundLayerGroup } from './BackgroundLayerGroup';
 
 export const VtdBlockLayers: React.FC<{
   isDemographicMap?: boolean;
@@ -94,6 +95,7 @@ export const VtdBlockLayers: React.FC<{
         url={`pmtiles://${TILESET_URL}/${mapDocument.tiles_s3_path}`}
         promoteId="path"
       >
+        {!isDemographicMap && <BackgroundLayerGroup />}
         <CommunityLayerGroup child mode="mix" />
         <CommunityLayerGroup mode="mix" />
         {!isDemographicMap && <ZoneLayerGroup child />}

@@ -1,14 +1,15 @@
-import {Box, Flex, Button, Text, RadioGroup, TextField} from '@radix-ui/themes';
-import {MaskOffIcon} from '@radix-ui/react-icons';
-import {useMapControlsStore} from '@store/mapControlsStore';
-import {useMapStore} from '@store/mapStore';
-import {useFeatureFlagStore} from '@store/featureFlagStore';
-import {useOverlayStore} from '@/app/store/overlayStore';
-import {BrushSizeSelector} from '@components/Toolbar/ToolControls/BrushSizeSelector';
+import { Box, Flex, Button, Text, RadioGroup, TextField } from '@radix-ui/themes';
+import { MaskOffIcon } from '@radix-ui/react-icons';
+import { useMapControlsStore } from '@store/mapControlsStore';
+import { useMapStore } from '@store/mapStore';
+import { useFeatureFlagStore } from '@store/featureFlagStore';
+import { useOverlayStore } from '@/app/store/overlayStore';
+import { BrushSizeSelector } from '@components/Toolbar/ToolControls/BrushSizeSelector';
 import PaintByCounty from '@components/Toolbar/PaintByCounty';
 import PaintCommunity from '@components/Toolbar/PaintCommunity';
-import {useRef} from 'react';
-import {ZonePicker} from '@components/Toolbar/ZonePicker';
+import { useRef } from 'react';
+import { ZonePicker } from '@components/Toolbar/ZonePicker';
+import { CommunityAssignmentsDebug } from '@components/Toolbar/CommunityAssignmentsDebug';
 
 const CommunityRadioGroupItem = ({
   id,
@@ -41,7 +42,7 @@ const CommunityRadioGroupItem = ({
           />
           <TextField.Root
             value={name}
-            onChange={e => setCommunityName({communityId: id, newName: e.target.value})}
+            onChange={e => setCommunityName(id, e.target.value)}
             size="1"
             className="flex-grow"
             disabled={isReadOnly}
@@ -103,7 +104,7 @@ const CommunityRadioFormList = ({
   );
 };
 
-export const CommunityControls = ({mode}: {mode: 'brush' | 'erase'}) => {
+export const CommunityControls = ({ mode }: { mode: 'brush' | 'erase' }) => {
   const addCommunity = useMapControlsStore(state => state.addCommunity);
   const removeCommunities = useMapControlsStore(state => state.removeCommunities);
   const selectedCommunityId = useMapControlsStore(state => state.selectedCommunityId);
@@ -154,6 +155,7 @@ export const CommunityControls = ({mode}: {mode: 'brush' | 'erase'}) => {
           </Button>
         </Flex>
       ) : null}
+      {process.env.NODE_ENV === 'development' ? <CommunityAssignmentsDebug /> : null}
     </Flex>
   );
 };

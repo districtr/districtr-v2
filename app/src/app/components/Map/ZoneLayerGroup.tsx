@@ -10,15 +10,15 @@ import {
   LABELS_BREAK_LAYER_ID,
   ZONE_ASSIGNMENT_STYLE,
 } from '@/app/constants/layers';
-import {useLayerFilter} from '@/app/hooks/useLayerFilter';
-import {useMapStore} from '@/app/store/mapStore';
-import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import {useMemo} from 'react';
-import {Layer} from 'react-map-gl/maplibre';
+import { useLayerFilter } from '@/app/hooks/useLayerFilter';
+import { useMapStore } from '@/app/store/mapStore';
+import { useMapControlsStore } from '@/app/store/mapControlsStore';
+import { useMemo } from 'react';
+import { Layer } from 'react-map-gl/maplibre';
 
 export const ZoneLayerGroup: React.FC<{
   child?: boolean;
-}> = ({child = false}) => {
+}> = ({ child = false }) => {
   const colorScheme = useMapStore(state => state.colorScheme);
   const mapDocument = useMapStore(state => state.mapDocument);
   const captiveIds = useMapStore(state => state.captiveIds);
@@ -50,7 +50,6 @@ export const ZoneLayerGroup: React.FC<{
         }}
         paint={{
           'line-opacity': 0.8,
-          // 'line-color': '#aaaaaa', // Default color
           'line-color': [
             'interpolate',
             ['exponential', 1.6],
@@ -87,7 +86,15 @@ export const ZoneLayerGroup: React.FC<{
         }}
         paint={{
           'fill-opacity': layerOpacity,
-          'fill-color': ZONE_ASSIGNMENT_STYLE(colorScheme) || '#000000',
+          // Zone layer only paints assigned geometries; untouched geometries are transparent
+          // so the background layer can supply the neutral/shatter base color.
+          'fill-color': [
+            'case',
+            // @ts-ignore desired behavior, wrong types
+            ['==', ['feature-state', 'zone'], null],
+            'rgba(0,0,0,0)',
+            ZONE_ASSIGNMENT_STYLE(colorScheme) || '#000000',
+          ],
         }}
       />
       <Layer
@@ -105,9 +112,6 @@ export const ZoneLayerGroup: React.FC<{
           'line-color': [
             'case',
             ['boolean', ['feature-state', 'focused'], false],
-            '#000000', // Black color when focused
-            ['boolean', ['feature-state', 'highlighted'], false],
-            '#e5ff00', // yellow color when highlighted
             ['boolean', ['feature-state', 'highlighted'], false],
             '#e5ff00', // yellow color when highlighted
             // @ts-ignore right behavior, wrong types

@@ -302,6 +302,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         childToParent: _childToParent,
         zoneAssignments: currentZoneAssignments,
         setShatterState,
+        queueCommunityGeoids,
       } = useAssignmentsStore.getState();
       const {setMapOptions} = useMapControlsStore.getState();
       const edgesResult = await getChildEdges({
@@ -366,6 +367,17 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           ? (featureBbox.slice(0, 4) as maplibregl.LngLatBoundsLike)
           : undefined;
 
+      // Enter break mode before queued community flushes; this prevents
+      // immediate heal checks during the shatter transition frame.
+      setMapOptions({
+        mode: 'break',
+        bounds: mapBbox,
+      });
+
+      // Recompute community feature-state for newly shattered children so stale
+      // colors from a previous shatter/heal cycle do not linger.
+      queueCommunityGeoids(captiveIds);
+
       setShatterState({
         shatterIds: {
           parents,
@@ -390,10 +402,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         ],
       });
       useMapControlsStore.setState({activeTool: 'brush'});
-      setMapOptions({
-        mode: 'break',
-        bounds: mapBbox,
-      });
     },
     handleReset: async () => {
       const {mapDocument, getMapRef} = get();

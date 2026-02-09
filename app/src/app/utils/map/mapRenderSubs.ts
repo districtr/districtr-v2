@@ -113,12 +113,12 @@ export class MapRenderSubscriber {
         {equalityFn: shallowCompareArray}
       )
     );
-    // this.assignmentSubscriptions.push(
-    //   this.useAssignmentsStore.subscribe(
-    //     state => state.shatterIds,
-    //     () => this.renderShatter()
-    //   )
-    // );
+    this.assignmentSubscriptions.push(
+      this.useAssignmentsStore.subscribe(
+        state => state.shatterIds,
+        () => this.renderShatter()
+      )
+    );
     this.controlSubscriptions.push(
       this.useMapControlsStore.subscribe(
         controls => controls.mapOptions.highlightBrokenDistricts,
@@ -267,6 +267,7 @@ export class MapRenderSubscriber {
         state => [
           state.mapOptions.lockPaintedAreas,
           state.mapOptions.showZoneNumbers,
+          state.mapOptions.paintCommunity,
           state.mapOptions.showDemographicMap,
           state.isPainting,
         ],
