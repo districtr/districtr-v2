@@ -374,6 +374,94 @@ export class CommunityAssignmentsLUT {
   }
 
   /**
+   * Build a per-window bitmask for a set of community IDs. Useful for bulk erase operations.
+   *
+   * @param communityIds An iterable of community IDs for which to build the bitmask.
+   * @return A Uint8Array where each index corresponds to a window, and the bits set in each byte
+   * indicate which community IDs (within that window) are included in the input set. For example,
+   * if communityIds includes 10 and 11, then the byte at index 1 (since 10 and 11 are in the
+   * second window of 8 communities) will have bits 2 and 3 set (since 10 % 8 = 2 and 11 % 8 = 3),
+   * resulting in a value of 12 (00001100 in binary) at index 1 of the returned array.
+   */
+  buildMaskForCommunityIds(communityIds: Iterable<number>): Uint8Array {
+    const maskByWindow = new Uint8Array(this.nWindows);
+    for (const communityId of communityIds) {
+      if (communityId < 0 || communityId >= this.maxCommunities) {
+        continue;
+      }
+      const communityWindow = communityId >> 3; // Math.floor(communityId / 8)
+      const communityBit = 1 << (communityId & 7); // communityId % 8
+      maskByWindow[communityWindow] |= communityBit;
+    }
+    return maskByWindow;
+  }
+
+  /**
+   * Remove assignments covered by a per-window mask in one pass.
+   *
+   * @param geoid The geoid of the geometry from which to remove the community assignments.
+   * @param maskByWindow A Uint8Array where each index corresponds to a window, and the bits set
+   * in each byte indicate which community IDs (within that window) should be removed from the
+   * geometry's assignments.
+   * @param remainingAssignmentsOut An optional output array that will be populated with the
+   * community IDs that remain assigned to the geometry after the removals. This allows the caller
+   * to efficiently determine which communities are still assigned to the geometry without needing
+   * to perform additional lookups after the removals.
+   *
+   * @returns An object containing a boolean indicating whether any assignments were changed, and
+   * the list of remaining community IDs assigned to the geometry after the removals.
+   */
+  removeAssignmentsByMask(
+    geoid: string,
+    maskByWindow: Uint8Array,
+    remainingAssignmentsOut: number[] = []
+  ): { changed: boolean; remainingAssignments: number[] } {
+    remainingAssignmentsOut.length = 0;
+    const geomIndex = this.getGeomIndex(geoid);
+    if (geomIndex === undefined || !this.hasAssignments[geomIndex]) {
+      return { changed: false, remainingAssignments: remainingAssignmentsOut };
+    }
+
+    const assignmentBase = geomIndex * this.nWindows;
+    let changed = false;
+    for (let i = 0; i < this.nWindows; i++) {
+      const clearMask = maskByWindow[i] ?? 0;
+      if (clearMask === 0) {
+        continue;
+      }
+      const previousValue = this.assignments[assignmentBase + i];
+      const nextValue = previousValue & ~clearMask;
+      if (nextValue !== previousValue) {
+        this.assignments[assignmentBase + i] = nextValue;
+        changed = true;
+      }
+    }
+
+    if (!changed) {
+      return { changed: false, remainingAssignments: remainingAssignmentsOut };
+    }
+
+    let hasAnyCommunitiesAssigned = false;
+    for (let i = 0; i < this.nWindows; i++) {
+      const assignmentValue = this.assignments[assignmentBase + i];
+      if (assignmentValue === 0) {
+        continue;
+      }
+      hasAnyCommunitiesAssigned = true;
+      const bitOffsets = BITS_FOR_BYTE[assignmentValue];
+      for (const bitOffset of bitOffsets) {
+        const communityId = i * WINDOW_SIZE + bitOffset;
+        if (communityId < this.maxCommunities) {
+          remainingAssignmentsOut.push(communityId);
+        }
+      }
+    }
+
+    this.hasAssignments[geomIndex] = hasAnyCommunitiesAssigned ? 1 : 0;
+    return { changed: true, remainingAssignments: remainingAssignmentsOut };
+  }
+
+  /**
    * Check if a geoid has been assigned to a given community.
    *
    * @param geoid The geoid of the geometry to check for the community assignment.
@@ -440,6 +528,49 @@ export class CommunityAssignmentsLUT {
         }
       }
     }
+  }
+
+  /**
+   * Clear assignments for all communities represented in the provided mask, in one pass.
+   *
+   * @param maskByWindow Per-window bitmask indicating which community bits to clear.
+   * @param includeInactive Whether to include inactive geometries.
+   * @returns Geoids whose assignments changed.
+   */
+  clearAssignmentsByMask(maskByWindow: Uint8Array, includeInactive: boolean = false): string[] {
+    const changedGeoids: string[] = [];
+    for (const [geoid, index] of this.geomIdToIndex.entries()) {
+      if (!includeInactive && !this.active[index]) {
+        continue;
+      }
+      if (!this.hasAssignments[index]) {
+        continue;
+      }
+
+      const assignmentBase = index * this.nWindows;
+      let changed = false;
+      for (let i = 0; i < this.nWindows; i++) {
+        const clearMask = maskByWindow[i] ?? 0;
+        if (clearMask === 0) {
+          continue;
+        }
+        const previousValue = this.assignments[assignmentBase + i];
+        const nextValue = previousValue & ~clearMask;
+        if (nextValue !== previousValue) {
+          this.assignments[assignmentBase + i] = nextValue;
+          changed = true;
+        }
+      }
+
+      if (!changed) {
+        continue;
+      }
+      changedGeoids.push(geoid);
+      if (this.geomIndexHasNoAssignments(index)) {
+        this.hasAssignments[index] = 0;
+      }
+    }
+    return changedGeoids;
   }
 
   /**

@@ -2,7 +2,11 @@
 import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
 import type {MapOptions} from 'maplibre-gl';
-import {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from '../constants/mapDefaults';
+import {
+  DEFAULT_COMMUNITY_OPACITY,
+  FALLBACK_NUM_DISTRICTS,
+  OVERLAY_OPACITY,
+} from '../constants/mapDefaults';
 import {ActiveTool, NullableZone, SpatialUnit, Zone} from '../constants/types';
 import {DistrictrMapOptions, CommunityMapOptions, Community, makeCommunity} from './types';
 import {useAssignmentsStore} from './assignmentsStore';
@@ -69,7 +73,7 @@ export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions & CommunityMa
   prominentCountyNames: true,
   showCountyBoundaries: true,
   showCommunities: true,
-  communityOpacity: 0.5,
+  communityOpacity: DEFAULT_COMMUNITY_OPACITY,
   communityMaxOpacity: 0.7,
   showPaintedDistricts: true,
   showZoneNumbers: true,
@@ -169,19 +173,17 @@ export const useMapControlsStore = create<MapControlsStore>()(
         flushCommunityAssignments,
       } = useAssignmentsStore.getState();
       const parentsToCheck = new Set<string>();
-      const geoidsToRepaint = new Set<string>();
-      ids.forEach(id => {
-        const geoids = communityAssignments.getGeoidsForCommunity(id, true);
-        geoids.forEach(geoid => {
-          geoidsToRepaint.add(geoid);
-          if (shatterIds.children.has(geoid)) {
-            const parentId = childToParent.get(geoid);
-            parentId && parentsToCheck.add(parentId);
-          }
-        });
+      const clearMask = communityAssignments.buildMaskForCommunityIds(ids);
+      const geoidsToRepaint = new Set(
+        communityAssignments.clearAssignmentsByMask(clearMask, true)
+      );
+      geoidsToRepaint.forEach(geoid => {
+        if (shatterIds.children.has(geoid)) {
+          const parentId = childToParent.get(geoid);
+          parentId && parentsToCheck.add(parentId);
+        }
       });
 
-      ids.forEach(id => communityAssignments.clearAssignmentsForCommunity(id));
       communityAssignments.compactAssignedGeomIndices();
 
       if (parentsToCheck.size) {

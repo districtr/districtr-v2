@@ -1,4 +1,13 @@
-import {Box, Badge, IconButton, Flex, Button, Text, TextField} from '@radix-ui/themes';
+import {
+  Box,
+  Badge,
+  CheckboxGroup,
+  IconButton,
+  Flex,
+  Button,
+  Text,
+  TextField,
+} from '@radix-ui/themes';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useMapStore} from '@store/mapStore';
 import {EyeClosedIcon, EyeOpenIcon, Pencil1Icon} from '@radix-ui/react-icons';
@@ -117,7 +126,6 @@ const CommunityFormGroupItem = ({
                 border: '1px solid #D1D5DB',
                 padding: 0,
                 background: 'transparent',
-                // opacity: community.opacity * communityOpacity,
               }}
             />
           </Box>
@@ -127,6 +135,7 @@ const CommunityFormGroupItem = ({
   );
 };
 
+// FIXME: There needs to be a link between this and the global maximum number of communities.
 const CommunityFormList = ({isReadOnly, mode}: {isReadOnly: boolean; mode: 'brush' | 'erase'}) => {
   const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
   const maxVisible = toolbarLocation === 'map' ? 3 : 7;
@@ -169,6 +178,58 @@ const CommunityFormList = ({isReadOnly, mode}: {isReadOnly: boolean; mode: 'brus
   );
 };
 
+const CommunityCheckboxList = () => {
+  const communityList = useMapControlsStore(state => state.communityList);
+
+  return (
+    <CheckboxGroup.Root defaultValue={[]} orientation="vertical" style={{width: '100%'}}>
+      <Flex direction="column" gap="2" style={{width: '100%'}}>
+        {communityList
+          .sort((a, b) => a.displayPosition - b.displayPosition)
+          .map(community => (
+            <Flex key={community.id} direction="row" align="center" gap="2" style={{width: '100%'}}>
+              <CheckboxGroup.Item
+                value={community.id.toString()}
+                id={`checkbox-community-${community.id}`}
+              />
+
+              <Box style={{flex: 1, minWidth: 0}}>
+                <TextField.Root
+                  value={community.name}
+                  size="1"
+                  disabled
+                  style={{
+                    width: '100%',
+                    minWidth: 0,
+                    border: '1px solid transparent',
+                    borderRadius: 6,
+                  }}
+                />
+              </Box>
+
+              <Box style={{flex: '0 0 auto'}}>
+                <input
+                  aria-label={`Color for ${community.name}`}
+                  type="color"
+                  value={community.color}
+                  disabled
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 6,
+                    border: '1px solid #D1D5DB',
+                    padding: 0,
+                    background: 'transparent',
+                  }}
+                />
+              </Box>
+            </Flex>
+          ))}
+      </Flex>
+    </CheckboxGroup.Root>
+  );
+};
+
 export const CommunityControls = ({mode}: {mode: 'brush' | 'erase'}) => {
   const addCommunity = useMapControlsStore(state => state.addCommunity);
   const removeCommunities = useMapControlsStore(state => state.removeCommunities);
@@ -199,7 +260,6 @@ export const CommunityControls = ({mode}: {mode: 'brush' | 'erase'}) => {
               setAllCommunitiesVisibility(nextVisibility);
             }}
             disabled={isReadOnly}
-            aria-label="Select a community to start drawing it!"
           >
             {showCommunities ? <EyeOpenIcon /> : <EyeClosedIcon />}
           </IconButton>
@@ -237,7 +297,11 @@ export const CommunityControls = ({mode}: {mode: 'brush' | 'erase'}) => {
       </Flex>
 
       {/* Row 2 */}
-      {mode === 'brush' ? <CommunityFormList isReadOnly={isReadOnly} mode={mode} /> : null}
+      {mode === 'brush' ? (
+        <CommunityFormList isReadOnly={isReadOnly} mode={mode} />
+      ) : (
+        <CommunityCheckboxList />
+      )}
 
       {/* Row 3 */}
       {mode === 'brush' ? (

@@ -1,4 +1,5 @@
 import { NullableZone } from '../constants/types';
+import { DEFAULT_COMMUNITY_OPACITY } from '../constants/mapDefaults';
 import { Zone, GDBPath } from '@constants/types';
 import GeometryWorker from '../utils/GeometryWorker';
 import { demographyCache } from '../utils/demography/demographyCache';
@@ -21,7 +22,12 @@ import { createMapDocument } from '../utils/api/apiHandlers/createMapDocument';
 import { createWithFullMiddlewares } from './middlewares';
 import { confirmMapDocumentUrlParameter } from '../utils/map/confirmMapDocumentUrlParameter';
 import { communityAssignments, resolveMaxCommunities } from '../utils/community/communityAssignments';
-import { mixRgbaColors, parseHexColor } from '../utils/community/communityMix';
+import {
+  MixEntry,
+  mixRgbaColors,
+  parseHexColor,
+  DEFAULT_COMMUNITY_MIX_TUNING,
+} from '../utils/community/communityMix';
 import { useMapControlsStore } from './mapControlsStore';
 import type { LocalCommunityState } from '../utils/idb/idb';
 import { makeCommunity } from './types';
@@ -235,25 +241,108 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     if (communityId < 0) return;
     const { communityPaintedGeoids } = get();
     const updated = new Set(communityPaintedGeoids);
-    const { communityList } = useMapControlsStore.getState();
-    const selectedCommunity = communityList.find(c => c.id === communityId);
+    const {
+      communityList,
+      mapOptions: { communityOpacity },
+    } = useMapControlsStore.getState();
+
+    const baseAlpha = communityOpacity ?? DEFAULT_COMMUNITY_OPACITY;
+    const { maxAlpha, slowPower, darkenStep, darkenCap } = DEFAULT_COMMUNITY_MIX_TUNING;
+
+    const colorCache = new Map<number, MixEntry>();
+    const visibleCommunityIds: number[] = [];
+    let selectedCommunityVisible = false;
+    let drawColor: string | null = null;
+
+    for (const community of communityList) {
+      if (community.id === communityId) {
+        drawColor = community.color;
+        selectedCommunityVisible = community.visible;
+      }
+      if (!community.visible) {
+        continue;
+      }
+
+      visibleCommunityIds.push(community.id);
+      const rgb = parseHexColor(community.color);
+      if (!rgb) {
+        continue;
+      }
+      const alpha = Math.max(0, Math.min(1, baseAlpha * community.opacity));
+      if (alpha <= 0) {
+        continue;
+      }
+      colorCache.set(community.id, { rgb, alpha });
+    }
 
     // If the selected community is currently invisible, brush-add should be a no-op.
     // (Erase remains allowed to remove assignments.)
-    if (action === 'add' && !selectedCommunity?.visible) {
+    if (action === 'add' && !selectedCommunityVisible) {
+      return;
+    }
+    if (action === 'remove' && visibleCommunityIds.length === 0) {
       return;
     }
 
-    const drawColor = communityList.find(c => c.id === communityId)?.color ?? null;
+    const visibleCommunityMask =
+      action === 'remove'
+        ? communityAssignments.buildMaskForCommunityIds(visibleCommunityIds)
+        : null;
+
+    const mixFromAssignedIds = (assignedIds: number[]): string | null => {
+      const colors: MixEntry[] = [];
+      for (let i = 0; i < assignedIds.length; i++) {
+        const entry = colorCache.get(assignedIds[i]);
+        if (entry) {
+          colors.push(entry);
+        }
+      }
+      return mixRgbaColors(colors, {
+        maxAlpha,
+        slowPower,
+        darkenStep,
+        darkenCap,
+        overlapCount: colors.length,
+      });
+    };
+
+    const seen = new Set<string>();
+    const remainingAssignmentsScratch: number[] = [];
+
     features.forEach(feature => {
       const id = feature?.id?.toString() ?? undefined;
       const sourceLayer = feature.properties.__sourceLayer || feature.sourceLayer;
       if (!id || !sourceLayer) return;
+
+      const featureKey = `${sourceLayer}:${id}`;
+      if (seen.has(featureKey)) return;
+      seen.add(featureKey);
+
       if (action === 'add') {
         communityAssignments.addAssignment(id, communityId);
-      } else {
-        communityAssignments.removeAssignment(id, communityId);
+        updated.add(id);
+        mapRef.setFeatureState(
+          {
+            source: BLOCK_SOURCE_ID,
+            id,
+            sourceLayer,
+          },
+          {
+            community_draw: drawColor,
+          }
+        );
+        return;
       }
+
+      const eraseResult = communityAssignments.removeAssignmentsByMask(
+        id,
+        visibleCommunityMask!,
+        remainingAssignmentsScratch
+      );
+      if (!eraseResult.changed) {
+        return;
+      }
+
       updated.add(id);
       mapRef.setFeatureState(
         {
@@ -262,7 +351,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
           sourceLayer,
         },
         {
-          community_draw: action === 'add' ? drawColor : null,
+          community_draw: null,
+          community_mix: mixFromAssignedIds(eraseResult.remainingAssignments),
         }
       );
     });
@@ -379,12 +469,9 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     }
 
     const { communityList } = useMapControlsStore.getState();
-    const baseAlpha = useMapControlsStore.getState().mapOptions.communityOpacity ?? 0.5;
-    const maxAlpha = 0.8;
-    const slowPower = 1.4;
-    const darkenStep = 0.1;
-    const darkenCap = 0.8;
-    type MixEntry = { rgb: { r: number; g: number; b: number }; alpha: number };
+    const baseAlpha =
+      useMapControlsStore.getState().mapOptions.communityOpacity ?? DEFAULT_COMMUNITY_OPACITY;
+    const { maxAlpha, slowPower, darkenStep, darkenCap } = DEFAULT_COMMUNITY_MIX_TUNING;
     const colorCache = new Map<number, MixEntry>();
     communityList.forEach(c => {
       if (!c.visible) return;

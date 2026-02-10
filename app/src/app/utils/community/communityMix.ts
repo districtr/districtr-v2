@@ -1,6 +1,21 @@
 'use client';
 
-export type Rgb = {r: number; g: number; b: number};
+export type Rgb = { r: number; g: number; b: number };
+export type MixEntry = { rgb: Rgb; alpha: number };
+
+export type CommunityMixTuning = {
+  maxAlpha: number;
+  slowPower: number;
+  darkenStep: number;
+  darkenCap: number;
+};
+
+export const DEFAULT_COMMUNITY_MIX_TUNING: CommunityMixTuning = {
+  maxAlpha: 0.8,
+  slowPower: 1.4,
+  darkenStep: 0.1,
+  darkenCap: 0.8,
+};
 
 /**
  * Parse a hex color (#rgb or #rrggbb) into RGB.
@@ -18,13 +33,13 @@ export const parseHexColor = (hex: string): Rgb | null => {
     const r = parseInt(raw[0] + raw[0], 16);
     const g = parseInt(raw[1] + raw[1], 16);
     const b = parseInt(raw[2] + raw[2], 16);
-    return Number.isFinite(r) && Number.isFinite(g) && Number.isFinite(b) ? {r, g, b} : null;
+    return Number.isFinite(r) && Number.isFinite(g) && Number.isFinite(b) ? { r, g, b } : null;
   }
   if (raw.length === 6) {
     const r = parseInt(raw.slice(0, 2), 16);
     const g = parseInt(raw.slice(2, 4), 16);
     const b = parseInt(raw.slice(4, 6), 16);
-    return Number.isFinite(r) && Number.isFinite(g) && Number.isFinite(b) ? {r, g, b} : null;
+    return Number.isFinite(r) && Number.isFinite(g) && Number.isFinite(b) ? { r, g, b } : null;
   }
   return null;
 };
@@ -96,7 +111,7 @@ export const parseHexColor = (hex: string): Rgb | null => {
  *   (i.e., all layers are fully transparent or the input array is empty).
  */
 export const mixRgbaColors = (
-  colors: Array<{rgb: Rgb; alpha: number}>,
+  colors: Array<MixEntry>,
   options: {
     maxAlpha?: number;
     slowPower?: number;
@@ -111,7 +126,7 @@ export const mixRgbaColors = (
   let outG = 0;
   let outB = 0;
 
-  for (const {rgb, alpha} of colors) {
+  for (const { rgb, alpha } of colors) {
     const a = Math.max(0, Math.min(1, alpha));
     if (a === 0) continue;
     outR = rgb.r * a + outR * (1 - a);

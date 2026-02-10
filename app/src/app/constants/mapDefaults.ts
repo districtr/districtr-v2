@@ -1,2 +1,3 @@
 export const FALLBACK_NUM_DISTRICTS = 4;
 export const OVERLAY_OPACITY = 0.7;
+export const DEFAULT_COMMUNITY_OPACITY = 0.5;
