@@ -1,21 +1,21 @@
-import {PARENT_LAYERS, CHILD_LAYERS, getLayerFill, BLOCK_SOURCE_ID} from '@constants/layers';
-import {ColorZoneAssignmentsState} from '@utils/map/types';
-import {colorZoneAssignments} from '@utils/map/colorZoneAssignments';
-import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
-import {getFeaturesIntersectingCounties} from '@utils/map/getFeaturesIntersectingCounties';
-import {shallowCompareArray} from '@utils/arrays';
-import {useMapStore as _useMapStore, MapStore} from '@store/mapStore';
-import {getFeatureUnderCursor} from '@utils/map/getFeatureUnderCursor';
-import {useDemographyStore as _useDemographyStore} from '../../store/demography/demographyStore';
-import {demographyCache} from '../demography/demographyCache';
-import {FocusState, ShatterState} from './types';
+import { PARENT_LAYERS, CHILD_LAYERS, getLayerFill, BLOCK_SOURCE_ID } from '@constants/layers';
+import { ColorZoneAssignmentsState } from '@utils/map/types';
+import { colorZoneAssignments } from '@utils/map/colorZoneAssignments';
+import { getFeaturesInBbox } from '@utils/map/getFeaturesInBbox';
+import { getFeaturesIntersectingCounties } from '@utils/map/getFeaturesIntersectingCounties';
+import { shallowCompareArray } from '@utils/arrays';
+import { useMapStore as _useMapStore, MapStore } from '@store/mapStore';
+import { getFeatureUnderCursor } from '@utils/map/getFeatureUnderCursor';
+import { useDemographyStore as _useDemographyStore } from '../../store/demography/demographyStore';
+import { demographyCache } from '../demography/demographyCache';
+import { FocusState, ShatterState } from './types';
 import {
   useMapControlsStore as _useMapControlsStore,
   type MapControlsStore,
 } from '@store/mapControlsStore';
-import {useAssignmentsStore as _useAssignmentsStore} from '@store/assignmentsStore';
+import { useAssignmentsStore as _useAssignmentsStore } from '@store/assignmentsStore';
 import GeometryWorker from '../GeometryWorker';
-import {idb} from '../idb/idb';
+import { idb } from '../idb/idb';
 
 /**
  * A class that manages the rendering of the map based on the state of the map store.
@@ -63,7 +63,7 @@ export class MapRenderSubscriber {
     const prevState = this.previousShatterState;
     const [shatterIds, mapRenderingState, highlightBrokenDistricts] = currentState;
     const prevShatterIds = prevState?.[0];
-    const {mapDocument, appLoadingState, setMapLock} = mapState;
+    const { mapDocument, appLoadingState, setMapLock } = mapState;
     if (mapRenderingState !== 'loaded' || appLoadingState !== 'loaded' || !mapDocument) {
       return;
     }
@@ -110,7 +110,7 @@ export class MapRenderSubscriber {
       this.useMapStore.subscribe(
         state => [state.mapRenderingState, state.appLoadingState],
         () => this.renderShatter(),
-        {equalityFn: shallowCompareArray}
+        { equalityFn: shallowCompareArray }
       )
     );
     this.assignmentSubscriptions.push(
@@ -128,14 +128,14 @@ export class MapRenderSubscriber {
     this.renderShatter();
   }
   renderFocus(focusFeatures: FocusState, previousFocusFeatures?: FocusState) {
-    const {captiveIds} = this.useMapStore.getState();
+    const { captiveIds } = this.useMapStore.getState();
 
     focusFeatures.forEach(feature => {
-      this.mapRef.setFeatureState(feature, {focused: true});
+      this.mapRef.setFeatureState(feature, { focused: true });
     });
     previousFocusFeatures?.forEach(feature => {
       if (!focusFeatures.find(f => f.id === feature.id)) {
-        this.mapRef.setFeatureState(feature, {focused: false});
+        this.mapRef.setFeatureState(feature, { focused: false });
       }
     });
 
@@ -149,7 +149,7 @@ export class MapRenderSubscriber {
         this.mapRef.setPaintProperty(
           layerId,
           'fill-opacity',
-          getLayerFill(captiveIds.size ? captiveIds : undefined, !isParent, isDemographic)
+          getLayerFill(captiveIds.size ? captiveIds : undefined, isDemographic)
         );
       }
     });
@@ -166,7 +166,7 @@ export class MapRenderSubscriber {
     );
   }
   renderCursor(activeTool: MapControlsStore['activeTool']) {
-    const {mapOptions, setPaintFunction} = this.useMapControlsStore.getState();
+    const { mapOptions, setPaintFunction } = this.useMapControlsStore.getState();
     const defaultPaintFunction = mapOptions.paintByCounty
       ? getFeaturesIntersectingCounties
       : getFeaturesInBbox;
@@ -235,21 +235,22 @@ export class MapRenderSubscriber {
       this.previousColorState = currentState;
     }
 
-    const {captiveIds} = mapState;
-    const {mapOptions} = controlsState;
+    const { captiveIds } = mapState;
+    const { mapOptions } = controlsState;
     [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
       const isHover = layerId.includes('hover');
-      const isParent = PARENT_LAYERS.includes(layerId);
 
       if (isHover && this.mapRef.getLayer(layerId)) {
+        const hideDistricts = !mapOptions.showPaintedDistricts;
         this.mapRef.setPaintProperty(
           layerId,
           'fill-opacity',
-          getLayerFill(
-            captiveIds.size ? captiveIds : undefined,
-            !isParent,
-            mapOptions.showDemographicMap === 'overlay'
-          )
+          hideDistricts
+            ? 0
+            : getLayerFill(
+              captiveIds.size ? captiveIds : undefined,
+              mapOptions.showDemographicMap === 'overlay'
+            )
         );
       }
     });
@@ -259,7 +260,7 @@ export class MapRenderSubscriber {
       this.useMapStore.subscribe(
         state => [state.mapDocument, state.appLoadingState, state.mapRenderingState],
         () => this.renderColorZones(),
-        {equalityFn: shallowCompareArray}
+        { equalityFn: shallowCompareArray }
       )
     );
     this.controlSubscriptions.push(
@@ -268,11 +269,12 @@ export class MapRenderSubscriber {
           state.mapOptions.lockPaintedAreas,
           state.mapOptions.showZoneNumbers,
           state.mapOptions.paintCommunity,
+          state.mapOptions.showPaintedDistricts,
           state.mapOptions.showDemographicMap,
           state.isPainting,
         ],
         () => this.renderColorZones(),
-        {equalityFn: shallowCompareArray}
+        { equalityFn: shallowCompareArray }
       )
     );
     this.assignmentSubscriptions.push(
@@ -310,7 +312,7 @@ export class MapRenderSubscriber {
     const mapState = this.useMapStore.getState();
     const isPainting = this.useMapControlsStore.getState().isPainting;
     if (!mapRef || !mapState.mapDocument?.document_id || isPainting) return;
-    const {zoneAssignments, clientLastUpdated, shatterIds} = this.useAssignmentsStore.getState();
+    const { zoneAssignments, clientLastUpdated, shatterIds } = this.useAssignmentsStore.getState();
 
     if (!clientLastUpdated.length) {
       // refresh the page

@@ -29,6 +29,8 @@ export const VtdBlockLayers: React.FC<{
   const showDemography = isDemographicMap || showDemographicMap === 'overlay';
   const mapRef = useMap();
   const numberOfBins = useDemographyStore(state => state.numberOfBins);
+
+  const showCommunities = useMapControlsStore(state => state.mapOptions.showCommunities);
   useClearMap(mapDocument?.document_id);
 
   useLayoutEffect(() => {
@@ -96,12 +98,12 @@ export const VtdBlockLayers: React.FC<{
         promoteId="path"
       >
         {!isDemographicMap && <BackgroundLayerGroup />}
-        <CommunityLayerGroup child mode="mix" />
-        <CommunityLayerGroup mode="mix" />
+        {!!showCommunities && <CommunityLayerGroup child mode="mix" />}
+        {!!showCommunities && <CommunityLayerGroup mode="mix" />}
         {!isDemographicMap && <ZoneLayerGroup child />}
         {!isDemographicMap && <ZoneLayerGroup />}
-        <CommunityLayerGroup child mode="draw" />
-        <CommunityLayerGroup mode="draw" />
+        {!!showCommunities && <CommunityLayerGroup child mode="draw" />}
+        {!!showCommunities && <CommunityLayerGroup mode="draw" />}
         {!!showDemography && <DemographicLayer child />}
         {!!showDemography && <DemographicLayer />}
         <HighlightOverlayerLayerGroup />

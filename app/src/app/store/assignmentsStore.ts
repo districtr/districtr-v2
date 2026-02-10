@@ -23,8 +23,8 @@ import { confirmMapDocumentUrlParameter } from '../utils/map/confirmMapDocumentU
 import { communityAssignments, resolveMaxCommunities } from '../utils/community/communityAssignments';
 import { mixRgbaColors, parseHexColor } from '../utils/community/communityMix';
 import { useMapControlsStore } from './mapControlsStore';
-import type {LocalCommunityState} from '../utils/idb/idb';
-import {makeCommunity} from './types';
+import type { LocalCommunityState } from '../utils/idb/idb';
+import { makeCommunity } from './types';
 
 export interface AssignmentsStore {
   /** Map of geoid -> zone assignments currently in memory */
@@ -236,6 +236,14 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     const { communityPaintedGeoids } = get();
     const updated = new Set(communityPaintedGeoids);
     const { communityList } = useMapControlsStore.getState();
+    const selectedCommunity = communityList.find(c => c.id === communityId);
+
+    // If the selected community is currently invisible, brush-add should be a no-op.
+    // (Erase remains allowed to remove assignments.)
+    if (action === 'add' && !selectedCommunity?.visible) {
+      return;
+    }
+
     const drawColor = communityList.find(c => c.id === communityId)?.color ?? null;
     features.forEach(feature => {
       const id = feature?.id?.toString() ?? undefined;
@@ -307,33 +315,36 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
      * Previous broader heal sweep (easy revert):
      * const parentsToCheck = new Set<string>(shatterIds.parents);
      */
-    // Fast path: evaluate parents touched by currently painted child geoids.
+    // Do not heal while actively in break mode; otherwise a fresh shatter can
+    // immediately re-heal before the user paints.
+    const shouldAttemptHeal = useMapControlsStore.getState().mapOptions.mode !== 'break';
     const parentsToCheck = new Set<string>();
-    communityPaintedGeoids.forEach(geoid => {
-      if (!shatterIds.children.has(geoid)) return;
-      const parentId = childToParent.get(geoid);
-      if (parentId) {
-        parentsToCheck.add(parentId);
-      }
-    });
+    if (shouldAttemptHeal) {
+      // Fast path: evaluate parents touched by currently painted child geoids.
+      communityPaintedGeoids.forEach(geoid => {
+        if (!shatterIds.children.has(geoid)) return;
+        const parentId = childToParent.get(geoid);
+        if (parentId) {
+          parentsToCheck.add(parentId);
+        }
+      });
 
-    // In break mode, always evaluate focused broken parent(s) as well.
-    // This protects heal when a paint event updates child assignments but the touched-id
-    // set is incomplete for a given frame.
-    const focusFeatures = useMapStore.getState().focusFeatures;
-    focusFeatures.forEach(feature => {
-      const parentId = feature.id?.toString();
-      if (parentId && shatterIds.parents.has(parentId)) {
-        parentsToCheck.add(parentId);
-      }
-    });
+      // Include focused broken parent(s) to cover partial touched-id frames.
+      const focusFeatures = useMapStore.getState().focusFeatures;
+      focusFeatures.forEach(feature => {
+        const parentId = feature.id?.toString();
+        if (parentId && shatterIds.parents.has(parentId)) {
+          parentsToCheck.add(parentId);
+        }
+      });
 
-    // Fallback safety: if nothing was touched, run a full broken-parent sweep.
-    if (!parentsToCheck.size && shatterIds.parents.size) {
-      shatterIds.parents.forEach(parentId => parentsToCheck.add(parentId));
+      // Fallback safety: if nothing was touched, run a full broken-parent sweep.
+      if (!parentsToCheck.size && shatterIds.parents.size) {
+        shatterIds.parents.forEach(parentId => parentsToCheck.add(parentId));
+      }
     }
 
-    if (parentsToCheck.size) {
+    if (shouldAttemptHeal && parentsToCheck.size) {
       const healResult = healParentsIfAllChildrenInSameZone(
         {
           _parentIds: parentsToCheck,
@@ -368,7 +379,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     }
 
     const { communityList } = useMapControlsStore.getState();
-    const baseAlpha = 0.5;
+    const baseAlpha = useMapControlsStore.getState().mapOptions.communityOpacity ?? 0.5;
     const maxAlpha = 0.8;
     const slowPower = 1.4;
     const darkenStep = 0.1;
@@ -409,7 +420,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         sourceLayer,
       };
       const existingState = mapRef.getFeatureState(targetFeature) as
-        | {community_mix?: string | null; community_draw?: string | null}
+        | { community_mix?: string | null; community_draw?: string | null }
         | undefined;
       if (
         existingState?.community_mix === mixedColor &&
@@ -458,10 +469,13 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     const rehydratedCommunityGeoids = new Set(
       (localCommunityState?.assignments ?? []).map(([geoid]) => geoid)
     );
-    const defaultCommunityList = [makeCommunity({id: 0, displayPosition: 0})];
-    const nextCommunityList =
-      localCommunityState?.communityList?.length ? localCommunityState.communityList : defaultCommunityList;
-    const selectedExists = nextCommunityList.some(c => c.id === localCommunityState?.selectedCommunityId);
+    const defaultCommunityList = [makeCommunity({ id: 0, displayPosition: 0 })];
+    const nextCommunityList = localCommunityState?.communityList?.length
+      ? localCommunityState.communityList
+      : defaultCommunityList;
+    const selectedExists = nextCommunityList.some(
+      c => c.id === localCommunityState?.selectedCommunityId
+    );
     useMapControlsStore.setState({
       communityList: nextCommunityList,
       selectedCommunityId: selectedExists ? localCommunityState!.selectedCommunityId : 0,
@@ -549,6 +563,9 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
             },
             {
               zone: null,
+              // Prevent stale child community paint from reappearing after re-shatter.
+              community_mix: null,
+              community_draw: null,
             }
           );
         }
@@ -820,12 +837,16 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
           }
           const data = formatAssignmentsFromDocument(assignments.assignments);
           setMapDocument(conflict.localDocument);
-          state.ingestFromDocument({
-            zoneAssignments: data.zoneAssignments,
-            shatterIds: data.shatterIds,
-            parentToChild: data.parentToChild,
-            childToParent: data.childToParent,
-          }, undefined, assignments.localCommunityState);
+          state.ingestFromDocument(
+            {
+              zoneAssignments: data.zoneAssignments,
+              shatterIds: data.shatterIds,
+              parentToChild: data.parentToChild,
+              childToParent: data.childToParent,
+            },
+            undefined,
+            assignments.localCommunityState
+          );
         }
         set({
           showSaveConflictModal: false,
@@ -849,12 +870,16 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
             throw new Error('No assignments found in IDB');
           }
           const data = formatAssignmentsFromDocument(assignments.assignments);
-          state.ingestFromDocument({
-            zoneAssignments: data.zoneAssignments,
-            shatterIds: data.shatterIds,
-            parentToChild: data.parentToChild,
-            childToParent: data.childToParent,
-          }, undefined, assignments.localCommunityState);
+          state.ingestFromDocument(
+            {
+              zoneAssignments: data.zoneAssignments,
+              shatterIds: data.shatterIds,
+              parentToChild: data.parentToChild,
+              childToParent: data.childToParent,
+            },
+            undefined,
+            assignments.localCommunityState
+          );
           const response = await putUpdateAssignmentsAndVerify({
             mapDocument: conflict.localDocument,
             zoneAssignments: data.zoneAssignments,

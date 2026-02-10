@@ -1,53 +1,108 @@
-import { Box, Flex, Button, Text, RadioGroup, TextField } from '@radix-ui/themes';
-import { MaskOffIcon } from '@radix-ui/react-icons';
-import { useMapControlsStore } from '@store/mapControlsStore';
-import { useMapStore } from '@store/mapStore';
-import { useFeatureFlagStore } from '@store/featureFlagStore';
-import { useOverlayStore } from '@/app/store/overlayStore';
-import { BrushSizeSelector } from '@components/Toolbar/ToolControls/BrushSizeSelector';
-import PaintByCounty from '@components/Toolbar/PaintByCounty';
-import PaintCommunity from '@components/Toolbar/PaintCommunity';
-import { useRef } from 'react';
-import { ZonePicker } from '@components/Toolbar/ZonePicker';
-import { CommunityAssignmentsDebug } from '@components/Toolbar/CommunityAssignmentsDebug';
+import {Box, Badge, IconButton, Flex, Button, Text, TextField} from '@radix-ui/themes';
+import {useMapControlsStore} from '@store/mapControlsStore';
+import {useMapStore} from '@store/mapStore';
+import {EyeClosedIcon, EyeOpenIcon, Pencil1Icon} from '@radix-ui/react-icons';
+import {useRef, useEffect, useState} from 'react';
+import {useToolbarStore} from '@store/toolbarStore';
+// import {CommunityAssignmentsDebug} from '@components/Toolbar/CommunityAssignmentsDebug';
 
-const CommunityRadioGroupItem = ({
+const CommunityFormGroupItem = ({
   id,
   name,
   color,
+  visible,
+  mode,
   isReadOnly,
 }: {
   id: number;
   name: string;
   color: string;
+  visible: boolean;
+  mode: 'brush' | 'erase';
   isReadOnly: boolean;
 }) => {
+  const toggleCommunityVisible = useMapControlsStore(state => state.toggleCommunityVisible);
   const setCommunityName = useMapControlsStore(state => state.setCommunityName);
   const setCommunityColor = useMapControlsStore(state => state.setCommunityColor);
-  const selectedCommunity = useMapControlsStore(state => state.selectedCommunityId);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const selectedCommunityId = useMapControlsStore(state => state.selectedCommunityId);
+  const setSelectedCommunityId = useMapControlsStore(state => state.setSelectedCommunityId);
 
   return (
     <Flex key={id} align="center" gap="2">
       <Text as="label" size="1" className="flex-grow">
         <Flex direction="row" align="center" gap="2">
-          <RadioGroup.Item
-            value={String(id)}
-            disabled={isReadOnly}
-            style={{
-              width: 16,
-              height: 16,
-              borderRadius: '9999px',
-              border: `1px solid {color}`,
-            }}
-          />
+          {mode === 'brush' ? (
+            <IconButton
+              size="1"
+              variant="ghost"
+              color="gray"
+              onPointerDown={e => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onClick={e => {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleCommunityVisible(id);
+              }}
+              disabled={isReadOnly}
+              aria-label={visible ? 'Hide community' : 'Show community'}
+            >
+              {visible ? <EyeOpenIcon /> : <EyeClosedIcon />}
+            </IconButton>
+          ) : null}
           <TextField.Root
             value={name}
             onChange={e => setCommunityName(id, e.target.value)}
+            onPointerDown={e => {
+              e.stopPropagation();
+              if (!isReadOnly) setSelectedCommunityId(id);
+            }}
+            onFocus={() => {
+              if (!isReadOnly) setSelectedCommunityId(id);
+            }}
+            onBlur={() => setIsEditingName(false)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === 'Escape') {
+                (e.currentTarget as HTMLInputElement).blur();
+              }
+            }}
             size="1"
             className="flex-grow"
-            disabled={isReadOnly}
+            disabled={isReadOnly || !isEditingName}
+            readOnly={!isEditingName}
             maxLength={40}
+            style={{
+              border:
+                selectedCommunityId === id
+                  ? '1px solid var(--accent-9, #3b82f6)'
+                  : '1px solid transparent',
+              boxShadow: selectedCommunityId === id ? '0 0 0 1px var(--accent-7, #93c5fd)' : 'none',
+              borderRadius: 6,
+              cursor: isReadOnly ? 'default' : 'pointer',
+            }}
           />
+          <IconButton
+            size="1"
+            variant="ghost"
+            color="gray"
+            onPointerDown={e => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onClick={e => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (isReadOnly) return;
+              setSelectedCommunityId(id);
+              setIsEditingName(true);
+            }}
+            disabled={isReadOnly}
+            aria-label={`Edit ${name} name`}
+          >
+            <Pencil1Icon />
+          </IconButton>
           <Box>
             <input
               aria-label={`Color for ${name}`}
@@ -72,55 +127,119 @@ const CommunityRadioGroupItem = ({
   );
 };
 
-const CommunityRadioFormList = ({
-  isReadOnly,
-  selectedCommunityId,
-}: {
-  isReadOnly: boolean;
-  selectedCommunityId: number;
-}) => {
+const CommunityFormList = ({isReadOnly, mode}: {isReadOnly: boolean; mode: 'brush' | 'erase'}) => {
+  const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
+  const maxVisible = toolbarLocation === 'map' ? 3 : 7;
+  const maxListHeight = maxVisible * 44; //TODO: Chnage this to the document number of communities
   const communityList = useMapControlsStore(state => state.communityList);
-  const setSelectedCommunityId = useMapControlsStore(state => state.setSelectedCommunityId);
+  const listRef = useRef<HTMLDivElement | null>(null);
+
+  // Scroll to bottom when a new community is added and the list exceeds the max visible count
+  useEffect(() => {
+    if (communityList.length > maxVisible && listRef.current) {
+      listRef.current.scrollTop = listRef.current.scrollHeight;
+    }
+  }, [communityList.length, maxVisible]);
 
   return (
-    <RadioGroup.Root
-      value={String(selectedCommunityId)}
-      onValueChange={value => setSelectedCommunityId(Number(value))}
+    <Box
+      ref={listRef}
+      style={
+        communityList.length > maxVisible
+          ? {maxHeight: maxListHeight, overflowY: 'auto', paddingRight: 4}
+          : undefined
+      }
     >
       <Flex direction="column" gap="2">
         {communityList
           .sort((a, b) => a.displayPosition - b.displayPosition)
           .map(community => (
-            <CommunityRadioGroupItem
+            <CommunityFormGroupItem
               key={community.id}
               id={community.id}
               name={community.name}
               color={community.color}
+              visible={community.visible}
+              mode={mode}
               isReadOnly={isReadOnly}
             />
           ))}
       </Flex>
-    </RadioGroup.Root>
+    </Box>
   );
 };
 
-export const CommunityControls = ({ mode }: { mode: 'brush' | 'erase' }) => {
+export const CommunityControls = ({mode}: {mode: 'brush' | 'erase'}) => {
   const addCommunity = useMapControlsStore(state => state.addCommunity);
   const removeCommunities = useMapControlsStore(state => state.removeCommunities);
   const selectedCommunityId = useMapControlsStore(state => state.selectedCommunityId);
   const access = useMapStore(state => state.mapStatus?.access);
   const isReadOnly = access === 'read';
+  const setAllCommunitiesVisibility = useMapControlsStore(
+    state => state.setAllCommunitiesVisibility
+  );
+  const showCommunities = useMapControlsStore(state => state.mapOptions.showCommunities);
+
+  const setMapOptions = useMapControlsStore(state => state.setMapOptions);
 
   return (
-    <Flex direction="column" gapY="2" justify="between" wrap="wrap">
-      <Flex direction="row" gapX="4" wrap="wrap">
-        <Text size="1">
-          {mode === 'brush' ? 'Community Paint Mode Woo' : 'Community Erase Mode'}
-        </Text>
+    // <Flex direction="column" gapY="2" justify="between" wrap="wrap">
+    <Flex direction="column" gap="2">
+      <Flex direction="row" gap="3" align="center">
+        {/* Row 1 */}
+        {mode === 'brush' ? (
+          <IconButton
+            size="1"
+            variant="ghost"
+            color="gray"
+            onClick={() => {
+              const nextVisibility = !showCommunities;
+              console.log('Toggling all communities visibility to', nextVisibility);
+              setMapOptions({showCommunities: nextVisibility});
+              setAllCommunitiesVisibility(nextVisibility);
+            }}
+            disabled={isReadOnly}
+            aria-label="Select a community to start drawing it!"
+          >
+            {showCommunities ? <EyeOpenIcon /> : <EyeClosedIcon />}
+          </IconButton>
+        ) : null}
+
+        {mode === 'brush' ? (
+          <Badge
+            className="flex-grow"
+            size="2"
+            style={{
+              color: 'black',
+              flexGrow: 1,
+              textAlign: 'center',
+              background: '#eee',
+              justifyContent: 'center',
+            }}
+          >
+            <Text size="1">Select a Community to Start Drawing!</Text>
+          </Badge>
+        ) : (
+          <Badge
+            className="flex-grow"
+            size="2"
+            style={{
+              color: 'black',
+              flexGrow: 1,
+              textAlign: 'center',
+              background: '#eee',
+              justifyContent: 'center',
+            }}
+          >
+            <Text size="1">Use the Checkbox to select what to Erase.</Text>
+          </Badge>
+        )}
       </Flex>
-      {mode === 'brush' ? (
-        <CommunityRadioFormList isReadOnly={isReadOnly} selectedCommunityId={selectedCommunityId} />
-      ) : null}
+
+      {/* Row 2 */}
+      {mode === 'brush' ? <CommunityFormList isReadOnly={isReadOnly} mode={mode} /> : null}
+
+      {/* Row 3 */}
       {mode === 'brush' ? (
         <Flex direction="row" gap="2" wrap="wrap">
           <Button size="1" variant="soft" onClick={addCommunity} disabled={isReadOnly}>
@@ -151,11 +270,11 @@ export const CommunityControls = ({ mode }: { mode: 'brush' | 'erase' }) => {
             }}
             disabled={isReadOnly}
           >
-            Remove Community
+            Remove Communities
           </Button>
         </Flex>
       ) : null}
-      {process.env.NODE_ENV === 'development' ? <CommunityAssignmentsDebug /> : null}
+      {/* {process.env.NODE_ENV === 'development' ? <CommunityAssignmentsDebug /> : null} */}
     </Flex>
   );
 };

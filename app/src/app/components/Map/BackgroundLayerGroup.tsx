@@ -4,12 +4,14 @@ import {
   LABELS_BREAK_LAYER_ID,
 } from '@/app/constants/layers';
 import { useLayerFilter } from '@/app/hooks/useLayerFilter';
-import { useMapStore } from '@/app/store/mapStore';
 import { useMapControlsStore } from '@/app/store/mapControlsStore';
+import { useMapStore } from '@/app/store/mapStore';
 import { Layer } from 'react-map-gl/maplibre';
+import type { DataDrivenPropertyValueSpecification } from 'maplibre-gl';
 
 export const BackgroundLayerGroup = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
+  const showCommunities = useMapControlsStore(state => state.mapOptions.showCommunities);
   const showPaintedDistricts = useMapControlsStore(state => state.mapOptions.showPaintedDistricts);
   const parentLayerId = mapDocument?.parent_layer;
   const childLayerId = mapDocument?.child_layer;
@@ -18,20 +20,33 @@ export const BackgroundLayerGroup = () => {
 
   const parentLayerFilter = useLayerFilter(false);
   const childLayerFilter = useLayerFilter(true);
+  const zoneClear = showPaintedDistricts
+    ? (['==', ['feature-state', 'zone'], null] as any)
+    : (['literal', true] as any);
+  const communityClear = showCommunities
+    ? ([
+        'all',
+        ['==', ['feature-state', 'community_mix'], null],
+        ['==', ['feature-state', 'community_draw'], null],
+      ] as any)
+    : (['literal', true] as any);
+  const selectedClear = showPaintedDistricts
+    ? (['!', ['boolean', ['feature-state', 'selected'], false]] as any)
+    : (['literal', true] as any);
+  const isTransparentByAssignment = [
+    'all',
+    zoneClear,
+    communityClear,
+    selectedClear,
+  ];
   const shatterBackgroundOpacity = [
     'case',
-    [
-      'all',
-      ['==', ['feature-state', 'zone'], null],
-      ['==', ['feature-state', 'community_mix'], null],
-      ['==', ['feature-state', 'community_draw'], null],
-      ['!', ['boolean', ['feature-state', 'selected'], false]],
-    ],
-    // Fully unassigned => show shatter background.
+    isTransparentByAssignment,
+    // Unassigned in currently visible assignment layers => show background.
     0.2,
-    // Any zone/community assignment (or selected paint state) => transparent background.
+    // Any visible assignment (or selected paint state) => transparent background.
     0,
-  ] as const;
+  ] as unknown as DataDrivenPropertyValueSpecification<number>;
 
   return (
     <>
@@ -43,7 +58,7 @@ export const BackgroundLayerGroup = () => {
         filter={parentLayerFilter}
         beforeId={LABELS_BREAK_LAYER_ID}
         type="fill"
-        layout={{ visibility: showPaintedDistricts ? 'visible' : 'none' }}
+        layout={{ visibility: 'visible' }}
         paint={{
           'fill-opacity': shatterBackgroundOpacity,
           'fill-color': '#cecece',
@@ -58,7 +73,7 @@ export const BackgroundLayerGroup = () => {
           filter={childLayerFilter}
           beforeId={LABELS_BREAK_LAYER_ID}
           type="fill"
-          layout={{ visibility: showPaintedDistricts ? 'visible' : 'none' }}
+          layout={{ visibility: 'visible' }}
           paint={{
             'fill-opacity': shatterBackgroundOpacity,
             'fill-color': '#cecece',

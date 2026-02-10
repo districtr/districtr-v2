@@ -31,8 +31,8 @@ export const ZoneLayerGroup: React.FC<{
   const lineWidth = child ? 1 : 2;
 
   const layerOpacity = useMemo(
-    () => getLayerFill(captiveIds, child, isOverlayed),
-    [captiveIds, child, isOverlayed]
+    () => getLayerFill(captiveIds, isOverlayed),
+    [captiveIds, isOverlayed]
   );
 
   if (!id || !mapDocument) return null;
@@ -46,6 +46,7 @@ export const ZoneLayerGroup: React.FC<{
         beforeId={LABELS_BREAK_LAYER_ID}
         type="line"
         layout={{
+          // Keep geometry outlines visible even when district fills are hidden.
           visibility: 'visible',
         }}
         paint={{
@@ -112,6 +113,7 @@ export const ZoneLayerGroup: React.FC<{
           'line-color': [
             'case',
             ['boolean', ['feature-state', 'focused'], false],
+            '#000000', // Black color when focused
             ['boolean', ['feature-state', 'highlighted'], false],
             '#e5ff00', // yellow color when highlighted
             // @ts-ignore right behavior, wrong types
