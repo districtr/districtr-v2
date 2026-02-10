@@ -479,31 +479,56 @@ async def update_assignments(
                 stmt, {"document_id": document_id, "colors": data.metadata.color_scheme}
             )
 
-    # Upsert document comments if provided
-    if data.comments is not None and len(data.comments) > 0:
-        comment_rows = [
-            {
-                "comment_id": c.comment_id or str(uuid4()),
-                "document_id": document_id,
-                "zone": c.zone,
-                "text": c.text,
-            }
-            for c in data.comments
-        ]
-        session.execute(
-            text(
-                """INSERT INTO document.document_comment (comment_id, document_id, zone, text)
-                VALUES (:comment_id, :document_id, :zone, :text)
-                ON CONFLICT (comment_id) DO UPDATE
-                SET text = EXCLUDED.text,
-                    zone = EXCLUDED.zone,
-                    updated_at = CURRENT_TIMESTAMP"""
-            ).bindparams(
-                bindparam(key="comment_id", type_=UUIDType),
-                bindparam(key="document_id", type_=UUIDType),
-            ),
-            comment_rows,
-        )
+    # Sync document comments if provided (None = no change, [] = delete all)
+    if data.comments is not None:
+        if len(data.comments) > 0:
+            comment_rows = [
+                {
+                    "comment_id": c.comment_id or str(uuid4()),
+                    "document_id": document_id,
+                    "zone": c.zone,
+                    "text": c.text,
+                }
+                for c in data.comments
+            ]
+            sent_ids = [r["comment_id"] for r in comment_rows]
+            # Delete comments not in the sent list
+            session.execute(
+                text(
+                    """DELETE FROM document.document_comment
+                    WHERE document_id = :document_id
+                    AND comment_id != ALL(:comment_ids)"""
+                ).bindparams(
+                    bindparam(key="document_id", type_=UUIDType),
+                ),
+                {"document_id": document_id, "comment_ids": sent_ids},
+            )
+            # Upsert the sent comments
+            session.execute(
+                text(
+                    """INSERT INTO document.document_comment (comment_id, document_id, zone, text)
+                    VALUES (:comment_id, :document_id, :zone, :text)
+                    ON CONFLICT (comment_id) DO UPDATE
+                    SET text = EXCLUDED.text,
+                        zone = EXCLUDED.zone,
+                        updated_at = CURRENT_TIMESTAMP"""
+                ).bindparams(
+                    bindparam(key="comment_id", type_=UUIDType),
+                    bindparam(key="document_id", type_=UUIDType),
+                ),
+                comment_rows,
+            )
+        else:
+            # Empty list means delete all comments for this document
+            session.execute(
+                text(
+                    """DELETE FROM document.document_comment
+                    WHERE document_id = :document_id"""
+                ).bindparams(
+                    bindparam(key="document_id", type_=UUIDType),
+                ),
+                {"document_id": document_id},
+            )
 
     session.commit()
     return {"assignments_inserted": inserted_count, "updated_at": updated_at}

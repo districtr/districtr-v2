@@ -60,7 +60,7 @@ export const putUpdateAssignmentsAndVerify = async ({
           ? mapDocument.num_districts
           : undefined,
     },
-    comments: comments.length > 0 ? comments : undefined,
+    comments,
   });
   if (!assignmentsPostResponse.ok) {
     return {

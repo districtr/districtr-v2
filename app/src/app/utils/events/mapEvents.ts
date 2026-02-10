@@ -379,12 +379,8 @@ export const handleMapContextMenu = (e: MapLayerMouseEvent | MapLayerTouchEvent)
   });
 };
 
-export const throttledSetWorkerHash = throttle((hash: string) => {
-  useMapStore.getState().setWorkerUpdateHash(hash);
-}, 1000);
-
 export const handleDataLoad = (e: MapSourceDataEvent) => {
-  const {mapDocument, setMapRenderingState, setWorkerUpdateHash} = useMapStore.getState();
+  const {mapDocument, setMapRenderingState} = useMapStore.getState();
   const {setStateFp} = useMapControlsStore.getState();
   const {tiles_s3_path, parent_layer} = mapDocument || {};
   if (!tiles_s3_path || !parent_layer || !(e?.source as any)?.url?.includes(tiles_s3_path)) return;

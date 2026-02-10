@@ -45,11 +45,7 @@ export interface AssignmentsStore {
   childToParent: Map<string, string>;
   /** Assigns the provided geoids to the given zone immediately */
   setZoneAssignments: (zone: NullableZone, gdbPaths: Set<GDBPath>) => void;
-  /** Updates accumulated geoids as the user paints */
-  setAccumulatedAssignments: (
-    assignments: AssignmentsStore['accumulatedAssignments'],
-    zonesUpdated: Set<NullableZone>
-  ) => void;
+
   clientLastUpdated: string;
   setClientLastUpdated: (updated_at: string) => void;
   /** Flushes accumulated geoids to the worker & downstream caches */
@@ -201,21 +197,6 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       );
     });
     setPaintedChanges(popChanges);
-  },
-
-  setAccumulatedAssignments: (accumulatedAssignments, zonesUpdated) => {
-    const zonesLastUpdated = new Map(get().zonesLastUpdated);
-    const timestamp = new Date().toISOString();
-    zonesUpdated.forEach(zone => {
-      if (zone !== null) {
-        zonesLastUpdated.set(zone, timestamp);
-      }
-    });
-
-    set({
-      accumulatedAssignments: new Map(accumulatedAssignments),
-      zonesLastUpdated,
-    });
   },
 
   ingestFromDocument: (data, mapDocument) => {

@@ -72,6 +72,10 @@ export interface MapStore {
   mapViews: Partial<QueryObserverResult<DistrictrMap[], Error>>;
   setMapViews: (maps: MapStore['mapViews']) => void;
   mapDocument: DocumentObject | null;
+  updated: {
+    metadata: boolean;
+    comments: boolean;
+  }
   setMapDocument: (mapDocument: DocumentObject) => void;
   flushMapState: boolean;
   initiateFlushMapState: () => Promise<void>;
@@ -140,15 +144,6 @@ export interface MapStore {
    * Map render effects in `mapRenderSubs` -> `_applyFocusFeatureState`
    */
   focusFeatures: Array<MapFeatureInfo>;
-  /**
-   * Map of ISO timestamps.
-   * Keeps track of when a zone was last to keep track of when to refetch data
-   */
-  assignmentsHash: string;
-  setAssignmentsHash: (hash: string) => void;
-  lastUpdatedHash: string;
-  workerUpdateHash: string;
-  setWorkerUpdateHash: (hash: string) => void;
   handleReset: () => void;
   contextMenu: ContextMenuState | null;
   setContextMenu: (menu: ContextMenuState | null) => void;
@@ -211,6 +206,10 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     mapViews: {isPending: true},
     setMapViews: mapViews => set({mapViews}),
     mapDocument: null,
+    updated: {
+      metadata: false,
+      comments: false,
+    },
     setMapDocument: mapDocument => {
       const currentMapDocument = get().mapDocument;
       const {resetZoneAssignments} = useAssignmentsStore.getState();
@@ -286,9 +285,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         appLoadingState: mapDocument?.genesis === 'copied' ? 'loaded' : 'initializing',
         mapRenderingState:
           mapDocument.tiles_s3_path === currentMapDocument?.tiles_s3_path ? 'loaded' : 'loading',
-        assignmentsHash: '',
-        lastUpdatedHash: new Date().toISOString(),
-        workerUpdateHash: new Date().toISOString(),
       });
     },
     flushMapState: false,
@@ -307,7 +303,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     setPinnedCommentZone: zone => set({pinnedCommentZone: zone}),
 
     addZoneComment: (zone, comment) => {
-      const {mapDocument} = get();
+      const {mapDocument, updated} = get();
       if (!mapDocument) return;
 
       const currentComments = mapDocument.document_comments || [];
@@ -316,11 +312,15 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           ...mapDocument,
           document_comments: [...currentComments, {...comment, zone}],
         },
+        updated: {
+          ...updated,
+          metadata: true,
+        },
       });
     },
 
     editZoneComment: (zone, index, text) => {
-      const {mapDocument} = get();
+      const {mapDocument, updated} = get();
       if (!mapDocument) return;
 
       const currentComments = mapDocument.document_comments || [];
@@ -341,11 +341,15 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           ...mapDocument,
           document_comments: updatedComments,
         },
+        updated: {
+          ...updated,
+          comments: true,
+        },
       });
     },
 
     removeZoneComment: (zone, index) => {
-      const {mapDocument} = get();
+      const {mapDocument, updated} = get();
       if (!mapDocument) return;
 
       const currentComments = mapDocument.document_comments || [];
@@ -366,6 +370,10 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         mapDocument: {
           ...mapDocument,
           document_comments: updatedComments,
+        },
+        updated: {
+          ...updated,
+          comments: true,
         },
       });
     },
@@ -390,7 +398,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       set({mapStatus: {...prev, ...mapStatus} as StatusObject});
     },
     setNumDistricts: numDistricts => {
-      const {mapDocument} = get();
+      const {mapDocument, updated} = get();
       if (!mapDocument) return;
       const newColorScheme = extendColorArray(
         mapDocument.color_scheme ?? DefaultColorScheme,
@@ -403,6 +411,10 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       };
       set({
         mapDocument: updatedDocument,
+        updated: {
+          ...updated,
+          metadata: true,
+        },
       });
       // Update IDB to persist the change locally
       if (mapDocument.document_id) {
@@ -516,8 +528,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       });
 
       set({
-        assignmentsHash: updateHash,
-        lastUpdatedHash: updateHash,
         mapLock: null,
         captiveIds,
         focusFeatures: [
@@ -547,7 +557,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         mapLock: {isLocked: true, reason: 'Resetting map'},
         appLoadingState: 'loading',
       });
-      const updateHash = new Date().toISOString();
       const resetResponse = await patchUpdateReset(document_id);
       if (!resetResponse.ok) {
         set({
@@ -575,18 +584,11 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         set({
           appLoadingState: 'loaded',
           mapLock: null,
-          assignmentsHash: updateHash,
-          lastUpdatedHash: updateHash,
         });
         useMapControlsStore.setState({activeTool: 'pan'});
       }
     },
     focusFeatures: [],
-    assignmentsHash: '',
-    setAssignmentsHash: hash => set({assignmentsHash: hash}),
-    lastUpdatedHash: new Date().toISOString(),
-    workerUpdateHash: new Date().toISOString(),
-    setWorkerUpdateHash: hash => set({workerUpdateHash: hash}),
     contextMenu: null,
     setContextMenu: contextMenu => set({contextMenu}),
     userID: null,

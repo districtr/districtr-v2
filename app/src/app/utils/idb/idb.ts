@@ -215,6 +215,7 @@ export class DocumentsDB extends Dexie {
       password: password,
     });
   };
+  
 }
 
 export const idb = new DocumentsDB();
