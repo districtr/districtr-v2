@@ -51,7 +51,7 @@ export const initSubs = () => {
   );
 
   const communityPersistenceSub = useMapControlsStore.subscribe(
-    state => [state.communityList, state.selectedCommunityId],
+    state => [state.communityList, state.selectedCommunityId, state.mapOptions.communityOpacity],
     () => {
       const {mapDocument, mapStatus} = useMapStore.getState();
       if (!mapDocument?.document_id || mapStatus?.access !== 'edit') return;

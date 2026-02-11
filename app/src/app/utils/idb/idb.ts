@@ -10,6 +10,8 @@ import { Community } from '@/app/store/types';
 export interface LocalCommunityState {
   communityList: Community[];
   selectedCommunityId: number;
+  // Optional for backward compatibility with older IDB entries.
+  communityOpacity?: number;
   assignments: Array<[string, number[]]>;
 }
 
@@ -189,7 +191,11 @@ export class DocumentsDB extends Dexie {
     parents: Set<string>;
     children: Set<string>;
   }): LocalCommunityState {
-    const { communityList, selectedCommunityId } = useMapControlsStore.getState();
+    const {
+      communityList,
+      selectedCommunityId,
+      mapOptions: { communityOpacity },
+    } = useMapControlsStore.getState();
     const geoids = new Set<string>();
     communityList.forEach(c => {
       communityAssignments.getGeoidsForCommunity(c.id, true).forEach(geoid => {
@@ -206,6 +212,7 @@ export class DocumentsDB extends Dexie {
     return {
       communityList: communityList.map(c => ({ ...c })),
       selectedCommunityId,
+      communityOpacity,
       assignments,
     };
   }

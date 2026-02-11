@@ -563,9 +563,18 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     const selectedExists = nextCommunityList.some(
       c => c.id === localCommunityState?.selectedCommunityId
     );
+    const controlsState = useMapControlsStore.getState();
+    const restoredCommunityOpacity = localCommunityState?.communityOpacity;
     useMapControlsStore.setState({
       communityList: nextCommunityList,
       selectedCommunityId: selectedExists ? localCommunityState!.selectedCommunityId : 0,
+      mapOptions:
+        typeof restoredCommunityOpacity === 'number'
+          ? {
+              ...controlsState.mapOptions,
+              communityOpacity: restoredCommunityOpacity,
+            }
+          : controlsState.mapOptions,
     });
     set({
       zoneAssignments: new Map(data.zoneAssignments),
