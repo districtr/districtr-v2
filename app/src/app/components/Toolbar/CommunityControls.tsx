@@ -15,6 +15,45 @@ import {useRef, useEffect, useState} from 'react';
 import {useToolbarStore} from '@store/toolbarStore';
 // import {CommunityAssignmentsDebug} from '@components/Toolbar/CommunityAssignmentsDebug';
 
+const ColorSwatchTray = ({
+  color,
+  isReadOnly,
+  onChange,
+  label,
+}: {
+  color: string;
+  isReadOnly?: boolean;
+  onChange?: (color: string) => void;
+  label: string;
+}) => {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  return (
+    <Box style={{position: 'relative', flex: '0 0 auto'}}>
+      <IconButton
+        size="1"
+        variant="ghost"
+        color="gray"
+        disabled={isReadOnly}
+        onClick={() => !isReadOnly && inputRef.current?.click()}
+        aria-label={label}
+      >
+        <img src="/paint-tray.svg" alt="" width={18} height={18} aria-hidden="true" />
+      </IconButton>
+      {onChange ? (
+        <input
+          ref={inputRef}
+          type="color"
+          value={color}
+          onChange={e => onChange(e.target.value)}
+          style={{position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none'}}
+          tabIndex={-1}
+        />
+      ) : null}
+    </Box>
+  );
+};
+
 const CommunityFormGroupItem = ({
   id,
   name,
@@ -57,6 +96,9 @@ const CommunityFormGroupItem = ({
               }}
               disabled={isReadOnly}
               aria-label={visible ? 'Hide community' : 'Show community'}
+              style={{
+                border: `2px solid ${color}`,
+              }}
             >
               {visible ? <EyeOpenIcon /> : <EyeClosedIcon />}
             </IconButton>
@@ -78,7 +120,7 @@ const CommunityFormGroupItem = ({
               }
             }}
             size="1"
-            className="flex-grow"
+            className="flex-grow transistion-colors hover:bg-gray-100"
             disabled={isReadOnly || !isEditingName}
             readOnly={!isEditingName}
             maxLength={40}
@@ -112,23 +154,12 @@ const CommunityFormGroupItem = ({
           >
             <Pencil1Icon />
           </IconButton>
-          <Box>
-            <input
-              aria-label={`Color for ${name}`}
-              type="color"
-              value={color}
-              onChange={e => setCommunityColor(id, e.target.value)}
-              disabled={isReadOnly}
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 6,
-                border: '1px solid #D1D5DB',
-                padding: 0,
-                background: 'transparent',
-              }}
-            />
-          </Box>
+          <ColorSwatchTray
+            color={color}
+            isReadOnly={isReadOnly}
+            onChange={nextColor => setCommunityColor(id, nextColor)}
+            label={`Color for ${name}`}
+          />
         </Flex>
       </Text>
     </Flex>
@@ -207,22 +238,11 @@ const CommunityCheckboxList = () => {
                 />
               </Box>
 
-              <Box style={{flex: '0 0 auto'}}>
-                <input
-                  aria-label={`Color for ${community.name}`}
-                  type="color"
-                  value={community.color}
-                  disabled
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: 6,
-                    border: '1px solid #D1D5DB',
-                    padding: 0,
-                    background: 'transparent',
-                  }}
-                />
-              </Box>
+              <ColorSwatchTray
+                color={community.color}
+                disabled
+                label={`Color for ${community.name}`}
+              />
             </Flex>
           ))}
       </Flex>
@@ -260,6 +280,7 @@ export const CommunityControls = ({mode}: {mode: 'brush' | 'erase'}) => {
               setAllCommunitiesVisibility(nextVisibility);
             }}
             disabled={isReadOnly}
+            style={{border: '2px solid #fff'}}
           >
             {showCommunities ? <EyeOpenIcon /> : <EyeClosedIcon />}
           </IconButton>
