@@ -1,17 +1,9 @@
-import {
-  Box,
-  Badge,
-  CheckboxGroup,
-  IconButton,
-  Flex,
-  Button,
-  Text,
-  TextField,
-} from '@radix-ui/themes';
+import {Box, Badge, IconButton, Flex, Button, Text, TextField} from '@radix-ui/themes';
+import {Root as CheckboxRoot, Indicator as CheckboxIndicator} from '@radix-ui/react-checkbox';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useMapStore} from '@store/mapStore';
-import {EyeClosedIcon, EyeOpenIcon, Pencil1Icon} from '@radix-ui/react-icons';
-import {useRef, useEffect, useState} from 'react';
+import {EyeClosedIcon, EyeOpenIcon, Pencil1Icon, CheckIcon} from '@radix-ui/react-icons';
+import {useRef, useEffect, useState, useCallback} from 'react';
 import {useToolbarStore} from '@store/toolbarStore';
 // import {CommunityAssignmentsDebug} from '@components/Toolbar/CommunityAssignmentsDebug';
 
@@ -59,14 +51,12 @@ const CommunityFormGroupItem = ({
   name,
   color,
   visible,
-  mode,
   isReadOnly,
 }: {
   id: number;
   name: string;
   color: string;
   visible: boolean;
-  mode: 'brush' | 'erase';
   isReadOnly: boolean;
 }) => {
   const toggleCommunityVisible = useMapControlsStore(state => state.toggleCommunityVisible);
@@ -75,65 +65,67 @@ const CommunityFormGroupItem = ({
   const [isEditingName, setIsEditingName] = useState(false);
   const selectedCommunityId = useMapControlsStore(state => state.selectedCommunityId);
   const setSelectedCommunityId = useMapControlsStore(state => state.setSelectedCommunityId);
+  const textFieldContainerRef = useRef<HTMLDivElement | null>(null);
 
   return (
     <Flex key={id} align="center" gap="2">
       <Text as="label" size="1" className="flex-grow">
         <Flex direction="row" align="center" gap="2">
-          {mode === 'brush' ? (
-            <IconButton
-              size="1"
-              variant="ghost"
-              color="gray"
-              onPointerDown={e => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              onClick={e => {
-                e.preventDefault();
-                e.stopPropagation();
-                toggleCommunityVisible(id);
-              }}
-              disabled={isReadOnly}
-              aria-label={visible ? 'Hide community' : 'Show community'}
-              style={{
-                border: `2px solid ${color}`,
-              }}
-            >
-              {visible ? <EyeOpenIcon /> : <EyeClosedIcon />}
-            </IconButton>
-          ) : null}
-          <TextField.Root
-            value={name}
-            onChange={e => setCommunityName(id, e.target.value)}
-            onPointerDown={e => {
-              e.stopPropagation();
-              if (!isReadOnly) setSelectedCommunityId(id);
-            }}
-            onFocus={() => {
-              if (!isReadOnly) setSelectedCommunityId(id);
-            }}
-            onBlur={() => setIsEditingName(false)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' || e.key === 'Escape') {
-                (e.currentTarget as HTMLInputElement).blur();
-              }
-            }}
+          <IconButton
             size="1"
-            className="flex-grow transistion-colors hover:bg-gray-100"
-            disabled={isReadOnly || !isEditingName}
-            readOnly={!isEditingName}
-            maxLength={40}
-            style={{
-              border:
-                selectedCommunityId === id
-                  ? '1px solid var(--accent-9, #3b82f6)'
-                  : '1px solid transparent',
-              boxShadow: selectedCommunityId === id ? '0 0 0 1px var(--accent-7, #93c5fd)' : 'none',
-              borderRadius: 6,
-              cursor: isReadOnly ? 'default' : 'pointer',
+            variant="ghost"
+            color="gray"
+            onPointerDown={e => {
+              e.preventDefault();
+              e.stopPropagation();
             }}
-          />
+            onClick={e => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggleCommunityVisible(id);
+            }}
+            disabled={isReadOnly}
+            aria-label={visible ? 'Hide community' : 'Show community'}
+            style={{
+              border: `2px solid ${color}`,
+            }}
+          >
+            {visible ? <EyeOpenIcon /> : <EyeClosedIcon />}
+          </IconButton>
+          <Box ref={textFieldContainerRef} style={{flex: 1, minWidth: 0}}>
+            <TextField.Root
+              value={name}
+              onChange={e => setCommunityName(id, e.target.value)}
+              onPointerDown={e => {
+                e.stopPropagation();
+                if (!isReadOnly) setSelectedCommunityId(id);
+              }}
+              onFocus={() => {
+                if (!isReadOnly) setSelectedCommunityId(id);
+              }}
+              onBlur={() => setIsEditingName(false)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === 'Escape') {
+                  (e.currentTarget as HTMLInputElement).blur();
+                }
+              }}
+              size="1"
+              className="flex-grow transistion-colors hover:bg-gray-100"
+              disabled={isReadOnly || !isEditingName}
+              readOnly={!isEditingName}
+              maxLength={40}
+              style={{
+                border:
+                  selectedCommunityId === id
+                    ? '1px solid var(--accent-9, #3b82f6)'
+                    : '1px solid transparent',
+                boxShadow:
+                  selectedCommunityId === id ? '0 0 0 1px var(--accent-7, #93c5fd)' : 'none',
+                borderRadius: 6,
+                cursor: isReadOnly ? 'default' : 'pointer',
+              }}
+            />
+          </Box>
           <IconButton
             size="1"
             variant="ghost"
@@ -148,6 +140,15 @@ const CommunityFormGroupItem = ({
               if (isReadOnly) return;
               setSelectedCommunityId(id);
               setIsEditingName(true);
+              requestAnimationFrame(() => {
+                // NOTE: Peter: The TextField component is a wrapper around an html input element
+                // so we can just query it here.
+                const input = textFieldContainerRef.current?.querySelector('input');
+                if (input) {
+                  input.focus();
+                  input.select();
+                }
+              });
             }}
             disabled={isReadOnly}
             aria-label={`Edit ${name} name`}
@@ -167,7 +168,7 @@ const CommunityFormGroupItem = ({
 };
 
 // FIXME: There needs to be a link between this and the global maximum number of communities.
-const CommunityFormList = ({isReadOnly, mode}: {isReadOnly: boolean; mode: 'brush' | 'erase'}) => {
+const CommunityFormList = ({isReadOnly}: {isReadOnly: boolean}) => {
   const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
   const maxVisible = toolbarLocation === 'map' ? 3 : 7;
   const maxListHeight = maxVisible * 44; //TODO: Chnage this to the document number of communities
@@ -200,7 +201,6 @@ const CommunityFormList = ({isReadOnly, mode}: {isReadOnly: boolean; mode: 'brus
               name={community.name}
               color={community.color}
               visible={community.visible}
-              mode={mode}
               isReadOnly={isReadOnly}
             />
           ))}
@@ -209,44 +209,154 @@ const CommunityFormList = ({isReadOnly, mode}: {isReadOnly: boolean; mode: 'brus
   );
 };
 
-const CommunityCheckboxList = () => {
+const styles = `
+.communityCheckbox {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 2px solid var(--cc);
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.communityCheckbox[data-state="checked"] {
+  background: var(--cc);
+}
+.communityCheckboxIndicator {
+  color: white;
+  display: inline-flex;
+}
+`;
+
+function CommunityCheckbox({
+  color,
+  checked,
+  disabled,
+  onCheckedChange,
+}: {
+  color: string;
+  checked: boolean;
+  disabled?: boolean;
+  onCheckedChange: (checked: boolean) => void;
+}) {
+  return (
+    <>
+      <style>{styles}</style>
+      <CheckboxRoot
+        className="communityCheckbox"
+        style={{['--cc' as any]: color}}
+        checked={checked}
+        disabled={!!disabled}
+        onCheckedChange={onCheckedChange}
+      >
+        <CheckboxIndicator className="communityCheckboxIndicator">
+          <CheckIcon />
+        </CheckboxIndicator>
+      </CheckboxRoot>
+    </>
+  );
+}
+
+function useInitialVisibilitySnapshot() {
   const communityList = useMapControlsStore(state => state.communityList);
+  const setCommunitiesVisible = useMapControlsStore(state => state.setCommunitiesVisible);
+
+  const initialVisibilityRef = useRef<Map<number, boolean> | null>(null);
+  const communityListRef = useRef(communityList);
+
+  useEffect(() => {
+    communityListRef.current = communityList;
+  }, [communityList]);
+
+  // Store the initial visibility states of communities on first render so that we can reset
+  // to them when we move back to other things.
+  useEffect(() => {
+    if (initialVisibilityRef.current) return;
+    if (!communityList || communityList.length === 0) return;
+
+    initialVisibilityRef.current = new Map(
+      communityList.map(community => [community.id, community.visible])
+    );
+  }, [communityList]);
+
+  const restoreVisibility = useCallback(() => {
+    const snapshot = initialVisibilityRef.current;
+    if (!snapshot) return;
+
+    // Restore only for ids that existed at snapshot time.
+    const newVisibility: Map<number, boolean> = new Map();
+    const currentList = communityListRef.current;
+    let hasSnapshotIds = false;
+    for (const c of currentList) {
+      if (!snapshot.has(c.id)) continue;
+      hasSnapshotIds = true;
+      newVisibility.set(c.id, !!snapshot.get(c.id)!);
+    }
+    if (!hasSnapshotIds) return;
+    setCommunitiesVisible(newVisibility);
+  }, [setCommunitiesVisible]);
+
+  return {initialVisibilityRef, restoreVisibility};
+}
+
+const CommunityCheckboxList = ({isReadOnly}: {isReadOnly: boolean}) => {
+  const communityList = useMapControlsStore(state => state.communityList);
+  const setAllCommunitiesVisibility = useMapControlsStore(
+    state => state.setAllCommunitiesVisibility
+  );
+  const toggleCommunityVisible = useMapControlsStore(state => state.toggleCommunityVisible);
+  const clickedOnceRef = useRef(false);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+
+  // Store state on mount so that we can reset to previous visibilities when we move away
+  const {restoreVisibility} = useInitialVisibilitySnapshot();
+
+  // Restore on unmount
+  useEffect(() => {
+    return () => {
+      restoreVisibility();
+    };
+  }, [restoreVisibility]);
 
   return (
-    <CheckboxGroup.Root defaultValue={[]} orientation="vertical" style={{width: '100%'}}>
-      <Flex direction="column" gap="2" style={{width: '100%'}}>
-        {communityList
-          .sort((a, b) => a.displayPosition - b.displayPosition)
-          .map(community => (
-            <Flex key={community.id} direction="row" align="center" gap="2" style={{width: '100%'}}>
-              <CheckboxGroup.Item
-                value={community.id.toString()}
-                id={`checkbox-community-${community.id}`}
-              />
+    <Flex direction="column" gap="2" style={{width: '100%'}}>
+      {communityList
+        .sort((a, b) => a.displayPosition - b.displayPosition)
+        .map(community => (
+          <Flex key={community.id} direction="row" align="center" gap="2" style={{width: '100%'}}>
+            <CommunityCheckbox
+              color={community.color}
+              checked={selectedIds.includes(community.id)}
+              disabled={isReadOnly}
+              onCheckedChange={next => {
+                if (!clickedOnceRef.current) {
+                  clickedOnceRef.current = true;
+                  setAllCommunitiesVisibility(false);
+                }
+                setSelectedIds(prev =>
+                  next ? [...prev, community.id] : prev.filter(id => id !== community.id)
+                );
+                toggleCommunityVisible(community.id);
+              }}
+            />
 
-              <Box style={{flex: 1, minWidth: 0}}>
-                <TextField.Root
-                  value={community.name}
-                  size="1"
-                  disabled
-                  style={{
-                    width: '100%',
-                    minWidth: 0,
-                    border: '1px solid transparent',
-                    borderRadius: 6,
-                  }}
-                />
-              </Box>
-
-              <ColorSwatchTray
-                color={community.color}
-                disabled
-                label={`Color for ${community.name}`}
+            <Box style={{flex: 1, minWidth: 0}}>
+              <TextField.Root
+                value={community.name}
+                size="1"
+                disabled={true}
+                style={{
+                  width: '100%',
+                  minWidth: 0,
+                  border: '1px solid transparent',
+                  borderRadius: 6,
+                }}
               />
-            </Flex>
-          ))}
-      </Flex>
-    </CheckboxGroup.Root>
+            </Box>
+          </Flex>
+        ))}
+    </Flex>
   );
 };
 
@@ -275,7 +385,6 @@ export const CommunityControls = ({mode}: {mode: 'brush' | 'erase'}) => {
             color="gray"
             onClick={() => {
               const nextVisibility = !showCommunities;
-              console.log('Toggling all communities visibility to', nextVisibility);
               setMapOptions({showCommunities: nextVisibility});
               setAllCommunitiesVisibility(nextVisibility);
             }}
@@ -286,6 +395,7 @@ export const CommunityControls = ({mode}: {mode: 'brush' | 'erase'}) => {
           </IconButton>
         ) : null}
 
+        {/* TODO: Peter turn this into a fuzzy search field */}
         {mode === 'brush' ? (
           <Badge
             className="flex-grow"
@@ -319,9 +429,9 @@ export const CommunityControls = ({mode}: {mode: 'brush' | 'erase'}) => {
 
       {/* Row 2 */}
       {mode === 'brush' ? (
-        <CommunityFormList isReadOnly={isReadOnly} mode={mode} />
+        <CommunityFormList isReadOnly={isReadOnly} />
       ) : (
-        <CommunityCheckboxList />
+        <CommunityCheckboxList isReadOnly={isReadOnly} />
       )}
 
       {/* Row 3 */}

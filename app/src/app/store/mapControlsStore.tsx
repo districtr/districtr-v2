@@ -33,6 +33,7 @@ export interface MapControlsStore {
   setCommunityName: (communityId: number, newName: string) => void;
   setCommunityColor: (communityId: number, newColor: string) => void;
   toggleCommunityVisible: (id: number) => void;
+  setCommunitiesVisible: (idToVisibility: Map<number, boolean>) => void;
   setAllCommunitiesVisibility: (visible: boolean) => void;
   setSelectedZone: (zone: Zone) => void;
   isPainting: boolean;
@@ -174,9 +175,7 @@ export const useMapControlsStore = create<MapControlsStore>()(
       } = useAssignmentsStore.getState();
       const parentsToCheck = new Set<string>();
       const clearMask = communityAssignments.buildMaskForCommunityIds(ids);
-      const geoidsToRepaint = new Set(
-        communityAssignments.clearAssignmentsByMask(clearMask, true)
-      );
+      const geoidsToRepaint = new Set(communityAssignments.clearAssignmentsByMask(clearMask, true));
       geoidsToRepaint.forEach(geoid => {
         if (shatterIds.children.has(geoid)) {
           const parentId = childToParent.get(geoid);
@@ -281,6 +280,43 @@ export const useMapControlsStore = create<MapControlsStore>()(
       // Recompute mixed community colors for geometries intersecting this community.
       if (visibilityChanged && affectedGeoids.length) {
         queueCommunityGeoids(affectedGeoids);
+        flushCommunityAssignments();
+      }
+    },
+    setCommunitiesVisible: (idToVisibility: Map<number, boolean>) => {
+      const {queueCommunityGeoids, flushCommunityAssignments} = useAssignmentsStore.getState();
+      const affectedGeoids = new Set<string>();
+
+      let visibilityChanged = false;
+
+      set(state => {
+        const nextCommunityList = state.communityList.map(c => {
+          const nextVisibility = idToVisibility.get(c.id);
+          if (nextVisibility === undefined || c.visible === nextVisibility) return c;
+          visibilityChanged = true;
+          communityAssignments
+            .getGeoidsForCommunity(c.id, true)
+            .forEach(geoid => affectedGeoids.add(geoid));
+          return {...c, visible: nextVisibility};
+        });
+
+        const nextShowCommunities = nextCommunityList.some(c => c.visible);
+        if (!visibilityChanged && state.mapOptions.showCommunities === nextShowCommunities) {
+          return state;
+        }
+
+        return {
+          communityList: nextCommunityList,
+          mapOptions: {
+            ...state.mapOptions,
+            showCommunities: nextShowCommunities,
+          },
+        };
+      });
+
+      // Recompute mixed community colors for geometries intersecting these communities.
+      if (visibilityChanged && affectedGeoids.size) {
+        queueCommunityGeoids(Array.from(affectedGeoids));
         flushCommunityAssignments();
       }
     },
