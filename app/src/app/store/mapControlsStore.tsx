@@ -4,6 +4,7 @@ import {subscribeWithSelector} from 'zustand/middleware';
 import type {MapOptions} from 'maplibre-gl';
 import {
   DEFAULT_COMMUNITY_OPACITY,
+  MAXIMUM_COMMUNITY_OPACITY,
   FALLBACK_NUM_DISTRICTS,
   OVERLAY_OPACITY,
 } from '../constants/mapDefaults';
@@ -75,7 +76,7 @@ export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions & CommunityMa
   showCountyBoundaries: true,
   showCommunities: true,
   communityOpacity: DEFAULT_COMMUNITY_OPACITY,
-  communityMaxOpacity: 0.7,
+  communityMaxOpacity: MAXIMUM_COMMUNITY_OPACITY,
   showPaintedDistricts: true,
   showZoneNumbers: true,
   showPopulationTooltip: false,
@@ -209,16 +210,25 @@ export const useMapControlsStore = create<MapControlsStore>()(
         : selectedCommunityId;
 
       if (nextSelected === 0 && newCommunityList.length > 0) {
-        nextSelected = newCommunityList[0].id;
+        nextSelected = [...newCommunityList].sort(
+          (a, b) => a.displayPosition - b.displayPosition
+        )[0].id;
       }
 
-      // now update the display positions to be sequential starting from 0, to maintain our
+      // Reindex display positions to remain dense after removals.
+      const reindexedCommunityList = [...newCommunityList]
+        .sort((a, b) => a.displayPosition - b.displayPosition)
+        .map((community, displayPosition) => ({
+          ...community,
+          displayPosition,
+        }));
+
       set({
-        communityList: newCommunityList,
+        communityList: reindexedCommunityList,
         selectedCommunityId: nextSelected,
         mapOptions: {
           ...get().mapOptions,
-          showCommunities: newCommunityList.some(community => community.visible),
+          showCommunities: reindexedCommunityList.some(community => community.visible),
         },
       });
     },

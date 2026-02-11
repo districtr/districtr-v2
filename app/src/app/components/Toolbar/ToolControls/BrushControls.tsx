@@ -24,10 +24,6 @@ export const BrushControls = () => {
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const access = useMapStore(state => state.mapStatus?.access);
   const isReadOnly = access === 'read';
-  const setAllCommunitiesVisibility = useMapControlsStore(
-    state => state.setAllCommunitiesVisibility
-  );
-
   const showCommunities = useMapControlsStore(state => state.mapOptions.showCommunities);
   const communityList = useMapControlsStore(state => state.communityList);
   const communityOpacity = useMapControlsStore(state => state.mapOptions.communityOpacity);

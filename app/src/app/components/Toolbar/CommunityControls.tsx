@@ -1,11 +1,15 @@
-import {Box, Badge, IconButton, Flex, Button, Text, TextField} from '@radix-ui/themes';
+import {Box, Badge, Checkbox, IconButton, Flex, Button, Text, TextField} from '@radix-ui/themes';
 import {Root as CheckboxRoot, Indicator as CheckboxIndicator} from '@radix-ui/react-checkbox';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useMapStore} from '@store/mapStore';
 import {EyeClosedIcon, EyeOpenIcon, Pencil1Icon, CheckIcon} from '@radix-ui/react-icons';
-import {useRef, useEffect, useState, useCallback} from 'react';
+import {useRef, useEffect, useState, useCallback, Dispatch, SetStateAction} from 'react';
 import {useToolbarStore} from '@store/toolbarStore';
 // import {CommunityAssignmentsDebug} from '@components/Toolbar/CommunityAssignmentsDebug';
+
+// =========================
+// == Brush Mode Controls ==
+// =========================
 
 const ColorSwatchTray = ({
   color,
@@ -68,9 +72,9 @@ const CommunityFormGroupItem = ({
   const textFieldContainerRef = useRef<HTMLDivElement | null>(null);
 
   return (
-    <Flex key={id} align="center" gap="2">
-      <Text as="label" size="1" className="flex-grow">
-        <Flex direction="row" align="center" gap="2">
+    <Flex key={id} align="center" gap="2" style={{width: '100%', minWidth: 0}}>
+      <Text as="label" size="1" style={{flex: 1, minWidth: 0, display: 'block'}}>
+        <Flex direction="row" align="center" gap="2" style={{width: '100%', minWidth: 0}}>
           <IconButton
             size="1"
             variant="ghost"
@@ -115,6 +119,8 @@ const CommunityFormGroupItem = ({
               readOnly={!isEditingName}
               maxLength={40}
               style={{
+                width: '100%',
+                minWidth: 0,
                 border:
                   selectedCommunityId === id
                     ? '1px solid var(--accent-9, #3b82f6)'
@@ -187,7 +193,15 @@ const CommunityFormList = ({isReadOnly}: {isReadOnly: boolean}) => {
       ref={listRef}
       style={
         communityList.length > maxVisible
-          ? {maxHeight: maxListHeight, overflowY: 'auto', paddingRight: 4}
+          ? {
+              maxHeight: maxListHeight,
+              overflowY: 'auto',
+              // Inset content on both sides so icon borders don't get clipped by scroll container edges.
+              paddingLeft: 4,
+              paddingRight: 8,
+              paddingTop: 2,
+              paddingBottom: 2,
+            }
           : undefined
       }
     >
@@ -208,6 +222,78 @@ const CommunityFormList = ({isReadOnly}: {isReadOnly: boolean}) => {
     </Box>
   );
 };
+
+export const CommunityBrushControls = ({isReadOnly}: {isReadOnly: boolean}) => {
+  const addCommunity = useMapControlsStore(state => state.addCommunity);
+  const removeCommunities = useMapControlsStore(state => state.removeCommunities);
+  const selectedCommunityId = useMapControlsStore(state => state.selectedCommunityId);
+  const communityList = useMapControlsStore(state => state.communityList);
+  const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
+  const maxVisible = toolbarLocation === 'map' ? 3 : 7;
+  const isListScrollable = communityList.length > maxVisible;
+  const setAllCommunitiesVisibility = useMapControlsStore(
+    state => state.setAllCommunitiesVisibility
+  );
+  const showCommunities = useMapControlsStore(state => state.mapOptions.showCommunities);
+
+  const setMapOptions = useMapControlsStore(state => state.setMapOptions);
+
+  return (
+    <Flex direction="column" gap="2">
+      <Flex direction="row" gap="3" align="center" style={{paddingLeft: isListScrollable ? 4 : 0}}>
+        <IconButton
+          size="1"
+          variant="ghost"
+          color="gray"
+          onClick={() => {
+            const nextVisibility = !showCommunities;
+            setMapOptions({showCommunities: nextVisibility});
+            setAllCommunitiesVisibility(nextVisibility);
+          }}
+          disabled={isReadOnly}
+          style={{border: '2px solid #9CA3AF'}}
+        >
+          {showCommunities ? <EyeOpenIcon /> : <EyeClosedIcon />}
+        </IconButton>
+        {/* TODO: Peter: Make this into a serchable field thing */}
+        <Badge
+          className="flex-grow"
+          size="2"
+          style={{
+            color: 'black',
+            flexGrow: 1,
+            textAlign: 'center',
+            background: '#eee',
+            justifyContent: 'center',
+          }}
+        >
+          <Text size="1">Select a Community to Start Drawing!</Text>
+        </Badge>
+      </Flex>
+      <CommunityFormList isReadOnly={isReadOnly} />
+      <Flex direction="row" gap="2" wrap="wrap">
+        <Button size="1" variant="soft" onClick={addCommunity} disabled={isReadOnly}>
+          Add Community
+        </Button>
+        <Button
+          size="1"
+          variant="soft"
+          color="red"
+          onClick={() => {
+            removeCommunities([selectedCommunityId]);
+          }}
+          disabled={isReadOnly}
+        >
+          Remove Community
+        </Button>
+      </Flex>
+    </Flex>
+  );
+};
+
+// =========================
+// == Erase Mode Controls ==
+// =========================
 
 const styles = `
 .communityCheckbox {
@@ -300,14 +386,100 @@ function useInitialVisibilitySnapshot() {
   return {initialVisibilityRef, restoreVisibility};
 }
 
-const CommunityCheckboxList = ({isReadOnly}: {isReadOnly: boolean}) => {
+const CommunityCheckboxList = ({
+  isReadOnly,
+  selectedIds,
+  setSelectedIds,
+}: {
+  isReadOnly: boolean;
+  selectedIds: number[];
+  setSelectedIds: Dispatch<SetStateAction<number[]>>;
+}) => {
   const communityList = useMapControlsStore(state => state.communityList);
+  const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
+  const maxVisible = toolbarLocation === 'map' ? 3 : 7;
+  const maxListHeight = maxVisible * 44;
   const setAllCommunitiesVisibility = useMapControlsStore(
     state => state.setAllCommunitiesVisibility
   );
-  const toggleCommunityVisible = useMapControlsStore(state => state.toggleCommunityVisible);
-  const clickedOnceRef = useRef(false);
+  const setCommunitiesVisible = useMapControlsStore(state => state.setCommunitiesVisible);
+
+  return (
+    <Box
+      style={
+        communityList.length > maxVisible
+          ? {
+              maxHeight: maxListHeight,
+              overflowY: 'auto',
+              paddingLeft: 4,
+              paddingRight: 8,
+              paddingTop: 2,
+              paddingBottom: 2,
+            }
+          : undefined
+      }
+    >
+      <Flex direction="column" gap="2" style={{width: '100%'}}>
+        {communityList
+          .sort((a, b) => a.displayPosition - b.displayPosition)
+          .map(community => (
+            <Flex key={community.id} direction="row" align="center" gap="2" style={{width: '100%'}}>
+              <CommunityCheckbox
+                color={community.color}
+                checked={selectedIds.includes(community.id)}
+                disabled={isReadOnly}
+                onCheckedChange={next => {
+                  const isChecked = !!next;
+                  // Only do "start from none" when selecting first item from empty.
+                  if (isChecked && selectedIds.length === 0) {
+                    setAllCommunitiesVisibility(false);
+                  }
+                  setSelectedIds(prev =>
+                    isChecked
+                      ? prev.includes(community.id)
+                        ? prev
+                        : [...prev, community.id]
+                      : prev.filter(id => id !== community.id)
+                  );
+                  // Keep visibility aligned with checkbox state.
+                  setCommunitiesVisible(new Map([[community.id, isChecked]]));
+                }}
+              />
+
+              <Box style={{flex: 1, minWidth: 0}}>
+                <TextField.Root
+                  value={community.name}
+                  size="1"
+                  disabled={true}
+                  style={{
+                    width: '100%',
+                    minWidth: 0,
+                    border: '1px solid transparent',
+                    borderRadius: 6,
+                  }}
+                />
+              </Box>
+            </Flex>
+          ))}
+      </Flex>
+    </Box>
+  );
+};
+
+export const CommunityEraseControls = ({isReadOnly}: {isReadOnly: boolean}) => {
+  const removeCommunities = useMapControlsStore(state => state.removeCommunities);
+  const setAllCommunitiesVisibility = useMapControlsStore(
+    state => state.setAllCommunitiesVisibility
+  );
+  const communityList = useMapControlsStore(state => state.communityList);
+  const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
+  const maxVisible = toolbarLocation === 'map' ? 3 : 7;
+  const isListScrollable = communityList.length > maxVisible;
+
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const canRemove = selectedIds.length > 0;
+  const allSelected =
+    communityList.length > 0 && communityList.every(c => selectedIds.includes(c.id));
 
   // Store state on mount so that we can reset to previous visibilities when we move away
   const {restoreVisibility} = useInitialVisibilitySnapshot();
@@ -320,156 +492,77 @@ const CommunityCheckboxList = ({isReadOnly}: {isReadOnly: boolean}) => {
   }, [restoreVisibility]);
 
   return (
-    <Flex direction="column" gap="2" style={{width: '100%'}}>
-      {communityList
-        .sort((a, b) => a.displayPosition - b.displayPosition)
-        .map(community => (
-          <Flex key={community.id} direction="row" align="center" gap="2" style={{width: '100%'}}>
-            <CommunityCheckbox
-              color={community.color}
-              checked={selectedIds.includes(community.id)}
-              disabled={isReadOnly}
-              onCheckedChange={next => {
-                if (!clickedOnceRef.current) {
-                  clickedOnceRef.current = true;
-                  setAllCommunitiesVisibility(false);
-                }
-                setSelectedIds(prev =>
-                  next ? [...prev, community.id] : prev.filter(id => id !== community.id)
-                );
-                toggleCommunityVisible(community.id);
-              }}
-            />
+    <Flex direction="column" gap="2">
+      <Flex direction="row" gap="3" align="center" style={{paddingLeft: isListScrollable ? 4 : 0}}>
+        <CommunityCheckbox
+          color="#9CA3AF"
+          checked={allSelected}
+          disabled={isReadOnly || communityList.length === 0}
+          onCheckedChange={next => {
+            if (next) {
+              setSelectedIds(communityList.map(c => c.id));
+            } else {
+              setSelectedIds([]);
+            }
+            setAllCommunitiesVisibility(next);
+          }}
+        />
+        <Badge
+          className="flex-grow"
+          size="2"
+          style={{
+            color: 'black',
+            flexGrow: 1,
+            textAlign: 'center',
+            background: '#eee',
+            justifyContent: 'center',
+          }}
+        >
+          <Text size="1">Use the Checkbox to select what to Erase.</Text>
+        </Badge>
+      </Flex>
 
-            <Box style={{flex: 1, minWidth: 0}}>
-              <TextField.Root
-                value={community.name}
-                size="1"
-                disabled={true}
-                style={{
-                  width: '100%',
-                  minWidth: 0,
-                  border: '1px solid transparent',
-                  borderRadius: 6,
-                }}
-              />
-            </Box>
-          </Flex>
-        ))}
+      <CommunityCheckboxList
+        isReadOnly={isReadOnly}
+        selectedIds={selectedIds}
+        setSelectedIds={setSelectedIds}
+      />
+
+      <Flex direction="row" gap="2" wrap="wrap">
+        <Button
+          size="1"
+          variant="soft"
+          color="red"
+          onClick={() => {
+            if (!canRemove) return;
+            removeCommunities(selectedIds);
+            setSelectedIds([]);
+          }}
+          disabled={isReadOnly || !canRemove}
+        >
+          Remove Communities
+        </Button>
+      </Flex>
     </Flex>
   );
 };
 
 export const CommunityControls = ({mode}: {mode: 'brush' | 'erase'}) => {
-  const addCommunity = useMapControlsStore(state => state.addCommunity);
-  const removeCommunities = useMapControlsStore(state => state.removeCommunities);
-  const selectedCommunityId = useMapControlsStore(state => state.selectedCommunityId);
-  const access = useMapStore(state => state.mapStatus?.access);
-  const isReadOnly = access === 'read';
-  const setAllCommunitiesVisibility = useMapControlsStore(
-    state => state.setAllCommunitiesVisibility
-  );
-  const showCommunities = useMapControlsStore(state => state.mapOptions.showCommunities);
-
-  const setMapOptions = useMapControlsStore(state => state.setMapOptions);
+  const isReadOnly = useMapStore(state => state.mapStatus?.access) === 'read';
 
   return (
     // <Flex direction="column" gapY="2" justify="between" wrap="wrap">
-    <Flex direction="column" gap="2">
-      <Flex direction="row" gap="3" align="center">
-        {/* Row 1 */}
-        {mode === 'brush' ? (
-          <IconButton
-            size="1"
-            variant="ghost"
-            color="gray"
-            onClick={() => {
-              const nextVisibility = !showCommunities;
-              setMapOptions({showCommunities: nextVisibility});
-              setAllCommunitiesVisibility(nextVisibility);
-            }}
-            disabled={isReadOnly}
-            style={{border: '2px solid #fff'}}
-          >
-            {showCommunities ? <EyeOpenIcon /> : <EyeClosedIcon />}
-          </IconButton>
-        ) : null}
-
-        {/* TODO: Peter turn this into a fuzzy search field */}
-        {mode === 'brush' ? (
-          <Badge
-            className="flex-grow"
-            size="2"
-            style={{
-              color: 'black',
-              flexGrow: 1,
-              textAlign: 'center',
-              background: '#eee',
-              justifyContent: 'center',
-            }}
-          >
-            <Text size="1">Select a Community to Start Drawing!</Text>
-          </Badge>
-        ) : (
-          <Badge
-            className="flex-grow"
-            size="2"
-            style={{
-              color: 'black',
-              flexGrow: 1,
-              textAlign: 'center',
-              background: '#eee',
-              justifyContent: 'center',
-            }}
-          >
-            <Text size="1">Use the Checkbox to select what to Erase.</Text>
-          </Badge>
-        )}
-      </Flex>
-
-      {/* Row 2 */}
+    <>
       {mode === 'brush' ? (
-        <CommunityFormList isReadOnly={isReadOnly} />
+        <div className="flex-grow-0 flex-row p-0 m-0">
+          <CommunityBrushControls isReadOnly={isReadOnly} />
+        </div>
       ) : (
-        <CommunityCheckboxList isReadOnly={isReadOnly} />
+        <div className="flex-grow-0 flex-row p-0 m-0">
+          <CommunityEraseControls isReadOnly={isReadOnly} />
+        </div>
       )}
-
-      {/* Row 3 */}
-      {mode === 'brush' ? (
-        <Flex direction="row" gap="2" wrap="wrap">
-          <Button size="1" variant="soft" onClick={addCommunity} disabled={isReadOnly}>
-            Add Community
-          </Button>
-          <Button
-            size="1"
-            variant="soft"
-            color="red"
-            onClick={() => {
-              removeCommunities([selectedCommunityId]);
-            }}
-            disabled={isReadOnly}
-          >
-            Remove Community
-          </Button>
-        </Flex>
-      ) : null}
-
-      {mode === 'erase' ? (
-        <Flex direction="row" gap="2" wrap="wrap">
-          <Button
-            size="1"
-            variant="soft"
-            color="red"
-            onClick={() => {
-              removeCommunities([selectedCommunityId]);
-            }}
-            disabled={isReadOnly}
-          >
-            Remove Communities
-          </Button>
-        </Flex>
-      ) : null}
       {/* {process.env.NODE_ENV === 'development' ? <CommunityAssignmentsDebug /> : null} */}
-    </Flex>
+    </>
   );
 };

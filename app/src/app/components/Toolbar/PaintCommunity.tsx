@@ -16,9 +16,21 @@ export default function PaintCommunity() {
 
   const handleToggle = () => {
     if (!mapRef) return;
-    setMapOptions({
-      paintCommunity: !paintCommunity,
-    });
+    const nextPaintCommunity = !paintCommunity;
+    setMapOptions(
+      nextPaintCommunity
+        ? {
+            paintCommunity: true,
+            // When entering community mode, always render community layers.
+            showCommunities: true,
+          }
+        : {
+            // Leaving community mode should not change global community visibility.
+            paintCommunity: false,
+            // Ensure district fills are visible when returning to district mode.
+            showPaintedDistricts: true,
+          }
+    );
 
     if (!paintCommunity) {
       // Clear overlay constraint when enabling community paint

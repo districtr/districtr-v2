@@ -6,10 +6,10 @@ import {
   COMMUNITY_MIX_LAYER_ID_CHILD,
   LABELS_BREAK_LAYER_ID,
 } from '@/app/constants/layers';
-import { useLayerFilter } from '@/app/hooks/useLayerFilter';
-import { useMapControlsStore } from '@/app/store/mapControlsStore';
-import { useMapStore } from '@/app/store/mapStore';
-import { Layer } from 'react-map-gl/maplibre';
+import {useLayerFilter} from '@/app/hooks/useLayerFilter';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useMapStore} from '@/app/store/mapStore';
+import {Layer} from 'react-map-gl/maplibre';
 
 export const CommunityLayerGroup = ({
   child = false,

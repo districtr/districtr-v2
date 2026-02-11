@@ -1,5 +1,7 @@
 'use client';
 
+import { MAXIMUM_COMMUNITY_OPACITY } from '../../constants/mapDefaults';
+
 export type Rgb = { r: number; g: number; b: number };
 export type MixEntry = { rgb: Rgb; alpha: number };
 
@@ -11,7 +13,7 @@ export type CommunityMixTuning = {
 };
 
 export const DEFAULT_COMMUNITY_MIX_TUNING: CommunityMixTuning = {
-  maxAlpha: 0.8,
+  maxAlpha: MAXIMUM_COMMUNITY_OPACITY,
   slowPower: 1.4,
   darkenStep: 0.1,
   darkenCap: 0.8,
