@@ -4,7 +4,8 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useLayoutEffect} from 'react';
 import {useMap} from 'react-map-gl/maplibre';
-import {ZoneLayerGroup} from './ZoneLayerGroup';
+import ZoneChildLayerGroup from './ZoneChildLayerGroup';
+import ZoneParentLayerGroup from './ZoneParentLayerGroup';
 import {DemographicLayer} from './DemographicLayer';
 import {HoverLayerGroup} from './HoverLayerGroup';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
@@ -78,12 +79,14 @@ export function VtdBlockLayers({
     mapDocument,
     demographicVariant,
   ]);
+
   return (
     <>
-      {!isDemographicMap && <ZoneLayerGroup child layerBeforeId={assignmentLayerBeforeId} />}
-      {!isDemographicMap && <ZoneLayerGroup layerBeforeId={assignmentLayerBeforeId} />}
+      {!isDemographicMap && <ZoneChildLayerGroup layerBeforeId={assignmentLayerBeforeId} />}
+      {!isDemographicMap && <ZoneParentLayerGroup layerBeforeId={assignmentLayerBeforeId} />}
       {!!showDemography && <DemographicLayer child layerBeforeId={demographyLayerBeforeId} />}
       {!!showDemography && <DemographicLayer layerBeforeId={demographyLayerBeforeId} />}
+
       <HoverLayerGroup layerBeforeId={hoverLayerBeforeId} />
       <HoverLayerGroup child layerBeforeId={hoverLayerBeforeId} />
     </>

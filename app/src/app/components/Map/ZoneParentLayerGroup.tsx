@@ -1,56 +1,39 @@
 import {
   BLOCK_HOVER_LAYER_ID,
-  BLOCK_HOVER_LAYER_ID_CHILD,
-  BLOCK_LAYER_ID,
-  BLOCK_LAYER_ID_CHILD,
   BLOCK_LAYER_ID_HIGHLIGHT,
-  BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
   BLOCK_SOURCE_ID,
   getLayerFill,
-  LABELS_BREAK_LAYER_ID,
   ZONE_ASSIGNMENT_STYLE,
 } from '@/app/constants/layers';
-import {useLayerFilter} from '@/app/hooks/useLayerFilter';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useMemo} from 'react';
 import {Layer} from 'react-map-gl/maplibre';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 
-export function ZoneLayerGroup({
-  child = false,
-  layerBeforeId,
-}: {
-  child?: boolean;
-  layerBeforeId: string;
-}) {
+export default function ZoneParentLayerGroup({layerBeforeId}: {layerBeforeId: string}) {
   const colorScheme = useColorScheme();
   const mapDocument = useMapStore(state => state.mapDocument);
   const captiveIds = useMapStore(state => state.captiveIds);
-  const id = child ? mapDocument?.child_layer : mapDocument?.parent_layer;
+  const id = mapDocument?.parent_layer;
   const highlightUnassigned = useMapControlsStore(state => state.mapOptions.higlightUnassigned);
   const showPaintedDistricts = useMapControlsStore(state => state.mapOptions.showPaintedDistricts);
   const isOverlayed =
     useMapControlsStore(state => state.mapOptions.showDemographicMap) === 'overlay';
-  const layerFilter = useLayerFilter(child);
-  const lineWidth = child ? 1 : 2;
-  const lineId = child ? BLOCK_LAYER_ID_CHILD : BLOCK_LAYER_ID;
-  const fillId = child ? BLOCK_HOVER_LAYER_ID_CHILD : BLOCK_HOVER_LAYER_ID;
-  const highlightId = child ? BLOCK_LAYER_ID_HIGHLIGHT_CHILD : BLOCK_LAYER_ID_HIGHLIGHT;
 
   const layerOpacity = useMemo(
-    () => getLayerFill(captiveIds, child, isOverlayed),
-    [captiveIds, child, isOverlayed]
+    () => getLayerFill(captiveIds, false, isOverlayed),
+    [captiveIds, isOverlayed]
   );
 
   if (!id || !mapDocument) return null;
   return (
     <>
       <Layer
-        id={highlightId}
+        id={BLOCK_LAYER_ID_HIGHLIGHT}
         source={BLOCK_SOURCE_ID}
         source-layer={id}
-        filter={child ? layerFilter : ['literal', true]}
+        filter={['literal', true]}
         beforeId={layerBeforeId}
         type="line"
         layout={{
@@ -63,8 +46,6 @@ export function ZoneLayerGroup({
             'case',
             ['boolean', ['feature-state', 'focused'], false],
             '#000000', // Black color when focused
-            ['boolean', ['feature-state', 'highlighted'], false],
-            '#e5ff00', // yellow color when highlighted
             ['boolean', ['feature-state', 'highlighted'], false],
             '#e5ff00', // yellow color when highlighted
             // @ts-ignore right behavior, wrong types
@@ -92,11 +73,11 @@ export function ZoneLayerGroup({
         }}
       />
       <Layer
-        id={fillId}
+        id={BLOCK_HOVER_LAYER_ID}
         source={BLOCK_SOURCE_ID}
         source-layer={id}
-        filter={child ? layerFilter : ['literal', true]}
-        beforeId={highlightId}
+        filter={['literal', true]}
+        beforeId={BLOCK_LAYER_ID_HIGHLIGHT}
         type="fill"
         layout={{
           visibility: showPaintedDistricts ? 'visible' : 'none',
@@ -104,43 +85,6 @@ export function ZoneLayerGroup({
         paint={{
           'fill-opacity': layerOpacity,
           'fill-color': ZONE_ASSIGNMENT_STYLE(colorScheme) || '#000000',
-        }}
-      />
-      <Layer
-        id={lineId}
-        source={BLOCK_SOURCE_ID}
-        source-layer={id}
-        filter={layerFilter}
-        beforeId={fillId}
-        type="line"
-        layout={{
-          visibility: 'visible',
-        }}
-        paint={{
-          'line-opacity': 0.8,
-          // 'line-color': '#aaaaaa', // Default color
-          'line-color': [
-            'interpolate',
-            ['exponential', 1.6],
-            ['zoom'],
-            6,
-            '#aaa',
-            9,
-            '#777',
-            14,
-            '#333',
-          ],
-          'line-width': [
-            'interpolate',
-            ['exponential', 1.6],
-            ['zoom'],
-            6,
-            lineWidth * 0.125,
-            9,
-            lineWidth * 0.35,
-            14,
-            lineWidth,
-          ],
         }}
       />
     </>

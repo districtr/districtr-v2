@@ -15,7 +15,9 @@ import GlMap, {NavigationControl} from 'react-map-gl/maplibre';
 import {useLayoutEffect} from 'react';
 import {CountyLayers} from './CountyLayers';
 import {BlockSource} from './BlockSource';
+import {useLayerFilter} from '@/app/hooks/useLayerFilter';
 import {VtdBlockLayers} from './VtdBlockLayers';
+import GeometryOutlineLayer from './GeometryOutlineLayer';
 import {MetaLayers} from './MetaLayers';
 import {PointSelectionLayer} from './PointSelectionLayer';
 import {OverlayLayers} from './OverlayLayers';
@@ -30,7 +32,13 @@ const MAP_LAYER_ORDER = {
   overlayLayerBeforeId: 'anchor-overlays',
   assignmentLayerBeforeId: 'anchor-assignments',
   demographyLayerBeforeId: 'anchor-demography',
+  geometryOutlineLayerBeforeId: 'anchor-geometry-outline',
   hoverLayerBeforeId: 'anchor-hover',
+} as const;
+
+const GEOMETRY_OUTLINE_LAYER_IDS = {
+  parent: 'blocks-outline',
+  child: 'blocks-child-outline',
 } as const;
 
 export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
@@ -43,6 +51,7 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
   const synced = useRef<false | (() => void)>(false);
   const activeTool = useMapControlsStore(state => state.activeTool);
   const {mapRef, onLoad} = useMapRenderer(isDemographicMap ? 'demographic' : 'main');
+  const mapDocument = useMapStore(state => state.mapDocument);
 
   const initialViewState = useMemo(() => {
     if (!isDemographicMap) {
@@ -186,6 +195,20 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
               demographyLayerBeforeId: MAP_LAYER_ORDER.demographyLayerBeforeId,
               hoverLayerBeforeId: MAP_LAYER_ORDER.hoverLayerBeforeId,
             }}
+          />
+          <GeometryOutlineLayer
+            lineWidth={2}
+            sourceLayerId={mapDocument?.parent_layer}
+            lineId={GEOMETRY_OUTLINE_LAYER_IDS.parent}
+            beforeId={MAP_LAYER_ORDER.geometryOutlineLayerBeforeId}
+            filter={useLayerFilter(false)}
+          />
+          <GeometryOutlineLayer
+            lineWidth={1}
+            sourceLayerId={mapDocument?.child_layer}
+            lineId={GEOMETRY_OUTLINE_LAYER_IDS.child}
+            beforeId={MAP_LAYER_ORDER.geometryOutlineLayerBeforeId}
+            filter={useLayerFilter(true)}
           />
         </BlockSource>
         <OverlayLayers layerBeforeId={MAP_LAYER_ORDER.overlayLayerBeforeId} />
