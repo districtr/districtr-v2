@@ -2,14 +2,12 @@ import {BLOCK_SOURCE_ID} from '@/app/constants/layers';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import {useLayoutEffect, useState} from 'react';
-import {Source, useMap} from 'react-map-gl/maplibre';
+import {useLayoutEffect} from 'react';
+import {useMap} from 'react-map-gl/maplibre';
 import {ZoneLayerGroup} from './ZoneLayerGroup';
 import {DemographicLayer} from './DemographicLayer';
 import {HoverLayerGroup} from './HoverLayerGroup';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
-import {useClearMap} from '@/app/hooks/useClearMap';
-import {TILESET_URL} from '@/app/utils/api/constants';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 
 export function VtdBlockLayers({
@@ -24,12 +22,9 @@ export function VtdBlockLayers({
   isDemographicMap?: boolean;
 }) {
   const mapDocument = useMapStore(state => state.mapDocument);
-  const setMapRenderingState = useMapStore(state => state.setMapRenderingState);
   const showDemographicMap = useMapControlsStore(state => state.mapOptions.showDemographicMap);
   const demographicVariable = useDemographyStore(state => state.variable);
   const demographicVariant = useDemographyStore(state => state.variant);
-  const flushMapState = useMapStore(state => state.flushMapState);
-  const [loadedTiles, setLoadedTiles] = useState('');
   const setScale = useDemographyStore(state => state.setScale);
   const demographyDataHash = useDemographyStore(state => state.dataHash);
   const shatterIds = useAssignmentsStore(state => state.shatterIds);
@@ -39,18 +34,6 @@ export function VtdBlockLayers({
   const hoverLayerBeforeId = layerOrder.hoverLayerBeforeId;
   const mapRef = useMap();
   const numberOfBins = useDemographyStore(state => state.numberOfBins);
-  useClearMap(mapDocument?.document_id);
-
-  useLayoutEffect(() => {
-    // on mount, set map rendering state to loaded
-    setMapRenderingState('loaded');
-  }, []);
-
-  useLayoutEffect(() => {
-    if (mapDocument?.tiles_s3_path) {
-      setLoadedTiles(mapDocument.tiles_s3_path);
-    }
-  }, [mapDocument?.tiles_s3_path]);
 
   const handleChoroplethRender = ({numberOfBins}: {numberOfBins?: number}) => {
     const _map = mapRef.current?.getMap();
@@ -83,7 +66,7 @@ export function VtdBlockLayers({
   };
 
   useLayoutEffect(() => {
-    if (showDemography) {
+    if (showDemography && mapDocument) {
       handleChoroplethRender({numberOfBins});
     }
   }, [
@@ -95,27 +78,14 @@ export function VtdBlockLayers({
     mapDocument,
     demographicVariant,
   ]);
-  if (!mapDocument || loadedTiles !== mapDocument.tiles_s3_path || flushMapState) return null;
-
   return (
     <>
-      <Source
-        id={BLOCK_SOURCE_ID}
-        type="vector"
-        url={`pmtiles://${TILESET_URL}/${mapDocument.tiles_s3_path}`}
-        promoteId="path"
-      >
-        {!isDemographicMap && (
-          <ZoneLayerGroup child layerBeforeId={assignmentLayerBeforeId} />
-        )}
-        {!isDemographicMap && <ZoneLayerGroup layerBeforeId={assignmentLayerBeforeId} />}
-        {!!showDemography && (
-          <DemographicLayer child layerBeforeId={demographyLayerBeforeId} />
-        )}
-        {!!showDemography && <DemographicLayer layerBeforeId={demographyLayerBeforeId} />}
-        <HoverLayerGroup layerBeforeId={hoverLayerBeforeId} />
-        <HoverLayerGroup child layerBeforeId={hoverLayerBeforeId} />
-      </Source>
+      {!isDemographicMap && <ZoneLayerGroup child layerBeforeId={assignmentLayerBeforeId} />}
+      {!isDemographicMap && <ZoneLayerGroup layerBeforeId={assignmentLayerBeforeId} />}
+      {!!showDemography && <DemographicLayer child layerBeforeId={demographyLayerBeforeId} />}
+      {!!showDemography && <DemographicLayer layerBeforeId={demographyLayerBeforeId} />}
+      <HoverLayerGroup layerBeforeId={hoverLayerBeforeId} />
+      <HoverLayerGroup child layerBeforeId={hoverLayerBeforeId} />
     </>
   );
 }

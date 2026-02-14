@@ -14,6 +14,7 @@ import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import GlMap, {NavigationControl} from 'react-map-gl/maplibre';
 import {useLayoutEffect} from 'react';
 import {CountyLayers} from './CountyLayers';
+import {BlockSource} from './BlockSource';
 import {VtdBlockLayers} from './VtdBlockLayers';
 import {MetaLayers} from './MetaLayers';
 import {PointSelectionLayer} from './PointSelectionLayer';
@@ -177,15 +178,17 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
       >
         <MapLayerAnchors />
         <CountyLayers layerBeforeId={MAP_LAYER_ORDER.countyLayerBeforeId} />
+        <BlockSource>
+          <VtdBlockLayers
+            isDemographicMap={isDemographicMap}
+            layerOrder={{
+              assignmentLayerBeforeId: MAP_LAYER_ORDER.assignmentLayerBeforeId,
+              demographyLayerBeforeId: MAP_LAYER_ORDER.demographyLayerBeforeId,
+              hoverLayerBeforeId: MAP_LAYER_ORDER.hoverLayerBeforeId,
+            }}
+          />
+        </BlockSource>
         <OverlayLayers layerBeforeId={MAP_LAYER_ORDER.overlayLayerBeforeId} />
-        <VtdBlockLayers
-          isDemographicMap={isDemographicMap}
-          layerOrder={{
-            assignmentLayerBeforeId: MAP_LAYER_ORDER.assignmentLayerBeforeId,
-            demographyLayerBeforeId: MAP_LAYER_ORDER.demographyLayerBeforeId,
-            hoverLayerBeforeId: MAP_LAYER_ORDER.hoverLayerBeforeId,
-          }}
-        />
         <PointSource>
           <PointSelectionLayer />
           <PointSelectionLayer child />
