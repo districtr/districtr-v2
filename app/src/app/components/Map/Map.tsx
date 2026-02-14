@@ -11,18 +11,26 @@ import {INTERACTIVE_LAYERS} from '@constants/layers';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
-import GlMap, {MapRef, NavigationControl} from 'react-map-gl/maplibre';
+import GlMap, {NavigationControl} from 'react-map-gl/maplibre';
 import {useLayoutEffect} from 'react';
 import {CountyLayers} from './CountyLayers';
 import {VtdBlockLayers} from './VtdBlockLayers';
 import {MetaLayers} from './MetaLayers';
 import {PointSelectionLayer} from './PointSelectionLayer';
 import {OverlayLayers} from './OverlayLayers';
+import {MapLayerAnchors} from './MapLayerAnchors';
 // @ts-ignore plugin has no types
 import syncMaps from '@mapbox/mapbox-gl-sync-move';
 import {useMapRenderer} from '@/app/hooks/useMapRenderer';
 import {PointSource} from '@/app/components/Map/PointSource';
 
+const MAP_LAYER_ORDER = {
+  countyLayerBeforeId: 'anchor-counties',
+  overlayLayerBeforeId: 'anchor-overlays',
+  assignmentLayerBeforeId: 'anchor-assignments',
+  demographyLayerBeforeId: 'anchor-demography',
+  hoverLayerBeforeId: 'anchor-hover',
+} as const;
 
 export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
   const getStateMapRef = useMapStore(state => state.getMapRef);
@@ -167,9 +175,17 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
         onData={mapEventHandlers.onData as any}
         interactiveLayerIds={INTERACTIVE_LAYERS}
       >
-        <CountyLayers />
-        <OverlayLayers />
-        <VtdBlockLayers isDemographicMap={isDemographicMap} />
+        <MapLayerAnchors />
+        <CountyLayers layerBeforeId={MAP_LAYER_ORDER.countyLayerBeforeId} />
+        <OverlayLayers layerBeforeId={MAP_LAYER_ORDER.overlayLayerBeforeId} />
+        <VtdBlockLayers
+          isDemographicMap={isDemographicMap}
+          layerOrder={{
+            assignmentLayerBeforeId: MAP_LAYER_ORDER.assignmentLayerBeforeId,
+            demographyLayerBeforeId: MAP_LAYER_ORDER.demographyLayerBeforeId,
+            hoverLayerBeforeId: MAP_LAYER_ORDER.hoverLayerBeforeId,
+          }}
+        />
         <PointSource>
           <PointSelectionLayer />
           <PointSelectionLayer child />

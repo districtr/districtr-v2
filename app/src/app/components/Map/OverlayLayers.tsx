@@ -3,8 +3,12 @@ import {useMemo} from 'react';
 import {Layer, Source} from 'react-map-gl/maplibre';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {Overlay} from '@/app/utils/api/apiHandlers/types';
-import {FillLayerSpecification, LineLayerSpecification, SymbolLayerSpecification} from 'maplibre-gl';
-import { useMapStore } from '@/app/store/mapStore';
+import {
+  FillLayerSpecification,
+  LineLayerSpecification,
+  SymbolLayerSpecification,
+} from 'maplibre-gl';
+import {useMapStore} from '@/app/store/mapStore';
 
 const DEFAULT_FILL_STYLE: Partial<FillLayerSpecification['paint']> = {
   'fill-color': '#627BC1',
@@ -51,24 +55,21 @@ const SELECTED_LINE_STYLE: Partial<LineLayerSpecification['paint']> = {
 
 const HIGHLIGHT_FILL_COLOR: Partial<FillLayerSpecification['paint']> = {
   'fill-color': '#000000',
-  'fill-opacity': [
-    'case',
-    ['boolean', ['feature-state', 'hover'], false],
-    0.7,
-    0
-  ]
+  'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.7, 0],
 };
 
 interface OverlayLayerProps {
   overlay: Overlay;
   selectedFeatureId: string | null;
   isConstraintOverlay: boolean;
+  layerBeforeId: string;
 }
 
 const OverlayLayer = ({
   overlay,
   selectedFeatureId,
   isConstraintOverlay,
+  layerBeforeId,
 }: OverlayLayerProps) => {
   const sourceId = `overlay-source-${overlay.overlay_id}`;
   const layerId = `overlay-layer-${overlay.overlay_id}`;
@@ -96,7 +97,7 @@ const OverlayLayer = ({
   const layerProps = useMemo(() => {
     const baseProps: any = {
       id: layerId,
-      beforeId: 'places_locality',
+      beforeId: layerBeforeId,
     };
 
     // Add source-layer for pmtiles
@@ -128,9 +129,7 @@ const OverlayLayer = ({
         };
       case 'text':
         // Use symbol layer for text labels
-        const textField = overlay.id_property
-          ? ['get', overlay.id_property]
-          : ['get', 'name']; // fallback to 'name' property
+        const textField = overlay.id_property ? ['get', overlay.id_property] : ['get', 'name']; // fallback to 'name' property
         return {
           ...baseProps,
           type: 'symbol' as const,
@@ -147,7 +146,7 @@ const OverlayLayer = ({
       default:
         return baseProps;
     }
-  }, [layerId, overlay]);
+  }, [layerId, overlay, layerBeforeId]);
 
   // Click detection layer for line overlays (invisible fill)
   const clickLayerProps = useMemo(() => {
@@ -198,24 +197,21 @@ const OverlayLayer = ({
 
   return (
     <>
-    <Source id={sourceId} {...sourceProps}>
-      {/* Main overlay layer */}
-      <Layer {...layerProps} />
-      {/* Hover highlight layer */}
-      <Layer 
-        type="fill"
-        paint={HIGHLIGHT_FILL_COLOR}
-      />
-      {/* Selected constraint outline layer */}
-      {selectedOutlineProps && <Layer {...selectedOutlineProps} />}
-      {/* Invisible click layer for line overlays */}
-      {clickLayerProps && <Layer {...clickLayerProps} />}
-    </Source>
+      <Source id={sourceId} {...sourceProps}>
+        {/* Main overlay layer */}
+        <Layer {...layerProps} />
+        {/* Hover highlight layer */}
+        <Layer type="fill" paint={HIGHLIGHT_FILL_COLOR} />
+        {/* Selected constraint outline layer */}
+        {selectedOutlineProps && <Layer {...selectedOutlineProps} />}
+        {/* Invisible click layer for line overlays */}
+        {clickLayerProps && <Layer {...clickLayerProps} />}
+      </Source>
     </>
   );
 };
 
-export const OverlayLayers = () => {
+export const OverlayLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
   const availableOverlays = useMapStore(state => state.mapDocument?.overlays ?? []);
   const enabledOverlayIds = useOverlayStore(state => state.enabledOverlayIds);
   const paintConstraint = useOverlayStore(state => state.paintConstraint);
@@ -235,6 +231,7 @@ export const OverlayLayers = () => {
             overlay={overlay}
             selectedFeatureId={isConstraintOverlay ? paintConstraint.featureId : null}
             isConstraintOverlay={isConstraintOverlay}
+            layerBeforeId={layerBeforeId}
           />
         );
       })}

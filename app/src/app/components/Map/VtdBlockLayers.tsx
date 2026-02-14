@@ -3,19 +3,26 @@ import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useLayoutEffect, useState} from 'react';
-import {useEffect} from 'react';
 import {Source, useMap} from 'react-map-gl/maplibre';
 import {ZoneLayerGroup} from './ZoneLayerGroup';
 import {DemographicLayer} from './DemographicLayer';
-import {HighlightOverlayerLayerGroup} from './HighlightOverlayLayerGroup';
+import {HoverLayerGroup} from './HoverLayerGroup';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
 import {useClearMap} from '@/app/hooks/useClearMap';
 import {TILESET_URL} from '@/app/utils/api/constants';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 
-export const VtdBlockLayers: React.FC<{
+export function VtdBlockLayers({
+  layerOrder,
+  isDemographicMap = false,
+}: {
+  layerOrder: {
+    assignmentLayerBeforeId: string;
+    demographyLayerBeforeId: string;
+    hoverLayerBeforeId: string;
+  };
   isDemographicMap?: boolean;
-}> = ({isDemographicMap}) => {
+}) {
   const mapDocument = useMapStore(state => state.mapDocument);
   const setMapRenderingState = useMapStore(state => state.setMapRenderingState);
   const showDemographicMap = useMapControlsStore(state => state.mapOptions.showDemographicMap);
@@ -27,6 +34,9 @@ export const VtdBlockLayers: React.FC<{
   const demographyDataHash = useDemographyStore(state => state.dataHash);
   const shatterIds = useAssignmentsStore(state => state.shatterIds);
   const showDemography = isDemographicMap || showDemographicMap === 'overlay';
+  const assignmentLayerBeforeId = layerOrder.assignmentLayerBeforeId;
+  const demographyLayerBeforeId = layerOrder.demographyLayerBeforeId;
+  const hoverLayerBeforeId = layerOrder.hoverLayerBeforeId;
   const mapRef = useMap();
   const numberOfBins = useDemographyStore(state => state.numberOfBins);
   useClearMap(mapDocument?.document_id);
@@ -95,13 +105,17 @@ export const VtdBlockLayers: React.FC<{
         url={`pmtiles://${TILESET_URL}/${mapDocument.tiles_s3_path}`}
         promoteId="path"
       >
-        {!isDemographicMap && <ZoneLayerGroup child />}
-        {!isDemographicMap && <ZoneLayerGroup />}
-        {!!showDemography && <DemographicLayer child />}
-        {!!showDemography && <DemographicLayer />}
-        <HighlightOverlayerLayerGroup />
-        <HighlightOverlayerLayerGroup child />
+        {!isDemographicMap && (
+          <ZoneLayerGroup child layerBeforeId={assignmentLayerBeforeId} />
+        )}
+        {!isDemographicMap && <ZoneLayerGroup layerBeforeId={assignmentLayerBeforeId} />}
+        {!!showDemography && (
+          <DemographicLayer child layerBeforeId={demographyLayerBeforeId} />
+        )}
+        {!!showDemography && <DemographicLayer layerBeforeId={demographyLayerBeforeId} />}
+        <HoverLayerGroup layerBeforeId={hoverLayerBeforeId} />
+        <HoverLayerGroup child layerBeforeId={hoverLayerBeforeId} />
       </Source>
     </>
   );
-};
+}

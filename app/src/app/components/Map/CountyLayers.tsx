@@ -4,9 +4,9 @@ import {GEODATA_URL} from '@/app/utils/api/constants';
 import {FilterSpecification} from 'maplibre-gl';
 import {useMemo} from 'react';
 import {Layer, Source} from 'react-map-gl/maplibre';
-import { SENTINEL_EMPTY_ARRAY } from '@/app/constants/layers';
+import {SENTINEL_EMPTY_ARRAY} from '@/app/constants/layers';
 
-export const CountyLayers = () => {
+export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
   const mapOptions = useMapControlsStore(state => state.mapOptions);
 
   const countyFilter = useMemo(() => {
@@ -32,19 +32,8 @@ export const CountyLayers = () => {
         url={`pmtiles://${GEODATA_URL}/basemaps/tiger/tiger2023/tl_2023_us_county_full.pmtiles`}
       >
         <Layer
-          id="counties_fill"
-          beforeId="places_locality"
-          type="fill"
-          source-layer="tl_2023_us_county"
-          paint={{
-            'fill-color': '#fff',
-            'fill-opacity': 0,
-          }}
-          filter={countyFilter}
-        />
-        <Layer
           id="counties_boundary"
-          beforeId="places_locality"
+          beforeId={layerBeforeId}
           type="line"
           source-layer="tl_2023_us_county"
           paint={{
@@ -64,6 +53,17 @@ export const CountyLayers = () => {
           }}
           layout={{
             visibility: mapOptions.showCountyBoundaries ? 'visible' : 'none',
+          }}
+          filter={countyFilter}
+        />
+        <Layer
+          id="counties_fill"
+          beforeId="counties_boundary"
+          type="fill"
+          source-layer="tl_2023_us_county"
+          paint={{
+            'fill-color': '#fff',
+            'fill-opacity': 0,
           }}
           filter={countyFilter}
         />

@@ -11,46 +11,32 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {Layer} from 'react-map-gl/maplibre';
 
-export const DemographicLayer: React.FC<{
+export function DemographicLayer({
+  child = false,
+  layerBeforeId,
+}: {
   child?: boolean;
-}> = ({child = false}) => {
+  layerBeforeId: string;
+}) {
   const mapDocument = useMapStore(state => state.mapDocument);
   const id = child ? mapDocument?.child_layer : mapDocument?.parent_layer;
   const isOverlay = useMapControlsStore(state => state.mapOptions.showDemographicMap) === 'overlay';
   const overlayOpacity = useMapControlsStore(state => state.mapOptions.overlayOpacity);
   const lineWidth = child ? 1 : 2;
   const layerFilter = useLayerFilter(child);
+  const fillId = `${child ? BLOCK_HOVER_LAYER_ID_CHILD : BLOCK_HOVER_LAYER_ID}${isOverlay ? '_overlay' : ''}`;
+  const lineId = child ? BLOCK_LAYER_ID_CHILD : BLOCK_LAYER_ID;
 
   if (!id || !mapDocument) return null;
   return (
     <>
-      <Layer
-        id={`${child ? BLOCK_HOVER_LAYER_ID_CHILD : BLOCK_HOVER_LAYER_ID}${isOverlay ? '_overlay' : ''}`}
-        source={BLOCK_SOURCE_ID}
-        source-layer={id}
-        filter={child ? layerFilter : ['literal', true]}
-        beforeId={LABELS_BREAK_LAYER_ID}
-        type="fill"
-        layout={{
-          visibility: 'visible',
-        }}
-        paint={{
-          'fill-opacity': isOverlay ? overlayOpacity : 0.9,
-          'fill-color': [
-            'case',
-            ['boolean', ['feature-state', 'hasColor'], false],
-            ['feature-state', 'color'],
-            '#808080',
-          ],
-        }}
-      />
       {!isOverlay && (
         <Layer
-          id={child ? BLOCK_LAYER_ID_CHILD : BLOCK_LAYER_ID}
+          id={lineId}
           source={BLOCK_SOURCE_ID}
           source-layer={id}
           filter={layerFilter}
-          beforeId={LABELS_BREAK_LAYER_ID}
+          beforeId={layerBeforeId}
           type="line"
           layout={{
             visibility: 'visible',
@@ -83,6 +69,26 @@ export const DemographicLayer: React.FC<{
           }}
         />
       )}
+      <Layer
+        id={fillId}
+        source={BLOCK_SOURCE_ID}
+        source-layer={id}
+        filter={child ? layerFilter : ['literal', true]}
+        beforeId={!isOverlay ? lineId : layerBeforeId}
+        type="fill"
+        layout={{
+          visibility: 'visible',
+        }}
+        paint={{
+          'fill-opacity': isOverlay ? overlayOpacity : 0.9,
+          'fill-color': [
+            'case',
+            ['boolean', ['feature-state', 'hasColor'], false],
+            ['feature-state', 'color'],
+            '#808080',
+          ],
+        }}
+      />
     </>
   );
-};
+}
