@@ -2,7 +2,7 @@ import {MutableRefObject, useEffect, useRef, useState} from 'react';
 import {useMapStore} from '../store/mapStore';
 import {useAssignmentsStore} from '../store/assignmentsStore';
 import {getPointSelectionData} from '../utils/api/apiHandlers/getPointSelectionData';
-import {BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD, EMPTY_FT_COLLECTION} from '../constants/layers';
+import {BLOCK_SOURCE_ID, EMPTY_FT_COLLECTION} from '../constants/layers';
 import {useQuery} from '@tanstack/react-query';
 import GeometryWorker from '../utils/GeometryWorker';
 
@@ -31,7 +31,7 @@ const updateData = async (
     layer,
     columns: ['path', 'x', 'y', 'total_pop_20'],
     filterIds: isChild ? exposedChildIds : undefined,
-    source: isChild ? BLOCK_LAYER_ID_CHILD : BLOCK_LAYER_ID,
+    source: BLOCK_SOURCE_ID,
   });
   data.current = result;
 
