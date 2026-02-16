@@ -1,7 +1,7 @@
 'use client';
 import React, {useEffect} from 'react';
 import {MapContextMenu} from '@components/ContextMenu';
-import {MapComponent} from '@components/Map/Map';
+import {DemographicMapComponent, MainMapComponent} from '@components/Map/Map';
 import SidebarComponent from '@components/sidebar/Sidebar';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
@@ -84,8 +84,8 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
       <div className={`h-full relative w-full flex-1 flex flex-col lg:h-screen landscape:h-screen`}>
         <Topbar />
         <Flex direction="row" height="100%">
-          <MapComponent />
-          {showDemographicMap && <MapComponent isDemographicMap />}
+          <MainMapComponent />
+          {showDemographicMap && <DemographicMapComponent />}
         </Flex>
         {toolbarLocation === 'map' && <DraggableToolbar />}
         {!!mapId && (
