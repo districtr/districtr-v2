@@ -1,13 +1,16 @@
 'use client';
-import {BLOCK_HOVER_LAYER_ID_CHILD} from '@constants/layers';
+import {
+  BLOCK_HOVER_LAYER_ID_CHILD,
+  BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
+} from '@constants/layers';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';
 import GeometryOutlineLayer from './GeometryOutlineLayer';
 import {GeometryBackgroundLayer} from './GeometryBackgroundLayer';
-import ZoneChildLayerGroup from './ZoneLayers/ZoneChildLayerGroup';
-import {ChildHoverLayerGroup} from './HoverLayerGroup';
-import {DemographicChildLayer} from './DemographicLayer';
+import {ZoneLayerGroup} from './ZoneLayers/ZoneLayerGroup';
+import {HoverLayerGroup} from './HoverLayerGroup';
+import {DemographicLayer} from './DemographicLayer';
 
 const MAP_LAYER_ORDER = {
   countyLayerBeforeId: 'anchor-counties',
@@ -38,29 +41,50 @@ export function ChildBlockLayers({layerBeforeId}: {layerBeforeId: string}) {
   if (!mapDocument?.child_layer) {
     return null;
   }
+  const childSourceLayerId = mapDocument.child_layer;
 
   return (
     <>
       {showGeometryBackground && (
         <GeometryBackgroundLayer
           id={`${BLOCK_HOVER_LAYER_ID_CHILD}-background`}
-          sourceLayerId={mapDocument.child_layer}
+          sourceLayerId={childSourceLayerId}
           filter={childLayerFilter}
-          beforeId={BLOCK_HOVER_LAYER_ID_CHILD}
-          backgroundOpacity={UNASSIGNED_BACKGROUND_OPACITY.child}
+          beforeId={MAP_LAYER_ORDER.assignmentLayerBeforeId}
+          style={{
+            backgroundOpacity: UNASSIGNED_BACKGROUND_OPACITY.child,
+          }}
         />
       )}
-      <ZoneChildLayerGroup layerBeforeId={MAP_LAYER_ORDER.assignmentLayerBeforeId} />
+      <ZoneLayerGroup
+        ids={{
+          highlightId: BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
+          assignmentId: BLOCK_HOVER_LAYER_ID_CHILD,
+        }}
+        sourceLayerId={childSourceLayerId}
+        filter={childLayerFilter}
+        layerBeforeId={MAP_LAYER_ORDER.assignmentLayerBeforeId}
+      />
       {showDemographyOverlay && (
-        <DemographicChildLayer layerBeforeId={MAP_LAYER_ORDER.demographyLayerBeforeId} />
+        <DemographicLayer
+          idBase={BLOCK_HOVER_LAYER_ID_CHILD}
+          sourceLayerId={childSourceLayerId}
+          filter={childLayerFilter}
+          layerBeforeId={MAP_LAYER_ORDER.demographyLayerBeforeId}
+        />
       )}
-      <ChildHoverLayerGroup layerBeforeId={MAP_LAYER_ORDER.hoverLayerBeforeId} />
+      <HoverLayerGroup
+        idBase={BLOCK_HOVER_LAYER_ID_CHILD}
+        sourceLayerId={childSourceLayerId}
+        filter={childLayerFilter}
+        layerBeforeId={MAP_LAYER_ORDER.hoverLayerBeforeId}
+      />
       <GeometryOutlineLayer
         id={GEOMETRY_OUTLINE_LAYER_IDS.child}
-        lineWidth={1}
-        sourceLayerId={mapDocument?.child_layer}
-        beforeId={layerBeforeId}
+        sourceLayerId={childSourceLayerId}
         filter={childLayerFilter}
+        beforeId={layerBeforeId}
+        style={{lineWidth: 1}}
       />
     </>
   );
@@ -73,17 +97,28 @@ export function DemographicChildBlockLayers({layerBeforeId}: {layerBeforeId: str
   if (!mapDocument?.child_layer) {
     return null;
   }
+  const childSourceLayerId = mapDocument.child_layer;
 
   return (
     <>
-      <DemographicChildLayer layerBeforeId={MAP_LAYER_ORDER.demographyLayerBeforeId} />
-      <ChildHoverLayerGroup layerBeforeId={MAP_LAYER_ORDER.hoverLayerBeforeId} />
+      <DemographicLayer
+        idBase={BLOCK_HOVER_LAYER_ID_CHILD}
+        sourceLayerId={childSourceLayerId}
+        filter={childLayerFilter}
+        layerBeforeId={MAP_LAYER_ORDER.demographyLayerBeforeId}
+      />
+      <HoverLayerGroup
+        idBase={BLOCK_HOVER_LAYER_ID_CHILD}
+        sourceLayerId={childSourceLayerId}
+        filter={childLayerFilter}
+        layerBeforeId={MAP_LAYER_ORDER.hoverLayerBeforeId}
+      />
       <GeometryOutlineLayer
         id={GEOMETRY_OUTLINE_LAYER_IDS.child}
-        lineWidth={1}
-        sourceLayerId={mapDocument.child_layer}
-        beforeId={layerBeforeId}
+        sourceLayerId={childSourceLayerId}
         filter={childLayerFilter}
+        beforeId={layerBeforeId}
+        style={{lineWidth: 1}}
       />
     </>
   );

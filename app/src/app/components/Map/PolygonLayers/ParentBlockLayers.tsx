@@ -1,14 +1,17 @@
 'use client';
 import type {FilterSpecification} from 'maplibre-gl';
-import {BLOCK_HOVER_LAYER_ID} from '@constants/layers';
+import {
+  BLOCK_HOVER_LAYER_ID,
+  BLOCK_LAYER_ID_HIGHLIGHT,
+} from '@constants/layers';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';
 import GeometryOutlineLayer from './GeometryOutlineLayer';
-import {ParentHoverLayerGroup} from './HoverLayerGroup';
+import {HoverLayerGroup} from './HoverLayerGroup';
 import {GeometryBackgroundLayer} from './GeometryBackgroundLayer';
-import {DemographicParentLayer} from './DemographicLayer';
-import ZoneParentLayerGroup from './ZoneLayers/ZoneParentLayerGroup';
+import {DemographicLayer} from './DemographicLayer';
+import {ZoneLayerGroup} from './ZoneLayers/ZoneLayerGroup';
 
 const MAP_LAYER_ORDER = {
   countyLayerBeforeId: 'anchor-counties',
@@ -33,37 +36,59 @@ export function ParentBlockLayers({layerBeforeId}: {layerBeforeId: string}) {
   const mapDocument = useMapStore(state => state.mapDocument);
   const showDemographicMap = useMapControlsStore(state => state.mapOptions.showDemographicMap);
   const showDemographyOverlay = showDemographicMap === 'overlay';
+  const parentLayerFilter = ['literal', true] as FilterSpecification;
+  const parentOutlineFilter = useLayerFilter(false);
   const showGeometryBackground = showDemographicMap !== 'overlay';
-  const parentAssignmentFilter = ['literal', true] as FilterSpecification;
 
   if (!mapDocument?.parent_layer) {
     return null;
   }
+  const parentSourceLayerId = mapDocument.parent_layer;
 
   return (
     <>
       {showGeometryBackground && (
         <GeometryBackgroundLayer
           id={`${BLOCK_HOVER_LAYER_ID}-background`}
-          sourceLayerId={mapDocument.parent_layer}
-          filter={parentAssignmentFilter}
-          beforeId={BLOCK_HOVER_LAYER_ID}
-          backgroundOpacity={UNASSIGNED_BACKGROUND_OPACITY.parent}
+          sourceLayerId={parentSourceLayerId}
+          filter={parentLayerFilter}
+          beforeId={MAP_LAYER_ORDER.assignmentLayerBeforeId}
+          style={{
+            backgroundOpacity: UNASSIGNED_BACKGROUND_OPACITY.parent,
+          }}
         />
       )}
 
-      <ZoneParentLayerGroup layerBeforeId={GEOMETRY_OUTLINE_LAYER_IDS.parent} />
+      <ZoneLayerGroup
+        ids={{
+          highlightId: BLOCK_LAYER_ID_HIGHLIGHT,
+          assignmentId: BLOCK_HOVER_LAYER_ID,
+        }}
+        sourceLayerId={parentSourceLayerId}
+        filter={parentLayerFilter}
+        layerBeforeId={GEOMETRY_OUTLINE_LAYER_IDS.parent}
+      />
       {showDemographyOverlay && (
-        <DemographicParentLayer layerBeforeId={MAP_LAYER_ORDER.demographyLayerBeforeId} />
+        <DemographicLayer
+          idBase={BLOCK_HOVER_LAYER_ID}
+          sourceLayerId={parentSourceLayerId}
+          filter={parentLayerFilter}
+          layerBeforeId={MAP_LAYER_ORDER.demographyLayerBeforeId}
+        />
       )}
-      <ParentHoverLayerGroup layerBeforeId={MAP_LAYER_ORDER.hoverLayerBeforeId} />
+      <HoverLayerGroup
+        idBase={BLOCK_HOVER_LAYER_ID}
+        sourceLayerId={parentSourceLayerId}
+        filter={parentLayerFilter}
+        layerBeforeId={MAP_LAYER_ORDER.hoverLayerBeforeId}
+      />
 
       <GeometryOutlineLayer
         id={GEOMETRY_OUTLINE_LAYER_IDS.parent}
-        lineWidth={2}
-        sourceLayerId={mapDocument.parent_layer}
+        sourceLayerId={parentSourceLayerId}
+        filter={parentOutlineFilter}
         beforeId={layerBeforeId}
-        filter={useLayerFilter(false)}
+        style={{lineWidth: 2}}
       />
     </>
   );
@@ -71,22 +96,35 @@ export function ParentBlockLayers({layerBeforeId}: {layerBeforeId: string}) {
 
 export function DemographicParentBlockLayers({layerBeforeId}: {layerBeforeId: string}) {
   const mapDocument = useMapStore(state => state.mapDocument);
+  const parentLayerFilter = ['literal', true] as FilterSpecification;
+  const parentOutlineFilter = useLayerFilter(false);
 
   if (!mapDocument?.parent_layer) {
     return null;
   }
+  const parentSourceLayerId = mapDocument.parent_layer;
 
   return (
     <>
-      <DemographicParentLayer layerBeforeId={MAP_LAYER_ORDER.demographyLayerBeforeId} />
-      <ParentHoverLayerGroup layerBeforeId={MAP_LAYER_ORDER.hoverLayerBeforeId} />
+      <DemographicLayer
+        idBase={BLOCK_HOVER_LAYER_ID}
+        sourceLayerId={parentSourceLayerId}
+        filter={parentLayerFilter}
+        layerBeforeId={MAP_LAYER_ORDER.demographyLayerBeforeId}
+      />
+      <HoverLayerGroup
+        idBase={BLOCK_HOVER_LAYER_ID}
+        sourceLayerId={parentSourceLayerId}
+        filter={parentLayerFilter}
+        layerBeforeId={MAP_LAYER_ORDER.hoverLayerBeforeId}
+      />
 
       <GeometryOutlineLayer
         id={GEOMETRY_OUTLINE_LAYER_IDS.parent}
-        lineWidth={2}
-        sourceLayerId={mapDocument.parent_layer}
+        sourceLayerId={parentSourceLayerId}
+        filter={parentOutlineFilter}
         beforeId={layerBeforeId}
-        filter={useLayerFilter(false)}
+        style={{lineWidth: 2}}
       />
     </>
   );

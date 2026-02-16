@@ -4,18 +4,21 @@ import {FilterSpecification} from 'maplibre-gl';
 
 export default function GeometryOutlineLayer({
   id,
-  lineWidth,
   sourceLayerId,
-  beforeId,
   filter,
+  beforeId,
+  style,
 }: {
   id: string;
-  lineWidth: number;
-  sourceLayerId?: string | null;
-  beforeId: string;
+  sourceLayerId: string;
   filter: FilterSpecification;
+  beforeId: string;
+  style?: {
+    lineWidth?: number;
+  };
 }) {
   if (!sourceLayerId) return null;
+  const lineWidth = style?.lineWidth ?? 1.5;
   return (
     <Layer
       id={id}

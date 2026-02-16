@@ -10,14 +10,18 @@ export function ZoneAssignmentLayer({
   sourceLayerId,
   filter,
   beforeId,
-  baseFillOpacity,
+  style,
 }: {
   id: string;
   sourceLayerId: string;
   filter: FilterSpecification;
   beforeId: string;
-  baseFillOpacity: DataDrivenPropertyValueSpecification<number>;
+  style?: {
+    baseFillOpacity?: DataDrivenPropertyValueSpecification<number>;
+  };
 }) {
+  const baseFillOpacity = style?.baseFillOpacity ?? 0.7;
+
   const colorScheme = useColorScheme();
   const showPaintedDistricts = useMapControlsStore(state => state.mapOptions.showPaintedDistricts);
   const fillOpacity = useMemo(

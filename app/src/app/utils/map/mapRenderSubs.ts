@@ -144,12 +144,11 @@ export class MapRenderSubscriber {
     if (isDemographic) return;
     [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
       const isHover = layerId.includes('hover');
-      const isParent = PARENT_LAYERS.includes(layerId);
       if (isHover && this.mapRef.getLayer(layerId)) {
         this.mapRef.setPaintProperty(
           layerId,
           'fill-opacity',
-          getLayerFill(captiveIds.size ? captiveIds : undefined, !isParent, isDemographic)
+          getLayerFill(captiveIds.size ? captiveIds : undefined, isDemographic)
         );
       }
     });
@@ -230,7 +229,6 @@ export class MapRenderSubscriber {
     const {mapOptions} = controlsState;
     [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
       const isHover = layerId.includes('hover');
-      const isParent = PARENT_LAYERS.includes(layerId);
 
       if (isHover && this.mapRef.getLayer(layerId)) {
         this.mapRef.setPaintProperty(
@@ -238,7 +236,6 @@ export class MapRenderSubscriber {
           'fill-opacity',
           getLayerFill(
             captiveIds.size ? captiveIds : undefined,
-            !isParent,
             mapOptions.showDemographicMap === 'overlay'
           )
         );

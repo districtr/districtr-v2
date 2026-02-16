@@ -1,4 +1,4 @@
-import {BLOCK_HOVER_LAYER_ID, BLOCK_LAYER_ID_HIGHLIGHT, getLayerFill} from '@/app/constants/layers';
+import {getLayerFill} from '@/app/constants/layers';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import type {FilterSpecification} from 'maplibre-gl';
@@ -6,15 +6,25 @@ import {useMemo} from 'react';
 import {ZoneAssignmentLayer} from './ZoneAssignmentLayer';
 import {ZoneHighlightLayer} from './ZoneHighlightLayer';
 
-export default function ZoneParentLayerGroup({layerBeforeId}: {layerBeforeId: string}) {
-  const mapDocument = useMapStore(state => state.mapDocument);
-  const sourceLayerId = mapDocument?.parent_layer;
-  const layerFilter = ['literal', true] as FilterSpecification;
+export function ZoneLayerGroup({
+  ids,
+  sourceLayerId,
+  filter,
+  layerBeforeId,
+}: {
+  ids: {
+    highlightId: string;
+    assignmentId: string;
+  };
+  sourceLayerId: string;
+  filter: FilterSpecification;
+  layerBeforeId: string;
+}) {
   const captiveIds = useMapStore(state => state.captiveIds);
   const isOverlayed =
     useMapControlsStore(state => state.mapOptions.showDemographicMap) === 'overlay';
   const layerOpacity = useMemo(
-    () => getLayerFill(captiveIds, false, isOverlayed),
+    () => getLayerFill(captiveIds, isOverlayed),
     [captiveIds, isOverlayed]
   );
 
@@ -23,17 +33,17 @@ export default function ZoneParentLayerGroup({layerBeforeId}: {layerBeforeId: st
   return (
     <>
       <ZoneHighlightLayer
-        id={BLOCK_LAYER_ID_HIGHLIGHT}
+        id={ids.highlightId}
         sourceLayerId={sourceLayerId}
-        filter={layerFilter}
+        filter={filter}
         beforeId={layerBeforeId}
       />
       <ZoneAssignmentLayer
-        id={BLOCK_HOVER_LAYER_ID}
+        id={ids.assignmentId}
         sourceLayerId={sourceLayerId}
-        filter={layerFilter}
-        beforeId={BLOCK_LAYER_ID_HIGHLIGHT}
-        baseFillOpacity={layerOpacity}
+        filter={filter}
+        beforeId={ids.highlightId}
+        style={{baseFillOpacity: layerOpacity}}
       />
     </>
   );

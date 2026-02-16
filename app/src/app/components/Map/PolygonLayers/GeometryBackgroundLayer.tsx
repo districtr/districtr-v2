@@ -8,14 +8,18 @@ export function GeometryBackgroundLayer({
   sourceLayerId,
   filter,
   beforeId,
-  backgroundOpacity,
+  style,
 }: {
   id: string;
   sourceLayerId: string;
   filter: FilterSpecification;
   beforeId: string;
-  backgroundOpacity: number;
+  style?: {
+    backgroundOpacity?: number;
+  };
 }) {
+  const backgroundOpacity = style?.backgroundOpacity ?? 0.2;
+
   const fillOpacity = useMemo(
     () =>
       [
@@ -37,7 +41,7 @@ export function GeometryBackgroundLayer({
       beforeId={beforeId}
       type="fill"
       layout={{visibility: 'visible'}}
-      paint={{'fill-opacity': fillOpacity, 'fill-color': '#f00'}}
+      paint={{'fill-opacity': fillOpacity, 'fill-color': '#cecece'}}
     />
   );
 }

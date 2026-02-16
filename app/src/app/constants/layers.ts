@@ -66,7 +66,6 @@ export const LAYER_LINE_WIDTHS = {
 
 export function getLayerFill(
   captiveIds?: Set<string>,
-  child?: boolean,
   isDemographic?: boolean
 ): DataDrivenPropertyValueSpecification<number> {
   const baseOpacity = isDemographic ? 1 : 0.6;
@@ -92,15 +91,23 @@ export function getLayerFill(
     // @ts-ignore
     ['!', ['==', ['feature-state', 'zone'], null]], //< desired behavior but typerror
     baseOpacity + 0.1,
-    isDemographic ? baseOpacity - 0.2 : baseOpacity - 0.4,
+    0,
   ] as unknown as DataDrivenPropertyValueSpecification<number>;
   if (captiveIds?.size) {
     return [
       'case',
-      ['!', ['in', ['get', 'path'], ['literal', Array.from(captiveIds)]]],
-      baseOpacity - 0.25,
-      innerFillSpec,
-    ] as DataDrivenPropertyValueSpecification<number>;
+      ['boolean', ['feature-state', 'broken'], false],
+      0,
+      // @ts-ignore
+      ['!', ['==', ['feature-state', 'zone'], null]],
+      [
+        'case',
+        ['!', ['in', ['get', 'path'], ['literal', Array.from(captiveIds)]]],
+        baseOpacity - 0.25,
+        innerFillSpec,
+      ],
+      0,
+    ] as unknown as DataDrivenPropertyValueSpecification<number>;
   } else {
     return innerFillSpec;
   }
