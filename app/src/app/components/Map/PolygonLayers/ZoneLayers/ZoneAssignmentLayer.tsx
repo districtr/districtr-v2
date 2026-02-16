@@ -20,13 +20,11 @@ export function ZoneAssignmentLayer({
 }) {
   const colorScheme = useColorScheme();
   const showPaintedDistricts = useMapControlsStore(state => state.mapOptions.showPaintedDistricts);
-
   const fillOpacity = useMemo(
     () =>
       [
         'case',
-        // Assigned if zone is not null; unassigned stays transparent.
-        // @ts-ignore maplibre expression types are strict around null comparisons
+        // Show assignment color only where a zone is assigned.
         ['!', ['==', ['feature-state', 'zone'], null]],
         baseFillOpacity,
         0,

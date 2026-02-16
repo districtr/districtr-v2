@@ -1,8 +1,4 @@
-import {
-  BLOCK_HOVER_LAYER_ID,
-  BLOCK_LAYER_ID_HIGHLIGHT,
-  getLayerFill,
-} from '@/app/constants/layers';
+import {BLOCK_HOVER_LAYER_ID, BLOCK_LAYER_ID_HIGHLIGHT, getLayerFill} from '@/app/constants/layers';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import type {FilterSpecification} from 'maplibre-gl';

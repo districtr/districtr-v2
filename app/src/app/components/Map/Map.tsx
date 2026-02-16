@@ -17,20 +17,20 @@ import {useMapControlsStore} from '@store/mapControlsStore';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import GlMap, {NavigationControl, type MapRef} from 'react-map-gl/maplibre';
 import {useLayoutEffect} from 'react';
-import {CountyLayers} from './CountyLayers';
-import {BlockSource} from './BlockSource';
+import {CountyLayers} from './PolygonLayers/CountyLayers';
+import {BlockSource} from './GeoSources/BlockSource';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';
-import {VtdBlockLayers} from './VtdBlockLayers';
-import GeometryOutlineLayer from './GeometryOutlineLayer';
-import {MetaLayers} from './MetaLayers';
-import {PointSelectionLayer} from './PointSelectionLayer';
-import {OverlayLayers} from './OverlayLayers';
+import {VtdBlockLayers} from './PolygonLayers/VtdBlockLayers';
+import GeometryOutlineLayer from './PolygonLayers/GeometryOutlineLayer';
+import {MetaLayers} from './PointLayers/MetaLayers';
+import {PointSelectionLayer} from './PointLayers/PointSelectionLayer';
+import {OverlayLayers} from './PolygonLayers/OverlayLayers';
 import {MapLayerAnchors} from './MapLayerAnchors';
 // @ts-ignore plugin has no types
 import syncMaps from '@mapbox/mapbox-gl-sync-move';
 import {useMapRenderer} from '@/app/hooks/useMapRenderer';
-import {PointSource} from '@/app/components/Map/PointSource';
-import {GeometryBackgroundLayer} from './GeometryBackgroundLayer';
+import {PointSource} from './GeoSources/PointSource';
+import {GeometryBackgroundLayer} from './PolygonLayers/GeometryBackgroundLayer';
 
 const MAP_LAYER_ORDER = {
   countyLayerBeforeId: 'anchor-counties',
