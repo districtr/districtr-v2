@@ -18,33 +18,57 @@ import {BlockSource} from './GeoSources/BlockSource';
 import {MetaLayers} from './PointLayers/MetaLayers';
 import {PointSelectionLayer} from './PointLayers/PointSelectionLayer';
 import {OverlayLayers} from './PolygonLayers/OverlayLayers';
-import {MapLayerAnchors} from './MapLayerAnchors';
+import {MapLayerAnchors, MAP_LAYER_ANCHORS} from './MapLayerAnchors';
 // @ts-ignore plugin has no types
 import syncMaps from '@mapbox/mapbox-gl-sync-move';
 import {useMapRenderer} from '@/app/hooks/useMapRenderer';
 import {PointSource} from './GeoSources/PointSource';
-import {ParentBlockLayers, DemographicParentBlockLayers} from './PolygonLayers/ParentBlockLayers';
+import {
+  ParentBlockLayers,
+  DemographicParentBlockLayers,
+} from './PolygonLayers/ParentBlockLayers';
 import {ChildBlockLayers, DemographicChildBlockLayers} from './PolygonLayers/ChildBlockLayers';
 import {DemographyColorController} from './PolygonLayers/DemographyColorController';
+import type {ParentChildBlockLayerOrder} from './PolygonLayers/layerContracts';
 
-const MAP_LAYER_ORDER = {
-  countyLayerBeforeId: 'anchor-counties',
-  overlayLayerBeforeId: 'anchor-overlays',
-  assignmentLayerBeforeId: 'anchor-assignments',
-  demographyLayerBeforeId: 'anchor-demography',
-  geometryOutlineLayerBeforeId: 'anchor-geometry-outline',
-  hoverLayerBeforeId: 'anchor-hover',
-} as const;
+/**
+ * Global z-order from top -> bottom:
+ * labels -> hover -> overlays -> geometry-outline -> demography -> assignments -> counties.
+ * Anchors are mounted by <MapLayerAnchors /> and all map layers target these ids via beforeId.
+ */
+const MAIN_BLOCK_LAYER_ORDER: ParentChildBlockLayerOrder = {
+  parent: {
+    backgroundBeforeId: MAP_LAYER_ANCHORS.assignments,
+    zoneBeforeId: MAP_LAYER_ANCHORS.assignments,
+    demographyBeforeId: MAP_LAYER_ANCHORS.demography,
+    hoverBeforeId: MAP_LAYER_ANCHORS.hover,
+    outlineBeforeId: MAP_LAYER_ANCHORS.overlays,
+  },
+  child: {
+    backgroundBeforeId: MAP_LAYER_ANCHORS.assignments,
+    zoneBeforeId: MAP_LAYER_ANCHORS.assignments,
+    demographyBeforeId: MAP_LAYER_ANCHORS.demography,
+    hoverBeforeId: MAP_LAYER_ANCHORS.hover,
+    outlineBeforeId: MAP_LAYER_ANCHORS.overlays,
+  },
+};
 
-const GEOMETRY_OUTLINE_LAYER_IDS = {
-  parent: 'blocks-outline',
-  child: 'blocks-child-outline',
-} as const;
-
-const UNASSIGNED_BACKGROUND_OPACITY = {
-  parent: 0.18,
-  child: 0.22,
-} as const;
+const DEMOGRAPHIC_BLOCK_LAYER_ORDER: ParentChildBlockLayerOrder = {
+  parent: {
+    backgroundBeforeId: MAP_LAYER_ANCHORS.assignments,
+    zoneBeforeId: MAP_LAYER_ANCHORS.assignments,
+    demographyBeforeId: MAP_LAYER_ANCHORS.demography,
+    hoverBeforeId: MAP_LAYER_ANCHORS.hover,
+    outlineBeforeId: MAP_LAYER_ANCHORS.overlays,
+  },
+  child: {
+    backgroundBeforeId: MAP_LAYER_ANCHORS.assignments,
+    zoneBeforeId: MAP_LAYER_ANCHORS.assignments,
+    demographyBeforeId: MAP_LAYER_ANCHORS.demography,
+    hoverBeforeId: MAP_LAYER_ANCHORS.hover,
+    outlineBeforeId: MAP_LAYER_ANCHORS.overlays,
+  },
+};
 
 /**
  * Shared rendering shell for both main and demographic map variants.
@@ -182,13 +206,13 @@ export function MainMapComponent() {
       }}
     >
       <MapLayerAnchors />
-      <CountyLayers layerBeforeId={MAP_LAYER_ORDER.countyLayerBeforeId} />
+      <CountyLayers layerBeforeId={MAP_LAYER_ANCHORS.counties} />
       <BlockSource>
-        <ParentBlockLayers layerBeforeId={MAP_LAYER_ORDER.assignmentLayerBeforeId} />
-        <ChildBlockLayers layerBeforeId={MAP_LAYER_ORDER.assignmentLayerBeforeId} />
+        <ParentBlockLayers layerOrder={MAIN_BLOCK_LAYER_ORDER.parent} />
+        <ChildBlockLayers layerOrder={MAIN_BLOCK_LAYER_ORDER.child} />
         <DemographyColorController enabled={mapOptions.showDemographicMap === 'overlay'} />
       </BlockSource>
-      <OverlayLayers layerBeforeId={MAP_LAYER_ORDER.overlayLayerBeforeId} />
+      <OverlayLayers layerBeforeId={MAP_LAYER_ANCHORS.overlays} />
       <PointSource>
         <PointSelectionLayer />
         <PointSelectionLayer child />
@@ -249,13 +273,13 @@ export function DemographicMapComponent() {
       }}
     >
       <MapLayerAnchors />
-      <CountyLayers layerBeforeId={MAP_LAYER_ORDER.countyLayerBeforeId} />
+      <CountyLayers layerBeforeId={MAP_LAYER_ANCHORS.counties} />
       <BlockSource>
-        <DemographicParentBlockLayers layerBeforeId={MAP_LAYER_ORDER.demographyLayerBeforeId} />
-        <DemographicChildBlockLayers layerBeforeId={MAP_LAYER_ORDER.demographyLayerBeforeId} />
+        <DemographicParentBlockLayers layerOrder={DEMOGRAPHIC_BLOCK_LAYER_ORDER.parent} />
+        <DemographicChildBlockLayers layerOrder={DEMOGRAPHIC_BLOCK_LAYER_ORDER.child} />
         <DemographyColorController enabled={true} />
       </BlockSource>
-      <OverlayLayers layerBeforeId={MAP_LAYER_ORDER.overlayLayerBeforeId} />
+      <OverlayLayers layerBeforeId={MAP_LAYER_ANCHORS.overlays} />
       <PointSource>
         <PointSelectionLayer />
         <PointSelectionLayer child />

@@ -8,13 +8,22 @@ import {EMPTY_FT_COLLECTION, LABELS_BREAK_LAYER_ID} from '@/app/constants/layers
  * This is not a technical requirement but is intended to make it easier to reason
  * about the layer ordering when reading the code.
  */
+export const MAP_LAYER_ANCHORS = {
+  hover: 'anchor-hover',
+  overlays: 'anchor-overlays',
+  geometryOutline: 'anchor-geometry-outline',
+  demography: 'anchor-demography',
+  assignments: 'anchor-assignments',
+  counties: 'anchor-counties',
+} as const;
+
 const ANCHOR_IDS = [
-  'anchor-hover',
-  'anchor-overlays',
-  'anchor-demography',
-  'anchor-assignments',
-  'anchor-geometry-outline',
-  'anchor-counties',
+  MAP_LAYER_ANCHORS.hover,
+  MAP_LAYER_ANCHORS.overlays,
+  MAP_LAYER_ANCHORS.geometryOutline,
+  MAP_LAYER_ANCHORS.demography,
+  MAP_LAYER_ANCHORS.assignments,
+  MAP_LAYER_ANCHORS.counties,
 ] as const;
 
 /**
