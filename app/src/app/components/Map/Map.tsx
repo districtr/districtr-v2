@@ -1,5 +1,5 @@
 'use client';
-import type {FilterSpecification, MapLayerEventType} from 'maplibre-gl';
+import type {MapLayerEventType} from 'maplibre-gl';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {Protocol} from 'pmtiles';
@@ -7,11 +7,7 @@ import type {MutableRefObject} from 'react';
 import React, {useCallback, useEffect, useMemo, useRef} from 'react';
 import {MAP_OPTIONS} from '@constants/configuration';
 import {handleWheelOrPinch, mapContainerEvents, mapEventHandlers} from '@utils/events/mapEvents';
-import {
-  BLOCK_HOVER_LAYER_ID,
-  BLOCK_HOVER_LAYER_ID_CHILD,
-  INTERACTIVE_LAYERS,
-} from '@constants/layers';
+import {INTERACTIVE_LAYERS} from '@constants/layers';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
@@ -19,9 +15,6 @@ import GlMap, {NavigationControl, type MapRef} from 'react-map-gl/maplibre';
 import {useLayoutEffect} from 'react';
 import {CountyLayers} from './PolygonLayers/CountyLayers';
 import {BlockSource} from './GeoSources/BlockSource';
-import {useLayerFilter} from '@/app/hooks/useLayerFilter';
-import {VtdBlockLayers} from './PolygonLayers/VtdBlockLayers';
-import GeometryOutlineLayer from './PolygonLayers/GeometryOutlineLayer';
 import {MetaLayers} from './PointLayers/MetaLayers';
 import {PointSelectionLayer} from './PointLayers/PointSelectionLayer';
 import {OverlayLayers} from './PolygonLayers/OverlayLayers';
@@ -30,7 +23,8 @@ import {MapLayerAnchors} from './MapLayerAnchors';
 import syncMaps from '@mapbox/mapbox-gl-sync-move';
 import {useMapRenderer} from '@/app/hooks/useMapRenderer';
 import {PointSource} from './GeoSources/PointSource';
-import {GeometryBackgroundLayer} from './PolygonLayers/GeometryBackgroundLayer';
+import {ParentBlockLayers, DemographicParentBlockLayers} from './PolygonLayers/ParentBlockLayers';
+import {ChildBlockLayers, DemographicChildBlockLayers} from './PolygonLayers/ChildBlockLayers';
 
 const MAP_LAYER_ORDER = {
   countyLayerBeforeId: 'anchor-counties',
@@ -144,14 +138,9 @@ function MapShell({
   );
 }
 
-export const MainMapComponent: React.FC = () => {
+export function MainMapComponent() {
   const setMapRef = useMapStore(state => state.setMapRef);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
-  const mapDocument = useMapStore(state => state.mapDocument);
-  const childLayerFilter = useLayerFilter(true);
-  const parentLayerFilter = useLayerFilter(false);
-  const parentAssignmentFilter = ['literal', true] as FilterSpecification;
-  const showGeometryBackground = !mapOptions.showDemographicMap;
   const {mapRef, onLoad} = useMapRenderer('main');
 
   const initialViewState = useMemo(() => {
@@ -194,46 +183,8 @@ export const MainMapComponent: React.FC = () => {
       <MapLayerAnchors />
       <CountyLayers layerBeforeId={MAP_LAYER_ORDER.countyLayerBeforeId} />
       <BlockSource>
-        {showGeometryBackground && mapDocument?.parent_layer && (
-          <GeometryBackgroundLayer
-            id={`${BLOCK_HOVER_LAYER_ID}-background`}
-            sourceLayerId={mapDocument.parent_layer}
-            filter={parentAssignmentFilter}
-            beforeId={BLOCK_HOVER_LAYER_ID}
-            backgroundOpacity={UNASSIGNED_BACKGROUND_OPACITY.parent}
-          />
-        )}
-        {showGeometryBackground && mapDocument?.child_layer && (
-          <GeometryBackgroundLayer
-            id={`${BLOCK_HOVER_LAYER_ID_CHILD}-background`}
-            sourceLayerId={mapDocument.child_layer}
-            filter={childLayerFilter}
-            beforeId={BLOCK_HOVER_LAYER_ID_CHILD}
-            backgroundOpacity={UNASSIGNED_BACKGROUND_OPACITY.child}
-          />
-        )}
-        <VtdBlockLayers
-          isDemographicMap={false}
-          layerOrder={{
-            assignmentLayerBeforeId: MAP_LAYER_ORDER.assignmentLayerBeforeId,
-            demographyLayerBeforeId: MAP_LAYER_ORDER.demographyLayerBeforeId,
-            hoverLayerBeforeId: MAP_LAYER_ORDER.hoverLayerBeforeId,
-          }}
-        />
-        <GeometryOutlineLayer
-          lineWidth={2}
-          sourceLayerId={mapDocument?.parent_layer}
-          lineId={GEOMETRY_OUTLINE_LAYER_IDS.parent}
-          beforeId={MAP_LAYER_ORDER.geometryOutlineLayerBeforeId}
-          filter={parentLayerFilter}
-        />
-        <GeometryOutlineLayer
-          lineWidth={1}
-          sourceLayerId={mapDocument?.child_layer}
-          lineId={GEOMETRY_OUTLINE_LAYER_IDS.child}
-          beforeId={MAP_LAYER_ORDER.geometryOutlineLayerBeforeId}
-          filter={childLayerFilter}
-        />
+        <ParentBlockLayers layerBeforeId={MAP_LAYER_ORDER.assignmentLayerBeforeId} />
+        <ChildBlockLayers layerBeforeId={MAP_LAYER_ORDER.assignmentLayerBeforeId} />
       </BlockSource>
       <OverlayLayers layerBeforeId={MAP_LAYER_ORDER.overlayLayerBeforeId} />
       <PointSource>
@@ -244,13 +195,10 @@ export const MainMapComponent: React.FC = () => {
       <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
     </MapShell>
   );
-};
+}
 
-export const DemographicMapComponent: React.FC = () => {
+export function DemographicMapComponent() {
   const getStateMapRef = useMapStore(state => state.getMapRef);
-  const mapDocument = useMapStore(state => state.mapDocument);
-  const childLayerFilter = useLayerFilter(true);
-  const parentLayerFilter = useLayerFilter(false);
   const synced = useRef<false | (() => void)>(false);
   const {mapRef, onLoad} = useMapRenderer('demographic');
 
@@ -301,28 +249,8 @@ export const DemographicMapComponent: React.FC = () => {
       <MapLayerAnchors />
       <CountyLayers layerBeforeId={MAP_LAYER_ORDER.countyLayerBeforeId} />
       <BlockSource>
-        <VtdBlockLayers
-          isDemographicMap={true}
-          layerOrder={{
-            assignmentLayerBeforeId: MAP_LAYER_ORDER.assignmentLayerBeforeId,
-            demographyLayerBeforeId: MAP_LAYER_ORDER.demographyLayerBeforeId,
-            hoverLayerBeforeId: MAP_LAYER_ORDER.hoverLayerBeforeId,
-          }}
-        />
-        <GeometryOutlineLayer
-          lineWidth={2}
-          sourceLayerId={mapDocument?.parent_layer}
-          lineId={GEOMETRY_OUTLINE_LAYER_IDS.parent}
-          beforeId={MAP_LAYER_ORDER.geometryOutlineLayerBeforeId}
-          filter={parentLayerFilter}
-        />
-        <GeometryOutlineLayer
-          lineWidth={1}
-          sourceLayerId={mapDocument?.child_layer}
-          lineId={GEOMETRY_OUTLINE_LAYER_IDS.child}
-          beforeId={MAP_LAYER_ORDER.geometryOutlineLayerBeforeId}
-          filter={childLayerFilter}
-        />
+        <DemographicParentBlockLayers layerBeforeId={MAP_LAYER_ORDER.demographyLayerBeforeId} />
+        <DemographicChildBlockLayers layerBeforeId={MAP_LAYER_ORDER.demographyLayerBeforeId} />
       </BlockSource>
       <OverlayLayers layerBeforeId={MAP_LAYER_ORDER.overlayLayerBeforeId} />
       <PointSource>
@@ -333,7 +261,4 @@ export const DemographicMapComponent: React.FC = () => {
       <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
     </MapShell>
   );
-};
-
-// Backwards compatible export for older imports.
-export const MapComponent = MainMapComponent;
+}

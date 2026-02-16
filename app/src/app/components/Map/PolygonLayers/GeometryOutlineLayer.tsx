@@ -3,22 +3,22 @@ import {Layer} from 'react-map-gl/maplibre';
 import {FilterSpecification} from 'maplibre-gl';
 
 export default function GeometryOutlineLayer({
+  id,
   lineWidth,
   sourceLayerId,
-  lineId,
   beforeId,
   filter,
 }: {
+  id: string;
   lineWidth: number;
   sourceLayerId?: string | null;
-  lineId: string;
   beforeId: string;
   filter: FilterSpecification;
 }) {
   if (!sourceLayerId) return null;
   return (
     <Layer
-      id={lineId}
+      id={id}
       source={BLOCK_SOURCE_ID}
       source-layer={sourceLayerId}
       filter={filter}

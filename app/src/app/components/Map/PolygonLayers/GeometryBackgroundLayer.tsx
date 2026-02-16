@@ -37,7 +37,7 @@ export function GeometryBackgroundLayer({
       beforeId={beforeId}
       type="fill"
       layout={{visibility: 'visible'}}
-      paint={{'fill-opacity': fillOpacity, 'fill-color': '#cecece'}}
+      paint={{'fill-opacity': fillOpacity, 'fill-color': '#f00'}}
     />
   );
 }
