@@ -25,6 +25,7 @@ import {useMapRenderer} from '@/app/hooks/useMapRenderer';
 import {PointSource} from './GeoSources/PointSource';
 import {ParentBlockLayers, DemographicParentBlockLayers} from './PolygonLayers/ParentBlockLayers';
 import {ChildBlockLayers, DemographicChildBlockLayers} from './PolygonLayers/ChildBlockLayers';
+import {DemographyColorController} from './PolygonLayers/DemographyColorController';
 
 const MAP_LAYER_ORDER = {
   countyLayerBeforeId: 'anchor-counties',
@@ -185,6 +186,7 @@ export function MainMapComponent() {
       <BlockSource>
         <ParentBlockLayers layerBeforeId={MAP_LAYER_ORDER.assignmentLayerBeforeId} />
         <ChildBlockLayers layerBeforeId={MAP_LAYER_ORDER.assignmentLayerBeforeId} />
+        <DemographyColorController enabled={mapOptions.showDemographicMap === 'overlay'} />
       </BlockSource>
       <OverlayLayers layerBeforeId={MAP_LAYER_ORDER.overlayLayerBeforeId} />
       <PointSource>
@@ -251,6 +253,7 @@ export function DemographicMapComponent() {
       <BlockSource>
         <DemographicParentBlockLayers layerBeforeId={MAP_LAYER_ORDER.demographyLayerBeforeId} />
         <DemographicChildBlockLayers layerBeforeId={MAP_LAYER_ORDER.demographyLayerBeforeId} />
+        <DemographyColorController enabled={true} />
       </BlockSource>
       <OverlayLayers layerBeforeId={MAP_LAYER_ORDER.overlayLayerBeforeId} />
       <PointSource>
