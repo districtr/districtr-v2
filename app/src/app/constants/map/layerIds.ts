@@ -55,6 +55,16 @@ export const CANONICAL_LAYER_IDS = {
   },
 } as const;
 
+// Strong type exports for use in layer building
+
+export type BlockScope = keyof typeof CANONICAL_LAYER_IDS.BLOCK;
+// "PARENT" | "CHILD"
+
+export type BlockLayerType = keyof typeof CANONICAL_LAYER_IDS.BLOCK.PARENT;
+// "BASE" | "HOVER" | "HIGHLIGHT" | "POINTS" | "OUTLINE" | "BACKGROUND"
+
+export type BlockLayerRef = {scope: BlockScope; type: BlockLayerType};
+
 // These are included here so that the migration to new constants location does not
 // break things
 export const BLOCK_SOURCE_ID = CANONICAL_LAYER_IDS.SOURCES.BLOCK;

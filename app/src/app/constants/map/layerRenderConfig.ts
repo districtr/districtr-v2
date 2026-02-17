@@ -16,7 +16,7 @@ export type ParentChildBlockLayerOrder = {
   child: BlockLayerOrder;
 };
 
-const DEFAULT_BLOCK_LAYER_ORDER: BlockLayerOrder = {
+export const DEFAULT_BLOCK_LAYER_ORDER: BlockLayerOrder = {
   backgroundBeforeId: MAP_LAYER_ANCHOR_IDS.assignments,
   zoneBeforeId: MAP_LAYER_ANCHOR_IDS.assignments,
   demographyBeforeId: MAP_LAYER_ANCHOR_IDS.demography,

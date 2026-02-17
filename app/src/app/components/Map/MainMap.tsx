@@ -1,5 +1,5 @@
 'use client';
-import maplibregl from 'maplibre-gl';
+import maplibregl, {FilterSpecification} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {Protocol} from 'pmtiles';
 import React, {useCallback, useEffect, useMemo} from 'react';
@@ -19,12 +19,14 @@ import {MapContainer} from './MapContainer';
 import syncMaps from '@mapbox/mapbox-gl-sync-move';
 import {useMapRenderer} from '@/app/hooks/useMapRenderer';
 import {PointSource} from './GeoSources/PointSource';
-import {ParentBlockLayers} from './PolygonLayers/ParentBlockLayers';
-import {ChildBlockLayers} from './PolygonLayers/ChildBlockLayers';
+import {BlockLayers} from './PolygonLayers/BlockLayers';
 import {MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
-import {DEFAULT_PARENT_CHILD_BLOCK_LAYER_ORDER} from '@/app/constants/map/layerRenderConfig';
+import {useLayerFilter} from '@/app/hooks/useLayerFilter';
 
 export const MainMap: React.FC = () => {
+  const mapDocument = useMapStore(state => state.mapDocument);
+  const parentOutlineFilter = useLayerFilter(false);
+  const childLayerFilter = useLayerFilter(true);
   const setMapRef = useMapStore(state => state.setMapRef);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const {mapRef, onLoad} = useMapRenderer('main');
@@ -69,8 +71,22 @@ export const MainMap: React.FC = () => {
       <MapLayerAnchors />
       <CountyLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.counties} />
       <BlockSource>
-        <ParentBlockLayers layerOrder={DEFAULT_PARENT_CHILD_BLOCK_LAYER_ORDER.parent} />
-        <ChildBlockLayers layerOrder={DEFAULT_PARENT_CHILD_BLOCK_LAYER_ORDER.child} />
+        {!!mapDocument?.parent_layer && (
+          <BlockLayers
+            scope="PARENT"
+            layerFilter={['literal', true] as FilterSpecification}
+            outlineFilter={parentOutlineFilter}
+            sourceLayerId={mapDocument.parent_layer}
+          />
+        )}
+        {!!mapDocument?.child_layer && (
+          <BlockLayers
+            scope="CHILD"
+            layerFilter={childLayerFilter}
+            outlineFilter={childLayerFilter}
+            sourceLayerId={mapDocument.child_layer}
+          />
+        )}
       </BlockSource>
       <OverlayLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.overlays} />
       <PointSource>

@@ -1,5 +1,5 @@
 'use client';
-import maplibregl from 'maplibre-gl';
+import maplibregl, {FilterSpecification} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import React, {useCallback, useEffect, useMemo, useRef} from 'react';
 import {MAP_OPTIONS} from '@constants/configuration';
@@ -17,12 +17,14 @@ import {MapContainer} from './MapContainer';
 import syncMaps from '@mapbox/mapbox-gl-sync-move';
 import {useMapRenderer} from '@/app/hooks/useMapRenderer';
 import {PointSource} from './GeoSources/PointSource';
-import {DemographicParentBlockLayers} from './PolygonLayers/ParentBlockLayers';
-import {DemographicChildBlockLayers} from './PolygonLayers/ChildBlockLayers';
+import {BlockDemographicLayers} from './PolygonLayers/BlockDemographicLayers';
 import {MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
-import {DEFAULT_PARENT_CHILD_BLOCK_LAYER_ORDER} from '@/app/constants/map/layerRenderConfig';
+import {useLayerFilter} from '@/app/hooks/useLayerFilter';
 
 export const DemographicMap: React.FC = () => {
+  const mapDocument = useMapStore(state => state.mapDocument);
+  const parentOutlineFilter = useLayerFilter(false);
+  const childLayerFilter = useLayerFilter(true);
   const getStateMapRef = useMapStore(state => state.getMapRef);
   const synced = useRef<false | (() => void)>(false);
   const {mapRef, onLoad} = useMapRenderer('demographic');
@@ -74,8 +76,22 @@ export const DemographicMap: React.FC = () => {
       <MapLayerAnchors />
       <CountyLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.counties} />
       <BlockSource>
-        <DemographicParentBlockLayers layerOrder={DEFAULT_PARENT_CHILD_BLOCK_LAYER_ORDER.parent} />
-        <DemographicChildBlockLayers layerOrder={DEFAULT_PARENT_CHILD_BLOCK_LAYER_ORDER.child} />
+        {!!mapDocument?.parent_layer && (
+          <BlockDemographicLayers
+            scope="PARENT"
+            layerFilter={['literal', true] as FilterSpecification}
+            outlineFilter={parentOutlineFilter}
+            sourceLayerId={mapDocument.parent_layer}
+          />
+        )}
+        {!!mapDocument?.child_layer && (
+          <BlockDemographicLayers
+            scope="CHILD"
+            layerFilter={childLayerFilter}
+            outlineFilter={childLayerFilter}
+            sourceLayerId={mapDocument.child_layer}
+          />
+        )}
       </BlockSource>
       <OverlayLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.overlays} />
       <PointSource>
