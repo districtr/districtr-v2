@@ -1,9 +1,9 @@
 import type React from 'react';
 import {Layer, Source} from 'react-map-gl/maplibre';
 import {EMPTY_FT_COLLECTION} from '@/app/constants/map/layerStyle';
+import {MAP_LAYER_ANCHOR_ORDER} from '@/app/constants/map/layerRenderConfig';
 import {
   LABELS_BREAK_LAYER_ID,
-  MAP_LAYER_ANCHOR_IDS,
   MAP_ORDER_ANCHORS_SOURCE_ID,
 } from '@/app/constants/map/layerIds';
 
@@ -14,16 +14,6 @@ import {
  * This is not a technical requirement but is intended to make it easier to reason
  * about the layer ordering when reading the code.
  */
-export const MAP_LAYER_ANCHORS = MAP_LAYER_ANCHOR_IDS;
-
-const ANCHOR_IDS = [
-  MAP_LAYER_ANCHORS.hover,
-  MAP_LAYER_ANCHORS.overlays,
-  MAP_LAYER_ANCHORS.geometryOutline,
-  MAP_LAYER_ANCHORS.demography,
-  MAP_LAYER_ANCHORS.assignments,
-  MAP_LAYER_ANCHORS.counties,
-] as const;
 
 /**
  *
@@ -41,13 +31,13 @@ const ANCHOR_IDS = [
 export const MapLayerAnchors: React.FC = () => {
   return (
     <Source id={MAP_ORDER_ANCHORS_SOURCE_ID} type="geojson" data={EMPTY_FT_COLLECTION}>
-      {ANCHOR_IDS.map((id, i) => (
+      {MAP_LAYER_ANCHOR_ORDER.map((id, i) => (
         <Layer
           key={id}
           id={id}
           type="symbol"
           source={MAP_ORDER_ANCHORS_SOURCE_ID}
-          beforeId={i === 0 ? LABELS_BREAK_LAYER_ID : ANCHOR_IDS[i - 1]}
+          beforeId={i === 0 ? LABELS_BREAK_LAYER_ID : MAP_LAYER_ANCHOR_ORDER[i - 1]}
           layout={{visibility: 'none'}}
         />
       ))}

@@ -3,61 +3,16 @@ import {useMemo} from 'react';
 import {Layer, Source} from 'react-map-gl/maplibre';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {Overlay} from '@/app/utils/api/apiHandlers/types';
-import {
-  FillLayerSpecification,
-  LineLayerSpecification,
-  SymbolLayerSpecification,
-} from 'maplibre-gl';
 import {OVERLAY_LAYER_ID_PREFIXES} from '@/app/constants/map/layerIds';
+import {
+  DEFAULT_FILL_STYLE,
+  DEFAULT_LINE_STYLE,
+  DEFAULT_TEXT_LAYOUT,
+  DEFAULT_TEXT_PAINT,
+  HIGHLIGHT_FILL_COLOR,
+  SELECTED_LINE_STYLE,
+} from '@/app/constants/map/overlayLayerStyles';
 import {useMapStore} from '@/app/store/mapStore';
-
-const DEFAULT_FILL_STYLE: Partial<FillLayerSpecification['paint']> = {
-  'fill-color': '#627BC1',
-  'fill-opacity': 0.3,
-  'fill-outline-color': '#627BC1',
-};
-
-const DEFAULT_LINE_STYLE: Partial<LineLayerSpecification['paint']> = {
-  'line-color': '#627BC1',
-  'line-width': 2,
-  'line-opacity': 0.8,
-};
-
-const DEFAULT_TEXT_PAINT: Partial<SymbolLayerSpecification['paint']> = {
-  'text-color': '#627BC1',
-  'text-halo-color': '#fff',
-  'text-halo-width': 1.5,
-};
-
-const DEFAULT_TEXT_LAYOUT: Partial<SymbolLayerSpecification['layout']> = {
-  'text-font': ['Barlow Bold'],
-  'text-size': 14,
-  'text-anchor': 'center',
-  'text-max-width': 10,
-};
-
-// Hover highlight style for constraint selection mode
-const HOVER_FILL_STYLE: Partial<FillLayerSpecification['paint']> = {
-  'fill-color': '#FF9500',
-  'fill-opacity': 0.4,
-};
-
-// Selected constraint highlight style
-const SELECTED_FILL_STYLE: Partial<FillLayerSpecification['paint']> = {
-  'fill-color': '#FF6B00',
-  'fill-opacity': 0.5,
-};
-
-const SELECTED_LINE_STYLE: Partial<LineLayerSpecification['paint']> = {
-  'line-color': '#FF6B00',
-  'line-width': 3,
-  'line-opacity': 1,
-};
-
-const HIGHLIGHT_FILL_COLOR: Partial<FillLayerSpecification['paint']> = {
-  'fill-color': '#000000',
-  'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.7, 0],
-};
 
 interface OverlayLayerProps {
   overlay: Overlay;

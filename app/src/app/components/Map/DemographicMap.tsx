@@ -11,7 +11,7 @@ import {BlockSource} from './GeoSources/BlockSource';
 import {MetaLayers} from './PointLayers/MetaLayers';
 import {PointSelectionLayer} from './PointLayers/PointSelectionLayer';
 import {OverlayLayers} from './PolygonLayers/OverlayLayers';
-import {MapLayerAnchors, MAP_LAYER_ANCHORS} from './MapLayerAnchors';
+import {MapLayerAnchors} from './MapLayerAnchors';
 import {MapContainer} from './MapContainer';
 // @ts-ignore plugin has no types
 import syncMaps from '@mapbox/mapbox-gl-sync-move';
@@ -19,24 +19,8 @@ import {useMapRenderer} from '@/app/hooks/useMapRenderer';
 import {PointSource} from './GeoSources/PointSource';
 import {DemographicParentBlockLayers} from './PolygonLayers/ParentBlockLayers';
 import {DemographicChildBlockLayers} from './PolygonLayers/ChildBlockLayers';
-import type {ParentChildBlockLayerOrder} from './PolygonLayers/layerContracts';
-
-const DEMOGRAPHIC_BLOCK_LAYER_ORDER: ParentChildBlockLayerOrder = {
-  parent: {
-    backgroundBeforeId: MAP_LAYER_ANCHORS.assignments,
-    zoneBeforeId: MAP_LAYER_ANCHORS.assignments,
-    demographyBeforeId: MAP_LAYER_ANCHORS.demography,
-    hoverBeforeId: MAP_LAYER_ANCHORS.hover,
-    outlineBeforeId: MAP_LAYER_ANCHORS.overlays,
-  },
-  child: {
-    backgroundBeforeId: MAP_LAYER_ANCHORS.assignments,
-    zoneBeforeId: MAP_LAYER_ANCHORS.assignments,
-    demographyBeforeId: MAP_LAYER_ANCHORS.demography,
-    hoverBeforeId: MAP_LAYER_ANCHORS.hover,
-    outlineBeforeId: MAP_LAYER_ANCHORS.overlays,
-  },
-};
+import {MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
+import {DEFAULT_PARENT_CHILD_BLOCK_LAYER_ORDER} from '@/app/constants/map/layerRenderConfig';
 
 export const DemographicMap: React.FC = () => {
   const getStateMapRef = useMapStore(state => state.getMapRef);
@@ -88,12 +72,12 @@ export const DemographicMap: React.FC = () => {
       }}
     >
       <MapLayerAnchors />
-      <CountyLayers layerBeforeId={MAP_LAYER_ANCHORS.counties} />
+      <CountyLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.counties} />
       <BlockSource>
-        <DemographicParentBlockLayers layerOrder={DEMOGRAPHIC_BLOCK_LAYER_ORDER.parent} />
-        <DemographicChildBlockLayers layerOrder={DEMOGRAPHIC_BLOCK_LAYER_ORDER.child} />
+        <DemographicParentBlockLayers layerOrder={DEFAULT_PARENT_CHILD_BLOCK_LAYER_ORDER.parent} />
+        <DemographicChildBlockLayers layerOrder={DEFAULT_PARENT_CHILD_BLOCK_LAYER_ORDER.child} />
       </BlockSource>
-      <OverlayLayers layerBeforeId={MAP_LAYER_ANCHORS.overlays} />
+      <OverlayLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.overlays} />
       <PointSource>
         <PointSelectionLayer />
         <PointSelectionLayer child />

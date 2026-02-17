@@ -1,6 +1,7 @@
 'use client';
 import type React from 'react';
 import {
+  GEOMETRY_OUTLINE_LAYER_IDS,
   BLOCK_HOVER_LAYER_ID_CHILD,
   BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
 } from '@constants/map/layerIds';
@@ -11,9 +12,8 @@ import GeometryOutlineLayer from './GeometryOutlineLayer';
 import {GeometryBackgroundLayer} from './GeometryBackgroundLayer';
 import {ZoneLayerGroup} from './ZoneLayers/ZoneLayerGroup';
 import {HoverLayerGroup} from './HoverLayerGroup';
-import {GEOMETRY_OUTLINE_LAYER_IDS, UNASSIGNED_BACKGROUND_OPACITY} from './layerConstants';
+import {UNASSIGNED_BACKGROUND_OPACITY, type BlockLayerOrder} from '@constants/map/layerRenderConfig';
 import {DemographicLayer} from './DemographicLayer';
-import type {BlockLayerOrder} from './layerContracts';
 
 export const ChildBlockLayers: React.FC<{layerOrder: BlockLayerOrder}> = ({layerOrder}) => {
   const childLayerFilter = useLayerFilter(true);

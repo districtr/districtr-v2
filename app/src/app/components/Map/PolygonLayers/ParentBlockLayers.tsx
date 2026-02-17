@@ -2,6 +2,7 @@
 import type React from 'react';
 import type {FilterSpecification} from 'maplibre-gl';
 import {
+  GEOMETRY_OUTLINE_LAYER_IDS,
   BLOCK_HOVER_LAYER_ID,
   BLOCK_LAYER_ID_HIGHLIGHT,
 } from '@constants/map/layerIds';
@@ -12,8 +13,7 @@ import GeometryOutlineLayer from './GeometryOutlineLayer';
 import {HoverLayerGroup} from './HoverLayerGroup';
 import {GeometryBackgroundLayer} from './GeometryBackgroundLayer';
 import {DemographicLayer} from './DemographicLayer';
-import {GEOMETRY_OUTLINE_LAYER_IDS, UNASSIGNED_BACKGROUND_OPACITY} from './layerConstants';
-import type {BlockLayerOrder} from './layerContracts';
+import {UNASSIGNED_BACKGROUND_OPACITY, type BlockLayerOrder} from '@constants/map/layerRenderConfig';
 import {ZoneLayerGroup} from './ZoneLayers/ZoneLayerGroup';
 
 export const ParentBlockLayers: React.FC<{layerOrder: BlockLayerOrder}> = ({layerOrder}) => {
