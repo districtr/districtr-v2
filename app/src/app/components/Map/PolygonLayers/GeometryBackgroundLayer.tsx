@@ -1,7 +1,6 @@
 import type React from 'react';
 import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerIds';
-import type {DataDrivenPropertyValueSpecification, FilterSpecification} from 'maplibre-gl';
-import {useMemo} from 'react';
+import type {FilterSpecification} from 'maplibre-gl';
 import {Layer} from 'react-map-gl/maplibre';
 
 export const GeometryBackgroundLayer: React.FC<{
@@ -12,26 +11,8 @@ export const GeometryBackgroundLayer: React.FC<{
   style?: {
     backgroundOpacity?: number;
   };
-}> = ({
-  id,
-  sourceLayerId,
-  filter,
-  beforeId,
-  style,
-}) => {
+}> = ({id, sourceLayerId, filter, beforeId, style}) => {
   const backgroundOpacity = style?.backgroundOpacity ?? 0.2;
-
-  const fillOpacity = useMemo(
-    () =>
-      [
-        'case',
-        // Hide background anywhere an assignment exists.
-        ['!', ['==', ['feature-state', 'zone'], null]],
-        0,
-        backgroundOpacity,
-      ] as unknown as DataDrivenPropertyValueSpecification<number>,
-    [backgroundOpacity]
-  );
 
   return (
     <Layer
@@ -42,7 +23,16 @@ export const GeometryBackgroundLayer: React.FC<{
       beforeId={beforeId}
       type="fill"
       layout={{visibility: 'visible'}}
-      paint={{'fill-opacity': fillOpacity, 'fill-color': '#cecece'}}
+      paint={{
+        'fill-opacity': [
+          'case',
+          // Coalesce to -999 since none of our features will ever be assigned to that
+          ['!=', ['coalesce', ['feature-state', 'zone'], -999], -999],
+          0,
+          backgroundOpacity,
+        ],
+        'fill-color': '#cecece',
+      }}
     />
   );
 };

@@ -1,5 +1,5 @@
 import type React from 'react';
-import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerIds';
+import {BLOCK_SOURCE_ID, getHoverLayerIds} from '@/app/constants/map/layerIds';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import type {FilterSpecification} from 'maplibre-gl';
 import {Layer} from 'react-map-gl/maplibre';
@@ -9,16 +9,10 @@ export const HoverLayerGroup: React.FC<{
   sourceLayerId: string;
   filter: FilterSpecification;
   layerBeforeId: string;
-}> = ({
-  idBase,
-  sourceLayerId,
-  filter,
-  layerBeforeId,
-}) => {
+}> = ({idBase, sourceLayerId, filter, layerBeforeId}) => {
   const isOverlay = useMapControlsStore(state => state.mapOptions.showDemographicMap) === 'overlay';
   const fillOpacity = isOverlay ? 0.3 : 0.1;
-  const fillId = `${idBase}_demography_hover`;
-  const lineId = `${idBase}_line`;
+  const {fillId, lineId} = getHoverLayerIds(idBase);
 
   return (
     <>

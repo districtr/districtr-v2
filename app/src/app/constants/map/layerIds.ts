@@ -123,6 +123,16 @@ export const OVERLAY_LAYER_ID_PREFIXES = {
   selected: CANONICAL_LAYER_IDS.OVERLAY.SELECTED_PREFIX,
 } as const;
 
+export const HOVER_LAYER_ID_SUFFIXES = {
+  fill: '_demography_hover',
+  line: '_line',
+} as const;
+
+export const getHoverLayerIds = (idBase: string) => ({
+  fillId: `${idBase}${HOVER_LAYER_ID_SUFFIXES.fill}`,
+  lineId: `${idBase}${HOVER_LAYER_ID_SUFFIXES.line}`,
+});
+
 export const INTERACTIVE_LAYERS: string[] = [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD];
 export const LINE_LAYERS = [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD] as const;
 export const ZONE_LABEL_LAYERS: string[] = [
