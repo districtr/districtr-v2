@@ -21,7 +21,6 @@ import {useMapRenderer} from '@/app/hooks/useMapRenderer';
 import {PointSource} from './GeoSources/PointSource';
 import {ParentBlockLayers} from './PolygonLayers/ParentBlockLayers';
 import {ChildBlockLayers} from './PolygonLayers/ChildBlockLayers';
-import {DemographyColorController} from './PolygonLayers/DemographyColorController';
 import type {ParentChildBlockLayerOrder} from './PolygonLayers/layerContracts';
 
 /**
@@ -93,7 +92,6 @@ export const MainMap: React.FC = () => {
       <BlockSource>
         <ParentBlockLayers layerOrder={MAIN_BLOCK_LAYER_ORDER.parent} />
         <ChildBlockLayers layerOrder={MAIN_BLOCK_LAYER_ORDER.child} />
-        <DemographyColorController enabled={mapOptions.showDemographicMap === 'overlay'} />
       </BlockSource>
       <OverlayLayers layerBeforeId={MAP_LAYER_ANCHORS.overlays} />
       <PointSource>
