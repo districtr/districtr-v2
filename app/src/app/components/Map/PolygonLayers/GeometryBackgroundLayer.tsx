@@ -2,6 +2,7 @@ import type React from 'react';
 import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerIds';
 import type {FilterSpecification} from 'maplibre-gl';
 import {Layer} from 'react-map-gl/maplibre';
+import {SENTINEL_EMPTY_VALUE} from '@/app/constants/map/layerStyle';
 
 export const GeometryBackgroundLayer: React.FC<{
   id: string;
@@ -27,7 +28,11 @@ export const GeometryBackgroundLayer: React.FC<{
         'fill-opacity': [
           'case',
           // Coalesce to -999 since none of our features will ever be assigned to that
-          ['!=', ['coalesce', ['feature-state', 'zone'], -999], -999],
+          [
+            '!=',
+            ['coalesce', ['feature-state', 'zone'], SENTINEL_EMPTY_VALUE],
+            SENTINEL_EMPTY_VALUE,
+          ],
           0,
           backgroundOpacity,
         ],

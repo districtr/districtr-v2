@@ -8,7 +8,8 @@ export const EMPTY_FT_COLLECTION: GeoJSON.FeatureCollection<any> = {
 
 // Sometimes, maplibre requires non-empty arrays for specifications
 // This serves as a placeholder for otherwise empty arrays
-export const SENTINEL_EMPTY_ARRAY: string[] = ['-999'];
+export const SENTINEL_EMPTY_VALUE: string = '-999';
+export const SENTINEL_EMPTY_ARRAY: string[] = [SENTINEL_EMPTY_VALUE];
 
 export const ZONE_ASSIGNMENT_STYLE = (colorScheme: string[]) => {
   const colorStyleBaseline: any[] = ['case'];
