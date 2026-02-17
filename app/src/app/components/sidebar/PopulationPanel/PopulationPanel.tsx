@@ -94,25 +94,33 @@ export const PopulationPanel = () => {
           gap={'2'}
           className="flex-grow-0 p-0 pb-[80px]"
           justify={'between'}
+          minWidth={"5rem"}
         >
-          {!!isEditing && <Flex justify="end">
-            <IconButton onClick={toggleLockAllAreas} variant="ghost" disabled={access === 'read'}>
-              {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
-            </IconButton>
-          </Flex>}
+          {!!isEditing && (
+            <Flex justify="end">
+              <IconButton onClick={toggleLockAllAreas} variant="ghost" disabled={access === 'read'}>
+                {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
+              </IconButton>
+            </Flex>
+          )}
           {/* @ts-ignore */}
           {populationData.map((d, i) => (
             <Flex
               key={d.zone}
               direction={'row'}
-              gapY={'1'}
-              gapX="0"
+              gapY="1"
+              gapX="1"
               align={'center'}
               className="p-0 m-0"
               justify={'between'}
             >
               {!!showDistrictNumbers && (
-                <IconButton variant="ghost" onClick={() => setSelectedZone(d.zone)}>
+                <IconButton
+                  variant={'outline'}
+                  onClick={() => setSelectedZone(d.zone)}
+                  size="1"
+                  className={`${selectedZone === d.zone ? 'bg-gray-100' : '!shadow-none'} max-w-12 flex-grow`}
+                >
                   <Text weight={selectedZone === d.zone ? 'bold' : 'regular'}>{d.zone}</Text>
                 </IconButton>
               )}
@@ -122,13 +130,15 @@ export const PopulationPanel = () => {
                   color={colorScheme[(d.zone - 1) % colorScheme.length]}
                   disabled={access === 'read'}
                 />
-                {!!isEditing && <IconButton
-                  onClick={() => handleLockChange(d.zone)}
-                  variant="ghost"
-                  disabled={access === 'read'}
-                >
-                  {lockPaintedAreas.includes(d.zone) ? <LockClosedIcon /> : <LockOpen2Icon />}
-                </IconButton>}
+                {!!isEditing && (
+                  <IconButton
+                    onClick={() => handleLockChange(d.zone)}
+                    variant="ghost"
+                    disabled={access === 'read'}
+                  >
+                    {lockPaintedAreas.includes(d.zone) ? <LockClosedIcon /> : <LockOpen2Icon />}
+                  </IconButton>
+                )}
               </Flex>
             </Flex>
           ))}
