@@ -15,8 +15,6 @@ import {PointSelectionLayer} from './PointLayers/PointSelectionLayer';
 import {OverlayLayers} from './PolygonLayers/OverlayLayers';
 import {MapLayerAnchors} from './MapLayerAnchors';
 import {MapContainer} from './MapContainer';
-// @ts-ignore plugin has no types
-import syncMaps from '@mapbox/mapbox-gl-sync-move';
 import {useMapRenderer} from '@/app/hooks/useMapRenderer';
 import {PointSource} from './GeoSources/PointSource';
 import {BlockLayers} from './PolygonLayers/BlockLayers';

@@ -1,32 +1,11 @@
 import {MAP_LAYER_ANCHOR_IDS} from './layerIds';
 
-/**
- * Shared contracts for parent/child polygon layer composition and ordering.
- */
-export type BlockLayerOrder = {
-  backgroundBeforeId: string;
-  zoneBeforeId: string;
-  demographyBeforeId: string;
-  hoverBeforeId: string;
-  outlineBeforeId: string;
-};
-
-export type ParentChildBlockLayerOrder = {
-  parent: BlockLayerOrder;
-  child: BlockLayerOrder;
-};
-
-export const DEFAULT_BLOCK_LAYER_ORDER: BlockLayerOrder = {
+export const DEFAULT_BLOCK_LAYER_ORDER = {
   backgroundBeforeId: MAP_LAYER_ANCHOR_IDS.assignments,
   zoneBeforeId: MAP_LAYER_ANCHOR_IDS.assignments,
   demographyBeforeId: MAP_LAYER_ANCHOR_IDS.demography,
   hoverBeforeId: MAP_LAYER_ANCHOR_IDS.hover,
   outlineBeforeId: MAP_LAYER_ANCHOR_IDS.overlays,
-};
-
-export const DEFAULT_PARENT_CHILD_BLOCK_LAYER_ORDER: ParentChildBlockLayerOrder = {
-  parent: {...DEFAULT_BLOCK_LAYER_ORDER},
-  child: {...DEFAULT_BLOCK_LAYER_ORDER},
 };
 
 /**

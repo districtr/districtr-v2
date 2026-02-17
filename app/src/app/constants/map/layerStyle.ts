@@ -1,5 +1,4 @@
 import {DataDrivenPropertyValueSpecification, ExpressionSpecification} from 'maplibre-gl';
-import {BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD} from './layerIds';
 export {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from './mapDefaults';
 
 export const EMPTY_FT_COLLECTION: GeoJSON.FeatureCollection<any> = {
@@ -31,11 +30,6 @@ export const ZONE_LABEL_STYLE = (colorScheme: string[]) => {
   );
   group.push('#cecece');
   return group as ExpressionSpecification;
-};
-
-export const LAYER_LINE_WIDTHS = {
-  [BLOCK_LAYER_ID]: 2,
-  [BLOCK_LAYER_ID_CHILD]: 1,
 };
 
 export function getLayerFill(
