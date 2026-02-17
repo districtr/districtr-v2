@@ -27,7 +27,6 @@ export const GeometryBackgroundLayer: React.FC<{
       paint={{
         'fill-opacity': [
           'case',
-          // Coalesce to -999 since none of our features will ever be assigned to that
           [
             '!=',
             ['coalesce', ['feature-state', 'zone'], SENTINEL_EMPTY_VALUE],
