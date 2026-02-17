@@ -1,4 +1,5 @@
 'use client';
+import type React from 'react';
 import type {FilterSpecification} from 'maplibre-gl';
 import {
   BLOCK_HOVER_LAYER_ID,
@@ -15,7 +16,7 @@ import {GEOMETRY_OUTLINE_LAYER_IDS, UNASSIGNED_BACKGROUND_OPACITY} from './layer
 import type {BlockLayerOrder} from './layerContracts';
 import {ZoneLayerGroup} from './ZoneLayers/ZoneLayerGroup';
 
-export function ParentBlockLayers({layerOrder}: {layerOrder: BlockLayerOrder}) {
+export const ParentBlockLayers: React.FC<{layerOrder: BlockLayerOrder}> = ({layerOrder}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const showDemographicMap = useMapControlsStore(state => state.mapOptions.showDemographicMap);
   const showDemographyOverlay = showDemographicMap === 'overlay';
@@ -75,9 +76,11 @@ export function ParentBlockLayers({layerOrder}: {layerOrder: BlockLayerOrder}) {
       />
     </>
   );
-}
+};
 
-export function DemographicParentBlockLayers({layerOrder}: {layerOrder: BlockLayerOrder}) {
+export const DemographicParentBlockLayers: React.FC<{layerOrder: BlockLayerOrder}> = ({
+  layerOrder,
+}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const parentLayerFilter = ['literal', true] as FilterSpecification;
   const parentOutlineFilter = useLayerFilter(false);
@@ -111,4 +114,4 @@ export function DemographicParentBlockLayers({layerOrder}: {layerOrder: BlockLay
       />
     </>
   );
-}
+};

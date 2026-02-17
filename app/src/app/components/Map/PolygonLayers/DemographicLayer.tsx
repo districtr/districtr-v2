@@ -1,3 +1,4 @@
+import type React from 'react';
 import {
   BLOCK_SOURCE_ID,
 } from '@/app/constants/layers';
@@ -5,17 +6,17 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import type {FilterSpecification} from 'maplibre-gl';
 import {Layer} from 'react-map-gl/maplibre';
 
-export function DemographicLayer({
-  idBase,
-  sourceLayerId,
-  filter,
-  layerBeforeId,
-}: {
+export const DemographicLayer: React.FC<{
   idBase: string;
   sourceLayerId: string;
   filter: FilterSpecification;
   layerBeforeId: string;
-}) {
+}> = ({
+  idBase,
+  sourceLayerId,
+  filter,
+  layerBeforeId,
+}) => {
   const isOverlay = useMapControlsStore(state => state.mapOptions.showDemographicMap) === 'overlay';
   const overlayOpacity = useMapControlsStore(state => state.mapOptions.overlayOpacity);
   const fillId = `${idBase}${isOverlay ? '_overlay' : ''}`;
@@ -40,4 +41,4 @@ export function DemographicLayer({
       }}
     />
   );
-}
+};

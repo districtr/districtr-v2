@@ -1,4 +1,5 @@
 'use client';
+import type React from 'react';
 import {
   BLOCK_HOVER_LAYER_ID_CHILD,
   BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
@@ -14,7 +15,7 @@ import {GEOMETRY_OUTLINE_LAYER_IDS, UNASSIGNED_BACKGROUND_OPACITY} from './layer
 import {DemographicLayer} from './DemographicLayer';
 import type {BlockLayerOrder} from './layerContracts';
 
-export function ChildBlockLayers({layerOrder}: {layerOrder: BlockLayerOrder}) {
+export const ChildBlockLayers: React.FC<{layerOrder: BlockLayerOrder}> = ({layerOrder}) => {
   const childLayerFilter = useLayerFilter(true);
   const mapDocument = useMapStore(state => state.mapDocument);
   const showDemographicMap = useMapControlsStore(state => state.mapOptions.showDemographicMap);
@@ -71,9 +72,11 @@ export function ChildBlockLayers({layerOrder}: {layerOrder: BlockLayerOrder}) {
       />
     </>
   );
-}
+};
 
-export function DemographicChildBlockLayers({layerOrder}: {layerOrder: BlockLayerOrder}) {
+export const DemographicChildBlockLayers: React.FC<{layerOrder: BlockLayerOrder}> = ({
+  layerOrder,
+}) => {
   const childLayerFilter = useLayerFilter(true);
   const mapDocument = useMapStore(state => state.mapDocument);
 
@@ -105,4 +108,4 @@ export function DemographicChildBlockLayers({layerOrder}: {layerOrder: BlockLaye
       />
     </>
   );
-}
+};

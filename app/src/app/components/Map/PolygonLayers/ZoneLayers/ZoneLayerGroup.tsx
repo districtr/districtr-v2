@@ -1,3 +1,4 @@
+import type React from 'react';
 import {getLayerFill} from '@/app/constants/layers';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
@@ -6,12 +7,7 @@ import {useMemo} from 'react';
 import {ZoneAssignmentLayer} from './ZoneAssignmentLayer';
 import {ZoneHighlightLayer} from './ZoneHighlightLayer';
 
-export function ZoneLayerGroup({
-  ids,
-  sourceLayerId,
-  filter,
-  layerBeforeId,
-}: {
+export const ZoneLayerGroup: React.FC<{
   ids: {
     highlightId: string;
     assignmentId: string;
@@ -19,7 +15,12 @@ export function ZoneLayerGroup({
   sourceLayerId: string;
   filter: FilterSpecification;
   layerBeforeId: string;
-}) {
+}> = ({
+  ids,
+  sourceLayerId,
+  filter,
+  layerBeforeId,
+}) => {
   const captiveIds = useMapStore(state => state.captiveIds);
   const isOverlayed =
     useMapControlsStore(state => state.mapOptions.showDemographicMap) === 'overlay';
@@ -47,4 +48,4 @@ export function ZoneLayerGroup({
       />
     </>
   );
-}
+};

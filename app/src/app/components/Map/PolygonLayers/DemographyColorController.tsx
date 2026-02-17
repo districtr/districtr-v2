@@ -1,4 +1,5 @@
 'use client';
+import type React from 'react';
 import {BLOCK_SOURCE_ID} from '@/app/constants/layers';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
@@ -7,7 +8,7 @@ import {demographyCache} from '@/app/utils/demography/demographyCache';
 import {useLayoutEffect} from 'react';
 import {useMap} from 'react-map-gl/maplibre';
 
-export function DemographyColorController({enabled}: {enabled: boolean}) {
+export const DemographyColorController: React.FC<{enabled: boolean}> = ({enabled}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const demographicVariable = useDemographyStore(state => state.variable);
   const demographicVariant = useDemographyStore(state => state.variant);
@@ -66,4 +67,4 @@ export function DemographyColorController({enabled}: {enabled: boolean}) {
   ]);
 
   return null;
-}
+};

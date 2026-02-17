@@ -1,3 +1,4 @@
+import type React from 'react';
 import {BLOCK_SOURCE_ID, ZONE_ASSIGNMENT_STYLE} from '@/app/constants/layers';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
@@ -5,13 +6,7 @@ import type {DataDrivenPropertyValueSpecification, FilterSpecification} from 'ma
 import {useMemo} from 'react';
 import {Layer} from 'react-map-gl/maplibre';
 
-export function ZoneAssignmentLayer({
-  id,
-  sourceLayerId,
-  filter,
-  beforeId,
-  style,
-}: {
+export const ZoneAssignmentLayer: React.FC<{
   id: string;
   sourceLayerId: string;
   filter: FilterSpecification;
@@ -19,7 +14,13 @@ export function ZoneAssignmentLayer({
   style?: {
     baseFillOpacity?: DataDrivenPropertyValueSpecification<number>;
   };
-}) {
+}> = ({
+  id,
+  sourceLayerId,
+  filter,
+  beforeId,
+  style,
+}) => {
   const baseFillOpacity = style?.baseFillOpacity ?? 0.7;
 
   const colorScheme = useColorScheme();
@@ -51,4 +52,4 @@ export function ZoneAssignmentLayer({
       }}
     />
   );
-}
+};

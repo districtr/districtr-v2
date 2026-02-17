@@ -1,19 +1,20 @@
+import type React from 'react';
 import {BLOCK_SOURCE_ID} from '@/app/constants/layers';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import type {FilterSpecification} from 'maplibre-gl';
 import {Layer} from 'react-map-gl/maplibre';
 
-export function ZoneHighlightLayer({
-  id,
-  sourceLayerId,
-  filter,
-  beforeId,
-}: {
+export const ZoneHighlightLayer: React.FC<{
   id: string;
   sourceLayerId: string;
   filter: FilterSpecification;
   beforeId: string;
-}) {
+}> = ({
+  id,
+  sourceLayerId,
+  filter,
+  beforeId,
+}) => {
   const highlightUnassigned = useMapControlsStore(state => state.mapOptions.higlightUnassigned);
   const showPaintedDistricts = useMapControlsStore(state => state.mapOptions.showPaintedDistricts);
 
@@ -62,4 +63,4 @@ export function ZoneHighlightLayer({
       }}
     />
   );
-}
+};

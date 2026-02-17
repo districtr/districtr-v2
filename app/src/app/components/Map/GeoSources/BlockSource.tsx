@@ -5,7 +5,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import {TILESET_URL} from '@/app/utils/api/constants';
 import {useClearMap} from '@/app/hooks/useClearMap';
 
-export function BlockSource({children}: {children: React.ReactNode}) {
+export const BlockSource: React.FC<{children: React.ReactNode}> = ({children}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const flushMapState = useMapStore(state => state.flushMapState);
   const setMapRenderingState = useMapStore(state => state.setMapRenderingState);
@@ -37,4 +37,4 @@ export function BlockSource({children}: {children: React.ReactNode}) {
       {children}
     </Source>
   );
-}
+};

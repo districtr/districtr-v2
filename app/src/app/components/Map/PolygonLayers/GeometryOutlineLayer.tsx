@@ -1,14 +1,9 @@
+import type React from 'react';
 import {BLOCK_SOURCE_ID} from '@/app/constants/layers';
 import {Layer} from 'react-map-gl/maplibre';
 import {FilterSpecification} from 'maplibre-gl';
 
-export default function GeometryOutlineLayer({
-  id,
-  sourceLayerId,
-  filter,
-  beforeId,
-  style,
-}: {
+const GeometryOutlineLayer: React.FC<{
   id: string;
   sourceLayerId: string;
   filter: FilterSpecification;
@@ -16,7 +11,13 @@ export default function GeometryOutlineLayer({
   style?: {
     lineWidth?: number;
   };
-}) {
+}> = ({
+  id,
+  sourceLayerId,
+  filter,
+  beforeId,
+  style,
+}) => {
   if (!sourceLayerId) return null;
   const lineWidth = style?.lineWidth ?? 1.5;
   return (
@@ -57,4 +58,6 @@ export default function GeometryOutlineLayer({
       }}
     />
   );
-}
+};
+
+export default GeometryOutlineLayer;

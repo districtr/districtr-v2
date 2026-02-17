@@ -1,15 +1,10 @@
+import type React from 'react';
 import {BLOCK_SOURCE_ID} from '@/app/constants/layers';
 import type {DataDrivenPropertyValueSpecification, FilterSpecification} from 'maplibre-gl';
 import {useMemo} from 'react';
 import {Layer} from 'react-map-gl/maplibre';
 
-export function GeometryBackgroundLayer({
-  id,
-  sourceLayerId,
-  filter,
-  beforeId,
-  style,
-}: {
+export const GeometryBackgroundLayer: React.FC<{
   id: string;
   sourceLayerId: string;
   filter: FilterSpecification;
@@ -17,7 +12,13 @@ export function GeometryBackgroundLayer({
   style?: {
     backgroundOpacity?: number;
   };
-}) {
+}> = ({
+  id,
+  sourceLayerId,
+  filter,
+  beforeId,
+  style,
+}) => {
   const backgroundOpacity = style?.backgroundOpacity ?? 0.2;
 
   const fillOpacity = useMemo(
@@ -44,4 +45,4 @@ export function GeometryBackgroundLayer({
       paint={{'fill-opacity': fillOpacity, 'fill-color': '#cecece'}}
     />
   );
-}
+};

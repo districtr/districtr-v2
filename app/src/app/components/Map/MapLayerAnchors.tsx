@@ -1,3 +1,4 @@
+import type React from 'react';
 import {Layer, Source} from 'react-map-gl/maplibre';
 import {EMPTY_FT_COLLECTION, LABELS_BREAK_LAYER_ID} from '@/app/constants/layers';
 
@@ -39,7 +40,7 @@ const ANCHOR_IDS = [
  * NOTE: The geometry data is set to an empty GeoJSON collection, and the visibility of the
  * layers is set to 'none' to ensure low overhead.
  */
-export function MapLayerAnchors() {
+export const MapLayerAnchors: React.FC = () => {
   return (
     <Source id="map-order-anchors" type="geojson" data={EMPTY_FT_COLLECTION}>
       {ANCHOR_IDS.map((id, i) => (
@@ -54,4 +55,4 @@ export function MapLayerAnchors() {
       ))}
     </Source>
   );
-}
+};

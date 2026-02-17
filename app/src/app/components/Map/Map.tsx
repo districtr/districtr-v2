@@ -163,7 +163,7 @@ function MapShell({
   );
 }
 
-export function MainMapComponent() {
+export const MainMapComponent: React.FC = () => {
   const setMapRef = useMapStore(state => state.setMapRef);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const {mapRef, onLoad} = useMapRenderer('main');
@@ -221,9 +221,9 @@ export function MainMapComponent() {
       <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
     </MapShell>
   );
-}
+};
 
-export function DemographicMapComponent() {
+export const DemographicMapComponent: React.FC = () => {
   const getStateMapRef = useMapStore(state => state.getMapRef);
   const synced = useRef<false | (() => void)>(false);
   const {mapRef, onLoad} = useMapRenderer('demographic');
@@ -288,4 +288,4 @@ export function DemographicMapComponent() {
       <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
     </MapShell>
   );
-}
+};
