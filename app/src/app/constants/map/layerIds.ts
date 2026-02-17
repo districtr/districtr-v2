@@ -55,8 +55,6 @@ export const CANONICAL_LAYER_IDS = {
   },
 } as const;
 
-// Strong type exports for use in layer building
-
 export type BlockScope = keyof typeof CANONICAL_LAYER_IDS.BLOCK;
 // "PARENT" | "CHILD"
 
@@ -77,6 +75,14 @@ export const SELECTION_POINTS_SOURCE_ID_CHILD = CANONICAL_LAYER_IDS.SOURCES.SELE
 export const COUNTY_SOURCE_ID = CANONICAL_LAYER_IDS.SOURCES.COUNTIES;
 
 export const MAP_ORDER_ANCHORS_SOURCE_ID = CANONICAL_LAYER_IDS.SOURCES.MAP_ORDER_ANCHORS;
+
+/** Define a constant array of anchor layer IDs, which are used for deterministic map draw ordering.
+ *
+ * NOTE: The convention for this file is that layers rendered above other layers are placed
+ * first in the order, so that the `beforeId` references are always to layers declared later.
+ * This is not a technical requirement but is intended to make it easier to reason
+ * about the layer ordering when reading the code.
+ */
 export const MAP_LAYER_ANCHOR_IDS = {
   hover: CANONICAL_LAYER_IDS.MAP_ANCHORS.HOVER,
   overlays: CANONICAL_LAYER_IDS.MAP_ANCHORS.OVERLAYS,

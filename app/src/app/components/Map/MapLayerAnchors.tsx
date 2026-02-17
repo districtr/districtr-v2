@@ -2,18 +2,7 @@ import type React from 'react';
 import {Layer, Source} from 'react-map-gl/maplibre';
 import {EMPTY_FT_COLLECTION} from '@/app/constants/map/layerStyle';
 import {MAP_LAYER_ANCHOR_ORDER} from '@/app/constants/map/layerRenderConfig';
-import {
-  LABELS_BREAK_LAYER_ID,
-  MAP_ORDER_ANCHORS_SOURCE_ID,
-} from '@/app/constants/map/layerIds';
-
-/** Define a constant array of anchor layer IDs, which are used for deterministic map draw ordering.
- *
- * NOTE: The convention for this file is that layers rendered above other layers are placed
- * first in the order, so that the `beforeId` references are always to layers declared later.
- * This is not a technical requirement but is intended to make it easier to reason
- * about the layer ordering when reading the code.
- */
+import {LABELS_BREAK_LAYER_ID, MAP_ORDER_ANCHORS_SOURCE_ID} from '@/app/constants/map/layerIds';
 
 /**
  *
@@ -23,6 +12,8 @@ import {
  * but expose stable layer IDs that other components target via `beforeId`.
  * This prevents z-order from depending on React mount timing.
  * Keep this mounted before layer groups that reference `anchor-*` IDs.
+ * Canonical top -> bottom ordering is defined in `MAP_LAYER_ANCHOR_ORDER`:
+ * `hover -> overlays -> demography -> assignments -> geometryOutline -> counties`.
  *
  *
  * NOTE: The geometry data is set to an empty GeoJSON collection, and the visibility of the

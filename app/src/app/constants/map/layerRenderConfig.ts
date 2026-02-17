@@ -5,18 +5,19 @@ export const DEFAULT_BLOCK_LAYER_ORDER = {
   zoneBeforeId: MAP_LAYER_ANCHOR_IDS.assignments,
   demographyBeforeId: MAP_LAYER_ANCHOR_IDS.demography,
   hoverBeforeId: MAP_LAYER_ANCHOR_IDS.hover,
-  outlineBeforeId: MAP_LAYER_ANCHOR_IDS.overlays,
+  outlineBeforeId: MAP_LAYER_ANCHOR_IDS.geometryOutline,
 };
 
 /**
- * Anchor layers from top -> bottom.
+ * Canonical anchor layers from top -> bottom:
+ * hover -> overlays -> demography -> assignments -> geometryOutline -> counties.
  */
 export const MAP_LAYER_ANCHOR_ORDER = [
   MAP_LAYER_ANCHOR_IDS.hover,
   MAP_LAYER_ANCHOR_IDS.overlays,
-  MAP_LAYER_ANCHOR_IDS.geometryOutline,
   MAP_LAYER_ANCHOR_IDS.demography,
   MAP_LAYER_ANCHOR_IDS.assignments,
+  MAP_LAYER_ANCHOR_IDS.geometryOutline,
   MAP_LAYER_ANCHOR_IDS.counties,
 ] as const;
 
