@@ -3,7 +3,7 @@ import type React from 'react';
 import {
   BLOCK_HOVER_LAYER_ID_CHILD,
   BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
-} from '@constants/layers';
+} from '@constants/map/layerStyle';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';

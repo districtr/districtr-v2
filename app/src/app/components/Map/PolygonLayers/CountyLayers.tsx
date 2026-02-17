@@ -4,7 +4,7 @@ import {GEODATA_URL} from '@/app/utils/api/constants';
 import {FilterSpecification} from 'maplibre-gl';
 import {useMemo} from 'react';
 import {Layer, Source} from 'react-map-gl/maplibre';
-import {SENTINEL_EMPTY_ARRAY} from '@/app/constants/layers';
+import {SENTINEL_EMPTY_ARRAY} from '@/app/constants/map/layerStyle';
 
 export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
   const mapOptions = useMapControlsStore(state => state.mapOptions);

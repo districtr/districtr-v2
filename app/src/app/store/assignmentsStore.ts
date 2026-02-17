@@ -4,7 +4,7 @@ import GeometryWorker from '../utils/GeometryWorker';
 import {demographyCache} from '../utils/demography/demographyCache';
 import {idb} from '../utils/idb/idb';
 import {useMapStore} from './mapStore';
-import {BLOCK_SOURCE_ID} from '../constants/layers';
+import {BLOCK_SOURCE_ID} from '../constants/map/layerStyle';
 import {checkIfSameZone} from '../utils/map/checkIfSameZone';
 import {formatAssignmentsFromDocument} from '../utils/map/formatAssignments';
 import {getAssignments} from '../utils/api/apiHandlers/getAssignments';

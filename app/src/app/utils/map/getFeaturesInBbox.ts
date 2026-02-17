@@ -4,7 +4,7 @@ import {
   MapGeoJSONFeature,
   Map as MaplibreMap,
 } from 'maplibre-gl';
-import {BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD} from '@/app/constants/layers';
+import {BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD} from '@/app/constants/map/layerStyle';
 import {boxAroundPoint} from '@utils/map/bboxAroundPoint';
 import {filterFeatures} from '@utils/map/filterFeatures';
 import {useMapStore} from '@/app/store/mapStore';

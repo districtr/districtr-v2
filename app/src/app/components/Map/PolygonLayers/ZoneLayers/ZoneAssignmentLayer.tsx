@@ -1,5 +1,5 @@
 import type React from 'react';
-import {BLOCK_SOURCE_ID, ZONE_ASSIGNMENT_STYLE} from '@/app/constants/layers';
+import {BLOCK_SOURCE_ID, ZONE_ASSIGNMENT_STYLE} from '@/app/constants/map/layerStyle';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import type {DataDrivenPropertyValueSpecification, FilterSpecification} from 'maplibre-gl';

@@ -1,6 +1,6 @@
 import type React from 'react';
 import {Layer, Source} from 'react-map-gl/maplibre';
-import {EMPTY_FT_COLLECTION, LABELS_BREAK_LAYER_ID} from '@/app/constants/layers';
+import {EMPTY_FT_COLLECTION, LABELS_BREAK_LAYER_ID} from '@/app/constants/map/layerStyle';
 
 /** Define a constant array of anchor layer IDs, which are used for deterministic map draw ordering.
  *

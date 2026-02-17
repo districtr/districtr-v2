@@ -1,5 +1,5 @@
 import type React from 'react';
-import {BLOCK_SOURCE_ID} from '@/app/constants/layers';
+import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerStyle';
 import type {DataDrivenPropertyValueSpecification, FilterSpecification} from 'maplibre-gl';
 import {useMemo} from 'react';
 import {Layer} from 'react-map-gl/maplibre';

@@ -3,7 +3,7 @@ import {
   ZONE_LABEL_STYLE,
   SELECTION_POINTS_SOURCE_ID,
   SELECTION_POINTS_SOURCE_ID_CHILD,
-} from '@/app/constants/layers';
+} from '@/app/constants/map/layerStyle';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';

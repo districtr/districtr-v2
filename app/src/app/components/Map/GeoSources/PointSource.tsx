@@ -4,7 +4,7 @@ import {
   EMPTY_FT_COLLECTION,
   SELECTION_POINTS_SOURCE_ID,
   SELECTION_POINTS_SOURCE_ID_CHILD,
-} from '@/app/constants/layers';
+} from '@/app/constants/map/layerStyle';
 import {usePointData} from '@/app/hooks/usePointData';
 
 // PointSource component manages the point data sources for both parent and child layers

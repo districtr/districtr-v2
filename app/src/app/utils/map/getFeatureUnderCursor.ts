@@ -4,7 +4,7 @@ import {
   MapGeoJSONFeature,
   Map as MaplibreMap,
 } from 'maplibre-gl';
-import {BLOCK_HOVER_LAYER_ID} from '@/app/constants/layers';
+import {BLOCK_HOVER_LAYER_ID} from '@/app/constants/map/layerStyle';
 import {filterFeatures} from '@utils/map/filterFeatures';
 
 /**

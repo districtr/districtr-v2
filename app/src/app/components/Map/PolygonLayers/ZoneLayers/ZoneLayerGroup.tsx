@@ -1,5 +1,5 @@
 import type React from 'react';
-import {getLayerFill} from '@/app/constants/layers';
+import {getLayerFill} from '@/app/constants/map/layerStyle';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import type {FilterSpecification} from 'maplibre-gl';

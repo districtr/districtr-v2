@@ -1,5 +1,5 @@
 import {Map as MaplibreMap} from 'maplibre-gl';
-import {BLOCK_SOURCE_ID} from '@/app/constants/layers';
+import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerStyle';
 import {ColorZoneAssignmentsState} from './types';
 import {useMapStore} from '@/app/store/mapStore';
 
