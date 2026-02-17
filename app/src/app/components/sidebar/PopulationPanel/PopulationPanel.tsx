@@ -1,7 +1,7 @@
 import {Flex, Heading, IconButton, Spinner, Text} from '@radix-ui/themes';
 import React from 'react';
 import {formatNumber} from '@utils/numbers';
-import {ParentSize} from '@visx/responsive'; // Import ParentSize
+import {ParentSize} from '@visx/responsive';
 import InfoTip from '@components/InfoTip';
 import {useChartStore} from '@store/chartStore';
 import {useMapStore} from '@store/mapStore';
@@ -15,7 +15,7 @@ import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/layers';
 import {ZoneCommentPopover} from './ZoneCommentPopover';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 
-const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
+const LEFT_COLUMN_WIDTH = 80;
 
 export const PopulationPanel = () => {
   const {populationData, demoIsLoaded} = useZonePopulations();
@@ -88,67 +88,67 @@ export const PopulationPanel = () => {
           idealPopulation={idealPopulation}
         />
       </Flex>
-      <Flex direction="row" width={'100%'} gap="1">
-        <Flex
-          direction={'column'}
-          gap={'2'}
-          className="flex-grow-0 p-0 pb-[80px]"
-          justify={'between'}
-        >
-          {!!isEditing && <Flex justify="end">
-            <IconButton onClick={toggleLockAllAreas} variant="ghost" disabled={access === 'read'}>
-              {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
-            </IconButton>
-          </Flex>}
-          {/* @ts-ignore */}
-          {populationData.map((d, i) => (
-            <Flex
-              key={d.zone}
-              direction={'row'}
-              gapY={'1'}
-              gapX="0"
-              align={'center'}
-              className="p-0 m-0"
-              justify={'between'}
-            >
-              {!!showDistrictNumbers && (
-                <IconButton variant="ghost" onClick={() => setSelectedZone(d.zone)}>
-                  <Text weight={selectedZone === d.zone ? 'bold' : 'regular'}>{d.zone}</Text>
+      <ParentSize style={{width: '100%'}}>
+        {({width}) => (
+          <PopulationChart
+            width={Math.max(100, width - LEFT_COLUMN_WIDTH)}
+            data={populationData}
+            idealPopulation={idealPopulation}
+            leftColumnWidth={LEFT_COLUMN_WIDTH}
+            topLeftContent={
+              !!isEditing ? (
+                <IconButton onClick={toggleLockAllAreas} variant="ghost" disabled={access === 'read'}>
+                  {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
                 </IconButton>
-              )}
-              <Flex gap="0" align="center">
-                <ZoneCommentPopover
-                  zone={d.zone}
-                  color={colorScheme[(d.zone - 1) % colorScheme.length]}
-                  disabled={access === 'read'}
-                />
-                {!!isEditing && <IconButton
-                  onClick={() => handleLockChange(d.zone)}
-                  variant="ghost"
-                  disabled={access === 'read'}
-                >
-                  {lockPaintedAreas.includes(d.zone) ? <LockClosedIcon /> : <LockOpen2Icon />}
-                </IconButton>}
+              ) : undefined
+            }
+            leftColumnContent={
+              <Flex
+                direction="column"
+                gap="0"
+                style={{minHeight: populationData.length * 38}}
+              >
+                {populationData.map((d) => (
+                  <Flex
+                    key={d.zone}
+                    direction="row"
+                    gapX="0"
+                    align="center"
+                    justify="between"
+                    style={{minHeight: 38}}
+                  >
+                    {!!showDistrictNumbers && (
+                      <IconButton variant="ghost" onClick={() => setSelectedZone(d.zone)}>
+                        <Text weight={selectedZone === d.zone ? 'bold' : 'regular'}>{d.zone}</Text>
+                      </IconButton>
+                    )}
+                    <Flex gap="0" align="center">
+                      <ZoneCommentPopover
+                        zone={d.zone}
+                        color={colorScheme[(d.zone - 1) % colorScheme.length]}
+                        disabled={access === 'read'}
+                      />
+                      {!!isEditing && (
+                        <IconButton
+                          onClick={() => handleLockChange(d.zone)}
+                          variant="ghost"
+                          disabled={access === 'read'}
+                        >
+                          {lockPaintedAreas.includes(d.zone) ? (
+                            <LockClosedIcon />
+                          ) : (
+                            <LockOpen2Icon />
+                          )}
+                        </IconButton>
+                      )}
+                    </Flex>
+                  </Flex>
+                ))}
               </Flex>
-            </Flex>
-          ))}
-        </Flex>
-        <ParentSize
-          style={{
-            height: populationData.length ? `${populationData.length * 38 + 76}px` : '200px',
-            width: '100%',
-          }}
-        >
-          {({width, height}) => (
-            <PopulationChart
-              width={width}
-              height={height}
-              data={populationData}
-              idealPopulation={idealPopulation}
-            />
-          )}
-        </ParentSize>
-      </Flex>
+            }
+          />
+        )}
+      </ParentSize>
       {!!idealPopulation && (
         <Flex direction={'row'} justify={'between'} align={'start'} wrap="wrap">
           <Flex direction="column" gapX="2" minWidth={'10rem'}>
