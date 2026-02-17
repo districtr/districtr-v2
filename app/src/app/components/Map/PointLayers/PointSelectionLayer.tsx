@@ -3,7 +3,7 @@ import {
   BLOCK_POINTS_LAYER_ID_CHILD,
   SELECTION_POINTS_SOURCE_ID,
   SELECTION_POINTS_SOURCE_ID_CHILD,
-} from '@/app/constants/map/layerStyle';
+} from '@/app/constants/map/layerIds';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';
 import React from 'react';
 import {Layer} from 'react-map-gl/maplibre';

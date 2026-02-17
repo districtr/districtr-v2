@@ -4,7 +4,7 @@ import type {MutableRefObject} from 'react';
 import React, {useRef} from 'react';
 import {MAP_OPTIONS} from '@constants/configuration';
 import {mapContainerEvents, mapEventHandlers} from '@utils/events/mapEvents';
-import {INTERACTIVE_LAYERS} from '@constants/map/layerStyle';
+import {INTERACTIVE_LAYERS} from '@constants/map/layerIds';
 import GlMap, {type MapRef} from 'react-map-gl/maplibre';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';

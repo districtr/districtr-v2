@@ -1,4 +1,5 @@
-import {PARENT_LAYERS, CHILD_LAYERS, getLayerFill, BLOCK_SOURCE_ID} from '@constants/map/layerStyle';
+import {getLayerFill} from '@constants/map/layerStyle';
+import {PARENT_LAYERS, CHILD_LAYERS, BLOCK_SOURCE_ID} from '@constants/map/layerIds';
 import {ColorZoneAssignmentsState} from '@utils/map/types';
 import {colorZoneAssignments} from '@utils/map/colorZoneAssignments';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';

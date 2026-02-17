@@ -1,7 +1,8 @@
 'use client';
 import {op, table, escape} from 'arquero';
 import type {ColumnTable} from 'arquero';
-import {BLOCK_SOURCE_ID, FALLBACK_NUM_DISTRICTS} from '../../constants/map/layerStyle';
+import {FALLBACK_NUM_DISTRICTS} from '../../constants/map/layerStyle';
+import {BLOCK_SOURCE_ID} from '../../constants/map/layerIds';
 import {MapGeoJSONFeature} from 'maplibre-gl';
 import {MapStore, useMapStore} from '../../store/mapStore';
 import {useAssignmentsStore, ZoneAssignmentsMap} from '../../store/assignmentsStore';

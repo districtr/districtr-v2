@@ -4,7 +4,7 @@ import type {FilterSpecification} from 'maplibre-gl';
 import {
   BLOCK_HOVER_LAYER_ID,
   BLOCK_LAYER_ID_HIGHLIGHT,
-} from '@constants/map/layerStyle';
+} from '@constants/map/layerIds';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';

@@ -2,7 +2,7 @@ import React from 'react';
 import {ContextMenu, Text} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
-import {CHILD_LAYERS, PARENT_LAYERS} from '../constants/map/layerStyle';
+import {CHILD_LAYERS} from '../constants/map/layerIds';
 
 export const MapContextMenu: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);

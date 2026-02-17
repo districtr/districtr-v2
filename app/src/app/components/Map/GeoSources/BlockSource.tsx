@@ -1,6 +1,6 @@
 import React, {useLayoutEffect, useState} from 'react';
 import {Source} from 'react-map-gl/maplibre';
-import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerStyle';
+import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerIds';
 import {useMapStore} from '@/app/store/mapStore';
 import {TILESET_URL} from '@/app/utils/api/constants';
 import {useClearMap} from '@/app/hooks/useClearMap';

@@ -1,4 +1,4 @@
-import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerStyle';
+import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerIds';
 import {MapRef} from 'react-map-gl/maplibre';
 import {MapStore} from '@/app/store/mapStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';

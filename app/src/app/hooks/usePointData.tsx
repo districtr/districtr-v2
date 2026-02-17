@@ -2,7 +2,8 @@ import {MutableRefObject, useEffect, useRef, useState} from 'react';
 import {useMapStore} from '../store/mapStore';
 import {useAssignmentsStore} from '../store/assignmentsStore';
 import {getPointSelectionData} from '../utils/api/apiHandlers/getPointSelectionData';
-import {BLOCK_SOURCE_ID, EMPTY_FT_COLLECTION} from '../constants/map/layerStyle';
+import {EMPTY_FT_COLLECTION} from '../constants/map/layerStyle';
+import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
 import {useQuery} from '@tanstack/react-query';
 import GeometryWorker from '../utils/GeometryWorker';
 

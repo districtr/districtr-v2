@@ -1,28 +1,6 @@
 import {DataDrivenPropertyValueSpecification, ExpressionSpecification} from 'maplibre-gl';
+import {BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD} from './layerIds';
 export {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from './mapDefaults';
-export const BLOCK_SOURCE_ID = 'blocks';
-export const BLOCK_LAYER_ID = 'blocks';
-export const BLOCK_POINTS_LAYER_ID = 'blocks-points';
-export const BLOCK_LAYER_ID_HIGHLIGHT = BLOCK_LAYER_ID + '-highlight';
-export const BLOCK_LAYER_ID_HIGHLIGHT_CHILD = BLOCK_LAYER_ID + '-highlight-child';
-export const BLOCK_LAYER_ID_CHILD = 'blocks-child';
-export const BLOCK_POINTS_LAYER_ID_CHILD = 'blocks-points-child';
-export const SELECTION_POINTS_SOURCE_ID = 'SELECTION_POINTS';
-export const SELECTION_POINTS_SOURCE_ID_CHILD = 'SELECTION_POINTS_child';
-export const BLOCK_HOVER_LAYER_ID = `${BLOCK_LAYER_ID}-hover`;
-export const BLOCK_HOVER_LAYER_ID_CHILD = `${BLOCK_LAYER_ID_CHILD}-hover`;
-
-export const INTERACTIVE_LAYERS = [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD];
-export const LINE_LAYERS = [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD] as const;
-export const ZONE_LABEL_LAYERS = ['ZONE_OUTLINE', 'ZONE_LABEL', 'ZONE_LABEL_BG'];
-export const PARENT_LAYERS = [BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID];
-export const COUNTY_LAYERS = ['counties_fill', 'counties_boundary', 'counties_labels'];
-
-export const CHILD_LAYERS = [
-  BLOCK_LAYER_ID_CHILD,
-  BLOCK_HOVER_LAYER_ID_CHILD,
-  BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
-];
 
 export const EMPTY_FT_COLLECTION: GeoJSON.FeatureCollection<any> = {
   type: 'FeatureCollection',
@@ -32,10 +10,6 @@ export const EMPTY_FT_COLLECTION: GeoJSON.FeatureCollection<any> = {
 // Sometimes, maplibre requires non-empty arrays for specifications
 // This serves as a placeholder for otherwise empty arrays
 export const SENTINEL_EMPTY_ARRAY: string[] = ['-999'];
-
-export const COUNTY_LAYER_IDS: string[] = ['counties_boundary', 'counties_labels'];
-
-export const LABELS_BREAK_LAYER_ID = 'places_subplace';
 
 export const ZONE_ASSIGNMENT_STYLE = (colorScheme: string[]) => {
   const colorStyleBaseline: any[] = ['case'];

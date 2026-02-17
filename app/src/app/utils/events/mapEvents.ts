@@ -24,7 +24,7 @@ import {
   BLOCK_POINTS_LAYER_ID_CHILD,
   BLOCK_SOURCE_ID,
   INTERACTIVE_LAYERS,
-} from '@/app/constants/map/layerStyle';
+} from '@/app/constants/map/layerIds';
 import {ResetMapSelectState} from '@utils/events/handlers';
 import GeometryWorker from '../GeometryWorker';
 import {ActiveTool} from '@/app/constants/types';

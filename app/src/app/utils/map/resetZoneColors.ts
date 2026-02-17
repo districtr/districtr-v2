@@ -1,6 +1,6 @@
 import {AssignmentsStore, ZoneAssignmentsMap} from '@/app/store/assignmentsStore';
 import {MapStore} from '@/app/store/mapStore';
-import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerStyle';
+import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerIds';
 
 /**
  * resetZoneColors

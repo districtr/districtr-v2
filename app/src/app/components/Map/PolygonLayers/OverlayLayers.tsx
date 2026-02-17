@@ -8,6 +8,7 @@ import {
   LineLayerSpecification,
   SymbolLayerSpecification,
 } from 'maplibre-gl';
+import {OVERLAY_LAYER_ID_PREFIXES} from '@/app/constants/map/layerIds';
 import {useMapStore} from '@/app/store/mapStore';
 
 const DEFAULT_FILL_STYLE: Partial<FillLayerSpecification['paint']> = {
@@ -71,10 +72,10 @@ const OverlayLayer = ({
   isConstraintOverlay,
   layerBeforeId,
 }: OverlayLayerProps) => {
-  const sourceId = `overlay-source-${overlay.overlay_id}`;
-  const layerId = `overlay-layer-${overlay.overlay_id}`;
-  const clickLayerId = `overlay-click-${overlay.overlay_id}`;
-  const selectedLayerId = `overlay-selected-${overlay.overlay_id}`;
+  const sourceId = `${OVERLAY_LAYER_ID_PREFIXES.source}${overlay.overlay_id}`;
+  const layerId = `${OVERLAY_LAYER_ID_PREFIXES.layer}${overlay.overlay_id}`;
+  const clickLayerId = `${OVERLAY_LAYER_ID_PREFIXES.click}${overlay.overlay_id}`;
+  const selectedLayerId = `${OVERLAY_LAYER_ID_PREFIXES.selected}${overlay.overlay_id}`;
   const paintConstraint = useOverlayStore(state => state.paintConstraint);
 
   const idProperty = overlay.id_property || 'id';
