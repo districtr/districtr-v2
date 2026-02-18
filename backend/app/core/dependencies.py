@@ -177,9 +177,7 @@ def get_document_public(
 
     # Fetch district comments from comments schema (DocumentComment with zone IS NOT NULL)
     # Apply moderation: if comment fails threshold, show placeholder text
-    MODERATION_PLACEHOLDER = (
-        "Comment removed due to moderation."
-    )
+    MODERATION_PLACEHOLDER = "Comment removed due to moderation."
     document_comments_list = None
     if result.real_document_id:
         stmt = (
@@ -206,13 +204,10 @@ def get_document_public(
             document_comments_list = []
             for dc in doc_comments:
                 # Check moderation: show placeholder if rejected or exceeds threshold
-                fails_moderation = (
-                    dc.review_status == ReviewStatus.REJECTED
-                    or (
-                        dc.moderation_score is not None
-                        and dc.moderation_score > MODERATION_THRESHOLD
-                        and dc.review_status != ReviewStatus.APPROVED
-                    )
+                fails_moderation = dc.review_status == ReviewStatus.REJECTED or (
+                    dc.moderation_score is not None
+                    and dc.moderation_score > MODERATION_THRESHOLD
+                    and dc.review_status != ReviewStatus.APPROVED
                 )
                 text = MODERATION_PLACEHOLDER if fails_moderation else dc.comment
                 document_comments_list.append(

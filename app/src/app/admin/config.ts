@@ -7,7 +7,8 @@ export const pages = [
   },
   {
     title: 'Comment Review',
-    description: 'Review and moderate form comments, tags, and commenters (excludes district comments).',
+    description:
+      'Review and moderate form comments, tags, and commenters (excludes district comments).',
     href: '/admin/review',
     cta: 'Go to Review',
   },
