@@ -25,4 +25,4 @@ export const STATUS_TEXT = {
   ready: 'Status: Ready to Share',
 } as const;
 
-export const MODERATION_COMMENT_TEXT = "Comment removed due to moderation."
+export const MODERATION_COMMENT_TEXT = 'Comment removed due to moderation.';

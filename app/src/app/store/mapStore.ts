@@ -75,7 +75,7 @@ export interface MapStore {
   updated: {
     metadata: boolean;
     comments: boolean;
-  }
+  };
   setMapDocument: (mapDocument: DocumentObject) => void;
   flushMapState: boolean;
   initiateFlushMapState: () => Promise<void>;
@@ -298,8 +298,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       set({flushMapState: false});
     },
     mutateMapDocument: mapDocument => set({mapDocument: {...get().mapDocument!, ...mapDocument}}),
-    clearUpdatedChanges: () =>
-      set({updated: {metadata: false, comments: false}}),
+    clearUpdatedChanges: () => set({updated: {metadata: false, comments: false}}),
 
     // ZONE COMMENTS
     pinnedCommentZone: null,

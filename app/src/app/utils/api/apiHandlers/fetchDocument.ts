@@ -97,9 +97,14 @@ export const fetchDocument = async (
       },
     };
   }
-  const clientHasNoEdits = idbDocument.clientLastUpdated === idbDocument.document_metadata.updated_at;
-  const priorityDocument = clientHasNoEdits ? remoteMetadata.response : idbDocument.document_metadata;
-  const subordinateDocument = clientHasNoEdits ? idbDocument.document_metadata : remoteMetadata.response;
+  const clientHasNoEdits =
+    idbDocument.clientLastUpdated === idbDocument.document_metadata.updated_at;
+  const priorityDocument = clientHasNoEdits
+    ? remoteMetadata.response
+    : idbDocument.document_metadata;
+  const subordinateDocument = clientHasNoEdits
+    ? idbDocument.document_metadata
+    : remoteMetadata.response;
   return {
     ok: true,
     response: {
@@ -109,10 +114,9 @@ export const fetchDocument = async (
         ...priorityDocument,
         // always override with remote
         overlays: remoteMetadata.response.overlays,
-        statefps: remoteMetadata.response.statefps
+        statefps: remoteMetadata.response.statefps,
       },
       assignments: idbDocument.assignments,
     },
   };
-
 };

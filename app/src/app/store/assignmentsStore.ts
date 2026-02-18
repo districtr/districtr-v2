@@ -528,7 +528,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     const documentForSave: DocumentObject = {
       ...idbDocument.document_metadata,
       ...mapDocument,
-      document_comments: mapDocument.document_comments ?? idbDocument.document_metadata.document_comments,
+      document_comments:
+        mapDocument.document_comments ?? idbDocument.document_metadata.document_comments,
     };
 
     // Include color_scheme and num_districts in assignments update if they've changed
