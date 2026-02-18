@@ -19,6 +19,8 @@ export interface TooltipStore {
   setActiveColumns: (columns: string[]) => void;
   zoneCommentTooltip: ZoneCommentTooltipState | null;
   setZoneCommentTooltip: (tooltip: ZoneCommentTooltipState | null) => void;
+  zoneCommentModalZone: number | null;
+  setZoneCommentModalZone: (zone: number | null) => void;
 }
 
 export const useTooltipStore = createWithDevWrapperAndSubscribe<TooltipStore>(
@@ -38,4 +40,6 @@ export const useTooltipStore = createWithDevWrapperAndSubscribe<TooltipStore>(
   setActiveColumns: columns => set({activeColumns: columns}),
   zoneCommentTooltip: null,
   setZoneCommentTooltip: tooltip => set({zoneCommentTooltip: tooltip}),
+  zoneCommentModalZone: null,
+  setZoneCommentModalZone: zone => set({zoneCommentModalZone: zone}),
 }));

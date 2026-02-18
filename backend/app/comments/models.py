@@ -13,7 +13,7 @@ from sqlmodel import (
     Integer,
     Float,
 )
-from sqlalchemy import func, Enum as SAEnum
+from sqlalchemy import Boolean, func, Enum as SAEnum
 from app.constants import COMMENTS_SCHEMA
 from app.core.models import TimeStampMixin, SQLModel
 from app.models import Document
@@ -156,6 +156,10 @@ class Comment(TimeStampMixin, SQLModel, table=True):
             ),
             nullable=True,
         ),
+    )
+    review_flagged: bool = Field(
+        default=False,
+        sa_column=Column(Boolean, nullable=False, default=False, server_default="false"),
     )
 
 
@@ -318,6 +322,7 @@ class AdminCommentResponse(PublicCommentResponse):
     comment_id: int
     comment_review_status: str | None = None
     comment_moderation_score: float | None = None
+    comment_review_flagged: bool = False
     commenter_id: int | None = None
     commenter_review_status: str | None = None
     commenter_moderation_score: float | None = None
@@ -358,3 +363,4 @@ class CommentFilterParams(BaseModel):
     public_id: int | None = None
     document_id: str | None = None  # For district comments: filter by document UUID
     comment_id: int | None = None  # Look up specific comment by ID
+    review_flagged: bool | None = None  # When True, filter to comments flagged for review

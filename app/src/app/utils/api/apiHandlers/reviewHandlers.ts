@@ -27,6 +27,7 @@ export interface ReviewItem {
   comment_id: number;
   comment_review_status: ReviewStatus | null;
   comment_moderation_score: number | null;
+  comment_review_flagged?: boolean;
   commenter_id: number | null;
   commenter_review_status: ReviewStatus | null;
   commenter_moderation_score: number | null;
@@ -45,6 +46,7 @@ export interface ReviewListParams {
   offset?: number;
   limit?: number;
   review_status?: ReviewStatus | null;
+  review_flagged?: boolean;
   tags?: string[];
   place?: string;
   state?: string;
@@ -57,6 +59,7 @@ export interface DistrictCommentsListParams {
   offset?: number;
   limit?: number;
   review_status?: ReviewStatus | null;
+  review_flagged?: boolean;
   document_id?: string;
   comment_id?: number;
   place?: string;
@@ -97,6 +100,34 @@ export const getAdminDistrictCommentsList = async (
     queryParams: searchParams,
   });
   return response;
+};
+
+// POST endpoint for flagging a comment for review (user-facing, no auth)
+export const flagComment = async (commentId: number): Promise<{ok: true; message: string} | {ok: false; error: string}> => {
+  const response = await post<{comment_id: number}, {message: string; comment_id: number}>(
+    'comments/flag'
+  )({
+    body: {comment_id: commentId},
+  });
+
+  if (!response.ok) {
+    const detail = response.error?.detail;
+    const errorMsg =
+      typeof detail === 'string'
+        ? detail
+        : Array.isArray(detail)
+          ? detail.map((e: {msg?: string}) => e?.msg ?? JSON.stringify(e)).join(', ')
+          : detail?.detail ?? JSON.stringify(detail ?? 'Unknown error');
+    return {
+      ok: false,
+      error: errorMsg,
+    };
+  }
+
+  return {
+    ok: true,
+    message: response.response.message,
+  };
 };
 
 // POST endpoints for updating review status

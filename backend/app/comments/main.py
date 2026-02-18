@@ -41,6 +41,11 @@ from app.comments.models import (
     ReviewUpdateResponse,
     CommentFilterParams,
 )
+from pydantic import BaseModel
+
+
+class FlagCommentRequest(BaseModel):
+    comment_id: int
 
 from app.comments.moderation import (
     moderate_submission,
@@ -496,6 +501,13 @@ def apply_comment_id_filter(stmt: Select, comment_id: int | None) -> Select:
     return stmt.where(col(Comment.id) == comment_id)
 
 
+def apply_review_flagged_filter(stmt: Select, review_flagged: bool | None) -> Select:
+    """Filter by review_flagged status. When True, return only flagged comments."""
+    if review_flagged is None:
+        return stmt
+    return stmt.where(col(Comment.review_flagged) == review_flagged)
+
+
 def apply_document_id_filter(stmt: Select, document_id: str | None) -> Select:
     """Apply document filter by document UUID (for district comments lookup)."""
     if not document_id:
@@ -708,6 +720,7 @@ def get_admin_query(
             col(Comment.id).label("comment_id"),
             col(Comment.review_status).label("comment_review_status"),
             col(Comment.moderation_score).label("comment_moderation_score"),
+            col(Comment.review_flagged).label("comment_review_flagged"),
             col(Commenter.id).label("commenter_id"),
             col(Commenter.review_status).label("commenter_review_status"),
             col(Commenter.moderation_score).label("commenter_moderation_score"),
@@ -734,6 +747,7 @@ def get_admin_query(
     stmt = apply_document_filter(stmt, params.public_id)
     stmt = apply_exclude_district_comments(stmt)
     stmt = apply_comment_id_filter(stmt, params.comment_id)
+    stmt = apply_review_flagged_filter(stmt, params.review_flagged)
     stmt = apply_location_filters(stmt, params.place, params.state, params.zip_code)
     stmt = apply_tag_filter(stmt, tag_subquery, params.tags)
 
@@ -778,6 +792,7 @@ def get_admin_district_comments_query(
             col(Comment.id).label("comment_id"),
             col(Comment.review_status).label("comment_review_status"),
             col(Comment.moderation_score).label("comment_moderation_score"),
+            col(Comment.review_flagged).label("comment_review_flagged"),
             col(Commenter.id).label("commenter_id"),
             col(Commenter.review_status).label("commenter_review_status"),
             col(Commenter.moderation_score).label("commenter_moderation_score"),
@@ -803,6 +818,7 @@ def get_admin_district_comments_query(
 
     stmt = apply_document_id_filter(stmt, params.document_id)
     stmt = apply_comment_id_filter(stmt, params.comment_id)
+    stmt = apply_review_flagged_filter(stmt, params.review_flagged)
     stmt = apply_location_filters(stmt, params.place, params.state, params.zip_code)
 
     stmt = stmt.where(
@@ -866,6 +882,10 @@ async def list_comments_admin(
     comment_id: int | None = Query(
         default=None, description="Look up specific comment by ID"
     ),
+    review_flagged: bool | None = Query(
+        default=None,
+        description="When True, filter to comments flagged for review",
+    ),
     max_moderation_score: float = Query(default=1.0),
     offset: int = Query(default=0),
     limit: int = Query(default=100),
@@ -882,6 +902,7 @@ async def list_comments_admin(
         offset=offset,
         public_id=public_id,
         comment_id=comment_id,
+        review_flagged=review_flagged,
     )
     stmt = get_admin_query(
         params,
@@ -899,6 +920,10 @@ async def list_district_comments_admin(
     ),
     comment_id: int | None = Query(
         default=None, description="Look up specific comment by ID"
+    ),
+    review_flagged: bool | None = Query(
+        default=None,
+        description="When True, filter to comments flagged for review",
     ),
     place: str = Query(default=None),
     state: str = Query(default=None),
@@ -919,6 +944,7 @@ async def list_district_comments_admin(
         offset=offset,
         document_id=document_id,
         comment_id=comment_id,
+        review_flagged=review_flagged,
     )
     stmt = get_admin_district_comments_query(
         params,
@@ -927,6 +953,21 @@ async def list_district_comments_admin(
     )
     results = session.execute(stmt).all()
     return results
+
+
+@router.post("/flag", status_code=status.HTTP_200_OK)
+async def flag_comment(
+    body: FlagCommentRequest,
+    session: Session = Depends(get_session),
+):
+    """Flag a comment for moderator review. Used when users believe a moderation decision was in error."""
+    comment = session.get(Comment, body.comment_id)
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    comment.review_flagged = True
+    session.add(comment)
+    session.commit()
+    return {"message": "Comment flagged for review", "comment_id": body.comment_id}
 
 
 @router.post("/admin/review", response_model=ReviewUpdateResponse)

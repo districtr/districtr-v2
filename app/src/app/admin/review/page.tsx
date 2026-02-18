@@ -55,6 +55,7 @@ export default function ReviewHome() {
   const [zipCode, setZipCode] = useState<string | undefined>(undefined);
   const [commentId, setCommentId] = useState<string>('');
   const [commentIdFilter, setCommentIdFilter] = useState<number | undefined>(undefined);
+  const [reviewFlagged, setReviewFlagged] = useState<boolean>(false);
   const [maxModerationScore, setMaxModerationScore] = useState<number>(1.0);
 
   const applyCommentIdFilter = () => {
@@ -71,6 +72,7 @@ export default function ReviewHome() {
     setZipCode(undefined);
     setCommentId('');
     setCommentIdFilter(undefined);
+    setReviewFlagged(false);
     setMaxModerationScore(1.0);
   };
 
@@ -78,6 +80,7 @@ export default function ReviewHome() {
     queryKey: [
       'review',
       reviewStatus,
+      reviewFlagged,
       offset,
       limit,
       tags.join('|'),
@@ -91,6 +94,7 @@ export default function ReviewHome() {
       getAdminCommentsList(
         {
           review_status: reviewStatus,
+          review_flagged: reviewFlagged || undefined,
           offset,
           limit,
           tags,
@@ -151,6 +155,22 @@ export default function ReviewHome() {
                 );
               })}
             </RadioGroup.Root>
+          </Flex>
+          <Flex direction="column" gap="2" className="w-full">
+            <Text size="2">Flagged for review</Text>
+            <Flex align="center" gap="2">
+              <input
+                type="checkbox"
+                id="review-flagged"
+                checked={reviewFlagged}
+                onChange={e => {
+                  setReviewFlagged(e.target.checked);
+                  setOffset(0);
+                }}
+                className="rounded border-gray-300"
+              />
+              <label htmlFor="review-flagged">Show only flagged comments</label>
+            </Flex>
           </Flex>
           <TagReviewFilter tags={tags} setTags={setTags} />
           <Flex direction="column" gap="2" className="w-full">

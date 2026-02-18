@@ -2,6 +2,7 @@ import {NullableZone} from '@/app/constants/types';
 import {formatAssignmentsFromState} from '../../map/formatAssignments';
 import {AssignmentArray, DocumentObject} from './types';
 import {putUpdateDocument} from './putUpdateDocument';
+import {getDocument} from './getDocument';
 import {AssignmentsStore} from '@/app/store/assignmentsStore';
 import {idb} from '../../idb/idb';
 import {getAssignments} from './getAssignments';
@@ -81,17 +82,24 @@ export const putUpdateAssignmentsAndVerify = async ({
       throw new Error('Conflict on save: assignments mismatch');
     }
   });
+  // Refetch document to get server-assigned comment_ids for district comments
+  const freshDoc = await getDocument(mapDocument.document_id);
+  const document_comments =
+    freshDoc.ok ? freshDoc.response.document_comments : undefined;
+
   await idb.updateDocument({
     id: mapDocument.document_id,
     document_metadata: {
       ...mapDocument,
       updated_at: assignmentsPostResponse.response.updated_at,
+      ...(document_comments && {document_comments}),
     },
     assignments: freshServerAssignments.response,
     clientLastUpdated: assignmentsPostResponse.response.updated_at,
   });
   useMapStore.getState().mutateMapDocument({
     updated_at: assignmentsPostResponse.response.updated_at,
+    ...(document_comments && {document_comments}),
   });
   useMapStore.getState().clearUpdatedChanges();
   return {

@@ -130,13 +130,7 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
       const comments = mapStore.mapDocument?.document_comments || [];
       const hasComments = comments.some(c => c.zone === zone);
       if (hasComments) {
-        // Pin the zone for reference and open the population panel where comments are shown
-        mapStore.setPinnedCommentZone(zone);
-        // Open the population panel in the sidebar (where zone comments are now accessible)
-        const currentPanels = useMapControlsStore.getState().sidebarPanels;
-        if (!currentPanels.includes('population')) {
-          useMapControlsStore.getState().setSidebarPanels([...currentPanels, 'population']);
-        }
+        useTooltipStore.getState().setZoneCommentModalZone(zone);
         return;
       }
     }
@@ -252,13 +246,17 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   if (zoneLabelFeatures.length > 0 && activeTool === 'pan') {
     const zone = zoneLabelFeatures[0].properties?.zone;
     if (zone !== undefined) {
-      setZoneCommentTooltip({
-        zone,
-        x: e.point.x,
-        y: e.point.y,
-      });
-      setTooltip(null);
-      return;
+      const comments = mapStore.mapDocument?.document_comments || [];
+      const hasComments = comments.some(c => c.zone === zone);
+      if (hasComments) {
+        setZoneCommentTooltip({
+          zone,
+          x: e.point.x,
+          y: e.point.y,
+        });
+        setTooltip(null);
+        return;
+      }
     }
   }
   // Clear zone comment tooltip if not hovering over zone label with comments

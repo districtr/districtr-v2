@@ -40,6 +40,7 @@ export default function DistrictCommentsReviewPage() {
   const [documentIdFilter, setDocumentIdFilter] = useState<string | undefined>(undefined);
   const [commentId, setCommentId] = useState<string>('');
   const [commentIdFilter, setCommentIdFilter] = useState<number | undefined>(undefined);
+  const [reviewFlagged, setReviewFlagged] = useState<boolean>(false);
   const [maxModerationScore, setMaxModerationScore] = useState<number>(1.0);
 
   const applyDocumentFilter = () => {
@@ -59,6 +60,7 @@ export default function DistrictCommentsReviewPage() {
     setDocumentIdFilter(undefined);
     setCommentId('');
     setCommentIdFilter(undefined);
+    setReviewFlagged(false);
     setMaxModerationScore(1.0);
     setOffset(0);
   };
@@ -67,6 +69,7 @@ export default function DistrictCommentsReviewPage() {
     queryKey: [
       'district-comments-review',
       reviewStatus,
+      reviewFlagged,
       offset,
       limit,
       documentIdFilter,
@@ -77,6 +80,7 @@ export default function DistrictCommentsReviewPage() {
       getAdminDistrictCommentsList(
         {
           review_status: reviewStatus,
+          review_flagged: reviewFlagged || undefined,
           offset,
           limit,
           document_id: documentIdFilter,
@@ -143,6 +147,22 @@ export default function DistrictCommentsReviewPage() {
               <Button size="1" onClick={applyCommentIdFilter}>
                 Search
               </Button>
+            </Flex>
+          </Flex>
+          <Flex direction="column" gap="2" className="w-full">
+            <Text size="2">Flagged for review</Text>
+            <Flex align="center" gap="2">
+              <input
+                type="checkbox"
+                id="district-review-flagged"
+                checked={reviewFlagged}
+                onChange={e => {
+                  setReviewFlagged(e.target.checked);
+                  setOffset(0);
+                }}
+                className="rounded border-gray-300"
+              />
+              <label htmlFor="district-review-flagged">Show only flagged comments</label>
             </Flex>
           </Flex>
           <Flex direction="column" gap="2" justify="between" className="w-full">

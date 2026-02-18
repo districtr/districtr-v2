@@ -54,6 +54,11 @@ export const ZoneCommentTooltip: React.FC<ZoneCommentTooltipProps> = ({zone, x, 
             +{comments.length - 3} more comment{comments.length - 3 > 1 ? 's' : ''}
           </Text>
         )}
+        {comments.length > 0 && (
+          <Text size="1" color="blue" className="mt-1 italic">
+            Click for more information
+          </Text>
+        )}
       </Flex>
     </Box>
   );
