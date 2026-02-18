@@ -211,32 +211,6 @@ class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
     document_id: str = Field(sa_column=Column(UUIDType, nullable=False))
 
 
-class DocumentComment(TimeStampMixin, SQLModel, table=True):
-    """Standalone document-level comments (e.g. district/zone notes)."""
-
-    __tablename__ = "document_comment"  # pyright: ignore
-    metadata = MetaData(schema=DOCUMENT_SCHEMA)
-
-    comment_id: str = Field(
-        sa_column=Column(
-            UUIDType,
-            primary_key=True,
-            nullable=False,
-            server_default=text("gen_random_uuid()"),
-        )
-    )
-    document_id: str = Field(
-        sa_column=Column(
-            UUIDType,
-            ForeignKey("document.document.document_id"),
-            nullable=False,
-            index=True,
-        )
-    )
-    zone: int | None = Field(sa_column=Column(Integer, nullable=True, index=True))
-    text: str = Field(sa_column=Column(Text, nullable=False))
-
-
 class DocumentCommentPublic(BaseModel):
     """Public representation of a document comment."""
 

@@ -59,7 +59,6 @@ from app.models import (
     MapGroup,
     AssignmentsCreate,
     NumDistrictsSetResult,
-    DocumentComment,
 )
 from app.comments.models import (
     DocumentComment as FormDocumentComment,
@@ -332,7 +331,9 @@ async def create_document(
 
 @app.put("/api/assignments")
 async def update_assignments(
-    data: AssignmentsCreate, session: Session = Depends(get_session)
+    data: AssignmentsCreate,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
 ):
     """
     Update assignments for a document with optimistic concurrency control.
@@ -479,56 +480,20 @@ async def update_assignments(
                 stmt, {"document_id": document_id, "colors": data.metadata.color_scheme}
             )
 
-    # Sync document comments if provided (None = no change, [] = delete all)
+    # Sync district comments via comments schema (None = no change, [] = delete all)
     if data.comments is not None:
-        if len(data.comments) > 0:
-            comment_rows = [
-                {
-                    "comment_id": c.comment_id or str(uuid4()),
-                    "document_id": document_id,
-                    "zone": c.zone,
-                    "text": c.text,
-                }
-                for c in data.comments
-            ]
-            sent_ids = [r["comment_id"] for r in comment_rows]
-            # Delete comments not in the sent list
-            session.execute(
-                text(
-                    """DELETE FROM document.document_comment
-                    WHERE document_id = :document_id
-                    AND comment_id != ALL(:comment_ids)"""
-                ).bindparams(
-                    bindparam(key="document_id", type_=UUIDType),
-                ),
-                {"document_id": document_id, "comment_ids": sent_ids},
-            )
-            # Upsert the sent comments
-            session.execute(
-                text(
-                    """INSERT INTO document.document_comment (comment_id, document_id, zone, text)
-                    VALUES (:comment_id, :document_id, :zone, :text)
-                    ON CONFLICT (comment_id) DO UPDATE
-                    SET text = EXCLUDED.text,
-                        zone = EXCLUDED.zone,
-                        updated_at = CURRENT_TIMESTAMP"""
-                ).bindparams(
-                    bindparam(key="comment_id", type_=UUIDType),
-                    bindparam(key="document_id", type_=UUIDType),
-                ),
-                comment_rows,
-            )
-        else:
-            # Empty list means delete all comments for this document
-            session.execute(
-                text(
-                    """DELETE FROM document.document_comment
-                    WHERE document_id = :document_id"""
-                ).bindparams(
-                    bindparam(key="document_id", type_=UUIDType),
-                ),
-                {"document_id": document_id},
-            )
+        from app.comments.main import sync_district_comments
+
+        comment_dicts = [
+            {"comment_id": c.comment_id, "zone": c.zone, "text": c.text}
+            for c in data.comments
+        ]
+        sync_district_comments(
+            document_id=document_id,
+            comments=comment_dicts if len(data.comments) > 0 else [],
+            session=session,
+            background_tasks=background_tasks,
+        )
 
     session.commit()
     return {"assignments_inserted": inserted_count, "updated_at": updated_at}
@@ -739,22 +704,32 @@ async def delete_document_comment(
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
 ):
-    """Delete a document comment by comment_id. Requires the private document UUID."""
+    """Delete a district comment by comment_id (comments.comment.id). Requires the private document UUID."""
+    from app.comments.models import DocumentComment, Comment
+    from sqlalchemy import delete as sql_delete
+
+    try:
+        comment_id_int = int(comment_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Comment {comment_id} not found for document",
+        )
     result = session.execute(
-        text(
-            """DELETE FROM document.document_comment
-            WHERE comment_id = :comment_id AND document_id = :document_id"""
-        ).bindparams(
-            bindparam(key="comment_id", type_=UUIDType),
-            bindparam(key="document_id", type_=UUIDType),
-        ),
-        {"comment_id": comment_id, "document_id": document.document_id},
+        sql_delete(DocumentComment).where(
+            col(DocumentComment.comment_id) == comment_id_int,
+            col(DocumentComment.document_id) == document.document_id,
+            col(DocumentComment.zone).is_not(None),
+        )
     )
     if result.rowcount == 0:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Comment {comment_id} not found for document",
         )
+    session.execute(
+        sql_delete(Comment).where(Comment.id == comment_id_int),
+    )
     session.commit()
 
 

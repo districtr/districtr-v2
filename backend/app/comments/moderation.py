@@ -108,6 +108,18 @@ def moderate_comment(comment: Comment, session: Session):
     moderate_text(cls=Comment, key=comment.id, text=comment_text, session=session)
 
 
+def moderate_comment_by_id(comment_id: int, comment_text: str):
+    """
+    Moderate a comment by ID. Use when the Comment object may be detached
+    (e.g. in background tasks after request session is closed).
+    """
+    from app.core.db import engine
+    from sqlmodel import Session
+
+    with Session(engine) as session:
+        moderate_text(cls=Comment, key=comment_id, text=comment_text, session=session)
+
+
 def moderate_commenter(commenter: Commenter, session: Session):
     commenter_data = str(commenter)
     moderate_text(cls=Commenter, key=commenter.id, text=commenter_data, session=session)

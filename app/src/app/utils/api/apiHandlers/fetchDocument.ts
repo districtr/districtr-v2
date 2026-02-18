@@ -59,6 +59,8 @@ export const fetchDocument = async (
   const localTimestamp = new Date(
     idbDocument?.document_metadata.updated_at || '1970-01-01T00:00:00Z'
   );
+  console.log('remoteTimestamp', remoteTimestamp);
+  console.log('localTimestamp', localTimestamp);
   const remoteIsNewer = remoteTimestamp && remoteTimestamp > localTimestamp;
   if (
     !idbDocument ||
@@ -89,14 +91,7 @@ export const fetchDocument = async (
     return {
       ok: true,
       response: {
-        document: {
-          // in case of missing fields
-          ...remoteMetadata.response,
-          ...idbDocument.document_metadata,
-          // always override with remote
-          overlays: remoteMetadata.response.overlays,
-          statefps: remoteMetadata.response.statefps
-        },
+        document: remoteMetadata.response,
         assignments: idbDocument.assignments,
       },
     };

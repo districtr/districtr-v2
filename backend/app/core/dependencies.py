@@ -4,7 +4,6 @@ from app.core.models import DocumentID
 from app.models import (
     Document,
     DocumentPublic,
-    DocumentComment,
     DocumentCommentPublic,
     DistrictrMap,
     DistrictrMapOverlays,
@@ -15,8 +14,11 @@ from app.save_share.models import (
     DocumentShareStatus,
     MapDocumentToken,
 )
+from app.comments.models import DocumentComment, Comment
+from app.comments.moderation import MODERATION_THRESHOLD
+from app.comments.models import ReviewStatus
 from sqlalchemy.sql.functions import coalesce
-from sqlalchemy import or_
+from sqlalchemy import or_, and_
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound
 from app.core.db import get_session
 import logging
@@ -173,25 +175,55 @@ def get_document_public(
                 for overlay in overlays
             ]
 
-    # Fetch document comments from the standalone document.document_comment table
+    # Fetch district comments from comments schema (DocumentComment with zone IS NOT NULL)
+    # Apply moderation: if comment fails threshold, show placeholder text
+    MODERATION_PLACEHOLDER = (
+        "Comment removed due to moderation."
+    )
     document_comments_list = None
     if result.real_document_id:
-        doc_comments = session.exec(
-            select(DocumentComment).where(
-                col(DocumentComment.document_id) == result.real_document_id
+        stmt = (
+            select(
+                DocumentComment.comment_id,
+                DocumentComment.zone,
+                Comment.comment,
+                Comment.created_at,
+                Comment.updated_at,
+                Comment.moderation_score,
+                Comment.review_status,
             )
-        ).all()
-        if doc_comments:
-            document_comments_list = [
-                DocumentCommentPublic(
-                    comment_id=str(dc.comment_id),
-                    zone=dc.zone,
-                    text=dc.text,
-                    created_at=dc.created_at,
-                    updated_at=dc.updated_at,
+            .select_from(DocumentComment)
+            .join(Comment, Comment.id == DocumentComment.comment_id)
+            .where(
+                and_(
+                    col(DocumentComment.document_id) == result.real_document_id,
+                    col(DocumentComment.zone).is_not(None),
                 )
-                for dc in doc_comments
-            ]
+            )
+        )
+        doc_comments = session.exec(stmt).all()
+        if doc_comments:
+            document_comments_list = []
+            for dc in doc_comments:
+                # Check moderation: show placeholder if rejected or exceeds threshold
+                fails_moderation = (
+                    dc.review_status == ReviewStatus.REJECTED
+                    or (
+                        dc.moderation_score is not None
+                        and dc.moderation_score > MODERATION_THRESHOLD
+                        and dc.review_status != ReviewStatus.APPROVED
+                    )
+                )
+                text = MODERATION_PLACEHOLDER if fails_moderation else dc.comment
+                document_comments_list.append(
+                    DocumentCommentPublic(
+                        comment_id=str(dc.comment_id),
+                        zone=dc.zone,
+                        text=text,
+                        created_at=dc.created_at,
+                        updated_at=dc.updated_at,
+                    )
+                )
 
     # Convert result to DocumentPublic with overlays and document comments
     return DocumentPublic(

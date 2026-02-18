@@ -93,6 +93,7 @@ export const putUpdateAssignmentsAndVerify = async ({
   useMapStore.getState().mutateMapDocument({
     updated_at: assignmentsPostResponse.response.updated_at,
   });
+  useMapStore.getState().clearUpdatedChanges();
   return {
     ok: true,
     response: {

@@ -270,6 +270,10 @@ class DocumentComment(SQLModel, table=True):
             index=True,
         )
     )
+    zone: int | None = Field(
+        sa_column=Column(Integer, nullable=True, index=True),
+        default=None,
+    )
 
 
 class FullCommentFormCreate(BaseModel):
@@ -320,6 +324,8 @@ class AdminCommentResponse(PublicCommentResponse):
     tag_ids: list[int | None] = []
     tag_review_status: list[str | None] = []
     tag_moderation_score: list[float | None] = []
+    zone: int | None = None
+    document_id: str | None = None
 
 
 class CommentOpenAccess(CommentCreate):
@@ -350,3 +356,5 @@ class CommentFilterParams(BaseModel):
     limit: int = 100
     offset: int = 0
     public_id: int | None = None
+    document_id: str | None = None  # For district comments: filter by document UUID
+    comment_id: int | None = None  # Look up specific comment by ID

@@ -21,6 +21,7 @@ export interface ReviewItem {
   tags: Array<string | null>;
   zone?: number | null;
   public_id?: number | null;
+  document_id?: string | null;
 
   // Admin fields
   comment_id: number;
@@ -48,6 +49,19 @@ export interface ReviewListParams {
   place?: string;
   state?: string;
   zip_code?: string;
+  comment_id?: number;
+  max_moderation_score?: number;
+}
+
+export interface DistrictCommentsListParams {
+  offset?: number;
+  limit?: number;
+  review_status?: ReviewStatus | null;
+  document_id?: string;
+  comment_id?: number;
+  place?: string;
+  state?: string;
+  zip_code?: string;
   max_moderation_score?: number;
 }
 
@@ -61,6 +75,24 @@ export const getAdminCommentsList = async (params: ReviewListParams = {}, sessio
   }
 
   const response = await get<ReviewItem[]>('comments/admin/list')({
+    session,
+    queryParams: searchParams,
+  });
+  return response;
+};
+
+export const getAdminDistrictCommentsList = async (
+  params: DistrictCommentsListParams = {},
+  session?: any
+) => {
+  const searchParams: Record<string, string | number | boolean | (string | number)[]> = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null) {
+      searchParams[key] = value;
+    }
+  }
+
+  const response = await get<ReviewItem[]>('comments/admin/district-comments/list')({
     session,
     queryParams: searchParams,
   });

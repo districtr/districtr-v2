@@ -522,9 +522,18 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     if (!idbDocument) return;
     setMapLock({isLocked: true, reason: 'Saving plan'});
 
+    // Use mapStore.mapDocument (has latest comments from in-memory edits) merged with
+    // idbDocument for fields that might only exist in IDB (e.g. from background sync).
+    // document_comments must come from mapStore since IDB isn't updated on comment add/edit.
+    const documentForSave: DocumentObject = {
+      ...idbDocument.document_metadata,
+      ...mapDocument,
+      document_comments: mapDocument.document_comments ?? idbDocument.document_metadata.document_comments,
+    };
+
     // Include color_scheme and num_districts in assignments update if they've changed
     const assignmentsPostResponse = await putUpdateAssignmentsAndVerify({
-      mapDocument: idbDocument.document_metadata,
+      mapDocument: documentForSave,
       zoneAssignments,
       shatterIds,
       parentToChild,
