@@ -94,15 +94,18 @@ export const PopulationPanel = () => {
           gap={'2'}
           className="flex-grow-0 p-0 pb-[80px]"
           justify={'between'}
-          minWidth={"5rem"}
+          minWidth={'5rem'}
         >
-          {!!isEditing && (
-            <Flex justify="end">
-              <IconButton onClick={toggleLockAllAreas} variant="ghost" disabled={access === 'read'}>
-                {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
-              </IconButton>
-            </Flex>
-          )}
+          <Flex justify="end">
+            <IconButton
+              onClick={toggleLockAllAreas}
+              variant="ghost"
+              disabled={access === 'read'}
+              style={{opacity: isEditing ? 1 : 0}}
+            >
+              {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
+            </IconButton>
+          </Flex>
           {/* @ts-ignore */}
           {populationData.map((d, i) => (
             <Flex
@@ -128,7 +131,7 @@ export const PopulationPanel = () => {
                 <ZoneCommentPopover
                   zone={d.zone}
                   color={colorScheme[(d.zone - 1) % colorScheme.length]}
-                  disabled={access === 'read'}
+                  // disabled={access === 'read'}
                 />
                 {!!isEditing && (
                   <IconButton

@@ -240,13 +240,19 @@ def sync_district_comments(
 
         if existing_id:
             # Update existing comment
+            title = f"District {zone} note"
+            comment_text = text if text else " "
             stmt = (
                 update(Comment)
                 .where(Comment.id == existing_id)
-                .values(comment=text if text else " ", title=f"District {zone} note")
+                .values(comment=comment_text, title=title)
             )
             session.execute(stmt)
             kept_comment_ids.add(existing_id)
+            if background_tasks:
+                background_tasks.add_task(
+                    moderate_comment_by_id, existing_id, f"{title} {comment_text}"
+                )
         else:
             # Create new comment
             title = f"District {zone} note"

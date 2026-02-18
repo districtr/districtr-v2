@@ -24,3 +24,5 @@ export const STATUS_TEXT = {
   scratch: 'Scratch Work Only',
   ready: 'Status: Ready to Share',
 } as const;
+
+export const MODERATION_COMMENT_TEXT = "Comment removed due to moderation."

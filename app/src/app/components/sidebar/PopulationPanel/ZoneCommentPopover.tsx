@@ -11,6 +11,7 @@ import {
   Separator,
   ScrollArea,
   AlertDialog,
+  Blockquote,
 } from '@radix-ui/themes';
 import {
   ChatBubbleIcon,
@@ -23,6 +24,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useState} from 'react';
 import {DocumentComment} from '@/app/utils/api/apiHandlers/types';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import { MODERATION_COMMENT_TEXT } from '@/app/constants/notifications';
 
 interface CommentEditorProps {
   existingComment?: DocumentComment;
@@ -36,8 +38,16 @@ const CommentEditor: React.FC<CommentEditorProps> = ({
   onCancel,
 }) => {
   const [text, setText] = useState(existingComment?.text || '');
+  const setErrorNotification = useMapStore(state => state.setErrorNotification);
 
   const handleSave = () => {
+    if (text.trim() === MODERATION_COMMENT_TEXT) {
+      setErrorNotification({
+        message: "Please edit your comment to remove the moderation message.",
+        severity: 2,
+      });
+      return;
+    }
     if (text.trim()) {
       onSave(text.trim());
     }
@@ -220,6 +230,11 @@ export const ZoneCommentPopover: React.FC<ZoneCommentPopoverProps> = ({
                               </Flex>
                             )}
                           </Flex>
+                          {comment.text === MODERATION_COMMENT_TEXT && (
+                            <Blockquote size="1" color="amber">
+                              If you believe this moderation was in error, email <a className="underline" href="mailto:moderation@districtr.org">moderation@districtr.org</a> and include <span className="font-bold">Comment ID: {comment.comment_id}</span>.
+                            </Blockquote>
+                          )}
                         </Flex>
                       )}
                       {index < comments.length - 1 && <Separator size="4" className="my-1" />}
