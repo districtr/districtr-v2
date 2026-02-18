@@ -10,6 +10,7 @@ import {
   ScrollArea,
   AlertDialog,
   Tooltip,
+  Badge,
 } from '@radix-ui/themes';
 import {PlusIcon, Cross2Icon, Pencil1Icon, ExclamationTriangleIcon, CheckIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@/app/store/mapStore';
@@ -37,7 +38,7 @@ export const CommentFlagButton: React.FC<CommentFlagButtonProps> = ({
   return (
     <Tooltip
       content={
-        comment.text === MODERATION_COMMENT_TEXT
+        comment.moderated
           ? 'This comment was moderated. If you believe this was in error, flag for review.'
           : 'Is this comment offensive? Flag for review.'
       }
@@ -221,6 +222,11 @@ export const ZoneCommentsContent: React.FC<ZoneCommentsContentProps> = ({
                     />
                   ) : (
                     <Flex direction="column" gap="1" className="p-2 bg-gray-50 rounded">
+                      {comment.moderated && (
+                        <Badge size="1" color="amber">
+                          Moderated: This comment will not be visible to the public.
+                        </Badge>
+                      )}
                       <Flex justify="between" align="center" gap="1">
                         <Text size="1" style={{flex: 1, minWidth: 0}}>
                           {comment.text}

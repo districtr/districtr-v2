@@ -217,6 +217,7 @@ class DocumentCommentPublic(BaseModel):
     comment_id: str
     zone: int | None = None
     text: str
+    moderated: bool = False  # True when comment failed moderation; edit access sees full text, public sees placeholder
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

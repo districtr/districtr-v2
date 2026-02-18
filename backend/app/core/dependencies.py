@@ -202,6 +202,7 @@ def get_document_public(
         doc_comments = session.exec(stmt).all()
         if doc_comments:
             document_comments_list = []
+            is_edit_access = not document_id.is_public
             for dc in doc_comments:
                 # Check moderation: show placeholder if rejected or exceeds threshold
                 fails_moderation = dc.review_status == ReviewStatus.REJECTED or (
@@ -209,12 +210,19 @@ def get_document_public(
                     and dc.moderation_score > MODERATION_THRESHOLD
                     and dc.review_status != ReviewStatus.APPROVED
                 )
-                text = MODERATION_PLACEHOLDER if fails_moderation else dc.comment
+                # Edit access: show full comment + moderated flag. Public: show placeholder only.
+                if fails_moderation:
+                    text = dc.comment if is_edit_access else MODERATION_PLACEHOLDER
+                    moderated = True
+                else:
+                    text = dc.comment
+                    moderated = False
                 document_comments_list.append(
                     DocumentCommentPublic(
                         comment_id=str(dc.comment_id),
                         zone=dc.zone,
                         text=text,
+                        moderated=moderated,
                         created_at=dc.created_at,
                         updated_at=dc.updated_at,
                     )

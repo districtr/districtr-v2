@@ -96,6 +96,7 @@ export interface DocumentComment {
   comment_id?: string; // undefined for local-only comments
   zone?: number | null;
   text: string;
+  moderated?: boolean; // true when comment failed moderation; edit access sees full text
   created_at?: string;
   updated_at?: string;
 }
