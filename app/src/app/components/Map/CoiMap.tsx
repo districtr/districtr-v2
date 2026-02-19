@@ -19,24 +19,28 @@ import {useMapRenderer} from '@/app/hooks/useMapRenderer';
 import {PointSource} from './GeoSources/PointSource';
 import {BlockLayers} from './PolygonLayers/BlockLayers';
 import {MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
-import {useLayerFilter} from '@/app/hooks/useLayerFilter';
 import {BASEMAP_IDS} from '@/app/constants/map/layerStyle';
+import {useLayerFilter} from '@/app/hooks/useLayerFilter';
 
-export const MainMap: React.FC = () => {
+/**
+ * COI (Community of Interest) map component. Mirrors MainMap layout and layers;
+ * used on /coi/{document_id} and /coi/edit/{document_id}.
+ */
+export const CoiMap: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const parentOutlineFilter = useLayerFilter(false);
   const childLayerFilter = useLayerFilter(true);
   const setMapRef = useMapStore(state => state.setMapRef);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
+  const {mapRef, onLoad} = useMapRenderer('main');
   const setMapMode = useMapControlsStore(state => state.setMapMode);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
-  const {mapRef, onLoad} = useMapRenderer('main');
 
   useEffect(() => {
-    setMapMode('districts');
-    setMapOptions({basemap: BASEMAP_IDS.MINIMAL});
+    setMapMode('coi');
+    setMapOptions({basemap: BASEMAP_IDS.STREETS});
   }, []);
-  
+
   const initialViewState = useMemo(() => {
     const center = MAP_OPTIONS.center as [number, number];
     return {

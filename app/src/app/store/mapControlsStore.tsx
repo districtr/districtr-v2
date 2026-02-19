@@ -5,6 +5,7 @@ import type {MapOptions} from 'maplibre-gl';
 import {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from '../constants/map/mapDefaults';
 import {ActiveTool, NullableZone, SpatialUnit, Zone} from '../constants/types';
 import {DistrictrMapOptions} from './types';
+import {BASEMAP_IDS, BasemapId} from '@/app/constants/map/layerStyle';
 import {useAssignmentsStore} from './assignmentsStore';
 import {useMapStore} from './mapStore';
 import {PaintEventHandler} from '@utils/map/types';
@@ -40,7 +41,19 @@ export interface MapControlsStore {
   setSpatialUnit: (unit: SpatialUnit) => void;
   sidebarPanels: SidebarPanel[];
   setSidebarPanels: (panels: SidebarPanel[]) => void;
+  mapMode: 'districts' | 'coi';
+  setMapMode: (mode: 'districts' | 'coi') => void;
 }
+
+const initialMapMode = typeof window !== 'undefined' && typeof window.location !== 'undefined'
+  ? (
+      window.location.pathname.startsWith('/map')
+        ? 'districts'
+        : window.location.pathname.startsWith('/coi')
+          ? 'coi'
+          : 'districts'
+    )
+  : 'districts'
 
 export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
   center: [-98.5795, 39.8283],
@@ -64,11 +77,14 @@ export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
   showPopulationNumbers: false,
   showDemographicMap: undefined,
   overlayOpacity: OVERLAY_OPACITY,
+  basemap: (initialMapMode === 'districts' ? BASEMAP_IDS.MINIMAL : BASEMAP_IDS.STREETS)
 };
 
 export const useMapControlsStore = create<MapControlsStore>()(
   subscribeWithSelector((set, get) => ({
     selectedZone: 1,
+    mapMode: initialMapMode,
+    setMapMode: mode => set({mapMode: mode}),
     setSelectedZone: zone => {
       const numDistricts =
         useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;

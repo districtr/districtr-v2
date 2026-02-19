@@ -1,10 +1,14 @@
-import type {LayerSpecification} from 'maplibre-gl';
-export const BASEMAP_LAYERS: LayerSpecification[] = [
+import { type LayerSpecification } from "maplibre-gl";
+
+// Styling aligned with Mapbox Streets (sampleStreetsStyle.json): warm off-white land,
+// blue water, gray-blue road casings, white road fill, orange highways, green parks.
+
+export const STREETS_BASEMAP_LAYERS: LayerSpecification[] = [
   {
     id: 'background',
     type: 'background',
     paint: {
-      'background-color': '#ffffff',
+      'background-color': '#e8e5df',
     },
   },
   {
@@ -13,7 +17,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     source: 'protomaps',
     'source-layer': 'earth',
     paint: {
-      'fill-color': '#ffffff',
+      'fill-color': '#e8e5df',
     },
   },
   {
@@ -36,7 +40,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
       ],
     ],
     paint: {
-      'fill-color': ['interpolate', ['linear'], ['zoom'], 0, '#fcfcfc', 12, '#fcfcfc'],
+      'fill-color': ['interpolate', ['linear'], ['zoom'], 0, '#a8dd92', 12, '#8fcf6b'],
     },
   },
   {
@@ -46,7 +50,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'landuse',
     filter: ['any', ['in', 'pmap:kind', 'allotments', 'village_green', 'playground']],
     paint: {
-      'fill-color': '#fcfcfc',
+      'fill-color': '#a8dd92',
       'fill-opacity': 0.7,
     },
   },
@@ -57,7 +61,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'landuse',
     filter: ['any', ['==', 'pmap:kind', 'hospital']],
     paint: {
-      'fill-color': '#f8f8f8',
+      'fill-color': '#e8d4d8',
     },
   },
   {
@@ -67,7 +71,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'landuse',
     filter: ['any', ['==', 'pmap:kind', 'industrial']],
     paint: {
-      'fill-color': '#fcfcfc',
+      'fill-color': '#e8e5df',
     },
   },
   {
@@ -77,7 +81,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'landuse',
     filter: ['any', ['in', 'pmap:kind', 'school', 'university', 'college']],
     paint: {
-      'fill-color': '#f8f8f8',
+      'fill-color': '#d9d4a8',
     },
   },
   {
@@ -87,7 +91,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'landuse',
     filter: ['any', ['in', 'pmap:kind', 'beach']],
     paint: {
-      'fill-color': '#f6f6f6',
+      'fill-color': '#e5e2c4',
     },
   },
   {
@@ -97,7 +101,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'landuse',
     filter: ['any', ['in', 'pmap:kind', 'zoo']],
     paint: {
-      'fill-color': '#f7f7f7',
+      'fill-color': '#e8e5df',
     },
   },
   {
@@ -107,7 +111,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'landuse',
     filter: ['any', ['in', 'pmap:kind', 'military', 'naval_base', 'airfield']],
     paint: {
-      'fill-color': '#f7f7f7',
+      'fill-color': '#e0e2ec',
     },
   },
   {
@@ -117,7 +121,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'natural',
     filter: ['any', ['in', 'pmap:kind', 'wood', 'nature_reserve', 'forest']],
     paint: {
-      'fill-color': ['interpolate', ['linear'], ['zoom'], 0, '#fafafa', 12, '#fafafa'],
+      'fill-color': ['interpolate', ['linear'], ['zoom'], 0, '#c8d4a8', 12, '#a8dd92'],
     },
   },
   {
@@ -127,7 +131,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'natural',
     filter: ['in', 'pmap:kind', 'scrub', 'grassland', 'grass'],
     paint: {
-      'fill-color': ['interpolate', ['linear'], ['zoom'], 0, '#fafafa', 12, '#fafafa'],
+      'fill-color': ['interpolate', ['linear'], ['zoom'], 0, '#c8d4a8', 12, '#d4e4b8'],
     },
   },
   {
@@ -137,7 +141,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'natural',
     filter: ['==', 'pmap:kind', 'glacier'],
     paint: {
-      'fill-color': '#fcfcfc',
+      'fill-color': '#c5e4f2',
     },
   },
   {
@@ -147,7 +151,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'natural',
     filter: ['==', 'pmap:kind', 'sand'],
     paint: {
-      'fill-color': '#fafafa',
+      'fill-color': '#e5e2c4',
     },
   },
   {
@@ -157,7 +161,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'landuse',
     filter: ['any', ['in', 'pmap:kind', 'aerodrome']],
     paint: {
-      'fill-color': '#fdfdfd',
+      'fill-color': '#e0e2ec',
     },
   },
   {
@@ -167,7 +171,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'transit',
     filter: ['any', ['in', 'pmap:kind_detail', 'runway']],
     paint: {
-      'line-color': '#efefef',
+      'line-color': '#c8c9dc',
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 10, 0, 12, 4, 18, 30],
     },
   },
@@ -179,7 +183,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     minzoom: 13,
     filter: ['any', ['in', 'pmap:kind_detail', 'taxiway']],
     paint: {
-      'line-color': '#efefef',
+      'line-color': '#c8c9dc',
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 13, 0, 13.5, 1, 15, 6],
     },
   },
@@ -189,7 +193,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     source: 'protomaps',
     'source-layer': 'water',
     paint: {
-      'fill-color': '#dcdcdc',
+      'fill-color': '#33aad6',
     },
   },
   {
@@ -200,7 +204,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     minzoom: 14,
     filter: ['all', ['in', 'pmap:kind', 'stream']],
     paint: {
-      'line-color': '#dcdcdc',
+      'line-color': '#7ec8f0',
       'line-width': 0.5,
     },
   },
@@ -212,7 +216,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     minzoom: 9,
     filter: ['all', ['in', 'pmap:kind', 'river']],
     paint: {
-      'line-color': '#dcdcdc',
+      'line-color': '#7ec8f0',
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 9, 0, 9.5, 1, 18, 12],
     },
   },
@@ -223,7 +227,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'landuse',
     filter: ['any', ['==', 'pmap:kind', 'pedestrian']],
     paint: {
-      'fill-color': '#fdfdfd',
+      'fill-color': '#e8ecf2',
     },
   },
   {
@@ -233,7 +237,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'landuse',
     filter: ['any', ['==', 'pmap:kind', 'pier']],
     paint: {
-      'fill-color': '#d5d5d5',
+      'fill-color': '#b8c9d4',
     },
   },
   {
@@ -243,7 +247,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'roads',
     filter: ['all', ['<', 'pmap:level', 0], ['in', 'pmap:kind', 'other', 'path']],
     paint: {
-      'line-color': '#d6d6d6',
+      'line-color': '#b8bdd4',
       'line-gap-width': ['interpolate', ['exponential', 1.6], ['zoom'], 14, 0, 20, 7],
     },
   },
@@ -254,7 +258,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'roads',
     filter: ['all', ['<', 'pmap:level', 0], ['==', 'pmap:kind', 'minor_road']],
     paint: {
-      'line-color': '#fcfcfc',
+      'line-color': '#b8bdd4',
       'line-dasharray': [3, 2],
       'line-gap-width': [
         'interpolate',
@@ -279,7 +283,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'roads',
     filter: ['all', ['<', 'pmap:level', 0], ['==', 'pmap:link', 1]],
     paint: {
-      'line-color': '#fcfcfc',
+      'line-color': '#b8bdd4',
       'line-dasharray': [3, 2],
       'line-gap-width': ['interpolate', ['exponential', 1.6], ['zoom'], 13, 0, 13.5, 1, 18, 11],
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 12, 0, 12.5, 1],
@@ -292,7 +296,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'roads',
     filter: ['all', ['<', 'pmap:level', 0], ['==', 'pmap:kind', 'medium_road']],
     paint: {
-      'line-color': '#fcfcfc',
+      'line-color': '#b8bdd4',
       'line-dasharray': [3, 2],
       'line-gap-width': ['interpolate', ['exponential', 1.6], ['zoom'], 7, 0, 7.5, 0.5, 18, 13],
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 10, 0, 10.5, 1],
@@ -305,7 +309,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'roads',
     filter: ['all', ['<', 'pmap:level', 0], ['==', 'pmap:kind', 'major_road']],
     paint: {
-      'line-color': '#fcfcfc',
+      'line-color': '#b8bdd4',
       'line-dasharray': [3, 2],
       'line-gap-width': ['interpolate', ['exponential', 1.6], ['zoom'], 7, 0, 7.5, 0.5, 18, 13],
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 9, 0, 9.5, 1],
@@ -318,7 +322,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'roads',
     filter: ['all', ['<', 'pmap:level', 0], ['==', 'pmap:kind', 'highway'], ['!=', 'pmap:link', 1]],
     paint: {
-      'line-color': '#fcfcfc',
+      'line-color': '#ffffff',
       'line-dasharray': [6, 0.5],
       'line-gap-width': ['interpolate', ['exponential', 1.6], ['zoom'], 3, 0, 3.5, 0.5, 18, 15],
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 7, 0, 7.5, 1, 20, 15],
@@ -331,7 +335,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'roads',
     filter: ['all', ['<', 'pmap:level', 0], ['in', 'pmap:kind', 'other', 'path']],
     paint: {
-      'line-color': '#d6d6d6',
+      'line-color': '#eeede8',
       'line-dasharray': [4.5, 0.5],
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 14, 0, 20, 7],
     },
@@ -343,7 +347,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'roads',
     filter: ['all', ['<', 'pmap:level', 0], ['==', 'pmap:kind', 'minor_road']],
     paint: {
-      'line-color': '#d6d6d6',
+      'line-color': '#ffffff',
       'line-width': [
         'interpolate',
         ['exponential', 1.6],
@@ -366,7 +370,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'roads',
     filter: ['all', ['<', 'pmap:level', 0], ['==', 'pmap:link', 1]],
     paint: {
-      'line-color': '#d6d6d6',
+      'line-color': '#ff8533',
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 13, 0, 13.5, 1, 18, 11],
     },
   },
@@ -377,7 +381,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'roads',
     filter: ['all', ['<', 'pmap:level', 0], ['==', 'pmap:kind', 'medium_road']],
     paint: {
-      'line-color': '#d6d6d6',
+      'line-color': '#ffffff',
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 7, 0, 12, 1.2, 15, 3, 18, 13],
     },
   },
@@ -388,7 +392,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'roads',
     filter: ['all', ['<', 'pmap:level', 0], ['==', 'pmap:kind', 'major_road']],
     paint: {
-      'line-color': '#d6d6d6',
+      'line-color': '#ffffff',
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 6, 0, 12, 1.6, 15, 3, 18, 13],
     },
   },
@@ -399,7 +403,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'roads',
     filter: ['all', ['<', 'pmap:level', 0], ['==', 'pmap:kind', 'highway'], ['!=', 'pmap:link', 1]],
     paint: {
-      'line-color': '#d6d6d6',
+      'line-color': '#ff8533',
       'line-width': [
         'interpolate',
         ['exponential', 1.6],
@@ -423,8 +427,9 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     source: 'protomaps',
     'source-layer': 'buildings',
     paint: {
-      'fill-color': '#e0e0e0',
-      'fill-opacity': 0.5,
+      'fill-color': '#dddcd6',
+      'fill-opacity': 0.85,
+      'fill-outline-color': '#c9c8c4',
     },
   },
   {
@@ -434,7 +439,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'transit',
     filter: ['any', ['==', 'pmap:kind', 'pier']],
     paint: {
-      'line-color': '#efefef',
+      'line-color': '#b8c9d4',
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 12, 0, 12.5, 0.5, 20, 16],
     },
   },
@@ -451,7 +456,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
       ['==', 'pmap:kind_detail', 'service'],
     ],
     paint: {
-      'line-color': '#ffffff',
+      'line-color': '#d3d6e8',
       'line-gap-width': ['interpolate', ['exponential', 1.6], ['zoom'], 13, 0, 18, 8],
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 13, 0, 13.5, 0.8],
     },
@@ -468,7 +473,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
       ['!=', 'pmap:kind_detail', 'service'],
     ],
     paint: {
-      'line-color': '#ffffff',
+      'line-color': '#d3d6e8',
       'line-gap-width': [
         'interpolate',
         ['exponential', 1.6],
@@ -505,7 +510,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'roads',
     filter: ['all', ['==', 'pmap:level', 0], ['==', 'pmap:kind', 'medium_road']],
     paint: {
-      'line-color': '#ffffff',
+      'line-color': '#d3d6e8',
       'line-gap-width': [
         'interpolate',
         ['exponential', 1.6],
@@ -530,7 +535,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     minzoom: 12,
     filter: ['all', ['==', 'pmap:level', 0], ['==', 'pmap:kind', 'major_road']],
     paint: {
-      'line-color': '#ffffff',
+      'line-color': '#d3d6e8',
       'line-gap-width': [
         'interpolate',
         ['exponential', 1.6],
@@ -572,7 +577,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'roads',
     filter: ['all', ['==', 'pmap:level', 0], ['in', 'pmap:kind', 'other', 'path']],
     paint: {
-      'line-color': '#d5d5d5',
+      'line-color': '#ffffff',
       'line-dasharray': [3, 1],
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 14, 0, 20, 7],
     },
@@ -584,7 +589,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'roads',
     filter: ['all', ['==', 'pmap:link', 1]],
     paint: {
-      'line-color': '#ebebeb',
+      'line-color': '#ff8533',
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 13, 0, 13.5, 1, 18, 11],
     },
   },
@@ -600,7 +605,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
       ['==', 'pmap:kind_detail', 'service'],
     ],
     paint: {
-      'line-color': '#f5f5f5',
+      'line-color': '#eeede8',
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 13, 0, 18, 8],
     },
   },
@@ -616,7 +621,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
       ['!=', 'pmap:kind_detail', 'service'],
     ],
     paint: {
-      'line-color': ['interpolate', ['exponential', 1.6], ['zoom'], 11, '#ebebeb', 15, '#d5d5d5'],
+      'line-color': '#ffffff',
       'line-width': [
         'interpolate',
         ['exponential', 1.6],
@@ -639,7 +644,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'roads',
     filter: ['all', ['==', 'pmap:level', 0], ['==', 'pmap:kind', 'medium_road']],
     paint: {
-      'line-color': '#d5d5d5',
+      'line-color': '#ffffff',
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 7, 0, 12, 1.2, 15, 3, 18, 13],
     },
   },
@@ -651,7 +656,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     maxzoom: 12,
     filter: ['all', ['==', 'pmap:level', 0], ['==', 'pmap:kind', 'major_road']],
     paint: {
-      'line-color': '#ffffff',
+      'line-color': '#d3d6e8',
       'line-gap-width': ['interpolate', ['exponential', 1.6], ['zoom'], 7, 0, 7.5, 0.5, 18, 13],
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 9, 0, 9.5, 1],
     },
@@ -663,7 +668,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'roads',
     filter: ['all', ['==', 'pmap:level', 0], ['==', 'pmap:kind', 'major_road']],
     paint: {
-      'line-color': ['interpolate', ['exponential', 1.6], ['zoom'], 6, '#ebebeb', 12, '#d5d5d5'],
+      'line-color': '#ffffff',
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 6, 0, 12, 1.6, 15, 3, 18, 13],
     },
   },
@@ -697,7 +702,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
       ['!=', 'pmap:link', 1],
     ],
     paint: {
-      'line-color': '#ebebeb',
+      'line-color': '#ff8533',
       'line-width': [
         'interpolate',
         ['exponential', 1.6],
@@ -723,8 +728,8 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     filter: ['all', ['==', 'pmap:kind', 'rail']],
     paint: {
       'line-dasharray': [0.3, 0.75],
-      'line-opacity': 0.5,
-      'line-color': '#d6d6d6',
+      'line-opacity': 0.7,
+      'line-color': '#b8b9c4',
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 3, 0, 6, 0.15, 18, 9],
     },
   },
@@ -735,7 +740,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'boundaries',
     filter: ['<=', 'pmap:min_admin_level', 2],
     paint: {
-      'line-color': '#adadad',
+      'line-color': '#6b7092',
       'line-width': 1,
       'line-dasharray': [3, 2],
     },
@@ -747,9 +752,9 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'boundaries',
     filter: ['>', 'pmap:min_admin_level', 2],
     paint: {
-      'line-color': '#adadad',
+      'line-color': '#8b8fa8',
       'line-width': 0.5,
-      'line-dasharray': [3, 2],
+      'line-dasharray': [2, 2],
     },
   },
   {
@@ -760,7 +765,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     minzoom: 12,
     filter: ['all', ['>', 'pmap:level', 0], ['in', 'pmap:kind', 'other', 'path']],
     paint: {
-      'line-color': '#ffffff',
+      'line-color': '#d3d6e8',
       'line-gap-width': ['interpolate', ['exponential', 1.6], ['zoom'], 14, 0, 20, 7],
     },
   },
@@ -785,7 +790,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     minzoom: 12,
     filter: ['all', ['>', 'pmap:level', 0], ['==', 'pmap:kind', 'minor_road']],
     paint: {
-      'line-color': '#ffffff',
+      'line-color': '#d3d6e8',
       'line-gap-width': [
         'interpolate',
         ['exponential', 1.6],
@@ -810,7 +815,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     minzoom: 12,
     filter: ['all', ['>', 'pmap:level', 0], ['==', 'pmap:kind', 'medium_road']],
     paint: {
-      'line-color': '#ffffff',
+      'line-color': '#d3d6e8',
       'line-gap-width': [
         'interpolate',
         ['exponential', 1.6],
@@ -835,7 +840,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     minzoom: 12,
     filter: ['all', ['>', 'pmap:level', 0], ['==', 'pmap:kind', 'major_road']],
     paint: {
-      'line-color': '#ffffff',
+      'line-color': '#d3d6e8',
       'line-gap-width': ['interpolate', ['exponential', 1.6], ['zoom'], 7, 0, 7.5, 0.5, 18, 10],
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 9, 0, 9.5, 1.5],
     },
@@ -848,7 +853,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     minzoom: 12,
     filter: ['all', ['>', 'pmap:level', 0], ['in', 'pmap:kind', 'other', 'path']],
     paint: {
-      'line-color': '#d5d5d5',
+      'line-color': '#ffffff',
       'line-dasharray': [2, 1],
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 14, 0, 20, 7],
     },
@@ -861,7 +866,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     minzoom: 12,
     filter: ['all', ['>', 'pmap:level', 0], ['==', 'pmap:kind', 'minor_road']],
     paint: {
-      'line-color': '#d5d5d5',
+      'line-color': '#ffffff',
       'line-width': [
         'interpolate',
         ['exponential', 1.6],
@@ -885,7 +890,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     minzoom: 12,
     filter: ['all', ['>', 'pmap:level', 0], ['==', 'pmap:link', 1]],
     paint: {
-      'line-color': '#d5d5d5',
+      'line-color': '#ff8533',
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 13, 0, 13.5, 1, 18, 11],
     },
   },
@@ -897,7 +902,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     minzoom: 12,
     filter: ['all', ['>', 'pmap:level', 0], ['==', 'pmap:kind', 'medium_road']],
     paint: {
-      'line-color': '#ebebeb',
+      'line-color': '#ffffff',
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 7, 0, 12, 1.2, 15, 3, 18, 13],
     },
   },
@@ -909,7 +914,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     minzoom: 12,
     filter: ['all', ['>', 'pmap:level', 0], ['==', 'pmap:kind', 'major_road']],
     paint: {
-      'line-color': '#ebebeb',
+      'line-color': '#ffffff',
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 6, 0, 12, 1.6, 15, 3, 18, 13],
     },
   },
@@ -933,7 +938,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'roads',
     filter: ['all', ['>', 'pmap:level', 0], ['==', 'pmap:kind', 'highway'], ['!=', 'pmap:link', 1]],
     paint: {
-      'line-color': '#ebebeb',
+      'line-color': '#ff8533',
       'line-width': [
         'interpolate',
         ['exponential', 1.6],
@@ -960,13 +965,13 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     filter: ['all', ['in', 'pmap:kind', 'river', 'stream']],
     layout: {
       'symbol-placement': 'line',
-      'text-font': ['Barlow Regular'],
+      'text-font': ['Barlow Italic'],
       'text-field': ['get', 'name'],
       'text-size': 12,
       'text-letter-spacing': 0.3,
     },
     paint: {
-      'text-color': '#adadad',
+      'text-color': '#3d5a80',
     },
   },
   {
@@ -983,8 +988,9 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
       'text-max-width': 9,
     },
     paint: {
-      'text-color': '#adadad',
+      'text-color': '#4a4a4a',
       'text-halo-width': 1.5,
+      'text-halo-color': '#ffffff',
     },
   },
   {
@@ -1002,8 +1008,8 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
       'text-size': 14,
     },
     paint: {
-      'text-color': '#9d9d9d',
-      'text-halo-color': '#ffffff',
+      'text-color': '#000000',
+      'text-halo-color': 'rgba(255,255,255,0.75)',
       'text-halo-width': 2,
     },
   },
@@ -1014,7 +1020,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'physical_point',
     filter: ['any', ['in', 'pmap:kind', 'sea', 'ocean', 'lake', 'water', 'bay', 'strait', 'fjord']],
     layout: {
-      'text-font': ['Barlow Medium'],
+      'text-font': ['Barlow Italic'],
       'text-field': ['get', 'name'],
       'text-size': ['interpolate', ['linear'], ['zoom'], 3, 10, 10, 12],
       'text-letter-spacing': 0.1,
@@ -1022,7 +1028,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
       'text-transform': 'uppercase',
     },
     paint: {
-      'text-color': '#adadad',
+      'text-color': '#3d5a80',
     },
   },
   {
@@ -1032,14 +1038,14 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'physical_point',
     filter: ['any', ['in', 'pmap:kind', 'lake', 'water']],
     layout: {
-      'text-font': ['Barlow Medium'],
+      'text-font': ['Barlow Italic'],
       'text-field': ['get', 'name'],
       'text-size': ['interpolate', ['linear'], ['zoom'], 3, 0, 6, 12, 10, 12],
       'text-letter-spacing': 0.1,
       'text-max-width': 9,
     },
     paint: {
-      'text-color': '#adadad',
+      'text-color': '#3d5a80',
     },
   },
   {
@@ -1057,8 +1063,8 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
       'text-size': 14,
     },
     paint: {
-      'text-color': '#8d8d8d',
-      'text-halo-color': '#ffffff',
+      'text-color': '#000000',
+      'text-halo-color': 'rgba(255,255,255,0.75)',
       'text-halo-width': 2,
     },
   },
@@ -1237,7 +1243,26 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
       'text-transform': 'uppercase',
     },
     paint: {
-      'text-color': '#b8b8b8',
+      'text-color': '#000000',
     },
   },
 ];
+
+/**
+ * Key layers present in Mapbox Streets (sampleStreetsStyle.json) that may be
+ * missing or only partially represented here—check data availability before adding:
+ *
+ * - water-shadow: water body drop shadow (viewport translate)
+ * - hillshade: terrain hillshade from composite hillshade layer
+ * - ferry / ferry_auto: ferry routes (road type)
+ * - road-construction: construction roads (dashed)
+ * - level-crossing: railway level crossing symbols
+ * - turning-feature / turning-feature-outline: turning circle/loop symbols
+ * - golf-hole-line / golf-hole-label: golf course paths and labels
+ * - aerialway: cable car / ski lift lines
+ * - road-number-shield / road-exit-shield: shield symbols (requires sprite/ref data)
+ * - building-number-label: housenumber labels
+ * - admin-1-boundary-bg: state/province boundary glow
+ * - road-pedestrian-polygon-fill / road-pedestrian-polygon-pattern: pedestrian area fills
+ */
+

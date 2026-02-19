@@ -1,5 +1,6 @@
 import React from 'react';
-import {Heading, CheckboxGroup, Flex, Button, Text, Box} from '@radix-ui/themes';
+import {Heading, CheckboxGroup, Flex, Button, Text, Box, Select} from '@radix-ui/themes';
+import {type BasemapId} from '@/app/constants/map/layerStyle';
 import {useFeatureFlagStore} from '@store/featureFlagStore';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
@@ -51,6 +52,22 @@ export const ToolSettings: React.FC = () => {
   return (
     <>
       <Flex gap="3" direction="column">
+        <Box>
+          <Text size="2" className="p-0">
+            Basemap:
+          </Text>
+          <Select.Root
+            value={mapOptions.basemap ?? 'minimal'}
+            onValueChange={(value: BasemapId) => setMapOptions({basemap: value})}
+          >
+            <Select.Trigger />
+            <Select.Content>
+              <Select.Item value="minimal">Minimal</Select.Item>
+              <Select.Item value="streets">Streets</Select.Item>
+              <Select.Item value="satellite">Satellite</Select.Item>
+            </Select.Content>
+          </Select.Root>
+        </Box>
         <CheckboxGroup.Root
           defaultValue={[]}
           name="districts"

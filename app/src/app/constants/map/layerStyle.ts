@@ -81,3 +81,9 @@ export function getLayerFill(
     return innerFillSpec;
   }
 }
+export const BASEMAP_IDS = {
+  MINIMAL: 'minimal',
+  STREETS: 'streets',
+  SATELLITE: 'satellite',
+} as const 
+export type BasemapId = (typeof BASEMAP_IDS)[keyof typeof BASEMAP_IDS];

@@ -1,14 +1,16 @@
 import type {MapLayerEventType} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type {MutableRefObject} from 'react';
-import React, {useRef} from 'react';
-import {MAP_OPTIONS} from '@constants/configuration';
+import React, {useRef, useMemo} from 'react';
+import {MAP_OPTIONS, getMapStyleForBasemap} from '@constants/configuration';
 import {mapContainerEvents, mapEventHandlers} from '@utils/events/mapEvents';
 import {INTERACTIVE_LAYERS} from '@constants/map/layerIds';
 import GlMap, {type MapRef} from 'react-map-gl/maplibre';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useLayoutEffect} from 'react';
+import {MAPTILER_API_KEY} from '@/app/utils/api/constants';
+import {GeocodeSearchBar} from './GeocodeSearchBar';
 
 /**
  * Shared rendering shell for both main and demographic map variants.
@@ -37,6 +39,12 @@ export const MapContainer: React.FC<{
   const mapLock = useMapStore(state => state.mapLock);
   const document_id = useMapStore(state => state.mapDocument?.document_id);
   const activeTool = useMapControlsStore(state => state.activeTool);
+  const basemap = useMapControlsStore(state => state.mapOptions.basemap ?? 'minimal');
+  const mapStyle = useMemo(
+    () => getMapStyleForBasemap(basemap),
+    [basemap]
+  );
+  const showGeocode = basemap === 'streets' || basemap === 'satellite';
 
   useLayoutEffect(() => {
     if (!mapContainer.current) return;
@@ -64,9 +72,14 @@ export const MapContainer: React.FC<{
         `}
       ref={mapContainer}
     >
+      {showGeocode && (
+        <div className="absolute top-3 left-3 z-10">
+          <GeocodeSearchBar mapRef={mapRef} />
+        </div>
+      )}
       <GlMap
         ref={mapRef}
-        mapStyle={MAP_OPTIONS.style || undefined}
+        mapStyle={mapStyle}
         initialViewState={initialViewState}
         maxZoom={MAP_OPTIONS.maxZoom || undefined}
         pitchWithRotate={false}
