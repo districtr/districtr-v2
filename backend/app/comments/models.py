@@ -159,7 +159,9 @@ class Comment(TimeStampMixin, SQLModel, table=True):
     )
     review_flagged: bool = Field(
         default=False,
-        sa_column=Column(Boolean, nullable=False, default=False, server_default="false"),
+        sa_column=Column(
+            Boolean, nullable=False, default=False, server_default="false"
+        ),
     )
 
 
@@ -363,7 +365,10 @@ class CommentFilterParams(BaseModel):
     public_id: int | None = None
     document_id: str | None = None  # For district comments: filter by document UUID
     comment_id: int | None = None  # Look up specific comment by ID
-    review_flagged: bool | None = None  # When True, filter to comments flagged for review
+    review_flagged: bool | None = (
+        None  # When True, filter to comments flagged for review
+    )
+
 
 class FlagCommentRequest(BaseModel):
     comment_id: int

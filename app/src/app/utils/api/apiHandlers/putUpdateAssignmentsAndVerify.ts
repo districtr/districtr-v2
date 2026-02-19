@@ -84,8 +84,7 @@ export const putUpdateAssignmentsAndVerify = async ({
   });
   // Refetch document to get server-assigned comment_ids for district comments
   const freshDoc = await getDocument(mapDocument.document_id);
-  const document_comments =
-    freshDoc.ok ? freshDoc.response.document_comments : undefined;
+  const document_comments = freshDoc.ok ? freshDoc.response.document_comments : undefined;
 
   // Verify comment metadata (zone, text) matches expected before updating idb
   if (document_comments) {

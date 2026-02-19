@@ -104,7 +104,9 @@ export const getAdminDistrictCommentsList = async (
 };
 
 // POST endpoint for flagging a comment for review (user-facing, no auth)
-export const flagComment = async (commentId: number): Promise<{ok: true; message: string} | {ok: false; error: string}> => {
+export const flagComment = async (
+  commentId: number
+): Promise<{ok: true; message: string} | {ok: false; error: string}> => {
   const response = await post<{comment_id: number}, {message: string; comment_id: number}>(
     'comments/flag'
   )({
@@ -118,7 +120,7 @@ export const flagComment = async (commentId: number): Promise<{ok: true; message
         ? detail
         : Array.isArray(detail)
           ? detail.map((e: {msg?: string}) => e?.msg ?? JSON.stringify(e)).join(', ')
-          : detail?.detail ?? JSON.stringify(detail ?? 'Unknown error');
+          : (detail?.detail ?? JSON.stringify(detail ?? 'Unknown error'));
     return {
       ok: false,
       error: errorMsg,

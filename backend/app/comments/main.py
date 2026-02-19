@@ -12,7 +12,6 @@ from sqlmodel import Session, col
 from sqlalchemy.exc import IntegrityError, DataError
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import text, func, select, String, Select, update, delete
-from dataclasses import dataclass
 
 from app.core.security import auth, TokenScope
 from sqlalchemy.sql import or_, and_, exists, literal, cast, case
@@ -44,9 +43,8 @@ from app.comments.models import (
     ReviewUpdateResponse,
     CommentFilterParams,
     FlagCommentRequest,
-    DistrictCommentInput
+    DistrictCommentInput,
 )
-from pydantic import BaseModel
 from app.comments.moderation import (
     moderate_submission,
     moderate_commenter,
@@ -195,6 +193,7 @@ def create_document_comment(
 
 MAX_COMMENT_LENGTH = 240
 MAX_COMMENTS_PER_DISTRICT = 10
+
 
 def sync_district_comments(
     document_id: str,
@@ -531,9 +530,7 @@ def apply_document_id_filter(stmt: Select, document_id: str | None) -> Select:
     )
 
 
-def apply_public_id_filter_for_district(
-    stmt: Select, public_id: int | None
-) -> Select:
+def apply_public_id_filter_for_district(stmt: Select, public_id: int | None) -> Select:
     """Filter district comments by document public_id."""
     if public_id is None:
         return stmt
@@ -940,7 +937,8 @@ async def list_district_comments_admin(
         default=None, description="Filter by document UUID to look up district comments"
     ),
     public_id: int | None = Query(
-        default=None, description="Filter by public ID (map number) to look up district comments"
+        default=None,
+        description="Filter by public ID (map number) to look up district comments",
     ),
     comment_id: int | None = Query(
         default=None, description="Look up specific comment by ID"

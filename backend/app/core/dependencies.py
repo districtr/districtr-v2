@@ -93,6 +93,7 @@ def validate_document_exists(document_id: DocumentID, session: Session) -> bool:
     """
     document = get_protected_document(document_id=document_id, session=session)
 
+
 def get_document_public(
     session: Session,
     document_id: DocumentID = Depends(parse_document_id),

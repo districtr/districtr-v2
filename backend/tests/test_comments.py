@@ -1,4 +1,4 @@
-from sqlmodel import Session, select, insert, col
+from sqlmodel import Session, select, insert
 from unittest.mock import patch
 from app.comments.models import Commenter, Comment, Tag, CommentTag, DocumentComment
 from tests.test_utils import (
@@ -315,12 +315,7 @@ class TestCommentEndpoint:
         response = client.put(
             "/api/assignments",
             json={
-                "assignments": [
-                    [
-                        'geo_id',
-                        1
-                    ]
-                ],
+                "assignments": [["geo_id", 1]],
                 "document_id": document_id,
                 "comments": [
                     {

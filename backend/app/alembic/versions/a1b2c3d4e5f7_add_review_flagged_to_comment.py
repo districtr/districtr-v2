@@ -22,7 +22,9 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.add_column(
         "comment",
-        sa.Column("review_flagged", sa.Boolean(), nullable=False, server_default="false"),
+        sa.Column(
+            "review_flagged", sa.Boolean(), nullable=False, server_default="false"
+        ),
         schema="comments",
     )
 
