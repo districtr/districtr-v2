@@ -61,6 +61,7 @@ export interface DistrictCommentsListParams {
   review_status?: ReviewStatus | null;
   review_flagged?: boolean;
   document_id?: string;
+  public_id?: number;
   comment_id?: number;
   place?: string;
   state?: string;

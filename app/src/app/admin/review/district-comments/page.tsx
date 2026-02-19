@@ -38,6 +38,8 @@ export default function DistrictCommentsReviewPage() {
   const [limit, setLimit] = useState(ITEMS_PER_PAGE);
   const [documentId, setDocumentId] = useState<string>('');
   const [documentIdFilter, setDocumentIdFilter] = useState<string | undefined>(undefined);
+  const [publicId, setPublicId] = useState<string>('');
+  const [publicIdFilter, setPublicIdFilter] = useState<number | undefined>(undefined);
   const [commentId, setCommentId] = useState<string>('');
   const [commentIdFilter, setCommentIdFilter] = useState<number | undefined>(undefined);
   const [reviewFlagged, setReviewFlagged] = useState<boolean>(false);
@@ -45,6 +47,12 @@ export default function DistrictCommentsReviewPage() {
 
   const applyDocumentFilter = () => {
     setDocumentIdFilter(documentId.trim() || undefined);
+    setOffset(0);
+  };
+
+  const applyPublicIdFilter = () => {
+    const parsed = publicId.trim() ? parseInt(publicId.trim(), 10) : undefined;
+    setPublicIdFilter(Number.isNaN(parsed) ? undefined : parsed);
     setOffset(0);
   };
 
@@ -58,6 +66,8 @@ export default function DistrictCommentsReviewPage() {
     setReviewStatus(null);
     setDocumentId('');
     setDocumentIdFilter(undefined);
+    setPublicId('');
+    setPublicIdFilter(undefined);
     setCommentId('');
     setCommentIdFilter(undefined);
     setReviewFlagged(false);
@@ -73,6 +83,7 @@ export default function DistrictCommentsReviewPage() {
       offset,
       limit,
       documentIdFilter,
+      publicIdFilter,
       commentIdFilter,
       maxModerationScore,
     ],
@@ -84,6 +95,7 @@ export default function DistrictCommentsReviewPage() {
           offset,
           limit,
           document_id: documentIdFilter,
+          public_id: publicIdFilter,
           comment_id: commentIdFilter,
           max_moderation_score: maxModerationScore,
         },
@@ -129,6 +141,22 @@ export default function DistrictCommentsReviewPage() {
                 className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm"
               />
               <Button size="1" onClick={applyDocumentFilter}>
+                Search
+              </Button>
+            </Flex>
+          </Flex>
+          <Flex direction="column" gap="2" className="w-full">
+            <Text size="2">Public ID - look up by map number</Text>
+            <Flex gap="2">
+              <input
+                type="text"
+                placeholder="Enter public ID (e.g. 12345)..."
+                value={publicId}
+                onChange={e => setPublicId(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && applyPublicIdFilter()}
+                className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm"
+              />
+              <Button size="1" onClick={applyPublicIdFilter}>
                 Search
               </Button>
             </Flex>
@@ -193,8 +221,8 @@ export default function DistrictCommentsReviewPage() {
           <Box>
             <Heading>District Comment Moderation</Heading>
             <Text>
-              Moderate zone-level comments on maps. Use Document ID to look up
-              comments for a specific map.
+              Moderate zone-level comments on maps. Use Document ID (UUID) or Public
+              ID to look up comments for a specific map.
             </Text>
           </Box>
           {isLoading && <Spinner />}
@@ -222,7 +250,7 @@ export default function DistrictCommentsReviewPage() {
           )}
           {data?.ok && data?.response.length === 0 && (
             <Blockquote color="green">
-              No district comments to review{documentIdFilter ? ' for this document' : ''} 🎉
+              No district comments to review{documentIdFilter || publicIdFilter ? ' for this filter' : ''} 🎉
             </Blockquote>
           )}
         </Flex>
