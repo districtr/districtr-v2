@@ -19,7 +19,7 @@ from sqlalchemy.sql import or_, and_, exists, literal, cast, case
 
 from app.core.dependencies import get_protected_document, validate_document_exists
 from app.core.db import get_session
-from app.core.models import DocumentID, DistrictCommentInput
+from app.core.models import DocumentID
 
 from app.comments.models import (
     Commenter,
@@ -44,6 +44,7 @@ from app.comments.models import (
     ReviewUpdateResponse,
     CommentFilterParams,
     FlagCommentRequest,
+    DistrictCommentInput
 )
 from pydantic import BaseModel
 from app.comments.moderation import (

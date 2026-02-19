@@ -367,3 +367,9 @@ class CommentFilterParams(BaseModel):
 
 class FlagCommentRequest(BaseModel):
     comment_id: int
+
+
+class DistrictCommentInput(BaseModel):
+    comment_id: int
+    zone: int
+    text: str
