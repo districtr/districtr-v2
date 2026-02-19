@@ -56,7 +56,7 @@ export const ZoneCommentTooltip: React.FC<ZoneCommentTooltipProps> = ({zone, x, 
         )}
         {comments.length > 0 && (
           <Text size="1" color="blue" className="mt-1 italic">
-            Click for more information
+            Click district number for more information
           </Text>
         )}
       </Flex>
