@@ -12,7 +12,14 @@ import {
   Tooltip,
   Badge,
 } from '@radix-ui/themes';
-import {PlusIcon, Cross2Icon, Pencil1Icon, ExclamationTriangleIcon, CheckIcon} from '@radix-ui/react-icons';
+import {
+  PlusIcon,
+  Cross2Icon,
+  Pencil1Icon,
+  ExclamationTriangleIcon,
+  CheckIcon,
+  ComponentNoneIcon,
+} from '@radix-ui/react-icons';
 import {useMapStore} from '@/app/store/mapStore';
 import {useState} from 'react';
 import {DocumentComment} from '@/app/utils/api/apiHandlers/types';
@@ -46,15 +53,15 @@ export const CommentFlagButton: React.FC<CommentFlagButtonProps> = ({
           : 'Is this comment offensive? Flag for review.'
       }
     >
-        <IconButton
-          size="1"
-          variant="ghost"
-          color={isFlagged ? 'green' : 'amber'}
-          onClick={() => onFlag(comment)}
-          disabled={isFlagging || isFlagged}
-        >
-          <ExclamationTriangleIcon />
-        </IconButton>
+      <IconButton
+        size="1"
+        variant="ghost"
+        color={isFlagged ? 'green' : 'amber'}
+        onClick={() => onFlag(comment)}
+        disabled={isFlagging || isFlagged}
+      >
+        <ExclamationTriangleIcon />
+      </IconButton>
     </Tooltip>
   );
 };
@@ -77,7 +84,7 @@ export const CommentEditor: React.FC<CommentEditorProps> = ({
     const trimmed = text.trim();
     if (trimmed === MODERATION_COMMENT_TEXT) {
       setErrorNotification({
-        message: "Please edit your comment to remove the moderation message.",
+        message: 'Please edit your comment to remove the moderation message.',
         severity: 2,
       });
       return;
@@ -217,10 +224,7 @@ export const ZoneCommentsContent: React.FC<ZoneCommentsContentProps> = ({
         </Flex>
 
         {isAddingComment && (
-          <CommentEditor
-            onSave={handleAddComment}
-            onCancel={() => setIsAddingComment(false)}
-          />
+          <CommentEditor onSave={handleAddComment} onCancel={() => setIsAddingComment(false)} />
         )}
 
         {comments.length === 0 && !isAddingComment ? (
@@ -241,15 +245,19 @@ export const ZoneCommentsContent: React.FC<ZoneCommentsContentProps> = ({
                     />
                   ) : (
                     <Flex direction="column" gap="1" className="p-2 bg-gray-50 rounded">
-                      {comment.moderated && (
-                        <Badge size="1" color="amber">
-                          Moderated: This comment will not be visible to the public.
-                        </Badge>
-                      )}
                       <Flex justify="between" align="center" gap="1">
-                        <Text size="1" style={{flex: 1, minWidth: 0}}>
-                          {comment.text}
-                        </Text>
+                        <Flex direction="row" gap="1" align="center">
+                          {comment.moderated && (
+                            <Tooltip content="This comment was moderated and will not be visible to the public. Flag your comment to request a review, or remove potentially offensive content.">
+                              <IconButton size="1" variant="ghost" color="ruby">
+                                <ComponentNoneIcon />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          <Text size="1" style={{flex: 1, minWidth: 0}}>
+                            {comment.text}
+                          </Text>
+                        </Flex>
                         <Flex gap="1" style={{flexShrink: 0}} align="center" justify="center">
                           {showEditingControls && (
                             <>
