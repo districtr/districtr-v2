@@ -19,6 +19,7 @@ import {
   TableRow,
   TabularDataWithPercent,
   AllMapConfigs,
+  possibleRollups,
 } from '../api/summaryStats';
 import {getColumnDerives, getPctDerives, getRollups} from './arquero';
 import * as scale from 'd3-scale';
@@ -82,6 +83,11 @@ class DemographyCache {
     paintedZones?: number;
   } = {};
 
+  /**
+   * Universe-wide totals (full geography rollup) for COI mode comparison.
+   */
+  universeTotals: SummaryRecord | null = null;
+
   colorScale?: AnyD3Scale;
   /**
    * Updates this class with new data from the backend.
@@ -129,6 +135,7 @@ class DemographyCache {
     this.zoneTable = undefined;
     this.populations = [];
     this.summaryStats = {};
+    this.universeTotals = null;
     this.hash = '';
     this.colorScale = undefined;
     this.zoneStats = {};
@@ -254,6 +261,15 @@ class DemographyCache {
       summaries.total_pop_20 / (mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS)
     );
 
+    const universeRow: Record<string, unknown> = { ...summaries, zone: 0 };
+    possibleRollups.forEach(rollup => {
+      const totalVal = summaries[rollup.total as keyof typeof summaries];
+      const colVal = summaries[rollup.col as keyof typeof summaries];
+      if (typeof totalVal === 'number' && totalVal !== 0 && typeof colVal === 'number') {
+        universeRow[rollup.col + '_pct'] = colVal / totalVal;
+      }
+    });
+    this.universeTotals = universeRow as SummaryRecord;
     useChartStore.getState().setDataUpdateHash(`${performance.now()}`);
   }
 

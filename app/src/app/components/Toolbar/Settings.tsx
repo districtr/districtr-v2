@@ -52,22 +52,6 @@ export const ToolSettings: React.FC = () => {
   return (
     <>
       <Flex gap="3" direction="column">
-        <Box>
-          <Text size="2" className="p-0">
-            Basemap:
-          </Text>
-          <Select.Root
-            value={mapOptions.basemap ?? 'minimal'}
-            onValueChange={(value: BasemapId) => setMapOptions({basemap: value})}
-          >
-            <Select.Trigger />
-            <Select.Content>
-              <Select.Item value="minimal">Minimal</Select.Item>
-              <Select.Item value="streets">Streets</Select.Item>
-              <Select.Item value="satellite">Satellite</Select.Item>
-            </Select.Content>
-          </Select.Root>
-        </Box>
         <CheckboxGroup.Root
           defaultValue={[]}
           name="districts"
@@ -94,6 +78,23 @@ export const ToolSettings: React.FC = () => {
           <Heading as="h3" weight="bold" size="3">
             Map Options
           </Heading>
+
+          <Flex direction="row" gapX="2" align="center">
+            <Text size="2" className="p-0">
+              Basemap:
+            </Text>
+            <Select.Root
+              value={mapOptions.basemap ?? 'minimal'}
+              onValueChange={(value: BasemapId) => setMapOptions({basemap: value})}
+            >
+              <Select.Trigger />
+              <Select.Content>
+                <Select.Item value="minimal">Minimal</Select.Item>
+                <Select.Item value="streets">Streets</Select.Item>
+                <Select.Item value="satellite">Satellite</Select.Item>
+              </Select.Content>
+            </Select.Root>
+          </Flex>
           <CheckboxGroup.Item
             value="showPopulationTooltip"
             onClick={() =>
@@ -168,6 +169,7 @@ export const ToolSettings: React.FC = () => {
           >
             Highlight broken precincts
           </CheckboxGroup.Item>
+
           <Button
             onClick={() => setColorModalOpen(true)}
             variant="outline"

@@ -18,6 +18,7 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useDocumentWithSync} from '@/app/hooks/useDocumentWithSync';
 import {SaveConflictModal} from '../SaveConflictModal';
 import {migrateUserMapsFromLocalStorage} from '@/app/utils/idb/migrateUserMaps';
+import { DemographicMap } from '../Map/DemographicMap';
 
 interface CoiMapPageProps {
   isEditing: boolean;
@@ -25,6 +26,7 @@ interface CoiMapPageProps {
 }
 
 function ChildCoiMapPage({isEditing, documentId}: CoiMapPageProps) {
+  const showDemographicMap = useMapControlsStore(state => state.mapOptions.showDemographicMap === 'side-by-side');
   const setIsEditing = useMapControlsStore(state => state.setIsEditing);
   const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
@@ -77,6 +79,7 @@ function ChildCoiMapPage({isEditing, documentId}: CoiMapPageProps) {
         <Topbar />
         <Flex direction="row" height="100%">
           <CoiMap />
+          {showDemographicMap && <DemographicMap />}
         </Flex>
         {toolbarLocation === 'map' && <DraggableToolbar />}
         {!!documentId && (

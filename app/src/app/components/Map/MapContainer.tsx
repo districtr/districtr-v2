@@ -40,8 +40,12 @@ export const MapContainer: React.FC<{
   const document_id = useMapStore(state => state.mapDocument?.document_id);
   const activeTool = useMapControlsStore(state => state.activeTool);
   const basemap = useMapControlsStore(state => state.mapOptions.basemap ?? 'minimal');
+
   const mapStyle = useMemo(
-    () => getMapStyleForBasemap(basemap),
+    () => {
+      const style = getMapStyleForBasemap(basemap)
+      return style;
+    },
     [basemap]
   );
   const showGeocode = basemap === 'streets' || basemap === 'satellite';
