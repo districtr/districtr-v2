@@ -353,6 +353,19 @@ export class MapRenderSubscriber {
     }
     this.renderDemographyColors();
   }
+  subscribeBasemap() {
+    this.controlSubscriptions.push(
+      this.useMapControlsStore.subscribe(
+        controls => controls.mapOptions.basemap,
+        () => {
+          this.mapRef.once("idle", () => {
+            console.log('basemap changed render');
+            this.render()
+          });
+        }
+      )
+    );
+  }
   checkRender() {
     const mapRef = this.mapRef;
     const mapState = this.useMapStore.getState();
@@ -423,6 +436,7 @@ export class MapRenderSubscriber {
   }
   subscribe() {
     this.subscribeShatter();
+    this.subscribeBasemap();
     this.subscribeCursor();
     this.subscribeFocus();
     this.subscribeDemographyColors();
