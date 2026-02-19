@@ -131,7 +131,6 @@ export const PopulationPanel = () => {
                 <ZoneCommentPopover
                   zone={d.zone}
                   color={colorScheme[(d.zone - 1) % colorScheme.length]}
-                  // disabled={access === 'read'}
                 />
                 {!!isEditing && (
                   <IconButton
