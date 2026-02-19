@@ -141,7 +141,6 @@ const ZoneNumbersLayer = () => {
       currentView.getEast(),
       currentView.getNorth(),
     ] as [number, number, number, number];
-    const id = `${mapDocumentId}`;
     const activeZones = demographyCache.populations.filter(p => p.total_pop_20 > 0).map(p => p.zone);
     const mapState = useMapStore.getState();
     const currentComments = mapState.mapDocument?.document_comments || [];
@@ -152,7 +151,7 @@ const ZoneNumbersLayer = () => {
         bounds,
         strategy: 'median-point',
       });
-      if (geoms && mapDocumentId === id) {
+      if (geoms) {
         // Add hasComments property to each feature
         const enrichedFeatures = geoms.centroids.features.map(feature => ({
           ...feature,
