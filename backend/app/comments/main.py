@@ -17,17 +17,10 @@ from dataclasses import dataclass
 from app.core.security import auth, TokenScope
 from sqlalchemy.sql import or_, and_, exists, literal, cast, case
 
-from app.core.dependencies import get_protected_document
+from app.core.dependencies import get_protected_document, validate_document_exists
 from app.core.db import get_session
 from app.core.models import DocumentID
 
-
-def validate_document_exists(document_id: DocumentID, session: Session) -> None:
-    """
-    Validate that the document exists. Raises HTTPException 404 if not found.
-    Use when you only need to guard that the document exists and do not need its data.
-    """
-    get_protected_document(document_id=document_id, session=session)
 from app.comments.models import (
     Commenter,
     CommenterCreateWithRecaptcha,

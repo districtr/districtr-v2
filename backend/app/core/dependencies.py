@@ -86,6 +86,13 @@ def get_protected_document(
     return document
 
 
+def validate_document_exists(document_id: DocumentID, session: Session) -> bool:
+    """
+    Validate that the document exists. Raises HTTPException 404 if not found.
+    Use when you only need to guard that the document exists and do not need its data.
+    """
+    document = get_protected_document(document_id=document_id, session=session)
+
 def get_document_public(
     session: Session,
     document_id: DocumentID = Depends(parse_document_id),
