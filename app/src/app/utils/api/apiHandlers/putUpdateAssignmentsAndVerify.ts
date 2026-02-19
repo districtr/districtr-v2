@@ -87,6 +87,44 @@ export const putUpdateAssignmentsAndVerify = async ({
   const document_comments =
     freshDoc.ok ? freshDoc.response.document_comments : undefined;
 
+  // Verify comment metadata (zone, text) matches expected before updating idb
+  if (document_comments) {
+    const expectedComments = mapDocument.document_comments || [];
+    const expectedByZone = new Map<number, {text: string}[]>();
+    expectedComments.forEach(c => {
+      if (c.zone != null) {
+        const list = expectedByZone.get(c.zone) ?? [];
+        list.push({text: (c.text ?? '').trim()});
+        expectedByZone.set(c.zone, list);
+      }
+    });
+    const freshByZone = new Map<number, {text: string}[]>();
+    document_comments.forEach(c => {
+      if (c.zone != null) {
+        const list = freshByZone.get(c.zone) ?? [];
+        list.push({text: (c.text ?? '').trim()});
+        freshByZone.set(c.zone, list);
+      }
+    });
+    for (const [zone, expectedList] of expectedByZone) {
+      const freshList = freshByZone.get(zone) ?? [];
+      if (freshList.length !== expectedList.length) {
+        console.warn(
+          `Comment count mismatch for zone ${zone}: expected ${expectedList.length}, got ${freshList.length}`
+        );
+      }
+      expectedList.forEach((exp, i) => {
+        const fresh = freshList[i];
+        if (fresh && exp.text !== fresh.text) {
+          // Server may trim or moderate; log but allow update
+          console.warn(
+            `Comment text mismatch for zone ${zone} index ${i}: expected "${exp.text}", got "${fresh.text}"`
+          );
+        }
+      });
+    }
+  }
+
   await idb.updateDocument({
     id: mapDocument.document_id,
     document_metadata: {
