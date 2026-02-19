@@ -50,13 +50,9 @@ from app.comments.models import (
     ReviewStatusUpdate,
     ReviewUpdateResponse,
     CommentFilterParams,
+    FlagCommentRequest,
 )
 from pydantic import BaseModel
-
-
-class FlagCommentRequest(BaseModel):
-    comment_id: int
-
 from app.comments.moderation import (
     moderate_submission,
     moderate_commenter,

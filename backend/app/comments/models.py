@@ -364,3 +364,6 @@ class CommentFilterParams(BaseModel):
     document_id: str | None = None  # For district comments: filter by document UUID
     comment_id: int | None = None  # Look up specific comment by ID
     review_flagged: bool | None = None  # When True, filter to comments flagged for review
+
+class FlagCommentRequest(BaseModel):
+    comment_id: int
