@@ -200,7 +200,7 @@ def get_document_public(
             )
         )
         doc_comments = session.exec(stmt).all()
-        if doc_comments:
+        if len(doc_comments) > 0:
             document_comments_list = []
             is_edit_access = not document_id.is_public
             for dc in doc_comments:

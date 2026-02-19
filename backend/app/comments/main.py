@@ -11,13 +11,23 @@ from fastapi import (
 from sqlmodel import Session, col
 from sqlalchemy.exc import IntegrityError, DataError
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy import text, func, select, String, Select
+from sqlalchemy import text, func, select, String, Select, update, delete
+from dataclasses import dataclass
 
 from app.core.security import auth, TokenScope
 from sqlalchemy.sql import or_, and_, exists, literal, cast, case
 
 from app.core.dependencies import get_protected_document
 from app.core.db import get_session
+from app.core.models import DocumentID
+
+
+def validate_document_exists(document_id: DocumentID, session: Session) -> None:
+    """
+    Validate that the document exists. Raises HTTPException 404 if not found.
+    Use when you only need to guard that the document exists and do not need its data.
+    """
+    get_protected_document(document_id=document_id, session=session)
 from app.comments.models import (
     Commenter,
     CommenterCreateWithRecaptcha,
@@ -56,7 +66,6 @@ from app.comments.moderation import (
     MODERATION_THRESHOLD,
 )
 from app.models import Document
-from app.core.models import DocumentID
 from app.core.security import recaptcha
 
 router = APIRouter(tags=["comments"], prefix="/api/comments")
@@ -194,6 +203,19 @@ def create_document_comment(
     return doc_comment
 
 
+MAX_COMMENT_LENGTH = 240
+MAX_COMMENTS_PER_DISTRICT = 10
+
+
+@dataclass
+class DistrictCommentInput:
+    """Explicit fields for a district comment in sync_district_comments."""
+
+    comment_id: str | int | None
+    zone: int
+    text: str
+
+
 def sync_district_comments(
     document_id: str,
     comments: list[dict],
@@ -204,11 +226,9 @@ def sync_district_comments(
     Sync district comments for a document. Creates/updates comments in comments schema.
     Each comment is {comment_id?, zone, text}. comment_id is optional; if provided
     as parseable int and exists for this document, the comment is updated.
+    Limits: 240 chars per comment (after trim), 10 comments per district.
     """
-    from app.core.dependencies import get_protected_document
-    from sqlalchemy import update, delete
-
-    get_protected_document(
+    validate_document_exists(
         document_id=DocumentID(document_id=document_id), session=session
     )
 
@@ -224,10 +244,23 @@ def sync_district_comments(
         )
     )
 
+    # Enforce max comments per district (incoming replaces existing, so count per zone)
+    zone_counts: dict[int, int] = {}
+    for c in comments:
+        zone = c.get("zone")
+        if zone is not None:
+            zone_counts[zone] = zone_counts.get(zone, 0) + 1
+    for zone, count in zone_counts.items():
+        if count > MAX_COMMENTS_PER_DISTRICT:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Maximum {MAX_COMMENTS_PER_DISTRICT} comments per district (zone {zone})",
+            )
+
     kept_comment_ids = set()
     for c in comments:
         zone = c.get("zone")
-        text = (c.get("text") or "").strip()
+        text_raw = (c.get("text") or "").strip()[:MAX_COMMENT_LENGTH]
         comment_id_str = c.get("comment_id")
 
         if zone is None:
@@ -235,7 +268,7 @@ def sync_district_comments(
 
         # Try to parse as existing comment id (integer from comments.comment)
         existing_id = None
-        if comment_id_str:
+        if comment_id_str is not None:
             try:
                 parsed = int(comment_id_str)
                 if parsed in existing_dc:
@@ -243,28 +276,26 @@ def sync_district_comments(
             except (ValueError, TypeError):
                 pass
 
-        if existing_id:
+        if existing_id is not None:
             # Update existing comment
             title = f"District {zone} note"
-            comment_text = text if text else " "
             stmt = (
                 update(Comment)
                 .where(Comment.id == existing_id)
-                .values(comment=comment_text, title=title)
+                .values(comment=text_raw or " ", title=title)
             )
             session.execute(stmt)
             kept_comment_ids.add(existing_id)
             if background_tasks:
                 background_tasks.add_task(
-                    moderate_comment_by_id, existing_id, f"{title} {comment_text}"
+                    moderate_comment_by_id, existing_id, f"{title} {text_raw or ' '}"
                 )
         else:
             # Create new comment
             title = f"District {zone} note"
-            comment_text = text if text else " "
             new_comment = Comment(
                 title=title,
-                comment=comment_text,
+                comment=text_raw or " ",
                 commenter_id=None,
             )
             session.add(new_comment)
@@ -277,9 +308,8 @@ def sync_district_comments(
             session.execute(stmt)
             kept_comment_ids.add(new_comment.id)
             if background_tasks:
-                # Pass id and text - comment object detaches when session closes
                 background_tasks.add_task(
-                    moderate_comment_by_id, new_comment.id, f"{title} {comment_text}"
+                    moderate_comment_by_id, new_comment.id, f"{title} {text_raw or ' '}"
                 )
 
     # Delete district comments not in the kept set (DocumentComment first, then Comment)
@@ -518,6 +548,15 @@ def apply_document_id_filter(stmt: Select, document_id: str | None) -> Select:
             col(DocumentComment.zone).is_not(None),
         )
     )
+
+
+def apply_public_id_filter_for_district(
+    stmt: Select, public_id: int | None
+) -> Select:
+    """Filter district comments by document public_id."""
+    if public_id is None:
+        return stmt
+    return stmt.where(col(Document.public_id) == public_id)
 
 
 def apply_exclude_district_comments(stmt: Select) -> Select:
@@ -817,6 +856,7 @@ def get_admin_district_comments_query(
     )
 
     stmt = apply_document_id_filter(stmt, params.document_id)
+    stmt = apply_public_id_filter_for_district(stmt, params.public_id)
     stmt = apply_comment_id_filter(stmt, params.comment_id)
     stmt = apply_review_flagged_filter(stmt, params.review_flagged)
     stmt = apply_location_filters(stmt, params.place, params.state, params.zip_code)
@@ -918,6 +958,9 @@ async def list_district_comments_admin(
     document_id: str | None = Query(
         default=None, description="Filter by document UUID to look up district comments"
     ),
+    public_id: int | None = Query(
+        default=None, description="Filter by public ID (map number) to look up district comments"
+    ),
     comment_id: int | None = Query(
         default=None, description="Look up specific comment by ID"
     ),
@@ -935,7 +978,7 @@ async def list_district_comments_admin(
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
     review_status: ReviewStatus = Query(default=None),
 ):
-    """List district-level comments for moderation. Filter by document_id or comment_id."""
+    """List district-level comments for moderation. Filter by document_id, public_id, or comment_id."""
     params = CommentFilterParams(
         place=place,
         state=state,
@@ -943,6 +986,7 @@ async def list_district_comments_admin(
         limit=limit,
         offset=offset,
         document_id=document_id,
+        public_id=public_id,
         comment_id=comment_id,
         review_flagged=review_flagged,
     )

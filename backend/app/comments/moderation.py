@@ -2,6 +2,8 @@
 
 import logging
 from sqlmodel import Session, Table, update
+
+from app.core.db import engine
 from safetext import SafeText
 
 from app.comments.models import (
@@ -113,9 +115,6 @@ def moderate_comment_by_id(comment_id: int, comment_text: str):
     Moderate a comment by ID. Use when the Comment object may be detached
     (e.g. in background tasks after request session is closed).
     """
-    from app.core.db import engine
-    from sqlmodel import Session
-
     with Session(engine) as session:
         moderate_text(cls=Comment, key=comment_id, text=comment_text, session=session)
 

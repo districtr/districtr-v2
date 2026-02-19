@@ -37,6 +37,7 @@ from app.core.config import settings
 import app.exports.main as exports
 import app.cms.main as cms
 import app.comments.main as comments
+from app.comments.main import sync_district_comments
 import app.contiguity.main as contiguity
 import app.save_share.main as save_share
 import app.thumbnails.main as thumbnails
@@ -482,8 +483,6 @@ async def update_assignments(
 
     # Sync district comments via comments schema (None = no change, [] = delete all)
     if data.comments is not None:
-        from app.comments.main import sync_district_comments
-
         comment_dicts = [
             {"comment_id": c.comment_id, "zone": c.zone, "text": c.text}
             for c in data.comments
@@ -693,44 +692,6 @@ async def get_document_object(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Multiple documents found for ID: {document_id}",
         )
-
-
-@app.delete(
-    "/api/document/{document_id}/comments/{comment_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-async def delete_document_comment(
-    comment_id: str,
-    document: Annotated[Document, Depends(get_document)],
-    session: Session = Depends(get_session),
-):
-    """Delete a district comment by comment_id (comments.comment.id). Requires the private document UUID."""
-    from app.comments.models import DocumentComment, Comment
-    from sqlalchemy import delete as sql_delete
-
-    try:
-        comment_id_int = int(comment_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Comment {comment_id} not found for document",
-        )
-    result = session.execute(
-        sql_delete(DocumentComment).where(
-            col(DocumentComment.comment_id) == comment_id_int,
-            col(DocumentComment.document_id) == document.document_id,
-            col(DocumentComment.zone).is_not(None),
-        )
-    )
-    if result.rowcount == 0:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Comment {comment_id} not found for document",
-        )
-    session.execute(
-        sql_delete(Comment).where(Comment.id == comment_id_int),
-    )
-    session.commit()
 
 
 @app.get("/api/documents/list")
