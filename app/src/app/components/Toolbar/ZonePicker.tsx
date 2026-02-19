@@ -12,7 +12,7 @@ import {
 import {MinusIcon, PlusIcon, Pencil1Icon} from '@radix-ui/react-icons';
 import {useState} from 'react';
 
-export function ZonePicker() {
+export function DistrictsZonePicker() {
   const [showNumDistrictEditor, setShowNumDistrictEditor] = useState(false);
   const selectedZone = useMapControlsStore(state => state.selectedZone);
   const setSelectedZone = useMapControlsStore(state => state.setSelectedZone);
@@ -119,4 +119,24 @@ export function ZonePicker() {
       </Flex>
     </Box>
   );
+}
+
+export const CoiZonePicker = () => {
+  return (
+    <Box>
+      <Text>TODO: Coi Zone Picker</Text>
+    </Box>
+  )
+}
+
+export const ZonePicker: React.FC = () => {
+  const mapMode = useMapControlsStore(state => state.mapMode);
+  switch (mapMode) {
+    case 'districts':
+      return <ZonePicker />;
+    case 'coi':
+      return <CoiZonePicker />;
+    default:
+      return null;
+  }
 }
