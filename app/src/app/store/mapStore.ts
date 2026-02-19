@@ -309,9 +309,13 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       if (!mapDocument) return;
 
       const currentComments = mapDocument.document_comments || [];
+      const zoneCommentsCount = currentComments.filter(c => c.zone === zone).length;
+      if (zoneCommentsCount >= 10) return; // Max 10 comments per district
+
+      const text = (comment.text ?? '').trim().slice(0, 240); // Max 240 chars
       const newMapDocument = {
         ...mapDocument,
-        document_comments: [...currentComments, {...comment, zone}],
+        document_comments: [...currentComments, {...comment, zone, text}],
       };
       set({
         mapDocument: newMapDocument,
@@ -332,13 +336,14 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const {mapDocument, updated} = get();
       if (!mapDocument) return;
 
+      const trimmedText = (text ?? '').trim().slice(0, 240); // Max 240 chars
       const currentComments = mapDocument.document_comments || [];
       let zoneIndex = 0;
       const updatedComments = currentComments.map(c => {
         if (c.zone === zone) {
           if (zoneIndex === index) {
             zoneIndex++;
-            return {...c, text};
+            return {...c, text: trimmedText};
           }
           zoneIndex++;
         }

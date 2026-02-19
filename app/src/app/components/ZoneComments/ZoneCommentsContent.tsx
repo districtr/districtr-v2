@@ -17,6 +17,9 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useState} from 'react';
 import {DocumentComment} from '@/app/utils/api/apiHandlers/types';
 import {MODERATION_COMMENT_TEXT} from '@/app/constants/notifications';
+
+const MAX_COMMENT_LENGTH = 240;
+const MAX_COMMENTS_PER_DISTRICT = 10;
 import {flagComment} from '@/app/utils/api/apiHandlers/reviewHandlers';
 
 interface CommentFlagButtonProps {
@@ -71,24 +74,32 @@ export const CommentEditor: React.FC<CommentEditorProps> = ({
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
 
   const handleSave = () => {
-    if (text.trim() === MODERATION_COMMENT_TEXT) {
+    const trimmed = text.trim();
+    if (trimmed === MODERATION_COMMENT_TEXT) {
       setErrorNotification({
         message: "Please edit your comment to remove the moderation message.",
         severity: 2,
       });
       return;
     }
-    if (text.trim()) {
-      onSave(text.trim());
+    if (trimmed) {
+      if (trimmed.length > MAX_COMMENT_LENGTH) {
+        setErrorNotification({
+          message: `Comment must be ${MAX_COMMENT_LENGTH} characters or less.`,
+          severity: 2,
+        });
+        return;
+      }
+      onSave(trimmed);
     }
   };
 
   return (
     <Flex direction="column" gap="2" className="p-2 bg-gray-50 rounded-md">
       <TextArea
-        placeholder="Enter your comment..."
+        placeholder="Enter your comment... (max 240 characters)"
         value={text}
-        onChange={e => setText(e.target.value)}
+        onChange={e => setText(e.target.value.slice(0, MAX_COMMENT_LENGTH))}
         size="1"
         rows={3}
       />
@@ -100,7 +111,7 @@ export const CommentEditor: React.FC<CommentEditorProps> = ({
           size="1"
           variant="solid"
           onClick={handleSave}
-          disabled={!text.trim()}
+          disabled={!text.trim() || text.trim().length > MAX_COMMENT_LENGTH}
         >
           <CheckIcon />
           Save
@@ -141,6 +152,14 @@ export const ZoneCommentsContent: React.FC<ZoneCommentsContentProps> = ({
   const removeZoneComment = useMapStore(state => state.removeZoneComment);
 
   const handleAddComment = (text: string) => {
+    const commentsForZone = useMapStore.getState().getZoneCommentsForZone(zone);
+    if (commentsForZone.length >= MAX_COMMENTS_PER_DISTRICT) {
+      setErrorNotification({
+        message: `Maximum ${MAX_COMMENTS_PER_DISTRICT} comments per district.`,
+        severity: 2,
+      });
+      return;
+    }
     addZoneComment(zone, {
       comment_id: crypto.randomUUID(),
       zone,
