@@ -239,7 +239,8 @@ def sync_district_comments(
     kept_comment_ids = set()
     for c in comments:
         zone = c.get("zone")
-        text_raw = (c.get("text") or "").strip()[:MAX_COMMENT_LENGTH]
+        # Comment text is required to be a string and have length > 0 by DB constraints
+        comment_text = c.get("text", "")[:MAX_COMMENT_LENGTH]
         comment_id_str = c.get("comment_id")
 
         if zone is None:
@@ -261,20 +262,20 @@ def sync_district_comments(
             stmt = (
                 update(Comment)
                 .where(Comment.id == existing_id)
-                .values(comment=text_raw or " ", title=title)
+                .values(comment=comment_text, title=title)
             )
             session.execute(stmt)
             kept_comment_ids.add(existing_id)
             if background_tasks:
                 background_tasks.add_task(
-                    moderate_comment_by_id, existing_id, f"{title} {text_raw or ' '}"
+                    moderate_comment_by_id, existing_id, f"{title} {comment_text}"
                 )
         else:
             # Create new comment
             title = f"District {zone} note"
             new_comment = Comment(
                 title=title,
-                comment=text_raw or " ",
+                comment=comment_text,
                 commenter_id=None,
             )
             session.add(new_comment)
@@ -288,7 +289,7 @@ def sync_district_comments(
             kept_comment_ids.add(new_comment.id)
             if background_tasks:
                 background_tasks.add_task(
-                    moderate_comment_by_id, new_comment.id, f"{title} {text_raw or ' '}"
+                    moderate_comment_by_id, new_comment.id, f"{title} {comment_text}"
                 )
 
     # Delete district comments not in the kept set (DocumentComment first, then Comment)
