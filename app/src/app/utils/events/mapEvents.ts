@@ -124,7 +124,7 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
     }),
   });
 
-  if (zoneLabelFeatures.length > 0) {
+  if (zoneLabelFeatures.length > 0 && activeTool === 'pan') {
     const zone = zoneLabelFeatures[0].properties?.zone;
     if (zone !== undefined) {
       const comments = mapStore.mapDocument?.document_comments || [];
