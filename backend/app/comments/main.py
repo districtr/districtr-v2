@@ -19,7 +19,7 @@ from sqlalchemy.sql import or_, and_, exists, literal, cast, case
 
 from app.core.dependencies import get_protected_document, validate_document_exists
 from app.core.db import get_session
-from app.core.models import DocumentID
+from app.core.models import DocumentID, DistrictCommentInput
 
 from app.comments.models import (
     Commenter,
@@ -195,19 +195,9 @@ def create_document_comment(
 MAX_COMMENT_LENGTH = 240
 MAX_COMMENTS_PER_DISTRICT = 10
 
-
-@dataclass
-class DistrictCommentInput:
-    """Explicit fields for a district comment in sync_district_comments."""
-
-    comment_id: str | int | None
-    zone: int
-    text: str
-
-
 def sync_district_comments(
     document_id: str,
-    comments: list[dict],
+    comments: list[DistrictCommentInput],
     session: Session,
     background_tasks: BackgroundTasks | None = None,
 ) -> None:

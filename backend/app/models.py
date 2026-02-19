@@ -421,3 +421,8 @@ class DistrictUnionsResponse(BaseModel):
     geometry: str
     demographic_data: dict | None
     updated_at: datetime
+
+class DistrictCommentInput(BaseModel):
+    comment_id: int
+    zone: int
+    text: str
