@@ -39,7 +39,12 @@ export const EntryRow: React.FC<{
                 <Text size="1" color="gray" ml="2">
                   (District {entry.zone})
                 </Text>
-              )}
+              )}<br/>
+              <Text size="1" color="gray">
+                Comment / Commenter / Tag Moderation Score:
+                ({Math.round((entry.comment_moderation_score ?? 0) * 100)/100} / {Math.round((entry.commenter_moderation_score ?? 0) * 100)/100} /{' '}
+                {Math.round((entry.tag_moderation_score ?? 0) * 100)/100})
+              </Text>
             </Heading>
           </Box>
           <Flex direction="column" gap="2" align="start" justify="between" className="flex-0">

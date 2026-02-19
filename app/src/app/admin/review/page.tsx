@@ -39,7 +39,7 @@ const REVIEW_STATUS_OPTIONS = [
     value: REVIEW_STATUS_ENUM.REJECTED,
   },
   {
-    name: 'Reviewed',
+    name: 'Dismissed',
     value: REVIEW_STATUS_ENUM.REVIEWED,
   },
 ];
@@ -55,7 +55,7 @@ export default function ReviewHome() {
   const [zipCode, setZipCode] = useState<string | undefined>(undefined);
   const [commentId, setCommentId] = useState<string>('');
   const [commentIdFilter, setCommentIdFilter] = useState<number | undefined>(undefined);
-  const [reviewFlagged, setReviewFlagged] = useState<boolean>(true);
+  const [reviewFlagged, setReviewFlagged] = useState<boolean>(false);
   const [maxModerationScore, setMaxModerationScore] = useState<number>(1.0);
 
   const applyCommentIdFilter = () => {
@@ -169,7 +169,7 @@ export default function ReviewHome() {
                 }}
                 className="rounded border-gray-300"
               />
-              <label htmlFor="review-flagged">Show only flagged comments</label>
+              <Text as="label" htmlFor="review-flagged">Show only flagged comments</Text>
             </Flex>
           </Flex>
           <TagReviewFilter tags={tags} setTags={setTags} />

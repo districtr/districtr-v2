@@ -28,7 +28,7 @@ const REVIEW_STATUS_OPTIONS = [
   {name: 'Not yet reviewed', value: null},
   {name: 'Approved', value: REVIEW_STATUS_ENUM.APPROVED},
   {name: 'Rejected', value: REVIEW_STATUS_ENUM.REJECTED},
-  {name: 'Reviewed', value: REVIEW_STATUS_ENUM.REVIEWED},
+  {name: 'Dismissed', value: REVIEW_STATUS_ENUM.REVIEWED},
 ];
 
 export default function DistrictCommentsReviewPage() {
@@ -42,7 +42,7 @@ export default function DistrictCommentsReviewPage() {
   const [publicIdFilter, setPublicIdFilter] = useState<number | undefined>(undefined);
   const [commentId, setCommentId] = useState<string>('');
   const [commentIdFilter, setCommentIdFilter] = useState<number | undefined>(undefined);
-  const [reviewFlagged, setReviewFlagged] = useState<boolean>(false);
+  const [reviewFlagged, setReviewFlagged] = useState<boolean>(true);
   const [maxModerationScore, setMaxModerationScore] = useState<number>(1.0);
 
   const applyDocumentFilter = () => {
@@ -131,7 +131,7 @@ export default function DistrictCommentsReviewPage() {
           </Heading>
           <Flex direction="column" gap="2" className="w-full">
             <Text size="2">Document ID (UUID) - look up comments by map</Text>
-            <Flex gap="2">
+            <Flex gap="2" align="center">
               <input
                 type="text"
                 placeholder="Enter document UUID..."
@@ -147,7 +147,7 @@ export default function DistrictCommentsReviewPage() {
           </Flex>
           <Flex direction="column" gap="2" className="w-full">
             <Text size="2">Public ID - look up by map number</Text>
-            <Flex gap="2">
+            <Flex gap="2" align="center">
               <input
                 type="text"
                 placeholder="Enter public ID (e.g. 12345)..."
@@ -163,7 +163,7 @@ export default function DistrictCommentsReviewPage() {
           </Flex>
           <Flex direction="column" gap="2" className="w-full">
             <Text size="2">Comment ID</Text>
-            <Flex gap="2">
+            <Flex gap="2" align="center">
               <input
                 type="number"
                 placeholder="Look up by ID..."
@@ -190,7 +190,7 @@ export default function DistrictCommentsReviewPage() {
                 }}
                 className="rounded border-gray-300"
               />
-              <label htmlFor="district-review-flagged">Show only flagged comments</label>
+              <Text as="label" htmlFor="district-review-flagged" size="2">Show only flagged comments</Text>
             </Flex>
           </Flex>
           <Flex direction="column" gap="2" justify="between" className="w-full">
