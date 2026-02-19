@@ -46,9 +46,6 @@ export const ZoneCommentPopover: React.FC<ZoneCommentPopoverProps> = ({
             ${isEditing && 'hover:opacity-100'}
             transition-opacity duration-200
           `}
-          style={{
-            color: commentCount > 0 ? color : undefined,
-          }}
           disabled={disabled}
         >
           <ChatBubbleIcon />
