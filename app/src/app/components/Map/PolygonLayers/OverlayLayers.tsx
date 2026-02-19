@@ -3,77 +3,34 @@ import {useMemo} from 'react';
 import {Layer, Source} from 'react-map-gl/maplibre';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {Overlay} from '@/app/utils/api/apiHandlers/types';
-import {FillLayerSpecification, LineLayerSpecification, SymbolLayerSpecification} from 'maplibre-gl';
-import { useMapStore } from '@/app/store/mapStore';
-
-const DEFAULT_FILL_STYLE: Partial<FillLayerSpecification['paint']> = {
-  'fill-color': '#627BC1',
-  'fill-opacity': 0.3,
-  'fill-outline-color': '#627BC1',
-};
-
-const DEFAULT_LINE_STYLE: Partial<LineLayerSpecification['paint']> = {
-  'line-color': '#627BC1',
-  'line-width': 2,
-  'line-opacity': 0.8,
-};
-
-const DEFAULT_TEXT_PAINT: Partial<SymbolLayerSpecification['paint']> = {
-  'text-color': '#627BC1',
-  'text-halo-color': '#fff',
-  'text-halo-width': 1.5,
-};
-
-const DEFAULT_TEXT_LAYOUT: Partial<SymbolLayerSpecification['layout']> = {
-  'text-font': ['Barlow Bold'],
-  'text-size': 14,
-  'text-anchor': 'center',
-  'text-max-width': 10,
-};
-
-// Hover highlight style for constraint selection mode
-const HOVER_FILL_STYLE: Partial<FillLayerSpecification['paint']> = {
-  'fill-color': '#FF9500',
-  'fill-opacity': 0.4,
-};
-
-// Selected constraint highlight style
-const SELECTED_FILL_STYLE: Partial<FillLayerSpecification['paint']> = {
-  'fill-color': '#FF6B00',
-  'fill-opacity': 0.5,
-};
-
-const SELECTED_LINE_STYLE: Partial<LineLayerSpecification['paint']> = {
-  'line-color': '#FF6B00',
-  'line-width': 3,
-  'line-opacity': 1,
-};
-
-const HIGHLIGHT_FILL_COLOR: Partial<FillLayerSpecification['paint']> = {
-  'fill-color': '#000000',
-  'fill-opacity': [
-    'case',
-    ['boolean', ['feature-state', 'hover'], false],
-    0.7,
-    0
-  ]
-};
+import {OVERLAY_LAYER_ID_PREFIXES} from '@/app/constants/map/layerIds';
+import {
+  DEFAULT_FILL_STYLE,
+  DEFAULT_LINE_STYLE,
+  DEFAULT_TEXT_LAYOUT,
+  DEFAULT_TEXT_PAINT,
+  HIGHLIGHT_FILL_COLOR,
+  SELECTED_LINE_STYLE,
+} from '@/app/constants/map/overlayLayerStyles';
+import {useMapStore} from '@/app/store/mapStore';
 
 interface OverlayLayerProps {
   overlay: Overlay;
   selectedFeatureId: string | null;
   isConstraintOverlay: boolean;
+  layerBeforeId: string;
 }
 
 const OverlayLayer = ({
   overlay,
   selectedFeatureId,
   isConstraintOverlay,
+  layerBeforeId,
 }: OverlayLayerProps) => {
-  const sourceId = `overlay-source-${overlay.overlay_id}`;
-  const layerId = `overlay-layer-${overlay.overlay_id}`;
-  const clickLayerId = `overlay-click-${overlay.overlay_id}`;
-  const selectedLayerId = `overlay-selected-${overlay.overlay_id}`;
+  const sourceId = `${OVERLAY_LAYER_ID_PREFIXES.source}${overlay.overlay_id}`;
+  const layerId = `${OVERLAY_LAYER_ID_PREFIXES.layer}${overlay.overlay_id}`;
+  const clickLayerId = `${OVERLAY_LAYER_ID_PREFIXES.click}${overlay.overlay_id}`;
+  const selectedLayerId = `${OVERLAY_LAYER_ID_PREFIXES.selected}${overlay.overlay_id}`;
   const paintConstraint = useOverlayStore(state => state.paintConstraint);
 
   const idProperty = overlay.id_property || 'id';
@@ -96,7 +53,7 @@ const OverlayLayer = ({
   const layerProps = useMemo(() => {
     const baseProps: any = {
       id: layerId,
-      beforeId: 'places_locality',
+      beforeId: layerBeforeId,
     };
 
     // Add source-layer for pmtiles
@@ -128,9 +85,7 @@ const OverlayLayer = ({
         };
       case 'text':
         // Use symbol layer for text labels
-        const textField = overlay.id_property
-          ? ['get', overlay.id_property]
-          : ['get', 'name']; // fallback to 'name' property
+        const textField = overlay.id_property ? ['get', overlay.id_property] : ['get', 'name']; // fallback to 'name' property
         return {
           ...baseProps,
           type: 'symbol' as const,
@@ -147,7 +102,7 @@ const OverlayLayer = ({
       default:
         return baseProps;
     }
-  }, [layerId, overlay]);
+  }, [layerId, overlay, layerBeforeId]);
 
   // Click detection layer for line overlays (invisible fill)
   const clickLayerProps = useMemo(() => {
@@ -198,24 +153,21 @@ const OverlayLayer = ({
 
   return (
     <>
-    <Source id={sourceId} {...sourceProps}>
-      {/* Main overlay layer */}
-      <Layer {...layerProps} />
-      {/* Hover highlight layer */}
-      <Layer 
-        type="fill"
-        paint={HIGHLIGHT_FILL_COLOR}
-      />
-      {/* Selected constraint outline layer */}
-      {selectedOutlineProps && <Layer {...selectedOutlineProps} />}
-      {/* Invisible click layer for line overlays */}
-      {clickLayerProps && <Layer {...clickLayerProps} />}
-    </Source>
+      <Source id={sourceId} {...sourceProps}>
+        {/* Main overlay layer */}
+        <Layer {...layerProps} />
+        {/* Hover highlight layer */}
+        <Layer type="fill" paint={HIGHLIGHT_FILL_COLOR} />
+        {/* Selected constraint outline layer */}
+        {selectedOutlineProps && <Layer {...selectedOutlineProps} />}
+        {/* Invisible click layer for line overlays */}
+        {clickLayerProps && <Layer {...clickLayerProps} />}
+      </Source>
     </>
   );
 };
 
-export const OverlayLayers = () => {
+export const OverlayLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
   const availableOverlays = useMapStore(state => state.mapDocument?.overlays ?? []);
   const enabledOverlayIds = useOverlayStore(state => state.enabledOverlayIds);
   const paintConstraint = useOverlayStore(state => state.paintConstraint);
@@ -235,6 +187,7 @@ export const OverlayLayers = () => {
             overlay={overlay}
             selectedFeatureId={isConstraintOverlay ? paintConstraint.featureId : null}
             isConstraintOverlay={isConstraintOverlay}
+            layerBeforeId={layerBeforeId}
           />
         );
       })}

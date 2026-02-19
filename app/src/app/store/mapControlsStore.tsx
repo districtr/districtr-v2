@@ -2,7 +2,7 @@
 import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
 import type {MapOptions} from 'maplibre-gl';
-import {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from '../constants/mapDefaults';
+import {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from '../constants/map/mapDefaults';
 import {ActiveTool, NullableZone, SpatialUnit, Zone} from '../constants/types';
 import {DistrictrMapOptions} from './types';
 import {useAssignmentsStore} from './assignmentsStore';
@@ -10,7 +10,13 @@ import {useMapStore} from './mapStore';
 import {PaintEventHandler} from '@utils/map/types';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 
-type SidebarPanel = 'layers' | 'population' | 'demography' | 'election' | 'mapValidation' | 'overlays';
+type SidebarPanel =
+  | 'layers'
+  | 'population'
+  | 'demography'
+  | 'election'
+  | 'mapValidation'
+  | 'overlays';
 
 export interface MapControlsStore {
   selectedZone: Zone;

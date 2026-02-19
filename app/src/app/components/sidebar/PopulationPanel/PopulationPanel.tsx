@@ -11,9 +11,9 @@ import {PopulationPanelOptions} from './PopulationPanelOptions';
 import {LockClosedIcon, LockOpen2Icon} from '@radix-ui/react-icons';
 import {useZonePopulations} from '@/app/hooks/useDemography';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
-import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/layers';
 import {ZoneCommentPopover} from './ZoneCommentPopover';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
+import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 
 const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
 

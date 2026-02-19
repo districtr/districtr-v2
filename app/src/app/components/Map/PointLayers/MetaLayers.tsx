@@ -1,9 +1,13 @@
 import {
   EMPTY_FT_COLLECTION,
   ZONE_LABEL_STYLE,
+} from '@/app/constants/map/layerStyle';
+import {
   SELECTION_POINTS_SOURCE_ID,
   SELECTION_POINTS_SOURCE_ID_CHILD,
-} from '@/app/constants/layers';
+  ZONE_LABEL_SOURCE_ID,
+  ZONE_LABEL_LAYER_IDS,
+} from '@/app/constants/map/layerIds';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
@@ -214,11 +218,11 @@ const ZoneNumbersLayer = () => {
     return null;
   }
   return (
-    <Source id="zone-label" type="geojson" data={zoneNumberData}>
+    <Source id={ZONE_LABEL_SOURCE_ID} type="geojson" data={zoneNumberData}>
       <Layer
-        id="ZONE_LABEL_BG"
+        id={ZONE_LABEL_LAYER_IDS.BACKGROUND}
         type="circle"
-        source="zone-label"
+        source={ZONE_LABEL_SOURCE_ID}
         layout={{
           visibility: shouldHide ? 'none' : 'visible',
         }}
@@ -249,9 +253,9 @@ const ZoneNumbersLayer = () => {
         }}
       ></Layer>
       <Layer
-        id="ZONE_LABEL"
+        id={ZONE_LABEL_LAYER_IDS.TEXT}
         type="symbol"
-        source="zone-label"
+        source={ZONE_LABEL_SOURCE_ID}
         layout={{
           visibility: shouldHide ? 'none' : 'visible',
           'text-field': ['get', 'zone'],
@@ -280,9 +284,9 @@ const ZoneNumbersLayer = () => {
         }
       ></Layer>
       <Layer
-        id="ZONE_LOCK_LABE"
+        id={ZONE_LABEL_LAYER_IDS.LOCK}
         type="symbol"
-        source="zone-label"
+        source={ZONE_LABEL_SOURCE_ID}
         layout={{
           visibility: shouldHide ? 'none' : 'visible',
           'icon-image': 'lock',
