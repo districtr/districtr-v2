@@ -1,6 +1,6 @@
 """add review_flagged to comment
 
-Revision ID: a1b2c3d4e5f7
+Revision ID: da39a3ee5e6b
 Revises: 111fa461521c
 Create Date: 2025-02-17
 
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = "a1b2c3d4e5f7"
+revision: str = "da39a3ee5e6b"
 down_revision: Union[str, None] = "111fa461521c"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
