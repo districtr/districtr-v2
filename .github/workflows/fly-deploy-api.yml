@@ -3,18 +3,27 @@ on:
   push:
     branches:
       - main
+      - dev
     paths:
       - "backend/**"
       - ".github/workflows/fly-deploy-api.yml"
 jobs:
   deploy:
-    name: Deploy app
+    name: Deploy API
     runs-on: ubuntu-latest
-    concurrency: deploy-api
+    concurrency: deploy-api-${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v3
+      - name: Set deploy env
+        id: deploy-env
+        run: |
+          if [ "${{ github.ref_name }}" = "dev" ]; then
+            echo "app_name=districtr-v2-api-dev" >> $GITHUB_OUTPUT
+          else
+            echo "app_name=districtr-v2-api" >> $GITHUB_OUTPUT
+          fi
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --remote-only
+      - run: flyctl deploy --remote-only --app ${{ steps.deploy-env.outputs.app_name }}
         working-directory: backend
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
