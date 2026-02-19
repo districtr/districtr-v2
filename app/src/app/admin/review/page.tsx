@@ -55,7 +55,7 @@ export default function ReviewHome() {
   const [zipCode, setZipCode] = useState<string | undefined>(undefined);
   const [commentId, setCommentId] = useState<string>('');
   const [commentIdFilter, setCommentIdFilter] = useState<number | undefined>(undefined);
-  const [reviewFlagged, setReviewFlagged] = useState<boolean>(false);
+  const [reviewFlagged, setReviewFlagged] = useState<boolean>(true);
   const [maxModerationScore, setMaxModerationScore] = useState<number>(1.0);
 
   const applyCommentIdFilter = () => {
@@ -72,7 +72,7 @@ export default function ReviewHome() {
     setZipCode(undefined);
     setCommentId('');
     setCommentIdFilter(undefined);
-    setReviewFlagged(false);
+    setReviewFlagged(true);
     setMaxModerationScore(1.0);
   };
 
