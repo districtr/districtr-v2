@@ -1,10 +1,11 @@
-import {PARENT_LAYERS, CHILD_LAYERS, getLayerFill, BLOCK_SOURCE_ID} from '@constants/layers';
+import {getLayerFill} from '@constants/map/layerStyle';
+import {PARENT_LAYERS, CHILD_LAYERS, BLOCK_SOURCE_ID} from '@constants/map/layerIds';
 import {ColorZoneAssignmentsState} from '@utils/map/types';
 import {colorZoneAssignments} from '@utils/map/colorZoneAssignments';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 import {getFeaturesIntersectingCounties} from '@utils/map/getFeaturesIntersectingCounties';
 import {shallowCompareArray} from '@utils/arrays';
-import {useMapStore as _useMapStore, MapStore} from '@store/mapStore';
+import {useMapStore as _useMapStore} from '@store/mapStore';
 import {getFeatureUnderCursor} from '@utils/map/getFeatureUnderCursor';
 import {useDemographyStore as _useDemographyStore} from '../../store/demography/demographyStore';
 import {demographyCache} from '../demography/demographyCache';
@@ -15,7 +16,6 @@ import {
 } from '@store/mapControlsStore';
 import {useAssignmentsStore as _useAssignmentsStore} from '@store/assignmentsStore';
 import GeometryWorker from '../GeometryWorker';
-import {idb} from '../idb/idb';
 
 /**
  * A class that manages the rendering of the map based on the state of the map store.
@@ -32,6 +32,9 @@ export class MapRenderSubscriber {
   useAssignmentsStore: typeof _useAssignmentsStore;
   controlSubscriptions: ReturnType<typeof _useMapControlsStore.subscribe>[] = [];
   assignmentSubscriptions: ReturnType<typeof _useAssignmentsStore.subscribe>[] = [];
+  demographySubscriptions: ReturnType<typeof _useDemographyStore.subscribe>[] = [];
+  // Needed since we won't get implicit updates like the assignment subscription will
+  demographySourceDataListener?: (e: any) => void;
   previousColorState?: ColorZoneAssignmentsState;
 
   constructor(
@@ -144,12 +147,11 @@ export class MapRenderSubscriber {
     if (isDemographic) return;
     [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
       const isHover = layerId.includes('hover');
-      const isParent = PARENT_LAYERS.includes(layerId);
       if (isHover && this.mapRef.getLayer(layerId)) {
         this.mapRef.setPaintProperty(
           layerId,
           'fill-opacity',
-          getLayerFill(captiveIds.size ? captiveIds : undefined, !isParent, isDemographic)
+          getLayerFill(captiveIds.size ? captiveIds : undefined, isDemographic)
         );
       }
     });
@@ -230,7 +232,6 @@ export class MapRenderSubscriber {
     const {mapOptions} = controlsState;
     [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
       const isHover = layerId.includes('hover');
-      const isParent = PARENT_LAYERS.includes(layerId);
 
       if (isHover && this.mapRef.getLayer(layerId)) {
         this.mapRef.setPaintProperty(
@@ -238,7 +239,6 @@ export class MapRenderSubscriber {
           'fill-opacity',
           getLayerFill(
             captiveIds.size ? captiveIds : undefined,
-            !isParent,
             mapOptions.showDemographicMap === 'overlay'
           )
         );
@@ -294,6 +294,64 @@ export class MapRenderSubscriber {
       )
     );
     this.renderColorZones();
+  }
+  renderDemographyColors() {
+    const mapState = this.useMapStore.getState();
+    const controlsState = this.useMapControlsStore.getState();
+    const demographyState = this.useDemographyStore.getState();
+
+    const demographyEnabled =
+      this.mapType === 'demographic' || controlsState.mapOptions.showDemographicMap === 'overlay';
+    if (!demographyEnabled || !mapState.mapDocument) return;
+
+    const mapScale = demographyCache.calculateDemographyColorScale({
+      variable: demographyState.variable,
+      variant: demographyState.variant,
+      mapRef: this.mapRef,
+      mapDocument: mapState.mapDocument,
+      numberOfBins: demographyState.numberOfBins || 5,
+      paintMap: true,
+    });
+    if (mapScale) {
+      demographyState.setScale(mapScale);
+    }
+  }
+  subscribeDemographyColors() {
+    this.subscriptions.push(
+      this.useMapStore.subscribe(
+        state => [state.mapDocument, state.appLoadingState, state.mapRenderingState],
+        () => this.renderDemographyColors(),
+        {equalityFn: shallowCompareArray}
+      )
+    );
+    this.controlSubscriptions.push(
+      this.useMapControlsStore.subscribe(
+        state => state.mapOptions.showDemographicMap,
+        () => this.renderDemographyColors()
+      )
+    );
+    this.demographySubscriptions.push(
+      this.useDemographyStore.subscribe(
+        state => [state.variable, state.variant, state.numberOfBins, state.dataHash],
+        () => this.renderDemographyColors(),
+        {equalityFn: shallowCompareArray}
+      )
+    );
+    this.assignmentSubscriptions.push(
+      this.useAssignmentsStore.subscribe(
+        state => state.shatterIds,
+        () => this.renderDemographyColors()
+      )
+    );
+    if (!this.demographySourceDataListener) {
+      this.demographySourceDataListener = (e: any) => {
+        if (e?.sourceId === BLOCK_SOURCE_ID && e?.isSourceLoaded) {
+          this.renderDemographyColors();
+        }
+      };
+      this.mapRef.on('sourcedata', this.demographySourceDataListener);
+    }
+    this.renderDemographyColors();
   }
   checkRender() {
     const mapRef = this.mapRef;
@@ -361,11 +419,13 @@ export class MapRenderSubscriber {
     if (this.mapType === 'main') {
       this.renderColorZones();
     }
+    this.renderDemographyColors();
   }
   subscribe() {
     this.subscribeShatter();
     this.subscribeCursor();
     this.subscribeFocus();
+    this.subscribeDemographyColors();
     if (this.mapType === 'main') {
       this.subscribeColorZones();
     }
@@ -376,8 +436,14 @@ export class MapRenderSubscriber {
     this.subscriptions.forEach(unsub => unsub());
     this.controlSubscriptions.forEach(unsub => unsub());
     this.assignmentSubscriptions.forEach(unsub => unsub());
+    this.demographySubscriptions.forEach(unsub => unsub());
+    if (this.demographySourceDataListener) {
+      this.mapRef.off('sourcedata', this.demographySourceDataListener);
+      this.demographySourceDataListener = undefined;
+    }
     this.subscriptions = [];
     this.controlSubscriptions = [];
     this.assignmentSubscriptions = [];
+    this.demographySubscriptions = [];
   }
 }

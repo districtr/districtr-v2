@@ -11,7 +11,7 @@ const nextConfig = {
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
-        fs: false
+        fs: false,
       };
     }
     return config;
@@ -51,8 +51,7 @@ export default withSentryConfig(withMDX(nextConfig), {
       'ZoneNumbersLayer',
       'PopulationTextLayer',
       'ZoneLayers',
-      'ZoneLayerGroup',
-    ]
+    ],
   },
 
   // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.

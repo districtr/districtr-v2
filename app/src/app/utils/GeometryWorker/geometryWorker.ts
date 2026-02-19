@@ -5,7 +5,7 @@ import {GeometryWorkerClass, MinGeoJSONFeature} from './geometryWorker.types';
 import {LngLatBoundsLike} from 'maplibre-gl';
 import bbox from '@turf/bbox';
 import nearestPoint from '@turf/nearest-point';
-import {EMPTY_FT_COLLECTION} from '../../constants/layers';
+import {EMPTY_FT_COLLECTION} from '../../constants/map/layerStyle';
 
 const POINT_LIMIT = 256;
 const MIN_POPULATION = 300;
