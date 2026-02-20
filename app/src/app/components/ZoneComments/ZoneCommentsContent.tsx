@@ -108,20 +108,22 @@ export const CommentEditor: React.FC<CommentEditorProps> = ({
   };
   return (
     <Flex direction="column" gap="2" className="p-2 bg-gray-50 rounded-md">
-      { commentLimitReached && (
-        <Text size="1" color="red" className="text-center mb-2">
-          Comment must be {maxLength} characters or less.
-        </Text>
-      )}
-      <TextArea
-        placeholder="Enter your comment... (max 240 characters)"
-        value={text}
-        onChange={e => setText(e.target.value.slice(0, commentLengthLimit))}
-        className={commentLimitReached ? '!border-red-500 border-2' : ''}
-        size="1"
-        rows={7}
-        maxLength={maxLength}
-      />
+      <Box className="relative size-auto">
+        <TextArea
+          placeholder="Enter your comment... (max 240 characters)"
+          value={text}
+          onChange={e => setText(e.target.value.slice(0, commentLengthLimit))}
+          className={commentLimitReached ? '!border-red-500 border-2' : ''}
+          size="1"
+          rows={7}
+          maxLength={maxLength}
+        />
+        <Box className="absolute bottom-0 right-0 text-right pr-2">
+          <Text size="1" color={commentLimitReached ? 'red' : 'gray'}>
+            {text.length}/{maxLength}
+          </Text>
+        </Box>
+      </Box>
       <Flex gap="2" justify="end">
         <Button size="1" variant="soft" color="gray" onClick={onCancel}>
           Cancel
@@ -242,7 +244,11 @@ export const ZoneCommentsContent: React.FC<ZoneCommentsContentProps> = ({
         </Flex>
 
         {isAddingComment && (
-          <CommentEditor maxLength={commentLengthLimit} onSave={handleAddComment} onCancel={() => setIsAddingComment(false)} />
+          <CommentEditor
+            maxLength={commentLengthLimit}
+            onSave={handleAddComment}
+            onCancel={() => setIsAddingComment(false)}
+          />
         )}
 
         {comments.length === 0 && !isAddingComment ? (
