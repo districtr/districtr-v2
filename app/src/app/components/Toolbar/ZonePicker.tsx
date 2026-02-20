@@ -121,7 +121,7 @@ export function DistrictsZonePicker() {
   );
 }
 
-export const CoiZonePicker = () => {
+export const CoiZonePicker: React.FC = () => {
   return (
     <Box>
       <Text>TODO: Coi Zone Picker</Text>
