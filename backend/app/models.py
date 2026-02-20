@@ -73,6 +73,10 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     data_source_name: str | None = Field(nullable=True)
     # State FIPS codes associated with this map
     statefps: list[str] | None = Field(sa_column=Column(ARRAY(String), nullable=True))
+    # Maximum length of a comment
+    comment_length_limit: int | None = Field(nullable=True)
+    # Maximum number of comments per document
+    comment_count_limit: int | None = Field(nullable=True)
 
 
 class DistrictrMapPublic(BaseModel):
