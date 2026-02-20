@@ -19,11 +19,13 @@ jobs:
         run: |
           if [ "${{ github.ref_name }}" = "dev" ]; then
             echo "app_name=districtr-v2-api-dev" >> $GITHUB_OUTPUT
+            echo "fly_api_token=${{ secrets.FLY_API_DEV_TOKEN }}" >> $GITHUB_OUTPUT
           else
             echo "app_name=districtr-v2-api" >> $GITHUB_OUTPUT
+            echo "fly_api_token=${{ secrets.FLY_API_TOKEN }}" >> $GITHUB_OUTPUT
           fi
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - run: flyctl deploy --remote-only --app ${{ steps.deploy-env.outputs.app_name }}
         working-directory: backend
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_API_TOKEN: ${{ steps.deploy-env.outputs.fly_api_token }}
