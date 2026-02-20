@@ -45,15 +45,8 @@ export interface MapControlsStore {
   setMapMode: (mode: 'districts' | 'coi') => void;
 }
 
-const initialMapMode = typeof window !== 'undefined' && typeof window.location !== 'undefined'
-  ? (
-      window.location.pathname.startsWith('/map')
-        ? 'districts'
-        : window.location.pathname.startsWith('/coi')
-          ? 'coi'
-          : 'districts'
-    )
-  : 'districts'
+const pathname = typeof window !== "undefined" ? window.location?.pathname ?? "" : "";
+const initialMapMode = pathname.startsWith("/coi") ? "coi" : "districts";
 
 export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
   center: [-98.5795, 39.8283],
