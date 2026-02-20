@@ -1,4 +1,4 @@
-import {get, post} from '../factory';
+import {get, post, QueryParams} from '../factory';
 
 export const REVIEW_STATUS_ENUM = {
   APPROVED: 'APPROVED',
@@ -68,19 +68,23 @@ export interface DistrictCommentsListParams {
   zip_code?: string;
   max_moderation_score?: number;
 }
+/*
+ * Filters out null, undefined, and empty strings from the params object.
+ * This is to prevent API calls with invalid parameters.
+ */
+const filterNullUndefinedParams = (params: ReviewListParams) => {
+  return Object.fromEntries(
+    Object.entries(params).filter(
+      ([_, value]) => value !== undefined && value !== null && value !== ''
+    )
+  ) as QueryParams;
+};
 
 // GET endpoints
 export const getAdminCommentsList = async (params: ReviewListParams = {}, session?: any) => {
-  const searchParams: Record<string, string | number | boolean | (string | number)[]> = {};
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && value !== null) {
-      searchParams[key] = value;
-    }
-  }
-
   const response = await get<ReviewItem[]>('comments/admin/list')({
     session,
-    queryParams: searchParams,
+    queryParams: filterNullUndefinedParams(params),
   });
   return response;
 };
@@ -89,16 +93,9 @@ export const getAdminDistrictCommentsList = async (
   params: DistrictCommentsListParams = {},
   session?: any
 ) => {
-  const searchParams: Record<string, string | number | boolean | (string | number)[]> = {};
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && value !== null) {
-      searchParams[key] = value;
-    }
-  }
-
   const response = await get<ReviewItem[]>('comments/admin/district-comments/list')({
     session,
-    queryParams: searchParams,
+    queryParams: filterNullUndefinedParams(params),
   });
   return response;
 };
@@ -114,16 +111,9 @@ export const flagComment = async (
   });
 
   if (!response.ok) {
-    const detail = response.error?.detail;
-    const errorMsg =
-      typeof detail === 'string'
-        ? detail
-        : Array.isArray(detail)
-          ? detail.map((e: {msg?: string}) => e?.msg ?? JSON.stringify(e)).join(', ')
-          : (detail?.detail ?? JSON.stringify(detail ?? 'Unknown error'));
     return {
       ok: false,
-      error: errorMsg,
+      error: response.error?.detail,
     };
   }
 

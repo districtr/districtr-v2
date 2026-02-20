@@ -226,12 +226,12 @@ export default function DistrictCommentsReviewPage() {
             </Text>
           </Box>
           {isLoading && <Spinner />}
-          {data && !data.ok && (
+          {!!(data && !data.ok) && (
             <Blockquote color="red">
-              Error loading district comments: {data.error?.detail || 'Unknown error'}
+              Error loading district comments: {JSON.stringify(data.error?.detail) || 'Unknown error'}
             </Blockquote>
           )}
-          {data?.ok && data?.response.length > 0 && (
+          {!!(data?.ok && data?.response.length > 0) && (
             <>
               {data.response.map(item => (
                 <EntryRow
