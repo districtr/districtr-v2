@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - main
+      - dev
     paths:
       - "app/**"
       - ".github/workflows/fly-deploy-app.yml"
@@ -10,9 +11,19 @@ jobs:
   deploy:
     name: Deploy app
     runs-on: ubuntu-latest
-    concurrency: deploy-app
+    concurrency: deploy-app-${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v3
+      - name: Set deploy env
+        id: deploy-env
+        run: |
+          if [ "${{ github.ref_name }}" = "dev" ]; then
+            echo "app_name=districtr-v2-frontend-dev" >> $GITHUB_OUTPUT
+            echo "api_url=https://districtr-v2-api-dev.fly.dev" >> $GITHUB_OUTPUT
+          else
+            echo "app_name=districtr-v2-frontend" >> $GITHUB_OUTPUT
+            echo "api_url=https://districtr-v2-api.fly.dev" >> $GITHUB_OUTPUT
+          fi
       - name: Write .env.production
         run: |
           cat <<EOF > .env.production
@@ -20,15 +31,11 @@ jobs:
             NEXT_PUBLIC_S3_BUCKET_URL=https://tilesets1.cdn.districtr.org
             NEXT_PUBLIC_S3_BUCKET_URL_MIRROR1=https://tilesets2.cdn.districtr.org
             NEXT_PUBLIC_S3_BUCKET_URL_MIRROR2=https://tilesets3.cdn.districtr.org
-            if [ "${{ github.ref }}" = "refs/heads/dev" ]; then
-              echo "NEXT_PUBLIC_API_URL=https://districtr-v2-api-dev.fly.dev" >> .env.production
-            else
-              echo "NEXT_PUBLIC_API_URL=https://districtr-v2-api.fly.dev" >> .env.production
-            fi
+            NEXT_PUBLIC_API_URL=${{ steps.deploy-env.outputs.api_url }}
             EOF
         working-directory: app
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --remote-only
+      - run: flyctl deploy --remote-only --app ${{ steps.deploy-env.outputs.app_name }}
         working-directory: app
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_FE_API_TOKEN }}
