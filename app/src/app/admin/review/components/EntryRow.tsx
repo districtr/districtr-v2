@@ -39,11 +39,16 @@ export const EntryRow: React.FC<{
                 <Text size="1" color="gray" ml="2">
                   (District {entry.zone})
                 </Text>
-              )}<br/>
+              )}
+              <br />
               <Text size="1" color="gray">
-                Comment / Commenter / Tag Moderation Score:
-                ({Math.round((entry.comment_moderation_score ?? 0) * 100)/100} / {Math.round((entry.commenter_moderation_score ?? 0) * 100)/100} /{' '}
-                {Math.round((entry.tag_moderation_score ?? 0) * 100)/100})
+                Comment / Commenter / Tag Moderation Score: (
+                {Math.round((entry.comment_moderation_score ?? 0) * 100) / 100} /{' '}
+                {Math.round((entry.commenter_moderation_score ?? 0) * 100) / 100} /{' '}
+                {(entry?.tag_moderation_score ?? [])
+                  .map(score => Math.round((score ?? 0) * 100) / 100)
+                  .join(', ')}
+                )
               </Text>
             </Heading>
           </Box>
