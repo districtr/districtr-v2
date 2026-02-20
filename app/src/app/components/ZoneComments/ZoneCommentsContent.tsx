@@ -24,9 +24,6 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useState} from 'react';
 import {DocumentComment} from '@/app/utils/api/apiHandlers/types';
 import {MODERATION_COMMENT_TEXT} from '@/app/constants/notifications';
-
-const MAX_COMMENT_LENGTH = 240;
-const MAX_COMMENTS_PER_DISTRICT = 10;
 import {flagComment} from '@/app/utils/api/apiHandlers/reviewHandlers';
 
 interface CommentFlagButtonProps {
@@ -68,18 +65,27 @@ export const CommentFlagButton: React.FC<CommentFlagButtonProps> = ({
 
 interface CommentEditorProps {
   existingComment?: DocumentComment;
+  maxLength: number;
   onSave: (text: string) => void;
   onCancel: () => void;
 }
 
 export const CommentEditor: React.FC<CommentEditorProps> = ({
   existingComment,
+  maxLength,
   onSave,
   onCancel,
 }) => {
   const [text, setText] = useState(existingComment?.text || '');
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
+  const commentLengthLimit = useMapStore(state => state.mapDocument?.comment_length_limit);
+  const commentCountLimit = useMapStore(state => state.mapDocument?.comment_count_limit);
 
+  if (!commentLengthLimit || !commentCountLimit) {
+    return null;
+  }
+
+  const commentLimitReached = text.length >= maxLength;
   const handleSave = () => {
     const trimmed = text.trim();
     if (trimmed === MODERATION_COMMENT_TEXT) {
@@ -90,9 +96,9 @@ export const CommentEditor: React.FC<CommentEditorProps> = ({
       return;
     }
     if (trimmed) {
-      if (trimmed.length > MAX_COMMENT_LENGTH) {
+      if (trimmed.length > commentLengthLimit) {
         setErrorNotification({
-          message: `Comment must be ${MAX_COMMENT_LENGTH} characters or less.`,
+          message: `Comment must be ${commentLengthLimit} characters or less.`,
           severity: 2,
         });
         return;
@@ -100,15 +106,21 @@ export const CommentEditor: React.FC<CommentEditorProps> = ({
       onSave(trimmed);
     }
   };
-
   return (
     <Flex direction="column" gap="2" className="p-2 bg-gray-50 rounded-md">
+      { commentLimitReached && (
+        <Text size="1" color="red" className="text-center mb-2">
+          Comment must be {maxLength} characters or less.
+        </Text>
+      )}
       <TextArea
         placeholder="Enter your comment... (max 240 characters)"
         value={text}
-        onChange={e => setText(e.target.value.slice(0, MAX_COMMENT_LENGTH))}
+        onChange={e => setText(e.target.value.slice(0, commentLengthLimit))}
+        className={commentLimitReached ? '!border-red-500 border-2' : ''}
         size="1"
-        rows={3}
+        rows={7}
+        maxLength={maxLength}
       />
       <Flex gap="2" justify="end">
         <Button size="1" variant="soft" color="gray" onClick={onCancel}>
@@ -118,7 +130,7 @@ export const CommentEditor: React.FC<CommentEditorProps> = ({
           size="1"
           variant="solid"
           onClick={handleSave}
-          disabled={!text.trim() || text.trim().length > MAX_COMMENT_LENGTH}
+          disabled={!text.trim() || text.trim().length > commentLengthLimit}
         >
           <CheckIcon />
           Save
@@ -157,12 +169,18 @@ export const ZoneCommentsContent: React.FC<ZoneCommentsContentProps> = ({
   const addZoneComment = useMapStore(state => state.addZoneComment);
   const editZoneComment = useMapStore(state => state.editZoneComment);
   const removeZoneComment = useMapStore(state => state.removeZoneComment);
+  const commentCountLimit = useMapStore(state => state.mapDocument?.comment_count_limit);
+  const commentLengthLimit = useMapStore(state => state.mapDocument?.comment_length_limit);
+
+  if (!commentCountLimit || !commentLengthLimit) {
+    return null;
+  }
 
   const handleAddComment = (text: string) => {
     const commentsForZone = useMapStore.getState().getZoneCommentsForZone(zone);
-    if (commentsForZone.length >= MAX_COMMENTS_PER_DISTRICT) {
+    if (commentsForZone.length >= (commentCountLimit ?? 0)) {
       setErrorNotification({
-        message: `Maximum ${MAX_COMMENTS_PER_DISTRICT} comments per district.`,
+        message: `Maximum ${commentCountLimit} comments per district.`,
         severity: 2,
       });
       return;
@@ -224,7 +242,7 @@ export const ZoneCommentsContent: React.FC<ZoneCommentsContentProps> = ({
         </Flex>
 
         {isAddingComment && (
-          <CommentEditor onSave={handleAddComment} onCancel={() => setIsAddingComment(false)} />
+          <CommentEditor maxLength={commentLengthLimit} onSave={handleAddComment} onCancel={() => setIsAddingComment(false)} />
         )}
 
         {comments.length === 0 && !isAddingComment ? (
@@ -240,6 +258,7 @@ export const ZoneCommentsContent: React.FC<ZoneCommentsContentProps> = ({
                   {editingIndex === index ? (
                     <CommentEditor
                       existingComment={comment}
+                      maxLength={commentLengthLimit}
                       onSave={text => handleEditComment(index, text)}
                       onCancel={() => setEditingIndex(null)}
                     />

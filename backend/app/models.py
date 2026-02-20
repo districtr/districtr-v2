@@ -112,6 +112,8 @@ class DistrictrMapUpdate(BaseModel):
     child_geo_unit_type: str | None = None
     data_source_name: str | None = None
     statefps: list[str] | None = None
+    comment_length_limit: int | None = None
+    comment_count_limit: int | None = None
 
 
 class GerryDBTable(TimeStampMixin, SQLModel, table=True):
@@ -259,6 +261,8 @@ class DocumentPublic(BaseModel):
     overlays: list["OverlayPublic"] | None = None
     statefps: list[str] | None = None
     document_comments: list["DocumentCommentPublic"] | None = None
+    comment_length_limit: int | None = None
+    comment_count_limit: int | None = None
 
 
 class DocumentCreatePublic(DocumentPublic):

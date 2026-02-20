@@ -136,6 +136,8 @@ def get_document_public(
         DistrictrMap.comment.label("comment"),  # pyright: ignore
         DistrictrMap.uuid.label("districtr_map_uuid"),  # pyright: ignore
         DistrictrMap.statefps.label("statefps"),  # pyright: ignore
+        coalesce(DistrictrMap.comment_length_limit, 240).label("comment_length_limit"),  # pyright: ignore
+        coalesce(DistrictrMap.comment_count_limit, 10).label("comment_count_limit"),  # pyright: ignore
         # get metadata as a json object
         Document.map_metadata.label("map_metadata"),  # pyright: ignore
         coalesce(
@@ -262,6 +264,8 @@ def get_document_public(
         overlays=overlays_list,
         statefps=result.statefps,
         document_comments=document_comments_list,
+        comment_length_limit=getattr(result, "comment_length_limit", None),
+        comment_count_limit=getattr(result, "comment_count_limit", None),
     )
 
 

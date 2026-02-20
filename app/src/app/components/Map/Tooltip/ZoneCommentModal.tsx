@@ -9,11 +9,15 @@ import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {ZoneCommentsContent} from '@/app/components/ZoneComments/ZoneCommentsContent';
+import { useMapStore } from '@/app/store/mapStore';
 
 export const ZoneCommentModal: React.FC = () => {
   const zoneCommentModalZone = useTooltipStore(state => state.zoneCommentModalZone);
   const setZoneCommentModalZone = useTooltipStore(state => state.setZoneCommentModalZone);
+  const commentCountLimit = useMapStore(state => state.mapDocument?.comment_count_limit);
   const isEditing = useMapControlsStore(state => state.isEditing);
+  const comments = useMapStore(state => zoneCommentModalZone ? state.getZoneCommentsForZone(zoneCommentModalZone) : []);
+
 
   const colorScheme = useColorScheme();
   const color = zoneCommentModalZone
@@ -32,7 +36,7 @@ export const ZoneCommentModal: React.FC = () => {
           zone={zoneCommentModalZone}
           color={color!}
           showEditingControls={isEditing}
-          showAddButton={isEditing}
+          showAddButton={isEditing && comments.length < (commentCountLimit ?? 0)}
           scrollMaxHeight={300}
         />
         <Flex gap="3" mt="4" justify="end">

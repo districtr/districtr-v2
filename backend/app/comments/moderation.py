@@ -20,7 +20,7 @@ st = SafeText(language="en")
 logger = logging.getLogger(__name__)
 
 
-MODERATION_THRESHOLD: float = 0.01
+MODERATION_THRESHOLD: float = 0.1
 
 
 def rate_offensive_text_ai(text: str) -> ModerationScore | None:

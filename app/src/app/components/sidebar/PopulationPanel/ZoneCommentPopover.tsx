@@ -29,6 +29,7 @@ export const ZoneCommentPopover: React.FC<ZoneCommentPopoverProps> = ({
   const comments = useMapStore(state => state.getZoneCommentsForZone(zone));
   const isEditing = useMapControlsStore(state => state.isEditing);
   const selectedZone = useMapControlsStore(state => state.selectedZone);
+  const commentCountLimit = useMapStore(state => state.mapDocument?.comment_count_limit);
 
   const commentCount = comments.length;
   const shouldShowPublic = !isEditing && commentCount > 0;
@@ -66,7 +67,7 @@ export const ZoneCommentPopover: React.FC<ZoneCommentPopoverProps> = ({
           zone={zone}
           color={color}
           showEditingControls={isEditing}
-          showAddButton={isEditing}
+          showAddButton={isEditing && comments.length < (commentCountLimit ?? 0)}
           scrollMaxHeight={250}
         />
       </Popover.Content>

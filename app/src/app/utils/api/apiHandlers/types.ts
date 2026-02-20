@@ -90,6 +90,8 @@ export interface DocumentObject extends StatusObject {
   overlays: Overlay[] | null;
   statefps: string[] | null;
   document_comments?: DocumentComment[] | null;
+  comment_length_limit: number;
+  comment_count_limit: number;
 }
 
 export interface DocumentComment {

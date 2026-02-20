@@ -176,6 +176,20 @@ def delete_parent_child_edges(session: Session, districtr_map: str):
     type=str,
     multiple=True,
 )
+@click.option(
+    "--comment-length-limit",
+    help="Maximum length of a comment in characters",
+    required=False,
+    type=int,
+    default=None,
+)
+@click.option(
+    "--comment-count-limit",
+    help="Maximum number of comments per district",
+    required=False,
+    type=int,
+    default=None,
+)
 @with_session
 def create_districtr_map(
     session: Session,
@@ -192,6 +206,8 @@ def create_districtr_map(
     group_slug: str = "states",
     map_type: str = "default",
     statefps: tuple[str, ...] = (),
+    comment_length_limit: int | None = None,
+    comment_count_limit: int | None = None,
 ):
     logger.info("Creating districtr map...")
     statefps_list = list(statefps) if statefps else None

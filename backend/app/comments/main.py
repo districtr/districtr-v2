@@ -53,8 +53,31 @@ from app.comments.moderation import (
     moderate_tag,
     MODERATION_THRESHOLD,
 )
-from app.models import Document
+from app.models import Document, DistrictrMap
 from app.core.security import recaptcha
+
+DEFAULT_MAX_COMMENT_LENGTH = 240
+DEFAULT_MAX_COMMENTS_PER_DISTRICT = 10
+
+
+def _get_comment_limits_for_document(
+    document_id: str, session: Session
+) -> tuple[int, int]:
+    """Get comment_length_limit and comment_count_limit from the document's DistrictrMap. Uses defaults if null."""
+    document = get_protected_document(
+        document_id=DocumentID(document_id=document_id), session=session
+    )
+    stmt = select(
+        DistrictrMap.comment_length_limit,
+        DistrictrMap.comment_count_limit,
+    ).where(DistrictrMap.districtr_map_slug == document.districtr_map_slug)
+    row = session.exec(stmt).first()
+    if row is None:
+        return (DEFAULT_MAX_COMMENT_LENGTH, DEFAULT_MAX_COMMENTS_PER_DISTRICT)
+    max_length = row[0] if row[0] is not None else DEFAULT_MAX_COMMENT_LENGTH
+    max_count = row[1] if row[1] is not None else DEFAULT_MAX_COMMENTS_PER_DISTRICT
+    return (max_length, max_count)
+
 
 router = APIRouter(tags=["comments"], prefix="/api/comments")
 
@@ -191,10 +214,6 @@ def create_document_comment(
     return doc_comment
 
 
-MAX_COMMENT_LENGTH = 240
-MAX_COMMENTS_PER_DISTRICT = 10
-
-
 def sync_district_comments(
     document_id: str,
     comments: list[DistrictCommentInput],
@@ -209,6 +228,10 @@ def sync_district_comments(
     """
     validate_document_exists(
         document_id=DocumentID(document_id=document_id), session=session
+    )
+
+    max_comment_length, max_comments_per_district = _get_comment_limits_for_document(
+        document_id, session
     )
 
     # Get existing district comment ids for this document (scalars to avoid Row type issues)
@@ -230,17 +253,17 @@ def sync_district_comments(
         if zone is not None:
             zone_counts[zone] = zone_counts.get(zone, 0) + 1
     for zone, count in zone_counts.items():
-        if count > MAX_COMMENTS_PER_DISTRICT:
+        if count > max_comments_per_district:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Maximum {MAX_COMMENTS_PER_DISTRICT} comments per district (zone {zone})",
+                detail=f"Maximum {max_comments_per_district} comments per district (zone {zone})",
             )
 
     kept_comment_ids = set()
     for c in comments:
         zone = c.get("zone")
         # Comment text is required to be a string and have length > 0 by DB constraints
-        comment_text = c.get("text", "")[:MAX_COMMENT_LENGTH]
+        comment_text = c.get("text", "")[:max_comment_length]
         comment_id_str = c.get("comment_id")
 
         if zone is None:
