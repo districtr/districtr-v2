@@ -45,6 +45,11 @@ jobs:
           pip install -r requirements.txt --no-cache-dir
         working-directory: backend
 
+      - name: Run migrations
+        run: |
+          alembic upgrade head
+        working-directory: backend
+
       - name: Run tests
         run: pytest -v --cov=.
         working-directory: backend
