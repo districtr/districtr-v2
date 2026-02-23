@@ -25,7 +25,7 @@ interface CoiMapPageProps {
   documentId: string;
 }
 
-function ChildCoiMapPage({isEditing, documentId}: CoiMapPageProps) {
+const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => {
   const showDemographicMap = useMapControlsStore(state => state.mapOptions.showDemographicMap === 'side-by-side');
   const setIsEditing = useMapControlsStore(state => state.setIsEditing);
   const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
