@@ -153,6 +153,7 @@ class DocumentMetadata(BaseModel):
     event_id: str | None = None
     draft_status: DocumentDraftStatus | None = DocumentDraftStatus.scratch
 
+DOCUMENT_TYPE = ENUM("district", "coi", name="documenttype", create_type=False)
 
 class Document(TimeStampMixin, SQLModel, table=True):
     metadata = MetaData(schema=DOCUMENT_SCHEMA)
@@ -187,10 +188,14 @@ class Document(TimeStampMixin, SQLModel, table=True):
         sa_column=Column(ARRAY(String), nullable=True)
     )
     map_metadata: DocumentMetadata | None = Field(sa_column=Column(JSON, nullable=True))
+    document_type: str = Field(
+        sa_column=Column(DOCUMENT_TYPE, nullable=False, server_default="district")
+    )
 
 
 class DocumentCreate(BaseModel):
     districtr_map_slug: str
+    document_type: str = "district"
     metadata: DocumentMetadata | None = None
     copy_from_doc: str | int | None = None  # document_id to copy from
     assignments: list[list[str]] | None = None  # Option to load block assignments
@@ -228,6 +233,7 @@ class DocumentPublic(BaseModel):
     access: DocumentShareStatus = DocumentShareStatus.edit
     color_scheme: list[str] | None = None
     map_type: str
+    document_type: str = "district"
     map_module: str | None = None
     comment: str | None = None
     parent_geo_unit_type: str | None = None

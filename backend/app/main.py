@@ -175,6 +175,7 @@ async def create_document(
     # Determine num_districts: from copied document if copying, otherwise from DistrictrMap
     num_districts = districtr_map.num_districts
     copied_document = None
+    document_type = data.document_type
 
     if data.copy_from_doc is not None:
         copy_document_id = parse_document_id(data.copy_from_doc)
@@ -186,6 +187,8 @@ async def create_document(
         )
         # Inherit num_districts from source document, with fallback to DistrictrMap
         num_districts = copied_document.num_districts or districtr_map.num_districts
+        # Inherit document_type from source when copying
+        document_type = copied_document.document_type
 
     # Generate UUID for document_id
     document_id = str(uuid4())
@@ -195,6 +198,7 @@ async def create_document(
         document_id=document_id,
         districtr_map_slug=data.districtr_map_slug,
         num_districts=num_districts,
+        document_type=document_type,
     )
     session.add(new_document)
     session.flush()  # Flush to get the public_id assigned
@@ -284,6 +288,7 @@ async def create_document(
             DistrictrMap.num_districts_modifiable.label("num_districts_modifiable"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
             DistrictrMap.map_type.label("map_type"),  # pyright: ignore
+            Document.document_type.label("document_type"),  # pyright: ignore
             DistrictrMap.statefps.label("statefps"),  # pyright: ignore
             coalesce(total_assignments).label("inserted_assignments"),
             Document.map_metadata,
@@ -687,6 +692,7 @@ async def get_document_list(
             Document.public_id,
             Document.map_metadata,
             Document.updated_at,
+            Document.document_type,
             DistrictrMap.name.label("map_module"),
         )
         .distinct(
@@ -733,7 +739,8 @@ async def get_document_list(
             "public_id": row[0],
             "map_metadata": row[1],
             "updated_at": row[2],
-            "map_module": row[3],
+            "document_type": row[3],
+            "map_module": row[4],
         }
         for row in results
     ]
