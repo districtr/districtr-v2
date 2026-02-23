@@ -52,14 +52,10 @@ export const usePointData = (isChild?: boolean) => {
   const layer = isChild ? mapDocument?.child_layer : mapDocument?.parent_layer;
   useEffect(() => {
     if (layer) {
-      updateData(layer, Boolean(isChild), exposedChildIds, data).then((hash) => {
+      updateData(layer, Boolean(isChild), exposedChildIds, data).then(hash => {
         setDataHash(hash);
       });
     }
-  }, [
-    layer,
-    isChild,
-    isChild ? JSON.stringify(Array.from(exposedChildIds)) : undefined,
-  ]);
+  }, [layer, isChild, isChild ? JSON.stringify(Array.from(exposedChildIds)) : undefined]);
   return data;
 };

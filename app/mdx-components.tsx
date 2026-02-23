@@ -30,17 +30,35 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       </Link>
     ),
     ul: ({children}) => (
-      <ul style={{marginBottom: 'var(--space-3)', paddingLeft: 'var(--space-5)', listStyleType: 'disc'}}>
+      <ul
+        style={{
+          marginBottom: 'var(--space-3)',
+          paddingLeft: 'var(--space-5)',
+          listStyleType: 'disc',
+        }}
+      >
         {children}
       </ul>
     ),
     ol: ({children}) => (
-      <ol style={{marginBottom: 'var(--space-3)', paddingLeft: 'var(--space-5)', listStyleType: 'decimal'}}>
+      <ol
+        style={{
+          marginBottom: 'var(--space-3)',
+          paddingLeft: 'var(--space-5)',
+          listStyleType: 'decimal',
+        }}
+      >
         {children}
       </ol>
     ),
     li: ({children}) => (
-      <li style={{marginBottom: 'var(--space-1)', fontSize: 'var(--font-size-3)', lineHeight: 'var(--line-height-3)'}}>
+      <li
+        style={{
+          marginBottom: 'var(--space-1)',
+          fontSize: 'var(--font-size-3)',
+          lineHeight: 'var(--line-height-3)',
+        }}
+      >
         {children}
       </li>
     ),

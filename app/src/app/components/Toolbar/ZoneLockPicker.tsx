@@ -3,7 +3,7 @@ import {useMapStore} from '../../store/mapStore';
 import {useMapControlsStore} from '../../store/mapControlsStore';
 import {ColorPicker} from './ColorPicker';
 import {LockClosedIcon, LockOpen2Icon} from '@radix-ui/react-icons';
-import { useColorScheme } from '@/app/hooks/useColorScheme';
+import {useColorScheme} from '@/app/hooks/useColorScheme';
 
 export function ZoneLockPicker() {
   const lockedZones = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);

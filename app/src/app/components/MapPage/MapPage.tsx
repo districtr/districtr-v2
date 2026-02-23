@@ -18,6 +18,7 @@ import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useDocumentWithSync} from '@/app/hooks/useDocumentWithSync';
 import {SaveConflictModal} from '../SaveConflictModal';
+import {ZoneCommentModal} from '@components/Map/Tooltip/ZoneCommentModal';
 import {migrateUserMapsFromLocalStorage} from '@/app/utils/idb/migrateUserMaps';
 
 interface MapPageProps {
@@ -106,6 +107,7 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
       <ErrorNotification />
       {conflictModal}
       <SaveConflictModal />
+      <ZoneCommentModal />
     </div>
   );
 }

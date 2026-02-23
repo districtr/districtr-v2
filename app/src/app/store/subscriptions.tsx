@@ -5,7 +5,7 @@ import {getMapEditSubs} from './mapEditSubs';
 import {MapStore, useMapStore} from './mapStore';
 import {useMapControlsStore} from './mapControlsStore';
 import {useAssignmentsStore} from './assignmentsStore';
-import { demographyCache } from '../utils/demography/demographyCache';
+import {demographyCache} from '../utils/demography/demographyCache';
 
 export const initSubs = () => {
   // these need to initialize after the map store

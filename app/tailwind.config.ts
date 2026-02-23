@@ -20,8 +20,8 @@ const config: Config = {
         districtrLightBlue: '#ccf2ff',
         districtrBlue: '#0099cd',
         districtrDarkBlue: '#006b9c',
-        districtrIndigo: 'rgba(0, 0, 139)'
-      }
+        districtrIndigo: 'rgba(0, 0, 139)',
+      },
     },
   },
   plugins: [typography],

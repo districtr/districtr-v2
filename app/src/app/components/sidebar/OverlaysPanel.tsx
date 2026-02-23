@@ -62,7 +62,10 @@ export const OverlaysPanel = () => {
               <TargetIcon className="animate-pulse" />
             </Callout.Icon>
             <Callout.Text>
-              <Text size="2">You are selecting an area on the map to paint within.<br/> Click the map to select an area.</Text>
+              <Text size="2">
+                You are selecting an area on the map to paint within.
+                <br /> Click the map to select an area.
+              </Text>
             </Callout.Text>
           </Flex>
         </Callout.Root>
