@@ -32,23 +32,29 @@ export const ZoneCommentTooltip: React.FC<ZoneCommentTooltipProps> = ({zone, x, 
         </Text>
       </Flex>
       <Flex direction="column" gap="2">
-        {!!(comments.length) ? comments.slice(0, 3).map((comment, index) => (
-          <Box key={index}>
-            {index > 0 && <Separator size="4" className="my-1" />}
-            <Text
-              size="1"
-              color="gray"
-              style={{
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
-              }}
-            >
-              {comment.text}
-            </Text>
-          </Box>
-        )) : <Text size="1" color="gray">No comments</Text>}
+        {!!comments.length ? (
+          comments.slice(0, 3).map((comment, index) => (
+            <Box key={index}>
+              {index > 0 && <Separator size="4" className="my-1" />}
+              <Text
+                size="1"
+                color="gray"
+                style={{
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                }}
+              >
+                {comment.text}
+              </Text>
+            </Box>
+          ))
+        ) : (
+          <Text size="1" color="gray">
+            No comments
+          </Text>
+        )}
         {comments.length > 3 && (
           <Text size="1" color="blue">
             +{comments.length - 3} more comment{comments.length - 3 > 1 ? 's' : ''}

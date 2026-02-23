@@ -71,9 +71,7 @@ export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
         <Layer
           id={CANONICAL_LAYER_IDS.COUNTIES.LABELS}
           beforeId={
-            mapOptions.prominentCountyNames
-              ? undefined
-              : CANONICAL_LAYER_IDS.COUNTIES.BOUNDARY
+            mapOptions.prominentCountyNames ? undefined : CANONICAL_LAYER_IDS.COUNTIES.BOUNDARY
           }
           type="symbol"
           source-layer="tl_2023_us_county_label"

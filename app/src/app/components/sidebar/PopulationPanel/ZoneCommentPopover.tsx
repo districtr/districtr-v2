@@ -1,12 +1,5 @@
 'use client';
-import {
-  Flex,
-  Button,
-  IconButton,
-  Badge,
-  Box,
-  Popover,
-} from '@radix-ui/themes';
+import {Flex, Button, IconButton, Badge, Box, Popover} from '@radix-ui/themes';
 import {ChatBubbleIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@/app/store/mapStore';
 import {useState} from 'react';
@@ -19,11 +12,7 @@ interface ZoneCommentPopoverProps {
   disabled?: boolean;
 }
 
-export const ZoneCommentPopover: React.FC<ZoneCommentPopoverProps> = ({
-  zone,
-  color,
-  disabled,
-}) => {
+export const ZoneCommentPopover: React.FC<ZoneCommentPopoverProps> = ({zone, color, disabled}) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const comments = useMapStore(state => state.getZoneCommentsForZone(zone));
@@ -33,8 +22,7 @@ export const ZoneCommentPopover: React.FC<ZoneCommentPopoverProps> = ({
 
   const commentCount = comments.length;
   const shouldShowPublic = !isEditing && commentCount > 0;
-  const shouldShowEditing =
-    isEditing && (commentCount > 0 || selectedZone === zone);
+  const shouldShowEditing = isEditing && (commentCount > 0 || selectedZone === zone);
 
   return (
     <Popover.Root open={isOpen} onOpenChange={setIsOpen}>

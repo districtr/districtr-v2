@@ -1,9 +1,9 @@
-import React, { useState } from "react";
-import { IconButton, Popover } from "@radix-ui/themes"; // Import Popover from Radix
-import { ZonePicker } from "./ZonePicker";
-import { useMapControlsStore } from "@/app/store/mapControlsStore";
-import { ColorWheelIcon } from "@radix-ui/react-icons";
-import { useColorScheme } from '@/app/hooks/useColorScheme';
+import React, {useState} from 'react';
+import {IconButton, Popover} from '@radix-ui/themes'; // Import Popover from Radix
+import {ZonePicker} from './ZonePicker';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {ColorWheelIcon} from '@radix-ui/react-icons';
+import {useColorScheme} from '@/app/hooks/useColorScheme';
 
 export const MobileColorPicker = () => {
   const [open, setOpen] = useState(false);
@@ -18,7 +18,7 @@ export const MobileColorPicker = () => {
       <Popover.Trigger>
         <IconButton
           radius="full"
-          style={{ background: color }}
+          style={{background: color}}
           size="3"
           aria-label="Choose map districtr assignment brush color"
         >

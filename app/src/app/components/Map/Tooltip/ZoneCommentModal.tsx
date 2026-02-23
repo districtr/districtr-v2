@@ -1,23 +1,19 @@
 'use client';
-import {
-  Dialog,
-  Flex,
-  Box,
-  Button,
-} from '@radix-ui/themes';
+import {Dialog, Flex, Box, Button} from '@radix-ui/themes';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {ZoneCommentsContent} from '@/app/components/ZoneComments/ZoneCommentsContent';
-import { useMapStore } from '@/app/store/mapStore';
+import {useMapStore} from '@/app/store/mapStore';
 
 export const ZoneCommentModal: React.FC = () => {
   const zoneCommentModalZone = useTooltipStore(state => state.zoneCommentModalZone);
   const setZoneCommentModalZone = useTooltipStore(state => state.setZoneCommentModalZone);
   const commentCountLimit = useMapStore(state => state.mapDocument?.comment_count_limit);
   const isEditing = useMapControlsStore(state => state.isEditing);
-  const comments = useMapStore(state => zoneCommentModalZone ? state.getZoneCommentsForZone(zoneCommentModalZone) : []);
-
+  const comments = useMapStore(state =>
+    zoneCommentModalZone ? state.getZoneCommentsForZone(zoneCommentModalZone) : []
+  );
 
   const colorScheme = useColorScheme();
   const color = zoneCommentModalZone

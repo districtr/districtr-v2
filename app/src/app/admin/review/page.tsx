@@ -169,7 +169,9 @@ export default function ReviewHome() {
                 }}
                 className="rounded border-gray-300"
               />
-              <Text as="label" htmlFor="review-flagged">Show only flagged comments</Text>
+              <Text as="label" htmlFor="review-flagged">
+                Show only flagged comments
+              </Text>
             </Flex>
           </Flex>
           <TagReviewFilter tags={tags} setTags={setTags} />

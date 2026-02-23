@@ -12,6 +12,6 @@ export const Providers: React.FC<{
   useEffect(() => {
     session && setSession(session);
   }, [session]);
-  
+
   return <div>{children}</div>;
 };

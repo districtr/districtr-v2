@@ -1,14 +1,5 @@
 'use client';
-import {
-  Blockquote,
-  Box,
-  Button,
-  Flex,
-  Heading,
-  RadioGroup,
-  Spinner,
-  Text,
-} from '@radix-ui/themes';
+import {Blockquote, Box, Button, Flex, Heading, RadioGroup, Spinner, Text} from '@radix-ui/themes';
 import {useState} from 'react';
 import {
   REVIEW_STATUS_ENUM,
@@ -190,7 +181,9 @@ export default function DistrictCommentsReviewPage() {
                 }}
                 className="rounded border-gray-300"
               />
-              <Text as="label" htmlFor="district-review-flagged" size="2">Show only flagged comments</Text>
+              <Text as="label" htmlFor="district-review-flagged" size="2">
+                Show only flagged comments
+              </Text>
             </Flex>
           </Flex>
           <Flex direction="column" gap="2" justify="between" className="w-full">
@@ -201,10 +194,7 @@ export default function DistrictCommentsReviewPage() {
               defaultValue={REVIEW_STATUS_OPTIONS[0].value as string}
             >
               {REVIEW_STATUS_OPTIONS.map(item => (
-                <RadioGroup.Item
-                  value={item.value?.toString() ?? ''}
-                  key={item.name}
-                >
+                <RadioGroup.Item value={item.value?.toString() ?? ''} key={item.name}>
                   {item.name}
                 </RadioGroup.Item>
               ))}
@@ -221,14 +211,15 @@ export default function DistrictCommentsReviewPage() {
           <Box>
             <Heading>District Comment Moderation</Heading>
             <Text>
-              Moderate zone-level comments on maps. Use Document ID (UUID) or Public
-              ID to look up comments for a specific map.
+              Moderate zone-level comments on maps. Use Document ID (UUID) or Public ID to look up
+              comments for a specific map.
             </Text>
           </Box>
           {isLoading && <Spinner />}
           {!!(data && !data.ok) && (
             <Blockquote color="red">
-              Error loading district comments: {JSON.stringify(data.error?.detail) || 'Unknown error'}
+              Error loading district comments:{' '}
+              {JSON.stringify(data.error?.detail) || 'Unknown error'}
             </Blockquote>
           )}
           {!!(data?.ok && data?.response.length > 0) && (
@@ -250,7 +241,8 @@ export default function DistrictCommentsReviewPage() {
           )}
           {data?.ok && data?.response.length === 0 && (
             <Blockquote color="green">
-              No district comments to review{documentIdFilter || publicIdFilter ? ' for this filter' : ''} 🎉
+              No district comments to review
+              {documentIdFilter || publicIdFilter ? ' for this filter' : ''} 🎉
             </Blockquote>
           )}
         </Flex>
