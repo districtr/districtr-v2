@@ -8,6 +8,7 @@ import {DocumentObject} from '@utils/api/apiHandlers/types';
 import {useState} from 'react';
 import {idb} from '@/app/utils/idb/idb';
 import {useUserMaps} from '@/app/hooks/useUserMaps';
+import { currMapRoute } from '@/app/utils/map/mapUrlRoute';
 
 export const RecentMapsModal: React.FC<{
   open?: boolean;
@@ -29,7 +30,7 @@ export const RecentMapsModal: React.FC<{
 
   const handleMapDocument = async (data: DocumentObject) => {
     // Navigate to edit mode with the UUID
-    router.push(`/map/edit/${data.document_id}`);
+    router.push(`/${currMapRoute}/edit/${data.document_id}`);
     // close dialog
     onClose?.();
   };

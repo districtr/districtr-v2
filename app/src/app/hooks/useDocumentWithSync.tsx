@@ -10,6 +10,7 @@ import {
 import {SyncConflictModal} from '@/app/components/SyncConflictModal';
 import {formatAssignmentsFromDocument} from '../utils/map/formatAssignments';
 import {useRouter} from 'next/navigation';
+import { currMapRoute } from '../utils/map/mapUrlRoute';
 interface UseDocumentWithSyncOptions {
   document_id: string | null | undefined;
   enabled?: boolean;
@@ -40,7 +41,7 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
       await resolveConflict(resolution, conflictInfo, {
         context: 'load',
         onNavigate: documentId => {
-          router.push(`/map/edit/${documentId}`);
+          router.push(`/${currMapRoute}/edit/${documentId}`);
         },
         onComplete: () => {
           setIsLoading(false);
