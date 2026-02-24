@@ -15,13 +15,7 @@ export const ZoneAssignmentLayer: React.FC<{
   style?: {
     baseFillOpacity?: DataDrivenPropertyValueSpecification<number>;
   };
-}> = ({
-  id,
-  sourceLayerId,
-  filter,
-  beforeId,
-  style,
-}) => {
+}> = ({id, sourceLayerId, filter, beforeId, style}) => {
   const baseFillOpacity = style?.baseFillOpacity ?? 0.7;
 
   const colorScheme = useColorScheme();

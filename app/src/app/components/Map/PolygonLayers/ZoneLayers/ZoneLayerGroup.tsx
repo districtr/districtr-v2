@@ -15,12 +15,7 @@ export const ZoneLayerGroup: React.FC<{
   sourceLayerId: string;
   filter: FilterSpecification;
   layerBeforeId: string;
-}> = ({
-  ids,
-  sourceLayerId,
-  filter,
-  layerBeforeId,
-}) => {
+}> = ({ids, sourceLayerId, filter, layerBeforeId}) => {
   const captiveIds = useMapStore(state => state.captiveIds);
   const isOverlayed =
     useMapControlsStore(state => state.mapOptions.showDemographicMap) === 'overlay';

@@ -46,6 +46,8 @@ def create_districtr_map(
     visibility: bool = True,
     statefps: list[str] | None = None,
     num_districts_modifiable: bool = True,
+    comment_length_limit: int | None = None,
+    comment_count_limit: int | None = None,
 ) -> str:
     """
     Create a new districtr map.
@@ -64,6 +66,8 @@ def create_districtr_map(
         visibility: The visibility of the map.
         statefps: The state FIPS codes associated with the map.
         num_districts_modifiable: If False, users cannot change the number of districts on the frontend.
+        comment_length_limit: Max characters per comment (optional).
+        comment_count_limit: Max comments per district (optional).
 
     Returns:
         The UUID of the inserted map.
@@ -82,6 +86,8 @@ def create_districtr_map(
         map_type=map_type,
         num_districts_modifiable=num_districts_modifiable,
         statefps=statefps,
+        comment_length_limit=comment_length_limit,
+        comment_count_limit=comment_count_limit,
     )
     session.add(districtr_map)
     session.flush()

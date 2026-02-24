@@ -1,10 +1,6 @@
 {
   "compilerOptions": {
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -22,24 +18,12 @@
       }
     ],
     "paths": {
-      "@/*": [
-        "./src/*"
-      ],
-      "@components/*": [
-        "./src/app/components/*"
-      ],
-      "@api/*": [
-        "./src/app/api/*"
-      ],
-      "@constants/*": [
-        "./src/app/constants/*"
-      ],
-      "@store/*": [
-        "./src/app/store/*"
-      ],
-      "@utils/*": [
-        "./src/app/utils/*"
-      ]
+      "@/*": ["./src/*"],
+      "@components/*": ["./src/app/components/*"],
+      "@api/*": ["./src/app/api/*"],
+      "@constants/*": ["./src/app/constants/*"],
+      "@store/*": ["./src/app/store/*"],
+      "@utils/*": ["./src/app/utils/*"]
     },
     "target": "ES6"
   },
@@ -55,7 +39,5 @@
     "src/app/components/sidebar/MapModeSelector.jsx",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": [
-    "node_modules"
-  ]
+  "exclude": ["node_modules"]
 }

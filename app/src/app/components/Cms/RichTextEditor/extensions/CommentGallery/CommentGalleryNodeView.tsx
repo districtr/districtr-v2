@@ -2,7 +2,18 @@
 
 import {NodeViewProps, NodeViewWrapper} from '@tiptap/react';
 import React, {useRef} from 'react';
-import {Box, Button, CheckboxCards, Dialog, Flex, Heading, Tabs, Text, TextArea, TextField} from '@radix-ui/themes';
+import {
+  Box,
+  Button,
+  CheckboxCards,
+  Dialog,
+  Flex,
+  Heading,
+  Tabs,
+  Text,
+  TextArea,
+  TextField,
+} from '@radix-ui/themes';
 import {CommentGallery, CommentGalleryProps} from './CommentGallery';
 import {GearIcon, TrashIcon} from '@radix-ui/react-icons';
 import {NoFocusBoundary} from '../NoFocusBoundary';
@@ -42,7 +53,11 @@ const CommentGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes
   };
 
   return (
-    <NodeViewWrapper className="relative border-[1px] border-blue-500 my-4 rounded-md border-dashed" ref={parentRef} contentEditable={false}>
+    <NodeViewWrapper
+      className="relative border-[1px] border-blue-500 my-4 rounded-md border-dashed"
+      ref={parentRef}
+      contentEditable={false}
+    >
       <NoFocusBoundary parentRef={parentRef}>
         <CommentGallery
           ids={ids}
@@ -131,15 +146,15 @@ const CommentGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes
                   >
                     <CheckboxCards.Item value="paginate">Paginate Results</CheckboxCards.Item>
                     <CheckboxCards.Item value="showListView">Show List View</CheckboxCards.Item>
-                    <CheckboxCards.Item value="showIdentifier">
-                      Show Identifier
-                    </CheckboxCards.Item>
+                    <CheckboxCards.Item value="showIdentifier">Show Identifier</CheckboxCards.Item>
                     <CheckboxCards.Item value="showTitles">Show Titles</CheckboxCards.Item>
                     <CheckboxCards.Item value="showPlaces">Show Places</CheckboxCards.Item>
                     <CheckboxCards.Item value="showStates">Show States</CheckboxCards.Item>
                     <CheckboxCards.Item value="showZipCodes">Show Zip Codes</CheckboxCards.Item>
                     <CheckboxCards.Item value="showCreatedAt">Show Created At</CheckboxCards.Item>
-                    <CheckboxCards.Item value="showFilters">Show Filter Controls</CheckboxCards.Item>
+                    <CheckboxCards.Item value="showFilters">
+                      Show Filter Controls
+                    </CheckboxCards.Item>
                     <CheckboxCards.Item value="showMaps">Show Map Links</CheckboxCards.Item>
                   </CheckboxCards.Root>
                 </Flex>

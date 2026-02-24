@@ -10,8 +10,10 @@ export const SavePopover = () => {
   const [hovered, setHovered] = useState(false);
   const mapDocument = useMapStore(state => state.mapDocument);
   const documentFromIdb = useIdbDocument(mapDocument?.document_id);
-  const isOutdated =
+  const assignmentsOutdated =
     documentFromIdb?.clientLastUpdated !== documentFromIdb?.document_metadata.updated_at;
+  const updated = useMapStore(state => Object.values(state.updated).some(Boolean));
+  const isOutdated = updated || assignmentsOutdated;
   const handlePutAssignments = useAssignmentsStore(state => state.handlePutAssignments);
   return (
     <Popover.Root open={hovered}>

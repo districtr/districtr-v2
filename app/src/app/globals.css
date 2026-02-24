@@ -34,12 +34,12 @@ body {
 }
 
 .radix-themes {
-	--default-font-family: var(--font-nunito), serif;
-	--heading-font-family: var(--font-nunito), serif;
-	--code-font-family: var(--font-nunito), serif;
-	--strong-font-family: var(--font-nunito), serif;
-	--em-font-family: var(--font-nunito), serif;
-	--quote-font-family: var(--font-nunito), serif;
+  --default-font-family: var(--font-nunito), serif;
+  --heading-font-family: var(--font-nunito), serif;
+  --code-font-family: var(--font-nunito), serif;
+  --strong-font-family: var(--font-nunito), serif;
+  --em-font-family: var(--font-nunito), serif;
+  --quote-font-family: var(--font-nunito), serif;
 }
 /* pulse spin animation twist back and forth */
 @keyframes pulse-spin {
@@ -61,11 +61,17 @@ body {
 .cursor-pan {
 }
 .cursor-brush canvas {
-  cursor: url(/paintbrush.png) 20 20, none;
+  cursor:
+    url(/paintbrush.png) 20 20,
+    none;
 }
 .cursor-eraser canvas {
-  cursor: url(/eraser.png) 16 16, pointer;
+  cursor:
+    url(/eraser.png) 16 16,
+    pointer;
 }
 .cursor-shatter canvas {
-  cursor: url(/break.png) 12 12, pointer;
+  cursor:
+    url(/break.png) 12 12,
+    pointer;
 }

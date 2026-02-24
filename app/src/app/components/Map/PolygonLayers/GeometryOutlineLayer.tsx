@@ -11,13 +11,7 @@ const GeometryOutlineLayer: React.FC<{
   style?: {
     lineWidth?: number;
   };
-}> = ({
-  id,
-  sourceLayerId,
-  filter,
-  beforeId,
-  style,
-}) => {
+}> = ({id, sourceLayerId, filter, beforeId, style}) => {
   if (!sourceLayerId) return null;
   const lineWidth = style?.lineWidth ?? 1.5;
   return (

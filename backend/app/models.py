@@ -73,6 +73,10 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     data_source_name: str | None = Field(nullable=True)
     # State FIPS codes associated with this map
     statefps: list[str] | None = Field(sa_column=Column(ARRAY(String), nullable=True))
+    # Maximum length of a comment
+    comment_length_limit: int | None = Field(nullable=True)
+    # Maximum number of comments per document
+    comment_count_limit: int | None = Field(nullable=True)
 
 
 class DistrictrMapPublic(BaseModel):
@@ -108,6 +112,8 @@ class DistrictrMapUpdate(BaseModel):
     child_geo_unit_type: str | None = None
     data_source_name: str | None = None
     statefps: list[str] | None = None
+    comment_length_limit: int | None = None
+    comment_count_limit: int | None = None
 
 
 class GerryDBTable(TimeStampMixin, SQLModel, table=True):
@@ -211,6 +217,25 @@ class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
     document_id: str = Field(sa_column=Column(UUIDType, nullable=False))
 
 
+class DocumentCommentPublic(BaseModel):
+    """Public representation of a document comment."""
+
+    comment_id: str
+    zone: int | None = None
+    text: str
+    moderated: bool = False  # True when comment failed moderation; edit access sees full text, public sees placeholder
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class DocumentCommentCreate(BaseModel):
+    """Create/update a document comment. If comment_id is provided, it's an update."""
+
+    comment_id: str | None = None
+    zone: int | None = None
+    text: str
+
+
 class DocumentPublic(BaseModel):
     document_id: str
     public_id: int | None = None
@@ -235,6 +260,9 @@ class DocumentPublic(BaseModel):
     data_source_name: str | None = None
     overlays: list["OverlayPublic"] | None = None
     statefps: list[str] | None = None
+    document_comments: list["DocumentCommentPublic"] | None = None
+    comment_length_limit: int | None = None
+    comment_count_limit: int | None = None
 
 
 class DocumentCreatePublic(DocumentPublic):
@@ -264,6 +292,7 @@ class AssignmentsCreate(BaseModel):
     last_updated_at: datetime
     overwrite: bool = False
     metadata: AssignmentsMetadata | None = None
+    comments: list[DocumentCommentCreate] | None = None
 
 
 class AssignmentsResponse(SQLModel):
