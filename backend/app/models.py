@@ -1,5 +1,6 @@
 from datetime import datetime
 from pydantic import BaseModel
+import enum
 from sqlmodel import (
     Field,
     ForeignKey,
@@ -159,7 +160,11 @@ class DocumentMetadata(BaseModel):
     event_id: str | None = None
     draft_status: DocumentDraftStatus | None = DocumentDraftStatus.scratch
 
-DOCUMENT_TYPE = ENUM("district", "coi", name="documenttype", create_type=False)
+
+class DocumentType(str, enum.Enum):
+    DISTRICT = "district"
+    COI = "coi"
+
 
 class Document(TimeStampMixin, SQLModel, table=True):
     metadata = MetaData(schema=DOCUMENT_SCHEMA)
@@ -195,7 +200,16 @@ class Document(TimeStampMixin, SQLModel, table=True):
     )
     map_metadata: DocumentMetadata | None = Field(sa_column=Column(JSON, nullable=True))
     document_type: str = Field(
-        sa_column=Column(DOCUMENT_TYPE, nullable=False, server_default="district")
+        sa_column=Column(
+            ENUM(
+                DocumentType.DISTRICT.value,
+                DocumentType.COI.value,
+                name="documenttype",
+                create_type=False,
+            ),
+            nullable=False,
+            server_default="district",
+        )
     )
 
 

@@ -1,7 +1,7 @@
 """Add document_type enum and column to document
 
-Revision ID: a1b2c3d4e5f6
-Revises: 111fa461521c
+Revision ID: 7193bc09104c
+Revises: da39a3ee5e6b
 Create Date: 2026-02-23
 
 """
@@ -13,8 +13,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = "a1b2c3d4e5f6"
-down_revision: Union[str, None] = "111fa461521c"
+revision: str = "7193bc09104c"
+down_revision: Union[str, None] = "da39a3ee5e6b"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
