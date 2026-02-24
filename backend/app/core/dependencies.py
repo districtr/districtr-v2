@@ -130,6 +130,7 @@ def get_document_public(
         DistrictrMap.num_districts_modifiable.label("num_districts_modifiable"),  # pyright: ignore
         DistrictrMap.extent.label("extent"),  # pyright: ignore
         DistrictrMap.map_type.label("map_type"),  # pyright: ignore
+        Document.document_type.label("document_type"),  # pyright: ignore
         DistrictrMap.parent_geo_unit_type.label("parent_geo_unit_type"),  # pyright: ignore
         DistrictrMap.child_geo_unit_type.label("child_geo_unit_type"),  # pyright: ignore
         DistrictrMap.data_source_name.label("data_source_name"),  # pyright: ignore
@@ -256,6 +257,7 @@ def get_document_public(
         access=result.access,
         color_scheme=result.color_scheme,
         map_type=result.map_type,
+        document_type=result.document_type,
         map_module=result.map_module,
         comment=result.comment,
         parent_geo_unit_type=result.parent_geo_unit_type,
