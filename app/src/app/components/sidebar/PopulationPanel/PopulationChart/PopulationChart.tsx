@@ -9,7 +9,7 @@ import {AxisBottom} from '@visx/axis';
 import {useChartStore} from '@/app/store/chartStore';
 import {PopulationLabels} from './PopulationLabels';
 import {SummaryRecord} from '@/app/utils/api/summaryStats';
-import { useColorScheme } from '@/app/hooks/useColorScheme';
+import {useColorScheme} from '@/app/hooks/useColorScheme';
 
 export const PopulationChart: React.FC<{
   width: number;

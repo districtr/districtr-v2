@@ -189,7 +189,7 @@ export const DraggableToolbar = () => {
                   cursor: 'move',
                 }}
               >
-                  <MoveIcon fontSize={'12'} />
+                <MoveIcon fontSize={'12'} />
               </IconButton>
             </Tooltip>
             <Tooltip content="Rotate the toolbar">

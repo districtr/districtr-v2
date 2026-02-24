@@ -4,7 +4,11 @@ import {useMapStore} from '../../store/mapStore';
 import {useMapControlsStore} from '../../store/mapControlsStore';
 import {useAssignmentsStore} from '../../store/assignmentsStore';
 import {ColorPicker} from './ColorPicker';
-import {FALLBACK_NUM_DISTRICTS, MAX_NUM_DISTRICTS, MIN_NUM_DISTRICTS} from '@/app/constants/mapDefaults';
+import {
+  FALLBACK_NUM_DISTRICTS,
+  MAX_NUM_DISTRICTS,
+  MIN_NUM_DISTRICTS,
+} from '@/app/constants/map/mapDefaults';
 import {MinusIcon, PlusIcon, Pencil1Icon} from '@radix-ui/react-icons';
 import {useState} from 'react';
 
@@ -74,12 +78,15 @@ export function ZonePicker() {
                 variant="soft"
                 size="1"
                 onChange={e => {
-                  const val = Math.max(MIN_NUM_DISTRICTS, Math.min(MAX_NUM_DISTRICTS, Number(e.target.value)));
+                  const val = Math.max(
+                    MIN_NUM_DISTRICTS,
+                    Math.min(MAX_NUM_DISTRICTS, Number(e.target.value))
+                  );
                   if (!isNaN(val)) {
                     setNumDistricts(val);
                   }
                 }}
-                mx={"1"}
+                mx={'1'}
                 className="text-center min-w-12 pr-2"
               ></TextField.Root>
               <Button

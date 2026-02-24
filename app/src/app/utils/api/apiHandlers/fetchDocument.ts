@@ -85,31 +85,38 @@ export const fetchDocument = async (
 
   // Local is up to date, use it
   const localUpToDate = localTimestamp.toISOString() === remoteTimestamp.toISOString();
-  if (localUpToDate) {
+  if (!localUpToDate) {
     return {
-      ok: true,
+      ok: false,
+      error: `Cloud Save Conflict: This document was updated at ${remoteTimestamp} and your last updates are from ${localTimestamp}.`,
       response: {
-        document: {
-          // in case of missing fields
-          ...remoteMetadata.response,
-          ...idbDocument.document_metadata,
-          // always override with remote
-          overlays: remoteMetadata.response.overlays,
-          statefps: remoteMetadata.response.statefps,
-        },
-        assignments: idbDocument.assignments,
+        localDocument: idbDocument.document_metadata,
+        localLastUpdated: localTimestamp.toISOString(),
+        serverDocument: remoteMetadata.response,
+        serverLastUpdated: remoteTimestamp.toISOString(),
       },
     };
   }
-
+  const clientHasNoEdits =
+    idbDocument.clientLastUpdated === idbDocument.document_metadata.updated_at;
+  const priorityDocument = clientHasNoEdits
+    ? remoteMetadata.response
+    : idbDocument.document_metadata;
+  const subordinateDocument = clientHasNoEdits
+    ? idbDocument.document_metadata
+    : remoteMetadata.response;
   return {
-    ok: false,
-    error: `Cloud Save Conflict: This document was updated at ${remoteTimestamp} and your last updates are from ${localTimestamp}.`,
+    ok: true,
     response: {
-      localDocument: idbDocument.document_metadata,
-      localLastUpdated: localTimestamp.toISOString(),
-      serverDocument: remoteMetadata.response,
-      serverLastUpdated: remoteTimestamp.toISOString(),
+      document: {
+        // in case of missing fields or moderation overwrites
+        ...subordinateDocument,
+        ...priorityDocument,
+        // always override with remote
+        overlays: remoteMetadata.response.overlays,
+        statefps: remoteMetadata.response.statefps,
+      },
+      assignments: idbDocument.assignments,
     },
   };
 };

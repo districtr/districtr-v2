@@ -114,13 +114,11 @@ const Main: React.FC = () => {
                 Districtr lets you put your community on the map (literally!) by marking places that
                 matter to make your shared interests visible. If you are interested in learning more
                 about best practices for COI map collection email us at{' '}
-                <Link href="mailto:Districtr@mggg.org">Districtr@mggg.org</Link>
-                .
+                <Link href="mailto:Districtr@mggg.org">Districtr@mggg.org</Link>.
               </Text>
               <Text size="5">
                 For a detailed walkthrough of Districtr, visit our{' '}
-                <Link href="/guide">guide page</Link>
-                .
+                <Link href="/guide">guide page</Link>.
               </Text>
             </Flex>
             <Image src="/community.svg" alt="draw" width={200} height={400} />
@@ -206,9 +204,7 @@ const Main: React.FC = () => {
 
           <Text size="5">
             If you are interested in partnering with us or sponsoring a voting rights project, reach
-            out to us at{' '}
-            <Link href="mailto:Districtr@mggg.org">Districtr@mggg.org</Link>
-            .
+            out to us at <Link href="mailto:Districtr@mggg.org">Districtr@mggg.org</Link>.
           </Text>
 
           <Text size="5">Our team aims to respond to requests for new modules within a week.</Text>

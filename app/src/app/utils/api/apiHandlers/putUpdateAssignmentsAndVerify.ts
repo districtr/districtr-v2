@@ -2,6 +2,7 @@ import {NullableZone} from '@/app/constants/types';
 import {formatAssignmentsFromState} from '../../map/formatAssignments';
 import {AssignmentArray, DocumentObject} from './types';
 import {putUpdateDocument} from './putUpdateDocument';
+import {getDocument} from './getDocument';
 import {AssignmentsStore} from '@/app/store/assignmentsStore';
 import {idb} from '../../idb/idb';
 import {getAssignments} from './getAssignments';
@@ -40,6 +41,13 @@ export const putUpdateAssignmentsAndVerify = async ({
     childToParent,
     'assignment_array'
   );
+  // Build comments payload from document_comments
+  const comments = (mapDocument.document_comments || []).map(c => ({
+    comment_id: c.comment_id ?? undefined,
+    zone: c.zone ?? undefined,
+    text: c.text,
+  }));
+
   const assignmentsPostResponse = await putUpdateDocument({
     assignments: formattedAssignments,
     document_id: mapDocument.document_id,
@@ -53,6 +61,7 @@ export const putUpdateAssignmentsAndVerify = async ({
           ? mapDocument.num_districts
           : undefined,
     },
+    comments,
   });
   if (!assignmentsPostResponse.ok) {
     return {
@@ -73,18 +82,63 @@ export const putUpdateAssignmentsAndVerify = async ({
       throw new Error('Conflict on save: assignments mismatch');
     }
   });
+  // Refetch document to get server-assigned comment_ids for district comments
+  const freshDoc = await getDocument(mapDocument.document_id);
+  const document_comments = freshDoc.ok ? freshDoc.response.document_comments : undefined;
+
+  // Verify comment metadata (zone, text) matches expected before updating idb
+  if (document_comments) {
+    const expectedComments = mapDocument.document_comments || [];
+    const expectedByZone = new Map<number, {text: string}[]>();
+    expectedComments.forEach(c => {
+      if (c.zone != null) {
+        const list = expectedByZone.get(c.zone) ?? [];
+        list.push({text: (c.text ?? '').trim()});
+        expectedByZone.set(c.zone, list);
+      }
+    });
+    const freshByZone = new Map<number, {text: string}[]>();
+    document_comments.forEach(c => {
+      if (c.zone != null) {
+        const list = freshByZone.get(c.zone) ?? [];
+        list.push({text: (c.text ?? '').trim()});
+        freshByZone.set(c.zone, list);
+      }
+    });
+    for (const [zone, expectedList] of expectedByZone) {
+      const freshList = freshByZone.get(zone) ?? [];
+      if (freshList.length !== expectedList.length) {
+        console.warn(
+          `Comment count mismatch for zone ${zone}: expected ${expectedList.length}, got ${freshList.length}`
+        );
+      }
+      expectedList.forEach((exp, i) => {
+        const fresh = freshList[i];
+        if (fresh && exp.text !== fresh.text) {
+          // Server may trim or moderate; log but allow update
+          console.warn(
+            `Comment text mismatch for zone ${zone} index ${i}: expected "${exp.text}", got "${fresh.text}"`
+          );
+        }
+      });
+    }
+  }
+
   await idb.updateDocument({
     id: mapDocument.document_id,
     document_metadata: {
       ...mapDocument,
       updated_at: assignmentsPostResponse.response.updated_at,
+      ...(document_comments && {document_comments}),
     },
     assignments: freshServerAssignments.response,
     clientLastUpdated: assignmentsPostResponse.response.updated_at,
   });
   useMapStore.getState().mutateMapDocument({
     updated_at: assignmentsPostResponse.response.updated_at,
+    ...(document_comments && {document_comments}),
   });
+  useMapStore.getState().clearUpdatedChanges();
   return {
     ok: true,
     response: {

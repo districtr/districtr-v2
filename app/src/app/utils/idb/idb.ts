@@ -215,6 +215,26 @@ export class DocumentsDB extends Dexie {
       password: password,
     });
   };
+
+  /**
+   * Update document_metadata (e.g. document_comments) and clientLastUpdated.
+   * Use when comments or other metadata change locally without a server save.
+   * The new clientLastUpdated indicates local changes exist.
+   */
+  updateIdbDocumentMetadata = async (
+    document_metadata: DocumentObject,
+    clientLastUpdated: string = new Date().toISOString()
+  ) => {
+    const document_id = document_metadata.document_id;
+    const curr = await this.getDocument(document_id);
+    if (!curr) return;
+
+    await this.updateDocument({
+      ...curr,
+      document_metadata,
+      clientLastUpdated,
+    });
+  };
 }
 
 export const idb = new DocumentsDB();

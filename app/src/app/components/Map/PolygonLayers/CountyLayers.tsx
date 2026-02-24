@@ -4,9 +4,10 @@ import {GEODATA_URL} from '@/app/utils/api/constants';
 import {FilterSpecification} from 'maplibre-gl';
 import {useMemo} from 'react';
 import {Layer, Source} from 'react-map-gl/maplibre';
-import { SENTINEL_EMPTY_ARRAY } from '@/app/constants/layers';
+import {SENTINEL_EMPTY_ARRAY} from '@/app/constants/map/layerStyle';
+import {CANONICAL_LAYER_IDS, COUNTY_SOURCE_ID} from '@/app/constants/map/layerIds';
 
-export const CountyLayers = () => {
+export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
   const mapOptions = useMapControlsStore(state => state.mapOptions);
 
   const countyFilter = useMemo(() => {
@@ -27,24 +28,13 @@ export const CountyLayers = () => {
   return (
     <>
       <Source
-        id="counties"
+        id={COUNTY_SOURCE_ID}
         type="vector"
         url={`pmtiles://${GEODATA_URL}/basemaps/tiger/tiger2023/tl_2023_us_county_full.pmtiles`}
       >
         <Layer
-          id="counties_fill"
-          beforeId="places_locality"
-          type="fill"
-          source-layer="tl_2023_us_county"
-          paint={{
-            'fill-color': '#fff',
-            'fill-opacity': 0,
-          }}
-          filter={countyFilter}
-        />
-        <Layer
-          id="counties_boundary"
-          beforeId="places_locality"
+          id={CANONICAL_LAYER_IDS.COUNTIES.BOUNDARY}
+          beforeId={layerBeforeId}
           type="line"
           source-layer="tl_2023_us_county"
           paint={{
@@ -68,8 +58,21 @@ export const CountyLayers = () => {
           filter={countyFilter}
         />
         <Layer
-          id="counties_labels"
-          beforeId={mapOptions.prominentCountyNames ? undefined : 'counties_boundary'}
+          id={CANONICAL_LAYER_IDS.COUNTIES.FILL}
+          beforeId={CANONICAL_LAYER_IDS.COUNTIES.BOUNDARY}
+          type="fill"
+          source-layer="tl_2023_us_county"
+          paint={{
+            'fill-color': '#fff',
+            'fill-opacity': 0,
+          }}
+          filter={countyFilter}
+        />
+        <Layer
+          id={CANONICAL_LAYER_IDS.COUNTIES.LABELS}
+          beforeId={
+            mapOptions.prominentCountyNames ? undefined : CANONICAL_LAYER_IDS.COUNTIES.BOUNDARY
+          }
           type="symbol"
           source-layer="tl_2023_us_county_label"
           minzoom={6}

@@ -1,4 +1,4 @@
-import {AssignmentArray, AssignmentsCreate, AssignmentsCreateResponse} from './types';
+import {AssignmentsCreate, AssignmentsCreateResponse} from './types';
 import {put} from '../factory';
 
 export const putUpdateDocument = async ({
@@ -7,6 +7,7 @@ export const putUpdateDocument = async ({
   last_updated_at,
   overwrite = false,
   metadata,
+  comments,
 }: AssignmentsCreate) => {
   return await put<AssignmentsCreate, AssignmentsCreateResponse>('assignments')({
     body: {
@@ -18,6 +19,7 @@ export const putUpdateDocument = async ({
         color_scheme: metadata?.color_scheme ?? null,
         num_districts: metadata?.num_districts ?? null,
       },
+      comments: comments ?? null,
     },
   });
 };

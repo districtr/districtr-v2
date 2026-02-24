@@ -39,7 +39,7 @@ const REVIEW_STATUS_OPTIONS = [
     value: REVIEW_STATUS_ENUM.REJECTED,
   },
   {
-    name: 'Reviewed',
+    name: 'Dismissed',
     value: REVIEW_STATUS_ENUM.REVIEWED,
   },
 ];
@@ -53,7 +53,16 @@ export default function ReviewHome() {
   const [place, setPlace] = useState<string | undefined>(undefined);
   const [state, setState] = useState<string | undefined>(undefined);
   const [zipCode, setZipCode] = useState<string | undefined>(undefined);
+  const [commentId, setCommentId] = useState<string>('');
+  const [commentIdFilter, setCommentIdFilter] = useState<number | undefined>(undefined);
+  const [reviewFlagged, setReviewFlagged] = useState<boolean>(false);
   const [maxModerationScore, setMaxModerationScore] = useState<number>(1.0);
+
+  const applyCommentIdFilter = () => {
+    const parsed = commentId.trim() ? parseInt(commentId.trim(), 10) : undefined;
+    setCommentIdFilter(Number.isNaN(parsed) ? undefined : parsed);
+    setOffset(0);
+  };
 
   const clearAllFilters = () => {
     setReviewStatus(null);
@@ -61,6 +70,9 @@ export default function ReviewHome() {
     setPlace(undefined);
     setState(undefined);
     setZipCode(undefined);
+    setCommentId('');
+    setCommentIdFilter(undefined);
+    setReviewFlagged(true);
     setMaxModerationScore(1.0);
   };
 
@@ -68,24 +80,28 @@ export default function ReviewHome() {
     queryKey: [
       'review',
       reviewStatus,
+      reviewFlagged,
       offset,
       limit,
       tags.join('|'),
       place,
       state,
       zipCode,
+      commentIdFilter,
       maxModerationScore,
     ],
     queryFn: () =>
       getAdminCommentsList(
         {
           review_status: reviewStatus,
+          review_flagged: reviewFlagged || undefined,
           offset,
           limit,
           tags,
           place,
           state,
           zip_code: zipCode,
+          comment_id: commentIdFilter,
           max_moderation_score: maxModerationScore,
         },
         session
@@ -140,13 +156,53 @@ export default function ReviewHome() {
               })}
             </RadioGroup.Root>
           </Flex>
+          <Flex direction="column" gap="2" className="w-full">
+            <Text size="2">Flagged for review</Text>
+            <Flex align="center" gap="2">
+              <input
+                type="checkbox"
+                id="review-flagged"
+                checked={reviewFlagged}
+                onChange={e => {
+                  setReviewFlagged(e.target.checked);
+                  setOffset(0);
+                }}
+                className="rounded border-gray-300"
+              />
+              <Text as="label" htmlFor="review-flagged">
+                Show only flagged comments
+              </Text>
+            </Flex>
+          </Flex>
           <TagReviewFilter tags={tags} setTags={setTags} />
+          <Flex direction="column" gap="2" className="w-full">
+            <Text size="2">Comment ID</Text>
+            <Flex gap="2">
+              <input
+                type="number"
+                placeholder="Look up by ID..."
+                value={commentId}
+                onChange={e => setCommentId(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && applyCommentIdFilter()}
+                className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm"
+              />
+              <Button size="1" onClick={applyCommentIdFilter}>
+                Search
+              </Button>
+            </Flex>
+          </Flex>
           <TextFilter title="Place" initialText={place} onEnter={setPlace} />
           <TextFilter title="State" initialText={state} onEnter={setState} />
           <TextFilter title="Zip Code" initialText={zipCode} onEnter={setZipCode} />
           <Button onClick={clearAllFilters} variant="outline" color="gray">
             Clear All Filters
           </Button>
+          <a
+            href="/admin/review/district-comments"
+            className="text-sm text-blue-600 hover:underline mt-2"
+          >
+            District Comments Moderation →
+          </a>
         </Flex>
         <Flex direction="column" gap="4" className="w-full flex-1">
           <Box>

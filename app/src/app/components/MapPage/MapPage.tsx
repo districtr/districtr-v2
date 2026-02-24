@@ -1,7 +1,8 @@
 'use client';
 import React, {useEffect} from 'react';
 import {MapContextMenu} from '@components/ContextMenu';
-import {MapComponent} from '@components/Map/Map';
+import {MainMap} from '@components/Map/MainMap';
+import {DemographicMap} from '@components/Map/DemographicMap';
 import SidebarComponent from '@components/sidebar/Sidebar';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
@@ -17,7 +18,8 @@ import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useDocumentWithSync} from '@/app/hooks/useDocumentWithSync';
 import {SaveConflictModal} from '../SaveConflictModal';
-import { migrateUserMapsFromLocalStorage } from '@/app/utils/idb/migrateUserMaps';
+import {ZoneCommentModal} from '@components/Map/Tooltip/ZoneCommentModal';
+import {migrateUserMapsFromLocalStorage} from '@/app/utils/idb/migrateUserMaps';
 
 interface MapPageProps {
   isEditing: boolean;
@@ -84,8 +86,8 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
       <div className={`h-full relative w-full flex-1 flex flex-col lg:h-screen landscape:h-screen`}>
         <Topbar />
         <Flex direction="row" height="100%">
-          <MapComponent />
-          {showDemographicMap && <MapComponent isDemographicMap />}
+          <MainMap />
+          {showDemographicMap && <DemographicMap />}
         </Flex>
         {toolbarLocation === 'map' && <DraggableToolbar />}
         {!!mapId && (
@@ -105,6 +107,7 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
       <ErrorNotification />
       {conflictModal}
       <SaveConflictModal />
+      <ZoneCommentModal />
     </div>
   );
 }
