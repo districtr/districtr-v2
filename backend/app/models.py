@@ -202,8 +202,8 @@ class Document(TimeStampMixin, SQLModel, table=True):
     document_type: str = Field(
         sa_column=Column(
             ENUM(
-                DocumentType.DISTRICT.value,
-                DocumentType.COI.value,
+                DocumentType.DISTRICT,
+                DocumentType.COI,
                 name="documenttype",
                 create_type=False,
             ),
