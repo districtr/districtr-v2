@@ -1232,6 +1232,73 @@ def test_create_document_copy_inherits_num_districts(
     assert doc.get("num_districts") == 6
 
 
+def test_create_document_default_document_type(
+    client, ks_demo_view_census_blocks_districtrmap
+):
+    """create_document without document_type defaults to "district"."""
+    response = client.post(
+        "/api/create_document",
+        json={"districtr_map_slug": GERRY_DB_FIXTURE_NAME},
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data.get("document_type") == "district"
+    doc = client.get(f"/api/document/{data['document_id']}").json()
+    assert doc.get("document_type") == "district"
+
+
+def test_create_document_with_document_type_coi(
+    client, ks_demo_view_census_blocks_districtrmap
+):
+    """create_document with document_type "coi" stores and returns it."""
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+            "document_type": "coi",
+        },
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data.get("document_type") == "coi"
+    doc = client.get(f"/api/document/{data['document_id']}").json()
+    assert doc.get("document_type") == "coi"
+
+
+def test_create_document_copy_inherits_document_type(
+    client,
+    document_id_all_stats,
+    ks_demo_view_census_blocks_summary_stats_all_stats,
+):
+    """copy_from_doc inherits document_type from source document."""
+    # Set source document to coi via creating a new doc with document_type coi
+    # (we use existing fixture and cannot change its type, so create a coi doc then copy from it)
+    r = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_ALL_FIXTURE_NAME,
+            "document_type": "coi",
+        },
+    )
+    assert r.status_code == 201
+    coi_doc_id = r.json()["document_id"]
+    doc = client.get(f"/api/document/{coi_doc_id}").json()
+    assert doc.get("document_type") == "coi"
+
+    # Copy the coi document
+    r2 = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_ALL_FIXTURE_NAME,
+            "copy_from_doc": coi_doc_id,
+        },
+    )
+    assert r2.status_code == 201
+    copy_id = r2.json()["document_id"]
+    copied = client.get(f"/api/document/{copy_id}").json()
+    assert copied.get("document_type") == "coi"
+
+
 def test_put_assignments_with_metadata_num_districts_and_color_scheme(
     client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
 ):

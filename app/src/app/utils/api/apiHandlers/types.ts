@@ -76,6 +76,7 @@ export interface DocumentObject extends StatusObject {
   map_metadata: DocumentMetadata;
   color_scheme: string[] | null;
   map_type: 'default' | 'local';
+  document_type: 'district' | 'coi';
   comment: string | null;
   parent_geo_unit_type: string | null;
   child_geo_unit_type: string | null;
@@ -87,12 +88,15 @@ export interface DocumentObject extends StatusObject {
 export interface MinPublicDocument {
   public_id: number;
   map_metadata: DocumentMetadata;
+  document_type: 'district' | 'coi';
   map_module: string;
   updated_at: string;
 }
 
 export interface DocumentCreate {
   districtr_map_slug: string;
+  /** Defaults to "district" when omitted. When copying, inherited from source. */
+  document_type?: 'district' | 'coi';
   metadata?: DocumentMetadata;
   copy_from_doc?: string | number;
 }
