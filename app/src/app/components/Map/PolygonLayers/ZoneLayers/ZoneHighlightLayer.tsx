@@ -9,12 +9,7 @@ export const ZoneHighlightLayer: React.FC<{
   sourceLayerId: string;
   filter: FilterSpecification;
   beforeId: string;
-}> = ({
-  id,
-  sourceLayerId,
-  filter,
-  beforeId,
-}) => {
+}> = ({id, sourceLayerId, filter, beforeId}) => {
   const highlightUnassigned = useMapControlsStore(state => state.mapOptions.higlightUnassigned);
   const showPaintedDistricts = useMapControlsStore(state => state.mapOptions.showPaintedDistricts);
 

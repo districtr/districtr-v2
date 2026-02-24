@@ -1,7 +1,7 @@
 import {API_URL} from './constants';
 import {HTTP_METHOD} from 'next/dist/server/web/http';
 import {ClientSession} from '@/app/lib/auth0';
-
+export type QueryParams = Record<string, string | number | boolean | (string | number)[]>;
 /**
  * API endpoint handler factory
  * @param API route excluding /api/
@@ -19,7 +19,7 @@ export const make = (path: string) => {
     }: {
       body?: TBody;
       session?: ClientSession;
-      queryParams?: Record<string, string | number | boolean | (string | number)[]>;
+      queryParams?: QueryParams;
     }): Promise<
       | {
           ok: true;

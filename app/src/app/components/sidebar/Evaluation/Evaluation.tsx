@@ -30,8 +30,8 @@ import {
 } from '@/app/store/demography/evaluationConfig';
 import {PARTISAN_SCALE} from '@/app/store/demography/constants';
 import {GearIcon} from '@radix-ui/react-icons';
-import { useColorScheme } from '@/app/hooks/useColorScheme';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
+import {useColorScheme} from '@/app/hooks/useColorScheme';
 
 type EvaluationProps = {
   summaryType: keyof SummaryStatConfig;

@@ -45,11 +45,7 @@ export interface AssignmentsStore {
   childToParent: Map<string, string>;
   /** Assigns the provided geoids to the given zone immediately */
   setZoneAssignments: (zone: NullableZone, gdbPaths: Set<GDBPath>) => void;
-  /** Updates accumulated geoids as the user paints */
-  setAccumulatedAssignments: (
-    assignments: AssignmentsStore['accumulatedAssignments'],
-    zonesUpdated: Set<NullableZone>
-  ) => void;
+
   clientLastUpdated: string;
   setClientLastUpdated: (updated_at: string) => void;
   /** Flushes accumulated geoids to the worker & downstream caches */
@@ -201,21 +197,6 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       );
     });
     setPaintedChanges(popChanges);
-  },
-
-  setAccumulatedAssignments: (accumulatedAssignments, zonesUpdated) => {
-    const zonesLastUpdated = new Map(get().zonesLastUpdated);
-    const timestamp = new Date().toISOString();
-    zonesUpdated.forEach(zone => {
-      if (zone !== null) {
-        zonesLastUpdated.set(zone, timestamp);
-      }
-    });
-
-    set({
-      accumulatedAssignments: new Map(accumulatedAssignments),
-      zonesLastUpdated,
-    });
   },
 
   ingestFromDocument: (data, mapDocument) => {
@@ -541,9 +522,19 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     if (!idbDocument) return;
     setMapLock({isLocked: true, reason: 'Saving plan'});
 
+    // Use mapStore.mapDocument (has latest comments from in-memory edits) merged with
+    // idbDocument for fields that might only exist in IDB (e.g. from background sync).
+    // document_comments must come from mapStore since IDB isn't updated on comment add/edit.
+    const documentForSave: DocumentObject = {
+      ...idbDocument.document_metadata,
+      ...mapDocument,
+      document_comments:
+        mapDocument.document_comments ?? idbDocument.document_metadata.document_comments,
+    };
+
     // Include color_scheme and num_districts in assignments update if they've changed
     const assignmentsPostResponse = await putUpdateAssignmentsAndVerify({
-      mapDocument: idbDocument.document_metadata,
+      mapDocument: documentForSave,
       zoneAssignments,
       shatterIds,
       parentToChild,

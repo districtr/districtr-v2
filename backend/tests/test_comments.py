@@ -1,4 +1,4 @@
-from sqlmodel import Session, select, insert, col
+from sqlmodel import Session, select, insert
 from unittest.mock import patch
 from app.comments.models import Commenter, Comment, Tag, CommentTag, DocumentComment
 from tests.test_utils import (
@@ -310,31 +310,29 @@ class TestCommentEndpoint:
         client,
         session,
     ):
-        """Test comment creation with missing required fields"""
-        response = client.post(
-            "/api/comments/comment",
+        """Test creating a district-level comment via PUT /api/assignments with zone and text."""
+        document_info = client.get(f"/api/document/{document_id}").json()
+        response = client.put(
+            "/api/assignments",
             json={
-                "comment": {
-                    "title": "Hello",
-                    "comment": "world",
-                    "zone": 1,
-                    "document_id": document_id,
-                },
+                "assignments": [["geo_id", 1]],
+                "document_id": document_id,
+                "comments": [
+                    {
+                        "text": "Hello, world!",
+                        "zone": 1,
+                    }
+                ],
                 "recaptcha_token": "test_token",
+                "last_updated_at": document_info["updated_at"],
             },
         )
-        assert response.status_code == 201
-        data = response.json()
-        assert data["title"] == "Hello"
-        assert data["comment"] == "world"
+        assert response.status_code == 200
+        document_info2 = client.get(f"/api/document/{document_id}").json()
         # Because of silly idea to have a separate DocumentComment, it's kind of hard/annoying to get this value back
         # TODO: DocumentComment has no business being its own table and should be combined with Comment
-        # assert data["zone"] == 1
-        stmt = select(col(DocumentComment.zone)).where(
-            col(DocumentComment.document_id) == document_id
-        )
-        zone = session.exec(stmt).one()
-        assert zone == 1
+        assert document_info2["document_comments"][0]["zone"] == 1
+        assert document_info2["document_comments"][0]["text"] == "Hello, world!"
 
     @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_create_comment_empty_required_fields(

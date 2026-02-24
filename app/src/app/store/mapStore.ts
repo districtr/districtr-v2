@@ -8,6 +8,7 @@ import {
   DocumentObject,
   DocumentMetadata,
   StatusObject,
+  DocumentComment,
 } from '@utils/api/apiHandlers/types';
 import maplibregl from 'maplibre-gl';
 import type {MutableRefObject} from 'react';
@@ -72,13 +73,27 @@ export interface MapStore {
   mapViews: Partial<QueryObserverResult<DistrictrMap[], Error>>;
   setMapViews: (maps: MapStore['mapViews']) => void;
   mapDocument: DocumentObject | null;
+  updated: {
+    metadata: boolean;
+    comments: boolean;
+  };
   setMapDocument: (mapDocument: DocumentObject) => void;
   flushMapState: boolean;
   initiateFlushMapState: () => Promise<void>;
   mutateMapDocument: (mapDocument: Partial<DocumentObject>) => void;
+  clearUpdatedChanges: () => void;
   mapStatus: StatusObject | null;
   setMapStatus: (mapStatus: Partial<StatusObject>) => void;
   setNumDistricts: (numDistricts: number) => void;
+
+  // ZONE COMMENTS
+  pinnedCommentZone: number | null;
+  setPinnedCommentZone: (zone: number | null) => void;
+  addZoneComment: (zone: number, comment: DocumentComment) => void;
+  editZoneComment: (zone: number, index: number, text: string) => void;
+  removeZoneComment: (zone: number, index: number) => void;
+  getZoneCommentsForZone: (zone: number) => DocumentComment[];
+  getZonesWithComments: () => number[];
 
   // SHATTERING
   /**
@@ -131,15 +146,6 @@ export interface MapStore {
    * Map render effects in `mapRenderSubs` -> `_applyFocusFeatureState`
    */
   focusFeatures: Array<MapFeatureInfo>;
-  /**
-   * Map of ISO timestamps.
-   * Keeps track of when a zone was last to keep track of when to refetch data
-   */
-  assignmentsHash: string;
-  setAssignmentsHash: (hash: string) => void;
-  lastUpdatedHash: string;
-  workerUpdateHash: string;
-  setWorkerUpdateHash: (hash: string) => void;
   handleReset: () => void;
   contextMenu: ContextMenuState | null;
   setContextMenu: (menu: ContextMenuState | null) => void;
@@ -202,6 +208,10 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     mapViews: {isPending: true},
     setMapViews: mapViews => set({mapViews}),
     mapDocument: null,
+    updated: {
+      metadata: false,
+      comments: false,
+    },
     setMapDocument: mapDocument => {
       const currentMapDocument = get().mapDocument;
       const {resetZoneAssignments} = useAssignmentsStore.getState();
@@ -277,9 +287,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         appLoadingState: mapDocument?.genesis === 'copied' ? 'loaded' : 'initializing',
         mapRenderingState:
           mapDocument.tiles_s3_path === currentMapDocument?.tiles_s3_path ? 'loaded' : 'loading',
-        assignmentsHash: '',
-        lastUpdatedHash: new Date().toISOString(),
-        workerUpdateHash: new Date().toISOString(),
       });
     },
     flushMapState: false,
@@ -292,13 +299,132 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       set({flushMapState: false});
     },
     mutateMapDocument: mapDocument => set({mapDocument: {...get().mapDocument!, ...mapDocument}}),
+    clearUpdatedChanges: () => set({updated: {metadata: false, comments: false}}),
+
+    // ZONE COMMENTS
+    pinnedCommentZone: null,
+    setPinnedCommentZone: zone => set({pinnedCommentZone: zone}),
+
+    addZoneComment: (zone, comment) => {
+      const {mapDocument, updated} = get();
+      if (!mapDocument) return;
+
+      const currentComments = mapDocument.document_comments || [];
+      const zoneCommentsCount = currentComments.filter(c => c.zone === zone).length;
+      if (zoneCommentsCount >= 10) return; // Max 10 comments per district
+
+      const text = (comment.text ?? '').trim().slice(0, 240); // Max 240 chars
+      const newMapDocument = {
+        ...mapDocument,
+        document_comments: [...currentComments, {...comment, zone, text}],
+      };
+      set({
+        mapDocument: newMapDocument,
+        updated: {
+          ...updated,
+          metadata: true,
+        },
+      });
+      // Persist to IDB so comments survive refresh; update timestamp for pending-changes indicator
+      if (mapDocument.document_id) {
+        const newClientLastUpdated = new Date().toISOString();
+        idb.updateIdbDocumentMetadata(newMapDocument, newClientLastUpdated);
+        useAssignmentsStore.getState().setClientLastUpdated(newClientLastUpdated);
+      }
+    },
+
+    editZoneComment: (zone, index, text) => {
+      const {mapDocument, updated} = get();
+      if (!mapDocument) return;
+
+      const trimmedText = (text ?? '').trim().slice(0, 240); // Max 240 chars
+      const currentComments = mapDocument.document_comments || [];
+      let zoneIndex = 0;
+      const updatedComments = currentComments.map(c => {
+        if (c.zone === zone) {
+          if (zoneIndex === index) {
+            zoneIndex++;
+            return {...c, text: trimmedText};
+          }
+          zoneIndex++;
+        }
+        return c;
+      });
+
+      const newMapDocument = {
+        ...mapDocument,
+        document_comments: updatedComments,
+      };
+      set({
+        mapDocument: newMapDocument,
+        updated: {
+          ...updated,
+          comments: true,
+        },
+      });
+      if (mapDocument.document_id) {
+        const newClientLastUpdated = new Date().toISOString();
+        idb.updateIdbDocumentMetadata(newMapDocument, newClientLastUpdated);
+        useAssignmentsStore.getState().setClientLastUpdated(newClientLastUpdated);
+      }
+    },
+
+    removeZoneComment: (zone, index) => {
+      const {mapDocument, updated} = get();
+      if (!mapDocument) return;
+
+      const currentComments = mapDocument.document_comments || [];
+      let zoneIndex = 0;
+      const updatedComments = currentComments.filter(c => {
+        if (c.zone === zone) {
+          if (zoneIndex === index) {
+            zoneIndex++;
+            return false;
+          }
+          zoneIndex++;
+        }
+        return true;
+      });
+
+      const newMapDocument = {
+        ...mapDocument,
+        document_comments: updatedComments,
+      };
+      set({
+        mapDocument: newMapDocument,
+        updated: {
+          ...updated,
+          comments: true,
+        },
+      });
+      if (mapDocument.document_id) {
+        const newClientLastUpdated = new Date().toISOString();
+        idb.updateIdbDocumentMetadata(newMapDocument, newClientLastUpdated);
+        useAssignmentsStore.getState().setClientLastUpdated(newClientLastUpdated);
+      }
+    },
+
+    getZoneCommentsForZone: (zone: number) => {
+      const {mapDocument} = get();
+      return (mapDocument?.document_comments || []).filter(c => c.zone === zone);
+    },
+
+    getZonesWithComments: () => {
+      const {mapDocument} = get();
+      const zones = new Set<number>();
+      (mapDocument?.document_comments || []).forEach(c => {
+        if (c.zone != null) zones.add(c.zone);
+      });
+      return Array.from(zones).sort((a, b) => a - b);
+    },
+
     mapStatus: null,
     setMapStatus: mapStatus => {
       const prev = get().mapStatus || {};
       set({mapStatus: {...prev, ...mapStatus} as StatusObject});
     },
     setNumDistricts: numDistricts => {
-      const {mapDocument} = get();
+      const {mapDocument, updated} = get();
       if (!mapDocument) return;
       const newColorScheme = extendColorArray(
         mapDocument.color_scheme ?? DefaultColorScheme,
@@ -311,6 +437,10 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       };
       set({
         mapDocument: updatedDocument,
+        updated: {
+          ...updated,
+          metadata: true,
+        },
       });
       // Update IDB to persist the change locally
       if (mapDocument.document_id) {
@@ -424,8 +554,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       });
 
       set({
-        assignmentsHash: updateHash,
-        lastUpdatedHash: updateHash,
         mapLock: null,
         captiveIds,
         focusFeatures: [
@@ -455,7 +583,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         mapLock: {isLocked: true, reason: 'Resetting map'},
         appLoadingState: 'loading',
       });
-      const updateHash = new Date().toISOString();
       const resetResponse = await patchUpdateReset(document_id);
       if (!resetResponse.ok) {
         set({
@@ -483,18 +610,11 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         set({
           appLoadingState: 'loaded',
           mapLock: null,
-          assignmentsHash: updateHash,
-          lastUpdatedHash: updateHash,
         });
         useMapControlsStore.setState({activeTool: 'pan'});
       }
     },
     focusFeatures: [],
-    assignmentsHash: '',
-    setAssignmentsHash: hash => set({assignmentsHash: hash}),
-    lastUpdatedHash: new Date().toISOString(),
-    workerUpdateHash: new Date().toISOString(),
-    setWorkerUpdateHash: hash => set({workerUpdateHash: hash}),
     contextMenu: null,
     setContextMenu: contextMenu => set({contextMenu}),
     userID: null,

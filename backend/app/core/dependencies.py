@@ -1,9 +1,10 @@
 from fastapi import Depends, HTTPException, status
-from sqlmodel import select, Session, literal
+from sqlmodel import select, Session, literal, col
 from app.core.models import DocumentID
 from app.models import (
     Document,
     DocumentPublic,
+    DocumentCommentPublic,
     DistrictrMap,
     DistrictrMapOverlays,
     Overlay,
@@ -13,8 +14,11 @@ from app.save_share.models import (
     DocumentShareStatus,
     MapDocumentToken,
 )
+from app.comments.models import DocumentComment, Comment
+from app.comments.moderation import MODERATION_THRESHOLD
+from app.comments.models import ReviewStatus
 from sqlalchemy.sql.functions import coalesce
-from sqlalchemy import or_
+from sqlalchemy import or_, and_
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound
 from app.core.db import get_session
 import logging
@@ -82,6 +86,14 @@ def get_protected_document(
     return document
 
 
+def validate_document_exists(document_id: DocumentID, session: Session) -> bool:
+    """
+    Validate that the document exists. Raises HTTPException 404 if not found.
+    Use when you only need to guard that the document exists and do not need its data.
+    """
+    get_protected_document(document_id=document_id, session=session)
+
+
 def get_document_public(
     session: Session,
     document_id: DocumentID = Depends(parse_document_id),
@@ -100,6 +112,8 @@ def get_document_public(
         literal(
             "anonymous" if document_id.is_public else document_id.document_id
         ).label("document_id"),
+        # Real document ID for internal use (fetching comments, etc.)
+        Document.document_id.label("real_document_id"),
         Document.created_at,
         Document.districtr_map_slug,
         Document.updated_at,
@@ -122,6 +136,8 @@ def get_document_public(
         DistrictrMap.comment.label("comment"),  # pyright: ignore
         DistrictrMap.uuid.label("districtr_map_uuid"),  # pyright: ignore
         DistrictrMap.statefps.label("statefps"),  # pyright: ignore
+        coalesce(DistrictrMap.comment_length_limit, 240).label("comment_length_limit"),  # pyright: ignore
+        coalesce(DistrictrMap.comment_count_limit, 10).label("comment_count_limit"),  # pyright: ignore
         # get metadata as a json object
         Document.map_metadata.label("map_metadata"),  # pyright: ignore
         coalesce(
@@ -169,7 +185,60 @@ def get_document_public(
                 for overlay in overlays
             ]
 
-    # Convert result to DocumentPublic with overlays
+    # Fetch district comments from comments schema (DocumentComment with zone IS NOT NULL)
+    # Apply moderation: if comment fails threshold, show placeholder text
+    MODERATION_PLACEHOLDER = "Comment removed due to moderation."
+    document_comments_list = None
+    if result.real_document_id:
+        stmt = (
+            select(
+                DocumentComment.comment_id,
+                DocumentComment.zone,
+                Comment.comment,
+                Comment.created_at,
+                Comment.updated_at,
+                Comment.moderation_score,
+                Comment.review_status,
+            )
+            .select_from(DocumentComment)
+            .join(Comment, Comment.id == DocumentComment.comment_id)
+            .where(
+                and_(
+                    col(DocumentComment.document_id) == result.real_document_id,
+                    col(DocumentComment.zone).is_not(None),
+                )
+            )
+        )
+        doc_comments = session.exec(stmt).all()
+        if len(doc_comments) > 0:
+            document_comments_list = []
+            is_edit_access = not document_id.is_public
+            for dc in doc_comments:
+                # Check moderation: show placeholder if rejected or exceeds threshold
+                fails_moderation = dc.review_status == ReviewStatus.REJECTED or (
+                    dc.moderation_score is not None
+                    and dc.moderation_score > MODERATION_THRESHOLD
+                    and dc.review_status != ReviewStatus.APPROVED
+                )
+                # Edit access: show full comment + moderated flag. Public: show placeholder only.
+                if fails_moderation:
+                    text = dc.comment if is_edit_access else MODERATION_PLACEHOLDER
+                    moderated = True
+                else:
+                    text = dc.comment
+                    moderated = False
+                document_comments_list.append(
+                    DocumentCommentPublic(
+                        comment_id=str(dc.comment_id),
+                        zone=dc.zone,
+                        text=text,
+                        moderated=moderated,
+                        created_at=dc.created_at,
+                        updated_at=dc.updated_at,
+                    )
+                )
+
+    # Convert result to DocumentPublic with overlays and document comments
     return DocumentPublic(
         document_id=result.document_id,
         public_id=result.public_id,
@@ -194,6 +263,9 @@ def get_document_public(
         data_source_name=result.data_source_name,
         overlays=overlays_list,
         statefps=result.statefps,
+        document_comments=document_comments_list,
+        comment_length_limit=getattr(result, "comment_length_limit", None),
+        comment_count_limit=getattr(result, "comment_count_limit", None),
     )
 
 

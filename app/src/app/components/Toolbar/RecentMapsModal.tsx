@@ -68,7 +68,6 @@ export const RecentMapsModal: React.FC<{
             return bTime - aTime;
           });
         setUpdateTrigger(Date.now());
-
       }
     }
   };
@@ -104,7 +103,10 @@ export const RecentMapsModal: React.FC<{
           </Button>
         </Dialog.Trigger>
       )}
-      <Dialog.Content className="sm:w-[95vw] md:w-[60vw] max-h-[calc(100vh-2rem)]" id="recent-maps-modal">
+      <Dialog.Content
+        className="sm:w-[95vw] md:w-[60vw] max-h-[calc(100vh-2rem)]"
+        id="recent-maps-modal"
+      >
         <Flex align="center" className="mb-4">
           <Dialog.Title className="m-0 text-xl font-bold flex-1">Recent Maps</Dialog.Title>
           <Dialog.Close

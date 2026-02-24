@@ -55,7 +55,11 @@ export type GalleryProps<TItem, TFilters, TQueryResult = TItem[]> = {
   /** Filter object passed to queryFunction */
   filters: TFilters;
   /** Async function to fetch data. Receives filters, limit, and offset. */
-  queryFunction: (args: {filters: TFilters; limit: number; offset: number}) => Promise<TQueryResult>;
+  queryFunction: (args: {
+    filters: TFilters;
+    limit: number;
+    offset: number;
+  }) => Promise<TQueryResult>;
   /** Extract items array from query result (for non-standard response shapes) */
   selectItems?: (data: TQueryResult | undefined) => TItem[];
   /** Determine if response represents an error state */
@@ -173,11 +177,7 @@ export function GalleryInner<TItem, TFilters, TQueryResult = TItem[]>({
       )}
 
       {!!(!noItems && view === 'grid') && (
-        <Grid
-          columns={getColumns(items?.length ?? 0)}
-          gap="4"
-          pt="4"
-        >
+        <Grid columns={getColumns(items?.length ?? 0)} gap="4" pt="4">
           {items?.map((item, i) => <Box key={i}>{gridRenderer(item, i)}</Box>)}
         </Grid>
       )}
