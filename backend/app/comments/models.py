@@ -13,7 +13,7 @@ from sqlmodel import (
     Integer,
     Float,
 )
-from sqlalchemy import func, Enum as SAEnum
+from sqlalchemy import Boolean, func, Enum as SAEnum
 from app.constants import COMMENTS_SCHEMA
 from app.core.models import TimeStampMixin, SQLModel
 from app.models import Document
@@ -157,6 +157,12 @@ class Comment(TimeStampMixin, SQLModel, table=True):
             nullable=True,
         ),
     )
+    review_flagged: bool = Field(
+        default=False,
+        sa_column=Column(
+            Boolean, nullable=False, default=False, server_default="false"
+        ),
+    )
 
 
 class CommentCreate(BaseModel):
@@ -164,7 +170,6 @@ class CommentCreate(BaseModel):
     comment: str
     commenter_id: int | None = None
     document_id: str | None = None
-    zone: int | None = None
 
 
 class CommentCreateWithRecaptcha(BaseModel):
@@ -176,7 +181,6 @@ class CommentPublic(CommentCreate):
     id: int
     created_at: datetime | None
     updated_at: datetime | None
-    zone: int | None = None
 
 
 class Tag(TimeStampMixin, SQLModel, table=True):
@@ -272,7 +276,10 @@ class DocumentComment(SQLModel, table=True):
             index=True,
         )
     )
-    zone: int | None = Field(sa_column=Column(Integer, nullable=True))
+    zone: int | None = Field(
+        sa_column=Column(Integer, nullable=True, index=True),
+        default=None,
+    )
 
 
 class FullCommentFormCreate(BaseModel):
@@ -310,7 +317,6 @@ class PublicCommentResponse(BaseModel):
     zip_code: str | None = None
     tags: list[str | None] = []
     created_at: datetime | None = None
-    zone: int | None = None
     public_id: int | None = None
 
 
@@ -318,12 +324,15 @@ class AdminCommentResponse(PublicCommentResponse):
     comment_id: int
     comment_review_status: str | None = None
     comment_moderation_score: float | None = None
+    comment_review_flagged: bool = False
     commenter_id: int | None = None
     commenter_review_status: str | None = None
     commenter_moderation_score: float | None = None
     tag_ids: list[int | None] = []
     tag_review_status: list[str | None] = []
     tag_moderation_score: list[float | None] = []
+    zone: int | None = None
+    document_id: str | None = None
 
 
 class CommentOpenAccess(CommentCreate):
@@ -354,3 +363,18 @@ class CommentFilterParams(BaseModel):
     limit: int = 100
     offset: int = 0
     public_id: int | None = None
+    document_id: str | None = None  # For district comments: filter by document UUID
+    comment_id: int | None = None  # Look up specific comment by ID
+    review_flagged: bool | None = (
+        None  # When True, filter to comments flagged for review
+    )
+
+
+class FlagCommentRequest(BaseModel):
+    comment_id: int
+
+
+class DistrictCommentInput(BaseModel):
+    comment_id: int
+    zone: int
+    text: str

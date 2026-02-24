@@ -61,7 +61,7 @@ export const ReviewButtons: React.FC<Pick<ReviewBadgeProps, 'status' | 'onReview
         variant={status === REVIEW_STATUS_ENUM.REVIEWED ? 'solid' : 'outline'}
         onClick={() => onReview(REVIEW_STATUS_ENUM.REVIEWED)}
       >
-        Mark Reviewed
+        Dismiss
       </Button>
     </>
   );

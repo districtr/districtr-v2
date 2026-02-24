@@ -10,15 +10,7 @@
 'use client';
 import React, {useState, useCallback, useEffect, useMemo} from 'react';
 import {Gallery} from '@/app/components/Static/Gallery';
-import {
-  Box,
-  Button,
-  Checkbox,
-  Flex,
-  Table,
-  Text,
-  TextField,
-} from '@radix-ui/themes';
+import {Box, Button, Checkbox, Flex, Table, Text, TextField} from '@radix-ui/themes';
 import {Cross1Icon, MagnifyingGlassIcon, MixerHorizontalIcon} from '@radix-ui/react-icons';
 import {
   getPublicComments,
@@ -182,9 +174,7 @@ const FilterControls: React.FC<{
             <Flex align="center" gap="2" className="min-w-[150px]">
               <Checkbox
                 checked={filters.hasMap === true}
-                onCheckedChange={checked =>
-                  onFilterChange('hasMap', checked ? true : undefined)
-                }
+                onCheckedChange={checked => onFilterChange('hasMap', checked ? true : undefined)}
               />
               <Text size="2">Has map</Text>
             </Flex>
@@ -359,9 +349,7 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
         showListView={showListView}
         filters={filters}
         queryKey={['comments', debouncedUserFilters]}
-        queryFunction={({filters, limit, offset}) =>
-          getPublicComments({...filters, limit, offset})
-        }
+        queryFunction={({filters, limit, offset}) => getPublicComments({...filters, limit, offset})}
         selectItems={data => (data?.ok ? data.response : [])}
         isError={data => data !== undefined && !data.ok}
         errorMessage={data => (data?.ok ? undefined : data?.error?.detail)}

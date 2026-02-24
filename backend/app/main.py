@@ -37,6 +37,7 @@ from app.core.config import settings
 import app.exports.main as exports
 import app.cms.main as cms
 import app.comments.main as comments
+from app.comments.main import sync_district_comments
 import app.contiguity.main as contiguity
 import app.save_share.main as save_share
 import app.thumbnails.main as thumbnails
@@ -60,7 +61,11 @@ from app.models import (
     AssignmentsCreate,
     NumDistrictsSetResult,
 )
-from app.comments.models import DocumentComment, Tag, CommentTag
+from app.comments.models import (
+    DocumentComment as FormDocumentComment,
+    Tag,
+    CommentTag,
+)
 from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
@@ -332,7 +337,9 @@ async def create_document(
 
 @app.put("/api/assignments")
 async def update_assignments(
-    data: AssignmentsCreate, session: Session = Depends(get_session)
+    data: AssignmentsCreate,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
 ):
     """
     Update assignments for a document with optimistic concurrency control.
@@ -478,6 +485,19 @@ async def update_assignments(
             session.execute(
                 stmt, {"document_id": document_id, "colors": data.metadata.color_scheme}
             )
+
+    # Sync district comments via comments schema (None = no change, [] = delete all)
+    if data.comments is not None:
+        comment_dicts = [
+            {"comment_id": c.comment_id, "zone": c.zone, "text": c.text}
+            for c in data.comments
+        ]
+        sync_district_comments(
+            document_id=document_id,
+            comments=comment_dicts if len(data.comments) > 0 else [],
+            session=session,
+            background_tasks=background_tasks,
+        )
 
     session.commit()
     return {"assignments_inserted": inserted_count, "updated_at": updated_at}
@@ -710,12 +730,12 @@ async def get_document_list(
     if len(tags) > 0:
         stmt = (
             stmt.join(
-                DocumentComment,
-                DocumentComment.document_id == Document.document_id,
+                FormDocumentComment,
+                FormDocumentComment.document_id == Document.document_id,
             )
             .join(
                 CommentTag,
-                CommentTag.comment_id == DocumentComment.comment_id,
+                CommentTag.comment_id == FormDocumentComment.comment_id,
             )
             .join(
                 Tag,

@@ -11,7 +11,9 @@ import {PopulationPanelOptions} from './PopulationPanelOptions';
 import {LockClosedIcon, LockOpen2Icon} from '@radix-ui/react-icons';
 import {useZonePopulations} from '@/app/hooks/useDemography';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
-import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/layers';
+import {ZoneCommentPopover} from './ZoneCommentPopover';
+import {useColorScheme} from '@/app/hooks/useColorScheme';
+import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 
 const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
 
@@ -39,6 +41,8 @@ export const PopulationPanel = () => {
   const setSelectedZone = useMapControlsStore(state => state.setSelectedZone);
   const selectedZone = useMapControlsStore(state => state.selectedZone);
   const access = useMapStore(state => state.mapStatus?.access);
+  const colorScheme = useColorScheme();
+  const isEditing = useMapControlsStore(state => state.isEditing);
   const handleLockChange = (zone: number) => {
     if (lockPaintedAreas.includes(zone)) {
       setLockedZones(lockPaintedAreas.filter(f => f !== zone));
@@ -90,9 +94,15 @@ export const PopulationPanel = () => {
           gap={'2'}
           className="flex-grow-0 p-0 pb-[80px]"
           justify={'between'}
+          minWidth={'5rem'}
         >
           <Flex justify="end">
-            <IconButton onClick={toggleLockAllAreas} variant="ghost" disabled={access === 'read'}>
+            <IconButton
+              onClick={toggleLockAllAreas}
+              variant="ghost"
+              disabled={access === 'read'}
+              style={{opacity: isEditing ? 1 : 0}}
+            >
               {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
             </IconButton>
           </Flex>
@@ -101,24 +111,37 @@ export const PopulationPanel = () => {
             <Flex
               key={d.zone}
               direction={'row'}
-              gapY={'1'}
-              gapX="3"
+              gapY="1"
+              gapX="1"
               align={'center'}
               className="p-0 m-0"
               justify={'between'}
             >
               {!!showDistrictNumbers && (
-                <IconButton variant="ghost" onClick={() => setSelectedZone(d.zone)}>
+                <IconButton
+                  variant={'outline'}
+                  onClick={() => setSelectedZone(d.zone)}
+                  size="1"
+                  className={`${selectedZone === d.zone ? 'bg-gray-100' : '!shadow-none'} max-w-12 flex-grow`}
+                >
                   <Text weight={selectedZone === d.zone ? 'bold' : 'regular'}>{d.zone}</Text>
                 </IconButton>
               )}
-              <IconButton
-                onClick={() => handleLockChange(d.zone)}
-                variant="ghost"
-                disabled={access === 'read'}
-              >
-                {lockPaintedAreas.includes(d.zone) ? <LockClosedIcon /> : <LockOpen2Icon />}
-              </IconButton>
+              <Flex gap="0" align="center">
+                <ZoneCommentPopover
+                  zone={d.zone}
+                  color={colorScheme[(d.zone - 1) % colorScheme.length]}
+                />
+                {!!isEditing && (
+                  <IconButton
+                    onClick={() => handleLockChange(d.zone)}
+                    variant="ghost"
+                    disabled={access === 'read'}
+                  >
+                    {lockPaintedAreas.includes(d.zone) ? <LockClosedIcon /> : <LockOpen2Icon />}
+                  </IconButton>
+                )}
+              </Flex>
             </Flex>
           ))}
         </Flex>

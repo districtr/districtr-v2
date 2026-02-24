@@ -33,7 +33,24 @@ export const EntryRow: React.FC<{
           className="flex-1 w-full pb-4 border-b-2 border-gray-200"
         >
           <Box>
-            <Heading size="4">ID: {entry.comment_id}</Heading>
+            <Heading size="4">
+              ID: {entry.comment_id}
+              {entry.zone != null && (
+                <Text size="1" color="gray" ml="2">
+                  (District {entry.zone})
+                </Text>
+              )}
+              <br />
+              <Text size="1" color="gray">
+                Comment / Commenter / Tag Moderation Score: (
+                {Math.round((entry.comment_moderation_score ?? 0) * 100) / 100} /{' '}
+                {Math.round((entry.commenter_moderation_score ?? 0) * 100) / 100} /{' '}
+                {(entry?.tag_moderation_score ?? [])
+                  .map(score => Math.round((score ?? 0) * 100) / 100)
+                  .join(', ')}
+                )
+              </Text>
+            </Heading>
           </Box>
           <Flex direction="column" gap="2" align="start" justify="between" className="flex-0">
             <Heading size="4">Review Full Entry</Heading>

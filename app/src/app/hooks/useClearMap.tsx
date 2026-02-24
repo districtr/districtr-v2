@@ -1,6 +1,6 @@
 import {useEffect} from 'react';
 import {useMap} from 'react-map-gl/maplibre';
-import {BLOCK_SOURCE_ID} from '../constants/layers';
+import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
 
 export const useClearMap = (updateTrigger: unknown) => {
   const mapRef = useMap();

@@ -31,7 +31,7 @@ import {LegendLabel, LegendThreshold} from '@visx/legend';
 import React, {useEffect, useState} from 'react';
 import {choroplethMapVariables} from '@/app/store/demography/constants';
 import {summaryStatLabels} from '@/app/store/demography/evaluationConfig';
-import {OVERLAY_OPACITY} from '@/app/constants/layers';
+import {OVERLAY_OPACITY} from '@/app/constants/map/layerStyle';
 
 type MapPanelProps = {
   columnGroup: keyof typeof choroplethMapVariables;

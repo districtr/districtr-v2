@@ -6,7 +6,7 @@ import {Box, Flex, Dialog, Heading, Button} from '@radix-ui/themes';
 import {ColorPicker} from './ColorPicker';
 import {colorScheme as DefaultColorScheme} from '@constants/colors';
 import {idb} from '@/app/utils/idb/idb';
-import { useColorScheme } from '@/app/hooks/useColorScheme';
+import {useColorScheme} from '@/app/hooks/useColorScheme';
 
 export const ColorChangeModal: React.FC<{
   open?: boolean;
