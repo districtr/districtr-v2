@@ -1,6 +1,6 @@
 from datetime import datetime
 from pydantic import BaseModel
-import enum
+from enum import StrEnum
 from sqlmodel import (
     Field,
     ForeignKey,
