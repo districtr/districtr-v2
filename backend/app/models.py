@@ -161,7 +161,7 @@ class DocumentMetadata(BaseModel):
     draft_status: DocumentDraftStatus | None = DocumentDraftStatus.scratch
 
 
-class DocumentType(str, enum.Enum):
+class DocumentType(StrEnum):
     DISTRICT = "district"
     COI = "coi"
 
