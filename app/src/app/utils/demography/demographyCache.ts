@@ -33,6 +33,7 @@ import {NullableZone} from '@/app/constants/types';
 import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {evalColumnConfigs} from '@/app/store/demography/evaluationConfig';
+import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/map/mapDefaults';
 /**
  * Class to organize queries on current demographic data
  */
@@ -322,7 +323,7 @@ class DemographyService {
   }) {
     if (!this.table || !this.colorScale) return;
     const mapDocument = useMapStore.getState().mapDocument;
-    const isPublic = mapDocument?.document_id === 'anonymous';
+    const isPublic = mapDocument?.document_id === ANONYMOUS_DOCUMENT_ID;
     const colorScale = this.colorScale!;
     const derives = {
       color: config.expression

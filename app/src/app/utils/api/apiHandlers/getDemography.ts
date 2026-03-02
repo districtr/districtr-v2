@@ -2,6 +2,7 @@ import {DocumentObject} from './types';
 import ParquetWorker from '../../ParquetWorker';
 import {ColumnarTableData} from '../../ParquetWorker/parquetWorker.types';
 import {AllTabularColumns} from '../summaryStats';
+import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/map/mapDefaults';
 
 export const getDemography = async ({
   mapDocument,
@@ -19,7 +20,7 @@ export const getDemography = async ({
   if (!ParquetWorker) {
     throw new Error('ParquetWorker not found');
   }
-  if (mapDocument.document_id === 'anonymous') {
+  if (mapDocument.document_id === ANONYMOUS_DOCUMENT_ID) {
     return {
       columns: [],
       results: {
