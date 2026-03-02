@@ -9,6 +9,7 @@ import {useMapStore as _useMapStore} from '@store/mapStore';
 import {getFeatureUnderCursor} from '@utils/map/getFeatureUnderCursor';
 import {useDemographyStore as _useDemographyStore} from '../../store/demography/demographyStore';
 import {demographyCache} from '../demography/demographyCache';
+import {DEFAULT_CHOROPLETH_BIN_COUNT} from '@/app/store/demography/constants';
 import {FocusState, ShatterState} from './types';
 import {
   useMapControlsStore as _useMapControlsStore,
@@ -309,7 +310,7 @@ export class MapRenderSubscriber {
       variant: demographyState.variant,
       mapRef: this.mapRef,
       mapDocument: mapState.mapDocument,
-      numberOfBins: demographyState.numberOfBins || 5,
+      numberOfBins: demographyState.numberOfBins || DEFAULT_CHOROPLETH_BIN_COUNT,
       paintMap: true,
     });
     if (mapScale) {

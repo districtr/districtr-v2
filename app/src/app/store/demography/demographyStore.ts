@@ -9,7 +9,7 @@ import {getDemography} from '@/app/utils/api/apiHandlers/getDemography';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
 import {AllEvaluationConfigs, AllMapConfigs} from '@/app/utils/api/summaryStats';
 import {evalColumnConfigs} from './evaluationConfig';
-import {choroplethMapVariables} from './constants';
+import {choroplethMapVariables, DEFAULT_CHOROPLETH_BIN_COUNT} from './constants';
 
 export var useDemographyStore = create(
   subscribeWithSelector<DemographyStore>((set, get) => ({
@@ -60,7 +60,7 @@ export var useDemographyStore = create(
         scale: isSwappingMode ? currScale : undefined,
       });
     },
-    numberOfBins: 5,
+    numberOfBins: DEFAULT_CHOROPLETH_BIN_COUNT,
     setNumberOfBins: numberOfBins => set({numberOfBins}),
     dataHash: '',
     setDataHash: dataHash => set({dataHash}),
