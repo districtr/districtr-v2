@@ -88,12 +88,11 @@ class DemographyService {
 
   colorScale?: AnyD3Scale;
   /**
-   * Updates this class with new data from the backend.
+   * Updates the cache with freshly loaded demographic columns/results.
    *
-   * @param columns - The columns to update.
-   * @param dataRows - The data rows to update.
-   * @param mapDocument - The map document object.
-   * @param hash - The hash representing the new state.
+   * @param columns - Available column names included in `data`.
+   * @param data - Columnar demographic rows keyed by column name.
+   * @param hash - Cache key for this data snapshot (document + shatter context).
    */
   update(columns: AllTabularColumns[number][], data: ColumnarTableData, hash: string): void {
     if (hash === this.hash) return;
@@ -103,7 +102,7 @@ class DemographyService {
     const popsOk = this.updatePopulations(zoneAssignments);
     if (!popsOk) return;
     this.updateSummaryStats();
-    this.hash = dataHash;
+    this.hash = hash;
   }
 
   /**
