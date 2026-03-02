@@ -1,7 +1,8 @@
 import {useState, useEffect} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
-import {useOverlayStore} from '@/app/store/overlayStore';
+import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {
   fetchDocument,
   SyncConflictInfo,
@@ -9,8 +10,8 @@ import {
 } from '@/app/utils/api/apiHandlers/fetchDocument';
 import {SyncConflictModal} from '@/app/components/SyncConflictModal';
 import {formatAssignmentsFromDocument} from '../utils/map/formatAssignments';
-import {useRouter} from 'next/navigation';
-import { currMapRoute } from '../utils/map/mapUrlRoute';
+import {formatCoiAssignmentsFromDocument} from '../utils/map/formatCoiAssignments';
+import {usePathname, useRouter} from 'next/navigation';
 interface UseDocumentWithSyncOptions {
   document_id: string | null | undefined;
   enabled?: boolean;
@@ -27,9 +28,13 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
   const [showConflictModal, setShowConflictModal] = useState(false);
   const setMapDocument = useMapStore(state => state.setMapDocument);
   const setAppLoadingState = useMapStore(state => state.setAppLoadingState);
-  const ingestFromDocument = useAssignmentsStore(state => state.ingestFromDocument);
+  const mapMode = useMapControlsStore(state => state.mapMode);
+  const ingestDistrictFromDocument = useAssignmentsStore(state => state.ingestFromDocument);
+  const ingestCoiFromDocument = useCoiAssignmentsStore(state => state.ingestFromDocument);
   const resolveConflict = useAssignmentsStore(state => state.resolveConflict);
   const router = useRouter();
+  const pathname = usePathname();
+  const isCoiRoute = pathname?.startsWith('/coi') || mapMode === 'coi';
 
   const handleConflict = async (resolution: SyncConflictResolution) => {
     if (!conflictInfo) {
@@ -41,7 +46,7 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
       await resolveConflict(resolution, conflictInfo, {
         context: 'load',
         onNavigate: documentId => {
-          router.push(`/${currMapRoute}/edit/${documentId}`);
+          router.push(isCoiRoute ? `/coi/edit/${documentId}` : `/map/edit/${documentId}`);
         },
         onComplete: () => {
           setIsLoading(false);
@@ -81,16 +86,29 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
         return;
       } else {
         setMapDocument(result.response.document);
-        const data = formatAssignmentsFromDocument(result.response.assignments);
-        ingestFromDocument(
-          {
-            zoneAssignments: data.zoneAssignments,
-            shatterIds: data.shatterIds,
-            parentToChild: data.parentToChild,
-            childToParent: data.childToParent,
-          },
-          result.response.updateLocal ? result.response.document : undefined
-        );
+        if (isCoiRoute) {
+          const data = formatCoiAssignmentsFromDocument(result.response.assignments);
+          ingestCoiFromDocument(
+            {
+              communityAssignments: data.communityAssignments,
+              shatterIds: data.shatterIds,
+              parentToChild: data.parentToChild,
+              childToParent: data.childToParent,
+            },
+            result.response.updateLocal ? result.response.document : undefined
+          );
+        } else {
+          const data = formatAssignmentsFromDocument(result.response.assignments);
+          ingestDistrictFromDocument(
+            {
+              zoneAssignments: data.zoneAssignments,
+              shatterIds: data.shatterIds,
+              parentToChild: data.parentToChild,
+              childToParent: data.childToParent,
+            },
+            result.response.updateLocal ? result.response.document : undefined
+          );
+        }
         // Set overlays from document response
         setMapDocument(result.response.document);
         setIsLoading(false);

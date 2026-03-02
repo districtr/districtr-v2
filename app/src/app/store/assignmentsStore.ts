@@ -34,20 +34,29 @@ export interface AssignmentsStore {
     parents: Set<string>;
     children: Set<string>;
   };
+
   mutateZoneAssignments: (
     mapRef: maplibregl.Map,
     features: Array<MapGeoJSONFeature>,
     zone: NullableZone
   ) => void;
+
   /** Bi-directional mapping of parent ids to their shattered children */
   parentToChild: Map<string, Set<string>>;
   /** Bi-directional mapping of child ids to their parent id for O(1) lookups */
   childToParent: Map<string, string>;
+
   /** Assigns the provided geoids to the given zone immediately */
   setZoneAssignments: (zone: NullableZone, gdbPaths: Set<GDBPath>) => void;
+  /** Updates accumulated geoids as the user paints */
+  setAccumulatedAssignments: (
+    assignments: AssignmentsStore['accumulatedAssignments'],
+    zonesUpdated: Set<NullableZone>
+  ) => void;
 
   clientLastUpdated: string;
   setClientLastUpdated: (updated_at: string) => void;
+
   /** Flushes accumulated geoids to the worker & downstream caches */
   ingestAccumulatedAssignments: () => void;
   ingestFromDocument: (
@@ -59,10 +68,12 @@ export interface AssignmentsStore {
     },
     mapDocument?: DocumentObject
   ) => void;
+
   /** Replaces the entire assignment map (e.g. after loading from API) */
   replaceZoneAssignments: (assignments: Map<string, NullableZone>) => void;
   /** Clears all assignments and local caches */
   resetZoneAssignments: () => void;
+
   /** Replaces or merges shatter state */
   setShatterState: (
     state: Pick<
@@ -70,6 +81,7 @@ export interface AssignmentsStore {
       'shatterIds' | 'parentToChild' | 'zoneAssignments' | 'childToParent'
     >
   ) => void;
+
   /** Clears all shatter state */
   resetShatterState: () => void;
   handlePutAssignments: (overwrite?: boolean) => Promise<void>;
