@@ -1,13 +1,7 @@
-import {BLOCK_SOURCE_ID} from '@/app/constants/layers';
-import {MapGeoJSONFeature} from 'maplibre-gl';
+import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerIds';
 import {MapRef} from 'react-map-gl/maplibre';
 import {MapStore} from '@/app/store/mapStore';
-
-const mapShatterableFeatures = (
-  features: Array<MapGeoJSONFeature>,
-  shatterMappings: MapStore['shatterMappings'],
-  child_layer: string
-) => {};
+import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 
 /**
  * Resets the selection status of the map to be able to clear all and start over.
@@ -17,19 +11,17 @@ const mapShatterableFeatures = (
  */
 export const ResetMapSelectState = (
   map: MapRef | null,
-  mapStoreRef: MapStore,
+  _mapStoreRef: MapStore,
   sourceLayer: string
 ) => {
-  if (map && Object.keys(mapStoreRef.zoneAssignments).length) {
+  const {zoneAssignments, resetZoneAssignments} = useAssignmentsStore.getState();
+  if (map && zoneAssignments.size) {
     map.removeFeatureState({
       source: BLOCK_SOURCE_ID,
       sourceLayer: sourceLayer,
     });
-
-    mapStoreRef.setAccumulatedGeoids(new Set());
     // reset zoneAssignments
-    mapStoreRef.resetZoneAssignments();
+    resetZoneAssignments();
     // confirm the map has been reset
-    mapStoreRef.setFreshMap(false);
   }
 };

@@ -10,7 +10,7 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
     "plugins": [
       {
@@ -31,11 +31,13 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
+    "**/*.mdx",
     ".next/types/**/*.ts",
     "src/app/components/Picker.jsx",
     "src/app/page.jsx",
     "src/app/api/apiHandlers.test.js",
     "src/app/components/sidebar/MapModeSelector.jsx",
+    ".next/dev/types/**/*.ts"
   ],
   "exclude": ["node_modules"]
 }

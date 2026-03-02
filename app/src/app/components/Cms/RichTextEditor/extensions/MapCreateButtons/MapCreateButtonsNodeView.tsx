@@ -45,7 +45,7 @@ const MapCreateButtonsNodeView: React.FC<NodeViewProps> = ({
             </Dialog.Trigger>
             <Dialog.Content>
               <Flex direction="column" gapY="4">
-                <Heading as="h4">Editing Plan Gallery</Heading>
+                <Heading as="h4">Editing Map Create Buttons</Heading>
                 <Flex direction="column" gap="2">
                   <Text>Map Modules</Text>
 

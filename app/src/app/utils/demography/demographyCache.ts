@@ -1,10 +1,13 @@
 'use client';
 import {op, table, escape} from 'arquero';
 import type {ColumnTable} from 'arquero';
-import {BLOCK_SOURCE_ID, FALLBACK_NUM_DISTRICTS} from '../../constants/layers';
+import {FALLBACK_NUM_DISTRICTS} from '../../constants/map/layerStyle';
+import {BLOCK_SOURCE_ID} from '../../constants/map/layerIds';
 import {MapGeoJSONFeature} from 'maplibre-gl';
 import {MapStore, useMapStore} from '../../store/mapStore';
+import {useAssignmentsStore, ZoneAssignmentsMap} from '../../store/assignmentsStore';
 import {useChartStore} from '../../store/chartStore';
+import {useMapControlsStore} from '../../store/mapControlsStore';
 import {
   DemographyRow,
   MaxValues,
@@ -91,38 +94,11 @@ class DemographyService {
    * @param mapDocument - The map document object.
    * @param hash - The hash representing the new state.
    */
-  update(data: {columns: AllTabularColumns[number][]; results: ColumnarTableData}): void {
-    const {setDataHash, setAvailableColumnSets} = useDemographyStore.getState();
-    const {shatterIds, mapDocument} = useMapStore.getState();
-    const dataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument?.document_id}|${mapDocument?.public_id}`;
-    if (!mapDocument || !data || dataHash === this.hash) return;
-    const {columns, results} = data;
-    this.table = table(results).derive(getColumnDerives(columns)).dedupe('path');
-    const tableColumns = this.table.columnNames();
-    this.availableColumns = tableColumns as AllTabularColumns[number][];
-    const availableEvalSets: Record<string, AllEvaluationConfigs> = Object.fromEntries(
-      Object.entries(evalColumnConfigs)
-        .map(([columnsetKey, config]) => [
-          columnsetKey,
-          config.filter(entry => tableColumns.includes(entry.column)),
-        ])
-        .filter(([, config]) => config.length > 0)
-    );
-    const availableMapSets: Record<string, AllMapConfigs> = Object.fromEntries(
-      Object.entries(choroplethMapVariables)
-        .map(([columnsetKey, config]) => [
-          columnsetKey,
-          config.filter(entry => tableColumns.includes(entry.value)),
-        ])
-        .filter(([, config]) => config.length > 0)
-    );
-    setDataHash(dataHash);
-    setAvailableColumnSets({
-      evaluation: availableEvalSets,
-      map: availableMapSets,
-    });
-
-    const zoneAssignments = useMapStore.getState().zoneAssignments;
+  update(columns: AllTabularColumns[number][], data: ColumnarTableData, hash: string): void {
+    if (hash === this.hash) return;
+    this.availableColumns = columns;
+    this.table = table(data).derive(getColumnDerives(columns)).dedupe('path');
+    const zoneAssignments = useAssignmentsStore.getState().zoneAssignments;
     const popsOk = this.updatePopulations(zoneAssignments);
     if (!popsOk) return;
     this.updateSummaryStats();
@@ -134,7 +110,7 @@ class DemographyService {
    *
    * @param zoneAssignments - The zone assignments to update.
    */
-  updateZoneTable(zoneAssignments: MapStore['zoneAssignments']): void {
+  updateZoneTable(zoneAssignments: ZoneAssignmentsMap): void {
     const rows = zoneAssignments.size;
     const zoneColumns = {
       path: new Array(rows),
@@ -197,7 +173,7 @@ class DemographyService {
    * @returns The calculated populations.
    */
   calculatePopulations(
-    zoneAssignments?: MapStore['zoneAssignments']
+    zoneAssignments?: ZoneAssignmentsMap
   ): {ok: true; table: SummaryTable} | {ok: false} {
     const numZones = useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
     if (zoneAssignments) {
@@ -216,9 +192,7 @@ class DemographyService {
           row['total_pop_20'] === undefined && row['zone'] !== undefined
       )
     );
-
     if (missingPopulations.size) {
-      console.log('Populations not yet loaded');
       return {
         ok: false,
       };
@@ -428,7 +402,7 @@ class DemographyService {
       const uniqueQuantiles = Array.from(new Set(quantiles.quantilesList));
       const actualBinsLength = Math.min(numberOfBins, uniqueQuantiles.length + 1);
 
-      const mapMode = useMapStore.getState().mapOptions.showDemographicMap;
+      const mapMode = useMapControlsStore.getState().mapOptions.showDemographicMap;
       const defaultColor =
         mapMode === 'side-by-side' ? DEFAULT_COLOR_SCHEME : DEFAULT_COLOR_SCHEME_GRAY;
       let colorscheme = defaultColor[Math.max(3, actualBinsLength)];
@@ -456,7 +430,7 @@ class DemographyService {
    *
    * @param zoneAssignments - The zone assignments to use for updating populations.
    */
-  updatePopulations(zoneAssignments?: MapStore['zoneAssignments']) {
+  updatePopulations(zoneAssignments?: ZoneAssignmentsMap) {
     const populations = this.calculatePopulations(zoneAssignments);
     if (populations.ok) {
       useChartStore.getState().setDataUpdateHash(`${performance.now()}`);

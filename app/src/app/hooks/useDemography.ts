@@ -4,7 +4,7 @@ import {useChartStore} from '@store/chartStore';
 import {useMemo} from 'react';
 import {demographyService} from '@utils/demography/demographyCache';
 import {useDemographyStore} from '../store/demography/demographyStore';
-import {FALLBACK_NUM_DISTRICTS} from '../constants/layers';
+import {FALLBACK_NUM_DISTRICTS} from '../constants/map/layerStyle';
 import {SummaryRecord} from '../utils/api/summaryStats';
 
 /**

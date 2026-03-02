@@ -1,5 +1,6 @@
 import {Slider, Flex, Heading, Text, IconButton} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
+import {useMapControlsStore} from '@store/mapControlsStore';
 import {MinusIcon, PlusIcon} from '@radix-ui/react-icons';
 import {useEffect} from 'react';
 const BRUSH_MIN_SIZE = 1;
@@ -14,8 +15,8 @@ const BRUSH_MAX_SIZE = 100;
  * @returns {JSX.Element} The component
  */
 export function BrushSizeSelector() {
-  const brushSize = useMapStore(state => state.brushSize);
-  const setBrushSize = useMapStore(state => state.setBrushSize);
+  const brushSize = useMapControlsStore(state => state.brushSize);
+  const setBrushSize = useMapControlsStore(state => state.setBrushSize);
   const access = useMapStore(state => state.mapStatus?.access);
 
   const handleChangeEnd = (value: Array<number>) => {

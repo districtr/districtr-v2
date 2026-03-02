@@ -14,13 +14,12 @@ from sqlmodel import (
 )
 from sqlalchemy.types import ARRAY
 from sqlalchemy.dialects.postgresql import JSON, ENUM
-from sqlalchemy import Float
+from sqlalchemy import Float, text
 import pydantic_geojson
 from app.constants import DOCUMENT_SCHEMA
 from app.core.models import UUIDType, TimeStampMixin, SQLModel
 from app.save_share.models import (
     DocumentDraftStatus,
-    DocumentEditStatus,
     DocumentShareStatus,
 )
 from geoalchemy2 import Geometry
@@ -38,6 +37,10 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     gerrydb_table_name: str | None = Field(nullable=True)
     # Null means default number of districts? Should we have a sensible default?
     num_districts: int | None = Field(nullable=True, default=None)
+    # If False, users cannot change the number of districts on the frontend.
+    num_districts_modifiable: bool = Field(
+        sa_column=Column(Boolean, nullable=False, server_default="true")
+    )
     tiles_s3_path: str | None = Field(nullable=True)
     parent_layer: str = Field(
         sa_column=Column(String, ForeignKey("gerrydbtable.name"), nullable=False)
@@ -68,6 +71,12 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     child_geo_unit_type: str | None = Field(nullable=True)
     # Name of the data source for the map
     data_source_name: str | None = Field(nullable=True)
+    # State FIPS codes associated with this map
+    statefps: list[str] | None = Field(sa_column=Column(ARRAY(String), nullable=True))
+    # Maximum length of a comment
+    comment_length_limit: int | None = Field(nullable=True)
+    # Maximum number of comments per document
+    comment_count_limit: int | None = Field(nullable=True)
 
 
 class DistrictrMapPublic(BaseModel):
@@ -78,6 +87,7 @@ class DistrictrMapPublic(BaseModel):
     child_layer: str | None = None
     tiles_s3_path: str | None = None
     num_districts: int | None = None
+    num_districts_modifiable: bool = True
     visible: bool = True
 
 
@@ -94,12 +104,16 @@ class DistrictrMapUpdate(BaseModel):
     child_layer: str | None = None
     tiles_s3_path: str | None = None
     num_districts: int | None = None
+    num_districts_modifiable: bool | None = None
     visible: bool | None = None
     map_type: str = "default"
     comment: str | None = None
     parent_geo_unit_type: str | None = None
     child_geo_unit_type: str | None = None
     data_source_name: str | None = None
+    statefps: list[str] | None = None
+    comment_length_limit: int | None = None
+    comment_count_limit: int | None = None
 
 
 class GerryDBTable(TimeStampMixin, SQLModel, table=True):
@@ -155,10 +169,16 @@ class Document(TimeStampMixin, SQLModel, table=True):
     # and the document id can remain the universal unique identifier for documents.
     # Whether the document can be accessed with the public id should be determined
     # in the API business logic.
-    public_id: int = Field(
+    public_id: int | None = Field(
+        default=None,
         sa_column=Column(
-            Integer, nullable=False, unique=True, autoincrement=True, index=True
-        )
+            Integer,
+            nullable=False,
+            unique=True,
+            autoincrement=True,
+            index=True,
+            server_default=text("nextval('document.document_public_id_seq')"),
+        ),
     )
     districtr_map_slug: str = Field(
         sa_column=Column(
@@ -168,6 +188,7 @@ class Document(TimeStampMixin, SQLModel, table=True):
         )
     )
     gerrydb_table: str | None = Field(nullable=True)
+    num_districts: int | None = Field(nullable=True, default=None)
     color_scheme: list[str] | None = Field(
         sa_column=Column(ARRAY(String), nullable=True)
     )
@@ -176,12 +197,12 @@ class Document(TimeStampMixin, SQLModel, table=True):
 
 class DocumentCreate(BaseModel):
     districtr_map_slug: str
-    user_id: str
     metadata: DocumentMetadata | None = None
     copy_from_doc: str | int | None = None  # document_id to copy from
     assignments: list[list[str]] | None = None  # Option to load block assignments
 
 
+# TODO: Remove this table
 class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
     """
     Tracks the user session for a given document
@@ -196,6 +217,25 @@ class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
     document_id: str = Field(sa_column=Column(UUIDType, nullable=False))
 
 
+class DocumentCommentPublic(BaseModel):
+    """Public representation of a document comment."""
+
+    comment_id: str
+    zone: int | None = None
+    text: str
+    moderated: bool = False  # True when comment failed moderation; edit access sees full text, public sees placeholder
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class DocumentCommentCreate(BaseModel):
+    """Create/update a document comment. If comment_id is provided, it's an update."""
+
+    comment_id: str | None = None
+    zone: int | None = None
+    text: str
+
+
 class DocumentPublic(BaseModel):
     document_id: str
     public_id: int | None = None
@@ -205,14 +245,11 @@ class DocumentPublic(BaseModel):
     child_layer: str | None
     tiles_s3_path: str | None = None
     num_districts: int | None = None
+    num_districts_modifiable: bool = True
     created_at: datetime
     updated_at: datetime
     extent: list[float] | None = None
     map_metadata: DocumentMetadata | None
-    status: DocumentEditStatus = (
-        DocumentEditStatus.unlocked
-    )  # locked, unlocked, checked_out
-    genesis: str | None = None
     access: DocumentShareStatus = DocumentShareStatus.edit
     color_scheme: list[str] | None = None
     map_type: str
@@ -221,6 +258,11 @@ class DocumentPublic(BaseModel):
     parent_geo_unit_type: str | None = None
     child_geo_unit_type: str | None = None
     data_source_name: str | None = None
+    overlays: list["OverlayPublic"] | None = None
+    statefps: list[str] | None = None
+    document_comments: list["DocumentCommentPublic"] | None = None
+    comment_length_limit: int | None = None
+    comment_count_limit: int | None = None
 
 
 class DocumentCreatePublic(DocumentPublic):
@@ -239,9 +281,18 @@ class Assignments(SQLModel, table=True):
     zone: int | None
 
 
+class AssignmentsMetadata(BaseModel):
+    color_scheme: list[str] | None = None
+    num_districts: int | None = None
+
+
 class AssignmentsCreate(BaseModel):
-    assignments: list[Assignments]
-    user_id: str
+    document_id: str
+    assignments: list[list[str | int | None]]  # [[geo_id, zone], ...]
+    last_updated_at: datetime
+    overwrite: bool = False
+    metadata: AssignmentsMetadata | None = None
+    comments: list[DocumentCommentCreate] | None = None
 
 
 class AssignmentsResponse(SQLModel):
@@ -263,6 +314,11 @@ class AssignedGEOIDS(GEOIDS):
     zone: int | None
 
 
+class ShatterResult(BaseModel):
+    parent_path: str
+    child_path: str
+
+
 class BBoxGeoJSONs(BaseModel):
     features: list[
         pydantic_geojson.feature.FeatureModel
@@ -271,14 +327,12 @@ class BBoxGeoJSONs(BaseModel):
     ]
 
 
-class ShatterResult(BaseModel):
-    parents: GEOIDS
-    children: list[Assignments]
-    updated_at: datetime
-
-
 class ColorsSetResult(BaseModel):
     colors: list[str]
+
+
+class NumDistrictsSetResult(BaseModel):
+    num_districts: int
 
 
 class MapGroup(SQLModel, table=True):
@@ -301,13 +355,66 @@ class DistrictrMapsToGroups(SQLModel, table=True):
     )
 
 
+class DistrictrMapOverlays(SQLModel, table=True):
+    __tablename__ = "districtrmap_overlays"  # pyright: ignore
+    districtr_map_id: str = Field(
+        sa_column=Column(
+            UUIDType,
+            ForeignKey("districtrmap.uuid", ondelete="CASCADE"),
+            primary_key=True,
+        )
+    )
+    overlay_id: str = Field(
+        sa_column=Column(
+            UUIDType,
+            ForeignKey("overlay.overlay_id", ondelete="CASCADE"),
+            primary_key=True,
+        )
+    )
+
+
+class Overlay(TimeStampMixin, SQLModel, table=True):
+    __tablename__ = "overlay"  # pyright: ignore
+    overlay_id: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
+    name: str = Field(nullable=False)
+    description: str | None = Field(nullable=True)
+    data_type: str = Field(
+        sa_column=Column(
+            ENUM("geojson", "pmtiles", name="overlaydatatype", create_type=False),
+            nullable=False,
+        )
+    )
+    layer_type: str = Field(
+        sa_column=Column(
+            ENUM("fill", "line", "text", name="overlaylayertype", create_type=False),
+            nullable=False,
+        )
+    )
+    custom_style: dict | None = Field(sa_column=Column(JSON, nullable=True))
+    source: str | None = Field(nullable=True)
+    source_layer: str | None = Field(nullable=True)
+    id_property: str | None = Field(nullable=True)  # Property name for text labels
+
+
+class OverlayPublic(BaseModel):
+    overlay_id: str
+    name: str
+    description: str | None
+    data_type: str
+    layer_type: str
+    custom_style: dict | None
+    source: str | None
+    source_layer: str | None
+    id_property: str | None
+
+
 class DistrictUnions(TimeStampMixin, SQLModel, table=True):
     __tablename__ = "district_unions"  # pyright: ignore
     metadata = MetaData(schema=DOCUMENT_SCHEMA)
     id: int = Field(sa_column=Column(Integer, primary_key=True, autoincrement=True))
     document_id: str = Field(
         sa_column=Column(
-            UUIDType, ForeignKey("document.document_id"), index=True, nullable=False
+            UUIDType, ForeignKey(Document.document_id), index=True, nullable=False
         )
     )
     zone: int = Field(nullable=False)

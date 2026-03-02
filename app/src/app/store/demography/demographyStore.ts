@@ -1,9 +1,15 @@
 'use client';
-import {MapStore, useMapStore} from '../mapStore';
+import {useMapStore} from '../mapStore';
+import {useMapControlsStore} from '../mapControlsStore';
 import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
-import {updateDemography} from '../../utils/api/queries';
 import {DemographyStore} from './types';
+import {useAssignmentsStore} from '../assignmentsStore';
+import {getDemography} from '@/app/utils/api/apiHandlers/getDemography';
+import {demographyCache} from '@/app/utils/demography/demographyCache';
+import {AllEvaluationConfigs, AllMapConfigs} from '@/app/utils/api/summaryStats';
+import {evalColumnConfigs} from './evaluationConfig';
+import {choroplethMapVariables} from './constants';
 
 export var useDemographyStore = create(
   subscribeWithSelector<DemographyStore>((set, get) => ({
@@ -11,7 +17,8 @@ export var useDemographyStore = create(
     setGetMapRef: getMapRef => {
       set({getMapRef});
       const {dataHash, setVariable, variable, setVariant, variant} = get();
-      const {mapDocument, shatterIds} = useMapStore.getState();
+      const {mapDocument} = useMapStore.getState();
+      const {shatterIds} = useAssignmentsStore.getState();
       const currentDataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument?.document_id}`;
       if (currentDataHash === dataHash) {
         // set variable triggers map render/update
@@ -46,7 +53,7 @@ export var useDemographyStore = create(
       });
     },
     unmount: () => {
-      const isSwappingMode = useMapStore.getState().mapOptions.showDemographicMap;
+      const isSwappingMode = useMapControlsStore.getState().mapOptions.showDemographicMap;
       const currScale = get().scale;
       set({
         getMapRef: () => undefined,
@@ -57,16 +64,52 @@ export var useDemographyStore = create(
     setNumberOfBins: numberOfBins => set({numberOfBins}),
     dataHash: '',
     setDataHash: dataHash => set({dataHash}),
-    updateData: async mapDocument => {
+    updateData: async (mapDocument, _brokenIds) => {
       const {dataHash: currDataHash} = get();
-      const {shatterIds} = useMapStore.getState();
+      const {shatterIds: _shatterIds} = useAssignmentsStore.getState();
+      const brokenIds = _brokenIds ?? Array.from(_shatterIds.parents);
+      const {setErrorNotification} = useMapStore.getState();
       if (!mapDocument) return;
       // based on current map state
-      const dataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument.document_id}`;
+      const dataHash = `${brokenIds.join(',')}|${mapDocument.document_id}`;
+
       if (currDataHash === dataHash) return;
-      updateDemography({
+      const result = await getDemography({
         mapDocument,
-        brokenIds: Array.from(shatterIds.parents),
+        brokenIds,
+      });
+      if (!result || !mapDocument) {
+        setErrorNotification({
+          message: 'Failed to get demography',
+          severity: 1,
+          id: 'demography-get-error',
+        });
+        return;
+      }
+      demographyCache.update(result.columns, result.results, dataHash);
+      const availableColumns = demographyCache.availableColumns;
+      const availableEvalSets: Record<string, AllEvaluationConfigs> = Object.fromEntries(
+        Object.entries(evalColumnConfigs)
+          .map(([columnsetKey, config]) => [
+            columnsetKey,
+            config.filter(entry => availableColumns.includes(entry.sourceCol ?? entry.column)),
+          ])
+          .filter(([, config]) => config.length > 0)
+      );
+      const availableMapSets: Record<string, AllMapConfigs> = Object.fromEntries(
+        Object.entries(choroplethMapVariables)
+          .map(([columnsetKey, config]) => [
+            columnsetKey,
+            config.filter(entry => availableColumns.includes(entry.value)),
+          ])
+          .filter(([, config]) => config.length > 0)
+      );
+
+      set({
+        availableColumnSets: {
+          evaluation: availableEvalSets,
+          map: availableMapSets,
+        },
         dataHash,
       });
     },

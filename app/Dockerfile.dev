@@ -1,14 +1,21 @@
 # Use official Node.js image as the base image
-FROM node:18-alpine
+FROM node:24-alpine
+
+# Install curl and Bun
+RUN apk add --no-cache curl bash && \
+    curl -fsSL https://bun.sh/install | bash
+
+# Add Bun to PATH
+ENV PATH="/root/.bun/bin:${PATH}"
 
 # Set working directory inside the container
 WORKDIR /app
 
-# Copy package.json and package-lock.json to install dependencies first
-COPY package.json package-lock.json ./
+# Copy package.json to install dependencies first
+COPY package.json ./
 
 # Install dependencies
-RUN npm install
+RUN bun install
 
 # Copy the rest of the application code
 COPY . .
@@ -17,4 +24,4 @@ COPY . .
 EXPOSE 3000
 
 # Start the Next.js application in development mode
-CMD ["npm", "run", "dev"]
+CMD ["bun", "run", "dev"]

@@ -1,14 +1,35 @@
+import {NullableZone} from '@/app/constants/types';
 import {SummaryStatConfig} from '../summaryStats';
 
 export interface Assignment {
   document_id: string;
   geo_id: string;
-  zone: number;
-  parent_path?: string;
+  zone: NullableZone;
+  parent_path?: string | null;
+}
+
+export type AssignmentArray = [string, NullableZone];
+
+export interface DocumentCommentCreate {
+  comment_id?: string | null;
+  zone?: number | null;
+  text: string;
 }
 
 export interface AssignmentsCreate {
-  assignments_upserted: number;
+  assignments: AssignmentArray[];
+  document_id: string;
+  last_updated_at: string;
+  overwrite: boolean;
+  metadata?: {
+    color_scheme?: string[] | null;
+    num_districts?: number | null;
+  };
+  comments?: DocumentCommentCreate[] | null;
+}
+export interface AssignmentsCreateResponse {
+  assignments_inserted: number;
+  updated_at: string;
 }
 
 export interface AssignmentsReset {
@@ -27,7 +48,6 @@ export interface DistrictrMap {
 }
 
 export interface StatusObject {
-  status: 'locked' | 'unlocked' | 'checked_out';
   access: 'read' | 'edit';
   genesis: 'shared' | 'copied' | 'created';
   token?: string | null;
@@ -54,9 +74,11 @@ export interface DocumentObject extends StatusObject {
   child_layer: string | null;
   tiles_s3_path: string | null;
   num_districts: number | null;
+  /** If false, users cannot change the number of districts on the frontend. */
+  num_districts_modifiable?: boolean;
   map_module: string | null;
   created_at: string;
-  updated_at: string | null;
+  updated_at: string;
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
   map_metadata: DocumentMetadata;
   color_scheme: string[] | null;
@@ -65,6 +87,20 @@ export interface DocumentObject extends StatusObject {
   parent_geo_unit_type: string | null;
   child_geo_unit_type: string | null;
   data_source_name: string | null;
+  overlays: Overlay[] | null;
+  statefps: string[] | null;
+  document_comments?: DocumentComment[] | null;
+  comment_length_limit: number;
+  comment_count_limit: number;
+}
+
+export interface DocumentComment {
+  comment_id?: string; // undefined for local-only comments
+  zone?: number | null;
+  text: string;
+  moderated?: boolean; // true when comment failed moderation; edit access sees full text
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface MinPublicDocument {
@@ -76,7 +112,6 @@ export interface MinPublicDocument {
 
 export interface DocumentCreate {
   districtr_map_slug: string;
-  user_id: string | null;
   metadata?: DocumentMetadata;
   copy_from_doc?: string | number;
 }
@@ -86,10 +121,10 @@ export interface ZonePopulation {
   total_pop_20: number;
 }
 
-export interface ShatterResult {
-  parents: {geoids: string[]};
-  children: Assignment[];
-}
+export type ShatterResult = Array<{
+  child_path: string;
+  parent_path: string;
+}>;
 
 export interface ColorsSet {
   success: boolean;
@@ -102,7 +137,15 @@ export type RemoteAssignmentsResponse = {
   assignments: Assignment[];
 };
 
-export type GetAssignmentsResponse = Promise<RemoteAssignmentsResponse | null>;
+export type LocalAssignmentsResponse = {
+  type: 'local';
+  documentId: string;
+  assignments: Assignment[];
+};
+
+export type GetAssignmentsResponse = Promise<
+  RemoteAssignmentsResponse | LocalAssignmentsResponse | null
+>;
 
 export type MapGroup = {
   name: string;
@@ -167,4 +210,16 @@ export interface CommentListing {
     updated_at: Date;
   };
   tags?: string[];
+}
+
+export interface Overlay {
+  overlay_id: string;
+  name: string;
+  description: string | null;
+  data_type: 'geojson' | 'pmtiles';
+  layer_type: 'fill' | 'line' | 'text';
+  custom_style: Record<string, any> | null;
+  source: string | null;
+  source_layer: string | null;
+  id_property: string | null;
 }

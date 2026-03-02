@@ -6,18 +6,16 @@ This is a [Next.js](https://nextjs.org/) project bootstrapped with
 Set up your development environment:
 
 ```bash
-cp .env.dev .env.local && npm i
+cp .env.dev .env.local
+# install bun
+npm i -g bun
+# install packages
+bun install
 ```
 
 First, run the development server:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
 bun dev
 ```
 
@@ -48,16 +46,20 @@ from the creators of Next.js.
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more
 details.
 
-
 ## CMS and Custom Components
 
-We use TipTap for rich text editing. It compiles rich text to a nice JSON format that we toss to the backed as JSONB. 
+We use TipTap for rich text editing. It compiles rich text to a nice JSON format that we toss to the
+backed as JSONB.
 
 Custom components in the CMS have three components:
+
 1. Node - the configuration for TipTap to ingest the node schema
 2. Node View - the editor view of what the node looks like while editing
 3. Node Renderer - the output of the node for the frontend
 
-In many cases, the view and renderer may be similar, but in other cases the view may need more interactivity while the renderer should work with SSR. For this reason, we use `html-react-parser` and a few dom node replacers configured under `components/RichTextRenderer` to help out convert from TipTap's generated HTML to more ergonomic react. 
+In many cases, the view and renderer may be similar, but in other cases the view may need more
+interactivity while the renderer should work with SSR. For this reason, we use `html-react-parser`
+and a few dom node replacers configured under `components/RichTextRenderer` to help out convert from
+TipTap's generated HTML to more ergonomic react.
 
 This can be extended for both SSR and CSR components!

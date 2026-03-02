@@ -1,20 +1,18 @@
-import axios from 'axios';
 import {DocumentMetadata} from './types';
+import {put} from '../factory';
 
 export const saveMapDocumentMetadata = async ({
   document_id,
   metadata,
 }: {
   document_id: string;
-  metadata: DocumentMetadata;
+  metadata: Partial<DocumentMetadata>;
 }) => {
-  return await axios
-    .put(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/metadata`, metadata)
-    .then(res => {
-      return res.data;
-    })
-    .catch(err => {
-      console.error(err);
-      throw err;
-    });
+  return await put<Partial<DocumentMetadata>, DocumentMetadata>(`document/${document_id}/metadata`)(
+    {
+      body: {
+        ...metadata,
+      },
+    }
+  );
 };

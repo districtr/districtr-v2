@@ -5,6 +5,7 @@ from sqlmodel import (
     ForeignKey,
     UniqueConstraint,
     Column,
+    col,
     MetaData,
     String,
     Index,
@@ -12,7 +13,7 @@ from sqlmodel import (
     Integer,
     Float,
 )
-from sqlalchemy import func, Enum as SAEnum
+from sqlalchemy import Boolean, func, Enum as SAEnum
 from app.constants import COMMENTS_SCHEMA
 from app.core.models import TimeStampMixin, SQLModel
 from app.models import Document
@@ -138,7 +139,7 @@ class Comment(TimeStampMixin, SQLModel, table=True):
     # TODO: Check with Moon what the right max length is
     comment: str = Field(sa_column=Column(String(5000), nullable=False))
     commenter_id: int = Field(
-        sa_column=Column(ForeignKey(Commenter.id), nullable=True, index=True)
+        sa_column=Column(ForeignKey(col(Commenter.id)), nullable=True, index=True)
     )
     moderation_score: float = Field(
         sa_column=Column(Float, nullable=True, default=None)
@@ -154,6 +155,12 @@ class Comment(TimeStampMixin, SQLModel, table=True):
                 validate_strings=True,
             ),
             nullable=True,
+        ),
+    )
+    review_flagged: bool = Field(
+        default=False,
+        sa_column=Column(
+            Boolean, nullable=False, default=False, server_default="false"
         ),
     )
 
@@ -243,10 +250,10 @@ class CommentTag(SQLModel, table=True):
     __tablename__ = "comment_tag"  # type: ignore
 
     comment_id: int = Field(
-        sa_column=Column(ForeignKey(Comment.id), primary_key=True, nullable=False)
+        sa_column=Column(ForeignKey(col(Comment.id)), primary_key=True, nullable=False)
     )
     tag_id: int = Field(
-        sa_column=Column(ForeignKey(Tag.id), primary_key=True, nullable=False)
+        sa_column=Column(ForeignKey(col(Tag.id)), primary_key=True, nullable=False)
     )
 
 
@@ -254,20 +261,24 @@ class DocumentComment(SQLModel, table=True):
     metadata = MetaData(schema=COMMENTS_SCHEMA)
     __tablename__ = "document_comment"  # type: ignore
 
-    # Unique is True because a single comment should not apply to multiple documents.
-    # This does not prevent the document from having many comments.
     comment_id: int = Field(
         sa_column=Column(
             ForeignKey(Comment.id),  # type: ignore
             primary_key=True,
             nullable=False,
-            unique=True,
         )
     )
     document_id: str = Field(
         sa_column=Column(
-            ForeignKey(Document.document_id), primary_key=False, nullable=False
+            ForeignKey(Document.document_id),
+            primary_key=False,
+            nullable=False,
+            index=True,
         )
+    )
+    zone: int | None = Field(
+        sa_column=Column(Integer, nullable=True, index=True),
+        default=None,
     )
 
 
@@ -305,6 +316,23 @@ class PublicCommentResponse(BaseModel):
     state: str | None = None
     zip_code: str | None = None
     tags: list[str | None] = []
+    created_at: datetime | None = None
+    public_id: int | None = None
+
+
+class AdminCommentResponse(PublicCommentResponse):
+    comment_id: int
+    comment_review_status: str | None = None
+    comment_moderation_score: float | None = None
+    comment_review_flagged: bool = False
+    commenter_id: int | None = None
+    commenter_review_status: str | None = None
+    commenter_moderation_score: float | None = None
+    tag_ids: list[int | None] = []
+    tag_review_status: list[str | None] = []
+    tag_moderation_score: list[float | None] = []
+    zone: int | None = None
+    document_id: str | None = None
 
 
 class CommentOpenAccess(CommentCreate):
@@ -323,3 +351,30 @@ class ReviewUpdateResponse(BaseModel):
     message: str
     id: int
     new_status: ReviewStatus
+
+
+class CommentFilterParams(BaseModel):
+    """Common filter parameters for comment queries."""
+
+    tags: list[str] | None = None
+    place: str | None = None
+    state: str | None = None
+    zip_code: str | None = None
+    limit: int = 100
+    offset: int = 0
+    public_id: int | None = None
+    document_id: str | None = None  # For district comments: filter by document UUID
+    comment_id: int | None = None  # Look up specific comment by ID
+    review_flagged: bool | None = (
+        None  # When True, filter to comments flagged for review
+    )
+
+
+class FlagCommentRequest(BaseModel):
+    comment_id: int
+
+
+class DistrictCommentInput(BaseModel):
+    comment_id: int
+    zone: int
+    text: str

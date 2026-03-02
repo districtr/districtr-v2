@@ -1,10 +1,11 @@
 import PopulationPanel from '@components/sidebar/PopulationPanel';
-import {MapStore} from '@/app/store/mapStore';
+import {MapControlsStore} from '@/app/store/mapControlsStore';
 import {MapValidation} from './MapValidation/MapValidation';
 import {SummaryPanel} from './SummaryPanel';
+import OverlaysPanel from './OverlaysPanel';
 
 export interface DataPanelSpec {
-  title: MapStore['sidebarPanels'][number];
+  title: MapControlsStore['sidebarPanels'][number];
   label: string;
   icon?: React.ReactNode;
   content?: React.ReactNode;
@@ -17,7 +18,7 @@ export interface DataPanelsProps {
 export const defaultPanels: DataPanelSpec[] = [
   {
     title: 'population',
-    label: 'Population',
+    label: 'Districts',
     content: <PopulationPanel />,
   },
   {
@@ -36,5 +37,10 @@ export const defaultPanels: DataPanelSpec[] = [
     title: 'mapValidation',
     label: 'Map validation',
     content: <MapValidation />,
+  },
+  {
+    title: 'overlays',
+    label: 'Overlays',
+    content: <OverlaysPanel />,
   },
 ];

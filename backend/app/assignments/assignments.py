@@ -2,9 +2,9 @@ from uuid import uuid4
 from fastapi import Depends
 from sqlalchemy.sql.functions import count
 from app.core.db import get_session
-from sqlalchemy import text
+from sqlalchemy import text, cast
 from sqlmodel import Session, select
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.dialects.postgresql import insert, UUID as PG_UUID
 import logging
 from sqlalchemy import literal
 from app.models import (
@@ -38,7 +38,7 @@ def duplicate_document_assignments(
     prev_assignments = select(
         Assignments.geo_id,
         Assignments.zone,
-        literal(to_document_id).label("document_id"),
+        cast(literal(to_document_id), PG_UUID).label("document_id"),
     ).where(Assignments.document_id == from_document_id)
 
     create_copy_stmt = insert(Assignments).from_select(

@@ -1,15 +1,5 @@
-import axios from 'axios';
 import {DocumentCreate, DocumentObject} from './types';
+import {post} from '../factory';
 
-export const createMapDocument = async (document: DocumentCreate): Promise<DocumentObject> => {
-  if (!document.user_id) throw new Error('User ID is required');
-  return await axios
-    .post(`${process.env.NEXT_PUBLIC_API_URL}/api/create_document`, document)
-    .then(res => {
-      return res.data;
-    })
-    .catch(err => {
-      console.error(err);
-      throw err;
-    });
-};
+export const createMapDocument = async (document: DocumentCreate) =>
+  post<DocumentCreate, DocumentObject>('create_document')({body: document});

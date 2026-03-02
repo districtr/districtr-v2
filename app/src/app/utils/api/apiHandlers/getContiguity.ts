@@ -1,17 +1,29 @@
-import axios from 'axios';
 import {DocumentObject} from './types';
+import {get} from '../factory';
 
-export const getContiguity = async (mapDocument: DocumentObject): Promise<any> => {
-  if (mapDocument) {
-    return await axios
-      .get(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.public_id}/contiguity`,
-        {}
-      )
-      .then(res => {
-        return res.data;
-      });
-  } else {
-    throw new Error('No document provided');
+type ContiguityResponse =
+  | {
+      ok: true;
+      response: Record<string, number>;
+    }
+  | {
+      ok: false;
+      error: {
+        detail: string;
+      };
+    };
+
+export const getContiguity = async (
+  mapDocument?: DocumentObject | null
+): Promise<ContiguityResponse> => {
+  if (!mapDocument) {
+    return {
+      ok: false,
+      error: {
+        detail: 'No document provided',
+      },
+    } as const;
   }
+
+  return await get<Record<string, number>>(`document/${mapDocument.public_id}/contiguity`)({});
 };

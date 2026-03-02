@@ -30,6 +30,7 @@ def parse_cors(v: Any) -> list[str] | str:
 class Environment(str, Enum):
     production = "production"
     qa = "qa"
+    development = "development"
     local = "local"
     test = "test"
 
