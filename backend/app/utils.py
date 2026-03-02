@@ -510,6 +510,7 @@ def update_or_select_district_stats(
         # NOTE: We must interpolate the document_id directly into the SQL string for the SELECT part,
         # because SQLAlchemy does not support parameter substitution for identifiers or for type casts in SELECT.
         # This is safe here because document_id is a UUID string from our own DB, not user input.
+        # Keep unassigned rows out of district_unions payload/aggregation.
         doc_id_sql = f"'{document_id}'::UUID"
         insert_sql = f"""
             INSERT INTO document.district_unions
@@ -526,6 +527,7 @@ def update_or_select_district_stats(
                 NOW() AS updated_at
             FROM geos
             {f"INNER JOIN gerrydb.{gerrydb_table} demo ON demo.path = geos.geo_id" if (gerrydb_table and demographic_json) else ""}
+            WHERE zone IS NOT NULL
             GROUP BY zone
             RETURNING
                 zone,
