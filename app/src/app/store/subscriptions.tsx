@@ -62,12 +62,15 @@ export const initSubs = () => {
     }
   );
 
-  const coiPaintFlushSub = useMapControlsStore.subscribe(
+  const paintFlushSub = useMapControlsStore.subscribe(
     state => state.isPainting,
     (isPainting, wasPainting) => {
       if (!wasPainting || isPainting) return;
-      if (useMapControlsStore.getState().mapMode !== 'coi') return;
-      useCoiAssignmentsStore.getState().ingestAccumulatedAssignments();
+      if (useMapControlsStore.getState().mapMode === 'coi') {
+        useCoiAssignmentsStore.getState().ingestAccumulatedAssignments();
+        return;
+      }
+      useAssignmentsStore.getState().ingestAccumulatedAssignments();
     }
   );
 
@@ -86,7 +89,7 @@ export const initSubs = () => {
     numDistrictsSub();
     demogShatterSub();
     demogCoiShatterSub();
-    coiPaintFlushSub();
+    paintFlushSub();
     featureFlagSub();
   };
   return unsub;

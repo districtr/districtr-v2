@@ -211,6 +211,21 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     setPaintedChanges(popChanges);
   },
 
+  setAccumulatedAssignments: (accumulatedAssignments, zonesUpdated) => {
+    const zonesLastUpdated = new Map(get().zonesLastUpdated);
+    const timestamp = new Date().toISOString();
+    zonesUpdated.forEach(zone => {
+      if (zone !== null) {
+        zonesLastUpdated.set(zone, timestamp);
+      }
+    });
+
+    set({
+      accumulatedAssignments: new Map(accumulatedAssignments),
+      zonesLastUpdated,
+    });
+  },
+
   ingestFromDocument: (data, mapDocument) => {
     set({
       zoneAssignments: new Map(data.zoneAssignments),

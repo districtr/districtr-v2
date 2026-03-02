@@ -6,7 +6,6 @@ import {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from '../constants/map/mapDefau
 import {ActiveTool, NullableZone, SpatialUnit, Zone} from '../constants/types';
 import {DistrictrMapOptions} from './types';
 import {BASEMAP_IDS, BasemapId} from '@/app/constants/map/layerStyle';
-import {useAssignmentsStore} from './assignmentsStore';
 import {useMapStore} from './mapStore';
 import {PaintEventHandler} from '@utils/map/types';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
@@ -86,12 +85,7 @@ export const useMapControlsStore = create<MapControlsStore>()(
       }
     },
     isPainting: false,
-    setIsPainting: isPainting => {
-      if (!isPainting) {
-        useAssignmentsStore.getState().ingestAccumulatedAssignments();
-      }
-      set({isPainting});
-    },
+    setIsPainting: isPainting => set({isPainting}),
     isEditing: false,
     setIsEditing: isEditing => set({isEditing}),
     activeTool: 'pan',
