@@ -3,6 +3,7 @@ import {fastUniqBy} from '../arrays';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
+import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {booleanIntersects, area, intersect} from '@turf/turf';
 import {MultiPolygon, Polygon} from 'geojson';
@@ -42,8 +43,10 @@ export const filterFeatures = ({
   // first, dedupe
   const features: MapGeoJSONFeature[] = fastUniqBy(_features, 'id');
   const {captiveIds, mapDocument} = useMapStore.getState();
-  const {mapOptions, selectedZone, activeTool} = useMapControlsStore.getState();
-  const {zoneAssignments, shatterIds} = useAssignmentsStore.getState();
+  const {mapOptions, selectedZone, activeTool, mapMode} = useMapControlsStore.getState();
+  const {zoneAssignments, shatterIds: districtShatterIds} = useAssignmentsStore.getState();
+  const {shatterIds: coiShatterIds} = useCoiAssignmentsStore.getState();
+  const shatterIds = mapMode === 'coi' ? coiShatterIds : districtShatterIds;
   const {paintConstraint, _idCache} = useOverlayStore.getState();
   const filterFunctions: Array<(f: MapGeoJSONFeature) => boolean> = [...additionalFilters];
   if (captiveIds.size && !allowOutsideCaptiveIds) {
