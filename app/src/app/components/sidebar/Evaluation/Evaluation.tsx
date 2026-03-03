@@ -1,5 +1,4 @@
 import React, {useEffect, useState} from 'react';
-import {useMapStore} from '@/app/store/mapStore';
 import {
   Blockquote,
   Box,
@@ -11,12 +10,12 @@ import {
   Select,
   Spinner,
   Table,
-  Tabs,
+  Tooltip,
 } from '@radix-ui/themes';
 import {Flex, Text} from '@radix-ui/themes';
 import {formatNumber} from '@/app/utils/numbers';
 import {interpolateGreys} from 'd3-scale-chromatic';
-import {AllEvaluationConfigs, SummaryStatConfig} from '@/app/utils/api/summaryStats';
+import {SummaryStatConfig} from '@/app/utils/api/summaryStats';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {
   EvalModes,
@@ -25,24 +24,40 @@ import {
   summaryStatLabels,
 } from '@/app/store/demography/evaluationConfig';
 import {PARTISAN_SCALE} from '@/app/store/demography/constants';
-import {GearIcon} from '@radix-ui/react-icons';
+import {GearIcon, InfoCircledIcon} from '@radix-ui/react-icons';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
+import {demographyCache} from '@/app/utils/demography/demographyCache';
+import {COALITION_VARIABLE_BY_UNIVERSE} from '@/app/utils/demography/coalition';
 
 type EvaluationProps = {
   summaryType: keyof SummaryStatConfig;
   setSummaryType: (summaryType: keyof SummaryStatConfig) => void;
   displayedColumnSets?: Array<keyof SummaryStatConfig>;
-  columnConfig: AllEvaluationConfigs;
+  columnConfig: Array<{
+    label: string;
+    column: string;
+    sourceCol?: string;
+    tooltip?: string;
+  }>;
 };
-const Evaluation: React.FC<EvaluationProps> = ({summaryType, columnConfig}) => {
+const Evaluation: React.FC<EvaluationProps> = ({
+  summaryType,
+  setSummaryType,
+  displayedColumnSets,
+  columnConfig,
+}) => {
   const [evalMode, setEvalMode] = useState<EvalModes>('share');
   const [colorBg, setColorBg] = useState<boolean>(true);
   const [showUnassigned, setShowUnassigned] = useState<boolean>(true);
-  const {zoneStats, demoIsLoaded, zoneData} = useSummaryStats(showUnassigned);
+  const {zoneStats, demoIsLoaded, zoneData, summaryStats} = useSummaryStats(showUnassigned);
 
   const maxValues = zoneStats?.maxValues;
   const colorScheme = useColorScheme();
   const summaryStatConfig = summaryStatLabels.find(f => f.value === summaryType);
+  const displayedStatLabels = summaryStatLabels.filter(f =>
+    displayedColumnSets ? displayedColumnSets.includes(f.value) : true
+  );
+  const showSummaryTypeSelect = displayedStatLabels.length > 1;
   const showModeButtons = Boolean(
     summaryStatConfig?.supportedModes?.length && summaryStatConfig?.supportedModes?.length > 1
   );
@@ -75,12 +90,75 @@ const Evaluation: React.FC<EvaluationProps> = ({summaryType, columnConfig}) => {
     );
   }
 
+  const universeTotalColumn =
+    summaryType === 'TOTPOP' ? 'total_pop_20' : summaryType === 'VAP' ? 'total_vap_20' : undefined;
+  const summaryData =
+    summaryType === 'TOTPOP' || summaryType === 'VAP'
+      ? (summaryStats[summaryType] as Record<string, number> | undefined)
+      : undefined;
+  const coalitionStats =
+    summaryType === 'TOTPOP' || summaryType === 'VAP'
+      ? demographyCache.getCoalitionUniverseStats(summaryType)
+      : undefined;
+  const universeRow =
+    universeTotalColumn && summaryData
+      ? (() => {
+          const row: Record<string, number | string | boolean> = {
+            zone: 'Universe',
+            __isUniverse: true,
+          };
+          const universeTotal = summaryData[universeTotalColumn];
+          columnConfig.forEach(config => {
+            if (
+              (summaryType === 'TOTPOP' || summaryType === 'VAP') &&
+              config.column === COALITION_VARIABLE_BY_UNIVERSE[summaryType]
+            ) {
+              row[config.column] = coalitionStats?.coalitionTotal ?? 0;
+              row[`${config.column}_pct`] = coalitionStats?.coalitionPct ?? NaN;
+              return;
+            }
+            const value = summaryData[config.column];
+            row[config.column] = value;
+            row[`${config.column}_pct`] =
+              Number.isFinite(universeTotal) && universeTotal > 0 && Number.isFinite(value)
+                ? value / universeTotal
+                : NaN;
+          });
+          return row;
+        })()
+      : undefined;
+
+  const rows = [
+    ...zoneData.sort((a, b) => (a.zone || 0) - (b.zone || 0)),
+    ...(universeRow ? [universeRow] : []),
+  ];
+
   return (
     <Box width={'100%'}>
       <Flex direction="row" gap="3" align="center" pb="2">
-        <Heading as="h3" size="3">
-          Evaluation
-        </Heading>
+        <Flex direction="column" gap="1" flexGrow="1">
+          <Heading as="h3" size="3">
+            Demographic table
+          </Heading>
+          {showSummaryTypeSelect && (
+            <Flex direction="row" gap="2" align="center">
+              <Text size="2">Summary type</Text>
+              <Select.Root
+                value={summaryType}
+                onValueChange={value => setSummaryType(value as keyof SummaryStatConfig)}
+              >
+                <Select.Trigger />
+                <Select.Content>
+                  {displayedStatLabels.map(({value, label}) => (
+                    <Select.Item key={value} value={value}>
+                      {label}
+                    </Select.Item>
+                  ))}
+                </Select.Content>
+              </Select.Root>
+            </Flex>
+          )}
+        </Flex>
         <Popover.Root>
           <Popover.Trigger>
             <IconButton
@@ -138,69 +216,90 @@ const Evaluation: React.FC<EvaluationProps> = ({summaryType, columnConfig}) => {
               {!!columnConfig &&
                 columnConfig.map((f, i) => (
                   <Table.ColumnHeaderCell className="py-2 px-4 text-right font-semibold" key={i}>
-                    {f.label}
+                    <Flex justify="end" align="center" gap="1">
+                      <span>{f.label}</span>
+                      {f.tooltip && (
+                        <Tooltip content={f.tooltip}>
+                          <span className="inline-flex text-gray-600">
+                            <InfoCircledIcon />
+                          </span>
+                        </Tooltip>
+                      )}
+                    </Flex>
                   </Table.ColumnHeaderCell>
                 ))}
             </Table.Row>
           </Table.Header>
           <Table.Body>
-            {zoneData
-              .sort((a, b) => (a.zone || 0) - (b.zone || 0))
-              .map((row, i) => {
-                const isUnassigned = row.zone === undefined;
-                const zoneName = isUnassigned ? 'None' : row.zone;
-                const backgroundColor = isUnassigned ? '#DDDDDD' : colorScheme[row.zone - 1];
+            {rows.map((row, i) => {
+              const isUniverse = Boolean((row as Record<string, unknown>).__isUniverse);
+              const isUnassigned = !isUniverse && row.zone === undefined;
+              const zoneName = isUniverse ? 'Universe' : isUnassigned ? 'None' : row.zone;
+              const backgroundColor = isUniverse
+                ? '#111111'
+                : isUnassigned
+                  ? '#DDDDDD'
+                  : colorScheme[(row.zone as number) - 1];
 
-                return (
-                  <Table.Row key={`eval-row-${i}`} className="border-b hover:bg-gray-50">
-                    <Table.Cell className="py-2 px-4 font-medium flex flex-row items-center gap-1">
-                      <span
-                        className={'size-4 inline-block rounded-md'}
-                        style={{backgroundColor}}
-                      ></span>
-                      {zoneName}
-                    </Table.Cell>
-                    {!!columnConfig &&
-                      columnConfig.map((f, i) => {
-                        const column = (
-                          evalMode === 'count' ? f.column : `${f.column}_pct`
-                        ) as keyof typeof row;
-                        const value = row[column];
-                        const colorValue =
-                          value === undefined
-                            ? undefined
-                            : evalMode === 'count'
-                              ? // @ts-ignore
-                                value / maxValues[column]
-                              : value;
-                        let backgroundColor: string | undefined;
-                        if (value === undefined || colorValue === undefined) {
-                        } else if (colorBg && summaryType === 'VOTERHISTORY') {
-                          backgroundColor = PARTISAN_SCALE(((value as number) + 1) / 2);
-                        } else if (colorBg && !isUnassigned) {
-                          backgroundColor = interpolateGreys(colorValue as number)
-                            .replace('rgb', 'rgba')
-                            .replace(')', ',0.5)');
-                        } else {
-                          backgroundColor = 'initial';
-                        }
-                        return (
-                          <Table.Cell
-                            className="py-2 px-4 text-right"
-                            style={{
-                              backgroundColor,
-                            }}
-                            key={i}
-                          >
-                            {value === undefined || Number.isNaN(value)
-                              ? '--'
-                              : formatNumber(value as number, numberFormat)}
-                          </Table.Cell>
-                        );
-                      })}
-                  </Table.Row>
-                );
-              })}
+              return (
+                <Table.Row
+                  key={`eval-row-${i}`}
+                  className={`border-b ${isUniverse ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+                >
+                  <Table.Cell
+                    className={`py-2 px-4 font-medium flex flex-row items-center gap-1 ${isUniverse ? 'font-semibold' : ''}`}
+                  >
+                    <span
+                      className={'size-4 inline-block rounded-md'}
+                      style={{backgroundColor}}
+                    ></span>
+                    {zoneName}
+                  </Table.Cell>
+                  {!!columnConfig &&
+                    columnConfig.map((f, i) => {
+                      const column = evalMode === 'count' ? f.column : `${f.column}_pct`;
+                      const value = (row as Record<string, number | undefined>)[column];
+                      const numericValue =
+                        typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+                      const colorValue =
+                        numericValue === undefined
+                          ? undefined
+                          : evalMode === 'count'
+                            ? // @ts-ignore
+                              numericValue / maxValues[column]
+                            : numericValue;
+                      const hasValidColorValue =
+                        colorValue !== undefined &&
+                        typeof colorValue === 'number' &&
+                        Number.isFinite(colorValue);
+                      let backgroundColor: string | undefined;
+                      if (!hasValidColorValue || isUniverse) {
+                      } else if (colorBg && summaryType === 'VOTERHISTORY') {
+                        backgroundColor = PARTISAN_SCALE((numericValue! + 1) / 2);
+                      } else if (colorBg && !isUnassigned) {
+                        backgroundColor = interpolateGreys(colorValue as number)
+                          .replace('rgb', 'rgba')
+                          .replace(')', ',0.5)');
+                      } else {
+                        backgroundColor = 'initial';
+                      }
+                      return (
+                        <Table.Cell
+                          className={`py-2 px-4 text-right ${isUniverse ? 'font-semibold' : ''}`}
+                          style={{
+                            backgroundColor,
+                          }}
+                          key={i}
+                        >
+                          {numericValue === undefined
+                            ? '--'
+                            : formatNumber(numericValue, numberFormat)}
+                        </Table.Cell>
+                      );
+                    })}
+                </Table.Row>
+              );
+            })}
           </Table.Body>
         </Table.Root>
       </Box>

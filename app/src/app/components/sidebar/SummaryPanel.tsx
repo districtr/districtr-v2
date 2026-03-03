@@ -1,22 +1,55 @@
-import {Blockquote, Flex, Heading, Select, Text} from '@radix-ui/themes';
+import {Blockquote, Button, Flex, Heading, Text} from '@radix-ui/themes';
 import Evaluation from './Evaluation/Evaluation';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useEffect, useState} from 'react';
 import {SummaryStatConfig} from '@/app/utils/api/summaryStats';
-import {summaryStatLabels} from '@/app/store/demography/evaluationConfig';
 import {MapPanel} from './MapPanel';
+import {
+  COALITION_TOTAL_COLUMN_BY_UNIVERSE,
+  COALITION_VARIABLE_BY_UNIVERSE,
+  getCoalitionGroupLabel,
+  getCoalitionLabel,
+  getSelectedCoalitionColumns,
+} from '@/app/utils/demography/coalition';
+import {demographyCache} from '@/app/utils/demography/demographyCache';
+import {CoalitionBuilder} from './CoalitionBuilder';
+import {ChevronDownIcon} from '@radix-ui/react-icons';
 
 type SummaryPanelProps = {
   defaultColumnSet: keyof SummaryStatConfig;
   displayedColumnSets: Array<keyof SummaryStatConfig>;
 };
+
+type SectionKey = 'evaluation' | 'map' | 'coalition';
+
+const SectionHeader: React.FC<{
+  title: string;
+  isOpen: boolean;
+  onToggle: () => void;
+}> = ({title, isOpen, onToggle}) => {
+  return (
+    <Button
+      variant="ghost"
+      onClick={onToggle}
+      className="w-full justify-start pl-2 pr-1 text-black hover:text-black"
+    >
+      <Flex align="center" justify="between" width="100%">
+        <Heading as="h3" size="3" className="text-black">
+          {title}
+        </Heading>
+        <ChevronDownIcon className={isOpen ? 'text-black' : '-rotate-90 text-black'} />
+      </Flex>
+    </Button>
+  );
+};
+
 export const SummaryPanel: React.FC<SummaryPanelProps> = ({
   defaultColumnSet,
   displayedColumnSets,
 }) => {
   const availableSummaries = useDemographyStore(state => state.availableColumnSets.evaluation);
+  const coalitionGroups = useDemographyStore(state => state.coalitionGroups);
   const availableColumnSets = Object.keys(availableSummaries) as Array<keyof SummaryStatConfig>;
-  const displayedStatLabels = summaryStatLabels.filter(f => displayedColumnSets.includes(f.value));
 
   const [summaryType, setSummaryType] = useState<keyof SummaryStatConfig | undefined>(
     !availableColumnSets.length
@@ -25,8 +58,54 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
         ? defaultColumnSet
         : availableColumnSets[0]
   );
+  const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
+    evaluation: true,
+    map: false,
+    coalition: false,
+  });
+  const toggleSection = (section: SectionKey) => {
+    setOpenSections(prev => ({...prev, [section]: !prev[section]}));
+  };
+  const canShowCoalition = summaryType === 'TOTPOP' || summaryType === 'VAP';
 
-  const columnConfig = summaryType ? availableSummaries[summaryType] : [];
+  const baseColumnConfig = summaryType ? availableSummaries[summaryType] : [];
+  const columnConfig: Array<{label: string; column: string; sourceCol?: string; tooltip?: string}> =
+    (() => {
+      if (!summaryType || !baseColumnConfig) return [];
+      if (summaryType !== 'TOTPOP' && summaryType !== 'VAP') return baseColumnConfig;
+      const selectedColumns = getSelectedCoalitionColumns({
+        selectedGroups: coalitionGroups,
+        availableColumns: demographyCache.availableColumns,
+        universe: summaryType,
+      });
+      if (!selectedColumns.length) return baseColumnConfig;
+      const coalitionLabels = coalitionGroups
+        .filter(
+          group =>
+            getSelectedCoalitionColumns({
+              selectedGroups: [group],
+              availableColumns: demographyCache.availableColumns,
+              universe: summaryType,
+            }).length
+        )
+        .map(getCoalitionGroupLabel);
+      return [
+        {
+          label: 'Coalition',
+          tooltip:
+            coalitionLabels.length > 0
+              ? coalitionLabels.join(', ')
+              : getCoalitionLabel({
+                  selectedGroups: coalitionGroups,
+                  availableColumns: demographyCache.availableColumns,
+                  universe: summaryType,
+                }),
+          sourceCol: COALITION_TOTAL_COLUMN_BY_UNIVERSE[summaryType],
+          column: COALITION_VARIABLE_BY_UNIVERSE[summaryType],
+        },
+        ...baseColumnConfig,
+      ];
+    })();
 
   useEffect(() => {
     if (!availableColumnSets.length) return;
@@ -37,6 +116,11 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
       );
     }
   }, [availableSummaries]);
+
+  useEffect(() => {
+    if (canShowCoalition) return;
+    setOpenSections(prev => ({...prev, coalition: false}));
+  }, [canShowCoalition]);
 
   if (
     !availableColumnSets?.length ||
@@ -52,36 +136,33 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
   }
   return (
     <Flex direction="column" gap="2">
-      <Flex direction="row" gap="2" align="center">
-        {displayedStatLabels.length > 1 && (
-          <>
-            <Text>Summary type</Text>
-            <Select.Root
-              value={summaryType}
-              onValueChange={value => setSummaryType(value as keyof SummaryStatConfig)}
-            >
-              <Select.Trigger />
-              <Select.Content>
-                {displayedStatLabels.map(({value, label}) => (
-                  <Select.Item key={value} value={value}>
-                    {label}
-                  </Select.Item>
-                ))}
-              </Select.Content>
-            </Select.Root>
-          </>
-        )}
-      </Flex>
-      <Evaluation
-        summaryType={summaryType}
-        setSummaryType={setSummaryType}
-        columnConfig={columnConfig}
-        displayedColumnSets={displayedColumnSets}
+      <SectionHeader
+        title="Evaluation"
+        isOpen={openSections.evaluation}
+        onToggle={() => toggleSection('evaluation')}
       />
-      <Heading as="h3" size="3">
-        Map
-      </Heading>
-      <MapPanel columnGroup={summaryType} displayedColumnSets={displayedColumnSets} />
+      {openSections.evaluation && (
+        <Evaluation
+          summaryType={summaryType}
+          setSummaryType={setSummaryType}
+          columnConfig={columnConfig}
+          displayedColumnSets={displayedColumnSets}
+        />
+      )}
+      <SectionHeader title="Map" isOpen={openSections.map} onToggle={() => toggleSection('map')} />
+      {openSections.map && (
+        <MapPanel columnGroup={summaryType} displayedColumnSets={displayedColumnSets} />
+      )}
+      {canShowCoalition && (
+        <>
+          <SectionHeader
+            title="Coalition Builder"
+            isOpen={openSections.coalition}
+            onToggle={() => toggleSection('coalition')}
+          />
+          {openSections.coalition && <CoalitionBuilder summaryType={summaryType} />}
+        </>
+      )}
     </Flex>
   );
 };

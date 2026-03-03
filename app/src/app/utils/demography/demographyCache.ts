@@ -18,7 +18,6 @@ import {
   SummaryTable,
   TableRow,
   TabularDataWithPercent,
-  AllMapConfigs,
 } from '../api/summaryStats';
 import {getColumnDerives, getPctDerives, getRollups} from './arquero';
 import * as scale from 'd3-scale';
@@ -30,6 +29,25 @@ import {
 } from '@/app/store/demography/constants';
 import {NullableZone} from '@/app/constants/types';
 import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
+import {
+  CoalitionGroupKey,
+  CoalitionUniverse,
+  COALITION_TOTAL_COLUMN_BY_UNIVERSE,
+  COALITION_VARIABLE_BY_UNIVERSE,
+  DemographyVariable,
+  getAvailableCoalitionGroups,
+  getMissingCoalitionGroups,
+  getSelectedCoalitionColumns,
+  isCoalitionVariable,
+} from './coalition';
+
+type MapVariableConfig = {
+  value: string;
+  expression?: (row: any) => number;
+  fixedScale?: any;
+  variants?: Array<'percent' | 'raw'>;
+  customLegendLabels?: string[];
+};
 /**
  * Class to organize queries on current demographic data
  */
@@ -75,7 +93,7 @@ class DemographyCache {
   } = {};
 
   zoneStats: {
-    maxValues?: MaxValues;
+    maxValues?: MaxValues & Record<string, number>;
     maxPopulation?: number;
     minPopulation?: number;
     range?: number;
@@ -83,6 +101,7 @@ class DemographyCache {
   } = {};
 
   colorScale?: AnyD3Scale;
+  coalitionGroups: CoalitionGroupKey[] = [];
   /**
    * Updates this class with new data from the backend.
    *
@@ -132,6 +151,67 @@ class DemographyCache {
     this.hash = '';
     this.colorScale = undefined;
     this.zoneStats = {};
+    this.coalitionGroups = [];
+  }
+
+  setCoalitionGroups(groups: CoalitionGroupKey[]) {
+    this.coalitionGroups = [...groups];
+    if (this.table && this.zoneTable) {
+      this.updatePopulations();
+    }
+  }
+
+  private getCoalitionColumns(universe: CoalitionUniverse): Array<AllTabularColumns[number]> {
+    return getSelectedCoalitionColumns({
+      selectedGroups: this.coalitionGroups,
+      availableColumns: this.availableColumns,
+      universe,
+    });
+  }
+
+  private applyCoalitionColumns(rows: SummaryTable) {
+    const coalitionColumnsByUniverse: Record<
+      CoalitionUniverse,
+      Array<AllTabularColumns[number]>
+    > = {
+      TOTPOP: this.getCoalitionColumns('TOTPOP'),
+      VAP: this.getCoalitionColumns('VAP'),
+    };
+    rows.forEach(row => {
+      (['TOTPOP', 'VAP'] as CoalitionUniverse[]).forEach(universe => {
+        const coalitionVariable = COALITION_VARIABLE_BY_UNIVERSE[universe];
+        const totalColumn = COALITION_TOTAL_COLUMN_BY_UNIVERSE[universe];
+        const coalitionCount = coalitionColumnsByUniverse[universe].reduce((sum, column) => {
+          const value = (row as unknown as Record<string, number>)[column];
+          return sum + (Number.isFinite(value) ? value : 0);
+        }, 0);
+        const totalValue = (row as unknown as Record<string, number>)[totalColumn];
+        (row as unknown as Record<string, number>)[coalitionVariable] = coalitionCount;
+        (row as unknown as Record<string, number>)[`${coalitionVariable}_pct`] =
+          Number.isFinite(totalValue) && totalValue > 0 ? coalitionCount / totalValue : NaN;
+      });
+    });
+  }
+
+  private updateCoalitionMaxValues(rows: SummaryTable) {
+    const maxValues = {...(this.zoneStats.maxValues ?? {})} as Record<string, number>;
+    (['TOTPOP', 'VAP'] as CoalitionUniverse[]).forEach(universe => {
+      const variable = COALITION_VARIABLE_BY_UNIVERSE[universe];
+      const pctVariable = `${variable}_pct`;
+      const rawMax = Math.max(
+        0,
+        ...rows.map(row => ((row as unknown as Record<string, number>)[variable] ?? 0) as number)
+      );
+      const pctMax = Math.max(
+        0,
+        ...rows
+          .map(row => (row as unknown as Record<string, number>)[pctVariable])
+          .filter(value => Number.isFinite(value))
+      );
+      maxValues[variable] = rawMax;
+      maxValues[pctVariable] = pctMax;
+    });
+    this.zoneStats.maxValues = maxValues as MaxValues & Record<string, number>;
   }
   /**
    * Gets the filtered data for a given ID.
@@ -206,9 +286,11 @@ class DemographyCache {
       .objects()[0] as MaxValues;
 
     if (maxRollups) {
-      this.zoneStats.maxValues = maxRollups;
+      this.zoneStats.maxValues = maxRollups as MaxValues & Record<string, number>;
     }
     const zonePopulationsTable = populationsTable.objects() as SummaryTable;
+    this.applyCoalitionColumns(zonePopulationsTable);
+    this.updateCoalitionMaxValues(zonePopulationsTable);
     if (zonePopulationsTable.length + 1 !== numZones) {
       for (let i = 1; i < numZones + 1; i++) {
         if (!zonePopulationsTable.find(row => row.zone === i)) {
@@ -216,6 +298,8 @@ class DemographyCache {
           zonePopulationsTable.push({zone: i, total_pop_20: 0});
         }
       }
+      this.applyCoalitionColumns(zonePopulationsTable);
+      this.updateCoalitionMaxValues(zonePopulationsTable);
     }
     this.populations = zonePopulationsTable.sort((a, b) => a.zone - b.zone);
     const popNumbers = this.populations
@@ -274,15 +358,15 @@ class DemographyCache {
    * Helper to manage the arqueo quantile function.
    */
   calculateQuantiles(
-    config: AllMapConfigs[number],
-    variableName: AllTabularColumns[number],
+    config: MapVariableConfig,
+    variableName: string,
     numberOfBins: number
   ): {quantilesObject: {[q: string]: number}; quantilesList: number[]} | null {
     if (!this.table) return null;
     const derives = {
       quantileVariable: config.expression
         ? escape(config.expression)
-        : escape((row: DemographyRow) => row[variableName as keyof DemographyRow]),
+        : escape((row: Record<string, number>) => row[variableName]),
     };
     const rollups = new Array(numberOfBins + 1)
       .fill(0)
@@ -312,8 +396,8 @@ class DemographyCache {
     mapRef,
     ids,
   }: {
-    config: AllMapConfigs[number];
-    variableName: AllTabularColumns[number];
+    config: MapVariableConfig;
+    variableName: string;
     mapRef: maplibregl.Map;
     ids?: string[];
   }) {
@@ -322,7 +406,7 @@ class DemographyCache {
     const derives = {
       color: config.expression
         ? escape(config.expression)
-        : escape((row: DemographyRow) => row[variableName]),
+        : escape((row: Record<string, number>) => row[variableName]),
     };
     let rows = this.table.derive(derives).select('path', 'sourceLayer', 'color');
     if (ids) {
@@ -371,7 +455,7 @@ class DemographyCache {
     numberOfBins,
     paintMap,
   }: {
-    variable: AllTabularColumns[number];
+    variable: DemographyVariable;
     variant: 'percent' | 'raw';
     mapRef: maplibregl.Map;
     mapDocument: MapStore['mapDocument'];
@@ -379,17 +463,36 @@ class DemographyCache {
     paintMap?: boolean;
   }) {
     const dataSoureExists = mapRef?.getSource(BLOCK_SOURCE_ID);
-    const config = Object.values(choroplethMapVariables)
+    let config: MapVariableConfig | undefined = Object.values(choroplethMapVariables)
       .flat()
       .find(v => v.value === variable);
 
     if (!this.table || !dataSoureExists) return;
+    if (!config && isCoalitionVariable(variable)) {
+      const universe = variable === 'coalition_totpop' ? 'TOTPOP' : 'VAP';
+      const totalColumn = COALITION_TOTAL_COLUMN_BY_UNIVERSE[universe];
+      const coalitionColumns = this.getCoalitionColumns(universe);
+      if (!coalitionColumns.length) return;
+      config = {
+        value: variable,
+        variants: ['percent', 'raw'],
+        expression: (row: Record<string, number>) => {
+          const coalitionTotal = coalitionColumns.reduce((sum, column) => {
+            const value = row[column];
+            return sum + (Number.isFinite(value) ? value : 0);
+          }, 0);
+          if (variant === 'raw') return coalitionTotal;
+          const total = row[totalColumn];
+          return Number.isFinite(total) && total > 0 ? coalitionTotal / total : NaN;
+        },
+      };
+    }
     if (!config) return;
     const variableName = (
       variant === 'percent' && config.variants?.includes('percent')
         ? `${config.value}_pct`
         : config.value
-    ) as AllTabularColumns[number];
+    ) as string;
     if (config.fixedScale) {
       this.colorScale = config.fixedScale as AnyD3Scale;
     } else {
@@ -435,6 +538,37 @@ class DemographyCache {
       return false;
     }
     // .max .range
+  }
+
+  getCoalitionUniverseStats(summaryType: CoalitionUniverse) {
+    const summaryStats = this.summaryStats[summaryType] as Record<string, number> | undefined;
+    if (!summaryStats) {
+      return {
+        universeTotal: 0,
+        coalitionTotal: 0,
+        coalitionPct: NaN,
+        availableGroups: [] as CoalitionGroupKey[],
+        missingGroups: [] as CoalitionGroupKey[],
+      };
+    }
+    const totalColumn = COALITION_TOTAL_COLUMN_BY_UNIVERSE[summaryType];
+    const selectedColumns = this.getCoalitionColumns(summaryType);
+    const universeTotal = summaryStats[totalColumn] ?? 0;
+    const coalitionTotal = selectedColumns.reduce((sum, column) => {
+      const value = summaryStats[column];
+      return sum + (Number.isFinite(value) ? value : 0);
+    }, 0);
+    return {
+      universeTotal,
+      coalitionTotal,
+      coalitionPct: universeTotal > 0 ? coalitionTotal / universeTotal : NaN,
+      availableGroups: getAvailableCoalitionGroups(this.availableColumns, summaryType),
+      missingGroups: getMissingCoalitionGroups(
+        this.coalitionGroups,
+        this.availableColumns,
+        summaryType
+      ),
+    };
   }
 }
 

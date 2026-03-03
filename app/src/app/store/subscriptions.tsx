@@ -29,6 +29,7 @@ export const initSubs = () => {
     state => state.mapDocument,
     (curr, prev) => {
       if (!curr || prev === curr || prev?.document_id === curr.document_id) return;
+      useDemographyStore.getState().hydrateCoalition(curr);
       useDemographyStore.getState().updateData(curr);
     }
   );

@@ -1,5 +1,5 @@
 'use client';
-import {AllTabularColumns, SummaryStatConfig} from '@/app/utils/api/summaryStats';
+import {SummaryStatConfig} from '@/app/utils/api/summaryStats';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {MapControlsStore, useMapControlsStore} from '@/app/store/mapControlsStore';
 import {formatNumber} from '@/app/utils/numbers';
@@ -21,17 +21,21 @@ import {
   IconButton,
   Popover,
   Slider,
-  Switch,
-  Tabs,
   Text,
   Tooltip,
 } from '@radix-ui/themes';
 import {Select} from '@radix-ui/themes';
 import {LegendLabel, LegendThreshold} from '@visx/legend';
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useMemo} from 'react';
 import {choroplethMapVariables} from '@/app/store/demography/constants';
-import {summaryStatLabels} from '@/app/store/demography/evaluationConfig';
 import {OVERLAY_OPACITY} from '@/app/constants/map/layerStyle';
+import {demographyCache} from '@/app/utils/demography/demographyCache';
+import {
+  COALITION_VARIABLE_BY_UNIVERSE,
+  DemographyVariable,
+  getCoalitionLabel,
+  getSelectedCoalitionColumns,
+} from '@/app/utils/demography/coalition';
 
 type MapPanelProps = {
   columnGroup: keyof typeof choroplethMapVariables;
@@ -90,18 +94,45 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   const variant = useDemographyStore(state => state.variant);
   const setVariable = useDemographyStore(state => state.setVariable);
   const setVariant = useDemographyStore(state => state.setVariant);
+  const coalitionGroups = useDemographyStore(state => state.coalitionGroups);
+  useDemographyStore(state => state.coalitionHash);
 
   const scale = useDemographyStore(state => state.scale);
   const numberOfbins = useDemographyStore(state => state.numberOfBins);
   const setNumberOfBins = useDemographyStore(state => state.setNumberOfBins);
   const availableMapVariables = useDemographyStore(state => state.availableColumnSets.map);
-  const currentVariableList = availableMapVariables[columnGroup] ?? [];
-  const mapVariableConfig = availableMapVariables[columnGroup]?.find(f => f.value === variable);
+  const coalitionOption = useMemo(() => {
+    if (columnGroup !== 'TOTPOP' && columnGroup !== 'VAP') return undefined;
+    const coalitionColumns = getSelectedCoalitionColumns({
+      selectedGroups: coalitionGroups,
+      availableColumns: demographyCache.availableColumns,
+      universe: columnGroup,
+    });
+    if (!coalitionColumns.length) return undefined;
+    return {
+      label: getCoalitionLabel({
+        selectedGroups: coalitionGroups,
+        availableColumns: demographyCache.availableColumns,
+        universe: columnGroup,
+      }),
+      value: COALITION_VARIABLE_BY_UNIVERSE[columnGroup],
+      variants: ['percent', 'raw'] as Array<'percent' | 'raw'>,
+      fixedScale: undefined,
+      customLegendLabels: undefined,
+      expression: undefined,
+    };
+  }, [columnGroup, coalitionGroups]);
+  const currentVariableList = useMemo(() => {
+    const baseList = availableMapVariables[columnGroup] ?? [];
+    if (!coalitionOption) return baseList;
+    return [...baseList, coalitionOption];
+  }, [availableMapVariables, columnGroup, coalitionOption]);
+  const mapVariableConfig = currentVariableList.find(f => f.value === variable);
 
   const handleSetMapMode = (newMode: MapControlsStore['mapOptions']['showDemographicMap']) => {
     setMapOptions({showDemographicMap: newMode});
-    if (!mapVariableConfig) {
-      setVariable(availableMapVariables[columnGroup][0].value);
+    if (!mapVariableConfig && currentVariableList.length) {
+      setVariable(currentVariableList[0].value);
     }
   };
 
@@ -109,7 +140,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   const labelFormat = canBePercent && variant === 'percent' ? 'percent' : 'compact';
   const colors = scale?.range() || [];
 
-  const handleChangeVariable = (newVariable: AllTabularColumns[number]) => {
+  const handleChangeVariable = (newVariable: DemographyVariable) => {
     setVariable(newVariable);
   };
 
@@ -152,6 +183,11 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
       document.removeEventListener('keydown', handleKeyPress);
     };
   }, [mapVariableConfig]);
+
+  useEffect(() => {
+    if (!mapMode || !currentVariableList.length || mapVariableConfig) return;
+    setVariable(currentVariableList[0].value);
+  }, [mapMode, currentVariableList, mapVariableConfig, setVariable]);
 
   if (!Object.keys(availableMapVariables).length) {
     return (
@@ -328,11 +364,11 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
               <LinearGradient
                 colors={mapVariableConfig.fixedScale
                   .domain()
-                  .map(d => mapVariableConfig.fixedScale!(d))}
+                  .map((d: number) => mapVariableConfig.fixedScale!(d))}
                 numTicks={mapVariableConfig.customLegendLabels.length}
               />
               <Flex direction={'row'} width="100%" justify="between">
-                {mapVariableConfig.customLegendLabels.map((label, i) => (
+                {mapVariableConfig.customLegendLabels.map((label: string, i: number) => (
                   <Text key={`legend-label-${i}`}>{label}</Text>
                 ))}
               </Flex>

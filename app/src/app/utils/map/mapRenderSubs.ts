@@ -332,7 +332,13 @@ export class MapRenderSubscriber {
     );
     this.demographySubscriptions.push(
       this.useDemographyStore.subscribe(
-        state => [state.variable, state.variant, state.numberOfBins, state.dataHash],
+        state => [
+          state.variable,
+          state.variant,
+          state.numberOfBins,
+          state.dataHash,
+          state.coalitionHash,
+        ],
         () => this.renderDemographyColors(),
         {equalityFn: shallowCompareArray}
       )

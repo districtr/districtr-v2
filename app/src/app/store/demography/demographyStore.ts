@@ -10,6 +10,13 @@ import {demographyCache} from '@/app/utils/demography/demographyCache';
 import {AllEvaluationConfigs, AllMapConfigs} from '@/app/utils/api/summaryStats';
 import {evalColumnConfigs} from './evaluationConfig';
 import {choroplethMapVariables} from './constants';
+import {idb} from '@/app/utils/idb/idb';
+import {
+  CoalitionGroupKey,
+  getCoalitionUniverseFromVariable,
+  getSelectedCoalitionColumns,
+  isCoalitionVariable,
+} from '@/app/utils/demography/coalition';
 
 export var useDemographyStore = create(
   subscribeWithSelector<DemographyStore>((set, get) => ({
@@ -32,6 +39,84 @@ export var useDemographyStore = create(
     variant: 'percent',
     setVariable: variable => set({variable}),
     setVariant: variant => set({variant}),
+    coalitionGroups: [],
+    coalitionHash: '',
+    coalitionHydratedSlug: null,
+    hydrateCoalition: async mapDocument => {
+      const slug = mapDocument?.districtr_map_slug;
+      if (!slug) {
+        set({
+          coalitionGroups: [],
+          coalitionHydratedSlug: null,
+          coalitionHash: `${performance.now()}`,
+        });
+        demographyCache.setCoalitionGroups([]);
+        return;
+      }
+      if (get().coalitionHydratedSlug === slug) return;
+      const saved = await idb.getCoalitionConfigBySlug(slug);
+      const coalitionGroups = (saved?.selectedGroups ?? []) as CoalitionGroupKey[];
+      set({
+        coalitionGroups,
+        coalitionHydratedSlug: slug,
+        coalitionHash: `${performance.now()}`,
+      });
+      demographyCache.setCoalitionGroups(coalitionGroups);
+
+      const currentVariable = get().variable;
+      if (isCoalitionVariable(currentVariable)) {
+        const universe = getCoalitionUniverseFromVariable(currentVariable);
+        const selectedColumns = getSelectedCoalitionColumns({
+          selectedGroups: coalitionGroups,
+          availableColumns: demographyCache.availableColumns,
+          universe,
+        });
+        if (!selectedColumns.length) {
+          set({
+            variable: universe === 'TOTPOP' ? 'total_pop_20' : 'total_vap_20',
+          });
+        }
+      }
+    },
+    setCoalitionGroups: async coalitionGroups => {
+      const deduped = coalitionGroups.filter((group, index, arr) => arr.indexOf(group) === index);
+      set({
+        coalitionGroups: deduped,
+        coalitionHash: `${performance.now()}`,
+      });
+      demographyCache.setCoalitionGroups(deduped);
+
+      const {mapDocument} = useMapStore.getState();
+      if (mapDocument?.districtr_map_slug) {
+        await idb.upsertCoalitionConfigBySlug({
+          districtr_map_slug: mapDocument.districtr_map_slug,
+          selectedGroups: deduped,
+        });
+      }
+
+      const currentVariable = get().variable;
+      if (isCoalitionVariable(currentVariable)) {
+        const universe = getCoalitionUniverseFromVariable(currentVariable);
+        const selectedColumns = getSelectedCoalitionColumns({
+          selectedGroups: deduped,
+          availableColumns: demographyCache.availableColumns,
+          universe,
+        });
+        if (!selectedColumns.length) {
+          set({
+            variable: universe === 'TOTPOP' ? 'total_pop_20' : 'total_vap_20',
+          });
+        }
+      }
+    },
+    resetCoalition: () => {
+      set({
+        coalitionGroups: [],
+        coalitionHydratedSlug: null,
+        coalitionHash: `${performance.now()}`,
+      });
+      demographyCache.setCoalitionGroups([]);
+    },
     availableColumnSets: {
       evaluation: {},
       map: {},
@@ -50,7 +135,11 @@ export var useDemographyStore = create(
       set({
         scale: undefined,
         dataHash: '',
+        coalitionGroups: [],
+        coalitionHydratedSlug: null,
+        coalitionHash: `${performance.now()}`,
       });
+      demographyCache.setCoalitionGroups([]);
     },
     unmount: () => {
       const isSwappingMode = useMapControlsStore.getState().mapOptions.showDemographicMap;
