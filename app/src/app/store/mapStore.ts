@@ -33,6 +33,7 @@ import {getChildEdges} from '../utils/api/apiHandlers/getChildEdges';
 import {patchUnShatterParents} from '../utils/api/apiHandlers/patchUnShatterParents';
 import {DEFAULT_MAP_OPTIONS, useMapControlsStore} from './mapControlsStore';
 import {useAssignmentsStore} from './assignmentsStore';
+import {useCoiAssignmentsStore} from './coiAssignmentsStore';
 import {patchUpdateReset} from '../utils/api/apiHandlers/patchUpdateReset';
 import {idb} from '../utils/idb/idb';
 
@@ -181,7 +182,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     exitBlockView: (lock: boolean = false) => {
       const {focusFeatures} = get();
       const {healParentsIfAllChildrenInSameZone} = useAssignmentsStore.getState();
-      const {setMapOptions} = useMapControlsStore.getState();
+      const {healParentsIfAllChildrenInSameCommunities} = useCoiAssignmentsStore.getState();
+      const {setMapOptions, mapMode} = useMapControlsStore.getState();
+      const focusedParentId = focusFeatures?.[0]?.id?.toString();
 
       set({
         captiveIds: new Set<string>(),
@@ -190,9 +193,16 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       setMapOptions({mode: 'default'});
       useMapControlsStore.setState({activeTool: 'shatter'});
 
-      const parentId = focusFeatures?.[0].id?.toString();
-      if (!parentId) return;
-      healParentsIfAllChildrenInSameZone({}, 'state');
+      if (mapMode === 'coi') {
+        healParentsIfAllChildrenInSameCommunities(
+          focusedParentId ? new Set<string>([focusedParentId]) : undefined
+        );
+      } else {
+        healParentsIfAllChildrenInSameZone(
+          focusedParentId ? {_parentIds: new Set<string>([focusedParentId])} : {},
+          'state'
+        );
+      }
     },
     getMapRef: () => undefined,
     setMapRef: mapRef => {
@@ -260,6 +270,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           ...DEFAULT_MAP_OPTIONS,
           bounds: mapDocument.extent,
           stateFipsSet: newStateFipsSet,
+          // COI maps should start with centroid bubble labels hidden.
+          showZoneNumbers:
+            mapControlsState.mapMode === 'coi' ? false : DEFAULT_MAP_OPTIONS.showZoneNumbers,
         },
         activeTool: mapDocument.access === 'edit' ? mapControlsState.activeTool : 'pan',
         selectedZone: 1,
@@ -482,15 +495,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       // set BLOCK_LAYER_ID based on features[0] to focused true
 
       const geoids = features.map(f => f.id?.toString()).filter(Boolean) as string[];
-      const updateHash = new Date().toISOString();
-      const {
-        shatterIds,
-        parentToChild: _parentToChild,
-        childToParent: _childToParent,
-        zoneAssignments: currentZoneAssignments,
-        setShatterState,
-      } = useAssignmentsStore.getState();
-      const {setMapOptions} = useMapControlsStore.getState();
+      const {setMapOptions, mapMode} = useMapControlsStore.getState();
       const edgesResult = await getChildEdges({
         districtr_map_slug: mapDocument.districtr_map_slug,
         geoids,
@@ -507,12 +512,16 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       }
       // TODO Need to return child edges even if the parent is already shattered
       // currently returns nothing
+      const {
+        shatterIds,
+        parentToChild: currentParentToChild,
+        childToParent: currentChildToParent,
+      } = mapMode === 'coi' ? useCoiAssignmentsStore.getState() : useAssignmentsStore.getState();
       let parents = new Set(shatterIds.parents);
       let children = new Set(shatterIds.children);
       let captiveIds = new Set<string>();
-      let parentToChild = new Map(_parentToChild);
-      let childToParent = new Map(_childToParent);
-      const zoneAssignments = new Map(currentZoneAssignments);
+      let parentToChild = new Map(currentParentToChild);
+      let childToParent = new Map(currentChildToParent);
       const zonesToSet: Record<string, Set<string>> = {};
       edgesResult.forEach(edge => {
         parents.add(edge.parent_path);
@@ -533,25 +542,59 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         }
       });
 
-      Object.entries(zonesToSet).forEach(([parent, children]) => {
-        setZones(zoneAssignments, parent, children);
-      });
+      // Need to shatter all communities that that have that assignment since they can overlap
+      if (mapMode === 'coi') {
+        const {
+          communityAssignments: currentCommunityAssignments,
+          setShatterState,
+          replaceCommunityAssignments,
+        } = useCoiAssignmentsStore.getState();
+        const newCommunityAssignments = new Map<number, Set<string>>();
+        currentCommunityAssignments.forEach((assignedGeoids, community) => {
+          newCommunityAssignments.set(community, new Set(assignedGeoids));
+        });
+        Object.entries(zonesToSet).forEach(([parent, childSet]) => {
+          newCommunityAssignments.forEach(assignedGeoids => {
+            if (!assignedGeoids.has(parent)) return;
+            assignedGeoids.delete(parent);
+            childSet.forEach(childId => {
+              assignedGeoids.add(childId);
+            });
+          });
+        });
+        setShatterState({
+          shatterIds: {
+            parents,
+            children,
+          },
+          parentToChild,
+          childToParent,
+        });
+        replaceCommunityAssignments(newCommunityAssignments);
+      } else {
+        // Path for original zone shatter
+        const {zoneAssignments: currentZoneAssignments, setShatterState} =
+          useAssignmentsStore.getState();
+        const zoneAssignments = new Map(currentZoneAssignments);
+        Object.entries(zonesToSet).forEach(([parent, childSet]) => {
+          setZones(zoneAssignments, parent, childSet);
+        });
+        setShatterState({
+          shatterIds: {
+            parents,
+            children,
+          },
+          parentToChild,
+          childToParent,
+          zoneAssignments,
+        });
+      }
 
       const featureBbox = features[0].geometry && bbox(features[0].geometry);
       const mapBbox =
         featureBbox?.length && featureBbox?.length >= 4
           ? (featureBbox.slice(0, 4) as maplibregl.LngLatBoundsLike)
           : undefined;
-
-      setShatterState({
-        shatterIds: {
-          parents,
-          children,
-        },
-        parentToChild,
-        childToParent,
-        zoneAssignments: zoneAssignments,
-      });
 
       set({
         mapLock: null,

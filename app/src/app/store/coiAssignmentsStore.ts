@@ -4,7 +4,9 @@ import {Map as MaplibreMap, MapGeoJSONFeature} from 'maplibre-gl';
 import {DocumentObject} from '../utils/api/apiHandlers/types';
 import {useChartStore} from './chartStore';
 import {useMapStore} from './mapStore';
+import {useMapControlsStore} from './mapControlsStore';
 import {idb} from '../utils/idb/idb';
+import GeometryWorker from '../utils/GeometryWorker';
 
 // FIXME: This needs to be changed out for a undo/redo system
 import {createWithDevWrapperAndSubscribe} from './middlewares';
@@ -70,6 +72,11 @@ export interface CoiAssignmentsStore {
   /** Flushes accumulated paint updates into canonical store state. */
   ingestAccumulatedAssignments: () => void;
 
+  /**
+   * Heals shattered parents when every child belongs to the exact same set of communities.
+   */
+  healParentsIfAllChildrenInSameCommunities: (parentIds?: Set<string>) => void;
+
   /** Ingests COI assignments and shatter state from document payload. */
   ingestFromDocument: (data: CoiAssignmentsPayload, mapDocument?: DocumentObject) => void;
 
@@ -134,6 +141,38 @@ const getCommunitiesForGeoidFromAssignments = (
     }
   });
   return communities;
+};
+
+/**
+ * Compares two sets of communities for equality. Returns true if the sets contain the same
+ * communities, false otherwise.
+ *
+ * @param left The first set of communities to compare
+ * @param right The second set of communities to compare
+ * @return boolean indicating whether the two sets of communities are equal
+ */
+const areCommunitySetsEqual = (left: Set<Zone>, right: Set<Zone>) => {
+  if (left.size !== right.size) return false;
+  for (const community of left) {
+    if (!right.has(community)) return false;
+  }
+  return true;
+};
+
+/**
+ * Creates a deep copy of the parentToChild map. This is necessary because the map contains sets,
+ * which are reference types, so a shallow copy would not be sufficient to avoid mutating the
+ * original state.
+ *
+ * @param parentToChild The parentToChild map to copy
+ * @return A deep copy of the parentToChild map
+ */
+const cloneParentToChildMap = (parentToChild: Map<string, Set<string>>) => {
+  const copy = new Map<string, Set<string>>();
+  parentToChild.forEach((children, parentId) => {
+    copy.set(parentId, new Set(children));
+  });
+  return copy;
 };
 
 /**
@@ -507,6 +546,15 @@ export const useCoiAssignmentsStore = createWithDevWrapperAndSubscribe<CoiAssign
       idb.updateIdbCoiAssignments(mapDocument, newAssignments, currentTime);
     }
 
+    const touchedParentIds = new Set<string>();
+    changedGeoids.forEach(geoid => {
+      if (!shatterIds.children.has(geoid)) return;
+      const parentId = childToParent.get(geoid);
+      if (parentId) {
+        touchedParentIds.add(parentId);
+      }
+    });
+
     set({
       communityAssignments: newAssignments,
       communityLastUpdated: newLastUpdated,
@@ -519,6 +567,156 @@ export const useCoiAssignmentsStore = createWithDevWrapperAndSubscribe<CoiAssign
         children: new Set(shatterIds.children),
       },
     });
+
+    const controlsState = useMapControlsStore.getState();
+    if (
+      touchedParentIds.size &&
+      controlsState.activeTool !== 'shatter' &&
+      controlsState.mapOptions.mode !== 'break'
+    ) {
+      get().healParentsIfAllChildrenInSameCommunities(touchedParentIds);
+    }
+  },
+
+  healParentsIfAllChildrenInSameCommunities: parentIds => {
+    const {
+      shatterIds: currentShatterIds,
+      parentToChild: currentParentToChild,
+      childToParent: currentChildToParent,
+      communityAssignments: currentCommunityAssignments,
+      communityLastUpdated,
+    } = get();
+    const {mapDocument, getMapRef} = useMapStore.getState();
+
+    const newShatterIds = {
+      parents: new Set(currentShatterIds.parents),
+      children: new Set(currentShatterIds.children),
+    };
+    const parentToChild = cloneParentToChildMap(currentParentToChild);
+    const childToParent = new Map(currentChildToParent);
+    const communityAssignments = deepCopyCommunityAssignments(currentCommunityAssignments);
+
+    const mapRef = getMapRef();
+    let healed = false;
+
+    const parentIdsToCheck = parentIds ? Array.from(parentIds) : Array.from(newShatterIds.parents);
+
+    parentIdsToCheck.forEach(parentId => {
+      if (!newShatterIds.parents.has(parentId)) return;
+      const children = parentToChild.get(parentId);
+      if (!children || !children.size) return;
+
+      const childIds = Array.from(children);
+
+      // Can only heal if all children have the same set of communities, so we compare against
+      // the first child.
+      const firstChildCommunities = getCommunitiesForGeoidFromAssignments(
+        communityAssignments,
+        childIds[0]
+      );
+      const canHeal = childIds.every(childId => {
+        const childCommunities = getCommunitiesForGeoidFromAssignments(
+          communityAssignments,
+          childId
+        );
+        return areCommunitySetsEqual(firstChildCommunities, childCommunities);
+      });
+      if (!canHeal) return;
+
+      const canonicalCommunities = new Set(firstChildCommunities);
+      const prevParentCommunities = getCommunitiesForGeoidFromAssignments(
+        communityAssignments,
+        parentId
+      );
+
+      childIds.forEach(childId => {
+        const prevChildCommunities = getCommunitiesForGeoidFromAssignments(
+          communityAssignments,
+          childId
+        );
+        removeGeoidFromAllCommunities(communityAssignments, childId);
+        newShatterIds.children.delete(childId);
+        childToParent.delete(childId);
+
+        if (mapRef && mapDocument?.child_layer) {
+          mapRef.setFeatureState(
+            {
+              source: BLOCK_SOURCE_ID,
+              id: childId,
+              sourceLayer: mapDocument.child_layer,
+            },
+            buildFeatureStateUpdateForCommunities(prevChildCommunities, new Set<Zone>())
+          );
+        }
+      });
+
+      removeGeoidFromAllCommunities(communityAssignments, parentId);
+      canonicalCommunities.forEach(communityId => {
+        insertGeoidIntoCommunity(parentId, communityId, communityAssignments);
+      });
+      parentToChild.delete(parentId);
+      newShatterIds.parents.delete(parentId);
+
+      if (mapRef && mapDocument?.parent_layer) {
+        mapRef.setFeatureState(
+          {
+            source: BLOCK_SOURCE_ID,
+            id: parentId,
+            sourceLayer: mapDocument.parent_layer,
+          },
+          {
+            ...buildFeatureStateUpdateForCommunities(prevParentCommunities, canonicalCommunities),
+            broken: false,
+          }
+        );
+      }
+
+      GeometryWorker?.removeGeometries(childIds);
+      healed = true;
+    });
+
+    if (!healed) return;
+
+    const currentTime = new Date().toISOString();
+    set({
+      communityAssignments,
+      accumulatedAssignments: new Map<string, CoiAccumulatedMutation>(),
+      communityLastUpdated: new Map(communityLastUpdated),
+      shatterIds: newShatterIds,
+      parentToChild,
+      childToParent,
+      clientLastUpdated: currentTime,
+    });
+
+    if (mapDocument) {
+      idb.updateIdbCoiAssignments(mapDocument, communityAssignments, currentTime, true);
+    }
+
+    const mapState = useMapStore.getState();
+    const controlsState = useMapControlsStore.getState();
+    const remainingCaptiveIds = new Set(
+      Array.from(mapState.captiveIds).filter(id => newShatterIds.children.has(id))
+    );
+    const activeParentId = mapState.focusFeatures?.[0]?.id?.toString();
+    const activeParentHealed = !!(activeParentId && !newShatterIds.parents.has(activeParentId));
+    if (
+      controlsState.activeTool !== 'shatter' &&
+      mapState.captiveIds.size &&
+      (activeParentHealed || remainingCaptiveIds.size === 0)
+    ) {
+      useMapStore.setState({
+        captiveIds: new Set<string>(),
+        focusFeatures: [],
+      });
+      controlsState.setMapOptions({mode: 'default'});
+      return;
+    }
+    if (
+      controlsState.activeTool !== 'shatter' &&
+      remainingCaptiveIds.size !== mapState.captiveIds.size
+    ) {
+      useMapStore.setState({captiveIds: remainingCaptiveIds});
+    }
   },
 
   ingestFromDocument: (data: CoiAssignmentsPayload, mapDocument?: DocumentObject) => {
