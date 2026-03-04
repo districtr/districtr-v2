@@ -60,9 +60,12 @@ npx playwright install
 Run backend/frontend with Docker, then execute Playwright on your host machine so browsers can use
 host GPU acceleration:
 
+> Use `frontend-prod` for E2E runs. It avoids repeated dev recompilation and typically gets tests
+> running faster once the image is built.
+
 ```bash
 # Start app services
-docker-compose up -d backend db frontend
+docker-compose up -d db backend frontend-prod
 
 # Install Playwright browsers (first time only)
 npx playwright install
@@ -83,10 +86,10 @@ If you still want to execute Playwright in the container:
 
 ```bash
 # Start services
-docker-compose up -d backend db frontend
+docker-compose up -d db backend frontend-prod
 
 # Open a shell in the frontend container
-docker-compose exec frontend sh
+docker-compose exec frontend-prod sh
 
 # Then inside the container:
 npx playwright install
