@@ -6,7 +6,7 @@ import {SENTINEL_EMPTY_VALUE} from '@/app/constants/map/layerStyle';
 
 export const GeometryBackgroundLayer: React.FC<{
   id: string;
-  sourceLayerId: string;
+  sourceLayerId?: string;
   filter: FilterSpecification;
   beforeId: string;
   style?: {
@@ -19,7 +19,7 @@ export const GeometryBackgroundLayer: React.FC<{
     <Layer
       id={id}
       source={BLOCK_SOURCE_ID}
-      source-layer={sourceLayerId}
+      {...(sourceLayerId ? {'source-layer': sourceLayerId} : {})}
       filter={filter}
       beforeId={beforeId}
       type="fill"

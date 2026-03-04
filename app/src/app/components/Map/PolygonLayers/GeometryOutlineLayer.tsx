@@ -5,20 +5,19 @@ import {FilterSpecification} from 'maplibre-gl';
 
 const GeometryOutlineLayer: React.FC<{
   id: string;
-  sourceLayerId: string;
+  sourceLayerId?: string;
   filter: FilterSpecification;
   beforeId: string;
   style?: {
     lineWidth?: number;
   };
 }> = ({id, sourceLayerId, filter, beforeId, style}) => {
-  if (!sourceLayerId) return null;
   const lineWidth = style?.lineWidth ?? 1.5;
   return (
     <Layer
       id={id}
       source={BLOCK_SOURCE_ID}
-      source-layer={sourceLayerId}
+      {...(sourceLayerId ? {'source-layer': sourceLayerId} : {})}
       filter={filter}
       beforeId={beforeId}
       type="line"

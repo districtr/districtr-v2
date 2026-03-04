@@ -6,7 +6,7 @@ import {Layer} from 'react-map-gl/maplibre';
 
 export const HoverLayerGroup: React.FC<{
   idBase: string;
-  sourceLayerId: string;
+  sourceLayerId?: string;
   filter: FilterSpecification;
   layerBeforeId: string;
 }> = ({idBase, sourceLayerId, filter, layerBeforeId}) => {
@@ -19,7 +19,7 @@ export const HoverLayerGroup: React.FC<{
       <Layer
         id={lineId}
         source={BLOCK_SOURCE_ID}
-        source-layer={sourceLayerId}
+        {...(sourceLayerId ? {'source-layer': sourceLayerId} : {})}
         filter={filter}
         beforeId={layerBeforeId}
         type="line"
@@ -33,7 +33,7 @@ export const HoverLayerGroup: React.FC<{
       <Layer
         id={fillId}
         source={BLOCK_SOURCE_ID}
-        source-layer={sourceLayerId}
+        {...(sourceLayerId ? {'source-layer': sourceLayerId} : {})}
         filter={filter}
         beforeId={lineId}
         type="fill"
