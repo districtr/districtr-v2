@@ -1,3 +1,4 @@
+@ -0,0 +1,48 @@
 import React, {useLayoutEffect, useMemo} from 'react';
 import {Source} from 'react-map-gl/maplibre';
 import {useQuery} from '@tanstack/react-query';
@@ -18,7 +19,7 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
   const publicDistrictsQuery = useQuery({
     queryKey: ['public-districts', mapDocument?.public_id],
     queryFn: () => getPublicDistricts(mapDocument),
-    enabled: Boolean(mapDocument?.access === 'read' && mapDocument?.public_id),
+    enabled: Boolean(mapDocument?.access === 'read' && mapDocument?.public_id)
   });
 
   const featureCollection = useMemo<GeoJSON.FeatureCollection>(() => {
