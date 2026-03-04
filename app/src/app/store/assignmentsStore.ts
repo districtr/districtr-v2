@@ -213,7 +213,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       useMapStore.getState().mutateMapDocument(mapDocument);
     }
     demographyService.updatePopulations(data.zoneAssignments);
-  },  
+  },
 
   healParentsIfAllChildrenInSameZone: (
     {

@@ -2,7 +2,7 @@
 import {Table} from '@radix-ui/themes';
 import {formatNumber} from '@utils/numbers';
 import {useTooltipStore} from '@store/tooltipStore';
-import {demographyCache} from '@utils/demography/demographyCache';
+import {demographyService} from '@/app/utils/demography/demographyService';
 import {useEffect, useState} from 'react';
 import {CONFIG_BY_COLUMN_SET} from '@store/demography/evaluationConfig';
 import {PARTISAN_SCALE} from '@store/demography/constants';
@@ -38,7 +38,7 @@ export const InspectorTooltip = () => {
     } else {
       setInspectorData({});
     }
-  }, [JSON.stringify(ids)]);
+  }, [activeColumns, inspectorMode, JSON.stringify(ids)]);
 
   if (Object.keys(inspectorData).length === 0) return null;
 
