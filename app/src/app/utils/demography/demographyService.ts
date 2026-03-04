@@ -33,7 +33,6 @@ import {NullableZone} from '@/app/constants/types';
 import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {evalColumnConfigs} from '@/app/store/demography/evaluationConfig';
-import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/map/mapDefaults';
 /**
  * Class to organize queries on current demographic data
  */
@@ -321,9 +320,37 @@ class DemographyService {
     ids?: string[];
   }) {
     if (!this.table || !this.colorScale) return;
-    const mapDocument = useMapStore.getState().mapDocument;
-    const isPublic = mapDocument?.document_id === ANONYMOUS_DOCUMENT_ID;
+    const source = mapRef.getSource(BLOCK_SOURCE_ID) as {type?: string} | undefined;
+    const useVectorSourceLayer = source?.type === 'vector';
     const colorScale = this.colorScale!;
+
+    if (!useVectorSourceLayer) {
+      this.populations.forEach(row => {
+        const zone = row.zone;
+        if (!zone) return;
+        const zoneId = String(zone);
+        if (ids && !ids.includes(zoneId)) return;
+        const value = config.expression
+          ? config.expression(row as unknown as DemographyRow)
+          : (row[variableName as keyof typeof row] as number | undefined);
+        let color = '#CCCCCC';
+        if (value !== undefined && !isNaN(+value)) {
+          color = colorScale(+value);
+        }
+        mapRef.setFeatureState(
+          {
+            source: BLOCK_SOURCE_ID,
+            id: zoneId,
+          },
+          {
+            color,
+            hasColor: true,
+          }
+        );
+      });
+      return;
+    }
+
     const derives = {
       color: config.expression
         ? escape(config.expression)
@@ -344,7 +371,7 @@ class DemographyService {
       mapRef.setFeatureState(
         {
           source: BLOCK_SOURCE_ID,
-          sourceLayer: isPublic ? undefined : row.sourceLayer,
+          sourceLayer: useVectorSourceLayer ? row.sourceLayer : undefined,
           id,
         },
         {
@@ -443,4 +470,4 @@ class DemographyService {
 }
 
 // global demography cache
-export const demographyService = new DemographyService();
+export const demographyService = new DemographyService();\

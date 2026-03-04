@@ -8,7 +8,7 @@ import {shallowCompareArray} from '@utils/arrays';
 import {useMapStore as _useMapStore} from '@store/mapStore';
 import {getFeatureUnderCursor} from '@utils/map/getFeatureUnderCursor';
 import {useDemographyStore as _useDemographyStore} from '../../store/demography/demographyStore';
-import {demographyCache} from '../demography/demographyCache';
+import {demographyService} from '../demography/demographyService';
 import {DEFAULT_CHOROPLETH_BIN_COUNT} from '@/app/store/demography/constants';
 import {FocusState, ShatterState} from './types';
 import {
@@ -216,7 +216,7 @@ export class MapRenderSubscriber {
     GeometryWorker?.updateZones(Array.from(zoneAssignments.entries()));
 
     // Update demography cache
-    demographyCache.updatePopulations(zoneAssignments);
+    demographyService.updatePopulations(zoneAssignments);
 
     // Only render colors if map is fully loaded
     if (mapState.mapRenderingState !== 'loaded' || mapState.appLoadingState !== 'loaded') {
@@ -305,7 +305,7 @@ export class MapRenderSubscriber {
       this.mapType === 'demographic' || controlsState.mapOptions.showDemographicMap === 'overlay';
     if (!demographyEnabled || !mapState.mapDocument) return;
 
-    const mapScale = demographyCache.calculateDemographyColorScale({
+    const mapScale = demographyService.calculateDemographyColorScale({
       variable: demographyState.variable,
       variant: demographyState.variant,
       mapRef: this.mapRef,
@@ -376,6 +376,8 @@ export class MapRenderSubscriber {
     }
 
     if (zoneAssignments.size === 0) return;
+    const source = mapRef.getSource(BLOCK_SOURCE_ID) as {type?: string} | undefined;
+    if (source?.type !== 'vector') return;
 
     const featureStateCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
     if (!featureStateCache) return;

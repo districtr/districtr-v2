@@ -3,7 +3,7 @@ import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import GeometryWorker from '@/app/utils/GeometryWorker';
 import {LngLatBoundsLike} from 'maplibre-gl';
 import {create} from 'zustand';
-import {demographyService} from '../utils/demography/demographyCache';
+import {demographyService} from '../utils/demography/demographyService';
 
 type UnassignedFeatureStore = {
   unassignedFeatureBboxes: GeoJSON.Feature[];
@@ -35,7 +35,7 @@ export const useUnassignFeaturesStore = create<UnassignedFeatureStore>((set, get
     const {shatterIds} = useAssignmentsStore.getState();
     const mapRef = getMapRef();
     if (!GeometryWorker || !mapRef) return;
-    // const expectedFeatures = demographyCache.table?.size;
+    // const expectedFeatures = demographyService.table?.size;
     // const nSeen = Object.keys(await GeometryWorker.activeGeometries).length;
     // disabling local implementation for now
     const unassignedGeometries = await GeometryWorker.getUnassignedGeometries(

@@ -1,5 +1,5 @@
 import {useLayoutEffect} from 'react';
-import {demographyService} from '../utils/demography/demographyCache';
+import {demographyService} from '../utils/demography/demographyService';
 import {useDemographyStore} from '../store/demography/demographyStore';
 import {useMapStore} from '../store/mapStore';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';

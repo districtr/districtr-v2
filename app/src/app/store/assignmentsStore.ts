@@ -1,7 +1,7 @@
 import {NullableZone} from '../constants/types';
 import {Zone, GDBPath} from '@constants/types';
 import GeometryWorker from '../utils/GeometryWorker';
-import {demographyCache} from '../utils/demography/demographyCache';
+import {demographyService} from '../utils/demography/demographyService';
 import {idb} from '../utils/idb/idb';
 import {useMapStore} from './mapStore';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
@@ -212,8 +212,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       idb.updateIdbAssignments(mapDocument, data.zoneAssignments, mapDocument.updated_at, true);
       useMapStore.getState().mutateMapDocument(mapDocument);
     }
-    demographyCache.updatePopulations(data.zoneAssignments);
-  },
+    demographyService.updatePopulations(data.zoneAssignments);
+  },  
 
   healParentsIfAllChildrenInSameZone: (
     {
@@ -373,7 +373,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
 
     if (!result) return;
     const {zoneAssignments, shatterIds, parentToChild, childToParent} = result;
-    demographyCache.updatePopulations(zoneAssignments);
+    demographyService.updatePopulations(zoneAssignments);
     idb.updateIdbAssignments(mapDocument, zoneAssignments);
 
     set({

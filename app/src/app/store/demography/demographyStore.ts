@@ -6,7 +6,7 @@ import {subscribeWithSelector} from 'zustand/middleware';
 import {DemographyStore} from './types';
 import {useAssignmentsStore} from '../assignmentsStore';
 import {getDemography} from '@/app/utils/api/apiHandlers/getDemography';
-import {demographyCache} from '@/app/utils/demography/demographyCache';
+import {demographyService} from '@/app/utils/demography/demographyService';
 import {AllEvaluationConfigs, AllMapConfigs} from '@/app/utils/api/summaryStats';
 import {evalColumnConfigs} from './evaluationConfig';
 import {choroplethMapVariables, DEFAULT_CHOROPLETH_BIN_COUNT} from './constants';
@@ -86,8 +86,8 @@ export var useDemographyStore = create(
         });
         return;
       }
-      demographyCache.update(result.columns, result.results, dataHash);
-      const availableColumns = demographyCache.availableColumns;
+      demographyService.update(result.columns, result.results, dataHash);
+      const availableColumns = demographyService.availableColumns;
       const availableEvalSets: Record<string, AllEvaluationConfigs> = Object.fromEntries(
         Object.entries(evalColumnConfigs)
           .map(([columnsetKey, config]) => [

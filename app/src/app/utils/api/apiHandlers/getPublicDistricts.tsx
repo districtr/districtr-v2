@@ -6,8 +6,8 @@ import {get} from '../factory';
 
 type PublicDistrictData = {
   zone: number;
-  demographic_data: Record<string, any>;
-  geometry: string; //  GeoJSON.Geometry;
+  demographic_data: Record<string, unknown> | null;
+  geometry: string | GeoJSON.Geometry;
 };
 
 export const getPublicDistricts = async (mapDocument?: DocumentObject | null) => {
@@ -29,32 +29,41 @@ export const getPublicDistricts = async (mapDocument?: DocumentObject | null) =>
   };
   const assignments: Map<string, NullableZone> = new Map();
   let statefp = '';
-  response.response.forEach((row: any) => {
-    if (row.demographic_data.statefp) {
-      statefp = row.demographic_data.statefp;
+  response.response.forEach((row: PublicDistrictData) => {
+    const demographicDataRow =
+      row.demographic_data && typeof row.demographic_data === 'object' ? row.demographic_data : {};
+    if (typeof demographicDataRow.statefp === 'string') {
+      statefp = demographicDataRow.statefp;
     }
+    const path = String(row.zone);
+    const geometry =
+      typeof row.geometry === 'string' ? (JSON.parse(row.geometry) as GeoJSON.Geometry) : row.geometry;
     const feature = {
       type: 'Feature',
-      geometry: JSON.parse(row.geometry) as GeoJSON.Geometry,
+      geometry,
       properties: {
-        ...row.demographic_data,
+        ...demographicDataRow,
         zone: row.zone,
-        path: row.zone,
+        path,
       },
     } as GeoJSON.Feature<GeoJSON.Geometry, GeoJSON.GeoJsonProperties>;
     geojsonFeatures.push(feature);
-    Object.keys(row.demographic_data).forEach(column =>
-      columns.add(column as AllTabularColumns[number])
-    );
-    demographicData.path.push(row.zone);
+    demographicData.path.push(path);
     demographicData.sourceLayer.push(mapDocument?.parent_layer ?? '');
-    Object.entries(row.demographic_data).forEach(([column, value]) => {
-      if (!columns.has(column as AllTabularColumns[number]))
-        columns.add(column as AllTabularColumns[number]);
-      if (!(column in demographicData)) demographicData[column as AllTabularColumns[number]] = [];
-      demographicData[column as AllTabularColumns[number]]!.push(value as number);
-      assignments.set(row.zone, row.zone);
+    Object.entries(demographicDataRow).forEach(([column, value]) => {
+      const numericValue =
+        typeof value === 'number'
+          ? value
+          : typeof value === 'string'
+            ? Number(value)
+            : Number.NaN;
+      if (Number.isNaN(numericValue)) return;
+      const typedColumn = column as AllTabularColumns[number];
+      columns.add(typedColumn);
+      if (!(typedColumn in demographicData)) demographicData[typedColumn] = [];
+      demographicData[typedColumn]!.push(numericValue);
     });
+    assignments.set(path, row.zone);
   });
 
   return {

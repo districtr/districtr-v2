@@ -1,5 +1,5 @@
 'use client';
-import {demographyService} from '@utils/demography/demographyCache';
+import {demographyService} from '@/app/utils/demography/demographyService';
 import {useDemographyStore} from '../store/demography/demographyStore';
 import {useMapStore} from '../store/mapStore';
 import {useChartStore} from '../store/chartStore';

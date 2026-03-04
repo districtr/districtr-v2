@@ -6,7 +6,7 @@ import {
 } from 'maplibre-gl';
 import {BLOCK_HOVER_LAYER_ID} from '@/app/constants/map/layerIds';
 import {filterFeatures} from '@utils/map/filterFeatures';
-import {demographyCache} from '../demography/demographyCache';
+import {demographyService} from '../demography/demographyService';
 
 /**
  * getFeaturesIntersectingCounties
@@ -31,7 +31,7 @@ export const getFeaturesIntersectingCounties = (
   if (!countyFeatures?.length) return;
   const fips = countyFeatures[0].properties.STATEFP + countyFeatures[0].properties.COUNTYFP;
   return filterFeatures({
-    _features: demographyCache.getFiltered(fips),
+    _features: demographyService.getFiltered(fips),
     filterLocked: true,
   });
 };
