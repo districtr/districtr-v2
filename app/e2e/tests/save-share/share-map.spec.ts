@@ -58,19 +58,15 @@ test.describe('Share Map', () => {
     }
 
     // Look for share button
-    const shareButton = page.locator('button:has-text("Share")').first();
+    const shareButton = page.locator('[data-testid="share-button"]');
 
-    if (await shareButton.isVisible()) {
-      await shareButton.click();
-      await page.waitForTimeout(500);
+    await expect(shareButton).toBeVisible();
+    await shareButton.click();
+    await page.waitForTimeout(500);
 
-      // Look for modal or popover
-      const modal = page.locator('[role="dialog"], [data-testid="share-modal"]');
-
-      if (await modal.isVisible()) {
-        await expect(modal).toBeVisible();
-      }
-    }
+    // Look for modal or popover
+    const modal = page.locator('[role="dialog"], [data-testid="share-modal"]');
+    await expect(modal.first()).toBeVisible();
 
     // Map should still be visible
     await expect(mapCanvas).toBeVisible();
