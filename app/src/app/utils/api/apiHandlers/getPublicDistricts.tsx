@@ -37,7 +37,9 @@ export const getPublicDistricts = async (mapDocument?: DocumentObject | null) =>
     }
     const path = String(row.zone);
     const geometry =
-      typeof row.geometry === 'string' ? (JSON.parse(row.geometry) as GeoJSON.Geometry) : row.geometry;
+      typeof row.geometry === 'string'
+        ? (JSON.parse(row.geometry) as GeoJSON.Geometry)
+        : row.geometry;
     const feature = {
       type: 'Feature',
       geometry,
@@ -52,11 +54,7 @@ export const getPublicDistricts = async (mapDocument?: DocumentObject | null) =>
     demographicData.sourceLayer.push(mapDocument?.parent_layer ?? '');
     Object.entries(demographicDataRow).forEach(([column, value]) => {
       const numericValue =
-        typeof value === 'number'
-          ? value
-          : typeof value === 'string'
-            ? Number(value)
-            : Number.NaN;
+        typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN;
       if (Number.isNaN(numericValue)) return;
       const typedColumn = column as AllTabularColumns[number];
       columns.add(typedColumn);

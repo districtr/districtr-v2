@@ -23,7 +23,7 @@ export const ZoneAssignmentLayer: React.FC<{
   const showPaintedDistricts = useMapControlsStore(state => state.mapOptions.showPaintedDistricts);
   const fillOpacity = useMemo(
     () =>
-      (isGeoJsonSource
+      isGeoJsonSource
         ? baseFillOpacity
         : ([
             'case',
@@ -31,7 +31,7 @@ export const ZoneAssignmentLayer: React.FC<{
             ['!', ['==', ['feature-state', 'zone'], null]],
             baseFillOpacity,
             0,
-          ] as unknown as DataDrivenPropertyValueSpecification<number>)),
+          ] as unknown as DataDrivenPropertyValueSpecification<number>),
     [baseFillOpacity, isGeoJsonSource]
   );
 
@@ -44,9 +44,9 @@ export const ZoneAssignmentLayer: React.FC<{
     layout: {visibility: showPaintedDistricts ? 'visible' : 'none'},
     paint: {
       'fill-opacity': fillOpacity,
-      'fill-color': (isGeoJsonSource
-        ? ZONE_LABEL_STYLE(colorScheme)
-        : ZONE_ASSIGNMENT_STYLE(colorScheme)) || '#000000',
+      'fill-color':
+        (isGeoJsonSource ? ZONE_LABEL_STYLE(colorScheme) : ZONE_ASSIGNMENT_STYLE(colorScheme)) ||
+        '#000000',
     },
   };
 

@@ -33,8 +33,7 @@ export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
   const [modalOpen, setModalOpen] = React.useState<'upload' | 'recents' | null>(null);
   const mapDocument = useMapStore(state => state.mapDocument);
-  const isEditing =
-    mapDocument?.document_id && mapDocument?.document_id !== ANONYMOUS_DOCUMENT_ID;
+  const isEditing = mapDocument?.document_id && mapDocument?.document_id !== ANONYMOUS_DOCUMENT_ID;
   const access = useMapStore(state => state.mapStatus?.access);
   const mapViews = useMapStore(state => state.mapViews);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);

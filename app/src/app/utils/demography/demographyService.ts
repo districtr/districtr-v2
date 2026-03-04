@@ -470,4 +470,4 @@ class DemographyService {
 }
 
 // global demography cache
-export const demographyService = new DemographyService();\
+export const demographyService = new DemographyService();
