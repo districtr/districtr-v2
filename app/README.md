@@ -39,7 +39,9 @@ feedback and contributions are welcome!
 
 ## E2E Testing
 
-This project uses [Playwright](https://playwright.dev/) for end-to-end testing. The test suite covers static pages, map creation, drawing tools, sidebar interactions, and save/share functionality.
+This project uses [Playwright](https://playwright.dev/) for end-to-end testing. The test suite
+covers static pages, map creation, drawing tools, sidebar interactions, and save/share
+functionality.
 
 ### Setup
 
@@ -53,31 +55,14 @@ npx playwright install
 
 ### Running Tests
 
-**Inside Docker (recommended):**
+**From host machine (recommended for map/WebGL tests):**
 
-Run the tests inside a Docker container alongside the other services:
-
-```bash
-# From the project root - start services and run tests
-docker-compose --profile e2e up e2e
-
-# Or run with existing services already running
-docker-compose --profile e2e run --rm e2e
-
-# Run specific test file
-docker-compose --profile e2e run --rm e2e bun run test:e2e tests/static/homepage.spec.ts
-
-# Run specific test suite
-docker-compose --profile e2e run --rm e2e bun run test:e2e tests/tools/
-```
-
-**From host machine (alternative):**
-
-If you prefer to run tests from your host machine:
+Run backend/frontend with Docker, then execute Playwright on your host machine so browsers can use
+host GPU acceleration:
 
 ```bash
-# Make sure docker-compose is running
-docker-compose up -d
+# Start app services
+docker-compose up -d backend db frontend
 
 # Install Playwright browsers (first time only)
 npx playwright install
@@ -90,6 +75,22 @@ bun run test:e2e:ui
 
 # Run headed (visible browser)
 bun run test:e2e:headed
+```
+
+**Inside Docker (optional):**
+
+If you still want to execute Playwright in the container:
+
+```bash
+# Start services
+docker-compose up -d backend db frontend
+
+# Open a shell in the frontend container
+docker-compose exec frontend sh
+
+# Then inside the container:
+npx playwright install
+bun run test:e2e
 ```
 
 **Against a preview/staging environment:**
@@ -119,31 +120,32 @@ e2e/
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `IS_DOCKER` | Set to `true` when running inside Docker | `false` |
-| `BASE_URL` | Target frontend URL | `http://frontend:3000` (Docker) or `http://localhost:3000` |
-| `BACKEND_URL` | Target backend URL | `http://backend:8000` (Docker) or `http://localhost:8000` |
-| `TEST_DOCUMENT_ID` | Specific document ID for tests | Auto-created |
-| `TEST_MAP_SLUG` | Map slug to use for testing | `pennsylvania_vtd` |
-| `ALLOW_WRITES` | Enable write tests on remote | `false` |
+| Variable           | Description                              | Default                                                    |
+| ------------------ | ---------------------------------------- | ---------------------------------------------------------- |
+| `IS_DOCKER`        | Set to `true` when running inside Docker | `false`                                                    |
+| `BASE_URL`         | Target frontend URL                      | `http://frontend:3000` (Docker) or `http://localhost:3000` |
+| `BACKEND_URL`      | Target backend URL                       | `http://backend:8000` (Docker) or `http://localhost:8000`  |
+| `TEST_DOCUMENT_ID` | Specific document ID for tests           | Auto-created                                               |
+| `TEST_MAP_SLUG`    | Map slug to use for testing              | `pennsylvania_vtd`                                         |
+| `ALLOW_WRITES`     | Enable write tests on remote             | `false`                                                    |
 
-> **Note:** When running inside Docker, use internal network URLs (`frontend:3000`, `backend:8000`). When running from host machine, use exposed ports (`localhost:3000`, `localhost:8000`).
+> **Note:** When running inside Docker, use internal network URLs (`frontend:3000`, `backend:8000`).
+> When running from host machine, use exposed ports (`localhost:3000`, `localhost:8000`).
 
 ### Writing Tests
 
 Canvas/map interactions use helper utilities:
 
 ```typescript
-import { getMapCenter, paintAtCoordinates, waitForMapLoad } from '../../utils/map-helpers';
+import {getMapCenter, paintAtCoordinates, waitForMapLoad} from '../../utils/map-helpers';
 
-test('should paint on map', async ({ page }) => {
+test('should paint on map', async ({page}) => {
   await page.goto('/map/edit/document-id');
   await waitForMapLoad(page);
-  
+
   // Select brush tool
   await page.getByTestId('brush-tool').click();
-  
+
   // Paint at map center
   const center = await getMapCenter(page);
   await paintAtCoordinates(page, center.x, center.y);

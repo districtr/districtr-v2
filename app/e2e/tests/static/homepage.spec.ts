@@ -1,5 +1,5 @@
 import {test, expect} from '@playwright/test';
-import {testUrls, testTimeouts} from '../../fixtures/test-data';
+import {testUrls} from '../../fixtures/test-data';
 
 test.describe('Homepage', () => {
   test.beforeEach(async ({page}) => {
@@ -21,9 +21,6 @@ test.describe('Homepage', () => {
   });
 
   test('should have working navigation links', async ({page}) => {
-    // Check for navigation elements
-    const nav = page.getByRole('navigation');
-
     // Look for common nav links
     await expect(page.getByRole('link', {name: 'About Districtr'})).toBeVisible();
     await expect(page.getByRole('link', {name: 'Guide'}).first()).toBeVisible();
@@ -35,7 +32,7 @@ test.describe('Homepage', () => {
     await expect(page.getByRole('heading', {name: 'Help shape our democracy!'})).toBeVisible();
 
     // Check for "Use this tool" or similar messaging
-    await expect(page.getByRole('heading', {name: 'Use this tool to amplify your'})).toBeVisible();
+    await expect(page.getByRole('heading', {name: /Use this tool to amplify your/i})).toBeVisible();
   });
 
   test('should have accessible structure', async ({page}) => {

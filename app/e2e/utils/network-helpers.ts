@@ -1,8 +1,8 @@
-import { Page, Request, Response } from '@playwright/test';
+import {Page, Request, Response} from '@playwright/test';
 
 /**
  * Network Request Testing Utilities
- * 
+ *
  * Helpers for intercepting, waiting for, and verifying API requests.
  */
 
@@ -21,29 +21,43 @@ export const API_ENDPOINTS = {
   cmsContent: '**/api/cms/*',
 } as const;
 
+function globToRegExp(glob: string): RegExp {
+  const escaped = glob.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+  const regexPattern = escaped
+    .replace(/\*\*/g, '::DOUBLE_STAR::')
+    .replace(/\*/g, '[^/]*')
+    .replace(/::DOUBLE_STAR::/g, '.*');
+  return new RegExp(`^${regexPattern}$`);
+}
+
 /**
  * Wait for a specific API request to complete
  */
 export async function waitForApiRequest(
   page: Page,
   urlPattern: string | RegExp,
-  options: { timeout?: number; method?: string } = {}
+  options: {timeout?: number; method?: string} = {}
 ): Promise<Response> {
-  const { timeout = 10000, method } = options;
-  
+  const {timeout = 10000, method} = options;
+  const matcher =
+    typeof urlPattern === 'string'
+      ? (url: string) => {
+          if (urlPattern.includes('*')) return globToRegExp(urlPattern).test(url);
+          return url.includes(urlPattern);
+        }
+      : (url: string) => urlPattern.test(url);
+
   const response = await page.waitForResponse(
-    (resp) => {
-      const urlMatches = typeof urlPattern === 'string' 
-        ? resp.url().includes(urlPattern)
-        : urlPattern.test(resp.url());
-      
+    resp => {
+      const urlMatches = matcher(resp.url());
+
       const methodMatches = !method || resp.request().method() === method;
-      
+
       return urlMatches && methodMatches;
     },
-    { timeout }
+    {timeout}
   );
-  
+
   return response;
 }
 
@@ -53,12 +67,12 @@ export async function waitForApiRequest(
 export async function waitForDocumentCreation(
   page: Page,
   timeout = 15000
-): Promise<{ documentId: string; response: Response }> {
+): Promise<{documentId: string; response: Response}> {
   const response = await waitForApiRequest(page, API_ENDPOINTS.createDocument, {
     timeout,
     method: 'POST',
   });
-  
+
   const json = await response.json();
   return {
     documentId: json.document_id,
@@ -69,10 +83,7 @@ export async function waitForDocumentCreation(
 /**
  * Wait for assignment updates to complete
  */
-export async function waitForAssignmentUpdate(
-  page: Page,
-  timeout = 10000
-): Promise<Response> {
+export async function waitForAssignmentUpdate(page: Page, timeout = 10000): Promise<Response> {
   return await waitForApiRequest(page, API_ENDPOINTS.updateAssignments, {
     timeout,
     method: 'PATCH',
@@ -87,11 +98,9 @@ export async function waitForDocumentFetch(
   documentId?: string,
   timeout = 10000
 ): Promise<Response> {
-  const pattern = documentId 
-    ? `**/api/document/${documentId}`
-    : API_ENDPOINTS.getDocument;
-  
-  return await waitForApiRequest(page, pattern, { timeout, method: 'GET' });
+  const pattern = documentId ? `**/api/document/${documentId}` : API_ENDPOINTS.getDocument;
+
+  return await waitForApiRequest(page, pattern, {timeout, method: 'GET'});
 }
 
 /**
@@ -106,7 +115,7 @@ export async function mockApiResponse(
     body?: string;
   }
 ): Promise<void> {
-  await page.route(urlPattern, async (route) => {
+  await page.route(urlPattern, async route => {
     await route.fulfill({
       status: response.status ?? 200,
       contentType: 'application/json',
@@ -124,7 +133,7 @@ export async function collectApiRequests(
   urlFilter?: string | RegExp
 ): Promise<Request[]> {
   const requests: Request[] = [];
-  
+
   const handler = (request: Request) => {
     if (!urlFilter) {
       requests.push(request);
@@ -134,13 +143,13 @@ export async function collectApiRequests(
       requests.push(request);
     }
   };
-  
+
   page.on('request', handler);
-  
+
   await action();
-  
+
   page.off('request', handler);
-  
+
   return requests;
 }
 
@@ -149,12 +158,9 @@ export async function collectApiRequests(
  * Note: networkidle can be problematic with long-polling/streaming apps
  * Consider using waitForPageReady from map-fixture instead
  */
-export async function waitForNetworkIdle(
-  page: Page,
-  timeout = 10000
-): Promise<void> {
+export async function waitForNetworkIdle(page: Page, timeout = 10000): Promise<void> {
   try {
-    await page.waitForLoadState('networkidle', { timeout });
+    await page.waitForLoadState('networkidle', {timeout});
   } catch {
     // networkidle often times out with map tiles - that's okay
     await page.waitForLoadState('domcontentloaded');
@@ -165,13 +171,10 @@ export async function waitForNetworkIdle(
  * Check if the backend is reachable
  * The backend root returns {"message":"Hello World"}
  */
-export async function isBackendReachable(
-  page: Page,
-  backendUrl?: string
-): Promise<boolean> {
+export async function isBackendReachable(page: Page, backendUrl?: string): Promise<boolean> {
   const isDocker = process.env.IS_DOCKER === 'true';
   const url = backendUrl || (isDocker ? 'http://backend:8000' : 'http://localhost:8000');
-  
+
   try {
     const response = await page.request.get(url);
     return response.ok();
@@ -186,13 +189,14 @@ export async function isBackendReachable(
  */
 export function getApiBaseUrl(): string {
   const isDocker = process.env.IS_DOCKER === 'true';
-  const baseUrl = process.env.BASE_URL || (isDocker ? 'http://frontend:3000' : 'http://localhost:3000');
-  
+  const baseUrl =
+    process.env.BASE_URL || (isDocker ? 'http://frontend:3000' : 'http://localhost:3000');
+
   // For local/Docker development, use the backend directly
   if (baseUrl.includes('localhost:3000') || baseUrl.includes('frontend:3000')) {
     return process.env.BACKEND_URL || (isDocker ? 'http://backend:8000' : 'http://localhost:8000');
   }
-  
+
   // For deployed environments, API is typically at /api on the same domain
   // or you might have a separate API URL
   return process.env.API_URL || baseUrl;
@@ -208,7 +212,7 @@ export async function interceptTileRequests(
     delay?: number;
   } = {}
 ): Promise<void> {
-  await page.route('**/*.pmtiles', async (route) => {
+  await page.route('**/*.pmtiles', async route => {
     if (options.block) {
       await route.abort();
     } else if (options.delay) {
@@ -224,11 +228,11 @@ export async function interceptTileRequests(
  * Log all network requests for debugging
  */
 export function enableRequestLogging(page: Page): void {
-  page.on('request', (request) => {
+  page.on('request', request => {
     console.log(`>> ${request.method()} ${request.url()}`);
   });
-  
-  page.on('response', (response) => {
+
+  page.on('response', response => {
     console.log(`<< ${response.status()} ${response.url()}`);
   });
 }
@@ -236,19 +240,15 @@ export function enableRequestLogging(page: Page): void {
 /**
  * Wait for PMTiles to load (map tile data)
  */
-export async function waitForTilesLoaded(
-  page: Page,
-  timeout = 30000
-): Promise<void> {
+export async function waitForTilesLoaded(page: Page, timeout = 30000): Promise<void> {
   // Wait for at least one tile request to complete
-  await page.waitForResponse(
-    (response) => response.url().includes('.pmtiles') && response.ok(),
-    { timeout }
-  ).catch(() => {
-    // Tiles might already be loaded or cached
-    console.log('Tile request not intercepted, may be cached');
-  });
-  
+  await page
+    .waitForResponse(response => response.url().includes('.pmtiles') && response.ok(), {timeout})
+    .catch(() => {
+      // Tiles might already be loaded or cached
+      console.log('Tile request not intercepted, may be cached');
+    });
+
   // Wait for network to settle
   await waitForNetworkIdle(page, 5000).catch(() => {
     // Network might not fully settle, that's okay

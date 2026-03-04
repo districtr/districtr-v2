@@ -1,8 +1,8 @@
-import { defineConfig, devices } from '@playwright/test';
+import {defineConfig, devices} from '@playwright/test';
 
 /**
  * Playwright E2E Test Configuration for Districtr v2
- * 
+ *
  * Supports multiple environments via BASE_URL environment variable:
  * - Local: BASE_URL=http://localhost:3000 (default)
  * - Preview: BASE_URL=https://districtr-v2-pr-123.fly.dev
@@ -10,29 +10,26 @@ import { defineConfig, devices } from '@playwright/test';
  */
 
 const baseURL = process.env.BASE_URL || 'http://localhost:3000';
-const isLocal = baseURL.includes('localhost');
+const isLocal = baseURL.includes('localhost') || baseURL.includes('frontend:3000');
 
 export default defineConfig({
   testDir: './e2e/tests',
-  
+
   /* Run tests in files in parallel */
   fullyParallel: true,
-  
+
   /* Fail the build on CI if you accidentally left test.only in the source code */
   forbidOnly: !!process.env.CI,
-  
+
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  
+
   /* Opt out of parallel tests on CI */
   workers: process.env.CI ? 1 : undefined,
-  
+
   /* Reporter to use */
-  reporter: [
-    ['html', { open: 'never' }],
-    ['list']
-  ],
-  
+  reporter: [['html', {open: 'never'}], ['list']],
+
   /* Shared settings for all the projects below */
   use: {
     /* Base URL to use in actions like `await page.goto('/')` */
@@ -40,17 +37,17 @@ export default defineConfig({
 
     /* Collect trace when retrying the failed test */
     trace: 'on-first-retry',
-    
+
     /* Capture screenshot on failure */
     screenshot: 'only-on-failure',
-    
+
     /* Record video on failure */
     video: 'on-first-retry',
   },
 
   /* Timeout settings - longer for map loading */
   timeout: 60000, // 60 seconds for all tests (maps are slow)
-  
+
   /* Expect timeout for assertions */
   expect: {
     timeout: 15000,
@@ -64,12 +61,12 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {...devices['Desktop Chrome']},
     },
 
     {
       name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
+      use: {...devices['Desktop Firefox']},
     },
 
     // { // The webkit engine fails on basic tasks due to speed issues -- excluding for now.
