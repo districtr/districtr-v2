@@ -55,10 +55,12 @@ npx playwright install
 
 ### Running Tests
 
-**From host machine (recommended for map/WebGL tests):**
+**From host machine (recommended for simplicity and map/WebGL tests):**
 
-Run backend/frontend with Docker, then execute Playwright on your host machine so browsers can use
-host GPU acceleration:
+Run backend/frontend with Docker, then execute Playwright on your host machine.
+
+> Recommended default: run Playwright on the host for the simplest setup and fewer container/browser
+> issues. Host browsers also use host GPU acceleration, which helps with WebGL-heavy map tests.
 
 > Use `frontend-prod` for E2E runs. It avoids repeated dev recompilation and typically gets tests
 > running faster once the image is built.
