@@ -60,7 +60,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
   );
   const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
     evaluation: true,
-    map: false,
+    map: defaultColumnSet === 'VOTERHISTORY' ? true : false,
     coalition: false,
   });
   const toggleSection = (section: SectionKey) => {
@@ -137,7 +137,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
   return (
     <Flex direction="column" gap="2">
       <SectionHeader
-        title="Evaluation"
+        title={summaryType === 'VOTERHISTORY' ? 'Voter History Table' : 'Demographic table'}
         isOpen={openSections.evaluation}
         onToggle={() => toggleSection('evaluation')}
       />

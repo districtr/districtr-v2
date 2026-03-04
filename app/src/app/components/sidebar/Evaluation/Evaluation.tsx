@@ -46,7 +46,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
   setSummaryType,
   displayedColumnSets,
   columnConfig,
-  title
+  title,
 }) => {
   const [evalMode, setEvalMode] = useState<EvalModes>('share');
   const [colorBg, setColorBg] = useState<boolean>(true);
@@ -139,9 +139,11 @@ const Evaluation: React.FC<EvaluationProps> = ({
     <Box width={'100%'}>
       <Flex direction="row" gap="3" align="center" pb="2">
         <Flex direction="column" gap="1" flexGrow="1">
-          {title && <Heading as="h3" size="3">
-            {title}
-          </Heading>}
+          {title && (
+            <Heading as="h3" size="3">
+              {title}
+            </Heading>
+          )}
           {showSummaryTypeSelect && (
             <Flex direction="row" gap="2" align="center">
               <Text size="2">Summary type</Text>

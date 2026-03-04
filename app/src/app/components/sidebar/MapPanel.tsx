@@ -184,11 +184,6 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
     };
   }, [mapVariableConfig]);
 
-  useEffect(() => {
-    if (!mapMode || !currentVariableList.length || mapVariableConfig) return;
-    setVariable(currentVariableList[0].value);
-  }, [mapMode, currentVariableList, mapVariableConfig, setVariable]);
-
   if (!Object.keys(availableMapVariables).length) {
     return (
       <Blockquote color="crimson">

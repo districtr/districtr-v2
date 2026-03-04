@@ -2,21 +2,24 @@
 import {demographyCache} from '@/app/utils/demography/demographyCache';
 import {
   CoalitionUniverse,
+  CoalitionGroupKey,
   COALITION_GROUPS,
-  getCoalitionGroupLabel,
-  getCoalitionLabel,
 } from '@/app/utils/demography/coalition';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useChartStore} from '@/app/store/chartStore';
+import {CardCheckbox, ResponsiveCheckboxCards} from '@/app/components/Shared/CardCheckbox';
 import {formatNumber} from '@/app/utils/numbers';
-import {Badge, Box, Button, Checkbox, Flex, Text} from '@radix-ui/themes';
+import {Box, Flex, Text} from '@radix-ui/themes';
 
 type CoalitionBuilderProps = {
   summaryType: CoalitionUniverse;
-  title?: string;
 };
 
-export const CoalitionBuilder: React.FC<CoalitionBuilderProps> = ({summaryType, title}) => {
+const COALITION_GROUP_KEYS = new Set(COALITION_GROUPS.map(group => group.key));
+const isCoalitionGroupKey = (value: string): value is CoalitionGroupKey =>
+  COALITION_GROUP_KEYS.has(value as CoalitionGroupKey);
+
+export const CoalitionBuilder: React.FC<CoalitionBuilderProps> = ({summaryType}) => {
   const coalitionGroups = useDemographyStore(state => state.coalitionGroups);
   const setCoalitionGroups = useDemographyStore(state => state.setCoalitionGroups);
   useDemographyStore(state => state.coalitionHash);
@@ -24,106 +27,67 @@ export const CoalitionBuilder: React.FC<CoalitionBuilderProps> = ({summaryType, 
   useChartStore(state => state.dataUpdateHash);
 
   const stats = demographyCache.getCoalitionUniverseStats(summaryType);
-  const selectedSet = new Set(coalitionGroups);
   const availableSet = new Set(stats.availableGroups);
-  const availableGroups = COALITION_GROUPS.filter(group => availableSet.has(group.key));
-
-  const coalitionLabel = getCoalitionLabel({
-    selectedGroups: coalitionGroups,
-    availableColumns: demographyCache.availableColumns,
-    universe: summaryType,
-  });
-
-  const toggleGroup = (group: (typeof COALITION_GROUPS)[number]['key']) => {
-    if (selectedSet.has(group)) {
-      void setCoalitionGroups(coalitionGroups.filter(entry => entry !== group));
-      return;
-    }
-    void setCoalitionGroups([...coalitionGroups, group]);
-  };
-
-  const handleSelectAll = () => {
-    void setCoalitionGroups(availableGroups.map(group => group.key));
-  };
-
-  const handleClearAll = () => {
-    void setCoalitionGroups([]);
+  const handleCoalitionChange = (values: string[]) => {
+    const selectedAvailableGroups = values.filter(isCoalitionGroupKey);
+    const selectedUnavailableGroups = coalitionGroups.filter(group => !availableSet.has(group));
+    const nextGroups = Array.from(
+      new Set([...selectedUnavailableGroups, ...selectedAvailableGroups])
+    ) as CoalitionGroupKey[];
+    void setCoalitionGroups(nextGroups);
   };
 
   return (
     <Box>
-      <Flex justify="between" align="center" gap="2" wrap="wrap">
-        {title && <Text size="2" weight="bold">
-          {title}
-        </Text>}
-        <Badge color={coalitionGroups.length ? 'blue' : 'gray'}>
-          {coalitionGroups.length} selected
-        </Badge>
-      </Flex>
-      <Text size="1" color="gray">
-        {coalitionLabel}
-      </Text>
-      <Flex gap="2" py="2" wrap="wrap">
-        <Button
-          size="1"
-          variant="soft"
-          onClick={handleSelectAll}
-          disabled={!availableGroups.length || coalitionGroups.length === availableGroups.length}
-        >
-          Select All Available
-        </Button>
-        <Button size="1" variant="outline" color="gray" onClick={handleClearAll}>
-          Clear
-        </Button>
-      </Flex>
-      <Flex direction="row" wrap="wrap" gap="3" py="1">
+      <ResponsiveCheckboxCards
+        value={coalitionGroups}
+        gap="1"
+        size="1"
+        onValueChange={handleCoalitionChange}
+        id="coalition-groups"
+      >
         {COALITION_GROUPS.map(group => {
-          const available = availableSet.has(group.key);
           return (
-            <Text
-              as="label"
+            <CardCheckbox
               key={group.key}
-              className={available ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}
-            >
-              <Flex align="center" gap="1">
-                <Checkbox
-                  checked={selectedSet.has(group.key)}
-                  disabled={!available}
-                  onCheckedChange={() => toggleGroup(group.key)}
-                />
-                {group.label}
-              </Flex>
-            </Text>
+              value={group.key}
+              label={group.label}
+              disabled={!availableSet.has(group.key)}
+            />
           );
         })}
-      </Flex>
-      {!availableGroups.length && (
-        <Text size="1" color="orange">
-          No coalition categories are available for this universe.
-        </Text>
-      )}
-      <Flex direction="row" wrap="wrap" gap="3">
-        <Text size="1">
-          Universe total: <b>{formatNumber(stats.universeTotal, 'string')}</b>
-        </Text>
-        <Text size="1">
-          Coalition total: <b>{formatNumber(stats.coalitionTotal, 'string')}</b>
-        </Text>
-        <Text size="1">
-          Coalition share:{' '}
-          <b>
+      </ResponsiveCheckboxCards>
+      <Flex direction="row" wrap="wrap" gap="4" pt="3" className="w-full">
+        <Box flexGrow="1">
+          <Text size="5" weight="bold">
+            {formatNumber(stats.universeTotal, 'string')}
+          </Text>
+          <br />
+          <Text size="2" color="gray">
+            Universe total
+          </Text>
+        </Box>
+        <Box flexGrow="1">
+          <Text size="5" weight="bold">
+            {formatNumber(stats.coalitionTotal, 'string')}
+          </Text>
+          <br />
+          <Text size="2" color="gray">
+            Coalition total
+          </Text>
+        </Box>
+        <Box flexGrow="1">
+          <Text size="5" weight="bold">
             {Number.isFinite(stats.coalitionPct)
               ? formatNumber(stats.coalitionPct, 'percent')
               : '--'}
-          </b>
-        </Text>
+          </Text>
+          <br />
+          <Text size="2" color="gray">
+            Coalition share
+          </Text>
+        </Box>
       </Flex>
-      {!!stats.missingGroups.length && (
-        <Text size="1" color="orange">
-          Selected unavailable categories are ignored in this universe:{' '}
-          {stats.missingGroups.map(getCoalitionGroupLabel).join(', ')}
-        </Text>
-      )}
     </Box>
   );
 };
