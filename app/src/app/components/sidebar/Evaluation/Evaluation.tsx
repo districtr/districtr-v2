@@ -39,12 +39,14 @@ type EvaluationProps = {
     sourceCol?: string;
     tooltip?: string;
   }>;
+  title?: string;
 };
 const Evaluation: React.FC<EvaluationProps> = ({
   summaryType,
   setSummaryType,
   displayedColumnSets,
   columnConfig,
+  title
 }) => {
   const [evalMode, setEvalMode] = useState<EvalModes>('share');
   const [colorBg, setColorBg] = useState<boolean>(true);
@@ -137,9 +139,9 @@ const Evaluation: React.FC<EvaluationProps> = ({
     <Box width={'100%'}>
       <Flex direction="row" gap="3" align="center" pb="2">
         <Flex direction="column" gap="1" flexGrow="1">
-          <Heading as="h3" size="3">
-            Demographic table
-          </Heading>
+          {title && <Heading as="h3" size="3">
+            {title}
+          </Heading>}
           {showSummaryTypeSelect && (
             <Flex direction="row" gap="2" align="center">
               <Text size="2">Summary type</Text>
@@ -234,7 +236,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
             {rows.map((row, i) => {
               const isUniverse = Boolean((row as Record<string, unknown>).__isUniverse);
               const isUnassigned = !isUniverse && row.zone === undefined;
-              const zoneName = isUniverse ? 'Universe' : isUnassigned ? 'None' : row.zone;
+              const zoneName = isUniverse ? 'Overall' : isUnassigned ? 'None' : row.zone;
               const backgroundColor = isUniverse
                 ? '#111111'
                 : isUnassigned

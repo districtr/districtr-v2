@@ -13,9 +13,10 @@ import {Badge, Box, Button, Checkbox, Flex, Text} from '@radix-ui/themes';
 
 type CoalitionBuilderProps = {
   summaryType: CoalitionUniverse;
+  title?: string;
 };
 
-export const CoalitionBuilder: React.FC<CoalitionBuilderProps> = ({summaryType}) => {
+export const CoalitionBuilder: React.FC<CoalitionBuilderProps> = ({summaryType, title}) => {
   const coalitionGroups = useDemographyStore(state => state.coalitionGroups);
   const setCoalitionGroups = useDemographyStore(state => state.setCoalitionGroups);
   useDemographyStore(state => state.coalitionHash);
@@ -50,11 +51,11 @@ export const CoalitionBuilder: React.FC<CoalitionBuilderProps> = ({summaryType})
   };
 
   return (
-    <Box className="rounded-md border border-gray-200 p-3">
+    <Box>
       <Flex justify="between" align="center" gap="2" wrap="wrap">
-        <Text size="2" weight="bold">
-          Coalition Builder
-        </Text>
+        {title && <Text size="2" weight="bold">
+          {title}
+        </Text>}
         <Badge color={coalitionGroups.length ? 'blue' : 'gray'}>
           {coalitionGroups.length} selected
         </Badge>
