@@ -90,7 +90,7 @@ pipelines/build/*
 .vscode/
 .zed/
 
-# curosr 
+# cursor 
 plans/
 
 # beads
