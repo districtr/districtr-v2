@@ -20,40 +20,45 @@ For full workflow details: `bd prime`
 This is a monorepo with **separate frontend and backend directories**. All code MUST go in the correct directory:
 
 ```
-/                           # Repo root
-├── app/               # Next.js app (all frontend code here)
+/                                # Repo root
+├── app/                         # Next.js frontend (Bun runtime)
 │   ├── Dockerfile.dev
 │   ├── package.json
 │   ├── next.config.ts
 │   ├── tsconfig.json
-│   ├── components.json
-│   ├── eslint.config.mjs
-│   ├── postcss.config.mjs
 │   └── src/
-│       ├── app/            # Next.js app router
-│           ├── components/     # React components
-│           ├── constants/      # Constants and configuration
-│           ├── hooks/          # Custom hooks
-│           ├── utils/          # Frontend utilities
-│           ├── store/          # Frontend application store/state
-│           ├── admin/          # Admin panel pages
-│           ├── lib/            # Auth0 and shared libraries
-├── backend/                # FastAPI app (all backend code here)
+│       └── app/                 # Next.js app router root
+│           ├── (interactive)/   # Route group: map viewer/editor pages
+│           │   └── map/         #   /map, /map/[map_id], /map/edit/*
+│           ├── (static)/        # Route group: static content pages
+│           │   └── ...          #   /about, /guide, /places, /contact, etc.
+│           ├── admin/           # Admin panel pages (Auth0-protected)
+│           ├── components/      # React components
+│           ├── constants/       # Constants and configuration
+│           ├── hooks/           # Custom hooks
+│           ├── lib/             # Auth0 and shared libraries
+│           ├── store/           # Zustand stores, subscriptions, middleware
+│           └── utils/           # Workers, API handlers, map helpers, IDB
+├── backend/                     # FastAPI backend (Python)
 │   ├── Dockerfile.dev
-│   ├── cli.py
+│   ├── cli.py                   # Management CLI (imports, map creation, edges)
 │   ├── requirements.txt
-│   └── app/                # FastAPI app goes here
-│       ├── alembic/            # Alembic DB migrations
-│       ├── assignments/        # Zone assignments management
-│       ├── cms/                # Content management endpoints
-│       ├── comments/           # Comments API endpoints
-│       ├── contiguity/         # Geographic spatial contiguity
-│       ├── core/               # Shared core functions
-│       ├── exports/            # Export data functions
-│       ├── save_share/         # Save and share (eg password) functions
-│       ├── thumbnails/         # Map thumbnail generation
-│       └── main.py             # Main entrypoint
-├── docker-compose.yml      # Orchestration
+│   └── app/
+│       ├── alembic/             # Alembic DB migrations
+│       ├── assignments/         # Zone assignments management
+│       ├── cms/                 # Content management endpoints
+│       ├── comments/            # Comments + moderation API
+│       ├── contiguity/          # Geographic spatial contiguity
+│       ├── core/                # DB, config, security, dependencies
+│       ├── exports/             # Export data functions
+│       ├── save_share/          # Save/share and password-protected access
+│       ├── sql/                 # Legacy UDF SQL files (do not expand)
+│       ├── thumbnails/          # Map thumbnail generation
+│       ├── models.py            # SQLModel/SQLAlchemy models
+│       └── main.py              # FastAPI entrypoint
+├── pipelines/                   # Data pipelines (tilesets, tabular, transforms)
+├── docker-compose.yml           # Orchestration
+└── .env.example                 # Root env flags (LOAD_DATA, etc.)
 ```
 
 **RULES:**
