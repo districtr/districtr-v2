@@ -187,7 +187,7 @@ export const PopulationChart: React.FC<{
             {bars}
           </Group>
         </svg>
-        <div style={{position: 'sticky', bottom: 0, zIndex: 2, backgroundColor: 'var(--gray-1)'}}>
+        <div style={{position: 'sticky', bottom: -40, zIndex: 2, backgroundColor: 'var(--gray-1)', width: '100%'}}>
           <svg width={width} height={margins.bottom}>
             <Group left={margins.left} top={6}>
               <Line from={{x: 0, y: 0}} to={{x: xMax, y: 0}} stroke="black" />
