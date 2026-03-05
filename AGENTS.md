@@ -19,11 +19,12 @@ This is a monorepo with **separate frontend and backend directories**. All code 
 │   └── src/
 │       ├── app/            # Next.js app router
 │           ├── components/     # React components
-│           ├── constants/      # Costants and configuration
+│           ├── constants/      # Constants and configuration
 │           ├── hooks/          # Custom hooks
 │           ├── utils/          # Frontend utilities
 │           ├── store/          # Frontend application store/state
-│           ├── types/          # TypeScript types
+│           ├── admin/          # Admin panel pages
+│           ├── lib/            # Auth0 and shared libraries
 ├── backend/                # FastAPI app (all backend code here)
 │   ├── Dockerfile.dev
 │   ├── cli.py
@@ -51,10 +52,10 @@ This is a monorepo with **separate frontend and backend directories**. All code 
 ## Quick Reference
 
 ```bash
-bd ready              # Find available work
+bd list               # Find available work
 bd show <id>          # View issue details
 bd update <id> --status in_progress  # Claim work
-bd close <id>         # Complete work
+bd update <id> --status done         # Complete work
 bd sync               # Sync with git
 ```
 
