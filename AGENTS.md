@@ -108,12 +108,18 @@ This repo has root-level expert docs for domain-specific implementation rules. A
 
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
 
+**Before starting work:**
+- Check available issues: `bd ready` or `bd list`
+- Read relevant expert guides (see "Expert Guides" section above)
+- Create new issues if needed: `bd create "Description" --type task --priority 2`
+
 **MANDATORY WORKFLOW:**
 
-1. **File issues for remaining work** - Create issues for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds. Especially `docker-compose up pre-commit` for linting and `docker-compose exec frontend bun run build` for FE and `docker-compose exec backend pytest -v` for BE
-3. **Update issue status** - Close finished work, update in-progress items
-4. **PUSH TO REMOTE** - This is MANDATORY:
+1. **Update issue status** - Mark completed work: `bd close <issue-id>` or `bd update <issue-id> --status done`
+2. **File issues for remaining work** - Create issues for anything that needs follow-up: `bd create "Description" --type task --priority 2`
+3. **Run quality gates** (if code changed) - Tests, linters, builds. Especially `docker-compose up pre-commit` for linting and `docker-compose exec frontend bun run build` for FE and `docker-compose exec backend pytest -v` for BE
+4. **Sync Beads** - Update issue tracking: `bd sync`
+5. **PUSH TO REMOTE** - This is MANDATORY:
    ```bash
    git pull --rebase
    bd sync
@@ -130,3 +136,45 @@ This repo has root-level expert docs for domain-specific implementation rules. A
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
 - Code MUST BE easy to read and ready for change. Easy to read. Ready for change.
+
+## Troubleshooting
+
+### Beads Issues
+**Problem**: `bd: command not found`
+**Solution**: Install Beads CLI following https://github.com/steveyegge/beads
+
+**Problem**: `bd list` shows database errors
+**Solution**: Run `rm -rf .beads && bd init` to reinitialize
+
+**Problem**: Issues not syncing with git
+**Solution**: Run `bd sync` after commits, ensure `.beads/` is tracked
+
+### Docker Issues
+**Problem**: `docker-compose up` fails with permission errors
+**Solution**: Ensure Docker Desktop is running and you have proper permissions
+
+**Problem**: Backend container won't start (migrations fail)
+**Solution**: Check database connectivity: `docker-compose exec db pg_isready -U postgres`
+
+**Problem**: Frontend build fails with module resolution errors
+**Solution**: Run `docker-compose exec frontend bun install` to ensure dependencies
+
+### Development Environment
+**Problem**: Pre-commit hooks fail
+**Solution**: Run `docker-compose up pre-commit` to check linting locally
+
+**Problem**: TypeScript errors in frontend
+**Solution**: Run `cd app && bun run ts` to check types
+
+**Problem**: Backend tests fail
+**Solution**: Ensure database is running: `docker-compose up -d db`
+
+### Common Workflows
+**Problem**: Forgot to create Beads issues for work
+**Solution**: Run `bd create "Description" --type task --priority 2` before starting
+
+**Problem**: Changes not reflected in running containers
+**Solution**: Use `docker-compose up --build` to rebuild images
+
+**Problem**: Database state inconsistent
+**Solution**: Reset with `docker-compose down -v && docker-compose up db`
