@@ -2,15 +2,17 @@ import logging
 from app.core.io import remove_file
 from datetime import datetime, UTC
 from typing import Annotated
+from time import perf_counter
+from tempfile import NamedTemporaryFile
 from fastapi import APIRouter, status, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
-from sqlmodel import Session
+from sqlmodel import Session, select
 from psycopg.sql import SQL, Composed, Identifier, Literal
 from psycopg.errors import RaiseException
 from typing import Callable, Any
 from app.core.dependencies import get_protected_document
 from app.core.db import get_session
-from app.models import Document
+from app.models import Document, DistrictrMap
 from app.exports.models import (
     DocumentExportFormat,
     DocumentExportType,
@@ -133,6 +135,7 @@ async def export_document(
     limit: int = Query(default=10_000, ge=0),
     session: Session = Depends(get_session),
 ) -> FileResponse:
+    start_time = perf_counter()
     try:
         _format = DocumentExportFormat(format)
         _export_type = DocumentExportType(export_type)
@@ -146,6 +149,22 @@ async def export_document(
     out_file_name = (
         f"{document_id}_{_export_type.value}_{timestamp}.{_format.value.lower()}"
     )
+    out_file_suffix = f".{_format.value.lower()}"
+
+    if _export_type == DocumentExportType.block_zone_assignments:
+        child_layer = session.exec(
+            select(DistrictrMap.child_layer).where(
+                DistrictrMap.districtr_map_slug == document.districtr_map_slug
+            )
+        ).one_or_none()
+        if child_layer is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Child layer is NULL for document_id: {document_id}. "
+                    "Block-level queries are not supported"
+                ),
+            )
 
     try:
         get_sql = get_export_sql_method(_format)
@@ -162,25 +181,39 @@ async def export_document(
         )
 
     conn = session.connection().connection
-    _out_file = f"/tmp/{out_file_name}"
+    with NamedTemporaryFile(
+        mode="wb", delete=False, suffix=out_file_suffix, prefix=f"{document_id}_"
+    ) as temp_file:
+        _out_file = temp_file.name
+
+    generated_ms = 0
     background_tasks.add_task(remove_file, _out_file)
 
     with conn.cursor().copy(sql, params=params) as copy:
-        with open(_out_file, "wb") as f:
+        with open(_out_file, "wb", buffering=1024 * 1024) as f:
             try:
                 while data := copy.read():
                     f.write(data)
-                f.close()
             except RaiseException as error:
+                remove_file(_out_file)
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=str(error),
                 )
 
-        media_type = {
-            DocumentExportFormat.csv: "text/csv; charset=utf-8",
-            DocumentExportFormat.geojson: "application/json",
-        }.get(_format, "text/plain; charset=utf-8")
-        return FileResponse(
-            path=_out_file, media_type=media_type, filename=out_file_name
-        )
+        generated_ms = int((perf_counter() - start_time) * 1000)
+
+    media_type = {
+        DocumentExportFormat.csv: "text/csv; charset=utf-8",
+        DocumentExportFormat.geojson: "application/json",
+    }.get(_format, "text/plain; charset=utf-8")
+    return FileResponse(
+        path=_out_file,
+        media_type=media_type,
+        filename=out_file_name,
+        headers={
+            "Cache-Control": "no-store",
+            "X-Export-Generated-Ms": str(generated_ms),
+            "Access-Control-Expose-Headers": "Content-Length, Content-Disposition, X-Export-Generated-Ms",
+        },
+    )

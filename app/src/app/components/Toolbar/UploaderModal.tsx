@@ -1,6 +1,6 @@
 import React, {useEffect} from 'react';
 import {Cross2Icon} from '@radix-ui/react-icons';
-import {Dialog, Flex} from '@radix-ui/themes';
+import {Dialog, Flex, Text} from '@radix-ui/themes';
 import {Uploader} from '../Uploader/Uploader';
 
 export const UploaderModal: React.FC<{
@@ -26,7 +26,7 @@ export const UploaderModal: React.FC<{
 
   return (
     <Dialog.Root open={open} onOpenChange={handleOpenChange}>
-      <Dialog.Content className="max-w-[50vw]">
+      <Dialog.Content className="w-[95vw] max-w-[760px]">
         <Flex align="center" className="mb-4">
           <Dialog.Title className="m-0 text-xl font-bold flex-1">
             Upload Block Assignments
@@ -39,6 +39,10 @@ export const UploaderModal: React.FC<{
             <Cross2Icon />
           </Dialog.Close>
         </Flex>
+        <Text size="2" color="gray" className="mb-4 block">
+          Upload a CSV that includes a GEOID column and a district/zone column. We&apos;ll try to
+          detect them automatically and ask for help if the columns are ambiguous.
+        </Text>
         <Uploader redirect={true} onFinish={onClose} />
       </Dialog.Content>
     </Dialog.Root>

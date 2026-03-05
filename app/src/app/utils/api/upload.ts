@@ -7,7 +7,31 @@ import {useMapStore} from '@/app/store/mapStore';
 
 const MAX_ROWS = 914_231;
 const ROWS_TO_TEST = 200;
-const MAX_FILE_SIZE = 2_000_000_000; // 20mb
+const MAX_FILE_SIZE = 20_000_000; // 20mb
+const HEADER_MATCH_BONUS = ROWS_TO_TEST + 1;
+
+type UploadStage = 'parsing' | 'validating' | 'uploading' | 'done';
+type ColumnName = 'GEOID' | 'ZONE';
+type UploadIssueDetail = {
+  message: string;
+  headerRow?: string[];
+  missingColumns?: string[];
+  possibleIndices?: Record<ColumnName, Record<number, number>>;
+  suggestedIndices?: Partial<Record<ColumnName, number>>;
+  row?: string[];
+  expectedPrefix?: string;
+  receivedState?: string;
+  receivedPrefix?: string;
+  expectedState?: string;
+  summary?: {
+    total_rows: number;
+    inserted_assignments: number;
+    null_zone_rows: number;
+    invalid_zone_rows: number;
+    invalid_geoid_rows: number;
+    empty_geoid_rows: number;
+  };
+};
 
 export type MapLink = DistrictrMap & {
   document_id: string;
@@ -17,6 +41,17 @@ export type MapLink = DistrictrMap & {
 const getRowTests = (map: DistrictrMap) => [
   {
     name: 'GEOID',
+    headerHints: [
+      'geoid',
+      'geo_id',
+      'blockid',
+      'block_geoid',
+      'blockgeoid',
+      'vtd_geoid',
+      'vtdid',
+      'censusblock',
+      'census_geoid',
+    ],
     test: (value: string | number) => {
       return (
         (typeof value === 'string' &&
@@ -29,6 +64,16 @@ const getRowTests = (map: DistrictrMap) => [
   },
   {
     name: 'ZONE',
+    headerHints: [
+      'zone',
+      'district',
+      'districtid',
+      'district_id',
+      'districtnumber',
+      'district_num',
+      'assignment',
+      'plan_district',
+    ],
     test: (value: string | number | null) => {
       return !value || (!isNaN(+value) && +value > 0 && +value <= (map.num_districts ?? 4));
     },
@@ -37,11 +82,30 @@ const getRowTests = (map: DistrictrMap) => [
 
 const validateRows = (rows: Array<Array<string>>, plan: DistrictrMap) => {
   const tests = getRowTests(plan);
-  const headerRow = rows[0];
+  const headerRow = rows[0] ?? [];
   const candidateIndices: Record<string, Record<number, number>> = {};
+  const normalizedHeaders = headerRow.map(header =>
+    String(header ?? '')
+      .toLowerCase()
+      .replace(/[\s\-]+/g, '_')
+  );
+
+  tests.forEach(test => {
+    candidateIndices[test.name] = {};
+    normalizedHeaders.forEach((header, j) => {
+      if (
+        test.headerHints.some(hint => {
+          return header === hint || header.includes(hint);
+        })
+      ) {
+        candidateIndices[test.name][j] = (candidateIndices[test.name][j] ?? 0) + HEADER_MATCH_BONUS;
+      }
+    });
+  });
+
   // skip header row
   const rowstoTest = rows.slice(1, ROWS_TO_TEST);
-  rowstoTest.forEach((row, i) => {
+  rowstoTest.forEach(row => {
     row.forEach((value, j) => {
       tests.forEach(test => {
         if (!candidateIndices[test.name]) {
@@ -54,10 +118,22 @@ const validateRows = (rows: Array<Array<string>>, plan: DistrictrMap) => {
     });
   });
 
-  const columnsAreAmbiguous = Object.values(candidateIndices).some(key => {
-    const values = Object.values(key);
-    const max = Math.max(...values);
-    return values.filter(v => v === max).length > 1;
+  const suggestedIndices: Partial<Record<ColumnName, number>> = {};
+  Object.entries(candidateIndices).forEach(([columnName, indexScores]) => {
+    const validScores = Object.entries(indexScores).filter(([, score]) => score > 0);
+    if (!validScores.length) return;
+    const max = Math.max(...validScores.map(([, score]) => score));
+    const firstBestMatch = validScores.find(([, score]) => score === max)?.[0];
+    if (firstBestMatch !== undefined) {
+      suggestedIndices[columnName as ColumnName] = +firstBestMatch;
+    }
+  });
+
+  const columnsAreAmbiguous = Object.values(candidateIndices).some(indexScores => {
+    const validScores = Object.values(indexScores).filter(score => score > 0);
+    if (!validScores.length) return false;
+    const max = Math.max(...validScores);
+    return validScores.filter(score => score === max).length > 1;
   });
 
   if (columnsAreAmbiguous) {
@@ -69,6 +145,7 @@ const validateRows = (rows: Array<Array<string>>, plan: DistrictrMap) => {
           GEOID: Record<number, number>;
           ZONE: Record<number, number>;
         },
+        suggestedIndices,
         headerRow,
       },
     };
@@ -96,6 +173,7 @@ const validateRows = (rows: Array<Array<string>>, plan: DistrictrMap) => {
           GEOID: Record<number, number>;
           ZONE: Record<number, number>;
         },
+        suggestedIndices,
         message: 'Missing columns',
         missingColumns,
         headerRow,
@@ -109,12 +187,13 @@ const validateRows = (rows: Array<Array<string>>, plan: DistrictrMap) => {
   };
 };
 
-export const processFile = ({
+export const processFile = async ({
   file,
   setMapLinks,
   setError,
   districtrMap,
   config,
+  onProgress,
 }: {
   file: File;
   setMapLinks: React.Dispatch<React.SetStateAction<MapLink[]>>;
@@ -124,6 +203,12 @@ export const processFile = ({
     ZONE: number;
     GEOID: number;
   };
+  onProgress?: (progress: {
+    stage: UploadStage;
+    message: string;
+    processedRows?: number;
+    totalRows?: number;
+  }) => void;
 }) => {
   const {setErrorNotification} = useMapStore.getState();
   if (!file) {
@@ -141,65 +226,118 @@ export const processFile = ({
     throw new Error('Block CSV file size exceeds limit');
   }
 
-  Papa.parse(file, {
-    complete: async results => {
-      const validation = config
-        ? {ok: true, colIndices: config}
-        : validateRows(results.data as Array<Array<string>>, districtrMap);
-      if (!validation.ok || !validation.colIndices) {
-        setError(validation);
-        return validation;
-      }
+  onProgress?.({stage: 'parsing', message: 'Parsing CSV file'});
 
-      const {GEOID, ZONE} = validation.colIndices;
-      let result: {document_id: string} | undefined;
-      let geoidHandler = (geoid: string | number) => `${geoid}`.padStart(15, '0');
+  await new Promise<void>((resolve, reject) => {
+    Papa.parse(file, {
+      skipEmptyLines: 'greedy',
+      complete: async results => {
+        onProgress?.({stage: 'validating', message: 'Validating columns and records'});
+        const parsedRows = (results.data as Array<Array<string>>).filter(
+          row => Array.isArray(row) && row.length
+        );
+        if (parsedRows.length < 2) {
+          setError({
+            ok: false,
+            detail: {message: 'CSV must contain a header row and at least one data row'},
+          });
+          onProgress?.({stage: 'done', message: 'Upload failed'});
+          resolve();
+          return;
+        }
 
-      // All rows without the header
-      const rows = results.data.slice(1) as string[][];
+        const validation = config
+          ? {ok: true, colIndices: config}
+          : validateRows(parsedRows, districtrMap);
+        if (!validation.ok || !validation.colIndices) {
+          setError(validation);
+          onProgress?.({stage: 'done', message: 'Upload failed'});
+          resolve();
+          return;
+        }
 
-      if (rows.length > MAX_ROWS) {
-        setError({
-          ok: false,
-          detail: {message: `Cannot upload more than ${MAX_ROWS} rows at once`},
-        });
-      }
+        const {GEOID, ZONE} = validation.colIndices;
+        const geoidHandler = (geoid: string | number) => `${geoid}`.padStart(15, '0');
 
-      try {
-        const uploadResult = await uploadAssignments({
-          assignments: rows.map(row => [
-            geoidHandler(row[GEOID]),
-            !row[ZONE] ? '' : String(+row[ZONE]),
-          ]),
-          districtr_map_slug: districtrMap.districtr_map_slug,
-        });
-        if (uploadResult.ok && uploadResult.response?.document_id) {
-          result = uploadResult.response;
-          setMapLinks(mapLinks => [
-            ...mapLinks,
-            {...districtrMap, document_id: result!.document_id, filename: file.name},
-          ]);
-        } else {
+        // All rows without the header
+        const rows = parsedRows.slice(1) as string[][];
+
+        if (rows.length > MAX_ROWS) {
+          setError({
+            ok: false,
+            detail: {message: `Cannot upload more than ${MAX_ROWS} rows at once`},
+          });
+          onProgress?.({stage: 'done', message: 'Upload failed'});
+          resolve();
+          return;
+        }
+
+        try {
+          onProgress?.({
+            stage: 'uploading',
+            message: 'Uploading assignments',
+            totalRows: rows.length,
+          });
+          const uploadResult = await uploadAssignments({
+            assignments: rows.map(row => [geoidHandler(row[GEOID]), !row[ZONE] ? '' : String(+row[ZONE])]),
+            districtr_map_slug: districtrMap.districtr_map_slug,
+            strict_assignment_validation: true,
+          });
+          if (uploadResult.ok && uploadResult.response?.document_id) {
+            if (uploadResult.response.import_summary && uploadResult.response.import_summary.null_zone_rows > 0) {
+              setErrorNotification({
+                message: `Imported ${uploadResult.response.import_summary.inserted_assignments} assignments. ${uploadResult.response.import_summary.null_zone_rows} rows were left unassigned because zone was blank.`,
+                severity: 2,
+              });
+            }
+            setMapLinks(mapLinks => [
+              ...mapLinks,
+              {...districtrMap, document_id: uploadResult.response.document_id, filename: file.name},
+            ]);
+            onProgress?.({stage: 'done', message: 'Upload complete', processedRows: rows.length});
+          } else {
+            const detail = uploadResult.ok
+              ? {message: 'Unknown error encountered while uploading assignments'}
+              : uploadResult.error?.detail;
+            const normalizedDetail: UploadIssueDetail =
+              typeof detail === 'string'
+                ? {message: detail}
+                : typeof detail === 'object' && detail !== null
+                  ? ({
+                      message: String((detail as UploadIssueDetail).message ?? 'Upload failed'),
+                      ...(detail as UploadIssueDetail),
+                    } as UploadIssueDetail)
+                  : {message: 'Unknown error encountered while uploading assignments'};
+            setError({
+              ok: false,
+              detail: normalizedDetail,
+            });
+            onProgress?.({stage: 'done', message: 'Upload failed'});
+          }
+        } catch (error: unknown) {
           setError({
             ok: false,
             detail: {
-              message: uploadResult.ok
-                ? 'Unknown error encountered while uploading assignments'
-                : uploadResult.error.detail,
+              message:
+                error instanceof Error
+                  ? error.message
+                  : 'Unknown error encountered after uploading assignments',
             },
           });
+          onProgress?.({stage: 'done', message: 'Upload failed'});
         }
-      } catch (error: unknown) {
+        resolve();
+      },
+      error: error => {
         setError({
           ok: false,
           detail: {
-            message:
-              error instanceof Error
-                ? error.message
-                : 'Unknown error encountered after uploading assignments',
+            message: error.message || 'Failed to parse CSV file',
           },
         });
-      }
-    },
+        onProgress?.({stage: 'done', message: 'Upload failed'});
+        reject(error);
+      },
+    });
   });
 };

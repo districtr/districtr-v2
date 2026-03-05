@@ -200,6 +200,20 @@ class DocumentCreate(BaseModel):
     metadata: DocumentMetadata | None = None
     copy_from_doc: str | int | None = None  # document_id to copy from
     assignments: list[list[str]] | None = None  # Option to load block assignments
+    strict_assignment_validation: bool = False
+
+
+class AssignmentImportSummary(BaseModel):
+    total_rows: int = 0
+    inserted_assignments: int = 0
+    null_zone_rows: int = 0
+    invalid_zone_rows: int = 0
+    invalid_geoid_rows: int = 0
+    empty_geoid_rows: int = 0
+
+    @property
+    def skipped_rows(self) -> int:
+        return self.invalid_zone_rows + self.invalid_geoid_rows + self.empty_geoid_rows
 
 
 # TODO: Remove this table
@@ -267,6 +281,7 @@ class DocumentPublic(BaseModel):
 
 class DocumentCreatePublic(DocumentPublic):
     inserted_assignments: int
+    import_summary: AssignmentImportSummary | None = None
 
 
 class Assignments(SQLModel, table=True):

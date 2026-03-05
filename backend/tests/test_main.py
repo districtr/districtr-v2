@@ -1033,6 +1033,29 @@ def test_new_document_from_block_assignments_no_children(
     assert data.get("inserted_assignments") == 4
 
 
+def test_new_document_from_block_assignments_strict_validation_rejects_skipped_rows(
+    client, simple_shatterable_districtr_map
+):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos",
+            "strict_assignment_validation": True,
+            "assignments": [
+                ["a", "1"],
+                ["not_a_real_geoid", "2"],
+            ],
+        },
+    )
+    data = response.json()
+    assert response.status_code == 400, data
+    assert data["detail"]["message"] == (
+        "Upload contains rows that could not be safely imported"
+    )
+    assert data["detail"]["summary"]["invalid_geoid_rows"] == 1
+    assert data["detail"]["summary"]["inserted_assignments"] == 1
+
+
 def test_new_document_from_block_assignments_duplicate_blocks_in_input(
     client, simple_shatterable_districtr_map
 ):

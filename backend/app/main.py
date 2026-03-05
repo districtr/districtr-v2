@@ -219,14 +219,15 @@ async def create_document(
         document_id=DocumentID(document_id=document_id), session=session
     )
 
-    total_assignments = 0
+    inserted_assignments = 0
+    import_summary = None
 
     if copied_document is not None:
         logger.info(
             f"Copying document. Origin document: {copied_document.document_id} to {document_id}"
         )
         assert copied_document.document_id is not None
-        total_assignments = duplicate_document_assignments(
+        inserted_assignments = duplicate_document_assignments(
             from_document_id=copied_document.document_id,
             to_document_id=document_id,
             session=session,
@@ -244,12 +245,35 @@ async def create_document(
             )
 
         try:
-            total_assignments = batch_insert_assignments(
+            insert_result = batch_insert_assignments(
                 document_id=document_id,
                 assignments=data.assignments,
                 districtr_map_slug=data.districtr_map_slug,
                 session=session,
             )
+            inserted_assignments = insert_result.inserted_assignments
+            import_summary = {
+                "total_rows": insert_result.total_rows,
+                "inserted_assignments": insert_result.inserted_assignments,
+                "null_zone_rows": insert_result.null_zone_rows,
+                "invalid_zone_rows": insert_result.invalid_zone_rows,
+                "invalid_geoid_rows": insert_result.invalid_geoid_rows,
+                "empty_geoid_rows": insert_result.empty_geoid_rows,
+            }
+            skipped_rows = (
+                insert_result.invalid_zone_rows
+                + insert_result.invalid_geoid_rows
+                + insert_result.empty_geoid_rows
+            )
+            if data.strict_assignment_validation and skipped_rows > 0:
+                session.rollback()
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={
+                        "message": "Upload contains rows that could not be safely imported",
+                        "summary": import_summary,
+                    },
+                )
         except NoResultFound:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -290,7 +314,6 @@ async def create_document(
             DistrictrMap.extent.label("extent"),  # pyright: ignore
             DistrictrMap.map_type.label("map_type"),  # pyright: ignore
             DistrictrMap.statefps.label("statefps"),  # pyright: ignore
-            coalesce(total_assignments).label("inserted_assignments"),
             Document.map_metadata,
         )
         .where(Document.document_id == document_id)
@@ -327,7 +350,11 @@ async def create_document(
 
     session.commit()
 
-    return doc
+    doc_payload = dict(doc._mapping)
+    doc_payload["inserted_assignments"] = inserted_assignments
+    doc_payload["import_summary"] = import_summary
+
+    return doc_payload
 
 
 @app.put("/api/assignments")

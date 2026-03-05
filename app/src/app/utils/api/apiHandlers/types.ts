@@ -114,6 +114,8 @@ export interface DocumentCreate {
   districtr_map_slug: string;
   metadata?: DocumentMetadata;
   copy_from_doc?: string | number;
+  assignments?: [string, string][];
+  strict_assignment_validation?: boolean;
 }
 
 export interface ZonePopulation {

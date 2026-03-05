@@ -9,8 +9,10 @@ import {
   Box,
   Tooltip,
   Tabs,
+  Spinner,
+  Badge,
 } from '@radix-ui/themes';
-import React, {useRef} from 'react';
+import React, {useEffect, useRef} from 'react';
 import {useMapStore} from '@store/mapStore';
 import {RecentMapsModal} from '@components/Toolbar/RecentMapsModal';
 import {ArrowLeftIcon, HamburgerMenuIcon} from '@radix-ui/react-icons';
@@ -27,10 +29,42 @@ import {SettingsPopoverAndModal} from './SettingsPopoverAndModal';
 import {saveMapDocumentMetadata} from '@/app/utils/api/apiHandlers/saveMapDocumentMetadata';
 import {idb} from '@/app/utils/idb/idb';
 import {RevertPopover} from './RevertPopover';
+import {API_URL} from '@/app/utils/api/constants';
+
+type ExportFormat = 'CSV' | 'GeoJSON';
+type ExportType = 'ZoneAssignments' | 'BlockZoneAssignments' | 'Districts';
+type ExportStatus = {
+  label: string;
+  phase: 'idle' | 'preparing' | 'downloading' | 'success' | 'error';
+  progress?: number;
+  downloadedBytes?: number;
+  totalBytes?: number;
+  message?: string;
+};
+
+const bytesToLabel = (bytes: number) => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const parseFileNameFromDisposition = (contentDisposition: string | null) => {
+  if (!contentDisposition) return null;
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    return decodeURIComponent(utf8Match[1]);
+  }
+  const fileNameMatch = contentDisposition.match(/filename=\"?([^\";]+)\"?/i);
+  return fileNameMatch?.[1] ?? null;
+};
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
   const [modalOpen, setModalOpen] = React.useState<'upload' | 'recents' | null>(null);
+  const [exportStatus, setExportStatus] = React.useState<ExportStatus>({
+    label: '',
+    phase: 'idle',
+  });
   const mapDocument = useMapStore(state => state.mapDocument);
   const isEditing = mapDocument?.document_id && mapDocument?.document_id !== 'anonymous';
   const access = useMapStore(state => state.mapStatus?.access);
@@ -39,6 +73,16 @@ export const Topbar: React.FC = () => {
   const data = mapViews?.data || [];
   const router = useRouter();
   const updateMetadata = useMapStore(state => state.updateMetadata);
+  const isExporting = exportStatus.phase === 'preparing' || exportStatus.phase === 'downloading';
+
+  useEffect(() => {
+    if (exportStatus.phase === 'success' || exportStatus.phase === 'error') {
+      const timeout = window.setTimeout(() => {
+        setExportStatus(prev => ({...prev, phase: 'idle', message: undefined}));
+      }, 5000);
+      return () => window.clearTimeout(timeout);
+    }
+  }, [exportStatus.phase]);
 
   const handleMetadataChange = async (updates: Partial<DocumentMetadata>) => {
     if (!mapDocument?.document_id) return;
@@ -71,6 +115,128 @@ export const Topbar: React.FC = () => {
         });
       }
     });
+  };
+
+  const handleExport = async ({
+    label,
+    format,
+    exportType,
+  }: {
+    label: string;
+    format: ExportFormat;
+    exportType: ExportType;
+  }) => {
+    if (!mapDocument?.document_id || isExporting) return;
+
+    const extension = format === 'CSV' ? 'csv' : 'geojson';
+    const fallbackName = `districtr-${exportType}-${mapDocument.document_id}-${new Date()
+      .toISOString()
+      .slice(0, 10)}.${extension}`;
+    const apiBaseUrl = API_URL || '';
+    const exportUrl = `${apiBaseUrl}/api/document/${mapDocument.document_id}/export?format=${format}&export_type=${exportType}`;
+
+    try {
+      setExportStatus({
+        label,
+        phase: 'preparing',
+        message: 'Preparing export on the server...',
+      });
+
+      const response = await fetch(exportUrl, {
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        let detail = 'Failed to export assignments';
+        try {
+          const payload = await response.json();
+          if (typeof payload?.detail === 'string') {
+            detail = payload.detail;
+          } else if (payload?.detail) {
+            detail = JSON.stringify(payload.detail);
+          }
+        } catch {
+          detail = `${detail} (HTTP ${response.status})`;
+        }
+        throw new Error(detail);
+      }
+
+      const totalBytesHeader = response.headers.get('content-length');
+      const totalBytes = totalBytesHeader ? Number(totalBytesHeader) : undefined;
+      const contentType = response.headers.get('content-type') ?? 'application/octet-stream';
+      const filename =
+        parseFileNameFromDisposition(response.headers.get('content-disposition')) ?? fallbackName;
+
+      if (!response.body) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        setExportStatus({
+          label,
+          phase: 'success',
+          message: 'Export completed',
+        });
+        return;
+      }
+
+      const reader = response.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let downloadedBytes = 0;
+      setExportStatus({
+        label,
+        phase: 'downloading',
+        progress: 0,
+        downloadedBytes,
+        totalBytes,
+        message: 'Downloading export...',
+      });
+      while (true) {
+        const {done, value} = await reader.read();
+        if (done) break;
+        if (!value) continue;
+        chunks.push(value);
+        downloadedBytes += value.length;
+        setExportStatus({
+          label,
+          phase: 'downloading',
+          progress: totalBytes ? Math.min(100, (downloadedBytes / totalBytes) * 100) : undefined,
+          downloadedBytes,
+          totalBytes,
+          message: 'Downloading export...',
+        });
+      }
+
+      const blob = new Blob(chunks, {type: contentType});
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setExportStatus({
+        label,
+        phase: 'success',
+        message: 'Export completed',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to export assignments';
+      setExportStatus({
+        label,
+        phase: 'error',
+        message,
+      });
+      setErrorNotification({
+        severity: 2,
+        message,
+      });
+    }
   };
 
   return (
@@ -133,44 +299,60 @@ export const Topbar: React.FC = () => {
                   Export assignments
                 </DropdownMenu.SubTrigger>
                 <DropdownMenu.SubContent>
-                  <DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    disabled={isExporting}
+                    onClick={() =>
+                      handleExport({
+                        label: 'VTD assignments (CSV)',
+                        format: 'CSV',
+                        exportType: 'ZoneAssignments',
+                      })
+                    }
+                  >
                     <Tooltip content="Download a CSV of Census GEOIDs and zone IDs">
-                      <a
-                        href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=CSV&export_type=ZoneAssignments`}
-                        download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
-                      >
-                        VTD assignments (CSV)
-                      </a>
+                      <Text>VTD assignments (CSV)</Text>
                     </Tooltip>
                   </DropdownMenu.Item>
-                  <DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    disabled={isExporting}
+                    onClick={() =>
+                      handleExport({
+                        label: 'VTD assignments (GeoJSON)',
+                        format: 'GeoJSON',
+                        exportType: 'ZoneAssignments',
+                      })
+                    }
+                  >
                     <Tooltip content="Download a GeoJSON of Census GEOIDs and zone IDs">
-                      <a
-                        href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=GeoJSON&export_type=ZoneAssignments`}
-                        download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
-                      >
-                        VTD assignments (GeoJSON)
-                      </a>
+                      <Text>VTD assignments (GeoJSON)</Text>
                     </Tooltip>
                   </DropdownMenu.Item>
-                  <DropdownMenu.Item disabled={!mapDocument?.child_layer}>
+                  <DropdownMenu.Item
+                    disabled={!mapDocument?.child_layer || isExporting}
+                    onClick={() =>
+                      handleExport({
+                        label: 'Block assignment (CSV)',
+                        format: 'CSV',
+                        exportType: 'BlockZoneAssignments',
+                      })
+                    }
+                  >
                     <Tooltip content="Download a CSV of Census Block GEOIDs and zone IDs">
-                      <a
-                        href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=CSV&export_type=BlockZoneAssignments`}
-                        download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
-                      >
-                        Block assignment (CSV)
-                      </a>
+                      <Text>Block assignment (CSV)</Text>
                     </Tooltip>
                   </DropdownMenu.Item>
-                  <DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    disabled={isExporting}
+                    onClick={() =>
+                      handleExport({
+                        label: 'District boundaries (GeoJSON)',
+                        format: 'GeoJSON',
+                        exportType: 'Districts',
+                      })
+                    }
+                  >
                     <Tooltip content="Download a GeoJSON of district boundaries">
-                      <a
-                        href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=GeoJSON&export_type=Districts`}
-                        download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
-                      >
-                        District boundaries (GeoJSON)
-                      </a>
+                      <Text>District boundaries (GeoJSON)</Text>
                     </Tooltip>
                   </DropdownMenu.Item>
                 </DropdownMenu.SubContent>
@@ -196,6 +378,35 @@ export const Topbar: React.FC = () => {
           </DropdownMenu.Root>
           <MapHeader handleMetadataChange={handleMetadataChange} />
           <Flex direction="row" align="center" gapX="3">
+            {exportStatus.phase !== 'idle' && (
+              <Box className="hidden md:block border border-blue-200 bg-blue-50 px-3 py-1 rounded-md">
+                <Flex align="center" gapX="2">
+                  {(exportStatus.phase === 'preparing' || exportStatus.phase === 'downloading') && (
+                    <Spinner size="1" />
+                  )}
+                  {(exportStatus.phase === 'success' || exportStatus.phase === 'error') && (
+                    <Badge color={exportStatus.phase === 'success' ? 'green' : 'red'} variant="soft">
+                      {exportStatus.phase.toUpperCase()}
+                    </Badge>
+                  )}
+                  <Text size="1">
+                    {exportStatus.label}
+                    {exportStatus.phase === 'downloading' &&
+                      exportStatus.downloadedBytes !== undefined &&
+                      `: ${bytesToLabel(exportStatus.downloadedBytes)}`}
+                    {exportStatus.phase === 'downloading' &&
+                      exportStatus.totalBytes &&
+                      ` / ${bytesToLabel(exportStatus.totalBytes)}`}
+                    {exportStatus.phase === 'downloading' &&
+                      exportStatus.progress !== undefined &&
+                      ` (${Math.round(exportStatus.progress)}%)`}
+                    {exportStatus.phase !== 'downloading' &&
+                      exportStatus.message &&
+                      `: ${exportStatus.message}`}
+                  </Text>
+                </Flex>
+              </Box>
+            )}
             <SharePopoverAndModal handleMetadataChange={handleMetadataChange} />
             {isEditing && <SavePopover />}
             {isEditing && <RevertPopover />}

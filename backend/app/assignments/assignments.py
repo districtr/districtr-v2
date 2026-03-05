@@ -12,14 +12,25 @@ from app.models import (
     DistrictrMap,
 )
 from collections import defaultdict
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
+@dataclass
+class AssignmentInsertResult:
+    inserted_assignments: int
+    total_rows: int
+    null_zone_rows: int
+    invalid_zone_rows: int
+    invalid_geoid_rows: int
+    empty_geoid_rows: int
+
+
 def duplicate_document_assignments(
     from_document_id: str, to_document_id: str, session: Session = Depends(get_session)
-) -> None:
+) -> int | None:
     """
     Copy all assignments from `from_document_id` to another document, `to_document_id`.
 
@@ -60,7 +71,7 @@ def batch_insert_assignments(
     assignments: list[list[str]],
     districtr_map_slug: str,
     session: Session = Depends(get_session),
-) -> int | None:
+) -> AssignmentInsertResult:
     """
     Insert assignments into the document, `document_id`, healing assignments into
     partent assignments where possible if all children are assigned to the same zone.
@@ -98,25 +109,43 @@ def batch_insert_assignments(
 
     cursor = session.connection().connection.cursor()
     with cursor.copy(f"COPY {temp_table_name} (geo_id, zone) FROM STDIN") as copy:
-        import_errors = 0
         null_count = 0
+        invalid_zone_rows = 0
+        empty_geoid_rows = 0
+        total_rows = len(assignments)
         for record in assignments:
-            try:
-                if record[1] and record[1] != "":
-                    zone_val = zone_to_id[record[1]]
-                    if (
-                        districtr_map.num_districts is not None
-                        and zone_val > districtr_map.num_districts
-                    ):
-                        raise ValueError("Too many unique zones provided")
-                    copy.write_row([record[0], zone_val])
-                else:
-                    null_count += 1
-            except ValueError:
-                import_errors += 1
+            if not isinstance(record, (list, tuple)) or len(record) < 2:
+                invalid_zone_rows += 1
+                continue
+
+            geo_id = (
+                str(record[0]).strip()
+                if record[0] is not None and str(record[0]).strip() != ""
+                else ""
+            )
+            if not geo_id:
+                empty_geoid_rows += 1
+                continue
+
+            zone_value = record[1]
+            if zone_value is None or str(zone_value).strip() == "":
+                null_count += 1
+                continue
+
+            zone_key = str(zone_value).strip()
+            zone_val = zone_to_id[zone_key]
+            if (
+                districtr_map.num_districts is not None
+                and zone_val > districtr_map.num_districts
+            ):
+                invalid_zone_rows += 1
+                continue
+            copy.write_row([geo_id, zone_val])
 
     logger.info(
-        f"{import_errors} rows in the assignments provided failed to be written. {null_count} nulls were found"
+        f"{invalid_zone_rows} rows had invalid zones. "
+        f"{empty_geoid_rows} rows had empty geo_ids. "
+        f"{null_count} rows had null zones."
     )
 
     # Default check against valid geoids
@@ -186,6 +215,16 @@ def batch_insert_assignments(
         # For non-shatterable maps, we don't need additional validation
         # as the geo_ids should match the gerrydb table directly
 
+    invalid_geoid_rows = session.execute(
+        text(f"""
+        SELECT COUNT(*)
+        FROM {temp_table_name} t
+        WHERE NOT EXISTS (
+            {exists_clause}
+        )
+        """)
+    ).scalar()
+
     inserted_assignments = session.execute(
         text(f"""
         WITH inserted_geoids AS (
@@ -205,4 +244,11 @@ def batch_insert_assignments(
         f"Inserted {inserted_assignments} assignments to document `{document_id}`"
     )
 
-    return inserted_assignments
+    return AssignmentInsertResult(
+        inserted_assignments=inserted_assignments or 0,
+        total_rows=total_rows,
+        null_zone_rows=null_count,
+        invalid_zone_rows=invalid_zone_rows,
+        invalid_geoid_rows=invalid_geoid_rows or 0,
+        empty_geoid_rows=empty_geoid_rows,
+    )

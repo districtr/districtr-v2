@@ -11,20 +11,35 @@ import {post} from '../factory';
 export const uploadAssignments = async ({
   assignments,
   districtr_map_slug,
+  strict_assignment_validation = true,
 }: {
   assignments: [string, string][];
   districtr_map_slug: string;
+  strict_assignment_validation?: boolean;
 }) => {
   return await post<
     {
       assignments: [string, string][];
       districtr_map_slug: string;
+      strict_assignment_validation?: boolean;
     },
-    {document_id: string}
+    {
+      document_id: string;
+      inserted_assignments: number;
+      import_summary?: {
+        total_rows: number;
+        inserted_assignments: number;
+        null_zone_rows: number;
+        invalid_zone_rows: number;
+        invalid_geoid_rows: number;
+        empty_geoid_rows: number;
+      };
+    }
   >('create_document')({
     body: {
       assignments,
       districtr_map_slug,
+      strict_assignment_validation,
     },
   });
 };
