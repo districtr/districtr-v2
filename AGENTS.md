@@ -109,6 +109,7 @@ This repo has root-level expert docs for domain-specific implementation rules. A
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
 
 **Before starting work:**
+- Ensure you are on the `dev` branch: most changes should be based on the `dev` branch, which will later be merged into main.
 - Check available issues: `bd ready` or `bd list`
 - Read relevant expert guides (see "Expert Guides" section above)
 - Create new issues if needed: `bd create "Description" --type task --priority 2`
