@@ -12,7 +12,6 @@ import {
 } from '@radix-ui/themes';
 import React, {useRef} from 'react';
 import {useMapStore} from '@store/mapStore';
-import {RecentMapsModal} from '@components/Toolbar/RecentMapsModal';
 import {ArrowLeftIcon, HamburgerMenuIcon} from '@radix-ui/react-icons';
 import {DistrictrMap, DocumentMetadata} from '@utils/api/apiHandlers/types';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
@@ -30,7 +29,7 @@ import {RevertPopover} from './RevertPopover';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
-  const [modalOpen, setModalOpen] = React.useState<'upload' | 'recents' | null>(null);
+  const [modalOpen, setModalOpen] = React.useState<'upload' | null>(null);
   const mapDocument = useMapStore(state => state.mapDocument);
   const isEditing = mapDocument?.document_id && mapDocument?.document_id !== 'anonymous';
   const access = useMapStore(state => state.mapStatus?.access);
@@ -175,8 +174,10 @@ export const Topbar: React.FC = () => {
                   </DropdownMenu.Item>
                 </DropdownMenu.SubContent>
               </DropdownMenu.Sub>
-              <DropdownMenu.Item onClick={() => setModalOpen('recents')} disabled={false}>
-                View recent maps
+              <DropdownMenu.Item>
+                <Link href="/maps" color="gray">
+                  Manage local maps
+                </Link>
               </DropdownMenu.Item>
               <DropdownMenu.Sub>
                 <DropdownMenu.SubTrigger disabled={!mapDocument?.document_id || access === 'read'}>
@@ -204,7 +205,6 @@ export const Topbar: React.FC = () => {
         </Flex>
         <MobileDataTabs />
       </Flex>
-      <RecentMapsModal open={modalOpen === 'recents'} onClose={() => setModalOpen(null)} />
       <UploaderModal open={modalOpen === 'upload'} onClose={() => setModalOpen(null)} />
       <PasswordPromptModal />
     </>
