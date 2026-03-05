@@ -43,6 +43,9 @@ export const PopulationPanel = () => {
   const access = useMapStore(state => state.mapStatus?.access);
   const colorScheme = useColorScheme();
   const isEditing = useMapControlsStore(state => state.isEditing);
+  const shouldUseScrollableRows = populationData.length > 10;
+  const chartHeight = populationData.length ? `${populationData.length * 38 + 76}px` : '200px';
+
   const handleLockChange = (zone: number) => {
     if (lockPaintedAreas.includes(zone)) {
       setLockedZones(lockPaintedAreas.filter(f => f !== zone));
@@ -77,7 +80,11 @@ export const PopulationPanel = () => {
     );
   }
   return (
-    <Flex gap="0" direction="column">
+    <Flex
+      gap="0"
+      direction="column"
+      style={shouldUseScrollableRows ? {maxHeight: '80vh', overflow: 'hidden'} : {maxHeight: '80vh'}}
+    >
       <Flex direction="row" gap={'2'} align="center">
         <Heading as="h3" size="3">
           Total population by district
@@ -88,7 +95,21 @@ export const PopulationPanel = () => {
           idealPopulation={idealPopulation}
         />
       </Flex>
-      <Flex direction="row" width={'100%'} gap="1">
+      <Flex
+        direction="row"
+        width={'100%'}
+        gap="1"
+        style={
+          shouldUseScrollableRows
+            ? {
+                flex: 1,
+                minHeight: 0,
+                overflowY: 'auto',
+                overflowX: 'hidden',
+              }
+            : undefined
+        }
+      >
         <Flex
           direction={'column'}
           gap={'2'}
@@ -107,7 +128,7 @@ export const PopulationPanel = () => {
             </IconButton>
           </Flex>
           {/* @ts-ignore */}
-          {populationData.map((d, i) => (
+          {populationData.map(d => (
             <Flex
               key={d.zone}
               direction={'row'}
@@ -147,7 +168,7 @@ export const PopulationPanel = () => {
         </Flex>
         <ParentSize
           style={{
-            height: populationData.length ? `${populationData.length * 38 + 76}px` : '200px',
+            height: chartHeight,
             width: '100%',
           }}
         >
@@ -157,6 +178,7 @@ export const PopulationPanel = () => {
               height={height}
               data={populationData}
               idealPopulation={idealPopulation}
+              enableStickyRows={shouldUseScrollableRows}
             />
           )}
         </ParentSize>
