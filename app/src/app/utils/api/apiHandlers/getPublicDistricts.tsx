@@ -3,6 +3,8 @@ import {AllTabularColumns} from '../summaryStats';
 import {DocumentObject} from './types';
 import {ColumnarTableData} from '../../ParquetWorker/parquetWorker.types';
 import {get} from '../factory';
+import { useMapStore } from '@/app/store/mapStore';
+import { EMPTY_FT_COLLECTION } from '@/app/constants/map/layerStyle';
 
 type PublicDistrictData = {
   zone: number;
@@ -18,7 +20,11 @@ export const getPublicDistricts = async (mapDocument?: DocumentObject | null) =>
     {}
   );
   if (!response.ok) {
-    throw new Error(response.error.detail || 'Failed to fetch public district stats');
+    useMapStore.getState().setErrorNotification({
+      message: response.error.detail || 'Failed to fetch public district stats',
+      severity: 2,
+    });
+    return EMPTY_FT_COLLECTION;
   }
 
   const geojsonFeatures: GeoJSON.Feature<GeoJSON.Geometry, GeoJSON.GeoJsonProperties>[] = [];
