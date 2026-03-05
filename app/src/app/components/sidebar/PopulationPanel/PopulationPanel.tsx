@@ -1,4 +1,4 @@
-import {Box, Flex, Heading, IconButton, ScrollArea, Spinner, Text} from '@radix-ui/themes';
+import {Box, Flex, Heading, IconButton, Spinner, Text} from '@radix-ui/themes';
 import React from 'react';
 import {formatNumber} from '@utils/numbers';
 import {ParentSize} from '@visx/responsive'; // Import ParentSize
@@ -14,8 +14,7 @@ import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {ZoneCommentPopover} from './ZoneCommentPopover';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
-
-const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
+import {ConditionalScrollArea} from '../ConditionalScrollArea';
 
 export const PopulationPanel = () => {
   const {populationData, demoIsLoaded} = useZonePopulations();
@@ -79,6 +78,7 @@ export const PopulationPanel = () => {
       </Flex>
     );
   }
+
   return (
     <Flex
       gap="0"
@@ -97,12 +97,9 @@ export const PopulationPanel = () => {
           idealPopulation={idealPopulation}
         />
       </Flex>
-      <ScrollArea
-        scrollbars={shouldUseScrollableRows ? 'vertical' : undefined}
-        className="flex-grow-1"
-        style={{
-          maxHeight: chartHeight,
-        }}
+      <ConditionalScrollArea
+        shouldUseScrollableRows={shouldUseScrollableRows}
+        maxHeight={chartHeight}
       >
         <Flex direction="row" width={'100%'} gap="1">
           <Flex
@@ -112,12 +109,15 @@ export const PopulationPanel = () => {
             justify={'between'}
             minWidth={'5rem'}
           >
-            <Flex justify="end" style={{
-              position: 'sticky',
-              top: 0,
-              zIndex: 2,
-              backgroundColor: 'var(--gray-1)',
-            }}>
+            <Flex
+              justify="end"
+              style={{
+                position: 'sticky',
+                top: 0,
+                zIndex: 2,
+                backgroundColor: 'var(--gray-1)',
+              }}
+            >
               <IconButton
                 onClick={toggleLockAllAreas}
                 variant="ghost"
@@ -184,17 +184,19 @@ export const PopulationPanel = () => {
           </ParentSize>
         </Flex>
         {/* Cover the small overflow on the bottom left */}
-        <Box style={{
-          backgroundColor: "white",
-          width: 80,
-          height: 50, 
-          position: 'sticky',
-          bottom: 0,
-          zIndex: 2,
-          left: 0,
-        }}>
-        </Box>
-      </ScrollArea>
+        <Box
+          style={{
+            backgroundColor: 'white',
+            width: 80,
+            height: 50,
+            position: 'sticky',
+            bottom: 0,
+            zIndex: 2,
+            left: 0,
+            display: shouldUseScrollableRows ? 'none' : 'block',
+          }}
+        ></Box>
+      </ConditionalScrollArea>
       {!!idealPopulation && (
         <Flex direction={'row'} justify={'between'} align={'start'} wrap="wrap">
           <Flex direction="column" gapX="2" minWidth={'10rem'}>

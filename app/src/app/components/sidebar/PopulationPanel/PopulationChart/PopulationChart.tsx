@@ -169,7 +169,12 @@ export const PopulationChart: React.FC<{
           <svg width={width} height={margins.top}>
             <Group left={margins.left}>
               {!!idealPopulation && (
-                <text x={xScale(idealPopulation) + 5} y={margins.top - 5} textAnchor="start" fontSize="14px">
+                <text
+                  x={xScale(idealPopulation) + 5}
+                  y={margins.top - 5}
+                  textAnchor="start"
+                  fontSize="14px"
+                >
                   Ideal{' '}
                   {isHovered ? (
                     <tspan color="gray">{formatNumber(idealPopulation, 'string')}</tspan>
@@ -225,7 +230,11 @@ export const PopulationChart: React.FC<{
           <Group left={xScale(idealPopulation) + 5} top={-5}>
             <text textAnchor="start" fontSize="14px">
               Ideal{' '}
-              {isHovered ? <tspan color="gray">{formatNumber(idealPopulation, 'string')}</tspan> : ''}
+              {isHovered ? (
+                <tspan color="gray">{formatNumber(idealPopulation, 'string')}</tspan>
+              ) : (
+                ''
+              )}
             </text>
           </Group>
         )}
