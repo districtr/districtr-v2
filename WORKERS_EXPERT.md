@@ -47,6 +47,9 @@ Define worker boundaries, Comlink contracts, cache behavior, and performance gua
 - `cd app && bun run build`
 - Manual checks: map switch, shatter cycle, demography loading, centroid rendering.
 
+## See Also
+- [FE_EXPERT.md](./FE_EXPERT.md) - Frontend integration and performance considerations
+
 ## Common Failure Modes
 - Stale geometry cache after map source change.
 - Parquet reads over-fetching data due to row/column range mistakes.

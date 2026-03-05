@@ -53,6 +53,11 @@ Define backend conventions for FastAPI + SQLModel/SQLAlchemy services, request d
 - `docker-compose exec backend pytest -v`
 - `docker-compose up pre-commit`
 
+## See Also
+- [DB_QUERY_AND_MIGRATIONS_EXPERT.md](./DB_QUERY_AND_MIGRATIONS_EXPERT.md) - SQLAlchemy-first DB patterns and migrations
+- [AUTH_SHARE_SECURITY_EXPERT.md](./AUTH_SHARE_SECURITY_EXPERT.md) - Authentication and security
+- [DOCKER_EXPERT.md](./DOCKER_EXPERT.md) - Container and development setup
+
 ## Common Failure Modes
 - Access-control regressions from using `get_document` where `get_protected_document` was intended.
 - Partial writes caused by commit timing mistakes in multi-step operations.

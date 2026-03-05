@@ -49,6 +49,10 @@ Define CMS authoring/review flows, TipTap extension expectations, and moderation
 - `cd backend && pytest -v tests/test_comments.py tests/test_cms.py`
 - `cd app && bun run build`
 
+## See Also
+- [AUTH_SHARE_SECURITY_EXPERT.md](./AUTH_SHARE_SECURITY_EXPERT.md) - Authentication and security for protected CMS operations
+- [BE_EXPERT.md](./BE_EXPERT.md) - Backend CMS endpoints and models
+
 ## Common Failure Modes
 - Review status updates not reflected in admin lists due to filter mismatch.
 - Public comments leaking rejected content.

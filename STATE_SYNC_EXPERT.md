@@ -48,6 +48,10 @@ Define the sync model between local IndexedDB, in-memory stores, and server stat
 - `cd app && bun run build`
 - Manual sync scenario tests: remote newer, local newer, same timestamp, fork path.
 
+## See Also
+- [FE_EXPERT.md](./FE_EXPERT.md) - Frontend state management
+- [BE_EXPERT.md](./BE_EXPERT.md) - Backend API contracts
+
 ## Common Failure Modes
 - Duplicate/conflicting assignment sources applied to stores.
 - Lost local edits due to premature remote preference.

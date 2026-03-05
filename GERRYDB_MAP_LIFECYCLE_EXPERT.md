@@ -53,6 +53,10 @@ Define the end-to-end lifecycle for loading geospatial source layers, creating D
 - `cd backend && python cli.py create-parent-child-edges --help`
 - `cd backend && python cli.py batch-create-districtr-maps --help`
 
+## See Also
+- [PIPELINES_EXPERT.md](./PIPELINES_EXPERT.md) - Data pipeline artifacts and contracts
+- [BE_EXPERT.md](./BE_EXPERT.md) - Backend integration points
+
 ## Common Failure Modes
 - Graph unavailable errors during contiguity checks.
 - Child/parent edge table empty due to layer mismatch.

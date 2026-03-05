@@ -55,6 +55,11 @@ Document frontend architecture and conventions for a map-first, interaction-heav
 - `cd app && bun run lint`
 - `cd app && bun run ts`
 
+## See Also
+- [MAP_RUNTIME_EXPERT.md](./MAP_RUNTIME_EXPERT.md) - Runtime map interaction and rendering rules
+- [STATE_SYNC_EXPERT.md](./STATE_SYNC_EXPERT.md) - State synchronization between local and server
+- [WORKERS_EXPERT.md](./WORKERS_EXPERT.md) - Web worker contracts and performance
+
 ## Common Failure Modes
 - Regressed paint behavior from bypassing `assignmentsStore` accumulation/ingestion flow.
 - Hover/tooltip flicker from unsafely changing throttled map event handlers.

@@ -48,6 +48,10 @@ Define source-of-truth runtime rules for map interaction, feature-state renderin
 - `cd app && bun run build`
 - Manual flows: paint, erase, shatter, unshatter/heal, overlay-constrained paint, zone comments.
 
+## See Also
+- [FE_EXPERT.md](./FE_EXPERT.md) - Frontend architecture and store-driven state
+- [STATE_SYNC_EXPERT.md](./STATE_SYNC_EXPERT.md) - State synchronization contracts
+
 ## Common Failure Modes
 - Ghost paint artifacts from unsynchronized feature-state updates.
 - Incorrect child/parent assignment transitions during heal.
