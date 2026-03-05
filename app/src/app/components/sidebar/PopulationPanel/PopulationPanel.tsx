@@ -1,4 +1,4 @@
-import {Flex, Heading, IconButton, ScrollArea, Spinner, Text} from '@radix-ui/themes';
+import {Box, Flex, Heading, IconButton, ScrollArea, Spinner, Text} from '@radix-ui/themes';
 import React from 'react';
 import {formatNumber} from '@utils/numbers';
 import {ParentSize} from '@visx/responsive'; // Import ParentSize
@@ -105,16 +105,6 @@ export const PopulationPanel = () => {
         }}
       >
         <Flex direction="row" width={'100%'} gap="1">
-          {/* style={
-          shouldUseScrollableRows
-            ? {
-                flex: 1,
-                minHeight: 0,
-                overflowY: 'auto',
-                overflowX: 'hidden',
-              }
-            : undefined
-        } */}
           <Flex
             direction={'column'}
             gap={'2'}
@@ -193,6 +183,17 @@ export const PopulationPanel = () => {
             )}
           </ParentSize>
         </Flex>
+        {/* Cover the small overflow on the bottom left */}
+        <Box style={{
+          backgroundColor: "white",
+          width: 80,
+          height: 50, 
+          position: 'sticky',
+          bottom: 0,
+          zIndex: 2,
+          left: 0,
+        }}>
+        </Box>
       </ScrollArea>
       {!!idealPopulation && (
         <Flex direction={'row'} justify={'between'} align={'start'} wrap="wrap">
