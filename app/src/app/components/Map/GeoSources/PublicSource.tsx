@@ -1,4 +1,3 @@
-@ -0,0 +1,48 @@
 import React, {useLayoutEffect, useMemo} from 'react';
 import {Source} from 'react-map-gl/maplibre';
 import {useQuery} from '@tanstack/react-query';

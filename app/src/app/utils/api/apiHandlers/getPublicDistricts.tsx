@@ -24,7 +24,7 @@ export const getPublicDistricts = async (mapDocument?: DocumentObject | null) =>
       message: response.error.detail || 'Failed to fetch public district stats',
       severity: 2,
     });
-    return EMPTY_FT_COLLECTION;
+    return null;
   }
 
   const geojsonFeatures: GeoJSON.Feature<GeoJSON.Geometry, GeoJSON.GeoJsonProperties>[] = [];
