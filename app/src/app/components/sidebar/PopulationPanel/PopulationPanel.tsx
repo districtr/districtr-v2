@@ -1,4 +1,4 @@
-import {Flex, Heading, IconButton, Spinner, Text} from '@radix-ui/themes';
+import {Flex, Heading, IconButton, ScrollArea, Spinner, Text} from '@radix-ui/themes';
 import React from 'react';
 import {formatNumber} from '@utils/numbers';
 import {ParentSize} from '@visx/responsive'; // Import ParentSize
@@ -16,6 +16,7 @@ import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 
 const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
+const populationChartMargins = {left: 5, right: 20, top: 20, bottom: 80};
 
 export const PopulationPanel = () => {
   const {populationData, demoIsLoaded} = useZonePopulations();
@@ -44,7 +45,9 @@ export const PopulationPanel = () => {
   const colorScheme = useColorScheme();
   const isEditing = useMapControlsStore(state => state.isEditing);
   const shouldUseScrollableRows = populationData.length > 10;
-  const chartHeight = populationData.length ? `${populationData.length * 38 + 76}px` : '200px';
+  const chartHeight = populationData.length
+    ? `${populationData.length * 38 + populationChartMargins.top + populationChartMargins.bottom - 24}px`
+    : '200px';
 
   const handleLockChange = (zone: number) => {
     if (lockPaintedAreas.includes(zone)) {
@@ -95,94 +98,191 @@ export const PopulationPanel = () => {
           idealPopulation={idealPopulation}
         />
       </Flex>
-      <Flex
-        direction="row"
-        width={'100%'}
-        gap="1"
-        style={
-          shouldUseScrollableRows
-            ? {
-                flex: 1,
-                minHeight: 0,
-                overflowY: 'auto',
-                overflowX: 'hidden',
-              }
-            : undefined
-        }
-      >
-        <Flex
-          direction={'column'}
-          gap={'2'}
-          className="flex-grow-0 p-0 pb-[80px]"
-          justify={'between'}
-          minWidth={'5rem'}
-        >
-          <Flex justify="end">
+      {shouldUseScrollableRows ? (
+        <Flex style={{position: 'relative', flex: 1, minHeight: 0}}>
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              zIndex: 4,
+              width: '5rem',
+              display: 'flex',
+              justifyContent: 'end',
+              backgroundColor: 'var(--gray-1)',
+            }}
+          >
             <IconButton
               onClick={toggleLockAllAreas}
               variant="ghost"
+              size="1"
               disabled={access === 'read'}
               style={{opacity: isEditing ? 1 : 0}}
             >
               {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
             </IconButton>
-          </Flex>
-          {/* @ts-ignore */}
-          {populationData.map(d => (
-            <Flex
-              key={d.zone}
-              direction={'row'}
-              gapY="1"
-              gapX="1"
-              align={'center'}
-              className="p-0 m-0"
-              justify={'between'}
-            >
-              {!!showDistrictNumbers && (
-                <IconButton
-                  variant={'outline'}
-                  onClick={() => setSelectedZone(d.zone)}
-                  size="1"
-                  className={`${selectedZone === d.zone ? 'bg-gray-100' : '!shadow-none'} max-w-12 flex-grow`}
+          </div>
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              zIndex: 3,
+              width: '5rem',
+              height: `${populationChartMargins.bottom}px`,
+              backgroundColor: 'var(--gray-1)',
+              pointerEvents: 'none',
+            }}
+          />
+          <ScrollArea type="auto" scrollbars="vertical" style={{flex: 1, minHeight: 0}}>
+            <Flex direction="row" width={'100%'} gap="1">
+              <Flex
+                direction={'column'}
+                gap={'2'}
+                className="flex-grow-0 p-0"
+                justify={'between'}
+                minWidth={'5rem'}
+                width={'5rem'}
+                style={{
+                  paddingTop: `${populationChartMargins.top}px`,
+                  paddingBottom: `${populationChartMargins.bottom}px`,
+                }}
+              >
+              {/* @ts-ignore */}
+              {populationData.map(d => (
+                <Flex
+                  key={d.zone}
+                  direction={'row'}
+                  gapY="1"
+                  gapX="1"
+                  align={'center'}
+                  className="p-0 m-0"
+                  justify={'between'}
                 >
-                  <Text weight={selectedZone === d.zone ? 'bold' : 'regular'}>{d.zone}</Text>
-                </IconButton>
-              )}
-              <Flex gap="0" align="center">
-                <ZoneCommentPopover
-                  zone={d.zone}
-                  color={colorScheme[(d.zone - 1) % colorScheme.length]}
-                />
-                {!!isEditing && (
+                  {!!showDistrictNumbers && (
+                    <IconButton
+                      variant={'outline'}
+                      onClick={() => setSelectedZone(d.zone)}
+                      size="1"
+                      className={`${selectedZone === d.zone ? 'bg-gray-100' : '!shadow-none'} max-w-12 flex-grow`}
+                    >
+                      <Text weight={selectedZone === d.zone ? 'bold' : 'regular'}>{d.zone}</Text>
+                    </IconButton>
+                  )}
+                  <Flex gap="0" align="center">
+                    <ZoneCommentPopover
+                      zone={d.zone}
+                      color={colorScheme[(d.zone - 1) % colorScheme.length]}
+                    />
+                    {!!isEditing && (
+                      <IconButton
+                        onClick={() => handleLockChange(d.zone)}
+                        variant="ghost"
+                        disabled={access === 'read'}
+                      >
+                        {lockPaintedAreas.includes(d.zone) ? <LockClosedIcon /> : <LockOpen2Icon />}
+                      </IconButton>
+                    )}
+                  </Flex>
+                </Flex>
+              ))}
+              </Flex>
+              <ParentSize
+                style={{
+                  height: chartHeight,
+                  width: '100%',
+                }}
+              >
+                {({width, height}) => (
+                  <PopulationChart
+                    width={width}
+                    height={height}
+                    data={populationData}
+                    idealPopulation={idealPopulation}
+                    enableStickyRows={shouldUseScrollableRows}
+                    margins={populationChartMargins}
+                  />
+                )}
+              </ParentSize>
+            </Flex>
+          </ScrollArea>
+        </Flex>
+      ) : (
+        <Flex direction="row" width={'100%'} gap="1">
+          <Flex
+            direction={'column'}
+            gap={'2'}
+            className="flex-grow-0 p-0 pb-[80px]"
+            justify={'between'}
+            minWidth={'5rem'}
+          >
+            <Flex justify="end">
+              <IconButton
+                onClick={toggleLockAllAreas}
+                variant="ghost"
+                disabled={access === 'read'}
+                style={{opacity: isEditing ? 1 : 0}}
+              >
+                {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
+              </IconButton>
+            </Flex>
+            {/* @ts-ignore */}
+            {populationData.map(d => (
+              <Flex
+                key={d.zone}
+                direction={'row'}
+                gapY="1"
+                gapX="1"
+                align={'center'}
+                className="p-0 m-0"
+                justify={'between'}
+              >
+                {!!showDistrictNumbers && (
                   <IconButton
-                    onClick={() => handleLockChange(d.zone)}
-                    variant="ghost"
-                    disabled={access === 'read'}
+                    variant={'outline'}
+                    onClick={() => setSelectedZone(d.zone)}
+                    size="1"
+                    className={`${selectedZone === d.zone ? 'bg-gray-100' : '!shadow-none'} max-w-12 flex-grow`}
                   >
-                    {lockPaintedAreas.includes(d.zone) ? <LockClosedIcon /> : <LockOpen2Icon />}
+                    <Text weight={selectedZone === d.zone ? 'bold' : 'regular'}>{d.zone}</Text>
                   </IconButton>
                 )}
+                <Flex gap="0" align="center">
+                  <ZoneCommentPopover
+                    zone={d.zone}
+                    color={colorScheme[(d.zone - 1) % colorScheme.length]}
+                  />
+                  {!!isEditing && (
+                    <IconButton
+                      onClick={() => handleLockChange(d.zone)}
+                      variant="ghost"
+                      disabled={access === 'read'}
+                    >
+                      {lockPaintedAreas.includes(d.zone) ? <LockClosedIcon /> : <LockOpen2Icon />}
+                    </IconButton>
+                  )}
+                </Flex>
               </Flex>
-            </Flex>
-          ))}
+            ))}
+          </Flex>
+          <ParentSize
+            style={{
+              height: chartHeight,
+              width: '100%',
+            }}
+          >
+            {({width, height}) => (
+              <PopulationChart
+                width={width}
+                height={height}
+                data={populationData}
+                idealPopulation={idealPopulation}
+                margins={populationChartMargins}
+              />
+            )}
+          </ParentSize>
         </Flex>
-        <ParentSize
-          style={{
-            height: chartHeight,
-            width: '100%',
-          }}
-        >
-          {({width, height}) => (
-            <PopulationChart
-              width={width}
-              height={height}
-              data={populationData}
-              idealPopulation={idealPopulation}
-              enableStickyRows={shouldUseScrollableRows}
-            />
-          )}
-        </ParentSize>
-      </Flex>
+      )}
       {!!idealPopulation && (
         <Flex direction={'row'} justify={'between'} align={'start'} wrap="wrap">
           <Flex direction="column" gapX="2" minWidth={'10rem'}>
