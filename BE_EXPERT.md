@@ -12,14 +12,18 @@ Define backend conventions for FastAPI + SQLModel/SQLAlchemy services, request d
 - `backend/app/main.py`
 - `backend/app/models.py`
 - `backend/app/core/db.py`
+- `backend/app/core/config.py`
 - `backend/app/core/dependencies.py`
 - `backend/app/core/security.py`
+- `backend/app/core/io.py`
+- `backend/app/core/models.py`
 - `backend/app/utils.py`
 - `backend/app/assignments/assignments.py`
 - `backend/app/comments/*`
 - `backend/app/cms/*`
 - `backend/app/save_share/*`
 - `backend/app/exports/*`
+- `backend/app/sql/*` - legacy UDF SQL files (do not expand; see [DB_QUERY_AND_MIGRATIONS_EXPERT.md](./DB_QUERY_AND_MIGRATIONS_EXPERT.md))
 
 ## Hard Invariants
 - **SQLAlchemy-First**: new backend logic defaults to SQLAlchemy/SQLModel query composition and set-based SQL.

@@ -18,6 +18,7 @@ Define the source of truth for local containerized development, service startup 
 - `backend/.env.docker`
 
 ## Hard Invariants
+- Database is **PostgreSQL 15 with PostGIS 3.3** (`postgis/postgis:15-3.3-alpine`).
 - Compose build contexts stay aligned with monorepo boundaries:
   - frontend: `./app`
   - backend: `./backend`

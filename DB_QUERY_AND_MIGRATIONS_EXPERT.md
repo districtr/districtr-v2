@@ -18,6 +18,7 @@ Set database implementation standards for SQLAlchemy-first query design, migrati
 - `backend/app/models.py`
 
 ## Hard Invariants
+- Database is **PostgreSQL 15 with PostGIS 3.3**. Spatial types and functions are available.
 - **SQLAlchemy-First**: prefer SQLAlchemy/SQLModel query composition and parameterized set-based SQL.
 - No schema change ships without Alembic migration coverage.
 - Partition-sensitive operations must preserve partition creation/routing semantics.

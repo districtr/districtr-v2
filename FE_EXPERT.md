@@ -8,15 +8,46 @@ Document frontend architecture and conventions for a map-first, interaction-heav
 - You are adding/modifying frontend stores, workers, or API handlers.
 - You are touching page composition for `/map` and `/map/edit/*`.
 
+## Runtime & Tooling
+- **Package manager**: Bun (used in Docker and for all `bun run` scripts)
+- **Framework**: Next.js with app router, route groups `(interactive)` and `(static)`
+- **State**: Zustand stores with middleware (persist, temporal/undo, devtools, subscribeWithSelector)
+- **Map**: MapLibre GL JS via `react-map-gl`
+
 ## Canonical Files
+
+### Page composition & components
+- `app/src/app/(interactive)/map/` - map viewer/editor route group
 - `app/src/app/components/MapPage/MapPage.tsx`
 - `app/src/app/components/Map/MainMap.tsx`
 - `app/src/app/components/Map/MapContainer.tsx`
+
+### Map events & rendering
 - `app/src/app/utils/events/mapEvents.ts`
 - `app/src/app/utils/map/mapRenderSubs.ts`
-- `app/src/app/store/mapStore.ts`
-- `app/src/app/store/assignmentsStore.ts`
-- `app/src/app/store/mapControlsStore.tsx`
+
+### Stores (primary)
+- `app/src/app/store/mapStore.ts` - map document, map ref, load state
+- `app/src/app/store/assignmentsStore.ts` - zone assignments, shatter state
+- `app/src/app/store/mapControlsStore.tsx` - tool selection, map options
+
+### Stores (supporting)
+- `app/src/app/store/demography/demographyStore.ts` - demography display
+- `app/src/app/store/overlayStore.ts` - overlay constraints for painting
+- `app/src/app/store/toolbarStore.ts` - toolbar UI state
+- `app/src/app/store/tooltipStore.ts` - tooltip state
+- `app/src/app/store/chartStore.ts` - chart visualization
+- `app/src/app/store/temporalStore.ts` - undo/redo state
+- `app/src/app/store/saveShareStore.ts` - save/share workflow
+
+### Store subscription & middleware architecture
+- `app/src/app/store/subscriptions.tsx` - initializes all cross-store subscriptions
+- `app/src/app/store/mapEditSubs.ts` - map editing side-effect subscriptions
+- `app/src/app/store/metricsSubs.ts` - metrics computation subscriptions
+- `app/src/app/store/middlewares.ts` - Zustand middleware composition factory
+- `app/src/app/store/middlewareConfig.ts` - middleware configuration (persist, temporal, devtools)
+
+### Workers, persistence, API
 - `app/src/app/utils/GeometryWorker/*`
 - `app/src/app/utils/ParquetWorker/*`
 - `app/src/app/utils/idb/idb.ts`
@@ -24,6 +55,8 @@ Document frontend architecture and conventions for a map-first, interaction-heav
 
 ## Hard Invariants
 - Frontend state is store-driven (Zustand), not component-local ad hoc state unless truly local to component.
+- Cross-store side effects are wired via subscriptions in `subscriptions.tsx` / `mapEditSubs.ts` / `metricsSubs.ts`. Do not scatter ad hoc subscription wiring in components.
+- Store middleware chain (persist → devtools → temporal → subscribeWithSelector) is composed in `middlewares.ts`. Do not duplicate or bypass this factory.
 - Painting/shattering behavior depends on MapLibre feature-state and must remain synchronous-feeling.
 - High-cost geometry/tabular work belongs in Web Workers, not React render paths.
 - Demography and assignment behavior must preserve map load-state gating (`initializing/loading/loaded`).

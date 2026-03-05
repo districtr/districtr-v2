@@ -15,6 +15,8 @@ Define source-of-truth runtime rules for map interaction, feature-state renderin
 - `app/src/app/store/mapStore.ts`
 - `app/src/app/store/assignmentsStore.ts`
 - `app/src/app/store/mapControlsStore.tsx`
+- `app/src/app/store/overlayStore.ts` - overlay constraints that restrict painting
+- `app/src/app/store/toolbarStore.ts` - active tool selection (pan, brush, eraser, etc.)
 - `app/src/app/components/Map/MapContainer.tsx`
 - `app/src/app/components/Map/MainMap.tsx`
 
