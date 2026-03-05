@@ -18,6 +18,8 @@ import {
   isCoalitionVariable,
 } from '@/app/utils/demography/coalition';
 
+let coalitionHydrationRequestId = 0;
+
 export var useDemographyStore = create(
   subscribeWithSelector<DemographyStore>((set, get) => ({
     getMapRef: () => undefined,
@@ -43,6 +45,7 @@ export var useDemographyStore = create(
     coalitionHash: '',
     coalitionHydratedSlug: null,
     hydrateCoalition: async mapDocument => {
+      const requestId = ++coalitionHydrationRequestId;
       const slug = mapDocument?.districtr_map_slug;
       if (!slug) {
         set({
@@ -55,6 +58,8 @@ export var useDemographyStore = create(
       }
       if (get().coalitionHydratedSlug === slug) return;
       const saved = await idb.getCoalitionConfigBySlug(slug);
+      const activeSlug = useMapStore.getState().mapDocument?.districtr_map_slug;
+      if (requestId !== coalitionHydrationRequestId || activeSlug !== slug) return;
       const coalitionGroups = (saved?.selectedGroups ?? []) as CoalitionGroupKey[];
       set({
         coalitionGroups,

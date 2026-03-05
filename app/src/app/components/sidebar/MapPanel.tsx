@@ -100,6 +100,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   const scale = useDemographyStore(state => state.scale);
   const numberOfbins = useDemographyStore(state => state.numberOfBins);
   const setNumberOfBins = useDemographyStore(state => state.setNumberOfBins);
+  const dataHash = useDemographyStore(state => state.dataHash);
   const availableMapVariables = useDemographyStore(state => state.availableColumnSets.map);
   const coalitionOption = useMemo(() => {
     if (columnGroup !== 'TOTPOP' && columnGroup !== 'VAP') return undefined;
@@ -121,7 +122,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
       customLegendLabels: undefined,
       expression: undefined,
     };
-  }, [columnGroup, coalitionGroups]);
+  }, [columnGroup, coalitionGroups, dataHash]);
   const currentVariableList = useMemo(() => {
     const baseList = availableMapVariables[columnGroup] ?? [];
     if (!coalitionOption) return baseList;
