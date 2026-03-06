@@ -8,6 +8,7 @@ import {MapPanel} from './MapPanel';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
+import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/map/mapDefaults';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
 
 type SummaryPanelProps = {
@@ -26,6 +27,8 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
   const setSelectedZone = useMapControlsStore(state => state.setSelectedZone);
   const numDistricts =
     useMapStore(state => state.mapDocument?.num_districts) ?? FALLBACK_NUM_DISTRICTS;
+  const numCommunities =
+    useMapStore(state => state.numCommunities) ?? FALLBACK_NUM_COMMUNITIES;
 
   const [summaryType, setSummaryType] = useState<keyof SummaryStatConfig | undefined>(
     !availableColumnSets.length
@@ -37,6 +40,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
 
   const columnConfig = summaryType ? availableSummaries[summaryType] : [];
   const isCoiMode = mapMode === 'coi';
+  const numZones = isCoiMode ? numCommunities : numDistricts;
 
   useEffect(() => {
     if (!availableColumnSets.length) return;
@@ -90,7 +94,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
             >
               <Select.Trigger />
               <Select.Content>
-                {Array.from({length: numDistricts}, (_, i) => i + 1).map(zone => (
+                {Array.from({length: numZones}, (_, i) => i + 1).map(zone => (
                   <Select.Item key={zone} value={String(zone)}>
                     {zone}
                   </Select.Item>

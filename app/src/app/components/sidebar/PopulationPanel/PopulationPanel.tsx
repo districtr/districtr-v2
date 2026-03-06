@@ -14,6 +14,7 @@ import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {ZoneCommentPopover} from './ZoneCommentPopover';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
+import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/map/mapDefaults';
 
 const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
 
@@ -23,11 +24,14 @@ export const PopulationPanel = () => {
   const idealPopulation = summaryStats?.idealpop;
   const unassigned = summaryStats.unassigned;
   const mapDocument = useMapStore(state => state.mapDocument);
+  const mapMode = useMapControlsStore(state => state.mapMode);
   const numDistricts = useMapStore(
     state => state.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS
   );
+  const numCommunities = useMapStore(state => state.numCommunities ?? FALLBACK_NUM_COMMUNITIES);
+  const numZones = mapMode === 'coi' ? numCommunities : numDistricts;
   const allPainted =
-    numDistricts === populationData.length &&
+    numZones === populationData.length &&
     zoneStats.minPopulation !== undefined &&
     zoneStats.minPopulation > 0;
 

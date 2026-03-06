@@ -1,10 +1,12 @@
 'use client';
 import {useMapStore} from '@store/mapStore';
 import {useChartStore} from '@store/chartStore';
+import {useMapControlsStore} from '@store/mapControlsStore';
 import {useMemo} from 'react';
 import {demographyCache} from '@utils/demography/demographyCache';
 import {useDemographyStore} from '../store/demography/demographyStore';
 import {FALLBACK_NUM_DISTRICTS} from '../constants/map/layerStyle';
+import {FALLBACK_NUM_COMMUNITIES} from '../constants/map/mapDefaults';
 import {SummaryRecord} from '../utils/api/summaryStats';
 
 /**
@@ -26,9 +28,12 @@ export const useZonePopulations = (includeUnassigned?: boolean) => {
   const demogHash = useDemographyStore(state => state.dataHash);
   const chartHash = useChartStore(state => state.dataUpdateHash);
   const paintedChanges = useChartStore(state => state.paintedChanges);
+  const mapMode = useMapControlsStore(state => state.mapMode);
   const numDistricts = useMapStore(
     state => state.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS
   );
+  const numCommunities = useMapStore(state => state.numCommunities ?? FALLBACK_NUM_COMMUNITIES);
+  const numZones = mapMode === 'coi' ? numCommunities : numDistricts;
   const mapDocument = useMapStore(state => state.mapDocument);
   const demoIsLoaded = mapDocument?.document_id && demogHash.includes(mapDocument.document_id);
   // TODO: Could be refactored in the main demographyCache class
@@ -37,8 +42,8 @@ export const useZonePopulations = (includeUnassigned?: boolean) => {
       includeUnassigned ? true : Boolean(row.zone)
     );
     const zonesPresent = cleanedData.map(row => row.zone).filter(Boolean);
-    if (zonesPresent.length < numDistricts) {
-      for (let i = 1; i <= numDistricts; i++) {
+    if (zonesPresent.length < numZones) {
+      for (let i = 1; i <= numZones; i++) {
         if (!zonesPresent.includes(i)) {
           cleanedData.push({zone: i, total_pop_20: 0} as unknown as SummaryRecord);
         }
@@ -52,7 +57,7 @@ export const useZonePopulations = (includeUnassigned?: boolean) => {
     });
 
     return cleanedData.sort((a, b) => a.zone - b.zone);
-  }, [chartHash, demogHash, paintedChanges, includeUnassigned, mapDocument]);
+  }, [chartHash, demogHash, paintedChanges, includeUnassigned, mapDocument, numZones]);
 
   return {
     populationData,

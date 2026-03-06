@@ -40,6 +40,13 @@ export const initSubs = () => {
       demographyCache.updateSummaryStats();
     }
   );
+  const numCommunitiesSub = useMapStore.subscribe(
+    state => state.numCommunities,
+    (curr, prev) => {
+      if (prev === curr) return;
+      demographyCache.updateSummaryStats();
+    }
+  );
 
   const demogShatterSub = useAssignmentsStore.subscribe(
     state => state.shatterIds.parents,
@@ -87,6 +94,7 @@ export const initSubs = () => {
     demogInitSub();
     demogMapDocumentSub();
     numDistrictsSub();
+    numCommunitiesSub();
     demogShatterSub();
     demogCoiShatterSub();
     paintFlushSub();

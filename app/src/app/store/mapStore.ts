@@ -18,7 +18,7 @@ import {checkIfSameZone} from '@utils/map/checkIfSameZone';
 import {resetZoneColors} from '@utils/map/resetZoneColors';
 import {setZones} from '@utils/map/setZones';
 import bbox from '@turf/bbox';
-import {FALLBACK_NUM_DISTRICTS} from '../constants/map/layerStyle';
+import {FALLBACK_NUM_COMMUNITIES} from '../constants/map/mapDefaults';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
 import {onlyUnique} from '../utils/arrays';
 import {queryClient} from '../utils/api/queryClient';
@@ -45,6 +45,18 @@ const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string
     }
   }
   return combinedSet; // Return the combined set
+};
+
+const resolveNumCommunities = (
+  mapDocument: DocumentObject | null | undefined,
+  fallbackDocument?: DocumentObject | null
+) => {
+  return (
+    mapDocument?.num_communities ??
+    fallbackDocument?.num_communities ??
+    mapDocument?.num_districts ??
+    FALLBACK_NUM_COMMUNITIES
+  );
 };
 
 export interface MapStore {
@@ -86,6 +98,8 @@ export interface MapStore {
   mapStatus: StatusObject | null;
   setMapStatus: (mapStatus: Partial<StatusObject>) => void;
   setNumDistricts: (numDistricts: number) => void;
+  numCommunities: number;
+  setNumCommunities: (numCommunities: number) => void;
 
   // ZONE COMMENTS
   pinnedCommentZone: number | null;
@@ -218,6 +232,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     mapViews: {isPending: true},
     setMapViews: mapViews => set({mapViews}),
     mapDocument: null,
+    numCommunities: FALLBACK_NUM_COMMUNITIES,
     updated: {
       metadata: false,
       comments: false,
@@ -259,10 +274,16 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         newStateFipsSet = new Set(mapControlsState.mapOptions.stateFipsSet);
       }
 
-      // If the color scheme does not cover all districts, extend it
+      const numCommunities = resolveNumCommunities(
+        mapDocument,
+        idIsSame ? currentMapDocument : undefined
+      );
+
+      // If the color scheme does not cover all zones, extend it
       let colorScheme = mapDocument.color_scheme ?? DefaultColorScheme;
-      if (mapDocument.num_districts && mapDocument.num_districts > colorScheme.length) {
-        colorScheme = extendColorArray(colorScheme, mapDocument.num_districts);
+      const maxZoneCountForColors = Math.max(mapDocument.num_districts ?? 0, numCommunities);
+      if (maxZoneCountForColors > colorScheme.length) {
+        colorScheme = extendColorArray(colorScheme, maxZoneCountForColors);
       }
 
       useMapControlsStore.setState({
@@ -286,8 +307,10 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       set({
         mapDocument: {
           ...mapDocument,
+          num_communities: numCommunities,
           color_scheme: colorScheme,
         },
+        numCommunities,
         mapStatus: {
           access: mapDocument.access,
           genesis: mapDocument.genesis,
@@ -437,11 +460,11 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       set({mapStatus: {...prev, ...mapStatus} as StatusObject});
     },
     setNumDistricts: numDistricts => {
-      const {mapDocument, updated} = get();
+      const {mapDocument, updated, numCommunities} = get();
       if (!mapDocument) return;
       const newColorScheme = extendColorArray(
         mapDocument.color_scheme ?? DefaultColorScheme,
-        numDistricts
+        Math.max(numDistricts, numCommunities)
       );
       const updatedDocument = {
         ...mapDocument,
@@ -474,6 +497,57 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
                 })
                 .catch(err => {
                   console.error('Failed to update IDB with num_districts:', err);
+                });
+            }
+          })
+          .catch(err => {
+            console.error('Failed to get IDB document:', err);
+          });
+      }
+    },
+    setNumCommunities: numCommunities => {
+      const {mapDocument, updated} = get();
+      if (!mapDocument) return;
+      const normalizedNumCommunities = Math.max(1, numCommunities);
+      const newColorScheme = extendColorArray(
+        mapDocument.color_scheme ?? DefaultColorScheme,
+        Math.max(normalizedNumCommunities, mapDocument.num_districts ?? 0)
+      );
+      const updatedDocument = {
+        ...mapDocument,
+        num_communities: normalizedNumCommunities,
+        color_scheme: newColorScheme,
+      };
+      set({
+        mapDocument: updatedDocument,
+        numCommunities: normalizedNumCommunities,
+        updated: {
+          ...updated,
+          metadata: true,
+        },
+      });
+
+      if (mapDocument.document_id) {
+        const newClientLastUpdated = new Date().toISOString();
+        if (useMapControlsStore.getState().mapMode === 'coi') {
+          useCoiAssignmentsStore.getState().setClientLastUpdated(newClientLastUpdated);
+        } else {
+          useAssignmentsStore.getState().setClientLastUpdated(newClientLastUpdated);
+        }
+
+        idb
+          .getDocument(mapDocument.document_id)
+          .then(idbDoc => {
+            if (idbDoc) {
+              idb
+                .updateDocument({
+                  id: mapDocument.document_id,
+                  document_metadata: updatedDocument,
+                  assignments: idbDoc.assignments,
+                  clientLastUpdated: newClientLastUpdated,
+                })
+                .catch(err => {
+                  console.error('Failed to update IDB with num_communities:', err);
                 });
             }
           })
