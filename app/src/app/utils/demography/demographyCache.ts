@@ -184,8 +184,8 @@ class DemographyCache {
     const mapMode = useMapControlsStore.getState().mapMode;
     const numZones =
       mapMode === 'coi'
-        ? mapState.numCommunities ?? FALLBACK_NUM_COMMUNITIES
-        : mapState.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
+        ? (mapState.numCommunities ?? FALLBACK_NUM_COMMUNITIES)
+        : (mapState.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
     if (zoneAssignments) {
       this.updateZoneTable(zoneAssignments);
     }
@@ -258,8 +258,8 @@ class DemographyCache {
     const mapMode = useMapControlsStore.getState().mapMode;
     const numZones =
       mapMode === 'coi'
-        ? mapState.numCommunities ?? FALLBACK_NUM_COMMUNITIES
-        : mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
+        ? (mapState.numCommunities ?? FALLBACK_NUM_COMMUNITIES)
+        : (mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
 
     Object.entries(summaryStatsConfig).forEach(([key, config]) => {
       const summaryStats: Partial<DemographyRow> = {};
@@ -271,7 +271,7 @@ class DemographyCache {
     this.summaryStats.totalPopulation = summaries.total_pop_20;
     this.summaryStats.idealpop = Math.round(summaries.total_pop_20 / numZones);
 
-    const universeRow: Record<string, unknown> = { ...summaries, zone: 0 };
+    const universeRow: Record<string, unknown> = {...summaries, zone: 0};
     possibleRollups.forEach(rollup => {
       const totalVal = summaries[rollup.total as keyof typeof summaries];
       const colVal = summaries[rollup.col as keyof typeof summaries];

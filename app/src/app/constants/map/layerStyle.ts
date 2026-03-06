@@ -97,4 +97,3 @@ export const BASEMAP_IDS = {
   SATELLITE: 'satellite',
 } as const;
 export type BasemapId = (typeof BASEMAP_IDS)[keyof typeof BASEMAP_IDS];
-

@@ -27,7 +27,7 @@ import {SettingsPopoverAndModal} from './SettingsPopoverAndModal';
 import {saveMapDocumentMetadata} from '@/app/utils/api/apiHandlers/saveMapDocumentMetadata';
 import {idb} from '@/app/utils/idb/idb';
 import {RevertPopover} from './RevertPopover';
-import { useMapControlsStore } from '@/app/store/mapControlsStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
@@ -120,7 +120,10 @@ export const Topbar: React.FC = () => {
                     <DropdownMenu.SubContent>
                       {data?.length ? (
                         data?.map((view, index) => (
-                          <DropdownMenu.Item key={index} onClick={() => handleSelectMap(view, mapMode)}>
+                          <DropdownMenu.Item
+                            key={index}
+                            onClick={() => handleSelectMap(view, mapMode)}
+                          >
                             {view.name}
                           </DropdownMenu.Item>
                         ))

@@ -4,7 +4,7 @@ import MapPage from '@/app/components/MapPage/MapPage';
 import {API_URL} from '@/app/utils/api/constants';
 import {redirect} from 'next/navigation';
 import {generateMapPageMetadata} from '@/app/utils/metadata/pageMetadataUtils';
-import { currMapRoute } from '@/app/utils/map/mapUrlRoute';
+import {currMapRoute} from '@/app/utils/map/mapUrlRoute';
 
 export const generateMetadata = generateMapPageMetadata;
 

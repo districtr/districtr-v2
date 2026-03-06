@@ -16,11 +16,7 @@ import {
 import {Flex, Text} from '@radix-ui/themes';
 import {formatNumber} from '@/app/utils/numbers';
 import {interpolateGreys} from 'd3-scale-chromatic';
-import {
-  AllEvaluationConfigs,
-  SummaryRecord,
-  SummaryStatConfig,
-} from '@/app/utils/api/summaryStats';
+import {AllEvaluationConfigs, SummaryRecord, SummaryStatConfig} from '@/app/utils/api/summaryStats';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {
   EvalModes,
@@ -173,11 +169,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
               .map((row, i) => {
                 const isUnassigned = row.zone === undefined;
                 const isUniverse = row.zone === 0;
-                const zoneName = isUniverse
-                  ? 'Overall'
-                  : isUnassigned
-                    ? 'None'
-                    : row.zone;
+                const zoneName = isUniverse ? 'Overall' : isUnassigned ? 'None' : row.zone;
                 const backgroundColor = isUniverse
                   ? '#9CA3AF'
                   : isUnassigned

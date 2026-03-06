@@ -8,7 +8,7 @@ import {DocumentObject} from '@utils/api/apiHandlers/types';
 import {useState} from 'react';
 import {idb} from '@/app/utils/idb/idb';
 import {useUserMaps} from '@/app/hooks/useUserMaps';
-import { currMapRoute } from '@/app/utils/map/mapUrlRoute';
+import {currMapRoute} from '@/app/utils/map/mapUrlRoute';
 
 export const RecentMapsModal: React.FC<{
   open?: boolean;

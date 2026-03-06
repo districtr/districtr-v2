@@ -36,7 +36,7 @@ export const MainMap: React.FC = () => {
     setMapMode('districts');
     setMapOptions({basemap: BASEMAP_IDS.MINIMAL});
   }, []);
-  
+
   const initialViewState = useMemo(() => {
     const center = MAP_OPTIONS.center as [number, number];
     return {

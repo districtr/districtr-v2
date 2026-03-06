@@ -48,8 +48,8 @@ export interface MapControlsStore {
   setMapMode: (mode: 'districts' | 'coi') => void;
 }
 
-const pathname = typeof window !== "undefined" ? window.location?.pathname ?? "" : "";
-const initialMapMode = pathname.startsWith("/coi") ? "coi" : "districts";
+const pathname = typeof window !== 'undefined' ? (window.location?.pathname ?? '') : '';
+const initialMapMode = pathname.startsWith('/coi') ? 'coi' : 'districts';
 
 export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
   center: [-98.5795, 39.8283],
@@ -73,7 +73,7 @@ export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
   showPopulationNumbers: false,
   showDemographicMap: undefined,
   overlayOpacity: OVERLAY_OPACITY,
-  basemap: (initialMapMode === 'districts' ? BASEMAP_IDS.MINIMAL : BASEMAP_IDS.STREETS)
+  basemap: initialMapMode === 'districts' ? BASEMAP_IDS.MINIMAL : BASEMAP_IDS.STREETS,
 };
 
 export const useMapControlsStore = create<MapControlsStore>()(
@@ -85,8 +85,8 @@ export const useMapControlsStore = create<MapControlsStore>()(
       const mapStore = useMapStore.getState();
       const maxZone =
         get().mapMode === 'coi'
-          ? mapStore.numCommunities ?? FALLBACK_NUM_COMMUNITIES
-          : mapStore.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
+          ? (mapStore.numCommunities ?? FALLBACK_NUM_COMMUNITIES)
+          : (mapStore.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
       if (zone <= maxZone && !get().isPainting) {
         set({selectedZone: zone});
       }
@@ -134,8 +134,8 @@ export const useMapControlsStore = create<MapControlsStore>()(
       const mapStore = useMapStore.getState();
       const zoneCount =
         get().mapMode === 'coi'
-          ? mapStore.numCommunities ?? FALLBACK_NUM_COMMUNITIES
-          : mapStore.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
+          ? (mapStore.numCommunities ?? FALLBACK_NUM_COMMUNITIES)
+          : (mapStore.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
       const nextLockPaintedAreas = mapOptions.lockPaintedAreas.length
         ? []
         : Array.from({length: zoneCount}, (_, i) => (i + 1) as NullableZone);

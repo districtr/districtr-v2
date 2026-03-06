@@ -100,9 +100,7 @@ export const GeocodeSearchBar: React.FC<{
           className="absolute top-full left-0 right-0 mt-1 bg-white border border-black/10 shadow-lg rounded overflow-hidden z-20 max-h-48 overflow-y-auto"
           role="listbox"
         >
-          {loading && (
-            <li className="px-3 py-2 text-gray-500 text-sm">Searching…</li>
-          )}
+          {loading && <li className="px-3 py-2 text-gray-500 text-sm">Searching…</li>}
           {!loading &&
             suggestions.map((f, i) => (
               <li

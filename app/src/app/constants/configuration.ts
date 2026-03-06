@@ -40,18 +40,18 @@ export const STREETS_BASEMAP_STYLE: StyleSpecification = {
 export const SATELLITE_BASEMAP_STYLE: StyleSpecification = {
   version: 8,
   sources: {
-    "maptiler_planet": {
-      "url": `https://api.maptiler.com/tiles/v4/tiles.json?key=${MAPTILER_API_KEY}`,
-      "type": "vector"
+    maptiler_planet: {
+      url: `https://api.maptiler.com/tiles/v4/tiles.json?key=${MAPTILER_API_KEY}`,
+      type: 'vector',
     },
-    "satellite": {
-      "url": `https://api.maptiler.com/tiles/satellite-v2/tiles.json?key=${MAPTILER_API_KEY}`,
-      "type": "raster"
-    }
+    satellite: {
+      url: `https://api.maptiler.com/tiles/satellite-v2/tiles.json?key=${MAPTILER_API_KEY}`,
+      type: 'raster',
+    },
   },
   layers: SATELLITE_BASEMAP_LAYERS,
-  "glyphs": `https://api.maptiler.com/fonts/{fontstack}/{range}.pbf?key=${MAPTILER_API_KEY}`,
-  "sprite": "https://api.maptiler.com/maps/019c779b-d342-786b-8c27-dbb8dcf385c2/sprite",
+  glyphs: `https://api.maptiler.com/fonts/{fontstack}/{range}.pbf?key=${MAPTILER_API_KEY}`,
+  sprite: 'https://api.maptiler.com/maps/019c779b-d342-786b-8c27-dbb8dcf385c2/sprite',
 };
 
 /**
@@ -59,7 +59,7 @@ export const SATELLITE_BASEMAP_STYLE: StyleSpecification = {
  * style; Streets and Satellite use MapTiler (stub URLs – styles can be updated manually).
  */
 export const getMapStyleForBasemap = (basemap: BasemapId) => {
-  switch (basemap) {  
+  switch (basemap) {
     case BASEMAP_IDS.MINIMAL:
       return MINIMAL_BASEMAP_STYLE;
     case BASEMAP_IDS.STREETS:
@@ -70,7 +70,6 @@ export const getMapStyleForBasemap = (basemap: BasemapId) => {
       return MINIMAL_BASEMAP_STYLE;
   }
 };
-
 
 export const MAP_OPTIONS: MapOptions = {
   zoom: 3.75,

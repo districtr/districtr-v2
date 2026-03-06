@@ -1,4 +1,4 @@
-import { type LayerSpecification } from "maplibre-gl";
+import {type LayerSpecification} from 'maplibre-gl';
 
 // Styling aligned with Mapbox Streets (sampleStreetsStyle.json): warm off-white land,
 // blue water, gray-blue road casings, white road fill, orange highways, green parks.
@@ -1265,4 +1265,3 @@ export const STREETS_BASEMAP_LAYERS: LayerSpecification[] = [
  * - admin-1-boundary-bg: state/province boundary glow
  * - road-pedestrian-polygon-fill / road-pedestrian-polygon-pattern: pedestrian area fills
  */
-

@@ -4,7 +4,7 @@ import {Cross2Icon} from '@radix-ui/react-icons';
 import {Button, Flex, Text, Dialog, Box, TextField, Progress, Blockquote} from '@radix-ui/themes';
 import {useRouter, useSearchParams} from 'next/navigation';
 import {postGrantEditAccess} from '@/app/utils/api/apiHandlers/postGrantEditAccess';
-import { currMapRoute } from '@/app/utils/map/mapUrlRoute';
+import {currMapRoute} from '@/app/utils/map/mapUrlRoute';
 
 export const PasswordPromptModal = () => {
   const router = useRouter();

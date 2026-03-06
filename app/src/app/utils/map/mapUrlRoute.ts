@@ -1,4 +1,3 @@
-
 const routeManager = {
   // Behold! A fancy custom `get` method!
   // This lets us dynamically get the current map route based on the URL pathname, but without calling a function

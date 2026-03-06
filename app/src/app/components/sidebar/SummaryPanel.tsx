@@ -27,8 +27,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
   const setSelectedZone = useMapControlsStore(state => state.setSelectedZone);
   const numDistricts =
     useMapStore(state => state.mapDocument?.num_districts) ?? FALLBACK_NUM_DISTRICTS;
-  const numCommunities =
-    useMapStore(state => state.numCommunities) ?? FALLBACK_NUM_COMMUNITIES;
+  const numCommunities = useMapStore(state => state.numCommunities) ?? FALLBACK_NUM_COMMUNITIES;
 
   const [summaryType, setSummaryType] = useState<keyof SummaryStatConfig | undefined>(
     !availableColumnSets.length
