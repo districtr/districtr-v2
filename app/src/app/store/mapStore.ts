@@ -181,6 +181,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     exitBlockView: (lock: boolean = false) => {
       const {focusFeatures} = get();
       const {healParentsIfAllChildrenInSameZone} = useAssignmentsStore.getState();
+      const temporalState = useAssignmentsStore.temporal.getState();
       const {setMapOptions} = useMapControlsStore.getState();
 
       set({
@@ -191,8 +192,12 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       useMapControlsStore.setState({activeTool: 'shatter'});
 
       const parentId = focusFeatures?.[0].id?.toString();
-      if (!parentId) return;
-      healParentsIfAllChildrenInSameZone({}, 'state');
+      if (parentId) {
+        healParentsIfAllChildrenInSameZone({}, 'state');
+      }
+      if (!temporalState.isTracking) {
+        temporalState.resume();
+      }
     },
     getMapRef: () => undefined,
     setMapRef: mapRef => {
@@ -542,6 +547,11 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         featureBbox?.length && featureBbox?.length >= 4
           ? (featureBbox.slice(0, 4) as maplibregl.LngLatBoundsLike)
           : undefined;
+
+      const temporalState = useAssignmentsStore.temporal.getState();
+      if (temporalState.isTracking) {
+        temporalState.pause();
+      }
 
       setShatterState({
         shatterIds: {
