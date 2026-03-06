@@ -51,7 +51,7 @@ export type ContextMenuState = {
 export type TooltipState = {
   x: number;
   y: number;
-  data: Array<{label: string; value: unknown}>;
+  data: Array<{label: string; value: number | string | null}>;
 };
 
 export type ColorZoneAssignmentsState = [

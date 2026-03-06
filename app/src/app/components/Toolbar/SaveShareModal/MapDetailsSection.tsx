@@ -7,7 +7,7 @@ import {ChevronDownIcon, ChevronUpIcon} from '@radix-ui/react-icons';
 
 export const MapDetailsSection: React.FC<{
   mapMetadata: DocumentMetadata;
-  onChange: (updates: Partial<DocumentMetadata>) => any;
+  onChange: (updates: Partial<DocumentMetadata>) => Promise<void> | void;
   isEditing: boolean;
 }> = ({mapMetadata, onChange, isEditing}) => {
   const [accordionOpen, setAccordionOpen] = useState<string>('');
@@ -32,7 +32,7 @@ export const MapDetailsSection: React.FC<{
         >
           <MapStatusButtons
             draftStatus={mapMetadata.draft_status}
-            onChange={status => onChange({draft_status: status})}
+            onChange={status => Promise.resolve(onChange({draft_status: status}))}
           />
         </Flex>
       </Box>

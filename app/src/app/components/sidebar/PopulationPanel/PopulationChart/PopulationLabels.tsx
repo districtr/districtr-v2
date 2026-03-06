@@ -3,10 +3,12 @@ import {formatNumber} from '@/app/utils/numbers';
 import {Group} from '@visx/group';
 import {SummaryRecord} from '@/app/utils/api/summaryStats';
 
+type PopulationLabelRecord = Pick<SummaryRecord, 'zone' | 'total_pop_20'>;
+
 export const PopulationLabels: React.FC<{
   xScale: (value: number) => number;
   yScale: (value: number) => number;
-  entry: SummaryRecord;
+  entry: PopulationLabelRecord;
   maxPop: number;
   idealPopulation?: number;
   index: number;

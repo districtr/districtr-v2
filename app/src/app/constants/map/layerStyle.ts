@@ -1,7 +1,10 @@
 import {DataDrivenPropertyValueSpecification, ExpressionSpecification} from 'maplibre-gl';
 export {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from './mapDefaults';
 
-export const EMPTY_FT_COLLECTION: GeoJSON.FeatureCollection<any> = {
+export const EMPTY_FT_COLLECTION: GeoJSON.FeatureCollection<
+  GeoJSON.Geometry,
+  GeoJSON.GeoJsonProperties
+> = {
   type: 'FeatureCollection',
   features: [],
 };
@@ -12,23 +15,19 @@ export const SENTINEL_EMPTY_VALUE: string = '-999';
 export const SENTINEL_EMPTY_ARRAY: string[] = [SENTINEL_EMPTY_VALUE];
 
 export const ZONE_ASSIGNMENT_STYLE = (colorScheme: string[]) => {
-  const colorStyleBaseline: any[] = ['case'];
-  let group = [...colorScheme].reduce((val, color, i) => {
-    val.push(['==', ['feature-state', 'zone'], i + 1], color); // 1-indexed per mapStore.ts
-    return val;
-  }, colorStyleBaseline);
+  const group: Array<unknown> = ['case'];
+  colorScheme.forEach((color, i) => {
+    group.push(['==', ['feature-state', 'zone'], i + 1], color); // 1-indexed per mapStore.ts
+  });
   group.push('#cecece');
   return group as ExpressionSpecification;
 };
 
 export const ZONE_LABEL_STYLE = (colorScheme: string[]) => {
-  let group = [...colorScheme].reduce(
-    (val, color, i) => {
-      val.push(['==', ['get', 'zone'], i + 1], color); // 1-indexed per mapStore.ts
-      return val;
-    },
-    ['case'] as any
-  );
+  const group: Array<unknown> = ['case'];
+  colorScheme.forEach((color, i) => {
+    group.push(['==', ['get', 'zone'], i + 1], color); // 1-indexed per mapStore.ts
+  });
   group.push('#cecece');
   return group as ExpressionSpecification;
 };
@@ -38,37 +37,27 @@ export function getLayerFill(
   isDemographic?: boolean
 ): DataDrivenPropertyValueSpecification<number> {
   const baseOpacity = isDemographic ? 1 : 0.6;
-  const innerFillSpec = [
+  const hasZoneExpression: ExpressionSpecification = ['boolean', ['feature-state', 'zone'], false];
+  const isHoveredExpression: ExpressionSpecification = ['boolean', ['feature-state', 'hover'], false];
+  const innerFillSpec: DataDrivenPropertyValueSpecification<number> = [
     'case',
     // is broken parent
     ['boolean', ['feature-state', 'broken'], false],
     0,
-    // zone is selected and hover is true and hover is not null
-    [
-      'all',
-      // @ts-ignore
-      ['!', ['==', ['feature-state', 'zone'], null]], //< desired behavior but typerror
-      [
-        'all',
-        // @ts-ignore
-        ['!', ['==', ['feature-state', 'hover'], null]], //< desired behavior but typerror
-        ['boolean', ['feature-state', 'hover'], true],
-      ],
-    ],
+    // zone is selected and hovered
+    ['all', hasZoneExpression, isHoveredExpression],
     baseOpacity + 0.3,
     // zone is selected, fallback, regardless of hover state
-    // @ts-ignore
-    ['!', ['==', ['feature-state', 'zone'], null]], //< desired behavior but typerror
+    hasZoneExpression,
     baseOpacity + 0.1,
     0,
-  ] as unknown as DataDrivenPropertyValueSpecification<number>;
+  ] as DataDrivenPropertyValueSpecification<number>;
   if (captiveIds?.size) {
-    return [
+    const captiveFillSpec: DataDrivenPropertyValueSpecification<number> = [
       'case',
       ['boolean', ['feature-state', 'broken'], false],
       0,
-      // @ts-ignore
-      ['!', ['==', ['feature-state', 'zone'], null]],
+      hasZoneExpression,
       [
         'case',
         ['!', ['in', ['get', 'path'], ['literal', Array.from(captiveIds)]]],
@@ -76,7 +65,8 @@ export function getLayerFill(
         innerFillSpec,
       ],
       0,
-    ] as unknown as DataDrivenPropertyValueSpecification<number>;
+    ] as DataDrivenPropertyValueSpecification<number>;
+    return captiveFillSpec;
   } else {
     return innerFillSpec;
   }

@@ -1,7 +1,7 @@
 'use client';
 import React, {useEffect, useRef, useState} from 'react';
 import {GerryDBViewSelector} from '@components/sidebar/GerryDBViewSelector';
-import {MapLink, processFile} from '@/app/utils/api/upload';
+import {MapLink, processFile, UploadProcessError} from '@/app/utils/api/upload';
 import {
   Link,
   Flex,
@@ -22,7 +22,7 @@ export const Uploader: React.FC<{
   onFinish?: () => void;
 }> = ({newTab, redirect, onFinish}) => {
   const [mapLinks, setMapLinks] = useState<MapLink[]>([]);
-  const [error, setError] = useState<any>(undefined);
+  const [error, setError] = useState<UploadProcessError>(undefined);
   const [config, setConfig] = useState<{GEOID?: number; ZONE?: number}>({});
   const [file, setFile] = useState<File | undefined>(undefined);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -180,19 +180,7 @@ export const Uploader: React.FC<{
 };
 
 export const UploadError: React.FC<{
-  error?: {
-    ok: boolean;
-    detail: {
-      message: string;
-      row: string[];
-      districtrMap: DistrictrMap;
-      expectedPrefix: string;
-      receivedState: string;
-      receivedPrefix: string;
-      expectedState: string;
-      headerRow: string[];
-    };
-  };
+  error?: UploadProcessError;
   config: {GEOID?: number; ZONE?: number};
   setConfig: React.Dispatch<React.SetStateAction<{GEOID?: number; ZONE?: number}>>;
   handleRetry: () => void;
@@ -206,6 +194,12 @@ export const UploadError: React.FC<{
       [col]: index,
     }));
   };
+  const headerRow = error.detail.headerRow ?? [];
+  const firstRowValue = error.detail.row?.[0] ?? '';
+  const expectedState = error.detail.expectedState ?? 'the selected state';
+  const expectedPrefix = error.detail.expectedPrefix ?? '';
+  const receivedState = error.detail.receivedState ?? 'a different state';
+  const receivedPrefix = error.detail.receivedPrefix ?? '';
 
   switch (error.detail.message) {
     case 'Block GEOID does not match state prefix':
@@ -213,14 +207,13 @@ export const UploadError: React.FC<{
         <Flex direction="column">
           <Blockquote className="max-w-96 mt-2" color="red">
             <Text>
-              Block GEOID <code>{JSON.stringify(error.detail.row[0])}</code> does not match state
-              prefix. We expected data for <code>{error.detail.expectedState}</code> (State code:{' '}
-              {error.detail.expectedPrefix}) but received data for {error.detail.receivedState}{' '}
-              (State code: {error.detail.receivedPrefix})
+              Block GEOID <code>{JSON.stringify(firstRowValue)}</code> does not match state
+              prefix. We expected data for <code>{expectedState}</code> (State code:{' '}
+              {expectedPrefix}) but received data for {receivedState} (State code: {receivedPrefix})
               <br />
               <br />
-              Please choose a plan for {error.detail.receivedState} or make sure your block
-              assignments only include IDs for {error.detail.expectedState}.
+              Please choose a plan for {receivedState} or make sure your block assignments only
+              include IDs for {expectedState}.
             </Text>
           </Blockquote>
           <Button onClick={() => handleRetry()}>Retry</Button>
@@ -247,11 +240,11 @@ export const UploadError: React.FC<{
             <Select.Trigger>
               <Text>
                 Geographic Identifier{' '}
-                {!!config.GEOID && `(${error.detail.headerRow[config.GEOID]})`}
+                {!!config.GEOID && `(${headerRow[config.GEOID]})`}
               </Text>
             </Select.Trigger>
             <Select.Content>
-              {error.detail.headerRow.map((col, i) => (
+              {headerRow.map((col, i) => (
                 <Select.Item key={i} value={`${i}`}>
                   {col}
                 </Select.Item>
@@ -264,11 +257,11 @@ export const UploadError: React.FC<{
           >
             <Select.Trigger>
               <Text>
-                District number {!!config.ZONE && `(${error.detail.headerRow[config.ZONE]})`}
+                District number {!!config.ZONE && `(${headerRow[config.ZONE]})`}
               </Text>
             </Select.Trigger>
             <Select.Content>
-              {error.detail.headerRow.map((col, i) => (
+              {headerRow.map((col, i) => (
                 <Select.Item key={i} value={`${i}`}>
                   {col}
                 </Select.Item>

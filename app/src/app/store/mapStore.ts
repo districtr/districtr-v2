@@ -36,16 +36,6 @@ import {useAssignmentsStore} from './assignmentsStore';
 import {patchUpdateReset} from '../utils/api/apiHandlers/patchUpdateReset';
 import {idb} from '../utils/idb/idb';
 
-const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
-  const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
-  for (const key in setRecord) {
-    if (setRecord.hasOwnProperty(key) && (!keys || keys?.includes(key))) {
-      setRecord[key].forEach(value => combinedSet.add(value)); // Add each value to the combined set
-    }
-  }
-  return combinedSet; // Return the combined set
-};
-
 export interface MapStore {
   // LOAD AND RENDERING STATE TRACKING
   appLoadingState: 'loaded' | 'initializing' | 'loading' | 'blurred';

@@ -212,13 +212,18 @@ export interface CommentListing {
   tags?: string[];
 }
 
+export interface OverlayStyle {
+  paint?: Record<string, unknown>;
+  layout?: Record<string, unknown>;
+}
+
 export interface Overlay {
   overlay_id: string;
   name: string;
   description: string | null;
   data_type: 'geojson' | 'pmtiles';
   layer_type: 'fill' | 'line' | 'text';
-  custom_style: Record<string, any> | null;
+  custom_style: OverlayStyle | null;
   source: string | null;
   source_layer: string | null;
   id_property: string | null;

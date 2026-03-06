@@ -14,10 +14,52 @@ export type MapLink = DistrictrMap & {
   filename: string;
 };
 
-const getRowTests = (map: DistrictrMap) => [
+type UploadColumnName = 'GEOID' | 'ZONE';
+type ColumnCandidateIndices = Record<UploadColumnName, Record<number, number>>;
+type PartialColumnCandidateIndices = Partial<ColumnCandidateIndices>;
+type ColumnIndices = Record<UploadColumnName, number>;
+
+export type UploadErrorDetail = {
+  message: string;
+  headerRow?: string[];
+  possibleIndices?: ColumnCandidateIndices;
+  missingColumns?: UploadColumnName[];
+  row?: string[];
+  districtrMap?: DistrictrMap;
+  expectedPrefix?: string;
+  receivedState?: string;
+  receivedPrefix?: string;
+  expectedState?: string;
+};
+
+export type UploadValidationFailure = {
+  ok: false;
+  detail: UploadErrorDetail;
+};
+
+type UploadValidationSuccess = {
+  ok: true;
+  colIndices: ColumnIndices;
+};
+
+type UploadValidationResult = UploadValidationSuccess | UploadValidationFailure;
+export type UploadProcessError = UploadValidationFailure | undefined;
+
+const normalizeCandidateIndices = (
+  candidateIndices: PartialColumnCandidateIndices
+): ColumnCandidateIndices => ({
+  GEOID: candidateIndices.GEOID ?? {},
+  ZONE: candidateIndices.ZONE ?? {},
+});
+
+const getRowTests = (map: DistrictrMap): Array<{
+  name: UploadColumnName;
+  test: (value: string | number | null) => boolean;
+  strict?: boolean;
+}> => [
   {
     name: 'GEOID',
-    test: (value: string | number) => {
+    test: (value: string | number | null) => {
       return (
         (typeof value === 'string' &&
           (value.length === 15 || value.length === 14) &&
@@ -35,20 +77,19 @@ const getRowTests = (map: DistrictrMap) => [
   },
 ];
 
-const validateRows = (rows: Array<Array<string>>, plan: DistrictrMap) => {
+const validateRows = (rows: Array<Array<string>>, plan: DistrictrMap): UploadValidationResult => {
   const tests = getRowTests(plan);
   const headerRow = rows[0];
-  const candidateIndices: Record<string, Record<number, number>> = {};
+  const candidateIndices: PartialColumnCandidateIndices = {};
   // skip header row
   const rowstoTest = rows.slice(1, ROWS_TO_TEST);
   rowstoTest.forEach((row, i) => {
     row.forEach((value, j) => {
       tests.forEach(test => {
-        if (!candidateIndices[test.name]) {
-          candidateIndices[test.name] = {};
-        }
+        const indicesForName = candidateIndices[test.name] ?? {};
+        candidateIndices[test.name] = indicesForName;
         if (test.test(value)) {
-          candidateIndices[test.name][j] = (candidateIndices[test.name][j] ?? 0) + 1;
+          indicesForName[j] = (indicesForName[j] ?? 0) + 1;
         }
       });
     });
@@ -65,21 +106,22 @@ const validateRows = (rows: Array<Array<string>>, plan: DistrictrMap) => {
       ok: false,
       detail: {
         message: 'Columns are ambiguous',
-        possibleIndices: candidateIndices as {
-          GEOID: Record<number, number>;
-          ZONE: Record<number, number>;
-        },
+        possibleIndices: normalizeCandidateIndices(candidateIndices),
         headerRow,
       },
     };
   }
 
-  const mostLikelyColumns: Record<string, number> = {};
+  const mostLikelyColumns: Partial<ColumnIndices> = {};
   const candidateIndicesKeys = Object.keys(candidateIndices);
-  const missingColumns = [];
+  const missingColumns: UploadColumnName[] = [];
   for (let i = 0; i < candidateIndicesKeys.length; i++) {
-    const key = candidateIndicesKeys[i];
+    const key = candidateIndicesKeys[i] as UploadColumnName;
     const candidateFields = candidateIndices[key];
+    if (!candidateFields) {
+      missingColumns.push(key);
+      continue;
+    }
     const max = Math.max(...Object.values(candidateFields));
     const maxIndex = Object.keys(candidateFields)?.find(key => candidateFields[+key] === max);
     if (!maxIndex) {
@@ -92,10 +134,7 @@ const validateRows = (rows: Array<Array<string>>, plan: DistrictrMap) => {
     return {
       ok: false,
       detail: {
-        possibleIndices: candidateIndices as {
-          GEOID: Record<number, number>;
-          ZONE: Record<number, number>;
-        },
+        possibleIndices: normalizeCandidateIndices(candidateIndices),
         message: 'Missing columns',
         missingColumns,
         headerRow,
@@ -105,7 +144,7 @@ const validateRows = (rows: Array<Array<string>>, plan: DistrictrMap) => {
 
   return {
     ok: true,
-    colIndices: mostLikelyColumns as {GEOID: number; ZONE: number},
+    colIndices: mostLikelyColumns as ColumnIndices,
   };
 };
 
@@ -118,7 +157,7 @@ export const processFile = ({
 }: {
   file: File;
   setMapLinks: React.Dispatch<React.SetStateAction<MapLink[]>>;
-  setError: React.Dispatch<React.SetStateAction<any>>;
+  setError: React.Dispatch<React.SetStateAction<UploadProcessError>>;
   districtrMap: DistrictrMap;
   config?: {
     ZONE: number;
@@ -143,10 +182,10 @@ export const processFile = ({
 
   Papa.parse(file, {
     complete: async results => {
-      const validation = config
+      const validation: UploadValidationResult = config
         ? {ok: true, colIndices: config}
         : validateRows(results.data as Array<Array<string>>, districtrMap);
-      if (!validation.ok || !validation.colIndices) {
+      if (!validation.ok) {
         setError(validation);
         return validation;
       }

@@ -42,8 +42,7 @@ export const VAPColumnConfig: EvalColumnConfiguration<SummaryStatConfig['VAP']> 
   {column: 'white_vap_20', label: 'White'},
   {column: 'other_vap_20', label: 'Other'},
 ];
-// TODO FIX typing
-export const VoterColumnConfig: EvalColumnConfiguration<any> = [
+export const VoterColumnConfig: Array<{column: string; label: string; sourceCol: string}> = [
   {column: 'sen_22_lean', label: '2022 Sen', sourceCol: 'sen_22_rep'},
   {column: 'gov_22_lean', label: '2022 Gov', sourceCol: 'gov_22_rep'},
   {column: 'ag_22_lean', label: '2022 AG', sourceCol: 'ag_22_rep'},
@@ -61,7 +60,10 @@ export const CONFIG_BY_COLUMN_SET: Record<
 > = {
   TOTPOP: TOTPOPColumnConfig,
   VAP: VAPColumnConfig,
-  VOTERHISTORY: VoterColumnConfig,
+  VOTERHISTORY:
+    VoterColumnConfig as unknown as EvalColumnConfiguration<
+      SummaryStatConfig[keyof SummaryStatConfig]
+    >,
 };
 
 export const evalColumnConfigs: Partial<
@@ -72,7 +74,10 @@ export const evalColumnConfigs: Partial<
 > = {
   TOTPOP: TOTPOPColumnConfig,
   VAP: VAPColumnConfig,
-  VOTERHISTORY: VoterColumnConfig,
+  VOTERHISTORY:
+    VoterColumnConfig as unknown as EvalColumnConfiguration<
+      SummaryStatConfig[keyof SummaryStatConfig]
+    >,
 };
 
 export const modeButtonConfig: Array<{label: string; value: EvalModes}> = [

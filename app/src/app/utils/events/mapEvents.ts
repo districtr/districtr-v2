@@ -7,6 +7,7 @@ import type {
   MapLayerTouchEvent,
   MapGeoJSONFeature,
   MapSourceDataEvent,
+  MapStyleDataEvent,
 } from 'maplibre-gl';
 import type {
   MapEvent,
@@ -188,8 +189,8 @@ export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) =
 export const handleMapMouseEnter = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   // check if mouse is down
   // if so, set is painting true
-  // @ts-ignore this is the correct behavior but event types are incorrect
-  if (e.originalEvent?.buttons === 1) {
+  const originalEvent = e.originalEvent;
+  if (originalEvent instanceof MouseEvent && originalEvent.buttons === 1) {
     useMapControlsStore.getState().setIsPainting(true);
   }
 };
@@ -283,8 +284,21 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   // sourceCapabilities exists on the UIEvent constructor, which does not appear
   // properly tpyed in the default map events
   // https://developer.mozilla.org/en-US/docs/Web/API/UIEvent/sourceCapabilities
+  const originalEvent = e.originalEvent as Event | undefined;
+  const firesTouchEvents =
+    !!originalEvent &&
+    'sourceCapabilities' in originalEvent &&
+    Boolean(
+      (
+        originalEvent as Event & {
+          sourceCapabilities?: {
+            firesTouchEvents?: boolean;
+          };
+        }
+      ).sourceCapabilities?.firesTouchEvents
+    );
   const isTouchEvent =
-    'touches' in e || (e.originalEvent as any)?.sourceCapabilities?.firesTouchEvents;
+    'touches' in e || firesTouchEvents;
   if (isBrushingTool && !isTouchEvent && !isPainting) {
     setHoverFeatures(selectedFeatures || []);
   }
@@ -377,11 +391,17 @@ export const handleMapContextMenu = (e: MapLayerMouseEvent | MapLayerTouchEvent)
   });
 };
 
-export const handleDataLoad = (e: MapSourceDataEvent) => {
+export const handleDataLoad = (e: MapSourceDataEvent | MapStyleDataEvent) => {
+  if (e.dataType !== 'source') return;
   const {mapDocument, setMapRenderingState} = useMapStore.getState();
   const {setStateFp} = useMapControlsStore.getState();
   const {tiles_s3_path, parent_layer} = mapDocument || {};
-  if (!tiles_s3_path || !parent_layer || !(e?.source as any)?.url?.includes(tiles_s3_path)) return;
+  const sourceUrlCandidate =
+    e?.source && typeof e.source === 'object' && 'url' in e.source
+      ? e.source.url
+      : undefined;
+  const sourceUrl = typeof sourceUrlCandidate === 'string' ? sourceUrlCandidate : undefined;
+  if (!tiles_s3_path || !parent_layer || !sourceUrl?.includes(tiles_s3_path)) return;
   const tileData = e?.tile?.latestFeatureIndex;
   if (!tileData) return;
   if (!tileData.vtLayers) {
@@ -412,18 +432,25 @@ export const mapEventHandlers = {
   onData: handleDataLoad,
 } as const;
 
-export const handleWheelOrPinch = (e: MouseEvent | TouchEvent, map: MapRef | null) => {
+export const handleWheelOrPinch = (
+  e: WheelEvent | MouseEvent | TouchEvent,
+  map: MapRef | null
+) => {
   if (!map) return;
   // Both trackpad pinchn and mousewheel scroll (or two finger scroll)
   // are 'wheel' events, except in safari which has gesture events
   // The ctrlKey property is how most browsers indicate a pinch event
   // https://developer.mozilla.org/en-US/docs/Web/API/WheelEvent#browser_compatibility
-  const wheelRate = e.ctrlKey ? 100 : 450;
-  const zoomRate = e.ctrlKey ? 50 : 100;
+  const ctrlPressed = 'ctrlKey' in e ? e.ctrlKey : false;
+  const wheelRate = ctrlPressed ? 100 : 450;
+  const zoomRate = ctrlPressed ? 50 : 100;
   // TODO: Safari on iOS does not use this standard and needs additional cases
   // If the experience feels bad on mobile
   // if (map.scrollZoom._wheelZoomRate === 1 / wheelRate) return;
   // map.scrollZoom.setWheelZoomRate(1 / wheelRate);
   // map.scrollZoom.setZoomRate(1 / zoomRate);
 };
-export const mapContainerEvents = [{action: 'wheel', handler: handleWheelOrPinch}];
+export const mapContainerEvents: Array<{
+  action: keyof HTMLElementEventMap;
+  handler: (event: WheelEvent | MouseEvent | TouchEvent, map: MapRef | null) => void;
+}> = [{action: 'wheel', handler: handleWheelOrPinch}];

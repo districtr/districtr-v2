@@ -7,6 +7,8 @@ import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
 import {useQuery} from '@tanstack/react-query';
 import GeometryWorker from '../utils/GeometryWorker';
 
+const EMPTY_POINT_COLLECTION = EMPTY_FT_COLLECTION as GeoJSON.FeatureCollection<GeoJSON.Point>;
+
 const updateData = async (
   layer: string,
   isChild: boolean,
@@ -14,14 +16,14 @@ const updateData = async (
   data: MutableRefObject<GeoJSON.FeatureCollection<GeoJSON.Point>>
 ) => {
   if (!layer) {
-    data.current = EMPTY_FT_COLLECTION;
+    data.current = EMPTY_POINT_COLLECTION;
     return new Date().toISOString();
   }
   const childWithNoneBroken = isChild && !exposedChildIds.size;
   // @ts-expect-error
   const parentWithSameLayer = !isChild && data.current?.metadata?.layer === layer;
   if (childWithNoneBroken) {
-    data.current = EMPTY_FT_COLLECTION;
+    data.current = EMPTY_POINT_COLLECTION;
     return new Date().toISOString();
   } else if (parentWithSameLayer) {
     // Do nothing
@@ -45,7 +47,7 @@ const updateData = async (
 };
 
 export const usePointData = (isChild?: boolean) => {
-  const data = useRef<GeoJSON.FeatureCollection<GeoJSON.Point>>(EMPTY_FT_COLLECTION);
+  const data = useRef<GeoJSON.FeatureCollection<GeoJSON.Point>>(EMPTY_POINT_COLLECTION);
   const [dataHash, setDataHash] = useState<string>('');
   const mapDocument = useMapStore(state => state.mapDocument);
   const exposedChildIds = useAssignmentsStore(state => state.shatterIds.children);

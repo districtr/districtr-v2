@@ -3,7 +3,9 @@ import {MapStore} from './mapStore';
 import {ZundoOptions} from 'zundo';
 import {AssignmentsStore, AssignmentsTemporalSnapshot} from './assignmentsStore';
 
-const prodWrapper: typeof devtools = (store: any) => store;
+type AssignmentsTemporalStoreSlice = Partial<AssignmentsStore>;
+
+const prodWrapper = ((store: unknown, _options?: unknown) => store) as typeof devtools;
 export const devwrapper = process.env.NODE_ENV === 'development' ? devtools : prodWrapper;
 
 export const persistOptions: PersistOptions<MapStore, Partial<MapStore>> = {
@@ -51,9 +53,9 @@ const cloneTemporalSnapshot = (
   clientLastUpdated: snapshot.clientLastUpdated,
 });
 
-export const temporalConfig: ZundoOptions<any, AssignmentsStore> = {
+export const temporalConfig: ZundoOptions<AssignmentsStore, AssignmentsTemporalStoreSlice> = {
   // If diff returns null, not state is stored
-  diff: (past: Partial<AssignmentsStore>, curr: Partial<AssignmentsStore>) => {
+  diff: (past, curr) => {
     if (!past.clientLastUpdated || !curr.clientLastUpdated) return null;
     // if the client timestamp is the same, don't store
     if (past.clientLastUpdated === curr.clientLastUpdated) return null;
@@ -72,7 +74,6 @@ export const temporalConfig: ZundoOptions<any, AssignmentsStore> = {
     return past;
   },
   limit: 20,
-  // @ts-ignore: save only partial store
   partialize: state => {
     const {
       shatterIds,
@@ -89,6 +90,6 @@ export const temporalConfig: ZundoOptions<any, AssignmentsStore> = {
       zoneAssignments,
       clientLastUpdated,
       pendingShatterUndoState,
-    } as Partial<AssignmentsStore>;
+    };
   },
 };

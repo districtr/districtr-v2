@@ -37,7 +37,7 @@ export const PopulationPanel = () => {
   const setChartOptions = useChartStore(state => state.setChartOptions);
   const setLockedZones = useMapControlsStore(state => state.setLockedZones);
   const toggleLockAllAreas = useMapControlsStore(state => state.toggleLockAllAreas);
-  const allAreLocked = populationData.every((d: any) => lockPaintedAreas?.includes(d.zone));
+  const allAreLocked = populationData.every(d => lockPaintedAreas?.includes(d.zone));
   const setSelectedZone = useMapControlsStore(state => state.setSelectedZone);
   const selectedZone = useMapControlsStore(state => state.selectedZone);
   const access = useMapStore(state => state.mapStatus?.access);
@@ -106,7 +106,6 @@ export const PopulationPanel = () => {
               {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
             </IconButton>
           </Flex>
-          {/* @ts-ignore */}
           {populationData.map((d, i) => (
             <Flex
               key={d.zone}

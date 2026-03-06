@@ -40,7 +40,7 @@ export interface APIError extends AxiosError {
   response: APIErrorResponse;
 }
 
-export type StateWithFullMiddleware<T extends any> = UseBoundStore<
+export type StateWithFullMiddleware<T> = UseBoundStore<
   Write<
     Write<
       WithDevtools<Write<StoreApi<T>, StorePersist<T, Partial<T>>>>,
@@ -52,7 +52,7 @@ export type StateWithFullMiddleware<T extends any> = UseBoundStore<
   >
 >;
 
-export type StateWithDevWrapperAndSubscribe<T extends any> = UseBoundStore<
+export type StateWithDevWrapperAndSubscribe<T> = UseBoundStore<
   Write<
     Write<
       WithDevtools<Write<StoreApi<T>, StorePersist<T, Partial<T>>>>,

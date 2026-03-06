@@ -16,6 +16,7 @@ import {
 } from '@store/mapControlsStore';
 import {useAssignmentsStore as _useAssignmentsStore} from '@store/assignmentsStore';
 import GeometryWorker from '../GeometryWorker';
+import {MapSourceDataEvent} from 'maplibre-gl';
 
 /**
  * A class that manages the rendering of the map based on the state of the map store.
@@ -34,7 +35,7 @@ export class MapRenderSubscriber {
   assignmentSubscriptions: ReturnType<typeof _useAssignmentsStore.subscribe>[] = [];
   demographySubscriptions: ReturnType<typeof _useDemographyStore.subscribe>[] = [];
   // Needed since we won't get implicit updates like the assignment subscription will
-  demographySourceDataListener?: (e: any) => void;
+  demographySourceDataListener?: (e: MapSourceDataEvent) => void;
   previousColorState?: ColorZoneAssignmentsState;
 
   constructor(
@@ -344,7 +345,7 @@ export class MapRenderSubscriber {
       )
     );
     if (!this.demographySourceDataListener) {
-      this.demographySourceDataListener = (e: any) => {
+      this.demographySourceDataListener = (e: MapSourceDataEvent) => {
         if (e?.sourceId === BLOCK_SOURCE_ID && e?.isSourceLoaded) {
           this.renderDemographyColors();
         }

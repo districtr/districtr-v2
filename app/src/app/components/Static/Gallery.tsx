@@ -18,7 +18,7 @@
  */
 'use client';
 import React, {useMemo, useRef, useState} from 'react';
-import {QueryClientProvider, useQuery} from '@tanstack/react-query';
+import {QueryClientProvider, QueryKey, useQuery} from '@tanstack/react-query';
 import {queryClient} from '@/app/utils/api/queryClient';
 import {Box, Button, Flex, Grid, SegmentedControl, Spinner, Table, Text} from '@radix-ui/themes';
 import {ContentSection} from '@/app/components/Static/ContentSection';
@@ -67,7 +67,7 @@ export type GalleryProps<TItem, TFilters, TQueryResult = TItem[]> = {
   /** Extract error message from response */
   errorMessage?: (data: TQueryResult | undefined) => React.ReactNode;
   /** Additional query key segments for cache differentiation */
-  queryKey?: unknown[];
+  queryKey?: QueryKey;
 
   // Behavior
   /** Enable pagination controls */
@@ -116,7 +116,7 @@ export function GalleryInner<TItem, TFilters, TQueryResult = TItem[]>({
   });
 
   const {items, hasNextPage} = useMemo(() => {
-    const rawItems = selectItems ? selectItems(data) : ((data as unknown as TItem[]) ?? []);
+    const rawItems = selectItems ? selectItems(data) : Array.isArray(data) ? (data as TItem[]) : [];
     // If we got more items than displayLimit, there's another page
     const hasMore = rawItems.length > displayLimit;
     return {

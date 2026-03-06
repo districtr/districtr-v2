@@ -74,7 +74,7 @@ export function FormField<T extends FormPart>({
           <Component
             {...props}
             onValueChange={e => {
-              e && updateFormState(e as any);
+              if (e) updateFormState(e);
             }}
           >
             <Select.Trigger

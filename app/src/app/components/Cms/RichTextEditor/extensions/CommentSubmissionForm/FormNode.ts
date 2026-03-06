@@ -3,6 +3,13 @@ import {ReactNodeViewRenderer} from '@tiptap/react';
 import FormNodeView from './FormNodeView';
 import {getJsonHtmlRenderer, getStandardHtmlParser} from '../extensionUtils';
 
+type RichTextNodeAttribute = {
+  name: string;
+  default?: unknown;
+  parseHTML?: (element: Element) => unknown;
+  renderHTML?: (attributes: Record<string, unknown>) => Record<string, string>;
+};
+
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     formNode: {
@@ -21,12 +28,7 @@ export const FormNode = Node.create({
   defining: true,
   isolating: true,
   addAttributes() {
-    const attrs: {
-      name: string;
-      default?: any;
-      parseHTML?: (element: Element) => any;
-      renderHTML?: (attributes: Record<string, any>) => Record<string, any>;
-    }[] = [
+    const attrs: RichTextNodeAttribute[] = [
       {
         name: 'mandatoryTags',
         default: [],
@@ -45,7 +47,14 @@ export const FormNode = Node.create({
         };
         return acc;
       },
-      {} as Record<string, any>
+      {} as Record<
+        string,
+        {
+          default: unknown;
+          parseHTML: (element: Element) => unknown;
+          renderHTML: (attributes: Record<string, unknown>) => Record<string, string>;
+        }
+      >
     );
   },
   parseHTML() {

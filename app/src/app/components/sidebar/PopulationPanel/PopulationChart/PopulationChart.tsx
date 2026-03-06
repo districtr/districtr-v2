@@ -11,10 +11,12 @@ import {PopulationLabels} from './PopulationLabels';
 import {SummaryRecord} from '@/app/utils/api/summaryStats';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 
+type PopulationChartRecord = Pick<SummaryRecord, 'zone' | 'total_pop_20'>;
+
 export const PopulationChart: React.FC<{
   width: number;
   height: number;
-  data: Array<SummaryRecord>;
+  data: PopulationChartRecord[];
   margins?: {left: number; right: number; top: number; bottom: number};
   idealPopulation?: number;
 }> = ({

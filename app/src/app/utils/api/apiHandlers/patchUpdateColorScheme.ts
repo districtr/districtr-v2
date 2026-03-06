@@ -32,7 +32,7 @@ export const patchUpdateColorScheme = async ({
   if (!saveToServer) {
     return {
       ok: true,
-      response: {colors} as unknown as ColorsSet,
+      response: {success: true, document_id},
     } as const;
   }
 

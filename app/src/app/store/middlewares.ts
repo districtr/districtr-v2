@@ -1,25 +1,27 @@
-import {persist, subscribeWithSelector} from 'zustand/middleware';
+import {persist, PersistOptions, subscribeWithSelector} from 'zustand/middleware';
 import {devToolsConfig, devwrapper, persistOptions, temporalConfig} from './middlewareConfig';
-import {temporal} from 'zundo';
+import {temporal, ZundoOptions} from 'zundo';
 import {create, StateCreator} from 'zustand';
 import {StateWithDevWrapperAndSubscribe, StateWithFullMiddleware} from './types';
 
 export const createWithFullMiddlewares =
   <TState>(storeName: string) =>
   (config: StateCreator<TState, [], [], TState>) => {
+    const temporalOptions = temporalConfig as unknown as ZundoOptions<TState, Partial<TState>>;
+    const persistStoreOptions = persistOptions as unknown as PersistOptions<TState, Partial<TState>>;
     return create(
       persist(
         devwrapper(
           temporal(
-            subscribeWithSelector<StateCreator<TState, [], [], TState>>(config as any),
-            temporalConfig
+            subscribeWithSelector<TState>(config),
+            temporalOptions
           ),
           {
             ...devToolsConfig,
             name: storeName,
           }
         ),
-        persistOptions
+        persistStoreOptions
       )
     ) as StateWithFullMiddleware<TState>;
   };

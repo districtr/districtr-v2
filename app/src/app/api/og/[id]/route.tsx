@@ -12,12 +12,12 @@ export async function GET(_: Request, {params}: {params: Promise<{id: string}>})
     return new ImageResponse(<p>Map not found</p>);
   }
   const title = mapDocument.map_metadata?.name ?? 'Districtr Map';
-  const logoImage = fs.readFileSync('./public/districtr_logo.jpg') as any;
+  const logoImage = fs.readFileSync('./public/districtr_logo.jpg');
   const base64Image = Buffer.from(logoImage).toString('base64');
   const dataURI = 'data:image/jpeg;base64,' + base64Image;
 
   const thumbnail = await fetch(`${API_URL}/api/document/${id}/thumbnail`).then(res =>
-    res.ok ? res.arrayBuffer() : (fs.readFileSync('./public/home-megaphone-square.png') as any)
+    res.ok ? res.arrayBuffer() : fs.readFileSync('./public/home-megaphone-square.png')
   );
   const thumbnailURI = 'data:image/png;base64,' + Buffer.from(thumbnail).toString('base64');
   // Load the font in an edge-compatible way

@@ -10,6 +10,10 @@ export type MinGeoJSONFeature = Pick<
 > & {
   zoom?: number;
 };
+
+export type MinGeoJSONFeatureWithoutGeometry = Omit<MinGeoJSONFeature, 'geometry'> & {
+  geometry?: undefined;
+};
 /**
  * Represents a class that handles geometry operations.
  */
@@ -29,7 +33,7 @@ export type GeometryWorkerClass = {
    */
   maxParentZoom: number;
   setMaxParentZoom: (zoom: number) => void;
-  zoneAssignments: Record<string, number>;
+  zoneAssignments: Record<string, number | null>;
   previousCentroids: Record<number, GeoJSON.Feature<GeoJSON.Point>>;
   /**
    * Point data for center of mass calculations.
@@ -49,7 +53,7 @@ export type GeometryWorkerClass = {
    * Updates the zone assignments of the geometries.
    * @param entries - An array of [id, zone] pairs to update.
    */
-  updateZones: (entries: Array<[string, unknown]>) => void;
+  updateZones: (entries: Array<[string, number | null]>) => void;
   handleShatterHeal: (data: {parents: string[]; children: string[]}) => void;
   /**
    * Removes geometries from the collection.
@@ -123,5 +127,5 @@ export type GeometryWorkerClass = {
    * @returns The collection of geometries.
    */
   getGeos: () => GeoJSON.FeatureCollection;
-  getPropsById: (ids: string[]) => Array<MinGeoJSONFeature>;
+  getPropsById: (ids: string[]) => Array<MinGeoJSONFeatureWithoutGeometry>;
 };

@@ -3,9 +3,8 @@ import React, {useRef} from 'react';
 import classNames from 'classnames';
 import * as Accordion from '@radix-ui/react-accordion';
 import {DoubleArrowDownIcon, DragHandleHorizontalIcon} from '@radix-ui/react-icons';
-import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import Draggable from 'react-draggable';
+import Draggable, {DraggableEvent} from 'react-draggable';
 import {DataPanelSpec, DataPanelsProps, defaultPanels} from './DataPanelUtils';
 
 const ResizableAccordionPanel: React.FC<{panel: DataPanelSpec; open: boolean}> = ({
@@ -52,10 +51,10 @@ const ResizableAccordionPanel: React.FC<{panel: DataPanelSpec; open: boolean}> =
           onStop={() => {
             setDragging(false);
           }}
-          onDrag={(e: any) => {
+          onDrag={(event: DraggableEvent) => {
             const top = itemRef.current?.getBoundingClientRect().top;
-            if (top) {
-              setHeight(e.clientY - top);
+            if (top && 'clientY' in event && typeof event.clientY === 'number') {
+              setHeight(event.clientY - top);
             }
           }}
           nodeRef={nodeRef}

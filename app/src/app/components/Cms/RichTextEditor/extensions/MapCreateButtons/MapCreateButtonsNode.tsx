@@ -3,6 +3,13 @@ import {ReactNodeViewRenderer} from '@tiptap/react';
 import MapCreateButtonsNodeView from './MapCreateButtonsNodeView';
 import {getJsonHtmlRenderer, getStandardHtmlParser} from '../extensionUtils';
 
+type RichTextNodeAttribute = {
+  name: string;
+  default?: unknown;
+  parseHTML?: (element: Element) => unknown;
+  renderHTML?: (attributes: Record<string, unknown>) => Record<string, string>;
+};
+
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     mapCreateButtonsNode: {
@@ -21,12 +28,7 @@ export const MapCreateButtonsNode = Node.create({
   defining: true,
   isolating: true,
   addAttributes() {
-    const attrs: {
-      name: string;
-      default?: any;
-      parseHTML?: (element: Element) => any;
-      renderHTML?: (attributes: Record<string, any>) => Record<string, any>;
-    }[] = [
+    const attrs: RichTextNodeAttribute[] = [
       {
         name: 'views',
         default: [],
@@ -46,7 +48,14 @@ export const MapCreateButtonsNode = Node.create({
         };
         return acc;
       },
-      {} as Record<string, any>
+      {} as Record<
+        string,
+        {
+          default: unknown;
+          parseHTML: (element: Element) => unknown;
+          renderHTML: (attributes: Record<string, unknown>) => Record<string, string>;
+        }
+      >
     );
   },
 

@@ -3,7 +3,11 @@ import {ZONE_ASSIGNMENT_STYLE} from '@/app/constants/map/layerStyle';
 import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerIds';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import type {DataDrivenPropertyValueSpecification, FilterSpecification} from 'maplibre-gl';
+import type {
+  DataDrivenPropertyValueSpecification,
+  ExpressionSpecification,
+  FilterSpecification,
+} from 'maplibre-gl';
 import {useMemo} from 'react';
 import {Layer} from 'react-map-gl/maplibre';
 
@@ -21,14 +25,16 @@ export const ZoneAssignmentLayer: React.FC<{
   const colorScheme = useColorScheme();
   const showPaintedDistricts = useMapControlsStore(state => state.mapOptions.showPaintedDistricts);
   const fillOpacity = useMemo(
-    () =>
-      [
+    () => {
+      const hasAssignedZone: ExpressionSpecification = ['boolean', ['feature-state', 'zone'], false];
+      return [
         'case',
         // Show assignment color only where a zone is assigned.
-        ['!', ['==', ['feature-state', 'zone'], null]],
+        hasAssignedZone,
         baseFillOpacity,
         0,
-      ] as unknown as DataDrivenPropertyValueSpecification<number>,
+      ] as DataDrivenPropertyValueSpecification<number>;
+    },
     [baseFillOpacity]
   );
 

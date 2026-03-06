@@ -1,4 +1,5 @@
 import {get, post, QueryParams} from '../factory';
+import {ClientSession} from '@/app/lib/auth0';
 
 export const REVIEW_STATUS_ENUM = {
   APPROVED: 'APPROVED',
@@ -81,9 +82,12 @@ const filterNullUndefinedParams = (params: ReviewListParams) => {
 };
 
 // GET endpoints
-export const getAdminCommentsList = async (params: ReviewListParams = {}, session?: any) => {
+export const getAdminCommentsList = async (
+  params: ReviewListParams = {},
+  session?: ClientSession | null
+) => {
   const response = await get<ReviewItem[]>('comments/admin/list')({
-    session,
+    session: session ?? undefined,
     queryParams: filterNullUndefinedParams(params),
   });
   return response;
@@ -91,10 +95,10 @@ export const getAdminCommentsList = async (params: ReviewListParams = {}, sessio
 
 export const getAdminDistrictCommentsList = async (
   params: DistrictCommentsListParams = {},
-  session?: any
+  session?: ClientSession | null
 ) => {
   const response = await get<ReviewItem[]>('comments/admin/district-comments/list')({
-    session,
+    session: session ?? undefined,
     queryParams: filterNullUndefinedParams(params),
   });
   return response;
@@ -128,7 +132,7 @@ export const reviewItem = async (
   itemId: number,
   reviewStatus: ReviewStatus,
   entryType: 'comment' | 'commenter' | 'tag',
-  session?: any
+  session?: ClientSession | null
 ): Promise<{ok: true; message: string} | {ok: false; error: string}> => {
   const response = await post<ReviewStatusUpdate, {message: string; comment_id: number}>(
     `comments/admin/review`
@@ -138,7 +142,7 @@ export const reviewItem = async (
       content_type: entryType,
       id: itemId,
     },
-    session,
+    session: session ?? undefined,
   });
 
   if (!response.ok) {

@@ -3,7 +3,7 @@ import React, {useRef, useEffect} from 'react';
 import DataPanels from './DataPanels';
 import {Box, Flex, IconButton, ScrollArea} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
-import Draggable from 'react-draggable';
+import Draggable, {DraggableEvent} from 'react-draggable';
 import {DragHandleHorizontalIcon} from '@radix-ui/react-icons';
 import {ToolbarInSidebar} from './ToolbarInSidebar';
 import {styled} from '@stitches/react';
@@ -64,9 +64,9 @@ export default function SidebarComponent() {
           onStart={() => {
             setDragging(true);
           }}
-          onDrag={(e: any) => {
-            if (e.clientX) {
-              setWidth(window.innerWidth - e.clientX);
+          onDrag={(event: DraggableEvent) => {
+            if ('clientX' in event && typeof event.clientX === 'number') {
+              setWidth(window.innerWidth - event.clientX);
             }
           }}
           onStop={() => {

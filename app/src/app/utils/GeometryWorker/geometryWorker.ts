@@ -1,7 +1,10 @@
 import {expose} from 'comlink';
 import dissolve from '@turf/dissolve';
 import centerOfMass from '@turf/center-of-mass';
-import {GeometryWorkerClass, MinGeoJSONFeature} from './geometryWorker.types';
+import {
+  GeometryWorkerClass,
+  MinGeoJSONFeatureWithoutGeometry,
+} from './geometryWorker.types';
 import {LngLatBoundsLike} from 'maplibre-gl';
 import bbox from '@turf/bbox';
 import nearestPoint from '@turf/nearest-point';
@@ -9,6 +12,7 @@ import {EMPTY_FT_COLLECTION} from '../../constants/map/layerStyle';
 
 const POINT_LIMIT = 256;
 const MIN_POPULATION = 300;
+const EMPTY_POINT_COLLECTION = EMPTY_FT_COLLECTION as GeoJSON.FeatureCollection<GeoJSON.Point>;
 
 const explodeMultiPolygonToPolygons = (
   feature: GeoJSON.MultiPolygon
@@ -27,7 +31,7 @@ const GeometryWorker: GeometryWorkerClass = {
   activeGeometries: {},
   zoneAssignments: {},
   cachedCentroids: {},
-  pointData: EMPTY_FT_COLLECTION,
+  pointData: EMPTY_POINT_COLLECTION,
   shatterIds: {
     parents: [],
     children: [],
@@ -44,13 +48,13 @@ const GeometryWorker: GeometryWorkerClass = {
     return this.pointData;
   },
   getPropsById(ids: string[]) {
-    const features: MinGeoJSONFeature[] = [];
+    const features: MinGeoJSONFeatureWithoutGeometry[] = [];
     ids.forEach(id => {
       const f = this.geometries[id];
       if (f) {
+        const {geometry: _geometry, ...featureWithoutGeometry} = f;
         features.push({
-          ...f,
-          geometry: undefined as any,
+          ...featureWithoutGeometry,
         });
       }
     });
@@ -65,10 +69,10 @@ const GeometryWorker: GeometryWorkerClass = {
   updateZones(entries) {
     this.zoneAssignments = entries.reduce(
       (acc, [id, zone]) => {
-        acc[id] = zone as number;
+        acc[id] = zone;
         return acc;
       },
-      {} as Record<string, number>
+      {} as Record<string, number | null>
     );
   },
   handleShatterHeal({parents, children}) {

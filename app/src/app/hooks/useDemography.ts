@@ -7,6 +7,8 @@ import {useDemographyStore} from '../store/demography/demographyStore';
 import {FALLBACK_NUM_DISTRICTS} from '../constants/map/layerStyle';
 import {SummaryRecord} from '../utils/api/summaryStats';
 
+type ZonePopulation = Pick<SummaryRecord, 'zone' | 'total_pop_20'>;
+
 /**
  * Custom hook to retrieve and process demography data.
  *
@@ -33,14 +35,14 @@ export const useZonePopulations = (includeUnassigned?: boolean) => {
   const demoIsLoaded = mapDocument?.document_id && demogHash.includes(mapDocument.document_id);
   // TODO: Could be refactored in the main demographyCache class
   const populationData = useMemo(() => {
-    let cleanedData = structuredClone(demographyCache.populations).filter(row =>
-      includeUnassigned ? true : Boolean(row.zone)
-    );
+    let cleanedData: ZonePopulation[] = structuredClone(demographyCache.populations)
+      .filter(row => (includeUnassigned ? true : Boolean(row.zone)))
+      .map(row => ({zone: row.zone, total_pop_20: row.total_pop_20}));
     const zonesPresent = cleanedData.map(row => row.zone).filter(Boolean);
     if (zonesPresent.length < numDistricts) {
       for (let i = 1; i <= numDistricts; i++) {
         if (!zonesPresent.includes(i)) {
-          cleanedData.push({zone: i, total_pop_20: 0} as unknown as SummaryRecord);
+          cleanedData.push({zone: i, total_pop_20: 0});
         }
       }
     }

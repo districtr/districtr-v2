@@ -9,6 +9,11 @@ import {RefreshButton, TimestampDisplay} from '@/app/components/Time/TimestampDi
 import ContiguityDetail from './ContiguityDetail';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 
+type ContiguityRow = {
+  zone: number;
+  contiguity: number | null;
+};
+
 export const Contiguity = () => {
   const mapDocument = useMapStore(store => store.mapDocument);
   const colorScheme = useColorScheme();
@@ -38,7 +43,7 @@ export const Contiguity = () => {
   const tableData = useMemo(() => {
     if (!data || !data.ok) return [];
     const entries = data.response;
-    const cleanData: any = [];
+    const cleanData: ContiguityRow[] = [];
     const numDistricts = mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
     for (let i = 1; i < numDistricts + 1; i++) {
       if (i in entries) {
@@ -79,7 +84,7 @@ export const Contiguity = () => {
         </Table.Header>
 
         <Table.Body>
-          {tableData.map((row: any, i: number) => (
+          {tableData.map((row, i) => (
             <Table.Row key={i}>
               <Table.Cell>
                 <Flex align="center" gap="2">

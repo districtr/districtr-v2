@@ -4,7 +4,6 @@ import {LANG_MAPPING} from '@/app/utils/language';
 import {Box, Button, Flex, Grid, Heading, Select, Text, TextField} from '@radix-ui/themes';
 import dynamic from 'next/dynamic';
 import {CheckCircledIcon} from '@radix-ui/react-icons';
-import {PlacesCMSContent} from '@/app/utils/api/cms';
 
 const RichTextEditor = dynamic(() => import('@/app/components/Cms/RichTextEditor'), {ssr: false});
 
@@ -19,6 +18,14 @@ export const ContentEditor: React.FC = () => {
   const handleSubmit = useCmsFormStore(state => state.handleSubmit);
   const setPreviewData = useCmsFormStore(state => state.setPreviewData);
   const [contentHasChanged, setContentHasChanged] = useState(false);
+  const selectedTagMapSlug =
+    formData?.content && 'districtr_map_slug' in formData.content
+      ? formData.content.districtr_map_slug
+      : '';
+  const selectedPlaceMapSlugs =
+    formData?.content && 'districtr_map_slugs' in formData.content
+      ? formData.content.districtr_map_slugs
+      : [];
 
   useEffect(() => {
     if (
@@ -115,12 +122,7 @@ export const ContentEditor: React.FC = () => {
             <Text as="label" htmlFor="districtr_map_slug">
               Map
             </Text>
-            <Select.Root
-              // @ts-ignore
-              value={formData?.content.districtr_map_slug}
-              // @ts-ignore
-              onValueChange={handleChange('districtr_map_slug')}
-            >
+            <Select.Root value={selectedTagMapSlug} onValueChange={handleChange('districtr_map_slug')}>
               <Select.Trigger placeholder="Select a map" />
               <Select.Content>
                 {maps?.map((map, i) => (
@@ -138,27 +140,20 @@ export const ContentEditor: React.FC = () => {
             <Text as="label" htmlFor="districtr_map_slug">
               Map (optional)
             </Text>
-            <Select.Root
-              // @ts-ignore
-              value={formData?.content.districtr_map_slugs}
-              onValueChange={handleChange('districtr_map_slugs', true)}
-            >
+            <Select.Root onValueChange={handleChange('districtr_map_slugs', true)}>
               {' '}
               <Select.Trigger>
                 <Text>
-                  {(formData?.content as unknown as PlacesCMSContent)?.districtr_map_slugs?.length
-                    ? (formData?.content as unknown as PlacesCMSContent)?.districtr_map_slugs
-                        ?.length + ' maps selected'
+                  {selectedPlaceMapSlugs.length
+                    ? selectedPlaceMapSlugs.length + ' maps selected'
                     : 'Select a map'}
                 </Text>
               </Select.Trigger>
               <Select.Content>
                 {maps.map((map, i) => (
                   <Select.Item key={i} value={map.districtr_map_slug}>
-                    {/* @ts-ignore */}
                     <Flex direction="row" gapX="1">
-                      {/* @ts-ignore */}
-                      {formData?.content.districtr_map_slugs?.includes(map.districtr_map_slug) ? (
+                      {selectedPlaceMapSlugs.includes(map.districtr_map_slug) ? (
                         <CheckCircledIcon color="green" />
                       ) : null}
                       <Text>{map.name}</Text>

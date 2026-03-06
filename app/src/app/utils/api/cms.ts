@@ -2,14 +2,29 @@ import {LANG_MAPPING} from '../language';
 import {get, patch, post, del} from './factory';
 import {ClientSession} from '@/app/lib/auth0';
 
+type CMSPayloadValue =
+  | string
+  | number
+  | boolean
+  | null
+  | object
+  | Array<string | number | boolean | null | object>;
+
+type CMSContentPayload = {
+  title: string;
+  subtitle?: string;
+  body: string | object;
+  [key: string]: CMSPayloadValue | undefined;
+};
+
 export interface CMSContentCreate {
   slug: string;
   content_type: 'tags' | 'places';
   districtr_map_slug?: string | undefined;
   districtr_map_slugs?: string[] | undefined;
   language: string;
-  draft_content?: Record<string, any> | null;
-  published_content?: Record<string, any> | null;
+  draft_content?: CMSContentPayload | null;
+  published_content?: CMSContentPayload | null;
 }
 
 export interface CMSContentUpdate {
@@ -27,8 +42,8 @@ export interface CMSContent {
   id: string;
   slug: string;
   language: keyof typeof LANG_MAPPING;
-  draft_content: Record<string, any> | null;
-  published_content: Record<string, any> | null;
+  draft_content: CMSContentPayload | null;
+  published_content: CMSContentPayload | null;
   created_at: string;
   updated_at: string;
 }

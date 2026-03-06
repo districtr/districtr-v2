@@ -2,10 +2,17 @@ import {useEffect} from 'react';
 import {useMap} from 'react-map-gl/maplibre';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
 
-export const useClearMap = (updateTrigger: unknown) => {
+type FeatureStateProperties = Record<string, unknown>;
+type FeatureStateById = Record<string, FeatureStateProperties>;
+type FeatureStateBySourceLayer = Record<string, FeatureStateById>;
+
+export const useClearMap = (
+  updateTrigger: string | number | boolean | null | undefined
+) => {
   const mapRef = useMap();
 
-  const handleClearCache = (mapRef: maplibregl.Map, state: Record<string, Record<string, any>>) => {
+  const handleClearCache = (mapRef: maplibregl.Map, state?: FeatureStateBySourceLayer) => {
+    if (!state) return;
     const sourceLayers = Object.keys(state);
     sourceLayers.forEach(sourceLayer => {
       const layerState = state[sourceLayer];

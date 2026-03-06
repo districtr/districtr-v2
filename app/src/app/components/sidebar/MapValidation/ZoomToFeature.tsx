@@ -33,12 +33,22 @@ export default function ZoomToFeature({
     setSelectedIndex(newIndex);
   };
 
-  function isFeature(feature: any): feature is Feature {
-    return feature && typeof feature === 'object' && feature.type === 'Feature';
+  function isFeature(feature: unknown): feature is Feature {
+    return (
+      typeof feature === 'object' &&
+      feature !== null &&
+      'type' in feature &&
+      (feature as {type?: unknown}).type === 'Feature'
+    );
   }
 
-  function isPolygon(feature: any): feature is Polygon {
-    return feature && typeof feature === 'object' && feature.type === 'Polygon';
+  function isPolygon(feature: unknown): feature is Polygon {
+    return (
+      typeof feature === 'object' &&
+      feature !== null &&
+      'type' in feature &&
+      (feature as {type?: unknown}).type === 'Polygon'
+    );
   }
 
   const zoomToFeature = (selectedIndex: number | null) => {

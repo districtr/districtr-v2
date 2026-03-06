@@ -1,11 +1,10 @@
-import type {MapLayerEventType} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type {MutableRefObject} from 'react';
 import React, {useRef} from 'react';
 import {MAP_OPTIONS} from '@constants/configuration';
 import {mapContainerEvents, mapEventHandlers} from '@utils/events/mapEvents';
 import {INTERACTIVE_LAYERS} from '@constants/map/layerIds';
-import GlMap, {type MapRef} from 'react-map-gl/maplibre';
+import GlMap, {type MapEvent, type MapRef} from 'react-map-gl/maplibre';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useLayoutEffect} from 'react';
@@ -29,7 +28,7 @@ import {useLayoutEffect} from 'react';
 export const MapContainer: React.FC<{
   mapRef: MutableRefObject<MapRef | null>;
   initialViewState: {latitude: number; longitude: number; zoom: number} | undefined;
-  onMapLoad: (e: any) => void;
+  onMapLoad: (e: MapEvent) => void;
   borderLeft?: boolean;
   children: React.ReactNode;
 }> = ({mapRef, initialViewState, onMapLoad, borderLeft = false, children}) => {
@@ -40,19 +39,21 @@ export const MapContainer: React.FC<{
 
   useLayoutEffect(() => {
     if (!mapContainer.current) return;
-    mapContainerEvents.forEach(action => {
-      mapContainer?.current?.addEventListener(action.action as keyof MapLayerEventType, e => {
-        action.handler(e, mapRef.current);
-      });
+    const listeners = mapContainerEvents.map(action => {
+      const listener: EventListener = event => {
+        if (event instanceof WheelEvent) {
+          action.handler(event, mapRef.current);
+        }
+      };
+      mapContainer.current?.addEventListener(action.action, listener);
+      return {action, listener};
     });
     return () => {
-      mapContainerEvents.forEach(action => {
-        mapContainer?.current?.removeEventListener(action.action as keyof MapLayerEventType, e => {
-          action.handler(e, mapRef.current);
-        });
+      listeners.forEach(({action, listener}) => {
+        mapContainer.current?.removeEventListener(action.action, listener);
       });
     };
-  });
+  }, [mapRef]);
 
   return (
     <div
@@ -88,7 +89,7 @@ export const MapContainer: React.FC<{
         onZoomStart={mapEventHandlers.onZoom}
         onIdle={mapEventHandlers.onIdle}
         onMoveEnd={mapEventHandlers.onMoveEnd}
-        onData={mapEventHandlers.onData as any}
+        onData={mapEventHandlers.onData}
         interactiveLayerIds={INTERACTIVE_LAYERS}
       >
         {children}

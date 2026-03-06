@@ -8,7 +8,7 @@ export type QueryParams = Record<string, string | number | boolean | (string | n
  * @returns A function that takes a method and returns the final API caller
  */
 export const make = (path: string) => {
-  return <TBody extends object, TResponse = any>(
+  return <TBody extends object, TResponse = unknown>(
     method: HTTP_METHOD,
     options: HeadersInit = {}
   ) => {

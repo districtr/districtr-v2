@@ -1,6 +1,6 @@
 'use client';
 import {useMemo} from 'react';
-import {Layer, Source} from 'react-map-gl/maplibre';
+import {Layer, Source, type LayerProps} from 'react-map-gl/maplibre';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {Overlay} from '@/app/utils/api/apiHandlers/types';
 import {OVERLAY_LAYER_ID_PREFIXES} from '@/app/constants/map/layerIds';
@@ -13,6 +13,7 @@ import {
   SELECTED_LINE_STYLE,
 } from '@/app/constants/map/overlayLayerStyles';
 import {useMapStore} from '@/app/store/mapStore';
+import type {FilterSpecification} from 'maplibre-gl';
 
 interface OverlayLayerProps {
   overlay: Overlay;
@@ -48,18 +49,18 @@ const OverlayLayer = ({
       data: overlay.source || undefined,
       promoteId: idProperty,
     };
-  }, [overlay.data_type, overlay.source]);
+  }, [idProperty, overlay.data_type, overlay.source]);
 
-  const layerProps = useMemo(() => {
-    const baseProps: any = {
+  const layerProps = useMemo<LayerProps>(() => {
+    const sourceLayerProps =
+      overlay.data_type === 'pmtiles' && overlay.source_layer
+        ? {'source-layer': overlay.source_layer}
+        : {};
+    const baseProps = {
       id: layerId,
       beforeId: layerBeforeId,
+      ...sourceLayerProps,
     };
-
-    // Add source-layer for pmtiles
-    if (overlay.data_type === 'pmtiles' && overlay.source_layer) {
-      baseProps['source-layer'] = overlay.source_layer;
-    }
 
     // Apply default styles based on layer type, then override with custom styles
     switch (overlay.layer_type) {
@@ -85,7 +86,7 @@ const OverlayLayer = ({
         };
       case 'text':
         // Use symbol layer for text labels
-        const textField = overlay.id_property ? ['get', overlay.id_property] : ['get', 'name']; // fallback to 'name' property
+        const textField: ['get', string] = ['get', overlay.id_property ?? 'name'];
         return {
           ...baseProps,
           type: 'symbol' as const,
@@ -100,51 +101,67 @@ const OverlayLayer = ({
           },
         };
       default:
-        return baseProps;
+        return {
+          ...baseProps,
+          type: 'fill' as const,
+          paint: DEFAULT_FILL_STYLE,
+        };
     }
   }, [layerId, overlay, layerBeforeId]);
 
   // Click detection layer for line overlays (invisible fill)
-  const clickLayerProps = useMemo(() => {
+  const clickLayerProps = useMemo<LayerProps | null>(() => {
     if (overlay.layer_type !== 'line') return null;
 
-    const baseProps: any = {
+    const sourceLayerProps =
+      overlay.data_type === 'pmtiles' && overlay.source_layer
+        ? {'source-layer': overlay.source_layer}
+        : {};
+    const basePaint = {
+      'fill-color': '#FFFFFF',
+      'fill-opacity': 0,
+    };
+    const baseProps = {
       id: clickLayerId,
       type: 'fill' as const,
       beforeId: layerId,
-      paint: {
-        'fill-color': '#FFFFFF',
-        'fill-opacity': 0,
-      },
+      paint: basePaint,
+      ...sourceLayerProps,
     };
-
-    if (overlay.data_type === 'pmtiles' && overlay.source_layer) {
-      baseProps['source-layer'] = overlay.source_layer;
-    }
     if (paintConstraint?.featureId) {
-      baseProps.filter = ['!', ['==', ['get', idProperty], paintConstraint.featureId]];
-      baseProps.paint['fill-opacity'] = 0.75;
+      const clickFilter: FilterSpecification = [
+        '!',
+        ['==', ['get', idProperty], paintConstraint.featureId],
+      ];
+      return {
+        ...baseProps,
+        filter: clickFilter,
+        paint: {
+          ...basePaint,
+          'fill-opacity': 0.75,
+        },
+      };
     }
 
     return baseProps;
   }, [clickLayerId, layerId, overlay, paintConstraint?.featureId]);
 
   // Selected constraint outline layer (for emphasis)
-  const selectedOutlineProps = useMemo(() => {
+  const selectedOutlineProps = useMemo<LayerProps | null>(() => {
     if (!isConstraintOverlay || !selectedFeatureId) return null;
 
-    const baseProps: any = {
+    const sourceLayerProps =
+      overlay.data_type === 'pmtiles' && overlay.source_layer
+        ? {'source-layer': overlay.source_layer}
+        : {};
+    const selectedFilter: FilterSpecification = ['==', ['get', idProperty], selectedFeatureId];
+    return {
       id: `${selectedLayerId}-outline`,
       type: 'line' as const,
       paint: SELECTED_LINE_STYLE,
-      filter: ['==', ['get', idProperty], selectedFeatureId],
+      filter: selectedFilter,
+      ...sourceLayerProps,
     };
-
-    if (overlay.data_type === 'pmtiles' && overlay.source_layer) {
-      baseProps['source-layer'] = overlay.source_layer;
-    }
-
-    return baseProps;
   }, [selectedLayerId, isConstraintOverlay, selectedFeatureId, idProperty, overlay]);
 
   if (!overlay.source) {

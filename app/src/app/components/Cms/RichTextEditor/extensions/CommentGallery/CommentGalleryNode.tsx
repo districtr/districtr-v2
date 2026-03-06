@@ -14,6 +14,13 @@ import {ReactNodeViewRenderer} from '@tiptap/react';
 import CommentGalleryNodeView from './CommentGalleryNodeView';
 import {getJsonHtmlRenderer, getStandardHtmlParser} from '../extensionUtils';
 
+type RichTextNodeAttribute = {
+  name: string;
+  default?: unknown;
+  parseHTML?: (element: Element) => unknown;
+  renderHTML?: (attributes: Record<string, unknown>) => Record<string, string>;
+};
+
 // Extend TipTap's command interface to include our custom command
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -33,12 +40,7 @@ export const CommentGalleryNode = Node.create({
   // Define all configurable attributes for the node
   // These map to CommentGalleryProps and are serialized to HTML data attributes
   addAttributes() {
-    const attrs: {
-      name: string;
-      default?: any;
-      parseHTML?: (element: Element) => any;
-      renderHTML?: (attributes: Record<string, any>) => Record<string, any>;
-    }[] = [
+    const attrs: RichTextNodeAttribute[] = [
       {
         name: 'title',
       },
@@ -115,7 +117,14 @@ export const CommentGalleryNode = Node.create({
         };
         return acc;
       },
-      {} as Record<string, any>
+      {} as Record<
+        string,
+        {
+          default: unknown;
+          parseHTML: (element: Element) => unknown;
+          renderHTML: (attributes: Record<string, unknown>) => Record<string, string>;
+        }
+      >
     );
   },
 

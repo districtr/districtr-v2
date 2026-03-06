@@ -4,7 +4,7 @@ import {subscribeWithSelector} from 'zustand/middleware';
 import {Overlay} from '@utils/api/apiHandlers/types';
 import {useMapStore} from './mapStore';
 import {dissolve} from '@turf/turf';
-import {Feature, MapGeoJSONFeature} from 'maplibre-gl';
+import {MapGeoJSONFeature} from 'maplibre-gl';
 
 export interface OverlayPaintConstraint {
   overlayId: string;
@@ -82,7 +82,7 @@ export const useOverlayStore = create(
       }
       // query source layer for feature id
       const sourceFeatures = mapRef?.querySourceFeatures(`overlay-source-${overlayId}`);
-      const matchingFeatures = sourceFeatures?.filter((feature: any) => feature.id === featureId);
+      const matchingFeatures = sourceFeatures?.filter(feature => feature.id === featureId);
       if (matchingFeatures && matchingFeatures.length > 0) {
         set({
           paintConstraint: {

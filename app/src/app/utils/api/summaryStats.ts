@@ -180,15 +180,7 @@ export type TabularDataWithPercent<T extends SummaryStatConfig[keyof SummaryStat
  */
 const withPct = <T extends typeof summaryStatsConfig>(
   config: T
-): {
-  [K in keyof T]: {
-    columns: Array<
-      | Extract<T[K], {columns: readonly string[]}>['columns'][number]
-      | `${Extract<T[K], {columns: readonly string[]}>['columns'][number]}_pct`
-    >;
-    sumColumn?: Extract<T[K], {sumColumn?: string}>['sumColumn'];
-  };
-} => {
+): WithPctConfig<T> => {
   return Object.fromEntries(
     Object.entries(config).map(([key, value]) => [
       key,
@@ -197,6 +189,16 @@ const withPct = <T extends typeof summaryStatsConfig>(
         columns: [...value.columns, ...value.columns.map(col => `${col}_pct`)],
       },
     ])
-  ) as any;
+  ) as WithPctConfig<T>;
+};
+
+type WithPctConfig<T extends typeof summaryStatsConfig> = {
+  [K in keyof T]: {
+    columns: Array<
+      | Extract<T[K], {columns: readonly string[]}>['columns'][number]
+      | `${Extract<T[K], {columns: readonly string[]}>['columns'][number]}_pct`
+    >;
+    sumColumn?: Extract<T[K], {sumColumn?: string}>['sumColumn'];
+  };
 };
 export const summaryStatsWithPctConfig = withPct(summaryStatsConfig);

@@ -18,7 +18,7 @@ export const HeaderSecondTierNav: React.FC<{
     'Community Comments',
   ],
 }) => {
-  const [headers, setHeaders] = useState<any[]>([]);
+  const [headers, setHeaders] = useState<HTMLHeadingElement[]>([]);
 
   useEffect(() => {
     const headers = document.querySelectorAll('h2');

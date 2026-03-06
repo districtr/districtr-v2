@@ -45,6 +45,7 @@ type ContentTypeConfig = {
 type FormDataType<T extends CmsContentTypes> = ContentTypeConfig[T]['formData'];
 // Generic strongly typed form data and content types
 type TypedFormData<T extends CmsContentTypes> = {contentType: T; content: FormDataType<T>};
+type CmsFormValue = FormDataType<CmsContentTypes>[keyof FormDataType<CmsContentTypes>];
 
 // Default form data with base values
 const baseFormData: BaseFormData = {
@@ -97,7 +98,7 @@ interface CmsFormStore {
   handleChange: <T extends keyof BaseFormData | 'districtr_map_slug' | 'districtr_map_slugs'>(
     property: T,
     multiple?: boolean
-  ) => (value: any) => void;
+  ) => (value: CmsFormValue) => void;
   handleSubmit: () => Promise<void>;
   handleDelete: (id: string) => Promise<void>;
   handlePublish: (id: string) => Promise<void>;
@@ -183,12 +184,13 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
         };
         set({formData: newFormData});
       } else {
+        const selectedValue = String(value);
         let newValue = (_formData.content[property as keyof typeof _formData.content] ??
           []) as string[];
-        if (newValue.includes(value)) {
-          newValue = newValue.filter(v => v !== value);
+        if (newValue.includes(selectedValue)) {
+          newValue = newValue.filter(v => v !== selectedValue);
         } else {
-          newValue.push(value);
+          newValue.push(selectedValue);
         }
         const newFormData = {
           contentType: _formData.contentType,
@@ -369,12 +371,15 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
     const baseFormFields: BaseFormData = {
       slug: item.slug,
       language: item.language,
-      title: item.draft_content?.title || '',
-      subtitle: item.draft_content?.subtitle || '',
-      body: item.draft_content?.body || {
-        type: 'doc',
-        content: [{type: 'paragraph', content: []}],
-      },
+      title: String(item.draft_content?.title ?? ''),
+      subtitle: String(item.draft_content?.subtitle ?? ''),
+      body:
+        typeof item.draft_content?.body === 'object' && item.draft_content?.body
+          ? item.draft_content.body
+          : {
+              type: 'doc',
+              content: [{type: 'paragraph', content: []}],
+            },
     };
 
     // Handle different content types
