@@ -2,6 +2,7 @@ import {API_URL} from '@/app/utils/api/constants';
 import {ImageResponse} from 'next/og';
 import fs from 'fs';
 import {DocumentObject} from '@/app/utils/api/apiHandlers/types';
+import {DRAFT_STATUS_LABELS, DRAFT_STATUS_OG_COLORS} from '@/app/constants/map/draftStatus';
 
 export async function GET(_: Request, {params}: {params: Promise<{id: string}>}) {
   const {id} = await params;
@@ -23,6 +24,9 @@ export async function GET(_: Request, {params}: {params: Promise<{id: string}>})
   // Load the font in an edge-compatible way
   const nunitoBold = fs.readFileSync('./public/Nunito-Bold.ttf');
   const nunitoMedium = fs.readFileSync('./public/Nunito-Medium.ttf');
+  const draftStatus = mapDocument.map_metadata?.draft_status;
+  const draftStatusLabel = draftStatus ? DRAFT_STATUS_LABELS[draftStatus] : null;
+  const draftStatusColor = draftStatus ? DRAFT_STATUS_OG_COLORS[draftStatus] : null;
 
   return new ImageResponse(
     (
@@ -69,12 +73,10 @@ export async function GET(_: Request, {params}: {params: Promise<{id: string}>})
                 {title}
               </h1>
               <div style={{display: 'flex', flexDirection: 'row', gap: '10px'}}>
-                {mapDocument.map_metadata?.draft_status === 'ready_to_share' ? (
-                  <p style={{color: 'green', textTransform: 'uppercase'}}>Ready to Share</p>
-                ) : mapDocument.map_metadata?.draft_status === 'in_progress' ? (
-                  <p style={{color: 'blue', textTransform: 'uppercase'}}>In Progress</p>
-                ) : mapDocument.map_metadata?.draft_status === 'scratch' ? (
-                  <p style={{color: 'orange', textTransform: 'uppercase'}}>Scratch Work</p>
+                {draftStatusLabel ? (
+                  <p style={{color: draftStatusColor ?? 'black', textTransform: 'uppercase'}}>
+                    {draftStatusLabel}
+                  </p>
                 ) : null}
                 <p>{mapDocument.num_districts} districts</p>
               </div>

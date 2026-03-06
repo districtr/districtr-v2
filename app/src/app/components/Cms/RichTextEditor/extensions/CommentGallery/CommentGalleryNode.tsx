@@ -13,6 +13,12 @@ import {Node, mergeAttributes} from '@tiptap/core';
 import {ReactNodeViewRenderer} from '@tiptap/react';
 import CommentGalleryNodeView from './CommentGalleryNodeView';
 import {getJsonHtmlRenderer, getStandardHtmlParser} from '../extensionUtils';
+import {
+  COMMENT_GALLERY_ATTRS,
+  getRichTextNodeSelector,
+  RICH_TEXT_DATA_ATTRIBUTES,
+  RICH_TEXT_NODE_TYPES,
+} from '@constants/cms/richText';
 
 // Extend TipTap's command interface to include our custom command
 declare module '@tiptap/core' {
@@ -40,68 +46,68 @@ export const CommentGalleryNode = Node.create({
       renderHTML?: (attributes: Record<string, any>) => Record<string, any>;
     }[] = [
       {
-        name: 'title',
+        name: COMMENT_GALLERY_ATTRS.TITLE,
       },
       {
-        name: 'description',
+        name: COMMENT_GALLERY_ATTRS.DESCRIPTION,
       },
       {
-        name: 'ids',
+        name: COMMENT_GALLERY_ATTRS.IDS,
       },
       {
-        name: 'tags',
+        name: COMMENT_GALLERY_ATTRS.TAGS,
       },
       {
-        name: 'place',
+        name: COMMENT_GALLERY_ATTRS.PLACE,
       },
       {
-        name: 'state',
+        name: COMMENT_GALLERY_ATTRS.STATE,
       },
       {
-        name: 'zipCode',
+        name: COMMENT_GALLERY_ATTRS.ZIP_CODE,
       },
       {
-        name: 'limit',
+        name: COMMENT_GALLERY_ATTRS.LIMIT,
         default: 10,
       },
       {
-        name: 'showIdentifier',
+        name: COMMENT_GALLERY_ATTRS.SHOW_IDENTIFIER,
         default: true,
       },
       {
-        name: 'showTitles',
+        name: COMMENT_GALLERY_ATTRS.SHOW_TITLES,
         default: true,
       },
       {
-        name: 'showPlaces',
+        name: COMMENT_GALLERY_ATTRS.SHOW_PLACES,
         default: true,
       },
       {
-        name: 'showStates',
+        name: COMMENT_GALLERY_ATTRS.SHOW_STATES,
         default: true,
       },
       {
-        name: 'showZipCodes',
+        name: COMMENT_GALLERY_ATTRS.SHOW_ZIP_CODES,
         default: true,
       },
       {
-        name: 'showCreatedAt',
+        name: COMMENT_GALLERY_ATTRS.SHOW_CREATED_AT,
         default: true,
       },
       {
-        name: 'showListView',
+        name: COMMENT_GALLERY_ATTRS.SHOW_LIST_VIEW,
         default: true,
       },
       {
-        name: 'paginate',
+        name: COMMENT_GALLERY_ATTRS.PAGINATE,
         default: true,
       },
       {
-        name: 'showFilters',
+        name: COMMENT_GALLERY_ATTRS.SHOW_FILTERS,
         default: false,
       },
       {
-        name: 'showMaps',
+        name: COMMENT_GALLERY_ATTRS.SHOW_MAPS,
         default: true,
       },
     ];
@@ -122,13 +128,19 @@ export const CommentGalleryNode = Node.create({
   parseHTML() {
     return [
       {
-        tag: 'div[data-type="comment-gallery-node"]',
+        tag: getRichTextNodeSelector(RICH_TEXT_NODE_TYPES.COMMENT_GALLERY),
       },
     ];
   },
 
   renderHTML({HTMLAttributes}) {
-    return ['div', mergeAttributes(HTMLAttributes, {'data-type': 'comment-gallery-node'}), 0];
+    return [
+      'div',
+      mergeAttributes(HTMLAttributes, {
+        [RICH_TEXT_DATA_ATTRIBUTES.TYPE]: RICH_TEXT_NODE_TYPES.COMMENT_GALLERY,
+      }),
+      0,
+    ];
   },
 
   addCommands() {

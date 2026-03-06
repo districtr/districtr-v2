@@ -18,6 +18,11 @@ import {
   DocumentObject,
   type DraftStatus,
 } from '@/app/utils/api/apiHandlers/types';
+import {
+  DEFAULT_DRAFT_STATUS,
+  DRAFT_STATUS_LABELS,
+  DRAFT_STATUS_ORDER,
+} from '@/app/constants/map/draftStatus';
 import {Cross2Icon, Pencil1Icon} from '@radix-ui/react-icons';
 import {MapContextModuleAndUnits} from './MapContextModuleAndUnits';
 import {InProgressIcon, ReadyIcon, ScratchWorkIcon} from './Icons';
@@ -29,14 +34,6 @@ const statusIcons: Record<DraftStatus, React.FC> = {
   ready_to_share: ReadyIcon,
 };
 
-const statusText: Record<DraftStatus, string> = {
-  scratch: 'Scratch Work',
-  in_progress: 'In Progress',
-  ready_to_share: 'Ready to Share',
-};
-
-const iconOrder: DraftStatus[] = ['scratch', 'in_progress', 'ready_to_share'];
-
 export const MapTitleDisplay: React.FC<{
   mapMetadata: DocumentMetadata | null;
   mapDocument: DocumentObject | null;
@@ -45,7 +42,7 @@ export const MapTitleDisplay: React.FC<{
   const [mapTitleInner, setMapTitleInner] = useState<string>('');
   const [hovered, setHovered] = useState(false);
   const [mapDescriptionInner, setMapDescriptionInner] = useState<string>('');
-  const [mapStatusInner, setMapStatusInner] = useState<DraftStatus>('scratch');
+  const [mapStatusInner, setMapStatusInner] = useState<DraftStatus>(DEFAULT_DRAFT_STATUS);
   const [open, setOpen] = useState(false);
 
   const _mapName = mapMetadata?.name ?? mapDocument?.map_metadata?.name ?? '';
@@ -55,7 +52,7 @@ export const MapTitleDisplay: React.FC<{
   const mapName = isTruncated ? `${_mapName.slice(0, MAX_TITLE_LENGTH)}...` : _mapName;
   const editing = mapDocument?.document_id !== 'anonymous';
 
-  const draftStatus = mapMetadata?.draft_status ?? 'scratch';
+  const draftStatus = mapMetadata?.draft_status ?? DEFAULT_DRAFT_STATUS;
   const DraftStatusIcon = statusIcons[draftStatus] ?? ScratchWorkIcon;
 
   useEffect(() => {
@@ -181,7 +178,7 @@ export const MapTitleDisplay: React.FC<{
                 className="w-full h-full mb-4"
                 style={{width: '100%', maxWidth: '100%'}}
               >
-                {iconOrder.map(status => (
+                {DRAFT_STATUS_ORDER.map(status => (
                   <SegmentedControl.Item key={status} value={status}>
                     <Flex
                       direction="column"
@@ -191,7 +188,7 @@ export const MapTitleDisplay: React.FC<{
                       className="py-1"
                     >
                       {statusIcons[status]({})}
-                      <Text>{statusText[status]}</Text>
+                      <Text>{DRAFT_STATUS_LABELS[status]}</Text>
                     </Flex>
                   </SegmentedControl.Item>
                 ))}

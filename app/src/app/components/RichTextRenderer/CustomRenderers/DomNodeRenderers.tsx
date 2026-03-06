@@ -5,35 +5,63 @@ import {CommentSubmissionForm} from '../../Forms/CommentSubmissionForm';
 import {PlanGallery} from '../../Cms/RichTextEditor/extensions/PlanGallery/PlanGallery';
 import {MapCreateButtons} from '../../Cms/RichTextEditor/extensions/MapCreateButtons/MapCreateButtons';
 import {CommentGallery} from '../../Cms/RichTextEditor/extensions/CommentGallery/CommentGallery';
+import {
+  COMMENT_GALLERY_ATTRS,
+  FORM_NODE_ATTRS,
+  MAP_CREATE_BUTTONS_NODE_ATTRS,
+  PLAN_GALLERY_ATTRS,
+  RICH_TEXT_DATA_ATTRIBUTES,
+  RICH_TEXT_NODE_TYPES,
+} from '@constants/cms/richText';
+
+type AttributedDomNode = DOMNode & {attribs?: Record<string, string | undefined>};
+
+const parseJsonAttribute = (domNode: AttributedDomNode, attrName: string) =>
+  JSON.parse(domNode.attribs?.[attrName] ?? 'null');
 
 export const domNodeReplacers = (disabled: boolean) => {
   const domNodeReplaceFn = (domNode: DOMNode) => {
-    if (domNode.type === 'tag' && domNode.attribs?.['data-type']?.length) {
-      switch (domNode.attribs['data-type']) {
-        case 'boilerplate-node': {
-          const data = domNode.attribs['data-custom-content'];
-          const customContent = data ? JSON.parse(data) : null;
+    const attributedNode = domNode as AttributedDomNode;
+    const nodeType = attributedNode.attribs?.[RICH_TEXT_DATA_ATTRIBUTES.TYPE];
+    if (domNode.type === 'tag' && nodeType?.length) {
+      switch (nodeType) {
+        case RICH_TEXT_NODE_TYPES.BOILERPLATE: {
+          const customContent = parseJsonAttribute(
+            attributedNode,
+            RICH_TEXT_DATA_ATTRIBUTES.CUSTOM_CONTENT
+          );
           return <BoilerplateNodeRenderer customContent={customContent} />;
         }
-        case 'section-header-node': {
-          // Remove outer quotes
-          const title = domNode.attribs['data-title']?.slice(1, -1);
+        case RICH_TEXT_NODE_TYPES.SECTION_HEADER: {
+          const title = parseJsonAttribute(attributedNode, RICH_TEXT_DATA_ATTRIBUTES.TITLE);
           return <ContentHeader title={title} />;
         }
-        case 'plan-gallery-node': {
-          const ids = JSON.parse(domNode.attribs['ids'] ?? 'null');
-          const tags = JSON.parse(domNode.attribs['tags'] ?? 'null');
-          const title = JSON.parse(domNode.attribs['title'] ?? 'null');
-          const description = JSON.parse(domNode.attribs['description'] ?? 'null');
-          const limit = JSON.parse(domNode.attribs['limit'] ?? 'null');
-          const paginate = JSON.parse(domNode.attribs['paginate'] ?? 'null');
-          const showListView = JSON.parse(domNode.attribs['showListView'] ?? 'null');
-          const showThumbnails = JSON.parse(domNode.attribs['showThumbnails'] ?? 'null');
-          const showTitles = JSON.parse(domNode.attribs['showTitles'] ?? 'null');
-          const showDescriptions = JSON.parse(domNode.attribs['showDescriptions'] ?? 'null');
-          const showUpdatedAt = JSON.parse(domNode.attribs['showUpdatedAt'] ?? 'null');
-          const showTags = JSON.parse(domNode.attribs['showTags'] ?? 'null');
-          const showModule = JSON.parse(domNode.attribs['showModule'] ?? 'null');
+        case RICH_TEXT_NODE_TYPES.PLAN_GALLERY: {
+          const ids = parseJsonAttribute(attributedNode, PLAN_GALLERY_ATTRS.IDS);
+          const tags = parseJsonAttribute(attributedNode, PLAN_GALLERY_ATTRS.TAGS);
+          const title = parseJsonAttribute(attributedNode, PLAN_GALLERY_ATTRS.TITLE);
+          const description = parseJsonAttribute(attributedNode, PLAN_GALLERY_ATTRS.DESCRIPTION);
+          const limit = parseJsonAttribute(attributedNode, PLAN_GALLERY_ATTRS.LIMIT);
+          const paginate = parseJsonAttribute(attributedNode, PLAN_GALLERY_ATTRS.PAGINATE);
+          const showListView = parseJsonAttribute(
+            attributedNode,
+            PLAN_GALLERY_ATTRS.SHOW_LIST_VIEW
+          );
+          const showThumbnails = parseJsonAttribute(
+            attributedNode,
+            PLAN_GALLERY_ATTRS.SHOW_THUMBNAILS
+          );
+          const showTitles = parseJsonAttribute(attributedNode, PLAN_GALLERY_ATTRS.SHOW_TITLES);
+          const showDescriptions = parseJsonAttribute(
+            attributedNode,
+            PLAN_GALLERY_ATTRS.SHOW_DESCRIPTIONS
+          );
+          const showUpdatedAt = parseJsonAttribute(
+            attributedNode,
+            PLAN_GALLERY_ATTRS.SHOW_UPDATED_AT
+          );
+          const showTags = parseJsonAttribute(attributedNode, PLAN_GALLERY_ATTRS.SHOW_TAGS);
+          const showModule = parseJsonAttribute(attributedNode, PLAN_GALLERY_ATTRS.SHOW_MODULE);
           return (
             <PlanGallery
               ids={ids}
@@ -52,9 +80,12 @@ export const domNodeReplacers = (disabled: boolean) => {
             />
           );
         }
-        case 'form-node': {
-          const mandatoryTags = JSON.parse(domNode.attribs['mandatoryTags'] ?? 'null');
-          const allowListModules = JSON.parse(domNode.attribs['allowListModules'] ?? 'null');
+        case RICH_TEXT_NODE_TYPES.FORM: {
+          const mandatoryTags = parseJsonAttribute(attributedNode, FORM_NODE_ATTRS.MANDATORY_TAGS);
+          const allowListModules = parseJsonAttribute(
+            attributedNode,
+            FORM_NODE_ATTRS.ALLOW_LIST_MODULES
+          );
           return (
             <CommentSubmissionForm
               disabled={disabled}
@@ -63,30 +94,45 @@ export const domNodeReplacers = (disabled: boolean) => {
             />
           );
         }
-        case 'map-create-buttons-node': {
-          const views = JSON.parse(domNode.attribs['views'] ?? 'null');
-          const type = JSON.parse(domNode.attribs['type'] ?? 'null');
+        case RICH_TEXT_NODE_TYPES.MAP_CREATE_BUTTONS: {
+          const views = parseJsonAttribute(attributedNode, MAP_CREATE_BUTTONS_NODE_ATTRS.VIEWS);
+          const type = parseJsonAttribute(attributedNode, MAP_CREATE_BUTTONS_NODE_ATTRS.TYPE);
           return <MapCreateButtons views={views} type={type} />;
         }
-        case 'comment-gallery-node': {
-          const ids = JSON.parse(domNode.attribs['ids'] ?? 'null');
-          const tags = JSON.parse(domNode.attribs['tags'] ?? 'null');
-          const limit = JSON.parse(domNode.attribs['limit'] ?? 'null');
-          const place = JSON.parse(domNode.attribs['place'] ?? 'null');
-          const state = JSON.parse(domNode.attribs['state'] ?? 'null');
-          const zipCode = JSON.parse(domNode.attribs['zipCode'] ?? 'null');
-          const showIdentifier = JSON.parse(domNode.attribs['showIdentifier'] ?? 'null');
-          const showTitles = JSON.parse(domNode.attribs['showTitles'] ?? 'null');
-          const title = JSON.parse(domNode.attribs['title'] ?? 'null');
-          const description = JSON.parse(domNode.attribs['description'] ?? 'null');
-          const showPlaces = JSON.parse(domNode.attribs['showPlaces'] ?? 'null');
-          const showStates = JSON.parse(domNode.attribs['showStates'] ?? 'null');
-          const showZipCodes = JSON.parse(domNode.attribs['showZipCodes'] ?? 'null');
-          const showCreatedAt = JSON.parse(domNode.attribs['showCreatedAt'] ?? 'null');
-          const showListView = JSON.parse(domNode.attribs['showListView'] ?? 'null');
-          const paginate = JSON.parse(domNode.attribs['paginate'] ?? 'null');
-          const showFilters = JSON.parse(domNode.attribs['showFilters'] ?? 'null');
-          const showMaps = JSON.parse(domNode.attribs['showMaps'] ?? 'null');
+        case RICH_TEXT_NODE_TYPES.COMMENT_GALLERY: {
+          const ids = parseJsonAttribute(attributedNode, COMMENT_GALLERY_ATTRS.IDS);
+          const tags = parseJsonAttribute(attributedNode, COMMENT_GALLERY_ATTRS.TAGS);
+          const limit = parseJsonAttribute(attributedNode, COMMENT_GALLERY_ATTRS.LIMIT);
+          const place = parseJsonAttribute(attributedNode, COMMENT_GALLERY_ATTRS.PLACE);
+          const state = parseJsonAttribute(attributedNode, COMMENT_GALLERY_ATTRS.STATE);
+          const zipCode = parseJsonAttribute(attributedNode, COMMENT_GALLERY_ATTRS.ZIP_CODE);
+          const showIdentifier = parseJsonAttribute(
+            attributedNode,
+            COMMENT_GALLERY_ATTRS.SHOW_IDENTIFIER
+          );
+          const showTitles = parseJsonAttribute(attributedNode, COMMENT_GALLERY_ATTRS.SHOW_TITLES);
+          const title = parseJsonAttribute(attributedNode, COMMENT_GALLERY_ATTRS.TITLE);
+          const description = parseJsonAttribute(attributedNode, COMMENT_GALLERY_ATTRS.DESCRIPTION);
+          const showPlaces = parseJsonAttribute(attributedNode, COMMENT_GALLERY_ATTRS.SHOW_PLACES);
+          const showStates = parseJsonAttribute(attributedNode, COMMENT_GALLERY_ATTRS.SHOW_STATES);
+          const showZipCodes = parseJsonAttribute(
+            attributedNode,
+            COMMENT_GALLERY_ATTRS.SHOW_ZIP_CODES
+          );
+          const showCreatedAt = parseJsonAttribute(
+            attributedNode,
+            COMMENT_GALLERY_ATTRS.SHOW_CREATED_AT
+          );
+          const showListView = parseJsonAttribute(
+            attributedNode,
+            COMMENT_GALLERY_ATTRS.SHOW_LIST_VIEW
+          );
+          const paginate = parseJsonAttribute(attributedNode, COMMENT_GALLERY_ATTRS.PAGINATE);
+          const showFilters = parseJsonAttribute(
+            attributedNode,
+            COMMENT_GALLERY_ATTRS.SHOW_FILTERS
+          );
+          const showMaps = parseJsonAttribute(attributedNode, COMMENT_GALLERY_ATTRS.SHOW_MAPS);
           return (
             <CommentGallery
               ids={ids}

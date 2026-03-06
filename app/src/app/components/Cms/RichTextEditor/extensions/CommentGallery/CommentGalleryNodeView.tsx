@@ -18,6 +18,12 @@ import {CommentGallery, CommentGalleryProps} from './CommentGallery';
 import {GearIcon, TrashIcon} from '@radix-ui/react-icons';
 import {NoFocusBoundary} from '../NoFocusBoundary';
 import {CmsSettingsChips} from '../EditHelpers/CmsSettingsChips';
+import {
+  COMMENT_GALLERY_ATTRS,
+  COMMENT_GALLERY_DISPLAY_OPTIONS,
+  GALLERY_FILTER_TABS,
+  type CommentGalleryDisplayOptionKey,
+} from '@constants/cms/richText';
 
 const CommentGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, deleteNode}) => {
   const parentRef = useRef<HTMLDivElement>(null);
@@ -42,6 +48,23 @@ const CommentGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes
     showFilters,
     showMaps,
   } = node.attrs as CommentGalleryProps;
+
+  const displayOptionState: Record<CommentGalleryDisplayOptionKey, boolean> = {
+    [COMMENT_GALLERY_ATTRS.PAGINATE]: Boolean(paginate),
+    [COMMENT_GALLERY_ATTRS.SHOW_LIST_VIEW]: Boolean(showListView),
+    [COMMENT_GALLERY_ATTRS.SHOW_IDENTIFIER]: Boolean(showIdentifier),
+    [COMMENT_GALLERY_ATTRS.SHOW_TITLES]: Boolean(showTitles),
+    [COMMENT_GALLERY_ATTRS.SHOW_PLACES]: Boolean(showPlaces),
+    [COMMENT_GALLERY_ATTRS.SHOW_STATES]: Boolean(showStates),
+    [COMMENT_GALLERY_ATTRS.SHOW_ZIP_CODES]: Boolean(showZipCodes),
+    [COMMENT_GALLERY_ATTRS.SHOW_CREATED_AT]: Boolean(showCreatedAt),
+    [COMMENT_GALLERY_ATTRS.SHOW_FILTERS]: Boolean(showFilters),
+    [COMMENT_GALLERY_ATTRS.SHOW_MAPS]: Boolean(showMaps),
+  };
+
+  const selectedDisplayOptions = COMMENT_GALLERY_DISPLAY_OPTIONS.filter(option => {
+    return displayOptionState[option.key];
+  }).map(option => option.key);
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const handleUpdate = (updates: Partial<CommentGalleryProps>) => {
@@ -117,70 +140,58 @@ const CommentGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes
                       md: '3',
                       lg: '4',
                     }}
-                    value={[
-                      paginate ? 'paginate' : '',
-                      showListView ? 'showListView' : '',
-                      showIdentifier ? 'showIdentifier' : '',
-                      showTitles ? 'showTitles' : '',
-                      showPlaces ? 'showPlaces' : '',
-                      showStates ? 'showStates' : '',
-                      showZipCodes ? 'showZipCodes' : '',
-                      showCreatedAt ? 'showCreatedAt' : '',
-                      showFilters ? 'showFilters' : '',
-                      showMaps ? 'showMaps' : '',
-                    ]}
+                    value={selectedDisplayOptions}
                     onValueChange={value => {
+                      const selectedValues = new Set(value);
                       handleUpdate({
-                        paginate: value.includes('paginate'),
-                        showListView: value.includes('showListView'),
-                        showTitles: value.includes('showTitles'),
-                        showPlaces: value.includes('showPlaces'),
-                        showStates: value.includes('showStates'),
-                        showZipCodes: value.includes('showZipCodes'),
-                        showCreatedAt: value.includes('showCreatedAt'),
-                        showIdentifier: value.includes('showIdentifier'),
-                        showFilters: value.includes('showFilters'),
-                        showMaps: value.includes('showMaps'),
+                        paginate: selectedValues.has(COMMENT_GALLERY_ATTRS.PAGINATE),
+                        showListView: selectedValues.has(COMMENT_GALLERY_ATTRS.SHOW_LIST_VIEW),
+                        showTitles: selectedValues.has(COMMENT_GALLERY_ATTRS.SHOW_TITLES),
+                        showPlaces: selectedValues.has(COMMENT_GALLERY_ATTRS.SHOW_PLACES),
+                        showStates: selectedValues.has(COMMENT_GALLERY_ATTRS.SHOW_STATES),
+                        showZipCodes: selectedValues.has(COMMENT_GALLERY_ATTRS.SHOW_ZIP_CODES),
+                        showCreatedAt: selectedValues.has(COMMENT_GALLERY_ATTRS.SHOW_CREATED_AT),
+                        showIdentifier: selectedValues.has(COMMENT_GALLERY_ATTRS.SHOW_IDENTIFIER),
+                        showFilters: selectedValues.has(COMMENT_GALLERY_ATTRS.SHOW_FILTERS),
+                        showMaps: selectedValues.has(COMMENT_GALLERY_ATTRS.SHOW_MAPS),
                       });
                     }}
                   >
-                    <CheckboxCards.Item value="paginate">Paginate Results</CheckboxCards.Item>
-                    <CheckboxCards.Item value="showListView">Show List View</CheckboxCards.Item>
-                    <CheckboxCards.Item value="showIdentifier">Show Identifier</CheckboxCards.Item>
-                    <CheckboxCards.Item value="showTitles">Show Titles</CheckboxCards.Item>
-                    <CheckboxCards.Item value="showPlaces">Show Places</CheckboxCards.Item>
-                    <CheckboxCards.Item value="showStates">Show States</CheckboxCards.Item>
-                    <CheckboxCards.Item value="showZipCodes">Show Zip Codes</CheckboxCards.Item>
-                    <CheckboxCards.Item value="showCreatedAt">Show Created At</CheckboxCards.Item>
-                    <CheckboxCards.Item value="showFilters">
-                      Show Filter Controls
-                    </CheckboxCards.Item>
-                    <CheckboxCards.Item value="showMaps">Show Map Links</CheckboxCards.Item>
+                    {COMMENT_GALLERY_DISPLAY_OPTIONS.map(option => (
+                      <CheckboxCards.Item key={option.key} value={option.key}>
+                        {option.label}
+                      </CheckboxCards.Item>
+                    ))}
                   </CheckboxCards.Root>
                 </Flex>
 
                 <Tabs.Root
-                  defaultValue={!!ids ? 'ids' : 'tags'}
+                  defaultValue={!!ids ? GALLERY_FILTER_TABS.IDS : GALLERY_FILTER_TABS.TAGS}
                   onValueChange={value =>
-                    handleUpdate({[value]: [], [value === 'ids' ? 'tags' : 'ids']: null})
+                    handleUpdate({
+                      [value]: [],
+                      [value === GALLERY_FILTER_TABS.IDS
+                        ? GALLERY_FILTER_TABS.TAGS
+                        : GALLERY_FILTER_TABS.IDS]: null,
+                    })
                   }
                 >
                   <Tabs.List>
-                    <Tabs.Trigger value="ids">IDs</Tabs.Trigger>
-                    <Tabs.Trigger value="tags">Tags</Tabs.Trigger>
+                    <Tabs.Trigger value={GALLERY_FILTER_TABS.IDS}>IDs</Tabs.Trigger>
+                    <Tabs.Trigger value={GALLERY_FILTER_TABS.TAGS}>Tags</Tabs.Trigger>
                   </Tabs.List>
-                  <Tabs.Content value="ids">
+                  <Tabs.Content value={GALLERY_FILTER_TABS.IDS}>
                     <CmsSettingsChips
                       entries={ids || []}
                       handleUpdate={handleUpdate}
-                      property="ids"
+                      property={GALLERY_FILTER_TABS.IDS}
                     />
                   </Tabs.Content>
-                  <Tabs.Content value="tags">
+                  <Tabs.Content value={GALLERY_FILTER_TABS.TAGS}>
                     <CmsSettingsChips
                       entries={tags || []}
                       handleUpdate={handleUpdate}
-                      property="tags"
+                      property={GALLERY_FILTER_TABS.TAGS}
                     />
                   </Tabs.Content>
                 </Tabs.Root>

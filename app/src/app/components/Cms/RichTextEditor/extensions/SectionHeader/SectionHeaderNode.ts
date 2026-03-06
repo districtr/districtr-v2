@@ -2,6 +2,11 @@ import {Node, mergeAttributes} from '@tiptap/core';
 import {ReactNodeViewRenderer} from '@tiptap/react';
 import {ContentHeader} from '@/app/components/Static/ContentHeader';
 import ContentHeaderNodeView from './SectionHeaderNodeView';
+import {
+  getRichTextNodeSelector,
+  RICH_TEXT_DATA_ATTRIBUTES,
+  RICH_TEXT_NODE_TYPES,
+} from '@constants/cms/richText';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -25,12 +30,14 @@ export const SectionHeaderNode = Node.create({
       title: {
         default: null,
         parseHTML: element => {
-          const content = element.getAttribute('data-title');
+          const content = element.getAttribute(RICH_TEXT_DATA_ATTRIBUTES.TITLE);
           return content ? JSON.parse(content) : null;
         },
         renderHTML: attributes => {
           return {
-            'data-title': attributes.title ? JSON.stringify(attributes.title) : '',
+            [RICH_TEXT_DATA_ATTRIBUTES.TITLE]: attributes.title
+              ? JSON.stringify(attributes.title)
+              : '',
           };
         },
       },
@@ -40,13 +47,19 @@ export const SectionHeaderNode = Node.create({
   parseHTML() {
     return [
       {
-        tag: 'div[data-type="section-header-node"]',
+        tag: getRichTextNodeSelector(RICH_TEXT_NODE_TYPES.SECTION_HEADER),
       },
     ];
   },
 
   renderHTML({HTMLAttributes}) {
-    return ['div', mergeAttributes(HTMLAttributes, {'data-type': 'section-header-node'}), 0];
+    return [
+      'div',
+      mergeAttributes(HTMLAttributes, {
+        [RICH_TEXT_DATA_ATTRIBUTES.TYPE]: RICH_TEXT_NODE_TYPES.SECTION_HEADER,
+      }),
+      0,
+    ];
   },
 
   addCommands() {

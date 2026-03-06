@@ -2,6 +2,12 @@ import {Node, mergeAttributes} from '@tiptap/core';
 import {ReactNodeViewRenderer} from '@tiptap/react';
 import PlanGalleryNodeView from './PlanGalleryNodeView';
 import {getJsonHtmlRenderer, getStandardHtmlParser} from '../extensionUtils';
+import {
+  getRichTextNodeSelector,
+  PLAN_GALLERY_ATTRS,
+  RICH_TEXT_DATA_ATTRIBUTES,
+  RICH_TEXT_NODE_TYPES,
+} from '@constants/cms/richText';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -28,51 +34,51 @@ export const PlanGalleryNode = Node.create({
       renderHTML?: (attributes: Record<string, any>) => Record<string, any>;
     }[] = [
       {
-        name: 'ids',
+        name: PLAN_GALLERY_ATTRS.IDS,
       },
       {
-        name: 'tags',
+        name: PLAN_GALLERY_ATTRS.TAGS,
       },
       {
-        name: 'title',
+        name: PLAN_GALLERY_ATTRS.TITLE,
       },
       {
-        name: 'description',
+        name: PLAN_GALLERY_ATTRS.DESCRIPTION,
       },
       {
-        name: 'paginate',
+        name: PLAN_GALLERY_ATTRS.PAGINATE,
         default: true,
       },
       {
-        name: 'showListView',
+        name: PLAN_GALLERY_ATTRS.SHOW_LIST_VIEW,
         default: true,
       },
       {
-        name: 'showThumbnails',
+        name: PLAN_GALLERY_ATTRS.SHOW_THUMBNAILS,
         default: true,
       },
       {
-        name: 'showTitles',
+        name: PLAN_GALLERY_ATTRS.SHOW_TITLES,
         default: true,
       },
       {
-        name: 'showDescriptions',
+        name: PLAN_GALLERY_ATTRS.SHOW_DESCRIPTIONS,
         default: true,
       },
       {
-        name: 'showUpdatedAt',
+        name: PLAN_GALLERY_ATTRS.SHOW_UPDATED_AT,
         default: true,
       },
       {
-        name: 'showTags',
+        name: PLAN_GALLERY_ATTRS.SHOW_TAGS,
         default: true,
       },
       {
-        name: 'showModule',
+        name: PLAN_GALLERY_ATTRS.SHOW_MODULE,
         default: true,
       },
       {
-        name: 'limit',
+        name: PLAN_GALLERY_ATTRS.LIMIT,
         default: 12,
       },
     ];
@@ -93,13 +99,19 @@ export const PlanGalleryNode = Node.create({
   parseHTML() {
     return [
       {
-        tag: 'div[data-type="plan-gallery-node"]',
+        tag: getRichTextNodeSelector(RICH_TEXT_NODE_TYPES.PLAN_GALLERY),
       },
     ];
   },
 
   renderHTML({HTMLAttributes}) {
-    return ['div', mergeAttributes(HTMLAttributes, {'data-type': 'plan-gallery-node'}), 0];
+    return [
+      'div',
+      mergeAttributes(HTMLAttributes, {
+        [RICH_TEXT_DATA_ATTRIBUTES.TYPE]: RICH_TEXT_NODE_TYPES.PLAN_GALLERY,
+      }),
+      0,
+    ];
   },
 
   addCommands() {

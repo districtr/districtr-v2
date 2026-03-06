@@ -19,23 +19,33 @@ import {PlanGallery, PlanGalleryProps} from './PlanGallery';
 import {GearIcon, TrashIcon} from '@radix-ui/react-icons';
 import {NoFocusBoundary} from '../NoFocusBoundary';
 import {CmsSettingsChips} from '../EditHelpers/CmsSettingsChips';
+import {
+  GALLERY_FILTER_TABS,
+  PLAN_GALLERY_ATTRS,
+  PLAN_GALLERY_DISPLAY_OPTIONS,
+  type PlanGalleryDisplayOptionKey,
+} from '@constants/cms/richText';
 
 const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, deleteNode}) => {
   const parentRef = useRef<HTMLDivElement>(null);
   // Use a nested editor for the custom content
-  const ids: number[] | undefined = node.attrs.ids || undefined;
-  const tags: string[] | undefined = node.attrs.tags || undefined;
-  const title: string | undefined = node.attrs.title || undefined;
-  const description: string | undefined = node.attrs.description || undefined;
-  const paginate: string | undefined = node.attrs.paginate || undefined;
-  const limit: number | undefined = node.attrs.limit || undefined;
-  const showListView: boolean | undefined = node.attrs.showListView || undefined;
-  const showThumbnails: boolean | undefined = node.attrs.showThumbnails || undefined;
-  const showTitles: boolean | undefined = node.attrs.showTitles || undefined;
-  const showDescriptions: boolean | undefined = node.attrs.showDescriptions || undefined;
-  const showUpdatedAt: boolean | undefined = node.attrs.showUpdatedAt || undefined;
-  const showTags: boolean | undefined = node.attrs.showTags || undefined;
-  const showModule: boolean | undefined = node.attrs.showModule || undefined;
+  const ids: number[] | undefined = node.attrs[PLAN_GALLERY_ATTRS.IDS] || undefined;
+  const tags: string[] | undefined = node.attrs[PLAN_GALLERY_ATTRS.TAGS] || undefined;
+  const title: string | undefined = node.attrs[PLAN_GALLERY_ATTRS.TITLE] || undefined;
+  const description: string | undefined = node.attrs[PLAN_GALLERY_ATTRS.DESCRIPTION] || undefined;
+  const paginate: string | undefined = node.attrs[PLAN_GALLERY_ATTRS.PAGINATE] || undefined;
+  const limit: number | undefined = node.attrs[PLAN_GALLERY_ATTRS.LIMIT] || undefined;
+  const showListView: boolean | undefined =
+    node.attrs[PLAN_GALLERY_ATTRS.SHOW_LIST_VIEW] || undefined;
+  const showThumbnails: boolean | undefined =
+    node.attrs[PLAN_GALLERY_ATTRS.SHOW_THUMBNAILS] || undefined;
+  const showTitles: boolean | undefined = node.attrs[PLAN_GALLERY_ATTRS.SHOW_TITLES] || undefined;
+  const showDescriptions: boolean | undefined =
+    node.attrs[PLAN_GALLERY_ATTRS.SHOW_DESCRIPTIONS] || undefined;
+  const showUpdatedAt: boolean | undefined =
+    node.attrs[PLAN_GALLERY_ATTRS.SHOW_UPDATED_AT] || undefined;
+  const showTags: boolean | undefined = node.attrs[PLAN_GALLERY_ATTRS.SHOW_TAGS] || undefined;
+  const showModule: boolean | undefined = node.attrs[PLAN_GALLERY_ATTRS.SHOW_MODULE] || undefined;
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const handleUpdate = (updates: Partial<PlanGalleryProps>) => {
@@ -45,6 +55,21 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
     };
     updateAttributes(newAttrs);
   };
+
+  const displayOptionState: Record<PlanGalleryDisplayOptionKey, boolean> = {
+    [PLAN_GALLERY_ATTRS.PAGINATE]: Boolean(paginate),
+    [PLAN_GALLERY_ATTRS.SHOW_LIST_VIEW]: Boolean(showListView),
+    [PLAN_GALLERY_ATTRS.SHOW_THUMBNAILS]: Boolean(showThumbnails),
+    [PLAN_GALLERY_ATTRS.SHOW_TITLES]: Boolean(showTitles),
+    [PLAN_GALLERY_ATTRS.SHOW_DESCRIPTIONS]: Boolean(showDescriptions),
+    [PLAN_GALLERY_ATTRS.SHOW_UPDATED_AT]: Boolean(showUpdatedAt),
+    [PLAN_GALLERY_ATTRS.SHOW_TAGS]: Boolean(showTags),
+    [PLAN_GALLERY_ATTRS.SHOW_MODULE]: Boolean(showModule),
+  };
+
+  const selectedDisplayOptions = PLAN_GALLERY_DISPLAY_OPTIONS.filter(option => {
+    return displayOptionState[option.key];
+  }).map(option => option.key);
 
   return (
     <NodeViewWrapper
@@ -105,64 +130,56 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
                       md: '3',
                       lg: '4',
                     }}
-                    value={[
-                      paginate ? 'paginate' : '',
-                      showListView ? 'showListView' : '',
-                      showThumbnails ? 'showThumbnails' : '',
-                      showTitles ? 'showTitles' : '',
-                      showDescriptions ? 'showDescriptions' : '',
-                      showUpdatedAt ? 'showUpdatedAt' : '',
-                      showTags ? 'showTags' : '',
-                      showModule ? 'showModule' : '',
-                    ]}
+                    value={selectedDisplayOptions}
                     onValueChange={value => {
+                      const selectedValues = new Set(value);
                       handleUpdate({
-                        paginate: value.includes('paginate'),
-                        showListView: value.includes('showListView'),
-                        showThumbnails: value.includes('showThumbnails'),
-                        showTitles: value.includes('showTitles'),
-                        showDescriptions: value.includes('showDescriptions'),
-                        showUpdatedAt: value.includes('showUpdatedAt'),
-                        showTags: value.includes('showTags'),
-                        showModule: value.includes('showModule'),
+                        paginate: selectedValues.has(PLAN_GALLERY_ATTRS.PAGINATE),
+                        showListView: selectedValues.has(PLAN_GALLERY_ATTRS.SHOW_LIST_VIEW),
+                        showThumbnails: selectedValues.has(PLAN_GALLERY_ATTRS.SHOW_THUMBNAILS),
+                        showTitles: selectedValues.has(PLAN_GALLERY_ATTRS.SHOW_TITLES),
+                        showDescriptions: selectedValues.has(PLAN_GALLERY_ATTRS.SHOW_DESCRIPTIONS),
+                        showUpdatedAt: selectedValues.has(PLAN_GALLERY_ATTRS.SHOW_UPDATED_AT),
+                        showTags: selectedValues.has(PLAN_GALLERY_ATTRS.SHOW_TAGS),
+                        showModule: selectedValues.has(PLAN_GALLERY_ATTRS.SHOW_MODULE),
                       });
                     }}
                   >
-                    <CheckboxCards.Item value="paginate">Paginate Results</CheckboxCards.Item>
-                    <CheckboxCards.Item value="showListView">Show List View</CheckboxCards.Item>
-                    <CheckboxCards.Item value="showThumbnails">Show Thumbnails</CheckboxCards.Item>
-                    <CheckboxCards.Item value="showTitles">Show Titles</CheckboxCards.Item>
-                    <CheckboxCards.Item value="showDescriptions">
-                      Show Descriptions
-                    </CheckboxCards.Item>
-                    <CheckboxCards.Item value="showUpdatedAt">Show Updated At</CheckboxCards.Item>
-                    <CheckboxCards.Item value="showTags">Show Tags</CheckboxCards.Item>
-                    <CheckboxCards.Item value="showModule">Show Module</CheckboxCards.Item>
+                    {PLAN_GALLERY_DISPLAY_OPTIONS.map(option => (
+                      <CheckboxCards.Item key={option.key} value={option.key}>
+                        {option.label}
+                      </CheckboxCards.Item>
+                    ))}
                   </CheckboxCards.Root>
                 </Flex>
 
                 <Tabs.Root
-                  defaultValue={!!ids ? 'ids' : 'tags'}
+                  defaultValue={!!ids ? GALLERY_FILTER_TABS.IDS : GALLERY_FILTER_TABS.TAGS}
                   onValueChange={value =>
-                    handleUpdate({[value]: [], [value === 'ids' ? 'tags' : 'ids']: null})
+                    handleUpdate({
+                      [value]: [],
+                      [value === GALLERY_FILTER_TABS.IDS
+                        ? GALLERY_FILTER_TABS.TAGS
+                        : GALLERY_FILTER_TABS.IDS]: null,
+                    })
                   }
                 >
                   <Tabs.List>
-                    <Tabs.Trigger value="ids">IDs</Tabs.Trigger>
-                    <Tabs.Trigger value="tags">Tags</Tabs.Trigger>
+                    <Tabs.Trigger value={GALLERY_FILTER_TABS.IDS}>IDs</Tabs.Trigger>
+                    <Tabs.Trigger value={GALLERY_FILTER_TABS.TAGS}>Tags</Tabs.Trigger>
                   </Tabs.List>
-                  <Tabs.Content value="ids">
+                  <Tabs.Content value={GALLERY_FILTER_TABS.IDS}>
                     <CmsSettingsChips
                       entries={ids || []}
                       handleUpdate={handleUpdate}
-                      property="ids"
+                      property={GALLERY_FILTER_TABS.IDS}
                     />
                   </Tabs.Content>
-                  <Tabs.Content value="tags">
+                  <Tabs.Content value={GALLERY_FILTER_TABS.TAGS}>
                     <CmsSettingsChips
                       entries={tags || []}
                       handleUpdate={handleUpdate}
-                      property="tags"
+                      property={GALLERY_FILTER_TABS.TAGS}
                     />
                   </Tabs.Content>
                 </Tabs.Root>

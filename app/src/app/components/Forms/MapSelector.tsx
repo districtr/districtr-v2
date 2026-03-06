@@ -6,6 +6,7 @@ import {getDocument} from '@/app/utils/api/apiHandlers/getDocument';
 import {DocumentObject} from '@/app/utils/api/apiHandlers/types';
 import {TILESET_URL} from '@/app/utils/api/constants';
 import {queryClient} from '@/app/utils/api/queryClient';
+import {DRAFT_STATUS} from '@/app/constants/map/draftStatus';
 import {
   Blockquote,
   Box,
@@ -101,7 +102,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
       throw new Error('Please use a link to a Districtr map.');
     } else if (
       response.mapInfo &&
-      response.mapInfo.map_metadata?.draft_status !== 'ready_to_share'
+      response.mapInfo.map_metadata?.draft_status !== DRAFT_STATUS.READY_TO_SHARE
     ) {
       throw new Error(
         'Please make sure your map is marked as "ready to share" in the map editor. You can update this in the "Save and share" menu or using the button next to the map title on the top of the map editor.'

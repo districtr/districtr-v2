@@ -1,6 +1,11 @@
 import {Node, mergeAttributes} from '@tiptap/core';
 import {ReactNodeViewRenderer} from '@tiptap/react';
 import BoilerplateNodeView from '@/app/components/Cms/RichTextEditor/extensions/Boilerplate/BoilerplateNodeView';
+import {
+  getRichTextNodeSelector,
+  RICH_TEXT_DATA_ATTRIBUTES,
+  RICH_TEXT_NODE_TYPES,
+} from '@constants/cms/richText';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -24,12 +29,12 @@ export const BoilerplateNode = Node.create({
       customContent: {
         default: null,
         parseHTML: element => {
-          const content = element.getAttribute('data-custom-content');
+          const content = element.getAttribute(RICH_TEXT_DATA_ATTRIBUTES.CUSTOM_CONTENT);
           return content ? JSON.parse(content) : null;
         },
         renderHTML: attributes => {
           return {
-            'data-custom-content': attributes.customContent
+            [RICH_TEXT_DATA_ATTRIBUTES.CUSTOM_CONTENT]: attributes.customContent
               ? JSON.stringify(attributes.customContent)
               : '',
           };
@@ -41,13 +46,19 @@ export const BoilerplateNode = Node.create({
   parseHTML() {
     return [
       {
-        tag: 'div[data-type="boilerplate-node"]',
+        tag: getRichTextNodeSelector(RICH_TEXT_NODE_TYPES.BOILERPLATE),
       },
     ];
   },
 
   renderHTML({HTMLAttributes}) {
-    return ['div', mergeAttributes(HTMLAttributes, {'data-type': 'boilerplate-node'}), 0];
+    return [
+      'div',
+      mergeAttributes(HTMLAttributes, {
+        [RICH_TEXT_DATA_ATTRIBUTES.TYPE]: RICH_TEXT_NODE_TYPES.BOILERPLATE,
+      }),
+      0,
+    ];
   },
 
   addCommands() {

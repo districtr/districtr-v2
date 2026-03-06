@@ -1,4 +1,5 @@
 import {DocumentMetadata} from '../api/apiHandlers/types';
+import {DEFAULT_DRAFT_STATUS} from '@/app/constants/map/draftStatus';
 
 export const handleCreateBlankMetadataObject = (): DocumentMetadata => {
   return {
@@ -6,7 +7,7 @@ export const handleCreateBlankMetadataObject = (): DocumentMetadata => {
     group: null,
     tags: null,
     description: null,
-    draft_status: 'scratch',
+    draft_status: DEFAULT_DRAFT_STATUS,
     eventId: null,
   };
 };

@@ -1,4 +1,5 @@
 import {DocumentMetadata} from './api/apiHandlers/types';
+import {DEFAULT_DRAFT_STATUS} from '@/app/constants/map/draftStatus';
 
 export const LANG_MAPPING = {
   en: 'English',
@@ -19,5 +20,5 @@ export const DEFAULT_MAP_METADATA: DocumentMetadata = {
   tags: null,
   description: null,
   eventId: null,
-  draft_status: 'scratch',
+  draft_status: DEFAULT_DRAFT_STATUS,
 };
