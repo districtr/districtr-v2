@@ -18,6 +18,7 @@ import {formatNumber} from '@/app/utils/numbers';
 import {interpolateGreys} from 'd3-scale-chromatic';
 import {AllEvaluationConfigs, SummaryRecord, SummaryStatConfig} from '@/app/utils/api/summaryStats';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {
   EvalModes,
   modeButtonConfig,
@@ -27,7 +28,12 @@ import {
 import {PARTISAN_SCALE} from '@/app/store/demography/constants';
 import {GearIcon} from '@radix-ui/react-icons';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
+import {
+  compareCoiZonesByRenderOrder,
+  getCoiCommunityDisplayNumber,
+} from '@/app/utils/coiCommunities';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
+import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 
 type EvaluationProps = {
   summaryType: keyof SummaryStatConfig;
@@ -62,6 +68,9 @@ const Evaluation: React.FC<EvaluationProps> = ({
     return rows;
   })();
   const colorScheme = useColorScheme();
+  const getZoneColor = useZoneColorGetter();
+  const mapMode = useMapControlsStore(state => state.mapMode);
+  const coiCommunities = useMapStore(state => state.coiCommunities);
   const summaryStatConfig = summaryStatLabels.find(f => f.value === summaryType);
   const showModeButtons = Boolean(
     summaryStatConfig?.supportedModes?.length && summaryStatConfig?.supportedModes?.length > 1
@@ -165,16 +174,31 @@ const Evaluation: React.FC<EvaluationProps> = ({
           </Table.Header>
           <Table.Body>
             {displayData
-              .sort((a, b) => (a.zone || 0) - (b.zone || 0))
+              .sort((a, b) => {
+                if (a.zone === undefined) return -1;
+                if (b.zone === undefined) return 1;
+                if (a.zone === 0) return -1;
+                if (b.zone === 0) return 1;
+                if (mapMode === 'coi') {
+                  return compareCoiZonesByRenderOrder(a.zone, b.zone, coiCommunities);
+                }
+                return (a.zone || 0) - (b.zone || 0);
+              })
               .map((row, i) => {
                 const isUnassigned = row.zone === undefined;
                 const isUniverse = row.zone === 0;
-                const zoneName = isUniverse ? 'Overall' : isUnassigned ? 'None' : row.zone;
+                const zoneName = isUniverse
+                  ? 'Overall'
+                  : isUnassigned
+                    ? 'None'
+                    : mapMode === 'coi'
+                      ? getCoiCommunityDisplayNumber(coiCommunities, row.zone)
+                      : row.zone;
                 const backgroundColor = isUniverse
                   ? '#9CA3AF'
                   : isUnassigned
                     ? '#DDDDDD'
-                    : colorScheme[row.zone - 1];
+                    : getZoneColor(row.zone, colorScheme[row.zone - 1] ?? '#000000');
 
                 return (
                   <Table.Row key={`eval-row-${i}`} className="border-b hover:bg-gray-50">

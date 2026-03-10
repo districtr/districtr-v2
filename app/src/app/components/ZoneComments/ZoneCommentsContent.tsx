@@ -20,11 +20,13 @@ import {
   CheckIcon,
   ComponentNoneIcon,
 } from '@radix-ui/react-icons';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useState} from 'react';
 import {DocumentComment} from '@/app/utils/api/apiHandlers/types';
 import {MODERATION_COMMENT_TEXT} from '@/app/constants/notifications';
 import {flagComment} from '@/app/utils/api/apiHandlers/reviewHandlers';
+import {getCoiCommunityDisplayNumber} from '@/app/utils/coiCommunities';
 
 interface CommentFlagButtonProps {
   comment: DocumentComment;
@@ -173,16 +175,21 @@ export const ZoneCommentsContent: React.FC<ZoneCommentsContentProps> = ({
   const removeZoneComment = useMapStore(state => state.removeZoneComment);
   const commentCountLimit = useMapStore(state => state.mapDocument?.comment_count_limit);
   const commentLengthLimit = useMapStore(state => state.mapDocument?.comment_length_limit);
+  const mapMode = useMapControlsStore(state => state.mapMode);
+  const coiCommunities = useMapStore(state => state.coiCommunities);
 
   if (!commentCountLimit || !commentLengthLimit) {
     return null;
   }
 
+  const zoneLabel = mapMode === 'coi' ? 'Community' : 'District';
+  const displayZone = mapMode === 'coi' ? getCoiCommunityDisplayNumber(coiCommunities, zone) : zone;
+
   const handleAddComment = (text: string) => {
     const commentsForZone = useMapStore.getState().getZoneCommentsForZone(zone);
     if (commentsForZone.length >= (commentCountLimit ?? 0)) {
       setErrorNotification({
-        message: `Maximum ${commentCountLimit} comments per district.`,
+        message: `Maximum ${commentCountLimit} comments per ${zoneLabel.toLowerCase()}.`,
         severity: 2,
       });
       return;
@@ -233,7 +240,7 @@ export const ZoneCommentsContent: React.FC<ZoneCommentsContentProps> = ({
               style={{backgroundColor: color}}
             />
             <Text size="2" weight="bold">
-              District {zone} Comments
+              {zoneLabel} {displayZone} Comments
             </Text>
           </Flex>
           {showAddButton && !isAddingComment && (

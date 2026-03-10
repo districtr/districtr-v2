@@ -8,6 +8,10 @@ import {useDemographyStore} from '../store/demography/demographyStore';
 import {FALLBACK_NUM_DISTRICTS} from '../constants/map/layerStyle';
 import {FALLBACK_NUM_COMMUNITIES} from '../constants/map/mapDefaults';
 import {SummaryRecord} from '../utils/api/summaryStats';
+import {
+  compareCoiZonesByRenderOrder,
+  sortCoiCommunitiesByRenderOrder,
+} from '../utils/coiCommunities';
 
 /**
  * Custom hook to retrieve and process demography data.
@@ -33,6 +37,7 @@ export const useZonePopulations = (includeUnassigned?: boolean) => {
     state => state.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS
   );
   const numCommunities = useMapStore(state => state.numCommunities ?? FALLBACK_NUM_COMMUNITIES);
+  const coiCommunities = useMapStore(state => state.coiCommunities);
   const numZones = mapMode === 'coi' ? numCommunities : numDistricts;
   const mapDocument = useMapStore(state => state.mapDocument);
   const demoIsLoaded = mapDocument?.document_id && demogHash.includes(mapDocument.document_id);
@@ -41,11 +46,16 @@ export const useZonePopulations = (includeUnassigned?: boolean) => {
     let cleanedData = structuredClone(demographyCache.populations).filter(row =>
       includeUnassigned ? true : Boolean(row.zone)
     );
-    const zonesPresent = cleanedData.map(row => row.zone).filter(Boolean);
-    if (zonesPresent.length < numZones) {
-      for (let i = 1; i <= numZones; i++) {
-        if (!zonesPresent.includes(i)) {
-          cleanedData.push({zone: i, total_pop_20: 0} as unknown as SummaryRecord);
+    const orderedCommunities = sortCoiCommunitiesByRenderOrder(coiCommunities);
+    const expectedZones =
+      mapMode === 'coi'
+        ? orderedCommunities.map(community => community.id)
+        : Array.from({length: numZones}, (_, index) => index + 1);
+    const zonesPresent = new Set(cleanedData.map(row => row.zone).filter(Boolean));
+    if (zonesPresent.size < expectedZones.length) {
+      for (const zone of expectedZones) {
+        if (!zonesPresent.has(zone)) {
+          cleanedData.push({zone, total_pop_20: 0} as unknown as SummaryRecord);
         }
       }
     }
@@ -56,8 +66,24 @@ export const useZonePopulations = (includeUnassigned?: boolean) => {
       }
     });
 
-    return cleanedData.sort((a, b) => a.zone - b.zone);
-  }, [chartHash, demogHash, paintedChanges, includeUnassigned, mapDocument, numZones]);
+    return cleanedData.sort((left, right) => {
+      if (left.zone === undefined || left.zone === null) return 1;
+      if (right.zone === undefined || right.zone === null) return -1;
+      if (mapMode === 'coi') {
+        return compareCoiZonesByRenderOrder(left.zone, right.zone, orderedCommunities);
+      }
+      return left.zone - right.zone;
+    });
+  }, [
+    chartHash,
+    coiCommunities,
+    demogHash,
+    includeUnassigned,
+    mapDocument,
+    mapMode,
+    numZones,
+    paintedChanges,
+  ]);
 
   return {
     populationData,

@@ -7,11 +7,11 @@ import {useEffect, useMemo} from 'react';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 import {RefreshButton, TimestampDisplay} from '@/app/components/Time/TimestampDisplay';
 import ContiguityDetail from './ContiguityDetail';
-import {useColorScheme} from '@/app/hooks/useColorScheme';
+import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 
 export const Contiguity = () => {
   const mapDocument = useMapStore(store => store.mapDocument);
-  const colorScheme = useColorScheme();
+  const getZoneColor = useZoneColorGetter();
   const {data, isLoading, refetch, dataUpdatedAt} = useQuery(
     {
       queryKey: ['Contiguity', mapDocument?.document_id, mapDocument?.updated_at],
@@ -87,7 +87,7 @@ export const Contiguity = () => {
                     style={{
                       width: '15px',
                       height: '15px',
-                      backgroundColor: colorScheme[(row.zone - 1) % colorScheme.length],
+                      backgroundColor: getZoneColor(row.zone),
                       borderRadius: '4px',
                     }}
                   />

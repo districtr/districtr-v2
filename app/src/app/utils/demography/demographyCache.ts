@@ -32,6 +32,7 @@ import {
 } from '@/app/store/demography/constants';
 import {NullableZone} from '@/app/constants/types';
 import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
+import {compareCoiZonesByRenderOrder, sortCoiCommunitiesByRenderOrder} from '../coiCommunities';
 /**
  * Class to organize queries on current demographic data
  */
@@ -182,10 +183,13 @@ class DemographyCache {
   ): {ok: true; table: SummaryTable} | {ok: false} {
     const mapState = useMapStore.getState();
     const mapMode = useMapControlsStore.getState().mapMode;
-    const numZones =
+    const zoneIds =
       mapMode === 'coi'
-        ? (mapState.numCommunities ?? FALLBACK_NUM_COMMUNITIES)
-        : (mapState.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
+        ? sortCoiCommunitiesByRenderOrder(mapState.coiCommunities).map(community => community.id)
+        : Array.from(
+            {length: mapState.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS},
+            (_, i) => i + 1
+          );
     if (zoneAssignments) {
       this.updateZoneTable(zoneAssignments);
     }
@@ -222,15 +226,25 @@ class DemographyCache {
       this.zoneStats.maxValues = maxRollups;
     }
     const zonePopulationsTable = populationsTable.objects() as SummaryTable;
-    if (zonePopulationsTable.length + 1 !== numZones) {
-      for (let i = 1; i < numZones + 1; i++) {
-        if (!zonePopulationsTable.find(row => row.zone === i)) {
-          // @ts-ignore
-          zonePopulationsTable.push({zone: i, total_pop_20: 0});
-        }
+    const populatedZoneIds = new Set(
+      zonePopulationsTable
+        .map(row => row.zone)
+        .filter((zone): zone is number => zone !== undefined && zone !== null)
+    );
+    for (const zoneId of zoneIds) {
+      if (!populatedZoneIds.has(zoneId)) {
+        // @ts-ignore
+        zonePopulationsTable.push({zone: zoneId, total_pop_20: 0});
       }
     }
-    this.populations = zonePopulationsTable.sort((a, b) => a.zone - b.zone);
+    this.populations = zonePopulationsTable.sort((left, right) => {
+      if (left.zone === undefined || left.zone === null) return 1;
+      if (right.zone === undefined || right.zone === null) return -1;
+      if (mapMode === 'coi') {
+        return compareCoiZonesByRenderOrder(left.zone, right.zone, mapState.coiCommunities);
+      }
+      return left.zone - right.zone;
+    });
     const popNumbers = this.populations
       .filter(row => row.zone !== undefined && row.zone !== null)
       .map(row => row.total_pop_20);
@@ -258,7 +272,7 @@ class DemographyCache {
     const mapMode = useMapControlsStore.getState().mapMode;
     const numZones =
       mapMode === 'coi'
-        ? (mapState.numCommunities ?? FALLBACK_NUM_COMMUNITIES)
+        ? Math.max(mapState.coiCommunities.length, FALLBACK_NUM_COMMUNITIES)
         : (mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
 
     Object.entries(summaryStatsConfig).forEach(([key, config]) => {

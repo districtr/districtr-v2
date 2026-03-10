@@ -17,6 +17,7 @@ import {
 import {useAssignmentsStore as _useAssignmentsStore} from '@store/assignmentsStore';
 import {useCoiAssignmentsStore} from '@store/coiAssignmentsStore';
 import {Zone} from '@constants/types';
+import {getCoiCommunityFeatureStateKey, getPrimaryCoiCommunityId} from '../coiCommunities';
 import GeometryWorker from '../GeometryWorker';
 
 /**
@@ -92,7 +93,8 @@ export class MapRenderSubscriber {
       const resetCommunityKeys: Record<string, boolean> = {};
       if (communitiesByGeoid) {
         communitiesByGeoid.get(id)?.forEach(communityId => {
-          resetCommunityKeys[`community_${communityId}`] = false;
+          const featureStateKey = this.getCommunityFeatureStateKey(communityId);
+          resetCommunityKeys[featureStateKey] = false;
         });
       }
       this.mapRef.setFeatureState(
@@ -236,8 +238,7 @@ export class MapRenderSubscriber {
     return geoidToCommunities;
   }
   getPrimaryCommunity(communities: Set<Zone>) {
-    if (!communities.size) return null;
-    return Math.max(...Array.from(communities));
+    return getPrimaryCoiCommunityId(communities, this.useMapStore.getState().coiCommunities);
   }
   toPrimaryAssignments(geoidToCommunities: Map<string, Set<Zone>>) {
     const primaryAssignments = new Map<string, Zone>();
@@ -293,6 +294,9 @@ export class MapRenderSubscriber {
   ) {
     return shatterIds.children.has(geoid) ? mapDocument.child_layer : mapDocument.parent_layer;
   }
+  getCommunityFeatureStateKey(communityId: Zone) {
+    return getCoiCommunityFeatureStateKey(communityId) ?? `community_${communityId}`;
+  }
   buildDesiredCommunityState(communities: Set<Zone>) {
     const primary = this.getPrimaryCommunity(communities);
     const desired: Record<string, unknown> = {
@@ -301,7 +305,7 @@ export class MapRenderSubscriber {
       zone: primary,
     };
     communities.forEach(communityId => {
-      desired[`community_${communityId}`] = true;
+      desired[this.getCommunityFeatureStateKey(communityId)] = true;
     });
     return desired;
   }
@@ -340,7 +344,7 @@ export class MapRenderSubscriber {
         this.getCurrentOrPendingFeatureStateValue(
           featureState,
           pendingFeatureState,
-          `community_${communityId}`
+          this.getCommunityFeatureStateKey(communityId)
         ) !== true
       ) {
         return false;
@@ -350,14 +354,23 @@ export class MapRenderSubscriber {
   }
   buildCommunityFeatureStateUpdate(prevCommunities: Set<Zone>, newCommunities: Set<Zone>) {
     const newPrimary = this.getPrimaryCommunity(newCommunities);
-    const allCommunities = new Set<Zone>([...prevCommunities, ...newCommunities]);
+    const updatedKeys = new Set<string>();
     const featureState: Record<string, unknown> = {
       selected: newPrimary !== null,
       community: newPrimary,
       zone: newPrimary,
     };
-    allCommunities.forEach(communityId => {
-      featureState[`community_${communityId}`] = newCommunities.has(communityId);
+    prevCommunities.forEach(communityId => {
+      updatedKeys.add(this.getCommunityFeatureStateKey(communityId));
+    });
+    newCommunities.forEach(communityId => {
+      updatedKeys.add(this.getCommunityFeatureStateKey(communityId));
+    });
+    updatedKeys.forEach(key => {
+      featureState[key] = false;
+    });
+    newCommunities.forEach(communityId => {
+      featureState[this.getCommunityFeatureStateKey(communityId)] = true;
     });
     return featureState;
   }
@@ -681,7 +694,8 @@ export class MapRenderSubscriber {
           return true;
         }
         for (const community of communities) {
-          if (featureState[`community_${community}`] !== true) {
+          const featureStateKey = this.getCommunityFeatureStateKey(community);
+          if (featureState[featureStateKey] !== true) {
             return true;
           }
         }

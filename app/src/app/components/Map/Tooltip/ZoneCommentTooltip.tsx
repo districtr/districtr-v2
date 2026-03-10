@@ -1,7 +1,9 @@
 'use client';
 import {Box, Flex, Text, Separator} from '@radix-ui/themes';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useMapStore} from '@/app/store/mapStore';
-import {useColorScheme} from '@/app/hooks/useColorScheme';
+import {getCoiCommunityDisplayNumber} from '@/app/utils/coiCommunities';
+import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 
 interface ZoneCommentTooltipProps {
   zone: number;
@@ -11,8 +13,12 @@ interface ZoneCommentTooltipProps {
 
 export const ZoneCommentTooltip: React.FC<ZoneCommentTooltipProps> = ({zone, x, y}) => {
   const comments = useMapStore(state => state.getZoneCommentsForZone(zone));
-  const colorScheme = useColorScheme();
-  const color = colorScheme[(zone - 1) % colorScheme.length];
+  const coiCommunities = useMapStore(state => state.coiCommunities);
+  const mapMode = useMapControlsStore(state => state.mapMode);
+  const getZoneColor = useZoneColorGetter();
+  const color = getZoneColor(zone);
+  const zoneLabel = mapMode === 'coi' ? 'Community' : 'District';
+  const displayZone = mapMode === 'coi' ? getCoiCommunityDisplayNumber(coiCommunities, zone) : zone;
 
   return (
     <Box
@@ -28,7 +34,7 @@ export const ZoneCommentTooltip: React.FC<ZoneCommentTooltipProps> = ({zone, x, 
           style={{backgroundColor: color}}
         />
         <Text size="2" weight="bold">
-          District {zone} Comments
+          {zoneLabel} {displayZone} Comments
         </Text>
       </Flex>
       <Flex direction="column" gap="2">
@@ -62,7 +68,7 @@ export const ZoneCommentTooltip: React.FC<ZoneCommentTooltipProps> = ({zone, x, 
         )}
         {comments.length > 0 && (
           <Text size="1" color="blue" className="mt-1 italic">
-            Click district number for more information
+            Click {zoneLabel.toLowerCase()} number for more information
           </Text>
         )}
       </Flex>

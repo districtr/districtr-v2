@@ -10,6 +10,7 @@ import {useChartStore} from '@/app/store/chartStore';
 import {PopulationLabels} from './PopulationLabels';
 import {SummaryRecord} from '@/app/utils/api/summaryStats';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
+import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 
 export const PopulationChart: React.FC<{
   width: number;
@@ -26,6 +27,7 @@ export const PopulationChart: React.FC<{
 }) => {
   const chartOptions = useChartStore(state => state.chartOptions);
   const colorScheme = useColorScheme();
+  const getZoneColor = useZoneColorGetter();
   const setSelectedZone = useMapControlsStore(state => state.setSelectedZone);
   const selectedZone = useMapControlsStore(state => state.selectedZone);
 
@@ -143,7 +145,7 @@ export const PopulationChart: React.FC<{
                   y={yScale(index) + 5}
                   width={entry.total_pop_20 > 0 ? xScale(entry.total_pop_20) : 0}
                   height={barHeight}
-                  fill={colorScheme[entry.zone - 1]}
+                  fill={getZoneColor(entry.zone, colorScheme[entry.zone - 1] ?? '#000000')}
                   fillOpacity={0.9}
                   style={{
                     pointerEvents: 'none',

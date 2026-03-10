@@ -12,9 +12,10 @@ import {LockClosedIcon, LockOpen2Icon} from '@radix-ui/react-icons';
 import {useZonePopulations} from '@/app/hooks/useDemography';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {ZoneCommentPopover} from './ZoneCommentPopover';
-import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/map/mapDefaults';
+import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
+import {getCoiCommunityRenderOrderId} from '@/app/utils/coiCommunities';
 
 const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
 
@@ -45,7 +46,8 @@ export const PopulationPanel = () => {
   const setSelectedZone = useMapControlsStore(state => state.setSelectedZone);
   const selectedZone = useMapControlsStore(state => state.selectedZone);
   const access = useMapStore(state => state.mapStatus?.access);
-  const colorScheme = useColorScheme();
+  const coiCommunities = useMapStore(state => state.coiCommunities);
+  const getZoneColor = useZoneColorGetter();
   const isEditing = useMapControlsStore(state => state.isEditing);
   const handleLockChange = (zone: number) => {
     if (lockPaintedAreas.includes(zone)) {
@@ -128,14 +130,15 @@ export const PopulationPanel = () => {
                   size="1"
                   className={`${selectedZone === d.zone ? 'bg-gray-100' : '!shadow-none'} max-w-12 flex-grow`}
                 >
-                  <Text weight={selectedZone === d.zone ? 'bold' : 'regular'}>{d.zone}</Text>
+                  <Text weight={selectedZone === d.zone ? 'bold' : 'regular'}>
+                    {mapMode === 'coi'
+                      ? (getCoiCommunityRenderOrderId(coiCommunities, d.zone) ?? d.zone)
+                      : d.zone}
+                  </Text>
                 </IconButton>
               )}
               <Flex gap="0" align="center">
-                <ZoneCommentPopover
-                  zone={d.zone}
-                  color={colorScheme[(d.zone - 1) % colorScheme.length]}
-                />
+                <ZoneCommentPopover zone={d.zone} color={getZoneColor(d.zone)} />
                 {!!isEditing && (
                   <IconButton
                     onClick={() => handleLockChange(d.zone)}

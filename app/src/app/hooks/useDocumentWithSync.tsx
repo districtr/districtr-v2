@@ -91,6 +91,7 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
           ingestCoiFromDocument(
             {
               communityAssignments: data.communityAssignments,
+              communtyVisibility: new Map(),
               shatterIds: data.shatterIds,
               parentToChild: data.parentToChild,
               childToParent: data.childToParent,

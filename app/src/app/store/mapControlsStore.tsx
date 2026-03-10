@@ -2,11 +2,7 @@
 import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
 import type {MapOptions} from 'maplibre-gl';
-import {
-  FALLBACK_NUM_COMMUNITIES,
-  FALLBACK_NUM_DISTRICTS,
-  OVERLAY_OPACITY,
-} from '../constants/map/mapDefaults';
+import {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from '../constants/map/mapDefaults';
 import {ActiveTool, NullableZone, SpatialUnit, Zone} from '../constants/types';
 import {DistrictrMapOptions} from './types';
 import {BASEMAP_IDS, BasemapId} from '@/app/constants/map/layerStyle';
@@ -83,11 +79,11 @@ export const useMapControlsStore = create<MapControlsStore>()(
     setMapMode: mode => set({mapMode: mode}),
     setSelectedZone: zone => {
       const mapStore = useMapStore.getState();
-      const maxZone =
+      const validZone =
         get().mapMode === 'coi'
-          ? (mapStore.numCommunities ?? FALLBACK_NUM_COMMUNITIES)
-          : (mapStore.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
-      if (zone <= maxZone && !get().isPainting) {
+          ? mapStore.coiCommunities.some(community => community.id === zone)
+          : zone <= (mapStore.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
+      if (validZone && !get().isPainting) {
         set({selectedZone: zone});
       }
     },
@@ -132,13 +128,17 @@ export const useMapControlsStore = create<MapControlsStore>()(
     toggleLockAllAreas: () => {
       const {mapOptions} = get();
       const mapStore = useMapStore.getState();
-      const zoneCount =
+      const nextLockPaintedAreas =
         get().mapMode === 'coi'
-          ? (mapStore.numCommunities ?? FALLBACK_NUM_COMMUNITIES)
-          : (mapStore.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
-      const nextLockPaintedAreas = mapOptions.lockPaintedAreas.length
-        ? []
-        : Array.from({length: zoneCount}, (_, i) => (i + 1) as NullableZone);
+          ? mapOptions.lockPaintedAreas.length
+            ? []
+            : mapStore.coiCommunities.map(community => community.id as NullableZone)
+          : mapOptions.lockPaintedAreas.length
+            ? []
+            : Array.from(
+                {length: mapStore.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS},
+                (_, i) => (i + 1) as NullableZone
+              );
       set({
         mapOptions: {
           ...mapOptions,

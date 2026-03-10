@@ -26,9 +26,13 @@ export const formatCoiAssignmentsFromState = (
   childToParent: Map<string, string>
 ): Assignment[] => {
   const assignments: Assignment[] = [];
+  const assignedChildIds = new Set<string>();
 
   communityAssignments.forEach((geoids, community) => {
     geoids.forEach(geo_id => {
+      if (shatterIds.children.has(geo_id)) {
+        assignedChildIds.add(geo_id);
+      }
       const parent_path = shatterIds.children.has(geo_id)
         ? (childToParent.get(geo_id) ?? null)
         : null;
@@ -38,6 +42,17 @@ export const formatCoiAssignmentsFromState = (
         zone: community,
         parent_path,
       });
+    });
+  });
+
+  // Preserve shattered-but-unassigned children so restore can rebuild the full shatter state.
+  shatterIds.children.forEach(geo_id => {
+    if (assignedChildIds.has(geo_id)) return;
+    assignments.push({
+      document_id,
+      geo_id,
+      zone: null,
+      parent_path: childToParent.get(geo_id) ?? null,
     });
   });
 
@@ -68,26 +83,28 @@ export const formatCoiAssignmentsFromDocument = (assignments: Assignment[]) => {
   const childToParent = new Map<string, string>();
 
   assignments.forEach(assignment => {
-    if (assignment.zone === null) return;
-    const community = assignment.zone as Zone;
+    if (assignment.zone !== null) {
+      const community = assignment.zone as Zone;
 
-    if (!communityAssignments.has(community)) {
-      communityAssignments.set(community, new Set([assignment.geo_id]));
-    } else {
-      communityAssignments.get(community)?.add(assignment.geo_id);
+      if (!communityAssignments.has(community)) {
+        communityAssignments.set(community, new Set([assignment.geo_id]));
+      } else {
+        communityAssignments.get(community)?.add(assignment.geo_id);
+      }
     }
 
-    if (!assignment.parent_path) return;
-    shatterIds.parents.add(assignment.parent_path);
-    shatterIds.children.add(assignment.geo_id);
+    if (assignment.parent_path) {
+      shatterIds.parents.add(assignment.parent_path);
+      shatterIds.children.add(assignment.geo_id);
 
-    if (!parentToChild.has(assignment.parent_path)) {
-      parentToChild.set(assignment.parent_path, new Set([assignment.geo_id]));
-    } else {
-      parentToChild.get(assignment.parent_path)?.add(assignment.geo_id);
+      if (!parentToChild.has(assignment.parent_path)) {
+        parentToChild.set(assignment.parent_path, new Set([assignment.geo_id]));
+      } else {
+        parentToChild.get(assignment.parent_path)?.add(assignment.geo_id);
+      }
+
+      childToParent.set(assignment.geo_id, assignment.parent_path);
     }
-
-    childToParent.set(assignment.geo_id, assignment.parent_path);
   });
 
   return {communityAssignments, shatterIds, parentToChild, childToParent} as const;

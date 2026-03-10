@@ -14,10 +14,10 @@ import {MetaLayers} from './PointLayers/MetaLayers';
 import {PointSelectionLayer} from './PointLayers/PointSelectionLayer';
 import {OverlayLayers} from './PolygonLayers/OverlayLayers';
 import {MapLayerAnchors} from './MapLayerAnchors';
-import {MapContainer} from './MapContainer';
+import {CoiMapContainer} from './CoiMapContainer';
 import {useMapRenderer} from '@/app/hooks/useMapRenderer';
 import {PointSource} from './GeoSources/PointSource';
-import {BlockLayers} from './PolygonLayers/BlockLayers';
+import {CoiBlockLayers} from './PolygonLayers/CoiBlockLayers';
 import {MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
 import {BASEMAP_IDS} from '@/app/constants/map/layerStyle';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';
@@ -38,7 +38,7 @@ export const CoiMap: React.FC = () => {
 
   useEffect(() => {
     setMapMode('coi');
-    setMapOptions({basemap: BASEMAP_IDS.STREETS});
+    setMapOptions({basemap: BASEMAP_IDS.STREETS, showZoneNumbers: false});
   }, []);
 
   const initialViewState = useMemo(() => {
@@ -68,7 +68,7 @@ export const CoiMap: React.FC = () => {
   }, [fitMapToBounds]);
 
   return (
-    <MapContainer
+    <CoiMapContainer
       mapRef={mapRef}
       initialViewState={initialViewState}
       onMapLoad={e => {
@@ -82,7 +82,7 @@ export const CoiMap: React.FC = () => {
       <CountyLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.counties} />
       <BlockSource>
         {!!mapDocument?.parent_layer && (
-          <BlockLayers
+          <CoiBlockLayers
             scope="PARENT"
             layerFilter={['literal', true] as FilterSpecification}
             outlineFilter={parentOutlineFilter}
@@ -90,7 +90,7 @@ export const CoiMap: React.FC = () => {
           />
         )}
         {!!mapDocument?.child_layer && (
-          <BlockLayers
+          <CoiBlockLayers
             scope="CHILD"
             layerFilter={childLayerFilter}
             outlineFilter={childLayerFilter}
@@ -105,6 +105,6 @@ export const CoiMap: React.FC = () => {
         <MetaLayers isDemographicMap={false} />
       </PointSource>
       <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
-    </MapContainer>
+    </CoiMapContainer>
   );
 };
