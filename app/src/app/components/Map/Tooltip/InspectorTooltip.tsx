@@ -8,15 +8,16 @@ import {CONFIG_BY_COLUMN_SET} from '@store/demography/evaluationConfig';
 import {PARTISAN_SCALE} from '@store/demography/constants';
 import {INSPECTOR_TITLE, TOTAL_COLUMN} from '@components/Map/Tooltip/InpsectorTooltipConfig';
 import {previousHoverFeatures as hoverFeatures} from '@/app/utils/map/hoverFeatures';
+import {COLUMN_SETS} from '@/app/constants/demography';
 
 export const InspectorTooltip = () => {
   const activeColumns = useTooltipStore(state => state.activeColumns);
   const inspectorMode = useTooltipStore(state => state.inspectorMode);
   const inspectorFormat = useTooltipStore(state => state.inspectorFormat);
-  const usePercent = inspectorFormat === 'percent' || inspectorMode === 'VOTERHISTORY';
+  const usePercent = inspectorFormat === 'percent' || inspectorMode === COLUMN_SETS.VOTERHISTORY;
   const columnSuffix = usePercent ? '_pct' : '';
-  const standardFormat =
-    inspectorMode === 'VOTERHISTORY' ? 'partisan' : usePercent ? 'percent' : 'standard';
+  const standardFormat = 'standard';
+    inspectorMode === COLUMN_SETS.VOTERHISTORY ? 'partisan' : usePercent ? 'percent' : 'standard';
   const ids = hoverFeatures.map(f => f.id as string);
   const [inspectorData, setInspectorData] = useState<Record<string, number>>({});
   const config = CONFIG_BY_COLUMN_SET[inspectorMode].sort((a, b) => a.label.localeCompare(b.label));
@@ -28,7 +29,7 @@ export const InspectorTooltip = () => {
   useEffect(() => {
     if (ids.length > 0) {
       const _activeColumns =
-        inspectorMode === 'VOTERHISTORY'
+        inspectorMode === COLUMN_SETS.VOTERHISTORY
           ? [...activeColumns, ...activeColumns.map(colName => colName.replace('_lean', '_total'))]
           : activeColumns;
       const data = demographyCache.calculateSummaryStats(ids, _activeColumns);
@@ -72,12 +73,12 @@ export const InspectorTooltip = () => {
                   className="bg-gray-900 absolute h-full top-0 left-0"
                   style={{
                     width:
-                      inspectorMode === 'VOTERHISTORY'
+                      inspectorMode === COLUMN_SETS.VOTERHISTORY
                         ? '100%'
                         : `${(inspectorData[f.column + '_pct'] ?? 0) * 100}%`,
                     opacity: '.15',
                     backgroundColor:
-                      inspectorMode === 'VOTERHISTORY' && !isNaN(inspectorData[f.column + '_pct'])
+                      inspectorMode === COLUMN_SETS.VOTERHISTORY && !isNaN(inspectorData[f.column + '_pct'])
                         ? PARTISAN_SCALE((inspectorData[f.column + '_pct'] + 1) / 2)
                         : undefined,
                   }}

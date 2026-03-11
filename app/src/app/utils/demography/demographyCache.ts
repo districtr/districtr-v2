@@ -20,6 +20,7 @@ import {
   TabularDataWithPercent,
   AllMapConfigs,
 } from '../api/summaryStats';
+import { COLUMN_SETS } from '@/app/constants/demography';
 import {getColumnDerives, getPctDerives, getRollups} from './arquero';
 import * as scale from 'd3-scale';
 import {type AnyD3Scale} from '@/app/store/demography/types';
@@ -67,8 +68,8 @@ class DemographyCache {
    * Available summary statistics / derived values.
    */
   summaryStats: {
-    TOTPOP?: (typeof summaryStatsWithPctConfig)['TOTPOP'];
-    VAP?: (typeof summaryStatsWithPctConfig)['VAP'];
+    TOTPOP?: (typeof summaryStatsWithPctConfig)[typeof COLUMN_SETS.TOTPOP];
+    VAP?: (typeof summaryStatsWithPctConfig)[typeof COLUMN_SETS.VAP];
     idealpop?: number;
     totalPopulation?: number;
     unassigned?: number;
