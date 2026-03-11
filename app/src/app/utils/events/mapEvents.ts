@@ -36,9 +36,13 @@ import {setHoverFeatures} from '../map/hoverFeatures';
 // Zone label layer IDs for interaction
 const ZONE_LABEL_LAYER_IDS = ['ZONE_LABEL', 'ZONE_LABEL_BG', 'ZONE_COMMENT_INDICATOR'];
 
-export const AREA_SELECT_TOOLS = [ACTIVE_TOOLS.BRUSH, ACTIVE_TOOLS.ERASER, ACTIVE_TOOLS.INSPECTOR];
-export const POINT_SELECT_TOOLS = [ACTIVE_TOOLS.SHATTER];
-export const ALL_BRUSHING_TOOLS = [...AREA_SELECT_TOOLS, ...POINT_SELECT_TOOLS];
+export const AREA_SELECT_TOOLS: ActiveTool[] = [
+  ACTIVE_TOOLS.BRUSH,
+  ACTIVE_TOOLS.ERASER,
+  ACTIVE_TOOLS.INSPECTOR,
+];
+export const POINT_SELECT_TOOLS: ActiveTool[] = [ACTIVE_TOOLS.SHATTER];
+export const ALL_BRUSHING_TOOLS: ActiveTool[] = [...AREA_SELECT_TOOLS, ...POINT_SELECT_TOOLS];
 export const TOOLTIP_TOOLS = [ACTIVE_TOOLS.INSPECTOR];
 
 export const EMPTY_FEATURE_ARRAY: MapGeoJSONFeature[] = [];
