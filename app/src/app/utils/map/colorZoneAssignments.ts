@@ -53,11 +53,8 @@ export const colorZoneAssignments = (
   zoneAssignments.forEach((zone, id) => {
     if (!id) return;
     const isChild = useVectorSourceLayer && currentShatterIds.children.has(id);
-    const sourceLayer = useVectorSourceLayer
-      ? isChild
-        ? mapDocument.child_layer
-        : mapDocument.parent_layer
-      : undefined;
+    const parentChildLayer = isChild ? mapDocument.child_layer : mapDocument.parent_layer;
+    const sourceLayer = useVectorSourceLayer ? parentChildLayer : undefined;
     const sourceLayerStateKey = sourceLayer ?? '';
     const featureState = featureStateCache?.[sourceLayerStateKey]?.[id];
     const futureState = featureStateChangesCache?.[sourceLayerStateKey]?.[id];
