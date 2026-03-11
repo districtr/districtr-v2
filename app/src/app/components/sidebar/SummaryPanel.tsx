@@ -69,43 +69,47 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
   const canShowCoalition = summaryType === 'TOTPOP' || summaryType === 'VAP';
 
   const baseColumnConfig = summaryType ? availableSummaries[summaryType] : [];
-  const columnConfig: Array<{label: string; column: string; sourceCol?: string; tooltip?: string}> =
-    (() => {
-      if (!summaryType || !baseColumnConfig) return [];
-      if (summaryType !== 'TOTPOP' && summaryType !== 'VAP') return baseColumnConfig;
-      const selectedColumns = getSelectedCoalitionColumns({
-        selectedGroups: coalitionGroups,
-        availableColumns: demographyCache.availableColumns,
-        universe: summaryType,
-      });
-      if (!selectedColumns.length) return baseColumnConfig;
-      const coalitionLabels = coalitionGroups
-        .filter(
-          group =>
-            getSelectedCoalitionColumns({
-              selectedGroups: [group],
-              availableColumns: demographyCache.availableColumns,
-              universe: summaryType,
-            }).length
-        )
-        .map(getCoalitionGroupLabel);
-      return [
-        {
-          label: 'Coalition',
-          tooltip:
-            coalitionLabels.length > 0
-              ? coalitionLabels.join(', ')
-              : getCoalitionLabel({
-                  selectedGroups: coalitionGroups,
-                  availableColumns: demographyCache.availableColumns,
-                  universe: summaryType,
-                }),
-          sourceCol: COALITION_TOTAL_COLUMN_BY_UNIVERSE[summaryType],
-          column: COALITION_VARIABLE_BY_UNIVERSE[summaryType],
-        },
-        ...baseColumnConfig,
-      ];
-    })();
+  const columnConfigs: Array<{
+    label: string;
+    column: string;
+    sourceCol?: string;
+    tooltip?: string;
+  }> = (() => {
+    if (!summaryType || !baseColumnConfig) return [];
+    if (summaryType !== 'TOTPOP' && summaryType !== 'VAP') return baseColumnConfig;
+    const selectedColumns = getSelectedCoalitionColumns({
+      selectedGroups: coalitionGroups,
+      availableColumns: demographyCache.availableColumns,
+      universe: summaryType,
+    });
+    if (!selectedColumns.length) return baseColumnConfig;
+    const coalitionLabels = coalitionGroups
+      .filter(
+        group =>
+          getSelectedCoalitionColumns({
+            selectedGroups: [group],
+            availableColumns: demographyCache.availableColumns,
+            universe: summaryType,
+          }).length
+      )
+      .map(getCoalitionGroupLabel);
+    return [
+      {
+        label: 'Coalition',
+        tooltip:
+          coalitionLabels.length > 0
+            ? coalitionLabels.join(', ')
+            : getCoalitionLabel({
+                selectedGroups: coalitionGroups,
+                availableColumns: demographyCache.availableColumns,
+                universe: summaryType,
+              }),
+        sourceCol: COALITION_TOTAL_COLUMN_BY_UNIVERSE[summaryType],
+        column: COALITION_VARIABLE_BY_UNIVERSE[summaryType],
+      },
+      ...baseColumnConfig,
+    ];
+  })();
 
   useEffect(() => {
     if (!availableColumnSets.length) return;
@@ -125,7 +129,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
   if (
     !availableColumnSets?.length ||
     !summaryType ||
-    !columnConfig ||
+    !columnConfigs.length ||
     displayedColumnSets.every(f => !availableSummaries[f])
   ) {
     return (
@@ -145,7 +149,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
         <Evaluation
           summaryType={summaryType}
           setSummaryType={setSummaryType}
-          columnConfig={columnConfig}
+          columnConfigs={columnConfigs}
           displayedColumnSets={displayedColumnSets}
         />
       )}

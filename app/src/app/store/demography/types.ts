@@ -47,8 +47,8 @@ export interface DemographyStore {
   setVariant: (variant: DemographyStore['variant']) => void;
   coalitionGroups: CoalitionGroupKey[];
   coalitionHash: string;
-  coalitionHydratedSlug: string | null;
-  hydrateCoalition: (mapDocument: MapStore['mapDocument']) => Promise<void>;
+  coalitionRestoredSlug: string | null;
+  restoreCoalition: (mapDocument: MapStore['mapDocument']) => Promise<void>;
   setCoalitionGroups: (groups: CoalitionGroupKey[]) => Promise<void>;
   resetCoalition: () => void;
   availableColumnSets: {

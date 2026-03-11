@@ -43,27 +43,27 @@ export var useDemographyStore = create(
     setVariant: variant => set({variant}),
     coalitionGroups: [],
     coalitionHash: '',
-    coalitionHydratedSlug: null,
-    hydrateCoalition: async mapDocument => {
+    coalitionRestoredSlug: null,
+    restoreCoalition: async mapDocument => {
       const requestId = ++coalitionHydrationRequestId;
       const slug = mapDocument?.districtr_map_slug;
       if (!slug) {
         set({
           coalitionGroups: [],
-          coalitionHydratedSlug: null,
+          coalitionRestoredSlug: null,
           coalitionHash: `${performance.now()}`,
         });
         demographyCache.setCoalitionGroups([]);
         return;
       }
-      if (get().coalitionHydratedSlug === slug) return;
+      if (get().coalitionRestoredSlug === slug) return;
       const saved = await idb.getCoalitionConfigBySlug(slug);
       const activeSlug = useMapStore.getState().mapDocument?.districtr_map_slug;
       if (requestId !== coalitionHydrationRequestId || activeSlug !== slug) return;
       const coalitionGroups = (saved?.selectedGroups ?? []) as CoalitionGroupKey[];
       set({
         coalitionGroups,
-        coalitionHydratedSlug: slug,
+        coalitionRestoredSlug: slug,
         coalitionHash: `${performance.now()}`,
       });
       demographyCache.setCoalitionGroups(coalitionGroups);
@@ -117,7 +117,7 @@ export var useDemographyStore = create(
     resetCoalition: () => {
       set({
         coalitionGroups: [],
-        coalitionHydratedSlug: null,
+        coalitionRestoredSlug: null,
         coalitionHash: `${performance.now()}`,
       });
       demographyCache.setCoalitionGroups([]);
@@ -141,7 +141,7 @@ export var useDemographyStore = create(
         scale: undefined,
         dataHash: '',
         coalitionGroups: [],
-        coalitionHydratedSlug: null,
+        coalitionRestoredSlug: null,
         coalitionHash: `${performance.now()}`,
       });
       demographyCache.setCoalitionGroups([]);
