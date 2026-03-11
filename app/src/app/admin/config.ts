@@ -6,6 +6,19 @@ export const pages = [
     cta: 'Go to CMS',
   },
   {
+    title: 'Comment Review',
+    description:
+      'Review and moderate form comments, tags, and commenters (excludes district comments).',
+    href: '/admin/review',
+    cta: 'Go to Review',
+  },
+  {
+    title: 'District Comments',
+    description: 'Moderate zone-level comments on maps. Look up by document ID.',
+    href: '/admin/review/district-comments',
+    cta: 'District Comments',
+  },
+  {
     title: 'Thumbnail Generation',
     description: 'Generate or update thumbnails for maps',
     href: '/admin/thumbnails',

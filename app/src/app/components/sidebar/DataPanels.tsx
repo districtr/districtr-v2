@@ -1,9 +1,10 @@
 import {IconButton} from '@radix-ui/themes';
-import React from 'react';
+import React, {useRef} from 'react';
 import classNames from 'classnames';
 import * as Accordion from '@radix-ui/react-accordion';
 import {DoubleArrowDownIcon, DragHandleHorizontalIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@/app/store/mapStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import Draggable from 'react-draggable';
 import {DataPanelSpec, DataPanelsProps, defaultPanels} from './DataPanelUtils';
 
@@ -11,9 +12,11 @@ const ResizableAccordionPanel: React.FC<{panel: DataPanelSpec; open: boolean}> =
   panel,
   open,
 }) => {
+  const nodeRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = React.useState<null | number>(null);
   const [hovered, setHovered] = React.useState(false);
   const itemRef = React.useRef<HTMLDivElement>(null);
+  const [dragging, setDragging] = React.useState(false);
   return (
     <Accordion.Item
       key={panel.title}
@@ -43,12 +46,19 @@ const ResizableAccordionPanel: React.FC<{panel: DataPanelSpec; open: boolean}> =
       >
         <Draggable
           grid={[10, 10]}
+          onStart={() => {
+            setDragging(true);
+          }}
+          onStop={() => {
+            setDragging(false);
+          }}
           onDrag={(e: any) => {
             const top = itemRef.current?.getBoundingClientRect().top;
             if (top) {
               setHeight(e.clientY - top);
             }
           }}
+          nodeRef={nodeRef}
           position={{x: 0, y: 0}}
           axis="y"
         >
@@ -58,11 +68,13 @@ const ResizableAccordionPanel: React.FC<{panel: DataPanelSpec; open: boolean}> =
               background: 'rgb(245,245,245)',
               width: '40px',
               height: '16px',
-              opacity: hovered && open ? 1 : 0,
+              opacity: dragging ? 0 : hovered && open ? 1 : 0,
               transition: 'opacity 0.2s',
             }}
           >
-            <DragHandleHorizontalIcon />
+            <span ref={nodeRef}>
+              <DragHandleHorizontalIcon />
+            </span>
           </IconButton>
         </Draggable>
       </div>
@@ -70,8 +82,8 @@ const ResizableAccordionPanel: React.FC<{panel: DataPanelSpec; open: boolean}> =
   );
 };
 const DataPanels: React.FC<DataPanelsProps> = ({panels = defaultPanels}) => {
-  const sidebarPanels = useMapStore(state => state.sidebarPanels);
-  const setSidebarPanels = useMapStore(state => state.setSidebarPanels);
+  const sidebarPanels = useMapControlsStore(state => state.sidebarPanels);
+  const setSidebarPanels = useMapControlsStore(state => state.setSidebarPanels);
   return (
     <Accordion.Root
       type="multiple"

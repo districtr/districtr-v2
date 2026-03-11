@@ -42,7 +42,7 @@ const FormNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, deleteNo
 
   return (
     <NodeViewWrapper
-      className="relative border-[1px] border-gray-200 rounded-md p-4 border-dashed"
+      className="relative border-[1px] border-blue-500 my-4 rounded-md border-dashed"
       ref={parentRef}
       contentEditable={false}
     >

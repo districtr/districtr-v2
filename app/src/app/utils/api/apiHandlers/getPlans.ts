@@ -1,5 +1,5 @@
-import axios from 'axios';
-import {DocumentObject, MinPublicDocument} from './types';
+import {MinPublicDocument} from './types';
+import {get} from '../factory';
 
 export const getPlans = async ({
   ids,
@@ -11,28 +11,24 @@ export const getPlans = async ({
   tags?: string[];
   limit?: number;
   offset?: number;
-}): Promise<MinPublicDocument[] | null> => {
-  const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/api/documents/list`);
+}) => {
+  const queryParams: Record<string, string | number | (string | number)[]> = {};
 
   if (ids) {
-    ids.forEach(id => {
-      url.searchParams.append('ids', id.toString());
-    });
+    queryParams.ids = ids;
   } else if (tags) {
-    tags.forEach(tag => {
-      url.searchParams.append('tags', tag);
-    });
+    queryParams.tags = tags;
   }
 
-  if (limit) {
-    url.searchParams.set('limit', limit.toString());
+  if (limit !== undefined) {
+    queryParams.limit = limit;
   }
 
-  if (offset) {
-    url.searchParams.set('offset', offset.toString());
+  if (offset !== undefined) {
+    queryParams.offset = offset;
   }
 
-  return await axios.get(url.toString()).then(res => {
-    return res.data;
+  return await get<MinPublicDocument[]>('documents/list')({
+    queryParams,
   });
 };

@@ -1,5 +1,4 @@
 import {useMapStore} from '@/app/store/mapStore';
-import {saveMap} from '@/app/utils/api/apiHandlers/saveMap';
 import {DocumentMetadata} from '@/app/utils/api/apiHandlers/types';
 import {Button, Dialog, Flex, Heading, Text} from '@radix-ui/themes';
 import {useEffect, useState} from 'react';
@@ -10,35 +9,67 @@ import {Link1Icon} from '@radix-ui/react-icons';
 import {useMapMetadata} from '@/app/hooks/useMapMetadata';
 import {DEFAULT_MAP_METADATA} from '@/app/utils/language';
 import {useRouter} from 'next/navigation';
+import {createMapDocument} from '@/app/utils/api/apiHandlers/createMapDocument';
 
 export const SaveShareModal: React.FC<{
   open: boolean;
   onClose: () => void;
-}> = ({open, onClose}) => {
+  handleMetadataChange: (updates: Partial<DocumentMetadata>) => Promise<void>;
+}> = ({open, onClose, handleMetadataChange}) => {
   const router = useRouter();
   const mapMetadata = useMapMetadata();
+  const mapDocument = useMapStore(state => state.mapDocument);
+  const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const [innerFormState, setInnerFormState] = useState<DocumentMetadata>(
     mapMetadata ?? DEFAULT_MAP_METADATA
   );
   const [linkCopied, setLinkCopied] = useState(false);
-  const isEditing = useMapStore(
-    state => state.mapDocument?.access === 'edit' && state.mapDocument?.status === 'checked_out'
-  );
+  const setMapLock = useMapStore(state => state.setMapLock);
+  const isEditing = useMapStore(state => state.mapDocument?.access === 'edit');
   const generateLink = useSaveShareStore(state => state.generateLink);
 
-  const handleSave = async () => {
-    const newMapDocument = await saveMap({...mapMetadata, ...innerFormState});
-    if (newMapDocument) {
-      router.push(`/map/edit/${newMapDocument.document_id}`);
+  const handleCopy = async () => {
+    if (!mapDocument?.public_id) return;
+    setMapLock({
+      isLocked: true,
+      reason: 'Creating map copy',
+    });
+    const response = await createMapDocument({
+      copy_from_doc: mapDocument?.public_id,
+      districtr_map_slug: mapDocument?.districtr_map_slug,
+      metadata: {
+        ...mapDocument?.map_metadata,
+        name: mapMetadata?.name ? `${mapMetadata.name} (Copy)` : '',
+      },
+    });
+    if (response.ok) {
+      router.push(`/map/edit/${response.response.document_id}`);
       onClose();
+    } else {
+      setErrorNotification({
+        message: response.error.detail,
+        severity: 2,
+      });
     }
+    setMapLock(null);
   };
 
-  const handleMetadataChange = (updates: Partial<DocumentMetadata>) => {
+  const handleSave = async () => {
+    setMapLock({
+      isLocked: true,
+      reason: 'Saving map assignments',
+    });
+    handleMetadataChange(innerFormState).then(() => {
+      setMapLock(null);
+      onClose();
+    });
+  };
+
+  const handleInnerFormStateChange = (updates: Partial<DocumentMetadata>) => {
     setInnerFormState(prev => ({...prev, ...updates}));
   };
 
-  useEffect(() => handleMetadataChange(mapMetadata ?? DEFAULT_MAP_METADATA), [mapMetadata]);
+  useEffect(() => handleInnerFormStateChange(mapMetadata ?? DEFAULT_MAP_METADATA), [mapMetadata]);
 
   useEffect(() => {
     if (linkCopied) {
@@ -58,7 +89,7 @@ export const SaveShareModal: React.FC<{
         <Flex direction="column" gap="2">
           <MapDetailsSection
             mapMetadata={innerFormState}
-            onChange={handleMetadataChange}
+            onChange={handleInnerFormStateChange}
             isEditing={isEditing}
           />
           <hr className="my-4" />
@@ -88,7 +119,7 @@ export const SaveShareModal: React.FC<{
                 You can view this map, but you cannot edit it. Make a copy to duplicate the plan
                 under a new PlanID.
               </Text>
-              <Button variant="soft" onClick={handleSave} size="3">
+              <Button variant="soft" onClick={handleCopy} size="3">
                 Create Copy
               </Button>
             </Flex>

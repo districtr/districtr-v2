@@ -320,7 +320,9 @@ def load_sample_data(
         if view.child_layer is not None:
             # Commit districtr views
             session.commit()
-            _create_parent_child_edges(session=session, districtr_map_uuid=str(u))
+            _create_parent_child_edges(
+                session=session, districtr_map_uuid=view.districtr_map_uuid
+            )
 
         session.commit()
 

@@ -1,7 +1,6 @@
 import {CTA} from '@/app/components/Static/Content/CTA';
 import {DevTeam} from '@/app/components/Static/Content/DevTeam';
 import {Flex, Heading, Text, Link, Box} from '@radix-ui/themes';
-import NextLink from 'next/link';
 
 export default function GuidePage() {
   return (
@@ -78,11 +77,7 @@ export default function GuidePage() {
 
         <Text size="3">
           If you are interested in partnering with us or sponsoring a voting rights project, reach
-          out to us at{' '}
-          <NextLink legacyBehavior href="mailto:Districtr@mggg.org">
-            <Link>Districtr@mggg.org</Link>
-          </NextLink>
-          .
+          out to us at <Link href="mailto:Districtr@mggg.org">Districtr@mggg.org</Link>.
         </Text>
 
         <Text size="3">Our team aims to respond to requests for new modules within a week.</Text>

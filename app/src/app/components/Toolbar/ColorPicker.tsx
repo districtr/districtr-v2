@@ -1,12 +1,15 @@
 import React, {useEffect, useRef} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
 import {NullableZone} from '@/app/constants/types';
-import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/layers';
+import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 import {ColorRadioGroup} from './ColorRadioGroup';
 import {ColorDropdown} from './ColorDropdown';
 import {ColorMultiDropdown} from './ColorMultiDropdown';
 import {ColorCheckbox} from './ColorCheckbox';
+import {colorScheme as DefaultColorScheme} from '@/app/constants/colors';
+import {useColorScheme} from '@/app/hooks/useColorScheme';
 
+const MAX_INLINE_DISTRICT_PIPS = 25;
 export type ColorPickerProps<T extends boolean = false> = T extends true
   ? {
       defaultValue: number[];
@@ -14,6 +17,7 @@ export type ColorPickerProps<T extends boolean = false> = T extends true
       onValueChange: (indices: number[], color: string[]) => void;
       multiple: true;
       disabledValues?: NullableZone[];
+      _colorScheme?: string[];
     }
   : {
       defaultValue: number;
@@ -21,6 +25,7 @@ export type ColorPickerProps<T extends boolean = false> = T extends true
       onValueChange: (i: number, color: string) => void;
       multiple?: false;
       disabledValues?: NullableZone[];
+      _colorScheme?: string[];
     };
 
 export const ColorPicker = <T extends boolean>({
@@ -29,9 +34,11 @@ export const ColorPicker = <T extends boolean>({
   onValueChange,
   multiple,
   disabledValues,
+  _colorScheme,
 }: ColorPickerProps<T>) => {
   const mapDocument = useMapStore(state => state.mapDocument);
-  const colorScheme = useMapStore(state => state.colorScheme);
+  const _stateColorScheme = useColorScheme();
+  const colorScheme = _colorScheme ?? _stateColorScheme;
   const hotkeyRef = useRef<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -41,7 +48,6 @@ export const ColorPicker = <T extends boolean>({
     const newValue = colorScheme[index];
     hotkeyRef.current = null;
     if (multiple) {
-      console.log('!!!', defaultValue, value, newValue);
     } else {
       onValueChange(index, newValue);
     }
@@ -62,7 +68,7 @@ export const ColorPicker = <T extends boolean>({
       const numDistricts =
         useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
       const numDigits = numDistricts.toString().length;
-      if (numDistricts >= 10) {
+      if (numDistricts >= MAX_INLINE_DISTRICT_PIPS) {
         hotkeyRef.current = (hotkeyRef.current || '') + value;
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
         if (hotkeyRef?.current?.length === numDigits) {
@@ -86,7 +92,7 @@ export const ColorPicker = <T extends boolean>({
   }, []);
 
   if (multiple) {
-    if (mapDocument?.num_districts! > 10) {
+    if (mapDocument?.num_districts! > MAX_INLINE_DISTRICT_PIPS) {
       return (
         <ColorMultiDropdown
           colorScheme={colorScheme}
@@ -111,7 +117,7 @@ export const ColorPicker = <T extends boolean>({
     }
   }
 
-  if (mapDocument?.num_districts! > 10) {
+  if (mapDocument?.num_districts! > MAX_INLINE_DISTRICT_PIPS) {
     return (
       <ColorDropdown
         colorScheme={colorScheme}

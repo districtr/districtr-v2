@@ -52,7 +52,7 @@ services:
       - ./app/.env.docker
     ports:
       - "3000:3000" # Expose Next.js on port 3000
-    command: sh -c "npm install && npm run dev"
+    command: sh -c "bun install && bun run dev"
 
   pre-commit:
     build:

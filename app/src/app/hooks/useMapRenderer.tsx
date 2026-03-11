@@ -2,9 +2,10 @@ import {MutableRefObject, useEffect, useRef} from 'react';
 import {MapRef} from 'react-map-gl/maplibre';
 import {MapRenderSubscriber} from '../utils/map/mapRenderSubs';
 import {useMapStore} from '../store/mapStore';
-import {useHoverStore} from '../store/hoverFeatures';
 import {useDemographyStore} from '../store/demography/demographyStore';
 import {useVisibilityState} from './useVisibilityState';
+import {useMapControlsStore} from '../store/mapControlsStore';
+import {useAssignmentsStore} from '../store/assignmentsStore';
 
 export const useMapRenderer = (mapType: 'demographic' | 'main' = 'main') => {
   const mapRef = useRef<MapRef | null>(null);
@@ -18,11 +19,24 @@ export const useMapRenderer = (mapType: 'demographic' | 'main' = 'main') => {
       mapRef.current.getMap(),
       mapType,
       useMapStore,
-      useHoverStore,
-      useDemographyStore
+      useDemographyStore,
+      useMapControlsStore,
+      useAssignmentsStore
     );
     renderSubscriber.subscribe();
+    requestAnimationFrame(() => {
+      renderer.current?.checkRender();
+    });
     renderer.current = renderSubscriber;
+    // This is paranoid
+    // On every idle, it checks the map state
+    // This takes like 0.1ms to run, so it's not a big deal
+    mapRef.current.getMap().on('idle', () => {
+      // request animation frame
+      requestAnimationFrame(() => {
+        renderer.current?.checkRender();
+      });
+    });
   };
 
   useEffect(() => {
@@ -32,7 +46,11 @@ export const useMapRenderer = (mapType: 'demographic' | 'main' = 'main') => {
   }, []);
 
   useEffect(() => {
-    renderer.current?.checkRender();
+    if (isVisible && renderer.current) {
+      requestAnimationFrame(() => {
+        renderer.current?.checkRender();
+      });
+    }
   }, [isVisible]);
 
   return {

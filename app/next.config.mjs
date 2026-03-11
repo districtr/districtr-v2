@@ -1,22 +1,28 @@
 import {withSentryConfig} from '@sentry/nextjs';
+import createMDX from '@next/mdx';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    missingSuspenseWithCSRBailout: false,
-  },
-  resolve: {
-    alias: {
-      '@src': 'app/src',
-      '@components': 'app/src/components',
-      '@utils': 'app/src/utils',
-      '@api': 'app/src/api',
-      '@store': 'app/src/store',
-      '@constants': 'app/src/constants',
-    },
+  // Configure pageExtensions to include MDX files
+  pageExtensions: ['js', 'jsx', 'md', 'mdx', 'ts', 'tsx'],
+  // Path aliases are configured in tsconfig.json and automatically used by Next.js
+  webpack: (config, {isServer, webpack}) => {
+    // Exclude Node.js modules from client-side bundles
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+      };
+    }
+    return config;
   },
 };
 
-export default withSentryConfig(nextConfig, {
+const withMDX = createMDX({
+  // Add markdown plugins here if needed
+});
+
+export default withSentryConfig(withMDX(nextConfig), {
   // For all available options, see:
   // https://github.com/getsentry/sentry-webpack-plugin#options
 
@@ -45,8 +51,7 @@ export default withSentryConfig(nextConfig, {
       'ZoneNumbersLayer',
       'PopulationTextLayer',
       'ZoneLayers',
-      'ZoneLayerGroup',
-    ]
+    ],
   },
 
   // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.

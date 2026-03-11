@@ -1,62 +1,18 @@
 from sqlmodel import Session, select, insert
 from unittest.mock import patch
 from app.comments.models import Commenter, Comment, Tag, CommentTag, DocumentComment
-from app.core.security import recaptcha, auth
-from pytest import MonkeyPatch, fixture
-from tests.utils import fake_verify_recaptcha
-from fastapi.security import SecurityScopes
-from app.main import app
-from app.comments.models import FullCommentFormResponse
+from tests.test_utils import (
+    patch_recaptcha,
+    override_auth_dependency,
+    handle_approve_comment_entry,
+    handle_full_submission_approve,
+)
 
 TEST_MODERATION_SCORE = 0.001
-
-
-@fixture(autouse=True)
-def patch_recaptcha():
-    monkeypatch = MonkeyPatch()
-    monkeypatch.setattr(recaptcha, "verify_recaptcha", fake_verify_recaptcha)
-    yield
-    monkeypatch.undo()
-
-
-@fixture(autouse=True)
-def override_auth_dependency():
-    async def _ok_override(_scopes: SecurityScopes):
-        # Return anything your app expects from a verified token
-        # You can include "scope" with needed permissions if your code reads it.
-        return {"sub": "test-user", "scope": "create:content read:content"}
-
-    app.dependency_overrides[auth.verify] = _ok_override
-    try:
-        yield
-    finally:
-        app.dependency_overrides.pop(auth.verify, None)
-
-
-def mock_review_approve(client, content_type: str, id: int):
-    client.post(
-        "/api/comments/admin/review",
-        json={
-            "content_type": content_type,
-            "review_status": "APPROVED",
-            "id": id,
-        },
-    )
-
-
-def mock_review_approve_full(client, form_response: FullCommentFormResponse):
-    if "tags" in form_response["comment"]:
-        for tag in form_response["comment"]["tags"]:
-            mock_review_approve(client, "tag", tag["id"])
-    if (
-        "commenter_id" in form_response["comment"]
-        and form_response["comment"]["commenter_id"] is not None
-    ):
-        mock_review_approve(
-            client, "commenter", form_response["comment"]["commenter_id"]
-        )
-    if "id" in form_response["comment"] and form_response["comment"]["id"] is not None:
-        mock_review_approve(client, "comment", form_response["comment"]["id"])
+REQUIRED_AUTO_FIXTURES = [
+    patch_recaptcha,
+    override_auth_dependency,
+]
 
 
 class TestCommenterEndpoint:
@@ -272,7 +228,7 @@ class TestCommentEndpoint:
             json={"comment": comment_data, "recaptcha_token": "test_token"},
         )
 
-        assert response.status_code == 201
+        assert response.status_code == 201, response.json()
         data = response.json()
 
         assert data["title"] == "Test Comment"
@@ -345,6 +301,38 @@ class TestCommentEndpoint:
                 json={"comment": comment_data, "recaptcha_token": "test_token"},
             )
             assert response.status_code == 422
+
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
+    def test_create_comment_with_zone_and_document(
+        self,
+        mock_score_text,
+        document_id,
+        client,
+        session,
+    ):
+        """Test creating a district-level comment via PUT /api/assignments with zone and text."""
+        document_info = client.get(f"/api/document/{document_id}").json()
+        response = client.put(
+            "/api/assignments",
+            json={
+                "assignments": [["geo_id", 1]],
+                "document_id": document_id,
+                "comments": [
+                    {
+                        "text": "Hello, world!",
+                        "zone": 1,
+                    }
+                ],
+                "recaptcha_token": "test_token",
+                "last_updated_at": document_info["updated_at"],
+            },
+        )
+        assert response.status_code == 200
+        document_info2 = client.get(f"/api/document/{document_id}").json()
+        # Because of silly idea to have a separate DocumentComment, it's kind of hard/annoying to get this value back
+        # TODO: DocumentComment has no business being its own table and should be combined with Comment
+        assert document_info2["document_comments"][0]["zone"] == 1
+        assert document_info2["document_comments"][0]["text"] == "Hello, world!"
 
     @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_create_comment_empty_required_fields(
@@ -912,7 +900,7 @@ class TestCommentListEndpoints:
         response = client.post("/api/comments/submit", json=clean_form_data)
         assert response.status_code == 201
         # approve the comment
-        mock_review_approve_full(client, response.json())
+        handle_full_submission_approve(client, response.json())
 
         # Get the list of comments
         response = client.get("/api/comments/list")
@@ -966,7 +954,7 @@ class TestCommentListEndpoints:
             "recaptcha_token": "test_token",
         }
         response = client.post("/api/comments/submit", json=clean_form_data)
-        mock_review_approve_full(client, response.json())
+        handle_full_submission_approve(client, response.json())
         assert response.status_code == 201
 
         # Get the list of comments - should only return the clean one
@@ -1020,8 +1008,8 @@ class TestCommentListEndpoints:
         # Submit both comments
         response1 = client.post("/api/comments/submit", json=form_data_1)
         response2 = client.post("/api/comments/submit", json=form_data_2)
-        mock_review_approve_full(client, response1.json())
-        mock_review_approve_full(client, response2.json())
+        handle_full_submission_approve(client, response1.json())
+        handle_full_submission_approve(client, response2.json())
         assert response1.status_code == 201
         assert response2.status_code == 201
 
@@ -1076,7 +1064,6 @@ class TestCommentListEndpoints:
 
         response = client.post("/api/comments/submit", json=form_data)
         assert response.status_code == 201
-        mock_review_approve_full(client, response.json())
 
         # Test admin endpoint (auth is mocked in conftest.py)
         response = client.get("/api/comments/admin/list")
@@ -1135,13 +1122,13 @@ class TestCommentListEndpoints:
         assert comments[0]["title"] == "Moderate Comment"
 
         # Test with higher threshold (should include both)
-        response = client.get("/api/comments/admin/list?min_moderation_score=0.6")
+        response = client.get("/api/comments/admin/list?max_moderation_score=0.6")
         assert response.status_code == 200
         comments = response.json()
         assert len(comments) == 1
 
         # Test with lower threshold (should exclude both)
-        response = client.get("/api/comments/admin/list?min_moderation_score=0.2")
+        response = client.get("/api/comments/admin/list?max_moderation_score=0.2")
         assert response.status_code == 200
         comments = response.json()
         assert len(comments) == 0
@@ -1243,8 +1230,8 @@ class TestListingComments:
             "/api/comments/tag",
             json={"tag": {"tag": "world"}, "recaptcha_token": "test_token"},
         ).json()
-        mock_review_approve(client, "tag", tag1["id"])
-        mock_review_approve(client, "tag", tag2["id"])
+        handle_approve_comment_entry(client, "tag", tag1["id"])
+        handle_approve_comment_entry(client, "tag", tag2["id"])
         tag1_id = session.exec(select(Tag.id).where(Tag.slug == "hello")).first()
         tag2_id = session.exec(select(Tag.id).where(Tag.slug == "world")).first()
         associations = [
@@ -1271,7 +1258,7 @@ class TestListingComments:
             "recaptcha_token": "test_token",
         }
         post_response = client.post("/api/comments/comment", json=comment_data)
-        mock_review_approve(client, "comment", post_response.json()["id"])
+        handle_approve_comment_entry(client, "comment", post_response.json()["id"])
 
         get_response = client.get(
             f"/api/comments/list?public_id={document['public_id']}"
@@ -1292,7 +1279,7 @@ class TestListingComments:
         }
 
         comment = client.post("/api/comments/comment", json=comment_data).json()
-        mock_review_approve(client, "comment", comment["id"])
+        handle_approve_comment_entry(client, "comment", comment["id"])
         self._add_tags(client, session, comment["id"])
 
         document = client.get(f"/api/document/{document_id}").json()
@@ -1316,7 +1303,7 @@ class TestListingComments:
             "recaptcha_token": "test_token",
         }
         comment = client.post("/api/comments/comment", json=comment_data).json()
-        mock_review_approve(client, "comment", comment["id"])
+        handle_approve_comment_entry(client, "comment", comment["id"])
         self._add_tags(client, session, comment["id"])
 
         get_response = client.get("/api/comments/list?tags=world")

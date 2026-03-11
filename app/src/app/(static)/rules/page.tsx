@@ -2,7 +2,6 @@ import {CTA} from '@/app/components/Static/Content/CTA';
 import {ContentSection} from '@/app/components/Static/ContentSection';
 import {Flex, Heading, Text, Link, Box, Grid, Blockquote} from '@radix-ui/themes';
 import Image from 'next/image';
-import NextLink from 'next/link';
 
 const RuleSection: React.FC<{
   title: string;
@@ -90,33 +89,27 @@ export default function GuidePage() {
       </ContentSection>
       <Blockquote className="my-12" size="3">
         For a slightly more detailed discussion, here&apos;s a{' '}
-        <NextLink
-          legacyBehavior
-          href="https://districtr.org/assets/the-rules-for-districtr.pdf"
-          target="_blank"
-        >
-          <Link target="_blank">handout</Link>
-        </NextLink>
+        <Link href="https://districtr.org/assets/the-rules-for-districtr.pdf" target="_blank">
+          handout
+        </Link>
         . friend of the Lab Doug Spencer maintains a guide to state-by-state rules at{' '}
-        <NextLink legacyBehavior href="https://redistricting.lls.edu/" target="_blank">
-          <Link target="_blank">All About Redistricting</Link>
-        </NextLink>
+        <Link href="https://redistricting.lls.edu/" target="_blank">
+          All About Redistricting
+        </Link>
         . The Brennan Center also has an excellent{' '}
-        <NextLink
-          legacyBehavior
+        <Link
           href="https://www.brennancenter.org/sites/default/files/2019-08/Report_CGR-2010-edition.pdf"
           target="_blank"
         >
-          <Link target="_blank">Citizens Guide to Redistricting</Link>
-        </NextLink>
+          Citizens Guide to Redistricting
+        </Link>
         , summarized in their{' '}
-        <NextLink
-          legacyBehavior
+        <Link
           href="https://www.brennancenter.org/our-work/research-reports/50-state-guide-redistricting"
           target="_blank"
         >
-          <Link target="_blank">50 State handout</Link>
-        </NextLink>
+          50 State handout
+        </Link>
         .
       </Blockquote>
       <CTA />

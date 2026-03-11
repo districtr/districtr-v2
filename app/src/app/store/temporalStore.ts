@@ -1,11 +1,15 @@
-import type {TemporalState} from 'zundo';
-import {useStore} from 'zustand';
-import {useMapStore, type MapStore} from '@/app/store/mapStore';
+import {useAssignmentsStore} from './assignmentsStore';
 
 // Convert zundo to a React hook
 // from https://github.com/charkour/zundo?tab=readme-ov-file#for-reactive-changes-to-member-properties-of-the-temporal-object-optionally-convert-to-a-react-store-hook
 
-export const useTemporalStore = <T>(
-  selector: (state: TemporalState<Partial<MapStore>>) => T,
-  equality?: (a: T, b: T) => boolean
-) => useStore(useMapStore.temporal, selector, equality);
+export const useTemporalStore = () => {
+  const {futureStates, pastStates, redo, undo} = useAssignmentsStore.temporal.getState();
+  const __updateTrigger = useAssignmentsStore(state => state.clientLastUpdated);
+  return {
+    futureStates,
+    pastStates,
+    redo,
+    undo,
+  };
+};

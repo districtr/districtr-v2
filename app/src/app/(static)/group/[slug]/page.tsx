@@ -8,10 +8,13 @@ const placeImages = ['/home-megaphone.png', '/home-hands.png', '/community.svg']
 
 export default async function Page({params}: {params: Promise<{slug: string}>}) {
   const {slug} = await params;
-  const [group, availableMaps] = await Promise.all([
+  const [groupResult, availableMapsResult] = await Promise.all([
     getGroup(slug),
     getAvailableDistrictrMaps({group: slug, limit: 100}),
-  ]).catch(() => [null, null]);
+  ]);
+
+  const group = groupResult.ok ? groupResult.response : null;
+  const availableMaps = availableMapsResult.ok ? availableMapsResult.response : null;
 
   if (!group) {
     return (

@@ -9,11 +9,14 @@ from tests.constants import (
     OGR2OGR_PG_CONNECTION_STRING,
     FIXTURES_PATH,
     GERRY_DB_FIXTURE_NAME,
-    USER_ID,
 )
 from app.utils import create_districtr_map, create_map_group
 from app.core.models import DocumentID
 from pydantic import ValidationError
+from tests.test_utils import handle_full_submission_approve, patch_recaptcha
+from datetime import datetime
+
+REQUIRED_AUTO_FIXTURES = [patch_recaptcha]
 
 
 def test_document_id_public_numeric_string():
@@ -82,6 +85,8 @@ GERRY_DB_NO_POP_FIXTURE_NAME = "ks_demo_view_census_blocks_no_pop"
 GERRY_DB_TOTPOP_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats"
 GERRY_DB_VAP_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats_vap"
 GERRY_DB_ALL_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats_all_stats"
+# Map slug for fixture with num_districts_modifiable=False
+GERRY_DB_ALL_STATS_FIXED_NUM_DISTRICTS_SLUG = "ks_demo_all_stats_fixed_num_districts"
 
 ## Test DB
 
@@ -202,7 +207,6 @@ def document_total_vap_fixture(
         "/api/create_document",
         json={
             "districtr_map_slug": GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
-            "user_id": USER_ID,
         },
     )
 
@@ -218,7 +222,6 @@ def document_all_stats_fixture(
         "/api/create_document",
         json={
             "districtr_map_slug": GERRY_DB_ALL_FIXTURE_NAME,
-            "user_id": USER_ID,
         },
     )
     document_id = response.json()["document_id"]
@@ -233,7 +236,6 @@ def document_no_gerrydb_pop_fixture(
         "/api/create_document",
         json={
             "districtr_map_slug": GERRY_DB_NO_POP_FIXTURE_NAME,
-            "user_id": USER_ID,
         },
     )
     document_id = response.json()["document_id"]
@@ -242,28 +244,16 @@ def document_no_gerrydb_pop_fixture(
 
 @pytest.fixture(name="assignments_document_id")
 def assignments_fixture(client, document_id_all_stats):
-    response = client.patch(
-        "/api/update_assignments",
+    response = client.put(
+        "/api/assignments",
         json={
+            "document_id": document_id_all_stats,
             "assignments": [
-                {
-                    "document_id": document_id_all_stats,
-                    "geo_id": "202090441022004",
-                    "zone": 1,
-                },
-                {
-                    "document_id": document_id_all_stats,
-                    "geo_id": "202090428002008",
-                    "zone": 1,
-                },
-                {
-                    "document_id": document_id_all_stats,
-                    "geo_id": "200979691001108",
-                    "zone": 2,
-                },
+                ["202090441022004", 1],
+                ["202090428002008", 1],
+                ["200979691001108", 2],
             ],
-            "updated_at": "2023-01-01T00:00:00",
-            "user_id": USER_ID,
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200
@@ -273,16 +263,16 @@ def assignments_fixture(client, document_id_all_stats):
 @pytest.fixture(name="assignments_document_id_total_vap")
 def assignments_total_vap_fixture(client, document_id_total_vap):
     document_id = document_id_total_vap
-    response = client.patch(
-        "/api/update_assignments",
+    response = client.put(
+        "/api/assignments",
         json={
+            "document_id": document_id,
             "assignments": [
-                {"document_id": document_id, "geo_id": "202090441022004", "zone": 1},
-                {"document_id": document_id, "geo_id": "202090428002008", "zone": 1},
-                {"document_id": document_id, "geo_id": "200979691001108", "zone": 2},
+                ["202090441022004", 1],
+                ["202090428002008", 1],
+                ["200979691001108", 2],
             ],
-            "updated_at": "2023-01-01T00:00:00",
-            "user_id": USER_ID,
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200
@@ -292,16 +282,16 @@ def assignments_total_vap_fixture(client, document_id_total_vap):
 @pytest.fixture(name="assignments_document_no_gerrydb_pop_id")
 def assignments_no_gerrydb_pop_fixture(client, document_no_gerrydb_pop):
     document_id = document_no_gerrydb_pop
-    response = client.patch(
-        "/api/update_assignments",
+    response = client.put(
+        "/api/assignments",
         json={
+            "document_id": document_id,
             "assignments": [
-                {"document_id": document_id, "geo_id": "202090441022004", "zone": 1},
-                {"document_id": document_id, "geo_id": "202090428002008", "zone": 1},
-                {"document_id": document_id, "geo_id": "200979691001108", "zone": 2},
+                ["202090441022004", 1],
+                ["202090428002008", 1],
+                ["200979691001108", 2],
             ],
-            "updated_at": "2023-01-01T00:00:00",
-            "user_id": USER_ID,
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200
@@ -319,7 +309,6 @@ def test_new_document(client, ks_demo_view_census_blocks_districtrmap):
         "/api/create_document",
         json={
             "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
-            "user_id": USER_ID,
         },
     )
     data = response.json()
@@ -334,7 +323,7 @@ def test_new_document(client, ks_demo_view_census_blocks_districtrmap):
 
 def test_get_document(client, document_id):
     doc_uuid = uuid.UUID(document_id)
-    response = client.get(f"/api/document/{doc_uuid}?user_id={USER_ID}")
+    response = client.get(f"/api/document/{doc_uuid}")
     assert response.status_code == 200
 
     data = response.json()
@@ -342,79 +331,114 @@ def test_get_document(client, document_id):
     assert data.get("districtr_map_slug") == GERRY_DB_FIXTURE_NAME
     assert data.get("updated_at")
     assert data.get("created_at")
-    assert data.get("status") in ["locked", "unlocked", "checked_out"]
 
 
-def test_patch_assignments(client, document_id):
-    response = client.patch(
-        "/api/update_assignments",
+def test_put_assignments(client, document_id):
+    response = client.put(
+        "/api/assignments",
         json={
+            "document_id": document_id,
             "assignments": [
-                {"document_id": document_id, "geo_id": "202090441022004", "zone": 1},
-                {"document_id": document_id, "geo_id": "202090428002008", "zone": 1},
-                {"document_id": document_id, "geo_id": "200979691001108", "zone": 2},
+                ["202090441022004", 1],
+                ["202090428002008", 1],
+                ["200979691001108", 2],
             ],
-            "updated_at": "2023-01-01T00:00:00",
-            "user_id": USER_ID,
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200
-    assert response.json().get("assignments_upserted") == 3
+    assert response.json().get("assignments_inserted") == 3
     updated_at = response.json().get("updated_at")
     assert updated_at is not None
 
 
-def test_patch_assignments_nulls(client, document_id):
-    response = client.patch(
-        "/api/update_assignments",
+def test_put_assignments_conflict(client, document_no_gerrydb_pop):
+    document_id = document_no_gerrydb_pop
+    response = client.put(
+        "/api/assignments",
         json={
+            "document_id": document_id,
+            "assignments": [["202090441022004", 1]],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+        },
+    )
+    assert response.status_code == 200
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "assignments": [["202090441022004", 1]],
+            "last_updated_at": "1970-01-01T00:00:00.000000Z",
+        },
+    )
+    assert response.status_code == 409
+    assert (
+        response.json().get("detail")
+        == "Document has been updated since the last update"
+    )
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "assignments": [["202090441022004", 1]],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+            "overwrite": True,
+        },
+    )
+    assert response.status_code == 200
+
+
+def test_put_assignments_nulls(client, document_id):
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
             "assignments": [
-                {"document_id": document_id, "geo_id": "202090441022004", "zone": 1},
-                {"document_id": document_id, "geo_id": "202090428002008", "zone": 1},
-                {"document_id": document_id, "geo_id": "200979691001108", "zone": None},
+                ["202090441022004", 1],
+                ["202090428002008", 1],
+                ["200979691001108", None],
             ],
-            "updated_at": "2023-01-01T00:00:00",
-            "user_id": USER_ID,
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200
     data = response.json()
-    assert data.get("assignments_upserted") == 3
+    assert data.get("assignments_inserted") == 3
     assert data.get("updated_at") is not None
 
 
-def test_patch_assignments_twice(client, document_id):
-    response = client.patch(
-        "/api/update_assignments",
+def test_put_assignments_twice(client, document_id):
+    response = client.put(
+        "/api/assignments",
         json={
+            "document_id": document_id,
             "assignments": [
-                {"document_id": document_id, "geo_id": "202090441022004", "zone": 0},
-                {"document_id": document_id, "geo_id": "200979691001108", "zone": 0},
+                ["202090441022004", 0],
+                ["200979691001108", 0],
             ],
-            "updated_at": "2023-01-01T00:00:00",
-            "user_id": USER_ID,
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200
     data = response.json()
-    assert data.get("assignments_upserted") == 2
+    assert data.get("assignments_inserted") == 2
     assert data.get("updated_at") is not None
 
-    response = client.patch(
-        "/api/update_assignments",
+    response = client.put(
+        "/api/assignments",
         json={
+            "document_id": document_id,
             "assignments": [
-                {"document_id": document_id, "geo_id": "202090441022004", "zone": 1},
-                {"document_id": document_id, "geo_id": "200979691001108", "zone": 1},
+                ["202090441022004", 1],
+                ["200979691001108", 1],
             ],
-            "updated_at": "2023-01-01T00:00:00",
-            "user_id": USER_ID,
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200
-    assert data.get("assignments_upserted") == 2
+    assert data.get("assignments_inserted") == 2
     assert data.get("updated_at") is not None
-    # Check that the assignments were updated and not inserted
+    # Check that the assignments were updated and not insertedpytest -v tests/test_main.py::test_patch_reset_assignments
     doc_uuid = str(uuid.UUID(document_id))
     response = client.get(f"/api/get_assignments/{doc_uuid}")
     assert response.status_code == 200
@@ -428,8 +452,8 @@ def test_patch_assignments_twice(client, document_id):
 
 
 def test_patch_reset_assignments(client, document_id):
-    test_patch_assignments(client, document_id)
-    response = client.patch(f"/api/update_assignments/{document_id}/reset")
+    test_put_assignments(client, document_id)
+    response = client.patch(f"/api/assignments/{document_id}/reset")
     assert response.status_code == 200
     assignments = client.get(f"/api/get_assignments/{document_id}")
     assert assignments.status_code == 200
@@ -653,12 +677,44 @@ def ks_demo_view_census_blocks_summary_stats_all_stats(session: Session):
         districtr_map_slug=layer,
         gerrydb_table_name=layer,
         num_districts=4,
+        num_districts_modifiable=True,
     )
     session.commit()
 
     if result.returncode != 0:
         print(f"ogr2ogr failed. Got {result}")
         raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
+
+
+@pytest.fixture(name="ks_demo_all_stats_fixed_num_districts_map")
+def ks_demo_all_stats_fixed_num_districts_map_fixture(
+    session: Session, ks_demo_view_census_blocks_summary_stats_all_stats
+):
+    """Map with same layer as all_stats but num_districts_modifiable=False."""
+    create_districtr_map(
+        session=session,
+        name="DistrictMap fixed num districts",
+        parent_layer=GERRY_DB_ALL_FIXTURE_NAME,
+        districtr_map_slug=GERRY_DB_ALL_STATS_FIXED_NUM_DISTRICTS_SLUG,
+        gerrydb_table_name=GERRY_DB_ALL_FIXTURE_NAME,
+        num_districts=4,
+        num_districts_modifiable=False,
+    )
+    session.commit()
+
+
+@pytest.fixture(name="document_id_fixed_num_districts")
+def document_id_fixed_num_districts_fixture(
+    client, ks_demo_all_stats_fixed_num_districts_map
+):
+    """Document whose map has num_districts_modifiable=False."""
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_ALL_STATS_FIXED_NUM_DISTRICTS_SLUG,
+        },
+    )
+    return response.json()["document_id"]
 
 
 def test_change_colors(
@@ -732,7 +788,6 @@ def test_new_document_from_block_assignments(client, simple_shatterable_district
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
-            "user_id": USER_ID,
             "assignments": [
                 ["a", "1"],
                 ["b", "2"],
@@ -762,7 +817,6 @@ def test_new_document_from_block_assignments_no_matched_parents(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
-            "user_id": USER_ID,
             "assignments": [
                 ["a", "1"],
                 ["b", "2"],
@@ -792,7 +846,6 @@ def test_new_document_from_block_assignments_no_data(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
-            "user_id": USER_ID,
             "assignments": [],
         },
     )
@@ -815,7 +868,6 @@ def test_new_document_from_block_assignments_some_matched_parents(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
-            "user_id": USER_ID,
             "assignments": [
                 ["a", "1"],
                 ["b", "2"],
@@ -845,7 +897,6 @@ def test_new_document_from_block_assignments_some_nulls(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
-            "user_id": USER_ID,
             "assignments": [
                 ["a", "1"],
                 ["b", ""],
@@ -874,7 +925,6 @@ def test_new_document_from_block_assignments_some_null_geoids(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
-            "user_id": USER_ID,
             "assignments": [
                 ["a", "1"],
                 ["b", ""],
@@ -903,7 +953,6 @@ def test_new_document_from_block_assignments_non_integer_mapping(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
-            "user_id": USER_ID,
             "assignments": [
                 ["a", "My zone 1"],
                 ["b", ""],
@@ -932,7 +981,6 @@ def test_new_document_from_block_assignments_too_many_unique_zones(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
-            "user_id": USER_ID,
             "assignments": [
                 ["a", "1"],
                 ["b", "2"],
@@ -966,7 +1014,6 @@ def test_new_document_from_block_assignments_no_children(
         "/api/create_document",
         json={
             "districtr_map_slug": "ks_demo_view_census_blocks",
-            "user_id": USER_ID,
             "assignments": [
                 ["202090441022004", "1"],
                 ["202090428002008", "1"],
@@ -993,7 +1040,6 @@ def test_new_document_from_block_assignments_duplicate_blocks_in_input(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
-            "user_id": USER_ID,
             "assignments": [
                 ["a", "1"],
                 ["a", "1"],  # Dupe!
@@ -1057,6 +1103,25 @@ def test_document_list(
     )
     assert response.status_code == 200
 
+    # submit a comment with tag "test"
+    comment_data = {
+        "commenter": {
+            "first_name": "Test",
+            "email": "test@example.com",
+            "place": "Portland",
+            "state": "OR",
+        },
+        "comment": {
+            "title": "Test Comment",
+            "comment": "This is a test comment with some content.",
+            "document_id": document_id_total_vap,
+        },
+        "tags": [{"tag": "test"}],
+        "recaptcha_token": "test_token",
+    }
+    response = client.post("/api/comments/submit", json=comment_data)
+    assert response.status_code == 201
+    handle_full_submission_approve(client, response.json())
     response = client.get("/api/documents/list?tags=test")
     assert response.status_code == 200
     data = response.json()
@@ -1073,29 +1138,19 @@ def test_document_list(
 
 
 def test_get_district_unions(client, document_id_total_vap):
-    response = client.patch(
-        "/api/update_assignments",
+    response = client.put(
+        "/api/assignments",
         json={
+            "document_id": document_id_total_vap,
             "assignments": [
-                {
-                    "document_id": document_id_total_vap,
-                    "geo_id": "202090441022004",
-                    "zone": 1,
-                },
-                {
-                    "document_id": document_id_total_vap,
-                    "geo_id": "202090428002008",
-                    "zone": 1,
-                },
-                {
-                    "document_id": document_id_total_vap,
-                    "geo_id": "200979691001108",
-                    "zone": 2,
-                },
+                ["202090441022004", 1],
+                ["202090428002008", 1],
+                ["200979691001108", 2],
             ],
-            "user_id": USER_ID,
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
+    assert response.status_code == 200
     response = client.get(f"/api/document/{document_id_total_vap}/stats")
     assert response.status_code == 200
     data = response.json()
@@ -1105,19 +1160,17 @@ def test_get_district_unions(client, document_id_total_vap):
     assert data[0].get("demographic_data")
     assert data[0].get("updated_at")
     # update assignments to re-generate stats
-    response = client.patch(
-        "/api/update_assignments",
+    response = client.put(
+        "/api/assignments",
         json={
+            "document_id": document_id_total_vap,
             "assignments": [
-                {
-                    "document_id": document_id_total_vap,
-                    "geo_id": "200979691001108",
-                    "zone": 1,
-                },
+                ["200979691001108", 1],
             ],
-            "user_id": USER_ID,
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
+    assert response.status_code == 200
     response = client.get(f"/api/document/{document_id_total_vap}/stats")
     assert response.status_code == 200
     data = response.json()
@@ -1131,3 +1184,235 @@ def test_get_district_unions(client, document_id_total_vap):
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
+
+
+# --- Variable num_districts / metadata backend tests ---
+
+
+def test_create_document_num_districts_from_map(
+    client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
+):
+    """create_document stores num_districts from DistrictrMap (all_stats has 4)."""
+    response = client.get(f"/api/document/{document_id_all_stats}")
+    assert response.status_code == 200
+    data = response.json()
+    assert data.get("num_districts") == 4
+
+
+def test_create_document_copy_inherits_num_districts(
+    client,
+    document_id_all_stats,
+    ks_demo_view_census_blocks_summary_stats_all_stats,
+):
+    """copy_from_doc inherits num_districts from source document."""
+    # Set source document num_districts to 6 via PUT assignments + metadata
+    r = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_all_stats,
+            "assignments": [["202090441022004", 1]],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+            "metadata": {"num_districts": 6, "color_scheme": None},
+        },
+    )
+    assert r.status_code == 200
+
+    # Create new doc via copy
+    r2 = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_ALL_FIXTURE_NAME,
+            "copy_from_doc": document_id_all_stats,
+        },
+    )
+    assert r2.status_code == 201
+    copy_id = r2.json()["document_id"]
+
+    doc = client.get(f"/api/document/{copy_id}").json()
+    assert doc.get("num_districts") == 6
+
+
+def test_put_assignments_with_metadata_num_districts_and_color_scheme(
+    client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
+):
+    """PUT /assignments with metadata updates document num_districts and color_scheme."""
+    colors = ["#FF0001", "#FF0002", "#FF0003", "#FF0004", "#FF0005", "#FF0006"]
+    r = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_all_stats,
+            "assignments": [
+                ["202090441022004", 1],
+                ["202090428002008", 2],
+            ],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+            "metadata": {"num_districts": 6, "color_scheme": colors},
+        },
+    )
+    assert r.status_code == 200
+
+    doc = client.get(f"/api/document/{document_id_all_stats}").json()
+    assert doc.get("num_districts") == 6
+    assert doc.get("color_scheme") == colors
+
+
+def test_put_assignments_metadata_num_districts_validation(
+    client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
+):
+    """PUT /assignments metadata num_districts must be in [2, 538]."""
+    base = {
+        "document_id": document_id_all_stats,
+        "assignments": [["202090441022004", 1]],
+        "last_updated_at": datetime.now().astimezone().isoformat(),
+    }
+    r1 = client.put(
+        "/api/assignments",
+        json={**base, "metadata": {"num_districts": 1, "color_scheme": None}},
+    )
+    assert r1.status_code == 400
+    assert "at least 2" in r1.json().get("detail", "")
+
+    r2 = client.put(
+        "/api/assignments",
+        json={**base, "metadata": {"num_districts": 539, "color_scheme": None}},
+    )
+    assert r2.status_code == 400
+    assert "538" in r2.json().get("detail", "")
+
+    for n in (2, 538):
+        r = client.put(
+            "/api/assignments",
+            json={
+                **base,
+                "overwrite": True,
+                "metadata": {"num_districts": n, "color_scheme": None},
+            },
+        )
+        assert r.status_code == 200, f"num_districts={n} should succeed"
+        base["last_updated_at"] = r.json()["updated_at"]
+
+
+def test_update_colors_uses_document_num_districts(
+    client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
+):
+    """PATCH update_colors uses document num_districts when set (overrides map default)."""
+    # Set document num_districts to 5
+    client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_all_stats,
+            "assignments": [["202090441022004", 1]],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+            "metadata": {"num_districts": 5, "color_scheme": None},
+        },
+    )
+
+    five = ["#A00001", "#A00002", "#A00003", "#A00004", "#A00005"]
+    r_ok = client.patch(
+        f"/api/document/{document_id_all_stats}/update_colors", json=five
+    )
+    assert r_ok.status_code == 200
+    assert r_ok.json()["colors"] == five
+
+    r_bad = client.patch(
+        f"/api/document/{document_id_all_stats}/update_colors",
+        json=["#B00001", "#B00002", "#B00003", "#B00004"],
+    )
+    assert r_bad.status_code == 400
+    assert "does not match number of zones (5)" in r_bad.json().get("detail", "")
+
+
+def test_put_num_districts_endpoint(
+    client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
+):
+    """PUT /document/{id}/num_districts updates document num_districts."""
+    r = client.put(
+        f"/api/document/{document_id_all_stats}/num_districts?num_districts=5"
+    )
+    assert r.status_code == 200
+    assert r.json()["num_districts"] == 5
+
+    doc = client.get(f"/api/document/{document_id_all_stats}").json()
+    assert doc.get("num_districts") == 5
+
+    r_bad = client.put(
+        f"/api/document/{document_id_all_stats}/num_districts?num_districts=0"
+    )
+    assert r_bad.status_code == 400
+    assert "at least" in r_bad.json().get("detail", "").lower()
+
+
+def test_put_num_districts_forbidden_when_not_modifiable(
+    client, document_id_fixed_num_districts
+):
+    """PUT /document/{id}/num_districts returns 403 when map has num_districts_modifiable=False."""
+    r = client.put(
+        f"/api/document/{document_id_fixed_num_districts}/num_districts?num_districts=5"
+    )
+    assert r.status_code == 403
+    assert "not modifiable" in r.json().get("detail", "").lower()
+
+
+def test_put_assignments_metadata_num_districts_forbidden_when_not_modifiable(
+    client, document_id_fixed_num_districts
+):
+    """PUT /assignments with metadata.num_districts returns 403 when map has num_districts_modifiable=False."""
+    r = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_fixed_num_districts,
+            "assignments": [["202090441022004", 1]],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+            "metadata": {"num_districts": 6, "color_scheme": None},
+        },
+    )
+    assert r.status_code == 403
+    assert "not modifiable" in r.json().get("detail", "").lower()
+
+
+def test_get_document_returns_num_districts_modifiable(
+    client, document_id_all_stats, document_id_fixed_num_districts
+):
+    """GET /document returns num_districts_modifiable from map (true or false)."""
+    doc_modifiable = client.get(f"/api/document/{document_id_all_stats}").json()
+    assert doc_modifiable.get("num_districts_modifiable") is True
+
+    doc_fixed = client.get(f"/api/document/{document_id_fixed_num_districts}").json()
+    assert doc_fixed.get("num_districts_modifiable") is False
+
+
+def test_copy_document_duplicates_assignments(
+    client,
+    document_id_all_stats,
+    ks_demo_view_census_blocks_summary_stats_all_stats,
+):
+    """Creating a document via copy_from_doc duplicates assignments (UUID fix)."""
+    client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_all_stats,
+            "assignments": [
+                ["202090441022004", 1],
+                ["202090428002008", 1],
+                ["200979691001108", 2],
+            ],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+        },
+    )
+
+    r = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_ALL_FIXTURE_NAME,
+            "copy_from_doc": document_id_all_stats,
+        },
+    )
+    assert r.status_code == 201
+    copy_id = r.json()["document_id"]
+
+    orig = client.get(f"/api/get_assignments/{document_id_all_stats}").json()
+    copied = client.get(f"/api/get_assignments/{copy_id}").json()
+    assert len(copied) == len(orig) == 3
+    orig_map = {(a["geo_id"], a["zone"]) for a in orig}
+    copied_map = {(a["geo_id"], a["zone"]) for a in copied}
+    assert orig_map == copied_map

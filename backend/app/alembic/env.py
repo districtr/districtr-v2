@@ -10,7 +10,7 @@ from alembic import context
 from app.alembic.constants import POST_GIS_ALPINE_RESERVED_TABLES
 from app.core.models import SQLModel
 
-from app.models import Document, MapDocumentUserSession, Assignments
+from app.models import Document, MapDocumentUserSession, Assignments, DistrictUnions
 from app.cms.models import TagsCMSContent, PlacesCMSContent
 from app.save_share.models import MapDocumentToken
 from app.comments.models import (
@@ -47,6 +47,7 @@ tables = [
     Tag,
     CommentTag,
     DocumentComment,
+    DistrictUnions,
 ]
 
 target_metadata = [SQLModel.metadata]

@@ -1,10 +1,9 @@
 'use client';
 import React, {useState} from 'react';
 import {useParentSize} from '@visx/responsive';
-import {Box, Button, Flex, Select} from '@radix-ui/themes';
+import {Box, Button, Flex, Select, Link} from '@radix-ui/themes';
 import {useRouter} from 'next/navigation';
 import {PlaceMapSvg} from './PlaceMapSvg';
-import Link from 'next/link';
 import stateAbbrs from './usa-abbr.json';
 import {usePlaceMapStore} from './utils';
 
@@ -49,12 +48,12 @@ export const PlaceMap: React.FC<{width: number; height: number}> = ({width, heig
       <PlaceMapSvg width={width} height={height} onHover={setHovered} onClick={handleRoute} />
       {width > 400 && (
         <Flex direction="column" right="0" bottom="0" position="absolute" gapY="1">
-          <Link href="/place/dc" legacyBehavior>
+          <Link href="/place/dc">
             <Button className="rounded-none" variant="outline">
               Washington, DC
             </Button>
           </Link>
-          <Link href="/place/pr" legacyBehavior>
+          <Link href="/place/pr">
             <Button className="rounded-none" variant="outline">
               Puerto Rico
             </Button>

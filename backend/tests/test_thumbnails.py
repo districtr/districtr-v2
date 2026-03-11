@@ -1,38 +1,23 @@
 import os
 import pytest
-from tests.constants import FIXTURES_PATH, USER_ID
+from tests.constants import FIXTURES_PATH
 from unittest.mock import patch
+from datetime import datetime
 
 
 @pytest.fixture
 def document_id_with_assignments(client, document_id):
-    response = client.patch(
-        "/api/update_assignments",
+    response = client.put(
+        "/api/assignments",
         json={
+            "document_id": document_id,
             "assignments": [
-                {
-                    "document_id": document_id,
-                    "geo_id": "202090441022004",
-                    "zone": 1,
-                },
-                {
-                    "document_id": document_id,
-                    "geo_id": "202090428002008",
-                    "zone": 1,
-                },
-                {
-                    "document_id": document_id,
-                    "geo_id": "202090443032011",
-                    "zone": 1,
-                },
-                {
-                    "document_id": document_id,
-                    "geo_id": "200979691001108",
-                    "zone": 2,
-                },
+                ["202090441022004", 1],
+                ["202090428002008", 1],
+                ["202090443032011", 1],
+                ["200979691001108", 2],
             ],
-            "updated_at": "2023-10-01T00:00:00Z",
-            "user_id": USER_ID,
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200
@@ -63,7 +48,7 @@ def test_thumbnail_generator(client, document_id_with_assignments):
 
 
 def test_blank_thumbnail_generator(client, document_id):
-    response = client.get(f"/api/document/{document_id}?user_id={USER_ID}")
+    response = client.get(f"/api/document/{document_id}")
     districtrmap_slug = response.json().get("districtr_map_slug")
     with patch(
         "app.thumbnails.main.get_document_thumbnail_file_path"

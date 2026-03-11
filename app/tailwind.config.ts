@@ -1,5 +1,5 @@
 import type {Config} from 'tailwindcss';
-
+import typography from '@tailwindcss/typography';
 const config: Config = {
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
@@ -20,10 +20,10 @@ const config: Config = {
         districtrLightBlue: '#ccf2ff',
         districtrBlue: '#0099cd',
         districtrDarkBlue: '#006b9c',
-        districtrIndigo: 'rgba(0, 0, 139)'
-      }
+        districtrIndigo: 'rgba(0, 0, 139)',
+      },
     },
   },
-  plugins: [require('@tailwindcss/typography')],
+  plugins: [typography],
 };
 export default config;

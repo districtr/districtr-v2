@@ -1,6 +1,5 @@
 import {CTA} from '@/app/components/Static/Content/CTA';
 import {Flex, Heading, Text, Link, Box} from '@radix-ui/themes';
-import NextLink from 'next/link';
 
 export default function GuidePage() {
   return (
@@ -19,9 +18,9 @@ export default function GuidePage() {
         precincts are the smallest unit to use when you care about accurate election results. In a
         map built from precincts, you can explore recent election results and visualize the partisan
         lean in your state. Precinct level data can be{' '}
-        <NextLink legacyBehavior href="https://districtr.org/assets/the-data-for-districtr.pdf">
-          <Link target="_blank">notoriously difficult to collect</Link>
-        </NextLink>
+        <Link href="https://districtr.org/assets/the-data-for-districtr.pdf" target="_blank">
+          notoriously difficult to collect
+        </Link>
         ! In Districtr v2, we use Census VTDs, which are approximations of precinct boundaries
         collected by the Census and adjusted to be constructed out of blocks.
       </Text>
@@ -33,12 +32,12 @@ export default function GuidePage() {
         grouping blocks together such that no two block groups share a block. The Census Bureau
         publishes geographic products, including revised block and block group geographies at least
         every decennial census, in accordance with{' '}
-        <NextLink
-          legacyBehavior
+        <Link
           href="https://www.census.gov/programs-surveys/decennial-census/about/rdo/summary-files.html"
+          target="_blank"
         >
-          <Link target="_blank">Public Law 94-171</Link>
-        </NextLink>
+          Public Law 94-171
+        </Link>
         .
       </Text>
       <Text size="3">
@@ -59,17 +58,17 @@ export default function GuidePage() {
         To compute the demographic categories like &quot;Black&quot; and &quot;Asian&quot; in
         Districtr v2, we use collections of columns from the Decennial Census. You can read more
         about exactly which columns we use{' '}
-        <NextLink legacyBehavior href="https://mggg.org/VAP-CVAP">
-          <Link target="_blank">here</Link>
-        </NextLink>
+        <Link href="https://mggg.org/VAP-CVAP" target="_blank">
+          here
+        </Link>
         . On the backend, all of our data comes from the{' '}
-        <NextLink legacyBehavior href="https://mggg.org/">
-          <Link target="_blank">Data and Democracy Lab</Link>
-        </NextLink>{' '}
+        <Link href="https://mggg.org/" target="_blank">
+          Data and Democracy Lab
+        </Link>{' '}
         Redistricting Lab&apos;s{' '}
-        <NextLink legacyBehavior href="https://github.com/mggg/gerrydb-client-py">
-          <Link target="_blank">gerrydb</Link>
-        </NextLink>{' '}
+        <Link href="https://github.com/mggg/gerrydb-client-py" target="_blank">
+          gerrydb
+        </Link>{' '}
         database, which stores all sorts of geospatial data.
       </Text>
       <CTA />

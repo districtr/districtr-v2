@@ -10,5 +10,6 @@ repos:
     hooks:
       - id: prettier
         name: Run Prettier
-        entry: bash -c "cd app && npm run prettier"
+        entry: bash -c "cd app && bunx prettier --write \"src/**/*.{ts,tsx}\" --config .prettierrc.js"
         language: system
+        pass_filenames: false

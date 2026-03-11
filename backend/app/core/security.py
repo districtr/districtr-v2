@@ -1,5 +1,3 @@
-from typing import Optional
-
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import SecurityScopes, HTTPAuthorizationCredentials, HTTPBearer
@@ -25,6 +23,7 @@ class TokenScope:
     delete_all_content = "delete:delete-all"
 
     review_content = "create:content_review"
+
 
 class UnauthorizedException(HTTPException):
     def __init__(self, detail: str, **kwargs):
@@ -53,7 +52,7 @@ class VerifyToken:
     async def verify(
         self,
         security_scopes: SecurityScopes,
-        token: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer()),
+        token: HTTPAuthorizationCredentials | None = Depends(HTTPBearer()),
     ) -> dict:
         if token is None:
             raise UnauthenticatedException

@@ -66,3 +66,27 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+/* pulse animation: grow and fade out, then quickly return to normal */
+@keyframes pulse {
+  0% {
+    transform: scale(1) !important;
+    opacity: 1;
+  }
+  98% {
+    transform: scale(4) !important;
+    opacity: 0;
+  }
+  99% {
+    transform: scale(1) !important;
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) !important;
+    opacity: 1;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s infinite ease-in-out;
+}
