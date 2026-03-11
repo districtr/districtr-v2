@@ -4,6 +4,7 @@ import {useAssignmentsStore} from '../store/assignmentsStore';
 import {getPointSelectionData} from '../utils/api/apiHandlers/getPointSelectionData';
 import {EMPTY_FT_COLLECTION} from '../constants/map/layerStyle';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
+import {TOTAL_COLUMNS} from '../constants/demography';
 import {useQuery} from '@tanstack/react-query';
 import GeometryWorker from '../utils/GeometryWorker';
 
@@ -30,7 +31,7 @@ const updateData = async (
 
   const result = await getPointSelectionData({
     layer,
-    columns: ['path', 'x', 'y', 'total_pop_20'],
+    columns: ['path', 'x', 'y', TOTAL_COLUMNS.TOTPOP!],
     filterIds: isChild ? exposedChildIds : undefined,
     source: BLOCK_SOURCE_ID,
   });

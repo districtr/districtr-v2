@@ -1,6 +1,7 @@
 import {useTooltipStore} from '@store/tooltipStore';
 import {CONFIG_BY_COLUMN_SET} from '@store/demography/evaluationConfig';
 import {demographyCache} from '@utils/demography/demographyCache';
+import {COLUMN_SETS, TOTAL_COLUMNS} from '@/app/constants/demography';
 import {useEffect} from 'react';
 import {Flex, Heading, Button, CheckboxCards, Text} from '@radix-ui/themes';
 import {BrushControls} from '@components/Toolbar/ToolControls/BrushControls';
@@ -32,11 +33,8 @@ export const InspectorControls = () => {
     .filter(f => demographyCache.availableColumns.includes(f.sourceCol ?? f.column))
     .sort((a, b) => a.label.localeCompare(b.label));
 
-  const totalColumn = {
-    VAP: ['total_vap_20'],
-    TOTPOP: ['total_pop_20'],
-    VOTERHISTORY: [],
-  }[inspectorMode];
+  const totalCol = TOTAL_COLUMNS[inspectorMode];
+  const totalColumn = totalCol ? [totalCol] : [];
 
   useEffect(() => {
     setActiveColumns([...totalColumn, ...columnList.map(f => f.column)]);
@@ -51,25 +49,25 @@ export const InspectorControls = () => {
       <Flex direction="row" className="" wrap="wrap" gap="1">
         <Button
           variant="soft"
-          color={inspectorMode === 'VAP' ? 'blue' : 'gray'}
+          color={inspectorMode === COLUMN_SETS.VAP ? 'blue' : 'gray'}
           radius="none"
-          onClick={() => setInspectorMode('VAP')}
+          onClick={() => setInspectorMode(COLUMN_SETS.VAP)}
         >
           Voting Age Population
         </Button>
         <Button
           variant="soft"
-          color={inspectorMode === 'TOTPOP' ? 'blue' : 'gray'}
+          color={inspectorMode === COLUMN_SETS.TOTPOP ? 'blue' : 'gray'}
           radius="none"
-          onClick={() => setInspectorMode('TOTPOP')}
+          onClick={() => setInspectorMode(COLUMN_SETS.TOTPOP)}
         >
           Total Population
         </Button>
         <Button
           variant="soft"
-          color={inspectorMode === 'VOTERHISTORY' ? 'blue' : 'gray'}
+          color={inspectorMode === COLUMN_SETS.VOTERHISTORY ? 'blue' : 'gray'}
           radius="none"
-          onClick={() => setInspectorMode('VOTERHISTORY')}
+          onClick={() => setInspectorMode(COLUMN_SETS.VOTERHISTORY)}
         >
           Voter History
         </Button>

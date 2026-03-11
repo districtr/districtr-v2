@@ -1,5 +1,7 @@
 import PopulationPanel from '@components/sidebar/PopulationPanel';
 import {MapControlsStore} from '@/app/store/mapControlsStore';
+import {COLUMN_SETS} from '@/app/constants/demography';
+import {SIDEBAR_PANELS} from '@/app/constants/sidebar';
 import {MapValidation} from './MapValidation/MapValidation';
 import {SummaryPanel} from './SummaryPanel';
 import OverlaysPanel from './OverlaysPanel';
@@ -17,29 +19,37 @@ export interface DataPanelsProps {
 
 export const defaultPanels: DataPanelSpec[] = [
   {
-    title: 'population',
+    title: SIDEBAR_PANELS.POPULATION,
     label: 'Districts',
     content: <PopulationPanel />,
   },
   {
-    title: 'demography',
+    title: SIDEBAR_PANELS.DEMOGRAPHY,
     label: 'Demographics',
-    content: <SummaryPanel defaultColumnSet="VAP" displayedColumnSets={['VAP', 'TOTPOP']} />,
-  },
-  {
-    title: 'election',
-    label: 'Elections',
     content: (
-      <SummaryPanel defaultColumnSet="VOTERHISTORY" displayedColumnSets={['VOTERHISTORY']} />
+      <SummaryPanel
+        defaultColumnSet={COLUMN_SETS.VAP}
+        displayedColumnSets={[COLUMN_SETS.VAP, COLUMN_SETS.TOTPOP]}
+      />
     ),
   },
   {
-    title: 'mapValidation',
+    title: SIDEBAR_PANELS.ELECTION,
+    label: 'Elections',
+    content: (
+      <SummaryPanel
+        defaultColumnSet={COLUMN_SETS.VOTERHISTORY}
+        displayedColumnSets={[COLUMN_SETS.VOTERHISTORY]}
+      />
+    ),
+  },
+  {
+    title: SIDEBAR_PANELS.MAP_VALIDATION,
     label: 'Map validation',
     content: <MapValidation />,
   },
   {
-    title: 'overlays',
+    title: SIDEBAR_PANELS.OVERLAYS,
     label: 'Overlays',
     content: <OverlaysPanel />,
   },

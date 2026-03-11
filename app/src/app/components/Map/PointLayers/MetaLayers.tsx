@@ -5,6 +5,7 @@ import {
   ZONE_LABEL_SOURCE_ID,
   ZONE_LABEL_LAYER_IDS,
 } from '@/app/constants/map/layerIds';
+import {TOTAL_COLUMNS} from '@/app/constants/demography';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
@@ -80,7 +81,7 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
       source={child ? SELECTION_POINTS_SOURCE_ID_CHILD : SELECTION_POINTS_SOURCE_ID}
       filter={populationFilter}
       layout={{
-        'text-field': ['get', 'total_pop_20'],
+        'text-field': ['get', TOTAL_COLUMNS.TOTPOP!],
         'text-font': ['Barlow Bold'],
         'text-size': [
           'interpolate',

@@ -1,4 +1,5 @@
 import type {MapOptions, MapLibreEvent, MapGeoJSONFeature} from 'maplibre-gl';
+export {type ActiveTool} from './tools';
 
 export type Zone = number;
 export type NullableZone = Zone | null;
@@ -8,8 +9,6 @@ export type GEOID = string;
 export type GDBPath = string;
 
 export type ZoneDict = Map<GEOID, Zone>;
-
-export type ActiveTool = 'pan' | 'brush' | 'eraser' | 'shatter' | 'undo' | 'redo' | 'inspector'; // others?
 
 export type SpatialUnit = 'county' | 'tract' | 'block' | 'block_group' | 'voting_district'; // others?
 

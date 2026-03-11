@@ -1,5 +1,6 @@
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {ACTIVE_TOOLS} from '@/app/constants/tools';
 import React, {useEffect} from 'react';
 import {Cross2Icon} from '@radix-ui/react-icons';
 import {Button, Flex, Text, Table, Dialog, Box, Separator, Popover} from '@radix-ui/themes';
@@ -73,7 +74,7 @@ export const RecentMapsModal: React.FC<{
 
   useEffect(() => {
     if (!open) {
-      setActiveTool('pan');
+      setActiveTool(ACTIVE_TOOLS.PAN);
       // Ensure body pointer-events is restored when dialog closes
       document.body.style.pointerEvents = '';
     }

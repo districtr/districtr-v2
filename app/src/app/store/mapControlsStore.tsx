@@ -3,20 +3,14 @@ import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
 import type {MapOptions} from 'maplibre-gl';
 import {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from '../constants/map/mapDefaults';
-import {ActiveTool, NullableZone, SpatialUnit, Zone} from '../constants/types';
+import {NullableZone, SpatialUnit, Zone} from '../constants/types';
+import {ACTIVE_TOOLS, type ActiveTool} from '../constants/tools';
+import {SIDEBAR_PANELS, type SidebarPanel} from '../constants/sidebar';
 import {DistrictrMapOptions} from './types';
 import {useAssignmentsStore} from './assignmentsStore';
 import {useMapStore} from './mapStore';
 import {PaintEventHandler} from '@utils/map/types';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
-
-type SidebarPanel =
-  | 'layers'
-  | 'population'
-  | 'demography'
-  | 'election'
-  | 'mapValidation'
-  | 'overlays';
 
 export interface MapControlsStore {
   selectedZone: Zone;
@@ -85,7 +79,7 @@ export const useMapControlsStore = create<MapControlsStore>()(
     },
     isEditing: false,
     setIsEditing: isEditing => set({isEditing}),
-    activeTool: 'pan',
+    activeTool: ACTIVE_TOOLS.PAN,
     setActiveTool: tool => {
       const canEdit = useMapStore.getState().mapStatus?.access === 'edit';
       if (canEdit) {
@@ -135,7 +129,7 @@ export const useMapControlsStore = create<MapControlsStore>()(
     },
     spatialUnit: 'tract',
     setSpatialUnit: spatialUnit => set({spatialUnit}),
-    sidebarPanels: ['population'],
+    sidebarPanels: [SIDEBAR_PANELS.POPULATION],
     setSidebarPanels: sidebarPanels => set({sidebarPanels}),
   }))
 );
