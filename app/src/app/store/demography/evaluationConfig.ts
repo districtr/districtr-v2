@@ -4,10 +4,20 @@ import {
   SummaryStatConfig,
   summaryStatsConfig,
 } from '@/app/utils/api/summaryStats';
+import {COLUMN_SET_LABELS, COLUMN_SETS} from '@/app/constants/demography';
 
-export type EvalModes = 'share' | 'count' | 'totpop' | 'partisan';
+export const EVAL_MODES = {
+  SHARE: 'share',
+  COUNT: 'count',
+  TOTPOP: 'totpop',
+  PARTISAN: 'partisan',
+} as const satisfies Record<string, string>;
 
-export const TOTPOPColumnConfig: EvalColumnConfiguration<SummaryStatConfig['TOTPOP']> = [
+export type EvalModes = (typeof EVAL_MODES)[keyof typeof EVAL_MODES];
+
+export const TOTPOPColumnConfig: EvalColumnConfiguration<
+  SummaryStatConfig[typeof COLUMN_SETS.TOTPOP]
+> = [
   {
     label: 'Black',
     column: 'bpop_20',
@@ -34,7 +44,7 @@ export const TOTPOPColumnConfig: EvalColumnConfiguration<SummaryStatConfig['TOTP
   },
 ];
 
-export const VAPColumnConfig: EvalColumnConfiguration<SummaryStatConfig['VAP']> = [
+export const VAPColumnConfig: EvalColumnConfiguration<SummaryStatConfig[typeof COLUMN_SETS.VAP]> = [
   {column: 'bvap_20', label: 'Black'},
   {column: 'hvap_20', label: 'Hispanic'},
   {column: 'amin_vap_20', label: 'AMIN'},
@@ -99,18 +109,18 @@ export const summaryStatLabels: Array<{
   supportedModes: EvalModes[];
 }> = [
   {
-    value: 'VAP',
-    label: 'Voting age population',
-    supportedModes: ['share', 'count'],
+    value: COLUMN_SETS.VAP,
+    label: COLUMN_SET_LABELS[COLUMN_SETS.VAP],
+    supportedModes: [EVAL_MODES.SHARE, EVAL_MODES.COUNT],
   },
   {
-    value: 'TOTPOP',
-    label: 'Total population',
-    supportedModes: ['share', 'count'],
+    value: COLUMN_SETS.TOTPOP,
+    label: COLUMN_SET_LABELS[COLUMN_SETS.TOTPOP],
+    supportedModes: [EVAL_MODES.SHARE, EVAL_MODES.COUNT],
   },
   {
-    value: 'VOTERHISTORY',
-    label: 'Voter history',
-    supportedModes: ['share'],
+    value: COLUMN_SETS.VOTERHISTORY,
+    label: COLUMN_SET_LABELS[COLUMN_SETS.VOTERHISTORY],
+    supportedModes: [EVAL_MODES.SHARE],
   },
 ];

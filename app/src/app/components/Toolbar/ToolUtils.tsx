@@ -1,5 +1,5 @@
 import {IconButtonProps, IconProps} from '@radix-ui/themes';
-import {ActiveTool} from '@constants/types';
+import {ACTIVE_TOOLS, type ActiveTool} from '@/app/constants/tools';
 import {useMapStore} from '@/app/store/mapStore';
 import {
   EraserIcon,
@@ -41,7 +41,7 @@ export const useActiveTools = () => {
   const config: ActiveToolConfig[] = [
     {
       hotKeyLabel: 'M',
-      mode: 'pan',
+      mode: ACTIVE_TOOLS.PAN,
       disabled: !mapDocument?.document_id,
       label: 'Move',
       icon: HandIcon,
@@ -51,7 +51,7 @@ export const useActiveTools = () => {
     },
     {
       hotKeyLabel: 'P',
-      mode: 'brush',
+      mode: ACTIVE_TOOLS.BRUSH,
       disabled: !mapDocument?.document_id || !isEditing,
       label: 'Paint',
       icon: Pencil2Icon,
@@ -61,7 +61,7 @@ export const useActiveTools = () => {
     },
     {
       hotKeyLabel: 'E',
-      mode: 'eraser',
+      mode: ACTIVE_TOOLS.ERASER,
       disabled: !mapDocument?.document_id || !isEditing,
       label: 'Erase',
       icon: EraserIcon,
@@ -71,7 +71,7 @@ export const useActiveTools = () => {
     },
     {
       hotKeyLabel: `${metaKey} + Z`,
-      mode: 'undo',
+      mode: ACTIVE_TOOLS.UNDO,
       disabled: pastStates.length === 0 || !isEditing,
       label: 'Undo',
       icon: ResetIcon,
@@ -85,7 +85,7 @@ export const useActiveTools = () => {
     },
     {
       hotKeyLabel: `${metaKey} + Shift + Z`,
-      mode: 'redo',
+      mode: ACTIVE_TOOLS.REDO,
       disabled: futureStates.length === 0 || !isEditing,
       label: 'Redo',
       icon: ResetIcon,
@@ -100,7 +100,7 @@ export const useActiveTools = () => {
     },
     {
       hotKeyLabel: 'B',
-      mode: 'shatter',
+      mode: ACTIVE_TOOLS.SHATTER,
       disabled: !mapDocument?.child_layer,
       label: 'Break',
       icon: ViewGridIcon,
@@ -110,7 +110,7 @@ export const useActiveTools = () => {
     },
     {
       hotKeyLabel: 'I',
-      mode: 'inspector',
+      mode: ACTIVE_TOOLS.INSPECTOR,
       label: 'Inspector',
       icon: MagnifyingGlassIcon,
       hotKeyAccessor: e => {

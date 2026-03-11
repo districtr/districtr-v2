@@ -4,6 +4,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useOverlayStore} from '@/app/store/overlayStore';
+import {ACTIVE_TOOLS} from '@/app/constants/tools';
 import {booleanIntersects, area, intersect} from '@turf/turf';
 import {MultiPolygon, Polygon} from 'geojson';
 
@@ -50,7 +51,7 @@ export const filterFeatures = ({
     filterFunctions.push(f => captiveIds.has(f.id?.toString() || ''));
   }
   if (filterLocked) {
-    if (activeTool === 'brush' && mapOptions.lockPaintedAreas.includes(selectedZone)) {
+    if (activeTool === ACTIVE_TOOLS.BRUSH && mapOptions.lockPaintedAreas.includes(selectedZone)) {
       return [];
     } else if (mapOptions.lockPaintedAreas.length) {
       const lockedAreas = mapOptions.lockPaintedAreas;

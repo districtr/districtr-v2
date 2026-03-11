@@ -20,6 +20,8 @@ import {setZones} from '@utils/map/setZones';
 import bbox from '@turf/bbox';
 import {FALLBACK_NUM_DISTRICTS} from '../constants/map/layerStyle';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
+import {ACTIVE_TOOLS} from '../constants/tools';
+import {SIDEBAR_PANELS} from '../constants/sidebar';
 import {onlyUnique} from '../utils/arrays';
 import {queryClient} from '../utils/api/queryClient';
 import {createWithDevWrapperAndSubscribe} from './middlewares';
@@ -266,9 +268,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           bounds: mapDocument.extent,
           stateFipsSet: newStateFipsSet,
         },
-        activeTool: mapDocument.access === 'edit' ? mapControlsState.activeTool : 'pan',
+        activeTool: mapDocument.access === 'edit' ? mapControlsState.activeTool : ACTIVE_TOOLS.PAN,
         selectedZone: 1,
-        sidebarPanels: ['population'],
+        sidebarPanels: [SIDEBAR_PANELS.POPULATION],
         isPainting: false,
         isEditing: mapDocument.access === 'edit',
       });

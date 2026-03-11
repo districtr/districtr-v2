@@ -13,8 +13,7 @@ export const RICH_TEXT_NODE_TYPES = {
   COMMENT_GALLERY: 'comment-gallery-node',
 } as const;
 
-export type RichTextNodeType =
-  (typeof RICH_TEXT_NODE_TYPES)[keyof typeof RICH_TEXT_NODE_TYPES];
+export type RichTextNodeType = (typeof RICH_TEXT_NODE_TYPES)[keyof typeof RICH_TEXT_NODE_TYPES];
 
 export const getRichTextNodeSelector = (nodeType: RichTextNodeType) =>
   `div[${RICH_TEXT_DATA_ATTRIBUTES.TYPE}="${nodeType}"]`;

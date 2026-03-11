@@ -20,6 +20,7 @@ import {AllEvaluationConfigs, SummaryStatConfig} from '@/app/utils/api/summarySt
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {
   EvalModes,
+  EVAL_MODES,
   modeButtonConfig,
   numberFormats,
   summaryStatLabels,
@@ -27,6 +28,7 @@ import {
 import {PARTISAN_SCALE} from '@/app/store/demography/constants';
 import {GearIcon} from '@radix-ui/react-icons';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
+import {COLUMN_SETS} from '@/app/constants/demography';
 
 type EvaluationProps = {
   summaryType: keyof SummaryStatConfig;
@@ -35,7 +37,7 @@ type EvaluationProps = {
   columnConfig: AllEvaluationConfigs;
 };
 const Evaluation: React.FC<EvaluationProps> = ({summaryType, columnConfig}) => {
-  const [evalMode, setEvalMode] = useState<EvalModes>('share');
+  const [evalMode, setEvalMode] = useState<EvalModes>(EVAL_MODES.SHARE);
   const [colorBg, setColorBg] = useState<boolean>(true);
   const [showUnassigned, setShowUnassigned] = useState<boolean>(true);
   const {zoneStats, demoIsLoaded, zoneData} = useSummaryStats(showUnassigned);
@@ -46,7 +48,8 @@ const Evaluation: React.FC<EvaluationProps> = ({summaryType, columnConfig}) => {
   const showModeButtons = Boolean(
     summaryStatConfig?.supportedModes?.length && summaryStatConfig?.supportedModes?.length > 1
   );
-  const numberFormat = numberFormats[summaryType === 'VOTERHISTORY' ? 'partisan' : evalMode];
+  const numberFormat =
+    numberFormats[summaryType === COLUMN_SETS.VOTERHISTORY ? 'partisan' : evalMode];
 
   useEffect(() => {
     if (
@@ -175,7 +178,7 @@ const Evaluation: React.FC<EvaluationProps> = ({summaryType, columnConfig}) => {
                               : value;
                         let backgroundColor: string | undefined;
                         if (value === undefined || colorValue === undefined) {
-                        } else if (colorBg && summaryType === 'VOTERHISTORY') {
+                        } else if (colorBg && summaryType === COLUMN_SETS.VOTERHISTORY) {
                           backgroundColor = PARTISAN_SCALE(((value as number) + 1) / 2);
                         } else if (colorBg && !isUnassigned) {
                           backgroundColor = interpolateGreys(colorValue as number)

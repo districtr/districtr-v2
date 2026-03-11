@@ -1,6 +1,7 @@
 import {Box, Flex, Button, Text} from '@radix-ui/themes';
 import {MaskOffIcon} from '@radix-ui/react-icons';
 import {useMapControlsStore} from '@store/mapControlsStore';
+import {ACTIVE_TOOLS} from '@/app/constants/tools';
 import {useFeatureFlagStore} from '@store/featureFlagStore';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {BrushSizeSelector} from '@components/Toolbar/ToolControls/BrushSizeSelector';
@@ -26,7 +27,7 @@ export const BrushControls = () => {
           </Box>
         )}
       </Flex>
-      {activeTool === 'brush' ? (
+      {activeTool === ACTIVE_TOOLS.BRUSH ? (
         <div className="flex-grow-0 flex-row p-0 m-0">
           <ZonePicker />
         </div>

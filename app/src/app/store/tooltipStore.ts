@@ -1,5 +1,6 @@
 import {TooltipState} from '@utils/map/types';
 import {KeyOfSummaryStatConfig} from '../utils/api/summaryStats';
+import {COLUMN_SETS} from '@/app/constants/demography';
 import {createWithDevWrapperAndSubscribe} from './middlewares';
 
 export interface ZoneCommentTooltipState {
@@ -32,7 +33,7 @@ export const useTooltipStore = createWithDevWrapperAndSubscribe<TooltipStore>(
     if (currentTooltip === tooltip) return;
     set({tooltip});
   },
-  inspectorMode: 'VAP',
+  inspectorMode: COLUMN_SETS.VAP,
   setInspectorMode: mode => set({inspectorMode: mode}),
   inspectorFormat: 'standard',
   setInspectorFormat: format => set({inspectorFormat: format}),
