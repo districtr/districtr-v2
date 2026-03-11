@@ -291,7 +291,11 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   if (selectedFeatures && isBrushingTool && isPainting) {
     // selects in the map object; the store object
     // is updated in the mouseup event
-    mutateZoneAssignments(mapRef, selectedFeatures, activeTool === ACTIVE_TOOLS.BRUSH ? selectedZone : null);
+    mutateZoneAssignments(
+      mapRef,
+      selectedFeatures,
+      activeTool === ACTIVE_TOOLS.BRUSH ? selectedZone : null
+    );
   }
 
   if (

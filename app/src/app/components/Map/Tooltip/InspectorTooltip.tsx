@@ -17,7 +17,7 @@ export const InspectorTooltip = () => {
   const usePercent = inspectorFormat === 'percent' || inspectorMode === COLUMN_SETS.VOTERHISTORY;
   const columnSuffix = usePercent ? '_pct' : '';
   const standardFormat = 'standard';
-    inspectorMode === COLUMN_SETS.VOTERHISTORY ? 'partisan' : usePercent ? 'percent' : 'standard';
+  inspectorMode === COLUMN_SETS.VOTERHISTORY ? 'partisan' : usePercent ? 'percent' : 'standard';
   const ids = hoverFeatures.map(f => f.id as string);
   const [inspectorData, setInspectorData] = useState<Record<string, number>>({});
   const config = CONFIG_BY_COLUMN_SET[inspectorMode].sort((a, b) => a.label.localeCompare(b.label));
@@ -78,7 +78,8 @@ export const InspectorTooltip = () => {
                         : `${(inspectorData[f.column + '_pct'] ?? 0) * 100}%`,
                     opacity: '.15',
                     backgroundColor:
-                      inspectorMode === COLUMN_SETS.VOTERHISTORY && !isNaN(inspectorData[f.column + '_pct'])
+                      inspectorMode === COLUMN_SETS.VOTERHISTORY &&
+                      !isNaN(inspectorData[f.column + '_pct'])
                         ? PARTISAN_SCALE((inspectorData[f.column + '_pct'] + 1) / 2)
                         : undefined,
                   }}

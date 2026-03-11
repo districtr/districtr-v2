@@ -28,7 +28,7 @@ import {
 import {PARTISAN_SCALE} from '@/app/store/demography/constants';
 import {GearIcon} from '@radix-ui/react-icons';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
-import { COLUMN_SETS } from '@/app/constants/demography';
+import {COLUMN_SETS} from '@/app/constants/demography';
 
 type EvaluationProps = {
   summaryType: keyof SummaryStatConfig;
@@ -48,7 +48,8 @@ const Evaluation: React.FC<EvaluationProps> = ({summaryType, columnConfig}) => {
   const showModeButtons = Boolean(
     summaryStatConfig?.supportedModes?.length && summaryStatConfig?.supportedModes?.length > 1
   );
-  const numberFormat = numberFormats[summaryType === COLUMN_SETS.VOTERHISTORY ? 'partisan' : evalMode];
+  const numberFormat =
+    numberFormats[summaryType === COLUMN_SETS.VOTERHISTORY ? 'partisan' : evalMode];
 
   useEffect(() => {
     if (

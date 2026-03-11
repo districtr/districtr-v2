@@ -4,7 +4,7 @@ import {
   SummaryStatConfig,
   summaryStatsConfig,
 } from '@/app/utils/api/summaryStats';
-import { COLUMN_SET_LABELS, COLUMN_SETS } from '@/app/constants/demography';
+import {COLUMN_SET_LABELS, COLUMN_SETS} from '@/app/constants/demography';
 
 export const EVAL_MODES = {
   SHARE: 'share',
@@ -13,9 +13,11 @@ export const EVAL_MODES = {
   PARTISAN: 'partisan',
 } as const satisfies Record<string, string>;
 
-export type EvalModes = typeof EVAL_MODES[keyof typeof EVAL_MODES];
+export type EvalModes = (typeof EVAL_MODES)[keyof typeof EVAL_MODES];
 
-export const TOTPOPColumnConfig: EvalColumnConfiguration<SummaryStatConfig[typeof COLUMN_SETS.TOTPOP]> = [
+export const TOTPOPColumnConfig: EvalColumnConfiguration<
+  SummaryStatConfig[typeof COLUMN_SETS.TOTPOP]
+> = [
   {
     label: 'Black',
     column: 'bpop_20',

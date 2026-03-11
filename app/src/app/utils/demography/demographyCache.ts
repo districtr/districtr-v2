@@ -20,7 +20,7 @@ import {
   TabularDataWithPercent,
   AllMapConfigs,
 } from '../api/summaryStats';
-import { COLUMN_SETS } from '@/app/constants/demography';
+import {COLUMN_SETS} from '@/app/constants/demography';
 import {getColumnDerives, getPctDerives, getRollups} from './arquero';
 import * as scale from 'd3-scale';
 import {type AnyD3Scale} from '@/app/store/demography/types';
