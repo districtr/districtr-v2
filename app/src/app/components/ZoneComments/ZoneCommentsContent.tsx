@@ -10,7 +10,6 @@ import {
   ScrollArea,
   AlertDialog,
   Tooltip,
-  Badge,
 } from '@radix-ui/themes';
 import {
   PlusIcon,
@@ -184,6 +183,7 @@ export const ZoneCommentsContent: React.FC<ZoneCommentsContentProps> = ({
 
   const zoneLabel = mapMode === 'coi' ? 'Community' : 'District';
   const displayZone = mapMode === 'coi' ? getCommunityDisplayNumber(communities, zone) : zone;
+  const isProtectedComment = (index: number) => mapMode === 'coi' && index === 0;
 
   const handleAddComment = (text: string) => {
     const commentsForZone = useMapStore.getState().getZoneCommentsForZone(zone);
@@ -208,11 +208,16 @@ export const ZoneCommentsContent: React.FC<ZoneCommentsContentProps> = ({
   };
 
   const handleDeleteClick = (index: number) => {
+    if (isProtectedComment(index)) return;
     setDeleteConfirmIndex(index);
   };
 
   const handleConfirmDelete = () => {
     if (deleteConfirmIndex === null) return;
+    if (isProtectedComment(deleteConfirmIndex)) {
+      setDeleteConfirmIndex(null);
+      return;
+    }
     removeZoneComment(zone, deleteConfirmIndex);
     setDeleteConfirmIndex(null);
   };
@@ -300,14 +305,22 @@ export const ZoneCommentsContent: React.FC<ZoneCommentsContentProps> = ({
                               >
                                 <Pencil1Icon />
                               </IconButton>
-                              <IconButton
-                                size="1"
-                                variant="ghost"
-                                color="red"
-                                onClick={() => handleDeleteClick(index)}
-                              >
-                                <Cross2Icon />
-                              </IconButton>
+                              {isProtectedComment(index) ? (
+                                <Tooltip content="Each community must have a description comment. You can edit the description, but not delete it.">
+                                  <IconButton size="1" variant="ghost" color="gray" disabled>
+                                    <Cross2Icon />
+                                  </IconButton>
+                                </Tooltip>
+                              ) : (
+                                <IconButton
+                                  size="1"
+                                  variant="ghost"
+                                  color="red"
+                                  onClick={() => handleDeleteClick(index)}
+                                >
+                                  <Cross2Icon />
+                                </IconButton>
+                              )}
                             </>
                           )}
                           <CommentFlagButton
