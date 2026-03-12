@@ -48,6 +48,7 @@ export const CoiPicker = ({
   const hotkeyRef = useRef<string | null>(null);
   const setCommunityVisibility = useCoiAssignmentsStore(state => state.setCommunityVisibility);
   const communityVisibility = useCoiAssignmentsStore(state => state.communityVisibility);
+  const currentlySelectedCommunityId = value ?? defaultValue;
 
   const handleKeyPressSubmit = () => {
     if (!hotkeyRef.current) return;
@@ -122,6 +123,7 @@ export const CoiPicker = ({
                     size="1"
                     variant="ghost"
                     onClick={() => handleToggleVisibility(community.id)}
+                    disabled={community.id === currentlySelectedCommunityId}
                   >
                     {isVisible ? <EyeOpenIcon /> : <EyeClosedIcon />}
                   </Button>

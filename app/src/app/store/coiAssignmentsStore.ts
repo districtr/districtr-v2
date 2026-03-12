@@ -45,7 +45,11 @@ export interface CoiAssignmentsStore {
   communityAssignments: CommunityAssignmentsMap;
   /** Map determining if a community is visible or hidden in the UI. */
   communityVisibility: CommunityVisibilityMap;
+  /** Sets the visibility of a particular community */
   setCommunityVisibility: (community: Zone, isVisible: boolean) => void;
+  /** Sets the visibility of list of communities */
+  setCommunityVisibilityForCommunities: (communities: Iterable<Zone>, isVisible: boolean) => void;
+
   ensureCommunityVisibility: (community: Zone) => void;
   removeCommunityVisibility: (community: Zone) => void;
   getCommunityData: (community: Zone) => CommunityData | null;
@@ -378,6 +382,14 @@ export const useCoiAssignmentsStore = createWithDevWrapperAndSubscribe<CoiAssign
     newVisibility.set(community, isVisible);
     set({communityVisibility: newVisibility});
   },
+  setCommunityVisibilityForCommunities: (communities, isVisible) => {
+    const newVisibility = new Map(get().communityVisibility);
+    for (const community of communities) {
+      newVisibility.set(community, isVisible);
+    }
+    set({communityVisibility: newVisibility});
+  },
+
   ensureCommunityVisibility: community => {
     const newVisibility = new Map(get().communityVisibility);
     newVisibility.set(community, true);
