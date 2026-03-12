@@ -60,12 +60,11 @@ const resolveNumCommunities = (
   fallbackDocument?: DocumentObject | null
 ) => {
   return Math.max(
-    1,
+    0,
     mapDocument?.coi_communities?.length ??
       fallbackDocument?.coi_communities?.length ??
       mapDocument?.num_communities ??
       fallbackDocument?.num_communities ??
-      mapDocument?.num_districts ??
       FALLBACK_NUM_COMMUNITIES
   );
 };
@@ -331,7 +330,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
             mapControlsState.mapMode === 'coi' ? false : DEFAULT_MAP_OPTIONS.showZoneNumbers,
         },
         activeTool: mapDocument.access === 'edit' ? mapControlsState.activeTool : 'pan',
-        selectedZone: coiCommunities[0]?.id ?? 1,
+        selectedZone: coiCommunities[0]?.id ?? mapControlsState.selectedZone,
         sidebarPanels: ['population'],
         isPainting: false,
         isEditing: mapDocument.access === 'edit',
@@ -579,7 +578,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     setNumCommunities: numCommunities => {
       const {mapDocument, updated} = get();
       if (!mapDocument) return;
-      const normalizedNumCommunities = Math.max(1, numCommunities);
+      const normalizedNumCommunities = Math.max(0, numCommunities);
       const existingCommunities = get().coiCommunities;
       const newColorScheme = extendColorArray(
         mapDocument.color_scheme ?? DefaultColorScheme,
@@ -643,7 +642,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     setCoiCommunities: communities => {
       const {mapDocument, updated} = get();
       if (!mapDocument) return;
-      const count = Math.max(1, communities.length);
+      const count = Math.max(0, communities.length);
       const newColorScheme = extendColorArray(
         mapDocument.color_scheme ?? DefaultColorScheme,
         Math.max(count, mapDocument.num_districts ?? 0, getHighestCoiCommunityId(communities))
@@ -729,7 +728,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     },
     removeCoiCommunity: communityId => {
       const {mapDocument, coiCommunities, pinnedCommentZone} = get();
-      if (!mapDocument || coiCommunities.length <= 1) return;
+      if (!mapDocument || coiCommunities.length <= 0) return;
       const orderedCommunities = sortCoiCommunitiesByRenderOrder(coiCommunities);
       const removedCommunityIndex = orderedCommunities.findIndex(
         community => community.id === communityId

@@ -84,7 +84,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
             </Select.Root>
           </>
         )}
-        {isCoiMode && (
+        {isCoiMode && orderedCommunities.length > 0 && (
           <>
             <Text>Community</Text>
             <Select.Root
@@ -108,8 +108,10 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
         setSummaryType={setSummaryType}
         columnConfig={columnConfig}
         displayedColumnSets={displayedColumnSets}
-        singleZone={isCoiMode ? selectedZone : undefined}
-        universeTotals={isCoiMode ? demographyCache.universeTotals : undefined}
+        singleZone={isCoiMode && orderedCommunities.length > 0 ? selectedZone : undefined}
+        universeTotals={
+          isCoiMode && orderedCommunities.length > 0 ? demographyCache.universeTotals : undefined
+        }
       />
       <Heading as="h3" size="3">
         Map

@@ -75,6 +75,10 @@ const handleCoiFeatureSelection = (
     }
     case 'brush':
     case 'eraser':
+      if (!mapStore.coiCommunities.length) {
+        setIsPainting(false);
+        return;
+      }
       if (selectedFeatures && mapRef) {
         mutateCommunityAssignments(
           mapRef,
@@ -137,6 +141,7 @@ export const handleCoiMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerT
   const sourceLayer = mapDocument?.parent_layer;
   const childOnly = mapStore.captiveIds.size > 0 || mapOptions.mode === 'break';
   const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer, activeTool, childOnly);
+  const hasCommunities = mapStore.coiCommunities.length > 0;
 
   const isBrushingTool = sourceLayer && ALL_BRUSHING_TOOLS.includes(activeTool);
   if (selectingLayerId) {
@@ -161,7 +166,7 @@ export const handleCoiMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerT
   if (isBrushingTool && !isTouchEvent && !isPainting) {
     setHoverFeatures(selectedFeatures || []);
   }
-  if (selectedFeatures && isBrushingTool && isPainting) {
+  if (selectedFeatures && isBrushingTool && isPainting && hasCommunities) {
     mutateCommunityAssignments(
       mapRef,
       selectedFeatures,

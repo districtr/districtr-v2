@@ -7,6 +7,7 @@ import {
   getPrimaryCoiCommunityId,
   sortCoiCommunitiesByRenderOrder,
 } from '../utils/coiCommunities';
+import {colorScheme as DefaultColorScheme} from '@/app/constants/colors';
 import {useChartStore} from './chartStore';
 import {useMapStore} from './mapStore';
 import {useMapControlsStore} from './mapControlsStore';
@@ -835,6 +836,22 @@ export const useCoiAssignmentsStore = createWithDevWrapperAndSubscribe<CoiAssign
 
     if (mapDocument) {
       useMapStore.getState().mutateMapDocument(mapDocument);
+    }
+
+    const mapState = useMapStore.getState();
+    const currentCommunities = mapState.coiCommunities;
+    if (!currentCommunities.length && data.communityAssignments.size) {
+      const palette = mapState.mapDocument?.color_scheme ?? DefaultColorScheme;
+      const reconstructedCommunities = Array.from(data.communityAssignments.keys())
+        .sort((left, right) => left - right)
+        .map((communityId, index) => ({
+          id: communityId,
+          render_order_id: index + 1,
+          name: `Community ${index + 1}`,
+          color: palette[communityId - 1] ?? palette[index % palette.length] ?? '#000000',
+          createdAt: new Date(index * 1000).toISOString(),
+        }));
+      mapState.setCoiCommunities(reconstructedCommunities);
     }
 
     set({

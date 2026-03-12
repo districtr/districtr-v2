@@ -21,6 +21,10 @@ export const useSelectCoiCommunity = () => {
         return;
       }
 
+      if (!coiCommunities.some(community => community.id === communityId)) {
+        return;
+      }
+
       const nonSelectedCommunityIds = coiCommunities
         .map(community => community.id)
         .filter(id => id !== selectedZone);
