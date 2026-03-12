@@ -17,7 +17,7 @@ import {
 import {useAssignmentsStore as _useAssignmentsStore} from '@store/assignmentsStore';
 import {useCoiAssignmentsStore} from '@store/coiAssignmentsStore';
 import {Zone} from '@constants/types';
-import {getCoiCommunityFeatureStateKey, getPrimaryCoiCommunityId} from '../coiCommunities';
+import {getCommunityFeatureStateKey, getPrimaryCommunityId} from '../communities';
 import GeometryWorker from '../GeometryWorker';
 
 /**
@@ -238,7 +238,7 @@ export class MapRenderSubscriber {
     return geoidToCommunities;
   }
   getPrimaryCommunity(communities: Set<Zone>) {
-    return getPrimaryCoiCommunityId(communities, this.useMapStore.getState().coiCommunities);
+    return getPrimaryCommunityId(communities, this.useMapStore.getState().communities);
   }
   toPrimaryAssignments(geoidToCommunities: Map<string, Set<Zone>>) {
     const primaryAssignments = new Map<string, Zone>();
@@ -295,7 +295,7 @@ export class MapRenderSubscriber {
     return shatterIds.children.has(geoid) ? mapDocument.child_layer : mapDocument.parent_layer;
   }
   getCommunityFeatureStateKey(communityId: Zone) {
-    return getCoiCommunityFeatureStateKey(communityId) ?? `community_${communityId}`;
+    return getCommunityFeatureStateKey(communityId) ?? `community_${communityId}`;
   }
   buildDesiredCommunityState(communities: Set<Zone>) {
     const primary = this.getPrimaryCommunity(communities);

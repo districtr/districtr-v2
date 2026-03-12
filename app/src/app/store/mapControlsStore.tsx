@@ -81,7 +81,7 @@ export const useMapControlsStore = create<MapControlsStore>()(
       const mapStore = useMapStore.getState();
       const validZone =
         get().mapMode === 'coi'
-          ? mapStore.coiCommunities.some(community => community.id === zone)
+          ? mapStore.communities.some(community => community.id === zone)
           : zone <= (mapStore.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
       if (validZone && !get().isPainting) {
         set({selectedZone: zone});
@@ -132,7 +132,7 @@ export const useMapControlsStore = create<MapControlsStore>()(
         get().mapMode === 'coi'
           ? mapOptions.lockPaintedAreas.length
             ? []
-            : mapStore.coiCommunities.map(community => community.id as NullableZone)
+            : mapStore.communities.map(community => community.id as NullableZone)
           : mapOptions.lockPaintedAreas.length
             ? []
             : Array.from(

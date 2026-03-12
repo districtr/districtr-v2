@@ -8,10 +8,7 @@ import {useDemographyStore} from '../store/demography/demographyStore';
 import {FALLBACK_NUM_DISTRICTS} from '../constants/map/layerStyle';
 import {FALLBACK_NUM_COMMUNITIES} from '../constants/map/mapDefaults';
 import {SummaryRecord} from '../utils/api/summaryStats';
-import {
-  compareCoiZonesByRenderOrder,
-  sortCoiCommunitiesByRenderOrder,
-} from '../utils/coiCommunities';
+import {compareCoiZonesByRenderOrder, sortCommunitiesByRenderOrder} from '../utils/communities';
 
 /**
  * Custom hook to retrieve and process demography data.
@@ -37,7 +34,7 @@ export const useZonePopulations = (includeUnassigned?: boolean) => {
     state => state.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS
   );
   const numCommunities = useMapStore(state => state.numCommunities ?? FALLBACK_NUM_COMMUNITIES);
-  const coiCommunities = useMapStore(state => state.coiCommunities);
+  const communities = useMapStore(state => state.communities);
   const numZones = mapMode === 'coi' ? numCommunities : numDistricts;
   const mapDocument = useMapStore(state => state.mapDocument);
   const demoIsLoaded = mapDocument?.document_id && demogHash.includes(mapDocument.document_id);
@@ -46,7 +43,7 @@ export const useZonePopulations = (includeUnassigned?: boolean) => {
     let cleanedData = structuredClone(demographyCache.populations).filter(row =>
       includeUnassigned ? true : Boolean(row.zone)
     );
-    const orderedCommunities = sortCoiCommunitiesByRenderOrder(coiCommunities);
+    const orderedCommunities = sortCommunitiesByRenderOrder(communities);
     const expectedZones =
       mapMode === 'coi'
         ? orderedCommunities.map(community => community.id)
@@ -76,7 +73,7 @@ export const useZonePopulations = (includeUnassigned?: boolean) => {
     });
   }, [
     chartHash,
-    coiCommunities,
+    communities,
     demogHash,
     includeUnassigned,
     mapDocument,

@@ -1,12 +1,13 @@
 import {colorScheme as DefaultColorScheme} from '@/app/constants/colors';
 import {NullableZone, Zone} from '@/app/constants/types';
-import {CoiCommunity} from '@/app/utils/api/apiHandlers/types';
+import {Community} from '@/app/utils/api/apiHandlers/types';
 import {extendColorArray} from '@/app/utils/colors';
 
 const fallbackCreatedAt = (index: number) => new Date(index * 1000).toISOString();
 const communityNameForIndex = (index: number) => `Community ${index + 1}`;
+export const DEFAULT_COMMUNITY_DESCRIPTION = 'no description provided';
 
-const compareCommunitiesByRenderOrder = (left: CoiCommunity, right: CoiCommunity) => {
+const compareCommunitiesByRenderOrder = (left: Community, right: Community) => {
   const leftOrder = left.render_order_id ?? Number.MAX_SAFE_INTEGER;
   const rightOrder = right.render_order_id ?? Number.MAX_SAFE_INTEGER;
   if (leftOrder !== rightOrder) {
@@ -21,40 +22,42 @@ const parseCommunityNameIndex = (name: string) => {
   return Number(match[1]);
 };
 
-export const sortCoiCommunitiesByRenderOrder = (communities: CoiCommunity[]) =>
+export const sortCommunitiesByRenderOrder = (communities: Community[]) =>
   [...communities].sort(compareCommunitiesByRenderOrder);
 
-export const normalizeCoiCommunities = ({
+export const normalizeCommunities = ({
   communities,
   count,
   colorScheme,
 }: {
-  communities?: CoiCommunity[] | null;
+  communities?: Community[] | null;
   count: number;
   colorScheme?: string[] | null;
-}): CoiCommunity[] => {
+}): Community[] => {
   const palette = colorScheme?.length ? colorScheme : DefaultColorScheme;
   const communitiesWithFallbackOrder = [...(communities ?? [])].map((community, index) => ({
     ...community,
     render_order_id: community.render_order_id ?? index + 1,
   }));
-  const normalized = sortCoiCommunitiesByRenderOrder(communitiesWithFallbackOrder)
+  const normalized = sortCommunitiesByRenderOrder(communitiesWithFallbackOrder)
     .slice(0, count)
     .map((community, index) => ({
       id: community.id,
       render_order_id: index + 1,
       name: community.name || communityNameForIndex(index),
+      description: community.description || DEFAULT_COMMUNITY_DESCRIPTION,
       color: community.color || palette[(community.id - 1) % palette.length] || '#000000',
       createdAt: community.createdAt || fallbackCreatedAt(index),
     }));
 
   for (let index = normalized.length; index < count; index += 1) {
-    const nextId = getNextCoiCommunityId(normalized);
+    const nextId = getNextCommunityId(normalized);
     normalized.push({
       id: nextId,
       render_order_id: index + 1,
-      name: getNextCoiCommunityName(normalized),
-      color: getNextUnusedCoiCommunityColor(normalized, palette),
+      name: getNextCommunityName(normalized),
+      description: DEFAULT_COMMUNITY_DESCRIPTION,
+      color: getNextUnusedCommunityColor(normalized, palette),
       createdAt: new Date().toISOString(),
     });
   }
@@ -62,8 +65,8 @@ export const normalizeCoiCommunities = ({
   return normalized;
 };
 
-export const getCoiCommunityColor = (
-  communities: CoiCommunity[],
+export const getCommunityColor = (
+  communities: Community[],
   zone: NullableZone,
   fallbackColor = '#000000'
 ) => {
@@ -71,31 +74,31 @@ export const getCoiCommunityColor = (
   return communities.find(community => community.id === zone)?.color ?? fallbackColor;
 };
 
-export const getCoiCommunityById = (communities: CoiCommunity[], zone: NullableZone) => {
+export const getCommunityById = (communities: Community[], zone: NullableZone) => {
   if (zone === null) return null;
   return communities.find(community => community.id === zone) ?? null;
 };
 
-export const getCoiCommunityByRenderOrder = (
-  communities: CoiCommunity[],
+export const getCommunityByRenderOrder = (
+  communities: Community[],
   renderOrderId: NullableZone
 ) => {
   if (renderOrderId === null) return null;
   return communities.find(community => community.render_order_id === renderOrderId) ?? null;
 };
 
-export const getCoiCommunityRenderOrderId = (communities: CoiCommunity[], zone: NullableZone) =>
-  getCoiCommunityById(communities, zone)?.render_order_id ?? null;
+export const getCommunityRenderOrderId = (communities: Community[], zone: NullableZone) =>
+  getCommunityById(communities, zone)?.render_order_id ?? null;
 
-export const getCoiCommunityDisplayNumber = (communities: CoiCommunity[], zone: NullableZone) =>
-  getCoiCommunityRenderOrderId(communities, zone) ?? zone;
+export const getCommunityDisplayNumber = (communities: Community[], zone: NullableZone) =>
+  getCommunityRenderOrderId(communities, zone) ?? zone;
 
-export const getCoiCommunityFeatureStateKey = (zone: NullableZone) => {
+export const getCommunityFeatureStateKey = (zone: NullableZone) => {
   if (zone === null) return null;
   return `community_${zone}`;
 };
 
-export const syncCoiColorsToColorScheme = (communities: CoiCommunity[], colorScheme: string[]) => {
+export const syncCoiColorsToColorScheme = (communities: Community[], colorScheme: string[]) => {
   const nextColorScheme = [...colorScheme];
   communities.forEach(community => {
     nextColorScheme[community.id - 1] = community.color;
@@ -103,7 +106,7 @@ export const syncCoiColorsToColorScheme = (communities: CoiCommunity[], colorSch
   return nextColorScheme;
 };
 
-export const getNextCoiCommunityName = (communities: CoiCommunity[]) => {
+export const getNextCommunityName = (communities: Community[]) => {
   const usedNames = new Set(
     communities
       .map(community => parseCommunityNameIndex(community.name))
@@ -116,17 +119,17 @@ export const getNextCoiCommunityName = (communities: CoiCommunity[]) => {
   return `Community ${nextIndex}`;
 };
 
-export const getNextCoiCommunityId = (communities: CoiCommunity[]) =>
+export const getNextCommunityId = (communities: Community[]) =>
   communities.reduce((maxValue, community) => Math.max(maxValue, community.id), 0) + 1;
 
-export const getHighestCoiCommunityId = (communities: CoiCommunity[]) =>
+export const getHighestCommunityId = (communities: Community[]) =>
   communities.reduce((maxValue, community) => Math.max(maxValue, community.id), 0);
 
-export const getHighestCoiCommunityRenderOrderId = (communities: CoiCommunity[]) =>
+export const getHighestCommunityRenderOrderId = (communities: Community[]) =>
   communities.reduce((maxValue, community) => Math.max(maxValue, community.render_order_id), 0);
 
-export const getNextUnusedCoiCommunityColor = (
-  communities: CoiCommunity[],
+export const getNextUnusedCommunityColor = (
+  communities: Community[],
   colorScheme?: string[] | null
 ) => {
   const usedColors = new Set(communities.map(community => community.color));
@@ -144,11 +147,33 @@ export const getNextUnusedCoiCommunityColor = (
   return nextColor;
 };
 
-export const removeCoiCommunityAndShiftRenderOrder = (
-  communities: CoiCommunity[],
+export const getUnusedCommunityColors = (
+  communities: Community[],
+  colorScheme?: string[] | null,
+  minimumCount = 18
+) => {
+  const usedColors = new Set(communities.map(community => community.color));
+  let palette = [
+    ...(colorScheme?.length ? colorScheme : DefaultColorScheme),
+    ...DefaultColorScheme,
+  ].filter((color, index, colors) => colors.indexOf(color) === index);
+  let unusedColors = palette.filter(color => !usedColors.has(color));
+
+  while (unusedColors.length < minimumCount) {
+    palette = extendColorArray(palette, palette.length + minimumCount, DefaultColorScheme);
+    unusedColors = palette.filter(
+      (color, index, colors) => !usedColors.has(color) && colors.indexOf(color) === index
+    );
+  }
+
+  return unusedColors;
+};
+
+export const removeCommunityAndShiftRenderOrder = (
+  communities: Community[],
   removedCommunityId: Zone
 ) =>
-  sortCoiCommunitiesByRenderOrder(
+  sortCommunitiesByRenderOrder(
     communities.filter(community => community.id !== removedCommunityId)
   ).map((community, index) => ({
     ...community,
@@ -158,19 +183,19 @@ export const removeCoiCommunityAndShiftRenderOrder = (
 export const compareCoiZonesByRenderOrder = (
   left: NullableZone,
   right: NullableZone,
-  communities: CoiCommunity[]
+  communities: Community[]
 ) => {
-  const leftOrder = getCoiCommunityRenderOrderId(communities, left) ?? Number.MAX_SAFE_INTEGER;
-  const rightOrder = getCoiCommunityRenderOrderId(communities, right) ?? Number.MAX_SAFE_INTEGER;
+  const leftOrder = getCommunityRenderOrderId(communities, left) ?? Number.MAX_SAFE_INTEGER;
+  const rightOrder = getCommunityRenderOrderId(communities, right) ?? Number.MAX_SAFE_INTEGER;
   if (leftOrder !== rightOrder) {
     return leftOrder - rightOrder;
   }
   return (left ?? Number.MAX_SAFE_INTEGER) - (right ?? Number.MAX_SAFE_INTEGER);
 };
 
-export const getPrimaryCoiCommunityId = (
+export const getPrimaryCommunityId = (
   communities: Iterable<Zone>,
-  communityMetadata: CoiCommunity[]
+  communityMetadata: Community[]
 ): NullableZone => {
   let primary: NullableZone = null;
   for (const communityId of communities) {

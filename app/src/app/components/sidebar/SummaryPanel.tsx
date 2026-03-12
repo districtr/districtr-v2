@@ -9,7 +9,7 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
-import {sortCoiCommunitiesByRenderOrder} from '@/app/utils/coiCommunities';
+import {sortCommunitiesByRenderOrder} from '@/app/utils/communities';
 
 type SummaryPanelProps = {
   defaultColumnSet: keyof SummaryStatConfig;
@@ -27,7 +27,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
   const setSelectedZone = useMapControlsStore(state => state.setSelectedZone);
   const numDistricts =
     useMapStore(state => state.mapDocument?.num_districts) ?? FALLBACK_NUM_DISTRICTS;
-  const coiCommunities = useMapStore(state => state.coiCommunities);
+  const communities = useMapStore(state => state.communities);
 
   const [summaryType, setSummaryType] = useState<keyof SummaryStatConfig | undefined>(
     !availableColumnSets.length
@@ -39,7 +39,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
 
   const columnConfig = summaryType ? availableSummaries[summaryType] : [];
   const isCoiMode = mapMode === 'coi';
-  const orderedCommunities = sortCoiCommunitiesByRenderOrder(coiCommunities);
+  const orderedCommunities = sortCommunitiesByRenderOrder(communities);
 
   useEffect(() => {
     if (!availableColumnSets.length) return;

@@ -1,30 +1,41 @@
-import React, {useEffect} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {Box, Flex, Button} from '@radix-ui/themes';
 import {EyeOpenIcon, EyeClosedIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '../../store/mapStore';
 import {useMapControlsStore} from '../../store/mapControlsStore';
 import {CoiPicker} from './CoiPicker';
+import {AddCommunityDialog} from './AddCommunityDialog';
 import {COI_MIN_COMMUNITIES, COI_MAX_COMMUNITIES} from '@/app/constants/map/mapDefaults';
+import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
-import {useSelectCoiCommunity} from '@/app/hooks/useSelectCoiCommunity';
+import {useSelectCommunity} from '@/app/hooks/useSelectCommunity';
+import {getNextCommunityName, getUnusedCommunityColors} from '@/app/utils/communities';
 
 export const CoiZonePicker: React.FC = () => {
   const selectedZone = useMapControlsStore(state => state.selectedZone);
   const access = useMapStore(state => state.mapStatus?.access);
-  const coiCommunities = useMapStore(state => state.coiCommunities);
+  const communities = useMapStore(state => state.communities);
   const communityVisibility = useCoiAssignmentsStore(state => state.communityVisibility);
+  const colorScheme = useColorScheme();
 
-  const addCoiCommunity = useMapStore(state => state.addCoiCommunity);
-  const removeCoiCommunity = useMapStore(state => state.removeCoiCommunity);
+  const addCommunity = useMapStore(state => state.addCommunity);
+  const removeCommunity = useMapStore(state => state.removeCommunity);
   const setCommunityVisibility = useCoiAssignmentsStore(state => state.setCommunityVisibility);
   const setCommunityVisibilityForCommunities = useCoiAssignmentsStore(
     state => state.setCommunityVisibilityForCommunities
   );
-  const selectCoiCommunity = useSelectCoiCommunity();
+  const selectCommunity = useSelectCommunity();
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
-  const nonSelectedCommunityIds = coiCommunities
+  const nonSelectedCommunityIds = communities
     .map(community => community.id)
     .filter(communityId => communityId !== selectedZone);
+  const defaultCommunityName = useMemo(() => getNextCommunityName(communities), [communities]);
+  const availableCommunityColors = useMemo(
+    () => getUnusedCommunityColors(communities, colorScheme),
+    [communities, colorScheme]
+  );
+  const defaultCommunityColor = availableCommunityColors[0] ?? colorScheme[0] ?? '#000000';
   const anyNotSelectedVisible = nonSelectedCommunityIds.some(
     communityId => communityVisibility.get(communityId) ?? true
   );
@@ -41,12 +52,29 @@ export const CoiZonePicker: React.FC = () => {
   }, [communityVisibility, selectedZone, setCommunityVisibility]);
 
   const handleRadioChange = (communityId: number, _color: string) => {
-    selectCoiCommunity(communityId);
+    selectCommunity(communityId);
+  };
+
+  const openAddCommunityDialog = () => {
+    if (communities.length >= COI_MAX_COMMUNITIES) return;
+    setIsAddDialogOpen(true);
   };
 
   const handleIncreaseCommunities = () => {
-    if (coiCommunities.length >= COI_MAX_COMMUNITIES) return;
-    addCoiCommunity();
+    openAddCommunityDialog();
+  };
+
+  const handleCreateCommunity = ({
+    name,
+    description,
+    color,
+  }: {
+    name: string;
+    description: string;
+    color: string;
+  }) => {
+    addCommunity({name, description, color});
+    setIsAddDialogOpen(false);
   };
 
   const isReadOnly = access === 'read';
@@ -62,7 +90,7 @@ export const CoiZonePicker: React.FC = () => {
                 size="1"
                 variant="soft"
                 onClick={handleIncreaseCommunities}
-                disabled={isReadOnly || coiCommunities.length >= COI_MAX_COMMUNITIES}
+                disabled={isReadOnly || communities.length >= COI_MAX_COMMUNITIES}
               >
                 Add Community
               </Button>
@@ -70,8 +98,8 @@ export const CoiZonePicker: React.FC = () => {
                 size="1"
                 variant="soft"
                 color="red"
-                onClick={() => removeCoiCommunity(selectedZone)}
-                disabled={isReadOnly || coiCommunities.length <= COI_MIN_COMMUNITIES}
+                onClick={() => removeCommunity(selectedZone)}
+                disabled={isReadOnly || communities.length <= COI_MIN_COMMUNITIES}
               >
                 Remove Community
               </Button>
@@ -85,9 +113,17 @@ export const CoiZonePicker: React.FC = () => {
           onValueChange={handleRadioChange}
           defaultValue={selectedZone}
           value={selectedZone}
-          communities={coiCommunities}
+          communityList={communities}
         />
       </Flex>
+      <AddCommunityDialog
+        open={isAddDialogOpen}
+        onOpenChange={setIsAddDialogOpen}
+        onSubmit={handleCreateCommunity}
+        defaultName={defaultCommunityName}
+        defaultColor={defaultCommunityColor}
+        availableColors={availableCommunityColors}
+      />
     </Box>
   );
 };

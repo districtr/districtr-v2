@@ -1,8 +1,8 @@
 import {useEffect, useRef} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
 import {NullableZone} from '@/app/constants/types';
-import {CoiCommunity} from '@/app/utils/api/apiHandlers/types';
-import {sortCoiCommunitiesByRenderOrder} from '@/app/utils/coiCommunities';
+import {Community} from '@/app/utils/api/apiHandlers/types';
+import {sortCommunitiesByRenderOrder} from '@/app/utils/communities';
 import {Box, Flex, RadioGroup, Text, Button} from '@radix-ui/themes';
 import {EyeClosedIcon, EyeOpenIcon} from '@radix-ui/react-icons';
 import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
@@ -14,7 +14,7 @@ export type CoiPickerProps = {
   onValueChange: (communityId: number, color: string) => void;
   multiple?: false;
   disabledValues?: NullableZone[];
-  communities?: CoiCommunity[];
+  communityList?: Community[];
 };
 
 const StyledRadioGroupItem = styled(RadioGroup.Item, {
@@ -40,11 +40,11 @@ export const CoiPicker = ({
   value,
   onValueChange,
   disabledValues,
-  communities,
+  communityList,
 }: CoiPickerProps) => {
   const mapDocument = useMapStore(state => state.mapDocument);
-  const stateCommunities = useMapStore(state => state.coiCommunities);
-  const coiCommunities = sortCoiCommunitiesByRenderOrder(communities ?? stateCommunities);
+  const stateCommunities = useMapStore(state => state.communities);
+  const communities = sortCommunitiesByRenderOrder(communityList ?? stateCommunities);
   const hotkeyRef = useRef<string | null>(null);
   const setCommunityVisibility = useCoiAssignmentsStore(state => state.setCommunityVisibility);
   const communityVisibility = useCoiAssignmentsStore(state => state.communityVisibility);
@@ -53,7 +53,7 @@ export const CoiPicker = ({
   const handleKeyPressSubmit = () => {
     if (!hotkeyRef.current) return;
     const renderOrderId = parseInt(hotkeyRef.current, 10);
-    const selectedCommunity = coiCommunities.find(
+    const selectedCommunity = communities.find(
       community => community.render_order_id === renderOrderId
     );
     hotkeyRef.current = null;
@@ -88,14 +88,14 @@ export const CoiPicker = ({
     return () => {
       document.removeEventListener('keydown', handleKeyPress);
     };
-  }, [coiCommunities, onValueChange]);
+  }, [communities, onValueChange]);
 
   return (
     <Box>
       <RadioGroup.Root
         onValueChange={value => {
           const communityId = Number(value);
-          const selectedCommunity = coiCommunities.find(community => community.id === communityId);
+          const selectedCommunity = communities.find(community => community.id === communityId);
           if (selectedCommunity) onValueChange(selectedCommunity.id, selectedCommunity.color);
         }}
         value={value !== undefined ? String(value) : undefined}
@@ -103,7 +103,7 @@ export const CoiPicker = ({
       >
         <Flex direction="column" wrap="wrap" gapX="2">
           {!!mapDocument &&
-            coiCommunities.map(community => {
+            communities.map(community => {
               const isVisible = communityVisibility.get(community.id) ?? true;
               return (
                 <Flex direction="row" align="center" key={community.id} pb="2">

@@ -28,10 +28,7 @@ import {
 import {PARTISAN_SCALE} from '@/app/store/demography/constants';
 import {GearIcon} from '@radix-ui/react-icons';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
-import {
-  compareCoiZonesByRenderOrder,
-  getCoiCommunityDisplayNumber,
-} from '@/app/utils/coiCommunities';
+import {compareCoiZonesByRenderOrder, getCommunityDisplayNumber} from '@/app/utils/communities';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 
@@ -70,7 +67,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
   const colorScheme = useColorScheme();
   const getZoneColor = useZoneColorGetter();
   const mapMode = useMapControlsStore(state => state.mapMode);
-  const coiCommunities = useMapStore(state => state.coiCommunities);
+  const communities = useMapStore(state => state.communities);
   const summaryStatConfig = summaryStatLabels.find(f => f.value === summaryType);
   const showModeButtons = Boolean(
     summaryStatConfig?.supportedModes?.length && summaryStatConfig?.supportedModes?.length > 1
@@ -176,7 +173,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
                 if (a.zone === 0) return -1;
                 if (b.zone === 0) return 1;
                 if (mapMode === 'coi') {
-                  return compareCoiZonesByRenderOrder(a.zone, b.zone, coiCommunities);
+                  return compareCoiZonesByRenderOrder(a.zone, b.zone, communities);
                 }
                 return (a.zone || 0) - (b.zone || 0);
               })
@@ -188,7 +185,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
                   : isUnassigned
                     ? 'None'
                     : mapMode === 'coi'
-                      ? getCoiCommunityDisplayNumber(coiCommunities, row.zone)
+                      ? getCommunityDisplayNumber(communities, row.zone)
                       : row.zone;
                 const backgroundColor = isUniverse
                   ? '#9CA3AF'

@@ -65,10 +65,11 @@ export interface DocumentMetadata {
   draft_status: DraftStatus | null;
 }
 
-export interface CoiCommunity {
+export interface Community {
   id: number;
   render_order_id: number;
   name: string;
+  description: string;
   color: string;
   createdAt: string;
 }
@@ -85,7 +86,7 @@ export interface DocumentObject extends StatusObject {
   /** COI-only local metadata for community count. */
   num_communities?: number | null;
   /** COI-only local metadata for explicit community ordering/color state. */
-  coi_communities?: CoiCommunity[] | null;
+  coi_communities?: Community[] | null;
   /** If false, users cannot change the number of districts on the frontend. */
   num_districts_modifiable?: boolean;
   map_module: string | null;

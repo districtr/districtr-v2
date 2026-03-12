@@ -2,7 +2,7 @@
 import {Box, Flex, Text, Separator} from '@radix-ui/themes';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useMapStore} from '@/app/store/mapStore';
-import {getCoiCommunityDisplayNumber} from '@/app/utils/coiCommunities';
+import {getCommunityDisplayNumber} from '@/app/utils/communities';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 
 interface ZoneCommentTooltipProps {
@@ -13,12 +13,12 @@ interface ZoneCommentTooltipProps {
 
 export const ZoneCommentTooltip: React.FC<ZoneCommentTooltipProps> = ({zone, x, y}) => {
   const comments = useMapStore(state => state.getZoneCommentsForZone(zone));
-  const coiCommunities = useMapStore(state => state.coiCommunities);
+  const communities = useMapStore(state => state.communities);
   const mapMode = useMapControlsStore(state => state.mapMode);
   const getZoneColor = useZoneColorGetter();
   const color = getZoneColor(zone);
   const zoneLabel = mapMode === 'coi' ? 'Community' : 'District';
-  const displayZone = mapMode === 'coi' ? getCoiCommunityDisplayNumber(coiCommunities, zone) : zone;
+  const displayZone = mapMode === 'coi' ? getCommunityDisplayNumber(communities, zone) : zone;
 
   return (
     <Box

@@ -1,12 +1,13 @@
 import {GDBPath, NullableZone, Zone} from '@constants/types';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
 import {Map as MaplibreMap, MapGeoJSONFeature} from 'maplibre-gl';
-import {CoiCommunity, DocumentObject} from '../utils/api/apiHandlers/types';
+import {Community, DocumentObject} from '../utils/api/apiHandlers/types';
 import {
-  getCoiCommunityFeatureStateKey,
-  getPrimaryCoiCommunityId,
-  sortCoiCommunitiesByRenderOrder,
-} from '../utils/coiCommunities';
+  DEFAULT_COMMUNITY_DESCRIPTION,
+  getCommunityFeatureStateKey,
+  getPrimaryCommunityId,
+  sortCommunitiesByRenderOrder,
+} from '../utils/communities';
 import {colorScheme as DefaultColorScheme} from '@/app/constants/colors';
 import {useChartStore} from './chartStore';
 import {useMapStore} from './mapStore';
@@ -19,7 +20,7 @@ import {createWithDevWrapperAndSubscribe} from './middlewares';
 
 export type CommunityAssignmentsMap = Map<Zone, Set<string>>;
 export type CommunityVisibilityMap = Map<Zone, boolean>;
-export type CommunityData = CoiCommunity & {
+export type CommunityData = Community & {
   visible: boolean;
   assignments: Set<string>;
   lastUpdated: string | null;
@@ -218,7 +219,7 @@ const buildCommunityState = ({
   communityVisibility,
   communityLastUpdated,
 }: {
-  community: CoiCommunity;
+  community: Community;
   communityAssignments: CommunityAssignmentsMap;
   communityVisibility: CommunityVisibilityMap;
   communityLastUpdated: Map<Zone, string>;
@@ -244,9 +245,9 @@ const getPrimaryCommunityForGeoidFromAssignments = (
   assignments: CommunityAssignmentsMap,
   geoid: string
 ): NullableZone => {
-  return getPrimaryCoiCommunityId(
+  return getPrimaryCommunityId(
     getCommunitiesForGeoidFromAssignments(assignments, geoid),
-    useMapStore.getState().coiCommunities
+    useMapStore.getState().communities
   );
 };
 
@@ -339,9 +340,9 @@ const buildFeatureStateUpdateForCommunities = (
   prevCommunities: Set<Zone>,
   newCommunities: Set<Zone>
 ) => {
-  const nextPrimaryCommunity = getPrimaryCoiCommunityId(
+  const nextPrimaryCommunity = getPrimaryCommunityId(
     newCommunities,
-    useMapStore.getState().coiCommunities
+    useMapStore.getState().communities
   );
   const updatedKeys = new Set<string>();
   const featureStateUpdate: Record<string, unknown> = {
@@ -353,16 +354,16 @@ const buildFeatureStateUpdateForCommunities = (
   // We also need to set a key for each community that was added or removed so that the feature
   // state update triggers a paint update for those communities
   prevCommunities.forEach(communityId => {
-    updatedKeys.add(getCoiCommunityFeatureStateKey(communityId) ?? `community_${communityId}`);
+    updatedKeys.add(getCommunityFeatureStateKey(communityId) ?? `community_${communityId}`);
   });
   newCommunities.forEach(communityId => {
-    updatedKeys.add(getCoiCommunityFeatureStateKey(communityId) ?? `community_${communityId}`);
+    updatedKeys.add(getCommunityFeatureStateKey(communityId) ?? `community_${communityId}`);
   });
   updatedKeys.forEach(featureStateKey => {
     featureStateUpdate[featureStateKey] = false;
   });
   newCommunities.forEach(communityId => {
-    featureStateUpdate[getCoiCommunityFeatureStateKey(communityId) ?? `community_${communityId}`] =
+    featureStateUpdate[getCommunityFeatureStateKey(communityId) ?? `community_${communityId}`] =
       true;
   });
 
@@ -402,8 +403,8 @@ export const useCoiAssignmentsStore = createWithDevWrapperAndSubscribe<CoiAssign
     set({communityVisibility: newVisibility});
   },
   getCommunityData: community => {
-    const {coiCommunities} = useMapStore.getState();
-    const communityMetadata = coiCommunities.find(item => item.id === community);
+    const {communities} = useMapStore.getState();
+    const communityMetadata = communities.find(item => item.id === community);
     if (!communityMetadata) return null;
     const {communityAssignments, communityVisibility, communityLastUpdated} = get();
     return buildCommunityState({
@@ -414,9 +415,9 @@ export const useCoiAssignmentsStore = createWithDevWrapperAndSubscribe<CoiAssign
     });
   },
   getCommunitiesData: () => {
-    const {coiCommunities} = useMapStore.getState();
+    const {communities} = useMapStore.getState();
     const {communityAssignments, communityVisibility, communityLastUpdated} = get();
-    return sortCoiCommunitiesByRenderOrder(coiCommunities).map(community =>
+    return sortCommunitiesByRenderOrder(communities).map(community =>
       buildCommunityState({
         community,
         communityAssignments,
@@ -839,7 +840,7 @@ export const useCoiAssignmentsStore = createWithDevWrapperAndSubscribe<CoiAssign
     }
 
     const mapState = useMapStore.getState();
-    const currentCommunities = mapState.coiCommunities;
+    const currentCommunities = mapState.communities;
     if (!currentCommunities.length && data.communityAssignments.size) {
       const palette = mapState.mapDocument?.color_scheme ?? DefaultColorScheme;
       const reconstructedCommunities = Array.from(data.communityAssignments.keys())
@@ -848,16 +849,17 @@ export const useCoiAssignmentsStore = createWithDevWrapperAndSubscribe<CoiAssign
           id: communityId,
           render_order_id: index + 1,
           name: `Community ${index + 1}`,
+          description: DEFAULT_COMMUNITY_DESCRIPTION,
           color: palette[communityId - 1] ?? palette[index % palette.length] ?? '#000000',
           createdAt: new Date(index * 1000).toISOString(),
         }));
-      mapState.setCoiCommunities(reconstructedCommunities);
+      mapState.setCommunities(reconstructedCommunities);
     }
 
     set({
       communityAssignments: deepCopyCommunityAssignments(data.communityAssignments),
       communityVisibility: buildCommunityVisibilityMap(
-        useMapStore.getState().coiCommunities.map(community => community.id),
+        useMapStore.getState().communities.map(community => community.id),
         data.communtyVisibility
       ),
       accumulatedAssignments: new Map<string, CoiAccumulatedMutation>(),

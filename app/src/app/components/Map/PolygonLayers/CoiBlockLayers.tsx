@@ -6,7 +6,7 @@ import {BLOCK_SOURCE_ID, CANONICAL_LAYER_IDS, BlockScope} from '@constants/map/l
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
-import {sortCoiCommunitiesByRenderOrder} from '@/app/utils/coiCommunities';
+import {sortCommunitiesByRenderOrder} from '@/app/utils/communities';
 import GeometryOutlineLayer from './GeometryOutlineLayer';
 import {HoverLayerGroup} from './HoverLayerGroup';
 import {GeometryBackgroundLayer} from './GeometryBackgroundLayer';
@@ -30,14 +30,14 @@ export const CoiBlockLayers: React.FC<{
 }> = ({scope, layerFilter, outlineFilter, sourceLayerId}) => {
   const showDemographicMap = useMapControlsStore(state => state.mapOptions.showDemographicMap);
   const selectedCommunity = useMapControlsStore(state => state.selectedZone);
-  const coiCommunities = useMapStore(state => state.coiCommunities);
+  const communities = useMapStore(state => state.communities);
   const communityVisibility = useCoiAssignmentsStore(state => state.communityVisibility);
   const showDemographyOverlay = showDemographicMap === 'overlay';
   const showGeometryBackground = showDemographicMap !== 'overlay';
   const lineWidth = scope === 'CHILD' ? 1 : 2;
   const backgroundOpacity =
     scope === 'CHILD' ? UNASSIGNED_BACKGROUND_OPACITY.child : UNASSIGNED_BACKGROUND_OPACITY.parent;
-  const allCommunities = sortCoiCommunitiesByRenderOrder(coiCommunities);
+  const allCommunities = sortCommunitiesByRenderOrder(communities);
   const visibleMembershipKeys = allCommunities
     .filter(community => communityVisibility.get(community.id) ?? true)
     .map(community => `community_${community.id}`);

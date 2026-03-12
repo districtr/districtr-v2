@@ -3,11 +3,11 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 
-export const useSelectCoiCommunity = () => {
+export const useSelectCommunity = () => {
   const mapMode = useMapControlsStore(state => state.mapMode);
   const selectedZone = useMapControlsStore(state => state.selectedZone);
   const setSelectedZone = useMapControlsStore(state => state.setSelectedZone);
-  const coiCommunities = useMapStore(state => state.coiCommunities);
+  const communities = useMapStore(state => state.communities);
   const communityVisibility = useCoiAssignmentsStore(state => state.communityVisibility);
   const setCommunityVisibility = useCoiAssignmentsStore(state => state.setCommunityVisibility);
   const setCommunityVisibilityForCommunities = useCoiAssignmentsStore(
@@ -21,11 +21,11 @@ export const useSelectCoiCommunity = () => {
         return;
       }
 
-      if (!coiCommunities.some(community => community.id === communityId)) {
+      if (!communities.some(community => community.id === communityId)) {
         return;
       }
 
-      const nonSelectedCommunityIds = coiCommunities
+      const nonSelectedCommunityIds = communities
         .map(community => community.id)
         .filter(id => id !== selectedZone);
       const anyNotSelectedVisible = nonSelectedCommunityIds.some(
@@ -33,7 +33,7 @@ export const useSelectCoiCommunity = () => {
       );
 
       if (!anyNotSelectedVisible && communityId !== selectedZone) {
-        const communitiesToHide = coiCommunities
+        const communitiesToHide = communities
           .map(community => community.id)
           .filter(id => id !== communityId);
         setCommunityVisibilityForCommunities(communitiesToHide, false);
@@ -43,7 +43,7 @@ export const useSelectCoiCommunity = () => {
       setCommunityVisibility(communityId, true);
     },
     [
-      coiCommunities,
+      communities,
       communityVisibility,
       mapMode,
       selectedZone,

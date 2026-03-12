@@ -32,7 +32,7 @@ import {
 } from '@/app/store/demography/constants';
 import {NullableZone} from '@/app/constants/types';
 import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
-import {compareCoiZonesByRenderOrder, sortCoiCommunitiesByRenderOrder} from '../coiCommunities';
+import {compareCoiZonesByRenderOrder, sortCommunitiesByRenderOrder} from '../communities';
 /**
  * Class to organize queries on current demographic data
  */
@@ -185,7 +185,7 @@ class DemographyCache {
     const mapMode = useMapControlsStore.getState().mapMode;
     const zoneIds =
       mapMode === 'coi'
-        ? sortCoiCommunitiesByRenderOrder(mapState.coiCommunities).map(community => community.id)
+        ? sortCommunitiesByRenderOrder(mapState.communities).map(community => community.id)
         : Array.from(
             {length: mapState.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS},
             (_, i) => i + 1
@@ -241,7 +241,7 @@ class DemographyCache {
       if (left.zone === undefined || left.zone === null) return 1;
       if (right.zone === undefined || right.zone === null) return -1;
       if (mapMode === 'coi') {
-        return compareCoiZonesByRenderOrder(left.zone, right.zone, mapState.coiCommunities);
+        return compareCoiZonesByRenderOrder(left.zone, right.zone, mapState.communities);
       }
       return left.zone - right.zone;
     });
@@ -272,7 +272,7 @@ class DemographyCache {
     const mapMode = useMapControlsStore.getState().mapMode;
     const numZones =
       mapMode === 'coi'
-        ? Math.max(mapState.coiCommunities.length, FALLBACK_NUM_COMMUNITIES)
+        ? Math.max(mapState.communities.length, FALLBACK_NUM_COMMUNITIES)
         : (mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
 
     Object.entries(summaryStatsConfig).forEach(([key, config]) => {

@@ -15,8 +15,8 @@ import {ZoneCommentPopover} from './ZoneCommentPopover';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/map/mapDefaults';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
-import {getCoiCommunityRenderOrderId} from '@/app/utils/coiCommunities';
-import {useSelectCoiCommunity} from '@/app/hooks/useSelectCoiCommunity';
+import {getCommunityRenderOrderId} from '@/app/utils/communities';
+import {useSelectCommunity} from '@/app/hooks/useSelectCommunity';
 
 const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
 
@@ -50,10 +50,10 @@ export const PopulationPanel = () => {
   const allAreLocked = populationData.every((d: any) => lockPaintedAreas?.includes(d.zone));
   const selectedZone = useMapControlsStore(state => state.selectedZone);
   const access = useMapStore(state => state.mapStatus?.access);
-  const coiCommunities = useMapStore(state => state.coiCommunities);
+  const communities = useMapStore(state => state.communities);
   const getZoneColor = useZoneColorGetter();
   const isEditing = useMapControlsStore(state => state.isEditing);
-  const selectCoiCommunity = useSelectCoiCommunity();
+  const selectCommunity = useSelectCommunity();
   const handleLockChange = (zone: number) => {
     if (lockPaintedAreas.includes(zone)) {
       setLockedZones(lockPaintedAreas.filter(f => f !== zone));
@@ -131,13 +131,13 @@ export const PopulationPanel = () => {
               {!!showDistrictNumbers && (
                 <IconButton
                   variant={'outline'}
-                  onClick={() => selectCoiCommunity(d.zone)}
+                  onClick={() => selectCommunity(d.zone)}
                   size="1"
                   className={`${selectedZone === d.zone ? 'bg-gray-100' : '!shadow-none'} max-w-12 flex-grow`}
                 >
                   <Text weight={selectedZone === d.zone ? 'bold' : 'regular'}>
                     {mapMode === 'coi'
-                      ? (getCoiCommunityRenderOrderId(coiCommunities, d.zone) ?? d.zone)
+                      ? (getCommunityRenderOrderId(communities, d.zone) ?? d.zone)
                       : d.zone}
                   </Text>
                 </IconButton>
@@ -169,7 +169,7 @@ export const PopulationPanel = () => {
               height={height}
               data={populationData}
               idealPopulation={effectiveIdealPopulation}
-              onBarSelect={selectCoiCommunity}
+              onBarSelect={selectCommunity}
             />
           )}
         </ParentSize>
