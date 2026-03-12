@@ -70,6 +70,73 @@ const resolveNumCommunities = (
   );
 };
 
+const sanitizeCommunityDescription = (
+  description: string | undefined,
+  maxLength: number,
+  fallback = DEFAULT_COMMUNITY_DESCRIPTION
+) => (description?.trim() || fallback).slice(0, maxLength);
+
+const syncCommunityDescriptionComment = ({
+  comments,
+  communityId,
+  currentDescription,
+  nextDescription,
+  descriptionCommentId,
+}: {
+  comments: DocumentComment[];
+  communityId: number;
+  currentDescription: string;
+  nextDescription: string;
+  descriptionCommentId?: string | null;
+}) => {
+  let nextDescriptionCommentId = descriptionCommentId ?? null;
+  let descriptionCommentIndex =
+    nextDescriptionCommentId === null
+      ? -1
+      : comments.findIndex(comment => comment.comment_id === nextDescriptionCommentId);
+
+  if (descriptionCommentIndex === -1) {
+    descriptionCommentIndex = comments.findIndex(
+      comment =>
+        comment.zone === communityId && (comment.text ?? '').trim() === currentDescription.trim()
+    );
+    if (descriptionCommentIndex !== -1) {
+      nextDescriptionCommentId = comments[descriptionCommentIndex].comment_id ?? null;
+    }
+  }
+
+  if (descriptionCommentIndex === -1) {
+    const newCommentId = crypto.randomUUID();
+    return {
+      comments: [...comments, {comment_id: newCommentId, zone: communityId, text: nextDescription}],
+      descriptionCommentId: newCommentId,
+      changed: true,
+    };
+  }
+
+  const currentComment = comments[descriptionCommentIndex];
+  if (
+    currentComment.zone === communityId &&
+    (currentComment.text ?? '').trim() === nextDescription.trim()
+  ) {
+    return {
+      comments,
+      descriptionCommentId: nextDescriptionCommentId,
+      changed: false,
+    };
+  }
+
+  return {
+    comments: comments.map((comment, index) =>
+      index === descriptionCommentIndex
+        ? {...comment, zone: communityId, text: nextDescription}
+        : comment
+    ),
+    descriptionCommentId: nextDescriptionCommentId,
+    changed: true,
+  };
+};
+
 export interface MapStore {
   // LOAD AND RENDERING STATE TRACKING
   appLoadingState: 'loaded' | 'initializing' | 'loading' | 'blurred';
@@ -114,6 +181,10 @@ export interface MapStore {
   setNumCommunities: (numCommunities: number) => void;
   setCommunities: (communities: Community[]) => void;
   addCommunity: (options?: {name?: string; description?: string; color?: string}) => void;
+  updateCommunity: (
+    communityId: number,
+    options: {name?: string; description?: string; color?: string}
+  ) => void;
   removeCommunity: (communityId: number) => void;
 
   // ZONE COMMENTS
@@ -677,10 +748,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const nextCount = communities.length + 1;
       const nextCommunityId = getNextCommunityId(orderedCommunities);
       const trimmedName = options?.name?.trim();
-      const trimmedDescription = options?.description?.trim();
       const trimmedColor = options?.color?.trim();
-      const nextDescription = (trimmedDescription || DEFAULT_COMMUNITY_DESCRIPTION).slice(
-        0,
+      const nextDescription = sanitizeCommunityDescription(
+        options?.description,
         mapDocument.comment_length_limit ?? 240
       );
       const currentComments = mapDocument.document_comments ?? [];
@@ -704,6 +774,8 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         zone: nextCommunityId,
         text: nextDescription,
       };
+      nextCommunities[nextCommunities.length - 1].descriptionCommentId =
+        initialCommunityComment.comment_id;
       const syncedColorScheme = syncCoiColorsToColorScheme(nextCommunities, newColorScheme);
       const updatedDocument = {
         ...mapDocument,
@@ -739,6 +811,89 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           })
           .catch(err => {
             console.error('Failed to update IDB with coi_communities:', err);
+          });
+      }
+    },
+    updateCommunity: (communityId, options) => {
+      const {mapDocument, updated, communities} = get();
+      if (!mapDocument) return;
+
+      const orderedCommunities = sortCommunitiesByRenderOrder(communities);
+      const currentCommunity = orderedCommunities.find(community => community.id === communityId);
+      if (!currentCommunity) return;
+
+      const nextName = options.name?.trim() || currentCommunity.name;
+      const nextColor = options.color?.trim() || currentCommunity.color;
+      const nextDescription = sanitizeCommunityDescription(
+        options.description,
+        mapDocument.comment_length_limit ?? 240
+      );
+      const syncedDescriptionComment = syncCommunityDescriptionComment({
+        comments: mapDocument.document_comments ?? [],
+        communityId,
+        currentDescription: currentCommunity.description,
+        nextDescription,
+        descriptionCommentId: currentCommunity.descriptionCommentId,
+      });
+      const nextCommunities = orderedCommunities.map(community =>
+        community.id === communityId
+          ? {
+              ...community,
+              name: nextName,
+              color: nextColor,
+              description: nextDescription,
+              descriptionCommentId: syncedDescriptionComment.descriptionCommentId,
+            }
+          : community
+      );
+      const metadataChanged =
+        nextName !== currentCommunity.name ||
+        nextColor !== currentCommunity.color ||
+        nextDescription !== currentCommunity.description ||
+        syncedDescriptionComment.descriptionCommentId !== currentCommunity.descriptionCommentId;
+
+      if (!metadataChanged && !syncedDescriptionComment.changed) {
+        return;
+      }
+
+      const newColorScheme = extendColorArray(
+        mapDocument.color_scheme ?? DefaultColorScheme,
+        Math.max(mapDocument.num_districts ?? 0, getHighestCommunityId(nextCommunities))
+      );
+      const syncedColorScheme = syncCoiColorsToColorScheme(nextCommunities, newColorScheme);
+      const updatedDocument = {
+        ...mapDocument,
+        coi_communities: nextCommunities,
+        color_scheme: syncedColorScheme,
+        document_comments: syncedDescriptionComment.comments,
+      };
+      const clientLastUpdated = new Date().toISOString();
+
+      set({
+        mapDocument: updatedDocument,
+        communities: nextCommunities,
+        updated: {
+          metadata: updated.metadata || metadataChanged,
+          comments: updated.comments || syncedDescriptionComment.changed,
+        },
+      });
+
+      useCoiAssignmentsStore.getState().setClientLastUpdated(clientLastUpdated);
+
+      if (mapDocument.document_id) {
+        idb
+          .getDocument(mapDocument.document_id)
+          .then(idbDoc => {
+            if (!idbDoc) return;
+            idb.updateDocument({
+              id: mapDocument.document_id,
+              document_metadata: updatedDocument,
+              assignments: idbDoc.assignments,
+              clientLastUpdated,
+            });
+          })
+          .catch(err => {
+            console.error('Failed to update IDB after editing a COI community:', err);
           });
       }
     },

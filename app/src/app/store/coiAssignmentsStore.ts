@@ -852,6 +852,7 @@ export const useCoiAssignmentsStore = createWithDevWrapperAndSubscribe<CoiAssign
           description: DEFAULT_COMMUNITY_DESCRIPTION,
           color: palette[communityId - 1] ?? palette[index % palette.length] ?? '#000000',
           createdAt: new Date(index * 1000).toISOString(),
+          descriptionCommentId: null,
         }));
       mapState.setCommunities(reconstructedCommunities);
     }

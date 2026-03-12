@@ -48,6 +48,7 @@ export const normalizeCommunities = ({
       description: community.description || DEFAULT_COMMUNITY_DESCRIPTION,
       color: community.color || palette[(community.id - 1) % palette.length] || '#000000',
       createdAt: community.createdAt || fallbackCreatedAt(index),
+      descriptionCommentId: community.descriptionCommentId ?? null,
     }));
 
   for (let index = normalized.length; index < count; index += 1) {
@@ -59,6 +60,7 @@ export const normalizeCommunities = ({
       description: DEFAULT_COMMUNITY_DESCRIPTION,
       color: getNextUnusedCommunityColor(normalized, palette),
       createdAt: new Date().toISOString(),
+      descriptionCommentId: null,
     });
   }
 

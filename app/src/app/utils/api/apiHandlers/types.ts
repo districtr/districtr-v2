@@ -72,6 +72,7 @@ export interface Community {
   description: string;
   color: string;
   createdAt: string;
+  descriptionCommentId?: string | null;
 }
 
 export interface DocumentObject extends StatusObject {

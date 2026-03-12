@@ -1,5 +1,5 @@
 import {Flex, Heading, IconButton, Spinner, Text} from '@radix-ui/themes';
-import React from 'react';
+import React, {useMemo, useState} from 'react';
 import {formatNumber} from '@utils/numbers';
 import {ParentSize} from '@visx/responsive'; // Import ParentSize
 import InfoTip from '@components/InfoTip';
@@ -8,15 +8,17 @@ import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {PopulationChart} from './PopulationChart/PopulationChart';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
-import {LockClosedIcon, LockOpen2Icon} from '@radix-ui/react-icons';
+import {LockClosedIcon, LockOpen2Icon, Pencil1Icon} from '@radix-ui/react-icons';
 import {useZonePopulations} from '@/app/hooks/useDemography';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {ZoneCommentPopover} from './ZoneCommentPopover';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/map/mapDefaults';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
-import {getCommunityRenderOrderId} from '@/app/utils/communities';
+import {getCommunityRenderOrderId, getUnusedCommunityColors} from '@/app/utils/communities';
 import {useSelectCommunity} from '@/app/hooks/useSelectCommunity';
+import {AddCommunityDialog} from '@/app/components/Toolbar/AddCommunityDialog';
+import {useColorScheme} from '@/app/hooks/useColorScheme';
 
 const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
 
@@ -51,15 +53,45 @@ export const PopulationPanel = () => {
   const selectedZone = useMapControlsStore(state => state.selectedZone);
   const access = useMapStore(state => state.mapStatus?.access);
   const communities = useMapStore(state => state.communities);
+  const updateCommunity = useMapStore(state => state.updateCommunity);
   const getZoneColor = useZoneColorGetter();
   const isEditing = useMapControlsStore(state => state.isEditing);
   const selectCommunity = useSelectCommunity();
+  const colorScheme = useColorScheme();
+  const [editingCommunityId, setEditingCommunityId] = useState<number | null>(null);
+  const editingCommunity = useMemo(
+    () => communities.find(community => community.id === editingCommunityId) ?? null,
+    [communities, editingCommunityId]
+  );
+  const availableEditColors = useMemo(() => {
+    if (!editingCommunity) return [];
+    return Array.from(
+      new Set([editingCommunity.color, ...getUnusedCommunityColors(communities, colorScheme)])
+    );
+  }, [communities, colorScheme, editingCommunity]);
   const handleLockChange = (zone: number) => {
     if (lockPaintedAreas.includes(zone)) {
       setLockedZones(lockPaintedAreas.filter(f => f !== zone));
     } else {
       setLockedZones([...(lockPaintedAreas || []), zone]);
     }
+  };
+  const handleEditCommunity = (zone: number) => {
+    selectCommunity(zone);
+    setEditingCommunityId(zone);
+  };
+  const handleUpdateCommunity = ({
+    name,
+    description,
+    color,
+  }: {
+    name: string;
+    description: string;
+    color: string;
+  }) => {
+    if (editingCommunityId === null) return;
+    updateCommunity(editingCommunityId, {name, description, color});
+    setEditingCommunityId(null);
   };
   if (populationData.length === 0) {
     return (
@@ -103,19 +135,22 @@ export const PopulationPanel = () => {
         <Flex
           direction={'column'}
           gap={'2'}
-          className="flex-grow-0 p-0 pb-[80px]"
+          className={'flex-grow-0 p-0 pb-[80px]'}
           justify={'between'}
           minWidth={'5rem'}
         >
-          <Flex justify="end">
-            <IconButton
-              onClick={toggleLockAllAreas}
-              variant="ghost"
-              disabled={access === 'read'}
-              style={{opacity: isEditing ? 1 : 0}}
-            >
-              {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
-            </IconButton>
+          <Flex justify="end" minHeight={isCommunityMode ? '12px' : '28px'}>
+            {!isCommunityMode && (
+              <IconButton
+                onClick={toggleLockAllAreas}
+                variant="ghost"
+                disabled={access === 'read'}
+                style={{opacity: isEditing ? 1 : 0}}
+                aria-label={allAreLocked ? 'Unlock all districts' : 'Lock all districts'}
+              >
+                {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
+              </IconButton>
+            )}
           </Flex>
           {/* @ts-ignore */}
           {populationData.map((d, i) => (
@@ -145,13 +180,31 @@ export const PopulationPanel = () => {
               <Flex gap="0" align="center">
                 <ZoneCommentPopover zone={d.zone} color={getZoneColor(d.zone)} />
                 {!!isEditing && (
-                  <IconButton
-                    onClick={() => handleLockChange(d.zone)}
-                    variant="ghost"
-                    disabled={access === 'read'}
-                  >
-                    {lockPaintedAreas.includes(d.zone) ? <LockClosedIcon /> : <LockOpen2Icon />}
-                  </IconButton>
+                  <>
+                    {isCommunityMode ? (
+                      <IconButton
+                        onClick={() => handleEditCommunity(d.zone)}
+                        variant="ghost"
+                        disabled={access === 'read'}
+                        aria-label={`Edit community ${d.zone}`}
+                      >
+                        <Pencil1Icon />
+                      </IconButton>
+                    ) : (
+                      <IconButton
+                        onClick={() => handleLockChange(d.zone)}
+                        variant="ghost"
+                        disabled={access === 'read'}
+                        aria-label={
+                          lockPaintedAreas.includes(d.zone)
+                            ? `Unlock district ${d.zone}`
+                            : `Lock district ${d.zone}`
+                        }
+                      >
+                        {lockPaintedAreas.includes(d.zone) ? <LockClosedIcon /> : <LockOpen2Icon />}
+                      </IconButton>
+                    )}
+                  </>
                 )}
               </Flex>
             </Flex>
@@ -205,6 +258,20 @@ export const PopulationPanel = () => {
             )}
           </Text>
         </Flex>
+      )}
+      {editingCommunity && (
+        <AddCommunityDialog
+          open={editingCommunityId !== null}
+          onOpenChange={open => {
+            if (!open) setEditingCommunityId(null);
+          }}
+          onSubmit={handleUpdateCommunity}
+          mode="edit"
+          defaultName={editingCommunity.name}
+          defaultDescription={editingCommunity.description}
+          defaultColor={editingCommunity.color}
+          availableColors={availableEditColors}
+        />
       )}
     </Flex>
   );

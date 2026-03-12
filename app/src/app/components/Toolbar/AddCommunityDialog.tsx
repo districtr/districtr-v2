@@ -20,7 +20,9 @@ type ColorTab = 'palette' | 'custom';
 type AddCommunityDialogProps = {
   availableColors: string[];
   defaultColor: string;
+  defaultDescription?: string;
   defaultName: string;
+  mode?: 'add' | 'edit';
   onOpenChange: (open: boolean) => void;
   onSubmit: (values: {name: string; description: string; color: string}) => void;
   open: boolean;
@@ -29,26 +31,30 @@ type AddCommunityDialogProps = {
 export const AddCommunityDialog: React.FC<AddCommunityDialogProps> = ({
   availableColors,
   defaultColor,
+  defaultDescription = DEFAULT_COMMUNITY_DESCRIPTION,
   defaultName,
+  mode = 'add',
   onOpenChange,
   onSubmit,
   open,
 }) => {
   const [communityName, setCommunityName] = useState(defaultName);
-  const [communityDescription, setCommunityDescription] = useState(DEFAULT_COMMUNITY_DESCRIPTION);
+  const [communityDescription, setCommunityDescription] = useState(defaultDescription);
   const [selectedColor, setSelectedColor] = useState(defaultColor);
   const [colorMenuOpen, setColorMenuOpen] = useState(false);
   const [colorTab, setColorTab] = useState<ColorTab>('palette');
-  const suggestedColors = availableColors.slice(0, 24);
+  const suggestedColors = Array.from(new Set([defaultColor, ...availableColors])).slice(0, 24);
+  const dialogTitle = mode === 'edit' ? 'Edit Community' : 'Add Community';
+  const submitLabel = mode === 'edit' ? 'Save Changes' : 'Add Community';
 
   useEffect(() => {
     if (!open) return;
     setCommunityName(defaultName);
-    setCommunityDescription(DEFAULT_COMMUNITY_DESCRIPTION);
+    setCommunityDescription(defaultDescription);
     setSelectedColor(defaultColor);
     setColorMenuOpen(false);
     setColorTab('palette');
-  }, [availableColors, defaultColor, defaultName, open]);
+  }, [availableColors, defaultColor, defaultDescription, defaultName, open]);
 
   const handleCustomColorChange = (color: ColorResult) => {
     setSelectedColor(color.hex);
@@ -57,7 +63,7 @@ export const AddCommunityDialog: React.FC<AddCommunityDialogProps> = ({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Content style={{maxWidth: 500}}>
-        <Dialog.Title>Add Community</Dialog.Title>
+        <Dialog.Title>{dialogTitle}</Dialog.Title>
         <form
           onSubmit={event => {
             event.preventDefault();
@@ -87,7 +93,7 @@ export const AddCommunityDialog: React.FC<AddCommunityDialogProps> = ({
               <TextArea
                 value={communityDescription}
                 onChange={event => setCommunityDescription(event.target.value)}
-                placeholder={DEFAULT_COMMUNITY_DESCRIPTION}
+                placeholder={defaultDescription}
                 rows={4}
               />
             </label>
@@ -173,7 +179,7 @@ export const AddCommunityDialog: React.FC<AddCommunityDialogProps> = ({
               <Button variant="soft" color="gray" type="button" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit">Add Community</Button>
+              <Button type="submit">{submitLabel}</Button>
             </Flex>
           </Flex>
         </form>
