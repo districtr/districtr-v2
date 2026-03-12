@@ -6,10 +6,10 @@ import {useMapControlsStore} from '../../store/mapControlsStore';
 import {CoiPicker} from './CoiPicker';
 import {COI_MIN_COMMUNITIES, COI_MAX_COMMUNITIES} from '@/app/constants/map/mapDefaults';
 import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
+import {useSelectCoiCommunity} from '@/app/hooks/useSelectCoiCommunity';
 
 export const CoiZonePicker: React.FC = () => {
   const selectedZone = useMapControlsStore(state => state.selectedZone);
-  const setSelectedZone = useMapControlsStore(state => state.setSelectedZone);
   const access = useMapStore(state => state.mapStatus?.access);
   const coiCommunities = useMapStore(state => state.coiCommunities);
   const communityVisibility = useCoiAssignmentsStore(state => state.communityVisibility);
@@ -20,6 +20,7 @@ export const CoiZonePicker: React.FC = () => {
   const setCommunityVisibilityForCommunities = useCoiAssignmentsStore(
     state => state.setCommunityVisibilityForCommunities
   );
+  const selectCoiCommunity = useSelectCoiCommunity();
 
   const nonSelectedCommunityIds = coiCommunities
     .map(community => community.id)
@@ -40,14 +41,7 @@ export const CoiZonePicker: React.FC = () => {
   }, [communityVisibility, selectedZone, setCommunityVisibility]);
 
   const handleRadioChange = (communityId: number, _color: string) => {
-    if (!anyNotSelectedVisible && communityId !== selectedZone) {
-      const communitiesToHide = coiCommunities
-        .map(community => community.id)
-        .filter(id => id !== communityId);
-      setCommunityVisibilityForCommunities(communitiesToHide, false);
-    }
-    setSelectedZone(communityId);
-    setCommunityVisibility(communityId, true);
+    selectCoiCommunity(communityId);
   };
 
   const handleIncreaseCommunities = () => {

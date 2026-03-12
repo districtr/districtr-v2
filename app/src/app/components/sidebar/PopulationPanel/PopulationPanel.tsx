@@ -16,6 +16,7 @@ import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/map/mapDefaults';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {getCoiCommunityRenderOrderId} from '@/app/utils/coiCommunities';
+import {useSelectCoiCommunity} from '@/app/hooks/useSelectCoiCommunity';
 
 const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
 
@@ -31,6 +32,10 @@ export const PopulationPanel = () => {
   );
   const numCommunities = useMapStore(state => state.numCommunities ?? FALLBACK_NUM_COMMUNITIES);
   const numZones = mapMode === 'coi' ? numCommunities : numDistricts;
+  const zoneLabel = mapMode === 'coi' ? 'community' : 'district';
+  const isCommunityMode = zoneLabel === 'community';
+  const effectiveIdealPopulation = isCommunityMode ? undefined : idealPopulation;
+  const zoneLabelPlural = mapMode === 'coi' ? 'communities' : 'districts';
   const allPainted =
     numZones === populationData.length &&
     zoneStats.minPopulation !== undefined &&
@@ -43,12 +48,12 @@ export const PopulationPanel = () => {
   const setLockedZones = useMapControlsStore(state => state.setLockedZones);
   const toggleLockAllAreas = useMapControlsStore(state => state.toggleLockAllAreas);
   const allAreLocked = populationData.every((d: any) => lockPaintedAreas?.includes(d.zone));
-  const setSelectedZone = useMapControlsStore(state => state.setSelectedZone);
   const selectedZone = useMapControlsStore(state => state.selectedZone);
   const access = useMapStore(state => state.mapStatus?.access);
   const coiCommunities = useMapStore(state => state.coiCommunities);
   const getZoneColor = useZoneColorGetter();
   const isEditing = useMapControlsStore(state => state.isEditing);
+  const selectCoiCommunity = useSelectCoiCommunity();
   const handleLockChange = (zone: number) => {
     if (lockPaintedAreas.includes(zone)) {
       setLockedZones(lockPaintedAreas.filter(f => f !== zone));
@@ -86,12 +91,12 @@ export const PopulationPanel = () => {
     <Flex gap="0" direction="column">
       <Flex direction="row" gap={'2'} align="center">
         <Heading as="h3" size="3">
-          Total population by district
+          {`Total population by ${zoneLabel}`}
         </Heading>
         <PopulationPanelOptions
           chartOptions={chartOptions}
           setChartOptions={setChartOptions}
-          idealPopulation={idealPopulation}
+          idealPopulation={effectiveIdealPopulation}
         />
       </Flex>
       <Flex direction="row" width={'100%'} gap="1">
@@ -126,7 +131,7 @@ export const PopulationPanel = () => {
               {!!showDistrictNumbers && (
                 <IconButton
                   variant={'outline'}
-                  onClick={() => setSelectedZone(d.zone)}
+                  onClick={() => selectCoiCommunity(d.zone)}
                   size="1"
                   className={`${selectedZone === d.zone ? 'bg-gray-100' : '!shadow-none'} max-w-12 flex-grow`}
                 >
@@ -163,12 +168,13 @@ export const PopulationPanel = () => {
               width={width}
               height={height}
               data={populationData}
-              idealPopulation={idealPopulation}
+              idealPopulation={effectiveIdealPopulation}
+              onBarSelect={selectCoiCommunity}
             />
           )}
         </ParentSize>
       </Flex>
-      {!!idealPopulation && (
+      {!!idealPopulation && !isCommunityMode && (
         <Flex direction={'row'} justify={'between'} align={'start'} wrap="wrap">
           <Flex direction="column" gapX="2" minWidth={'10rem'}>
             <Text>Ideal Population</Text>
@@ -195,7 +201,7 @@ export const PopulationPanel = () => {
                 {formatNumber(zoneStats.range || 0, 'string')})
               </>
             ) : (
-              ' will appear when all districts are started'
+              ` will appear when all ${zoneLabelPlural} are started`
             )}
           </Text>
         </Flex>

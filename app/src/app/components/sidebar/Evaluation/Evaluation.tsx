@@ -112,11 +112,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
         </Heading>
         <Popover.Root>
           <Popover.Trigger>
-            <IconButton
-              variant="ghost"
-              size="3"
-              aria-label="Choose map districtr assignment brush color"
-            >
+            <IconButton variant="ghost" size="3" aria-label="Open evaluation options">
               <GearIcon />
             </IconButton>
           </Popover.Trigger>
