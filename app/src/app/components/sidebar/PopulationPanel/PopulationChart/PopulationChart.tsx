@@ -54,10 +54,13 @@ export const PopulationChart: React.FC<{
   const xScale = useCallback(
     scaleLinear<number>({
       domain: [xMinValue, xMaxValue],
-      range: [xMinValue > 0 ? 100 : 0, width - margins.left - margins.right],
+      range: [
+        xMinValue > 0 ? (isCommunityMode ? 5 : 100) : 0,
+        width - margins.left - margins.right,
+      ],
       nice: true,
     }),
-    [width, xMaxValue, xMinValue]
+    [isCommunityMode, width, xMaxValue, xMinValue]
   );
   const barHeight = yMax / data.length - 6;
 
