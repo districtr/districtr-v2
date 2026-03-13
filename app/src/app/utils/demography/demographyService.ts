@@ -44,6 +44,14 @@ class DemographyService {
   table?: ColumnTable;
 
   /**
+   * Separate table for choropleth overlay data (VTD-level).
+   * Used so that loading VTD data for the overlay doesn't overwrite
+   * zone-level populations used by the sidebar.
+   */
+  overlayTable?: ColumnTable;
+  overlayHash: string = '';
+
+  /**
    * The zone data table.
    * Updates to match the zone assignments in the state.
    */
@@ -111,6 +119,20 @@ class DemographyService {
   }
 
   /**
+   * Loads VTD-level data for the choropleth overlay without touching
+   * the main table, populations, or summary stats.
+   */
+  updateOverlay(
+    columns: AllTabularColumns[number][],
+    data: ColumnarTableData,
+    hash: string
+  ): void {
+    if (hash === this.overlayHash) return;
+    this.overlayTable = table(data).derive(getColumnDerives(columns)).dedupe('path').derive(getPctDerives(columns));
+    this.overlayHash = hash;
+  }
+
+  /**
    * Updates the zone table with new zone assignments.
    *
    * @param zoneAssignments - The zone assignments to update.
@@ -134,6 +156,8 @@ class DemographyService {
    */
   clear(): void {
     this.table = undefined;
+    this.overlayTable = undefined;
+    this.overlayHash = '';
     this.zoneTable = undefined;
     this.populations = [];
     this.summaryStats = {};
@@ -286,7 +310,8 @@ class DemographyService {
     variableName: AllTabularColumns[number],
     numberOfBins: number
   ): {quantilesObject: {[q: string]: number}; quantilesList: number[]} | null {
-    if (!this.table) return null;
+    const dataTable = this.overlayTable ?? this.table;
+    if (!dataTable) return null;
     const derives = {
       quantileVariable: config.expression
         ? escape(config.expression)
@@ -302,7 +327,7 @@ class DemographyService {
         },
         {} as {[key: string]: ReturnType<typeof op.quantile>}
       );
-    const quantilesObject = this.table.derive(derives).rollup(rollups).objects()[0] as {
+    const quantilesObject = dataTable.derive(derives).rollup(rollups).objects()[0] as {
       [q: string]: number;
     };
     const quantilesList = Object.values(quantilesObject)
@@ -325,7 +350,8 @@ class DemographyService {
     mapRef: maplibregl.Map;
     ids?: string[];
   }) {
-    if (!this.table || !this.colorScale) return;
+    const dataTable = this.overlayTable ?? this.table;
+    if (!dataTable || !this.colorScale) return;
     const source = mapRef.getSource(BLOCK_SOURCE_ID) as {type?: string} | undefined;
     const useVectorSourceLayer = source?.type === 'vector';
     const colorScale = this.colorScale!;
@@ -362,7 +388,7 @@ class DemographyService {
         ? escape(config.expression)
         : escape((row: DemographyRow) => row[variableName]),
     };
-    let rows = this.table.derive(derives).select('path', 'sourceLayer', 'color');
+    let rows = dataTable.derive(derives).select('path', 'sourceLayer', 'color');
     if (ids) {
       rows = rows.filter(escape((row: TableRow) => ids.includes(row.path)));
     }
@@ -420,7 +446,7 @@ class DemographyService {
       .flat()
       .find(v => v.value === variable);
 
-    if (!this.table || !dataSoureExists) return;
+    if ((!this.table && !this.overlayTable) || !dataSoureExists) return;
     if (!config) return;
     const variableName = (
       variant === 'percent' && config.variants?.includes('percent')

@@ -86,7 +86,11 @@ export var useDemographyStore = create(
         });
         return;
       }
-      demographyService.update(result.columns, result.results, dataHash);
+      if (mapDocument.access === 'read') {
+        demographyService.updateOverlay(result.columns, result.results, dataHash);
+      } else {
+        demographyService.update(result.columns, result.results, dataHash);
+      }
       const availableColumns = demographyService.availableColumns;
       const availableEvalSets: Record<string, AllEvaluationConfigs> = Object.fromEntries(
         Object.entries(evalColumnConfigs)

@@ -31,6 +31,24 @@ export const initSubs = (readOnly = false) => {
     }
   );
 
+  const readOnlyUnsubs: Array<() => void> = [];
+
+  if (readOnly) {
+    // Fetch VTD data for overlay choropleth when demographic map is enabled
+    readOnlyUnsubs.push(
+      useMapControlsStore.subscribe(
+        state => state.mapOptions.showDemographicMap,
+        showDemographic => {
+          if (!showDemographic) return;
+          const {mapDocument} = useMapStore.getState();
+          if (mapDocument) {
+            useDemographyStore.getState().updateData(mapDocument);
+          }
+        }
+      )
+    );
+  }
+
   const editorUnsubs: Array<() => void> = [];
 
   if (!readOnly) {
@@ -74,6 +92,7 @@ export const initSubs = (readOnly = false) => {
     querySubs();
     demogInitSub();
     featureFlagSub();
+    readOnlyUnsubs.forEach(sub => sub());
     editorUnsubs.forEach(sub => sub());
   };
   return unsub;
