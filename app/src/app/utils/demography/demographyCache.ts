@@ -7,6 +7,7 @@ import {BLOCK_SOURCE_ID} from '../../constants/map/layerIds';
 import {MapGeoJSONFeature} from 'maplibre-gl';
 import {MapStore, useMapStore} from '../../store/mapStore';
 import {useAssignmentsStore, ZoneAssignmentsMap} from '../../store/assignmentsStore';
+import {useCoiAssignmentsStore} from '../../store/coiAssignmentsStore';
 import {useChartStore} from '../../store/chartStore';
 import {useMapControlsStore} from '../../store/mapControlsStore';
 import {
@@ -32,7 +33,39 @@ import {
 } from '@/app/store/demography/constants';
 import {NullableZone} from '@/app/constants/types';
 import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
-import {compareCoiZonesByRenderOrder, sortCommunitiesByRenderOrder} from '../communities';
+import {
+  compareCoiZonesByRenderOrder,
+  getPrimaryCommunityId,
+  sortCommunitiesByRenderOrder,
+} from '../communities';
+
+const getActiveZoneAssignments = (): ZoneAssignmentsMap => {
+  const mapMode = useMapControlsStore.getState().mapMode;
+  if (mapMode !== 'coi') {
+    return new Map(useAssignmentsStore.getState().zoneAssignments);
+  }
+
+  const communities = useMapStore.getState().communities;
+  const communityAssignments = useCoiAssignmentsStore.getState().communityAssignments;
+  const communitiesByGeoid = new Map<string, Set<number>>();
+
+  communityAssignments.forEach((geoids, communityId) => {
+    geoids.forEach(geoid => {
+      const assignedCommunities = communitiesByGeoid.get(geoid);
+      if (assignedCommunities) {
+        assignedCommunities.add(communityId);
+        return;
+      }
+      communitiesByGeoid.set(geoid, new Set([communityId]));
+    });
+  });
+
+  const primaryAssignments = new Map<string, NullableZone>();
+  communitiesByGeoid.forEach((assignedCommunities, geoid) => {
+    primaryAssignments.set(geoid, getPrimaryCommunityId(assignedCommunities, communities));
+  });
+  return primaryAssignments;
+};
 /**
  * Class to organize queries on current demographic data
  */
@@ -103,7 +136,7 @@ class DemographyCache {
     if (hash === this.hash) return;
     this.availableColumns = columns;
     this.table = table(data).derive(getColumnDerives(columns)).dedupe('path');
-    const zoneAssignments = useAssignmentsStore.getState().zoneAssignments;
+    const zoneAssignments = getActiveZoneAssignments();
     const popsOk = this.updatePopulations(zoneAssignments);
     if (!popsOk) return;
     this.updateSummaryStats();
