@@ -19,18 +19,7 @@ import {
   EMPTY_FEATURE_ARRAY,
   POINT_SELECT_TOOLS,
   TOOLTIP_TOOLS,
-  handleDataLoad,
-  handleMapContextMenu,
-  handleMapIdle,
-  handleMapMouseDown,
-  handleMapMouseEnter,
-  handleMapMouseLeave,
-  handleMapMouseOut,
-  handleMapMouseOver,
-  handleMapMouseUp,
-  handleMapMoveEnd,
-  handleMapZoom,
-  handleMapZoomEnd,
+  mapEventHandlers,
 } from '@/app/utils/events/mapEvents';
 
 function getLayerIdsToPaint(
@@ -201,18 +190,7 @@ export const handleCoiMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerT
 }, 5);
 
 export const coiMapEventHandlers = {
+  ...mapEventHandlers,
   onClick: handleCoiMapClick,
-  onMouseUp: handleMapMouseUp,
-  onMouseDown: handleMapMouseDown,
-  onMouseEnter: handleMapMouseEnter,
-  onMouseOver: handleMapMouseOver,
-  onMouseLeave: handleMapMouseLeave,
-  onMouseOut: handleMapMouseOut,
   onMouseMove: handleCoiMapMouseMove,
-  onZoom: handleMapZoom,
-  onIdle: handleMapIdle,
-  onMoveEnd: handleMapMoveEnd,
-  onZoomEnd: handleMapZoomEnd,
-  onContextMenu: handleMapContextMenu,
-  onData: handleDataLoad,
 } as const;

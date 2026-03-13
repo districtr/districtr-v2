@@ -16,11 +16,7 @@ import {
   DEFAULT_BLOCK_LAYER_ORDER,
 } from '@constants/map/layerRenderConfig';
 import {ZoneHighlightLayer} from './ZoneLayers/ZoneHighlightLayer';
-import {CoiAssignmentLayer} from './CoiAssignmentLayer';
-
-const getCommunityLayerId = (scope: BlockScope, communityId: number) =>
-  `${CANONICAL_LAYER_IDS.BLOCK[scope].HOVER}-community-${communityId}`;
-const HIDE_ALL_FILTER = ['literal', false] as FilterSpecification;
+import {CoiAssignmentLayers} from './CoiAssignmentLayers';
 
 export const CoiBlockLayers: React.FC<{
   scope: BlockScope;
@@ -45,7 +41,7 @@ export const CoiBlockLayers: React.FC<{
   const selectedCommunityExists = allCommunities.some(
     community => community.id === selectedCommunity
   );
-  const selectedThenRenderOrderCommunities = selectedCommunityExists
+  const selectedOnTopThenRenderOrderCommunities = selectedCommunityExists
     ? [
         allCommunities.find(community => community.id === selectedCommunity)!,
         ...reversedCommunities.filter(community => community.id !== selectedCommunity),
@@ -88,25 +84,13 @@ export const CoiBlockLayers: React.FC<{
           'fill-color': 'rgba(0,0,0,0)',
         }}
       />
-      {selectedThenRenderOrderCommunities.map((community, index) => {
-        const isVisible = communityVisibility.get(community.id) ?? true;
-        const newfilter = isVisible ? layerFilter : HIDE_ALL_FILTER;
-        const aboveLayerId =
-          index === 0
-            ? CANONICAL_LAYER_IDS.BLOCK[scope].HIGHLIGHT
-            : getCommunityLayerId(scope, selectedThenRenderOrderCommunities[index - 1].id);
-        return (
-          <CoiAssignmentLayer
-            key={`${scope}-community-layer-${community.id}`}
-            id={getCommunityLayerId(scope, community.id)}
-            membershipKey={`community_${community.id}`}
-            color={community.color}
-            sourceLayerId={sourceLayerId}
-            filter={newfilter}
-            beforeId={aboveLayerId}
-          />
-        );
-      })}
+      <CoiAssignmentLayers
+        communityVisibility={communityVisibility}
+        sourceLayerId={sourceLayerId}
+        selectedOnTopThenRenderOrderCommunities={selectedOnTopThenRenderOrderCommunities}
+        scope={scope}
+        layerFilter={layerFilter}
+      />
       {showDemographyOverlay && (
         <DemographicLayer
           idBase={CANONICAL_LAYER_IDS.BLOCK[scope].HOVER}

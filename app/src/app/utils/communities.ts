@@ -22,8 +22,8 @@ const parseCommunityNameIndex = (name: string) => {
   return Number(match[1]);
 };
 
-export const sortCommunitiesByRenderOrder = (communities: Community[]) =>
-  [...communities].sort(compareCommunitiesByRenderOrder);
+export const sortCommunitiesByRenderOrder = (communities?: Community[] | null) =>
+  [...(communities ?? [])].sort(compareCommunitiesByRenderOrder);
 
 export const normalizeCommunities = ({
   communities,
