@@ -7,9 +7,8 @@ import {DemographyStore} from './types';
 import {useAssignmentsStore} from '../assignmentsStore';
 import {getDemography} from '@/app/utils/api/apiHandlers/getDemography';
 import {demographyService} from '@/app/utils/demography/demographyService';
-import {AllEvaluationConfigs, AllMapConfigs} from '@/app/utils/api/summaryStats';
-import {evalColumnConfigs} from './evaluationConfig';
-import {choroplethMapVariables, DEFAULT_CHOROPLETH_BIN_COUNT} from './constants';
+import {getAvailableColumnSets} from '@/app/utils/demography/getAvailableColumnSets';
+import {DEFAULT_CHOROPLETH_BIN_COUNT} from './constants';
 
 export var useDemographyStore = create(
   subscribeWithSelector<DemographyStore>((set, get) => ({
@@ -91,29 +90,8 @@ export var useDemographyStore = create(
       } else {
         demographyService.update(result.columns, result.results, dataHash);
       }
-      const availableColumns = demographyService.availableColumns;
-      const availableEvalSets: Record<string, AllEvaluationConfigs> = Object.fromEntries(
-        Object.entries(evalColumnConfigs)
-          .map(([columnsetKey, config]) => [
-            columnsetKey,
-            config.filter(entry => availableColumns.includes(entry.sourceCol ?? entry.column)),
-          ])
-          .filter(([, config]) => config.length > 0)
-      );
-      const availableMapSets: Record<string, AllMapConfigs> = Object.fromEntries(
-        Object.entries(choroplethMapVariables)
-          .map(([columnsetKey, config]) => [
-            columnsetKey,
-            config.filter(entry => availableColumns.includes(entry.value)),
-          ])
-          .filter(([, config]) => config.length > 0)
-      );
-
       set({
-        availableColumnSets: {
-          evaluation: availableEvalSets,
-          map: availableMapSets,
-        },
+        availableColumnSets: getAvailableColumnSets(demographyService.availableColumns),
         dataHash,
       });
     },

@@ -1,5 +1,6 @@
 import type React from 'react';
 import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerIds';
+import {sourceLayerProp} from '@/app/constants/map/layerStyle';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import type {FilterSpecification} from 'maplibre-gl';
 import {Layer} from 'react-map-gl/maplibre';
@@ -18,7 +19,7 @@ export const DemographicLayer: React.FC<{
     <Layer
       id={fillId}
       source={BLOCK_SOURCE_ID}
-      {...(sourceLayerId ? {'source-layer': sourceLayerId} : {})}
+      {...sourceLayerProp(sourceLayerId)}
       filter={filter}
       beforeId={layerBeforeId}
       type="fill"

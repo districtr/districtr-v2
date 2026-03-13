@@ -8,9 +8,7 @@ import {useClearMap} from '@/app/hooks/useClearMap';
 import {getPublicDistricts} from '@/app/utils/api/apiHandlers/getPublicDistricts';
 import {demographyService} from '@/app/utils/demography/demographyService';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
-import {choroplethMapVariables} from '@/app/store/demography/constants';
-import {evalColumnConfigs} from '@/app/store/demography/evaluationConfig';
-import {AllEvaluationConfigs, AllMapConfigs} from '@/app/utils/api/summaryStats';
+import {getAvailableColumnSets} from '@/app/utils/demography/getAvailableColumnSets';
 import GeometryWorker from '@/app/utils/GeometryWorker';
 
 export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) => {
@@ -47,27 +45,9 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
     setDemographyHash(hash);
 
     // Set available column sets so sidebar knows which columns are available
-    const availableColumns = demographyService.availableColumns;
-    const availableEvalSets: Record<string, AllEvaluationConfigs> = Object.fromEntries(
-      Object.entries(evalColumnConfigs)
-        .map(([key, config]) => [
-          key,
-          config.filter(entry => availableColumns.includes(entry.sourceCol ?? entry.column)),
-        ])
-        .filter(([, config]) => config.length > 0)
+    useDemographyStore.getState().setAvailableColumnSets(
+      getAvailableColumnSets(demographyService.availableColumns)
     );
-    const availableMapSets: Record<string, AllMapConfigs> = Object.fromEntries(
-      Object.entries(choroplethMapVariables)
-        .map(([key, config]) => [
-          key,
-          config.filter(entry => availableColumns.includes(entry.value)),
-        ])
-        .filter(([, config]) => config.length > 0)
-    );
-    useDemographyStore.getState().setAvailableColumnSets({
-      evaluation: availableEvalSets,
-      map: availableMapSets,
-    });
 
     // Load public geometries into GeometryWorker for zone label centroids
     GeometryWorker?.setPublicFeatures(publicDistrictsQuery.data.geojsonFeatures);

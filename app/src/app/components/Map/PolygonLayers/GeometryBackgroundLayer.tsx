@@ -2,7 +2,7 @@ import type React from 'react';
 import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerIds';
 import type {FilterSpecification} from 'maplibre-gl';
 import {Layer} from 'react-map-gl/maplibre';
-import {SENTINEL_EMPTY_VALUE} from '@/app/constants/map/layerStyle';
+import {SENTINEL_EMPTY_VALUE, sourceLayerProp} from '@/app/constants/map/layerStyle';
 
 export const GeometryBackgroundLayer: React.FC<{
   id: string;
@@ -19,7 +19,7 @@ export const GeometryBackgroundLayer: React.FC<{
     <Layer
       id={id}
       source={BLOCK_SOURCE_ID}
-      {...(sourceLayerId ? {'source-layer': sourceLayerId} : {})}
+      {...sourceLayerProp(sourceLayerId)}
       filter={filter}
       beforeId={beforeId}
       type="fill"

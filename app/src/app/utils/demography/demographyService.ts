@@ -115,7 +115,6 @@ class DemographyService {
     if (!popsOk) return;
     this.updateSummaryStats();
     this.hash = hash;
-    console.log("!!!HASH UPDATED", hash);
   }
 
   /**

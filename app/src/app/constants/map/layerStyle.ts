@@ -33,6 +33,9 @@ export const ZONE_LABEL_STYLE = (colorScheme: string[]) => {
   return group as ExpressionSpecification;
 };
 
+export const sourceLayerProp = (sourceLayerId?: string) =>
+  sourceLayerId ? {'source-layer': sourceLayerId} : {};
+
 export function getLayerFill(
   captiveIds?: Set<string>,
   isDemographic?: boolean

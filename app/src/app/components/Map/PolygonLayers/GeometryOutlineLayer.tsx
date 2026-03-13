@@ -1,5 +1,6 @@
 import type React from 'react';
 import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerIds';
+import {sourceLayerProp} from '@/app/constants/map/layerStyle';
 import {Layer} from 'react-map-gl/maplibre';
 import {FilterSpecification} from 'maplibre-gl';
 
@@ -17,7 +18,7 @@ const GeometryOutlineLayer: React.FC<{
     <Layer
       id={id}
       source={BLOCK_SOURCE_ID}
-      {...(sourceLayerId ? {'source-layer': sourceLayerId} : {})}
+      {...sourceLayerProp(sourceLayerId)}
       filter={filter}
       beforeId={beforeId}
       type="line"

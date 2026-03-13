@@ -24,7 +24,6 @@ import {SummaryRecord} from '../utils/api/summaryStats';
  */
 export const useZonePopulations = (includeUnassigned?: boolean) => {
   const demogHash = useDemographyStore(state => state.dataHash);
-  console.log("!!!DEMOG HASH", demogHash);
   const chartHash = useChartStore(state => state.dataUpdateHash);
   const paintedChanges = useChartStore(state => state.paintedChanges);
   const numDistricts = useMapStore(
