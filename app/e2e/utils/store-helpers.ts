@@ -1,13 +1,13 @@
-import { Page } from '@playwright/test';
+import {Page} from '@playwright/test';
 
 /**
  * Zustand Store Testing Utilities
- * 
+ *
  * Helpers for accessing and verifying Zustand store state in tests.
- * 
+ *
  * IMPORTANT: For these helpers to work, the application must expose stores
  * on the window object in development mode. Add this to your store files:
- * 
+ *
  * if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
  *   window.__ZUSTAND_STORES__ = window.__ZUSTAND_STORES__ || {};
  *   window.__ZUSTAND_STORES__.storeName = useStoreName;
@@ -34,7 +34,7 @@ export interface MapStoreState {
   } | null;
   colorScheme: string[];
   captiveIds: Set<string>;
-  focusFeatures: Array<{ id: string | number; source: string; sourceLayer: string }>;
+  focusFeatures: Array<{id: string | number; source: string; sourceLayer: string}>;
 }
 
 export interface MapControlsStoreState {
@@ -68,23 +68,25 @@ export async function getStoreState<T>(
   page: Page,
   storeName: 'mapStore' | 'mapControlsStore' | 'assignmentsStore' | 'tooltipStore' | 'chartStore'
 ): Promise<T | null> {
-  return await page.evaluate((name) => {
+  return await page.evaluate(name => {
     // @ts-ignore - accessing window globals
     const stores = window.__ZUSTAND_STORES__;
     if (!stores || !stores[name]) return null;
-    
+
     const state = stores[name].getState();
-    
+
     // Convert Map and Set to serializable objects
-    return JSON.parse(JSON.stringify(state, (key, value) => {
-      if (value instanceof Map) {
-        return { __type: 'Map', entries: Array.from(value.entries()) };
-      }
-      if (value instanceof Set) {
-        return { __type: 'Set', values: Array.from(value.values()) };
-      }
-      return value;
-    }));
+    return JSON.parse(
+      JSON.stringify(state, (key, value) => {
+        if (value instanceof Map) {
+          return {__type: 'Map', entries: Array.from(value.entries())};
+        }
+        if (value instanceof Set) {
+          return {__type: 'Set', values: Array.from(value.values())};
+        }
+        return value;
+      })
+    );
   }, storeName);
 }
 
@@ -129,41 +131,39 @@ export async function waitForStoreState<T>(
   timeout = 10000
 ): Promise<void> {
   const predicateString = predicate.toString();
-  
+
   await page.waitForFunction(
-    ({ store, pred }) => {
+    ({store, pred}) => {
       // @ts-ignore
       const stores = window.__ZUSTAND_STORES__;
       if (!stores || !stores[store]) return false;
-      
+
       const state = stores[store].getState();
       // eslint-disable-next-line no-eval
       const predicateFn = eval(`(${pred})`);
       return predicateFn(state);
     },
-    { store: storeName, pred: predicateString },
-    { timeout }
+    {store: storeName, pred: predicateString},
+    {timeout}
   );
 }
 
 /**
  * Get the zone assignments as a plain object (Map converted to object)
  */
-export async function getZoneAssignments(
-  page: Page
-): Promise<Record<string, number | null>> {
+export async function getZoneAssignments(page: Page): Promise<Record<string, number | null>> {
   return await page.evaluate(() => {
     // @ts-ignore
     const store = window.__ZUSTAND_STORES__?.assignmentsStore;
     if (!store) return {};
-    
-    const { zoneAssignments } = store.getState();
+
+    const {zoneAssignments} = store.getState();
     const result: Record<string, number | null> = {};
-    
+
     zoneAssignments.forEach((value: number | null, key: string) => {
       result[key] = value;
     });
-    
+
     return result;
   });
 }
@@ -171,23 +171,21 @@ export async function getZoneAssignments(
 /**
  * Get count of assignments per zone
  */
-export async function getZoneAssignmentCounts(
-  page: Page
-): Promise<Record<number, number>> {
+export async function getZoneAssignmentCounts(page: Page): Promise<Record<number, number>> {
   return await page.evaluate(() => {
     // @ts-ignore
     const store = window.__ZUSTAND_STORES__?.assignmentsStore;
     if (!store) return {};
-    
-    const { zoneAssignments } = store.getState();
+
+    const {zoneAssignments} = store.getState();
     const counts: Record<number, number> = {};
-    
+
     zoneAssignments.forEach((zone: number | null) => {
       if (zone !== null) {
         counts[zone] = (counts[zone] || 0) + 1;
       }
     });
-    
+
     return counts;
   });
 }
@@ -200,14 +198,14 @@ export async function getTotalAssignedFeatures(page: Page): Promise<number> {
     // @ts-ignore
     const store = window.__ZUSTAND_STORES__?.assignmentsStore;
     if (!store) return 0;
-    
-    const { zoneAssignments } = store.getState();
+
+    const {zoneAssignments} = store.getState();
     let count = 0;
-    
+
     zoneAssignments.forEach((zone: number | null) => {
       if (zone !== null) count++;
     });
-    
+
     return count;
   });
 }
