@@ -2,7 +2,7 @@
 import maplibregl, {FilterSpecification} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {Protocol} from 'pmtiles';
-import React, {useCallback, useEffect, useMemo} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {MAP_OPTIONS} from '@constants/configuration';
 import {handleWheelOrPinch} from '@utils/events/mapEvents';
 import {useMapStore} from '@store/mapStore';
@@ -19,8 +19,8 @@ import {useMapRenderer} from '@/app/hooks/useMapRenderer';
 import {PointSource} from './GeoSources/PointSource';
 import {CoiBlockLayers} from './PolygonLayers/CoiBlockLayers';
 import {MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
-import {BASEMAP_IDS} from '@/app/constants/map/layerStyle';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';
+import {useAnchorLayersReady} from '@/app/hooks/useAnchorLayersReady';
 
 /**
  * COI (Community of Interest) map component. Mirrors MainMap layout and layers;
@@ -33,13 +33,8 @@ export const CoiMap: React.FC = () => {
   const setMapRef = useMapStore(state => state.setMapRef);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const {mapRef, onLoad} = useMapRenderer('main');
-  const setMapMode = useMapControlsStore(state => state.setMapMode);
-  const setMapOptions = useMapControlsStore(state => state.setMapOptions);
-
-  useEffect(() => {
-    setMapMode('coi');
-    setMapOptions({basemap: BASEMAP_IDS.STREETS, showZoneNumbers: false});
-  }, []);
+  const [isMapLoaded, setIsMapLoaded] = useState(false);
+  const areAnchorLayersReady = useAnchorLayersReady(mapRef, isMapLoaded, mapOptions.basemap);
 
   const initialViewState = useMemo(() => {
     const center = MAP_OPTIONS.center as [number, number];
@@ -76,35 +71,40 @@ export const CoiMap: React.FC = () => {
         setMapRef(mapRef);
         handleWheelOrPinch({} as TouchEvent, mapRef.current);
         fitMapToBounds();
+        setIsMapLoaded(true);
       }}
     >
-      <MapLayerAnchors />
-      <CountyLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.counties} />
-      <BlockSource>
-        {!!mapDocument?.parent_layer && (
-          <CoiBlockLayers
-            scope="PARENT"
-            layerFilter={['literal', true] as FilterSpecification}
-            outlineFilter={parentOutlineFilter}
-            sourceLayerId={mapDocument.parent_layer}
-          />
-        )}
-        {!!mapDocument?.child_layer && (
-          <CoiBlockLayers
-            scope="CHILD"
-            layerFilter={childLayerFilter}
-            outlineFilter={childLayerFilter}
-            sourceLayerId={mapDocument.child_layer}
-          />
-        )}
-      </BlockSource>
-      <OverlayLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.overlays} />
-      <PointSource>
-        <PointSelectionLayer />
-        <PointSelectionLayer child />
-        <MetaLayers isDemographicMap={false} />
-      </PointSource>
-      <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
+      {isMapLoaded && <MapLayerAnchors />}
+      {areAnchorLayersReady && (
+        <>
+          <CountyLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.counties} />
+          <BlockSource>
+            {!!mapDocument?.parent_layer && (
+              <CoiBlockLayers
+                scope="PARENT"
+                layerFilter={['literal', true] as FilterSpecification}
+                outlineFilter={parentOutlineFilter}
+                sourceLayerId={mapDocument.parent_layer}
+              />
+            )}
+            {!!mapDocument?.child_layer && (
+              <CoiBlockLayers
+                scope="CHILD"
+                layerFilter={childLayerFilter}
+                outlineFilter={childLayerFilter}
+                sourceLayerId={mapDocument.child_layer}
+              />
+            )}
+          </BlockSource>
+          <OverlayLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.overlays} />
+          <PointSource>
+            <PointSelectionLayer />
+            <PointSelectionLayer child />
+            <MetaLayers isDemographicMap={false} />
+          </PointSource>
+          <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
+        </>
+      )}
     </CoiMapContainer>
   );
 };

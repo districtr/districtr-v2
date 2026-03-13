@@ -2,7 +2,7 @@
 import maplibregl, {FilterSpecification} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {Protocol} from 'pmtiles';
-import React, {useCallback, useEffect, useMemo} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {MAP_OPTIONS} from '@constants/configuration';
 import {handleWheelOrPinch} from '@utils/events/mapEvents';
 import {useMapStore} from '@store/mapStore';
@@ -20,7 +20,7 @@ import {PointSource} from './GeoSources/PointSource';
 import {BlockLayers} from './PolygonLayers/BlockLayers';
 import {MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';
-import {BASEMAP_IDS} from '@/app/constants/map/layerStyle';
+import {useAnchorLayersReady} from '@/app/hooks/useAnchorLayersReady';
 
 export const MainMap: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -28,14 +28,9 @@ export const MainMap: React.FC = () => {
   const childLayerFilter = useLayerFilter(true);
   const setMapRef = useMapStore(state => state.setMapRef);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
-  const setMapMode = useMapControlsStore(state => state.setMapMode);
-  const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const {mapRef, onLoad} = useMapRenderer('main');
-
-  useEffect(() => {
-    setMapMode('districts');
-    setMapOptions({basemap: BASEMAP_IDS.MINIMAL});
-  }, []);
+  const [isMapLoaded, setIsMapLoaded] = useState(false);
+  const areAnchorLayersReady = useAnchorLayersReady(mapRef, isMapLoaded, mapOptions.basemap);
 
   const initialViewState = useMemo(() => {
     const center = MAP_OPTIONS.center as [number, number];
@@ -72,35 +67,40 @@ export const MainMap: React.FC = () => {
         setMapRef(mapRef);
         handleWheelOrPinch({} as TouchEvent, mapRef.current);
         fitMapToBounds();
+        setIsMapLoaded(true);
       }}
     >
-      <MapLayerAnchors />
-      <CountyLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.counties} />
-      <BlockSource>
-        {!!mapDocument?.parent_layer && (
-          <BlockLayers
-            scope="PARENT"
-            layerFilter={['literal', true] as FilterSpecification}
-            outlineFilter={parentOutlineFilter}
-            sourceLayerId={mapDocument.parent_layer}
-          />
-        )}
-        {!!mapDocument?.child_layer && (
-          <BlockLayers
-            scope="CHILD"
-            layerFilter={childLayerFilter}
-            outlineFilter={childLayerFilter}
-            sourceLayerId={mapDocument.child_layer}
-          />
-        )}
-      </BlockSource>
-      <OverlayLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.overlays} />
-      <PointSource>
-        <PointSelectionLayer />
-        <PointSelectionLayer child />
-        <MetaLayers isDemographicMap={false} />
-      </PointSource>
-      <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
+      {isMapLoaded && <MapLayerAnchors />}
+      {areAnchorLayersReady && (
+        <>
+          <CountyLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.counties} />
+          <BlockSource>
+            {!!mapDocument?.parent_layer && (
+              <BlockLayers
+                scope="PARENT"
+                layerFilter={['literal', true] as FilterSpecification}
+                outlineFilter={parentOutlineFilter}
+                sourceLayerId={mapDocument.parent_layer}
+              />
+            )}
+            {!!mapDocument?.child_layer && (
+              <BlockLayers
+                scope="CHILD"
+                layerFilter={childLayerFilter}
+                outlineFilter={childLayerFilter}
+                sourceLayerId={mapDocument.child_layer}
+              />
+            )}
+          </BlockSource>
+          <OverlayLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.overlays} />
+          <PointSource>
+            <PointSelectionLayer />
+            <PointSelectionLayer child />
+            <MetaLayers isDemographicMap={false} />
+          </PointSource>
+          <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
+        </>
+      )}
     </MapContainer>
   );
 };

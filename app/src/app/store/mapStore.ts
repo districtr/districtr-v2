@@ -34,6 +34,7 @@ import {useAssignmentsStore} from './assignmentsStore';
 import {useCoiAssignmentsStore} from './coiAssignmentsStore';
 import {patchUpdateReset} from '../utils/api/apiHandlers/patchUpdateReset';
 import {idb} from '../utils/idb/idb';
+import {MAP_MODE_DEFAULT_OPTIONS} from '@/app/constants/map/mapModeDefaults';
 import {
   DEFAULT_COMMUNITY_DESCRIPTION,
   getNextCommunityName,
@@ -395,11 +396,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       useMapControlsStore.setState({
         mapOptions: {
           ...DEFAULT_MAP_OPTIONS,
+          ...MAP_MODE_DEFAULT_OPTIONS[mapControlsState.mapMode],
           bounds: mapDocument.extent,
           stateFipsSet: newStateFipsSet,
-          // COI maps should start with centroid bubble labels hidden.
-          showZoneNumbers:
-            mapControlsState.mapMode === 'coi' ? false : DEFAULT_MAP_OPTIONS.showZoneNumbers,
         },
         activeTool: mapDocument.access === 'edit' ? mapControlsState.activeTool : 'pan',
         selectedZone: communities[0]?.id ?? mapControlsState.selectedZone,

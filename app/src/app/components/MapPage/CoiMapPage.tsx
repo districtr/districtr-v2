@@ -19,6 +19,7 @@ import {useDocumentWithSync} from '@/app/hooks/useDocumentWithSync';
 import {SaveConflictModal} from '../SaveConflictModal';
 import {migrateUserMapsFromLocalStorage} from '@/app/utils/idb/migrateUserMaps';
 import {DemographicMap} from '../Map/DemographicMap';
+import {useInitializeMapMode} from '@/app/hooks/useInitializeMapMode';
 
 interface CoiMapPageProps {
   isEditing: boolean;
@@ -26,6 +27,7 @@ interface CoiMapPageProps {
 }
 
 const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => {
+  const isMapModeReady = useInitializeMapMode('coi');
   const showDemographicMap = useMapControlsStore(
     state => state.mapOptions.showDemographicMap === 'side-by-side'
   );
@@ -46,7 +48,7 @@ const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => 
     conflictModal,
   } = useDocumentWithSync({
     document_id: documentId || undefined,
-    enabled: !!documentId,
+    enabled: isMapModeReady && !!documentId,
   });
 
   useEffect(() => {
@@ -73,6 +75,10 @@ const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => 
       unsub();
     };
   }, []);
+
+  if (!isMapModeReady) {
+    return null;
+  }
 
   return (
     <div className="h-screen w-screen overflow-hidden flex justify-between p flex-col-reverse lg:flex-row-reverse landscape:flex-row-reverse">
