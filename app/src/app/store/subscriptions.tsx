@@ -7,10 +7,9 @@ import {useMapControlsStore} from './mapControlsStore';
 import {useAssignmentsStore} from './assignmentsStore';
 import {demographyService} from '../utils/demography/demographyService';
 
-export const initSubs = () => {
+export const initSubs = (readOnly = false) => {
   // these need to initialize after the map store
   const querySubs = getQueriesResultsSubs(useMapStore);
-  const mapEditSubs = getMapEditSubs(useMapStore);
 
   const demogInitSub = useDemographyStore.subscribe(
     state => state.getMapRef,
@@ -25,31 +24,6 @@ export const initSubs = () => {
     }
   );
 
-  const demogMapDocumentSub = useMapStore.subscribe(
-    state => state.mapDocument,
-    (curr, prev) => {
-      if (!curr || prev === curr || prev?.document_id === curr.document_id) return;
-      useDemographyStore.getState().updateData(curr);
-    }
-  );
-  const numDistrictsSub = useMapStore.subscribe(
-    state => state.mapDocument?.num_districts,
-    (curr, prev) => {
-      if (!curr || prev === curr) return;
-      demographyService.updateSummaryStats();
-    }
-  );
-
-  const demogShatterSub = useAssignmentsStore.subscribe(
-    state => state.shatterIds.parents,
-    (curr, prev) => {
-      if (!curr || prev === curr) return;
-      const mapDocument = useMapStore.getState().mapDocument;
-      if (!mapDocument) return;
-      useDemographyStore.getState().updateData(mapDocument, Array.from(curr));
-    }
-  );
-
   const featureFlagSub = useMapStore.subscribe<[MapStore['mapDocument']]>(
     state => [state.mapDocument],
     ([mapDocument]) => {
@@ -57,13 +31,50 @@ export const initSubs = () => {
     }
   );
 
+  const editorUnsubs: Array<() => void> = [];
+
+  if (!readOnly) {
+    const mapEditSubs = getMapEditSubs(useMapStore);
+    editorUnsubs.push(...mapEditSubs);
+
+    editorUnsubs.push(
+      useMapStore.subscribe(
+        state => state.mapDocument,
+        (curr, prev) => {
+          if (!curr || prev === curr || prev?.document_id === curr.document_id) return;
+          useDemographyStore.getState().updateData(curr);
+        }
+      )
+    );
+
+    editorUnsubs.push(
+      useMapStore.subscribe(
+        state => state.mapDocument?.num_districts,
+        (curr, prev) => {
+          if (!curr || prev === curr) return;
+          demographyService.updateSummaryStats();
+        }
+      )
+    );
+
+    editorUnsubs.push(
+      useAssignmentsStore.subscribe(
+        state => state.shatterIds.parents,
+        (curr, prev) => {
+          if (!curr || prev === curr) return;
+          const mapDocument = useMapStore.getState().mapDocument;
+          if (!mapDocument) return;
+          useDemographyStore.getState().updateData(mapDocument, Array.from(curr));
+        }
+      )
+    );
+  }
+
   const unsub = () => {
     querySubs();
-    mapEditSubs.forEach(sub => sub());
     demogInitSub();
-    demogMapDocumentSub();
-    demogShatterSub();
     featureFlagSub();
+    editorUnsubs.forEach(sub => sub());
   };
   return unsub;
 };

@@ -55,6 +55,7 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
   } = useDocumentWithSync({
     document_id: mapId || undefined,
     enabled: !!mapId,
+    isPublicPage,
   });
 
   // Handle document loading errors
@@ -78,11 +79,11 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
   }, [userID, setUserID]);
 
   useEffect(() => {
-    const unsub = initSubs();
+    const unsub = initSubs(isPublicPage);
     return () => {
       unsub();
     };
-  }, []);
+  }, [isPublicPage]);
 
   return (
     <div className="h-screen w-screen overflow-hidden flex justify-between p flex-col-reverse lg:flex-row-reverse landscape:flex-row-reverse">

@@ -26,6 +26,7 @@ import GeometryWorker from '../GeometryWorker';
 export class MapRenderSubscriber {
   mapRef: maplibregl.Map;
   mapType: 'demographic' | 'main' = 'main';
+  readOnly: boolean;
   useMapStore: typeof _useMapStore;
   useDemographyStore: typeof _useDemographyStore;
   subscriptions: ReturnType<typeof _useMapStore.subscribe>[] = [];
@@ -44,10 +45,12 @@ export class MapRenderSubscriber {
     useMapStore: typeof _useMapStore = _useMapStore,
     useDemographyStore: typeof _useDemographyStore = _useDemographyStore,
     useMapControlsStore: typeof _useMapControlsStore = _useMapControlsStore,
-    useAssignmentsStore: typeof _useAssignmentsStore = _useAssignmentsStore
+    useAssignmentsStore: typeof _useAssignmentsStore = _useAssignmentsStore,
+    readOnly = false
   ) {
     this.mapRef = mapRef;
     this.mapType = mapType;
+    this.readOnly = readOnly;
     this.useMapStore = useMapStore;
     this.useDemographyStore = useDemographyStore;
     this.useMapControlsStore = useMapControlsStore;
@@ -355,6 +358,7 @@ export class MapRenderSubscriber {
     this.renderDemographyColors();
   }
   checkRender() {
+    if (this.readOnly) return;
     const mapRef = this.mapRef;
     const mapState = this.useMapStore.getState();
     const isPainting = this.useMapControlsStore.getState().isPainting;
@@ -416,20 +420,24 @@ export class MapRenderSubscriber {
     const mapState = this.useMapStore.getState();
     const controlsState = this.useMapControlsStore.getState();
 
-    this.renderShatter();
-    this.renderCursor(controlsState.activeTool);
+    if (!this.readOnly) {
+      this.renderShatter();
+      this.renderCursor(controlsState.activeTool);
+    }
     this.renderFocus(mapState.focusFeatures);
-    if (this.mapType === 'main') {
+    if (!this.readOnly && this.mapType === 'main') {
       this.renderColorZones();
     }
     this.renderDemographyColors();
   }
   subscribe() {
-    this.subscribeShatter();
-    this.subscribeCursor();
+    if (!this.readOnly) {
+      this.subscribeShatter();
+      this.subscribeCursor();
+    }
     this.subscribeFocus();
     this.subscribeDemographyColors();
-    if (this.mapType === 'main') {
+    if (!this.readOnly && this.mapType === 'main') {
       this.subscribeColorZones();
     }
     this.render();

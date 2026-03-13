@@ -247,6 +247,35 @@ const GeometryWorker: GeometryWorkerClass = {
       features,
     };
   },
+  setPublicFeatures(features: GeoJSON.Feature[]) {
+    const points: GeoJSON.Feature<GeoJSON.Point>[] = [];
+    const zoneEntries: Array<[string, number]> = [];
+
+    features.forEach(feature => {
+      const zone = feature.properties?.zone;
+      const path = feature.properties?.path;
+      if (zone == null || !path || !feature.geometry) return;
+
+      const center = centerOfMass(feature as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>);
+      const [lng, lat] = center.geometry.coordinates;
+      points.push({
+        type: 'Feature',
+        geometry: center.geometry,
+        properties: {
+          ...feature.properties,
+          x: lng,
+          y: lat,
+        },
+      });
+      zoneEntries.push([String(path), zone]);
+    });
+
+    this.pointData = {
+      type: 'FeatureCollection',
+      features: points,
+    };
+    this.updateZones(zoneEntries);
+  },
   async getUnassignedGeometries(documentId?: string, exclude_ids?: string[]) {
     const geomsToDissolve: GeoJSON.Feature[] = [];
     const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${documentId}/unassigned`);

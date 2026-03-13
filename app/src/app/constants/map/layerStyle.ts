@@ -1,7 +1,7 @@
 import {DataDrivenPropertyValueSpecification, ExpressionSpecification} from 'maplibre-gl';
 export {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from './mapDefaults';
 
-export const EMPTY_FT_COLLECTION: GeoJSON.FeatureCollection<any> = {
+export const EMPTY_FT_COLLECTION: GeoJSON.FeatureCollection = {
   type: 'FeatureCollection',
   features: [],
 };

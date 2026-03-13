@@ -93,15 +93,21 @@ class DemographyService {
    * @param data - Columnar demographic rows keyed by column name.
    * @param hash - Cache key for this data snapshot (document + shatter context).
    */
-  update(columns: AllTabularColumns[number][], data: ColumnarTableData, hash: string): void {
+  update(
+    columns: AllTabularColumns[number][], 
+    data: ColumnarTableData, 
+    hash: string,
+    _zoneAssignments?: ZoneAssignmentsMap
+  ): void {
     if (hash === this.hash) return;
     this.availableColumns = columns;
     this.table = table(data).derive(getColumnDerives(columns)).dedupe('path');
-    const zoneAssignments = useAssignmentsStore.getState().zoneAssignments;
+    const zoneAssignments = _zoneAssignments ?? useAssignmentsStore.getState().zoneAssignments;
     const popsOk = this.updatePopulations(zoneAssignments);
     if (!popsOk) return;
     this.updateSummaryStats();
     this.hash = hash;
+    console.log("!!!HASH UPDATED", hash);
   }
 
   /**

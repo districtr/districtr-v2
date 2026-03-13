@@ -3,8 +3,8 @@ import {AllTabularColumns} from '../summaryStats';
 import {DocumentObject} from './types';
 import {ColumnarTableData} from '../../ParquetWorker/parquetWorker.types';
 import {get} from '../factory';
-import { useMapStore } from '@/app/store/mapStore';
-import { EMPTY_FT_COLLECTION } from '@/app/constants/map/layerStyle';
+import {useMapStore} from '@/app/store/mapStore';
+import {EMPTY_FT_COLLECTION} from '@/app/constants/map/layerStyle';
 
 type PublicDistrictData = {
   zone: number;

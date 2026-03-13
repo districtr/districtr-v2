@@ -27,7 +27,7 @@ export const PublicDemographicMap: React.FC = () => {
   const childLayerFilter = useLayerFilter(true);
   const getStateMapRef = useMapStore(state => state.getMapRef);
   const synced = useRef<false | (() => void)>(false);
-  const {mapRef, onLoad} = useMapRenderer('demographic');
+  const {mapRef, onLoad} = useMapRenderer('demographic', true);
 
   const initialViewState = useMemo(() => {
     const mainMapRef = getStateMapRef();
@@ -84,19 +84,9 @@ export const PublicDemographicMap: React.FC = () => {
             sourceLayerId={mapDocument.parent_layer}
           />
         )}
-        {!!mapDocument?.child_layer && (
-          <BlockDemographicLayers
-            scope="CHILD"
-            layerFilter={childLayerFilter}
-            outlineFilter={childLayerFilter}
-            sourceLayerId={mapDocument.child_layer}
-          />
-        )}
       </BlockSource>
       <OverlayLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.overlays} />
       <PointSource>
-        <PointSelectionLayer />
-        <PointSelectionLayer child />
         <MetaLayers isDemographicMap={true} />
       </PointSource>
       <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />

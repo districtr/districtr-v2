@@ -1,5 +1,5 @@
 'use client';
-import maplibregl, {FilterSpecification} from 'maplibre-gl';
+import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {Protocol} from 'pmtiles';
 import React, {useCallback, useEffect, useMemo} from 'react';
@@ -9,25 +9,25 @@ import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {NavigationControl} from 'react-map-gl/maplibre';
 import {CountyLayers} from './PolygonLayers/CountyLayers';
-import {BlockSource} from './GeoSources/BlockSource';
 import {MetaLayers} from './PointLayers/MetaLayers';
-import {PointSelectionLayer} from './PointLayers/PointSelectionLayer';
 import {OverlayLayers} from './PolygonLayers/OverlayLayers';
 import {MapLayerAnchors} from './MapLayerAnchors';
 import {MapContainer} from './MapContainer';
 import {useMapRenderer} from '@/app/hooks/useMapRenderer';
 import {PointSource} from './GeoSources/PointSource';
 import {MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
-import {useLayerFilter} from '@/app/hooks/useLayerFilter';
-import {PublicDistrictLayer} from './PublicDistrictLayer';
+import {PublicSource} from './GeoSources/PublicSource';
+import {PublicDistrictLayers} from './PolygonLayers/PublicDistrictLayers';
+import {BlockDemographicLayers} from './PolygonLayers/BlockDemographicLayers';
+import {BlockSource} from './GeoSources/BlockSource';
+import type {FilterSpecification} from 'maplibre-gl';
 
 export const PublicMap: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
-  const parentOutlineFilter = useLayerFilter(false);
-  const childLayerFilter = useLayerFilter(true);
   const setMapRef = useMapStore(state => state.setMapRef);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
-  const {mapRef, onLoad} = useMapRenderer('main');
+  const {mapRef, onLoad} = useMapRenderer('main', true);
+  const hasDemographicOverlay = useMapControlsStore(state => state.mapOptions.showDemographicMap) === 'overlay';
 
   const initialViewState = useMemo(() => {
     const center = MAP_OPTIONS.center as [number, number];
@@ -68,28 +68,21 @@ export const PublicMap: React.FC = () => {
     >
       <MapLayerAnchors />
       <CountyLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.counties} />
-      <BlockSource>
+      <PublicSource>
+        <PublicDistrictLayers />
+      </PublicSource>
+      {hasDemographicOverlay && <BlockSource>
         {!!mapDocument?.parent_layer && (
-          <PublicDistrictLayer
+          <BlockDemographicLayers
             scope="PARENT"
             layerFilter={['literal', true] as FilterSpecification}
-            outlineFilter={parentOutlineFilter}
+            outlineFilter={['literal', true] as FilterSpecification}
             sourceLayerId={mapDocument.parent_layer}
           />
         )}
-        {!!mapDocument?.child_layer && (
-          <PublicDistrictLayer
-            scope="CHILD"
-            layerFilter={childLayerFilter}
-            outlineFilter={childLayerFilter}
-            sourceLayerId={mapDocument.child_layer}
-          />
-        )}
-      </BlockSource>
+      </BlockSource>}
       <OverlayLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.overlays} />
       <PointSource>
-        <PointSelectionLayer />
-        <PointSelectionLayer child />
         <MetaLayers isDemographicMap={false} />
       </PointSource>
       <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
