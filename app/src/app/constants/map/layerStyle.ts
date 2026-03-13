@@ -1,10 +1,10 @@
 import {DataDrivenPropertyValueSpecification, ExpressionSpecification} from 'maplibre-gl';
 export {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from './mapDefaults';
 
-export const EMPTY_FT_COLLECTION: GeoJSON.FeatureCollection = {
+export const EMPTY_FT_COLLECTION = {
   type: 'FeatureCollection',
   features: [],
-};
+} as const satisfies GeoJSON.FeatureCollection<GeoJSON.Geometry, GeoJSON.GeoJsonProperties>;
 
 // Sometimes, maplibre requires non-empty arrays for specifications
 // This serves as a placeholder for otherwise empty arrays
