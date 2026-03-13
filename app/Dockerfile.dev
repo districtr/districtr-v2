@@ -1,8 +1,8 @@
 # Use official Node.js image as the base image
-FROM node:24-bookworm
+FROM node:24-alpine
 
 # Install curl and Bun
-RUN apt-get update && apt-get install -y curl bash && \
+RUN apk add --no-cache curl bash && \
     curl -fsSL https://bun.sh/install | bash
 
 # Add Bun to PATH
