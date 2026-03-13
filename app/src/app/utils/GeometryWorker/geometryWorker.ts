@@ -1,8 +1,6 @@
 import {expose} from 'comlink';
 import dissolve from '@turf/dissolve';
 import centerOfMass from '@turf/center-of-mass';
-import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
-import pointOnFeature from '@turf/point-on-feature';
 import {GeometryWorkerClass, MinGeoJSONFeature} from './geometryWorker.types';
 import {LngLatBoundsLike} from 'maplibre-gl';
 import bbox from '@turf/bbox';
@@ -11,6 +9,145 @@ import {EMPTY_FT_COLLECTION} from '../../constants/map/layerStyle';
 
 const POINT_LIMIT = 256;
 const MIN_POPULATION = 300;
+
+// -- Polylabel: pole of inaccessibility (visual center of polygon) --
+// Adapted from @mapbox/polylabel (ISC license)
+
+function pointToPolygonDistance(x: number, y: number, rings: number[][][]): number {
+  let inside = false;
+  let minDistSq = Infinity;
+  for (const ring of rings) {
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const ax = ring[i][0], ay = ring[i][1];
+      const bx = ring[j][0], by = ring[j][1];
+      if ((ay > y !== by > y) && (x < ((bx - ax) * (y - ay)) / (by - ay) + ax)) {
+        inside = !inside;
+      }
+      // Squared distance from point to segment
+      let dx = bx - ax, dy = by - ay;
+      const len2 = dx * dx + dy * dy;
+      let t = len2 ? ((x - ax) * dx + (y - ay) * dy) / len2 : 0;
+      t = Math.max(0, Math.min(1, t));
+      dx = ax + t * dx - x;
+      dy = ay + t * dy - y;
+      minDistSq = Math.min(minDistSq, dx * dx + dy * dy);
+    }
+  }
+  return (inside ? 1 : -1) * Math.sqrt(minDistSq);
+}
+
+interface Cell { x: number; y: number; h: number; d: number; max: number; }
+
+function makeCell(x: number, y: number, h: number, rings: number[][][]): Cell {
+  const d = pointToPolygonDistance(x, y, rings);
+  return {x, y, h, d, max: d + h * Math.SQRT2};
+}
+
+function polylabel(rings: number[][][], precision = 0.5): [number, number] {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  const outer = rings[0];
+  for (const p of outer) {
+    minX = Math.min(minX, p[0]);
+    minY = Math.min(minY, p[1]);
+    maxX = Math.max(maxX, p[0]);
+    maxY = Math.max(maxY, p[1]);
+  }
+  const w = maxX - minX, h = maxY - minY;
+  const cellSize = Math.max(w, h);
+  if (cellSize === 0) return [minX, minY];
+
+  let best = makeCell(minX + w / 2, minY + h / 2, 0, rings);
+
+  // Seed queue with initial grid
+  const queue: Cell[] = [];
+  for (let x = minX; x < maxX; x += cellSize) {
+    for (let y = minY; y < maxY; y += cellSize) {
+      const cell = makeCell(x + cellSize / 2, y + cellSize / 2, cellSize / 2, rings);
+      queue.push(cell);
+      if (cell.d > best.d) best = cell;
+    }
+  }
+
+  // Check centroid
+  let area = 0, cx = 0, cy = 0;
+  for (let i = 0, j = outer.length - 1; i < outer.length; j = i++) {
+    const a = outer[i], b = outer[j];
+    const f = a[0] * b[1] - b[0] * a[1];
+    cx += (a[0] + b[0]) * f;
+    cy += (a[1] + b[1]) * f;
+    area += f * 3;
+  }
+  if (area !== 0) {
+    const centroid = makeCell(cx / area, cy / area, 0, rings);
+    if (centroid.d > best.d) best = centroid;
+  }
+
+  // Sort descending by max potential so we process most promising first
+  queue.sort((a, b) => b.max - a.max);
+
+  while (queue.length) {
+    const cell = queue.pop()!;
+    if (cell.max - best.d <= precision) continue;
+    const h2 = cell.h / 2;
+    const children = [
+      makeCell(cell.x - h2, cell.y - h2, h2, rings),
+      makeCell(cell.x + h2, cell.y - h2, h2, rings),
+      makeCell(cell.x - h2, cell.y + h2, h2, rings),
+      makeCell(cell.x + h2, cell.y + h2, h2, rings),
+    ];
+    for (const c of children) {
+      if (c.d > best.d) best = c;
+      if (c.max > best.d + precision) {
+        // Insert sorted (binary insert)
+        let lo = 0, hi = queue.length;
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1;
+          if (queue[mid].max < c.max) hi = mid; else lo = mid + 1;
+        }
+        queue.splice(lo, 0, c);
+      }
+    }
+  }
+
+  return [best.x, best.y];
+}
+
+/**
+ * Find the visual center (pole of inaccessibility) of a polygon.
+ * For MultiPolygons, uses the largest component polygon.
+ */
+const interiorCenter = (
+  feature: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>
+): GeoJSON.Feature<GeoJSON.Point> => {
+  const geom = feature.geometry;
+  let rings: number[][][];
+
+  if (geom.type === 'Polygon') {
+    rings = geom.coordinates;
+  } else {
+    // Pick the largest polygon by outer ring area
+    let maxArea = 0;
+    rings = geom.coordinates[0];
+    for (const polyCoords of geom.coordinates) {
+      let area = 0;
+      const outer = polyCoords[0];
+      for (let i = 0, j = outer.length - 1; i < outer.length; j = i++) {
+        area += (outer[j][0] - outer[i][0]) * (outer[j][1] + outer[i][1]);
+      }
+      if (Math.abs(area) > maxArea) {
+        maxArea = Math.abs(area);
+        rings = polyCoords;
+      }
+    }
+  }
+
+  const [x, y] = polylabel(rings, 0.001);
+  return {
+    type: 'Feature',
+    geometry: {type: 'Point', coordinates: [x, y]},
+    properties: {},
+  };
+};
 
 const explodeMultiPolygonToPolygons = (
   feature: GeoJSON.MultiPolygon
@@ -259,10 +396,7 @@ const GeometryWorker: GeometryWorkerClass = {
       if (zone == null || !path || !feature.geometry) return;
 
       const poly = feature as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>;
-      let center = centerOfMass(poly);
-      if (!booleanPointInPolygon(center, poly)) {
-        center = pointOnFeature(poly) as GeoJSON.Feature<GeoJSON.Point>;
-      }
+      const center = interiorCenter(poly);
       const [lng, lat] = center.geometry.coordinates;
       points.push({
         type: 'Feature',
