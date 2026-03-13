@@ -17,6 +17,7 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
   const setMapRenderingState = useMapStore(state => state.setMapRenderingState);
   const setStateFp = useMapControlsStore(state => state.setStateFp);
   const setDemographyHash = useDemographyStore(state => state.setDataHash);
+  const setAvailableColumnSets = useDemographyStore(state => state.setAvailableColumnSets);
   useClearMap(mapDocument?.document_id);
 
   const publicDistrictsQuery = useQuery({
@@ -33,6 +34,10 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
   }, [publicDistrictsQuery.data?.geojsonFeatures]);
 
   useLayoutEffect(() => {
+    // This side effect basically handles all the data loading logic for public maps
+    // Because the data here is so much smaller, we can skip the assignment store stuff
+    // This is faster, which matters for public maps where lots of people may be viewing 
+    // But few would edit
     if (!publicDistrictsQuery.data) return;
     if (publicDistrictsQuery.data.statefp) {
       setStateFp(publicDistrictsQuery.data.statefp);
@@ -45,9 +50,7 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
     setDemographyHash(hash);
 
     // Set available column sets so sidebar knows which columns are available
-    useDemographyStore
-      .getState()
-      .setAvailableColumnSets(getAvailableColumnSets(demographyService.availableColumns));
+    setAvailableColumnSets(getAvailableColumnSets(demographyService.availableColumns));
 
     // Load public geometries into GeometryWorker for zone label centroids
     GeometryWorker?.setPublicFeatures(publicDistrictsQuery.data.geojsonFeatures);
