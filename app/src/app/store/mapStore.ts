@@ -28,7 +28,6 @@ import {demographyCache} from '../utils/demography/demographyCache';
 import {useDemographyStore} from './demography/demographyStore';
 import {extendColorArray} from '../utils/colors';
 import {getChildEdges} from '../utils/api/apiHandlers/getChildEdges';
-import {patchUnShatterParents} from '../utils/api/apiHandlers/patchUnShatterParents';
 import {DEFAULT_MAP_OPTIONS, useMapControlsStore} from './mapControlsStore';
 import {useAssignmentsStore} from './assignmentsStore';
 import {useCoiAssignmentsStore} from './coiAssignmentsStore';
@@ -46,16 +45,6 @@ import {
   sortCommunitiesByRenderOrder,
   syncCoiColorsToColorScheme,
 } from '../utils/communities';
-
-const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
-  const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
-  for (const key in setRecord) {
-    if (setRecord.hasOwnProperty(key) && (!keys || keys?.includes(key))) {
-      setRecord[key].forEach(value => combinedSet.add(value)); // Add each value to the combined set
-    }
-  }
-  return combinedSet; // Return the combined set
-};
 
 const resolveNumCommunities = (
   mapDocument: DocumentObject | null | undefined,
@@ -77,6 +66,9 @@ const sanitizeCommunityDescription = (
   fallback = DEFAULT_COMMUNITY_DESCRIPTION
 ) => (description?.trim() || fallback).slice(0, maxLength);
 
+const MISSING_DESCRIPTION_COMMENT_INDEX = -1;
+const trimCommentText = (text?: string | null) => (text ?? '').trim();
+
 const syncCommunityDescriptionComment = ({
   comments,
   communityId,
@@ -91,34 +83,42 @@ const syncCommunityDescriptionComment = ({
   descriptionCommentId?: string | null;
 }) => {
   let nextDescriptionCommentId = descriptionCommentId ?? null;
-  let descriptionCommentIndex =
-    nextDescriptionCommentId === null
-      ? -1
-      : comments.findIndex(comment => comment.comment_id === nextDescriptionCommentId);
+  const currentDescriptionText = currentDescription.trim();
+  const nextDescriptionText = nextDescription.trim();
+  let descriptionCommentIndex = MISSING_DESCRIPTION_COMMENT_INDEX;
 
-  if (descriptionCommentIndex === -1) {
+  if (nextDescriptionCommentId !== null) {
     descriptionCommentIndex = comments.findIndex(
-      comment =>
-        comment.zone === communityId && (comment.text ?? '').trim() === currentDescription.trim()
+      comment => comment.comment_id === nextDescriptionCommentId
     );
-    if (descriptionCommentIndex !== -1) {
-      nextDescriptionCommentId = comments[descriptionCommentIndex].comment_id ?? null;
-    }
   }
 
-  if (descriptionCommentIndex === -1) {
-    const newCommentId = crypto.randomUUID();
-    return {
-      comments: [...comments, {comment_id: newCommentId, zone: communityId, text: nextDescription}],
-      descriptionCommentId: newCommentId,
-      changed: true,
-    };
+  if (descriptionCommentIndex === MISSING_DESCRIPTION_COMMENT_INDEX) {
+    descriptionCommentIndex = comments.findIndex(
+      comment =>
+        comment.zone === communityId && trimCommentText(comment.text) === currentDescriptionText
+    );
+
+    // Failed to find an existing comment for the description, so we need to create one
+    if (descriptionCommentIndex === MISSING_DESCRIPTION_COMMENT_INDEX) {
+      const newCommentId = crypto.randomUUID();
+      return {
+        comments: [
+          ...comments,
+          {comment_id: newCommentId, zone: communityId, text: nextDescription},
+        ],
+        descriptionCommentId: newCommentId,
+        changed: true,
+      };
+    }
+
+    nextDescriptionCommentId = comments[descriptionCommentIndex].comment_id ?? null;
   }
 
   const currentComment = comments[descriptionCommentIndex];
   if (
     currentComment.zone === communityId &&
-    (currentComment.text ?? '').trim() === nextDescription.trim()
+    trimCommentText(currentComment.text) === nextDescriptionText
   ) {
     return {
       comments,

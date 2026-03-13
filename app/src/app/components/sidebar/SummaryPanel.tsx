@@ -7,7 +7,6 @@ import {summaryStatLabels} from '@/app/store/demography/evaluationConfig';
 import {MapPanel} from './MapPanel';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useMapStore} from '@/app/store/mapStore';
-import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
 import {sortCommunitiesByRenderOrder} from '@/app/utils/communities';
 
@@ -25,8 +24,6 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
   const mapMode = useMapControlsStore(state => state.mapMode);
   const selectedZone = useMapControlsStore(state => state.selectedZone);
   const setSelectedZone = useMapControlsStore(state => state.setSelectedZone);
-  const numDistricts =
-    useMapStore(state => state.mapDocument?.num_districts) ?? FALLBACK_NUM_DISTRICTS;
   const communities = useMapStore(state => state.communities);
 
   const [summaryType, setSummaryType] = useState<keyof SummaryStatConfig | undefined>(
@@ -38,7 +35,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
   );
 
   const columnConfig = summaryType ? availableSummaries[summaryType] : [];
-  const isCoiMode = mapMode === 'coi';
+  const isCommunityMode = mapMode === 'coi';
   const orderedCommunities = sortCommunitiesByRenderOrder(communities);
 
   useEffect(() => {
@@ -84,7 +81,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
             </Select.Root>
           </>
         )}
-        {isCoiMode && orderedCommunities.length > 0 && (
+        {isCommunityMode && orderedCommunities.length > 0 && (
           <>
             <Text>Community</Text>
             <Select.Root
@@ -108,9 +105,11 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
         setSummaryType={setSummaryType}
         columnConfig={columnConfig}
         displayedColumnSets={displayedColumnSets}
-        singleZone={isCoiMode && orderedCommunities.length > 0 ? selectedZone : undefined}
+        singleZone={isCommunityMode && orderedCommunities.length > 0 ? selectedZone : undefined}
         universeTotals={
-          isCoiMode && orderedCommunities.length > 0 ? demographyCache.universeTotals : undefined
+          isCommunityMode && orderedCommunities.length > 0
+            ? demographyCache.universeTotals
+            : undefined
         }
       />
       <Heading as="h3" size="3">

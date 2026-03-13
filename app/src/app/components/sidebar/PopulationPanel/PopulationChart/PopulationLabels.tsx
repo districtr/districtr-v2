@@ -28,6 +28,7 @@ export const PopulationLabels: React.FC<{
   showTopBottomDeviation,
   width,
 }) => {
+  // TODO: Split labels into poplabels and ideal pop label diff
   const hasIdealPopulation = idealPopulation !== undefined;
   const popDiff = hasIdealPopulation ? entry.total_pop_20 - idealPopulation : undefined;
   const _popDiffLabel =

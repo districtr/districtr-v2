@@ -28,8 +28,7 @@ export type CommunityData = Community & {
 export type CoiPaintMode = 'brush' | 'eraser';
 export type CoiAccumulatedMutation =
   | {type: 'assign'; community: Zone}
-  | {type: 'erase-community'; community: Zone}
-  | {type: 'erase-all'};
+  | {type: 'erase-community'; community: Zone};
 
 export type CoiAssignmentsPayload = {
   communityAssignments: CommunityAssignmentsMap;
@@ -80,19 +79,19 @@ export interface CoiAssignmentsStore {
   getPrimaryCommunityForGeoid: (geoid: string) => NullableZone;
 
   /** Immediate (non-accumulated) assignment updates. */
-  assignGeoidsToCommunity: (geoidSet: Set<GDBPath>, community: NullableZone) => void;
+  assignGeoidsToCommunity: (geoidSet: Set<GDBPath>, community: Zone) => void;
 
   /** Paint-phase mutation; writes feature-state immediately and queues store updates. */
   mutateCommunityAssignments: (
     mapRef: MaplibreMap,
     features: Array<MapGeoJSONFeature>,
-    community: NullableZone,
+    community: Zone,
     mode?: CoiPaintMode
   ) => void;
 
   setAccumulatedAssignments: (
     assignments: CoiAssignmentsStore['accumulatedAssignments'],
-    communitiesUpdated: Set<NullableZone>
+    communitiesUpdated: Set<Zone>
   ) => void;
 
   /** Flushes accumulated paint updates into canonical store state. */
@@ -202,6 +201,17 @@ const cloneParentToChildMap = (parentToChild: Map<string, Set<string>>) => {
   return copy;
 };
 
+/**
+ * Builds a community visibility map for a given set of community ids. This is used to ensure that
+ * we have a consistent visibility map that includes all communities, even if they don't have an
+ * explicit visibility setting in the store (in which case they default to visible).
+ *
+ * @param communityIds The set of community ids to build the visibility map for
+ * @param currentVisibility The current community visibility map from the store, which may be used
+ * to preserve existing visibility settings for communities that are still present
+ * @return A community visibility map that includes all provided community ids, with preserved
+ * settings for any communities that were already present in the currentVisibility map
+ */
 const buildCommunityVisibilityMap = (
   communityIds: Iterable<Zone>,
   currentVisibility: CommunityVisibilityMap = new Map()
@@ -213,6 +223,17 @@ const buildCommunityVisibilityMap = (
   return nextVisibility;
 };
 
+/**
+ * Builds a CommunityData object for a given community by combining the community metadata with its
+ * assignments and visibility from the store. This is used to provide a single source of truth for
+ * the state of a community that can be easily consumed by the UI.
+ *
+ * @param community The community metadata to build the state for
+ * @param communityAssignments The community assignments map from the store
+ * @param communityVisibility The community visibility map from the store
+ * @param communityLastUpdated The community last updated map from the store
+ * @return A CommunityData object representing the current state of the community
+ */
 const buildCommunityState = ({
   community,
   communityAssignments,
@@ -370,6 +391,76 @@ const buildFeatureStateUpdateForCommunities = (
   return featureStateUpdate;
 };
 
+type CoiShatterState = CoiAssignmentsStore['shatterIds'];
+/** Given a set of affected geometries, returns the set of parent geometries that should be
+ * checked for healing.
+ *
+ * @param affectedGeometries The set of geometries that were affected by the most recent mutation
+ * @param shatterIds The current shatter state from the store, used to determine which geometries
+ * are parents/children
+ * @param childToParent The current child-to-parent mapping from the store, used to find the parent
+ * geometry for any affected children
+ * @return A set of parent geometry ids that should be checked for healing
+ */
+const getTouchedParentIds = ({
+  affectedGeometries,
+  shatterIds,
+  childToParent,
+}: {
+  affectedGeometries: Iterable<string>;
+  shatterIds: CoiShatterState;
+  childToParent: Map<string, string>;
+}) => {
+  const touchedParentIds = new Set<string>();
+  for (const geoid of affectedGeometries) {
+    if (!shatterIds.children.has(geoid)) continue;
+    const parentId = childToParent.get(geoid);
+    if (parentId) {
+      touchedParentIds.add(parentId);
+    }
+  }
+  return touchedParentIds;
+};
+
+type HealParentsFn = CoiAssignmentsStore['healParentsIfAllChildrenInSameCommunities'];
+/**
+ * Checks the parents of the affected geometries to see if any of them are eligible for healing
+ * (i.e. all of their children belong to the same set of communities), and heals them if they are.
+ * This is called after ingesting accumulated assignments to ensure that any eligible parents are
+ * healed as soon as possible, which helps to keep the map state consistent.
+ *
+ * @param affectedGeometries The set of geometries that were affected by the most recent mutation.
+ * @param shatterIds The current shatter state from the store.
+ * @param childToParent The current child-to-parent mapping from the store.
+ * @param healParentsIfAllChildrenInSameCommunities The healing function for mending eligible
+ * parents.
+ */
+const healTouchedParentsIfEligible = ({
+  affectedGeometries,
+  shatterIds,
+  childToParent,
+  healParentsIfAllChildrenInSameCommunities,
+}: {
+  affectedGeometries: Iterable<string>;
+  shatterIds: CoiShatterState;
+  childToParent: Map<string, string>;
+  healParentsIfAllChildrenInSameCommunities: HealParentsFn;
+}) => {
+  const touchedParentIds = getTouchedParentIds({
+    affectedGeometries,
+    shatterIds,
+    childToParent,
+  });
+  const controlsState = useMapControlsStore.getState();
+  if (
+    touchedParentIds.size &&
+    controlsState.activeTool !== 'shatter' &&
+    controlsState.mapOptions.mode !== 'break'
+  ) {
+    healParentsIfAllChildrenInSameCommunities(touchedParentIds);
+  }
+};
+
 // ==============================
 // == Zustand store definition ==
 // ==============================
@@ -448,17 +539,12 @@ export const useCoiAssignmentsStore = createWithDevWrapperAndSubscribe<CoiAssign
     return getPrimaryCommunityForGeoidFromAssignments(get().communityAssignments, geoid);
   },
 
-  assignGeoidsToCommunity: (geoidSet: Set<GDBPath>, community: NullableZone) => {
+  assignGeoidsToCommunity: (geoidSet: Set<GDBPath>, community: Zone) => {
     const currentAssignments = get().communityAssignments;
     const newAssignments = deepCopyCommunityAssignments(currentAssignments);
-    const mutatedCommunities = new Set<NullableZone>();
+    const mutatedCommunities = new Set<Zone>();
 
     geoidSet.forEach(geoid => {
-      if (community === null) {
-        const communitiesContainingGeoid = removeGeoidFromAllCommunities(newAssignments, geoid);
-        communitiesContainingGeoid.forEach(c => mutatedCommunities.add(c));
-        return;
-      }
       insertGeoidIntoCommunity(geoid, community, newAssignments);
       mutatedCommunities.add(community);
     });
@@ -466,9 +552,7 @@ export const useCoiAssignmentsStore = createWithDevWrapperAndSubscribe<CoiAssign
     const currentTime = new Date().toISOString();
     const newCommunityLastUpdated = new Map(get().communityLastUpdated);
     mutatedCommunities.forEach(c => {
-      if (c !== null) {
-        newCommunityLastUpdated.set(c, currentTime);
-      }
+      newCommunityLastUpdated.set(c, currentTime);
     });
 
     // Clear accumulated assignments since we are now committing to this state
@@ -489,7 +573,7 @@ export const useCoiAssignmentsStore = createWithDevWrapperAndSubscribe<CoiAssign
   mutateCommunityAssignments: (
     mapRef: MaplibreMap,
     features: Array<MapGeoJSONFeature>,
-    community: NullableZone,
+    community: Zone,
     mode: CoiPaintMode = 'brush'
   ) => {
     const {accumulatedAssignments, communityAssignments, communityLastUpdated} = get();
@@ -517,17 +601,10 @@ export const useCoiAssignmentsStore = createWithDevWrapperAndSubscribe<CoiAssign
       let mutationType: CoiAccumulatedMutation | null = null;
 
       if (mode === 'eraser') {
-        if (community === null) {
-          if (!currentCommunities.size) return; // No communities to erase from
-          mutationType = {type: 'erase-all'};
-          newCommunities.clear();
-        } else {
-          if (!currentCommunities.has(community)) return; // Not part of this community, nothing to erase
-          mutationType = {type: 'erase-community', community};
-          newCommunities.delete(community);
-        }
+        if (!currentCommunities.has(community)) return; // Not part of this community, nothing to erase
+        mutationType = {type: 'erase-community', community};
+        newCommunities.delete(community);
       } else if (mode === 'brush') {
-        if (community === null) return; // Can't assign to null community in brush mode
         if (currentCommunities.has(community)) return; // Already part of this community, nothing to do
         mutationType = {type: 'assign', community};
         newCommunities.add(community);
@@ -547,11 +624,6 @@ export const useCoiAssignmentsStore = createWithDevWrapperAndSubscribe<CoiAssign
           popChanges[mutationType.community] =
             (popChanges[mutationType.community] || 0) - featurePop;
           communityLastUpdated.set(mutationType.community, editTime);
-        } else if (mutationType.type === 'erase-all') {
-          currentCommunities.forEach(c => {
-            popChanges[c] = (popChanges[c] || 0) - featurePop;
-            communityLastUpdated.set(c, editTime);
-          });
         }
       }
 
@@ -579,9 +651,7 @@ export const useCoiAssignmentsStore = createWithDevWrapperAndSubscribe<CoiAssign
     const newCommunityLastUpdated = new Map(get().communityLastUpdated);
     const currentTime = new Date().toISOString();
     communitiesUpdated.forEach(c => {
-      if (c !== null) {
-        newCommunityLastUpdated.set(c, currentTime);
-      }
+      newCommunityLastUpdated.set(c, currentTime);
     });
     set({
       accumulatedAssignments: new Map(assignments),
@@ -620,10 +690,6 @@ export const useCoiAssignmentsStore = createWithDevWrapperAndSubscribe<CoiAssign
             touchedCommunities.add(mutation.community);
           }
           break;
-        case 'erase-all':
-          const communitiesRemovedFrom = removeGeoidFromAllCommunities(newAssignments, geoid);
-          communitiesRemovedFrom.forEach(c => touchedCommunities.add(c));
-          break;
         default:
           break;
       }
@@ -659,15 +725,6 @@ export const useCoiAssignmentsStore = createWithDevWrapperAndSubscribe<CoiAssign
       idb.updateIdbCoiAssignments(mapDocument, newAssignments, currentTime);
     }
 
-    const touchedParentIds = new Set<string>();
-    changedGeoids.forEach(geoid => {
-      if (!shatterIds.children.has(geoid)) return;
-      const parentId = childToParent.get(geoid);
-      if (parentId) {
-        touchedParentIds.add(parentId);
-      }
-    });
-
     set({
       communityAssignments: newAssignments,
       communityLastUpdated: newLastUpdated,
@@ -681,14 +738,12 @@ export const useCoiAssignmentsStore = createWithDevWrapperAndSubscribe<CoiAssign
       },
     });
 
-    const controlsState = useMapControlsStore.getState();
-    if (
-      touchedParentIds.size &&
-      controlsState.activeTool !== 'shatter' &&
-      controlsState.mapOptions.mode !== 'break'
-    ) {
-      get().healParentsIfAllChildrenInSameCommunities(touchedParentIds);
-    }
+    healTouchedParentsIfEligible({
+      affectedGeometries: changedGeoids,
+      shatterIds,
+      childToParent,
+      healParentsIfAllChildrenInSameCommunities: get().healParentsIfAllChildrenInSameCommunities,
+    });
   },
 
   healParentsIfAllChildrenInSameCommunities: parentIds => {
@@ -699,7 +754,7 @@ export const useCoiAssignmentsStore = createWithDevWrapperAndSubscribe<CoiAssign
       communityAssignments: currentCommunityAssignments,
       communityLastUpdated,
     } = get();
-    const {mapDocument, getMapRef} = useMapStore.getState();
+    const {mapDocument, getMapRef, captiveIds, focusFeatures} = useMapStore.getState();
 
     const newShatterIds = {
       parents: new Set(currentShatterIds.parents),
@@ -805,16 +860,15 @@ export const useCoiAssignmentsStore = createWithDevWrapperAndSubscribe<CoiAssign
       idb.updateIdbCoiAssignments(mapDocument, communityAssignments, currentTime, true);
     }
 
-    const mapState = useMapStore.getState();
     const controlsState = useMapControlsStore.getState();
     const remainingCaptiveIds = new Set(
-      Array.from(mapState.captiveIds).filter(id => newShatterIds.children.has(id))
+      Array.from(captiveIds).filter(id => newShatterIds.children.has(id))
     );
-    const activeParentId = mapState.focusFeatures?.[0]?.id?.toString();
+    const activeParentId = focusFeatures?.[0]?.id?.toString();
     const activeParentHealed = !!(activeParentId && !newShatterIds.parents.has(activeParentId));
     if (
       controlsState.activeTool !== 'shatter' &&
-      mapState.captiveIds.size &&
+      captiveIds.size &&
       (activeParentHealed || remainingCaptiveIds.size === 0)
     ) {
       useMapStore.setState({
@@ -824,10 +878,7 @@ export const useCoiAssignmentsStore = createWithDevWrapperAndSubscribe<CoiAssign
       controlsState.setMapOptions({mode: 'default'});
       return;
     }
-    if (
-      controlsState.activeTool !== 'shatter' &&
-      remainingCaptiveIds.size !== mapState.captiveIds.size
-    ) {
+    if (controlsState.activeTool !== 'shatter' && remainingCaptiveIds.size !== captiveIds.size) {
       useMapStore.setState({captiveIds: remainingCaptiveIds});
     }
   },
@@ -1009,23 +1060,12 @@ export const useCoiAssignmentsStore = createWithDevWrapperAndSubscribe<CoiAssign
       clientLastUpdated: currTime,
     });
 
-    const touchedParentIds = new Set<string>();
-    affectedGeometries.forEach(geoid => {
-      if (!shatterIds.children.has(geoid)) return;
-      const parentId = childToParent.get(geoid);
-      if (parentId) {
-        touchedParentIds.add(parentId);
-      }
+    healTouchedParentsIfEligible({
+      affectedGeometries,
+      shatterIds,
+      childToParent,
+      healParentsIfAllChildrenInSameCommunities: get().healParentsIfAllChildrenInSameCommunities,
     });
-
-    const controlsState = useMapControlsStore.getState();
-    if (
-      touchedParentIds.size &&
-      controlsState.activeTool !== 'shatter' &&
-      controlsState.mapOptions.mode !== 'break'
-    ) {
-      get().healParentsIfAllChildrenInSameCommunities(touchedParentIds);
-    }
   },
 
   removeCommunity: removedCommunity => {
@@ -1076,22 +1116,11 @@ export const useCoiAssignmentsStore = createWithDevWrapperAndSubscribe<CoiAssign
       clientLastUpdated: currTime,
     });
 
-    const touchedParentIds = new Set<string>();
-    affectedGeometries.forEach(geoid => {
-      if (!shatterIds.children.has(geoid)) return;
-      const parentId = childToParent.get(geoid);
-      if (parentId) {
-        touchedParentIds.add(parentId);
-      }
+    healTouchedParentsIfEligible({
+      affectedGeometries,
+      shatterIds,
+      childToParent,
+      healParentsIfAllChildrenInSameCommunities: get().healParentsIfAllChildrenInSameCommunities,
     });
-
-    const controlsState = useMapControlsStore.getState();
-    if (
-      touchedParentIds.size &&
-      controlsState.activeTool !== 'shatter' &&
-      controlsState.mapOptions.mode !== 'break'
-    ) {
-      get().healParentsIfAllChildrenInSameCommunities(touchedParentIds);
-    }
   },
 }));

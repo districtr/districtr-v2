@@ -663,9 +663,6 @@ export class MapRenderSubscriber {
     }
     const mapDocument = mapState.mapDocument;
 
-    const layers = Object.keys(featureStateCache);
-    if (layers.length === 0) return;
-
     if (mapMode === 'coi') {
       const {communityAssignments, clientLastUpdated, shatterIds} =
         this.useCoiAssignmentsStore.getState();

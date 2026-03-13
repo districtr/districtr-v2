@@ -1,12 +1,10 @@
 import {useEffect, useRef} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
 import {NullableZone} from '@/app/constants/types';
-import {Community} from '@/app/utils/api/apiHandlers/types';
+import type {Community} from '@/app/utils/api/apiHandlers/types';
 import {sortCommunitiesByRenderOrder} from '@/app/utils/communities';
-import {Box, Flex, RadioGroup, Text, Button} from '@radix-ui/themes';
-import {EyeClosedIcon, EyeOpenIcon} from '@radix-ui/react-icons';
-import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
-import {styled} from '@stitches/react';
+import {Box, Flex, RadioGroup} from '@radix-ui/themes';
+import {CoiRadioGroup} from '@/app/components/Toolbar/CoiRadioGroup';
 
 export type CoiPickerProps = {
   defaultValue: number;
@@ -16,24 +14,6 @@ export type CoiPickerProps = {
   disabledValues?: NullableZone[];
   communityList?: Community[];
 };
-
-const StyledRadioGroupItem = styled(RadioGroup.Item, {
-  borderRadius: 8,
-  width: '1.25rem',
-  height: '1.25rem',
-  border: 'var(--border-width) solid var(--gray-200)',
-  '&::after': {
-    borderRadius: 8,
-    width: '1.25rem',
-    height: '1.25rem',
-  },
-  '&::before': {
-    borderRadius: 8,
-    background: 'none',
-    width: '1.25rem',
-    height: '1.25rem',
-  },
-});
 
 export const CoiPicker = ({
   defaultValue,
@@ -46,9 +26,6 @@ export const CoiPicker = ({
   const stateCommunities = useMapStore(state => state.communities);
   const communities = sortCommunitiesByRenderOrder(communityList ?? stateCommunities);
   const hotkeyRef = useRef<string | null>(null);
-  const setCommunityVisibility = useCoiAssignmentsStore(state => state.setCommunityVisibility);
-  const communityVisibility = useCoiAssignmentsStore(state => state.communityVisibility);
-  const currentlySelectedCommunityId = value ?? defaultValue;
 
   const handleKeyPressSubmit = () => {
     if (!hotkeyRef.current) return;
@@ -60,11 +37,6 @@ export const CoiPicker = ({
     if (selectedCommunity) {
       onValueChange(selectedCommunity.id, selectedCommunity.color);
     }
-  };
-
-  const handleToggleVisibility = (communityId: number) => {
-    const prev = communityVisibility.get(communityId) ?? true;
-    setCommunityVisibility(communityId, !prev);
   };
 
   useEffect(() => {
@@ -102,34 +74,14 @@ export const CoiPicker = ({
         defaultValue={String(defaultValue)}
       >
         <Flex direction="column" wrap="wrap" gapX="2">
-          {!!mapDocument &&
-            communities.map(community => {
-              const isVisible = communityVisibility.get(community.id) ?? true;
-              return (
-                <Flex direction="row" align="center" key={community.id} pb="2">
-                  <Text size="1" className="mr-2">
-                    {community.render_order_id}
-                  </Text>
-                  <StyledRadioGroupItem
-                    style={{backgroundColor: community.color}}
-                    value={String(community.id)}
-                    disabled={disabledValues?.includes(community.id)}
-                    className={disabledValues?.includes(community.id) ? 'opacity-25' : ''}
-                  ></StyledRadioGroupItem>
-                  <Text size="1" className="flex-grow ml-2">
-                    {community.name}
-                  </Text>
-                  <Button
-                    size="1"
-                    variant="ghost"
-                    onClick={() => handleToggleVisibility(community.id)}
-                    disabled={community.id === currentlySelectedCommunityId}
-                  >
-                    {isVisible ? <EyeOpenIcon /> : <EyeClosedIcon />}
-                  </Button>
-                </Flex>
-              );
-            })}
+          {!!mapDocument && (
+            <CoiRadioGroup
+              communities={communities}
+              disabledValues={disabledValues ?? []}
+              value={value}
+              defaultValue={defaultValue}
+            />
+          )}
         </Flex>
       </RadioGroup.Root>
     </Box>

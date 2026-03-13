@@ -2,6 +2,7 @@
 import React, {useState, useCallback, useRef, useEffect} from 'react';
 import type {MapRef} from 'react-map-gl/maplibre';
 import {MAPTILER_API_KEY} from '@/app/utils/api/constants';
+import {useMapStore} from '@/app/store/mapStore';
 import {TextField} from '@radix-ui/themes';
 
 const GEOCODE_URL = 'https://api.maptiler.com/geocoding';
@@ -25,28 +26,42 @@ export const GeocodeSearchBar: React.FC<{
   const [suggestions, setSuggestions] = useState<GeocodeFeature[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const fetchSuggestions = useCallback(async (q: string) => {
-    if (!MAPTILER_API_KEY || !q.trim()) {
-      setSuggestions([]);
-      return;
-    }
-    setLoading(true);
-    try {
-      const encoded = encodeURIComponent(q.trim());
-      const url = `${GEOCODE_URL}/${encoded}.json?key=${MAPTILER_API_KEY}&limit=5&autocomplete=true`;
-      const res = await fetch(url);
-      const data: GeocodeResponse = await res.json();
-      setSuggestions(data.features ?? []);
-      setOpen(true);
-    } catch {
-      setSuggestions([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const fetchSuggestions = useCallback(
+    async (q: string) => {
+      if (!MAPTILER_API_KEY || !q.trim()) {
+        setSuggestions([]);
+        return;
+      }
+      setLoading(true);
+      try {
+        const trimmedQuery = q.trim();
+        const url = new URL(`${GEOCODE_URL}/${encodeURIComponent(trimmedQuery)}.json`);
+        url.searchParams.set('key', MAPTILER_API_KEY);
+        url.searchParams.set('limit', '5');
+        url.searchParams.set('autocomplete', 'true');
+        const res = await fetch(url);
+        if (!res.ok) {
+          throw new Error(`Geocode search failed with status ${res.status}`);
+        }
+        const data: GeocodeResponse = await res.json();
+        setSuggestions(data.features ?? []);
+        setOpen(true);
+      } catch {
+        setSuggestions([]);
+        setErrorNotification({
+          message: 'Failed to search for places.',
+          severity: 2,
+        });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [setErrorNotification]
+  );
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);

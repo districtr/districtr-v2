@@ -126,19 +126,23 @@ export const useMapControlsStore = create<MapControlsStore>()(
         },
       }),
     toggleLockAllAreas: () => {
-      const {mapOptions} = get();
+      const {mapMode, mapOptions} = get();
       const mapStore = useMapStore.getState();
-      const nextLockPaintedAreas =
-        get().mapMode === 'coi'
-          ? mapOptions.lockPaintedAreas.length
-            ? []
-            : mapStore.communities.map(community => community.id as NullableZone)
-          : mapOptions.lockPaintedAreas.length
-            ? []
-            : Array.from(
-                {length: mapStore.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS},
-                (_, i) => (i + 1) as NullableZone
-              );
+      const shouldUnlockAllAreas = mapOptions.lockPaintedAreas.length > 0;
+      let nextLockPaintedAreas: Array<NullableZone>;
+
+      if (shouldUnlockAllAreas) {
+        nextLockPaintedAreas = [];
+      } else if (mapMode === 'coi') {
+        nextLockPaintedAreas = mapStore.communities.map(community => community.id as NullableZone);
+      } else {
+        const numDistricts = mapStore.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
+        nextLockPaintedAreas = Array.from(
+          {length: numDistricts},
+          (_, i) => (i + 1) as NullableZone
+        );
+      }
+
       set({
         mapOptions: {
           ...mapOptions,
