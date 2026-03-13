@@ -130,7 +130,11 @@ export const getHoverLayerIds = (idBase: string) => ({
   lineId: `${idBase}${HOVER_LAYER_ID_SUFFIXES.line}`,
 });
 
-export const INTERACTIVE_LAYERS: string[] = [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD, CANONICAL_LAYER_IDS.PUBLIC.FILL];
+export const INTERACTIVE_LAYERS: string[] = [
+  BLOCK_HOVER_LAYER_ID,
+  BLOCK_HOVER_LAYER_ID_CHILD,
+  CANONICAL_LAYER_IDS.PUBLIC.FILL,
+];
 export const PARENT_LAYERS: string[] = [BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID];
 export const CHILD_LAYERS: string[] = [
   BLOCK_LAYER_ID_CHILD,

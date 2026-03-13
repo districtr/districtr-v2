@@ -13,10 +13,7 @@ export function getAvailableColumnSets(availableColumns: AllTabularColumns[numbe
   );
   const map: Record<string, AllMapConfigs> = Object.fromEntries(
     Object.entries(choroplethMapVariables)
-      .map(([key, config]) => [
-        key,
-        config.filter(entry => availableColumns.includes(entry.value)),
-      ])
+      .map(([key, config]) => [key, config.filter(entry => availableColumns.includes(entry.value))])
       .filter(([, config]) => config.length > 0)
   );
   return {evaluation, map};

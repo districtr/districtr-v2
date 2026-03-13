@@ -22,7 +22,7 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
   const publicDistrictsQuery = useQuery({
     queryKey: ['public-districts', mapDocument?.public_id],
     queryFn: () => getPublicDistricts(mapDocument),
-    enabled: Boolean(mapDocument?.access === 'read' && mapDocument?.public_id)
+    enabled: Boolean(mapDocument?.access === 'read' && mapDocument?.public_id),
   });
 
   const featureCollection = useMemo<GeoJSON.FeatureCollection>(() => {
@@ -45,9 +45,9 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
     setDemographyHash(hash);
 
     // Set available column sets so sidebar knows which columns are available
-    useDemographyStore.getState().setAvailableColumnSets(
-      getAvailableColumnSets(demographyService.availableColumns)
-    );
+    useDemographyStore
+      .getState()
+      .setAvailableColumnSets(getAvailableColumnSets(demographyService.availableColumns));
 
     // Load public geometries into GeometryWorker for zone label centroids
     GeometryWorker?.setPublicFeatures(publicDistrictsQuery.data.geojsonFeatures);

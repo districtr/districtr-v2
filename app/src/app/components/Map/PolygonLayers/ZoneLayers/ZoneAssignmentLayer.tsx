@@ -1,5 +1,9 @@
 import type React from 'react';
-import {ZONE_ASSIGNMENT_STYLE, ZONE_LABEL_STYLE, sourceLayerProp} from '@/app/constants/map/layerStyle';
+import {
+  ZONE_ASSIGNMENT_STYLE,
+  ZONE_LABEL_STYLE,
+  sourceLayerProp,
+} from '@/app/constants/map/layerStyle';
 import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerIds';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';

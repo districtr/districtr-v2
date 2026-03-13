@@ -20,7 +20,11 @@ interface UseDocumentWithSyncOptions {
  * Hook to fetch a document with sync support between IDB and server.
  * Handles conflict resolution and loads assignments accordingly.
  */
-export function useDocumentWithSync({document_id, enabled = true, isPublicPage = false}: UseDocumentWithSyncOptions) {
+export function useDocumentWithSync({
+  document_id,
+  enabled = true,
+  isPublicPage = false,
+}: UseDocumentWithSyncOptions) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [conflictInfo, setConflictInfo] = useState<SyncConflictInfo | null>(null);
@@ -70,7 +74,7 @@ export function useDocumentWithSync({document_id, enabled = true, isPublicPage =
       setError(null);
 
       const result = await fetchDocument(document_id);
- 
+
       if (!result.ok) {
         if (result.response) {
           setConflictInfo(result.response);

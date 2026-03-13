@@ -18,13 +18,16 @@ function pointToPolygonDistance(x: number, y: number, rings: number[][][]): numb
   let minDistSq = Infinity;
   for (const ring of rings) {
     for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-      const ax = ring[i][0], ay = ring[i][1];
-      const bx = ring[j][0], by = ring[j][1];
-      if ((ay > y !== by > y) && (x < ((bx - ax) * (y - ay)) / (by - ay) + ax)) {
+      const ax = ring[i][0],
+        ay = ring[i][1];
+      const bx = ring[j][0],
+        by = ring[j][1];
+      if (ay > y !== by > y && x < ((bx - ax) * (y - ay)) / (by - ay) + ax) {
         inside = !inside;
       }
       // Squared distance from point to segment
-      let dx = bx - ax, dy = by - ay;
+      let dx = bx - ax,
+        dy = by - ay;
       const len2 = dx * dx + dy * dy;
       let t = len2 ? ((x - ax) * dx + (y - ay) * dy) / len2 : 0;
       t = Math.max(0, Math.min(1, t));
@@ -36,7 +39,13 @@ function pointToPolygonDistance(x: number, y: number, rings: number[][][]): numb
   return (inside ? 1 : -1) * Math.sqrt(minDistSq);
 }
 
-interface Cell { x: number; y: number; h: number; d: number; max: number; }
+interface Cell {
+  x: number;
+  y: number;
+  h: number;
+  d: number;
+  max: number;
+}
 
 function makeCell(x: number, y: number, h: number, rings: number[][][]): Cell {
   const d = pointToPolygonDistance(x, y, rings);
@@ -44,7 +53,10 @@ function makeCell(x: number, y: number, h: number, rings: number[][][]): Cell {
 }
 
 function polylabel(rings: number[][][], precision = 0.5): [number, number] {
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
   const outer = rings[0];
   for (const p of outer) {
     minX = Math.min(minX, p[0]);
@@ -52,7 +64,8 @@ function polylabel(rings: number[][][], precision = 0.5): [number, number] {
     maxX = Math.max(maxX, p[0]);
     maxY = Math.max(maxY, p[1]);
   }
-  const w = maxX - minX, h = maxY - minY;
+  const w = maxX - minX,
+    h = maxY - minY;
   const cellSize = Math.max(w, h);
   if (cellSize === 0) return [minX, minY];
 
@@ -69,9 +82,12 @@ function polylabel(rings: number[][][], precision = 0.5): [number, number] {
   }
 
   // Check centroid
-  let area = 0, cx = 0, cy = 0;
+  let area = 0,
+    cx = 0,
+    cy = 0;
   for (let i = 0, j = outer.length - 1; i < outer.length; j = i++) {
-    const a = outer[i], b = outer[j];
+    const a = outer[i],
+      b = outer[j];
     const f = a[0] * b[1] - b[0] * a[1];
     cx += (a[0] + b[0]) * f;
     cy += (a[1] + b[1]) * f;
@@ -99,10 +115,12 @@ function polylabel(rings: number[][][], precision = 0.5): [number, number] {
       if (c.d > best.d) best = c;
       if (c.max > best.d + precision) {
         // Insert sorted (binary insert)
-        let lo = 0, hi = queue.length;
+        let lo = 0,
+          hi = queue.length;
         while (lo < hi) {
           const mid = (lo + hi) >> 1;
-          if (queue[mid].max < c.max) hi = mid; else lo = mid + 1;
+          if (queue[mid].max < c.max) hi = mid;
+          else lo = mid + 1;
         }
         queue.splice(lo, 0, c);
       }

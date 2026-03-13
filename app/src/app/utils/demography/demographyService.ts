@@ -102,8 +102,8 @@ class DemographyService {
    * @param hash - Cache key for this data snapshot (document + shatter context).
    */
   update(
-    columns: AllTabularColumns[number][], 
-    data: ColumnarTableData, 
+    columns: AllTabularColumns[number][],
+    data: ColumnarTableData,
     hash: string,
     _zoneAssignments?: ZoneAssignmentsMap
   ): void {
@@ -121,13 +121,12 @@ class DemographyService {
    * Loads VTD-level data for the choropleth overlay without touching
    * the main table, populations, or summary stats.
    */
-  updateOverlay(
-    columns: AllTabularColumns[number][],
-    data: ColumnarTableData,
-    hash: string
-  ): void {
+  updateOverlay(columns: AllTabularColumns[number][], data: ColumnarTableData, hash: string): void {
     if (hash === this.overlayHash) return;
-    this.overlayTable = table(data).derive(getColumnDerives(columns)).dedupe('path').derive(getPctDerives(columns));
+    this.overlayTable = table(data)
+      .derive(getColumnDerives(columns))
+      .dedupe('path')
+      .derive(getPctDerives(columns));
     this.overlayHash = hash;
   }
 

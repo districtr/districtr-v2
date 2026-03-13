@@ -27,7 +27,8 @@ export const PublicMap: React.FC = () => {
   const setMapRef = useMapStore(state => state.setMapRef);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const {mapRef, onLoad} = useMapRenderer('main', true);
-  const hasDemographicOverlay = useMapControlsStore(state => state.mapOptions.showDemographicMap) === 'overlay';
+  const hasDemographicOverlay =
+    useMapControlsStore(state => state.mapOptions.showDemographicMap) === 'overlay';
 
   const initialViewState = useMemo(() => {
     const center = MAP_OPTIONS.center as [number, number];
@@ -71,16 +72,18 @@ export const PublicMap: React.FC = () => {
       <PublicSource>
         <PublicDistrictLayers />
       </PublicSource>
-      {hasDemographicOverlay && <BlockSource>
-        {!!mapDocument?.parent_layer && (
-          <BlockDemographicLayers
-            scope="PARENT"
-            layerFilter={['literal', true] as FilterSpecification}
-            outlineFilter={['literal', true] as FilterSpecification}
-            sourceLayerId={mapDocument.parent_layer}
-          />
-        )}
-      </BlockSource>}
+      {hasDemographicOverlay && (
+        <BlockSource>
+          {!!mapDocument?.parent_layer && (
+            <BlockDemographicLayers
+              scope="PARENT"
+              layerFilter={['literal', true] as FilterSpecification}
+              outlineFilter={['literal', true] as FilterSpecification}
+              sourceLayerId={mapDocument.parent_layer}
+            />
+          )}
+        </BlockSource>
+      )}
       <OverlayLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.overlays} />
       <PointSource>
         <MetaLayers isDemographicMap={false} />
