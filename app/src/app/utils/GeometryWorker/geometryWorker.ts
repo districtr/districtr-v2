@@ -1,6 +1,8 @@
 import {expose} from 'comlink';
 import dissolve from '@turf/dissolve';
 import centerOfMass from '@turf/center-of-mass';
+import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
+import pointOnFeature from '@turf/point-on-feature';
 import {GeometryWorkerClass, MinGeoJSONFeature} from './geometryWorker.types';
 import {LngLatBoundsLike} from 'maplibre-gl';
 import bbox from '@turf/bbox';
@@ -256,7 +258,11 @@ const GeometryWorker: GeometryWorkerClass = {
       const path = feature.properties?.path;
       if (zone == null || !path || !feature.geometry) return;
 
-      const center = centerOfMass(feature as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>);
+      const poly = feature as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>;
+      let center = centerOfMass(poly);
+      if (!booleanPointInPolygon(center, poly)) {
+        center = pointOnFeature(poly) as GeoJSON.Feature<GeoJSON.Point>;
+      }
       const [lng, lat] = center.geometry.coordinates;
       points.push({
         type: 'Feature',
