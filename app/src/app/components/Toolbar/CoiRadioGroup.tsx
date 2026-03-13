@@ -24,7 +24,7 @@ const StyledRadioGroupItem = styled(RadioGroup.Item, {
   },
 });
 
-const CoiRaioRow: React.FC<{
+const CoiRadioRow: React.FC<{
   community: Community;
   disabled: boolean;
   isVisible: boolean;
@@ -70,7 +70,7 @@ export const CoiRadioGroup: React.FC<{
       {communities.map(community => {
         const isVisible = communityVisibility.get(community.id) ?? true;
         return (
-          <CoiRaioRow
+          <CoiRadioRow
             key={community.id}
             community={community}
             disabled={disabledValues.includes(community.id)}
