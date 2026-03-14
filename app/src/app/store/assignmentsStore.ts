@@ -20,6 +20,8 @@ import {
 } from '../utils/api/apiHandlers/fetchDocument';
 import {createMapDocument} from '../utils/api/apiHandlers/createMapDocument';
 import {createWithFullMiddlewares} from './middlewares';
+import {temporalDiff} from './middlewareConfig';
+import {TEMPORAL_HISTORY_LIMIT} from '../constants/configuration';
 import {confirmMapDocumentUrlParameter} from '../utils/map/confirmMapDocumentUrlParameter';
 
 export interface AssignmentsStore {
@@ -126,7 +128,16 @@ export interface AssignmentsStore {
 export type ZoneAssignmentsMap = AssignmentsStore['zoneAssignments'];
 
 export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
-  'Districtr Assignments Store'
+  'Districtr Assignments Store',
+  {
+    diff: temporalDiff,
+    limit: TEMPORAL_HISTORY_LIMIT,
+    // @ts-ignore: save only partial store
+    partialize: (state: AssignmentsStore) => {
+      const {shatterIds, parentToChild, childToParent, zoneAssignments, clientLastUpdated} = state;
+      return {shatterIds, parentToChild, childToParent, zoneAssignments, clientLastUpdated};
+    },
+  }
 )((set, get) => ({
   zoneAssignments: new Map(),
   zonesLastUpdated: new Map(),

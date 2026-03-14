@@ -15,8 +15,9 @@ import {useMapControlsStore} from './mapControlsStore';
 import {idb} from '../utils/idb/idb';
 import GeometryWorker from '../utils/GeometryWorker';
 
-// FIXME: This needs to be changed out for a undo/redo system
-import {createWithDevWrapperAndSubscribe} from './middlewares';
+import {createWithFullMiddlewares} from './middlewares';
+import {temporalDiff} from './middlewareConfig';
+import {TEMPORAL_HISTORY_LIMIT} from '../constants/configuration';
 
 export type CommunityAssignmentsMap = Map<Zone, Set<string>>;
 export type CommunityVisibilityMap = Map<Zone, boolean>;
@@ -465,8 +466,31 @@ const healTouchedParentsIfEligible = ({
 // == Zustand store definition ==
 // ==============================
 
-export const useCoiAssignmentsStore = createWithDevWrapperAndSubscribe<CoiAssignmentsStore>(
-  'Districtr COI Assignments Store'
+export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsStore>(
+  'Districtr COI Assignments Store',
+  {
+    diff: temporalDiff,
+    limit: TEMPORAL_HISTORY_LIMIT,
+    // @ts-ignore: save only partial store
+    partialize: (state: CoiAssignmentsStore) => {
+      const {
+        shatterIds,
+        parentToChild,
+        childToParent,
+        communityAssignments,
+        communityVisibility,
+        clientLastUpdated,
+      } = state;
+      return {
+        shatterIds,
+        parentToChild,
+        childToParent,
+        communityAssignments,
+        communityVisibility,
+        clientLastUpdated,
+      };
+    },
+  }
 )((set, get) => ({
   communityAssignments: new Map<Zone, Set<string>>(),
   communityVisibility: new Map<Zone, boolean>(),
@@ -525,7 +549,7 @@ export const useCoiAssignmentsStore = createWithDevWrapperAndSubscribe<CoiAssign
   },
   parentToChild: new Map<string, Set<string>>(),
   childToParent: new Map<string, string>(),
-  clientLastUpdated: new Date().toISOString(),
+  clientLastUpdated: '',
 
   setClientLastUpdated: (updatedAt: string) => {
     set({clientLastUpdated: updatedAt});
@@ -922,7 +946,7 @@ export const useCoiAssignmentsStore = createWithDevWrapperAndSubscribe<CoiAssign
       },
       parentToChild: new Map<string, Set<string>>(data.parentToChild),
       childToParent: new Map<string, string>(data.childToParent),
-      clientLastUpdated: currentTime,
+      clientLastUpdated: mapDocument?.updated_at ?? currentTime,
     });
 
     if (mapDocument) {
