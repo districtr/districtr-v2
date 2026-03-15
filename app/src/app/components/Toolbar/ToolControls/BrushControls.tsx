@@ -4,7 +4,7 @@ import {useMapControlsStore} from '@store/mapControlsStore';
 import {useFeatureFlagStore} from '@store/featureFlagStore';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {BrushSizeSelector} from '@components/Toolbar/ToolControls/BrushSizeSelector';
-import PaintByCounty from '@components/Toolbar/PaintByCounty';
+import {PaintByCounty} from '@components/Toolbar/PaintByCounty';
 import {ZonePicker} from '@components/Toolbar/ZonePicker';
 
 export const BrushControls = () => {
@@ -18,11 +18,11 @@ export const BrushControls = () => {
     <Flex direction="column" gapY="2" justify="between" wrap="wrap">
       <Flex direction="row" gapX="4" wrap="wrap">
         <Box className="flex-grow" style={{flexGrow: 1}}>
-          <BrushSizeSelector />
+          <BrushSizeSelector label={label} />
         </Box>
         {paintCounties && (
           <Box minWidth="75px">
-            <PaintByCounty />{' '}
+            <PaintByCounty label={countyLabel} />{' '}
           </Box>
         )}
       </Flex>

@@ -2,9 +2,9 @@ import {KeyOfSummaryStatConfig} from '@utils/api/summaryStats';
 import {NumberFormats} from '@utils/numbers';
 
 export const INSPECTOR_TITLE = {
-  VAP: 'Voting Age Population',
-  TOTPOP: 'Total Population',
-  VOTERHISTORY: 'Voter History',
+  VAP: 'Voting age population',
+  TOTPOP: 'Total population',
+  VOTERHISTORY: 'Voter results',
 };
 
 export const TOTAL_COLUMN: Record<KeyOfSummaryStatConfig, string | undefined> = {

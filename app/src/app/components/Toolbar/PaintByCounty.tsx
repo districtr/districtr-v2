@@ -5,7 +5,7 @@ import {useOverlayStore} from '@/app/store/overlayStore';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 import {getFeaturesIntersectingCounties} from '@utils/map/getFeaturesIntersectingCounties';
 
-export default function PaintByCounty() {
+export const PaintByCounty: React.FC<{label?: string}> = ({label = 'Paint counties'}) => {
   const mapRef = useMapStore(state => state.getMapRef());
   const setPaintFunction = useMapControlsStore(state => state.setPaintFunction);
   const paintByCounty = useMapControlsStore(state => state.mapOptions.paintByCounty);
@@ -30,7 +30,7 @@ export default function PaintByCounty() {
   return (
     <Text as="label" size="1">
       <Flex gap="1" direction="column">
-        County Brush
+        {label}
         <Switch
           size="1"
           checked={paintByCounty}
@@ -41,4 +41,4 @@ export default function PaintByCounty() {
       </Flex>
     </Text>
   );
-}
+};
