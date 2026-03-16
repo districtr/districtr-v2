@@ -72,7 +72,21 @@ function getLayerIdsToPaint(child_layer: string | undefined | null, activeTool: 
     : [BLOCK_POINTS_LAYER_ID, BLOCK_HOVER_LAYER_ID];
 }
 
-const canMutateAssignments = () => useMapStore.getState().mapDocument?.access === 'edit';
+// Cached per-session: access level doesn't change after document load.
+let _canMutate: boolean | null = null;
+const canMutateAssignments = () => {
+  if (_canMutate === null) {
+    _canMutate = useMapStore.getState().mapDocument?.access === 'edit';
+  }
+  return _canMutate;
+};
+// Reset when document changes (called from subscription teardown / new document load)
+useMapStore.subscribe(
+  state => state.mapDocument,
+  () => {
+    _canMutate = null;
+  }
+);
 
 export const handleFeatureSelection = (
   selectedFeatures: MapGeoJSONFeature[] | undefined,
