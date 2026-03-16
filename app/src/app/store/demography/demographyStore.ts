@@ -19,6 +19,7 @@ import {
 } from '@/app/utils/demography/coalition';
 
 let coalitionHydrationRequestId = 0;
+let coalitionVersion = 0;
 
 export var useDemographyStore = create(
   subscribeWithSelector<DemographyStore>((set, get) => ({
@@ -51,9 +52,10 @@ export var useDemographyStore = create(
         set({
           coalitionGroups: [],
           coalitionRestoredSlug: null,
-          coalitionHash: `${performance.now()}`,
+          coalitionHash: `${++coalitionVersion}`,
         });
-        demographyCache.setCoalitionGroups([]);
+        const zoneAssignments = useAssignmentsStore.getState().zoneAssignments;
+        demographyCache.updatePopulations(zoneAssignments, []);
         return;
       }
       if (get().coalitionRestoredSlug === slug) return;
@@ -64,9 +66,10 @@ export var useDemographyStore = create(
       set({
         coalitionGroups,
         coalitionRestoredSlug: slug,
-        coalitionHash: `${performance.now()}`,
+        coalitionHash: `${++coalitionVersion}`,
       });
-      demographyCache.setCoalitionGroups(coalitionGroups);
+      const zoneAssignments = useAssignmentsStore.getState().zoneAssignments;
+      demographyCache.updatePopulations(zoneAssignments, coalitionGroups);
 
       const currentVariable = get().variable;
       if (isCoalitionVariable(currentVariable)) {
@@ -84,12 +87,13 @@ export var useDemographyStore = create(
       }
     },
     setCoalitionGroups: async coalitionGroups => {
-      const deduped = coalitionGroups.filter((group, index, arr) => arr.indexOf(group) === index);
+      const deduped = [...new Set(coalitionGroups)];
       set({
         coalitionGroups: deduped,
-        coalitionHash: `${performance.now()}`,
+        coalitionHash: `${++coalitionVersion}`,
       });
-      demographyCache.setCoalitionGroups(deduped);
+      const zoneAssignments = useAssignmentsStore.getState().zoneAssignments;
+      demographyCache.updatePopulations(zoneAssignments, deduped);
 
       const {mapDocument} = useMapStore.getState();
       if (mapDocument?.districtr_map_slug) {
@@ -118,9 +122,10 @@ export var useDemographyStore = create(
       set({
         coalitionGroups: [],
         coalitionRestoredSlug: null,
-        coalitionHash: `${performance.now()}`,
+        coalitionHash: `${++coalitionVersion}`,
       });
-      demographyCache.setCoalitionGroups([]);
+      const zoneAssignments = useAssignmentsStore.getState().zoneAssignments;
+      demographyCache.updatePopulations(zoneAssignments, []);
     },
     availableColumnSets: {
       evaluation: {},
@@ -142,9 +147,8 @@ export var useDemographyStore = create(
         dataHash: '',
         coalitionGroups: [],
         coalitionRestoredSlug: null,
-        coalitionHash: `${performance.now()}`,
+        coalitionHash: `${++coalitionVersion}`,
       });
-      demographyCache.setCoalitionGroups([]);
     },
     unmount: () => {
       const isSwappingMode = useMapControlsStore.getState().mapOptions.showDemographicMap;
@@ -180,7 +184,7 @@ export var useDemographyStore = create(
         });
         return;
       }
-      demographyCache.update(result.columns, result.results, dataHash);
+      demographyCache.update(result.columns, result.results, dataHash, get().coalitionGroups);
       const availableColumns = demographyCache.availableColumns;
       const availableEvalSets: Record<string, AllEvaluationConfigs> = Object.fromEntries(
         Object.entries(evalColumnConfigs)

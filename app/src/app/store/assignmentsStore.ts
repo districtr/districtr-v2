@@ -4,6 +4,7 @@ import GeometryWorker from '../utils/GeometryWorker';
 import {demographyCache} from '../utils/demography/demographyCache';
 import {idb} from '../utils/idb/idb';
 import {useMapStore} from './mapStore';
+import {useDemographyStore} from './demography/demographyStore';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
 import {checkIfSameZone} from '../utils/map/checkIfSameZone';
 import {formatAssignmentsFromDocument} from '../utils/map/formatAssignments';
@@ -245,7 +246,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       idb.updateIdbAssignments(mapDocument, data.zoneAssignments, mapDocument.updated_at, true);
       useMapStore.getState().mutateMapDocument(mapDocument);
     }
-    demographyCache.updatePopulations(data.zoneAssignments);
+    demographyCache.updatePopulations(data.zoneAssignments, useDemographyStore.getState().coalitionGroups);
   },
 
   healParentsIfAllChildrenInSameZone: (
@@ -407,7 +408,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
 
     if (!result) return;
     const {zoneAssignments, shatterIds, parentToChild, childToParent} = result;
-    demographyCache.updatePopulations(zoneAssignments);
+    demographyCache.updatePopulations(zoneAssignments, useDemographyStore.getState().coalitionGroups);
     idb.updateIdbAssignments(mapDocument, zoneAssignments);
     const temporalState = useAssignmentsStore.temporal.getState();
     if (!temporalState.isTracking) {

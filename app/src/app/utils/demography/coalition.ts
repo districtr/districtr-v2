@@ -101,13 +101,9 @@ export const getCoalitionLabel = ({
   availableColumns: string[];
   universe: CoalitionUniverse;
 }) => {
-  const availableSelected = selectedGroups.filter(
-    group =>
-      getSelectedCoalitionColumns({
-        selectedGroups: [group],
-        availableColumns,
-        universe,
-      }).length
+  const available = new Set(availableColumns);
+  const availableSelected = selectedGroups.filter(group =>
+    available.has(getCoalitionColumn(group, universe))
   );
   if (!availableSelected.length) return COALITION_LABEL;
   return `${COALITION_LABEL}: ${availableSelected.map(getCoalitionGroupLabel).join(' + ')}`;

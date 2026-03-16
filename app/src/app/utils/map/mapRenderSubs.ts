@@ -215,7 +215,8 @@ export class MapRenderSubscriber {
     GeometryWorker?.updateZones(Array.from(zoneAssignments.entries()));
 
     // Update demography cache
-    demographyCache.updatePopulations(zoneAssignments);
+    const coalitionGroups = this.useDemographyStore.getState().coalitionGroups;
+    demographyCache.updatePopulations(zoneAssignments, coalitionGroups);
 
     // Only render colors if map is fully loaded
     if (mapState.mapRenderingState !== 'loaded' || mapState.appLoadingState !== 'loaded') {
@@ -311,6 +312,7 @@ export class MapRenderSubscriber {
       mapDocument: mapState.mapDocument,
       numberOfBins: demographyState.numberOfBins || 5,
       paintMap: true,
+      coalitionGroups: demographyState.coalitionGroups,
     });
     if (mapScale) {
       demographyState.setScale(mapScale);
