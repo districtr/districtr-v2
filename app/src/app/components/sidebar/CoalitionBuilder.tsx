@@ -4,12 +4,14 @@ import {
   CoalitionUniverse,
   CoalitionGroupKey,
   COALITION_GROUPS,
+  getCoalitionGroupLabel,
 } from '@/app/utils/demography/coalition';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useChartStore} from '@/app/store/chartStore';
 import {CardCheckbox, ResponsiveCheckboxCards} from '@/app/components/Shared/CardCheckbox';
 import {formatNumber} from '@/app/utils/numbers';
-import {Box, Flex, Text} from '@radix-ui/themes';
+import {Box, Callout, Flex, Text} from '@radix-ui/themes';
+import {InfoCircledIcon} from '@radix-ui/react-icons';
 
 type CoalitionBuilderProps = {
   summaryType: CoalitionUniverse;
@@ -22,11 +24,12 @@ const isCoalitionGroupKey = (value: string): value is CoalitionGroupKey =>
 export const CoalitionBuilder: React.FC<CoalitionBuilderProps> = ({summaryType}) => {
   const coalitionGroups = useDemographyStore(state => state.coalitionGroups);
   const setCoalitionGroups = useDemographyStore(state => state.setCoalitionGroups);
+  // Subscribe to hashes to re-render when underlying cache data changes
   useDemographyStore(state => state.coalitionHash);
   useDemographyStore(state => state.dataHash);
   useChartStore(state => state.dataUpdateHash);
 
-  const stats = demographyCache.getCoalitionUniverseStats(summaryType);
+  const stats = demographyCache.getCoalitionUniverseStats(summaryType, coalitionGroups);
   const availableSet = new Set(stats.availableGroups);
   const handleCoalitionChange = (values: string[]) => {
     const selectedAvailableGroups = values.filter(isCoalitionGroupKey);
@@ -36,6 +39,8 @@ export const CoalitionBuilder: React.FC<CoalitionBuilderProps> = ({summaryType})
     ) as CoalitionGroupKey[];
     void setCoalitionGroups(nextGroups);
   };
+
+  const missingLabels = stats.missingGroups.map(getCoalitionGroupLabel);
 
   return (
     <Box>
@@ -57,6 +62,16 @@ export const CoalitionBuilder: React.FC<CoalitionBuilderProps> = ({summaryType})
           );
         })}
       </ResponsiveCheckboxCards>
+      {missingLabels.length > 0 && (
+        <Callout.Root size="1" color="amber" mt="2">
+          <Callout.Icon>
+            <InfoCircledIcon />
+          </Callout.Icon>
+          <Callout.Text>
+            {missingLabels.join(', ')} unavailable for {summaryType}
+          </Callout.Text>
+        </Callout.Root>
+      )}
       <Flex direction="row" wrap="wrap" gap="4" pt="3" className="w-full">
         <Box flexGrow="1">
           <Text size="5" weight="bold">

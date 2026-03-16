@@ -7,6 +7,7 @@ import {MapPanel} from './MapPanel';
 import {
   COALITION_TOTAL_COLUMN_BY_UNIVERSE,
   COALITION_VARIABLE_BY_UNIVERSE,
+  getCoalitionColumn,
   getCoalitionGroupLabel,
   getCoalitionLabel,
   getSelectedCoalitionColumns,
@@ -83,15 +84,9 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
       universe: summaryType,
     });
     if (!selectedColumns.length) return baseColumnConfig;
+    const selectedColumnSet = new Set(selectedColumns);
     const coalitionLabels = coalitionGroups
-      .filter(
-        group =>
-          getSelectedCoalitionColumns({
-            selectedGroups: [group],
-            availableColumns: demographyCache.availableColumns,
-            universe: summaryType,
-          }).length
-      )
+      .filter(group => selectedColumnSet.has(getCoalitionColumn(group, summaryType)))
       .map(getCoalitionGroupLabel);
     return [
       {

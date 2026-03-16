@@ -27,7 +27,8 @@ import {PARTISAN_SCALE} from '@/app/store/demography/constants';
 import {GearIcon, InfoCircledIcon} from '@radix-ui/react-icons';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
-import {COALITION_VARIABLE_BY_UNIVERSE} from '@/app/utils/demography/coalition';
+import {CoalitionGroupKey, COALITION_VARIABLE_BY_UNIVERSE} from '@/app/utils/demography/coalition';
+import {useDemographyStore} from '@/app/store/demography/demographyStore';
 
 type ColumnConfig = {
   label: string;
@@ -71,6 +72,41 @@ type EvaluationTableCellProps = Omit<EvaluationTableRowProps, 'columnConfigs' | 
   isUnassigned: boolean;
 };
 
+function buildUniverseRow({
+  summaryData,
+  universeTotalColumn,
+  columnConfigs,
+  summaryType,
+  coalitionGroups,
+}: {
+  summaryData: Record<string, number>;
+  universeTotalColumn: string;
+  columnConfigs: ColumnConfig[];
+  summaryType: 'TOTPOP' | 'VAP';
+  coalitionGroups: CoalitionGroupKey[];
+}): Record<string, number | string | boolean> {
+  const coalitionStats = demographyCache.getCoalitionUniverseStats(summaryType, coalitionGroups);
+  const row: Record<string, number | string | boolean> = {
+    zone: 'Universe',
+    __isUniverse: true,
+  };
+  const universeTotal = summaryData[universeTotalColumn];
+  columnConfigs.forEach(config => {
+    if (config.column === COALITION_VARIABLE_BY_UNIVERSE[summaryType]) {
+      row[config.column] = coalitionStats.coalitionTotal;
+      row[`${config.column}_pct`] = coalitionStats.coalitionPct;
+      return;
+    }
+    const value = summaryData[config.column];
+    row[config.column] = value;
+    row[`${config.column}_pct`] =
+      Number.isFinite(universeTotal) && universeTotal > 0 && Number.isFinite(value)
+        ? value / universeTotal
+        : NaN;
+  });
+  return row;
+}
+
 const Evaluation: React.FC<EvaluationProps> = ({
   summaryType,
   setSummaryType,
@@ -82,6 +118,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
   const [colorBg, setColorBg] = useState<boolean>(true);
   const [showUnassigned, setShowUnassigned] = useState<boolean>(true);
   const {zoneStats, demoIsLoaded, zoneData, summaryStats} = useSummaryStats(showUnassigned);
+  const coalitionGroups = useDemographyStore(state => state.coalitionGroups);
 
   const maxValues = zoneStats?.maxValues;
   const colorScheme = useColorScheme();
@@ -128,36 +165,15 @@ const Evaluation: React.FC<EvaluationProps> = ({
     summaryType === 'TOTPOP' || summaryType === 'VAP'
       ? (summaryStats[summaryType] as Record<string, number> | undefined)
       : undefined;
-  const coalitionStats =
-    summaryType === 'TOTPOP' || summaryType === 'VAP'
-      ? demographyCache.getCoalitionUniverseStats(summaryType)
-      : undefined;
   const universeRow =
-    universeTotalColumn && summaryData
-      ? (() => {
-          const row: Record<string, number | string | boolean> = {
-            zone: 'Universe',
-            __isUniverse: true,
-          };
-          const universeTotal = summaryData[universeTotalColumn];
-          columnConfigs.forEach(config => {
-            if (
-              (summaryType === 'TOTPOP' || summaryType === 'VAP') &&
-              config.column === COALITION_VARIABLE_BY_UNIVERSE[summaryType]
-            ) {
-              row[config.column] = coalitionStats?.coalitionTotal ?? 0;
-              row[`${config.column}_pct`] = coalitionStats?.coalitionPct ?? NaN;
-              return;
-            }
-            const value = summaryData[config.column];
-            row[config.column] = value;
-            row[`${config.column}_pct`] =
-              Number.isFinite(universeTotal) && universeTotal > 0 && Number.isFinite(value)
-                ? value / universeTotal
-                : NaN;
-          });
-          return row;
-        })()
+    universeTotalColumn && summaryData && (summaryType === 'TOTPOP' || summaryType === 'VAP')
+      ? buildUniverseRow({
+          summaryData,
+          universeTotalColumn,
+          columnConfigs,
+          summaryType,
+          coalitionGroups,
+        })
       : undefined;
 
   const rows = [
@@ -243,7 +259,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
       <Box overflowX="auto" className="text-sm">
         <Table.Root className="min-w-full border-collapse">
           <EvaluationTableHeader columnConfigs={columnConfigs} />
-          <EvlauationTableBody
+          <EvaluationTableBody
             rows={rows}
             colorScheme={colorScheme}
             columnConfigs={columnConfigs}
@@ -285,17 +301,17 @@ const EvaluationTableHeader: React.FC<EvaluationTableHeaderProps> = ({columnConf
   );
 };
 
-const EvlauationTableBody: React.FC<EvaluationTableBodyProps> = ({rows, ...props}) => {
+const EvaluationTableBody: React.FC<EvaluationTableBodyProps> = ({rows, ...props}) => {
   return (
     <Table.Body>
       {rows.map((row, i) => (
-        <EvlauationTableRow key={i} {...props} row={row} />
+        <EvaluationTableRow key={i} {...props} row={row} />
       ))}
     </Table.Body>
   );
 };
 
-const EvlauationTableRow: React.FC<EvaluationTableRowProps> = ({
+const EvaluationTableRow: React.FC<EvaluationTableRowProps> = ({
   row,
   colorScheme,
   columnConfigs,
@@ -324,7 +340,7 @@ const EvlauationTableRow: React.FC<EvaluationTableRowProps> = ({
       </Table.Cell>
       {!!columnConfigs &&
         columnConfigs.map((columnConfig, i) => (
-          <EvlauationTableCell
+          <EvaluationTableCell
             key={i}
             row={row}
             evalMode={evalMode}
@@ -341,7 +357,7 @@ const EvlauationTableRow: React.FC<EvaluationTableRowProps> = ({
   );
 };
 
-const EvlauationTableCell: React.FC<EvaluationTableCellProps> = ({
+const EvaluationTableCell: React.FC<EvaluationTableCellProps> = ({
   row,
   evalMode,
   columnConfig,
