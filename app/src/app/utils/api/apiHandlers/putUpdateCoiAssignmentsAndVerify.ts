@@ -74,17 +74,21 @@ export const putUpdateCoiAssignmentsAndVerify = async ({
     childToParent
   ).map(assignment => [assignment.geo_id, assignment.zone] as [string, number | null]);
 
-  const comments = (mapDocument.document_comments || []).map(comment => ({
-    comment_id: comment.comment_id ?? undefined,
-    zone: comment.zone ?? undefined,
-    text: comment.text,
-  }));
+  const comments = (mapDocument.document_comments || []).map(comment => {
+    const parsedId = comment.comment_id ? parseInt(String(comment.comment_id), 10) : NaN;
+    return {
+      comment_id: Number.isFinite(parsedId) ? parsedId : undefined,
+      zone: comment.zone ?? undefined,
+      text: comment.text,
+    };
+  });
 
   const assignmentsPostResponse = await putUpdateDocument({
     assignments: formattedAssignments,
     document_id: mapDocument.document_id,
-    last_updated_at: mapDocument.updated_at!,
+    last_updated_at: mapDocument.updated_at ?? mapDocument.created_at,
     overwrite,
+    map_type: 'community',
     metadata: {
       color_scheme: mapDocument.color_scheme ?? undefined,
       num_communities: mapDocument.num_communities ?? undefined,

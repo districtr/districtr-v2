@@ -9,6 +9,7 @@ import logging
 from sqlalchemy import literal
 from app.models import (
     Assignments,
+    CommunityAssignments,
     DistrictrMap,
 )
 from collections import defaultdict
@@ -19,7 +20,7 @@ logging.basicConfig(level=logging.INFO)
 
 def duplicate_document_assignments(
     from_document_id: str, to_document_id: str, session: Session = Depends(get_session)
-) -> None:
+) -> int | None:
     """
     Copy all assignments from `from_document_id` to another document, `to_document_id`.
 
@@ -31,6 +32,10 @@ def duplicate_document_assignments(
         to_document_id (str): Document to which assignments should be copied.
         session (Session): Optional database session. This function is to be used typically
             by a higher level interface and executed within its session.
+
+    Returns:
+        int | None: The number of assignments inserted into the receiving document, or
+        None if the operation failed.
     """
     prev_assignments = select(Assignments).where(
         Assignments.document_id == from_document_id
@@ -44,13 +49,58 @@ def duplicate_document_assignments(
     create_copy_stmt = insert(Assignments).from_select(
         ["geo_id", "zone", "document_id"], prev_assignments
     )
-    session.execute(create_copy_stmt)
+    session.connection().execute(create_copy_stmt)
 
-    inserted_assignments = session.execute(
-        select(count()).where(Assignments.document_id == to_document_id)
-    ).scalar()
+    inserted_assignments = (
+        session.connection()
+        .execute(select(count()).where(Assignments.document_id == to_document_id))
+        .scalar()
+    )
     logger.info(
         f"Inserted {inserted_assignments} assignments to document `{to_document_id}`"
+    )
+    return inserted_assignments
+
+
+def duplicate_document_community_assignments(
+    from_document_id: str, to_document_id: str, session: Session = Depends(get_session)
+) -> int | None:
+    """
+    Copy all community assignments from `from_document_id` to `to_document_id`.
+
+    Community assignments can overlap on `geo_id`, so uniqueness is enforced on the
+    tuple `(document_id, community_id, geo_id)`.
+
+    Args:
+        from_document_id (str): Document from which community assignments should be copied.
+        to_document_id (str): Document to which community assignments should be copied.
+        session (Session): Optional database session. This function is to be used typically
+            by a higher level interface and executed within its session.
+
+    Regturns:
+        int | None: The number of community assignments inserted into the receiving document, or
+        None if the operation failed.
+    """
+    prev_assignments = select(
+        CommunityAssignments.geo_id,
+        CommunityAssignments.community_id,
+        cast(literal(to_document_id), PG_UUID).label("document_id"),
+    ).where(CommunityAssignments.document_id == from_document_id)
+
+    create_copy_stmt = insert(CommunityAssignments).from_select(
+        ["geo_id", "community_id", "document_id"], prev_assignments
+    )
+    session.connection().execute(create_copy_stmt)
+
+    inserted_assignments = (
+        session.connection()
+        .execute(
+            select(count()).where(CommunityAssignments.document_id == to_document_id)
+        )
+        .scalar()
+    )
+    logger.info(
+        f"Inserted {inserted_assignments} community assignments to document `{to_document_id}`"
     )
     return inserted_assignments
 
@@ -80,10 +130,10 @@ def batch_insert_assignments(
     )
     districtr_map = session.exec(stmt).one()
 
-    (load_id, _) = str(uuid4()).split("-", maxsplit=1)
+    load_id, _ = str(uuid4()).split("-", maxsplit=1)
     temp_table_name = f"temp_assignments_{load_id}"
 
-    session.execute(
+    session.connection().execute(
         text(f"CREATE TEMP TABLE {temp_table_name} (geo_id TEXT, zone INT)")
     )
 
@@ -138,7 +188,7 @@ def batch_insert_assignments(
             OR edges.child_path = t.geo_id)"""
 
         # Using a temp index can improve performance for large datasets
-        session.execute(
+        session.connection().execute(
             text(
                 f"CREATE INDEX IF NOT EXISTS temptable_geo_id_idx_{load_id} ON {temp_table_name} (geo_id)"
             )
@@ -147,7 +197,7 @@ def batch_insert_assignments(
         # All children belonging to a single parent which share a zone can be healed
         # to the parent if all parent children are accounted for
         uniform_vtds = f"uniform_vtds_{load_id}"
-        session.execute(
+        session.connection().execute(
             text(f"""
             CREATE TEMPORARY TABLE {uniform_vtds} AS
             SELECT
@@ -165,14 +215,14 @@ def batch_insert_assignments(
         """)
         )
 
-        session.execute(
+        session.connection().execute(
             text(f"""
             INSERT INTO {temp_table_name} (geo_id, zone)
             SELECT parent_path, zone FROM {uniform_vtds}
         """)
         )
 
-        session.execute(
+        session.connection().execute(
             text(f"""
             DELETE FROM {temp_table_name}
             WHERE geo_id IN (
@@ -186,8 +236,10 @@ def batch_insert_assignments(
         # For non-shatterable maps, we don't need additional validation
         # as the geo_ids should match the gerrydb table directly
 
-    inserted_assignments = session.execute(
-        text(f"""
+    inserted_assignments = (
+        session.connection()
+        .execute(
+            text(f"""
         WITH inserted_geoids AS (
             INSERT INTO document.assignments (geo_id, zone, document_id)
             SELECT geo_id, zone, :document_id
@@ -199,8 +251,10 @@ def batch_insert_assignments(
         )
         SELECT COUNT(*) FROM inserted_geoids
         """),
-        {"document_id": document_id},
-    ).scalar()
+            {"document_id": document_id},
+        )
+        .scalar()
+    )
     logger.info(
         f"Inserted {inserted_assignments} assignments to document `{document_id}`"
     )

@@ -23,7 +23,11 @@ from sqlmodel import ARRAY
 from datetime import datetime
 from uuid import uuid4
 import sentry_sdk
-from app.assignments import duplicate_document_assignments, batch_insert_assignments
+from app.assignments import (
+    duplicate_document_assignments,
+    duplicate_document_community_assignments,
+    batch_insert_assignments,
+)
 from app.core.db import get_session
 from app.core.dependencies import (
     get_document,
@@ -37,7 +41,8 @@ from app.core.config import settings
 import app.exports.main as exports
 import app.cms.main as cms
 import app.comments.main as comments
-from app.comments.main import sync_district_comments
+from app.comments.main import sync_district_comments, sync_community_comments
+from app.comments.models import DistrictCommentInput
 import app.contiguity.main as contiguity
 import app.save_share.main as save_share
 import app.thumbnails.main as thumbnails
@@ -46,6 +51,7 @@ from app.models import (
     Assignments,
     AssignmentsResponse,
     ColorsSetResult,
+    CommunityAssignments,
     DistrictrMap,
     DistrictrMapsToGroups,
     Document,
@@ -71,7 +77,7 @@ from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
 from sqlalchemy.sql.functions import coalesce
 from app.utils import update_or_select_district_stats
-from aiocache import Cache
+from aiocache import SimpleMemoryCache
 from contextlib import asynccontextmanager
 from fiona.transform import transform
 from fastapi import BackgroundTasks
@@ -100,7 +106,7 @@ app.include_router(thumbnails.router)
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-cache = Cache(cache_class=Cache.MEMORY)
+cache = SimpleMemoryCache()
 
 
 # Set all CORS enabled origins
@@ -124,9 +130,52 @@ def update_timestamp(
         .where(Document.document_id == document_id)
         .values(updated_at=func.now())
         .returning(Document.updated_at)
-    )  # pyright: ignore
+    )
     updated_at = session.scalar(update_stmt)
     return updated_at
+
+
+def create_document_partition(
+    session: Session, document_id: str, table_name: str
+) -> None:
+    """
+    Create a partition for a document in the specified table (assignments or community_assignments).
+
+    Args:
+        session (Session): The database session to use for executing the SQL statement.
+        document_id (str): The ID of the document for which to create the partition.
+    """
+    partition_name = f"document.{table_name}_{document_id}"
+    stmt = text(f"""
+        CREATE TABLE "{partition_name}"
+        PARTITION OF document.{table_name}
+        FOR VALUES IN ('{document_id}')
+    """)
+    session.connection().execute(stmt)
+
+
+def reset_document_partition(
+    session: Session, document_id: str, table_name: str
+) -> None:
+    """
+    Drop and recreate a partition for a document in the specified table
+    (assignments or community_assignments).
+
+    Args:
+        session (Session): The database session to use for executing the SQL statements.
+        document_id (str): The ID of the document for which to reset the partition.
+        table_name (str): The name of the table to reset the partition in
+            ("assignments" or "community_assignments").
+    """
+    partition_name = f'"document.{table_name}_{document_id}"'
+    session.connection().execute(
+        text(f"DROP TABLE IF EXISTS {partition_name} CASCADE;")
+    )
+    stmt = text(f"""CREATE TABLE {partition_name}
+        PARTITION OF document.{table_name}
+        FOR VALUES IN ('{document_id}');
+    """)
+    session.connection().execute(stmt)
 
 
 @app.get("/")
@@ -137,7 +186,7 @@ async def root():
 @app.get("/db_is_alive")
 async def db_is_alive(session: Session = Depends(get_session)):
     try:
-        session.execute(text("SELECT 1"))
+        session.connection().execute(text("SELECT 1"))
         return {"message": "DB is alive"}
     except Exception as e:
         logger.error(e)
@@ -170,7 +219,7 @@ async def create_document(
     districtr_map_stmt = select(DistrictrMap).where(
         DistrictrMap.districtr_map_slug == data.districtr_map_slug
     )
-    districtr_map = session.exec(districtr_map_stmt).first()
+    districtr_map = session.execute(districtr_map_stmt).scalars().first()
     if not districtr_map:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -179,18 +228,21 @@ async def create_document(
 
     # Determine num_districts: from copied document if copying, otherwise from DistrictrMap
     num_districts = districtr_map.num_districts
+    num_communities = None
+    community_metadata_list = None
     copied_document = None
 
     if data.copy_from_doc is not None:
         copy_document_id = parse_document_id(data.copy_from_doc)
         if not copy_document_id:
             raise HTTPException(status_code=404, detail="Document not found")
-        data.copy_from_doc = copy_document_id
         copied_document = get_protected_document(
-            document_id=data.copy_from_doc, session=session
+            document_id=copy_document_id, session=session
         )
         # Inherit num_districts from source document, with fallback to DistrictrMap
         num_districts = copied_document.num_districts or districtr_map.num_districts
+        num_communities = copied_document.num_communities
+        community_metadata_list = copied_document.community_metadata_list
 
     # Generate UUID for document_id
     document_id = str(uuid4())
@@ -200,20 +252,16 @@ async def create_document(
         document_id=document_id,
         districtr_map_slug=data.districtr_map_slug,
         num_districts=num_districts,
+        num_communities=num_communities,
+        community_metadata_list=community_metadata_list,
     )
     session.add(new_document)
     session.flush()  # Flush to get the public_id assigned
     # Under most circumstances, we DO NOT want to use f-strings in SQL statements.
     # However, in this case, we are using a dynamic table name, and SQLAlchemy / Postgres do not
     # support bind params for identifiers or partition values, so we need to use f-strings.
-    partition_name = f"document.assignments_{document_id}"
-    # Create assignment partition
-    stmt = text(f"""
-        CREATE TABLE "{partition_name}"
-        PARTITION OF document.assignments
-        FOR VALUES IN ('{document_id}')
-    """)
-    session.execute(stmt)
+    create_document_partition(session, document_id, "assignments")
+    create_document_partition(session, document_id, "community_assignments")
 
     created_document = get_document(
         document_id=DocumentID(document_id=document_id), session=session
@@ -226,10 +274,18 @@ async def create_document(
             f"Copying document. Origin document: {copied_document.document_id} to {document_id}"
         )
         assert copied_document.document_id is not None
-        total_assignments = duplicate_document_assignments(
+        copied_zone_assignments = duplicate_document_assignments(
             from_document_id=copied_document.document_id,
             to_document_id=document_id,
             session=session,
+        )
+        copied_community_assignments = duplicate_document_community_assignments(
+            from_document_id=copied_document.document_id,
+            to_document_id=document_id,
+            session=session,
+        )
+        total_assignments = max(
+            copied_zone_assignments or 0, copied_community_assignments or 0
         )
 
     elif data.assignments is not None and len(data.assignments) > 0:
@@ -263,6 +319,7 @@ async def create_document(
                 )
 
     if data.metadata is not None:
+        assert copied_document is not None
         logger.info(
             f"Updating metadata for document: {document_id if not data.copy_from_doc else copied_document.document_id}"
         )
@@ -271,40 +328,48 @@ async def create_document(
         )
 
     stmt = (
-        select(
-            Document.document_id,
-            Document.public_id,
-            Document.created_at,
-            Document.districtr_map_slug,
-            DistrictrMap.gerrydb_table_name.label("gerrydb_table"),  # pyright: ignore
+        select(  # type: ignore[no-matching-overload]
+            col(Document.document_id),
+            col(Document.public_id),
+            col(Document.created_at),
+            col(Document.districtr_map_slug),
+            col(DistrictrMap.gerrydb_table_name).label("gerrydb_table"),
             Document.updated_at,
-            DistrictrMap.uuid.label("map_uuid"),  # pyright: ignore
-            DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
-            DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
-            DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
-            DistrictrMap.name.label("map_module"),  # pyright: ignore
+            col(DistrictrMap.uuid).label("map_uuid"),
+            col(DistrictrMap.parent_layer).label("parent_layer"),
+            col(DistrictrMap.child_layer).label("child_layer"),
+            col(DistrictrMap.tiles_s3_path).label("tiles_s3_path"),
+            col(DistrictrMap.name).label("map_module"),
             coalesce(Document.num_districts, DistrictrMap.num_districts).label(
                 "num_districts"
-            ),  # pyright: ignore
-            DistrictrMap.num_districts_modifiable.label("num_districts_modifiable"),  # pyright: ignore
-            DistrictrMap.extent.label("extent"),  # pyright: ignore
-            DistrictrMap.map_type.label("map_type"),  # pyright: ignore
-            DistrictrMap.statefps.label("statefps"),  # pyright: ignore
+            ),
+            col(Document.num_communities),
+            col(Document.community_metadata_list),
+            col(DistrictrMap.num_districts_modifiable).label(
+                "num_districts_modifiable"
+            ),
+            col(DistrictrMap.extent).label("extent"),
+            col(DistrictrMap.map_type).label("map_type"),
+            col(DistrictrMap.statefps).label("statefps"),
             coalesce(total_assignments).label("inserted_assignments"),
-            Document.map_metadata,
+            col(Document.map_metadata),
         )
-        .where(Document.document_id == document_id)
+        .where(col(Document.document_id) == document_id)
         .join(
             DistrictrMap,
-            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,
+            col(Document.districtr_map_slug) == DistrictrMap.districtr_map_slug,
             isouter=True,
         )
         .limit(1)
     )
 
-    doc = session.exec(
-        stmt,
-    ).one()
+    doc = (
+        session.connection()
+        .execute(
+            stmt,
+        )
+        .one()
+    )
 
     if not doc.map_uuid:
         session.rollback()
@@ -378,26 +443,37 @@ async def update_assignments(
     document_id = data.document_id
     assignments = data.assignments  # [[geo_id, zone], ...]
     last_updated_at = data.last_updated_at
+    is_community_map = data.map_type == "community"
+    assignment_table = (
+        "document.community_assignments" if is_community_map else "document.assignments"
+    )
+    assignment_column = "community_id" if is_community_map else "zone"
 
-    db_last_updated_at = session.exec(
-        select(Document.updated_at).where(Document.document_id == document_id)
-    ).one_or_none()
+    db_last_updated_at = (
+        session.connection()
+        .execute(select(Document.updated_at).where(Document.document_id == document_id))
+        .scalar_one_or_none()
+    )
 
-    if db_last_updated_at > last_updated_at and not data.overwrite:
+    if (
+        db_last_updated_at is not None
+        and db_last_updated_at > last_updated_at
+        and not data.overwrite
+    ):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Document has been updated since the last update",
         )
     # Delete existing assignments for this document
-    session.execute(
-        text("DELETE FROM document.assignments WHERE document_id = :document_id"),
+    session.connection().execute(
+        text(f"DELETE FROM {assignment_table} WHERE document_id = :document_id"),
         {"document_id": document_id},
     )
     # Use COPY for faster bulk insert with partitioned tables
     # Create a temporary table for bulk loading
-    (load_id, _) = str(uuid4()).split("-", maxsplit=1)
+    load_id, _ = str(uuid4()).split("-", maxsplit=1)
     temp_table_name = f"temp_assignments_{load_id}"
-    session.execute(
+    session.connection().execute(
         text(
             f"CREATE TEMP TABLE {temp_table_name} (document_id UUID, geo_id TEXT, zone INT)"
         )
@@ -412,17 +488,23 @@ async def update_assignments(
             # assignment is [geo_id, zone]
             geo_id = assignment[0]
             zone_val = assignment[1] if len(assignment) > 1 else None
+            if is_community_map and zone_val is None:
+                zone_val = 0
             copy.write_row([document_id, geo_id, zone_val])
 
     # Insert from temp table into partitioned assignments table
     # PostgreSQL will automatically route to the correct partition based on document_id
-    inserted_count = session.execute(
-        text(f"""
-        INSERT INTO document.assignments (document_id, geo_id, zone)
+    inserted_count = (
+        session.connection()
+        .execute(
+            text(f"""
+        INSERT INTO {assignment_table} (document_id, geo_id, {assignment_column})
         SELECT document_id, geo_id, zone
         FROM {temp_table_name}
         """),
-    ).rowcount
+        )
+        .rowcount
+    )
     updated_at = None
     if len(data.assignments) > 0:
         updated_at = update_timestamp(session, document_id)
@@ -432,14 +514,19 @@ async def update_assignments(
     if data.metadata is not None:
         if data.metadata.num_districts is not None:
             # Reject if map has num_districts_modifiable=False
-            districtr_map = session.exec(
-                select(DistrictrMap)
-                .join(
-                    Document,
-                    Document.districtr_map_slug == DistrictrMap.districtr_map_slug,
+            districtr_map = (
+                session.connection()
+                .execute(
+                    select(DistrictrMap)
+                    .join(
+                        Document,
+                        col(Document.districtr_map_slug)
+                        == col(DistrictrMap.districtr_map_slug),
+                    )
+                    .where(Document.document_id == document_id)
                 )
-                .where(Document.document_id == document_id)
-            ).first()
+                .first()
+            )
             if districtr_map and not getattr(
                 districtr_map, "num_districts_modifiable", True
             ):
@@ -452,15 +539,13 @@ async def update_assignments(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Number of districts must be at least 2 and at most 538",
                 )
-            stmt = text(
-                """UPDATE document.document
+            stmt = text("""UPDATE document.document
                 SET num_districts = :num_districts
-                WHERE document_id = :document_id"""
-            ).bindparams(
+                WHERE document_id = :document_id""").bindparams(
                 bindparam(key="document_id", type_=UUIDType),
                 bindparam(key="num_districts", type_=Integer),
             )
-            session.execute(
+            session.connection().execute(
                 stmt,
                 {
                     "document_id": document_id,
@@ -469,27 +554,67 @@ async def update_assignments(
             )
 
         if data.metadata.color_scheme is not None:
-            stmt = text(
-                """UPDATE document.document
+            stmt = text("""UPDATE document.document
                 SET color_scheme = :colors
-                WHERE document_id = :document_id"""
-            ).bindparams(
+                WHERE document_id = :document_id""").bindparams(
                 bindparam(key="document_id", type_=UUIDType),
                 bindparam(key="colors", type_=ARRAY(String)),
             )
-            session.execute(
+            session.connection().execute(
                 stmt, {"document_id": document_id, "colors": data.metadata.color_scheme}
             )
 
-    # Sync district comments via comments schema (None = no change, [] = delete all)
+        if data.metadata.num_communities is not None:
+            stmt = text("""UPDATE document.document
+                SET num_communities = :num_communities
+                WHERE document_id = :document_id""").bindparams(
+                bindparam(key="document_id", type_=UUIDType),
+                bindparam(key="num_communities", type_=Integer),
+            )
+            session.connection().execute(
+                stmt,
+                {
+                    "document_id": document_id,
+                    "num_communities": data.metadata.num_communities,
+                },
+            )
+
+        if data.metadata.community_metadata_list is not None:
+            stmt = (
+                update(Document)
+                .where(col(Document.document_id) == document_id)
+                .values(
+                    community_metadata_list=[
+                        (
+                            community.model_dump()
+                            if hasattr(community, "model_dump")
+                            else community
+                        )
+                        for community in data.metadata.community_metadata_list
+                    ]
+                )
+            )
+            session.connection().execute(
+                stmt,
+            )
+
+    # Sync scoped comments via comments schema (None = no change, [] = delete all)
     if data.comments is not None:
-        comment_dicts = [
-            {"comment_id": c.comment_id, "zone": c.zone, "text": c.text}
-            for c in data.comments
-        ]
-        sync_district_comments(
+        comment_inputs: list[DistrictCommentInput] = []
+        for c in data.comments:
+            try:
+                parsed_id = int(c.comment_id) if c.comment_id is not None else None
+            except (ValueError, TypeError):
+                parsed_id = None
+            comment_inputs.append(
+                DistrictCommentInput(comment_id=parsed_id, zone=c.zone, text=c.text)
+            )
+        sync_fn = (
+            sync_community_comments if is_community_map else sync_district_comments
+        )
+        sync_fn(
             document_id=document_id,
-            comments=comment_dicts if len(data.comments) > 0 else [],
+            comments=comment_inputs if len(data.comments) > 0 else [],
             session=session,
             background_tasks=background_tasks,
         )
@@ -507,27 +632,33 @@ async def get_children(
     parent_geoid: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
 ):
-    db_districtr_map_uuid = session.exec(
-        select(DistrictrMap.uuid).where(
-            DistrictrMap.districtr_map_slug == districtr_map_slug
+    db_districtr_map_uuid = (
+        session.connection()
+        .execute(
+            select(DistrictrMap.uuid).where(
+                DistrictrMap.districtr_map_slug == districtr_map_slug
+            )
         )
-    ).one()
-    stmt = text(
-        """SELECT child_path, parent_path
+        .scalar_one()
+    )
+    stmt = text("""SELECT child_path, parent_path
         FROM parentchildedges pce
         WHERE pce.parent_path = ANY(:parent_geoids)
-        AND pce.districtr_map = :districtr_map_uuid"""
-    ).bindparams(
+        AND pce.districtr_map = :districtr_map_uuid""").bindparams(
         bindparam(key="districtr_map_uuid", type_=UUIDType),
         bindparam(key="parent_geoids", type_=ARRAY(String)),
     )
-    results = session.execute(
-        statement=stmt,
-        params={
-            "districtr_map_uuid": db_districtr_map_uuid,
-            "parent_geoids": parent_geoid,
-        },
-    ).fetchall()
+    results = (
+        session.connection()
+        .execute(
+            stmt,
+            {
+                "districtr_map_uuid": db_districtr_map_uuid,
+                "parent_geoids": parent_geoid,
+            },
+        )
+        .fetchall()
+    )
     return results
 
 
@@ -536,23 +667,14 @@ async def reset_map(
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
 ):
-    partition_name = f'"document.assignments_{document.document_id}"'
-    session.execute(text(f"DROP TABLE IF EXISTS {partition_name} CASCADE;"))
-
-    # Recreate the partition
-    stmt = text(
-        f"""CREATE TABLE {partition_name}
-        PARTITION OF document.assignments
-        FOR VALUES IN ('{document.document_id}');
-    """
-    )
-    session.execute(stmt)
+    reset_document_partition(session, document.document_id, "assignments")
+    reset_document_partition(session, document.document_id, "community_assignments")
 
     # Reset color scheme
     stmt = text(
         "UPDATE document.document SET color_scheme = NULL WHERE document_id = :document_id"
     ).bindparams(bindparam(key="document_id", type_=UUIDType))
-    session.execute(
+    session.connection().execute(
         stmt,
         {"document_id": document.document_id},
     )
@@ -575,11 +697,11 @@ async def update_colors(
     session: Session = Depends(get_session),
 ):
     # Get num_districts from Document, with fallback to DistrictrMap
-    districtr_map = session.exec(
+    districtr_map = session.execute(
         select(DistrictrMap).where(
             DistrictrMap.districtr_map_slug == document.districtr_map_slug
         )
-    ).one()
+    ).scalar_one()
 
     num_districts = document.num_districts or districtr_map.num_districts
 
@@ -589,15 +711,15 @@ async def update_colors(
             detail=f"Number of colors provided ({len(colors)}) does not match number of zones ({num_districts})",
         )
 
-    stmt = text(
-        """UPDATE document.document
+    stmt = text("""UPDATE document.document
         SET color_scheme = :colors
-        WHERE document_id = :document_id"""
-    ).bindparams(
+        WHERE document_id = :document_id""").bindparams(
         bindparam(key="document_id", type_=UUIDType),
         bindparam(key="colors", type_=ARRAY(String)),
     )
-    session.execute(stmt, {"document_id": document.document_id, "colors": colors})
+    session.connection().execute(
+        stmt, {"document_id": document.document_id, "colors": colors}
+    )
     session.commit()
     return ColorsSetResult(colors=colors)
 
@@ -617,26 +739,28 @@ async def update_num_districts(
             detail="Number of districts must be at least 2 and at most 538",
         )
 
-    districtr_map = session.exec(
-        select(DistrictrMap).where(
-            DistrictrMap.districtr_map_slug == document.districtr_map_slug
+    districtr_map = (
+        session.connection()
+        .execute(
+            select(DistrictrMap).where(
+                DistrictrMap.districtr_map_slug == document.districtr_map_slug
+            )
         )
-    ).first()
+        .first()
+    )
     if districtr_map and not getattr(districtr_map, "num_districts_modifiable", True):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Number of districts is not modifiable for this map",
         )
 
-    stmt = text(
-        """UPDATE document.document
+    stmt = text("""UPDATE document.document
         SET num_districts = :num_districts
-        WHERE document_id = :document_id"""
-    ).bindparams(
+        WHERE document_id = :document_id""").bindparams(
         bindparam(key="document_id", type_=UUIDType),
         bindparam(key="num_districts", type_=Integer),
     )
-    session.execute(
+    session.connection().execute(
         stmt, {"document_id": document.document_id, "num_districts": num_districts}
     )
     session.commit()
@@ -649,30 +773,52 @@ async def get_assignments(
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
 ):
-    districtr_map_uuid = session.exec(
-        select(DistrictrMap.uuid)
-        .join(
-            Document,
-            onclause=col(Document.districtr_map_slug)
-            == DistrictrMap.districtr_map_slug,
+    districtr_map_uuid = (
+        session.connection()
+        .execute(
+            select(DistrictrMap.uuid)
+            .join(
+                Document,
+                onclause=col(Document.districtr_map_slug)
+                == DistrictrMap.districtr_map_slug,
+            )
+            .where(Document.document_id == document.document_id)
         )
-        .where(Document.document_id == document.document_id)
-    ).one()
-
-    stmt = (
-        select(
-            Assignments.geo_id,
-            Assignments.zone,
-            ParentChildEdges.parent_path,
-        )
-        .outerjoin(
-            ParentChildEdges,
-            onclause=(col(Assignments.geo_id) == ParentChildEdges.child_path)
-            & (col(ParentChildEdges.districtr_map) == districtr_map_uuid),
-        )
-        .where(Assignments.document_id == document.document_id)
+        .scalar_one()
     )
-    return session.exec(stmt).fetchall()
+    is_community_map = document.community_metadata_list is not None
+
+    if is_community_map:
+        stmt = (
+            select(
+                CommunityAssignments.geo_id,
+                func.nullif(CommunityAssignments.community_id, 0).label("zone"),
+                ParentChildEdges.parent_path,
+            )
+            .outerjoin(
+                ParentChildEdges,
+                onclause=(
+                    col(CommunityAssignments.geo_id) == ParentChildEdges.child_path
+                )
+                & (col(ParentChildEdges.districtr_map) == districtr_map_uuid),
+            )
+            .where(CommunityAssignments.document_id == document.document_id)
+        )
+    else:
+        stmt = (
+            select(
+                Assignments.geo_id,
+                Assignments.zone,
+                ParentChildEdges.parent_path,
+            )
+            .outerjoin(
+                ParentChildEdges,
+                onclause=(col(Assignments.geo_id) == ParentChildEdges.child_path)
+                & (col(ParentChildEdges.districtr_map) == districtr_map_uuid),
+            )
+            .where(Assignments.document_id == document.document_id)
+        )
+    return session.connection().execute(stmt).fetchall()
 
 
 @app.get("/api/document/{document_id}", response_model=DocumentPublic)
@@ -703,18 +849,18 @@ async def get_document_list(
     tags: list[str] = Query(default=[]),
 ):
     stmt = (
-        select(
+        select(  # type: ignore[no-matching-overload]
             Document.public_id,
             Document.map_metadata,
             Document.updated_at,
-            DistrictrMap.name.label("map_module"),
+            col(DistrictrMap.name).label("map_module"),
         )
         .distinct(
             Document.public_id,
         )
         .join(
             DistrictrMap,
-            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,
+            col(Document.districtr_map_slug) == col(DistrictrMap.districtr_map_slug),
             isouter=True,
         )
         .offset(offset)
@@ -736,18 +882,18 @@ async def get_document_list(
                 Tag.id == CommentTag.tag_id,
             )
             .where(
-                Tag.slug.in_(tags),
+                col(Tag.slug).in_(tags),
             )
             .where(
                 # this is fine to keep as ->> because you're comparing to text
-                Document.map_metadata["draft_status"].astext == "ready_to_share"
+                col(Document.map_metadata)["draft_status"].astext == "ready_to_share"
             )
         )
 
     if len(ids) > 0:
-        stmt = stmt.where(Document.public_id.in_(ids))
+        stmt = stmt.where(col(Document.public_id).in_(ids))
 
-    results = session.execute(stmt).fetchall()
+    results = session.connection().execute(stmt).fetchall()
     return [
         {
             "public_id": row[0],
@@ -772,9 +918,13 @@ async def get_unassigned_geoids(
         bindparam(key="exclude_ids", type_=ARRAY(String)),
     )
     try:
-        results = session.execute(
-            stmt, {"doc_uuid": document.document_id, "exclude_ids": exclude_ids}
-        ).fetchall()
+        results = (
+            session.connection()
+            .execute(
+                stmt, {"doc_uuid": document.document_id, "exclude_ids": exclude_ids}
+            )
+            .fetchall()
+        )
     except DataError:
         # TODO: When is this happening? Should investigate
         logger.warning("No results found for unassigned geoids")
@@ -833,7 +983,9 @@ async def check_document_contiguity(
     zone: list[int] = Query(default=[]),
     session: Session = Depends(get_session),
 ):
-    districtr_map = get_districtr_map(document_id=document.document_id, session=session)
+    districtr_map = get_districtr_map(
+        document_id=DocumentID(document_id=document.document_id), session=session
+    )
 
     if districtr_map.child_layer is not None:
         logger.info(
@@ -849,8 +1001,7 @@ async def check_document_contiguity(
         logger.info(
             f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document.document_id}"
         )
-        sql = text(
-            """
+        sql = text("""
             SELECT
                 zone,
                 array_agg(geo_id) as nodes
@@ -860,9 +1011,12 @@ async def check_document_contiguity(
                 document_id = :document_id
                 AND zone IS NOT NULL
             GROUP BY
-                zone"""
+                zone""")
+        result = (
+            session.connection()
+            .execute(sql, {"document_id": document.document_id})
+            .fetchall()
         )
-        result = session.execute(sql, {"document_id": document.document_id}).fetchall()
         zone_assignments = [
             contiguity.ZoneBlockNodes(zone=row.zone, nodes=row.nodes) for row in result
         ]
@@ -885,7 +1039,9 @@ async def get_connected_component_bboxes(
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
 ):
-    districtr_map = get_districtr_map(document_id=document.document_id, session=session)
+    districtr_map = get_districtr_map(
+        document_id=DocumentID(document_id=document.document_id), session=session
+    )
     if districtr_map.child_layer is not None:
         logger.info(
             f"Using child layer {districtr_map.child_layer} for document {document.document_id}"
@@ -904,8 +1060,7 @@ async def get_connected_component_bboxes(
         logger.info(
             f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document.document_id}"
         )
-        sql = text(
-            f"""
+        sql = text(f"""
             SELECT
                 geo_id,
                 st_xmin(box2d(gpd.geometry)) AS xmin,
@@ -919,12 +1074,13 @@ async def get_connected_component_bboxes(
                 ON a.geo_id = gpd.path
             WHERE
                 document_id = :document_id
-                AND zone = :zone"""
-        )
+                AND zone = :zone""")
 
-        results = session.execute(
-            sql, {"document_id": document.document_id, "zone": zone}
-        ).all()
+        results = (
+            session.connection()
+            .execute(sql, {"document_id": document.document_id, "zone": zone})
+            .all()
+        )
 
         if not results or len(results) == 0:
             raise HTTPException(status_code=404, detail="Zone not found")
@@ -951,16 +1107,18 @@ async def get_connected_component_bboxes(
 
     zone_connected_components = connected_components(subgraph)
 
-    from_srid = session.execute(
-        text(
-            """SELECT srid
+    from_srid = (
+        session.connection()
+        .execute(
+            text("""SELECT srid
                 FROM geometry_columns
                 WHERE f_table_name = :table_name
                     AND f_table_schema = 'gerrydb'
-                LIMIT 1"""
-        ),
-        {"table_name": gerrydb_name},
-    ).scalar()
+                LIMIT 1"""),
+            {"table_name": gerrydb_name},
+        )
+        .scalar()
+    )
 
     bboxes = []
     for zone_connected_component in zone_connected_components:
@@ -1013,7 +1171,7 @@ async def update_districtrmap_metadata(
             .where(Document.document_id == document.document_id)  # type: ignore
             .values(map_metadata=metadata.model_dump(exclude_unset=True))
         )
-        session.execute(stmt)
+        session.connection().execute(stmt)
         session.commit()
 
     except Exception as e:
@@ -1034,18 +1192,22 @@ async def get_projects(
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, le=1000),
 ):
-    gerrydb_views = session.exec(
-        select(DistrictrMap)
-        .join(
-            DistrictrMapsToGroups,
-            DistrictrMapsToGroups.districtrmap_uuid == DistrictrMap.uuid,
+    gerrydb_views = (
+        session.execute(
+            select(DistrictrMap)
+            .join(
+                DistrictrMapsToGroups,
+                col(DistrictrMapsToGroups.districtrmap_uuid) == DistrictrMap.uuid,
+            )
+            .filter(col(DistrictrMapsToGroups.group_slug) == group)
+            .filter(col(DistrictrMap.visible) == true())
+            .order_by(col(DistrictrMap.name).asc())
+            .offset(offset)
+            .limit(limit)
         )
-        .filter(DistrictrMapsToGroups.group_slug == group)
-        .filter(DistrictrMap.visible == true())  # pyright: ignore
-        .order_by(DistrictrMap.name.asc())  # pyright: ignore
-        .offset(offset)
-        .limit(limit)
-    ).all()
+        .scalars()
+        .all()
+    )
     return gerrydb_views
 
 
@@ -1060,9 +1222,13 @@ async def get_group(
     ).where(
         MapGroup.slug == group_slug,
     )
-    group = session.execute(
-        statement=stmt,
-    ).first()
+    group = (
+        session.connection()
+        .execute(
+            statement=stmt,
+        )
+        .first()
+    )
 
     if not group:
         raise HTTPException(

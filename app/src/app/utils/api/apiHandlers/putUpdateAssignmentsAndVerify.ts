@@ -40,11 +40,15 @@ export const putUpdateAssignmentsAndVerify = async ({
     'assignment_array'
   );
   // Build comments payload from document_comments
-  const comments = (mapDocument.document_comments || []).map(c => ({
-    comment_id: c.comment_id ?? undefined,
-    zone: c.zone ?? undefined,
-    text: c.text,
-  }));
+  const comments = (mapDocument.document_comments || []).map(c => {
+    // Only send comment_id if it's a server-assigned integer
+    const parsedId = c.comment_id ? parseInt(String(c.comment_id), 10) : NaN;
+    return {
+      comment_id: Number.isFinite(parsedId) ? parsedId : undefined,
+      zone: c.zone ?? undefined,
+      text: c.text,
+    };
+  });
 
   const assignmentsPostResponse = await putUpdateDocument({
     assignments: formattedAssignments,

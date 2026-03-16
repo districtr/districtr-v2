@@ -48,6 +48,7 @@ export const make = (path: string) => {
 
       if (method !== 'GET' && body) {
         fetchOptions.body = JSON.stringify(body);
+        console.log(`[API ${method} /api/${path}]`, fetchOptions.body);
       }
 
       const apiUrl = API_URL || '';

@@ -21,6 +21,7 @@ export interface AssignmentsCreate {
   document_id: string;
   last_updated_at: string;
   overwrite: boolean;
+  map_type?: 'default' | 'community';
   metadata?: {
     color_scheme?: string[] | null;
     num_districts?: number | null;

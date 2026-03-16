@@ -14,8 +14,8 @@ export const MapContextMenu: React.FC = () => {
   if (!contextMenu?.data?.layer) return null;
   const canShatter = Boolean(
     mapDocument?.parent_layer &&
-    mapDocument.child_layer &&
-    mapDocument.child_layer !== contextMenu?.data.sourceLayer
+      mapDocument.child_layer &&
+      mapDocument.child_layer !== contextMenu?.data.sourceLayer
   );
 
   const isChild = CHILD_LAYERS.includes(contextMenu.data.layer.id);

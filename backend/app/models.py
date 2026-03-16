@@ -14,7 +14,7 @@ from sqlmodel import (
 )
 from sqlalchemy.types import ARRAY
 from sqlalchemy.dialects.postgresql import JSON, ENUM
-from sqlalchemy import Float, text
+from sqlalchemy import Float, SmallInteger, text
 import pydantic_geojson
 from app.constants import DOCUMENT_SCHEMA
 from app.core.models import UUIDType, TimeStampMixin, SQLModel
@@ -58,7 +58,7 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     visible: bool = Field(sa_column=Column(Boolean, nullable=False, default=True))
     map_type: str = Field(
         sa_column=Column(
-            ENUM("default", "local", name="maptype"),
+            ENUM("default", "local", "community", name="maptype"),
             nullable=False,
             server_default="default",
         )
@@ -137,7 +137,7 @@ class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
         ),
         {"postgresql_partition_by": "LIST (districtr_map)"},
     )
-    __tablename__ = "parentchildedges"  # pyright: ignore
+    __tablename__ = "parentchildedges"
 
     districtr_map: str = Field(
         sa_column=Column(
@@ -158,6 +158,16 @@ class DocumentMetadata(BaseModel):
     description: str | None = None
     event_id: str | None = None
     draft_status: DocumentDraftStatus | None = DocumentDraftStatus.scratch
+
+
+class CommunityMetadata(BaseModel):
+    id: int
+    render_order_id: int
+    name: str
+    description: str
+    color: str
+    createdAt: str
+    descriptionCommentId: str | None = None
 
 
 class Document(TimeStampMixin, SQLModel, table=True):
@@ -189,8 +199,12 @@ class Document(TimeStampMixin, SQLModel, table=True):
     )
     gerrydb_table: str | None = Field(nullable=True)
     num_districts: int | None = Field(nullable=True, default=None)
+    num_communities: int | None = Field(nullable=True, default=None)
     color_scheme: list[str] | None = Field(
         sa_column=Column(ARRAY(String), nullable=True)
+    )
+    community_metadata_list: list[CommunityMetadata] | None = Field(
+        sa_column=Column(JSON, nullable=True)
     )
     map_metadata: DocumentMetadata | None = Field(sa_column=Column(JSON, nullable=True))
 
@@ -208,7 +222,7 @@ class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
     Tracks the user session for a given document
     """
 
-    __tablename__ = "map_document_user_session"  # pyright: ignore
+    __tablename__ = "map_document_user_session"
     metadata = MetaData(schema=DOCUMENT_SCHEMA)
     session_id: int = Field(
         sa_column=Column(Integer, primary_key=True, autoincrement=True)
@@ -231,7 +245,7 @@ class DocumentCommentPublic(BaseModel):
 class DocumentCommentCreate(BaseModel):
     """Create/update a document comment. If comment_id is provided, it's an update."""
 
-    comment_id: str | None = None
+    comment_id: int | None = None
     zone: int | None = None
     text: str
 
@@ -245,6 +259,8 @@ class DocumentPublic(BaseModel):
     child_layer: str | None
     tiles_s3_path: str | None = None
     num_districts: int | None = None
+    num_communities: int | None = None
+    community_metadata_list: list[CommunityMetadata] | None = None
     num_districts_modifiable: bool = True
     created_at: datetime
     updated_at: datetime
@@ -281,9 +297,38 @@ class Assignments(SQLModel, table=True):
     zone: int | None
 
 
+class CommunityAssignments(SQLModel, table=True):
+    __tablename__ = "community_assignments"
+    __table_args__ = (
+        Index(
+            "ix_document_community_assignments_community_id",
+            "community_id",
+        ),
+        Index(
+            "ix_document_community_assignments_geo_id",
+            "geo_id",
+        ),
+        UniqueConstraint(
+            "document_id",
+            "community_id",
+            "geo_id",
+            name="document_community_geo_id_unique",
+        ),
+        {"postgresql_partition_by": "LIST (document_id)"},
+    )
+    metadata = MetaData(schema=DOCUMENT_SCHEMA)
+    document_id: str = Field(sa_column=Column(UUIDType, primary_key=True))
+    community_id: int = Field(
+        sa_column=Column(SmallInteger, primary_key=True, nullable=False)
+    )
+    geo_id: str = Field(sa_column=Column(String, primary_key=True, nullable=False))
+
+
 class AssignmentsMetadata(BaseModel):
     color_scheme: list[str] | None = None
     num_districts: int | None = None
+    num_communities: int | None = None
+    community_metadata_list: list[CommunityMetadata] | None = None
 
 
 class AssignmentsCreate(BaseModel):
@@ -291,6 +336,7 @@ class AssignmentsCreate(BaseModel):
     assignments: list[list[str | int | None]]  # [[geo_id, zone], ...]
     last_updated_at: datetime
     overwrite: bool = False
+    map_type: str | None = "default"
     metadata: AssignmentsMetadata | None = None
     comments: list[DocumentCommentCreate] | None = None
 
@@ -336,13 +382,13 @@ class NumDistrictsSetResult(BaseModel):
 
 
 class MapGroup(SQLModel, table=True):
-    __tablename__ = "map_group"  # pyright: ignore
+    __tablename__ = "map_group"
     slug: str = Field(primary_key=True, nullable=False)
     name: str = Field(nullable=False)
 
 
 class DistrictrMapsToGroups(SQLModel, table=True):
-    __tablename__ = "districtrmaps_to_groups"  # pyright: ignore
+    __tablename__ = "districtrmaps_to_groups"
     districtrmap_uuid: str = Field(
         sa_column=Column(UUIDType, ForeignKey("districtrmap.uuid"), primary_key=True)
     )
@@ -356,7 +402,7 @@ class DistrictrMapsToGroups(SQLModel, table=True):
 
 
 class DistrictrMapOverlays(SQLModel, table=True):
-    __tablename__ = "districtrmap_overlays"  # pyright: ignore
+    __tablename__ = "districtrmap_overlays"
     districtr_map_id: str = Field(
         sa_column=Column(
             UUIDType,
@@ -374,7 +420,7 @@ class DistrictrMapOverlays(SQLModel, table=True):
 
 
 class Overlay(TimeStampMixin, SQLModel, table=True):
-    __tablename__ = "overlay"  # pyright: ignore
+    __tablename__ = "overlay"
     overlay_id: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     name: str = Field(nullable=False)
     description: str | None = Field(nullable=True)
@@ -409,7 +455,7 @@ class OverlayPublic(BaseModel):
 
 
 class DistrictUnions(TimeStampMixin, SQLModel, table=True):
-    __tablename__ = "district_unions"  # pyright: ignore
+    __tablename__ = "district_unions"
     metadata = MetaData(schema=DOCUMENT_SCHEMA)
     id: int = Field(sa_column=Column(Integer, primary_key=True, autoincrement=True))
     document_id: str = Field(
@@ -418,8 +464,9 @@ class DistrictUnions(TimeStampMixin, SQLModel, table=True):
         )
     )
     zone: int = Field(nullable=False)
-    # Using TEXT to store WKT geometry since SQLModel doesn't have native PostGIS support
-    geometry: str = Geometry("MULTIPOLYGON", 4326)
+    geometry: str = Field(
+        sa_column=Column(Geometry("MULTIPOLYGON", srid=4326), nullable=False)
+    )
     # Store demographic data as JSONB since different tables have different columns
     demographic_data: dict | None = Field(sa_column=Column(JSON, nullable=True))
 
