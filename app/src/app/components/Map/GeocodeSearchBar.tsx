@@ -36,17 +36,44 @@ export const GeocodeSearchBar: React.FC<{
         setSuggestions([]);
         return;
       }
+
       setLoading(true);
       try {
         const trimmedQuery = q.trim();
         const url = new URL(`${GEOCODE_URL}/${encodeURIComponent(trimmedQuery)}.json`);
+        const mapCenter = mapRef.current?.getMap?.()?.getCenter();
+
         url.searchParams.set('key', MAPTILER_API_KEY);
         url.searchParams.set('limit', '5');
         url.searchParams.set('autocomplete', 'true');
+        url.searchParams.set('fuzzyMatch', 'true');
+        url.searchParams.set('country', 'us');
+        url.searchParams.set(
+          'types',
+          [
+            'county',
+            'joint_municipality',
+            'joint_submunicipality',
+            'municipality',
+            'municipal_district',
+            'locality',
+            'neighbourhood',
+            'place',
+            'postal_code',
+            'address',
+            'road',
+            'poi',
+          ].join(',')
+        );
+        if (mapCenter) {
+          url.searchParams.set('proximity', `${mapCenter.lng},${mapCenter.lat}`);
+        }
+
         const res = await fetch(url);
         if (!res.ok) {
           throw new Error(`Geocode search failed with status ${res.status}`);
         }
+
         const data: GeocodeResponse = await res.json();
         setSuggestions(data.features ?? []);
         setOpen(true);
@@ -60,7 +87,7 @@ export const GeocodeSearchBar: React.FC<{
         setLoading(false);
       }
     },
-    [setErrorNotification]
+    [mapRef, setErrorNotification]
   );
 
   useEffect(() => {
