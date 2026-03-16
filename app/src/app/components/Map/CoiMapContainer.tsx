@@ -25,7 +25,6 @@ export const CoiMapContainer: React.FC<{
   const activeTool = useMapControlsStore(state => state.activeTool);
   const basemap = useMapControlsStore(state => state.mapOptions.basemap ?? 'minimal');
   const mapBounds = useMapControlsStore(state => state.mapOptions.bounds);
-  console.log('mapBounds', mapBounds);
   const mapStyle = useMemo(() => {
     const style = getMapStyleForBasemap(basemap);
     return style;
