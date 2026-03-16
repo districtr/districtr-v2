@@ -22,6 +22,35 @@ import {createMapDocument} from '../utils/api/apiHandlers/createMapDocument';
 import {createWithFullMiddlewares} from './middlewares';
 import {confirmMapDocumentUrlParameter} from '../utils/map/confirmMapDocumentUrlParameter';
 
+export type AssignmentsTemporalSnapshot = {
+  shatterIds: {
+    parents: Set<string>;
+    children: Set<string>;
+  };
+  parentToChild: Map<string, Set<string>>;
+  childToParent: Map<string, string>;
+  zoneAssignments: Map<string, NullableZone>;
+  clientLastUpdated: string;
+};
+
+const cloneAssignmentsTemporalSnapshot = (
+  snapshot: AssignmentsTemporalSnapshot
+): AssignmentsTemporalSnapshot => ({
+  shatterIds: {
+    parents: new Set(snapshot.shatterIds.parents),
+    children: new Set(snapshot.shatterIds.children),
+  },
+  parentToChild: new Map(
+    Array.from(snapshot.parentToChild.entries()).map(([parentId, children]) => [
+      parentId,
+      new Set(children),
+    ])
+  ),
+  childToParent: new Map(snapshot.childToParent),
+  zoneAssignments: new Map(snapshot.zoneAssignments),
+  clientLastUpdated: snapshot.clientLastUpdated,
+});
+
 export interface AssignmentsStore {
   /** Map of geoid -> zone assignments currently in memory */
   zoneAssignments: Map<string, NullableZone>;
@@ -47,6 +76,8 @@ export interface AssignmentsStore {
   setZoneAssignments: (zone: NullableZone, gdbPaths: Set<GDBPath>) => void;
 
   clientLastUpdated: string;
+  /** Internal snapshot used to collapse shatter + first child paint into a single undo step */
+  pendingShatterUndoState: AssignmentsTemporalSnapshot | null;
   setClientLastUpdated: (updated_at: string) => void;
   /** Flushes accumulated geoids to the worker & downstream caches */
   ingestAccumulatedAssignments: () => void;
@@ -126,6 +157,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
   parentToChild: new Map<string, Set<string>>(),
   childToParent: new Map<string, string>(),
   clientLastUpdated: '',
+  pendingShatterUndoState: null,
   setClientLastUpdated: (updated_at: string) => {
     set({
       clientLastUpdated: updated_at,
@@ -206,6 +238,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       parentToChild: new Map(data.parentToChild),
       childToParent: new Map(data.childToParent),
       clientLastUpdated: mapDocument?.updated_at ?? new Date().toISOString(),
+      pendingShatterUndoState: null,
     });
     if (mapDocument) {
       // Save immediately when loading from document (not during painting)
@@ -314,6 +347,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         parentToChild: new Map(parentToChild),
         childToParent: new Map(childToParent),
         clientLastUpdated: new Date().toISOString(),
+        pendingShatterUndoState: null,
         zonesLastUpdated: new Map(get().zonesLastUpdated),
       });
     }
@@ -375,6 +409,10 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     const {zoneAssignments, shatterIds, parentToChild, childToParent} = result;
     demographyService.updatePopulations(zoneAssignments);
     idb.updateIdbAssignments(mapDocument, zoneAssignments);
+    const temporalState = useAssignmentsStore.temporal.getState();
+    if (!temporalState.isTracking) {
+      temporalState.resume();
+    }
 
     set({
       zoneAssignments,
@@ -383,6 +421,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       parentToChild,
       childToParent,
       clientLastUpdated: new Date().toISOString(),
+      pendingShatterUndoState: null,
       zonesLastUpdated: new Map(zonesLastUpdated),
     });
   },
@@ -390,6 +429,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
   replaceZoneAssignments: assignments => {
     set({
       zoneAssignments: new Map(assignments),
+      pendingShatterUndoState: null,
     });
   },
 
@@ -404,10 +444,26 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       },
       parentToChild: new Map<string, Set<string>>(),
       childToParent: new Map<string, string>(),
+      pendingShatterUndoState: null,
     });
   },
 
   setShatterState: ({shatterIds, parentToChild, zoneAssignments, childToParent}) => {
+    const {
+      shatterIds: currShatterIds,
+      parentToChild: currParentToChild,
+      childToParent: currChildToParent,
+      zoneAssignments: currZoneAssignments,
+      clientLastUpdated,
+    } = get();
+    const preShatterSnapshot = cloneAssignmentsTemporalSnapshot({
+      shatterIds: currShatterIds,
+      parentToChild: currParentToChild,
+      childToParent: currChildToParent,
+      zoneAssignments: currZoneAssignments,
+      clientLastUpdated,
+    });
+
     // Ensure both maps are provided or build from each other
     const _parentToChild =
       parentToChild && parentToChild.size > 0
@@ -445,6 +501,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       parentToChild: _parentToChild,
       zoneAssignments: new Map(zoneAssignments),
       childToParent: _childToParent,
+      pendingShatterUndoState: preShatterSnapshot,
     });
   },
 
@@ -456,6 +513,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       },
       parentToChild: new Map<string, Set<string>>(),
       childToParent: new Map<string, string>(),
+      pendingShatterUndoState: null,
     });
   },
 
@@ -508,6 +566,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       zoneAssignments: updatedAssignments,
       zonesLastUpdated: updatedZonesLastUpdated,
       accumulatedAssignments: new Map<string, NullableZone>(),
+      pendingShatterUndoState: null,
     });
   },
 
