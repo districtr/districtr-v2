@@ -47,6 +47,8 @@ export const colorZoneAssignments = (
     mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
   const source = mapRef.getSource(BLOCK_SOURCE_ID) as {type?: string} | undefined;
   const useVectorSourceLayer = source?.type === 'vector';
+  // GeoJSON sources (public maps) use property-based styling via ZONE_LABEL_STYLE,
+  // so feature-state zone coloring is not needed — skip and report success.
   if (!useVectorSourceLayer) return true;
   if (!featureStateCache) return false;
 

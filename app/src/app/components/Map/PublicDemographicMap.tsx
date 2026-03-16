@@ -57,6 +57,7 @@ export const PublicDemographicMap: React.FC = () => {
         synced.current();
         synced.current = false;
       }
+      // Unmount before nulling mapRef — unmount() may depend on a valid map reference.
       useDemographyStore.getState().unmount();
       mapRef.current = null;
     };

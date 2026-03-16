@@ -1,4 +1,4 @@
-import React, {useLayoutEffect, useMemo} from 'react';
+import React, {useEffect, useLayoutEffect, useMemo} from 'react';
 import {Source} from 'react-map-gl/maplibre';
 import {useQuery} from '@tanstack/react-query';
 import {PUBLIC_SOURCE_ID} from '@/app/constants/map/layerIds';
@@ -18,6 +18,7 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
   const setStateFp = useMapControlsStore(state => state.setStateFp);
   const setDemographyHash = useDemographyStore(state => state.setDataHash);
   const setAvailableColumnSets = useDemographyStore(state => state.setAvailableColumnSets);
+  const setErrorNotification = useMapStore(state => state.setErrorNotification);
   useClearMap(mapDocument?.document_id);
 
   const publicDistrictsQuery = useQuery({
@@ -25,6 +26,15 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
     queryFn: () => getPublicDistricts(mapDocument),
     enabled: Boolean(mapDocument?.access === 'read' && mapDocument?.public_id),
   });
+
+  useEffect(() => {
+    if (publicDistrictsQuery.isError) {
+      setErrorNotification({
+        message: publicDistrictsQuery.error?.message || 'Failed to fetch public district stats',
+        severity: 2,
+      });
+    }
+  }, [publicDistrictsQuery.isError, publicDistrictsQuery.error, setErrorNotification]);
 
   const featureCollection = useMemo<GeoJSON.FeatureCollection>(() => {
     return {

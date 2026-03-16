@@ -301,7 +301,11 @@ class DemographyService {
   }
 
   /**
-   * Helper to manage the arqueo quantile function.
+   * Helper to manage the arquero quantile function.
+   *
+   * Uses `overlayTable` (VTD-level choropleth data) when available,
+   * falling back to `table` (zone-level data) for editor mode where
+   * overlayTable is never populated.
    */
   calculateQuantiles(
     config: AllMapConfigs[number],
@@ -348,6 +352,7 @@ class DemographyService {
     mapRef: maplibregl.Map;
     ids?: string[];
   }) {
+    // Use overlayTable (VTD-level) when available; fall back to table (zone-level).
     const dataTable = this.overlayTable ?? this.table;
     if (!dataTable || !this.colorScale) return;
     const source = mapRef.getSource(BLOCK_SOURCE_ID) as {type?: string} | undefined;

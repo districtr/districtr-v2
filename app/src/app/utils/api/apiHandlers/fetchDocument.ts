@@ -43,10 +43,9 @@ export const fetchDocument = async (
 ): FetchDocumentResult => {
   const isPublic = !isUUID(document_id);
   const [idbDocument, remoteMetadata] = await Promise.all([
-    idb.getDocument(document_id),
+    isPublic ? Promise.resolve(null) : idb.getDocument(document_id),
     getDocument(document_id),
   ]);
-
 
   if (!remoteMetadata.ok) {
     return {
@@ -54,7 +53,7 @@ export const fetchDocument = async (
       error: remoteMetadata.error.detail || 'Failed to fetch document',
     };
   }
-  
+
   if (isPublic) {
     return {
       ok: true,
@@ -63,7 +62,7 @@ export const fetchDocument = async (
         assignments: [],
         updateLocal: false,
       },
-    }
+    };
   }
 
   // No local copy, or public document and remote has updates

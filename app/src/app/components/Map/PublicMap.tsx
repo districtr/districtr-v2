@@ -63,7 +63,7 @@ export const PublicMap: React.FC = () => {
       onMapLoad={e => {
         onLoad(e);
         setMapRef(mapRef);
-        handleWheelOrPinch({} as TouchEvent, mapRef.current);
+        handleWheelOrPinch(new MouseEvent('wheel'), mapRef.current);
         fitMapToBounds();
       }}
     >
