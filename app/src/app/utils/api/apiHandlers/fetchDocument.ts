@@ -47,11 +47,23 @@ export const fetchDocument = async (
     getDocument(document_id),
   ]);
 
+
   if (!remoteMetadata.ok) {
     return {
       ok: false,
       error: remoteMetadata.error.detail || 'Failed to fetch document',
     };
+  }
+  
+  if (isPublic) {
+    return {
+      ok: true,
+      response: {
+        document: remoteMetadata.response,
+        assignments: [],
+        updateLocal: false,
+      },
+    }
   }
 
   // No local copy, or public document and remote has updates
