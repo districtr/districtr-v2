@@ -3,7 +3,8 @@
   "version": "2.2.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --webpack",
+    "predev": "bash scripts/fetch-basemap-styles.sh",
+    "dev": "npm run predev && next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "next lint",

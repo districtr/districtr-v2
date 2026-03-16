@@ -1,73 +1,28 @@
 import {LngLatLike} from 'maplibre-gl';
-import type {MapOptions, StyleSpecification} from 'maplibre-gl';
-import {MINIMAL_BASEMAP_LAYERS} from './map/minimalBasemapLayers';
-import {STREETS_BASEMAP_LAYERS} from './map/streetsBasemapLayers';
-import {SATELLITE_BASEMAP_LAYERS} from './map/satelliteBasemapLayers';
-import {GEODATA_URL, MAPTILER_API_KEY} from '../utils/api/constants';
+import type {MapOptions} from 'maplibre-gl';
 import {BASEMAP_IDS, type BasemapId} from '@/app/constants/map/layerStyle';
+import { GEODATA_URL } from '../utils/api/constants';
 
 export const MAP_CENTER: LngLatLike = [-98.5556199, 39.8097343]; // kansas
-
-export const MINIMAL_BASEMAP_STYLE: StyleSpecification = {
-  version: 8,
-  sources: {
-    protomaps: {
-      type: 'vector',
-      attribution:
-        '<a href="https://github.com/protomaps/basemaps">Protomaps</a> © <a href="https://openstreetmap.org">OpenStreetMap</a>',
-      url: `pmtiles://${GEODATA_URL}/basemaps/20240325.pmtiles`,
-    },
-  },
-  layers: MINIMAL_BASEMAP_LAYERS,
-  glyphs: `${GEODATA_URL}/fonts/{fontstack}/{range}.pbf`,
-  sprite: `${GEODATA_URL}/sprites/white`,
-};
-export const STREETS_BASEMAP_STYLE: StyleSpecification = {
-  version: 8,
-  sources: {
-    protomaps: {
-      type: 'vector',
-      attribution:
-        '<a href="https://github.com/protomaps/basemaps">Protomaps</a> © <a href="https://openstreetmap.org">OpenStreetMap</a>',
-      url: `pmtiles://${GEODATA_URL}/basemaps/20240325.pmtiles`,
-    },
-  },
-  layers: STREETS_BASEMAP_LAYERS,
-  glyphs: `${GEODATA_URL}/fonts/{fontstack}/{range}.pbf`,
-  sprite: `${GEODATA_URL}/sprites/white`,
-};
-
-export const SATELLITE_BASEMAP_STYLE: StyleSpecification = {
-  version: 8,
-  sources: {
-    maptiler_planet: {
-      url: `https://api.maptiler.com/tiles/v4/tiles.json?key=${MAPTILER_API_KEY}`,
-      type: 'vector',
-    },
-    satellite: {
-      url: `https://api.maptiler.com/tiles/satellite-v2/tiles.json?key=${MAPTILER_API_KEY}`,
-      type: 'raster',
-    },
-  },
-  layers: SATELLITE_BASEMAP_LAYERS,
-  glyphs: `https://api.maptiler.com/fonts/{fontstack}/{range}.pbf?key=${MAPTILER_API_KEY}`,
-  sprite: 'https://api.maptiler.com/maps/019c779b-d342-786b-8c27-dbb8dcf385c2/sprite',
-};
+const MAPSTYLE_ROOT_URL = process.env.NODE_ENV === 'development' ? '' : GEODATA_URL
+const MAPSTYLE_SUFFIX = process.env.NODE_ENV === 'development' ? '' : '';
+export const MINIMAL_BASEMAP_STYLE_URL = `${MAPSTYLE_ROOT_URL}/basemaps/minimal-basemap-style.json${MAPSTYLE_SUFFIX}`;
+export const STREETS_BASEMAP_STYLE_URL = `${MAPSTYLE_ROOT_URL}/basemaps/streets-basemap-style.json${MAPSTYLE_SUFFIX}`;
+export const SATELLITE_BASEMAP_STYLE_URL = `${MAPSTYLE_ROOT_URL}/basemaps/satellite-basemap-style.json${MAPSTYLE_SUFFIX}`;
 
 /**
- * Returns the map style for the given basemap. Minimal uses the local Protomaps
- * style; Streets and Satellite use MapTiler (stub URLs – styles can be updated manually).
+ * Returns the URL to the basemap style JSON for the given basemap.
  */
-export const getMapStyleForBasemap = (basemap: BasemapId) => {
+export const getMapStyleForBasemap = (basemap: BasemapId): string => {
   switch (basemap) {
     case BASEMAP_IDS.MINIMAL:
-      return MINIMAL_BASEMAP_STYLE;
+      return MINIMAL_BASEMAP_STYLE_URL;
     case BASEMAP_IDS.STREETS:
-      return STREETS_BASEMAP_STYLE;
+      return STREETS_BASEMAP_STYLE_URL;
     case BASEMAP_IDS.SATELLITE:
-      return SATELLITE_BASEMAP_STYLE;
+      return SATELLITE_BASEMAP_STYLE_URL;
     default:
-      return MINIMAL_BASEMAP_STYLE;
+      return MINIMAL_BASEMAP_STYLE_URL;
   }
 };
 
