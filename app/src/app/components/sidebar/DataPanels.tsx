@@ -21,6 +21,7 @@ const ResizableAccordionPanel: React.FC<{panel: DataPanelSpec; open: boolean}> =
     <Accordion.Item
       key={panel.title}
       value={panel.title}
+      data-testid={`data-panel-${panel.title}`}
       className="AccordionItem border-[1px] border-gray-300 rounded-lg my-1 bg-white relative"
       defaultValue={open ? 'open' : undefined}
       onMouseEnter={() => setHovered(true)}
@@ -90,6 +91,7 @@ const DataPanels: React.FC<DataPanelsProps> = ({panels = defaultPanels}) => {
       className="AccordionRoot"
       value={sidebarPanels}
       onValueChange={setSidebarPanels}
+      data-testid="data-panels"
     >
       {panels.map((panel, i) => (
         <ResizableAccordionPanel key={i} panel={panel} open={sidebarPanels.includes(panel.title)} />

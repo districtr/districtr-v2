@@ -30,6 +30,7 @@ export const ToolButtons: React.FC<{
       className={`${toolbarLocation === 'map' ? 'shadow-md overflow-hidden bg-white rounded-lg' : ''}`}
       width="100%"
       wrap={isSidebar ? 'wrap' : 'nowrap'}
+      data-testid="toolbar"
     >
       {activeTools.map((tool, i) => {
         const IconComponent = tool.icon;
@@ -44,6 +45,7 @@ export const ToolButtons: React.FC<{
               >
                 <IconButton
                   key={`${tool.mode}-flex`}
+                  data-testid={`${tool.mode}-tool`}
                   className={`cursor-pointer ${i === 0 ? (rotation === 'horizontal' ? 'rounded-l-lg' : 'rounded-t-lg') : ''} ${
                     i === activeTools.length - 1
                       ? rotation === 'horizontal'
