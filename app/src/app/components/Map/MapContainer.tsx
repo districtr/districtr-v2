@@ -37,6 +37,7 @@ export const MapContainer: React.FC<{
 }> = ({mapRef, initialViewState, onMapLoad, borderLeft = false, children}) => {
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
   const mapLock = useMapStore(state => state.mapLock);
+  const mapBounds = useMapControlsStore(state => state.mapOptions.bounds);
   const document_id = useMapStore(state => state.mapDocument?.document_id);
   const activeTool = useMapControlsStore(state => state.activeTool);
   const basemap = useMapControlsStore(state => state.mapOptions.basemap ?? 'minimal');
@@ -75,7 +76,7 @@ export const MapContainer: React.FC<{
     >
       {showGeocode && (
         <div className="absolute top-3 left-3 z-10">
-          <GeocodeSearchBar mapRef={mapRef} />
+          <GeocodeSearchBar mapRef={mapRef} mapBounds={mapBounds} />
         </div>
       )}
       <GlMap

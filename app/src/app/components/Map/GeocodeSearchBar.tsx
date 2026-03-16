@@ -1,6 +1,6 @@
 'use client';
 import React, {useState, useCallback, useRef, useEffect} from 'react';
-import type {MapRef} from 'react-map-gl/maplibre';
+import type {LngLatBoundsLike, MapRef} from 'react-map-gl/maplibre';
 import {MAPTILER_API_KEY} from '@/app/utils/api/constants';
 import {useMapStore} from '@/app/store/mapStore';
 import {TextField} from '@radix-ui/themes';
@@ -20,8 +20,9 @@ interface GeocodeResponse {
 
 export const GeocodeSearchBar: React.FC<{
   mapRef: React.RefObject<MapRef | null>;
+  mapBounds?: LngLatBoundsLike;
   className?: string;
-}> = ({mapRef, className}) => {
+}> = ({mapRef, mapBounds, className}) => {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<GeocodeFeature[]>([]);
   const [open, setOpen] = useState(false);
@@ -68,6 +69,10 @@ export const GeocodeSearchBar: React.FC<{
         if (mapCenter) {
           url.searchParams.set('proximity', `${mapCenter.lng},${mapCenter.lat}`);
         }
+        if (mapBounds) {
+          const bbox = Array.isArray(mapBounds) ? mapBounds : mapBounds.toArray();
+          url.searchParams.set('bbox', bbox.flat().join(','));
+        }
 
         const res = await fetch(url);
         if (!res.ok) {
@@ -87,7 +92,7 @@ export const GeocodeSearchBar: React.FC<{
         setLoading(false);
       }
     },
-    [mapRef, setErrorNotification]
+    [mapRef, mapBounds, setErrorNotification]
   );
 
   useEffect(() => {

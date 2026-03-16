@@ -24,7 +24,8 @@ export const CoiMapContainer: React.FC<{
   const document_id = useMapStore(state => state.mapDocument?.document_id);
   const activeTool = useMapControlsStore(state => state.activeTool);
   const basemap = useMapControlsStore(state => state.mapOptions.basemap ?? 'minimal');
-
+  const mapBounds = useMapControlsStore(state => state.mapOptions.bounds);
+  console.log('mapBounds', mapBounds);
   const mapStyle = useMemo(() => {
     const style = getMapStyleForBasemap(basemap);
     return style;
@@ -59,7 +60,7 @@ export const CoiMapContainer: React.FC<{
     >
       {showGeocode && (
         <div className="absolute top-3 left-3 z-10">
-          <GeocodeSearchBar mapRef={mapRef} />
+          <GeocodeSearchBar mapRef={mapRef} mapBounds={mapBounds} />
         </div>
       )}
       <GlMap
