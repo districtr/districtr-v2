@@ -4,11 +4,11 @@ import {BASEMAP_IDS, type BasemapId} from '@/app/constants/map/layerStyle';
 import { GEODATA_URL } from '../utils/api/constants';
 
 export const MAP_CENTER: LngLatLike = [-98.5556199, 39.8097343]; // kansas
-const MAPSTYLE_ROOT_URL = process.env.NODE_ENV === 'development' ? '' : GEODATA_URL
+const MAPSTYLE_ROOT_URL = process.env.NODE_ENV === 'development' ? '' : `${GEODATA_URL}/basemaps`;
 const MAPSTYLE_SUFFIX = process.env.NODE_ENV === 'development' ? '' : '';
-export const MINIMAL_BASEMAP_STYLE_URL = `${MAPSTYLE_ROOT_URL}/basemaps/minimal-basemap-style.json${MAPSTYLE_SUFFIX}`;
-export const STREETS_BASEMAP_STYLE_URL = `${MAPSTYLE_ROOT_URL}/basemaps/streets-basemap-style.json${MAPSTYLE_SUFFIX}`;
-export const SATELLITE_BASEMAP_STYLE_URL = `${MAPSTYLE_ROOT_URL}/basemaps/satellite-basemap-style.json${MAPSTYLE_SUFFIX}`;
+export const MINIMAL_BASEMAP_STYLE_URL = `${MAPSTYLE_ROOT_URL}/minimal-basemap-style.json${MAPSTYLE_SUFFIX}`;
+export const STREETS_BASEMAP_STYLE_URL = `${MAPSTYLE_ROOT_URL}/streets-basemap-style.json${MAPSTYLE_SUFFIX}`;
+export const SATELLITE_BASEMAP_STYLE_URL = `${MAPSTYLE_ROOT_URL}/satellite-basemap-style.json${MAPSTYLE_SUFFIX}`;
 
 /**
  * Returns the URL to the basemap style JSON for the given basemap.
