@@ -54,7 +54,7 @@ export const colorZoneAssignments = (
     if (!id) return;
     const isChild = useVectorSourceLayer && currentShatterIds.children.has(id);
     const parentChildLayer = isChild ? mapDocument.child_layer : mapDocument.parent_layer;
-    const sourceLayer = useVectorSourceLayer ? parentChildLayer : undefined;
+    const sourceLayer = useVectorSourceLayer && parentChildLayer ? parentChildLayer : undefined;
     const sourceLayerStateKey = sourceLayer ?? '';
     const featureState = featureStateCache?.[sourceLayerStateKey]?.[id];
     const futureState = featureStateChangesCache?.[sourceLayerStateKey]?.[id];
@@ -64,7 +64,7 @@ export const colorZoneAssignments = (
       {
         source: BLOCK_SOURCE_ID,
         id,
-        sourceLayer: sourceLayer ?? undefined,
+        sourceLayer
       },
       {
         selected: true,
@@ -76,16 +76,13 @@ export const colorZoneAssignments = (
   previousZoneAssignments.forEach((zone, id) => {
     if (zoneAssignments.get(id)) return;
     const isChild = useVectorSourceLayer && prevShatterIds?.children.has(id);
-    const sourceLayer = useVectorSourceLayer
-      ? isChild
-        ? mapDocument.child_layer
-        : mapDocument.parent_layer
-      : undefined;
+    const parentChildLayer = isChild ? mapDocument.child_layer : mapDocument.parent_layer;
+    const sourceLayer = useVectorSourceLayer && parentChildLayer ? parentChildLayer : undefined;
     mapRef?.setFeatureState(
       {
         source: BLOCK_SOURCE_ID,
         id,
-        sourceLayer: sourceLayer ?? undefined,
+        sourceLayer
       },
       {
         selected: false,
