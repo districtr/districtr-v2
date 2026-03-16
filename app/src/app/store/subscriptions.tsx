@@ -63,6 +63,7 @@ export const initSubs = () => {
     mapEditSubs.forEach(sub => sub());
     demogInitSub();
     demogMapDocumentSub();
+    numDistrictsSub();
     demogShatterSub();
     featureFlagSub();
   };
