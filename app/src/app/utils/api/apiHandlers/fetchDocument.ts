@@ -3,8 +3,7 @@ import {getDocument} from './getDocument';
 import {idb} from '@/app/utils/idb/idb';
 import {getAssignments} from './getAssignments';
 import {isUUID} from '../../metadata/isUUID';
-
-export type SyncConflictResolution = 'use-local' | 'use-server' | 'keep-local' | 'fork';
+import {SyncConflictResolution} from '@/app/constants/types';
 
 export interface DocumentFetchResult {
   document: DocumentObject;

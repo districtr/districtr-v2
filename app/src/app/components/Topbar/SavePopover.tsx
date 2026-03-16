@@ -4,6 +4,8 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useIdbDocument} from '@/app/hooks/useIdbDocument';
 import {CheckIcon, ExclamationTriangleIcon} from '@radix-ui/react-icons';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
+import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {CloudSavedIcon, CloudNotSavedIcon} from './Icons';
 
 export const SavePopover = () => {
@@ -14,7 +16,11 @@ export const SavePopover = () => {
     documentFromIdb?.clientLastUpdated !== documentFromIdb?.document_metadata.updated_at;
   const updated = useMapStore(state => Object.values(state.updated).some(Boolean));
   const isOutdated = updated || assignmentsOutdated;
-  const handlePutAssignments = useAssignmentsStore(state => state.handlePutAssignments);
+  const districtSave = useAssignmentsStore(state => state.handlePutAssignments);
+  const coiSave = useCoiAssignmentsStore(state => state.handlePutAssignments);
+  const mapMode = useMapControlsStore(state => state.mapMode);
+  const isCommunity = mapDocument?.map_type === 'community' || mapMode === 'coi';
+  const handlePutAssignments = isCommunity ? coiSave : districtSave;
   return (
     <Popover.Root open={hovered}>
       <Popover.Trigger>

@@ -55,7 +55,7 @@ export default function ContiguityDetail({
     queryClient
   );
 
-  useEffect(() => {
+  (useEffect(() => {
     // Handle the case of:
     // Get parent contiguity and contiguity > 1
     // Draw to fix contiguity, but them click show zoom
@@ -65,7 +65,7 @@ export default function ContiguityDetail({
       setShowZoom(false);
     }
   }),
-    [data, contiguity];
+    [data, contiguity]);
 
   if (contiguity === null) {
     return <DashIcon color="gray" />;

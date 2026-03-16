@@ -178,7 +178,9 @@ export function GalleryInner<TItem, TFilters, TQueryResult = TItem[]>({
 
       {!!(!noItems && view === 'grid') && (
         <Grid columns={getColumns(items?.length ?? 0)} gap="4" pt="4">
-          {items?.map((item, i) => <Box key={i}>{gridRenderer(item, i)}</Box>)}
+          {items?.map((item, i) => (
+            <Box key={i}>{gridRenderer(item, i)}</Box>
+          ))}
         </Grid>
       )}
 

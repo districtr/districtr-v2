@@ -3,12 +3,9 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import {
-  fetchDocument,
-  SyncConflictInfo,
-  SyncConflictResolution,
-} from '@/app/utils/api/apiHandlers/fetchDocument';
+import {fetchDocument, SyncConflictInfo} from '@/app/utils/api/apiHandlers/fetchDocument';
 import {SyncConflictModal} from '@/app/components/SyncConflictModal';
+import {SyncConflictResolution} from '@/app/constants/types';
 import {formatAssignmentsFromDocument} from '../utils/map/formatAssignments';
 import {formatCoiAssignmentsFromDocument} from '../utils/map/formatCoiAssignments';
 import {usePathname, useRouter} from 'next/navigation';
@@ -31,7 +28,8 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
   const mapMode = useMapControlsStore(state => state.mapMode);
   const ingestDistrictFromDocument = useAssignmentsStore(state => state.ingestFromDocument);
   const ingestCoiFromDocument = useCoiAssignmentsStore(state => state.ingestFromDocument);
-  const resolveConflict = useAssignmentsStore(state => state.resolveConflict);
+  const districtResolveConflict = useAssignmentsStore(state => state.resolveConflict);
+  const coiResolveConflict = useCoiAssignmentsStore(state => state.resolveConflict);
   const router = useRouter();
   const pathname = usePathname();
   const isCoiRoute = pathname?.startsWith('/coi') || mapMode === 'coi';
@@ -43,10 +41,19 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
       return;
     }
     try {
+      const isCommunityDocument =
+        conflictInfo.serverDocument.map_type === 'community' ||
+        conflictInfo.localDocument.map_type === 'community';
+      const resolveConflict =
+        isCommunityDocument || isCoiRoute ? coiResolveConflict : districtResolveConflict;
       await resolveConflict(resolution, conflictInfo, {
         context: 'load',
         onNavigate: documentId => {
-          router.push(isCoiRoute ? `/coi/edit/${documentId}` : `/map/edit/${documentId}`);
+          router.push(
+            isCommunityDocument || isCoiRoute
+              ? `/coi/edit/${documentId}`
+              : `/map/edit/${documentId}`
+          );
         },
         onComplete: () => {
           setIsLoading(false);
@@ -86,27 +93,17 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
         return;
       } else {
         setMapDocument(result.response.document);
-        if (isCoiRoute) {
+        const isCommunityDocument = result.response.document.map_type === 'community' || isCoiRoute;
+        if (isCommunityDocument) {
           const data = formatCoiAssignmentsFromDocument(result.response.assignments);
           ingestCoiFromDocument(
-            {
-              communityAssignments: data.communityAssignments,
-              communtyVisibility: new Map(),
-              shatterIds: data.shatterIds,
-              parentToChild: data.parentToChild,
-              childToParent: data.childToParent,
-            },
+            data,
             result.response.updateLocal ? result.response.document : undefined
           );
         } else {
           const data = formatAssignmentsFromDocument(result.response.assignments);
           ingestDistrictFromDocument(
-            {
-              zoneAssignments: data.zoneAssignments,
-              shatterIds: data.shatterIds,
-              parentToChild: data.parentToChild,
-              childToParent: data.childToParent,
-            },
+            data,
             result.response.updateLocal ? result.response.document : undefined
           );
         }

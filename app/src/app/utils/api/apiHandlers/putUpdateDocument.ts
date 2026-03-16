@@ -18,6 +18,8 @@ export const putUpdateDocument = async ({
       metadata: {
         color_scheme: metadata?.color_scheme ?? null,
         num_districts: metadata?.num_districts ?? null,
+        num_communities: metadata?.num_communities ?? null,
+        community_metadata_list: metadata?.community_metadata_list ?? null,
       },
       comments: comments ?? null,
     },

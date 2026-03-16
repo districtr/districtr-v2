@@ -52,8 +52,8 @@ const resolveNumCommunities = (
 ) => {
   return Math.max(
     0,
-    mapDocument?.coi_communities?.length ??
-      fallbackDocument?.coi_communities?.length ??
+    mapDocument?.community_metadata_list?.length ??
+      fallbackDocument?.community_metadata_list?.length ??
       mapDocument?.num_communities ??
       fallbackDocument?.num_communities ??
       FALLBACK_NUM_COMMUNITIES
@@ -158,6 +158,8 @@ export interface MapStore {
     id?: string;
   };
   setErrorNotification: (errorNotification: MapStore['errorNotification']) => void;
+  showSaveConflictModal: boolean;
+  setShowSaveConflictModal: (show: boolean) => void;
   // MAP DOCUMENT
   /**
    * Available districtr views
@@ -280,6 +282,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     mapRenderingState: 'initializing',
     setMapRenderingState: mapRenderingState => set({mapRenderingState}),
     captiveIds: new Set<string>(),
+
     exitBlockView: (lock: boolean = false) => {
       const {focusFeatures} = get();
       const {healParentsIfAllChildrenInSameZone} = useAssignmentsStore.getState();
@@ -305,29 +308,46 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         );
       }
     },
+
     getMapRef: () => undefined,
+
     setMapRef: mapRef => {
       set({
         getMapRef: () => mapRef.current?.getMap(),
         appLoadingState: initialLoadingState === 'initializing' ? 'loaded' : get().appLoadingState,
       });
     },
+
     mapLock: null,
+
     setMapLock: mapLock => set({mapLock}),
+
     errorNotification: {},
+
     setErrorNotification: errorNotification => set({errorNotification}),
+
+    showSaveConflictModal: false,
+
+    setShowSaveConflictModal: show => set({showSaveConflictModal: show}),
+
     mapViews: {isPending: true},
+
     setMapViews: mapViews => set({mapViews}),
+
     mapDocument: null,
+
     numCommunities: FALLBACK_NUM_COMMUNITIES,
+
     communities: normalizeCommunities({
       count: FALLBACK_NUM_COMMUNITIES,
       colorScheme: DefaultColorScheme,
     }),
+
     updated: {
       metadata: false,
       comments: false,
     },
+
     setMapDocument: mapDocument => {
       const currentMapDocument = get().mapDocument;
       const {resetZoneAssignments} = useAssignmentsStore.getState();
@@ -371,7 +391,8 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       );
       const existingCommunities = normalizeCommunities({
         communities:
-          mapDocument.coi_communities ?? (idIsSame ? currentMapDocument?.coi_communities : null),
+          mapDocument.community_metadata_list ??
+          (idIsSame ? currentMapDocument?.community_metadata_list : null),
         count: numCommunities,
         colorScheme: mapDocument.color_scheme ?? DefaultColorScheme,
       });
@@ -413,7 +434,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         mapDocument: {
           ...mapDocument,
           num_communities: numCommunities,
-          coi_communities: communities,
+          community_metadata_list: communities,
           color_scheme: colorScheme,
         },
         numCommunities,
@@ -432,7 +453,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           mapDocument.tiles_s3_path === currentMapDocument?.tiles_s3_path ? 'loaded' : 'loading',
       });
     },
+
     flushMapState: false,
+
     initiateFlushMapState: async () => {
       set({flushMapState: true});
       // wait for 50ms
@@ -441,13 +464,14 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       await new Promise(resolve => setTimeout(resolve, 50));
       set({flushMapState: false});
     },
+
     mutateMapDocument: mapDocument =>
       set(state => {
         if (!state.mapDocument) return {};
         const nextMapDocument = {...state.mapDocument, ...mapDocument};
         const nextNumCommunities = resolveNumCommunities(nextMapDocument, state.mapDocument);
         const existingCommunities = normalizeCommunities({
-          communities: nextMapDocument.coi_communities,
+          communities: nextMapDocument.community_metadata_list,
           count: nextNumCommunities,
           colorScheme: nextMapDocument.color_scheme ?? DefaultColorScheme,
         });
@@ -470,7 +494,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
             ...nextMapDocument,
             color_scheme: syncedColorScheme,
             num_communities: nextNumCommunities,
-            coi_communities: nextCommunities,
+            community_metadata_list: nextCommunities,
           },
           numCommunities: nextNumCommunities,
           communities: nextCommunities,
@@ -668,7 +692,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const updatedDocument = {
         ...mapDocument,
         num_communities: normalizedNumCommunities,
-        coi_communities: nextCommunities,
+        community_metadata_list: nextCommunities,
         color_scheme: syncedColorScheme,
       };
       set({
@@ -727,7 +751,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const updatedDocument = {
         ...mapDocument,
         num_communities: count,
-        coi_communities: nextCommunities,
+        community_metadata_list: nextCommunities,
         color_scheme: syncedColorScheme,
       };
       set({
@@ -779,7 +803,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const updatedDocument = {
         ...mapDocument,
         num_communities: nextCount,
-        coi_communities: nextCommunities,
+        community_metadata_list: nextCommunities,
         color_scheme: syncedColorScheme,
         document_comments: [...currentComments, initialCommunityComment],
       };
@@ -809,7 +833,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
             });
           })
           .catch(err => {
-            console.error('Failed to update IDB with coi_communities:', err);
+            console.error('Failed to update IDB with community_metadata_list:', err);
           });
       }
     },
@@ -862,7 +886,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const syncedColorScheme = syncCoiColorsToColorScheme(nextCommunities, newColorScheme);
       const updatedDocument = {
         ...mapDocument,
-        coi_communities: nextCommunities,
+        community_metadata_list: nextCommunities,
         color_scheme: syncedColorScheme,
         document_comments: syncedDescriptionComment.comments,
       };
@@ -933,7 +957,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const updatedDocument = {
         ...mapDocument,
         num_communities: remainingCommunities.length,
-        coi_communities: remainingCommunities,
+        community_metadata_list: remainingCommunities,
         color_scheme: syncCoiColorsToColorScheme(
           remainingCommunities,
           mapDocument.color_scheme ?? DefaultColorScheme

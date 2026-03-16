@@ -4,6 +4,8 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useIdbDocument} from '@/app/hooks/useIdbDocument';
 import {CheckIcon, ExclamationTriangleIcon, ResetIcon} from '@radix-ui/react-icons';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
+import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 
 export const RevertPopover = () => {
   const [hovered, setHovered] = useState(false);
@@ -12,7 +14,11 @@ export const RevertPopover = () => {
   const documentFromIdb = useIdbDocument(mapDocument?.document_id);
   const isOutdated =
     documentFromIdb?.clientLastUpdated !== documentFromIdb?.document_metadata.updated_at;
-  const handleRevert = useAssignmentsStore(state => state.handleRevert);
+  const districtRevert = useAssignmentsStore(state => state.handleRevert);
+  const coiRevert = useCoiAssignmentsStore(state => state.handleRevert);
+  const mapMode = useMapControlsStore(state => state.mapMode);
+  const isCommunity = mapDocument?.map_type === 'community' || mapMode === 'coi';
+  const handleRevert = isCommunity ? coiRevert : districtRevert;
 
   const handleConfirmRevert = async () => {
     if (!mapDocument) return;

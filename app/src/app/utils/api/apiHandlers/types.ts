@@ -24,6 +24,8 @@ export interface AssignmentsCreate {
   metadata?: {
     color_scheme?: string[] | null;
     num_districts?: number | null;
+    num_communities?: number | null;
+    community_metadata_list?: Community[] | null;
   };
   comments?: DocumentCommentCreate[] | null;
 }
@@ -87,7 +89,7 @@ export interface DocumentObject extends StatusObject {
   /** COI-only local metadata for community count. */
   num_communities?: number | null;
   /** COI-only local metadata for explicit community ordering/color state. */
-  coi_communities?: Community[] | null;
+  community_metadata_list?: Community[] | null;
   /** If false, users cannot change the number of districts on the frontend. */
   num_districts_modifiable?: boolean;
   map_module: string | null;
@@ -96,7 +98,7 @@ export interface DocumentObject extends StatusObject {
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
   map_metadata: DocumentMetadata;
   color_scheme: string[] | null;
-  map_type: 'default' | 'local';
+  map_type: 'default' | 'local' | 'community';
   comment: string | null;
   parent_geo_unit_type: string | null;
   child_geo_unit_type: string | null;
