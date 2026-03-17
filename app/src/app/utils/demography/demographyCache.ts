@@ -33,38 +33,29 @@ import {
 } from '@/app/store/demography/constants';
 import {NullableZone} from '@/app/constants/types';
 import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
-import {
-  compareCoiZonesByRenderOrder,
-  getPrimaryCommunityId,
-  sortCommunitiesByRenderOrder,
-} from '../communities';
+import {compareCoiZonesByRenderOrder, sortCommunitiesByRenderOrder} from '../communities';
 
-const getActiveZoneAssignments = (): ZoneAssignmentsMap => {
+type PopulationAssignmentRow = {
+  path: string;
+  zone: NullableZone;
+};
+
+type PopulationAssignments = ZoneAssignmentsMap | PopulationAssignmentRow[];
+
+const getActivePopulationAssignments = (): PopulationAssignments => {
   const mapMode = useMapControlsStore.getState().mapMode;
   if (mapMode !== 'coi') {
     return new Map(useAssignmentsStore.getState().zoneAssignments);
   }
 
-  const communities = useMapStore.getState().communities;
   const communityAssignments = useCoiAssignmentsStore.getState().communityAssignments;
-  const communitiesByGeoid = new Map<string, Set<number>>();
-
+  const assignmentRows: PopulationAssignmentRow[] = [];
   communityAssignments.forEach((geoids, communityId) => {
     geoids.forEach(geoid => {
-      const assignedCommunities = communitiesByGeoid.get(geoid);
-      if (assignedCommunities) {
-        assignedCommunities.add(communityId);
-        return;
-      }
-      communitiesByGeoid.set(geoid, new Set([communityId]));
+      assignmentRows.push({path: geoid, zone: communityId});
     });
   });
-
-  const primaryAssignments = new Map<string, NullableZone>();
-  communitiesByGeoid.forEach((assignedCommunities, geoid) => {
-    primaryAssignments.set(geoid, getPrimaryCommunityId(assignedCommunities, communities));
-  });
-  return primaryAssignments;
+  return assignmentRows;
 };
 /**
  * Class to organize queries on current demographic data
@@ -136,8 +127,8 @@ class DemographyCache {
     if (hash === this.hash) return;
     this.availableColumns = columns;
     this.table = table(data).derive(getColumnDerives(columns)).dedupe('path');
-    const zoneAssignments = getActiveZoneAssignments();
-    const popsOk = this.updatePopulations(zoneAssignments);
+    const populationAssignments = getActivePopulationAssignments();
+    const popsOk = this.updatePopulations(populationAssignments);
     if (!popsOk) return;
     this.updateSummaryStats();
     this.hash = hash;
@@ -148,16 +139,22 @@ class DemographyCache {
    *
    * @param zoneAssignments - The zone assignments to update.
    */
-  updateZoneTable(zoneAssignments: ZoneAssignmentsMap): void {
-    const rows = zoneAssignments.size;
+  updateZoneTable(zoneAssignments: PopulationAssignments): void {
+    const assignmentRows =
+      zoneAssignments instanceof Map
+        ? Array.from(zoneAssignments.entries()).map(([path, zone]) => ({path, zone}))
+        : zoneAssignments;
+    const normalizedAssignmentRows = assignmentRows.filter(
+      ({path, zone}) => Boolean(path) && zone !== undefined && zone !== null
+    );
+    const rows = normalizedAssignmentRows.length;
     const zoneColumns = {
       path: new Array(rows),
       zone: new Array(rows),
     };
-    Array.from(zoneAssignments.entries()).forEach(([k, v], i) => {
-      if (!k || !v) return;
-      zoneColumns.path[i] = k;
-      zoneColumns.zone[i] = v;
+    normalizedAssignmentRows.forEach(({path, zone}, i) => {
+      zoneColumns.path[i] = path;
+      zoneColumns.zone[i] = zone;
     });
     this.zoneTable = table(zoneColumns);
   }
@@ -212,7 +209,7 @@ class DemographyCache {
    * @returns The calculated populations.
    */
   calculatePopulations(
-    zoneAssignments?: ZoneAssignmentsMap
+    zoneAssignments?: PopulationAssignments
   ): {ok: true; table: SummaryTable} | {ok: false} {
     const mapState = useMapStore.getState();
     const mapMode = useMapControlsStore.getState().mapMode;
@@ -223,9 +220,7 @@ class DemographyCache {
             {length: mapState.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS},
             (_, i) => i + 1
           );
-    if (zoneAssignments) {
-      this.updateZoneTable(zoneAssignments);
-    }
+    this.updateZoneTable(zoneAssignments ?? getActivePopulationAssignments());
 
     if (!this.table || !this.zoneTable) {
       return {
@@ -499,7 +494,7 @@ class DemographyCache {
    *
    * @param zoneAssignments - The zone assignments to use for updating populations.
    */
-  updatePopulations(zoneAssignments?: ZoneAssignmentsMap) {
+  updatePopulations(zoneAssignments?: PopulationAssignments) {
     const populations = this.calculatePopulations(zoneAssignments);
     if (populations.ok) {
       useChartStore.getState().setDataUpdateHash(`${performance.now()}`);

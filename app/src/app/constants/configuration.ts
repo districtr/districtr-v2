@@ -1,7 +1,7 @@
 import {LngLatLike} from 'maplibre-gl';
 import type {MapOptions} from 'maplibre-gl';
 import {BASEMAP_IDS, type BasemapId} from '@/app/constants/map/layerStyle';
-import { GEODATA_URL } from '../utils/api/constants';
+import {GEODATA_URL} from '../utils/api/constants';
 
 export const MAP_CENTER: LngLatLike = [-98.5556199, 39.8097343]; // kansas
 const MAPSTYLE_ROOT_URL = process.env.NODE_ENV === 'development' ? '' : `${GEODATA_URL}/basemaps`;

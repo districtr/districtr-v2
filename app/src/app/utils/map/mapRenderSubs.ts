@@ -392,7 +392,7 @@ export class MapRenderSubscriber {
 
     const newPrimaryAssignments = this.toPrimaryAssignments(newAssignmentsByGeoid);
     GeometryWorker?.updateZones(Array.from(newPrimaryAssignments.entries()));
-    demographyCache.updatePopulations(newPrimaryAssignments);
+    demographyCache.updatePopulations();
 
     if (mapState.mapRenderingState !== 'loaded' || mapState.appLoadingState !== 'loaded') {
       this.updatePreviousCommunitySnapshot(newAssignmentsByGeoid, shatterIds);
