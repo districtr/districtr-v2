@@ -773,10 +773,10 @@ async def get_assignments(
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
 ):
-    districtr_map_uuid = (
+    districtr_map_row = (
         session.connection()
         .execute(
-            select(DistrictrMap.uuid)
+            select(DistrictrMap.uuid, DistrictrMap.map_type)
             .join(
                 Document,
                 onclause=col(Document.districtr_map_slug)
@@ -784,9 +784,10 @@ async def get_assignments(
             )
             .where(Document.document_id == document.document_id)
         )
-        .scalar_one()
+        .one()
     )
-    is_community_map = document.community_metadata_list is not None
+    districtr_map_uuid = districtr_map_row.uuid
+    is_community_map = districtr_map_row.map_type == "community"
 
     if is_community_map:
         stmt = (

@@ -79,6 +79,7 @@ def include_object(object, name, type_, reflected, compare_to):
     if name and (
         name in POST_GIS_ALPINE_RESERVED_TABLES
         or re.match(r"document.assignments_.+", name)
+        or re.match(r"document.community_assignments_.+", name)
         or re.match(r"parentchildedges_.+", name)
         or re.match(r".*_districtr_view+", name)
         # For whatever reason alembic fails to recognize it already exists

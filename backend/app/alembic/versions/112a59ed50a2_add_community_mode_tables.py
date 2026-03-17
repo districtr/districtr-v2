@@ -20,6 +20,9 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # Add "community" to the maptype enum
+    op.execute("ALTER TYPE maptype ADD VALUE IF NOT EXISTS 'community'")
+
     op.add_column(
         "document",
         sa.Column("num_communities", sa.Integer(), nullable=True),
@@ -39,3 +42,5 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_column("document", "community_metadata_list", schema="document")
     op.drop_column("document", "num_communities", schema="document")
+    # Note: PostgreSQL does not support removing values from enums.
+    # To fully reverse, you'd need to recreate the enum without "community".
