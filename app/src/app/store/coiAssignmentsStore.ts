@@ -1383,13 +1383,24 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
   },
 
   handlePutAssignments: async (overwrite = false) => {
+    console.log('[COI save] handlePutAssignments called, overwrite:', overwrite);
     await idb.flushPendingUpdate();
 
     const {mapDocument, setMapLock, setErrorNotification, setShowSaveConflictModal} =
       useMapStore.getState();
-    if (!mapDocument?.document_id || !mapDocument.updated_at) return;
+    if (!mapDocument?.document_id || !mapDocument.updated_at) {
+      console.error('[COI save] Aborting save: missing document_id or updated_at', {
+        document_id: mapDocument?.document_id,
+        updated_at: mapDocument?.updated_at,
+      });
+      return;
+    }
     const idbDocument = await idb.getDocument(mapDocument.document_id);
     if (!idbDocument) {
+      console.error(
+        '[COI save] Aborting save: IDB document not found for',
+        mapDocument.document_id
+      );
       return;
     }
     setMapLock({isLocked: true, reason: 'Saving Coi assignment plan'});
@@ -1402,6 +1413,12 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       };
 
       const {communityAssignments, shatterIds, childToParent} = get();
+      console.log('[COI save] Sending save request', {
+        document_id: documentForSave.document_id,
+        communityCount: communityAssignments.size,
+        commentCount: documentForSave.document_comments?.length ?? 0,
+        overwrite,
+      });
       const assignmntsPostResponse = await putUpdateCoiAssignmentsAndVerify({
         mapDocument: documentForSave,
         communityAssignments,
@@ -1414,13 +1431,16 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
         !assignmntsPostResponse.ok &&
         assignmntsPostResponse.error === 'Document has been updated since the last update'
       ) {
+        console.warn('[COI save] Conflict detected:', assignmntsPostResponse.error);
         setShowSaveConflictModal(true);
       } else if (!assignmntsPostResponse.ok) {
+        console.error('[COI save] Save failed:', assignmntsPostResponse.error);
         setErrorNotification({
           message: assignmntsPostResponse.error,
           severity: 2,
         });
       } else if (assignmntsPostResponse.ok) {
+        console.log('[COI save] Save succeeded:', assignmntsPostResponse.response);
         setShowSaveConflictModal(false);
       }
     } finally {

@@ -83,26 +83,42 @@ export const putUpdateCoiAssignmentsAndVerify = async ({
     };
   });
 
-  const assignmentsPostResponse = await putUpdateDocument({
+  const payload = {
     assignments: formattedAssignments,
     document_id: mapDocument.document_id,
     last_updated_at: mapDocument.updated_at ?? mapDocument.created_at,
     overwrite,
-    map_type: 'community',
+    map_type: 'community' as const,
     metadata: {
       color_scheme: mapDocument.color_scheme ?? undefined,
       num_communities: mapDocument.num_communities ?? undefined,
       community_metadata_list: mapDocument.community_metadata_list ?? undefined,
     },
     comments,
+  };
+
+  console.log('[COI save] PUT /api/assignments payload:', {
+    document_id: payload.document_id,
+    assignmentCount: payload.assignments.length,
+    last_updated_at: payload.last_updated_at,
+    overwrite: payload.overwrite,
+    map_type: payload.map_type,
+    num_communities: payload.metadata.num_communities,
+    communityMetadataCount: payload.metadata.community_metadata_list?.length ?? 0,
+    commentCount: payload.comments.length,
+    comments: payload.comments,
   });
 
+  const assignmentsPostResponse = await putUpdateDocument(payload);
+
   if (!assignmentsPostResponse.ok) {
+    console.error('[COI save] PUT /api/assignments failed:', assignmentsPostResponse.error);
     return {
       ok: false,
       error: assignmentsPostResponse.error.detail,
     };
   }
+  console.log('[COI save] PUT /api/assignments succeeded:', assignmentsPostResponse.response);
 
   const freshServerAssignments = await getAssignments(mapDocument);
   if (!freshServerAssignments.ok) {
