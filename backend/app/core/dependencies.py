@@ -7,6 +7,7 @@ from app.models import (
     DocumentCommentPublic,
     DistrictrMap,
     DistrictrMapOverlays,
+    MAX_COMMUNITY_NAME_LENGTH,
     Overlay,
     OverlayPublic,
 )
@@ -140,6 +141,7 @@ def get_document_public(
         col(DistrictrMap.comment).label("comment"),
         col(DistrictrMap.uuid).label("districtr_map_uuid"),
         col(DistrictrMap.statefps).label("statefps"),
+        literal(MAX_COMMUNITY_NAME_LENGTH).label("community_name_length_limit"),
         coalesce(col(DistrictrMap.comment_length_limit), 240).label(
             "comment_length_limit"
         ),
@@ -273,6 +275,9 @@ def get_document_public(
         overlays=overlays_list,
         statefps=result.statefps,
         document_comments=document_comments_list,
+        community_name_length_limit=getattr(
+            result, "community_name_length_limit", MAX_COMMUNITY_NAME_LENGTH
+        ),
         comment_length_limit=getattr(result, "comment_length_limit", None),
         comment_count_limit=getattr(result, "comment_count_limit", None),
     )

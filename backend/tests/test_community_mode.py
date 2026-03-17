@@ -3,6 +3,7 @@ from sqlalchemy import text
 from sqlmodel import Session
 from unittest.mock import patch
 
+from app.models import MAX_COMMUNITY_NAME_LENGTH
 from app.utils import create_districtr_map
 from tests.constants import GERRY_DB_FIXTURE_NAME
 
@@ -30,6 +31,16 @@ def build_community_metadata_list():
             "createdAt": "2026-03-13T00:00:01.000Z",
             "descriptionCommentId": None,
         },
+    ]
+
+
+def build_community_comments(community_metadata_list):
+    return [
+        {
+            "text": community["description"],
+            "zone": community["id"],
+        }
+        for community in community_metadata_list
     ]
 
 
@@ -71,11 +82,13 @@ def get_assignments_by_geoid(client, document_id: str):
     }
 
 
+@patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
 def test_put_community_assignments_round_trip_with_metadata_and_comments(
-    client, community_document_id: str, session: Session
+    _mock_score_text, client, community_document_id: str, session: Session
 ):
     document_info = client.get(f"/api/document/{community_document_id}").json()
     community_metadata_list = build_community_metadata_list()
+    community_comments = build_community_comments(community_metadata_list)
 
     response = client.put(
         "/api/assignments",
@@ -91,12 +104,7 @@ def test_put_community_assignments_round_trip_with_metadata_and_comments(
                 "num_communities": 2,
                 "community_metadata_list": community_metadata_list,
             },
-            "comments": [
-                {
-                    "text": "Community 1 note",
-                    "zone": 1,
-                }
-            ],
+            "comments": community_comments,
             "last_updated_at": document_info["updated_at"],
         },
     )
@@ -115,24 +123,32 @@ def test_put_community_assignments_round_trip_with_metadata_and_comments(
     assert updated_document["map_type"] == "community"
     assert updated_document["num_communities"] == 2
     assert updated_document["community_metadata_list"] == community_metadata_list
-    assert len(updated_document["document_comments"]) == 1
-    assert updated_document["document_comments"][0]["zone"] == 1
-    assert updated_document["document_comments"][0]["text"] == "Community 1 note"
+    assert updated_document["community_name_length_limit"] == MAX_COMMUNITY_NAME_LENGTH
+    document_comments = {
+        comment["zone"]: comment["text"]
+        for comment in updated_document["document_comments"]
+    }
+    assert document_comments == {
+        1: "Community focused on watershed issues",
+        2: "Community focused on transit access",
+    }
 
     comment_rows = session.execute(
-        text("""
+        text(
+            """
             SELECT zone
             FROM comments.document_comment
             WHERE document_id = :document_id
-            """),
+            """
+        ),
         {"document_id": community_document_id},
     ).fetchall()
-    assert len(comment_rows) == 1
-    assert comment_rows[0][0] == 1
+    assert {row[0] for row in comment_rows} == {1, 2}
 
 
+@patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
 def test_copy_community_document_duplicates_assignments_and_metadata(
-    client, community_document_id: str, community_map_slug: str
+    _mock_score_text, client, community_document_id: str, community_map_slug: str
 ):
     document_info = client.get(f"/api/document/{community_document_id}").json()
     community_metadata_list = build_community_metadata_list()
@@ -151,6 +167,7 @@ def test_copy_community_document_duplicates_assignments_and_metadata(
                 "num_communities": 2,
                 "community_metadata_list": community_metadata_list,
             },
+            "comments": build_community_comments(community_metadata_list),
             "last_updated_at": document_info["updated_at"],
         },
     )
@@ -171,6 +188,7 @@ def test_copy_community_document_duplicates_assignments_and_metadata(
     assert copied_document["inserted_assignments"] == 3
     assert copied_document["num_communities"] == 2
     assert copied_document["community_metadata_list"] == community_metadata_list
+    assert copied_document["community_name_length_limit"] == MAX_COMMUNITY_NAME_LENGTH
 
     original_assignments = sorted(
         client.get(f"/api/get_assignments/{community_document_id}").json(),
@@ -183,8 +201,9 @@ def test_copy_community_document_duplicates_assignments_and_metadata(
     assert copied_assignments == original_assignments
 
 
+@patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
 def test_put_community_assignments_conflict_requires_overwrite(
-    client, community_document_id: str
+    _mock_score_text, client, community_document_id: str
 ):
     document_info = client.get(f"/api/document/{community_document_id}").json()
     first_metadata = [build_community_metadata_list()[0]]
@@ -199,6 +218,7 @@ def test_put_community_assignments_conflict_requires_overwrite(
                 "num_communities": 1,
                 "community_metadata_list": first_metadata,
             },
+            "comments": build_community_comments(first_metadata),
             "last_updated_at": document_info["updated_at"],
         },
     )
@@ -236,6 +256,7 @@ def test_put_community_assignments_conflict_requires_overwrite(
                 "num_communities": 2,
                 "community_metadata_list": full_metadata,
             },
+            "comments": build_community_comments(full_metadata),
             "overwrite": True,
             "last_updated_at": "1970-01-01T00:00:00.000000Z",
         },
@@ -257,6 +278,7 @@ def test_reset_community_assignments_preserves_metadata_and_comments(
 ):
     document_info = client.get(f"/api/document/{community_document_id}").json()
     community_metadata_list = build_community_metadata_list()
+    community_comments = build_community_comments(community_metadata_list)
 
     update_response = client.put(
         "/api/assignments",
@@ -272,12 +294,7 @@ def test_reset_community_assignments_preserves_metadata_and_comments(
                 "num_communities": 2,
                 "community_metadata_list": community_metadata_list,
             },
-            "comments": [
-                {
-                    "text": "Community 1 note",
-                    "zone": 1,
-                }
-            ],
+            "comments": community_comments,
             "last_updated_at": document_info["updated_at"],
         },
     )
@@ -291,29 +308,190 @@ def test_reset_community_assignments_preserves_metadata_and_comments(
     updated_document = client.get(f"/api/document/{community_document_id}").json()
     assert updated_document["num_communities"] == 2
     assert updated_document["community_metadata_list"] == community_metadata_list
-    assert len(updated_document["document_comments"]) == 1
-    assert updated_document["document_comments"][0]["zone"] == 1
-    assert updated_document["document_comments"][0]["text"] == "Community 1 note"
+    assert {
+        comment["zone"]: comment["text"]
+        for comment in updated_document["document_comments"]
+    } == {
+        1: "Community focused on watershed issues",
+        2: "Community focused on transit access",
+    }
 
     community_assignment_count = session.execute(
-        text("""
+        text(
+            """
             SELECT COUNT(*)
             FROM document.community_assignments
             WHERE document_id = :document_id
-            """),
+            """
+        ),
         {"document_id": community_document_id},
     ).scalar_one()
     assert community_assignment_count == 0
 
     comment_count = session.execute(
-        text("""
+        text(
+            """
             SELECT COUNT(*)
             FROM comments.document_comment
             WHERE document_id = :document_id
-            """),
+            """
+        ),
         {"document_id": community_document_id},
     ).scalar_one()
-    assert comment_count == 1
+    assert comment_count == 2
+
+
+@patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
+def test_community_name_is_sanitized_before_save(
+    _mock_score_text, client, community_document_id: str
+):
+    document_info = client.get(f"/api/document/{community_document_id}").json()
+    community_metadata_list = [
+        {
+            "id": 1,
+            "render_order_id": 1,
+            "name": "  <b>River\tBasin</b>\nAlliance  ",
+            "description": "Clean water coalition comment",
+            "color": "#00AAFF",
+            "createdAt": "2026-03-13T00:00:00.000Z",
+            "descriptionCommentId": None,
+        }
+    ]
+
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": community_document_id,
+            "assignments": [["202090441022004", 1]],
+            "map_type": "community",
+            "metadata": {
+                "num_communities": 1,
+                "community_metadata_list": community_metadata_list,
+            },
+            "comments": build_community_comments(community_metadata_list),
+            "last_updated_at": document_info["updated_at"],
+        },
+    )
+    assert response.status_code == 200, response.json()
+
+    updated_document = client.get(f"/api/document/{community_document_id}").json()
+    assert (
+        updated_document["community_metadata_list"][0]["name"] == "River Basin Alliance"
+    )
+
+
+@patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
+def test_community_name_longer_than_40_chars_is_rejected_before_mutation(
+    _mock_score_text, client, community_document_id: str
+):
+    initial_document = client.get(f"/api/document/{community_document_id}").json()
+    initial_metadata = [build_community_metadata_list()[0]]
+    initial_comments = build_community_comments(initial_metadata)
+
+    initial_save = client.put(
+        "/api/assignments",
+        json={
+            "document_id": community_document_id,
+            "assignments": [["202090441022004", 1]],
+            "map_type": "community",
+            "metadata": {
+                "num_communities": 1,
+                "community_metadata_list": initial_metadata,
+            },
+            "comments": initial_comments,
+            "last_updated_at": initial_document["updated_at"],
+        },
+    )
+    assert initial_save.status_code == 200, initial_save.json()
+
+    saved_document = client.get(f"/api/document/{community_document_id}").json()
+    rejected_response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": community_document_id,
+            "assignments": [["202090441022004", 2]],
+            "map_type": "community",
+            "metadata": {
+                "num_communities": 1,
+                "community_metadata_list": [
+                    {
+                        **initial_metadata[0],
+                        "name": "A" * 41,
+                    }
+                ],
+            },
+            "comments": initial_comments,
+            "last_updated_at": saved_document["updated_at"],
+        },
+    )
+    assert rejected_response.status_code == 400
+    assert "40 characters or fewer" in rejected_response.json()["detail"]
+
+    assert get_assignments_by_geoid(client, community_document_id) == {
+        "202090441022004": 1
+    }
+    final_document = client.get(f"/api/document/{community_document_id}").json()
+    assert final_document["community_metadata_list"] == initial_metadata
+
+
+@patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
+def test_community_save_requires_comment_for_every_community_before_mutation(
+    _mock_score_text, client, community_document_id: str
+):
+    initial_document = client.get(f"/api/document/{community_document_id}").json()
+    initial_metadata = [build_community_metadata_list()[0]]
+    initial_comments = build_community_comments(initial_metadata)
+
+    initial_save = client.put(
+        "/api/assignments",
+        json={
+            "document_id": community_document_id,
+            "assignments": [["202090441022004", 1]],
+            "map_type": "community",
+            "metadata": {
+                "num_communities": 1,
+                "community_metadata_list": initial_metadata,
+            },
+            "comments": initial_comments,
+            "last_updated_at": initial_document["updated_at"],
+        },
+    )
+    assert initial_save.status_code == 200, initial_save.json()
+
+    saved_document = client.get(f"/api/document/{community_document_id}").json()
+    invalid_metadata = build_community_metadata_list()
+    rejected_response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": community_document_id,
+            "assignments": [
+                ["202090441022004", 1],
+                ["202090428002008", 2],
+            ],
+            "map_type": "community",
+            "metadata": {
+                "num_communities": 2,
+                "community_metadata_list": invalid_metadata,
+            },
+            "comments": [{"text": "Only one community comment", "zone": 1}],
+            "last_updated_at": saved_document["updated_at"],
+        },
+    )
+    assert rejected_response.status_code == 400
+    assert (
+        "Each community must include at least one non-empty comment"
+        in rejected_response.json()["detail"]
+    )
+
+    assert get_assignments_by_geoid(client, community_document_id) == {
+        "202090441022004": 1
+    }
+    final_document = client.get(f"/api/document/{community_document_id}").json()
+    assert final_document["community_metadata_list"] == initial_metadata
+    assert {
+        comment["zone"]: comment["text"]
+        for comment in final_document["document_comments"]
+    } == {1: "Community focused on watershed issues"}
 
 
 @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
@@ -360,7 +538,12 @@ def test_sync_community_comments_updates_and_deletes_existing_rows(
                     "comment_id": first_comments[1]["comment_id"],
                     "text": "Community 1 updated note",
                     "zone": 1,
-                }
+                },
+                {
+                    "comment_id": first_comments[2]["comment_id"],
+                    "text": "Community 2 first note",
+                    "zone": 2,
+                },
             ],
             "last_updated_at": first_document["updated_at"],
         },
@@ -368,32 +551,29 @@ def test_sync_community_comments_updates_and_deletes_existing_rows(
     assert second_response.status_code == 200, second_response.json()
 
     second_document = client.get(f"/api/document/{community_document_id}").json()
-    assert len(second_document["document_comments"]) == 1
-    assert second_document["document_comments"][0]["zone"] == 1
-    assert (
-        second_document["document_comments"][0]["comment_id"]
-        == first_comments[1]["comment_id"]
-    )
-    assert second_document["document_comments"][0]["text"] == "Community 1 updated note"
+    assert len(second_document["document_comments"]) == 2
+    second_comments = {
+        comment["zone"]: comment for comment in second_document["document_comments"]
+    }
+    assert second_comments[1]["comment_id"] == first_comments[1]["comment_id"]
+    assert second_comments[1]["text"] == "Community 1 updated note"
+    assert second_comments[2]["text"] == "Community 2 first note"
 
     remaining_comment_rows = session.execute(
-        text("""
+        text(
+            """
             SELECT dc.zone, c.id, c.title, c.comment
             FROM comments.document_comment dc
             JOIN comments.comment c ON c.id = dc.comment_id
             WHERE dc.document_id = :document_id
             ORDER BY dc.zone
-            """),
+            """
+        ),
         {"document_id": community_document_id},
     ).fetchall()
-    assert [tuple(row) for row in remaining_comment_rows] == [
-        (
-            1,
-            int(first_comments[1]["comment_id"]),
-            "Community 1 note",
-            "Community 1 updated note",
-        )
-    ]
+    assert len(remaining_comment_rows) == 2
+    assert remaining_comment_rows[0][0] == 1  # zone
+    assert remaining_comment_rows[0][3] == "Community 1 updated note"  # comment text
 
     delete_all_response = client.put(
         "/api/assignments",
@@ -414,11 +594,13 @@ def test_sync_community_comments_updates_and_deletes_existing_rows(
     assert final_document["document_comments"] is None
 
     final_comment_count = session.execute(
-        text("""
+        text(
+            """
             SELECT COUNT(*)
             FROM comments.document_comment
             WHERE document_id = :document_id
-            """),
+            """
+        ),
         {"document_id": community_document_id},
     ).scalar_one()
     assert final_comment_count == 0
@@ -444,12 +626,14 @@ def test_community_assignment_none_is_stored_as_zero_and_returned_as_null(
     assert response.status_code == 200, response.json()
 
     stored_assignments = session.execute(
-        text("""
+        text(
+            """
             SELECT geo_id, community_id
             FROM document.community_assignments
             WHERE document_id = :document_id
             ORDER BY geo_id
-            """),
+            """
+        ),
         {"document_id": community_document_id},
     ).fetchall()
     assert [tuple(row) for row in stored_assignments] == [

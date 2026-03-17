@@ -15,7 +15,7 @@ from sqlalchemy.exc import (
 )
 from sqlalchemy import text
 from sqlalchemy.types import Integer
-from sqlmodel import Session, String, select, true, update, col
+from sqlmodel import Session, String, select, true, update, col, literal
 from starlette.middleware.cors import CORSMiddleware
 import logging
 from sqlalchemy import bindparam
@@ -52,6 +52,7 @@ from app.models import (
     AssignmentsResponse,
     ColorsSetResult,
     CommunityAssignments,
+    CommunityMetadata,
     DistrictrMap,
     DistrictrMapsToGroups,
     Document,
@@ -59,6 +60,7 @@ from app.models import (
     DocumentCreatePublic,
     DocumentPublic,
     DocumentMetadata,
+    MAX_COMMUNITY_NAME_LENGTH,
     UUIDType,
     ParentChildEdges,
     ShatterResult,
@@ -66,8 +68,10 @@ from app.models import (
     MapGroup,
     AssignmentsCreate,
     NumDistrictsSetResult,
+    sanitize_community_name,
 )
 from app.comments.models import (
+    Comment,
     DocumentComment as FormDocumentComment,
     Tag,
     CommentTag,
@@ -109,6 +113,141 @@ logging.basicConfig(level=logging.INFO)
 cache = SimpleMemoryCache()
 
 
+def _load_existing_community_metadata(
+    session: Session, document_id: str
+) -> list[CommunityMetadata]:
+    raw_communities = (
+        session.connection()
+        .execute(
+            select(Document.community_metadata_list).where(
+                Document.document_id == document_id
+            )
+        )
+        .scalar_one_or_none()
+    )
+    if not raw_communities:
+        return []
+    return [
+        (
+            community
+            if isinstance(community, CommunityMetadata)
+            else CommunityMetadata.model_validate(community)
+        )
+        for community in raw_communities
+    ]
+
+
+def _normalize_community_metadata_list(
+    community_metadata_list: list[CommunityMetadata] | list[dict],
+) -> list[CommunityMetadata]:
+    normalized_communities: list[CommunityMetadata] = []
+    for raw_community in community_metadata_list:
+        community = (
+            raw_community
+            if isinstance(raw_community, CommunityMetadata)
+            else CommunityMetadata.model_validate(raw_community)
+        )
+        sanitized_name = sanitize_community_name(community.name)
+        community_label = f"Community {community.render_order_id}"
+
+        if not sanitized_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"{community_label} name cannot be empty.",
+            )
+        if len(sanitized_name) > MAX_COMMUNITY_NAME_LENGTH:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"{community_label} name must be {MAX_COMMUNITY_NAME_LENGTH} "
+                    "characters or fewer."
+                ),
+            )
+
+        normalized_communities.append(
+            community.model_copy(update={"name": sanitized_name})
+        )
+
+    return normalized_communities
+
+
+def _load_existing_community_comments(
+    session: Session, document_id: str
+) -> list[dict[str, int | str | None]]:
+    existing_comments = (
+        session.connection()
+        .execute(
+            select(FormDocumentComment.zone, Comment.comment)
+            .join(Comment, Comment.id == FormDocumentComment.comment_id)
+            .where(
+                FormDocumentComment.document_id == document_id,
+                col(FormDocumentComment.zone).is_not(None),
+            )
+        )
+        .all()
+    )
+    return [
+        {"zone": comment.zone, "text": comment.comment, "comment_id": None}
+        for comment in existing_comments
+    ]
+
+
+def _validate_community_comment_coverage(
+    community_metadata_list: list[CommunityMetadata],
+    comments: list[dict[str, int | str | None]],
+) -> None:
+    commented_zones = {
+        comment["zone"]
+        for comment in comments
+        if comment.get("zone") is not None and str(comment.get("text") or "").strip()
+    }
+    missing_comments = [
+        community.name or f"Community {community.render_order_id}"
+        for community in community_metadata_list
+        if community.id not in commented_zones
+    ]
+
+    if missing_comments:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Each community must include at least one non-empty comment before "
+                f"saving. Missing comments for: {', '.join(missing_comments)}"
+            ),
+        )
+
+
+def _validate_community_save_payload(
+    *,
+    document_id: str,
+    metadata,
+    incoming_comments: list[dict[str, int | str | None]] | None,
+    session: Session,
+) -> list[CommunityMetadata] | None:
+    if metadata is not None and metadata.community_metadata_list is not None:
+        final_community_metadata_list = _normalize_community_metadata_list(
+            metadata.community_metadata_list
+        )
+    else:
+        final_community_metadata_list = _normalize_community_metadata_list(
+            _load_existing_community_metadata(session, document_id)
+        )
+
+    if not final_community_metadata_list:
+        return None
+
+    final_comments = (
+        incoming_comments
+        if incoming_comments is not None
+        else _load_existing_community_comments(session, document_id)
+    )
+    _validate_community_comment_coverage(final_community_metadata_list, final_comments)
+
+    if metadata is not None and metadata.community_metadata_list is not None:
+        return final_community_metadata_list
+    return None
+
+
 # Set all CORS enabled origins
 if settings.BACKEND_CORS_ORIGINS:
     allow_origins = [str(origin).strip("/") for origin in settings.BACKEND_CORS_ORIGINS]
@@ -131,7 +270,7 @@ def update_timestamp(
         .values(updated_at=func.now())
         .returning(Document.updated_at)
     )
-    updated_at = session.scalar(update_stmt)
+    updated_at = session.connection().execute(update_stmt).scalar_one()
     return updated_at
 
 
@@ -351,6 +490,7 @@ async def create_document(
             col(DistrictrMap.extent).label("extent"),
             col(DistrictrMap.map_type).label("map_type"),
             col(DistrictrMap.statefps).label("statefps"),
+            literal(MAX_COMMUNITY_NAME_LENGTH).label("community_name_length_limit"),
             coalesce(total_assignments).label("inserted_assignments"),
             col(Document.map_metadata),
         )
@@ -448,6 +588,25 @@ async def update_assignments(
         "document.community_assignments" if is_community_map else "document.assignments"
     )
     assignment_column = "community_id" if is_community_map else "zone"
+    comment_dicts = (
+        [
+            {"comment_id": c.comment_id, "zone": c.zone, "text": c.text}
+            for c in data.comments
+        ]
+        if data.comments is not None
+        else None
+    )
+
+    # Validate community payload (name sanitization, length, comment coverage)
+    # before any mutations. Returns normalized metadata list if provided, else None.
+    validated_community_metadata = None
+    if is_community_map:
+        validated_community_metadata = _validate_community_save_payload(
+            document_id=document_id,
+            metadata=data.metadata,
+            incoming_comments=comment_dicts,
+            session=session,
+        )
 
     db_last_updated_at = (
         session.connection()
@@ -460,6 +619,10 @@ async def update_assignments(
         and db_last_updated_at > last_updated_at
         and not data.overwrite
     ):
+        logger.warning(
+            f"Conflict detected for document {document_id}: "
+            f"db_last_updated_at={db_last_updated_at!r} > last_updated_at={last_updated_at!r}"
+        )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Document has been updated since the last update",
@@ -580,6 +743,11 @@ async def update_assignments(
             )
 
         if data.metadata.community_metadata_list is not None:
+            metadata_to_save = (
+                validated_community_metadata
+                if validated_community_metadata is not None
+                else data.metadata.community_metadata_list
+            )
             stmt = (
                 update(Document)
                 .where(col(Document.document_id) == document_id)
@@ -590,7 +758,7 @@ async def update_assignments(
                             if hasattr(community, "model_dump")
                             else community
                         )
-                        for community in data.metadata.community_metadata_list
+                        for community in metadata_to_save
                     ]
                 )
             )

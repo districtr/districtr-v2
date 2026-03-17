@@ -1,5 +1,7 @@
 from datetime import datetime
-from pydantic import BaseModel
+import re
+import unicodedata
+from pydantic import BaseModel, field_validator
 from sqlmodel import (
     Field,
     ForeignKey,
@@ -23,6 +25,23 @@ from app.save_share.models import (
     DocumentShareStatus,
 )
 from geoalchemy2 import Geometry
+
+
+MAX_COMMUNITY_NAME_LENGTH = 40
+COMMUNITY_HTML_TAG_RE = re.compile(r"<[^>]+>")
+COMMUNITY_CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
+COMMUNITY_WHITESPACE_RE = re.compile(r"\s+")
+
+
+def sanitize_community_name(name: str) -> str:
+    """Normalize user-provided community names before validation/persistence."""
+    normalized = unicodedata.normalize("NFKC", name)
+    without_tags = COMMUNITY_HTML_TAG_RE.sub("", normalized)
+    # Collapse all whitespace (including tabs, newlines) to single spaces first,
+    # then remove remaining non-whitespace control characters.
+    collapsed_whitespace = COMMUNITY_WHITESPACE_RE.sub(" ", without_tags)
+    without_control_chars = COMMUNITY_CONTROL_CHAR_RE.sub("", collapsed_whitespace)
+    return without_control_chars.strip()
 
 
 class DistrictrMap(TimeStampMixin, SQLModel, table=True):
@@ -169,6 +188,13 @@ class CommunityMetadata(BaseModel):
     createdAt: str
     descriptionCommentId: str | None = None
 
+    @field_validator("name", mode="before")
+    @classmethod
+    def sanitize_name(cls, value: str) -> str:
+        if isinstance(value, str):
+            return sanitize_community_name(value)
+        return value
+
 
 class Document(TimeStampMixin, SQLModel, table=True):
     metadata = MetaData(schema=DOCUMENT_SCHEMA)
@@ -277,6 +303,7 @@ class DocumentPublic(BaseModel):
     overlays: list["OverlayPublic"] | None = None
     statefps: list[str] | None = None
     document_comments: list["DocumentCommentPublic"] | None = None
+    community_name_length_limit: int = MAX_COMMUNITY_NAME_LENGTH
     comment_length_limit: int | None = None
     comment_count_limit: int | None = None
 

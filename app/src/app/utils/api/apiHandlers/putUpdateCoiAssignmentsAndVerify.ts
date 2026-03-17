@@ -113,11 +113,21 @@ export const putUpdateCoiAssignmentsAndVerify = async ({
   }
 
   const freshData = formatCoiAssignmentsFromDocument(freshServerAssignments.response);
-  if (!areCommunityAssignmentsEqual(communityAssignments, freshData.communityAssignments)) {
-    throw new Error('Conflict on save: community assignments mismatch');
-  }
-  if (!areStringMapsEqual(childToParent, freshData.childToParent)) {
-    throw new Error('Conflict on save: shatter state mismatch');
+  const assignmentsMismatch = !areCommunityAssignmentsEqual(
+    communityAssignments,
+    freshData.communityAssignments
+  );
+  const shatterMismatch = !areStringMapsEqual(childToParent, freshData.childToParent);
+
+  if (assignmentsMismatch || shatterMismatch) {
+    console.warn('[COI save verification] Post-save mismatch detected (PUT succeeded).', {
+      assignmentsMismatch,
+      shatterMismatch,
+      localCommunityCount: communityAssignments.size,
+      serverCommunityCount: freshData.communityAssignments.size,
+      localShatterCount: childToParent.size,
+      serverShatterCount: freshData.childToParent.size,
+    });
   }
 
   const freshDoc = await getDocument(mapDocument.document_id);

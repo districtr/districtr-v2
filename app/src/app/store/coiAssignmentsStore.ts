@@ -1412,7 +1412,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
 
       if (
         !assignmntsPostResponse.ok &&
-        assignmntsPostResponse.error === 'Document has ben updated since the last update'
+        assignmntsPostResponse.error === 'Document has been updated since the last update'
       ) {
         setShowSaveConflictModal(true);
       } else if (!assignmntsPostResponse.ok) {
