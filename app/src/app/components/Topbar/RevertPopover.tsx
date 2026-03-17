@@ -12,12 +12,18 @@ export const RevertPopover = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const mapDocument = useMapStore(state => state.mapDocument);
   const documentFromIdb = useIdbDocument(mapDocument?.document_id);
-  const isOutdated =
-    documentFromIdb?.clientLastUpdated !== documentFromIdb?.document_metadata.updated_at;
   const districtRevert = useAssignmentsStore(state => state.handleRevert);
+  const districtClientLastUpdated = useAssignmentsStore(state => state.clientLastUpdated);
   const coiRevert = useCoiAssignmentsStore(state => state.handleRevert);
+  const coiClientLastUpdated = useCoiAssignmentsStore(state => state.clientLastUpdated);
   const mapMode = useMapControlsStore(state => state.mapMode);
   const isCommunity = mapDocument?.map_type === 'community' || mapMode === 'coi';
+  const activeClientLastUpdated = isCommunity ? coiClientLastUpdated : districtClientLastUpdated;
+  const isOutdated =
+    (mapDocument?.updated_at != null &&
+      activeClientLastUpdated !== '' &&
+      activeClientLastUpdated !== mapDocument.updated_at) ||
+    documentFromIdb?.clientLastUpdated !== documentFromIdb?.document_metadata.updated_at;
   const handleRevert = isCommunity ? coiRevert : districtRevert;
 
   const handleConfirmRevert = async () => {

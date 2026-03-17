@@ -223,6 +223,13 @@ class Document(TimeStampMixin, SQLModel, table=True):
             nullable=False,
         )
     )
+    map_type: str = Field(
+        sa_column=Column(
+            ENUM("default", "local", "community", name="maptype", create_type=False),
+            nullable=False,
+            server_default="default",
+        )
+    )
     gerrydb_table: str | None = Field(nullable=True)
     num_districts: int | None = Field(nullable=True, default=None)
     num_communities: int | None = Field(nullable=True, default=None)
@@ -237,6 +244,7 @@ class Document(TimeStampMixin, SQLModel, table=True):
 
 class DocumentCreate(BaseModel):
     districtr_map_slug: str
+    map_type: str | None = None
     metadata: DocumentMetadata | None = None
     copy_from_doc: str | int | None = None  # document_id to copy from
     assignments: list[list[str]] | None = None  # Option to load block assignments
@@ -363,7 +371,7 @@ class AssignmentsCreate(BaseModel):
     assignments: list[list[str | int | None]]  # [[geo_id, zone], ...]
     last_updated_at: datetime
     overwrite: bool = False
-    map_type: str | None = "default"
+    map_type: str | None = None
     metadata: AssignmentsMetadata | None = None
     comments: list[DocumentCommentCreate] | None = None
 

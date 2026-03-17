@@ -1134,6 +1134,21 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
 
   ingestFromDocument: (data: CoiAssignmentsPayload, mapDocument?: DocumentObject) => {
     const currentTime = new Date().toISOString();
+    const baselineUpdatedAt =
+      mapDocument?.updated_at ?? useMapStore.getState().mapDocument?.updated_at ?? currentTime;
+
+    console.log('[hydration] ingestFromDocument called', {
+      hasMapDocument: !!mapDocument,
+      communityCount: data.communityAssignments.size,
+      assignedCommunityIds: Array.from(data.communityAssignments.keys()),
+      totalGeoIds: Array.from(data.communityAssignments.values()).reduce(
+        (sum, s) => sum + s.size,
+        0
+      ),
+      shatterParents: data.shatterIds.parents.size,
+      shatterChildren: data.shatterIds.children.size,
+      baselineUpdatedAt,
+    });
 
     if (mapDocument) {
       useMapStore.getState().mutateMapDocument(mapDocument);
@@ -1151,6 +1166,14 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
         !currentCommunities.length ||
         assignedCommunityIds.some(communityId => !currentCommunityIds.has(communityId)));
 
+    console.log('[hydration] Community reconstruction check', {
+      shouldReconstructCommunities,
+      assignedCommunityIds,
+      currentCommunityIds: Array.from(currentCommunityIds),
+      hasMetadataList: !!mapDocument?.community_metadata_list?.length,
+      currentCommunitiesCount: currentCommunities.length,
+    });
+
     if (shouldReconstructCommunities) {
       const palette =
         mapDocument?.color_scheme ?? mapState.mapDocument?.color_scheme ?? DefaultColorScheme;
@@ -1163,6 +1186,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
         createdAt: new Date(index * 1000).toISOString(),
         descriptionCommentId: null,
       }));
+      console.log('[hydration] Reconstructing communities:', reconstructedCommunities.length);
       mapState.setCommunities(reconstructedCommunities);
     }
 
@@ -1180,11 +1204,16 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       },
       parentToChild: new Map<string, Set<string>>(data.parentToChild),
       childToParent: new Map<string, string>(data.childToParent),
-      clientLastUpdated: mapDocument?.updated_at ?? currentTime,
+      clientLastUpdated: baselineUpdatedAt,
+    });
+
+    console.log('[hydration] COI store updated, final state:', {
+      communityAssignmentsSize: get().communityAssignments.size,
+      clientLastUpdated: get().clientLastUpdated,
     });
 
     if (mapDocument) {
-      idb.updateIdbCoiAssignments(mapDocument, data.communityAssignments, currentTime, true);
+      idb.updateIdbCoiAssignments(mapDocument, data.communityAssignments, baselineUpdatedAt, true);
     }
   },
 

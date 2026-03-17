@@ -82,6 +82,24 @@ def get_assignments_by_geoid(client, document_id: str):
     }
 
 
+def test_non_community_document_rejects_community_save(client, document_id: str):
+    document_info = client.get(f"/api/document/{document_id}").json()
+
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "assignments": [["202090441022004", 1]],
+            "map_type": "community",
+            "last_updated_at": document_info["updated_at"],
+        },
+    )
+
+    assert response.status_code == 400
+    assert "Map type mismatch" in response.json()["detail"]
+    assert get_assignments_by_geoid(client, document_id) == {}
+
+
 @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
 def test_put_community_assignments_round_trip_with_metadata_and_comments(
     _mock_score_text, client, community_document_id: str, session: Session

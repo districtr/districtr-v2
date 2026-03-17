@@ -46,7 +46,17 @@ export const fetchDocument = async (
     getDocument(document_id),
   ]);
 
+  console.log('[hydration] fetchDocument:', {
+    document_id,
+    source,
+    isPublic,
+    hasIdb: !!idbDocument,
+    idbAssignmentCount: idbDocument?.assignments?.length ?? 0,
+    remoteOk: remoteMetadata.ok,
+  });
+
   if (!remoteMetadata.ok) {
+    console.error('[hydration] Remote metadata fetch failed:', remoteMetadata.error);
     return {
       ok: false,
       error: remoteMetadata.error.detail || 'Failed to fetch document',
@@ -65,13 +75,28 @@ export const fetchDocument = async (
     source === 'remote' ||
     idbDocument.shouldFetchAssignments === true
   ) {
+    console.log('[hydration] Fetching assignments from server', {
+      reason: !idbDocument
+        ? 'no IDB'
+        : isPublic && remoteIsNewer
+          ? 'public+newer'
+          : source === 'remote'
+            ? 'forced remote'
+            : 'shouldFetchAssignments',
+      map_type: remoteMetadata.response.map_type,
+    });
     const remoteAssignments = await getAssignments(remoteMetadata.response);
     if (!remoteAssignments.ok) {
+      console.error('[hydration] Remote assignments fetch failed:', remoteAssignments.error);
       return {
         ok: false,
         error: remoteAssignments.error.detail || 'Failed to fetch assignments',
       };
     }
+    console.log('[hydration] Remote assignments fetched:', {
+      count: remoteAssignments.response.length,
+      sampleZones: remoteAssignments.response.slice(0, 5).map(a => a.zone),
+    });
     return {
       ok: true,
       response: {
@@ -85,6 +110,10 @@ export const fetchDocument = async (
   // Local is up to date, use it
   const localUpToDate = localTimestamp.toISOString() === remoteTimestamp.toISOString();
   if (!localUpToDate) {
+    console.warn('[hydration] Conflict detected', {
+      local: localTimestamp.toISOString(),
+      remote: remoteTimestamp.toISOString(),
+    });
     return {
       ok: false,
       error: `Cloud Save Conflict: This document was updated at ${remoteTimestamp} and your last updates are from ${localTimestamp}.`,
@@ -104,6 +133,12 @@ export const fetchDocument = async (
   const subordinateDocument = clientHasNoEdits
     ? idbDocument.document_metadata
     : remoteMetadata.response;
+  console.log('[hydration] Using local IDB data', {
+    clientHasNoEdits,
+    idbAssignmentCount: idbDocument.assignments.length,
+    map_type: remoteMetadata.response.map_type,
+    community_metadata_list_count: remoteMetadata.response.community_metadata_list?.length ?? 0,
+  });
   return {
     ok: true,
     response: {

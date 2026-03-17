@@ -321,6 +321,45 @@ def test_new_document(client, ks_demo_view_census_blocks_districtrmap):
     assert data.get("districtr_map_slug") == GERRY_DB_FIXTURE_NAME
 
 
+def test_new_community_document_from_default_geography(
+    client, ks_demo_view_census_blocks_districtrmap
+):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+            "map_type": "community",
+        },
+    )
+    data = response.json()
+    assert response.status_code == 201, data
+    assert data.get("map_type") == "community"
+
+    save_response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": data["document_id"],
+            "assignments": [
+                ["202090441022004", 1],
+                ["202090428002008", None],
+            ],
+            "map_type": "community",
+            "last_updated_at": data["updated_at"],
+        },
+    )
+    assert save_response.status_code == 200, save_response.json()
+
+    assignments_response = client.get(f"/api/get_assignments/{data['document_id']}")
+    assert assignments_response.status_code == 200
+    assert {
+        assignment["geo_id"]: assignment["zone"]
+        for assignment in assignments_response.json()
+    } == {
+        "202090441022004": 1,
+        "202090428002008": None,
+    }
+
+
 def test_get_document(client, document_id):
     doc_uuid = uuid.UUID(document_id)
     response = client.get(f"/api/document/{doc_uuid}")

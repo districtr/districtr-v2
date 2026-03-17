@@ -7,6 +7,7 @@ import {AssignmentsStore} from '@/app/store/assignmentsStore';
 import {idb} from '../../idb/idb';
 import {getAssignments} from './getAssignments';
 import {useMapStore} from '@/app/store/mapStore';
+import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 
 type PutUpdateAssignmentsAndVerifyResponse =
   | {
@@ -136,6 +137,7 @@ export const putUpdateAssignmentsAndVerify = async ({
     assignments: freshServerAssignments.response,
     clientLastUpdated: assignmentsPostResponse.response.updated_at,
   });
+  useAssignmentsStore.getState().setClientLastUpdated(assignmentsPostResponse.response.updated_at);
   useMapStore.getState().mutateMapDocument({
     updated_at: assignmentsPostResponse.response.updated_at,
     ...(document_comments && {document_comments}),

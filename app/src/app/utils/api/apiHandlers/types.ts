@@ -11,7 +11,7 @@ export interface Assignment {
 export type AssignmentArray = [string, NullableZone];
 
 export interface DocumentCommentCreate {
-  comment_id?: string | null;
+  comment_id?: string | number | null;
   zone?: number | null;
   text: string;
 }
@@ -48,6 +48,7 @@ export interface DistrictrMap {
   child_layer: string | null;
   tiles_s3_path: string | null;
   num_districts: number | null;
+  map_type: 'default' | 'local' | 'community';
 }
 
 export interface StatusObject {
@@ -130,6 +131,7 @@ export interface MinPublicDocument {
 
 export interface DocumentCreate {
   districtr_map_slug: string;
+  map_type?: 'default' | 'local' | 'community';
   metadata?: DocumentMetadata;
   copy_from_doc?: string | number;
 }

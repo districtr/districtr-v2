@@ -8,7 +8,7 @@ import {
   formatCoiAssignmentsFromState,
   formatCoiAssignmentsFromDocument,
 } from '../../map/formatCoiAssignments';
-import {CoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
+import {CoiAssignmentsStore, useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 
 type PutUpdateAssignmentsAndVerifyResponse =
   | {
@@ -164,6 +164,9 @@ export const putUpdateCoiAssignmentsAndVerify = async ({
     assignments: freshServerAssignments.response,
     clientLastUpdated: assignmentsPostResponse.response.updated_at,
   });
+  useCoiAssignmentsStore
+    .getState()
+    .setClientLastUpdated(assignmentsPostResponse.response.updated_at);
 
   useMapStore.getState().mutateMapDocument(nextDocumentMetadata);
   useMapStore.getState().clearUpdatedChanges();

@@ -12,14 +12,20 @@ export const SavePopover = () => {
   const [hovered, setHovered] = useState(false);
   const mapDocument = useMapStore(state => state.mapDocument);
   const documentFromIdb = useIdbDocument(mapDocument?.document_id);
+  const districtSave = useAssignmentsStore(state => state.handlePutAssignments);
+  const districtClientLastUpdated = useAssignmentsStore(state => state.clientLastUpdated);
+  const coiSave = useCoiAssignmentsStore(state => state.handlePutAssignments);
+  const coiClientLastUpdated = useCoiAssignmentsStore(state => state.clientLastUpdated);
+  const mapMode = useMapControlsStore(state => state.mapMode);
+  const isCommunity = mapDocument?.map_type === 'community' || mapMode === 'coi';
+  const activeClientLastUpdated = isCommunity ? coiClientLastUpdated : districtClientLastUpdated;
   const assignmentsOutdated =
+    (mapDocument?.updated_at != null &&
+      activeClientLastUpdated !== '' &&
+      activeClientLastUpdated !== mapDocument.updated_at) ||
     documentFromIdb?.clientLastUpdated !== documentFromIdb?.document_metadata.updated_at;
   const updated = useMapStore(state => Object.values(state.updated).some(Boolean));
   const isOutdated = updated || assignmentsOutdated;
-  const districtSave = useAssignmentsStore(state => state.handlePutAssignments);
-  const coiSave = useCoiAssignmentsStore(state => state.handlePutAssignments);
-  const mapMode = useMapControlsStore(state => state.mapMode);
-  const isCommunity = mapDocument?.map_type === 'community' || mapMode === 'coi';
   const handlePutAssignments = isCommunity ? coiSave : districtSave;
   return (
     <Popover.Root open={hovered}>

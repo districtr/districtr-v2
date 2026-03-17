@@ -380,8 +380,19 @@ async def create_document(
         )
         # Inherit num_districts from source document, with fallback to DistrictrMap
         num_districts = copied_document.num_districts or districtr_map.num_districts
-        num_communities = copied_document.num_communities
-        community_metadata_list = copied_document.community_metadata_list
+        if copied_document.map_type == "community":
+            num_communities = copied_document.num_communities
+            community_metadata_list = copied_document.community_metadata_list
+
+    document_map_type = (
+        data.map_type
+        or (copied_document.map_type if copied_document is not None else None)
+        or districtr_map.map_type
+        or "default"
+    )
+    if document_map_type != "community":
+        num_communities = None
+        community_metadata_list = None
 
     # Generate UUID for document_id
     document_id = str(uuid4())
@@ -390,6 +401,7 @@ async def create_document(
     new_document = Document(
         document_id=document_id,
         districtr_map_slug=data.districtr_map_slug,
+        map_type=document_map_type,
         num_districts=num_districts,
         num_communities=num_communities,
         community_metadata_list=community_metadata_list,
@@ -413,19 +425,20 @@ async def create_document(
             f"Copying document. Origin document: {copied_document.document_id} to {document_id}"
         )
         assert copied_document.document_id is not None
-        copied_zone_assignments = duplicate_document_assignments(
-            from_document_id=copied_document.document_id,
-            to_document_id=document_id,
-            session=session,
-        )
-        copied_community_assignments = duplicate_document_community_assignments(
-            from_document_id=copied_document.document_id,
-            to_document_id=document_id,
-            session=session,
-        )
-        total_assignments = max(
-            copied_zone_assignments or 0, copied_community_assignments or 0
-        )
+        if document_map_type == "community":
+            total_assignments = duplicate_document_community_assignments(
+                from_document_id=copied_document.document_id,
+                to_document_id=document_id,
+                session=session,
+            )
+            total_assignments = total_assignments or 0
+        else:
+            total_assignments = duplicate_document_assignments(
+                from_document_id=copied_document.document_id,
+                to_document_id=document_id,
+                session=session,
+            )
+            total_assignments = total_assignments or 0
 
     elif data.assignments is not None and len(data.assignments) > 0:
         max_records = 914_231
@@ -488,7 +501,7 @@ async def create_document(
                 "num_districts_modifiable"
             ),
             col(DistrictrMap.extent).label("extent"),
-            col(DistrictrMap.map_type).label("map_type"),
+            col(Document.map_type).label("map_type"),
             col(DistrictrMap.statefps).label("statefps"),
             literal(MAX_COMMUNITY_NAME_LENGTH).label("community_name_length_limit"),
             coalesce(total_assignments).label("inserted_assignments"),
@@ -583,7 +596,30 @@ async def update_assignments(
     document_id = data.document_id
     assignments = data.assignments  # [[geo_id, zone], ...]
     last_updated_at = data.last_updated_at
-    is_community_map = data.map_type == "community"
+    actual_map_type = (
+        session.connection()
+        .execute(select(Document.map_type).where(Document.document_id == document_id))
+        .scalar_one_or_none()
+    )
+    if actual_map_type is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document not found: {document_id}",
+        )
+    requested_map_type = data.map_type or actual_map_type
+    requested_is_community = requested_map_type == "community"
+    actual_is_community = actual_map_type == "community"
+    if requested_is_community != actual_is_community:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Map type mismatch: document uses "
+                f"`{actual_map_type}` save semantics but request specified "
+                f"`{requested_map_type}`."
+            ),
+        )
+
+    is_community_map = actual_is_community
     assignment_table = (
         "document.community_assignments" if is_community_map else "document.assignments"
     )
@@ -599,7 +635,8 @@ async def update_assignments(
 
     logger.info(
         f"PUT /api/assignments: document_id={document_id}, "
-        f"map_type={data.map_type}, "
+        f"requested_map_type={requested_map_type}, "
+        f"actual_map_type={actual_map_type}, "
         f"assignment_count={len(assignments)}, "
         f"comment_count={len(data.comments) if data.comments else 0}, "
         f"has_metadata={data.metadata is not None}, "
@@ -975,7 +1012,7 @@ async def get_assignments(
     districtr_map_row = (
         session.connection()
         .execute(
-            select(DistrictrMap.uuid, DistrictrMap.map_type)
+            select(DistrictrMap.uuid, Document.map_type)
             .join(
                 Document,
                 onclause=col(Document.districtr_map_slug)
@@ -1018,7 +1055,14 @@ async def get_assignments(
             )
             .where(Assignments.document_id == document.document_id)
         )
-    return session.connection().execute(stmt).fetchall()
+    results = session.connection().execute(stmt).fetchall()
+    logger.info(
+        f"GET /api/get_assignments/{document.document_id}: "
+        f"is_community_map={is_community_map}, "
+        f"assignment_count={len(results)}, "
+        f"sample_zones={[r.zone for r in results[:5]]}"
+    )
+    return results
 
 
 @app.get("/api/document/{document_id}", response_model=DocumentPublic)

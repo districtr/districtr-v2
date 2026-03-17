@@ -302,7 +302,7 @@ const resolveFork = async ({
     if (onNavigate) {
       onNavigate(createMapDocumentResponse.response.document_id);
     } else {
-      history.pushState(null, '', `/coi/edit/${createMapDocumentResponse.response.document_id}`);
+      history.pushState(null, '', `/map/edit/${createMapDocumentResponse.response.document_id}`);
     }
   } finally {
     setMapLock(null);
@@ -420,12 +420,16 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
   },
 
   ingestFromDocument: (data, mapDocument) => {
+    const baselineUpdatedAt =
+      mapDocument?.updated_at ??
+      useMapStore.getState().mapDocument?.updated_at ??
+      new Date().toISOString();
     set({
       zoneAssignments: new Map(data.zoneAssignments),
       shatterIds: data.shatterIds,
       parentToChild: new Map(data.parentToChild),
       childToParent: new Map(data.childToParent),
-      clientLastUpdated: mapDocument?.updated_at ?? new Date().toISOString(),
+      clientLastUpdated: baselineUpdatedAt,
     });
     if (mapDocument) {
       // Save immediately when loading from document (not during painting)

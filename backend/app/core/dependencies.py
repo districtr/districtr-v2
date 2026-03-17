@@ -134,7 +134,7 @@ def get_document_public(
         col(Document.community_metadata_list).label("community_metadata_list"),
         col(DistrictrMap.num_districts_modifiable).label("num_districts_modifiable"),
         col(DistrictrMap.extent).label("extent"),
-        col(DistrictrMap.map_type).label("map_type"),
+        col(Document.map_type).label("map_type"),
         col(DistrictrMap.parent_geo_unit_type).label("parent_geo_unit_type"),
         col(DistrictrMap.child_geo_unit_type).label("child_geo_unit_type"),
         col(DistrictrMap.data_source_name).label("data_source_name"),
