@@ -190,10 +190,15 @@ const RecentMapCard: React.FC<{
       ].join(' ')}
       onClick={() => !active && onSelect(data)}
     >
-      <Flex direction="row" align="center" gap="3">
-        <Flex direction="column" gap="1" className="flex-1 min-w-0">
+      <Flex direction="row" align="center" justify="between" gap="3">
+        <Flex direction="column" gap="1" className="min-w-0">
           <Flex align="center" gap="2" wrap="wrap">
-            <Text weight="medium" size="2" truncate>
+            <Text
+              weight="medium"
+              size="2"
+              truncate
+              className={active ? '' : 'group-hover/card:!text-blue-700 transition-colors'}
+            >
               {mapName}
             </Text>
             {active && (
@@ -219,10 +224,22 @@ const RecentMapCard: React.FC<{
             <Text size="1" color="gray">
               {formatRelativeDate(data.updated_at)}
             </Text>
+            {!active && (
+              <Flex
+                align="center"
+                gap="1"
+                className="opacity-0 group-hover/card:opacity-100 transition-opacity"
+              >
+                <Text size="1" weight="medium" color="blue">
+                  Open map
+                </Text>
+                <ArrowRightIcon className="text-blue-600 w-3 h-3" />
+              </Flex>
+            )}
           </Flex>
         </Flex>
 
-        <Flex align="center" gap="1" className="flex-shrink-0">
+        <Flex align="center" gap="1" ml="auto" className="flex-shrink-0">
           <CopyLinkButton url={editUrl} label="Copy edit link" icon={<Pencil1Icon />} />
           {publicUrl && (
             <CopyLinkButton url={publicUrl} label="Copy public link" icon={<ExternalLinkIcon />} />
@@ -261,18 +278,6 @@ const RecentMapCard: React.FC<{
                 </Flex>
               </AlertDialog.Content>
             </AlertDialog.Root>
-          )}
-          {!active && (
-            <Flex
-              align="center"
-              gap="1"
-              className="opacity-0 group-hover/card:opacity-100 transition-opacity ml-1"
-            >
-              <Text size="1" weight="medium" color="blue">
-                Open
-              </Text>
-              <ArrowRightIcon className="text-blue-600" />
-            </Flex>
           )}
         </Flex>
       </Flex>
