@@ -171,7 +171,8 @@ export class DocumentsDB extends Dexie {
   ) => {
     if (!mapDocument) return;
     const document_id = mapDocument?.document_id;
-    if (!document_id) return;
+    const communitiesExist = mapDocument?.coi_communities?.length ?? 0 > 0;
+    if (!document_id || !communitiesExist) return;
 
     const {shatterIds, childToParent} = useCoiAssignmentsStore.getState();
     const assignmentsToSave = formatCoiAssignmentsFromState(

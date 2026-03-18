@@ -49,7 +49,8 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
 
   const setShowMapSelector = useFormState(state => state.setShowMapSelector);
   const setFormState = useFormState(state => state.setFormState);
-  const userMaps = useUserMaps();
+  // TODO Support community maps
+  const {districtMaps} = useUserMaps();
 
   const [notification, setNotification] = useState<null | {
     type: 'error' | 'success' | 'warning';
@@ -89,7 +90,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
 
     // take the slash and then the last characters after the slash
     const urlStrippedId = mapId.split('/').pop()?.replace('?pw=true', '');
-    const userMap = userMaps?.find(map => map.document_id === urlStrippedId);
+    const userMap = districtMaps?.find(map => map.document_id === urlStrippedId);
     const document = await getDocument(urlStrippedId);
     if (document.ok) {
       response.mapInfo = document.response;
