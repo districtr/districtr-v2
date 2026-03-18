@@ -1,5 +1,11 @@
 import React, {useCallback, useEffect, useState} from 'react';
-import {TrashIcon, Pencil1Icon, ExternalLinkIcon, ArrowRightIcon} from '@radix-ui/react-icons';
+import {
+  TrashIcon,
+  Link2Icon,
+  Pencil1Icon,
+  ClipboardIcon,
+  ArrowRightIcon,
+} from '@radix-ui/react-icons';
 import {
   Button,
   Flex,
@@ -8,6 +14,7 @@ import {
   SegmentedControl,
   IconButton,
   AlertDialog,
+  DropdownMenu,
   Tooltip,
   Card,
   ScrollArea,
@@ -137,26 +144,38 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({maxHeight = '55vh
   );
 };
 
-const CopyLinkButton: React.FC<{
-  url: string;
-  label: string;
-  icon: React.ReactNode;
-}> = ({url, label, icon}) => {
-  const [copied, setCopied] = useState(false);
+const CopyLinkDropdown: React.FC<{
+  editUrl: string;
+  publicUrl: string | null;
+}> = ({editUrl, publicUrl}) => {
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-  const handleCopy = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleCopy = (url: string, key: string) => {
     navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 1500);
   };
 
   return (
-    <Tooltip content={copied ? 'Copied!' : label}>
-      <IconButton variant="ghost" color={copied ? 'green' : 'gray'} size="1" onClick={handleCopy}>
-        {icon}
-      </IconButton>
-    </Tooltip>
+    <DropdownMenu.Root>
+      <Tooltip content="Copy links">
+        <DropdownMenu.Trigger>
+          <IconButton variant="ghost" color="gray" size="1" onClick={e => e.stopPropagation()}>
+            <Link2Icon />
+          </IconButton>
+        </DropdownMenu.Trigger>
+      </Tooltip>
+      <DropdownMenu.Content align="end" onClick={e => e.stopPropagation()}>
+        <DropdownMenu.Item onClick={() => handleCopy(editUrl, 'edit')}>
+          {copiedKey === 'edit' ? 'Copied!' : 'Copy edit link'}
+        </DropdownMenu.Item>
+        {publicUrl && (
+          <DropdownMenu.Item onClick={() => handleCopy(publicUrl, 'public')}>
+            {copiedKey === 'public' ? 'Copied!' : 'Copy public link'}
+          </DropdownMenu.Item>
+        )}
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
   );
 };
 
@@ -240,10 +259,7 @@ const RecentMapCard: React.FC<{
         </Flex>
 
         <Flex align="center" gap="1" ml="auto" className="flex-shrink-0">
-          <CopyLinkButton url={editUrl} label="Copy edit link" icon={<Pencil1Icon />} />
-          {publicUrl && (
-            <CopyLinkButton url={publicUrl} label="Copy public link" icon={<ExternalLinkIcon />} />
-          )}
+          <CopyLinkDropdown editUrl={editUrl} publicUrl={publicUrl} />
           {!active && (
             <AlertDialog.Root>
               <AlertDialog.Trigger>
