@@ -1,11 +1,5 @@
 import React, {useCallback, useEffect, useState} from 'react';
-import {
-  TrashIcon,
-  Link2Icon,
-  Pencil1Icon,
-  ClipboardIcon,
-  ArrowRightIcon,
-} from '@radix-ui/react-icons';
+import {TrashIcon, Link2Icon, ArrowRightIcon} from '@radix-ui/react-icons';
 import {
   Button,
   Flex,
@@ -20,29 +14,18 @@ import {
   ScrollArea,
 } from '@radix-ui/themes';
 import {useRouter} from 'next/navigation';
-import {DocumentObject, DraftStatus} from '@utils/api/apiHandlers/types';
+import {DocumentObject} from '@utils/api/apiHandlers/types';
 import {idb} from '@/app/utils/idb/idb';
 import {useUserMaps} from '@/app/hooks/useUserMaps';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import type {MapMode} from '@/app/constants/map/mapModeDefaults';
-
-export type MapTab = 'districts' | 'community';
-export const mapTabFromMode = (mode: MapMode): MapTab =>
-  mode === 'coi' ? 'community' : 'districts';
-export const routeForTab = (tab: MapTab) => (tab === 'community' ? 'coi' : 'map');
-
-const DRAFT_STATUS_LABELS: Record<DraftStatus, string> = {
-  scratch: 'Scratch Work',
-  in_progress: 'In Progress',
-  ready_to_share: 'Ready to Share',
-};
-
-const DRAFT_STATUS_COLORS: Record<DraftStatus, 'gray' | 'orange' | 'green'> = {
-  scratch: 'gray',
-  in_progress: 'orange',
-  ready_to_share: 'green',
-};
+import {
+  MapTab,
+  mapTabFromMode,
+  routeForTab,
+  DRAFT_STATUS_COLORS,
+  DRAFT_STATUS_LABELS,
+} from '@/app/constants/map/recentMaps';
 
 function formatRelativeDate(dateStr: string): string {
   const date = new Date(dateStr);
