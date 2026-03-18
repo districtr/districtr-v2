@@ -370,6 +370,7 @@ async def create_document(
     num_communities = None
     community_metadata_list = None
     copied_document = None
+    document_type = data.document_type
 
     if data.copy_from_doc is not None:
         copy_document_id = parse_document_id(data.copy_from_doc)
@@ -1143,7 +1144,8 @@ async def get_document_list(
             "public_id": row[0],
             "map_metadata": row[1],
             "updated_at": row[2],
-            "map_module": row[3],
+            "document_type": row[3],
+            "map_module": row[4],
         }
         for row in results
     ]

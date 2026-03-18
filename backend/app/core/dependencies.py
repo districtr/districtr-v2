@@ -267,6 +267,7 @@ def get_document_public(
         access=result.access,
         color_scheme=result.color_scheme,
         map_type=result.map_type,
+        document_type=result.document_type,
         map_module=result.map_module,
         comment=result.comment,
         parent_geo_unit_type=result.parent_geo_unit_type,

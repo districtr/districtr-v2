@@ -125,6 +125,7 @@ export interface DocumentComment {
 export interface MinPublicDocument {
   public_id: number;
   map_metadata: DocumentMetadata;
+  document_type: 'district' | 'coi';
   map_module: string;
   updated_at: string;
 }

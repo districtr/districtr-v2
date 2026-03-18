@@ -240,6 +240,18 @@ class Document(TimeStampMixin, SQLModel, table=True):
         sa_column=Column(JSON, nullable=True)
     )
     map_metadata: DocumentMetadata | None = Field(sa_column=Column(JSON, nullable=True))
+    document_type: str = Field(
+        sa_column=Column(
+            ENUM(
+                DocumentType.DISTRICT,
+                DocumentType.COI,
+                name="documenttype",
+                create_type=False,
+            ),
+            nullable=False,
+            server_default="district",
+        )
+    )
 
 
 class DocumentCreate(BaseModel):
@@ -303,6 +315,7 @@ class DocumentPublic(BaseModel):
     access: DocumentShareStatus = DocumentShareStatus.edit
     color_scheme: list[str] | None = None
     map_type: str
+    document_type: str = "district"
     map_module: str | None = None
     comment: str | None = None
     parent_geo_unit_type: str | None = None

@@ -2,6 +2,7 @@
 import {useMapStore} from '@/app/store/mapStore';
 import {createMapDocument} from '@/app/utils/api/apiHandlers/createMapDocument';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
+import {currMapRoute} from '@/app/utils/map/mapUrlRoute';
 import {Button} from '@radix-ui/themes';
 import {usePathname, useRouter} from 'next/navigation';
 import {useEffect} from 'react';
