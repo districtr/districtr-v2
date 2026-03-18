@@ -20,6 +20,8 @@ import {
 } from '../utils/api/apiHandlers/fetchDocument';
 import {createMapDocument} from '../utils/api/apiHandlers/createMapDocument';
 import {createWithFullMiddlewares} from './middlewares';
+import {temporalDiff} from './middlewareConfig';
+import {TEMPORAL_HISTORY_LIMIT} from '../constants/configuration';
 import {confirmMapDocumentUrlParameter} from '../utils/map/confirmMapDocumentUrlParameter';
 
 export interface AssignmentsStore {
@@ -34,20 +36,29 @@ export interface AssignmentsStore {
     parents: Set<string>;
     children: Set<string>;
   };
+
   mutateZoneAssignments: (
     mapRef: maplibregl.Map,
     features: Array<MapGeoJSONFeature>,
     zone: NullableZone
   ) => void;
+
   /** Bi-directional mapping of parent ids to their shattered children */
   parentToChild: Map<string, Set<string>>;
   /** Bi-directional mapping of child ids to their parent id for O(1) lookups */
   childToParent: Map<string, string>;
+
   /** Assigns the provided geoids to the given zone immediately */
   setZoneAssignments: (zone: NullableZone, gdbPaths: Set<GDBPath>) => void;
+  /** Updates accumulated geoids as the user paints */
+  setAccumulatedAssignments: (
+    assignments: AssignmentsStore['accumulatedAssignments'],
+    zonesUpdated: Set<NullableZone>
+  ) => void;
 
   clientLastUpdated: string;
   setClientLastUpdated: (updated_at: string) => void;
+
   /** Flushes accumulated geoids to the worker & downstream caches */
   ingestAccumulatedAssignments: () => void;
   ingestFromDocument: (
@@ -59,10 +70,12 @@ export interface AssignmentsStore {
     },
     mapDocument?: DocumentObject
   ) => void;
+
   /** Replaces the entire assignment map (e.g. after loading from API) */
   replaceZoneAssignments: (assignments: Map<string, NullableZone>) => void;
   /** Clears all assignments and local caches */
   resetZoneAssignments: () => void;
+
   /** Replaces or merges shatter state */
   setShatterState: (
     state: Pick<
@@ -70,6 +83,7 @@ export interface AssignmentsStore {
       'shatterIds' | 'parentToChild' | 'zoneAssignments' | 'childToParent'
     >
   ) => void;
+
   /** Clears all shatter state */
   resetShatterState: () => void;
   handlePutAssignments: (overwrite?: boolean) => Promise<void>;
@@ -114,7 +128,16 @@ export interface AssignmentsStore {
 export type ZoneAssignmentsMap = AssignmentsStore['zoneAssignments'];
 
 export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
-  'Districtr Assignments Store'
+  'Districtr Assignments Store',
+  {
+    diff: temporalDiff,
+    limit: TEMPORAL_HISTORY_LIMIT,
+    // @ts-ignore: save only partial store
+    partialize: (state: AssignmentsStore) => {
+      const {shatterIds, parentToChild, childToParent, zoneAssignments, clientLastUpdated} = state;
+      return {shatterIds, parentToChild, childToParent, zoneAssignments, clientLastUpdated};
+    },
+  }
 )((set, get) => ({
   zoneAssignments: new Map(),
   zonesLastUpdated: new Map(),
@@ -197,6 +220,21 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       );
     });
     setPaintedChanges(popChanges);
+  },
+
+  setAccumulatedAssignments: (accumulatedAssignments, zonesUpdated) => {
+    const zonesLastUpdated = new Map(get().zonesLastUpdated);
+    const timestamp = new Date().toISOString();
+    zonesUpdated.forEach(zone => {
+      if (zone !== null) {
+        zonesLastUpdated.set(zone, timestamp);
+      }
+    });
+
+    set({
+      accumulatedAssignments: new Map(accumulatedAssignments),
+      zonesLastUpdated,
+    });
   },
 
   ingestFromDocument: (data, mapDocument) => {

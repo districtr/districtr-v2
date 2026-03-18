@@ -1,10 +1,10 @@
 'use client';
 import {Dialog, Flex, Box, Button} from '@radix-ui/themes';
-import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {ZoneCommentsContent} from '@/app/components/ZoneComments/ZoneCommentsContent';
 import {useMapStore} from '@/app/store/mapStore';
+import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 
 export const ZoneCommentModal: React.FC = () => {
   const zoneCommentModalZone = useTooltipStore(state => state.zoneCommentModalZone);
@@ -15,10 +15,8 @@ export const ZoneCommentModal: React.FC = () => {
     zoneCommentModalZone ? state.getZoneCommentsForZone(zoneCommentModalZone) : []
   );
 
-  const colorScheme = useColorScheme();
-  const color = zoneCommentModalZone
-    ? colorScheme[(zoneCommentModalZone - 1) % colorScheme.length]
-    : undefined;
+  const getZoneColor = useZoneColorGetter();
+  const color = zoneCommentModalZone ? getZoneColor(zoneCommentModalZone) : undefined;
 
   if (zoneCommentModalZone === null) return null;
 

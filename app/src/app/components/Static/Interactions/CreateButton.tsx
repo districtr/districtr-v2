@@ -2,6 +2,7 @@
 import {useMapStore} from '@/app/store/mapStore';
 import {createMapDocument} from '@/app/utils/api/apiHandlers/createMapDocument';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
+import {currMapRoute} from '@/app/utils/map/mapUrlRoute';
 import {Button} from '@radix-ui/themes';
 import {useRouter} from 'next/navigation';
 import {useEffect} from 'react';
@@ -25,7 +26,7 @@ export const CreateButton: React.FC<{view: Partial<DistrictrMap>; extraClasses?:
         districtr_map_slug: view.districtr_map_slug,
       }).then(r => {
         if (r.ok) {
-          router.push(`/map/edit/${r.response.document_id}`);
+          router.push(`/${currMapRoute}/edit/${r.response.document_id}`);
         } else {
           setErrorNotification({
             message: r.error.detail,

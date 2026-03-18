@@ -89,3 +89,7 @@ pipelines/build/*
 # editors
 .vscode/
 .zed/
+
+# misc
+docker-compose.mac.yml
+app/public/*-basemap-style.json

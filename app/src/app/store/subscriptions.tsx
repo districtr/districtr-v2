@@ -5,6 +5,7 @@ import {getMapEditSubs} from './mapEditSubs';
 import {MapStore, useMapStore} from './mapStore';
 import {useMapControlsStore} from './mapControlsStore';
 import {useAssignmentsStore} from './assignmentsStore';
+import {useCoiAssignmentsStore} from './coiAssignmentsStore';
 import {demographyCache} from '../utils/demography/demographyCache';
 
 export const initSubs = () => {
@@ -39,14 +40,44 @@ export const initSubs = () => {
       demographyCache.updateSummaryStats();
     }
   );
+  const numCommunitiesSub = useMapStore.subscribe(
+    state => state.numCommunities,
+    (curr, prev) => {
+      if (prev === curr) return;
+      demographyCache.updateSummaryStats();
+    }
+  );
 
   const demogShatterSub = useAssignmentsStore.subscribe(
     state => state.shatterIds.parents,
     (curr, prev) => {
+      if (useMapControlsStore.getState().mapMode === 'coi') return;
       if (!curr || prev === curr) return;
       const mapDocument = useMapStore.getState().mapDocument;
       if (!mapDocument) return;
       useDemographyStore.getState().updateData(mapDocument, Array.from(curr));
+    }
+  );
+  const demogCoiShatterSub = useCoiAssignmentsStore.subscribe(
+    state => state.shatterIds.parents,
+    (curr, prev) => {
+      if (useMapControlsStore.getState().mapMode !== 'coi') return;
+      if (!curr || prev === curr) return;
+      const mapDocument = useMapStore.getState().mapDocument;
+      if (!mapDocument) return;
+      useDemographyStore.getState().updateData(mapDocument, Array.from(curr));
+    }
+  );
+
+  const paintFlushSub = useMapControlsStore.subscribe(
+    state => state.isPainting,
+    (isPainting, wasPainting) => {
+      if (!wasPainting || isPainting) return;
+      if (useMapControlsStore.getState().mapMode === 'coi') {
+        useCoiAssignmentsStore.getState().ingestAccumulatedAssignments();
+        return;
+      }
+      useAssignmentsStore.getState().ingestAccumulatedAssignments();
     }
   );
 
@@ -62,7 +93,11 @@ export const initSubs = () => {
     mapEditSubs.forEach(sub => sub());
     demogInitSub();
     demogMapDocumentSub();
+    numDistrictsSub();
+    numCommunitiesSub();
     demogShatterSub();
+    demogCoiShatterSub();
+    paintFlushSub();
     featureFlagSub();
   };
   return unsub;

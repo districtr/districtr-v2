@@ -65,6 +65,16 @@ export interface DocumentMetadata {
   draft_status: DraftStatus | null;
 }
 
+export interface Community {
+  id: number;
+  render_order_id: number;
+  name: string;
+  description: string;
+  color: string;
+  createdAt: string;
+  descriptionCommentId?: string | null;
+}
+
 export interface DocumentObject extends StatusObject {
   document_id: string;
   public_id: number | null;
@@ -74,6 +84,10 @@ export interface DocumentObject extends StatusObject {
   child_layer: string | null;
   tiles_s3_path: string | null;
   num_districts: number | null;
+  /** COI-only local metadata for community count. */
+  num_communities?: number | null;
+  /** COI-only local metadata for explicit community ordering/color state. */
+  coi_communities?: Community[] | null;
   /** If false, users cannot change the number of districts on the frontend. */
   num_districts_modifiable?: boolean;
   map_module: string | null;
