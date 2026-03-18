@@ -26,6 +26,35 @@ import {
   DRAFT_STATUS_COLORS,
   DRAFT_STATUS_LABELS,
 } from '@/app/constants/map/recentMaps';
+import {styled} from '@stitches/react';
+
+const StyledCard = styled(Card, {
+  transition: 'all 150ms',
+  variants: {
+    active: {
+      true: {
+        backgroundColor: '#eff6ff !important',
+        borderColor: '#bfdbfe !important',
+      },
+      false: {
+        cursor: 'pointer',
+        '&:hover': {
+          backgroundColor: 'rgba(239, 246, 255, 0.6) !important',
+          boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1) !important',
+          borderColor: '#93c5fd !important',
+          transform: 'translateY(-1px)',
+        },
+        '&:hover [data-map-name]': {
+          color: '#1d4ed8 !important',
+          transition: 'color 150ms',
+        },
+        '&:hover [data-open-hint]': {
+          opacity: 1,
+        },
+      },
+    },
+  },
+});
 
 function formatRelativeDate(dateStr: string): string {
   const date = new Date(dateStr);
@@ -183,24 +212,11 @@ const RecentMapCard: React.FC<{
   const publicUrl = data.public_id ? `${origin}/${route}/${data.public_id}` : null;
 
   return (
-    <Card
-      className={[
-        'transition-all duration-150 group/card',
-        active
-          ? '!bg-blue-50 !border-blue-200'
-          : 'cursor-pointer hover:!bg-blue-50/60 hover:!shadow-md hover:!border-blue-300 hover:!-translate-y-px',
-      ].join(' ')}
-      onClick={() => !active && onSelect(data)}
-    >
+    <StyledCard active={active} onClick={() => !active && onSelect(data)}>
       <Flex direction="row" align="center" justify="between" gap="3">
         <Flex direction="column" gap="1" className="min-w-0">
           <Flex align="center" gap="2" wrap="wrap">
-            <Text
-              weight="medium"
-              size="2"
-              truncate
-              className={active ? '' : 'group-hover/card:!text-blue-700 transition-colors'}
-            >
+            <Text weight="medium" size="2" truncate {...(!active ? {'data-map-name': ''} : {})}>
               {mapName}
             </Text>
             {active && (
@@ -230,7 +246,8 @@ const RecentMapCard: React.FC<{
               <Flex
                 align="center"
                 gap="1"
-                className="opacity-0 group-hover/card:opacity-100 transition-opacity"
+                data-open-hint=""
+                style={{opacity: 0, transition: 'opacity 150ms'}}
               >
                 <Text size="1" weight="medium" color="blue">
                   Open map
@@ -280,6 +297,6 @@ const RecentMapCard: React.FC<{
           )}
         </Flex>
       </Flex>
-    </Card>
+    </StyledCard>
   );
 };
