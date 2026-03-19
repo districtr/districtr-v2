@@ -15,16 +15,15 @@ import {
   Spinner,
 } from '@radix-ui/themes';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
-import {usePathname} from 'next/navigation';
+import {currMapRoute} from '@/app/utils/map/mapUrlRoute';
 
 export const Uploader: React.FC<{
   newTab?: boolean;
   redirect?: boolean;
   onFinish?: () => void;
 }> = ({newTab, redirect, onFinish}) => {
-  const pathname = usePathname();
-  const isCoiRoute = pathname?.startsWith('/coi');
-  const routePrefix = isCoiRoute ? 'coi' : 'map';
+  const isCoiRoute = currMapRoute === 'coi';
+  const routePrefix = currMapRoute;
   const documentMapType = isCoiRoute ? 'community' : 'default';
   const [mapLinks, setMapLinks] = useState<MapLink[]>([]);
   const [error, setError] = useState<any>(undefined);
