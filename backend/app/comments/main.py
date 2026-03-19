@@ -102,10 +102,11 @@ def create_commenter_db(commenter_data: CommenterCreate, session: Session) -> Co
         },
     ).returning(Commenter)  # Now a DML statement because of the RETURNING clause
 
-    result = session.connection().execute(stmt)
-    commenter = result.scalar_one()
+    row = session.connection().execute(stmt).one()
     session.commit()
-    return commenter
+    return Commenter.model_construct(
+        **row._asdict()
+    )  # model construct also runs validation
 
 
 def create_comment_db(comment_data: CommentCreate, session: Session) -> Comment:
@@ -164,11 +165,9 @@ def create_tag_db(tag_data: TagCreate, session: Session) -> Tag:
         set_=dict(slug=stmt.excluded.slug),  # No-op update
     ).returning(Tag)  # Now a DML statement because of the RETURNING clause
 
-    result = session.connection().execute(stmt, {"tag": tag_data.tag})
-    tag = result.scalar_one()
+    row = session.connection().execute(stmt, {"tag": tag_data.tag}).one()
     session.commit()
-
-    return tag
+    return Tag.model_construct(**row._asdict())  # model construct also runs validation
 
 
 def create_comment_tag_associations(
