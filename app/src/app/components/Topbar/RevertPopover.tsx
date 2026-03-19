@@ -12,6 +12,7 @@ export const RevertPopover = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const mapDocument = useMapStore(state => state.mapDocument);
   const documentFromIdb = useIdbDocument(mapDocument?.document_id);
+  # TODO: Centralize this in a custom hook
   const districtRevert = useAssignmentsStore(state => state.handleRevert);
   const districtClientLastUpdated = useAssignmentsStore(state => state.clientLastUpdated);
   const coiRevert = useCoiAssignmentsStore(state => state.handleRevert);
