@@ -2,12 +2,16 @@ from fastapi import (
     status,
     HTTPException,
 )
-from sqlmodel import Session, select
+from sqlmodel import Session, select, col
 from app.models import (
     CommunityMetadata,
     Document,
     MAX_COMMUNITY_NAME_LENGTH,
     sanitize_community_name,
+)
+from app.comments.models import (
+    Comment,
+    DocumentComment as FormDocumentComment,
 )
 
 
@@ -18,8 +22,9 @@ def _load_existing_community_metadata(
     Load the existing community metadata for a document from the database.
 
     Args:
-        session: The SQLModel session to use for the database query.
-        document_id: The ID of the document for which to load community metadata.
+        session (sqlmodels.Session): The SQLModel session to use for the database query.
+        document_id (str): The ID of the document for which to load community metadata. Expects a
+            UUID string.
 
     Returns:
         A list of CommunityMetadata instances representing the existing community metadata for the
@@ -50,8 +55,8 @@ def _normalize_community_metadata_list(
     lengths of the names.
 
     Args:
-        community_metadata_list: A list of CommunityMetadata instances or dictionaries representing
-            community metadata to be normalized.
+        community_metadata_list (list[CommunityMetadata]): A list of CommunityMetadata instances
+            or dictionaries representing community metadata to be normalized.
 
     Returns:
         A list of CommunityMetadata instances with sanitized and validated community names.
@@ -85,3 +90,113 @@ def _normalize_community_metadata_list(
         )
 
     return normalized_communities
+
+
+def _load_existing_community_comments(
+    session: Session, document_id: str
+) -> list[dict[str, int | str | None]]:
+    """
+    Load existing comments for a document from the database.
+
+    Args:
+        session (sqlmodel.Session): The SQLModel session to use for the database query.
+        document_id (str): The ID of the document for which to load comments. Expects a UUID string.
+
+    Returns:
+        A list of dictionaries representing the existing comments for the document, where each
+        dictionary contains the zone, text, and comment_id of a comment.
+    """
+    existing_comments = session.exec(
+        select(FormDocumentComment.zone, Comment.comment)
+        .join(Comment, col(Comment.id) == col(FormDocumentComment.comment_id))
+        .where(
+            FormDocumentComment.document_id == document_id,
+            col(FormDocumentComment.zone).is_not(None),
+        )
+    ).all()
+    return [
+        {"zone": comment.zone, "text": comment.comment, "comment_id": None}
+        for comment in existing_comments
+    ]
+
+
+def _validate_community_comment_coverage(
+    community_metadata_list: list[CommunityMetadata],
+    comments: list[dict[str, int | str | None]],
+) -> None:
+    """
+    Validate that each community has at least one non-empty comment associated with it.
+
+    Args:
+        community_metadata_list (list[CommunityMetadata]): A list of CommunityMetadata instances
+            representing the communities defined for the document.
+        comments (list[dict[str, int | str | None]]): A list of dictionaries representing the
+            comments associated with the document, where each dictionary contains the zone, text,
+            and comment_id of a comment.
+    """
+    commented_zones = {
+        comment["zone"]
+        for comment in comments
+        if comment.get("zone") is not None and str(comment.get("text") or "").strip()
+    }
+    missing_comments = [
+        community.name or f"Community {community.render_order_id}"
+        for community in community_metadata_list
+        if community.id not in commented_zones
+    ]
+
+    if missing_comments:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Each community must include at least one non-empty comment before "
+                f"saving. Missing comments for: {', '.join(missing_comments)}"
+            ),
+        )
+
+
+def _validate_community_save_payload(
+    *,
+    document_id: str,
+    metadata,
+    incoming_comments: list[dict[str, int | str | None]] | None,
+    session: Session,
+) -> list[CommunityMetadata] | None:
+    """
+    Validate the community metadata and comments in the save payload for a community map.
+
+    Args:
+        document_id (str): The ID of the document being saved.
+        metadata: The metadata included in the save payload, which may contain community metadata.
+        incoming_comments (list[dict[str, int | str | None]] | None): The comments included in the
+            save payload, where each comment is represented as a dictionary containing the zone,
+            text, and comment_id. This can be None if no comments were included in the payload.
+        session (sqlmodel.Session): The SQLModel session to use for any necessary database queries.
+
+    Returns:
+        A list of CommunityMetadata instances representing the validated and normalized community
+        metadata to be saved with the document, or None if no community metadata was included in
+        the payload (in which case existing metadata should be retained).
+    """
+    if metadata is not None and metadata.community_metadata_list is not None:
+        final_community_metadata_list = _normalize_community_metadata_list(
+            metadata.community_metadata_list
+        )
+    else:
+        final_community_metadata_list = _normalize_community_metadata_list(
+            _load_existing_community_metadata(session, document_id)
+        )
+
+    if not final_community_metadata_list:
+        return None
+
+    final_comments = (
+        incoming_comments
+        if incoming_comments is not None
+        else _load_existing_community_comments(session, document_id)
+    )
+    _validate_community_comment_coverage(final_community_metadata_list, final_comments)
+
+    if metadata is not None and metadata.community_metadata_list is not None:
+        return final_community_metadata_list
+    return None
