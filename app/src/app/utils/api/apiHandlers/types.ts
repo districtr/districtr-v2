@@ -100,6 +100,7 @@ export interface DocumentObject extends StatusObject {
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
   map_metadata: DocumentMetadata;
   color_scheme: string[] | null;
+  # TODO: local should be something more description like 'small-town' or 'locality' or ???
   map_type: 'default' | 'local' | 'community';
   comment: string | null;
   parent_geo_unit_type: string | null;
