@@ -211,9 +211,11 @@ def update_timestamp(
         update(Document)
         .where(col(Document.document_id) == document_id)
         .values(updated_at=func.now())
-        .returning(Document.updated_at)
+        .returning(
+            Document.updated_at
+        )  # The `returning` on this makes it into a DML statement
     )
-    updated_at = session.exec(update_stmt).one()
+    updated_at = session.connection().execute(update_stmt).scalar_one()
     return updated_at
 
 
@@ -556,11 +558,9 @@ async def update_assignments(
     document_id = data.document_id
     assignments = data.assignments  # [[geo_id, zone], ...]
     last_updated_at = data.last_updated_at
-    actual_map_type = (
-        session.connection()
-        .execute(select(Document.map_type).where(Document.document_id == document_id))
-        .scalar_one_or_none()
-    )
+    actual_map_type = session.exec(
+        select(Document.map_type).where(Document.document_id == document_id)
+    ).one_or_none()
     if actual_map_type is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -627,11 +627,9 @@ async def update_assignments(
                 f"validated_metadata={'present' if validated_community_metadata else 'None'}"
             )
 
-    db_last_updated_at = (
-        session.connection()
-        .execute(select(Document.updated_at).where(Document.document_id == document_id))
-        .scalar_one_or_none()
-    )
+    db_last_updated_at = session.exec(
+        select(Document.updated_at).where(Document.document_id == document_id)
+    ).one_or_none()
 
     if (
         db_last_updated_at is not None
@@ -702,19 +700,15 @@ async def update_assignments(
     if data.metadata is not None:
         if data.metadata.num_districts is not None:
             # Reject if map has num_districts_modifiable=False
-            districtr_map = (
-                session.connection()
-                .execute(
-                    select(DistrictrMap)
-                    .join(
-                        Document,
-                        col(Document.districtr_map_slug)
-                        == col(DistrictrMap.districtr_map_slug),
-                    )
-                    .where(Document.document_id == document_id)
+            districtr_map = session.exec(
+                select(DistrictrMap)
+                .join(
+                    Document,
+                    col(Document.districtr_map_slug)
+                    == col(DistrictrMap.districtr_map_slug),
                 )
-                .first()
-            )
+                .where(Document.document_id == document_id)
+            ).first()
             if districtr_map and not getattr(
                 districtr_map, "num_districts_modifiable", True
             ):
@@ -943,15 +937,11 @@ async def update_num_districts(
             detail="Number of districts must be at least 2 and at most 538",
         )
 
-    districtr_map = (
-        session.connection()
-        .execute(
-            select(DistrictrMap).where(
-                DistrictrMap.districtr_map_slug == document.districtr_map_slug
-            )
+    districtr_map = session.exec(
+        select(DistrictrMap).where(
+            DistrictrMap.districtr_map_slug == document.districtr_map_slug
         )
-        .first()
-    )
+    ).first()
     if districtr_map and not getattr(districtr_map, "num_districts_modifiable", True):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -977,19 +967,15 @@ async def get_assignments(
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
 ):
-    districtr_map_row = (
-        session.connection()
-        .execute(
-            select(DistrictrMap.uuid, Document.map_type)
-            .join(
-                Document,
-                onclause=col(Document.districtr_map_slug)
-                == DistrictrMap.districtr_map_slug,
-            )
-            .where(Document.document_id == document.document_id)
+    districtr_map_row = session.exec(
+        select(DistrictrMap.uuid, Document.map_type)
+        .join(
+            Document,
+            onclause=col(Document.districtr_map_slug)
+            == DistrictrMap.districtr_map_slug,
         )
-        .one()
-    )
+        .where(Document.document_id == document.document_id)
+    ).one()
     districtr_map_uuid = districtr_map_row.uuid
     is_community_map = districtr_map_row.map_type == "community"
 

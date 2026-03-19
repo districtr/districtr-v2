@@ -53,11 +53,9 @@ def duplicate_document_assignments(
     )
     session.connection().execute(create_copy_stmt)
 
-    inserted_assignments = (
-        session.connection()
-        .execute(select(count()).where(Assignments.document_id == to_document_id))
-        .scalar()
-    )
+    inserted_assignments = session.exec(
+        select(count()).where(Assignments.document_id == to_document_id)
+    ).one()
     logger.info(
         f"Inserted {inserted_assignments} assignments to document `{to_document_id}`"
     )
@@ -94,13 +92,9 @@ def duplicate_document_community_assignments(
     )
     session.connection().execute(create_copy_stmt)
 
-    inserted_assignments = (
-        session.connection()
-        .execute(
-            select(count()).where(CommunityAssignments.document_id == to_document_id)
-        )
-        .scalar()
-    )
+    inserted_assignments = session.exec(
+        select(count()).where(CommunityAssignments.document_id == to_document_id)
+    ).one()
     if VERBOSE_LOGGING:
         logger.info(
             f"Inserted {inserted_assignments} community assignments to document `{to_document_id}`"

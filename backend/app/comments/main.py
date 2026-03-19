@@ -73,7 +73,7 @@ def _get_comment_limits_for_document(
         DistrictrMap.comment_length_limit,
         DistrictrMap.comment_count_limit,
     ).where(DistrictrMap.districtr_map_slug == document.districtr_map_slug)
-    row = session.connection().execute(stmt).first()
+    row = session.exec(stmt).first()
     if row is None:
         return (DEFAULT_MAX_COMMENT_LENGTH, DEFAULT_MAX_COMMENTS_PER_DISTRICT)
     max_length = row[0] if row[0] is not None else DEFAULT_MAX_COMMENT_LENGTH
@@ -100,9 +100,9 @@ def create_commenter_db(commenter_data: CommenterCreate, session: Session) -> Co
             "zip_code": stmt.excluded.zip_code,
             "updated_at": stmt.excluded.updated_at,
         },
-    ).returning(Commenter)
+    ).returning(Commenter)  # Now a DML statement because of the RETURNING clause
 
-    result = session.execute(stmt)
+    result = session.connection().execute(stmt)
     commenter = result.scalar_one()
     session.commit()
     return commenter
@@ -162,9 +162,9 @@ def create_tag_db(tag_data: TagCreate, session: Session) -> Tag:
     stmt = stmt.on_conflict_do_update(
         index_elements=["slug"],
         set_=dict(slug=stmt.excluded.slug),  # No-op update
-    ).returning(Tag)
+    ).returning(Tag)  # Now a DML statement because of the RETURNING clause
 
-    result = session.execute(stmt, {"tag": tag_data.tag})
+    result = session.connection().execute(stmt, {"tag": tag_data.tag})
     tag = result.scalar_one()
     session.commit()
 
@@ -205,18 +205,14 @@ def create_document_comment(
     )
     session.connection().execute(stmt)
     session.flush()
-    doc_comment = (
-        session.execute(
-            select(DocumentComment).where(
-                and_(
-                    col(DocumentComment.comment_id) == comment_id,
-                    col(DocumentComment.document_id) == document.document_id,
-                )
+    doc_comment = session.exec(  # type: ignore[no-matching-overload]
+        select(DocumentComment).where(
+            and_(
+                col(DocumentComment.comment_id) == comment_id,
+                col(DocumentComment.document_id) == document.document_id,
             )
         )
-        .scalars()
-        .first()
-    )
+    ).first()
     return doc_comment
 
 
@@ -999,7 +995,7 @@ async def list_comments(
     )
     stmt = get_comments_base_query(params, search=search, has_map=has_map)
     stmt = moderate_comments_query(stmt)
-    results = session.connection().execute(stmt).all()
+    results = session.exec(stmt).all()  # type: ignore[no-matching-overload]
     return results
 
 
@@ -1040,7 +1036,7 @@ async def list_comments_admin(
         max_moderation_score=max_moderation_score,
         review_status=review_status,
     )
-    results = session.connection().execute(stmt).all()
+    results = session.exec(stmt).all()  # type: ignore[no-matching-overload]
     return results
 
 
@@ -1087,7 +1083,7 @@ async def list_district_comments_admin(
         max_moderation_score=max_moderation_score,
         review_status=review_status,
     )
-    results = session.connection().execute(stmt).all()
+    results = session.exec(stmt).all()  # type: ignore[no-matching-overload]
     return results
 
 
