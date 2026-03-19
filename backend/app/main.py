@@ -69,7 +69,6 @@ from app.models import (
     MapGroup,
     AssignmentsCreate,
     NumDistrictsSetResult,
-    sanitize_community_name,
 )
 from app.comments.models import (
     Comment,
@@ -86,6 +85,10 @@ from aiocache import SimpleMemoryCache
 from contextlib import asynccontextmanager
 from fiona.transform import transform
 from fastapi import BackgroundTasks
+from ._sanitize import (
+    _load_existing_community_metadata,
+    _normalize_community_metadata_list,
+)
 
 if settings.ENVIRONMENT in ("production", "qa"):
     sentry_sdk.init(
@@ -115,79 +118,17 @@ VERBOSE_LOGGING = settings.VERBOSE_LOGGING
 cache = SimpleMemoryCache()
 
 
-def _load_existing_community_metadata(
-    session: Session, document_id: str
-) -> list[CommunityMetadata]:
-    raw_communities = (
-        session.connection()
-        .execute(
-            select(Document.community_metadata_list).where(
-                Document.document_id == document_id
-            )
-        )
-        .scalar_one_or_none()
-    )
-    if not raw_communities:
-        return []
-    return [
-        (
-            community
-            if isinstance(community, CommunityMetadata)
-            else CommunityMetadata.model_validate(community)
-        )
-        for community in raw_communities
-    ]
-
-
-def _normalize_community_metadata_list(
-    community_metadata_list: list[CommunityMetadata] | list[dict],
-) -> list[CommunityMetadata]:
-    normalized_communities: list[CommunityMetadata] = []
-    for raw_community in community_metadata_list:
-        community = (
-            raw_community
-            if isinstance(raw_community, CommunityMetadata)
-            else CommunityMetadata.model_validate(raw_community)
-        )
-        sanitized_name = sanitize_community_name(community.name)
-        community_label = f"Community {community.render_order_id}"
-
-        if not sanitized_name:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"{community_label} name cannot be empty.",
-            )
-        if len(sanitized_name) > MAX_COMMUNITY_NAME_LENGTH:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    f"{community_label} name must be {MAX_COMMUNITY_NAME_LENGTH} "
-                    "characters or fewer."
-                ),
-            )
-
-        normalized_communities.append(
-            community.model_copy(update={"name": sanitized_name})
-        )
-
-    return normalized_communities
-
-
 def _load_existing_community_comments(
     session: Session, document_id: str
 ) -> list[dict[str, int | str | None]]:
-    existing_comments = (
-        session.connection()
-        .execute(
-            select(FormDocumentComment.zone, Comment.comment)
-            .join(Comment, Comment.id == FormDocumentComment.comment_id)
-            .where(
-                FormDocumentComment.document_id == document_id,
-                col(FormDocumentComment.zone).is_not(None),
-            )
+    existing_comments = session.exec(
+        select(FormDocumentComment.zone, Comment.comment)
+        .join(Comment, col(Comment.id) == col(FormDocumentComment.comment_id))
+        .where(
+            FormDocumentComment.document_id == document_id,
+            col(FormDocumentComment.zone).is_not(None),
         )
-        .all()
-    )
+    ).all()
     return [
         {"zone": comment.zone, "text": comment.comment, "comment_id": None}
         for comment in existing_comments
@@ -268,11 +209,11 @@ def update_timestamp(
 ) -> datetime:
     update_stmt = (
         update(Document)
-        .where(Document.document_id == document_id)
+        .where(col(Document.document_id) == document_id)
         .values(updated_at=func.now())
         .returning(Document.updated_at)
     )
-    updated_at = session.connection().execute(update_stmt).scalar_one()
+    updated_at = session.exec(update_stmt).one()
     return updated_at
 
 
@@ -360,7 +301,7 @@ async def create_document(
     districtr_map_stmt = select(DistrictrMap).where(
         DistrictrMap.districtr_map_slug == data.districtr_map_slug
     )
-    districtr_map = session.execute(districtr_map_stmt).scalars().first()
+    districtr_map = session.exec(districtr_map_stmt).first()
     if not districtr_map:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -858,6 +799,7 @@ async def update_assignments(
                 parsed_id = int(c.comment_id) if c.comment_id is not None else None
             except (ValueError, TypeError):
                 parsed_id = None
+            assert c.zone is not None, "Comment zone cannot be null"
             comment_inputs.append(
                 DistrictCommentInput(comment_id=parsed_id, zone=c.zone, text=c.text)
             )
@@ -959,11 +901,11 @@ async def update_colors(
     session: Session = Depends(get_session),
 ):
     # Get num_districts from Document, with fallback to DistrictrMap
-    districtr_map = session.execute(
+    districtr_map = session.exec(
         select(DistrictrMap).where(
             DistrictrMap.districtr_map_slug == document.districtr_map_slug
         )
-    ).scalar_one()
+    ).one()
 
     num_districts = document.num_districts or districtr_map.num_districts
 
@@ -1081,7 +1023,7 @@ async def get_assignments(
             )
             .where(Assignments.document_id == document.document_id)
         )
-    results = session.connection().execute(stmt).fetchall()
+    results = session.exec(stmt).all()
     if VERBOSE_LOGGING:
         logger.info(
             f"GET /api/get_assignments/{document.document_id}: "
@@ -1165,7 +1107,7 @@ async def get_document_list(
     if len(ids) > 0:
         stmt = stmt.where(col(Document.public_id).in_(ids))
 
-    results = session.connection().execute(stmt).fetchall()
+    results = session.exec(stmt).all()
     return [
         {
             "public_id": row[0],
@@ -1465,22 +1407,18 @@ async def get_projects(
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, le=1000),
 ):
-    gerrydb_views = (
-        session.execute(
-            select(DistrictrMap)
-            .join(
-                DistrictrMapsToGroups,
-                col(DistrictrMapsToGroups.districtrmap_uuid) == DistrictrMap.uuid,
-            )
-            .filter(col(DistrictrMapsToGroups.group_slug) == group)
-            .filter(col(DistrictrMap.visible) == true())
-            .order_by(col(DistrictrMap.name).asc())
-            .offset(offset)
-            .limit(limit)
+    gerrydb_views = session.exec(
+        select(DistrictrMap)
+        .join(
+            DistrictrMapsToGroups,
+            col(DistrictrMapsToGroups.districtrmap_uuid) == DistrictrMap.uuid,
         )
-        .scalars()
-        .all()
-    )
+        .filter(col(DistrictrMapsToGroups.group_slug) == group)
+        .filter(col(DistrictrMap.visible) == true())
+        .order_by(col(DistrictrMap.name).asc())
+        .offset(offset)
+        .limit(limit)
+    ).all()
     return gerrydb_views
 
 
@@ -1495,7 +1433,7 @@ async def get_group(
     ).where(
         MapGroup.slug == group_slug,
     )
-    group = session.execute(stmt).scalars().first()
+    group = session.exec(stmt).first()
 
     if not group:
         raise HTTPException(
