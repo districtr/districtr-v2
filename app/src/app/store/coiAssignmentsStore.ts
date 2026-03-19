@@ -1137,18 +1137,18 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     const baselineUpdatedAt =
       mapDocument?.updated_at ?? useMapStore.getState().mapDocument?.updated_at ?? currentTime;
 
-    console.log('[hydration] ingestFromDocument called', {
-      hasMapDocument: !!mapDocument,
-      communityCount: data.communityAssignments.size,
-      assignedCommunityIds: Array.from(data.communityAssignments.keys()),
-      totalGeoIds: Array.from(data.communityAssignments.values()).reduce(
-        (sum, s) => sum + s.size,
-        0
-      ),
-      shatterParents: data.shatterIds.parents.size,
-      shatterChildren: data.shatterIds.children.size,
-      baselineUpdatedAt,
-    });
+    // console.log('[hydration] ingestFromDocument called', {
+    //   hasMapDocument: !!mapDocument,
+    //   communityCount: data.communityAssignments.size,
+    //   assignedCommunityIds: Array.from(data.communityAssignments.keys()),
+    //   totalGeoIds: Array.from(data.communityAssignments.values()).reduce(
+    //     (sum, s) => sum + s.size,
+    //     0
+    //   ),
+    //   shatterParents: data.shatterIds.parents.size,
+    //   shatterChildren: data.shatterIds.children.size,
+    //   baselineUpdatedAt,
+    // });
 
     if (mapDocument) {
       useMapStore.getState().mutateMapDocument(mapDocument);
@@ -1166,13 +1166,13 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
         !currentCommunities.length ||
         assignedCommunityIds.some(communityId => !currentCommunityIds.has(communityId)));
 
-    console.log('[hydration] Community reconstruction check', {
-      shouldReconstructCommunities,
-      assignedCommunityIds,
-      currentCommunityIds: Array.from(currentCommunityIds),
-      hasMetadataList: !!mapDocument?.community_metadata_list?.length,
-      currentCommunitiesCount: currentCommunities.length,
-    });
+    // console.log('[hydration] Community reconstruction check', {
+    //   shouldReconstructCommunities,
+    //   assignedCommunityIds,
+    //   currentCommunityIds: Array.from(currentCommunityIds),
+    //   hasMetadataList: !!mapDocument?.community_metadata_list?.length,
+    //   currentCommunitiesCount: currentCommunities.length,
+    // });
 
     if (shouldReconstructCommunities) {
       const palette =
@@ -1186,7 +1186,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
         createdAt: new Date(index * 1000).toISOString(),
         descriptionCommentId: null,
       }));
-      console.log('[hydration] Reconstructing communities:', reconstructedCommunities.length);
+      // console.log('[hydration] Reconstructing communities:', reconstructedCommunities.length);
       mapState.setCommunities(reconstructedCommunities);
     }
 
@@ -1207,10 +1207,10 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       clientLastUpdated: baselineUpdatedAt,
     });
 
-    console.log('[hydration] COI store updated, final state:', {
-      communityAssignmentsSize: get().communityAssignments.size,
-      clientLastUpdated: get().clientLastUpdated,
-    });
+    // console.log('[hydration] COI store updated, final state:', {
+    //   communityAssignmentsSize: get().communityAssignments.size,
+    //   clientLastUpdated: get().clientLastUpdated,
+    // });
 
     if (mapDocument) {
       idb.updateIdbCoiAssignments(mapDocument, data.communityAssignments, baselineUpdatedAt, true);
@@ -1412,24 +1412,24 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
   },
 
   handlePutAssignments: async (overwrite = false) => {
-    console.log('[COI save] handlePutAssignments called, overwrite:', overwrite);
+    // console.log('[COI save] handlePutAssignments called, overwrite:', overwrite);
     await idb.flushPendingUpdate();
 
     const {mapDocument, setMapLock, setErrorNotification, setShowSaveConflictModal} =
       useMapStore.getState();
     if (!mapDocument?.document_id || !mapDocument.updated_at) {
-      console.error('[COI save] Aborting save: missing document_id or updated_at', {
-        document_id: mapDocument?.document_id,
-        updated_at: mapDocument?.updated_at,
-      });
+      // console.error('[COI save] Aborting save: missing document_id or updated_at', {
+      //   document_id: mapDocument?.document_id,
+      //   updated_at: mapDocument?.updated_at,
+      // });
       return;
     }
     const idbDocument = await idb.getDocument(mapDocument.document_id);
     if (!idbDocument) {
-      console.error(
-        '[COI save] Aborting save: IDB document not found for',
-        mapDocument.document_id
-      );
+      // console.error(
+      //   '[COI save] Aborting save: IDB document not found for',
+      //   mapDocument.document_id
+      // );
       return;
     }
     setMapLock({isLocked: true, reason: 'Saving Coi assignment plan'});
@@ -1442,12 +1442,12 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       };
 
       const {communityAssignments, shatterIds, childToParent} = get();
-      console.log('[COI save] Sending save request', {
-        document_id: documentForSave.document_id,
-        communityCount: communityAssignments.size,
-        commentCount: documentForSave.document_comments?.length ?? 0,
-        overwrite,
-      });
+      // console.log('[COI save] Sending save request', {
+      //   document_id: documentForSave.document_id,
+      //   communityCount: communityAssignments.size,
+      //   commentCount: documentForSave.document_comments?.length ?? 0,
+      //   overwrite,
+      // });
       const assignmntsPostResponse = await putUpdateCoiAssignmentsAndVerify({
         mapDocument: documentForSave,
         communityAssignments,
@@ -1460,16 +1460,16 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
         !assignmntsPostResponse.ok &&
         assignmntsPostResponse.error === 'Document has been updated since the last update'
       ) {
-        console.warn('[COI save] Conflict detected:', assignmntsPostResponse.error);
+        // console.warn('[COI save] Conflict detected:', assignmntsPostResponse.error);
         setShowSaveConflictModal(true);
       } else if (!assignmntsPostResponse.ok) {
-        console.error('[COI save] Save failed:', assignmntsPostResponse.error);
+        // console.error('[COI save] Save failed:', assignmntsPostResponse.error);
         setErrorNotification({
           message: assignmntsPostResponse.error,
           severity: 2,
         });
       } else if (assignmntsPostResponse.ok) {
-        console.log('[COI save] Save succeeded:', assignmntsPostResponse.response);
+        // console.log('[COI save] Save succeeded:', assignmntsPostResponse.response);
         setShowSaveConflictModal(false);
       }
     } finally {

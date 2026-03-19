@@ -97,28 +97,28 @@ export const putUpdateCoiAssignmentsAndVerify = async ({
     comments,
   };
 
-  console.log('[COI save] PUT /api/assignments payload:', {
-    document_id: payload.document_id,
-    assignmentCount: payload.assignments.length,
-    last_updated_at: payload.last_updated_at,
-    overwrite: payload.overwrite,
-    map_type: payload.map_type,
-    num_communities: payload.metadata.num_communities,
-    communityMetadataCount: payload.metadata.community_metadata_list?.length ?? 0,
-    commentCount: payload.comments.length,
-    comments: payload.comments,
-  });
+  // console.log('[COI save] PUT /api/assignments payload:', {
+  //   document_id: payload.document_id,
+  //   assignmentCount: payload.assignments.length,
+  //   last_updated_at: payload.last_updated_at,
+  //   overwrite: payload.overwrite,
+  //   map_type: payload.map_type,
+  //   num_communities: payload.metadata.num_communities,
+  //   communityMetadataCount: payload.metadata.community_metadata_list?.length ?? 0,
+  //   commentCount: payload.comments.length,
+  //   comments: payload.comments,
+  // });
 
   const assignmentsPostResponse = await putUpdateDocument(payload);
 
   if (!assignmentsPostResponse.ok) {
-    console.error('[COI save] PUT /api/assignments failed:', assignmentsPostResponse.error);
+    // console.error('[COI save] PUT /api/assignments failed:', assignmentsPostResponse.error);
     return {
       ok: false,
       error: assignmentsPostResponse.error.detail,
     };
   }
-  console.log('[COI save] PUT /api/assignments succeeded:', assignmentsPostResponse.response);
+  // console.log('[COI save] PUT /api/assignments succeeded:', assignmentsPostResponse.response);
 
   const freshServerAssignments = await getAssignments(mapDocument);
   if (!freshServerAssignments.ok) {
@@ -136,14 +136,14 @@ export const putUpdateCoiAssignmentsAndVerify = async ({
   const shatterMismatch = !areStringMapsEqual(childToParent, freshData.childToParent);
 
   if (assignmentsMismatch || shatterMismatch) {
-    console.warn('[COI save verification] Post-save mismatch detected (PUT succeeded).', {
-      assignmentsMismatch,
-      shatterMismatch,
-      localCommunityCount: communityAssignments.size,
-      serverCommunityCount: freshData.communityAssignments.size,
-      localShatterCount: childToParent.size,
-      serverShatterCount: freshData.childToParent.size,
-    });
+    // console.warn('[COI save verification] Post-save mismatch detected (PUT succeeded).', {
+    //   assignmentsMismatch,
+    //   shatterMismatch,
+    //   localCommunityCount: communityAssignments.size,
+    //   serverCommunityCount: freshData.communityAssignments.size,
+    //   localShatterCount: childToParent.size,
+    //   serverShatterCount: freshData.childToParent.size,
+    // });
   }
 
   const freshDoc = await getDocument(mapDocument.document_id);
