@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import Enum
 import re
 import unicodedata
 from pydantic import BaseModel, field_validator
@@ -196,6 +197,11 @@ class CommunityMetadata(BaseModel):
         return value
 
 
+class DocumentType(str, Enum):
+    DISTRICT = "district"
+    COI = "coi"
+
+
 class Document(TimeStampMixin, SQLModel, table=True):
     metadata = MetaData(schema=DOCUMENT_SCHEMA)
     document_id: str = Field(
@@ -240,16 +246,16 @@ class Document(TimeStampMixin, SQLModel, table=True):
         sa_column=Column(JSON, nullable=True)
     )
     map_metadata: DocumentMetadata | None = Field(sa_column=Column(JSON, nullable=True))
-    document_type: str = Field(
+    document_type: DocumentType = Field(
         sa_column=Column(
             ENUM(
-                DocumentType.DISTRICT,
-                DocumentType.COI,
+                DocumentType.DISTRICT.value,
+                DocumentType.COI.value,
                 name="documenttype",
                 create_type=False,
             ),
             nullable=False,
-            server_default="district",
+            server_default=DocumentType.DISTRICT.value,
         )
     )
 
@@ -257,6 +263,7 @@ class Document(TimeStampMixin, SQLModel, table=True):
 class DocumentCreate(BaseModel):
     districtr_map_slug: str
     map_type: str | None = None
+    document_type: DocumentType | None = None
     metadata: DocumentMetadata | None = None
     copy_from_doc: str | int | None = None  # document_id to copy from
     assignments: list[list[str]] | None = None  # Option to load block assignments
@@ -315,7 +322,7 @@ class DocumentPublic(BaseModel):
     access: DocumentShareStatus = DocumentShareStatus.edit
     color_scheme: list[str] | None = None
     map_type: str
-    document_type: str = "district"
+    document_type: DocumentType = DocumentType.DISTRICT
     map_module: str | None = None
     comment: str | None = None
     parent_geo_unit_type: str | None = None

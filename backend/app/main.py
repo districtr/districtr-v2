@@ -53,6 +53,7 @@ from app.models import (
     ColorsSetResult,
     CommunityAssignments,
     CommunityMetadata,
+    DocumentType,
     DistrictrMap,
     DistrictrMapsToGroups,
     Document,
@@ -370,7 +371,6 @@ async def create_document(
     num_communities = None
     community_metadata_list = None
     copied_document = None
-    document_type = data.document_type
 
     if data.copy_from_doc is not None:
         copy_document_id = parse_document_id(data.copy_from_doc)
@@ -385,12 +385,27 @@ async def create_document(
             num_communities = copied_document.num_communities
             community_metadata_list = copied_document.community_metadata_list
 
+    document_type = data.document_type or (
+        copied_document.document_type if copied_document is not None else None
+    )
+    if document_type is None:
+        document_type = (
+            DocumentType.COI if data.map_type == "community" else DocumentType.DISTRICT
+        )
+    else:
+        document_type = DocumentType(document_type)
+
     document_map_type = (
         data.map_type
+        or ("community" if document_type == DocumentType.COI else None)
         or (copied_document.map_type if copied_document is not None else None)
         or districtr_map.map_type
         or "default"
     )
+    if document_map_type == "community":
+        document_type = DocumentType.COI
+    else:
+        document_type = DocumentType.DISTRICT
     if document_map_type != "community":
         num_communities = None
         community_metadata_list = None
@@ -403,6 +418,7 @@ async def create_document(
         document_id=document_id,
         districtr_map_slug=data.districtr_map_slug,
         map_type=document_map_type,
+        document_type=document_type,
         num_districts=num_districts,
         num_communities=num_communities,
         community_metadata_list=community_metadata_list,
@@ -503,6 +519,7 @@ async def create_document(
             ),
             col(DistrictrMap.extent).label("extent"),
             col(Document.map_type).label("map_type"),
+            col(Document.document_type).label("document_type"),
             col(DistrictrMap.statefps).label("statefps"),
             literal(MAX_COMMUNITY_NAME_LENGTH).label("community_name_length_limit"),
             coalesce(total_assignments).label("inserted_assignments"),
@@ -1098,6 +1115,7 @@ async def get_document_list(
             Document.public_id,
             Document.map_metadata,
             Document.updated_at,
+            Document.document_type,
             col(DistrictrMap.name).label("map_module"),
         )
         .distinct(
