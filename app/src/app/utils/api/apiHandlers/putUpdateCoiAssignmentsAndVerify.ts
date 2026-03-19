@@ -9,6 +9,7 @@ import {
   formatCoiAssignmentsFromDocument,
 } from '../../map/formatCoiAssignments';
 import {CoiAssignmentsStore, useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
+import {Zone} from '@/app/constants/types';
 
 type PutUpdateAssignmentsAndVerifyResponse =
   | {
@@ -27,8 +28,8 @@ type PutUpdateAssignmentsAndVerifyResponse =
  * the same
  */
 const areCommunityAssignmentsEqual = (
-  left: Map<number, Set<string>>,
-  right: Map<number, Set<string>>
+  left: Map<Zone, Set<string>>,
+  right: Map<Zone, Set<string>>
 ) => {
   if (left.size !== right.size) return false;
 
@@ -62,7 +63,7 @@ export const putUpdateCoiAssignmentsAndVerify = async ({
   overwrite = false,
 }: {
   mapDocument: DocumentObject;
-  communityAssignments: Map<number, Set<string>>;
+  communityAssignments: Map<Zone, Set<string>>;
   shatterIds: CoiAssignmentsStore['shatterIds'];
   childToParent: CoiAssignmentsStore['childToParent'];
   overwrite?: boolean;
@@ -72,7 +73,7 @@ export const putUpdateCoiAssignmentsAndVerify = async ({
     communityAssignments,
     shatterIds,
     childToParent
-  ).map(assignment => [assignment.geo_id, assignment.zone] as [string, number | null]);
+  ).map(assignment => [assignment.geo_id, assignment.zone] as [string, Zone | null]);
 
   const comments = (mapDocument.document_comments || []).map(comment => {
     const parsedId = comment.comment_id ? parseInt(String(comment.comment_id), 10) : NaN;
