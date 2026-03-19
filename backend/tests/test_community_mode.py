@@ -10,6 +10,13 @@ from tests.constants import GERRY_DB_FIXTURE_NAME
 COMMUNITY_MAP_SLUG = "ks_demo_view_census_blocks_community"
 TEST_MODERATION_SCORE = 0.001
 
+# Note: We patch the moderation score to be very low to avoid triggering any content filters
+# during testing, and to to avoid calling the actual moderation API
+
+# ==========================
+# == FIXTURES AND HELPERS ==
+# ==========================
+
 
 def build_community_metadata_list():
     return [
@@ -82,6 +89,11 @@ def get_assignments_by_geoid(client, document_id: str):
     }
 
 
+# ===========
+# == TESTS ==
+# ===========
+
+
 def test_non_community_document_rejects_community_save(client, document_id: str):
     document_info = client.get(f"/api/document/{document_id}").json()
 
@@ -151,16 +163,18 @@ def test_put_community_assignments_round_trip_with_metadata_and_comments(
         2: "Community focused on transit access",
     }
 
-    comment_rows = session.execute(
-        text(
-            """
+    comment_rows = (
+        session.connection()
+        .execute(
+            text("""
             SELECT zone
             FROM comments.document_comment
             WHERE document_id = :document_id
-            """
-        ),
-        {"document_id": community_document_id},
-    ).fetchall()
+            """),
+            {"document_id": community_document_id},
+        )
+        .fetchall()
+    )
     assert {row[0] for row in comment_rows} == {1, 2}
 
 
@@ -334,28 +348,32 @@ def test_reset_community_assignments_preserves_metadata_and_comments(
         2: "Community focused on transit access",
     }
 
-    community_assignment_count = session.execute(
-        text(
-            """
+    community_assignment_count = (
+        session.connection()
+        .execute(
+            text("""
             SELECT COUNT(*)
             FROM document.community_assignments
             WHERE document_id = :document_id
-            """
-        ),
-        {"document_id": community_document_id},
-    ).scalar_one()
+            """),
+            {"document_id": community_document_id},
+        )
+        .scalar_one()
+    )
     assert community_assignment_count == 0
 
-    comment_count = session.execute(
-        text(
-            """
+    comment_count = (
+        session.connection()
+        .execute(
+            text("""
             SELECT COUNT(*)
             FROM comments.document_comment
             WHERE document_id = :document_id
-            """
-        ),
-        {"document_id": community_document_id},
-    ).scalar_one()
+            """),
+            {"document_id": community_document_id},
+        )
+        .scalar_one()
+    )
     assert comment_count == 2
 
 
@@ -577,18 +595,20 @@ def test_sync_community_comments_updates_and_deletes_existing_rows(
     assert second_comments[1]["text"] == "Community 1 updated note"
     assert second_comments[2]["text"] == "Community 2 first note"
 
-    remaining_comment_rows = session.execute(
-        text(
-            """
+    remaining_comment_rows = (
+        session.connection()
+        .execute(
+            text("""
             SELECT dc.zone, c.id, c.title, c.comment
             FROM comments.document_comment dc
             JOIN comments.comment c ON c.id = dc.comment_id
             WHERE dc.document_id = :document_id
             ORDER BY dc.zone
-            """
-        ),
-        {"document_id": community_document_id},
-    ).fetchall()
+            """),
+            {"document_id": community_document_id},
+        )
+        .fetchall()
+    )
     assert len(remaining_comment_rows) == 2
     assert remaining_comment_rows[0][0] == 1  # zone
     assert remaining_comment_rows[0][3] == "Community 1 updated note"  # comment text
@@ -611,16 +631,18 @@ def test_sync_community_comments_updates_and_deletes_existing_rows(
     final_document = client.get(f"/api/document/{community_document_id}").json()
     assert final_document["document_comments"] is None
 
-    final_comment_count = session.execute(
-        text(
-            """
+    final_comment_count = (
+        session.connection()
+        .execute(
+            text("""
             SELECT COUNT(*)
             FROM comments.document_comment
             WHERE document_id = :document_id
-            """
-        ),
-        {"document_id": community_document_id},
-    ).scalar_one()
+            """),
+            {"document_id": community_document_id},
+        )
+        .scalar_one()
+    )
     assert final_comment_count == 0
 
 
@@ -643,17 +665,19 @@ def test_community_assignment_none_is_stored_as_zero_and_returned_as_null(
     )
     assert response.status_code == 200, response.json()
 
-    stored_assignments = session.execute(
-        text(
-            """
+    stored_assignments = (
+        session.connection()
+        .execute(
+            text("""
             SELECT geo_id, community_id
             FROM document.community_assignments
             WHERE document_id = :document_id
             ORDER BY geo_id
-            """
-        ),
-        {"document_id": community_document_id},
-    ).fetchall()
+            """),
+            {"document_id": community_document_id},
+        )
+        .fetchall()
+    )
     assert [tuple(row) for row in stored_assignments] == [
         ("202090428002008", 2),
         ("202090441022004", 0),
@@ -663,3 +687,33 @@ def test_community_assignment_none_is_stored_as_zero_and_returned_as_null(
         "202090441022004": None,
         "202090428002008": 2,
     }
+
+
+def test_contiguity_check_rejected_for_community_map(
+    client, community_document_id: str
+):
+    """
+    Map Validation: contiguity check should return 400 for community maps.
+
+    Community assignments are stored in document.community_assignments, not
+    document.assignments. The contiguity SQL hardcodes document.assignments,
+    so community maps must be rejected explicitly rather than returning empty.
+
+    This is also handled on the FE by not exposing the validation to the user.
+    """
+    response = client.get(f"/api/document/{community_document_id}/contiguity")
+    assert response.status_code == 400
+    assert "not supported for community maps" in response.json()["detail"]
+
+
+def test_contiguity_bboxes_rejected_for_community_map(
+    client, community_document_id: str
+):
+    """
+    Map Validation: connected_component_bboxes should return 400 for community maps.
+    """
+    response = client.get(
+        f"/api/document/{community_document_id}/contiguity/1/connected_component_bboxes"
+    )
+    assert response.status_code == 400
+    assert "not supported for community maps" in response.json()["detail"]

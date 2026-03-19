@@ -115,18 +115,18 @@ def ks_demo_view_census_blocks_total_vap_fixture(session: Session):
 def ks_demo_view_census_blocks_total_vap_districtrmap_fixture(
     session: Session, ks_demo_view_census_blocks_total_vap: None
 ):
-    upsert_query = text(
-        """
+    upsert_query = text("""
         INSERT INTO gerrydbtable (uuid, name, updated_at)
         VALUES (gen_random_uuid(), :name, now())
         ON CONFLICT (name)
         DO UPDATE SET
             updated_at = now()
-    """
-    )
+    """)
 
     session.begin()
-    session.execute(upsert_query, {"name": GERRY_DB_TOTAL_VAP_FIXTURE_NAME})
+    session.connection().execute(
+        upsert_query, {"name": GERRY_DB_TOTAL_VAP_FIXTURE_NAME}
+    )
     create_districtr_map(
         session=session,
         name=f"Districtr map {GERRY_DB_TOTAL_VAP_FIXTURE_NAME}",
@@ -161,18 +161,16 @@ def ks_demo_view_census_blocks_no_pop_fixture(session: Session):
 def ks_demo_view_census_blocks_no_pop_districtrmap_fixture(
     session: Session, ks_demo_view_census_blocks_no_pop: None
 ):
-    upsert_query = text(
-        """
+    upsert_query = text("""
         INSERT INTO gerrydbtable (uuid, name, updated_at)
         VALUES (gen_random_uuid(), :name, now())
         ON CONFLICT (name)
         DO UPDATE SET
             updated_at = now()
-    """
-    )
+    """)
 
     session.begin()
-    session.execute(upsert_query, {"name": GERRY_DB_NO_POP_FIXTURE_NAME})
+    session.connection().execute(upsert_query, {"name": GERRY_DB_NO_POP_FIXTURE_NAME})
     create_districtr_map(
         session=session,
         name=f"Districtr map {GERRY_DB_NO_POP_FIXTURE_NAME}",
@@ -610,17 +608,15 @@ def ks_demo_view_census_blocks_summary_stats(session: Session):
         ],
     )
 
-    upsert_query = text(
-        """
+    upsert_query = text("""
         INSERT INTO gerrydbtable (uuid, name, updated_at)
         VALUES (gen_random_uuid(), :name, now())
         ON CONFLICT (name)
         DO UPDATE SET
             updated_at = now()
-    """
-    )
+    """)
 
-    session.execute(upsert_query, {"name": layer})
+    session.connection().execute(upsert_query, {"name": layer})
 
     create_districtr_map(
         session=session,
@@ -654,17 +650,15 @@ def ks_demo_view_census_blocks_summary_stats_vap(session: Session):
         ],
     )
 
-    upsert_query = text(
-        """
+    upsert_query = text("""
         INSERT INTO gerrydbtable (uuid, name, updated_at)
         VALUES (gen_random_uuid(), :name, now())
         ON CONFLICT (name)
         DO UPDATE SET
             updated_at = now()
-    """
-    )
+    """)
 
-    session.execute(upsert_query, {"name": layer})
+    session.connection().execute(upsert_query, {"name": layer})
 
     create_districtr_map(
         session=session,
@@ -697,17 +691,15 @@ def ks_demo_view_census_blocks_summary_stats_all_stats(session: Session):
         ],
     )
 
-    upsert_query = text(
-        """
+    upsert_query = text("""
         INSERT INTO gerrydbtable (uuid, name, updated_at)
         VALUES (gen_random_uuid(), :name, now())
         ON CONFLICT (name)
         DO UPDATE SET
             updated_at = now()
-    """
-    )
+    """)
 
-    session.execute(upsert_query, {"name": layer})
+    session.connection().execute(upsert_query, {"name": layer})
 
     create_districtr_map(
         session=session,
@@ -1522,3 +1514,26 @@ def test_copy_document_duplicates_assignments(
     orig_map = {(a["geo_id"], a["zone"]) for a in orig}
     copied_map = {(a["geo_id"], a["zone"]) for a in copied}
     assert orig_map == copied_map
+
+
+def test_create_document_with_metadata_no_copy(
+    client, ks_demo_view_census_blocks_districtrmap
+):
+    """
+    Calling create_document with metadata but no copy_from_doc must not crash.
+
+    Previously this hit `assert copied_document is not None` because
+    the metadata branch unconditionally assumed a copy operation.
+    """
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+            "metadata": {"name": "My Fresh Map", "draft_status": "scratch"},
+        },
+    )
+    data = response.json()
+    assert response.status_code == 201, data
+    assert data.get("document_id")
+    doc = client.get(f"/api/document/{data['document_id']}").json()
+    assert doc["map_metadata"]["name"] == "My Fresh Map"

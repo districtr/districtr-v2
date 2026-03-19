@@ -84,6 +84,7 @@ from contextlib import asynccontextmanager
 from fiona.transform import transform
 from fastapi import BackgroundTasks
 from ._sanitize import (
+    CommentDict,
     _validate_community_save_payload,
 )
 
@@ -175,13 +176,14 @@ def reset_document_partition(
         table_name (str): The name of the table to reset the partition in
             ("assignments" or "community_assignments").
     """
-    partition_name = f'"document.{table_name}_{document_id}"'
+    partition_name = f"document.{table_name}_{document_id}"
     session.connection().execute(
-        text(f"DROP TABLE IF EXISTS {partition_name} CASCADE;")
+        text(f'DROP TABLE IF EXISTS "{partition_name}" CASCADE;')
     )
-    stmt = text(f"""CREATE TABLE {partition_name}
+    stmt = text(f"""
+        CREATE TABLE "{partition_name}"
         PARTITION OF document.{table_name}
-        FOR VALUES IN ('{document_id}');
+        FOR VALUES IN ('{document_id}')
     """)
     session.connection().execute(stmt)
 
@@ -270,10 +272,11 @@ async def create_document(
         or districtr_map.map_type
         or "default"
     )
-    if document_map_type == "community":
-        document_type = DocumentType.COI
-    else:
-        document_type = DocumentType.DISTRICT
+    # Normalize: map_type is the canonical source of truth for document_type.
+    # community map_type => COI, everything else => DISTRICT.
+    document_type = (
+        DocumentType.COI if document_map_type == "community" else DocumentType.DISTRICT
+    )
     if document_map_type != "community":
         num_communities = None
         community_metadata_list = None
@@ -356,10 +359,7 @@ async def create_document(
                 )
 
     if data.metadata is not None:
-        assert copied_document is not None
-        logger.info(
-            f"Updating metadata for document: {document_id if not data.copy_from_doc else copied_document.document_id}"
-        )
+        logger.info(f"Updating metadata for document: {document_id}")
         await update_districtrmap_metadata(
             document=created_document, metadata=data.metadata, session=session
         )
@@ -508,9 +508,9 @@ async def update_assignments(
         "document.community_assignments" if is_community_map else "document.assignments"
     )
     assignment_column = "community_id" if is_community_map else "zone"
-    comment_dicts = (
+    comment_dicts: list[CommentDict] | None = (
         [
-            {"comment_id": c.comment_id, "zone": c.zone, "text": c.text}
+            CommentDict(comment_id=c.comment_id, zone=c.zone, text=c.text)
             for c in data.comments
         ]
         if data.comments is not None
@@ -713,13 +713,9 @@ async def update_assignments(
     if data.comments is not None:
         comment_inputs: list[DistrictCommentInput] = []
         for c in data.comments:
-            try:
-                parsed_id = int(c.comment_id) if c.comment_id is not None else None
-            except (ValueError, TypeError):
-                parsed_id = None
             assert c.zone is not None, "Comment zone cannot be null"
             comment_inputs.append(
-                DistrictCommentInput(comment_id=parsed_id, zone=c.zone, text=c.text)
+                DistrictCommentInput(comment_id=c.comment_id, zone=c.zone, text=c.text)
             )
         if VERBOSE_LOGGING:
             logger.info(
@@ -891,7 +887,7 @@ async def get_assignments(
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
 ):
-    districtr_map_row = session.exec(
+    districtr_map_uuid, map_type = session.exec(
         select(DistrictrMap.uuid, Document.map_type)
         .join(
             Document,
@@ -900,8 +896,7 @@ async def get_assignments(
         )
         .where(Document.document_id == document.document_id)
     ).one()
-    districtr_map_uuid = districtr_map_row.uuid
-    is_community_map = districtr_map_row.map_type == "community"
+    is_community_map = map_type == "community"
 
     if is_community_map:
         stmt = (
@@ -1108,6 +1103,12 @@ async def check_document_contiguity(
     zone: list[int] = Query(default=[]),
     session: Session = Depends(get_session),
 ):
+    if document.map_type == "community":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Contiguity checks are not supported for community maps",
+        )
+
     districtr_map = get_districtr_map(
         document_id=DocumentID(document_id=document.document_id), session=session
     )
@@ -1164,6 +1165,12 @@ async def get_connected_component_bboxes(
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
 ):
+    if document.map_type == "community":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Contiguity checks are not supported for community maps",
+        )
+
     districtr_map = get_districtr_map(
         document_id=DocumentID(document_id=document.document_id), session=session
     )

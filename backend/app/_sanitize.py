@@ -1,3 +1,5 @@
+from typing import TypedDict
+
 from fastapi import (
     status,
     HTTPException,
@@ -13,6 +15,12 @@ from app.comments.models import (
     Comment,
     DocumentComment as FormDocumentComment,
 )
+
+
+class CommentDict(TypedDict):
+    zone: int | None
+    text: str | None
+    comment_id: int | None
 
 
 def _load_existing_community_metadata(
@@ -94,7 +102,7 @@ def _normalize_community_metadata_list(
 
 def _load_existing_community_comments(
     session: Session, document_id: str
-) -> list[dict[str, int | str | None]]:
+) -> list[CommentDict]:
     """
     Load existing comments for a document from the database.
 
@@ -122,7 +130,7 @@ def _load_existing_community_comments(
 
 def _validate_community_comment_coverage(
     community_metadata_list: list[CommunityMetadata],
-    comments: list[dict[str, int | str | None]],
+    comments: list[CommentDict],
 ) -> None:
     """
     Validate that each community has at least one non-empty comment associated with it.
@@ -130,7 +138,7 @@ def _validate_community_comment_coverage(
     Args:
         community_metadata_list (list[CommunityMetadata]): A list of CommunityMetadata instances
             representing the communities defined for the document.
-        comments (list[dict[str, int | str | None]]): A list of dictionaries representing the
+        comments (list[CommentDict]): A list of dictionaries representing the
             comments associated with the document, where each dictionary contains the zone, text,
             and comment_id of a comment.
     """
@@ -159,7 +167,7 @@ def _validate_community_save_payload(
     *,
     document_id: str,
     metadata,
-    incoming_comments: list[dict[str, int | str | None]] | None,
+    incoming_comments: list[CommentDict] | None,
     session: Session,
 ) -> list[CommunityMetadata] | None:
     """
@@ -168,7 +176,7 @@ def _validate_community_save_payload(
     Args:
         document_id (str): The ID of the document being saved.
         metadata: The metadata included in the save payload, which may contain community metadata.
-        incoming_comments (list[dict[str, int | str | None]] | None): The comments included in the
+        incoming_comments (list[CommentDict] | None): The comments included in the
             save payload, where each comment is represented as a dictionary containing the zone,
             text, and comment_id. This can be None if no comments were included in the payload.
         session (sqlmodel.Session): The SQLModel session to use for any necessary database queries.

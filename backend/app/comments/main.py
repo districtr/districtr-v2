@@ -106,7 +106,7 @@ def create_commenter_db(commenter_data: CommenterCreate, session: Session) -> Co
     session.commit()
     return Commenter.model_construct(
         **row._asdict()
-    )  # model construct also runs validation
+    )  # model_construct also runs validation
 
 
 def create_comment_db(comment_data: CommentCreate, session: Session) -> Comment:
@@ -167,7 +167,7 @@ def create_tag_db(tag_data: TagCreate, session: Session) -> Tag:
 
     row = session.connection().execute(stmt, {"tag": tag_data.tag}).one()
     session.commit()
-    return Tag.model_construct(**row._asdict())  # model construct also runs validation
+    return Tag.model_construct(**row._asdict())  # model_construct also runs validation
 
 
 def create_comment_tag_associations(
