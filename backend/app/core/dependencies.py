@@ -305,8 +305,8 @@ def get_districtr_map(
         )
         .filter(
             or_(
-                col(Document.document_id) == document_id,
-                col(MapDocumentToken.document_id) == document_id,
+                col(Document.document_id) == document_id.value,
+                col(MapDocumentToken.document_id) == document_id.value,
             )
         )
     )

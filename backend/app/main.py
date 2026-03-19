@@ -1486,13 +1486,7 @@ async def get_group(
     ).where(
         MapGroup.slug == group_slug,
     )
-    group = (
-        session.connection()
-        .execute(
-            statement=stmt,
-        )
-        .first()
-    )
+    group = session.execute(stmt).scalars().first()
 
     if not group:
         raise HTTPException(
@@ -1500,6 +1494,6 @@ async def get_group(
             detail=f"Group matching {group_slug} does not exist.",
         )
     return {
-        "name": group[0].name,
-        "slug": group[0].slug,
+        "name": group.name,
+        "slug": group.slug,
     }

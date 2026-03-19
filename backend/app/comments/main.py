@@ -102,7 +102,7 @@ def create_commenter_db(commenter_data: CommenterCreate, session: Session) -> Co
         },
     ).returning(Commenter)
 
-    result = session.connection().execute(stmt)
+    result = session.execute(stmt)
     commenter = result.scalar_one()
     session.commit()
     return commenter
@@ -164,7 +164,7 @@ def create_tag_db(tag_data: TagCreate, session: Session) -> Tag:
         set_=dict(slug=stmt.excluded.slug),  # No-op update
     ).returning(Tag)
 
-    result = session.connection().execute(stmt, {"tag": tag_data.tag})
+    result = session.execute(stmt, {"tag": tag_data.tag})
     tag = result.scalar_one()
     session.commit()
 
@@ -206,8 +206,7 @@ def create_document_comment(
     session.connection().execute(stmt)
     session.flush()
     doc_comment = (
-        session.connection()
-        .execute(
+        session.execute(
             select(DocumentComment).where(
                 and_(
                     col(DocumentComment.comment_id) == comment_id,
