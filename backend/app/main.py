@@ -110,6 +110,7 @@ app.include_router(thumbnails.router)
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+VERBOSE_LOGGING = settings.VERBOSE_LOGGING
 
 cache = SimpleMemoryCache()
 
@@ -651,36 +652,39 @@ async def update_assignments(
         else None
     )
 
-    logger.info(
-        f"PUT /api/assignments: document_id={document_id}, "
-        f"requested_map_type={requested_map_type}, "
-        f"actual_map_type={actual_map_type}, "
-        f"assignment_count={len(assignments)}, "
-        f"comment_count={len(data.comments) if data.comments else 0}, "
-        f"has_metadata={data.metadata is not None}, "
-        f"has_community_metadata_list="
-        f"{data.metadata is not None and data.metadata.community_metadata_list is not None}, "
-        f"num_communities={data.metadata.num_communities if data.metadata else None}"
-    )
+    if VERBOSE_LOGGING:
+        logger.info(
+            f"PUT /api/assignments: document_id={document_id}, "
+            f"requested_map_type={requested_map_type}, "
+            f"actual_map_type={actual_map_type}, "
+            f"assignment_count={len(assignments)}, "
+            f"comment_count={len(data.comments) if data.comments else 0}, "
+            f"has_metadata={data.metadata is not None}, "
+            f"has_community_metadata_list="
+            f"{data.metadata is not None and data.metadata.community_metadata_list is not None}, "
+            f"num_communities={data.metadata.num_communities if data.metadata else None}"
+        )
 
     # Validate community payload (name sanitization, length, comment coverage)
     # before any mutations. Returns normalized metadata list if provided, else None.
     validated_community_metadata = None
     if is_community_map:
-        logger.info(
-            f"Community save validation for document {document_id}: "
-            f"incoming_comments={comment_dicts}"
-        )
+        if VERBOSE_LOGGING:
+            logger.info(
+                f"Community save validation for document {document_id}: "
+                f"incoming_comments={comment_dicts}"
+            )
         validated_community_metadata = _validate_community_save_payload(
             document_id=document_id,
             metadata=data.metadata,
             incoming_comments=comment_dicts,
             session=session,
         )
-        logger.info(
-            f"Community save validation passed for document {document_id}, "
-            f"validated_metadata={'present' if validated_community_metadata else 'None'}"
-        )
+        if VERBOSE_LOGGING:
+            logger.info(
+                f"Community save validation passed for document {document_id}, "
+                f"validated_metadata={'present' if validated_community_metadata else 'None'}"
+            )
 
     db_last_updated_at = (
         session.connection()
@@ -693,10 +697,11 @@ async def update_assignments(
         and db_last_updated_at > last_updated_at
         and not data.overwrite
     ):
-        logger.warning(
-            f"Conflict detected for document {document_id}: "
-            f"db_last_updated_at={db_last_updated_at!r} > last_updated_at={last_updated_at!r}"
-        )
+        if VERBOSE_LOGGING:
+            logger.warning(
+                f"Conflict detected for document {document_id}: "
+                f"db_last_updated_at={db_last_updated_at!r} > last_updated_at={last_updated_at!r}"
+            )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Document has been updated since the last update",
@@ -742,10 +747,11 @@ async def update_assignments(
         )
         .rowcount
     )
-    logger.info(
-        f"Inserted {inserted_count} {'community' if is_community_map else ''} "
-        f"assignments to document {document_id}"
-    )
+    if VERBOSE_LOGGING:
+        logger.info(
+            f"Inserted {inserted_count} {'community' if is_community_map else ''} "
+            f"assignments to document {document_id}"
+        )
     updated_at = None
     if len(data.assignments) > 0:
         updated_at = update_timestamp(session, document_id)
@@ -855,10 +861,11 @@ async def update_assignments(
             comment_inputs.append(
                 DistrictCommentInput(comment_id=parsed_id, zone=c.zone, text=c.text)
             )
-        logger.info(
-            f"Syncing {'community' if is_community_map else 'district'} comments "
-            f"for document {document_id}: {len(comment_inputs)} comments"
-        )
+        if VERBOSE_LOGGING:
+            logger.info(
+                f"Syncing {'community' if is_community_map else 'district'} comments "
+                f"for document {document_id}: {len(comment_inputs)} comments"
+            )
         sync_fn = (
             sync_community_comments if is_community_map else sync_district_comments
         )
@@ -870,10 +877,11 @@ async def update_assignments(
         )
 
     session.commit()
-    logger.info(
-        f"PUT /api/assignments complete: document_id={document_id}, "
-        f"assignments_inserted={inserted_count}, updated_at={updated_at}"
-    )
+    if VERBOSE_LOGGING:
+        logger.info(
+            f"PUT /api/assignments complete: document_id={document_id}, "
+            f"assignments_inserted={inserted_count}, updated_at={updated_at}"
+        )
     return {"assignments_inserted": inserted_count, "updated_at": updated_at}
 
 
@@ -1074,12 +1082,13 @@ async def get_assignments(
             .where(Assignments.document_id == document.document_id)
         )
     results = session.connection().execute(stmt).fetchall()
-    logger.info(
-        f"GET /api/get_assignments/{document.document_id}: "
-        f"is_community_map={is_community_map}, "
-        f"assignment_count={len(results)}, "
-        f"sample_zones={[r.zone for r in results[:5]]}"
-    )
+    if VERBOSE_LOGGING:
+        logger.info(
+            f"GET /api/get_assignments/{document.document_id}: "
+            f"is_community_map={is_community_map}, "
+            f"assignment_count={len(results)}, "
+            f"sample_zones={[r.zone for r in results[:5]]}"
+        )
     return results
 
 

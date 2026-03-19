@@ -13,9 +13,11 @@ from app.models import (
     DistrictrMap,
 )
 from collections import defaultdict
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+VERBOSE_LOGGING = settings.VERBOSE_LOGGING
 
 
 def duplicate_document_assignments(
@@ -99,9 +101,10 @@ def duplicate_document_community_assignments(
         )
         .scalar()
     )
-    logger.info(
-        f"Inserted {inserted_assignments} community assignments to document `{to_document_id}`"
-    )
+    if VERBOSE_LOGGING:
+        logger.info(
+            f"Inserted {inserted_assignments} community assignments to document `{to_document_id}`"
+        )
     return inserted_assignments
 
 
