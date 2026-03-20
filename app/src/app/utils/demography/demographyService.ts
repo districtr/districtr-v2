@@ -142,7 +142,7 @@ class DemographyService {
     if (hash === this.hash) return;
     this.availableColumns = columns;
     this.table = table(data).derive(getColumnDerives(columns)).dedupe('path');
-    const populationAssignments = getActivePopulationAssignments();
+    const populationAssignments = _zoneAssignments ?? getActivePopulationAssignments();
     const popsOk = this.updatePopulations(populationAssignments);
     if (!popsOk) return;
     this.updateSummaryStats();

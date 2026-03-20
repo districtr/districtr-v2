@@ -29,6 +29,7 @@ export const initSubs = (readOnly = false) => {
     state => state.mapDocument,
     (curr, prev) => {
       if (!curr || prev === curr || prev?.document_id === curr.document_id) return;
+      if (curr.access === 'read') return; // PublicSource handles read-only data loading
       useDemographyStore.getState().updateData(curr);
     }
   );
