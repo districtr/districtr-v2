@@ -47,7 +47,7 @@ Set database implementation standards for SQLAlchemy-first query design, migrati
 ## Validation Commands
 - `cd backend && alembic upgrade head`
 - `cd backend && pytest -v`
-- `rg -n "SQLAlchemy-First|no new UDF|Legacy UDF" BE_EXPERT.md DB_QUERY_AND_MIGRATIONS_EXPERT.md`
+- `rg -n "SQLAlchemy-First|no new UDF|Legacy UDF" .agents/experts/BE_EXPERT.md .agents/experts/DB_QUERY_AND_MIGRATIONS_EXPERT.md`
 
 ## Common Failure Modes
 - Broken downgrades from migration-only forward assumptions.

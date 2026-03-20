@@ -79,29 +79,29 @@ bd sync               # Sync with git
 
 ## Expert Guides (Read Before Editing)
 
-This repo has root-level expert docs for domain-specific implementation rules. Agents should read the relevant guide(s) before making changes:
+Expert guides live in `./experts/` and document domain-specific implementation rules. Agents should read the relevant guide(s) before making changes:
 
-- `DOCKER_EXPERT.md` - docker-compose topology, env files, local container workflows, quality-gate commands
-- `FE_EXPERT.md` - frontend architecture and map-first FE conventions
-- `MAP_RUNTIME_EXPERT.md` - MapLibre interaction model, feature-state, paint/shatter behavior
-- `STATE_SYNC_EXPERT.md` - IDB/server sync, optimistic concurrency, conflict resolution
-- `WORKERS_EXPERT.md` - GeometryWorker/ParquetWorker contracts and performance guardrails
-- `BE_EXPERT.md` - FastAPI + SQLModel conventions and backend architecture
-- `DB_QUERY_AND_MIGRATIONS_EXPERT.md` - SQLAlchemy-first DB patterns, migrations, legacy UDF transition rules
-- `GERRYDB_MAP_LIFECYCLE_EXPERT.md` - map data lifecycle: imports, shatter setup, edges, graph linkage
-- `PIPELINES_EXPERT.md` - tiles/tabular/transforms pipeline contracts and toolchain requirements
-- `CMS_MODERATION_EXPERT.md` - CMS editing/review and moderation workflows
-- `AUTH_SHARE_SECURITY_EXPERT.md` - Auth0 scopes, recaptcha, and share/edit token security
+- [`DOCKER_EXPERT.md`](./experts/DOCKER_EXPERT.md) - docker-compose topology, env files, local container workflows, quality-gate commands
+- [`FE_EXPERT.md`](./experts/FE_EXPERT.md) - frontend architecture and map-first FE conventions
+- [`MAP_RUNTIME_EXPERT.md`](./experts/MAP_RUNTIME_EXPERT.md) - MapLibre interaction model, feature-state, paint/shatter behavior
+- [`STATE_SYNC_EXPERT.md`](./experts/STATE_SYNC_EXPERT.md) - IDB/server sync, optimistic concurrency, conflict resolution
+- [`WORKERS_EXPERT.md`](./experts/WORKERS_EXPERT.md) - GeometryWorker/ParquetWorker contracts and performance guardrails
+- [`BE_EXPERT.md`](./experts/BE_EXPERT.md) - FastAPI + SQLModel conventions and backend architecture
+- [`DB_QUERY_AND_MIGRATIONS_EXPERT.md`](./experts/DB_QUERY_AND_MIGRATIONS_EXPERT.md) - SQLAlchemy-first DB patterns, migrations, legacy UDF transition rules
+- [`GERRYDB_MAP_LIFECYCLE_EXPERT.md`](./experts/GERRYDB_MAP_LIFECYCLE_EXPERT.md) - map data lifecycle: imports, shatter setup, edges, graph linkage
+- [`PIPELINES_EXPERT.md`](./experts/PIPELINES_EXPERT.md) - tiles/tabular/transforms pipeline contracts and toolchain requirements
+- [`CMS_MODERATION_EXPERT.md`](./experts/CMS_MODERATION_EXPERT.md) - CMS editing/review and moderation workflows
+- [`AUTH_SHARE_SECURITY_EXPERT.md`](./experts/AUTH_SHARE_SECURITY_EXPERT.md) - Auth0 scopes, recaptcha, and share/edit token security
 
 ### Guide Selection Rules
 
-- Docker/config/startup/test commands → `DOCKER_EXPERT.md`
-- Interactive map behavior or rendering changes → `FE_EXPERT.md` + `MAP_RUNTIME_EXPERT.md`
-- Worker or large-data FE processing changes → `WORKERS_EXPERT.md`
-- Sync/conflict/local persistence changes → `STATE_SYNC_EXPERT.md`
-- Backend endpoint/model/query changes → `BE_EXPERT.md` + `DB_QUERY_AND_MIGRATIONS_EXPERT.md`
-- Map onboarding/import/shatter/edge/graph changes → `GERRYDB_MAP_LIFECYCLE_EXPERT.md` (+ `PIPELINES_EXPERT.md` if artifact generation changes)
-- CMS/comment/review changes → `CMS_MODERATION_EXPERT.md` (+ `AUTH_SHARE_SECURITY_EXPERT.md` if protected)
+- Docker/config/startup/test commands → [`DOCKER_EXPERT.md`](./experts/DOCKER_EXPERT.md)
+- Interactive map behavior or rendering changes → [`FE_EXPERT.md`](./experts/FE_EXPERT.md) + [`MAP_RUNTIME_EXPERT.md`](./experts/MAP_RUNTIME_EXPERT.md)
+- Worker or large-data FE processing changes → [`WORKERS_EXPERT.md`](./experts/WORKERS_EXPERT.md)
+- Sync/conflict/local persistence changes → [`STATE_SYNC_EXPERT.md`](./experts/STATE_SYNC_EXPERT.md)
+- Backend endpoint/model/query changes → [`BE_EXPERT.md`](./experts/BE_EXPERT.md) + [`DB_QUERY_AND_MIGRATIONS_EXPERT.md`](./experts/DB_QUERY_AND_MIGRATIONS_EXPERT.md)
+- Map onboarding/import/shatter/edge/graph changes → [`GERRYDB_MAP_LIFECYCLE_EXPERT.md`](./experts/GERRYDB_MAP_LIFECYCLE_EXPERT.md) (+ [`PIPELINES_EXPERT.md`](./experts/PIPELINES_EXPERT.md) if artifact generation changes)
+- CMS/comment/review changes → [`CMS_MODERATION_EXPERT.md`](./experts/CMS_MODERATION_EXPERT.md) (+ [`AUTH_SHARE_SECURITY_EXPERT.md`](./experts/AUTH_SHARE_SECURITY_EXPERT.md) if protected)
 
 ### Backend DB Policy Reminder
 
