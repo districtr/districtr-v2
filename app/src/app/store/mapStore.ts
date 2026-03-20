@@ -1015,11 +1015,12 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       if (mapLock || !mapDocument?.districtr_map_slug) {
         return;
       }
+      const {setMapOptions, mapMode} = useMapControlsStore.getState();
+      temporalManager.pause(mapMode);
       setMapLock({isLocked: true, reason: 'Breaking districts'});
       // set BLOCK_LAYER_ID based on features[0] to focused true
 
       const geoids = features.map(f => f.id?.toString()).filter(Boolean) as string[];
-      const {setMapOptions, mapMode} = useMapControlsStore.getState();
       const edgesResult = await getChildEdges({
         districtr_map_slug: mapDocument.districtr_map_slug,
         geoids,
@@ -1065,8 +1066,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           parentToChild.get(edge.parent_path)!.add(edge.child_path);
         }
       });
-
-      temporalManager.pause(mapMode);
       // Need to shatter all communities that that have that assignment since they can overlap
       if (mapMode === 'coi') {
         const {

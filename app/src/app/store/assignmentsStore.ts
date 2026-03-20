@@ -16,8 +16,6 @@ import {DocumentObject} from '../utils/api/apiHandlers/types';
 import {fetchDocument, SyncConflictInfo} from '../utils/api/apiHandlers/fetchDocument';
 import {createMapDocument} from '../utils/api/apiHandlers/createMapDocument';
 import {createWithFullMiddlewares} from './middlewares';
-import {temporalDiff} from './middlewareConfig';
-import {TEMPORAL_HISTORY_LIMIT} from '../constants/configuration';
 import {confirmMapDocumentUrlParameter} from '../utils/map/confirmMapDocumentUrlParameter';
 import {
   DocumentNotFoundError,
@@ -25,35 +23,8 @@ import {
   DocumentConflictResolutionError,
 } from './errors';
 import {temporalManager} from '../utils/temporal';
-
-export type AssignmentsTemporalSnapshot = {
-  shatterIds: {
-    parents: Set<string>;
-    children: Set<string>;
-  };
-  parentToChild: Map<string, Set<string>>;
-  childToParent: Map<string, string>;
-  zoneAssignments: Map<string, NullableZone>;
-  clientLastUpdated: string;
-};
-
-const cloneAssignmentsTemporalSnapshot = (
-  snapshot: AssignmentsTemporalSnapshot
-): AssignmentsTemporalSnapshot => ({
-  shatterIds: {
-    parents: new Set(snapshot.shatterIds.parents),
-    children: new Set(snapshot.shatterIds.children),
-  },
-  parentToChild: new Map(
-    Array.from(snapshot.parentToChild.entries()).map(([parentId, children]) => [
-      parentId,
-      new Set(children),
-    ])
-  ),
-  childToParent: new Map(snapshot.childToParent),
-  zoneAssignments: new Map(snapshot.zoneAssignments),
-  clientLastUpdated: snapshot.clientLastUpdated,
-});
+import {cloneTemporalSnapshot, AssignmentsTemporalSnapshot} from '../utils/temporalSnapshot';
+import {assignmentsTemporalConfig} from './middlewareConfig';
 
 export interface AssignmentsStore {
   /** Map of geoid -> zone assignments currently in memory */
@@ -343,15 +314,7 @@ const resolveFork = async ({
 
 export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
   'Districtr Assignments Store',
-  {
-    diff: temporalDiff,
-    limit: TEMPORAL_HISTORY_LIMIT,
-    // @ts-ignore: save only partial store
-    partialize: (state: AssignmentsStore) => {
-      const {shatterIds, parentToChild, childToParent, zoneAssignments, clientLastUpdated} = state;
-      return {shatterIds, parentToChild, childToParent, zoneAssignments, clientLastUpdated};
-    },
-  }
+  assignmentsTemporalConfig
 )((set, get) => ({
   zoneAssignments: new Map(),
   zonesLastUpdated: new Map(),
@@ -678,7 +641,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       zoneAssignments: currZoneAssignments,
       clientLastUpdated,
     } = get();
-    const preShatterSnapshot = cloneAssignmentsTemporalSnapshot({
+    const preShatterSnapshot = cloneTemporalSnapshot({
       shatterIds: currShatterIds,
       parentToChild: currParentToChild,
       childToParent: currChildToParent,

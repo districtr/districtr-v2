@@ -23,7 +23,9 @@ class TemporalManager {
    */
   public pause(mapMode: MapControlsStore['mapMode']) {
     const temporalState = this.getTemporalState(mapMode);
-    temporalState.isTracking && temporalState.pause();
+    if (temporalState.isTracking) {
+      temporalState.pause();
+    }
   }
 
   /**

@@ -31,9 +31,7 @@ import {createMapDocument} from '../utils/api/apiHandlers/createMapDocument';
 import {confirmMapDocumentUrlParameter} from '../utils/map/confirmMapDocumentUrlParameter';
 
 import {createWithFullMiddlewares} from './middlewares';
-import {temporalDiff} from './middlewareConfig';
-import {TEMPORAL_HISTORY_LIMIT} from '../constants/configuration';
-
+import {coiAssignmentsTemporalConfig} from './middlewareConfig';
 import {
   DocumentNotFoundError,
   DocumentCreationError,
@@ -693,29 +691,7 @@ const coiResolveFork = async ({
 
 export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsStore>(
   'Districtr COI Assignments Store',
-  {
-    diff: temporalDiff,
-    limit: TEMPORAL_HISTORY_LIMIT,
-    // @ts-ignore: save only partial store
-    partialize: (state: CoiAssignmentsStore) => {
-      const {
-        shatterIds,
-        parentToChild,
-        childToParent,
-        communityAssignments,
-        communityVisibility,
-        clientLastUpdated,
-      } = state;
-      return {
-        shatterIds,
-        parentToChild,
-        childToParent,
-        communityAssignments,
-        communityVisibility,
-        clientLastUpdated,
-      };
-    },
-  }
+  coiAssignmentsTemporalConfig
 )((set, get) => ({
   communityAssignments: new Map<Zone, Set<string>>(),
   communityVisibility: new Map<Zone, boolean>(),
