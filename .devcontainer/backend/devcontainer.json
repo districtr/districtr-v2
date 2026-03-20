@@ -1,0 +1,95 @@
+{
+  "name": "Districtr Backend (Python/FastAPI)",
+  "dockerComposeFile": [
+    "../../docker-compose.yml",
+    "../docker-compose.devcontainer.yml"
+  ],
+  "service": "backend",
+  "runServices": ["backend", "db"],
+  "workspaceFolder": "/districtr-backend",
+  "shutdownAction": "stopCompose",
+  "forwardPorts": [8000, 5432],
+  "portsAttributes": {
+    "8000": {
+      "label": "Backend API",
+      "onAutoForward": "notify"
+    },
+    "5432": {
+      "label": "PostgreSQL",
+      "onAutoForward": "silent"
+    }
+  },
+  "postCreateCommand": "pip install -r requirements.txt && alembic upgrade head",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
+        "ms-python.debugpy",
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-pg"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.analysis.typeCheckingMode": "basic",
+        "python.analysis.autoImportCompletions": true,
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff",
+          "editor.formatOnSave": true,
+          "editor.codeActionsOnSave": {
+            "source.fixAll.ruff": "explicit",
+            "source.organizeImports.ruff": "explicit"
+          }
+        },
+        "sqltools.connections": [
+          {
+            "name": "Districtr DB",
+            "driver": "PostgreSQL",
+            "server": "db",
+            "port": 5432,
+            "database": "districtr",
+            "username": "postgres",
+            "password": "postgres"
+          }
+        ]
+      },
+      "launch": {
+        "configurations": [
+          {
+            "name": "FastAPI: Debug",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+              "app.main:app",
+              "--host", "0.0.0.0",
+              "--port", "8000",
+              "--reload",
+              "--reload-exclude", ".venv/**/*.py"
+            ],
+            "jinja": true,
+            "env": {
+              "PYTHONDONTWRITEBYTECODE": "1"
+            }
+          },
+          {
+            "name": "Python: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+          },
+          {
+            "name": "Pytest: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": ["${file}", "-v"],
+            "console": "integratedTerminal"
+          }
+        ]
+      }
+    }
+  }
+}
