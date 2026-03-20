@@ -1,6 +1,8 @@
 import {useMemo} from 'react';
 import {FilterSpecification} from 'maplibre-gl';
 import {useAssignmentsStore} from '../store/assignmentsStore';
+import {useCoiAssignmentsStore} from '../store/coiAssignmentsStore';
+import {useMapControlsStore} from '../store/mapControlsStore';
 
 /**
  * Shallow array equality check for Zustand selector.
@@ -10,13 +12,18 @@ const arrayEquals = (a: string[], b: string[]): boolean =>
   a.length === b.length && a.every((v, i) => v === b[i]);
 
 export const useLayerFilter = (child: boolean) => {
-  // Convert Set to array in selector to ensure Zustand tracks changes properly
-  // Sets are compared by reference, so we need to convert to array for proper reactivity
-  // Use arrayEquals to only re-render when array contents actually change
-  const idsArray = useAssignmentsStore(
+  const mapMode = useMapControlsStore(state => state.mapMode);
+
+  // Convert Set to array in selector to ensure Zustand tracks changes properly.
+  const districtIdsArray = useAssignmentsStore(
     state => Array.from(child ? state.shatterIds.children : state.shatterIds.parents),
     arrayEquals
   );
+  const coiIdsArray = useCoiAssignmentsStore(
+    state => Array.from(child ? state.shatterIds.children : state.shatterIds.parents),
+    arrayEquals
+  );
+  const idsArray = mapMode === 'coi' ? coiIdsArray : districtIdsArray;
 
   const layerFilter = useMemo(() => {
     // For child layers: show only children (match IDs in the set)

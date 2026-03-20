@@ -4,6 +4,7 @@ import type {MapRef} from 'react-map-gl/maplibre';
 import {colorScheme as DefaultColorScheme} from '@constants/colors';
 import type {MapFeatureInfo} from '@constants/types';
 import {
+  Community,
   DistrictrMap,
   DocumentObject,
   DocumentMetadata,
@@ -14,14 +15,11 @@ import maplibregl from 'maplibre-gl';
 import type {MutableRefObject} from 'react';
 import {QueryObserverResult} from '@tanstack/react-query';
 import {ContextMenuState} from '@utils/map/types';
-import {checkIfSameZone} from '@utils/map/checkIfSameZone';
 import {resetZoneColors} from '@utils/map/resetZoneColors';
 import {setZones} from '@utils/map/setZones';
 import bbox from '@turf/bbox';
-import {FALLBACK_NUM_DISTRICTS} from '../constants/map/layerStyle';
+import {FALLBACK_NUM_COMMUNITIES} from '../constants/map/mapDefaults';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
-import {onlyUnique} from '../utils/arrays';
-import {queryClient} from '../utils/api/queryClient';
 import {createWithDevWrapperAndSubscribe} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
 import {nanoid} from 'nanoid';
@@ -30,20 +28,114 @@ import {demographyService} from '../utils/demography/demographyService';
 import {useDemographyStore} from './demography/demographyStore';
 import {extendColorArray} from '../utils/colors';
 import {getChildEdges} from '../utils/api/apiHandlers/getChildEdges';
-import {patchUnShatterParents} from '../utils/api/apiHandlers/patchUnShatterParents';
 import {DEFAULT_MAP_OPTIONS, useMapControlsStore} from './mapControlsStore';
 import {useAssignmentsStore} from './assignmentsStore';
+import {useCoiAssignmentsStore} from './coiAssignmentsStore';
 import {patchUpdateReset} from '../utils/api/apiHandlers/patchUpdateReset';
 import {idb} from '../utils/idb/idb';
+import {MAP_MODE_DEFAULT_OPTIONS} from '@/app/constants/map/mapModeDefaults';
+import {
+  DEFAULT_COMMUNITY_DESCRIPTION,
+  getNextCommunityName,
+  getHighestCommunityId,
+  getNextCommunityId,
+  getNextUnusedCommunityColor,
+  normalizeCommunities,
+  removeCommunityAndShiftRenderOrder,
+  sortCommunitiesByRenderOrder,
+  syncCoiColorsToColorScheme,
+} from '../utils/communities';
 
-const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
-  const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
-  for (const key in setRecord) {
-    if (setRecord.hasOwnProperty(key) && (!keys || keys?.includes(key))) {
-      setRecord[key].forEach(value => combinedSet.add(value)); // Add each value to the combined set
-    }
+const resolveNumCommunities = (
+  mapDocument: DocumentObject | null | undefined,
+  fallbackDocument?: DocumentObject | null
+) => {
+  return Math.max(
+    0,
+    mapDocument?.coi_communities?.length ??
+      fallbackDocument?.coi_communities?.length ??
+      mapDocument?.num_communities ??
+      fallbackDocument?.num_communities ??
+      FALLBACK_NUM_COMMUNITIES
+  );
+};
+
+const sanitizeCommunityDescription = (
+  description: string | undefined,
+  maxLength: number,
+  fallback = DEFAULT_COMMUNITY_DESCRIPTION
+) => (description?.trim() || fallback).slice(0, maxLength);
+
+const MISSING_DESCRIPTION_COMMENT_INDEX = -1;
+const trimCommentText = (text?: string | null) => (text ?? '').trim();
+
+const syncCommunityDescriptionComment = ({
+  comments,
+  communityId,
+  currentDescription,
+  nextDescription,
+  descriptionCommentId,
+}: {
+  comments: DocumentComment[];
+  communityId: number;
+  currentDescription: string;
+  nextDescription: string;
+  descriptionCommentId?: string | null;
+}) => {
+  let nextDescriptionCommentId = descriptionCommentId ?? null;
+  const currentDescriptionText = currentDescription.trim();
+  const nextDescriptionText = nextDescription.trim();
+  let descriptionCommentIndex = MISSING_DESCRIPTION_COMMENT_INDEX;
+
+  if (nextDescriptionCommentId !== null) {
+    descriptionCommentIndex = comments.findIndex(
+      comment => comment.comment_id === nextDescriptionCommentId
+    );
   }
-  return combinedSet; // Return the combined set
+
+  if (descriptionCommentIndex === MISSING_DESCRIPTION_COMMENT_INDEX) {
+    descriptionCommentIndex = comments.findIndex(
+      comment =>
+        comment.zone === communityId && trimCommentText(comment.text) === currentDescriptionText
+    );
+
+    // Failed to find an existing comment for the description, so we need to create one
+    if (descriptionCommentIndex === MISSING_DESCRIPTION_COMMENT_INDEX) {
+      const newCommentId = crypto.randomUUID();
+      return {
+        comments: [
+          ...comments,
+          {comment_id: newCommentId, zone: communityId, text: nextDescription},
+        ],
+        descriptionCommentId: newCommentId,
+        changed: true,
+      };
+    }
+
+    nextDescriptionCommentId = comments[descriptionCommentIndex].comment_id ?? null;
+  }
+
+  const currentComment = comments[descriptionCommentIndex];
+  if (
+    currentComment.zone === communityId &&
+    trimCommentText(currentComment.text) === nextDescriptionText
+  ) {
+    return {
+      comments,
+      descriptionCommentId: nextDescriptionCommentId,
+      changed: false,
+    };
+  }
+
+  return {
+    comments: comments.map((comment, index) =>
+      index === descriptionCommentIndex
+        ? {...comment, zone: communityId, text: nextDescription}
+        : comment
+    ),
+    descriptionCommentId: nextDescriptionCommentId,
+    changed: true,
+  };
 };
 
 export interface MapStore {
@@ -85,6 +177,16 @@ export interface MapStore {
   mapStatus: StatusObject | null;
   setMapStatus: (mapStatus: Partial<StatusObject>) => void;
   setNumDistricts: (numDistricts: number) => void;
+  numCommunities: number;
+  communities: Community[];
+  setNumCommunities: (numCommunities: number) => void;
+  setCommunities: (communities: Community[]) => void;
+  addCommunity: (options?: {name?: string; description?: string; color?: string}) => void;
+  updateCommunity: (
+    communityId: number,
+    options: {name?: string; description?: string; color?: string}
+  ) => void;
+  removeCommunity: (communityId: number) => void;
 
   // ZONE COMMENTS
   pinnedCommentZone: number | null;
@@ -182,7 +284,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const {focusFeatures} = get();
       const {healParentsIfAllChildrenInSameZone} = useAssignmentsStore.getState();
       const temporalState = useAssignmentsStore.temporal.getState();
-      const {setMapOptions} = useMapControlsStore.getState();
+      const {healParentsIfAllChildrenInSameCommunities} = useCoiAssignmentsStore.getState();
+      const {setMapOptions, mapMode} = useMapControlsStore.getState();
+      const focusedParentId = focusFeatures?.[0]?.id?.toString();
 
       set({
         captiveIds: new Set<string>(),
@@ -191,12 +295,15 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       setMapOptions({mode: 'default'});
       useMapControlsStore.setState({activeTool: 'shatter'});
 
-      const parentId = focusFeatures?.[0].id?.toString();
-      if (parentId) {
-        healParentsIfAllChildrenInSameZone({}, 'state');
-      }
-      if (!temporalState.isTracking) {
-        temporalState.resume();
+      if (mapMode === 'coi') {
+        healParentsIfAllChildrenInSameCommunities(
+          focusedParentId ? new Set<string>([focusedParentId]) : undefined
+        );
+      } else {
+        healParentsIfAllChildrenInSameZone(
+          focusedParentId ? {_parentIds: new Set<string>([focusedParentId])} : {},
+          'state'
+        );
       }
     },
     getMapRef: () => undefined,
@@ -213,6 +320,11 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     mapViews: {isPending: true},
     setMapViews: mapViews => set({mapViews}),
     mapDocument: null,
+    numCommunities: FALLBACK_NUM_COMMUNITIES,
+    communities: normalizeCommunities({
+      count: FALLBACK_NUM_COMMUNITIES,
+      colorScheme: DefaultColorScheme,
+    }),
     updated: {
       metadata: false,
       comments: false,
@@ -254,20 +366,43 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         newStateFipsSet = new Set(mapControlsState.mapOptions.stateFipsSet);
       }
 
-      // If the color scheme does not cover all districts, extend it
+      const numCommunities = resolveNumCommunities(
+        mapDocument,
+        idIsSame ? currentMapDocument : undefined
+      );
+      const existingCommunities = normalizeCommunities({
+        communities:
+          mapDocument.coi_communities ?? (idIsSame ? currentMapDocument?.coi_communities : null),
+        count: numCommunities,
+        colorScheme: mapDocument.color_scheme ?? DefaultColorScheme,
+      });
+
+      // If the color scheme does not cover all zones, extend it
       let colorScheme = mapDocument.color_scheme ?? DefaultColorScheme;
-      if (mapDocument.num_districts && mapDocument.num_districts > colorScheme.length) {
-        colorScheme = extendColorArray(colorScheme, mapDocument.num_districts);
+      const maxZoneCountForColors = Math.max(
+        mapDocument.num_districts ?? 0,
+        getHighestCommunityId(existingCommunities),
+        numCommunities
+      );
+      if (maxZoneCountForColors > colorScheme.length) {
+        colorScheme = extendColorArray(colorScheme, maxZoneCountForColors);
       }
+      const communities = normalizeCommunities({
+        communities: existingCommunities,
+        count: numCommunities,
+        colorScheme,
+      });
+      colorScheme = syncCoiColorsToColorScheme(communities, colorScheme);
 
       useMapControlsStore.setState({
         mapOptions: {
           ...DEFAULT_MAP_OPTIONS,
+          ...MAP_MODE_DEFAULT_OPTIONS[mapControlsState.mapMode],
           bounds: mapDocument.extent,
           stateFipsSet: newStateFipsSet,
         },
         activeTool: mapDocument.access === 'edit' ? mapControlsState.activeTool : 'pan',
-        selectedZone: 1,
+        selectedZone: communities[0]?.id ?? mapControlsState.selectedZone,
         sidebarPanels: ['population'],
         isPainting: false,
         isEditing: mapDocument.access === 'edit',
@@ -278,8 +413,12 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       set({
         mapDocument: {
           ...mapDocument,
+          num_communities: numCommunities,
+          coi_communities: communities,
           color_scheme: colorScheme,
         },
+        numCommunities,
+        communities,
         mapStatus: {
           access: mapDocument.access,
           genesis: mapDocument.genesis,
@@ -303,7 +442,41 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       await new Promise(resolve => setTimeout(resolve, 50));
       set({flushMapState: false});
     },
-    mutateMapDocument: mapDocument => set({mapDocument: {...get().mapDocument!, ...mapDocument}}),
+    mutateMapDocument: mapDocument =>
+      set(state => {
+        if (!state.mapDocument) return {};
+        const nextMapDocument = {...state.mapDocument, ...mapDocument};
+        const nextNumCommunities = resolveNumCommunities(nextMapDocument, state.mapDocument);
+        const existingCommunities = normalizeCommunities({
+          communities: nextMapDocument.coi_communities,
+          count: nextNumCommunities,
+          colorScheme: nextMapDocument.color_scheme ?? DefaultColorScheme,
+        });
+        const nextColorScheme = extendColorArray(
+          nextMapDocument.color_scheme ?? DefaultColorScheme,
+          Math.max(
+            nextNumCommunities,
+            nextMapDocument.num_districts ?? 0,
+            getHighestCommunityId(existingCommunities)
+          )
+        );
+        const nextCommunities = normalizeCommunities({
+          communities: existingCommunities,
+          count: nextNumCommunities,
+          colorScheme: nextColorScheme,
+        });
+        const syncedColorScheme = syncCoiColorsToColorScheme(nextCommunities, nextColorScheme);
+        return {
+          mapDocument: {
+            ...nextMapDocument,
+            color_scheme: syncedColorScheme,
+            num_communities: nextNumCommunities,
+            coi_communities: nextCommunities,
+          },
+          numCommunities: nextNumCommunities,
+          communities: nextCommunities,
+        };
+      }),
     clearUpdatedChanges: () => set({updated: {metadata: false, comments: false}}),
 
     // ZONE COMMENTS
@@ -429,11 +602,11 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       set({mapStatus: {...prev, ...mapStatus} as StatusObject});
     },
     setNumDistricts: numDistricts => {
-      const {mapDocument, updated} = get();
+      const {mapDocument, updated, numCommunities} = get();
       if (!mapDocument) return;
       const newColorScheme = extendColorArray(
         mapDocument.color_scheme ?? DefaultColorScheme,
-        numDistricts
+        Math.max(numDistricts, numCommunities)
       );
       const updatedDocument = {
         ...mapDocument,
@@ -474,6 +647,341 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           });
       }
     },
+    setNumCommunities: numCommunities => {
+      const {mapDocument, updated} = get();
+      if (!mapDocument) return;
+      const normalizedNumCommunities = Math.max(0, numCommunities);
+      const existingCommunities = get().communities;
+      const newColorScheme = extendColorArray(
+        mapDocument.color_scheme ?? DefaultColorScheme,
+        Math.max(
+          normalizedNumCommunities,
+          mapDocument.num_districts ?? 0,
+          getHighestCommunityId(existingCommunities)
+        )
+      );
+      const nextCommunities = normalizeCommunities({
+        communities: existingCommunities,
+        count: normalizedNumCommunities,
+        colorScheme: newColorScheme,
+      });
+      const syncedColorScheme = syncCoiColorsToColorScheme(nextCommunities, newColorScheme);
+      const updatedDocument = {
+        ...mapDocument,
+        num_communities: normalizedNumCommunities,
+        coi_communities: nextCommunities,
+        color_scheme: syncedColorScheme,
+      };
+      set({
+        mapDocument: updatedDocument,
+        numCommunities: normalizedNumCommunities,
+        communities: nextCommunities,
+        updated: {
+          ...updated,
+          metadata: true,
+        },
+      });
+
+      if (mapDocument.document_id) {
+        const newClientLastUpdated = new Date().toISOString();
+        if (useMapControlsStore.getState().mapMode === 'coi') {
+          useCoiAssignmentsStore.getState().setClientLastUpdated(newClientLastUpdated);
+        } else {
+          useAssignmentsStore.getState().setClientLastUpdated(newClientLastUpdated);
+        }
+
+        idb
+          .getDocument(mapDocument.document_id)
+          .then(idbDoc => {
+            if (idbDoc) {
+              idb
+                .updateDocument({
+                  id: mapDocument.document_id,
+                  document_metadata: updatedDocument,
+                  assignments: idbDoc.assignments,
+                  clientLastUpdated: newClientLastUpdated,
+                })
+                .catch(err => {
+                  console.error('Failed to update IDB with num_communities:', err);
+                });
+            }
+          })
+          .catch(err => {
+            console.error('Failed to get IDB document:', err);
+          });
+      }
+    },
+    setCommunities: communities => {
+      const {mapDocument, updated} = get();
+      if (!mapDocument) return;
+      const count = Math.max(0, communities.length);
+      const newColorScheme = extendColorArray(
+        mapDocument.color_scheme ?? DefaultColorScheme,
+        Math.max(count, mapDocument.num_districts ?? 0, getHighestCommunityId(communities))
+      );
+      const nextCommunities = normalizeCommunities({
+        communities,
+        count,
+        colorScheme: newColorScheme,
+      });
+      const syncedColorScheme = syncCoiColorsToColorScheme(nextCommunities, newColorScheme);
+      const updatedDocument = {
+        ...mapDocument,
+        num_communities: count,
+        coi_communities: nextCommunities,
+        color_scheme: syncedColorScheme,
+      };
+      set({
+        mapDocument: updatedDocument,
+        numCommunities: count,
+        communities: nextCommunities,
+        updated: {
+          ...updated,
+          metadata: true,
+        },
+      });
+    },
+    addCommunity: options => {
+      const {mapDocument, updated, communities} = get();
+      if (!mapDocument) return;
+      const orderedCommunities = sortCommunitiesByRenderOrder(communities);
+      const nextCount = communities.length + 1;
+      const nextCommunityId = getNextCommunityId(orderedCommunities);
+      const trimmedName = options?.name?.trim();
+      const trimmedColor = options?.color?.trim();
+      const nextDescription = sanitizeCommunityDescription(
+        options?.description,
+        mapDocument.comment_length_limit ?? 240
+      );
+      const currentComments = mapDocument.document_comments ?? [];
+      const newColorScheme = extendColorArray(
+        mapDocument.color_scheme ?? DefaultColorScheme,
+        Math.max(nextCount, mapDocument.num_districts ?? 0, nextCommunityId)
+      );
+      const nextCommunities = [
+        ...orderedCommunities,
+        {
+          id: nextCommunityId,
+          render_order_id: orderedCommunities.length + 1,
+          name: trimmedName || getNextCommunityName(orderedCommunities),
+          description: nextDescription,
+          color: trimmedColor || getNextUnusedCommunityColor(orderedCommunities, newColorScheme),
+          createdAt: new Date().toISOString(),
+        },
+      ];
+      const initialCommunityComment: DocumentComment = {
+        comment_id: crypto.randomUUID(),
+        zone: nextCommunityId,
+        text: nextDescription,
+      };
+      nextCommunities[nextCommunities.length - 1].descriptionCommentId =
+        initialCommunityComment.comment_id;
+      const syncedColorScheme = syncCoiColorsToColorScheme(nextCommunities, newColorScheme);
+      const updatedDocument = {
+        ...mapDocument,
+        num_communities: nextCount,
+        coi_communities: nextCommunities,
+        color_scheme: syncedColorScheme,
+        document_comments: [...currentComments, initialCommunityComment],
+      };
+      const clientLastUpdated = new Date().toISOString();
+      set({
+        mapDocument: updatedDocument,
+        numCommunities: nextCount,
+        communities: nextCommunities,
+        updated: {
+          metadata: true,
+          comments: true,
+        },
+      });
+      useCoiAssignmentsStore.getState().ensureCommunityVisibility(nextCommunityId);
+      useMapControlsStore.getState().setSelectedZone(nextCommunityId);
+      useCoiAssignmentsStore.getState().setClientLastUpdated(clientLastUpdated);
+      if (mapDocument.document_id) {
+        idb
+          .getDocument(mapDocument.document_id)
+          .then(idbDoc => {
+            if (!idbDoc) return;
+            idb.updateDocument({
+              id: mapDocument.document_id,
+              document_metadata: updatedDocument,
+              assignments: idbDoc.assignments,
+              clientLastUpdated,
+            });
+          })
+          .catch(err => {
+            console.error('Failed to update IDB with coi_communities:', err);
+          });
+      }
+    },
+    updateCommunity: (communityId, options) => {
+      const {mapDocument, updated, communities} = get();
+      if (!mapDocument) return;
+
+      const orderedCommunities = sortCommunitiesByRenderOrder(communities);
+      const currentCommunity = orderedCommunities.find(community => community.id === communityId);
+      if (!currentCommunity) return;
+
+      const nextName = options.name?.trim() || currentCommunity.name;
+      const nextColor = options.color?.trim() || currentCommunity.color;
+      const nextDescription = sanitizeCommunityDescription(
+        options.description,
+        mapDocument.comment_length_limit ?? 240
+      );
+      const syncedDescriptionComment = syncCommunityDescriptionComment({
+        comments: mapDocument.document_comments ?? [],
+        communityId,
+        currentDescription: currentCommunity.description,
+        nextDescription,
+        descriptionCommentId: currentCommunity.descriptionCommentId,
+      });
+      const nextCommunities = orderedCommunities.map(community =>
+        community.id === communityId
+          ? {
+              ...community,
+              name: nextName,
+              color: nextColor,
+              description: nextDescription,
+              descriptionCommentId: syncedDescriptionComment.descriptionCommentId,
+            }
+          : community
+      );
+      const metadataChanged =
+        nextName !== currentCommunity.name ||
+        nextColor !== currentCommunity.color ||
+        nextDescription !== currentCommunity.description ||
+        syncedDescriptionComment.descriptionCommentId !== currentCommunity.descriptionCommentId;
+
+      if (!metadataChanged && !syncedDescriptionComment.changed) {
+        return;
+      }
+
+      const newColorScheme = extendColorArray(
+        mapDocument.color_scheme ?? DefaultColorScheme,
+        Math.max(mapDocument.num_districts ?? 0, getHighestCommunityId(nextCommunities))
+      );
+      const syncedColorScheme = syncCoiColorsToColorScheme(nextCommunities, newColorScheme);
+      const updatedDocument = {
+        ...mapDocument,
+        coi_communities: nextCommunities,
+        color_scheme: syncedColorScheme,
+        document_comments: syncedDescriptionComment.comments,
+      };
+      const clientLastUpdated = new Date().toISOString();
+
+      set({
+        mapDocument: updatedDocument,
+        communities: nextCommunities,
+        updated: {
+          metadata: updated.metadata || metadataChanged,
+          comments: updated.comments || syncedDescriptionComment.changed,
+        },
+      });
+
+      useCoiAssignmentsStore.getState().setClientLastUpdated(clientLastUpdated);
+
+      if (mapDocument.document_id) {
+        idb
+          .getDocument(mapDocument.document_id)
+          .then(idbDoc => {
+            if (!idbDoc) return;
+            idb.updateDocument({
+              id: mapDocument.document_id,
+              document_metadata: updatedDocument,
+              assignments: idbDoc.assignments,
+              clientLastUpdated,
+            });
+          })
+          .catch(err => {
+            console.error('Failed to update IDB after editing a COI community:', err);
+          });
+      }
+    },
+    removeCommunity: communityId => {
+      const {mapDocument, communities, pinnedCommentZone} = get();
+      if (!mapDocument || communities.length <= 0) return;
+      const orderedCommunities = sortCommunitiesByRenderOrder(communities);
+      const removedCommunityIndex = orderedCommunities.findIndex(
+        community => community.id === communityId
+      );
+      if (removedCommunityIndex === -1) return;
+      const remainingCommunities = removeCommunityAndShiftRenderOrder(
+        orderedCommunities,
+        communityId
+      );
+      const updatedComments = (mapDocument.document_comments ?? []).filter(
+        comment => comment.zone !== communityId
+      );
+
+      const selectedZone = useMapControlsStore.getState().selectedZone;
+      const neighboringCommunityId =
+        remainingCommunities[removedCommunityIndex]?.id ??
+        remainingCommunities[Math.max(0, removedCommunityIndex - 1)]?.id ??
+        remainingCommunities[0]?.id ??
+        1;
+
+      const remappedSelectedZone =
+        selectedZone === communityId ||
+        !remainingCommunities.some(community => community.id === selectedZone)
+          ? neighboringCommunityId
+          : selectedZone;
+
+      const remappedLockedZones = useMapControlsStore
+        .getState()
+        .mapOptions.lockPaintedAreas.filter(zone => zone !== communityId);
+
+      const remappedPinnedZone = pinnedCommentZone === communityId ? null : pinnedCommentZone;
+      const updatedDocument = {
+        ...mapDocument,
+        num_communities: remainingCommunities.length,
+        coi_communities: remainingCommunities,
+        color_scheme: syncCoiColorsToColorScheme(
+          remainingCommunities,
+          mapDocument.color_scheme ?? DefaultColorScheme
+        ),
+        document_comments: updatedComments,
+      };
+
+      const clientLastUpdated = new Date().toISOString();
+
+      set({
+        mapDocument: updatedDocument,
+        numCommunities: remainingCommunities.length,
+        communities: remainingCommunities,
+        pinnedCommentZone: remappedPinnedZone,
+        updated: {
+          metadata: true,
+          comments: true,
+        },
+      });
+
+      useMapControlsStore.setState(state => ({
+        selectedZone: remappedSelectedZone,
+        mapOptions: {
+          ...state.mapOptions,
+          lockPaintedAreas: remappedLockedZones,
+        },
+      }));
+
+      useCoiAssignmentsStore.getState().removeCommunity(communityId);
+
+      if (mapDocument.document_id) {
+        idb
+          .getDocument(mapDocument.document_id)
+          .then(idbDoc => {
+            if (!idbDoc) return;
+            idb.updateDocument({
+              id: mapDocument.document_id,
+              document_metadata: updatedDocument,
+              assignments: idbDoc.assignments,
+              clientLastUpdated,
+            });
+          })
+          .catch(err => {
+            console.error('Failed to update IDB after removing a COI community:', err);
+          });
+      }
+    },
     handleShatter: async features => {
       const {mapDocument, mapLock, setMapLock} = get();
       if (!features.length) {
@@ -487,15 +995,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       // set BLOCK_LAYER_ID based on features[0] to focused true
 
       const geoids = features.map(f => f.id?.toString()).filter(Boolean) as string[];
-      const updateHash = new Date().toISOString();
-      const {
-        shatterIds,
-        parentToChild: _parentToChild,
-        childToParent: _childToParent,
-        zoneAssignments: currentZoneAssignments,
-        setShatterState,
-      } = useAssignmentsStore.getState();
-      const {setMapOptions} = useMapControlsStore.getState();
+      const {setMapOptions, mapMode} = useMapControlsStore.getState();
       const edgesResult = await getChildEdges({
         districtr_map_slug: mapDocument.districtr_map_slug,
         geoids,
@@ -512,12 +1012,16 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       }
       // TODO Need to return child edges even if the parent is already shattered
       // currently returns nothing
+      const {
+        shatterIds,
+        parentToChild: currentParentToChild,
+        childToParent: currentChildToParent,
+      } = mapMode === 'coi' ? useCoiAssignmentsStore.getState() : useAssignmentsStore.getState();
       let parents = new Set(shatterIds.parents);
       let children = new Set(shatterIds.children);
       let captiveIds = new Set<string>();
-      let parentToChild = new Map(_parentToChild);
-      let childToParent = new Map(_childToParent);
-      const zoneAssignments = new Map(currentZoneAssignments);
+      let parentToChild = new Map(currentParentToChild);
+      let childToParent = new Map(currentChildToParent);
       const zonesToSet: Record<string, Set<string>> = {};
       edgesResult.forEach(edge => {
         parents.add(edge.parent_path);
@@ -538,30 +1042,59 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         }
       });
 
-      Object.entries(zonesToSet).forEach(([parent, children]) => {
-        setZones(zoneAssignments, parent, children);
-      });
+      // Need to shatter all communities that that have that assignment since they can overlap
+      if (mapMode === 'coi') {
+        const {
+          communityAssignments: currentCommunityAssignments,
+          setShatterState,
+          replaceCommunityAssignments,
+        } = useCoiAssignmentsStore.getState();
+        const newCommunityAssignments = new Map<number, Set<string>>();
+        currentCommunityAssignments.forEach((assignedGeoids, community) => {
+          newCommunityAssignments.set(community, new Set(assignedGeoids));
+        });
+        Object.entries(zonesToSet).forEach(([parent, childSet]) => {
+          newCommunityAssignments.forEach(assignedGeoids => {
+            if (!assignedGeoids.has(parent)) return;
+            assignedGeoids.delete(parent);
+            childSet.forEach(childId => {
+              assignedGeoids.add(childId);
+            });
+          });
+        });
+        setShatterState({
+          shatterIds: {
+            parents,
+            children,
+          },
+          parentToChild,
+          childToParent,
+        });
+        replaceCommunityAssignments(newCommunityAssignments);
+      } else {
+        // Path for original zone shatter
+        const {zoneAssignments: currentZoneAssignments, setShatterState} =
+          useAssignmentsStore.getState();
+        const zoneAssignments = new Map(currentZoneAssignments);
+        Object.entries(zonesToSet).forEach(([parent, childSet]) => {
+          setZones(zoneAssignments, parent, childSet);
+        });
+        setShatterState({
+          shatterIds: {
+            parents,
+            children,
+          },
+          parentToChild,
+          childToParent,
+          zoneAssignments,
+        });
+      }
 
       const featureBbox = features[0].geometry && bbox(features[0].geometry);
       const mapBbox =
         featureBbox?.length && featureBbox?.length >= 4
           ? (featureBbox.slice(0, 4) as maplibregl.LngLatBoundsLike)
           : undefined;
-
-      const temporalState = useAssignmentsStore.temporal.getState();
-      if (temporalState.isTracking) {
-        temporalState.pause();
-      }
-
-      setShatterState({
-        shatterIds: {
-          parents,
-          children,
-        },
-        parentToChild,
-        childToParent,
-        zoneAssignments: zoneAssignments,
-      });
 
       set({
         mapLock: null,

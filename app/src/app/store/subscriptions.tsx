@@ -6,6 +6,7 @@ import {MapStore, useMapStore} from './mapStore';
 import {useMapControlsStore} from './mapControlsStore';
 import {useAssignmentsStore} from './assignmentsStore';
 import {demographyService} from '../utils/demography/demographyService';
+import {useCoiAssignmentsStore} from './coiAssignmentsStore';
 
 export const initSubs = (readOnly = false) => {
   // these need to initialize after the map store
@@ -21,6 +22,61 @@ export const initSubs = (readOnly = false) => {
       if (mapOptions.showDemographicMap) {
         useDemographyStore.getState().updateData(mapDocument);
       }
+    }
+  );
+
+  const demogMapDocumentSub = useMapStore.subscribe(
+    state => state.mapDocument,
+    (curr, prev) => {
+      if (!curr || prev === curr || prev?.document_id === curr.document_id) return;
+      useDemographyStore.getState().updateData(curr);
+    }
+  );
+  const numDistrictsSub = useMapStore.subscribe(
+    state => state.mapDocument?.num_districts,
+    (curr, prev) => {
+      if (!curr || prev === curr) return;
+      demographyService.updateSummaryStats();
+    }
+  );
+  const numCommunitiesSub = useMapStore.subscribe(
+    state => state.numCommunities,
+    (curr, prev) => {
+      if (prev === curr) return;
+      demographyService.updateSummaryStats();
+    }
+  );
+
+  const demogShatterSub = useAssignmentsStore.subscribe(
+    state => state.shatterIds.parents,
+    (curr, prev) => {
+      if (useMapControlsStore.getState().mapMode === 'coi') return;
+      if (!curr || prev === curr) return;
+      const mapDocument = useMapStore.getState().mapDocument;
+      if (!mapDocument) return;
+      useDemographyStore.getState().updateData(mapDocument, Array.from(curr));
+    }
+  );
+  const demogCoiShatterSub = useCoiAssignmentsStore.subscribe(
+    state => state.shatterIds.parents,
+    (curr, prev) => {
+      if (useMapControlsStore.getState().mapMode !== 'coi') return;
+      if (!curr || prev === curr) return;
+      const mapDocument = useMapStore.getState().mapDocument;
+      if (!mapDocument) return;
+      useDemographyStore.getState().updateData(mapDocument, Array.from(curr));
+    }
+  );
+
+  const paintFlushSub = useMapControlsStore.subscribe(
+    state => state.isPainting,
+    (isPainting, wasPainting) => {
+      if (!wasPainting || isPainting) return;
+      if (useMapControlsStore.getState().mapMode === 'coi') {
+        useCoiAssignmentsStore.getState().ingestAccumulatedAssignments();
+        return;
+      }
+      useAssignmentsStore.getState().ingestAccumulatedAssignments();
     }
   );
 
@@ -91,6 +147,12 @@ export const initSubs = (readOnly = false) => {
   const unsub = () => {
     querySubs();
     demogInitSub();
+    demogMapDocumentSub();
+    numDistrictsSub();
+    numCommunitiesSub();
+    demogShatterSub();
+    demogCoiShatterSub();
+    paintFlushSub();
     featureFlagSub();
     readOnlyUnsubs.forEach(sub => sub());
     editorUnsubs.forEach(sub => sub());

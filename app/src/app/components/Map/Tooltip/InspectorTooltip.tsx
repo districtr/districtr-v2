@@ -9,6 +9,28 @@ import {PARTISAN_SCALE} from '@store/demography/constants';
 import {INSPECTOR_TITLE, TOTAL_COLUMN} from '@components/Map/Tooltip/InpsectorTooltipConfig';
 import {previousHoverFeatures as hoverFeatures} from '@/app/utils/map/hoverFeatures';
 
+const withOpacity = (color: string, opacity: number) => {
+  if (color.startsWith('rgba(')) return color;
+  if (color.startsWith('rgb(')) {
+    return color.replace('rgb(', 'rgba(').replace(')', `, ${opacity})`);
+  }
+  if (color.startsWith('#')) {
+    const hex = color.slice(1);
+    const normalized =
+      hex.length === 3
+        ? hex
+            .split('')
+            .map(char => char + char)
+            .join('')
+        : hex;
+    const red = parseInt(normalized.slice(0, 2), 16);
+    const green = parseInt(normalized.slice(2, 4), 16);
+    const blue = parseInt(normalized.slice(4, 6), 16);
+    return `rgba(${red}, ${green}, ${blue}, ${opacity})`;
+  }
+  return color;
+};
+
 export const InspectorTooltip = () => {
   const activeColumns = useTooltipStore(state => state.activeColumns);
   const inspectorMode = useTooltipStore(state => state.inspectorMode);
@@ -25,6 +47,20 @@ export const InspectorTooltip = () => {
   const totalColumn = TOTAL_COLUMN[inspectorMode];
   const totalValue = totalColumn && inspectorData[totalColumn];
   const showBars = Boolean(!totalColumn || (totalColumn && totalValue));
+  const getRowBackground = (column: string) => {
+    if (!showBars) return undefined;
+    const rowPct =
+      inspectorMode === 'VOTERHISTORY' ? 1 : Math.max(0, inspectorData[`${column}_pct`] ?? 0);
+    const widthPct = Math.min(rowPct, 1) * 100;
+    const rowColor =
+      inspectorMode === 'VOTERHISTORY' && !isNaN(inspectorData[`${column}_pct`])
+        ? withOpacity(PARTISAN_SCALE((inspectorData[`${column}_pct`] + 1) / 2), 0.15)
+        : 'rgba(17, 24, 39, 0.15)';
+
+    return {
+      backgroundImage: `linear-gradient(to right, ${rowColor} 0%, ${rowColor} ${widthPct}%, transparent ${widthPct}%, transparent 100%)`,
+    };
+  };
 
   useEffect(() => {
     if (stableIds.length > 0) {
@@ -61,29 +97,13 @@ export const InspectorTooltip = () => {
         {config
           .filter(f => activeColumns.includes(f.column))
           .map(f => (
-            <Table.Row key={f.column} className="relative">
+            <Table.Row key={f.column} style={getRowBackground(f.column)}>
               <Table.Cell>{f.label}</Table.Cell>
               <Table.Cell>
                 {!isNaN(inspectorData[f.column + columnSuffix])
                   ? formatNumber(inspectorData[f.column + columnSuffix] ?? 0, standardFormat)
                   : 'No data'}
               </Table.Cell>
-              {showBars && (
-                <span
-                  className="bg-gray-900 absolute h-full top-0 left-0"
-                  style={{
-                    width:
-                      inspectorMode === 'VOTERHISTORY'
-                        ? '100%'
-                        : `${(inspectorData[f.column + '_pct'] ?? 0) * 100}%`,
-                    opacity: '.15',
-                    backgroundColor:
-                      inspectorMode === 'VOTERHISTORY' && !isNaN(inspectorData[f.column + '_pct'])
-                        ? PARTISAN_SCALE((inspectorData[f.column + '_pct'] + 1) / 2)
-                        : undefined,
-                  }}
-                />
-              )}
             </Table.Row>
           ))}
       </Table.Body>

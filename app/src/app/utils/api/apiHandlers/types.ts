@@ -65,6 +65,16 @@ export interface DocumentMetadata {
   draft_status: DraftStatus | null;
 }
 
+export interface Community {
+  id: number;
+  render_order_id: number;
+  name: string;
+  description: string;
+  color: string;
+  createdAt: string;
+  descriptionCommentId?: string | null;
+}
+
 export interface DocumentObject extends StatusObject {
   document_id: string;
   public_id: number | null;
@@ -74,6 +84,10 @@ export interface DocumentObject extends StatusObject {
   child_layer: string | null;
   tiles_s3_path: string | null;
   num_districts: number | null;
+  /** COI-only local metadata for community count. */
+  num_communities?: number | null;
+  /** COI-only local metadata for explicit community ordering/color state. */
+  coi_communities?: Community[] | null;
   /** If false, users cannot change the number of districts on the frontend. */
   num_districts_modifiable?: boolean;
   map_module: string | null;
@@ -83,6 +97,7 @@ export interface DocumentObject extends StatusObject {
   map_metadata: DocumentMetadata;
   color_scheme: string[] | null;
   map_type: 'default' | 'local';
+  document_type: 'district' | 'coi';
   comment: string | null;
   parent_geo_unit_type: string | null;
   child_geo_unit_type: string | null;
@@ -106,12 +121,15 @@ export interface DocumentComment {
 export interface MinPublicDocument {
   public_id: number;
   map_metadata: DocumentMetadata;
+  document_type: 'district' | 'coi';
   map_module: string;
   updated_at: string;
 }
 
 export interface DocumentCreate {
   districtr_map_slug: string;
+  /** Defaults to "district" when omitted. When copying, inherited from source. */
+  document_type?: 'district' | 'coi';
   metadata?: DocumentMetadata;
   copy_from_doc?: string | number;
 }

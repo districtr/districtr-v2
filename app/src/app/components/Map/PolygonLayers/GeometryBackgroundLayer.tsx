@@ -1,6 +1,6 @@
 import type React from 'react';
 import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerIds';
-import type {FilterSpecification} from 'maplibre-gl';
+import type {ExpressionSpecification, FilterSpecification} from 'maplibre-gl';
 import {Layer} from 'react-map-gl/maplibre';
 import {SENTINEL_EMPTY_VALUE, sourceLayerProp} from '@/app/constants/map/layerStyle';
 
@@ -12,8 +12,23 @@ export const GeometryBackgroundLayer: React.FC<{
   style?: {
     backgroundOpacity?: number;
   };
-}> = ({id, sourceLayerId, filter, beforeId, style}) => {
+  visibleMembershipKeys?: string[];
+}> = ({id, sourceLayerId, filter, beforeId, style, visibleMembershipKeys}) => {
   const backgroundOpacity = style?.backgroundOpacity ?? 0.2;
+  const hideWhenAssignedExpression = (visibleMembershipKeys?.length
+    ? [
+        'any',
+        ...visibleMembershipKeys.map(membershipKey => [
+          'boolean',
+          ['feature-state', membershipKey],
+          false,
+        ]),
+      ]
+    : [
+        '!=',
+        ['coalesce', ['feature-state', 'zone'], SENTINEL_EMPTY_VALUE],
+        SENTINEL_EMPTY_VALUE,
+      ]) as unknown as ExpressionSpecification;
 
   return (
     <Layer
@@ -25,16 +40,7 @@ export const GeometryBackgroundLayer: React.FC<{
       type="fill"
       layout={{visibility: 'visible'}}
       paint={{
-        'fill-opacity': [
-          'case',
-          [
-            '!=',
-            ['coalesce', ['feature-state', 'zone'], SENTINEL_EMPTY_VALUE],
-            SENTINEL_EMPTY_VALUE,
-          ],
-          0,
-          backgroundOpacity,
-        ],
+        'fill-opacity': ['case', hideWhenAssignedExpression, 0, backgroundOpacity],
         'fill-color': '#cecece',
       }}
     />
