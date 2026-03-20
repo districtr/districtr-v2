@@ -52,12 +52,18 @@ export const AddCommunityDialog: React.FC<AddCommunityDialogProps> = ({
   const submitLabel = mode === 'edit' ? 'Save Changes' : 'Add Community';
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      document.body.style.pointerEvents = '';
+      return;
+    }
     setCommunityName(defaultName);
     setCommunityDescription(defaultDescription);
     setSelectedColor(defaultColor);
     setColorMenuOpen(false);
     setColorTab('palette');
+    return () => {
+      document.body.style.pointerEvents = '';
+    };
   }, [availableColors, defaultColor, defaultDescription, defaultName, open]);
 
   const handleCustomColorChange = (color: ColorResult) => {
