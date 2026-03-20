@@ -288,6 +288,10 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const {healParentsIfAllChildrenInSameZone} = useAssignmentsStore.getState();
       const {healParentsIfAllChildrenInSameCommunities} = useCoiAssignmentsStore.getState();
       const {setMapOptions, mapMode} = useMapControlsStore.getState();
+      const temporalState =
+        mapMode === 'coi'
+          ? useAssignmentsStore.temporal.getState()
+          : useAssignmentsStore.temporal.getState();
       const focusedParentId = focusFeatures?.[0]?.id?.toString();
 
       set({
@@ -306,6 +310,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           focusedParentId ? {_parentIds: new Set<string>([focusedParentId])} : {},
           'state'
         );
+        if (!temporalState.isTracking) {
+          temporalState.resume();
+        }
       }
     },
 
@@ -1064,6 +1071,13 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         }
       });
 
+      const temporalState =
+        mapMode === 'coi'
+          ? useCoiAssignmentsStore.temporal.getState()
+          : useAssignmentsStore.temporal.getState();
+      if (temporalState.isTracking) {
+        temporalState.pause();
+      }
       // Need to shatter all communities that that have that assignment since they can overlap
       if (mapMode === 'coi') {
         const {

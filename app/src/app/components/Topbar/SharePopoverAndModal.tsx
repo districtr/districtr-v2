@@ -19,6 +19,8 @@ export const SharePopoverAndModal: React.FC<{
             disabled={!mapDocument?.document_id}
             onClick={() => setModalOpen(true)}
             size="1"
+            aria-label="Share map"
+            data-testid="share-button"
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
             variant="ghost"

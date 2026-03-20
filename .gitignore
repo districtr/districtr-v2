@@ -94,3 +94,6 @@ pipelines/build/*
 # misc
 docker-compose.mac.yml
 app/public/*-basemap-style.json
+/app/test-results
+/app/playwright-report
+app/playwright-report/index.html

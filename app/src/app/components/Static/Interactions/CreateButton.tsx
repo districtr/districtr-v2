@@ -39,7 +39,11 @@ export const CreateButton: React.FC<{view: Partial<DistrictrMap>; extraClasses?:
   };
 
   return (
-    <Button onClick={handleCreatePlan} className={`w-fit h-auto px-2 py-1 ${extraClasses}`}>
+    <Button
+      onClick={handleCreatePlan}
+      className={`w-fit h-auto px-2 py-1 ${extraClasses}`}
+      aria-label={`Create ${view.name} map`}
+    >
       {view.name}
     </Button>
   );

@@ -37,6 +37,126 @@ To learn more about Next.js, take a look at the following resources:
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your
 feedback and contributions are welcome!
 
+## E2E Testing
+
+This project uses [Playwright](https://playwright.dev/) for end-to-end testing. The test suite
+covers static pages, map creation, drawing tools, sidebar interactions, and save/share
+functionality.
+
+### Setup
+
+```bash
+# Install dependencies (includes Playwright)
+bun install
+
+# Install Playwright browsers
+npx playwright install
+```
+
+### Running Tests
+
+**From host machine (recommended for simplicity and map/WebGL tests):**
+
+Run backend/frontend with Docker, then execute Playwright on your host machine.
+
+> Recommended default: run Playwright on the host for the simplest setup and fewer container/browser
+> issues. Host browsers also use host GPU acceleration, which helps with WebGL-heavy map tests.
+
+> Use `frontend-prod` for E2E runs. It avoids repeated dev recompilation and typically gets tests
+> running faster once the image is built.
+
+```bash
+# Start app services
+docker-compose up -d db backend frontend-prod
+
+# Install Playwright browsers (first time only)
+npx playwright install
+
+# Run all tests
+bun run test:e2e
+
+# Run with UI mode for debugging
+bun run test:e2e:ui
+
+# Run headed (visible browser)
+bun run test:e2e:headed
+```
+
+**Inside Docker (optional):**
+
+If you still want to execute Playwright in the container:
+
+```bash
+# Start services
+docker-compose up -d db backend frontend-prod
+
+# Open a shell in the frontend container
+docker-compose exec frontend-prod sh
+
+# Then inside the container:
+npx playwright install
+bun run test:e2e
+```
+
+**Against a preview/staging environment:**
+
+```bash
+# Test against a Fly.io preview deployment
+BASE_URL=https://districtr-v2-pr-123.fly.dev bun run test:e2e
+
+# Or use the convenience script
+PREVIEW_URL=https://districtr-v2-pr-123.fly.dev bun run test:e2e:preview
+```
+
+### Test Structure
+
+```
+e2e/
+├── fixtures/          # Test data and configuration
+├── utils/             # Helper utilities for map/canvas testing
+├── tests/
+│   ├── static/        # Homepage, about, guide, places
+│   ├── map/           # Map creation, loading, navigation
+│   ├── tools/         # Brush, eraser, pan, shatter tools
+│   ├── sidebar/       # Data panels, zone picker
+│   └── save-share/    # Save, share, reset functionality
+└── global-setup.ts    # Pre-test environment verification
+```
+
+### Environment Variables
+
+| Variable           | Description                              | Default                                                    |
+| ------------------ | ---------------------------------------- | ---------------------------------------------------------- |
+| `IS_DOCKER`        | Set to `true` when running inside Docker | `false`                                                    |
+| `BASE_URL`         | Target frontend URL                      | `http://frontend:3000` (Docker) or `http://localhost:3000` |
+| `BACKEND_URL`      | Target backend URL                       | `http://backend:8000` (Docker) or `http://localhost:8000`  |
+| `TEST_DOCUMENT_ID` | Specific document ID for tests           | Auto-created                                               |
+| `TEST_MAP_SLUG`    | Map slug to use for testing              | `pennsylvania_vtd`                                         |
+| `ALLOW_WRITES`     | Enable write tests on remote             | `false`                                                    |
+
+> **Note:** When running inside Docker, use internal network URLs (`frontend:3000`, `backend:8000`).
+> When running from host machine, use exposed ports (`localhost:3000`, `localhost:8000`).
+
+### Writing Tests
+
+Canvas/map interactions use helper utilities:
+
+```typescript
+import {getMapCenter, paintAtCoordinates, waitForMapLoad} from '../../utils/map-helpers';
+
+test('should paint on map', async ({page}) => {
+  await page.goto('/map/edit/document-id');
+  await waitForMapLoad(page);
+
+  // Select brush tool
+  await page.getByTestId('brush-tool').click();
+
+  // Paint at map center
+  const center = await getMapCenter(page);
+  await paintAtCoordinates(page, center.x, center.y);
+});
+```
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the
