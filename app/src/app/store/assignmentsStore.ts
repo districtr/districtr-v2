@@ -24,6 +24,7 @@ import {
   DocumentCreationError,
   DocumentConflictResolutionError,
 } from './errors';
+import {temporalManager} from '../utils/temporal';
 
 export type AssignmentsTemporalSnapshot = {
   shatterIds: {
@@ -633,10 +634,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     const {zoneAssignments, shatterIds, parentToChild, childToParent} = result;
     demographyCache.updatePopulations(zoneAssignments);
     idb.updateIdbAssignments(mapDocument, zoneAssignments);
-    const temporalState = useAssignmentsStore.temporal.getState();
-    if (!temporalState.isTracking) {
-      temporalState.resume();
-    }
+    temporalManager.resume('districts');
 
     set({
       zoneAssignments,

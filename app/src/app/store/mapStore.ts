@@ -45,6 +45,7 @@ import {
   sortCommunitiesByRenderOrder,
   syncCoiColorsToColorScheme,
 } from '../utils/communities';
+import {temporalManager} from '../utils/temporal';
 
 const resolveNumCommunities = (
   mapDocument: DocumentObject | null | undefined,
@@ -288,10 +289,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const {healParentsIfAllChildrenInSameZone} = useAssignmentsStore.getState();
       const {healParentsIfAllChildrenInSameCommunities} = useCoiAssignmentsStore.getState();
       const {setMapOptions, mapMode} = useMapControlsStore.getState();
-      const temporalState =
-        mapMode === 'coi'
-          ? useAssignmentsStore.temporal.getState()
-          : useAssignmentsStore.temporal.getState();
       const focusedParentId = focusFeatures?.[0]?.id?.toString();
 
       set({
@@ -310,9 +307,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           focusedParentId ? {_parentIds: new Set<string>([focusedParentId])} : {},
           'state'
         );
-        if (!temporalState.isTracking) {
-          temporalState.resume();
-        }
+        temporalManager.resume(mapMode);
       }
     },
 
