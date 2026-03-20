@@ -824,11 +824,10 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         idb
           .getDocument(mapDocument.document_id)
           .then(idbDoc => {
-            if (!idbDoc) return;
             idb.updateDocument({
               id: mapDocument.document_id,
               document_metadata: updatedDocument,
-              assignments: idbDoc.assignments,
+              assignments: idbDoc?.assignments ?? [],
               clientLastUpdated,
             });
           })
