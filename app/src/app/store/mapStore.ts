@@ -1066,13 +1066,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         }
       });
 
-      const temporalState =
-        mapMode === 'coi'
-          ? useCoiAssignmentsStore.temporal.getState()
-          : useAssignmentsStore.temporal.getState();
-      if (temporalState.isTracking) {
-        temporalState.pause();
-      }
+      temporalManager.pause(mapMode);
       // Need to shatter all communities that that have that assignment since they can overlap
       if (mapMode === 'coi') {
         const {
