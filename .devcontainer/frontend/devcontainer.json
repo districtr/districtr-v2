@@ -1,9 +1,6 @@
 {
   "name": "Districtr Frontend (Next.js/React)",
-  "dockerComposeFile": [
-    "../../docker-compose.yml",
-    "../docker-compose.devcontainer.yml"
-  ],
+  "dockerComposeFile": ["../../docker-compose.yml"],
   "service": "frontend",
   "runServices": ["frontend"],
   "workspaceFolder": "/app",
