@@ -33,6 +33,15 @@ export const initSubs = () => {
       useDemographyStore.getState().updateData(curr);
     }
   );
+  // Clear undo/redo history when switching documents
+  const clearTemporalOnDocChangeSub = useMapStore.subscribe(
+    state => state.mapDocument?.document_id,
+    (curr, prev) => {
+      if (prev === curr) return;
+      useAssignmentsStore.temporal.getState().clear();
+      useCoiAssignmentsStore.temporal.getState().clear();
+    }
+  );
   const numDistrictsSub = useMapStore.subscribe(
     state => state.mapDocument?.num_districts,
     (curr, prev) => {
@@ -104,11 +113,50 @@ export const initSubs = () => {
     }
   );
 
+  // Reverse sync: when undo/redo restores description comments in coiAssignmentsStore,
+  // merge them with user-authored zone comments (which are never affected by undo/redo).
+  // Comments for communities that no longer exist in the restored state are dropped.
+  const coiDocumentCommentsSyncSub = useCoiAssignmentsStore.subscribe(
+    state => state.documentComments,
+    (restoredDescriptionComments, previousDescriptionComments) => {
+      if (useMapControlsStore.getState().mapMode !== 'coi') return;
+      if (!restoredDescriptionComments) return;
+      const mapDocument = useMapStore.getState().mapDocument;
+      if (!mapDocument) return;
+
+      const restoredCommunities = useCoiAssignmentsStore.getState().communities;
+      const restoredCommunityIds = new Set(restoredCommunities.map(c => c.id));
+
+      // Collect description IDs from both restored and previous states so that
+      // description comments from newly-created communities (which may reuse a
+      // zone ID) are properly replaced rather than duplicated.
+      const descriptionIdsToReplace = new Set([
+        ...restoredDescriptionComments.map(c => c.comment_id).filter(Boolean),
+        ...(previousDescriptionComments ?? []).map(c => c.comment_id).filter(Boolean),
+      ]);
+
+      const currentComments = mapDocument.document_comments ?? [];
+
+      // Keep user-authored comments whose zone still exists in the restored communities.
+      // Drop all known description comments (they'll be replaced by the restored ones).
+      const userComments = currentComments.filter(c => {
+        if (c.comment_id && descriptionIdsToReplace.has(c.comment_id)) return false;
+        if (c.zone != null && !restoredCommunityIds.has(c.zone)) return false;
+        return true;
+      });
+
+      const merged = [...userComments, ...restoredDescriptionComments];
+      if (JSON.stringify(currentComments) === JSON.stringify(merged)) return;
+      useMapStore.getState().mutateMapDocument({document_comments: merged});
+    }
+  );
+
   const unsub = () => {
     querySubs();
     mapEditSubs.forEach(sub => sub());
     demogInitSub();
     demogMapDocumentSub();
+    clearTemporalOnDocChangeSub();
     numDistrictsSub();
     numCommunitiesSub();
     demogShatterSub();
@@ -116,6 +164,7 @@ export const initSubs = () => {
     paintFlushSub();
     featureFlagSub();
     coiCommunitySyncSub();
+    coiDocumentCommentsSyncSub();
   };
   return unsub;
 };

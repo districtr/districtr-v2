@@ -94,6 +94,7 @@ export const coiAssignmentsTemporalConfig: ZundoOptions<any, AssignmentsStore> =
       communityVisibility,
       clientLastUpdated,
       communities,
+      documentComments,
     } = state;
     return {
       shatterIds,
@@ -103,6 +104,7 @@ export const coiAssignmentsTemporalConfig: ZundoOptions<any, AssignmentsStore> =
       communityVisibility,
       clientLastUpdated,
       communities,
+      documentComments,
     };
   },
 };
