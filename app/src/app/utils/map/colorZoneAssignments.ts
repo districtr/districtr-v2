@@ -66,7 +66,7 @@ export const colorZoneAssignments = (
       {
         source: BLOCK_SOURCE_ID,
         id,
-        sourceLayer
+        sourceLayer,
       },
       {
         selected: true,
@@ -84,7 +84,7 @@ export const colorZoneAssignments = (
       {
         source: BLOCK_SOURCE_ID,
         id,
-        sourceLayer
+        sourceLayer,
       },
       {
         selected: false,

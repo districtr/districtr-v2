@@ -7,7 +7,7 @@ import {summaryStatLabels} from '@/app/store/demography/evaluationConfig';
 import {MapPanel} from './MapPanel';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useMapStore} from '@/app/store/mapStore';
-import {demographyCache} from '@/app/utils/demography/demographyCache';
+import {demographyService} from '@/app/utils/demography/demographyService';
 import {sortCommunitiesByRenderOrder} from '@/app/utils/communities';
 
 type SummaryPanelProps = {
@@ -108,7 +108,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
         singleZone={isCommunityMode && orderedCommunities.length > 0 ? selectedZone : undefined}
         universeTotals={
           isCommunityMode && orderedCommunities.length > 0
-            ? demographyCache.universeTotals
+            ? demographyService.universeTotals
             : undefined
         }
       />

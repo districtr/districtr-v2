@@ -46,7 +46,7 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
   useLayoutEffect(() => {
     // This side effect basically handles all the data loading logic for public maps
     // Because the data here is so much smaller, we can skip the assignment store stuff
-    // This is faster, which matters for public maps where lots of people may be viewing 
+    // This is faster, which matters for public maps where lots of people may be viewing
     // But few would edit
     if (!publicDistrictsQuery.data) return;
     if (publicDistrictsQuery.data.statefp) {

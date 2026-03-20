@@ -27,7 +27,7 @@ import {
 } from '@/app/store/demography/evaluationConfig';
 import {PARTISAN_SCALE} from '@/app/store/demography/constants';
 import {GearIcon} from '@radix-ui/react-icons';
-import {demographyCache} from '@/app/utils/demography/demographyCache';
+import {demographyService} from '@/app/utils/demography/demographyService';
 import {compareCoiZonesByRenderOrder, getCommunityDisplayNumber} from '@/app/utils/communities';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
@@ -53,7 +53,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
 
   const maxValues = zoneStats?.maxValues;
   const effectiveUniverseTotals =
-    singleZone != null ? (universeTotals ?? demographyCache.universeTotals) : undefined;
+    singleZone != null ? (universeTotals ?? demographyService.universeTotals) : undefined;
   const displayData = (() => {
     let rows = zoneData ?? [];
     if (singleZone != null) {

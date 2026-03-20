@@ -207,7 +207,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
               width="100%"
             >
               <ScrollArea size="1" type="auto" scrollbars="vertical" style={{height: '100%'}}>
-                {userMaps.map(map => (
+                {districtMaps.map(map => (
                   <Button
                     key={map.document_id}
                     variant="outline"
