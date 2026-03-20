@@ -1537,3 +1537,66 @@ def test_create_document_with_metadata_no_copy(
     assert data.get("document_id")
     doc = client.get(f"/api/document/{data['document_id']}").json()
     assert doc["map_metadata"]["name"] == "My Fresh Map"
+
+
+def test_put_assignments_with_no_assignments_returns_valid_updated_at(
+    client, document_id: str
+):
+    """
+    Regression: PUT /api/assignments with metadata but empty assignments must
+    still return a valid updated_at timestamp. Previously updated_at was only
+    set when assignments were non-empty, returning null and causing
+    "Invalid Date" on the frontend.
+    """
+    document_info = client.get(f"/api/document/{document_id}").json()
+
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "assignments": [],
+            "metadata": {"color_scheme": ["#000000", "#FFFFFF"]},
+            "last_updated_at": document_info["updated_at"],
+        },
+    )
+    assert response.status_code == 200, response.json()
+    updated_at = response.json()["updated_at"]
+    assert updated_at is not None, "updated_at must not be null"
+    # Verify it's a parseable datetime
+    datetime.fromisoformat(updated_at)
+
+
+def test_put_assignments_rejects_truly_empty_request(client, document_id: str):
+    """PUT /api/assignments with no assignments, metadata, or comments returns 400."""
+    document_info = client.get(f"/api/document/{document_id}").json()
+
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "assignments": [],
+            "last_updated_at": document_info["updated_at"],
+        },
+    )
+    assert response.status_code == 400
+    assert "No changes provided" in response.json()["detail"]
+
+
+def test_put_assignments_with_only_assignments_returns_valid_updated_at(
+    client, document_id: str
+):
+    """Baseline: a normal save with assignments returns a valid updated_at."""
+    document_info = client.get(f"/api/document/{document_id}").json()
+
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "assignments": [["202090441022004", 1]],
+            "last_updated_at": document_info["updated_at"],
+        },
+    )
+    assert response.status_code == 200, response.json()
+    updated_at = response.json()["updated_at"]
+    assert updated_at is not None, "updated_at must not be null"
+    datetime.fromisoformat(updated_at)

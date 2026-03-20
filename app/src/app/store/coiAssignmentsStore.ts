@@ -1188,6 +1188,9 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       }));
       // console.log('[hydration] Reconstructing communities:', reconstructedCommunities.length);
       mapState.setCommunities(reconstructedCommunities);
+      // setCommunities marks metadata as dirty; clear it since this is
+      // hydration from the server/IDB, not a user edit.
+      mapState.clearUpdatedChanges();
     }
 
     set({

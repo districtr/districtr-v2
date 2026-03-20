@@ -28,6 +28,7 @@ type FetchDocumentResult = Promise<
         document: DocumentObject;
         assignments: Assignment[];
         updateLocal?: boolean;
+        hasLocalEdits?: boolean;
       };
     }
   | {
@@ -151,6 +152,7 @@ export const fetchDocument = async (
         statefps: remoteMetadata.response.statefps,
       },
       assignments: idbDocument.assignments,
+      hasLocalEdits: !clientHasNoEdits,
     },
   };
 };

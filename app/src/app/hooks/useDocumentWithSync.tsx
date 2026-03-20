@@ -136,6 +136,9 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
         }
         // Set overlays from document response
         setMapDocument(result.response.document);
+        if (result.response.hasLocalEdits) {
+          useMapStore.setState({updated: {metadata: true, comments: true}});
+        }
         setIsLoading(false);
         setAppLoadingState('loaded');
         // console.log('[hydration] Hydration complete, appLoadingState set to loaded');

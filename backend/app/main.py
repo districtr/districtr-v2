@@ -473,10 +473,13 @@ async def update_assignments(
         HTTPException: 400 if no assignments provided
         HTTPException: 409 if document was updated by another client and overwrite=False
     """
-    if not data.assignments or not len(data.assignments) > 0:
+    has_assignments = data.assignments and len(data.assignments) > 0
+    has_metadata = data.metadata is not None
+    has_comments = data.comments is not None
+    if not has_assignments and not has_metadata and not has_comments:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No assignments provided",
+            detail="No changes provided",
         )
 
     document_id = data.document_id
@@ -569,56 +572,56 @@ async def update_assignments(
             status_code=status.HTTP_409_CONFLICT,
             detail="Document has been updated since the last update",
         )
-    # Delete existing assignments for this document
-    session.connection().execute(
-        text(f"DELETE FROM {assignment_table} WHERE document_id = :document_id"),
-        {"document_id": document_id},
-    )
-    # Use COPY for faster bulk insert with partitioned tables
-    # Create a temporary table for bulk loading
-    load_id, _ = str(uuid4()).split("-", maxsplit=1)
-    temp_table_name = f"temp_assignments_{load_id}"
-    session.connection().execute(
-        text(
-            f"CREATE TEMP TABLE {temp_table_name} (document_id UUID, geo_id TEXT, zone INT)"
+    # Only touch the assignments table when assignments are provided.
+    # Metadata-only or comments-only saves must not wipe existing assignments.
+    inserted_count = 0
+    if has_assignments:
+        # Delete existing assignments for this document
+        session.connection().execute(
+            text(f"DELETE FROM {assignment_table} WHERE document_id = :document_id"),
+            {"document_id": document_id},
         )
-    )
+        # Use COPY for faster bulk insert with partitioned tables
+        # Create a temporary table for bulk loading
+        load_id, _ = str(uuid4()).split("-", maxsplit=1)
+        temp_table_name = f"temp_assignments_{load_id}"
+        session.connection().execute(
+            text(
+                f"CREATE TEMP TABLE {temp_table_name} (document_id UUID, geo_id TEXT, zone INT)"
+            )
+        )
 
-    # Use COPY to bulk load data into temp table
-    cursor = session.connection().connection.cursor()
-    with cursor.copy(
-        f"COPY {temp_table_name} (document_id, geo_id, zone) FROM STDIN"
-    ) as copy:
-        for assignment in assignments:
-            # assignment is [geo_id, zone]
-            geo_id = assignment[0]
-            zone_val = assignment[1] if len(assignment) > 1 else None
-            if is_community_map and zone_val is None:
-                zone_val = 0
-            copy.write_row([document_id, geo_id, zone_val])
+        # Use COPY to bulk load data into temp table
+        cursor = session.connection().connection.cursor()
+        with cursor.copy(
+            f"COPY {temp_table_name} (document_id, geo_id, zone) FROM STDIN"
+        ) as copy:
+            for assignment in assignments:
+                # assignment is [geo_id, zone]
+                geo_id = assignment[0]
+                zone_val = assignment[1] if len(assignment) > 1 else None
+                if is_community_map and zone_val is None:
+                    zone_val = 0
+                copy.write_row([document_id, geo_id, zone_val])
 
-    # Insert from temp table into partitioned assignments table
-    # PostgreSQL will automatically route to the correct partition based on document_id
-    inserted_count = (
-        session.connection()
-        .execute(
-            text(f"""
-        INSERT INTO {assignment_table} (document_id, geo_id, {assignment_column})
-        SELECT document_id, geo_id, zone
-        FROM {temp_table_name}
-        """),
+        # Insert from temp table into partitioned assignments table
+        # PostgreSQL will automatically route to the correct partition based on document_id
+        inserted_count = (
+            session.connection()
+            .execute(
+                text(f"""
+            INSERT INTO {assignment_table} (document_id, geo_id, {assignment_column})
+            SELECT document_id, geo_id, zone
+            FROM {temp_table_name}
+            """),
+            )
+            .rowcount
         )
-        .rowcount
-    )
-    if VERBOSE_LOGGING:
-        logger.info(
-            f"Inserted {inserted_count} {'community' if is_community_map else ''} "
-            f"assignments to document {document_id}"
-        )
-    updated_at = None
-    if len(data.assignments) > 0:
-        updated_at = update_timestamp(session, document_id)
-        logger.info(f"Document updated at {updated_at}")
+        if VERBOSE_LOGGING:
+            logger.info(
+                f"Inserted {inserted_count} {'community' if is_community_map else ''} "
+                f"assignments to document {document_id}"
+            )
 
     # Update num_districts if provided
     if data.metadata is not None:
@@ -732,6 +735,7 @@ async def update_assignments(
             background_tasks=background_tasks,
         )
 
+    updated_at = update_timestamp(session, document_id)
     session.commit()
     if VERBOSE_LOGGING:
         logger.info(
