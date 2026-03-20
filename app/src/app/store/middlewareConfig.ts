@@ -80,7 +80,7 @@ export const assignmentsTemporalConfig: ZundoOptions<any, AssignmentsStore> = {
   },
 };
 
-export const coiAsignmentsTemporalConfig: ZundoOptions<any, AssignmentsStore> = {
+export const coiAssignmentsTemporalConfig: ZundoOptions<any, AssignmentsStore> = {
   diff: temporalDiff,
   limit: TEMPORAL_HISTORY_LIMIT,
   // @ts-ignore: save only partial store
