@@ -32,6 +32,58 @@ The default build will not load any data. To load data, create a `.env` in the r
 
 By default the script will attempt to pull data from `s3://districtr-v2-dev/gerrydb/`. You can change where the script looks for available data with the `GPKG_DATA_DIR` variable.
 
+## Dev Containers
+
+As an alternative to the Docker Compose workflow above, you can develop inside a [Dev Container](https://containers.dev/) for a fully configured IDE experience with extensions, linting, formatting, and debugging pre-configured. Requires Docker and a supported editor.
+
+### Prerequisites
+
+1. Install and configure [Docker](https://www.docker.com/)
+2. Copy environment files:
+   ```bash
+   cp ./backend/.env.docker.example ./backend/.env.docker
+   cp ./app/.env.docker.example ./app/.env.docker
+   ```
+   Fill in any missing variables in both files.
+
+### Available containers
+
+| Container | Services started | Workspace | Port |
+| --- | --- | --- | --- |
+| **Districtr Backend** | `backend`, `db` | `/districtr-backend` | 8000 |
+| **Districtr Frontend** | `frontend` | `/app` | 3000 |
+
+### VS Code
+
+1. Install the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension
+2. Open the repo in VS Code
+3. When prompted, click **Reopen in Container** — or run the command **Dev Containers: Reopen in Container** from the command palette
+4. Choose either **Districtr Backend** or **Districtr Frontend**
+5. Start the dev server in the integrated terminal:
+   - Backend: `uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude '.venv/**/*.py'`
+   - Frontend: `bun run dev`
+
+The backend container includes launch configurations for debugging FastAPI, running the current file, and pytest — accessible from the Run and Debug panel.
+
+### Zed
+
+Zed has built-in dev container support (no extension needed).
+
+1. Open the repo in Zed
+2. Run **Dev Containers: Reopen in Dev Container** from the command palette (`cmd+shift+p`)
+3. Select the desired container
+4. Start the dev server in the integrated terminal as described above
+
+> **Note:** Zed does not currently support VS Code extensions, so the pre-configured extensions (Ruff, Prettier, SQLTools, etc.) won't be installed. Zed's own language support for Python and TypeScript will be used instead. The `customizations.vscode` settings in `devcontainer.json` are ignored by Zed.
+
+### Full-stack development
+
+The backend container starts both `backend` and `db`. To also run the frontend alongside it, open a terminal on your host machine and run:
+
+```bash
+docker compose up frontend
+```
+
 ## Districtr reboot architecture
 
 After experimenting with various technologies (see [`prototypes`](prototypes/)) we landed on the following architecture for the Districtr reboot:
