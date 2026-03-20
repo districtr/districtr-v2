@@ -14,6 +14,7 @@ import {
 import {ChromePicker, type ColorResult} from 'react-color';
 
 import {DEFAULT_COMMUNITY_DESCRIPTION} from '@/app/utils/communities';
+import {useMapStore} from '@/app/store/mapStore';
 
 type ColorTab = 'palette' | 'custom';
 
@@ -43,17 +44,26 @@ export const AddCommunityDialog: React.FC<AddCommunityDialogProps> = ({
   const [selectedColor, setSelectedColor] = useState(defaultColor);
   const [colorMenuOpen, setColorMenuOpen] = useState(false);
   const [colorTab, setColorTab] = useState<ColorTab>('palette');
+  const communityNameLengthLimit = useMapStore(
+    state => state.mapDocument?.community_name_length_limit ?? 40
+  );
   const suggestedColors = Array.from(new Set([defaultColor, ...availableColors])).slice(0, 24);
   const dialogTitle = mode === 'edit' ? 'Edit Community' : 'Add Community';
   const submitLabel = mode === 'edit' ? 'Save Changes' : 'Add Community';
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      document.body.style.pointerEvents = '';
+      return;
+    }
     setCommunityName(defaultName);
     setCommunityDescription(defaultDescription);
     setSelectedColor(defaultColor);
     setColorMenuOpen(false);
     setColorTab('palette');
+    return () => {
+      document.body.style.pointerEvents = '';
+    };
   }, [availableColors, defaultColor, defaultDescription, defaultName, open]);
 
   const handleCustomColorChange = (color: ColorResult) => {
@@ -83,6 +93,7 @@ export const AddCommunityDialog: React.FC<AddCommunityDialogProps> = ({
                 value={communityName}
                 onChange={event => setCommunityName(event.target.value)}
                 placeholder={defaultName}
+                maxLength={communityNameLengthLimit}
                 autoFocus
               />
             </label>

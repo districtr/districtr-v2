@@ -37,13 +37,15 @@ export const SaveShareModal: React.FC<{
     const response = await createMapDocument({
       copy_from_doc: mapDocument?.public_id,
       districtr_map_slug: mapDocument?.districtr_map_slug,
+      map_type: mapDocument?.map_type,
       metadata: {
         ...mapDocument?.map_metadata,
         name: mapMetadata?.name ? `${mapMetadata.name} (Copy)` : '',
       },
     });
     if (response.ok) {
-      router.push(`/map/edit/${response.response.document_id}`);
+      const routePrefix = response.response.map_type === 'community' ? 'coi' : 'map';
+      router.push(`/${routePrefix}/edit/${response.response.document_id}`);
       onClose();
     } else {
       setErrorNotification({

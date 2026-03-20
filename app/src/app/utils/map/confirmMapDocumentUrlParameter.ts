@@ -7,9 +7,12 @@
 * @description
 * This function confirms that the URL parameter is correct. Useful when doing important operations.
 */
-export const confirmMapDocumentUrlParameter = (document_id: string) => {
+export const confirmMapDocumentUrlParameter = (
+  document_id: string,
+  basePath: string = '/map/edit'
+) => {
   const url = new URL(window.location.href);
-  if (url.pathname !== `/map/edit/${document_id}`) {
+  if (url.pathname !== `${basePath}/${document_id}`) {
     return false;
   }
   return true;

@@ -11,7 +11,7 @@ export interface Assignment {
 export type AssignmentArray = [string, NullableZone];
 
 export interface DocumentCommentCreate {
-  comment_id?: string | null;
+  comment_id?: string | number | null;
   zone?: number | null;
   text: string;
 }
@@ -21,9 +21,12 @@ export interface AssignmentsCreate {
   document_id: string;
   last_updated_at: string;
   overwrite: boolean;
+  map_type?: 'default' | 'community';
   metadata?: {
     color_scheme?: string[] | null;
     num_districts?: number | null;
+    num_communities?: number | null;
+    community_metadata_list?: Community[] | null;
   };
   comments?: DocumentCommentCreate[] | null;
 }
@@ -45,6 +48,7 @@ export interface DistrictrMap {
   child_layer: string | null;
   tiles_s3_path: string | null;
   num_districts: number | null;
+  map_type: 'default' | 'local' | 'community';
 }
 
 export interface StatusObject {
@@ -87,7 +91,7 @@ export interface DocumentObject extends StatusObject {
   /** COI-only local metadata for community count. */
   num_communities?: number | null;
   /** COI-only local metadata for explicit community ordering/color state. */
-  coi_communities?: Community[] | null;
+  community_metadata_list?: Community[] | null;
   /** If false, users cannot change the number of districts on the frontend. */
   num_districts_modifiable?: boolean;
   map_module: string | null;
@@ -96,8 +100,8 @@ export interface DocumentObject extends StatusObject {
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
   map_metadata: DocumentMetadata;
   color_scheme: string[] | null;
-  map_type: 'default' | 'local';
-  document_type: 'district' | 'coi';
+  // TODO: local should be something more description like 'small-town' or 'locality' or ???
+  map_type: 'default' | 'local' | 'community';
   comment: string | null;
   parent_geo_unit_type: string | null;
   child_geo_unit_type: string | null;
@@ -105,6 +109,7 @@ export interface DocumentObject extends StatusObject {
   overlays: Overlay[] | null;
   statefps: string[] | null;
   document_comments?: DocumentComment[] | null;
+  community_name_length_limit?: number;
   comment_length_limit: number;
   comment_count_limit: number;
 }
@@ -128,8 +133,7 @@ export interface MinPublicDocument {
 
 export interface DocumentCreate {
   districtr_map_slug: string;
-  /** Defaults to "district" when omitted. When copying, inherited from source. */
-  document_type?: 'district' | 'coi';
+  map_type?: 'default' | 'local' | 'community';
   metadata?: DocumentMetadata;
   copy_from_doc?: string | number;
 }
