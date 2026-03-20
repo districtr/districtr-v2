@@ -21,6 +21,7 @@ import {BlockDemographicLayers} from './PolygonLayers/BlockDemographicLayers';
 import {MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';
 import {useAnchorLayersReady} from '@/app/hooks/useAnchorLayersReady';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 
 export const DemographicMap: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
