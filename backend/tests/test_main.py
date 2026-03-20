@@ -1600,3 +1600,47 @@ def test_put_assignments_with_only_assignments_returns_valid_updated_at(
     updated_at = response.json()["updated_at"]
     assert updated_at is not None, "updated_at must not be null"
     datetime.fromisoformat(updated_at)
+
+
+def test_put_empty_assignments_deletes_existing(client, document_id: str):
+    """
+    Sending assignments=[] after a save with data must DELETE existing assignments on the server.
+
+    Note: Needed for community mode since the data model is a HashMap<Zone, Set<string>> and
+    removing a community will clear it's assignments.
+    """
+    document_info = client.get(f"/api/document/{document_id}").json()
+
+    # First save: insert an assignment
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "assignments": [["202090441022004", 1]],
+            "last_updated_at": document_info["updated_at"],
+        },
+    )
+    assert response.status_code == 200
+    first_updated_at = response.json()["updated_at"]
+
+    # Verify assignment exists
+    assignments = client.get(f"/api/get_assignments/{document_id}").json()
+    assert len(assignments) == 1
+
+    # Second save: empty assignments with metadata (simulates user deleting everything)
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "assignments": [],
+            "metadata": {"color_scheme": ["#000000"]},
+            "last_updated_at": first_updated_at,
+        },
+    )
+    assert response.status_code == 200
+
+    # Verify assignments were deleted
+    assignments = client.get(f"/api/get_assignments/{document_id}").json()
+    assert (
+        len(assignments) == 0
+    ), f"Expected 0 assignments after empty save, got {len(assignments)}"

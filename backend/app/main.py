@@ -473,7 +473,7 @@ async def update_assignments(
         HTTPException: 400 if no assignments provided
         HTTPException: 409 if document was updated by another client and overwrite=False
     """
-    has_assignments = data.assignments and len(data.assignments) > 0
+    has_assignments = len(data.assignments) > 0
     has_metadata = data.metadata is not None
     has_comments = data.comments is not None
     if not has_assignments and not has_metadata and not has_comments:
@@ -572,15 +572,16 @@ async def update_assignments(
             status_code=status.HTTP_409_CONFLICT,
             detail="Document has been updated since the last update",
         )
-    # Only touch the assignments table when assignments are provided.
-    # Metadata-only or comments-only saves must not wipe existing assignments.
+    # The assignments field is always a full replacement set:
+    #   [] means "delete all assignments" (user cleared everything)
+    #   [...] means "replace with these assignments"
+    # Always DELETE existing rows, then INSERT new ones if any.
+    session.connection().execute(
+        text(f"DELETE FROM {assignment_table} WHERE document_id = :document_id"),
+        {"document_id": document_id},
+    )
     inserted_count = 0
     if has_assignments:
-        # Delete existing assignments for this document
-        session.connection().execute(
-            text(f"DELETE FROM {assignment_table} WHERE document_id = :document_id"),
-            {"document_id": document_id},
-        )
         # Use COPY for faster bulk insert with partitioned tables
         # Create a temporary table for bulk loading
         load_id, _ = str(uuid4()).split("-", maxsplit=1)
