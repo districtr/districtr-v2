@@ -94,6 +94,11 @@ export interface CoiAssignmentsStore {
   clientLastUpdated: string;
   setClientLastUpdated: (updatedAt: string) => void;
 
+  /** Mirrored community metadata for undo/redo tracking. Authoritative source is mapStore. */
+  communities: Community[];
+  /** Atomically syncs communities from mapStore and updates the timestamp (triggers temporal snapshot). */
+  syncCommunitiesAndTimestamp: (clientLastUpdated: string) => void;
+
   /** Lookup helpers for rendering/UI. */
   getCommunitiesForGeoid: (geoid: string) => Set<Zone>;
   getPrimaryCommunityForGeoid: (geoid: string) => NullableZone;
@@ -751,9 +756,14 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
   parentToChild: new Map<string, Set<string>>(),
   childToParent: new Map<string, string>(),
   clientLastUpdated: '',
+  communities: [],
 
   setClientLastUpdated: (updatedAt: string) => {
     set({clientLastUpdated: updatedAt});
+  },
+
+  syncCommunitiesAndTimestamp: (clientLastUpdated: string) => {
+    set({communities: useMapStore.getState().communities, clientLastUpdated});
   },
 
   getCommunitiesForGeoid: geoid => {
@@ -1184,6 +1194,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       parentToChild: new Map<string, Set<string>>(data.parentToChild),
       childToParent: new Map<string, string>(data.childToParent),
       clientLastUpdated: baselineUpdatedAt,
+      communities: useMapStore.getState().communities,
     });
 
     // console.log('[hydration] COI store updated, final state:', {
@@ -1324,6 +1335,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       communityLastUpdated: newLastUpdated,
       accumulatedAssignments: new Map<string, CoiAccumulatedMutation>(),
       clientLastUpdated: currTime,
+      communities: useMapStore.getState().communities,
     });
 
     healTouchedParentsIfEligible({
@@ -1380,6 +1392,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       communityLastUpdated: newLastUpdated,
       accumulatedAssignments: new Map<string, CoiAccumulatedMutation>(),
       clientLastUpdated: currTime,
+      communities: useMapStore.getState().communities,
     });
 
     healTouchedParentsIfEligible({

@@ -3,6 +3,7 @@ import {MapStore} from './mapStore';
 import {MIN_DIFF_MS} from '../constants/configuration';
 import {ZundoOptions} from 'zundo';
 import {AssignmentsStore} from './assignmentsStore';
+import type {CoiAssignmentsStore} from './coiAssignmentsStore';
 import {TEMPORAL_HISTORY_LIMIT} from '../constants/configuration';
 import {cloneTemporalSnapshot} from '../utils/temporalSnapshot';
 
@@ -92,6 +93,7 @@ export const coiAssignmentsTemporalConfig: ZundoOptions<any, AssignmentsStore> =
       communityAssignments,
       communityVisibility,
       clientLastUpdated,
+      communities,
     } = state;
     return {
       shatterIds,
@@ -100,6 +102,7 @@ export const coiAssignmentsTemporalConfig: ZundoOptions<any, AssignmentsStore> =
       communityAssignments,
       communityVisibility,
       clientLastUpdated,
+      communities,
     };
   },
 };
