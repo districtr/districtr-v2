@@ -202,7 +202,7 @@ const RecentMapCard: React.FC<{
   const draftStatus = data?.map_metadata?.draft_status ?? 'scratch';
   const zoneCount =
     tab === 'community'
-      ? (data.coi_communities?.length ?? data.num_communities ?? 0)
+      ? (data.community_metadata_list?.length ?? data.num_communities ?? 0)
       : (data.num_districts ?? 0);
   const zoneLabel = tab === 'community' ? 'communities' : 'districts';
   const geoLabel = data.parent_geo_unit_type || data.gerrydb_table || data.districtr_map_slug;
