@@ -153,13 +153,13 @@ const Evaluation: React.FC<EvaluationProps> = ({
       <Box overflowX="auto" className="text-sm">
         <Table.Root className="min-w-full border-collapse">
           <Table.Header>
-            <Table.Row className="bg-gray-50 border-b">
-              <Table.ColumnHeaderCell className="py-2 px-4 text-left font-semibold">
+            <Table.Row className="bg-gray-50">
+              <Table.ColumnHeaderCell className="px-4 text-left font-semibold">
                 Zone
               </Table.ColumnHeaderCell>
               {!!columnConfig &&
                 columnConfig.map((f, i) => (
-                  <Table.ColumnHeaderCell className="py-2 px-4 text-right font-semibold" key={i}>
+                  <Table.ColumnHeaderCell className="px-4 text-right font-semibold" key={i}>
                     {f.label}
                   </Table.ColumnHeaderCell>
                 ))}
@@ -194,8 +194,8 @@ const Evaluation: React.FC<EvaluationProps> = ({
                     : getZoneColor(row.zone, colorScheme[row.zone - 1] ?? '#000000');
 
                 return (
-                  <Table.Row key={`eval-row-${i}`} className="border-b hover:bg-gray-50">
-                    <Table.Cell className="py-2 px-4 font-medium flex flex-row items-center gap-1">
+                  <Table.Row key={`eval-row-${i}`} className="hover:bg-gray-50">
+                    <Table.Cell className="px-4 font-medium flex flex-row items-center gap-1 size-full">
                       <span
                         className={'size-4 inline-block rounded-md'}
                         style={{backgroundColor}}
@@ -228,7 +228,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
                         }
                         return (
                           <Table.Cell
-                            className="py-2 px-4 text-right"
+                            className="px-4 text-right"
                             style={{
                               backgroundColor,
                             }}
