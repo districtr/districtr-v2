@@ -1,5 +1,5 @@
 import React, {useEffect, useMemo, useState} from 'react';
-import {Box, Flex, Button} from '@radix-ui/themes';
+import {AlertDialog, Box, Flex, Button} from '@radix-ui/themes';
 import {EyeOpenIcon, EyeClosedIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '../../store/mapStore';
 import {useMapControlsStore} from '../../store/mapControlsStore';
@@ -94,15 +94,42 @@ export const CoiZonePicker: React.FC = () => {
               >
                 Add Community
               </Button>
-              <Button
-                size="1"
-                variant="soft"
-                color="red"
-                onClick={() => removeCommunity(selectedZone)}
-                disabled={isReadOnly || communities.length <= COI_MIN_COMMUNITIES}
-              >
-                Remove Community
-              </Button>
+              <AlertDialog.Root>
+                <AlertDialog.Trigger>
+                  <Button
+                    size="1"
+                    variant="soft"
+                    color="red"
+                    disabled={isReadOnly || communities.length <= COI_MIN_COMMUNITIES}
+                  >
+                    Remove Community
+                  </Button>
+                </AlertDialog.Trigger>
+                <AlertDialog.Content maxWidth="450px">
+                  <AlertDialog.Title>Remove Community</AlertDialog.Title>
+                  <AlertDialog.Description size="2">
+                    Are you sure? This will permanently delete this community, its painted areas,
+                    and its comments. Your paint undo/redo history will also be cleared. This cannot
+                    be undone.
+                  </AlertDialog.Description>
+                  <Flex gap="3" mt="4" justify="end">
+                    <AlertDialog.Cancel>
+                      <Button variant="soft" color="gray">
+                        Cancel
+                      </Button>
+                    </AlertDialog.Cancel>
+                    <AlertDialog.Action>
+                      <Button
+                        variant="solid"
+                        color="red"
+                        onClick={() => removeCommunity(selectedZone)}
+                      >
+                        Remove Community
+                      </Button>
+                    </AlertDialog.Action>
+                  </Flex>
+                </AlertDialog.Content>
+              </AlertDialog.Root>
             </Flex>
             <Button size="1" variant="ghost" onClick={toggleNotSelectedVisibility}>
               {anyNotSelectedVisible ? <EyeOpenIcon /> : <EyeClosedIcon />}

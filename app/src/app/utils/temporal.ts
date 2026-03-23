@@ -1,6 +1,7 @@
 import {useAssignmentsStore} from '../store/assignmentsStore';
 import {useCoiAssignmentsStore} from '../store/coiAssignmentsStore';
 import {MapControlsStore} from '../store/mapControlsStore';
+import {Zone} from '../constants/types';
 
 /**
  * Manages undo/redo temporal state across different map modes (district vs COI).
@@ -8,13 +9,11 @@ import {MapControlsStore} from '../store/mapControlsStore';
  */
 class TemporalManager {
   /**
-   * Returns the temporal (undo/redo) state for the given map mode's assignments store.
+   * Returns the temporal (undo/redo) store for the given map mode's assignments store.
    * @param mapMode - The active map mode, determines which assignments store to use.
    */
-  private getTemporalState(mapMode: MapControlsStore['mapMode']) {
-    return mapMode === 'coi'
-      ? useCoiAssignmentsStore.temporal.getState()
-      : useAssignmentsStore.temporal.getState();
+  private getTemporalStore(mapMode: MapControlsStore['mapMode']) {
+    return mapMode === 'coi' ? useCoiAssignmentsStore.temporal : useAssignmentsStore.temporal;
   }
 
   /**
@@ -22,9 +21,9 @@ class TemporalManager {
    * @param mapMode - The active map mode, determines which assignments store to use.
    */
   public pause(mapMode: MapControlsStore['mapMode']) {
-    const temporalState = this.getTemporalState(mapMode);
-    if (temporalState.isTracking) {
-      temporalState.pause();
+    const state = this.getTemporalStore(mapMode).getState();
+    if (state.isTracking) {
+      state.pause();
     }
   }
 
@@ -33,8 +32,8 @@ class TemporalManager {
    * @param mapMode - The active map mode, determines which assignments store to use.
    */
   public resume(mapMode: MapControlsStore['mapMode']) {
-    const temporalState = this.getTemporalState(mapMode);
-    !temporalState.isTracking && temporalState.resume();
+    const state = this.getTemporalStore(mapMode).getState();
+    !state.isTracking && state.resume();
   }
 
   /**
@@ -42,7 +41,19 @@ class TemporalManager {
    * @param mapMode - The active map mode, determines which assignments store to use.
    */
   public clear(mapMode: MapControlsStore['mapMode']) {
-    this.getTemporalState(mapMode).clear();
+    this.getTemporalStore(mapMode).getState().clear();
+  }
+
+  /**
+   * Clears all undo/redo history when a zone is permanently removed.
+   * This is simpler than trying to surgically remove the zone from each snapshot.
+   *
+   * @param mapMode - The active map mode.
+   * @param _zone - The zone/community ID being removed (reserved for future per-zone purge).
+   */
+  // TODO: integrate for district maps when supporting variable district counts
+  public purgeZone(mapMode: MapControlsStore['mapMode'], _zone: Zone) {
+    this.clear(mapMode);
   }
 }
 

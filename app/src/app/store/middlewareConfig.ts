@@ -84,7 +84,7 @@ export const coiAssignmentsTemporalConfig: ZundoOptions<any, AssignmentsStore> =
   diff: temporalDiff,
   limit: TEMPORAL_HISTORY_LIMIT,
   // @ts-ignore: save only partial store
-  partialize: (state: CoiAssignmentsStore) => {
+  partialize: state => {
     const {
       shatterIds,
       parentToChild,

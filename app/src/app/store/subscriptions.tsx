@@ -7,6 +7,7 @@ import {useMapControlsStore} from './mapControlsStore';
 import {useAssignmentsStore} from './assignmentsStore';
 import {useCoiAssignmentsStore} from './coiAssignmentsStore';
 import {demographyCache} from '../utils/demography/demographyCache';
+import {shallowCompareArray} from '../utils/arrays';
 
 export const initSubs = () => {
   // these need to initialize after the map store
@@ -31,6 +32,20 @@ export const initSubs = () => {
     (curr, prev) => {
       if (!curr || prev === curr || prev?.document_id === curr.document_id) return;
       useDemographyStore.getState().updateData(curr);
+    }
+  );
+  // Clear undo/redo history when switching documents.
+  // Also reset clientLastUpdated to '' so that temporalDiff treats the next
+  // ingestFromDocument as "not yet ingested" and doesn't create a stale snapshot
+  // from the previous document's state.
+  const clearTemporalOnDocChangeSub = useMapStore.subscribe(
+    state => state.mapDocument?.document_id,
+    (curr, prev) => {
+      if (curr === prev) return;
+      useAssignmentsStore.temporal.getState().clear();
+      useCoiAssignmentsStore.temporal.getState().clear();
+      useAssignmentsStore.setState({clientLastUpdated: ''});
+      useCoiAssignmentsStore.setState({clientLastUpdated: ''});
     }
   );
   const numDistrictsSub = useMapStore.subscribe(
@@ -93,6 +108,7 @@ export const initSubs = () => {
     mapEditSubs.forEach(sub => sub());
     demogInitSub();
     demogMapDocumentSub();
+    clearTemporalOnDocChangeSub();
     numDistrictsSub();
     numCommunitiesSub();
     demogShatterSub();

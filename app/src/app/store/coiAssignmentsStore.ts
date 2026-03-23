@@ -32,6 +32,7 @@ import {confirmMapDocumentUrlParameter} from '../utils/map/confirmMapDocumentUrl
 
 import {createWithFullMiddlewares} from './middlewares';
 import {coiAssignmentsTemporalConfig} from './middlewareConfig';
+import {temporalManager} from '../utils/temporal';
 import {
   DocumentNotFoundError,
   DocumentCreationError,
@@ -1285,6 +1286,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     const currTime = new Date().toISOString();
 
     const affectedGeometries = new Set<string>();
+    const removedCommunityIds: Zone[] = [];
 
     newAssignments.forEach((geoids, community) => {
       if (community > maxCommunity) {
@@ -1293,6 +1295,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
         });
         newAssignments.delete(community);
         newLastUpdated.set(community, currTime);
+        removedCommunityIds.push(community);
       }
     });
 
@@ -1332,6 +1335,8 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       childToParent,
       healParentsIfAllChildrenInSameCommunities: get().healParentsIfAllChildrenInSameCommunities,
     });
+
+    removedCommunityIds.forEach(id => temporalManager.purgeZone('coi', id));
   },
 
   removeCommunity: (removedCommunity: Zone) => {
@@ -1388,6 +1393,8 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       childToParent,
       healParentsIfAllChildrenInSameCommunities: get().healParentsIfAllChildrenInSameCommunities,
     });
+
+    temporalManager.purgeZone('coi', removedCommunity);
   },
 
   handlePutAssignments: async (overwrite = false) => {
@@ -1534,3 +1541,4 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     await get().resolveConflict(resolution, sycnConflictInfo, options);
   },
 }));
+
