@@ -150,8 +150,8 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
         onToggle={() => toggleSection('evaluation')}
       />
       {isCommunityMode && orderedCommunities.length > 0 && openSections.evaluation && (
-        <Flex direction="row" gap="4" align="center" wrap="wrap" px="2">
-          <Text>Community</Text>
+        <Flex direction="row" gap="4" align="center" wrap="wrap" px="0">
+          <Text size="2">Community</Text>
           <Select.Root
             value={String(selectedZone)}
             onValueChange={value => setSelectedZone(Number(value))}
@@ -185,7 +185,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
       {openSections.map && (
         <MapPanel columnGroup={summaryType} displayedColumnSets={displayedColumnSets} />
       )}
-      {canShowCoalition && !isCommunityMode && (
+      {canShowCoalition && (
         <>
           <SectionHeader
             title="Coalition Builder"

@@ -392,7 +392,8 @@ export class MapRenderSubscriber {
 
     const newPrimaryAssignments = this.toPrimaryAssignments(newAssignmentsByGeoid);
     GeometryWorker?.updateZones(Array.from(newPrimaryAssignments.entries()));
-    demographyCache.updatePopulations();
+    const coalitionGroups = this.useDemographyStore.getState().coalitionGroups;
+    demographyCache.updatePopulations(undefined, coalitionGroups);
 
     if (mapState.mapRenderingState !== 'loaded' || mapState.appLoadingState !== 'loaded') {
       this.updatePreviousCommunitySnapshot(newAssignmentsByGeoid, shatterIds);

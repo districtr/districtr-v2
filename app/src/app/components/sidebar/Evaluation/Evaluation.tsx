@@ -75,7 +75,10 @@ type EvaluationTableRowProps = Omit<EvaluationTableBodyProps, 'rows'> & {
   row: EvaluationDataRow;
 };
 
-type EvaluationTableCellProps = Omit<EvaluationTableRowProps, 'columnConfigs' | 'colorScheme' | 'mapMode' | 'communities' | 'getZoneColor'> & {
+type EvaluationTableCellProps = Omit<
+  EvaluationTableRowProps,
+  'columnConfigs' | 'colorScheme' | 'mapMode' | 'communities' | 'getZoneColor'
+> & {
   columnConfig: ColumnConfig;
   isUniverse: boolean;
   isUnassigned: boolean;
@@ -193,8 +196,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
   const baseRows: EvaluationDataRow[] = (() => {
     if (singleZone != null) {
       const filtered = zoneData.filter(r => r.zone === singleZone);
-      const effectiveUniverseTotals = universeTotals ?? demographyCache.universeTotals;
-      return effectiveUniverseTotals ? [...filtered, effectiveUniverseTotals] : filtered;
+      return [...filtered, ...(universeRow ? [universeRow] : [])];
     }
     return [...zoneData, ...(universeRow ? [universeRow] : [])];
   })();
