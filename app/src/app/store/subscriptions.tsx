@@ -7,6 +7,7 @@ import {useMapControlsStore} from './mapControlsStore';
 import {useAssignmentsStore} from './assignmentsStore';
 import {useCoiAssignmentsStore} from './coiAssignmentsStore';
 import {demographyCache} from '../utils/demography/demographyCache';
+import {shallowCompareArray} from '../utils/arrays';
 
 export const initSubs = () => {
   // these need to initialize after the map store
@@ -37,7 +38,7 @@ export const initSubs = () => {
   const clearTemporalOnDocChangeSub = useMapStore.subscribe(
     state => state.mapDocument?.document_id,
     (curr, prev) => {
-      if (prev === curr) return;
+      if (curr === prev) return;
       useAssignmentsStore.temporal.getState().clear();
       useCoiAssignmentsStore.temporal.getState().clear();
     }
@@ -97,60 +98,6 @@ export const initSubs = () => {
     }
   );
 
-  // Reverse sync: when undo/redo restores communities in coiAssignmentsStore,
-  // push the restored metadata back to mapStore so the UI stays consistent.
-  const coiCommunitySyncSub = useCoiAssignmentsStore.subscribe(
-    state => state.communities,
-    communities => {
-      if (useMapControlsStore.getState().mapMode !== 'coi') return;
-      if (!communities?.length) return;
-      const current = useMapStore.getState().communities;
-      if (current === communities) return;
-      const currentIds = current.map(c => c.id).join(',');
-      const newIds = communities.map(c => c.id).join(',');
-      if (currentIds === newIds && JSON.stringify(current) === JSON.stringify(communities)) return;
-      useMapStore.getState().setCommunities(communities);
-    }
-  );
-
-  // Reverse sync: when undo/redo restores description comments in coiAssignmentsStore,
-  // merge them with user-authored zone comments (which are never affected by undo/redo).
-  // Comments for communities that no longer exist in the restored state are dropped.
-  const coiDocumentCommentsSyncSub = useCoiAssignmentsStore.subscribe(
-    state => state.documentComments,
-    (restoredDescriptionComments, previousDescriptionComments) => {
-      if (useMapControlsStore.getState().mapMode !== 'coi') return;
-      if (!restoredDescriptionComments) return;
-      const mapDocument = useMapStore.getState().mapDocument;
-      if (!mapDocument) return;
-
-      const restoredCommunities = useCoiAssignmentsStore.getState().communities;
-      const restoredCommunityIds = new Set(restoredCommunities.map(c => c.id));
-
-      // Collect description IDs from both restored and previous states so that
-      // description comments from newly-created communities (which may reuse a
-      // zone ID) are properly replaced rather than duplicated.
-      const descriptionIdsToReplace = new Set([
-        ...restoredDescriptionComments.map(c => c.comment_id).filter(Boolean),
-        ...(previousDescriptionComments ?? []).map(c => c.comment_id).filter(Boolean),
-      ]);
-
-      const currentComments = mapDocument.document_comments ?? [];
-
-      // Keep user-authored comments whose zone still exists in the restored communities.
-      // Drop all known description comments (they'll be replaced by the restored ones).
-      const userComments = currentComments.filter(c => {
-        if (c.comment_id && descriptionIdsToReplace.has(c.comment_id)) return false;
-        if (c.zone != null && !restoredCommunityIds.has(c.zone)) return false;
-        return true;
-      });
-
-      const merged = [...userComments, ...restoredDescriptionComments];
-      if (JSON.stringify(currentComments) === JSON.stringify(merged)) return;
-      useMapStore.getState().mutateMapDocument({document_comments: merged});
-    }
-  );
-
   const unsub = () => {
     querySubs();
     mapEditSubs.forEach(sub => sub());
@@ -163,8 +110,6 @@ export const initSubs = () => {
     demogCoiShatterSub();
     paintFlushSub();
     featureFlagSub();
-    coiCommunitySyncSub();
-    coiDocumentCommentsSyncSub();
   };
   return unsub;
 };

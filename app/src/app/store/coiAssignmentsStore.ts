@@ -8,7 +8,7 @@ import {
 } from '@constants/types';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
 import {Map as MaplibreMap, MapGeoJSONFeature} from 'maplibre-gl';
-import {Community, DocumentComment, DocumentObject} from '../utils/api/apiHandlers/types';
+import {Community, DocumentObject} from '../utils/api/apiHandlers/types';
 import {
   DEFAULT_COMMUNITY_DESCRIPTION,
   getCommunityFeatureStateKey,
@@ -32,6 +32,7 @@ import {confirmMapDocumentUrlParameter} from '../utils/map/confirmMapDocumentUrl
 
 import {createWithFullMiddlewares} from './middlewares';
 import {coiAssignmentsTemporalConfig} from './middlewareConfig';
+import {temporalManager} from '../utils/temporal';
 import {
   DocumentNotFoundError,
   DocumentCreationError,
@@ -93,13 +94,6 @@ export interface CoiAssignmentsStore {
 
   clientLastUpdated: string;
   setClientLastUpdated: (updatedAt: string) => void;
-
-  /** Mirrored community metadata for undo/redo tracking. Authoritative source is mapStore. */
-  communities: Community[];
-  /** Mirrored description comments (linked via descriptionCommentId) for undo/redo tracking. User-authored zone comments are excluded. */
-  documentComments: DocumentComment[];
-  /** Atomically syncs communities and comments from mapStore and updates the timestamp (triggers temporal snapshot). */
-  syncCommunitiesAndTimestamp: (clientLastUpdated: string) => void;
 
   /** Lookup helpers for rendering/UI. */
   getCommunitiesForGeoid: (geoid: string) => Set<Zone>;
@@ -265,19 +259,6 @@ const buildCommunityVisibilityMap = (
     nextVisibility.set(communityId, currentVisibility.get(communityId) ?? true);
   }
   return nextVisibility;
-};
-
-/**
- * Extracts description comments (linked via descriptionCommentId) from mapStore's document_comments.
- * Only these are tracked in the temporal store for undo/redo; user-authored zone comments are excluded.
- */
-const getDescriptionCommentsFromMapStore = (): DocumentComment[] => {
-  const mapState = useMapStore.getState();
-  const allComments = mapState.mapDocument?.document_comments ?? [];
-  const descriptionIds = new Set(
-    mapState.communities.map(c => c.descriptionCommentId).filter(Boolean)
-  );
-  return allComments.filter(c => c.comment_id && descriptionIds.has(c.comment_id));
 };
 
 /**
@@ -771,19 +752,9 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
   parentToChild: new Map<string, Set<string>>(),
   childToParent: new Map<string, string>(),
   clientLastUpdated: '',
-  communities: [],
-  documentComments: [],
 
   setClientLastUpdated: (updatedAt: string) => {
     set({clientLastUpdated: updatedAt});
-  },
-
-  syncCommunitiesAndTimestamp: (clientLastUpdated: string) => {
-    set({
-      communities: useMapStore.getState().communities,
-      documentComments: getDescriptionCommentsFromMapStore(),
-      clientLastUpdated,
-    });
   },
 
   getCommunitiesForGeoid: geoid => {
@@ -1214,8 +1185,6 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       parentToChild: new Map<string, Set<string>>(data.parentToChild),
       childToParent: new Map<string, string>(data.childToParent),
       clientLastUpdated: baselineUpdatedAt,
-      communities: useMapStore.getState().communities,
-      documentComments: getDescriptionCommentsFromMapStore(),
     });
 
     // console.log('[hydration] COI store updated, final state:', {
@@ -1317,6 +1286,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     const currTime = new Date().toISOString();
 
     const affectedGeometries = new Set<string>();
+    const removedCommunityIds: Zone[] = [];
 
     newAssignments.forEach((geoids, community) => {
       if (community > maxCommunity) {
@@ -1325,6 +1295,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
         });
         newAssignments.delete(community);
         newLastUpdated.set(community, currTime);
+        removedCommunityIds.push(community);
       }
     });
 
@@ -1356,8 +1327,6 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       communityLastUpdated: newLastUpdated,
       accumulatedAssignments: new Map<string, CoiAccumulatedMutation>(),
       clientLastUpdated: currTime,
-      communities: useMapStore.getState().communities,
-      documentComments: getDescriptionCommentsFromMapStore(),
     });
 
     healTouchedParentsIfEligible({
@@ -1366,6 +1335,8 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       childToParent,
       healParentsIfAllChildrenInSameCommunities: get().healParentsIfAllChildrenInSameCommunities,
     });
+
+    removedCommunityIds.forEach(id => temporalManager.purgeZone('coi', id));
   },
 
   removeCommunity: (removedCommunity: Zone) => {
@@ -1414,8 +1385,6 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       communityLastUpdated: newLastUpdated,
       accumulatedAssignments: new Map<string, CoiAccumulatedMutation>(),
       clientLastUpdated: currTime,
-      communities: useMapStore.getState().communities,
-      documentComments: getDescriptionCommentsFromMapStore(),
     });
 
     healTouchedParentsIfEligible({
@@ -1424,6 +1393,8 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       childToParent,
       healParentsIfAllChildrenInSameCommunities: get().healParentsIfAllChildrenInSameCommunities,
     });
+
+    temporalManager.purgeZone('coi', removedCommunity);
   },
 
   handlePutAssignments: async (overwrite = false) => {
@@ -1570,3 +1541,4 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     await get().resolveConflict(resolution, sycnConflictInfo, options);
   },
 }));
+
