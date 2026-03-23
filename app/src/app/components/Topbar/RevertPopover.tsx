@@ -1,18 +1,31 @@
 import {useState} from 'react';
-import {Box, Popover, Button, Flex, Text, IconButton, Inset, Grid, Dialog} from '@radix-ui/themes';
+import {Box, Popover, Button, Flex, Text, IconButton, Dialog} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {useIdbDocument} from '@/app/hooks/useIdbDocument';
-import {CheckIcon, ExclamationTriangleIcon, ResetIcon} from '@radix-ui/react-icons';
+import {ResetIcon} from '@radix-ui/react-icons';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
+import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 
 export const RevertPopover = () => {
   const [hovered, setHovered] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const mapDocument = useMapStore(state => state.mapDocument);
   const documentFromIdb = useIdbDocument(mapDocument?.document_id);
+  // TODO: Centralize this in a custom hook
+  const districtRevert = useAssignmentsStore(state => state.handleRevert);
+  const districtClientLastUpdated = useAssignmentsStore(state => state.clientLastUpdated);
+  const coiRevert = useCoiAssignmentsStore(state => state.handleRevert);
+  const coiClientLastUpdated = useCoiAssignmentsStore(state => state.clientLastUpdated);
+  const mapMode = useMapControlsStore(state => state.mapMode);
+  const isCommunity = mapDocument?.map_type === 'community' || mapMode === 'coi';
+  const activeClientLastUpdated = isCommunity ? coiClientLastUpdated : districtClientLastUpdated;
   const isOutdated =
+    (mapDocument?.updated_at != null &&
+      activeClientLastUpdated !== '' &&
+      activeClientLastUpdated !== mapDocument.updated_at) ||
     documentFromIdb?.clientLastUpdated !== documentFromIdb?.document_metadata.updated_at;
-  const handleRevert = useAssignmentsStore(state => state.handleRevert);
+  const handleRevert = isCommunity ? coiRevert : districtRevert;
 
   const handleConfirmRevert = async () => {
     if (!mapDocument) return;

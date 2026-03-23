@@ -2,8 +2,10 @@ import {Assignment, DocumentMetadata, DocumentObject} from '../api/apiHandlers/t
 import Dexie, {Table} from 'dexie';
 import {NullableZone} from '@/app/constants/types';
 import {formatAssignmentsFromState} from '../map/formatAssignments';
+import {formatCoiAssignmentsFromState} from '../map/formatCoiAssignments';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {CoalitionGroupKey} from '../demography/coalition';
+import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 // --- Main Document Entry ---
 export interface StoredDocument {
   id: string; // UUID key
@@ -70,11 +72,11 @@ export class DocumentsDB extends Dexie {
   }
 
   // Debounce state for batching rapid updates
+  // Both the Zone and COI assignment updates can use the data format stores both a Zone/COI
+  // id and a geoid.
   private pendingUpdate: {
     mapDocument: DocumentObject;
-    zoneAssignments: Map<string, NullableZone>;
-    shatterIds: {parents: Set<string>; children: Set<string>};
-    childToParent: Map<string, string>;
+    assignments: Assignment[];
     clientLastUpdated: string;
     timeoutId: ReturnType<typeof setTimeout> | null;
   } | null = null;
@@ -83,10 +85,61 @@ export class DocumentsDB extends Dexie {
   readonly DEBOUNCE_DELAY = 500;
 
   /**
+   * Queues an update to be saved to IDB with debouncing.
+   *
+   * If an update is already pending, it will be cleared and replaced with the new update.
+   * If immediate is true, the update will be saved immediately without debouncing.
+   *
+   * @param mapDocument - The document metadata to save
+   * @param assignments - The assignments to save
+   * @param clientLastUpdated - Timestamp of the last update for conflict resolution
+   * @param immediate - If true, saves immediately without debouncing
+   */
+  private queueAssignmentsUpdate = (
+    mapDocument: DocumentObject,
+    assignments: Assignment[],
+    clientLastUpdated: string,
+    immediate: boolean
+  ) => {
+    const document_id = mapDocument?.document_id;
+    if (!document_id) return;
+
+    if (this.pendingUpdate?.timeoutId) {
+      clearTimeout(this.pendingUpdate.timeoutId);
+    }
+    this.pendingUpdate = null;
+
+    if (immediate) {
+      this.updateDocument({
+        id: document_id,
+        document_metadata: mapDocument,
+        assignments,
+        clientLastUpdated,
+      });
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      this.flushPendingUpdate();
+    }, this.DEBOUNCE_DELAY);
+
+    this.pendingUpdate = {
+      mapDocument,
+      assignments: assignments.map(assignment => ({...assignment})),
+      clientLastUpdated,
+      timeoutId,
+    };
+  };
+
+  /**
    * Debounced version of updateIdbAssignments that batches rapid updates.
+   *
    * Saves to IDB after the user pauses painting for DEBOUNCE_DELAY ms.
    * Use flushPendingUpdate() to force immediate save.
    *
+   * @param mapDocument - The document metadata to save
+   * @param zoneAssignments - The zone assignments to save
+   * @param clientLastUpdated - Timestamp of the last update for conflict resolution
    * @param immediate - If true, saves immediately without debouncing
    */
   updateIdbAssignments = (
@@ -96,55 +149,52 @@ export class DocumentsDB extends Dexie {
     immediate: boolean = false
   ) => {
     if (!mapDocument) return;
+    const document_id = mapDocument?.document_id;
+    if (!document_id) return;
 
-    // Clear existing timeout if any
-    if (this.pendingUpdate?.timeoutId) {
-      clearTimeout(this.pendingUpdate.timeoutId);
-      this.pendingUpdate.timeoutId = null;
-    }
-
-    // Store the latest parameters, capturing current state
     const {shatterIds, childToParent} = useAssignmentsStore.getState();
+    const assignmentsToSave = formatAssignmentsFromState(
+      document_id,
+      zoneAssignments,
+      shatterIds,
+      childToParent,
+      'assignment'
+    );
 
-    // If immediate save requested, save synchronously without debouncing
-    if (immediate) {
-      const document_id = mapDocument?.document_id;
-      if (!document_id) return;
+    this.queueAssignmentsUpdate(mapDocument, assignmentsToSave, clientLastUpdated, immediate);
+  };
 
-      const assignmentsToSave = formatAssignmentsFromState(
-        document_id,
-        zoneAssignments,
-        shatterIds,
-        childToParent,
-        'assignment'
-      );
+  /**
+   * Debounced version of updateIdbCoiAssignments that batches rapid updates.
+   *
+   * Saves to IDB after the user pauses painting for DEBOUNCE_DELAY ms.
+   * Use flushPendingUpdate() to force immediate save.
+   *
+   * @param mapDocument - The document metadata to save
+   * @param communityAssignments - The COI assignments to save
+   * @param clientLastUpdated - Timestamp of the last update for conflict resolution
+   * @param immediate - If true, saves immediately without debouncing
+   */
+  updateIdbCoiAssignments = (
+    mapDocument: DocumentObject,
+    communityAssignments: Map<number, Set<string>>,
+    clientLastUpdated: string = new Date().toISOString(),
+    immediate: boolean = false
+  ) => {
+    if (!mapDocument) return;
+    const document_id = mapDocument?.document_id;
+    const communitiesExist = (mapDocument?.community_metadata_list?.length ?? 0) > 0;
+    if (!document_id || !communitiesExist) return;
 
-      // Fire and forget - don't set pending update
-      this.updateDocument({
-        id: document_id,
-        document_metadata: mapDocument,
-        assignments: assignmentsToSave,
-        clientLastUpdated: clientLastUpdated,
-      });
-      return;
-    }
+    const {shatterIds, childToParent} = useCoiAssignmentsStore.getState();
+    const assignmentsToSave = formatCoiAssignmentsFromState(
+      document_id,
+      communityAssignments,
+      shatterIds,
+      childToParent
+    );
 
-    // Set new timeout to save after debounce delay
-    const timeoutId = setTimeout(() => {
-      this.flushPendingUpdate();
-    }, this.DEBOUNCE_DELAY);
-
-    this.pendingUpdate = {
-      mapDocument,
-      zoneAssignments: new Map(zoneAssignments), // Clone to capture current state
-      shatterIds: {
-        parents: new Set(shatterIds.parents),
-        children: new Set(shatterIds.children),
-      },
-      childToParent: new Map(childToParent),
-      clientLastUpdated,
-      timeoutId,
-    };
+    this.queueAssignmentsUpdate(mapDocument, assignmentsToSave, clientLastUpdated, immediate);
   };
 
   /**
@@ -154,8 +204,7 @@ export class DocumentsDB extends Dexie {
   flushPendingUpdate = async () => {
     if (!this.pendingUpdate) return;
 
-    const {mapDocument, zoneAssignments, shatterIds, childToParent, clientLastUpdated} =
-      this.pendingUpdate;
+    const {mapDocument, assignments, clientLastUpdated} = this.pendingUpdate;
 
     // Clear the pending update
     if (this.pendingUpdate.timeoutId) {
@@ -167,18 +216,10 @@ export class DocumentsDB extends Dexie {
     const document_id = mapDocument?.document_id;
     if (!mapDocument || !document_id) return;
 
-    const assignmentsToSave = formatAssignmentsFromState(
-      document_id,
-      zoneAssignments,
-      shatterIds,
-      childToParent,
-      'assignment'
-    );
-
     await this.updateDocument({
       id: document_id,
       document_metadata: mapDocument,
-      assignments: assignmentsToSave,
+      assignments,
       clientLastUpdated: clientLastUpdated,
     });
   };

@@ -1,7 +1,7 @@
 'use client';
 import maplibregl, {FilterSpecification} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import React, {useCallback, useEffect, useMemo, useRef} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {MAP_OPTIONS} from '@constants/configuration';
 import {useMapStore} from '@store/mapStore';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
@@ -20,6 +20,8 @@ import {PointSource} from './GeoSources/PointSource';
 import {BlockDemographicLayers} from './PolygonLayers/BlockDemographicLayers';
 import {MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';
+import {useAnchorLayersReady} from '@/app/hooks/useAnchorLayersReady';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 
 export const DemographicMap: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -28,6 +30,9 @@ export const DemographicMap: React.FC = () => {
   const getStateMapRef = useMapStore(state => state.getMapRef);
   const synced = useRef<false | (() => void)>(false);
   const {mapRef, onLoad} = useMapRenderer('demographic');
+  const [isMapLoaded, setIsMapLoaded] = useState(false);
+  const basemap = useMapControlsStore(state => state.mapOptions.basemap);
+  const areAnchorLayersReady = useAnchorLayersReady(mapRef, isMapLoaded, basemap);
 
   const initialViewState = useMemo(() => {
     const mainMapRef = getStateMapRef();
@@ -71,35 +76,40 @@ export const DemographicMap: React.FC = () => {
         onLoad(e);
         handleSyncMaps(e.target);
         useDemographyStore.getState().setGetMapRef(() => e.target);
+        setIsMapLoaded(true);
       }}
     >
-      <MapLayerAnchors />
-      <CountyLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.counties} />
-      <BlockSource>
-        {!!mapDocument?.parent_layer && (
-          <BlockDemographicLayers
-            scope="PARENT"
-            layerFilter={['literal', true] as FilterSpecification}
-            outlineFilter={parentOutlineFilter}
-            sourceLayerId={mapDocument.parent_layer}
-          />
-        )}
-        {!!mapDocument?.child_layer && (
-          <BlockDemographicLayers
-            scope="CHILD"
-            layerFilter={childLayerFilter}
-            outlineFilter={childLayerFilter}
-            sourceLayerId={mapDocument.child_layer}
-          />
-        )}
-      </BlockSource>
-      <OverlayLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.overlays} />
-      <PointSource>
-        <PointSelectionLayer />
-        <PointSelectionLayer child />
-        <MetaLayers isDemographicMap={true} />
-      </PointSource>
-      <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
+      {isMapLoaded && <MapLayerAnchors />}
+      {areAnchorLayersReady && (
+        <>
+          <CountyLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.counties} />
+          <BlockSource>
+            {!!mapDocument?.parent_layer && (
+              <BlockDemographicLayers
+                scope="PARENT"
+                layerFilter={['literal', true] as FilterSpecification}
+                outlineFilter={parentOutlineFilter}
+                sourceLayerId={mapDocument.parent_layer}
+              />
+            )}
+            {!!mapDocument?.child_layer && (
+              <BlockDemographicLayers
+                scope="CHILD"
+                layerFilter={childLayerFilter}
+                outlineFilter={childLayerFilter}
+                sourceLayerId={mapDocument.child_layer}
+              />
+            )}
+          </BlockSource>
+          <OverlayLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.overlays} />
+          <PointSource>
+            <PointSelectionLayer />
+            <PointSelectionLayer child />
+            <MetaLayers isDemographicMap={true} />
+          </PointSource>
+          <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
+        </>
+      )}
     </MapContainer>
   );
 };

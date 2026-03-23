@@ -5,6 +5,7 @@ import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
 import {DemographyStore} from './types';
 import {useAssignmentsStore} from '../assignmentsStore';
+import {useCoiAssignmentsStore} from '../coiAssignmentsStore';
 import {getDemography} from '@/app/utils/api/apiHandlers/getDemography';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
 import {AllEvaluationConfigs, AllMapConfigs} from '@/app/utils/api/summaryStats';
@@ -21,6 +22,15 @@ import {
 let coalitionHydrationRequestId = 0;
 let coalitionVersion = 0;
 
+const getActiveBrokenIds = () => {
+  const mapMode = useMapControlsStore.getState().mapMode;
+  return Array.from(
+    mapMode === 'coi'
+      ? useCoiAssignmentsStore.getState().shatterIds.parents
+      : useAssignmentsStore.getState().shatterIds.parents
+  );
+};
+
 export var useDemographyStore = create(
   subscribeWithSelector<DemographyStore>((set, get) => ({
     getMapRef: () => undefined,
@@ -28,8 +38,7 @@ export var useDemographyStore = create(
       set({getMapRef});
       const {dataHash, setVariable, variable, setVariant, variant} = get();
       const {mapDocument} = useMapStore.getState();
-      const {shatterIds} = useAssignmentsStore.getState();
-      const currentDataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument?.document_id}`;
+      const currentDataHash = `${getActiveBrokenIds().join(',')}|${mapDocument?.document_id}`;
       if (currentDataHash === dataHash) {
         // set variable triggers map render/update
         getMapRef()?.on('load', () => {
@@ -164,8 +173,7 @@ export var useDemographyStore = create(
     setDataHash: dataHash => set({dataHash}),
     updateData: async (mapDocument, _brokenIds) => {
       const {dataHash: currDataHash} = get();
-      const {shatterIds: _shatterIds} = useAssignmentsStore.getState();
-      const brokenIds = _brokenIds ?? Array.from(_shatterIds.parents);
+      const brokenIds = _brokenIds ?? getActiveBrokenIds();
       const {setErrorNotification} = useMapStore.getState();
       if (!mapDocument) return;
       // based on current map state

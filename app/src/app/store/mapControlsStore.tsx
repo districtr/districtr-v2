@@ -5,7 +5,8 @@ import type {MapOptions} from 'maplibre-gl';
 import {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from '../constants/map/mapDefaults';
 import {ActiveTool, NullableZone, SpatialUnit, Zone} from '../constants/types';
 import {DistrictrMapOptions} from './types';
-import {useAssignmentsStore} from './assignmentsStore';
+import {BasemapId} from '@/app/constants/map/layerStyle';
+import {MAP_MODE_DEFAULT_OPTIONS, type MapMode} from '@/app/constants/map/mapModeDefaults';
 import {useMapStore} from './mapStore';
 import {PaintEventHandler} from '@utils/map/types';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
@@ -40,7 +41,11 @@ export interface MapControlsStore {
   setSpatialUnit: (unit: SpatialUnit) => void;
   sidebarPanels: SidebarPanel[];
   setSidebarPanels: (panels: SidebarPanel[]) => void;
+  mapMode: MapMode;
+  setMapMode: (mode: MapMode) => void;
 }
+
+const initialMapMode: MapControlsStore['mapMode'] = 'districts';
 
 export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
   center: [-98.5795, 39.8283],
@@ -64,25 +69,26 @@ export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
   showPopulationNumbers: false,
   showDemographicMap: undefined,
   overlayOpacity: OVERLAY_OPACITY,
+  basemap: MAP_MODE_DEFAULT_OPTIONS.districts.basemap,
 };
 
 export const useMapControlsStore = create<MapControlsStore>()(
   subscribeWithSelector((set, get) => ({
     selectedZone: 1,
+    mapMode: initialMapMode,
+    setMapMode: mode => set({mapMode: mode}),
     setSelectedZone: zone => {
-      const numDistricts =
-        useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
-      if (zone <= numDistricts && !get().isPainting) {
+      const mapStore = useMapStore.getState();
+      const validZone =
+        get().mapMode === 'coi'
+          ? mapStore.communities.some(community => community.id === zone)
+          : zone <= (mapStore.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
+      if (validZone && !get().isPainting) {
         set({selectedZone: zone});
       }
     },
     isPainting: false,
-    setIsPainting: isPainting => {
-      if (!isPainting) {
-        useAssignmentsStore.getState().ingestAccumulatedAssignments();
-      }
-      set({isPainting});
-    },
+    setIsPainting: isPainting => set({isPainting}),
     isEditing: false,
     setIsEditing: isEditing => set({isEditing}),
     activeTool: 'pan',
@@ -120,12 +126,23 @@ export const useMapControlsStore = create<MapControlsStore>()(
         },
       }),
     toggleLockAllAreas: () => {
-      const {mapOptions} = get();
-      const numDistricts =
-        useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
-      const nextLockPaintedAreas = mapOptions.lockPaintedAreas.length
-        ? []
-        : Array.from({length: numDistricts}, (_, i) => (i + 1) as NullableZone);
+      const {mapMode, mapOptions} = get();
+      const mapStore = useMapStore.getState();
+      const shouldUnlockAllAreas = mapOptions.lockPaintedAreas.length > 0;
+      let nextLockPaintedAreas: Array<NullableZone>;
+
+      if (shouldUnlockAllAreas) {
+        nextLockPaintedAreas = [];
+      } else if (mapMode === 'coi') {
+        nextLockPaintedAreas = mapStore.communities.map(community => community.id as NullableZone);
+      } else {
+        const numDistricts = mapStore.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
+        nextLockPaintedAreas = Array.from(
+          {length: numDistricts},
+          (_, i) => (i + 1) as NullableZone
+        );
+      }
+
       set({
         mapOptions: {
           ...mapOptions,

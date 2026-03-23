@@ -3,15 +3,13 @@ import {IconButton, Popover} from '@radix-ui/themes'; // Import Popover from Rad
 import {ZonePicker} from './ZonePicker';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {ColorWheelIcon} from '@radix-ui/react-icons';
-import {useColorScheme} from '@/app/hooks/useColorScheme';
+import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 
 export const MobileColorPicker = () => {
   const [open, setOpen] = useState(false);
   const selectedZone = useMapControlsStore(state => state.selectedZone);
-  const colorScheme = useColorScheme();
-
-  const zoneIndex = selectedZone ? selectedZone - 1 : 0;
-  const color = colorScheme[zoneIndex];
+  const getZoneColor = useZoneColorGetter();
+  const color = getZoneColor(selectedZone, '#000000');
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>

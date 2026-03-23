@@ -22,6 +22,7 @@ from app.core.models import DocumentID
 
 from app.comments.models import (
     Commenter,
+    CommenterCreate,
     CommenterCreateWithRecaptcha,
     CommenterPublic,
     Comment,
@@ -29,6 +30,7 @@ from app.comments.models import (
     CommentCreateWithRecaptcha,
     CommentPublic,
     Tag,
+    TagCreate,
     TagCreateWithRecaptcha,
     TagWithId,
     CommentTag,
@@ -67,7 +69,7 @@ def _get_comment_limits_for_document(
     document = get_protected_document(
         document_id=DocumentID(document_id=document_id), session=session
     )
-    stmt = select(
+    stmt = select(  # type: ignore[no-matching-overload]
         DistrictrMap.comment_length_limit,
         DistrictrMap.comment_count_limit,
     ).where(DistrictrMap.districtr_map_slug == document.districtr_map_slug)
@@ -82,9 +84,7 @@ def _get_comment_limits_for_document(
 router = APIRouter(tags=["comments"], prefix="/api/comments")
 
 
-def create_commenter_db(
-    commenter_data: CommenterCreateWithRecaptcha, session: Session
-) -> Commenter:
+def create_commenter_db(commenter_data: CommenterCreate, session: Session) -> Commenter:
     """
     Create a new commenter with upsert on conflict for name + email unique constraint.
     Returns the Commenter model with id.
@@ -100,12 +100,13 @@ def create_commenter_db(
             "zip_code": stmt.excluded.zip_code,
             "updated_at": stmt.excluded.updated_at,
         },
-    ).returning(Commenter)
+    ).returning(Commenter)  # Now a DML statement because of the RETURNING clause
 
-    result = session.execute(stmt)
-    commenter = result.scalar_one()
+    row = session.connection().execute(stmt).one()
     session.commit()
-    return commenter
+    return Commenter.model_construct(
+        **row._asdict()
+    )  # model_construct also runs validation
 
 
 def create_comment_db(comment_data: CommentCreate, session: Session) -> Comment:
@@ -152,7 +153,7 @@ def create_comment_db(comment_data: CommentCreate, session: Session) -> Comment:
     return comment
 
 
-def create_tag_db(tag_data: TagCreateWithRecaptcha, session: Session) -> Tag:
+def create_tag_db(tag_data: TagCreate, session: Session) -> Tag:
     """
     Create a new tag using the slugify_tag SQL function.
     Returns the Tag model with id.
@@ -162,13 +163,11 @@ def create_tag_db(tag_data: TagCreateWithRecaptcha, session: Session) -> Tag:
     stmt = stmt.on_conflict_do_update(
         index_elements=["slug"],
         set_=dict(slug=stmt.excluded.slug),  # No-op update
-    ).returning(Tag)
+    ).returning(Tag)  # Now a DML statement because of the RETURNING clause
 
-    result = session.execute(stmt, {"tag": tag_data.tag})
-    tag = result.scalar_one()
+    row = session.connection().execute(stmt, {"tag": tag_data.tag}).one()
     session.commit()
-
-    return tag
+    return Tag.model_construct(**row._asdict())  # model_construct also runs validation
 
 
 def create_comment_tag_associations(
@@ -184,15 +183,15 @@ def create_comment_tag_associations(
 
     stmt = insert(CommentTag).values(associations)
     stmt = stmt.on_conflict_do_nothing()
-    session.execute(stmt)
+    session.connection().execute(stmt)
 
 
 def create_document_comment(
     comment_id: int, document_id: str, session: Session, zone: int | None = None
-) -> DocumentComment:
+) -> DocumentComment | None:
     """
     Create a document comment association (links a form comment to a document).
-    Optionally set zone for district-level comments.
+    Optionally set zone for a scoped map comment.
     """
     document = get_protected_document(
         document_id=DocumentID(document_id=document_id), session=session
@@ -203,28 +202,47 @@ def create_document_comment(
         document_id=document.document_id,
         zone=zone,
     )
-    session.execute(stmt)
+    session.connection().execute(stmt)
     session.flush()
-    doc_comment = session.exec(
+    doc_comment = session.exec(  # type: ignore[no-matching-overload]
         select(DocumentComment).where(
-            DocumentComment.comment_id == comment_id,
-            DocumentComment.document_id == document.document_id,
+            and_(
+                col(DocumentComment.comment_id) == comment_id,
+                col(DocumentComment.document_id) == document.document_id,
+            )
         )
     ).first()
     return doc_comment
 
 
-def sync_district_comments(
+def _sync_scoped_comments(
     document_id: str,
     comments: list[DistrictCommentInput],
     session: Session,
+    association_model,
+    scope_column: str,
+    title_prefix: str,
     background_tasks: BackgroundTasks | None = None,
 ) -> None:
     """
-    Sync district comments for a document. Creates/updates comments in comments schema.
+    Sync scoped comments for a document.
+
+    Creates/updates comments in comments schema.
     Each comment is {comment_id?, zone, text}. comment_id is optional; if provided
     as parseable int and exists for this document, the comment is updated.
-    Limits: 240 chars per comment (after trim), 10 comments per district.
+    Limits: 240 chars per comment (after trim), 10 comments per zone.
+
+    Args:
+        document_id (str): UUID of the document to sync comments for
+        comments (list[DistrictCommentInput]): List of comments to sync, each with optional
+            comment_id, zone, and text
+        session (Session): SQLAlchemy session for database operations
+        association_model: The SQLAlchemy model for the association table (e.g. DocumentComment)
+        scope_column: The name of the column in the association model that defines the scope
+            (e.g. "zone")
+        title_prefix: The prefix to use for comment titles (e.g. "District" or "Community")
+        background_tasks (BackgroundTasks | None): Optional FastAPI BackgroundTasks for async
+            moderation
     """
     validate_document_exists(
         document_id=DocumentID(document_id=document_id), session=session
@@ -234,37 +252,33 @@ def sync_district_comments(
         document_id, session
     )
 
-    # Get existing district comment ids for this document (scalars to avoid Row type issues)
+    # Get existing scoped comment ids for this document (scalars to avoid Row type issues)
     existing_dc = list(
         session.scalars(
-            select(DocumentComment.comment_id).where(
-                and_(
-                    col(DocumentComment.document_id) == document_id,
-                    col(DocumentComment.zone).is_not(None),
-                )
+            select(association_model.comment_id).where(
+                col(association_model.document_id) == document_id
             )
         )
     )
 
-    # Enforce max comments per district (incoming replaces existing, so count per zone)
+    # Enforce max comments per zone (incoming replaces existing, so count per zone)
     zone_counts: dict[int, int] = {}
     for c in comments:
-        zone = c.get("zone")
-        if zone is not None:
-            zone_counts[zone] = zone_counts.get(zone, 0) + 1
-    for zone, count in zone_counts.items():
+        if c.zone is not None:
+            zone_counts[c.zone] = zone_counts.get(c.zone, 0) + 1
+    for zone_val, count in zone_counts.items():
         if count > max_comments_per_district:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Maximum {max_comments_per_district} comments per district (zone {zone})",
+                detail=f"Maximum {max_comments_per_district} comments per zone (zone {zone_val})",
             )
 
     kept_comment_ids = set()
     for c in comments:
-        zone = c.get("zone")
+        zone = c.zone
         # Comment text is required to be a string and have length > 0 by DB constraints
-        comment_text = c.get("text", "")[:max_comment_length]
-        comment_id_str = c.get("comment_id")
+        comment_text = (c.text or "")[:max_comment_length]
+        comment_id_str = c.comment_id
 
         if zone is None:
             continue
@@ -281,13 +295,13 @@ def sync_district_comments(
 
         if existing_id is not None:
             # Update existing comment
-            title = f"District {zone} note"
+            title = f"{title_prefix} {zone} note"
             stmt = (
                 update(Comment)
-                .where(Comment.id == existing_id)
+                .where(col(Comment.id) == existing_id)
                 .values(comment=comment_text, title=title)
             )
-            session.execute(stmt)
+            session.connection().execute(stmt)
             kept_comment_ids.add(existing_id)
             if background_tasks:
                 background_tasks.add_task(
@@ -295,7 +309,7 @@ def sync_district_comments(
                 )
         else:
             # Create new comment
-            title = f"District {zone} note"
+            title = f"{title_prefix} {zone} note"
             new_comment = Comment(
                 title=title,
                 comment=comment_text,
@@ -303,30 +317,98 @@ def sync_district_comments(
             )
             session.add(new_comment)
             session.flush()
-            stmt = insert(DocumentComment).values(
+            stmt = insert(association_model).values(
                 comment_id=new_comment.id,
                 document_id=document_id,
-                zone=zone,
+                **{scope_column: zone},
             )
-            session.execute(stmt)
+            session.connection().execute(stmt)
             kept_comment_ids.add(new_comment.id)
             if background_tasks:
                 background_tasks.add_task(
                     moderate_comment_by_id, new_comment.id, f"{title} {comment_text}"
                 )
 
-    # Delete district comments not in the kept set (DocumentComment first, then Comment)
+    # Delete scoped comments not in the kept set (association first, then Comment)
     to_delete = [cid for cid in existing_dc if cid not in kept_comment_ids]
     if to_delete:
-        session.execute(
-            delete(DocumentComment).where(
+        session.connection().execute(
+            delete(association_model).where(
                 and_(
-                    col(DocumentComment.document_id) == document_id,
-                    col(DocumentComment.comment_id).in_(to_delete),
+                    col(association_model.document_id) == document_id,
+                    col(association_model.comment_id).in_(to_delete),
                 )
             )
         )
-        session.execute(delete(Comment).where(Comment.id.in_(to_delete)))
+        session.connection().execute(
+            delete(Comment).where(col(Comment.id).in_(to_delete))
+        )
+
+
+def sync_district_comments(
+    document_id: str,
+    comments: list[DistrictCommentInput],
+    session: Session,
+    background_tasks: BackgroundTasks | None = None,
+) -> None:
+    """
+    Sync scoped comments for a district-based document.
+
+    Creates/updates comments in comments schema.
+    Each comment is {comment_id?, zone, text}. comment_id is optional; if provided
+    as parseable int and exists for this document, the comment is updated.
+    Limits: 240 chars per comment (after trim), 10 comments per zone.
+
+    Args:
+        document_id (str): UUID of the document to sync comments for
+        comments (list[DistrictCommentInput]): List of comments to sync, each with optional
+            comment_id, zone, and text
+        session (Session): SQLAlchemy session for database operations
+        background_tasks (BackgroundTasks | None): Optional FastAPI BackgroundTasks for async
+            moderation
+    """
+    _sync_scoped_comments(
+        document_id=document_id,
+        comments=comments,
+        session=session,
+        association_model=DocumentComment,
+        scope_column="zone",
+        title_prefix="District",
+        background_tasks=background_tasks,
+    )
+
+
+def sync_community_comments(
+    document_id: str,
+    comments: list[DistrictCommentInput],
+    session: Session,
+    background_tasks: BackgroundTasks | None = None,
+) -> None:
+    """
+    Sync scoped comments for a community-based document.
+
+    Creates/updates comments in comments schema.
+    Each comment is {comment_id?, zone, text}. comment_id is optional; if provided
+    as parseable int and exists for this document, the comment is updated.
+    Limits: 240 chars per comment (after trim), 10 comments per zone.
+
+    Args:
+        document_id (str): UUID of the document to sync comments for
+        comments (list[DistrictCommentInput]): List of comments to sync, each with optional
+            comment_id, zone, and text
+        session (Session): SQLAlchemy session for database operations
+        background_tasks (BackgroundTasks | None): Optional FastAPI BackgroundTasks for async
+            moderation
+    """
+    _sync_scoped_comments(
+        document_id=document_id,
+        comments=comments,
+        session=session,
+        association_model=DocumentComment,
+        scope_column="zone",
+        title_prefix="Community",
+        background_tasks=background_tasks,
+    )
 
 
 def create_full_comment_submission(
@@ -348,13 +430,8 @@ def create_full_comment_submission(
     created_tags: list[TagWithId] = []
     for tag_create in form_data.tags:
         tag = create_tag_db(tag_create, session)
-        created_tags.append(
-            {
-                "id": tag.id,
-                "slug": tag.slug,
-            }
-        )
-    tag_ids = [tag["id"] for tag in created_tags]
+        created_tags.append(TagWithId(id=tag.id, slug=tag.slug))
+    tag_ids = [t.id for t in created_tags]
 
     create_comment_tag_associations(comment.id, tag_ids, session)
 
@@ -376,9 +453,8 @@ async def create_commenter(
     session: Session = Depends(get_session),
 ):
     """Create a new commenter with upsert on conflict for name + email."""
-    await recaptcha.verify_recaptcha(
-        commenter_data.recaptcha_token, request.client.host
-    )
+    client_host = request.client.host if request.client else ""
+    await recaptcha.verify_recaptcha(commenter_data.recaptcha_token, client_host)
     try:
         commenter = create_commenter_db(commenter_data.commenter, session)
     except IntegrityError as e:
@@ -401,7 +477,8 @@ async def create_comment(
     session: Session = Depends(get_session),
 ):
     """Create a new comment without commenter foreign key."""
-    await recaptcha.verify_recaptcha(comment_data.recaptcha_token, request.client.host)
+    client_host = request.client.host if request.client else ""
+    await recaptcha.verify_recaptcha(comment_data.recaptcha_token, client_host)
     try:
         comment = create_comment_db(comment_data.comment, session)
     except (DataError, IntegrityError) as e:
@@ -422,7 +499,8 @@ async def create_tag(
     session: Session = Depends(get_session),
 ):
     """Create a new tag using the slugify_tag SQL function."""
-    await recaptcha.verify_recaptcha(tag_data.recaptcha_token, request.client.host)
+    client_host = request.client.host if request.client else ""
+    await recaptcha.verify_recaptcha(tag_data.recaptcha_token, client_host)
     try:
         tag = create_tag_db(tag_data.tag, session)
     except IntegrityError as e:
@@ -447,7 +525,8 @@ async def submit_full_comment(
     session: Session = Depends(get_session),
 ):
     """Submit a complete comment with commenter, comment, and tags."""
-    await recaptcha.verify_recaptcha(form_data.recaptcha_token, request.client.host)
+    client_host = request.client.host if request.client else ""
+    await recaptcha.verify_recaptcha(form_data.recaptcha_token, client_host)
     try:
         response = create_full_comment_submission(form_data, session)
     except (DataError, IntegrityError) as e:
@@ -476,14 +555,16 @@ def build_tag_subquery(tags: list[str] | None, include_admin_columns: bool = Fal
             func.array_agg(func.distinct(Tag.slug)).filter(col(Tag.slug).isnot(None)),
             [],
         ).label("tags"),
-        func.count(
-            case(
-                (col(Tag.slug).in_(tags) if tags else False, 1),  # type: ignore
-                else_=None,
-            )
-        ).label("matching_tag_count")
-        if tags
-        else literal(0).label("matching_tag_count"),
+        (
+            func.count(
+                case(
+                    (col(Tag.slug).in_(tags) if tags else False, 1),  # type: ignore
+                    else_=None,
+                )
+            ).label("matching_tag_count")
+            if tags
+            else literal(0).label("matching_tag_count")
+        ),
     ]
 
     if include_admin_columns:
@@ -798,9 +879,11 @@ def get_admin_query(
                 col(Comment.moderation_score) <= max_moderation_score,
                 col(Comment.moderation_score).is_(None),
             ),
-            col(Comment.review_status) == review_status
-            if review_status
-            else col(Comment.review_status).is_(None),
+            (
+                col(Comment.review_status) == review_status
+                if review_status
+                else col(Comment.review_status).is_(None)
+            ),
         )
     )
 
@@ -868,9 +951,11 @@ def get_admin_district_comments_query(
                 col(Comment.moderation_score) <= max_moderation_score,
                 col(Comment.moderation_score).is_(None),
             ),
-            col(Comment.review_status) == review_status
-            if review_status
-            else col(Comment.review_status).is_(None),
+            (
+                col(Comment.review_status) == review_status
+                if review_status
+                else col(Comment.review_status).is_(None)
+            ),
         )
     )
 
@@ -909,7 +994,7 @@ async def list_comments(
     )
     stmt = get_comments_base_query(params, search=search, has_map=has_map)
     stmt = moderate_comments_query(stmt)
-    results = session.execute(stmt).all()
+    results = session.exec(stmt).all()  # type: ignore[no-matching-overload]
     return results
 
 
@@ -950,7 +1035,7 @@ async def list_comments_admin(
         max_moderation_score=max_moderation_score,
         review_status=review_status,
     )
-    results = session.execute(stmt).all()
+    results = session.exec(stmt).all()  # type: ignore[no-matching-overload]
     return results
 
 
@@ -997,7 +1082,7 @@ async def list_district_comments_admin(
         max_moderation_score=max_moderation_score,
         review_status=review_status,
     )
-    results = session.execute(stmt).all()
+    results = session.exec(stmt).all()  # type: ignore[no-matching-overload]
     return results
 
 

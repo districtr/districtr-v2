@@ -65,7 +65,8 @@ const mapDisplayModes: Array<{
 
 const getOpacityStates = (
   mapOptions: MapControlsStore['mapOptions'],
-  setMapOptions: MapControlsStore['setMapOptions']
+  setMapOptions: MapControlsStore['setMapOptions'],
+  mapMode: MapControlsStore['mapMode']
 ) => [
   {
     selected: mapOptions.showPaintedDistricts && mapOptions.overlayOpacity > 0,
@@ -79,16 +80,17 @@ const getOpacityStates = (
   },
   {
     selected: mapOptions.showPaintedDistricts && mapOptions.overlayOpacity === 0,
-    label: 'Show Districts',
+    label: mapMode === 'coi' ? 'Show Communities' : 'Show Districts',
     onClick: () => setMapOptions({showPaintedDistricts: true, overlayOpacity: 0}),
   },
 ];
 
 export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
-  const mapMode = useMapControlsStore(state => state.mapOptions.showDemographicMap);
+  const demographicMapMode = useMapControlsStore(state => state.mapOptions.showDemographicMap);
+  const mapMode = useMapControlsStore(state => state.mapMode);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
-  const isOverlay = mapMode === 'overlay';
+  const isOverlay = demographicMapMode === 'overlay';
 
   const variable = useDemographyStore(state => state.variable);
   const variant = useDemographyStore(state => state.variant);
@@ -167,7 +169,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
       // if key is digit, set selected zone to that digit
       let value = event.key;
       // if x, set showDemographicMap to undefined
-      const opacityStates = getOpacityStates(mapOptions, setMapOptions);
+      const opacityStates = getOpacityStates(mapOptions, setMapOptions, mapMode);
       if (value === 'x') {
         const currentState = opacityStates.findIndex(f => f.selected);
         const nextState = (currentState + 1) % opacityStates.length;
@@ -183,7 +185,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
     return () => {
       document.removeEventListener('keydown', handleKeyPress);
     };
-  }, [mapVariableConfig]);
+  }, [mapMode, mapVariableConfig]);
 
   if (!Object.keys(availableMapVariables).length) {
     return (
@@ -199,7 +201,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
         {mapDisplayModes.map((option, i) => (
           <Button
             key={i}
-            variant={mapMode === option.value ? 'solid' : 'outline'}
+            variant={demographicMapMode === option.value ? 'solid' : 'outline'}
             onClick={() => handleSetMapMode(option.value)}
           >
             {!!option.icon && option.icon}
@@ -207,7 +209,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
           </Button>
         ))}
       </Flex>
-      {mapMode !== undefined && (
+      {demographicMapMode !== undefined && (
         <>
           <Flex direction="column" pt="2">
             <Flex direction="row" gap="3" align="start" py="2" wrap="wrap">
@@ -279,7 +281,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                           </Flex>
                         )}
 
-                        {mapMode === 'overlay' && (
+                        {demographicMapMode === 'overlay' && (
                           <Flex direction="column" gapY="1">
                             <Flex direction="row" gapX="1" align="center">
                               <Text>Overlay mode</Text>
@@ -290,16 +292,18 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                               </Tooltip>
                             </Flex>
                             <Flex direction="row" gapX="0" align="center" wrap="wrap">
-                              {getOpacityStates(mapOptions, setMapOptions).map((option, i) => (
-                                <Button
-                                  key={i}
-                                  className="!rounded-none mr-[-2px]"
-                                  variant={option.selected ? 'solid' : 'outline'}
-                                  onClick={option.onClick}
-                                >
-                                  {option.label}
-                                </Button>
-                              ))}
+                              {getOpacityStates(mapOptions, setMapOptions, mapMode).map(
+                                (option, i) => (
+                                  <Button
+                                    key={i}
+                                    className="!rounded-none mr-[-2px]"
+                                    variant={option.selected ? 'solid' : 'outline'}
+                                    onClick={option.onClick}
+                                  >
+                                    {option.label}
+                                  </Button>
+                                )
+                              )}
                             </Flex>
                           </Flex>
                         )}
@@ -370,7 +374,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
               </Flex>
             </Flex>
           ) : null}
-          {!!mapVariableConfig && mapMode === 'side-by-side' && (
+          {!!mapVariableConfig && demographicMapMode === 'side-by-side' && (
             <Text size="2" align="center">
               Gray = zero population
             </Text>

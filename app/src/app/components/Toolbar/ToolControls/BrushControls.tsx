@@ -9,10 +9,11 @@ import {ZonePicker} from '@components/Toolbar/ZonePicker';
 
 export const BrushControls = () => {
   const activeTool = useMapControlsStore(state => state.activeTool);
-  const setPaintFunction = useMapControlsStore(state => state.setPaintFunction);
+  const mapMode = useMapControlsStore(state => state.mapMode);
   const paintCounties = useFeatureFlagStore(state => state.paintCounties);
   const paintConstraint = useOverlayStore(state => state.paintConstraint);
   const clearPaintConstraint = useOverlayStore(state => state.clearPaintConstraint);
+  const showZonePicker = activeTool === 'brush' || (mapMode === 'coi' && activeTool === 'eraser');
 
   return (
     <Flex direction="column" gapY="2" justify="between" wrap="wrap">
@@ -26,7 +27,7 @@ export const BrushControls = () => {
           </Box>
         )}
       </Flex>
-      {activeTool === 'brush' ? (
+      {showZonePicker ? (
         <div className="flex-grow-0 flex-row p-0 m-0">
           <ZonePicker />
         </div>

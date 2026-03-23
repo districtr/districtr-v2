@@ -1,4 +1,4 @@
-import {Blockquote, Button, Flex, Heading, Text} from '@radix-ui/themes';
+import {Blockquote, Button, Flex, Heading, Select, Text} from '@radix-ui/themes';
 import Evaluation from './Evaluation/Evaluation';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useEffect, useState} from 'react';
@@ -15,6 +15,9 @@ import {
 import {demographyCache} from '@/app/utils/demography/demographyCache';
 import {CoalitionBuilder} from './CoalitionBuilder';
 import {ChevronDownIcon} from '@radix-ui/react-icons';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useMapStore} from '@/app/store/mapStore';
+import {sortCommunitiesByRenderOrder} from '@/app/utils/communities';
 
 type SummaryPanelProps = {
   defaultColumnSet: keyof SummaryStatConfig;
@@ -51,6 +54,10 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
   const availableSummaries = useDemographyStore(state => state.availableColumnSets.evaluation);
   const coalitionGroups = useDemographyStore(state => state.coalitionGroups);
   const availableColumnSets = Object.keys(availableSummaries) as Array<keyof SummaryStatConfig>;
+  const mapMode = useMapControlsStore(state => state.mapMode);
+  const selectedZone = useMapControlsStore(state => state.selectedZone);
+  const setSelectedZone = useMapControlsStore(state => state.setSelectedZone);
+  const communities = useMapStore(state => state.communities);
 
   const [summaryType, setSummaryType] = useState<keyof SummaryStatConfig | undefined>(
     !availableColumnSets.length
@@ -105,6 +112,8 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
       ...baseColumnConfig,
     ];
   })();
+  const isCommunityMode = mapMode === 'coi';
+  const orderedCommunities = sortCommunitiesByRenderOrder(communities);
 
   useEffect(() => {
     if (!availableColumnSets.length) return;
@@ -140,19 +149,43 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
         isOpen={openSections.evaluation}
         onToggle={() => toggleSection('evaluation')}
       />
+      {isCommunityMode && orderedCommunities.length > 0 && openSections.evaluation && (
+        <Flex direction="row" gap="4" align="center" wrap="wrap" px="2">
+          <Text>Community</Text>
+          <Select.Root
+            value={String(selectedZone)}
+            onValueChange={value => setSelectedZone(Number(value))}
+          >
+            <Select.Trigger />
+            <Select.Content>
+              {orderedCommunities.map(community => (
+                <Select.Item key={community.id} value={String(community.id)}>
+                  {community.render_order_id}. {community.name}
+                </Select.Item>
+              ))}
+            </Select.Content>
+          </Select.Root>
+        </Flex>
+      )}
       {openSections.evaluation && (
         <Evaluation
           summaryType={summaryType}
           setSummaryType={setSummaryType}
           columnConfigs={columnConfigs}
           displayedColumnSets={displayedColumnSets}
+          singleZone={isCommunityMode && orderedCommunities.length > 0 ? selectedZone : undefined}
+          universeTotals={
+            isCommunityMode && orderedCommunities.length > 0
+              ? demographyCache.universeTotals
+              : undefined
+          }
         />
       )}
       <SectionHeader title="Map" isOpen={openSections.map} onToggle={() => toggleSection('map')} />
       {openSections.map && (
         <MapPanel columnGroup={summaryType} displayedColumnSets={displayedColumnSets} />
       )}
-      {canShowCoalition && (
+      {canShowCoalition && !isCommunityMode && (
         <>
           <SectionHeader
             title="Coalition Builder"

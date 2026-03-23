@@ -17,6 +17,7 @@ import {formatNumber, NumberFormats} from '@/app/utils/numbers';
 import {interpolateGreys} from 'd3-scale-chromatic';
 import {SummaryRecord, SummaryStatConfig} from '@/app/utils/api/summaryStats';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {
   EvalModes,
   modeButtonConfig,
@@ -29,6 +30,9 @@ import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
 import {CoalitionGroupKey, COALITION_VARIABLE_BY_UNIVERSE} from '@/app/utils/demography/coalition';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
+import {compareCoiZonesByRenderOrder, getCommunityDisplayNumber} from '@/app/utils/communities';
+import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
+import {useMapStore} from '@/app/store/mapStore';
 
 type ColumnConfig = {
   label: string;
@@ -43,6 +47,8 @@ type EvaluationProps = {
   displayedColumnSets?: Array<keyof SummaryStatConfig>;
   columnConfigs: ColumnConfig[];
   title?: string;
+  singleZone?: number;
+  universeTotals?: SummaryRecord | null;
 };
 
 type EvaluationDataRow = SummaryRecord | Record<string, string | number | boolean>;
@@ -60,13 +66,16 @@ type EvaluationTableBodyProps = {
   summaryType: keyof SummaryStatConfig;
   numberFormat: NumberFormats;
   maxValues: Record<string, number>;
+  mapMode: string;
+  communities: ReturnType<typeof useMapStore.getState>['communities'];
+  getZoneColor: (zone: number | null, fallback?: string) => string;
 };
 
 type EvaluationTableRowProps = Omit<EvaluationTableBodyProps, 'rows'> & {
   row: EvaluationDataRow;
 };
 
-type EvaluationTableCellProps = Omit<EvaluationTableRowProps, 'columnConfigs' | 'colorScheme'> & {
+type EvaluationTableCellProps = Omit<EvaluationTableRowProps, 'columnConfigs' | 'colorScheme' | 'mapMode' | 'communities' | 'getZoneColor'> & {
   columnConfig: ColumnConfig;
   isUniverse: boolean;
   isUnassigned: boolean;
@@ -113,6 +122,8 @@ const Evaluation: React.FC<EvaluationProps> = ({
   displayedColumnSets,
   columnConfigs,
   title,
+  singleZone,
+  universeTotals,
 }) => {
   const [evalMode, setEvalMode] = useState<EvalModes>('share');
   const [colorBg, setColorBg] = useState<boolean>(true);
@@ -122,6 +133,9 @@ const Evaluation: React.FC<EvaluationProps> = ({
 
   const maxValues = zoneStats?.maxValues;
   const colorScheme = useColorScheme();
+  const getZoneColor = useZoneColorGetter();
+  const mapMode = useMapControlsStore(state => state.mapMode);
+  const communities = useMapStore(state => state.communities);
   const summaryStatConfig = summaryStatLabels.find(f => f.value === summaryType);
   const displayedStatLabels = summaryStatLabels.filter(f =>
     displayedColumnSets ? displayedColumnSets.includes(f.value) : true
@@ -176,10 +190,27 @@ const Evaluation: React.FC<EvaluationProps> = ({
         })
       : undefined;
 
-  const rows = [
-    ...zoneData.sort((a, b) => (a.zone || 0) - (b.zone || 0)),
-    ...(universeRow ? [universeRow] : []),
-  ];
+  const baseRows: EvaluationDataRow[] = (() => {
+    if (singleZone != null) {
+      const filtered = zoneData.filter(r => r.zone === singleZone);
+      const effectiveUniverseTotals = universeTotals ?? demographyCache.universeTotals;
+      return effectiveUniverseTotals ? [...filtered, effectiveUniverseTotals] : filtered;
+    }
+    return [...zoneData, ...(universeRow ? [universeRow] : [])];
+  })();
+
+  const rows = baseRows.sort((a, b) => {
+    const aIsUniverse = Boolean((a as Record<string, unknown>).__isUniverse) || a.zone === 0;
+    const bIsUniverse = Boolean((b as Record<string, unknown>).__isUniverse) || b.zone === 0;
+    if (aIsUniverse) return 1;
+    if (bIsUniverse) return -1;
+    if (a.zone === undefined) return 1;
+    if (b.zone === undefined) return -1;
+    if (mapMode === 'coi') {
+      return compareCoiZonesByRenderOrder(a.zone as number, b.zone as number, communities);
+    }
+    return ((a.zone as number) || 0) - ((b.zone as number) || 0);
+  });
 
   return (
     <Box width={'100%'}>
@@ -211,11 +242,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
         </Flex>
         <Popover.Root>
           <Popover.Trigger>
-            <IconButton
-              variant="ghost"
-              size="3"
-              aria-label="Choose map districtr assignment brush color"
-            >
+            <IconButton variant="ghost" size="3" aria-label="Open evaluation options">
               <GearIcon />
             </IconButton>
           </Popover.Trigger>
@@ -268,6 +295,9 @@ const Evaluation: React.FC<EvaluationProps> = ({
             summaryType={summaryType}
             numberFormat={numberFormat}
             maxValues={maxValues}
+            mapMode={mapMode}
+            communities={communities}
+            getZoneColor={getZoneColor}
           />
         </Table.Root>
       </Box>
@@ -320,15 +350,24 @@ const EvaluationTableRow: React.FC<EvaluationTableRowProps> = ({
   summaryType,
   numberFormat,
   maxValues,
+  mapMode,
+  communities,
+  getZoneColor,
 }) => {
-  const isUniverse = Boolean((row as Record<string, unknown>).__isUniverse);
+  const isUniverse = Boolean((row as Record<string, unknown>).__isUniverse) || row.zone === 0;
   const isUnassigned = !isUniverse && row.zone === undefined;
-  const zoneName = isUniverse ? 'Overall' : isUnassigned ? 'None' : row.zone;
+  const zoneName = isUniverse
+    ? 'Overall'
+    : isUnassigned
+      ? 'None'
+      : mapMode === 'coi'
+        ? getCommunityDisplayNumber(communities, row.zone as number)
+        : row.zone;
   const backgroundColor = isUniverse
     ? '#111111'
     : isUnassigned
       ? '#DDDDDD'
-      : colorScheme[(row.zone as number) - 1];
+      : getZoneColor(row.zone as number, colorScheme[(row.zone as number) - 1] ?? '#000000');
 
   return (
     <Table.Row className={`border-b ${isUniverse ? 'bg-gray-100' : 'hover:bg-gray-50'}`}>
