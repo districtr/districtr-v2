@@ -821,7 +821,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       });
       useCoiAssignmentsStore.getState().ensureCommunityVisibility(nextCommunityId);
       useMapControlsStore.getState().setSelectedZone(nextCommunityId);
-      useCoiAssignmentsStore.getState().syncCommunitiesAndTimestamp(clientLastUpdated);
+      useCoiAssignmentsStore.getState().setClientLastUpdated(clientLastUpdated);
       if (mapDocument.document_id) {
         idb
           .getDocument(mapDocument.document_id)
@@ -902,7 +902,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         },
       });
 
-      useCoiAssignmentsStore.getState().syncCommunitiesAndTimestamp(clientLastUpdated);
+      useCoiAssignmentsStore.getState().setClientLastUpdated(clientLastUpdated);
 
       if (mapDocument.document_id) {
         idb

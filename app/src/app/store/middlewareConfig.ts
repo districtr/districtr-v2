@@ -3,7 +3,6 @@ import {MapStore} from './mapStore';
 import {MIN_DIFF_MS} from '../constants/configuration';
 import {ZundoOptions} from 'zundo';
 import {AssignmentsStore} from './assignmentsStore';
-import type {CoiAssignmentsStore} from './coiAssignmentsStore';
 import {TEMPORAL_HISTORY_LIMIT} from '../constants/configuration';
 import {cloneTemporalSnapshot} from '../utils/temporalSnapshot';
 
@@ -85,7 +84,7 @@ export const coiAssignmentsTemporalConfig: ZundoOptions<any, AssignmentsStore> =
   diff: temporalDiff,
   limit: TEMPORAL_HISTORY_LIMIT,
   // @ts-ignore: save only partial store
-  partialize: (state: CoiAssignmentsStore) => {
+  partialize: state => {
     const {
       shatterIds,
       parentToChild,
@@ -93,8 +92,6 @@ export const coiAssignmentsTemporalConfig: ZundoOptions<any, AssignmentsStore> =
       communityAssignments,
       communityVisibility,
       clientLastUpdated,
-      communities,
-      documentComments,
     } = state;
     return {
       shatterIds,
@@ -103,8 +100,6 @@ export const coiAssignmentsTemporalConfig: ZundoOptions<any, AssignmentsStore> =
       communityAssignments,
       communityVisibility,
       clientLastUpdated,
-      communities,
-      documentComments,
     };
   },
 };
