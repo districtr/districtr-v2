@@ -34,13 +34,18 @@ export const initSubs = () => {
       useDemographyStore.getState().updateData(curr);
     }
   );
-  // Clear undo/redo history when switching documents
+  // Clear undo/redo history when switching documents.
+  // Also reset clientLastUpdated to '' so that temporalDiff treats the next
+  // ingestFromDocument as "not yet ingested" and doesn't create a stale snapshot
+  // from the previous document's state.
   const clearTemporalOnDocChangeSub = useMapStore.subscribe(
     state => state.mapDocument?.document_id,
     (curr, prev) => {
       if (curr === prev) return;
       useAssignmentsStore.temporal.getState().clear();
       useCoiAssignmentsStore.temporal.getState().clear();
+      useAssignmentsStore.setState({clientLastUpdated: ''});
+      useCoiAssignmentsStore.setState({clientLastUpdated: ''});
     }
   );
   const numDistrictsSub = useMapStore.subscribe(
