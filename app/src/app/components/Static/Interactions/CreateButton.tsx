@@ -7,15 +7,16 @@ import {Button} from '@radix-ui/themes';
 import {useRouter} from 'next/navigation';
 import {useEffect} from 'react';
 
-export const CreateButton: React.FC<{view: Partial<DistrictrMap>; extraClasses?: string}> = ({
+export const CreateButton: React.FC<{view: Partial<DistrictrMap>; extraClasses?: string; isCommunity?: boolean}> = ({
   view,
   extraClasses,
+  isCommunity,
 }) => {
   const router = useRouter();
   const userID = useMapStore(stat => stat.userID);
   const setUserID = useMapStore(stat => stat.setUserID);
   const setErrorNotification = useMapStore(stat => stat.setErrorNotification);
-  const isCoiRoute = currMapRoute === 'coi';
+  const isCoiRoute = isCommunity ?? (currMapRoute === 'coi');
 
   useEffect(() => {
     !userID && setUserID();
