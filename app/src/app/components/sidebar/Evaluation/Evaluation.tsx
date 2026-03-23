@@ -16,8 +16,9 @@ import {
 import {Flex, Text} from '@radix-ui/themes';
 import {formatNumber} from '@/app/utils/numbers';
 import {interpolateGreys} from 'd3-scale-chromatic';
-import {AllEvaluationConfigs, SummaryStatConfig} from '@/app/utils/api/summaryStats';
+import {AllEvaluationConfigs, SummaryRecord, SummaryStatConfig} from '@/app/utils/api/summaryStats';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {
   EvalModes,
   modeButtonConfig,
@@ -26,22 +27,47 @@ import {
 } from '@/app/store/demography/evaluationConfig';
 import {PARTISAN_SCALE} from '@/app/store/demography/constants';
 import {GearIcon} from '@radix-ui/react-icons';
+import {demographyCache} from '@/app/utils/demography/demographyCache';
+import {compareCoiZonesByRenderOrder, getCommunityDisplayNumber} from '@/app/utils/communities';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
+import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 
 type EvaluationProps = {
   summaryType: keyof SummaryStatConfig;
   setSummaryType: (summaryType: keyof SummaryStatConfig) => void;
   displayedColumnSets?: Array<keyof SummaryStatConfig>;
   columnConfig: AllEvaluationConfigs;
+  singleZone?: number;
+  universeTotals?: SummaryRecord | null;
 };
-const Evaluation: React.FC<EvaluationProps> = ({summaryType, columnConfig}) => {
+const Evaluation: React.FC<EvaluationProps> = ({
+  summaryType,
+  columnConfig,
+  singleZone,
+  universeTotals,
+}) => {
   const [evalMode, setEvalMode] = useState<EvalModes>('share');
   const [colorBg, setColorBg] = useState<boolean>(true);
   const [showUnassigned, setShowUnassigned] = useState<boolean>(true);
   const {zoneStats, demoIsLoaded, zoneData} = useSummaryStats(showUnassigned);
 
   const maxValues = zoneStats?.maxValues;
+  const effectiveUniverseTotals =
+    singleZone != null ? (universeTotals ?? demographyCache.universeTotals) : undefined;
+  const displayData = (() => {
+    let rows = zoneData ?? [];
+    if (singleZone != null) {
+      rows = rows.filter(r => r.zone === singleZone);
+    }
+    if (effectiveUniverseTotals) {
+      rows = [...rows, effectiveUniverseTotals];
+    }
+    return rows;
+  })();
   const colorScheme = useColorScheme();
+  const getZoneColor = useZoneColorGetter();
+  const mapMode = useMapControlsStore(state => state.mapMode);
+  const communities = useMapStore(state => state.communities);
   const summaryStatConfig = summaryStatLabels.find(f => f.value === summaryType);
   const showModeButtons = Boolean(
     summaryStatConfig?.supportedModes?.length && summaryStatConfig?.supportedModes?.length > 1
@@ -83,11 +109,7 @@ const Evaluation: React.FC<EvaluationProps> = ({summaryType, columnConfig}) => {
         </Heading>
         <Popover.Root>
           <Popover.Trigger>
-            <IconButton
-              variant="ghost"
-              size="3"
-              aria-label="Choose map districtr assignment brush color"
-            >
+            <IconButton variant="ghost" size="3" aria-label="Open evaluation options">
               <GearIcon />
             </IconButton>
           </Popover.Trigger>
@@ -144,12 +166,32 @@ const Evaluation: React.FC<EvaluationProps> = ({summaryType, columnConfig}) => {
             </Table.Row>
           </Table.Header>
           <Table.Body>
-            {zoneData
-              .sort((a, b) => (a.zone || 0) - (b.zone || 0))
+            {displayData
+              .sort((a, b) => {
+                if (a.zone === undefined) return -1;
+                if (b.zone === undefined) return 1;
+                if (a.zone === 0) return -1;
+                if (b.zone === 0) return 1;
+                if (mapMode === 'coi') {
+                  return compareCoiZonesByRenderOrder(a.zone, b.zone, communities);
+                }
+                return (a.zone || 0) - (b.zone || 0);
+              })
               .map((row, i) => {
                 const isUnassigned = row.zone === undefined;
-                const zoneName = isUnassigned ? 'None' : row.zone;
-                const backgroundColor = isUnassigned ? '#DDDDDD' : colorScheme[row.zone - 1];
+                const isUniverse = row.zone === 0;
+                const zoneName = isUniverse
+                  ? 'Overall'
+                  : isUnassigned
+                    ? 'None'
+                    : mapMode === 'coi'
+                      ? getCommunityDisplayNumber(communities, row.zone)
+                      : row.zone;
+                const backgroundColor = isUniverse
+                  ? '#9CA3AF'
+                  : isUnassigned
+                    ? '#DDDDDD'
+                    : getZoneColor(row.zone, colorScheme[row.zone - 1] ?? '#000000');
 
                 return (
                   <Table.Row key={`eval-row-${i}`} className="border-b hover:bg-gray-50">
@@ -177,7 +219,7 @@ const Evaluation: React.FC<EvaluationProps> = ({summaryType, columnConfig}) => {
                         if (value === undefined || colorValue === undefined) {
                         } else if (colorBg && summaryType === 'VOTERHISTORY') {
                           backgroundColor = PARTISAN_SCALE(((value as number) + 1) / 2);
-                        } else if (colorBg && !isUnassigned) {
+                        } else if (colorBg && !isUnassigned && !isUniverse) {
                           backgroundColor = interpolateGreys(colorValue as number)
                             .replace('rgb', 'rgba')
                             .replace(')', ',0.5)');

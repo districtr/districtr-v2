@@ -7,6 +7,7 @@ import {AssignmentsStore} from '@/app/store/assignmentsStore';
 import {idb} from '../../idb/idb';
 import {getAssignments} from './getAssignments';
 import {useMapStore} from '@/app/store/mapStore';
+import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 
 type PutUpdateAssignmentsAndVerifyResponse =
   | {
@@ -23,14 +24,12 @@ export const putUpdateAssignmentsAndVerify = async ({
   mapDocument,
   zoneAssignments,
   shatterIds,
-  parentToChild,
   childToParent,
   overwrite = false,
 }: {
   mapDocument: DocumentObject;
   zoneAssignments: Map<string, NullableZone>;
   shatterIds: AssignmentsStore['shatterIds'];
-  parentToChild: AssignmentsStore['parentToChild'];
   childToParent: AssignmentsStore['childToParent'];
   overwrite?: boolean;
 }): Promise<PutUpdateAssignmentsAndVerifyResponse> => {
@@ -42,11 +41,15 @@ export const putUpdateAssignmentsAndVerify = async ({
     'assignment_array'
   );
   // Build comments payload from document_comments
-  const comments = (mapDocument.document_comments || []).map(c => ({
-    comment_id: c.comment_id ?? undefined,
-    zone: c.zone ?? undefined,
-    text: c.text,
-  }));
+  const comments = (mapDocument.document_comments || []).map(c => {
+    // Only send comment_id if it's a server-assigned integer
+    const parsedId = c.comment_id ? parseInt(String(c.comment_id), 10) : NaN;
+    return {
+      comment_id: Number.isFinite(parsedId) ? parsedId : undefined,
+      zone: c.zone ?? undefined,
+      text: c.text,
+    };
+  });
 
   const assignmentsPostResponse = await putUpdateDocument({
     assignments: formattedAssignments,
@@ -134,6 +137,7 @@ export const putUpdateAssignmentsAndVerify = async ({
     assignments: freshServerAssignments.response,
     clientLastUpdated: assignmentsPostResponse.response.updated_at,
   });
+  useAssignmentsStore.getState().setClientLastUpdated(assignmentsPostResponse.response.updated_at);
   useMapStore.getState().mutateMapDocument({
     updated_at: assignmentsPostResponse.response.updated_at,
     ...(document_comments && {document_comments}),

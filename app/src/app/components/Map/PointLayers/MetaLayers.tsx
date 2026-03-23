@@ -1,4 +1,5 @@
 import {EMPTY_FT_COLLECTION, ZONE_LABEL_STYLE} from '@/app/constants/map/layerStyle';
+import {HIDE_ALL_FILTER} from '@/app/constants/map/layerFilters';
 import {
   SELECTION_POINTS_SOURCE_ID,
   SELECTION_POINTS_SOURCE_ID_CHILD,
@@ -60,7 +61,7 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
           ['match', ['get', 'path'], Array.from(shatterIds.parents), true, false],
         ] as FilterSpecification;
       } else {
-        return ['literal', false] as FilterSpecification;
+        return HIDE_ALL_FILTER;
       }
     }
   }, [child, !child && shatterIds, child && captiveIds]);
@@ -129,15 +130,12 @@ const ZoneNumbersLayer = () => {
   const shouldHide = showBlockPopulationNumbers && focusFeaturesLength;
   const demogHash = useDemographyStore(state => state.dataHash);
   const zoneComments = useMapStore(state => state.mapDocument?.document_comments);
+  const getZonesWithComments = useMapStore(state => state.getZonesWithComments);
 
   // Get zones that have comments
   const zonesWithComments = useMemo(() => {
-    const zones = new Set<number>();
-    (zoneComments || []).forEach(c => {
-      if (c.zone != null) zones.add(c.zone);
-    });
-    return Array.from(zones);
-  }, [zoneComments]);
+    return getZonesWithComments();
+  }, [getZonesWithComments, zoneComments]);
 
   const addZoneMetaLayers = async () => {
     const showZoneNumbers = useMapControlsStore.getState().mapOptions.showZoneNumbers;
@@ -154,10 +152,7 @@ const ZoneNumbersLayer = () => {
       .filter(p => p.total_pop_20 > 0)
       .map(p => p.zone);
     const mapState = useMapStore.getState();
-    const currentComments = mapState.mapDocument?.document_comments || [];
-    const zonesWithCommentSet = new Set(
-      currentComments.filter(c => c.zone != null).map(c => c.zone)
-    );
+    const zonesWithCommentSet = new Set(mapState.getZonesWithComments());
     if (showZoneNumbers && GeometryWorker) {
       const geoms = await GeometryWorker.getCentroidsFromView({
         activeZones,

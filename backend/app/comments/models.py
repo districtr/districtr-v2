@@ -247,7 +247,7 @@ class CommentTag(SQLModel, table=True):
     __table_args__ = (
         UniqueConstraint("comment_id", "tag_id", name="unique_comment_tag_link"),
     )
-    __tablename__ = "comment_tag"  # type: ignore
+    __tablename__ = "comment_tag"
 
     comment_id: int = Field(
         sa_column=Column(ForeignKey(col(Comment.id)), primary_key=True, nullable=False)
@@ -259,7 +259,7 @@ class CommentTag(SQLModel, table=True):
 
 class DocumentComment(SQLModel, table=True):
     metadata = MetaData(schema=COMMENTS_SCHEMA)
-    __tablename__ = "document_comment"  # type: ignore
+    __tablename__ = "document_comment"
 
     comment_id: int = Field(
         sa_column=Column(
@@ -375,6 +375,6 @@ class FlagCommentRequest(BaseModel):
 
 
 class DistrictCommentInput(BaseModel):
-    comment_id: int
+    comment_id: int | None = None
     zone: int
     text: str

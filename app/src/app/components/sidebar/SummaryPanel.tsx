@@ -5,6 +5,10 @@ import {useEffect, useState} from 'react';
 import {SummaryStatConfig} from '@/app/utils/api/summaryStats';
 import {summaryStatLabels} from '@/app/store/demography/evaluationConfig';
 import {MapPanel} from './MapPanel';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useMapStore} from '@/app/store/mapStore';
+import {demographyCache} from '@/app/utils/demography/demographyCache';
+import {sortCommunitiesByRenderOrder} from '@/app/utils/communities';
 
 type SummaryPanelProps = {
   defaultColumnSet: keyof SummaryStatConfig;
@@ -17,6 +21,10 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
   const availableSummaries = useDemographyStore(state => state.availableColumnSets.evaluation);
   const availableColumnSets = Object.keys(availableSummaries) as Array<keyof SummaryStatConfig>;
   const displayedStatLabels = summaryStatLabels.filter(f => displayedColumnSets.includes(f.value));
+  const mapMode = useMapControlsStore(state => state.mapMode);
+  const selectedZone = useMapControlsStore(state => state.selectedZone);
+  const setSelectedZone = useMapControlsStore(state => state.setSelectedZone);
+  const communities = useMapStore(state => state.communities);
 
   const [summaryType, setSummaryType] = useState<keyof SummaryStatConfig | undefined>(
     !availableColumnSets.length
@@ -27,6 +35,8 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
   );
 
   const columnConfig = summaryType ? availableSummaries[summaryType] : [];
+  const isCommunityMode = mapMode === 'coi';
+  const orderedCommunities = sortCommunitiesByRenderOrder(communities);
 
   useEffect(() => {
     if (!availableColumnSets.length) return;
@@ -52,7 +62,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
   }
   return (
     <Flex direction="column" gap="2">
-      <Flex direction="row" gap="2" align="center">
+      <Flex direction="row" gap="4" align="center" wrap="wrap">
         {displayedStatLabels.length > 1 && (
           <>
             <Text>Summary type</Text>
@@ -71,12 +81,36 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
             </Select.Root>
           </>
         )}
+        {isCommunityMode && orderedCommunities.length > 0 && (
+          <>
+            <Text>Community</Text>
+            <Select.Root
+              value={String(selectedZone)}
+              onValueChange={value => setSelectedZone(Number(value))}
+            >
+              <Select.Trigger />
+              <Select.Content>
+                {orderedCommunities.map(community => (
+                  <Select.Item key={community.id} value={String(community.id)}>
+                    {community.render_order_id}. {community.name}
+                  </Select.Item>
+                ))}
+              </Select.Content>
+            </Select.Root>
+          </>
+        )}
       </Flex>
       <Evaluation
         summaryType={summaryType}
         setSummaryType={setSummaryType}
         columnConfig={columnConfig}
         displayedColumnSets={displayedColumnSets}
+        singleZone={isCommunityMode && orderedCommunities.length > 0 ? selectedZone : undefined}
+        universeTotals={
+          isCommunityMode && orderedCommunities.length > 0
+            ? demographyCache.universeTotals
+            : undefined
+        }
       />
       <Heading as="h3" size="3">
         Map
