@@ -16,7 +16,7 @@ export const CreateButton: React.FC<{
   const userID = useMapStore(stat => stat.userID);
   const setUserID = useMapStore(stat => stat.setUserID);
   const setErrorNotification = useMapStore(stat => stat.setErrorNotification);
-  const isCoiRoute = isCommunity ?? currMapRoute === 'coi';
+  const shouldMakeCommunity = isCommunity ?? currMapRoute === 'coi';
 
   useEffect(() => {
     !userID && setUserID();
@@ -26,10 +26,10 @@ export const CreateButton: React.FC<{
     view.districtr_map_slug &&
       createMapDocument({
         districtr_map_slug: view.districtr_map_slug,
-        map_type: isCoiRoute ? 'community' : view.map_type,
+        map_type: shouldMakeCommunity ? 'community' : view.map_type,
       }).then(r => {
         if (r.ok) {
-          router.push(`/${isCoiRoute ? 'coi' : 'map'}/edit/${r.response.document_id}`);
+          router.push(`/${shouldMakeCommunity ? 'coi' : 'map'}/edit/${r.response.document_id}`);
         } else {
           setErrorNotification({
             message: r.error.detail,
