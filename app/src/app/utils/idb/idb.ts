@@ -4,6 +4,7 @@ import {NullableZone} from '@/app/constants/types';
 import {formatAssignmentsFromState} from '../map/formatAssignments';
 import {formatCoiAssignmentsFromState} from '../map/formatCoiAssignments';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
+import {CoalitionGroupKey} from '../demography/coalition';
 import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 // --- Main Document Entry ---
 export interface StoredDocument {
@@ -15,14 +16,25 @@ export interface StoredDocument {
   shouldFetchAssignments?: boolean;
 }
 
+export interface CoalitionConfig {
+  districtr_map_slug: string;
+  selectedGroups: CoalitionGroupKey[];
+  updatedAt: string;
+}
+
 // --- Dexie Setup ---
 export class DocumentsDB extends Dexie {
   documents!: Table<StoredDocument, string>;
+  coalition_configs!: Table<CoalitionConfig, string>;
 
   constructor() {
     super('DocumentsDB');
     this.version(1).stores({
       documents: 'id, clientLastUpdated',
+    });
+    this.version(2).stores({
+      documents: 'id, clientLastUpdated',
+      coalition_configs: 'districtr_map_slug, updatedAt',
     });
 
     if (typeof window !== 'undefined') {
@@ -255,6 +267,31 @@ export class DocumentsDB extends Dexie {
       ...currDocument,
       password: password,
     });
+  };
+
+  getCoalitionConfigBySlug = async (districtr_map_slug: string) => {
+    if (!districtr_map_slug) return undefined;
+    return await this.coalition_configs.get(districtr_map_slug);
+  };
+
+  upsertCoalitionConfigBySlug = async ({
+    districtr_map_slug,
+    selectedGroups,
+  }: {
+    districtr_map_slug: string;
+    selectedGroups: CoalitionGroupKey[];
+  }) => {
+    if (!districtr_map_slug) return;
+    await this.coalition_configs.put({
+      districtr_map_slug,
+      selectedGroups: [...selectedGroups],
+      updatedAt: new Date().toISOString(),
+    });
+  };
+
+  clearCoalitionConfigBySlug = async (districtr_map_slug: string) => {
+    if (!districtr_map_slug) return;
+    await this.coalition_configs.delete(districtr_map_slug);
   };
 
   /**
