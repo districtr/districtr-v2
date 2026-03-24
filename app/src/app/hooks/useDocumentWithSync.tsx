@@ -9,7 +9,6 @@ import {SyncConflictResolution} from '@/app/constants/types';
 import {formatAssignmentsFromDocument} from '../utils/map/formatAssignments';
 import {formatCoiAssignmentsFromDocument} from '../utils/map/formatCoiAssignments';
 import {useRouter} from 'next/navigation';
-import {currMapRoute} from '@/app/utils/map/mapUrlRoute';
 interface UseDocumentWithSyncOptions {
   document_id: string | null | undefined;
   enabled?: boolean;
@@ -32,8 +31,8 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
   const districtResolveConflict = useAssignmentsStore(state => state.resolveConflict);
   const coiResolveConflict = useCoiAssignmentsStore(state => state.resolveConflict);
   const router = useRouter();
-  const isCoiRoute = currMapRoute === 'coi' || mapMode === 'coi';
-  const isDistrictRoute = currMapRoute === 'map';
+  const isCoiRoute = mapMode === 'coi';
+  const isDistrictRoute = mapMode === 'districts';
 
   const handleConflict = async (resolution: SyncConflictResolution) => {
     if (!conflictInfo) {
