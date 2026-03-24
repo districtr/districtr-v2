@@ -361,7 +361,7 @@ const EvaluationTableRow: React.FC<EvaluationTableRowProps> = ({
   const zoneName = isUniverse
     ? 'Overall'
     : isUnassigned
-      ? 'None'
+      ? 'Unassigned'
       : mapMode === 'coi'
         ? getCommunityDisplayNumber(communities, row.zone as number)
         : row.zone;
