@@ -1541,4 +1541,3 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     await get().resolveConflict(resolution, sycnConflictInfo, options);
   },
 }));
-

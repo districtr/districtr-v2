@@ -63,7 +63,7 @@ export var useDemographyStore = create(
           coalitionRestoredSlug: null,
           coalitionHash: `${++coalitionVersion}`,
         });
-        demographyCache.updatePopulations(undefined, []);
+        demographyCache.updatePopulations();
         return;
       }
       if (get().coalitionRestoredSlug === slug) return;
@@ -76,7 +76,7 @@ export var useDemographyStore = create(
         coalitionRestoredSlug: slug,
         coalitionHash: `${++coalitionVersion}`,
       });
-      demographyCache.updatePopulations(undefined, coalitionGroups);
+      demographyCache.updatePopulations({coalitionGroups});
 
       const currentVariable = get().variable;
       if (isCoalitionVariable(currentVariable)) {
@@ -99,7 +99,7 @@ export var useDemographyStore = create(
         coalitionGroups: deduped,
         coalitionHash: `${++coalitionVersion}`,
       });
-      demographyCache.updatePopulations(undefined, deduped);
+      demographyCache.updatePopulations({coalitionGroups: deduped});
 
       const {mapDocument} = useMapStore.getState();
       if (mapDocument?.districtr_map_slug) {
@@ -130,7 +130,7 @@ export var useDemographyStore = create(
         coalitionRestoredSlug: null,
         coalitionHash: `${++coalitionVersion}`,
       });
-      demographyCache.updatePopulations(undefined, []);
+      demographyCache.updatePopulations();
     },
     availableColumnSets: {
       evaluation: {},

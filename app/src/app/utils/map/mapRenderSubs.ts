@@ -393,7 +393,7 @@ export class MapRenderSubscriber {
     const newPrimaryAssignments = this.toPrimaryAssignments(newAssignmentsByGeoid);
     GeometryWorker?.updateZones(Array.from(newPrimaryAssignments.entries()));
     const coalitionGroups = this.useDemographyStore.getState().coalitionGroups;
-    demographyCache.updatePopulations(undefined, coalitionGroups);
+    demographyCache.updatePopulations({coalitionGroups});
 
     if (mapState.mapRenderingState !== 'loaded' || mapState.appLoadingState !== 'loaded') {
       this.updatePreviousCommunitySnapshot(newAssignmentsByGeoid, shatterIds);
@@ -490,7 +490,7 @@ export class MapRenderSubscriber {
 
     // Update demography cache
     const coalitionGroups = this.useDemographyStore.getState().coalitionGroups;
-    demographyCache.updatePopulations(zoneAssignments, coalitionGroups);
+    demographyCache.updatePopulations({zoneAssignments, coalitionGroups});
 
     // Only render colors if map is fully loaded
     if (mapState.mapRenderingState !== 'loaded' || mapState.appLoadingState !== 'loaded') {

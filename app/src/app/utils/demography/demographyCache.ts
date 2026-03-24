@@ -155,7 +155,10 @@ class DemographyCache {
     this.availableColumns = columns;
     this.table = table(data).derive(getColumnDerives(columns)).dedupe('path');
     const populationAssignments = getActivePopulationAssignments();
-    const popsOk = this.updatePopulations(populationAssignments, coalitionGroups);
+    const popsOk = this.updatePopulations({
+      zoneAssignments: populationAssignments,
+      coalitionGroups,
+    });
     if (!popsOk) return;
     this.updateSummaryStats();
     this.hash = hash;
@@ -241,10 +244,7 @@ class DemographyCache {
     (['TOTPOP', 'VAP'] as CoalitionUniverse[]).forEach(universe => {
       const variable = COALITION_VARIABLE_BY_UNIVERSE[universe];
       const pctVariable = `${variable}_pct`;
-      const rawMax = Math.max(
-        0,
-        ...rows.map(row => asNumericRecord(row)[variable] ?? 0)
-      );
+      const rawMax = Math.max(0, ...rows.map(row => asNumericRecord(row)[variable] ?? 0));
       const pctMax = Math.max(
         0,
         ...rows
@@ -602,7 +602,17 @@ class DemographyCache {
    *
    * @param zoneAssignments - The zone assignments to use for updating populations.
    */
-  updatePopulations(zoneAssignments?: PopulationAssignments, coalitionGroups: CoalitionGroupKey[] = []) {
+  updatePopulations(
+    {
+      zoneAssignments,
+      coalitionGroups,
+    }: {
+      zoneAssignments?: PopulationAssignments;
+      coalitionGroups: CoalitionGroupKey[];
+    } = {
+      coalitionGroups: [],
+    }
+  ) {
     const populations = this.calculatePopulations(zoneAssignments, coalitionGroups);
     if (populations.ok) {
       useChartStore.getState().setDataUpdateHash(`${performance.now()}`);
@@ -636,11 +646,7 @@ class DemographyCache {
       coalitionTotal,
       coalitionPct: universeTotal > 0 ? coalitionTotal / universeTotal : NaN,
       availableGroups: getAvailableCoalitionGroups(this.availableColumns, summaryType),
-      missingGroups: getMissingCoalitionGroups(
-        coalitionGroups,
-        this.availableColumns,
-        summaryType
-      ),
+      missingGroups: getMissingCoalitionGroups(coalitionGroups, this.availableColumns, summaryType),
     };
   }
 }
