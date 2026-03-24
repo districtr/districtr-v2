@@ -7,16 +7,16 @@ import {Button} from '@radix-ui/themes';
 import {useRouter} from 'next/navigation';
 import {useEffect} from 'react';
 
-export const CreateButton: React.FC<{view: Partial<DistrictrMap>; extraClasses?: string; isCommunity?: boolean}> = ({
-  view,
-  extraClasses,
-  isCommunity,
-}) => {
+export const CreateButton: React.FC<{
+  view: Partial<DistrictrMap>;
+  extraClasses?: string;
+  isCommunity?: boolean;
+}> = ({view, extraClasses, isCommunity}) => {
   const router = useRouter();
   const userID = useMapStore(stat => stat.userID);
   const setUserID = useMapStore(stat => stat.setUserID);
   const setErrorNotification = useMapStore(stat => stat.setErrorNotification);
-  const isCoiRoute = isCommunity ?? (currMapRoute === 'coi');
+  const isCoiRoute = isCommunity ?? currMapRoute === 'coi';
 
   useEffect(() => {
     !userID && setUserID();
@@ -26,7 +26,7 @@ export const CreateButton: React.FC<{view: Partial<DistrictrMap>; extraClasses?:
     view.districtr_map_slug &&
       createMapDocument({
         districtr_map_slug: view.districtr_map_slug,
-        map_type: isCoiRoute ? 'community' : 'default',
+        map_type: isCoiRoute ? 'community' : view.map_type,
       }).then(r => {
         if (r.ok) {
           router.push(`/${isCoiRoute ? 'coi' : 'map'}/edit/${r.response.document_id}`);
