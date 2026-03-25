@@ -169,6 +169,9 @@ class Settings(BaseSettings):
     AUTH0_ISSUER: str
     AUTH0_ALGORITHMS: str
 
+    # Payload CMS
+    PAYLOAD_SECRET: str | None = None
+
 
 @lru_cache()
 def get_settings():

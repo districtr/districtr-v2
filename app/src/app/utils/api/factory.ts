@@ -1,7 +1,21 @@
 import {API_URL} from './constants';
 import {HTTP_METHOD} from 'next/dist/server/web/http';
 import {ClientSession} from '@/app/lib/auth0';
+import {getPayloadToken} from './payloadAuth';
+
 export type QueryParams = Record<string, string | number | boolean | (string | number)[]>;
+
+/**
+ * Resolve the Bearer token from either an Auth0 ClientSession or Payload CMS cookie.
+ * Auth0 session takes priority if provided; falls back to Payload token.
+ */
+function resolveAccessToken(session?: ClientSession | null): string | null {
+  if (session?.tokenSet?.accessToken) {
+    return session.tokenSet.accessToken;
+  }
+  return getPayloadToken();
+}
+
 /**
  * API endpoint handler factory
  * @param API route excluding /api/
@@ -18,7 +32,7 @@ export const make = (path: string) => {
       queryParams,
     }: {
       body?: TBody;
-      session?: ClientSession;
+      session?: ClientSession | null;
       queryParams?: QueryParams;
     }): Promise<
       | {
@@ -37,8 +51,9 @@ export const make = (path: string) => {
         ...options,
       });
 
-      if (session?.tokenSet?.accessToken) {
-        headers.append('Authorization', `Bearer ${session.tokenSet.accessToken}`);
+      const accessToken = resolveAccessToken(session);
+      if (accessToken) {
+        headers.append('Authorization', `Bearer ${accessToken}`);
       }
 
       const fetchOptions: RequestInit = {
