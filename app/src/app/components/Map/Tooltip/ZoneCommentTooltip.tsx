@@ -1,5 +1,5 @@
 'use client';
-import {Box, Flex, Text, Separator} from '@radix-ui/themes';
+import {Box, Flex, Text} from '@radix-ui/themes';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {getCommunityDisplayNumber} from '@/app/utils/communities';
@@ -12,7 +12,7 @@ interface ZoneCommentTooltipProps {
 }
 
 export const ZoneCommentTooltip: React.FC<ZoneCommentTooltipProps> = ({zone, x, y}) => {
-  const comments = useMapStore(state => state.getZoneCommentsForZone(zone));
+  const description = useMapStore(state => state.getZoneDescriptionForZone(zone));
   const communities = useMapStore(state => state.communities);
   const mapMode = useMapControlsStore(state => state.mapMode);
   const getZoneColor = useZoneColorGetter();
@@ -34,44 +34,17 @@ export const ZoneCommentTooltip: React.FC<ZoneCommentTooltipProps> = ({zone, x, 
           style={{backgroundColor: color}}
         />
         <Text size="2" weight="bold">
-          {zoneLabel} {displayZone} Comments
+          {zoneLabel} {displayZone} Description
         </Text>
       </Flex>
-      <Flex direction="column" gap="2">
-        {!!comments.length ? (
-          comments.slice(0, 3).map((comment, index) => (
-            <Box key={index}>
-              {index > 0 && <Separator size="4" className="my-1" />}
-              <Text
-                size="1"
-                color="gray"
-                style={{
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden',
-                }}
-              >
-                {comment.text}
-              </Text>
-            </Box>
-          ))
-        ) : (
-          <Text size="1" color="gray">
-            No comments
-          </Text>
-        )}
-        {comments.length > 3 && (
-          <Text size="1" color="blue">
-            +{comments.length - 3} more comment{comments.length - 3 > 1 ? 's' : ''}
-          </Text>
-        )}
-        {comments.length > 0 && (
-          <Text size="1" color="blue" className="mt-1 italic">
-            Click {zoneLabel.toLowerCase()} number for more information
-          </Text>
-        )}
-      </Flex>
+      <Text size="1" color="gray">
+        {description ? description.text : 'No description'}
+      </Text>
+      {description && (
+        <Text size="1" color="blue" className="mt-1 italic">
+          Click {zoneLabel.toLowerCase()} number for more information
+        </Text>
+      )}
     </Box>
   );
 };

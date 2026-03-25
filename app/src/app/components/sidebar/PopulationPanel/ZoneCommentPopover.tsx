@@ -1,10 +1,10 @@
 'use client';
-import {Flex, Button, IconButton, Badge, Box, Popover} from '@radix-ui/themes';
+import {Flex, IconButton, Badge, Box, Popover} from '@radix-ui/themes';
 import {ChatBubbleIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@/app/store/mapStore';
 import {useState} from 'react';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import {ZoneCommentsContent} from '@/app/components/ZoneComments/ZoneCommentsContent';
+import {ZoneDescriptionContent} from '@/app/components/ZoneComments/ZoneCommentsContent';
 
 interface ZoneCommentPopoverProps {
   zone: number;
@@ -15,14 +15,13 @@ interface ZoneCommentPopoverProps {
 export const ZoneCommentPopover: React.FC<ZoneCommentPopoverProps> = ({zone, color, disabled}) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  const comments = useMapStore(state => state.getZoneCommentsForZone(zone));
+  const description = useMapStore(state => state.getZoneDescriptionForZone(zone));
   const isEditing = useMapControlsStore(state => state.isEditing);
   const selectedZone = useMapControlsStore(state => state.selectedZone);
-  const commentCountLimit = useMapStore(state => state.mapDocument?.comment_count_limit);
 
-  const commentCount = comments.length;
-  const shouldShowPublic = !isEditing && commentCount > 0;
-  const shouldShowEditing = isEditing && (commentCount > 0 || selectedZone === zone);
+  const hasDescription = !!description;
+  const shouldShowPublic = !isEditing && hasDescription;
+  const shouldShowEditing = isEditing && (hasDescription || selectedZone === zone);
 
   return (
     <Popover.Root open={isOpen} onOpenChange={setIsOpen}>
@@ -38,7 +37,7 @@ export const ZoneCommentPopover: React.FC<ZoneCommentPopoverProps> = ({zone, col
           disabled={disabled}
         >
           <ChatBubbleIcon />
-          {commentCount > 0 && (
+          {hasDescription && (
             <Badge
               size="1"
               variant="solid"
@@ -51,12 +50,10 @@ export const ZoneCommentPopover: React.FC<ZoneCommentPopoverProps> = ({zone, col
         </IconButton>
       </Popover.Trigger>
       <Popover.Content style={{width: 300}} align="start">
-        <ZoneCommentsContent
+        <ZoneDescriptionContent
           zone={zone}
           color={color}
           showEditingControls={isEditing}
-          showAddButton={isEditing && comments.length < (commentCountLimit ?? 0)}
-          scrollMaxHeight={250}
         />
       </Popover.Content>
     </Popover.Root>

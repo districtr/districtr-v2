@@ -127,8 +127,8 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
   if (zoneLabelFeatures.length > 0 && activeTool === 'pan') {
     const zone = zoneLabelFeatures[0].properties?.zone;
     if (zone !== undefined) {
-      const hasComments = mapStore.getZoneCommentsForZone(zone).length > 0;
-      if (hasComments) {
+      const hasDescription = !!mapStore.getZoneDescriptionForZone(zone);
+      if (hasDescription) {
         useTooltipStore.getState().setZoneCommentModalZone(zone);
         return;
       }
@@ -245,8 +245,8 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   if (zoneLabelFeatures.length > 0 && activeTool === 'pan') {
     const zone = zoneLabelFeatures[0].properties?.zone;
     if (zone !== undefined) {
-      const hasComments = mapStore.getZoneCommentsForZone(zone).length > 0;
-      if (hasComments) {
+      const hasDescription = !!mapStore.getZoneDescriptionForZone(zone);
+      if (hasDescription) {
         setZoneCommentTooltip({
           zone,
           x: e.point.x,
