@@ -1,3 +1,4 @@
+import { withPayload } from '@payloadcms/next/withPayload';
 import {withSentryConfig} from '@sentry/nextjs';
 import createMDX from '@next/mdx';
 
@@ -22,7 +23,7 @@ const withMDX = createMDX({
   // Add markdown plugins here if needed
 });
 
-export default withSentryConfig(withMDX(nextConfig), {
+export default withPayload(withSentryConfig(withMDX(nextConfig), {
   // For all available options, see:
   // https://github.com/getsentry/sentry-webpack-plugin#options
 
@@ -71,4 +72,4 @@ export default withSentryConfig(withMDX(nextConfig), {
   // https://docs.sentry.io/product/crons/
   // https://vercel.com/docs/cron-jobs
   automaticVercelMonitors: true,
-});
+}));
