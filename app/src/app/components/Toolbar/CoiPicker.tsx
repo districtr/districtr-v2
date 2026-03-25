@@ -13,6 +13,12 @@ export type CoiPickerProps = {
   multiple?: false;
   disabledValues?: NullableZone[];
   communityList?: Community[];
+  isReadOnly?: boolean;
+  canRemove?: boolean;
+  availableColors?: string[];
+  communityNameLengthLimit?: number;
+  onRemoveCommunity?: (communityId: number) => void;
+  onUpdateCommunity?: (communityId: number, updates: {name?: string; description?: string; color?: string}) => void;
 };
 
 export const CoiPicker = ({
@@ -21,6 +27,12 @@ export const CoiPicker = ({
   onValueChange,
   disabledValues,
   communityList,
+  isReadOnly,
+  canRemove,
+  availableColors,
+  communityNameLengthLimit,
+  onRemoveCommunity,
+  onUpdateCommunity,
 }: CoiPickerProps) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const stateCommunities = useMapStore(state => state.communities);
@@ -80,6 +92,12 @@ export const CoiPicker = ({
               disabledValues={disabledValues ?? []}
               value={value}
               defaultValue={defaultValue}
+              isReadOnly={isReadOnly}
+              canRemove={canRemove}
+              availableColors={availableColors}
+              communityNameLengthLimit={communityNameLengthLimit}
+              onRemoveCommunity={onRemoveCommunity}
+              onUpdateCommunity={onUpdateCommunity}
             />
           )}
         </Flex>

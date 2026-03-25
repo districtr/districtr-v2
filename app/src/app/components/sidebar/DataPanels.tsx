@@ -88,12 +88,14 @@ const DataPanels: React.FC<DataPanelsProps> = ({panels = defaultPanels}) => {
   const setSidebarPanels = useMapControlsStore(state => state.setSidebarPanels);
   const visiblePanels = useMemo(
     () =>
-      (mapMode === 'coi' ? panels.filter(panel => panel.title !== 'mapValidation') : panels).map(
-        panel =>
-          mapMode === 'coi' && panel.title === 'population'
-            ? {...panel, label: 'Communities'}
-            : panel
-      ),
+      mapMode === 'coi'
+        ? panels.filter(
+            panel =>
+              panel.title !== 'mapValidation' &&
+              panel.title !== 'population' &&
+              panel.title !== 'election'
+          )
+        : panels,
     [mapMode, panels]
   );
   const visiblePanelTitles = visiblePanels.map(panel => panel.title);
