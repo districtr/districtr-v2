@@ -67,6 +67,21 @@ const sanitizeCommunityDescription = (
   fallback = DEFAULT_COMMUNITY_DESCRIPTION
 ) => (description?.trim() || fallback).slice(0, maxLength);
 
+/** Keep only the first comment per zone; drop later duplicates. */
+const deduplicateCommentsByZone = (
+  comments: DocumentComment[]
+): {deduplicated: DocumentComment[]; hadDuplicates: boolean} => {
+  const seen = new Set<number>();
+  const deduplicated: DocumentComment[] = [];
+  for (const c of comments) {
+    if (c.zone == null || !seen.has(c.zone)) {
+      deduplicated.push(c);
+      if (c.zone != null) seen.add(c.zone);
+    }
+  }
+  return {deduplicated, hadDuplicates: deduplicated.length < comments.length};
+};
+
 const MISSING_DESCRIPTION_COMMENT_INDEX = -1;
 const trimCommentText = (text?: string | null) => (text ?? '').trim();
 
@@ -431,13 +446,21 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
 
       useAssignmentsStore.getState().resetShatterState();
 
+      // Deduplicate zone comments — legacy docs may have >1 comment per zone,
+      // which causes save failures since the backend enforces a per-zone limit.
+      const rawComments = mapDocument.document_comments || [];
+      const {deduplicated, hadDuplicates} = deduplicateCommentsByZone(rawComments);
+
+      const cleanedMapDocument = {
+        ...mapDocument,
+        num_communities: numCommunities,
+        community_metadata_list: communities,
+        color_scheme: colorScheme,
+        ...(hadDuplicates ? {document_comments: deduplicated} : {}),
+      };
+
       set({
-        mapDocument: {
-          ...mapDocument,
-          num_communities: numCommunities,
-          community_metadata_list: communities,
-          color_scheme: colorScheme,
-        },
+        mapDocument: cleanedMapDocument,
         numCommunities,
         communities,
         mapStatus: {
@@ -453,6 +476,12 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         mapRenderingState:
           mapDocument.tiles_s3_path === currentMapDocument?.tiles_s3_path ? 'loaded' : 'loading',
       });
+
+      // Persist cleaned comments to IDB so stale duplicates don't resurface
+      if (hadDuplicates && mapDocument.document_id) {
+        const ts = new Date().toISOString();
+        idb.updateIdbDocumentMetadata(cleanedMapDocument, ts);
+      }
     },
 
     flushMapState: false,
