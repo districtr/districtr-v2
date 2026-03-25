@@ -99,7 +99,7 @@ function buildUniverseRow({
 }): Record<string, number | string | boolean> {
   const coalitionStats = demographyCache.getCoalitionUniverseStats(summaryType, coalitionGroups);
   const row: Record<string, number | string | boolean> = {
-    zone: 'Universe',
+    zone: 'Statewide',
     __isUniverse: true,
   };
   const universeTotal = summaryData[universeTotalColumn];
