@@ -19,6 +19,7 @@ from app.save_share.models import (
 from app.comments.models import DocumentComment, Comment
 from app.comments.moderation import MODERATION_THRESHOLD
 from app.comments.models import ReviewStatus
+from app.comments.main import DEFAULT_MAX_COMMENTS_PER_DISTRICT
 from sqlalchemy.sql.functions import coalesce
 from sqlalchemy import or_, and_
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound
@@ -147,7 +148,7 @@ def get_document_public(
         coalesce(col(DistrictrMap.comment_length_limit), 240).label(
             "comment_length_limit"
         ),
-        coalesce(col(DistrictrMap.comment_count_limit), 10).label(
+        coalesce(col(DistrictrMap.comment_count_limit), DEFAULT_MAX_COMMENTS_PER_DISTRICT).label(
             "comment_count_limit"
         ),
         # get metadata as a json object
