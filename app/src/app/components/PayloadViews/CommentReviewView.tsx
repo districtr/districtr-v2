@@ -9,6 +9,7 @@ import {
   RadioGroup,
   Spinner,
   Text,
+  Theme,
 } from '@radix-ui/themes';
 import {useState} from 'react';
 import {
@@ -17,36 +18,26 @@ import {
   getAdminCommentsList,
   reviewItem,
 } from '@/app/utils/api/apiHandlers/reviewHandlers';
-import {useQuery} from '@tanstack/react-query';
-import {useCmsFormStore} from '@/app/store/cmsFormStore';
-import Pagination from '@/app/admin/review/components/Pagination';
-import {EntryRow} from '@/app/admin/review/components/EntryRow';
-import {TagReviewFilter} from '@/app/admin/review/components/TagReviewFilter';
-import {TextFilter} from '@/app/admin/review/components/TextFilter';
+import {useQuery, QueryClient, QueryClientProvider} from '@tanstack/react-query';
+import {usePayloadSession} from '@/app/hooks/usePayloadSession';
+import Pagination from '@/app/components/AdminReview/Pagination';
+import {EntryRow} from '@/app/components/AdminReview/EntryRow';
+import {TagReviewFilter} from '@/app/components/AdminReview/TagReviewFilter';
+import {TextFilter} from '@/app/components/AdminReview/TextFilter';
+
+const queryClient = new QueryClient();
 
 const ITEMS_PER_PAGE = 20;
 const REVIEW_STATUS_OPTIONS = [
-  {
-    name: 'Not yet reviewed',
-    value: null,
-  },
-  {
-    name: 'Approved',
-    value: REVIEW_STATUS_ENUM.APPROVED,
-  },
-  {
-    name: 'Rejected',
-    value: REVIEW_STATUS_ENUM.REJECTED,
-  },
-  {
-    name: 'Dismissed',
-    value: REVIEW_STATUS_ENUM.REVIEWED,
-  },
+  {name: 'Not yet reviewed', value: null},
+  {name: 'Approved', value: REVIEW_STATUS_ENUM.APPROVED},
+  {name: 'Rejected', value: REVIEW_STATUS_ENUM.REJECTED},
+  {name: 'Dismissed', value: REVIEW_STATUS_ENUM.REVIEWED},
 ];
 
-export default function ReviewHome() {
+function CommentReviewInner() {
   const [reviewStatus, setReviewStatus] = useState<ReviewStatus | null>(null);
-  const session = useCmsFormStore(state => state.session);
+  const session = usePayloadSession();
   const [offset, setOffset] = useState(0);
   const [limit, setLimit] = useState(ITEMS_PER_PAGE);
   const [tags, setTags] = useState<string[]>([]);
@@ -76,7 +67,7 @@ export default function ReviewHome() {
     setMaxModerationScore(1.0);
   };
 
-  const {data, status, refetch, isLoading} = useQuery({
+  const {data, refetch, isLoading} = useQuery({
     queryKey: [
       'review',
       reviewStatus,
@@ -120,10 +111,7 @@ export default function ReviewHome() {
   return (
     <Flex direction="row">
       <Flex
-        direction={{
-          initial: 'column',
-          md: 'row',
-        }}
+        direction={{initial: 'column', md: 'row'}}
         gap="4"
         align="start"
         justify="between"
@@ -147,13 +135,11 @@ export default function ReviewHome() {
               value={reviewStatus as string}
               defaultValue={REVIEW_STATUS_OPTIONS[0].value as string}
             >
-              {REVIEW_STATUS_OPTIONS.map(item => {
-                return (
-                  <RadioGroup.Item value={item.value?.toString() ?? ''} key={item.name}>
-                    {item.name}
-                  </RadioGroup.Item>
-                );
-              })}
+              {REVIEW_STATUS_OPTIONS.map(item => (
+                <RadioGroup.Item value={item.value?.toString() ?? ''} key={item.name}>
+                  {item.name}
+                </RadioGroup.Item>
+              ))}
             </RadioGroup.Root>
           </Flex>
           <Flex direction="column" gap="2" className="w-full">
@@ -197,12 +183,6 @@ export default function ReviewHome() {
           <Button onClick={clearAllFilters} variant="outline" color="gray">
             Clear All Filters
           </Button>
-          <a
-            href="/admin/review/district-comments"
-            className="text-sm text-blue-600 hover:underline mt-2"
-          >
-            District Comments Moderation →
-          </a>
         </Flex>
         <Flex direction="column" gap="4" className="w-full flex-1">
           <Box>
@@ -229,18 +209,23 @@ export default function ReviewHome() {
             </>
           )}
           {data?.ok && data?.response.length === 0 && (
-            <Blockquote color="green">No comments to review 🎉</Blockquote>
+            <Blockquote color="green">No comments to review</Blockquote>
           )}
-          <Grid
-            columns={{
-              initial: '1',
-              md: '2',
-              lg: '3',
-            }}
-            gap="4"
-          ></Grid>
+          <Grid columns={{initial: '1', md: '2', lg: '3'}} gap="4"></Grid>
         </Flex>
       </Flex>
     </Flex>
+  );
+}
+
+export default function CommentReviewView() {
+  return (
+    <Theme>
+      <QueryClientProvider client={queryClient}>
+        <div className="max-w-7xl mx-auto py-6 px-4">
+          <CommentReviewInner />
+        </div>
+      </QueryClientProvider>
+    </Theme>
   );
 }

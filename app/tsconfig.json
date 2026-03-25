@@ -23,7 +23,8 @@
       "@api/*": ["./src/app/api/*"],
       "@constants/*": ["./src/app/constants/*"],
       "@store/*": ["./src/app/store/*"],
-      "@utils/*": ["./src/app/utils/*"]
+      "@utils/*": ["./src/app/utils/*"],
+      "@payload-config": ["./src/payload.config.ts"]
     },
     "target": "ES6"
   },

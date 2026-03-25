@@ -1,27 +1,27 @@
 import {auth0} from '@/app/lib/auth0';
 
 export async function proxy(request: Request) {
-  // Note that proxy uses the standard Request type
   const authRes = await auth0.middleware(request);
 
   const url = new URL(request.url);
   const pathname = url.pathname;
 
-  // authentication routes — let the middleware handle it
+  // Auth0 authentication routes
   if (pathname.startsWith('/auth')) {
     return authRes;
   }
 
+  // Payload CMS admin panel — Payload handles its own auth via cookies
   if (pathname.startsWith('/admin')) {
-    const session = await auth0.getSession();
-
-    if (!session) {
-      return Response.redirect(`${url.origin}/auth/login`, 302);
-    }
     return authRes;
   }
 
-  // NOTE All other routes considered public
+  // Payload API routes — Payload handles its own auth
+  if (pathname.startsWith('/api/users')) {
+    return authRes;
+  }
+
+  // All other routes are public
   return authRes;
 }
 
@@ -32,8 +32,7 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico, sitemap.xml, robots.txt (metadata files)
-     * - api (API routes)
      */
-    '/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|api).*)',
+    '/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)',
   ],
 };

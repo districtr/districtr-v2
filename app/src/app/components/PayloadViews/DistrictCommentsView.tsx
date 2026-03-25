@@ -1,5 +1,5 @@
 'use client';
-import {Blockquote, Box, Button, Flex, Heading, RadioGroup, Spinner, Text} from '@radix-ui/themes';
+import {Blockquote, Box, Button, Flex, Heading, RadioGroup, Spinner, Text, Theme} from '@radix-ui/themes';
 import {useState} from 'react';
 import {
   REVIEW_STATUS_ENUM,
@@ -7,12 +7,13 @@ import {
   getAdminDistrictCommentsList,
   reviewItem,
 } from '@/app/utils/api/apiHandlers/reviewHandlers';
-import {useQuery} from '@tanstack/react-query';
-import {useCmsFormStore} from '@/app/store/cmsFormStore';
-import Pagination from '@/app/admin/review/components/Pagination';
-import {EntryRow} from '@/app/admin/review/components/EntryRow';
-import {TextFilter} from '@/app/admin/review/components/TextFilter';
-import Link from 'next/link';
+import {useQuery, QueryClient, QueryClientProvider} from '@tanstack/react-query';
+import {usePayloadSession} from '@/app/hooks/usePayloadSession';
+import Pagination from '@/app/components/AdminReview/Pagination';
+import {EntryRow} from '@/app/components/AdminReview/EntryRow';
+import {TextFilter} from '@/app/components/AdminReview/TextFilter';
+
+const queryClient = new QueryClient();
 
 const ITEMS_PER_PAGE = 20;
 const REVIEW_STATUS_OPTIONS = [
@@ -22,9 +23,9 @@ const REVIEW_STATUS_OPTIONS = [
   {name: 'Dismissed', value: REVIEW_STATUS_ENUM.REVIEWED},
 ];
 
-export default function DistrictCommentsReviewPage() {
+function DistrictCommentsInner() {
   const [reviewStatus, setReviewStatus] = useState<ReviewStatus | null>(null);
-  const session = useCmsFormStore(state => state.session);
+  const session = usePayloadSession();
   const [offset, setOffset] = useState(0);
   const [limit, setLimit] = useState(ITEMS_PER_PAGE);
   const [documentId, setDocumentId] = useState<string>('');
@@ -66,7 +67,7 @@ export default function DistrictCommentsReviewPage() {
     setOffset(0);
   };
 
-  const {data, status, refetch, isLoading} = useQuery({
+  const {data, refetch, isLoading} = useQuery({
     queryKey: [
       'district-comments-review',
       reviewStatus,
@@ -203,9 +204,6 @@ export default function DistrictCommentsReviewPage() {
           <Button onClick={clearAllFilters} variant="outline" color="gray">
             Clear All Filters
           </Button>
-          <Link href="/admin/review" className="text-sm text-blue-600 hover:underline">
-            ← Back to Form Comments
-          </Link>
         </Flex>
         <Flex direction="column" gap="4" className="w-full flex-1">
           <Box>
@@ -242,11 +240,23 @@ export default function DistrictCommentsReviewPage() {
           {data?.ok && data?.response.length === 0 && (
             <Blockquote color="green">
               No district comments to review
-              {documentIdFilter || publicIdFilter ? ' for this filter' : ''} 🎉
+              {documentIdFilter || publicIdFilter ? ' for this filter' : ''}
             </Blockquote>
           )}
         </Flex>
       </Flex>
     </Flex>
+  );
+}
+
+export default function DistrictCommentsView() {
+  return (
+    <Theme>
+      <QueryClientProvider client={queryClient}>
+        <div className="max-w-7xl mx-auto py-6 px-4">
+          <DistrictCommentsInner />
+        </div>
+      </QueryClientProvider>
+    </Theme>
   );
 }
