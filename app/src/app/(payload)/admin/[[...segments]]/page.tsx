@@ -3,7 +3,7 @@
 import type {AdminViewProps} from 'payload';
 
 import config from '@/payload.config';
-import {importMap} from '../importMap/importMap.js';
+import {importMap} from '../importMap.js';
 import {RootPage, generatePageMetadata} from '@payloadcms/next/views';
 
 type Args = {
