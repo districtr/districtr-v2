@@ -16,7 +16,6 @@ export type CoiPickerProps = {
   isReadOnly?: boolean;
   canRemove?: boolean;
   availableColors?: string[];
-  communityNameLengthLimit?: number;
   onRemoveCommunity?: (communityId: number) => void;
   onUpdateCommunity?: (
     communityId: number,
@@ -33,7 +32,6 @@ export const CoiPicker = ({
   isReadOnly,
   canRemove,
   availableColors,
-  communityNameLengthLimit,
   onRemoveCommunity,
   onUpdateCommunity,
 }: CoiPickerProps) => {
@@ -77,14 +75,16 @@ export const CoiPicker = ({
     };
   }, [communities, onValueChange]);
 
+  const handleSelect = (value: string) => {
+    const communityId = Number(value);
+    const selectedCommunity = communities.find(community => community.id === communityId);
+    if (selectedCommunity) onValueChange(selectedCommunity.id, selectedCommunity.color);
+  };
+
   return (
     <Box maxWidth={'100%'} id="BOX_CONTAINER">
       <RadioGroup.Root
-        onValueChange={value => {
-          const communityId = Number(value);
-          const selectedCommunity = communities.find(community => community.id === communityId);
-          if (selectedCommunity) onValueChange(selectedCommunity.id, selectedCommunity.color);
-        }}
+        onValueChange={handleSelect}
         value={value !== undefined ? String(value) : undefined}
         defaultValue={String(defaultValue)}
       >
@@ -98,7 +98,7 @@ export const CoiPicker = ({
               isReadOnly={isReadOnly}
               canRemove={canRemove}
               availableColors={availableColors}
-              communityNameLengthLimit={communityNameLengthLimit}
+              onSelect={handleSelect}
               onRemoveCommunity={onRemoveCommunity}
               onUpdateCommunity={onUpdateCommunity}
             />

@@ -17,7 +17,7 @@ import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/map/mapDefaults';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {getCommunityRenderOrderId, getUnusedCommunityColors} from '@/app/utils/communities';
 import {useSelectCommunity} from '@/app/hooks/useSelectCommunity';
-import {AddCommunityDialog} from '@/app/components/Toolbar/AddCommunityDialog';
+import {EditCommunityDialog} from '@/app/components/Toolbar/EditCommunityDialog';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 
 const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
@@ -260,7 +260,7 @@ export const PopulationPanel = () => {
         </Flex>
       )}
       {editingCommunity && (
-        <AddCommunityDialog
+        <EditCommunityDialog
           open={editingCommunityId !== null}
           onOpenChange={open => {
             if (!open) setEditingCommunityId(null);

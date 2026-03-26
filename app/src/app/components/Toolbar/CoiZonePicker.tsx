@@ -9,6 +9,7 @@ import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 import {useSelectCommunity} from '@/app/hooks/useSelectCommunity';
 import {getUnusedCommunityColors} from '@/app/utils/communities';
+import {Tooltip} from '@radix-ui/themes';
 
 export const CoiZonePicker: React.FC = () => {
   const selectedZone = useMapControlsStore(state => state.selectedZone);
@@ -27,9 +28,6 @@ export const CoiZonePicker: React.FC = () => {
   const selectCommunity = useSelectCommunity();
   const [communityToRemove, setCommunityToRemove] = useState<number | null>(null);
 
-  const communityNameLengthLimit = useMapStore(
-    state => state.mapDocument?.community_name_length_limit ?? 40
-  );
   const availableCommunityColors = useMemo(
     () => getUnusedCommunityColors(communities, colorScheme),
     [communities, colorScheme]
@@ -81,19 +79,36 @@ export const CoiZonePicker: React.FC = () => {
 
   const isReadOnly = access === 'read';
   const canRemove = communities.length > COI_MIN_COMMUNITIES;
-
+  const canAdd = communities.length < COI_MAX_COMMUNITIES;
   return (
     <Box
       className={isReadOnly ? 'pointer-events-none opacity-50' : ''}
       data-testid="zone-picker"
       maxWidth="100%"
+      width="100%"
     >
       <Flex direction="column" gap="2">
         {communities.length > 1 && (
-          <Flex direction="row" justify="end" pr="3">
-            <IconButton size="1" variant="ghost" onClick={toggleNotSelectedVisibility}>
-              {anyNotSelectedVisible ? <EyeOpenIcon /> : <EyeClosedIcon />}
-            </IconButton>
+          <Flex
+            direction="row"
+            justify="end"
+            gapX="2"
+            style={{
+              // exact padding to align with rows below
+              paddingRight: '22.59px',
+            }}
+          >
+            <Tooltip
+              content={
+                anyNotSelectedVisible
+                  ? 'Show all communities'
+                  : "Hide all communities (except the one you're painting)"
+              }
+            >
+              <IconButton size="1" variant="ghost" onClick={toggleNotSelectedVisibility}>
+                {anyNotSelectedVisible ? <EyeOpenIcon /> : <EyeClosedIcon />}
+              </IconButton>
+            </Tooltip>
           </Flex>
         )}
         <CoiPicker
@@ -104,21 +119,29 @@ export const CoiZonePicker: React.FC = () => {
           isReadOnly={isReadOnly}
           canRemove={canRemove}
           availableColors={availableCommunityColors}
-          communityNameLengthLimit={communityNameLengthLimit}
           onRemoveCommunity={handleRemoveCommunity}
           onUpdateCommunity={handleUpdateCommunity}
         />
         {!isReadOnly && (
-          <Flex justify="center">
-            <IconButton
-              size="1"
-              variant="soft"
-              onClick={handleAddCommunity}
-              disabled={communities.length >= COI_MAX_COMMUNITIES}
-              aria-label="Add community"
+          <Flex justify="start">
+            <Tooltip
+              content={
+                canAdd
+                  ? 'Start drawing a new community'
+                  : 'Maximum number of communities reached (8).'
+              }
             >
-              <PlusIcon />
-            </IconButton>
+              <IconButton
+                size="1"
+                variant="soft"
+                className="rounded-md"
+                onClick={handleAddCommunity}
+                disabled={!canAdd}
+                aria-label="Start drawing a new community"
+              >
+                <PlusIcon />
+              </IconButton>
+            </Tooltip>
           </Flex>
         )}
       </Flex>

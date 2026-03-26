@@ -52,7 +52,11 @@ export const DistrictsZonePicker: React.FC = () => {
   const canEditNumDistricts = numDistrictsModifiable && !isReadOnly;
 
   return (
-    <Box className={isReadOnly ? 'pointer-events-none opacity-50' : ''} data-testid="zone-picker">
+    <Box
+      className={isReadOnly ? 'pointer-events-none opacity-50' : ''}
+      data-testid="zone-picker"
+      width="100%"
+    >
       <Flex direction="column" gap="2">
         <Flex align="center" gap="2">
           <Text size="2" weight="medium">
