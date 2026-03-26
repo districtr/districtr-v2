@@ -1,5 +1,5 @@
 'use client';
-
+import '@radix-ui/themes/styles.css';
 import {usePayloadSession} from '@/app/hooks/usePayloadSession';
 import {generateThumbnail} from '@/app/utils/api/apiHandlers/generateThumbnail';
 import {Cross2Icon, ReloadIcon} from '@radix-ui/react-icons';
@@ -110,10 +110,12 @@ function ThumbnailGenerationInner() {
 
 export default function ThumbnailGenerationView() {
   return (
-    <Theme>
-      <div className="max-w-7xl mx-auto py-6 px-4">
-        <ThumbnailGenerationInner />
-      </div>
-    </Theme>
+    <div className="payload-custom-view" style={{isolation: 'isolate'}}>
+      <Theme accentColor="indigo" radius="medium" scaling="95%">
+        <div className="max-w-7xl mx-auto py-6 px-4">
+          <ThumbnailGenerationInner />
+        </div>
+      </Theme>
+    </div>
   );
 }

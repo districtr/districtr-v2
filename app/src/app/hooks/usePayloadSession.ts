@@ -1,15 +1,18 @@
-import {getPayloadToken} from '@/app/utils/api/payloadAuth';
+import {useAuth} from '@payloadcms/ui';
 import {ClientSession} from '@/app/lib/auth0';
 
 /**
- * Returns an Auth0-shaped session object backed by the Payload CMS cookie token.
- * This allows existing API handlers (which accept `session?: ClientSession`) to
- * work with Payload auth without any changes to the API layer.
+ * Returns an Auth0-shaped session object backed by the Payload CMS auth token.
+ * Uses Payload's internal useAuth() hook which has access to the token
+ * (the payload-token cookie is HttpOnly, so document.cookie can't read it).
  *
- * Returns null if no Payload token is present (user not logged in).
+ * This allows existing API handlers (which accept `session?: ClientSession`)
+ * to work with Payload auth without changes to the API layer.
+ *
+ * Must be used inside Payload admin views only.
  */
 export function usePayloadSession(): ClientSession | null {
-  const token = getPayloadToken();
+  const {token} = useAuth();
   if (!token) return null;
   return {
     tokenSet: {accessToken: token},

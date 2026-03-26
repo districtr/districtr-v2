@@ -1,4 +1,5 @@
 'use client';
+import '@radix-ui/themes/styles.css';
 import {Blockquote, Box, Button, Flex, Heading, RadioGroup, Spinner, Text, Theme} from '@radix-ui/themes';
 import {useState} from 'react';
 import {
@@ -251,12 +252,14 @@ function DistrictCommentsInner() {
 
 export default function DistrictCommentsView() {
   return (
-    <Theme>
-      <QueryClientProvider client={queryClient}>
-        <div className="max-w-7xl mx-auto py-6 px-4">
-          <DistrictCommentsInner />
-        </div>
-      </QueryClientProvider>
-    </Theme>
+    <div className="payload-custom-view" style={{isolation: 'isolate'}}>
+      <Theme accentColor="indigo" radius="medium" scaling="95%">
+        <QueryClientProvider client={queryClient}>
+          <div className="max-w-7xl mx-auto py-6 px-4">
+            <DistrictCommentsInner />
+          </div>
+        </QueryClientProvider>
+      </Theme>
+    </div>
   );
 }

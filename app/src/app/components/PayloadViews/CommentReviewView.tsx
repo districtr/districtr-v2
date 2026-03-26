@@ -1,4 +1,5 @@
 'use client';
+import '@radix-ui/themes/styles.css';
 import {
   Blockquote,
   Box,
@@ -220,12 +221,14 @@ function CommentReviewInner() {
 
 export default function CommentReviewView() {
   return (
-    <Theme>
-      <QueryClientProvider client={queryClient}>
-        <div className="max-w-7xl mx-auto py-6 px-4">
-          <CommentReviewInner />
-        </div>
-      </QueryClientProvider>
-    </Theme>
+    <div className="payload-custom-view" style={{isolation: 'isolate'}}>
+      <Theme accentColor="indigo" radius="medium" scaling="95%">
+        <QueryClientProvider client={queryClient}>
+          <div className="max-w-7xl mx-auto py-6 px-4">
+            <CommentReviewInner />
+          </div>
+        </QueryClientProvider>
+      </Theme>
+    </div>
   );
 }
