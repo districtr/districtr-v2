@@ -100,7 +100,7 @@ export const EditCommunityDialog: React.FC<EditCommunityDialogProps> = ({
             </label>
             <label>
               <Text as="div" size="2" mb="1" weight="medium">
-                Comment
+                Description
               </Text>
               <TextArea
                 value={communityDescription}
