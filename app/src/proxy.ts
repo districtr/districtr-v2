@@ -1,28 +1,12 @@
-import {auth0} from '@/app/lib/auth0';
+/**
+ * Proxy middleware for the Next.js app.
+ * Payload CMS handles its own auth for /admin routes via cookies.
+ * All other routes are public.
+ */
 
-export async function proxy(request: Request) {
-  const authRes = await auth0.middleware(request);
-
-  const url = new URL(request.url);
-  const pathname = url.pathname;
-
-  // Auth0 authentication routes
-  if (pathname.startsWith('/auth')) {
-    return authRes;
-  }
-
-  // Payload CMS admin panel — Payload handles its own auth via cookies
-  if (pathname.startsWith('/admin')) {
-    return authRes;
-  }
-
-  // Payload API routes — Payload handles its own auth
-  if (pathname.startsWith('/api/users')) {
-    return authRes;
-  }
-
-  // All other routes are public
-  return authRes;
+export function proxy(request: Request) {
+  // Pass through all requests — Payload handles admin auth internally
+  return new Response(null, {status: 200});
 }
 
 export const config = {

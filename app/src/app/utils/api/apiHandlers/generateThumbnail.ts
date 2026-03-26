@@ -1,7 +1,7 @@
 import {post} from '../factory';
-import {ClientSession} from '@/app/lib/auth0';
+import {AppSession} from '@/app/lib/session';
 
-export const generateThumbnail = async (documentId: string, session: ClientSession) => {
+export const generateThumbnail = async (documentId: string, session: AppSession) => {
   const response = await post<{documentId: string}, {message: string; public_id: number}>(
     `document/${documentId}/thumbnail`
   )({

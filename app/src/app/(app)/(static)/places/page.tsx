@@ -1,5 +1,4 @@
 import {listPayloadCmsContent} from '@/app/utils/api/payloadCms';
-import {listCMSContent, PlacesCMSContent} from '@/app/utils/api/cms';
 import {fastUniqBy} from '@/app/utils/arrays';
 import {Card, Flex, Grid, Heading, Text, Link} from '@radix-ui/themes';
 
@@ -7,51 +6,8 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 3600;
 
 export default async function PlacesPage() {
-  // Try Payload first
-  const payloadContent = await listPayloadCmsContent('places', 'en').catch(() => []);
-
-  if (payloadContent.length > 0) {
-    const entries = fastUniqBy(payloadContent, 'slug').sort((a, b) =>
-      a.title.localeCompare(b.title)
-    );
-
-    return (
-      <Flex direction={'column'}>
-        <Heading as="h1" size="6" mb="4">
-          Places
-        </Heading>
-        <Grid columns={{initial: '1', md: '2', lg: '4'}} gap="4">
-          {entries.length === 0 && <Text>No places available.</Text>}
-          {entries.map(content => (
-            <Card key={content.slug}>
-              <Heading as="h3" size="4">
-                {content.title}
-              </Heading>
-              {Boolean(content.districtrMapSlugs?.length) && (
-                <Text>
-                  {content.districtrMapSlugs!.length} map module
-                  {content.districtrMapSlugs!.length === 1 ? '' : 's'}
-                </Text>
-              )}
-              <br />
-              <Link href={`/place/${content.slug}`}>Go to place</Link>
-            </Card>
-          ))}
-        </Grid>
-      </Flex>
-    );
-  }
-
-  // Fall back to legacy Python CMS API
-  const cmsContent = await listCMSContent('places');
-  const cmsContentWithPublishedContent = cmsContent?.filter(content => content.published_content);
-  if (!cmsContentWithPublishedContent) return null;
-
-  const entries = fastUniqBy(cmsContentWithPublishedContent, 'slug').sort((a, b) =>
-    a.published_content!.title.localeCompare(b.published_content!.title)
-  ) as PlacesCMSContent[];
-
-  if (!entries) return null;
+  const content = await listPayloadCmsContent('places', 'en').catch(() => []);
+  const entries = fastUniqBy(content, 'slug').sort((a, b) => a.title.localeCompare(b.title));
 
   return (
     <Flex direction={'column'}>
@@ -63,12 +19,12 @@ export default async function PlacesPage() {
         {entries.map(content => (
           <Card key={content.slug}>
             <Heading as="h3" size="4">
-              {content.published_content!.title}
+              {content.title}
             </Heading>
-            {!!(content?.districtr_map_slugs && content?.districtr_map_slugs?.length) && (
+            {Boolean(content.districtrMapSlugs?.length) && (
               <Text>
-                {content.districtr_map_slugs.length} map module
-                {content.districtr_map_slugs.length === 1 ? '' : 's'}
+                {content.districtrMapSlugs!.length} map module
+                {content.districtrMapSlugs!.length === 1 ? '' : 's'}
               </Text>
             )}
             <br />

@@ -1,17 +1,11 @@
 'use client';
-import {useEffect} from 'react';
-import {useCmsFormStore} from '../store/cmsFormStore';
-import {ClientSession} from '@/app/lib/auth0';
 
+/**
+ * Client-side providers wrapper.
+ * Auth0 session injection removed — Payload CMS handles auth.
+ */
 export const Providers: React.FC<{
   children: React.ReactNode;
-  session: ClientSession | null | undefined;
-}> = ({session, children}) => {
-  const setSession = useCmsFormStore(state => state.setSession);
-
-  useEffect(() => {
-    session && setSession(session);
-  }, [session]);
-
+}> = ({children}) => {
   return <div>{children}</div>;
 };

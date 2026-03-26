@@ -19,7 +19,6 @@
     "test:e2e:preview": "BASE_URL=$PREVIEW_URL playwright test"
   },
   "dependencies": {
-    "@auth0/nextjs-auth0": "^4.13.0",
     "@emotion/react": "^11.13.0",
     "@emotion/styled": "^11.13.0",
     "@mapbox/mapbox-gl-sync-move": "^0.3.1",
@@ -38,14 +37,6 @@
     "@sentry/nextjs": "^9.1.0",
     "@stitches/react": "^1.2.8",
     "@tanstack/react-query": "^5.51.11",
-    "@tiptap/extension-color": "^2.11.5",
-    "@tiptap/extension-image": "^2.11.5",
-    "@tiptap/extension-link": "^2.11.5",
-    "@tiptap/extension-text-style": "^2.11.5",
-    "@tiptap/extension-underline": "^2.11.5",
-    "@tiptap/html": "^2.11.5",
-    "@tiptap/react": "^2.11.5",
-    "@tiptap/starter-kit": "^2.11.5",
     "@turf/turf": "^7.2.0",
     "@types/d3-scale": "^4.0.9",
     "@types/mdx": "^2.0.13",
@@ -96,7 +87,6 @@
     "sharp": "^0.34.5",
     "simple-statistics": "^7.8.7",
     "superjson": "^2.2.1",
-    "tiptap": "^1.32.2",
     "topojson-client": "^3.1.0",
     "zundo": "^2.3.0",
     "zustand": "4.5.2"

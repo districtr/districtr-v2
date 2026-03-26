@@ -1,6 +1,6 @@
 import {LANG_MAPPING} from '../language';
 import {get, patch, post, del} from './factory';
-import {ClientSession} from '@/app/lib/auth0';
+import {AppSession} from '@/app/lib/session';
 
 export interface CMSContentCreate {
   slug: string;
@@ -86,7 +86,7 @@ export const deleteCMSContent = async ({
   session,
 }: {
   body: {content_id: string; content_type: CmsContentTypes};
-  session: ClientSession;
+  session: AppSession;
 }) => {
   const url = `cms/content/${content_type}/${content_id}`;
   return await del(url)({session});
@@ -124,7 +124,7 @@ export const listCMSContent = async (
 export const listEditorCMSContent = async (
   type: CmsContentTypes,
   params: {language?: string; districtr_map_slug?: string} = {},
-  session: ClientSession
+  session: AppSession
 ): Promise<AllCmsLists | null> => {
   const url = `cms/content/${type}/list/authored`;
   const content = await get<Promise<AllCmsLists>>(url.toString())({body: {}, session});

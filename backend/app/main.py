@@ -39,7 +39,6 @@ from app.core.dependencies import (
 from app.core.models import DocumentID
 from app.core.config import settings
 import app.exports.main as exports
-import app.cms.main as cms
 import app.comments.main as comments
 from app.comments.main import sync_district_comments, sync_community_comments
 from app.comments.models import DistrictCommentInput
@@ -104,7 +103,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(exports.router)
-app.include_router(cms.router)
+# CMS router removed — Payload CMS now handles content management
 app.include_router(comments.router)
 app.include_router(save_share.router)
 app.include_router(thumbnails.router)
