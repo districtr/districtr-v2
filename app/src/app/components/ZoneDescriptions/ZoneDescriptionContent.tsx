@@ -84,6 +84,42 @@ export const DescriptionEditor: React.FC<DescriptionEditorProps> = ({
   );
 };
 
+interface DescriptionDisplayProps {
+  text: string;
+  showEditingControls: boolean;
+  isCoi: boolean;
+  onEdit: () => void;
+  onClear: () => void;
+}
+
+const DescriptionDisplay: React.FC<DescriptionDisplayProps> = ({
+  text,
+  showEditingControls,
+  isCoi,
+  onEdit,
+  onClear,
+}) => (
+  <Flex direction="column" gap="1" className="p-2 bg-gray-50 rounded">
+    <Flex justify="between" align="center" gap="1">
+      <Text size="1" style={{flex: 1, minWidth: 0}}>
+        {text}
+      </Text>
+      {showEditingControls && (
+        <Flex gap="1" style={{flexShrink: 0}} align="center" justify="center">
+          <IconButton size="1" variant="ghost" onClick={onEdit}>
+            <Pencil1Icon />
+          </IconButton>
+          {!isCoi && (
+            <IconButton size="1" variant="ghost" color="red" onClick={onClear}>
+              <Cross2Icon />
+            </IconButton>
+          )}
+        </Flex>
+      )}
+    </Flex>
+  </Flex>
+);
+
 export interface ZoneDescriptionContentProps {
   zone: number;
   color: string;
@@ -148,34 +184,13 @@ export const ZoneDescriptionContent: React.FC<ZoneDescriptionContentProps> = ({
           onCancel={() => setIsEditing(false)}
         />
       ) : description ? (
-        <Flex direction="column" gap="1" className="p-2 bg-gray-50 rounded">
-          <Flex justify="between" align="center" gap="1">
-            <Text size="1" style={{flex: 1, minWidth: 0}}>
-              {description.text}
-            </Text>
-            {showEditingControls && (
-              <Flex gap="1" style={{flexShrink: 0}} align="center" justify="center">
-                <IconButton
-                  size="1"
-                  variant="ghost"
-                  onClick={() => setIsEditing(true)}
-                >
-                  <Pencil1Icon />
-                </IconButton>
-                {mapMode !== 'coi' && (
-                  <IconButton
-                    size="1"
-                    variant="ghost"
-                    color="red"
-                    onClick={handleClearDescription}
-                  >
-                    <Cross2Icon />
-                  </IconButton>
-                )}
-              </Flex>
-            )}
-          </Flex>
-        </Flex>
+        <DescriptionDisplay
+          text={description.text}
+          showEditingControls={showEditingControls}
+          isCoi={mapMode === 'coi'}
+          onEdit={() => setIsEditing(true)}
+          onClear={handleClearDescription}
+        />
       ) : (
         <Text size="1" color="gray" className="py-2 text-center">
           No description yet.
