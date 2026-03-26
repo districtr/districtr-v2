@@ -8,6 +8,11 @@ import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 import {useSelectCommunity} from '@/app/hooks/useSelectCommunity';
 import {sortCommunitiesByRenderOrder} from '@/app/utils/communities';
 
+/**
+ * A single row in the public community viewer list.
+ * Displays the community color swatch, name, description, and a visibility toggle.
+ * Clicking the row selects the community (bringing it to the front on the map).
+ */
 const CoiCommunityViewerRow: React.FC<{
   community: {id: number; name: string; description: string; color: string};
   isSelected: boolean;
@@ -62,6 +67,17 @@ const CoiCommunityViewerRow: React.FC<{
   );
 };
 
+/**
+ * Read-only community list for the public/shared COI map view.
+ * Renders in the sidebar when the map is in COI mode and the user does not have edit access.
+ *
+ * Allows viewers to:
+ * - See community names, descriptions, and colors
+ * - Toggle individual community visibility on/off
+ * - Select a community to bring it to the front of the map
+ *
+ * No edit controls (add, remove, rename, recolor) are exposed.
+ */
 export const CoiCommunityViewer: React.FC = () => {
   const mapMode = useMapControlsStore(state => state.mapMode);
   const isEditing = useMapControlsStore(state => state.isEditing);
