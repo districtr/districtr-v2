@@ -18,7 +18,7 @@ import {useMapStore} from '@/app/store/mapStore';
 
 type ColorTab = 'palette' | 'custom';
 
-type AddCommunityDialogProps = {
+type EditCommunityDialogProps = {
   availableColors: string[];
   defaultColor: string;
   defaultDescription?: string;
@@ -29,7 +29,7 @@ type AddCommunityDialogProps = {
   open: boolean;
 };
 
-export const AddCommunityDialog: React.FC<AddCommunityDialogProps> = ({
+export const EditCommunityDialog: React.FC<EditCommunityDialogProps> = ({
   availableColors,
   defaultColor,
   defaultDescription = DEFAULT_COMMUNITY_DESCRIPTION,
@@ -47,6 +47,7 @@ export const AddCommunityDialog: React.FC<AddCommunityDialogProps> = ({
   const communityNameLengthLimit = useMapStore(
     state => state.mapDocument?.community_name_length_limit ?? 40
   );
+  const descriptionCharLimit = useMapStore(state => state.mapDocument?.comment_length_limit ?? 240);
   const suggestedColors = Array.from(new Set([defaultColor, ...availableColors])).slice(0, 24);
   const dialogTitle = mode === 'edit' ? 'Edit Community' : 'Add Community';
   const submitLabel = mode === 'edit' ? 'Save Changes' : 'Add Community';
@@ -106,11 +107,12 @@ export const AddCommunityDialog: React.FC<AddCommunityDialogProps> = ({
                 onChange={event => setCommunityDescription(event.target.value)}
                 placeholder={defaultDescription}
                 rows={4}
+                maxLength={descriptionCharLimit}
               />
             </label>
             <Flex direction="column" gap="2">
               <Text as="div" size="2" weight="medium">
-                Community Color
+                Map Color
               </Text>
               <Popover.Root open={colorMenuOpen} modal>
                 <Popover.Trigger>
@@ -126,12 +128,9 @@ export const AddCommunityDialog: React.FC<AddCommunityDialogProps> = ({
                         className="h-4 w-4 rounded border border-gray-300"
                         style={{backgroundColor: selectedColor}}
                       />
-                      <Text size="2">Community color</Text>
+                      <Text size="2">Change Color</Text>
                     </Flex>
                     <Flex align="center" gap="2">
-                      <Text size="1" color="gray">
-                        {selectedColor}
-                      </Text>
                       <ChevronDownIcon />
                     </Flex>
                   </Button>
