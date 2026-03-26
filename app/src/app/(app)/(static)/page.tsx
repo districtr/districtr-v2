@@ -1,10 +1,10 @@
 import React from 'react';
 import {Flex, Heading, Text, Link, Box} from '@radix-ui/themes';
 import Image from 'next/image';
-import {ContentSection} from '../components/Static/ContentSection';
-import {ResponsivePlaceMap} from '../components/Static/PlaceMap/PlaceMap';
-import {DevTeam} from '../components/Static/Content/DevTeam';
-import {CTA} from '../components/Static/Content/CTA';
+import {ContentSection} from '@/app/components/Static/ContentSection';
+import {ResponsivePlaceMap} from '@/app/components/Static/PlaceMap/PlaceMap';
+import {DevTeam} from '@/app/components/Static/Content/DevTeam';
+import {CTA} from '@/app/components/Static/Content/CTA';
 
 const Main: React.FC = () => {
   return (

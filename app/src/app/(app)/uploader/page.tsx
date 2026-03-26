@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import {Uploader} from '../components/Uploader/Uploader';
+import {Uploader} from '@/app/components/Uploader/Uploader';
 import {Flex, Heading} from '@radix-ui/themes';
 
 export default function UploaderPage() {

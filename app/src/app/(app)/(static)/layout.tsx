@@ -1,6 +1,6 @@
 import type {Metadata} from 'next';
 import {Header} from '@components/Static/Header';
-import {Footer} from '../components/Static/Footer';
+import {Footer} from '@/app/components/Static/Footer';
 import {Box, Flex} from '@radix-ui/themes';
 
 export const metadata: Metadata = {

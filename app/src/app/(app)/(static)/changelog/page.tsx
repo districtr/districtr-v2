@@ -1,5 +1,5 @@
 import {Flex, Heading, Text, Badge, Separator} from '@radix-ui/themes';
-import packageJson from '../../../../package.json';
+import packageJson from '../../../../../package.json';
 import Changelog from './changelog.mdx';
 
 export const metadata = {

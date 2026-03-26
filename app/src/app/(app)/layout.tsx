@@ -1,9 +1,9 @@
 import type {Metadata} from 'next';
 import {Nunito} from 'next/font/google';
 import {Theme} from '@radix-ui/themes';
-import {FeedbackForm} from './components/FeedbackForm';
+import {FeedbackForm} from '@/app/components/FeedbackForm';
 import '@radix-ui/themes/styles.css';
-import './globals.css';
+import '@/app/globals.css';
 
 const nunito = Nunito({
   subsets: ['latin'],
