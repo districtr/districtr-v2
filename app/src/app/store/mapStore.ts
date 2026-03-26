@@ -67,6 +67,21 @@ const sanitizeCommunityDescription = (
   fallback = DEFAULT_COMMUNITY_DESCRIPTION
 ) => (description?.trim() || fallback).slice(0, maxLength);
 
+/** Keep only the first comment per zone; drop later duplicates. */
+const deduplicateCommentsByZone = (
+  comments: DocumentComment[]
+): {deduplicated: DocumentComment[]; hadDuplicates: boolean} => {
+  const seen = new Set<number>();
+  const deduplicated: DocumentComment[] = [];
+  for (const c of comments) {
+    if (c.zone == null || !seen.has(c.zone)) {
+      deduplicated.push(c);
+      if (c.zone != null) seen.add(c.zone);
+    }
+  }
+  return {deduplicated, hadDuplicates: deduplicated.length < comments.length};
+};
+
 const MISSING_DESCRIPTION_COMMENT_INDEX = -1;
 const trimCommentText = (text?: string | null) => (text ?? '').trim();
 
@@ -191,14 +206,13 @@ export interface MapStore {
   ) => void;
   removeCommunity: (communityId: number) => void;
 
-  // ZONE COMMENTS
-  pinnedCommentZone: number | null;
-  setPinnedCommentZone: (zone: number | null) => void;
-  addZoneComment: (zone: number, comment: DocumentComment) => void;
-  editZoneComment: (zone: number, index: number, text: string) => void;
-  removeZoneComment: (zone: number, index: number) => void;
-  getZoneCommentsForZone: (zone: number) => DocumentComment[];
-  getZonesWithComments: () => number[];
+  // ZONE DESCRIPTIONS
+  pinnedDescriptionZone: number | null;
+  setPinnedDescriptionZone: (zone: number | null) => void;
+  setZoneDescription: (zone: number, text: string) => void;
+  clearZoneDescription: (zone: number) => void;
+  getZoneDescriptionForZone: (zone: number) => DocumentComment | null;
+  getZonesWithDescriptions: () => number[];
 
   // SHATTERING
   /**
@@ -432,13 +446,21 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
 
       useAssignmentsStore.getState().resetShatterState();
 
+      // Deduplicate zone descriptions — legacy docs may have >1 description per zone,
+      // which causes save failures since the backend enforces a per-zone limit.
+      const rawComments = mapDocument.document_comments || [];
+      const {deduplicated, hadDuplicates} = deduplicateCommentsByZone(rawComments);
+
+      const cleanedMapDocument = {
+        ...mapDocument,
+        num_communities: numCommunities,
+        community_metadata_list: communities,
+        color_scheme: colorScheme,
+        ...(hadDuplicates ? {document_comments: deduplicated} : {}),
+      };
+
       set({
-        mapDocument: {
-          ...mapDocument,
-          num_communities: numCommunities,
-          community_metadata_list: communities,
-          color_scheme: colorScheme,
-        },
+        mapDocument: cleanedMapDocument,
         numCommunities,
         communities,
         mapStatus: {
@@ -454,6 +476,12 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         mapRenderingState:
           mapDocument.tiles_s3_path === currentMapDocument?.tiles_s3_path ? 'loaded' : 'loading',
       });
+
+      // Persist cleaned comments to IDB so stale duplicates don't resurface
+      if (hadDuplicates && mapDocument.document_id) {
+        const ts = new Date().toISOString();
+        idb.updateIdbDocumentMetadata(cleanedMapDocument, ts);
+      }
     },
 
     flushMapState: false,
@@ -504,55 +532,29 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       }),
     clearUpdatedChanges: () => set({updated: {metadata: false, comments: false}}),
 
-    // ZONE COMMENTS
-    pinnedCommentZone: null,
-    setPinnedCommentZone: zone => set({pinnedCommentZone: zone}),
+    // ZONE DESCRIPTIONS
+    pinnedDescriptionZone: null,
+    setPinnedDescriptionZone: zone => set({pinnedDescriptionZone: zone}),
 
-    addZoneComment: (zone, comment) => {
-      const {mapDocument, updated} = get();
-      if (!mapDocument) return;
-
-      const currentComments = mapDocument.document_comments || [];
-      const zoneCommentsCount = currentComments.filter(c => c.zone === zone).length;
-      if (zoneCommentsCount >= 10) return; // Max 10 comments per district
-
-      const text = (comment.text ?? '').trim().slice(0, 240); // Max 240 chars
-      const newMapDocument = {
-        ...mapDocument,
-        document_comments: [...currentComments, {...comment, zone, text}],
-      };
-      set({
-        mapDocument: newMapDocument,
-        updated: {
-          ...updated,
-          metadata: true,
-        },
-      });
-      // Persist to IDB so comments survive refresh; update timestamp for pending-changes indicator
-      if (mapDocument.document_id) {
-        const newClientLastUpdated = new Date().toISOString();
-        idb.updateIdbDocumentMetadata(newMapDocument, newClientLastUpdated);
-        useAssignmentsStore.getState().setClientLastUpdated(newClientLastUpdated);
-      }
-    },
-
-    editZoneComment: (zone, index, text) => {
+    setZoneDescription: (zone, text) => {
       const {mapDocument, updated} = get();
       if (!mapDocument) return;
 
       const trimmedText = (text ?? '').trim().slice(0, 240); // Max 240 chars
       const currentComments = mapDocument.document_comments || [];
-      let zoneIndex = 0;
-      const updatedComments = currentComments.map(c => {
-        if (c.zone === zone) {
-          if (zoneIndex === index) {
-            zoneIndex++;
-            return {...c, text: trimmedText};
-          }
-          zoneIndex++;
-        }
-        return c;
-      });
+      const existingIndex = currentComments.findIndex(c => c.zone === zone);
+
+      let updatedComments: DocumentComment[];
+      if (existingIndex >= 0) {
+        updatedComments = currentComments.map((c, i) =>
+          i === existingIndex ? {...c, text: trimmedText} : c
+        );
+      } else {
+        updatedComments = [
+          ...currentComments,
+          {comment_id: crypto.randomUUID(), zone, text: trimmedText},
+        ];
+      }
 
       const newMapDocument = {
         ...mapDocument,
@@ -572,22 +574,12 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       }
     },
 
-    removeZoneComment: (zone, index) => {
+    clearZoneDescription: zone => {
       const {mapDocument, updated} = get();
       if (!mapDocument) return;
 
       const currentComments = mapDocument.document_comments || [];
-      let zoneIndex = 0;
-      const updatedComments = currentComments.filter(c => {
-        if (c.zone === zone) {
-          if (zoneIndex === index) {
-            zoneIndex++;
-            return false;
-          }
-          zoneIndex++;
-        }
-        return true;
-      });
+      const updatedComments = currentComments.filter(c => c.zone !== zone);
 
       const newMapDocument = {
         ...mapDocument,
@@ -607,12 +599,12 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       }
     },
 
-    getZoneCommentsForZone: (zone: number) => {
+    getZoneDescriptionForZone: (zone: number) => {
       const {mapDocument} = get();
-      return (mapDocument?.document_comments || []).filter(c => c.zone === zone);
+      return (mapDocument?.document_comments || []).find(c => c.zone === zone) || null;
     },
 
-    getZonesWithComments: () => {
+    getZonesWithDescriptions: () => {
       const {mapDocument} = get();
       const zones = new Set<number>();
       (mapDocument?.document_comments || []).forEach(c => {
@@ -922,7 +914,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       }
     },
     removeCommunity: communityId => {
-      const {mapDocument, communities, pinnedCommentZone} = get();
+      const {mapDocument, communities, pinnedDescriptionZone} = get();
       if (!mapDocument || communities.length <= 0) return;
       const orderedCommunities = sortCommunitiesByRenderOrder(communities);
       const removedCommunityIndex = orderedCommunities.findIndex(
@@ -954,7 +946,8 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         .getState()
         .mapOptions.lockPaintedAreas.filter(zone => zone !== communityId);
 
-      const remappedPinnedZone = pinnedCommentZone === communityId ? null : pinnedCommentZone;
+      const remappedPinnedZone =
+        pinnedDescriptionZone === communityId ? null : pinnedDescriptionZone;
       const updatedDocument = {
         ...mapDocument,
         num_communities: remainingCommunities.length,
@@ -972,7 +965,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         mapDocument: updatedDocument,
         numCommunities: remainingCommunities.length,
         communities: remainingCommunities,
-        pinnedCommentZone: remappedPinnedZone,
+        pinnedDescriptionZone: remappedPinnedZone,
         updated: {
           metadata: true,
           comments: true,
