@@ -90,7 +90,7 @@ export const CoiZonePicker: React.FC = () => {
     >
       <Flex direction="column" gap="2">
         {communities.length > 1 && (
-          <Flex direction="row" justify="end">
+          <Flex direction="row" justify="end" pr="3">
             <IconButton size="1" variant="ghost" onClick={toggleNotSelectedVisibility}>
               {anyNotSelectedVisible ? <EyeOpenIcon /> : <EyeClosedIcon />}
             </IconButton>

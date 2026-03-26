@@ -240,52 +240,44 @@ const CoiRadioRow: React.FC<{
         disabled={disabled}
         className={disabled ? 'opacity-25' : ''}
       />
-      <Flex
-        direction="row"
-        className="flex-grow min-w-0 overflow-hidden items-center"
-        gapX="2"
-        align="center"
-      >
-        <Box flexGrow={'0'} flexShrink="0">
-          <Text size="2" weight={isSelected ? 'bold' : 'regular'}>
-            {community.name}
-          </Text>
-        </Box>
-        <Box>
-          <Text size="2" color="gray" truncate>
-            {community.description}
-          </Text>
-        </Box>
-      </Flex>
-      <Flex align="center" gap="0" flexShrink="0" pt="1" height="100%">
-        {!isReadOnly && (
-          <IconButton
-            size="1"
-            variant="ghost"
-            onClick={handleStartEditing}
-            aria-label="Edit community"
-          >
-            <Pencil1Icon />
-          </IconButton>
-        )}
-        <IconButton size="1" variant="ghost" onClick={onToggleVisibility} disabled={isSelected}>
-          {isVisible ? <EyeOpenIcon /> : <EyeClosedIcon />}
+      <Box flexGrow={'0'} flexShrink="0">
+        <Text size="2" weight={isSelected ? 'bold' : 'regular'}>
+          {community.name}
+        </Text>
+      </Box>
+      <Box className="overflow-hidden" flexGrow="1">
+        <Text size="2" color="gray" truncate>
+          {community.description}
+        </Text>
+      </Box>
+      {!isReadOnly && (
+        <IconButton
+          size="1"
+          variant="ghost"
+          onClick={handleStartEditing}
+          aria-label="Edit community"
+          className="flex-0"
+        >
+          <Pencil1Icon />
         </IconButton>
-        {!isReadOnly && canRemove && (
-          <IconButton
-            size="1"
-            variant="ghost"
-            color="red"
-            onClick={e => {
-              e.stopPropagation();
-              onRemove();
-            }}
-            aria-label="Remove community"
-          >
-            <Cross2Icon />
-          </IconButton>
-        )}
-      </Flex>
+      )}
+      <IconButton size="1" variant="ghost" onClick={onToggleVisibility} disabled={isSelected}>
+        {isVisible ? <EyeOpenIcon /> : <EyeClosedIcon />}
+      </IconButton>
+      {!isReadOnly && canRemove && (
+        <IconButton
+          size="1"
+          variant="ghost"
+          color="red"
+          onClick={e => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          aria-label="Remove community"
+        >
+          <Cross2Icon />
+        </IconButton>
+      )}
     </Flex>
   );
 };
