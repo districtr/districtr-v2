@@ -148,9 +148,9 @@ def get_document_public(
         coalesce(col(DistrictrMap.comment_length_limit), 240).label(
             "comment_length_limit"
         ),
-        coalesce(col(DistrictrMap.comment_count_limit), DEFAULT_MAX_COMMENTS_PER_DISTRICT).label(
-            "comment_count_limit"
-        ),
+        coalesce(
+            col(DistrictrMap.comment_count_limit), DEFAULT_MAX_COMMENTS_PER_DISTRICT
+        ).label("comment_count_limit"),
         # get metadata as a json object
         col(Document.map_metadata).label("map_metadata"),
         coalesce(

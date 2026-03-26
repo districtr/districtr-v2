@@ -1,18 +1,6 @@
 'use client';
-import {
-  Flex,
-  Text,
-  Button,
-  TextArea,
-  IconButton,
-  Box,
-} from '@radix-ui/themes';
-import {
-  PlusIcon,
-  Pencil1Icon,
-  Cross2Icon,
-  CheckIcon,
-} from '@radix-ui/react-icons';
+import {Flex, Text, Button, TextArea, IconButton, Box} from '@radix-ui/themes';
+import {PlusIcon, Pencil1Icon, Cross2Icon, CheckIcon} from '@radix-ui/react-icons';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useState} from 'react';

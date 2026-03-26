@@ -574,7 +574,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       }
     },
 
-    clearZoneDescription: (zone) => {
+    clearZoneDescription: zone => {
       const {mapDocument, updated} = get();
       if (!mapDocument) return;
 
@@ -946,7 +946,8 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         .getState()
         .mapOptions.lockPaintedAreas.filter(zone => zone !== communityId);
 
-      const remappedPinnedZone = pinnedDescriptionZone === communityId ? null : pinnedDescriptionZone;
+      const remappedPinnedZone =
+        pinnedDescriptionZone === communityId ? null : pinnedDescriptionZone;
       const updatedDocument = {
         ...mapDocument,
         num_communities: remainingCommunities.length,

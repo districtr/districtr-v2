@@ -58,7 +58,10 @@ from app.comments.moderation import (
 from app.models import Document, DistrictrMap
 from app.core.security import recaptcha
 
-from app.comments.settings import DEFAULT_MAX_COMMENT_LENGTH, DEFAULT_MAX_COMMENTS_PER_DISTRICT
+from app.comments.settings import (
+    DEFAULT_MAX_COMMENT_LENGTH,
+    DEFAULT_MAX_COMMENTS_PER_DISTRICT,
+)
 
 
 def _get_comment_limits_for_document(

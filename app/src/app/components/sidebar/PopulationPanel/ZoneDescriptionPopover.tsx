@@ -12,7 +12,11 @@ interface ZoneDescriptionPopoverProps {
   disabled?: boolean;
 }
 
-export const ZoneDescriptionPopover: React.FC<ZoneDescriptionPopoverProps> = ({zone, color, disabled}) => {
+export const ZoneDescriptionPopover: React.FC<ZoneDescriptionPopoverProps> = ({
+  zone,
+  color,
+  disabled,
+}) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const description = useMapStore(state => state.getZoneDescriptionForZone(zone));
@@ -50,11 +54,7 @@ export const ZoneDescriptionPopover: React.FC<ZoneDescriptionPopoverProps> = ({z
         </IconButton>
       </Popover.Trigger>
       <Popover.Content style={{width: 300}} align="start">
-        <ZoneDescriptionContent
-          zone={zone}
-          color={color}
-          showEditingControls={isEditing}
-        />
+        <ZoneDescriptionContent zone={zone} color={color} showEditingControls={isEditing} />
       </Popover.Content>
     </Popover.Root>
   );
