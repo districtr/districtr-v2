@@ -1,26 +1,42 @@
 import React, {useState, useRef, useEffect} from 'react';
 import {NullableZone} from '@/app/constants/types';
 import type {Community} from '@/app/utils/api/apiHandlers/types';
-import {Box, Flex, RadioGroup, Text, Button, IconButton, Popover, TextField, TextArea} from '@radix-ui/themes';
-import {EyeClosedIcon, EyeOpenIcon, Pencil1Icon, Cross2Icon, CheckIcon} from '@radix-ui/react-icons';
+import {
+  Box,
+  Flex,
+  RadioGroup,
+  Text,
+  Button,
+  IconButton,
+  Popover,
+  TextField,
+  TextArea,
+} from '@radix-ui/themes';
+import {
+  EyeClosedIcon,
+  EyeOpenIcon,
+  Pencil1Icon,
+  Cross2Icon,
+  CheckIcon,
+} from '@radix-ui/react-icons';
 import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 import {DEFAULT_COMMUNITY_DESCRIPTION} from '@/app/utils/communities';
 import {styled} from '@stitches/react';
 
 const StyledRadioGroupItem = styled(RadioGroup.Item, {
-  borderRadius: 4,
+  borderRadius: '37.5%',
   width: '1.5rem',
   height: '1.5rem',
   border: 'var(--border-width) solid var(--gray-200)',
   cursor: 'pointer',
   flexShrink: 0,
   '&::after': {
-    borderRadius: 4,
+    borderRadius: '37.5%',
     width: '1.5rem',
     height: '1.5rem',
   },
   '&::before': {
-    borderRadius: 4,
+    borderRadius: '37.5%',
     background: 'none',
     width: '1.5rem',
     height: '1.5rem',
@@ -165,18 +181,19 @@ const CoiRadioRow: React.FC<{
     }
   };
 
-  const descriptionPreview =
-    community.description === DEFAULT_COMMUNITY_DESCRIPTION
-      ? ''
-      : community.description;
-
   const handleColorChange = (color: string) => {
     onUpdate({color});
   };
 
   if (isEditing) {
     return (
-      <Flex direction="column" gap="1" py="1" px="1" className="border border-gray-200 rounded-md bg-gray-50">
+      <Flex
+        direction="column"
+        gap="1"
+        py="1"
+        px="1"
+        className="border border-gray-200 rounded-md bg-gray-50"
+      >
         <Flex direction="row" align="center" gap="2">
           <InlineColorPicker
             currentColor={community.color}
@@ -216,28 +233,38 @@ const CoiRadioRow: React.FC<{
   }
 
   return (
-    <Flex direction="row" align="start" gap="2" py="1">
-      <Flex align="center" pt="1">
-        <StyledRadioGroupItem
-          style={{backgroundColor: community.color}}
-          value={String(community.id)}
-          disabled={disabled}
-          className={disabled ? 'opacity-25' : ''}
-        />
-      </Flex>
-      <Flex direction="column" className="flex-grow min-w-0">
-        <Text size="2" weight={isSelected ? 'bold' : 'regular'} truncate>
-          {community.name}
-        </Text>
-        {descriptionPreview && (
-          <Text size="1" color="gray" truncate>
-            {descriptionPreview}
+    <Flex direction="row" align="center" gap="2" py="1" maxWidth={'100%'}>
+      <StyledRadioGroupItem
+        style={{backgroundColor: community.color}}
+        value={String(community.id)}
+        disabled={disabled}
+        className={disabled ? 'opacity-25' : ''}
+      />
+      <Flex
+        direction="row"
+        className="flex-grow min-w-0 overflow-hidden items-center"
+        gapX="2"
+        align="center"
+      >
+        <Box flexGrow={'0'} flexShrink="0">
+          <Text size="2" weight={isSelected ? 'bold' : 'regular'}>
+            {community.name}
           </Text>
-        )}
+        </Box>
+        <Box>
+          <Text size="2" color="gray" truncate>
+            {community.description}
+          </Text>
+        </Box>
       </Flex>
-      <Flex align="center" gap="0" flexShrink="0" pt="1">
+      <Flex align="center" gap="0" flexShrink="0" pt="1" height="100%">
         {!isReadOnly && (
-          <IconButton size="1" variant="ghost" onClick={handleStartEditing} aria-label="Edit community">
+          <IconButton
+            size="1"
+            variant="ghost"
+            onClick={handleStartEditing}
+            aria-label="Edit community"
+          >
             <Pencil1Icon />
           </IconButton>
         )}
@@ -273,7 +300,10 @@ export const CoiRadioGroup: React.FC<{
   availableColors?: string[];
   communityNameLengthLimit?: number;
   onRemoveCommunity?: (communityId: number) => void;
-  onUpdateCommunity?: (communityId: number, updates: {name?: string; description?: string; color?: string}) => void;
+  onUpdateCommunity?: (
+    communityId: number,
+    updates: {name?: string; description?: string; color?: string}
+  ) => void;
 }> = ({
   communities,
   disabledValues,

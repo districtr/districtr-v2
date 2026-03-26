@@ -18,7 +18,10 @@ export type CoiPickerProps = {
   availableColors?: string[];
   communityNameLengthLimit?: number;
   onRemoveCommunity?: (communityId: number) => void;
-  onUpdateCommunity?: (communityId: number, updates: {name?: string; description?: string; color?: string}) => void;
+  onUpdateCommunity?: (
+    communityId: number,
+    updates: {name?: string; description?: string; color?: string}
+  ) => void;
 };
 
 export const CoiPicker = ({
@@ -75,7 +78,7 @@ export const CoiPicker = ({
   }, [communities, onValueChange]);
 
   return (
-    <Box>
+    <Box maxWidth={'100%'} id="BOX_CONTAINER">
       <RadioGroup.Root
         onValueChange={value => {
           const communityId = Number(value);

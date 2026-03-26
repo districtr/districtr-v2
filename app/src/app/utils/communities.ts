@@ -5,7 +5,7 @@ import {extendColorArray} from '@/app/utils/colors';
 
 const fallbackCreatedAt = (index: number) => new Date(index * 1000).toISOString();
 const communityNameForIndex = (index: number) => `Community ${index + 1}`;
-export const DEFAULT_COMMUNITY_DESCRIPTION = 'no description provided';
+export const DEFAULT_COMMUNITY_DESCRIPTION = 'No description provided';
 
 const compareCommunitiesByRenderOrder = (left: Community, right: Community) => {
   const leftOrder = left.render_order_id ?? Number.MAX_SAFE_INTEGER;

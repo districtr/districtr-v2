@@ -83,7 +83,11 @@ export const CoiZonePicker: React.FC = () => {
   const canRemove = communities.length > COI_MIN_COMMUNITIES;
 
   return (
-    <Box className={isReadOnly ? 'pointer-events-none opacity-50' : ''} data-testid="zone-picker">
+    <Box
+      className={isReadOnly ? 'pointer-events-none opacity-50' : ''}
+      data-testid="zone-picker"
+      maxWidth="100%"
+    >
       <Flex direction="column" gap="2">
         {communities.length > 1 && (
           <Flex direction="row" justify="end">
