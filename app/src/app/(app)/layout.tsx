@@ -1,5 +1,6 @@
 import type {Metadata} from 'next';
 import {Nunito} from 'next/font/google';
+import Script from 'next/script';
 import {Theme} from '@radix-ui/themes';
 import {FeedbackForm} from '@/app/components/FeedbackForm';
 import '@radix-ui/themes/styles.css';
@@ -45,10 +46,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <script
+        <Script
           defer
           src="https://analytics.ds.uchicago.edu/script.js"
           data-website-id="035a9218-84f6-4a19-80fc-92951dfa62ff"
+          strategy="afterInteractive"
         />
       </head>
       <body className={nunito.className}>
