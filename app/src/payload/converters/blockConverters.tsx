@@ -12,6 +12,7 @@
 
 import React from 'react';
 import type {JSXConverters} from '@payloadcms/richtext-lexical/react';
+import {defaultJSXConverters} from '@payloadcms/richtext-lexical/react';
 
 // Lazy-load the heavy renderer components to avoid bundling them in admin.
 // These use named exports, so we wrap them for React.lazy compatibility.
@@ -53,6 +54,7 @@ function f(node: {fields?: Record<string, unknown>}): Record<string, unknown> {
  * ```
  */
 export const blockConverters: JSXConverters = {
+  ...defaultJSXConverters,
   blocks: {
     planGallery: ({node}) => {
       const fields = f(node);
