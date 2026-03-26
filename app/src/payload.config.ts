@@ -1,9 +1,20 @@
 import {buildConfig} from 'payload';
 import {postgresAdapter} from '@payloadcms/db-postgres';
-import {lexicalEditor} from '@payloadcms/richtext-lexical';
+import {lexicalEditor, BlocksFeature} from '@payloadcms/richtext-lexical';
 import sharp from 'sharp';
 import path from 'path';
 import {fileURLToPath} from 'url';
+
+import {Tags} from './collections/Tags';
+import {Places} from './collections/Places';
+import {
+  PlanGallery,
+  CommentGallery,
+  CommentSubmissionForm,
+  MapCreateButtons,
+  Boilerplate,
+  SectionHeader,
+} from './blocks';
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
@@ -45,11 +56,13 @@ export default buildConfig({
     },
   },
   collections: [
+    // Auth
     {
       slug: 'users',
       auth: true,
       admin: {
         useAsTitle: 'email',
+        group: 'Admin',
       },
       fields: [
         {
@@ -75,8 +88,25 @@ export default buildConfig({
         delete: ({req}) => req.user?.role === 'admin',
       },
     },
+    // CMS Content
+    Tags,
+    Places,
   ],
-  editor: lexicalEditor(),
+  editor: lexicalEditor({
+    features: ({defaultFeatures}) => [
+      ...defaultFeatures,
+      BlocksFeature({
+        blocks: [
+          PlanGallery,
+          CommentGallery,
+          CommentSubmissionForm,
+          MapCreateButtons,
+          Boilerplate,
+          SectionHeader,
+        ],
+      }),
+    ],
+  }),
   secret: process.env.PAYLOAD_SECRET || 'default-secret-change-me',
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
