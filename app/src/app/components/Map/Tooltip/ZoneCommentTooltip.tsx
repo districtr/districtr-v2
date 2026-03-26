@@ -40,11 +40,6 @@ export const ZoneCommentTooltip: React.FC<ZoneCommentTooltipProps> = ({zone, x, 
       <Text size="1" color="gray">
         {description ? description.text : 'No description'}
       </Text>
-      {description && (
-        <Text size="1" color="blue" className="mt-1 italic">
-          Click {zoneLabel.toLowerCase()} number for more information
-        </Text>
-      )}
     </Box>
   );
 };
