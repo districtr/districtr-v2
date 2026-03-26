@@ -5,13 +5,13 @@ import {useMapStore} from '@/app/store/mapStore';
 import {getCommunityDisplayNumber} from '@/app/utils/communities';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 
-interface ZoneCommentTooltipProps {
+interface ZoneDescriptionTooltipProps {
   zone: number;
   x: number;
   y: number;
 }
 
-export const ZoneCommentTooltip: React.FC<ZoneCommentTooltipProps> = ({zone, x, y}) => {
+export const ZoneDescriptionTooltip: React.FC<ZoneDescriptionTooltipProps> = ({zone, x, y}) => {
   const description = useMapStore(state => state.getZoneDescriptionForZone(zone));
   const communities = useMapStore(state => state.communities);
   const mapMode = useMapControlsStore(state => state.mapMode);
@@ -44,4 +44,4 @@ export const ZoneCommentTooltip: React.FC<ZoneCommentTooltipProps> = ({zone, x, 
   );
 };
 
-export default ZoneCommentTooltip;
+export default ZoneDescriptionTooltip;

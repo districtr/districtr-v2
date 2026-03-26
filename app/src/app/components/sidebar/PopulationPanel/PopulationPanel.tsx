@@ -11,7 +11,7 @@ import {PopulationPanelOptions} from './PopulationPanelOptions';
 import {LockClosedIcon, LockOpen2Icon, Pencil1Icon} from '@radix-ui/react-icons';
 import {useZonePopulations} from '@/app/hooks/useDemography';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
-import {ZoneCommentPopover} from './ZoneCommentPopover';
+import {ZoneDescriptionPopover} from './ZoneDescriptionPopover';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/map/mapDefaults';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
@@ -178,7 +178,7 @@ export const PopulationPanel = () => {
                 </IconButton>
               )}
               <Flex gap="0" align="center">
-                <ZoneCommentPopover zone={d.zone} color={getZoneColor(d.zone)} />
+                <ZoneDescriptionPopover zone={d.zone} color={getZoneColor(d.zone)} />
                 {!!isEditing && (
                   <>
                     {isCommunityMode ? (

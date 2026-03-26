@@ -4,15 +4,15 @@ import {ChatBubbleIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@/app/store/mapStore';
 import {useState} from 'react';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import {ZoneDescriptionContent} from '@/app/components/ZoneComments/ZoneCommentsContent';
+import {ZoneDescriptionContent} from '@/app/components/ZoneDescriptions/ZoneDescriptionContent';
 
-interface ZoneCommentPopoverProps {
+interface ZoneDescriptionPopoverProps {
   zone: number;
   color: string;
   disabled?: boolean;
 }
 
-export const ZoneCommentPopover: React.FC<ZoneCommentPopoverProps> = ({zone, color, disabled}) => {
+export const ZoneDescriptionPopover: React.FC<ZoneDescriptionPopoverProps> = ({zone, color, disabled}) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const description = useMapStore(state => state.getZoneDescriptionForZone(zone));
@@ -60,4 +60,4 @@ export const ZoneCommentPopover: React.FC<ZoneCommentPopoverProps> = ({zone, col
   );
 };
 
-export default ZoneCommentPopover;
+export default ZoneDescriptionPopover;

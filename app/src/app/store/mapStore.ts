@@ -446,7 +446,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
 
       useAssignmentsStore.getState().resetShatterState();
 
-      // Deduplicate zone comments — legacy docs may have >1 comment per zone,
+      // Deduplicate zone descriptions — legacy docs may have >1 description per zone,
       // which causes save failures since the backend enforces a per-zone limit.
       const rawComments = mapDocument.document_comments || [];
       const {deduplicated, hadDuplicates} = deduplicateCommentsByZone(rawComments);

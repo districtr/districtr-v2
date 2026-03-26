@@ -2,27 +2,27 @@
 import {Dialog, Flex, Button} from '@radix-ui/themes';
 import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import {ZoneDescriptionContent} from '@/app/components/ZoneComments/ZoneCommentsContent';
+import {ZoneDescriptionContent} from '@/app/components/ZoneDescriptions/ZoneDescriptionContent';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 
-export const ZoneCommentModal: React.FC = () => {
-  const zoneCommentModalZone = useTooltipStore(state => state.zoneCommentModalZone);
-  const setZoneCommentModalZone = useTooltipStore(state => state.setZoneCommentModalZone);
+export const ZoneDescriptionModal: React.FC = () => {
+  const zoneDescriptionModalZone = useTooltipStore(state => state.zoneDescriptionModalZone);
+  const setZoneDescriptionModalZone = useTooltipStore(state => state.setZoneDescriptionModalZone);
   const isEditing = useMapControlsStore(state => state.isEditing);
 
   const getZoneColor = useZoneColorGetter();
-  const color = zoneCommentModalZone ? getZoneColor(zoneCommentModalZone) : undefined;
+  const color = zoneDescriptionModalZone ? getZoneColor(zoneDescriptionModalZone) : undefined;
 
-  if (zoneCommentModalZone === null) return null;
+  if (zoneDescriptionModalZone === null) return null;
 
   return (
     <Dialog.Root
-      open={zoneCommentModalZone !== null}
-      onOpenChange={open => !open && setZoneCommentModalZone(null)}
+      open={zoneDescriptionModalZone !== null}
+      onOpenChange={open => !open && setZoneDescriptionModalZone(null)}
     >
       <Dialog.Content style={{maxWidth: 400}}>
         <ZoneDescriptionContent
-          zone={zoneCommentModalZone}
+          zone={zoneDescriptionModalZone}
           color={color!}
           showEditingControls={isEditing}
         />
@@ -38,4 +38,4 @@ export const ZoneCommentModal: React.FC = () => {
   );
 };
 
-export default ZoneCommentModal;
+export default ZoneDescriptionModal;
