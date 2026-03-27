@@ -28,9 +28,9 @@ export const BrushControls = () => {
         )}
       </Flex>
       {showZonePicker ? (
-        <div className="flex-grow-0 flex-row p-0 m-0">
+        <Flex direction="row" flexGrow={'0'} maxWidth={'100%'} p="0" m="0">
           <ZonePicker />
-        </div>
+        </Flex>
       ) : null}
 
       {paintConstraint && (
