@@ -44,7 +44,7 @@ const CoiCommunityViewerRow: React.FC<{
           {community.name}
         </Text>
       </Box>
-      <Box className="overflow-hidden" flexGrow="1">
+      <Box className="overflow-hidden" flexGrow="1" mr="2">
         <Tooltip content={community.description}>
           <Text size="2" color="gray" truncate>
             {community.description}
