@@ -35,6 +35,7 @@ yarn-error.log*
 # local env files
 .env*.local
 .env
+.envrc
 
 # vercel
 .vercel
@@ -89,6 +90,10 @@ pipelines/build/*
 # editors
 .vscode/
 .zed/
+
+# misc
+docker-compose.mac.yml
+app/public/*-basemap-style.json
 /app/test-results
 /app/playwright-report
 app/playwright-report/index.html

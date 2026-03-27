@@ -20,7 +20,7 @@ import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useDocumentWithSync} from '@/app/hooks/useDocumentWithSync';
 import {SaveConflictModal} from '../SaveConflictModal';
-import {ZoneCommentModal} from '@components/Map/Tooltip/ZoneCommentModal';
+import {ZoneDescriptionModal} from '@components/Map/Tooltip/ZoneDescriptionModal';
 import {migrateUserMapsFromLocalStorage} from '@/app/utils/idb/migrateUserMaps';
 import {isUUID} from '@/app/utils/metadata/isUUID';
 import {useInitializeMapMode} from '@/app/hooks/useInitializeMapMode';
@@ -91,6 +91,10 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
     return null;
   }
 
+  if (!isMapModeReady) {
+    return null;
+  }
+
   return (
     <div className="h-screen w-screen overflow-hidden flex justify-between p flex-col-reverse lg:flex-row-reverse landscape:flex-row-reverse">
       <SidebarComponent />
@@ -118,7 +122,7 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
       <ErrorNotification />
       {conflictModal}
       <SaveConflictModal />
-      <ZoneCommentModal />
+      <ZoneDescriptionModal />
     </div>
   );
 }

@@ -1,6 +1,10 @@
 import {devtools, DevtoolsOptions, PersistOptions} from 'zustand/middleware';
 import {MapStore} from './mapStore';
 import {MIN_DIFF_MS} from '../constants/configuration';
+import {ZundoOptions} from 'zundo';
+import {AssignmentsStore} from './assignmentsStore';
+import {TEMPORAL_HISTORY_LIMIT} from '../constants/configuration';
+import {cloneTemporalSnapshot} from '../utils/temporalSnapshot';
 
 const prodWrapper: typeof devtools = (store: any) => store;
 export const devwrapper = process.env.NODE_ENV === 'development' ? devtools : prodWrapper;
@@ -32,10 +36,7 @@ export const devToolsConfig: DevtoolsOptions = {
 
 // Shared diff function for all temporal stores — only fires when clientLastUpdated changes
 // and enough time has passed since the last snapshot.
-export const temporalDiff = (
-  past: {clientLastUpdated?: string},
-  curr: {clientLastUpdated?: string}
-) => {
+export const temporalDiff = (past: Partial<AssignmentsStore>, curr: Partial<AssignmentsStore>) => {
   // If diff returns null, no state is stored
   if (!past.clientLastUpdated || !curr.clientLastUpdated) return null;
   // If the client timestamp is the same, don't store
@@ -48,5 +49,57 @@ export const temporalDiff = (
     MIN_DIFF_MS
   )
     return null;
+  if (past.pendingShatterUndoState && !curr.pendingShatterUndoState) {
+    return cloneTemporalSnapshot(past.pendingShatterUndoState);
+  }
   return past;
+};
+
+export const assignmentsTemporalConfig: ZundoOptions<any, AssignmentsStore> = {
+  // If diff returns null, not state is stored
+  diff: temporalDiff,
+  limit: TEMPORAL_HISTORY_LIMIT,
+  // @ts-ignore: save only partial store
+  partialize: state => {
+    const {
+      shatterIds,
+      parentToChild,
+      zoneAssignments,
+      clientLastUpdated,
+      childToParent,
+      pendingShatterUndoState,
+    } = state;
+    return {
+      shatterIds,
+      parentToChild,
+      childToParent,
+      zoneAssignments,
+      clientLastUpdated,
+      pendingShatterUndoState,
+    } as Partial<AssignmentsStore>;
+  },
+};
+
+export const coiAssignmentsTemporalConfig: ZundoOptions<any, AssignmentsStore> = {
+  diff: temporalDiff,
+  limit: TEMPORAL_HISTORY_LIMIT,
+  // @ts-ignore: save only partial store
+  partialize: state => {
+    const {
+      shatterIds,
+      parentToChild,
+      childToParent,
+      communityAssignments,
+      communityVisibility,
+      clientLastUpdated,
+    } = state;
+    return {
+      shatterIds,
+      parentToChild,
+      childToParent,
+      communityAssignments,
+      communityVisibility,
+      clientLastUpdated,
+    };
+  },
 };

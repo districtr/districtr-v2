@@ -1,12 +1,7 @@
-import {
-  AllEvaluationConfigs,
-  AllMapConfigs,
-  EvalColumnConfiguration,
-  summaryStatsConfig,
-  type AllTabularColumns,
-} from '@/app/utils/api/summaryStats';
+import {AllEvaluationConfigs, AllMapConfigs} from '@/app/utils/api/summaryStats';
 import {type ScaleLinear, type ScaleThreshold} from 'd3-scale';
 import {type MapStore} from '../mapStore';
+import {CoalitionGroupKey, DemographyVariable} from '@/app/utils/demography/coalition';
 
 export type AnyD3Scale = ScaleLinear<number, string> | ScaleThreshold<number, string>;
 
@@ -40,7 +35,7 @@ export interface DemographyStore {
   /**
    * The variable for the demographic map.
    */
-  variable: AllTabularColumns[number];
+  variable: DemographyVariable;
 
   /**
    * Sets the variable representing for the demographic map.
@@ -50,6 +45,12 @@ export interface DemographyStore {
 
   variant: 'percent' | 'raw';
   setVariant: (variant: DemographyStore['variant']) => void;
+  coalitionGroups: CoalitionGroupKey[];
+  coalitionHash: string;
+  coalitionRestoredSlug: string | null;
+  restoreCoalition: (mapDocument: MapStore['mapDocument']) => Promise<void>;
+  setCoalitionGroups: (groups: CoalitionGroupKey[]) => Promise<void>;
+  resetCoalition: () => void;
   availableColumnSets: {
     evaluation: Record<string, AllEvaluationConfigs>;
     map: Record<string, AllMapConfigs>;

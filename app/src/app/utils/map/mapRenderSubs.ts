@@ -396,7 +396,8 @@ export class MapRenderSubscriber {
 
     const newPrimaryAssignments = this.toPrimaryAssignments(newAssignmentsByGeoid);
     GeometryWorker?.updateZones(Array.from(newPrimaryAssignments.entries()));
-    demographyService.updatePopulations();
+    const coalitionGroups = this.useDemographyStore.getState().coalitionGroups;
+    demographyService.updatePopulations({coalitionGroups});
 
     if (mapState.mapRenderingState !== 'loaded' || mapState.appLoadingState !== 'loaded') {
       this.updatePreviousCommunitySnapshot(newAssignmentsByGeoid, shatterIds);
@@ -492,7 +493,8 @@ export class MapRenderSubscriber {
     GeometryWorker?.updateZones(Array.from(zoneAssignments.entries()));
 
     // Update demography cache
-    demographyService.updatePopulations(zoneAssignments);
+    const coalitionGroups = this.useDemographyStore.getState().coalitionGroups;
+    demographyService.updatePopulations({zoneAssignments, coalitionGroups});
 
     // Only render colors if map is fully loaded
     if (mapState.mapRenderingState !== 'loaded' || mapState.appLoadingState !== 'loaded') {
@@ -590,6 +592,7 @@ export class MapRenderSubscriber {
       mapDocument: mapState.mapDocument,
       numberOfBins: demographyState.numberOfBins || DEFAULT_CHOROPLETH_BIN_COUNT,
       paintMap: true,
+      coalitionGroups: demographyState.coalitionGroups,
     });
     if (mapScale) {
       demographyState.setScale(mapScale);
@@ -611,7 +614,13 @@ export class MapRenderSubscriber {
     );
     this.demographySubscriptions.push(
       this.useDemographyStore.subscribe(
-        state => [state.variable, state.variant, state.numberOfBins, state.dataHash],
+        state => [
+          state.variable,
+          state.variant,
+          state.numberOfBins,
+          state.dataHash,
+          state.coalitionHash,
+        ],
         () => this.renderDemographyColors(),
         {equalityFn: shallowCompareArray}
       )

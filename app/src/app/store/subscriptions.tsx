@@ -5,8 +5,9 @@ import {getMapEditSubs} from './mapEditSubs';
 import {MapStore, useMapStore} from './mapStore';
 import {useMapControlsStore} from './mapControlsStore';
 import {useAssignmentsStore} from './assignmentsStore';
-import {demographyService} from '../utils/demography/demographyService';
 import {useCoiAssignmentsStore} from './coiAssignmentsStore';
+import {demographyService} from '../utils/demography/demographyService';
+import {shallowCompareArray} from '../utils/arrays';
 
 export const initSubs = (readOnly = false) => {
   // these need to initialize after the map store
@@ -30,7 +31,22 @@ export const initSubs = (readOnly = false) => {
     (curr, prev) => {
       if (!curr || prev === curr || prev?.document_id === curr.document_id) return;
       if (curr.access === 'read') return; // PublicSource handles read-only data loading
+      useDemographyStore.getState().restoreCoalition(curr);
       useDemographyStore.getState().updateData(curr);
+    }
+  );
+  // Clear undo/redo history when switching documents.
+  // Also reset clientLastUpdated to '' so that temporalDiff treats the next
+  // ingestFromDocument as "not yet ingested" and doesn't create a stale snapshot
+  // from the previous document's state.
+  const clearTemporalOnDocChangeSub = useMapStore.subscribe(
+    state => state.mapDocument?.document_id,
+    (curr, prev) => {
+      if (curr === prev) return;
+      useAssignmentsStore.temporal.getState().clear();
+      useCoiAssignmentsStore.temporal.getState().clear();
+      useAssignmentsStore.setState({clientLastUpdated: ''});
+      useCoiAssignmentsStore.setState({clientLastUpdated: ''});
     }
   );
   const numDistrictsSub = useMapStore.subscribe(
@@ -149,6 +165,7 @@ export const initSubs = (readOnly = false) => {
     querySubs();
     demogInitSub();
     demogMapDocumentSub();
+    clearTemporalOnDocChangeSub();
     numDistrictsSub();
     numCommunitiesSub();
     demogShatterSub();

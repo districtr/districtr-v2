@@ -5,7 +5,7 @@ import {extendColorArray} from '@/app/utils/colors';
 
 const fallbackCreatedAt = (index: number) => new Date(index * 1000).toISOString();
 const communityNameForIndex = (index: number) => `Community ${index + 1}`;
-export const DEFAULT_COMMUNITY_DESCRIPTION = 'no description provided';
+export const DEFAULT_COMMUNITY_DESCRIPTION = 'No description provided';
 
 const compareCommunitiesByRenderOrder = (left: Community, right: Community) => {
   const leftOrder = left.render_order_id ?? Number.MAX_SAFE_INTEGER;
@@ -21,6 +21,8 @@ const parseCommunityNameIndex = (name: string) => {
   if (!match) return null;
   return Number(match[1]);
 };
+
+const isDefaultCommunityName = (name: string) => parseCommunityNameIndex(name) !== null;
 
 export const sortCommunitiesByRenderOrder = (communities?: Community[] | null) =>
   [...(communities ?? [])].sort(compareCommunitiesByRenderOrder);
@@ -44,7 +46,10 @@ export const normalizeCommunities = ({
     .map((community, index) => ({
       id: community.id,
       render_order_id: index + 1,
-      name: community.name || communityNameForIndex(index),
+      name:
+        !community.name || isDefaultCommunityName(community.name)
+          ? communityNameForIndex(index)
+          : community.name,
       description: community.description || DEFAULT_COMMUNITY_DESCRIPTION,
       color: community.color || palette[(community.id - 1) % palette.length] || '#000000',
       createdAt: community.createdAt || fallbackCreatedAt(index),
@@ -108,18 +113,8 @@ export const syncCoiColorsToColorScheme = (communities: Community[], colorScheme
   return nextColorScheme;
 };
 
-export const getNextCommunityName = (communities: Community[]) => {
-  const usedNames = new Set(
-    communities
-      .map(community => parseCommunityNameIndex(community.name))
-      .filter((index): index is number => index !== null)
-  );
-  let nextIndex = 1;
-  while (usedNames.has(nextIndex)) {
-    nextIndex += 1;
-  }
-  return `Community ${nextIndex}`;
-};
+export const getNextCommunityName = (communities: Community[]) =>
+  `Community ${communities.length + 1}`;
 
 export const getNextCommunityId = (communities: Community[]) =>
   communities.reduce((maxValue, community) => Math.max(maxValue, community.id), 0) + 1;
@@ -180,6 +175,7 @@ export const removeCommunityAndShiftRenderOrder = (
   ).map((community, index) => ({
     ...community,
     render_order_id: index + 1,
+    name: isDefaultCommunityName(community.name) ? communityNameForIndex(index) : community.name,
   }));
 
 export const compareCoiZonesByRenderOrder = (

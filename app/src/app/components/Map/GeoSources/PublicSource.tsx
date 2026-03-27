@@ -56,7 +56,7 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
     // Feed demographic data into demographyService for sidebar stats
     const {columns, demographicData, assignments} = publicDistrictsQuery.data;
     const hash = `anonymous|${mapDocument?.public_id}`;
-    demographyService.update(Array.from(columns), demographicData, hash, assignments);
+    demographyService.update(Array.from(columns), demographicData, hash, [], assignments);
     setDemographyHash(hash);
 
     // Set available column sets so sidebar knows which columns are available

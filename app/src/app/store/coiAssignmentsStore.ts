@@ -1,4 +1,11 @@
-import {GDBPath, NullableZone, Zone} from '@constants/types';
+import {
+  GDBPath,
+  NullableZone,
+  Zone,
+  ConflictContext,
+  ConflictResolutionOptions,
+  SyncConflictResolution,
+} from '@constants/types';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
 import {Map as MaplibreMap, MapGeoJSONFeature} from 'maplibre-gl';
 import {Community, DocumentObject} from '../utils/api/apiHandlers/types';
@@ -15,9 +22,22 @@ import {useMapControlsStore} from './mapControlsStore';
 import {idb} from '../utils/idb/idb';
 import GeometryWorker from '../utils/GeometryWorker';
 
+import {putUpdateCoiAssignmentsAndVerify} from '../utils/api/apiHandlers/putUpdateCoiAssignmentsAndVerify';
+import {formatCoiAssignmentsFromDocument} from '../utils/map/formatCoiAssignments';
+import {fetchDocument, SyncConflictInfo} from '../utils/api/apiHandlers/fetchDocument';
+
+import {getAssignments} from '../utils/api/apiHandlers/getAssignments';
+import {createMapDocument} from '../utils/api/apiHandlers/createMapDocument';
+import {confirmMapDocumentUrlParameter} from '../utils/map/confirmMapDocumentUrlParameter';
+
 import {createWithFullMiddlewares} from './middlewares';
-import {temporalDiff} from './middlewareConfig';
-import {TEMPORAL_HISTORY_LIMIT} from '../constants/configuration';
+import {coiAssignmentsTemporalConfig} from './middlewareConfig';
+import {temporalManager} from '../utils/temporal';
+import {
+  DocumentNotFoundError,
+  DocumentCreationError,
+  DocumentConflictResolutionError,
+} from './errors';
 
 export type CommunityAssignmentsMap = Map<Zone, Set<string>>;
 export type CommunityVisibilityMap = Map<Zone, boolean>;
@@ -33,7 +53,7 @@ export type CoiAccumulatedMutation =
 
 export type CoiAssignmentsPayload = {
   communityAssignments: CommunityAssignmentsMap;
-  communtyVisibility: CommunityVisibilityMap;
+  communityVisibility?: CommunityVisibilityMap;
   shatterIds: {
     parents: Set<string>;
     children: Set<string>;
@@ -126,6 +146,23 @@ export interface CoiAssignmentsStore {
    */
   removeCommunitiesAbove: (maxCommunity: number) => void;
   removeCommunity: (removedCommunity: Zone) => void;
+
+  handlePutAssignments: (overwrite?: boolean) => Promise<void>;
+  handleRevert: (mapDocument: DocumentObject) => Promise<void>;
+  resolveConflict: (
+    resolution: SyncConflictResolution,
+    syncConflictInfo: SyncConflictInfo,
+    options: ConflictResolutionOptions
+  ) => Promise<void>;
+  handlePutAssignmentsConflict: (
+    resolution: SyncConflictResolution,
+    syncConflictInfo: SyncConflictInfo,
+    options?: {
+      onNavigate?: (documentId: string) => void;
+      onComplete?: () => void;
+      context?: ConflictContext;
+    }
+  ) => Promise<void>;
 }
 
 // ========================================================
@@ -462,44 +499,209 @@ const healTouchedParentsIfEligible = ({
   }
 };
 
+/**
+ * Helper function to load assignments from IDB for a given document ID, used in conflict
+ * resolution when the user opts to keep their local version. Fetches the document from IDB
+ * and formats the assignments for ingestion into the store.
+ *
+ * @param documentId - The ID of the document whose assignments should be loaded from IDB.
+ * @return A promise that resolves to the formatted assignments data ready for ingestion into
+ * the store.
+ * @throws If no document is found in IDB for the given document ID.
+ */
+const loadLocalCoiAssignments = async (documentId: string) => {
+  const doc = await idb.getDocument(documentId);
+  if (!doc) {
+    throw new DocumentNotFoundError(`Document with id ${documentId} not found in IDB`);
+  }
+  return formatCoiAssignmentsFromDocument(doc.assignments);
+};
+
+/** Shared dependencies for COI conflict resolution helpers. */
+type CoiConflictDependencies = {
+  syncConflictInfo: SyncConflictInfo;
+  store: CoiAssignmentsStore;
+  setMapDocument: (doc: DocumentObject) => void;
+  setMapLock: (lock: {isLocked: boolean; reason: string} | null) => void;
+  onNavigate?: (documentId: string) => void;
+  onComplete?: () => void;
+};
+
+/**
+ * Resolves a COI sync conflict by keeping the local (IDB) version without pushing it to the
+ * server. In a "load" context the local community assignments are loaded from IDB and ingested
+ * into the store. In a "save" context this is a no-op because the local state is already in
+ * memory.
+ *
+ * @param deps - Shared conflict resolution dependencies (conflict info, store state, map setters).
+ * @param context - Whether the conflict arose during a "save" or "load" operation.
+ * @returns A promise that resolves once the local assignments have been ingested (load) or
+ *   immediately (save).
+ */
+const coiResolveKeepLocal = async (
+  {syncConflictInfo, store, setMapDocument}: CoiConflictDependencies,
+  context: ConflictContext
+) => {
+  if (context === ConflictContext.Load) {
+    setMapDocument(syncConflictInfo.localDocument);
+    const data = await loadLocalCoiAssignments(syncConflictInfo.localDocument.document_id);
+    store.ingestFromDocument(data);
+  }
+};
+
+/**
+ * Resolves a COI sync conflict by treating the local (IDB) version as authoritative and
+ * overwriting the server. In a "save" context this retries the save with the overwrite flag.
+ * In a "load" context the local community assignments are loaded from IDB, ingested into the
+ * store, and then pushed to the server with overwrite enabled.
+ *
+ * @param deps - Shared conflict resolution dependencies (conflict info, store state, map setters).
+ * @param context - Whether the conflict arose during a "save" or "load" operation.
+ * @returns A promise that resolves once the local assignments have been saved to the server and
+ *   the store's `clientLastUpdated` has been synced with the server's response timestamp.
+ * @throws If the server rejects the assignment upload.
+ */
+const coiResolveUseLocal = async (
+  {syncConflictInfo, store, setMapDocument, setMapLock}: CoiConflictDependencies,
+  context: ConflictContext
+) => {
+  if (context === ConflictContext.Save) {
+    await store.handlePutAssignments(true);
+    return;
+  }
+  setMapLock({
+    isLocked: true,
+    reason: 'Loading local assignments and overwriting cloud assignments.',
+  });
+  try {
+    setMapDocument(syncConflictInfo.localDocument);
+    const data = await loadLocalCoiAssignments(syncConflictInfo.localDocument.document_id);
+    store.ingestFromDocument(data);
+    const response = await putUpdateCoiAssignmentsAndVerify({
+      mapDocument: syncConflictInfo.localDocument,
+      communityAssignments: data.communityAssignments,
+      shatterIds: data.shatterIds,
+      childToParent: data.childToParent,
+      overwrite: true,
+    });
+    if (!response.ok) {
+      throw new DocumentConflictResolutionError(
+        'Failed to post local assignments when resolving conflict.'
+      );
+    }
+    store.setClientLastUpdated(response.response.updated_at);
+  } finally {
+    setMapLock(null);
+  }
+};
+
+/**
+ * Resolves a COI sync conflict by discarding local changes and replacing them with the server's
+ * version. Fetches the latest community assignments from the server, sets the server document as
+ * the active document, and ingests the remote assignments into the store.
+ *
+ * @param deps - Shared conflict resolution dependencies (conflict info, store state, map setters).
+ * @returns A promise that resolves once the server assignments have been fetched and ingested.
+ * @throws If the server assignment fetch fails.
+ */
+const coiResolveUseServer = async ({
+  syncConflictInfo,
+  store,
+  setMapDocument,
+  setMapLock,
+}: CoiConflictDependencies) => {
+  setMapLock({
+    isLocked: true,
+    reason: 'Loading cloud assignments and overwriting local assignments.',
+  });
+  try {
+    const remoteAssignments = await getAssignments(syncConflictInfo.serverDocument);
+    if (!remoteAssignments.ok) {
+      throw new DocumentConflictResolutionError(
+        'Failed to get server assignments when resolving conflict.'
+      );
+    }
+    setMapDocument(syncConflictInfo.serverDocument);
+    const data = formatCoiAssignmentsFromDocument(remoteAssignments.response);
+    store.ingestFromDocument(data, syncConflictInfo.serverDocument);
+  } finally {
+    setMapLock(null);
+  }
+};
+
+/**
+ * Resolves a COI sync conflict by creating a brand-new document (a "fork") and uploading the
+ * user's local community assignments to it. This preserves both the original server document
+ * (untouched) and the user's local edits (saved under a new document ID). After the upload
+ * succeeds, the user is navigated to the new document's COI edit URL.
+ *
+ * @param deps - Shared conflict resolution dependencies (conflict info, store state, map setters).
+ *   `onNavigate` is used to redirect the user to the forked document's edit page if provided;
+ *   otherwise falls back to `history.pushState`.
+ * @returns A promise that resolves once the new document has been created, assignments uploaded,
+ *   and navigation triggered.
+ * @throws If document creation or assignment upload fails.
+ */
+const coiResolveFork = async ({
+  syncConflictInfo,
+  store,
+  setMapDocument,
+  setMapLock,
+  onNavigate,
+}: CoiConflictDependencies) => {
+  setMapLock({isLocked: true, reason: 'Creating a new plan from your changes.'});
+  try {
+    const createMapDocumentResponse = await createMapDocument(syncConflictInfo.serverDocument);
+    if (!createMapDocumentResponse.ok) {
+      throw new DocumentCreationError('Failed to create map document from assignments on server');
+    }
+    setMapDocument(createMapDocumentResponse.response);
+    const data = await loadLocalCoiAssignments(syncConflictInfo.localDocument.document_id);
+    const response = await putUpdateCoiAssignmentsAndVerify({
+      mapDocument: createMapDocumentResponse.response,
+      communityAssignments: data.communityAssignments,
+      shatterIds: data.shatterIds,
+      childToParent: data.childToParent,
+      overwrite: true,
+    });
+    if (!response.ok) {
+      throw new DocumentConflictResolutionError(
+        'Failed to post local assignments when resolving conflict.'
+      );
+    }
+    const updatedDocument = {
+      ...createMapDocumentResponse.response,
+      updated_at: response.response.updated_at,
+    };
+    setMapDocument(updatedDocument);
+    store.setClientLastUpdated(response.response.updated_at);
+    store.ingestFromDocument(data, updatedDocument);
+    if (onNavigate) {
+      onNavigate(createMapDocumentResponse.response.document_id);
+    } else {
+      history.pushState(null, '', `/coi/edit/${createMapDocumentResponse.response.document_id}`);
+    }
+  } finally {
+    setMapLock(null);
+  }
+};
+
 // ==============================
 // == Zustand store definition ==
 // ==============================
 
 export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsStore>(
   'Districtr COI Assignments Store',
-  {
-    diff: temporalDiff,
-    limit: TEMPORAL_HISTORY_LIMIT,
-    // @ts-ignore: save only partial store
-    partialize: (state: CoiAssignmentsStore) => {
-      const {
-        shatterIds,
-        parentToChild,
-        childToParent,
-        communityAssignments,
-        communityVisibility,
-        clientLastUpdated,
-      } = state;
-      return {
-        shatterIds,
-        parentToChild,
-        childToParent,
-        communityAssignments,
-        communityVisibility,
-        clientLastUpdated,
-      };
-    },
-  }
+  coiAssignmentsTemporalConfig
 )((set, get) => ({
   communityAssignments: new Map<Zone, Set<string>>(),
   communityVisibility: new Map<Zone, boolean>(),
-  setCommunityVisibility: (community, isVisible) => {
+  setCommunityVisibility: (community: Zone, isVisible: boolean) => {
     const newVisibility = new Map(get().communityVisibility);
     newVisibility.set(community, isVisible);
     set({communityVisibility: newVisibility});
   },
-  setCommunityVisibilityForCommunities: (communities, isVisible) => {
+  setCommunityVisibilityForCommunities: (communities: Iterable<Zone>, isVisible: boolean) => {
     const newVisibility = new Map(get().communityVisibility);
     for (const community of communities) {
       newVisibility.set(community, isVisible);
@@ -507,19 +709,19 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     set({communityVisibility: newVisibility});
   },
 
-  ensureCommunityVisibility: community => {
+  ensureCommunityVisibility: (community: Zone) => {
     const newVisibility = new Map(get().communityVisibility);
     newVisibility.set(community, true);
     set({communityVisibility: newVisibility});
   },
-  removeCommunityVisibility: community => {
+  removeCommunityVisibility: (community: Zone) => {
     const newVisibility = new Map(get().communityVisibility);
     newVisibility.delete(community);
     set({communityVisibility: newVisibility});
   },
-  getCommunityData: community => {
+  getCommunityData: (community: Zone) => {
     const {communities} = useMapStore.getState();
-    const communityMetadata = communities.find(item => item.id === community);
+    const communityMetadata = communities.find((item: Community) => item.id === community);
     if (!communityMetadata) return null;
     const {communityAssignments, communityVisibility, communityLastUpdated} = get();
     return buildCommunityState({
@@ -909,6 +1111,21 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
 
   ingestFromDocument: (data: CoiAssignmentsPayload, mapDocument?: DocumentObject) => {
     const currentTime = new Date().toISOString();
+    const baselineUpdatedAt =
+      mapDocument?.updated_at ?? useMapStore.getState().mapDocument?.updated_at ?? currentTime;
+
+    // console.log('[hydration] ingestFromDocument called', {
+    //   hasMapDocument: !!mapDocument,
+    //   communityCount: data.communityAssignments.size,
+    //   assignedCommunityIds: Array.from(data.communityAssignments.keys()),
+    //   totalGeoIds: Array.from(data.communityAssignments.values()).reduce(
+    //     (sum, s) => sum + s.size,
+    //     0
+    //   ),
+    //   shatterParents: data.shatterIds.parents.size,
+    //   shatterChildren: data.shatterIds.children.size,
+    //   baselineUpdatedAt,
+    // });
 
     if (mapDocument) {
       useMapStore.getState().mutateMapDocument(mapDocument);
@@ -916,27 +1133,48 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
 
     const mapState = useMapStore.getState();
     const currentCommunities = mapState.communities;
-    if (!currentCommunities.length && data.communityAssignments.size) {
-      const palette = mapState.mapDocument?.color_scheme ?? DefaultColorScheme;
-      const reconstructedCommunities = Array.from(data.communityAssignments.keys())
-        .sort((left, right) => left - right)
-        .map((communityId, index) => ({
-          id: communityId,
-          render_order_id: index + 1,
-          name: `Community ${index + 1}`,
-          description: DEFAULT_COMMUNITY_DESCRIPTION,
-          color: palette[communityId - 1] ?? palette[index % palette.length] ?? '#000000',
-          createdAt: new Date(index * 1000).toISOString(),
-          descriptionCommentId: null,
-        }));
+    const assignedCommunityIds = Array.from(data.communityAssignments.keys()).sort(
+      (left, right) => left - right
+    );
+    const currentCommunityIds = new Set(currentCommunities.map(community => community.id));
+    const shouldReconstructCommunities =
+      assignedCommunityIds.length > 0 &&
+      ((!mapDocument?.community_metadata_list?.length && mapDocument !== undefined) ||
+        !currentCommunities.length ||
+        assignedCommunityIds.some(communityId => !currentCommunityIds.has(communityId)));
+
+    // console.log('[hydration] Community reconstruction check', {
+    //   shouldReconstructCommunities,
+    //   assignedCommunityIds,
+    //   currentCommunityIds: Array.from(currentCommunityIds),
+    //   hasMetadataList: !!mapDocument?.community_metadata_list?.length,
+    //   currentCommunitiesCount: currentCommunities.length,
+    // });
+
+    if (shouldReconstructCommunities) {
+      const palette =
+        mapDocument?.color_scheme ?? mapState.mapDocument?.color_scheme ?? DefaultColorScheme;
+      const reconstructedCommunities = assignedCommunityIds.map((communityId, index) => ({
+        id: communityId,
+        render_order_id: index + 1,
+        name: `Community ${index + 1}`,
+        description: DEFAULT_COMMUNITY_DESCRIPTION,
+        color: palette[communityId - 1] ?? palette[index % palette.length] ?? '#000000',
+        createdAt: new Date(index * 1000).toISOString(),
+        descriptionCommentId: null,
+      }));
+      // console.log('[hydration] Reconstructing communities:', reconstructedCommunities.length);
       mapState.setCommunities(reconstructedCommunities);
+      // setCommunities marks metadata as dirty; clear it since this is
+      // hydration from the server/IDB, not a user edit.
+      mapState.clearUpdatedChanges();
     }
 
     set({
       communityAssignments: deepCopyCommunityAssignments(data.communityAssignments),
       communityVisibility: buildCommunityVisibilityMap(
         useMapStore.getState().communities.map(community => community.id),
-        data.communtyVisibility
+        data.communityVisibility
       ),
       accumulatedAssignments: new Map<string, CoiAccumulatedMutation>(),
       communityLastUpdated: new Map<Zone, string>(),
@@ -946,11 +1184,16 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       },
       parentToChild: new Map<string, Set<string>>(data.parentToChild),
       childToParent: new Map<string, string>(data.childToParent),
-      clientLastUpdated: mapDocument?.updated_at ?? currentTime,
+      clientLastUpdated: baselineUpdatedAt,
     });
 
+    // console.log('[hydration] COI store updated, final state:', {
+    //   communityAssignmentsSize: get().communityAssignments.size,
+    //   clientLastUpdated: get().clientLastUpdated,
+    // });
+
     if (mapDocument) {
-      idb.updateIdbCoiAssignments(mapDocument, data.communityAssignments, currentTime, true);
+      idb.updateIdbCoiAssignments(mapDocument, data.communityAssignments, baselineUpdatedAt, true);
     }
   },
 
@@ -989,7 +1232,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
         return new Map<string, Set<string>>(parentToChild);
       } else {
         const buildingParentToChild = new Map<string, Set<string>>();
-        childToParent.forEach((parentId, childId) => {
+        childToParent.forEach((parentId: string, childId: string) => {
           const existing = buildingParentToChild.get(parentId);
           if (existing) {
             existing.add(childId);
@@ -1006,7 +1249,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
         return new Map<string, string>(childToParent);
       } else {
         const buildingChildToParent = new Map<string, string>();
-        parentToChild.forEach((childIds, parentId) => {
+        parentToChild.forEach((childIds: Set<string>, parentId: string) => {
           childIds.forEach(childId => {
             buildingChildToParent.set(childId, parentId);
           });
@@ -1043,6 +1286,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     const currTime = new Date().toISOString();
 
     const affectedGeometries = new Set<string>();
+    const removedCommunityIds: Zone[] = [];
 
     newAssignments.forEach((geoids, community) => {
       if (community > maxCommunity) {
@@ -1051,6 +1295,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
         });
         newAssignments.delete(community);
         newLastUpdated.set(community, currTime);
+        removedCommunityIds.push(community);
       }
     });
 
@@ -1090,9 +1335,11 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       childToParent,
       healParentsIfAllChildrenInSameCommunities: get().healParentsIfAllChildrenInSameCommunities,
     });
+
+    removedCommunityIds.forEach(id => temporalManager.purgeZone('coi', id));
   },
 
-  removeCommunity: removedCommunity => {
+  removeCommunity: (removedCommunity: Zone) => {
     const {
       communityAssignments,
       communityLastUpdated,
@@ -1146,5 +1393,151 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       childToParent,
       healParentsIfAllChildrenInSameCommunities: get().healParentsIfAllChildrenInSameCommunities,
     });
+
+    temporalManager.purgeZone('coi', removedCommunity);
+  },
+
+  handlePutAssignments: async (overwrite = false) => {
+    // console.log('[COI save] handlePutAssignments called, overwrite:', overwrite);
+    await idb.flushPendingUpdate();
+
+    const {mapDocument, setMapLock, setErrorNotification, setShowSaveConflictModal} =
+      useMapStore.getState();
+    if (!mapDocument?.document_id || !mapDocument.updated_at) {
+      // console.error('[COI save] Aborting save: missing document_id or updated_at', {
+      //   document_id: mapDocument?.document_id,
+      //   updated_at: mapDocument?.updated_at,
+      // });
+      return;
+    }
+    const idbDocument = await idb.getDocument(mapDocument.document_id);
+    if (!idbDocument) {
+      // console.error(
+      //   '[COI save] Aborting save: IDB document not found for',
+      //   mapDocument.document_id
+      // );
+      return;
+    }
+    setMapLock({isLocked: true, reason: 'Saving Coi assignment plan'});
+    try {
+      const documentForSave: DocumentObject = {
+        ...idbDocument.document_metadata,
+        ...mapDocument,
+        document_comments:
+          mapDocument.document_comments ?? idbDocument.document_metadata.document_comments,
+      };
+
+      const {communityAssignments, shatterIds, childToParent} = get();
+      // console.log('[COI save] Sending save request', {
+      //   document_id: documentForSave.document_id,
+      //   communityCount: communityAssignments.size,
+      //   commentCount: documentForSave.document_comments?.length ?? 0,
+      //   overwrite,
+      // });
+      const assignmntsPostResponse = await putUpdateCoiAssignmentsAndVerify({
+        mapDocument: documentForSave,
+        communityAssignments,
+        shatterIds,
+        childToParent,
+        overwrite,
+      });
+
+      if (
+        !assignmntsPostResponse.ok &&
+        assignmntsPostResponse.error === 'Document has been updated since the last update'
+      ) {
+        // console.warn('[COI save] Conflict detected:', assignmntsPostResponse.error);
+        setShowSaveConflictModal(true);
+      } else if (!assignmntsPostResponse.ok) {
+        // console.error('[COI save] Save failed:', assignmntsPostResponse.error);
+        setErrorNotification({
+          message: assignmntsPostResponse.error,
+          severity: 2,
+        });
+      } else if (assignmntsPostResponse.ok) {
+        // console.log('[COI save] Save succeeded:', assignmntsPostResponse.response);
+        setShowSaveConflictModal(false);
+      }
+    } finally {
+      setMapLock(null);
+    }
+  },
+
+  handleRevert: async (mapDocument: DocumentObject) => {
+    const confirmedMapDocument = confirmMapDocumentUrlParameter(
+      mapDocument.document_id,
+      '/coi/edit'
+    );
+    const {setErrorNotification, setMapLock, initiateFlushMapState} = useMapStore.getState();
+    await initiateFlushMapState();
+    if (!confirmedMapDocument) {
+      setErrorNotification({
+        message:
+          'The map you are trying to revert to is not the current map. Please refresh your page and try again.',
+        severity: 2,
+      });
+      return;
+    }
+    setMapLock({isLocked: true, reason: 'Reverting map to last save.'});
+    try {
+      const documentResult = await fetchDocument(mapDocument.document_id, 'remote');
+      if (!documentResult.ok) {
+        setErrorNotification({
+          message: 'Failed to fetch document. Please refresh your page and try again.',
+          severity: 2,
+        });
+        return;
+      }
+      const data = formatCoiAssignmentsFromDocument(documentResult.response.assignments);
+      get().ingestFromDocument(data, documentResult.response.document);
+    } finally {
+      setMapLock(null);
+    }
+  },
+
+  resolveConflict: async (
+    resolution: SyncConflictResolution,
+    syncConflictInfo: SyncConflictInfo,
+    options: ConflictResolutionOptions = {}
+  ) => {
+    const {onNavigate, onComplete, context = ConflictContext.Save} = options;
+    const {setMapDocument, setMapLock, setShowSaveConflictModal} = useMapStore.getState();
+    const dependencies: CoiConflictDependencies = {
+      syncConflictInfo,
+      store: get(),
+      setMapDocument,
+      setMapLock,
+      onNavigate,
+      onComplete,
+    };
+
+    setShowSaveConflictModal(false);
+    switch (resolution) {
+      case SyncConflictResolution.KeepLocal:
+        await coiResolveKeepLocal(dependencies, context);
+        break;
+      case SyncConflictResolution.UseLocal:
+        await coiResolveUseLocal(dependencies, context);
+        break;
+      case SyncConflictResolution.UseServer:
+        await coiResolveUseServer(dependencies);
+        break;
+      case SyncConflictResolution.Fork:
+        await coiResolveFork(dependencies);
+        break;
+      default: {
+        const exhaustiveResolution: never = resolution;
+        throw new Error(`Unhandled sync conflict resolution: ${exhaustiveResolution}`);
+      }
+    }
+    onComplete?.();
+  },
+
+  handlePutAssignmentsConflict: async (
+    resolution: SyncConflictResolution,
+    sycnConflictInfo: SyncConflictInfo,
+    options: ConflictResolutionOptions = {context: ConflictContext.Save}
+  ) => {
+    await get().resolveConflict(resolution, sycnConflictInfo, options);
   },
 }));

@@ -38,10 +38,10 @@ export const Topbar: React.FC = () => {
   const access = useMapStore(state => state.mapStatus?.access);
   const mapViews = useMapStore(state => state.mapViews);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
-  const data = mapViews?.data || [];
   const router = useRouter();
   const updateMetadata = useMapStore(state => state.updateMetadata);
   const mapMode = useMapControlsStore(state => state.mapMode);
+  const data = mapViews?.data || [];
 
   const handleMetadataChange = async (updates: Partial<DocumentMetadata>) => {
     if (!mapDocument?.document_id) return;
@@ -66,6 +66,7 @@ export const Topbar: React.FC = () => {
   ) => {
     createMapDocument({
       districtr_map_slug: selectedMap.districtr_map_slug,
+      map_type: mapType === 'coi' ? 'community' : 'default',
     }).then(r => {
       if (r.ok) {
         const rootPath = mapType === 'districts' ? 'map' : 'coi';
@@ -119,8 +120,8 @@ export const Topbar: React.FC = () => {
                   <DropdownMenu.Sub>
                     <DropdownMenu.SubTrigger>Select a geography</DropdownMenu.SubTrigger>
                     <DropdownMenu.SubContent>
-                      {data?.length ? (
-                        data?.map((view, index) => (
+                      {data.length ? (
+                        data.map((view, index) => (
                           <DropdownMenu.Item
                             key={index}
                             onClick={() => handleSelectMap(view, mapMode)}
@@ -129,7 +130,11 @@ export const Topbar: React.FC = () => {
                           </DropdownMenu.Item>
                         ))
                       ) : (
-                        <DropdownMenu.Item disabled>Loading geographies...</DropdownMenu.Item>
+                        <DropdownMenu.Item disabled>
+                          {mapViews?.isPending
+                            ? 'Loading geographies...'
+                            : 'No geographies available'}
+                        </DropdownMenu.Item>
                       )}
                     </DropdownMenu.SubContent>
                   </DropdownMenu.Sub>
