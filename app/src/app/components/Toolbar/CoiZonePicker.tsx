@@ -155,7 +155,7 @@ export const CoiZonePicker: React.FC = () => {
           <AlertDialog.Title>Remove Community</AlertDialog.Title>
           <AlertDialog.Description size="2">
             Are you sure? This will permanently delete this community, its painted areas, and its
-            comments. Your paint undo/redo history will also be cleared. This cannot be undone.
+            description. Your paint undo/redo history will also be cleared. THIS CANNOT BE UNDONE.
           </AlertDialog.Description>
           <Flex gap="3" mt="4" justify="end">
             <AlertDialog.Cancel>
