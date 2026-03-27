@@ -77,7 +77,7 @@ const CoiRadioRow: React.FC<{
           disabled={disabled}
           className={disabled ? 'opacity-25' : ''}
         />
-        <Box flexGrow={'0'} flexShrink="0">
+        <Box flexGrow={'0'} flexShrink="0" mr="2">
           <Text size="2" weight={isSelected ? 'bold' : 'regular'}>
             {community.name}
           </Text>
