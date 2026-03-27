@@ -54,7 +54,10 @@ const CoiRadioRow: React.FC<{
   onUpdate,
 }) => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-
+  const communityNameIsLong = community.name.length > 15;
+  const truncatedCommunityName = communityNameIsLong
+    ? `${community.name.slice(0, 15)}...`
+    : community.name;
   return (
     <>
       <EditCommunityDialog
@@ -78,8 +81,14 @@ const CoiRadioRow: React.FC<{
           className={disabled ? 'opacity-25' : ''}
         />
         <Box flexGrow={'0'} flexShrink="0" mr="2">
-          <Text size="2" weight={isSelected ? 'bold' : 'regular'}>
-            {community.name}
+          <Text
+            size="2"
+            weight={isSelected ? 'bold' : 'regular'}
+            style={{
+              letterSpacing: isSelected ? '-0.23px' : undefined,
+            }}
+          >
+            {truncatedCommunityName}
           </Text>
         </Box>
         <Box className="overflow-hidden" flexGrow="1">
