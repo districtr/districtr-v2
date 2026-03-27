@@ -43,14 +43,6 @@ export const ZONE_LABEL_STYLE = (colorScheme: string[]) => {
   return group as ExpressionSpecification;
 };
 
-/**
- * Conditionally returns the `source-layer` prop for MapLibre layers.
- * Vector tile sources require a source-layer; GeoJSON sources must omit it.
- * Spread the result onto a <Layer> component: `{...sourceLayerProp(id)}`.
- */
-export const sourceLayerProp = (sourceLayerId?: string) =>
-  sourceLayerId ? {'source-layer': sourceLayerId} : {};
-
 export function getLayerFill(
   captiveIds?: Set<string>,
   isDemographic?: boolean

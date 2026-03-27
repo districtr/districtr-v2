@@ -137,16 +137,6 @@ const Evaluation: React.FC<EvaluationProps> = ({
   const maxValues = zoneStats?.maxValues;
   const effectiveUniverseTotals =
     singleZone != null ? (universeTotals ?? demographyService.universeTotals) : undefined;
-  const displayData = (() => {
-    let rows = zoneData ?? [];
-    if (singleZone != null) {
-      rows = rows.filter(r => r.zone === singleZone);
-    }
-    if (effectiveUniverseTotals) {
-      rows = [...rows, effectiveUniverseTotals];
-    }
-    return rows;
-  })();
   const colorScheme = useColorScheme();
   const getZoneColor = useZoneColorGetter();
   const mapMode = useMapControlsStore(state => state.mapMode);

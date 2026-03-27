@@ -17,8 +17,6 @@ import {DocumentObject} from '../utils/api/apiHandlers/types';
 import {fetchDocument, SyncConflictInfo} from '../utils/api/apiHandlers/fetchDocument';
 import {createMapDocument} from '../utils/api/apiHandlers/createMapDocument';
 import {createWithFullMiddlewares} from './middlewares';
-import {temporalDiff} from './middlewareConfig';
-import {TEMPORAL_HISTORY_LIMIT} from '../constants/configuration';
 import {confirmMapDocumentUrlParameter} from '../utils/map/confirmMapDocumentUrlParameter';
 import {
   DocumentNotFoundError,

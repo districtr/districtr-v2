@@ -1,5 +1,5 @@
 from datetime import datetime
-from enum import Enum, StrEnum
+from enum import Enum
 import re
 import unicodedata
 from pydantic import BaseModel, field_validator

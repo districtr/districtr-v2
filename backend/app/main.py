@@ -241,7 +241,6 @@ async def create_document(
     num_communities = None
     community_metadata_list = None
     copied_document = None
-    document_type = data.document_type
 
     if data.copy_from_doc is not None:
         copy_document_id = parse_document_id(data.copy_from_doc)
