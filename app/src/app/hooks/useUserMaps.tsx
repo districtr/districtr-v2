@@ -21,7 +21,7 @@ export const useUserMaps = (updateTrigger: string | null | number = null) => {
       const coiMaps: DocumentObject[] = [];
       const districtMaps: DocumentObject[] = [];
       for (const doc of sortedDocs) {
-        if (doc.community_metadata_list?.length) {
+        if (doc.map_type === 'community') {
           coiMaps.push(doc);
         } else {
           districtMaps.push(doc);
