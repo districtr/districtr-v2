@@ -1,7 +1,8 @@
 import React from 'react';
 import {Dialog, Button, Flex, Text, Box, Spinner, Grid} from '@radix-ui/themes';
 import {Cross2Icon} from '@radix-ui/react-icons';
-import {SyncConflictResolution, SyncConflictInfo} from '@/app/utils/api/apiHandlers/fetchDocument';
+import {SyncConflictResolution} from '@/app/constants/types';
+import {SyncConflictInfo} from '@/app/utils/api/apiHandlers/fetchDocument';
 import {CloudIcon, LocalIcon, ForkIcon} from './SyncConflictModalIcons';
 
 interface SyncConflictModalProps {
@@ -30,7 +31,7 @@ export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
           <Dialog.Close
             className="rounded-full size-[24px] hover:bg-red-100 p-1"
             aria-label="Close"
-            onClick={() => onResolve('keep-local')}
+            onClick={() => onResolve(SyncConflictResolution.KeepLocal)}
           >
             <Cross2Icon />
           </Dialog.Close>
@@ -84,7 +85,7 @@ export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
               <Flex gap="2" direction="column" className="mt-4">
                 <Grid columns="3" gap="2">
                   <Button
-                    onClick={() => onResolve('use-local')}
+                    onClick={() => onResolve(SyncConflictResolution.UseLocal)}
                     variant="solid"
                     className="w-full h-auto py-4"
                     size="3"
@@ -95,7 +96,7 @@ export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
                     </Flex>
                   </Button>
                   <Button
-                    onClick={() => onResolve('use-server')}
+                    onClick={() => onResolve(SyncConflictResolution.UseServer)}
                     variant="solid"
                     className="w-full h-auto py-4"
                     size="3"
@@ -110,7 +111,7 @@ export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
                     </Flex>
                   </Button>
                   <Button
-                    onClick={() => onResolve('fork')}
+                    onClick={() => onResolve(SyncConflictResolution.Fork)}
                     variant="solid"
                     className="w-full h-auto py-4"
                     size="3"
@@ -124,7 +125,7 @@ export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
                   </Button>
                 </Grid>
                 <Button
-                  onClick={() => onResolve('keep-local')}
+                  onClick={() => onResolve(SyncConflictResolution.KeepLocal)}
                   variant="outline"
                   className="w-full"
                   size="3"

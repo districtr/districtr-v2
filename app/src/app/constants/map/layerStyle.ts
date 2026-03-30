@@ -11,6 +11,16 @@ export const EMPTY_FT_COLLECTION: GeoJSON.FeatureCollection<any> = {
 export const SENTINEL_EMPTY_VALUE: string = '-999';
 export const SENTINEL_EMPTY_ARRAY: string[] = [SENTINEL_EMPTY_VALUE];
 
+export const COMMUNITY_ASSIGNMENT_STYLE = (colorScheme: string[]) => {
+  const colorStyleBaseline: any[] = ['case'];
+  let group = [...colorScheme].reduce((val, color, i) => {
+    val.push(['==', ['feature-state', 'community'], i + 1], color); // 1-indexed per mapStore.ts
+    return val;
+  }, colorStyleBaseline);
+  group.push('#cecece');
+  return group as ExpressionSpecification;
+};
+
 export const ZONE_ASSIGNMENT_STYLE = (colorScheme: string[]) => {
   const colorStyleBaseline: any[] = ['case'];
   let group = [...colorScheme].reduce((val, color, i) => {
@@ -81,3 +91,9 @@ export function getLayerFill(
     return innerFillSpec;
   }
 }
+export const BASEMAP_IDS = {
+  MINIMAL: 'minimal',
+  STREETS: 'streets',
+  SATELLITE: 'satellite',
+} as const;
+export type BasemapId = (typeof BASEMAP_IDS)[keyof typeof BASEMAP_IDS];

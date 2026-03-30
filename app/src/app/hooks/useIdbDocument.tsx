@@ -2,6 +2,7 @@ import {useEffect, useRef, useState} from 'react';
 import {idb} from '../utils/idb/idb';
 import {StoredDocument} from '../utils/idb/idb';
 import {useAssignmentsStore} from '../store/assignmentsStore';
+import {useCoiAssignmentsStore} from '../store/coiAssignmentsStore';
 import {useMapStore} from '../store/mapStore';
 
 export const useIdbDocument = (document_id: string | null | undefined) => {
@@ -10,7 +11,8 @@ export const useIdbDocument = (document_id: string | null | undefined) => {
     'assignments'
   > | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const clientLastUpdated = useAssignmentsStore(state => state.clientLastUpdated);
+  const districtClientLastUpdated = useAssignmentsStore(state => state.clientLastUpdated);
+  const coiClientLastUpdated = useCoiAssignmentsStore(state => state.clientLastUpdated);
   const mapDocument = useMapStore(state => state.mapDocument);
   useEffect(() => {
     if (timeoutRef.current) {
@@ -39,7 +41,7 @@ export const useIdbDocument = (document_id: string | null | undefined) => {
     timeoutRef.current = setTimeout(() => {
       main();
     }, idb.DEBOUNCE_DELAY);
-  }, [document_id, clientLastUpdated, mapDocument]);
+  }, [document_id, districtClientLastUpdated, coiClientLastUpdated, mapDocument]);
 
   return documentFromIdb;
 };

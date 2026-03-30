@@ -1,27 +1,32 @@
 import {LngLatLike} from 'maplibre-gl';
-import type {MapOptions, StyleSpecification} from 'maplibre-gl';
-import {BASEMAP_LAYERS} from './basemapLayers';
+import type {MapOptions} from 'maplibre-gl';
+import {BASEMAP_IDS, type BasemapId} from '@/app/constants/map/layerStyle';
 import {GEODATA_URL} from '../utils/api/constants';
 
 export const MAP_CENTER: LngLatLike = [-98.5556199, 39.8097343]; // kansas
+const MAPSTYLE_ROOT_URL = process.env.NODE_ENV === 'development' ? '' : `${GEODATA_URL}/basemaps`;
+const MAPSTYLE_SUFFIX = process.env.NODE_ENV === 'development' ? '' : '';
+export const MINIMAL_BASEMAP_STYLE_URL = `${MAPSTYLE_ROOT_URL}/minimal-basemap-style.json${MAPSTYLE_SUFFIX}`;
+export const STREETS_BASEMAP_STYLE_URL = `${MAPSTYLE_ROOT_URL}/streets-basemap-style.json${MAPSTYLE_SUFFIX}`;
+export const SATELLITE_BASEMAP_STYLE_URL = `${MAPSTYLE_ROOT_URL}/satellite-basemap-style.json${MAPSTYLE_SUFFIX}`;
 
-export const BASEMAP_STYLE: StyleSpecification = {
-  version: 8,
-  sources: {
-    protomaps: {
-      type: 'vector',
-      attribution:
-        '<a href="https://github.com/protomaps/basemaps">Protomaps</a> © <a href="https://openstreetmap.org">OpenStreetMap</a>',
-      url: `pmtiles://${GEODATA_URL}/basemaps/20240325.pmtiles`,
-    },
-  },
-  layers: BASEMAP_LAYERS,
-  glyphs: `${GEODATA_URL}/fonts/{fontstack}/{range}.pbf`,
-  sprite: `${GEODATA_URL}/sprites/white`,
+/**
+ * Returns the URL to the basemap style JSON for the given basemap.
+ */
+export const getMapStyleForBasemap = (basemap: BasemapId): string => {
+  switch (basemap) {
+    case BASEMAP_IDS.MINIMAL:
+      return MINIMAL_BASEMAP_STYLE_URL;
+    case BASEMAP_IDS.STREETS:
+      return STREETS_BASEMAP_STYLE_URL;
+    case BASEMAP_IDS.SATELLITE:
+      return SATELLITE_BASEMAP_STYLE_URL;
+    default:
+      return MINIMAL_BASEMAP_STYLE_URL;
+  }
 };
 
 export const MAP_OPTIONS: MapOptions = {
-  style: BASEMAP_STYLE,
   zoom: 3.75,
   center: MAP_CENTER,
   maxZoom: 22,
@@ -38,3 +43,9 @@ export const MAP_OPTIONS: MapOptions = {
  * @type {number}
  */
 export const offsetFactor: number = 15;
+
+/** Minimum milliseconds between undo/redo history snapshots. */
+export const MIN_DIFF_MS = 3000;
+
+/** Maximum number of undo/redo history states to keep per store. */
+export const TEMPORAL_HISTORY_LIMIT = 20;

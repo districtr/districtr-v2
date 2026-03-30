@@ -38,13 +38,14 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
       return;
     }
     const {public_id: publicId} = response.response;
+    const routePrefix = mapDocument.map_type === 'community' ? 'coi' : 'map';
 
-    let shareableLink = new URL(`${window.location.origin}/map/${publicId}`);
+    let shareableLink = new URL(`${window.location.origin}/${routePrefix}/${publicId}`);
     if (sharingMode === 'read') {
       // Do nothing!
     } else if (sharingMode === 'edit' && password === null) {
       // Direct link to edit page
-      shareableLink.pathname = `/map/edit/${mapDocument.document_id}`;
+      shareableLink.pathname = `/${routePrefix}/edit/${mapDocument.document_id}`;
     } else {
       // Password protected link
       shareableLink.searchParams.set('pw', 'true');

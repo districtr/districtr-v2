@@ -285,7 +285,7 @@ def add_extent_to_districtrmap(
             "SELECT uuid FROM districtrmap WHERE uuid = :districtr_map_uuid"
         ).bindparams(bindparam(key="districtr_map_uuid", type_=UUIDType)),
         params={"districtr_map_uuid": districtr_map_uuid},
-    ).one()
+    ).scalar_one_or_none()
     if _select_result is None:
         raise ValueError(
             f"Districtr map with UUID {districtr_map_uuid} does not exist."
@@ -399,7 +399,7 @@ def add_districtr_map_to_map_group(
             "uuid": districtr_map.uuid,
             "slug": group_slug,
         },
-    ).one_or_none()
+    ).scalar_one_or_none()
 
     if existing_map_group:
         session.rollback()

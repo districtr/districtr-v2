@@ -35,6 +35,7 @@ yarn-error.log*
 # local env files
 .env*.local
 .env
+.envrc
 
 # vercel
 .vercel
@@ -90,7 +91,7 @@ pipelines/build/*
 .vscode/
 .zed/
 
-# cursor 
+# cursor
 plans/
 
 # beads
@@ -149,3 +150,9 @@ beads.right.meta.json
 # contributors to accidentally commit upstream issue databases.
 # The JSONL files (issues.jsonl, interactions.jsonl) and config files
 # are tracked by git by default since no pattern above ignores them.
+# misc
+docker-compose.mac.yml
+app/public/*-basemap-style.json
+/app/test-results
+/app/playwright-report
+app/playwright-report/index.html

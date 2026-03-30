@@ -127,10 +127,9 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
   if (zoneLabelFeatures.length > 0 && activeTool === 'pan') {
     const zone = zoneLabelFeatures[0].properties?.zone;
     if (zone !== undefined) {
-      const comments = mapStore.mapDocument?.document_comments || [];
-      const hasComments = comments.some(c => c.zone === zone);
-      if (hasComments) {
-        useTooltipStore.getState().setZoneCommentModalZone(zone);
+      const hasDescription = !!mapStore.getZoneDescriptionForZone(zone);
+      if (hasDescription) {
+        useTooltipStore.getState().setZoneDescriptionModalZone(zone);
         return;
       }
     }
@@ -200,7 +199,7 @@ export const handleMapMouseLeave = (e: MapLayerMouseEvent | MapLayerTouchEvent) 
   setTimeout(() => {
     setHoverFeatures(EMPTY_FEATURE_ARRAY);
     useTooltipStore.getState().setTooltip(null);
-    useTooltipStore.getState().setZoneCommentTooltip(null);
+    useTooltipStore.getState().setZoneDescriptionTooltip(null);
   }, 125);
   useMapControlsStore.getState().setIsPainting(false);
 };
@@ -209,7 +208,7 @@ export const handleMapMouseOut = (e: MapLayerMouseEvent | MapLayerTouchEvent) =>
   setTimeout(() => {
     setHoverFeatures(EMPTY_FEATURE_ARRAY);
     useTooltipStore.getState().setTooltip(null);
-    useTooltipStore.getState().setZoneCommentTooltip(null);
+    useTooltipStore.getState().setZoneDescriptionTooltip(null);
   }, 250);
   useMapControlsStore.getState().setIsPainting(false);
 };
@@ -224,7 +223,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   const {selectedZone} = mapControls;
   const {mutateZoneAssignments} = useAssignmentsStore.getState();
   const {selectingLayerId} = useOverlayStore.getState();
-  const {setTooltip, setZoneCommentTooltip} = useTooltipStore.getState();
+  const {setTooltip, setZoneDescriptionTooltip} = useTooltipStore.getState();
   const sourceLayer = mapDocument?.parent_layer;
   const paintLayers = getLayerIdsToPaint(
     // Boolean(mapStore.mapDocument?.child_layer && mapStore.captiveIds.size),
@@ -232,7 +231,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
     activeTool
   );
 
-  // Check for zone label hover (for comment tooltip)
+  // Check for zone label hover (for description tooltip)
   const zoneLabelFeatures = mapRef.queryRenderedFeatures(e.point, {
     layers: ZONE_LABEL_LAYER_IDS.filter(id => {
       try {
@@ -246,10 +245,9 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   if (zoneLabelFeatures.length > 0 && activeTool === 'pan') {
     const zone = zoneLabelFeatures[0].properties?.zone;
     if (zone !== undefined) {
-      const comments = mapStore.mapDocument?.document_comments || [];
-      const hasComments = comments.some(c => c.zone === zone);
-      if (hasComments) {
-        setZoneCommentTooltip({
+      const hasDescription = !!mapStore.getZoneDescriptionForZone(zone);
+      if (hasDescription) {
+        setZoneDescriptionTooltip({
           zone,
           x: e.point.x,
           y: e.point.y,
@@ -259,8 +257,8 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
       }
     }
   }
-  // Clear zone comment tooltip if not hovering over zone label with comments
-  setZoneCommentTooltip(null);
+  // Clear zone description tooltip if not hovering over zone label with descriptions
+  setZoneDescriptionTooltip(null);
 
   const isBrushingTool = sourceLayer && ALL_BRUSHING_TOOLS.includes(activeTool);
   if (selectingLayerId) {
