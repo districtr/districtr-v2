@@ -95,7 +95,7 @@ Zustand stores with composed middleware (persist → devtools → temporal → s
 | `temporalStore` | Undo/redo via Zundo |
 | `saveShareStore` | Save/share workflow |
 
-Cross-store side effects are coordinated via explicit subscriptions in `store/subscriptions.tsx` and `store/mapEditSubs.ts`, not component-level listeners.
+Cross-store side effects are coordinated via explicit subscriptions in `store/subscriptions.tsx`, `store/mapEditSubs.ts`, and `store/metricsSubs.ts`, not component-level listeners.
 
 ### Web Workers
 

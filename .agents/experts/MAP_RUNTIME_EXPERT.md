@@ -51,6 +51,7 @@ Define source-of-truth runtime rules for map interaction, feature-state renderin
 - Manual flows: paint, erase, shatter, unshatter/heal, overlay-constrained paint, zone comments.
 
 ## See Also
+- [MAP_LAYERS_EXPERT.md](./MAP_LAYERS_EXPERT.md) - Layer stack, sources, map types, style expressions
 - [FE_EXPERT.md](./FE_EXPERT.md) - Frontend architecture and store-driven state
 - [STATE_SYNC_EXPERT.md](./STATE_SYNC_EXPERT.md) - State synchronization contracts
 

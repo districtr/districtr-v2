@@ -30,8 +30,11 @@ Upgrade the current project to the latest Next.js version following official mig
    - `next-request-geo-ip` - Migrates geo/ip properties (v15)
    - `next-dynamic-access-named-export` - Transforms dynamic imports (v15)
 
-5. **Update dependencies**: Upgrade Next.js and peer dependencies together:
+5. **Update dependencies**: Upgrade Next.js and peer dependencies together. Use the project's package manager (check for `bun.lock`, `pnpm-lock.yaml`, or `package-lock.json`):
    ```bash
+   # Bun (this project)
+   bun add next@latest react@latest react-dom@latest
+   # npm fallback
    npm install next@latest react@latest react-dom@latest
    ```
 
@@ -42,9 +45,12 @@ Upgrade the current project to the latest Next.js version following official mig
 
 7. **Update TypeScript types** (if applicable):
    ```bash
+   # Bun (this project)
+   bun add -d @types/react@latest @types/react-dom@latest
+   # npm fallback
    npm install @types/react@latest @types/react-dom@latest
    ```
 
 8. **Test the upgrade**:
-   - Run `npm run build` to check for build errors
-   - Run `npm run dev` and test key functionality
+   - Run `bun run build` (or `npm run build`) to check for build errors
+   - Run `bun run dev` (or `npm run dev`) and test key functionality

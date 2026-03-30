@@ -9,9 +9,9 @@ Read [`.agents/AGENTS.md`](.agents/AGENTS.md) for full project context, expert g
 ## Quick Reference
 
 - **Architecture**: [`.agents/ARCHITECTURE.md`](.agents/ARCHITECTURE.md)
-- **Expert guides**: `.agents/experts/` (11 domain-specific guides)
-- **Issue tracking**: `bd prime` or `bd ready` (beads CLI)
-- **Frontend**: `app/` (Next.js 16, Bun, TypeScript)
+- **Expert guides**: `.agents/experts/` (12 domain-specific guides)
+- **Issue tracking**: `bd prime` or `bd ready` (beads CLI, optional)
+- **Frontend**: `app/` (Next.js App Router, Bun, TypeScript)
 - **Backend**: `backend/` (FastAPI, Python 3.12, SQLModel)
 - **Pipelines**: `pipelines/` (tilesets, tabular data, transforms)
 

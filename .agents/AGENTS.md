@@ -83,6 +83,7 @@ Expert guides live in `./experts/` and document domain-specific implementation r
 
 - [`DOCKER_EXPERT.md`](./experts/DOCKER_EXPERT.md) - docker-compose topology, env files, local container workflows, quality-gate commands
 - [`FE_EXPERT.md`](./experts/FE_EXPERT.md) - frontend architecture and map-first FE conventions
+- [`MAP_LAYERS_EXPERT.md`](./experts/MAP_LAYERS_EXPERT.md) - layer stack, sources, map types (district vs COI), style expressions, shatter filters
 - [`MAP_RUNTIME_EXPERT.md`](./experts/MAP_RUNTIME_EXPERT.md) - MapLibre interaction model, feature-state, paint/shatter behavior
 - [`STATE_SYNC_EXPERT.md`](./experts/STATE_SYNC_EXPERT.md) - IDB/server sync, optimistic concurrency, conflict resolution
 - [`WORKERS_EXPERT.md`](./experts/WORKERS_EXPERT.md) - GeometryWorker/ParquetWorker contracts and performance guardrails
@@ -96,7 +97,8 @@ Expert guides live in `./experts/` and document domain-specific implementation r
 ### Guide Selection Rules
 
 - Docker/config/startup/test commands → [`DOCKER_EXPERT.md`](./experts/DOCKER_EXPERT.md)
-- Interactive map behavior or rendering changes → [`FE_EXPERT.md`](./experts/FE_EXPERT.md) + [`MAP_RUNTIME_EXPERT.md`](./experts/MAP_RUNTIME_EXPERT.md)
+- Interactive map behavior or rendering changes → [`FE_EXPERT.md`](./experts/FE_EXPERT.md) + [`MAP_RUNTIME_EXPERT.md`](./experts/MAP_RUNTIME_EXPERT.md) + [`MAP_LAYERS_EXPERT.md`](./experts/MAP_LAYERS_EXPERT.md)
+- Layer rendering, styling, map types (district vs COI), basemaps, overlays → [`MAP_LAYERS_EXPERT.md`](./experts/MAP_LAYERS_EXPERT.md)
 - Worker or large-data FE processing changes → [`WORKERS_EXPERT.md`](./experts/WORKERS_EXPERT.md)
 - Sync/conflict/local persistence changes → [`STATE_SYNC_EXPERT.md`](./experts/STATE_SYNC_EXPERT.md)
 - Backend endpoint/model/query changes → [`BE_EXPERT.md`](./experts/BE_EXPERT.md) + [`DB_QUERY_AND_MIGRATIONS_EXPERT.md`](./experts/DB_QUERY_AND_MIGRATIONS_EXPERT.md)
@@ -115,26 +117,28 @@ Expert guides live in `./experts/` and document domain-specific implementation r
 
 **Before starting work:**
 - Ensure you are on the `dev` branch: most changes should be based on the `dev` branch, which will later be merged into main.
-- Check available issues: `bd ready` or `bd list`
+- Check available issues: `bd ready` or `bd list` (if beads is installed)
 - Read relevant expert guides (see "Expert Guides" section above)
-- Create new issues if needed: `bd create "Description" --type task --priority 2`
+- Create new issues if needed: `bd create "Description" --type task --priority 2` (if beads is installed)
 
 **MANDATORY WORKFLOW:**
 
-1. **Update issue status** - Mark completed work: `bd close <issue-id>` or `bd update <issue-id> --status done`
-2. **File issues for remaining work** - Create issues for anything that needs follow-up: `bd create "Description" --type task --priority 2`
+1. **Update issue status** (if beads is installed) - Mark completed work: `bd close <issue-id>` or `bd update <issue-id> --status done`
+2. **File issues for remaining work** - Create issues via `bd create` (if beads is installed) or document in commit messages / PR description
 3. **Run quality gates** (if code changed) - Tests, linters, builds. Especially `docker-compose up pre-commit` for linting and `docker-compose exec frontend bun run build` for FE and `docker-compose exec backend pytest -v` for BE
-4. **Sync Beads** - Update issue tracking: `bd sync`
+4. **Sync Beads** (if beads is installed) - Update issue tracking: `bd sync`
 5. **PUSH TO REMOTE** - This is MANDATORY:
    ```bash
    git pull --rebase
-   bd sync
+   bd sync  # if beads is installed
    git push
    git status  # MUST show "up to date with origin"
    ```
-5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
-7. **Hand off** - Provide context for next session
+6. **Clean up** - Clear stashes, prune remote branches
+7. **Verify** - All changes committed AND pushed
+8. **Hand off** - Provide context for next session
+
+> **Note:** Beads (`bd`) is optional. If not installed, skip beads-related steps and track work via git commits, PR descriptions, and GitHub issues instead.
 
 **CRITICAL RULES:**
 - Work is NOT complete until `git push` succeeds
