@@ -1,0 +1,7 @@
+{
+  "venvPath": "/usr/local",
+  "pythonPath": "/usr/local/bin/python",
+  "extraPaths": ["/districtr-backend", "/usr/local/lib/python3.12/site-packages"],
+  "typeCheckingMode": "basic",
+  "reportMissingImports": true
+}
