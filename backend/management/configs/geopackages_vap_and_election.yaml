@@ -192,8 +192,29 @@ districtr_maps:
     num_districts: 2
     gerrydb_table_name: wv_districtr_view
     districtr_map_slug: wv_districtr_view
-    parent_layer: wv_bg_districtr_view
+    parent_layer: wv_cbg_districtr_view
     child_layer: wv_block_districtr_view
     tiles_s3_path: tilesets/wv_districtr_view.pmtiles
 map_groups:
-  - states
+  - districtr_map_slug: ak_districtr_view
+    group_slug: states
+  - districtr_map_slug: co_districtr_view
+    group_slug: states
+  - districtr_map_slug: fl_districtr_view
+    group_slug: states
+  - districtr_map_slug: ks_districtr_view
+    group_slug: states
+  - districtr_map_slug: ma_districtr_view
+    group_slug: states
+  - districtr_map_slug: mt_districtr_view
+    group_slug: states
+  - districtr_map_slug: nc_districtr_view
+    group_slug: states
+  - districtr_map_slug: pa_districtr_view
+    group_slug: states
+  - districtr_map_slug: tx_districtr_view
+    group_slug: states
+  - districtr_map_slug: wa_districtr_view
+    group_slug: states
+  - districtr_map_slug: wv_districtr_view
+    group_slug: states

@@ -105,7 +105,7 @@ def continue_on_previous_load(func):
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except (sa.exc.IntegrityError, sa.exc.ProgrammingError) as e:
+        except (sa.exc.IntegrityError, sa.exc.ProgrammingError, ValueError) as e:
             if "duplicate key value violates unique constraint" in str(e):
                 logger.info(f"Unique constraint violation ignored: {e}")
             elif "Relationships for districtr_map" in str(e):
@@ -321,7 +321,7 @@ def load_sample_data(
             # Commit districtr views
             session.commit()
             _create_parent_child_edges(
-                session=session, districtr_map_uuid=view.districtr_map_uuid
+                session=session, districtr_map_uuid=u
             )
 
         session.commit()

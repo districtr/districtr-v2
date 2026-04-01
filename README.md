@@ -14,9 +14,9 @@ The Districtr reboot monorepo.
 The backend (Python), frontend (NextJS), and database (postgres) can be run locally using Docker.
 
 1. Install and configure [Docker](https://www.docker.com/) for your machine
-1. `cp ./backend/.env.docker.example && ./backend/.env.docker` and fill in missing variables.
-1. From the repo root, run `docker-compose up db backend frontend`
-1. Add data as necessary by following the steps in [Loading data](#loading-data) below
+2. `cp ./backend/.env.docker.example ./backend/.env.docker` and fill in missing variables.
+3. From the repo root, run `docker-compose up db backend frontend`
+4. Add data as necessary by following the steps in [Loading data](#loading-data) below
 
 ### Make shortcuts
 
@@ -41,13 +41,13 @@ After experimenting with various technologies (see [`prototypes`](prototypes/)) 
 The redesign aims to principally to address three key pain points in the Districtr application’s performance and maintainability:
 
 1. Slow tile rendering
-1. Cumbersome use of tiles as global state for tile rendering and most metric calculation
-1. Complexity and poor interoperability in architecture without slow copies
+2. Cumbersome use of tiles as global state for tile rendering and most metric calculation
+3. Complexity and poor interoperability in architecture without slow copies
 
 And two key feature additions
 
 1. Block “shattering”
-1. A headless CMS (this will be added in a later phase of work / is not currently a focus of the reboot)
+2. A headless CMS (this will be added in a later phase of work / is not currently a focus of the reboot)
 
 The principal difference with the existing Districtr application is that the server is responsible for a lot more work in this architecture, with most metric calculations performed server-side.
 We discuss how centralizing/consolidating the backend offers a number of advantages for dealing with pain points listed above.
