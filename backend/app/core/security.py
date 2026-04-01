@@ -111,6 +111,8 @@ class VerifyToken:
             "email": decoded.get("email", ""),
             "scope": " ".join(role_scopes),
             "role": role,
+            "assignedTags": decoded.get("assignedTags", []),
+            "assignedPlaces": decoded.get("assignedPlaces", []),
         }
 
     async def verify(
