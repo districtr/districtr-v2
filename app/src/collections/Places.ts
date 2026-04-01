@@ -4,7 +4,7 @@ export const Places: CollectionConfig = {
   slug: 'places',
   admin: {
     useAsTitle: 'title',
-    defaultColumns: ['title', 'slug', 'language', '_status', 'updatedAt'],
+    defaultColumns: ['title', 'slug', '_status', 'updatedAt'],
     group: 'CMS Content',
   },
   versions: {
@@ -15,50 +15,32 @@ export const Places: CollectionConfig = {
       name: 'title',
       type: 'text',
       required: true,
+      localized: true,
       label: 'Page Title',
     },
     {
       name: 'subtitle',
       type: 'text',
+      localized: true,
       label: 'Subtitle',
     },
     {
-      type: 'row',
-      fields: [
-        {
-          name: 'slug',
-          type: 'text',
-          required: true,
-          unique: false,
-          index: true,
-          label: 'URL Slug',
-          admin: {
-            description: 'URL-friendly identifier (lowercase, hyphens only)',
-          },
-          validate: (value: string | null | undefined) => {
-            if (!value) return 'Slug is required';
-            if (!/^[a-z0-9-]+$/.test(value)) {
-              return 'Slug must contain only lowercase letters, numbers, and hyphens';
-            }
-            return true;
-          },
-        },
-        {
-          name: 'language',
-          type: 'select',
-          required: true,
-          defaultValue: 'en',
-          options: [
-            {label: 'English', value: 'en'},
-            {label: 'Spanish', value: 'es'},
-            {label: 'Chinese', value: 'zh'},
-            {label: 'Vietnamese', value: 'vi'},
-            {label: 'Haitian', value: 'ht'},
-            {label: 'Portuguese', value: 'pt'},
-          ],
-          index: true,
-        },
-      ],
+      name: 'slug',
+      type: 'text',
+      required: true,
+      unique: true,
+      index: true,
+      label: 'URL Slug',
+      admin: {
+        description: 'URL-friendly identifier (lowercase, hyphens only)',
+      },
+      validate: (value: string | null | undefined) => {
+        if (!value) return 'Slug is required';
+        if (!/^[a-z0-9-]+$/.test(value)) {
+          return 'Slug must contain only lowercase letters, numbers, and hyphens';
+        }
+        return true;
+      },
     },
     {
       name: 'districtrMapSlugs',
@@ -71,6 +53,7 @@ export const Places: CollectionConfig = {
     {
       name: 'body',
       type: 'richText',
+      localized: true,
       label: 'Page Content',
     },
   ],

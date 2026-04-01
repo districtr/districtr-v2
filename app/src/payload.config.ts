@@ -107,6 +107,18 @@ export default buildConfig({
       }),
     ],
   }),
+  localization: {
+    locales: [
+      {label: 'English', code: 'en'},
+      {label: 'Spanish', code: 'es'},
+      {label: 'Chinese', code: 'zh'},
+      {label: 'Vietnamese', code: 'vi'},
+      {label: 'Haitian Creole', code: 'ht'},
+      {label: 'Portuguese', code: 'pt'},
+    ],
+    defaultLocale: 'en',
+    fallback: true,
+  },
   secret: process.env.PAYLOAD_SECRET || 'default-secret-change-me',
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
