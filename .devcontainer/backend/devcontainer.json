@@ -1,16 +1,12 @@
 {
-  "name": "Districtr Full-Stack",
+  "name": "Districtr Backend",
   "dockerComposeFile": ["../../docker-compose.yml"],
-  "service": "fullstack",
-  "runServices": ["fullstack", "db"],
-  "workspaceFolder": "/workspace",
+  "service": "backend",
+  "runServices": ["backend", "db"],
+  "workspaceFolder": "/districtr-backend",
   "shutdownAction": "stopCompose",
-  "forwardPorts": [3000, 8000, 5432],
+  "forwardPorts": [8000, 5432],
   "portsAttributes": {
-    "3000": {
-      "label": "Next.js Dev Server",
-      "onAutoForward": "openBrowser"
-    },
     "8000": {
       "label": "Backend API",
       "onAutoForward": "notify"
@@ -20,7 +16,7 @@
       "onAutoForward": "silent"
     }
   },
-  "postCreateCommand": "cd /workspace/backend && pip install -r requirements.txt && cd /workspace/app && bun install",
+  "postCreateCommand": "pip install -r requirements.txt",
   "customizations": {
     "vscode": {
       "extensions": [
@@ -29,17 +25,12 @@
         "charliermarsh.ruff",
         "ms-python.debugpy",
         "mtxr.sqltools",
-        "mtxr.sqltools-driver-pg",
-        "dbaeumer.vscode-eslint",
-        "esbenp.prettier-vscode",
-        "bradlc.vscode-tailwindcss",
-        "formulahendry.auto-rename-tag",
-        "ms-playwright.playwright"
+        "mtxr.sqltools-driver-pg"
       ],
       "settings": {
         "python.languageServer": "Pylance",
         "python.defaultInterpreterPath": "/usr/local/bin/python",
-        "python.analysis.extraPaths": ["/workspace/backend"],
+        "python.analysis.extraPaths": ["/districtr-backend", "/usr/local/lib/python3.12/site-packages"],
         "python.analysis.typeCheckingMode": "basic",
         "python.analysis.autoImportCompletions": true,
         "[python]": {
@@ -50,25 +41,6 @@
             "source.organizeImports.ruff": "explicit"
           }
         },
-        "[typescript]": {
-          "editor.defaultFormatter": "esbenp.prettier-vscode",
-          "editor.formatOnSave": true
-        },
-        "[typescriptreact]": {
-          "editor.defaultFormatter": "esbenp.prettier-vscode",
-          "editor.formatOnSave": true
-        },
-        "[javascript]": {
-          "editor.defaultFormatter": "esbenp.prettier-vscode",
-          "editor.formatOnSave": true
-        },
-        "[json]": {
-          "editor.defaultFormatter": "esbenp.prettier-vscode",
-          "editor.formatOnSave": true
-        },
-        "eslint.workingDirectories": ["/workspace/app"],
-        "typescript.tsdk": "/workspace/app/node_modules/typescript/lib",
-        "typescript.enablePromptUseWorkspaceTsdk": true,
         "sqltools.connections": [
           {
             "name": "Districtr DB",
@@ -95,7 +67,7 @@
               "--reload",
               "--reload-exclude", ".venv/**/*.py"
             ],
-            "cwd": "/workspace/backend",
+            "cwd": "/districtr-backend",
             "jinja": true,
             "env": {
               "PYTHONDONTWRITEBYTECODE": "1"

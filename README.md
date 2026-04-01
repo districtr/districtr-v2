@@ -15,15 +15,15 @@ The backend (Python), frontend (NextJS), and database (postgres) can be run loca
 
 1. Install and configure [Docker](https://www.docker.com/) for your machine
 1. `cp ./backend/.env.docker.example && ./backend/.env.docker` and fill in missing variables.
-1. From the repo root, run `docker-compose up`
+1. From the repo root, run `docker-compose up db backend frontend`
 1. Add data as necessary by following the steps in [Loading data](#loading-data) below
 
 ### Make shortcuts
 
 From the repo root, you can also use:
 
-- `make dev` for the default full-stack dev container (`db`, `fullstack`)
-- `make prod` for the full-stack prod-like container (`db`, `fullstack-prod`)
+- `make dev` for local dev services (`db`, `backend`, `frontend`)
+- `make prod` for local prod-like app runtime (`db`, `backend`, `frontend-prod`)
 - `make playwright` to start prod-like services and run Playwright from host
 
 ### Loading data
@@ -34,7 +34,7 @@ By default the script will attempt to pull data from `s3://districtr-v2-dev/gerr
 
 ## Dev Containers
 
-The Docker Compose services can also be used as [Dev Containers](https://containers.dev/), giving you a fully configured IDE experience with extensions, linting, formatting, and debugging pre-configured. The services start normally — dev containers just attach your editor to the running container.
+The existing Docker Compose services can be used as [Dev Containers](https://containers.dev/), giving you a fully configured IDE experience with extensions, linting, formatting, and debugging pre-configured. Dev containers attach your editor to the running container — no new services or Dockerfiles are needed.
 
 ### Prerequisites
 
@@ -48,23 +48,24 @@ The Docker Compose services can also be used as [Dev Containers](https://contain
 
 ### Available containers
 
-| Container | Services started | Workspace | Ports | Mode |
-| --- | --- | --- | --- | --- |
-| **Districtr Full-Stack** | `fullstack`, `db` | `/workspace` | 3000, 8000 | Dev (hot reload) |
-| **Districtr Full-Stack (Prod)** | `fullstack-prod`, `db` | `/workspace` | 3000, 8000 | Prod (optimized build) |
+| Container | Services started | Workspace | Ports |
+| --- | --- | --- | --- |
+| **Districtr Backend** | `backend`, `db` | `/districtr-backend` | 8000, 5432 |
+| **Districtr Frontend** | `frontend` | `/app` | 3000 |
 
-Both containers include Python and TypeScript/React tooling with syntax highlighting, linting, and formatting for both languages. The **Full-Stack** container (default) runs migrations, starts uvicorn with `--reload`, and runs the Next.js dev server. The **Full-Stack (Prod)** container runs a production Next.js build and serves it with `bun run start`.
+- **Backend** — attaches to the `backend` service. Includes Python, Pylance, Ruff, debugpy, and SQLTools with a pre-configured PostgreSQL connection. Launch configurations for FastAPI debugging, running the current file, and pytest.
+- **Frontend** — attaches to the `frontend` service. Includes ESLint, Prettier, Tailwind CSS IntelliSense, Auto Rename Tag, and Playwright. Prettier is configured as the default formatter with format-on-save.
 
-### VS Code
+### Getting started
+
+#### VS Code
 
 1. Install the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension
 2. Open the repo in VS Code
-3. When prompted, click **Reopen in Container** — or run the command **Dev Containers: Reopen in Container** from the command palette
-4. Choose **Districtr Full-Stack** (dev) or **Districtr Full-Stack (Prod)**
+3. When prompted, click **Reopen in Container** — or run **Dev Containers: Reopen in Container** from the command palette
+4. Choose **Districtr Backend** or **Districtr Frontend**
 
-Both containers include launch configurations for debugging FastAPI, running the current file, and pytest — accessible from the Run and Debug panel.
-
-### Zed
+#### Zed
 
 Zed has built-in dev container support (no extension needed).
 
@@ -72,20 +73,23 @@ Zed has built-in dev container support (no extension needed).
 2. Run **Dev Containers: Reopen in Dev Container** from the command palette (`cmd+shift+p`)
 3. Select the desired container
 
-> **Note:** Zed does not currently support VS Code extensions, so the pre-configured extensions (Ruff, Prettier, SQLTools, etc.) won't be installed. Zed's own language support for Python and TypeScript will be used instead. The `customizations.vscode` settings in `devcontainer.json` are ignored by Zed.
+> **Note:** Zed does not currently support VS Code extensions, so the pre-configured extensions (Ruff, Prettier, SQLTools, etc.) won't be installed. Zed uses its own language support instead.
 
-### Container modes
+### Fullstack development
 
-Both containers mount `backend/` and `app/` under `/workspace` and include all extensions for both languages.
+Since each dev container attaches to one service, use two editor windows for fullstack work:
 
-- **Full-Stack** (default) — dev mode. Runs `alembic upgrade head`, starts uvicorn with `--reload`, and runs `bun run dev` for the Next.js dev server with hot reload.
-- **Full-Stack (Prod)** — prod-like mode. Runs `alembic upgrade head`, starts uvicorn, builds the Next.js app, and serves it with `bun run start`.
+1. Open the repo in one editor window and attach to the **Backend** dev container
+2. Open the repo in a second editor window and attach to the **Frontend** dev container
 
-The legacy single-service containers (`backend`, `frontend`, `frontend-prod`) are still available via profiles for CI or targeted use:
+Alternatively, attach one editor to a dev container and run the other service from the host:
 
 ```bash
-docker compose --profile backend up db backend
-docker compose --profile frontend up frontend
+# If your editor is attached to the backend container, start the frontend on the host:
+docker compose up frontend
+
+# Or vice versa:
+docker compose up db backend
 ```
 
 ## Districtr reboot architecture
