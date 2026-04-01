@@ -25,6 +25,20 @@ export default buildConfig({
     meta: {
       titleSuffix: '- Districtr Admin',
     },
+    livePreview: {
+      url: ({data, collectionConfig}) => {
+        const slug = data?.slug || 'preview';
+        const type = collectionConfig?.slug; // 'tags' or 'places'
+        const route = type === 'tags' ? 'tag' : 'place';
+        return `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/${route}/${slug}?preview=true`;
+      },
+      collections: ['tags', 'places'],
+      breakpoints: [
+        {label: 'Mobile', name: 'mobile', width: 375, height: 812},
+        {label: 'Tablet', name: 'tablet', width: 768, height: 1024},
+        {label: 'Desktop', name: 'desktop', width: 1280, height: 800},
+      ],
+    },
     components: {
       afterNavLinks: ['@/app/components/PayloadViews/AdminNavLinks'],
       views: {

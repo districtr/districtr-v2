@@ -33,20 +33,27 @@ export interface PayloadCmsContentWithLanguages {
 export async function getPayloadCmsContent(
   slug: string,
   language: string = 'en',
-  type: 'tags' | 'places'
+  type: 'tags' | 'places',
+  draft: boolean = false
 ): Promise<PayloadCmsContentWithLanguages | null> {
   try {
     const payload = await getPayload({config});
 
-    // Fetch the document in the requested locale (Payload handles fallback to 'en')
+    // Fetch the document in the requested locale
+    // When draft is true, include unpublished content for live preview
+    const where: Record<string, unknown> = {
+      slug: {equals: slug},
+    };
+    if (!draft) {
+      where._status = {equals: 'published'};
+    }
+
     const result = await payload.find({
       collection: type,
-      where: {
-        slug: {equals: slug},
-        _status: {equals: 'published'},
-      },
+      where,
       locale: language as any,
       limit: 1,
+      draft,
     });
 
     if (result.docs.length === 0) return null;
