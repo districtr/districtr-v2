@@ -34,19 +34,26 @@ export interface PayloadCmsContentWithLanguages {
 export async function getPayloadCmsContent(
   slug: string,
   language: string = 'en',
-  type: 'tags' | 'places'
+  type: 'tags' | 'places',
+  draft: boolean = false
 ): Promise<PayloadCmsContentWithLanguages | null> {
   try {
     const payload = await getPayload({config});
 
     // Find all language versions of this slug
+    // When draft is true, include unpublished content for live preview
+    const where: Record<string, unknown> = {
+      slug: {equals: slug},
+    };
+    if (!draft) {
+      where._status = {equals: 'published'};
+    }
+
     const allVersions = await payload.find({
       collection: type,
-      where: {
-        slug: {equals: slug},
-        _status: {equals: 'published'},
-      },
+      where,
       limit: 10,
+      draft,
     });
 
     if (allVersions.docs.length === 0) return null;

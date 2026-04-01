@@ -1,20 +1,22 @@
 import {HeaderSecondTierNav} from '@/app/components/Cms/RichTextEditor/extensions/HeaderSecondTierNav/HeaderSecondTierNav';
 import {LanguagePicker} from '@/app/components/LanguagePicker/LanguagePicker';
+import {RefreshRouteOnSave} from '@/app/components/LivePreview/RefreshRouteOnSave';
 import {getAvailableDistrictrMaps} from '@/app/utils/api/apiHandlers/getAvailableDistrictrMaps';
 import {getPayloadCmsContent} from '@/app/utils/api/payloadCms';
 import {RichText} from '@payloadcms/richtext-lexical/react';
 import {blockConverters} from '@/payload/converters/blockConverters';
 import {Flex, Heading} from '@radix-ui/themes';
-import {cookies} from 'next/headers';
+import {cookies, draftMode} from 'next/headers';
 
 export const revalidate = 3600;
 
 export default async function Page({params}: {params: Promise<{slug: string}>}) {
   const [{slug}, userCookies] = await Promise.all([params, cookies()]);
+  const {isEnabled: isDraft} = await draftMode();
   const language = userCookies.get('language')?.value ?? 'en';
 
   const [payloadData, maps] = await Promise.all([
-    getPayloadCmsContent(slug, language, 'tags'),
+    getPayloadCmsContent(slug, language, 'tags', isDraft),
     getAvailableDistrictrMaps({}),
   ]).catch(() => [null, null]);
 
@@ -28,6 +30,7 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
 
   return (
     <Flex direction="column" width="100%">
+      {isDraft && <RefreshRouteOnSave />}
       <Heading as="h1" size="6" mb="4">
         {payloadData.content.title}
       </Heading>
