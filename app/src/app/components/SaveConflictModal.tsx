@@ -2,17 +2,23 @@ import React, {useEffect, useState} from 'react';
 import {SyncConflictInfo} from '@/app/utils/api/apiHandlers/fetchDocument';
 import {useMapStore} from '../store/mapStore';
 import {useAssignmentsStore} from '../store/assignmentsStore';
+import {useCoiAssignmentsStore} from '../store/coiAssignmentsStore';
+import {useMapControlsStore} from '../store/mapControlsStore';
 import {DocumentObject} from '../utils/api/apiHandlers/types';
 import {getDocument} from '../utils/api/apiHandlers/getDocument';
 import {SyncConflictModal} from './SyncConflictModal';
 
 export const SaveConflictModal: React.FC = ({}) => {
-  const showSaveConflictModal = useAssignmentsStore(state => state.showSaveConflictModal);
+  const showSaveConflictModal = useMapStore(state => state.showSaveConflictModal);
   const localMapDocument = useMapStore(state => state.mapDocument);
-  const localTimeUpdated = useAssignmentsStore(state => state.clientLastUpdated);
-  const handlePutAssignmentsConflict = useAssignmentsStore(
-    state => state.handlePutAssignmentsConflict
-  );
+  const mapMode = useMapControlsStore(state => state.mapMode);
+  const isCommunity = localMapDocument?.map_type === 'community' || mapMode === 'coi';
+  const districtLocalTimeUpdated = useAssignmentsStore(state => state.clientLastUpdated);
+  const coiLocalTimeUpdated = useCoiAssignmentsStore(state => state.clientLastUpdated);
+  const localTimeUpdated = isCommunity ? coiLocalTimeUpdated : districtLocalTimeUpdated;
+  const districtConflictHandler = useAssignmentsStore(state => state.handlePutAssignmentsConflict);
+  const coiConflictHandler = useCoiAssignmentsStore(state => state.handlePutAssignmentsConflict);
+  const handlePutAssignmentsConflict = isCommunity ? coiConflictHandler : districtConflictHandler;
   const [serverMapDocument, setServerMapDocument] = useState<DocumentObject | null>(null);
   const serverTimeUpdated = serverMapDocument?.updated_at;
 

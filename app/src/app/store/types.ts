@@ -4,6 +4,7 @@ import {AxiosError, AxiosResponse} from 'axios';
 import {StoreApi, UseBoundStore} from 'zustand';
 import {TemporalState} from 'zundo';
 import {MapStore} from './mapStore';
+import {BasemapId} from '@/app/constants/map/layerStyle';
 
 export type DistrictrMapOptions = {
   highlightBrokenDistricts?: boolean;
@@ -21,6 +22,7 @@ export type DistrictrMapOptions = {
   showDemographicMap?: undefined | 'side-by-side' | 'overlay';
   showPaintedDistricts?: boolean;
   overlayOpacity: number;
+  basemap?: BasemapId;
 };
 
 export type DistrictrChartOptions = {

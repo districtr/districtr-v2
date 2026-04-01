@@ -1,55 +1,31 @@
-import {NullableZone} from '../constants/types';
+import {ConflictResolutionOptions, NullableZone, SyncConflictResolution} from '../constants/types';
 import {Zone, GDBPath} from '@constants/types';
 import GeometryWorker from '../utils/GeometryWorker';
 import {demographyCache} from '../utils/demography/demographyCache';
 import {idb} from '../utils/idb/idb';
 import {useMapStore} from './mapStore';
+import {useDemographyStore} from './demography/demographyStore';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
+import {ConflictContext} from '../constants/types';
 import {checkIfSameZone} from '../utils/map/checkIfSameZone';
 import {formatAssignmentsFromDocument} from '../utils/map/formatAssignments';
 import {getAssignments} from '../utils/api/apiHandlers/getAssignments';
 import {MapGeoJSONFeature} from 'maplibre-gl';
 import {useChartStore} from './chartStore';
-import {subscribeWithSelector} from 'zustand/middleware';
 import {putUpdateAssignmentsAndVerify} from '../utils/api/apiHandlers/putUpdateAssignmentsAndVerify';
 import {DocumentObject} from '../utils/api/apiHandlers/types';
-import {
-  fetchDocument,
-  SyncConflictInfo,
-  SyncConflictResolution,
-} from '../utils/api/apiHandlers/fetchDocument';
+import {fetchDocument, SyncConflictInfo} from '../utils/api/apiHandlers/fetchDocument';
 import {createMapDocument} from '../utils/api/apiHandlers/createMapDocument';
 import {createWithFullMiddlewares} from './middlewares';
 import {confirmMapDocumentUrlParameter} from '../utils/map/confirmMapDocumentUrlParameter';
-
-export type AssignmentsTemporalSnapshot = {
-  shatterIds: {
-    parents: Set<string>;
-    children: Set<string>;
-  };
-  parentToChild: Map<string, Set<string>>;
-  childToParent: Map<string, string>;
-  zoneAssignments: Map<string, NullableZone>;
-  clientLastUpdated: string;
-};
-
-const cloneAssignmentsTemporalSnapshot = (
-  snapshot: AssignmentsTemporalSnapshot
-): AssignmentsTemporalSnapshot => ({
-  shatterIds: {
-    parents: new Set(snapshot.shatterIds.parents),
-    children: new Set(snapshot.shatterIds.children),
-  },
-  parentToChild: new Map(
-    Array.from(snapshot.parentToChild.entries()).map(([parentId, children]) => [
-      parentId,
-      new Set(children),
-    ])
-  ),
-  childToParent: new Map(snapshot.childToParent),
-  zoneAssignments: new Map(snapshot.zoneAssignments),
-  clientLastUpdated: snapshot.clientLastUpdated,
-});
+import {
+  DocumentNotFoundError,
+  DocumentCreationError,
+  DocumentConflictResolutionError,
+} from './errors';
+import {temporalManager} from '../utils/temporal';
+import {cloneTemporalSnapshot, AssignmentsTemporalSnapshot} from '../utils/temporalSnapshot';
+import {assignmentsTemporalConfig} from './middlewareConfig';
 
 export interface AssignmentsStore {
   /** Map of geoid -> zone assignments currently in memory */
@@ -63,22 +39,31 @@ export interface AssignmentsStore {
     parents: Set<string>;
     children: Set<string>;
   };
+
   mutateZoneAssignments: (
     mapRef: maplibregl.Map,
     features: Array<MapGeoJSONFeature>,
     zone: NullableZone
   ) => void;
+
   /** Bi-directional mapping of parent ids to their shattered children */
   parentToChild: Map<string, Set<string>>;
   /** Bi-directional mapping of child ids to their parent id for O(1) lookups */
   childToParent: Map<string, string>;
+
   /** Assigns the provided geoids to the given zone immediately */
   setZoneAssignments: (zone: NullableZone, gdbPaths: Set<GDBPath>) => void;
+  /** Updates accumulated geoids as the user paints */
+  setAccumulatedAssignments: (
+    assignments: AssignmentsStore['accumulatedAssignments'],
+    zonesUpdated: Set<NullableZone>
+  ) => void;
 
   clientLastUpdated: string;
   /** Internal snapshot used to collapse shatter + first child paint into a single undo step */
   pendingShatterUndoState: AssignmentsTemporalSnapshot | null;
   setClientLastUpdated: (updated_at: string) => void;
+
   /** Flushes accumulated geoids to the worker & downstream caches */
   ingestAccumulatedAssignments: () => void;
   ingestFromDocument: (
@@ -90,10 +75,12 @@ export interface AssignmentsStore {
     },
     mapDocument?: DocumentObject
   ) => void;
+
   /** Replaces the entire assignment map (e.g. after loading from API) */
   replaceZoneAssignments: (assignments: Map<string, NullableZone>) => void;
   /** Clears all assignments and local caches */
   resetZoneAssignments: () => void;
+
   /** Replaces or merges shatter state */
   setShatterState: (
     state: Pick<
@@ -101,11 +88,11 @@ export interface AssignmentsStore {
       'shatterIds' | 'parentToChild' | 'zoneAssignments' | 'childToParent'
     >
   ) => void;
+
   /** Clears all shatter state */
   resetShatterState: () => void;
   handlePutAssignments: (overwrite?: boolean) => Promise<void>;
   handleRevert: (mapDocument: DocumentObject) => Promise<void>;
-  showSaveConflictModal: boolean;
   handlePutAssignmentsConflict: (
     resolution: SyncConflictResolution,
     conflict: SyncConflictInfo
@@ -114,11 +101,7 @@ export interface AssignmentsStore {
   resolveConflict: (
     resolution: SyncConflictResolution,
     conflict: SyncConflictInfo,
-    options?: {
-      onNavigate?: (documentId: string) => void;
-      onComplete?: () => void;
-      context?: 'save' | 'load';
-    }
+    options?: ConflictResolutionOptions
   ) => Promise<void>;
   healParentsIfAllChildrenInSameZone: (
     props: {
@@ -144,8 +127,195 @@ export interface AssignmentsStore {
 
 export type ZoneAssignmentsMap = AssignmentsStore['zoneAssignments'];
 
+/**
+ * Helper function to load assignments from IDB for a given document ID, used in conflict
+ * resolution when the user opts to keep their local version. Fetches the document from IDB
+ * and formats the assignments for ingestion into the store.
+ *
+ * @param documentId - The ID of the document whose assignments should be loaded from IDB.
+ * @return A promise that resolves to the formatted assignments data ready for ingestion into the store.
+ * @throws If no document is found in IDB for the given document ID.
+ */
+const loadLocalAssignments = async (documentId: string) => {
+  const doc = await idb.getDocument(documentId);
+  if (!doc) {
+    throw new DocumentNotFoundError(`Document with id ${documentId} not found in IDB`);
+  }
+  return formatAssignmentsFromDocument(doc.assignments);
+};
+
+/** Shared dependencies for conflict resolution helpers. */
+type ConflictDependencies = {
+  syncConflictInfo: SyncConflictInfo;
+  store: AssignmentsStore;
+  setMapDocument: (doc: DocumentObject) => void;
+  setMapLock: (lock: {isLocked: boolean; reason: string} | null) => void;
+  onNavigate?: (documentId: string) => void;
+};
+
+/**
+ * Resolves a sync conflict by keeping the local (IDB) version of the document without pushing
+ * it to the server. In a "load" context this means the user chose to continue working with their
+ * local edits and ignore the server state. In a "save" context this is a no-op because the local
+ * state is already in memory.
+ *
+ * @param deps - Shared conflict resolution dependencies (conflict info, store state, map setters).
+ * @param context - Whether the conflict arose during a "save" or "load" operation.
+ * @returns A promise that resolves once the local assignments have been ingested (load) or
+ *   immediately (save).
+ */
+const resolveKeepLocal = async (
+  {syncConflictInfo, store, setMapDocument}: ConflictDependencies,
+  context: ConflictContext
+) => {
+  if (context === ConflictContext.Load) {
+    setMapDocument(syncConflictInfo.localDocument);
+    const data = await loadLocalAssignments(syncConflictInfo.localDocument.document_id);
+    store.ingestFromDocument(data);
+  }
+};
+
+/**
+ * Resolves a sync conflict by treating the local (IDB) version as authoritative and overwriting
+ * the server. In a "save" context this simply retries the save with the overwrite flag. In a
+ * "load" context the local assignments are loaded from IDB, ingested into the store, and then
+ * pushed to the server with overwrite enabled so the server reflects the local state.
+ *
+ * @param deps - Shared conflict resolution dependencies (conflict info, store state, map setters).
+ * @param context - Whether the conflict arose during a "save" or "load" operation.
+ * @returns A promise that resolves once the local assignments have been saved to the server and
+ *   the store's `clientLastUpdated` has been synced with the server's response timestamp.
+ * @throws If the server rejects the assignment upload.
+ */
+const resolveUseLocal = async (
+  {syncConflictInfo, store, setMapDocument, setMapLock}: ConflictDependencies,
+  context: ConflictContext
+) => {
+  if (context === ConflictContext.Save) {
+    await store.handlePutAssignments(true);
+    return;
+  }
+  setMapLock({
+    isLocked: true,
+    reason: 'Loading local assignments and overwriting cloud assignments.',
+  });
+  try {
+    setMapDocument(syncConflictInfo.localDocument);
+    const data = await loadLocalAssignments(syncConflictInfo.localDocument.document_id);
+    store.ingestFromDocument(data);
+    const response = await putUpdateAssignmentsAndVerify({
+      mapDocument: syncConflictInfo.localDocument,
+      zoneAssignments: data.zoneAssignments,
+      shatterIds: data.shatterIds,
+      childToParent: data.childToParent,
+      overwrite: true,
+    });
+    if (!response.ok) {
+      throw new DocumentConflictResolutionError(
+        'Failed to post local assignments when resolving conflict.'
+      );
+    }
+    store.setClientLastUpdated(response.response.updated_at);
+  } finally {
+    setMapLock(null);
+  }
+};
+
+/**
+ * Resolves a sync conflict by discarding local changes and replacing them with the server's
+ * version. Fetches the latest assignments from the server, sets the server document as the
+ * active document, and ingests the remote assignments into the store — effectively reverting
+ * any local edits the user had made since the last successful save.
+ *
+ * @param deps - Shared conflict resolution dependencies (conflict info, store state, map setters).
+ * @returns A promise that resolves once the server assignments have been fetched and ingested.
+ * @throws If the server assignment fetch fails.
+ */
+const resolveUseServer = async ({
+  syncConflictInfo,
+  store,
+  setMapDocument,
+  setMapLock,
+}: ConflictDependencies) => {
+  setMapLock({
+    isLocked: true,
+    reason: 'Loading cloud assignments and overwriting local assignments.',
+  });
+  try {
+    const remoteAssignments = await getAssignments(syncConflictInfo.serverDocument);
+    if (!remoteAssignments.ok) {
+      throw new DocumentConflictResolutionError(
+        'Failed to get server assignments when resolving conflict.'
+      );
+    }
+    setMapDocument(syncConflictInfo.serverDocument);
+    const data = formatAssignmentsFromDocument(remoteAssignments.response);
+    store.ingestFromDocument(data, syncConflictInfo.serverDocument);
+  } finally {
+    setMapLock(null);
+  }
+};
+
+/**
+ * Resolves a sync conflict by creating a brand-new document (a "fork") and uploading the user's
+ * local assignments to it. This preserves both the original server document (untouched) and the
+ * user's local edits (saved under a new document ID). After the upload succeeds, the user is
+ * navigated to the new document's edit URL via `onNavigate` or a fallback `history.pushState`.
+ *
+ * @param deps - Shared conflict resolution dependencies (conflict info, store state, map setters).
+ *   `onNavigate` is used to redirect the user to the forked document's edit page if provided;
+ *   otherwise falls back to `history.pushState`.
+ * @returns A promise that resolves once the new document has been created, assignments uploaded,
+ *   and navigation triggered.
+ * @throws If document creation or assignment upload fails.
+ */
+const resolveFork = async ({
+  syncConflictInfo,
+  store,
+  setMapDocument,
+  setMapLock,
+  onNavigate,
+}: ConflictDependencies) => {
+  setMapLock({isLocked: true, reason: 'Creating a new plan from local changes.'});
+  try {
+    const createMapDocumentResponse = await createMapDocument(syncConflictInfo.serverDocument);
+    if (!createMapDocumentResponse.ok) {
+      throw new DocumentCreationError('Failed to create map document from assignments on server');
+    }
+    setMapDocument(createMapDocumentResponse.response);
+    const data = await loadLocalAssignments(syncConflictInfo.localDocument.document_id);
+    const response = await putUpdateAssignmentsAndVerify({
+      mapDocument: createMapDocumentResponse.response,
+      zoneAssignments: data.zoneAssignments,
+      shatterIds: data.shatterIds,
+      childToParent: data.childToParent,
+      overwrite: true,
+    });
+    if (!response.ok) {
+      throw new DocumentConflictResolutionError(
+        'Failed to post local assignments when resolving conflict.'
+      );
+    }
+    const updatedDocument = {
+      ...createMapDocumentResponse.response,
+      updated_at: response.response.updated_at,
+    };
+    setMapDocument(updatedDocument);
+    store.setClientLastUpdated(response.response.updated_at);
+    store.ingestFromDocument(data, updatedDocument);
+    if (onNavigate) {
+      onNavigate(createMapDocumentResponse.response.document_id);
+    } else {
+      history.pushState(null, '', `/map/edit/${createMapDocumentResponse.response.document_id}`);
+    }
+  } finally {
+    setMapLock(null);
+  }
+};
+
 export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
-  'Districtr Assignments Store'
+  'Districtr Assignments Store',
+  assignmentsTemporalConfig
 )((set, get) => ({
   zoneAssignments: new Map(),
   zonesLastUpdated: new Map(),
@@ -182,7 +352,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     });
   },
   mutateZoneAssignments: (mapRef, features, zone) => {
-    const {accumulatedAssignments, zonesLastUpdated, zoneAssignments} = get();
+    const {accumulatedAssignments, zonesLastUpdated} = get();
     const {setPaintedChanges} = useChartStore.getState();
     // We can access the inner state of the map in a more ergonomic way than the convenience method `getFeatureState`
     // the inner state here gives us access to { [sourceLayer]: { [id]: { ...stateProperties }}}
@@ -231,13 +401,32 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     setPaintedChanges(popChanges);
   },
 
+  setAccumulatedAssignments: (accumulatedAssignments, zonesUpdated) => {
+    const zonesLastUpdated = new Map(get().zonesLastUpdated);
+    const timestamp = new Date().toISOString();
+    zonesUpdated.forEach(zone => {
+      if (zone !== null) {
+        zonesLastUpdated.set(zone, timestamp);
+      }
+    });
+
+    set({
+      accumulatedAssignments: new Map(accumulatedAssignments),
+      zonesLastUpdated,
+    });
+  },
+
   ingestFromDocument: (data, mapDocument) => {
+    const baselineUpdatedAt =
+      mapDocument?.updated_at ??
+      useMapStore.getState().mapDocument?.updated_at ??
+      new Date().toISOString();
     set({
       zoneAssignments: new Map(data.zoneAssignments),
       shatterIds: data.shatterIds,
       parentToChild: new Map(data.parentToChild),
       childToParent: new Map(data.childToParent),
-      clientLastUpdated: mapDocument?.updated_at ?? new Date().toISOString(),
+      clientLastUpdated: baselineUpdatedAt,
       pendingShatterUndoState: null,
     });
     if (mapDocument) {
@@ -245,7 +434,10 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       idb.updateIdbAssignments(mapDocument, data.zoneAssignments, mapDocument.updated_at, true);
       useMapStore.getState().mutateMapDocument(mapDocument);
     }
-    demographyCache.updatePopulations(data.zoneAssignments);
+    demographyCache.updatePopulations({
+      zoneAssignments: data.zoneAssignments,
+      coalitionGroups: useDemographyStore.getState().coalitionGroups,
+    });
   },
 
   healParentsIfAllChildrenInSameZone: (
@@ -407,12 +599,12 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
 
     if (!result) return;
     const {zoneAssignments, shatterIds, parentToChild, childToParent} = result;
-    demographyCache.updatePopulations(zoneAssignments);
+    demographyCache.updatePopulations({
+      zoneAssignments,
+      coalitionGroups: useDemographyStore.getState().coalitionGroups,
+    });
     idb.updateIdbAssignments(mapDocument, zoneAssignments);
-    const temporalState = useAssignmentsStore.temporal.getState();
-    if (!temporalState.isTracking) {
-      temporalState.resume();
-    }
+    temporalManager.resume('districts');
 
     set({
       zoneAssignments,
@@ -456,7 +648,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       zoneAssignments: currZoneAssignments,
       clientLastUpdated,
     } = get();
-    const preShatterSnapshot = cloneAssignmentsTemporalSnapshot({
+    const preShatterSnapshot = cloneTemporalSnapshot({
       shatterIds: currShatterIds,
       parentToChild: currParentToChild,
       childToParent: currChildToParent,
@@ -574,53 +766,52 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     // Flush any pending IDB updates before explicit save
     await idb.flushPendingUpdate();
 
-    const {zoneAssignments, shatterIds, parentToChild, childToParent} = get();
-    const {mapDocument, setMapLock, setErrorNotification} = useMapStore.getState();
+    const {mapDocument, setMapLock, setErrorNotification, setShowSaveConflictModal} =
+      useMapStore.getState();
     if (!mapDocument?.document_id || !mapDocument.updated_at) return;
     const idbDocument = await idb.getDocument(mapDocument?.document_id);
     if (!idbDocument) return;
     setMapLock({isLocked: true, reason: 'Saving plan'});
 
-    // Use mapStore.mapDocument (has latest comments from in-memory edits) merged with
-    // idbDocument for fields that might only exist in IDB (e.g. from background sync).
-    // document_comments must come from mapStore since IDB isn't updated on comment add/edit.
-    const documentForSave: DocumentObject = {
-      ...idbDocument.document_metadata,
-      ...mapDocument,
-      document_comments:
-        mapDocument.document_comments ?? idbDocument.document_metadata.document_comments,
-    };
+    try {
+      // Use mapStore.mapDocument (has latest comments from in-memory edits) merged with
+      // idbDocument for fields that might only exist in IDB (e.g. from background sync).
+      // document_comments must come from mapStore since IDB isn't updated on comment add/edit.
+      const documentForSave: DocumentObject = {
+        ...idbDocument.document_metadata,
+        ...mapDocument,
+        document_comments:
+          mapDocument.document_comments ?? idbDocument.document_metadata.document_comments,
+      };
 
-    // Include color_scheme and num_districts in assignments update if they've changed
-    const assignmentsPostResponse = await putUpdateAssignmentsAndVerify({
-      mapDocument: documentForSave,
-      zoneAssignments,
-      shatterIds,
-      parentToChild,
-      childToParent,
-      overwrite,
-    });
-    if (
-      !assignmentsPostResponse.ok &&
-      assignmentsPostResponse.error === 'Document has been updated since the last update'
-    ) {
-      set({
-        showSaveConflictModal: true,
+      const {zoneAssignments, shatterIds, childToParent} = get();
+      // Include color_scheme and num_districts in assignments update if they've changed
+      const assignmentsPostResponse = await putUpdateAssignmentsAndVerify({
+        mapDocument: documentForSave,
+        zoneAssignments,
+        shatterIds,
+        childToParent,
+        overwrite,
       });
-    } else if (!assignmentsPostResponse.ok) {
-      setErrorNotification({
-        message: assignmentsPostResponse.error,
-        severity: 2,
-      });
-    } else if (assignmentsPostResponse.ok) {
-      set({
-        showSaveConflictModal: false,
-      });
+
+      if (
+        !assignmentsPostResponse.ok &&
+        assignmentsPostResponse.error === 'Document has been updated since the last update'
+      ) {
+        setShowSaveConflictModal(true);
+      } else if (!assignmentsPostResponse.ok) {
+        setErrorNotification({
+          message: assignmentsPostResponse.error,
+          severity: 2,
+        });
+      } else if (assignmentsPostResponse.ok) {
+        setShowSaveConflictModal(false);
+      }
+    } finally {
+      setMapLock(null);
     }
-    setMapLock(null);
   },
   handleRevert: async (mapDocument: DocumentObject) => {
-    // before doing this operation
     const confirmedMapDocument = confirmMapDocumentUrlParameter(mapDocument.document_id);
     const {setErrorNotification, setMapLock, initiateFlushMapState} = useMapStore.getState();
     await initiateFlushMapState();
@@ -634,182 +825,69 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       return;
     }
     setMapLock({isLocked: true, reason: 'Reverting map to last save.'});
-    const documentResult = await fetchDocument(mapDocument.document_id, 'remote');
-    if (!documentResult.ok) {
-      setErrorNotification({
-        message: 'Failed to fetch document. Please refresh your page and try again.',
-        severity: 2,
-      });
-      return;
+    try {
+      const documentResult = await fetchDocument(mapDocument.document_id, 'remote');
+      if (!documentResult.ok) {
+        setErrorNotification({
+          message: 'Failed to fetch document. Please refresh your page and try again.',
+          severity: 2,
+        });
+        return;
+      }
+      const data = formatAssignmentsFromDocument(documentResult.response.assignments);
+      ingestFromDocument(data, documentResult.response.document);
+    } finally {
+      setMapLock(null);
     }
-    const data = formatAssignmentsFromDocument(documentResult.response.assignments);
-    ingestFromDocument(data, documentResult.response.document);
-    setMapLock(null);
   },
-  showSaveConflictModal: false,
-  resolveConflict: async (resolution, conflict, options = {}) => {
-    const {onNavigate, onComplete, context = 'save'} = options;
-    const {setMapDocument, setMapLock, setAppLoadingState} = useMapStore.getState();
-    const state = get();
+
+  resolveConflict: async (
+    resolution: SyncConflictResolution,
+    syncConflictInfo: SyncConflictInfo,
+    options: ConflictResolutionOptions = {}
+  ) => {
+    const {onNavigate, onComplete, context = ConflictContext.Save} = options;
+    const {setMapDocument, setMapLock, setShowSaveConflictModal} = useMapStore.getState();
+    const dependencies: ConflictDependencies = {
+      syncConflictInfo,
+      store: get(),
+      setMapDocument,
+      setMapLock,
+      onNavigate,
+    };
+
+    setShowSaveConflictModal(false);
 
     switch (resolution) {
-      case 'keep-local': {
-        if (context === 'load') {
-          const assignments = await idb.getDocument(conflict.localDocument.document_id);
-          if (!assignments) {
-            throw new Error('No assignments found in IDB');
-          }
-          const data = formatAssignmentsFromDocument(assignments.assignments);
-          setMapDocument(conflict.localDocument);
-          state.ingestFromDocument({
-            zoneAssignments: data.zoneAssignments,
-            shatterIds: data.shatterIds,
-            parentToChild: data.parentToChild,
-            childToParent: data.childToParent,
-          });
-        }
-        set({
-          showSaveConflictModal: false,
-        });
-        onComplete?.();
+      case SyncConflictResolution.KeepLocal: {
+        await resolveKeepLocal(dependencies, context);
         break;
       }
-      case 'use-local': {
-        set({
-          showSaveConflictModal: false,
-        });
-        if (context === 'save') {
-          // For save conflicts, use the existing handlePutAssignments with overwrite
-          await state.handlePutAssignments(true);
-        } else {
-          // For load conflicts, upload local assignments to server
-          setMapLock({isLocked: true, reason: 'Loading local version, overwriting cloud version.'});
-          setMapDocument(conflict.localDocument);
-          const assignments = await idb.getDocument(conflict.localDocument.document_id);
-          if (!assignments) {
-            throw new Error('No assignments found in IDB');
-          }
-          const data = formatAssignmentsFromDocument(assignments.assignments);
-          state.ingestFromDocument({
-            zoneAssignments: data.zoneAssignments,
-            shatterIds: data.shatterIds,
-            parentToChild: data.parentToChild,
-            childToParent: data.childToParent,
-          });
-          const response = await putUpdateAssignmentsAndVerify({
-            mapDocument: conflict.localDocument,
-            zoneAssignments: data.zoneAssignments,
-            shatterIds: data.shatterIds,
-            parentToChild: data.parentToChild,
-            childToParent: data.childToParent,
-            overwrite: true,
-          });
-          if (!response.ok) {
-            throw new Error('Failed to post assignments');
-          }
-          state.setClientLastUpdated(response.response.updated_at);
-          setMapLock(null);
-        }
-        onComplete?.();
+      case SyncConflictResolution.UseLocal: {
+        await resolveUseLocal(dependencies, context);
         break;
       }
-      case 'use-server': {
-        set({
-          showSaveConflictModal: false,
-        });
-        setMapLock({
-          isLocked: true,
-          reason: 'Loading cloud version, overwriting local version.',
-        });
-        const remoteAssignments = await getAssignments(conflict.serverDocument);
-        if (!remoteAssignments.ok) {
-          throw new Error('Failed to get remote assignments');
-        }
-        setMapDocument(conflict.serverDocument);
-        const data = formatAssignmentsFromDocument(remoteAssignments.response);
-        state.ingestFromDocument(
-          {
-            zoneAssignments: data.zoneAssignments,
-            shatterIds: data.shatterIds,
-            parentToChild: data.parentToChild,
-            childToParent: data.childToParent,
-          },
-          conflict.serverDocument
-        );
-        setMapLock(null);
-        onComplete?.();
+      case SyncConflictResolution.UseServer: {
+        await resolveUseServer(dependencies);
         break;
       }
-      case 'fork': {
-        set({
-          showSaveConflictModal: false,
-        });
-        setMapLock({isLocked: true, reason: 'Creating a new plan from your changes.'});
-        const createMapDocumentResponse = await createMapDocument(conflict.serverDocument);
-        if (!createMapDocumentResponse.ok) {
-          throw new Error('Failed to create map document');
-        }
-        // Set the map document to the newly created one BEFORE uploading assignments
-        // so that putUpdateAssignmentsAndVerify mutates the correct document
-        setMapDocument(createMapDocumentResponse.response);
-        const assignments = await idb.getDocument(conflict.localDocument.document_id);
-        if (!assignments) {
-          throw new Error('No assignments found in IDB');
-        }
-        const data = formatAssignmentsFromDocument(assignments.assignments);
-        const response = await putUpdateAssignmentsAndVerify({
-          mapDocument: createMapDocumentResponse.response,
-          zoneAssignments: data.zoneAssignments,
-          shatterIds: data.shatterIds,
-          parentToChild: data.parentToChild,
-          childToParent: data.childToParent,
-          overwrite: true,
-        });
-        if (!response.ok) {
-          throw new Error('Failed to post assignments');
-        }
-        // Update the map document with the server's updated_at timestamp
-        setMapDocument({
-          ...createMapDocumentResponse.response,
-          updated_at: response.response.updated_at,
-        });
-        // Update clientLastUpdated to match server timestamp to avoid sync conflicts
-        state.setClientLastUpdated(response.response.updated_at);
-        // Ingest the assignments we just uploaded
-        state.ingestFromDocument(
-          {
-            zoneAssignments: data.zoneAssignments,
-            shatterIds: data.shatterIds,
-            parentToChild: data.parentToChild,
-            childToParent: data.childToParent,
-          },
-          {
-            ...createMapDocumentResponse.response,
-            updated_at: response.response.updated_at,
-          }
-        );
-        setMapLock(null);
-        if (onNavigate) {
-          onNavigate(createMapDocumentResponse.response.document_id);
-        } else {
-          // Fallback to history.pushState for save conflicts
-          history.pushState(
-            null,
-            '',
-            `/map/edit/${createMapDocumentResponse.response.document_id}`
-          );
-        }
-        onComplete?.();
+      case SyncConflictResolution.Fork: {
+        await resolveFork(dependencies);
         break;
+      }
+      default: {
+        const exhaustiveResolution: never = resolution;
+        throw new Error(`Unhandled sync conflict resolution: ${exhaustiveResolution}`);
       }
     }
+    onComplete?.();
   },
-  handlePutAssignmentsConflict: async (resolution, conflict) => {
-    await get().resolveConflict(resolution, conflict, {
-      context: 'save',
-      onComplete: () => {
-        // Additional save-specific completion logic if needed
-      },
+  handlePutAssignmentsConflict: async (
+    resolution: SyncConflictResolution,
+    syncConflictInfo: SyncConflictInfo
+  ) => {
+    await get().resolveConflict(resolution, syncConflictInfo, {
+      context: ConflictContext.Save,
     });
   },
 }));

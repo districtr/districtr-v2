@@ -5,11 +5,31 @@ import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
 import {DemographyStore} from './types';
 import {useAssignmentsStore} from '../assignmentsStore';
+import {useCoiAssignmentsStore} from '../coiAssignmentsStore';
 import {getDemography} from '@/app/utils/api/apiHandlers/getDemography';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
 import {AllEvaluationConfigs, AllMapConfigs} from '@/app/utils/api/summaryStats';
 import {evalColumnConfigs} from './evaluationConfig';
 import {choroplethMapVariables} from './constants';
+import {idb} from '@/app/utils/idb/idb';
+import {
+  CoalitionGroupKey,
+  getCoalitionUniverseFromVariable,
+  getSelectedCoalitionColumns,
+  isCoalitionVariable,
+} from '@/app/utils/demography/coalition';
+
+let coalitionHydrationRequestId = 0;
+let coalitionVersion = 0;
+
+const getActiveBrokenIds = () => {
+  const mapMode = useMapControlsStore.getState().mapMode;
+  return Array.from(
+    mapMode === 'coi'
+      ? useCoiAssignmentsStore.getState().shatterIds.parents
+      : useAssignmentsStore.getState().shatterIds.parents
+  );
+};
 
 export var useDemographyStore = create(
   subscribeWithSelector<DemographyStore>((set, get) => ({
@@ -18,8 +38,7 @@ export var useDemographyStore = create(
       set({getMapRef});
       const {dataHash, setVariable, variable, setVariant, variant} = get();
       const {mapDocument} = useMapStore.getState();
-      const {shatterIds} = useAssignmentsStore.getState();
-      const currentDataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument?.document_id}`;
+      const currentDataHash = `${getActiveBrokenIds().join(',')}|${mapDocument?.document_id}`;
       if (currentDataHash === dataHash) {
         // set variable triggers map render/update
         getMapRef()?.on('load', () => {
@@ -32,6 +51,87 @@ export var useDemographyStore = create(
     variant: 'percent',
     setVariable: variable => set({variable}),
     setVariant: variant => set({variant}),
+    coalitionGroups: [],
+    coalitionHash: '',
+    coalitionRestoredSlug: null,
+    restoreCoalition: async mapDocument => {
+      const requestId = ++coalitionHydrationRequestId;
+      const slug = mapDocument?.districtr_map_slug;
+      if (!slug) {
+        set({
+          coalitionGroups: [],
+          coalitionRestoredSlug: null,
+          coalitionHash: `${++coalitionVersion}`,
+        });
+        demographyCache.updatePopulations();
+        return;
+      }
+      if (get().coalitionRestoredSlug === slug) return;
+      const saved = await idb.getCoalitionConfigBySlug(slug);
+      const activeSlug = useMapStore.getState().mapDocument?.districtr_map_slug;
+      if (requestId !== coalitionHydrationRequestId || activeSlug !== slug) return;
+      const coalitionGroups = (saved?.selectedGroups ?? []) as CoalitionGroupKey[];
+      set({
+        coalitionGroups,
+        coalitionRestoredSlug: slug,
+        coalitionHash: `${++coalitionVersion}`,
+      });
+      demographyCache.updatePopulations({coalitionGroups});
+
+      const currentVariable = get().variable;
+      if (isCoalitionVariable(currentVariable)) {
+        const universe = getCoalitionUniverseFromVariable(currentVariable);
+        const selectedColumns = getSelectedCoalitionColumns({
+          selectedGroups: coalitionGroups,
+          availableColumns: demographyCache.availableColumns,
+          universe,
+        });
+        if (!selectedColumns.length) {
+          set({
+            variable: universe === 'TOTPOP' ? 'total_pop_20' : 'total_vap_20',
+          });
+        }
+      }
+    },
+    setCoalitionGroups: async coalitionGroups => {
+      const deduped = [...new Set(coalitionGroups)];
+      set({
+        coalitionGroups: deduped,
+        coalitionHash: `${++coalitionVersion}`,
+      });
+      demographyCache.updatePopulations({coalitionGroups: deduped});
+
+      const {mapDocument} = useMapStore.getState();
+      if (mapDocument?.districtr_map_slug) {
+        await idb.upsertCoalitionConfigBySlug({
+          districtr_map_slug: mapDocument.districtr_map_slug,
+          selectedGroups: deduped,
+        });
+      }
+
+      const currentVariable = get().variable;
+      if (isCoalitionVariable(currentVariable)) {
+        const universe = getCoalitionUniverseFromVariable(currentVariable);
+        const selectedColumns = getSelectedCoalitionColumns({
+          selectedGroups: deduped,
+          availableColumns: demographyCache.availableColumns,
+          universe,
+        });
+        if (!selectedColumns.length) {
+          set({
+            variable: universe === 'TOTPOP' ? 'total_pop_20' : 'total_vap_20',
+          });
+        }
+      }
+    },
+    resetCoalition: () => {
+      set({
+        coalitionGroups: [],
+        coalitionRestoredSlug: null,
+        coalitionHash: `${++coalitionVersion}`,
+      });
+      demographyCache.updatePopulations();
+    },
     availableColumnSets: {
       evaluation: {},
       map: {},
@@ -50,6 +150,9 @@ export var useDemographyStore = create(
       set({
         scale: undefined,
         dataHash: '',
+        coalitionGroups: [],
+        coalitionRestoredSlug: null,
+        coalitionHash: `${++coalitionVersion}`,
       });
     },
     unmount: () => {
@@ -66,8 +169,7 @@ export var useDemographyStore = create(
     setDataHash: dataHash => set({dataHash}),
     updateData: async (mapDocument, _brokenIds) => {
       const {dataHash: currDataHash} = get();
-      const {shatterIds: _shatterIds} = useAssignmentsStore.getState();
-      const brokenIds = _brokenIds ?? Array.from(_shatterIds.parents);
+      const brokenIds = _brokenIds ?? getActiveBrokenIds();
       const {setErrorNotification} = useMapStore.getState();
       if (!mapDocument) return;
       // based on current map state
@@ -86,7 +188,7 @@ export var useDemographyStore = create(
         });
         return;
       }
-      demographyCache.update(result.columns, result.results, dataHash);
+      demographyCache.update(result.columns, result.results, dataHash, get().coalitionGroups);
       const availableColumns = demographyCache.availableColumns;
       const availableEvalSets: Record<string, AllEvaluationConfigs> = Object.fromEntries(
         Object.entries(evalColumnConfigs)

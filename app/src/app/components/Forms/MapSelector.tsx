@@ -20,6 +20,7 @@ import {
 import {QueryClientProvider, useMutation} from '@tanstack/react-query';
 import {idb} from '@/app/utils/idb/idb';
 import {useUserMaps} from '@/app/hooks/useUserMaps';
+import {currMapRoute} from '@/app/utils/map/mapUrlRoute';
 
 interface MapSelectorProps {
   allowListModules: string[];
@@ -48,7 +49,8 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
 
   const setShowMapSelector = useFormState(state => state.setShowMapSelector);
   const setFormState = useFormState(state => state.setFormState);
-  const userMaps = useUserMaps();
+  // TODO Support community maps
+  const {districtMaps} = useUserMaps();
 
   const [notification, setNotification] = useState<null | {
     type: 'error' | 'success' | 'warning';
@@ -88,7 +90,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
 
     // take the slash and then the last characters after the slash
     const urlStrippedId = mapId.split('/').pop()?.replace('?pw=true', '');
-    const userMap = userMaps?.find(map => map.document_id === urlStrippedId);
+    const userMap = districtMaps?.find(map => map.document_id === urlStrippedId);
     const document = await getDocument(urlStrippedId);
     if (document.ok) {
       response.mapInfo = document.response;
@@ -205,14 +207,17 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
               width="100%"
             >
               <ScrollArea size="1" type="auto" scrollbars="vertical" style={{height: '100%'}}>
-                {userMaps.map(map => (
+                {districtMaps.map(map => (
                   <Button
                     key={map.document_id}
                     variant="outline"
                     size="3"
                     onMouseDown={e => {
                       e.preventDefault();
-                      const mapUrl = new URL(`/map/edit/${map.document_id}`, window.location.href);
+                      const mapUrl = new URL(
+                        `/${currMapRoute}/edit/${map.document_id}`,
+                        window.location.href
+                      );
                       setFormState('comment', 'document_id', mapUrl.toString());
                       setShowMapOptions(false);
                       mutate(mapUrl.toString());
