@@ -91,10 +91,6 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
     return null;
   }
 
-  if (!isMapModeReady) {
-    return null;
-  }
-
   return (
     <div className="h-screen w-screen overflow-hidden flex justify-between p flex-col-reverse lg:flex-row-reverse landscape:flex-row-reverse">
       <SidebarComponent />

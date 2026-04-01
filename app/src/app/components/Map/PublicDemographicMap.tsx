@@ -8,7 +8,6 @@ import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {NavigationControl} from 'react-map-gl/maplibre';
 import {CountyLayers} from './PolygonLayers/CountyLayers';
 import {MetaLayers} from './PointLayers/MetaLayers';
-import {PointSelectionLayer} from './PointLayers/PointSelectionLayer';
 import {OverlayLayers} from './PolygonLayers/OverlayLayers';
 import {MapLayerAnchors} from './MapLayerAnchors';
 import {MapContainer} from './MapContainer';

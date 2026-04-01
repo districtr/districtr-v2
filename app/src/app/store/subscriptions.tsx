@@ -127,38 +127,6 @@ export const initSubs = (readOnly = false) => {
   if (!readOnly) {
     const mapEditSubs = getMapEditSubs(useMapStore);
     editorUnsubs.push(...mapEditSubs);
-
-    editorUnsubs.push(
-      useMapStore.subscribe(
-        state => state.mapDocument,
-        (curr, prev) => {
-          if (!curr || prev === curr || prev?.document_id === curr.document_id) return;
-          useDemographyStore.getState().updateData(curr);
-        }
-      )
-    );
-
-    editorUnsubs.push(
-      useMapStore.subscribe(
-        state => state.mapDocument?.num_districts,
-        (curr, prev) => {
-          if (!curr || prev === curr) return;
-          demographyService.updateSummaryStats();
-        }
-      )
-    );
-
-    editorUnsubs.push(
-      useAssignmentsStore.subscribe(
-        state => state.shatterIds.parents,
-        (curr, prev) => {
-          if (!curr || prev === curr) return;
-          const mapDocument = useMapStore.getState().mapDocument;
-          if (!mapDocument) return;
-          useDemographyStore.getState().updateData(mapDocument, Array.from(curr));
-        }
-      )
-    );
   }
 
   const unsub = () => {

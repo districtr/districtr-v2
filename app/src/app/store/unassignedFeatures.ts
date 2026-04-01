@@ -38,8 +38,12 @@ export const useUnassignFeaturesStore = create<UnassignedFeatureStore>((set, get
     // const expectedFeatures = demographyService.table?.size;
     // const nSeen = Object.keys(await GeometryWorker.activeGeometries).length;
     // disabling local implementation for now
+    const documentIdParam =
+      mapDocument?.access === 'read' && mapDocument?.public_id
+        ? String(mapDocument.public_id)
+        : mapDocument?.document_id;
     const unassignedGeometries = await GeometryWorker.getUnassignedGeometries(
-      mapDocument?.document_id,
+      documentIdParam,
       Array.from(shatterIds.parents)
     );
 

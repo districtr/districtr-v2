@@ -5,9 +5,9 @@ import {ColumnarTableData} from '../../ParquetWorker/parquetWorker.types';
 import {get} from '../factory';
 
 type PublicDistrictData = {
-  zone: number;
+  zone: number | null;
   demographic_data: Record<string, unknown> | null;
-  geometry: string | GeoJSON.Geometry;
+  geometry: string | GeoJSON.Geometry | null;
 };
 
 export const getPublicDistricts = async (mapDocument?: DocumentObject | null) => {
@@ -35,21 +35,27 @@ export const getPublicDistricts = async (mapDocument?: DocumentObject | null) =>
     if (typeof demographicDataRow.statefp === 'string') {
       statefp = demographicDataRow.statefp;
     }
-    const path = String(row.zone);
-    const geometry =
-      typeof row.geometry === 'string'
-        ? (JSON.parse(row.geometry) as GeoJSON.Geometry)
-        : row.geometry;
-    const feature = {
-      type: 'Feature',
-      geometry,
-      properties: {
-        ...demographicDataRow,
-        zone: row.zone,
-        path,
-      },
-    } as GeoJSON.Feature<GeoJSON.Geometry, GeoJSON.GeoJsonProperties>;
-    geojsonFeatures.push(feature);
+    const path = row.zone !== null ? String(row.zone) : '__unassigned__';
+
+    // Only create GeoJSON features for assigned zones (unassigned has no geometry)
+    if (row.zone !== null && row.geometry) {
+      const geometry =
+        typeof row.geometry === 'string'
+          ? (JSON.parse(row.geometry) as GeoJSON.Geometry)
+          : row.geometry;
+      const feature = {
+        type: 'Feature',
+        geometry,
+        properties: {
+          ...demographicDataRow,
+          zone: row.zone,
+          path,
+        },
+      } as GeoJSON.Feature<GeoJSON.Geometry, GeoJSON.GeoJsonProperties>;
+      geojsonFeatures.push(feature);
+    }
+
+    // Always include demographic data (including unassigned) for correct totals
     demographicData.path.push(path);
     demographicData.sourceLayer.push(mapDocument?.parent_layer ?? '');
     Object.entries(demographicDataRow).forEach(([column, value]) => {

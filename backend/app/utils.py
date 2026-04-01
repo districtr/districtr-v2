@@ -1,3 +1,4 @@
+import json as json_mod
 from uuid import uuid4
 from sqlalchemy import text, update, Table, MetaData, func
 from sqlalchemy import bindparam, Text
@@ -466,6 +467,7 @@ def update_or_select_district_stats(
             select(
                 Document,
                 DistrictrMap.gerrydb_table_name.label("gerrydb_table_name"),
+                DistrictrMap.parent_layer.label("parent_layer"),
             )
             .join(
                 DistrictrMap,
@@ -474,6 +476,7 @@ def update_or_select_district_stats(
             .where(Document.document_id == document_id)
         ).one()
         gerrydb_table = doc_row.gerrydb_table_name
+        parent_layer = doc_row.parent_layer
 
         # Discover numeric demographic columns (excluding geometry/fid/path)
         demographic_json = None
@@ -550,6 +553,59 @@ def update_or_select_district_stats(
         returned_rows: List[DistrictUnionsResponse] = [
             DistrictUnionsResponse.model_validate(row) for row in rows
         ]
+
+        # Compute and insert unassigned row (total from parent_layer minus assigned)
+        if parent_layer and demographic_json:
+            # Build total demographics query from parent layer (no double counting)
+            total_json_pairs = [f"'{col}', SUM({col})" for col in demo_cols]
+            total_json_pairs.append(
+                "'statefp', MIN(SUBSTRING(REPLACE(path, 'vtd:', '') FROM 1 FOR 2))"
+            )
+            total_json = f"json_build_object({', '.join(total_json_pairs)})"
+            total_sql = f"SELECT {total_json} AS demographic_data FROM gerrydb.{parent_layer}"
+            total_result = session.execute(text(total_sql)).mappings().first()
+
+            if total_result and total_result["demographic_data"]:
+                total_demo = total_result["demographic_data"]
+
+                # Sum assigned demographics across all zone rows
+                assigned_sum: dict = {}
+                for row_data in returned_rows:
+                    if row_data.demographic_data:
+                        for col, val in row_data.demographic_data.items():
+                            if isinstance(val, (int, float)):
+                                assigned_sum[col] = assigned_sum.get(col, 0) + val
+
+                # Unassigned = total - assigned
+                unassigned_demo: dict = {}
+                for col, val in total_demo.items():
+                    if isinstance(val, (int, float)):
+                        unassigned_demo[col] = val - assigned_sum.get(col, 0)
+                    else:
+                        unassigned_demo[col] = val  # e.g., statefp
+
+                # Insert the unassigned row
+                unassigned_insert = text("""
+                    INSERT INTO document.district_unions
+                        (document_id, zone, geometry, demographic_data, created_at, updated_at)
+                    VALUES (:document_id, NULL, NULL, :demographic_data, NOW(), NOW())
+                    RETURNING
+                        zone,
+                        ST_AsGeoJSON(geometry) AS geometry,
+                        demographic_data,
+                        updated_at
+                """)
+                unassigned_result = session.execute(
+                    unassigned_insert,
+                    {
+                        "document_id": document_id,
+                        "demographic_data": json_mod.dumps(unassigned_demo),
+                    },
+                ).mappings().first()
+                if unassigned_result:
+                    returned_rows.append(
+                        DistrictUnionsResponse.model_validate(unassigned_result)
+                    )
 
         session.commit()
         s3 = settings.get_s3_client()

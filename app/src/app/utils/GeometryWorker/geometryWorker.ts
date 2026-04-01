@@ -323,6 +323,9 @@ const GeometryWorker: GeometryWorkerClass = {
       exclude_ids.forEach(id => url.searchParams.append('exclude_ids', id));
     }
     const remoteUnassignedFeatures = await fetch(url).then(r => r.json());
+    if (!remoteUnassignedFeatures?.features) {
+      return {dissolved: {type: 'FeatureCollection', features: []}, overall: null};
+    }
     remoteUnassignedFeatures.features.forEach((geo: GeoJSON.MultiPolygon | GeoJSON.Polygon) => {
       if (geo.type === 'Polygon') {
         geomsToDissolve.push({
