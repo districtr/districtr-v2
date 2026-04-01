@@ -57,6 +57,18 @@ export default function AdminNavLinks() {
         >
           Thumbnails
         </a>
+        <a
+          href="/admin/pending-reviews"
+          style={{
+            padding: '6px 8px',
+            borderRadius: '4px',
+            fontSize: '13px',
+            color: 'var(--theme-elevation-800)',
+            textDecoration: 'none',
+          }}
+        >
+          Pending Reviews
+        </a>
       </nav>
     </div>
   );
