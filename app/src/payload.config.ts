@@ -80,6 +80,28 @@ export default buildConfig({
             position: 'sidebar',
           },
         },
+        {
+          name: 'assignedTags',
+          type: 'relationship',
+          relationTo: 'tags',
+          hasMany: true,
+          saveToJWT: true,
+          admin: {
+            description: 'Tags this user can edit. Leave empty for unrestricted access.',
+            condition: (data) => data.role === 'editor',
+          },
+        },
+        {
+          name: 'assignedPlaces',
+          type: 'relationship',
+          relationTo: 'places',
+          hasMany: true,
+          saveToJWT: true,
+          admin: {
+            description: 'Places this user can edit. Leave empty for unrestricted access.',
+            condition: (data) => data.role === 'editor',
+          },
+        },
       ],
       access: {
         read: () => true,

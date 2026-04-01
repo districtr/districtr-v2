@@ -6,6 +6,13 @@ export const Places: CollectionConfig = {
     useAsTitle: 'title',
     defaultColumns: ['title', 'slug', '_status', 'updatedAt'],
     group: 'CMS Content',
+    baseListFilter: ({req}) => {
+      if (req.user?.role === 'admin') return {};
+      if (req.user?.assignedPlaces?.length) {
+        return {id: {in: req.user.assignedPlaces.map((p: any) => p.id || p)}};
+      }
+      return {};
+    },
   },
   versions: {
     drafts: true,
@@ -60,7 +67,16 @@ export const Places: CollectionConfig = {
   access: {
     read: () => true,
     create: ({req}) => req.user?.role === 'admin' || req.user?.role === 'editor',
-    update: ({req}) => req.user?.role === 'admin' || req.user?.role === 'editor',
+    update: ({req}) => {
+      if (req.user?.role === 'admin') return true;
+      if (req.user?.role === 'editor') {
+        if (req.user?.assignedPlaces?.length) {
+          return {id: {in: req.user.assignedPlaces.map((p: any) => p.id || p)}};
+        }
+        return true;
+      }
+      return false;
+    },
     delete: ({req}) => req.user?.role === 'admin',
   },
 };

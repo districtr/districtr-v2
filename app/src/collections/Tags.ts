@@ -6,6 +6,13 @@ export const Tags: CollectionConfig = {
     useAsTitle: 'title',
     defaultColumns: ['title', 'slug', 'districtrMapSlug', '_status', 'updatedAt'],
     group: 'CMS Content',
+    baseListFilter: ({req}) => {
+      if (req.user?.role === 'admin') return {};
+      if (req.user?.assignedTags?.length) {
+        return {id: {in: req.user.assignedTags.map((t: any) => t.id || t)}};
+      }
+      return {};
+    },
   },
   versions: {
     drafts: true,
@@ -61,7 +68,16 @@ export const Tags: CollectionConfig = {
   access: {
     read: () => true,
     create: ({req}) => req.user?.role === 'admin' || req.user?.role === 'editor',
-    update: ({req}) => req.user?.role === 'admin' || req.user?.role === 'editor',
+    update: ({req}) => {
+      if (req.user?.role === 'admin') return true;
+      if (req.user?.role === 'editor') {
+        if (req.user?.assignedTags?.length) {
+          return {id: {in: req.user.assignedTags.map((t: any) => t.id || t)}};
+        }
+        return true;
+      }
+      return false;
+    },
     delete: ({req}) => req.user?.role === 'admin',
   },
 };
