@@ -1,0 +1,123 @@
+{
+  "name": "Districtr Full-Stack (Prod)",
+  "dockerComposeFile": ["../../docker-compose.yml"],
+  "service": "fullstack-prod",
+  "runServices": ["fullstack-prod", "db"],
+  "workspaceFolder": "/workspace",
+  "shutdownAction": "stopCompose",
+  "forwardPorts": [3000, 8000, 5432],
+  "portsAttributes": {
+    "3000": {
+      "label": "Next.js Prod Server",
+      "onAutoForward": "openBrowser"
+    },
+    "8000": {
+      "label": "Backend API",
+      "onAutoForward": "notify"
+    },
+    "5432": {
+      "label": "PostgreSQL",
+      "onAutoForward": "silent"
+    }
+  },
+  "postCreateCommand": "cd /workspace/backend && pip install -r requirements.txt && cd /workspace/app && bun install && bun run build",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
+        "ms-python.debugpy",
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-pg",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "formulahendry.auto-rename-tag",
+        "ms-playwright.playwright"
+      ],
+      "settings": {
+        "python.languageServer": "Pylance",
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.analysis.extraPaths": ["/workspace/backend"],
+        "python.analysis.typeCheckingMode": "basic",
+        "python.analysis.autoImportCompletions": true,
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff",
+          "editor.formatOnSave": true,
+          "editor.codeActionsOnSave": {
+            "source.fixAll.ruff": "explicit",
+            "source.organizeImports.ruff": "explicit"
+          }
+        },
+        "[typescript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode",
+          "editor.formatOnSave": true
+        },
+        "[typescriptreact]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode",
+          "editor.formatOnSave": true
+        },
+        "[javascript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode",
+          "editor.formatOnSave": true
+        },
+        "[json]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode",
+          "editor.formatOnSave": true
+        },
+        "eslint.workingDirectories": ["/workspace/app"],
+        "typescript.tsdk": "/workspace/app/node_modules/typescript/lib",
+        "typescript.enablePromptUseWorkspaceTsdk": true,
+        "sqltools.connections": [
+          {
+            "name": "Districtr DB",
+            "driver": "PostgreSQL",
+            "server": "db",
+            "port": 5432,
+            "database": "districtr",
+            "username": "postgres",
+            "password": "postgres"
+          }
+        ]
+      },
+      "launch": {
+        "configurations": [
+          {
+            "name": "FastAPI: Debug",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+              "app.main:app",
+              "--host", "0.0.0.0",
+              "--port", "8000",
+              "--reload",
+              "--reload-exclude", ".venv/**/*.py"
+            ],
+            "cwd": "/workspace/backend",
+            "jinja": true,
+            "env": {
+              "PYTHONDONTWRITEBYTECODE": "1"
+            }
+          },
+          {
+            "name": "Python: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+          },
+          {
+            "name": "Pytest: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": ["${file}", "-v"],
+            "console": "integratedTerminal"
+          }
+        ]
+      }
+    }
+  }
+}

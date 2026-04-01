@@ -22,6 +22,7 @@ services:
       "
     ports:
       - "8000:8000"
+    profiles: ["backend"]
 
   db:
     image: postgis/postgis:15-3.3-alpine
@@ -53,6 +54,69 @@ services:
     ports:
       - "3000:3000" # Expose Next.js on port 3000
     command: sh -c "bun install && bun run dev"
+    profiles: ["frontend"]
+
+  fullstack:
+    build:
+      context: .
+      dockerfile: .devcontainer/fullstack/Dockerfile.dev
+    container_name: fullstack
+    volumes:
+      - .:/workspace
+      - ./tmp:/tmp
+    env_file:
+      - ./backend/.env.docker
+      - ./app/.env.docker
+    environment:
+      - DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/districtr
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+      - "8000:8000"
+    command: >
+      bash -c "
+        cd /workspace/backend &&
+        pip install --no-cache-dir -r requirements.txt &&
+        alembic upgrade head &&
+        if [ \"$${LOAD_DATA:-false}\" = \"true\" ]; then python cli.py batch-create-districtr-maps --config-file=management/configs/geopackages_vap_and_election.yaml --data-dir=/data; fi &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude '.venv/**/*.py' &
+        cd /workspace/app &&
+        bun install && bun run dev &
+        wait
+      "
+
+  fullstack-prod:
+    build:
+      context: .
+      dockerfile: .devcontainer/fullstack-prod/Dockerfile.dev
+    container_name: fullstack-prod
+    volumes:
+      - .:/workspace
+      - ./tmp:/tmp
+    env_file:
+      - ./backend/.env.docker
+      - ./app/.env.docker
+    environment:
+      - DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/districtr
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+      - "8000:8000"
+    command: >
+      bash -c "
+        cd /workspace/backend &&
+        pip install --no-cache-dir -r requirements.txt &&
+        alembic upgrade head &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+        cd /workspace/app &&
+        bun install && bun run build && bun run start &
+        wait
+      "
+    profiles: ["fullstack-prod"]
 
   frontend-prod:
     build:
@@ -68,7 +132,7 @@ services:
     ports:
       - "3000:3000" # Expose Next.js on port 3000
     command: sh -c "bun install && bun run build && bun run start"
-    profiles: ["prod"]
+    profiles: ["frontend-prod"]
 
   pre-commit:
     build:

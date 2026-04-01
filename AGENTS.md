@@ -39,6 +39,9 @@ This is a monorepo with **separate frontend and backend directories**. All code 
 │       ├── save_share/         # Save and share (eg password) functions
 │       ├── thumbnails/         # Map thumbnail generation
 │       └── main.py             # Main entrypoint
+├── .devcontainer/          # Dev container configurations
+│   ├── fullstack/          # Full-stack dev container (default)
+│   └── fullstack-prod/     # Full-stack prod-like dev container
 ├── docker-compose.yml      # Orchestration
 ```
 
@@ -65,7 +68,7 @@ bd sync               # Sync with git
 **MANDATORY WORKFLOW:**
 
 1. **File issues for remaining work** - Create issues for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds. Especially `docker-compose up pre-commit` for linting and `docker-compose exec frontend bun run build` for FE and `docker-compose exec backend pytest -v` for BE
+2. **Run quality gates** (if code changed) - Tests, linters, builds. Especially `docker-compose --profile pre-commit up pre-commit` for linting and `docker-compose exec fullstack bash -c "cd /workspace/app && bun run build"` for FE and `docker-compose exec fullstack bash -c "cd /workspace/backend && pytest -v"` for BE
 3. **Update issue status** - Close finished work, update in-progress items
 4. **PUSH TO REMOTE** - This is MANDATORY:
    ```bash
