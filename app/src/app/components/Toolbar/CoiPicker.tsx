@@ -13,6 +13,14 @@ export type CoiPickerProps = {
   multiple?: false;
   disabledValues?: NullableZone[];
   communityList?: Community[];
+  isReadOnly?: boolean;
+  canRemove?: boolean;
+  availableColors?: string[];
+  onRemoveCommunity?: (communityId: number) => void;
+  onUpdateCommunity?: (
+    communityId: number,
+    updates: {name?: string; description?: string; color?: string}
+  ) => void;
 };
 
 export const CoiPicker = ({
@@ -21,6 +29,11 @@ export const CoiPicker = ({
   onValueChange,
   disabledValues,
   communityList,
+  isReadOnly,
+  canRemove,
+  availableColors,
+  onRemoveCommunity,
+  onUpdateCommunity,
 }: CoiPickerProps) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const stateCommunities = useMapStore(state => state.communities);
@@ -62,14 +75,16 @@ export const CoiPicker = ({
     };
   }, [communities, onValueChange]);
 
+  const handleSelect = (value: string) => {
+    const communityId = Number(value);
+    const selectedCommunity = communities.find(community => community.id === communityId);
+    if (selectedCommunity) onValueChange(selectedCommunity.id, selectedCommunity.color);
+  };
+
   return (
-    <Box>
+    <Box maxWidth={'100%'} id="BOX_CONTAINER">
       <RadioGroup.Root
-        onValueChange={value => {
-          const communityId = Number(value);
-          const selectedCommunity = communities.find(community => community.id === communityId);
-          if (selectedCommunity) onValueChange(selectedCommunity.id, selectedCommunity.color);
-        }}
+        onValueChange={handleSelect}
         value={value !== undefined ? String(value) : undefined}
         defaultValue={String(defaultValue)}
       >
@@ -80,6 +95,12 @@ export const CoiPicker = ({
               disabledValues={disabledValues ?? []}
               value={value}
               defaultValue={defaultValue}
+              isReadOnly={isReadOnly}
+              canRemove={canRemove}
+              availableColors={availableColors}
+              onSelect={handleSelect}
+              onRemoveCommunity={onRemoveCommunity}
+              onUpdateCommunity={onUpdateCommunity}
             />
           )}
         </Flex>

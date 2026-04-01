@@ -11,13 +11,13 @@ import {PopulationPanelOptions} from './PopulationPanelOptions';
 import {LockClosedIcon, LockOpen2Icon, Pencil1Icon} from '@radix-ui/react-icons';
 import {useZonePopulations} from '@/app/hooks/useDemography';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
-import {ZoneCommentPopover} from './ZoneCommentPopover';
+import {ZoneDescriptionPopover} from './ZoneDescriptionPopover';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/map/mapDefaults';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {getCommunityRenderOrderId, getUnusedCommunityColors} from '@/app/utils/communities';
 import {useSelectCommunity} from '@/app/hooks/useSelectCommunity';
-import {AddCommunityDialog} from '@/app/components/Toolbar/AddCommunityDialog';
+import {EditCommunityDialog} from '@/app/components/Toolbar/EditCommunityDialog';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 
 const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
@@ -178,7 +178,7 @@ export const PopulationPanel = () => {
                 </IconButton>
               )}
               <Flex gap="0" align="center">
-                <ZoneCommentPopover zone={d.zone} color={getZoneColor(d.zone)} />
+                <ZoneDescriptionPopover zone={d.zone} color={getZoneColor(d.zone)} />
                 {!!isEditing && (
                   <>
                     {isCommunityMode ? (
@@ -260,7 +260,7 @@ export const PopulationPanel = () => {
         </Flex>
       )}
       {editingCommunity && (
-        <AddCommunityDialog
+        <EditCommunityDialog
           open={editingCommunityId !== null}
           onOpenChange={open => {
             if (!open) setEditingCommunityId(null);

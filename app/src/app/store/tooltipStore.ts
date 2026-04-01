@@ -2,7 +2,7 @@ import {TooltipState} from '@utils/map/types';
 import {KeyOfSummaryStatConfig} from '../utils/api/summaryStats';
 import {createWithDevWrapperAndSubscribe} from './middlewares';
 
-export interface ZoneCommentTooltipState {
+export interface ZoneDescriptionTooltipState {
   zone: number;
   x: number;
   y: number;
@@ -17,10 +17,10 @@ export interface TooltipStore {
   setInspectorFormat: (format: 'percent' | 'standard') => void;
   activeColumns: string[];
   setActiveColumns: (columns: string[]) => void;
-  zoneCommentTooltip: ZoneCommentTooltipState | null;
-  setZoneCommentTooltip: (tooltip: ZoneCommentTooltipState | null) => void;
-  zoneCommentModalZone: number | null;
-  setZoneCommentModalZone: (zone: number | null) => void;
+  zoneDescriptionTooltip: ZoneDescriptionTooltipState | null;
+  setZoneDescriptionTooltip: (tooltip: ZoneDescriptionTooltipState | null) => void;
+  zoneDescriptionModalZone: number | null;
+  setZoneDescriptionModalZone: (zone: number | null) => void;
 }
 
 export const useTooltipStore = createWithDevWrapperAndSubscribe<TooltipStore>(
@@ -38,8 +38,8 @@ export const useTooltipStore = createWithDevWrapperAndSubscribe<TooltipStore>(
   setInspectorFormat: format => set({inspectorFormat: format}),
   activeColumns: [],
   setActiveColumns: columns => set({activeColumns: columns}),
-  zoneCommentTooltip: null,
-  setZoneCommentTooltip: tooltip => set({zoneCommentTooltip: tooltip}),
-  zoneCommentModalZone: null,
-  setZoneCommentModalZone: zone => set({zoneCommentModalZone: zone}),
+  zoneDescriptionTooltip: null,
+  setZoneDescriptionTooltip: tooltip => set({zoneDescriptionTooltip: tooltip}),
+  zoneDescriptionModalZone: null,
+  setZoneDescriptionModalZone: zone => set({zoneDescriptionModalZone: zone}),
 }));

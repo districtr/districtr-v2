@@ -39,6 +39,9 @@ This is a monorepo with **separate frontend and backend directories**. All code 
 │       ├── save_share/         # Save and share (eg password) functions
 │       ├── thumbnails/         # Map thumbnail generation
 │       └── main.py             # Main entrypoint
+├── .devcontainer/          # Dev container configurations
+│   ├── backend/            # Backend dev container
+│   └── frontend/           # Frontend dev container
 ├── docker-compose.yml      # Orchestration
 ```
 

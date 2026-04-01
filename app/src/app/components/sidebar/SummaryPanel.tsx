@@ -145,7 +145,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
   return (
     <Flex direction="column" gap="2">
       <SectionHeader
-        title={summaryType === 'VOTERHISTORY' ? 'Voter History Table' : 'Demographic table'}
+        title={'Table'}
         isOpen={openSections.evaluation}
         onToggle={() => toggleSection('evaluation')}
       />

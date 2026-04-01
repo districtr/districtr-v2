@@ -79,7 +79,7 @@ export const CoalitionBuilder: React.FC<CoalitionBuilderProps> = ({summaryType})
           </Text>
           <br />
           <Text size="2" color="gray">
-            Universe total
+            Statewide total
           </Text>
         </Box>
         <Box flexGrow="1">
