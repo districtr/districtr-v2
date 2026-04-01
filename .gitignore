@@ -91,6 +91,10 @@ pipelines/build/*
 .vscode/
 .zed/
 
+# allow dev container editor configs
+!backend/.zed/
+!backend/pyrightconfig.json
+
 # misc
 docker-compose.mac.yml
 app/public/*-basemap-style.json

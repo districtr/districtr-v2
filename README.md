@@ -14,9 +14,9 @@ The Districtr reboot monorepo.
 The backend (Python), frontend (NextJS), and database (postgres) can be run locally using Docker.
 
 1. Install and configure [Docker](https://www.docker.com/) for your machine
-1. `cp ./backend/.env.docker.example && ./backend/.env.docker` and fill in missing variables.
-1. From the repo root, run `docker-compose up db backend frontend`
-1. Add data as necessary by following the steps in [Loading data](#loading-data) below
+2. `cp ./backend/.env.docker.example && ./backend/.env.docker` and fill in missing variables.
+3. From the repo root, run `docker-compose up db backend frontend`
+4. Add data as necessary by following the steps in [Loading data](#loading-data) below
 
 ### Make shortcuts
 
@@ -58,19 +58,29 @@ The existing Docker Compose services can be used as [Dev Containers](https://con
 
 ### Getting started
 
+Start your docker container in a terminal with:
+
+```bash
+docker compose up 
+# or
+make dev
+```
+
 #### VS Code
 
 1. Install the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension
 2. Open the repo in VS Code
-3. When prompted, click **Reopen in Container** — or run **Dev Containers: Reopen in Container** from the command palette
-4. Choose **Districtr Backend** or **Districtr Frontend**
+3. Add dev containers extension if needed
+4. Run **Dev Containers: Attach to Running Container** from the command palette (`cmd+shift+p`)
+5. Choose **Districtr Backend** or **Districtr Frontend**
+6. [First run] Navigate to the app folder (you may need to navigate up one parent directory); install Python and Pylance extensions
 
 #### Zed
 
 Zed has built-in dev container support (no extension needed).
 
 1. Open the repo in Zed
-2. Run **Dev Containers: Reopen in Dev Container** from the command palette (`cmd+shift+p`)
+2. Run **projects: open in dev container** from the command palette (`cmd+shift+p`)
 3. Select the desired container
 
 > **Note:** Zed does not currently support VS Code extensions, so the pre-configured extensions (Ruff, Prettier, SQLTools, etc.) won't be installed. Zed uses its own language support instead.
@@ -101,13 +111,13 @@ After experimenting with various technologies (see [`prototypes`](prototypes/)) 
 The redesign aims to principally to address three key pain points in the Districtr application’s performance and maintainability:
 
 1. Slow tile rendering
-1. Cumbersome use of tiles as global state for tile rendering and most metric calculation
-1. Complexity and poor interoperability in architecture without slow copies
+2. Cumbersome use of tiles as global state for tile rendering and most metric calculation
+3. Complexity and poor interoperability in architecture without slow copies
 
 And two key feature additions
 
 1. Block “shattering”
-1. A headless CMS (this will be added in a later phase of work / is not currently a focus of the reboot)
+2. A headless CMS (this will be added in a later phase of work / is not currently a focus of the reboot)
 
 The principal difference with the existing Districtr application is that the server is responsible for a lot more work in this architecture, with most metric calculations performed server-side.
 We discuss how centralizing/consolidating the backend offers a number of advantages for dealing with pain points listed above.
