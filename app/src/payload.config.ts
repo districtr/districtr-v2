@@ -52,6 +52,14 @@ export default buildConfig({
             description: 'Generate or update thumbnails for maps',
           },
         },
+        pendingReviews: {
+          Component: '@/app/components/PayloadViews/PendingReviewsView',
+          path: '/pending-reviews',
+          meta: {
+            title: 'Pending Reviews',
+            description: 'Review content submissions awaiting approval',
+          },
+        },
       },
     },
   },

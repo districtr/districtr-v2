@@ -1,14 +1,38 @@
 import type {CollectionConfig} from 'payload';
+import {APIError} from 'payload';
 
 export const Tags: CollectionConfig = {
   slug: 'tags',
   admin: {
     useAsTitle: 'title',
-    defaultColumns: ['title', 'slug', 'language', 'districtrMapSlug', '_status', 'updatedAt'],
+    defaultColumns: [
+      'title',
+      'slug',
+      'language',
+      'districtrMapSlug',
+      'workflowStatus',
+      '_status',
+      'updatedAt',
+    ],
     group: 'CMS Content',
   },
   versions: {
     drafts: true,
+  },
+  hooks: {
+    beforeChange: [
+      ({data, req}) => {
+        // Only admins can set _status to 'published'
+        if (data._status === 'published' && req.user?.role !== 'admin') {
+          throw new APIError('Only admins can publish content. Submit for review instead.', 403);
+        }
+        // Auto-set workflowStatus when publishing
+        if (data._status === 'published') {
+          data.workflowStatus = 'approved';
+        }
+        return data;
+      },
+    ],
   },
   fields: [
     {
@@ -73,6 +97,43 @@ export const Tags: CollectionConfig = {
       name: 'body',
       type: 'richText',
       label: 'Page Content',
+    },
+    {
+      name: 'workflowStatus',
+      type: 'select',
+      defaultValue: 'draft',
+      options: [
+        {label: 'Draft', value: 'draft'},
+        {label: 'Pending Review', value: 'pending_review'},
+        {label: 'Approved', value: 'approved'},
+        {label: 'Changes Requested', value: 'changes_requested'},
+      ],
+      admin: {
+        position: 'sidebar',
+        readOnly: true,
+      },
+      access: {
+        update: ({req}) => req.user?.role === 'admin',
+      },
+    },
+    {
+      name: 'reviewNotes',
+      type: 'textarea',
+      admin: {
+        position: 'sidebar',
+        description: 'Notes from the reviewer about requested changes',
+        condition: (data) => data.workflowStatus === 'changes_requested',
+      },
+    },
+    {
+      name: 'workflowActions',
+      type: 'ui',
+      admin: {
+        position: 'sidebar',
+        components: {
+          Field: '@/app/components/PayloadAdmin/WorkflowSidebar',
+        },
+      },
     },
   ],
   access: {
