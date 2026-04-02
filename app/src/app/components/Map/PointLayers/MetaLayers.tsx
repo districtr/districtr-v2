@@ -1,4 +1,5 @@
 import {EMPTY_FT_COLLECTION, ZONE_LABEL_STYLE} from '@/app/constants/map/layerStyle';
+import {HIDE_ALL_FILTER} from '@/app/constants/map/layerFilters';
 import {
   SELECTION_POINTS_SOURCE_ID,
   SELECTION_POINTS_SOURCE_ID_CHILD,
@@ -60,7 +61,7 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
           ['match', ['get', 'path'], Array.from(shatterIds.parents), true, false],
         ] as FilterSpecification;
       } else {
-        return ['literal', false] as FilterSpecification;
+        return HIDE_ALL_FILTER;
       }
     }
   }, [child, !child && shatterIds, child && captiveIds]);
@@ -128,16 +129,13 @@ const ZoneNumbersLayer = () => {
   );
   const shouldHide = showBlockPopulationNumbers && focusFeaturesLength;
   const demogHash = useDemographyStore(state => state.dataHash);
-  const zoneComments = useMapStore(state => state.mapDocument?.document_comments);
+  const zoneDescriptions = useMapStore(state => state.mapDocument?.document_comments);
+  const getZonesWithDescriptions = useMapStore(state => state.getZonesWithDescriptions);
 
-  // Get zones that have comments
-  const zonesWithComments = useMemo(() => {
-    const zones = new Set<number>();
-    (zoneComments || []).forEach(c => {
-      if (c.zone != null) zones.add(c.zone);
-    });
-    return Array.from(zones);
-  }, [zoneComments]);
+  // Get zones that have descriptions
+  const zonesWithDescriptions = useMemo(() => {
+    return getZonesWithDescriptions();
+  }, [getZonesWithDescriptions, zoneDescriptions]);
 
   const addZoneMetaLayers = async () => {
     const showZoneNumbers = useMapControlsStore.getState().mapOptions.showZoneNumbers;
@@ -154,10 +152,7 @@ const ZoneNumbersLayer = () => {
       .filter(p => p.total_pop_20 > 0)
       .map(p => p.zone);
     const mapState = useMapStore.getState();
-    const currentComments = mapState.mapDocument?.document_comments || [];
-    const zonesWithCommentSet = new Set(
-      currentComments.filter(c => c.zone != null).map(c => c.zone)
-    );
+    const zonesWithDescriptionSet = new Set(mapState.getZonesWithDescriptions());
     if (showZoneNumbers && GeometryWorker) {
       const geoms = await GeometryWorker.getCentroidsFromView({
         activeZones,
@@ -165,12 +160,12 @@ const ZoneNumbersLayer = () => {
         strategy: 'median-point',
       });
       if (geoms) {
-        // Add hasComments property to each feature
+        // Add hasComments property to each feature (used by map layer filters)
         const enrichedFeatures = geoms.centroids.features.map(feature => ({
           ...feature,
           properties: {
             ...feature.properties,
-            hasComments: zonesWithCommentSet.has(feature.properties?.zone),
+            hasComments: zonesWithDescriptionSet.has(feature.properties?.zone),
           },
         }));
         setZoneNumberData({
@@ -196,7 +191,7 @@ const ZoneNumbersLayer = () => {
     mapRenderingState,
     appLoadingState,
     demogHash,
-    zonesWithComments,
+    zonesWithDescriptions,
   ]);
 
   useEffect(() => {

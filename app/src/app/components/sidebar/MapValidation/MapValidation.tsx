@@ -2,9 +2,10 @@ import {Blockquote, Button, Flex, Text, Tabs} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {Contiguity} from './Contiguity';
 import {ZoomToUnassigned} from './ZoomToUnassigned';
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 import {useIdbDocument} from '@/app/hooks/useIdbDocument';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {CloudNotSavedIcon} from '../../Topbar/Icons';
 
 const mapValidationPanel = [
@@ -19,6 +20,8 @@ const mapValidationPanel = [
 ];
 export const MapValidation = () => {
   const mapType = useMapStore(state => state.mapDocument?.map_type);
+  const mapMode = useMapControlsStore(state => state.mapMode);
+  const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const [activePanel, setActivePanel] = useState(
     mapValidationPanel[mapType === 'local' ? 1 : 0].label
   );
@@ -27,6 +30,19 @@ export const MapValidation = () => {
   const idbDocument = useIdbDocument(mapDocument?.document_id);
   const isOutdated = idbDocument?.clientLastUpdated !== idbDocument?.document_metadata.updated_at;
   const handlePutAssignments = useAssignmentsStore(state => state.handlePutAssignments);
+
+  useEffect(() => {
+    if (mapDocument?.map_type === 'community' || mapMode === 'coi') {
+      setErrorNotification({
+        message: 'Map validation is not available for community maps.',
+        severity: 2,
+      });
+    }
+  }, [mapDocument?.map_type, mapMode, setErrorNotification]);
+
+  if (mapDocument?.map_type === 'community' || mapMode === 'coi') {
+    return null;
+  }
 
   return (
     <Flex direction="column" gap="2">

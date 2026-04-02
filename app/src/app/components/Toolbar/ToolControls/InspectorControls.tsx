@@ -2,25 +2,9 @@ import {useTooltipStore} from '@store/tooltipStore';
 import {CONFIG_BY_COLUMN_SET} from '@store/demography/evaluationConfig';
 import {demographyCache} from '@utils/demography/demographyCache';
 import {useEffect} from 'react';
-import {Flex, Heading, Button, CheckboxCards, Text} from '@radix-ui/themes';
+import {Flex, Heading, Button} from '@radix-ui/themes';
 import {BrushControls} from '@components/Toolbar/ToolControls/BrushControls';
-import {styled} from '@stitches/react';
-
-const StyledCheckboxCards = styled(CheckboxCards.Root, {
-  display: 'grid',
-  gap: 'var(--space-1)',
-  gridTemplateColumns: 'repeat(1, 1fr)',
-  '@container (min-width: 240px)': {
-    gridTemplateColumns: 'repeat(2, 1fr)',
-  },
-  '@container (min-width: 360px)': {
-    gridTemplateColumns: 'repeat(3, 1fr)',
-  },
-  '@container (min-width: 600px)': {
-    display: 'flex',
-    flexWrap: 'wrap',
-  },
-});
+import {CardCheckbox, ResponsiveCheckboxCards} from '@/app/components/Shared/CardCheckbox';
 
 export const InspectorControls = () => {
   const inspectorMode = useTooltipStore(state => state.inspectorMode);
@@ -48,7 +32,7 @@ export const InspectorControls = () => {
       <Heading as="h3" size="3">
         Inspector mode
       </Heading>
-      <Flex direction="row" className="" wrap="wrap" gap="1">
+      <Flex direction="row" className="w-full" wrap="wrap" gap="1">
         <Button
           variant="soft"
           color={inspectorMode === 'VAP' ? 'blue' : 'gray'}
@@ -78,8 +62,8 @@ export const InspectorControls = () => {
         <Heading as="h3" size="3">
           Inspector columns
         </Heading>
-        <Flex direction="row" className="" wrap="wrap" gap="1">
-          <StyledCheckboxCards
+        <Flex direction="row" className="w-full" wrap="wrap" gap="1">
+          <ResponsiveCheckboxCards
             defaultValue={[]}
             value={activeColumns}
             gap="1"
@@ -90,13 +74,9 @@ export const InspectorControls = () => {
             id="inspector-columns"
           >
             {columnList.map(f => (
-              <CheckboxCards.Item value={f.column} key={f.column}>
-                <Flex direction="column" width="100%">
-                  <Text>{f.label}</Text>
-                </Flex>
-              </CheckboxCards.Item>
+              <CardCheckbox value={f.column} key={f.column} label={f.label} />
             ))}
-          </StyledCheckboxCards>
+          </ResponsiveCheckboxCards>
         </Flex>
       </Flex>
     </Flex>

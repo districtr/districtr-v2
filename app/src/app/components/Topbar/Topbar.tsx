@@ -27,6 +27,7 @@ import {SettingsPopoverAndModal} from './SettingsPopoverAndModal';
 import {saveMapDocumentMetadata} from '@/app/utils/api/apiHandlers/saveMapDocumentMetadata';
 import {idb} from '@/app/utils/idb/idb';
 import {RevertPopover} from './RevertPopover';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
@@ -36,9 +37,10 @@ export const Topbar: React.FC = () => {
   const access = useMapStore(state => state.mapStatus?.access);
   const mapViews = useMapStore(state => state.mapViews);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
-  const data = mapViews?.data || [];
   const router = useRouter();
   const updateMetadata = useMapStore(state => state.updateMetadata);
+  const mapMode = useMapControlsStore(state => state.mapMode);
+  const data = mapViews?.data || [];
 
   const handleMetadataChange = async (updates: Partial<DocumentMetadata>) => {
     if (!mapDocument?.document_id) return;
@@ -57,12 +59,17 @@ export const Topbar: React.FC = () => {
     }
   };
 
-  const handleSelectMap = (selectedMap: DistrictrMap) => {
+  const handleSelectMap = (
+    selectedMap: DistrictrMap,
+    mapType: 'districts' | 'coi' = 'districts'
+  ) => {
     createMapDocument({
       districtr_map_slug: selectedMap.districtr_map_slug,
+      map_type: mapType === 'coi' ? 'community' : 'default',
     }).then(r => {
       if (r.ok) {
-        router.push(`/map/edit/${r.response.document_id}`);
+        const rootPath = mapType === 'districts' ? 'map' : 'coi';
+        router.push(`/${rootPath}/edit/${r.response.document_id}`);
       } else {
         setErrorNotification({
           severity: 2,
@@ -112,14 +119,21 @@ export const Topbar: React.FC = () => {
                   <DropdownMenu.Sub>
                     <DropdownMenu.SubTrigger>Select a geography</DropdownMenu.SubTrigger>
                     <DropdownMenu.SubContent>
-                      {data?.length ? (
-                        data?.map((view, index) => (
-                          <DropdownMenu.Item key={index} onClick={() => handleSelectMap(view)}>
+                      {data.length ? (
+                        data.map((view, index) => (
+                          <DropdownMenu.Item
+                            key={index}
+                            onClick={() => handleSelectMap(view, mapMode)}
+                          >
                             {view.name}
                           </DropdownMenu.Item>
                         ))
                       ) : (
-                        <DropdownMenu.Item disabled>Loading geographies...</DropdownMenu.Item>
+                        <DropdownMenu.Item disabled>
+                          {mapViews?.isPending
+                            ? 'Loading geographies...'
+                            : 'No geographies available'}
+                        </DropdownMenu.Item>
                       )}
                     </DropdownMenu.SubContent>
                   </DropdownMenu.Sub>

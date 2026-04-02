@@ -1,0 +1,15 @@
+{
+  "lsp": {
+    "pyright": {
+      "settings": {
+        "python": {
+          "pythonPath": "/usr/local/bin/python"
+        },
+        "python.analysis": {
+          "extraPaths": ["/districtr-backend", "/usr/local/lib/python3.12/site-packages"],
+          "typeCheckingMode": "basic"
+        }
+      }
+    }
+  }
+}
