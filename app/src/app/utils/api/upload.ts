@@ -114,12 +114,14 @@ export const processFile = ({
   setMapLinks,
   setError,
   districtrMap,
+  documentMapType = 'default',
   config,
 }: {
   file: File;
   setMapLinks: React.Dispatch<React.SetStateAction<MapLink[]>>;
   setError: React.Dispatch<React.SetStateAction<any>>;
   districtrMap: DistrictrMap;
+  documentMapType?: 'default' | 'local' | 'community';
   config?: {
     ZONE: number;
     GEOID: number;
@@ -172,6 +174,7 @@ export const processFile = ({
             !row[ZONE] ? '' : String(+row[ZONE]),
           ]),
           districtr_map_slug: districtrMap.districtr_map_slug,
+          map_type: documentMapType,
         });
         if (uploadResult.ok && uploadResult.response?.document_id) {
           result = uploadResult.response;

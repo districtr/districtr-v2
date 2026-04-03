@@ -1,5 +1,5 @@
 import {IconButton} from '@radix-ui/themes';
-import React, {useRef} from 'react';
+import React, {useEffect, useMemo, useRef} from 'react';
 import classNames from 'classnames';
 import * as Accordion from '@radix-ui/react-accordion';
 import {DoubleArrowDownIcon, DragHandleHorizontalIcon} from '@radix-ui/react-icons';
@@ -21,6 +21,7 @@ const ResizableAccordionPanel: React.FC<{panel: DataPanelSpec; open: boolean}> =
     <Accordion.Item
       key={panel.title}
       value={panel.title}
+      data-testid={`data-panel-${panel.title}`}
       className="AccordionItem border-[1px] border-gray-300 rounded-lg my-1 bg-white relative"
       defaultValue={open ? 'open' : undefined}
       onMouseEnter={() => setHovered(true)}
@@ -82,16 +83,39 @@ const ResizableAccordionPanel: React.FC<{panel: DataPanelSpec; open: boolean}> =
   );
 };
 const DataPanels: React.FC<DataPanelsProps> = ({panels = defaultPanels}) => {
+  const mapMode = useMapControlsStore(state => state.mapMode);
   const sidebarPanels = useMapControlsStore(state => state.sidebarPanels);
   const setSidebarPanels = useMapControlsStore(state => state.setSidebarPanels);
+  const visiblePanels = useMemo(
+    () =>
+      mapMode === 'coi'
+        ? panels.filter(
+            panel =>
+              panel.title !== 'mapValidation' &&
+              panel.title !== 'population' &&
+              panel.title !== 'election'
+          )
+        : panels,
+    [mapMode, panels]
+  );
+  const visiblePanelTitles = visiblePanels.map(panel => panel.title);
+  const visibleSidebarPanels = sidebarPanels.filter(panel => visiblePanelTitles.includes(panel));
+
+  useEffect(() => {
+    if (visibleSidebarPanels.length !== sidebarPanels.length) {
+      setSidebarPanels(visibleSidebarPanels);
+    }
+  }, [setSidebarPanels, sidebarPanels, visibleSidebarPanels]);
+
   return (
     <Accordion.Root
       type="multiple"
       className="AccordionRoot"
-      value={sidebarPanels}
+      value={visibleSidebarPanels}
       onValueChange={setSidebarPanels}
+      data-testid="data-panels"
     >
-      {panels.map((panel, i) => (
+      {visiblePanels.map((panel, i) => (
         <ResizableAccordionPanel key={i} panel={panel} open={sidebarPanels.includes(panel.title)} />
       ))}
     </Accordion.Root>

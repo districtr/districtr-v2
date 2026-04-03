@@ -6,6 +6,7 @@ WORKDIR /districtr-backend
 
 # Install PostGIS extension, PostgreSQL client, and GDAL
 RUN apt-get update && apt-get install -y \
+    git \
     postgresql-client \
     libpq-dev \
     gdal-bin \

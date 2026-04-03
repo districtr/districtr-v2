@@ -18,8 +18,9 @@ import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useDocumentWithSync} from '@/app/hooks/useDocumentWithSync';
 import {SaveConflictModal} from '../SaveConflictModal';
-import {ZoneCommentModal} from '@components/Map/Tooltip/ZoneCommentModal';
+import {ZoneDescriptionModal} from '@components/Map/Tooltip/ZoneDescriptionModal';
 import {migrateUserMapsFromLocalStorage} from '@/app/utils/idb/migrateUserMaps';
+import {useInitializeMapMode} from '@/app/hooks/useInitializeMapMode';
 
 interface MapPageProps {
   isEditing: boolean;
@@ -27,6 +28,7 @@ interface MapPageProps {
 }
 
 function ChildMapPage({isEditing, mapId}: MapPageProps) {
+  const isMapModeReady = useInitializeMapMode('districts');
   const showDemographicMap = useMapControlsStore(
     state => state.mapOptions.showDemographicMap === 'side-by-side'
   );
@@ -50,7 +52,7 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
     conflictModal,
   } = useDocumentWithSync({
     document_id: mapId || undefined,
-    enabled: !!mapId,
+    enabled: isMapModeReady && !!mapId,
   });
 
   // Handle document loading errors
@@ -80,6 +82,10 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
     };
   }, []);
 
+  if (!isMapModeReady) {
+    return null;
+  }
+
   return (
     <div className="h-screen w-screen overflow-hidden flex justify-between p flex-col-reverse lg:flex-row-reverse landscape:flex-row-reverse">
       <SidebarComponent />
@@ -107,7 +113,7 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
       <ErrorNotification />
       {conflictModal}
       <SaveConflictModal />
-      <ZoneCommentModal />
+      <ZoneDescriptionModal />
     </div>
   );
 }

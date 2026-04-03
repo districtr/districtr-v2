@@ -2,18 +2,21 @@
 import {useMapStore} from '@/app/store/mapStore';
 import {createMapDocument} from '@/app/utils/api/apiHandlers/createMapDocument';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
+import {currMapRoute} from '@/app/utils/map/mapUrlRoute';
 import {Button} from '@radix-ui/themes';
 import {useRouter} from 'next/navigation';
 import {useEffect} from 'react';
 
-export const CreateButton: React.FC<{view: Partial<DistrictrMap>; extraClasses?: string}> = ({
-  view,
-  extraClasses,
-}) => {
+export const CreateButton: React.FC<{
+  view: Partial<DistrictrMap>;
+  extraClasses?: string;
+  isCommunity?: boolean;
+}> = ({view, extraClasses, isCommunity}) => {
   const router = useRouter();
   const userID = useMapStore(stat => stat.userID);
   const setUserID = useMapStore(stat => stat.setUserID);
   const setErrorNotification = useMapStore(stat => stat.setErrorNotification);
+  const shouldMakeCommunity = isCommunity ?? currMapRoute === 'coi';
 
   useEffect(() => {
     !userID && setUserID();
@@ -23,9 +26,10 @@ export const CreateButton: React.FC<{view: Partial<DistrictrMap>; extraClasses?:
     view.districtr_map_slug &&
       createMapDocument({
         districtr_map_slug: view.districtr_map_slug,
+        map_type: shouldMakeCommunity ? 'community' : view.map_type,
       }).then(r => {
         if (r.ok) {
-          router.push(`/map/edit/${r.response.document_id}`);
+          router.push(`/${shouldMakeCommunity ? 'coi' : 'map'}/edit/${r.response.document_id}`);
         } else {
           setErrorNotification({
             message: r.error.detail,
@@ -36,7 +40,11 @@ export const CreateButton: React.FC<{view: Partial<DistrictrMap>; extraClasses?:
   };
 
   return (
-    <Button onClick={handleCreatePlan} className={`w-fit h-auto px-2 py-1 ${extraClasses}`}>
+    <Button
+      onClick={handleCreatePlan}
+      className={`w-fit h-auto px-2 py-1 ${extraClasses}`}
+      aria-label={`Create ${view.name} map`}
+    >
       {view.name}
     </Button>
   );

@@ -88,6 +88,8 @@ class Settings(BaseSettings):
             path=self.POSTGRES_DB,
         )
 
+    VERBOSE_LOGGING: bool = False
+
     ECHO_DB: bool = ENVIRONMENT not in (Environment.production, Environment.test)
 
     # Moderation

@@ -35,6 +35,7 @@ yarn-error.log*
 # local env files
 .env*.local
 .env
+.envrc
 
 # vercel
 .vercel
@@ -89,3 +90,14 @@ pipelines/build/*
 # editors
 .vscode/
 .zed/
+
+# allow dev container editor configs
+!backend/.zed/
+!backend/pyrightconfig.json
+
+# misc
+docker-compose.mac.yml
+app/public/*-basemap-style.json
+/app/test-results
+/app/playwright-report
+app/playwright-report/index.html
