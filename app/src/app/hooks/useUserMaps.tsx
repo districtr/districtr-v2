@@ -7,6 +7,7 @@ export const useUserMaps = (updateTrigger: string | null | number = null) => {
   const _updateTrigger = useMapStore(state => state.mapDocument);
   const [communityMaps, setCommunityMaps] = useState<DocumentObject[]>([]);
   const [districtMaps, setDistrictMaps] = useState<DocumentObject[]>([]);
+  const [loading, setLoading] = useState(true);
   // Load recent maps from IndexedDB
   useEffect(() => {
     const loadRecentMaps = async () => {
@@ -29,8 +30,9 @@ export const useUserMaps = (updateTrigger: string | null | number = null) => {
       }
       setCommunityMaps(coiMaps);
       setDistrictMaps(districtMaps);
+      setLoading(false);
     };
     loadRecentMaps();
   }, [_updateTrigger, updateTrigger]);
-  return {communityMaps, districtMaps};
+  return {communityMaps, districtMaps, loading};
 };

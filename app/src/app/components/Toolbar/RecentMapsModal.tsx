@@ -11,7 +11,7 @@ export const RecentMapsModal: React.FC<{
   showTrigger?: boolean;
 }> = ({open, onClose, showTrigger}) => {
   const setActiveTool = useMapControlsStore(store => store.setActiveTool);
-  const {communityMaps, districtMaps} = useUserMaps();
+  const {communityMaps, districtMaps, loading} = useUserMaps();
 
   useEffect(() => {
     if (!open) {
@@ -30,7 +30,7 @@ export const RecentMapsModal: React.FC<{
   };
 
   const hasAnyMaps = communityMaps.length > 0 || districtMaps.length > 0;
-  if (!hasAnyMaps) {
+  if (!loading && !hasAnyMaps) {
     return null;
   }
 

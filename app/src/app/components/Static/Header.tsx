@@ -10,7 +10,7 @@ export const Header: React.FC = () => {
 
   const linkItems = [
     <Link href="/about" key={`link-items-1`} className="!font-bold !cursor-pointer">
-      About Districtr
+      About
     </Link>,
     <Link href="/guide" key={`link-items-2`} className="!font-bold !cursor-pointer">
       Guide
@@ -21,15 +21,19 @@ export const Header: React.FC = () => {
     <Link href="/rules" key={`link-items-4`} className="!font-bold !cursor-pointer">
       Rules of Redistricting
     </Link>,
-    <Link href="/maps" key={`link-items-5`} className="!font-bold !cursor-pointer">
-      Manage Maps
-    </Link>,
     <Link
       className="!font-bold !cursor-pointer"
       onClick={() => setModalOpen(true)}
       key={`link-items-6`}
     >
       Start Mapping
+    </Link>,
+    <Link
+      href="/maps"
+      key={`link-items-5`}
+      className="!font-bold !cursor-pointer text-districtrPurple"
+    >
+      My Maps
     </Link>,
   ];
 

@@ -128,8 +128,8 @@ const Main: React.FC = () => {
       <ContentSection title="Already have saved maps?">
         <Flex direction="column" gapY="3">
           <Text size="5">
-            Open the <Link href="/maps">Manage Maps page</Link> to view, filter, reopen, and remove
-            maps saved in your local browser storage.
+            Open the <Link href="/maps">My Maps page</Link> to view, filter, reopen, and remove maps
+            saved in your local browser storage.
           </Text>
           <Text size="3" color="gray">
             Local maps can be removed if browser data is cleared.
