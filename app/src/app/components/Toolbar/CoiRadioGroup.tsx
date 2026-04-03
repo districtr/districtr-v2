@@ -81,15 +81,29 @@ const CoiRadioRow: React.FC<{
           className={disabled ? 'opacity-25' : ''}
         />
         <Box flexGrow={'0'} flexShrink="0" mr="2">
-          <Text
-            size="2"
-            weight={isSelected ? 'bold' : 'regular'}
-            style={{
-              letterSpacing: isSelected ? '-0.23px' : undefined,
-            }}
-          >
-            {truncatedCommunityName}
-          </Text>
+          {communityNameIsLong ? (
+            <Tooltip content={community.name}>
+              <Text
+                size="2"
+                weight={isSelected ? 'bold' : 'regular'}
+                style={{
+                  letterSpacing: isSelected ? '-0.23px' : undefined,
+                }}
+              >
+                {truncatedCommunityName}
+              </Text>
+            </Tooltip>
+          ) : (
+            <Text
+              size="2"
+              weight={isSelected ? 'bold' : 'regular'}
+              style={{
+                letterSpacing: isSelected ? '-0.23px' : undefined,
+              }}
+            >
+              {community.name}
+            </Text>
+          )}
         </Box>
         <Box className="overflow-hidden" flexGrow="1">
           <Tooltip content={community.description}>
