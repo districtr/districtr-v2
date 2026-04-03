@@ -1,5 +1,5 @@
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import React, {useMemo, useState} from 'react';
+import React, {useMemo, useState, useCallback} from 'react';
 import {formatNumber} from '@/app/utils/numbers';
 import {Group} from '@visx/group';
 import {Bar, Line} from '@visx/shape';

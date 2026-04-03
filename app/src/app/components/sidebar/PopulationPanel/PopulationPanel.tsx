@@ -123,7 +123,6 @@ export const PopulationPanel = () => {
       </Flex>
     );
   }
-
   return (
     <Flex
       gap="0"
@@ -142,16 +141,21 @@ export const PopulationPanel = () => {
           idealPopulation={effectiveIdealPopulation}
         />
       </Flex>
-      <Flex direction="row" width={'100%'} gap="1">
-        <Flex
-          direction={'column'}
-          gap={'2'}
-          className={'flex-grow-0 p-0 pb-[80px]'}
-          justify={'between'}
-          minWidth={'5rem'}
-        >
-          <Flex justify="end" minHeight={isCommunityMode ? '12px' : '28px'}>
-            {!isCommunityMode && (
+      <Flex
+        direction="row"
+        gapX="1"
+        align="center"
+        justify="between"
+        minHeight={isCommunityMode ? '12px' : '28px'}
+        style={{width: '5rem'}}
+      >
+        {!isCommunityMode && (
+          <>
+            {!!showDistrictNumbers && (
+              <div style={{flexGrow: 1, maxWidth: '3rem'}} />
+            )}
+            <Flex gap="0" align="center">
+              <div style={{width: 24}} />
               <IconButton
                 onClick={toggleLockAllAreas}
                 variant="ghost"
@@ -161,121 +165,119 @@ export const PopulationPanel = () => {
               >
                 {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
               </IconButton>
-            )}
-          </Flex>
-          {/* @ts-ignore */}
-          {populationData.map((d, i) => (
+            </Flex>
+          </>
+        )}
+      </Flex>
+      <div style={{position: 'relative'}}>
+        <ConditionalScrollArea
+          shouldUseScrollableRows={shouldUseScrollableRows}
+          maxHeight="60vh"
+        >
+          <Flex direction="row" width={'100%'} gap="1">
             <Flex
-              justify="end"
-              style={{
-                position: 'sticky',
-                top: 0,
-                zIndex: 2,
-                backgroundColor: 'var(--gray-1)',
-              }}
+              direction={'column'}
+              gap={'2'}
+              className={'flex-grow-0 p-0 pb-[80px]'}
+              justify={'between'}
+              minWidth={'5rem'}
             >
-              {!!showDistrictNumbers && (
-                <IconButton
-                  variant={'outline'}
-                  onClick={() => selectCommunity(d.zone)}
-                  size="1"
-                  className={`${selectedZone === d.zone ? 'bg-gray-100' : '!shadow-none'} max-w-12 flex-grow`}
+              {/* @ts-ignore */}
+              {populationData.map((d, i) => (
+                <Flex
+                  key={d.zone}
+                  direction={'row'}
+                  gapY="1"
+                  gapX="1"
+                  align={'center'}
+                  className="p-0 m-0"
+                  justify={'between'}
                 >
-                  <Text weight={selectedZone === d.zone ? 'bold' : 'regular'}>
-                    {mapMode === 'coi'
-                      ? (getCommunityRenderOrderId(communities, d.zone) ?? d.zone)
-                      : d.zone}
-                  </Text>
-                </IconButton>
-              )}
-              <Flex gap="0" align="center">
-                <ZoneDescriptionPopover zone={d.zone} color={getZoneColor(d.zone)} />
-                {!!isEditing && (
-                  <>
-                    {isCommunityMode ? (
-                      <IconButton
-                        onClick={() => handleEditCommunity(d.zone)}
-                        variant="ghost"
-                        disabled={access === 'read'}
-                        aria-label={`Edit community ${d.zone}`}
-                      >
-                        <Pencil1Icon />
-                      </IconButton>
-                    ) : (
-                      <IconButton
-                        onClick={() => handleLockChange(d.zone)}
-                        variant="ghost"
-                        disabled={access === 'read'}
-                        aria-label={
-                          lockPaintedAreas.includes(d.zone)
-                            ? `Unlock district ${d.zone}`
-                            : `Lock district ${d.zone}`
-                        }
-                      >
-                        {lockPaintedAreas.includes(d.zone) ? <LockClosedIcon /> : <LockOpen2Icon />}
-                      </IconButton>
-                    )}
-                  </>
-                )}
-                <Flex gap="0" align="center">
-                  <ZoneCommentPopover
-                    zone={d.zone}
-                    color={colorScheme[(d.zone - 1) % colorScheme.length]}
-                  />
-                  {!!isEditing && (
+                  {!!showDistrictNumbers && (
                     <IconButton
-                      onClick={() => handleLockChange(d.zone)}
-                      variant="ghost"
-                      disabled={access === 'read'}
+                      variant={'outline'}
+                      onClick={() => selectCommunity(d.zone)}
+                      size="1"
+                      className={`${selectedZone === d.zone ? 'bg-gray-100' : '!shadow-none'} max-w-12 flex-grow`}
                     >
-                      {lockPaintedAreas.includes(d.zone) ? <LockClosedIcon /> : <LockOpen2Icon />}
+                      <Text weight={selectedZone === d.zone ? 'bold' : 'regular'}>
+                        {mapMode === 'coi'
+                          ? (getCommunityRenderOrderId(communities, d.zone) ?? d.zone)
+                          : d.zone}
+                      </Text>
                     </IconButton>
                   )}
+                  <Flex gap="0" align="center">
+                    <ZoneDescriptionPopover zone={d.zone} color={getZoneColor(d.zone)} />
+                    {!!isEditing && (
+                      <>
+                        {isCommunityMode ? (
+                          <IconButton
+                            onClick={() => handleEditCommunity(d.zone)}
+                            variant="ghost"
+                            disabled={access === 'read'}
+                            aria-label={`Edit community ${d.zone}`}
+                          >
+                            <Pencil1Icon />
+                          </IconButton>
+                        ) : (
+                          <IconButton
+                            onClick={() => handleLockChange(d.zone)}
+                            variant="ghost"
+                            disabled={access === 'read'}
+                            aria-label={
+                              lockPaintedAreas.includes(d.zone)
+                                ? `Unlock district ${d.zone}`
+                                : `Lock district ${d.zone}`
+                            }
+                          >
+                            {lockPaintedAreas.includes(d.zone) ? (
+                              <LockClosedIcon />
+                            ) : (
+                              <LockOpen2Icon />
+                            )}
+                          </IconButton>
+                        )}
+                      </>
+                    )}
+                  </Flex>
                 </Flex>
-              </Flex>
-            ))}
+              ))}
+            </Flex>
+            <ParentSize
+              style={{
+                height: chartHeight,
+                width: '100%',
+              }}
+            >
+              {({width, height}) => (
+                <PopulationChart
+                  width={width}
+                  height={height}
+                  data={populationData}
+                  idealPopulation={effectiveIdealPopulation}
+                  enableStickyRows={shouldUseScrollableRows}
+                  onBarSelect={selectCommunity}
+                />
+              )}
+            </ParentSize>
           </Flex>
-          <ParentSize
+        </ConditionalScrollArea>
+        {shouldUseScrollableRows && (
+          <div
             style={{
-              height: chartHeight,
-              width: '100%',
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              width: '5rem',
+              height: '60px',
+              background: 'linear-gradient(to bottom, transparent, var(--color-background))',
+              pointerEvents: 'none',
+              zIndex: 3,
             }}
-          >
-            {({width, height}) => (
-              <PopulationChart
-                width={width}
-                height={height}
-                data={populationData}
-                idealPopulation={idealPopulation}
-                enableStickyRows={shouldUseScrollableRows}
-              />
-            )}
-          </ParentSize>
-        </Flex>
-        {/* Cover the small overflow on the bottom left */}
-        <Box
-          style={{
-            backgroundColor: 'white',
-            width: 80,
-            height: 50,
-            position: 'sticky',
-            bottom: 0,
-            zIndex: 2,
-            left: 0,
-            display: shouldUseScrollableRows ? 'none' : 'block',
-          }}
-        >
-          {({width, height}) => (
-            <PopulationChart
-              width={width}
-              height={height}
-              data={populationData}
-              idealPopulation={effectiveIdealPopulation}
-              onBarSelect={selectCommunity}
-            />
-          )}
-        </ParentSize>
-      </Flex>
+          />
+        )}
+      </div>
       {!!idealPopulation && !isCommunityMode && (
         <Flex direction={'row'} justify={'between'} align={'start'} wrap="wrap">
           <Flex direction="column" gapX="2" minWidth={'10rem'}>
