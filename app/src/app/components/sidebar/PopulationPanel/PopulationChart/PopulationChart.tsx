@@ -78,6 +78,8 @@ export const PopulationChart: React.FC<{
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [isHovered, setIsHovered] = useState(false);
 
+  // Render helpers (not components) — they close over shared state (scales, hover, colors)
+  // and are only used within this component, so plain functions avoid prop-drilling 10+ values.
   const renderIdealReference = (fromY: number, referenceHeight: number) => {
     if (!effectiveIdealPopulation) return null;
 
