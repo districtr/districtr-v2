@@ -39,7 +39,6 @@ Source-of-truth runtime rules for map interaction, feature-state rendering, pain
 - Use throttling where high-frequency events already depend on it.
 
 ## Anti-Patterns
-- Directly mutating map state from unrelated components.
 - Bypassing lock/captive/overlay constraints in paint selection.
 - Re-implementing color-zone rendering outside `mapRenderSubs` flow.
 - Adding expensive geospatial operations in unthrottled `mousemove` paths.

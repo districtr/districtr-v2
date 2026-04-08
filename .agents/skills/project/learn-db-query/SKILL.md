@@ -31,14 +31,12 @@ Database implementation standards for SQLAlchemy-first query design, migration s
 - Keep migration behavior deterministic in both upgrade and downgrade paths.
 
 ## Preferred Patterns
-- Implement data logic in backend Python modules using composable query expressions.
 - Use transaction-safe bulk operations (`insert ... from select`, temp-table workflows) when needed.
 - Use Alembic revisions for schema evolution and data backfills.
 - Keep SQL in migrations/queries readable and testable.
 
 ## Anti-Patterns
 - Creating new UDFs or stored procedures for routine business logic (see UDF Use Exception below).
-- Embedding unparameterized dynamic SQL for values.
 - Coupling app behavior to opaque DB function internals without tests.
 
 ## UDF Use Exception

@@ -165,7 +165,7 @@ Basemap switching is handled in `MapContainer` via the map style URL.
 Overlay layers are positioned at `anchor-overlays` and support both PMTiles and GeoJSON sources. Overlay constraints can restrict painting (managed by `overlayStore`). Layer IDs use the `OVERLAY` prefix constants.
 
 ## Hard Invariants
-- Layer ordering must be maintained via anchor layers. Never use hardcoded `beforeId` values that bypass the anchor system.
+- Layer ordering must be maintained via anchor layers (`layerRenderConfig.ts`). Never use hardcoded `beforeId` values that bypass the anchor system.
 - The `blocks` source ID and `promoteId="path"` are load-bearing contracts - feature-state, filters, and event queries all depend on them.
 - District mode uses a single layer per scope (parent/child). COI mode uses one layer per community per scope. Do not conflate these patterns.
 - Community layers must maintain render-order sorting with the selected community on top.
@@ -178,7 +178,7 @@ Overlay layers are positioned at `anchor-overlays` and support both PMTiles and 
 - Creating zone color expressions that assume a fixed number of zones.
 - Mixing district and community feature-state keys in the same layer component.
 - Bypassing `useLayerFilter` to build custom shatter filter expressions.
-- Changing layer ordering without verifying the anchor layer insertion points in `layerRenderConfig.ts`.
+
 - Rendering community layers without respecting `communityVisibility` state.
 
 ## Change Checklist

@@ -39,7 +39,6 @@ Backend conventions for FastAPI + SQLModel/SQLAlchemy services, request dependen
 - Avoid in-memory Python processing for large spatial/tabular operations when DB can perform set-based operations.
 
 ## Preferred Patterns
-- Implement business logic as composable query operations with explicit parameters.
 - Use SQLAlchemy text/bindparams safely when dynamic SQL is unavoidable.
 - Keep endpoint handlers thin when shared logic already exists in modules (`assignments`, `utils`, etc.).
 - Add/adjust tests under `backend/tests` for endpoint or DB behavior changes.
@@ -69,4 +68,4 @@ Backend conventions for FastAPI + SQLModel/SQLAlchemy services, request dependen
 - Access-control regressions from using `get_document` where `get_protected_document` was intended.
 - Partial writes caused by commit timing mistakes in multi-step operations.
 - API schema drift that breaks frontend parsing.
-- Hidden performance regressions from accidental Python-side heavy transforms.
+

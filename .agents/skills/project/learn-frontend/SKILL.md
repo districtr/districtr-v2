@@ -77,7 +77,6 @@ Frontend architecture and conventions for a map-first, interaction-heavy app tha
 
 ## Anti-Patterns
 - Adding heavy loops in `mousemove`/paint paths on the main thread.
-- Bypassing stores and mutating map state from unrelated UI components.
 - Creating duplicate feature-state logic outside existing render subscriber/event utilities.
 - Mixing SSR-only and browser-only logic without guarding worker/map access.
 
