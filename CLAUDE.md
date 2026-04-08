@@ -10,7 +10,7 @@ Read [`.agents/AGENTS.md`](.agents/AGENTS.md) for full project context, guide se
 
 - **Architecture**: [`.agents/ARCHITECTURE.md`](.agents/ARCHITECTURE.md)
 - **Project guides**: `.agents/skills/project/` (12 domain-specific guides)
-- **Issue tracking**: `bd prime` or `bd ready` (beads CLI, optional)
+- **Issue tracking**: `bd prime` or `bd ready` (beads CLI >=1.0.0, optional)
 - **Frontend**: `app/` (Next.js App Router, Bun, TypeScript)
 - **Backend**: `backend/` (FastAPI, Python 3.12, SQLModel)
 - **Pipelines**: `pipelines/` (tilesets, tabular data, transforms)

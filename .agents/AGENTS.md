@@ -4,11 +4,11 @@
 > and skills (including project guides). Agent-specific directories (`.claude/`, `.cursor/`, `codex.md`)
 > are gitignored sync targets — see [Skills](#skills) below.
 
-This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get started.
+This project uses **bd** (beads >=1.0.0) for issue tracking. Run `bd onboard` to get started.
 
 ## Issue Tracking
 
-This project uses **bd (beads)** for issue tracking.
+This project uses **bd (beads >=1.0.0)** for issue tracking.
 Run `bd prime` for workflow context, or install hooks (`bd hooks install`) for auto-injection.
 
 **Quick reference:**
@@ -152,7 +152,7 @@ Agents should read the relevant guide(s) before making changes:
 5. **PUSH TO REMOTE** - This is MANDATORY:
    ```bash
    git pull --rebase
-   bd sync  # if beads is installed
+   bd dolt push  # if beads is installed
    git push
    git status  # MUST show "up to date with origin"
    ```
@@ -173,13 +173,16 @@ Agents should read the relevant guide(s) before making changes:
 
 ### Beads Issues
 **Problem**: `bd: command not found`
-**Solution**: Install Beads CLI following https://github.com/steveyegge/beads
+**Solution**: Install Beads CLI >=1.0.0: `brew install steveyegge/beads/bd` or see https://github.com/steveyegge/beads
+
+**Problem**: `bd init` fails with "invalid database name"
+**Solution**: Dolt doesn't allow hyphens in database names. Use `bd init --prefix <name_with_underscores>` (e.g. `bd init --prefix districtr_v2`). If retrying, first remove the stale database: `rm -rf .beads/dolt .beads/embeddeddolt` and reset `metadata.json`.
 
 **Problem**: `bd list` shows database errors
-**Solution**: Run `rm -rf .beads && bd init` to reinitialize
+**Solution**: Remove the Dolt database and reinitialize: `rm -rf .beads/dolt .beads/embeddeddolt && bd init --prefix districtr_v2`
 
 **Problem**: Issues not syncing with git
-**Solution**: Run `bd sync` after commits, ensure `.beads/` is tracked
+**Solution**: Run `bd dolt push` after commits, ensure `.beads/` is tracked
 
 ### Docker Issues
 **Problem**: `docker-compose up` fails with permission errors

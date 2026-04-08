@@ -35,40 +35,52 @@ get_body() {
   awk 'BEGIN{n=0} /^---$/{n++; next} n>=2{print}' "$1"
 }
 
+# List all skill directories (those containing SKILL.md) under AGENTS_DIR.
+# Outputs one directory path per line.
+list_skill_dirs() {
+  find "$AGENTS_DIR" -name SKILL.md -print0 | while IFS= read -r -d '' f; do
+    dirname "$f"
+  done
+}
+
+# Get the relative path of a skill directory from AGENTS_DIR.
+# e.g., ".agents/skills/project/learn-backend" → "project/learn-backend"
+skill_rel_path() {
+  local skill_dir="$1"
+  echo "${skill_dir#"$AGENTS_DIR"/}"
+}
+
+# Convert a relative path to a flat name for Cursor rule files.
+# e.g., "project/learn-backend" → "project-learn-backend"
+skill_flat_name() {
+  echo "$1" | tr '/' '-'
+}
+
 # ---------------------------------------------------------------------------
-# Claude Code — direct copy into .claude/skills/
+# Claude Code — copy into .claude/skills/ preserving relative paths
 # ---------------------------------------------------------------------------
 sync_claude() {
   local dir=".claude/skills"
   echo "==> Claude Code (.claude/skills/)"
+
+  # Clean and rebuild — simpler than tracking staleness across nested dirs
+  if [ -d "$dir" ]; then
+    rm -rf "$dir"
+  fi
   mkdir -p "$dir"
 
-  # Remove stale skills no longer in .agents/skills
-  for skill in "$dir"/*/; do
+  list_skill_dirs | while IFS= read -r skill; do
     [ -d "$skill" ] || continue
-    local name
-    name="$(basename "$skill")"
-    if [ ! -d "$AGENTS_DIR/$name" ]; then
-      echo "  Remove stale: $name"
-      rm -rf "$skill"
-    fi
-  done
-
-  # Copy new / updated skills
-  for skill in "$AGENTS_DIR"/*/; do
-    [ -d "$skill" ] || continue
-    local name
-    name="$(basename "$skill")"
-    if [ ! -d "$dir/$name" ] || [ "$(find "$skill" -newer "$dir/$name" -print -quit 2>/dev/null)" ]; then
-      echo "  Sync: $name"
-      rm -rf "${dir:?}/$name"
-      cp -r "$skill" "$dir/$name"
-    fi
+    local rel
+    rel="$(skill_rel_path "$skill")"
+    echo "  Sync: $rel"
+    mkdir -p "$dir/$(dirname "$rel")"
+    cp -r "$skill" "$dir/$rel"
   done
 }
 
 # ---------------------------------------------------------------------------
-# Cursor — convert SKILL.md → .cursor/rules/skill-<name>.mdc
+# Cursor — convert SKILL.md → .cursor/rules/skill-<flat-name>.mdc
 #
 # Cursor rules use their own frontmatter (description, globs, alwaysApply).
 # Reference files are inlined so the rule is self-contained.
@@ -80,30 +92,23 @@ sync_cursor() {
   echo "==> Cursor (.cursor/rules/)"
   mkdir -p "$dir"
 
-  # Remove stale synced rules
+  # Remove all synced rules and rebuild
   for rule in "$dir"/skill-*.mdc; do
-    [ -f "$rule" ] || continue
-    local name
-    name="$(basename "$rule" .mdc)"
-    name="${name#skill-}"
-    if [ ! -d "$AGENTS_DIR/$name" ]; then
-      echo "  Remove stale: $name"
-      rm -f "$rule"
-    fi
+    [ -f "$rule" ] && rm -f "$rule"
   done
 
-  # Convert and sync
-  for skill in "$AGENTS_DIR"/*/; do
+  list_skill_dirs | while IFS= read -r skill; do
     [ -d "$skill" ] || continue
     [ -f "$skill/SKILL.md" ] || continue
-    local name desc body target
-    name="$(basename "$skill")"
-    target="$dir/skill-${name}.mdc"
+    local rel flat desc body target
+    rel="$(skill_rel_path "$skill")"
+    flat="$(skill_flat_name "$rel")"
+    target="$dir/skill-${flat}.mdc"
 
     desc="$(get_field "$skill/SKILL.md" "description")"
     body="$(get_body "$skill/SKILL.md")"
 
-    echo "  Sync: $name"
+    echo "  Sync: $rel"
 
     {
       echo "---"
@@ -112,7 +117,7 @@ sync_cursor() {
       echo "alwaysApply: false"
       echo "---"
       echo ""
-      echo "# ${name}"
+      echo "# ${rel}"
       echo ""
       echo "${body}"
 
@@ -155,14 +160,14 @@ sync_codex() {
     echo ""
     echo "## Available Skills"
     echo ""
-    for skill in "$AGENTS_DIR"/*/; do
+    list_skill_dirs | sort | while IFS= read -r skill; do
       [ -d "$skill" ] || continue
       [ -f "$skill/SKILL.md" ] || continue
-      local name desc
-      name="$(basename "$skill")"
+      local rel desc
+      rel="$(skill_rel_path "$skill")"
       desc="$(get_field "$skill/SKILL.md" "description")"
-      echo "- **${name}** — ${desc}"
-      echo "  \`.agents/skills/${name}/SKILL.md\`"
+      echo "- **${rel}** — ${desc}"
+      echo "  \`.agents/skills/${rel}/SKILL.md\`"
     done
   } > codex.md
 
