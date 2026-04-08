@@ -18,13 +18,10 @@ const isSafariBrowser = (userAgent: string) => {
 };
 
 export const ManageMapsPage: React.FC = () => {
-  const [isSafari, setIsSafari] = React.useState(false);
-
-  React.useEffect(() => {
-    if (typeof navigator !== 'undefined') {
-      setIsSafari(isSafariBrowser(navigator.userAgent));
-    }
-  }, []);
+  const isSafari = React.useMemo(
+    () => typeof navigator !== 'undefined' && isSafariBrowser(navigator.userAgent),
+    []
+  );
 
   return (
     <Flex direction="column" gap="5">

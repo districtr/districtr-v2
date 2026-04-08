@@ -11,26 +11,30 @@ export const useUserMaps = (updateTrigger: string | null | number = null) => {
   // Load recent maps from IndexedDB
   useEffect(() => {
     const loadRecentMaps = async () => {
-      const storedDocs = await idb.getAllDocumentObjects();
-      // Sort by clientLastUpdated descending (most recent first)
+      setLoading(true);
+      try {
+        const storedDocs = await idb.getAllDocumentObjects();
+        // Sort by clientLastUpdated descending (most recent first)
 
-      const sortedDocs = storedDocs.sort((a, b) => {
-        const aTime = new Date(a.updated_at || 0).getTime();
-        const bTime = new Date(b.updated_at || 0).getTime();
-        return bTime - aTime;
-      });
-      const coiMaps: DocumentObject[] = [];
-      const districtMaps: DocumentObject[] = [];
-      for (const doc of sortedDocs) {
-        if (doc.map_type === 'community') {
-          coiMaps.push(doc);
-        } else {
-          districtMaps.push(doc);
+        const sortedDocs = storedDocs.sort((a, b) => {
+          const aTime = new Date(a.updated_at || 0).getTime();
+          const bTime = new Date(b.updated_at || 0).getTime();
+          return bTime - aTime;
+        });
+        const coiMaps: DocumentObject[] = [];
+        const districtMaps: DocumentObject[] = [];
+        for (const doc of sortedDocs) {
+          if (doc.map_type === 'community') {
+            coiMaps.push(doc);
+          } else {
+            districtMaps.push(doc);
+          }
         }
+        setCommunityMaps(coiMaps);
+        setDistrictMaps(districtMaps);
+      } finally {
+        setLoading(false);
       }
-      setCommunityMaps(coiMaps);
-      setDistrictMaps(districtMaps);
-      setLoading(false);
     };
     loadRecentMaps();
   }, [_updateTrigger, updateTrigger]);

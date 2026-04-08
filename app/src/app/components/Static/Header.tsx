@@ -24,13 +24,13 @@ export const Header: React.FC = () => {
     <Link
       className="!font-bold !cursor-pointer"
       onClick={() => setModalOpen(true)}
-      key={`link-items-6`}
+      key={`link-items-5`}
     >
       Start Mapping
     </Link>,
     <Link
       href="/maps"
-      key={`link-items-5`}
+      key={`link-items-6`}
       className="!font-bold !cursor-pointer text-districtrPurple"
     >
       My Maps

@@ -149,11 +149,12 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({
   // Reset page when filters, tab, or data change
   useEffect(() => {
     setCurrentPage(0);
-  }, [debouncedTextFilter, moduleFilter, activeTab]);
+  }, [debouncedTextFilter, moduleFilter, activeTab, filteredMaps.length]);
 
   const totalPages = pageSize ? Math.max(1, Math.ceil(filteredMaps.length / pageSize)) : 1;
+  const safePage = Math.min(currentPage, totalPages - 1);
   const paginatedMaps = pageSize
-    ? filteredMaps.slice(currentPage * pageSize, (currentPage + 1) * pageSize)
+    ? filteredMaps.slice(safePage * pageSize, (safePage + 1) * pageSize)
     : filteredMaps;
 
   const clearFilters = () => {
@@ -235,19 +236,19 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({
         variant="soft"
         color="gray"
         size="1"
-        disabled={currentPage === 0}
+        disabled={safePage === 0}
         onClick={() => setCurrentPage(p => p - 1)}
       >
         <ChevronLeftIcon />
       </IconButton>
       <Text size="2" color="gray">
-        Page {currentPage + 1} of {totalPages}
+        Page {safePage + 1} of {totalPages}
       </Text>
       <IconButton
         variant="soft"
         color="gray"
         size="1"
-        disabled={currentPage >= totalPages - 1}
+        disabled={safePage >= totalPages - 1}
         onClick={() => setCurrentPage(p => p + 1)}
       >
         <ChevronRightIcon />
@@ -300,7 +301,7 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({
           <Text size="2" color="gray">
             Showing {filteredMaps.length} of {allTabMaps.length}{' '}
             {activeTab === 'community' ? 'community' : 'district'} map
-            {allTabMaps.length === 1 ? '' : 's'}
+            {filteredMaps.length === 1 ? '' : 's'}
           </Text>
 
           {isFiltered && (
