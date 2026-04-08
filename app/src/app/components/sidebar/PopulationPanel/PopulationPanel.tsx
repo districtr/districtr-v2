@@ -1,4 +1,4 @@
-import {Box, Flex, Heading, IconButton, Spinner, Text} from '@radix-ui/themes';
+import {Flex, Heading, IconButton, Spinner, Text} from '@radix-ui/themes';
 import React, {useMemo, useState} from 'react';
 import {formatNumber} from '@utils/numbers';
 import {ParentSize} from '@visx/responsive'; // Import ParentSize
