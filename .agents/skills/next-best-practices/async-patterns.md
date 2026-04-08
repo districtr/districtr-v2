@@ -41,20 +41,6 @@ export default async function Page({ params, searchParams }: Props) {
 }
 ```
 
-### Synchronous Components
-
-Use `React.use()` for non-async components:
-
-```tsx
-import { use } from 'react'
-
-type Props = { params: Promise<{ slug: string }> }
-
-export default function Page({ params }: Props) {
-  const { slug } = use(params)
-}
-```
-
 ### generateMetadata
 
 ```tsx

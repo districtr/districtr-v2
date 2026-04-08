@@ -1,5 +1,11 @@
 # Directives
 
+## Districtr Usage
+
+- `'use client'` is used extensively — all interactive components, map pages, Zustand stores
+- `'use server'` is **not used** — the app has no Server Actions; all mutations go through the external FastAPI backend via API handlers
+- `'use cache'` is **not used** — cache components are not enabled
+
 ## React Directives
 
 These are React directives, not Next.js specific.
@@ -68,6 +74,6 @@ export async function getCachedData() {
 
 Requires `cacheComponents: true` in `next.config.ts`.
 
-For detailed usage including cache profiles, `cacheLife()`, `cacheTag()`, and `updateTag()`, see the `next-cache-components` skill.
+For detailed usage including cache profiles, `cacheLife()`, `cacheTag()`, and `updateTag()`, see https://nextjs.org/docs/app/api-reference/directives/use-cache.
 
 Reference: https://nextjs.org/docs/app/api-reference/directives/use-cache

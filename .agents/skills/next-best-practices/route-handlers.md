@@ -2,6 +2,14 @@
 
 Create API endpoints with `route.ts` files.
 
+## Districtr Usage
+
+The app has **minimal route handlers** — almost all data goes through the external FastAPI backend via the fetch factory (`src/app/utils/api/`). Existing route handlers:
+
+- `app/api/env/route.tsx` — exposes feature flags / runtime config (uses `noStore()`)
+- `app/api/og/[id]/route.tsx` — generates OpenGraph images via `ImageResponse`
+- `app/api/sentry-example-api/route.ts` — Sentry test endpoint
+
 ## Basic Usage
 
 ```tsx
@@ -142,5 +150,4 @@ return new Response(stream, {
 | Public REST API | Yes | No |
 | File uploads | Both work | Both work |
 
-**Prefer Server Actions** for mutations triggered from your UI.
-**Use Route Handlers** for external integrations and public APIs.
+**In Districtr:** mutations use API handlers via the fetch factory, not Server Actions or Route Handlers. Route Handlers are only used for OG images and config endpoints.

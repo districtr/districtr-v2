@@ -1,8 +1,8 @@
 # Runtime Selection
 
-## Use Node.js Runtime by Default
+## Districtr Runtime
 
-Use the default Node.js runtime for new routes and pages. Only use Edge runtime if the project already uses it or there's a specific requirement.
+This project runs on **Bun** (not Node.js) and is deployed on **Fly.io** with `output: 'standalone'`. Use the default runtime for new routes and pages. Only use Edge runtime if the project already uses it or there's a specific requirement.
 
 ```tsx
 // Good: Default - no runtime config needed (uses Node.js)

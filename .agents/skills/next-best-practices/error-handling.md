@@ -4,6 +4,32 @@ Handle errors gracefully in Next.js applications.
 
 Reference: https://nextjs.org/docs/app/getting-started/error-handling
 
+## Districtr: Result Types & Error Strategy
+
+The app uses a Rust-like discriminated union for all API responses. The factory in `src/app/utils/api/factory.ts` returns:
+
+```tsx
+{ ok: true; response: TResponse }
+| { ok: false; error: { detail: string } }
+```
+
+All API handler consumers must check `.ok` before accessing data:
+
+```tsx
+const result = await getAvailableDistrictrMaps({ limit, offset });
+if (!result.ok) {
+  // result.error.detail has the message
+  setErrorNotification({ message: result.error.detail, severity: 2 });
+  return;
+}
+// result.response is typed
+const maps = result.response;
+```
+
+**Global error boundary**: The app has `global-error.tsx` with Sentry (`@sentry/nextjs`) but no route-level `error.tsx` files. Unhandled exceptions are captured by Sentry.
+
+**Custom error classes** in `src/app/store/errors.ts`: `DocumentNotFoundError`, `DocumentCreationError`, `DocumentConflictResolutionError`.
+
 ## Error Boundaries
 
 ### `error.tsx`
