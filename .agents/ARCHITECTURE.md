@@ -66,7 +66,7 @@ graph TD
 
 ### Key wiring details
 
-- **Tiles & Parquet bypass the backend entirely.** The browser fetches PMTiles and Parquet directly from S3/R2 CDN using HTTP range requests. The backend never touches spatial or demographic data.
+- **Tiles & Parquet bypass the backend entirely.** The browser fetches PMTiles and Parquet directly from S3/R2 CDN using HTTP range requests. The backend does not provide geospatial data directly, but it has a canonical copy of GerryDB data used to find missing assignments and perform other geospatial data validation steps.
 - **No Next.js API proxy.** The browser makes direct CORS requests to FastAPI with Auth0 JWT tokens in headers.
 - **Auth0 session managed by Next.js.** The Next.js server handles OAuth2 login/callback and stores the JWT in an httpOnly session cookie. Client-side code extracts the token for API requests.
 - **IndexedDB is a local draft cache**, not a sync layer. Debounced writes store in-progress assignments; the server remains source of truth via optimistic concurrency (`updated_at`).
