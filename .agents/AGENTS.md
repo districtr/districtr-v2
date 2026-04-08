@@ -1,5 +1,9 @@
 # Agent Instructions
 
+> **`.agents/` is the canonical, git-committed directory** for all agent configuration,
+> skills, and expert guides. Agent-specific directories (`.claude/`, `.cursor/`, `codex.md`)
+> are gitignored sync targets — see [Skills](#skills) below.
+
 This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get started.
 
 ## Issue Tracking
@@ -76,6 +80,23 @@ bd update <id> --status in_progress  # Claim work
 bd update <id> --status done         # Complete work
 bd sync               # Sync with git
 ```
+
+## Skills
+
+`.agents/skills/` is the **canonical, git-tracked** source for all agent skills.
+The synced outputs (`.claude/`, `.cursor/`, `codex.md`) are **gitignored** — they are
+local-only build artifacts and must never be committed. Always edit skills in
+`.agents/skills/`, then run the sync script to distribute them.
+
+```bash
+./scripts/sync-skills.sh              # Sync to all agents (Claude, Cursor, Codex)
+./scripts/sync-skills.sh --claude     # Claude Code only  → .claude/skills/
+./scripts/sync-skills.sh --cursor     # Cursor only       → .cursor/rules/skill-*.mdc
+./scripts/sync-skills.sh --codex      # Codex only        → codex.md
+./scripts/sync-skills.sh --clean      # Remove all synced files
+```
+
+Run this after adding or editing skills in `.agents/skills/`.
 
 ## Expert Guides (Read Before Editing)
 
