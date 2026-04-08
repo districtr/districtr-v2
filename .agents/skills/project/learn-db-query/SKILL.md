@@ -1,7 +1,12 @@
-# DB_QUERY_AND_MIGRATIONS_EXPERT
+---
+name: learn-db-query
+description: SQLAlchemy-first DB patterns, Alembic migrations, partition handling, and UDF policy
+user-invocable: false
+---
 
-## Purpose
-Set database implementation standards for SQLAlchemy-first query design, migration safety, partition handling, and controlled migration away from legacy UDFs.
+# DB Query & Migrations
+
+Database implementation standards for SQLAlchemy-first query design, migration safety, partition handling, and controlled migration away from legacy UDFs.
 
 ## When To Use
 - You are changing DB query logic in backend code.
@@ -32,10 +37,15 @@ Set database implementation standards for SQLAlchemy-first query design, migrati
 - Keep SQL in migrations/queries readable and testable.
 
 ## Anti-Patterns
-- **no new UDF** by default for normal business logic.
-- Creating new stored procedures/functions to avoid writing maintainable query code.
+- Creating new UDFs or stored procedures for routine business logic (see UDF Use Exception below).
 - Embedding unparameterized dynamic SQL for values.
 - Coupling app behavior to opaque DB function internals without tests.
+
+## UDF Use Exception
+A new UDF/stored procedure is allowed only when you can document a measured performance/operational requirement that SQLAlchemy + set-based SQL cannot satisfy cleanly.
+
+## Legacy UDF Handling
+Legacy UDFs remain supported but should not expand. When touching UDF-backed flows, prefer incremental replacement with SQLAlchemy query composition or migration-safe inline SQL blocks.
 
 ## Change Checklist
 1. Confirm query can be expressed with SQLAlchemy + set-based SQL first.
@@ -47,16 +57,9 @@ Set database implementation standards for SQLAlchemy-first query design, migrati
 ## Validation Commands
 - `cd backend && alembic upgrade head`
 - `cd backend && pytest -v`
-- `rg -n "SQLAlchemy-First|no new UDF|Legacy UDF" .agents/experts/BE_EXPERT.md .agents/experts/DB_QUERY_AND_MIGRATIONS_EXPERT.md`
 
 ## Common Failure Modes
 - Broken downgrades from migration-only forward assumptions.
 - Query regressions from replacing set-based SQL with Python-side loops.
 - Partition mismatches causing inserts to fail or route incorrectly.
 - Raw SQL safety bugs from string interpolation of values.
-
-## UDF Use Exception
-A new UDF/stored procedure is allowed only when you can document a measured performance/operational requirement that SQLAlchemy + set-based SQL cannot satisfy cleanly.
-
-## Legacy UDF Handling
-Legacy UDFs remain supported but should not expand. When touching UDF-backed flows, prefer incremental replacement with SQLAlchemy query composition or migration-safe inline SQL blocks.

@@ -1,7 +1,12 @@
-# STATE_SYNC_EXPERT
+---
+name: learn-state-sync
+description: IDB/server sync, optimistic concurrency, and conflict resolution
+user-invocable: false
+---
 
-## Purpose
-Define the sync model between local IndexedDB, in-memory stores, and server state, including conflict detection and resolution.
+# State Sync
+
+Sync model between local IndexedDB, in-memory stores, and server state, including conflict detection and resolution.
 
 ## When To Use
 - You are changing document loading or map sync behavior.
@@ -49,8 +54,8 @@ Define the sync model between local IndexedDB, in-memory stores, and server stat
 - Manual sync scenario tests: remote newer, local newer, same timestamp, fork path.
 
 ## See Also
-- [FE_EXPERT.md](./FE_EXPERT.md) - Frontend state management
-- [BE_EXPERT.md](./BE_EXPERT.md) - Backend API contracts
+- [learn-frontend](../learn-frontend/SKILL.md) - Frontend state management
+- [learn-backend](../learn-backend/SKILL.md) - Backend API contracts
 
 ## Common Failure Modes
 - Duplicate/conflicting assignment sources applied to stores.

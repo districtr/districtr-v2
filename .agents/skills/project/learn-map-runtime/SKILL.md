@@ -1,7 +1,12 @@
-# MAP_RUNTIME_EXPERT
+---
+name: learn-map-runtime
+description: MapLibre interaction model, feature-state, paint/shatter behavior
+user-invocable: false
+---
 
-## Purpose
-Define source-of-truth runtime rules for map interaction, feature-state rendering, paint tools, and shatter/heal behavior.
+# Map Runtime
+
+Source-of-truth runtime rules for map interaction, feature-state rendering, paint tools, and shatter/heal behavior.
 
 ## When To Use
 - You are changing map events (`click`, `mousemove`, paint interactions).
@@ -51,9 +56,9 @@ Define source-of-truth runtime rules for map interaction, feature-state renderin
 - Manual flows: paint, erase, shatter, unshatter/heal, overlay-constrained paint, zone comments.
 
 ## See Also
-- [MAP_LAYERS_EXPERT.md](./MAP_LAYERS_EXPERT.md) - Layer stack, sources, map types, style expressions
-- [FE_EXPERT.md](./FE_EXPERT.md) - Frontend architecture and store-driven state
-- [STATE_SYNC_EXPERT.md](./STATE_SYNC_EXPERT.md) - State synchronization contracts
+- [learn-map-layers](../learn-map-layers/SKILL.md) - Layer stack, sources, map types, style expressions
+- [learn-frontend](../learn-frontend/SKILL.md) - Frontend architecture and store-driven state
+- [learn-state-sync](../learn-state-sync/SKILL.md) - State synchronization contracts
 
 ## Common Failure Modes
 - Ghost paint artifacts from unsynchronized feature-state updates.

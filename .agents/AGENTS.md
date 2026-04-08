@@ -1,7 +1,7 @@
 # Agent Instructions
 
-> **`.agents/` is the canonical, git-committed directory** for all agent configuration,
-> skills, and expert guides. Agent-specific directories (`.claude/`, `.cursor/`, `codex.md`)
+> **`.agents/` is the canonical, git-committed directory** for all agent configuration
+> and skills (including project guides). Agent-specific directories (`.claude/`, `.cursor/`, `codex.md`)
 > are gitignored sync targets — see [Skills](#skills) below.
 
 This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get started.
@@ -98,33 +98,34 @@ local-only build artifacts and must never be committed. Always edit skills in
 
 Run this after adding or editing skills in `.agents/skills/`.
 
-## Expert Guides (Read Before Editing)
+## Project Guides (Read Before Editing)
 
-Expert guides live in `./experts/` and document domain-specific implementation rules. Agents should read the relevant guide(s) before making changes:
+Domain-specific implementation guides live in `.agents/skills/project/` as skills.
+Agents should read the relevant guide(s) before making changes:
 
-- [`DOCKER_EXPERT.md`](./experts/DOCKER_EXPERT.md) - docker-compose topology, env files, local container workflows, quality-gate commands
-- [`FE_EXPERT.md`](./experts/FE_EXPERT.md) - frontend architecture and map-first FE conventions
-- [`MAP_LAYERS_EXPERT.md`](./experts/MAP_LAYERS_EXPERT.md) - layer stack, sources, map types (district vs COI), style expressions, shatter filters
-- [`MAP_RUNTIME_EXPERT.md`](./experts/MAP_RUNTIME_EXPERT.md) - MapLibre interaction model, feature-state, paint/shatter behavior
-- [`STATE_SYNC_EXPERT.md`](./experts/STATE_SYNC_EXPERT.md) - IDB/server sync, optimistic concurrency, conflict resolution
-- [`WORKERS_EXPERT.md`](./experts/WORKERS_EXPERT.md) - GeometryWorker/ParquetWorker contracts and performance guardrails
-- [`BE_EXPERT.md`](./experts/BE_EXPERT.md) - FastAPI + SQLModel conventions and backend architecture
-- [`DB_QUERY_AND_MIGRATIONS_EXPERT.md`](./experts/DB_QUERY_AND_MIGRATIONS_EXPERT.md) - SQLAlchemy-first DB patterns, migrations, legacy UDF transition rules
-- [`GERRYDB_MAP_LIFECYCLE_EXPERT.md`](./experts/GERRYDB_MAP_LIFECYCLE_EXPERT.md) - map data lifecycle: imports, shatter setup, edges, graph linkage
-- [`PIPELINES_EXPERT.md`](./experts/PIPELINES_EXPERT.md) - tiles/tabular/transforms pipeline contracts and toolchain requirements
-- [`CMS_MODERATION_EXPERT.md`](./experts/CMS_MODERATION_EXPERT.md) - CMS editing/review and moderation workflows
-- [`AUTH_SHARE_SECURITY_EXPERT.md`](./experts/AUTH_SHARE_SECURITY_EXPERT.md) - Auth0 scopes, recaptcha, and share/edit token security
+- [`learn-docker`](./skills/project/learn-docker/SKILL.md) - docker-compose topology, env files, local container workflows, quality-gate commands
+- [`learn-frontend`](./skills/project/learn-frontend/SKILL.md) - frontend architecture and map-first FE conventions
+- [`learn-map-layers`](./skills/project/learn-map-layers/SKILL.md) - layer stack, sources, map types (district vs COI), style expressions, shatter filters
+- [`learn-map-runtime`](./skills/project/learn-map-runtime/SKILL.md) - MapLibre interaction model, feature-state, paint/shatter behavior
+- [`learn-state-sync`](./skills/project/learn-state-sync/SKILL.md) - IDB/server sync, optimistic concurrency, conflict resolution
+- [`learn-workers`](./skills/project/learn-workers/SKILL.md) - GeometryWorker/ParquetWorker contracts and performance guardrails
+- [`learn-backend`](./skills/project/learn-backend/SKILL.md) - FastAPI + SQLModel conventions and backend architecture
+- [`learn-db-query`](./skills/project/learn-db-query/SKILL.md) - SQLAlchemy-first DB patterns, migrations, UDF policy
+- [`learn-map-lifecycle`](./skills/project/learn-map-lifecycle/SKILL.md) - map data lifecycle: imports, shatter setup, edges, graph linkage
+- [`learn-pipelines`](./skills/project/learn-pipelines/SKILL.md) - tiles/tabular/transforms pipeline contracts and toolchain requirements
+- [`learn-cms-moderation`](./skills/project/learn-cms-moderation/SKILL.md) - CMS editing/review and moderation workflows
+- [`learn-auth-share`](./skills/project/learn-auth-share/SKILL.md) - Auth0 scopes, recaptcha, and share/edit token security
 
 ### Guide Selection Rules
 
-- Docker/config/startup/test commands → [`DOCKER_EXPERT.md`](./experts/DOCKER_EXPERT.md)
-- Interactive map behavior or rendering changes → [`FE_EXPERT.md`](./experts/FE_EXPERT.md) + [`MAP_RUNTIME_EXPERT.md`](./experts/MAP_RUNTIME_EXPERT.md) + [`MAP_LAYERS_EXPERT.md`](./experts/MAP_LAYERS_EXPERT.md)
-- Layer rendering, styling, map types (district vs COI), basemaps, overlays → [`MAP_LAYERS_EXPERT.md`](./experts/MAP_LAYERS_EXPERT.md)
-- Worker or large-data FE processing changes → [`WORKERS_EXPERT.md`](./experts/WORKERS_EXPERT.md)
-- Sync/conflict/local persistence changes → [`STATE_SYNC_EXPERT.md`](./experts/STATE_SYNC_EXPERT.md)
-- Backend endpoint/model/query changes → [`BE_EXPERT.md`](./experts/BE_EXPERT.md) + [`DB_QUERY_AND_MIGRATIONS_EXPERT.md`](./experts/DB_QUERY_AND_MIGRATIONS_EXPERT.md)
-- Map onboarding/import/shatter/edge/graph changes → [`GERRYDB_MAP_LIFECYCLE_EXPERT.md`](./experts/GERRYDB_MAP_LIFECYCLE_EXPERT.md) (+ [`PIPELINES_EXPERT.md`](./experts/PIPELINES_EXPERT.md) if artifact generation changes)
-- CMS/comment/review changes → [`CMS_MODERATION_EXPERT.md`](./experts/CMS_MODERATION_EXPERT.md) (+ [`AUTH_SHARE_SECURITY_EXPERT.md`](./experts/AUTH_SHARE_SECURITY_EXPERT.md) if protected)
+- Docker/config/startup/test commands → [`learn-docker`](./skills/project/learn-docker/SKILL.md)
+- Interactive map behavior or rendering changes → [`learn-frontend`](./skills/project/learn-frontend/SKILL.md) + [`learn-map-runtime`](./skills/project/learn-map-runtime/SKILL.md) + [`learn-map-layers`](./skills/project/learn-map-layers/SKILL.md)
+- Layer rendering, styling, map types (district vs COI), basemaps, overlays → [`learn-map-layers`](./skills/project/learn-map-layers/SKILL.md)
+- Worker or large-data FE processing changes → [`learn-workers`](./skills/project/learn-workers/SKILL.md)
+- Sync/conflict/local persistence changes → [`learn-state-sync`](./skills/project/learn-state-sync/SKILL.md)
+- Backend endpoint/model/query changes → [`learn-backend`](./skills/project/learn-backend/SKILL.md) + [`learn-db-query`](./skills/project/learn-db-query/SKILL.md)
+- Map onboarding/import/shatter/edge/graph changes → [`learn-map-lifecycle`](./skills/project/learn-map-lifecycle/SKILL.md) (+ [`learn-pipelines`](./skills/project/learn-pipelines/SKILL.md) if artifact generation changes)
+- CMS/comment/review changes → [`learn-cms-moderation`](./skills/project/learn-cms-moderation/SKILL.md) (+ [`learn-auth-share`](./skills/project/learn-auth-share/SKILL.md) if protected)
 
 ### Backend DB Policy Reminder
 
@@ -139,7 +140,7 @@ Expert guides live in `./experts/` and document domain-specific implementation r
 **Before starting work:**
 - Ensure you are on the `dev` branch: most changes should be based on the `dev` branch, which will later be merged into main.
 - Check available issues: `bd ready` or `bd list` (if beads is installed)
-- Read relevant expert guides (see "Expert Guides" section above)
+- Read relevant project guides (see "Project Guides" section above)
 - Create new issues if needed: `bd create "Description" --type task --priority 2` (if beads is installed)
 
 **MANDATORY WORKFLOW:**

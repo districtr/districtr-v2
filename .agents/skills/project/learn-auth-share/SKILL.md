@@ -1,7 +1,12 @@
-# AUTH_SHARE_SECURITY_EXPERT
+---
+name: learn-auth-share
+description: Auth0 scopes, recaptcha verification, and share/edit token security patterns
+user-invocable: false
+---
 
-## Purpose
-Define authentication/authorization and share-security behavior across Auth0 scopes, recaptcha verification, and map share/edit-access tokens.
+# Auth & Share Security
+
+Authentication/authorization and share-security behavior across Auth0 scopes, recaptcha verification, and map share/edit-access tokens.
 
 ## When To Use
 - You are changing protected endpoints, scopes, or role behavior.

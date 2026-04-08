@@ -1,7 +1,12 @@
-# PIPELINES_EXPERT
+---
+name: learn-pipelines
+description: Tiles/tabular/transforms pipeline contracts and toolchain requirements
+user-invocable: false
+---
 
-## Purpose
-Define conventions for data pipelines that produce artifacts consumed by backend and frontend (tilesets, tabular parquet, transforms).
+# Pipelines
+
+Conventions for data pipelines that produce artifacts consumed by backend and frontend (tilesets, tabular parquet, transforms).
 
 ## When To Use
 - You are editing code in `pipelines/`.
@@ -29,7 +34,7 @@ Define conventions for data pipelines that produce artifacts consumed by backend
 - Use typed config models and batch config files for repeatable runs.
 - Keep heavy transforms in pipeline modules, not backend request paths.
 - Validate outputs before upload and before consumer integration.
-- Coordinate lifecycle changes with [GERRYDB_MAP_LIFECYCLE_EXPERT.md](./GERRYDB_MAP_LIFECYCLE_EXPERT.md).
+- Coordinate lifecycle changes with [learn-map-lifecycle](../learn-map-lifecycle/SKILL.md).
 
 ## Anti-Patterns
 - Changing output schema without verifying FE/BE ingestion assumptions.

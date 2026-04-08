@@ -1,7 +1,12 @@
-# GERRYDB_MAP_LIFECYCLE_EXPERT
+---
+name: learn-map-lifecycle
+description: Map data lifecycle - imports, shatter setup, edges, graph linkage
+user-invocable: false
+---
 
-## Purpose
-Define the end-to-end lifecycle for loading geospatial source layers, creating Districtr map metadata, wiring shatter relationships, and enabling contiguity support.
+# GerryDB Map Lifecycle
+
+End-to-end lifecycle for loading geospatial source layers, creating Districtr map metadata, wiring shatter relationships, and enabling contiguity support.
 
 ## When To Use
 - You are adding or modifying map/module onboarding workflows.
@@ -54,8 +59,8 @@ Define the end-to-end lifecycle for loading geospatial source layers, creating D
 - `cd backend && python cli.py batch-create-districtr-maps --help`
 
 ## See Also
-- [PIPELINES_EXPERT.md](./PIPELINES_EXPERT.md) - Data pipeline artifacts and contracts
-- [BE_EXPERT.md](./BE_EXPERT.md) - Backend integration points
+- [learn-pipelines](../learn-pipelines/SKILL.md) - Data pipeline artifacts and contracts
+- [learn-backend](../learn-backend/SKILL.md) - Backend integration points
 
 ## Common Failure Modes
 - Graph unavailable errors during contiguity checks.

@@ -1,7 +1,12 @@
-# CMS_MODERATION_EXPERT
+---
+name: learn-cms-moderation
+description: CMS editing/review workflows, TipTap extensions, and comment moderation
+user-invocable: false
+---
 
-## Purpose
-Define CMS authoring/review flows, TipTap extension expectations, and moderation/review semantics for comments and district comments.
+# CMS & Moderation
+
+CMS authoring/review flows, TipTap extension expectations, and moderation/review semantics for comments and district comments.
 
 ## When To Use
 - You are editing admin CMS UI or backend CMS endpoints.
@@ -50,8 +55,8 @@ Define CMS authoring/review flows, TipTap extension expectations, and moderation
 - `cd app && bun run build`
 
 ## See Also
-- [AUTH_SHARE_SECURITY_EXPERT.md](./AUTH_SHARE_SECURITY_EXPERT.md) - Authentication and security for protected CMS operations
-- [BE_EXPERT.md](./BE_EXPERT.md) - Backend CMS endpoints and models
+- [learn-auth-share](../learn-auth-share/SKILL.md) - Authentication and security for protected CMS operations
+- [learn-backend](../learn-backend/SKILL.md) - Backend CMS endpoints and models
 
 ## Common Failure Modes
 - Review status updates not reflected in admin lists due to filter mismatch.

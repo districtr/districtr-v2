@@ -1,7 +1,12 @@
-# DOCKER_EXPERT
+---
+name: learn-docker
+description: docker-compose topology, env files, local container workflows, and quality-gate commands
+user-invocable: false
+---
 
-## Purpose
-Define the source of truth for local containerized development, service startup order, environment configuration, and quality-gate commands.
+# Docker
+
+Source of truth for local containerized development, service startup order, environment configuration, and quality-gate commands.
 
 ## When To Use
 - You need to run the full stack locally (frontend, backend, db).

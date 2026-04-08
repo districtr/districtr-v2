@@ -1,7 +1,12 @@
-# WORKERS_EXPERT
+---
+name: learn-workers
+description: GeometryWorker/ParquetWorker contracts and performance guardrails
+user-invocable: false
+---
 
-## Purpose
-Define worker boundaries, Comlink contracts, cache behavior, and performance guardrails for geometry and parquet processing.
+# Workers
+
+Worker boundaries, Comlink contracts, cache behavior, and performance guardrails for geometry and parquet processing.
 
 ## When To Use
 - You are changing `GeometryWorker` or `ParquetWorker` interfaces/logic.
@@ -48,7 +53,7 @@ Define worker boundaries, Comlink contracts, cache behavior, and performance gua
 - Manual checks: map switch, shatter cycle, demography loading, centroid rendering.
 
 ## See Also
-- [FE_EXPERT.md](./FE_EXPERT.md) - Frontend integration and performance considerations
+- [learn-frontend](../learn-frontend/SKILL.md) - Frontend integration and performance considerations
 
 ## Common Failure Modes
 - Stale geometry cache after map source change.

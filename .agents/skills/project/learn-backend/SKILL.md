@@ -1,7 +1,12 @@
-# BE_EXPERT
+---
+name: learn-backend
+description: FastAPI + SQLModel conventions, request dependencies, transaction safety, and backend architecture
+user-invocable: false
+---
 
-## Purpose
-Define backend conventions for FastAPI + SQLModel/SQLAlchemy services, request dependencies, transaction safety, and SQLAlchemy-first implementation style.
+# Backend
+
+Backend conventions for FastAPI + SQLModel/SQLAlchemy services, request dependencies, transaction safety, and SQLAlchemy-first implementation style.
 
 ## When To Use
 - You are adding or changing API endpoints in `backend/app`.
@@ -23,10 +28,10 @@ Define backend conventions for FastAPI + SQLModel/SQLAlchemy services, request d
 - `backend/app/cms/*`
 - `backend/app/save_share/*`
 - `backend/app/exports/*`
-- `backend/app/sql/*` - legacy UDF SQL files (do not expand; see [DB_QUERY_AND_MIGRATIONS_EXPERT.md](./DB_QUERY_AND_MIGRATIONS_EXPERT.md))
+- `backend/app/sql/*` - legacy UDF SQL files (do not expand; see [learn-db-query](../learn-db-query/SKILL.md))
 
 ## Hard Invariants
-- **SQLAlchemy-First**: new backend logic defaults to SQLAlchemy/SQLModel query composition and set-based SQL.
+- **SQLAlchemy-First**: new backend logic defaults to SQLAlchemy/SQLModel query composition and set-based SQL. See [learn-db-query](../learn-db-query/SKILL.md) for full DB query policy.
 - Use dependency helpers consistently (`get_document`, `get_protected_document`, `parse_document_id`).
 - Preserve public/private document ID semantics and access guarantees.
 - Keep write paths transaction-safe; commit only after full operation success.
@@ -40,8 +45,6 @@ Define backend conventions for FastAPI + SQLModel/SQLAlchemy services, request d
 - Add/adjust tests under `backend/tests` for endpoint or DB behavior changes.
 
 ## Anti-Patterns
-- Introducing new UDF/stored-procedure dependencies for routine business logic.
-- Loading large assignment/spatial datasets into Python memory for row-by-row work.
 - Bypassing existing dependency guards and leaking private IDs.
 - Mixing unrelated concerns inside one endpoint without reusable helper boundaries.
 
@@ -50,7 +53,7 @@ Define backend conventions for FastAPI + SQLModel/SQLAlchemy services, request d
 2. Confirm DB writes are atomic and rollback-safe.
 3. Verify response schema alignment with frontend types.
 4. Confirm tests cover changed logic and edge/error paths.
-5. If touching legacy UDF paths, follow [DB_QUERY_AND_MIGRATIONS_EXPERT.md](./DB_QUERY_AND_MIGRATIONS_EXPERT.md).
+5. If touching legacy UDF paths, follow [learn-db-query](../learn-db-query/SKILL.md).
 
 ## Validation Commands
 - `cd backend && pytest -v`
@@ -58,18 +61,12 @@ Define backend conventions for FastAPI + SQLModel/SQLAlchemy services, request d
 - `docker-compose up pre-commit`
 
 ## See Also
-- [DB_QUERY_AND_MIGRATIONS_EXPERT.md](./DB_QUERY_AND_MIGRATIONS_EXPERT.md) - SQLAlchemy-first DB patterns and migrations
-- [AUTH_SHARE_SECURITY_EXPERT.md](./AUTH_SHARE_SECURITY_EXPERT.md) - Authentication and security
-- [DOCKER_EXPERT.md](./DOCKER_EXPERT.md) - Container and development setup
+- [learn-db-query](../learn-db-query/SKILL.md) - SQLAlchemy-first DB patterns, migrations, UDF policy
+- [learn-auth-share](../learn-auth-share/SKILL.md) - Authentication and security
+- [learn-docker](../learn-docker/SKILL.md) - Container and development setup
 
 ## Common Failure Modes
 - Access-control regressions from using `get_document` where `get_protected_document` was intended.
 - Partial writes caused by commit timing mistakes in multi-step operations.
 - API schema drift that breaks frontend parsing.
 - Hidden performance regressions from accidental Python-side heavy transforms.
-
-## UDF Use Exception
-New UDFs are allowed only with a measured, documented performance or operational rationale that cannot be met with SQLAlchemy + set-based SQL.
-
-## Legacy UDF Handling
-Treat current UDFs as legacy maintenance surface. Do not expand that surface area; when modifying UDF-backed functionality, prefer refactoring toward SQLAlchemy query composition or migration-safe inline SQL.

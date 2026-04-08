@@ -1,7 +1,12 @@
-# FE_EXPERT
+---
+name: learn-frontend
+description: Frontend architecture, Zustand stores, map-first conventions, and subscription model
+user-invocable: false
+---
 
-## Purpose
-Document frontend architecture and conventions for a map-first, interaction-heavy app that is not a traditional CRUD website.
+# Frontend
+
+Frontend architecture and conventions for a map-first, interaction-heavy app that is not a traditional CRUD website.
 
 ## When To Use
 - You are changing interactive map behavior, rendering, painting, or shattering.
@@ -56,18 +61,18 @@ Document frontend architecture and conventions for a map-first, interaction-heav
 ## Hard Invariants
 - Frontend state is store-driven (Zustand), not component-local ad hoc state unless truly local to component.
 - Cross-store side effects are wired via subscriptions in `subscriptions.tsx` / `mapEditSubs.ts` / `metricsSubs.ts`. Do not scatter ad hoc subscription wiring in components.
-- Store middleware chain (persist → devtools → temporal → subscribeWithSelector) is composed in `middlewares.ts`. Do not duplicate or bypass this factory.
+- Store middleware chain (persist -> devtools -> temporal -> subscribeWithSelector) is composed in `middlewares.ts`. Do not duplicate or bypass this factory.
 - Painting/shattering behavior depends on MapLibre feature-state and must remain synchronous-feeling.
 - High-cost geometry/tabular work belongs in Web Workers, not React render paths.
 - Demography and assignment behavior must preserve map load-state gating (`initializing/loading/loaded`).
-- Conflict/sync behaviors must preserve IDB + server semantics (see [STATE_SYNC_EXPERT.md](./STATE_SYNC_EXPERT.md)).
-- Runtime map logic must preserve contracts in [MAP_RUNTIME_EXPERT.md](./MAP_RUNTIME_EXPERT.md).
+- Conflict/sync behaviors must preserve IDB + server semantics (see [learn-state-sync](../learn-state-sync/SKILL.md)).
+- Runtime map logic must preserve contracts in [learn-map-runtime](../learn-map-runtime/SKILL.md).
 
 ## Preferred Patterns
 - Extend existing store boundaries before adding new global state containers.
 - Keep map interaction logic in event handlers/subscribers, not scattered UI components.
 - Use existing API factory/handlers under `utils/api` for network behavior.
-- Offload heavy computation to [WORKERS_EXPERT.md](./WORKERS_EXPERT.md) paths.
+- Offload heavy computation to [learn-workers](../learn-workers/SKILL.md) paths.
 - Reuse typed API contracts from `apiHandlers/types.ts`.
 
 ## Anti-Patterns
@@ -89,10 +94,10 @@ Document frontend architecture and conventions for a map-first, interaction-heav
 - `cd app && bun run ts`
 
 ## See Also
-- [MAP_LAYERS_EXPERT.md](./MAP_LAYERS_EXPERT.md) - Layer stack, sources, map types, style expressions
-- [MAP_RUNTIME_EXPERT.md](./MAP_RUNTIME_EXPERT.md) - Runtime map interaction and rendering rules
-- [STATE_SYNC_EXPERT.md](./STATE_SYNC_EXPERT.md) - State synchronization between local and server
-- [WORKERS_EXPERT.md](./WORKERS_EXPERT.md) - Web worker contracts and performance
+- [learn-map-layers](../learn-map-layers/SKILL.md) - Layer stack, sources, map types, style expressions
+- [learn-map-runtime](../learn-map-runtime/SKILL.md) - Runtime map interaction and rendering rules
+- [learn-state-sync](../learn-state-sync/SKILL.md) - State synchronization between local and server
+- [learn-workers](../learn-workers/SKILL.md) - Web worker contracts and performance
 
 ## Common Failure Modes
 - Regressed paint behavior from bypassing `assignmentsStore` accumulation/ingestion flow.
