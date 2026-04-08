@@ -161,3 +161,7 @@ app/playwright-report/index.html
 codex.md
 .cursor
 .claude
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+.beads-credential-key

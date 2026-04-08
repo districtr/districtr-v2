@@ -1,6 +1,7 @@
 {
   "database": "dolt",
-  "jsonl_export": "issues.jsonl",
   "backend": "dolt",
-  "dolt_database": "beads_districtr-v2"
+  "dolt_mode": "embedded",
+  "dolt_database": "beads_districtr_v2",
+  "project_id": "4cc490a6-9f16-4dd5-855f-be136dcffb99"
 }
