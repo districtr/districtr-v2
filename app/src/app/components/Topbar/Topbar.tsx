@@ -188,8 +188,8 @@ export const Topbar: React.FC = () => {
                   </DropdownMenu.Item>
                 </DropdownMenu.SubContent>
               </DropdownMenu.Sub>
-              <DropdownMenu.Item onClick={() => router.push('/maps')}>
-                Manage local maps
+              <DropdownMenu.Item onClick={() => router.push('/my-maps')}>
+                Manage my maps
               </DropdownMenu.Item>
               <DropdownMenu.Sub>
                 <DropdownMenu.SubTrigger disabled={!mapDocument?.document_id || access === 'read'}>

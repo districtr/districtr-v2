@@ -29,7 +29,7 @@ export const Header: React.FC = () => {
       Start Mapping
     </Link>,
     <Link
-      href="/maps"
+      href="/my-maps"
       key={`link-items-6`}
       className="!font-bold !cursor-pointer text-districtrPurple"
     >
