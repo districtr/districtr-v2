@@ -3,11 +3,13 @@ import {useState} from 'react';
 import {SegmentedControl, Flex, Grid} from '@radix-ui/themes';
 import {CreateButton} from './CreateButton';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
+import {sanitizeCommunityMaps} from '@/app/utils/communities';
 
 type MapTab = 'districts' | 'community';
 
 export const PlaceMapGrid: React.FC<{maps: Partial<DistrictrMap>[]}> = ({maps}) => {
   const [activeTab, setActiveTab] = useState<MapTab>('districts');
+  const filteredMaps = activeTab === 'districts' ? maps : sanitizeCommunityMaps(maps);
 
   return (
     <Flex direction="column" gap="3">
@@ -29,7 +31,7 @@ export const PlaceMapGrid: React.FC<{maps: Partial<DistrictrMap>[]}> = ({maps}) 
           lg: '4',
         }}
       >
-        {maps.map((view, i) => (
+        {filteredMaps.map((view, i) => (
           <CreateButton key={i} view={view} isCommunity={activeTab === 'community'} />
         ))}
       </Grid>

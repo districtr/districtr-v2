@@ -28,6 +28,7 @@ import {saveMapDocumentMetadata} from '@/app/utils/api/apiHandlers/saveMapDocume
 import {idb} from '@/app/utils/idb/idb';
 import {RevertPopover} from './RevertPopover';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {sanitizeCommunityModuleName} from '@/app/utils/communities';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
@@ -125,7 +126,9 @@ export const Topbar: React.FC = () => {
                             key={index}
                             onClick={() => handleSelectMap(view, mapMode)}
                           >
-                            {view.name}
+                            {mapMode === 'districts'
+                              ? view.name
+                              : sanitizeCommunityModuleName(view.name)}
                           </DropdownMenu.Item>
                         ))
                       ) : (

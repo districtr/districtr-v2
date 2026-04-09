@@ -1,0 +1,65 @@
+export const US_STATE_META: Array<{
+  FIPS: string;
+  NAME: string;
+  ABBR: string;
+}> = [
+  {FIPS: '01', NAME: 'Alabama', ABBR: 'AL'},
+  {FIPS: '02', NAME: 'Alaska', ABBR: 'AK'},
+  {FIPS: '04', NAME: 'Arizona', ABBR: 'AZ'},
+  {FIPS: '05', NAME: 'Arkansas', ABBR: 'AR'},
+  {FIPS: '06', NAME: 'California', ABBR: 'CA'},
+  {FIPS: '08', NAME: 'Colorado', ABBR: 'CO'},
+  {FIPS: '09', NAME: 'Connecticut', ABBR: 'CT'},
+  {FIPS: '10', NAME: 'Delaware', ABBR: 'DE'},
+  {FIPS: '12', NAME: 'Florida', ABBR: 'FL'},
+  {FIPS: '13', NAME: 'Georgia', ABBR: 'GA'},
+  {FIPS: '15', NAME: 'Hawaii', ABBR: 'HI'},
+  {FIPS: '16', NAME: 'Idaho', ABBR: 'ID'},
+  {FIPS: '17', NAME: 'Illinois', ABBR: 'IL'},
+  {FIPS: '18', NAME: 'Indiana', ABBR: 'IN'},
+  {FIPS: '19', NAME: 'Iowa', ABBR: 'IA'},
+  {FIPS: '20', NAME: 'Kansas', ABBR: 'KS'},
+  {FIPS: '21', NAME: 'Kentucky', ABBR: 'KY'},
+  {FIPS: '22', NAME: 'Louisiana', ABBR: 'LA'},
+  {FIPS: '23', NAME: 'Maine', ABBR: 'ME'},
+  {FIPS: '24', NAME: 'Maryland', ABBR: 'MD'},
+  {FIPS: '25', NAME: 'Massachusetts', ABBR: 'MA'},
+  {FIPS: '26', NAME: 'Michigan', ABBR: 'MI'},
+  {FIPS: '27', NAME: 'Minnesota', ABBR: 'MN'},
+  {FIPS: '28', NAME: 'Mississippi', ABBR: 'MS'},
+  {FIPS: '29', NAME: 'Missouri', ABBR: 'MO'},
+  {FIPS: '30', NAME: 'Montana', ABBR: 'MT'},
+  {FIPS: '31', NAME: 'Nebraska', ABBR: 'NE'},
+  {FIPS: '32', NAME: 'Nevada', ABBR: 'NV'},
+  {FIPS: '33', NAME: 'New Hampshire', ABBR: 'NH'},
+  {FIPS: '34', NAME: 'New Jersey', ABBR: 'NJ'},
+  {FIPS: '35', NAME: 'New Mexico', ABBR: 'NM'},
+  {FIPS: '36', NAME: 'New York', ABBR: 'NY'},
+  {FIPS: '37', NAME: 'North Carolina', ABBR: 'NC'},
+  {FIPS: '38', NAME: 'North Dakota', ABBR: 'ND'},
+  {FIPS: '39', NAME: 'Ohio', ABBR: 'OH'},
+  {FIPS: '40', NAME: 'Oklahoma', ABBR: 'OK'},
+  {FIPS: '41', NAME: 'Oregon', ABBR: 'OR'},
+  {FIPS: '42', NAME: 'Pennsylvania', ABBR: 'PA'},
+  {FIPS: '44', NAME: 'Rhode Island', ABBR: 'RI'},
+  {FIPS: '45', NAME: 'South Carolina', ABBR: 'SC'},
+  {FIPS: '46', NAME: 'South Dakota', ABBR: 'SD'},
+  {FIPS: '47', NAME: 'Tennessee', ABBR: 'TN'},
+  {FIPS: '48', NAME: 'Texas', ABBR: 'TX'},
+  {FIPS: '49', NAME: 'Utah', ABBR: 'UT'},
+  {FIPS: '50', NAME: 'Vermont', ABBR: 'VT'},
+  {FIPS: '51', NAME: 'Virginia', ABBR: 'VA'},
+  {FIPS: '53', NAME: 'Washington', ABBR: 'WA'},
+  {FIPS: '54', NAME: 'West Virginia', ABBR: 'WV'},
+  {FIPS: '55', NAME: 'Wisconsin', ABBR: 'WI'},
+  {FIPS: '56', NAME: 'Wyoming', ABBR: 'WY'},
+  {FIPS: '72', NAME: 'Puerto Rico', ABBR: 'PR'},
+] as const;
+
+export const VALID_STATES_LABELS = US_STATE_META.map(
+  ({NAME}) =>
+    ({
+      label: NAME,
+      value: NAME,
+    }) as const
+);

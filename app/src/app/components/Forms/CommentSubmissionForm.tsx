@@ -7,7 +7,7 @@ import {FormField} from './FormField';
 import {CommentFormTagSelector} from './CommentFormTagSelector';
 import {MapSelector} from './MapSelector';
 import {useRecaptcha} from '@/app/hooks/useRecaptcha';
-import {VALID_STATES_LABELS} from './constants';
+import {VALID_STATES_LABELS} from '@/app/constants/meta/usStates';
 import {useLayoutEffect, useRef} from 'react';
 
 export const CommentSubmissionForm: React.FC<{
