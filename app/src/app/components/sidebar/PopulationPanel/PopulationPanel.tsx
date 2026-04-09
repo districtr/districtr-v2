@@ -58,7 +58,11 @@ export const PopulationPanel = () => {
   const getZoneColor = useZoneColorGetter();
   const isEditing = useMapControlsStore(state => state.isEditing);
   const shouldUseScrollableRows = populationData.length > 10;
-  const chartHeight = populationData.length ? `${populationData.length * 38 + 76}px` : '200px';
+  const chartHeightNum = populationData.length ? populationData.length * 38 + 76 : 200;
+  const chartHeight = `${chartHeightNum}px`;
+  const chartMargins = {top: 20, bottom: 80};
+  const yMax = chartHeightNum - chartMargins.top - chartMargins.bottom;
+  const rowHeight = populationData.length ? yMax / populationData.length : 0;
 
   const selectCommunity = useSelectCommunity();
   const colorScheme = useColorScheme();
@@ -177,21 +181,20 @@ export const PopulationPanel = () => {
           <Flex direction="row" width={'100%'} gap="1">
             <Flex
               direction={'column'}
-              gap={'2'}
-              className={'flex-grow-0 p-0 pb-[80px]'}
-              justify={'between'}
+              className={'flex-grow-0 p-0'}
               minWidth={'5rem'}
+              style={{paddingTop: chartMargins.top + 2}}
             >
               {/* @ts-ignore */}
               {populationData.map((d, i) => (
                 <Flex
                   key={d.zone}
                   direction={'row'}
-                  gapY="1"
                   gapX="1"
                   align={'center'}
                   className="p-0 m-0"
                   justify={'between'}
+                  style={{height: rowHeight}}
                 >
                   {!!showDistrictNumbers && (
                     <IconButton
