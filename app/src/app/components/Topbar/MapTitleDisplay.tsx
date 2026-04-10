@@ -13,15 +13,12 @@ import {
 } from '@radix-ui/themes';
 import {useEffect, useState} from 'react';
 import {MAX_TITLE_LENGTH} from '@/app/utils/language';
-import {
-  DocumentMetadata,
-  DocumentObject,
-} from '@/app/utils/api/apiHandlers/types';
+import {DocumentMetadata, DocumentObject} from '@/app/utils/api/apiHandlers/types';
 import {
   DRAFT_STATUSES,
   type DraftStatus,
   DRAFT_STATUS_TEXT,
-  DRAFT_STATUS_ORDER
+  DRAFT_STATUS_ORDER,
 } from '@constants/map/draftStatus';
 import {Cross2Icon, Pencil1Icon} from '@radix-ui/react-icons';
 import {MapContextModuleAndUnits} from './MapContextModuleAndUnits';

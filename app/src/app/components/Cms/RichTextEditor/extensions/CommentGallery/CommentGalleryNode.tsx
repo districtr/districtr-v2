@@ -14,7 +14,11 @@ import {ReactNodeViewRenderer} from '@tiptap/react';
 import CommentGalleryNodeView from './CommentGalleryNodeView';
 import type {CommentGalleryProps} from './CommentGallery';
 import {getJsonHtmlRenderer, getStandardHtmlParser} from '../extensionUtils';
-import {RICH_TEXT_NODE_TYPES, COMMENT_GALLERY_ATTRIBUTES, NODE_TYPE_ATTRIBUTE_NAME} from '@constants/cms';
+import {
+  RICH_TEXT_NODE_TYPES,
+  COMMENT_GALLERY_ATTRIBUTES,
+  NODE_TYPE_ATTR_NAME,
+} from '@constants/cms';
 
 // Extend TipTap's command interface to include our custom command
 declare module '@tiptap/core' {
@@ -50,13 +54,19 @@ export const CommentGalleryNode = Node.create({
   parseHTML() {
     return [
       {
-        tag: `div[${NODE_TYPE_ATTRIBUTE_NAME}="${RICH_TEXT_NODE_TYPES.COMMENT_GALLERY}"]`,
+        tag: `div[${NODE_TYPE_ATTR_NAME}="${RICH_TEXT_NODE_TYPES.COMMENT_GALLERY}"]`,
       },
     ];
   },
 
   renderHTML({HTMLAttributes}) {
-    return ['div', mergeAttributes(HTMLAttributes, {[NODE_TYPE_ATTRIBUTE_NAME]: RICH_TEXT_NODE_TYPES.COMMENT_GALLERY}), 0];
+    return [
+      'div',
+      mergeAttributes(HTMLAttributes, {
+        [NODE_TYPE_ATTR_NAME]: RICH_TEXT_NODE_TYPES.COMMENT_GALLERY,
+      }),
+      0,
+    ];
   },
 
   addCommands() {

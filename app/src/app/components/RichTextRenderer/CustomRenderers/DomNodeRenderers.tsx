@@ -2,11 +2,20 @@ import {DOMNode} from 'html-react-parser';
 import BoilerplateNodeRenderer from '../../Cms/RichTextEditor/extensions/Boilerplate/BoilerplateNodeRenderer';
 import {ContentHeader} from '../../Static/ContentHeader';
 import {CommentSubmissionForm} from '../../Forms/CommentSubmissionForm';
-import {PlanGallery, PlanGalleryProps} from '../../Cms/RichTextEditor/extensions/PlanGallery/PlanGallery';
-import {MapCreateButtons, MapCreateButtonsProps} from '../../Cms/RichTextEditor/extensions/MapCreateButtons/MapCreateButtons';
-import {CommentGallery, CommentGalleryProps} from '../../Cms/RichTextEditor/extensions/CommentGallery/CommentGallery';
 import {
-  NODE_TYPE_ATTRIBUTE_NAME,
+  PlanGallery,
+  PlanGalleryProps,
+} from '../../Cms/RichTextEditor/extensions/PlanGallery/PlanGallery';
+import {
+  MapCreateButtons,
+  MapCreateButtonsProps,
+} from '../../Cms/RichTextEditor/extensions/MapCreateButtons/MapCreateButtons';
+import {
+  CommentGallery,
+  CommentGalleryProps,
+} from '../../Cms/RichTextEditor/extensions/CommentGallery/CommentGallery';
+import {
+  NODE_TYPE_ATTR_NAME,
   RICH_TEXT_NODE_TYPES,
   BOILERPLATE_ATTRIBUTE_NAME,
   SECTION_HEADER_ATTRIBUTE_NAME,
@@ -18,8 +27,8 @@ import {
 
 export const domNodeReplacers = (disabled: boolean) => {
   const domNodeReplaceFn = (domNode: DOMNode) => {
-    if (domNode.type === 'tag' && domNode.attribs?.[NODE_TYPE_ATTRIBUTE_NAME]?.length) {
-      switch (domNode.attribs[NODE_TYPE_ATTRIBUTE_NAME]) {
+    if (domNode.type === 'tag' && domNode.attribs?.[NODE_TYPE_ATTR_NAME]?.length) {
+      switch (domNode.attribs[NODE_TYPE_ATTR_NAME]) {
         case RICH_TEXT_NODE_TYPES.BOILERPLATE: {
           const data = domNode.attribs[BOILERPLATE_ATTRIBUTE_NAME];
           const customContent = data ? JSON.parse(data) : null;
@@ -37,7 +46,7 @@ export const domNodeReplacers = (disabled: boolean) => {
               JSON.parse(domNode.attribs[attr.name] ?? 'null'),
             ])
           ) as PlanGalleryProps;
-          return <PlanGallery {...props} />
+          return <PlanGallery {...props} />;
         }
         case RICH_TEXT_NODE_TYPES.FORM: {
           const props = Object.fromEntries(
@@ -46,11 +55,13 @@ export const domNodeReplacers = (disabled: boolean) => {
               JSON.parse(domNode.attribs[attr.name] ?? 'null'),
             ])
           );
-          return <CommentSubmissionForm
-            disabled={disabled}
-            mandatoryTags={props.mandatoryTags}
-            allowListModules={props.allowListModules}
-          />
+          return (
+            <CommentSubmissionForm
+              disabled={disabled}
+              mandatoryTags={props.mandatoryTags}
+              allowListModules={props.allowListModules}
+            />
+          );
         }
         case RICH_TEXT_NODE_TYPES.MAP_CREATE_BUTTONS: {
           const props = Object.fromEntries(
@@ -68,7 +79,7 @@ export const domNodeReplacers = (disabled: boolean) => {
               JSON.parse(domNode.attribs[attr.name] ?? 'null'),
             ])
           ) as CommentGalleryProps;
-          return <CommentGallery {...props} />
+          return <CommentGallery {...props} />;
         }
       }
     }

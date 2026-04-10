@@ -11,8 +11,12 @@ export const DRAFT_STATUS_TEXT: Record<DraftStatus, string> = {
   [DRAFT_STATUSES.IN_PROGRESS]: 'In Progress',
   [DRAFT_STATUSES.READY_TO_SHARE]: 'Ready to Share',
 };
-  
-export const DRAFT_STATUS_ORDER: DraftStatus[] = [DRAFT_STATUSES.SCRATCH, DRAFT_STATUSES.IN_PROGRESS, DRAFT_STATUSES.READY_TO_SHARE];
+
+export const DRAFT_STATUS_ORDER: DraftStatus[] = [
+  DRAFT_STATUSES.SCRATCH,
+  DRAFT_STATUSES.IN_PROGRESS,
+  DRAFT_STATUSES.READY_TO_SHARE,
+];
 
 export const DRAFT_STATUS_COLORS: Record<DraftStatus, 'gray' | 'orange' | 'green'> = {
   [DRAFT_STATUSES.SCRATCH]: 'gray',

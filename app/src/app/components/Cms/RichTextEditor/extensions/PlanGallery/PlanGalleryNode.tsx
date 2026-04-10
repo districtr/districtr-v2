@@ -3,7 +3,7 @@ import {ReactNodeViewRenderer} from '@tiptap/react';
 import PlanGalleryNodeView from './PlanGalleryNodeView';
 import type {PlanGalleryProps} from './PlanGallery';
 import {getJsonHtmlRenderer, getStandardHtmlParser} from '../extensionUtils';
-import {RICH_TEXT_NODE_TYPES, PLAN_GALLERY_ATTRIBUTES, NODE_TYPE_ATTRIBUTE_NAME} from '@constants/cms';
+import {RICH_TEXT_NODE_TYPES, PLAN_GALLERY_ATTRIBUTES, NODE_TYPE_ATTR_NAME} from '@constants/cms';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -38,13 +38,17 @@ export const PlanGalleryNode = Node.create({
   parseHTML() {
     return [
       {
-        tag: `div[${NODE_TYPE_ATTRIBUTE_NAME}="${RICH_TEXT_NODE_TYPES.PLAN_GALLERY}"]`,
+        tag: `div[${NODE_TYPE_ATTR_NAME}="${RICH_TEXT_NODE_TYPES.PLAN_GALLERY}"]`,
       },
     ];
   },
 
   renderHTML({HTMLAttributes}) {
-    return ['div', mergeAttributes(HTMLAttributes, {[NODE_TYPE_ATTRIBUTE_NAME]: RICH_TEXT_NODE_TYPES.PLAN_GALLERY}), 0];
+    return [
+      'div',
+      mergeAttributes(HTMLAttributes, {[NODE_TYPE_ATTR_NAME]: RICH_TEXT_NODE_TYPES.PLAN_GALLERY}),
+      0,
+    ];
   },
 
   addCommands() {

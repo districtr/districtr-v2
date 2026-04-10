@@ -2,7 +2,11 @@ import {Node, mergeAttributes} from '@tiptap/core';
 import {ReactNodeViewRenderer} from '@tiptap/react';
 import MapCreateButtonsNodeView from './MapCreateButtonsNodeView';
 import {getJsonHtmlRenderer, getStandardHtmlParser} from '../extensionUtils';
-import {RICH_TEXT_NODE_TYPES, MAP_CREATE_BUTTONS_ATTRIBUTES, NODE_TYPE_ATTRIBUTE_NAME} from '@constants/cms';
+import {
+  RICH_TEXT_NODE_TYPES,
+  MAP_CREATE_BUTTONS_ATTRIBUTES,
+  NODE_TYPE_ATTR_NAME,
+} from '@constants/cms';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -37,13 +41,19 @@ export const MapCreateButtonsNode = Node.create({
   parseHTML() {
     return [
       {
-        tag: `div[${NODE_TYPE_ATTRIBUTE_NAME}="${RICH_TEXT_NODE_TYPES.MAP_CREATE_BUTTONS}"]`,
+        tag: `div[${NODE_TYPE_ATTR_NAME}="${RICH_TEXT_NODE_TYPES.MAP_CREATE_BUTTONS}"]`,
       },
     ];
   },
 
   renderHTML({HTMLAttributes}) {
-    return ['div', mergeAttributes(HTMLAttributes, {[NODE_TYPE_ATTRIBUTE_NAME]: RICH_TEXT_NODE_TYPES.MAP_CREATE_BUTTONS}), 0];
+    return [
+      'div',
+      mergeAttributes(HTMLAttributes, {
+        [NODE_TYPE_ATTR_NAME]: RICH_TEXT_NODE_TYPES.MAP_CREATE_BUTTONS,
+      }),
+      0,
+    ];
   },
 
   addCommands() {

@@ -3,7 +3,8 @@ import {Text, Flex, IconButton, Box, Tooltip, Popover, SegmentedControl} from '@
 import {useState} from 'react';
 import {DocumentMetadata, DocumentObject} from '@/app/utils/api/apiHandlers/types';
 import {
-  DRAFT_STATUSES, type DraftStatus,
+  DRAFT_STATUSES,
+  type DraftStatus,
   DRAFT_STATUS_TEXT,
   DRAFT_STATUS_ORDER,
 } from '@constants/map/draftStatus';
