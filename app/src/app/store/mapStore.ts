@@ -2,7 +2,7 @@
 import type {MapGeoJSONFeature} from 'maplibre-gl';
 import type {MapRef} from 'react-map-gl/maplibre';
 import {colorScheme as DefaultColorScheme} from '@constants/colors';
-import type {MapFeatureInfo} from '@constants/types';
+import {ACTIVE_TOOLS, type MapFeatureInfo} from '@constants/types';
 import {
   Community,
   DistrictrMap,
@@ -310,7 +310,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         focusFeatures: [],
       });
       setMapOptions({mode: 'default'});
-      useMapControlsStore.setState({activeTool: 'shatter'});
+      useMapControlsStore.setState({activeTool: ACTIVE_TOOLS.SHATTER});
 
       if (mapMode === 'coi') {
         healParentsIfAllChildrenInSameCommunities(
@@ -437,7 +437,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           bounds: mapDocument.extent,
           stateFipsSet: newStateFipsSet,
         },
-        activeTool: mapDocument.access === 'edit' ? mapControlsState.activeTool : 'pan',
+        activeTool: mapDocument.access === 'edit' ? mapControlsState.activeTool : ACTIVE_TOOLS.PAN,
         selectedZone: communities[0]?.id ?? mapControlsState.selectedZone,
         sidebarPanels: ['population'],
         isPainting: false,
@@ -1124,7 +1124,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           },
         ],
       });
-      useMapControlsStore.setState({activeTool: 'brush'});
+      useMapControlsStore.setState({activeTool: ACTIVE_TOOLS.BRUSH});
       setMapOptions({
         mode: 'break',
         bounds: mapBbox,
@@ -1171,7 +1171,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           appLoadingState: 'loaded',
           mapLock: null,
         });
-        useMapControlsStore.setState({activeTool: 'pan'});
+        useMapControlsStore.setState({activeTool: ACTIVE_TOOLS.PAN});
       }
     },
     focusFeatures: [],

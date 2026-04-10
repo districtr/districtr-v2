@@ -1,5 +1,6 @@
 'use client';
 import {Box, Popover, Text} from '@radix-ui/themes';
+import {ACTIVE_TOOLS} from '@constants/types';
 import {formatNumber} from '@utils/numbers';
 import {useTooltipStore} from '@store/tooltipStore';
 import {InspectorTooltip} from '@components/Map/Tooltip/InspectorTooltip';
@@ -10,7 +11,7 @@ export const MapTooltip = () => {
   const tooltip = useTooltipStore(state => state.tooltip);
   const zoneDescriptionTooltip = useTooltipStore(state => state.zoneDescriptionTooltip);
   const activeTool = useMapControlsStore(state => state.activeTool);
-  const isInspectorMode = activeTool === 'inspector';
+  const isInspectorMode = activeTool === ACTIVE_TOOLS.INSPECTOR;
 
   // Render zone description tooltip if active
   if (zoneDescriptionTooltip) {

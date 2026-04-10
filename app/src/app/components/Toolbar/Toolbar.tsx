@@ -4,7 +4,7 @@ import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {MoveIcon, PinRightIcon, RotateCounterClockwiseIcon} from '@radix-ui/react-icons';
 import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
-import {ActiveTool} from '@constants/types';
+import {ACTIVE_TOOLS, type ActiveTool} from '@constants/types';
 import Draggable from 'react-draggable';
 import {ToolbarState, useToolbarStore} from '@/app/store/toolbarStore';
 import {ToolControls} from '@/app/components/Toolbar/ToolControls/ToolControls';
@@ -152,14 +152,14 @@ export const DraggableToolbar = () => {
       grid={[10, 10]}
       onStart={() => {
         previousActiveTool.current = activeTool;
-        setActiveTool('pan');
+        setActiveTool(ACTIVE_TOOLS.PAN);
       }}
       onDrag={(e, {x, y}) => {
         setXY(x, y);
       }}
       onStop={(e, {x, y}) => {
         setXY(x, y, true);
-        setActiveTool(previousActiveTool.current || 'pan');
+        setActiveTool(previousActiveTool.current || ACTIVE_TOOLS.PAN);
       }}
     >
       <div

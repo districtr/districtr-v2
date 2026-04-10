@@ -24,10 +24,10 @@ import {
   BLOCK_POINTS_LAYER_ID_CHILD,
   BLOCK_SOURCE_ID,
   INTERACTIVE_LAYERS,
-} from '@/app/constants/map/layerIds';
+} from '@constants/map/layerIds';
+import {ACTIVE_TOOLS, type ActiveTool} from '@constants/types';
 import {ResetMapSelectState} from '@utils/events/handlers';
 import GeometryWorker from '../GeometryWorker';
-import {ActiveTool} from '@/app/constants/types';
 import {throttle} from 'lodash';
 import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
@@ -36,10 +36,14 @@ import {setHoverFeatures} from '../map/hoverFeatures';
 // Zone label layer IDs for interaction
 const ZONE_LABEL_LAYER_IDS = ['ZONE_LABEL', 'ZONE_LABEL_BG', 'ZONE_COMMENT_INDICATOR'];
 
-export const AREA_SELECT_TOOLS = ['brush', 'eraser', 'inspector'];
-export const POINT_SELECT_TOOLS = ['shatter'];
-export const ALL_BRUSHING_TOOLS = [...AREA_SELECT_TOOLS, ...POINT_SELECT_TOOLS];
-export const TOOLTIP_TOOLS = ['inspector'];
+export const AREA_SELECT_TOOLS: ActiveTool[] = [
+  ACTIVE_TOOLS.BRUSH,
+  ACTIVE_TOOLS.ERASER,
+  ACTIVE_TOOLS.INSPECTOR,
+];
+export const POINT_SELECT_TOOLS: ActiveTool[] = [ACTIVE_TOOLS.SHATTER];
+export const ALL_BRUSHING_TOOLS: ActiveTool[] = [...AREA_SELECT_TOOLS, ...POINT_SELECT_TOOLS];
+export const TOOLTIP_TOOLS: ActiveTool[] = [ACTIVE_TOOLS.INSPECTOR];
 
 export const EMPTY_FEATURE_ARRAY: MapGeoJSONFeature[] = [];
 /*
@@ -57,7 +61,7 @@ export const EMPTY_FEATURE_ARRAY: MapGeoJSONFeature[] = [];
  * @returns string[], the layer IDs to paint
  */
 function getLayerIdsToPaint(child_layer: string | undefined | null, activeTool: ActiveTool) {
-  if (activeTool === 'shatter') {
+  if (activeTool === ACTIVE_TOOLS.SHATTER) {
     return [BLOCK_HOVER_LAYER_ID];
   }
 
@@ -80,20 +84,20 @@ export const handleFeatureSelection = (
   const {activeTool, selectedZone, setIsPainting} = useMapControlsStore.getState();
   const {mutateZoneAssignments} = useAssignmentsStore.getState();
   switch (activeTool) {
-    case 'shatter':
+    case ACTIVE_TOOLS.SHATTER:
       const documentId = mapStore.mapDocument?.document_id;
       if (documentId && selectedFeatures?.length) {
         mapStore.handleShatter(selectedFeatures || []);
       }
       return;
-    case 'brush':
-    case 'eraser':
+    case ACTIVE_TOOLS.BRUSH:
+    case ACTIVE_TOOLS.ERASER:
       if (sourceLayer && selectedFeatures && mapRef && mapStore) {
         // select on both the map object and the store
         mutateZoneAssignments(
           mapRef,
           selectedFeatures || [],
-          activeTool === 'brush' ? selectedZone : null
+          activeTool === ACTIVE_TOOLS.BRUSH ? selectedZone : null
         );
         setIsPainting(false);
       }
@@ -124,7 +128,7 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
     }),
   });
 
-  if (zoneLabelFeatures.length > 0 && activeTool === 'pan') {
+  if (zoneLabelFeatures.length > 0 && activeTool === ACTIVE_TOOLS.PAN) {
     const zone = zoneLabelFeatures[0].properties?.zone;
     if (zone !== undefined) {
       const hasDescription = !!mapStore.getZoneDescriptionForZone(zone);
@@ -162,7 +166,7 @@ export const handleMapMouseUp = (e: MapLayerMouseEvent | MapLayerTouchEvent) => 
   const activeTool = mapControls.activeTool;
   const isPainting = mapControls.isPainting;
 
-  if ((activeTool === 'brush' || activeTool === 'eraser') && isPainting) {
+  if ((activeTool === ACTIVE_TOOLS.BRUSH || activeTool === ACTIVE_TOOLS.ERASER) && isPainting) {
     // set isPainting to false
     mapControls.setIsPainting(false);
   }
@@ -174,10 +178,10 @@ export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) =
   const mapControls = useMapControlsStore.getState();
   const activeTool = mapControls.activeTool;
 
-  if (activeTool === 'pan') {
+  if (activeTool === ACTIVE_TOOLS.PAN) {
     // enable drag pan
     mapRef.dragPan.enable();
-  } else if (activeTool === 'brush' || activeTool === 'eraser') {
+  } else if (activeTool === ACTIVE_TOOLS.BRUSH || activeTool === ACTIVE_TOOLS.ERASER) {
     // disable drag pan
     mapRef.dragPan.disable();
     mapControls.setIsPainting(true);
@@ -242,7 +246,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
     }),
   });
 
-  if (zoneLabelFeatures.length > 0 && activeTool === 'pan') {
+  if (zoneLabelFeatures.length > 0 && activeTool === ACTIVE_TOOLS.PAN) {
     const zone = zoneLabelFeatures[0].properties?.zone;
     if (zone !== undefined) {
       const hasDescription = !!mapStore.getZoneDescriptionForZone(zone);
@@ -289,7 +293,11 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   if (selectedFeatures && isBrushingTool && isPainting) {
     // selects in the map object; the store object
     // is updated in the mouseup event
-    mutateZoneAssignments(mapRef, selectedFeatures, activeTool === 'brush' ? selectedZone : null);
+    mutateZoneAssignments(
+      mapRef,
+      selectedFeatures,
+      activeTool === ACTIVE_TOOLS.BRUSH ? selectedZone : null
+    );
   }
 
   if (
@@ -346,7 +354,7 @@ export const handleMapContextMenu = (e: MapLayerMouseEvent | MapLayerTouchEvent)
   const mapStore = useMapStore.getState();
   const mapControls = useMapControlsStore.getState();
   const activeTool = mapControls.activeTool;
-  if (activeTool !== 'pan') {
+  if (activeTool !== ACTIVE_TOOLS.PAN) {
     return;
   }
   e.preventDefault();

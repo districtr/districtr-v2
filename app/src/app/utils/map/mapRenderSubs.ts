@@ -1,5 +1,6 @@
 import {getLayerFill} from '@constants/map/layerStyle';
 import {PARENT_LAYERS, CHILD_LAYERS, BLOCK_SOURCE_ID} from '@constants/map/layerIds';
+import {ACTIVE_TOOLS} from '@constants/types';
 import {ColorZoneAssignmentsState} from '@utils/map/types';
 import {colorZoneAssignments} from '@utils/map/colorZoneAssignments';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
@@ -204,12 +205,12 @@ export class MapRenderSubscriber {
       ? getFeaturesIntersectingCounties
       : getFeaturesInBbox;
     switch (activeTool) {
-      case 'pan':
-      case 'brush':
-      case 'eraser':
+      case ACTIVE_TOOLS.PAN:
+      case ACTIVE_TOOLS.BRUSH:
+      case ACTIVE_TOOLS.ERASER:
         setPaintFunction(defaultPaintFunction);
         break;
-      case 'shatter':
+      case ACTIVE_TOOLS.SHATTER:
         setPaintFunction(getFeatureUnderCursor);
         break;
       default:

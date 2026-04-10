@@ -9,7 +9,17 @@ export type GDBPath = string;
 
 export type ZoneDict = Map<GEOID, Zone>;
 
-export type ActiveTool = 'pan' | 'brush' | 'eraser' | 'shatter' | 'undo' | 'redo' | 'inspector'; // others?
+export const ACTIVE_TOOLS = {
+  PAN: 'pan',
+  BRUSH: 'brush',
+  ERASER: 'eraser',
+  SHATTER: 'shatter',
+  UNDO: 'undo',
+  REDO: 'redo',
+  INSPECTOR: 'inspector',
+} as const;
+
+export type ActiveTool = (typeof ACTIVE_TOOLS)[keyof typeof ACTIVE_TOOLS];
 
 export type SpatialUnit = 'county' | 'tract' | 'block' | 'block_group' | 'voting_district'; // others?
 

@@ -2,11 +2,11 @@
 import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
 import type {MapOptions} from 'maplibre-gl';
-import {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from '../constants/map/mapDefaults';
-import {ActiveTool, NullableZone, SpatialUnit, Zone} from '../constants/types';
+import {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from '@constants/map/mapDefaults';
+import {MAP_MODE_DEFAULT_OPTIONS, type MapMode} from '@constants/map/mapModeDefaults';
+import {ACTIVE_TOOLS, type ActiveTool, NullableZone, SpatialUnit, Zone} from '@constants/types';
 import {DistrictrMapOptions} from './types';
 import {BasemapId} from '@/app/constants/map/layerStyle';
-import {MAP_MODE_DEFAULT_OPTIONS, type MapMode} from '@/app/constants/map/mapModeDefaults';
 import {useMapStore} from './mapStore';
 import {PaintEventHandler} from '@utils/map/types';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
@@ -91,7 +91,7 @@ export const useMapControlsStore = create<MapControlsStore>()(
     setIsPainting: isPainting => set({isPainting}),
     isEditing: false,
     setIsEditing: isEditing => set({isEditing}),
-    activeTool: 'pan',
+    activeTool: ACTIVE_TOOLS.PAN,
     setActiveTool: tool => {
       const canEdit = useMapStore.getState().mapStatus?.access === 'edit';
       if (canEdit) {

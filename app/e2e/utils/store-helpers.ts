@@ -1,4 +1,5 @@
 import {Page} from '@playwright/test';
+import type {ActiveTool} from '@constants/types';
 
 /**
  * Zustand Store Testing Utilities
@@ -41,7 +42,7 @@ export interface MapControlsStoreState {
   selectedZone: number;
   isPainting: boolean;
   isEditing: boolean;
-  activeTool: 'pan' | 'brush' | 'eraser' | 'shatter' | 'inspector';
+  activeTool: ActiveTool;
   brushSize: number;
   mapOptions: {
     showPopulationTooltip: boolean;

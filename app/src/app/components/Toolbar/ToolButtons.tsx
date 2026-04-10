@@ -3,7 +3,7 @@ import {Flex, IconButton} from '@radix-ui/themes';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import React, {useState} from 'react';
-import {ActiveTool} from '@constants/types';
+import {ACTIVE_TOOLS, type ActiveTool} from '@constants/types';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useActiveTools} from '@/app/components/Toolbar/ToolUtils';
 
@@ -60,7 +60,7 @@ export const ToolButtons: React.FC<{
                     if (tool.onClick) {
                       tool.onClick();
                     } else {
-                      setActiveTool(activeTool === tool.mode ? 'pan' : tool.mode);
+                      setActiveTool(activeTool === tool.mode ? ACTIVE_TOOLS.PAN : tool.mode);
                     }
                   }}
                   style={{

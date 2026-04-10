@@ -2,6 +2,7 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import React, {useEffect} from 'react';
 import {Cross2Icon} from '@radix-ui/react-icons';
 import {Button, Flex, Dialog} from '@radix-ui/themes';
+import {ACTIVE_TOOLS} from '@constants/types';
 import {useUserMaps} from '@/app/hooks/useUserMaps';
 import {RecentMapsList} from '@/app/components/RecentMapsList';
 
@@ -15,7 +16,7 @@ export const RecentMapsModal: React.FC<{
 
   useEffect(() => {
     if (!open) {
-      setActiveTool('pan');
+      setActiveTool(ACTIVE_TOOLS.PAN);
       document.body.style.pointerEvents = '';
     }
     return () => {

@@ -1,5 +1,6 @@
 import {MapGeoJSONFeature} from 'maplibre-gl';
 import {fastUniqBy} from '../arrays';
+import {ACTIVE_TOOLS} from '@constants/types';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
@@ -53,7 +54,7 @@ export const filterFeatures = ({
     filterFunctions.push(f => captiveIds.has(f.id?.toString() || ''));
   }
   if (filterLocked) {
-    if (activeTool === 'brush' && mapOptions.lockPaintedAreas.includes(selectedZone)) {
+    if (activeTool === ACTIVE_TOOLS.BRUSH && mapOptions.lockPaintedAreas.includes(selectedZone)) {
       return [];
     } else if (mapOptions.lockPaintedAreas.length) {
       const lockedAreas = mapOptions.lockPaintedAreas;
