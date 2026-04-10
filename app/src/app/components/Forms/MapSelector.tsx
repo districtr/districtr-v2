@@ -21,6 +21,7 @@ import {QueryClientProvider, useMutation} from '@tanstack/react-query';
 import {idb} from '@/app/utils/idb/idb';
 import {useUserMaps} from '@/app/hooks/useUserMaps';
 import {currMapRoute} from '@/app/utils/map/mapUrlRoute';
+import {DRAFT_STATUSES} from '@constants/map/draftStatus';
 
 interface MapSelectorProps {
   allowListModules: string[];
@@ -103,7 +104,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
       throw new Error('Please use a link to a Districtr map.');
     } else if (
       response.mapInfo &&
-      response.mapInfo.map_metadata?.draft_status !== 'ready_to_share'
+      response.mapInfo.map_metadata?.draft_status !== DRAFT_STATUSES.READY_TO_SHARE
     ) {
       throw new Error(
         'Please make sure your map is marked as "ready to share" in the map editor. You can update this in the "Save and share" menu or using the button next to the map title on the top of the map editor.'

@@ -19,13 +19,8 @@ import {idb} from '@/app/utils/idb/idb';
 import {useUserMaps} from '@/app/hooks/useUserMaps';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import {
-  MapTab,
-  mapTabFromMode,
-  routeForTab,
-  DRAFT_STATUS_COLORS,
-  DRAFT_STATUS_LABELS,
-} from '@/app/constants/map/recentMaps';
+import {MapTab, mapTabFromMode, routeForTab} from '@constants/map/recentMaps';
+import {DRAFT_STATUSES, DRAFT_STATUS_COLORS, DRAFT_STATUS_TEXT} from '@constants/map/draftStatus';
 import {styled} from '@stitches/react';
 
 const StyledCard = styled(Card, {
@@ -199,7 +194,7 @@ const RecentMapCard: React.FC<{
   onDelete: (data: DocumentObject) => void;
 }> = ({data, onSelect, active, tab, onDelete}) => {
   const mapName = data?.map_metadata?.name || data.districtr_map_slug || 'Untitled Map';
-  const draftStatus = data?.map_metadata?.draft_status ?? 'scratch';
+  const draftStatus = data?.map_metadata?.draft_status ?? DRAFT_STATUSES.SCRATCH;
   const zoneCount =
     tab === 'community'
       ? (data.community_metadata_list?.length ?? data.num_communities ?? 0)
@@ -225,7 +220,7 @@ const RecentMapCard: React.FC<{
               </Badge>
             )}
             <Badge size="1" color={DRAFT_STATUS_COLORS[draftStatus]} variant="soft">
-              {DRAFT_STATUS_LABELS[draftStatus]}
+              {DRAFT_STATUS_TEXT[draftStatus]}
             </Badge>
           </Flex>
           <Flex align="center" gap="3" wrap="wrap">

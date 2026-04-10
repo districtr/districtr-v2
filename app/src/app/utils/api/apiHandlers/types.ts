@@ -1,5 +1,6 @@
 import {NullableZone} from '@/app/constants/types';
 import {SummaryStatConfig} from '../summaryStats';
+import type {DraftStatus} from '@constants/map/draftStatus';
 
 export interface Assignment {
   document_id: string;
@@ -57,8 +58,6 @@ export interface StatusObject {
   token?: string | null;
   password?: string | null;
 }
-
-export type DraftStatus = 'scratch' | 'in_progress' | 'ready_to_share';
 
 export interface DocumentMetadata {
   name: string | null;
