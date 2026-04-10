@@ -18,6 +18,7 @@ import {
   getSelectedCoalitionColumns,
   isCoalitionVariable,
 } from '@/app/utils/demography/coalition';
+import {SUMMARY_TYPES} from '@constants/types';
 
 let coalitionHydrationRequestId = 0;
 let coalitionVersion = 0;
@@ -88,7 +89,7 @@ export var useDemographyStore = create(
         });
         if (!selectedColumns.length) {
           set({
-            variable: universe === 'TOTPOP' ? 'total_pop_20' : 'total_vap_20',
+            variable: universe === SUMMARY_TYPES.TOTPOP ? 'total_pop_20' : 'total_vap_20',
           });
         }
       }
@@ -119,7 +120,7 @@ export var useDemographyStore = create(
         });
         if (!selectedColumns.length) {
           set({
-            variable: universe === 'TOTPOP' ? 'total_pop_20' : 'total_vap_20',
+            variable: universe === SUMMARY_TYPES.TOTPOP ? 'total_pop_20' : 'total_vap_20',
           });
         }
       }

@@ -1,7 +1,7 @@
 'use client';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
+import type {CoalitionUniverse} from '@constants/types';
 import {
-  CoalitionUniverse,
   CoalitionGroupKey,
   COALITION_GROUPS,
   getCoalitionGroupLabel,

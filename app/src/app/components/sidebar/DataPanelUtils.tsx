@@ -3,6 +3,7 @@ import {MapControlsStore} from '@/app/store/mapControlsStore';
 import {MapValidation} from './MapValidation/MapValidation';
 import {SummaryPanel} from './SummaryPanel';
 import OverlaysPanel from './OverlaysPanel';
+import {SUMMARY_TYPES} from '@constants/types';
 
 export interface DataPanelSpec {
   title: MapControlsStore['sidebarPanels'][number];
@@ -24,13 +25,21 @@ export const defaultPanels: DataPanelSpec[] = [
   {
     title: 'demography',
     label: 'Demographics',
-    content: <SummaryPanel defaultColumnSet="VAP" displayedColumnSets={['VAP', 'TOTPOP']} />,
+    content: (
+      <SummaryPanel
+        defaultColumnSet={SUMMARY_TYPES.VAP}
+        displayedColumnSets={[SUMMARY_TYPES.VAP, SUMMARY_TYPES.TOTPOP]}
+      />
+    ),
   },
   {
     title: 'election',
     label: 'Elections',
     content: (
-      <SummaryPanel defaultColumnSet="VOTERHISTORY" displayedColumnSets={['VOTERHISTORY']} />
+      <SummaryPanel
+        defaultColumnSet={SUMMARY_TYPES.VOTERHISTORY}
+        displayedColumnSets={[SUMMARY_TYPES.VOTERHISTORY]}
+      />
     ),
   },
   {

@@ -1,13 +1,12 @@
 import {NumberFormats} from '@/app/utils/numbers';
-import {
-  EvalColumnConfiguration,
-  SummaryStatConfig,
-  summaryStatsConfig,
-} from '@/app/utils/api/summaryStats';
+import {EvalColumnConfiguration, SummaryStatConfig} from '@/app/utils/api/summaryStats';
+import {SUMMARY_TYPES, type SummaryType} from '@constants/types';
 
 export type EvalModes = 'share' | 'count' | 'totpop' | 'partisan';
 
-export const TOTPOPColumnConfig: EvalColumnConfiguration<SummaryStatConfig['TOTPOP']> = [
+export const TOTPOPColumnConfig: EvalColumnConfiguration<
+  SummaryStatConfig[typeof SUMMARY_TYPES.TOTPOP]
+> = [
   {
     label: 'Black',
     column: 'bpop_20',
@@ -34,14 +33,15 @@ export const TOTPOPColumnConfig: EvalColumnConfiguration<SummaryStatConfig['TOTP
   },
 ];
 
-export const VAPColumnConfig: EvalColumnConfiguration<SummaryStatConfig['VAP']> = [
-  {column: 'bvap_20', label: 'Black'},
-  {column: 'hvap_20', label: 'Hispanic'},
-  {column: 'amin_vap_20', label: 'AMIN'},
-  {column: 'asian_nhpi_vap_20', label: 'Asian'},
-  {column: 'white_vap_20', label: 'White'},
-  {column: 'other_vap_20', label: 'Other'},
-];
+export const VAPColumnConfig: EvalColumnConfiguration<SummaryStatConfig[typeof SUMMARY_TYPES.VAP]> =
+  [
+    {column: 'bvap_20', label: 'Black'},
+    {column: 'hvap_20', label: 'Hispanic'},
+    {column: 'amin_vap_20', label: 'AMIN'},
+    {column: 'asian_nhpi_vap_20', label: 'Asian'},
+    {column: 'white_vap_20', label: 'White'},
+    {column: 'other_vap_20', label: 'Other'},
+  ];
 // TODO FIX typing
 export const VoterColumnConfig: EvalColumnConfiguration<any> = [
   {column: 'sen_22_lean', label: '2022 Sen', sourceCol: 'sen_22_rep'},
@@ -56,8 +56,8 @@ export const VoterColumnConfig: EvalColumnConfiguration<any> = [
 ];
 
 export const CONFIG_BY_COLUMN_SET: Record<
-  keyof SummaryStatConfig,
-  EvalColumnConfiguration<SummaryStatConfig[keyof SummaryStatConfig]>
+  SummaryType,
+  EvalColumnConfiguration<SummaryStatConfig[SummaryType]>
 > = {
   TOTPOP: TOTPOPColumnConfig,
   VAP: VAPColumnConfig,
@@ -65,10 +65,7 @@ export const CONFIG_BY_COLUMN_SET: Record<
 };
 
 export const evalColumnConfigs: Partial<
-  Record<
-    keyof typeof summaryStatsConfig,
-    EvalColumnConfiguration<SummaryStatConfig[keyof SummaryStatConfig]>
-  >
+  Record<SummaryType, EvalColumnConfiguration<SummaryStatConfig[SummaryType]>>
 > = {
   TOTPOP: TOTPOPColumnConfig,
   VAP: VAPColumnConfig,
@@ -94,22 +91,22 @@ export const numberFormats: Record<EvalModes, NumberFormats> = {
 };
 
 export const summaryStatLabels: Array<{
-  value: keyof SummaryStatConfig;
+  value: SummaryType;
   label: string;
   supportedModes: EvalModes[];
 }> = [
   {
-    value: 'VAP',
+    value: SUMMARY_TYPES.VAP,
     label: 'Voting age population',
     supportedModes: ['share', 'count'],
   },
   {
-    value: 'TOTPOP',
+    value: SUMMARY_TYPES.TOTPOP,
     label: 'Total population',
     supportedModes: ['share', 'count'],
   },
   {
-    value: 'VOTERHISTORY',
+    value: SUMMARY_TYPES.VOTERHISTORY,
     label: 'Voter history',
     supportedModes: ['share'],
   },

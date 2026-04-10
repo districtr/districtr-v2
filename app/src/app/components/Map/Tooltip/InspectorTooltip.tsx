@@ -6,8 +6,9 @@ import {demographyCache} from '@utils/demography/demographyCache';
 import {useEffect, useState} from 'react';
 import {CONFIG_BY_COLUMN_SET} from '@store/demography/evaluationConfig';
 import {PARTISAN_SCALE} from '@store/demography/constants';
-import {INSPECTOR_TITLE, TOTAL_COLUMN} from '@components/Map/Tooltip/InpsectorTooltipConfig';
 import {previousHoverFeatures as hoverFeatures} from '@/app/utils/map/hoverFeatures';
+import {SUMMARY_TYPES, TOTAL_COLUMN} from '@constants/types';
+import {INSPECTOR_TITLE} from '@constants/inspector';
 
 const withOpacity = (color: string, opacity: number) => {
   if (color.startsWith('rgba(')) return color;
@@ -35,10 +36,10 @@ export const InspectorTooltip = () => {
   const activeColumns = useTooltipStore(state => state.activeColumns);
   const inspectorMode = useTooltipStore(state => state.inspectorMode);
   const inspectorFormat = useTooltipStore(state => state.inspectorFormat);
-  const usePercent = inspectorFormat === 'percent' || inspectorMode === 'VOTERHISTORY';
+  const usePercent = inspectorFormat === 'percent' || inspectorMode === SUMMARY_TYPES.VOTERHISTORY;
   const columnSuffix = usePercent ? '_pct' : '';
   const standardFormat =
-    inspectorMode === 'VOTERHISTORY' ? 'partisan' : usePercent ? 'percent' : 'standard';
+    inspectorMode === SUMMARY_TYPES.VOTERHISTORY ? 'partisan' : usePercent ? 'percent' : 'standard';
   const ids = hoverFeatures.map(f => f.id as string);
   const [inspectorData, setInspectorData] = useState<Record<string, number>>({});
   const config = CONFIG_BY_COLUMN_SET[inspectorMode].sort((a, b) => a.label.localeCompare(b.label));
@@ -49,10 +50,12 @@ export const InspectorTooltip = () => {
   const getRowBackground = (column: string) => {
     if (!showBars) return undefined;
     const rowPct =
-      inspectorMode === 'VOTERHISTORY' ? 1 : Math.max(0, inspectorData[`${column}_pct`] ?? 0);
+      inspectorMode === SUMMARY_TYPES.VOTERHISTORY
+        ? 1
+        : Math.max(0, inspectorData[`${column}_pct`] ?? 0);
     const widthPct = Math.min(rowPct, 1) * 100;
     const rowColor =
-      inspectorMode === 'VOTERHISTORY' && !isNaN(inspectorData[`${column}_pct`])
+      inspectorMode === SUMMARY_TYPES.VOTERHISTORY && !isNaN(inspectorData[`${column}_pct`])
         ? withOpacity(PARTISAN_SCALE((inspectorData[`${column}_pct`] + 1) / 2), 0.15)
         : 'rgba(17, 24, 39, 0.15)';
 
@@ -64,7 +67,7 @@ export const InspectorTooltip = () => {
   useEffect(() => {
     if (ids.length > 0) {
       const _activeColumns =
-        inspectorMode === 'VOTERHISTORY'
+        inspectorMode === SUMMARY_TYPES.VOTERHISTORY
           ? [...activeColumns, ...activeColumns.map(colName => colName.replace('_lean', '_total'))]
           : activeColumns;
       const data = demographyCache.calculateSummaryStats(ids, _activeColumns);

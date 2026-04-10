@@ -1,7 +1,7 @@
 import {AllTabularColumns} from '../api/summaryStats';
+import {SUMMARY_TYPES, type CoalitionUniverse} from '@constants/types';
 
 export type CoalitionGroupKey = 'black' | 'hispanic' | 'amin' | 'asian' | 'white' | 'other';
-export type CoalitionUniverse = 'TOTPOP' | 'VAP';
 export type CoalitionVariableKey = 'coalition_totpop' | 'coalition_vap';
 export type DemographyVariable = AllTabularColumns[number] | CoalitionVariableKey;
 
@@ -9,8 +9,7 @@ type CoalitionGroupConfig = {
   key: CoalitionGroupKey;
   label: string;
   columns: {
-    TOTPOP: AllTabularColumns[number];
-    VAP: AllTabularColumns[number];
+    [K in CoalitionUniverse]: AllTabularColumns[number];
   };
 };
 
@@ -48,7 +47,8 @@ export const isCoalitionVariable = (variable: string): variable is CoalitionVari
 
 export const getCoalitionUniverseFromVariable = (
   variable: CoalitionVariableKey
-): CoalitionUniverse => (variable === 'coalition_totpop' ? 'TOTPOP' : 'VAP');
+): CoalitionUniverse =>
+  variable === COALITION_VARIABLE_BY_UNIVERSE.TOTPOP ? SUMMARY_TYPES.TOTPOP : SUMMARY_TYPES.VAP;
 
 export const getCoalitionGroupLabel = (group: CoalitionGroupKey): string =>
   COALITION_GROUPS.find(entry => entry.key === group)?.label ?? group;

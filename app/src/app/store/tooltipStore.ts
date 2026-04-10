@@ -1,5 +1,5 @@
 import {TooltipState} from '@utils/map/types';
-import {KeyOfSummaryStatConfig} from '../utils/api/summaryStats';
+import {SUMMARY_TYPES, type SummaryType} from '@constants/types';
 import {createWithDevWrapperAndSubscribe} from './middlewares';
 
 export interface ZoneDescriptionTooltipState {
@@ -11,8 +11,8 @@ export interface ZoneDescriptionTooltipState {
 export interface TooltipStore {
   tooltip: TooltipState | null;
   setTooltip: (menu: TooltipState | null) => void;
-  inspectorMode: KeyOfSummaryStatConfig;
-  setInspectorMode: (mode: KeyOfSummaryStatConfig) => void;
+  inspectorMode: SummaryType;
+  setInspectorMode: (mode: SummaryType) => void;
   inspectorFormat: 'percent' | 'standard';
   setInspectorFormat: (format: 'percent' | 'standard') => void;
   activeColumns: string[];
@@ -32,7 +32,7 @@ export const useTooltipStore = createWithDevWrapperAndSubscribe<TooltipStore>(
     if (currentTooltip === tooltip) return;
     set({tooltip});
   },
-  inspectorMode: 'VAP',
+  inspectorMode: SUMMARY_TYPES.VAP,
   setInspectorMode: mode => set({inspectorMode: mode}),
   inspectorFormat: 'standard',
   setInspectorFormat: format => set({inspectorFormat: format}),

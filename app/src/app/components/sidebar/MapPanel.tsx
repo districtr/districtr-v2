@@ -1,5 +1,4 @@
 'use client';
-import {SummaryStatConfig} from '@/app/utils/api/summaryStats';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {MapControlsStore, useMapControlsStore} from '@/app/store/mapControlsStore';
 import {formatNumber} from '@/app/utils/numbers';
@@ -28,8 +27,9 @@ import {Select} from '@radix-ui/themes';
 import {LegendLabel, LegendThreshold} from '@visx/legend';
 import React, {useEffect, useMemo} from 'react';
 import {choroplethMapVariables} from '@/app/store/demography/constants';
-import {OVERLAY_OPACITY} from '@/app/constants/map/layerStyle';
+import {OVERLAY_OPACITY} from '@constants/map/layerStyle';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
+import {isCoalitionUniverse, CoalitionUniverse, type SummaryType} from '@constants/types';
 import {
   COALITION_VARIABLE_BY_UNIVERSE,
   DemographyVariable,
@@ -39,7 +39,7 @@ import {
 
 type MapPanelProps = {
   columnGroup: keyof typeof choroplethMapVariables;
-  displayedColumnSets: Array<keyof SummaryStatConfig>;
+  displayedColumnSets: Array<SummaryType>;
 };
 
 const mapDisplayModes: Array<{
@@ -105,11 +105,11 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   const dataHash = useDemographyStore(state => state.dataHash);
   const availableMapVariables = useDemographyStore(state => state.availableColumnSets.map);
   const coalitionOption = useMemo(() => {
-    if (columnGroup !== 'TOTPOP' && columnGroup !== 'VAP') return undefined;
+    if (!isCoalitionUniverse(columnGroup)) return undefined;
     const coalitionColumns = getSelectedCoalitionColumns({
       selectedGroups: coalitionGroups,
       availableColumns: demographyCache.availableColumns,
-      universe: columnGroup,
+      universe: columnGroup as CoalitionUniverse,
     });
     if (!coalitionColumns.length) return undefined;
     return {

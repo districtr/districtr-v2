@@ -15,7 +15,7 @@ import {
 import {Flex, Text} from '@radix-ui/themes';
 import {formatNumber, NumberFormats} from '@/app/utils/numbers';
 import {interpolateGreys} from 'd3-scale-chromatic';
-import {SummaryRecord, SummaryStatConfig} from '@/app/utils/api/summaryStats';
+import {SummaryRecord} from '@/app/utils/api/summaryStats';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {
@@ -33,6 +33,13 @@ import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {compareCoiZonesByRenderOrder, getCommunityDisplayNumber} from '@/app/utils/communities';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {useMapStore} from '@/app/store/mapStore';
+import {
+  SUMMARY_TYPES,
+  type SummaryType,
+  type CoalitionUniverse,
+  isCoalitionUniverse,
+  TOTAL_COLUMN,
+} from '@constants/types';
 
 type ColumnConfig = {
   label: string;
@@ -42,9 +49,9 @@ type ColumnConfig = {
 };
 
 type EvaluationProps = {
-  summaryType: keyof SummaryStatConfig;
-  setSummaryType: (summaryType: keyof SummaryStatConfig) => void;
-  displayedColumnSets?: Array<keyof SummaryStatConfig>;
+  summaryType: SummaryType;
+  setSummaryType: (summaryType: SummaryType) => void;
+  displayedColumnSets?: Array<SummaryType>;
   columnConfigs: ColumnConfig[];
   title?: string;
   singleZone?: number;
@@ -63,7 +70,7 @@ type EvaluationTableBodyProps = {
   columnConfigs: ColumnConfig[];
   evalMode: EvalModes;
   colorBg: boolean;
-  summaryType: keyof SummaryStatConfig;
+  summaryType: SummaryType;
   numberFormat: NumberFormats;
   maxValues: Record<string, number>;
   mapMode: string;
@@ -94,7 +101,7 @@ function buildUniverseRow({
   summaryData: Record<string, number>;
   universeTotalColumn: string;
   columnConfigs: ColumnConfig[];
-  summaryType: 'TOTPOP' | 'VAP';
+  summaryType: CoalitionUniverse;
   coalitionGroups: CoalitionGroupKey[];
 }): Record<string, number | string | boolean> {
   const coalitionStats = demographyCache.getCoalitionUniverseStats(summaryType, coalitionGroups);
@@ -147,7 +154,8 @@ const Evaluation: React.FC<EvaluationProps> = ({
   const showModeButtons = Boolean(
     summaryStatConfig?.supportedModes?.length && summaryStatConfig?.supportedModes?.length > 1
   );
-  const numberFormat = numberFormats[summaryType === 'VOTERHISTORY' ? 'partisan' : evalMode];
+  const numberFormat =
+    numberFormats[summaryType === SUMMARY_TYPES.VOTERHISTORY ? 'partisan' : evalMode];
 
   useEffect(() => {
     if (
@@ -176,14 +184,12 @@ const Evaluation: React.FC<EvaluationProps> = ({
     );
   }
 
-  const universeTotalColumn =
-    summaryType === 'TOTPOP' ? 'total_pop_20' : summaryType === 'VAP' ? 'total_vap_20' : undefined;
-  const summaryData =
-    summaryType === 'TOTPOP' || summaryType === 'VAP'
-      ? (summaryStats[summaryType] as Record<string, number> | undefined)
-      : undefined;
+  const universeTotalColumn = TOTAL_COLUMN[summaryType];
+  const summaryData = isCoalitionUniverse(summaryType)
+    ? (summaryStats[summaryType] as Record<string, number> | undefined)
+    : undefined;
   const universeRow =
-    universeTotalColumn && summaryData && (summaryType === 'TOTPOP' || summaryType === 'VAP')
+    universeTotalColumn && summaryData && isCoalitionUniverse(summaryType)
       ? buildUniverseRow({
           summaryData,
           universeTotalColumn,
@@ -228,7 +234,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
               <Text size="2">Summary type</Text>
               <Select.Root
                 value={summaryType}
-                onValueChange={value => setSummaryType(value as keyof SummaryStatConfig)}
+                onValueChange={value => setSummaryType(value as SummaryType)}
               >
                 <Select.Trigger />
                 <Select.Content>
@@ -423,7 +429,7 @@ const EvaluationTableCell: React.FC<EvaluationTableCellProps> = ({
     colorValue !== undefined && typeof colorValue === 'number' && Number.isFinite(colorValue);
   let backgroundColor: string | undefined;
   if (!hasValidColorValue || isUniverse) {
-  } else if (colorBg && summaryType === 'VOTERHISTORY') {
+  } else if (colorBg && summaryType === SUMMARY_TYPES.VOTERHISTORY) {
     backgroundColor = PARTISAN_SCALE((numericValue! + 1) / 2);
   } else if (colorBg && !isUnassigned) {
     backgroundColor = interpolateGreys(colorValue as number)

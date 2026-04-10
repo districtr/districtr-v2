@@ -8,6 +8,7 @@ import {
 } from '@utils/api/summaryStats';
 import {scaleLinear} from '@visx/scale';
 import {AnyD3Scale} from './types';
+import {SUMMARY_TYPES, type SummaryType} from '@constants/types';
 
 export const DEFAULT_COLOR_SCHEME = chromatic.schemeBlues;
 export const DEFAULT_COLOR_SCHEME_GRAY = chromatic.schemeGreys;
@@ -19,9 +20,7 @@ export const PARTISAN_SCALE = scaleLinear()
 // type up some abstractions / api layer stuff
 // tabular configuration
 export const choroplethMapVariables: {
-  TOTPOP: MapColumnConfiguration<SummaryStatConfig['TOTPOP']>;
-  VAP: MapColumnConfiguration<SummaryStatConfig['VAP']>;
-  VOTERHISTORY: MapColumnConfiguration<SummaryStatConfig['VOTERHISTORY']>;
+  [K in SummaryType]: MapColumnConfiguration<SummaryStatConfig[K]>;
 } = {
   TOTPOP: [
     {

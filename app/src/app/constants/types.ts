@@ -21,6 +21,24 @@ export const ACTIVE_TOOLS = {
 
 export type ActiveTool = (typeof ACTIVE_TOOLS)[keyof typeof ACTIVE_TOOLS];
 
+export const SUMMARY_TYPES = {
+  TOTPOP: 'TOTPOP',
+  VAP: 'VAP',
+  VOTERHISTORY: 'VOTERHISTORY',
+} as const;
+
+export type SummaryType = (typeof SUMMARY_TYPES)[keyof typeof SUMMARY_TYPES];
+export const COALITION_UNIVERSES = [SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP] as const;
+export type CoalitionUniverse = (typeof COALITION_UNIVERSES)[number];
+export const isCoalitionUniverse = (universe: SummaryType): universe is CoalitionUniverse =>
+  (COALITION_UNIVERSES as readonly SummaryType[]).includes(universe);
+
+export const TOTAL_COLUMN: Record<SummaryType, string | undefined> = {
+  VAP: 'total_vap_20',
+  TOTPOP: 'total_pop_20',
+  VOTERHISTORY: undefined,
+} as const;
+
 export type SpatialUnit = 'county' | 'tract' | 'block' | 'block_group' | 'voting_district'; // others?
 
 // we might not need this anymore- tk

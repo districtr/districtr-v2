@@ -2,7 +2,6 @@ import {Blockquote, Button, Flex, Heading, Select, Text} from '@radix-ui/themes'
 import Evaluation from './Evaluation/Evaluation';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useEffect, useState} from 'react';
-import {SummaryStatConfig} from '@/app/utils/api/summaryStats';
 import {MapPanel} from './MapPanel';
 import {
   COALITION_TOTAL_COLUMN_BY_UNIVERSE,
@@ -18,10 +17,11 @@ import {ChevronDownIcon} from '@radix-ui/react-icons';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {sortCommunitiesByRenderOrder} from '@/app/utils/communities';
+import {SUMMARY_TYPES, type SummaryType} from '@constants/types';
 
 type SummaryPanelProps = {
-  defaultColumnSet: keyof SummaryStatConfig;
-  displayedColumnSets: Array<keyof SummaryStatConfig>;
+  defaultColumnSet: SummaryType;
+  displayedColumnSets: Array<SummaryType>;
 };
 
 type SectionKey = 'evaluation' | 'map' | 'coalition';
@@ -53,13 +53,13 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
 }) => {
   const availableSummaries = useDemographyStore(state => state.availableColumnSets.evaluation);
   const coalitionGroups = useDemographyStore(state => state.coalitionGroups);
-  const availableColumnSets = Object.keys(availableSummaries) as Array<keyof SummaryStatConfig>;
+  const availableColumnSets = Object.keys(availableSummaries) as Array<SummaryType>;
   const mapMode = useMapControlsStore(state => state.mapMode);
   const selectedZone = useMapControlsStore(state => state.selectedZone);
   const setSelectedZone = useMapControlsStore(state => state.setSelectedZone);
   const communities = useMapStore(state => state.communities);
 
-  const [summaryType, setSummaryType] = useState<keyof SummaryStatConfig | undefined>(
+  const [summaryType, setSummaryType] = useState<SummaryType | undefined>(
     !availableColumnSets.length
       ? undefined
       : availableColumnSets.includes(defaultColumnSet)
@@ -68,13 +68,14 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
   );
   const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
     evaluation: true,
-    map: defaultColumnSet === 'VOTERHISTORY' ? true : false,
+    map: defaultColumnSet === SUMMARY_TYPES.VOTERHISTORY ? true : false,
     coalition: false,
   });
   const toggleSection = (section: SectionKey) => {
     setOpenSections(prev => ({...prev, [section]: !prev[section]}));
   };
-  const canShowCoalition = summaryType === 'TOTPOP' || summaryType === 'VAP';
+  const canShowCoalition =
+    summaryType === SUMMARY_TYPES.TOTPOP || summaryType === SUMMARY_TYPES.VAP;
 
   const baseColumnConfig = summaryType ? availableSummaries[summaryType] : [];
   const columnConfigs: Array<{
@@ -84,7 +85,8 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
     tooltip?: string;
   }> = (() => {
     if (!summaryType || !baseColumnConfig) return [];
-    if (summaryType !== 'TOTPOP' && summaryType !== 'VAP') return baseColumnConfig;
+    if (summaryType !== SUMMARY_TYPES.TOTPOP && summaryType !== SUMMARY_TYPES.VAP)
+      return baseColumnConfig;
     const selectedColumns = getSelectedCoalitionColumns({
       selectedGroups: coalitionGroups,
       availableColumns: demographyCache.availableColumns,

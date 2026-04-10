@@ -31,11 +31,15 @@ import {
   DEFAULT_COLOR_SCHEME,
   DEFAULT_COLOR_SCHEME_GRAY,
 } from '@/app/store/demography/constants';
-import {NullableZone} from '@/app/constants/types';
 import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
 import {
+  SUMMARY_TYPES,
+  COALITION_UNIVERSES,
+  type CoalitionUniverse,
+  type NullableZone,
+} from '@constants/types';
+import {
   CoalitionGroupKey,
-  CoalitionUniverse,
   COALITION_TOTAL_COLUMN_BY_UNIVERSE,
   COALITION_VARIABLE_BY_UNIVERSE,
   DemographyVariable,
@@ -116,8 +120,8 @@ class DemographyCache {
    * Available summary statistics / derived values.
    */
   summaryStats: {
-    TOTPOP?: (typeof summaryStatsWithPctConfig)['TOTPOP'];
-    VAP?: (typeof summaryStatsWithPctConfig)['VAP'];
+    TOTPOP?: (typeof summaryStatsWithPctConfig)[typeof SUMMARY_TYPES.TOTPOP];
+    VAP?: (typeof summaryStatsWithPctConfig)[typeof SUMMARY_TYPES.VAP];
     idealpop?: number;
     totalPopulation?: number;
     unassigned?: number;
@@ -219,12 +223,12 @@ class DemographyCache {
       CoalitionUniverse,
       Array<AllTabularColumns[number]>
     > = {
-      TOTPOP: this.getCoalitionColumns(coalitionGroups, 'TOTPOP'),
-      VAP: this.getCoalitionColumns(coalitionGroups, 'VAP'),
+      TOTPOP: this.getCoalitionColumns(coalitionGroups, SUMMARY_TYPES.TOTPOP),
+      VAP: this.getCoalitionColumns(coalitionGroups, SUMMARY_TYPES.VAP),
     };
     rows.forEach(row => {
       const record = asNumericRecord(row);
-      (['TOTPOP', 'VAP'] as CoalitionUniverse[]).forEach(universe => {
+      COALITION_UNIVERSES.forEach(universe => {
         const coalitionVariable = COALITION_VARIABLE_BY_UNIVERSE[universe];
         const totalColumn = COALITION_TOTAL_COLUMN_BY_UNIVERSE[universe];
         const coalitionCount = coalitionColumnsByUniverse[universe].reduce((sum, column) => {
@@ -241,7 +245,7 @@ class DemographyCache {
 
   private updateCoalitionMaxValues(rows: SummaryTable) {
     const maxValues = {...(this.zoneStats.maxValues ?? {})} as Record<string, number>;
-    (['TOTPOP', 'VAP'] as CoalitionUniverse[]).forEach(universe => {
+    COALITION_UNIVERSES.forEach(universe => {
       const variable = COALITION_VARIABLE_BY_UNIVERSE[universe];
       const pctVariable = `${variable}_pct`;
       const rawMax = Math.max(0, ...rows.map(row => asNumericRecord(row)[variable] ?? 0));
@@ -542,7 +546,10 @@ class DemographyCache {
 
     if (!this.table || !dataSoureExists) return;
     if (!config && isCoalitionVariable(variable)) {
-      const universe = variable === 'coalition_totpop' ? 'TOTPOP' : 'VAP';
+      const universe =
+        variable === COALITION_VARIABLE_BY_UNIVERSE.TOTPOP
+          ? SUMMARY_TYPES.TOTPOP
+          : SUMMARY_TYPES.VAP;
       const totalColumn = COALITION_TOTAL_COLUMN_BY_UNIVERSE[universe];
       const coalitionColumns = this.getCoalitionColumns(coalitionGroups, universe);
       if (!coalitionColumns.length) return;

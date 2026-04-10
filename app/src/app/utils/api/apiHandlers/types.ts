@@ -1,5 +1,4 @@
 import {NullableZone} from '@/app/constants/types';
-import {SummaryStatConfig} from '../summaryStats';
 import type {DraftStatus} from '@constants/map/draftStatus';
 
 export interface Assignment {
