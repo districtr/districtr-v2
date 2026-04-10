@@ -12,7 +12,9 @@
 import {Node, mergeAttributes} from '@tiptap/core';
 import {ReactNodeViewRenderer} from '@tiptap/react';
 import CommentGalleryNodeView from './CommentGalleryNodeView';
+import type {CommentGalleryProps} from './CommentGallery';
 import {getJsonHtmlRenderer, getStandardHtmlParser} from '../extensionUtils';
+import {RICH_TEXT_NODE_TYPES, COMMENT_GALLERY_ATTRIBUTES, NODE_TYPE_ATTRIBUTE_NAME} from '@constants/cms';
 
 // Extend TipTap's command interface to include our custom command
 declare module '@tiptap/core' {
@@ -33,102 +35,28 @@ export const CommentGalleryNode = Node.create({
   // Define all configurable attributes for the node
   // These map to CommentGalleryProps and are serialized to HTML data attributes
   addAttributes() {
-    const attrs: {
-      name: string;
-      default?: any;
-      parseHTML?: (element: Element) => any;
-      renderHTML?: (attributes: Record<string, any>) => Record<string, any>;
-    }[] = [
-      {
-        name: 'title',
-      },
-      {
-        name: 'description',
-      },
-      {
-        name: 'ids',
-      },
-      {
-        name: 'tags',
-      },
-      {
-        name: 'place',
-      },
-      {
-        name: 'state',
-      },
-      {
-        name: 'zipCode',
-      },
-      {
-        name: 'limit',
-        default: 10,
-      },
-      {
-        name: 'showIdentifier',
-        default: true,
-      },
-      {
-        name: 'showTitles',
-        default: true,
-      },
-      {
-        name: 'showPlaces',
-        default: true,
-      },
-      {
-        name: 'showStates',
-        default: true,
-      },
-      {
-        name: 'showZipCodes',
-        default: true,
-      },
-      {
-        name: 'showCreatedAt',
-        default: true,
-      },
-      {
-        name: 'showListView',
-        default: true,
-      },
-      {
-        name: 'paginate',
-        default: true,
-      },
-      {
-        name: 'showFilters',
-        default: false,
-      },
-      {
-        name: 'showMaps',
-        default: true,
-      },
-    ];
-
-    return attrs.reduce(
-      (acc, attr) => {
-        acc[attr.name] = {
+    return Object.fromEntries(
+      COMMENT_GALLERY_ATTRIBUTES.map(attr => [
+        attr.name,
+        {
           default: attr.default ?? null,
-          parseHTML: attr.parseHTML ?? getStandardHtmlParser(attr.name),
-          renderHTML: attr.renderHTML ?? getJsonHtmlRenderer(attr.name),
-        };
-        return acc;
-      },
-      {} as Record<string, any>
-    );
+          parseHTML: getStandardHtmlParser(attr.name),
+          renderHTML: getJsonHtmlRenderer(attr.name),
+        },
+      ])
+    ) as Record<keyof CommentGalleryProps, any>;
   },
 
   parseHTML() {
     return [
       {
-        tag: 'div[data-type="comment-gallery-node"]',
+        tag: `div[${NODE_TYPE_ATTRIBUTE_NAME}="${RICH_TEXT_NODE_TYPES.COMMENT_GALLERY}"]`,
       },
     ];
   },
 
   renderHTML({HTMLAttributes}) {
-    return ['div', mergeAttributes(HTMLAttributes, {'data-type': 'comment-gallery-node'}), 0];
+    return ['div', mergeAttributes(HTMLAttributes, {[NODE_TYPE_ATTRIBUTE_NAME]: RICH_TEXT_NODE_TYPES.COMMENT_GALLERY}), 0];
   },
 
   addCommands() {
