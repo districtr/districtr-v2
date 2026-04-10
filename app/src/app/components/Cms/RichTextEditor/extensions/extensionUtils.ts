@@ -8,7 +8,7 @@ export const getStandardHtmlParser = (attr: string) => {
 export const getJsonHtmlRenderer = (attr: string) => {
   return (attributes: Record<string, any>) => {
     return {
-      [attr]: attributes[attr] !== undefined ? JSON.stringify(attributes[attr]) : 'undefined',
+      [attr]: attributes[attr] !== undefined ? JSON.stringify(attributes[attr]) : '',
     };
   };
 };
