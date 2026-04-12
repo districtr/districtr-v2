@@ -504,12 +504,6 @@ def update_or_select_district_stats(
             if column_info:
                 demo_cols = [row.column_name for row in column_info]
                 json_pairs = [f"'{col}', SUM(demo.{col})" for col in demo_cols]
-                # Extract state FIPS from path column.
-                # Expected format: "vtd:<FIPS_CODE>..." where the first 2 chars after
-                # the "vtd:" prefix are the 2-digit state FIPS code.
-                json_pairs.append(
-                    "'statefp', MIN(SUBSTRING(REPLACE(demo.path, 'vtd:', '') FROM 1 FOR 2))"
-                )
                 demographic_json = f"json_build_object({', '.join(json_pairs)})"
 
         # Build INSERT ... RETURNING to get created rows back
@@ -558,9 +552,6 @@ def update_or_select_district_stats(
         if parent_layer and demographic_json:
             # Build total demographics query from parent layer (no double counting)
             total_json_pairs = [f"'{col}', SUM({col})" for col in demo_cols]
-            total_json_pairs.append(
-                "'statefp', MIN(SUBSTRING(REPLACE(path, 'vtd:', '') FROM 1 FOR 2))"
-            )
             total_json = f"json_build_object({', '.join(total_json_pairs)})"
             total_sql = f"SELECT {total_json} AS demographic_data FROM gerrydb.{parent_layer}"
             total_result = session.execute(text(total_sql)).mappings().first()
@@ -573,16 +564,12 @@ def update_or_select_district_stats(
                 for row_data in returned_rows:
                     if row_data.demographic_data:
                         for col, val in row_data.demographic_data.items():
-                            if isinstance(val, (int, float)):
-                                assigned_sum[col] = assigned_sum.get(col, 0) + val
+                            assigned_sum[col] = assigned_sum.get(col, 0) + val
 
                 # Unassigned = total - assigned
                 unassigned_demo: dict = {}
                 for col, val in total_demo.items():
-                    if isinstance(val, (int, float)):
-                        unassigned_demo[col] = val - assigned_sum.get(col, 0)
-                    else:
-                        unassigned_demo[col] = val  # e.g., statefp
+                    unassigned_demo[col] = val - assigned_sum.get(col, 0)
 
                 # Insert the unassigned row
                 unassigned_insert = text("""
