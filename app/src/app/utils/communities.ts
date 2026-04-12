@@ -237,15 +237,18 @@ export const sanitizeCommunityModuleName: (
  * @returns DistrictrMap[]
  */
 export const sanitizeCommunityMaps: (maps: Partial<DistrictrMap>[]) => DistrictrMap[] = maps => {
-  const fitleredMaps = maps.filter((curr, index) => {
-    // filter for first entry of each gerrydb_table_name
-    return maps.findIndex(map => map.gerrydb_table_name === curr.gerrydb_table_name) === index;
-  });
-  return fitleredMaps.map(
-    map =>
-      ({
+  const sanitizedMaps: DistrictrMap[] = [];
+  const mapNameSet = new Set<string>();
+  maps.forEach(map => {
+    if (!map.name) return;
+    const sanitizedName = sanitizeCommunityModuleName(map.name);
+    if (sanitizedName && !mapNameSet.has(sanitizedName)) {
+      sanitizedMaps.push({
         ...map,
-        name: sanitizeCommunityModuleName(map.name ?? ''),
-      }) as DistrictrMap
-  );
+        name: sanitizedName,
+      } as DistrictrMap);
+      mapNameSet.add(sanitizedName);
+    }
+  });
+  return sanitizedMaps;
 };
