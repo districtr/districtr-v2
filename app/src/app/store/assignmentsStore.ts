@@ -1,7 +1,7 @@
 import {ConflictResolutionOptions, NullableZone, SyncConflictResolution} from '../constants/types';
 import {Zone, GDBPath} from '@constants/types';
 import GeometryWorker from '../utils/GeometryWorker';
-import {demographyCache} from '../utils/demography/demographyCache';
+import {demographyService} from '../utils/demography/demographyService';
 import {idb} from '../utils/idb/idb';
 import {useMapStore} from './mapStore';
 import {useDemographyStore} from './demography/demographyStore';
@@ -434,7 +434,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       idb.updateIdbAssignments(mapDocument, data.zoneAssignments, mapDocument.updated_at, true);
       useMapStore.getState().mutateMapDocument(mapDocument);
     }
-    demographyCache.updatePopulations({
+    demographyService.updatePopulations({
       zoneAssignments: data.zoneAssignments,
       coalitionGroups: useDemographyStore.getState().coalitionGroups,
     });
@@ -599,7 +599,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
 
     if (!result) return;
     const {zoneAssignments, shatterIds, parentToChild, childToParent} = result;
-    demographyCache.updatePopulations({
+    demographyService.updatePopulations({
       zoneAssignments,
       coalitionGroups: useDemographyStore.getState().coalitionGroups,
     });

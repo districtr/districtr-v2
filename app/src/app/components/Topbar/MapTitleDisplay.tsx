@@ -22,6 +22,7 @@ import {Cross2Icon, Pencil1Icon} from '@radix-ui/react-icons';
 import {MapContextModuleAndUnits} from './MapContextModuleAndUnits';
 import {InProgressIcon, ReadyIcon, ScratchWorkIcon} from './Icons';
 import {SegmentedControl} from '@radix-ui/themes';
+import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/map/mapDefaults';
 
 const statusIcons: Record<DraftStatus, React.FC> = {
   scratch: ScratchWorkIcon,
@@ -53,7 +54,7 @@ export const MapTitleDisplay: React.FC<{
 
   const isTruncated = _mapName.length > MAX_TITLE_LENGTH;
   const mapName = isTruncated ? `${_mapName.slice(0, MAX_TITLE_LENGTH)}...` : _mapName;
-  const editing = mapDocument?.document_id !== 'anonymous';
+  const editing = mapDocument?.document_id !== ANONYMOUS_DOCUMENT_ID;
 
   const draftStatus = mapMetadata?.draft_status ?? 'scratch';
   const DraftStatusIcon = statusIcons[draftStatus] ?? ScratchWorkIcon;

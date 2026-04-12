@@ -46,9 +46,10 @@ export const normalizeCommunities = ({
     .map((community, index) => ({
       id: community.id,
       render_order_id: index + 1,
-      name: !community.name || isDefaultCommunityName(community.name)
-        ? communityNameForIndex(index)
-        : community.name,
+      name:
+        !community.name || isDefaultCommunityName(community.name)
+          ? communityNameForIndex(index)
+          : community.name,
       description: community.description || DEFAULT_COMMUNITY_DESCRIPTION,
       color: community.color || palette[(community.id - 1) % palette.length] || '#000000',
       createdAt: community.createdAt || fallbackCreatedAt(index),
@@ -174,9 +175,7 @@ export const removeCommunityAndShiftRenderOrder = (
   ).map((community, index) => ({
     ...community,
     render_order_id: index + 1,
-    name: isDefaultCommunityName(community.name)
-      ? communityNameForIndex(index)
-      : community.name,
+    name: isDefaultCommunityName(community.name) ? communityNameForIndex(index) : community.name,
   }));
 
 export const compareCoiZonesByRenderOrder = (

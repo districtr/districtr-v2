@@ -43,7 +43,7 @@ export const fetchDocument = async (
 ): FetchDocumentResult => {
   const isPublic = !isUUID(document_id);
   const [idbDocument, remoteMetadata] = await Promise.all([
-    idb.getDocument(document_id),
+    isPublic ? Promise.resolve(null) : idb.getDocument(document_id),
     getDocument(document_id),
   ]);
 
@@ -61,6 +61,17 @@ export const fetchDocument = async (
     return {
       ok: false,
       error: remoteMetadata.error.detail || 'Failed to fetch document',
+    };
+  }
+
+  if (isPublic) {
+    return {
+      ok: true,
+      response: {
+        document: remoteMetadata.response,
+        assignments: [],
+        updateLocal: false,
+      },
     };
   }
 

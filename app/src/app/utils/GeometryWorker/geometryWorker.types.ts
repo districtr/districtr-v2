@@ -124,4 +124,10 @@ export type GeometryWorkerClass = {
    */
   getGeos: () => GeoJSON.FeatureCollection;
   getPropsById: (ids: string[]) => Array<MinGeoJSONFeature>;
+  /**
+   * Takes public district polygon features, computes their center of mass,
+   * and loads the resulting points as pointData with zone assignments.
+   * @param features - GeoJSON polygon/multipolygon features with zone and path properties.
+   */
+  setPublicFeatures: (features: GeoJSON.Feature[]) => void;
 };

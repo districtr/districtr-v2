@@ -1,50 +1,59 @@
 import type React from 'react';
-import {ZONE_ASSIGNMENT_STYLE} from '@/app/constants/map/layerStyle';
+import {
+  OVERLAY_OPACITY,
+  ZONE_ASSIGNMENT_STYLE,
+  ZONE_LABEL_STYLE,
+} from '@/app/constants/map/layerStyle';
 import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerIds';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import type {DataDrivenPropertyValueSpecification, FilterSpecification} from 'maplibre-gl';
 import {useMemo} from 'react';
-import {Layer} from 'react-map-gl/maplibre';
+import {Layer, LayerProps} from 'react-map-gl/maplibre';
 
 export const ZoneAssignmentLayer: React.FC<{
   id: string;
-  sourceLayerId: string;
+  sourceLayerId?: string;
   filter: FilterSpecification;
   beforeId: string;
   style?: {
     baseFillOpacity?: DataDrivenPropertyValueSpecification<number>;
   };
 }> = ({id, sourceLayerId, filter, beforeId, style}) => {
-  const baseFillOpacity = style?.baseFillOpacity ?? 0.7;
+  const baseFillOpacity = style?.baseFillOpacity ?? OVERLAY_OPACITY;
+  const isGeoJsonSource = !sourceLayerId;
 
   const colorScheme = useColorScheme();
   const showPaintedDistricts = useMapControlsStore(state => state.mapOptions.showPaintedDistricts);
   const fillOpacity = useMemo(
     () =>
-      [
-        'case',
-        // Show assignment color only where a zone is assigned.
-        ['!', ['==', ['feature-state', 'zone'], null]],
-        baseFillOpacity,
-        0,
-      ] as unknown as DataDrivenPropertyValueSpecification<number>,
-    [baseFillOpacity]
+      isGeoJsonSource
+        ? baseFillOpacity
+        : ([
+            'case',
+            // Show assignment color only where a zone is assigned.
+            ['!', ['==', ['feature-state', 'zone'], null]],
+            baseFillOpacity,
+            0,
+          ] as unknown as DataDrivenPropertyValueSpecification<number>),
+    [baseFillOpacity, isGeoJsonSource]
   );
 
-  return (
-    <Layer
-      id={id}
-      source={BLOCK_SOURCE_ID}
-      source-layer={sourceLayerId}
-      filter={filter}
-      beforeId={beforeId}
-      type="fill"
-      layout={{visibility: showPaintedDistricts ? 'visible' : 'none'}}
-      paint={{
-        'fill-opacity': fillOpacity,
-        'fill-color': ZONE_ASSIGNMENT_STYLE(colorScheme) || '#000000',
-      }}
-    />
-  );
+  const layerProps: LayerProps = {
+    id,
+    source: BLOCK_SOURCE_ID,
+    'source-layer': sourceLayerId,
+    filter,
+    beforeId,
+    type: 'fill' as const,
+    layout: {visibility: showPaintedDistricts ? 'visible' : 'none'},
+    paint: {
+      'fill-opacity': fillOpacity,
+      'fill-color':
+        (isGeoJsonSource ? ZONE_LABEL_STYLE(colorScheme) : ZONE_ASSIGNMENT_STYLE(colorScheme)) ||
+        '#000000',
+    },
+  };
+
+  return <Layer {...layerProps} />;
 };

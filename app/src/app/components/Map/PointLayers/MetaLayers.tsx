@@ -10,7 +10,7 @@ import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
-import {demographyCache} from '@/app/utils/demography/demographyCache';
+import {demographyService} from '@/app/utils/demography/demographyService';
 import GeometryWorker from '@/app/utils/GeometryWorker';
 import React, {useLayoutEffect, useMemo, useState} from 'react';
 import {useEffect} from 'react';
@@ -148,7 +148,7 @@ const ZoneNumbersLayer = () => {
       currentView.getEast(),
       currentView.getNorth(),
     ] as [number, number, number, number];
-    const activeZones = demographyCache.populations
+    const activeZones = demographyService.populations
       .filter(p => p.total_pop_20 > 0)
       .map(p => p.zone);
     const mapState = useMapStore.getState();

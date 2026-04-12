@@ -7,7 +7,7 @@ import {useVisibilityState} from './useVisibilityState';
 import {useMapControlsStore} from '../store/mapControlsStore';
 import {useAssignmentsStore} from '../store/assignmentsStore';
 
-export const useMapRenderer = (mapType: 'demographic' | 'main' = 'main') => {
+export const useMapRenderer = (mapType: 'demographic' | 'main' = 'main', readOnly = false) => {
   const mapRef = useRef<MapRef | null>(null);
   const renderer = useRef<MapRenderSubscriber | null>(null);
   const {isVisible} = useVisibilityState();
@@ -21,7 +21,8 @@ export const useMapRenderer = (mapType: 'demographic' | 'main' = 'main') => {
       useMapStore,
       useDemographyStore,
       useMapControlsStore,
-      useAssignmentsStore
+      useAssignmentsStore,
+      readOnly
     );
     renderSubscriber.subscribe();
     requestAnimationFrame(() => {

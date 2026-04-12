@@ -5,10 +5,49 @@ import {GeometryWorkerClass, MinGeoJSONFeature} from './geometryWorker.types';
 import {LngLatBoundsLike} from 'maplibre-gl';
 import bbox from '@turf/bbox';
 import nearestPoint from '@turf/nearest-point';
+import polylabel from 'polylabel';
 import {EMPTY_FT_COLLECTION} from '../../constants/map/layerStyle';
 
 const POINT_LIMIT = 256;
 const MIN_POPULATION = 300;
+
+/**
+ * Find the visual center (pole of inaccessibility) of a polygon.
+ * For MultiPolygons, uses the largest component polygon.
+ */
+const interiorCenter = (
+  feature: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>
+): GeoJSON.Feature<GeoJSON.Point> => {
+  const geom = feature.geometry;
+  let rings: number[][][];
+
+  if (geom.type === 'Polygon') {
+    rings = geom.coordinates;
+  } else {
+    // Pick the largest polygon by outer ring area
+    let maxArea = 0;
+    rings = geom.coordinates[0];
+    for (const polyCoords of geom.coordinates) {
+      let area = 0;
+      const outer = polyCoords[0];
+      for (let i = 0, j = outer.length - 1; i < outer.length; j = i++) {
+        area += (outer[j][0] - outer[i][0]) * (outer[j][1] + outer[i][1]);
+      }
+      if (Math.abs(area) > maxArea) {
+        maxArea = Math.abs(area);
+        rings = polyCoords;
+      }
+    }
+  }
+
+  const result = polylabel(rings, 0.001);
+  const [x, y] = [result[0], result[1]];
+  return {
+    type: 'Feature',
+    geometry: {type: 'Point', coordinates: [x, y]},
+    properties: {},
+  };
+};
 
 const explodeMultiPolygonToPolygons = (
   feature: GeoJSON.MultiPolygon
@@ -247,6 +286,36 @@ const GeometryWorker: GeometryWorkerClass = {
       features,
     };
   },
+  setPublicFeatures(features: GeoJSON.Feature[]) {
+    const points: GeoJSON.Feature<GeoJSON.Point>[] = [];
+    const zoneEntries: Array<[string, number]> = [];
+
+    features.forEach(feature => {
+      const zone = feature.properties?.zone;
+      const path = feature.properties?.path;
+      if (zone == null || !path || !feature.geometry) return;
+
+      const poly = feature as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>;
+      const center = interiorCenter(poly);
+      const [lng, lat] = center.geometry.coordinates;
+      points.push({
+        type: 'Feature',
+        geometry: center.geometry,
+        properties: {
+          ...feature.properties,
+          x: lng,
+          y: lat,
+        },
+      });
+      zoneEntries.push([String(path), zone]);
+    });
+
+    this.pointData = {
+      type: 'FeatureCollection',
+      features: points,
+    };
+    this.updateZones(zoneEntries);
+  },
   async getUnassignedGeometries(documentId?: string, exclude_ids?: string[]) {
     const geomsToDissolve: GeoJSON.Feature[] = [];
     const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${documentId}/unassigned`);
@@ -254,6 +323,9 @@ const GeometryWorker: GeometryWorkerClass = {
       exclude_ids.forEach(id => url.searchParams.append('exclude_ids', id));
     }
     const remoteUnassignedFeatures = await fetch(url).then(r => r.json());
+    if (!remoteUnassignedFeatures?.features) {
+      return {dissolved: {type: 'FeatureCollection', features: []}, overall: null};
+    }
     remoteUnassignedFeatures.features.forEach((geo: GeoJSON.MultiPolygon | GeoJSON.Polygon) => {
       if (geo.type === 'Polygon') {
         geomsToDissolve.push({
