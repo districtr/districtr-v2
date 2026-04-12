@@ -7,7 +7,9 @@ import {DemographyStore} from './types';
 import {useAssignmentsStore} from '../assignmentsStore';
 import {useCoiAssignmentsStore} from '../coiAssignmentsStore';
 import {getDemography} from '@/app/utils/api/apiHandlers/getDemography';
-import {demographyCache} from '@/app/utils/demography/demographyCache';
+import {demographyService} from '@/app/utils/demography/demographyService';
+import {getAvailableColumnSets} from '@/app/utils/demography/getAvailableColumnSets';
+import {DEFAULT_CHOROPLETH_BIN_COUNT} from './constants';
 import {AllEvaluationConfigs, AllMapConfigs} from '@/app/utils/api/summaryStats';
 import {evalColumnConfigs} from './evaluationConfig';
 import {choroplethMapVariables} from './constants';
@@ -63,7 +65,7 @@ export var useDemographyStore = create(
           coalitionRestoredSlug: null,
           coalitionHash: `${++coalitionVersion}`,
         });
-        demographyCache.updatePopulations();
+        demographyService.updatePopulations();
         return;
       }
       if (get().coalitionRestoredSlug === slug) return;
@@ -76,14 +78,14 @@ export var useDemographyStore = create(
         coalitionRestoredSlug: slug,
         coalitionHash: `${++coalitionVersion}`,
       });
-      demographyCache.updatePopulations({coalitionGroups});
+      demographyService.updatePopulations({coalitionGroups});
 
       const currentVariable = get().variable;
       if (isCoalitionVariable(currentVariable)) {
         const universe = getCoalitionUniverseFromVariable(currentVariable);
         const selectedColumns = getSelectedCoalitionColumns({
           selectedGroups: coalitionGroups,
-          availableColumns: demographyCache.availableColumns,
+          availableColumns: demographyService.availableColumns,
           universe,
         });
         if (!selectedColumns.length) {
@@ -99,7 +101,7 @@ export var useDemographyStore = create(
         coalitionGroups: deduped,
         coalitionHash: `${++coalitionVersion}`,
       });
-      demographyCache.updatePopulations({coalitionGroups: deduped});
+      demographyService.updatePopulations({coalitionGroups: deduped});
 
       const {mapDocument} = useMapStore.getState();
       if (mapDocument?.districtr_map_slug) {
@@ -114,7 +116,7 @@ export var useDemographyStore = create(
         const universe = getCoalitionUniverseFromVariable(currentVariable);
         const selectedColumns = getSelectedCoalitionColumns({
           selectedGroups: deduped,
-          availableColumns: demographyCache.availableColumns,
+          availableColumns: demographyService.availableColumns,
           universe,
         });
         if (!selectedColumns.length) {
@@ -130,7 +132,7 @@ export var useDemographyStore = create(
         coalitionRestoredSlug: null,
         coalitionHash: `${++coalitionVersion}`,
       });
-      demographyCache.updatePopulations();
+      demographyService.updatePopulations();
     },
     availableColumnSets: {
       evaluation: {},
@@ -163,7 +165,7 @@ export var useDemographyStore = create(
         scale: isSwappingMode ? currScale : undefined,
       });
     },
-    numberOfBins: 5,
+    numberOfBins: DEFAULT_CHOROPLETH_BIN_COUNT,
     setNumberOfBins: numberOfBins => set({numberOfBins}),
     dataHash: '',
     setDataHash: dataHash => set({dataHash}),
@@ -188,8 +190,13 @@ export var useDemographyStore = create(
         });
         return;
       }
-      demographyCache.update(result.columns, result.results, dataHash, get().coalitionGroups);
-      const availableColumns = demographyCache.availableColumns;
+
+      if (mapDocument.access === 'read') {
+        demographyService.updateOverlay(result.columns, result.results, dataHash);
+      } else {
+        demographyService.update(result.columns, result.results, dataHash, get().coalitionGroups);
+      }
+      const availableColumns = demographyService.availableColumns;
       const availableEvalSets: Record<string, AllEvaluationConfigs> = Object.fromEntries(
         Object.entries(evalColumnConfigs)
           .map(([columnsetKey, config]) => [
@@ -208,10 +215,7 @@ export var useDemographyStore = create(
       );
 
       set({
-        availableColumnSets: {
-          evaluation: availableEvalSets,
-          map: availableMapSets,
-        },
+        availableColumnSets: getAvailableColumnSets(demographyService.availableColumns),
         dataHash,
       });
     },

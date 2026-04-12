@@ -12,13 +12,18 @@ import {useRouter} from 'next/navigation';
 interface UseDocumentWithSyncOptions {
   document_id: string | null | undefined;
   enabled?: boolean;
+  isPublicPage?: boolean;
 }
 
 /**
  * Hook to fetch a document with sync support between IDB and server.
  * Handles conflict resolution and loads assignments accordingly.
  */
-export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWithSyncOptions) {
+export function useDocumentWithSync({
+  document_id,
+  enabled = true,
+  isPublicPage = false,
+}: UseDocumentWithSyncOptions) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [conflictInfo, setConflictInfo] = useState<SyncConflictInfo | null>(null);
@@ -77,6 +82,7 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
       setError(null);
 
       const result = await fetchDocument(document_id);
+
       if (!result.ok) {
         console.warn('[hydration] fetchDocument failed:', result.error);
         if (result.response) {
@@ -86,7 +92,10 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
           setError(new Error(result.error));
           setIsLoading(false);
         }
-        return;
+      } else if (isPublicPage) {
+        setMapDocument(result.response.document);
+        setIsLoading(false);
+        setAppLoadingState('loaded');
       } else {
         const isCommunityDocument = result.response.document.map_type === 'community';
         // console.log('[hydration] Document loaded', {

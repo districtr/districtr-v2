@@ -24,7 +24,7 @@ import {createWithDevWrapperAndSubscribe} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
 import {nanoid} from 'nanoid';
 import {useUnassignFeaturesStore} from './unassignedFeatures';
-import {demographyCache} from '../utils/demography/demographyCache';
+import {demographyService} from '../utils/demography/demographyService';
 import {useDemographyStore} from './demography/demographyStore';
 import {extendColorArray} from '../utils/colors';
 import {getChildEdges} from '../utils/api/apiHandlers/getChildEdges';
@@ -385,7 +385,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         GeometryWorker?.clear();
       }
       GeometryWorker?.resetZones();
-      demographyCache.clear();
+      demographyService.clear();
       resetZoneAssignments();
       useDemographyStore.getState().clear();
       useUnassignFeaturesStore.getState().reset();

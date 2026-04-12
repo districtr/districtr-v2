@@ -45,15 +45,21 @@ export const colorZoneAssignments = (
   const featureStateCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
   const featureStateChangesCache =
     mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
+  const source = mapRef.getSource(BLOCK_SOURCE_ID) as {type?: string} | undefined;
+  const useVectorSourceLayer = source?.type === 'vector';
+  // GeoJSON sources (public maps) use property-based styling via ZONE_LABEL_STYLE,
+  // so feature-state zone coloring is not needed — skip and report success.
+  if (!useVectorSourceLayer) return true;
   if (!featureStateCache) return false;
 
   zoneAssignments.forEach((zone, id) => {
     if (!id) return;
-    const isChild = currentShatterIds.children.has(id);
-    const sourceLayer = isChild ? mapDocument.child_layer : mapDocument.parent_layer;
-    if (!sourceLayer) return;
-    const featureState = featureStateCache?.[sourceLayer]?.[id];
-    const futureState = featureStateChangesCache?.[sourceLayer]?.[id];
+    const isChild = useVectorSourceLayer && currentShatterIds.children.has(id);
+    const parentChildLayer = isChild ? mapDocument.child_layer : mapDocument.parent_layer;
+    const sourceLayer = useVectorSourceLayer && parentChildLayer ? parentChildLayer : undefined;
+    const sourceLayerStateKey = sourceLayer ?? '';
+    const featureState = featureStateCache?.[sourceLayerStateKey]?.[id];
+    const futureState = featureStateChangesCache?.[sourceLayerStateKey]?.[id];
     if (!isInitialRender && (featureState?.zone === zone || futureState?.zone === zone)) return;
 
     mapRef?.setFeatureState(
@@ -71,9 +77,9 @@ export const colorZoneAssignments = (
 
   previousZoneAssignments.forEach((zone, id) => {
     if (zoneAssignments.get(id)) return;
-    const isChild = prevShatterIds?.children.has(id);
-    const sourceLayer = isChild ? mapDocument.child_layer : mapDocument.parent_layer;
-    if (!sourceLayer) return;
+    const isChild = useVectorSourceLayer && prevShatterIds?.children.has(id);
+    const parentChildLayer = isChild ? mapDocument.child_layer : mapDocument.parent_layer;
+    const sourceLayer = useVectorSourceLayer && parentChildLayer ? parentChildLayer : undefined;
     mapRef?.setFeatureState(
       {
         source: BLOCK_SOURCE_ID,

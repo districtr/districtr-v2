@@ -1,5 +1,5 @@
 'use client';
-import {demographyCache} from '@/app/utils/demography/demographyCache';
+import {demographyService} from '@/app/utils/demography/demographyService';
 import {
   CoalitionUniverse,
   CoalitionGroupKey,
@@ -29,7 +29,7 @@ export const CoalitionBuilder: React.FC<CoalitionBuilderProps> = ({summaryType})
   useDemographyStore(state => state.dataHash);
   useChartStore(state => state.dataUpdateHash);
 
-  const stats = demographyCache.getCoalitionUniverseStats(summaryType, coalitionGroups);
+  const stats = demographyService.getCoalitionUniverseStats(summaryType, coalitionGroups);
   const availableSet = new Set(stats.availableGroups);
   const handleCoalitionChange = (values: string[]) => {
     const selectedAvailableGroups = values.filter(isCoalitionGroupKey);

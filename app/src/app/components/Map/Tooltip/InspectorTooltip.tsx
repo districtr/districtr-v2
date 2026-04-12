@@ -2,8 +2,8 @@
 import {Table} from '@radix-ui/themes';
 import {formatNumber} from '@utils/numbers';
 import {useTooltipStore} from '@store/tooltipStore';
-import {demographyCache} from '@utils/demography/demographyCache';
-import {useEffect, useState} from 'react';
+import {demographyService} from '@/app/utils/demography/demographyService';
+import {useEffect, useMemo, useState} from 'react';
 import {CONFIG_BY_COLUMN_SET} from '@store/demography/evaluationConfig';
 import {PARTISAN_SCALE} from '@store/demography/constants';
 import {INSPECTOR_TITLE, TOTAL_COLUMN} from '@components/Map/Tooltip/InpsectorTooltipConfig';
@@ -40,6 +40,7 @@ export const InspectorTooltip = () => {
   const standardFormat =
     inspectorMode === 'VOTERHISTORY' ? 'partisan' : usePercent ? 'percent' : 'standard';
   const ids = hoverFeatures.map(f => f.id as string);
+  const stableIds = useMemo(() => ids, [ids.join(',')]);
   const [inspectorData, setInspectorData] = useState<Record<string, number>>({});
   const config = CONFIG_BY_COLUMN_SET[inspectorMode].sort((a, b) => a.label.localeCompare(b.label));
   const title = INSPECTOR_TITLE[inspectorMode];
@@ -62,19 +63,19 @@ export const InspectorTooltip = () => {
   };
 
   useEffect(() => {
-    if (ids.length > 0) {
+    if (stableIds.length > 0) {
       const _activeColumns =
         inspectorMode === 'VOTERHISTORY'
           ? [...activeColumns, ...activeColumns.map(colName => colName.replace('_lean', '_total'))]
           : activeColumns;
-      const data = demographyCache.calculateSummaryStats(ids, _activeColumns);
+      const data = demographyService.calculateSummaryStats(stableIds, _activeColumns);
       if (data.length === 1) {
         setInspectorData(data[0]);
       }
     } else {
       setInspectorData({});
     }
-  }, [JSON.stringify(ids)]);
+  }, [activeColumns, inspectorMode, stableIds]);
 
   if (Object.keys(inspectorData).length === 0) return null;
 

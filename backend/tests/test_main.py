@@ -1185,11 +1185,18 @@ def test_get_district_unions(client, document_id_total_vap):
     response = client.get(f"/api/document/{document_id_total_vap}/stats")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 2
-    assert data[0].get("zone")
-    assert data[0].get("geometry")
-    assert data[0].get("demographic_data")
-    assert data[0].get("updated_at")
+    # 2 assigned zones + 1 unassigned row
+    assert len(data) == 3
+    assigned_rows = [d for d in data if d.get("zone") is not None]
+    unassigned_rows = [d for d in data if d.get("zone") is None]
+    assert len(assigned_rows) == 2
+    assert len(unassigned_rows) == 1
+    assert assigned_rows[0].get("geometry")
+    assert assigned_rows[0].get("demographic_data")
+    assert assigned_rows[0].get("updated_at")
+    # Unassigned row has no geometry but has demographic data
+    assert unassigned_rows[0].get("geometry") is None
+    assert unassigned_rows[0].get("demographic_data") is not None
     # update assignments to re-generate stats
     response = client.put(
         "/api/assignments",
@@ -1205,7 +1212,8 @@ def test_get_district_unions(client, document_id_total_vap):
     response = client.get(f"/api/document/{document_id_total_vap}/stats")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 1
+    # 1 assigned zone + 1 unassigned row
+    assert len(data) == 2
 
     # get with public id
     document_info = client.get(f"/api/document/{document_id_total_vap}")
@@ -1214,7 +1222,7 @@ def test_get_district_unions(client, document_id_total_vap):
     )
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 1
+    assert len(data) == 2
 
 
 # --- Variable num_districts / metadata backend tests ---
