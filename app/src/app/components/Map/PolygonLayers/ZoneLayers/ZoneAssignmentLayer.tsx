@@ -1,5 +1,9 @@
 import type React from 'react';
-import {ZONE_ASSIGNMENT_STYLE, ZONE_LABEL_STYLE} from '@/app/constants/map/layerStyle';
+import {
+  OVERLAY_OPACITY,
+  ZONE_ASSIGNMENT_STYLE,
+  ZONE_LABEL_STYLE,
+} from '@/app/constants/map/layerStyle';
 import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerIds';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
@@ -16,7 +20,7 @@ export const ZoneAssignmentLayer: React.FC<{
     baseFillOpacity?: DataDrivenPropertyValueSpecification<number>;
   };
 }> = ({id, sourceLayerId, filter, beforeId, style}) => {
-  const baseFillOpacity = style?.baseFillOpacity ?? 0.7;
+  const baseFillOpacity = style?.baseFillOpacity ?? OVERLAY_OPACITY;
   const isGeoJsonSource = !sourceLayerId;
 
   const colorScheme = useColorScheme();

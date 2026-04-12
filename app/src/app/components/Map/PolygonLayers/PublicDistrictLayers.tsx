@@ -2,7 +2,7 @@
 import type React from 'react';
 import {Layer} from 'react-map-gl/maplibre';
 import {CANONICAL_LAYER_IDS, PUBLIC_SOURCE_ID} from '@constants/map/layerIds';
-import {ZONE_LABEL_STYLE} from '@constants/map/layerStyle';
+import {OVERLAY_OPACITY, ZONE_LABEL_STYLE} from '@constants/map/layerStyle';
 import {DEFAULT_BLOCK_LAYER_ORDER} from '@constants/map/layerRenderConfig';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 
@@ -17,7 +17,7 @@ export const PublicDistrictLayers: React.FC = () => {
         type="fill"
         paint={{
           'fill-color': ZONE_LABEL_STYLE(colorScheme),
-          'fill-opacity': 0.7,
+          'fill-opacity': OVERLAY_OPACITY,
         }}
         beforeId={DEFAULT_BLOCK_LAYER_ORDER.zoneBeforeId}
       />
