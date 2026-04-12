@@ -5,7 +5,7 @@ import {ColumnarTableData} from '../../ParquetWorker/parquetWorker.types';
 import {get} from '../factory';
 
 type PublicDistrictData = {
-  zone: number | null;
+  zone: NullableZone;
   demographic_data: Record<string, unknown> | null;
   geometry: string | GeoJSON.Geometry | null;
 };
