@@ -29,7 +29,7 @@ import {idb} from '@/app/utils/idb/idb';
 import {RevertPopover} from './RevertPopover';
 import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/map/mapDefaults';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import {sanitizeCommunityModuleName} from '@/app/utils/communities';
+import {sanitizeCommunityMaps, sanitizeCommunityModuleName} from '@/app/utils/communities';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
@@ -42,7 +42,9 @@ export const Topbar: React.FC = () => {
   const router = useRouter();
   const updateMetadata = useMapStore(state => state.updateMetadata);
   const mapMode = useMapControlsStore(state => state.mapMode);
-  const data = mapViews?.data || [];
+  const rawMapViewList = mapViews?.data || [];
+  const cleanMapViewList =
+    mapMode === 'districts' ? rawMapViewList : sanitizeCommunityMaps(rawMapViewList);
 
   const handleMetadataChange = async (updates: Partial<DocumentMetadata>) => {
     if (!mapDocument?.document_id) return;
@@ -121,8 +123,8 @@ export const Topbar: React.FC = () => {
                   <DropdownMenu.Sub>
                     <DropdownMenu.SubTrigger>Select a geography</DropdownMenu.SubTrigger>
                     <DropdownMenu.SubContent>
-                      {data.length ? (
-                        data.map((view, index) => (
+                      {cleanMapViewList.length ? (
+                        cleanMapViewList.map((view, index) => (
                           <DropdownMenu.Item
                             key={index}
                             onClick={() => handleSelectMap(view, mapMode)}
