@@ -27,7 +27,7 @@ import {
 import {PARTISAN_SCALE} from '@/app/store/demography/constants';
 import {GearIcon, InfoCircledIcon} from '@radix-ui/react-icons';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
-import {demographyCache} from '@/app/utils/demography/demographyCache';
+import {demographyService} from '@/app/utils/demography/demographyService';
 import {CoalitionGroupKey, COALITION_VARIABLE_BY_UNIVERSE} from '@/app/utils/demography/coalition';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {compareCoiZonesByRenderOrder, getCommunityDisplayNumber} from '@/app/utils/communities';
@@ -104,7 +104,7 @@ function buildUniverseRow({
   summaryType: CoalitionUniverse;
   coalitionGroups: CoalitionGroupKey[];
 }): Record<string, number | string | boolean> {
-  const coalitionStats = demographyCache.getCoalitionUniverseStats(summaryType, coalitionGroups);
+  const coalitionStats = demographyService.getCoalitionUniverseStats(summaryType, coalitionGroups);
   const row: Record<string, number | string | boolean> = {
     zone: 'Statewide',
     __isUniverse: true,
@@ -142,6 +142,8 @@ const Evaluation: React.FC<EvaluationProps> = ({
   const coalitionGroups = useDemographyStore(state => state.coalitionGroups);
 
   const maxValues = zoneStats?.maxValues;
+  const effectiveUniverseTotals =
+    singleZone != null ? (universeTotals ?? demographyService.universeTotals) : undefined;
   const colorScheme = useColorScheme();
   const getZoneColor = useZoneColorGetter();
   const mapMode = useMapControlsStore(state => state.mapMode);

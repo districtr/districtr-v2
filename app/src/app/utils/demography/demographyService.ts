@@ -32,6 +32,8 @@ import {
   DEFAULT_COLOR_SCHEME_GRAY,
 } from '@/app/store/demography/constants';
 import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
+import {useDemographyStore} from '@/app/store/demography/demographyStore';
+import {evalColumnConfigs} from '@/app/store/demography/evaluationConfig';
 import {
   SUMMARY_TYPES,
   COALITION_UNIVERSES,
@@ -86,12 +88,20 @@ const getActivePopulationAssignments = (): PopulationAssignments => {
 /**
  * Class to organize queries on current demographic data
  */
-class DemographyCache {
+class DemographyService {
   /**
    * Arquero main data table.
    * Reflects the stats pulled from the api/document/{doc id}/demography endpoint
    */
   table?: ColumnTable;
+
+  /**
+   * Separate table for choropleth overlay data (VTD-level).
+   * Used so that loading VTD data for the overlay doesn't overwrite
+   * zone-level populations used by the sidebar.
+   */
+  overlayTable?: ColumnTable;
+  overlayHash: string = '';
 
   /**
    * The zone data table.
@@ -142,23 +152,23 @@ class DemographyCache {
 
   colorScale?: AnyD3Scale;
   /**
-   * Updates this class with new data from the backend.
+   * Updates the cache with freshly loaded demographic columns/results.
    *
-   * @param columns - The columns to update.
-   * @param dataRows - The data rows to update.
-   * @param mapDocument - The map document object.
-   * @param hash - The hash representing the new state.
+   * @param columns - Available column names included in `data`.
+   * @param data - Columnar demographic rows keyed by column name.
+   * @param hash - Cache key for this data snapshot (document + shatter context).
    */
   update(
     columns: AllTabularColumns[number][],
     data: ColumnarTableData,
     hash: string,
-    coalitionGroups: CoalitionGroupKey[] = []
+    coalitionGroups: CoalitionGroupKey[] = [],
+    _zoneAssignments?: ZoneAssignmentsMap
   ): void {
     if (hash === this.hash) return;
     this.availableColumns = columns;
     this.table = table(data).derive(getColumnDerives(columns)).dedupe('path');
-    const populationAssignments = getActivePopulationAssignments();
+    const populationAssignments = _zoneAssignments ?? getActivePopulationAssignments();
     const popsOk = this.updatePopulations({
       zoneAssignments: populationAssignments,
       coalitionGroups,
@@ -166,6 +176,19 @@ class DemographyCache {
     if (!popsOk) return;
     this.updateSummaryStats();
     this.hash = hash;
+  }
+
+  /**
+   * Loads VTD-level data for the choropleth overlay without touching
+   * the main table, populations, or summary stats.
+   */
+  updateOverlay(columns: AllTabularColumns[number][], data: ColumnarTableData, hash: string): void {
+    if (hash === this.overlayHash) return;
+    this.overlayTable = table(data)
+      .derive(getColumnDerives(columns))
+      .dedupe('path')
+      .derive(getPctDerives(columns));
+    this.overlayHash = hash;
   }
 
   /**
@@ -198,6 +221,8 @@ class DemographyCache {
    */
   clear(): void {
     this.table = undefined;
+    this.overlayTable = undefined;
+    this.overlayHash = '';
     this.zoneTable = undefined;
     this.populations = [];
     this.summaryStats = {};
@@ -430,14 +455,19 @@ class DemographyCache {
   }
 
   /**
-   * Helper to manage the arqueo quantile function.
+   * Helper to manage the arquero quantile function.
+   *
+   * Uses `overlayTable` (VTD-level choropleth data) when available,
+   * falling back to `table` (zone-level data) for editor mode where
+   * overlayTable is never populated.
    */
   calculateQuantiles(
     config: MapVariableConfig,
     variableName: string,
     numberOfBins: number
   ): {quantilesObject: {[q: string]: number}; quantilesList: number[]} | null {
-    if (!this.table) return null;
+    const dataTable = this.overlayTable ?? this.table;
+    if (!dataTable) return null;
     const derives = {
       quantileVariable: config.expression
         ? escape(config.expression)
@@ -453,7 +483,7 @@ class DemographyCache {
         },
         {} as {[key: string]: ReturnType<typeof op.quantile>}
       );
-    const quantilesObject = this.table.derive(derives).rollup(rollups).objects()[0] as {
+    const quantilesObject = dataTable.derive(derives).rollup(rollups).objects()[0] as {
       [q: string]: number;
     };
     const quantilesList = Object.values(quantilesObject)
@@ -476,14 +506,46 @@ class DemographyCache {
     mapRef: maplibregl.Map;
     ids?: string[];
   }) {
-    if (!this.table || !this.colorScale) return;
+    // Use overlayTable (VTD-level) when available; fall back to table (zone-level).
+    const dataTable = this.overlayTable ?? this.table;
+    if (!dataTable || !this.colorScale) return;
+    const source = mapRef.getSource(BLOCK_SOURCE_ID) as {type?: string} | undefined;
+    const useVectorSourceLayer = source?.type === 'vector';
     const colorScale = this.colorScale!;
+
+    if (!useVectorSourceLayer) {
+      this.populations.forEach(row => {
+        const zone = row.zone;
+        if (!zone) return;
+        const zoneId = String(zone);
+        if (ids && !ids.includes(zoneId)) return;
+        const value = config.expression
+          ? config.expression(row as unknown as DemographyRow)
+          : (row[variableName as keyof typeof row] as number | undefined);
+        let color = '#CCCCCC';
+        if (value !== undefined && !isNaN(+value)) {
+          color = colorScale(+value);
+        }
+        mapRef.setFeatureState(
+          {
+            source: BLOCK_SOURCE_ID,
+            id: zoneId,
+          },
+          {
+            color,
+            hasColor: true,
+          }
+        );
+      });
+      return;
+    }
+
     const derives = {
       color: config.expression
         ? escape(config.expression)
         : escape((row: Record<string, number>) => row[variableName]),
     };
-    let rows = this.table.derive(derives).select('path', 'sourceLayer', 'color');
+    let rows = dataTable.derive(derives).select('path', 'sourceLayer', 'color');
     if (ids) {
       rows = rows.filter(escape((row: TableRow) => ids.includes(row.path)));
     }
@@ -495,11 +557,10 @@ class DemographyCache {
       if (!isNaN(+value)) {
         color = colorScale(+value);
       }
-
       mapRef.setFeatureState(
         {
           source: BLOCK_SOURCE_ID,
-          sourceLayer: row.sourceLayer,
+          sourceLayer: useVectorSourceLayer ? row.sourceLayer : undefined,
           id,
         },
         {
@@ -544,7 +605,7 @@ class DemographyCache {
       .flat()
       .find(v => v.value === variable);
 
-    if (!this.table || !dataSoureExists) return;
+    if ((!this.table && !this.overlayTable) || !dataSoureExists) return;
     if (!config && isCoalitionVariable(variable)) {
       const universe =
         variable === COALITION_VARIABLE_BY_UNIVERSE.TOTPOP
@@ -659,4 +720,4 @@ class DemographyCache {
 }
 
 // global demography cache
-export const demographyCache = new DemographyCache();
+export const demographyService = new DemographyService();

@@ -11,7 +11,7 @@ export const BlockDemographicLayers: React.FC<{
   scope: BlockScope;
   layerFilter: FilterSpecification;
   outlineFilter: FilterSpecification;
-  sourceLayerId: string;
+  sourceLayerId?: string;
 }> = ({scope, layerFilter, outlineFilter, sourceLayerId}) => {
   const lineWidth = scope === 'CHILD' ? 1 : 2;
 

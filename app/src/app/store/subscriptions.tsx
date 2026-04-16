@@ -6,13 +6,12 @@ import {MapStore, useMapStore} from './mapStore';
 import {useMapControlsStore} from './mapControlsStore';
 import {useAssignmentsStore} from './assignmentsStore';
 import {useCoiAssignmentsStore} from './coiAssignmentsStore';
-import {demographyCache} from '../utils/demography/demographyCache';
+import {demographyService} from '../utils/demography/demographyService';
 import {shallowCompareArray} from '../utils/arrays';
 
-export const initSubs = () => {
+export const initSubs = (readOnly = false) => {
   // these need to initialize after the map store
   const querySubs = getQueriesResultsSubs(useMapStore);
-  const mapEditSubs = getMapEditSubs(useMapStore);
 
   const demogInitSub = useDemographyStore.subscribe(
     state => state.getMapRef,
@@ -31,6 +30,7 @@ export const initSubs = () => {
     state => state.mapDocument,
     (curr, prev) => {
       if (!curr || prev === curr || prev?.document_id === curr.document_id) return;
+      if (curr.access === 'read') return; // PublicSource handles read-only data loading
       useDemographyStore.getState().restoreCoalition(curr);
       useDemographyStore.getState().updateData(curr);
     }
@@ -53,14 +53,14 @@ export const initSubs = () => {
     state => state.mapDocument?.num_districts,
     (curr, prev) => {
       if (!curr || prev === curr) return;
-      demographyCache.updateSummaryStats();
+      demographyService.updateSummaryStats();
     }
   );
   const numCommunitiesSub = useMapStore.subscribe(
     state => state.numCommunities,
     (curr, prev) => {
       if (prev === curr) return;
-      demographyCache.updateSummaryStats();
+      demographyService.updateSummaryStats();
     }
   );
 
@@ -104,9 +104,33 @@ export const initSubs = () => {
     }
   );
 
+  const readOnlyUnsubs: Array<() => void> = [];
+
+  if (readOnly) {
+    // Fetch VTD data for overlay choropleth when demographic map is enabled
+    readOnlyUnsubs.push(
+      useMapControlsStore.subscribe(
+        state => state.mapOptions.showDemographicMap,
+        showDemographic => {
+          if (!showDemographic) return;
+          const {mapDocument} = useMapStore.getState();
+          if (mapDocument) {
+            useDemographyStore.getState().updateData(mapDocument);
+          }
+        }
+      )
+    );
+  }
+
+  const editorUnsubs: Array<() => void> = [];
+
+  if (!readOnly) {
+    const mapEditSubs = getMapEditSubs(useMapStore);
+    editorUnsubs.push(...mapEditSubs);
+  }
+
   const unsub = () => {
     querySubs();
-    mapEditSubs.forEach(sub => sub());
     demogInitSub();
     demogMapDocumentSub();
     clearTemporalOnDocChangeSub();
@@ -116,6 +140,8 @@ export const initSubs = () => {
     demogCoiShatterSub();
     paintFlushSub();
     featureFlagSub();
+    readOnlyUnsubs.forEach(sub => sub());
+    editorUnsubs.forEach(sub => sub());
   };
   return unsub;
 };

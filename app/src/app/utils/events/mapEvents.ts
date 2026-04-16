@@ -44,6 +44,11 @@ export const AREA_SELECT_TOOLS: ActiveTool[] = [
 export const POINT_SELECT_TOOLS: ActiveTool[] = [ACTIVE_TOOLS.SHATTER];
 export const ALL_BRUSHING_TOOLS: ActiveTool[] = [...AREA_SELECT_TOOLS, ...POINT_SELECT_TOOLS];
 export const TOOLTIP_TOOLS: ActiveTool[] = [ACTIVE_TOOLS.INSPECTOR];
+export const MUTATION_TOOLS: ActiveTool[] = [
+  ACTIVE_TOOLS.BRUSH,
+  ACTIVE_TOOLS.ERASER,
+  ACTIVE_TOOLS.SHATTER,
+];
 
 export const EMPTY_FEATURE_ARRAY: MapGeoJSONFeature[] = [];
 /*
@@ -75,6 +80,22 @@ function getLayerIdsToPaint(child_layer: string | undefined | null, activeTool: 
     : [BLOCK_POINTS_LAYER_ID, BLOCK_HOVER_LAYER_ID];
 }
 
+// Cached per-session: access level doesn't change after document load.
+let _canMutate: boolean | null = null;
+const canMutateAssignments = () => {
+  if (_canMutate === null) {
+    _canMutate = useMapStore.getState().mapDocument?.access === 'edit';
+  }
+  return _canMutate;
+};
+// Reset when document changes (called from subscription teardown / new document load)
+useMapStore.subscribe(
+  state => state.mapDocument,
+  () => {
+    _canMutate = null;
+  }
+);
+
 export const handleFeatureSelection = (
   selectedFeatures: MapGeoJSONFeature[] | undefined,
   mapStore: MapStore,
@@ -82,6 +103,7 @@ export const handleFeatureSelection = (
   mapRef: (MapLayerMouseEvent | MapLayerTouchEvent)['target'] | null
 ) => {
   const {activeTool, selectedZone, setIsPainting} = useMapControlsStore.getState();
+  if (MUTATION_TOOLS.includes(activeTool) && !canMutateAssignments()) return;
   const {mutateZoneAssignments} = useAssignmentsStore.getState();
   switch (activeTool) {
     case ACTIVE_TOOLS.SHATTER:
@@ -174,7 +196,6 @@ export const handleMapMouseUp = (e: MapLayerMouseEvent | MapLayerTouchEvent) => 
 
 export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const mapRef = e.target;
-  const mapStore = useMapStore.getState();
   const mapControls = useMapControlsStore.getState();
   const activeTool = mapControls.activeTool;
 
@@ -182,6 +203,11 @@ export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) =
     // enable drag pan
     mapRef.dragPan.enable();
   } else if (activeTool === ACTIVE_TOOLS.BRUSH || activeTool === ACTIVE_TOOLS.ERASER) {
+    if (!canMutateAssignments()) {
+      mapRef.dragPan.enable();
+      mapControls.setIsPainting(false);
+      return;
+    }
     // disable drag pan
     mapRef.dragPan.disable();
     mapControls.setIsPainting(true);
@@ -189,11 +215,13 @@ export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) =
 };
 
 export const handleMapMouseEnter = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+  const {activeTool, setIsPainting} = useMapControlsStore.getState();
+  if ((activeTool !== 'brush' && activeTool !== 'eraser') || !canMutateAssignments()) return;
   // check if mouse is down
   // if so, set is painting true
   // @ts-ignore this is the correct behavior but event types are incorrect
   if (e.originalEvent?.buttons === 1) {
-    useMapControlsStore.getState().setIsPainting(true);
+    setIsPainting(true);
   }
 };
 
@@ -290,7 +318,14 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   if (isBrushingTool && !isTouchEvent && !isPainting) {
     setHoverFeatures(selectedFeatures || []);
   }
-  if (selectedFeatures && isBrushingTool && isPainting) {
+  const isMutationTool = activeTool === 'brush' || activeTool === 'eraser';
+  if (
+    selectedFeatures &&
+    isBrushingTool &&
+    isPainting &&
+    isMutationTool &&
+    canMutateAssignments()
+  ) {
     // selects in the map object; the store object
     // is updated in the mouseup event
     mutateZoneAssignments(
@@ -303,7 +338,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   if (
     isBrushingTool &&
     selectedFeatures?.length &&
-    (mapOptions.showPopulationTooltip || TOOLTIP_TOOLS)
+    (mapOptions.showPopulationTooltip || TOOLTIP_TOOLS.includes(activeTool))
   ) {
     setTooltip({
       ...e.point,
