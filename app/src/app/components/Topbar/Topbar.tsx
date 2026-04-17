@@ -32,6 +32,7 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {MAP_MODES, type MapMode} from '@constants/map/mode';
 import {routeForMode} from '@constants/document/routes';
 import {MAP_TYPES} from '@constants/document/types';
+import {ACCESS_STATES} from '@constants/document/state';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
@@ -194,7 +195,9 @@ export const Topbar: React.FC = () => {
                 View recent maps
               </DropdownMenu.Item>
               <DropdownMenu.Sub>
-                <DropdownMenu.SubTrigger disabled={!mapDocument?.document_id || access === 'read'}>
+                <DropdownMenu.SubTrigger
+                  disabled={!mapDocument?.document_id || access === ACCESS_STATES.READ}
+                >
                   Reset map
                 </DropdownMenu.SubTrigger>
                 <DropdownMenu.SubContent>

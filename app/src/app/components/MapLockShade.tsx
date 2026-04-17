@@ -4,7 +4,7 @@ import {useMapStore} from '../store/mapStore';
 import {Flex, Progress, Spinner, Text} from '@radix-ui/themes';
 import {useVisibilityState} from '../hooks/useVisibilityState';
 import {MapStore} from '../store/mapStore';
-import {APP_LOADING_STATES} from '@constants/document/appLoadingState';
+import {APP_LOADING_STATES} from '@constants/document/state';
 
 type LoadingState = {
   isLoadingDocument: boolean;

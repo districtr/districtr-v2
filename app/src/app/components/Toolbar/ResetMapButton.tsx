@@ -4,6 +4,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {temporalManager} from '@/app/utils/temporal';
+import {ACCESS_STATES} from '@constants/document/state';
 
 export const ResetMapButton: React.FC<{dialogOnly?: boolean}> = ({dialogOnly}) => {
   const noZonesAreAssigned = useAssignmentsStore(state => !state.zoneAssignments.size);
@@ -18,7 +19,7 @@ export const ResetMapButton: React.FC<{dialogOnly?: boolean}> = ({dialogOnly}) =
   return (
     <AlertDialog.Root defaultOpen={dialogOnly}>
       {!dialogOnly && (
-        <AlertDialog.Trigger disabled={noZonesAreAssigned || access === 'read'}>
+        <AlertDialog.Trigger disabled={noZonesAreAssigned || access === ACCESS_STATES.READ}>
           <Button variant="outline">Reset Map</Button>
         </AlertDialog.Trigger>
       )}

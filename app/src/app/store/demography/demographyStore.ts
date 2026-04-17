@@ -22,6 +22,7 @@ import {
 } from '@/app/utils/demography/coalition';
 import {COALITION_UNIVERSES, SUMMARY_TYPES} from '@constants/demography/summary';
 import {MAP_MODES} from '@constants/map/mode';
+import {ACCESS_STATES} from '@constants/document/state';
 
 let coalitionHydrationRequestId = 0;
 let coalitionVersion = 0;
@@ -193,7 +194,7 @@ export var useDemographyStore = create(
         return;
       }
 
-      if (mapDocument.access === 'read') {
+      if (mapDocument.access === ACCESS_STATES.READ) {
         demographyService.updateOverlay(result.columns, result.results, dataHash);
       } else {
         demographyService.update(result.columns, result.results, dataHash, get().coalitionGroups);

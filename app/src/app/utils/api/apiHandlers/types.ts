@@ -1,6 +1,7 @@
-import {NullableZone} from '@constants/map/zone';
+import {type NullableZone} from '@constants/map/zone';
 import {type MapType} from '@constants/document/types';
-import type {DraftStatus} from '@/app/constants/document/draftStatus';
+import type {DraftStatus} from '@constants/document/draftStatus';
+import {type AccessState} from '@constants/document/state';
 
 export interface Assignment {
   document_id: string;
@@ -53,7 +54,7 @@ export interface DistrictrMap {
 }
 
 export interface StatusObject {
-  access: 'read' | 'edit';
+  access: AccessState;
   genesis: 'shared' | 'copied' | 'created';
   token?: string | null;
   password?: string | null;

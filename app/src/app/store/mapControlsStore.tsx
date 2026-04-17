@@ -12,6 +12,7 @@ import {DistrictrMapOptions} from './types';
 import {useMapStore} from './mapStore';
 import {PaintEventHandler} from '@utils/map/types';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
+import {ACCESS_STATES} from '@constants/document/state';
 
 type SidebarPanel =
   | 'layers'
@@ -95,7 +96,7 @@ export const useMapControlsStore = create<MapControlsStore>()(
     setIsEditing: isEditing => set({isEditing}),
     activeTool: ACTIVE_TOOLS.PAN,
     setActiveTool: tool => {
-      const canEdit = useMapStore.getState().mapStatus?.access === 'edit';
+      const canEdit = useMapStore.getState().mapStatus?.access === ACCESS_STATES.EDIT;
       if (canEdit) {
         set({activeTool: tool});
       }

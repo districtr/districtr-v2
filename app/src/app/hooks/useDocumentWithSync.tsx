@@ -11,7 +11,7 @@ import {formatCoiAssignmentsFromDocument} from '../utils/map/formatCoiAssignment
 import {useRouter} from 'next/navigation';
 import {MAP_MODES} from '@constants/map/mode';
 import {MAP_TYPES} from '@constants/document/types';
-import {APP_LOADING_STATES} from '@constants/document/appLoadingState';
+import {APP_LOADING_STATES} from '@constants/document/state';
 
 interface UseDocumentWithSyncOptions {
   document_id: string | null | undefined;

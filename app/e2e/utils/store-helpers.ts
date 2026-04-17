@@ -1,6 +1,6 @@
 import {Page} from '@playwright/test';
 import type {ActiveTool} from '@constants/map/tools';
-import {type AppLoadingState} from '@constants/document/appLoadingState';
+import {ACCESS_STATES, AccessState, type AppLoadingState} from '@constants/document/state';
 import {type RenderingState} from '@constants/map/renderingState';
 
 /**
@@ -29,7 +29,7 @@ export interface MapStoreState {
     child_layer?: string;
     tiles_s3_path: string;
     extent: [number, number, number, number];
-    access: 'edit' | 'view';
+    access: AccessState;
     map_metadata?: {
       name?: string;
       description?: string;
@@ -226,7 +226,7 @@ export async function isEditingMode(page: Page): Promise<boolean> {
  */
 export async function hasEditAccess(page: Page): Promise<boolean> {
   const state = await getMapStoreState(page);
-  return state?.mapDocument?.access === 'edit';
+  return state?.mapDocument?.access === ACCESS_STATES.EDIT;
 }
 
 /**

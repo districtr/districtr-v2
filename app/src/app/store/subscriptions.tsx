@@ -9,6 +9,7 @@ import {useCoiAssignmentsStore} from './coiAssignmentsStore';
 import {demographyService} from '../utils/demography/demographyService';
 import {shallowCompareArray} from '../utils/arrays';
 import {MAP_MODES} from '@constants/map/mode';
+import {ACCESS_STATES} from '@constants/document/state';
 
 export const initSubs = (readOnly = false) => {
   // these need to initialize after the map store
@@ -31,7 +32,7 @@ export const initSubs = (readOnly = false) => {
     state => state.mapDocument,
     (curr, prev) => {
       if (!curr || prev === curr || prev?.document_id === curr.document_id) return;
-      if (curr.access === 'read') return; // PublicSource handles read-only data loading
+      if (curr.access === ACCESS_STATES.READ) return; // PublicSource handles read-only data loading
       useDemographyStore.getState().restoreCoalition(curr);
       useDemographyStore.getState().updateData(curr);
     }

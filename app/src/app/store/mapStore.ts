@@ -48,7 +48,7 @@ import {
 } from '../utils/communities';
 import {temporalManager} from '../utils/temporal';
 import {MAP_MODES} from '@constants/map/mode';
-import {APP_LOADING_STATES, type AppLoadingState} from '@constants/document/appLoadingState';
+import {APP_LOADING_STATES, type AppLoadingState, ACCESS_STATES} from '@constants/document/state';
 import {RENDERING_STATES, type RenderingState} from '@constants/map/renderingState';
 
 const resolveNumCommunities = (
@@ -444,11 +444,14 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           bounds: mapDocument.extent,
           stateFipsSet: newStateFipsSet,
         },
-        activeTool: mapDocument.access === 'edit' ? mapControlsState.activeTool : ACTIVE_TOOLS.PAN,
+        activeTool:
+          mapDocument.access === ACCESS_STATES.EDIT
+            ? mapControlsState.activeTool
+            : ACTIVE_TOOLS.PAN,
         selectedZone: communities[0]?.id ?? mapControlsState.selectedZone,
         sidebarPanels: ['population'],
         isPainting: false,
-        isEditing: mapDocument.access === 'edit',
+        isEditing: mapDocument.access === ACCESS_STATES.EDIT,
       });
 
       useAssignmentsStore.getState().resetShatterState();

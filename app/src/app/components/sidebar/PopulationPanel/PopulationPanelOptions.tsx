@@ -8,6 +8,7 @@ import {ColorChangeModal} from '../../Toolbar/ColorChangeModal';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {MAP_MODES, MAP_MODE_LABELS} from '@constants/map/mode';
+import {ACCESS_STATES} from '@constants/document/state';
 
 export const PopulationPanelOptions: React.FC<{
   chartOptions: ChartStore['chartOptions'];
@@ -92,7 +93,7 @@ export const PopulationPanelOptions: React.FC<{
               variant="outline"
               size="1"
               mt="2"
-              disabled={access === 'read'}
+              disabled={access === ACCESS_STATES.READ}
             >
               Customize colors
             </Button>

@@ -8,6 +8,7 @@ import {useToolbarStore} from '@/app/store/toolbarStore';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 import {ColorChangeModal} from './ColorChangeModal';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
+import {ACCESS_STATES} from '@constants/document/state';
 
 const TOOLBAR_SIZES: Array<{label: string; value: number}> = [
   {
@@ -102,7 +103,7 @@ export const ToolSettings: React.FC = () => {
                 showPopulationTooltip: !mapOptions.showPopulationTooltip,
               })
             }
-            disabled={access === 'read'}
+            disabled={access === ACCESS_STATES.READ}
           >
             Show population tooltip
           </CheckboxGroup.Item>
@@ -175,7 +176,7 @@ export const ToolSettings: React.FC = () => {
             variant="outline"
             size="1"
             mt="2"
-            disabled={access === 'read'}
+            disabled={access === ACCESS_STATES.READ}
           >
             Customize district colors
           </Button>
@@ -230,7 +231,7 @@ export const ToolSettings: React.FC = () => {
           <CheckboxGroup.Item
             value="customizeToolbar"
             onClick={() => setCustomizeToolbar(!customizeToolbar)}
-            disabled={access === 'read'}
+            disabled={access === ACCESS_STATES.READ}
           >
             Enable draggable toolbar
           </CheckboxGroup.Item>

@@ -9,6 +9,7 @@ import {
   DRAFT_STATUS_ORDER,
 } from '@constants/document/draftStatus';
 import {InProgressIcon, ScratchWorkIcon, ReadyIcon} from './Icons';
+import {ACCESS_STATES} from '@constants/document/state';
 
 const statusIcons: Record<DraftStatus, React.FC> = {
   [DRAFT_STATUSES.SCRATCH]: ScratchWorkIcon,
@@ -24,7 +25,7 @@ export const MapStatus: React.FC<{
   const draftStatus = mapMetadata?.draft_status ?? DRAFT_STATUSES.SCRATCH;
   const Icon = statusIcons[draftStatus];
   const statusText = DRAFT_STATUS_TEXT[draftStatus];
-  const editing = mapDocument?.access === 'edit';
+  const editing = mapDocument?.access === ACCESS_STATES.EDIT;
   const [modalOpen, setModalOpen] = useState(false);
 
   const handleChangeStatus = async (status: DraftStatus) => {

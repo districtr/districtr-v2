@@ -20,6 +20,7 @@ import {useSelectCommunity} from '@/app/hooks/useSelectCommunity';
 import {EditCommunityDialog} from '@/app/components/Toolbar/EditCommunityDialog';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {MAP_MODES, MAP_MODE_LABELS, MAP_MODE_LABEL_PLURAL} from '@constants/map/mode';
+import {ACCESS_STATES} from '@constants/document/state';
 
 const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
 
@@ -145,7 +146,7 @@ export const PopulationPanel = () => {
               <IconButton
                 onClick={toggleLockAllAreas}
                 variant="ghost"
-                disabled={access === 'read'}
+                disabled={access === ACCESS_STATES.READ}
                 style={{opacity: isEditing ? 1 : 0}}
                 aria-label={allAreLocked ? 'Unlock all districts' : 'Lock all districts'}
               >
@@ -186,7 +187,7 @@ export const PopulationPanel = () => {
                       <IconButton
                         onClick={() => handleEditCommunity(d.zone)}
                         variant="ghost"
-                        disabled={access === 'read'}
+                        disabled={access === ACCESS_STATES.READ}
                         aria-label={`Edit community ${d.zone}`}
                       >
                         <Pencil1Icon />
@@ -195,7 +196,7 @@ export const PopulationPanel = () => {
                       <IconButton
                         onClick={() => handleLockChange(d.zone)}
                         variant="ghost"
-                        disabled={access === 'read'}
+                        disabled={access === ACCESS_STATES.READ}
                         aria-label={
                           lockPaintedAreas.includes(d.zone)
                             ? `Unlock district ${d.zone}`

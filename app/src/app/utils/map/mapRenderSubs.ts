@@ -22,7 +22,7 @@ import {Zone} from '@constants/map/zone';
 import {getCommunityFeatureStateKey, getPrimaryCommunityId} from '../communities';
 import GeometryWorker from '../GeometryWorker';
 import {MAP_MODES} from '@constants/map/mode';
-import {APP_LOADING_STATES} from '@constants/document/appLoadingState';
+import {APP_LOADING_STATES} from '@constants/document/state';
 import {RENDERING_STATES} from '@constants/map/renderingState';
 
 /**

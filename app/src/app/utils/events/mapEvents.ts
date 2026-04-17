@@ -33,6 +33,7 @@ import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {setHoverFeatures} from '../map/hoverFeatures';
 import {RENDERING_STATES} from '@constants/map/renderingState';
+import {ACCESS_STATES} from '@constants/document/state';
 
 // Zone label layer IDs for interaction
 const ZONE_LABEL_LAYER_IDS = ['ZONE_LABEL', 'ZONE_LABEL_BG', 'ZONE_COMMENT_INDICATOR'];
@@ -85,7 +86,7 @@ function getLayerIdsToPaint(child_layer: string | undefined | null, activeTool: 
 let _canMutate: boolean | null = null;
 const canMutateAssignments = () => {
   if (_canMutate === null) {
-    _canMutate = useMapStore.getState().mapDocument?.access === 'edit';
+    _canMutate = useMapStore.getState().mapDocument?.access === ACCESS_STATES.EDIT;
   }
   return _canMutate;
 };

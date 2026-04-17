@@ -10,6 +10,7 @@ import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 import {useSelectCommunity} from '@/app/hooks/useSelectCommunity';
 import {getUnusedCommunityColors} from '@/app/utils/communities';
 import {Tooltip} from '@radix-ui/themes';
+import {ACCESS_STATES} from '@constants/document/state';
 
 export const CoiZonePicker: React.FC = () => {
   const selectedZone = useMapControlsStore(state => state.selectedZone);
@@ -77,7 +78,7 @@ export const CoiZonePicker: React.FC = () => {
     updateCommunity(communityId, updates);
   };
 
-  const isReadOnly = access === 'read';
+  const isReadOnly = access === ACCESS_STATES.READ;
   const canRemove = communities.length > COI_MIN_COMMUNITIES;
   const canAdd = communities.length < COI_MAX_COMMUNITIES;
   return (

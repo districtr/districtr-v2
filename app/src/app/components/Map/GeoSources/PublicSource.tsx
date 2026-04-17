@@ -11,6 +11,7 @@ import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {getAvailableColumnSets} from '@/app/utils/demography/getAvailableColumnSets';
 import GeometryWorker from '@/app/utils/GeometryWorker';
 import {RENDERING_STATES} from '@constants/map/renderingState';
+import {ACCESS_STATES} from '@constants/document/state';
 
 export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -25,7 +26,7 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
   const publicDistrictsQuery = useQuery({
     queryKey: ['public-districts', mapDocument?.public_id],
     queryFn: () => getPublicDistricts(mapDocument),
-    enabled: Boolean(mapDocument?.access === 'read' && mapDocument?.public_id),
+    enabled: Boolean(mapDocument?.access === ACCESS_STATES.READ && mapDocument?.public_id),
   });
 
   useEffect(() => {
@@ -69,7 +70,7 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
     setMapRenderingState(RENDERING_STATES.LOADED);
   }, [publicDistrictsQuery.data, setMapRenderingState, setStateFp, mapDocument?.public_id]);
 
-  if (!mapDocument || mapDocument.access !== 'read') return null;
+  if (!mapDocument || mapDocument.access !== ACCESS_STATES.READ) return null;
   if (flushMapState || publicDistrictsQuery.isPending) return null;
   if (publicDistrictsQuery.isError || !publicDistrictsQuery.data) return null;
 

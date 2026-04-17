@@ -14,6 +14,7 @@ import {debounce} from 'lodash';
 import {useTemporalStore, useCoiTemporalStore} from '@/app/store/temporalStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {MAP_MODES} from '@constants/map/mode';
+import {ACCESS_STATES} from '@constants/document/state';
 
 export type ActiveToolConfig = {
   hotKeyAccessor: (event: KeyboardEvent) => boolean;
@@ -31,7 +32,7 @@ export type ActiveToolConfig = {
 export const useActiveTools = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const access = useMapStore(state => state.mapStatus?.access);
-  const isEditing = access === 'edit';
+  const isEditing = access === ACCESS_STATES.EDIT;
   const mapMode = useMapControlsStore(state => state.mapMode);
 
   const districtsTemporal = useTemporalStore();
