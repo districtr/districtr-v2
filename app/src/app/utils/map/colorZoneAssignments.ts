@@ -2,6 +2,8 @@ import {Map as MaplibreMap} from 'maplibre-gl';
 import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerIds';
 import {ColorZoneAssignmentsState} from './types';
 import {useMapStore} from '@/app/store/mapStore';
+import {APP_LOADING_STATES} from '@constants/document/appLoadingState';
+import {RENDERING_STATES} from '@constants/map/renderingState';
 
 /**
  * Assigns colors to zones on the map based on the current zone assignments.
@@ -33,12 +35,14 @@ export const colorZoneAssignments = (
     previousState?.[0] || new Map(),
     previousState?.[2] || null,
   ];
-  const isInitialRender = previousState?.[3] !== 'loaded' || previousState?.[4] !== 'loaded';
+  const isInitialRender =
+    previousState?.[3] !== APP_LOADING_STATES.LOADED ||
+    previousState?.[4] !== RENDERING_STATES.LOADED;
   if (
     !mapRef || // map does not exist
     !mapDocument || // map document is not loaded
-    appLoadingState !== 'loaded' || // app was blurred, loading, or temporal state was mutatated
-    mapRenderingState !== 'loaded' // map layers are not loaded
+    appLoadingState !== APP_LOADING_STATES.LOADED || // app was blurred, loading, or temporal state was mutatated
+    mapRenderingState !== RENDERING_STATES.LOADED // map layers are not loaded
   ) {
     return false;
   }

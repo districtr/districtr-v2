@@ -32,6 +32,7 @@ import {throttle} from 'lodash';
 import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {setHoverFeatures} from '../map/hoverFeatures';
+import {RENDERING_STATES} from '@constants/map/renderingState';
 
 // Zone label layer IDs for interaction
 const ZONE_LABEL_LAYER_IDS = ['ZONE_LABEL', 'ZONE_LABEL_BG', 'ZONE_COMMENT_INDICATOR'];
@@ -433,7 +434,7 @@ export const handleDataLoad = (e: MapSourceDataEvent) => {
     const stateFipsSet = ft?.feature(0)?.properties?.path?.replace('vtd:', '')?.slice(0, 2);
     stateFipsSet && setStateFp(stateFipsSet);
   }
-  setMapRenderingState('loaded');
+  setMapRenderingState(RENDERING_STATES.LOADED);
 };
 
 export const mapEventHandlers = {

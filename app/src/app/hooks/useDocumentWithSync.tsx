@@ -11,6 +11,7 @@ import {formatCoiAssignmentsFromDocument} from '../utils/map/formatCoiAssignment
 import {useRouter} from 'next/navigation';
 import {MAP_MODES} from '@constants/map/mode';
 import {MAP_TYPES} from '@constants/document/types';
+import {APP_LOADING_STATES} from '@constants/document/appLoadingState';
 
 interface UseDocumentWithSyncOptions {
   document_id: string | null | undefined;
@@ -62,7 +63,7 @@ export function useDocumentWithSync({
           setIsLoading(false);
           setConflictInfo(null);
           setShowConflictModal(false);
-          setAppLoadingState('loaded');
+          setAppLoadingState(APP_LOADING_STATES.LOADED);
         },
       });
     } catch (err) {
@@ -98,7 +99,7 @@ export function useDocumentWithSync({
       } else if (isPublicPage) {
         setMapDocument(result.response.document);
         setIsLoading(false);
-        setAppLoadingState('loaded');
+        setAppLoadingState(APP_LOADING_STATES.LOADED);
       } else {
         const isCommunityDocument = result.response.document.map_type === MAP_TYPES.COMMUNITY;
         // console.log('[hydration] Document loaded', {
@@ -151,7 +152,7 @@ export function useDocumentWithSync({
           useMapStore.setState({updated: {metadata: true, comments: true}});
         }
         setIsLoading(false);
-        setAppLoadingState('loaded');
+        setAppLoadingState(APP_LOADING_STATES.LOADED);
         // console.log('[hydration] Hydration complete, appLoadingState set to loaded');
         return;
       }

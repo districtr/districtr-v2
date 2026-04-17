@@ -1,5 +1,7 @@
 import {Page} from '@playwright/test';
 import type {ActiveTool} from '@constants/map/tools';
+import {type AppLoadingState} from '@constants/document/appLoadingState';
+import {type RenderingState} from '@constants/map/renderingState';
 
 /**
  * Zustand Store Testing Utilities
@@ -17,8 +19,8 @@ import type {ActiveTool} from '@constants/map/tools';
 
 // Store type definitions for type safety in tests
 export interface MapStoreState {
-  appLoadingState: 'loaded' | 'initializing' | 'loading' | 'blurred';
-  mapRenderingState: 'loaded' | 'initializing' | 'loading';
+  appLoadingState: AppLoadingState;
+  mapRenderingState: RenderingState;
   mapDocument: {
     document_id: string;
     districtr_map_slug: string;

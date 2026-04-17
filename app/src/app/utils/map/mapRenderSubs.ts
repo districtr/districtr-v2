@@ -22,6 +22,8 @@ import {Zone} from '@constants/map/zone';
 import {getCommunityFeatureStateKey, getPrimaryCommunityId} from '../communities';
 import GeometryWorker from '../GeometryWorker';
 import {MAP_MODES} from '@constants/map/mode';
+import {APP_LOADING_STATES} from '@constants/document/appLoadingState';
+import {RENDERING_STATES} from '@constants/map/renderingState';
 
 /**
  * A class that manages the rendering of the map based on the state of the map store.
@@ -89,7 +91,11 @@ export class MapRenderSubscriber {
     const [, mapRenderingState, highlightBrokenDistricts] = currentState;
     const prevShatterIds = prevState?.[0];
     const {mapDocument, appLoadingState, setMapLock} = mapState;
-    if (mapRenderingState !== 'loaded' || appLoadingState !== 'loaded' || !mapDocument) {
+    if (
+      mapRenderingState !== RENDERING_STATES.LOADED ||
+      appLoadingState !== APP_LOADING_STATES.LOADED ||
+      !mapDocument
+    ) {
       return;
     }
     // Hide broken parents on parent layer
@@ -401,7 +407,10 @@ export class MapRenderSubscriber {
     const coalitionGroups = this.useDemographyStore.getState().coalitionGroups;
     demographyService.updatePopulations({coalitionGroups});
 
-    if (mapState.mapRenderingState !== 'loaded' || mapState.appLoadingState !== 'loaded') {
+    if (
+      mapState.mapRenderingState !== RENDERING_STATES.LOADED ||
+      mapState.appLoadingState !== APP_LOADING_STATES.LOADED
+    ) {
       this.updatePreviousCommunitySnapshot(newAssignmentsByGeoid, shatterIds);
       return;
     }
@@ -499,7 +508,10 @@ export class MapRenderSubscriber {
     demographyService.updatePopulations({zoneAssignments, coalitionGroups});
 
     // Only render colors if map is fully loaded
-    if (mapState.mapRenderingState !== 'loaded' || mapState.appLoadingState !== 'loaded') {
+    if (
+      mapState.mapRenderingState !== RENDERING_STATES.LOADED ||
+      mapState.appLoadingState !== APP_LOADING_STATES.LOADED
+    ) {
       this.previousColorState = currentState;
       return;
     }
@@ -563,8 +575,8 @@ export class MapRenderSubscriber {
           ).some(geoids => geoids.size > 0);
           // If map just became loaded and we have assignments, ensure rendering
           if (
-            mapRenderingState === 'loaded' &&
-            mapState.appLoadingState === 'loaded' &&
+            mapRenderingState === RENDERING_STATES.LOADED &&
+            mapState.appLoadingState === APP_LOADING_STATES.LOADED &&
             ((controlsState.mapMode === MAP_MODES.COI && hasCommunityAssignments) ||
               (controlsState.mapMode !== MAP_MODES.COI &&
                 assignmentsState.zoneAssignments.size > 0))
@@ -672,8 +684,8 @@ export class MapRenderSubscriber {
     if (!featureStateCache) return;
 
     if (
-      mapState.mapRenderingState !== 'loaded' ||
-      mapState.appLoadingState !== 'loaded' ||
+      mapState.mapRenderingState !== RENDERING_STATES.LOADED ||
+      mapState.appLoadingState !== APP_LOADING_STATES.LOADED ||
       !mapState.mapDocument
     ) {
       return;

@@ -48,6 +48,8 @@ import {
 } from '../utils/communities';
 import {temporalManager} from '../utils/temporal';
 import {MAP_MODES} from '@constants/map/mode';
+import {APP_LOADING_STATES, type AppLoadingState} from '@constants/document/appLoadingState';
+import {RENDERING_STATES, type RenderingState} from '@constants/map/renderingState';
 
 const resolveNumCommunities = (
   mapDocument: DocumentObject | null | undefined,
@@ -158,9 +160,9 @@ const syncCommunityDescriptionComment = ({
 
 export interface MapStore {
   // LOAD AND RENDERING STATE TRACKING
-  appLoadingState: 'loaded' | 'initializing' | 'loading' | 'blurred';
+  appLoadingState: AppLoadingState;
   setAppLoadingState: (state: MapStore['appLoadingState']) => void;
-  mapRenderingState: 'loaded' | 'initializing' | 'loading';
+  mapRenderingState: RenderingState;
   setMapRenderingState: (state: MapStore['mapRenderingState']) => void;
   // MAP CANVAS REF AND CONTROLS
   getMapRef: () => maplibregl.Map | undefined;
@@ -289,14 +291,14 @@ const initialLoadingState =
   typeof window !== 'undefined' &&
   (window.location.pathname.startsWith('/map/') ||
     window.location.pathname.startsWith('/map/edit/'))
-    ? 'loading'
-    : 'initializing';
+    ? APP_LOADING_STATES.LOADING
+    : APP_LOADING_STATES.INITIALIZING;
 
 export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr Map Store')(
   (set, get) => ({
     appLoadingState: initialLoadingState,
     setAppLoadingState: appLoadingState => set({appLoadingState}),
-    mapRenderingState: 'initializing',
+    mapRenderingState: RENDERING_STATES.INITIALIZING,
     setMapRenderingState: mapRenderingState => set({mapRenderingState}),
     captiveIds: new Set<string>(),
 
@@ -332,7 +334,10 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     setMapRef: mapRef => {
       set({
         getMapRef: () => mapRef.current?.getMap(),
-        appLoadingState: initialLoadingState === 'initializing' ? 'loaded' : get().appLoadingState,
+        appLoadingState:
+          initialLoadingState === APP_LOADING_STATES.INITIALIZING
+            ? APP_LOADING_STATES.LOADED
+            : get().appLoadingState,
       });
     },
 
@@ -474,9 +479,14 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         captiveIds: new Set(),
         focusFeatures: [],
         mapLock: null,
-        appLoadingState: mapDocument?.genesis === 'copied' ? 'loaded' : 'initializing',
+        appLoadingState:
+          mapDocument?.genesis === 'copied'
+            ? APP_LOADING_STATES.LOADED
+            : APP_LOADING_STATES.INITIALIZING,
         mapRenderingState:
-          mapDocument.tiles_s3_path === currentMapDocument?.tiles_s3_path ? 'loaded' : 'loading',
+          mapDocument.tiles_s3_path === currentMapDocument?.tiles_s3_path
+            ? RENDERING_STATES.LOADED
+            : RENDERING_STATES.LOADING,
       });
 
       // Persist cleaned comments to IDB so stale duplicates don't resurface
@@ -1145,7 +1155,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       }
       set({
         mapLock: {isLocked: true, reason: 'Resetting map'},
-        appLoadingState: 'loading',
+        appLoadingState: APP_LOADING_STATES.LOADING,
       });
       const resetResponse = await patchUpdateReset(document_id);
       if (!resetResponse.ok) {
@@ -1172,7 +1182,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         resetShatterState();
 
         set({
-          appLoadingState: 'loaded',
+          appLoadingState: APP_LOADING_STATES.LOADED,
           mapLock: null,
         });
         useMapControlsStore.setState({activeTool: ACTIVE_TOOLS.PAN});
