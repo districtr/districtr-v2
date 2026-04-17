@@ -1,5 +1,5 @@
 import {DataDrivenPropertyValueSpecification, ExpressionSpecification} from 'maplibre-gl';
-export {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from './mapDefaults';
+export {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from '../document/limits';
 
 export const EMPTY_FT_COLLECTION = {
   type: 'FeatureCollection',

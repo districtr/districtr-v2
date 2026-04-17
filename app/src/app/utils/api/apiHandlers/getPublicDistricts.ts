@@ -1,4 +1,4 @@
-import {NullableZone} from '@/app/constants/types';
+import {NullableZone} from '@constants/map/zone';
 import {AllTabularColumns} from '../summaryStats';
 import {DocumentObject} from './types';
 import {ColumnarTableData} from '../../ParquetWorker/parquetWorker.types';

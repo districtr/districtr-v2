@@ -8,6 +8,7 @@ import {useAssignmentsStore} from './assignmentsStore';
 import {useCoiAssignmentsStore} from './coiAssignmentsStore';
 import {demographyService} from '../utils/demography/demographyService';
 import {shallowCompareArray} from '../utils/arrays';
+import {MAP_MODES} from '@constants/map/mode';
 
 export const initSubs = (readOnly = false) => {
   // these need to initialize after the map store
@@ -67,7 +68,7 @@ export const initSubs = (readOnly = false) => {
   const demogShatterSub = useAssignmentsStore.subscribe(
     state => state.shatterIds.parents,
     (curr, prev) => {
-      if (useMapControlsStore.getState().mapMode === 'coi') return;
+      if (useMapControlsStore.getState().mapMode === MAP_MODES.COI) return;
       if (!curr || prev === curr) return;
       const mapDocument = useMapStore.getState().mapDocument;
       if (!mapDocument) return;
@@ -77,7 +78,7 @@ export const initSubs = (readOnly = false) => {
   const demogCoiShatterSub = useCoiAssignmentsStore.subscribe(
     state => state.shatterIds.parents,
     (curr, prev) => {
-      if (useMapControlsStore.getState().mapMode !== 'coi') return;
+      if (useMapControlsStore.getState().mapMode !== MAP_MODES.COI) return;
       if (!curr || prev === curr) return;
       const mapDocument = useMapStore.getState().mapDocument;
       if (!mapDocument) return;
@@ -89,7 +90,7 @@ export const initSubs = (readOnly = false) => {
     state => state.isPainting,
     (isPainting, wasPainting) => {
       if (!wasPainting || isPainting) return;
-      if (useMapControlsStore.getState().mapMode === 'coi') {
+      if (useMapControlsStore.getState().mapMode === MAP_MODES.COI) {
         useCoiAssignmentsStore.getState().ingestAccumulatedAssignments();
         return;
       }

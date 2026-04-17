@@ -8,7 +8,7 @@ import {
   FALLBACK_NUM_DISTRICTS,
   MAX_NUM_DISTRICTS,
   MIN_NUM_DISTRICTS,
-} from '@/app/constants/map/mapDefaults';
+} from '@/app/constants/document/limits';
 import {MinusIcon, PlusIcon, Pencil1Icon} from '@radix-ui/react-icons';
 import {useState} from 'react';
 

@@ -19,12 +19,12 @@ import {
   type DraftStatus,
   DRAFT_STATUS_TEXT,
   DRAFT_STATUS_ORDER,
-} from '@constants/map/draftStatus';
+} from '@constants/document/draftStatus';
 import {Cross2Icon, Pencil1Icon} from '@radix-ui/react-icons';
 import {MapContextModuleAndUnits} from './MapContextModuleAndUnits';
 import {InProgressIcon, ReadyIcon, ScratchWorkIcon} from './Icons';
 import {SegmentedControl} from '@radix-ui/themes';
-import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/map/mapDefaults';
+import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
 
 const statusIcons: Record<DraftStatus, React.FC> = {
   [DRAFT_STATUSES.SCRATCH]: ScratchWorkIcon,

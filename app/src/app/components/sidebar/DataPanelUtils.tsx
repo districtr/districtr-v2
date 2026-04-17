@@ -3,7 +3,7 @@ import {MapControlsStore} from '@/app/store/mapControlsStore';
 import {MapValidation} from './MapValidation/MapValidation';
 import {SummaryPanel} from './SummaryPanel';
 import OverlaysPanel from './OverlaysPanel';
-import {SUMMARY_TYPES} from '@constants/types';
+import {SUMMARY_TYPES} from '@constants/demography/summary';
 
 export interface DataPanelSpec {
   title: MapControlsStore['sidebarPanels'][number];

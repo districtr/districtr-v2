@@ -5,6 +5,7 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useState} from 'react';
 import {getCommunityDisplayNumber} from '@/app/utils/communities';
+import {MAP_MODES} from '@constants/map/mode';
 
 interface DescriptionEditorProps {
   existingText?: string;
@@ -133,8 +134,9 @@ export const ZoneDescriptionContent: React.FC<ZoneDescriptionContentProps> = ({
     return null;
   }
 
-  const zoneLabel = mapMode === 'coi' ? 'Community' : 'District';
-  const displayZone = mapMode === 'coi' ? getCommunityDisplayNumber(communities, zone) : zone;
+  const zoneLabel = mapMode === MAP_MODES.COI ? 'Community' : 'District';
+  const displayZone =
+    mapMode === MAP_MODES.COI ? getCommunityDisplayNumber(communities, zone) : zone;
 
   const handleSaveDescription = (text: string) => {
     setZoneDescription(zone, text);
@@ -175,7 +177,7 @@ export const ZoneDescriptionContent: React.FC<ZoneDescriptionContentProps> = ({
         <DescriptionDisplay
           text={description.text}
           showEditingControls={showEditingControls}
-          isCoi={mapMode === 'coi'}
+          isCoi={mapMode === MAP_MODES.COI}
           onEdit={() => setIsEditing(true)}
           onClear={handleClearDescription}
         />

@@ -1,6 +1,6 @@
 import {MapGeoJSONFeature} from 'maplibre-gl';
 import {fastUniqBy} from '../arrays';
-import {ACTIVE_TOOLS} from '@constants/types';
+import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
@@ -8,6 +8,7 @@ import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {booleanIntersects, area, intersect} from '@turf/turf';
 import {MultiPolygon, Polygon} from 'geojson';
+import {MAP_MODES} from '@constants/map/mode';
 
 const MINIMUM_INTERSECTION_AREA_RATIO = 0.25;
 /**
@@ -47,7 +48,7 @@ export const filterFeatures = ({
   const {mapOptions, selectedZone, activeTool, mapMode} = useMapControlsStore.getState();
   const {zoneAssignments, shatterIds: districtShatterIds} = useAssignmentsStore.getState();
   const {shatterIds: coiShatterIds} = useCoiAssignmentsStore.getState();
-  const shatterIds = mapMode === 'coi' ? coiShatterIds : districtShatterIds;
+  const shatterIds = mapMode === MAP_MODES.COI ? coiShatterIds : districtShatterIds;
   const {paintConstraint, _idCache} = useOverlayStore.getState();
   const filterFunctions: Array<(f: MapGeoJSONFeature) => boolean> = [...additionalFilters];
   if (captiveIds.size && !allowOutsideCaptiveIds) {

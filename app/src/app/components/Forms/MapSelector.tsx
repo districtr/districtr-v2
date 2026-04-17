@@ -21,7 +21,7 @@ import {QueryClientProvider, useMutation} from '@tanstack/react-query';
 import {idb} from '@/app/utils/idb/idb';
 import {useUserMaps} from '@/app/hooks/useUserMaps';
 import {currMapRoute} from '@/app/utils/map/mapUrlRoute';
-import {DRAFT_STATUSES} from '@constants/map/draftStatus';
+import {DRAFT_STATUSES} from '@constants/document/draftStatus';
 
 interface MapSelectorProps {
   allowListModules: string[];

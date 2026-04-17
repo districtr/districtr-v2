@@ -1,5 +1,5 @@
 import {PersistOptions} from 'zustand/middleware';
-import {NullableZone} from '../constants/types';
+import {NullableZone} from '@constants/map/zone';
 import {AxiosError, AxiosResponse} from 'axios';
 import {StoreApi, UseBoundStore} from 'zustand';
 import {TemporalState} from 'zundo';

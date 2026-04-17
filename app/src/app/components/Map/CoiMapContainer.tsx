@@ -2,7 +2,7 @@ import type {MapLayerEventType} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type {MutableRefObject} from 'react';
 import React, {useRef, useMemo} from 'react';
-import {MAP_OPTIONS, getMapStyleForBasemap} from '@constants/configuration';
+import {MAP_OPTIONS, getMapStyleForBasemap} from '@constants/map/viewDefaults';
 import {mapContainerEvents} from '@utils/events/mapEvents';
 import {INTERACTIVE_LAYERS} from '@constants/map/layerIds';
 import GlMap, {type MapRef} from 'react-map-gl/maplibre';

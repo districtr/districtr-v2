@@ -31,7 +31,7 @@ export const SectionHeaderNode = Node.create({
       title: {
         default: null,
         parseHTML: getStandardHtmlParser(SECTION_HEADER_ATTRIBUTE_NAME),
-        renderHTML: getJsonHtmlRenderer(SECTION_HEADER_ATTRIBUTE_NAME),
+        renderHTML: getJsonHtmlRenderer(SECTION_HEADER_ATTRIBUTE_NAME, 'title'),
       },
     };
   },

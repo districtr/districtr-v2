@@ -7,8 +7,9 @@ import {useEffect, useMemo, useState} from 'react';
 import {CONFIG_BY_COLUMN_SET} from '@store/demography/evaluationConfig';
 import {PARTISAN_SCALE} from '@store/demography/constants';
 import {previousHoverFeatures as hoverFeatures} from '@/app/utils/map/hoverFeatures';
-import {SUMMARY_TYPES, TOTAL_COLUMN} from '@constants/types';
-import {INSPECTOR_TITLE} from '@constants/inspector';
+import {SUMMARY_TYPES, TOTAL_COLUMN} from '@constants/demography/summary';
+import {NUMBER_FORMATS} from '@constants/demography/format';
+import {INSPECTOR_TITLE} from '@constants/demography/inspectorLabels';
 
 const withOpacity = (color: string, opacity: number) => {
   if (color.startsWith('rgba(')) return color;
@@ -36,10 +37,15 @@ export const InspectorTooltip = () => {
   const activeColumns = useTooltipStore(state => state.activeColumns);
   const inspectorMode = useTooltipStore(state => state.inspectorMode);
   const inspectorFormat = useTooltipStore(state => state.inspectorFormat);
-  const usePercent = inspectorFormat === 'percent' || inspectorMode === SUMMARY_TYPES.VOTERHISTORY;
+  const usePercent =
+    inspectorFormat === NUMBER_FORMATS.PERCENT || inspectorMode === SUMMARY_TYPES.VOTERHISTORY;
   const columnSuffix = usePercent ? '_pct' : '';
   const standardFormat =
-    inspectorMode === SUMMARY_TYPES.VOTERHISTORY ? 'partisan' : usePercent ? 'percent' : 'standard';
+    inspectorMode === SUMMARY_TYPES.VOTERHISTORY
+      ? NUMBER_FORMATS.PARTISAN
+      : usePercent
+        ? NUMBER_FORMATS.PERCENT
+        : NUMBER_FORMATS.STANDARD;
   const ids = hoverFeatures.map(f => f.id as string);
   const stableIds = useMemo(() => ids, [ids.join(',')]);
   const [inspectorData, setInspectorData] = useState<Record<string, number>>({});

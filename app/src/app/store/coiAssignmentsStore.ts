@@ -1,13 +1,12 @@
+import {GDBPath, NullableZone, Zone} from '@constants/map/zone';
+import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {
-  GDBPath,
-  NullableZone,
-  Zone,
   ConflictContext,
   ConflictResolutionOptions,
   SyncConflictResolution,
-  ACTIVE_TOOLS,
-} from '@constants/types';
+} from '@constants/document/sync';
 import {BLOCK_SOURCE_ID} from '@constants/map/layerIds';
+import {MAP_MODES} from '@constants/map/mode';
 import {Map as MaplibreMap, MapGeoJSONFeature} from 'maplibre-gl';
 import {Community, DocumentObject} from '../utils/api/apiHandlers/types';
 import {
@@ -1398,7 +1397,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       healParentsIfAllChildrenInSameCommunities: get().healParentsIfAllChildrenInSameCommunities,
     });
 
-    temporalManager.purgeZone('coi', removedCommunity);
+    temporalManager.purgeZone(MAP_MODES.COI, removedCommunity);
   },
 
   handlePutAssignments: async (overwrite = false) => {

@@ -14,13 +14,14 @@ import {AllEvaluationConfigs, AllMapConfigs} from '@/app/utils/api/summaryStats'
 import {evalColumnConfigs} from './evaluationConfig';
 import {choroplethMapVariables} from './constants';
 import {idb} from '@/app/utils/idb/idb';
+import {type CoalitionGroupKey} from '@constants/demography/coalition';
 import {
-  CoalitionGroupKey,
   getCoalitionUniverseFromVariable,
   getSelectedCoalitionColumns,
   isCoalitionVariable,
 } from '@/app/utils/demography/coalition';
-import {SUMMARY_TYPES} from '@constants/types';
+import {COALITION_UNIVERSES, SUMMARY_TYPES} from '@constants/demography/summary';
+import {MAP_MODES} from '@constants/map/mode';
 
 let coalitionHydrationRequestId = 0;
 let coalitionVersion = 0;
@@ -28,7 +29,7 @@ let coalitionVersion = 0;
 const getActiveBrokenIds = () => {
   const mapMode = useMapControlsStore.getState().mapMode;
   return Array.from(
-    mapMode === 'coi'
+    mapMode === MAP_MODES.COI
       ? useCoiAssignmentsStore.getState().shatterIds.parents
       : useAssignmentsStore.getState().shatterIds.parents
   );
@@ -91,7 +92,7 @@ export var useDemographyStore = create(
         });
         if (!selectedColumns.length) {
           set({
-            variable: universe === SUMMARY_TYPES.TOTPOP ? 'total_pop_20' : 'total_vap_20',
+            variable: universe === COALITION_UNIVERSES.TOTPOP ? 'total_pop_20' : 'total_vap_20',
           });
         }
       }
@@ -122,7 +123,7 @@ export var useDemographyStore = create(
         });
         if (!selectedColumns.length) {
           set({
-            variable: universe === SUMMARY_TYPES.TOTPOP ? 'total_pop_20' : 'total_vap_20',
+            variable: universe === COALITION_UNIVERSES.TOTPOP ? 'total_pop_20' : 'total_vap_20',
           });
         }
       }

@@ -1,10 +1,10 @@
 import {Assignment, DocumentMetadata, DocumentObject} from '../api/apiHandlers/types';
 import Dexie, {Table} from 'dexie';
-import {NullableZone} from '@/app/constants/types';
+import {type NullableZone} from '@constants/map/zone';
 import {formatAssignmentsFromState} from '../map/formatAssignments';
 import {formatCoiAssignmentsFromState} from '../map/formatCoiAssignments';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
-import {CoalitionGroupKey} from '../demography/coalition';
+import {type CoalitionGroupKey} from '@constants/demography/coalition';
 import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 // --- Main Document Entry ---
 export interface StoredDocument {

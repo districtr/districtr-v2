@@ -1,6 +1,6 @@
 'use client';
 import {Box, Popover, Text} from '@radix-ui/themes';
-import {ACTIVE_TOOLS} from '@constants/types';
+import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {formatNumber} from '@utils/numbers';
 import {useTooltipStore} from '@store/tooltipStore';
 import {InspectorTooltip} from '@components/Map/Tooltip/InspectorTooltip';

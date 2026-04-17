@@ -143,7 +143,7 @@ Canvas/map interactions use helper utilities:
 
 ```typescript
 import {getMapCenter, paintAtCoordinates, waitForMapLoad} from '../../utils/map-helpers';
-import {ACTIVE_TOOLS} from '@constants/types';
+import {ACTIVE_TOOLS} from '@constants/map/tools';
 
 test('should paint on map', async ({page}) => {
   await page.goto('/map/edit/document-id');

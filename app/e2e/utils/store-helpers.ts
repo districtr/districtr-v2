@@ -1,5 +1,5 @@
 import {Page} from '@playwright/test';
-import type {ActiveTool} from '@constants/types';
+import type {ActiveTool} from '@constants/map/tools';
 
 /**
  * Zustand Store Testing Utilities

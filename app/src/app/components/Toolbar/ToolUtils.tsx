@@ -1,5 +1,5 @@
 import {IconButtonProps, IconProps} from '@radix-ui/themes';
-import {ACTIVE_TOOLS, type ActiveTool} from '@constants/types';
+import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
 import {useMapStore} from '@/app/store/mapStore';
 import {
   EraserIcon,
@@ -13,6 +13,7 @@ import {useCallback} from 'react';
 import {debounce} from 'lodash';
 import {useTemporalStore, useCoiTemporalStore} from '@/app/store/temporalStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {MAP_MODES} from '@constants/map/mode';
 
 export type ActiveToolConfig = {
   hotKeyAccessor: (event: KeyboardEvent) => boolean;
@@ -36,7 +37,7 @@ export const useActiveTools = () => {
   const districtsTemporal = useTemporalStore();
   const coiTemporal = useCoiTemporalStore();
   const {futureStates, pastStates, redo, undo} =
-    mapMode === 'coi' ? coiTemporal : districtsTemporal;
+    mapMode === MAP_MODES.COI ? coiTemporal : districtsTemporal;
 
   const handleUndo = useCallback(debounce(undo, 100), [undo]);
   const handleRedo = useCallback(debounce(redo, 100), [redo]);

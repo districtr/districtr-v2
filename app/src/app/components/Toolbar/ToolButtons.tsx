@@ -3,7 +3,7 @@ import {Flex, IconButton} from '@radix-ui/themes';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import React, {useState} from 'react';
-import {ACTIVE_TOOLS, type ActiveTool} from '@constants/types';
+import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useActiveTools} from '@/app/components/Toolbar/ToolUtils';
 

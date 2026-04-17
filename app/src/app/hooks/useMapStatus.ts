@@ -1,6 +1,6 @@
 import {useMemo} from 'react';
 import {useMapStore} from '../store/mapStore';
-import {STATUS_TOOLTIPS} from '../constants/notifications';
+import {STATUS_TOOLTIPS} from '../constants/document/statusMessages';
 import {useMapMetadata} from './useMapMetadata';
 import {BadgeProps} from '@radix-ui/themes';
 import {useSearchParams} from 'next/navigation';

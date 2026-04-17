@@ -5,10 +5,11 @@ export const getStandardHtmlParser = (attr: string) => {
   };
 };
 
-export const getJsonHtmlRenderer = (attr: string) => {
+export const getJsonHtmlRenderer = (htmlAttr: string, sourceAttr: string = htmlAttr) => {
   return (attributes: Record<string, any>) => {
     return {
-      [attr]: attributes[attr] !== undefined ? JSON.stringify(attributes[attr]) : '',
+      [htmlAttr]:
+        attributes[sourceAttr] !== undefined ? JSON.stringify(attributes[sourceAttr]) : '',
     };
   };
 };

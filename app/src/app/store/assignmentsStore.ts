@@ -1,12 +1,12 @@
-import {ConflictResolutionOptions, NullableZone, SyncConflictResolution} from '../constants/types';
-import {Zone, GDBPath} from '@constants/types';
+import {ConflictResolutionOptions, SyncConflictResolution} from '@constants/document/sync';
+import {NullableZone, Zone, GDBPath} from '@constants/map/zone';
 import GeometryWorker from '../utils/GeometryWorker';
 import {demographyService} from '../utils/demography/demographyService';
 import {idb} from '../utils/idb/idb';
 import {useMapStore} from './mapStore';
 import {useDemographyStore} from './demography/demographyStore';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
-import {ConflictContext} from '../constants/types';
+import {ConflictContext} from '@constants/document/sync';
 import {checkIfSameZone} from '../utils/map/checkIfSameZone';
 import {formatAssignmentsFromDocument} from '../utils/map/formatAssignments';
 import {getAssignments} from '../utils/api/apiHandlers/getAssignments';

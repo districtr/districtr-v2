@@ -1,5 +1,5 @@
 import {AnyD3Scale} from '@visx/scale';
-import {SUMMARY_TYPES, type SummaryType} from '@constants/types';
+import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
 import * as chromatic from 'd3-scale-chromatic';
 export interface ColumnSet {
   /**

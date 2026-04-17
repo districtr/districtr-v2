@@ -4,7 +4,7 @@ import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {MoveIcon, PinRightIcon, RotateCounterClockwiseIcon} from '@radix-ui/react-icons';
 import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
-import {ACTIVE_TOOLS, type ActiveTool} from '@constants/types';
+import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
 import Draggable from 'react-draggable';
 import {ToolbarState, useToolbarStore} from '@/app/store/toolbarStore';
 import {ToolControls} from '@/app/components/Toolbar/ToolControls/ToolControls';

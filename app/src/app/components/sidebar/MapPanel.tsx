@@ -29,13 +29,14 @@ import React, {useEffect, useMemo} from 'react';
 import {choroplethMapVariables} from '@/app/store/demography/constants';
 import {OVERLAY_OPACITY} from '@constants/map/layerStyle';
 import {demographyService} from '@/app/utils/demography/demographyService';
-import {isCoalitionUniverse, CoalitionUniverse, type SummaryType} from '@constants/types';
 import {
-  COALITION_VARIABLE_BY_UNIVERSE,
-  DemographyVariable,
-  getCoalitionLabel,
-  getSelectedCoalitionColumns,
-} from '@/app/utils/demography/coalition';
+  isCoalitionUniverse,
+  CoalitionUniverse,
+  type SummaryType,
+} from '@constants/demography/summary';
+import {COALITION_VARIABLE_BY_UNIVERSE, DemographyVariable} from '@constants/demography/coalition';
+import {getCoalitionLabel, getSelectedCoalitionColumns} from '@/app/utils/demography/coalition';
+import {MAP_MODES} from '@constants/map/mode';
 
 type MapPanelProps = {
   columnGroup: keyof typeof choroplethMapVariables;
@@ -80,7 +81,7 @@ const getOpacityStates = (
   },
   {
     selected: mapOptions.showPaintedDistricts && mapOptions.overlayOpacity === 0,
-    label: mapMode === 'coi' ? 'Show Communities' : 'Show Districts',
+    label: mapMode === MAP_MODES.COI ? 'Show Communities' : 'Show Districts',
     onClick: () => setMapOptions({showPaintedDistricts: true, overlayOpacity: 0}),
   },
 ];

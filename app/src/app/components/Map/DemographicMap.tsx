@@ -2,7 +2,7 @@
 import maplibregl, {FilterSpecification} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {MAP_OPTIONS} from '@constants/configuration';
+import {MAP_OPTIONS} from '@constants/map/viewDefaults';
 import {useMapStore} from '@store/mapStore';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {NavigationControl} from 'react-map-gl/maplibre';

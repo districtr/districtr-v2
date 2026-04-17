@@ -1,7 +1,7 @@
 import {AllEvaluationConfigs, AllMapConfigs} from '@/app/utils/api/summaryStats';
 import {type ScaleLinear, type ScaleThreshold} from 'd3-scale';
 import {type MapStore} from '../mapStore';
-import {CoalitionGroupKey, DemographyVariable} from '@/app/utils/demography/coalition';
+import {type CoalitionGroupKey, DemographyVariable} from '@constants/demography/coalition';
 
 export type AnyD3Scale = ScaleLinear<number, string> | ScaleThreshold<number, string>;
 

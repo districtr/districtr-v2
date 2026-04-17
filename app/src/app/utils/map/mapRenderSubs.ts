@@ -1,6 +1,6 @@
 import {getLayerFill} from '@constants/map/layerStyle';
 import {PARENT_LAYERS, CHILD_LAYERS, BLOCK_SOURCE_ID} from '@constants/map/layerIds';
-import {ACTIVE_TOOLS} from '@constants/types';
+import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
 import {ColorZoneAssignmentsState} from '@utils/map/types';
 import {colorZoneAssignments} from '@utils/map/colorZoneAssignments';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
@@ -18,9 +18,10 @@ import {
 } from '@store/mapControlsStore';
 import {useAssignmentsStore as _useAssignmentsStore} from '@store/assignmentsStore';
 import {useCoiAssignmentsStore} from '@store/coiAssignmentsStore';
-import {Zone} from '@constants/types';
+import {Zone} from '@constants/map/zone';
 import {getCommunityFeatureStateKey, getPrimaryCommunityId} from '../communities';
 import GeometryWorker from '../GeometryWorker';
+import {MAP_MODES} from '@constants/map/mode';
 
 /**
  * A class that manages the rendering of the map based on the state of the map store.
@@ -74,7 +75,7 @@ export class MapRenderSubscriber {
     const controlsState = this.useMapControlsStore.getState();
     const assignmentsState = this.useAssignmentsStore.getState();
     const coiAssignmentsState = this.useCoiAssignmentsStore.getState();
-    const isCoiMode = controlsState.mapMode === 'coi';
+    const isCoiMode = controlsState.mapMode === MAP_MODES.COI;
     const shatterIds = isCoiMode ? coiAssignmentsState.shatterIds : assignmentsState.shatterIds;
     const communitiesByGeoid = isCoiMode
       ? this.mapCommunitiesByGeoid(coiAssignmentsState.communityAssignments)
@@ -203,7 +204,7 @@ export class MapRenderSubscriber {
       this.useMapStore.subscribe(store => store.focusFeatures, this.renderFocus.bind(this))
     );
   }
-  renderCursor(activeTool: MapControlsStore['activeTool']) {
+  renderCursor(activeTool: ActiveTool) {
     const {mapOptions, setPaintFunction} = this.useMapControlsStore.getState();
     const defaultPaintFunction = mapOptions.paintByCounty
       ? getFeaturesIntersectingCounties
@@ -465,7 +466,7 @@ export class MapRenderSubscriber {
   renderColorZones() {
     const mapState = this.useMapStore.getState();
     const controlsState = this.useMapControlsStore.getState();
-    if (controlsState.mapMode === 'coi') {
+    if (controlsState.mapMode === MAP_MODES.COI) {
       this.previousColorState = undefined;
       this.renderColorCommunities();
       return;
@@ -564,8 +565,9 @@ export class MapRenderSubscriber {
           if (
             mapRenderingState === 'loaded' &&
             mapState.appLoadingState === 'loaded' &&
-            ((controlsState.mapMode === 'coi' && hasCommunityAssignments) ||
-              (controlsState.mapMode !== 'coi' && assignmentsState.zoneAssignments.size > 0))
+            ((controlsState.mapMode === MAP_MODES.COI && hasCommunityAssignments) ||
+              (controlsState.mapMode !== MAP_MODES.COI &&
+                assignmentsState.zoneAssignments.size > 0))
           ) {
             // Use requestAnimationFrame to ensure map is fully ready
             requestAnimationFrame(() => {
@@ -678,7 +680,7 @@ export class MapRenderSubscriber {
     }
     const mapDocument = mapState.mapDocument;
 
-    if (mapMode === 'coi') {
+    if (mapMode === MAP_MODES.COI) {
       const {communityAssignments, clientLastUpdated, shatterIds} =
         this.useCoiAssignmentsStore.getState();
       if (!clientLastUpdated.length) {

@@ -19,8 +19,13 @@ import {idb} from '@/app/utils/idb/idb';
 import {useUserMaps} from '@/app/hooks/useUserMaps';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import {MapTab, mapTabFromMode, routeForTab} from '@constants/map/recentMaps';
-import {DRAFT_STATUSES, DRAFT_STATUS_COLORS, DRAFT_STATUS_TEXT} from '@constants/map/draftStatus';
+import {MAP_TABS, MAP_TAB_LABELS, MAP_TAB_LABEL_PLURAL, MapTab} from '@constants/document/tabs';
+import {routeForTab, mapTabFromMode} from '@constants/document/routes';
+import {
+  DRAFT_STATUSES,
+  DRAFT_STATUS_COLORS,
+  DRAFT_STATUS_TEXT,
+} from '@constants/document/draftStatus';
 import {styled} from '@stitches/react';
 
 const StyledCard = styled(Card, {
@@ -78,7 +83,7 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({maxHeight = '55vh
   const [activeTab, setActiveTab] = useState<MapTab>(mapTabFromMode(mapMode));
   const [updateTrigger, setUpdateTrigger] = useState<string | null | number>(null);
   const {communityMaps, districtMaps} = useUserMaps(updateTrigger);
-  const recentMaps = activeTab === 'community' ? communityMaps : districtMaps;
+  const recentMaps = activeTab === MAP_TABS.COMMUNITY ? communityMaps : districtMaps;
 
   useEffect(() => {
     setActiveTab(mapTabFromMode(mapMode));
@@ -117,10 +122,10 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({maxHeight = '55vh
           onValueChange={v => setActiveTab(v as MapTab)}
           size="2"
         >
-          <SegmentedControl.Item value="districts">
+          <SegmentedControl.Item value={MAP_TABS.DISTRICTS}>
             District Maps{districtMaps.length > 0 ? ` (${districtMaps.length})` : ''}
           </SegmentedControl.Item>
-          <SegmentedControl.Item value="community">
+          <SegmentedControl.Item value={MAP_TABS.COMMUNITY}>
             Community Maps{communityMaps.length > 0 ? ` (${communityMaps.length})` : ''}
           </SegmentedControl.Item>
         </SegmentedControl.Root>
@@ -128,7 +133,7 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({maxHeight = '55vh
       {recentMaps.length === 0 ? (
         <Flex align="center" justify="center" className="py-10">
           <Text color="gray" size="2">
-            No {activeTab === 'community' ? 'community' : 'district'} maps yet.
+            No {MAP_TAB_LABELS[activeTab]} maps yet.
           </Text>
         </Flex>
       ) : (
@@ -196,10 +201,10 @@ const RecentMapCard: React.FC<{
   const mapName = data?.map_metadata?.name || data.districtr_map_slug || 'Untitled Map';
   const draftStatus = data?.map_metadata?.draft_status ?? DRAFT_STATUSES.SCRATCH;
   const zoneCount =
-    tab === 'community'
+    tab === MAP_TABS.COMMUNITY
       ? (data.community_metadata_list?.length ?? data.num_communities ?? 0)
       : (data.num_districts ?? 0);
-  const zoneLabel = tab === 'community' ? 'communities' : 'districts';
+  const zoneLabel = MAP_TAB_LABEL_PLURAL[tab];
   const geoLabel = data.parent_geo_unit_type || data.gerrydb_table || data.districtr_map_slug;
   const route = routeForTab(tab);
   const origin = typeof window !== 'undefined' ? window.location.origin : '';

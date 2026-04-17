@@ -2,7 +2,8 @@
 import type {MapGeoJSONFeature} from 'maplibre-gl';
 import type {MapRef} from 'react-map-gl/maplibre';
 import {colorScheme as DefaultColorScheme} from '@constants/colors';
-import {ACTIVE_TOOLS, type MapFeatureInfo} from '@constants/types';
+import {ACTIVE_TOOLS} from '@constants/map/tools';
+import type {MapFeatureInfo} from '@constants/map/mapEvents';
 import {
   Community,
   DistrictrMap,
@@ -18,7 +19,7 @@ import {ContextMenuState} from '@utils/map/types';
 import {resetZoneColors} from '@utils/map/resetZoneColors';
 import {setZones} from '@utils/map/setZones';
 import bbox from '@turf/bbox';
-import {FALLBACK_NUM_COMMUNITIES} from '../constants/map/mapDefaults';
+import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/document/limits';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
 import {createWithDevWrapperAndSubscribe} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
@@ -46,6 +47,7 @@ import {
   syncCoiColorsToColorScheme,
 } from '../utils/communities';
 import {temporalManager} from '../utils/temporal';
+import {MAP_MODES} from '@constants/map/mode';
 
 const resolveNumCommunities = (
   mapDocument: DocumentObject | null | undefined,
@@ -312,7 +314,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       setMapOptions({mode: 'default'});
       useMapControlsStore.setState({activeTool: ACTIVE_TOOLS.SHATTER});
 
-      if (mapMode === 'coi') {
+      if (mapMode === MAP_MODES.COI) {
         healParentsIfAllChildrenInSameCommunities(
           focusedParentId ? new Set<string>([focusedParentId]) : undefined
         );
@@ -701,7 +703,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
 
       if (mapDocument.document_id) {
         const newClientLastUpdated = new Date().toISOString();
-        if (useMapControlsStore.getState().mapMode === 'coi') {
+        if (useMapControlsStore.getState().mapMode === MAP_MODES.COI) {
           useCoiAssignmentsStore.getState().setClientLastUpdated(newClientLastUpdated);
         } else {
           useAssignmentsStore.getState().setClientLastUpdated(newClientLastUpdated);
@@ -1034,7 +1036,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         shatterIds,
         parentToChild: currentParentToChild,
         childToParent: currentChildToParent,
-      } = mapMode === 'coi' ? useCoiAssignmentsStore.getState() : useAssignmentsStore.getState();
+      } = mapMode === MAP_MODES.COI
+        ? useCoiAssignmentsStore.getState()
+        : useAssignmentsStore.getState();
       let parents = new Set(shatterIds.parents);
       let children = new Set(shatterIds.children);
       let captiveIds = new Set<string>();
@@ -1060,7 +1064,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         }
       });
       // Need to shatter all communities that that have that assignment since they can overlap
-      if (mapMode === 'coi') {
+      if (mapMode === MAP_MODES.COI) {
         const {
           communityAssignments: currentCommunityAssignments,
           setShatterState,

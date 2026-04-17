@@ -3,7 +3,7 @@ import maplibregl, {FilterSpecification} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {Protocol} from 'pmtiles';
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
-import {MAP_OPTIONS} from '@constants/configuration';
+import {MAP_OPTIONS} from '@constants/map/viewDefaults';
 import {handleWheelOrPinch} from '@utils/events/mapEvents';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';

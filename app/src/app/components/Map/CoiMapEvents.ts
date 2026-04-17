@@ -12,7 +12,7 @@ import {
   BLOCK_POINTS_LAYER_ID,
   BLOCK_POINTS_LAYER_ID_CHILD,
 } from '@constants/map/layerIds';
-import {ACTIVE_TOOLS} from '@constants/types';
+import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {setHoverFeatures} from '@/app/utils/map/hoverFeatures';
 import {
   ALL_BRUSHING_TOOLS,

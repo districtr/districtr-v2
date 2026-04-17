@@ -3,6 +3,7 @@ import {FilterSpecification} from 'maplibre-gl';
 import {useAssignmentsStore} from '../store/assignmentsStore';
 import {useCoiAssignmentsStore} from '../store/coiAssignmentsStore';
 import {useMapControlsStore} from '../store/mapControlsStore';
+import {MAP_MODES} from '@constants/map/mode';
 
 /**
  * Shallow array equality check for Zustand selector.
@@ -23,7 +24,7 @@ export const useLayerFilter = (child: boolean) => {
     state => Array.from(child ? state.shatterIds.children : state.shatterIds.parents),
     arrayEquals
   );
-  const idsArray = mapMode === 'coi' ? coiIdsArray : districtIdsArray;
+  const idsArray = mapMode === MAP_MODES.COI ? coiIdsArray : districtIdsArray;
 
   const layerFilter = useMemo(() => {
     // For child layers: show only children (match IDs in the set)

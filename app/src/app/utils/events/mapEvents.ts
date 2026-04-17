@@ -25,7 +25,7 @@ import {
   BLOCK_SOURCE_ID,
   INTERACTIVE_LAYERS,
 } from '@constants/map/layerIds';
-import {ACTIVE_TOOLS, type ActiveTool} from '@constants/types';
+import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
 import {ResetMapSelectState} from '@utils/events/handlers';
 import GeometryWorker from '../GeometryWorker';
 import {throttle} from 'lodash';

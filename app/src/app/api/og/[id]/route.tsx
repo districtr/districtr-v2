@@ -1,5 +1,5 @@
 import {API_URL} from '@/app/utils/api/constants';
-import {DRAFT_STATUSES} from '@constants/map/draftStatus';
+import {DRAFT_STATUSES} from '@constants/document/draftStatus';
 import {ImageResponse} from 'next/og';
 import fs from 'fs';
 import {DocumentObject} from '@/app/utils/api/apiHandlers/types';

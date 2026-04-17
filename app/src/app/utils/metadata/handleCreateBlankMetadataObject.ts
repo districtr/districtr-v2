@@ -1,5 +1,5 @@
 import {DocumentMetadata} from '../api/apiHandlers/types';
-import {DRAFT_STATUSES} from '@constants/map/draftStatus';
+import {DRAFT_STATUSES} from '@constants/document/draftStatus';
 
 export const handleCreateBlankMetadataObject = (): DocumentMetadata => {
   return {

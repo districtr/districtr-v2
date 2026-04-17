@@ -8,6 +8,7 @@ import {useSaveShareStore} from '@/app/store/saveShareStore';
 import {Link1Icon} from '@radix-ui/react-icons';
 import {useMapMetadata} from '@/app/hooks/useMapMetadata';
 import {DEFAULT_MAP_METADATA} from '@/app/utils/language';
+import {routeForType} from '@constants/document/routes';
 import {useRouter} from 'next/navigation';
 import {createMapDocument} from '@/app/utils/api/apiHandlers/createMapDocument';
 
@@ -44,7 +45,7 @@ export const SaveShareModal: React.FC<{
       },
     });
     if (response.ok) {
-      const routePrefix = response.response.map_type === 'community' ? 'coi' : 'map';
+      const routePrefix = routeForType(response.response.map_type);
       router.push(`/${routePrefix}/edit/${response.response.document_id}`);
       onClose();
     } else {

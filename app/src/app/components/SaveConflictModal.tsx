@@ -7,12 +7,15 @@ import {useMapControlsStore} from '../store/mapControlsStore';
 import {DocumentObject} from '../utils/api/apiHandlers/types';
 import {getDocument} from '../utils/api/apiHandlers/getDocument';
 import {SyncConflictModal} from './SyncConflictModal';
+import {MAP_MODES} from '@constants/map/mode';
+import {MAP_TYPES} from '@constants/document/types';
 
 export const SaveConflictModal: React.FC = ({}) => {
   const showSaveConflictModal = useMapStore(state => state.showSaveConflictModal);
   const localMapDocument = useMapStore(state => state.mapDocument);
   const mapMode = useMapControlsStore(state => state.mapMode);
-  const isCommunity = localMapDocument?.map_type === 'community' || mapMode === 'coi';
+  const isCommunity =
+    localMapDocument?.map_type === MAP_TYPES.COMMUNITY || mapMode === MAP_MODES.COI;
   const districtLocalTimeUpdated = useAssignmentsStore(state => state.clientLastUpdated);
   const coiLocalTimeUpdated = useCoiAssignmentsStore(state => state.clientLastUpdated);
   const localTimeUpdated = isCommunity ? coiLocalTimeUpdated : districtLocalTimeUpdated;

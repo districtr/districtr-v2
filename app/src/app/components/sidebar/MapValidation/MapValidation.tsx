@@ -7,6 +7,8 @@ import {useIdbDocument} from '@/app/hooks/useIdbDocument';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {CloudNotSavedIcon} from '../../Topbar/Icons';
+import {MAP_MODES} from '@constants/map/mode';
+import {MAP_TYPES} from '@constants/document/types';
 
 const mapValidationPanel = [
   {
@@ -32,7 +34,7 @@ export const MapValidation = () => {
   const handlePutAssignments = useAssignmentsStore(state => state.handlePutAssignments);
 
   useEffect(() => {
-    if (mapDocument?.map_type === 'community' || mapMode === 'coi') {
+    if (mapDocument?.map_type === MAP_TYPES.COMMUNITY || mapMode === MAP_MODES.COI) {
       setErrorNotification({
         message: 'Map validation is not available for community maps.',
         severity: 2,
@@ -40,7 +42,7 @@ export const MapValidation = () => {
     }
   }, [mapDocument?.map_type, mapMode, setErrorNotification]);
 
-  if (mapDocument?.map_type === 'community' || mapMode === 'coi') {
+  if (mapDocument?.map_type === MAP_TYPES.COMMUNITY || mapMode === MAP_MODES.COI) {
     return null;
   }
 

@@ -30,7 +30,7 @@ export const BoilerplateNode = Node.create({
       customContent: {
         default: null,
         parseHTML: getStandardHtmlParser(BOILERPLATE_ATTRIBUTE_NAME),
-        renderHTML: getJsonHtmlRenderer(BOILERPLATE_ATTRIBUTE_NAME),
+        renderHTML: getJsonHtmlRenderer(BOILERPLATE_ATTRIBUTE_NAME, 'customContent'),
       },
     };
   },

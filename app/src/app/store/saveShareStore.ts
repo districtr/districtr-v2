@@ -2,6 +2,7 @@ import {create} from 'zustand';
 import {MapStore, useMapStore} from './mapStore';
 import {idb} from '../utils/idb/idb';
 import {patchSharePlan} from '../utils/api/apiHandlers/patchSharePlan';
+import {routeForType} from '@constants/document/routes';
 
 interface SaveShareStore {
   password: string;
@@ -38,7 +39,7 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
       return;
     }
     const {public_id: publicId} = response.response;
-    const routePrefix = mapDocument.map_type === 'community' ? 'coi' : 'map';
+    const routePrefix = routeForType(mapDocument.map_type);
 
     let shareableLink = new URL(`${window.location.origin}/${routePrefix}/${publicId}`);
     if (sharingMode === 'read') {

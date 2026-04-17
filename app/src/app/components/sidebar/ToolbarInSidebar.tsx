@@ -2,7 +2,7 @@
 import React, {useState} from 'react';
 import {Box, Button, Flex, Text} from '@radix-ui/themes';
 import {PinLeftIcon} from '@radix-ui/react-icons';
-import {ACTIVE_TOOLS} from '@constants/types';
+import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {Toolbar} from '../Toolbar/Toolbar';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';

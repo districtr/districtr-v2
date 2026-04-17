@@ -3,11 +3,10 @@ import {useState} from 'react';
 import {SegmentedControl, Flex, Grid} from '@radix-ui/themes';
 import {CreateButton} from './CreateButton';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
-
-type MapTab = 'districts' | 'community';
+import {MAP_TABS, type MapTab} from '@constants/document/tabs';
 
 export const PlaceMapGrid: React.FC<{maps: Partial<DistrictrMap>[]}> = ({maps}) => {
-  const [activeTab, setActiveTab] = useState<MapTab>('districts');
+  const [activeTab, setActiveTab] = useState<MapTab>(MAP_TABS.DISTRICTS);
 
   return (
     <Flex direction="column" gap="3">
@@ -17,8 +16,8 @@ export const PlaceMapGrid: React.FC<{maps: Partial<DistrictrMap>[]}> = ({maps}) 
           onValueChange={v => setActiveTab(v as MapTab)}
           size="2"
         >
-          <SegmentedControl.Item value="districts">District Plan</SegmentedControl.Item>
-          <SegmentedControl.Item value="community">Community Plan</SegmentedControl.Item>
+          <SegmentedControl.Item value={MAP_TABS.DISTRICTS}>District Plan</SegmentedControl.Item>
+          <SegmentedControl.Item value={MAP_TABS.COMMUNITY}>Community Plan</SegmentedControl.Item>
         </SegmentedControl.Root>
       </Flex>
       <Grid
@@ -30,7 +29,7 @@ export const PlaceMapGrid: React.FC<{maps: Partial<DistrictrMap>[]}> = ({maps}) 
         }}
       >
         {maps.map((view, i) => (
-          <CreateButton key={i} view={view} isCommunity={activeTab === 'community'} />
+          <CreateButton key={i} view={view} isCommunity={activeTab === MAP_TABS.COMMUNITY} />
         ))}
       </Grid>
     </Flex>

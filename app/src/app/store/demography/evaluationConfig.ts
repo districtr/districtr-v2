@@ -1,8 +1,7 @@
-import {NumberFormats} from '@/app/utils/numbers';
 import {EvalColumnConfiguration, SummaryStatConfig} from '@/app/utils/api/summaryStats';
-import {SUMMARY_TYPES, type SummaryType} from '@constants/types';
-
-export type EvalModes = 'share' | 'count' | 'totpop' | 'partisan';
+import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
+import {NUMBER_FORMATS, type NumberFormat} from '@constants/demography/format';
+import {EVAL_MODES, type EvalMode} from '@constants/demography/evalMode';
 
 export const TOTPOPColumnConfig: EvalColumnConfiguration<
   SummaryStatConfig[typeof SUMMARY_TYPES.TOTPOP]
@@ -72,42 +71,42 @@ export const evalColumnConfigs: Partial<
   VOTERHISTORY: VoterColumnConfig,
 };
 
-export const modeButtonConfig: Array<{label: string; value: EvalModes}> = [
+export const modeButtonConfig: Array<{label: string; value: EvalMode}> = [
   {
     label: 'Population by Share',
-    value: 'share',
+    value: EVAL_MODES.SHARE,
   },
   {
     label: 'Population by Count',
-    value: 'count',
+    value: EVAL_MODES.COUNT,
   },
 ];
 
-export const numberFormats: Record<EvalModes, NumberFormats> = {
-  share: 'percent',
-  count: 'string',
-  totpop: 'percent',
-  partisan: 'partisan',
+export const numberFormats: Record<EvalMode, NumberFormat> = {
+  [EVAL_MODES.SHARE]: NUMBER_FORMATS.PERCENT,
+  [EVAL_MODES.COUNT]: NUMBER_FORMATS.STRING,
+  [EVAL_MODES.TOTPOP]: NUMBER_FORMATS.PERCENT,
+  [EVAL_MODES.PARTISAN]: NUMBER_FORMATS.PARTISAN,
 };
 
 export const summaryStatLabels: Array<{
   value: SummaryType;
   label: string;
-  supportedModes: EvalModes[];
+  supportedModes: EvalMode[];
 }> = [
   {
     value: SUMMARY_TYPES.VAP,
     label: 'Voting age population',
-    supportedModes: ['share', 'count'],
+    supportedModes: [EVAL_MODES.SHARE, EVAL_MODES.COUNT],
   },
   {
     value: SUMMARY_TYPES.TOTPOP,
     label: 'Total population',
-    supportedModes: ['share', 'count'],
+    supportedModes: [EVAL_MODES.SHARE, EVAL_MODES.COUNT],
   },
   {
     value: SUMMARY_TYPES.VOTERHISTORY,
     label: 'Voter history',
-    supportedModes: ['share'],
+    supportedModes: [EVAL_MODES.SHARE],
   },
 ];

@@ -1,9 +1,9 @@
 import {devtools, DevtoolsOptions, PersistOptions} from 'zustand/middleware';
 import {MapStore} from './mapStore';
-import {MIN_DIFF_MS} from '../constants/configuration';
+import {MIN_DIFF_MS} from '@constants/document/temporal';
 import {ZundoOptions} from 'zundo';
 import {AssignmentsStore} from './assignmentsStore';
-import {TEMPORAL_HISTORY_LIMIT} from '../constants/configuration';
+import {TEMPORAL_HISTORY_LIMIT} from '@constants/document/temporal';
 import {cloneTemporalSnapshot} from '../utils/temporalSnapshot';
 
 const prodWrapper: typeof devtools = (store: any) => store;

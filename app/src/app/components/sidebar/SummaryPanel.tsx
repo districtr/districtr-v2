@@ -6,6 +6,8 @@ import {MapPanel} from './MapPanel';
 import {
   COALITION_TOTAL_COLUMN_BY_UNIVERSE,
   COALITION_VARIABLE_BY_UNIVERSE,
+} from '@constants/demography/coalition';
+import {
   getCoalitionColumn,
   getCoalitionGroupLabel,
   getCoalitionLabel,
@@ -17,7 +19,8 @@ import {ChevronDownIcon} from '@radix-ui/react-icons';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {sortCommunitiesByRenderOrder} from '@/app/utils/communities';
-import {SUMMARY_TYPES, type SummaryType} from '@constants/types';
+import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
+import {MAP_MODES} from '@constants/map/mode';
 
 type SummaryPanelProps = {
   defaultColumnSet: SummaryType;
@@ -114,7 +117,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
       ...baseColumnConfig,
     ];
   })();
-  const isCommunityMode = mapMode === 'coi';
+  const isCommunityMode = mapMode === MAP_MODES.COI;
   const orderedCommunities = sortCommunitiesByRenderOrder(communities);
 
   useEffect(() => {

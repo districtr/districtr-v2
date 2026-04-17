@@ -7,7 +7,7 @@ import {
   type DraftStatus,
   DRAFT_STATUS_TEXT,
   DRAFT_STATUS_ORDER,
-} from '@constants/map/draftStatus';
+} from '@constants/document/draftStatus';
 import {InProgressIcon, ScratchWorkIcon, ReadyIcon} from './Icons';
 
 const statusIcons: Record<DraftStatus, React.FC> = {

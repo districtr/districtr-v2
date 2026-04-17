@@ -7,6 +7,7 @@ import {ChartStore} from '@store/chartStore';
 import {ColorChangeModal} from '../../Toolbar/ColorChangeModal';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {MAP_MODES, MAP_MODE_LABELS} from '@constants/map/mode';
 
 export const PopulationPanelOptions: React.FC<{
   chartOptions: ChartStore['chartOptions'];
@@ -16,8 +17,8 @@ export const PopulationPanelOptions: React.FC<{
   const [colorModalOpen, setColorModalOpen] = React.useState(false);
   const access = useMapStore(state => state.mapStatus?.access);
   const mapMode = useMapControlsStore(state => state.mapMode);
-  const zoneLabel = mapMode === 'coi' ? 'community' : 'district';
-  const isCommunityMode = zoneLabel === 'community';
+  const zoneLabel = MAP_MODE_LABELS[mapMode];
+  const isCommunityMode = mapMode === MAP_MODES.COI;
 
   useEffect(() => {
     if (

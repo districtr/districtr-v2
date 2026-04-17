@@ -5,10 +5,13 @@ import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {fetchDocument, SyncConflictInfo} from '@/app/utils/api/apiHandlers/fetchDocument';
 import {SyncConflictModal} from '@/app/components/SyncConflictModal';
-import {SyncConflictResolution} from '@/app/constants/types';
+import {SyncConflictResolution} from '@constants/document/sync';
 import {formatAssignmentsFromDocument} from '../utils/map/formatAssignments';
 import {formatCoiAssignmentsFromDocument} from '../utils/map/formatCoiAssignments';
 import {useRouter} from 'next/navigation';
+import {MAP_MODES} from '@constants/map/mode';
+import {MAP_TYPES} from '@constants/document/types';
+
 interface UseDocumentWithSyncOptions {
   document_id: string | null | undefined;
   enabled?: boolean;
@@ -36,8 +39,8 @@ export function useDocumentWithSync({
   const districtResolveConflict = useAssignmentsStore(state => state.resolveConflict);
   const coiResolveConflict = useCoiAssignmentsStore(state => state.resolveConflict);
   const router = useRouter();
-  const isCoiRoute = mapMode === 'coi';
-  const isDistrictRoute = mapMode === 'districts';
+  const isCoiRoute = mapMode === MAP_MODES.COI;
+  const isDistrictRoute = mapMode === MAP_MODES.DISTRICTS;
 
   const handleConflict = async (resolution: SyncConflictResolution) => {
     if (!conflictInfo) {
@@ -47,8 +50,8 @@ export function useDocumentWithSync({
     }
     try {
       const isCommunityDocument =
-        conflictInfo.serverDocument.map_type === 'community' ||
-        conflictInfo.localDocument.map_type === 'community';
+        conflictInfo.serverDocument.map_type === MAP_TYPES.COMMUNITY ||
+        conflictInfo.localDocument.map_type === MAP_TYPES.COMMUNITY;
       const resolveConflict = isCommunityDocument ? coiResolveConflict : districtResolveConflict;
       await resolveConflict(resolution, conflictInfo, {
         context: 'load',
@@ -97,7 +100,7 @@ export function useDocumentWithSync({
         setIsLoading(false);
         setAppLoadingState('loaded');
       } else {
-        const isCommunityDocument = result.response.document.map_type === 'community';
+        const isCommunityDocument = result.response.document.map_type === MAP_TYPES.COMMUNITY;
         // console.log('[hydration] Document loaded', {
         //   document_id,
         //   isCommunityDocument,

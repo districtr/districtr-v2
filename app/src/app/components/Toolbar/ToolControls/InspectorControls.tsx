@@ -5,7 +5,7 @@ import {useEffect} from 'react';
 import {Flex, Heading, Button} from '@radix-ui/themes';
 import {BrushControls} from '@components/Toolbar/ToolControls/BrushControls';
 import {CardCheckbox, ResponsiveCheckboxCards} from '@/app/components/Shared/CardCheckbox';
-import {SUMMARY_TYPES, TOTAL_COLUMN} from '@constants/types';
+import {SUMMARY_TYPES, TOTAL_COLUMN} from '@constants/demography/summary';
 
 export const InspectorControls = () => {
   const inspectorMode = useTooltipStore(state => state.inspectorMode);

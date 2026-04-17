@@ -8,7 +8,7 @@ import {
 } from '@utils/api/summaryStats';
 import {scaleLinear} from '@visx/scale';
 import {AnyD3Scale} from './types';
-import {SUMMARY_TYPES, type SummaryType} from '@constants/types';
+import {type SummaryType} from '@constants/demography/summary';
 
 export const DEFAULT_COLOR_SCHEME = chromatic.schemeBlues;
 export const DEFAULT_COLOR_SCHEME_GRAY = chromatic.schemeGreys;

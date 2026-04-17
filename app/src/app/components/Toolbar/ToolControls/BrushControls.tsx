@@ -6,7 +6,8 @@ import {useOverlayStore} from '@/app/store/overlayStore';
 import {BrushSizeSelector} from '@components/Toolbar/ToolControls/BrushSizeSelector';
 import PaintByCounty from '@components/Toolbar/PaintByCounty';
 import {ZonePicker} from '@components/Toolbar/ZonePicker';
-import {ACTIVE_TOOLS} from '@constants/types';
+import {ACTIVE_TOOLS} from '@constants/map/tools';
+import {MAP_MODES} from '@constants/map/mode';
 
 export const BrushControls = () => {
   const activeTool = useMapControlsStore(state => state.activeTool);
@@ -15,7 +16,8 @@ export const BrushControls = () => {
   const paintConstraint = useOverlayStore(state => state.paintConstraint);
   const clearPaintConstraint = useOverlayStore(state => state.clearPaintConstraint);
   const showZonePicker =
-    activeTool === ACTIVE_TOOLS.BRUSH || (mapMode === 'coi' && activeTool === ACTIVE_TOOLS.ERASER);
+    activeTool === ACTIVE_TOOLS.BRUSH ||
+    (mapMode === MAP_MODES.COI && activeTool === ACTIVE_TOOLS.ERASER);
 
   return (
     <Flex direction="column" gapY="2" justify="between" wrap="wrap">

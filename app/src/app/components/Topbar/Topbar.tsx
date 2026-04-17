@@ -27,8 +27,11 @@ import {SettingsPopoverAndModal} from './SettingsPopoverAndModal';
 import {saveMapDocumentMetadata} from '@/app/utils/api/apiHandlers/saveMapDocumentMetadata';
 import {idb} from '@/app/utils/idb/idb';
 import {RevertPopover} from './RevertPopover';
-import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/map/mapDefaults';
+import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {MAP_MODES, type MapMode} from '@constants/map/mode';
+import {routeForMode} from '@constants/document/routes';
+import {MAP_TYPES} from '@constants/document/types';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
@@ -60,16 +63,13 @@ export const Topbar: React.FC = () => {
     }
   };
 
-  const handleSelectMap = (
-    selectedMap: DistrictrMap,
-    mapType: 'districts' | 'coi' = 'districts'
-  ) => {
+  const handleSelectMap = (selectedMap: DistrictrMap, mapMode: MapMode = MAP_MODES.DISTRICTS) => {
     createMapDocument({
       districtr_map_slug: selectedMap.districtr_map_slug,
-      map_type: mapType === 'coi' ? 'community' : 'default',
+      map_type: mapMode === MAP_MODES.COI ? MAP_TYPES.COMMUNITY : MAP_TYPES.DEFAULT,
     }).then(r => {
       if (r.ok) {
-        const rootPath = mapType === 'districts' ? 'map' : 'coi';
+        const rootPath = routeForMode(mapMode);
         router.push(`/${rootPath}/edit/${r.response.document_id}`);
       } else {
         setErrorNotification({

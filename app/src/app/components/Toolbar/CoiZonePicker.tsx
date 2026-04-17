@@ -4,7 +4,7 @@ import {EyeOpenIcon, EyeClosedIcon, PlusIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '../../store/mapStore';
 import {useMapControlsStore} from '../../store/mapControlsStore';
 import {CoiPicker} from './CoiPicker';
-import {COI_MIN_COMMUNITIES, COI_MAX_COMMUNITIES} from '@/app/constants/map/mapDefaults';
+import {COI_MIN_COMMUNITIES, COI_MAX_COMMUNITIES} from '@/app/constants/document/limits';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 import {useSelectCommunity} from '@/app/hooks/useSelectCommunity';
