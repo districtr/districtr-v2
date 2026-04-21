@@ -794,12 +794,13 @@ def moderate_comments_query(
     bad_tag_conds = []
     if exclude_rejected:
         bad_tag_conds.append(Tag.review_status == ReviewStatus.REJECTED)
-    # Fails threshold unless explicitly approved
+    # Fails threshold unless explicitly approved. score_text semantics: 0=clean, 1=offensive,
+    # so "bad" means score at or above threshold.
     bad_tag_conds.append(
         and_(
             col(Tag.review_status) != ReviewStatus.APPROVED,
             col(Tag.moderation_score).is_not(None),
-            col(Tag.moderation_score) <= moderation_threshold,
+            col(Tag.moderation_score) >= moderation_threshold,
         )
     )
 
