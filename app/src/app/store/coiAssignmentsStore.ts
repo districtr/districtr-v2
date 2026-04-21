@@ -1558,3 +1558,6 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     await get().resolveConflict(resolution, sycnConflictInfo, options);
   },
 }));
+
+import {exposeStoreToWindow as _exposeCoiStore} from './exposeToWindow';
+_exposeCoiStore('coiAssignmentsStore', useCoiAssignmentsStore);

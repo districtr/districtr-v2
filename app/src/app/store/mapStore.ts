@@ -1,6 +1,7 @@
 'use client';
 import type {MapGeoJSONFeature} from 'maplibre-gl';
 import type {MapRef} from 'react-map-gl/maplibre';
+import {exposeStoreToWindow} from './exposeToWindow';
 import {colorScheme as DefaultColorScheme} from '@constants/colors';
 import type {MapFeatureInfo} from '@constants/types';
 import {
@@ -1235,3 +1236,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     setPassword: password => set({password}),
   })
 );
+
+// Expose for Playwright E2E (see app/e2e/utils/store-helpers.ts). Dev-only, no-op in prod.
+exposeStoreToWindow('mapStore', useMapStore);

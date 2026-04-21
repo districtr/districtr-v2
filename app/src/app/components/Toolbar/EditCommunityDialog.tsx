@@ -15,6 +15,7 @@ import {ChromePicker, type ColorResult} from 'react-color';
 
 import {DEFAULT_COMMUNITY_DESCRIPTION} from '@/app/utils/communities';
 import {useMapStore} from '@/app/store/mapStore';
+import {validateCommunityName} from '@/app/utils/sanitize';
 
 type ColorTab = 'palette' | 'custom';
 
@@ -71,6 +72,19 @@ export const EditCommunityDialog: React.FC<EditCommunityDialogProps> = ({
     setSelectedColor(color.hex);
   };
 
+  // Run the same sanitization the backend would apply so the user sees a preview of
+  // what will actually be persisted (HTML tags stripped, whitespace collapsed,
+  // Unicode format chars removed). Surface inline errors for empty-after-sanitize
+  // or too-long values.
+  const nameValidation = validateCommunityName(communityName);
+  const nameHint = nameValidation.empty
+    ? 'Community name cannot be empty.'
+    : nameValidation.tooLong
+      ? `Name must be ${communityNameLengthLimit} characters or fewer (after cleanup).`
+      : nameValidation.wasModified
+        ? `Will be saved as "${nameValidation.sanitized}".`
+        : null;
+
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Content style={{maxWidth: 500}}>
@@ -78,8 +92,11 @@ export const EditCommunityDialog: React.FC<EditCommunityDialogProps> = ({
         <form
           onSubmit={event => {
             event.preventDefault();
+            if (nameValidation.empty || nameValidation.tooLong) {
+              return;
+            }
             onSubmit({
-              name: communityName,
+              name: nameValidation.sanitized,
               description: communityDescription,
               color: selectedColor,
             });
@@ -96,7 +113,17 @@ export const EditCommunityDialog: React.FC<EditCommunityDialogProps> = ({
                 placeholder={defaultName}
                 maxLength={communityNameLengthLimit}
                 autoFocus
+                aria-invalid={nameValidation.empty || nameValidation.tooLong}
               />
+              {nameHint && (
+                <Text
+                  size="1"
+                  mt="1"
+                  color={nameValidation.empty || nameValidation.tooLong ? 'red' : 'gray'}
+                >
+                  {nameHint}
+                </Text>
+              )}
             </label>
             <label>
               <Text as="div" size="2" mb="1" weight="medium">

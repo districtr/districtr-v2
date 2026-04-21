@@ -906,3 +906,6 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     });
   },
 }));
+
+import {exposeStoreToWindow as _exposeAssignmentsStore} from './exposeToWindow';
+_exposeAssignmentsStore('assignmentsStore', useAssignmentsStore);

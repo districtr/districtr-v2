@@ -88,8 +88,18 @@ export async function navigateToMap(page: Page, documentId: string): Promise<boo
       state: 'visible',
       timeout: testTimeouts.mapLoad,
     });
-    // Give tiles a moment to start loading
-    await page.waitForTimeout(1000);
+    // Wait for the map store to report "loaded" (tiles + first render complete)
+    // instead of a fixed 1s sleep. Falls back to a short settle delay if the
+    // store isn't exposed.
+    await page
+      .waitForFunction(
+        () => window.__ZUSTAND_STORES__?.mapStore?.getState?.().appLoadingState === 'loaded',
+        undefined,
+        {timeout: 10_000}
+      )
+      .catch(async () => {
+        await page.waitForTimeout(500);
+      });
     return true;
   } catch {
     return false;

@@ -156,3 +156,6 @@ export const useMapControlsStore = create<MapControlsStore>()(
     setSidebarPanels: sidebarPanels => set({sidebarPanels}),
   }))
 );
+
+import {exposeStoreToWindow as _exposeControlsStore} from './exposeToWindow';
+_exposeControlsStore('mapControlsStore', useMapControlsStore);
