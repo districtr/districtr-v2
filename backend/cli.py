@@ -224,6 +224,8 @@ def create_districtr_map(
         num_districts_modifiable=num_districts_modifiable,
         tiles_s3_path=tiles_s3_path,
         statefps=statefps_list,
+        comment_length_limit=comment_length_limit,
+        comment_count_limit=comment_count_limit,
     )
 
     if not no_extent:
