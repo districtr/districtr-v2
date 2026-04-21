@@ -321,8 +321,11 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           focusedParentId ? {_parentIds: new Set<string>([focusedParentId])} : {},
           'state'
         );
-        temporalManager.resume(mapMode);
       }
+      // Resume the temporal recorder regardless of mode. handleShatter pauses it
+      // when a shatter starts; failing to resume here left COI sessions unable to
+      // undo/redo for the rest of the session.
+      temporalManager.resume(mapMode);
     },
 
     getMapRef: () => undefined,

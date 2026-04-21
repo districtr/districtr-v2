@@ -804,6 +804,14 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
   ) => {
     const {accumulatedAssignments, communityAssignments, communityLastUpdated} = get();
     const {setPaintedChanges} = useChartStore.getState();
+    // Clone the live Maps up front and mutate the local copies only. Zustand's
+    // change-detection contract requires a new reference on every `set`; the previous
+    // code mutated the Maps from `get()` in place and then wrapped them in `new Map(...)`
+    // at the end, which left intermediate state visible to any subscriber that read
+    // before the terminal `set()`.
+    const nextAccumulatedAssignments = new Map(accumulatedAssignments);
+    const nextCommunityLastUpdated = new Map(communityLastUpdated);
+
     // We can access the inner state of the map in a more ergonomic way than the convenience method `getFeatureState`
     // the inner state here gives us access to { [sourceLayer]: { [id]: { ...stateProperties }}}
     // So, we get things like `zone` and `locked` and `broken` etc without needing to check a bunch of different places
@@ -820,7 +828,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       if (!id || !sourceLayer) return;
 
       const currentFeatureState = featureStateCache[sourceLayer]?.[id] || {};
-      if (accumulatedAssignments.has(id) || currentFeatureState?.locked) return;
+      if (nextAccumulatedAssignments.has(id) || currentFeatureState?.locked) return;
 
       const currentCommunities = getCommunitiesForGeoidFromAssignments(communityAssignments, id);
       const newCommunities = new Set(currentCommunities);
@@ -838,18 +846,18 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
         return; // Invalid mode
       }
 
-      accumulatedAssignments.set(id, mutationType);
+      nextAccumulatedAssignments.set(id, mutationType);
 
       const featurePop = parseInt(feature.properties?.total_pop_20 || '0', 10);
       if (!isNaN(featurePop)) {
         if (mutationType.type === 'assign') {
           popChanges[mutationType.community] =
             (popChanges[mutationType.community] || 0) + featurePop;
-          communityLastUpdated.set(mutationType.community, editTime);
+          nextCommunityLastUpdated.set(mutationType.community, editTime);
         } else if (mutationType.type === 'erase-community') {
           popChanges[mutationType.community] =
             (popChanges[mutationType.community] || 0) - featurePop;
-          communityLastUpdated.set(mutationType.community, editTime);
+          nextCommunityLastUpdated.set(mutationType.community, editTime);
         }
       }
 
@@ -864,8 +872,8 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     });
 
     set({
-      accumulatedAssignments: new Map(accumulatedAssignments),
-      communityLastUpdated: new Map(communityLastUpdated),
+      accumulatedAssignments: nextAccumulatedAssignments,
+      communityLastUpdated: nextCommunityLastUpdated,
     });
 
     if (Object.keys(popChanges).length) {
@@ -1154,13 +1162,20 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     if (shouldReconstructCommunities) {
       const palette =
         mapDocument?.color_scheme ?? mapState.mapDocument?.color_scheme ?? DefaultColorScheme;
+      // Reconstruction runs when assignments exist but no matching metadata was saved
+      // (legacy docs, failed saves). Stamp each placeholder with the current time so
+      // the next save doesn't persist synthetic 1970 timestamps.
+      console.warn(
+        `[coi] Reconstructing ${assignedCommunityIds.length} community/communities from assignments with no metadata.`
+      );
+      const reconstructionTime = Date.now();
       const reconstructedCommunities = assignedCommunityIds.map((communityId, index) => ({
         id: communityId,
         render_order_id: index + 1,
         name: `Community ${index + 1}`,
         description: DEFAULT_COMMUNITY_DESCRIPTION,
         color: palette[communityId - 1] ?? palette[index % palette.length] ?? '#000000',
-        createdAt: new Date(index * 1000).toISOString(),
+        createdAt: new Date(reconstructionTime + index).toISOString(),
         descriptionCommentId: null,
       }));
       // console.log('[hydration] Reconstructing communities:', reconstructedCommunities.length);
@@ -1294,7 +1309,9 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
           affectedGeometries.add(geoid);
         });
         newAssignments.delete(community);
-        newLastUpdated.set(community, currTime);
+        // Match removeCommunity: drop the tracking entry entirely instead of stamping
+        // a lastUpdated on a community that no longer exists.
+        newLastUpdated.delete(community);
         removedCommunityIds.push(community);
       }
     });

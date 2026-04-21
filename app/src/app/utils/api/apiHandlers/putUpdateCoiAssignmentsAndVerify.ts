@@ -76,9 +76,25 @@ export const putUpdateCoiAssignmentsAndVerify = async ({
   ).map(assignment => [assignment.geo_id, assignment.zone] as [string, Zone | null]);
 
   const comments = (mapDocument.document_comments || []).map(comment => {
-    const parsedId = comment.comment_id ? parseInt(String(comment.comment_id), 10) : NaN;
+    // Only forward comment_id when it is a numeric PK assigned by the backend.
+    // Client-local UUIDs or other non-numeric values fall through to undefined so the
+    // server creates a fresh row; before this guard, parseInt("<uuid>") returned NaN,
+    // the field went out as undefined, and every save orphaned the previous row —
+    // instead of referencing the existing PK.
+    const raw = comment.comment_id;
+    let commentId: number | undefined;
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+      commentId = raw;
+    } else if (typeof raw === 'string' && /^\d+$/.test(raw)) {
+      commentId = parseInt(raw, 10);
+    } else {
+      commentId = undefined;
+      if (raw) {
+        console.warn(`[coi save] Non-numeric comment_id ${raw}; sending as new comment.`);
+      }
+    }
     return {
-      comment_id: Number.isFinite(parsedId) ? parsedId : undefined,
+      comment_id: commentId,
       zone: comment.zone ?? undefined,
       text: comment.text,
     };

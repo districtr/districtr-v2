@@ -68,6 +68,13 @@ const handleCoiFeatureSelection = (
         setIsPainting(false);
         return;
       }
+      // selectedZone can point at a community id that was just removed (the picker
+      // doesn't auto-clear). Abort before mutating feature state so we don't write
+      // stale keys into accumulatedAssignments that point at non-existent communities.
+      if (!mapStore.communities.some(c => c.id === selectedZone)) {
+        setIsPainting(false);
+        return;
+      }
       if (selectedFeatures && mapRef) {
         mutateCommunityAssignments(
           mapRef,
