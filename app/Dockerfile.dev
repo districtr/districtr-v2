@@ -1,5 +1,7 @@
-# Use official Node.js image as the base image
-FROM node:24-alpine
+# Use official Node.js image as the base image.
+# Pinned to a specific minor version + alpine release for reproducible dev
+# builds. For prod, consider pinning to an image digest (node:24@sha256:...).
+FROM node:24-alpine3.21
 
 # Install curl and Bun
 RUN apk add --no-cache curl bash && \
