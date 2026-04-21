@@ -19,7 +19,10 @@ from app.save_share.models import (
 from app.comments.models import DocumentComment, Comment
 from app.comments.moderation import MODERATION_THRESHOLD
 from app.comments.models import ReviewStatus
-from app.comments.settings import DEFAULT_MAX_COMMENTS_PER_DISTRICT
+from app.comments.settings import (
+    DEFAULT_MAX_COMMENT_LENGTH,
+    DEFAULT_MAX_COMMENTS_PER_DISTRICT,
+)
 from sqlalchemy.sql.functions import coalesce
 from sqlalchemy import or_, and_
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound
@@ -145,9 +148,9 @@ def get_document_public(
         col(DistrictrMap.uuid).label("districtr_map_uuid"),
         col(DistrictrMap.statefps).label("statefps"),
         literal(MAX_COMMUNITY_NAME_LENGTH).label("community_name_length_limit"),
-        coalesce(col(DistrictrMap.comment_length_limit), 240).label(
-            "comment_length_limit"
-        ),
+        coalesce(
+            col(DistrictrMap.comment_length_limit), DEFAULT_MAX_COMMENT_LENGTH
+        ).label("comment_length_limit"),
         coalesce(
             col(DistrictrMap.comment_count_limit), DEFAULT_MAX_COMMENTS_PER_DISTRICT
         ).label("comment_count_limit"),
