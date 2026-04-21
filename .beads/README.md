@@ -60,11 +60,12 @@ Issues in Beads are:
 Try Beads in your own projects:
 
 ```bash
-# Install Beads
-curl -sSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
+# Install Beads (requires >=1.0.0)
+brew install steveyegge/beads/bd
+# Or: curl -sSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
 
-# Initialize in your repo
-bd init
+# Initialize in your repo (use --prefix if dir name contains hyphens)
+bd init --prefix districtr_v2
 
 # Create your first issue
 bd create "Try out Beads"
