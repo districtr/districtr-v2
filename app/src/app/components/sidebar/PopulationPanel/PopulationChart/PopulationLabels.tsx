@@ -2,6 +2,7 @@ import React from 'react';
 import {formatNumber} from '@/app/utils/numbers';
 import {Group} from '@visx/group';
 import {SummaryRecord} from '@/app/utils/api/summaryStats';
+import {NUMBER_FORMATS} from '@constants/demography/format';
 
 export const PopulationLabels: React.FC<{
   xScale: (value: number) => number;
@@ -36,14 +37,14 @@ export const PopulationLabels: React.FC<{
       ? undefined
       : Math.abs(popDiff) < 1
         ? `0`
-        : formatNumber(popDiff, 'string');
+        : formatNumber(popDiff, NUMBER_FORMATS.STRING);
   const popDiffLabel =
     popDiff === undefined || _popDiffLabel === undefined
       ? undefined
       : popDiff >= 1
         ? `+${_popDiffLabel}`
         : _popDiffLabel;
-  const popLabel = formatNumber(entry.total_pop_20, 'string');
+  const popLabel = formatNumber(entry.total_pop_20, NUMBER_FORMATS.STRING);
   if (popLabel === undefined) return null;
   const [left, top] = [xScale(entry.total_pop_20), yScale(index) + barHeight];
   const showDeviationLabel = hasIdealPopulation && !!(isHovered || showTopBottomDeviation);

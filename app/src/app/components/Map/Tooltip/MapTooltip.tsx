@@ -6,6 +6,7 @@ import {useTooltipStore} from '@store/tooltipStore';
 import {InspectorTooltip} from '@components/Map/Tooltip/InspectorTooltip';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {ZoneDescriptionTooltip} from './ZoneDescriptionTooltip';
+import {NUMBER_FORMATS} from '@constants/demography/format';
 
 export const MapTooltip = () => {
   const tooltip = useTooltipStore(state => state.tooltip);
@@ -43,7 +44,7 @@ export const MapTooltip = () => {
               {/* @ts-ignore */}
               {entry.label}:{' '}
               {!isNaN(+(entry.value as number))
-                ? formatNumber(entry.value as number, 'string')
+                ? formatNumber(entry.value as number, NUMBER_FORMATS.STRING)
                 : entry.value}
             </Text>
           ))}

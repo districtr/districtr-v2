@@ -22,7 +22,7 @@ import {
   BLOCK_HOVER_LAYER_ID_CHILD,
   BLOCK_POINTS_LAYER_ID,
   BLOCK_POINTS_LAYER_ID_CHILD,
-  BLOCK_SOURCE_ID,
+  ZONE_LABEL_LAYER_LIST,
   INTERACTIVE_LAYERS,
 } from '@constants/map/layerIds';
 import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
@@ -34,9 +34,6 @@ import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {setHoverFeatures} from '../map/hoverFeatures';
 import {RENDERING_STATES} from '@constants/map/renderingState';
 import {ACCESS_STATES} from '@constants/document/state';
-
-// Zone label layer IDs for interaction
-const ZONE_LABEL_LAYER_IDS = ['ZONE_LABEL', 'ZONE_LABEL_BG', 'ZONE_COMMENT_INDICATOR'];
 
 export const AREA_SELECT_TOOLS: ActiveTool[] = [
   ACTIVE_TOOLS.BRUSH,
@@ -143,7 +140,7 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
 
   // Check for zone label click (for pinning comments)
   const zoneLabelFeatures = mapRef.queryRenderedFeatures(e.point, {
-    layers: ZONE_LABEL_LAYER_IDS.filter(id => {
+    layers: ZONE_LABEL_LAYER_LIST.filter(id => {
       try {
         return mapRef.getLayer(id);
       } catch {
@@ -218,7 +215,11 @@ export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) =
 
 export const handleMapMouseEnter = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const {activeTool, setIsPainting} = useMapControlsStore.getState();
-  if ((activeTool !== 'brush' && activeTool !== 'eraser') || !canMutateAssignments()) return;
+  if (
+    (activeTool !== ACTIVE_TOOLS.BRUSH && activeTool !== ACTIVE_TOOLS.ERASER) ||
+    !canMutateAssignments()
+  )
+    return;
   // check if mouse is down
   // if so, set is painting true
   // @ts-ignore this is the correct behavior but event types are incorrect
@@ -267,7 +268,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
 
   // Check for zone label hover (for description tooltip)
   const zoneLabelFeatures = mapRef.queryRenderedFeatures(e.point, {
-    layers: ZONE_LABEL_LAYER_IDS.filter(id => {
+    layers: ZONE_LABEL_LAYER_LIST.filter(id => {
       try {
         return mapRef.getLayer(id);
       } catch {
@@ -320,7 +321,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   if (isBrushingTool && !isTouchEvent && !isPainting) {
     setHoverFeatures(selectedFeatures || []);
   }
-  const isMutationTool = activeTool === 'brush' || activeTool === 'eraser';
+  const isMutationTool = activeTool === ACTIVE_TOOLS.BRUSH || activeTool === ACTIVE_TOOLS.ERASER;
   if (
     selectedFeatures &&
     isBrushingTool &&

@@ -37,6 +37,7 @@ import {
 import {COALITION_VARIABLE_BY_UNIVERSE, DemographyVariable} from '@constants/demography/coalition';
 import {getCoalitionLabel, getSelectedCoalitionColumns} from '@/app/utils/demography/coalition';
 import {MAP_MODES} from '@constants/map/mode';
+import {NUMBER_FORMATS} from '@constants/demography/format';
 
 type MapPanelProps = {
   columnGroup: keyof typeof choroplethMapVariables;
@@ -141,7 +142,8 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   };
 
   const canBePercent = mapVariableConfig?.variants?.includes('percent');
-  const labelFormat = canBePercent && variant === 'percent' ? 'percent' : 'compact';
+  const labelFormat =
+    canBePercent && variant === 'percent' ? NUMBER_FORMATS.PERCENT : NUMBER_FORMATS.COMPACT;
   const colors = scale?.range() || [];
 
   const handleChangeVariable = (newVariable: DemographyVariable) => {

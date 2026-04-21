@@ -21,6 +21,7 @@ import {EditCommunityDialog} from '@/app/components/Toolbar/EditCommunityDialog'
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {MAP_MODES, MAP_MODE_LABELS, MAP_MODE_LABEL_PLURAL} from '@constants/map/mode';
 import {ACCESS_STATES} from '@constants/document/state';
+import {NUMBER_FORMATS} from '@constants/demography/format';
 
 const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
 
@@ -234,12 +235,12 @@ export const PopulationPanel = () => {
           <Flex direction="column" gapX="2" minWidth={'10rem'}>
             <Text>Ideal Population</Text>
             <Text weight={'bold'} className="mb-2">
-              {formatNumber(idealPopulation, 'string')}
+              {formatNumber(idealPopulation, NUMBER_FORMATS.STRING)}
             </Text>
             {unassigned !== undefined && (
               <>
                 <Text>Unassigned</Text>
-                <Text weight={'bold'}>{formatNumber(unassigned, 'string')}</Text>
+                <Text weight={'bold'}>{formatNumber(unassigned, NUMBER_FORMATS.STRING)}</Text>
               </>
             )}
           </Flex>
@@ -252,8 +253,10 @@ export const PopulationPanel = () => {
             zoneStats.maxPopulation !== undefined &&
             zoneStats.maxPopulation !== 0 ? (
               <>
-                <b>{formatNumber(zoneStats.range / zoneStats.maxPopulation, 'percent')}</b> (
-                {formatNumber(zoneStats.range || 0, 'string')})
+                <b>
+                  {formatNumber(zoneStats.range / zoneStats.maxPopulation, NUMBER_FORMATS.PERCENT)}
+                </b>{' '}
+                ({formatNumber(zoneStats.range || 0, NUMBER_FORMATS.STRING)})
               </>
             ) : (
               ` will appear when all ${zoneLabelPlural} are started`

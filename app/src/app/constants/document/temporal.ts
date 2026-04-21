@@ -4,7 +4,7 @@
  * than this threshold.
  * @type {number}
  */
-export const offsetFactor: number = 15;
+export const OFFSET_FACTOR: number = 15;
 
 /** Minimum milliseconds between undo/redo history snapshots. */
 export const MIN_DIFF_MS = 3000;
