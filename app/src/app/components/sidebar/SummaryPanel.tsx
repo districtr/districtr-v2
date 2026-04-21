@@ -12,7 +12,7 @@ import {
   getCoalitionLabel,
   getSelectedCoalitionColumns,
 } from '@/app/utils/demography/coalition';
-import {demographyCache} from '@/app/utils/demography/demographyCache';
+import {demographyService} from '@/app/utils/demography/demographyService';
 import {CoalitionBuilder} from './CoalitionBuilder';
 import {ChevronDownIcon} from '@radix-ui/react-icons';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
@@ -87,7 +87,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
     if (summaryType !== 'TOTPOP' && summaryType !== 'VAP') return baseColumnConfig;
     const selectedColumns = getSelectedCoalitionColumns({
       selectedGroups: coalitionGroups,
-      availableColumns: demographyCache.availableColumns,
+      availableColumns: demographyService.availableColumns,
       universe: summaryType,
     });
     if (!selectedColumns.length) return baseColumnConfig;
@@ -103,7 +103,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
             ? coalitionLabels.join(', ')
             : getCoalitionLabel({
                 selectedGroups: coalitionGroups,
-                availableColumns: demographyCache.availableColumns,
+                availableColumns: demographyService.availableColumns,
                 universe: summaryType,
               }),
         sourceCol: COALITION_TOTAL_COLUMN_BY_UNIVERSE[summaryType],
@@ -176,7 +176,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
           singleZone={isCommunityMode && orderedCommunities.length > 0 ? selectedZone : undefined}
           universeTotals={
             isCommunityMode && orderedCommunities.length > 0
-              ? demographyCache.universeTotals
+              ? demographyService.universeTotals
               : undefined
           }
         />

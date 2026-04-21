@@ -2,7 +2,9 @@
 import React, {useEffect} from 'react';
 import {MapContextMenu} from '@components/ContextMenu';
 import {MainMap} from '@components/Map/MainMap';
+import {PublicMap} from '@components/Map/PublicMap';
 import {DemographicMap} from '@components/Map/DemographicMap';
+import {PublicDemographicMap} from '@components/Map/PublicDemographicMap';
 import SidebarComponent from '@components/sidebar/Sidebar';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
@@ -20,6 +22,7 @@ import {useDocumentWithSync} from '@/app/hooks/useDocumentWithSync';
 import {SaveConflictModal} from '../SaveConflictModal';
 import {ZoneDescriptionModal} from '@components/Map/Tooltip/ZoneDescriptionModal';
 import {migrateUserMapsFromLocalStorage} from '@/app/utils/idb/migrateUserMaps';
+import {isUUID} from '@/app/utils/metadata/isUUID';
 import {useInitializeMapMode} from '@/app/hooks/useInitializeMapMode';
 
 interface MapPageProps {
@@ -32,6 +35,7 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
   const showDemographicMap = useMapControlsStore(
     state => state.mapOptions.showDemographicMap === 'side-by-side'
   );
+  const isPublicPage = !isEditing && !!mapId && !isUUID(mapId);
   const setIsEditing = useMapControlsStore(state => state.setIsEditing);
   const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
@@ -52,6 +56,7 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
     conflictModal,
   } = useDocumentWithSync({
     document_id: mapId || undefined,
+    isPublicPage,
     enabled: isMapModeReady && !!mapId,
   });
 
@@ -76,11 +81,11 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
   }, [userID, setUserID]);
 
   useEffect(() => {
-    const unsub = initSubs();
+    const unsub = initSubs(isPublicPage);
     return () => {
       unsub();
     };
-  }, []);
+  }, [isPublicPage]);
 
   if (!isMapModeReady) {
     return null;
@@ -92,8 +97,8 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
       <div className={`h-full relative w-full flex-1 flex flex-col lg:h-screen landscape:h-screen`}>
         <Topbar />
         <Flex direction="row" height="100%">
-          <MainMap />
-          {showDemographicMap && <DemographicMap />}
+          {isPublicPage ? <PublicMap /> : <MainMap />}
+          {showDemographicMap && (isPublicPage ? <PublicDemographicMap /> : <DemographicMap />)}
         </Flex>
         {toolbarLocation === 'map' && <DraggableToolbar />}
         {!!mapId && (

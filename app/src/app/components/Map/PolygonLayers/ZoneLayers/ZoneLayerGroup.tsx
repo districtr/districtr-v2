@@ -12,7 +12,7 @@ export const ZoneLayerGroup: React.FC<{
     highlightId: string;
     assignmentId: string;
   };
-  sourceLayerId: string;
+  sourceLayerId?: string;
   filter: FilterSpecification;
   layerBeforeId: string;
 }> = ({ids, sourceLayerId, filter, layerBeforeId}) => {
@@ -23,9 +23,6 @@ export const ZoneLayerGroup: React.FC<{
     () => getLayerFill(captiveIds, isOverlayed),
     [captiveIds, isOverlayed]
   );
-
-  if (!sourceLayerId) return null;
-
   return (
     <>
       <ZoneHighlightLayer

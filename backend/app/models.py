@@ -518,16 +518,16 @@ class DistrictUnions(TimeStampMixin, SQLModel, table=True):
             UUIDType, ForeignKey(Document.document_id), index=True, nullable=False
         )
     )
-    zone: int = Field(nullable=False)
-    geometry: str = Field(
-        sa_column=Column(Geometry("MULTIPOLYGON", srid=4326), nullable=False)
+    zone: int | None = Field(nullable=True)
+    geometry: str | None = Field(
+        sa_column=Column(Geometry("MULTIPOLYGON", srid=4326), nullable=True)
     )
     # Store demographic data as JSONB since different tables have different columns
     demographic_data: dict | None = Field(sa_column=Column(JSON, nullable=True))
 
 
 class DistrictUnionsResponse(BaseModel):
-    zone: int
-    geometry: str
+    zone: int | None
+    geometry: str | None
     demographic_data: dict | None
     updated_at: datetime

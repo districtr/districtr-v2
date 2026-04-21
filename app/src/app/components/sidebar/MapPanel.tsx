@@ -29,7 +29,7 @@ import {LegendLabel, LegendThreshold} from '@visx/legend';
 import React, {useEffect, useMemo} from 'react';
 import {choroplethMapVariables} from '@/app/store/demography/constants';
 import {OVERLAY_OPACITY} from '@/app/constants/map/layerStyle';
-import {demographyCache} from '@/app/utils/demography/demographyCache';
+import {demographyService} from '@/app/utils/demography/demographyService';
 import {
   COALITION_VARIABLE_BY_UNIVERSE,
   DemographyVariable,
@@ -108,14 +108,14 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
     if (columnGroup !== 'TOTPOP' && columnGroup !== 'VAP') return undefined;
     const coalitionColumns = getSelectedCoalitionColumns({
       selectedGroups: coalitionGroups,
-      availableColumns: demographyCache.availableColumns,
+      availableColumns: demographyService.availableColumns,
       universe: columnGroup,
     });
     if (!coalitionColumns.length) return undefined;
     return {
       label: getCoalitionLabel({
         selectedGroups: coalitionGroups,
-        availableColumns: demographyCache.availableColumns,
+        availableColumns: demographyService.availableColumns,
         universe: columnGroup,
       }),
       value: COALITION_VARIABLE_BY_UNIVERSE[columnGroup],

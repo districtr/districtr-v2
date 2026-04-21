@@ -17,7 +17,7 @@ export const BlockLayers: React.FC<{
   scope: BlockScope;
   layerFilter: FilterSpecification;
   outlineFilter: FilterSpecification;
-  sourceLayerId: string;
+  sourceLayerId?: string;
 }> = ({scope, layerFilter, outlineFilter, sourceLayerId}) => {
   const showDemographicMap = useMapControlsStore(state => state.mapOptions.showDemographicMap);
   const showDemographyOverlay = showDemographicMap === 'overlay';

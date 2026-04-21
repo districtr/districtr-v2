@@ -1,5 +1,5 @@
 'use client';
-import React, {useEffect, useLayoutEffect, useState} from 'react';
+import React, {useLayoutEffect, useState} from 'react';
 import {useMapStore} from '../store/mapStore';
 import {Flex, Progress, Spinner, Text} from '@radix-ui/themes';
 import {useVisibilityState} from '../hooks/useVisibilityState';
