@@ -39,13 +39,18 @@ export const SaveConflictModal: React.FC = ({}) => {
     fetchServerMapDocument();
   }, [showSaveConflictModal]);
 
+  // Gate on showSaveConflictModal + localMapDocument before building the conflict
+  // object. The previous `localDocument: localMapDocument!` non-null assertion
+  // would happily spread `null` into the object if the modal flag was true and
+  // the map document hadn't loaded yet (e.g., navigating mid-sync).
+  if (!showSaveConflictModal || !localMapDocument) return null;
+
   const conflict: SyncConflictInfo = {
-    localDocument: localMapDocument!,
+    localDocument: localMapDocument,
     localLastUpdated: localTimeUpdated,
     serverDocument: serverMapDocument!,
     serverLastUpdated: serverTimeUpdated!,
   };
-  if (!showSaveConflictModal) return null;
 
   return (
     <SyncConflictModal

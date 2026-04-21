@@ -79,17 +79,27 @@ export const putUpdateAssignmentsAndVerify = async ({
       error: 'Failed to get fresh server assignments',
     };
   }
-  // Verify assignments were saved correctly
-  freshServerAssignments.response.forEach(assignment => {
-    if (assignment.zone !== zoneAssignments.get(assignment.geo_id)) {
-      throw new Error('Conflict on save: assignments mismatch');
-    }
-  });
+  // Verify assignments were saved correctly. The server already accepted the write
+  // above, so throwing here would leave clientLastUpdated / mapDocument.updated_at
+  // unadvanced and surface a spurious "unsaved changes" + conflict modal next save.
+  // Return {ok: false} so the caller can surface the mismatch without rolling back.
+  const mismatch = freshServerAssignments.response.find(
+    assignment => assignment.zone !== zoneAssignments.get(assignment.geo_id)
+  );
+  if (mismatch) {
+    return {
+      ok: false,
+      error: `Conflict on save: server state differs (e.g., geo_id ${mismatch.geo_id}).`,
+    };
+  }
   // Refetch document to get server-assigned comment_ids for district comments
   const freshDoc = await getDocument(mapDocument.document_id);
   const document_comments = freshDoc.ok ? freshDoc.response.document_comments : undefined;
 
-  // Verify comment metadata (zone, text) matches expected before updating idb
+  // Verify comment metadata (zone, text) matches expected before updating idb. The
+  // server may trim or moderate comments; we record those mismatches so the caller
+  // can surface a toast rather than leaving users guessing why their text changed.
+  let commentsModerated = false;
   if (document_comments) {
     const expectedComments = mapDocument.document_comments || [];
     const expectedByZone = new Map<number, {text: string}[]>();
@@ -114,17 +124,26 @@ export const putUpdateAssignmentsAndVerify = async ({
         console.warn(
           `Comment count mismatch for zone ${zone}: expected ${expectedList.length}, got ${freshList.length}`
         );
+        commentsModerated = true;
       }
       expectedList.forEach((exp, i) => {
         const fresh = freshList[i];
         if (fresh && exp.text !== fresh.text) {
-          // Server may trim or moderate; log but allow update
           console.warn(
             `Comment text mismatch for zone ${zone} index ${i}: expected "${exp.text}", got "${fresh.text}"`
           );
+          commentsModerated = true;
         }
       });
     }
+  }
+  if (commentsModerated) {
+    useMapStore.getState().setErrorNotification({
+      severity: 2,
+      message:
+        'Some district descriptions were adjusted during moderation. Latest versions shown below.',
+      id: `comment-moderated-${assignmentsPostResponse.response.updated_at}`,
+    });
   }
 
   await idb.updateDocument({

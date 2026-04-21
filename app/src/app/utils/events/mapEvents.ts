@@ -80,13 +80,20 @@ const canMutateAssignments = () => {
   }
   return _canMutate;
 };
-// Reset when document changes (called from subscription teardown / new document load)
-useMapStore.subscribe(
+// Reset when document changes (called from subscription teardown / new document load).
+// Store the unsubscribe so HMR can dispose the previous subscription; otherwise every
+// dev-mode hot reload stacks another listener on top of the Zustand store.
+const _canMutateUnsubscribe = useMapStore.subscribe(
   state => state.mapDocument,
   () => {
     _canMutate = null;
   }
 );
+if (typeof module !== 'undefined' && (module as any).hot) {
+  (module as any).hot.dispose(() => {
+    _canMutateUnsubscribe();
+  });
+}
 
 export const handleFeatureSelection = (
   selectedFeatures: MapGeoJSONFeature[] | undefined,
