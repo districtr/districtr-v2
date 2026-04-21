@@ -691,19 +691,29 @@ async def update_assignments(
             status_code=status.HTTP_409_CONFLICT,
             detail="Document has been updated since the last update",
         )
+    # Track whether anything actually changed so we can skip the updated_at bump on
+    # true no-op requests (which would otherwise break optimistic concurrency for
+    # other clients).
+    mutated = False
+
     # The assignments field is always a full replacement set:
     #   [] means "delete all assignments" (user cleared everything)
     #   [...] means "replace with these assignments"
     # Always DELETE existing rows, then INSERT new ones if any.
-    session.connection().execute(
+    delete_result = session.connection().execute(
         text(f"DELETE FROM {assignment_table} WHERE document_id = :document_id"),
         {"document_id": document_id},
     )
+    if delete_result.rowcount and delete_result.rowcount > 0:
+        mutated = True
     inserted_count = 0
     if has_assignments:
         # For community maps, build the set of valid community_ids so we can reject
         # orphan-producing writes before they hit the partition. 0 is the "unassigned"
-        # sentinel; positive ids must exist in the effective metadata list.
+        # sentinel; positive ids must exist in the effective metadata list. Skip the
+        # check entirely when no metadata has been established yet (either in this
+        # request or previously persisted) — that's the bootstrap path where the UI
+        # writes assignments before the metadata save lands.
         valid_community_ids: set[int] | None = None
         if is_community_map:
             if validated_community_metadata is not None:
@@ -712,7 +722,8 @@ async def update_assignments(
                 effective_metadata = _load_existing_community_metadata(
                     session, document_id
                 )
-            valid_community_ids = {c.id for c in effective_metadata} | {0}
+            if effective_metadata:
+                valid_community_ids = {c.id for c in effective_metadata} | {0}
 
         # Use COPY for faster bulk insert with partitioned tables
         # Create a temporary table for bulk loading
@@ -758,6 +769,8 @@ async def update_assignments(
             )
             .rowcount
         )
+        if inserted_count and inserted_count > 0:
+            mutated = True
         if VERBOSE_LOGGING:
             logger.info(
                 f"Inserted {inserted_count} {'community' if is_community_map else ''} "
@@ -853,6 +866,14 @@ async def update_assignments(
                 stmt,
             )
 
+    if data.metadata is not None and (
+        data.metadata.num_districts is not None
+        or data.metadata.color_scheme is not None
+        or data.metadata.num_communities is not None
+        or data.metadata.community_metadata_list is not None
+    ):
+        mutated = True
+
     # Sync scoped comments via comments schema (None = no change, [] = delete all)
     if data.comments is not None:
         comment_inputs: list[DistrictCommentInput] = []
@@ -879,8 +900,18 @@ async def update_assignments(
             session=session,
             background_tasks=background_tasks,
         )
+        # sync_fn always hits the DB (delete/insert/update), so count it.
+        mutated = True
 
-    updated_at = update_timestamp(session, document_id)
+    if mutated:
+        updated_at = update_timestamp(session, document_id)
+    else:
+        # No-op request (e.g. assignments=[] on an already-empty doc with no metadata
+        # or comment changes). Keep updated_at pinned to its current value so other
+        # clients' optimistic-concurrency windows aren't invalidated.
+        updated_at = session.exec(
+            select(Document.updated_at).where(Document.document_id == document_id)
+        ).one()
     session.commit()
     if VERBOSE_LOGGING:
         logger.info(
