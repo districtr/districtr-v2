@@ -18,3 +18,6 @@
 - [ ] Added/Updated related unit tests (if applicable).
 
 ## Screenshots (if applicable):
+
+## Review required
+<!--- Given agentic engineer efforts, provide a summary of what aspects of the code and UI/UX require human validation. -->
