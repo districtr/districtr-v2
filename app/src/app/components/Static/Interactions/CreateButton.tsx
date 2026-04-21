@@ -2,7 +2,7 @@
 import {useMapStore} from '@/app/store/mapStore';
 import {createMapDocument} from '@/app/utils/api/apiHandlers/createMapDocument';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
-import {currMapRoute} from '@/app/utils/map/mapUrlRoute';
+import {routeManager} from '@/app/utils/map/mapUrlRoute';
 import {Button} from '@radix-ui/themes';
 import {useRouter} from 'next/navigation';
 import {useEffect} from 'react';
@@ -16,7 +16,7 @@ export const CreateButton: React.FC<{
   const userID = useMapStore(stat => stat.userID);
   const setUserID = useMapStore(stat => stat.setUserID);
   const setErrorNotification = useMapStore(stat => stat.setErrorNotification);
-  const shouldMakeCommunity = isCommunity ?? currMapRoute === 'coi';
+  const shouldMakeCommunity = isCommunity ?? routeManager.mapUrlRoute === 'coi';
 
   useEffect(() => {
     !userID && setUserID();

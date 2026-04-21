@@ -15,13 +15,14 @@ import {
   Spinner,
 } from '@radix-ui/themes';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
-import {currMapRoute} from '@/app/utils/map/mapUrlRoute';
+import {routeManager} from '@/app/utils/map/mapUrlRoute';
 
 export const Uploader: React.FC<{
   newTab?: boolean;
   redirect?: boolean;
   onFinish?: () => void;
 }> = ({newTab, redirect, onFinish}) => {
+  const currMapRoute = routeManager.mapUrlRoute;
   const isCoiRoute = currMapRoute === 'coi';
   const routePrefix = currMapRoute;
   const documentMapType = isCoiRoute ? 'community' : 'default';

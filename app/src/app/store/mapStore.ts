@@ -475,6 +475,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         captiveIds: new Set(),
         focusFeatures: [],
         mapLock: null,
+        // Fresh document load: drop any stale "unsaved changes" markers so the save
+        // indicator doesn't falsely flag a just-loaded doc as dirty.
+        updated: {metadata: false, comments: false},
         appLoadingState: mapDocument?.genesis === 'copied' ? 'loaded' : 'initializing',
         mapRenderingState:
           mapDocument.tiles_s3_path === currentMapDocument?.tiles_s3_path ? 'loaded' : 'loading',
@@ -543,7 +546,11 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const {mapDocument, updated} = get();
       if (!mapDocument) return;
 
-      const trimmedText = (text ?? '').trim().slice(0, 240); // Max 240 chars
+      // Use the per-map comment_length_limit (set on DistrictrMap; falls back to the
+      // 240-char default via the backend). Hardcoding 240 here would silently truncate
+      // longer server-allowed descriptions on any map that raises the limit.
+      const limit = mapDocument.comment_length_limit ?? 240;
+      const trimmedText = (text ?? '').trim().slice(0, limit);
       const currentComments = mapDocument.document_comments || [];
       const existingIndex = currentComments.findIndex(c => c.zone === zone);
 
