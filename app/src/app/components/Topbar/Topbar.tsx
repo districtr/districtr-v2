@@ -27,7 +27,6 @@ import {SettingsPopoverAndModal} from './SettingsPopoverAndModal';
 import {saveMapDocumentMetadata} from '@/app/utils/api/apiHandlers/saveMapDocumentMetadata';
 import {idb} from '@/app/utils/idb/idb';
 import {RevertPopover} from './RevertPopover';
-import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/map/mapDefaults';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {sanitizeCommunityMaps, sanitizeCommunityModuleName} from '@/app/utils/communities';
 
@@ -35,8 +34,11 @@ export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
   const [modalOpen, setModalOpen] = React.useState<'upload' | 'recents' | null>(null);
   const mapDocument = useMapStore(state => state.mapDocument);
-  const isEditing = mapDocument?.document_id && mapDocument?.document_id !== ANONYMOUS_DOCUMENT_ID;
   const access = useMapStore(state => state.mapStatus?.access);
+  // Read from mapControlsStore (set by the route/page) instead of inferring from
+  // document_id. Public view documents have real UUIDs but should never expose
+  // Save/Revert/etc. affordances.
+  const isEditing = useMapControlsStore(state => state.isEditing);
   const mapViews = useMapStore(state => state.mapViews);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const router = useRouter();
