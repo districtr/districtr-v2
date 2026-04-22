@@ -26,6 +26,7 @@ import {
 import {temporalManager} from '../utils/temporal';
 import {cloneTemporalSnapshot, AssignmentsTemporalSnapshot} from '../utils/temporalSnapshot';
 import {assignmentsTemporalConfig} from './middlewareConfig';
+import {exposeStoreToWindow as _exposeAssignmentsStore} from './exposeToWindow';
 
 export interface AssignmentsStore {
   /** Map of geoid -> zone assignments currently in memory */
@@ -907,5 +908,4 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
   },
 }));
 
-import {exposeStoreToWindow as _exposeAssignmentsStore} from './exposeToWindow';
 _exposeAssignmentsStore('assignmentsStore', useAssignmentsStore);
