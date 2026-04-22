@@ -65,11 +65,22 @@ export const fetchDocument = async (
   }
 
   if (isPublic) {
+    // Community public views don't have a district-unions stats path, so fetch
+    // raw assignments for them. District public views rely on PublicSource and
+    // don't need per-geoid assignments here.
+    const isCommunityPublic = remoteMetadata.response.map_type === 'community';
+    let assignments: Assignment[] = [];
+    if (isCommunityPublic) {
+      const remoteAssignments = await getAssignments(remoteMetadata.response);
+      if (remoteAssignments.ok) {
+        assignments = remoteAssignments.response;
+      }
+    }
     return {
       ok: true,
       response: {
         document: remoteMetadata.response,
-        assignments: [],
+        assignments,
         updateLocal: false,
       },
     };
