@@ -78,9 +78,7 @@ export const putUpdateCoiAssignmentsAndVerify = async ({
   const comments = (mapDocument.document_comments || []).map(comment => {
     // Only forward comment_id when it is a numeric PK assigned by the backend.
     // Client-local UUIDs or other non-numeric values fall through to undefined so the
-    // server creates a fresh row; before this guard, parseInt("<uuid>") returned NaN,
-    // the field went out as undefined, and every save orphaned the previous row —
-    // instead of referencing the existing PK.
+    // server creates a fresh row.
     const raw = comment.comment_id;
     let commentId: number | undefined;
     if (typeof raw === 'number' && Number.isFinite(raw)) {

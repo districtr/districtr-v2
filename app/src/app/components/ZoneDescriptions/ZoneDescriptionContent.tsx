@@ -24,7 +24,6 @@ export const DescriptionEditor: React.FC<DescriptionEditorProps> = ({
 
   // Differentiate "no limit known yet" (null/undefined) from "configured to 0" (admins
   // can set `comment_length_limit = 0` to disable descriptions on a per-map basis).
-  // The old `!commentLengthLimit` check collapsed both into a silent render-nothing.
   if (commentLengthLimit == null) {
     return null;
   }

@@ -106,8 +106,7 @@ def update_moderation_score(
             f"Failed to save moderation score for {type(cls).__name__} id={key}: {e}"
         )
         # Re-raise so background-task runners surface the failure instead of leaving
-        # moderation_score silently NULL. Swallowing the exception here previously meant
-        # a failed commit was indistinguishable from a never-started moderation.
+        # moderation_score silently NULL.
         raise
 
 
