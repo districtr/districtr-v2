@@ -1,4 +1,5 @@
 import React, {useEffect, useState} from 'react';
+import {useRouter} from 'next/navigation';
 import {SyncConflictInfo} from '@/app/utils/api/apiHandlers/fetchDocument';
 import {useMapStore} from '../store/mapStore';
 import {useAssignmentsStore} from '../store/assignmentsStore';
@@ -9,8 +10,11 @@ import {getDocument} from '../utils/api/apiHandlers/getDocument';
 import {SyncConflictModal} from './SyncConflictModal';
 
 export const SaveConflictModal: React.FC = ({}) => {
+  const router = useRouter();
   const showSaveConflictModal = useMapStore(state => state.showSaveConflictModal);
   const localMapDocument = useMapStore(state => state.mapDocument);
+  const setAppLoadingState = useMapStore(state => state.setAppLoadingState);
+  const setMapRenderingState = useMapStore(state => state.setMapRenderingState);
   const mapMode = useMapControlsStore(state => state.mapMode);
   const isCommunity = localMapDocument?.map_type === 'community' || mapMode === 'coi';
   const districtLocalTimeUpdated = useAssignmentsStore(state => state.clientLastUpdated);
@@ -52,7 +56,17 @@ export const SaveConflictModal: React.FC = ({}) => {
     <SyncConflictModal
       open={showSaveConflictModal}
       conflict={conflict}
-      onResolve={resolution => handlePutAssignmentsConflict(resolution, conflict)}
+      onResolve={resolution =>
+        handlePutAssignmentsConflict(resolution, conflict, {
+          onNavigate: documentId => {
+            router.push(isCommunity ? `/coi/edit/${documentId}` : `/map/edit/${documentId}`);
+          },
+          onComplete: () => {
+            setAppLoadingState('loaded');
+            setMapRenderingState('loaded');
+          },
+        })
+      }
       loading={!serverMapDocument}
     />
   );
