@@ -1,5 +1,5 @@
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import React, {useCallback, useState} from 'react';
+import React, {useMemo, useState, useCallback} from 'react';
 import {formatNumber} from '@/app/utils/numbers';
 import {Group} from '@visx/group';
 import {Bar, Line} from '@visx/shape';
@@ -17,12 +17,14 @@ export const PopulationChart: React.FC<{
   data: Array<SummaryRecord>;
   margins?: {left: number; right: number; top: number; bottom: number};
   idealPopulation?: number;
+  enableStickyRows?: boolean;
   onBarSelect?: (zone: number) => void;
 }> = ({
   width,
   height,
   data,
   idealPopulation,
+  enableStickyRows = false,
   onBarSelect,
   margins = {left: 5, right: 20, top: 20, bottom: 80},
 }) => {
@@ -64,20 +66,165 @@ export const PopulationChart: React.FC<{
   );
   const barHeight = yMax / data.length - 6;
 
-  const yScale = useCallback(
-    scaleLinear({
-      domain: [0, data.length],
-      range: [0, height - margins.top - margins.bottom], // Adjust bar height
-    }),
-    [data.length, height, margins]
+  const yScale = useMemo(
+    () =>
+      scaleLinear({
+        domain: [0, data.length],
+        range: [0, yMax],
+      }),
+    [data.length, yMax]
   );
 
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [isHovered, setIsHovered] = useState(false);
 
-  // Parnent container not ready yet
+  // Render helpers (not components) — they close over shared state (scales, hover, colors)
+  // and are only used within this component, so plain functions avoid prop-drilling 10+ values.
+  const renderIdealReference = (fromY: number, referenceHeight: number) => {
+    if (!effectiveIdealPopulation) return null;
+
+    return (
+      <>
+        <Line
+          from={{x: xScale(effectiveIdealPopulation), y: fromY}}
+          to={{
+            x: xScale(effectiveIdealPopulation),
+            y: referenceHeight,
+          }}
+          stroke="black"
+          strokeWidth="1"
+          strokeDasharray="3 3"
+        />
+        {!!effectiveTargetDeviation && (
+          <Bar
+            x={xScale(Math.max(0, effectiveIdealPopulation - effectiveTargetDeviation))}
+            width={
+              xScale(Math.max(0, effectiveIdealPopulation + effectiveTargetDeviation)) -
+              xScale(Math.max(0, effectiveIdealPopulation - effectiveTargetDeviation))
+            }
+            y={fromY}
+            height={referenceHeight - fromY}
+            fill="gray"
+            fillOpacity={0.15}
+          />
+        )}
+      </>
+    );
+  };
+
+  const renderBars = () =>
+    data.map((entry, index) => (
+      <React.Fragment key={`pop-bar-group-${index}`}>
+        {entry.total_pop_20 > 0 && (
+          <>
+            <Bar
+              key={`bar-interactive-${entry.zone}`}
+              x={0}
+              y={yScale(index)}
+              width={xMax}
+              height={barHeight + 10}
+              className="opacity-0 hover:opacity-10 transition-opacity duration-300 cursor-pointer"
+              onClick={() => onBarSelect?.(entry.zone)}
+              onMouseEnter={() => setHoveredIndex(index)}
+              onMouseMove={() => setHoveredIndex(index)}
+              onMouseLeave={() => setHoveredIndex(null)}
+            />
+            <Bar
+              key={`bar-${entry.zone}`}
+              x={0}
+              y={yScale(index) + 5}
+              width={entry.total_pop_20 > 0 ? xScale(entry.total_pop_20) : 0}
+              height={barHeight}
+              fill={getZoneColor(entry.zone, colorScheme[entry.zone - 1] ?? '#000000')}
+              fillOpacity={0.9}
+              style={{
+                pointerEvents: 'none',
+              }}
+            />
+          </>
+        )}
+        {entry.total_pop_20 > 0 && (
+          <PopulationLabels
+            {...{
+              xScale,
+              yScale,
+              entry,
+              maxPop,
+              idealPopulation: effectiveIdealPopulation,
+              index,
+              barHeight,
+              isHovered,
+              showPopNumbers,
+              showTopBottomDeviation: effectiveShowTopBottomDeviation,
+              width,
+            }}
+          />
+        )}
+      </React.Fragment>
+    ));
+
+  // Parent container not ready yet
   if (xMax < 0) {
     return null;
+  }
+
+  if (enableStickyRows) {
+    return (
+      <div
+        style={{height, position: 'relative'}}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => {
+          setIsHovered(false);
+          setHoveredIndex(null);
+        }}
+      >
+        <div style={{position: 'sticky', top: 0, zIndex: 2, backgroundColor: 'var(--gray-1)'}}>
+          <svg width={width} height={margins.top}>
+            <Group left={margins.left}>
+              {!!effectiveIdealPopulation && (
+                <text
+                  x={xScale(effectiveIdealPopulation) + 5}
+                  y={margins.top - 5}
+                  textAnchor="start"
+                  fontSize="14px"
+                >
+                  Ideal{' '}
+                  {isHovered ? (
+                    <tspan color="gray">{formatNumber(effectiveIdealPopulation, 'string')}</tspan>
+                  ) : (
+                    ''
+                  )}
+                </text>
+              )}
+            </Group>
+          </svg>
+        </div>
+        <svg width={width} height={yMax}>
+          <Group left={margins.left} onMouseLeave={() => setHoveredIndex(null)}>
+            {renderIdealReference(0, yMax)}
+            {renderBars()}
+          </Group>
+        </svg>
+        {/* Sticky axis pinned to bottom of scroll viewport; offset accounts for ScrollArea padding */}
+        <div style={{position: 'sticky', bottom: -30, zIndex: 2, width: '100%'}}>
+          <svg width={width} height={margins.bottom}>
+            <Group left={margins.left} top={6}>
+              <rect x={0} y={0} width={xMax} height={50} fill="var(--gray-1)" />
+              <Line from={{x: 0, y: 0}} to={{x: xMax, y: 0}} stroke="black" />
+              <AxisBottom
+                scale={xScale}
+                top={0}
+                numTicks={2}
+                tickLabelProps={{
+                  fontSize: '14px',
+                }}
+                tickFormat={v => formatNumber(v as number, 'compact')}
+              />
+            </Group>
+          </svg>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -93,92 +240,20 @@ export const PopulationChart: React.FC<{
     >
       <Group left={margins.left} top={margins.top} onMouseLeave={() => setHoveredIndex(null)}>
         {!!effectiveIdealPopulation && (
-          <>
-            <Line
-              from={{x: xScale(effectiveIdealPopulation), y: margins.top * -1}}
-              to={{
-                x: xScale(effectiveIdealPopulation),
-                y: yMax,
-              }}
-              stroke="black"
-              strokeWidth="1"
-              strokeDasharray="3 3"
-            />
-            <Group left={xScale(effectiveIdealPopulation) + 5} top={-5}>
-              <text textAnchor="start" fontSize="14px">
-                Ideal{' '}
-                {isHovered ? (
-                  <tspan color="gray">{formatNumber(effectiveIdealPopulation, 'string')}</tspan>
-                ) : (
-                  ''
-                )}
-              </text>
-            </Group>
-            {!!effectiveTargetDeviation && (
-              <Bar
-                x={xScale(Math.max(0, effectiveIdealPopulation - effectiveTargetDeviation))}
-                width={
-                  xScale(Math.max(0, effectiveIdealPopulation + effectiveTargetDeviation)) -
-                  xScale(Math.max(0, effectiveIdealPopulation - effectiveTargetDeviation))
-                }
-                y={-margins.top}
-                height={yMax + margins.top}
-                fill="gray"
-                fillOpacity={0.15}
-              />
-            )}
-          </>
+          <Group left={xScale(effectiveIdealPopulation) + 5} top={-5}>
+            <text textAnchor="start" fontSize="14px">
+              Ideal{' '}
+              {isHovered ? (
+                <tspan color="gray">{formatNumber(effectiveIdealPopulation, 'string')}</tspan>
+              ) : (
+                ''
+              )}
+            </text>
+          </Group>
         )}
-        {data.map((entry, index) => (
-          <React.Fragment key={`pop-bar-group-${index}`}>
-            {entry.total_pop_20 > 0 && (
-              <>
-                <Bar
-                  key={`bar-interactive-${entry.zone}`}
-                  x={0}
-                  y={yScale(index)}
-                  width={xMax}
-                  height={barHeight + 10}
-                  className="opacity-0 hover:opacity-10 transition-opacity duration-300 cursor-pointer"
-                  onClick={() => onBarSelect?.(entry.zone)}
-                  onMouseEnter={() => setHoveredIndex(index)}
-                  onMouseMove={() => setHoveredIndex(index)}
-                  onMouseLeave={() => setHoveredIndex(null)}
-                />
-                <Bar
-                  key={`bar-${entry.zone}`}
-                  x={0}
-                  y={yScale(index) + 5}
-                  width={entry.total_pop_20 > 0 ? xScale(entry.total_pop_20) : 0}
-                  height={barHeight}
-                  fill={getZoneColor(entry.zone, colorScheme[entry.zone - 1] ?? '#000000')}
-                  fillOpacity={0.9}
-                  style={{
-                    pointerEvents: 'none',
-                  }}
-                />
-              </>
-            )}
-            {entry.total_pop_20 > 0 && (
-              <PopulationLabels
-                {...{
-                  xScale,
-                  yScale,
-                  entry,
-                  maxPop,
-                  idealPopulation: effectiveIdealPopulation,
-                  index,
-                  barHeight,
-                  isHovered,
-                  showPopNumbers,
-                  showTopBottomDeviation: effectiveShowTopBottomDeviation,
-                  width,
-                }}
-              />
-            )}
-          </React.Fragment>
-        ))}
-        {/* Ocassionally, the "nice" formatting makes part of the axis missing */}
+        {renderIdealReference(-margins.top, yMax)}
+        {renderBars()}
+        {/* Occasionally, the "nice" formatting makes part of the axis missing */}
         <Line from={{x: 0, y: yMax + 6}} to={{x: xMax, y: yMax + 6}} stroke="black" />
         <AxisBottom
           scale={xScale}

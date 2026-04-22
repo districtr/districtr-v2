@@ -13,6 +13,7 @@ import {useZonePopulations} from '@/app/hooks/useDemography';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {ZoneDescriptionPopover} from './ZoneDescriptionPopover';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
+import {ConditionalScrollArea} from '../ConditionalScrollArea';
 import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/map/mapDefaults';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {getCommunityRenderOrderId, getUnusedCommunityColors} from '@/app/utils/communities';
@@ -56,6 +57,13 @@ export const PopulationPanel = () => {
   const updateCommunity = useMapStore(state => state.updateCommunity);
   const getZoneColor = useZoneColorGetter();
   const isEditing = useMapControlsStore(state => state.isEditing);
+  const shouldUseScrollableRows = populationData.length > 10;
+  const chartHeightNum = populationData.length ? populationData.length * 38 + 76 : 200;
+  const chartHeight = `${chartHeightNum}px`;
+  const chartMargins = {top: 20, bottom: 80};
+  const yMax = chartHeightNum - chartMargins.top - chartMargins.bottom;
+  const rowHeight = populationData.length ? yMax / populationData.length : 0;
+
   const selectCommunity = useSelectCommunity();
   const colorScheme = useColorScheme();
   const [editingCommunityId, setEditingCommunityId] = useState<number | null>(null);
@@ -120,7 +128,13 @@ export const PopulationPanel = () => {
     );
   }
   return (
-    <Flex gap="0" direction="column">
+    <Flex
+      gap="0"
+      direction="column"
+      style={
+        shouldUseScrollableRows ? {maxHeight: '80vh', overflow: 'hidden'} : {maxHeight: '80vh'}
+      }
+    >
       <Flex direction="row" gap={'2'} align="center">
         <Heading as="h3" size="3">
           {`Total population by ${zoneLabel}`}
@@ -131,16 +145,21 @@ export const PopulationPanel = () => {
           idealPopulation={effectiveIdealPopulation}
         />
       </Flex>
-      <Flex direction="row" width={'100%'} gap="1">
-        <Flex
-          direction={'column'}
-          gap={'2'}
-          className={'flex-grow-0 p-0 pb-[80px]'}
-          justify={'between'}
-          minWidth={'5rem'}
-        >
-          <Flex justify="end" minHeight={isCommunityMode ? '12px' : '28px'}>
-            {!isCommunityMode && (
+      <Flex
+        direction="row"
+        gapX="1"
+        align="center"
+        justify="between"
+        minHeight={isCommunityMode ? '12px' : '28px'}
+        style={{width: '5rem'}}
+      >
+        {!isCommunityMode && (
+          <>
+            {!!showDistrictNumbers && (
+              <div style={{flexGrow: 1, maxWidth: '3rem'}} />
+            )}
+            <Flex gap="0" align="center">
+              <div style={{width: 24}} />
               <IconButton
                 onClick={toggleLockAllAreas}
                 variant="ghost"
@@ -150,83 +169,118 @@ export const PopulationPanel = () => {
               >
                 {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
               </IconButton>
-            )}
-          </Flex>
-          {/* @ts-ignore */}
-          {populationData.map((d, i) => (
-            <Flex
-              key={d.zone}
-              direction={'row'}
-              gapY="1"
-              gapX="1"
-              align={'center'}
-              className="p-0 m-0"
-              justify={'between'}
-            >
-              {!!showDistrictNumbers && (
-                <IconButton
-                  variant={'outline'}
-                  onClick={() => selectCommunity(d.zone)}
-                  size="1"
-                  className={`${selectedZone === d.zone ? 'bg-gray-100' : '!shadow-none'} max-w-12 flex-grow`}
-                >
-                  <Text weight={selectedZone === d.zone ? 'bold' : 'regular'}>
-                    {mapMode === 'coi'
-                      ? (getCommunityRenderOrderId(communities, d.zone) ?? d.zone)
-                      : d.zone}
-                  </Text>
-                </IconButton>
-              )}
-              <Flex gap="0" align="center">
-                <ZoneDescriptionPopover zone={d.zone} color={getZoneColor(d.zone)} />
-                {!!isEditing && (
-                  <>
-                    {isCommunityMode ? (
-                      <IconButton
-                        onClick={() => handleEditCommunity(d.zone)}
-                        variant="ghost"
-                        disabled={access === 'read'}
-                        aria-label={`Edit community ${d.zone}`}
-                      >
-                        <Pencil1Icon />
-                      </IconButton>
-                    ) : (
-                      <IconButton
-                        onClick={() => handleLockChange(d.zone)}
-                        variant="ghost"
-                        disabled={access === 'read'}
-                        aria-label={
-                          lockPaintedAreas.includes(d.zone)
-                            ? `Unlock district ${d.zone}`
-                            : `Lock district ${d.zone}`
-                        }
-                      >
-                        {lockPaintedAreas.includes(d.zone) ? <LockClosedIcon /> : <LockOpen2Icon />}
-                      </IconButton>
-                    )}
-                  </>
-                )}
-              </Flex>
             </Flex>
-          ))}
-        </Flex>
-        <ParentSize
-          style={{
-            height: populationData.length ? `${populationData.length * 38 + 76}px` : '200px',
-            width: '100%',
-          }}
-        >
-          {({width, height}) => (
-            <PopulationChart
-              width={width}
-              height={height}
-              data={populationData}
-              idealPopulation={effectiveIdealPopulation}
-              onBarSelect={selectCommunity}
-            />
-          )}
-        </ParentSize>
+          </>
+        )}
       </Flex>
+      <div style={{position: 'relative'}}>
+        <ConditionalScrollArea
+          shouldUseScrollableRows={shouldUseScrollableRows}
+          maxHeight="60vh"
+        >
+          <Flex direction="row" width={'100%'} gap="1">
+            <Flex
+              direction={'column'}
+              className={'flex-grow-0 p-0'}
+              minWidth={'5rem'}
+              style={{paddingTop: chartMargins.top + 2}}
+            >
+              {/* @ts-ignore */}
+              {populationData.map((d, i) => (
+                <Flex
+                  key={d.zone}
+                  direction={'row'}
+                  gapX="1"
+                  align={'center'}
+                  className="p-0 m-0"
+                  justify={'between'}
+                  style={{height: rowHeight}}
+                >
+                  {!!showDistrictNumbers && (
+                    <IconButton
+                      variant={'outline'}
+                      onClick={() => selectCommunity(d.zone)}
+                      size="1"
+                      className={`${selectedZone === d.zone ? 'bg-gray-100' : '!shadow-none'} max-w-12 flex-grow`}
+                    >
+                      <Text weight={selectedZone === d.zone ? 'bold' : 'regular'}>
+                        {mapMode === 'coi'
+                          ? (getCommunityRenderOrderId(communities, d.zone) ?? d.zone)
+                          : d.zone}
+                      </Text>
+                    </IconButton>
+                  )}
+                  <Flex gap="0" align="center">
+                    <ZoneDescriptionPopover zone={d.zone} color={getZoneColor(d.zone)} />
+                    {!!isEditing && (
+                      <>
+                        {isCommunityMode ? (
+                          <IconButton
+                            onClick={() => handleEditCommunity(d.zone)}
+                            variant="ghost"
+                            disabled={access === 'read'}
+                            aria-label={`Edit community ${d.zone}`}
+                          >
+                            <Pencil1Icon />
+                          </IconButton>
+                        ) : (
+                          <IconButton
+                            onClick={() => handleLockChange(d.zone)}
+                            variant="ghost"
+                            disabled={access === 'read'}
+                            aria-label={
+                              lockPaintedAreas.includes(d.zone)
+                                ? `Unlock district ${d.zone}`
+                                : `Lock district ${d.zone}`
+                            }
+                          >
+                            {lockPaintedAreas.includes(d.zone) ? (
+                              <LockClosedIcon />
+                            ) : (
+                              <LockOpen2Icon />
+                            )}
+                          </IconButton>
+                        )}
+                      </>
+                    )}
+                  </Flex>
+                </Flex>
+              ))}
+            </Flex>
+            <ParentSize
+              style={{
+                height: chartHeight,
+                width: '100%',
+              }}
+            >
+              {({width, height}) => (
+                <PopulationChart
+                  width={width}
+                  height={height}
+                  data={populationData}
+                  idealPopulation={effectiveIdealPopulation}
+                  enableStickyRows={shouldUseScrollableRows}
+                  onBarSelect={selectCommunity}
+                />
+              )}
+            </ParentSize>
+          </Flex>
+        </ConditionalScrollArea>
+        {shouldUseScrollableRows && (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              width: '5rem',
+              height: '60px',
+              background: 'linear-gradient(to bottom, transparent, var(--color-background))',
+              pointerEvents: 'none',
+              zIndex: 3,
+            }}
+          />
+        )}
+      </div>
       {!!idealPopulation && !isCommunityMode && (
         <Flex direction={'row'} justify={'between'} align={'start'} wrap="wrap">
           <Flex direction="column" gapX="2" minWidth={'10rem'}>
