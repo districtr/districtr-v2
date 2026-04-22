@@ -1,7 +1,7 @@
 import React, {useEffect, useLayoutEffect, useMemo} from 'react';
 import {Source} from 'react-map-gl/maplibre';
 import {useQuery} from '@tanstack/react-query';
-import {PUBLIC_SOURCE_ID} from '@/app/constants/map/layerIds';
+import {PUBLIC_SOURCE_ID} from '@constants/map/layerIds';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useClearMap} from '@/app/hooks/useClearMap';
@@ -24,7 +24,7 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
   useClearMap(mapDocument?.document_id);
 
   const publicDistrictsQuery = useQuery({
-    queryKey: ['public-districts', mapDocument?.public_id],
+    queryKey: [PUBLIC_SOURCE_ID, mapDocument?.public_id],
     queryFn: () => getPublicDistricts(mapDocument),
     enabled: Boolean(mapDocument?.access === ACCESS_STATES.READ && mapDocument?.public_id),
     // Public views are effectively read-only embeds; a 5-minute stale window drops

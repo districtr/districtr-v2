@@ -40,7 +40,7 @@ export const MapTitleDisplay: React.FC<{
   const [mapTitleInner, setMapTitleInner] = useState<string>('');
   const [hovered, setHovered] = useState(false);
   const [mapDescriptionInner, setMapDescriptionInner] = useState<string>('');
-  const [mapStatusInner, setMapStatusInner] = useState<DraftStatus>('scratch');
+  const [mapStatusInner, setMapStatusInner] = useState<DraftStatus>(DRAFT_STATUSES.SCRATCH);
   const [open, setOpen] = useState(false);
 
   const _mapName = mapMetadata?.name ?? mapDocument?.map_metadata?.name ?? '';

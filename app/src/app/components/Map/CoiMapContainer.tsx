@@ -11,6 +11,7 @@ import {useMapControlsStore} from '@store/mapControlsStore';
 import {useLayoutEffect} from 'react';
 import {GeocodeSearchBar} from './GeocodeSearchBar';
 import {coiMapEventHandlers} from './CoiMapEvents';
+import {BASEMAP_IDS} from '@constants/map/layerStyle';
 
 export const CoiMapContainer: React.FC<{
   mapRef: MutableRefObject<MapRef | null>;
@@ -23,13 +24,13 @@ export const CoiMapContainer: React.FC<{
   const mapLock = useMapStore(state => state.mapLock);
   const document_id = useMapStore(state => state.mapDocument?.document_id);
   const activeTool = useMapControlsStore(state => state.activeTool);
-  const basemap = useMapControlsStore(state => state.mapOptions.basemap ?? 'minimal');
+  const basemap = useMapControlsStore(state => state.mapOptions.basemap ?? BASEMAP_IDS.MINIMAL);
   const mapBounds = useMapControlsStore(state => state.mapOptions.bounds);
   const mapStyle = useMemo(() => {
     const style = getMapStyleForBasemap(basemap);
     return style;
   }, [basemap]);
-  const showGeocode = basemap === 'streets' || basemap === 'satellite';
+  const showGeocode = basemap === BASEMAP_IDS.STREETS || basemap === BASEMAP_IDS.SATELLITE;
 
   useLayoutEffect(() => {
     if (!mapContainer.current) return;

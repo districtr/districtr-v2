@@ -50,7 +50,7 @@ export const Topbar: React.FC = () => {
   const mapMode = useMapControlsStore(state => state.mapMode);
   const rawMapViewList = mapViews?.data || [];
   const cleanMapViewList =
-    mapMode === 'districts' ? rawMapViewList : sanitizeCommunityMaps(rawMapViewList);
+    mapMode === MAP_MODES.DISTRICTS ? rawMapViewList : sanitizeCommunityMaps(rawMapViewList);
 
   const handleMetadataChange = async (updates: Partial<DocumentMetadata>) => {
     if (!mapDocument?.document_id) return;
@@ -132,7 +132,7 @@ export const Topbar: React.FC = () => {
                             key={index}
                             onClick={() => handleSelectMap(view, mapMode)}
                           >
-                            {mapMode === 'districts'
+                            {mapMode === MAP_MODES.DISTRICTS
                               ? view.name
                               : sanitizeCommunityModuleName(view.name)}
                           </DropdownMenu.Item>

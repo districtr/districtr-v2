@@ -1352,7 +1352,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       healParentsIfAllChildrenInSameCommunities: get().healParentsIfAllChildrenInSameCommunities,
     });
 
-    removedCommunityIds.forEach(id => temporalManager.purgeZone('coi', id));
+    removedCommunityIds.forEach(id => temporalManager.purgeZone(MAP_MODES.COI, id));
   },
 
   removeCommunity: (removedCommunity: Zone) => {

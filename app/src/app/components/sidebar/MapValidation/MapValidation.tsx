@@ -25,7 +25,7 @@ export const MapValidation = () => {
   const mapMode = useMapControlsStore(state => state.mapMode);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const [activePanel, setActivePanel] = useState(
-    mapValidationPanel[mapType === 'local' ? 1 : 0].label
+    mapValidationPanel[mapType === MAP_TYPES.LOCAL ? 1 : 0].label
   );
   const Component = mapValidationPanel.find(panel => panel.label === activePanel)?.component;
   const mapDocument = useMapStore(state => state.mapDocument);

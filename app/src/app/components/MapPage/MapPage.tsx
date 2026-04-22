@@ -24,6 +24,7 @@ import {ZoneDescriptionModal} from '@components/Map/Tooltip/ZoneDescriptionModal
 import {migrateUserMapsFromLocalStorage} from '@/app/utils/idb/migrateUserMaps';
 import {isUUID} from '@/app/utils/metadata/isUUID';
 import {useInitializeMapMode} from '@/app/hooks/useInitializeMapMode';
+import {MAP_MODES} from '@constants/map/mode';
 
 interface MapPageProps {
   isEditing: boolean;
@@ -31,7 +32,7 @@ interface MapPageProps {
 }
 
 function ChildMapPage({isEditing, mapId}: MapPageProps) {
-  const isMapModeReady = useInitializeMapMode('districts');
+  const isMapModeReady = useInitializeMapMode(MAP_MODES.DISTRICTS);
   const showDemographicMap = useMapControlsStore(
     state => state.mapOptions.showDemographicMap === 'side-by-side'
   );

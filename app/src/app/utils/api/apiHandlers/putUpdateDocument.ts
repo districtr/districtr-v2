@@ -1,5 +1,6 @@
 import {AssignmentsCreate, AssignmentsCreateResponse} from './types';
 import {put} from '../factory';
+import {MAP_TYPES} from '@constants/document/types';
 
 export const putUpdateDocument = async ({
   assignments,
@@ -16,7 +17,7 @@ export const putUpdateDocument = async ({
       document_id,
       last_updated_at,
       overwrite,
-      map_type: map_type ?? 'default',
+      map_type: map_type ?? MAP_TYPES.DEFAULT,
       metadata: {
         color_scheme: metadata?.color_scheme ?? null,
         num_districts: metadata?.num_districts ?? null,

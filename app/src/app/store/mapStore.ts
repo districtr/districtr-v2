@@ -51,6 +51,7 @@ import {temporalManager} from '../utils/temporal';
 import {MAP_MODES} from '@constants/map/mode';
 import {APP_LOADING_STATES, type AppLoadingState, ACCESS_STATES} from '@constants/document/state';
 import {RENDERING_STATES, type RenderingState} from '@constants/map/renderingState';
+import {MAP_ROUTES} from '@constants/document/routes';
 
 const resolveNumCommunities = (
   mapDocument: DocumentObject | null | undefined,
@@ -290,8 +291,8 @@ export interface MapStore {
 
 const initialLoadingState =
   typeof window !== 'undefined' &&
-  (window.location.pathname.startsWith('/map/') ||
-    window.location.pathname.startsWith('/map/edit/'))
+  (window.location.pathname.startsWith(`/${MAP_ROUTES.DISTRICTS}/`) ||
+    window.location.pathname.startsWith(`/${MAP_ROUTES.DISTRICTS}/edit/`))
     ? APP_LOADING_STATES.LOADING
     : APP_LOADING_STATES.INITIALIZING;
 

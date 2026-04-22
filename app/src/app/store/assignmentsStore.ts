@@ -27,6 +27,7 @@ import {temporalManager} from '../utils/temporal';
 import {cloneTemporalSnapshot, AssignmentsTemporalSnapshot} from '../utils/temporalSnapshot';
 import {assignmentsTemporalConfig} from './middlewareConfig';
 import {exposeStoreToWindow as _exposeAssignmentsStore} from './exposeToWindow';
+import {MAP_MODES} from '@constants/map/mode';
 
 export interface AssignmentsStore {
   /** Map of geoid -> zone assignments currently in memory */
@@ -605,7 +606,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       coalitionGroups: useDemographyStore.getState().coalitionGroups,
     });
     idb.updateIdbAssignments(mapDocument, zoneAssignments);
-    temporalManager.resume('districts');
+    temporalManager.resume(MAP_MODES.DISTRICTS);
 
     set({
       zoneAssignments,
