@@ -323,9 +323,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           'state'
         );
       }
-      // Resume the temporal recorder regardless of mode. handleShatter pauses it
-      // when a shatter starts; failing to resume here left COI sessions unable to
-      // undo/redo for the rest of the session.
+      // Resume the temporal recorder regardless of mode.
       temporalManager.resume(mapMode);
     },
 

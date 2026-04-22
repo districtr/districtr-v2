@@ -804,11 +804,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
   ) => {
     const {accumulatedAssignments, communityAssignments, communityLastUpdated} = get();
     const {setPaintedChanges} = useChartStore.getState();
-    // Clone the live Maps up front and mutate the local copies only. Zustand's
-    // change-detection contract requires a new reference on every `set`; the previous
-    // code mutated the Maps from `get()` in place and then wrapped them in `new Map(...)`
-    // at the end, which left intermediate state visible to any subscriber that read
-    // before the terminal `set()`.
+    // Clone the live Maps up front and mutate the local copies only.
     const nextAccumulatedAssignments = new Map(accumulatedAssignments);
     const nextCommunityLastUpdated = new Map(communityLastUpdated);
 
