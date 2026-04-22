@@ -43,7 +43,7 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
     let shareableLink = new URL(`${window.location.origin}/${routePrefix}/${publicId}`);
     if (sharingMode === 'read') {
       // Do nothing!
-    } else if (sharingMode === 'edit' && password === null) {
+    } else if (sharingMode === 'edit' && !password) {
       // Direct link to edit page
       shareableLink.pathname = `/${routePrefix}/edit/${mapDocument.document_id}`;
     } else {
