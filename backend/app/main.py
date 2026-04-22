@@ -148,6 +148,7 @@ def update_timestamp(
 
 
 _PARTITION_TABLES = ("assignments", "community_assignments")
+# TODO: Can we use UUID library validation or check for ways to narrow the regex?
 _UUID_RE = re.compile(r"^[0-9a-fA-F-]{36}$")
 
 
