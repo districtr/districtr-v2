@@ -26,6 +26,7 @@ import {
 import {temporalManager} from '../utils/temporal';
 import {cloneTemporalSnapshot, AssignmentsTemporalSnapshot} from '../utils/temporalSnapshot';
 import {assignmentsTemporalConfig} from './middlewareConfig';
+import {exposeStoreToWindow as _exposeAssignmentsStore} from './exposeToWindow';
 
 export interface AssignmentsStore {
   /** Map of geoid -> zone assignments currently in memory */
@@ -847,7 +848,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     options: ConflictResolutionOptions = {}
   ) => {
     const {onNavigate, onComplete, context = ConflictContext.Save} = options;
-    const {setMapDocument, setMapLock, setShowSaveConflictModal} = useMapStore.getState();
+    const {setMapDocument, setMapLock, setShowSaveConflictModal, setErrorNotification} =
+      useMapStore.getState();
     const dependencies: ConflictDependencies = {
       syncConflictInfo,
       store: get(),
@@ -858,27 +860,41 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
 
     setShowSaveConflictModal(false);
 
-    switch (resolution) {
-      case SyncConflictResolution.KeepLocal: {
-        await resolveKeepLocal(dependencies, context);
-        break;
+    // Wrap the whole switch so any resolver-helper failure (network error mid-Fork,
+    // setMapDocument failing on malformed data, etc.) surfaces via the notification
+    // system instead of becoming an unhandled promise rejection.
+    try {
+      switch (resolution) {
+        case SyncConflictResolution.KeepLocal: {
+          await resolveKeepLocal(dependencies, context);
+          break;
+        }
+        case SyncConflictResolution.UseLocal: {
+          await resolveUseLocal(dependencies, context);
+          break;
+        }
+        case SyncConflictResolution.UseServer: {
+          await resolveUseServer(dependencies);
+          break;
+        }
+        case SyncConflictResolution.Fork: {
+          await resolveFork(dependencies);
+          break;
+        }
+        default: {
+          const exhaustiveResolution: never = resolution;
+          throw new Error(`Unhandled sync conflict resolution: ${exhaustiveResolution}`);
+        }
       }
-      case SyncConflictResolution.UseLocal: {
-        await resolveUseLocal(dependencies, context);
-        break;
-      }
-      case SyncConflictResolution.UseServer: {
-        await resolveUseServer(dependencies);
-        break;
-      }
-      case SyncConflictResolution.Fork: {
-        await resolveFork(dependencies);
-        break;
-      }
-      default: {
-        const exhaustiveResolution: never = resolution;
-        throw new Error(`Unhandled sync conflict resolution: ${exhaustiveResolution}`);
-      }
+    } catch (error) {
+      console.error('[resolveConflict] failed', {resolution, error});
+      setErrorNotification({
+        severity: 1,
+        message: `Could not resolve save conflict: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        id: 'resolve-conflict-error',
+      });
     }
     onComplete?.();
   },
@@ -891,3 +907,5 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     });
   },
 }));
+
+_exposeAssignmentsStore('assignmentsStore', useAssignmentsStore);

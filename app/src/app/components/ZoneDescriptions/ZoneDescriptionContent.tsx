@@ -22,8 +22,17 @@ export const DescriptionEditor: React.FC<DescriptionEditorProps> = ({
   const [text, setText] = useState(existingText || '');
   const commentLengthLimit = useMapStore(state => state.mapDocument?.comment_length_limit);
 
-  if (!commentLengthLimit) {
+  // Differentiate "no limit known yet" (null/undefined) from "configured to 0" (admins
+  // can set `comment_length_limit = 0` to disable descriptions on a per-map basis).
+  if (commentLengthLimit == null) {
     return null;
+  }
+  if (commentLengthLimit === 0) {
+    return (
+      <div className="text-sm text-gray-500 italic">
+        Zone descriptions are disabled for this map.
+      </div>
+    );
   }
 
   const limitReached = text.length >= maxLength;

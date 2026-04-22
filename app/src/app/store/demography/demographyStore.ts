@@ -10,9 +10,6 @@ import {getDemography} from '@/app/utils/api/apiHandlers/getDemography';
 import {demographyService} from '@/app/utils/demography/demographyService';
 import {getAvailableColumnSets} from '@/app/utils/demography/getAvailableColumnSets';
 import {DEFAULT_CHOROPLETH_BIN_COUNT} from './constants';
-import {AllEvaluationConfigs, AllMapConfigs} from '@/app/utils/api/summaryStats';
-import {evalColumnConfigs} from './evaluationConfig';
-import {choroplethMapVariables} from './constants';
 import {idb} from '@/app/utils/idb/idb';
 import {
   CoalitionGroupKey,
@@ -23,6 +20,11 @@ import {
 
 let coalitionHydrationRequestId = 0;
 let coalitionVersion = 0;
+// Request-id for updateData so rapid successive calls don't clobber each other:
+// two calls with different dataHashes both pass the cache guard, both fetch, and
+// the late resolver would otherwise win and leave the demographyService singleton
+// out of sync with the store's dataHash.
+let updateDataRequestId = 0;
 
 const getActiveBrokenIds = () => {
   const mapMode = useMapControlsStore.getState().mapMode;
@@ -178,10 +180,15 @@ export var useDemographyStore = create(
       const dataHash = `${brokenIds.join(',')}|${mapDocument.document_id}`;
 
       if (currDataHash === dataHash) return;
+
+      const requestId = ++updateDataRequestId;
       const result = await getDemography({
         mapDocument,
         brokenIds,
       });
+      // Bail if a newer updateData call has already been kicked off; otherwise this
+      // stale resolver would overwrite the fresh data with its own older results.
+      if (requestId !== updateDataRequestId) return;
       if (!result || !mapDocument) {
         setErrorNotification({
           message: 'Failed to get demography',
@@ -196,23 +203,6 @@ export var useDemographyStore = create(
       } else {
         demographyService.update(result.columns, result.results, dataHash, get().coalitionGroups);
       }
-      const availableColumns = demographyService.availableColumns;
-      const availableEvalSets: Record<string, AllEvaluationConfigs> = Object.fromEntries(
-        Object.entries(evalColumnConfigs)
-          .map(([columnsetKey, config]) => [
-            columnsetKey,
-            config.filter(entry => availableColumns.includes(entry.sourceCol ?? entry.column)),
-          ])
-          .filter(([, config]) => config.length > 0)
-      );
-      const availableMapSets: Record<string, AllMapConfigs> = Object.fromEntries(
-        Object.entries(choroplethMapVariables)
-          .map(([columnsetKey, config]) => [
-            columnsetKey,
-            config.filter(entry => availableColumns.includes(entry.value)),
-          ])
-          .filter(([, config]) => config.length > 0)
-      );
 
       set({
         availableColumnSets: getAvailableColumnSets(demographyService.availableColumns),

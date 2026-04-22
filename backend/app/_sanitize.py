@@ -6,6 +6,7 @@ from fastapi import (
 )
 from sqlmodel import Session, select, col
 from app.models import (
+    AssignmentsMetadata,
     CommunityMetadata,
     Document,
     MAX_COMMUNITY_NAME_LENGTH,
@@ -166,27 +167,37 @@ def _validate_community_comment_coverage(
 def _validate_community_save_payload(
     *,
     document_id: str,
-    metadata,
+    metadata: AssignmentsMetadata | None,
     incoming_comments: list[CommentDict] | None,
     session: Session,
 ) -> list[CommunityMetadata] | None:
     """
     Validate the community metadata and comments in the save payload for a community map.
 
-    Args:
-        document_id (str): The ID of the document being saved.
-        metadata: The metadata included in the save payload, which may contain community metadata.
-        incoming_comments (list[CommentDict] | None): The comments included in the
-            save payload, where each comment is represented as a dictionary containing the zone,
-            text, and comment_id. This can be None if no comments were included in the payload.
-        session (sqlmodel.Session): The SQLModel session to use for any necessary database queries.
-
     Returns:
-        A list of CommunityMetadata instances representing the validated and normalized community
-        metadata to be saved with the document, or None if no community metadata was included in
-        the payload (in which case existing metadata should be retained).
+        list[CommunityMetadata]: the validated, normalized list the caller should persist
+            (only when the payload included community_metadata_list).
+        None: the payload did not include community_metadata_list; caller should leave
+            existing metadata unchanged.
+
+    Raises:
+        HTTPException(400): if the payload explicitly provides an empty community_metadata_list
+            (community mode requires at least one community; to exit community mode, change
+            map_type instead), or if coverage/sanitization checks fail.
     """
-    if metadata is not None and metadata.community_metadata_list is not None:
+    incoming_list_provided = (
+        metadata is not None and metadata.community_metadata_list is not None
+    )
+
+    if incoming_list_provided:
+        if len(metadata.community_metadata_list) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Community mode requires at least one community. "
+                    "To exit community mode, change map_type instead of sending an empty list."
+                ),
+            )
         final_community_metadata_list = _normalize_community_metadata_list(
             metadata.community_metadata_list
         )
@@ -196,6 +207,7 @@ def _validate_community_save_payload(
         )
 
     if not final_community_metadata_list:
+        # No stored metadata and none in the payload — nothing to validate.
         return None
 
     final_comments = (
@@ -205,6 +217,4 @@ def _validate_community_save_payload(
     )
     _validate_community_comment_coverage(final_community_metadata_list, final_comments)
 
-    if metadata is not None and metadata.community_metadata_list is not None:
-        return final_community_metadata_list
-    return None
+    return final_community_metadata_list if incoming_list_provided else None

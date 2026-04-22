@@ -4,7 +4,7 @@ import {useParentSize} from '@visx/responsive';
 import {Box, Button, Flex, Select, Link} from '@radix-ui/themes';
 import {useRouter} from 'next/navigation';
 import {PlaceMapSvg} from './PlaceMapSvg';
-import stateAbbrs from './usa-abbr.json';
+import {US_STATE_META} from '@/app/constants/meta/usStates';
 import {usePlaceMapStore} from './utils';
 
 export const background = '#FFFFFF';
@@ -22,16 +22,15 @@ export const PlaceSelector: React.FC<{onChange: (abbr: string) => void}> = ({onC
         placeholder={!hovered?.name ? 'Choose a state to redistrict' : hovered.name}
       />
       <Select.Content>
-        {Object.values(stateAbbrs)
-          .sort((a, b) => a.name.localeCompare(b.name))
+        {US_STATE_META.sort((a, b) => a.NAME.localeCompare(b.NAME))
           .map(place => ({
             ...place,
-            slug: place.name.toLowerCase().replaceAll(' ', '-'),
+            slug: place.NAME.toLowerCase().replaceAll(' ', '-'),
           }))
-          .map((place: {name: string; abbr: string; slug: string}, i: number) => (
+          .map((place: (typeof US_STATE_META)[number] & {slug: string}, i: number) => (
             <Select.Item value={place.slug} key={i}>
-              {place.name}{' '}
-              {`${place.name && mapsBySlug?.[place.slug] ? `(${mapsBySlug?.[place.slug]} map${mapsBySlug?.[place.slug] > 1 ? 's' : ''})` : ``}`}
+              {place.NAME}{' '}
+              {`${place.NAME && mapsBySlug?.[place.slug] ? `(${mapsBySlug?.[place.slug]} map${mapsBySlug?.[place.slug] > 1 ? 's' : ''})` : ``}`}
             </Select.Item>
           ))}
       </Select.Content>

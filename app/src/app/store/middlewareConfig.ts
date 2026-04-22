@@ -3,6 +3,7 @@ import {MapStore} from './mapStore';
 import {MIN_DIFF_MS} from '../constants/configuration';
 import {ZundoOptions} from 'zundo';
 import {AssignmentsStore} from './assignmentsStore';
+import {CoiAssignmentsStore} from './coiAssignmentsStore';
 import {TEMPORAL_HISTORY_LIMIT} from '../constants/configuration';
 import {cloneTemporalSnapshot} from '../utils/temporalSnapshot';
 
@@ -35,8 +36,17 @@ export const devToolsConfig: DevtoolsOptions = {
 };
 
 // Shared diff function for all temporal stores — only fires when clientLastUpdated changes
-// and enough time has passed since the last snapshot.
-export const temporalDiff = (past: Partial<AssignmentsStore>, curr: Partial<AssignmentsStore>) => {
+// and enough time has passed since the last snapshot. Generic over the store type so the
+// same function can drive both district and COI zundo configurations.
+interface TemporalDiffSnapshot {
+  clientLastUpdated?: string;
+  pendingShatterUndoState?: AssignmentsStore['pendingShatterUndoState'];
+}
+
+export const temporalDiff = <T extends TemporalDiffSnapshot>(
+  past: Partial<T>,
+  curr: Partial<T>
+) => {
   // If diff returns null, no state is stored
   if (!past.clientLastUpdated || !curr.clientLastUpdated) return null;
   // If the client timestamp is the same, don't store
@@ -50,7 +60,7 @@ export const temporalDiff = (past: Partial<AssignmentsStore>, curr: Partial<Assi
   )
     return null;
   if (past.pendingShatterUndoState && !curr.pendingShatterUndoState) {
-    return cloneTemporalSnapshot(past.pendingShatterUndoState);
+    return cloneTemporalSnapshot(past.pendingShatterUndoState) as unknown as Partial<T>;
   }
   return past;
 };
@@ -80,7 +90,7 @@ export const assignmentsTemporalConfig: ZundoOptions<any, AssignmentsStore> = {
   },
 };
 
-export const coiAssignmentsTemporalConfig: ZundoOptions<any, AssignmentsStore> = {
+export const coiAssignmentsTemporalConfig: ZundoOptions<any, CoiAssignmentsStore> = {
   diff: temporalDiff,
   limit: TEMPORAL_HISTORY_LIMIT,
   // @ts-ignore: save only partial store

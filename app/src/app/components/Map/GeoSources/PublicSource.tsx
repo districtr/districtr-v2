@@ -25,6 +25,12 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
     queryKey: ['public-districts', mapDocument?.public_id],
     queryFn: () => getPublicDistricts(mapDocument),
     enabled: Boolean(mapDocument?.access === 'read' && mapDocument?.public_id),
+    // Public views are effectively read-only embeds; a 5-minute stale window drops
+    // the duplicate-refetch-on-every-mount problem for multi-tab / multi-embed
+    // pages without hiding genuinely new data for long. Retry is disabled because
+    // the failure cases here (bad public_id, moved doc) are not transient.
+    staleTime: 5 * 60 * 1000,
+    retry: 0,
   });
 
   useEffect(() => {

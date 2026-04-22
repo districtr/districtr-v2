@@ -1,9 +1,9 @@
 'use client';
 import React from 'react';
 import {AlbersUsa} from '@visx/geo';
-import stateAbbrs from './usa-abbr.json';
 import {Text} from '@radix-ui/themes';
 import {usePlaceMapStore, FeatureShape} from './utils';
+import {US_STATE_META} from '@/app/constants/meta/usStates';
 
 export const background = '#FFFFFF';
 export const FILL_COLOR = '#0099cd';
@@ -35,8 +35,9 @@ export const PlaceMapSvg: React.FC<{
         {({features}) =>
           features.map(({feature, path}, i) => {
             // @ts-ignore
-            const entry = stateAbbrs[feature.id];
-            const slug = entry?.name?.toLowerCase().replaceAll(' ', '-');
+            const entry = US_STATE_META.find(({FIPS}) => FIPS === feature.id);
+            if (!entry) return null;
+            const slug = entry?.NAME?.toLowerCase().replaceAll(' ', '-');
             const fillColor = entry && mapsBySlug?.[slug] ? `fill-[#0099cd]` : `fill-gray-200`;
             return (
               <path
@@ -45,9 +46,14 @@ export const PlaceMapSvg: React.FC<{
                 className={`transition-all cursor-pointer ${fillColor} hover:fill-[#006b9c]`}
                 stroke={background}
                 strokeWidth={1}
-                onMouseEnter={() => onHover(entry)}
+                onMouseEnter={() =>
+                  onHover({
+                    name: entry.NAME,
+                    abbr: entry.ABBR,
+                  })
+                }
                 onMouseLeave={() => onHover(null)}
-                onClick={() => onClick(entry.name)}
+                onClick={() => onClick(entry.NAME)}
               />
             );
           })

@@ -35,14 +35,23 @@ COMMUNITY_WHITESPACE_RE = re.compile(r"\s+")
 
 
 def sanitize_community_name(name: str) -> str:
-    """Normalize user-provided community names before validation/persistence."""
+    """Normalize user-provided community names before validation/persistence.
+
+    Strips HTML tags, control characters, and Unicode format codepoints
+    (category Cf — bidi overrides, zero-width joiners, BOM, etc.) that NFKC
+    normalization does not fold and would otherwise let a name spoof its
+    rendered form or bury hidden bytes past the length cap.
+    """
     normalized = unicodedata.normalize("NFKC", name)
     without_tags = COMMUNITY_HTML_TAG_RE.sub("", normalized)
     # Collapse all whitespace (including tabs, newlines) to single spaces first,
     # then remove remaining non-whitespace control characters.
     collapsed_whitespace = COMMUNITY_WHITESPACE_RE.sub(" ", without_tags)
     without_control_chars = COMMUNITY_CONTROL_CHAR_RE.sub("", collapsed_whitespace)
-    return without_control_chars.strip()
+    without_format_chars = "".join(
+        c for c in without_control_chars if unicodedata.category(c) != "Cf"
+    )
+    return without_format_chars.strip()
 
 
 class DistrictrMap(TimeStampMixin, SQLModel, table=True):
@@ -194,6 +203,18 @@ class CommunityMetadata(BaseModel):
     def sanitize_name(cls, value: str) -> str:
         if isinstance(value, str):
             return sanitize_community_name(value)
+        return value
+
+    @field_validator("id")
+    @classmethod
+    def positive_id(cls, value: int) -> int:
+        # id <= 0 is reserved: 0 is the "unassigned" sentinel used on the
+        # assignments side, and negative ids are reserved for future system use.
+        if value <= 0:
+            raise ValueError(
+                "Community id must be a positive integer; "
+                "ids <= 0 are reserved (0 is the unassigned sentinel)."
+            )
         return value
 
 

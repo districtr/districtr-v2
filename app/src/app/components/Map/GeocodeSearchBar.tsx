@@ -27,9 +27,16 @@ export const GeocodeSearchBar: React.FC<{
   const [suggestions, setSuggestions] = useState<GeocodeFeature[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const listboxId = 'geocode-search-listbox';
+
+  // Reset the active keyboard cursor whenever the results list changes.
+  useEffect(() => {
+    setActiveIndex(-1);
+  }, [suggestions.length]);
 
   const fetchSuggestions = useCallback(
     async (q: string) => {
@@ -132,6 +139,32 @@ export const GeocodeSearchBar: React.FC<{
 
   if (!MAPTILER_API_KEY) return null;
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!open || suggestions.length === 0) {
+      if (e.key === 'ArrowDown' && suggestions.length > 0) {
+        setOpen(true);
+      }
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex(i => Math.min(i + 1, suggestions.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex(i => Math.max(i - 1, 0));
+    } else if (e.key === 'Enter') {
+      const target = activeIndex >= 0 ? suggestions[activeIndex] : suggestions[0];
+      if (target) {
+        e.preventDefault();
+        const [lng, lat] = target.geometry.coordinates;
+        flyTo(lng, lat);
+      }
+    } else if (e.key === 'Escape') {
+      setOpen(false);
+      setActiveIndex(-1);
+    }
+  };
+
   return (
     <div ref={containerRef} className={`relative z-10 ${className ?? ''}`}>
       <TextField.Root
@@ -139,29 +172,46 @@ export const GeocodeSearchBar: React.FC<{
         value={query}
         onChange={e => setQuery(e.target.value)}
         onFocus={() => suggestions.length > 0 && setOpen(true)}
+        onKeyDown={handleKeyDown}
         size="2"
         className="min-w-[200px] bg-white/95 shadow border border-black/10"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-controls={listboxId}
+        aria-expanded={open && (suggestions.length > 0 || loading)}
+        aria-activedescendant={
+          activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined
+        }
       />
       {open && (suggestions.length > 0 || loading) && (
         <ul
+          id={listboxId}
           className="absolute top-full left-0 right-0 mt-1 bg-white border border-black/10 shadow-lg rounded overflow-hidden z-20 max-h-48 overflow-y-auto"
           role="listbox"
         >
           {loading && <li className="px-3 py-2 text-gray-500 text-sm">Searching…</li>}
           {!loading &&
-            suggestions.map((f, i) => (
-              <li
-                key={i}
-                role="option"
-                className="px-3 py-2 text-sm cursor-pointer hover:bg-gray-100 border-b border-gray-100 last:border-0"
-                onClick={() => {
-                  const [lng, lat] = f.geometry.coordinates;
-                  flyTo(lng, lat);
-                }}
-              >
-                {f.place_name ?? f.text ?? 'Unknown'}
-              </li>
-            ))}
+            suggestions.map((f, i) => {
+              const isActive = i === activeIndex;
+              return (
+                <li
+                  key={i}
+                  id={`${listboxId}-option-${i}`}
+                  role="option"
+                  aria-selected={isActive}
+                  className={`px-3 py-2 text-sm cursor-pointer border-b border-gray-100 last:border-0 ${
+                    isActive ? 'bg-blue-100' : 'hover:bg-gray-100'
+                  }`}
+                  onMouseEnter={() => setActiveIndex(i)}
+                  onClick={() => {
+                    const [lng, lat] = f.geometry.coordinates;
+                    flyTo(lng, lat);
+                  }}
+                >
+                  {f.place_name ?? f.text ?? 'Unknown'}
+                </li>
+              );
+            })}
         </ul>
       )}
     </div>
