@@ -77,6 +77,11 @@ export function useDocumentWithSync({
     if (mapDocument?.document_id === document_id) {
       return;
     }
+    // Guard against stale-load races: if the user switches documents mid-fetch, we
+    // must not let the earlier doc's ingest/setMapDocument land on top of the newer
+    // doc's state. `cancelled` short-circuits every mutation below.
+    let cancelled = false;
+
     const loadDocument = async () => {
       if (!document_id || !enabled) {
         return;
@@ -86,6 +91,7 @@ export function useDocumentWithSync({
       setError(null);
 
       const result = await fetchDocument(document_id);
+      if (cancelled) return;
 
       if (!result.ok) {
         console.warn('[hydration] fetchDocument failed:', result.error);
@@ -102,18 +108,6 @@ export function useDocumentWithSync({
         setAppLoadingState(APP_LOADING_STATES.LOADED);
       } else {
         const isCommunityDocument = result.response.document.map_type === MAP_TYPES.COMMUNITY;
-        // console.log('[hydration] Document loaded', {
-        //   document_id,
-        //   isCommunityDocument,
-        //   map_type: result.response.document.map_type,
-        //   isCoiRoute,
-        //   isDistrictRoute,
-        //   assignmentCount: result.response.assignments.length,
-        //   community_metadata_list_count:
-        //     result.response.document.community_metadata_list?.length ?? 0,
-        //   num_communities: result.response.document.num_communities,
-        //   document_comments_count: result.response.document.document_comments?.length ?? 0,
-        // });
         if (isCoiRoute && !isCommunityDocument) {
           setError(
             new Error('This document is not a community map. Open it from the district editor.')
@@ -132,15 +126,6 @@ export function useDocumentWithSync({
         setMapDocument(result.response.document);
         if (isCommunityDocument) {
           const data = formatCoiAssignmentsFromDocument(result.response.assignments);
-          // console.log('[hydration] Formatted COI assignments', {
-          //   communityCount: data.communityAssignments.size,
-          //   communities: Array.from(data.communityAssignments.entries()).map(([zone, geoids]) => ({
-          //     zone,
-          //     geoCount: geoids.size,
-          //   })),
-          //   shatterParents: data.shatterIds.parents.size,
-          //   shatterChildren: data.shatterIds.children.size,
-          // });
           ingestCoiFromDocument(data, result.response.document);
         } else {
           const data = formatAssignmentsFromDocument(result.response.assignments);
@@ -153,12 +138,15 @@ export function useDocumentWithSync({
         }
         setIsLoading(false);
         setAppLoadingState(APP_LOADING_STATES.LOADED);
-        // console.log('[hydration] Hydration complete, appLoadingState set to loaded');
         return;
       }
     };
     loadDocument();
-  }, [document_id, enabled]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [document_id, enabled, isPublicPage, isCoiRoute, isDistrictRoute]);
 
   return {
     isLoading,

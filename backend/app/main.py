@@ -6,6 +6,7 @@ from fastapi import (
     Query,
 )
 from typing import Annotated
+import re
 import botocore.exceptions
 from sqlalchemy.exc import (
     MultipleResultsFound,
@@ -70,6 +71,7 @@ from app.models import (
     NumDistrictsSetResult,
 )
 from app.comments.models import (
+    Comment,
     DocumentComment as FormDocumentComment,
     Tag,
     CommentTag,
@@ -85,6 +87,7 @@ from fiona.transform import transform
 from fastapi import BackgroundTasks
 from ._sanitize import (
     CommentDict,
+    _load_existing_community_metadata,
     _validate_community_save_payload,
 )
 
@@ -144,6 +147,21 @@ def update_timestamp(
     return updated_at
 
 
+_PARTITION_TABLES = ("assignments", "community_assignments")
+# TODO: Can we use UUID library validation or check for ways to narrow the regex?
+_UUID_RE = re.compile(r"^[0-9a-fA-F-]{36}$")
+
+
+def _validate_partition_identifiers(document_id: str, table_name: str) -> None:
+    if table_name not in _PARTITION_TABLES:
+        raise ValueError(
+            f"Unsupported partition table: {table_name!r}. "
+            f"Expected one of {_PARTITION_TABLES}."
+        )
+    if not _UUID_RE.match(document_id):
+        raise ValueError(f"document_id must be a UUID; got {document_id!r}")
+
+
 def create_document_partition(
     session: Session, document_id: str, table_name: str
 ) -> None:
@@ -153,7 +171,9 @@ def create_document_partition(
     Args:
         session (Session): The database session to use for executing the SQL statement.
         document_id (str): The ID of the document for which to create the partition.
+        table_name (str): Must be one of "assignments" or "community_assignments".
     """
+    _validate_partition_identifiers(document_id, table_name)
     partition_name = f"document.{table_name}_{document_id}"
     stmt = text(f"""
         CREATE TABLE "{partition_name}"
@@ -173,9 +193,9 @@ def reset_document_partition(
     Args:
         session (Session): The database session to use for executing the SQL statements.
         document_id (str): The ID of the document for which to reset the partition.
-        table_name (str): The name of the table to reset the partition in
-            ("assignments" or "community_assignments").
+        table_name (str): Must be one of "assignments" or "community_assignments".
     """
+    _validate_partition_identifiers(document_id, table_name)
     partition_name = f"document.{table_name}_{document_id}"
     session.connection().execute(
         text(f'DROP TABLE IF EXISTS "{partition_name}" CASCADE;')
@@ -186,6 +206,55 @@ def reset_document_partition(
         FOR VALUES IN ('{document_id}')
     """)
     session.connection().execute(stmt)
+
+
+def duplicate_document_comments(
+    *,
+    from_document_id: str,
+    to_document_id: str,
+    session: Session,
+) -> int:
+    """
+    Deep-copy DocumentComment associations (and their backing Comment rows) from one
+    document to another. New Comment rows are inserted with title/comment/commenter
+    inherited from the source; moderation_score / review_status are intentionally left
+    unset so the target document re-moderates on next save.
+
+    Called from create_document when copying a map so that coverage validation on the
+    first subsequent save can succeed.
+    """
+    source_rows = session.exec(
+        select(
+            Comment.title,
+            Comment.comment,
+            Comment.commenter_id,
+            col(FormDocumentComment.zone).label("zone"),
+        )
+        .join(
+            FormDocumentComment,
+            col(FormDocumentComment.comment_id) == col(Comment.id),
+        )
+        .where(col(FormDocumentComment.document_id) == from_document_id)
+    ).all()
+
+    duplicated = 0
+    for row in source_rows:
+        new_comment = Comment(
+            title=row.title,
+            comment=row.comment,
+            commenter_id=row.commenter_id,
+        )
+        session.add(new_comment)
+        session.flush()
+        session.add(
+            FormDocumentComment(
+                comment_id=new_comment.id,
+                document_id=to_document_id,
+                zone=row.zone,
+            )
+        )
+        duplicated += 1
+    return duplicated
 
 
 @app.get("/")
@@ -281,6 +350,39 @@ async def create_document(
         num_communities = None
         community_metadata_list = None
 
+    # Reject copying across map_type boundaries: source and target must match, otherwise
+    # assignments can't be carried over (community_assignments and assignments have
+    # different shapes) and the copy would silently produce an empty doc.
+    if (
+        copied_document is not None
+        and copied_document.map_type != document_map_type
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Cannot copy a {copied_document.map_type!r} map into a "
+                f"{document_map_type!r} map. Start a new map instead."
+            ),
+        )
+
+    # Reject initial assignments when creating a community map: batch_insert_assignments
+    # writes to document.assignments (district-mode table), which would silently orphan
+    # data from a community document that reads from document.community_assignments.
+    if (
+        document_map_type == "community"
+        and data.assignments is not None
+        and len(data.assignments) > 0
+        and copied_document is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Initial assignments cannot be provided when creating a community map. "
+                "Create the document first, then PUT /api/assignments with "
+                "map_type='community'."
+            ),
+        )
+
     # Generate UUID for document_id
     document_id = str(uuid4())
 
@@ -327,6 +429,18 @@ async def create_document(
                 session=session,
             )
             total_assignments = total_assignments or 0
+        # Carry the source document's comments/descriptions to the new document so the
+        # first save against the copy can satisfy coverage validation.
+        duplicated_comments = duplicate_document_comments(
+            from_document_id=copied_document.document_id,
+            to_document_id=document_id,
+            session=session,
+        )
+        if VERBOSE_LOGGING and duplicated_comments:
+            logger.info(
+                f"Duplicated {duplicated_comments} comment(s) from "
+                f"{copied_document.document_id} to {document_id}"
+            )
 
     elif data.assignments is not None and len(data.assignments) > 0:
         max_records = 914_231
@@ -359,9 +473,15 @@ async def create_document(
                 )
 
     if data.metadata is not None:
+        # Inline (without an inner commit) so that the session.rollback() checks below
+        # can still undo the document insert, partitions, assignment copy, and
+        # duplicated comments. The standalone /api/document/{id}/metadata endpoint
+        # still commits via its own handler.
         logger.info(f"Updating metadata for document: {document_id}")
-        await update_districtrmap_metadata(
-            document=created_document, metadata=data.metadata, session=session
+        session.connection().execute(
+            update(Document)
+            .where(Document.document_id == document_id)  # type: ignore
+            .values(map_metadata=data.metadata.model_dump(exclude_unset=True))
         )
 
     stmt = (
@@ -572,16 +692,40 @@ async def update_assignments(
             status_code=status.HTTP_409_CONFLICT,
             detail="Document has been updated since the last update",
         )
+    # Track whether anything actually changed so we can skip the updated_at bump on
+    # true no-op requests (which would otherwise break optimistic concurrency for
+    # other clients).
+    mutated = False
+
     # The assignments field is always a full replacement set:
     #   [] means "delete all assignments" (user cleared everything)
     #   [...] means "replace with these assignments"
     # Always DELETE existing rows, then INSERT new ones if any.
-    session.connection().execute(
+    delete_result = session.connection().execute(
         text(f"DELETE FROM {assignment_table} WHERE document_id = :document_id"),
         {"document_id": document_id},
     )
+    if delete_result.rowcount and delete_result.rowcount > 0:
+        mutated = True
     inserted_count = 0
     if has_assignments:
+        # For community maps, build the set of valid community_ids so we can reject
+        # orphan-producing writes before they hit the partition. 0 is the "unassigned"
+        # sentinel; positive ids must exist in the effective metadata list. Skip the
+        # check entirely when no metadata has been established yet (either in this
+        # request or previously persisted) — that's the bootstrap path where the UI
+        # writes assignments before the metadata save lands.
+        valid_community_ids: set[int] | None = None
+        if is_community_map:
+            if validated_community_metadata is not None:
+                effective_metadata = validated_community_metadata
+            else:
+                effective_metadata = _load_existing_community_metadata(
+                    session, document_id
+                )
+            if effective_metadata:
+                valid_community_ids = {c.id for c in effective_metadata} | {0}
+
         # Use COPY for faster bulk insert with partitioned tables
         # Create a temporary table for bulk loading
         load_id, _ = str(uuid4()).split("-", maxsplit=1)
@@ -603,6 +747,14 @@ async def update_assignments(
                 zone_val = assignment[1] if len(assignment) > 1 else None
                 if is_community_map and zone_val is None:
                     zone_val = 0
+                if valid_community_ids is not None and zone_val not in valid_community_ids:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=(
+                            f"Assignment references unknown community_id {zone_val!r}; "
+                            "it is not in the document's community metadata list."
+                        ),
+                    )
                 copy.write_row([document_id, geo_id, zone_val])
 
         # Insert from temp table into partitioned assignments table
@@ -618,6 +770,8 @@ async def update_assignments(
             )
             .rowcount
         )
+        if inserted_count and inserted_count > 0:
+            mutated = True
         if VERBOSE_LOGGING:
             logger.info(
                 f"Inserted {inserted_count} {'community' if is_community_map else ''} "
@@ -713,11 +867,23 @@ async def update_assignments(
                 stmt,
             )
 
+    if data.metadata is not None and (
+        data.metadata.num_districts is not None
+        or data.metadata.color_scheme is not None
+        or data.metadata.num_communities is not None
+        or data.metadata.community_metadata_list is not None
+    ):
+        mutated = True
+
     # Sync scoped comments via comments schema (None = no change, [] = delete all)
     if data.comments is not None:
         comment_inputs: list[DistrictCommentInput] = []
         for c in data.comments:
-            assert c.zone is not None, "Comment zone cannot be null"
+            if c.zone is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Each comment must specify a zone (int).",
+                )
             comment_inputs.append(
                 DistrictCommentInput(comment_id=c.comment_id, zone=c.zone, text=c.text)
             )
@@ -735,8 +901,18 @@ async def update_assignments(
             session=session,
             background_tasks=background_tasks,
         )
+        # sync_fn always hits the DB (delete/insert/update), so count it.
+        mutated = True
 
-    updated_at = update_timestamp(session, document_id)
+    if mutated:
+        updated_at = update_timestamp(session, document_id)
+    else:
+        # No-op request (e.g. assignments=[] on an already-empty doc with no metadata
+        # or comment changes). Keep updated_at pinned to its current value so other
+        # clients' optimistic-concurrency windows aren't invalidated.
+        updated_at = session.exec(
+            select(Document.updated_at).where(Document.document_id == document_id)
+        ).one()
     session.commit()
     if VERBOSE_LOGGING:
         logger.info(

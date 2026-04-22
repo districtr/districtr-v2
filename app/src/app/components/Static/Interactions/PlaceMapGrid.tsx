@@ -4,9 +4,11 @@ import {SegmentedControl, Flex, Grid} from '@radix-ui/themes';
 import {CreateButton} from './CreateButton';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 import {MAP_TABS, type MapTab} from '@constants/document/tabs';
+import {sanitizeCommunityMaps} from '@/app/utils/communities';
 
 export const PlaceMapGrid: React.FC<{maps: Partial<DistrictrMap>[]}> = ({maps}) => {
   const [activeTab, setActiveTab] = useState<MapTab>(MAP_TABS.DISTRICTS);
+  const filteredMaps = activeTab === MAP_TABS.DISTRICTS ? maps : sanitizeCommunityMaps(maps);
 
   return (
     <Flex direction="column" gap="3">
@@ -28,7 +30,7 @@ export const PlaceMapGrid: React.FC<{maps: Partial<DistrictrMap>[]}> = ({maps}) 
           lg: '4',
         }}
       >
-        {maps.map((view, i) => (
+        {filteredMaps.map((view, i) => (
           <CreateButton key={i} view={view} isCommunity={activeTab === MAP_TABS.COMMUNITY} />
         ))}
       </Grid>

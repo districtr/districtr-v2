@@ -27,8 +27,8 @@ import {SettingsPopoverAndModal} from './SettingsPopoverAndModal';
 import {saveMapDocumentMetadata} from '@/app/utils/api/apiHandlers/saveMapDocumentMetadata';
 import {idb} from '@/app/utils/idb/idb';
 import {RevertPopover} from './RevertPopover';
-import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {sanitizeCommunityMaps, sanitizeCommunityModuleName} from '@/app/utils/communities';
 import {MAP_MODES, type MapMode} from '@constants/map/mode';
 import {routeForMode} from '@constants/document/routes';
 import {MAP_TYPES} from '@constants/document/types';
@@ -38,14 +38,19 @@ export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
   const [modalOpen, setModalOpen] = React.useState<'upload' | 'recents' | null>(null);
   const mapDocument = useMapStore(state => state.mapDocument);
-  const isEditing = mapDocument?.document_id && mapDocument?.document_id !== ANONYMOUS_DOCUMENT_ID;
   const access = useMapStore(state => state.mapStatus?.access);
+  // Read from mapControlsStore (set by the route/page) instead of inferring from
+  // document_id. Public view documents have real UUIDs but should never expose
+  // Save/Revert/etc. affordances.
+  const isEditing = useMapControlsStore(state => state.isEditing);
   const mapViews = useMapStore(state => state.mapViews);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const router = useRouter();
   const updateMetadata = useMapStore(state => state.updateMetadata);
   const mapMode = useMapControlsStore(state => state.mapMode);
-  const data = mapViews?.data || [];
+  const rawMapViewList = mapViews?.data || [];
+  const cleanMapViewList =
+    mapMode === 'districts' ? rawMapViewList : sanitizeCommunityMaps(rawMapViewList);
 
   const handleMetadataChange = async (updates: Partial<DocumentMetadata>) => {
     if (!mapDocument?.document_id) return;
@@ -121,13 +126,15 @@ export const Topbar: React.FC = () => {
                   <DropdownMenu.Sub>
                     <DropdownMenu.SubTrigger>Select a geography</DropdownMenu.SubTrigger>
                     <DropdownMenu.SubContent>
-                      {data.length ? (
-                        data.map((view, index) => (
+                      {cleanMapViewList.length ? (
+                        cleanMapViewList.map((view, index) => (
                           <DropdownMenu.Item
                             key={index}
                             onClick={() => handleSelectMap(view, mapMode)}
                           >
-                            {view.name}
+                            {mapMode === 'districts'
+                              ? view.name
+                              : sanitizeCommunityModuleName(view.name)}
                           </DropdownMenu.Item>
                         ))
                       ) : (

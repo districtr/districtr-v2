@@ -2,6 +2,8 @@ import {colorScheme as DefaultColorScheme} from '@/app/constants/colors';
 import {type NullableZone, type Zone} from '@constants/map/zone';
 import {Community} from '@/app/utils/api/apiHandlers/types';
 import {extendColorArray} from '@/app/utils/colors';
+import type {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
+import {US_STATE_META} from '@/app/constants/meta/usStates';
 
 const fallbackCreatedAt = (index: number) => new Date(index * 1000).toISOString();
 const communityNameForIndex = (index: number) => `Community ${index + 1}`;
@@ -205,4 +207,48 @@ export const getPrimaryCommunityId = (
     }
   }
   return primary;
+};
+
+/**
+ * Sanitizes a community module name to just be the state.
+ *
+ * @param _moduleName string
+ * @returns string
+ */
+export const sanitizeCommunityModuleName: (
+  _moduleName: string | null | undefined
+) => string | null | undefined = _moduleName => {
+  if (!_moduleName) return _moduleName;
+  const moduleName = _moduleName.toLocaleLowerCase();
+  const stateMatch = US_STATE_META.find(({NAME, ABBR}) => {
+    if (moduleName.includes(NAME.toLocaleLowerCase())) return true;
+    const abbr = ABBR.toLocaleLowerCase();
+    const abbrPattern = new RegExp(`(^|\\s)${abbr}(\\s|$)`);
+    return abbrPattern.test(moduleName);
+  });
+  return stateMatch ? stateMatch.NAME : moduleName;
+};
+/**
+ * Sanitizes a list of maps for community mode.
+ * This function filters uniqueness based on the gerrydb table and then
+ * sanitizes the map name to just be the state.
+ *
+ * @param maps DistrictrMaps
+ * @returns DistrictrMap[]
+ */
+export const sanitizeCommunityMaps: (maps: Partial<DistrictrMap>[]) => DistrictrMap[] = maps => {
+  const sanitizedMaps: DistrictrMap[] = [];
+  const mapNameSet = new Set<string>();
+  maps.forEach(map => {
+    if (!map.name) return;
+    const sanitizedName = sanitizeCommunityModuleName(map.name);
+    if (sanitizedName && !mapNameSet.has(sanitizedName)) {
+      sanitizedMaps.push({
+        ...map,
+        name: sanitizedName,
+      } as DistrictrMap);
+      mapNameSet.add(sanitizedName);
+    }
+  });
+  return sanitizedMaps;
 };

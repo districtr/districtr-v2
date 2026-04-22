@@ -1,4 +1,5 @@
 import json as json_mod
+import re
 from uuid import uuid4
 from sqlalchemy import text, update, Table, MetaData, func
 from sqlalchemy import bindparam, Text
@@ -16,6 +17,15 @@ from app.core.config import settings
 metadata = MetaData()
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+
+_SAFE_IDENT_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+
+def _assert_safe_ident(name: str) -> str:
+    """Assert that `name` is safe to interpolate into a SQL identifier position."""
+    if not _SAFE_IDENT_RE.match(name):
+        raise ValueError(f"Unsafe SQL identifier: {name!r}")
+    return name
 
 
 def _quote_ident(name: str) -> str:
@@ -502,7 +512,9 @@ def update_or_select_district_stats(
             ).fetchall()
 
             if column_info:
-                demo_cols = [row.column_name for row in column_info]
+                demo_cols = [
+                    _assert_safe_ident(row.column_name) for row in column_info
+                ]
                 json_pairs = [f"'{col}', SUM(demo.{col})" for col in demo_cols]
                 demographic_json = f"json_build_object({', '.join(json_pairs)})"
 
@@ -550,10 +562,14 @@ def update_or_select_district_stats(
 
         # Compute and insert unassigned row (total from parent_layer minus assigned)
         if parent_layer and demographic_json:
-            # Build total demographics query from parent layer (no double counting)
+            safe_parent_layer = _assert_safe_ident(parent_layer)
+            # demo_cols is already validated via _assert_safe_ident above
             total_json_pairs = [f"'{col}', SUM({col})" for col in demo_cols]
             total_json = f"json_build_object({', '.join(total_json_pairs)})"
-            total_sql = f"SELECT {total_json} AS demographic_data FROM gerrydb.{parent_layer}"
+            total_sql = (
+                f"SELECT {total_json} AS demographic_data "
+                f"FROM gerrydb.{safe_parent_layer}"
+            )
             total_result = session.execute(text(total_sql)).mappings().first()
 
             if total_result and total_result["demographic_data"]:
@@ -566,10 +582,12 @@ def update_or_select_district_stats(
                         for col, val in row_data.demographic_data.items():
                             assigned_sum[col] = assigned_sum.get(col, 0) + val
 
-                # Unassigned = total - assigned
+                # Unassigned = total - assigned. Clamp at 0: for shatterable maps the
+                # parent-layer SUM can double-count vs. child-level assignments, which
+                # would otherwise surface as a negative "unassigned" bucket.
                 unassigned_demo: dict = {}
                 for col, val in total_demo.items():
-                    unassigned_demo[col] = val - assigned_sum.get(col, 0)
+                    unassigned_demo[col] = max(0, val - assigned_sum.get(col, 0))
 
                 # Insert the unassigned row
                 unassigned_insert = text("""

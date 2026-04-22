@@ -349,8 +349,15 @@ const EvaluationTableHeader: React.FC<EvaluationTableHeaderProps> = ({columnConf
 const EvaluationTableBody: React.FC<EvaluationTableBodyProps> = ({rows, ...props}) => {
   return (
     <Table.Body>
-      {rows.map((row, i) => (
-        <EvaluationTableRow key={i} {...props} row={row} />
+      {rows.map(row => (
+        <EvaluationTableRow
+          // Stable per-row key so React reconciles correctly when the rows
+          // array is re-ordered (e.g., universe/unassigned swap). Array-index
+          // keys would otherwise force re-mounts / miss updates.
+          key={typeof row.zone === 'number' ? row.zone : 'universe'}
+          {...props}
+          row={row}
+        />
       ))}
     </Table.Body>
   );
@@ -393,9 +400,9 @@ const EvaluationTableRow: React.FC<EvaluationTableRowProps> = ({
         {zoneName}
       </Table.Cell>
       {!!columnConfigs &&
-        columnConfigs.map((columnConfig, i) => (
+        columnConfigs.map(columnConfig => (
           <EvaluationTableCell
-            key={i}
+            key={columnConfig.column}
             row={row}
             evalMode={evalMode}
             columnConfig={columnConfig}

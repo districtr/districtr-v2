@@ -42,13 +42,14 @@ export const SaveConflictModal: React.FC = ({}) => {
     fetchServerMapDocument();
   }, [showSaveConflictModal]);
 
+  if (!showSaveConflictModal || !localMapDocument) return null;
+
   const conflict: SyncConflictInfo = {
-    localDocument: localMapDocument!,
+    localDocument: localMapDocument,
     localLastUpdated: localTimeUpdated,
     serverDocument: serverMapDocument!,
     serverLastUpdated: serverTimeUpdated!,
   };
-  if (!showSaveConflictModal) return null;
 
   return (
     <SyncConflictModal

@@ -1,6 +1,7 @@
 'use client';
 import type {MapGeoJSONFeature} from 'maplibre-gl';
 import type {MapRef} from 'react-map-gl/maplibre';
+import {exposeStoreToWindow} from './exposeToWindow';
 import {colorScheme as DefaultColorScheme} from '@constants/colors';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
 import type {MapFeatureInfo} from '@constants/map/mapEvents';
@@ -325,8 +326,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           focusedParentId ? {_parentIds: new Set<string>([focusedParentId])} : {},
           'state'
         );
-        temporalManager.resume(mapMode);
       }
+      // Resume the temporal recorder regardless of mode.
+      temporalManager.resume(mapMode);
     },
 
     getMapRef: () => undefined,
@@ -482,6 +484,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         captiveIds: new Set(),
         focusFeatures: [],
         mapLock: null,
+        // Fresh document load: drop any stale "unsaved changes" markers so the save
+        // indicator doesn't falsely flag a just-loaded doc as dirty.
+        updated: {metadata: false, comments: false},
         appLoadingState:
           mapDocument?.genesis === 'copied'
             ? APP_LOADING_STATES.LOADED
@@ -555,7 +560,11 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const {mapDocument, updated} = get();
       if (!mapDocument) return;
 
-      const trimmedText = (text ?? '').trim().slice(0, 240); // Max 240 chars
+      // Use the per-map comment_length_limit (set on DistrictrMap; falls back to the
+      // 240-char default via the backend). Hardcoding 240 here would silently truncate
+      // longer server-allowed descriptions on any map that raises the limit.
+      const limit = mapDocument.comment_length_limit ?? 240;
+      const trimmedText = (text ?? '').trim().slice(0, limit);
       const currentComments = mapDocument.document_comments || [];
       const existingIndex = currentComments.findIndex(c => c.zone === zone);
 
@@ -1242,3 +1251,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     setPassword: password => set({password}),
   })
 );
+
+// Expose for Playwright E2E (see app/e2e/utils/store-helpers.ts). Dev-only, no-op in prod.
+exposeStoreToWindow('mapStore', useMapStore);

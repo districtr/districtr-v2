@@ -15,7 +15,7 @@ import {
   Spinner,
 } from '@radix-ui/themes';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
-import {currMapRoute} from '@/app/utils/map/mapUrlRoute';
+import {routeManager} from '@/app/utils/map/mapUrlRoute';
 import {MAP_ROUTES} from '@constants/document/routes';
 import {MAP_TYPES} from '@constants/document/types';
 
@@ -24,8 +24,8 @@ export const Uploader: React.FC<{
   redirect?: boolean;
   onFinish?: () => void;
 }> = ({newTab, redirect, onFinish}) => {
-  const isCoiRoute = currMapRoute === MAP_ROUTES.COI;
-  const routePrefix = currMapRoute;
+  const routePrefix = routeManager.mapUrlRoute;
+  const isCoiRoute = routePrefix === MAP_ROUTES.COI;
   const documentMapType = isCoiRoute ? MAP_TYPES.COMMUNITY : MAP_TYPES.DEFAULT;
   const [mapLinks, setMapLinks] = useState<MapLink[]>([]);
   const [error, setError] = useState<any>(undefined);

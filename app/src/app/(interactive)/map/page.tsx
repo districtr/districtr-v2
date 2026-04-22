@@ -4,7 +4,7 @@ import MapPage from '@/app/components/MapPage/MapPage';
 import {API_URL} from '@/app/utils/api/constants';
 import {redirect} from 'next/navigation';
 import {generateMapPageMetadata} from '@/app/utils/metadata/pageMetadataUtils';
-import {currMapRoute} from '@/app/utils/map/mapUrlRoute';
+import {routeManager} from '@/app/utils/map/mapUrlRoute';
 
 export const generateMetadata = generateMapPageMetadata;
 
@@ -16,7 +16,7 @@ export default async function Map({
   const params = await searchParams;
   // if params.document_id is not undefined, redirect to edit/{document_id}
   if (params.document_id) {
-    return redirect(`/${currMapRoute}/edit/${params.document_id}`);
+    return redirect(`/${routeManager.mapUrlRoute}/edit/${params.document_id}`);
   }
 
   return <MapPage isEditing={false} mapId="" />;

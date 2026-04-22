@@ -165,7 +165,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
             <Select.Content>
               {orderedCommunities.map(community => (
                 <Select.Item key={community.id} value={String(community.id)}>
-                  {community.render_order_id}. {community.name}
+                  {community.name}
                 </Select.Item>
               ))}
             </Select.Content>

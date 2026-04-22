@@ -1,3 +1,37 @@
+## v2.2.1
+
+**April 2026**
+
+**New features**
+
+- Community of Interest (COI) mapping mode
+- Coalition builder allows users to view stats about combined demographic groups
+- Per-district descriptions and comments on draft plans
+- Public read-only views for shared plans
+
+**Reliability and bug fixes**
+
+- Fixed various data integrity edge cases 
+- Cleaned up moderation pipeline and implementation for comments
+
+**UI polish**
+
+- Save and Revert no longer appear on public views
+- Public plan loads now show a spinner instead of a blank map
+- Improved accessibility for geocode search (keyboard nav, ARIA)
+- Streamlined community-mode UI, create map list dropdown, and display-name editing
+
+**Performance**
+
+- Demography updates guard against race conditions on rapid navigation
+- Removed duplicate assignment inserts on no-op saves
+
+**Developer and ops**
+
+- Playwright E2E testing harness and VS Code dev containers
+- Pinned dev Docker images, Sentry, and Fly deploy actions
+- Comment-length and count CLI flags now flow through correctly
+
 ## v2.2.0
 
 **January 14, 2026**

@@ -4,13 +4,21 @@ import {defineConfig, devices} from '@playwright/test';
  * Playwright E2E Test Configuration for Districtr v2
  *
  * Supports multiple environments via BASE_URL environment variable:
- * - Local: BASE_URL=http://localhost:3000 (default)
- * - Preview: BASE_URL=https://districtr-v2-pr-123.fly.dev
+ * - Local prod preview (default): BASE_URL=http://localhost:3001
+ *   (matches the `frontend-prod` service in docker-compose.yml)
+ * - Preview deploy: BASE_URL=https://districtr-v2-pr-123.fly.dev
  * - Staging: BASE_URL=https://staging.districtr.org
+ *
+ * NOTE: the dev `frontend` service (port 3000) is HMR-noisy and not suitable
+ * for E2E testing. `frontend-prod` on port 3001 is the default target so both
+ * can run side-by-side without a host-port collision.
  */
 
-const baseURL = process.env.BASE_URL || 'http://localhost:3000';
-const isLocal = baseURL.includes('localhost') || baseURL.includes('frontend:3000');
+const baseURL = process.env.BASE_URL || 'http://localhost:3001';
+const isLocal =
+  baseURL.includes('localhost') ||
+  baseURL.includes('frontend:3000') ||
+  baseURL.includes('frontend-prod:3000');
 
 export default defineConfig({
   testDir: './e2e/tests',
