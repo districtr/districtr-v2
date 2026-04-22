@@ -247,10 +247,10 @@ export const PopulationPanel = () => {
             <br />
             {allPainted &&
             zoneStats?.range !== undefined &&
-            idealPopulation !== undefined &&
-            idealPopulation !== 0 ? (
+            zoneStats?.maxPopulation !== undefined &&
+            zoneStats?.maxPopulation !== 0 ? (
               <>
-                <b>{formatNumber(zoneStats.range / idealPopulation, 'percent')}</b> (
+                <b>{formatNumber(zoneStats.range / zoneStats?.maxPopulation, 'percent')}</b> (
                 {formatNumber(zoneStats.range || 0, 'string')})
               </>
             ) : (
