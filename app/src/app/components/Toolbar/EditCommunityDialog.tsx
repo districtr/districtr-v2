@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {CheckIcon, ChevronDownIcon} from '@radix-ui/react-icons';
 import {
   Box,
@@ -77,13 +77,14 @@ export const EditCommunityDialog: React.FC<EditCommunityDialogProps> = ({
   // Unicode format chars removed). Surface inline errors for empty-after-sanitize
   // or too-long values.
   const nameValidation = validateCommunityName(communityName);
-  const nameHint = nameValidation.empty
-    ? 'Community name cannot be empty.'
-    : nameValidation.tooLong
-      ? `Name must be ${communityNameLengthLimit} characters or fewer (after cleanup).`
-      : nameValidation.wasModified
-        ? `Will be saved as "${nameValidation.sanitized}".`
-        : null;
+  const nameHint = useMemo(() => {
+    if (!nameValidation) return null;
+    if (nameValidation.empty) return 'Community name cannot be empty.';
+    if (nameValidation.tooLong)
+      return `Name must be ${communityNameLengthLimit} characters or fewer (after cleanup).`;
+    if (nameValidation.wasModified) return `Will be saved as "${nameValidation.sanitized}".`;
+    return null;
+  }, [nameValidation]);
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
