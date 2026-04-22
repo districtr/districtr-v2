@@ -10,6 +10,7 @@ import {MAP_MODE_DEFAULT_OPTIONS, type MapMode} from '@/app/constants/map/mapMod
 import {useMapStore} from './mapStore';
 import {PaintEventHandler} from '@utils/map/types';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
+import {exposeStoreToWindow as _exposeControlsStore} from './exposeToWindow';
 
 type SidebarPanel =
   | 'layers'
@@ -157,5 +158,4 @@ export const useMapControlsStore = create<MapControlsStore>()(
   }))
 );
 
-import {exposeStoreToWindow as _exposeControlsStore} from './exposeToWindow';
 _exposeControlsStore('mapControlsStore', useMapControlsStore);
