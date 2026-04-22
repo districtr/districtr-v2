@@ -6,7 +6,6 @@ from fastapi import (
     Query,
 )
 from typing import Annotated
-import re
 import botocore.exceptions
 from sqlalchemy.exc import (
     MultipleResultsFound,
@@ -22,7 +21,7 @@ import logging
 from sqlalchemy import bindparam
 from sqlmodel import ARRAY
 from datetime import datetime
-from uuid import uuid4
+from uuid import UUID, uuid4
 import sentry_sdk
 from app.assignments import (
     duplicate_document_assignments,
@@ -148,8 +147,6 @@ def update_timestamp(
 
 
 _PARTITION_TABLES = ("assignments", "community_assignments")
-# TODO: Can we use UUID library validation or check for ways to narrow the regex?
-_UUID_RE = re.compile(r"^[0-9a-fA-F-]{36}$")
 
 
 def _validate_partition_identifiers(document_id: str, table_name: str) -> None:
@@ -158,8 +155,10 @@ def _validate_partition_identifiers(document_id: str, table_name: str) -> None:
             f"Unsupported partition table: {table_name!r}. "
             f"Expected one of {_PARTITION_TABLES}."
         )
-    if not _UUID_RE.match(document_id):
-        raise ValueError(f"document_id must be a UUID; got {document_id!r}")
+    try:
+        UUID(document_id)
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise ValueError(f"document_id must be a UUID; got {document_id!r}") from exc
 
 
 def create_document_partition(
@@ -353,10 +352,7 @@ async def create_document(
     # Reject copying across map_type boundaries: source and target must match, otherwise
     # assignments can't be carried over (community_assignments and assignments have
     # different shapes) and the copy would silently produce an empty doc.
-    if (
-        copied_document is not None
-        and copied_document.map_type != document_map_type
-    ):
+    if copied_document is not None and copied_document.map_type != document_map_type:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
@@ -653,8 +649,8 @@ async def update_assignments(
             f"num_communities={data.metadata.num_communities if data.metadata else None}"
         )
 
-    # Validate community payload (name sanitization, length, comment coverage)
-    # before any mutations. Returns normalized metadata list if provided, else None.
+    # Validate community payload (name sanitization, length) before any mutations.
+    # Returns normalized metadata list if provided, else None.
     validated_community_metadata = None
     if is_community_map:
         if VERBOSE_LOGGING:
@@ -663,10 +659,7 @@ async def update_assignments(
                 f"incoming_comments={comment_dicts}"
             )
         validated_community_metadata = _validate_community_save_payload(
-            document_id=document_id,
             metadata=data.metadata,
-            incoming_comments=comment_dicts,
-            session=session,
         )
         if VERBOSE_LOGGING:
             logger.info(
@@ -747,7 +740,10 @@ async def update_assignments(
                 zone_val = assignment[1] if len(assignment) > 1 else None
                 if is_community_map and zone_val is None:
                     zone_val = 0
-                if valid_community_ids is not None and zone_val not in valid_community_ids:
+                if (
+                    valid_community_ids is not None
+                    and zone_val not in valid_community_ids
+                ):
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=(
