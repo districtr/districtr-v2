@@ -198,10 +198,6 @@ export var useDemographyStore = create(
         return;
       }
 
-      // District public views load aggregated zone stats via PublicSource and
-      // only need parquet data for the optional choropleth overlay. Community
-      // public views have no aggregated stats path, so they reuse the same
-      // editor data flow (full summary stats + available columns).
       const isCommunityPublic =
         mapDocument.access === 'read' && mapDocument.map_type === 'community';
       if (mapDocument.access === 'read' && !isCommunityPublic) {

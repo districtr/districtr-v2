@@ -30,9 +30,6 @@ export const initSubs = (readOnly = false) => {
     state => state.mapDocument,
     (curr, prev) => {
       if (!curr || prev === curr || prev?.document_id === curr.document_id) return;
-      // District public views load aggregated zone stats via PublicSource.
-      // Community public views have no aggregated stats path, so they fall
-      // through to the editor data flow (parquet + full summary stats).
       if (curr.access === 'read' && curr.map_type !== 'community') return;
       useDemographyStore.getState().restoreCoalition(curr);
       useDemographyStore.getState().updateData(curr);
