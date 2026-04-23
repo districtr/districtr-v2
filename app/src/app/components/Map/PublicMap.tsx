@@ -21,12 +21,13 @@ import {PublicDistrictLayers} from './PolygonLayers/PublicDistrictLayers';
 import {BlockDemographicLayers} from './PolygonLayers/BlockDemographicLayers';
 import {BlockSource} from './GeoSources/BlockSource';
 import type {FilterSpecification} from 'maplibre-gl';
+import {RENDERER_TYPES} from '@constants/map/rendererType';
 
 export const PublicMap: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const setMapRef = useMapStore(state => state.setMapRef);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
-  const {mapRef, onLoad} = useMapRenderer('main', true);
+  const {mapRef, onLoad} = useMapRenderer(RENDERER_TYPES.MAIN, true);
   const hasDemographicOverlay =
     useMapControlsStore(state => state.mapOptions.demographicDisplayMode) === 'overlay';
 
