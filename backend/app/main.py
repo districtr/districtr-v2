@@ -43,6 +43,10 @@ import app.cms.main as cms
 import app.comments.main as comments
 from app.comments.main import sync_district_comments, sync_community_comments
 from app.comments.models import DistrictCommentInput
+from app.comments.settings import (
+    DEFAULT_MAX_COMMENT_LENGTH,
+    DEFAULT_MAX_COMMENTS_PER_DISTRICT,
+)
 import app.contiguity.main as contiguity
 import app.save_share.main as save_share
 import app.thumbnails.main as thumbnails
@@ -506,6 +510,12 @@ async def create_document(
             col(Document.document_type).label("document_type"),
             col(DistrictrMap.statefps).label("statefps"),
             literal(MAX_COMMUNITY_NAME_LENGTH).label("community_name_length_limit"),
+            coalesce(
+                col(DistrictrMap.comment_length_limit), DEFAULT_MAX_COMMENT_LENGTH
+            ).label("comment_length_limit"),
+            coalesce(
+                col(DistrictrMap.comment_count_limit), DEFAULT_MAX_COMMENTS_PER_DISTRICT
+            ).label("comment_count_limit"),
             coalesce(total_assignments).label("inserted_assignments"),
             col(Document.map_metadata),
         )
