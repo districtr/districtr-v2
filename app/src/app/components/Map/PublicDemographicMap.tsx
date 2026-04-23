@@ -19,6 +19,7 @@ import {BlockDemographicLayers} from './PolygonLayers/BlockDemographicLayers';
 import {MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';
 import {BlockSource} from './GeoSources/BlockSource';
+import {RENDERER_TYPES} from '@constants/map/rendererType';
 
 export const PublicDemographicMap: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -26,7 +27,7 @@ export const PublicDemographicMap: React.FC = () => {
   const childLayerFilter = useLayerFilter(true);
   const getStateMapRef = useMapStore(state => state.getMapRef);
   const synced = useRef<false | (() => void)>(false);
-  const {mapRef, onLoad} = useMapRenderer('demographic', true);
+  const {mapRef, onLoad} = useMapRenderer(RENDERER_TYPES.DEMOGRAPHIC, true);
 
   const initialViewState = useMemo(() => {
     const mainMapRef = getStateMapRef();

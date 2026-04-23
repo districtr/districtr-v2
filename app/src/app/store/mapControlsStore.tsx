@@ -71,7 +71,7 @@ export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
   showPopulationTooltip: false,
   showBlockPopulationNumbers: false,
   showPopulationNumbers: false,
-  showDemographicMap: undefined,
+  demographicDisplayMode: undefined,
   overlayOpacity: OVERLAY_OPACITY,
   basemap: MAP_MODE_DEFAULT_OPTIONS.districts.basemap,
 };

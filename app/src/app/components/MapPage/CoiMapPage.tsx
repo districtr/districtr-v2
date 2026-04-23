@@ -21,6 +21,7 @@ import {migrateUserMapsFromLocalStorage} from '@/app/utils/idb/migrateUserMaps';
 import {DemographicMap} from '../Map/DemographicMap';
 import {useInitializeMapMode} from '@/app/hooks/useInitializeMapMode';
 import {MAP_MODES} from '@constants/map/mode';
+import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 
 interface CoiMapPageProps {
   isEditing: boolean;
@@ -30,7 +31,7 @@ interface CoiMapPageProps {
 const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => {
   const isMapModeReady = useInitializeMapMode(MAP_MODES.COI);
   const showDemographicMap = useMapControlsStore(
-    state => state.mapOptions.showDemographicMap === 'side-by-side'
+    state => state.mapOptions.demographicDisplayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE
   );
   const setIsEditing = useMapControlsStore(state => state.setIsEditing);
   const toolbarLocation = useToolbarStore(state => state.toolbarLocation);

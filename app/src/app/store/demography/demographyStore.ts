@@ -163,7 +163,7 @@ export var useDemographyStore = create(
       });
     },
     unmount: () => {
-      const isSwappingMode = useMapControlsStore.getState().mapOptions.showDemographicMap;
+      const isSwappingMode = useMapControlsStore.getState().mapOptions.demographicDisplayMode;
       const currScale = get().scale;
       set({
         getMapRef: () => undefined,

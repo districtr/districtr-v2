@@ -28,7 +28,7 @@ export const PublicMap: React.FC = () => {
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const {mapRef, onLoad} = useMapRenderer('main', true);
   const hasDemographicOverlay =
-    useMapControlsStore(state => state.mapOptions.showDemographicMap) === 'overlay';
+    useMapControlsStore(state => state.mapOptions.demographicDisplayMode) === 'overlay';
 
   const initialViewState = useMemo(() => {
     const center = MAP_OPTIONS.center as [number, number];

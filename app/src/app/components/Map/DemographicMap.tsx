@@ -22,6 +22,7 @@ import {MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';
 import {useAnchorLayersReady} from '@/app/hooks/useAnchorLayersReady';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {RENDERER_TYPES} from '@constants/map/rendererType';
 
 export const DemographicMap: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -29,7 +30,7 @@ export const DemographicMap: React.FC = () => {
   const childLayerFilter = useLayerFilter(true);
   const getStateMapRef = useMapStore(state => state.getMapRef);
   const synced = useRef<false | (() => void)>(false);
-  const {mapRef, onLoad} = useMapRenderer('demographic');
+  const {mapRef, onLoad} = useMapRenderer(RENDERER_TYPES.DEMOGRAPHIC);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
   const basemap = useMapControlsStore(state => state.mapOptions.basemap);
   const areAnchorLayersReady = useAnchorLayersReady(mapRef, isMapLoaded, basemap);

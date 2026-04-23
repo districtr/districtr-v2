@@ -54,6 +54,7 @@ import {
 import {compareCoiZonesByRenderOrder, sortCommunitiesByRenderOrder} from '../communities';
 import {MAP_MODES} from '@constants/map/mode';
 import {type NullableZone} from '@constants/map/zone';
+import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 
 type MapVariableConfig = {
   value: string;
@@ -645,9 +646,11 @@ class DemographyService {
       const uniqueQuantiles = Array.from(new Set(quantiles.quantilesList));
       const actualBinsLength = Math.min(numberOfBins, uniqueQuantiles.length + 1);
 
-      const mapMode = useMapControlsStore.getState().mapOptions.showDemographicMap;
+      const displayMode = useMapControlsStore.getState().mapOptions.demographicDisplayMode;
       const defaultColor =
-        mapMode === 'side-by-side' ? DEFAULT_COLOR_SCHEME : DEFAULT_COLOR_SCHEME_GRAY;
+        displayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE
+          ? DEFAULT_COLOR_SCHEME
+          : DEFAULT_COLOR_SCHEME_GRAY;
       let colorscheme = defaultColor[Math.max(3, actualBinsLength)];
 
       if (actualBinsLength < 3) {

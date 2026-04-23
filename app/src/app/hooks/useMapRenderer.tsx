@@ -6,8 +6,9 @@ import {useDemographyStore} from '../store/demography/demographyStore';
 import {useVisibilityState} from './useVisibilityState';
 import {useMapControlsStore} from '../store/mapControlsStore';
 import {useAssignmentsStore} from '../store/assignmentsStore';
+import {RENDERER_TYPES, type RendererType} from '@constants/map/rendererType';
 
-export const useMapRenderer = (mapType: 'demographic' | 'main' = 'main', readOnly = false) => {
+export const useMapRenderer = (mapType: RendererType = RENDERER_TYPES.MAIN, readOnly = false) => {
   const mapRef = useRef<MapRef | null>(null);
   const renderer = useRef<MapRenderSubscriber | null>(null);
   const {isVisible} = useVisibilityState();

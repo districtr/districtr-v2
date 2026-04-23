@@ -21,6 +21,7 @@ import {BlockLayers} from './PolygonLayers/BlockLayers';
 import {MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';
 import {useAnchorLayersReady} from '@/app/hooks/useAnchorLayersReady';
+import {RENDERER_TYPES} from '@constants/map/rendererType';
 
 export const MainMap: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -28,7 +29,7 @@ export const MainMap: React.FC = () => {
   const childLayerFilter = useLayerFilter(true);
   const setMapRef = useMapStore(state => state.setMapRef);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
-  const {mapRef, onLoad} = useMapRenderer('main');
+  const {mapRef, onLoad} = useMapRenderer(RENDERER_TYPES.MAIN);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
   const areAnchorLayersReady = useAnchorLayersReady(mapRef, isMapLoaded, mapOptions.basemap);
 

@@ -10,7 +10,8 @@ export const HoverLayerGroup: React.FC<{
   filter: FilterSpecification;
   layerBeforeId: string;
 }> = ({idBase, sourceLayerId, filter, layerBeforeId}) => {
-  const isOverlay = useMapControlsStore(state => state.mapOptions.showDemographicMap) === 'overlay';
+  const isOverlay =
+    useMapControlsStore(state => state.mapOptions.demographicDisplayMode) === 'overlay';
   const fillOpacity = isOverlay ? 0.3 : 0.1;
   const {fillId, lineId} = getHoverLayerIds(idBase);
 

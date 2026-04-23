@@ -2,6 +2,7 @@ import {Page} from '@playwright/test';
 import type {ActiveTool} from '@constants/map/tools';
 import {ACCESS_STATES, AccessState, type AppLoadingState} from '@constants/document/state';
 import {type RenderingState} from '@constants/map/renderingState';
+import {type DemographicMode} from '@constants/map/demographicMode';
 
 /**
  * Zustand Store Testing Utilities
@@ -48,7 +49,7 @@ export interface MapControlsStoreState {
   brushSize: number;
   mapOptions: {
     showPopulationTooltip: boolean;
-    showDemographicMap?: 'side-by-side' | 'overlay';
+    showDemographicMap?: DemographicMode;
     lockPaintedAreas: (number | null)[];
     mode: 'default' | 'break';
     bounds?: [number, number, number, number];

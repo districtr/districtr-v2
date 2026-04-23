@@ -38,6 +38,7 @@ import {COALITION_VARIABLE_BY_UNIVERSE, DemographyVariable} from '@constants/dem
 import {getCoalitionLabel, getSelectedCoalitionColumns} from '@/app/utils/demography/coalition';
 import {MAP_MODES} from '@constants/map/mode';
 import {NUMBER_FORMATS} from '@constants/demography/format';
+import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 
 type MapPanelProps = {
   columnGroup: keyof typeof choroplethMapVariables;
@@ -46,7 +47,7 @@ type MapPanelProps = {
 
 const mapDisplayModes: Array<{
   label: string;
-  value: MapControlsStore['mapOptions']['showDemographicMap'];
+  value: MapControlsStore['mapOptions']['demographicDisplayMode'];
   icon?: React.ReactNode;
 }> = [
   {
@@ -55,12 +56,12 @@ const mapDisplayModes: Array<{
   },
   {
     label: 'Comparison',
-    value: 'side-by-side',
+    value: DEMOGRAPHIC_MODES.SIDE_BY_SIDE,
     icon: <ViewVerticalIcon />,
   },
   {
     label: 'Overlay',
-    value: 'overlay',
+    value: DEMOGRAPHIC_MODES.OVERLAY,
     icon: <ShadowInnerIcon />,
   },
 ];
@@ -88,11 +89,13 @@ const getOpacityStates = (
 ];
 
 export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
-  const demographicMapMode = useMapControlsStore(state => state.mapOptions.showDemographicMap);
+  const demographicDisplayMode = useMapControlsStore(
+    state => state.mapOptions.demographicDisplayMode
+  );
   const mapMode = useMapControlsStore(state => state.mapMode);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
-  const isOverlay = demographicMapMode === 'overlay';
+  const isOverlay = demographicDisplayMode === DEMOGRAPHIC_MODES.OVERLAY;
 
   const variable = useDemographyStore(state => state.variable);
   const variant = useDemographyStore(state => state.variant);
@@ -134,8 +137,8 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   }, [availableMapVariables, columnGroup, coalitionOption]);
   const mapVariableConfig = currentVariableList.find(f => f.value === variable);
 
-  const handleSetMapMode = (newMode: MapControlsStore['mapOptions']['showDemographicMap']) => {
-    setMapOptions({showDemographicMap: newMode});
+  const handleSetMapMode = (newMode: MapControlsStore['mapOptions']['demographicDisplayMode']) => {
+    setMapOptions({demographicDisplayMode: newMode});
     if (!mapVariableConfig && currentVariableList.length) {
       setVariable(currentVariableList[0].value);
     }
@@ -158,7 +161,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
     // add a listener for option or alt key press and release
     const handleKeyPress = (event: KeyboardEvent) => {
       const {mapOptions, setMapOptions} = useMapControlsStore.getState();
-      const isOverlayMode = mapOptions.showDemographicMap === 'overlay';
+      const isOverlayMode = mapOptions.demographicDisplayMode === DEMOGRAPHIC_MODES.OVERLAY;
       const activeElement = document.activeElement;
       // if active element is an input, don't do anything
       if (
@@ -204,7 +207,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
         {mapDisplayModes.map((option, i) => (
           <Button
             key={i}
-            variant={demographicMapMode === option.value ? 'solid' : 'outline'}
+            variant={demographicDisplayMode === option.value ? 'solid' : 'outline'}
             onClick={() => handleSetMapMode(option.value)}
           >
             {!!option.icon && option.icon}
@@ -212,7 +215,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
           </Button>
         ))}
       </Flex>
-      {demographicMapMode !== undefined && (
+      {demographicDisplayMode !== undefined && (
         <>
           <Flex direction="column" pt="2">
             <Flex direction="row" gap="3" align="start" py="2" wrap="wrap">
@@ -284,7 +287,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                           </Flex>
                         )}
 
-                        {demographicMapMode === 'overlay' && (
+                        {demographicDisplayMode === DEMOGRAPHIC_MODES.OVERLAY && (
                           <Flex direction="column" gapY="1">
                             <Flex direction="row" gapX="1" align="center">
                               <Text>Overlay mode</Text>
@@ -377,7 +380,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
               </Flex>
             </Flex>
           ) : null}
-          {!!mapVariableConfig && demographicMapMode === 'side-by-side' && (
+          {!!mapVariableConfig && demographicDisplayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE && (
             <Text size="2" align="center">
               Gray = zero population
             </Text>

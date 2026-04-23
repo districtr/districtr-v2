@@ -22,7 +22,7 @@ export const initSubs = (readOnly = false) => {
       if (!mapRef) return;
       const {mapDocument} = useMapStore.getState();
       const {mapOptions} = useMapControlsStore.getState();
-      if (mapOptions.showDemographicMap) {
+      if (mapOptions.demographicDisplayMode) {
         useDemographyStore.getState().updateData(mapDocument);
       }
     }
@@ -112,7 +112,7 @@ export const initSubs = (readOnly = false) => {
     // Fetch VTD data for overlay choropleth when demographic map is enabled
     readOnlyUnsubs.push(
       useMapControlsStore.subscribe(
-        state => state.mapOptions.showDemographicMap,
+        state => state.mapOptions.demographicDisplayMode,
         showDemographic => {
           if (!showDemographic) return;
           const {mapDocument} = useMapStore.getState();

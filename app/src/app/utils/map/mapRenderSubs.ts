@@ -24,6 +24,7 @@ import GeometryWorker from '../GeometryWorker';
 import {MAP_MODES} from '@constants/map/mode';
 import {APP_LOADING_STATES} from '@constants/document/state';
 import {RENDERING_STATES} from '@constants/map/renderingState';
+import {RENDERER_TYPES, type RendererType} from '@constants/map/rendererType';
 
 /**
  * A class that manages the rendering of the map based on the state of the map store.
@@ -32,7 +33,7 @@ import {RENDERING_STATES} from '@constants/map/renderingState';
  */
 export class MapRenderSubscriber {
   mapRef: maplibregl.Map;
-  mapType: 'demographic' | 'main' = 'main';
+  mapType: RendererType = RENDERER_TYPES.MAIN;
   readOnly: boolean;
   useMapStore: typeof _useMapStore;
   useDemographyStore: typeof _useDemographyStore;
@@ -54,7 +55,7 @@ export class MapRenderSubscriber {
 
   constructor(
     mapRef: maplibregl.Map,
-    mapType: 'demographic' | 'main' = 'main',
+    mapType: RendererType = RENDERER_TYPES.MAIN,
     useMapStore: typeof _useMapStore = _useMapStore,
     useDemographyStore: typeof _useDemographyStore = _useDemographyStore,
     useMapControlsStore: typeof _useMapControlsStore = _useMapControlsStore,
@@ -185,7 +186,7 @@ export class MapRenderSubscriber {
       }
     });
 
-    const isDemographic = this.mapType === 'demographic';
+    const isDemographic = this.mapType === RENDERER_TYPES.DEMOGRAPHIC;
 
     if (isDemographic) return;
     [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
@@ -279,7 +280,7 @@ export class MapRenderSubscriber {
   }
   applyHoverLayerOpacityFinalPass(
     captiveIds: Set<string>,
-    showDemographicMap: MapControlsStore['mapOptions']['showDemographicMap']
+    showDemographicMap: MapControlsStore['mapOptions']['demographicDisplayMode']
   ) {
     // Keep hover-layer opacity aligned with focus/break mode and overlay mode.
     // Color rendering can run independently of focus updates, so we re-assert this here.
@@ -468,7 +469,7 @@ export class MapRenderSubscriber {
 
     this.applyHoverLayerOpacityFinalPass(
       mapState.captiveIds,
-      controlsState.mapOptions.showDemographicMap
+      controlsState.mapOptions.demographicDisplayMode
     );
     this.updatePreviousCommunitySnapshot(newAssignmentsByGeoid, shatterIds);
   }
@@ -523,7 +524,7 @@ export class MapRenderSubscriber {
 
     this.applyHoverLayerOpacityFinalPass(
       mapState.captiveIds,
-      controlsState.mapOptions.showDemographicMap
+      controlsState.mapOptions.demographicDisplayMode
     );
   }
   subscribeColorZones() {
@@ -540,7 +541,7 @@ export class MapRenderSubscriber {
           state.mapMode,
           state.mapOptions.lockPaintedAreas,
           state.mapOptions.showZoneNumbers,
-          state.mapOptions.showDemographicMap,
+          state.mapOptions.demographicDisplayMode,
           state.isPainting,
         ],
         () => this.renderColorZones(),
@@ -597,7 +598,8 @@ export class MapRenderSubscriber {
     const demographyState = this.useDemographyStore.getState();
 
     const demographyEnabled =
-      this.mapType === 'demographic' || controlsState.mapOptions.showDemographicMap === 'overlay';
+      this.mapType === RENDERER_TYPES.DEMOGRAPHIC ||
+      controlsState.mapOptions.demographicDisplayMode === 'overlay';
     if (!demographyEnabled || !mapState.mapDocument) return;
 
     const mapScale = demographyService.calculateDemographyColorScale({
@@ -623,7 +625,7 @@ export class MapRenderSubscriber {
     );
     this.controlSubscriptions.push(
       this.useMapControlsStore.subscribe(
-        state => state.mapOptions.showDemographicMap,
+        state => state.mapOptions.demographicDisplayMode,
         () => this.renderDemographyColors()
       )
     );
@@ -772,7 +774,7 @@ export class MapRenderSubscriber {
       this.renderCursor(controlsState.activeTool);
     }
     this.renderFocus(mapState.focusFeatures);
-    if (!this.readOnly && this.mapType === 'main') {
+    if (!this.readOnly && this.mapType === RENDERER_TYPES.MAIN) {
       this.renderColorZones();
     }
     this.renderDemographyColors();
@@ -785,7 +787,7 @@ export class MapRenderSubscriber {
     this.subscribeBasemap();
     this.subscribeFocus();
     this.subscribeDemographyColors();
-    if (!this.readOnly && this.mapType === 'main') {
+    if (!this.readOnly && this.mapType === RENDERER_TYPES.MAIN) {
       this.subscribeColorZones();
     }
     this.render();

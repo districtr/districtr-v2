@@ -9,6 +9,7 @@ import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 import {ColorChangeModal} from './ColorChangeModal';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {ACCESS_STATES} from '@constants/document/state';
+import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 
 const TOOLBAR_SIZES: Array<{label: string; value: number}> = [
   {
@@ -68,7 +69,9 @@ export const ToolSettings: React.FC = () => {
             (mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS)
               ? 'lockAll'
               : '',
-            mapOptions.showDemographicMap === 'side-by-side' ? 'showDemographicMap' : '',
+            mapOptions.demographicDisplayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE
+              ? 'showDemographicMap'
+              : '',
             mapOptions.showCountyBoundaries === true ? 'showCountyBoundaries' : '',
             mapOptions.showZoneNumbers === true ? 'showZoneNumbers' : '',
             parentsAreBroken && mapOptions.highlightBrokenDistricts === true
