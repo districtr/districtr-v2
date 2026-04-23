@@ -404,10 +404,6 @@ async def create_document(
     create_document_partition(session, document_id, "assignments")
     create_document_partition(session, document_id, "community_assignments")
 
-    created_document = get_document(
-        document_id=DocumentID(document_id=document_id), session=session
-    )
-
     total_assignments = 0
 
     if copied_document is not None:
