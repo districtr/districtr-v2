@@ -20,6 +20,7 @@ import {
 import {COALITION_UNIVERSES, SUMMARY_TYPES} from '@constants/demography/summary';
 import {MAP_MODES} from '@constants/map/mode';
 import {ACCESS_STATES} from '@constants/document/state';
+import {MAP_TYPES} from '@constants/document/types';
 
 let coalitionHydrationRequestId = 0;
 let coalitionVersion = 0;
@@ -201,7 +202,9 @@ export var useDemographyStore = create(
         return;
       }
 
-      if (mapDocument.access === ACCESS_STATES.READ) {
+      const isCommunityPublic =
+        mapDocument.access === ACCESS_STATES.READ && mapDocument.map_type === MAP_TYPES.COMMUNITY;
+      if (mapDocument.access === ACCESS_STATES.READ && !isCommunityPublic) {
         demographyService.updateOverlay(result.columns, result.results, dataHash);
       } else {
         demographyService.update(result.columns, result.results, dataHash, get().coalitionGroups);

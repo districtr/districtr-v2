@@ -97,7 +97,8 @@ export interface AssignmentsStore {
   handleRevert: (mapDocument: DocumentObject) => Promise<void>;
   handlePutAssignmentsConflict: (
     resolution: SyncConflictResolution,
-    conflict: SyncConflictInfo
+    conflict: SyncConflictInfo,
+    options?: Pick<ConflictResolutionOptions, 'onNavigate' | 'onComplete'>
   ) => void;
   /** Unified conflict resolution method that handles both save and load conflicts */
   resolveConflict: (
@@ -280,14 +281,29 @@ const resolveFork = async ({
 }: ConflictDependencies) => {
   setMapLock({isLocked: true, reason: 'Creating a new plan from local changes.'});
   try {
-    const createMapDocumentResponse = await createMapDocument(syncConflictInfo.serverDocument);
+    const createMapDocumentResponse = await createMapDocument({
+      districtr_map_slug: syncConflictInfo.serverDocument.districtr_map_slug,
+      map_type: syncConflictInfo.serverDocument.map_type,
+      copy_from_doc: syncConflictInfo.serverDocument.document_id,
+    });
     if (!createMapDocumentResponse.ok) {
       throw new DocumentCreationError('Failed to create map document from assignments on server');
     }
-    setMapDocument(createMapDocumentResponse.response);
+    // Carry over any local comments (saved or in-flight) onto the new doc so the
+    // fork reflects the user's latest state. comment_ids are stripped because the
+    // server just duplicated comments onto the new doc with fresh ids.
+    const localComments = (syncConflictInfo.localDocument.document_comments || []).map(c => ({
+      zone: c.zone,
+      text: c.text,
+    }));
+    const newDocWithLocalComments = {
+      ...createMapDocumentResponse.response,
+      document_comments: localComments,
+    };
+    setMapDocument(newDocWithLocalComments);
     const data = await loadLocalAssignments(syncConflictInfo.localDocument.document_id);
     const response = await putUpdateAssignmentsAndVerify({
-      mapDocument: createMapDocumentResponse.response,
+      mapDocument: newDocWithLocalComments,
       zoneAssignments: data.zoneAssignments,
       shatterIds: data.shatterIds,
       childToParent: data.childToParent,
@@ -299,7 +315,7 @@ const resolveFork = async ({
       );
     }
     const updatedDocument = {
-      ...createMapDocumentResponse.response,
+      ...newDocWithLocalComments,
       updated_at: response.response.updated_at,
     };
     setMapDocument(updatedDocument);
@@ -901,10 +917,12 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
   },
   handlePutAssignmentsConflict: async (
     resolution: SyncConflictResolution,
-    syncConflictInfo: SyncConflictInfo
+    syncConflictInfo: SyncConflictInfo,
+    options: Pick<ConflictResolutionOptions, 'onNavigate' | 'onComplete'> = {}
   ) => {
     await get().resolveConflict(resolution, syncConflictInfo, {
       context: ConflictContext.Save,
+      ...options,
     });
   },
 }));

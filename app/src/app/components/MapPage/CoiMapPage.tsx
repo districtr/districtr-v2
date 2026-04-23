@@ -22,6 +22,7 @@ import {DemographicMap} from '../Map/DemographicMap';
 import {useInitializeMapMode} from '@/app/hooks/useInitializeMapMode';
 import {MAP_MODES} from '@constants/map/mode';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
+import {isUUID} from '@/app/utils/metadata/isUUID';
 
 interface CoiMapPageProps {
   isEditing: boolean;
@@ -30,6 +31,7 @@ interface CoiMapPageProps {
 
 const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => {
   const isMapModeReady = useInitializeMapMode(MAP_MODES.COI);
+  const isPublicPage = !isEditing && !!documentId && !isUUID(documentId);
   const showDemographicMap = useMapControlsStore(
     state => state.mapOptions.demographicDisplayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE
   );
@@ -50,6 +52,7 @@ const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => 
     conflictModal,
   } = useDocumentWithSync({
     document_id: documentId || undefined,
+    isPublicPage,
     enabled: isMapModeReady && !!documentId,
   });
 
@@ -72,11 +75,11 @@ const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => 
   }, [userID, setUserID]);
 
   useEffect(() => {
-    const unsub = initSubs();
+    const unsub = initSubs(isPublicPage);
     return () => {
       unsub();
     };
-  }, []);
+  }, [isPublicPage]);
 
   if (!isMapModeReady) {
     return null;

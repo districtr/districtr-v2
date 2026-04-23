@@ -471,32 +471,13 @@ def test_community_name_longer_than_40_chars_is_rejected_before_mutation(
 
 
 @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
-def test_community_save_requires_comment_for_every_community_before_mutation(
+def test_community_save_allows_partial_comment_coverage(
     _mock_score_text, client, community_document_id: str
 ):
     initial_document = client.get(f"/api/document/{community_document_id}").json()
-    initial_metadata = [build_community_metadata_list()[0]]
-    initial_comments = build_community_comments(initial_metadata)
+    metadata = build_community_metadata_list()
 
-    initial_save = client.put(
-        "/api/assignments",
-        json={
-            "document_id": community_document_id,
-            "assignments": [["202090441022004", 1]],
-            "map_type": "community",
-            "metadata": {
-                "num_communities": 1,
-                "community_metadata_list": initial_metadata,
-            },
-            "comments": initial_comments,
-            "last_updated_at": initial_document["updated_at"],
-        },
-    )
-    assert initial_save.status_code == 200, initial_save.json()
-
-    saved_document = client.get(f"/api/document/{community_document_id}").json()
-    invalid_metadata = build_community_metadata_list()
-    rejected_response = client.put(
+    response = client.put(
         "/api/assignments",
         json={
             "document_id": community_document_id,
@@ -507,27 +488,49 @@ def test_community_save_requires_comment_for_every_community_before_mutation(
             "map_type": "community",
             "metadata": {
                 "num_communities": 2,
-                "community_metadata_list": invalid_metadata,
+                "community_metadata_list": metadata,
             },
             "comments": [{"text": "Only one community comment", "zone": 1}],
-            "last_updated_at": saved_document["updated_at"],
+            "last_updated_at": initial_document["updated_at"],
         },
     )
-    assert rejected_response.status_code == 400
-    assert (
-        "Each community must include at least one non-empty comment"
-        in rejected_response.json()["detail"]
-    )
+    assert response.status_code == 200, response.json()
 
     assert get_assignments_by_geoid(client, community_document_id) == {
-        "202090441022004": 1
+        "202090441022004": 1,
+        "202090428002008": 2,
     }
     final_document = client.get(f"/api/document/{community_document_id}").json()
-    assert final_document["community_metadata_list"] == initial_metadata
+    assert final_document["community_metadata_list"] == metadata
     assert {
         comment["zone"]: comment["text"]
         for comment in final_document["document_comments"]
-    } == {1: "Community focused on watershed issues"}
+    } == {1: "Only one community comment"}
+
+
+@patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
+def test_community_save_allows_draw_without_any_comments(
+    _mock_score_text, client, community_document_id: str
+):
+    initial_document = client.get(f"/api/document/{community_document_id}").json()
+    metadata = build_community_metadata_list()
+
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": community_document_id,
+            "assignments": [["202090441022004", 1]],
+            "map_type": "community",
+            "metadata": {
+                "num_communities": 2,
+                "community_metadata_list": metadata,
+            },
+            "last_updated_at": initial_document["updated_at"],
+        },
+    )
+    assert response.status_code == 200, response.json()
+    final_document = client.get(f"/api/document/{community_document_id}").json()
+    assert final_document["community_metadata_list"] == metadata
 
 
 @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)

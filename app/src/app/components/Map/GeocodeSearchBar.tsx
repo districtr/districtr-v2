@@ -179,9 +179,7 @@ export const GeocodeSearchBar: React.FC<{
         aria-autocomplete="list"
         aria-controls={listboxId}
         aria-expanded={open && (suggestions.length > 0 || loading)}
-        aria-activedescendant={
-          activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined
-        }
+        aria-activedescendant={activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined}
       />
       {open && (suggestions.length > 0 || loading) && (
         <ul

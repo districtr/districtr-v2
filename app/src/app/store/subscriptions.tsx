@@ -10,6 +10,7 @@ import {demographyService} from '../utils/demography/demographyService';
 import {shallowCompareArray} from '../utils/arrays';
 import {MAP_MODES} from '@constants/map/mode';
 import {ACCESS_STATES} from '@constants/document/state';
+import {MAP_TYPES} from '@constants/document/types';
 
 export const initSubs = (readOnly = false) => {
   // these need to initialize after the map store
@@ -32,7 +33,7 @@ export const initSubs = (readOnly = false) => {
     state => state.mapDocument,
     (curr, prev) => {
       if (!curr || prev === curr || prev?.document_id === curr.document_id) return;
-      if (curr.access === ACCESS_STATES.READ) return; // PublicSource handles read-only data loading
+      if (curr.access === ACCESS_STATES.READ && curr.map_type !== MAP_TYPES.COMMUNITY) return;
       useDemographyStore.getState().restoreCoalition(curr);
       useDemographyStore.getState().updateData(curr);
     }

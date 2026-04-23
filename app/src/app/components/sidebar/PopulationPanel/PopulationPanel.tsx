@@ -25,6 +25,15 @@ import {NUMBER_FORMATS} from '@constants/demography/format';
 
 const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
 
+// The chart draws bars at yScale(i) + 5 with height (ROW_HEIGHT - 6), so bar
+// centers land at TOP_MARGIN + 21 + i * ROW_HEIGHT. The left column mirrors
+// that with a fixed top spacer + fixed-height rows (align-center) so icons
+// line up with bars: SPACER + ROW_HEIGHT/2 = TOP_MARGIN + 21 ⇒ SPACER = 22.
+const POP_ROW_HEIGHT = 38;
+const POP_CHART_TOP_MARGIN = 20;
+const POP_CHART_BOTTOM_MARGIN = 80;
+const POP_LEFT_COL_TOP_SPACER = 22;
+
 export const PopulationPanel = () => {
   const {populationData, demoIsLoaded} = useZonePopulations();
   const {summaryStats, zoneStats} = useSummaryStats();
@@ -135,14 +144,12 @@ export const PopulationPanel = () => {
         />
       </Flex>
       <Flex direction="row" width={'100%'} gap="1">
-        <Flex
-          direction={'column'}
-          gap={'2'}
-          className={'flex-grow-0 p-0 pb-[80px]'}
-          justify={'between'}
-          minWidth={'5rem'}
-        >
-          <Flex justify="end" minHeight={isCommunityMode ? '12px' : '28px'}>
+        <Flex direction={'column'} className={'flex-grow-0 p-0'} minWidth={'5rem'}>
+          <Flex
+            justify="end"
+            align="center"
+            style={{height: POP_LEFT_COL_TOP_SPACER, overflow: 'visible'}}
+          >
             {!isCommunityMode && (
               <IconButton
                 onClick={toggleLockAllAreas}
@@ -160,11 +167,11 @@ export const PopulationPanel = () => {
             <Flex
               key={d.zone}
               direction={'row'}
-              gapY="1"
               gapX="1"
               align={'center'}
               className="p-0 m-0"
               justify={'between'}
+              style={{height: POP_ROW_HEIGHT}}
             >
               {!!showDistrictNumbers && (
                 <IconButton
@@ -215,7 +222,9 @@ export const PopulationPanel = () => {
         </Flex>
         <ParentSize
           style={{
-            height: populationData.length ? `${populationData.length * 38 + 76}px` : '200px',
+            height: populationData.length
+              ? `${populationData.length * POP_ROW_HEIGHT + POP_CHART_TOP_MARGIN + POP_CHART_BOTTOM_MARGIN}px`
+              : '200px',
             width: '100%',
           }}
         >
@@ -226,6 +235,12 @@ export const PopulationPanel = () => {
               data={populationData}
               idealPopulation={effectiveIdealPopulation}
               onBarSelect={selectCommunity}
+              margins={{
+                left: 5,
+                right: 20,
+                top: POP_CHART_TOP_MARGIN,
+                bottom: POP_CHART_BOTTOM_MARGIN,
+              }}
             />
           )}
         </ParentSize>
