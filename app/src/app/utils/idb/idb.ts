@@ -111,10 +111,7 @@ export class DocumentsDB extends Dexie {
     // If an unrelated document is already queued (e.g., user switched docs or
     // switched between district and COI mode), flush it first so the earlier
     // assignments aren't dropped.
-    if (
-      this.pendingUpdate &&
-      this.pendingUpdate.mapDocument?.document_id !== document_id
-    ) {
+    if (this.pendingUpdate && this.pendingUpdate.mapDocument?.document_id !== document_id) {
       await this.flushPendingUpdate();
     }
 

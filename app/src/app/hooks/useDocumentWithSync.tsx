@@ -99,7 +99,15 @@ export function useDocumentWithSync({
           setIsLoading(false);
         }
       } else if (isPublicPage) {
+        const isCommunityDocument = result.response.document.map_type === 'community';
         setMapDocument(result.response.document);
+        // District public views render via PublicSource (aggregated stats endpoint).
+        // Community public views have no equivalent stats path, so load individual
+        // community assignments here so CoiMap can color zones on the read-only page.
+        if (isCommunityDocument) {
+          const data = formatCoiAssignmentsFromDocument(result.response.assignments);
+          ingestCoiFromDocument(data, result.response.document);
+        }
         setIsLoading(false);
         setAppLoadingState('loaded');
       } else {

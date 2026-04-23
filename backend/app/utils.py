@@ -512,9 +512,7 @@ def update_or_select_district_stats(
             ).fetchall()
 
             if column_info:
-                demo_cols = [
-                    _assert_safe_ident(row.column_name) for row in column_info
-                ]
+                demo_cols = [_assert_safe_ident(row.column_name) for row in column_info]
                 json_pairs = [f"'{col}', SUM(demo.{col})" for col in demo_cols]
                 demographic_json = f"json_build_object({', '.join(json_pairs)})"
 
@@ -600,13 +598,17 @@ def update_or_select_district_stats(
                         demographic_data,
                         updated_at
                 """)
-                unassigned_result = session.execute(
-                    unassigned_insert,
-                    {
-                        "document_id": document_id,
-                        "demographic_data": json_mod.dumps(unassigned_demo),
-                    },
-                ).mappings().first()
+                unassigned_result = (
+                    session.execute(
+                        unassigned_insert,
+                        {
+                            "document_id": document_id,
+                            "demographic_data": json_mod.dumps(unassigned_demo),
+                        },
+                    )
+                    .mappings()
+                    .first()
+                )
                 if unassigned_result:
                     returned_rows.append(
                         DistrictUnionsResponse.model_validate(unassigned_result)

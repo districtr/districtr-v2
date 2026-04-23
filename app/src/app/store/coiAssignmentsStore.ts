@@ -651,14 +651,29 @@ const coiResolveFork = async ({
 }: CoiConflictDependencies) => {
   setMapLock({isLocked: true, reason: 'Creating a new plan from your changes.'});
   try {
-    const createMapDocumentResponse = await createMapDocument(syncConflictInfo.serverDocument);
+    const createMapDocumentResponse = await createMapDocument({
+      districtr_map_slug: syncConflictInfo.serverDocument.districtr_map_slug,
+      map_type: syncConflictInfo.serverDocument.map_type,
+      copy_from_doc: syncConflictInfo.serverDocument.document_id,
+    });
     if (!createMapDocumentResponse.ok) {
       throw new DocumentCreationError('Failed to create map document from assignments on server');
     }
-    setMapDocument(createMapDocumentResponse.response);
+    // Carry over any local comments (saved or in-flight) onto the new doc so the
+    // fork reflects the user's latest state. comment_ids are stripped because the
+    // server just duplicated comments onto the new doc with fresh ids.
+    const localComments = (syncConflictInfo.localDocument.document_comments || []).map(c => ({
+      zone: c.zone,
+      text: c.text,
+    }));
+    const newDocWithLocalComments = {
+      ...createMapDocumentResponse.response,
+      document_comments: localComments,
+    };
+    setMapDocument(newDocWithLocalComments);
     const data = await loadLocalCoiAssignments(syncConflictInfo.localDocument.document_id);
     const response = await putUpdateCoiAssignmentsAndVerify({
-      mapDocument: createMapDocumentResponse.response,
+      mapDocument: newDocWithLocalComments,
       communityAssignments: data.communityAssignments,
       shatterIds: data.shatterIds,
       childToParent: data.childToParent,
@@ -670,7 +685,7 @@ const coiResolveFork = async ({
       );
     }
     const updatedDocument = {
-      ...createMapDocumentResponse.response,
+      ...newDocWithLocalComments,
       updated_at: response.response.updated_at,
     };
     setMapDocument(updatedDocument);
