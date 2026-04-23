@@ -4,6 +4,7 @@ import {idb} from '@/app/utils/idb/idb';
 import {getAssignments} from './getAssignments';
 import {isUUID} from '../../metadata/isUUID';
 import {type SyncConflictResolution} from '@constants/document/sync';
+import {MAP_TYPES} from '@constants/document/types';
 
 export interface DocumentFetchResult {
   document: DocumentObject;
@@ -68,7 +69,7 @@ export const fetchDocument = async (
     // Community public views don't have a district-unions stats path, so fetch
     // raw assignments for them. District public views rely on PublicSource and
     // don't need per-geoid assignments here.
-    const isCommunityPublic = remoteMetadata.response.map_type === 'community';
+    const isCommunityPublic = remoteMetadata.response.map_type === MAP_TYPES.COMMUNITY;
     let assignments: Assignment[] = [];
     if (isCommunityPublic) {
       const remoteAssignments = await getAssignments(remoteMetadata.response);

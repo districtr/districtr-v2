@@ -103,7 +103,7 @@ export function useDocumentWithSync({
           setIsLoading(false);
         }
       } else if (isPublicPage) {
-        const isCommunityDocument = result.response.document.map_type === 'community';
+        const isCommunityDocument = result.response.document.map_type === MAP_TYPES.COMMUNITY;
         setMapDocument(result.response.document);
         // District public views render via PublicSource (aggregated stats endpoint).
         // Community public views have no equivalent stats path, so load individual
