@@ -45,7 +45,7 @@ export const PopulationLabels: React.FC<{
         : _popDiffLabel;
   const popLabel = formatNumber(entry.total_pop_20, 'string');
   if (popLabel === undefined) return null;
-  const [left, top] = [xScale(entry.total_pop_20), yScale(index) + barHeight];
+  const [left, top] = [xScale(entry.total_pop_20), yScale(index) + 5 + barHeight / 2];
   const showDeviationLabel = hasIdealPopulation && !!(isHovered || showTopBottomDeviation);
 
   let offsetLeft = 0;
@@ -59,7 +59,14 @@ export const PopulationLabels: React.FC<{
     <Group left={left + offsetLeft} top={top} style={{pointerEvents: 'none'}}>
       {!!(isHovered || showPopNumbers) && (
         <>
-          <text x={5} y={-2} fontSize={14} fontWeight={'bold'} textAnchor="start">
+          <text
+            x={5}
+            y={0}
+            fontSize={14}
+            fontWeight={'bold'}
+            textAnchor="start"
+            dominantBaseline="central"
+          >
             {popLabel}
           </text>
         </>
@@ -68,16 +75,17 @@ export const PopulationLabels: React.FC<{
         <>
           <text
             x={-5}
-            y={-1}
+            y={0}
             fontSize={14}
             textAnchor="end"
+            dominantBaseline="central"
             fill="white"
             stroke="white"
             strokeWidth="3"
           >
             {popDiffLabel}
           </text>
-          <text x={-5} y={-1} fontSize={14} textAnchor="end">
+          <text x={-5} y={0} fontSize={14} textAnchor="end" dominantBaseline="central">
             {popDiffLabel}
           </text>
         </>
