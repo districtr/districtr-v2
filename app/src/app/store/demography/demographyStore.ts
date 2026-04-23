@@ -198,7 +198,9 @@ export var useDemographyStore = create(
         return;
       }
 
-      if (mapDocument.access === 'read') {
+      const isCommunityPublic =
+        mapDocument.access === 'read' && mapDocument.map_type === 'community';
+      if (mapDocument.access === 'read' && !isCommunityPublic) {
         demographyService.updateOverlay(result.columns, result.results, dataHash);
       } else {
         demographyService.update(result.columns, result.results, dataHash, get().coalitionGroups);
