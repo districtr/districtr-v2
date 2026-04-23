@@ -28,15 +28,28 @@ export const PopulationLabels: React.FC<{
   showTopBottomDeviation,
   width,
 }) => {
-  const popDiff = entry.total_pop_20 - (idealPopulation || 0);
-  const _popDiffLabel = Math.abs(popDiff) < 1 ? `0` : formatNumber(popDiff, 'string');
-  const popDiffLabel = popDiff >= 1 ? `+${_popDiffLabel}` : _popDiffLabel;
+  // TODO: Split labels into poplabels and ideal pop label diff
+  const hasIdealPopulation = idealPopulation !== undefined;
+  const popDiff = hasIdealPopulation ? entry.total_pop_20 - idealPopulation : undefined;
+  const _popDiffLabel =
+    popDiff === undefined
+      ? undefined
+      : Math.abs(popDiff) < 1
+        ? `0`
+        : formatNumber(popDiff, 'string');
+  const popDiffLabel =
+    popDiff === undefined || _popDiffLabel === undefined
+      ? undefined
+      : popDiff >= 1
+        ? `+${_popDiffLabel}`
+        : _popDiffLabel;
   const popLabel = formatNumber(entry.total_pop_20, 'string');
-  if (popDiffLabel === undefined || popLabel === undefined) return null;
-  const [left, top] = [xScale(entry.total_pop_20), yScale(index) + barHeight];
+  if (popLabel === undefined) return null;
+  const [left, top] = [xScale(entry.total_pop_20), yScale(index) + 5 + barHeight / 2];
+  const showDeviationLabel = hasIdealPopulation && !!(isHovered || showTopBottomDeviation);
 
   let offsetLeft = 0;
-  if (left < popDiffLabel.length * 8 && (isHovered || showTopBottomDeviation)) {
+  if (popDiffLabel && left < popDiffLabel.length * 8 && showDeviationLabel) {
     offsetLeft = Math.max(popDiffLabel.length, 2) * 8 + 4;
   } else if (left > width - popLabel.length * 10) {
     offsetLeft = -popLabel.length * 10;
@@ -46,25 +59,33 @@ export const PopulationLabels: React.FC<{
     <Group left={left + offsetLeft} top={top} style={{pointerEvents: 'none'}}>
       {!!(isHovered || showPopNumbers) && (
         <>
-          <text x={5} y={-2} fontSize={14} fontWeight={'bold'} textAnchor="start">
+          <text
+            x={5}
+            y={0}
+            fontSize={14}
+            fontWeight={'bold'}
+            textAnchor="start"
+            dominantBaseline="central"
+          >
             {popLabel}
           </text>
         </>
       )}
-      {!!(isHovered || showTopBottomDeviation) && (
+      {!!(showDeviationLabel && popDiffLabel) && (
         <>
           <text
             x={-5}
-            y={-1}
+            y={0}
             fontSize={14}
             textAnchor="end"
+            dominantBaseline="central"
             fill="white"
             stroke="white"
             strokeWidth="3"
           >
             {popDiffLabel}
           </text>
-          <text x={-5} y={-1} fontSize={14} textAnchor="end">
+          <text x={-5} y={0} fontSize={14} textAnchor="end" dominantBaseline="central">
             {popDiffLabel}
           </text>
         </>

@@ -10,5 +10,10 @@ repos:
     hooks:
       - id: prettier
         name: Run Prettier
-        entry: bash -c "cd app && bun run prettier"
+        # Only format the files staged by pre-commit (diff-driven). The old
+        # `pass_filenames: false` + `src/**/*.{ts,tsx}` sweep re-formatted the
+        # entire app on every hook run and defeated pre-commit's design.
+        # Requires `bun install` to have been run under ./app at least once.
+        entry: app/node_modules/.bin/prettier --write --config app/.prettierrc.js
         language: system
+        files: ^app/src/.*\.(ts|tsx)$

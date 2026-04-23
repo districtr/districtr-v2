@@ -30,6 +30,7 @@ def parse_cors(v: Any) -> list[str] | str:
 class Environment(str, Enum):
     production = "production"
     qa = "qa"
+    development = "development"
     local = "local"
     test = "test"
 
@@ -86,6 +87,8 @@ class Settings(BaseSettings):
             port=self.POSTGRES_PORT,
             path=self.POSTGRES_DB,
         )
+
+    VERBOSE_LOGGING: bool = False
 
     ECHO_DB: bool = ENVIRONMENT not in (Environment.production, Environment.test)
 

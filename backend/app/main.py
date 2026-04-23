@@ -15,15 +15,19 @@ from sqlalchemy.exc import (
 )
 from sqlalchemy import text
 from sqlalchemy.types import Integer
-from sqlmodel import Session, String, select, true, update, col
+from sqlmodel import Session, String, select, true, update, col, literal
 from starlette.middleware.cors import CORSMiddleware
 import logging
 from sqlalchemy import bindparam
 from sqlmodel import ARRAY
 from datetime import datetime
-from uuid import uuid4
+from uuid import UUID, uuid4
 import sentry_sdk
-from app.assignments import duplicate_document_assignments, batch_insert_assignments
+from app.assignments import (
+    duplicate_document_assignments,
+    duplicate_document_community_assignments,
+    batch_insert_assignments,
+)
 from app.core.db import get_session
 from app.core.dependencies import (
     get_document,
@@ -37,6 +41,12 @@ from app.core.config import settings
 import app.exports.main as exports
 import app.cms.main as cms
 import app.comments.main as comments
+from app.comments.main import sync_district_comments, sync_community_comments
+from app.comments.models import DistrictCommentInput
+from app.comments.settings import (
+    DEFAULT_MAX_COMMENT_LENGTH,
+    DEFAULT_MAX_COMMENTS_PER_DISTRICT,
+)
 import app.contiguity.main as contiguity
 import app.save_share.main as save_share
 import app.thumbnails.main as thumbnails
@@ -45,6 +55,8 @@ from app.models import (
     Assignments,
     AssignmentsResponse,
     ColorsSetResult,
+    CommunityAssignments,
+    DocumentType,
     DistrictrMap,
     DistrictrMapsToGroups,
     Document,
@@ -52,6 +64,7 @@ from app.models import (
     DocumentCreatePublic,
     DocumentPublic,
     DocumentMetadata,
+    MAX_COMMUNITY_NAME_LENGTH,
     UUIDType,
     ParentChildEdges,
     ShatterResult,
@@ -60,16 +73,26 @@ from app.models import (
     AssignmentsCreate,
     NumDistrictsSetResult,
 )
-from app.comments.models import DocumentComment, Tag, CommentTag
+from app.comments.models import (
+    Comment,
+    DocumentComment as FormDocumentComment,
+    Tag,
+    CommentTag,
+)
 from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
 from sqlalchemy.sql.functions import coalesce
 from app.utils import update_or_select_district_stats
-from aiocache import Cache
+from aiocache import SimpleMemoryCache
 from contextlib import asynccontextmanager
 from fiona.transform import transform
 from fastapi import BackgroundTasks
+from ._sanitize import (
+    CommentDict,
+    _load_existing_community_metadata,
+    _validate_community_save_payload,
+)
 
 if settings.ENVIRONMENT in ("production", "qa"):
     sentry_sdk.init(
@@ -94,8 +117,9 @@ app.include_router(thumbnails.router)
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+VERBOSE_LOGGING = settings.VERBOSE_LOGGING
 
-cache = Cache(cache_class=Cache.MEMORY)
+cache = SimpleMemoryCache()
 
 
 # Set all CORS enabled origins
@@ -116,12 +140,124 @@ def update_timestamp(
 ) -> datetime:
     update_stmt = (
         update(Document)
-        .where(Document.document_id == document_id)
+        .where(col(Document.document_id) == document_id)
         .values(updated_at=func.now())
-        .returning(Document.updated_at)
-    )  # pyright: ignore
-    updated_at = session.scalar(update_stmt)
+        .returning(
+            Document.updated_at
+        )  # The `returning` on this makes it into a DML statement
+    )
+    updated_at = session.connection().execute(update_stmt).scalar_one()
     return updated_at
+
+
+_PARTITION_TABLES = ("assignments", "community_assignments")
+
+
+def _validate_partition_identifiers(document_id: str, table_name: str) -> None:
+    if table_name not in _PARTITION_TABLES:
+        raise ValueError(
+            f"Unsupported partition table: {table_name!r}. "
+            f"Expected one of {_PARTITION_TABLES}."
+        )
+    try:
+        UUID(document_id)
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise ValueError(f"document_id must be a UUID; got {document_id!r}") from exc
+
+
+def create_document_partition(
+    session: Session, document_id: str, table_name: str
+) -> None:
+    """
+    Create a partition for a document in the specified table (assignments or community_assignments).
+
+    Args:
+        session (Session): The database session to use for executing the SQL statement.
+        document_id (str): The ID of the document for which to create the partition.
+        table_name (str): Must be one of "assignments" or "community_assignments".
+    """
+    _validate_partition_identifiers(document_id, table_name)
+    partition_name = f"document.{table_name}_{document_id}"
+    stmt = text(f"""
+        CREATE TABLE "{partition_name}"
+        PARTITION OF document.{table_name}
+        FOR VALUES IN ('{document_id}')
+    """)
+    session.connection().execute(stmt)
+
+
+def reset_document_partition(
+    session: Session, document_id: str, table_name: str
+) -> None:
+    """
+    Drop and recreate a partition for a document in the specified table
+    (assignments or community_assignments).
+
+    Args:
+        session (Session): The database session to use for executing the SQL statements.
+        document_id (str): The ID of the document for which to reset the partition.
+        table_name (str): Must be one of "assignments" or "community_assignments".
+    """
+    _validate_partition_identifiers(document_id, table_name)
+    partition_name = f"document.{table_name}_{document_id}"
+    session.connection().execute(
+        text(f'DROP TABLE IF EXISTS "{partition_name}" CASCADE;')
+    )
+    stmt = text(f"""
+        CREATE TABLE "{partition_name}"
+        PARTITION OF document.{table_name}
+        FOR VALUES IN ('{document_id}')
+    """)
+    session.connection().execute(stmt)
+
+
+def duplicate_document_comments(
+    *,
+    from_document_id: str,
+    to_document_id: str,
+    session: Session,
+) -> int:
+    """
+    Deep-copy DocumentComment associations (and their backing Comment rows) from one
+    document to another. New Comment rows are inserted with title/comment/commenter
+    inherited from the source; moderation_score / review_status are intentionally left
+    unset so the target document re-moderates on next save.
+
+    Called from create_document when copying a map so that coverage validation on the
+    first subsequent save can succeed.
+    """
+    source_rows = session.exec(
+        select(
+            Comment.title,
+            Comment.comment,
+            Comment.commenter_id,
+            col(FormDocumentComment.zone).label("zone"),
+        )
+        .join(
+            FormDocumentComment,
+            col(FormDocumentComment.comment_id) == col(Comment.id),
+        )
+        .where(col(FormDocumentComment.document_id) == from_document_id)
+    ).all()
+
+    duplicated = 0
+    for row in source_rows:
+        new_comment = Comment(
+            title=row.title,
+            comment=row.comment,
+            commenter_id=row.commenter_id,
+        )
+        session.add(new_comment)
+        session.flush()
+        session.add(
+            FormDocumentComment(
+                comment_id=new_comment.id,
+                document_id=to_document_id,
+                zone=row.zone,
+            )
+        )
+        duplicated += 1
+    return duplicated
 
 
 @app.get("/")
@@ -132,7 +268,7 @@ async def root():
 @app.get("/db_is_alive")
 async def db_is_alive(session: Session = Depends(get_session)):
     try:
-        session.execute(text("SELECT 1"))
+        session.connection().execute(text("SELECT 1"))
         return {"message": "DB is alive"}
     except Exception as e:
         logger.error(e)
@@ -174,18 +310,78 @@ async def create_document(
 
     # Determine num_districts: from copied document if copying, otherwise from DistrictrMap
     num_districts = districtr_map.num_districts
+    num_communities = None
+    community_metadata_list = None
     copied_document = None
 
     if data.copy_from_doc is not None:
         copy_document_id = parse_document_id(data.copy_from_doc)
         if not copy_document_id:
             raise HTTPException(status_code=404, detail="Document not found")
-        data.copy_from_doc = copy_document_id
         copied_document = get_protected_document(
-            document_id=data.copy_from_doc, session=session
+            document_id=copy_document_id, session=session
         )
         # Inherit num_districts from source document, with fallback to DistrictrMap
         num_districts = copied_document.num_districts or districtr_map.num_districts
+        if copied_document.map_type == "community":
+            num_communities = copied_document.num_communities
+            community_metadata_list = copied_document.community_metadata_list
+
+    document_type = data.document_type or (
+        copied_document.document_type if copied_document is not None else None
+    )
+    if document_type is None:
+        document_type = (
+            DocumentType.COI if data.map_type == "community" else DocumentType.DISTRICT
+        )
+    else:
+        document_type = DocumentType(document_type)
+
+    document_map_type = (
+        data.map_type
+        or ("community" if document_type == DocumentType.COI else None)
+        or (copied_document.map_type if copied_document is not None else None)
+        or districtr_map.map_type
+        or "default"
+    )
+    # Normalize: map_type is the canonical source of truth for document_type.
+    # community map_type => COI, everything else => DISTRICT.
+    document_type = (
+        DocumentType.COI if document_map_type == "community" else DocumentType.DISTRICT
+    )
+    if document_map_type != "community":
+        num_communities = None
+        community_metadata_list = None
+
+    # Reject copying across map_type boundaries: source and target must match, otherwise
+    # assignments can't be carried over (community_assignments and assignments have
+    # different shapes) and the copy would silently produce an empty doc.
+    if copied_document is not None and copied_document.map_type != document_map_type:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Cannot copy a {copied_document.map_type!r} map into a "
+                f"{document_map_type!r} map. Start a new map instead."
+            ),
+        )
+
+    # Reject initial assignments when creating a community map: batch_insert_assignments
+    # writes to document.assignments (district-mode table), which would silently orphan
+    # data from a community document that reads from document.community_assignments.
+    if (
+        document_map_type == "community"
+        and data.assignments is not None
+        and len(data.assignments) > 0
+        and copied_document is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Initial assignments cannot be provided when creating a community map. "
+                "Create the document first, then PUT /api/assignments with "
+                "map_type='community'."
+            ),
+        )
 
     # Generate UUID for document_id
     document_id = str(uuid4())
@@ -194,25 +390,19 @@ async def create_document(
     new_document = Document(
         document_id=document_id,
         districtr_map_slug=data.districtr_map_slug,
+        map_type=document_map_type,
+        document_type=document_type,
         num_districts=num_districts,
+        num_communities=num_communities,
+        community_metadata_list=community_metadata_list,
     )
     session.add(new_document)
     session.flush()  # Flush to get the public_id assigned
     # Under most circumstances, we DO NOT want to use f-strings in SQL statements.
     # However, in this case, we are using a dynamic table name, and SQLAlchemy / Postgres do not
     # support bind params for identifiers or partition values, so we need to use f-strings.
-    partition_name = f"document.assignments_{document_id}"
-    # Create assignment partition
-    stmt = text(f"""
-        CREATE TABLE "{partition_name}"
-        PARTITION OF document.assignments
-        FOR VALUES IN ('{document_id}')
-    """)
-    session.execute(stmt)
-
-    created_document = get_document(
-        document_id=DocumentID(document_id=document_id), session=session
-    )
+    create_document_partition(session, document_id, "assignments")
+    create_document_partition(session, document_id, "community_assignments")
 
     total_assignments = 0
 
@@ -221,11 +411,32 @@ async def create_document(
             f"Copying document. Origin document: {copied_document.document_id} to {document_id}"
         )
         assert copied_document.document_id is not None
-        total_assignments = duplicate_document_assignments(
+        if document_map_type == "community":
+            total_assignments = duplicate_document_community_assignments(
+                from_document_id=copied_document.document_id,
+                to_document_id=document_id,
+                session=session,
+            )
+            total_assignments = total_assignments or 0
+        else:
+            total_assignments = duplicate_document_assignments(
+                from_document_id=copied_document.document_id,
+                to_document_id=document_id,
+                session=session,
+            )
+            total_assignments = total_assignments or 0
+        # Carry the source document's comments/descriptions to the new document so the
+        # first save against the copy can satisfy coverage validation.
+        duplicated_comments = duplicate_document_comments(
             from_document_id=copied_document.document_id,
             to_document_id=document_id,
             session=session,
         )
+        if VERBOSE_LOGGING and duplicated_comments:
+            logger.info(
+                f"Duplicated {duplicated_comments} comment(s) from "
+                f"{copied_document.document_id} to {document_id}"
+            )
 
     elif data.assignments is not None and len(data.assignments) > 0:
         max_records = 914_231
@@ -258,48 +469,68 @@ async def create_document(
                 )
 
     if data.metadata is not None:
-        logger.info(
-            f"Updating metadata for document: {document_id if not data.copy_from_doc else copied_document.document_id}"
-        )
-        await update_districtrmap_metadata(
-            document=created_document, metadata=data.metadata, session=session
+        # Inline (without an inner commit) so that the session.rollback() checks below
+        # can still undo the document insert, partitions, assignment copy, and
+        # duplicated comments. The standalone /api/document/{id}/metadata endpoint
+        # still commits via its own handler.
+        logger.info(f"Updating metadata for document: {document_id}")
+        session.connection().execute(
+            update(Document)
+            .where(Document.document_id == document_id)  # type: ignore
+            .values(map_metadata=data.metadata.model_dump(exclude_unset=True))
         )
 
     stmt = (
-        select(
-            Document.document_id,
-            Document.public_id,
-            Document.created_at,
-            Document.districtr_map_slug,
-            DistrictrMap.gerrydb_table_name.label("gerrydb_table"),  # pyright: ignore
+        select(  # type: ignore[no-matching-overload]
+            col(Document.document_id),
+            col(Document.public_id),
+            col(Document.created_at),
+            col(Document.districtr_map_slug),
+            col(DistrictrMap.gerrydb_table_name).label("gerrydb_table"),
             Document.updated_at,
-            DistrictrMap.uuid.label("map_uuid"),  # pyright: ignore
-            DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
-            DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
-            DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
-            DistrictrMap.name.label("map_module"),  # pyright: ignore
+            col(DistrictrMap.uuid).label("map_uuid"),
+            col(DistrictrMap.parent_layer).label("parent_layer"),
+            col(DistrictrMap.child_layer).label("child_layer"),
+            col(DistrictrMap.tiles_s3_path).label("tiles_s3_path"),
+            col(DistrictrMap.name).label("map_module"),
             coalesce(Document.num_districts, DistrictrMap.num_districts).label(
                 "num_districts"
-            ),  # pyright: ignore
-            DistrictrMap.num_districts_modifiable.label("num_districts_modifiable"),  # pyright: ignore
-            DistrictrMap.extent.label("extent"),  # pyright: ignore
-            DistrictrMap.map_type.label("map_type"),  # pyright: ignore
-            DistrictrMap.statefps.label("statefps"),  # pyright: ignore
+            ),
+            col(Document.num_communities),
+            col(Document.community_metadata_list),
+            col(DistrictrMap.num_districts_modifiable).label(
+                "num_districts_modifiable"
+            ),
+            col(DistrictrMap.extent).label("extent"),
+            col(Document.map_type).label("map_type"),
+            col(Document.document_type).label("document_type"),
+            col(DistrictrMap.statefps).label("statefps"),
+            literal(MAX_COMMUNITY_NAME_LENGTH).label("community_name_length_limit"),
+            coalesce(
+                col(DistrictrMap.comment_length_limit), DEFAULT_MAX_COMMENT_LENGTH
+            ).label("comment_length_limit"),
+            coalesce(
+                col(DistrictrMap.comment_count_limit), DEFAULT_MAX_COMMENTS_PER_DISTRICT
+            ).label("comment_count_limit"),
             coalesce(total_assignments).label("inserted_assignments"),
-            Document.map_metadata,
+            col(Document.map_metadata),
         )
-        .where(Document.document_id == document_id)
+        .where(col(Document.document_id) == document_id)
         .join(
             DistrictrMap,
-            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,
+            col(Document.districtr_map_slug) == DistrictrMap.districtr_map_slug,
             isouter=True,
         )
         .limit(1)
     )
 
-    doc = session.exec(
-        stmt,
-    ).one()
+    doc = (
+        session.connection()
+        .execute(
+            stmt,
+        )
+        .one()
+    )
 
     if not doc.map_uuid:
         session.rollback()
@@ -327,7 +558,9 @@ async def create_document(
 
 @app.put("/api/assignments")
 async def update_assignments(
-    data: AssignmentsCreate, session: Session = Depends(get_session)
+    data: AssignmentsCreate,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
 ):
     """
     Update assignments for a document with optimistic concurrency control.
@@ -362,64 +595,190 @@ async def update_assignments(
         HTTPException: 400 if no assignments provided
         HTTPException: 409 if document was updated by another client and overwrite=False
     """
-    if not data.assignments or not len(data.assignments) > 0:
+    has_assignments = len(data.assignments) > 0
+    has_metadata = data.metadata is not None
+    has_comments = data.comments is not None
+    if not has_assignments and not has_metadata and not has_comments:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No assignments provided",
+            detail="No changes provided",
         )
 
     document_id = data.document_id
     assignments = data.assignments  # [[geo_id, zone], ...]
     last_updated_at = data.last_updated_at
+    actual_map_type = session.exec(
+        select(Document.map_type).where(Document.document_id == document_id)
+    ).one_or_none()
+    if actual_map_type is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document not found: {document_id}",
+        )
+    requested_map_type = data.map_type or actual_map_type
+    requested_is_community = requested_map_type == "community"
+    actual_is_community = actual_map_type == "community"
+    if requested_is_community != actual_is_community:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Map type mismatch: document uses "
+                f"`{actual_map_type}` save semantics but request specified "
+                f"`{requested_map_type}`."
+            ),
+        )
+
+    is_community_map = actual_is_community
+    assignment_table = (
+        "document.community_assignments" if is_community_map else "document.assignments"
+    )
+    assignment_column = "community_id" if is_community_map else "zone"
+    comment_dicts: list[CommentDict] | None = (
+        [
+            CommentDict(comment_id=c.comment_id, zone=c.zone, text=c.text)
+            for c in data.comments
+        ]
+        if data.comments is not None
+        else None
+    )
+
+    if VERBOSE_LOGGING:
+        logger.info(
+            f"PUT /api/assignments: document_id={document_id}, "
+            f"requested_map_type={requested_map_type}, "
+            f"actual_map_type={actual_map_type}, "
+            f"assignment_count={len(assignments)}, "
+            f"comment_count={len(data.comments) if data.comments else 0}, "
+            f"has_metadata={data.metadata is not None}, "
+            f"has_community_metadata_list="
+            f"{data.metadata is not None and data.metadata.community_metadata_list is not None}, "
+            f"num_communities={data.metadata.num_communities if data.metadata else None}"
+        )
+
+    # Validate community payload (name sanitization, length) before any mutations.
+    # Returns normalized metadata list if provided, else None.
+    validated_community_metadata = None
+    if is_community_map:
+        if VERBOSE_LOGGING:
+            logger.info(
+                f"Community save validation for document {document_id}: "
+                f"incoming_comments={comment_dicts}"
+            )
+        validated_community_metadata = _validate_community_save_payload(
+            metadata=data.metadata,
+        )
+        if VERBOSE_LOGGING:
+            logger.info(
+                f"Community save validation passed for document {document_id}, "
+                f"validated_metadata={'present' if validated_community_metadata else 'None'}"
+            )
 
     db_last_updated_at = session.exec(
         select(Document.updated_at).where(Document.document_id == document_id)
     ).one_or_none()
 
-    if db_last_updated_at > last_updated_at and not data.overwrite:
+    if (
+        db_last_updated_at is not None
+        and db_last_updated_at > last_updated_at
+        and not data.overwrite
+    ):
+        if VERBOSE_LOGGING:
+            logger.warning(
+                f"Conflict detected for document {document_id}: "
+                f"db_last_updated_at={db_last_updated_at!r} > last_updated_at={last_updated_at!r}"
+            )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Document has been updated since the last update",
         )
-    # Delete existing assignments for this document
-    session.execute(
-        text("DELETE FROM document.assignments WHERE document_id = :document_id"),
+    # Track whether anything actually changed so we can skip the updated_at bump on
+    # true no-op requests (which would otherwise break optimistic concurrency for
+    # other clients).
+    mutated = False
+
+    # The assignments field is always a full replacement set:
+    #   [] means "delete all assignments" (user cleared everything)
+    #   [...] means "replace with these assignments"
+    # Always DELETE existing rows, then INSERT new ones if any.
+    delete_result = session.connection().execute(
+        text(f"DELETE FROM {assignment_table} WHERE document_id = :document_id"),
         {"document_id": document_id},
     )
-    # Use COPY for faster bulk insert with partitioned tables
-    # Create a temporary table for bulk loading
-    (load_id, _) = str(uuid4()).split("-", maxsplit=1)
-    temp_table_name = f"temp_assignments_{load_id}"
-    session.execute(
-        text(
-            f"CREATE TEMP TABLE {temp_table_name} (document_id UUID, geo_id TEXT, zone INT)"
+    if delete_result.rowcount and delete_result.rowcount > 0:
+        mutated = True
+    inserted_count = 0
+    if has_assignments:
+        # For community maps, build the set of valid community_ids so we can reject
+        # orphan-producing writes before they hit the partition. 0 is the "unassigned"
+        # sentinel; positive ids must exist in the effective metadata list. Skip the
+        # check entirely when no metadata has been established yet (either in this
+        # request or previously persisted) — that's the bootstrap path where the UI
+        # writes assignments before the metadata save lands.
+        valid_community_ids: set[int] | None = None
+        if is_community_map:
+            if validated_community_metadata is not None:
+                effective_metadata = validated_community_metadata
+            else:
+                effective_metadata = _load_existing_community_metadata(
+                    session, document_id
+                )
+            if effective_metadata:
+                valid_community_ids = {c.id for c in effective_metadata} | {0}
+
+        # Use COPY for faster bulk insert with partitioned tables
+        # Create a temporary table for bulk loading
+        load_id, _ = str(uuid4()).split("-", maxsplit=1)
+        temp_table_name = f"temp_assignments_{load_id}"
+        session.connection().execute(
+            text(
+                f"CREATE TEMP TABLE {temp_table_name} (document_id UUID, geo_id TEXT, zone INT)"
+            )
         )
-    )
 
-    # Use COPY to bulk load data into temp table
-    cursor = session.connection().connection.cursor()
-    with cursor.copy(
-        f"COPY {temp_table_name} (document_id, geo_id, zone) FROM STDIN"
-    ) as copy:
-        for assignment in assignments:
-            # assignment is [geo_id, zone]
-            geo_id = assignment[0]
-            zone_val = assignment[1] if len(assignment) > 1 else None
-            copy.write_row([document_id, geo_id, zone_val])
+        # Use COPY to bulk load data into temp table
+        cursor = session.connection().connection.cursor()
+        with cursor.copy(
+            f"COPY {temp_table_name} (document_id, geo_id, zone) FROM STDIN"
+        ) as copy:
+            for assignment in assignments:
+                # assignment is [geo_id, zone]
+                geo_id = assignment[0]
+                zone_val = assignment[1] if len(assignment) > 1 else None
+                if is_community_map and zone_val is None:
+                    zone_val = 0
+                if (
+                    valid_community_ids is not None
+                    and zone_val not in valid_community_ids
+                ):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=(
+                            f"Assignment references unknown community_id {zone_val!r}; "
+                            "it is not in the document's community metadata list."
+                        ),
+                    )
+                copy.write_row([document_id, geo_id, zone_val])
 
-    # Insert from temp table into partitioned assignments table
-    # PostgreSQL will automatically route to the correct partition based on document_id
-    inserted_count = session.execute(
-        text(f"""
-        INSERT INTO document.assignments (document_id, geo_id, zone)
-        SELECT document_id, geo_id, zone
-        FROM {temp_table_name}
-        """),
-    ).rowcount
-    updated_at = None
-    if len(data.assignments) > 0:
-        updated_at = update_timestamp(session, document_id)
-        logger.info(f"Document updated at {updated_at}")
+        # Insert from temp table into partitioned assignments table
+        # PostgreSQL will automatically route to the correct partition based on document_id
+        inserted_count = (
+            session.connection()
+            .execute(
+                text(f"""
+            INSERT INTO {assignment_table} (document_id, geo_id, {assignment_column})
+            SELECT document_id, geo_id, zone
+            FROM {temp_table_name}
+            """),
+            )
+            .rowcount
+        )
+        if inserted_count and inserted_count > 0:
+            mutated = True
+        if VERBOSE_LOGGING:
+            logger.info(
+                f"Inserted {inserted_count} {'community' if is_community_map else ''} "
+                f"assignments to document {document_id}"
+            )
 
     # Update num_districts if provided
     if data.metadata is not None:
@@ -429,7 +788,8 @@ async def update_assignments(
                 select(DistrictrMap)
                 .join(
                     Document,
-                    Document.districtr_map_slug == DistrictrMap.districtr_map_slug,
+                    col(Document.districtr_map_slug)
+                    == col(DistrictrMap.districtr_map_slug),
                 )
                 .where(Document.document_id == document_id)
             ).first()
@@ -445,15 +805,13 @@ async def update_assignments(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Number of districts must be at least 2 and at most 538",
                 )
-            stmt = text(
-                """UPDATE document.document
+            stmt = text("""UPDATE document.document
                 SET num_districts = :num_districts
-                WHERE document_id = :document_id"""
-            ).bindparams(
+                WHERE document_id = :document_id""").bindparams(
                 bindparam(key="document_id", type_=UUIDType),
                 bindparam(key="num_districts", type_=Integer),
             )
-            session.execute(
+            session.connection().execute(
                 stmt,
                 {
                     "document_id": document_id,
@@ -462,19 +820,107 @@ async def update_assignments(
             )
 
         if data.metadata.color_scheme is not None:
-            stmt = text(
-                """UPDATE document.document
+            stmt = text("""UPDATE document.document
                 SET color_scheme = :colors
-                WHERE document_id = :document_id"""
-            ).bindparams(
+                WHERE document_id = :document_id""").bindparams(
                 bindparam(key="document_id", type_=UUIDType),
                 bindparam(key="colors", type_=ARRAY(String)),
             )
-            session.execute(
+            session.connection().execute(
                 stmt, {"document_id": document_id, "colors": data.metadata.color_scheme}
             )
 
+        if data.metadata.num_communities is not None:
+            stmt = text("""UPDATE document.document
+                SET num_communities = :num_communities
+                WHERE document_id = :document_id""").bindparams(
+                bindparam(key="document_id", type_=UUIDType),
+                bindparam(key="num_communities", type_=Integer),
+            )
+            session.connection().execute(
+                stmt,
+                {
+                    "document_id": document_id,
+                    "num_communities": data.metadata.num_communities,
+                },
+            )
+
+        if data.metadata.community_metadata_list is not None:
+            metadata_to_save = (
+                validated_community_metadata
+                if validated_community_metadata is not None
+                else data.metadata.community_metadata_list
+            )
+            stmt = (
+                update(Document)
+                .where(col(Document.document_id) == document_id)
+                .values(
+                    community_metadata_list=[
+                        (
+                            community.model_dump()
+                            if hasattr(community, "model_dump")
+                            else community
+                        )
+                        for community in metadata_to_save
+                    ]
+                )
+            )
+            session.connection().execute(
+                stmt,
+            )
+
+    if data.metadata is not None and (
+        data.metadata.num_districts is not None
+        or data.metadata.color_scheme is not None
+        or data.metadata.num_communities is not None
+        or data.metadata.community_metadata_list is not None
+    ):
+        mutated = True
+
+    # Sync scoped comments via comments schema (None = no change, [] = delete all)
+    if data.comments is not None:
+        comment_inputs: list[DistrictCommentInput] = []
+        for c in data.comments:
+            if c.zone is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Each comment must specify a zone (int).",
+                )
+            comment_inputs.append(
+                DistrictCommentInput(comment_id=c.comment_id, zone=c.zone, text=c.text)
+            )
+        if VERBOSE_LOGGING:
+            logger.info(
+                f"Syncing {'community' if is_community_map else 'district'} comments "
+                f"for document {document_id}: {len(comment_inputs)} comments"
+            )
+        sync_fn = (
+            sync_community_comments if is_community_map else sync_district_comments
+        )
+        sync_fn(
+            document_id=document_id,
+            comments=comment_inputs if len(data.comments) > 0 else [],
+            session=session,
+            background_tasks=background_tasks,
+        )
+        # sync_fn always hits the DB (delete/insert/update), so count it.
+        mutated = True
+
+    if mutated:
+        updated_at = update_timestamp(session, document_id)
+    else:
+        # No-op request (e.g. assignments=[] on an already-empty doc with no metadata
+        # or comment changes). Keep updated_at pinned to its current value so other
+        # clients' optimistic-concurrency windows aren't invalidated.
+        updated_at = session.exec(
+            select(Document.updated_at).where(Document.document_id == document_id)
+        ).one()
     session.commit()
+    if VERBOSE_LOGGING:
+        logger.info(
+            f"PUT /api/assignments complete: document_id={document_id}, "
+            f"assignments_inserted={inserted_count}, updated_at={updated_at}"
+        )
     return {"assignments_inserted": inserted_count, "updated_at": updated_at}
 
 
@@ -487,27 +933,33 @@ async def get_children(
     parent_geoid: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
 ):
-    db_districtr_map_uuid = session.exec(
-        select(DistrictrMap.uuid).where(
-            DistrictrMap.districtr_map_slug == districtr_map_slug
+    db_districtr_map_uuid = (
+        session.connection()
+        .execute(
+            select(DistrictrMap.uuid).where(
+                DistrictrMap.districtr_map_slug == districtr_map_slug
+            )
         )
-    ).one()
-    stmt = text(
-        """SELECT child_path, parent_path
+        .scalar_one()
+    )
+    stmt = text("""SELECT child_path, parent_path
         FROM parentchildedges pce
         WHERE pce.parent_path = ANY(:parent_geoids)
-        AND pce.districtr_map = :districtr_map_uuid"""
-    ).bindparams(
+        AND pce.districtr_map = :districtr_map_uuid""").bindparams(
         bindparam(key="districtr_map_uuid", type_=UUIDType),
         bindparam(key="parent_geoids", type_=ARRAY(String)),
     )
-    results = session.execute(
-        statement=stmt,
-        params={
-            "districtr_map_uuid": db_districtr_map_uuid,
-            "parent_geoids": parent_geoid,
-        },
-    ).fetchall()
+    results = (
+        session.connection()
+        .execute(
+            stmt,
+            {
+                "districtr_map_uuid": db_districtr_map_uuid,
+                "parent_geoids": parent_geoid,
+            },
+        )
+        .fetchall()
+    )
     return results
 
 
@@ -516,23 +968,14 @@ async def reset_map(
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
 ):
-    partition_name = f'"document.assignments_{document.document_id}"'
-    session.execute(text(f"DROP TABLE IF EXISTS {partition_name} CASCADE;"))
-
-    # Recreate the partition
-    stmt = text(
-        f"""CREATE TABLE {partition_name}
-        PARTITION OF document.assignments
-        FOR VALUES IN ('{document.document_id}');
-    """
-    )
-    session.execute(stmt)
+    reset_document_partition(session, document.document_id, "assignments")
+    reset_document_partition(session, document.document_id, "community_assignments")
 
     # Reset color scheme
     stmt = text(
         "UPDATE document.document SET color_scheme = NULL WHERE document_id = :document_id"
     ).bindparams(bindparam(key="document_id", type_=UUIDType))
-    session.execute(
+    session.connection().execute(
         stmt,
         {"document_id": document.document_id},
     )
@@ -569,15 +1012,15 @@ async def update_colors(
             detail=f"Number of colors provided ({len(colors)}) does not match number of zones ({num_districts})",
         )
 
-    stmt = text(
-        """UPDATE document.document
+    stmt = text("""UPDATE document.document
         SET color_scheme = :colors
-        WHERE document_id = :document_id"""
-    ).bindparams(
+        WHERE document_id = :document_id""").bindparams(
         bindparam(key="document_id", type_=UUIDType),
         bindparam(key="colors", type_=ARRAY(String)),
     )
-    session.execute(stmt, {"document_id": document.document_id, "colors": colors})
+    session.connection().execute(
+        stmt, {"document_id": document.document_id, "colors": colors}
+    )
     session.commit()
     return ColorsSetResult(colors=colors)
 
@@ -608,15 +1051,13 @@ async def update_num_districts(
             detail="Number of districts is not modifiable for this map",
         )
 
-    stmt = text(
-        """UPDATE document.document
+    stmt = text("""UPDATE document.document
         SET num_districts = :num_districts
-        WHERE document_id = :document_id"""
-    ).bindparams(
+        WHERE document_id = :document_id""").bindparams(
         bindparam(key="document_id", type_=UUIDType),
         bindparam(key="num_districts", type_=Integer),
     )
-    session.execute(
+    session.connection().execute(
         stmt, {"document_id": document.document_id, "num_districts": num_districts}
     )
     session.commit()
@@ -629,8 +1070,8 @@ async def get_assignments(
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
 ):
-    districtr_map_uuid = session.exec(
-        select(DistrictrMap.uuid)
+    districtr_map_uuid, map_type = session.exec(
+        select(DistrictrMap.uuid, Document.map_type)
         .join(
             Document,
             onclause=col(Document.districtr_map_slug)
@@ -638,21 +1079,47 @@ async def get_assignments(
         )
         .where(Document.document_id == document.document_id)
     ).one()
+    is_community_map = map_type == "community"
 
-    stmt = (
-        select(
-            Assignments.geo_id,
-            Assignments.zone,
-            ParentChildEdges.parent_path,
+    if is_community_map:
+        stmt = (
+            select(
+                CommunityAssignments.geo_id,
+                func.nullif(CommunityAssignments.community_id, 0).label("zone"),
+                ParentChildEdges.parent_path,
+            )
+            .outerjoin(
+                ParentChildEdges,
+                onclause=(
+                    col(CommunityAssignments.geo_id) == ParentChildEdges.child_path
+                )
+                & (col(ParentChildEdges.districtr_map) == districtr_map_uuid),
+            )
+            .where(CommunityAssignments.document_id == document.document_id)
         )
-        .outerjoin(
-            ParentChildEdges,
-            onclause=(col(Assignments.geo_id) == ParentChildEdges.child_path)
-            & (col(ParentChildEdges.districtr_map) == districtr_map_uuid),
+    else:
+        stmt = (
+            select(
+                Assignments.geo_id,
+                Assignments.zone,
+                ParentChildEdges.parent_path,
+            )
+            .outerjoin(
+                ParentChildEdges,
+                onclause=(col(Assignments.geo_id) == ParentChildEdges.child_path)
+                & (col(ParentChildEdges.districtr_map) == districtr_map_uuid),
+            )
+            .where(Assignments.document_id == document.document_id)
         )
-        .where(Assignments.document_id == document.document_id)
-    )
-    return session.exec(stmt).fetchall()
+    results = session.exec(stmt).all()
+    if VERBOSE_LOGGING:
+        logger.info(
+            f"GET /api/get_assignments/{document.document_id}: "
+            f"is_community_map={is_community_map}, "
+            f"assignment_count={len(results)}, "
+            f"sample_zones={[r.zone for r in results[:5]]}"
+        )
+    return results
 
 
 @app.get("/api/document/{document_id}", response_model=DocumentPublic)
@@ -683,18 +1150,19 @@ async def get_document_list(
     tags: list[str] = Query(default=[]),
 ):
     stmt = (
-        select(
+        select(  # type: ignore[no-matching-overload]
             Document.public_id,
             Document.map_metadata,
             Document.updated_at,
-            DistrictrMap.name.label("map_module"),
+            Document.document_type,
+            col(DistrictrMap.name).label("map_module"),
         )
         .distinct(
             Document.public_id,
         )
         .join(
             DistrictrMap,
-            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,
+            col(Document.districtr_map_slug) == col(DistrictrMap.districtr_map_slug),
             isouter=True,
         )
         .offset(offset)
@@ -704,36 +1172,37 @@ async def get_document_list(
     if len(tags) > 0:
         stmt = (
             stmt.join(
-                DocumentComment,
-                DocumentComment.document_id == Document.document_id,
+                FormDocumentComment,
+                FormDocumentComment.document_id == Document.document_id,
             )
             .join(
                 CommentTag,
-                CommentTag.comment_id == DocumentComment.comment_id,
+                CommentTag.comment_id == FormDocumentComment.comment_id,
             )
             .join(
                 Tag,
                 Tag.id == CommentTag.tag_id,
             )
             .where(
-                Tag.slug.in_(tags),
+                col(Tag.slug).in_(tags),
             )
             .where(
                 # this is fine to keep as ->> because you're comparing to text
-                Document.map_metadata["draft_status"].astext == "ready_to_share"
+                col(Document.map_metadata)["draft_status"].astext == "ready_to_share"
             )
         )
 
     if len(ids) > 0:
-        stmt = stmt.where(Document.public_id.in_(ids))
+        stmt = stmt.where(col(Document.public_id).in_(ids))
 
-    results = session.execute(stmt).fetchall()
+    results = session.exec(stmt).all()
     return [
         {
             "public_id": row[0],
             "map_metadata": row[1],
             "updated_at": row[2],
-            "map_module": row[3],
+            "document_type": row[3],
+            "map_module": row[4],
         }
         for row in results
     ]
@@ -752,9 +1221,13 @@ async def get_unassigned_geoids(
         bindparam(key="exclude_ids", type_=ARRAY(String)),
     )
     try:
-        results = session.execute(
-            stmt, {"doc_uuid": document.document_id, "exclude_ids": exclude_ids}
-        ).fetchall()
+        results = (
+            session.connection()
+            .execute(
+                stmt, {"doc_uuid": document.document_id, "exclude_ids": exclude_ids}
+            )
+            .fetchall()
+        )
     except DataError:
         # TODO: When is this happening? Should investigate
         logger.warning("No results found for unassigned geoids")
@@ -813,7 +1286,15 @@ async def check_document_contiguity(
     zone: list[int] = Query(default=[]),
     session: Session = Depends(get_session),
 ):
-    districtr_map = get_districtr_map(document_id=document.document_id, session=session)
+    if document.map_type == "community":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Contiguity checks are not supported for community maps",
+        )
+
+    districtr_map = get_districtr_map(
+        document_id=DocumentID(document_id=document.document_id), session=session
+    )
 
     if districtr_map.child_layer is not None:
         logger.info(
@@ -829,8 +1310,7 @@ async def check_document_contiguity(
         logger.info(
             f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document.document_id}"
         )
-        sql = text(
-            """
+        sql = text("""
             SELECT
                 zone,
                 array_agg(geo_id) as nodes
@@ -840,9 +1320,12 @@ async def check_document_contiguity(
                 document_id = :document_id
                 AND zone IS NOT NULL
             GROUP BY
-                zone"""
+                zone""")
+        result = (
+            session.connection()
+            .execute(sql, {"document_id": document.document_id})
+            .fetchall()
         )
-        result = session.execute(sql, {"document_id": document.document_id}).fetchall()
         zone_assignments = [
             contiguity.ZoneBlockNodes(zone=row.zone, nodes=row.nodes) for row in result
         ]
@@ -865,7 +1348,15 @@ async def get_connected_component_bboxes(
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
 ):
-    districtr_map = get_districtr_map(document_id=document.document_id, session=session)
+    if document.map_type == "community":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Contiguity checks are not supported for community maps",
+        )
+
+    districtr_map = get_districtr_map(
+        document_id=DocumentID(document_id=document.document_id), session=session
+    )
     if districtr_map.child_layer is not None:
         logger.info(
             f"Using child layer {districtr_map.child_layer} for document {document.document_id}"
@@ -884,8 +1375,7 @@ async def get_connected_component_bboxes(
         logger.info(
             f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document.document_id}"
         )
-        sql = text(
-            f"""
+        sql = text(f"""
             SELECT
                 geo_id,
                 st_xmin(box2d(gpd.geometry)) AS xmin,
@@ -899,12 +1389,13 @@ async def get_connected_component_bboxes(
                 ON a.geo_id = gpd.path
             WHERE
                 document_id = :document_id
-                AND zone = :zone"""
-        )
+                AND zone = :zone""")
 
-        results = session.execute(
-            sql, {"document_id": document.document_id, "zone": zone}
-        ).all()
+        results = (
+            session.connection()
+            .execute(sql, {"document_id": document.document_id, "zone": zone})
+            .all()
+        )
 
         if not results or len(results) == 0:
             raise HTTPException(status_code=404, detail="Zone not found")
@@ -931,16 +1422,18 @@ async def get_connected_component_bboxes(
 
     zone_connected_components = connected_components(subgraph)
 
-    from_srid = session.execute(
-        text(
-            """SELECT srid
+    from_srid = (
+        session.connection()
+        .execute(
+            text("""SELECT srid
                 FROM geometry_columns
                 WHERE f_table_name = :table_name
                     AND f_table_schema = 'gerrydb'
-                LIMIT 1"""
-        ),
-        {"table_name": gerrydb_name},
-    ).scalar()
+                LIMIT 1"""),
+            {"table_name": gerrydb_name},
+        )
+        .scalar()
+    )
 
     bboxes = []
     for zone_connected_component in zone_connected_components:
@@ -993,7 +1486,7 @@ async def update_districtrmap_metadata(
             .where(Document.document_id == document.document_id)  # type: ignore
             .values(map_metadata=metadata.model_dump(exclude_unset=True))
         )
-        session.execute(stmt)
+        session.connection().execute(stmt)
         session.commit()
 
     except Exception as e:
@@ -1018,11 +1511,11 @@ async def get_projects(
         select(DistrictrMap)
         .join(
             DistrictrMapsToGroups,
-            DistrictrMapsToGroups.districtrmap_uuid == DistrictrMap.uuid,
+            col(DistrictrMapsToGroups.districtrmap_uuid) == DistrictrMap.uuid,
         )
-        .filter(DistrictrMapsToGroups.group_slug == group)
-        .filter(DistrictrMap.visible == true())  # pyright: ignore
-        .order_by(DistrictrMap.name.asc())  # pyright: ignore
+        .filter(col(DistrictrMapsToGroups.group_slug) == group)
+        .filter(col(DistrictrMap.visible) == true())
+        .order_by(col(DistrictrMap.name).asc())
         .offset(offset)
         .limit(limit)
     ).all()
@@ -1040,9 +1533,7 @@ async def get_group(
     ).where(
         MapGroup.slug == group_slug,
     )
-    group = session.execute(
-        statement=stmt,
-    ).first()
+    group = session.exec(stmt).first()
 
     if not group:
         raise HTTPException(
@@ -1050,6 +1541,6 @@ async def get_group(
             detail=f"Group matching {group_slug} does not exist.",
         )
     return {
-        "name": group[0].name,
-        "slug": group[0].slug,
+        "name": group.name,
+        "slug": group.slug,
     }

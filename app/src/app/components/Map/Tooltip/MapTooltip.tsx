@@ -4,11 +4,25 @@ import {formatNumber} from '@utils/numbers';
 import {useTooltipStore} from '@store/tooltipStore';
 import {InspectorTooltip} from '@components/Map/Tooltip/InspectorTooltip';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {ZoneDescriptionTooltip} from './ZoneDescriptionTooltip';
 
 export const MapTooltip = () => {
   const tooltip = useTooltipStore(state => state.tooltip);
+  const zoneDescriptionTooltip = useTooltipStore(state => state.zoneDescriptionTooltip);
   const activeTool = useMapControlsStore(state => state.activeTool);
   const isInspectorMode = activeTool === 'inspector';
+
+  // Render zone description tooltip if active
+  if (zoneDescriptionTooltip) {
+    return (
+      <ZoneDescriptionTooltip
+        zone={zoneDescriptionTooltip.zone}
+        x={zoneDescriptionTooltip.x}
+        y={zoneDescriptionTooltip.y}
+      />
+    );
+  }
+
   if (!tooltip) return null;
   if (!tooltip?.data?.length && !isInspectorMode) return null;
 

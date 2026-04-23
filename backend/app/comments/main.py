@@ -11,15 +11,18 @@ from fastapi import (
 from sqlmodel import Session, col
 from sqlalchemy.exc import IntegrityError, DataError
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy import text, func, select, String, Select
+from sqlalchemy import text, func, select, String, Select, update, delete
 
 from app.core.security import auth, TokenScope
 from sqlalchemy.sql import or_, and_, exists, literal, cast, case
 
-from app.core.dependencies import get_protected_document
+from app.core.dependencies import get_protected_document, validate_document_exists
 from app.core.db import get_session
+from app.core.models import DocumentID
+
 from app.comments.models import (
     Commenter,
+    CommenterCreate,
     CommenterCreateWithRecaptcha,
     CommenterPublic,
     Comment,
@@ -27,6 +30,7 @@ from app.comments.models import (
     CommentCreateWithRecaptcha,
     CommentPublic,
     Tag,
+    TagCreate,
     TagCreateWithRecaptcha,
     TagWithId,
     CommentTag,
@@ -40,24 +44,49 @@ from app.comments.models import (
     ReviewStatusUpdate,
     ReviewUpdateResponse,
     CommentFilterParams,
+    FlagCommentRequest,
+    DistrictCommentInput,
 )
 from app.comments.moderation import (
     moderate_submission,
     moderate_commenter,
     moderate_comment,
+    moderate_comment_by_id,
     moderate_tag,
     MODERATION_THRESHOLD,
 )
-from app.models import Document
-from app.core.models import DocumentID
+from app.models import Document, DistrictrMap
 from app.core.security import recaptcha
+
+from app.comments.settings import (
+    DEFAULT_MAX_COMMENT_LENGTH,
+    DEFAULT_MAX_COMMENTS_PER_DISTRICT,
+)
+
+
+def _get_comment_limits_for_document(
+    document_id: str, session: Session
+) -> tuple[int, int]:
+    """Get comment_length_limit and comment_count_limit from the document's DistrictrMap. Uses defaults if null."""
+    document = get_protected_document(
+        document_id=DocumentID(document_id=document_id), session=session
+    )
+    stmt = select(  # type: ignore[no-matching-overload]
+        DistrictrMap.comment_length_limit,
+        DistrictrMap.comment_count_limit,
+    ).where(DistrictrMap.districtr_map_slug == document.districtr_map_slug)
+    row = session.exec(stmt).first()
+    if row is None:
+        return (DEFAULT_MAX_COMMENT_LENGTH, DEFAULT_MAX_COMMENTS_PER_DISTRICT)
+    max_length = row[0] if row[0] is not None else DEFAULT_MAX_COMMENT_LENGTH
+    max_count = row[1] if row[1] is not None else DEFAULT_MAX_COMMENTS_PER_DISTRICT
+    return (max_length, max_count)
+
 
 router = APIRouter(tags=["comments"], prefix="/api/comments")
 
 
-def create_commenter_db(
-    commenter_data: CommenterCreateWithRecaptcha, session: Session
-) -> Commenter:
+def create_commenter_db(commenter_data: CommenterCreate, session: Session) -> Commenter:
     """
     Create a new commenter with upsert on conflict for name + email unique constraint.
     Returns the Commenter model with id.
@@ -73,12 +102,13 @@ def create_commenter_db(
             "zip_code": stmt.excluded.zip_code,
             "updated_at": stmt.excluded.updated_at,
         },
-    ).returning(Commenter)
+    ).returning(Commenter)  # Now a DML statement because of the RETURNING clause
 
-    result = session.execute(stmt)
-    commenter = result.scalar_one()
+    row = session.connection().execute(stmt).one()
     session.commit()
-    return commenter
+    return Commenter.model_construct(
+        **row._asdict()
+    )  # model_construct also runs validation
 
 
 def create_comment_db(comment_data: CommentCreate, session: Session) -> Comment:
@@ -116,8 +146,8 @@ def create_comment_db(comment_data: CommentCreate, session: Session) -> Comment:
         create_document_comment(
             comment_id=comment.id,
             document_id=comment_data.document_id,
-            zone=comment_data.zone,
             session=session,
+            zone=None,
         )
 
     session.commit()
@@ -125,7 +155,7 @@ def create_comment_db(comment_data: CommentCreate, session: Session) -> Comment:
     return comment
 
 
-def create_tag_db(tag_data: TagCreateWithRecaptcha, session: Session) -> Tag:
+def create_tag_db(tag_data: TagCreate, session: Session) -> Tag:
     """
     Create a new tag using the slugify_tag SQL function.
     Returns the Tag model with id.
@@ -135,13 +165,11 @@ def create_tag_db(tag_data: TagCreateWithRecaptcha, session: Session) -> Tag:
     stmt = stmt.on_conflict_do_update(
         index_elements=["slug"],
         set_=dict(slug=stmt.excluded.slug),  # No-op update
-    ).returning(Tag)
+    ).returning(Tag)  # Now a DML statement because of the RETURNING clause
 
-    result = session.execute(stmt, {"tag": tag_data.tag})
-    tag = result.scalar_one()
+    row = session.connection().execute(stmt, {"tag": tag_data.tag}).one()
     session.commit()
-
-    return tag
+    return Tag.model_construct(**row._asdict())  # model_construct also runs validation
 
 
 def create_comment_tag_associations(
@@ -157,24 +185,232 @@ def create_comment_tag_associations(
 
     stmt = insert(CommentTag).values(associations)
     stmt = stmt.on_conflict_do_nothing()
-    session.execute(stmt)
+    session.connection().execute(stmt)
 
 
 def create_document_comment(
-    comment_id: int, document_id: str, zone: int | None, session: Session
-) -> DocumentComment:
+    comment_id: int, document_id: str, session: Session, zone: int | None = None
+) -> DocumentComment | None:
     """
-    Create a document comment.
+    Create a document comment association (links a form comment to a document).
+    Optionally set zone for a scoped map comment.
     """
     document = get_protected_document(
         document_id=DocumentID(document_id=document_id), session=session
     )
 
     stmt = insert(DocumentComment).values(
-        comment_id=comment_id, document_id=document.document_id, zone=zone
+        comment_id=comment_id,
+        document_id=document.document_id,
+        zone=zone,
     )
-    document_comment: DocumentComment = session.exec(stmt)  # type: ignore
-    return document_comment
+    session.connection().execute(stmt)
+    session.flush()
+    doc_comment = session.exec(  # type: ignore[no-matching-overload]
+        select(DocumentComment).where(
+            and_(
+                col(DocumentComment.comment_id) == comment_id,
+                col(DocumentComment.document_id) == document.document_id,
+            )
+        )
+    ).first()
+    return doc_comment
+
+
+def _sync_scoped_comments(
+    document_id: str,
+    comments: list[DistrictCommentInput],
+    session: Session,
+    association_model,
+    scope_column: str,
+    title_prefix: str,
+    background_tasks: BackgroundTasks | None = None,
+) -> None:
+    """
+    Sync scoped comments for a document.
+
+    Creates/updates comments in comments schema.
+    Each comment is {comment_id?, zone, text}. comment_id is optional; if provided
+    as parseable int and exists for this document, the comment is updated.
+    Limits: 240 chars per comment (after trim), 10 comments per zone.
+
+    Args:
+        document_id (str): UUID of the document to sync comments for
+        comments (list[DistrictCommentInput]): List of comments to sync, each with optional
+            comment_id, zone, and text
+        session (Session): SQLAlchemy session for database operations
+        association_model: The SQLAlchemy model for the association table (e.g. DocumentComment)
+        scope_column: The name of the column in the association model that defines the scope
+            (e.g. "zone")
+        title_prefix: The prefix to use for comment titles (e.g. "District" or "Community")
+        background_tasks (BackgroundTasks | None): Optional FastAPI BackgroundTasks for async
+            moderation
+    """
+    validate_document_exists(
+        document_id=DocumentID(document_id=document_id), session=session
+    )
+
+    max_comment_length, max_comments_per_district = _get_comment_limits_for_document(
+        document_id, session
+    )
+
+    # Get existing scoped comment ids for this document (scalars to avoid Row type issues)
+    existing_dc = list(
+        session.scalars(
+            select(association_model.comment_id).where(
+                col(association_model.document_id) == document_id
+            )
+        )
+    )
+
+    # Enforce max comments per zone (incoming replaces existing, so count per zone)
+    zone_counts: dict[int, int] = {}
+    for c in comments:
+        if c.zone is not None:
+            zone_counts[c.zone] = zone_counts.get(c.zone, 0) + 1
+    for zone_val, count in zone_counts.items():
+        if count > max_comments_per_district:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Maximum {max_comments_per_district} comments per zone (zone {zone_val})",
+            )
+
+    kept_comment_ids = set()
+    for c in comments:
+        zone = c.zone
+        # Comment text is required to be a string and have length > 0 by DB constraints
+        comment_text = (c.text or "")[:max_comment_length]
+        comment_id_str = c.comment_id
+
+        if zone is None:
+            continue
+
+        # Try to parse as existing comment id (integer from comments.comment)
+        existing_id = None
+        if comment_id_str is not None:
+            try:
+                parsed = int(comment_id_str)
+                if parsed in existing_dc:
+                    existing_id = parsed
+            except (ValueError, TypeError):
+                pass
+
+        if existing_id is not None:
+            # Update existing comment
+            title = f"{title_prefix} {zone} note"
+            stmt = (
+                update(Comment)
+                .where(col(Comment.id) == existing_id)
+                .values(comment=comment_text, title=title)
+            )
+            session.connection().execute(stmt)
+            kept_comment_ids.add(existing_id)
+            if background_tasks:
+                background_tasks.add_task(
+                    moderate_comment_by_id, existing_id, f"{title} {comment_text}"
+                )
+        else:
+            # Create new comment
+            title = f"{title_prefix} {zone} note"
+            new_comment = Comment(
+                title=title,
+                comment=comment_text,
+                commenter_id=None,
+            )
+            session.add(new_comment)
+            session.flush()
+            stmt = insert(association_model).values(
+                comment_id=new_comment.id,
+                document_id=document_id,
+                **{scope_column: zone},
+            )
+            session.connection().execute(stmt)
+            kept_comment_ids.add(new_comment.id)
+            if background_tasks:
+                background_tasks.add_task(
+                    moderate_comment_by_id, new_comment.id, f"{title} {comment_text}"
+                )
+
+    # Delete scoped comments not in the kept set (association first, then Comment)
+    to_delete = [cid for cid in existing_dc if cid not in kept_comment_ids]
+    if to_delete:
+        session.connection().execute(
+            delete(association_model).where(
+                and_(
+                    col(association_model.document_id) == document_id,
+                    col(association_model.comment_id).in_(to_delete),
+                )
+            )
+        )
+        session.connection().execute(
+            delete(Comment).where(col(Comment.id).in_(to_delete))
+        )
+
+
+def sync_district_comments(
+    document_id: str,
+    comments: list[DistrictCommentInput],
+    session: Session,
+    background_tasks: BackgroundTasks | None = None,
+) -> None:
+    """
+    Sync scoped comments for a district-based document.
+
+    Creates/updates comments in comments schema.
+    Each comment is {comment_id?, zone, text}. comment_id is optional; if provided
+    as parseable int and exists for this document, the comment is updated.
+    Limits: 240 chars per comment (after trim), 10 comments per zone.
+
+    Args:
+        document_id (str): UUID of the document to sync comments for
+        comments (list[DistrictCommentInput]): List of comments to sync, each with optional
+            comment_id, zone, and text
+        session (Session): SQLAlchemy session for database operations
+        background_tasks (BackgroundTasks | None): Optional FastAPI BackgroundTasks for async
+            moderation
+    """
+    _sync_scoped_comments(
+        document_id=document_id,
+        comments=comments,
+        session=session,
+        association_model=DocumentComment,
+        scope_column="zone",
+        title_prefix="District",
+        background_tasks=background_tasks,
+    )
+
+
+def sync_community_comments(
+    document_id: str,
+    comments: list[DistrictCommentInput],
+    session: Session,
+    background_tasks: BackgroundTasks | None = None,
+) -> None:
+    """
+    Sync scoped comments for a community-based document.
+
+    Creates/updates comments in comments schema.
+    Each comment is {comment_id?, zone, text}. comment_id is optional; if provided
+    as parseable int and exists for this document, the comment is updated.
+    Limits: 240 chars per comment (after trim), 10 comments per zone.
+
+    Args:
+        document_id (str): UUID of the document to sync comments for
+        comments (list[DistrictCommentInput]): List of comments to sync, each with optional
+            comment_id, zone, and text
+        session (Session): SQLAlchemy session for database operations
+        background_tasks (BackgroundTasks | None): Optional FastAPI BackgroundTasks for async
+            moderation
+    """
+    _sync_scoped_comments(
+        document_id=document_id,
+        comments=comments,
+        session=session,
+        association_model=DocumentComment,
+        scope_column="zone",
+        title_prefix="Community",
+        background_tasks=background_tasks,
+    )
 
 
 def create_full_comment_submission(
@@ -196,13 +432,8 @@ def create_full_comment_submission(
     created_tags: list[TagWithId] = []
     for tag_create in form_data.tags:
         tag = create_tag_db(tag_create, session)
-        created_tags.append(
-            {
-                "id": tag.id,
-                "slug": tag.slug,
-            }
-        )
-    tag_ids = [tag["id"] for tag in created_tags]
+        created_tags.append(TagWithId(id=tag.id, slug=tag.slug))
+    tag_ids = [t.id for t in created_tags]
 
     create_comment_tag_associations(comment.id, tag_ids, session)
 
@@ -224,9 +455,8 @@ async def create_commenter(
     session: Session = Depends(get_session),
 ):
     """Create a new commenter with upsert on conflict for name + email."""
-    await recaptcha.verify_recaptcha(
-        commenter_data.recaptcha_token, request.client.host
-    )
+    client_host = request.client.host if request.client else ""
+    await recaptcha.verify_recaptcha(commenter_data.recaptcha_token, client_host)
     try:
         commenter = create_commenter_db(commenter_data.commenter, session)
     except IntegrityError as e:
@@ -249,7 +479,8 @@ async def create_comment(
     session: Session = Depends(get_session),
 ):
     """Create a new comment without commenter foreign key."""
-    await recaptcha.verify_recaptcha(comment_data.recaptcha_token, request.client.host)
+    client_host = request.client.host if request.client else ""
+    await recaptcha.verify_recaptcha(comment_data.recaptcha_token, client_host)
     try:
         comment = create_comment_db(comment_data.comment, session)
     except (DataError, IntegrityError) as e:
@@ -270,7 +501,8 @@ async def create_tag(
     session: Session = Depends(get_session),
 ):
     """Create a new tag using the slugify_tag SQL function."""
-    await recaptcha.verify_recaptcha(tag_data.recaptcha_token, request.client.host)
+    client_host = request.client.host if request.client else ""
+    await recaptcha.verify_recaptcha(tag_data.recaptcha_token, client_host)
     try:
         tag = create_tag_db(tag_data.tag, session)
     except IntegrityError as e:
@@ -295,7 +527,8 @@ async def submit_full_comment(
     session: Session = Depends(get_session),
 ):
     """Submit a complete comment with commenter, comment, and tags."""
-    await recaptcha.verify_recaptcha(form_data.recaptcha_token, request.client.host)
+    client_host = request.client.host if request.client else ""
+    await recaptcha.verify_recaptcha(form_data.recaptcha_token, client_host)
     try:
         response = create_full_comment_submission(form_data, session)
     except (DataError, IntegrityError) as e:
@@ -324,14 +557,16 @@ def build_tag_subquery(tags: list[str] | None, include_admin_columns: bool = Fal
             func.array_agg(func.distinct(Tag.slug)).filter(col(Tag.slug).isnot(None)),
             [],
         ).label("tags"),
-        func.count(
-            case(
-                (col(Tag.slug).in_(tags) if tags else False, 1),  # type: ignore
-                else_=None,
-            )
-        ).label("matching_tag_count")
-        if tags
-        else literal(0).label("matching_tag_count"),
+        (
+            func.count(
+                case(
+                    (col(Tag.slug).in_(tags) if tags else False, 1),  # type: ignore
+                    else_=None,
+                )
+            ).label("matching_tag_count")
+            if tags
+            else literal(0).label("matching_tag_count")
+        ),
     ]
 
     if include_admin_columns:
@@ -373,6 +608,49 @@ def apply_document_filter(stmt: Select, public_id: int | None) -> Select:
         .correlate(Comment)
     )
     return stmt.where(exists(doc_exists))
+
+
+def apply_comment_id_filter(stmt: Select, comment_id: int | None) -> Select:
+    """Filter by specific comment ID."""
+    if comment_id is None:
+        return stmt
+    return stmt.where(col(Comment.id) == comment_id)
+
+
+def apply_review_flagged_filter(stmt: Select, review_flagged: bool | None) -> Select:
+    """Filter by review_flagged status. When True, return only flagged comments."""
+    if review_flagged is None:
+        return stmt
+    return stmt.where(col(Comment.review_flagged) == review_flagged)
+
+
+def apply_document_id_filter(stmt: Select, document_id: str | None) -> Select:
+    """Apply document filter by document UUID (for district comments lookup)."""
+    if not document_id:
+        return stmt
+    return stmt.where(
+        and_(
+            col(DocumentComment.document_id) == document_id,
+            col(DocumentComment.zone).is_not(None),
+        )
+    )
+
+
+def apply_public_id_filter_for_district(stmt: Select, public_id: int | None) -> Select:
+    """Filter district comments by document public_id."""
+    if public_id is None:
+        return stmt
+    return stmt.where(col(Document.public_id) == public_id)
+
+
+def apply_exclude_district_comments(stmt: Select) -> Select:
+    """Exclude district comments (DocumentComment with zone IS NOT NULL) from results."""
+    return stmt.where(
+        or_(
+            col(DocumentComment.comment_id).is_(None),
+            col(DocumentComment.zone).is_(None),
+        )
+    )
 
 
 def apply_location_filters(
@@ -433,7 +711,6 @@ def get_comments_base_query(
             col(Commenter.state),
             col(Commenter.zip_code),
             func.coalesce(tag_subquery.c.tags, []).label("tags"),
-            col(DocumentComment.zone),
             col(Document.public_id),
         )
         .select_from(Comment)
@@ -447,6 +724,7 @@ def get_comments_base_query(
 
     # Apply common filters
     stmt = apply_document_filter(stmt, params.public_id)
+    stmt = apply_exclude_district_comments(stmt)
     stmt = apply_location_filters(stmt, params.place, params.state, params.zip_code)
     stmt = apply_tag_filter(stmt, tag_subquery, params.tags)
 
@@ -473,22 +751,16 @@ def get_comments_base_query(
 def moderate_comments_query(
     stmt: Select,
     moderation_threshold: float = MODERATION_THRESHOLD,
-    exclude_rejected: bool = True,
 ) -> Select:
     """
-    Moderate the comments query.
+    Apply moderation gates to a public comment list query:
+      - Comment: must pass (approved, unscored, or under threshold) AND not REJECTED
+      - Commenter: if present, must pass (same rules) AND not REJECTED
+      - Tags: excluded if ANY attached tag is REJECTED or scored offensive
     """
 
-    # -----------------------------
-    # Moderation gates
-    # - Comment: must pass
-    # - Commenter: if present, must pass
-    # - Tags: comment excluded if ANY attached tag fails
-    # -----------------------------
-    # Helper booleans (so the logic reads clearly)
     def passes_entity(score_col, status_col):
-        # Approved always passes
-        # Else must be under threshold or NULL (None)
+        # Approved always passes. Else must be under threshold or NULL (None).
         return or_(
             status_col == ReviewStatus.APPROVED,
             score_col.is_(None),
@@ -496,34 +768,30 @@ def moderate_comments_query(
         )
 
     # Comment moderation
-    comment_ok = passes_entity(Comment.moderation_score, Comment.review_status)
-    if exclude_rejected:
-        comment_ok = and_(
-            col(Comment.review_status) != ReviewStatus.REJECTED, comment_ok
-        )
+    comment_ok = and_(
+        col(Comment.review_status) != ReviewStatus.REJECTED,
+        passes_entity(Comment.moderation_score, Comment.review_status),
+    )
     stmt = stmt.where(comment_ok)
 
     # Commenter moderation (if commenter exists)
-    commenter_ok = passes_entity(Commenter.moderation_score, Commenter.review_status)
-    if exclude_rejected:
-        commenter_ok = and_(
-            col(Commenter.review_status) != ReviewStatus.REJECTED, commenter_ok
-        )
+    commenter_ok = and_(
+        col(Commenter.review_status) != ReviewStatus.REJECTED,
+        passes_entity(Commenter.moderation_score, Commenter.review_status),
+    )
     stmt = stmt.where(or_(col(Commenter.id).is_(None), commenter_ok))
 
     # Tag moderation: exclude the entire comment if ANY attached tag fails.
-    # We phrase this as NOT EXISTS(bad_tag)
-    bad_tag_conds = []
-    if exclude_rejected:
-        bad_tag_conds.append(Tag.review_status == ReviewStatus.REJECTED)
-    # Fails threshold unless explicitly approved
-    bad_tag_conds.append(
+    # We phrase this as NOT EXISTS(bad_tag). score_text semantics: 0=clean, 1=offensive,
+    # so "bad" means score at or above threshold.
+    bad_tag_conds = [
+        Tag.review_status == ReviewStatus.REJECTED,
         and_(
             col(Tag.review_status) != ReviewStatus.APPROVED,
             col(Tag.moderation_score).is_not(None),
-            col(Tag.moderation_score) <= moderation_threshold,
-        )
-    )
+            col(Tag.moderation_score) >= moderation_threshold,
+        ),
+    ]
 
     bad_tag_exists = (
         select(literal(1))
@@ -561,11 +829,11 @@ def get_admin_query(
             col(Commenter.state),
             col(Commenter.zip_code),
             func.coalesce(tag_subquery.c.tags, []).label("tags"),
-            col(DocumentComment.zone),
             col(Document.public_id),
             col(Comment.id).label("comment_id"),
             col(Comment.review_status).label("comment_review_status"),
             col(Comment.moderation_score).label("comment_moderation_score"),
+            col(Comment.review_flagged).label("comment_review_flagged"),
             col(Commenter.id).label("commenter_id"),
             col(Commenter.review_status).label("commenter_review_status"),
             col(Commenter.moderation_score).label("commenter_moderation_score"),
@@ -576,6 +844,8 @@ def get_admin_query(
             func.coalesce(tag_subquery.c.tag_moderation_score, []).label(
                 "tag_moderation_score"
             ),
+            col(DocumentComment.zone).label("zone"),
+            col(DocumentComment.document_id).label("document_id"),
         )
         .select_from(Comment)
         .outerjoin(Commenter, col(Comment.commenter_id) == Commenter.id)
@@ -588,6 +858,9 @@ def get_admin_query(
 
     # Apply common filters
     stmt = apply_document_filter(stmt, params.public_id)
+    stmt = apply_exclude_district_comments(stmt)
+    stmt = apply_comment_id_filter(stmt, params.comment_id)
+    stmt = apply_review_flagged_filter(stmt, params.review_flagged)
     stmt = apply_location_filters(stmt, params.place, params.state, params.zip_code)
     stmt = apply_tag_filter(stmt, tag_subquery, params.tags)
 
@@ -598,9 +871,83 @@ def get_admin_query(
                 col(Comment.moderation_score) <= max_moderation_score,
                 col(Comment.moderation_score).is_(None),
             ),
-            col(Comment.review_status) == review_status
-            if review_status
-            else col(Comment.review_status).is_(None),
+            (
+                col(Comment.review_status) == review_status
+                if review_status
+                else col(Comment.review_status).is_(None)
+            ),
+        )
+    )
+
+    return stmt
+
+
+def get_admin_district_comments_query(
+    params: CommentFilterParams,
+    max_moderation_score: float,
+    review_status: ReviewStatus | None,
+) -> Select:
+    """
+    Return admin query for district comments only (DocumentComment with zone IS NOT NULL).
+    Filter by document_id to look up comments for a specific document.
+    """
+    tag_subquery = build_tag_subquery(None, include_admin_columns=True)
+
+    stmt = (
+        select(
+            col(Comment.title),
+            col(Comment.comment),
+            col(Commenter.first_name),
+            col(Commenter.last_name),
+            col(Commenter.place),
+            col(Commenter.state),
+            col(Commenter.zip_code),
+            func.coalesce(tag_subquery.c.tags, []).label("tags"),
+            col(Document.public_id),
+            col(Comment.id).label("comment_id"),
+            col(Comment.review_status).label("comment_review_status"),
+            col(Comment.moderation_score).label("comment_moderation_score"),
+            col(Comment.review_flagged).label("comment_review_flagged"),
+            col(Commenter.id).label("commenter_id"),
+            col(Commenter.review_status).label("commenter_review_status"),
+            col(Commenter.moderation_score).label("commenter_moderation_score"),
+            func.coalesce(tag_subquery.c.tag_ids, []).label("tag_ids"),
+            func.coalesce(tag_subquery.c.tag_review_status, []).label(
+                "tag_review_status"
+            ),
+            func.coalesce(tag_subquery.c.tag_moderation_score, []).label(
+                "tag_moderation_score"
+            ),
+            col(DocumentComment.zone).label("zone"),
+            col(DocumentComment.document_id).label("document_id"),
+        )
+        .select_from(Comment)
+        .outerjoin(Commenter, col(Comment.commenter_id) == Commenter.id)
+        .outerjoin(tag_subquery, col(Comment.id) == tag_subquery.c.comment_id)
+        .join(DocumentComment, col(DocumentComment.comment_id) == Comment.id)
+        .outerjoin(Document, col(Document.document_id) == DocumentComment.document_id)
+        .where(col(DocumentComment.zone).is_not(None))
+        .limit(params.limit)
+        .offset(params.offset)
+    )
+
+    stmt = apply_document_id_filter(stmt, params.document_id)
+    stmt = apply_public_id_filter_for_district(stmt, params.public_id)
+    stmt = apply_comment_id_filter(stmt, params.comment_id)
+    stmt = apply_review_flagged_filter(stmt, params.review_flagged)
+    stmt = apply_location_filters(stmt, params.place, params.state, params.zip_code)
+
+    stmt = stmt.where(
+        and_(
+            or_(
+                col(Comment.moderation_score) <= max_moderation_score,
+                col(Comment.moderation_score).is_(None),
+            ),
+            (
+                col(Comment.review_status) == review_status
+                if review_status
+                else col(Comment.review_status).is_(None)
+            ),
         )
     )
 
@@ -639,7 +986,7 @@ async def list_comments(
     )
     stmt = get_comments_base_query(params, search=search, has_map=has_map)
     stmt = moderate_comments_query(stmt)
-    results = session.execute(stmt).all()
+    results = session.exec(stmt).all()  # type: ignore[no-matching-overload]
     return results
 
 
@@ -650,11 +997,18 @@ async def list_comments_admin(
     state: str = Query(default=None),
     zip_code: str = Query(default=None),
     public_id: int = Query(default=None),
+    comment_id: int | None = Query(
+        default=None, description="Look up specific comment by ID"
+    ),
+    review_flagged: bool | None = Query(
+        default=None,
+        description="When True, filter to comments flagged for review",
+    ),
     max_moderation_score: float = Query(default=1.0),
     offset: int = Query(default=0),
     limit: int = Query(default=100),
     session: Session = Depends(get_session),
-    auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
+    auth_result: dict = Security(auth.verify, scopes=[TokenScope.review_content]),
     review_status: ReviewStatus = Query(default=None),
 ):
     params = CommentFilterParams(
@@ -665,14 +1019,83 @@ async def list_comments_admin(
         limit=limit,
         offset=offset,
         public_id=public_id,
+        comment_id=comment_id,
+        review_flagged=review_flagged,
     )
     stmt = get_admin_query(
         params,
         max_moderation_score=max_moderation_score,
         review_status=review_status,
     )
-    results = session.execute(stmt).all()
+    results = session.exec(stmt).all()  # type: ignore[no-matching-overload]
     return results
+
+
+@router.get("/admin/district-comments/list", response_model=list[AdminCommentResponse])
+async def list_district_comments_admin(
+    document_id: str | None = Query(
+        default=None, description="Filter by document UUID to look up district comments"
+    ),
+    public_id: int | None = Query(
+        default=None,
+        description="Filter by public ID (map number) to look up district comments",
+    ),
+    comment_id: int | None = Query(
+        default=None, description="Look up specific comment by ID"
+    ),
+    review_flagged: bool | None = Query(
+        default=None,
+        description="When True, filter to comments flagged for review",
+    ),
+    place: str = Query(default=None),
+    state: str = Query(default=None),
+    zip_code: str = Query(default=None),
+    max_moderation_score: float = Query(default=1.0),
+    offset: int = Query(default=0),
+    limit: int = Query(default=100),
+    session: Session = Depends(get_session),
+    auth_result: dict = Security(auth.verify, scopes=[TokenScope.review_content]),
+    review_status: ReviewStatus = Query(default=None),
+):
+    """List district-level comments for moderation. Filter by document_id, public_id, or comment_id."""
+    params = CommentFilterParams(
+        place=place,
+        state=state,
+        zip_code=zip_code,
+        limit=limit,
+        offset=offset,
+        document_id=document_id,
+        public_id=public_id,
+        comment_id=comment_id,
+        review_flagged=review_flagged,
+    )
+    stmt = get_admin_district_comments_query(
+        params,
+        max_moderation_score=max_moderation_score,
+        review_status=review_status,
+    )
+    results = session.exec(stmt).all()  # type: ignore[no-matching-overload]
+    return results
+
+
+@router.post("/flag", status_code=status.HTTP_200_OK)
+async def flag_comment(
+    body: FlagCommentRequest,
+    session: Session = Depends(get_session),
+):
+    """Flag a comment for moderator review. Used when users believe a moderation decision was in error."""
+    comment = session.get(Comment, body.comment_id)
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    # Only allow flagging comments that are publicly listable (not already REJECTED).
+    # Flagging a rejected comment gives moderators no signal (it's already hidden) and
+    # is a way to harass the moderation queue.
+    if comment.review_status == ReviewStatus.REJECTED:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    comment.review_flagged = True
+    session.add(comment)
+    session.commit()
+    return {"message": "Comment flagged for review", "comment_id": body.comment_id}
 
 
 @router.post("/admin/review", response_model=ReviewUpdateResponse)
@@ -692,6 +1115,10 @@ async def review_comment(
         raise HTTPException(status_code=404, detail="Entry not found")
 
     entry.review_status = review_data.review_status
+    # Clearing the flag on review resolves the item from the moderator queue.
+    # Comment is the only entity that carries review_flagged today.
+    if hasattr(entry, "review_flagged"):
+        entry.review_flagged = False
     session.add(entry)
     session.commit()
     session.refresh(entry)

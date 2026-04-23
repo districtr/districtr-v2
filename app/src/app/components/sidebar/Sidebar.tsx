@@ -8,6 +8,7 @@ import {DragHandleHorizontalIcon} from '@radix-ui/react-icons';
 import {ToolbarInSidebar} from './ToolbarInSidebar';
 import {styled} from '@stitches/react';
 import {MapContextComment} from './MapContextComment';
+import {CoiCommunityViewer} from './CoiCommunityViewer';
 
 const StyledScrollArea = styled(ScrollArea, {
   maxWidth: '100%',
@@ -45,6 +46,7 @@ export default function SidebarComponent() {
       hidden
       lg:flex
       "
+      data-testid="sidebar"
       style={{width: width, overflow: 'visible', containerType: 'inline-size'}}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -97,6 +99,7 @@ export default function SidebarComponent() {
       </div>
       <Flex direction="column" gap="3" className="size-full">
         <ToolbarInSidebar />
+        <CoiCommunityViewer />
         <MapContextComment />
         <StyledScrollArea
           className="size-full overflow-y-auto flex-grow-1 max-w-full"

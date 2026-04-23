@@ -11,7 +11,8 @@ import {
 } from '@radix-ui/react-icons';
 import {useCallback} from 'react';
 import {debounce} from 'lodash';
-import {useTemporalStore} from '@/app/store/temporalStore';
+import {useTemporalStore, useCoiTemporalStore} from '@/app/store/temporalStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 
 export type ActiveToolConfig = {
   hotKeyAccessor: (event: KeyboardEvent) => boolean;
@@ -30,8 +31,12 @@ export const useActiveTools = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const access = useMapStore(state => state.mapStatus?.access);
   const isEditing = access === 'edit';
+  const mapMode = useMapControlsStore(state => state.mapMode);
 
-  const {futureStates, pastStates, redo, undo} = useTemporalStore();
+  const districtsTemporal = useTemporalStore();
+  const coiTemporal = useCoiTemporalStore();
+  const {futureStates, pastStates, redo, undo} =
+    mapMode === 'coi' ? coiTemporal : districtsTemporal;
 
   const handleUndo = useCallback(debounce(undo, 100), [undo]);
   const handleRedo = useCallback(debounce(redo, 100), [redo]);

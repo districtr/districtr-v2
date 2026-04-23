@@ -1,7 +1,10 @@
 'use client';
 import React, {useEffect} from 'react';
 import {MapContextMenu} from '@components/ContextMenu';
-import {MapComponent} from '@components/Map/Map';
+import {MainMap} from '@components/Map/MainMap';
+import {PublicMap} from '@components/Map/PublicMap';
+import {DemographicMap} from '@components/Map/DemographicMap';
+import {PublicDemographicMap} from '@components/Map/PublicDemographicMap';
 import SidebarComponent from '@components/sidebar/Sidebar';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
@@ -17,7 +20,10 @@ import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useDocumentWithSync} from '@/app/hooks/useDocumentWithSync';
 import {SaveConflictModal} from '../SaveConflictModal';
-import { migrateUserMapsFromLocalStorage } from '@/app/utils/idb/migrateUserMaps';
+import {ZoneDescriptionModal} from '@components/Map/Tooltip/ZoneDescriptionModal';
+import {migrateUserMapsFromLocalStorage} from '@/app/utils/idb/migrateUserMaps';
+import {isUUID} from '@/app/utils/metadata/isUUID';
+import {useInitializeMapMode} from '@/app/hooks/useInitializeMapMode';
 
 interface MapPageProps {
   isEditing: boolean;
@@ -25,9 +31,11 @@ interface MapPageProps {
 }
 
 function ChildMapPage({isEditing, mapId}: MapPageProps) {
+  const isMapModeReady = useInitializeMapMode('districts');
   const showDemographicMap = useMapControlsStore(
     state => state.mapOptions.showDemographicMap === 'side-by-side'
   );
+  const isPublicPage = !isEditing && !!mapId && !isUUID(mapId);
   const setIsEditing = useMapControlsStore(state => state.setIsEditing);
   const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
@@ -48,7 +56,8 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
     conflictModal,
   } = useDocumentWithSync({
     document_id: mapId || undefined,
-    enabled: !!mapId,
+    isPublicPage,
+    enabled: isMapModeReady && !!mapId,
   });
 
   // Handle document loading errors
@@ -72,11 +81,15 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
   }, [userID, setUserID]);
 
   useEffect(() => {
-    const unsub = initSubs();
+    const unsub = initSubs(isPublicPage);
     return () => {
       unsub();
     };
-  }, []);
+  }, [isPublicPage]);
+
+  if (!isMapModeReady) {
+    return null;
+  }
 
   return (
     <div className="h-screen w-screen overflow-hidden flex justify-between p flex-col-reverse lg:flex-row-reverse landscape:flex-row-reverse">
@@ -84,8 +97,8 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
       <div className={`h-full relative w-full flex-1 flex flex-col lg:h-screen landscape:h-screen`}>
         <Topbar />
         <Flex direction="row" height="100%">
-          <MapComponent />
-          {showDemographicMap && <MapComponent isDemographicMap />}
+          {isPublicPage ? <PublicMap /> : <MainMap />}
+          {showDemographicMap && (isPublicPage ? <PublicDemographicMap /> : <DemographicMap />)}
         </Flex>
         {toolbarLocation === 'map' && <DraggableToolbar />}
         {!!mapId && (
@@ -105,6 +118,7 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
       <ErrorNotification />
       {conflictModal}
       <SaveConflictModal />
+      <ZoneDescriptionModal />
     </div>
   );
 }

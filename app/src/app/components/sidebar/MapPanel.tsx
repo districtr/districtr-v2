@@ -1,5 +1,5 @@
 'use client';
-import {AllTabularColumns, SummaryStatConfig} from '@/app/utils/api/summaryStats';
+import {SummaryStatConfig} from '@/app/utils/api/summaryStats';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {MapControlsStore, useMapControlsStore} from '@/app/store/mapControlsStore';
 import {formatNumber} from '@/app/utils/numbers';
@@ -21,17 +21,21 @@ import {
   IconButton,
   Popover,
   Slider,
-  Switch,
-  Tabs,
   Text,
   Tooltip,
 } from '@radix-ui/themes';
 import {Select} from '@radix-ui/themes';
 import {LegendLabel, LegendThreshold} from '@visx/legend';
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useMemo} from 'react';
 import {choroplethMapVariables} from '@/app/store/demography/constants';
-import {summaryStatLabels} from '@/app/store/demography/evaluationConfig';
-import {OVERLAY_OPACITY} from '@/app/constants/layers';
+import {OVERLAY_OPACITY} from '@/app/constants/map/layerStyle';
+import {demographyService} from '@/app/utils/demography/demographyService';
+import {
+  COALITION_VARIABLE_BY_UNIVERSE,
+  DemographyVariable,
+  getCoalitionLabel,
+  getSelectedCoalitionColumns,
+} from '@/app/utils/demography/coalition';
 
 type MapPanelProps = {
   columnGroup: keyof typeof choroplethMapVariables;
@@ -61,7 +65,8 @@ const mapDisplayModes: Array<{
 
 const getOpacityStates = (
   mapOptions: MapControlsStore['mapOptions'],
-  setMapOptions: MapControlsStore['setMapOptions']
+  setMapOptions: MapControlsStore['setMapOptions'],
+  mapMode: MapControlsStore['mapMode']
 ) => [
   {
     selected: mapOptions.showPaintedDistricts && mapOptions.overlayOpacity > 0,
@@ -75,33 +80,62 @@ const getOpacityStates = (
   },
   {
     selected: mapOptions.showPaintedDistricts && mapOptions.overlayOpacity === 0,
-    label: 'Show Districts',
+    label: mapMode === 'coi' ? 'Show Communities' : 'Show Districts',
     onClick: () => setMapOptions({showPaintedDistricts: true, overlayOpacity: 0}),
   },
 ];
 
 export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
-  const mapMode = useMapControlsStore(state => state.mapOptions.showDemographicMap);
+  const demographicMapMode = useMapControlsStore(state => state.mapOptions.showDemographicMap);
+  const mapMode = useMapControlsStore(state => state.mapMode);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
-  const isOverlay = mapMode === 'overlay';
+  const isOverlay = demographicMapMode === 'overlay';
 
   const variable = useDemographyStore(state => state.variable);
   const variant = useDemographyStore(state => state.variant);
   const setVariable = useDemographyStore(state => state.setVariable);
   const setVariant = useDemographyStore(state => state.setVariant);
+  const coalitionGroups = useDemographyStore(state => state.coalitionGroups);
+  useDemographyStore(state => state.coalitionHash);
 
   const scale = useDemographyStore(state => state.scale);
   const numberOfbins = useDemographyStore(state => state.numberOfBins);
   const setNumberOfBins = useDemographyStore(state => state.setNumberOfBins);
+  const dataHash = useDemographyStore(state => state.dataHash);
   const availableMapVariables = useDemographyStore(state => state.availableColumnSets.map);
-  const currentVariableList = availableMapVariables[columnGroup] ?? [];
-  const mapVariableConfig = availableMapVariables[columnGroup]?.find(f => f.value === variable);
+  const coalitionOption = useMemo(() => {
+    if (columnGroup !== 'TOTPOP' && columnGroup !== 'VAP') return undefined;
+    const coalitionColumns = getSelectedCoalitionColumns({
+      selectedGroups: coalitionGroups,
+      availableColumns: demographyService.availableColumns,
+      universe: columnGroup,
+    });
+    if (!coalitionColumns.length) return undefined;
+    return {
+      label: getCoalitionLabel({
+        selectedGroups: coalitionGroups,
+        availableColumns: demographyService.availableColumns,
+        universe: columnGroup,
+      }),
+      value: COALITION_VARIABLE_BY_UNIVERSE[columnGroup],
+      variants: ['percent', 'raw'] as Array<'percent' | 'raw'>,
+      fixedScale: undefined,
+      customLegendLabels: undefined,
+      expression: undefined,
+    };
+  }, [columnGroup, coalitionGroups, dataHash]);
+  const currentVariableList = useMemo(() => {
+    const baseList = availableMapVariables[columnGroup] ?? [];
+    if (!coalitionOption) return baseList;
+    return [...baseList, coalitionOption];
+  }, [availableMapVariables, columnGroup, coalitionOption]);
+  const mapVariableConfig = currentVariableList.find(f => f.value === variable);
 
   const handleSetMapMode = (newMode: MapControlsStore['mapOptions']['showDemographicMap']) => {
     setMapOptions({showDemographicMap: newMode});
-    if (!mapVariableConfig) {
-      setVariable(availableMapVariables[columnGroup][0].value);
+    if (!mapVariableConfig && currentVariableList.length) {
+      setVariable(currentVariableList[0].value);
     }
   };
 
@@ -109,7 +143,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   const labelFormat = canBePercent && variant === 'percent' ? 'percent' : 'compact';
   const colors = scale?.range() || [];
 
-  const handleChangeVariable = (newVariable: AllTabularColumns[number]) => {
+  const handleChangeVariable = (newVariable: DemographyVariable) => {
     setVariable(newVariable);
   };
 
@@ -135,7 +169,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
       // if key is digit, set selected zone to that digit
       let value = event.key;
       // if x, set showDemographicMap to undefined
-      const opacityStates = getOpacityStates(mapOptions, setMapOptions);
+      const opacityStates = getOpacityStates(mapOptions, setMapOptions, mapMode);
       if (value === 'x') {
         const currentState = opacityStates.findIndex(f => f.selected);
         const nextState = (currentState + 1) % opacityStates.length;
@@ -151,7 +185,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
     return () => {
       document.removeEventListener('keydown', handleKeyPress);
     };
-  }, [mapVariableConfig]);
+  }, [mapMode, mapVariableConfig]);
 
   if (!Object.keys(availableMapVariables).length) {
     return (
@@ -167,7 +201,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
         {mapDisplayModes.map((option, i) => (
           <Button
             key={i}
-            variant={mapMode === option.value ? 'solid' : 'outline'}
+            variant={demographicMapMode === option.value ? 'solid' : 'outline'}
             onClick={() => handleSetMapMode(option.value)}
           >
             {!!option.icon && option.icon}
@@ -175,7 +209,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
           </Button>
         ))}
       </Flex>
-      {mapMode !== undefined && (
+      {demographicMapMode !== undefined && (
         <>
           <Flex direction="column" pt="2">
             <Flex direction="row" gap="3" align="start" py="2" wrap="wrap">
@@ -247,7 +281,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                           </Flex>
                         )}
 
-                        {mapMode === 'overlay' && (
+                        {demographicMapMode === 'overlay' && (
                           <Flex direction="column" gapY="1">
                             <Flex direction="row" gapX="1" align="center">
                               <Text>Overlay mode</Text>
@@ -258,16 +292,18 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                               </Tooltip>
                             </Flex>
                             <Flex direction="row" gapX="0" align="center" wrap="wrap">
-                              {getOpacityStates(mapOptions, setMapOptions).map((option, i) => (
-                                <Button
-                                  key={i}
-                                  className="!rounded-none mr-[-2px]"
-                                  variant={option.selected ? 'solid' : 'outline'}
-                                  onClick={option.onClick}
-                                >
-                                  {option.label}
-                                </Button>
-                              ))}
+                              {getOpacityStates(mapOptions, setMapOptions, mapMode).map(
+                                (option, i) => (
+                                  <Button
+                                    key={i}
+                                    className="!rounded-none mr-[-2px]"
+                                    variant={option.selected ? 'solid' : 'outline'}
+                                    onClick={option.onClick}
+                                  >
+                                    {option.label}
+                                  </Button>
+                                )
+                              )}
                             </Flex>
                           </Flex>
                         )}
@@ -328,17 +364,17 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
               <LinearGradient
                 colors={mapVariableConfig.fixedScale
                   .domain()
-                  .map(d => mapVariableConfig.fixedScale!(d))}
+                  .map((d: number) => mapVariableConfig.fixedScale!(d))}
                 numTicks={mapVariableConfig.customLegendLabels.length}
               />
               <Flex direction={'row'} width="100%" justify="between">
-                {mapVariableConfig.customLegendLabels.map((label, i) => (
+                {mapVariableConfig.customLegendLabels.map((label: string, i: number) => (
                   <Text key={`legend-label-${i}`}>{label}</Text>
                 ))}
               </Flex>
             </Flex>
           ) : null}
-          {!!mapVariableConfig && mapMode === 'side-by-side' && (
+          {!!mapVariableConfig && demographicMapMode === 'side-by-side' && (
             <Text size="2" align="center">
               Gray = zero population
             </Text>

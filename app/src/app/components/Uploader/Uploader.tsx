@@ -15,12 +15,17 @@ import {
   Spinner,
 } from '@radix-ui/themes';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
+import {routeManager} from '@/app/utils/map/mapUrlRoute';
 
 export const Uploader: React.FC<{
   newTab?: boolean;
   redirect?: boolean;
   onFinish?: () => void;
 }> = ({newTab, redirect, onFinish}) => {
+  const currMapRoute = routeManager.mapUrlRoute;
+  const isCoiRoute = currMapRoute === 'coi';
+  const routePrefix = currMapRoute;
+  const documentMapType = isCoiRoute ? 'community' : 'default';
   const [mapLinks, setMapLinks] = useState<MapLink[]>([]);
   const [error, setError] = useState<any>(undefined);
   const [config, setConfig] = useState<{GEOID?: number; ZONE?: number}>({});
@@ -34,7 +39,7 @@ export const Uploader: React.FC<{
     if (redirect) {
       const newestMap = mapLinks[mapLinks.length - 1];
       if (newestMap) {
-        window.location.href = `/map/edit/${newestMap.document_id}`;
+        window.location.href = `/${routePrefix}/edit/${newestMap.document_id}`;
         onFinish?.();
       }
     }
@@ -63,6 +68,7 @@ export const Uploader: React.FC<{
         file,
         setMapLinks,
         districtrMap,
+        documentMapType,
         setError,
       });
     }
@@ -77,6 +83,7 @@ export const Uploader: React.FC<{
         file,
         setMapLinks,
         districtrMap,
+        documentMapType,
         setError,
       });
     }
@@ -89,6 +96,7 @@ export const Uploader: React.FC<{
         file,
         setMapLinks,
         districtrMap,
+        documentMapType,
         setError,
         // @ts-ignore
         config: config.ZONE !== undefined && config.GEOID !== undefined ? config : undefined,
@@ -141,7 +149,7 @@ export const Uploader: React.FC<{
                   <Table.Cell>{map.name}</Table.Cell>
                   <Table.Cell>
                     <Link
-                      href={`/map/edit/${map.document_id}`}
+                      href={`/${routePrefix}/edit/${map.document_id}`}
                       target={newTab ? '_blank' : undefined}
                     >
                       Go to map

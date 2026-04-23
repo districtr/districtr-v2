@@ -1,10 +1,10 @@
 import {LanguagePicker} from '@/app/components/LanguagePicker/LanguagePicker';
 import RichTextRenderer from '@/app/components/RichTextRenderer/RichTextRenderer';
 import {ContentSection} from '@/app/components/Static/ContentSection';
-import {CreateButton} from '@/app/components/Static/Interactions/CreateButton';
+import {PlaceMapGrid} from '@/app/components/Static/Interactions/PlaceMapGrid';
 import {getAvailableDistrictrMaps} from '@/app/utils/api/apiHandlers/getAvailableDistrictrMaps';
 import {getCMSContent} from '@/app/utils/api/cms';
-import {Box, Flex, Grid, Heading, Link} from '@radix-ui/themes';
+import {Flex, Heading} from '@radix-ui/themes';
 import {cookies} from 'next/headers';
 
 export const revalidate = 3600;
@@ -39,27 +39,7 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
         availableLanguages={cmsData.available_languages}
       />
       <ContentSection title="Draw a plan from scratch">
-        <Grid
-          gap="2"
-          columns={{
-            initial: '1',
-            md: '2',
-            lg: '4',
-          }}
-        >
-          {Boolean(availableMaps) && (
-            <>
-              {availableMaps!.map((view, i) => (
-                <CreateButton
-                  key={i}
-                  view={{
-                    ...view,
-                  }}
-                />
-              ))}
-            </>
-          )}
-        </Grid>
+        {Boolean(availableMaps?.length) && <PlaceMapGrid maps={availableMaps!} />}
       </ContentSection>
 
       <RichTextRenderer content={cmsData.content.published_content.body} className="my-4" />

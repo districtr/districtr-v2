@@ -24,7 +24,7 @@ import {
   BLOCK_POINTS_LAYER_ID_CHILD,
   BLOCK_SOURCE_ID,
   INTERACTIVE_LAYERS,
-} from '@/app/constants/layers';
+} from '@/app/constants/map/layerIds';
 import {ResetMapSelectState} from '@utils/events/handlers';
 import GeometryWorker from '../GeometryWorker';
 import {ActiveTool} from '@/app/constants/types';
@@ -33,10 +33,14 @@ import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {setHoverFeatures} from '../map/hoverFeatures';
 
+// Zone label layer IDs for interaction
+const ZONE_LABEL_LAYER_IDS = ['ZONE_LABEL', 'ZONE_LABEL_BG', 'ZONE_COMMENT_INDICATOR'];
+
 export const AREA_SELECT_TOOLS = ['brush', 'eraser', 'inspector'];
 export const POINT_SELECT_TOOLS = ['shatter'];
 export const ALL_BRUSHING_TOOLS = [...AREA_SELECT_TOOLS, ...POINT_SELECT_TOOLS];
 export const TOOLTIP_TOOLS = ['inspector'];
+const MUTATION_TOOLS: ActiveTool[] = ['brush', 'eraser', 'shatter'];
 
 export const EMPTY_FEATURE_ARRAY: MapGeoJSONFeature[] = [];
 /*
@@ -68,6 +72,29 @@ function getLayerIdsToPaint(child_layer: string | undefined | null, activeTool: 
     : [BLOCK_POINTS_LAYER_ID, BLOCK_HOVER_LAYER_ID];
 }
 
+// Cached per-session: access level doesn't change after document load.
+let _canMutate: boolean | null = null;
+const canMutateAssignments = () => {
+  if (_canMutate === null) {
+    _canMutate = useMapStore.getState().mapDocument?.access === 'edit';
+  }
+  return _canMutate;
+};
+// Reset when document changes (called from subscription teardown / new document load).
+// Store the unsubscribe so HMR can dispose the previous subscription; otherwise every
+// dev-mode hot reload stacks another listener on top of the Zustand store.
+const _canMutateUnsubscribe = useMapStore.subscribe(
+  state => state.mapDocument,
+  () => {
+    _canMutate = null;
+  }
+);
+if (typeof module !== 'undefined' && (module as any).hot) {
+  (module as any).hot.dispose(() => {
+    _canMutateUnsubscribe();
+  });
+}
+
 export const handleFeatureSelection = (
   selectedFeatures: MapGeoJSONFeature[] | undefined,
   mapStore: MapStore,
@@ -75,6 +102,7 @@ export const handleFeatureSelection = (
   mapRef: (MapLayerMouseEvent | MapLayerTouchEvent)['target'] | null
 ) => {
   const {activeTool, selectedZone, setIsPainting} = useMapControlsStore.getState();
+  if (MUTATION_TOOLS.includes(activeTool) && !canMutateAssignments()) return;
   const {mutateZoneAssignments} = useAssignmentsStore.getState();
   switch (activeTool) {
     case 'shatter':
@@ -109,6 +137,28 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
   const {activeTool, paintFunction, brushSize} = mapControls;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   let selectedFeatures: MapGeoJSONFeature[] | undefined = undefined;
+
+  // Check for zone label click (for pinning comments)
+  const zoneLabelFeatures = mapRef.queryRenderedFeatures(e.point, {
+    layers: ZONE_LABEL_LAYER_IDS.filter(id => {
+      try {
+        return mapRef.getLayer(id);
+      } catch {
+        return false;
+      }
+    }),
+  });
+
+  if (zoneLabelFeatures.length > 0 && activeTool === 'pan') {
+    const zone = zoneLabelFeatures[0].properties?.zone;
+    if (zone !== undefined) {
+      const hasDescription = !!mapStore.getZoneDescriptionForZone(zone);
+      if (hasDescription) {
+        useTooltipStore.getState().setZoneDescriptionModalZone(zone);
+        return;
+      }
+    }
+  }
 
   if (selectingLayerId) {
     const features = mapRef.queryRenderedFeatures(e.point, {
@@ -145,7 +195,6 @@ export const handleMapMouseUp = (e: MapLayerMouseEvent | MapLayerTouchEvent) => 
 
 export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const mapRef = e.target;
-  const mapStore = useMapStore.getState();
   const mapControls = useMapControlsStore.getState();
   const activeTool = mapControls.activeTool;
 
@@ -153,6 +202,11 @@ export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) =
     // enable drag pan
     mapRef.dragPan.enable();
   } else if (activeTool === 'brush' || activeTool === 'eraser') {
+    if (!canMutateAssignments()) {
+      mapRef.dragPan.enable();
+      mapControls.setIsPainting(false);
+      return;
+    }
     // disable drag pan
     mapRef.dragPan.disable();
     mapControls.setIsPainting(true);
@@ -160,11 +214,13 @@ export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) =
 };
 
 export const handleMapMouseEnter = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+  const {activeTool, setIsPainting} = useMapControlsStore.getState();
+  if ((activeTool !== 'brush' && activeTool !== 'eraser') || !canMutateAssignments()) return;
   // check if mouse is down
   // if so, set is painting true
   // @ts-ignore this is the correct behavior but event types are incorrect
   if (e.originalEvent?.buttons === 1) {
-    useMapControlsStore.getState().setIsPainting(true);
+    setIsPainting(true);
   }
 };
 
@@ -174,6 +230,7 @@ export const handleMapMouseLeave = (e: MapLayerMouseEvent | MapLayerTouchEvent) 
   setTimeout(() => {
     setHoverFeatures(EMPTY_FEATURE_ARRAY);
     useTooltipStore.getState().setTooltip(null);
+    useTooltipStore.getState().setZoneDescriptionTooltip(null);
   }, 125);
   useMapControlsStore.getState().setIsPainting(false);
 };
@@ -182,6 +239,7 @@ export const handleMapMouseOut = (e: MapLayerMouseEvent | MapLayerTouchEvent) =>
   setTimeout(() => {
     setHoverFeatures(EMPTY_FEATURE_ARRAY);
     useTooltipStore.getState().setTooltip(null);
+    useTooltipStore.getState().setZoneDescriptionTooltip(null);
   }, 250);
   useMapControlsStore.getState().setIsPainting(false);
 };
@@ -196,13 +254,42 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   const {selectedZone} = mapControls;
   const {mutateZoneAssignments} = useAssignmentsStore.getState();
   const {selectingLayerId} = useOverlayStore.getState();
-  const setTooltip = useTooltipStore.getState().setTooltip;
+  const {setTooltip, setZoneDescriptionTooltip} = useTooltipStore.getState();
   const sourceLayer = mapDocument?.parent_layer;
   const paintLayers = getLayerIdsToPaint(
     // Boolean(mapStore.mapDocument?.child_layer && mapStore.captiveIds.size),
     mapStore.mapDocument?.child_layer,
     activeTool
   );
+
+  // Check for zone label hover (for description tooltip)
+  const zoneLabelFeatures = mapRef.queryRenderedFeatures(e.point, {
+    layers: ZONE_LABEL_LAYER_IDS.filter(id => {
+      try {
+        return mapRef.getLayer(id);
+      } catch {
+        return false;
+      }
+    }),
+  });
+
+  if (zoneLabelFeatures.length > 0 && activeTool === 'pan') {
+    const zone = zoneLabelFeatures[0].properties?.zone;
+    if (zone !== undefined) {
+      const hasDescription = !!mapStore.getZoneDescriptionForZone(zone);
+      if (hasDescription) {
+        setZoneDescriptionTooltip({
+          zone,
+          x: e.point.x,
+          y: e.point.y,
+        });
+        setTooltip(null);
+        return;
+      }
+    }
+  }
+  // Clear zone description tooltip if not hovering over zone label with descriptions
+  setZoneDescriptionTooltip(null);
 
   const isBrushingTool = sourceLayer && ALL_BRUSHING_TOOLS.includes(activeTool);
   if (selectingLayerId) {
@@ -230,7 +317,14 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   if (isBrushingTool && !isTouchEvent && !isPainting) {
     setHoverFeatures(selectedFeatures || []);
   }
-  if (selectedFeatures && isBrushingTool && isPainting) {
+  const isMutationTool = activeTool === 'brush' || activeTool === 'eraser';
+  if (
+    selectedFeatures &&
+    isBrushingTool &&
+    isPainting &&
+    isMutationTool &&
+    canMutateAssignments()
+  ) {
     // selects in the map object; the store object
     // is updated in the mouseup event
     mutateZoneAssignments(mapRef, selectedFeatures, activeTool === 'brush' ? selectedZone : null);
@@ -239,7 +333,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   if (
     isBrushingTool &&
     selectedFeatures?.length &&
-    (mapOptions.showPopulationTooltip || TOOLTIP_TOOLS)
+    (mapOptions.showPopulationTooltip || TOOLTIP_TOOLS.includes(activeTool))
   ) {
     setTooltip({
       ...e.point,
@@ -319,12 +413,8 @@ export const handleMapContextMenu = (e: MapLayerMouseEvent | MapLayerTouchEvent)
   });
 };
 
-export const throttledSetWorkerHash = throttle((hash: string) => {
-  useMapStore.getState().setWorkerUpdateHash(hash);
-}, 1000);
-
 export const handleDataLoad = (e: MapSourceDataEvent) => {
-  const {mapDocument, setMapRenderingState, setWorkerUpdateHash} = useMapStore.getState();
+  const {mapDocument, setMapRenderingState} = useMapStore.getState();
   const {setStateFp} = useMapControlsStore.getState();
   const {tiles_s3_path, parent_layer} = mapDocument || {};
   if (!tiles_s3_path || !parent_layer || !(e?.source as any)?.url?.includes(tiles_s3_path)) return;

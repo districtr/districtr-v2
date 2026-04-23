@@ -2,6 +2,8 @@
 
 import logging
 from sqlmodel import Session, Table, update
+
+from app.core.db import engine
 from safetext import SafeText
 
 from app.comments.models import (
@@ -18,7 +20,7 @@ st = SafeText(language="en")
 logger = logging.getLogger(__name__)
 
 
-MODERATION_THRESHOLD: float = 0.01
+MODERATION_THRESHOLD: float = 0.2
 
 
 def rate_offensive_text_ai(text: str) -> ModerationScore | None:
@@ -100,12 +102,26 @@ def update_moderation_score(
         )
     except Exception as e:
         session.rollback()
-        logger.error(f"Failed to save commenter moderation score: {e}")
+        logger.error(
+            f"Failed to save moderation score for {type(cls).__name__} id={key}: {e}"
+        )
+        # Re-raise so background-task runners surface the failure instead of leaving
+        # moderation_score silently NULL.
+        raise
 
 
 def moderate_comment(comment: Comment, session: Session):
     comment_text = f"{comment.title} {comment.comment}"
     moderate_text(cls=Comment, key=comment.id, text=comment_text, session=session)
+
+
+def moderate_comment_by_id(comment_id: int, comment_text: str):
+    """
+    Moderate a comment by ID. Use when the Comment object may be detached
+    (e.g. in background tasks after request session is closed).
+    """
+    with Session(engine) as session:
+        moderate_text(cls=Comment, key=comment_id, text=comment_text, session=session)
 
 
 def moderate_commenter(commenter: Commenter, session: Session):

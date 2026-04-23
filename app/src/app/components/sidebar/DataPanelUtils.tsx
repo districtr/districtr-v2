@@ -18,7 +18,7 @@ export interface DataPanelsProps {
 export const defaultPanels: DataPanelSpec[] = [
   {
     title: 'population',
-    label: 'Population',
+    label: 'Districts',
     content: <PopulationPanel />,
   },
   {

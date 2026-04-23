@@ -3,8 +3,7 @@ import {getDocument} from './getDocument';
 import {idb} from '@/app/utils/idb/idb';
 import {getAssignments} from './getAssignments';
 import {isUUID} from '../../metadata/isUUID';
-
-export type SyncConflictResolution = 'use-local' | 'use-server' | 'keep-local' | 'fork';
+import {SyncConflictResolution} from '@/app/constants/types';
 
 export interface DocumentFetchResult {
   document: DocumentObject;
@@ -29,6 +28,7 @@ type FetchDocumentResult = Promise<
         document: DocumentObject;
         assignments: Assignment[];
         updateLocal?: boolean;
+        hasLocalEdits?: boolean;
       };
     }
   | {
@@ -43,14 +43,46 @@ export const fetchDocument = async (
 ): FetchDocumentResult => {
   const isPublic = !isUUID(document_id);
   const [idbDocument, remoteMetadata] = await Promise.all([
-    idb.getDocument(document_id),
+    isPublic ? Promise.resolve(null) : idb.getDocument(document_id),
     getDocument(document_id),
   ]);
 
+  // console.log('[hydration] fetchDocument:', {
+  //   document_id,
+  //   source,
+  //   isPublic,
+  //   hasIdb: !!idbDocument,
+  //   idbAssignmentCount: idbDocument?.assignments?.length ?? 0,
+  //   remoteOk: remoteMetadata.ok,
+  // });
+
   if (!remoteMetadata.ok) {
+    // console.error('[hydration] Remote metadata fetch failed:', remoteMetadata.error);
     return {
       ok: false,
       error: remoteMetadata.error.detail || 'Failed to fetch document',
+    };
+  }
+
+  if (isPublic) {
+    // Community public views don't have a district-unions stats path, so fetch
+    // raw assignments for them. District public views rely on PublicSource and
+    // don't need per-geoid assignments here.
+    const isCommunityPublic = remoteMetadata.response.map_type === 'community';
+    let assignments: Assignment[] = [];
+    if (isCommunityPublic) {
+      const remoteAssignments = await getAssignments(remoteMetadata.response);
+      if (remoteAssignments.ok) {
+        assignments = remoteAssignments.response;
+      }
+    }
+    return {
+      ok: true,
+      response: {
+        document: remoteMetadata.response,
+        assignments,
+        updateLocal: false,
+      },
     };
   }
 
@@ -66,13 +98,28 @@ export const fetchDocument = async (
     source === 'remote' ||
     idbDocument.shouldFetchAssignments === true
   ) {
+    // console.log('[hydration] Fetching assignments from server', {
+    //   reason: !idbDocument
+    //     ? 'no IDB'
+    //     : isPublic && remoteIsNewer
+    //       ? 'public+newer'
+    //       : source === 'remote'
+    //         ? 'forced remote'
+    //         : 'shouldFetchAssignments',
+    //   map_type: remoteMetadata.response.map_type,
+    // });
     const remoteAssignments = await getAssignments(remoteMetadata.response);
     if (!remoteAssignments.ok) {
+      // console.error('[hydration] Remote assignments fetch failed:', remoteAssignments.error);
       return {
         ok: false,
         error: remoteAssignments.error.detail || 'Failed to fetch assignments',
       };
     }
+    // console.log('[hydration] Remote assignments fetched:', {
+    //   count: remoteAssignments.response.length,
+    //   sampleZones: remoteAssignments.response.slice(0, 5).map(a => a.zone),
+    // });
     return {
       ok: true,
       response: {
@@ -85,31 +132,49 @@ export const fetchDocument = async (
 
   // Local is up to date, use it
   const localUpToDate = localTimestamp.toISOString() === remoteTimestamp.toISOString();
-  if (localUpToDate) {
+  if (!localUpToDate) {
+    // console.warn('[hydration] Conflict detected', {
+    //   local: localTimestamp.toISOString(),
+    //   remote: remoteTimestamp.toISOString(),
+    // });
     return {
-      ok: true,
+      ok: false,
+      error: `Cloud Save Conflict: This document was updated at ${remoteTimestamp} and your last updates are from ${localTimestamp}.`,
       response: {
-        document: {
-          // in case of missing fields
-          ...remoteMetadata.response,
-          ...idbDocument.document_metadata,
-          // always override with remote
-          overlays: remoteMetadata.response.overlays,
-          statefps: remoteMetadata.response.statefps,
-        },
-        assignments: idbDocument.assignments,
+        localDocument: idbDocument.document_metadata,
+        localLastUpdated: localTimestamp.toISOString(),
+        serverDocument: remoteMetadata.response,
+        serverLastUpdated: remoteTimestamp.toISOString(),
       },
     };
   }
-
+  const clientHasNoEdits =
+    idbDocument.clientLastUpdated === idbDocument.document_metadata.updated_at;
+  const priorityDocument = clientHasNoEdits
+    ? remoteMetadata.response
+    : idbDocument.document_metadata;
+  const subordinateDocument = clientHasNoEdits
+    ? idbDocument.document_metadata
+    : remoteMetadata.response;
+  // console.log('[hydration] Using local IDB data', {
+  //   clientHasNoEdits,
+  //   idbAssignmentCount: idbDocument.assignments.length,
+  //   map_type: remoteMetadata.response.map_type,
+  //   community_metadata_list_count: remoteMetadata.response.community_metadata_list?.length ?? 0,
+  // });
   return {
-    ok: false,
-    error: `Cloud Save Conflict: This document was updated at ${remoteTimestamp} and your last updates are from ${localTimestamp}.`,
+    ok: true,
     response: {
-      localDocument: idbDocument.document_metadata,
-      localLastUpdated: localTimestamp.toISOString(),
-      serverDocument: remoteMetadata.response,
-      serverLastUpdated: remoteTimestamp.toISOString(),
+      document: {
+        // in case of missing fields or moderation overwrites
+        ...subordinateDocument,
+        ...priorityDocument,
+        // always override with remote
+        overlays: remoteMetadata.response.overlays,
+        statefps: remoteMetadata.response.statefps,
+      },
+      assignments: idbDocument.assignments,
+      hasLocalEdits: !clientHasNoEdits,
     },
   };
 };

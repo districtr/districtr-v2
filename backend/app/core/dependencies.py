@@ -1,11 +1,14 @@
 from fastapi import Depends, HTTPException, status
-from sqlmodel import select, Session, literal
+from sqlmodel import select, Session, literal, col
 from app.core.models import DocumentID
 from app.models import (
     Document,
     DocumentPublic,
+    DocumentCommentPublic,
+    DocumentType,
     DistrictrMap,
     DistrictrMapOverlays,
+    MAX_COMMUNITY_NAME_LENGTH,
     Overlay,
     OverlayPublic,
 )
@@ -13,8 +16,15 @@ from app.save_share.models import (
     DocumentShareStatus,
     MapDocumentToken,
 )
+from app.comments.models import DocumentComment, Comment
+from app.comments.moderation import MODERATION_THRESHOLD
+from app.comments.models import ReviewStatus
+from app.comments.settings import (
+    DEFAULT_MAX_COMMENT_LENGTH,
+    DEFAULT_MAX_COMMENTS_PER_DISTRICT,
+)
 from sqlalchemy.sql.functions import coalesce
-from sqlalchemy import or_
+from sqlalchemy import or_, and_
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound
 from app.core.db import get_session
 import logging
@@ -82,6 +92,16 @@ def get_protected_document(
     return document
 
 
+def validate_document_exists(document_id: DocumentID, session: Session) -> bool:
+    """
+    Validate that the document exists. Raises HTTPException 404 if not found.
+    Use when you only need to guard that the document exists and do not need its data.
+    """
+    # This should error if the document doesn't exist
+    get_protected_document(document_id=document_id, session=session)
+    return True
+
+
 def get_document_public(
     session: Session,
     document_id: DocumentID = Depends(parse_document_id),
@@ -95,35 +115,47 @@ def get_document_public(
     if not document_id.is_public:
         access_type = DocumentShareStatus.edit
 
-    stmt = select(
+    stmt = select(  # type: ignore[no-matching-overload]
         # Obsured document ID
         literal(
             "anonymous" if document_id.is_public else document_id.document_id
         ).label("document_id"),
-        Document.created_at,
-        Document.districtr_map_slug,
-        Document.updated_at,
-        Document.color_scheme,
-        Document.public_id,
-        DistrictrMap.gerrydb_table_name.label("gerrydb_table"),  # pyright: ignore
-        DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
-        DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
-        DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
-        DistrictrMap.name.label("map_module"),  # pyright: ignore
-        coalesce(Document.num_districts, DistrictrMap.num_districts).label(
+        # Real document ID for internal use (fetching comments, etc.)
+        col(Document.document_id).label("real_document_id"),
+        col(Document.created_at),
+        col(Document.districtr_map_slug),
+        col(Document.updated_at),
+        col(Document.color_scheme),
+        col(Document.public_id),
+        col(DistrictrMap.gerrydb_table_name).label("gerrydb_table"),
+        col(DistrictrMap.parent_layer).label("parent_layer"),
+        col(DistrictrMap.child_layer).label("child_layer"),
+        col(DistrictrMap.tiles_s3_path).label("tiles_s3_path"),
+        col(DistrictrMap.name).label("map_module"),
+        coalesce(col(Document.num_districts), col(DistrictrMap.num_districts)).label(
             "num_districts"
-        ),  # pyright: ignore
-        DistrictrMap.num_districts_modifiable.label("num_districts_modifiable"),  # pyright: ignore
-        DistrictrMap.extent.label("extent"),  # pyright: ignore
-        DistrictrMap.map_type.label("map_type"),  # pyright: ignore
-        DistrictrMap.parent_geo_unit_type.label("parent_geo_unit_type"),  # pyright: ignore
-        DistrictrMap.child_geo_unit_type.label("child_geo_unit_type"),  # pyright: ignore
-        DistrictrMap.data_source_name.label("data_source_name"),  # pyright: ignore
-        DistrictrMap.comment.label("comment"),  # pyright: ignore
-        DistrictrMap.uuid.label("districtr_map_uuid"),  # pyright: ignore
-        DistrictrMap.statefps.label("statefps"),  # pyright: ignore
+        ),
+        col(Document.num_communities).label("num_communities"),
+        col(Document.community_metadata_list).label("community_metadata_list"),
+        col(DistrictrMap.num_districts_modifiable).label("num_districts_modifiable"),
+        col(DistrictrMap.extent).label("extent"),
+        col(Document.map_type).label("map_type"),
+        col(Document.document_type).label("document_type"),
+        col(DistrictrMap.parent_geo_unit_type).label("parent_geo_unit_type"),
+        col(DistrictrMap.child_geo_unit_type).label("child_geo_unit_type"),
+        col(DistrictrMap.data_source_name).label("data_source_name"),
+        col(DistrictrMap.comment).label("comment"),
+        col(DistrictrMap.uuid).label("districtr_map_uuid"),
+        col(DistrictrMap.statefps).label("statefps"),
+        literal(MAX_COMMUNITY_NAME_LENGTH).label("community_name_length_limit"),
+        coalesce(
+            col(DistrictrMap.comment_length_limit), DEFAULT_MAX_COMMENT_LENGTH
+        ).label("comment_length_limit"),
+        coalesce(
+            col(DistrictrMap.comment_count_limit), DEFAULT_MAX_COMMENTS_PER_DISTRICT
+        ).label("comment_count_limit"),
         # get metadata as a json object
-        Document.map_metadata.label("map_metadata"),  # pyright: ignore
+        col(Document.map_metadata).label("map_metadata"),
         coalesce(
             access_type,
         ).label("access"),
@@ -150,9 +182,7 @@ def get_document_public(
         ).all()
         if junction_overlay_ids:
             overlays = session.exec(
-                select(Overlay).where(
-                    Overlay.overlay_id.in_(junction_overlay_ids)  # pyright: ignore
-                )
+                select(Overlay).where(col(Overlay.overlay_id).in_(junction_overlay_ids))
             ).all()
             overlays_list = [
                 OverlayPublic(
@@ -169,7 +199,61 @@ def get_document_public(
                 for overlay in overlays
             ]
 
-    # Convert result to DocumentPublic with overlays
+    # Fetch scoped map comments from comments schema.
+    # Both district and community maps use DocumentComment.zone as the scoped identifier.
+    # Apply moderation: if comment fails threshold, show placeholder text.
+    MODERATION_PLACEHOLDER = "Comment removed due to moderation."
+    document_comments_list = None
+    if result.real_document_id:
+        stmt = (
+            select(  # type: ignore[n-matching-overload]
+                DocumentComment.comment_id,
+                DocumentComment.zone,
+                Comment.comment,
+                Comment.created_at,
+                Comment.updated_at,
+                Comment.moderation_score,
+                Comment.review_status,
+            )
+            .select_from(DocumentComment)
+            .join(Comment, Comment.id == DocumentComment.comment_id)
+            .where(
+                and_(
+                    col(DocumentComment.document_id) == result.real_document_id,
+                    col(DocumentComment.zone).is_not(None),
+                )
+            )
+        )
+        doc_comments = session.exec(stmt).all()
+        if len(doc_comments) > 0:
+            document_comments_list = []
+            is_edit_access = not document_id.is_public
+            for dc in doc_comments:
+                # Check moderation: show placeholder if rejected or exceeds threshold
+                fails_moderation = dc.review_status == ReviewStatus.REJECTED or (
+                    dc.moderation_score is not None
+                    and dc.moderation_score > MODERATION_THRESHOLD
+                    and dc.review_status != ReviewStatus.APPROVED
+                )
+                # Edit access: show full comment + moderated flag. Public: show placeholder only.
+                if fails_moderation:
+                    text = dc.comment if is_edit_access else MODERATION_PLACEHOLDER
+                    moderated = True
+                else:
+                    text = dc.comment
+                    moderated = False
+                document_comments_list.append(
+                    DocumentCommentPublic(
+                        comment_id=str(dc.comment_id),
+                        zone=dc.zone,
+                        text=text,
+                        moderated=moderated,
+                        created_at=dc.created_at,
+                        updated_at=dc.updated_at,
+                    )
+                )
+
+    # Convert result to DocumentPublic with overlays and document comments
     return DocumentPublic(
         document_id=result.document_id,
         public_id=result.public_id,
@@ -179,6 +263,8 @@ def get_document_public(
         child_layer=result.child_layer,
         tiles_s3_path=result.tiles_s3_path,
         num_districts=result.num_districts,
+        num_communities=getattr(result, "num_communities", None),
+        community_metadata_list=getattr(result, "community_metadata_list", None),
         num_districts_modifiable=getattr(result, "num_districts_modifiable", True),
         created_at=result.created_at,
         updated_at=result.updated_at,
@@ -187,6 +273,7 @@ def get_document_public(
         access=result.access,
         color_scheme=result.color_scheme,
         map_type=result.map_type,
+        document_type=getattr(result, "document_type", DocumentType.DISTRICT),
         map_module=result.map_module,
         comment=result.comment,
         parent_geo_unit_type=result.parent_geo_unit_type,
@@ -194,6 +281,12 @@ def get_document_public(
         data_source_name=result.data_source_name,
         overlays=overlays_list,
         statefps=result.statefps,
+        document_comments=document_comments_list,
+        community_name_length_limit=getattr(
+            result, "community_name_length_limit", MAX_COMMUNITY_NAME_LENGTH
+        ),
+        comment_length_limit=getattr(result, "comment_length_limit", None),
+        comment_count_limit=getattr(result, "comment_count_limit", None),
     )
 
 
@@ -205,20 +298,21 @@ def get_districtr_map(
         select(DistrictrMap)
         .join(
             Document,
-            onclause=Document.districtr_map_slug == DistrictrMap.districtr_map_slug,  # pyright: ignore
+            onclause=col(Document.districtr_map_slug)
+            == col(DistrictrMap.districtr_map_slug),
             isouter=True,
         )
         .join(
             MapDocumentToken,
-            onclause=MapDocumentToken.document_id == Document.document_id,  # pyright: ignore
+            onclause=col(MapDocumentToken.document_id) == col(Document.document_id),
             isouter=True,
         )
         .filter(
             or_(
-                Document.document_id == document_id,
-                MapDocumentToken.document_id == document_id,
+                col(Document.document_id) == document_id.value,
+                col(MapDocumentToken.document_id) == document_id.value,
             )
-        )  # pyright: ignore
+        )
     )
 
     try:

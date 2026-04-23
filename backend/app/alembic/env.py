@@ -10,7 +10,13 @@ from alembic import context
 from app.alembic.constants import POST_GIS_ALPINE_RESERVED_TABLES
 from app.core.models import SQLModel
 
-from app.models import Document, MapDocumentUserSession, Assignments, DistrictUnions
+from app.models import (
+    Document,
+    MapDocumentUserSession,
+    Assignments,
+    CommunityAssignments,
+    DistrictUnions,
+)
 from app.cms.models import TagsCMSContent, PlacesCMSContent
 from app.save_share.models import MapDocumentToken
 from app.comments.models import (
@@ -48,6 +54,7 @@ tables = [
     CommentTag,
     DocumentComment,
     DistrictUnions,
+    CommunityAssignments,
 ]
 
 target_metadata = [SQLModel.metadata]
@@ -72,6 +79,7 @@ def include_object(object, name, type_, reflected, compare_to):
     if name and (
         name in POST_GIS_ALPINE_RESERVED_TABLES
         or re.match(r"document.assignments_.+", name)
+        or re.match(r"document.community_assignments_.+", name)
         or re.match(r"parentchildedges_.+", name)
         or re.match(r".*_districtr_view+", name)
         # For whatever reason alembic fails to recognize it already exists

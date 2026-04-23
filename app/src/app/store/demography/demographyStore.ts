@@ -5,11 +5,35 @@ import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
 import {DemographyStore} from './types';
 import {useAssignmentsStore} from '../assignmentsStore';
+import {useCoiAssignmentsStore} from '../coiAssignmentsStore';
 import {getDemography} from '@/app/utils/api/apiHandlers/getDemography';
-import {demographyCache} from '@/app/utils/demography/demographyCache';
-import {AllEvaluationConfigs, AllMapConfigs} from '@/app/utils/api/summaryStats';
-import {evalColumnConfigs} from './evaluationConfig';
-import {choroplethMapVariables} from './constants';
+import {demographyService} from '@/app/utils/demography/demographyService';
+import {getAvailableColumnSets} from '@/app/utils/demography/getAvailableColumnSets';
+import {DEFAULT_CHOROPLETH_BIN_COUNT} from './constants';
+import {idb} from '@/app/utils/idb/idb';
+import {
+  CoalitionGroupKey,
+  getCoalitionUniverseFromVariable,
+  getSelectedCoalitionColumns,
+  isCoalitionVariable,
+} from '@/app/utils/demography/coalition';
+
+let coalitionHydrationRequestId = 0;
+let coalitionVersion = 0;
+// Request-id for updateData so rapid successive calls don't clobber each other:
+// two calls with different dataHashes both pass the cache guard, both fetch, and
+// the late resolver would otherwise win and leave the demographyService singleton
+// out of sync with the store's dataHash.
+let updateDataRequestId = 0;
+
+const getActiveBrokenIds = () => {
+  const mapMode = useMapControlsStore.getState().mapMode;
+  return Array.from(
+    mapMode === 'coi'
+      ? useCoiAssignmentsStore.getState().shatterIds.parents
+      : useAssignmentsStore.getState().shatterIds.parents
+  );
+};
 
 export var useDemographyStore = create(
   subscribeWithSelector<DemographyStore>((set, get) => ({
@@ -18,8 +42,7 @@ export var useDemographyStore = create(
       set({getMapRef});
       const {dataHash, setVariable, variable, setVariant, variant} = get();
       const {mapDocument} = useMapStore.getState();
-      const {shatterIds} = useAssignmentsStore.getState();
-      const currentDataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument?.document_id}`;
+      const currentDataHash = `${getActiveBrokenIds().join(',')}|${mapDocument?.document_id}`;
       if (currentDataHash === dataHash) {
         // set variable triggers map render/update
         getMapRef()?.on('load', () => {
@@ -32,6 +55,87 @@ export var useDemographyStore = create(
     variant: 'percent',
     setVariable: variable => set({variable}),
     setVariant: variant => set({variant}),
+    coalitionGroups: [],
+    coalitionHash: '',
+    coalitionRestoredSlug: null,
+    restoreCoalition: async mapDocument => {
+      const requestId = ++coalitionHydrationRequestId;
+      const slug = mapDocument?.districtr_map_slug;
+      if (!slug) {
+        set({
+          coalitionGroups: [],
+          coalitionRestoredSlug: null,
+          coalitionHash: `${++coalitionVersion}`,
+        });
+        demographyService.updatePopulations();
+        return;
+      }
+      if (get().coalitionRestoredSlug === slug) return;
+      const saved = await idb.getCoalitionConfigBySlug(slug);
+      const activeSlug = useMapStore.getState().mapDocument?.districtr_map_slug;
+      if (requestId !== coalitionHydrationRequestId || activeSlug !== slug) return;
+      const coalitionGroups = (saved?.selectedGroups ?? []) as CoalitionGroupKey[];
+      set({
+        coalitionGroups,
+        coalitionRestoredSlug: slug,
+        coalitionHash: `${++coalitionVersion}`,
+      });
+      demographyService.updatePopulations({coalitionGroups});
+
+      const currentVariable = get().variable;
+      if (isCoalitionVariable(currentVariable)) {
+        const universe = getCoalitionUniverseFromVariable(currentVariable);
+        const selectedColumns = getSelectedCoalitionColumns({
+          selectedGroups: coalitionGroups,
+          availableColumns: demographyService.availableColumns,
+          universe,
+        });
+        if (!selectedColumns.length) {
+          set({
+            variable: universe === 'TOTPOP' ? 'total_pop_20' : 'total_vap_20',
+          });
+        }
+      }
+    },
+    setCoalitionGroups: async coalitionGroups => {
+      const deduped = [...new Set(coalitionGroups)];
+      set({
+        coalitionGroups: deduped,
+        coalitionHash: `${++coalitionVersion}`,
+      });
+      demographyService.updatePopulations({coalitionGroups: deduped});
+
+      const {mapDocument} = useMapStore.getState();
+      if (mapDocument?.districtr_map_slug) {
+        await idb.upsertCoalitionConfigBySlug({
+          districtr_map_slug: mapDocument.districtr_map_slug,
+          selectedGroups: deduped,
+        });
+      }
+
+      const currentVariable = get().variable;
+      if (isCoalitionVariable(currentVariable)) {
+        const universe = getCoalitionUniverseFromVariable(currentVariable);
+        const selectedColumns = getSelectedCoalitionColumns({
+          selectedGroups: deduped,
+          availableColumns: demographyService.availableColumns,
+          universe,
+        });
+        if (!selectedColumns.length) {
+          set({
+            variable: universe === 'TOTPOP' ? 'total_pop_20' : 'total_vap_20',
+          });
+        }
+      }
+    },
+    resetCoalition: () => {
+      set({
+        coalitionGroups: [],
+        coalitionRestoredSlug: null,
+        coalitionHash: `${++coalitionVersion}`,
+      });
+      demographyService.updatePopulations();
+    },
     availableColumnSets: {
       evaluation: {},
       map: {},
@@ -50,6 +154,9 @@ export var useDemographyStore = create(
       set({
         scale: undefined,
         dataHash: '',
+        coalitionGroups: [],
+        coalitionRestoredSlug: null,
+        coalitionHash: `${++coalitionVersion}`,
       });
     },
     unmount: () => {
@@ -60,24 +167,28 @@ export var useDemographyStore = create(
         scale: isSwappingMode ? currScale : undefined,
       });
     },
-    numberOfBins: 5,
+    numberOfBins: DEFAULT_CHOROPLETH_BIN_COUNT,
     setNumberOfBins: numberOfBins => set({numberOfBins}),
     dataHash: '',
     setDataHash: dataHash => set({dataHash}),
     updateData: async (mapDocument, _brokenIds) => {
       const {dataHash: currDataHash} = get();
-      const {shatterIds: _shatterIds} = useAssignmentsStore.getState();
-      const brokenIds = _brokenIds ?? Array.from(_shatterIds.parents);
+      const brokenIds = _brokenIds ?? getActiveBrokenIds();
       const {setErrorNotification} = useMapStore.getState();
       if (!mapDocument) return;
       // based on current map state
       const dataHash = `${brokenIds.join(',')}|${mapDocument.document_id}`;
 
       if (currDataHash === dataHash) return;
+
+      const requestId = ++updateDataRequestId;
       const result = await getDemography({
         mapDocument,
         brokenIds,
       });
+      // Bail if a newer updateData call has already been kicked off; otherwise this
+      // stale resolver would overwrite the fresh data with its own older results.
+      if (requestId !== updateDataRequestId) return;
       if (!result || !mapDocument) {
         setErrorNotification({
           message: 'Failed to get demography',
@@ -86,30 +197,17 @@ export var useDemographyStore = create(
         });
         return;
       }
-      demographyCache.update(result.columns, result.results, dataHash);
-      const availableColumns = demographyCache.availableColumns;
-      const availableEvalSets: Record<string, AllEvaluationConfigs> = Object.fromEntries(
-        Object.entries(evalColumnConfigs)
-          .map(([columnsetKey, config]) => [
-            columnsetKey,
-            config.filter(entry => availableColumns.includes(entry.sourceCol ?? entry.column)),
-          ])
-          .filter(([, config]) => config.length > 0)
-      );
-      const availableMapSets: Record<string, AllMapConfigs> = Object.fromEntries(
-        Object.entries(choroplethMapVariables)
-          .map(([columnsetKey, config]) => [
-            columnsetKey,
-            config.filter(entry => availableColumns.includes(entry.value)),
-          ])
-          .filter(([, config]) => config.length > 0)
-      );
+
+      const isCommunityPublic =
+        mapDocument.access === 'read' && mapDocument.map_type === 'community';
+      if (mapDocument.access === 'read' && !isCommunityPublic) {
+        demographyService.updateOverlay(result.columns, result.results, dataHash);
+      } else {
+        demographyService.update(result.columns, result.results, dataHash, get().coalitionGroups);
+      }
 
       set({
-        availableColumnSets: {
-          evaluation: availableEvalSets,
-          map: availableMapSets,
-        },
+        availableColumnSets: getAvailableColumnSets(demographyService.availableColumns),
         dataHash,
       });
     },

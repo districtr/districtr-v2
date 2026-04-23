@@ -77,9 +77,7 @@ export default function GuidePage() {
 
         <Text size="3">
           If you are interested in partnering with us or sponsoring a voting rights project, reach
-          out to us at{' '}
-          <Link href="mailto:Districtr@mggg.org">Districtr@mggg.org</Link>
-          .
+          out to us at <Link href="mailto:Districtr@mggg.org">Districtr@mggg.org</Link>.
         </Text>
 
         <Text size="3">Our team aims to respond to requests for new modules within a week.</Text>

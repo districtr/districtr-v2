@@ -72,7 +72,12 @@ export const CommentCard: React.FC<CommentRenderersProps> = ({comment, options})
         <Flex align="start" justify="between" gap="3">
           <Flex direction="column" gap="1" className="flex-1 min-w-0">
             {options.showTitles && comment.title && (
-              <Heading size="2" as="h3" className="text-slate-800 line-clamp-2 pt-0 mt-0" title={comment.title}>
+              <Heading
+                size="2"
+                as="h3"
+                className="text-slate-800 line-clamp-2 pt-0 mt-0"
+                title={comment.title}
+              >
                 {comment.title}
               </Heading>
             )}

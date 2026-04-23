@@ -1,7 +1,11 @@
 import {devtools, DevtoolsOptions, PersistOptions} from 'zustand/middleware';
 import {MapStore} from './mapStore';
+import {MIN_DIFF_MS} from '../constants/configuration';
 import {ZundoOptions} from 'zundo';
 import {AssignmentsStore} from './assignmentsStore';
+import {CoiAssignmentsStore} from './coiAssignmentsStore';
+import {TEMPORAL_HISTORY_LIMIT} from '../constants/configuration';
+import {cloneTemporalSnapshot} from '../utils/temporalSnapshot';
 
 const prodWrapper: typeof devtools = (store: any) => store;
 export const devwrapper = process.env.NODE_ENV === 'development' ? devtools : prodWrapper;
@@ -31,35 +35,81 @@ export const devToolsConfig: DevtoolsOptions = {
   },
 };
 
-const MIN_DIFF_MS = 3000;
+// Shared diff function for all temporal stores — only fires when clientLastUpdated changes
+// and enough time has passed since the last snapshot. Generic over the store type so the
+// same function can drive both district and COI zundo configurations.
+interface TemporalDiffSnapshot {
+  clientLastUpdated?: string;
+  pendingShatterUndoState?: AssignmentsStore['pendingShatterUndoState'];
+}
 
-export const temporalConfig: ZundoOptions<any, AssignmentsStore> = {
+export const temporalDiff = <T extends TemporalDiffSnapshot>(
+  past: Partial<T>,
+  curr: Partial<T>
+) => {
+  // If diff returns null, no state is stored
+  if (!past.clientLastUpdated || !curr.clientLastUpdated) return null;
+  // If the client timestamp is the same, don't store
+  if (past.clientLastUpdated === curr.clientLastUpdated) return null;
+  // If not yet ingested, don't store
+  if (past.clientLastUpdated === '' || curr.clientLastUpdated === '') return null;
+  // If the difference is less than the minimum diff time, don't store
+  if (
+    new Date(curr.clientLastUpdated).getTime() - new Date(past.clientLastUpdated).getTime() <
+    MIN_DIFF_MS
+  )
+    return null;
+  if (past.pendingShatterUndoState && !curr.pendingShatterUndoState) {
+    return cloneTemporalSnapshot(past.pendingShatterUndoState) as unknown as Partial<T>;
+  }
+  return past;
+};
+
+export const assignmentsTemporalConfig: ZundoOptions<any, AssignmentsStore> = {
   // If diff returns null, not state is stored
-  diff: (past: Partial<AssignmentsStore>, curr: Partial<AssignmentsStore>) => {
-    if (!past.clientLastUpdated || !curr.clientLastUpdated) return null;
-    // if the client timestamp is the same, don't store
-    if (past.clientLastUpdated === curr.clientLastUpdated) return null;
-    // If not yet ingested, don't store
-    if (past.clientLastUpdated === '' || curr.clientLastUpdated === '') return null;
-    // If the difference is less than the minimum diff time, don't store
-    if (
-      new Date(curr.clientLastUpdated.toString()).getTime() -
-        new Date(past.clientLastUpdated.toString()).getTime() <
-      MIN_DIFF_MS
-    )
-      return null;
-    return past;
-  },
-  limit: 20,
+  diff: temporalDiff,
+  limit: TEMPORAL_HISTORY_LIMIT,
   // @ts-ignore: save only partial store
   partialize: state => {
-    const {shatterIds, parentToChild, zoneAssignments, clientLastUpdated, childToParent} = state;
+    const {
+      shatterIds,
+      parentToChild,
+      zoneAssignments,
+      clientLastUpdated,
+      childToParent,
+      pendingShatterUndoState,
+    } = state;
     return {
       shatterIds,
       parentToChild,
       childToParent,
       zoneAssignments,
       clientLastUpdated,
+      pendingShatterUndoState,
     } as Partial<AssignmentsStore>;
+  },
+};
+
+export const coiAssignmentsTemporalConfig: ZundoOptions<any, CoiAssignmentsStore> = {
+  diff: temporalDiff,
+  limit: TEMPORAL_HISTORY_LIMIT,
+  // @ts-ignore: save only partial store
+  partialize: state => {
+    const {
+      shatterIds,
+      parentToChild,
+      childToParent,
+      communityAssignments,
+      communityVisibility,
+      clientLastUpdated,
+    } = state;
+    return {
+      shatterIds,
+      parentToChild,
+      childToParent,
+      communityAssignments,
+      communityVisibility,
+      clientLastUpdated,
+    };
   },
 };
