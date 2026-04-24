@@ -1,4 +1,5 @@
 import {AnyD3Scale} from '@visx/scale';
+import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
 import * as chromatic from 'd3-scale-chromatic';
 export interface ColumnSet {
   /**
@@ -42,7 +43,7 @@ export const ALL_VOTER_COLUMN_GROUPINGS = {
 } as const;
 
 export const derivedColumnsConfig = {
-  VOTERHISTORY: Object.values(ALL_VOTER_COLUMN_GROUPINGS).reduce(
+  [SUMMARY_TYPES.VOTERHISTORY]: Object.values(ALL_VOTER_COLUMN_GROUPINGS).reduce(
     (acc, curr) => {
       return [
         ...acc,
@@ -128,7 +129,7 @@ export const summaryStatsConfig = {
       'pres_16_dem',
     ],
   },
-} as const;
+} as const satisfies {[K in SummaryType]: ColumnSet};
 
 export const possibleRollups = [
   ...Object.values(summaryStatsConfig)
@@ -147,12 +148,9 @@ export const possibleDerivedColumns = Object.values(derivedColumnsConfig).flat()
 
 // DERIVED TYPES
 export type SummaryStatConfig = typeof summaryStatsConfig;
-export type KeyOfSummaryStatConfig = keyof SummaryStatConfig;
-export type AllTabularColumns = SummaryStatConfig[KeyOfSummaryStatConfig]['columns'];
-export type AllEvaluationConfigs = EvalColumnConfiguration<
-  SummaryStatConfig[KeyOfSummaryStatConfig]
->;
-export type AllMapConfigs = MapColumnConfiguration<SummaryStatConfig[KeyOfSummaryStatConfig]>;
+export type AllTabularColumns = SummaryStatConfig[SummaryType]['columns'];
+export type AllEvaluationConfigs = EvalColumnConfiguration<SummaryStatConfig[SummaryType]>;
+export type AllMapConfigs = MapColumnConfiguration<SummaryStatConfig[SummaryType]>;
 export type DemographyRow = {
   [key in AllTabularColumns[number]]: number;
 };
@@ -166,7 +164,7 @@ export type SummaryTable = Array<SummaryRecord>;
 /**
  * A shape of data including the columns in columns with a _pct suffix
  */
-export type TabularDataWithPercent<T extends SummaryStatConfig[keyof SummaryStatConfig]> = {
+export type TabularDataWithPercent<T extends SummaryStatConfig[SummaryType]> = {
   [K in T['columns'][number] as `${K}_pct`]: number;
 } & {
   [K in T['columns'][number]]: number;

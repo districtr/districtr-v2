@@ -7,6 +7,7 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 import {useSelectCommunity} from '@/app/hooks/useSelectCommunity';
 import {sortCommunitiesByRenderOrder} from '@/app/utils/communities';
+import {MAP_MODES} from '@constants/map/mode';
 
 /**
  * A single row in the public community viewer list.
@@ -87,7 +88,7 @@ export const CoiCommunityViewer: React.FC = () => {
   const setCommunityVisibility = useCoiAssignmentsStore(state => state.setCommunityVisibility);
   const selectCommunity = useSelectCommunity();
 
-  if (mapMode !== 'coi' || isEditing || !communities.length) return null;
+  if (mapMode !== MAP_MODES.COI || isEditing || !communities.length) return null;
 
   const sorted = sortCommunitiesByRenderOrder(communities);
 

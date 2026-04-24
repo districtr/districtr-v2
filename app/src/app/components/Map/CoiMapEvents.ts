@@ -11,7 +11,8 @@ import {
   BLOCK_HOVER_LAYER_ID_CHILD,
   BLOCK_POINTS_LAYER_ID,
   BLOCK_POINTS_LAYER_ID_CHILD,
-} from '@/app/constants/map/layerIds';
+} from '@constants/map/layerIds';
+import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {setHoverFeatures} from '@/app/utils/map/hoverFeatures';
 import {
   ALL_BRUSHING_TOOLS,
@@ -27,7 +28,7 @@ function getLayerIdsToPaint(
   activeTool: ReturnType<typeof useMapControlsStore.getState>['activeTool'],
   childOnly: boolean
 ) {
-  if (activeTool === 'shatter') {
+  if (activeTool === ACTIVE_TOOLS.SHATTER) {
     return [BLOCK_HOVER_LAYER_ID];
   }
 
@@ -55,15 +56,15 @@ const handleCoiFeatureSelection = (
     useCoiAssignmentsStore.getState();
 
   switch (activeTool) {
-    case 'shatter': {
+    case ACTIVE_TOOLS.SHATTER: {
       const documentId = mapStore.mapDocument?.document_id;
       if (documentId && selectedFeatures?.length) {
         mapStore.handleShatter(selectedFeatures || []);
       }
       return;
     }
-    case 'brush':
-    case 'eraser':
+    case ACTIVE_TOOLS.BRUSH:
+    case ACTIVE_TOOLS.ERASER:
       if (!mapStore.communities.length) {
         setIsPainting(false);
         return;
@@ -80,7 +81,7 @@ const handleCoiFeatureSelection = (
           mapRef,
           selectedFeatures || [],
           selectedZone,
-          activeTool === 'brush' ? 'brush' : 'eraser'
+          activeTool === ACTIVE_TOOLS.BRUSH ? ACTIVE_TOOLS.BRUSH : ACTIVE_TOOLS.ERASER
         );
         setIsPainting(false);
         ingestAccumulatedAssignments();
@@ -167,7 +168,7 @@ export const handleCoiMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerT
       mapRef,
       selectedFeatures,
       selectedZone,
-      activeTool === 'brush' ? 'brush' : 'eraser'
+      activeTool === ACTIVE_TOOLS.BRUSH ? ACTIVE_TOOLS.BRUSH : ACTIVE_TOOLS.ERASER
     );
   }
 

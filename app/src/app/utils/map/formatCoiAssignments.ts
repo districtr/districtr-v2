@@ -1,4 +1,4 @@
-import {Zone} from '@/app/constants/types';
+import {type Zone} from '@constants/map/zone';
 import {Assignment} from '../api/apiHandlers/types';
 
 type ShatterState = {

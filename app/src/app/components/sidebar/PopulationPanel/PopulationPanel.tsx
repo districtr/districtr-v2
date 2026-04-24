@@ -13,12 +13,15 @@ import {useZonePopulations} from '@/app/hooks/useDemography';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {ZoneDescriptionPopover} from './ZoneDescriptionPopover';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
-import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/map/mapDefaults';
+import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/document/limits';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {getCommunityRenderOrderId, getUnusedCommunityColors} from '@/app/utils/communities';
 import {useSelectCommunity} from '@/app/hooks/useSelectCommunity';
 import {EditCommunityDialog} from '@/app/components/Toolbar/EditCommunityDialog';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
+import {MAP_MODES, MAP_MODE_LABELS, MAP_MODE_LABEL_PLURAL} from '@constants/map/mode';
+import {ACCESS_STATES} from '@constants/document/state';
+import {NUMBER_FORMATS} from '@constants/demography/format';
 
 const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
 
@@ -42,11 +45,11 @@ export const PopulationPanel = () => {
     state => state.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS
   );
   const numCommunities = useMapStore(state => state.numCommunities ?? FALLBACK_NUM_COMMUNITIES);
-  const numZones = mapMode === 'coi' ? numCommunities : numDistricts;
-  const zoneLabel = mapMode === 'coi' ? 'community' : 'district';
-  const isCommunityMode = zoneLabel === 'community';
+  const numZones = mapMode === MAP_MODES.COI ? numCommunities : numDistricts;
+  const zoneLabel = MAP_MODE_LABELS[mapMode];
+  const isCommunityMode = mapMode === MAP_MODES.COI;
   const effectiveIdealPopulation = isCommunityMode ? undefined : idealPopulation;
-  const zoneLabelPlural = mapMode === 'coi' ? 'communities' : 'districts';
+  const zoneLabelPlural = MAP_MODE_LABEL_PLURAL[mapMode];
   const allPainted =
     numZones === populationData.length &&
     zoneStats.minPopulation !== undefined &&
@@ -151,7 +154,7 @@ export const PopulationPanel = () => {
               <IconButton
                 onClick={toggleLockAllAreas}
                 variant="ghost"
-                disabled={access === 'read'}
+                disabled={access === ACCESS_STATES.READ}
                 style={{opacity: isEditing ? 1 : 0}}
                 aria-label={allAreLocked ? 'Unlock all districts' : 'Lock all districts'}
               >
@@ -178,7 +181,7 @@ export const PopulationPanel = () => {
                   className={`${selectedZone === d.zone ? 'bg-gray-100' : '!shadow-none'} max-w-12 flex-grow`}
                 >
                   <Text weight={selectedZone === d.zone ? 'bold' : 'regular'}>
-                    {mapMode === 'coi'
+                    {mapMode === MAP_MODES.COI
                       ? (getCommunityRenderOrderId(communities, d.zone) ?? d.zone)
                       : d.zone}
                   </Text>
@@ -192,7 +195,7 @@ export const PopulationPanel = () => {
                       <IconButton
                         onClick={() => handleEditCommunity(d.zone)}
                         variant="ghost"
-                        disabled={access === 'read'}
+                        disabled={access === ACCESS_STATES.READ}
                         aria-label={`Edit community ${d.zone}`}
                       >
                         <Pencil1Icon />
@@ -201,7 +204,7 @@ export const PopulationPanel = () => {
                       <IconButton
                         onClick={() => handleLockChange(d.zone)}
                         variant="ghost"
-                        disabled={access === 'read'}
+                        disabled={access === ACCESS_STATES.READ}
                         aria-label={
                           lockPaintedAreas.includes(d.zone)
                             ? `Unlock district ${d.zone}`
@@ -247,12 +250,12 @@ export const PopulationPanel = () => {
           <Flex direction="column" gapX="2" minWidth={'10rem'}>
             <Text>Ideal Population</Text>
             <Text weight={'bold'} className="mb-2">
-              {formatNumber(idealPopulation, 'string')}
+              {formatNumber(idealPopulation, NUMBER_FORMATS.STRING)}
             </Text>
             {unassigned !== undefined && (
               <>
                 <Text>Unassigned</Text>
-                <Text weight={'bold'}>{formatNumber(unassigned, 'string')}</Text>
+                <Text weight={'bold'}>{formatNumber(unassigned, NUMBER_FORMATS.STRING)}</Text>
               </>
             )}
           </Flex>
@@ -265,8 +268,10 @@ export const PopulationPanel = () => {
             zoneStats?.maxPopulation !== undefined &&
             zoneStats?.maxPopulation !== 0 ? (
               <>
-                <b>{formatNumber(zoneStats.range / zoneStats?.maxPopulation, 'percent')}</b> (
-                {formatNumber(zoneStats.range || 0, 'string')})
+                <b>
+                  {formatNumber(zoneStats.range / zoneStats?.maxPopulation, NUMBER_FORMATS.PERCENT)}
+                </b>{' '}
+                ({formatNumber(zoneStats.range || 0, NUMBER_FORMATS.STRING)})
               </>
             ) : (
               ` will appear when all ${zoneLabelPlural} are started`

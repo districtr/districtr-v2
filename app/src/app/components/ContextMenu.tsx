@@ -3,6 +3,7 @@ import {ContextMenu, Text} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {CHILD_LAYERS} from '../constants/map/layerIds';
+import {ACCESS_STATES} from '@constants/document/state';
 
 export const MapContextMenu: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -55,7 +56,7 @@ export const MapContextMenu: React.FC = () => {
         </ContextMenu.Label>
         {!isChild && (
           <ContextMenu.Item
-            disabled={!mapDocument?.child_layer || access === 'read'}
+            disabled={!mapDocument?.child_layer || access === ACCESS_STATES.READ}
             onSelect={handleSelect}
           >
             Break to Blocks
@@ -69,7 +70,7 @@ export const MapContextMenu: React.FC = () => {
               </Text>
             </ContextMenu.Label>
             <ContextMenu.Item
-              disabled={!mapDocument?.child_layer || access === 'read'}
+              disabled={!mapDocument?.child_layer || access === ACCESS_STATES.READ}
               onSelect={handleSelect}
             >
               Break Parent to Blocks

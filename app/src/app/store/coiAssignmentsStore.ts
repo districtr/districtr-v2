@@ -1,12 +1,12 @@
+import {GDBPath, NullableZone, Zone} from '@constants/map/zone';
+import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {
-  GDBPath,
-  NullableZone,
-  Zone,
   ConflictContext,
   ConflictResolutionOptions,
   SyncConflictResolution,
-} from '@constants/types';
-import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
+} from '@constants/document/sync';
+import {BLOCK_SOURCE_ID} from '@constants/map/layerIds';
+import {MAP_MODES} from '@constants/map/mode';
 import {Map as MaplibreMap, MapGeoJSONFeature} from 'maplibre-gl';
 import {Community, DocumentObject} from '../utils/api/apiHandlers/types';
 import {
@@ -46,7 +46,7 @@ export type CommunityData = Community & {
   assignments: Set<string>;
   lastUpdated: string | null;
 };
-export type CoiPaintMode = 'brush' | 'eraser';
+export type CoiPaintMode = typeof ACTIVE_TOOLS.BRUSH | typeof ACTIVE_TOOLS.ERASER;
 export type CoiAccumulatedMutation =
   | {type: 'assign'; community: Zone}
   | {type: 'erase-community'; community: Zone};
@@ -492,7 +492,7 @@ const healTouchedParentsIfEligible = ({
   const controlsState = useMapControlsStore.getState();
   if (
     touchedParentIds.size &&
-    controlsState.activeTool !== 'shatter' &&
+    controlsState.activeTool !== ACTIVE_TOOLS.SHATTER &&
     controlsState.mapOptions.mode !== 'break'
   ) {
     healParentsIfAllChildrenInSameCommunities(touchedParentIds);
@@ -815,7 +815,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     mapRef: MaplibreMap,
     features: Array<MapGeoJSONFeature>,
     community: Zone,
-    mode: CoiPaintMode = 'brush'
+    mode: CoiPaintMode = ACTIVE_TOOLS.BRUSH
   ) => {
     const {accumulatedAssignments, communityAssignments, communityLastUpdated} = get();
     const {setPaintedChanges} = useChartStore.getState();
@@ -845,11 +845,11 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       const newCommunities = new Set(currentCommunities);
       let mutationType: CoiAccumulatedMutation | null = null;
 
-      if (mode === 'eraser') {
+      if (mode === ACTIVE_TOOLS.ERASER) {
         if (!currentCommunities.has(community)) return; // Not part of this community, nothing to erase
         mutationType = {type: 'erase-community', community};
         newCommunities.delete(community);
-      } else if (mode === 'brush') {
+      } else if (mode === ACTIVE_TOOLS.BRUSH) {
         if (currentCommunities.has(community)) return; // Already part of this community, nothing to do
         mutationType = {type: 'assign', community};
         newCommunities.add(community);
@@ -1112,7 +1112,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     const activeParentId = focusFeatures?.[0]?.id?.toString();
     const activeParentHealed = !!(activeParentId && !newShatterIds.parents.has(activeParentId));
     if (
-      controlsState.activeTool !== 'shatter' &&
+      controlsState.activeTool !== ACTIVE_TOOLS.SHATTER &&
       captiveIds.size &&
       (activeParentHealed || remainingCaptiveIds.size === 0)
     ) {
@@ -1123,7 +1123,10 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       controlsState.setMapOptions({mode: 'default'});
       return;
     }
-    if (controlsState.activeTool !== 'shatter' && remainingCaptiveIds.size !== captiveIds.size) {
+    if (
+      controlsState.activeTool !== ACTIVE_TOOLS.SHATTER &&
+      remainingCaptiveIds.size !== captiveIds.size
+    ) {
       useMapStore.setState({captiveIds: remainingCaptiveIds});
     }
   },
@@ -1364,7 +1367,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       healParentsIfAllChildrenInSameCommunities: get().healParentsIfAllChildrenInSameCommunities,
     });
 
-    removedCommunityIds.forEach(id => temporalManager.purgeZone('coi', id));
+    removedCommunityIds.forEach(id => temporalManager.purgeZone(MAP_MODES.COI, id));
   },
 
   removeCommunity: (removedCommunity: Zone) => {
@@ -1422,7 +1425,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       healParentsIfAllChildrenInSameCommunities: get().healParentsIfAllChildrenInSameCommunities,
     });
 
-    temporalManager.purgeZone('coi', removedCommunity);
+    temporalManager.purgeZone(MAP_MODES.COI, removedCommunity);
   },
 
   handlePutAssignments: async (overwrite = false) => {

@@ -1,4 +1,5 @@
 import {post} from '../factory';
+import {type MapType} from '@constants/document/types';
 
 /**
  *
@@ -15,13 +16,13 @@ export const uploadAssignments = async ({
 }: {
   assignments: [string, string][];
   districtr_map_slug: string;
-  map_type?: 'default' | 'local' | 'community';
+  map_type?: MapType;
 }) => {
   return await post<
     {
       assignments: [string, string][];
       districtr_map_slug: string;
-      map_type?: 'default' | 'local' | 'community';
+      map_type?: MapType;
     },
     {document_id: string}
   >('create_document')({

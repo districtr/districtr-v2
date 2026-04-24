@@ -1,6 +1,6 @@
 import {useEffect, useRef} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
-import {NullableZone} from '@/app/constants/types';
+import {NullableZone} from '@constants/map/zone';
 import type {Community} from '@/app/utils/api/apiHandlers/types';
 import {sortCommunitiesByRenderOrder} from '@/app/utils/communities';
 import {Box, Flex, RadioGroup} from '@radix-ui/themes';

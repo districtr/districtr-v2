@@ -4,6 +4,7 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {getCommunityDisplayNumber} from '@/app/utils/communities';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
+import {MAP_MODES, MAP_MODE_LABELS} from '@constants/map/mode';
 
 interface ZoneDescriptionTooltipProps {
   zone: number;
@@ -17,8 +18,9 @@ export const ZoneDescriptionTooltip: React.FC<ZoneDescriptionTooltipProps> = ({z
   const mapMode = useMapControlsStore(state => state.mapMode);
   const getZoneColor = useZoneColorGetter();
   const color = getZoneColor(zone);
-  const zoneLabel = mapMode === 'coi' ? 'Community' : 'District';
-  const displayZone = mapMode === 'coi' ? getCommunityDisplayNumber(communities, zone) : zone;
+  const zoneLabel = MAP_MODE_LABELS[mapMode];
+  const displayZone =
+    mapMode === MAP_MODES.COI ? getCommunityDisplayNumber(communities, zone) : zone;
 
   return (
     <Box

@@ -8,6 +8,11 @@ import {useMapControlsStore} from '../store/mapControlsStore';
 import {DocumentObject} from '../utils/api/apiHandlers/types';
 import {getDocument} from '../utils/api/apiHandlers/getDocument';
 import {SyncConflictModal} from './SyncConflictModal';
+import {MAP_MODES} from '@constants/map/mode';
+import {MAP_TYPES} from '@constants/document/types';
+import {MAP_ROUTES} from '@constants/document/routes';
+import {APP_LOADING_STATES} from '@constants/document/state';
+import {RENDERING_STATES} from '@constants/map/renderingState';
 
 export const SaveConflictModal: React.FC = ({}) => {
   const router = useRouter();
@@ -16,7 +21,8 @@ export const SaveConflictModal: React.FC = ({}) => {
   const setAppLoadingState = useMapStore(state => state.setAppLoadingState);
   const setMapRenderingState = useMapStore(state => state.setMapRenderingState);
   const mapMode = useMapControlsStore(state => state.mapMode);
-  const isCommunity = localMapDocument?.map_type === 'community' || mapMode === 'coi';
+  const isCommunity =
+    localMapDocument?.map_type === MAP_TYPES.COMMUNITY || mapMode === MAP_MODES.COI;
   const districtLocalTimeUpdated = useAssignmentsStore(state => state.clientLastUpdated);
   const coiLocalTimeUpdated = useCoiAssignmentsStore(state => state.clientLastUpdated);
   const localTimeUpdated = isCommunity ? coiLocalTimeUpdated : districtLocalTimeUpdated;
@@ -59,11 +65,15 @@ export const SaveConflictModal: React.FC = ({}) => {
       onResolve={resolution =>
         handlePutAssignmentsConflict(resolution, conflict, {
           onNavigate: documentId => {
-            router.push(isCommunity ? `/coi/edit/${documentId}` : `/map/edit/${documentId}`);
+            router.push(
+              isCommunity
+                ? `/${MAP_ROUTES.COI}/edit/${documentId}`
+                : `/${MAP_ROUTES.DISTRICTS}/edit/${documentId}`
+            );
           },
           onComplete: () => {
-            setAppLoadingState('loaded');
-            setMapRenderingState('loaded');
+            setAppLoadingState(APP_LOADING_STATES.LOADED);
+            setMapRenderingState(RENDERING_STATES.LOADED);
           },
         })
       }

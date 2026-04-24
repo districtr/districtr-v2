@@ -4,6 +4,7 @@ import Papa from 'papaparse';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 import {uploadAssignments} from './apiHandlers/uploadAssignments';
 import {useMapStore} from '@/app/store/mapStore';
+import {type MapType} from '@constants/document/types';
 
 const MAX_ROWS = 914_231;
 const ROWS_TO_TEST = 200;
@@ -121,7 +122,7 @@ export const processFile = ({
   setMapLinks: React.Dispatch<React.SetStateAction<MapLink[]>>;
   setError: React.Dispatch<React.SetStateAction<any>>;
   districtrMap: DistrictrMap;
-  documentMapType?: 'default' | 'local' | 'community';
+  documentMapType?: MapType;
   config?: {
     ZONE: number;
     GEOID: number;

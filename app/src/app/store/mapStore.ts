@@ -3,7 +3,8 @@ import type {MapGeoJSONFeature} from 'maplibre-gl';
 import type {MapRef} from 'react-map-gl/maplibre';
 import {exposeStoreToWindow} from './exposeToWindow';
 import {colorScheme as DefaultColorScheme} from '@constants/colors';
-import type {MapFeatureInfo} from '@constants/types';
+import {ACTIVE_TOOLS} from '@constants/map/tools';
+import type {MapFeatureInfo} from '@constants/map/mapEvents';
 import {
   Community,
   DistrictrMap,
@@ -19,7 +20,7 @@ import {ContextMenuState} from '@utils/map/types';
 import {resetZoneColors} from '@utils/map/resetZoneColors';
 import {setZones} from '@utils/map/setZones';
 import bbox from '@turf/bbox';
-import {FALLBACK_NUM_COMMUNITIES} from '../constants/map/mapDefaults';
+import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/document/limits';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
 import {createWithDevWrapperAndSubscribe} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
@@ -47,6 +48,10 @@ import {
   syncCoiColorsToColorScheme,
 } from '../utils/communities';
 import {temporalManager} from '../utils/temporal';
+import {MAP_MODES} from '@constants/map/mode';
+import {APP_LOADING_STATES, type AppLoadingState, ACCESS_STATES} from '@constants/document/state';
+import {RENDERING_STATES, type RenderingState} from '@constants/map/renderingState';
+import {MAP_ROUTES} from '@constants/document/routes';
 
 const resolveNumCommunities = (
   mapDocument: DocumentObject | null | undefined,
@@ -157,9 +162,9 @@ const syncCommunityDescriptionComment = ({
 
 export interface MapStore {
   // LOAD AND RENDERING STATE TRACKING
-  appLoadingState: 'loaded' | 'initializing' | 'loading' | 'blurred';
+  appLoadingState: AppLoadingState;
   setAppLoadingState: (state: MapStore['appLoadingState']) => void;
-  mapRenderingState: 'loaded' | 'initializing' | 'loading';
+  mapRenderingState: RenderingState;
   setMapRenderingState: (state: MapStore['mapRenderingState']) => void;
   // MAP CANVAS REF AND CONTROLS
   getMapRef: () => maplibregl.Map | undefined;
@@ -286,16 +291,16 @@ export interface MapStore {
 
 const initialLoadingState =
   typeof window !== 'undefined' &&
-  (window.location.pathname.startsWith('/map/') ||
-    window.location.pathname.startsWith('/map/edit/'))
-    ? 'loading'
-    : 'initializing';
+  (window.location.pathname.startsWith(`/${MAP_ROUTES.DISTRICTS}/`) ||
+    window.location.pathname.startsWith(`/${MAP_ROUTES.DISTRICTS}/edit/`))
+    ? APP_LOADING_STATES.LOADING
+    : APP_LOADING_STATES.INITIALIZING;
 
 export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr Map Store')(
   (set, get) => ({
     appLoadingState: initialLoadingState,
     setAppLoadingState: appLoadingState => set({appLoadingState}),
-    mapRenderingState: 'initializing',
+    mapRenderingState: RENDERING_STATES.INITIALIZING,
     setMapRenderingState: mapRenderingState => set({mapRenderingState}),
     captiveIds: new Set<string>(),
 
@@ -311,9 +316,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         focusFeatures: [],
       });
       setMapOptions({mode: 'default'});
-      useMapControlsStore.setState({activeTool: 'shatter'});
+      useMapControlsStore.setState({activeTool: ACTIVE_TOOLS.SHATTER});
 
-      if (mapMode === 'coi') {
+      if (mapMode === MAP_MODES.COI) {
         healParentsIfAllChildrenInSameCommunities(
           focusedParentId ? new Set<string>([focusedParentId]) : undefined
         );
@@ -332,7 +337,10 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     setMapRef: mapRef => {
       set({
         getMapRef: () => mapRef.current?.getMap(),
-        appLoadingState: initialLoadingState === 'initializing' ? 'loaded' : get().appLoadingState,
+        appLoadingState:
+          initialLoadingState === APP_LOADING_STATES.INITIALIZING
+            ? APP_LOADING_STATES.LOADED
+            : get().appLoadingState,
       });
     },
 
@@ -439,11 +447,14 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           bounds: mapDocument.extent,
           stateFipsSet: newStateFipsSet,
         },
-        activeTool: mapDocument.access === 'edit' ? mapControlsState.activeTool : 'pan',
+        activeTool:
+          mapDocument.access === ACCESS_STATES.EDIT
+            ? mapControlsState.activeTool
+            : ACTIVE_TOOLS.PAN,
         selectedZone: communities[0]?.id ?? mapControlsState.selectedZone,
         sidebarPanels: ['population'],
         isPainting: false,
-        isEditing: mapDocument.access === 'edit',
+        isEditing: mapDocument.access === ACCESS_STATES.EDIT,
       });
 
       useAssignmentsStore.getState().resetShatterState();
@@ -477,9 +488,14 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         // Fresh document load: drop any stale "unsaved changes" markers so the save
         // indicator doesn't falsely flag a just-loaded doc as dirty.
         updated: {metadata: false, comments: false},
-        appLoadingState: mapDocument?.genesis === 'copied' ? 'loaded' : 'initializing',
+        appLoadingState:
+          mapDocument?.genesis === 'copied'
+            ? APP_LOADING_STATES.LOADED
+            : APP_LOADING_STATES.INITIALIZING,
         mapRenderingState:
-          mapDocument.tiles_s3_path === currentMapDocument?.tiles_s3_path ? 'loaded' : 'loading',
+          mapDocument.tiles_s3_path === currentMapDocument?.tiles_s3_path
+            ? RENDERING_STATES.LOADED
+            : RENDERING_STATES.LOADING,
       });
 
       // Persist cleaned comments to IDB so stale duplicates don't resurface
@@ -710,7 +726,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
 
       if (mapDocument.document_id) {
         const newClientLastUpdated = new Date().toISOString();
-        if (useMapControlsStore.getState().mapMode === 'coi') {
+        if (useMapControlsStore.getState().mapMode === MAP_MODES.COI) {
           useCoiAssignmentsStore.getState().setClientLastUpdated(newClientLastUpdated);
         } else {
           useAssignmentsStore.getState().setClientLastUpdated(newClientLastUpdated);
@@ -1043,7 +1059,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         shatterIds,
         parentToChild: currentParentToChild,
         childToParent: currentChildToParent,
-      } = mapMode === 'coi' ? useCoiAssignmentsStore.getState() : useAssignmentsStore.getState();
+      } = mapMode === MAP_MODES.COI
+        ? useCoiAssignmentsStore.getState()
+        : useAssignmentsStore.getState();
       let parents = new Set(shatterIds.parents);
       let children = new Set(shatterIds.children);
       let captiveIds = new Set<string>();
@@ -1069,7 +1087,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         }
       });
       // Need to shatter all communities that that have that assignment since they can overlap
-      if (mapMode === 'coi') {
+      if (mapMode === MAP_MODES.COI) {
         const {
           communityAssignments: currentCommunityAssignments,
           setShatterState,
@@ -1133,7 +1151,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           },
         ],
       });
-      useMapControlsStore.setState({activeTool: 'brush'});
+      useMapControlsStore.setState({activeTool: ACTIVE_TOOLS.BRUSH});
       setMapOptions({
         mode: 'break',
         bounds: mapBbox,
@@ -1150,7 +1168,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       }
       set({
         mapLock: {isLocked: true, reason: 'Resetting map'},
-        appLoadingState: 'loading',
+        appLoadingState: APP_LOADING_STATES.LOADING,
       });
       const resetResponse = await patchUpdateReset(document_id);
       if (!resetResponse.ok) {
@@ -1177,10 +1195,10 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         resetShatterState();
 
         set({
-          appLoadingState: 'loaded',
+          appLoadingState: APP_LOADING_STATES.LOADED,
           mapLock: null,
         });
-        useMapControlsStore.setState({activeTool: 'pan'});
+        useMapControlsStore.setState({activeTool: ACTIVE_TOOLS.PAN});
       }
     },
     focusFeatures: [],

@@ -1,4 +1,4 @@
-import {NullableZone} from '@/app/constants/types';
+import {NullableZone} from '@constants/map/zone';
 import {formatAssignmentsFromState} from '../../map/formatAssignments';
 import {AssignmentArray, DocumentObject} from './types';
 import {putUpdateDocument} from './putUpdateDocument';

@@ -1,12 +1,12 @@
-import {ConflictResolutionOptions, NullableZone, SyncConflictResolution} from '../constants/types';
-import {Zone, GDBPath} from '@constants/types';
+import {ConflictResolutionOptions, SyncConflictResolution} from '@constants/document/sync';
+import {NullableZone, Zone, GDBPath} from '@constants/map/zone';
 import GeometryWorker from '../utils/GeometryWorker';
 import {demographyService} from '../utils/demography/demographyService';
 import {idb} from '../utils/idb/idb';
 import {useMapStore} from './mapStore';
 import {useDemographyStore} from './demography/demographyStore';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
-import {ConflictContext} from '../constants/types';
+import {ConflictContext} from '@constants/document/sync';
 import {checkIfSameZone} from '../utils/map/checkIfSameZone';
 import {formatAssignmentsFromDocument} from '../utils/map/formatAssignments';
 import {getAssignments} from '../utils/api/apiHandlers/getAssignments';
@@ -27,6 +27,7 @@ import {temporalManager} from '../utils/temporal';
 import {cloneTemporalSnapshot, AssignmentsTemporalSnapshot} from '../utils/temporalSnapshot';
 import {assignmentsTemporalConfig} from './middlewareConfig';
 import {exposeStoreToWindow as _exposeAssignmentsStore} from './exposeToWindow';
+import {MAP_MODES} from '@constants/map/mode';
 
 export interface AssignmentsStore {
   /** Map of geoid -> zone assignments currently in memory */
@@ -621,7 +622,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       coalitionGroups: useDemographyStore.getState().coalitionGroups,
     });
     idb.updateIdbAssignments(mapDocument, zoneAssignments);
-    temporalManager.resume('districts');
+    temporalManager.resume(MAP_MODES.DISTRICTS);
 
     set({
       zoneAssignments,

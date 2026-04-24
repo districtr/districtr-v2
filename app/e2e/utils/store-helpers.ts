@@ -1,4 +1,8 @@
 import {Page} from '@playwright/test';
+import type {ActiveTool} from '@constants/map/tools';
+import {ACCESS_STATES, AccessState, type AppLoadingState} from '@constants/document/state';
+import {type RenderingState} from '@constants/map/renderingState';
+import {type DemographicMode} from '@constants/map/demographicMode';
 
 /**
  * Zustand Store Testing Utilities
@@ -16,8 +20,8 @@ import {Page} from '@playwright/test';
 
 // Store type definitions for type safety in tests
 export interface MapStoreState {
-  appLoadingState: 'loaded' | 'initializing' | 'loading' | 'blurred';
-  mapRenderingState: 'loaded' | 'initializing' | 'loading';
+  appLoadingState: AppLoadingState;
+  mapRenderingState: RenderingState;
   mapDocument: {
     document_id: string;
     districtr_map_slug: string;
@@ -26,7 +30,7 @@ export interface MapStoreState {
     child_layer?: string;
     tiles_s3_path: string;
     extent: [number, number, number, number];
-    access: 'edit' | 'view';
+    access: AccessState;
     map_metadata?: {
       name?: string;
       description?: string;
@@ -41,11 +45,11 @@ export interface MapControlsStoreState {
   selectedZone: number;
   isPainting: boolean;
   isEditing: boolean;
-  activeTool: 'pan' | 'brush' | 'eraser' | 'shatter' | 'inspector';
+  activeTool: ActiveTool;
   brushSize: number;
   mapOptions: {
     showPopulationTooltip: boolean;
-    showDemographicMap?: 'side-by-side' | 'overlay';
+    showDemographicMap?: DemographicMode;
     lockPaintedAreas: (number | null)[];
     mode: 'default' | 'break';
     bounds?: [number, number, number, number];
@@ -223,7 +227,7 @@ export async function isEditingMode(page: Page): Promise<boolean> {
  */
 export async function hasEditAccess(page: Page): Promise<boolean> {
   const state = await getMapStoreState(page);
-  return state?.mapDocument?.access === 'edit';
+  return state?.mapDocument?.access === ACCESS_STATES.EDIT;
 }
 
 /**

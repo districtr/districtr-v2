@@ -4,6 +4,7 @@ import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerIds';
 import {useMapStore} from '@/app/store/mapStore';
 import {TILESET_URL} from '@/app/utils/api/constants';
 import {useClearMap} from '@/app/hooks/useClearMap';
+import {RENDERING_STATES} from '@constants/map/renderingState';
 
 export const BlockSource: React.FC<{children: React.ReactNode}> = ({children}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -14,7 +15,7 @@ export const BlockSource: React.FC<{children: React.ReactNode}> = ({children}) =
   useClearMap(mapDocument?.document_id);
 
   useLayoutEffect(() => {
-    setMapRenderingState('loaded');
+    setMapRenderingState(RENDERING_STATES.LOADED);
   }, [setMapRenderingState]);
 
   useLayoutEffect(() => {

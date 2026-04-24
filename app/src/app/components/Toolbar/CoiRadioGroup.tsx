@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {NullableZone} from '@/app/constants/types';
+import {NullableZone} from '@constants/map/zone';
 import type {Community} from '@/app/utils/api/apiHandlers/types';
 import {Box, Flex, RadioGroup, Text, IconButton} from '@radix-ui/themes';
 import {EyeClosedIcon, EyeOpenIcon, Pencil1Icon, Cross2Icon} from '@radix-ui/react-icons';

@@ -1,7 +1,7 @@
 import {useAssignmentsStore} from '../store/assignmentsStore';
 import {useCoiAssignmentsStore} from '../store/coiAssignmentsStore';
-import {MapControlsStore} from '../store/mapControlsStore';
-import {Zone} from '../constants/types';
+import {Zone} from '@constants/map/zone';
+import {MAP_MODES, type MapMode} from '@constants/map/mode';
 
 /**
  * Manages undo/redo temporal state across different map modes (district vs COI).
@@ -12,15 +12,17 @@ class TemporalManager {
    * Returns the temporal (undo/redo) store for the given map mode's assignments store.
    * @param mapMode - The active map mode, determines which assignments store to use.
    */
-  private getTemporalStore(mapMode: MapControlsStore['mapMode']) {
-    return mapMode === 'coi' ? useCoiAssignmentsStore.temporal : useAssignmentsStore.temporal;
+  private getTemporalStore(mapMode: MapMode) {
+    return mapMode === MAP_MODES.COI
+      ? useCoiAssignmentsStore.temporal
+      : useAssignmentsStore.temporal;
   }
 
   /**
    * Pauses undo/redo tracking if currently active.
    * @param mapMode - The active map mode, determines which assignments store to use.
    */
-  public pause(mapMode: MapControlsStore['mapMode']) {
+  public pause(mapMode: MapMode) {
     const state = this.getTemporalStore(mapMode).getState();
     if (state.isTracking) {
       state.pause();
@@ -31,7 +33,7 @@ class TemporalManager {
    * Resumes undo/redo tracking if currently paused.
    * @param mapMode - The active map mode, determines which assignments store to use.
    */
-  public resume(mapMode: MapControlsStore['mapMode']) {
+  public resume(mapMode: MapMode) {
     const state = this.getTemporalStore(mapMode).getState();
     !state.isTracking && state.resume();
   }
@@ -40,7 +42,7 @@ class TemporalManager {
    * Clears all undo/redo history.
    * @param mapMode - The active map mode, determines which assignments store to use.
    */
-  public clear(mapMode: MapControlsStore['mapMode']) {
+  public clear(mapMode: MapMode) {
     this.getTemporalStore(mapMode).getState().clear();
   }
 
@@ -52,7 +54,7 @@ class TemporalManager {
    * @param _zone - The zone/community ID being removed (reserved for future per-zone purge).
    */
   // TODO: integrate for district maps when supporting variable district counts
-  public purgeZone(mapMode: MapControlsStore['mapMode'], _zone: Zone) {
+  public purgeZone(mapMode: MapMode, _zone: Zone) {
     this.clear(mapMode);
   }
 }

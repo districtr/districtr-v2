@@ -1,4 +1,5 @@
 import {Page, Locator} from '@playwright/test';
+import {RENDERING_STATES} from '@constants/map/renderingState';
 
 /**
  * Map Canvas Testing Utilities
@@ -69,7 +70,7 @@ export async function waitForMapLoad(page: Page, timeout = 30000): Promise<void>
         const mapStore = window.__ZUSTAND_STORES__?.mapStore;
         if (!mapStore) return false;
         const state = mapStore.getState();
-        return state.mapRenderingState === 'loaded';
+        return state.mapRenderingState === RENDERING_STATES.LOADED;
       },
       {timeout}
     )

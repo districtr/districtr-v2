@@ -9,7 +9,8 @@ import {
   formatCoiAssignmentsFromDocument,
 } from '../../map/formatCoiAssignments';
 import {CoiAssignmentsStore, useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
-import {Zone} from '@/app/constants/types';
+import {Zone} from '@constants/map/zone';
+import {MAP_TYPES} from '@constants/document/types';
 
 type PutUpdateAssignmentsAndVerifyResponse =
   | {
@@ -103,7 +104,7 @@ export const putUpdateCoiAssignmentsAndVerify = async ({
     document_id: mapDocument.document_id,
     last_updated_at: mapDocument.updated_at ?? mapDocument.created_at,
     overwrite,
-    map_type: 'community' as const,
+    map_type: MAP_TYPES.COMMUNITY,
     metadata: {
       color_scheme: mapDocument.color_scheme ?? undefined,
       num_communities: mapDocument.num_communities ?? undefined,

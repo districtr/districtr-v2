@@ -13,30 +13,24 @@ import {
 } from '@radix-ui/themes';
 import {useEffect, useState} from 'react';
 import {MAX_TITLE_LENGTH} from '@/app/utils/language';
+import {DocumentMetadata, DocumentObject} from '@/app/utils/api/apiHandlers/types';
 import {
-  DocumentMetadata,
-  DocumentObject,
+  DRAFT_STATUSES,
   type DraftStatus,
-} from '@/app/utils/api/apiHandlers/types';
+  DRAFT_STATUS_TEXT,
+  DRAFT_STATUS_ORDER,
+} from '@constants/document/draftStatus';
 import {Cross2Icon, Pencil1Icon} from '@radix-ui/react-icons';
 import {MapContextModuleAndUnits} from './MapContextModuleAndUnits';
 import {InProgressIcon, ReadyIcon, ScratchWorkIcon} from './Icons';
 import {SegmentedControl} from '@radix-ui/themes';
-import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/map/mapDefaults';
+import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
 
 const statusIcons: Record<DraftStatus, React.FC> = {
-  scratch: ScratchWorkIcon,
-  in_progress: InProgressIcon,
-  ready_to_share: ReadyIcon,
+  [DRAFT_STATUSES.SCRATCH]: ScratchWorkIcon,
+  [DRAFT_STATUSES.IN_PROGRESS]: InProgressIcon,
+  [DRAFT_STATUSES.READY_TO_SHARE]: ReadyIcon,
 };
-
-const statusText: Record<DraftStatus, string> = {
-  scratch: 'Scratch Work',
-  in_progress: 'In Progress',
-  ready_to_share: 'Ready to Share',
-};
-
-const iconOrder: DraftStatus[] = ['scratch', 'in_progress', 'ready_to_share'];
 
 export const MapTitleDisplay: React.FC<{
   mapMetadata: DocumentMetadata | null;
@@ -46,7 +40,7 @@ export const MapTitleDisplay: React.FC<{
   const [mapTitleInner, setMapTitleInner] = useState<string>('');
   const [hovered, setHovered] = useState(false);
   const [mapDescriptionInner, setMapDescriptionInner] = useState<string>('');
-  const [mapStatusInner, setMapStatusInner] = useState<DraftStatus>('scratch');
+  const [mapStatusInner, setMapStatusInner] = useState<DraftStatus>(DRAFT_STATUSES.SCRATCH);
   const [open, setOpen] = useState(false);
 
   const _mapName = mapMetadata?.name ?? mapDocument?.map_metadata?.name ?? '';
@@ -56,8 +50,8 @@ export const MapTitleDisplay: React.FC<{
   const mapName = isTruncated ? `${_mapName.slice(0, MAX_TITLE_LENGTH)}...` : _mapName;
   const editing = mapDocument?.document_id !== ANONYMOUS_DOCUMENT_ID;
 
-  const draftStatus = mapMetadata?.draft_status ?? 'scratch';
-  const DraftStatusIcon = statusIcons[draftStatus] ?? ScratchWorkIcon;
+  const draftStatus = mapMetadata?.draft_status ?? DRAFT_STATUSES.SCRATCH;
+  const DraftStatusIcon = statusIcons[draftStatus];
 
   useEffect(() => {
     setMapTitleInner(_mapName);
@@ -182,7 +176,7 @@ export const MapTitleDisplay: React.FC<{
                 className="w-full h-full mb-4"
                 style={{width: '100%', maxWidth: '100%'}}
               >
-                {iconOrder.map(status => (
+                {DRAFT_STATUS_ORDER.map(status => (
                   <SegmentedControl.Item key={status} value={status}>
                     <Flex
                       direction="column"
@@ -192,7 +186,7 @@ export const MapTitleDisplay: React.FC<{
                       className="py-1"
                     >
                       {statusIcons[status]({})}
-                      <Text>{statusText[status]}</Text>
+                      <Text>{DRAFT_STATUS_TEXT[status]}</Text>
                     </Flex>
                   </SegmentedControl.Item>
                 ))}
