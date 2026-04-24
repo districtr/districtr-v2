@@ -1,93 +1,96 @@
+import logging
+from contextlib import asynccontextmanager
+from datetime import datetime
+from typing import Annotated
+from uuid import UUID, uuid4
+
+import botocore.exceptions
+import sentry_sdk
+from aiocache import SimpleMemoryCache
 from fastapi import (
-    FastAPI,
-    status,
+    BackgroundTasks,
     Depends,
+    FastAPI,
     HTTPException,
     Query,
+    status,
 )
-from typing import Annotated
-import botocore.exceptions
+from fiona.transform import transform
+from networkx import Graph, connected_components
+from pydantic_geojson import PolygonModel
+from pydantic_geojson._base import Coordinates
+from sqlalchemy import bindparam, text
 from sqlalchemy.exc import (
-    MultipleResultsFound,
-    NoResultFound,
     DataError,
     IntegrityError,
+    MultipleResultsFound,
+    NoResultFound,
 )
-from sqlalchemy import text
+from sqlalchemy.sql import func
+from sqlalchemy.sql.functions import coalesce
 from sqlalchemy.types import Integer
-from sqlmodel import Session, String, select, true, update, col, literal
+from sqlmodel import ARRAY, Session, String, col, literal, select, true, update
 from starlette.middleware.cors import CORSMiddleware
-import logging
-from sqlalchemy import bindparam
-from sqlmodel import ARRAY
-from datetime import datetime
-from uuid import UUID, uuid4
-import sentry_sdk
-from app.assignments import (
-    duplicate_document_assignments,
-    duplicate_document_community_assignments,
-    batch_insert_assignments,
-)
-from app.core.db import get_session
-from app.core.dependencies import (
-    get_document,
-    get_document_public,
-    get_protected_document,
-    get_districtr_map,
-    parse_document_id,
-)
-from app.core.models import DocumentID
-from app.core.config import settings
-import app.exports.main as exports
+
 import app.cms.main as cms
 import app.comments.main as comments
-from app.comments.main import sync_district_comments, sync_community_comments
-from app.comments.models import DistrictCommentInput
+import app.contiguity.main as contiguity
+import app.exports.main as exports
+import app.save_share.main as save_share
+import app.thumbnails.main as thumbnails
+from app.assignments import (
+    batch_insert_assignments,
+    duplicate_document_assignments,
+    duplicate_document_community_assignments,
+)
+from app.comments.main import sync_community_comments, sync_district_comments
+from app.comments.models import (
+    Comment,
+    CommentTag,
+    DistrictCommentInput,
+    Tag,
+)
+from app.comments.models import (
+    DocumentComment as FormDocumentComment,
+)
 from app.comments.settings import (
     DEFAULT_MAX_COMMENT_LENGTH,
     DEFAULT_MAX_COMMENTS_PER_DISTRICT,
 )
-import app.contiguity.main as contiguity
-import app.save_share.main as save_share
-import app.thumbnails.main as thumbnails
-from networkx import Graph, connected_components
+from app.core.config import settings
+from app.core.db import get_session
+from app.core.dependencies import (
+    get_districtr_map,
+    get_document,
+    get_document_public,
+    get_protected_document,
+    parse_document_id,
+)
+from app.core.models import DocumentID
 from app.models import (
+    MAX_COMMUNITY_NAME_LENGTH,
     Assignments,
+    AssignmentsCreate,
     AssignmentsResponse,
+    BBoxGeoJSONs,
     ColorsSetResult,
     CommunityAssignments,
-    DocumentType,
     DistrictrMap,
     DistrictrMapsToGroups,
     Document,
     DocumentCreate,
     DocumentCreatePublic,
-    DocumentPublic,
     DocumentMetadata,
-    MAX_COMMUNITY_NAME_LENGTH,
-    UUIDType,
+    DocumentPublic,
+    DocumentType,
+    MapGroup,
+    NumDistrictsSetResult,
     ParentChildEdges,
     ShatterResult,
-    BBoxGeoJSONs,
-    MapGroup,
-    AssignmentsCreate,
-    NumDistrictsSetResult,
+    UUIDType,
 )
-from app.comments.models import (
-    Comment,
-    DocumentComment as FormDocumentComment,
-    Tag,
-    CommentTag,
-)
-from pydantic_geojson import PolygonModel
-from pydantic_geojson._base import Coordinates
-from sqlalchemy.sql import func
-from sqlalchemy.sql.functions import coalesce
 from app.utils import update_or_select_district_stats
-from aiocache import SimpleMemoryCache
-from contextlib import asynccontextmanager
-from fiona.transform import transform
-from fastapi import BackgroundTasks
+
 from ._sanitize import (
     CommentDict,
     _load_existing_community_metadata,
@@ -277,6 +280,7 @@ async def db_is_alive(session: Session = Depends(get_session)):
         )
 
 
+# TODO: This API modifies the database and should be moved to PUT /api/document/{document_id}/stats
 @app.get("/api/document/{document_id}/stats")
 async def get_document_stats(
     background_tasks: BackgroundTasks,
