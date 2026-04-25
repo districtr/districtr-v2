@@ -1,32 +1,33 @@
-from datetime import datetime
-from enum import Enum
 import re
 import unicodedata
+from datetime import datetime
+from enum import Enum
+
+import pydantic_geojson
+from geoalchemy2 import Geometry
 from pydantic import BaseModel, field_validator
+from sqlalchemy import Float, SmallInteger, text
+from sqlalchemy.dialects.postgresql import ENUM, JSON
+from sqlalchemy.types import ARRAY
 from sqlmodel import (
+    Boolean,
+    Column,
     Field,
     ForeignKey,
-    UniqueConstraint,
-    Column,
+    Index,
+    Integer,
     MetaData,
     String,
-    Boolean,
-    Integer,
     Text,
-    Index,
+    UniqueConstraint,
 )
-from sqlalchemy.types import ARRAY
-from sqlalchemy.dialects.postgresql import JSON, ENUM
-from sqlalchemy import Float, SmallInteger, text
-import pydantic_geojson
+
 from app.constants import DOCUMENT_SCHEMA
-from app.core.models import UUIDType, TimeStampMixin, SQLModel
+from app.core.models import SQLModel, TimeStampMixin, UUIDType
 from app.save_share.models import (
     DocumentDraftStatus,
     DocumentShareStatus,
 )
-from geoalchemy2 import Geometry
-
 
 MAX_COMMUNITY_NAME_LENGTH = 40
 COMMUNITY_HTML_TAG_RE = re.compile(r"<[^>]+>")
