@@ -34,7 +34,7 @@ class Metric:
 METRICS: tuple[Metric, ...] = ()
 
 
-def current_payload_version(metrics: tuple[Metric, ...]) -> int:
+def hash_payload_version(metrics: tuple[Metric, ...]) -> int:
     """Deterministic 63-bit hash of the supplied manifest.
 
     Stable across Python versions, OS processes, and architectures
@@ -46,4 +46,4 @@ def current_payload_version(metrics: tuple[Metric, ...]) -> int:
     return int.from_bytes(digest[:8], "big", signed=False) & ((1 << 63) - 1)
 
 
-CURRENT_PAYLOAD_VERSION: int = current_payload_version(METRICS)
+CURRENT_PAYLOAD_VERSION: int = hash_payload_version(METRICS)
