@@ -280,7 +280,6 @@ async def db_is_alive(session: Session = Depends(get_session)):
         )
 
 
-# TODO: This API modifies the database and should be moved to PUT /api/document/{document_id}/stats
 @app.get("/api/document/{document_id}/stats")
 async def get_document_stats(
     background_tasks: BackgroundTasks,
