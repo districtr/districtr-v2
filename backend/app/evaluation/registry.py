@@ -23,12 +23,14 @@ import hashlib
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from app.evaluation.context import EvaluationContext
+
 
 @dataclass(frozen=True)
 class Metric:
     key: str
     version: int
-    compute: Callable[..., Any]
+    compute: Callable[[EvaluationContext], Any]
 
 
 METRICS: tuple[Metric, ...] = ()
@@ -37,8 +39,8 @@ METRICS: tuple[Metric, ...] = ()
 def hash_payload_version(metrics: tuple[Metric, ...]) -> int:
     """Deterministic 63-bit hash of the supplied manifest.
 
-    Stable across Python versions, OS processes, and architectures
-    (uses ``hashlib`` rather than the randomized built-in ``hash()``).
+    Stable across Python versions, OS processes, and architectures (uses ``hashlib``
+    rather than the randomized built-in ``hash()``).
     """
     items = sorted((m.key, m.version) for m in metrics)
     canonical = "\n".join(f"{k}\t{v}" for k, v in items).encode("utf-8")

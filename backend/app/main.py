@@ -48,6 +48,7 @@ from app.comments.settings import (
     DEFAULT_MAX_COMMENTS_PER_DISTRICT,
 )
 import app.contiguity.main as contiguity
+import app.evaluation.main as evaluation
 import app.save_share.main as save_share
 import app.thumbnails.main as thumbnails
 from networkx import Graph, connected_components
@@ -285,6 +286,18 @@ async def get_document_stats(
 ):
     return update_or_select_district_stats(
         session, document.document_id, background_tasks
+    )
+
+
+@app.get("/api/document/{document_id}/evaluation")
+async def get_document_evaluation(
+    background_tasks: BackgroundTasks,
+    document: Annotated[Document, Depends(get_protected_document)],
+    # TODO: consider using Annotated more consistently across dependencies.
+    session: Annotated[Session, Depends(get_session)],
+):
+    return evaluation.update_or_select_document_evaluation(
+        background_tasks, session, document.document_id
     )
 
 
