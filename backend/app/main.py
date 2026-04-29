@@ -297,7 +297,7 @@ async def get_document_evaluation(
     session: Annotated[Session, Depends(get_session)],
 ):
     return evaluation.update_or_select_document_evaluation(
-        background_tasks, session, document.document_id
+        background_tasks, session, document
     )
 
 

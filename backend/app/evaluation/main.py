@@ -1,31 +1,41 @@
-from sqlmodel import Session
 from typing import Any
-from app.evaluation.models import Evaluation
-from sqlmodel import select
-from app.evaluation.registry import CURRENT_PAYLOAD_VERSION, METRICS
+
 from fastapi import BackgroundTasks
+from sqlalchemy.sql import func
+from sqlmodel import Session, select
+
+from app.evaluation.models import Evaluation
+from app.evaluation.registry import CURRENT_PAYLOAD_VERSION, METRICS
 from app.evaluation.context import EvaluationContext
+from app.models import Document
 
 
 def update_or_select_document_evaluation(
     background_tasks: BackgroundTasks,
     session: Session,
-    document_id: str,
+    document: Document,
 ) -> dict[str, Any] | None:
     evaluation = session.exec(
-        select(Evaluation).where(Evaluation.document_id == document_id)
+        select(Evaluation).where(Evaluation.document_id == document.document_id)
     ).one_or_none()
-    if evaluation and evaluation.payload_version == CURRENT_PAYLOAD_VERSION:
+    if (
+        evaluation
+        and evaluation.payload_version == CURRENT_PAYLOAD_VERSION
+        and evaluation.updated_at
+        and document.updated_at
+        and evaluation.updated_at >= document.updated_at
+    ):
         return evaluation.metrics
-    computed_metrics = compute_metrics(background_tasks, session, document_id)
+    computed_metrics = compute_metrics(background_tasks, session, document.document_id)
 
     if evaluation:
         evaluation.metrics = computed_metrics
         evaluation.payload_version = CURRENT_PAYLOAD_VERSION
+        evaluation.updated_at = func.now()
     else:
         session.add(
             Evaluation(
-                document_id=document_id,
+                document_id=document.document_id,
                 metrics=computed_metrics,
                 payload_version=CURRENT_PAYLOAD_VERSION,
             )

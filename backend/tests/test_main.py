@@ -17,7 +17,9 @@ from tests.test_utils import handle_full_submission_approve, patch_recaptcha
 from datetime import datetime
 import app.evaluation.main as evaluation_main
 from app.evaluation.models import Evaluation
+from app.models import Document
 from app.evaluation.registry import Metric, CURRENT_PAYLOAD_VERSION
+from time import sleep
 
 REQUIRED_AUTO_FIXTURES = [patch_recaptcha]
 
@@ -213,6 +215,49 @@ def document_total_vap_fixture(
 
     document_id = response.json()["document_id"]
     return document_id
+
+
+@pytest.fixture(name="document_id_total_vap_isolated")
+def document_total_vap_isolated_fixture(
+    engine,
+    client_isolated_sessions,
+    ks_demo_view_census_blocks_total_vap,
+):
+    """Document for tests that use client_isolated_sessions (per-request DB sessions).
+
+    Map metadata must be committed on a real transaction so pooled connections used
+    by TestClient can see it; rows created only on the rollback_session fixture are not
+    visible to other connections.
+    """
+    upsert_query = text("""
+        INSERT INTO gerrydbtable (uuid, name, updated_at)
+        VALUES (gen_random_uuid(), :name, now())
+        ON CONFLICT (name)
+        DO UPDATE SET
+            updated_at = now()
+    """)
+    with Session(engine, expire_on_commit=True) as setup_session:
+        setup_session.begin()
+        setup_session.connection().execute(
+            upsert_query, {"name": GERRY_DB_TOTAL_VAP_FIXTURE_NAME}
+        )
+        create_districtr_map(
+            session=setup_session,
+            name=f"Districtr map {GERRY_DB_TOTAL_VAP_FIXTURE_NAME}",
+            districtr_map_slug=GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
+            gerrydb_table_name=GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
+            parent_layer=GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
+        )
+        setup_session.commit()
+
+    response = client_isolated_sessions.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
+        },
+    )
+    assert response.status_code == 201
+    return response.json()["document_id"]
 
 
 @pytest.fixture(name="document_id_all_stats")
@@ -1228,9 +1273,8 @@ def test_get_district_unions(client, document_id_total_vap):
     assert len(data) == 2
 
 
-def test_get_document_evaluation(
-    client, document_id_total_vap, monkeypatch, session: Session
-):
+@pytest.fixture
+def patch_evaluation_metric(monkeypatch):
     compute_calls = 0
 
     def _compute(_context):
@@ -1244,15 +1288,40 @@ def test_get_document_evaluation(
         (Metric(key="seats", version=1, compute=_compute),),
     )
 
+    def get_compute_calls():
+        return compute_calls
+
+    return get_compute_calls
+
+
+def test_get_document_evaluation_uses_cached_row(
+    client, document_id_total_vap, patch_evaluation_metric
+):
+    get_compute_calls = patch_evaluation_metric
+
     first = client.get(f"/api/document/{document_id_total_vap}/evaluation")
     assert first.status_code == 200
     assert first.json() == {"seats": {"dem": 1, "rep": 0}}
-    assert compute_calls == 1
+    assert get_compute_calls() == 1
 
     second = client.get(f"/api/document/{document_id_total_vap}/evaluation")
     assert second.status_code == 200
     assert second.json() == {"seats": {"dem": 1, "rep": 0}}
-    assert compute_calls == 1
+    assert get_compute_calls() == 1
+
+
+def test_get_document_evaluation_refreshes_stale_cache(
+    client,
+    document_id_total_vap,
+    patch_evaluation_metric,
+    session: Session,
+):
+    get_compute_calls = patch_evaluation_metric
+
+    first = client.get(f"/api/document/{document_id_total_vap}/evaluation")
+    assert first.status_code == 200
+    assert first.json() == {"seats": {"dem": 1, "rep": 0}}
+    assert get_compute_calls() == 1
 
     cached = session.exec(
         select(Evaluation).where(Evaluation.document_id == document_id_total_vap)
@@ -1260,16 +1329,75 @@ def test_get_document_evaluation(
     cached.payload_version = CURRENT_PAYLOAD_VERSION + 1
     session.commit()
 
-    third = client.get(f"/api/document/{document_id_total_vap}/evaluation")
-    assert third.status_code == 200
-    assert third.json() == {"seats": {"dem": 2, "rep": 0}}
-    assert compute_calls == 2
+    second = client.get(f"/api/document/{document_id_total_vap}/evaluation")
+    assert second.status_code == 200
+    assert second.json() == {"seats": {"dem": 2, "rep": 0}}
+    assert get_compute_calls() == 2
 
     refreshed = session.exec(
         select(Evaluation).where(Evaluation.document_id == document_id_total_vap)
     ).one()
     assert refreshed.payload_version == CURRENT_PAYLOAD_VERSION
     assert refreshed.metrics == {"seats": {"dem": 2, "rep": 0}}
+
+
+def test_get_document_evaluation_recomputes_after_document_update(
+    client_isolated_sessions,
+    document_id_total_vap_isolated,
+    patch_evaluation_metric,
+    session: Session,
+):
+    get_compute_calls = patch_evaluation_metric
+    client = client_isolated_sessions
+    document_id = document_id_total_vap_isolated
+
+    first = client.get(f"/api/document/{document_id}/evaluation")
+    assert first.status_code == 200
+    assert first.json() == {"seats": {"dem": 1, "rep": 0}}
+    assert get_compute_calls() == 1
+
+    document_updated_at_before = (
+        client.get(f"/api/document/{document_id}").json().get("updated_at")
+    )
+    before = datetime.fromisoformat(document_updated_at_before)
+    sleep(0.5)
+    update = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "assignments": [["202090441022004", 1]],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+        },
+    )
+    assert update.status_code == 200
+    document_updated_at_after = (
+        client.get(f"/api/document/{document_id}").json().get("updated_at")
+    )
+    after = datetime.fromisoformat(document_updated_at_after)
+    assert after > before
+
+    # Expected behavior: any document mutation invalidates cached evaluation.
+    second = client.get(f"/api/document/{document_id}/evaluation")
+    assert second.status_code == 200
+    assert second.json() == {"seats": {"dem": 2, "rep": 0}}
+    assert get_compute_calls() == 2
+
+    # Cache must record a fresh evaluation timestamp so stale-check matches document.
+    # If the existing-row branch only updates metrics/payload_version and omits
+    # updated_at, evaluation.updated_at stays behind document.updated_at and every
+    # subsequent GET recomputes (wasted work + get_compute_calls keeps growing).
+    ev = session.exec(
+        select(Evaluation).where(Evaluation.document_id == document_id)
+    ).one()
+    doc = session.exec(select(Document).where(Document.document_id == document_id)).one()
+    assert ev.updated_at is not None
+    assert doc.updated_at is not None
+    assert ev.updated_at >= doc.updated_at
+
+    third = client.get(f"/api/document/{document_id}/evaluation")
+    assert third.status_code == 200
+    assert third.json() == {"seats": {"dem": 2, "rep": 0}}
+    assert get_compute_calls() == 2
 
 
 # --- Variable num_districts / metadata backend tests ---
