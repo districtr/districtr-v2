@@ -9,8 +9,6 @@ payload shape advances.
 from sqlalchemy import BigInteger
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Column, Field, ForeignKey, MetaData
-from pydantic import BaseModel
-from typing import Any
 
 from app.constants import DOCUMENT_SCHEMA
 from app.core.models import SQLModel, TimeStampMixin, UUIDType
@@ -30,8 +28,3 @@ class Evaluation(TimeStampMixin, SQLModel, table=True):
     metrics: dict = Field(sa_column=Column(JSONB, nullable=False))
     # 63-bit hash of the metric registry; see app.evaluation.registry.
     payload_version: int = Field(sa_column=Column(BigInteger, nullable=False))
-
-
-class EvaluationResponse(BaseModel):
-    metrics: dict[str, Any]
-    payload_version: int
