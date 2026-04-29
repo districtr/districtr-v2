@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from app.evaluation.context import EvaluationContext
+import app.evaluation.partisans as partisans
 
 
 @dataclass(frozen=True)
@@ -33,7 +34,7 @@ class Metric:
     compute: Callable[[EvaluationContext], Any]
 
 
-METRICS: tuple[Metric, ...] = ()
+METRICS: tuple[Metric, ...] = (Metric(key="seats", version=1, compute=partisans.seats),)
 
 
 def hash_payload_version(metrics: tuple[Metric, ...]) -> int:
