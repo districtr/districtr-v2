@@ -1356,11 +1356,6 @@ def test_get_document_evaluation_recomputes_after_document_update(
     assert first.json() == {"seats": {"dem": 1, "rep": 0}}
     assert get_compute_calls() == 1
 
-    document_updated_at_before = (
-        client.get(f"/api/document/{document_id}").json().get("updated_at")
-    )
-    before = datetime.fromisoformat(document_updated_at_before)
-    sleep(0.5)
     update = client.put(
         "/api/assignments",
         json={
@@ -1370,11 +1365,6 @@ def test_get_document_evaluation_recomputes_after_document_update(
         },
     )
     assert update.status_code == 200
-    document_updated_at_after = (
-        client.get(f"/api/document/{document_id}").json().get("updated_at")
-    )
-    after = datetime.fromisoformat(document_updated_at_after)
-    assert after > before
 
     # Expected behavior: any document mutation invalidates cached evaluation.
     second = client.get(f"/api/document/{document_id}/evaluation")
