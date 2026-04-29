@@ -26,6 +26,7 @@ from app.comments.models import (
     CommentTag,
     DocumentComment,
 )
+from app.evaluation.models import Evaluation
 
 dotenv.load_dotenv()
 
@@ -55,6 +56,7 @@ tables = [
     DocumentComment,
     DistrictUnions,
     CommunityAssignments,
+    Evaluation,
 ]
 
 target_metadata = [SQLModel.metadata]
