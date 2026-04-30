@@ -44,6 +44,7 @@ export const Topbar: React.FC = () => {
   // Save/Revert/etc. affordances.
   const isEditing = useMapControlsStore(state => state.isEditing);
   const mapViews = useMapStore(state => state.mapViews);
+  const setMapDocument = useMapStore(state => state.setMapDocument);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const router = useRouter();
   const updateMetadata = useMapStore(state => state.updateMetadata);
@@ -75,6 +76,7 @@ export const Topbar: React.FC = () => {
       map_type: mapMode === MAP_MODES.COI ? MAP_TYPES.COMMUNITY : MAP_TYPES.DEFAULT,
     }).then(r => {
       if (r.ok) {
+        setMapDocument(r.response);
         const rootPath = routeForMode(mapMode);
         router.push(`/${rootPath}/edit/${r.response.document_id}`);
       } else {

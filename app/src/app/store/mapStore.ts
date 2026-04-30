@@ -289,6 +289,27 @@ export interface MapStore {
   setPassword: (password: string | null | undefined) => void;
 }
 
+/**
+ * When hydrate returns the same bbox as already in map controls, reuse the previous
+ * bounds reference so `mapOptions.bounds` identity is stable (e.g. MainMap fitBounds deps).
+ */
+function reuseBoundsIfUnchanged(
+  prev: maplibregl.LngLatBoundsLike | undefined,
+  next: [number, number, number, number] | undefined
+): maplibregl.LngLatBoundsLike | undefined {
+  if (!next || next.length < 4) return next;
+  if (
+    prev != null &&
+    Array.isArray(prev) &&
+    prev.length === 4 &&
+    typeof (prev as number[])[0] === 'number' &&
+    (prev as number[]).every((v, i) => v === next[i])
+  ) {
+    return prev;
+  }
+  return next;
+}
+
 const initialLoadingState =
   typeof window !== 'undefined' &&
   (window.location.pathname.startsWith(`/${MAP_ROUTES.DISTRICTS}/`) ||
@@ -440,11 +461,16 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       });
       colorScheme = syncCoiColorsToColorScheme(communities, colorScheme);
 
+      const boundsForMap = reuseBoundsIfUnchanged(
+        mapControlsState.mapOptions.bounds,
+        mapDocument.extent
+      );
+
       useMapControlsStore.setState({
         mapOptions: {
           ...DEFAULT_MAP_OPTIONS,
           ...MAP_MODE_DEFAULT_OPTIONS[mapControlsState.mapMode],
-          bounds: mapDocument.extent,
+          bounds: boundsForMap,
           stateFipsSet: newStateFipsSet,
         },
         activeTool:
