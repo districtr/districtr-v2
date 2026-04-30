@@ -290,24 +290,31 @@ export interface MapStore {
 }
 
 /**
- * When hydrate returns the same bbox as already in map controls, reuse the previous
- * bounds reference so `mapOptions.bounds` identity is stable (e.g. MainMap fitBounds deps).
+ * Reuse the previous `mapOptions.bounds` reference when hydrate supplies the same flat
+ * [minX, minY, maxX, maxY] within epsilon (IDB warm vs `fetchDocument` remote merge / rounding).
  */
+const BOUNDS_REUSE_EPSILON = 1e-6;
+
+function flat4Extent(
+  v: maplibregl.LngLatBoundsLike | undefined
+): [number, number, number, number] | undefined {
+  return v != null && Array.isArray(v) && v.length === 4 && typeof v[0] === 'number'
+    ? (v as [number, number, number, number])
+    : undefined;
+}
+
 function reuseBoundsIfUnchanged(
   prev: maplibregl.LngLatBoundsLike | undefined,
   next: [number, number, number, number] | undefined
 ): maplibregl.LngLatBoundsLike | undefined {
-  if (!next || next.length < 4) return next;
-  if (
-    prev != null &&
-    Array.isArray(prev) &&
-    prev.length === 4 &&
-    typeof (prev as number[])[0] === 'number' &&
-    (prev as number[]).every((v, i) => v === next[i])
-  ) {
-    return prev;
+  const b = flat4Extent(next);
+  if (!b) return next;
+  const a = flat4Extent(prev);
+  if (!a) return next;
+  for (let i = 0; i < 4; i++) {
+    if (Math.abs(a[i] - b[i]) > BOUNDS_REUSE_EPSILON) return next;
   }
-  return next;
+  return prev;
 }
 
 const initialLoadingState =

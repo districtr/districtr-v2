@@ -79,6 +79,7 @@ export interface RecentMapsListProps {
 export const RecentMapsList: React.FC<RecentMapsListProps> = ({maxHeight = '55vh', onNavigate}) => {
   const router = useRouter();
   const mapDocument = useMapStore(store => store.mapDocument);
+  const setMapDocument = useMapStore(store => store.setMapDocument);
   const mapMode = useMapControlsStore(store => store.mapMode);
   const [activeTab, setActiveTab] = useState<MapTab>(mapTabFromMode(mapMode));
   const [updateTrigger, setUpdateTrigger] = useState<string | null | number>(null);
@@ -91,11 +92,12 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({maxHeight = '55vh
 
   const handleMapDocument = useCallback(
     (data: DocumentObject) => {
+      setMapDocument(data);
       const route = routeForTab(activeTab);
       router.push(`/${route}/edit/${data.document_id}`);
       onNavigate?.();
     },
-    [activeTab, router, onNavigate]
+    [activeTab, router, onNavigate, setMapDocument]
   );
 
   const handleDeleteMap = useCallback(async (documentId: string) => {
