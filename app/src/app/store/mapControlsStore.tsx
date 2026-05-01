@@ -23,7 +23,16 @@ type SidebarPanel =
   | 'mapValidation'
   | 'overlays';
 
+/** Camera snapshot after programmatic `fitBounds` (react-map-gl `initialViewState` shape); survives map subtree remount. */
+export type StoredMapViewState = {
+  longitude: number;
+  latitude: number;
+  zoom: number;
+};
+
 export interface MapControlsStore {
+  lastMapViewState: StoredMapViewState;
+  setLastMapViewState: (state: StoredMapViewState) => void;
   selectedZone: Zone;
   setSelectedZone: (zone: Zone) => void;
   isPainting: boolean;
@@ -76,8 +85,23 @@ export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
   basemap: MAP_MODE_DEFAULT_OPTIONS.districts.basemap,
 };
 
+/** Initial `lastMapViewState`; matches {@link DEFAULT_MAP_OPTIONS} center/zoom (react-map-gl shape). */
+function defaultLastMapViewState(): StoredMapViewState {
+  const c = DEFAULT_MAP_OPTIONS.center as [number, number];
+  return {
+    longitude: c[0],
+    latitude: c[1],
+    zoom: DEFAULT_MAP_OPTIONS.zoom ?? 3,
+  };
+}
+
 export const useMapControlsStore = create<MapControlsStore>()(
   subscribeWithSelector((set, get) => ({
+    lastMapViewState: defaultLastMapViewState(),
+    setLastMapViewState: state =>
+      set({
+        lastMapViewState: {...state},
+      }),
     selectedZone: 1,
     mapMode: initialMapMode,
     setMapMode: mode => set({mapMode: mode}),

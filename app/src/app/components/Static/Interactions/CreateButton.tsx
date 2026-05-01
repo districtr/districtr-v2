@@ -18,7 +18,6 @@ export const CreateButton: React.FC<{
   const userID = useMapStore(stat => stat.userID);
   const setUserID = useMapStore(stat => stat.setUserID);
   const setErrorNotification = useMapStore(stat => stat.setErrorNotification);
-  const setMapDocument = useMapStore(stat => stat.setMapDocument);
   const shouldMakeCommunity = isCommunity ?? routeManager.mapUrlRoute === MAP_ROUTES.COI;
 
   useEffect(() => {
@@ -32,7 +31,6 @@ export const CreateButton: React.FC<{
         map_type: shouldMakeCommunity ? MAP_TYPES.COMMUNITY : view.map_type,
       }).then(r => {
         if (r.ok) {
-          setMapDocument(r.response);
           router.push(
             `/${shouldMakeCommunity ? MAP_ROUTES.COI : MAP_ROUTES.DISTRICTS}/edit/${r.response.document_id}`
           );

@@ -21,7 +21,6 @@ export const SaveShareModal: React.FC<{
   const router = useRouter();
   const mapMetadata = useMapMetadata();
   const mapDocument = useMapStore(state => state.mapDocument);
-  const setMapDocument = useMapStore(state => state.setMapDocument);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const [innerFormState, setInnerFormState] = useState<DocumentMetadata>(
     mapMetadata ?? DEFAULT_MAP_METADATA
@@ -47,7 +46,6 @@ export const SaveShareModal: React.FC<{
       },
     });
     if (response.ok) {
-      setMapDocument(response.response);
       const routePrefix = routeForType(response.response.map_type);
       router.push(`/${routePrefix}/edit/${response.response.document_id}`);
       onClose();

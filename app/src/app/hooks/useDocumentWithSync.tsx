@@ -73,6 +73,10 @@ export function useDocumentWithSync({
   };
 
   useEffect(() => {
+    const mapDocument = useMapStore.getState().mapDocument;
+    if (mapDocument?.document_id === document_id) {
+      return;
+    }
     // Guard against stale-load races: if the user switches documents mid-fetch, we
     // must not let the earlier doc's ingest/setMapDocument land on top of the newer
     // doc's state. `cancelled` short-circuits every mutation below.
@@ -135,8 +139,6 @@ export function useDocumentWithSync({
           const data = formatAssignmentsFromDocument(result.response.assignments);
           ingestDistrictFromDocument(data, result.response.document);
         }
-        // Set overlays from document response
-        setMapDocument(result.response.document);
         if (result.response.hasLocalEdits) {
           useMapStore.setState({updated: {metadata: true, comments: true}});
         }

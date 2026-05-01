@@ -2,8 +2,7 @@
 import maplibregl, {FilterSpecification} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {Protocol} from 'pmtiles';
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
-import {MAP_OPTIONS} from '@constants/map/viewDefaults';
+import React, {useEffect, useMemo, useState} from 'react';
 import {handleWheelOrPinch} from '@utils/events/mapEvents';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
@@ -21,6 +20,7 @@ import {CoiBlockLayers} from './PolygonLayers/CoiBlockLayers';
 import {MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';
 import {useAnchorLayersReady} from '@/app/hooks/useAnchorLayersReady';
+import {useFitMapToBounds} from '@/app/hooks/useFitMapToBounds';
 import {RENDERER_TYPES} from '@constants/map/rendererType';
 
 /**
@@ -37,14 +37,10 @@ export const CoiMap: React.FC = () => {
   const [isMapLoaded, setIsMapLoaded] = useState(false);
   const areAnchorLayersReady = useAnchorLayersReady(mapRef, isMapLoaded, mapOptions.basemap);
 
-  const initialViewState = useMemo(() => {
-    const center = MAP_OPTIONS.center as [number, number];
-    return {
-      latitude: center[1],
-      longitude: center[0],
-      zoom: MAP_OPTIONS.zoom ?? 3,
-    };
-  }, []);
+  const initialViewState = useMemo(
+    () => ({...useMapControlsStore.getState().lastMapViewState}),
+    [mapOptions.bounds, mapDocument?.document_id]
+  );
 
   useEffect(() => {
     const protocol = new Protocol();
@@ -52,16 +48,7 @@ export const CoiMap: React.FC = () => {
     return () => maplibregl.removeProtocol('pmtiles');
   }, []);
 
-  const fitMapToBounds = useCallback(() => {
-    if (!mapRef.current || !mapOptions.bounds) return;
-    mapRef.current.fitBounds(mapOptions.bounds, {
-      padding: 20,
-    });
-  }, [mapRef, mapOptions.bounds]);
-
-  useEffect(() => {
-    fitMapToBounds();
-  }, [fitMapToBounds]);
+  const fitMapToBounds = useFitMapToBounds(mapRef, mapOptions.bounds);
 
   return (
     <CoiMapContainer
