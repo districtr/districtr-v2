@@ -1256,6 +1256,13 @@ async def _get_graph(gerrydb_name: str) -> Graph:
 
     Returns:
         Graph: The graph for the given GerryDB.
+
+    Note:
+        Despite being async, graph resolution and loading are synchronous (boto3, disk,
+        unpickle). They run on the asyncio event-loop thread, so a cache miss can block
+        this worker from handling other concurrent requests until loading finishes. Other
+        uvicorn workers are unaffected. Mitigations include keeping the LRU hot, or moving
+        this work to a thread pool / async I/O if contention becomes an issue.
     """
     try:
         G = _load_gerrydb_graph_cached(gerrydb_name)
