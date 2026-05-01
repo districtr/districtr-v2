@@ -139,6 +139,8 @@ export function useDocumentWithSync({
           const data = formatAssignmentsFromDocument(result.response.assignments);
           ingestDistrictFromDocument(data, result.response.document);
         }
+        // Set overlays from document response
+        setMapDocument(result.response.document);
         if (result.response.hasLocalEdits) {
           useMapStore.setState({updated: {metadata: true, comments: true}});
         }
