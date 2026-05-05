@@ -112,14 +112,12 @@ class EvaluationContext:
             statefps = doc_row.statefps
             gerrydb_table = doc_row.gerrydb_table_name
             state_fips = statefps[0] if statefps else _infer_state_fips(self.session, gerrydb_table)
-            logging.info(f"Fetching state ideal for state FIPS {state_fips} and gerrydb table {gerrydb_table}")
             if not state_fips or not gerrydb_table:
                 self._cache["state_ideal"] = {}
             else:
                 self._cache["state_ideal"] = STATE_IDEAL_CACHE.get(
                     state_fips, gerrydb_table, self.session
                 )
-            logging.info(f"State ideal is: {self._cache['state_ideal']}")
         return self._cache["state_ideal"].get(col, 0.0)
 
 
