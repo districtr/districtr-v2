@@ -46,13 +46,14 @@ class EvaluationContext:
         """Excludes districts with null demographic_data or zone, which represent
         unassigned area"""
         if "demographic_data" not in self._cache:
-            self._cache["demographic_data"] = pd.DataFrame(
-                [
-                    {"zone": d.zone, **d.demographic_data}
-                    for d in self.district_stats()
-                    if d.demographic_data and d.zone is not None
-                ]
-            ).set_index("zone")
+            rows = [
+                {"zone": d.zone, **d.demographic_data}
+                for d in self.district_stats()
+                if d.demographic_data and d.zone is not None
+            ]
+            self._cache["demographic_data"] = (
+                pd.DataFrame(rows).set_index("zone") if rows else pd.DataFrame()
+            )
         return self._cache["demographic_data"]
 
     def election_cols(self) -> list[str]:

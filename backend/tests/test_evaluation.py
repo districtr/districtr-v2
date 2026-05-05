@@ -1,15 +1,21 @@
 from datetime import datetime, timezone
 
+from app.evaluation.context import EvaluationContext
 from app.evaluation.partisans import seats
 from app.models import DistrictUnionsResponse
 
 
-class _StubEvaluationContext:
+class _StubEvaluationContext(EvaluationContext):
     def __init__(self, district_stats: list[DistrictUnionsResponse]):
-        self._district_stats = district_stats
+        super().__init__(
+            background_tasks=None,  # type: ignore[arg-type]
+            session=None,  # type: ignore[arg-type]
+            document_id="stub",
+        )
+        self._stub_district_stats = district_stats
 
     def district_stats(self) -> list[DistrictUnionsResponse]:
-        return self._district_stats
+        return self._stub_district_stats
 
 
 def test_seats_returns_empty_when_no_district_stats():
