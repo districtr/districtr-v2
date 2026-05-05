@@ -21,11 +21,35 @@ logging.basicConfig(level=logging.INFO)
 _SAFE_IDENT_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 
-def _assert_safe_ident(name: str) -> str:
+def assert_safe_ident(name: str) -> str:
     """Assert that `name` is safe to interpolate into a SQL identifier position."""
     if not _SAFE_IDENT_RE.match(name):
         raise ValueError(f"Unsafe SQL identifier: {name!r}")
     return name
+
+
+def get_gerrydb_numeric_cols(session: Session, gerrydb_table: str) -> list[str]:
+    """Return validated numeric column names for a gerrydb table, excluding geometry columns."""
+    rows = session.execute(
+        text("""
+            SELECT a.attname AS column_name
+            FROM pg_attribute a
+            JOIN pg_class t  ON a.attrelid = t.oid
+            JOIN pg_namespace s ON t.relnamespace = s.oid
+            WHERE a.attnum > 0
+              AND NOT a.attisdropped
+              AND t.relname = :mvname
+              AND s.nspname = 'gerrydb'
+              AND a.attname NOT IN ('geometry', 'geography', 'fid', 'path')
+              AND pg_catalog.format_type(a.atttypid, a.atttypmod) IN (
+                'double precision','integer','smallint','bigint',
+                'decimal','numeric','real','smallserial','bigserial','serial'
+              )
+            ORDER BY a.attnum
+        """),
+        {"mvname": gerrydb_table},
+    ).fetchall()
+    return [assert_safe_ident(row.column_name) for row in rows]
 
 
 def _quote_ident(name: str) -> str:
@@ -258,15 +282,15 @@ def add_extent_to_districtrmap(
     logger.info(f"Adding extent for {districtr_map_uuid}...")
 
     if bounds:
-        assert all(
-            b is not None for b in bounds
-        ), "If setting the extent manually, all values must be set."
+        assert all(b is not None for b in bounds), (
+            "If setting the extent manually, all values must be set."
+        )
         assert len(bounds) == 4, "The extent must have 4 values."
         assert all(isinstance(b, float) for b in bounds), "All values must be floats."
         x_min, y_min, x_max, y_max = bounds
-        assert (
-            x_max > x_min and y_max > y_min
-        ), "The max values must be greater than the min values."
+        assert x_max > x_min and y_max > y_min, (
+            "The max values must be greater than the min values."
+        )
         stmt = text(
             "UPDATE districtrmap SET extent = ARRAY[:x_min, :y_min, :x_max, :y_max] WHERE uuid = :districtr_map_uuid RETURNING extent"
         ).bindparams(
@@ -491,28 +515,8 @@ def update_or_select_district_stats(
         # Discover numeric demographic columns (excluding geometry/fid/path)
         demographic_json = None
         if gerrydb_table:
-            column_info = session.execute(
-                text("""
-                    SELECT a.attname AS column_name
-                    FROM pg_attribute a
-                    JOIN pg_class t  ON a.attrelid = t.oid
-                    JOIN pg_namespace s ON t.relnamespace = s.oid
-                    WHERE a.attnum > 0
-                      AND NOT a.attisdropped
-                      AND t.relname = :mvname
-                      AND s.nspname = 'gerrydb'
-                      AND a.attname NOT IN ('geometry','fid','path')
-                      AND pg_catalog.format_type(a.atttypid, a.atttypmod) IN (
-                        'double precision','integer','smallint','bigint',
-                        'decimal','numeric','real','smallserial','bigserial','serial'
-                      )
-                    ORDER BY a.attnum;
-                """),
-                {"mvname": gerrydb_table},
-            ).fetchall()
-
-            if column_info:
-                demo_cols = [_assert_safe_ident(row.column_name) for row in column_info]
+            demo_cols = get_gerrydb_numeric_cols(session, gerrydb_table)
+            if demo_cols:
                 json_pairs = [f"'{col}', SUM(demo.{col})" for col in demo_cols]
                 demographic_json = f"json_build_object({', '.join(json_pairs)})"
 
@@ -560,8 +564,8 @@ def update_or_select_district_stats(
 
         # Compute and insert unassigned row (total from parent_layer minus assigned)
         if parent_layer and demographic_json:
-            safe_parent_layer = _assert_safe_ident(parent_layer)
-            # demo_cols is already validated via _assert_safe_ident above
+            safe_parent_layer = assert_safe_ident(parent_layer)
+            # demo_cols is already validated via assert_safe_ident above
             total_json_pairs = [f"'{col}', SUM({col})" for col in demo_cols]
             total_json = f"json_build_object({', '.join(total_json_pairs)})"
             total_sql = (

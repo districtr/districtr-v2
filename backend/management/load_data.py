@@ -65,6 +65,11 @@ def import_gerrydb_view(
         logger.error("ogr2ogr failed. Got %s", result)
         raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
 
+    # NOTE: county_demographics caches aggregates derived from gerrydb tables.
+    # If you re-ingest a gerrydb table, clear the affected state's rows so the
+    # cache is rebuilt on the next request:
+    #   DELETE FROM county_demographics WHERE LEFT(geoid, 2) = '<state_fips>';
+
     # Commit before trying to build index
     session.commit()
     logger.info(f"GerryDB view {table_name} imported successfully")

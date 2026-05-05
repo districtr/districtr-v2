@@ -34,7 +34,14 @@ class Metric:
     compute: Callable[[EvaluationContext], Any]
 
 
-METRICS: tuple[Metric, ...] = (Metric(key="seats", version=1, compute=partisans.seats),)
+METRICS: tuple[Metric, ...] = (
+    Metric(key="seats", version=1, compute=partisans.seats),
+    Metric(key="efficiency_gap", version=1, compute=partisans.efficiency_gap),
+    Metric(key="mean_median", version=1, compute=partisans.mean_median),
+    Metric(key="partisan_bias", version=1, compute=partisans.partisan_bias),
+    Metric(key="eguia", version=1, compute=partisans.eguia),
+    Metric(key="proportionality", version=2, compute=partisans.proportionality),
+)
 
 
 def hash_payload_version(metrics: tuple[Metric, ...]) -> int:
