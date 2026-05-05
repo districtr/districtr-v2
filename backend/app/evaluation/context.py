@@ -9,7 +9,7 @@ import sqlmodel
 
 from sqlalchemy import text
 from app.evaluation.models import CountyDemographics
-from app.models import DistrictrMap, DistrictUnionsResponse, Document
+from app.models import DistrictUnionsResponse
 from app.utils import (
     update_or_select_district_stats,
     assert_safe_ident,
@@ -17,19 +17,9 @@ from app.utils import (
 )
 
 
-def _infer_state_fips(session: sqlmodel.Session, gerrydb_table: str | None) -> str | None:
-    """Derive state FIPS from the gerrydb table's path column when statefps is not set."""
-    if not gerrydb_table:
-        return None
-    safe_table = assert_safe_ident(gerrydb_table)
-    row = session.execute(
-        text(f"SELECT LEFT(SPLIT_PART(path, ':', 2), 2) AS state_fips FROM gerrydb.{safe_table} LIMIT 1")
-    ).first()
-    return row.state_fips if row else None
-
 
 @dataclasses.dataclass
-class EvaluationContext:
+class DocumentEvaluationContext:
     background_tasks: fastapi.BackgroundTasks
     session: sqlmodel.Session
     document_id: str
@@ -88,38 +78,6 @@ class EvaluationContext:
             self._cache["num_districts"] = sum(1 for d in self.district_stats() if d.zone is not None)
         return self._cache["num_districts"]
 
-    def state_ideal(self, col: str) -> float:
-        """Population-weighted county win rate for a given election column.
-
-        ``col`` should be a full column name like ``pres_20_dem`` or ``pres_20_rep``.
-        Returns a float in [0, 1]: the fraction of the state's population living in
-        counties where that party won. Returns 0.0 if data is unavailable.
-        Used as the baseline for the Eguia metric.
-        """
-        if "state_ideal" not in self._cache:
-            doc_row = self.session.exec(
-                sqlmodel.select(
-                    Document,
-                    DistrictrMap.gerrydb_table_name.label("gerrydb_table_name"),
-                    DistrictrMap.statefps.label("statefps"),
-                )
-                .join(
-                    DistrictrMap,
-                    Document.districtr_map_slug == DistrictrMap.districtr_map_slug,
-                )
-                .where(Document.document_id == self.document_id)
-            ).one()
-
-            statefps = doc_row.statefps
-            gerrydb_table = doc_row.gerrydb_table_name
-            state_fips = statefps[0] if statefps else _infer_state_fips(self.session, gerrydb_table)
-            if not state_fips or not gerrydb_table:
-                self._cache["state_ideal"] = {}
-            else:
-                self._cache["state_ideal"] = STATE_IDEAL_CACHE.get(
-                    state_fips, gerrydb_table, self.session
-                )
-        return self._cache["state_ideal"].get(col, 0.0)
 
 
 @dataclasses.dataclass

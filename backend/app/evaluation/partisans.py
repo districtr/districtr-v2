@@ -1,5 +1,9 @@
 from typing import Tuple
-from app.evaluation.context import EvaluationContext
+import sqlmodel
+from sqlalchemy import text
+from app.evaluation.context import DocumentEvaluationContext, STATE_IDEAL_CACHE
+from app.utils import assert_safe_ident
+from app.models import DistrictrMap, Document
 
 
 def wasted_votes(party1_votes: int, party2_votes: int) -> Tuple[int, int]:
@@ -16,7 +20,7 @@ def wasted_votes(party1_votes: int, party2_votes: int) -> Tuple[int, int]:
     return party1_waste, party2_waste
 
 
-def efficiency_gap(context: EvaluationContext) -> dict[str, float]:
+def efficiency_gap(context: DocumentEvaluationContext) -> dict[str, float]:
     """Calculated from the point of view of the Democratic party."""
     result: dict[str, float] = {}
     for col in context.election_cols():
@@ -31,14 +35,14 @@ def efficiency_gap(context: EvaluationContext) -> dict[str, float]:
     return result
 
 
-def seats(context: EvaluationContext) -> dict[str, dict[str, int]]:
+def seats(context: DocumentEvaluationContext) -> dict[str, dict[str, int]]:
     result: dict[str, dict[str, int]] = {}
     for col in context.election_cols():
         result[col] = {"dem": context.dem_seats(col), "rep": context.rep_seats(col)}
     return result
 
 
-def mean_median(context: EvaluationContext) -> dict[str, float]:
+def mean_median(context: DocumentEvaluationContext) -> dict[str, float]:
     """Calculated from the point of view of the Democratic party."""
     result: dict[str, float] = {}
     for col in context.election_cols():
@@ -49,7 +53,7 @@ def mean_median(context: EvaluationContext) -> dict[str, float]:
     return result
 
 
-def partisan_bias(context: EvaluationContext) -> dict[str, float]:
+def partisan_bias(context: DocumentEvaluationContext) -> dict[str, float]:
     """Calculated from the point of view of the Democratic party."""
     result: dict[str, float] = {}
     for col in context.election_cols():
@@ -62,7 +66,7 @@ def partisan_bias(context: EvaluationContext) -> dict[str, float]:
     return result
 
 
-def proportionality(context: EvaluationContext) -> dict[str, float]:
+def proportionality(context: DocumentEvaluationContext) -> dict[str, float]:
     """Calculated from the point of view of the Democratic party."""
     result: dict[str, float] = {}
     for col in context.election_cols():
@@ -72,9 +76,38 @@ def proportionality(context: EvaluationContext) -> dict[str, float]:
         result[col] = (context.dem_seats(col) / context.num_districts()) - dem_vote_share
     return result
 
-def eguia(context: EvaluationContext) -> dict[str, float]:
+def eguia(context: DocumentEvaluationContext) -> dict[str, float]:
     """Calculated from the point of view of the Democratic party."""
+    doc_row = context.session.exec(
+        sqlmodel.select(
+            Document,
+            DistrictrMap.gerrydb_table_name.label("gerrydb_table_name"),
+            DistrictrMap.statefps.label("statefps"),
+        )
+        .join(DistrictrMap, Document.districtr_map_slug == DistrictrMap.districtr_map_slug)
+        .where(Document.document_id == context.document_id)
+    ).one()
+
+    statefps = doc_row.statefps
+    gerrydb_table = doc_row.gerrydb_table_name
+    if statefps:
+        state_fips = statefps[0]
+    elif gerrydb_table:
+        safe_table = assert_safe_ident(gerrydb_table)
+        row = context.session.execute(
+            text(f"SELECT LEFT(SPLIT_PART(path, ':', 2), 2) AS state_fips FROM gerrydb.{safe_table} LIMIT 1")
+        ).first()
+        state_fips = row.state_fips if row else None
+    else:
+        state_fips = None
+
+    ideals: dict[str, float] = (
+        STATE_IDEAL_CACHE.get(state_fips, gerrydb_table, context.session)
+        if state_fips and gerrydb_table
+        else {}
+    )
+
     result: dict[str, float] = {}
     for col in context.election_cols():
-        result[col] = (context.dem_seats(col) / context.num_districts()) - context.state_ideal(col + "_dem")
+        result[col] = (context.dem_seats(col) / context.num_districts()) - ideals.get(col + "_dem", 0.0)
     return result

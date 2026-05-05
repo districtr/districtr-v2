@@ -6,7 +6,7 @@ from sqlmodel import Session, select
 
 from app.evaluation.models import Evaluation
 from app.evaluation.registry import CURRENT_PAYLOAD_VERSION, METRICS
-from app.evaluation.context import EvaluationContext
+from app.evaluation.context import DocumentEvaluationContext
 from app.models import Document
 
 
@@ -47,7 +47,7 @@ def update_or_select_document_evaluation(
 def compute_metrics(
     background_tasks: BackgroundTasks, session: Session, document_id: str
 ) -> dict[str, Any]:
-    context = EvaluationContext(
+    context = DocumentEvaluationContext(
         background_tasks=background_tasks, session=session, document_id=document_id
     )
     metric_payloads: dict[str, Any] = {}

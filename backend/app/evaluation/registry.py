@@ -23,7 +23,7 @@ import hashlib
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from app.evaluation.context import EvaluationContext
+from app.evaluation.context import DocumentEvaluationContext
 import app.evaluation.partisans as partisans
 
 
@@ -31,7 +31,7 @@ import app.evaluation.partisans as partisans
 class Metric:
     key: str
     version: int
-    compute: Callable[[EvaluationContext], Any]
+    compute: Callable[[DocumentEvaluationContext], Any]
 
 
 METRICS: tuple[Metric, ...] = (

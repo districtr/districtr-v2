@@ -1,11 +1,11 @@
 from datetime import datetime, timezone
 
-from app.evaluation.context import EvaluationContext
+from app.evaluation.context import DocumentEvaluationContext
 from app.evaluation.partisans import seats
 from app.models import DistrictUnionsResponse
 
 
-class _StubEvaluationContext(EvaluationContext):
+class _StubEvaluationContext(DocumentEvaluationContext):
     def __init__(self, district_stats: list[DistrictUnionsResponse]):
         super().__init__(
             background_tasks=None,  # type: ignore[arg-type]
