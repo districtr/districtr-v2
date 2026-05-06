@@ -63,7 +63,7 @@ def partisan_bias(context: DocumentEvaluationContext) -> dict[str, float]:
         dem_vote_shares = dem_votes / (dem_votes + rep_votes)
         mean_share = dem_vote_shares.mean()
         above_mean_districts = len(dem_vote_shares[dem_vote_shares > mean_share])
-        result[col] = above_mean_districts / len(dem_vote_shares) - 0.5
+        result[col] = above_mean_districts / context.num_districts() - 0.5
     return result
 
 
