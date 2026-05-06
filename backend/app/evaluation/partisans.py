@@ -77,8 +77,7 @@ def proportionality(context: DocumentEvaluationContext) -> dict[str, float]:
         result[col] = (context.dem_seats(col) / context.num_districts()) - dem_vote_share
     return result
 
-def eguia(context: DocumentEvaluationContext) -> dict[str, float]:
-    """Calculated from the point of view of the Democratic party."""
+def _get_state_fips_and_gerrydb_table(context: DocumentEvaluationContext) -> tuple[str | None, str | None]:
     doc_row = context.session.exec(
         sqlmodel.select(
             Document,
@@ -101,6 +100,14 @@ def eguia(context: DocumentEvaluationContext) -> dict[str, float]:
         state_fips = row.state_fips if row else None
     else:
         state_fips = None
+        gerrydb_table = None
+
+    return state_fips, gerrydb_table
+
+def eguia(context: DocumentEvaluationContext) -> dict[str, float]:
+    """Calculated from the point of view of the Democratic party."""
+
+    state_fips, gerrydb_table = _get_state_fips_and_gerrydb_table(context)
 
     ideals: dict[str, float] = (
         STATE_IDEAL_CACHE.get(state_fips, gerrydb_table, context.session)
