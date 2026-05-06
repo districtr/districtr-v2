@@ -1,7 +1,18 @@
 from datetime import datetime, timezone
+from unittest.mock import MagicMock
 
-from app.evaluation.context import DocumentEvaluationContext
-from app.evaluation.partisans import seats
+import pytest
+
+from app.evaluation.context import DocumentEvaluationContext, STATE_IDEAL_CACHE
+from app.evaluation.partisans import (
+    competitive_metrics,
+    eguia,
+    efficiency_gap,
+    mean_median,
+    partisan_bias,
+    proportionality,
+    seats,
+)
 from app.models import DistrictUnionsResponse
 
 
@@ -18,55 +29,316 @@ class _StubEvaluationContext(DocumentEvaluationContext):
         return self._stub_district_stats
 
 
-def test_seats_returns_empty_when_no_district_stats():
-    context = _StubEvaluationContext([])
-    assert seats(context) == {}
+# ---------------------------------------------------------------------------
+# 8-district, 7-election fixture (seed=42, generated via gerrychain reference)
+# ---------------------------------------------------------------------------
+
+_now = datetime.now(timezone.utc)
+
+_DISTRICT_STATS = [
+    DistrictUnionsResponse(zone=1, geometry=None, demographic_data={'pres_2016_dem': 4097, 'pres_2016_rep': 6522, 'pres_2020_dem': 5467, 'pres_2020_rep': 2635, 'pres_2024_dem': 3740, 'pres_2024_rep': 5386, 'sen_2016_dem': 3245, 'sen_2016_rep': 5669, 'sen_2018_dem': 4143, 'sen_2018_rep': 6873, 'sen_2020_dem': 3943, 'sen_2020_rep': 6828, 'sen_2022_dem': 6581, 'sen_2022_rep': 3837}, updated_at=_now),
+    DistrictUnionsResponse(zone=2, geometry=None, demographic_data={'pres_2016_dem': 2561, 'pres_2016_rep': 5569, 'pres_2020_dem': 3409, 'pres_2020_rep': 4974, 'pres_2024_dem': 4754, 'pres_2024_rep': 4198, 'sen_2016_dem': 3356, 'sen_2016_rep': 7109, 'sen_2018_dem': 4717, 'sen_2018_rep': 5581, 'sen_2020_dem': 6715, 'sen_2020_rep': 4217, 'sen_2022_dem': 4509, 'sen_2022_rep': 4393}, updated_at=_now),
+    DistrictUnionsResponse(zone=3, geometry=None, demographic_data={'pres_2016_dem': 5401, 'pres_2016_rep': 5012, 'pres_2020_dem': 3447, 'pres_2020_rep': 7868, 'pres_2024_dem': 4639, 'pres_2024_rep': 6469, 'sen_2016_dem': 6719, 'sen_2016_rep': 4140, 'sen_2018_dem': 3955, 'sen_2018_rep': 5438, 'sen_2020_dem': 3471, 'sen_2020_rep': 5165, 'sen_2022_dem': 6333, 'sen_2022_rep': 5587}, updated_at=_now),
+    DistrictUnionsResponse(zone=4, geometry=None, demographic_data={'pres_2016_dem': 2904, 'pres_2016_rep': 5514, 'pres_2020_dem': 3262, 'pres_2020_rep': 6294, 'pres_2024_dem': 6312, 'pres_2024_rep': 3158, 'sen_2016_dem': 5294, 'sen_2016_rep': 4114, 'sen_2018_dem': 6029, 'sen_2018_rep': 3054, 'sen_2020_dem': 5441, 'sen_2020_rep': 2736, 'sen_2022_dem': 5160, 'sen_2022_rep': 4721}, updated_at=_now),
+    DistrictUnionsResponse(zone=5, geometry=None, demographic_data={'pres_2016_dem': 4103, 'pres_2016_rep': 4408, 'pres_2020_dem': 4757, 'pres_2020_rep': 3565, 'pres_2024_dem': 6157, 'pres_2024_rep': 3043, 'sen_2016_dem': 6134, 'sen_2016_rep': 4440, 'sen_2018_dem': 4684, 'sen_2018_rep': 5680, 'sen_2020_dem': 3834, 'sen_2020_rep': 7051, 'sen_2022_dem': 5164, 'sen_2022_rep': 3023}, updated_at=_now),
+    DistrictUnionsResponse(zone=6, geometry=None, demographic_data={'pres_2016_dem': 5845, 'pres_2016_rep': 3088, 'pres_2020_dem': 3081, 'pres_2020_rep': 6104, 'pres_2024_dem': 5357, 'pres_2024_rep': 6146, 'sen_2016_dem': 4291, 'sen_2016_rep': 7258, 'sen_2018_dem': 4004, 'sen_2018_rep': 5552, 'sen_2020_dem': 5560, 'sen_2020_rep': 4297, 'sen_2022_dem': 6412, 'sen_2022_rep': 5004}, updated_at=_now),
+    DistrictUnionsResponse(zone=7, geometry=None, demographic_data={'pres_2016_dem': 4115, 'pres_2016_rep': 4551, 'pres_2020_dem': 3694, 'pres_2020_rep': 5761, 'pres_2024_dem': 5410, 'pres_2024_rep': 5335, 'sen_2016_dem': 3846, 'sen_2016_rep': 7028, 'sen_2018_dem': 4549, 'sen_2018_rep': 5946, 'sen_2020_dem': 6042, 'sen_2020_rep': 4145, 'sen_2022_dem': 3369, 'sen_2022_rep': 5633}, updated_at=_now),
+    DistrictUnionsResponse(zone=8, geometry=None, demographic_data={'pres_2016_dem': 4521, 'pres_2016_rep': 5372, 'pres_2020_dem': 5352, 'pres_2020_rep': 3753, 'pres_2024_dem': 5044, 'pres_2024_rep': 5774, 'sen_2016_dem': 5897, 'sen_2016_rep': 4907, 'sen_2018_dem': 3893, 'sen_2018_rep': 7559, 'sen_2020_dem': 6047, 'sen_2020_rep': 2891, 'sen_2022_dem': 3731, 'sen_2022_rep': 4400}, updated_at=_now),
+]
+
+_EXPECTED_EFFICIENCY_GAP = {
+    "pres_2016": -0.1488998817661688,
+    "pres_2020": -0.03673916892526865,
+    "pres_2024": -0.049405600454758905,
+    "sen_2016": 0.06955912135846705,
+    "sen_2018": -0.2698666372754326,
+    "sen_2020": 0.06604110585203424,
+    "sen_2022": 0.2200765505991754,
+}
+
+_EXPECTED_MEAN_MEDIAN = {
+    "pres_2016": 0.011828363199443859,
+    "pres_2020": -0.05294812449239761,
+    "pres_2024": -0.03133991919594281,
+    "sen_2016": -0.005985362530381788,
+    "sen_2018": -0.018161519480762223,
+    "sen_2020": 0.04938689665103946,
+    "sen_2022": -0.00040335852722683807,
+}
+
+_EXPECTED_PARTISAN_BIAS = {
+    "pres_2016": 0.125,
+    "pres_2020": -0.125,
+    "pres_2024": -0.125,
+    "sen_2016": 0.0,
+    "sen_2018": -0.125,
+    "sen_2020": 0.125,
+    "sen_2022": 0.0,
+}
+
+_EXPECTED_SEATS = {
+    "pres_2016": {"dem": 2, "rep": 6},
+    "pres_2020": {"dem": 3, "rep": 5},
+    "pres_2024": {"dem": 4, "rep": 4},
+    "sen_2016": {"dem": 4, "rep": 4},
+    "sen_2018": {"dem": 1, "rep": 7},
+    "sen_2020": {"dem": 5, "rep": 3},
+    "sen_2022": {"dem": 6, "rep": 2},
+}
+
+_EXPECTED_PROPORTIONALITY = {
+    "pres_2016": -0.20590693502575325,
+    "pres_2020": -0.0672183784372744,
+    "pres_2024": -0.011764415115790516,
+    "sen_2016": 0.03524991911033348,
+    "sen_2018": -0.3155501059309061,
+    "sen_2020": 0.10125122794483499,
+    "sen_2022": 0.22006691755397711,
+}
+
+_EXPECTED_COMPETITIVENESS = {
+    "n_dem_districts": 0,
+    "n_rep_districts": 0,
+    "n_swing_districts": 8,
+    "n_competitive_districts": 6,
+    "n_districts": 8,
+    "n_elections": 7,
+}
 
 
-def test_seats_returns_empty_when_demographic_data_missing():
-    context = _StubEvaluationContext(
-        [
-            DistrictUnionsResponse(
-                zone=1,
-                geometry=None,
-                demographic_data=None,
-                updated_at=datetime.now(timezone.utc),
-            )
-        ]
-    )
-    assert seats(context) == {}
+# ---------------------------------------------------------------------------
+# Fixture-based tests against gerrychain reference values
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def grid_context():
+    return _StubEvaluationContext(_DISTRICT_STATS)
 
 
-def test_seats_counts_party_wins_per_election():
-    now = datetime.now(timezone.utc)
-    context = _StubEvaluationContext(
-        [
-            DistrictUnionsResponse(
-                zone=1,
-                geometry=None,
-                demographic_data={
-                    "pres_dem": 60,
-                    "pres_rep": 40,
-                    "sen_dem": 51,
-                    "sen_rep": 49,
-                },
-                updated_at=now,
-            ),
-            DistrictUnionsResponse(
-                zone=2,
-                geometry=None,
-                demographic_data={
-                    "pres_dem": 45,
-                    "pres_rep": 55,
-                    "sen_dem": 50,
-                    "sen_rep": 50,
-                },
-                updated_at=now,
-            ),
-        ]
-    )
+def test_seats_matches_gerrychain(grid_context):
+    result = seats(grid_context)
+    for col, expected in _EXPECTED_SEATS.items():
+        assert result[col] == expected, f"{col}: {result[col]} != {expected}"
 
-    assert seats(context) == {
-        "pres": {"dem": 1, "rep": 1},
-        "sen": {"dem": 1, "rep": 0},
-    }
+
+def test_efficiency_gap_matches_gerrychain(grid_context):
+    result = efficiency_gap(grid_context)
+    for col, expected in _EXPECTED_EFFICIENCY_GAP.items():
+        assert result[col] == pytest.approx(expected), f"{col}"
+
+
+def test_mean_median_matches_gerrychain(grid_context):
+    result = mean_median(grid_context)
+    for col, expected in _EXPECTED_MEAN_MEDIAN.items():
+        assert result[col] == pytest.approx(expected), f"{col}"
+
+
+def test_partisan_bias_matches_gerrychain(grid_context):
+    result = partisan_bias(grid_context)
+    for col, expected in _EXPECTED_PARTISAN_BIAS.items():
+        assert result[col] == pytest.approx(expected), f"{col}"
+
+
+def test_proportionality_matches_gerrychain(grid_context):
+    result = proportionality(grid_context)
+    for col, expected in _EXPECTED_PROPORTIONALITY.items():
+        assert result[col] == pytest.approx(expected), f"{col}"
+
+
+def test_competitiveness_matches_gerrychain(grid_context):
+    result = competitive_metrics(grid_context)
+    for col, expected in _EXPECTED_COMPETITIVENESS.items():
+        assert result[col] == expected, f"{col}: {result[col]} != {expected}"
+
+
+# ---------------------------------------------------------------------------
+# Grid-based fixture: 8×8 grid, 8 counties (2-row × 4-col blocks),
+# 8 districts (one row each), seed=99. Generated via gerrychain/gerrytools.
+#
+# County layout (county = (row//2)*2 + (col//4)):
+#   cols 0-3   cols 4-7
+#   --------   --------
+#   0          1         rows 0-1
+#   2          3         rows 2-3
+#   4          5         rows 4-5
+#   6          7         rows 6-7
+#
+# Districts: zone = row + 1, each district spans both county columns.
+# ---------------------------------------------------------------------------
+
+_GRID_DISTRICT_STATS = [
+    DistrictUnionsResponse(zone=1, geometry=None, demographic_data={'pres_2016_dem': 2099, 'pres_2016_rep': 1694, 'pres_2020_dem': 1720, 'pres_2020_rep': 1752, 'pres_2024_dem': 2188, 'pres_2024_rep': 1936, 'sen_2016_dem': 2485, 'sen_2016_rep': 2124, 'sen_2018_dem': 1852, 'sen_2018_rep': 1957, 'sen_2020_dem': 1724, 'sen_2020_rep': 1617, 'sen_2022_dem': 1894, 'sen_2022_rep': 2056}, updated_at=_now),
+    DistrictUnionsResponse(zone=2, geometry=None, demographic_data={'pres_2016_dem': 2817, 'pres_2016_rep': 2052, 'pres_2020_dem': 1711, 'pres_2020_rep': 1854, 'pres_2024_dem': 1783, 'pres_2024_rep': 1645, 'sen_2016_dem': 2228, 'sen_2016_rep': 2208, 'sen_2018_dem': 1611, 'sen_2018_rep': 1411, 'sen_2020_dem': 1859, 'sen_2020_rep': 2231, 'sen_2022_dem': 1915, 'sen_2022_rep': 1662}, updated_at=_now),
+    DistrictUnionsResponse(zone=3, geometry=None, demographic_data={'pres_2016_dem': 2177, 'pres_2016_rep': 2209, 'pres_2020_dem': 2477, 'pres_2020_rep': 2423, 'pres_2024_dem': 2058, 'pres_2024_rep': 1473, 'sen_2016_dem': 2042, 'sen_2016_rep': 1914, 'sen_2018_dem': 2101, 'sen_2018_rep': 2800, 'sen_2020_dem': 1761, 'sen_2020_rep': 1737, 'sen_2022_dem': 1683, 'sen_2022_rep': 2179}, updated_at=_now),
+    DistrictUnionsResponse(zone=4, geometry=None, demographic_data={'pres_2016_dem': 1904, 'pres_2016_rep': 1831, 'pres_2020_dem': 2283, 'pres_2020_rep': 1856, 'pres_2024_dem': 1925, 'pres_2024_rep': 2266, 'sen_2016_dem': 1793, 'sen_2016_rep': 1742, 'sen_2018_dem': 2142, 'sen_2018_rep': 2004, 'sen_2020_dem': 1849, 'sen_2020_rep': 1750, 'sen_2022_dem': 1816, 'sen_2022_rep': 2233}, updated_at=_now),
+    DistrictUnionsResponse(zone=5, geometry=None, demographic_data={'pres_2016_dem': 2309, 'pres_2016_rep': 1994, 'pres_2020_dem': 2282, 'pres_2020_rep': 2178, 'pres_2024_dem': 2022, 'pres_2024_rep': 2688, 'sen_2016_dem': 2085, 'sen_2016_rep': 1670, 'sen_2018_dem': 2666, 'sen_2018_rep': 2576, 'sen_2020_dem': 1982, 'sen_2020_rep': 2218, 'sen_2022_dem': 2040, 'sen_2022_rep': 1388}, updated_at=_now),
+    DistrictUnionsResponse(zone=6, geometry=None, demographic_data={'pres_2016_dem': 2135, 'pres_2016_rep': 1906, 'pres_2020_dem': 2232, 'pres_2020_rep': 1938, 'pres_2024_dem': 1856, 'pres_2024_rep': 1844, 'sen_2016_dem': 2413, 'sen_2016_rep': 2341, 'sen_2018_dem': 2747, 'sen_2018_rep': 2150, 'sen_2020_dem': 1782, 'sen_2020_rep': 1950, 'sen_2022_dem': 1680, 'sen_2022_rep': 1850}, updated_at=_now),
+    DistrictUnionsResponse(zone=7, geometry=None, demographic_data={'pres_2016_dem': 1835, 'pres_2016_rep': 1600, 'pres_2020_dem': 2209, 'pres_2020_rep': 2156, 'pres_2024_dem': 1727, 'pres_2024_rep': 1570, 'sen_2016_dem': 1645, 'sen_2016_rep': 1892, 'sen_2018_dem': 1495, 'sen_2018_rep': 1960, 'sen_2020_dem': 2403, 'sen_2020_rep': 2296, 'sen_2022_dem': 2277, 'sen_2022_rep': 1645}, updated_at=_now),
+    DistrictUnionsResponse(zone=8, geometry=None, demographic_data={'pres_2016_dem': 2087, 'pres_2016_rep': 2905, 'pres_2020_dem': 1756, 'pres_2020_rep': 2144, 'pres_2024_dem': 1929, 'pres_2024_rep': 1928, 'sen_2016_dem': 2412, 'sen_2016_rep': 2084, 'sen_2018_dem': 1910, 'sen_2018_rep': 1508, 'sen_2020_dem': 2171, 'sen_2020_rep': 1937, 'sen_2022_dem': 2026, 'sen_2022_rep': 1887}, updated_at=_now),
+]
+
+# county index -> {total_pop_20, aggregated election votes}
+_GRID_COUNTY_DEMOGRAPHICS = {
+    0: {'total_pop_20': 10023, 'pres_2016_dem': 2707, 'pres_2016_rep': 1939, 'pres_2020_dem': 1698, 'pres_2020_rep': 1784, 'pres_2024_dem': 1787, 'pres_2024_rep': 1350, 'sen_2016_dem': 2393, 'sen_2016_rep': 2177, 'sen_2018_dem': 1919, 'sen_2018_rep': 1662, 'sen_2020_dem': 1831, 'sen_2020_rep': 1702, 'sen_2022_dem': 1732, 'sen_2022_rep': 1973},
+    1: {'total_pop_20': 10106, 'pres_2016_dem': 2209, 'pres_2016_rep': 1807, 'pres_2020_dem': 1733, 'pres_2020_rep': 1822, 'pres_2024_dem': 2184, 'pres_2024_rep': 2231, 'sen_2016_dem': 2320, 'sen_2016_rep': 2155, 'sen_2018_dem': 1544, 'sen_2018_rep': 1706, 'sen_2020_dem': 1752, 'sen_2020_rep': 2146, 'sen_2022_dem': 2077, 'sen_2022_rep': 1745},
+    2: {'total_pop_20': 9329, 'pres_2016_dem': 2199, 'pres_2016_rep': 1812, 'pres_2020_dem': 2398, 'pres_2020_rep': 2062, 'pres_2024_dem': 1612, 'pres_2024_rep': 1989, 'sen_2016_dem': 2182, 'sen_2016_rep': 1991, 'sen_2018_dem': 2241, 'sen_2018_rep': 2188, 'sen_2020_dem': 1661, 'sen_2020_rep': 1706, 'sen_2022_dem': 1758, 'sen_2022_rep': 2181},
+    3: {'total_pop_20': 10141, 'pres_2016_dem': 1882, 'pres_2016_rep': 2228, 'pres_2020_dem': 2362, 'pres_2020_rep': 2217, 'pres_2024_dem': 2371, 'pres_2024_rep': 1750, 'sen_2016_dem': 1653, 'sen_2016_rep': 1665, 'sen_2018_dem': 2002, 'sen_2018_rep': 2616, 'sen_2020_dem': 1949, 'sen_2020_rep': 1781, 'sen_2022_dem': 1741, 'sen_2022_rep': 2231},
+    4: {'total_pop_20': 9811, 'pres_2016_dem': 2363, 'pres_2016_rep': 1957, 'pres_2020_dem': 2256, 'pres_2020_rep': 2263, 'pres_2024_dem': 1825, 'pres_2024_rep': 2577, 'sen_2016_dem': 2195, 'sen_2016_rep': 1867, 'sen_2018_dem': 2453, 'sen_2018_rep': 2585, 'sen_2020_dem': 1903, 'sen_2020_rep': 2087, 'sen_2022_dem': 2065, 'sen_2022_rep': 1688},
+    5: {'total_pop_20': 12872, 'pres_2016_dem': 2081, 'pres_2016_rep': 1943, 'pres_2020_dem': 2258, 'pres_2020_rep': 1853, 'pres_2024_dem': 2053, 'pres_2024_rep': 1955, 'sen_2016_dem': 2303, 'sen_2016_rep': 2144, 'sen_2018_dem': 2960, 'sen_2018_rep': 2141, 'sen_2020_dem': 1861, 'sen_2020_rep': 2081, 'sen_2022_dem': 1655, 'sen_2022_rep': 1550},
+    6: {'total_pop_20': 9896, 'pres_2016_dem': 1930, 'pres_2016_rep': 2002, 'pres_2020_dem': 1995, 'pres_2020_rep': 2021, 'pres_2024_dem': 1831, 'pres_2024_rep': 1646, 'sen_2016_dem': 2265, 'sen_2016_rep': 2183, 'sen_2018_dem': 1467, 'sen_2018_rep': 1736, 'sen_2020_dem': 1998, 'sen_2020_rep': 2103, 'sen_2022_dem': 2023, 'sen_2022_rep': 1308},
+    7: {'total_pop_20': 11334, 'pres_2016_dem': 1992, 'pres_2016_rep': 2503, 'pres_2020_dem': 1970, 'pres_2020_rep': 2279, 'pres_2024_dem': 1825, 'pres_2024_rep': 1852, 'sen_2016_dem': 1792, 'sen_2016_rep': 1793, 'sen_2018_dem': 1938, 'sen_2018_rep': 1732, 'sen_2020_dem': 2576, 'sen_2020_rep': 2130, 'sen_2022_dem': 2280, 'sen_2022_rep': 2224},
+}
+
+# Population-weighted county-level Dem/Rep win probability (StateIdealCache output)
+_GRID_STATE_FIPS = "00"
+_GRID_STATE_IDEALS = {
+    "pres_2016_dem": 0.6243533863396877,
+    "pres_2016_rep": 0.37564661366031227,
+    "pres_2020_dem": 0.3872736852188907,
+    "pres_2020_rep": 0.6127263147811093,
+    "pres_2024_dem": 0.5140818086023565,
+    "pres_2024_rep": 0.4859181913976435,
+    "sen_2016_dem": 0.7428513267554363,
+    "sen_2016_rep": 0.25714867324456364,
+    "sen_2018_dem": 0.521577737331162,
+    "sen_2018_rep": 0.478422262668838,
+    "sen_2020_dem": 0.3771673531947505,
+    "sen_2020_rep": 0.6228326468052495,
+    "sen_2022_dem": 0.6468411725261041,
+    "sen_2022_rep": 0.353158827473896,
+}
+
+_GRID_EXPECTED_EGUIA = {
+    "pres_2016": 0.12564661366031227,
+    "pres_2020": 0.23772631478110928,
+    "pres_2024": 0.23591819139764347,
+    "sen_2016": 0.1321486732445637,
+    "sen_2018": 0.10342226266883803,
+    "sen_2020": 0.24783264680524952,
+    "sen_2022": -0.14684117252610407,
+}
+
+_GRID_EXPECTED_EFFICIENCY_GAP = {
+    "pres_2016": 0.18558145079573224,
+    "pres_2020": 0.15709259652421825,
+    "pres_2024": 0.20688760620014268,
+    "sen_2016": 0.35896970796299654,
+    "sen_2018": 0.1253268470659775,
+    "sen_2020": 0.12206159849042121,
+    "sen_2022": -0.023370050610300685,
+}
+
+_GRID_EXPECTED_MEAN_MEDIAN = {
+    "pres_2016": 0.01186025265097057,
+    "pres_2020": 0.0013322696352465746,
+    "pres_2024": 0.00491290476478623,
+    "sen_2016": -0.00427483898905745,
+    "sen_2018": 0.009402174334972146,
+    "sen_2020": 0.010284980633473717,
+    "sen_2022": -0.00993515807140416,
+}
+
+_GRID_EXPECTED_PARTISAN_BIAS = {
+    "pres_2016": 0.125,
+    "pres_2020": 0.125,
+    "pres_2024": 0.0,
+    "sen_2016": 0.0,
+    "sen_2018": 0.125,
+    "sen_2020": 0.125,
+    "sen_2022": 0.0,
+}
+
+_GRID_EXPECTED_SEATS = {
+    "pres_2016": {"dem": 6, "rep": 2},
+    "pres_2020": {"dem": 5, "rep": 3},
+    "pres_2024": {"dem": 6, "rep": 2},
+    "sen_2016": {"dem": 7, "rep": 1},
+    "sen_2018": {"dem": 5, "rep": 3},
+    "sen_2020": {"dem": 5, "rep": 3},
+    "sen_2022": {"dem": 4, "rep": 4},
+}
+
+_GRID_EXPECTED_PROPORTIONALITY = {
+    "pres_2016": 0.23253561423377245,
+    "pres_2020": 0.11940417336447184,
+    "pres_2024": 0.24776250081068807,
+    "sen_2016": 0.3579493923453655,
+    "sen_2018": 0.1225980541197933,
+    "sen_2020": 0.12827821665014233,
+    "sen_2022": -0.007128444312129889,
+}
+
+_GRID_EXPECTED_COMPETITIVENESS = {
+    "n_dem_districts": 0,
+    "n_rep_districts": 0,
+    "n_swing_districts": 8,
+    "n_competitive_districts": 29,
+    "n_districts": 8,
+    "n_elections": 7
+}
+
+# ---------------------------------------------------------------------------
+# Grid-based partisan metric tests
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def grid_district_context():
+    return _StubEvaluationContext(_GRID_DISTRICT_STATS)
+
+
+@pytest.fixture
+def eguia_context():
+    STATE_IDEAL_CACHE._cache[_GRID_STATE_FIPS] = _GRID_STATE_IDEALS.copy()
+
+    mock_session = MagicMock()
+    doc_row = MagicMock()
+    doc_row.statefps = [_GRID_STATE_FIPS]
+    doc_row.gerrydb_table_name = "test_table"
+    mock_session.exec.return_value.one.return_value = doc_row
+
+    ctx = _StubEvaluationContext(_GRID_DISTRICT_STATS)
+    ctx.session = mock_session
+    yield ctx
+
+    STATE_IDEAL_CACHE._cache.pop(_GRID_STATE_FIPS, None)
+
+
+def test_grid_seats_matches_gerrychain(grid_district_context):
+    result = seats(grid_district_context)
+    for col, expected in _GRID_EXPECTED_SEATS.items():
+        assert result[col] == expected, f"{col}: {result[col]} != {expected}"
+
+
+def test_grid_efficiency_gap_matches_gerrychain(grid_district_context):
+    result = efficiency_gap(grid_district_context)
+    for col, expected in _GRID_EXPECTED_EFFICIENCY_GAP.items():
+        assert result[col] == pytest.approx(expected), f"{col}"
+
+
+def test_grid_mean_median_matches_gerrychain(grid_district_context):
+    result = mean_median(grid_district_context)
+    for col, expected in _GRID_EXPECTED_MEAN_MEDIAN.items():
+        assert result[col] == pytest.approx(expected), f"{col}"
+
+
+def test_grid_partisan_bias_matches_gerrychain(grid_district_context):
+    result = partisan_bias(grid_district_context)
+    for col, expected in _GRID_EXPECTED_PARTISAN_BIAS.items():
+        assert result[col] == pytest.approx(expected), f"{col}"
+
+
+def test_grid_proportionality_matches_gerrychain(grid_district_context):
+    result = proportionality(grid_district_context)
+    for col, expected in _GRID_EXPECTED_PROPORTIONALITY.items():
+        assert result[col] == pytest.approx(expected), f"{col}"
+
+
+def test_grid_eguia_matches_gerrychain(eguia_context):
+    result = eguia(eguia_context)
+    for col, expected in _GRID_EXPECTED_EGUIA.items():
+        assert result[col] == pytest.approx(expected), f"{col}"
+
+def test_grid_competitiveness_matches_gerrychain(grid_district_context):
+    result = competitive_metrics(grid_district_context)
+    for col, expected in _GRID_EXPECTED_COMPETITIVENESS.items():
+        assert result[col] == expected, f"{col}: {result[col]} != {expected}"

@@ -17,7 +17,6 @@ from app.utils import (
 )
 
 
-
 @dataclasses.dataclass
 class DocumentEvaluationContext:
     background_tasks: fastapi.BackgroundTasks
@@ -55,11 +54,29 @@ class DocumentEvaluationContext:
             ]
         return self._cache["election_cols"]
     
+    def dem_wins(self, col: str) -> pd.Series:
+        """Boolean Series of whether Dems won each district for the given election."""
+        key = f"{col}_dem_wins"
+        if key not in self._cache:
+            dem_votes = self.demographic_data()[col + "_dem"]
+            rep_votes = self.demographic_data()[col + "_rep"]
+            self._cache[key] = dem_votes > rep_votes
+        return self._cache[key]
+    
+    def rep_wins(self, col: str) -> pd.Series:
+        """Boolean Series of whether Reps won each district for the given election."""
+        key = f"{col}_rep_wins"
+        if key not in self._cache:
+            dem_votes = self.demographic_data()[col + "_dem"]
+            rep_votes = self.demographic_data()[col + "_rep"]
+            self._cache[key] = rep_votes > dem_votes
+        return self._cache[key]
+    
     def dem_seats(self, col: str) -> int:
         """Total Dem seats statewide for each election."""
         if "dem_seats" not in self._cache:
             self._cache["dem_seats"] = {
-                col: sum(self.demographic_data()[col + "_dem"] > self.demographic_data()[col + "_rep"])
+                col: sum(self.dem_wins(col))
                 for col in self.election_cols()
             }
         return self._cache["dem_seats"].get(col, 0)
@@ -68,7 +85,7 @@ class DocumentEvaluationContext:
         """Total Rep seats statewide for each election."""
         if "rep_seats" not in self._cache:
             self._cache["rep_seats"] = {
-                col: sum(self.demographic_data()[col + "_rep"] > self.demographic_data()[col + "_dem"])
+                col: sum(self.rep_wins(col))
                 for col in self.election_cols()
             }
         return self._cache["rep_seats"].get(col, 0)
@@ -77,7 +94,6 @@ class DocumentEvaluationContext:
         if "num_districts" not in self._cache:
             self._cache["num_districts"] = sum(1 for d in self.district_stats() if d.zone is not None)
         return self._cache["num_districts"]
-
 
 
 @dataclasses.dataclass

@@ -1,5 +1,6 @@
 from typing import Tuple
 import sqlmodel
+import numpy as np
 from sqlalchemy import text
 from app.evaluation.context import DocumentEvaluationContext, STATE_IDEAL_CACHE
 from app.utils import assert_safe_ident
@@ -49,7 +50,7 @@ def mean_median(context: DocumentEvaluationContext) -> dict[str, float]:
         dem_votes = context.demographic_data()[col + "_dem"]
         rep_votes = context.demographic_data()[col + "_rep"]
         dem_vote_shares = dem_votes / (dem_votes + rep_votes)
-        result[col] = dem_vote_shares.mean() - dem_vote_shares.median()
+        result[col] = dem_vote_shares.median() - dem_vote_shares.mean()
     return result
 
 
@@ -111,3 +112,47 @@ def eguia(context: DocumentEvaluationContext) -> dict[str, float]:
     for col in context.election_cols():
         result[col] = (context.dem_seats(col) / context.num_districts()) - ideals.get(col + "_dem", 0.0)
     return result
+
+def competitive_metrics(context: DocumentEvaluationContext) -> dict[str, int]:
+    """ A number of competitive metrics.
+
+    - n_dem_districts: Number of districts won by Democrats in each election.
+
+    - n_rep_districts: Number of districts won by Republicans in each election.
+
+    - n_swing_districts: Number of districts that have been won by each major party at
+    least once across the elections in the dataset.
+    
+    - n_competitive_districts: Number of
+    districts where neither party wins more than 53% of the vote in any election.
+
+    - n_districts: Total number of districts.
+
+    - n_elections: Total number of elections.
+    """
+    n_districts = context.num_districts()
+    n_elections = len(context.election_cols())
+    if n_elections == 0:
+        return {}
+    dem_districts = [1] * n_districts
+    rep_districts = [1] * n_districts
+    n_competitive_districts = 0
+    for col in context.election_cols():
+        dem_districts = np.logical_and(dem_districts, context.dem_wins(col))
+        rep_districts = np.logical_and(rep_districts, context.rep_wins(col))
+        dem_vote_shares = context.demographic_data()[col + "_dem"] / (
+            context.demographic_data()[col + "_dem"] + context.demographic_data()[col + "_rep"]
+        )
+        competitive_districts = np.logical_and(dem_vote_shares >= 0.47, dem_vote_shares <= 0.53)
+        n_competitive_districts += sum(competitive_districts)
+    n_dem_districts = sum(dem_districts)
+    n_rep_districts = sum(rep_districts)
+    n_swing_districts = context.num_districts() - n_dem_districts - n_rep_districts
+    return {
+        "n_dem_districts": n_dem_districts,
+        "n_rep_districts": n_rep_districts,
+        "n_swing_districts": n_swing_districts,
+        "n_competitive_districts": n_competitive_districts,
+        "n_districts": n_districts,
+        "n_elections": n_elections,
+    }

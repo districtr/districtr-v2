@@ -41,6 +41,7 @@ METRICS: tuple[Metric, ...] = (
     Metric(key="partisan_bias", version=1, compute=partisans.partisan_bias),
     Metric(key="eguia", version=1, compute=partisans.eguia),
     Metric(key="proportionality", version=2, compute=partisans.proportionality),
+    Metric(key="competitiveness", version=1, compute=partisans.competitive_metrics),
 )
 
 
