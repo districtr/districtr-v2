@@ -1,6 +1,6 @@
 import logging
-from typing import Any
 import dataclasses
+from functools import cached_property
 
 import fastapi
 import numpy as np
@@ -22,78 +22,61 @@ class DocumentEvaluationContext:
     background_tasks: fastapi.BackgroundTasks
     session: sqlmodel.Session
     document_id: str
-    _cache: dict[str, Any] = dataclasses.field(default_factory=dict)
 
+    @cached_property
     def district_stats(self) -> list[DistrictUnionsResponse]:
-        if "district_stats" not in self._cache:
-            self._cache["district_stats"] = update_or_select_district_stats(
-                self.session, self.document_id, self.background_tasks
-            )
-        return self._cache["district_stats"]
+        return update_or_select_district_stats(
+            self.session, self.document_id, self.background_tasks
+        )
 
+    @cached_property
     def demographic_data(self) -> pd.DataFrame:
         """Excludes districts with null demographic_data or zone, which represent
         unassigned area"""
-        if "demographic_data" not in self._cache:
-            rows = [
-                {"zone": d.zone, **d.demographic_data}
-                for d in self.district_stats()
-                if d.demographic_data and d.zone is not None
-            ]
-            self._cache["demographic_data"] = (
-                pd.DataFrame(rows).set_index("zone") if rows else pd.DataFrame()
-            )
-        return self._cache["demographic_data"]
+        rows = [
+            {"zone": d.zone, **d.demographic_data}
+            for d in self.district_stats
+            if d.demographic_data and d.zone is not None
+        ]
+        return pd.DataFrame(rows).set_index("zone") if rows else pd.DataFrame()
 
+    @cached_property
     def election_cols(self) -> list[str]:
-        if "election_cols" not in self._cache:
-            self._cache["election_cols"] = [
-                s.removesuffix("_dem")
-                for s in self.demographic_data().columns
-                if s.endswith("_dem")
-            ]
-        return self._cache["election_cols"]
-    
-    def dem_wins(self, col: str) -> pd.Series:
-        """Boolean Series of whether Dems won each district for the given election."""
-        key = f"{col}_dem_wins"
-        if key not in self._cache:
-            dem_votes = self.demographic_data()[col + "_dem"]
-            rep_votes = self.demographic_data()[col + "_rep"]
-            self._cache[key] = dem_votes > rep_votes
-        return self._cache[key]
-    
-    def rep_wins(self, col: str) -> pd.Series:
-        """Boolean Series of whether Reps won each district for the given election."""
-        key = f"{col}_rep_wins"
-        if key not in self._cache:
-            dem_votes = self.demographic_data()[col + "_dem"]
-            rep_votes = self.demographic_data()[col + "_rep"]
-            self._cache[key] = rep_votes > dem_votes
-        return self._cache[key]
-    
-    def dem_seats(self, col: str) -> int:
+        return [
+            s.removesuffix("_dem")
+            for s in self.demographic_data.columns
+            if s.endswith("_dem")
+        ]
+
+    @cached_property
+    def dem_wins(self) -> dict[str, pd.Series]:
+        """Boolean Series per election of whether Dems won each district."""
+        return {
+            col: self.demographic_data[col + "_dem"] > self.demographic_data[col + "_rep"]
+            for col in self.election_cols
+        }
+
+    @cached_property
+    def rep_wins(self) -> dict[str, pd.Series]:
+        """Boolean Series per election of whether Reps won each district."""
+        return {
+            col: self.demographic_data[col + "_rep"] > self.demographic_data[col + "_dem"]
+            for col in self.election_cols
+        }
+
+    @cached_property
+    def dem_seats(self) -> dict[str, int]:
         """Total Dem seats statewide for each election."""
-        if "dem_seats" not in self._cache:
-            self._cache["dem_seats"] = {
-                col: sum(self.dem_wins(col))
-                for col in self.election_cols()
-            }
-        return self._cache["dem_seats"].get(col, 0)
-    
-    def rep_seats(self, col: str) -> int:
+        return {col: sum(self.dem_wins[col]) for col in self.election_cols}
+
+    @cached_property
+    def rep_seats(self) -> dict[str, int]:
         """Total Rep seats statewide for each election."""
-        if "rep_seats" not in self._cache:
-            self._cache["rep_seats"] = {
-                col: sum(self.rep_wins(col))
-                for col in self.election_cols()
-            }
-        return self._cache["rep_seats"].get(col, 0)
-    
-    def num_districts(self) -> int:
-        if "num_districts" not in self._cache:
-            self._cache["num_districts"] = sum(1 for d in self.district_stats() if d.zone is not None)
-        return self._cache["num_districts"]
+        return {col: sum(self.rep_wins[col]) for col in self.election_cols}
+
+    @cached_property
+    def num_nonempty_districts(self) -> int:
+        return sum(1 for d in self.district_stats if d.zone is not None)
 
 
 @dataclasses.dataclass
