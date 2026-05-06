@@ -189,24 +189,7 @@ _GRID_COUNTY_DEMOGRAPHICS = {
     7: {'total_pop_20': 11334, 'pres_2016_dem': 1992, 'pres_2016_rep': 2503, 'pres_2020_dem': 1970, 'pres_2020_rep': 2279, 'pres_2024_dem': 1825, 'pres_2024_rep': 1852, 'sen_2016_dem': 1792, 'sen_2016_rep': 1793, 'sen_2018_dem': 1938, 'sen_2018_rep': 1732, 'sen_2020_dem': 2576, 'sen_2020_rep': 2130, 'sen_2022_dem': 2280, 'sen_2022_rep': 2224},
 }
 
-# Population-weighted county-level Dem/Rep win probability (StateIdealCache output)
 _GRID_STATE_FIPS = "00"
-_GRID_STATE_IDEALS = {
-    "pres_2016_dem": 0.6243533863396877,
-    "pres_2016_rep": 0.37564661366031227,
-    "pres_2020_dem": 0.3872736852188907,
-    "pres_2020_rep": 0.6127263147811093,
-    "pres_2024_dem": 0.5140818086023565,
-    "pres_2024_rep": 0.4859181913976435,
-    "sen_2016_dem": 0.7428513267554363,
-    "sen_2016_rep": 0.25714867324456364,
-    "sen_2018_dem": 0.521577737331162,
-    "sen_2018_rep": 0.478422262668838,
-    "sen_2020_dem": 0.3771673531947505,
-    "sen_2020_rep": 0.6228326468052495,
-    "sen_2022_dem": 0.6468411725261041,
-    "sen_2022_rep": 0.353158827473896,
-}
 
 _GRID_EXPECTED_EGUIA = {
     "pres_2016": 0.12564661366031227,
@@ -288,13 +271,31 @@ def grid_district_context():
 
 @pytest.fixture
 def eguia_context():
-    STATE_IDEAL_CACHE._cache[_GRID_STATE_FIPS] = _GRID_STATE_IDEALS.copy()
+    """Exercises the full Eguia path: doc_row lookup → StateIdealCache miss
+    → _ensure_county_data (skipping populate) → _compute_ideal over mocked
+    CountyDemographics rows."""
+    # Force cache miss so _compute_ideal actually runs
+    STATE_IDEAL_CACHE._cache.pop(_GRID_STATE_FIPS, None)
 
-    mock_session = MagicMock()
     doc_row = MagicMock()
     doc_row.statefps = [_GRID_STATE_FIPS]
     doc_row.gerrydb_table_name = "test_table"
-    mock_session.exec.return_value.one.return_value = doc_row
+
+    county_rows = [
+        MagicMock(demographic_data=data)
+        for data in _GRID_COUNTY_DEMOGRAPHICS.values()
+    ]
+
+    # Three sequential session.exec() calls during eguia():
+    #   1. doc_row lookup            → .one()   returns doc_row
+    #   2. _ensure_county_data check → .first() returns truthy (skip populate)
+    #   3. _compute_ideal SELECT     → .all()   returns county_rows
+    mock_session = MagicMock()
+    mock_session.exec.side_effect = [
+        MagicMock(**{"one.return_value": doc_row}),
+        MagicMock(**{"first.return_value": county_rows[0]}),
+        MagicMock(**{"all.return_value": county_rows}),
+    ]
 
     ctx = _StubEvaluationContext(_GRID_DISTRICT_STATS)
     ctx.session = mock_session
