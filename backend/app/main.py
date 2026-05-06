@@ -1550,7 +1550,7 @@ async def get_group(
     }
 
 
-@app.get("/debug/cache")
+@app.get("/_debug/cache")
 async def debug_graph_lru_cache() -> dict[str, Any]:
     """
     GerryDB graph LRU cache stats (hits/misses/size).
