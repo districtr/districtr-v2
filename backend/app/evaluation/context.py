@@ -1,13 +1,21 @@
-import logging
+"""Information required for computing evaluation metrics for a redistricting plan.
+
+`DocumentEvaluationContext` is the data bag passed to every metric.
+
+`StateIdealsForEguia` is a singleton (`STATE_IDEALS_FOR_EGUIA`) holding population-weighted
+Dem/Rep county win probabilities per state FIPS. It is only used by the Eguia metric.
+"""
+
 import dataclasses
 from functools import cached_property
+from typing import NewType
 
 import fastapi
 import numpy as np
 import pandas as pd
 import sqlmodel
+import sqlalchemy
 
-from sqlalchemy import text
 from app.evaluation.models import CountyDemographics
 from app.models import DistrictUnionsResponse
 from app.utils import (
@@ -17,22 +25,34 @@ from app.utils import (
 )
 
 
+StateFIPS = NewType("StateFIPS", str)
+GerrydbTableName = NewType("GerrydbTableName", str)
+Election = NewType("Election", str)
+ElectionPartyKey = NewType("ElectionPartyKey", str)
+
+
 @dataclasses.dataclass
 class DocumentEvaluationContext:
+    """Lazy, per-document inputs for computing all evaluation metrics.
+
+    Some intermediates used by multiple metrics (e.g. `dem_wins`, `dem_seats`) are
+    calculated here as `@cached_property` to avoid redundant work across metrics.
+    """
+
     background_tasks: fastapi.BackgroundTasks
     session: sqlmodel.Session
     document_id: str
 
     @cached_property
     def district_stats(self) -> list[DistrictUnionsResponse]:
+        """Per-zone stats for this document."""
         return update_or_select_district_stats(
             self.session, self.document_id, self.background_tasks
         )
 
     @cached_property
     def demographic_data(self) -> pd.DataFrame:
-        """Excludes districts with null demographic_data or zone, which represent
-        unassigned area"""
+        """Per-zone demographic data."""
         rows = [
             {"zone": d.zone, **d.demographic_data}
             for d in self.district_stats
@@ -41,65 +61,84 @@ class DocumentEvaluationContext:
         return pd.DataFrame(rows).set_index("zone") if rows else pd.DataFrame()
 
     @cached_property
-    def election_cols(self) -> list[str]:
+    def elections(self) -> list[Election]:
+        """Election prefixes for demographic columns (e.g. "pres_2020")"""
         return [
-            s.removesuffix("_dem")
+            Election(s.removesuffix("_dem"))
             for s in self.demographic_data.columns
             if s.endswith("_dem")
         ]
 
     @cached_property
-    def dem_wins(self) -> dict[str, pd.Series]:
+    def dem_wins(self) -> dict[Election, pd.Series]:
         """Boolean Series per election of whether Dems won each district."""
         return {
-            col: self.demographic_data[col + "_dem"] > self.demographic_data[col + "_rep"]
-            for col in self.election_cols
+            col: self.demographic_data[col + "_dem"]
+            > self.demographic_data[col + "_rep"]
+            for col in self.elections
         }
 
     @cached_property
-    def rep_wins(self) -> dict[str, pd.Series]:
+    def rep_wins(self) -> dict[Election, pd.Series]:
         """Boolean Series per election of whether Reps won each district."""
         return {
-            col: self.demographic_data[col + "_rep"] > self.demographic_data[col + "_dem"]
-            for col in self.election_cols
+            col: self.demographic_data[col + "_rep"]
+            > self.demographic_data[col + "_dem"]
+            for col in self.elections
         }
 
     @cached_property
-    def dem_seats(self) -> dict[str, int]:
+    def dem_seats(self) -> dict[Election, int]:
         """Total Dem seats statewide for each election."""
-        return {col: sum(self.dem_wins[col]) for col in self.election_cols}
+        return {col: sum(self.dem_wins[col]) for col in self.elections}
 
     @cached_property
-    def rep_seats(self) -> dict[str, int]:
+    def rep_seats(self) -> dict[Election, int]:
         """Total Rep seats statewide for each election."""
-        return {col: sum(self.rep_wins[col]) for col in self.election_cols}
+        return {col: sum(self.rep_wins[col]) for col in self.elections}
 
     @cached_property
     def num_nonempty_districts(self) -> int:
+        """Number of districts with an assigned zone."""
         return sum(1 for d in self.district_stats if d.zone is not None)
 
 
 @dataclasses.dataclass
-class StateIdealCache:
-    """Server-owned singleton cache of per-state Eguia ideals.
+class StateIdealsForEguia:
+    """A singleton lookup of per-state Eguia ideals, which are compared to the plan's
+    seat outcomes to compute the Eguia metric. 
 
-    One entry per state FIPS code.  Values are never evicted; restart the server
-    or clear the evaluation.county_demographics table to force a recompute.
+    For each state FIPS code, records a mapping between election+party string (e.g.
+    "pres_2020_dem") and this party's seat share that would emerge if districts were
+    drawn at county granularity, weighted by population.
+
+    Computed on first request and never recomputed.
     """
 
-    _cache: dict[str, dict[str, float]] = dataclasses.field(default_factory=dict)
+    _cache: dict[StateFIPS, dict[ElectionPartyKey, float]] = dataclasses.field(default_factory=dict)
 
     def get(
-        self, state_fips: str, gerrydb_table: str, session: sqlmodel.Session
-    ) -> dict[str, float]:
+        self, state_fips: StateFIPS, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
+    ) -> dict[ElectionPartyKey, float]:
+        """Return the per-ElectionPartyKey seat share expectation dict for `state_fips`.
+
+        Args:
+            state_fips: the state FIPS code to look up.
+            gerrydb_table: Source VTD/block table used to populate county
+                demographics on first request for this state. Ignored if the state
+                already has rows in `evaluation.county_demographics`.
+            session: SQLModel session for any required DB queries.
+        """
         if state_fips not in self._cache:
             self._ensure_county_data(state_fips, gerrydb_table, session)
             self._cache[state_fips] = self._compute_ideal(state_fips, session)
         return self._cache[state_fips]
 
     def _ensure_county_data(
-        self, state_fips: str, gerrydb_table: str, session: sqlmodel.Session
+        self, state_fips: StateFIPS, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
     ) -> None:
+        """Populate `evaluation.county_demographics` for `state_fips` if no row
+        exists yet. No-op on subsequent calls."""
         exists = session.exec(
             sqlmodel.select(CountyDemographics)
             .where(CountyDemographics.state_fips == state_fips)
@@ -109,16 +148,17 @@ class StateIdealCache:
             self._populate_county_data(state_fips, gerrydb_table, session)
 
     def _populate_county_data(
-        self, state_fips: str, gerrydb_table: str, session: sqlmodel.Session
+        self, state_fips: StateFIPS, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
     ) -> None:
         """Aggregate VTD/block-level demographics up to county level.
 
-        Groups gerrydb rows by the first 5 characters of their path after the
-        colon prefix (e.g. ``vtd:20051XXXX`` → county GEOID ``20051``).
+        Groups gerrydb rows by the first 5 characters of their path after the colon
+        prefix (e.g. ``vtd:20051XXXX`` → county GEOID ``20051``).
 
         NOTE: This table must be manually cleared if the source gerrydb table is
         re-ingested with updated data:
-            DELETE FROM evaluation.county_demographics WHERE state_fips = '<state_fips>';
+            DELETE FROM evaluation.county_demographics WHERE state_fips =
+            '<state_fips>';
         """
         safe_table = assert_safe_ident(gerrydb_table)
         demo_cols = get_gerrydb_numeric_cols(session, safe_table)
@@ -141,12 +181,13 @@ class StateIdealCache:
             GROUP BY LEFT(SPLIT_PART(path, ':', 2), 5)
             ON CONFLICT (geoid) DO NOTHING
         """
-        session.execute(text(insert_sql), {"state_fips": state_fips})
+        session.execute(sqlalchemy.text(insert_sql), {"state_fips": state_fips})
         session.commit()
 
     def _compute_ideal(
-        self, state_fips: str, session: sqlmodel.Session
-    ) -> dict[str, float]:
+        self, state_fips: StateFIPS, session: sqlmodel.Session
+    ) -> dict[ElectionPartyKey, float]:
+        """Population-weighted county-level Dem/Rep win frequency per election."""
         rows = session.exec(
             sqlmodel.select(CountyDemographics).where(
                 CountyDemographics.state_fips == state_fips
@@ -166,11 +207,13 @@ class StateIdealCache:
         if total_pop == 0:
             return {}
 
-        dem_cols = [c for c in df.columns if c.endswith("_dem")]
-        ideals: dict[str, float] = {}
+        dem_cols: list[ElectionPartyKey] = [
+            ElectionPartyKey(c) for c in df.columns if c.endswith("_dem")
+        ]
+        ideals: dict[ElectionPartyKey, float] = {}
         for dem_col in dem_cols:
             base = dem_col.removesuffix("_dem")
-            rep_col = f"{base}_rep"
+            rep_col = ElectionPartyKey(f"{base}_rep")
             if rep_col not in df.columns:
                 continue
             results_dem = df[dem_col] > df[rep_col]
@@ -182,4 +225,4 @@ class StateIdealCache:
 
 
 # Server-owned singleton. Shared across all requests; one entry per state FIPS.
-STATE_IDEAL_CACHE = StateIdealCache()
+STATE_IDEALS_FOR_EGUIA = StateIdealsForEguia()

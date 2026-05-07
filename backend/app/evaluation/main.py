@@ -1,3 +1,11 @@
+"""Top-level orchestration for document evaluation metrics.
+
+`update_or_select_document_evaluation` is the request-path entry point: it
+reads the cached `Evaluation` row, recomputes if it is missing/stale, and
+persists the result. `compute_metrics` is the pure computation: build a
+single `DocumentEvaluationContext` and run every metric in `METRICS`.
+"""
+
 from typing import Any
 
 from fastapi import BackgroundTasks
@@ -15,6 +23,13 @@ def update_or_select_document_evaluation(
     session: Session,
     document: Document,
 ) -> dict[str, Any] | None:
+    """Return the document's metrics, recomputing on cache miss or stale row.
+
+    A cached `Evaluation` row is considered fresh iff its `payload_version`
+    matches `CURRENT_PAYLOAD_VERSION` (registry hasn't changed) and its
+    `updated_at` is at least as new as the document's. Otherwise the metrics
+    are recomputed via `compute_metrics` and the row is upserted.
+    """
     evaluation = session.exec(
         select(Evaluation).where(Evaluation.document_id == document.document_id)
     ).one_or_none()
@@ -47,6 +62,9 @@ def update_or_select_document_evaluation(
 def compute_metrics(
     background_tasks: BackgroundTasks, session: Session, document_id: str
 ) -> dict[str, Any]:
+    """Build a fresh `DocumentEvaluationContext` and run every registered
+    metric, returning a `{metric_key: payload}` dict suitable for JSON
+    serialisation into `Evaluation.metrics`."""
     context = DocumentEvaluationContext(
         background_tasks=background_tasks, session=session, document_id=document_id
     )

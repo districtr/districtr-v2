@@ -104,7 +104,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.evaluation.context import DocumentEvaluationContext, STATE_IDEAL_CACHE
+from app.evaluation.context import DocumentEvaluationContext, STATE_IDEALS_FOR_EGUIA
 from app.evaluation.partisans import (
     competitive_metrics,
     eguia,
@@ -118,6 +118,12 @@ from app.models import DistrictUnionsResponse
 
 
 class _StubEvaluationContext(DocumentEvaluationContext):
+    """Test double that injects district_stats directly, bypassing the DB.
+
+    Writes to the cached_property's slot on first access so the descriptor
+    never fires, freeing tests from needing a real session or background_tasks.
+    """
+
     def __init__(self, district_stats: list[DistrictUnionsResponse]):
         super().__init__(
             background_tasks=None,  # type: ignore[arg-type]
@@ -371,11 +377,11 @@ def grid_district_context():
 
 @pytest.fixture
 def eguia_context():
-    """Exercises the full Eguia path: doc_row lookup → StateIdealCache miss
+    """Exercises the full Eguia path: doc_row lookup → StateIdealsForEguia miss
     → _ensure_county_data (skipping populate) → _compute_ideal over mocked
     CountyDemographics rows."""
     # Force cache miss so _compute_ideal actually runs
-    STATE_IDEAL_CACHE._cache.pop(_GRID_STATE_FIPS, None)
+    STATE_IDEALS_FOR_EGUIA._cache.pop(_GRID_STATE_FIPS, None)
 
     doc_row = MagicMock()
     doc_row.statefps = [_GRID_STATE_FIPS]
@@ -401,7 +407,7 @@ def eguia_context():
     ctx.session = mock_session
     yield ctx
 
-    STATE_IDEAL_CACHE._cache.pop(_GRID_STATE_FIPS, None)
+    STATE_IDEALS_FOR_EGUIA._cache.pop(_GRID_STATE_FIPS, None)
 
 
 def test_grid_seats_matches_gerrychain(grid_district_context):
