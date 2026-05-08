@@ -62,7 +62,7 @@ def efficiency_gap(context: DocumentEvaluationContext) -> dict[Election, float]:
             rep_waste - dem_waste for dem_waste, rep_waste in wasted_votes_by_district
         )
         total_votes = sum(dem_votes) + sum(rep_votes)
-        result[col] = numerator / total_votes
+        result[col] = numerator / total_votes if total_votes > 0 else float("nan")
     return result
 
 
@@ -108,27 +108,41 @@ def mean_median(context: DocumentEvaluationContext) -> dict[Election, float]:
 def partisan_bias(context: DocumentEvaluationContext) -> dict[Election, float]:
     """Per-election partisan bias (Dem POV).
 
-    Formula (gerrychain "above the mean" approximation):
+    Formula (GerryChain "above the mean" partisan bias):
         PB = |{ i : v_i > mean(v) }| / N - 0.5
 
-    where v_i is district i's Dem two-party vote share and N is the number of non-empty
-    districts. 
-    
-    This formula approximates the classical Gelman-King partisan bias, which refers to
-    how the Dem seat share deviate from 50% at a hypothetical 50/50 statewide vote,
-    derived from a uniform-partisan-swing (UPS) seats curve. The main reason why this
-    formula is only an approximation is that the formula uses the unweighted mean of
-    district vote shares as the swing point, whereas classical UPS uses the
-    vote-weighted statewide share. These coincide only when all districts have equal
-    turnout.
+    where v_i is district i's Democratic two-party vote share and N is the number of
+    non-empty districts.
 
-    References (for the classical Gelman-King metric this approximates):
-        Tufte (1973), "The Relationship between Seats and Votes in Two-Party Systems,"
-            American Political Science Review 67:540 — UPS framework that partisan-bias
-            measures sit within.
-        Gelman & King (1994), "A Unified Method of Evaluating Electoral Systems and
-            Redistricting Plans," American Journal of Political Science 38:514 — the
-            classical PB definition itself.
+    This is the closed-form expression for partisan bias at 50% under a
+    uniform-partisan-swing seats-votes curve parameterized by the unweighted average
+    district vote share. If the average district Democratic vote share is mean(v), then
+    the uniform swing needed to evaluate the seats-votes curve at 50% is
+
+        s = 0.5 - mean(v).
+
+    After applying this swing, Democrats win district i iff
+
+        v_i + s > 0.5,
+
+    which is equivalent to
+
+        v_i > mean(v).
+
+    Thus the Democratic seat share at 50% average district vote is the fraction of
+    districts with v_i > mean(v), and partisan bias is that fraction minus 0.5.
+
+    This matches the average-district-vote partisan-symmetry formulation used in the
+    King/Gelman-King/Katz-King-Rosenblatt tradition. See
+
+    References: King, G., & Browning, R. X. (1987). Democratic representation and
+        partisan bias in congressional elections. American Political Science Review,
+        81(4), 1251-1273. Url: https://gking.harvard.edu/files/sv.pdf (conceptual
+        foundation)
+    Katz, J. N., King, G., & Rosenblatt, E. (2020). Theoretical foundations and
+        empirical evaluations of partisan fairness in district-based democracies.
+        American Political Science Review, 114(1), 164-178. Url:
+        https://jkatz.caltech.edu/documents/28620/psym.pdf (contains formula)
     """
     result: dict[Election, float] = {}
     for col in context.elections:
@@ -147,26 +161,24 @@ def disproportionality(context: DocumentEvaluationContext) -> dict[Election, flo
     Formula:
         D = (S_dem / N) - (V_dem / V_total)
 
-    A signed, single-party variant of disproportionality. Zero is exact
-    proportionality; positive => Dems are over-represented in seats
-    relative to their share of the vote. The Loosemore-Hanby and
-    Gallagher indices generalize this to a symmetric multi-party
-    summary statistic; we keep the signed Dem-vs-Rep version because
-    metrics in this module are uniformly reported from the Dem POV.
+    A signed, single-party variant of disproportionality. Zero is exact proportionality;
+    positive => Dems advantage.
 
-    References (general framework):
-        Loosemore & Hanby, "The Theoretical Limits of Maximum
-        Distortion: Some Analytic Expressions for Electoral Systems,"
-        British Journal of Political Science 1:467 (1971).
-        Gallagher, "Proportionality, Disproportionality and Electoral
-        Systems," Electoral Studies 10:33 (1991).
+    Reference:
+    Katz, J. N., King, G., & Rosenblatt, E. (2020). Theoretical foundations
+        and empirical evaluations of partisan fairness in district-based democracies.
+        American Political Science Review, 114(1), 164-178.
     """
     result: dict[Election, float] = {}
     for col in context.elections:
         dem_votes = context.demographic_data[col + "_dem"]
         rep_votes = context.demographic_data[col + "_rep"]
-        dem_vote_share = sum(dem_votes) / (sum(dem_votes) + sum(rep_votes))
-        result[col] = (context.dem_seats[col] / context.num_nonempty_districts) - dem_vote_share
+        total = sum(dem_votes) + sum(rep_votes)
+        if total == 0:
+            result[col] = float("nan")
+        else:
+            dem_vote_share = sum(dem_votes) / total
+            result[col] = (context.dem_seats[col] / context.num_nonempty_districts) - dem_vote_share
     return result
 
 def _get_state_fips_and_gerrydb_table(context: DocumentEvaluationContext) -> tuple[StateFIPS | None, GerrydbTableName | None]:

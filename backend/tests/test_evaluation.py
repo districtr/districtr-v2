@@ -99,10 +99,13 @@ Suite 2 — seed=99, 8x8 grid, 8 counties (2x4 blocks), 8 districts (one row eac
   # exactly as in Suite 1.
 """
 
+import math
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from app.evaluation.context import DocumentEvaluationContext, STATE_IDEALS_FOR_EGUIA
 from app.evaluation.partisans import (
@@ -449,3 +452,111 @@ def test_grid_competitiveness_matches_gerrychain(grid_district_context):
     result = competitive_metrics(grid_district_context)
     for col, expected in _GRID_EXPECTED_COMPETITIVENESS.items():
         assert result[col] == expected, f"{col}: {result[col]} != {expected}"
+
+
+# ---------------------------------------------------------------------------
+# Fuzz tests — property-based, via Hypothesis
+#
+# Strategy: generate random vote distributions (min=0, including all-zero) and
+# assert mathematical invariants that must hold for any valid input, including
+# half-baked plans where some or all districts have no votes. Metrics return
+# float("nan") when a result is undefined (zero-vote denominator).
+# ---------------------------------------------------------------------------
+
+_FUZZ_ELECTIONS = [
+    "pres_2016", "pres_2020", "pres_2024",
+    "sen_2016", "sen_2018", "sen_2020", "sen_2022",
+]
+
+
+@st.composite
+def _partisan_district_stats(draw):
+    n = draw(st.integers(min_value=1, max_value=20))
+    districts = []
+    for zone in range(1, n + 1):
+        data = {}
+        for e in _FUZZ_ELECTIONS:
+            data[f"{e}_dem"] = draw(st.integers(min_value=0, max_value=50000))
+            data[f"{e}_rep"] = draw(st.integers(min_value=0, max_value=50000))
+        districts.append(
+            DistrictUnionsResponse(zone=zone, geometry=None, demographic_data=data, updated_at=_now)
+        )
+    return districts
+
+
+@given(_partisan_district_stats())
+@settings(max_examples=100)
+def test_fuzz_seats_invariants(district_stats):
+    ctx = _StubEvaluationContext(district_stats)
+    result = seats(ctx)
+    n = len(district_stats)
+    for col, counts in result.items():
+        assert counts["dem"] >= 0, f"{col}: dem seats negative"
+        assert counts["rep"] >= 0, f"{col}: rep seats negative"
+        # ties count for neither party, so sum may be less than n
+        assert counts["dem"] + counts["rep"] <= n, f"{col}: seat sum exceeds n_districts"
+
+
+@given(_partisan_district_stats())
+@settings(max_examples=100)
+def test_fuzz_efficiency_gap_invariants(district_stats):
+    ctx = _StubEvaluationContext(district_stats)
+    result = efficiency_gap(ctx)
+    assert set(result.keys()) == set(_FUZZ_ELECTIONS)
+    for col, val in result.items():
+        # nan is the defined return when total votes = 0
+        assert math.isnan(val) or (-1.0 <= val <= 1.0), f"{col}: EG {val} outside [-1, 1]"
+
+
+@given(_partisan_district_stats())
+@settings(max_examples=100)
+def test_fuzz_mean_median_invariants(district_stats):
+    ctx = _StubEvaluationContext(district_stats)
+    result = mean_median(ctx)
+    assert set(result.keys()) == set(_FUZZ_ELECTIONS)
+    for col, val in result.items():
+        # nan when all districts in this election have zero votes
+        assert math.isnan(val) or (-0.5 <= val <= 0.5), f"{col}: mean-median {val} outside [-0.5, 0.5]"
+
+
+@given(_partisan_district_stats())
+@settings(max_examples=100)
+def test_fuzz_partisan_bias_invariants(district_stats):
+    ctx = _StubEvaluationContext(district_stats)
+    result = partisan_bias(ctx)
+    n = len(district_stats)
+    assert set(result.keys()) == set(_FUZZ_ELECTIONS)
+    for col, val in result.items():
+        assert -0.5 <= val <= 0.5, f"{col}: partisan bias {val} outside [-0.5, 0.5]"
+        # bias = (dem_seats - n/2) / n, so val * 2n is always an integer
+        assert (val * 2 * n) == pytest.approx(round(val * 2 * n), abs=1e-9), (
+            f"{col}: {val} is not a multiple of 1/(2*{n})"
+        )
+
+
+@given(_partisan_district_stats())
+@settings(max_examples=100)
+def test_fuzz_disproportionality_invariants(district_stats):
+    ctx = _StubEvaluationContext(district_stats)
+    result = disproportionality(ctx)
+    assert set(result.keys()) == set(_FUZZ_ELECTIONS)
+    for col, val in result.items():
+        # nan when total votes = 0; otherwise seat_share - vote_share in [-1, 1]
+        assert math.isnan(val) or (-1.0 <= val <= 1.0), f"{col}: disproportionality {val} outside [-1, 1]"
+
+
+@given(_partisan_district_stats())
+@settings(max_examples=100)
+def test_fuzz_competitive_metrics_invariants(district_stats):
+    ctx = _StubEvaluationContext(district_stats)
+    result = competitive_metrics(ctx)
+    n = len(district_stats)
+    n_e = len(_FUZZ_ELECTIONS)
+    assert result["n_districts"] == n
+    assert result["n_elections"] == n_e
+    for key in ("n_dem_districts", "n_rep_districts", "n_swing_districts", "n_competitive_districts"):
+        assert result[key] >= 0, f"{key} is negative"
+    # every district must be dem, rep, or swing
+    assert result["n_dem_districts"] + result["n_rep_districts"] + result["n_swing_districts"] == n
+    # competitive contests counted per (district, election) pair
+    assert result["n_competitive_districts"] <= n * n_e

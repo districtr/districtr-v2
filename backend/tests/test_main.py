@@ -1390,6 +1390,28 @@ def test_get_document_evaluation_recomputes_after_document_update(
     assert get_compute_calls() == 2
 
 
+def test_compute_metrics_returns_empty_payload_for_unassigned_document(monkeypatch):
+    """compute_metrics returns {} when no districts are assigned.
+
+    Covers two real cases: a plan with zero assignments (district_stats is an
+    empty list) and a plan whose district_stats contains only the unassigned
+    row (zone=None). Both collapse to num_nonempty_districts == 0 and should
+    short-circuit to {} rather than returning a dict of empty per-metric dicts.
+    """
+
+    class _EmptyContext:
+        num_nonempty_districts = 0
+
+        def __init__(self, **_):
+            pass
+
+    monkeypatch.setattr(evaluation_main, "DocumentEvaluationContext", _EmptyContext)
+    result = evaluation_main.compute_metrics(
+        background_tasks=None, session=None, document_id="stub"
+    )
+    assert result == {}
+
+
 # --- Variable num_districts / metadata backend tests ---
 
 

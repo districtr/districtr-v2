@@ -68,6 +68,8 @@ def compute_metrics(
     context = DocumentEvaluationContext(
         background_tasks=background_tasks, session=session, document_id=document_id
     )
+    if context.num_nonempty_districts == 0:
+        return {}
     metric_payloads: dict[str, Any] = {}
     for metric in METRICS:
         metric_payloads[metric.key] = metric.compute(context)
