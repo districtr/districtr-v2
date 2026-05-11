@@ -210,12 +210,12 @@ def eguia(context: DocumentEvaluationContext) -> dict[Election, float]:
     """
 
     gerrydb_table = _get_gerrydb_table(context)
+    if not gerrydb_table:
+        return {}
 
-    ideals: dict[ElectionPartyKey, float] = (
-        IDEALS_FOR_EGUIA.get(gerrydb_table, context.session)
-        if gerrydb_table
-        else {}
-    )
+    ideals = IDEALS_FOR_EGUIA.get(gerrydb_table, context.session)
+    if not ideals:
+        return {}
 
     result: dict[Election, float] = {}
     for col in context.elections:

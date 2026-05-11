@@ -9,7 +9,7 @@ Eguia metric.
 
 import dataclasses
 from functools import cached_property
-from typing import NewType
+from typing import ClassVar, NewType
 
 import fastapi
 import numpy as np
@@ -120,7 +120,12 @@ class IdealsForEguia:
     Computed on first request and never recomputed.
     """
 
+    # Stop retrying after this many consecutive empty results to avoid hammering
+    # the DB indefinitely for a permanently malformed gerrydb table.
+    MAX_LOAD_ATTEMPTS: ClassVar[int] = 3
+
     _cache: dict[GerrydbTableName, dict[ElectionPartyKey, float]] = dataclasses.field(default_factory=dict)
+    _attempts: dict[GerrydbTableName, int] = dataclasses.field(default_factory=dict)
 
     def get(
         self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
@@ -132,20 +137,39 @@ class IdealsForEguia:
                 back the ideal. Used both as the cache key and to populate
                 `evaluation.county_demographics` on first request.
             session: SQLModel session for any required DB queries.
+
+        A cached non-empty result is returned immediately. A cached empty result
+        (`{}`) means a prior attempt failed; the call is retried up to
+        `MAX_LOAD_ATTEMPTS` times. After that the singleton returns `{}` without
+        touching the DB, gracefully handling permanently malformed gerrydb tables.
         """
-        if gerrydb_table not in self._cache:
-            self._ensure_county_data(gerrydb_table, session)
-            self._cache[gerrydb_table] = self._compute_ideal(gerrydb_table, session)
-        return self._cache[gerrydb_table]
+        cached = self._cache.get(gerrydb_table)
+        if cached:
+            return cached
+        if self._attempts.get(gerrydb_table, 0) >= self.MAX_LOAD_ATTEMPTS:
+            return {}
+        self._attempts[gerrydb_table] = self._attempts.get(gerrydb_table, 0) + 1
+        self._ensure_county_data(gerrydb_table, session)
+        ideals = self._compute_ideal(gerrydb_table, session)
+        self._cache[gerrydb_table] = ideals
+        return ideals
 
     def _ensure_county_data(
         self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
     ) -> None:
-        """Populate `evaluation.county_demographics` for `gerrydb_table` if no row
-        exists yet. No-op on subsequent calls."""
+        """Populate `evaluation.county_demographics` for `gerrydb_table` unless at
+        least one row with a non-null total_pop already exists.
+
+        Requiring total_pop IS NOT NULL (rather than mere row existence) guards
+        against a previous load that inserted rows without population data (e.g.
+        because the gerrydb table lacked total_pop_20). Those rows are present but
+        unusable, so we attempt re-population rather than treating them as a
+        successful prior load.
+        """
         exists = session.exec(
             sqlmodel.select(CountyDemographics)
             .where(CountyDemographics.gerrydb_table_name == gerrydb_table)
+            .where(CountyDemographics.total_pop.isnot(None))
             .limit(1)
         ).first()
         if not exists:
