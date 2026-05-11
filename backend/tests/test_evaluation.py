@@ -107,7 +107,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from app.evaluation.context import DocumentEvaluationContext, STATE_IDEALS_FOR_EGUIA
+from app.evaluation.context import DocumentEvaluationContext, IDEALS_FOR_EGUIA
 from app.evaluation.partisans import (
     competitive_metrics,
     eguia,
@@ -298,7 +298,7 @@ _GRID_COUNTY_DEMOGRAPHICS = {
     7: {'total_pop_20': 11334, 'pres_2016_dem': 1992, 'pres_2016_rep': 2503, 'pres_2020_dem': 1970, 'pres_2020_rep': 2279, 'pres_2024_dem': 1825, 'pres_2024_rep': 1852, 'sen_2016_dem': 1792, 'sen_2016_rep': 1793, 'sen_2018_dem': 1938, 'sen_2018_rep': 1732, 'sen_2020_dem': 2576, 'sen_2020_rep': 2130, 'sen_2022_dem': 2280, 'sen_2022_rep': 2224},
 }
 
-_GRID_STATE_FIPS = "00"
+_GRID_GERRYDB_TABLE = "test_table"
 
 _GRID_EXPECTED_EGUIA = {
     "pres_2016": 0.12564661366031227,
@@ -384,11 +384,10 @@ def eguia_context():
     → _ensure_county_data (skipping populate) → _compute_ideal over mocked
     CountyDemographics rows."""
     # Force cache miss so _compute_ideal actually runs
-    STATE_IDEALS_FOR_EGUIA._cache.pop(_GRID_STATE_FIPS, None)
+    IDEALS_FOR_EGUIA._cache.pop(_GRID_GERRYDB_TABLE, None)
 
     doc_row = MagicMock()
-    doc_row.statefps = [_GRID_STATE_FIPS]
-    doc_row.gerrydb_table_name = "test_table"
+    doc_row.gerrydb_table_name = _GRID_GERRYDB_TABLE
 
     county_rows = [
         MagicMock(demographic_data=data)
@@ -396,9 +395,9 @@ def eguia_context():
     ]
 
     # Three sequential session.exec() calls during eguia():
-    #   1. doc_row lookup            → .one()   returns doc_row
-    #   2. _ensure_county_data check → .first() returns truthy (skip populate)
-    #   3. _compute_ideal SELECT     → .all()   returns county_rows
+    #   1. doc_row lookup (_get_gerrydb_table)   → .one()   returns doc_row
+    #   2. _ensure_county_data check             → .first() returns truthy (skip populate)
+    #   3. _compute_ideal SELECT                 → .all()   returns county_rows
     mock_session = MagicMock()
     mock_session.exec.side_effect = [
         MagicMock(**{"one.return_value": doc_row}),
@@ -410,7 +409,7 @@ def eguia_context():
     ctx.session = mock_session
     yield ctx
 
-    STATE_IDEALS_FOR_EGUIA._cache.pop(_GRID_STATE_FIPS, None)
+    IDEALS_FOR_EGUIA._cache.pop(_GRID_GERRYDB_TABLE, None)
 
 
 def test_grid_seats_matches_gerrychain(grid_district_context):

@@ -8,16 +8,13 @@ of view: positive values indicate a Dem advantage, negative values a Rep advanta
 from typing import Tuple, TypedDict
 import sqlmodel
 import numpy as np
-from sqlalchemy import text
 from app.evaluation.context import (
     DocumentEvaluationContext,
     Election,
     ElectionPartyKey,
     GerrydbTableName,
-    STATE_IDEALS_FOR_EGUIA,
-    StateFIPS,
+    IDEALS_FOR_EGUIA,
 )
-from app.utils import assert_safe_ident
 from app.models import DistrictrMap, Document
 
 
@@ -181,41 +178,19 @@ def disproportionality(context: DocumentEvaluationContext) -> dict[Election, flo
             result[col] = (context.dem_seats[col] / context.num_nonempty_districts) - dem_vote_share
     return result
 
-def _get_state_fips_and_gerrydb_table(context: DocumentEvaluationContext) -> tuple[StateFIPS | None, GerrydbTableName | None]:
-    """Resolve the document's state FIPS and gerrydb table name.
-
-    Prefers the `DistrictrMap.statefps[0]` value; falls back to inferring
-    the state FIPS from the gerrydb table's `path` column when statefps is
-    unset. Returns `(None, None)` if neither is available.
-    """
+def _get_gerrydb_table(context: DocumentEvaluationContext) -> GerrydbTableName | None:
+    """Resolve the document's gerrydb table name. Returns `None` if unavailable."""
     doc_row = context.session.exec(
         sqlmodel.select(
             Document,
             DistrictrMap.gerrydb_table_name.label("gerrydb_table_name"),
-            DistrictrMap.statefps.label("statefps"),
         )
         .join(DistrictrMap, Document.districtr_map_slug == DistrictrMap.districtr_map_slug)
         .where(Document.document_id == context.document_id)
     ).one()
 
-    statefps = doc_row.statefps
-    gerrydb_table: GerrydbTableName | None = (
-        GerrydbTableName(doc_row.gerrydb_table_name) if doc_row.gerrydb_table_name else None
-    )
-    state_fips: StateFIPS | None
-    if statefps:
-        state_fips = StateFIPS(statefps[0])
-    elif gerrydb_table:
-        safe_table = assert_safe_ident(gerrydb_table)
-        row = context.session.execute(
-            text(f"SELECT LEFT(SPLIT_PART(path, ':', 2), 2) AS state_fips FROM gerrydb.{safe_table} LIMIT 1")
-        ).first()
-        state_fips = StateFIPS(row.state_fips) if row else None
-    else:
-        state_fips = None
-        gerrydb_table = None
+    return GerrydbTableName(doc_row.gerrydb_table_name) if doc_row.gerrydb_table_name else None
 
-    return state_fips, gerrydb_table
 
 def eguia(context: DocumentEvaluationContext) -> dict[Election, float]:
     """Per-election Eguia score (Dem POV).
@@ -223,21 +198,22 @@ def eguia(context: DocumentEvaluationContext) -> dict[Election, float]:
     Formula:
         E = (S_dem / N) - sum_c (p_c * 1{Dem won county c}) / sum_c p_c
 
-    where the second term sums over counties c in the state, p_c is county population,
-    and 1{·} is an indicator. The benchmark is the Dem seat share that would emerge if
-    districts were drawn at county granularity, weighted by population — a "natural
-    ideal" that respects existing political geography.
+    where the second term sums over counties c in the gerrydb table, p_c is county
+    population, and 1{·} is an indicator. The benchmark is the Dem seat share that
+    would emerge if districts were drawn at county granularity, weighted by population —
+    a "natural ideal" that respects existing political geography. Keyed by
+    gerrydb_table_name so multi-state regions (e.g. Navajo Nation) work correctly.
 
     Reference:
         Eguia, Jon X. (2022). "A Measure of Partisan Advantage in Redistricting."
         Election Law Journal, 21(1): 84–103.
     """
 
-    state_fips, gerrydb_table = _get_state_fips_and_gerrydb_table(context)
+    gerrydb_table = _get_gerrydb_table(context)
 
     ideals: dict[ElectionPartyKey, float] = (
-        STATE_IDEALS_FOR_EGUIA.get(state_fips, gerrydb_table, context.session)
-        if state_fips and gerrydb_table
+        IDEALS_FOR_EGUIA.get(gerrydb_table, context.session)
+        if gerrydb_table
         else {}
     )
 

@@ -24,23 +24,23 @@ def upgrade() -> None:
     op.create_table(
         "county_demographics",
         sa.Column("geoid", sa.Text(), nullable=False),
-        sa.Column("state_fips", sa.Text(), nullable=False),
+        sa.Column("gerrydb_table_name", sa.Text(), nullable=False),
         sa.Column("total_pop", sa.Integer(), nullable=True),
         sa.Column("demographic_data", JSON(), nullable=True),
-        sa.PrimaryKeyConstraint("geoid"),
+        sa.PrimaryKeyConstraint("geoid", "gerrydb_table_name"),
         schema="evaluation",
     )
     op.create_index(
-        "ix_county_demographics_state_fips",
+        "ix_county_demographics_gerrydb_table_name",
         "county_demographics",
-        ["state_fips"],
+        ["gerrydb_table_name"],
         schema="evaluation",
     )
 
 
 def downgrade() -> None:
     op.drop_index(
-        "ix_county_demographics_state_fips",
+        "ix_county_demographics_gerrydb_table_name",
         table_name="county_demographics",
         schema="evaluation",
     )

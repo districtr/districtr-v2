@@ -33,10 +33,8 @@ class Evaluation(TimeStampMixin, SQLModel, table=True):
 class CountyDemographics(SQLModel, table=True):
     """Per-county demographic and election data aggregated from gerrydb VTD/block tables.
 
-    Populated on demand when a state ideal is first requested; never recomputed
-    automatically. If a gerrydb table is re-ingested with updated columns this
-    table must be manually cleared for affected counties:
-        DELETE FROM county_demographics WHERE state_fips = '<state_fips>';
+    Populated on demand when a gerrydb table's ideal is first requested. Since
+    gerrydb tables are immutable once ingested, these rows are permanent.
     """
 
     __tablename__ = "county_demographics"
@@ -44,8 +42,10 @@ class CountyDemographics(SQLModel, table=True):
 
     # 5-char Census GEOID: STATEFP (2) + COUNTYFP (3)
     geoid: str = Field(sa_column=Column(Text, primary_key=True))
-    # Denormalised from geoid[:2] for clean indexed queries by state.
-    state_fips: str = Field(sa_column=Column(Text, nullable=False, index=True))
+    # Gerrydb table that was aggregated to produce this row. Part of the
+    # composite primary key so the same county GEOID can appear once per
+    # source table (e.g. Navajo Nation spans multiple states/tables).
+    gerrydb_table_name: str = Field(sa_column=Column(Text, primary_key=True, index=True))
     # Separate column for total_pop to support split-information queries without
     # deserialising the full demographic_data JSON.
     total_pop: int | None = Field(sa_column=Column(Integer, nullable=True))

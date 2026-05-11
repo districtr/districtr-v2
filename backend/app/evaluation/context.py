@@ -3,7 +3,8 @@
 `DocumentEvaluationContext` is the data bag passed to every metric.
 
 `StateIdealsForEguia` is a singleton (`STATE_IDEALS_FOR_EGUIA`) holding population-weighted
-Dem/Rep county win probabilities per state FIPS. It is only used by the Eguia metric.
+Dem/Rep county win probabilities keyed by gerrydb table name. It is only used by the
+Eguia metric.
 """
 
 import dataclasses
@@ -104,61 +105,59 @@ class DocumentEvaluationContext:
 
 
 @dataclasses.dataclass
-class StateIdealsForEguia:
-    """A singleton lookup of per-state Eguia ideals, which are compared to the plan's
-    seat outcomes to compute the Eguia metric. 
+class IdealsForEguia:
+    """A singleton lookup of per-gerrydb-table Eguia ideals, which are compared to the
+    plan's seat outcomes to compute the Eguia metric.
 
-    For each state FIPS code, records a mapping between election+party string (e.g.
+    For each gerrydb table name, records a mapping between election+party string (e.g.
     "pres_2020_dem") and this party's seat share that would emerge if districts were
     drawn at county granularity, weighted by population.
+
+    Keyed by gerrydb_table_name rather than state FIPS so that multi-state regions
+    (e.g. Navajo Nation) are handled correctly — a single gerrydb table may span
+    counties in several states.
 
     Computed on first request and never recomputed.
     """
 
-    _cache: dict[StateFIPS, dict[ElectionPartyKey, float]] = dataclasses.field(default_factory=dict)
+    _cache: dict[GerrydbTableName, dict[ElectionPartyKey, float]] = dataclasses.field(default_factory=dict)
 
     def get(
-        self, state_fips: StateFIPS, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
+        self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
     ) -> dict[ElectionPartyKey, float]:
-        """Return the per-ElectionPartyKey seat share expectation dict for `state_fips`.
+        """Return the per-ElectionPartyKey seat share expectation dict for `gerrydb_table`.
 
         Args:
-            state_fips: the state FIPS code to look up.
-            gerrydb_table: Source VTD/block table used to populate county
-                demographics on first request for this state. Ignored if the state
-                already has rows in `evaluation.county_demographics`.
+            gerrydb_table: Source VTD/block table whose county-level aggregates
+                back the ideal. Used both as the cache key and to populate
+                `evaluation.county_demographics` on first request.
             session: SQLModel session for any required DB queries.
         """
-        if state_fips not in self._cache:
-            self._ensure_county_data(state_fips, gerrydb_table, session)
-            self._cache[state_fips] = self._compute_ideal(state_fips, session)
-        return self._cache[state_fips]
+        if gerrydb_table not in self._cache:
+            self._ensure_county_data(gerrydb_table, session)
+            self._cache[gerrydb_table] = self._compute_ideal(gerrydb_table, session)
+        return self._cache[gerrydb_table]
 
     def _ensure_county_data(
-        self, state_fips: StateFIPS, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
+        self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
     ) -> None:
-        """Populate `evaluation.county_demographics` for `state_fips` if no row
+        """Populate `evaluation.county_demographics` for `gerrydb_table` if no row
         exists yet. No-op on subsequent calls."""
         exists = session.exec(
             sqlmodel.select(CountyDemographics)
-            .where(CountyDemographics.state_fips == state_fips)
+            .where(CountyDemographics.gerrydb_table_name == gerrydb_table)
             .limit(1)
         ).first()
         if not exists:
-            self._populate_county_data(state_fips, gerrydb_table, session)
+            self._populate_county_data(gerrydb_table, session)
 
     def _populate_county_data(
-        self, state_fips: StateFIPS, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
+        self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
     ) -> None:
         """Aggregate VTD/block-level demographics up to county level.
 
         Groups gerrydb rows by the first 5 characters of their path after the colon
         prefix (e.g. ``vtd:20051XXXX`` → county GEOID ``20051``).
-
-        NOTE: This table must be manually cleared if the source gerrydb table is
-        re-ingested with updated data:
-            DELETE FROM evaluation.county_demographics WHERE state_fips =
-            '<state_fips>';
         """
         safe_table = assert_safe_ident(gerrydb_table)
         demo_cols = get_gerrydb_numeric_cols(session, safe_table)
@@ -170,27 +169,26 @@ class StateIdealsForEguia:
         total_pop_expr = "SUM(total_pop_20)" if "total_pop_20" in demo_cols else "NULL"
 
         insert_sql = f"""
-            INSERT INTO evaluation.county_demographics (geoid, state_fips, total_pop, demographic_data)
+            INSERT INTO evaluation.county_demographics (geoid, gerrydb_table_name, total_pop, demographic_data)
             SELECT
                 LEFT(SPLIT_PART(path, ':', 2), 5) AS geoid,
-                :state_fips AS state_fips,
+                :gerrydb_table AS gerrydb_table_name,
                 {total_pop_expr} AS total_pop,
                 {demographic_json} AS demographic_data
             FROM gerrydb.{safe_table}
-            WHERE LEFT(SPLIT_PART(path, ':', 2), 2) = :state_fips
             GROUP BY LEFT(SPLIT_PART(path, ':', 2), 5)
-            ON CONFLICT (geoid) DO NOTHING
+            ON CONFLICT (geoid, gerrydb_table_name) DO NOTHING
         """
-        session.execute(sqlalchemy.text(insert_sql), {"state_fips": state_fips})
+        session.execute(sqlalchemy.text(insert_sql), {"gerrydb_table": gerrydb_table})
         session.commit()
 
     def _compute_ideal(
-        self, state_fips: StateFIPS, session: sqlmodel.Session
+        self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
     ) -> dict[ElectionPartyKey, float]:
         """Population-weighted county-level Dem/Rep win frequency per election."""
         rows = session.exec(
             sqlmodel.select(CountyDemographics).where(
-                CountyDemographics.state_fips == state_fips
+                CountyDemographics.gerrydb_table_name == gerrydb_table
             )
         ).all()
 
@@ -224,5 +222,5 @@ class StateIdealsForEguia:
         return ideals
 
 
-# Server-owned singleton. Shared across all requests; one entry per state FIPS.
-STATE_IDEALS_FOR_EGUIA = StateIdealsForEguia()
+# Server-owned singleton. Shared across all requests; one entry per gerrydb table.
+IDEALS_FOR_EGUIA = IdealsForEguia()
