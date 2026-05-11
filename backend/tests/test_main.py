@@ -217,13 +217,13 @@ def document_total_vap_fixture(
     return document_id
 
 
-@pytest.fixture(name="document_id_total_vap_isolated")
-def document_total_vap_isolated_fixture(
+@pytest.fixture(name="assignments_document_id_total_vap_isolated")
+def assignments_total_vap_isolated_fixture(
     engine,
     client_isolated_sessions,
     ks_demo_view_census_blocks_total_vap,
 ):
-    """Document for tests that use client_isolated_sessions (per-request DB sessions).
+    """Assigned document for tests that use client_isolated_sessions (per-request DB sessions).
 
     Map metadata must be committed on a real transaction so pooled connections used
     by TestClient can see it; rows created only on the rollback_session fixture are not
@@ -257,7 +257,18 @@ def document_total_vap_isolated_fixture(
         },
     )
     assert response.status_code == 201
-    return response.json()["document_id"]
+    document_id = response.json()["document_id"]
+
+    assigned = client_isolated_sessions.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "assignments": [["202090441022004", 1]],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+        },
+    )
+    assert assigned.status_code == 200
+    return document_id
 
 
 @pytest.fixture(name="document_id_all_stats")
@@ -1295,16 +1306,17 @@ def patch_evaluation_metric(monkeypatch):
 
 
 def test_get_document_evaluation_uses_cached_row(
-    client, document_id_total_vap, patch_evaluation_metric
+    client, assignments_document_id_total_vap, patch_evaluation_metric
 ):
     get_compute_calls = patch_evaluation_metric
+    document_id = assignments_document_id_total_vap
 
-    first = client.get(f"/api/document/{document_id_total_vap}/evaluation")
+    first = client.get(f"/api/document/{document_id}/evaluation")
     assert first.status_code == 200
     assert first.json() == {"seats": {"dem": 1, "rep": 0}}
     assert get_compute_calls() == 1
 
-    second = client.get(f"/api/document/{document_id_total_vap}/evaluation")
+    second = client.get(f"/api/document/{document_id}/evaluation")
     assert second.status_code == 200
     assert second.json() == {"seats": {"dem": 1, "rep": 0}}
     assert get_compute_calls() == 1
@@ -1312,30 +1324,31 @@ def test_get_document_evaluation_uses_cached_row(
 
 def test_get_document_evaluation_refreshes_stale_cache(
     client,
-    document_id_total_vap,
+    assignments_document_id_total_vap,
     patch_evaluation_metric,
     session: Session,
 ):
     get_compute_calls = patch_evaluation_metric
+    document_id = assignments_document_id_total_vap
 
-    first = client.get(f"/api/document/{document_id_total_vap}/evaluation")
+    first = client.get(f"/api/document/{document_id}/evaluation")
     assert first.status_code == 200
     assert first.json() == {"seats": {"dem": 1, "rep": 0}}
     assert get_compute_calls() == 1
 
     cached = session.exec(
-        select(Evaluation).where(Evaluation.document_id == document_id_total_vap)
+        select(Evaluation).where(Evaluation.document_id == document_id)
     ).one()
     cached.payload_version = CURRENT_PAYLOAD_VERSION + 1
     session.commit()
 
-    second = client.get(f"/api/document/{document_id_total_vap}/evaluation")
+    second = client.get(f"/api/document/{document_id}/evaluation")
     assert second.status_code == 200
     assert second.json() == {"seats": {"dem": 2, "rep": 0}}
     assert get_compute_calls() == 2
 
     refreshed = session.exec(
-        select(Evaluation).where(Evaluation.document_id == document_id_total_vap)
+        select(Evaluation).where(Evaluation.document_id == document_id)
     ).one()
     assert refreshed.payload_version == CURRENT_PAYLOAD_VERSION
     assert refreshed.metrics == {"seats": {"dem": 2, "rep": 0}}
@@ -1343,13 +1356,13 @@ def test_get_document_evaluation_refreshes_stale_cache(
 
 def test_get_document_evaluation_recomputes_after_document_update(
     client_isolated_sessions,
-    document_id_total_vap_isolated,
+    assignments_document_id_total_vap_isolated,
     patch_evaluation_metric,
     session: Session,
 ):
     get_compute_calls = patch_evaluation_metric
     client = client_isolated_sessions
-    document_id = document_id_total_vap_isolated
+    document_id = assignments_document_id_total_vap_isolated
 
     first = client.get(f"/api/document/{document_id}/evaluation")
     assert first.status_code == 200
