@@ -200,6 +200,7 @@ class IdealsForEguia:
                 {total_pop_expr} AS total_pop,
                 {demographic_json} AS demographic_data
             FROM gerrydb.{safe_table}
+            WHERE path LIKE '%:%'
             GROUP BY LEFT(SPLIT_PART(path, ':', 2), 5)
             ON CONFLICT (geoid, gerrydb_table_name) DO NOTHING
         """
