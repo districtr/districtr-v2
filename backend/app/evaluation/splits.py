@@ -4,7 +4,6 @@ Each public function takes a `DocumentEvaluationContext` and returns a mapping f
 county's geoid to the forced and actual splits by the document's districts.
 """
 
-import logging
 from typing import Tuple
 
 import sqlalchemy
@@ -14,8 +13,6 @@ from app.evaluation.context import (
     DocumentEvaluationContext,
     CountyGeoid,
 )
-
-logger = logging.getLogger(__name__)
 
 def county_pieces(context: DocumentEvaluationContext) -> dict[CountyGeoid, Tuple[int, int]]:
     """Returns a mapping from county geoid to a tuple of
@@ -45,18 +42,18 @@ def county_pieces(context: DocumentEvaluationContext) -> dict[CountyGeoid, Tuple
     """
     results = context.session.execute(sqlalchemy.text(query_sql), {"document_id": context.document_id})
 
-    forced_split_pieces: dict[CountyGeoid, int] = {}
-    actual_split_pieces: dict[CountyGeoid, int] = {}
     county_pops: dict[CountyGeoid, int] = COUNTY_CONTEXT.county_populations(context.gerrydb_table, context.session)
-    rows = results.mappings().all()
-    logger.info("county_pieces: %d rows from query", len(rows))
-    for row in rows:
-        county_geoid = row["county_geoid"]
-        zones = row["zones"]
-        logger.info("county_geoid=%r (type=%s) zones=%r", county_geoid, type(county_geoid).__name__, zones)
-        actual_split_pieces[county_geoid] = len(zones)
-        forced_split_pieces[county_geoid] = (county_pops.get(county_geoid, 0) + context.ideal_population - 1) // context.ideal_population
+    if not county_pops:
+        return {}
 
-    result = {geoid: (forced_split_pieces.get(geoid, 0), actual_split_pieces.get(geoid, 0)) for geoid in county_pops}
-    logger.info("county_pieces result keys: %r", list(result.keys()))
-    return result
+    actual_split_pieces: dict[CountyGeoid, int] = {}
+    for row in results.mappings().all():
+        actual_split_pieces[CountyGeoid(row["county_geoid"])] = len(row["zones"])
+
+    return {
+        geoid: (
+            (pop + context.ideal_population - 1) // context.ideal_population,
+            actual_split_pieces.get(geoid, 0),
+        )
+        for geoid, pop in county_pops.items()
+    }
