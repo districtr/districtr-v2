@@ -17,28 +17,37 @@ should invalidate caches,
 
 """
 
-from __future__ import annotations
-
 import hashlib
 from dataclasses import dataclass
 from typing import Any, Callable
+
+from app.evaluation.context import DocumentEvaluationContext
+import app.evaluation.partisans as partisans
 
 
 @dataclass(frozen=True)
 class Metric:
     key: str
     version: int
-    compute: Callable[..., Any]
+    compute: Callable[[DocumentEvaluationContext], Any]
 
 
-METRICS: tuple[Metric, ...] = ()
+METRICS: tuple[Metric, ...] = (
+    Metric(key="seats", version=1, compute=partisans.seats),
+    Metric(key="efficiency_gap", version=1, compute=partisans.efficiency_gap),
+    Metric(key="mean_median", version=1, compute=partisans.mean_median),
+    Metric(key="partisan_bias", version=1, compute=partisans.partisan_bias),
+    Metric(key="eguia", version=1, compute=partisans.eguia_county),
+    Metric(key="proportionality", version=1, compute=partisans.disproportionality),
+    Metric(key="competitiveness", version=1, compute=partisans.competitive_metrics),
+)
 
 
 def hash_payload_version(metrics: tuple[Metric, ...]) -> int:
     """Deterministic 63-bit hash of the supplied manifest.
 
-    Stable across Python versions, OS processes, and architectures
-    (uses ``hashlib`` rather than the randomized built-in ``hash()``).
+    Stable across Python versions, OS processes, and architectures (uses ``hashlib``
+    rather than the randomized built-in ``hash()``).
     """
     items = sorted((m.key, m.version) for m in metrics)
     canonical = "\n".join(f"{k}\t{v}" for k, v in items).encode("utf-8")

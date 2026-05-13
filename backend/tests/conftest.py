@@ -45,6 +45,29 @@ def client_fixture(session: Session):
     app.dependency_overrides.clear()
 
 
+@pytest.fixture(name="client_isolated_sessions")
+def client_isolated_sessions_fixture(engine):
+    """TestClient where each request uses a new Session(engine), like production.
+
+    Avoids a single long-lived session/transaction (e.g. rollback_session) where
+    PostgreSQL ``now()`` is frozen for the whole test.
+    """
+
+    def get_session_override():
+        with Session(engine, expire_on_commit=True) as request_session:
+            yield request_session
+
+    def get_auth_result_override():
+        return {"sub": ACCOUNT_AUTH0_ID}
+
+    app.dependency_overrides[get_session] = get_session_override
+    app.dependency_overrides[auth.verify] = get_auth_result_override
+
+    isolated_client = TestClient(app, headers={"origin": "http://localhost:5173"})
+    yield isolated_client
+    app.dependency_overrides.clear()
+
+
 my_env = os.environ.copy()
 my_env["POSTGRES_DB"] = POSTGRES_TEST_DB
 
