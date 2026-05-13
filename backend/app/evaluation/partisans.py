@@ -47,8 +47,9 @@ def efficiency_gap(context: DocumentEvaluationContext) -> dict[Election, float]:
 
     Reference:
         Stephanopoulos & McGhee (2015), "Partisan Gerrymandering and the Efficiency
-            Gap," University of Chicago Law Review 82:831.
-
+            Gap," University of Chicago Law Review 82:831. Url:
+            https://chicagounbound.uchicago.edu/cgi/viewcontent.cgi?article=1946&context=public_law_and_legal_theory
+            JSTOR: https://www.jstor.org/stable/43410706.
     """
     result: dict[Election, float] = {}
     for col in context.elections:
@@ -85,13 +86,15 @@ def mean_median(context: DocumentEvaluationContext) -> dict[Election, float]:
     Formula:
         MM = median(v_i) - mean(v_i)
 
-    where v_i is district i's Dem two-party vote share. Negative under
-    this sign convention => Dem vote share is right-skewed (a few heavily
-    Dem districts inflate the mean above the median)
+    where v_i is district i's Dem two-party vote share. Negative under this sign
+    convention => Dem vote share is right-skewed (a few heavily Dem districts inflate
+    the mean above the median)
 
     References:
         McDonald & Best (2015), "Unfair Partisan Gerrymanders in Politics and Law: A
-        Diagnostic Applied to Six Cases," Election Law Journal 14:312.
+        Diagnostic Applied to Six Cases," Election Law Journal 14:312. Url:
+        https://www.brennancenter.org/sites/default/files/legal-work/McDonald_Best_Unfair_Gerrymanders_2015.pdf.
+        Doi: https://doi.org/10.1089/elj.2015.0358
     """
     result: dict[Election, float] = {}
     for col in context.elections:
@@ -135,11 +138,12 @@ def partisan_bias(context: DocumentEvaluationContext) -> dict[Election, float]:
     References: King, G., & Browning, R. X. (1987). Democratic representation and
         partisan bias in congressional elections. American Political Science Review,
         81(4), 1251-1273. Url: https://gking.harvard.edu/files/sv.pdf (conceptual
-        foundation)
+        foundation). Doi: https://doi.org/10.2307/1962588
     Katz, J. N., King, G., & Rosenblatt, E. (2020). Theoretical foundations and
         empirical evaluations of partisan fairness in district-based democracies.
         American Political Science Review, 114(1), 164-178. Url:
-        https://jkatz.caltech.edu/documents/28620/psym.pdf (contains formula)
+        https://jkatz.caltech.edu/documents/28620/psym.pdf (contains formula). Doi:
+        https://doi.org/10.1017/S000305541900056X
     """
     result: dict[Election, float] = {}
     for col in context.elections:
@@ -161,10 +165,14 @@ def disproportionality(context: DocumentEvaluationContext) -> dict[Election, flo
     A signed, single-party variant of disproportionality. Zero is exact proportionality;
     positive => Dems advantage.
 
+    TODO: Add in a link to leaky coalitions paper once it is published.
+    
     Reference:
     Katz, J. N., King, G., & Rosenblatt, E. (2020). Theoretical foundations
         and empirical evaluations of partisan fairness in district-based democracies.
-        American Political Science Review, 114(1), 164-178.
+        American Political Science Review, 114(1), 164-178.  Url:
+        https://jkatz.caltech.edu/documents/28620/psym.pdf. Doi:
+        https://doi.org/10.1017/S000305541900056X
     """
     result: dict[Election, float] = {}
     for col in context.elections:
@@ -192,21 +200,21 @@ def _get_gerrydb_table(context: DocumentEvaluationContext) -> GerrydbTableName |
     return GerrydbTableName(doc_row.gerrydb_table_name) if doc_row.gerrydb_table_name else None
 
 
-def eguia(context: DocumentEvaluationContext) -> dict[Election, float]:
+def eguia_county(context: DocumentEvaluationContext) -> dict[Election, float]:
     """Per-election Eguia score (Dem POV).
 
     Formula:
         E = (S_dem / N) - sum_c (p_c * 1{Dem won county c}) / sum_c p_c
 
     where the second term sums over counties c in the gerrydb table, p_c is county
-    population, and 1{·} is an indicator. The benchmark is the Dem seat share that
-    would emerge if districts were drawn at county granularity, weighted by population —
-    a "natural ideal" that respects existing political geography. Keyed by
+    population, and 1{·} is an indicator. The benchmark is the Dem seat share that would
+    emerge if districts were drawn at county granularity, weighted by population — a
+    "natural ideal" that respects existing political geography. Keyed by
     gerrydb_table_name so multi-state regions (e.g. Navajo Nation) work correctly.
 
     Reference:
         Eguia, Jon X. (2022). "A Measure of Partisan Advantage in Redistricting."
-        Election Law Journal, 21(1): 84–103.
+        Election Law Journal, 21(1): 84–103. Doi: https://doi.org/10.1089/elj.2020.0691
     """
 
     gerrydb_table = _get_gerrydb_table(context)

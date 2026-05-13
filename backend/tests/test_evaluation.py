@@ -110,7 +110,7 @@ from hypothesis import strategies as st
 from app.evaluation.context import DocumentEvaluationContext, GerrydbTableName, IDEALS_FOR_EGUIA, IdealsForEguia
 from app.evaluation.partisans import (
     competitive_metrics,
-    eguia,
+    eguia_county,
     efficiency_gap,
     mean_median,
     partisan_bias,
@@ -445,7 +445,7 @@ def test_grid_proportionality_matches_gerrychain(grid_district_context):
 
 
 def test_grid_eguia_matches_gerrychain(eguia_context):
-    result = eguia(eguia_context)
+    result = eguia_county(eguia_context)
     for col, expected in _GRID_EXPECTED_EGUIA.items():
         assert result[col] == pytest.approx(expected), f"{col}"
 
@@ -461,7 +461,7 @@ def test_eguia_returns_empty_when_no_gerrydb_table():
     ctx = _StubEvaluationContext(_GRID_DISTRICT_STATS)
     ctx.session = mock_session
 
-    assert eguia(ctx) == {}
+    assert eguia_county(ctx) == {}
 
 
 def test_eguia_returns_empty_once_attempts_exhausted():
@@ -478,7 +478,7 @@ def test_eguia_returns_empty_once_attempts_exhausted():
 
     IDEALS_FOR_EGUIA._attempts[_GRID_GERRYDB_TABLE] = IdealsForEguia.MAX_LOAD_ATTEMPTS
     try:
-        assert eguia(ctx) == {}
+        assert eguia_county(ctx) == {}
     finally:
         IDEALS_FOR_EGUIA._attempts.pop(_GRID_GERRYDB_TABLE, None)
 

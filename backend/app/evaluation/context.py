@@ -178,10 +178,11 @@ class IdealsForEguia:
     def _populate_county_data(
         self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
     ) -> None:
-        """Aggregate VTD/block-level demographics up to county level.
+        """Aggregate unit-level demographics up to county level.
 
-        Groups gerrydb rows by the first 5 characters of their path after the colon
-        prefix (e.g. ``vtd:20051XXXX`` → county GEOID ``20051``).
+        Extracts the county GEOID (first 5 characters) from each row's path,
+        handling both colon-prefixed paths (e.g. ``vtd:20051XXXX`` → ``20051``)
+        and bare block paths (e.g. ``200510726002341`` → ``20051``).
         """
         safe_table = assert_safe_ident(gerrydb_table)
         demo_cols = get_gerrydb_numeric_cols(session, safe_table)
@@ -195,13 +196,15 @@ class IdealsForEguia:
         insert_sql = f"""
             INSERT INTO evaluation.county_demographics (geoid, gerrydb_table_name, total_pop, demographic_data)
             SELECT
-                LEFT(SPLIT_PART(path, ':', 2), 5) AS geoid,
+                CASE
+                    WHEN path LIKE '%:%' THEN LEFT(SPLIT_PART(path, ':', 2), 5)
+                    ELSE LEFT(path, 5)
+                END AS geoid,
                 :gerrydb_table AS gerrydb_table_name,
                 {total_pop_expr} AS total_pop,
                 {demographic_json} AS demographic_data
             FROM gerrydb.{safe_table}
-            WHERE path LIKE '%:%'
-            GROUP BY LEFT(SPLIT_PART(path, ':', 2), 5)
+            GROUP BY geoid
             ON CONFLICT (geoid, gerrydb_table_name) DO NOTHING
         """
         session.execute(sqlalchemy.text(insert_sql), {"gerrydb_table": gerrydb_table})
