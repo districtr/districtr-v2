@@ -1,21 +1,15 @@
 from app.contiguity.main import (
     check_subgraph_contiguity,
-    get_gerrydb_block_graph,
-    get_gerrydb_graph_file,
-    graph_from_gpkg,
+    subgraph_number_connected_components,
     get_block_assignments,
-    write_graph,
-    S3_BLOCK_PATH,
-    GraphFileFormat,
+    get_block_assignments_bboxes,
+    ZoneBlockNodes,
 )
 
 __all__ = [
     "check_subgraph_contiguity",
-    "get_gerrydb_block_graph",
-    "get_gerrydb_graph_file",
-    "graph_from_gpkg",
+    "subgraph_number_connected_components",
     "get_block_assignments",
-    "write_graph",
-    "S3_BLOCK_PATH",
-    "GraphFileFormat",
+    "get_block_assignments_bboxes",
+    "ZoneBlockNodes",
 ]

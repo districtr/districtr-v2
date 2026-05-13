@@ -19,7 +19,7 @@ from app.utils import (
 )
 from app.core.io import get_local_or_s3_path
 from app.constants import GERRY_DB_SCHEMA
-from app.contiguity.main import write_graph, graph_from_gpkg, GraphFileFormat
+from app.evaluation.context import GraphFileFormat, graph_from_gpkg, write_graph
 from functools import wraps
 from contextlib import contextmanager
 from sqlmodel import Session

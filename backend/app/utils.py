@@ -1,16 +1,18 @@
 import json as json_mod
+import logging
 import re
 from uuid import uuid4
+
+from fastapi import BackgroundTasks
 from sqlalchemy import text, update, Table, MetaData, func
 from sqlalchemy import bindparam, Text
 from sqlalchemy.types import UUID
 from sqlmodel import Session, select, Float
-import logging
+
 from app.constants import GERRY_DB_SCHEMA, PUBLIC_SCHEMA
 from typing import List
 from app.models import UUIDType, DistrictrMap, DistrictrMapUpdate
 from app.models import Document, DistrictUnionsResponse
-from fastapi import BackgroundTasks
 from app.thumbnails.main import generate_thumbnail, THUMBNAIL_BUCKET
 from app.core.config import settings
 
@@ -636,3 +638,5 @@ def update_or_select_district_stats(
         )
         # optional: session.rollback()
         raise
+
+

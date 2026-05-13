@@ -22,7 +22,7 @@ from app.constants import GERRY_DB_SCHEMA
 import subprocess
 import json
 import yaml
-from app.contiguity import graph_from_gpkg, write_graph
+from app.evaluation.context import graph_from_gpkg, write_graph
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)

@@ -8,7 +8,6 @@ from fastapi import (
 from typing import Annotated, Any
 import psutil
 
-import botocore.exceptions
 from sqlalchemy.exc import (
     MultipleResultsFound,
     NoResultFound,
@@ -53,7 +52,7 @@ import app.contiguity.main as contiguity
 import app.evaluation.main as evaluation
 import app.save_share.main as save_share
 import app.thumbnails.main as thumbnails
-from networkx import Graph, connected_components
+from networkx import connected_components
 from app.models import (
     Assignments,
     AssignmentsResponse,
@@ -87,8 +86,8 @@ from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
 from sqlalchemy.sql.functions import coalesce
 from app.utils import update_or_select_district_stats
+from app.evaluation.context import GRAPH_CONTEXT
 from contextlib import asynccontextmanager
-from functools import lru_cache
 from fiona.transform import transform
 from fastapi import BackgroundTasks
 from ._sanitize import (
@@ -121,16 +120,6 @@ app.include_router(thumbnails.router)
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 VERBOSE_LOGGING = settings.VERBOSE_LOGGING
-
-_GRAPH_CACHE_MAX_SIZE = 10
-
-
-@lru_cache(maxsize=_GRAPH_CACHE_MAX_SIZE)
-def _load_gerrydb_graph_cached(gerrydb_name: str) -> Graph:
-    """Resolve path, download if needed, unpickle graph. LRU-cached by gerrydb_name."""
-    path = contiguity.get_gerrydb_graph_file(gerrydb_name)
-    logger.info(f"Graph cache miss, loading from {path}")
-    return contiguity.get_gerrydb_block_graph(path, replace_local_copy=False)
 
 
 # Set all CORS enabled origins
@@ -1259,43 +1248,6 @@ async def get_unassigned_geoids(
     return {"features": [row[0] for row in results if row[0] is not None]}
 
 
-async def _get_graph(gerrydb_name: str) -> Graph:
-    f"""
-    Get a graph from the in-process LRU cache (max size {_GRAPH_CACHE_MAX_SIZE}) or load
-    it from a local file or S3.
-
-    Args:
-        gerrydb_name (str): The name of the GerryDB to get the graph for.
-
-    Returns:
-        Graph: The graph for the given GerryDB.
-
-    Note:
-        Despite being async, graph resolution and loading are synchronous (boto3, disk,
-        unpickle). They run on the asyncio event-loop thread, so a cache miss can block
-        this worker from handling other concurrent requests until loading finishes. Other
-        uvicorn workers are unaffected. Mitigations include keeping the LRU hot, or moving
-        this work to a thread pool / async I/O if contention becomes an issue.
-    """
-    try:
-        G = _load_gerrydb_graph_cached(gerrydb_name)
-    except botocore.exceptions.ClientError as e:
-        # TODO: Maybe in the future this should actually create the graph
-        logger.error(f"Graph not found: {str(e)}")
-        raise HTTPException(
-            status_code=404,
-            detail="Graph unavailable. This map does not support contiguity checks.",
-        )
-    except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Something went wrong: {str(e)}")
-
-    if not isinstance(G, Graph):
-        logger.error(f"Expected Graph, got {type(G)}")
-        raise HTTPException(status_code=500, detail="Error loading graph")
-
-    return G
-
 
 @app.get("/api/document/{document_id}/contiguity")
 async def check_document_contiguity(
@@ -1347,7 +1299,7 @@ async def check_document_contiguity(
             contiguity.ZoneBlockNodes(zone=row.zone, nodes=row.nodes) for row in result
         ]
 
-    G = await _get_graph(gerrydb_name)
+    G = GRAPH_CONTEXT.get_graph(gerrydb_name)
 
     results = {}
     for zone_blocks in zone_assignments:
@@ -1431,7 +1383,7 @@ async def get_connected_component_bboxes(
             },
         )
 
-    G = await _get_graph(gerrydb_name)
+    G = GRAPH_CONTEXT.get_graph(gerrydb_name)
     subgraph = G.subgraph(nodes=zone_assignments.nodes)
 
     if zone_assignments.node_data is None:
@@ -1568,22 +1520,15 @@ async def debug_graph_lru_cache() -> dict[str, Any]:
     """
     GerryDB graph LRU cache stats (hits/misses/size).
 
-    Per-graph heap size is not available: ``functools.lru_cache`` does not expose cached
-    entries. ``process.rss_*`` is whole-worker RSS for rough correlation only.
+    Per-graph heap size is not available: the cache does not expose individual entries.
+    ``process.rss_*`` is whole-worker RSS for rough correlation only.
     """
-    info = _load_gerrydb_graph_cached.cache_info()
-    params = _load_gerrydb_graph_cached.cache_parameters()
+    info = GRAPH_CONTEXT.cache_info()
     rss = psutil.Process().memory_info().rss
 
     return {
         "cache": "gerrydb_graph_lru",
-        "cache_info": {
-            "hits": info.hits,
-            "misses": info.misses,
-            "maxsize": info.maxsize,
-            "currsize": info.currsize,
-        },
-        "cache_parameters": dict(params),
+        "cache_info": info,
         "process": {
             "rss_bytes": rss,
             "rss_mb": round(rss / 1024 / 1024, 2),

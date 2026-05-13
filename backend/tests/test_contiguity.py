@@ -1,16 +1,13 @@
 from fastapi.testclient import TestClient
 from pytest import fixture
 from networkx import Graph, write_gml, read_gml
-from app.main import contiguity
+import app.evaluation.context as graph_context_module
 from app.contiguity.main import (
     check_subgraph_contiguity,
     subgraph_number_connected_components,
-    get_gerrydb_block_graph,
     get_block_assignments,
-    graph_from_gpkg,
-    write_graph,
-    GraphFileFormat,
 )
+from app.evaluation.context import get_gerrydb_block_graph, GraphFileFormat
 from app.utils import create_parent_child_edges
 from tempfile import NamedTemporaryFile
 from tests.constants import FIXTURES_PATH
@@ -82,22 +79,6 @@ def gerrydb_simple_child_geos_graph_path() -> str:
     return str(FIXTURES_PATH / "contiguity" / "simple_child_geos.gml")
 
 
-def test_get_gerrydb_block_graph(file_path: str):
-    G = get_gerrydb_block_graph(file_path, graph_file_format=GraphFileFormat.gml)
-
-    assert set(G.nodes()) == {"a", "b", "c", "d", "e", "f"}
-    assert list(G.edges()) == [
-        ("a", "e"),
-        ("a", "c"),
-        ("e", "f"),
-        ("e", "b"),
-        ("f", "b"),
-        ("c", "d"),
-        ("c", "b"),
-        ("d", "b"),
-    ]
-
-
 @fixture
 def simple_geos_graph(file_path: str) -> Graph:
     """
@@ -157,39 +138,12 @@ def test_subset_of_zones_contiguous(
     assert check_subgraph_contiguity(simple_geos_graph, zone_block_nodes.nodes)
 
 
-def test_graph_from_gpkg():
-    G = graph_from_gpkg(FIXTURES_PATH / "gerrydb" / "ks_ellis_county_block.gpkg")
-    assert len(G.edges) == 5439
-    assert len(G.nodes) == 2296
-
-
-@fixture(name="gpkg_block_graph")
-def ri_vtd_p4_view_graph_fixture() -> Graph:
-    return graph_from_gpkg(FIXTURES_PATH / "gerrydb" / "ks_ellis_county_block.gpkg")
-
-
-def test_write_graph_to_gml(gpkg_block_graph: Graph):
-    with NamedTemporaryFile() as f:
-        gml_path = write_graph(
-            G=gpkg_block_graph,
-            gerrydb_name="gpkg_block_graph",
-            out_path=f.name,
-            graph_file_format=GraphFileFormat.gml,
-        )
-        print(gml_path)
-        G = read_gml(gml_path)
-        assert len(G.edges) == 5439
-        assert len(G.nodes) == 2296
-        assert G.edges == gpkg_block_graph.edges
-        assert G.nodes == gpkg_block_graph.nodes
-
-
 @fixture
 def mock_gerrydb_graph_file(monkeypatch):
     def mock_get_file(gerrydb_name: str) -> str:
         return f"{FIXTURES_PATH}/contiguity/{gerrydb_name}.pkl"
 
-    monkeypatch.setattr(contiguity, "get_gerrydb_graph_file", mock_get_file)
+    monkeypatch.setattr(graph_context_module, "get_gerrydb_graph_file", mock_get_file)
 
 
 def test_simple_geos_contiguity(
