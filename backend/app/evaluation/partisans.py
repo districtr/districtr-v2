@@ -200,8 +200,8 @@ def eguia_county(context: DocumentEvaluationContext) -> dict[Election, float]:
     """
 
     # Keyed by parent_layer rather than gerrydb_table_name, since the latter may integrate
-    # both the parent layer and the child layer (e.g. block-level vs. vtd-level), which
-    # which, when aggregated, will result in double the population counts.
+    # both the parent layer and the child layer (e.g. block-level vs. vtd-level), which, 
+    # when aggregated, will result in double population counts.
     parent_layer = context.parent_layer
     if not parent_layer:
         return {}

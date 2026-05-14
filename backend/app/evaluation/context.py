@@ -212,6 +212,21 @@ class IdealsForEguia:
         and bare block paths (e.g. ``200510726002341`` → ``20051``).
         """
         safe_table = assert_safe_ident(gerrydb_table)
+
+        # Guard: skip if this is not a plain table (relkind='r'). Materialized views
+        # created by create_shatterable_gerrydb_view are UNION ALL of parent + child
+        # layers; aggregating them up to county level would double-count every row.
+        relkind = session.execute(
+            sqlalchemy.text(
+                "SELECT relkind FROM pg_class "
+                "JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid "
+                "WHERE relname = :name AND nspname = 'gerrydb'"
+            ),
+            {"name": gerrydb_table},
+        ).scalar_one_or_none()
+        if relkind != "r":
+            return
+
         demo_cols = get_gerrydb_numeric_cols(session, safe_table)
 
         if not demo_cols:
