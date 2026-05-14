@@ -380,15 +380,15 @@ def grid_district_context():
 
 @pytest.fixture
 def eguia_context():
-    """Exercises the full Eguia path: doc_row lookup → StateIdealsForEguia miss
+    """Exercises the full Eguia path: _districtr_map lookup → IdealsForEguia miss
     → _ensure_county_data (skipping populate) → _compute_ideal over mocked
     CountyDemographics rows."""
     # Force full cache+attempt miss so _compute_ideal actually runs
     IDEALS_FOR_EGUIA._cache.pop(_GRID_GERRYDB_TABLE, None)
     IDEALS_FOR_EGUIA._attempts.pop(_GRID_GERRYDB_TABLE, None)
 
-    doc_row = MagicMock()
-    doc_row.gerrydb_table_name = _GRID_GERRYDB_TABLE
+    map_mock = MagicMock()
+    map_mock.parent_layer = _GRID_GERRYDB_TABLE
 
     county_rows = [
         MagicMock(demographic_data=data)
@@ -396,12 +396,12 @@ def eguia_context():
     ]
 
     # Three sequential session.exec() calls during eguia():
-    #   1. doc_row lookup (_get_gerrydb_table)   → .one()   returns doc_row
-    #   2. _ensure_county_data check             → .first() returns truthy (skip populate)
-    #   3. _compute_ideal SELECT                 → .all()   returns county_rows
+    #   1. _districtr_map lookup          → .one_or_none() returns map_mock
+    #   2. _ensure_county_data check      → .first() returns truthy (skip populate)
+    #   3. _compute_ideal SELECT          → .all()   returns county_rows
     mock_session = MagicMock()
     mock_session.exec.side_effect = [
-        MagicMock(**{"one.return_value": doc_row}),
+        MagicMock(**{"one_or_none.return_value": map_mock}),
         MagicMock(**{"first.return_value": county_rows[0]}),
         MagicMock(**{"all.return_value": county_rows}),
     ]
@@ -451,12 +451,9 @@ def test_grid_eguia_matches_gerrychain(eguia_context):
 
 
 def test_eguia_returns_empty_when_no_gerrydb_table():
-    """eguia() returns {} when the document has no associated gerrydb table."""
-    doc_row = MagicMock()
-    doc_row.gerrydb_table_name = None
-
+    """eguia() returns {} when no DistrictrMap is found for the document."""
     mock_session = MagicMock()
-    mock_session.exec.return_value.one.return_value = doc_row
+    mock_session.exec.return_value.one_or_none.return_value = None
 
     ctx = _StubEvaluationContext(_GRID_DISTRICT_STATS)
     ctx.session = mock_session
@@ -467,11 +464,11 @@ def test_eguia_returns_empty_when_no_gerrydb_table():
 def test_eguia_returns_empty_once_attempts_exhausted():
     """eguia() returns {} once MAX_LOAD_ATTEMPTS is reached without a successful
     ideal computation (e.g. malformed gerrydb table missing total_pop_20)."""
-    doc_row = MagicMock()
-    doc_row.gerrydb_table_name = _GRID_GERRYDB_TABLE
+    map_mock = MagicMock()
+    map_mock.parent_layer = _GRID_GERRYDB_TABLE
 
     mock_session = MagicMock()
-    mock_session.exec.return_value.one.return_value = doc_row
+    mock_session.exec.return_value.one_or_none.return_value = map_mock
 
     ctx = _StubEvaluationContext(_GRID_DISTRICT_STATS)
     ctx.session = mock_session

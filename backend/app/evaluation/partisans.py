@@ -6,16 +6,13 @@ of view: positive values indicate a Dem advantage, negative values a Rep advanta
 """
 
 from typing import Tuple, TypedDict
-import sqlmodel
 import numpy as np
 from app.evaluation.context import (
     DocumentEvaluationContext,
     Election,
     ElectionPartyKey,
-    GerrydbTableName,
     IDEALS_FOR_EGUIA,
 )
-from app.models import DistrictrMap, Document
 
 
 def _wasted_votes(party1_votes: int, party2_votes: int) -> Tuple[int, int]:
@@ -186,20 +183,6 @@ def disproportionality(context: DocumentEvaluationContext) -> dict[Election, flo
             result[col] = (context.dem_seats[col] / context.num_nonempty_districts) - dem_vote_share
     return result
 
-def _get_gerrydb_table(context: DocumentEvaluationContext) -> GerrydbTableName | None:
-    """Resolve the document's gerrydb table name. Returns `None` if unavailable."""
-    doc_row = context.session.exec(
-        sqlmodel.select(
-            Document,
-            DistrictrMap.gerrydb_table_name.label("gerrydb_table_name"),
-        )
-        .join(DistrictrMap, Document.districtr_map_slug == DistrictrMap.districtr_map_slug)
-        .where(Document.document_id == context.document_id)
-    ).one()
-
-    return GerrydbTableName(doc_row.gerrydb_table_name) if doc_row.gerrydb_table_name else None
-
-
 def eguia_county(context: DocumentEvaluationContext) -> dict[Election, float]:
     """Per-election Eguia score (Dem POV).
 
@@ -209,19 +192,21 @@ def eguia_county(context: DocumentEvaluationContext) -> dict[Election, float]:
     where the second term sums over counties c in the gerrydb table, p_c is county
     population, and 1{·} is an indicator. The benchmark is the Dem seat share that would
     emerge if districts were drawn at county granularity, weighted by population — a
-    "natural ideal" that respects existing political geography. Keyed by
-    gerrydb_table_name so multi-state regions (e.g. Navajo Nation) work correctly.
+    "natural ideal" that respects existing political geography.
 
     Reference:
         Eguia, Jon X. (2022). "A Measure of Partisan Advantage in Redistricting."
         Election Law Journal, 21(1): 84–103. Doi: https://doi.org/10.1089/elj.2020.0691
     """
 
-    gerrydb_table = _get_gerrydb_table(context)
-    if not gerrydb_table:
+    # Keyed by parent_layer rather than gerrydb_table_name, since the latter may integrate
+    # both the parent layer and the child layer (e.g. block-level vs. vtd-level), which
+    # which, when aggregated, will result in double the population counts.
+    parent_layer = context.parent_layer
+    if not parent_layer:
         return {}
 
-    ideals = IDEALS_FOR_EGUIA.get(gerrydb_table, context.session)
+    ideals = IDEALS_FOR_EGUIA.get(parent_layer, context.session)
     if not ideals:
         return {}
 
