@@ -19,10 +19,16 @@ from app.utils import (
 )
 from app.core.io import get_local_or_s3_path
 from app.constants import GERRY_DB_SCHEMA
-from app.evaluation.context import GraphFileFormat, graph_from_gpkg, write_graph
+from app.evaluation.graph import (
+    GraphFileFormat,
+    annotate_graph_with_parents,
+    build_parent_adjacency,
+    graph_from_gpkg,
+    write_graph,
+)
 from functools import wraps
 from contextlib import contextmanager
-from sqlmodel import Session
+from sqlmodel import Session, select as sqlmodel_select
 from typing import Callable, TypeVar, Any, Literal
 from management.load_data import (
     load_sample_data,
@@ -336,39 +342,89 @@ def update_districtr_map(
     logger.info(f"Districtr map updated successfully {result}")
 
 
-@cli.command("create-gerrydb-graph")
-@click.option("--gpkg", "-g", help="Path or URL to GeoPackage file", required=True)
-@click.option("--gerrydb-name", help="Name of the GerryDB table", required=False)
+@cli.command("create-map-graphs")
+@click.option("--districtr-map-slug", "-d", help="Districtr map slug", required=True)
+@click.option(
+    "--gpkg",
+    "-g",
+    help=(
+        "Path or URL to the GeoPackage file. For shatterable maps this must be the "
+        "child-layer gpkg (block-level edges). For non-shatterable maps it is the "
+        "parent-layer gpkg."
+    ),
+    required=True,
+)
 @click.option(
     "--graph-file-format",
-    help="Graph file format to exports. Supports gml and pkl",
+    help="Serialisation format. Supports gml and pkl",
     required=False,
     type=GraphFileFormat,
     default=GraphFileFormat.pkl,
 )
 @click.option(
     "--skip-upload",
-    help="Whether to upload to S3",
-    required=False,
-    default=False,
-    type=bool,
+    help="Skip uploading graphs to S3",
     is_flag=True,
+    default=False,
 )
-def create_gerrydb_graph(
+@with_session
+def create_map_graphs(
+    session: Session,
+    districtr_map_slug: str,
     gpkg: str,
-    gerrydb_name: str,
     graph_file_format: GraphFileFormat,
     skip_upload: bool,
 ):
-    logger.info("Creating gerrydb graph GML...")
-    G = graph_from_gpkg(gpkg)
-    out_path_local = write_graph(
-        G=G,
-        gerrydb_name=gerrydb_name,
-        upload_to_s3=not skip_upload,
-        graph_file_format=graph_file_format,
-    )
-    logger.info(f"Graph file written to {out_path_local}")
+    """Build and persist graph files for a districtr map.
+
+    For shatterable maps (those with a child layer), produces:
+      - {child_layer}.pkl  — block graph annotated with parent-unit paths
+      - {parent_layer}.pkl — weighted parent-unit adjacency graph
+
+    For non-shatterable maps, produces:
+      - {gerrydb_table_name}.pkl — plain adjacency graph, no annotation
+    """
+    m = session.exec(
+        sqlmodel_select(DistrictrMap).where(
+            DistrictrMap.districtr_map_slug == districtr_map_slug
+        )
+    ).one_or_none()
+    if m is None:
+        raise click.ClickException(f"No map found with slug {districtr_map_slug!r}")
+
+    upload = not skip_upload
+
+    if m.child_layer:
+        logger.info("Shatterable map — building annotated child graph and weighted parent adjacency")
+
+        G_child = graph_from_gpkg(gpkg)
+        G_child = annotate_graph_with_parents(G_child, session, str(m.uuid))
+        write_graph(
+            G=G_child,
+            gerrydb_name=m.child_layer,
+            upload_to_s3=upload,
+            graph_file_format=graph_file_format,
+        )
+        logger.info(f"Child graph written for {m.child_layer!r}")
+
+        G_parent = build_parent_adjacency(G_child)
+        write_graph(
+            G=G_parent,
+            gerrydb_name=m.parent_layer,
+            upload_to_s3=upload,
+            graph_file_format=graph_file_format,
+        )
+        logger.info(f"Parent adjacency graph written for {m.parent_layer!r}")
+    else:
+        logger.info("Non-shatterable map — building plain graph")
+        G = graph_from_gpkg(gpkg)
+        write_graph(
+            G=G,
+            gerrydb_name=m.gerrydb_table_name,
+            upload_to_s3=upload,
+            graph_file_format=graph_file_format,
+        )
+        logger.info(f"Graph written for {m.gerrydb_table_name!r}")
 
 
 @cli.command("create-shatterable-districtr-view")

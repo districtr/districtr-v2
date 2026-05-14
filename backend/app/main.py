@@ -86,7 +86,7 @@ from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
 from sqlalchemy.sql.functions import coalesce
 from app.utils import update_or_select_district_stats
-from app.evaluation.context import GRAPH_CONTEXT
+from app.evaluation.graph import get_graph
 from contextlib import asynccontextmanager
 from fiona.transform import transform
 from fastapi import BackgroundTasks
@@ -1299,7 +1299,7 @@ async def check_document_contiguity(
             contiguity.ZoneBlockNodes(zone=row.zone, nodes=row.nodes) for row in result
         ]
 
-    G = GRAPH_CONTEXT.get_graph(gerrydb_name)
+    G = get_graph(gerrydb_name)
 
     results = {}
     for zone_blocks in zone_assignments:
@@ -1383,7 +1383,7 @@ async def get_connected_component_bboxes(
             },
         )
 
-    G = GRAPH_CONTEXT.get_graph(gerrydb_name)
+    G = get_graph(gerrydb_name)
     subgraph = G.subgraph(nodes=zone_assignments.nodes)
 
     if zone_assignments.node_data is None:
@@ -1523,7 +1523,7 @@ async def debug_graph_lru_cache() -> dict[str, Any]:
     Per-graph heap size is not available: the cache does not expose individual entries.
     ``process.rss_*`` is whole-worker RSS for rough correlation only.
     """
-    info = GRAPH_CONTEXT.cache_info()
+    info = get_graph.cache_info()
     rss = psutil.Process().memory_info().rss
 
     return {

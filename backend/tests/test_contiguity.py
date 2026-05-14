@@ -1,13 +1,12 @@
 from fastapi.testclient import TestClient
 from pytest import fixture
 from networkx import Graph, write_gml, read_gml
-import app.evaluation.context as graph_context_module
 from app.contiguity.main import (
     check_subgraph_contiguity,
     subgraph_number_connected_components,
     get_block_assignments,
 )
-from app.evaluation.context import get_gerrydb_block_graph, GraphFileFormat
+import app.evaluation.graph as graph
 from app.utils import create_parent_child_edges
 from tempfile import NamedTemporaryFile
 from tests.constants import FIXTURES_PATH
@@ -94,7 +93,7 @@ def simple_geos_graph(file_path: str) -> Graph:
     - B = { b, c, d}
     - C = { f }
     """
-    return get_gerrydb_block_graph(file_path, graph_file_format=GraphFileFormat.gml)
+    return graph.get_gerrydb_block_graph(file_path, graph_file_format=graph.GraphFileFormat.gml)
 
 
 # Idem in test_utils.py
@@ -143,7 +142,7 @@ def mock_gerrydb_graph_file(monkeypatch):
     def mock_get_file(gerrydb_name: str) -> str:
         return f"{FIXTURES_PATH}/contiguity/{gerrydb_name}.pkl"
 
-    monkeypatch.setattr(graph_context_module, "get_gerrydb_graph_file", mock_get_file)
+    monkeypatch.setattr(graph, "get_gerrydb_graph_file", mock_get_file)
 
 
 def test_simple_geos_contiguity(

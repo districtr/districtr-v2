@@ -4,7 +4,7 @@ from networkx import Graph, read_gml
 from pytest import fixture
 from tempfile import NamedTemporaryFile
 from tests.constants import FIXTURES_PATH
-from app.evaluation.context import (
+from app.evaluation.graph import (
     get_gerrydb_block_graph,
     graph_from_gpkg,
     write_graph,

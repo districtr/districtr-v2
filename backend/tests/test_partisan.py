@@ -638,8 +638,8 @@ def test_eguia_uses_parent_layer_not_shatterable_view(
         )
     finally:
         for key in [parent_layer, shatterable_view]:
-            CountyContext._cache.pop(key, None)
-            CountyContext._attempts.pop(key, None)
+            COUNTY_CONTEXT._cache.pop(key, None)
+            COUNTY_CONTEXT._attempts.pop(key, None)
 
 
 # ---------------------------------------------------------------------------

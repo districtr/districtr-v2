@@ -4,7 +4,8 @@ import logging
 
 import sqlmodel
 
-from app.evaluation.context import DocumentEvaluationContext, GRAPH_CONTEXT
+from app.evaluation.context import DocumentEvaluationContext
+from app.evaluation.graph import get_graph
 from app.models import Assignments
 
 logger = logging.getLogger(__name__)
@@ -35,7 +36,6 @@ def block_cut_edges(context: DocumentEvaluationContext) -> int:
     child_gerrydb_name = context.child_layer
     is_shatterable = child_gerrydb_name is not None
     gerrydb_name = child_gerrydb_name or context.gerrydb_table
-    map_obj = context._districtr_map
 
     # Load assignments first — this cheap DB query determines how much graph work
     # is actually needed, allowing us to skip the block graph entirely when all
@@ -62,12 +62,8 @@ def block_cut_edges(context: DocumentEvaluationContext) -> int:
     cut_count = 0
 
     # Step 1 (see above)
-    parent_adj = GRAPH_CONTEXT.get_parent_unit_adjacency(
-        child_gerrydb_name,
-        map_uuid=map_obj.uuid if map_obj else None,
-        session=context.session,
-    )
-    if parent_adj is not None:
+    if is_shatterable:
+        parent_adj = get_graph(context.parent_layer)
         for parent_a, parent_b, data in parent_adj.edges(data=True):
             zone_a = parent_unit_to_zone.get(parent_a)
             zone_b = parent_unit_to_zone.get(parent_b)
@@ -79,17 +75,12 @@ def block_cut_edges(context: DocumentEvaluationContext) -> int:
         return cut_count
     
     # Step 2 (see above)
-    G = GRAPH_CONTEXT.get_graph(gerrydb_name)
+    G = get_graph(gerrydb_name)
     if G is None:
         logger.warning(
             f"cut_edges [{gerrydb_name}]: no graph available, skipping per-unit cut count"
         )
         return cut_count
-    if is_shatterable and map_obj:
-        GRAPH_CONTEXT.ensure_parent_annotations(
-            child_gerrydb_name, map_obj.uuid, context.session
-        )
-
     half_cut = 0
     for unit, zone_unit in unit_to_zone.items():
         for neighbor in G.neighbors(unit):
