@@ -101,6 +101,8 @@ Suite 2 — seed=99, 8x8 grid, 8 counties (2x4 blocks), 8 districts (one row eac
 
 import math
 from datetime import datetime, timezone
+import sqlalchemy
+import sqlmodel
 from unittest.mock import MagicMock
 
 import pytest
@@ -108,6 +110,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from app.evaluation.context import DocumentEvaluationContext, GerrydbTableName, IDEALS_FOR_EGUIA, IdealsForEguia
+from app.evaluation.models import CountyDemographics
 from app.evaluation.partisans import (
     competitive_metrics,
     eguia_county,
@@ -117,7 +120,7 @@ from app.evaluation.partisans import (
     disproportionality,
     seats,
 )
-from app.models import DistrictUnionsResponse
+from app.models import DistrictUnionsResponse, DistrictrMap
 
 
 class _StubEvaluationContext(DocumentEvaluationContext):
@@ -299,6 +302,8 @@ _GRID_COUNTY_DEMOGRAPHICS = {
 }
 
 _GRID_GERRYDB_TABLE = "test_table"
+_KS_PARENT_LAYER = GerrydbTableName("ks_vtds_2020")
+_KS_SHATTERABLE_VIEW = GerrydbTableName("ks_vtds_blocks_shatterable")
 
 _GRID_EXPECTED_EGUIA = {
     "pres_2016": 0.12564661366031227,
@@ -380,15 +385,15 @@ def grid_district_context():
 
 @pytest.fixture
 def eguia_context():
-    """Exercises the full Eguia path: doc_row lookup → StateIdealsForEguia miss
+    """Exercises the full Eguia path: _districtr_map lookup → IdealsForEguia miss
     → _ensure_county_data (skipping populate) → _compute_ideal over mocked
     CountyDemographics rows."""
     # Force full cache+attempt miss so _compute_ideal actually runs
     IDEALS_FOR_EGUIA._cache.pop(_GRID_GERRYDB_TABLE, None)
     IDEALS_FOR_EGUIA._attempts.pop(_GRID_GERRYDB_TABLE, None)
 
-    doc_row = MagicMock()
-    doc_row.gerrydb_table_name = _GRID_GERRYDB_TABLE
+    map_mock = MagicMock()
+    map_mock.parent_layer = _GRID_GERRYDB_TABLE
 
     county_rows = [
         MagicMock(demographic_data=data)
@@ -396,12 +401,12 @@ def eguia_context():
     ]
 
     # Three sequential session.exec() calls during eguia():
-    #   1. doc_row lookup (_get_gerrydb_table)   → .one()   returns doc_row
-    #   2. _ensure_county_data check             → .first() returns truthy (skip populate)
-    #   3. _compute_ideal SELECT                 → .all()   returns county_rows
+    #   1. _districtr_map lookup          → .one_or_none() returns map_mock
+    #   2. _ensure_county_data check      → .first() returns truthy (skip populate)
+    #   3. _compute_ideal SELECT          → .all()   returns county_rows
     mock_session = MagicMock()
     mock_session.exec.side_effect = [
-        MagicMock(**{"one.return_value": doc_row}),
+        MagicMock(**{"one_or_none.return_value": map_mock}),
         MagicMock(**{"first.return_value": county_rows[0]}),
         MagicMock(**{"all.return_value": county_rows}),
     ]
@@ -451,12 +456,9 @@ def test_grid_eguia_matches_gerrychain(eguia_context):
 
 
 def test_eguia_returns_empty_when_no_gerrydb_table():
-    """eguia() returns {} when the document has no associated gerrydb table."""
-    doc_row = MagicMock()
-    doc_row.gerrydb_table_name = None
-
+    """eguia() returns {} when no DistrictrMap is found for the document."""
     mock_session = MagicMock()
-    mock_session.exec.return_value.one.return_value = doc_row
+    mock_session.exec.return_value.one_or_none.return_value = None
 
     ctx = _StubEvaluationContext(_GRID_DISTRICT_STATS)
     ctx.session = mock_session
@@ -467,11 +469,11 @@ def test_eguia_returns_empty_when_no_gerrydb_table():
 def test_eguia_returns_empty_once_attempts_exhausted():
     """eguia() returns {} once MAX_LOAD_ATTEMPTS is reached without a successful
     ideal computation (e.g. malformed gerrydb table missing total_pop_20)."""
-    doc_row = MagicMock()
-    doc_row.gerrydb_table_name = _GRID_GERRYDB_TABLE
+    map_mock = MagicMock()
+    map_mock.parent_layer = _GRID_GERRYDB_TABLE
 
     mock_session = MagicMock()
-    mock_session.exec.return_value.one.return_value = doc_row
+    mock_session.exec.return_value.one_or_none.return_value = map_mock
 
     ctx = _StubEvaluationContext(_GRID_DISTRICT_STATS)
     ctx.session = mock_session
@@ -554,6 +556,90 @@ def test_grid_competitiveness_matches_gerrychain(grid_district_context):
     result = competitive_metrics(grid_district_context)
     for col, expected in _GRID_EXPECTED_COMPETITIVENESS.items():
         assert result[col] == expected, f"{col}: {result[col]} != {expected}"
+
+
+# ---------------------------------------------------------------------------
+# Regression tests: eguia county aggregation must use parent_layer (VTD base
+# table), not the shatterable UNION ALL materialized view.
+# ---------------------------------------------------------------------------
+
+def test_populate_county_data_skips_materialized_view(
+    session, gerrydb_ks_ellis_geos_view
+):
+    """_populate_county_data must be a no-op for materialized views.
+
+    The shatterable gerrydb view (ks_ellis_geos) is a UNION ALL of VTD and
+    block rows. Inserting from it would double-count every county.
+    The pg_class.relkind guard must prevent any rows from being written.
+    """
+    shatterable_view = GerrydbTableName("ks_ellis_geos")
+
+    IdealsForEguia()._populate_county_data(shatterable_view, session)
+
+    rows = session.exec(
+        sqlmodel.select(CountyDemographics).where(
+            CountyDemographics.gerrydb_table_name == shatterable_view
+        )
+    ).all()
+    assert len(rows) == 0, (
+        "county_demographics must not be populated from a materialized view"
+    )
+
+
+def test_eguia_uses_parent_layer_not_shatterable_view(
+    session, gerrydb_ks_ellis_geos_view, ks_ellis_shatterable_districtr_map
+):
+    """Regression: county_demographics must be keyed by parent_layer (VTD base
+    table), never by the shatterable UNION ALL view. Aggregating the view would
+    double-count every county because both VTD and block rows resolve to the
+    same 5-char county GEOID."""
+    parent_layer = GerrydbTableName("ks_ellis_county_vtd")
+    shatterable_view = GerrydbTableName("ks_ellis_geos")
+
+    for key in [parent_layer, shatterable_view]:
+        IDEALS_FOR_EGUIA._cache.pop(key, None)
+        IDEALS_FOR_EGUIA._attempts.pop(key, None)
+
+    try:
+        ks_map = session.exec(
+            sqlmodel.select(DistrictrMap).where(
+                DistrictrMap.gerrydb_table_name == "ks_ellis_geos"
+            )
+        ).one()
+
+        ctx = _StubEvaluationContext([
+            DistrictUnionsResponse(
+                zone=1, geometry=None,
+                demographic_data={"pres_20_dem": 100, "pres_20_rep": 200},
+                updated_at=_now,
+            )
+        ])
+        ctx.session = session
+        ctx._districtr_map = ks_map
+
+        eguia_county(ctx)
+
+        parent_rows = session.exec(
+            sqlmodel.select(CountyDemographics).where(
+                CountyDemographics.gerrydb_table_name == parent_layer
+            )
+        ).all()
+        assert len(parent_rows) > 0, (
+            "county_demographics must be populated from parent_layer (VTD base table)"
+        )
+
+        view_rows = session.exec(
+            sqlmodel.select(CountyDemographics).where(
+                CountyDemographics.gerrydb_table_name == shatterable_view
+            )
+        ).all()
+        assert len(view_rows) == 0, (
+            "county_demographics must not be populated from a materialized view"
+        )
+    finally:
+        for key in [parent_layer, shatterable_view]:
+            IDEALS_FOR_EGUIA._cache.pop(key, None)
+            IDEALS_FOR_EGUIA._attempts.pop(key, None)
 
 
 # ---------------------------------------------------------------------------

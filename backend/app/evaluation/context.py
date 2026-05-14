@@ -18,7 +18,7 @@ import sqlmodel
 import sqlalchemy
 
 from app.evaluation.models import CountyDemographics
-from app.models import DistrictUnionsResponse
+from app.models import DistrictUnionsResponse, DistrictrMap, Document
 from app.utils import (
     update_or_select_district_stats,
     assert_safe_ident,
@@ -103,6 +103,33 @@ class DocumentEvaluationContext:
         """Number of districts with an assigned zone."""
         return sum(1 for d in self.district_stats if d.zone is not None)
 
+    @cached_property
+    def _districtr_map(self) -> DistrictrMap | None:
+        """The DistrictrMap associated with this document."""
+        return self.session.exec(
+            sqlmodel.select(DistrictrMap)
+            .join(Document, Document.districtr_map_slug == DistrictrMap.districtr_map_slug)
+            .where(Document.document_id == self.document_id)
+        ).one_or_none()
+
+    @cached_property
+    def gerrydb_table(self) -> GerrydbTableName | None:
+        """The document's gerrydb table name (may be a shatterable UNION ALL view)."""
+        m = self._districtr_map
+        return GerrydbTableName(m.gerrydb_table_name) if m and m.gerrydb_table_name else None
+
+    @cached_property
+    def parent_layer(self) -> GerrydbTableName | None:
+        """The parent-layer gerrydb table name, used for county-level aggregation."""
+        m = self._districtr_map
+        return GerrydbTableName(m.parent_layer) if m else None
+
+    @cached_property
+    def child_layer(self) -> GerrydbTableName | None:
+        """The child (block-level) gerrydb table name, or `None` for non-shatterable maps."""
+        m = self._districtr_map
+        return GerrydbTableName(m.child_layer) if m and m.child_layer else None
+
 
 @dataclasses.dataclass
 class IdealsForEguia:
@@ -185,6 +212,21 @@ class IdealsForEguia:
         and bare block paths (e.g. ``200510726002341`` → ``20051``).
         """
         safe_table = assert_safe_ident(gerrydb_table)
+
+        # Guard: skip if this is not a plain table (relkind='r'). Materialized views
+        # created by create_shatterable_gerrydb_view are UNION ALL of parent + child
+        # layers; aggregating them up to county level would double-count every row.
+        relkind = session.execute(
+            sqlalchemy.text(
+                "SELECT relkind FROM pg_class "
+                "JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid "
+                "WHERE relname = :name AND nspname = 'gerrydb'"
+            ),
+            {"name": gerrydb_table},
+        ).scalar_one_or_none()
+        if relkind != "r":
+            return
+
         demo_cols = get_gerrydb_numeric_cols(session, safe_table)
 
         if not demo_cols:
