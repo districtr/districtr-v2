@@ -482,7 +482,6 @@ def update_or_select_district_stats(
             {"document_id": document_id},
         )
         existing_mappings = result.mappings().all()
-        logger.info(f"Existing: {existing_mappings}")
         if existing_mappings:
             return [
                 DistrictUnionsResponse.model_validate(row) for row in existing_mappings

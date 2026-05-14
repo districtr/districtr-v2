@@ -11,7 +11,8 @@ from app.evaluation.context import (
     DocumentEvaluationContext,
     Election,
     ElectionPartyKey,
-    IDEALS_FOR_EGUIA,
+    GerrydbTableName,
+    COUNTY_CONTEXT,
 )
 
 
@@ -206,7 +207,7 @@ def eguia_county(context: DocumentEvaluationContext) -> dict[Election, float]:
     if not parent_layer:
         return {}
 
-    ideals = IDEALS_FOR_EGUIA.get(parent_layer, context.session)
+    ideals = COUNTY_CONTEXT.ideals_for_eguia(parent_layer, context.session)
     if not ideals:
         return {}
 

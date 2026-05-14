@@ -109,7 +109,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from app.evaluation.context import DocumentEvaluationContext, GerrydbTableName, IDEALS_FOR_EGUIA, IdealsForEguia
+from app.evaluation.context import DocumentEvaluationContext, GerrydbTableName, COUNTY_CONTEXT, CountyContext
 from app.evaluation.models import CountyDemographics
 from app.evaluation.partisans import (
     competitive_metrics,
@@ -385,18 +385,18 @@ def grid_district_context():
 
 @pytest.fixture
 def eguia_context():
-    """Exercises the full Eguia path: _districtr_map lookup → IdealsForEguia miss
+    """Exercises the full Eguia path: doc_row lookup → CountyContext cache miss
     → _ensure_county_data (skipping populate) → _compute_ideal over mocked
     CountyDemographics rows."""
     # Force full cache+attempt miss so _compute_ideal actually runs
-    IDEALS_FOR_EGUIA._cache.pop(_GRID_GERRYDB_TABLE, None)
-    IDEALS_FOR_EGUIA._attempts.pop(_GRID_GERRYDB_TABLE, None)
+    COUNTY_CONTEXT._cache.pop(_GRID_GERRYDB_TABLE, None)
+    COUNTY_CONTEXT._attempts.pop(_GRID_GERRYDB_TABLE, None)
 
     map_mock = MagicMock()
     map_mock.parent_layer = _GRID_GERRYDB_TABLE
 
     county_rows = [
-        MagicMock(demographic_data=data)
+        MagicMock(demographic_data=data, total_pop=data.get("total_pop_20"))
         for data in _GRID_COUNTY_DEMOGRAPHICS.values()
     ]
 
@@ -415,8 +415,8 @@ def eguia_context():
     ctx.session = mock_session
     yield ctx
 
-    IDEALS_FOR_EGUIA._cache.pop(_GRID_GERRYDB_TABLE, None)
-    IDEALS_FOR_EGUIA._attempts.pop(_GRID_GERRYDB_TABLE, None)
+    COUNTY_CONTEXT._cache.pop(_GRID_GERRYDB_TABLE, None)
+    COUNTY_CONTEXT._attempts.pop(_GRID_GERRYDB_TABLE, None)
 
 
 def test_grid_seats_matches_gerrychain(grid_district_context):
@@ -478,28 +478,28 @@ def test_eguia_returns_empty_once_attempts_exhausted():
     ctx = _StubEvaluationContext(_GRID_DISTRICT_STATS)
     ctx.session = mock_session
 
-    IDEALS_FOR_EGUIA._attempts[_GRID_GERRYDB_TABLE] = IdealsForEguia.MAX_LOAD_ATTEMPTS
+    COUNTY_CONTEXT._attempts[_GRID_GERRYDB_TABLE] = CountyContext.MAX_LOAD_ATTEMPTS
     try:
         assert eguia_county(ctx) == {}
     finally:
-        IDEALS_FOR_EGUIA._attempts.pop(_GRID_GERRYDB_TABLE, None)
+        COUNTY_CONTEXT._attempts.pop(_GRID_GERRYDB_TABLE, None)
 
 
 def test_ideals_for_eguia_retries_then_gives_up():
     """Empty results are retried up to MAX_LOAD_ATTEMPTS times; subsequent calls
     return {} immediately without hitting the DB."""
     table = GerrydbTableName(_GRID_GERRYDB_TABLE)
-    singleton = IdealsForEguia()
+    singleton = CountyContext()
     singleton._ensure_county_data = MagicMock()
     singleton._compute_ideal = MagicMock(return_value={})
 
-    for attempt in range(1, IdealsForEguia.MAX_LOAD_ATTEMPTS + 1):
-        assert singleton.get(table, MagicMock()) == {}
+    for attempt in range(1, CountyContext.MAX_LOAD_ATTEMPTS + 1):
+        assert singleton.ideals_for_eguia(table, MagicMock()) == {}
         assert singleton._compute_ideal.call_count == attempt
 
     # After exhausting attempts, returns {} without additional DB work.
-    singleton.get(table, MagicMock())
-    assert singleton._compute_ideal.call_count == IdealsForEguia.MAX_LOAD_ATTEMPTS
+    singleton.ideals_for_eguia(table, MagicMock())
+    assert singleton._compute_ideal.call_count == CountyContext.MAX_LOAD_ATTEMPTS
 
 
 def test_ideals_for_eguia_recovers_after_transient_failure():
@@ -508,18 +508,18 @@ def test_ideals_for_eguia_recovers_after_transient_failure():
     is never called again."""
     table = GerrydbTableName(_GRID_GERRYDB_TABLE)
     good_ideals = {"pres_2020_dem": 0.6, "pres_2020_rep": 0.4}
-    singleton = IdealsForEguia()
+    singleton = CountyContext()
     singleton._ensure_county_data = MagicMock()
     singleton._compute_ideal = MagicMock(side_effect=[{}, good_ideals])
 
-    assert singleton.get(table, MagicMock()) == {}
+    assert singleton.ideals_for_eguia(table, MagicMock()) == {}
     assert singleton._attempts[table] == 1
 
-    assert singleton.get(table, MagicMock()) == good_ideals
+    assert singleton.ideals_for_eguia(table, MagicMock()) == good_ideals
     assert singleton._cache[table] == good_ideals
 
     # All further calls hit the cache — _compute_ideal is not called again.
-    assert singleton.get(table, MagicMock()) == good_ideals
+    assert singleton.ideals_for_eguia(table, MagicMock()) == good_ideals
     assert singleton._compute_ideal.call_count == 2
 
 
@@ -527,7 +527,7 @@ def test_ensure_county_data_calls_populate_when_no_valid_rows():
     """_ensure_county_data triggers _populate_county_data when no row with
     non-null total_pop exists (covers both the no-rows and null-total_pop cases)."""
     table = GerrydbTableName(_GRID_GERRYDB_TABLE)
-    singleton = IdealsForEguia()
+    singleton = CountyContext()
     singleton._populate_county_data = MagicMock()
 
     mock_session = MagicMock()
@@ -541,7 +541,7 @@ def test_ensure_county_data_calls_populate_when_no_valid_rows():
 def test_ensure_county_data_skips_populate_when_valid_rows_exist():
     """_ensure_county_data is a no-op when a row with non-null total_pop exists."""
     table = GerrydbTableName(_GRID_GERRYDB_TABLE)
-    singleton = IdealsForEguia()
+    singleton = CountyContext()
     singleton._populate_county_data = MagicMock()
 
     mock_session = MagicMock()
@@ -574,7 +574,7 @@ def test_populate_county_data_skips_materialized_view(
     """
     shatterable_view = GerrydbTableName("ks_ellis_geos")
 
-    IdealsForEguia()._populate_county_data(shatterable_view, session)
+    CountyContext()._populate_county_data(shatterable_view, session)
 
     rows = session.exec(
         sqlmodel.select(CountyDemographics).where(
@@ -597,8 +597,8 @@ def test_eguia_uses_parent_layer_not_shatterable_view(
     shatterable_view = GerrydbTableName("ks_ellis_geos")
 
     for key in [parent_layer, shatterable_view]:
-        IDEALS_FOR_EGUIA._cache.pop(key, None)
-        IDEALS_FOR_EGUIA._attempts.pop(key, None)
+        COUNTY_CONTEXT._cache.pop(key, None)
+        COUNTY_CONTEXT._attempts.pop(key, None)
 
     try:
         ks_map = session.exec(
@@ -638,8 +638,8 @@ def test_eguia_uses_parent_layer_not_shatterable_view(
         )
     finally:
         for key in [parent_layer, shatterable_view]:
-            IDEALS_FOR_EGUIA._cache.pop(key, None)
-            IDEALS_FOR_EGUIA._attempts.pop(key, None)
+            CountyContext._cache.pop(key, None)
+            CountyContext._attempts.pop(key, None)
 
 
 # ---------------------------------------------------------------------------

@@ -23,6 +23,7 @@ from typing import Any, Callable
 
 from app.evaluation.context import DocumentEvaluationContext
 import app.evaluation.partisans as partisans
+import app.evaluation.splits as splits
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,7 @@ METRICS: tuple[Metric, ...] = (
     Metric(key="eguia", version=1, compute=partisans.eguia_county),
     Metric(key="proportionality", version=1, compute=partisans.disproportionality),
     Metric(key="competitiveness", version=1, compute=partisans.competitive_metrics),
+    Metric(key="county_splits", version=1, compute=splits.county_pieces),
 )
 
 

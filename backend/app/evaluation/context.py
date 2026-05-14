@@ -2,9 +2,9 @@
 
 `DocumentEvaluationContext` is the data bag passed to every metric.
 
-`StateIdealsForEguia` is a singleton (`STATE_IDEALS_FOR_EGUIA`) holding population-weighted
-Dem/Rep county win probabilities keyed by gerrydb table name. It is only used by the
-Eguia metric.
+`CountyContext` is a singleton (`COUNTY_CONTEXT`) holding two per-gerrydb-table caches:
+  - county populations ({county_geoid: total_pop}), used by splits and Eguia metrics.
+  - population-weighted Dem/Rep county win probabilities, used only by the Eguia metric.
 """
 
 import dataclasses
@@ -25,12 +25,12 @@ from app.utils import (
     get_gerrydb_numeric_cols,
 )
 
-
-StateFIPS = NewType("StateFIPS", str)
 GerrydbTableName = NewType("GerrydbTableName", str)
 Election = NewType("Election", str)
 ElectionPartyKey = NewType("ElectionPartyKey", str)
+CountyGeoid = NewType("CountyGeoid", str)
 
+TOTAL_POP_COL = "total_pop_20"
 
 @dataclasses.dataclass
 class DocumentEvaluationContext:
@@ -53,7 +53,7 @@ class DocumentEvaluationContext:
 
     @cached_property
     def demographic_data(self) -> pd.DataFrame:
-        """Per-zone demographic data."""
+        """Per-zone demographic data for non-empty districts."""
         rows = [
             {"zone": d.zone, **d.demographic_data}
             for d in self.district_stats
@@ -102,6 +102,32 @@ class DocumentEvaluationContext:
     def num_nonempty_districts(self) -> int:
         """Number of districts with an assigned zone."""
         return sum(1 for d in self.district_stats if d.zone is not None)
+    
+    @cached_property
+    def ideal_population(self) -> int:
+        """Ideal population per district."""
+        total_pop = sum(
+            d.demographic_data[TOTAL_POP_COL]
+            for d in self.district_stats
+            if (d.demographic_data and TOTAL_POP_COL in d.demographic_data
+                and d.demographic_data[TOTAL_POP_COL] is not None)
+        )
+        return total_pop // self.num_nonempty_districts
+    
+    @cached_property
+    def gerrydb_table(self) -> GerrydbTableName | None:
+        """Resolve the document's gerrydb table name. Returns `None` if unavailable."""
+        doc_row = self.session.exec(
+            sqlmodel.select(
+                Document,
+                DistrictrMap.gerrydb_table_name.label("gerrydb_table_name"),
+            )
+            .join(DistrictrMap, Document.districtr_map_slug == DistrictrMap.districtr_map_slug)
+            .where(Document.document_id == self.document_id)
+        ).one()
+
+        return GerrydbTableName(doc_row.gerrydb_table_name) if doc_row.gerrydb_table_name else None
+
 
     @cached_property
     def _districtr_map(self) -> DistrictrMap | None:
@@ -132,7 +158,7 @@ class DocumentEvaluationContext:
 
 
 @dataclasses.dataclass
-class IdealsForEguia:
+class CountyContext:
     """A singleton lookup of per-gerrydb-table Eguia ideals, which are compared to the
     plan's seat outcomes to compute the Eguia metric.
 
@@ -152,9 +178,38 @@ class IdealsForEguia:
     MAX_LOAD_ATTEMPTS: ClassVar[int] = 3
 
     _cache: dict[GerrydbTableName, dict[ElectionPartyKey, float]] = dataclasses.field(default_factory=dict)
+    _pop_cache: dict[GerrydbTableName, dict[CountyGeoid, int]] = dataclasses.field(default_factory=dict)
     _attempts: dict[GerrydbTableName, int] = dataclasses.field(default_factory=dict)
 
-    def get(
+    def county_populations(
+        self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
+    ) -> dict[CountyGeoid, int]:
+        """Return a {county_geoid: total_pop} dict for `gerrydb_table`.
+
+        Cached after first load. Returns an empty dict if county data is unavailable
+        (e.g. gerrydb table lacks total_pop_20). Retried up to MAX_LOAD_ATTEMPTS times.
+        """
+        cached = self._pop_cache.get(gerrydb_table)
+        if cached is not None:
+            return cached
+        if self._attempts.get(gerrydb_table, 0) >= self.MAX_LOAD_ATTEMPTS:
+            return {}
+        self._attempts[gerrydb_table] = self._attempts.get(gerrydb_table, 0) + 1
+        self._ensure_county_data(gerrydb_table, session)
+        rows = session.exec(
+            sqlmodel.select(CountyDemographics.geoid, CountyDemographics.total_pop).where(
+                CountyDemographics.gerrydb_table_name == gerrydb_table
+            )
+        ).all()
+        pops = {
+            CountyGeoid(geoid): int(total_pop)
+            for geoid, total_pop in rows
+            if geoid and total_pop is not None
+        }
+        self._pop_cache[gerrydb_table] = pops
+        return pops
+
+    def ideals_for_eguia(
         self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
     ) -> dict[ElectionPartyKey, float]:
         """Return the per-ElectionPartyKey seat share expectation dict for `gerrydb_table`.
@@ -177,9 +232,8 @@ class IdealsForEguia:
             return {}
         self._attempts[gerrydb_table] = self._attempts.get(gerrydb_table, 0) + 1
         self._ensure_county_data(gerrydb_table, session)
-        ideals = self._compute_ideal(gerrydb_table, session)
-        self._cache[gerrydb_table] = ideals
-        return ideals
+        self._cache[gerrydb_table] = self._compute_ideal(gerrydb_table, session)
+        return self._cache[gerrydb_table]
 
     def _ensure_county_data(
         self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
@@ -266,11 +320,7 @@ class IdealsForEguia:
             return {}
 
         df = pd.DataFrame([r.demographic_data or {} for r in rows])
-
-        if "total_pop_20" not in df.columns:
-            return {}
-
-        county_pops = df["total_pop_20"].fillna(0)
+        county_pops = pd.array([r.total_pop or 0 for r in rows], dtype="int64")
         total_pop = county_pops.sum()
         if total_pop == 0:
             return {}
@@ -293,4 +343,4 @@ class IdealsForEguia:
 
 
 # Server-owned singleton. Shared across all requests; one entry per gerrydb table.
-IDEALS_FOR_EGUIA = IdealsForEguia()
+COUNTY_CONTEXT = CountyContext()
