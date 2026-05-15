@@ -25,6 +25,7 @@ from app.evaluation.context import DocumentEvaluationContext
 import app.evaluation.partisans as partisans
 import app.evaluation.splits as splits
 import app.evaluation.compactness as compactness
+import app.evaluation.demographic as demographic
 
 
 @dataclass(frozen=True)
@@ -46,6 +47,7 @@ METRICS: tuple[Metric, ...] = (
     Metric(key="cut_edges", version=1, compute=compactness.block_cut_edges),
     Metric(key="polsby_popper", version=1, compute=compactness.polsby_popper),
     Metric(key="reock", version=1, compute=compactness.reock),
+    Metric(key="majority_districts", version=1, compute=demographic.majority_districts),
 )
 
 

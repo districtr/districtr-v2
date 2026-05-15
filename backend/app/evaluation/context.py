@@ -31,6 +31,7 @@ GerrydbTableName = NewType("GerrydbTableName", str)
 Election = NewType("Election", str)
 ElectionPartyKey = NewType("ElectionPartyKey", str)
 CountyGeoid = NewType("CountyGeoid", str)
+DemographicColumn = NewType("DemographicColumn", str)
 
 TOTAL_POP_COL = "total_pop_20"
 
@@ -70,6 +71,15 @@ class DocumentEvaluationContext:
             Election(s.removesuffix("_dem"))
             for s in self.demographic_data.columns
             if s.endswith("_dem")
+        ]
+
+    @cached_property
+    def demographic_columns(self) -> list[DemographicColumn]:
+        """Demographic columns (e.g. "hpop_20")"""
+        return [
+            col
+            for col in self.demographic_data.columns
+            if "pop" in col and not col.startswith(("other_pop", "total_pop"))
         ]
 
     @cached_property
