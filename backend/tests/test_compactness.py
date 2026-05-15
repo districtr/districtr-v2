@@ -56,12 +56,6 @@ class _StubCompactnessContext(DocumentEvaluationContext):
         self.__dict__["parent_layer"] = parent_layer
 
 
-def _make_session(rows):
-    mock = MagicMock()
-    mock.exec.return_value.all.return_value = rows
-    return mock
-
-
 # ── _infer_unit_type ──────────────────────────────────────────────────────────
 
 
