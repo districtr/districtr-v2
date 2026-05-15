@@ -30,11 +30,13 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
+from fastapi import BackgroundTasks
 from networkx import Graph
 from sqlmodel import Session
 
-from app.evaluation.compactness import _infer_unit_type, block_cut_edges
+from app.evaluation.compactness import _infer_unit_type, block_cut_edges, polsby_popper, reock
 from app.evaluation.context import DocumentEvaluationContext
+from app.utils import create_districtr_map
 from tests.conftest import BLOCK_GRID_NAME, PARENT_GRID_NAME, _block_geoid, _vtd_geoid
 
 
@@ -255,3 +257,81 @@ def test_cut_edges_shatterable_mixed_grid(
     result = block_cut_edges(ctx)
     assert result["unit_type"] == "block"
     assert result["cut_count"] == 16
+
+
+# ── Polsby-Popper ─────────────────────────────────────────────────────────────
+#
+# Fixture map: simple_child_geos (6 polygons a-f, real lat/lon near Kansas)
+# Assignment: {a, b, e, f} → zone 1, {c, d} → zone 2
+#
+# Reference values computed independently with gerrychain + geopandas:
+#   gdf.dissolve(by="zone").to_crs("EPSG:5070") → polsby_popper(partition)
+#   Zone 1: 0.6243085572
+#   Zone 2: 0.5454707812
+
+
+@pytest.fixture(name="simple_child_geos_nonshatterable_districtr_map")
+def simple_child_geos_nonshatterable_districtr_map_fixture(session: Session, simple_child_geos_gerrydb):
+    return create_districtr_map(
+        session,
+        name="Simple child geos non-shatterable",
+        districtr_map_slug="simple_child_ns",
+        gerrydb_table_name="simple_child_geos",
+        num_districts=2,
+        parent_layer="simple_child_geos",
+    )
+
+
+def test_polsby_popper(client, session: Session, simple_child_geos_nonshatterable_districtr_map):
+    """{a,b,e,f} → zone 1, {c,d} → zone 2 against gerrychain reference values."""
+    resp = client.post("/api/create_document", json={"districtr_map_slug": "simple_child_ns"})
+    assert resp.status_code == 201
+    document_id = resp.json()["document_id"]
+
+    _put_assignments(client, document_id, [
+        ["a", 1], ["b", 1], ["c", 2], ["d", 2], ["e", 1], ["f", 1],
+    ])
+
+    ctx = DocumentEvaluationContext(
+        background_tasks=BackgroundTasks(),
+        session=session,
+        document_id=document_id,
+    )
+    scores = polsby_popper(ctx)
+
+    assert scores[1] == pytest.approx(0.6243085572, abs=1e-6)
+    assert scores[2] == pytest.approx(0.5454707812, abs=1e-6)
+
+
+# ── Reock ─────────────────────────────────────────────────────────────────────
+#
+# Fixture map: simple_child_geos (6 polygons a-f, real lat/lon near Kansas)
+# Assignment: {a, b, e, f} → zone 1, {c, d} → zone 2
+#
+# Reference values computed independently with shapely.minimum_bounding_radius
+# on gdf.dissolve(by="zone").to_crs("EPSG:5070") (float64 throughout):
+#   Zone 1: 0.5186788438
+#   Zone 2: 0.4736862803
+# Note: gerrytools._reock gives slightly different values (~7e-5 error) because
+# cv2.minEnclosingCircle requires float32 input, losing ~4 digits of precision.
+
+
+def test_reock(client, session: Session, simple_child_geos_nonshatterable_districtr_map):
+    """{a,b,e,f} → zone 1, {c,d} → zone 2 against gerrytools reference values."""
+    resp = client.post("/api/create_document", json={"districtr_map_slug": "simple_child_ns"})
+    assert resp.status_code == 201
+    document_id = resp.json()["document_id"]
+
+    _put_assignments(client, document_id, [
+        ["a", 1], ["b", 1], ["c", 2], ["d", 2], ["e", 1], ["f", 1],
+    ])
+
+    ctx = DocumentEvaluationContext(
+        background_tasks=BackgroundTasks(),
+        session=session,
+        document_id=document_id,
+    )
+    scores = reock(ctx)
+
+    assert scores[1] == pytest.approx(0.5186788438, abs=1e-6)
+    assert scores[2] == pytest.approx(0.4736862803, abs=1e-6)

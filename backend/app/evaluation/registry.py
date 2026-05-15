@@ -44,6 +44,8 @@ METRICS: tuple[Metric, ...] = (
     Metric(key="competitiveness", version=1, compute=partisans.competitive_metrics),
     Metric(key="county_splits", version=1, compute=splits.county_pieces),
     Metric(key="cut_edges", version=1, compute=compactness.block_cut_edges),
+    Metric(key="polsby_popper", version=1, compute=compactness.polsby_popper),
+    Metric(key="reock", version=1, compute=compactness.reock),
 )
 
 

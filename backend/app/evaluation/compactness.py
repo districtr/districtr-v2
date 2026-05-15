@@ -1,15 +1,25 @@
 """Geometric compactness measures for electoral districts."""
 
 import logging
-from typing import Iterable, TypedDict
+from typing import TypedDict
+import math
+import json
 
 import sqlmodel
+import pyproj
+import shapely
+from shapely import geometry
+from shapely import ops as shapely_ops
 
 from app.evaluation.context import DocumentEvaluationContext
 from app.evaluation.graph import get_graph
 from app.models import Assignments
 
 logger = logging.getLogger(__name__)
+
+_PP_PROJECTION = pyproj.Transformer.from_crs(
+    "EPSG:4326", "EPSG:5070", always_xy=True
+).transform
 
 
 class CutEdgesResult(TypedDict):
@@ -76,7 +86,6 @@ def block_cut_edges(context: DocumentEvaluationContext) -> CutEdgesResult:
         else:
             unit_to_zone[geo_id] = zone
 
-
     cut_count = 0
 
     # Step 1 (see above)
@@ -120,6 +129,56 @@ def block_cut_edges(context: DocumentEvaluationContext) -> CutEdgesResult:
     return {"cut_count": cut_count, "unit_type": unit_type}
 
 
+def _district_polsby_popper(geometry: geometry.base.BaseGeometry) -> float:
+    """Returns the Polsby-Popper compactness score for a single district.
+
+    Formula: 4 * π * Area / Perimeter^2
+    """
+    if geometry is None or geometry.is_empty:
+        return 0.0
+    geom = shapely_ops.transform(_PP_PROJECTION, geometry)
+    perimeter = geom.length
+    if perimeter == 0:
+        return 0.0
+    area = geom.area
+    return 4 * math.pi * area / (perimeter**2)
+
+
 def polsby_popper(context: DocumentEvaluationContext) -> dict[int, float]:
-    """Returns the per-district Polsby-Popper compactness score for the districting plan."""
-    pass
+    """Returns the per-district Polsby-Popper compactness score for a districting
+    plan.
+    """
+    return {
+        d.zone: _district_polsby_popper(geometry.shape(json.loads(d.geometry)))
+        for d in context.district_stats
+        if d.zone is not None
+    }
+
+
+def _district_reock(geometry: geometry.base.BaseGeometry) -> float:
+    """Returns the Reock compactness score for a single district.
+
+    Formula: Area / Area of minimum bounding circle
+    """
+    if geometry is None or geometry.is_empty:
+        return 0.0
+    geom = shapely_ops.transform(_PP_PROJECTION, geometry)
+    area = geom.area
+    # Not using minimum_bounding_circle, because it is approximated by the minimum
+    # bounding radius through a polygon.
+    min_circle_radius = shapely.minimum_bounding_radius(geom)
+    circle_area = math.pi * min_circle_radius**2
+    if circle_area == 0:
+        return 0.0
+    return area / circle_area
+
+
+def reock(context: DocumentEvaluationContext) -> dict[int, float]:
+    """Returns the per-district Reock compactness score for a districting
+    plan.
+    """
+    return {
+        d.zone: _district_reock(geometry.shape(json.loads(d.geometry)))
+        for d in context.district_stats
+        if d.zone is not None
+    }
