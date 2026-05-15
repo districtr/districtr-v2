@@ -86,7 +86,7 @@ def get_gerrydb_graph_file(
     return f"s3://{settings.R2_BUCKET_NAME}/{s3_key}"
 
 
-def get_gerrydb_block_graph(
+def get_gerrydb_graph(
     file_path: str,
     replace_local_copy: bool = False,
     graph_file_format: GraphFileFormat = GraphFileFormat.pkl,
@@ -118,7 +118,7 @@ def get_graph(gerrydb_name: str) -> Graph:
     try:
         path = get_gerrydb_graph_file(gerrydb_name)
         logger.info("Graph cache miss, loading from %s", path)
-        return get_gerrydb_block_graph(path, replace_local_copy=False)
+        return get_gerrydb_graph(path, replace_local_copy=False)
     except botocore.exceptions.ClientError as e:
         logger.error("Graph not found: %s", e)
         raise fastapi.HTTPException(

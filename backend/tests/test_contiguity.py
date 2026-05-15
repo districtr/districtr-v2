@@ -73,13 +73,8 @@ def put_simple_contiguous_assignments(client: TestClient, document_id: str):
     )
 
 
-@fixture(name="file_path")
-def gerrydb_simple_child_geos_graph_path() -> str:
-    return str(FIXTURES_PATH / "contiguity" / "simple_child_geos.gml")
-
-
 @fixture
-def simple_geos_graph(file_path: str) -> Graph:
+def simple_geos_graph(simple_geos_gml_path: str) -> Graph:
     """
     Parents     Children
     A – C       a – e – f
@@ -93,7 +88,7 @@ def simple_geos_graph(file_path: str) -> Graph:
     - B = { b, c, d}
     - C = { f }
     """
-    return graph.get_gerrydb_block_graph(file_path, graph_file_format=graph.GraphFileFormat.gml)
+    return graph.get_gerrydb_graph(simple_geos_gml_path, graph_file_format=graph.GraphFileFormat.gml)
 
 
 # Idem in test_utils.py
@@ -140,7 +135,7 @@ def test_subset_of_zones_contiguous(
 @fixture
 def mock_gerrydb_graph_file(monkeypatch):
     def mock_get_file(gerrydb_name: str) -> str:
-        return f"{FIXTURES_PATH}/contiguity/{gerrydb_name}.pkl"
+        return f"{FIXTURES_PATH}/graph/{gerrydb_name}.pkl"
 
     monkeypatch.setattr(graph, "get_gerrydb_graph_file", mock_get_file)
 

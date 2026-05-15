@@ -60,43 +60,6 @@ Suite 1 — seed=42, 8 districts, no spatial structure
   # _party_districts(part, ELECTIONS, "Democratic"|"Republican")
   # _swing_districts(part, ELECTIONS, "Democratic")
   # _competitive_contests(part, ELECTIONS, "Democratic", points_within=0.03)
-
-----------------------------------------------------------------------------
-Suite 2 — seed=99, 8x8 grid, 8 counties (2x4 blocks), 8 districts (one row each)
-  (_GRID_*)
-----------------------------------------------------------------------------
-
-  import numpy as np, networkx as nx
-  from gerrychain import Graph, Partition
-  from gerrychain.updaters import Election, Tally
-  from gerrytools.scoring.partisan import _eguia_election
-
-  rng = np.random.default_rng(99)
-  cells = {}
-  for n in range(64):
-      row, col = divmod(n, 8)
-      data = {"total_pop_20": int(rng.integers(500, 2001)),
-              "county": (row // 2) * 2 + (col // 4),
-              "zone":   row + 1}
-      for elec in ELECTIONS:
-          total = int(rng.integers(200, 801))
-          dem = int(rng.integers(int(total * 0.3), int(total * 0.7) + 1))
-          data[f"{elec}_dem"] = dem
-          data[f"{elec}_rep"] = total - dem
-      cells[n] = data
-
-  g = nx.convert_node_labels_to_integers(nx.grid_2d_graph(8, 8))
-  for n in range(64): g.nodes[n].update(cells[n])
-  gc_graph = Graph.from_networkx(g)
-
-  updaters = {e: Election(e, {"Democratic": f"{e}_dem", "Republican": f"{e}_rep"}) for e in ELECTIONS}
-  updaters["total_pop_20"] = Tally("total_pop_20")
-  district_part = Partition(gc_graph, {n: cells[n]["zone"]   for n in range(64)}, updaters=updaters)
-  county_part   = Partition(gc_graph, {n: cells[n]["county"] for n in range(64)}, updaters=updaters)
-
-  # Eguia: _eguia_election(district_part, e, "Democratic", county_part, "total_pop_20")
-  # Other partisan metrics computed against district_part[e] (an ElectionResults)
-  # exactly as in Suite 1.
 """
 
 import math
@@ -111,6 +74,7 @@ from hypothesis import strategies as st
 
 from app.evaluation.context import DocumentEvaluationContext, GerrydbTableName, COUNTY_CONTEXT, CountyContext
 from app.evaluation.models import CountyDemographics
+from tests.conftest import PARENT_GRID_NAME, _GRID_BLOCK_ROWS, _GRID_ELEC_COLS
 from app.evaluation.partisans import (
     competitive_metrics,
     eguia_county,
@@ -262,49 +226,34 @@ def test_competitiveness_matches_gerrychain(grid_context):
     for col, expected in _EXPECTED_COMPETITIVENESS.items():
         assert result[col] == expected, f"{col}: {result[col]} != {expected}"
 
-
 # ---------------------------------------------------------------------------
-# Grid-based fixture: 8×8 grid, 8 counties (2-row × 4-col blocks),
-# 8 districts (one row each), seed=99. Generated via gerrychain/gerrytools.
-#
-# County layout (county = (row//2)*2 + (col//4)):
-#   cols 0-3   cols 4-7
-#   --------   --------
-#   0          1         rows 0-1
-#   2          3         rows 2-3
-#   4          5         rows 4-5
-#   6          7         rows 6-7
-#
-# Districts: zone = row + 1, each district spans both county columns.
+# Grid-based partisan metric tests
 # ---------------------------------------------------------------------------
 
-_GRID_DISTRICT_STATS = [
-    DistrictUnionsResponse(zone=1, geometry=None, demographic_data={'pres_2016_dem': 2099, 'pres_2016_rep': 1694, 'pres_2020_dem': 1720, 'pres_2020_rep': 1752, 'pres_2024_dem': 2188, 'pres_2024_rep': 1936, 'sen_2016_dem': 2485, 'sen_2016_rep': 2124, 'sen_2018_dem': 1852, 'sen_2018_rep': 1957, 'sen_2020_dem': 1724, 'sen_2020_rep': 1617, 'sen_2022_dem': 1894, 'sen_2022_rep': 2056}, updated_at=_now),
-    DistrictUnionsResponse(zone=2, geometry=None, demographic_data={'pres_2016_dem': 2817, 'pres_2016_rep': 2052, 'pres_2020_dem': 1711, 'pres_2020_rep': 1854, 'pres_2024_dem': 1783, 'pres_2024_rep': 1645, 'sen_2016_dem': 2228, 'sen_2016_rep': 2208, 'sen_2018_dem': 1611, 'sen_2018_rep': 1411, 'sen_2020_dem': 1859, 'sen_2020_rep': 2231, 'sen_2022_dem': 1915, 'sen_2022_rep': 1662}, updated_at=_now),
-    DistrictUnionsResponse(zone=3, geometry=None, demographic_data={'pres_2016_dem': 2177, 'pres_2016_rep': 2209, 'pres_2020_dem': 2477, 'pres_2020_rep': 2423, 'pres_2024_dem': 2058, 'pres_2024_rep': 1473, 'sen_2016_dem': 2042, 'sen_2016_rep': 1914, 'sen_2018_dem': 2101, 'sen_2018_rep': 2800, 'sen_2020_dem': 1761, 'sen_2020_rep': 1737, 'sen_2022_dem': 1683, 'sen_2022_rep': 2179}, updated_at=_now),
-    DistrictUnionsResponse(zone=4, geometry=None, demographic_data={'pres_2016_dem': 1904, 'pres_2016_rep': 1831, 'pres_2020_dem': 2283, 'pres_2020_rep': 1856, 'pres_2024_dem': 1925, 'pres_2024_rep': 2266, 'sen_2016_dem': 1793, 'sen_2016_rep': 1742, 'sen_2018_dem': 2142, 'sen_2018_rep': 2004, 'sen_2020_dem': 1849, 'sen_2020_rep': 1750, 'sen_2022_dem': 1816, 'sen_2022_rep': 2233}, updated_at=_now),
-    DistrictUnionsResponse(zone=5, geometry=None, demographic_data={'pres_2016_dem': 2309, 'pres_2016_rep': 1994, 'pres_2020_dem': 2282, 'pres_2020_rep': 2178, 'pres_2024_dem': 2022, 'pres_2024_rep': 2688, 'sen_2016_dem': 2085, 'sen_2016_rep': 1670, 'sen_2018_dem': 2666, 'sen_2018_rep': 2576, 'sen_2020_dem': 1982, 'sen_2020_rep': 2218, 'sen_2022_dem': 2040, 'sen_2022_rep': 1388}, updated_at=_now),
-    DistrictUnionsResponse(zone=6, geometry=None, demographic_data={'pres_2016_dem': 2135, 'pres_2016_rep': 1906, 'pres_2020_dem': 2232, 'pres_2020_rep': 1938, 'pres_2024_dem': 1856, 'pres_2024_rep': 1844, 'sen_2016_dem': 2413, 'sen_2016_rep': 2341, 'sen_2018_dem': 2747, 'sen_2018_rep': 2150, 'sen_2020_dem': 1782, 'sen_2020_rep': 1950, 'sen_2022_dem': 1680, 'sen_2022_rep': 1850}, updated_at=_now),
-    DistrictUnionsResponse(zone=7, geometry=None, demographic_data={'pres_2016_dem': 1835, 'pres_2016_rep': 1600, 'pres_2020_dem': 2209, 'pres_2020_rep': 2156, 'pres_2024_dem': 1727, 'pres_2024_rep': 1570, 'sen_2016_dem': 1645, 'sen_2016_rep': 1892, 'sen_2018_dem': 1495, 'sen_2018_rep': 1960, 'sen_2020_dem': 2403, 'sen_2020_rep': 2296, 'sen_2022_dem': 2277, 'sen_2022_rep': 1645}, updated_at=_now),
-    DistrictUnionsResponse(zone=8, geometry=None, demographic_data={'pres_2016_dem': 2087, 'pres_2016_rep': 2905, 'pres_2020_dem': 1756, 'pres_2020_rep': 2144, 'pres_2024_dem': 1929, 'pres_2024_rep': 1928, 'sen_2016_dem': 2412, 'sen_2016_rep': 2084, 'sen_2018_dem': 1910, 'sen_2018_rep': 1508, 'sen_2020_dem': 2171, 'sen_2020_rep': 1937, 'sen_2022_dem': 2026, 'sen_2022_rep': 1887}, updated_at=_now),
-]
+def _aggregate_district_stats(block_rows: list[dict]) -> list[DistrictUnionsResponse]:
+    """Aggregate block rows into per-district DistrictUnionsResponse objects.
 
-# county index -> {total_pop_20, aggregated election votes}
-_GRID_COUNTY_DEMOGRAPHICS = {
-    0: {'total_pop_20': 10023, 'pres_2016_dem': 2707, 'pres_2016_rep': 1939, 'pres_2020_dem': 1698, 'pres_2020_rep': 1784, 'pres_2024_dem': 1787, 'pres_2024_rep': 1350, 'sen_2016_dem': 2393, 'sen_2016_rep': 2177, 'sen_2018_dem': 1919, 'sen_2018_rep': 1662, 'sen_2020_dem': 1831, 'sen_2020_rep': 1702, 'sen_2022_dem': 1732, 'sen_2022_rep': 1973},
-    1: {'total_pop_20': 10106, 'pres_2016_dem': 2209, 'pres_2016_rep': 1807, 'pres_2020_dem': 1733, 'pres_2020_rep': 1822, 'pres_2024_dem': 2184, 'pres_2024_rep': 2231, 'sen_2016_dem': 2320, 'sen_2016_rep': 2155, 'sen_2018_dem': 1544, 'sen_2018_rep': 1706, 'sen_2020_dem': 1752, 'sen_2020_rep': 2146, 'sen_2022_dem': 2077, 'sen_2022_rep': 1745},
-    2: {'total_pop_20': 9329, 'pres_2016_dem': 2199, 'pres_2016_rep': 1812, 'pres_2020_dem': 2398, 'pres_2020_rep': 2062, 'pres_2024_dem': 1612, 'pres_2024_rep': 1989, 'sen_2016_dem': 2182, 'sen_2016_rep': 1991, 'sen_2018_dem': 2241, 'sen_2018_rep': 2188, 'sen_2020_dem': 1661, 'sen_2020_rep': 1706, 'sen_2022_dem': 1758, 'sen_2022_rep': 2181},
-    3: {'total_pop_20': 10141, 'pres_2016_dem': 1882, 'pres_2016_rep': 2228, 'pres_2020_dem': 2362, 'pres_2020_rep': 2217, 'pres_2024_dem': 2371, 'pres_2024_rep': 1750, 'sen_2016_dem': 1653, 'sen_2016_rep': 1665, 'sen_2018_dem': 2002, 'sen_2018_rep': 2616, 'sen_2020_dem': 1949, 'sen_2020_rep': 1781, 'sen_2022_dem': 1741, 'sen_2022_rep': 2231},
-    4: {'total_pop_20': 9811, 'pres_2016_dem': 2363, 'pres_2016_rep': 1957, 'pres_2020_dem': 2256, 'pres_2020_rep': 2263, 'pres_2024_dem': 1825, 'pres_2024_rep': 2577, 'sen_2016_dem': 2195, 'sen_2016_rep': 1867, 'sen_2018_dem': 2453, 'sen_2018_rep': 2585, 'sen_2020_dem': 1903, 'sen_2020_rep': 2087, 'sen_2022_dem': 2065, 'sen_2022_rep': 1688},
-    5: {'total_pop_20': 12872, 'pres_2016_dem': 2081, 'pres_2016_rep': 1943, 'pres_2020_dem': 2258, 'pres_2020_rep': 1853, 'pres_2024_dem': 2053, 'pres_2024_rep': 1955, 'sen_2016_dem': 2303, 'sen_2016_rep': 2144, 'sen_2018_dem': 2960, 'sen_2018_rep': 2141, 'sen_2020_dem': 1861, 'sen_2020_rep': 2081, 'sen_2022_dem': 1655, 'sen_2022_rep': 1550},
-    6: {'total_pop_20': 9896, 'pres_2016_dem': 1930, 'pres_2016_rep': 2002, 'pres_2020_dem': 1995, 'pres_2020_rep': 2021, 'pres_2024_dem': 1831, 'pres_2024_rep': 1646, 'sen_2016_dem': 2265, 'sen_2016_rep': 2183, 'sen_2018_dem': 1467, 'sen_2018_rep': 1736, 'sen_2020_dem': 1998, 'sen_2020_rep': 2103, 'sen_2022_dem': 2023, 'sen_2022_rep': 1308},
-    7: {'total_pop_20': 11334, 'pres_2016_dem': 1992, 'pres_2016_rep': 2503, 'pres_2020_dem': 1970, 'pres_2020_rep': 2279, 'pres_2024_dem': 1825, 'pres_2024_rep': 1852, 'sen_2016_dem': 1792, 'sen_2016_rep': 1793, 'sen_2018_dem': 1938, 'sen_2018_rep': 1732, 'sen_2020_dem': 2576, 'sen_2020_rep': 2130, 'sen_2022_dem': 2280, 'sen_2022_rep': 2224},
-}
+    Zone = block_index // 8 + 1 (8 blocks per row, one district per row).
+    """
+    districts: dict[int, dict] = {}
+    for i, row in enumerate(block_rows):
+        zone = i // 8 + 1
+        if zone not in districts:
+            districts[zone] = {k: 0 for k in _GRID_ELEC_COLS}
+        for k in _GRID_ELEC_COLS:
+            districts[zone][k] += row[k]
+    return [
+        DistrictUnionsResponse(zone=z, geometry=None, demographic_data=data, updated_at=_now)
+        for z, data in sorted(districts.items())
+    ]
 
-_GRID_GERRYDB_TABLE = "test_table"
-_KS_PARENT_LAYER = GerrydbTableName("ks_vtds_2020")
-_KS_SHATTERABLE_VIEW = GerrydbTableName("ks_vtds_blocks_shatterable")
 
+_GRID_DISTRICT_STATS = _aggregate_district_stats(_GRID_BLOCK_ROWS)
+
+_STUB_TABLE = "test_table"
+
+# Expected scores computed by running gerrychain/gerrytools on the data in
+# fixtures/gerrydb/grid_child.csv (see generation script in conftest.py).
 _GRID_EXPECTED_EGUIA = {
     "pres_2016": 0.12564661366031227,
     "pres_2020": 0.23772631478110928,
@@ -374,49 +323,33 @@ _GRID_EXPECTED_COMPETITIVENESS = {
     "n_elections": 7
 }
 
-# ---------------------------------------------------------------------------
-# Grid-based partisan metric tests
-# ---------------------------------------------------------------------------
-
 @pytest.fixture
 def grid_district_context():
     return _StubEvaluationContext(_GRID_DISTRICT_STATS)
 
 
 @pytest.fixture
-def eguia_context():
-    """Exercises the full Eguia path: doc_row lookup → CountyContext cache miss
-    → _ensure_county_data (skipping populate) → _compute_ideal over mocked
-    CountyDemographics rows."""
-    # Force full cache+attempt miss so _compute_ideal actually runs
-    COUNTY_CONTEXT._cache.pop(_GRID_GERRYDB_TABLE, None)
-    COUNTY_CONTEXT._attempts.pop(_GRID_GERRYDB_TABLE, None)
+def eguia_context(session, grid_shatterable_districtr_map):
+    """Exercises the full Eguia path with a real DB session (no mocks).
 
-    map_mock = MagicMock()
-    map_mock.parent_layer = _GRID_GERRYDB_TABLE
+    Data sourced from _GRID_BLOCK_ROWS / _GRID_VTD_ROWS in conftest.py.
+    """
+    COUNTY_CONTEXT._cache.pop(PARENT_GRID_NAME, None)
+    COUNTY_CONTEXT._attempts.pop(PARENT_GRID_NAME, None)
 
-    county_rows = [
-        MagicMock(demographic_data=data, total_pop=data.get("total_pop_20"))
-        for data in _GRID_COUNTY_DEMOGRAPHICS.values()
-    ]
-
-    # Three sequential session.exec() calls during eguia():
-    #   1. _districtr_map lookup          → .one_or_none() returns map_mock
-    #   2. _ensure_county_data check      → .first() returns truthy (skip populate)
-    #   3. _compute_ideal SELECT          → .all()   returns county_rows
-    mock_session = MagicMock()
-    mock_session.exec.side_effect = [
-        MagicMock(**{"one_or_none.return_value": map_mock}),
-        MagicMock(**{"first.return_value": county_rows[0]}),
-        MagicMock(**{"all.return_value": county_rows}),
-    ]
+    grid_map = session.exec(
+        sqlmodel.select(DistrictrMap).where(
+            DistrictrMap.districtr_map_slug == "grid_shatterable"
+        )
+    ).one()
 
     ctx = _StubEvaluationContext(_GRID_DISTRICT_STATS)
-    ctx.session = mock_session
+    ctx.session = session
+    ctx._districtr_map = grid_map
     yield ctx
 
-    COUNTY_CONTEXT._cache.pop(_GRID_GERRYDB_TABLE, None)
-    COUNTY_CONTEXT._attempts.pop(_GRID_GERRYDB_TABLE, None)
+    COUNTY_CONTEXT._cache.pop(PARENT_GRID_NAME, None)
+    COUNTY_CONTEXT._attempts.pop(PARENT_GRID_NAME, None)
 
 
 def test_grid_seats_matches_gerrychain(grid_district_context):
@@ -455,13 +388,10 @@ def test_grid_eguia_matches_gerrychain(eguia_context):
         assert result[col] == pytest.approx(expected), f"{col}"
 
 
-def test_eguia_returns_empty_when_no_gerrydb_table():
-    """eguia() returns {} when no DistrictrMap is found for the document."""
-    mock_session = MagicMock()
-    mock_session.exec.return_value.one_or_none.return_value = None
-
+def test_eguia_returns_empty_when_no_parent_layer():
+    """eguia() returns {} when the document has no parent_layer configured."""
     ctx = _StubEvaluationContext(_GRID_DISTRICT_STATS)
-    ctx.session = mock_session
+    ctx.parent_layer = None
 
     assert eguia_county(ctx) == {}
 
@@ -469,26 +399,20 @@ def test_eguia_returns_empty_when_no_gerrydb_table():
 def test_eguia_returns_empty_once_attempts_exhausted():
     """eguia() returns {} once MAX_LOAD_ATTEMPTS is reached without a successful
     ideal computation (e.g. malformed gerrydb table missing total_pop_20)."""
-    map_mock = MagicMock()
-    map_mock.parent_layer = _GRID_GERRYDB_TABLE
-
-    mock_session = MagicMock()
-    mock_session.exec.return_value.one_or_none.return_value = map_mock
-
     ctx = _StubEvaluationContext(_GRID_DISTRICT_STATS)
-    ctx.session = mock_session
+    ctx.parent_layer = GerrydbTableName(_STUB_TABLE)
 
-    COUNTY_CONTEXT._attempts[_GRID_GERRYDB_TABLE] = CountyContext.MAX_LOAD_ATTEMPTS
+    COUNTY_CONTEXT._attempts[_STUB_TABLE] = CountyContext.MAX_LOAD_ATTEMPTS
     try:
         assert eguia_county(ctx) == {}
     finally:
-        COUNTY_CONTEXT._attempts.pop(_GRID_GERRYDB_TABLE, None)
+        COUNTY_CONTEXT._attempts.pop(_STUB_TABLE, None)
 
 
 def test_ideals_for_eguia_retries_then_gives_up():
     """Empty results are retried up to MAX_LOAD_ATTEMPTS times; subsequent calls
     return {} immediately without hitting the DB."""
-    table = GerrydbTableName(_GRID_GERRYDB_TABLE)
+    table = GerrydbTableName(_STUB_TABLE)
     singleton = CountyContext()
     singleton._ensure_county_data = MagicMock()
     singleton._compute_ideal = MagicMock(return_value={})
@@ -506,7 +430,7 @@ def test_ideals_for_eguia_recovers_after_transient_failure():
     """A transient empty result on one attempt doesn't block a later successful
     attempt; once recovered, the result is permanently cached and _compute_ideal
     is never called again."""
-    table = GerrydbTableName(_GRID_GERRYDB_TABLE)
+    table = GerrydbTableName(_STUB_TABLE)
     good_ideals = {"pres_2020_dem": 0.6, "pres_2020_rep": 0.4}
     singleton = CountyContext()
     singleton._ensure_county_data = MagicMock()
@@ -526,7 +450,7 @@ def test_ideals_for_eguia_recovers_after_transient_failure():
 def test_ensure_county_data_calls_populate_when_no_valid_rows():
     """_ensure_county_data triggers _populate_county_data when no row with
     non-null total_pop exists (covers both the no-rows and null-total_pop cases)."""
-    table = GerrydbTableName(_GRID_GERRYDB_TABLE)
+    table = GerrydbTableName(_STUB_TABLE)
     singleton = CountyContext()
     singleton._populate_county_data = MagicMock()
 
@@ -540,7 +464,7 @@ def test_ensure_county_data_calls_populate_when_no_valid_rows():
 
 def test_ensure_county_data_skips_populate_when_valid_rows_exist():
     """_ensure_county_data is a no-op when a row with non-null total_pop exists."""
-    table = GerrydbTableName(_GRID_GERRYDB_TABLE)
+    table = GerrydbTableName(_STUB_TABLE)
     singleton = CountyContext()
     singleton._populate_county_data = MagicMock()
 
@@ -559,7 +483,7 @@ def test_grid_competitiveness_matches_gerrychain(grid_district_context):
 
 
 # ---------------------------------------------------------------------------
-# Regression tests: eguia county aggregation must use parent_layer (VTD base
+# Retesting for a past bug: eguia county aggregation must use parent_layer (VTD base
 # table), not the shatterable UNION ALL materialized view.
 # ---------------------------------------------------------------------------
 

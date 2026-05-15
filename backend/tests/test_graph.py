@@ -5,20 +5,15 @@ from pytest import fixture
 from tempfile import NamedTemporaryFile
 from tests.constants import FIXTURES_PATH
 from app.evaluation.graph import (
-    get_gerrydb_block_graph,
+    get_gerrydb_graph,
     graph_from_gpkg,
     write_graph,
     GraphFileFormat,
 )
 
 
-@fixture(name="simple_geos_gml_path")
-def gerrydb_simple_child_geos_graph_path() -> str:
-    return str(FIXTURES_PATH / "contiguity" / "simple_child_geos.gml")
-
-
 def test_get_gerrydb_block_graph(simple_geos_gml_path: str):
-    G = get_gerrydb_block_graph(simple_geos_gml_path, graph_file_format=GraphFileFormat.gml)
+    G = get_gerrydb_graph(simple_geos_gml_path, graph_file_format=GraphFileFormat.gml)
 
     assert set(G.nodes()) == {"a", "b", "c", "d", "e", "f"}
     assert list(G.edges()) == [

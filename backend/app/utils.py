@@ -638,5 +638,3 @@ def update_or_select_district_stats(
         )
         # optional: session.rollback()
         raise
-
-

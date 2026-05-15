@@ -1,4 +1,6 @@
+import csv as _csv
 import os
+import pickle
 import pytest
 from app.main import app
 from app.core.db import get_session
@@ -9,6 +11,9 @@ from sqlmodel import create_engine, Session
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError, ProgrammingError
 import subprocess
+import app.evaluation.graph as eval_graph_module
+from app.evaluation.graph import get_graph as _get_graph_cached
+from networkx import Graph
 from tests.constants import (
     POSTGRES_TEST_DB,
     TEARDOWN_TEST_DB,
@@ -498,3 +503,235 @@ def ks_ellis_parent_layer_only_districtr_map(
     )
     session.commit()
     return inserted_districtr_map
+
+
+@pytest.fixture(name="simple_geos_gml_path")
+def simple_child_geos_gml_path_fixture() -> str:
+    return str(FIXTURES_PATH / "graph" / "simple_child_geos.gml")
+
+
+# ── Grid graph fixtures (8×8 blocks / 4×4 VTDs / 8 counties) ────────────────
+#
+# Census-style GEOIDs encode the county→VTD→block hierarchy:
+#   county  c = (r//2)*2 + (col//4)   — 8 counties (0..7), 5-digit FIPS "ccccc"
+#   VTD    (pr, pc): county=pr*2+pc//2, within-county index=pc%2
+#           geo_id = "vtd:{county:05d}{pc%2:06d}"   (vtd: prefix → unit_type="vtd")
+#   block  (r, c): county=(r//2)*2+(c//4), within-county index=(r%2)*4+(c%4)
+#           geo_id = "{county:05d}{idx:07d}"          (bare → unit_type="block")
+#
+# _populate_county_data extracts LEFT(path, 5) / LEFT(SPLIT_PART(path,':',2), 5)
+# for the county GEOID — both encodings map to f"{county:05d}". ✓
+#
+# All parent-adjacency edge weights = 2 (two block edges cross each VTD boundary).
+
+BLOCK_GRID_NAME = "grid_child"
+PARENT_GRID_NAME = "grid_parent"
+
+_GRID_ELEC_COLS = [
+    "pres_2016_dem", "pres_2016_rep",
+    "pres_2020_dem", "pres_2020_rep",
+    "pres_2024_dem", "pres_2024_rep",
+    "sen_2016_dem", "sen_2016_rep",
+    "sen_2018_dem", "sen_2018_rep",
+    "sen_2020_dem", "sen_2020_rep",
+    "sen_2022_dem", "sen_2022_rep",
+]
+
+# Block and VTD demographic data is stored in fixtures/gerrydb/grid_child.csv (64 rows)
+# and fixtures/gerrydb/grid_parent.csv (16 rows).
+#
+# County layout (county = (row//2)*2 + (col//4)):
+#   cols 0-3   cols 4-7
+#   --------   --------
+#   0          1         rows 0-1
+#   2          3         rows 2-3
+#   4          5         rows 4-5
+#   6          7         rows 6-7
+# Districts: zone = row + 1, each district spans both county columns.
+#
+# Generation script (requires gerrychain/gerrytools, PYTHONHASHSEED=0):
+#
+#   import numpy as np, networkx as nx
+#   from gerrychain import Graph, Partition
+#   from gerrychain.updaters import Election, Tally
+#   from gerrytools.scoring.partisan import _eguia_election
+#
+#   rng = np.random.default_rng(99)
+#   cells = {}
+#   for n in range(64):
+#       row, col = divmod(n, 8)
+#       data = {"total_pop_20": int(rng.integers(500, 2001)),
+#               "county": (row // 2) * 2 + (col // 4),
+#               "zone":   row + 1}
+#       for elec in ELECTIONS:
+#           total = int(rng.integers(200, 801))
+#           dem = int(rng.integers(int(total * 0.3), int(total * 0.7) + 1))
+#           data[f"{elec}_dem"] = dem
+#           data[f"{elec}_rep"] = total - dem
+#       cells[n] = data
+#
+#   g = nx.convert_node_labels_to_integers(nx.grid_2d_graph(8, 8))
+#   for n in range(64): g.nodes[n].update(cells[n])
+#   gc_graph = Graph.from_networkx(g)
+#
+#   updaters = {e: Election(e, {"Democratic": f"{e}_dem", "Republican": f"{e}_rep"}) for e in ELECTIONS}
+#   updaters["total_pop_20"] = Tally("total_pop_20")
+#   district_part = Partition(gc_graph, {n: cells[n]["zone"]   for n in range(64)}, updaters=updaters)
+#   county_part   = Partition(gc_graph, {n: cells[n]["county"] for n in range(64)}, updaters=updaters)
+#   # Eguia: _eguia_election(district_part, e, "Democratic", county_part, "total_pop_20")
+
+# Read back for test_partisan.py (needed to derive _GRID_DISTRICT_STATS at import time).
+def _read_grid_csv(name: str) -> list[dict]:
+    path = FIXTURES_PATH / "gerrydb" / f"{name}.csv"
+    with open(path) as f:
+        rows = list(_csv.DictReader(f))
+    for row in rows:
+        for k in row:
+            if k != "path":
+                row[k] = int(row[k])
+    return rows
+
+_GRID_BLOCK_ROWS: list[dict] = _read_grid_csv(BLOCK_GRID_NAME)
+
+_GRID_TABLE_COLS = (
+    "path TEXT PRIMARY KEY, total_pop_20 INTEGER, "
+    + ", ".join(f"{c} INTEGER" for c in _GRID_ELEC_COLS)
+)
+
+
+def _copy_csv_to_gerrydb(session: Session, table_name: str, csv_name: str) -> None:
+    path = FIXTURES_PATH / "gerrydb" / f"{csv_name}.csv"
+    cursor = session.connection().connection.cursor()
+    with open(path) as f, cursor.copy(
+        f"COPY gerrydb.{table_name} FROM STDIN CSV HEADER"
+    ) as copy:
+        for line in f:
+            copy.write(line)
+
+
+def _block_geoid(r: int, c: int) -> str:
+    """12-char block GEOID: 5-digit county FIPS + 7-digit within-county index."""
+    county = (r // 2) * 2 + (c // 4)
+    return f"{county:05d}{(r % 2) * 4 + (c % 4):07d}"
+
+
+def _vtd_geoid(pr: int, pc: int) -> str:
+    """VTD geo_id with 'vtd:' prefix: 5-digit county FIPS + 6-digit within-county index."""
+    county = pr * 2 + pc // 2
+    return f"vtd:{county:05d}{pc % 2:06d}"
+
+
+def _build_grid_block_graph() -> Graph:
+    G = Graph()
+    for r in range(8):
+        for c in range(8):
+            G.add_node(_block_geoid(r, c), parent=_vtd_geoid(r // 2, c // 2))
+    for r in range(8):
+        for c in range(7):
+            G.add_edge(_block_geoid(r, c), _block_geoid(r, c + 1))
+    for r in range(7):
+        for c in range(8):
+            G.add_edge(_block_geoid(r, c), _block_geoid(r + 1, c))
+    return G
+
+
+def _build_grid_parent_graph() -> Graph:
+    G = Graph()
+    for pr in range(4):
+        for pc in range(4):
+            G.add_node(_vtd_geoid(pr, pc))
+    for pr in range(4):
+        for pc in range(3):
+            G.add_edge(_vtd_geoid(pr, pc), _vtd_geoid(pr, pc + 1), weight=2)
+    for pr in range(3):
+        for pc in range(4):
+            G.add_edge(_vtd_geoid(pr, pc), _vtd_geoid(pr + 1, pc), weight=2)
+    return G
+
+
+@pytest.fixture(scope="session")
+def grid_graph_files():
+    """Write the 8×8 block and 4×4 parent pkl files to fixtures/graph/ once per session."""
+    child_path = FIXTURES_PATH / "graph" / f"{BLOCK_GRID_NAME}.pkl"
+    parent_path = FIXTURES_PATH / "graph" / f"{PARENT_GRID_NAME}.pkl"
+    if not child_path.exists():
+        with open(child_path, "wb") as f:
+            pickle.dump(_build_grid_block_graph(), f)
+    if not parent_path.exists():
+        with open(parent_path, "wb") as f:
+            pickle.dump(_build_grid_parent_graph(), f)
+
+
+@pytest.fixture(name="mock_grid_graph_file")
+def mock_grid_graph_file_fixture(monkeypatch, grid_graph_files):
+    """Redirect get_gerrydb_graph_file to fixtures/graph/ and flush the LRU cache."""
+    def _get_file(gerrydb_name: str) -> str:
+        return str(FIXTURES_PATH / "graph" / f"{gerrydb_name}.pkl")
+
+    monkeypatch.setattr(eval_graph_module, "get_gerrydb_graph_file", _get_file)
+    _get_graph_cached.cache_clear()
+    yield
+    _get_graph_cached.cache_clear()
+
+
+_UPSERT_GERRYDBTABLE = text("""
+    INSERT INTO gerrydbtable (uuid, name, updated_at)
+    VALUES (gen_random_uuid(), :name, now())
+    ON CONFLICT (name) DO UPDATE SET updated_at = now()
+""")
+
+
+@pytest.fixture(name="grid_child_gerrydb")
+def grid_child_gerrydb_fixture(session: Session):
+    session.execute(_UPSERT_GERRYDBTABLE, {"name": BLOCK_GRID_NAME})
+    session.execute(text(
+        f"CREATE TABLE IF NOT EXISTS gerrydb.{BLOCK_GRID_NAME} ({_GRID_TABLE_COLS})"
+    ))
+    session.flush()
+    _copy_csv_to_gerrydb(session, BLOCK_GRID_NAME, BLOCK_GRID_NAME)
+
+
+@pytest.fixture(name="grid_parent_gerrydb")
+def grid_parent_gerrydb_fixture(session: Session):
+    session.execute(_UPSERT_GERRYDBTABLE, {"name": PARENT_GRID_NAME})
+    session.execute(text(
+        f"CREATE TABLE IF NOT EXISTS gerrydb.{PARENT_GRID_NAME} ({_GRID_TABLE_COLS})"
+    ))
+    session.flush()
+    _copy_csv_to_gerrydb(session, PARENT_GRID_NAME, PARENT_GRID_NAME)
+
+
+@pytest.fixture(name="grid_shatterable_districtr_map")
+def grid_shatterable_districtr_map_fixture(session: Session, grid_child_gerrydb, grid_parent_gerrydb):
+    return create_districtr_map(
+        session,
+        name="Grid 8x8 shatterable map",
+        districtr_map_slug="grid_shatterable",
+        num_districts=4,
+        parent_layer=PARENT_GRID_NAME,
+        child_layer=BLOCK_GRID_NAME,
+    )
+
+
+@pytest.fixture(name="grid_nonshatterable_child_districtr_map")
+def grid_nonshatterable_child_districtr_map_fixture(session: Session, grid_child_gerrydb):
+    return create_districtr_map(
+        session,
+        name="Grid 8x8 non-shatterable block map",
+        districtr_map_slug="grid_child",
+        gerrydb_table_name=BLOCK_GRID_NAME,
+        num_districts=4,
+        parent_layer=BLOCK_GRID_NAME,
+    )
+
+
+@pytest.fixture(name="grid_nonshatterable_parent_districtr_map")
+def grid_nonshatterable_parent_districtr_map_fixture(session: Session, grid_parent_gerrydb):
+    return create_districtr_map(
+        session,
+        name="Grid 4x4 non-shatterable VTD map",
+        districtr_map_slug="grid_parent",
+        gerrydb_table_name=PARENT_GRID_NAME,
+        num_districts=4,
+        parent_layer=PARENT_GRID_NAME,
+    )
