@@ -6,13 +6,15 @@ county's geoid to the forced and actual splits by the document's districts.
 
 from typing import Tuple
 
-import sqlalchemy
+import sqlmodel
 
 from app.evaluation.context import (
     COUNTY_CONTEXT,
     DocumentEvaluationContext,
     CountyGeoid,
 )
+from app.models import Assignments
+
 
 def county_pieces(context: DocumentEvaluationContext) -> dict[CountyGeoid, Tuple[int, int]]:
     """Returns a mapping from county geoid to a tuple of
@@ -28,32 +30,26 @@ def county_pieces(context: DocumentEvaluationContext) -> dict[CountyGeoid, Tuple
     The number of counties split into two or more pieces can be easily derived from this
     mapping by counting the number of counties where `actual_split_pieces` is 2 or more.
     """
-
-    query_sql = """
-        WITH block_assignment AS (
-            SELECT * FROM get_block_assignments(:document_id)
-        )
-        SELECT
-            LEFT(geo_id, 5) AS county_geoid,
-            array_agg(DISTINCT zone) AS zones
-        FROM block_assignment
-        WHERE geo_id IS NOT NULL
-        GROUP BY county_geoid
-    """
-    results = context.session.execute(sqlalchemy.text(query_sql), {"document_id": context.document_id})
-
     county_pops: dict[CountyGeoid, int] = COUNTY_CONTEXT.county_populations(context.gerrydb_table, context.session)
     if not county_pops:
         return {}
 
-    actual_split_pieces: dict[CountyGeoid, int] = {}
-    for row in results.mappings().all():
-        actual_split_pieces[CountyGeoid(row["county_geoid"])] = len(row["zones"])
+    rows = context.session.exec(
+        sqlmodel.select(Assignments.geo_id, Assignments.zone)
+        .where(Assignments.document_id == context.document_id)
+        .where(Assignments.zone.isnot(None))  # type: ignore[union-attr]
+    ).all()
+
+    county_zones: dict[CountyGeoid, set[int]] = {}
+    for geo_id, zone in rows:
+        bare_id = geo_id.split(":", 1)[1] if ":" in geo_id else geo_id
+        geoid = CountyGeoid(bare_id[:5])
+        county_zones.setdefault(geoid, set()).add(zone)
 
     return {
         geoid: (
             (pop + context.ideal_population - 1) // context.ideal_population,
-            actual_split_pieces.get(geoid, 0),
+            len(county_zones.get(geoid, set())),
         )
         for geoid, pop in county_pops.items()
     }

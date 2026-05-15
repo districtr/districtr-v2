@@ -15,6 +15,8 @@ from typing import ClassVar, NewType
 import fastapi
 import numpy as np
 import pandas as pd
+import pyproj
+import shapely
 import sqlalchemy
 import sqlmodel
 from app.evaluation.models import CountyDemographics
@@ -35,6 +37,14 @@ DemographicColumn = NewType("DemographicColumn", str)
 
 TOTAL_POP_COL = "total_pop_20"
 
+_transformer = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:5070", always_xy=True)
+
+
+def _reproject(coords: np.ndarray) -> np.ndarray:
+    x, y = _transformer.transform(coords[:, 0], coords[:, 1])
+    return np.stack([x, y], axis=1)
+
+
 @dataclasses.dataclass
 class DocumentEvaluationContext:
     """Lazy, per-document inputs for computing all evaluation metrics.
@@ -53,6 +63,14 @@ class DocumentEvaluationContext:
         return update_or_select_district_stats(
             self.session, self.document_id, self.background_tasks
         )
+
+    @cached_property
+    def projected_district_geometries(self) -> dict[int, shapely.Geometry]:
+        """Per-zone geometries projected to EPSG:5070, shared by compactness metrics."""
+        districts = [d for d in self.district_stats if d.zone is not None and d.geometry]
+        shapes = np.array([shapely.from_geojson(d.geometry) for d in districts], dtype=object)
+        projected = shapely.transform(shapes, _reproject)
+        return {d.zone: geom for d, geom in zip(districts, projected)}
 
     @cached_property
     def demographic_data(self) -> pd.DataFrame:

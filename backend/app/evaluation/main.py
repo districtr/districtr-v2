@@ -6,6 +6,8 @@ persists the result. `compute_metrics` is the pure computation: build a
 single `DocumentEvaluationContext` and run every metric in `METRICS`.
 """
 
+import logging
+import time
 from typing import Any
 
 from fastapi import BackgroundTasks
@@ -16,6 +18,8 @@ from app.evaluation.models import Evaluation
 from app.evaluation.registry import CURRENT_PAYLOAD_VERSION, METRICS
 from app.evaluation.context import DocumentEvaluationContext
 from app.models import Document
+
+logger = logging.getLogger(__name__)
 
 
 def update_or_select_document_evaluation(
@@ -72,5 +76,7 @@ def compute_metrics(
         return {}
     metric_payloads: dict[str, Any] = {}
     for metric in METRICS:
+        # t0 = time.perf_counter()
         metric_payloads[metric.key] = metric.compute(context)
+        # logger.info("metric %s computed in %.3fs", metric.key, time.perf_counter() - t0)
     return metric_payloads
