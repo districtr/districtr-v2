@@ -96,11 +96,6 @@ def block_cut_edges(context: DocumentEvaluationContext) -> CutEdgesResult:
     # Step 2 (see above)
     unit_type = _infer_unit_type(next(iter(unit_to_zone)))
     G = get_graph(gerrydb_name)
-    if G is None:
-        logger.warning(
-            f"cut_edges [{gerrydb_name}]: no graph available, skipping per-unit cut count"
-        )
-        return {"cut_count": cut_count, "unit_type": unit_type}
     half_cut = 0
     for unit, zone_unit in unit_to_zone.items():
         for neighbor in G.neighbors(unit):
@@ -126,12 +121,7 @@ def _district_polsby_popper(geom: geometry.base.BaseGeometry) -> float:
 
     Formula: 4 * π * Area / Perimeter^2
     """
-    if geom is None or geom.is_empty:
-        return 0.0
-    perimeter = geom.length
-    if perimeter == 0:
-        return 0.0
-    return 4 * math.pi * geom.area / (perimeter**2)
+    return 4 * math.pi * geom.area / (geom.length**2)
 
 
 def polsby_popper(context: DocumentEvaluationContext) -> dict[int, float]:
@@ -147,14 +137,9 @@ def _district_reock(geom: geometry.base.BaseGeometry) -> float:
 
     Formula: Area / Area of minimum bounding circle
     """
-    if geom is None or geom.is_empty:
-        return 0.0
     # Not using minimum_bounding_circle — approximated via minimum bounding radius.
     min_circle_radius = shapely.minimum_bounding_radius(geom)
-    circle_area = math.pi * min_circle_radius**2
-    if circle_area == 0:
-        return 0.0
-    return geom.area / circle_area
+    return geom.area / (math.pi * min_circle_radius**2)
 
 
 def reock(context: DocumentEvaluationContext) -> dict[int, float]:

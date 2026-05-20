@@ -388,55 +388,61 @@ def test_grid_eguia_matches_gerrychain(eguia_context):
         assert result[col] == pytest.approx(expected), f"{col}"
 
 
-def test_eguia_returns_empty_when_no_parent_layer():
-    """eguia() returns {} when the document has no parent_layer configured."""
+def test_context_parent_layer_raises_when_not_configured():
+    """context.parent_layer raises ValueError when the districtr map has no parent_layer."""
     ctx = _StubEvaluationContext(_GRID_DISTRICT_STATS)
-    ctx.parent_layer = None
+    mock_map = MagicMock()
+    mock_map.parent_layer = None
+    ctx.__dict__["_districtr_map"] = mock_map
+    with pytest.raises(ValueError):
+        _ = ctx.parent_layer
 
-    assert eguia_county(ctx) == {}
 
-
-def test_eguia_returns_empty_once_attempts_exhausted():
-    """eguia() returns {} once MAX_LOAD_ATTEMPTS is reached without a successful
+def test_eguia_raises_once_attempts_exhausted():
+    """eguia() raises ValueError once MAX_LOAD_ATTEMPTS is reached without a successful
     ideal computation (e.g. malformed gerrydb table missing total_pop_20)."""
     ctx = _StubEvaluationContext(_GRID_DISTRICT_STATS)
     ctx.parent_layer = GerrydbTableName(_STUB_TABLE)
 
     COUNTY_CONTEXT._attempts[_STUB_TABLE] = CountyContext.MAX_LOAD_ATTEMPTS
     try:
-        assert eguia_county(ctx) == {}
+        with pytest.raises(ValueError):
+            eguia_county(ctx)
     finally:
         COUNTY_CONTEXT._attempts.pop(_STUB_TABLE, None)
 
 
 def test_ideals_for_eguia_retries_then_gives_up():
-    """Empty results are retried up to MAX_LOAD_ATTEMPTS times; subsequent calls
-    return {} immediately without hitting the DB."""
+    """Failures are retried up to MAX_LOAD_ATTEMPTS times; subsequent calls
+    raise immediately without hitting the DB."""
     table = GerrydbTableName(_STUB_TABLE)
     singleton = CountyContext()
     singleton._ensure_county_data = MagicMock()
-    singleton._compute_ideal = MagicMock(return_value={})
+    singleton._compute_ideal = MagicMock(side_effect=ValueError("no data"))
 
     for attempt in range(1, CountyContext.MAX_LOAD_ATTEMPTS + 1):
-        assert singleton.ideals_for_eguia(table, MagicMock()) == {}
+        with pytest.raises(ValueError):
+            singleton.ideals_for_eguia(table, MagicMock())
         assert singleton._compute_ideal.call_count == attempt
 
-    # After exhausting attempts, returns {} without additional DB work.
-    singleton.ideals_for_eguia(table, MagicMock())
+    # After exhausting attempts, raises without additional DB work.
+    with pytest.raises(ValueError, match="failed to load after"):
+        singleton.ideals_for_eguia(table, MagicMock())
     assert singleton._compute_ideal.call_count == CountyContext.MAX_LOAD_ATTEMPTS
 
 
 def test_ideals_for_eguia_recovers_after_transient_failure():
-    """A transient empty result on one attempt doesn't block a later successful
+    """A transient failure on one attempt doesn't block a later successful
     attempt; once recovered, the result is permanently cached and _compute_ideal
     is never called again."""
     table = GerrydbTableName(_STUB_TABLE)
     good_ideals = {"pres_2020_dem": 0.6, "pres_2020_rep": 0.4}
     singleton = CountyContext()
     singleton._ensure_county_data = MagicMock()
-    singleton._compute_ideal = MagicMock(side_effect=[{}, good_ideals])
+    singleton._compute_ideal = MagicMock(side_effect=[ValueError("transient"), good_ideals])
 
-    assert singleton.ideals_for_eguia(table, MagicMock()) == {}
+    with pytest.raises(ValueError):
+        singleton.ideals_for_eguia(table, MagicMock())
     assert singleton._attempts[table] == 1
 
     assert singleton.ideals_for_eguia(table, MagicMock()) == good_ideals
@@ -487,27 +493,19 @@ def test_grid_competitiveness_matches_gerrychain(grid_district_context):
 # table), not the shatterable UNION ALL materialized view.
 # ---------------------------------------------------------------------------
 
-def test_populate_county_data_skips_materialized_view(
+def test_populate_county_data_rejects_materialized_view(
     session, gerrydb_ks_ellis_geos_view
 ):
-    """_populate_county_data must be a no-op for materialized views.
+    """_populate_county_data must raise for materialized views.
 
     The shatterable gerrydb view (ks_ellis_geos) is a UNION ALL of VTD and
     block rows. Inserting from it would double-count every county.
-    The pg_class.relkind guard must prevent any rows from being written.
+    The pg_class.relkind guard must raise rather than silently skip.
     """
     shatterable_view = GerrydbTableName("ks_ellis_geos")
 
-    CountyContext()._populate_county_data(shatterable_view, session)
-
-    rows = session.exec(
-        sqlmodel.select(CountyDemographics).where(
-            CountyDemographics.gerrydb_table_name == shatterable_view
-        )
-    ).all()
-    assert len(rows) == 0, (
-        "county_demographics must not be populated from a materialized view"
-    )
+    with pytest.raises(ValueError, match="plain table"):
+        CountyContext()._populate_county_data(shatterable_view, session)
 
 
 def test_eguia_uses_parent_layer_not_shatterable_view(
@@ -541,7 +539,10 @@ def test_eguia_uses_parent_layer_not_shatterable_view(
         ctx.session = session
         ctx._districtr_map = ks_map
 
-        eguia_county(ctx)
+        try:
+            eguia_county(ctx)
+        except ValueError:
+            pass  # Computation may fail if county data lacks election columns; side effects are what matter.
 
         parent_rows = session.exec(
             sqlmodel.select(CountyDemographics).where(

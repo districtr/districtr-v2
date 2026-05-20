@@ -66,11 +66,12 @@ class DocumentEvaluationContext:
 
     @cached_property
     def projected_district_geometries(self) -> dict[int, shapely.Geometry]:
-        """Per-zone geometries projected to EPSG:5070, shared by compactness metrics."""
+        """Well-formed per-zone geometries projected to EPSG:5070, shared by compactness
+        metrics."""
         districts = [d for d in self.district_stats if d.zone is not None and d.geometry]
         shapes = np.array([shapely.from_geojson(d.geometry) for d in districts], dtype=object)
         projected = shapely.transform(shapes, _reproject)
-        return {d.zone: geom for d, geom in zip(districts, projected)}
+        return {d.zone: geom for d, geom in zip(districts, projected) if not geom.is_empty}
 
     @cached_property
     def demographic_data(self) -> pd.DataFrame:
@@ -145,31 +146,38 @@ class DocumentEvaluationContext:
         return total_pop // self.num_nonempty_districts
     
     @cached_property
-    def _districtr_map(self) -> DistrictrMap | None:
+    def _districtr_map(self) -> DistrictrMap:
         """The DistrictrMap associated with this document."""
-        return self.session.exec(
+        m = self.session.exec(
             sqlmodel.select(DistrictrMap)
             .join(Document, Document.districtr_map_slug == DistrictrMap.districtr_map_slug)
             .where(Document.document_id == self.document_id)
         ).one_or_none()
+        if m is None:
+            raise ValueError(f"No DistrictrMap found for document '{self.document_id}'.")
+        return m
 
     @cached_property
-    def gerrydb_table(self) -> GerrydbTableName | None:
+    def gerrydb_table(self) -> GerrydbTableName:
         """The document's gerrydb table name (may be a shatterable UNION ALL view)."""
         m = self._districtr_map
-        return GerrydbTableName(m.gerrydb_table_name) if m and m.gerrydb_table_name else None
+        if not m.gerrydb_table_name:
+            raise ValueError(f"Document '{self.document_id}' has no gerrydb table name.")
+        return GerrydbTableName(m.gerrydb_table_name)
 
     @cached_property
-    def parent_layer(self) -> GerrydbTableName | None:
+    def parent_layer(self) -> GerrydbTableName:
         """The parent-layer gerrydb table name, used for county-level aggregation."""
         m = self._districtr_map
-        return GerrydbTableName(m.parent_layer) if m else None
+        if not m.parent_layer:
+            raise ValueError(f"Document '{self.document_id}' has no parent layer.")
+        return GerrydbTableName(m.parent_layer)
 
     @cached_property
     def child_layer(self) -> GerrydbTableName | None:
         """The child (block-level) gerrydb table name, or `None` for non-shatterable maps."""
         m = self._districtr_map
-        return GerrydbTableName(m.child_layer) if m and m.child_layer else None
+        return GerrydbTableName(m.child_layer) if m.child_layer else None
 
 
 @dataclasses.dataclass
@@ -201,14 +209,16 @@ class CountyContext:
     ) -> dict[CountyGeoid, int]:
         """Return a {county_geoid: total_pop} dict for `gerrydb_table`.
 
-        Cached after first load. Returns an empty dict if county data is unavailable
-        (e.g. gerrydb table lacks total_pop_20). Retried up to MAX_LOAD_ATTEMPTS times.
+        Cached after first load. Raises ValueError if county data is unavailable.
+        Retried up to MAX_LOAD_ATTEMPTS times before raising.
         """
-        cached = self._pop_cache.get(gerrydb_table)
-        if cached is not None:
-            return cached
+        if gerrydb_table in self._pop_cache:
+            return self._pop_cache[gerrydb_table]
         if self._attempts.get(gerrydb_table, 0) >= self.MAX_LOAD_ATTEMPTS:
-            return {}
+            raise ValueError(
+                f"County data for '{gerrydb_table}' failed to load after "
+                f"{self.MAX_LOAD_ATTEMPTS} attempts."
+            )
         self._attempts[gerrydb_table] = self._attempts.get(gerrydb_table, 0) + 1
         self._ensure_county_data(gerrydb_table, session)
         rows = session.exec(
@@ -235,16 +245,16 @@ class CountyContext:
                 `evaluation.county_demographics` on first request.
             session: SQLModel session for any required DB queries.
 
-        A cached non-empty result is returned immediately. A cached empty result
-        (`{}`) means a prior attempt failed; the call is retried up to
-        `MAX_LOAD_ATTEMPTS` times. After that the singleton returns `{}` without
-        touching the DB, gracefully handling permanently malformed gerrydb tables.
+        Raises ValueError if county data is unavailable or malformed. Retried up to
+        `MAX_LOAD_ATTEMPTS` times before raising to avoid hammering the DB.
         """
-        cached = self._cache.get(gerrydb_table)
-        if cached:
-            return cached
+        if gerrydb_table in self._cache:
+            return self._cache[gerrydb_table]
         if self._attempts.get(gerrydb_table, 0) >= self.MAX_LOAD_ATTEMPTS:
-            return {}
+            raise ValueError(
+                f"County data for '{gerrydb_table}' failed to load after "
+                f"{self.MAX_LOAD_ATTEMPTS} attempts."
+            )
         self._attempts[gerrydb_table] = self._attempts.get(gerrydb_table, 0) + 1
         self._ensure_county_data(gerrydb_table, session)
         self._cache[gerrydb_table] = self._compute_ideal(gerrydb_table, session)
@@ -282,9 +292,10 @@ class CountyContext:
         """
         safe_table = assert_safe_ident(gerrydb_table)
 
-        # Guard: skip if this is not a plain table (relkind='r'). Materialized views
-        # created by create_shatterable_gerrydb_view are UNION ALL of parent + child
-        # layers; aggregating them up to county level would double-count every row.
+        # Must be a plain table (relkind='r'). Materialized views created by
+        # create_shatterable_gerrydb_view are UNION ALL of parent + child layers;
+        # aggregating them up to county level would double-count every row.
+        # Callers must pass the plain parent layer, not the combined view.
         relkind = session.execute(
             sqlalchemy.text(
                 "SELECT relkind FROM pg_class "
@@ -294,12 +305,19 @@ class CountyContext:
             {"name": gerrydb_table},
         ).scalar_one_or_none()
         if relkind != "r":
-            return
+            raise ValueError(
+                f"_populate_county_data requires a plain table (relkind='r'), "
+                f"got relkind={relkind!r} for '{gerrydb_table}'. "
+                f"Pass the parent layer table, not the combined shatterable view."
+            )
 
         demo_cols = get_gerrydb_numeric_cols(session, safe_table)
 
         if not demo_cols:
-            return
+            raise ValueError(
+                f"No numeric columns found in gerrydb table '{gerrydb_table}'. "
+                f"The table may not have been ingested with demographic data."
+            )
         json_pairs = [f"'{col}', SUM({col})" for col in demo_cols]
         demographic_json = f"json_build_object({', '.join(json_pairs)})"
         total_pop_expr = "SUM(total_pop_20)" if "total_pop_20" in demo_cols else "NULL"
@@ -332,13 +350,19 @@ class CountyContext:
         ).all()
 
         if not rows:
-            return {}
+            raise ValueError(
+                f"No county demographics found for '{gerrydb_table}'. "
+                f"County data may not have been ingested for this table."
+            )
 
         df = pd.DataFrame([r.demographic_data or {} for r in rows])
         county_pops = pd.array([r.total_pop or 0 for r in rows], dtype="int64")
         total_pop = county_pops.sum()
         if total_pop == 0:
-            return {}
+            raise ValueError(
+                f"Total county population is zero for '{gerrydb_table}'. "
+                f"County demographics may be missing total_pop_20."
+            )
 
         dem_cols: list[ElectionPartyKey] = [
             ElectionPartyKey(c) for c in df.columns if c.endswith("_dem")

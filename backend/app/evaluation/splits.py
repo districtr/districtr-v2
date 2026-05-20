@@ -31,9 +31,6 @@ def county_pieces(context: DocumentEvaluationContext) -> dict[CountyGeoid, Tuple
     mapping by counting the number of counties where `actual_split_pieces` is 2 or more.
     """
     county_pops: dict[CountyGeoid, int] = COUNTY_CONTEXT.county_populations(context.gerrydb_table, context.session)
-    if not county_pops:
-        return {}
-
     rows = context.session.exec(
         sqlmodel.select(Assignments.geo_id, Assignments.zone)
         .where(Assignments.document_id == context.document_id)

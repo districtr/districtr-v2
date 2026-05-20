@@ -7,7 +7,6 @@ single `DocumentEvaluationContext` and run every metric in `METRICS`.
 """
 
 import logging
-import time
 from typing import Any
 
 from fastapi import BackgroundTasks
@@ -26,7 +25,7 @@ def update_or_select_document_evaluation(
     background_tasks: BackgroundTasks,
     session: Session,
     document: Document,
-) -> dict[str, Any] | None:
+) -> dict[str, Any]:
     """Return the document's metrics, recomputing on cache miss or stale row.
 
     A cached `Evaluation` row is considered fresh iff its `payload_version`
@@ -76,7 +75,8 @@ def compute_metrics(
         return {}
     metric_payloads: dict[str, Any] = {}
     for metric in METRICS:
-        # t0 = time.perf_counter()
-        metric_payloads[metric.key] = metric.compute(context)
-        # logger.info("metric %s computed in %.3fs", metric.key, time.perf_counter() - t0)
+        try:
+            metric_payloads[metric.key] = metric.compute(context)
+        except Exception:
+            logger.exception("metric %s failed, skipping", metric.key)
     return metric_payloads

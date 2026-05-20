@@ -170,10 +170,10 @@ def test_county_pieces_empty_when_no_county_pops(
         _cleanup_county_context()
 
 
-def test_county_pieces_empty_when_attempts_exhausted(
+def test_county_pieces_raises_when_attempts_exhausted(
     client, session: Session, ks_ellis_shatterable_districtr_map, gerrydb_ks_ellis_geos_view
 ):
-    """Returns {} when county_populations has exhausted all load attempts."""
+    """Raises ValueError when county_populations has exhausted all load attempts."""
     resp = client.post("/api/create_document", json={"districtr_map_slug": "ks_ellis_geos"})
     assert resp.status_code == 201
     document_id = resp.json()["document_id"]
@@ -181,6 +181,7 @@ def test_county_pieces_empty_when_attempts_exhausted(
     COUNTY_CONTEXT._attempts[_KS_ELLIS_TABLE] = CountyContext.MAX_LOAD_ATTEMPTS
     try:
         ctx = _StubSplitsContext(session, document_id=document_id)
-        assert county_pieces(ctx) == {}
+        with pytest.raises(ValueError):
+            county_pieces(ctx)
     finally:
         _cleanup_county_context()

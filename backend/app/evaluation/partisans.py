@@ -11,7 +11,6 @@ from app.evaluation.context import (
     DocumentEvaluationContext,
     Election,
     ElectionPartyKey,
-    GerrydbTableName,
     COUNTY_CONTEXT,
 )
 
@@ -203,13 +202,7 @@ def eguia_county(context: DocumentEvaluationContext) -> dict[Election, float]:
     # Keyed by parent_layer rather than gerrydb_table_name, since the latter may integrate
     # both the parent layer and the child layer (e.g. block-level vs. vtd-level), which, 
     # when aggregated, will result in double population counts.
-    parent_layer = context.parent_layer
-    if not parent_layer:
-        return {}
-
-    ideals = COUNTY_CONTEXT.ideals_for_eguia(parent_layer, context.session)
-    if not ideals:
-        return {}
+    ideals = COUNTY_CONTEXT.ideals_for_eguia(context.parent_layer, context.session)
 
     result: dict[Election, float] = {}
     for col in context.elections:
@@ -247,7 +240,14 @@ def competitive_metrics(context: DocumentEvaluationContext) -> CompetitiveMetric
     n_districts = context.num_nonempty_districts
     n_elections = len(context.elections)
     if n_elections == 0:
-        return {}
+        return {
+            "n_dem_districts": 0,
+            "n_rep_districts": 0,
+            "n_swing_districts": 0,
+            "n_competitive_districts": 0,
+            "n_districts": n_districts,
+            "n_elections": 0,
+        }
     dem_districts = [1] * n_districts
     rep_districts = [1] * n_districts
     n_competitive_districts = 0
