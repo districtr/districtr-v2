@@ -137,11 +137,6 @@ export interface DocumentCreate {
   copy_from_doc?: string | number;
 }
 
-export interface ZonePopulation {
-  zone: number;
-  total_pop_20: number;
-}
-
 export type ShatterResult = Array<{
   child_path: string;
   parent_path: string;
@@ -163,10 +158,6 @@ export type LocalAssignmentsResponse = {
   documentId: string;
   assignments: Assignment[];
 };
-
-export type GetAssignmentsResponse = Promise<
-  RemoteAssignmentsResponse | LocalAssignmentsResponse | null
->;
 
 export type MapGroup = {
   name: string;
@@ -219,18 +210,6 @@ export interface FullCommentFormResponse {
   comment: CommentPublic;
   commenter: CommenterPublic;
   tags: TagPublic[];
-}
-
-export interface CommentListing {
-  comment: {
-    comment: string;
-    commenter_id: number;
-    document_id: string;
-    created_at: Date;
-    title: string;
-    updated_at: Date;
-  };
-  tags?: string[];
 }
 
 export interface Overlay {

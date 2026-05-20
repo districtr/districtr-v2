@@ -3,7 +3,6 @@ import {useMapStore} from '@/app/store/mapStore';
 import {getZoneConnectedComponentBBoxes} from '@/app/utils/api/apiHandlers/getZoneConnectedComponentBBoxes';
 import {Blockquote, Flex, IconButton, Spinner, Text, Tooltip} from '@radix-ui/themes';
 import {useQuery} from '@tanstack/react-query';
-import {queryClient} from '@utils/api/queryClient';
 import {useEffect, useState} from 'react';
 import {
   CheckCircledIcon,
@@ -51,9 +50,7 @@ export default function ContiguityDetail({
       retry: false,
       placeholderData: null,
       refetchOnWindowFocus: false,
-    },
-    queryClient
-  );
+  });
 
   useEffect(() => {
     // Handle the case of:

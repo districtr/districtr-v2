@@ -6,6 +6,7 @@ import {PublicMap} from '@components/Map/PublicMap';
 import {DemographicMap} from '@components/Map/DemographicMap';
 import {PublicDemographicMap} from '@components/Map/PublicDemographicMap';
 import SidebarComponent from '@components/sidebar/Sidebar';
+import {EvalPanel} from '@components/EvalPanel/EvalPanel';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
 import {ErrorNotification} from '@components/ErrorNotification';
@@ -29,16 +30,18 @@ import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 
 interface MapPageProps {
   isEditing: boolean;
+  isEval?: boolean; // Should be set when isEditing is false
   mapId: string;
 }
 
-function ChildMapPage({isEditing, mapId}: MapPageProps) {
+function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
   const isMapModeReady = useInitializeMapMode(MAP_MODES.DISTRICTS);
   const showDemographicMap = useMapControlsStore(
     state => state.mapOptions.demographicDisplayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE
   );
   const isPublicPage = !isEditing && !!mapId && !isUUID(mapId);
   const setIsEditing = useMapControlsStore(state => state.setIsEditing);
+  const setIsEval = useMapControlsStore(state => state.setIsEval);
   const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
   // check if userid in local storage; if not, create one
@@ -79,6 +82,10 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
   }, [isEditing, setIsEditing]);
 
   useEffect(() => {
+    setIsEval(isEval ?? false);
+  }, [isEval, setIsEval]);
+
+  useEffect(() => {
     !userID && setUserID();
   }, [userID, setUserID]);
 
@@ -95,7 +102,7 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
 
   return (
     <div className="h-screen w-screen overflow-hidden flex justify-between p flex-col-reverse lg:flex-row-reverse landscape:flex-row-reverse">
-      <SidebarComponent />
+      {isPublicPage && isEval ? <EvalPanel/> : <SidebarComponent />}
       <div className={`h-full relative w-full flex-1 flex flex-col lg:h-screen landscape:h-screen`}>
         <Topbar />
         <Flex direction="row" height="100%">
@@ -125,11 +132,11 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
   );
 }
 
-export default function MapPage({isEditing, mapId}: MapPageProps) {
+export default function MapPage({isEditing, isEval, mapId}: MapPageProps) {
   if (queryClient) {
     return (
       <QueryClientProvider client={queryClient}>
-        <ChildMapPage isEditing={isEditing} mapId={mapId} />
+        <ChildMapPage isEditing={isEditing} isEval={isEval} mapId={mapId} />
       </QueryClientProvider>
     );
   }

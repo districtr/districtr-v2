@@ -43,6 +43,9 @@ export const Topbar: React.FC = () => {
   // document_id. Public view documents have real UUIDs but should never expose
   // Save/Revert/etc. affordances.
   const isEditing = useMapControlsStore(state => state.isEditing);
+  const isEval = useMapControlsStore(state => state.isEval);
+  const evalTablesOnly = useMapControlsStore(state => state.evalTablesOnly);
+  const setEvalTablesOnly = useMapControlsStore(state => state.setEvalTablesOnly);
   const mapViews = useMapStore(state => state.mapViews);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const router = useRouter();
@@ -97,12 +100,13 @@ export const Topbar: React.FC = () => {
           align={'center'}
           justify={'between'}
         >
+          <Flex align="center" gap="3">
           <DropdownMenu.Root>
             <DropdownMenu.Trigger className="ml-2">
               <IconButton variant="ghost">
                 <HamburgerMenuIcon className="mr-2" />
-                <Heading size="3">Districtr</Heading>
-                {!mapDocument?.document_id && (
+                <Heading size="3">Districtr{isEval ? ' · Evaluation' : ''}</Heading>
+                {!mapDocument?.document_id && !isEval && (
                   <>
                     <ArrowLeftIcon fontSize={12} color="green" className="ml-2" />
                     <Text size="1" className="italic" color="green">
@@ -118,39 +122,41 @@ export const Topbar: React.FC = () => {
                   Home
                 </Link>
               </DropdownMenu.Item>
-              <DropdownMenu.Sub>
-                <Tooltip open={!mapDocument?.document_id} content="Start by selecting a geography">
-                  <DropdownMenu.SubTrigger>Create new map</DropdownMenu.SubTrigger>
-                </Tooltip>
-                <DropdownMenu.SubContent>
-                  <DropdownMenu.Sub>
-                    <DropdownMenu.SubTrigger>Select a geography</DropdownMenu.SubTrigger>
-                    <DropdownMenu.SubContent>
-                      {cleanMapViewList.length ? (
-                        cleanMapViewList.map((view, index) => (
-                          <DropdownMenu.Item
-                            key={index}
-                            onClick={() => handleSelectMap(view, mapMode)}
-                          >
-                            {mapMode === MAP_MODES.DISTRICTS
-                              ? view.name
-                              : sanitizeCommunityModuleName(view.name)}
+              {!isEval && (
+                <DropdownMenu.Sub>
+                  <Tooltip open={!mapDocument?.document_id} content="Start by selecting a geography">
+                    <DropdownMenu.SubTrigger>Create new map</DropdownMenu.SubTrigger>
+                  </Tooltip>
+                  <DropdownMenu.SubContent>
+                    <DropdownMenu.Sub>
+                      <DropdownMenu.SubTrigger>Select a geography</DropdownMenu.SubTrigger>
+                      <DropdownMenu.SubContent>
+                        {cleanMapViewList.length ? (
+                          cleanMapViewList.map((view, index) => (
+                            <DropdownMenu.Item
+                              key={index}
+                              onClick={() => handleSelectMap(view, mapMode)}
+                            >
+                              {mapMode === MAP_MODES.DISTRICTS
+                                ? view.name
+                                : sanitizeCommunityModuleName(view.name)}
+                            </DropdownMenu.Item>
+                          ))
+                        ) : (
+                          <DropdownMenu.Item disabled>
+                            {mapViews?.isPending
+                              ? 'Loading geographies...'
+                              : 'No geographies available'}
                           </DropdownMenu.Item>
-                        ))
-                      ) : (
-                        <DropdownMenu.Item disabled>
-                          {mapViews?.isPending
-                            ? 'Loading geographies...'
-                            : 'No geographies available'}
-                        </DropdownMenu.Item>
-                      )}
-                    </DropdownMenu.SubContent>
-                  </DropdownMenu.Sub>
-                  <DropdownMenu.Item onClick={() => setModalOpen('upload')}>
-                    Upload block assignments
-                  </DropdownMenu.Item>
-                </DropdownMenu.SubContent>
-              </DropdownMenu.Sub>
+                        )}
+                      </DropdownMenu.SubContent>
+                    </DropdownMenu.Sub>
+                    <DropdownMenu.Item onClick={() => setModalOpen('upload')}>
+                      Upload block assignments
+                    </DropdownMenu.Item>
+                  </DropdownMenu.SubContent>
+                </DropdownMenu.Sub>
+              )}
               <DropdownMenu.Sub>
                 <DropdownMenu.SubTrigger disabled={!mapDocument?.document_id}>
                   Export assignments
@@ -201,24 +207,51 @@ export const Topbar: React.FC = () => {
               <DropdownMenu.Item onClick={() => setModalOpen('recents')} disabled={false}>
                 View recent maps
               </DropdownMenu.Item>
-              <DropdownMenu.Sub>
-                <DropdownMenu.SubTrigger
-                  disabled={!mapDocument?.document_id || access === ACCESS_STATES.READ}
-                >
-                  Reset map
-                </DropdownMenu.SubTrigger>
-                <DropdownMenu.SubContent>
-                  <Text size="2" className="w-[50vw] max-w-60 p-3">
-                    Are you sure? This will reset all zone assignments and broken geographies.{' '}
-                    <b>Resetting your map cannot be undone.</b>
-                  </Text>
-                  <DropdownMenu.Item onClick={handleReset} color="red">
+              {!isEval && (
+                <DropdownMenu.Sub>
+                  <DropdownMenu.SubTrigger
+                    disabled={!mapDocument?.document_id || access === ACCESS_STATES.READ}
+                  >
                     Reset map
-                  </DropdownMenu.Item>
-                </DropdownMenu.SubContent>
-              </DropdownMenu.Sub>
+                  </DropdownMenu.SubTrigger>
+                  <DropdownMenu.SubContent>
+                    <Text size="2" className="w-[50vw] max-w-60 p-3">
+                      Are you sure? This will reset all zone assignments and broken geographies.{' '}
+                      <b>Resetting your map cannot be undone.</b>
+                    </Text>
+                    <DropdownMenu.Item onClick={handleReset} color="red">
+                      Reset map
+                    </DropdownMenu.Item>
+                  </DropdownMenu.SubContent>
+                </DropdownMenu.Sub>
+              )}
             </DropdownMenu.Content>
           </DropdownMenu.Root>
+          {isEval && (
+            <>
+              <IconButton
+                variant="ghost"
+                onClick={() => router.push(`/map/${mapDocument?.public_id}`)}
+              >
+                <ArrowLeftIcon />
+                <Text size="2">Exit evaluation</Text>
+              </IconButton>
+              <Text size="2" color="gray">
+                read-only · editing is disabled in this view
+              </Text>
+              <label>
+                <Flex align="center" gap="1">
+                  <input
+                    type="checkbox"
+                    checked={evalTablesOnly}
+                    onChange={e => setEvalTablesOnly(e.target.checked)}
+                  />
+                  <Text size="2">Advanced mode (tables only)</Text>
+                </Flex>
+              </label>
+            </>
+          )}
+          </Flex>
           <MapHeader handleMetadataChange={handleMetadataChange} />
           <Flex direction="row" align="center" gapX="3">
             <SharePopoverAndModal handleMetadataChange={handleMetadataChange} />
