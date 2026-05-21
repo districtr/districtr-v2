@@ -22,6 +22,19 @@ type CutEdgesResult = {
   unit_type: string;
 };
 
+type AssignedUnitsResult = {
+  assigned_count: number;
+  partially_assigned_count: number;
+  total_count: number;
+  unit_type: string;
+};
+
+type PopulationDeviationResult = {
+  most_populous_district: number;
+  least_populous_district: number;
+  deviation: number;
+};
+
 export interface DocumentEvaluation {
   seats?: Record<ElectionKey, SeatsResult>;
   efficiency_gap?: Record<ElectionKey, number>;
@@ -35,6 +48,8 @@ export interface DocumentEvaluation {
   polsby_popper?: Record<ZoneKey, number>;
   reock?: Record<ZoneKey, number>;
   majority_districts?: Record<RacialGroupKey, number[]>;
+  assigned_units?: AssignedUnitsResult;
+  population_deviation?: PopulationDeviationResult;
 }
 
 export const getEvaluation = async (document_id?: string) => {

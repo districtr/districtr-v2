@@ -67,7 +67,7 @@ export function EvalPanel() {
 
       {evaluation && (
         <Flex direction="column" gap="5" px="5" pb="5">
-          <BasicsSection />
+          <BasicsSection evaluation={evaluation} />
           <PartisanSection evaluation={evaluation} />
           <CountySplitsSection evaluation={evaluation} />
           <CompactnessSection evaluation={evaluation} />
