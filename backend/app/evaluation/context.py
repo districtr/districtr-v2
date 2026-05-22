@@ -218,7 +218,7 @@ class DocumentEvaluationContext:
         unit_to_zone: dict[Geoid, int] = {}
         parent_unit_to_zone: dict[Geoid, int] = {}
         if self.is_shatterable:
-            is_parent = _GEOID_PREDICATES[self.parent_geo_unit_type]
+            is_parent = GEOID_PREDICATES[self.parent_geo_unit_type]
             for geo_id, zone in self.zone_assignments:
                 (parent_unit_to_zone if is_parent(geo_id) else unit_to_zone)[geo_id] = zone
         else:

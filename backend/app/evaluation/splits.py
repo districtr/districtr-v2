@@ -30,7 +30,7 @@ def county_pieces(context: DocumentEvaluationContext) -> dict[CountyGeoid, Tuple
     The number of counties split into two or more pieces can be easily derived from this
     mapping by counting the number of counties where `actual_split_pieces` is 2 or more.
     """
-    county_pops: dict[CountyGeoid, int] = COUNTY_CONTEXT.county_populations(context.gerrydb_table, context.session)
+    county_pops: dict[CountyGeoid, int] = COUNTY_CONTEXT.county_populations(context.parent_layer, context.session)
 
     county_zones: dict[CountyGeoid, set[int]] = {}
     for geo_id, zone in context.zone_assignments:

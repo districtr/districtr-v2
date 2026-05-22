@@ -25,7 +25,7 @@ from app.evaluation.context import (
 from app.evaluation.splits import county_pieces
 
 
-_KS_ELLIS_TABLE = GerrydbTableName("ks_ellis_geos")
+_KS_ELLIS_TABLE = GerrydbTableName("ks_ellis_county_vtd")
 _KS_ELLIS_COUNTY = CountyGeoid("20051")
 _KS_ELLIS_TOTAL_POP = 30000
 _KS_ELLIS_IDEAL_POP = 10000
@@ -53,10 +53,10 @@ class _StubSplitsContext(DocumentEvaluationContext):
     """Real-session context that injects gerrydb_table and ideal_population directly,
     bypassing the DB lookups for those cached properties."""
 
-    def __init__(self, session, document_id, gerrydb_table=_KS_ELLIS_TABLE, ideal_population=_KS_ELLIS_IDEAL_POP):
+    def __init__(self, session, document_id, parent_layer=_KS_ELLIS_TABLE, ideal_population=_KS_ELLIS_IDEAL_POP):
         super().__init__(background_tasks=None, session=session, document_id=document_id)  # type: ignore[arg-type]
         self.__dict__["district_stats"] = []
-        self.__dict__["gerrydb_table"] = gerrydb_table
+        self.__dict__["parent_layer"] = parent_layer
         self.__dict__["ideal_population"] = ideal_population
 
 
@@ -126,6 +126,34 @@ def test_county_pieces_forced_from_population(three_zone_context):
     """forced = ceil(30000 / 10000) = 3."""
     result = county_pieces(three_zone_context)
     assert result[_KS_ELLIS_COUNTY][0] == 3
+
+
+# ── Retesting for old bug: cold cache + shatterable map ──────────────────────────────
+def test_county_pieces_cold_cache_shatterable_map(
+    client, session: Session, ks_ellis_shatterable_districtr_map, gerrydb_ks_ellis_geos_view
+):
+    """county_pieces must work on a cold cache when the map is shatterable.
+
+    The old bug: county_pieces passes context.gerrydb_table (the combined
+    materialized view, relkind='m') to county_populations, which trips the
+    relkind != 'r' guard in _populate_county_data.
+    """
+    _KS_ELLIS_PARENT_LAYER = GerrydbTableName("ks_ellis_county_vtd")
+    _cleanup_county_context()
+    COUNTY_CONTEXT._pop_cache[_KS_ELLIS_PARENT_LAYER] = {_KS_ELLIS_COUNTY: _KS_ELLIS_TOTAL_POP}
+    try:
+        resp = client.post("/api/create_document", json={"districtr_map_slug": "ks_ellis_geos"})
+        assert resp.status_code == 201
+        document_id = resp.json()["document_id"]
+        _put_assignments(client, document_id, _THREE_ZONE_ASSIGNMENTS)
+
+        ctx = _StubSplitsContext(session, document_id=document_id)
+
+        result = county_pieces(ctx)
+        assert result[_KS_ELLIS_COUNTY][1] == 3
+    finally:
+        COUNTY_CONTEXT._pop_cache.pop(_KS_ELLIS_PARENT_LAYER, None)
+        COUNTY_CONTEXT._attempts.pop(_KS_ELLIS_PARENT_LAYER, None)
 
 
 def test_county_pieces_forced_never_zero(three_zone_context):

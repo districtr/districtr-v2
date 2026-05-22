@@ -12,6 +12,7 @@ from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urlparse
 
+from app.utils import assert_safe_ident
 import botocore.exceptions
 import fastapi
 import sqlalchemy
@@ -147,7 +148,7 @@ def graph_from_gpkg(
         logger.info("Path: %s", gpkg_path)
 
     conn = sqlite3.connect(gpkg_path)
-    cursor = conn.execute(f"SELECT path_1, path_2 FROM {layer_name}")
+    cursor = conn.execute(f"SELECT path_1, path_2 FROM {assert_safe_ident(layer_name)}")
     edgelist = cursor.fetchall()
     conn.close()
     logger.info("Num edges %s", len(edgelist))
