@@ -7,6 +7,7 @@ single `DocumentEvaluationContext` and run every metric in `METRICS`.
 """
 
 import logging
+import time
 from typing import Any
 
 from fastapi import BackgroundTasks
@@ -76,7 +77,9 @@ def compute_metrics(
     metric_payloads: dict[str, Any] = {}
     for metric in METRICS:
         try:
+            t0 = time.perf_counter()
             metric_payloads[metric.key] = metric.compute(context)
+            logger.info("metric %s completed in %.3fs", metric.key, time.perf_counter() - t0)
         except Exception:
             logger.exception("metric %s failed, skipping", metric.key)
     return metric_payloads

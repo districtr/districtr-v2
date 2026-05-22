@@ -610,9 +610,9 @@ def _copy_csv_to_gerrydb(session: Session, table_name: str, csv_name: str) -> No
 
 
 def _block_geoid(r: int, c: int) -> str:
-    """12-char block GEOID: 5-digit county FIPS + 7-digit within-county index."""
+    """15-char block GEOID: 5-digit county FIPS + 10-digit within-county index."""
     county = (r // 2) * 2 + (c // 4)
-    return f"{county:05d}{(r % 2) * 4 + (c % 4):07d}"
+    return f"{county:05d}{(r % 2) * 4 + (c % 4):010d}"
 
 
 def _vtd_geoid(pr: int, pc: int) -> str:

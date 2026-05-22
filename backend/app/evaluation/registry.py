@@ -26,6 +26,7 @@ import app.evaluation.partisans as partisans
 import app.evaluation.splits as splits
 import app.evaluation.compactness as compactness
 import app.evaluation.demographic as demographic
+import app.evaluation.basic as basic
 
 
 @dataclass(frozen=True)
@@ -48,6 +49,8 @@ METRICS: tuple[Metric, ...] = (
     Metric(key="polsby_popper", version=1, compute=compactness.polsby_popper),
     Metric(key="reock", version=1, compute=compactness.reock),
     Metric(key="majority_districts", version=1, compute=demographic.majority_districts),
+    Metric(key="population_deviation", version=1, compute=basic.population_deviation),
+    Metric(key="assigned_units", version=5, compute=basic.assigned_units),
 )
 
 

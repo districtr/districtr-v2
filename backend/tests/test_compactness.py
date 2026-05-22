@@ -34,7 +34,7 @@ from fastapi import BackgroundTasks
 from networkx import Graph
 from sqlmodel import Session
 
-from app.evaluation.compactness import _infer_unit_type, block_cut_edges, polsby_popper, reock
+from app.evaluation.compactness import block_cut_edges, polsby_popper, reock
 from app.evaluation.context import DocumentEvaluationContext
 from app.utils import create_districtr_map
 from tests.conftest import BLOCK_GRID_NAME, PARENT_GRID_NAME, _block_geoid, _vtd_geoid
@@ -56,15 +56,6 @@ class _StubCompactnessContext(DocumentEvaluationContext):
         self.__dict__["child_layer"] = child_layer
         self.__dict__["gerrydb_table"] = gerrydb_table
         self.__dict__["parent_layer"] = parent_layer
-
-
-# ── _infer_unit_type ──────────────────────────────────────────────────────────
-
-
-def test_infer_unit_type():
-    assert _infer_unit_type("200510730003052") == "block"
-    assert _infer_unit_type("vtd:20051xxxx") == "vtd"
-    assert _infer_unit_type("bg:20051xxxx") == "bg"
 
 
 # ── Grid integration tests (real DB + disk-backed graphs) ─────────────────────
@@ -147,7 +138,7 @@ def test_cut_edges_nonshatterable_child_lr(
     _put_assignments(client, grid_child_document, _block_lr())
     ctx = _StubCompactnessContext(
         session, document_id=grid_child_document,
-        child_layer=None, gerrydb_table=BLOCK_GRID_NAME,
+        child_layer=None, gerrydb_table=BLOCK_GRID_NAME, parent_layer=BLOCK_GRID_NAME,
     )
     result = block_cut_edges(ctx)
     assert result["unit_type"] == "block"
@@ -161,7 +152,7 @@ def test_cut_edges_nonshatterable_child_4q(
     _put_assignments(client, grid_child_document, _block_4q())
     ctx = _StubCompactnessContext(
         session, document_id=grid_child_document,
-        child_layer=None, gerrydb_table=BLOCK_GRID_NAME,
+        child_layer=None, gerrydb_table=BLOCK_GRID_NAME, parent_layer=BLOCK_GRID_NAME,
     )
     result = block_cut_edges(ctx)
     assert result["unit_type"] == "block"
@@ -178,7 +169,7 @@ def test_cut_edges_nonshatterable_vtd_parent_lr(
     _put_assignments(client, grid_parent_document, _vtd_lr())
     ctx = _StubCompactnessContext(
         session, document_id=grid_parent_document,
-        child_layer=None, gerrydb_table=PARENT_GRID_NAME,
+        child_layer=None, gerrydb_table=PARENT_GRID_NAME, parent_layer=PARENT_GRID_NAME,
     )
     result = block_cut_edges(ctx)
     assert result["unit_type"] == "vtd"
@@ -289,7 +280,8 @@ def test_polsby_popper(client, session: Session, simple_child_geos_nonshatterabl
     document_id = resp.json()["document_id"]
 
     _put_assignments(client, document_id, [
-        ["a", 1], ["b", 1], ["c", 2], ["d", 2], ["e", 1], ["f", 1],
+        ["000010000000001", 1], ["000010000000002", 1], ["000010000000003", 2],
+        ["000010000000004", 2], ["000010000000005", 1], ["000010000000006", 1],
     ])
 
     ctx = DocumentEvaluationContext(
@@ -323,7 +315,8 @@ def test_reock(client, session: Session, simple_child_geos_nonshatterable_distri
     document_id = resp.json()["document_id"]
 
     _put_assignments(client, document_id, [
-        ["a", 1], ["b", 1], ["c", 2], ["d", 2], ["e", 1], ["f", 1],
+        ["000010000000001", 1], ["000010000000002", 1], ["000010000000003", 2],
+        ["000010000000004", 2], ["000010000000005", 1], ["000010000000006", 1],
     ])
 
     ctx = DocumentEvaluationContext(

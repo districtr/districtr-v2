@@ -10,8 +10,9 @@
 import dataclasses
 import logging
 from functools import cached_property
-from typing import ClassVar, NewType
+from typing import Callable, ClassVar, NewType
 
+from app.evaluation.graph import get_graph
 import fastapi
 import numpy as np
 import pandas as pd
@@ -20,11 +21,14 @@ import shapely
 import sqlalchemy
 import sqlmodel
 from app.evaluation.models import CountyDemographics
-from app.models import DistrictUnionsResponse, DistrictrMap, Document
+from app.models import Assignments, DistrictUnionsResponse, DistrictrMap, Document
 from app.utils import (
     update_or_select_district_stats,
     assert_safe_ident,
     get_gerrydb_numeric_cols,
+    Geoid,
+    GeoUnitTypeName,
+    GEOID_PREDICATES,
 )
 
 logger = logging.getLogger(__name__)
@@ -81,7 +85,9 @@ class DocumentEvaluationContext:
             for d in self.district_stats
             if d.demographic_data and d.zone is not None
         ]
-        return pd.DataFrame(rows).set_index("zone") if rows else pd.DataFrame()
+        if not rows or TOTAL_POP_COL not in rows[0]:
+            raise ValueError("No demographic data available for this document.")
+        return pd.DataFrame(rows).set_index("zone")
 
     @cached_property
     def elections(self) -> list[Election]:
@@ -178,6 +184,47 @@ class DocumentEvaluationContext:
         """The child (block-level) gerrydb table name, or `None` for non-shatterable maps."""
         m = self._districtr_map
         return GerrydbTableName(m.child_layer) if m.child_layer else None
+
+    @cached_property
+    def is_shatterable(self) -> bool:
+        """Whether this map has a child (block) layer."""
+        return self.child_layer is not None
+
+    @cached_property
+    def parent_geo_unit_type(self) -> GeoUnitTypeName:
+        """Parent unit type (e.g. 'vtd', 'block'). Raises ValueError if unset in districtrmap"""
+        if not self._districtr_map.parent_geo_unit_type:
+            raise ValueError(f"Unknown parent_geo_unit_type '{self.parent_geo_unit_type}' for document '{self.document_id}'.")
+        return self._districtr_map.parent_geo_unit_type
+
+    @cached_property
+    def zone_assignments(self) -> list[tuple[Geoid, int]]:
+        """Assignment rows for this document."""
+        rows = self.session.exec(
+            sqlmodel.select(Assignments.geo_id, Assignments.zone)
+            .where(Assignments.document_id == self.document_id)
+            .where(Assignments.zone.isnot(None))
+        ).all()
+        return rows
+
+    @cached_property
+    def split_zone_assignments(self) -> tuple[dict[Geoid, int], dict[Geoid, int]]:
+        """Assignment rows split into (unit_to_zone, parent_unit_to_zone).
+
+        unit_to_zone        — individually-assigned child units (bare block IDs)
+        parent_unit_to_zone — whole-parent assignments (colon-prefixed geo_ids),
+                              or all units for non-shatterable maps.
+        """
+        unit_to_zone: dict[Geoid, int] = {}
+        parent_unit_to_zone: dict[Geoid, int] = {}
+        if self.is_shatterable:
+            is_parent = _GEOID_PREDICATES[self.parent_geo_unit_type]
+            for geo_id, zone in self.zone_assignments:
+                (parent_unit_to_zone if is_parent(geo_id) else unit_to_zone)[geo_id] = zone
+        else:
+            for geo_id, zone in self.zone_assignments:
+                parent_unit_to_zone[geo_id] = zone
+        return unit_to_zone, parent_unit_to_zone
 
 
 @dataclasses.dataclass

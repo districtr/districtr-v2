@@ -304,7 +304,7 @@ def test_get_edges(client, session: Session, document_id):
         "/api/assignments",
         json={
             "document_id": document_id,
-            "assignments": [["A", 1]],
+            "assignments": [["vtd:000010000001", 1]],
             "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
@@ -312,13 +312,13 @@ def test_get_edges(client, session: Session, document_id):
 
     # Test
     response = client.get(
-        "/api/gerrydb/edges/simple_geos?parent_geoid=A",
+        "/api/gerrydb/edges/simple_geos?parent_geoid=vtd:000010000001",
     )
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 2
-    assert all(d["parent_path"] == "A" for d in data)
-    assert all(d["child_path"] in {"a", "e"} for d in data)
+    assert all(d["parent_path"] == "vtd:000010000001" for d in data)
+    assert all(d["child_path"] in {"000010000000001", "000010000000005"} for d in data)
 
 
 @fixture(autouse=True)

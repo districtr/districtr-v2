@@ -224,6 +224,7 @@ def annotate_graph_with_parents(
 
 def build_parent_adjacency(G: Graph) -> Graph:
     """Build a weighted parent-unit adjacency graph from an annotated block graph.
+    And also annotate parent nodes with their child blocks.
 
     Each edge weight equals the number of block-level edges crossing that
     parent-unit boundary. Block nodes without a ``parent`` attribute are skipped.
@@ -238,6 +239,10 @@ def build_parent_adjacency(G: Graph) -> Graph:
             parent_G[parent_u][parent_v]["weight"] += 1
         else:
             parent_G.add_edge(parent_u, parent_v, weight=1)
+    for node, data in G.nodes(data=True):
+        parent = data.get("parent")
+        if parent:
+            parent_G.nodes[parent].setdefault("children", set()).add(node)
     logger.info(
         "Built parent-unit adjacency: %d nodes, %d edges",
         parent_G.number_of_nodes(),

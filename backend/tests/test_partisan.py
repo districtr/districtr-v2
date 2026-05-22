@@ -112,14 +112,14 @@ class _StubEvaluationContext(DocumentEvaluationContext):
 _now = datetime.now(timezone.utc)
 
 _DISTRICT_STATS = [
-    DistrictUnionsResponse(zone=1, geometry=None, demographic_data={'pres_2016_dem': 4097, 'pres_2016_rep': 6522, 'pres_2020_dem': 5467, 'pres_2020_rep': 2635, 'pres_2024_dem': 3740, 'pres_2024_rep': 5386, 'sen_2016_dem': 3245, 'sen_2016_rep': 5669, 'sen_2018_dem': 4143, 'sen_2018_rep': 6873, 'sen_2020_dem': 3943, 'sen_2020_rep': 6828, 'sen_2022_dem': 6581, 'sen_2022_rep': 3837}, updated_at=_now),
-    DistrictUnionsResponse(zone=2, geometry=None, demographic_data={'pres_2016_dem': 2561, 'pres_2016_rep': 5569, 'pres_2020_dem': 3409, 'pres_2020_rep': 4974, 'pres_2024_dem': 4754, 'pres_2024_rep': 4198, 'sen_2016_dem': 3356, 'sen_2016_rep': 7109, 'sen_2018_dem': 4717, 'sen_2018_rep': 5581, 'sen_2020_dem': 6715, 'sen_2020_rep': 4217, 'sen_2022_dem': 4509, 'sen_2022_rep': 4393}, updated_at=_now),
-    DistrictUnionsResponse(zone=3, geometry=None, demographic_data={'pres_2016_dem': 5401, 'pres_2016_rep': 5012, 'pres_2020_dem': 3447, 'pres_2020_rep': 7868, 'pres_2024_dem': 4639, 'pres_2024_rep': 6469, 'sen_2016_dem': 6719, 'sen_2016_rep': 4140, 'sen_2018_dem': 3955, 'sen_2018_rep': 5438, 'sen_2020_dem': 3471, 'sen_2020_rep': 5165, 'sen_2022_dem': 6333, 'sen_2022_rep': 5587}, updated_at=_now),
-    DistrictUnionsResponse(zone=4, geometry=None, demographic_data={'pres_2016_dem': 2904, 'pres_2016_rep': 5514, 'pres_2020_dem': 3262, 'pres_2020_rep': 6294, 'pres_2024_dem': 6312, 'pres_2024_rep': 3158, 'sen_2016_dem': 5294, 'sen_2016_rep': 4114, 'sen_2018_dem': 6029, 'sen_2018_rep': 3054, 'sen_2020_dem': 5441, 'sen_2020_rep': 2736, 'sen_2022_dem': 5160, 'sen_2022_rep': 4721}, updated_at=_now),
-    DistrictUnionsResponse(zone=5, geometry=None, demographic_data={'pres_2016_dem': 4103, 'pres_2016_rep': 4408, 'pres_2020_dem': 4757, 'pres_2020_rep': 3565, 'pres_2024_dem': 6157, 'pres_2024_rep': 3043, 'sen_2016_dem': 6134, 'sen_2016_rep': 4440, 'sen_2018_dem': 4684, 'sen_2018_rep': 5680, 'sen_2020_dem': 3834, 'sen_2020_rep': 7051, 'sen_2022_dem': 5164, 'sen_2022_rep': 3023}, updated_at=_now),
-    DistrictUnionsResponse(zone=6, geometry=None, demographic_data={'pres_2016_dem': 5845, 'pres_2016_rep': 3088, 'pres_2020_dem': 3081, 'pres_2020_rep': 6104, 'pres_2024_dem': 5357, 'pres_2024_rep': 6146, 'sen_2016_dem': 4291, 'sen_2016_rep': 7258, 'sen_2018_dem': 4004, 'sen_2018_rep': 5552, 'sen_2020_dem': 5560, 'sen_2020_rep': 4297, 'sen_2022_dem': 6412, 'sen_2022_rep': 5004}, updated_at=_now),
-    DistrictUnionsResponse(zone=7, geometry=None, demographic_data={'pres_2016_dem': 4115, 'pres_2016_rep': 4551, 'pres_2020_dem': 3694, 'pres_2020_rep': 5761, 'pres_2024_dem': 5410, 'pres_2024_rep': 5335, 'sen_2016_dem': 3846, 'sen_2016_rep': 7028, 'sen_2018_dem': 4549, 'sen_2018_rep': 5946, 'sen_2020_dem': 6042, 'sen_2020_rep': 4145, 'sen_2022_dem': 3369, 'sen_2022_rep': 5633}, updated_at=_now),
-    DistrictUnionsResponse(zone=8, geometry=None, demographic_data={'pres_2016_dem': 4521, 'pres_2016_rep': 5372, 'pres_2020_dem': 5352, 'pres_2020_rep': 3753, 'pres_2024_dem': 5044, 'pres_2024_rep': 5774, 'sen_2016_dem': 5897, 'sen_2016_rep': 4907, 'sen_2018_dem': 3893, 'sen_2018_rep': 7559, 'sen_2020_dem': 6047, 'sen_2020_rep': 2891, 'sen_2022_dem': 3731, 'sen_2022_rep': 4400}, updated_at=_now),
+    DistrictUnionsResponse(zone=1, geometry=None, demographic_data={'total_pop_20': 10000, 'pres_2016_dem': 4097, 'pres_2016_rep': 6522, 'pres_2020_dem': 5467, 'pres_2020_rep': 2635, 'pres_2024_dem': 3740, 'pres_2024_rep': 5386, 'sen_2016_dem': 3245, 'sen_2016_rep': 5669, 'sen_2018_dem': 4143, 'sen_2018_rep': 6873, 'sen_2020_dem': 3943, 'sen_2020_rep': 6828, 'sen_2022_dem': 6581, 'sen_2022_rep': 3837}, updated_at=_now),
+    DistrictUnionsResponse(zone=2, geometry=None, demographic_data={'total_pop_20': 10000, 'pres_2016_dem': 2561, 'pres_2016_rep': 5569, 'pres_2020_dem': 3409, 'pres_2020_rep': 4974, 'pres_2024_dem': 4754, 'pres_2024_rep': 4198, 'sen_2016_dem': 3356, 'sen_2016_rep': 7109, 'sen_2018_dem': 4717, 'sen_2018_rep': 5581, 'sen_2020_dem': 6715, 'sen_2020_rep': 4217, 'sen_2022_dem': 4509, 'sen_2022_rep': 4393}, updated_at=_now),
+    DistrictUnionsResponse(zone=3, geometry=None, demographic_data={'total_pop_20': 10000, 'pres_2016_dem': 5401, 'pres_2016_rep': 5012, 'pres_2020_dem': 3447, 'pres_2020_rep': 7868, 'pres_2024_dem': 4639, 'pres_2024_rep': 6469, 'sen_2016_dem': 6719, 'sen_2016_rep': 4140, 'sen_2018_dem': 3955, 'sen_2018_rep': 5438, 'sen_2020_dem': 3471, 'sen_2020_rep': 5165, 'sen_2022_dem': 6333, 'sen_2022_rep': 5587}, updated_at=_now),
+    DistrictUnionsResponse(zone=4, geometry=None, demographic_data={'total_pop_20': 10000, 'pres_2016_dem': 2904, 'pres_2016_rep': 5514, 'pres_2020_dem': 3262, 'pres_2020_rep': 6294, 'pres_2024_dem': 6312, 'pres_2024_rep': 3158, 'sen_2016_dem': 5294, 'sen_2016_rep': 4114, 'sen_2018_dem': 6029, 'sen_2018_rep': 3054, 'sen_2020_dem': 5441, 'sen_2020_rep': 2736, 'sen_2022_dem': 5160, 'sen_2022_rep': 4721}, updated_at=_now),
+    DistrictUnionsResponse(zone=5, geometry=None, demographic_data={'total_pop_20': 10000, 'pres_2016_dem': 4103, 'pres_2016_rep': 4408, 'pres_2020_dem': 4757, 'pres_2020_rep': 3565, 'pres_2024_dem': 6157, 'pres_2024_rep': 3043, 'sen_2016_dem': 6134, 'sen_2016_rep': 4440, 'sen_2018_dem': 4684, 'sen_2018_rep': 5680, 'sen_2020_dem': 3834, 'sen_2020_rep': 7051, 'sen_2022_dem': 5164, 'sen_2022_rep': 3023}, updated_at=_now),
+    DistrictUnionsResponse(zone=6, geometry=None, demographic_data={'total_pop_20': 10000, 'pres_2016_dem': 5845, 'pres_2016_rep': 3088, 'pres_2020_dem': 3081, 'pres_2020_rep': 6104, 'pres_2024_dem': 5357, 'pres_2024_rep': 6146, 'sen_2016_dem': 4291, 'sen_2016_rep': 7258, 'sen_2018_dem': 4004, 'sen_2018_rep': 5552, 'sen_2020_dem': 5560, 'sen_2020_rep': 4297, 'sen_2022_dem': 6412, 'sen_2022_rep': 5004}, updated_at=_now),
+    DistrictUnionsResponse(zone=7, geometry=None, demographic_data={'total_pop_20': 10000, 'pres_2016_dem': 4115, 'pres_2016_rep': 4551, 'pres_2020_dem': 3694, 'pres_2020_rep': 5761, 'pres_2024_dem': 5410, 'pres_2024_rep': 5335, 'sen_2016_dem': 3846, 'sen_2016_rep': 7028, 'sen_2018_dem': 4549, 'sen_2018_rep': 5946, 'sen_2020_dem': 6042, 'sen_2020_rep': 4145, 'sen_2022_dem': 3369, 'sen_2022_rep': 5633}, updated_at=_now),
+    DistrictUnionsResponse(zone=8, geometry=None, demographic_data={'total_pop_20': 10000, 'pres_2016_dem': 4521, 'pres_2016_rep': 5372, 'pres_2020_dem': 5352, 'pres_2020_rep': 3753, 'pres_2024_dem': 5044, 'pres_2024_rep': 5774, 'sen_2016_dem': 5897, 'sen_2016_rep': 4907, 'sen_2018_dem': 3893, 'sen_2018_rep': 7559, 'sen_2020_dem': 6047, 'sen_2020_rep': 2891, 'sen_2022_dem': 3731, 'sen_2022_rep': 4400}, updated_at=_now),
 ]
 
 _EXPECTED_EFFICIENCY_GAP = {
@@ -235,13 +235,14 @@ def _aggregate_district_stats(block_rows: list[dict]) -> list[DistrictUnionsResp
 
     Zone = block_index // 8 + 1 (8 blocks per row, one district per row).
     """
+    agg_cols = [*_GRID_ELEC_COLS, "total_pop_20"]
     districts: dict[int, dict] = {}
     for i, row in enumerate(block_rows):
         zone = i // 8 + 1
         if zone not in districts:
-            districts[zone] = {k: 0 for k in _GRID_ELEC_COLS}
-        for k in _GRID_ELEC_COLS:
-            districts[zone][k] += row[k]
+            districts[zone] = {k: 0 for k in agg_cols}
+        for k in agg_cols:
+            districts[zone][k] += row.get(k, 0)
     return [
         DistrictUnionsResponse(zone=z, geometry=None, demographic_data=data, updated_at=_now)
         for z, data in sorted(districts.items())
@@ -587,7 +588,7 @@ def _partisan_district_stats(draw):
     n = draw(st.integers(min_value=1, max_value=20))
     districts = []
     for zone in range(1, n + 1):
-        data = {}
+        data = {"total_pop_20": draw(st.integers(min_value=1, max_value=1000000))}
         for e in _FUZZ_ELECTIONS:
             data[f"{e}_dem"] = draw(st.integers(min_value=0, max_value=50000))
             data[f"{e}_rep"] = draw(st.integers(min_value=0, max_value=50000))

@@ -1,27 +1,27 @@
 graph [
   node [
     id 0
-    label "a"
+    label "000010000000001"
   ]
   node [
     id 1
-    label "e"
+    label "000010000000005"
   ]
   node [
     id 2
-    label "f"
+    label "000010000000006"
   ]
   node [
     id 3
-    label "c"
+    label "000010000000003"
   ]
   node [
     id 4
-    label "d"
+    label "000010000000004"
   ]
   node [
     id 5
-    label "b"
+    label "000010000000002"
   ]
   edge [
     source 0

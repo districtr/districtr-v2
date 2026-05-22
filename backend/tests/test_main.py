@@ -879,12 +879,12 @@ def test_new_document_from_block_assignments(client, simple_shatterable_district
         json={
             "districtr_map_slug": "simple_geos",
             "assignments": [
-                ["a", "1"],
-                ["b", "2"],
-                ["c", "2"],
-                ["d", "2"],
-                ["e", "1"],
-                ["f", "3"],
+                ["000010000000001", "1"],
+                ["000010000000002", "2"],
+                ["000010000000003", "2"],
+                ["000010000000004", "2"],
+                ["000010000000005", "1"],
+                ["000010000000006", "3"],
             ],
         },
     )
@@ -908,12 +908,12 @@ def test_new_document_from_block_assignments_no_matched_parents(
         json={
             "districtr_map_slug": "simple_geos",
             "assignments": [
-                ["a", "1"],
-                ["b", "2"],
-                ["c", "1"],
-                ["d", "2"],
-                ["e", "2"],
-                ["f", "1"],
+                ["000010000000001", "1"],
+                ["000010000000002", "2"],
+                ["000010000000003", "1"],
+                ["000010000000004", "2"],
+                ["000010000000005", "2"],
+                ["000010000000006", "1"],
             ],
         },
     )
@@ -959,12 +959,12 @@ def test_new_document_from_block_assignments_some_matched_parents(
         json={
             "districtr_map_slug": "simple_geos",
             "assignments": [
-                ["a", "1"],
-                ["b", "2"],
-                ["c", "1"],
-                ["d", "2"],
-                ["e", "1"],
-                ["f", "3"],
+                ["000010000000001", "1"],
+                ["000010000000002", "2"],
+                ["000010000000003", "1"],
+                ["000010000000004", "2"],
+                ["000010000000005", "1"],
+                ["000010000000006", "3"],
             ],
         },
     )
@@ -988,12 +988,12 @@ def test_new_document_from_block_assignments_some_nulls(
         json={
             "districtr_map_slug": "simple_geos",
             "assignments": [
-                ["a", "1"],
-                ["b", ""],
-                ["c", "1"],
-                ["d", ""],
-                ["e", "1"],
-                ["f", "3"],
+                ["000010000000001", "1"],
+                ["000010000000002", ""],
+                ["000010000000003", "1"],
+                ["000010000000004", ""],
+                ["000010000000005", "1"],
+                ["000010000000006", "3"],
             ],
         },
     )
@@ -1016,12 +1016,12 @@ def test_new_document_from_block_assignments_some_null_geoids(
         json={
             "districtr_map_slug": "simple_geos",
             "assignments": [
-                ["a", "1"],
-                ["b", ""],
+                ["000010000000001", "1"],
+                ["000010000000002", ""],
                 ["", "1"],
                 ["", ""],
-                ["e", "1"],
-                ["f", "3"],
+                ["000010000000005", "1"],
+                ["000010000000006", "3"],
             ],
         },
     )
@@ -1044,12 +1044,12 @@ def test_new_document_from_block_assignments_non_integer_mapping(
         json={
             "districtr_map_slug": "simple_geos",
             "assignments": [
-                ["a", "My zone 1"],
-                ["b", ""],
-                ["c", "My zone 1"],
-                ["d", ""],
-                ["e", "My zone 1"],
-                ["f", "My zone 3"],
+                ["000010000000001", "My zone 1"],
+                ["000010000000002", ""],
+                ["000010000000003", "My zone 1"],
+                ["000010000000004", ""],
+                ["000010000000005", "My zone 1"],
+                ["000010000000006", "My zone 3"],
             ],
         },
     )
@@ -1072,12 +1072,12 @@ def test_new_document_from_block_assignments_too_many_unique_zones(
         json={
             "districtr_map_slug": "simple_geos",
             "assignments": [
-                ["a", "1"],
-                ["b", "2"],
-                ["c", "3"],
-                ["d", "4"],
-                ["e", "1"],
-                ["f", "5"],
+                ["000010000000001", "1"],
+                ["000010000000002", "2"],
+                ["000010000000003", "3"],
+                ["000010000000004", "4"],
+                ["000010000000005", "1"],
+                ["000010000000006", "5"],
             ],
         },
     )
@@ -1131,13 +1131,13 @@ def test_new_document_from_block_assignments_duplicate_blocks_in_input(
         json={
             "districtr_map_slug": "simple_geos",
             "assignments": [
-                ["a", "1"],
-                ["a", "1"],  # Dupe!
-                ["b", "2"],
-                ["c", "1"],
-                ["d", "2"],
-                ["e", "2"],
-                ["f", "1"],
+                ["000010000000001", "1"],
+                ["000010000000001", "1"],  # Dupe!
+                ["000010000000002", "2"],
+                ["000010000000003", "1"],
+                ["000010000000004", "2"],
+                ["000010000000005", "2"],
+                ["000010000000006", "1"],
             ],
         },
     )

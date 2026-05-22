@@ -64,9 +64,9 @@ def put_simple_contiguous_assignments(client: TestClient, document_id: str):
         json={
             "document_id": document_id,
             "assignments": [
-                ["A", 1],
-                ["B", 2],
-                ["C", 1],
+                ["vtd:000010000001", 1],
+                ["vtd:000010000002", 2],
+                ["vtd:000010000003", 1],
             ],
             "last_updated_at": datetime.now().astimezone().isoformat(),
         },
@@ -76,17 +76,14 @@ def put_simple_contiguous_assignments(client: TestClient, document_id: str):
 @fixture
 def simple_geos_graph(simple_geos_gml_path: str) -> Graph:
     """
-    Parents     Children
-    A – C       a – e – f
-    |   |       |   |   |
-    B ––        c – b ––
-                |   |
-                d ––
+    Parents (vtd:)        Children (15-digit block)
+    vtd:...001 – vtd:...003       ...001 – ...005 – ...006
+    |            |                |        |        |
+    vtd:...002 ––                 ...003 – ...002 ––
+                                  |        |
+                                  ...004 ––
 
-    where
-    - A = { a, e }
-    - B = { b, c, d}
-    - C = { f }
+    where vtd:...001 = { ...001, ...005 }, vtd:...002 = { ...002, ...003, ...004 }, vtd:...003 = { ...006 }
     """
     return graph.get_gerrydb_graph(simple_geos_gml_path, graph_file_format=graph.GraphFileFormat.gml)
 
@@ -206,10 +203,10 @@ def test_simple_geos_discontiguity(
         json={
             "document_id": document_id,
             "assignments": [
-                ["a", 1],
-                ["e", 2],
-                ["B", 2],
-                ["C", 1],
+                ["000010000000001", 1],
+                ["000010000000005", 2],
+                ["vtd:000010000002", 2],
+                ["vtd:000010000003", 1],
             ],
             "last_updated_at": datetime.now().astimezone().isoformat(),
         },
@@ -241,10 +238,10 @@ def test_simple_geos_discontiguity_subgraph_bboxes(
         json={
             "document_id": document_id,
             "assignments": [
-                ["a", 1],
-                ["e", 2],
-                ["B", 2],
-                ["C", 1],
+                ["000010000000001", 1],
+                ["000010000000005", 2],
+                ["vtd:000010000002", 2],
+                ["vtd:000010000003", 1],
             ],
             "last_updated_at": datetime.now().astimezone().isoformat(),
         },
