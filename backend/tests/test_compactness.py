@@ -36,7 +36,6 @@ from sqlmodel import Session
 
 from app.evaluation.compactness import block_cut_edges, polsby_popper, reock
 from app.evaluation.context import DocumentEvaluationContext
-from app.utils import create_districtr_map
 from tests.conftest import BLOCK_GRID_NAME, PARENT_GRID_NAME, _block_geoid, _vtd_geoid
 
 
@@ -259,18 +258,6 @@ def test_cut_edges_shatterable_mixed_grid(
 #   gdf.dissolve(by="zone").to_crs("EPSG:5070") → polsby_popper(partition)
 #   Zone 1: 0.6243085572
 #   Zone 2: 0.5454707812
-
-
-@pytest.fixture(name="simple_child_geos_nonshatterable_districtr_map")
-def simple_child_geos_nonshatterable_districtr_map_fixture(session: Session, simple_child_geos_gerrydb):
-    return create_districtr_map(
-        session,
-        name="Simple child geos non-shatterable",
-        districtr_map_slug="simple_child_ns",
-        gerrydb_table_name="simple_child_geos",
-        num_districts=2,
-        parent_layer="simple_child_geos",
-    )
 
 
 def test_polsby_popper(client, session: Session, simple_child_geos_nonshatterable_districtr_map):

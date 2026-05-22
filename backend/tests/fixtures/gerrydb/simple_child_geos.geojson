@@ -12,7 +12,9 @@
       "type": "Feature",
       "properties": {
         "path": "000010000000001",
-        "total_pop": 1
+        "total_pop_20": 100,
+        "white_pop_20": 90,
+        "black_pop_20": 5
       },
       "geometry": {
         "type": "MultiPolygon",
@@ -48,7 +50,9 @@
       "type": "Feature",
       "properties": {
         "path": "000010000000002",
-        "total_pop": 1
+        "total_pop_20": 200,
+        "white_pop_20": 180,
+        "black_pop_20": 10
       },
       "geometry": {
         "type": "MultiPolygon",
@@ -88,7 +92,9 @@
       "type": "Feature",
       "properties": {
         "path": "000010000000003",
-        "total_pop": 1
+        "total_pop_20": 300,
+        "white_pop_20": 100,
+        "black_pop_20": 200
       },
       "geometry": {
         "type": "MultiPolygon",
@@ -124,7 +130,9 @@
       "type": "Feature",
       "properties": {
         "path": "000010000000004",
-        "total_pop": 1
+        "total_pop_20": 400,
+        "white_pop_20": 100,
+        "black_pop_20": 300
       },
       "geometry": {
         "type": "MultiPolygon",
@@ -160,7 +168,9 @@
       "type": "Feature",
       "properties": {
         "path": "000010000000005",
-        "total_pop": 1
+        "total_pop_20": 500,
+        "white_pop_20": 450,
+        "black_pop_20": 20
       },
       "geometry": {
         "type": "MultiPolygon",
@@ -196,7 +206,9 @@
       "type": "Feature",
       "properties": {
         "path": "000010000000006",
-        "total_pop": 1
+        "total_pop_20": 600,
+        "white_pop_20": 540,
+        "black_pop_20": 30
       },
       "geometry": {
         "type": "MultiPolygon",

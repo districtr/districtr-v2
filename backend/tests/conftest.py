@@ -354,6 +354,20 @@ def simple_parent_child_geos_districtr_map_fixture(
     return inserted_districtr_map
 
 
+@pytest.fixture(name="simple_child_geos_nonshatterable_districtr_map")
+def simple_child_geos_nonshatterable_districtr_map_fixture(
+    session: Session, simple_child_geos_gerrydb
+):
+    return create_districtr_map(
+        session,
+        name="Simple child geos non-shatterable",
+        districtr_map_slug="simple_child_ns",
+        gerrydb_table_name="simple_child_geos",
+        num_districts=2,
+        parent_layer="simple_child_geos",
+    )
+
+
 @pytest.fixture
 def simple_shatterable_districtr_map_no_edges_yet(
     session: Session, gerrydb_simple_geos_view
