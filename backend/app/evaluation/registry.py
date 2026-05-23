@@ -50,7 +50,8 @@ METRICS: tuple[Metric, ...] = (
     Metric(key="reock", version=1, compute=compactness.reock),
     Metric(key="majority_districts", version=1, compute=demographic.majority_districts),
     Metric(key="population_deviation", version=1, compute=basic.population_deviation),
-    Metric(key="assigned_units", version=5, compute=basic.assigned_units),
+    Metric(key="assigned_units", version=1, compute=basic.assigned_units),
+    Metric(key="contiguous", version=2, compute=basic.contiguous),
 )
 
 

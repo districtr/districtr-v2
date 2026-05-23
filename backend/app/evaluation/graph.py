@@ -12,6 +12,8 @@ from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urlparse
 
+from networkx import number_connected_components
+
 from app.utils import assert_safe_ident
 import botocore.exceptions
 import fastapi
@@ -199,15 +201,15 @@ def write_graph(
     return path
 
 
-def annotate_graph_with_parents(
+def _annotate_graph_with_parents(
     G: Graph,
     session: sqlmodel.Session,
     map_uuid: str,
-) -> Graph:
+) -> None:
     """Attach ``parent`` node attributes to block nodes using parentchildedges.
 
-    Mutates G in place and returns it. Nodes not present in the graph are
-    silently skipped (e.g. blocks outside the map boundary).
+    Mutates G in place. Nodes not present in the graph are silently skipped
+    (e.g. blocks outside the map boundary).
     """
     rows = session.execute(
         sqlalchemy.text(
@@ -220,33 +222,83 @@ def annotate_graph_with_parents(
         if child_path in G.nodes:
             G.nodes[child_path]["parent"] = parent_path
     logger.info("Annotated %d parent edges for map %r", len(rows), map_uuid)
-    return G
 
 
-def build_parent_adjacency(G: Graph) -> Graph:
-    """Build a weighted parent-unit adjacency graph from an annotated block graph.
-    And also annotate parent nodes with their child blocks.
+def _build_combined_graph(G: Graph) -> None:
+    """Extend an annotated block graph in-place into a dual-level combined graph.
 
-    Each edge weight equals the number of block-level edges crossing that
-    parent-unit boundary. Block nodes without a ``parent`` attribute are skipped.
+    Node attributes:
+        child nodes — ``parent``: path of the owning parent unit (pre-existing)
+        parent nodes — ``children``: set of child node paths (added here)
+
+    Edge structure (for each original block-block edge u–v):
+        - u–v is kept (direct block adjacency)
+        - if parent(u) != parent(v):
+            - u–parent(v) and v–parent(u) are added (cross-level boundary edges)
+
+    An edge represents adjacency, not containment; parent-child relations do not produce
+    edges in this graph.
+
+    Graph attributes:
+        ``weighted_edges``: dict mapping canonical (min, max) parent-unit pairs to the
+        number of block-level edges that cross that boundary.
+        ``non_contiguous_parents``: set of parent-unit paths whose child blocks form
+        more than one connected component (e.g. island precincts). These are expanded
+        to their block children during contiguity evaluation so that geographic
+        disconnection is not hidden by the single-node representation.
     """
-    parent_G: Graph = Graph()
-    for u, v in G.edges():
-        parent_u = G.nodes[u].get("parent")
-        parent_v = G.nodes[v].get("parent")
-        if parent_u is None or parent_v is None or parent_u == parent_v:
+    G.graph["weighted_edges"] = {}
+
+    for u, v in list(G.edges()):
+        p_u = G.nodes[u].get("parent")
+        p_v = G.nodes[v].get("parent")
+        if p_u is None or p_v is None:
             continue
-        if parent_G.has_edge(parent_u, parent_v):
-            parent_G[parent_u][parent_v]["weight"] += 1
-        else:
-            parent_G.add_edge(parent_u, parent_v, weight=1)
-    for node, data in G.nodes(data=True):
+        if p_u != p_v:
+            G.add_edge(u, p_v)
+            G.add_edge(v, p_u)
+            key = (p_u, p_v) if p_u < p_v else (p_v, p_u)
+            G.graph["weighted_edges"][key] = G.graph["weighted_edges"].get(key, 0) + 1
+
+    for p_u, p_v in G.graph["weighted_edges"]:
+        G.add_edge(p_u, p_v)
+
+    for node, data in list(G.nodes(data=True)):
         parent = data.get("parent")
         if parent:
-            parent_G.nodes[parent].setdefault("children", set()).add(node)
+            if "children" not in G.nodes[parent]:
+                G.nodes[parent]["children"] = set()
+            G.nodes[parent]["children"].add(node)
+
+    non_contiguous = set()
+    for node, data in G.nodes(data=True):
+        children = data.get("children")
+        if children and number_connected_components(G.subgraph(children)) > 1:
+            non_contiguous.add(node)
+    G.graph["non_contiguous_parents"] = non_contiguous
+
     logger.info(
-        "Built parent-unit adjacency: %d nodes, %d edges",
-        parent_G.number_of_nodes(),
-        parent_G.number_of_edges(),
+        "Built combined dual-level graph: %d nodes, %d edges, %d parent boundaries, "
+        "%d non-contiguous parents",
+        G.number_of_nodes(),
+        G.number_of_edges(),
+        len(G.graph["weighted_edges"]),
+        len(non_contiguous),
     )
-    return parent_G
+
+
+def build_combined_graph_from_gpkg(
+    gpkg_path: str | Path,
+    session: sqlmodel.Session,
+    map_uuid: str,
+    layer_name: str = "gerrydb_graph_edge",
+) -> Graph:
+    """Build a combined dual-level graph from a GeoPackage for a shatterable map.
+
+    Chains graph_from_gpkg → annotate_graph_with_parents → build_combined_graph
+    without creating intermediate copies of the graph.
+    """
+    G = graph_from_gpkg(gpkg_path, layer_name=layer_name)
+    _annotate_graph_with_parents(G, session, map_uuid)
+    _build_combined_graph(G)
+    return G

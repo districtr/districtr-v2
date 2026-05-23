@@ -12,7 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError, ProgrammingError
 import subprocess
 import app.evaluation.graph as eval_graph_module
-from app.evaluation.graph import get_graph as _get_graph_cached
+from app.evaluation.graph import get_graph as _get_graph_cached, _build_combined_graph
 from networkx import Graph
 from tests.constants import (
     POSTGRES_TEST_DB,
@@ -540,6 +540,7 @@ def simple_child_geos_gml_path_fixture() -> str:
 
 BLOCK_GRID_NAME = "grid_child"
 PARENT_GRID_NAME = "grid_parent"
+GRID_COMBINED_NAME = "grid_shatterable"
 
 _GRID_ELEC_COLS = [
     "pres_2016_dem", "pres_2016_rep",
@@ -663,17 +664,100 @@ def _build_grid_parent_graph() -> Graph:
     return G
 
 
+def _build_grid_combined_graph() -> Graph:
+    """Build the 80-node combined dual-level graph for the shatterable fixture map.
+
+    Starts from the annotated block graph (parent attrs already set by
+    _build_grid_block_graph) and extends it in-place via _build_combined_graph.
+    """
+    G = _build_grid_block_graph()
+    _build_combined_graph(G)
+    return G
+
+
 @pytest.fixture(scope="session")
 def grid_graph_files():
-    """Write the 8×8 block and 4×4 parent pkl files to fixtures/graph/ once per session."""
-    child_path = FIXTURES_PATH / "graph" / f"{BLOCK_GRID_NAME}.pkl"
-    parent_path = FIXTURES_PATH / "graph" / f"{PARENT_GRID_NAME}.pkl"
-    if not child_path.exists():
-        with open(child_path, "wb") as f:
-            pickle.dump(_build_grid_block_graph(), f)
-    if not parent_path.exists():
-        with open(parent_path, "wb") as f:
+    """Write the 8×8 block, 4×4 parent, and combined pkl files to fixtures/graph/ once per session."""
+
+    combined_path = FIXTURES_PATH / "graph" / f"{GRID_COMBINED_NAME}.pkl"
+    parent_as_nonshatterable_path = FIXTURES_PATH / "graph" / f"{PARENT_GRID_NAME}.pkl"
+    child_as_nonshatterable_path = FIXTURES_PATH / "graph" / f"{BLOCK_GRID_NAME}.pkl"
+
+    if not combined_path.exists():
+        with open(combined_path, "wb") as f:
+            pickle.dump(_build_grid_combined_graph(), f)
+    if not parent_as_nonshatterable_path.exists():
+        with open(parent_as_nonshatterable_path, "wb") as f:
             pickle.dump(_build_grid_parent_graph(), f)
+    if not child_as_nonshatterable_path.exists():
+        with open(child_as_nonshatterable_path, "wb") as f:
+            pickle.dump(_build_grid_block_graph(), f)
+
+def _build_simple_geos_combined_graph() -> Graph:
+    """Build the combined dual-level graph for the simple_geos fixture (3 VTDs, 6 blocks).
+
+    Topology (from simple_child_geos.gml and fixture parent-child mapping):
+        vtd:000010000001 = { 000010000000001, 000010000000005 }
+        vtd:000010000002 = { 000010000000002, 000010000000003, 000010000000004 }
+        vtd:000010000003 = { 000010000000006 }
+    """
+    v1 = "vtd:000010000001"
+    v2 = "vtd:000010000002"
+    v3 = "vtd:000010000003"
+    parent_of = {
+        "000010000000001": v1,
+        "000010000000005": v1,
+        "000010000000002": v2,
+        "000010000000003": v2,
+        "000010000000004": v2,
+        "000010000000006": v3,
+    }
+    G = Graph()
+    for block, parent in parent_of.items():
+        G.add_node(block, parent=parent)
+    block_edges = [
+        ("000010000000001", "000010000000005"),
+        ("000010000000001", "000010000000003"),
+        ("000010000000005", "000010000000006"),
+        ("000010000000005", "000010000000002"),
+        ("000010000000006", "000010000000002"),
+        ("000010000000003", "000010000000004"),
+        ("000010000000003", "000010000000002"),
+        ("000010000000004", "000010000000002"),
+    ]
+    G.add_edges_from(block_edges)
+    _build_combined_graph(G)
+    return G
+
+
+@pytest.fixture(scope="session")
+def simple_geos_graph_files():
+    """Write the simple_geos combined pkl to fixtures/graph/ once per session."""
+    combined_path = FIXTURES_PATH / "graph" / "simple_geos.pkl"
+    if not combined_path.exists():
+        with open(combined_path, "wb") as f:
+            pickle.dump(_build_simple_geos_combined_graph(), f)
+
+
+@pytest.fixture(name="ks_ellis_geos_graph_file")
+def ks_ellis_geos_graph_file_fixture(session: Session, ks_ellis_county_vtd_gerrydb):
+    """Build and cache the ks_ellis VTD adjacency graph for shatterable contiguity tests.
+
+    Derives queen-contiguous VTD pairs via PostGIS ST_Touches on the already-loaded
+    gerrydb.ks_ellis_county_vtd table, then saves as a plain NetworkX pickle so the
+    mock_gerrydb_graph_file fixture can serve it.
+    """
+    path = FIXTURES_PATH / "graph" / "ks_ellis_geos.pkl"
+    if not path.exists():
+        rows = session.execute(text("""
+            SELECT a.path, b.path
+            FROM gerrydb.ks_ellis_county_vtd a
+            JOIN gerrydb.ks_ellis_county_vtd b ON a.path < b.path
+            WHERE ST_Touches(a.geometry, b.geometry)
+        """)).fetchall()
+        G = Graph([(r[0], r[1]) for r in rows])
+        with open(path, "wb") as f:
+            pickle.dump(G, f)
 
 
 @pytest.fixture(name="mock_grid_graph_file")
@@ -721,6 +805,7 @@ def grid_shatterable_districtr_map_fixture(session: Session, grid_child_gerrydb,
         session,
         name="Grid 8x8 shatterable map",
         districtr_map_slug="grid_shatterable",
+        gerrydb_table_name=GRID_COMBINED_NAME,
         num_districts=4,
         parent_layer=PARENT_GRID_NAME,
         child_layer=BLOCK_GRID_NAME,

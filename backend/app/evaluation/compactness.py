@@ -12,9 +12,11 @@ from app.evaluation.graph import get_graph
 
 logger = logging.getLogger(__name__)
 
+
 class CutEdgesResult(TypedDict):
     cut_count: int
     unit_type: str
+
 
 def block_cut_edges(context: DocumentEvaluationContext) -> CutEdgesResult:
     """Returns the number of cut edges and geographic unit type for the districting
@@ -34,10 +36,9 @@ def block_cut_edges(context: DocumentEvaluationContext) -> CutEdgesResult:
     Edges between two individually-assigned units are visited from both sides; halve
     that sub-total to avoid double-counting.
 
-    For non-shatterable maps (``child_layer`` is None), all assignments are treated
-    as parent units: Step 1 handles every assignment directly, regardless of whether
-    paths contain a colon prefix (e.g. VTD paths like ``vtd:xxxxx``) or not (bare
-    block IDs).
+    For non-shatterable maps (``child_layer`` is None), Step 2 handles every assignment
+    directly, regardless of whether paths contain a colon prefix (e.g. VTD paths like
+    ``vtd:xxxxx``) or not (bare block IDs).
 
     Returns a dict with:
             cut_count: total number of block-level cut edges.
@@ -49,23 +50,23 @@ def block_cut_edges(context: DocumentEvaluationContext) -> CutEdgesResult:
     unit_to_zone, parent_unit_to_zone = context.split_zone_assignments
 
     cut_count = 0
+
+    G = get_graph(context.gerrydb_table)
     # Step 1 (see above)
-    parent_adj = get_graph(context.parent_layer)
-    for parent_a, parent_b, data in parent_adj.edges(data=True):
-        zone_a = parent_unit_to_zone.get(parent_a)
-        zone_b = parent_unit_to_zone.get(parent_b)
-        if zone_a is None or zone_b is None:
-            continue
-        if zone_a != zone_b:
-            # For shatterable maps, weights represent block-edge counts across parent
-            # boundaries. For non-shatterable maps, we count cut edges unweighted.
-            cut_count += data.get("weight", 1) if context.is_shatterable else 1
+    if context.is_shatterable:
+        for (parent_a, parent_b), weight in G.graph["weighted_edges"].items():
+            zone_a = parent_unit_to_zone.get(parent_a)
+            zone_b = parent_unit_to_zone.get(parent_b)
+            if zone_a is None or zone_b is None:
+                continue
+            if zone_a != zone_b:
+                # For shatterable maps, weights represent block-edge counts across parent
+                # boundaries. For non-shatterable maps, we count cut edges unweighted.
+                cut_count += weight
     if not unit_to_zone:
         return {"cut_count": cut_count, "unit_type": unit_type}
 
     # Step 2 (see above)
-    assert context.is_shatterable
-    G = get_graph(context.child_layer)
     half_cut = 0
     for unit, zone_unit in unit_to_zone.items():
         for neighbor in G.neighbors(unit):
@@ -73,10 +74,8 @@ def block_cut_edges(context: DocumentEvaluationContext) -> CutEdgesResult:
                 # Both sides individually assigned — edge seen from both sides.
                 if zone_unit != unit_to_zone[neighbor]:
                     half_cut += 1
-            else:
-                # Neighbor belongs to a whole parent unit (or its parent is unassigned).
-                parent = G.nodes[neighbor].get("parent")
-                if parent in parent_unit_to_zone and zone_unit != parent_unit_to_zone.get(parent):
+            elif neighbor in parent_unit_to_zone:
+                if zone_unit != parent_unit_to_zone[neighbor]:
                     cut_count += 1
     cut_count += half_cut // 2
     return {"cut_count": cut_count, "unit_type": unit_type}

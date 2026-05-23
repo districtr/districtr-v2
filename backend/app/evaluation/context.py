@@ -12,7 +12,6 @@ import logging
 from functools import cached_property
 from typing import Callable, ClassVar, NewType
 
-from app.evaluation.graph import get_graph
 import fastapi
 import numpy as np
 import pandas as pd
@@ -198,6 +197,15 @@ class DocumentEvaluationContext:
         return self._districtr_map.parent_geo_unit_type
 
     @cached_property
+    def num_parent_units(self) -> int:
+        """Total number of units in the parent layer."""
+        return self.session.execute(
+            sqlalchemy.text(
+                f"SELECT count(*) FROM gerrydb.{assert_safe_ident(self.parent_layer)}"
+            )
+        ).scalar()
+
+    @cached_property
     def zone_assignments(self) -> list[tuple[Geoid, int]]:
         """Assignment rows for this document."""
         rows = self.session.exec(
@@ -212,8 +220,8 @@ class DocumentEvaluationContext:
         """Assignment rows split into (unit_to_zone, parent_unit_to_zone).
 
         unit_to_zone        — individually-assigned child units (bare block IDs)
-        parent_unit_to_zone — whole-parent assignments (colon-prefixed geo_ids),
                               or all units for non-shatterable maps.
+        parent_unit_to_zone — whole-parent assignments (colon-prefixed geo_ids)
         """
         unit_to_zone: dict[Geoid, int] = {}
         parent_unit_to_zone: dict[Geoid, int] = {}
@@ -223,7 +231,7 @@ class DocumentEvaluationContext:
                 (parent_unit_to_zone if is_parent(geo_id) else unit_to_zone)[geo_id] = zone
         else:
             for geo_id, zone in self.zone_assignments:
-                parent_unit_to_zone[geo_id] = zone
+                unit_to_zone[geo_id] = zone
         return unit_to_zone, parent_unit_to_zone
 
 

@@ -1,15 +1,17 @@
 from app.contiguity.main import (
     check_subgraph_contiguity,
     subgraph_number_connected_components,
-    get_block_assignments,
-    get_block_assignments_bboxes,
-    ZoneBlockNodes,
+    expand_non_contiguous_parents,
+    get_assigned_nodes,
+    get_assigned_nodes_bboxes,
+    ZoneContiguousNodes,
 )
 
 __all__ = [
     "check_subgraph_contiguity",
     "subgraph_number_connected_components",
-    "get_block_assignments",
-    "get_block_assignments_bboxes",
-    "ZoneBlockNodes",
+    "expand_non_contiguous_parents",
+    "get_assigned_nodes",
+    "get_assigned_nodes_bboxes",
+    "ZoneContiguousNodes",
 ]

@@ -1265,41 +1265,12 @@ async def check_document_contiguity(
         document_id=DocumentID(document_id=document.document_id), session=session
     )
 
-    if districtr_map.child_layer is not None:
-        logger.info(
-            f"Using child layer {districtr_map.child_layer} for document {document.document_id}"
-        )
-        gerrydb_name = districtr_map.child_layer
-        kwargs = {"zones": zone} if len(zone) > 0 else {}
-        zone_assignments = contiguity.get_block_assignments(
-            session, document.document_id, **kwargs
-        )
-    else:
-        gerrydb_name = districtr_map.parent_layer
-        logger.info(
-            f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document.document_id}"
-        )
-        sql = text("""
-            SELECT
-                zone,
-                array_agg(geo_id) as nodes
-            FROM
-                document.assignments
-            WHERE
-                document_id = :document_id
-                AND zone IS NOT NULL
-            GROUP BY
-                zone""")
-        result = (
-            session.connection()
-            .execute(sql, {"document_id": document.document_id})
-            .fetchall()
-        )
-        zone_assignments = [
-            contiguity.ZoneBlockNodes(zone=row.zone, nodes=row.nodes) for row in result
-        ]
-
+    gerrydb_name = districtr_map.gerrydb_table_name
+    kwargs = {"zones": zone} if len(zone) > 0 else {}
     G = get_graph(gerrydb_name)
+    zone_assignments = contiguity.get_assigned_nodes(
+        session, document.document_id, districtr_map, G=G, **kwargs
+    )
 
     results = {}
     for zone_blocks in zone_assignments:
@@ -1326,71 +1297,28 @@ async def get_connected_component_bboxes(
     districtr_map = get_districtr_map(
         document_id=DocumentID(document_id=document.document_id), session=session
     )
-    if districtr_map.child_layer is not None:
-        logger.info(
-            f"Using child layer {districtr_map.child_layer} for document {document.document_id}"
-        )
-        gerrydb_name = districtr_map.child_layer
-        zone_assignments = contiguity.get_block_assignments_bboxes(
-            session, document.document_id, zones=[zone]
-        )
-        if len(zone_assignments) == 0:
-            raise HTTPException(status_code=404, detail="Zone not found")
-        elif len(zone_assignments) > 1:
-            raise HTTPException(status_code=500, detail="Multiple zones found")
-        zone_assignments = zone_assignments[0]
-    else:
-        gerrydb_name = districtr_map.parent_layer
-        logger.info(
-            f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document.document_id}"
-        )
-        sql = text(f"""
-            SELECT
-                geo_id,
-                st_xmin(box2d(gpd.geometry)) AS xmin,
-                st_xmax(box2d(gpd.geometry)) AS xmax,
-                st_ymin(box2d(gpd.geometry)) AS ymin,
-                st_ymax(box2d(gpd.geometry)) AS ymax
-            FROM
-                document.assignments a
-            LEFT JOIN
-                gerrydb.{gerrydb_name} gpd
-                ON a.geo_id = gpd.path
-            WHERE
-                document_id = :document_id
-                AND zone = :zone""")
-
-        results = (
-            session.connection()
-            .execute(sql, {"document_id": document.document_id, "zone": zone})
-            .all()
-        )
-
-        if not results or len(results) == 0:
-            raise HTTPException(status_code=404, detail="Zone not found")
-        nodes = [row.geo_id for row in results]
-        zone_assignments = contiguity.ZoneBlockNodes(
-            zone=zone,
-            nodes=list(nodes),
-            node_data={
-                row.geo_id: {
-                    "xmin": row.xmin,
-                    "xmax": row.xmax,
-                    "ymin": row.ymin,
-                    "ymax": row.ymax,
-                }
-                for row in results
-            },
-        )
-
+    gerrydb_name = districtr_map.gerrydb_table_name
     G = get_graph(gerrydb_name)
-    subgraph = G.subgraph(nodes=zone_assignments.nodes)
+    zone_assignments_list = contiguity.get_assigned_nodes_bboxes(
+        session,
+        document.document_id,
+        districtr_map,
+        zones=[zone],
+        G=G,
+    )
+    if len(zone_assignments_list) == 0:
+        raise HTTPException(status_code=404, detail="Zone not found")
+    elif len(zone_assignments_list) > 1:
+        raise HTTPException(status_code=500, detail="Multiple zones found")
+    zone_assignments = zone_assignments_list[0]
 
     if zone_assignments.node_data is None:
         raise HTTPException(status_code=404, detail="Node data is missing")
 
+    subgraph = G.subgraph(nodes=zone_assignments.nodes)
     zone_connected_components = connected_components(subgraph)
 
+    srid_table = districtr_map.parent_layer
     from_srid = (
         session.connection()
         .execute(
@@ -1399,7 +1327,7 @@ async def get_connected_component_bboxes(
                 WHERE f_table_name = :table_name
                     AND f_table_schema = 'gerrydb'
                 LIMIT 1"""),
-            {"table_name": gerrydb_name},
+            {"table_name": srid_table},
         )
         .scalar()
     )

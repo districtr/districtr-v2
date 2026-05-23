@@ -36,7 +36,7 @@ from sqlmodel import Session
 
 from app.evaluation.compactness import block_cut_edges, polsby_popper, reock
 from app.evaluation.context import DocumentEvaluationContext
-from tests.conftest import BLOCK_GRID_NAME, PARENT_GRID_NAME, _block_geoid, _vtd_geoid
+from tests.conftest import BLOCK_GRID_NAME, GRID_COMBINED_NAME, PARENT_GRID_NAME, _block_geoid, _vtd_geoid
 
 
 # ── Stub context ──────────────────────────────────────────────────────────────
@@ -185,7 +185,7 @@ def test_cut_edges_shatterable_parent_only_lr(
     _put_assignments(client, grid_shatterable_document, _vtd_lr())
     ctx = _StubCompactnessContext(
         session, document_id=grid_shatterable_document,
-        child_layer=BLOCK_GRID_NAME, gerrydb_table=BLOCK_GRID_NAME,
+        child_layer=BLOCK_GRID_NAME, gerrydb_table=GRID_COMBINED_NAME,
         parent_layer=PARENT_GRID_NAME,
     )
     result = block_cut_edges(ctx)
@@ -200,7 +200,7 @@ def test_cut_edges_shatterable_parent_only_4q(
     _put_assignments(client, grid_shatterable_document, _vtd_4q())
     ctx = _StubCompactnessContext(
         session, document_id=grid_shatterable_document,
-        child_layer=BLOCK_GRID_NAME, gerrydb_table=BLOCK_GRID_NAME,
+        child_layer=BLOCK_GRID_NAME, gerrydb_table=GRID_COMBINED_NAME,
         parent_layer=PARENT_GRID_NAME,
     )
     result = block_cut_edges(ctx)
@@ -218,7 +218,7 @@ def test_cut_edges_shatterable_child_only_lr(
     _put_assignments(client, grid_shatterable_document, _block_lr())
     ctx = _StubCompactnessContext(
         session, document_id=grid_shatterable_document,
-        child_layer=BLOCK_GRID_NAME, gerrydb_table=BLOCK_GRID_NAME,
+        child_layer=BLOCK_GRID_NAME, gerrydb_table=GRID_COMBINED_NAME,
         parent_layer=PARENT_GRID_NAME,
     )
     result = block_cut_edges(ctx)
@@ -241,7 +241,7 @@ def test_cut_edges_shatterable_mixed_grid(
     _put_assignments(client, grid_shatterable_document, _mixed_shatterable())
     ctx = _StubCompactnessContext(
         session, document_id=grid_shatterable_document,
-        child_layer=BLOCK_GRID_NAME, gerrydb_table=BLOCK_GRID_NAME,
+        child_layer=BLOCK_GRID_NAME, gerrydb_table=GRID_COMBINED_NAME,
         parent_layer=PARENT_GRID_NAME,
     )
     result = block_cut_edges(ctx)

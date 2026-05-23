@@ -21,8 +21,7 @@ from app.core.io import get_local_or_s3_path
 from app.constants import GERRY_DB_SCHEMA
 from app.evaluation.graph import (
     GraphFileFormat,
-    annotate_graph_with_parents,
-    build_parent_adjacency,
+    build_combined_graph_from_gpkg,
     graph_from_gpkg,
     write_graph,
 )
@@ -375,14 +374,13 @@ def create_map_graphs(
     graph_file_format: GraphFileFormat,
     skip_upload: bool,
 ):
-    """Build and persist graph files for a districtr map.
+    """Build graph file {gerrydb_table_name}.pkl for a districtr map.
 
-    For shatterable maps (those with a child layer), produces:
-      - {child_layer}.pkl  — block graph annotated with parent-unit paths
-      - {parent_layer}.pkl — weighted parent-unit adjacency graph
+    For shatterable maps (those with a child layer), produces combined dual-level graph
+    with block nodes, parent nodes, cross-level edges, and G.graph["weighted_edges"]
+    dict.
 
-    For non-shatterable maps, produces:
-      - {gerrydb_table_name}.pkl — plain adjacency graph, no annotation
+    For non-shatterable maps, produces plain adjacency graph.
     """
     m = session.exec(
         sqlmodel_select(DistrictrMap).where(
@@ -395,36 +393,19 @@ def create_map_graphs(
     upload = not skip_upload
 
     if m.child_layer:
-        logger.info("Shatterable map — building annotated child graph and weighted parent adjacency")
-
-        G_child = graph_from_gpkg(gpkg)
-        G_child = annotate_graph_with_parents(G_child, session, str(m.uuid))
-        write_graph(
-            G=G_child,
-            gerrydb_name=m.child_layer,
-            upload_to_s3=upload,
-            graph_file_format=graph_file_format,
-        )
-        logger.info(f"Child graph written for {m.child_layer!r}")
-
-        G_parent = build_parent_adjacency(G_child)
-        write_graph(
-            G=G_parent,
-            gerrydb_name=m.parent_layer,
-            upload_to_s3=upload,
-            graph_file_format=graph_file_format,
-        )
-        logger.info(f"Parent adjacency graph written for {m.parent_layer!r}")
+        logger.info("Shatterable map — building combined dual-level graph")
+        G = build_combined_graph_from_gpkg(gpkg, session, str(m.uuid))
     else:
         logger.info("Non-shatterable map — building plain graph")
         G = graph_from_gpkg(gpkg)
-        write_graph(
-            G=G,
-            gerrydb_name=m.gerrydb_table_name,
-            upload_to_s3=upload,
-            graph_file_format=graph_file_format,
-        )
-        logger.info(f"Graph written for {m.gerrydb_table_name!r}")
+    
+    write_graph(
+        G=G,
+        gerrydb_name=m.gerrydb_table_name,
+        upload_to_s3=upload,
+        graph_file_format=graph_file_format,
+    )
+    logger.info(f"Graph written for {m.gerrydb_table_name!r}")
 
 
 @cli.command("create-shatterable-districtr-view")
