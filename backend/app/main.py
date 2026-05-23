@@ -1299,23 +1299,18 @@ async def get_connected_component_bboxes(
     )
     gerrydb_name = districtr_map.gerrydb_table_name
     G = get_graph(gerrydb_name)
-    zone_assignments_list = contiguity.get_assigned_nodes_bboxes(
+    node_bboxes = contiguity.get_assigned_nodes_bboxes(
         session,
         document.document_id,
         districtr_map,
-        zones=[zone],
+        zone,
         G=G,
     )
-    if len(zone_assignments_list) == 0:
+    if not node_bboxes:
         raise HTTPException(status_code=404, detail="Zone not found")
-    elif len(zone_assignments_list) > 1:
-        raise HTTPException(status_code=500, detail="Multiple zones found")
-    zone_assignments = zone_assignments_list[0]
 
-    if zone_assignments.node_data is None:
-        raise HTTPException(status_code=404, detail="Node data is missing")
-
-    subgraph = G.subgraph(nodes=zone_assignments.nodes)
+    node_data = {nb.node: nb for nb in node_bboxes}
+    subgraph = G.subgraph(nodes=list(node_data))
     zone_connected_components = connected_components(subgraph)
 
     srid_table = districtr_map.parent_layer
@@ -1341,11 +1336,11 @@ async def get_connected_component_bboxes(
             float("-inf"),
         )
         for node in zone_connected_component:
-            node_data = zone_assignments.node_data[node]
-            minx = min(minx, node_data["xmin"])
-            miny = min(miny, node_data["ymin"])
-            maxx = max(maxx, node_data["xmax"])
-            maxy = max(maxy, node_data["ymax"])
+            nb = node_data[node]
+            minx = min(minx, nb.xmin)
+            miny = min(miny, nb.ymin)
+            maxx = max(maxx, nb.xmax)
+            maxy = max(maxy, nb.ymax)
 
         (_minx, _maxx), (_miny, _maxy) = transform(
             xs=[minx, maxx],

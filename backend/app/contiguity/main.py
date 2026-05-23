@@ -69,15 +69,13 @@ def _non_contiguous_parents_expand_ctes(map_uuid: str, zone_filter: str) -> str:
             SELECT raw.zone, pce.child_path AS geo_id
             FROM raw
             JOIN ncp ON ncp.path = raw.geo_id
-            JOIN parentchildedges_{map_uuid} pce ON pce.parent_path = raw.geo_id
+            JOIN "parentchildedges_{map_uuid}" pce ON pce.parent_path = raw.geo_id
         )"""
 
 
 class ZoneContiguousNodes(BaseModel):
     zone: int
     nodes: list[str]
-    node_data: dict[str, dict[str, Any]] | None = None
-
 
 def get_assigned_nodes(
     session: Session,
@@ -129,14 +127,22 @@ def get_assigned_nodes(
     ]
 
 
+class NodeWithBBoxes(BaseModel):
+    node: str
+    xmin: float
+    xmax: float
+    ymin: float
+    ymax: float
+
+
 def get_assigned_nodes_bboxes(
     session: Session,
     document_id: str,
     districtr_map: DistrictrMap,
-    zones: list[int] | None = None,
+    zone: int,
     G: Graph | None = None,
-) -> list[ZoneContiguousNodes]:
-    """Return contiguous assigned nodes with bounding boxes.
+) -> list[NodeWithBBoxes]:
+    """Return contiguous assigned nodes with bounding boxes for a specific zone.
 
     For shatterable maps (child_layer + parent_layer on districtr_map), unions both
     geometry-bearing base tables so each geo_id finds its geometry regardless of level.
@@ -154,11 +160,9 @@ def get_assigned_nodes_bboxes(
     binds: list[sa.BindParameter] = [sa.bindparam(key="document_id", type_=UUIDType)]
     params: dict[str, Any] = {"document_id": document_id}
 
-    zone_filter = ""
-    if zones is not None:
-        zone_filter = "AND a.zone = ANY(:zones)"
-        binds.append(sa.bindparam(key="zones", type_=ARRAY(Integer)))
-        params["zones"] = zones
+    zone_filter = "AND a.zone = :zone"
+    binds.append(sa.bindparam(key="zone", type_=Integer))
+    params["zone"] = zone
 
     if child_layer:
         safe_child = assert_safe_ident(child_layer)
@@ -180,46 +184,41 @@ def get_assigned_nodes_bboxes(
         sql = sa.text(
             _non_contiguous_parents_expand_ctes(map_uuid, zone_filter) + f"""
             SELECT
-                ids.zone,
-                array_agg(ids.geo_id) AS nodes,
-                array_agg(st_xmin(Box2D(g.geometry))) AS xmin,
-                array_agg(st_xmax(Box2D(g.geometry))) AS xmax,
-                array_agg(st_ymin(Box2D(g.geometry))) AS ymin,
-                array_agg(st_ymax(Box2D(g.geometry))) AS ymax
+                ids.geo_id,
+                st_xmin(Box2D(g.geometry)) AS xmin,
+                st_xmax(Box2D(g.geometry)) AS xmax,
+                st_ymin(Box2D(g.geometry)) AS ymin,
+                st_ymax(Box2D(g.geometry)) AS ymax
             FROM ids
-            JOIN {geo_source} ON g.path = ids.geo_id
-            GROUP BY ids.zone"""
+            JOIN {geo_source} ON g.path = ids.geo_id"""
         ).bindparams(*binds)
     else:
         sql = sa.text(f"""SELECT
-            ids.zone,
-            array_agg(ids.geo_id) AS nodes,
-            array_agg(st_xmin(Box2D(g.geometry))) AS xmin,
-            array_agg(st_xmax(Box2D(g.geometry))) AS xmax,
-            array_agg(st_ymin(Box2D(g.geometry))) AS ymin,
-            array_agg(st_ymax(Box2D(g.geometry))) AS ymax
+            ids.geo_id,
+            st_xmin(Box2D(g.geometry)) AS xmin,
+            st_xmax(Box2D(g.geometry)) AS xmax,
+            st_ymin(Box2D(g.geometry)) AS ymin,
+            st_ymax(Box2D(g.geometry)) AS ymax
         FROM (
-            SELECT a.zone, a.geo_id
+            SELECT a.geo_id
             FROM document.assignments a
             WHERE a.document_id = :document_id
                 AND a.zone IS NOT NULL
                 {zone_filter}
         ) ids
-        JOIN {geo_source} ON g.path = ids.geo_id
-        GROUP BY ids.zone""").bindparams(*binds)
+        JOIN {geo_source} ON g.path = ids.geo_id""").bindparams(*binds)
 
     rows = session.execute(sql, params).fetchall()
+    if not rows:
+        return None
 
     return [
-        ZoneContiguousNodes(
-            zone=row.zone,
-            nodes=row.nodes,
-            node_data={
-                geo_id: {"xmin": xmin, "xmax": xmax, "ymin": ymin, "ymax": ymax}
-                for geo_id, xmin, xmax, ymin, ymax in zip(
-                    row.nodes, row.xmin, row.xmax, row.ymin, row.ymax
-                )
-            },
+        NodeWithBBoxes(
+            node=row.geo_id,
+            xmin=row.xmin,
+            xmax=row.xmax,
+            ymin=row.ymin,
+            ymax=row.ymax
         )
         for row in rows
     ]

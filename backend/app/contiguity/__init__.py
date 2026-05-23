@@ -5,6 +5,7 @@ from app.contiguity.main import (
     get_assigned_nodes,
     get_assigned_nodes_bboxes,
     ZoneContiguousNodes,
+    NodeWithBBoxes,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "get_assigned_nodes",
     "get_assigned_nodes_bboxes",
     "ZoneContiguousNodes",
+    "NodeWithBBoxes",
 ]
