@@ -16,9 +16,9 @@ from app.evaluation.context import (
 from app.models import Assignments
 
 
-def county_pieces(context: DocumentEvaluationContext) -> dict[CountyGeoid, Tuple[int, int]]:
+def county_pieces(context: DocumentEvaluationContext) -> dict[CountyGeoid, Tuple[int, int, str]]:
     """Returns a mapping from county geoid to a tuple of
-    (forced_split_pieces, actual_split_pieces).
+    (forced_split_pieces, actual_split_pieces, county_name).
 
     A "split" occurs when a county is divided across multiple districts.  The "forced"
     split pieces are the minimum number of pieces required to accommodate the population
@@ -42,6 +42,7 @@ def county_pieces(context: DocumentEvaluationContext) -> dict[CountyGeoid, Tuple
         county_geoid: (
             (pop + context.ideal_population - 1) // context.ideal_population,
             len(county_zones.get(county_geoid, set())),
+            COUNTY_CONTEXT.county_name(county_geoid),
         )
         for county_geoid, pop in county_pops.items()
     }

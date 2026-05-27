@@ -7,9 +7,12 @@
   - population-weighted Dem/Rep county win probabilities, used only by the Eguia metric.
 """
 
+import csv
 import dataclasses
 import logging
+import urllib.request
 from functools import cached_property
+from pathlib import Path
 from typing import Callable, ClassVar, NewType
 
 import fastapi
@@ -277,9 +280,49 @@ class CountyContext:
     # the DB indefinitely for a permanently malformed gerrydb table.
     MAX_LOAD_ATTEMPTS: ClassVar[int] = 3
 
+    _DATA_DIR: ClassVar[Path] = Path(__file__).parent.parent / "data"
+    _COUNTY_NAMES_FILE: ClassVar[Path] = _DATA_DIR / "county_names.csv"
+    _COUNTY_NAMES_URL: ClassVar[str] = (
+        "https://www2.census.gov/geo/docs/reference/codes2020/national_county2020.txt"
+    )
+
     _cache: dict[GerrydbTableName, dict[ElectionPartyKey, float]] = dataclasses.field(default_factory=dict)
     _pop_cache: dict[GerrydbTableName, dict[CountyGeoid, int]] = dataclasses.field(default_factory=dict)
+    _name_cache: dict[CountyGeoid, str] = dataclasses.field(default_factory=dict)
     _attempts: dict[GerrydbTableName, int] = dataclasses.field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        self._name_cache = self._load_county_names()
+
+    def _load_county_names(self) -> dict[CountyGeoid, str]:
+        """Load county geoid→name mapping from the bundled CSV, downloading it first if absent."""
+        if not self._COUNTY_NAMES_FILE.exists():
+            self._fetch_county_names_file()
+        result: dict[CountyGeoid, str] = {}
+        with self._COUNTY_NAMES_FILE.open(newline="") as f:
+            for row in csv.DictReader(f):
+                result[CountyGeoid(row["geoid"])] = row["name"]
+        return result
+
+    def _fetch_county_names_file(self) -> None:
+        """Download the Census Bureau county reference file and save as the local CSV."""
+        logger.info("Downloading county names from Census Bureau to %s", self._COUNTY_NAMES_FILE)
+        self._DATA_DIR.mkdir(parents=True, exist_ok=True)
+        with urllib.request.urlopen(self._COUNTY_NAMES_URL) as resp:
+            lines = resp.read().decode("utf-8").splitlines()
+        reader = csv.DictReader(lines, delimiter="|")
+        with self._COUNTY_NAMES_FILE.open("w", newline="") as out:
+            writer = csv.writer(out)
+            writer.writerow(["geoid", "name"])
+            for row in reader:
+                writer.writerow([row["STATEFP"] + row["COUNTYFP"], row["COUNTYNAME"]])
+
+    def county_name(self, geoid: CountyGeoid) -> str:
+        """Return the county name for `geoid` (e.g. "01001" → "Autauga County").
+
+        Raises KeyError if the geoid is not in the Census county reference data.
+        """
+        return self._name_cache[geoid]
 
     def county_populations(
         self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session

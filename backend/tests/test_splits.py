@@ -29,6 +29,8 @@ _KS_ELLIS_TABLE = GerrydbTableName("ks_ellis_county_vtd")
 _KS_ELLIS_COUNTY = CountyGeoid("20051")
 _KS_ELLIS_TOTAL_POP = 30000
 _KS_ELLIS_IDEAL_POP = 10000
+# Rooks County, KS — real FIPS used as a phantom unassigned county in tests.
+_KS_PHANTOM_COUNTY = CountyGeoid("20163")
 
 _THREE_ZONE_ASSIGNMENTS = [
     ["vtd:20051120060", 1],
@@ -111,9 +113,15 @@ def test_county_pieces_actual_single_zone(single_zone_context):
     assert result[_KS_ELLIS_COUNTY][1] == 1
 
 
+def test_county_pieces_name(three_zone_context):
+    """Third element of the tuple is the Census county name."""
+    result = county_pieces(three_zone_context)
+    assert result[_KS_ELLIS_COUNTY][2] == "Ellis County"
+
+
 def test_county_pieces_unassigned_county_zero(three_zone_context):
     """A county absent from assignments has actual = 0."""
-    phantom = CountyGeoid("99999")
+    phantom = _KS_PHANTOM_COUNTY
     COUNTY_CONTEXT._pop_cache[_KS_ELLIS_TABLE][phantom] = 5000
     result = county_pieces(three_zone_context)
     assert result[phantom][1] == 0
@@ -159,13 +167,13 @@ def test_county_pieces_cold_cache_shatterable_map(
 def test_county_pieces_forced_never_zero(three_zone_context):
     """Every county with nonzero population has forced >= 1."""
     result = county_pieces(three_zone_context)
-    for geoid, (forced, _actual) in result.items():
+    for geoid, (forced, _actual, _name) in result.items():
         assert forced >= 1, f"{geoid}: forced should be >= 1"
 
 
 def test_county_pieces_unassigned_county_forced(three_zone_context):
     """A county absent from assignments still gets a forced count from its population."""
-    phantom = CountyGeoid("99999")
+    phantom = _KS_PHANTOM_COUNTY
     COUNTY_CONTEXT._pop_cache[_KS_ELLIS_TABLE][phantom] = 5000
     result = county_pieces(three_zone_context)
     assert result[phantom][0] == 1  # ceil(5000 / 10000)
@@ -173,7 +181,7 @@ def test_county_pieces_unassigned_county_forced(three_zone_context):
 
 def test_county_pieces_keyed_by_county_pops(three_zone_context):
     """Result contains exactly the counties present in county_pops."""
-    phantom = CountyGeoid("99999")
+    phantom = _KS_PHANTOM_COUNTY
     COUNTY_CONTEXT._pop_cache[_KS_ELLIS_TABLE][phantom] = 5000
     result = county_pieces(three_zone_context)
     assert set(result.keys()) == {_KS_ELLIS_COUNTY, phantom}
