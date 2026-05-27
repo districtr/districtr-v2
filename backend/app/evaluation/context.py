@@ -133,6 +133,28 @@ class DocumentEvaluationContext:
     def rep_seats(self) -> dict[Election, int]:
         """Total Rep seats statewide for each election."""
         return {col: sum(self.rep_wins[col]) for col in self.elections}
+    
+    @cached_property
+    def dem_vote_share(self) -> dict[Election, float]:
+        """Statewide Dem vote share for each election."""
+        shares = {}
+        for col in self.elections:
+            dem_votes = self.demographic_data[col + "_dem"].sum()
+            rep_votes = self.demographic_data[col + "_rep"].sum()
+            total_votes = dem_votes + rep_votes
+            shares[col] = float(dem_votes / total_votes) if total_votes > 0 else 0.0
+        return shares
+    
+    @cached_property
+    def rep_vote_share(self) -> dict[Election, float]:
+        """Statewide Rep vote share for each election."""
+        shares = {}
+        for col in self.elections:
+            dem_votes = self.demographic_data[col + "_dem"].sum()
+            rep_votes = self.demographic_data[col + "_rep"].sum()
+            total_votes = dem_votes + rep_votes
+            shares[col] = float(rep_votes / total_votes) if total_votes > 0 else float("nan")
+        return shares
 
     @cached_property
     def num_nonempty_districts(self) -> int:

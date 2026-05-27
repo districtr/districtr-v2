@@ -71,11 +71,29 @@ def seats(context: DocumentEvaluationContext) -> dict[Election, dict[str, int]]:
         
     Plurality-winner counts; ties contribute to neither party.
     """
-    result: dict[Election, dict[str, int]] = {}
-    for col in context.elections:
-        result[col] = {"dem": context.dem_seats[col], "rep": context.rep_seats[col]}
-    return result
+    return {
+        election: {
+            "dem": context.dem_seats[election],
+            "rep": context.rep_seats[election],
+        }
+        for election in context.elections
+    }
 
+def vote_shares(context: DocumentEvaluationContext) -> dict[Election, dict[str, float]]:
+    """Per-election vote shares: `{election: {"dem": share, "rep": share}}`.
+
+    Formula:
+        V_dem(e) = sum(dem_votes(d, e)) / sum(dem_votes(d, e) + rep_votes(d, e))
+        V_rep(e) = sum(rep_votes(d, e)) / sum(dem_votes(d, e) + rep_votes(d, e))
+        where d ranges over districts and e over elections.
+    """
+    return {
+        election: {
+            "dem": context.dem_vote_share[election],
+            "rep": context.rep_vote_share[election],
+        }
+        for election in context.elections
+    }
 
 def mean_median(context: DocumentEvaluationContext) -> dict[Election, float]:
     """Per-election median minus mean of Dem two-party vote share (Dem POV).
@@ -173,14 +191,7 @@ def disproportionality(context: DocumentEvaluationContext) -> dict[Election, flo
     """
     result: dict[Election, float] = {}
     for col in context.elections:
-        dem_votes = context.demographic_data[col + "_dem"]
-        rep_votes = context.demographic_data[col + "_rep"]
-        total = sum(dem_votes) + sum(rep_votes)
-        if total == 0:
-            result[col] = float("nan")
-        else:
-            dem_vote_share = sum(dem_votes) / total
-            result[col] = (context.dem_seats[col] / context.num_nonempty_districts) - dem_vote_share
+        result[col] = (context.dem_seats[col] / context.num_nonempty_districts) - context.dem_vote_share[col]
     return result
 
 def eguia_county(context: DocumentEvaluationContext) -> dict[Election, float]:
