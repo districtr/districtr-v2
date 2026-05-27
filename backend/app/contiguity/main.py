@@ -60,7 +60,7 @@ def _non_contiguous_parents_expand_ctes(map_uuid: str, zone_filter: str) -> str:
                 {zone_filter}
         ),
         ncp AS (
-            SELECT unnest(:ncp_paths::text[]) AS path
+            SELECT unnest(CAST(:ncp_paths AS text[])) AS path
         ),
         ids AS (
             SELECT raw.zone, raw.geo_id FROM raw
