@@ -50,6 +50,7 @@ export interface DocumentEvaluation {
   majority_districts?: Record<RacialGroupKey, number[]>;
   assigned_units?: AssignedUnitsResult;
   population_deviation?: PopulationDeviationResult;
+  contiguous?: boolean;
 }
 
 export const getEvaluation = async (document_id?: string) => {
