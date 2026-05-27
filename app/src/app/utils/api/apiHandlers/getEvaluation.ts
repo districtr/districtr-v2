@@ -51,7 +51,7 @@ export interface DocumentEvaluation {
   eguia?: Record<ElectionKey, number>;
   disproportionality?: Record<ElectionKey, number>;
   competitiveness?: CompetitivenessResult;
-  county_pieces?: Record<CountyFIPS, [number, number]>; // tuple: [minimum_possible, actual_pieces]
+  county_pieces?: Record<CountyFIPS, [number, number, string]>; // tuple: [minimum_possible, actual_pieces, county_name]
   cut_edges?: CutEdgesResult;
   polsby_popper?: Record<ZoneKey, number>;
   reock?: Record<ZoneKey, number>;

@@ -14,8 +14,8 @@ export function CountySplitsSection({evaluation}: Props) {
   if (!countyPieces) return null;
 
   const entries = Object.entries(countyPieces)
-    .map(([geoid, [minimum, actual]]) => ({geoid, minimum, actual}))
-    .sort((a, b) => a.geoid.localeCompare(b.geoid));
+    .map(([geoid, [minimum, actual, name]]) => ({geoid, minimum, actual, name}))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const totalCounties = entries.length;
   const splitCounties = entries.filter(e => e.actual >= 2).length;
@@ -60,16 +60,16 @@ export function CountySplitsSection({evaluation}: Props) {
           <Table.Root size="1">
             <Table.Header>
               <Table.Row>
-                <Table.ColumnHeaderCell>County GEOID</Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell>County</Table.ColumnHeaderCell>
                 <Table.ColumnHeaderCell justify="end">Min. possible</Table.ColumnHeaderCell>
                 <Table.ColumnHeaderCell justify="end">Actual pieces</Table.ColumnHeaderCell>
               </Table.Row>
             </Table.Header>
             <Table.Body>
-              {entries.map(({geoid, minimum, actual}) => (
+              {entries.map(({geoid, minimum, actual, name}) => (
                 <Table.Row key={geoid}>
                   <Table.Cell>
-                    <Text size="2">{geoid}</Text>
+                    <Text size="2">{name}</Text>
                   </Table.Cell>
                   <Table.Cell justify="end">
                     <Text size="2">{minimum}</Text>
