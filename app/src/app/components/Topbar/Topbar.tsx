@@ -6,7 +6,6 @@ import {
   Heading,
   IconButton,
   Link,
-  Box,
   Tooltip,
   Tabs,
 } from '@radix-ui/themes';
@@ -236,9 +235,6 @@ export const Topbar: React.FC = () => {
                 <ArrowLeftIcon />
                 <Text size="2">Exit evaluation</Text>
               </IconButton>
-              <Text size="2" color="gray">
-                read-only · editing is disabled in this view
-              </Text>
               <label>
                 <Flex align="center" gap="1">
                   <input
@@ -246,7 +242,7 @@ export const Topbar: React.FC = () => {
                     checked={evalTablesOnly}
                     onChange={e => setEvalTablesOnly(e.target.checked)}
                   />
-                  <Text size="2">Advanced mode (tables only)</Text>
+                  <Text size="2">Tables only</Text>
                 </Flex>
               </label>
             </>

@@ -4,10 +4,17 @@ type ElectionKey = string; // e.g., "sen_18"
 type RacialGroupKey = "white" | "amin" | "asian_nhpi" | "h" | "b"; // Corresonpding to "pop" column prefixes
 type ZoneKey = string;
 type CountyFIPS = string; // 5-digit FIPS code as a string
+
 type SeatsResult = {
   dem: number;
   rep: number;
 };
+
+type VoteSharesResult = {
+  dem: number;
+  rep: number;
+};
+
 type CompetitivenessResult = {
   n_dem_districts: number;
   n_rep_districts: number;
@@ -37,6 +44,7 @@ type PopulationDeviationResult = {
 
 export interface DocumentEvaluation {
   seats?: Record<ElectionKey, SeatsResult>;
+  vote_shares?: Record<ElectionKey, VoteSharesResult>;
   efficiency_gap?: Record<ElectionKey, number>;
   mean_median?: Record<ElectionKey, number>;
   partisan_bias?: Record<ElectionKey, number>;
