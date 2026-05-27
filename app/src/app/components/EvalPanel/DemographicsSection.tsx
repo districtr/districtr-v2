@@ -22,7 +22,7 @@ const GROUP_ORDER = ['white', 'h', 'b', 'asian_nhpi', 'amin'];
 
 function DistrictBadges({zones}: {zones: number[]}) {
   const getZoneColor = useZoneColorGetter();
-  if (!zones.length) return <Text size="2" color="gray">—</Text>;
+  if (!zones.length) return <Text size="2">—</Text>;
   return (
     <Flex gap="1" wrap="wrap" justify="end">
       {zones.map(zone => (
@@ -71,7 +71,7 @@ export function DemographicsSection({evaluation}: Props) {
           </Flex>
         </Accordion.Trigger>
         <Accordion.Content>
-          <Text size="2" color="gray" mb="3" as="p">
+          <Text size="2" mb="3" as="p">
             For each demographic group, this table reports the number of districts in which that
             group forms a majority of the total population. Fine-grained population shares by
             district are available in the editor&apos;s <em>Demographics</em> panel.

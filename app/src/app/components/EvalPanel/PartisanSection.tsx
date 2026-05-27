@@ -34,8 +34,22 @@ function dispLabel(disp: number, numDistricts: number): string {
     : `Leans Republican by ${abs} seats`;
 }
 
+const LEVEL_ORDER: Record<string, number> = {pres: 0, sen: 1, gov: 2, ag: 3};
+
+function sortElections(keys: string[]): string[] {
+  return [...keys].sort((a, b) => {
+    const aParts = a.split('_'), bParts = b.split('_');
+    const aYear = Number(aParts[aParts.length - 1]);
+    const bYear = Number(bParts[bParts.length - 1]);
+    if (bYear !== aYear) return bYear - aYear; // descending year
+    const aLevel = LEVEL_ORDER[aParts[0]] ?? 99;
+    const bLevel = LEVEL_ORDER[bParts[0]] ?? 99;
+    return aLevel - bLevel; // pres < sen < gov
+  });
+}
+
 export function PartisanSection({evaluation}: Props) {
-  const elections = Object.keys(evaluation.seats ?? {});
+  const elections = sortElections(Object.keys(evaluation.seats ?? {}));
   const n = elections.length;
   const competitiveness = evaluation.competitiveness;
   if (!n && !competitiveness) return null;
@@ -62,7 +76,7 @@ export function PartisanSection({evaluation}: Props) {
         </Accordion.Trigger>
         <Accordion.Content>
           {n > 0 && (
-            <Text size="2" color="gray" mb="3" as="p">
+            <Text size="2" mb="3" as="p">
               Our current dataset contains <strong>{n} recent statewide election{n !== 1 ? 's' : ''}</strong>.{' '}
             </Text>
           )}
@@ -71,7 +85,7 @@ export function PartisanSection({evaluation}: Props) {
           {n > 0 && (
             <>
               <SubsectionHeading>Proportionality</SubsectionHeading>
-              <Text size="2" color="gray" mb="3" as="p">
+              <Text size="2" mb="3" as="p">
                 Relative to proportionality, your plan has an average lean of{' '}
                 {avgSeatLean !== null ? (
                   <>
@@ -195,7 +209,7 @@ export function PartisanSection({evaluation}: Props) {
           {n > 0 && (
             <>
               <SubsectionHeading>Other Partisanship Metrics</SubsectionHeading>
-              <Text size="2" color="gray" mb="3" as="p">
+              <Text size="2" mb="3" as="p">
                 The following scores can all be found in the political science literature, but are
                 not necessarily endorsed by leading scholars at this time.
               </Text>
@@ -238,7 +252,7 @@ export function PartisanSection({evaluation}: Props) {
           {competitiveness && (
             <>
               <SubsectionHeading>Competitiveness</SubsectionHeading>
-              <Text size="2" color="gray" mb="3" as="p">
+              <Text size="2" mb="3" as="p">
                 Competitiveness measures how many districts are closely contested. A swing district
                 is one where the result could plausibly change with a small shift in the statewide
                 vote.
@@ -246,7 +260,7 @@ export function PartisanSection({evaluation}: Props) {
               <Table.Root size="1">
                 <Table.Body>
                   <Table.Row>
-                    <Table.Cell><Text size="2" color="gray">Competitive districts</Text></Table.Cell>
+                    <Table.Cell><Text size="2">Competitive contests</Text></Table.Cell>
                     <Table.Cell justify="end">
                       <Text size="2" weight="bold">
                         {competitiveness.n_competitive_districts} / {competitiveness.n_districts * competitiveness.n_elections}
@@ -254,25 +268,25 @@ export function PartisanSection({evaluation}: Props) {
                     </Table.Cell>
                   </Table.Row>
                   <Table.Row>
-                    <Table.Cell><Text size="2" color="gray">Swing districts</Text></Table.Cell>
+                    <Table.Cell><Text size="2">Swing districts</Text></Table.Cell>
                     <Table.Cell justify="end">
                       <Text size="2" weight="bold">{competitiveness.n_swing_districts}</Text>
                     </Table.Cell>
                   </Table.Row>
                   <Table.Row>
-                    <Table.Cell><Text size="2" color="gray">Safe Dem districts</Text></Table.Cell>
+                    <Table.Cell><Text size="2">Safe Dem districts</Text></Table.Cell>
                     <Table.Cell justify="end">
                       <Text size="2" weight="bold">{competitiveness.n_dem_districts}</Text>
                     </Table.Cell>
                   </Table.Row>
                   <Table.Row>
-                    <Table.Cell><Text size="2" color="gray">Safe Rep districts</Text></Table.Cell>
+                    <Table.Cell><Text size="2">Safe Rep districts</Text></Table.Cell>
                     <Table.Cell justify="end">
                       <Text size="2" weight="bold">{competitiveness.n_rep_districts}</Text>
                     </Table.Cell>
                   </Table.Row>
                   <Table.Row>
-                    <Table.Cell><Text size="2" color="gray">Elections analyzed</Text></Table.Cell>
+                    <Table.Cell><Text size="2">Elections analyzed</Text></Table.Cell>
                     <Table.Cell justify="end">
                       <Text size="2" weight="bold">{competitiveness.n_elections}</Text>
                     </Table.Cell>

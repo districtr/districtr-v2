@@ -27,6 +27,7 @@ import {isUUID} from '@/app/utils/metadata/isUUID';
 import {useInitializeMapMode} from '@/app/hooks/useInitializeMapMode';
 import {MAP_MODES} from '@constants/map/mode';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
+import {BASEMAP_IDS} from '@constants/map/layerStyle';
 
 interface MapPageProps {
   isEditing: boolean;
@@ -42,6 +43,7 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
   const isPublicPage = !isEditing && !!mapId && !isUUID(mapId);
   const setIsEditing = useMapControlsStore(state => state.setIsEditing);
   const setIsEval = useMapControlsStore(state => state.setIsEval);
+  const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
   // check if userid in local storage; if not, create one
@@ -84,6 +86,10 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
   useEffect(() => {
     setIsEval(isEval ?? false);
   }, [isEval, setIsEval]);
+
+  useEffect(() => {
+    if (isEval) setMapOptions({basemap: BASEMAP_IDS.MINIMAL});
+  }, [isEval, setMapOptions]);
 
   useEffect(() => {
     !userID && setUserID();

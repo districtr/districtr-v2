@@ -1,181 +1,100 @@
 'use client';
 import * as Accordion from '@radix-ui/react-accordion';
-import {Flex, Text, Table, Heading} from '@radix-ui/themes';
+import {Flex, Text, Table, Heading, Tooltip} from '@radix-ui/themes';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
-import {SubsectionHeading} from './shared';
+import {SubsectionHeading, formatDecimal} from './shared';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 
-// Anchor reference districts drawn from Moon Duchin's work.
-// TODO: Replace placeholder scores with values from
-// Duchin (2022) "Outlier Analysis for Pennsylvania" or equivalent source.
-// TODO: Add district shape images sourced from the same publication.
-const LEVELS = [
-  {
-    label: 'Low',
-    color: 'red' as const,
-    anchor: {
-      label: 'Alabama 1st (2012)',
-      description: 'Non-compact — elongated coastal district',
-      polsby_popper: 0.153,
-      reock: 0.303,
-    },
-    pp:    {min: 0,    max: 0.20},
-    reock: {min: 0,    max: 0.35},
-  },
-  {
-    label: 'Medium',
-    color: 'amber' as const,
-    anchor: {
-      label: 'Oklahoma 5th (2023)',
-      description: 'Medium — irregular urban district',
-      polsby_popper: 0.255,
-      reock: 0.396,
-    },
-    pp:    {min: 0.20, max: 0.35},
-    reock: {min: 0.35, max: 0.50},
-  },
-  {
-    label: 'High',
-    color: 'green' as const,
-    anchor: {
-      // TODO: Replace with canonical compact reference district from Moon Duchin
-      label: null,
-      description: null,
-      polsby_popper: null,
-      reock: null,
-    },
-    pp:    {min: 0.35, max: Infinity},
-    reock: {min: 0.50, max: Infinity},
-  },
-];
+// Scores computed on EPSG:5070 (NAD83 / Conus Albers) via gerrytools.
+// All three districts are from the 2020 redistricting cycle.
+const AL1 = {
+  name: "Alabama's 1st Congressional District",
+  polsby_popper: 0.1536,
+  reock: 0.2091,
+  image: '/al_district1.png',
+};
+const OK5 = {
+  name: "Oklahoma's 5th Congressional District",
+  polsby_popper: 0.3419,
+  reock: 0.4993,
+  image: '/ok_district5.png',
+};
+const CO5 = {
+  name: "Colorado's 5th Congressional District",
+  polsby_popper: 0.5589,
+  reock: 0.5459,
+  image: '/co_district5.png',
+};
 
 interface Props {
   evaluation: DocumentEvaluation;
 }
 
-function rangeLabel({min, max}: {min: number; max: number}): string {
-  return max === Infinity ? `≥ ${min.toFixed(2)}` : `${min.toFixed(2)}–${max.toFixed(2)}`;
-}
-
-function scoreStats(scores: Record<string, number>) {
-  const values = Object.values(scores).filter(v => !isNaN(v));
-  if (!values.length) return null;
-  return {
-    min: Math.min(...values),
-    max: Math.max(...values),
-    mean: values.reduce((a, b) => a + b, 0) / values.length,
-  };
-}
-
-function DistrictDots({
-  scores,
-  min,
-  max,
-  getZoneColor,
-}: {
-  scores: Record<string, number>;
-  min: number;
-  max: number;
-  getZoneColor: (zone: number) => string;
-}) {
-  const zones = Object.keys(scores)
-    .sort((a, b) => Number(a) - Number(b))
-    .filter(z => scores[z] >= min && scores[z] < max);
-
-  if (zones.length === 0) return <Text size="2" color="gray">—</Text>;
+function DistrictTooltip({name, image}: {name: string; image: string}) {
   return (
-    <Flex wrap="wrap" gap="2" align="center">
-      {zones.map(zone => (
-        <Flex key={zone} align="center" gap="1">
-          <div
-            style={{
-              width: 12,
-              height: 12,
-              borderRadius: '50%',
-              backgroundColor: getZoneColor(Number(zone)),
-              flexShrink: 0,
-            }}
-          />
-          <Text size="2">{zone}</Text>
-        </Flex>
-      ))}
-    </Flex>
+    <Tooltip
+      content={
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={image} alt={name} style={{width: 160, height: 160, objectFit: 'contain'}} />
+      }
+    >
+      <span style={{textDecoration: 'underline dotted', cursor: 'help'}}>{name}</span>
+    </Tooltip>
   );
 }
 
-function LevelGroup({
-  level,
+function PerDistrictTable({
   polsby_popper,
   reock,
-  getZoneColor,
 }: {
-  level: (typeof LEVELS)[0];
   polsby_popper: Record<string, number>;
   reock: Record<string, number>;
-  getZoneColor: (zone: number) => string;
 }) {
-  const {label, color, anchor, pp, reock: reockRange} = level;
+  const getZoneColor = useZoneColorGetter();
+  const zones = Object.keys(polsby_popper).sort((a, b) => Number(a) - Number(b));
 
   return (
-    <Flex direction="column" gap="2" mb="4">
-      <Text size="3" weight="bold" color={color}>{label}</Text>
-
-      {anchor.label ? (
-        <Table.Root size="1">
-          <Table.Header>
-            <Table.Row>
-              <Table.ColumnHeaderCell>Reference district</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell justify="end">PP</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell justify="end">Reock</Table.ColumnHeaderCell>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
-            <Table.Row>
-              <Table.Cell>
-                <Flex direction="column">
-                  <Text size="2">{anchor.label}</Text>
-                  {anchor.description && (
-                    <Text size="1" color="gray">{anchor.description}</Text>
-                  )}
-                </Flex>
-              </Table.Cell>
-              <Table.Cell justify="end">
-                <Text size="2">{anchor.polsby_popper?.toFixed(3) ?? '—'}</Text>
-              </Table.Cell>
-              <Table.Cell justify="end">
-                <Text size="2">{anchor.reock?.toFixed(3) ?? '—'}</Text>
-              </Table.Cell>
-            </Table.Row>
-          </Table.Body>
-        </Table.Root>
-      ) : null}
-
-      <Flex align="start" gap="3">
-        <Flex direction="column" style={{minWidth: '9rem', flexShrink: 0}}>
-          <Text size="2" color="gray">Polsby-Popper</Text>
-          <Text size="1" color="gray">{rangeLabel(pp)}</Text>
-        </Flex>
-        <DistrictDots scores={polsby_popper} min={pp.min} max={pp.max} getZoneColor={getZoneColor} />
-      </Flex>
-
-      <Flex align="start" gap="3">
-        <Flex direction="column" style={{minWidth: '9rem', flexShrink: 0}}>
-          <Text size="2" color="gray">Reock</Text>
-          <Text size="1" color="gray">{rangeLabel(reockRange)}</Text>
-        </Flex>
-        <DistrictDots scores={reock} min={reockRange.min} max={reockRange.max} getZoneColor={getZoneColor} />
-      </Flex>
-    </Flex>
+    <Table.Root size="1">
+      <Table.Header>
+        <Table.Row>
+          <Table.ColumnHeaderCell>District</Table.ColumnHeaderCell>
+          <Table.ColumnHeaderCell justify="end">Polsby-Popper</Table.ColumnHeaderCell>
+          <Table.ColumnHeaderCell justify="end">Reock</Table.ColumnHeaderCell>
+        </Table.Row>
+      </Table.Header>
+      <Table.Body>
+        {zones.map(zone => (
+          <Table.Row key={zone}>
+            <Table.Cell>
+              <Flex align="center" gap="2">
+                <div
+                  style={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: '50%',
+                    backgroundColor: getZoneColor(Number(zone)),
+                    flexShrink: 0,
+                  }}
+                />
+                <Text size="2">{zone}</Text>
+              </Flex>
+            </Table.Cell>
+            <Table.Cell justify="end">
+              <Text size="2">{formatDecimal(polsby_popper[zone], 3)}</Text>
+            </Table.Cell>
+            <Table.Cell justify="end">
+              <Text size="2">{formatDecimal(reock[zone], 3)}</Text>
+            </Table.Cell>
+          </Table.Row>
+        ))}
+      </Table.Body>
+    </Table.Root>
   );
 }
 
 export function CompactnessSection({evaluation}: Props) {
   const {cut_edges, polsby_popper, reock} = evaluation;
-  const getZoneColor = useZoneColorGetter();
-
-  const ppStats = polsby_popper ? scoreStats(polsby_popper) : null;
-  const reockStats = reock ? scoreStats(reock) : null;
 
   return (
     <Accordion.Root type="single" collapsible defaultValue="compactness">
@@ -197,7 +116,7 @@ export function CompactnessSection({evaluation}: Props) {
                 <strong>{cut_edges.cut_count.toLocaleString()}</strong> cut edges between{' '}
                 {cut_edges.unit_type}s.
               </Text>
-              <Text size="2" color="gray" as="p">
+              <Text size="2" as="p">
                 One measurement of compactness is the number of <strong>cut edges</strong> in a
                 districting plan. This counts the number of adjacent {cut_edges.unit_type}s that
                 are separated into different districts. You should only compare cut edge counts
@@ -206,43 +125,73 @@ export function CompactnessSection({evaluation}: Props) {
               </Text>
             </>
           ) : (
-            <Text size="2" color="gray">Not available for this plan.</Text>
+            <Text size="2">Not available for this plan.</Text>
           )}
 
-          {/* Shape-based scores */}
-          {(polsby_popper || reock) && (
+          {/* Polsby-Popper */}
+          <SubsectionHeading>Polsby-Popper Scores</SubsectionHeading>
+          <Text size="2" as="p" mb="2">
+            The <strong>Polsby-Popper score</strong> compares a district&apos;s area to its
+            perimeter. Scores range from 0 to 1; higher scores indicate more compact districts.
+            Unlike cut edges, this measure depends on map projection and boundary resolution rather
+            than the choice of geographic units. For reference [2020 redistricting cycle], a score
+            of {AL1.polsby_popper.toFixed(3)} is exemplified
+            by <DistrictTooltip name={AL1.name} image={AL1.image} />; a score
+            of {OK5.polsby_popper.toFixed(3)} is exemplified
+            by <DistrictTooltip name={OK5.name} image={OK5.image} />; and a score
+            of {CO5.polsby_popper.toFixed(3)} is exemplified
+            by <DistrictTooltip name={CO5.name} image={CO5.image} />.
+          </Text>
+          {polsby_popper && (() => {
+            const vals = Object.values(polsby_popper).filter(v => !isNaN(v));
+            if (!vals.length) return null;
+            const min = Math.min(...vals), max = Math.max(...vals);
+            const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+            return (
+              <Text size="2" as="p" mb="3">
+                In your plan, scores range from <strong>{min.toFixed(3)}</strong> to{' '}
+                <strong>{max.toFixed(3)}</strong>, with a mean of <strong>{mean.toFixed(3)}</strong>.
+              </Text>
+            );
+          })()}
+
+          {/* Reock */}
+          <SubsectionHeading>Reock Scores</SubsectionHeading>
+          <Text size="2" as="p" mb="2">
+            The <strong>Reock score</strong> is the ratio of a district&apos;s area to the area of
+            the smallest circle that contains it. Like Polsby-Popper, scores range from 0 to 1;
+            higher scores indicate more compact, circular districts. Reock is sensitive to map
+            projection and is computed on-demand when the evaluation view is opened. For reference
+            [2020 redistricting cycle], a score of {AL1.reock.toFixed(3)} is
+            exemplified by <DistrictTooltip name={AL1.name} image={AL1.image} />; a score
+            of {OK5.reock.toFixed(3)} is exemplified
+            by <DistrictTooltip name={OK5.name} image={OK5.image} />; and a score
+            of {CO5.reock.toFixed(3)} is exemplified
+            by <DistrictTooltip name={CO5.name} image={CO5.image} />.
+          </Text>
+          {reock && (() => {
+            const vals = Object.values(reock).filter(v => !isNaN(v));
+            if (!vals.length) return null;
+            const min = Math.min(...vals), max = Math.max(...vals);
+            const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+            return (
+              <Text size="2" as="p" mb="3">
+                In your plan, scores range from <strong>{min.toFixed(3)}</strong> to{' '}
+                <strong>{max.toFixed(3)}</strong>, with a mean of <strong>{mean.toFixed(3)}</strong>.
+              </Text>
+            );
+          })()}
+
+          {/* Per-district detail */}
+          {polsby_popper && (
             <>
-              <SubsectionHeading>Shape-based Scores</SubsectionHeading>
-
-              <Text size="2" color="gray" as="p" mb="2">
-                The <strong>Polsby-Popper score</strong> compares a district&apos;s area to its
-                perimeter — higher scores (closer to 1) mean more compact districts.
-                {ppStats && (
-                  <> In your plan, scores range from <strong>{ppStats.min.toFixed(3)}</strong> to{' '}
-                  <strong>{ppStats.max.toFixed(3)}</strong> with a mean of{' '}
-                  <strong>{ppStats.mean.toFixed(3)}</strong>.</>
-                )}
+              <Text size="1" className="uppercase tracking-widest" mb="1" as="p">
+                Per-district scores
               </Text>
-
-              <Text size="2" color="gray" as="p" mb="3">
-                The <strong>Reock score</strong> measures each district&apos;s area against the
-                smallest enclosing circle — higher scores indicate more circular, compact districts.
-                {reockStats && (
-                  <> In your plan, scores range from <strong>{reockStats.min.toFixed(3)}</strong> to{' '}
-                  <strong>{reockStats.max.toFixed(3)}</strong> with a mean of{' '}
-                  <strong>{reockStats.mean.toFixed(3)}</strong>.</>
-                )}
-              </Text>
-
-              {LEVELS.map(level => (
-                <LevelGroup
-                  key={level.label}
-                  level={level}
-                  polsby_popper={polsby_popper ?? {}}
-                  reock={reock ?? {}}
-                  getZoneColor={getZoneColor}
-                />
-              ))}
+              <PerDistrictTable
+                polsby_popper={polsby_popper}
+                reock={reock ?? {}}
+              />
             </>
           )}
 

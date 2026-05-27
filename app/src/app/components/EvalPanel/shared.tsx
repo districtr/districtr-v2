@@ -12,7 +12,7 @@ export function MetricRow({label, value}: {label: string; value: React.ReactNode
   return (
     <Table.Row>
       <Table.Cell>
-        <Text color="gray" size="2">
+        <Text size="2">
           {label}
         </Text>
       </Table.Cell>
@@ -45,8 +45,8 @@ export function formatPct(value: number | undefined): string {
   return `${sign}${(value * 100).toFixed(2)}%`;
 }
 
-export function formatDecimal(value: number | undefined, digits = 3): string {
+export function formatDecimal(value: number | undefined, digits = 3, signed = false): string {
   if (value === undefined || value === null || isNaN(value)) return '—';
-  const sign = value >= 0 ? '+' : '';
+  const sign = signed && value > 0 ? '+' : '';
   return `${sign}${value.toFixed(digits)}`;
 }

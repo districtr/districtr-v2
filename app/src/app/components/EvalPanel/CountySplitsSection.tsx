@@ -31,7 +31,7 @@ export function CountySplitsSection({evaluation}: Props) {
           </Flex>
         </Accordion.Trigger>
         <Accordion.Content>
-          <Text size="2" color="gray" mb="3" as="p">
+          <Text size="2" mb="3" as="p">
             A county is <strong>split</strong> when its population is divided across two or more
             districts. Some splits are unavoidable — if a county is too large for a single district,
             it must be split. The <strong>minimum possible</strong> pieces column shows the fewest
@@ -42,15 +42,15 @@ export function CountySplitsSection({evaluation}: Props) {
           <Table.Root size="1" mb="3">
             <Table.Body>
               <Table.Row>
-                <Table.Cell><Text size="2" color="gray">Total counties</Text></Table.Cell>
+                <Table.Cell><Text size="2">Total counties</Text></Table.Cell>
                 <Table.Cell justify="end"><Text size="2" weight="bold">{totalCounties}</Text></Table.Cell>
               </Table.Row>
               <Table.Row>
-                <Table.Cell><Text size="2" color="gray">Split counties (2+ pieces)</Text></Table.Cell>
+                <Table.Cell><Text size="2">Split counties (2+ pieces)</Text></Table.Cell>
                 <Table.Cell justify="end"><Text size="2" weight="bold">{splitCounties}</Text></Table.Cell>
               </Table.Row>
               <Table.Row>
-                <Table.Cell><Text size="2" color="gray">Unnecessarily split counties</Text></Table.Cell>
+                <Table.Cell><Text size="2">Unnecessarily split counties</Text></Table.Cell>
                 <Table.Cell justify="end"><Text size="2" weight="bold">{unnecessarySplits}</Text></Table.Cell>
               </Table.Row>
             </Table.Body>

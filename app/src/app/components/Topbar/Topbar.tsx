@@ -104,7 +104,7 @@ export const Topbar: React.FC = () => {
             <DropdownMenu.Trigger className="ml-2">
               <IconButton variant="ghost">
                 <HamburgerMenuIcon className="mr-2" />
-                <Heading size="3">Districtr{isEval ? ' · Evaluation' : ''}</Heading>
+                <Heading size="3">Districtr</Heading>
                 {!mapDocument?.document_id && !isEval && (
                   <>
                     <ArrowLeftIcon fontSize={12} color="green" className="ml-2" />
@@ -226,34 +226,33 @@ export const Topbar: React.FC = () => {
               )}
             </DropdownMenu.Content>
           </DropdownMenu.Root>
-          {isEval && (
-            <>
+          </Flex>
+          {isEval ? (
+            <Heading
+              size="3"
+              className="absolute left-1/2 -translate-x-1/2 pointer-events-none select-none"
+            >
+              Evaluation Report
+            </Heading>
+          ) : (
+            <MapHeader handleMetadataChange={handleMetadataChange} />
+          )}
+          <Flex direction="row" align="center" gapX="3">
+            {isEval ? (
               <IconButton
                 variant="ghost"
                 onClick={() => router.push(`/map/${mapDocument?.public_id}`)}
               >
-                <ArrowLeftIcon />
-                <Text size="2">Exit evaluation</Text>
+                <Text size="2">Exit to public view</Text>
               </IconButton>
-              <label>
-                <Flex align="center" gap="1">
-                  <input
-                    type="checkbox"
-                    checked={evalTablesOnly}
-                    onChange={e => setEvalTablesOnly(e.target.checked)}
-                  />
-                  <Text size="2">Tables only</Text>
-                </Flex>
-              </label>
-            </>
-          )}
-          </Flex>
-          <MapHeader handleMetadataChange={handleMetadataChange} />
-          <Flex direction="row" align="center" gapX="3">
-            <SharePopoverAndModal handleMetadataChange={handleMetadataChange} />
-            {isEditing && <SavePopover />}
-            {isEditing && <RevertPopover />}
-            <SettingsPopoverAndModal />
+            ) : (
+              <>
+                <SharePopoverAndModal handleMetadataChange={handleMetadataChange} />
+                {isEditing && <SavePopover />}
+                {isEditing && <RevertPopover />}
+                <SettingsPopoverAndModal />
+              </>
+            )}
           </Flex>
         </Flex>
         <MobileDataTabs />

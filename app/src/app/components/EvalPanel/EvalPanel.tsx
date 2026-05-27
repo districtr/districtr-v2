@@ -2,6 +2,7 @@
 import {useQuery} from '@tanstack/react-query';
 import {Flex, Heading, Spinner, Text} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {getEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {BasicsSection} from './BasicsSection';
 import {PartisanSection} from './PartisanSection';
@@ -25,6 +26,9 @@ export function EvalPanel() {
     enabled: !!publicId,
   });
 
+  const evalTablesOnly = useMapControlsStore(state => state.evalTablesOnly);
+  const setEvalTablesOnly = useMapControlsStore(state => state.setEvalTablesOnly);
+
   const planName = mapDocument?.map_metadata?.name ?? 'Untitled Plan';
   const snapshotDate = mapDocument?.updated_at
     ? new Date(mapDocument.updated_at).toLocaleString()
@@ -35,17 +39,29 @@ export function EvalPanel() {
       className="h-full overflow-y-auto flex-shrink-0 border-l border-gray-200 bg-white w-1/2"
     >
       <Flex direction="column" p="5" gap="1">
-        <Text size="1" color="gray" className="uppercase tracking-widest">
-          Districtr · Evaluation Report
-        </Text>
+        <Flex justify="between" align="center">
+          <Text size="1" className="uppercase tracking-widest">
+            Districtr · Evaluation Report
+          </Text>
+          <label>
+            <Flex align="center" gap="1">
+              <input
+                type="checkbox"
+                checked={evalTablesOnly}
+                onChange={e => setEvalTablesOnly(e.target.checked)}
+              />
+              <Text size="1">Tables only</Text>
+            </Flex>
+          </label>
+        </Flex>
         <Heading size="5" mt="1">
           Districting Plan Metrics
         </Heading>
-        <Text size="2" color="gray">
+        <Text size="2">
           {planName}
         </Text>
         {snapshotDate && (
-          <Text size="1" color="gray">
+          <Text size="1">
             Snapshot of {snapshotDate} · Plan id {publicId}
           </Text>
         )}

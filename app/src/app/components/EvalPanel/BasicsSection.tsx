@@ -91,14 +91,14 @@ export function BasicsSection({evaluation}: Props) {
               .
             </Text>
           ) : (
-            <Text size="2" color="gray" as="p" mb="2">
+            <Text size="2" as="p" mb="2">
               Not available for this plan.
             </Text>
           )}
 
           {/* Contiguity */}
           <SubsectionHeading>Contiguity</SubsectionHeading>
-          <Text size="2" color="gray" as="p" mb="2">
+          <Text size="2" as="p" mb="2">
             A plan is called contiguous if every district is internally connected. This plan appears
             to be <strong>{contiguous ? 'contiguous' : 'not contiguous'}</strong>. Note that
             contiguity can be subtle because of bodies of water and because of disconnected units.
@@ -108,7 +108,7 @@ export function BasicsSection({evaluation}: Props) {
 
           {/* Population Deviation */}
           <SubsectionHeading>Population Deviation</SubsectionHeading>
-          <Text size="2" color="gray" as="p" mb="2">
+          <Text size="2" as="p" mb="2">
             The ideal size of a district is arrived at by dividing the total population of the state
             equally into the specified number of districts. Population deviation of a plan is
             measured as the largest amount that any district differs from ideal size. Legislative
@@ -126,7 +126,7 @@ export function BasicsSection({evaluation}: Props) {
               <strong>{(population_deviation.deviation * 100).toFixed(2)}%</strong>.
             </Text>
           ) : (
-            <Text size="2" color="gray">
+            <Text size="2">
               Not available for this plan.
             </Text>
           )}
