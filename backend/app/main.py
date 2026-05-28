@@ -1,12 +1,15 @@
 from fastapi import (
     FastAPI,
+    Request,
     status,
     Depends,
     HTTPException,
     Query,
 )
+from fastapi.responses import JSONResponse
 from typing import Annotated, Any
 import psutil
+import time
 
 import botocore.exceptions
 from sqlalchemy.exc import (
@@ -14,6 +17,7 @@ from sqlalchemy.exc import (
     NoResultFound,
     DataError,
     IntegrityError,
+    OperationalError,
 )
 from sqlalchemy import text
 from sqlalchemy.types import Integer
@@ -25,6 +29,7 @@ from sqlmodel import ARRAY
 from datetime import datetime
 from uuid import UUID, uuid4
 import sentry_sdk
+from prometheus_fastapi_instrumentator import Instrumentator
 from app.assignments import (
     duplicate_document_assignments,
     duplicate_document_community_assignments,
@@ -118,6 +123,10 @@ app.include_router(comments.router)
 app.include_router(save_share.router)
 app.include_router(thumbnails.router)
 
+Instrumentator(
+    excluded_handlers=["/metrics", "/_debug/cache"],
+).instrument(app).expose(app, include_in_schema=False)
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 VERBOSE_LOGGING = settings.VERBOSE_LOGGING
@@ -143,6 +152,28 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+
+@app.middleware("http")
+async def log_slow_requests(request: Request, call_next):
+    start = time.monotonic()
+    response = await call_next(request)
+    duration = time.monotonic() - start
+    if duration > 30:
+        logger.warning(
+            "SLOW %s %s %s %.1fs", request.method, request.url.path, response.status_code, duration
+        )
+    return response
+
+
+@app.exception_handler(OperationalError)
+async def db_operational_error_handler(request: Request, exc: OperationalError):
+    msg = str(exc.orig) if exc.orig else str(exc)
+    if "statement timeout" in msg or "lock timeout" in msg:
+        logger.warning("DB TIMEOUT %s %s — %s", request.method, request.url.path, msg)
+        return JSONResponse(status_code=504, content={"detail": "Database timeout"})
+    logger.error("DB ERROR %s %s — %s", request.method, request.url.path, msg)
+    return JSONResponse(status_code=500, content={"detail": "Database error"})
 
 
 def update_timestamp(
