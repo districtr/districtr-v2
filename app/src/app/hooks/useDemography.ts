@@ -6,9 +6,10 @@ import {useMemo} from 'react';
 import {demographyService} from '@/app/utils/demography/demographyService';
 import {useDemographyStore} from '../store/demography/demographyStore';
 import {FALLBACK_NUM_DISTRICTS} from '../constants/map/layerStyle';
-import {FALLBACK_NUM_COMMUNITIES} from '../constants/map/mapDefaults';
+import {FALLBACK_NUM_COMMUNITIES} from '../constants/document/limits';
 import {SummaryRecord} from '../utils/api/summaryStats';
 import {compareCoiZonesByRenderOrder, sortCommunitiesByRenderOrder} from '../utils/communities';
+import {MAP_MODES} from '@constants/map/mode';
 
 /**
  * Custom hook to retrieve and process demography data.
@@ -35,7 +36,7 @@ export const useZonePopulations = (includeUnassigned?: boolean) => {
   );
   const numCommunities = useMapStore(state => state.numCommunities ?? FALLBACK_NUM_COMMUNITIES);
   const communities = useMapStore(state => state.communities);
-  const numZones = mapMode === 'coi' ? numCommunities : numDistricts;
+  const numZones = mapMode === MAP_MODES.COI ? numCommunities : numDistricts;
   const mapDocument = useMapStore(state => state.mapDocument);
   const demoIsLoaded = mapDocument?.document_id && demogHash.includes(mapDocument.document_id);
   // TODO: Could be refactored in the main demographyService class
@@ -45,7 +46,7 @@ export const useZonePopulations = (includeUnassigned?: boolean) => {
     );
     const orderedCommunities = sortCommunitiesByRenderOrder(communities);
     const expectedZones =
-      mapMode === 'coi'
+      mapMode === MAP_MODES.COI
         ? orderedCommunities.map(community => community.id)
         : Array.from({length: numZones}, (_, index) => index + 1);
     const zonesPresent = new Set(cleanedData.map(row => row.zone).filter(Boolean));
@@ -66,7 +67,7 @@ export const useZonePopulations = (includeUnassigned?: boolean) => {
     return cleanedData.sort((left, right) => {
       if (left.zone === undefined || left.zone === null) return 1;
       if (right.zone === undefined || right.zone === null) return -1;
-      if (mapMode === 'coi') {
+      if (mapMode === MAP_MODES.COI) {
         return compareCoiZonesByRenderOrder(left.zone, right.zone, orderedCommunities);
       }
       return left.zone - right.zone;

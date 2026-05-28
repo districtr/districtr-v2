@@ -4,6 +4,7 @@ import GeometryWorker from '@/app/utils/GeometryWorker';
 import {LngLatBoundsLike} from 'maplibre-gl';
 import {create} from 'zustand';
 import {demographyService} from '../utils/demography/demographyService';
+import {ACCESS_STATES} from '@constants/document/state';
 
 type UnassignedFeatureStore = {
   unassignedFeatureBboxes: GeoJSON.Feature[];
@@ -39,7 +40,7 @@ export const useUnassignFeaturesStore = create<UnassignedFeatureStore>((set, get
     // const nSeen = Object.keys(await GeometryWorker.activeGeometries).length;
     // disabling local implementation for now
     const documentIdParam =
-      mapDocument?.access === 'read' && mapDocument?.public_id
+      mapDocument?.access === ACCESS_STATES.READ && mapDocument?.public_id
         ? String(mapDocument.public_id)
         : mapDocument?.document_id;
     const unassignedGeometries = await GeometryWorker.getUnassignedGeometries(

@@ -1,17 +1,23 @@
 from fastapi import (
     FastAPI,
+    Request,
     status,
     Depends,
     HTTPException,
     Query,
 )
-from typing import Annotated
+from fastapi.responses import JSONResponse
+from typing import Annotated, Any
+import psutil
+import time
+
 import botocore.exceptions
 from sqlalchemy.exc import (
     MultipleResultsFound,
     NoResultFound,
     DataError,
     IntegrityError,
+    OperationalError,
 )
 from sqlalchemy import text
 from sqlalchemy.types import Integer
@@ -23,6 +29,7 @@ from sqlmodel import ARRAY
 from datetime import datetime
 from uuid import UUID, uuid4
 import sentry_sdk
+from prometheus_fastapi_instrumentator import Instrumentator
 from app.assignments import (
     duplicate_document_assignments,
     duplicate_document_community_assignments,
@@ -48,6 +55,7 @@ from app.comments.settings import (
     DEFAULT_MAX_COMMENTS_PER_DISTRICT,
 )
 import app.contiguity.main as contiguity
+import app.evaluation.main as evaluation
 import app.save_share.main as save_share
 import app.thumbnails.main as thumbnails
 from networkx import Graph, connected_components
@@ -84,8 +92,8 @@ from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
 from sqlalchemy.sql.functions import coalesce
 from app.utils import update_or_select_district_stats
-from aiocache import SimpleMemoryCache
 from contextlib import asynccontextmanager
+from functools import lru_cache
 from fiona.transform import transform
 from fastapi import BackgroundTasks
 from ._sanitize import (
@@ -115,11 +123,23 @@ app.include_router(comments.router)
 app.include_router(save_share.router)
 app.include_router(thumbnails.router)
 
+Instrumentator(
+    excluded_handlers=["/metrics", "/_debug/cache"],
+).instrument(app).expose(app, include_in_schema=False)
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 VERBOSE_LOGGING = settings.VERBOSE_LOGGING
 
-cache = SimpleMemoryCache()
+_GRAPH_CACHE_MAX_SIZE = 10
+
+
+@lru_cache(maxsize=_GRAPH_CACHE_MAX_SIZE)
+def _load_gerrydb_graph_cached(gerrydb_name: str) -> Graph:
+    """Resolve path, download if needed, unpickle graph. LRU-cached by gerrydb_name."""
+    path = contiguity.get_gerrydb_graph_file(gerrydb_name)
+    logger.info(f"Graph cache miss, loading from {path}")
+    return contiguity.get_gerrydb_block_graph(path, replace_local_copy=False)
 
 
 # Set all CORS enabled origins
@@ -132,6 +152,28 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+
+@app.middleware("http")
+async def log_slow_requests(request: Request, call_next):
+    start = time.monotonic()
+    response = await call_next(request)
+    duration = time.monotonic() - start
+    if duration > 30:
+        logger.warning(
+            "SLOW %s %s %s %.1fs", request.method, request.url.path, response.status_code, duration
+        )
+    return response
+
+
+@app.exception_handler(OperationalError)
+async def db_operational_error_handler(request: Request, exc: OperationalError):
+    msg = str(exc.orig) if exc.orig else str(exc)
+    if "statement timeout" in msg or "lock timeout" in msg:
+        logger.warning("DB TIMEOUT %s %s — %s", request.method, request.url.path, msg)
+        return JSONResponse(status_code=504, content={"detail": "Database timeout"})
+    logger.error("DB ERROR %s %s — %s", request.method, request.url.path, msg)
+    return JSONResponse(status_code=500, content={"detail": "Database error"})
 
 
 def update_timestamp(
@@ -285,6 +327,18 @@ async def get_document_stats(
 ):
     return update_or_select_district_stats(
         session, document.document_id, background_tasks
+    )
+
+
+@app.get("/api/document/{document_id}/evaluation")
+async def get_document_evaluation(
+    background_tasks: BackgroundTasks,
+    document: Annotated[Document, Depends(get_protected_document)],
+    # TODO: consider using Annotated more consistently across dependencies.
+    session: Annotated[Session, Depends(get_session)],
+):
+    return evaluation.update_or_select_document_evaluation(
+        background_tasks, session, document
     )
 
 
@@ -1237,19 +1291,25 @@ async def get_unassigned_geoids(
 
 
 async def _get_graph(gerrydb_name: str) -> Graph:
-    """
-    Get a graph from the cache or load it from a local file or S3.
-    - If cached, return it
-    - If not cached, download it to the VM if not already downloaded and cache it
+    f"""
+    Get a graph from the in-process LRU cache (max size {_GRAPH_CACHE_MAX_SIZE}) or load
+    it from a local file or S3.
 
     Args:
         gerrydb_name (str): The name of the GerryDB to get the graph for.
 
     Returns:
         Graph: The graph for the given GerryDB.
+
+    Note:
+        Despite being async, graph resolution and loading are synchronous (boto3, disk,
+        unpickle). They run on the asyncio event-loop thread, so a cache miss can block
+        this worker from handling other concurrent requests until loading finishes. Other
+        uvicorn workers are unaffected. Mitigations include keeping the LRU hot, or moving
+        this work to a thread pool / async I/O if contention becomes an issue.
     """
     try:
-        path = contiguity.get_gerrydb_graph_file(gerrydb_name)
+        G = _load_gerrydb_graph_cached(gerrydb_name)
     except botocore.exceptions.ClientError as e:
         # TODO: Maybe in the future this should actually create the graph
         logger.error(f"Graph not found: {str(e)}")
@@ -1260,18 +1320,6 @@ async def _get_graph(gerrydb_name: str) -> Graph:
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Something went wrong: {str(e)}")
-
-    G = await cache.get(gerrydb_name)
-
-    try:
-        if G is None:
-            logger.info(f"Graph not found in cache, loading from {path}")
-            G = contiguity.get_gerrydb_block_graph(path, replace_local_copy=False)
-            assert await cache.set(gerrydb_name, G), "Unable to cache graph"
-        else:
-            logger.info("Graph found in cache")
-    except Exception as e:
-        logger.warning(f"Unable to load and cache graph: {str(e)}")
 
     if not isinstance(G, Graph):
         logger.error(f"Expected Graph, got {type(G)}")
@@ -1543,4 +1591,33 @@ async def get_group(
     return {
         "name": group.name,
         "slug": group.slug,
+    }
+
+
+@app.get("/_debug/cache")
+async def debug_graph_lru_cache() -> dict[str, Any]:
+    """
+    GerryDB graph LRU cache stats (hits/misses/size).
+
+    Per-graph heap size is not available: ``functools.lru_cache`` does not expose cached
+    entries. ``process.rss_*`` is whole-worker RSS for rough correlation only.
+    """
+    info = _load_gerrydb_graph_cached.cache_info()
+    params = _load_gerrydb_graph_cached.cache_parameters()
+    rss = psutil.Process().memory_info().rss
+
+    return {
+        "cache": "gerrydb_graph_lru",
+        "cache_info": {
+            "hits": info.hits,
+            "misses": info.misses,
+            "maxsize": info.maxsize,
+            "currsize": info.currsize,
+        },
+        "cache_parameters": dict(params),
+        "process": {
+            "rss_bytes": rss,
+            "rss_mb": round(rss / 1024 / 1024, 2),
+            "note": "Resident set size of this worker process, not LRU cache only.",
+        },
     }

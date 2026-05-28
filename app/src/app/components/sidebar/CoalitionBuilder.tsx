@@ -1,17 +1,15 @@
 'use client';
 import {demographyService} from '@/app/utils/demography/demographyService';
-import {
-  CoalitionUniverse,
-  CoalitionGroupKey,
-  COALITION_GROUPS,
-  getCoalitionGroupLabel,
-} from '@/app/utils/demography/coalition';
+import type {CoalitionUniverse} from '@constants/demography/summary';
+import {COALITION_GROUPS, CoalitionGroupKey} from '@constants/demography/coalition';
+import {getCoalitionGroupLabel} from '@/app/utils/demography/coalition';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useChartStore} from '@/app/store/chartStore';
 import {CardCheckbox, ResponsiveCheckboxCards} from '@/app/components/Shared/CardCheckbox';
 import {formatNumber} from '@/app/utils/numbers';
 import {Box, Callout, Flex, Text} from '@radix-ui/themes';
 import {InfoCircledIcon} from '@radix-ui/react-icons';
+import {NUMBER_FORMATS} from '@constants/demography/format';
 
 type CoalitionBuilderProps = {
   summaryType: CoalitionUniverse;
@@ -75,7 +73,7 @@ export const CoalitionBuilder: React.FC<CoalitionBuilderProps> = ({summaryType})
       <Flex direction="row" wrap="wrap" gap="4" pt="3" className="w-full">
         <Box flexGrow="1">
           <Text size="5" weight="bold">
-            {formatNumber(stats.universeTotal, 'string')}
+            {formatNumber(stats.universeTotal, NUMBER_FORMATS.STRING)}
           </Text>
           <br />
           <Text size="2" color="gray">
@@ -84,7 +82,7 @@ export const CoalitionBuilder: React.FC<CoalitionBuilderProps> = ({summaryType})
         </Box>
         <Box flexGrow="1">
           <Text size="5" weight="bold">
-            {formatNumber(stats.coalitionTotal, 'string')}
+            {formatNumber(stats.coalitionTotal, NUMBER_FORMATS.STRING)}
           </Text>
           <br />
           <Text size="2" color="gray">
@@ -94,7 +92,7 @@ export const CoalitionBuilder: React.FC<CoalitionBuilderProps> = ({summaryType})
         <Box flexGrow="1">
           <Text size="5" weight="bold">
             {Number.isFinite(stats.coalitionPct)
-              ? formatNumber(stats.coalitionPct, 'percent')
+              ? formatNumber(stats.coalitionPct, NUMBER_FORMATS.PERCENT)
               : '--'}
           </Text>
           <br />

@@ -276,9 +276,9 @@ const ZoneNumbersLayer = () => {
       ></Layer>
       {/* Simple circle indicator for zones with comments */}
       <Layer
-        id="ZONE_COMMENT_INDICATOR"
+        id={ZONE_LABEL_LAYER_IDS.COMMENT_INDICATOR}
         type="circle"
-        source="zone-label"
+        source={ZONE_LABEL_SOURCE_ID}
         paint={{
           'circle-radius': [
             'interpolate',

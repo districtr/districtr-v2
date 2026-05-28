@@ -13,13 +13,12 @@ import {
   Tooltip,
 } from '@radix-ui/themes';
 import {Flex, Text} from '@radix-ui/themes';
-import {formatNumber, NumberFormats} from '@/app/utils/numbers';
+import {formatNumber} from '@/app/utils/numbers';
 import {interpolateGreys} from 'd3-scale-chromatic';
-import {SummaryRecord, SummaryStatConfig} from '@/app/utils/api/summaryStats';
+import {SummaryRecord} from '@/app/utils/api/summaryStats';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {
-  EvalModes,
   modeButtonConfig,
   numberFormats,
   summaryStatLabels,
@@ -28,11 +27,24 @@ import {PARTISAN_SCALE} from '@/app/store/demography/constants';
 import {GearIcon, InfoCircledIcon} from '@radix-ui/react-icons';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {demographyService} from '@/app/utils/demography/demographyService';
-import {CoalitionGroupKey, COALITION_VARIABLE_BY_UNIVERSE} from '@/app/utils/demography/coalition';
+import {
+  type CoalitionGroupKey,
+  COALITION_VARIABLE_BY_UNIVERSE,
+} from '@constants/demography/coalition';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {compareCoiZonesByRenderOrder, getCommunityDisplayNumber} from '@/app/utils/communities';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {useMapStore} from '@/app/store/mapStore';
+import {
+  SUMMARY_TYPES,
+  type SummaryType,
+  type CoalitionUniverse,
+  isCoalitionUniverse,
+  TOTAL_COLUMN,
+} from '@constants/demography/summary';
+import {type NumberFormat} from '@constants/demography/format';
+import {EVAL_MODES, type EvalMode} from '@constants/demography/evalMode';
+import {MAP_MODES} from '@constants/map/mode';
 
 type ColumnConfig = {
   label: string;
@@ -42,9 +54,9 @@ type ColumnConfig = {
 };
 
 type EvaluationProps = {
-  summaryType: keyof SummaryStatConfig;
-  setSummaryType: (summaryType: keyof SummaryStatConfig) => void;
-  displayedColumnSets?: Array<keyof SummaryStatConfig>;
+  summaryType: SummaryType;
+  setSummaryType: (summaryType: SummaryType) => void;
+  displayedColumnSets?: Array<SummaryType>;
   columnConfigs: ColumnConfig[];
   title?: string;
   singleZone?: number;
@@ -61,10 +73,10 @@ type EvaluationTableBodyProps = {
   rows: EvaluationDataRow[];
   colorScheme: string[];
   columnConfigs: ColumnConfig[];
-  evalMode: EvalModes;
+  evalMode: EvalMode;
   colorBg: boolean;
-  summaryType: keyof SummaryStatConfig;
-  numberFormat: NumberFormats;
+  summaryType: SummaryType;
+  numberFormat: NumberFormat;
   maxValues: Record<string, number>;
   mapMode: string;
   communities: ReturnType<typeof useMapStore.getState>['communities'];
@@ -94,7 +106,7 @@ function buildUniverseRow({
   summaryData: Record<string, number>;
   universeTotalColumn: string;
   columnConfigs: ColumnConfig[];
-  summaryType: 'TOTPOP' | 'VAP';
+  summaryType: CoalitionUniverse;
   coalitionGroups: CoalitionGroupKey[];
 }): Record<string, number | string | boolean> {
   const coalitionStats = demographyService.getCoalitionUniverseStats(summaryType, coalitionGroups);
@@ -128,7 +140,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
   singleZone,
   universeTotals,
 }) => {
-  const [evalMode, setEvalMode] = useState<EvalModes>('share');
+  const [evalMode, setEvalMode] = useState<EvalMode>(EVAL_MODES.SHARE);
   const [colorBg, setColorBg] = useState<boolean>(true);
   const [showUnassigned, setShowUnassigned] = useState<boolean>(true);
   const {zoneStats, demoIsLoaded, zoneData, summaryStats} = useSummaryStats(showUnassigned);
@@ -149,7 +161,8 @@ const Evaluation: React.FC<EvaluationProps> = ({
   const showModeButtons = Boolean(
     summaryStatConfig?.supportedModes?.length && summaryStatConfig?.supportedModes?.length > 1
   );
-  const numberFormat = numberFormats[summaryType === 'VOTERHISTORY' ? 'partisan' : evalMode];
+  const numberFormat =
+    numberFormats[summaryType === SUMMARY_TYPES.VOTERHISTORY ? EVAL_MODES.PARTISAN : evalMode];
 
   useEffect(() => {
     if (
@@ -178,14 +191,12 @@ const Evaluation: React.FC<EvaluationProps> = ({
     );
   }
 
-  const universeTotalColumn =
-    summaryType === 'TOTPOP' ? 'total_pop_20' : summaryType === 'VAP' ? 'total_vap_20' : undefined;
-  const summaryData =
-    summaryType === 'TOTPOP' || summaryType === 'VAP'
-      ? (summaryStats[summaryType] as Record<string, number> | undefined)
-      : undefined;
+  const universeTotalColumn = TOTAL_COLUMN[summaryType];
+  const summaryData = isCoalitionUniverse(summaryType)
+    ? (summaryStats[summaryType] as Record<string, number> | undefined)
+    : undefined;
   const universeRow =
-    universeTotalColumn && summaryData && (summaryType === 'TOTPOP' || summaryType === 'VAP')
+    universeTotalColumn && summaryData && isCoalitionUniverse(summaryType)
       ? buildUniverseRow({
           summaryData,
           universeTotalColumn,
@@ -210,7 +221,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
     if (bIsUniverse) return -1;
     if (a.zone === undefined) return 1;
     if (b.zone === undefined) return -1;
-    if (mapMode === 'coi') {
+    if (mapMode === MAP_MODES.COI) {
       return compareCoiZonesByRenderOrder(a.zone as number, b.zone as number, communities);
     }
     return ((a.zone as number) || 0) - ((b.zone as number) || 0);
@@ -230,7 +241,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
               <Text size="2">Summary type</Text>
               <Select.Root
                 value={summaryType}
-                onValueChange={value => setSummaryType(value as keyof SummaryStatConfig)}
+                onValueChange={value => setSummaryType(value as SummaryType)}
               >
                 <Select.Trigger />
                 <Select.Content>
@@ -371,7 +382,7 @@ const EvaluationTableRow: React.FC<EvaluationTableRowProps> = ({
     ? 'Overall'
     : isUnassigned
       ? 'Unassigned'
-      : mapMode === 'coi'
+      : mapMode === MAP_MODES.COI
         ? getCommunityDisplayNumber(communities, row.zone as number)
         : row.zone;
   const backgroundColor = isUniverse
@@ -418,13 +429,13 @@ const EvaluationTableCell: React.FC<EvaluationTableCellProps> = ({
   numberFormat,
   maxValues,
 }) => {
-  const column = evalMode === 'count' ? columnConfig.column : `${columnConfig.column}_pct`;
+  const column = evalMode === EVAL_MODES.COUNT ? columnConfig.column : `${columnConfig.column}_pct`;
   const value = (row as Record<string, number | undefined>)[column];
   const numericValue = typeof value === 'number' && Number.isFinite(value) ? value : undefined;
   let colorValue: number | undefined;
   if (numericValue !== undefined) {
     colorValue =
-      evalMode === 'count' && maxValues[column] !== 0
+      evalMode === EVAL_MODES.COUNT && maxValues[column] !== 0
         ? numericValue / maxValues[column]
         : numericValue;
   }
@@ -432,7 +443,7 @@ const EvaluationTableCell: React.FC<EvaluationTableCellProps> = ({
     colorValue !== undefined && typeof colorValue === 'number' && Number.isFinite(colorValue);
   let backgroundColor: string | undefined;
   if (!hasValidColorValue || isUniverse) {
-  } else if (colorBg && summaryType === 'VOTERHISTORY') {
+  } else if (colorBg && summaryType === SUMMARY_TYPES.VOTERHISTORY) {
     backgroundColor = PARTISAN_SCALE((numericValue! + 1) / 2);
   } else if (colorBg && !isUnassigned) {
     backgroundColor = interpolateGreys(colorValue as number)

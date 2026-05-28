@@ -1,7 +1,7 @@
 import {LngLatLike} from 'maplibre-gl';
 import type {MapOptions} from 'maplibre-gl';
-import {BASEMAP_IDS, type BasemapId} from '@/app/constants/map/layerStyle';
-import {GEODATA_URL} from '../utils/api/constants';
+import {BASEMAP_IDS, type BasemapId} from '@constants/map/layerStyle';
+import {GEODATA_URL} from '@utils/api/constants';
 
 export const MAP_CENTER: LngLatLike = [-98.5556199, 39.8097343]; // kansas
 const MAPSTYLE_ROOT_URL = process.env.NODE_ENV === 'development' ? '' : `${GEODATA_URL}/basemaps`;
@@ -35,17 +35,3 @@ export const MAP_OPTIONS: MapOptions = {
   pitch: 0,
   container: '',
 };
-
-/**
- * locally defined variable in the original codebase;
- * purpose is to only count drag select movements greater
- * than this threshold.
- * @type {number}
- */
-export const offsetFactor: number = 15;
-
-/** Minimum milliseconds between undo/redo history snapshots. */
-export const MIN_DIFF_MS = 3000;
-
-/** Maximum number of undo/redo history states to keep per store. */
-export const TEMPORAL_HISTORY_LIMIT = 20;

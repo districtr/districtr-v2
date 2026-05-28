@@ -9,6 +9,7 @@ import Link from '@tiptap/extension-link';
 import React, {useEffect} from 'react';
 import {Box, Button, Dialog, Flex, Heading, Text} from '@radix-ui/themes';
 import RichTextEditor from '../../RichTextEditor';
+import {RICH_TEXT_NODE_TYPES} from '@constants/cms';
 
 export const BoilerplateNodeView: React.FC<NodeViewProps> = ({
   node,
@@ -56,7 +57,7 @@ export const BoilerplateNodeView: React.FC<NodeViewProps> = ({
 
   return (
     <NodeViewWrapper
-      className="boilerplate-node border border-gray-300 rounded-md p-4 my-4 bg-gray-50"
+      className={`${RICH_TEXT_NODE_TYPES.BOILERPLATE} border border-gray-300 rounded-md p-4 my-4 bg-gray-50`}
       contentEditable={false}
     >
       <Flex direction="row" justify="between" align="center" className="mb-4">

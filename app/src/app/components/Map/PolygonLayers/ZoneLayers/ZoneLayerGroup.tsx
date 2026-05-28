@@ -18,7 +18,7 @@ export const ZoneLayerGroup: React.FC<{
 }> = ({ids, sourceLayerId, filter, layerBeforeId}) => {
   const captiveIds = useMapStore(state => state.captiveIds);
   const isOverlayed =
-    useMapControlsStore(state => state.mapOptions.showDemographicMap) === 'overlay';
+    useMapControlsStore(state => state.mapOptions.demographicDisplayMode) === 'overlay';
   const layerOpacity = useMemo(
     () => getLayerFill(captiveIds, isOverlayed),
     [captiveIds, isOverlayed]

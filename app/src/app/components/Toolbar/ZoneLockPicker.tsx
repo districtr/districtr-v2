@@ -4,6 +4,7 @@ import {useMapControlsStore} from '../../store/mapControlsStore';
 import {ColorPicker} from './ColorPicker';
 import {LockClosedIcon, LockOpen2Icon} from '@radix-ui/react-icons';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
+import {ACCESS_STATES} from '@constants/document/state';
 
 export function ZoneLockPicker() {
   const lockedZones = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);
@@ -28,13 +29,19 @@ export function ZoneLockPicker() {
   const unlockAll = () => setLockedZones([]);
 
   return (
-    <Box className={access === 'read' ? 'pointer-events-none opacity-50' : ''}>
+    <Box className={access === ACCESS_STATES.READ ? 'pointer-events-none opacity-50' : ''}>
       <ColorPicker onValueChange={handleChange} defaultValue={[]} value={pickerValue} multiple />
-      <Button onClick={lockAll} mr="2" mt="2" variant="outline" disabled={access === 'read'}>
+      <Button
+        onClick={lockAll}
+        mr="2"
+        mt="2"
+        variant="outline"
+        disabled={access === ACCESS_STATES.READ}
+      >
         <LockClosedIcon />
         Lock all
       </Button>
-      <Button onClick={unlockAll} mt="2" variant="outline" disabled={access === 'read'}>
+      <Button onClick={unlockAll} mt="2" variant="outline" disabled={access === ACCESS_STATES.READ}>
         <LockOpen2Icon />
         Unlock all
       </Button>

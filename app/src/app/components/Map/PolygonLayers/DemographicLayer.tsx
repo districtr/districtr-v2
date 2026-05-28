@@ -10,7 +10,8 @@ export const DemographicLayer: React.FC<{
   filter: FilterSpecification;
   layerBeforeId: string;
 }> = ({idBase, sourceLayerId, filter, layerBeforeId}) => {
-  const isOverlay = useMapControlsStore(state => state.mapOptions.showDemographicMap) === 'overlay';
+  const isOverlay =
+    useMapControlsStore(state => state.mapOptions.demographicDisplayMode) === 'overlay';
   const overlayOpacity = useMapControlsStore(state => state.mapOptions.overlayOpacity);
   const fillId = `${idBase}${isOverlay ? '_overlay' : ''}`;
 

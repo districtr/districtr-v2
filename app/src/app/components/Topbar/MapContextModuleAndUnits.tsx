@@ -2,6 +2,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import {Flex, Text, Tooltip} from '@radix-ui/themes';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {sanitizeCommunityModuleName} from '@/app/utils/communities';
+import {MAP_MODES} from '@constants/map/mode';
 
 export const MapContextModuleAndUnits = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -10,7 +11,7 @@ export const MapContextModuleAndUnits = () => {
   const dataSourceName = mapDocument?.data_source_name;
   const mapMode = useMapControlsStore(state => state.mapMode);
   const sanitizedMapName =
-    mapMode === 'coi'
+    mapMode === MAP_MODES.COI
       ? sanitizeCommunityModuleName(mapDocument?.map_module)
       : mapDocument?.map_module;
 

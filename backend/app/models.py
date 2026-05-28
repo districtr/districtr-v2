@@ -550,5 +550,5 @@ class DistrictUnions(TimeStampMixin, SQLModel, table=True):
 class DistrictUnionsResponse(BaseModel):
     zone: int | None
     geometry: str | None
-    demographic_data: dict | None
+    demographic_data: dict[str, int] | None
     updated_at: datetime

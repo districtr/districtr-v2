@@ -5,10 +5,14 @@ import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {fetchDocument, SyncConflictInfo} from '@/app/utils/api/apiHandlers/fetchDocument';
 import {SyncConflictModal} from '@/app/components/SyncConflictModal';
-import {SyncConflictResolution} from '@/app/constants/types';
+import {SyncConflictResolution} from '@constants/document/sync';
 import {formatAssignmentsFromDocument} from '../utils/map/formatAssignments';
 import {formatCoiAssignmentsFromDocument} from '../utils/map/formatCoiAssignments';
 import {useRouter} from 'next/navigation';
+import {MAP_MODES} from '@constants/map/mode';
+import {MAP_TYPES} from '@constants/document/types';
+import {APP_LOADING_STATES} from '@constants/document/state';
+
 interface UseDocumentWithSyncOptions {
   document_id: string | null | undefined;
   enabled?: boolean;
@@ -36,8 +40,8 @@ export function useDocumentWithSync({
   const districtResolveConflict = useAssignmentsStore(state => state.resolveConflict);
   const coiResolveConflict = useCoiAssignmentsStore(state => state.resolveConflict);
   const router = useRouter();
-  const isCoiRoute = mapMode === 'coi';
-  const isDistrictRoute = mapMode === 'districts';
+  const isCoiRoute = mapMode === MAP_MODES.COI;
+  const isDistrictRoute = mapMode === MAP_MODES.DISTRICTS;
 
   const handleConflict = async (resolution: SyncConflictResolution) => {
     if (!conflictInfo) {
@@ -47,8 +51,8 @@ export function useDocumentWithSync({
     }
     try {
       const isCommunityDocument =
-        conflictInfo.serverDocument.map_type === 'community' ||
-        conflictInfo.localDocument.map_type === 'community';
+        conflictInfo.serverDocument.map_type === MAP_TYPES.COMMUNITY ||
+        conflictInfo.localDocument.map_type === MAP_TYPES.COMMUNITY;
       const resolveConflict = isCommunityDocument ? coiResolveConflict : districtResolveConflict;
       await resolveConflict(resolution, conflictInfo, {
         context: 'load',
@@ -59,7 +63,7 @@ export function useDocumentWithSync({
           setIsLoading(false);
           setConflictInfo(null);
           setShowConflictModal(false);
-          setAppLoadingState('loaded');
+          setAppLoadingState(APP_LOADING_STATES.LOADED);
         },
       });
     } catch (err) {
@@ -99,7 +103,7 @@ export function useDocumentWithSync({
           setIsLoading(false);
         }
       } else if (isPublicPage) {
-        const isCommunityDocument = result.response.document.map_type === 'community';
+        const isCommunityDocument = result.response.document.map_type === MAP_TYPES.COMMUNITY;
         setMapDocument(result.response.document);
         // District public views render via PublicSource (aggregated stats endpoint).
         // Community public views have no equivalent stats path, so load individual
@@ -109,9 +113,9 @@ export function useDocumentWithSync({
           ingestCoiFromDocument(data, result.response.document);
         }
         setIsLoading(false);
-        setAppLoadingState('loaded');
+        setAppLoadingState(APP_LOADING_STATES.LOADED);
       } else {
-        const isCommunityDocument = result.response.document.map_type === 'community';
+        const isCommunityDocument = result.response.document.map_type === MAP_TYPES.COMMUNITY;
         if (isCoiRoute && !isCommunityDocument) {
           setError(
             new Error('This document is not a community map. Open it from the district editor.')
@@ -141,7 +145,7 @@ export function useDocumentWithSync({
           useMapStore.setState({updated: {metadata: true, comments: true}});
         }
         setIsLoading(false);
-        setAppLoadingState('loaded');
+        setAppLoadingState(APP_LOADING_STATES.LOADED);
         return;
       }
     };

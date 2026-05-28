@@ -11,12 +11,16 @@ import {demographyService} from '@/app/utils/demography/demographyService';
 import {getAvailableColumnSets} from '@/app/utils/demography/getAvailableColumnSets';
 import {DEFAULT_CHOROPLETH_BIN_COUNT} from './constants';
 import {idb} from '@/app/utils/idb/idb';
+import {type CoalitionGroupKey} from '@constants/demography/coalition';
 import {
-  CoalitionGroupKey,
   getCoalitionUniverseFromVariable,
   getSelectedCoalitionColumns,
   isCoalitionVariable,
 } from '@/app/utils/demography/coalition';
+import {COALITION_UNIVERSES, SUMMARY_TYPES} from '@constants/demography/summary';
+import {MAP_MODES} from '@constants/map/mode';
+import {ACCESS_STATES} from '@constants/document/state';
+import {MAP_TYPES} from '@constants/document/types';
 
 let coalitionHydrationRequestId = 0;
 let coalitionVersion = 0;
@@ -29,7 +33,7 @@ let updateDataRequestId = 0;
 const getActiveBrokenIds = () => {
   const mapMode = useMapControlsStore.getState().mapMode;
   return Array.from(
-    mapMode === 'coi'
+    mapMode === MAP_MODES.COI
       ? useCoiAssignmentsStore.getState().shatterIds.parents
       : useAssignmentsStore.getState().shatterIds.parents
   );
@@ -92,7 +96,7 @@ export var useDemographyStore = create(
         });
         if (!selectedColumns.length) {
           set({
-            variable: universe === 'TOTPOP' ? 'total_pop_20' : 'total_vap_20',
+            variable: universe === COALITION_UNIVERSES.TOTPOP ? 'total_pop_20' : 'total_vap_20',
           });
         }
       }
@@ -123,7 +127,7 @@ export var useDemographyStore = create(
         });
         if (!selectedColumns.length) {
           set({
-            variable: universe === 'TOTPOP' ? 'total_pop_20' : 'total_vap_20',
+            variable: universe === COALITION_UNIVERSES.TOTPOP ? 'total_pop_20' : 'total_vap_20',
           });
         }
       }
@@ -160,7 +164,7 @@ export var useDemographyStore = create(
       });
     },
     unmount: () => {
-      const isSwappingMode = useMapControlsStore.getState().mapOptions.showDemographicMap;
+      const isSwappingMode = useMapControlsStore.getState().mapOptions.demographicDisplayMode;
       const currScale = get().scale;
       set({
         getMapRef: () => undefined,
@@ -199,8 +203,8 @@ export var useDemographyStore = create(
       }
 
       const isCommunityPublic =
-        mapDocument.access === 'read' && mapDocument.map_type === 'community';
-      if (mapDocument.access === 'read' && !isCommunityPublic) {
+        mapDocument.access === ACCESS_STATES.READ && mapDocument.map_type === MAP_TYPES.COMMUNITY;
+      if (mapDocument.access === ACCESS_STATES.READ && !isCommunityPublic) {
         demographyService.updateOverlay(result.columns, result.results, dataHash);
       } else {
         demographyService.update(result.columns, result.results, dataHash, get().coalitionGroups);

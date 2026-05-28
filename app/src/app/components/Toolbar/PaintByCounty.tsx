@@ -4,6 +4,7 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 import {getFeaturesIntersectingCounties} from '@utils/map/getFeaturesIntersectingCounties';
+import {ACCESS_STATES} from '@constants/document/state';
 
 export default function PaintByCounty() {
   const mapRef = useMapStore(state => state.getMapRef());
@@ -36,7 +37,7 @@ export default function PaintByCounty() {
           checked={paintByCounty}
           defaultChecked={false}
           onClick={handleToggle}
-          disabled={access === 'read'}
+          disabled={access === ACCESS_STATES.READ}
         />{' '}
       </Flex>
     </Text>

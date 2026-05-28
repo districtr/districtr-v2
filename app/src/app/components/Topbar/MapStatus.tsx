@@ -1,32 +1,31 @@
 'use client';
 import {Text, Flex, IconButton, Box, Tooltip, Popover, SegmentedControl} from '@radix-ui/themes';
 import {useState} from 'react';
-import {DocumentMetadata, DocumentObject, DraftStatus} from '@/app/utils/api/apiHandlers/types';
+import {DocumentMetadata, DocumentObject} from '@/app/utils/api/apiHandlers/types';
+import {
+  DRAFT_STATUSES,
+  type DraftStatus,
+  DRAFT_STATUS_TEXT,
+  DRAFT_STATUS_ORDER,
+} from '@constants/document/draftStatus';
 import {InProgressIcon, ScratchWorkIcon, ReadyIcon} from './Icons';
+import {ACCESS_STATES} from '@constants/document/state';
 
 const statusIcons: Record<DraftStatus, React.FC> = {
-  scratch: ScratchWorkIcon,
-  in_progress: InProgressIcon,
-  ready_to_share: ReadyIcon,
+  [DRAFT_STATUSES.SCRATCH]: ScratchWorkIcon,
+  [DRAFT_STATUSES.IN_PROGRESS]: InProgressIcon,
+  [DRAFT_STATUSES.READY_TO_SHARE]: ReadyIcon,
 };
-
-const statusText: Record<DraftStatus, string> = {
-  scratch: 'Scratch Work',
-  in_progress: 'In Progress',
-  ready_to_share: 'Ready to Share',
-};
-
-const iconOrder: DraftStatus[] = ['scratch', 'in_progress', 'ready_to_share'];
 
 export const MapStatus: React.FC<{
   mapDocument: DocumentObject | null;
   mapMetadata: DocumentMetadata | null;
   handleMetadataChange: (updates: Partial<DocumentMetadata>) => Promise<void>;
 }> = ({mapDocument, mapMetadata, handleMetadataChange}) => {
-  const draftStatus = mapMetadata?.draft_status ?? 'scratch';
-  const Icon = statusIcons[draftStatus] ?? ScratchWorkIcon;
-  const StatusText = statusText[draftStatus] ?? 'Scratch Work';
-  const editing = mapDocument?.access === 'edit';
+  const draftStatus = mapMetadata?.draft_status ?? DRAFT_STATUSES.SCRATCH;
+  const Icon = statusIcons[draftStatus];
+  const statusText = DRAFT_STATUS_TEXT[draftStatus];
+  const editing = mapDocument?.access === ACCESS_STATES.EDIT;
   const [modalOpen, setModalOpen] = useState(false);
 
   const handleChangeStatus = async (status: DraftStatus) => {
@@ -42,7 +41,7 @@ export const MapStatus: React.FC<{
     <Popover.Root open={modalOpen} onOpenChange={setModalOpen}>
       <Popover.Trigger>
         <Box>
-          <Tooltip content={StatusText}>
+          <Tooltip content={statusText}>
             <IconButton variant="ghost" color="gray" disabled={!editing} className="cursor-pointer">
               <Icon />
             </IconButton>
@@ -64,11 +63,11 @@ export const MapStatusButtons: React.FC<{
 }> = ({draftStatus, onChange}) => {
   return (
     <SegmentedControl.Root value={draftStatus as string} onValueChange={onChange} size="2">
-      {iconOrder.map(status => (
+      {DRAFT_STATUS_ORDER.map(status => (
         <SegmentedControl.Item key={status} value={status}>
           <Flex direction="row" gap="2" align="center" justify="start">
             {statusIcons[status]({})}
-            <Text>{statusText[status]}</Text>
+            <Text>{DRAFT_STATUS_TEXT[status]}</Text>
           </Flex>
         </SegmentedControl.Item>
       ))}

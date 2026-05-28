@@ -1,5 +1,5 @@
 import {colorScheme as DefaultColorScheme} from '@/app/constants/colors';
-import {NullableZone, Zone} from '@/app/constants/types';
+import {type NullableZone, type Zone} from '@constants/map/zone';
 import {Community} from '@/app/utils/api/apiHandlers/types';
 import {extendColorArray} from '@/app/utils/colors';
 import type {DistrictrMap} from '@/app/utils/api/apiHandlers/types';

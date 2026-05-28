@@ -29,6 +29,10 @@ import {idb} from '@/app/utils/idb/idb';
 import {RevertPopover} from './RevertPopover';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {sanitizeCommunityMaps, sanitizeCommunityModuleName} from '@/app/utils/communities';
+import {MAP_MODES, type MapMode} from '@constants/map/mode';
+import {routeForMode} from '@constants/document/routes';
+import {MAP_TYPES} from '@constants/document/types';
+import {ACCESS_STATES} from '@constants/document/state';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
@@ -46,7 +50,7 @@ export const Topbar: React.FC = () => {
   const mapMode = useMapControlsStore(state => state.mapMode);
   const rawMapViewList = mapViews?.data || [];
   const cleanMapViewList =
-    mapMode === 'districts' ? rawMapViewList : sanitizeCommunityMaps(rawMapViewList);
+    mapMode === MAP_MODES.DISTRICTS ? rawMapViewList : sanitizeCommunityMaps(rawMapViewList);
 
   const handleMetadataChange = async (updates: Partial<DocumentMetadata>) => {
     if (!mapDocument?.document_id) return;
@@ -65,16 +69,13 @@ export const Topbar: React.FC = () => {
     }
   };
 
-  const handleSelectMap = (
-    selectedMap: DistrictrMap,
-    mapType: 'districts' | 'coi' = 'districts'
-  ) => {
+  const handleSelectMap = (selectedMap: DistrictrMap, mapMode: MapMode = MAP_MODES.DISTRICTS) => {
     createMapDocument({
       districtr_map_slug: selectedMap.districtr_map_slug,
-      map_type: mapType === 'coi' ? 'community' : 'default',
+      map_type: mapMode === MAP_MODES.COI ? MAP_TYPES.COMMUNITY : MAP_TYPES.DEFAULT,
     }).then(r => {
       if (r.ok) {
-        const rootPath = mapType === 'districts' ? 'map' : 'coi';
+        const rootPath = routeForMode(mapMode);
         router.push(`/${rootPath}/edit/${r.response.document_id}`);
       } else {
         setErrorNotification({
@@ -131,7 +132,7 @@ export const Topbar: React.FC = () => {
                             key={index}
                             onClick={() => handleSelectMap(view, mapMode)}
                           >
-                            {mapMode === 'districts'
+                            {mapMode === MAP_MODES.DISTRICTS
                               ? view.name
                               : sanitizeCommunityModuleName(view.name)}
                           </DropdownMenu.Item>
@@ -201,7 +202,9 @@ export const Topbar: React.FC = () => {
                 View recent maps
               </DropdownMenu.Item>
               <DropdownMenu.Sub>
-                <DropdownMenu.SubTrigger disabled={!mapDocument?.document_id || access === 'read'}>
+                <DropdownMenu.SubTrigger
+                  disabled={!mapDocument?.document_id || access === ACCESS_STATES.READ}
+                >
                   Reset map
                 </DropdownMenu.SubTrigger>
                 <DropdownMenu.SubContent>

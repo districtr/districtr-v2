@@ -4,6 +4,7 @@ import {useMapStore} from '../store/mapStore';
 import {Flex, Progress, Spinner, Text} from '@radix-ui/themes';
 import {useVisibilityState} from '../hooks/useVisibilityState';
 import {MapStore} from '../store/mapStore';
+import {APP_LOADING_STATES} from '@constants/document/state';
 
 type LoadingState = {
   isLoadingDocument: boolean;
@@ -16,7 +17,7 @@ export const MapLockShade: React.FC<{loadingState: LoadingState; mapLock: MapSto
   loadingState,
   mapLock,
 }) => {
-  const stateIsLoading = useMapStore(state => state.appLoadingState === 'loading');
+  const stateIsLoading = useMapStore(state => state.appLoadingState === APP_LOADING_STATES.LOADING);
   const isLocked = mapLock?.isLocked || stateIsLoading || Object.values(loadingState).some(Boolean);
 
   // Prevent flash up on first render before state is finalized

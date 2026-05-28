@@ -1,4 +1,4 @@
-import {NullableZone} from '@/app/constants/types';
+import {type NullableZone} from '@constants/map/zone';
 /**
  * checkIfSameZone
  * Checks if all provided IDs belong to the same zone based on the zone assignments.

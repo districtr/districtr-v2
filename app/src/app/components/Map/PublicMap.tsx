@@ -3,7 +3,7 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {Protocol} from 'pmtiles';
 import React, {useCallback, useEffect, useMemo} from 'react';
-import {MAP_OPTIONS} from '@constants/configuration';
+import {MAP_OPTIONS} from '@constants/map/viewDefaults';
 import {handleWheelOrPinch} from '@utils/events/mapEvents';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
@@ -21,14 +21,15 @@ import {PublicDistrictLayers} from './PolygonLayers/PublicDistrictLayers';
 import {BlockDemographicLayers} from './PolygonLayers/BlockDemographicLayers';
 import {BlockSource} from './GeoSources/BlockSource';
 import type {FilterSpecification} from 'maplibre-gl';
+import {RENDERER_TYPES} from '@constants/map/rendererType';
 
 export const PublicMap: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const setMapRef = useMapStore(state => state.setMapRef);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
-  const {mapRef, onLoad} = useMapRenderer('main', true);
+  const {mapRef, onLoad} = useMapRenderer(RENDERER_TYPES.MAIN, true);
   const hasDemographicOverlay =
-    useMapControlsStore(state => state.mapOptions.showDemographicMap) === 'overlay';
+    useMapControlsStore(state => state.mapOptions.demographicDisplayMode) === 'overlay';
 
   const initialViewState = useMemo(() => {
     const center = MAP_OPTIONS.center as [number, number];

@@ -1,5 +1,5 @@
 import {IconButtonProps, IconProps} from '@radix-ui/themes';
-import {ActiveTool} from '@constants/types';
+import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
 import {useMapStore} from '@/app/store/mapStore';
 import {
   EraserIcon,
@@ -13,6 +13,8 @@ import {useCallback} from 'react';
 import {debounce} from 'lodash';
 import {useTemporalStore, useCoiTemporalStore} from '@/app/store/temporalStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {MAP_MODES} from '@constants/map/mode';
+import {ACCESS_STATES} from '@constants/document/state';
 
 export type ActiveToolConfig = {
   hotKeyAccessor: (event: KeyboardEvent) => boolean;
@@ -30,13 +32,13 @@ export type ActiveToolConfig = {
 export const useActiveTools = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const access = useMapStore(state => state.mapStatus?.access);
-  const isEditing = access === 'edit';
+  const isEditing = access === ACCESS_STATES.EDIT;
   const mapMode = useMapControlsStore(state => state.mapMode);
 
   const districtsTemporal = useTemporalStore();
   const coiTemporal = useCoiTemporalStore();
   const {futureStates, pastStates, redo, undo} =
-    mapMode === 'coi' ? coiTemporal : districtsTemporal;
+    mapMode === MAP_MODES.COI ? coiTemporal : districtsTemporal;
 
   const handleUndo = useCallback(debounce(undo, 100), [undo]);
   const handleRedo = useCallback(debounce(redo, 100), [redo]);
@@ -46,7 +48,7 @@ export const useActiveTools = () => {
   const config: ActiveToolConfig[] = [
     {
       hotKeyLabel: 'M',
-      mode: 'pan',
+      mode: ACTIVE_TOOLS.PAN,
       disabled: !mapDocument?.document_id,
       label: 'Move',
       icon: HandIcon,
@@ -56,7 +58,7 @@ export const useActiveTools = () => {
     },
     {
       hotKeyLabel: 'P',
-      mode: 'brush',
+      mode: ACTIVE_TOOLS.BRUSH,
       disabled: !mapDocument?.document_id || !isEditing,
       label: 'Paint',
       icon: Pencil2Icon,
@@ -66,7 +68,7 @@ export const useActiveTools = () => {
     },
     {
       hotKeyLabel: 'E',
-      mode: 'eraser',
+      mode: ACTIVE_TOOLS.ERASER,
       disabled: !mapDocument?.document_id || !isEditing,
       label: 'Erase',
       icon: EraserIcon,
@@ -76,7 +78,7 @@ export const useActiveTools = () => {
     },
     {
       hotKeyLabel: `${metaKey} + Z`,
-      mode: 'undo',
+      mode: ACTIVE_TOOLS.UNDO,
       disabled: pastStates.length === 0 || !isEditing,
       label: 'Undo',
       icon: ResetIcon,
@@ -90,7 +92,7 @@ export const useActiveTools = () => {
     },
     {
       hotKeyLabel: `${metaKey} + Shift + Z`,
-      mode: 'redo',
+      mode: ACTIVE_TOOLS.REDO,
       disabled: futureStates.length === 0 || !isEditing,
       label: 'Redo',
       icon: ResetIcon,
@@ -105,7 +107,7 @@ export const useActiveTools = () => {
     },
     {
       hotKeyLabel: 'B',
-      mode: 'shatter',
+      mode: ACTIVE_TOOLS.SHATTER,
       disabled: !mapDocument?.child_layer,
       label: 'Break',
       icon: ViewGridIcon,
@@ -115,7 +117,7 @@ export const useActiveTools = () => {
     },
     {
       hotKeyLabel: 'I',
-      mode: 'inspector',
+      mode: ACTIVE_TOOLS.INSPECTOR,
       label: 'Inspector',
       icon: MagnifyingGlassIcon,
       hotKeyAccessor: e => {

@@ -2,7 +2,7 @@
 import {op, table, escape} from 'arquero';
 import type {ColumnTable} from 'arquero';
 import {FALLBACK_NUM_DISTRICTS} from '../../constants/map/layerStyle';
-import {FALLBACK_NUM_COMMUNITIES} from '../../constants/map/mapDefaults';
+import {FALLBACK_NUM_COMMUNITIES} from '../../constants/document/limits';
 import {BLOCK_SOURCE_ID} from '../../constants/map/layerIds';
 import {MapGeoJSONFeature} from 'maplibre-gl';
 import {MapStore, useMapStore} from '../../store/mapStore';
@@ -31,22 +31,30 @@ import {
   DEFAULT_COLOR_SCHEME,
   DEFAULT_COLOR_SCHEME_GRAY,
 } from '@/app/store/demography/constants';
-import {NullableZone} from '@/app/constants/types';
 import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {evalColumnConfigs} from '@/app/store/demography/evaluationConfig';
 import {
+  SUMMARY_TYPES,
+  COALITION_UNIVERSES,
+  type CoalitionUniverse,
+} from '@constants/demography/summary';
+import {
   CoalitionGroupKey,
-  CoalitionUniverse,
   COALITION_TOTAL_COLUMN_BY_UNIVERSE,
   COALITION_VARIABLE_BY_UNIVERSE,
   DemographyVariable,
+} from '@constants/demography/coalition';
+import {
   getAvailableCoalitionGroups,
   getMissingCoalitionGroups,
   getSelectedCoalitionColumns,
   isCoalitionVariable,
 } from './coalition';
 import {compareCoiZonesByRenderOrder, sortCommunitiesByRenderOrder} from '../communities';
+import {MAP_MODES} from '@constants/map/mode';
+import {type NullableZone} from '@constants/map/zone';
+import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 
 type MapVariableConfig = {
   value: string;
@@ -68,7 +76,7 @@ type PopulationAssignments = ZoneAssignmentsMap | PopulationAssignmentRow[];
 
 const getActivePopulationAssignments = (): PopulationAssignments => {
   const mapMode = useMapControlsStore.getState().mapMode;
-  if (mapMode !== 'coi') {
+  if (mapMode !== MAP_MODES.COI) {
     return new Map(useAssignmentsStore.getState().zoneAssignments);
   }
 
@@ -126,8 +134,8 @@ class DemographyService {
    * Available summary statistics / derived values.
    */
   summaryStats: {
-    TOTPOP?: (typeof summaryStatsWithPctConfig)['TOTPOP'];
-    VAP?: (typeof summaryStatsWithPctConfig)['VAP'];
+    TOTPOP?: (typeof summaryStatsWithPctConfig)[typeof SUMMARY_TYPES.TOTPOP];
+    VAP?: (typeof summaryStatsWithPctConfig)[typeof SUMMARY_TYPES.VAP];
     idealpop?: number;
     totalPopulation?: number;
     unassigned?: number;
@@ -244,12 +252,12 @@ class DemographyService {
       CoalitionUniverse,
       Array<AllTabularColumns[number]>
     > = {
-      TOTPOP: this.getCoalitionColumns(coalitionGroups, 'TOTPOP'),
-      VAP: this.getCoalitionColumns(coalitionGroups, 'VAP'),
+      TOTPOP: this.getCoalitionColumns(coalitionGroups, SUMMARY_TYPES.TOTPOP),
+      VAP: this.getCoalitionColumns(coalitionGroups, SUMMARY_TYPES.VAP),
     };
     rows.forEach(row => {
       const record = asNumericRecord(row);
-      (['TOTPOP', 'VAP'] as CoalitionUniverse[]).forEach(universe => {
+      Object.values(COALITION_UNIVERSES).forEach(universe => {
         const coalitionVariable = COALITION_VARIABLE_BY_UNIVERSE[universe];
         const totalColumn = COALITION_TOTAL_COLUMN_BY_UNIVERSE[universe];
         const coalitionCount = coalitionColumnsByUniverse[universe].reduce((sum, column) => {
@@ -266,7 +274,7 @@ class DemographyService {
 
   private updateCoalitionMaxValues(rows: SummaryTable) {
     const maxValues = {...(this.zoneStats.maxValues ?? {})} as Record<string, number>;
-    (['TOTPOP', 'VAP'] as CoalitionUniverse[]).forEach(universe => {
+    Object.values(COALITION_UNIVERSES).forEach(universe => {
       const variable = COALITION_VARIABLE_BY_UNIVERSE[universe];
       const pctVariable = `${variable}_pct`;
       const rawMax = Math.max(0, ...rows.map(row => asNumericRecord(row)[variable] ?? 0));
@@ -324,7 +332,7 @@ class DemographyService {
     const mapState = useMapStore.getState();
     const mapMode = useMapControlsStore.getState().mapMode;
     const zoneIds =
-      mapMode === 'coi'
+      mapMode === MAP_MODES.COI
         ? sortCommunitiesByRenderOrder(mapState.communities).map(community => community.id)
         : Array.from(
             {length: mapState.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS},
@@ -380,7 +388,7 @@ class DemographyService {
     this.populations = zonePopulationsTable.sort((left, right) => {
       if (left.zone === undefined || left.zone === null) return 1;
       if (right.zone === undefined || right.zone === null) return -1;
-      if (mapMode === 'coi') {
+      if (mapMode === MAP_MODES.COI) {
         return compareCoiZonesByRenderOrder(left.zone, right.zone, mapState.communities);
       }
       return left.zone - right.zone;
@@ -411,7 +419,7 @@ class DemographyService {
     const mapDocument = mapState.mapDocument;
     const mapMode = useMapControlsStore.getState().mapMode;
     const numZones =
-      mapMode === 'coi'
+      mapMode === MAP_MODES.COI
         ? Math.max(mapState.communities.length, FALLBACK_NUM_COMMUNITIES)
         : (mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
 
@@ -603,7 +611,10 @@ class DemographyService {
 
     if ((!this.table && !this.overlayTable) || !dataSoureExists) return;
     if (!config && isCoalitionVariable(variable)) {
-      const universe = variable === 'coalition_totpop' ? 'TOTPOP' : 'VAP';
+      const universe =
+        variable === COALITION_VARIABLE_BY_UNIVERSE.TOTPOP
+          ? SUMMARY_TYPES.TOTPOP
+          : SUMMARY_TYPES.VAP;
       const totalColumn = COALITION_TOTAL_COLUMN_BY_UNIVERSE[universe];
       const coalitionColumns = this.getCoalitionColumns(coalitionGroups, universe);
       if (!coalitionColumns.length) return;
@@ -635,9 +646,11 @@ class DemographyService {
       const uniqueQuantiles = Array.from(new Set(quantiles.quantilesList));
       const actualBinsLength = Math.min(numberOfBins, uniqueQuantiles.length + 1);
 
-      const mapMode = useMapControlsStore.getState().mapOptions.showDemographicMap;
+      const displayMode = useMapControlsStore.getState().mapOptions.demographicDisplayMode;
       const defaultColor =
-        mapMode === 'side-by-side' ? DEFAULT_COLOR_SCHEME : DEFAULT_COLOR_SCHEME_GRAY;
+        displayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE
+          ? DEFAULT_COLOR_SCHEME
+          : DEFAULT_COLOR_SCHEME_GRAY;
       let colorscheme = defaultColor[Math.max(3, actualBinsLength)];
 
       if (actualBinsLength < 3) {

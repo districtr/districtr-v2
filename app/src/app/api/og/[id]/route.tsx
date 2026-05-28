@@ -1,4 +1,5 @@
 import {API_URL} from '@/app/utils/api/constants';
+import {DRAFT_STATUSES} from '@constants/document/draftStatus';
 import {ImageResponse} from 'next/og';
 import fs from 'fs';
 import {DocumentObject} from '@/app/utils/api/apiHandlers/types';
@@ -69,11 +70,11 @@ export async function GET(_: Request, {params}: {params: Promise<{id: string}>})
                 {title}
               </h1>
               <div style={{display: 'flex', flexDirection: 'row', gap: '10px'}}>
-                {mapDocument.map_metadata?.draft_status === 'ready_to_share' ? (
+                {mapDocument.map_metadata?.draft_status === DRAFT_STATUSES.READY_TO_SHARE ? (
                   <p style={{color: 'green', textTransform: 'uppercase'}}>Ready to Share</p>
-                ) : mapDocument.map_metadata?.draft_status === 'in_progress' ? (
+                ) : mapDocument.map_metadata?.draft_status === DRAFT_STATUSES.IN_PROGRESS ? (
                   <p style={{color: 'blue', textTransform: 'uppercase'}}>In Progress</p>
-                ) : mapDocument.map_metadata?.draft_status === 'scratch' ? (
+                ) : mapDocument.map_metadata?.draft_status === DRAFT_STATUSES.SCRATCH ? (
                   <p style={{color: 'orange', textTransform: 'uppercase'}}>Scratch Work</p>
                 ) : null}
                 <p>{mapDocument.num_districts} districts</p>

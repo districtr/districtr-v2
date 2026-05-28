@@ -1,5 +1,7 @@
-import {NullableZone} from '@/app/constants/types';
-import {SummaryStatConfig} from '../summaryStats';
+import {type NullableZone} from '@constants/map/zone';
+import {type MapType} from '@constants/document/types';
+import type {DraftStatus} from '@constants/document/draftStatus';
+import {type AccessState} from '@constants/document/state';
 
 export interface Assignment {
   document_id: string;
@@ -21,7 +23,7 @@ export interface AssignmentsCreate {
   document_id: string;
   last_updated_at: string;
   overwrite: boolean;
-  map_type?: 'default' | 'community';
+  map_type?: MapType;
   metadata?: {
     color_scheme?: string[] | null;
     num_districts?: number | null;
@@ -48,17 +50,15 @@ export interface DistrictrMap {
   child_layer: string | null;
   tiles_s3_path: string | null;
   num_districts: number | null;
-  map_type: 'default' | 'local' | 'community';
+  map_type: MapType;
 }
 
 export interface StatusObject {
-  access: 'read' | 'edit';
+  access: AccessState;
   genesis: 'shared' | 'copied' | 'created';
   token?: string | null;
   password?: string | null;
 }
-
-export type DraftStatus = 'scratch' | 'in_progress' | 'ready_to_share';
 
 export interface DocumentMetadata {
   name: string | null;
@@ -100,8 +100,7 @@ export interface DocumentObject extends StatusObject {
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
   map_metadata: DocumentMetadata;
   color_scheme: string[] | null;
-  // TODO: local should be something more description like 'small-town' or 'locality' or ???
-  map_type: 'default' | 'local' | 'community';
+  map_type: MapType;
   comment: string | null;
   parent_geo_unit_type: string | null;
   child_geo_unit_type: string | null;
@@ -133,7 +132,7 @@ export interface MinPublicDocument {
 
 export interface DocumentCreate {
   districtr_map_slug: string;
-  map_type?: 'default' | 'local' | 'community';
+  map_type?: MapType;
   metadata?: DocumentMetadata;
   copy_from_doc?: string | number;
 }

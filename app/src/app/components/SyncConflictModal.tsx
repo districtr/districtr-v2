@@ -1,7 +1,7 @@
 import React from 'react';
 import {Dialog, Button, Flex, Text, Box, Spinner, Grid} from '@radix-ui/themes';
 import {Cross2Icon} from '@radix-ui/react-icons';
-import {SyncConflictResolution} from '@/app/constants/types';
+import {SyncConflictResolution} from '@constants/document/sync';
 import {SyncConflictInfo} from '@/app/utils/api/apiHandlers/fetchDocument';
 import {CloudIcon, LocalIcon, ForkIcon} from './SyncConflictModalIcons';
 

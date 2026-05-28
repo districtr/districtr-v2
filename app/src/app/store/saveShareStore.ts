@@ -2,14 +2,16 @@ import {create} from 'zustand';
 import {MapStore, useMapStore} from './mapStore';
 import {idb} from '../utils/idb/idb';
 import {patchSharePlan} from '../utils/api/apiHandlers/patchSharePlan';
+import {routeForType} from '@constants/document/routes';
+import {ACCESS_STATES, type AccessState} from '@constants/document/state';
 
 interface SaveShareStore {
   password: string;
   setPassword: (password: string) => void;
   generateLink: () => Promise<void>;
   updatePassword: (mapDocument: MapStore['mapDocument'], password: string) => Promise<void>;
-  sharingMode: 'read' | 'edit';
-  setSharingMode: (sharingMode: 'read' | 'edit') => void;
+  sharingMode: AccessState;
+  setSharingMode: (sharingMode: AccessState) => void;
 }
 
 export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
@@ -18,7 +20,7 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
   generateLink: async () => {
     const {password, sharingMode} = get();
     const {setErrorNotification, mapDocument} = useMapStore.getState();
-    const isEditing = mapDocument?.access === 'edit';
+    const isEditing = mapDocument?.access === ACCESS_STATES.EDIT;
 
     if (!isEditing) {
       return;
@@ -38,12 +40,12 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
       return;
     }
     const {public_id: publicId} = response.response;
-    const routePrefix = mapDocument.map_type === 'community' ? 'coi' : 'map';
+    const routePrefix = routeForType(mapDocument.map_type);
 
     let shareableLink = new URL(`${window.location.origin}/${routePrefix}/${publicId}`);
-    if (sharingMode === 'read') {
+    if (sharingMode === ACCESS_STATES.READ) {
       // Do nothing!
-    } else if (sharingMode === 'edit' && !password) {
+    } else if (sharingMode === ACCESS_STATES.EDIT && !password) {
       // Direct link to edit page
       shareableLink.pathname = `/${routePrefix}/edit/${mapDocument.document_id}`;
     } else {
@@ -61,7 +63,7 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
     const response = await patchSharePlan({
       document_id: mapDocument?.document_id,
       password: password ?? null,
-      access_type: 'edit',
+      access_type: ACCESS_STATES.EDIT,
     });
     if (response.ok) {
       set({password});
@@ -70,7 +72,7 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
       setErrorNotification({message: response.error.detail, severity: 2});
     }
   },
-  sharingMode: 'read',
+  sharingMode: ACCESS_STATES.READ,
   setSharingMode: sharingMode => set({sharingMode}),
 }));
 
@@ -88,7 +90,11 @@ useMapStore.subscribe(
       useSaveShareStore.getState().setPassword(userMap?.password || '');
       useSaveShareStore
         .getState()
-        .setSharingMode(userMap?.document_metadata.access === 'edit' ? 'edit' : 'read');
+        .setSharingMode(
+          userMap?.document_metadata.access === ACCESS_STATES.EDIT
+            ? ACCESS_STATES.EDIT
+            : ACCESS_STATES.READ
+        );
     });
   }
 );
