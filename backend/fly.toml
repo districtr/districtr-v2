@@ -28,6 +28,10 @@ primary_region = 'ewr'
   min_machines_running = 1
   processes = ['app']
 
+[metrics]
+  port = 8080
+  path = "/metrics"
+
 [[vm]]
   memory = '8gb'
   cpu_kind = 'shared'
