@@ -14,13 +14,13 @@ Data sources
 All files live in the project's R2 bucket under the ``test-fixtures/fl/`` prefix and
 must be downloaded manually before running this test suite:
 
-    aws s3 cp s3://<R2_BUCKET_NAME>/test-fixtures/fl/fl_cong2026_hybrid.txt \
+    aws s3 cp s3://$S3_BUCKET/test-fixtures/fl/fl_cong2026_hybrid.txt \
         backend/tests/fixtures/fl/fl_cong2026_hybrid.txt
-    aws s3 cp s3://<R2_BUCKET_NAME>/test-fixtures/fl/fl_vtd_districtr_view.gpkg \
+    aws s3 cp s3://$S3_BUCKET/test-fixtures/fl/fl_vtd_districtr_view.gpkg \
         data/gerrydb/fl_vtd_districtr_view.gpkg
-    aws s3 cp s3://<R2_BUCKET_NAME>/test-fixtures/fl/fl_block_districtr_view.gpkg \
+    aws s3 cp s3://$S3_BUCKET/test-fixtures/fl/fl_block_districtr_view.gpkg \
         data/gerrydb/fl_block_districtr_view.gpkg
-    aws s3 cp s3://<R2_BUCKET_NAME>/test-fixtures/fl/fl_districtr_view.pkl \
+    aws s3 cp s3://$S3_BUCKET/test-fixtures/fl/fl_districtr_view.pkl \
         data/graphs/fl_districtr_view.pkl
 
     assignments : tests/fixtures/fl/fl_cong2026_hybrid.txt  (29 417 lines, ~550 KB)
