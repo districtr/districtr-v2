@@ -11,10 +11,22 @@ metrics code changes:
 
 Data sources
 ------------
-    assignments : tests/fixtures/fl/fl_cong2026_hybrid.txt  ← in repo (29 417 lines)
-    parent layer: data/gerrydb/fl_vtd_districtr_view.gpkg   ← NOT in repo (38 MB)
-    child layer : data/gerrydb/fl_block_districtr_view.gpkg ← NOT in repo (576 MB)
-    graph       : data/graphs/fl_districtr_view.pkl          ← NOT in repo (59 MB)
+All files live in the project's R2 bucket under the ``test-fixtures/fl/`` prefix and
+must be downloaded manually before running this test suite:
+
+    aws s3 cp s3://<R2_BUCKET_NAME>/test-fixtures/fl/fl_cong2026_hybrid.txt \
+        backend/tests/fixtures/fl/fl_cong2026_hybrid.txt
+    aws s3 cp s3://<R2_BUCKET_NAME>/test-fixtures/fl/fl_vtd_districtr_view.gpkg \
+        data/gerrydb/fl_vtd_districtr_view.gpkg
+    aws s3 cp s3://<R2_BUCKET_NAME>/test-fixtures/fl/fl_block_districtr_view.gpkg \
+        data/gerrydb/fl_block_districtr_view.gpkg
+    aws s3 cp s3://<R2_BUCKET_NAME>/test-fixtures/fl/fl_districtr_view.pkl \
+        data/graphs/fl_districtr_view.pkl
+
+    assignments : tests/fixtures/fl/fl_cong2026_hybrid.txt  (29 417 lines, ~550 KB)
+    parent layer: data/gerrydb/fl_vtd_districtr_view.gpkg   (38 MB)
+    child layer : data/gerrydb/fl_block_districtr_view.gpkg (576 MB)
+    graph       : data/graphs/fl_districtr_view.pkl          (59 MB)
 
 Hybrid assignment file
 -----------------------
@@ -118,16 +130,15 @@ VTD_GPKG = DATA_DIR / "gerrydb" / "fl_vtd_districtr_view.gpkg"
 BLOCK_GPKG = DATA_DIR / "gerrydb" / "fl_block_districtr_view.gpkg"
 GRAPH_PKL = DATA_DIR / "graphs" / "fl_districtr_view.pkl"
 
-# The hybrid assignment file is in the repo; only the geodata and graph are external.
-FL_DATA_AVAILABLE = all(p.exists() for p in [VTD_GPKG, BLOCK_GPKG, GRAPH_PKL])
+FL_DATA_AVAILABLE = all(
+    p.exists() for p in [HYBRID_ASSIGNMENT_FILE, VTD_GPKG, BLOCK_GPKG, GRAPH_PKL]
+)
 
 pytestmark = pytest.mark.skipif(
     not FL_DATA_AVAILABLE,
     reason=(
-        "FL integration data not present. Ensure "
-        "data/gerrydb/fl_vtd_districtr_view.gpkg, "
-        "data/gerrydb/fl_block_districtr_view.gpkg, and "
-        "data/graphs/fl_districtr_view.pkl all exist."
+        "FL integration data not present. Download all four files from the R2 bucket "
+        "under test-fixtures/fl/ — see the module docstring for the aws s3 cp commands."
     ),
 )
 
