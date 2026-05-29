@@ -74,8 +74,13 @@ def block_cut_edges(context: DocumentEvaluationContext) -> CutEdgesResult:
                 # Both sides individually assigned — edge seen from both sides.
                 if zone_unit != unit_to_zone[neighbor]:
                     half_cut += 1
-            elif neighbor in parent_unit_to_zone:
-                if zone_unit != parent_unit_to_zone[neighbor]:
+            else:
+                parent = G.nodes[neighbor].get("parent")
+                # Only look at block level neighbours now by checking whether they have
+                # a parent, looking at direct parent-unit neighbers would be
+                # double-counting edges and subsume many block-to-block edges as a
+                # single block-to-parent edge.
+                if parent and parent in parent_unit_to_zone and zone_unit != parent_unit_to_zone[parent]:
                     cut_count += 1
     cut_count += half_cut // 2
     return {"cut_count": cut_count, "unit_type": unit_type}

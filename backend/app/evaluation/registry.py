@@ -15,6 +15,18 @@ next read.
   or output shape in a way that
 should invalidate caches,
 
+Manual integration test
+-----------------------
+Any change to ``METRICS`` — adding, removing, or version-bumping an entry —
+should be accompanied by a manual run of the Florida Cong2026 integration test::
+
+    pytest backend/tests/test_fl_metrics_integration.py -v
+
+That suite validates every metric against ground-truth values from the Duchin
+May 2026 report on Florida Congressional Redistricting.  It is intentionally
+excluded from CI because it requires large geodata files not stored in the
+repository (see the test module for setup instructions).
+
 """
 
 import hashlib

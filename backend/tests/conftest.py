@@ -16,8 +16,10 @@ from app.evaluation.graph import get_graph as _get_graph_cached, _build_combined
 from networkx import Graph
 from tests.constants import (
     POSTGRES_TEST_DB,
+    POSTGRES_INTEGRATION_DB,
     TEARDOWN_TEST_DB,
     TEST_SQLALCHEMY_DATABASE_URI,
+    INTEGRATION_SQLALCHEMY_DATABASE_URI,
     TEST_POSTGRES_CONNECTION_STRING,
     FIXTURES_PATH,
     OGR2OGR_PG_CONNECTION_STRING,
@@ -76,6 +78,9 @@ def client_isolated_sessions_fixture(engine):
 my_env = os.environ.copy()
 my_env["POSTGRES_DB"] = POSTGRES_TEST_DB
 
+integration_env = os.environ.copy()
+integration_env["POSTGRES_DB"] = POSTGRES_INTEGRATION_DB
+
 
 @pytest.fixture(scope="session", name="engine")
 def engine_fixture(request):
@@ -125,6 +130,47 @@ def engine_fixture(request):
     request.addfinalizer(teardown)
 
     return create_engine(str(TEST_SQLALCHEMY_DATABASE_URI), echo=True)
+
+
+@pytest.fixture(scope="session", name="integration_engine")
+def integration_engine_fixture():
+    """Session-scoped engine for integration tests backed by a dedicated DB.
+
+    Unlike the unit-test ``engine``, this DB is never torn down — seeding
+    the FL geodata and parent-child edges is expensive, so we keep state
+    across runs.  Use ``docker-compose down -v`` to wipe it if needed.
+    """
+    url = TEST_POSTGRES_CONNECTION_STRING
+    _engine = create_engine(url)
+    conn = _engine.connect()
+    conn.execute(text("commit"))
+    try:
+        if conn.in_transaction():
+            conn.rollback()
+        conn.execution_options(isolation_level="AUTOCOMMIT").execute(
+            text(f"CREATE DATABASE {POSTGRES_INTEGRATION_DB}")
+        )
+    except (OperationalError, ProgrammingError):
+        pass  # already exists — reuse it
+
+    try:
+        subprocess.run(
+            ["alembic", "upgrade", "head"],
+            check=True,
+            env=integration_env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+    except subprocess.CalledProcessError as e:
+        print("Alembic upgrade failed:")
+        print("Return code:", e.returncode)
+        print("Standard Output:", e.output or e.stdout)
+        print("Error Output:", e.stderr)
+        raise e
+
+    conn.close()
+    return create_engine(str(INTEGRATION_SQLALCHEMY_DATABASE_URI), echo=True)
 
 
 @pytest.fixture
