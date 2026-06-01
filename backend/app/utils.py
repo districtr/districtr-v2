@@ -624,7 +624,6 @@ def update_or_select_district_stats(
             # Kick off thumbnail generation (non-blocking)
             background_tasks.add_task(
                 generate_thumbnail,
-                session=session,
                 document_id=document_id,
                 out_directory=THUMBNAIL_BUCKET,
             )

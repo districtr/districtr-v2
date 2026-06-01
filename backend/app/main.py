@@ -785,7 +785,7 @@ async def update_assignments(
         temp_table_name = f"temp_assignments_{load_id}"
         session.connection().execute(
             text(
-                f"CREATE TEMP TABLE {temp_table_name} (document_id UUID, geo_id TEXT, zone INT)"
+                f"CREATE TEMP TABLE {temp_table_name} (document_id UUID, geo_id TEXT, zone INT) ON COMMIT DROP"
             )
         )
 
