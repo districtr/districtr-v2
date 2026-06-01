@@ -10,6 +10,8 @@ instead of leaking it -- including on the error path, which was part of the leak
 """
 
 import pytest
+from sqlalchemy import text
+from sqlmodel import Session
 
 from app.core.db import engine
 from app.comments.moderation import moderate_comment_by_id
@@ -43,3 +45,32 @@ def test_self_owned_thumbnail_returns_connection_on_error():
     with pytest.raises(Exception):
         generate_thumbnail(document_id="does-not-exist", out_directory=None)
     assert engine.pool.checkedout() == checked_out_before
+
+
+def test_on_commit_drop_temp_table_is_removed_after_commit():
+    """ON COMMIT DROP temp tables are gone once the transaction commits.
+
+    The assignment-insert paths create a temp table per request; without
+    ON COMMIT DROP a committed temp table lives for the life of the pooled
+    connection and the create/drop churn bloats the system catalogs. This guards
+    the mechanism the fix relies on.
+    """
+    table = "t_oncommitdrop_regression"
+    with Session(engine) as session:
+        session.connection().execute(
+            text(f"CREATE TEMP TABLE {table} (a int) ON COMMIT DROP")
+        )
+        session.commit()  # real top-level commit -> ON COMMIT DROP fires here
+        remaining = (
+            session.connection()
+            .execute(
+                text(
+                    "SELECT count(*) FROM pg_class c "
+                    "JOIN pg_namespace n ON n.oid = c.relnamespace "
+                    "WHERE n.nspname LIKE 'pg_temp%' AND c.relname = :name"
+                ),
+                {"name": table},
+            )
+            .scalar()
+        )
+    assert remaining == 0
