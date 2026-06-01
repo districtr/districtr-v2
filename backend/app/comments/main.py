@@ -465,7 +465,7 @@ async def create_commenter(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         )
 
-    background_tasks.add_task(moderate_commenter, commenter, session)
+    background_tasks.add_task(moderate_commenter, commenter)
     return commenter
 
 
@@ -489,7 +489,7 @@ async def create_comment(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         )
 
-    background_tasks.add_task(moderate_comment, comment, session)
+    background_tasks.add_task(moderate_comment, comment)
     return comment
 
 
@@ -511,7 +511,7 @@ async def create_tag(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         )
 
-    background_tasks.add_task(moderate_tag, tag, session)
+    background_tasks.add_task(moderate_tag, tag)
     return tag
 
 
@@ -537,7 +537,7 @@ async def submit_full_comment(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         )
 
-    background_tasks.add_task(moderate_submission, response, session)
+    background_tasks.add_task(moderate_submission, response)
     return response
 
 
