@@ -19,6 +19,11 @@ def set_db_timeouts(dbapi_conn, _):
     cursor = dbapi_conn.cursor()
     cursor.execute("SET lock_timeout = '15s'")
     cursor.execute("SET statement_timeout = '120s'")
+    # idle_in_transaction_session_timeout: backstop against connection leaks. If a
+    # connection is checked out with an open-but-idle transaction (e.g. a background
+    # task that opened a transaction and never committed/closed it), Postgres aborts
+    # it after this window so the connection returns to the pool instead of leaking.
+    cursor.execute("SET idle_in_transaction_session_timeout = '60s'")
     cursor.close()
 
 
