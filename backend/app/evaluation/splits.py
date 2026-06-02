@@ -6,14 +6,11 @@ county's geoid to the forced and actual splits by the document's districts.
 
 from typing import Tuple
 
-import sqlmodel
-
 from app.evaluation.context import (
     COUNTY_CONTEXT,
     DocumentEvaluationContext,
     CountyGeoid,
 )
-from app.models import Assignments
 
 
 def county_pieces(context: DocumentEvaluationContext) -> dict[CountyGeoid, Tuple[int, int, str]]:
@@ -44,3 +41,16 @@ def county_pieces(context: DocumentEvaluationContext) -> dict[CountyGeoid, Tuple
         )
         for county_geoid, pop in county_pops.items()
     }
+
+
+def district_county_membership(context: DocumentEvaluationContext) -> dict[int, list[str]]:
+    """Returns a mapping from district (zone) to the sorted list of county geoids
+    that overlap with that district.
+    """
+    zone_counties: dict[int, set[str]] = {}
+    for geo_id, zone in context.zone_assignments:
+        bare_id = geo_id.split(":", 1)[1] if ":" in geo_id else geo_id
+        geoid = CountyGeoid(bare_id[:5])
+        zone_counties.setdefault(zone, set()).add(geoid)
+
+    return {zone: sorted(counties) for zone, counties in zone_counties.items()}
