@@ -8,6 +8,13 @@ type CountyFIPS = string; // 5-digit FIPS code as a string
 type SeatsResult = {
   dem: number;
   rep: number;
+  total: number;
+};
+
+type VotesResult = {
+  dem: number;
+  rep: number;
+  total: number;
 };
 
 type VoteSharesResult = {
@@ -44,6 +51,7 @@ type PopulationDeviationResult = {
 
 export interface DocumentEvaluation {
   seats?: Record<ElectionKey, SeatsResult>;
+  votes?: Record<ElectionKey, VotesResult>;
   vote_shares?: Record<ElectionKey, VoteSharesResult>;
   efficiency_gap?: Record<ElectionKey, number>;
   mean_median?: Record<ElectionKey, number>;
@@ -58,7 +66,7 @@ export interface DocumentEvaluation {
   majority_districts?: Record<RacialGroupKey, number[]>;
   assigned_units?: AssignedUnitsResult;
   population_deviation?: PopulationDeviationResult;
-  contiguous?: boolean;
+  contiguous?: Record<string, boolean>;
 }
 
 export const getEvaluation = async (document_id?: string) => {

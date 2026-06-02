@@ -1,9 +1,12 @@
 'use client';
+import {useState} from 'react';
 import * as Accordion from '@radix-ui/react-accordion';
-import {Flex, Text, Table, Heading} from '@radix-ui/themes';
+import {Flex, Text, Table, Heading, SegmentedControl} from '@radix-ui/themes';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {formatElectionKey, formatPct, SubsectionHeading} from './shared';
+
+type Pov = 'dem' | 'rep';
 
 interface Props {
   evaluation: DocumentEvaluation;
@@ -18,10 +21,26 @@ const demBg = (alpha: number) =>
 const repBg = (alpha: number) =>
   `color-mix(in srgb, ${REP} ${(alpha * 100).toFixed(0)}%, transparent)`;
 
-const metricBg = (value: number | undefined) => {
+// "The intensity of coloring shows disproportionality cutoffs at 15 and 25 percentage points;
+// efficiency gap cutoffs at 8 and 20 percentage points, MM at 3 points, PB at 5 seats (0.179)
+// and 7 seats (0.250), and Eguia at 20 and 30 points." — Moon, Florida redistricting report.
+// We scale to the lower cutoff (full intensity at that threshold); upper cutoff is ignored.
+const METRIC_CUTOFF = {
+  disp:            0.15,
+  efficiency_gap:  0.08,
+  mean_median:     0.03,
+  partisan_bias:   0.179,
+  eguia:           0.20,
+} as const;
+
+const MAX_ALPHA = 0.6;
+
+// All metrics are dem-POV: positive = dem advantage (blue), negative = rep advantage (red).
+const scaledBg = (value: number | undefined, cutoff: number) => {
   if (value == null) return undefined;
-  if (value > 0) return demBg(Math.min(value * 1.5, 0.6));
-  if (value < 0) return repBg(Math.min(Math.abs(value) * 1.5, 0.6));
+  const alpha = Math.min(Math.abs(value) / cutoff, 1.0) * MAX_ALPHA;
+  if (value > 0) return demBg(alpha);
+  if (value < 0) return repBg(alpha);
   return undefined;
 };
 
@@ -30,9 +49,11 @@ function dispLabel(disp: number, numDistricts: number): string {
   if (Math.abs(seatLean) < 0.05) return 'As proportional as possible';
   const abs = Math.abs(seatLean).toFixed(1);
   return seatLean > 0
-    ? `Leans Democrat by ${abs} seats`
-    : `Leans Republican by ${abs} seats`;
+    ? `Skews Democrat by ${abs} seats`
+    : `Skews Republican by ${abs} seats`;
 }
+
+const fmtK = (n: number) => `${Math.round(n / 1000).toLocaleString()}k`;
 
 const LEVEL_ORDER: Record<string, number> = {pres: 0, sen: 1, gov: 2, ag: 3};
 
@@ -49,21 +70,26 @@ function sortElections(keys: string[]): string[] {
 }
 
 export function PartisanSection({evaluation}: Props) {
+  const [pov, setPov] = useState<Pov>('dem');
   const elections = sortElections(Object.keys(evaluation.seats ?? {}));
   const n = elections.length;
   const competitiveness = evaluation.competitiveness;
   if (!n && !competitiveness) return null;
 
-  const avgSeatLean =
-    n > 0 && evaluation.seats
-      ? elections.reduce((sum, key) => {
-          const s = evaluation.seats![key];
-          return sum + (s ? s.dem - s.rep : 0);
-        }, 0) / n
-      : null;
+  const povColor = pov === 'dem' ? DEM : REP;
+  const povBg = pov === 'dem' ? demBg : repBg;
+  // For signed metrics (dem-POV): positive = dem advantage. Rep POV negates.
+  const povSign = (v: number | undefined) => (v != null && pov === 'rep' ? -v : v);
 
   const firstSeats = n > 0 ? evaluation.seats?.[elections[0]] : null;
-  const numDistricts = firstSeats ? firstSeats.dem + firstSeats.rep : null;
+  const numDistricts = firstSeats?.total ?? null;
+
+  const avgSeatLean =
+    n > 0 && evaluation.disproportionality && numDistricts !== null
+      ? elections.reduce((sum, key) => {
+          return sum + (evaluation.disproportionality![key] ?? 0) * numDistricts;
+        }, 0) / n
+      : null;
 
   return (
     <Accordion.Root type="single" collapsible defaultValue="partisan">
@@ -85,6 +111,17 @@ export function PartisanSection({evaluation}: Props) {
           {n > 0 && (
             <>
               <SubsectionHeading>Proportionality</SubsectionHeading>
+              <Flex align="center" gap="2" mb="3" justify="end">
+                <Text size="1" color="gray">Point of View</Text>
+                <SegmentedControl.Root
+                  size="1"
+                  value={pov}
+                  onValueChange={v => setPov(v as Pov)}
+                >
+                  <SegmentedControl.Item value="dem">Democrat</SegmentedControl.Item>
+                  <SegmentedControl.Item value="rep">Republican</SegmentedControl.Item>
+                </SegmentedControl.Root>
+              </Flex>
               <Text size="2" mb="3" as="p">
                 Relative to proportionality, your plan has an average lean of{' '}
                 {avgSeatLean !== null ? (
@@ -104,17 +141,17 @@ export function PartisanSection({evaluation}: Props) {
                 <Table.Header>
                   <Table.Row>
                     <Table.ColumnHeaderCell>Election</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="center" style={{color: DEM}}>
-                      Dem<br />Votes
+                    <Table.ColumnHeaderCell justify="center" style={{color: povColor}}>
+                      Votes
                     </Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="center" style={{color: DEM}}>
-                      Dem<br />Seats
+                    <Table.ColumnHeaderCell justify="center" style={{color: povColor}}>
+                      Vote<br />Share
                     </Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="center" style={{color: REP}}>
-                      Rep<br />Votes
+                    <Table.ColumnHeaderCell justify="center" style={{color: povColor}}>
+                      Seats
                     </Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="center" style={{color: REP}}>
-                      Rep<br />Seats
+                    <Table.ColumnHeaderCell justify="center" style={{color: povColor}}>
+                      Seat<br />Share
                     </Table.ColumnHeaderCell>
                     <Table.ColumnHeaderCell justify="end">
                       Disproportionality
@@ -124,76 +161,60 @@ export function PartisanSection({evaluation}: Props) {
                 <Table.Body>
                   {elections.map(key => {
                     const seats = evaluation.seats?.[key];
-                    const total = seats ? seats.dem + seats.rep : null;
-                    const demPct = total ? seats!.dem / total : null;
-                    const repPct = total ? seats!.rep / total : null;
-                    const voteShares = evaluation.vote_shares?.[key];
-                    const disp = evaluation.disproportionality?.[key] ?? null;
+                    const seatTotal = seats?.total ?? null;
+                    const partySeatCount = seats?.[pov] ?? null;
+                    const seatPct = seatTotal && partySeatCount != null ? partySeatCount / seatTotal : null;
+                    const votes = evaluation.votes?.[key];
+                    const partyVoteCount = votes?.[pov] ?? null;
+                    const voteShare = evaluation.vote_shares?.[key]?.[pov] ?? null;
+                    const rawDisp = evaluation.disproportionality?.[key] ?? null;
+                    const disp = rawDisp !== null ? (pov === 'rep' ? -rawDisp : rawDisp) : null;
                     return (
                       <Table.Row key={key}>
                         <Table.Cell>
                           <Text size="2" weight="bold">{formatElectionKey(key)}</Text>
                         </Table.Cell>
-                        <Table.Cell
-                          justify="center"
-                          style={{backgroundColor: voteShares?.dem != null
-                            ? voteShares.dem > 0.5 ? demBg((voteShares.dem - 0.5) * 1.5) : NEUTRAL
-                            : undefined}}
-                        >
+                        <Table.Cell justify="center">
                           <Text size="2">
-                            {voteShares && voteShares.dem !== null
-                              ? `${(voteShares.dem * 100).toFixed(1)}%`
+                            {partyVoteCount != null && votes
+                              ? `${fmtK(partyVoteCount)}/${fmtK(votes.total)}`
                               : '—'}
                           </Text>
                         </Table.Cell>
                         <Table.Cell
                           justify="center"
-                          style={demPct !== null
-                            ? {backgroundColor: demPct > 0.5 ? demBg((demPct - 0.5) * 1.5) : NEUTRAL}
-                            : {}}
-                        >
-                          <Text size="2">
-                            {demPct !== null ? `${(demPct * 100).toFixed(1)}%` : '—'}
-                          </Text>
-                        </Table.Cell>
-                        <Table.Cell
-                          justify="center"
-                          style={{backgroundColor: voteShares?.rep != null
-                            ? voteShares.rep > 0.5 ? repBg((voteShares.rep - 0.5) * 1.2) : NEUTRAL
+                          style={{backgroundColor: voteShare != null
+                            ? voteShare > 0.5 ? povBg((voteShare - 0.5) * 1.5) : NEUTRAL
                             : undefined}}
                         >
                           <Text size="2">
-                            {voteShares && voteShares.rep !== null
-                              ? `${(voteShares.rep * 100).toFixed(1)}%`
+                            {voteShare != null ? `${(voteShare * 100).toFixed(1)}%` : '—'}
+                          </Text>
+                        </Table.Cell>
+                        <Table.Cell justify="center">
+                          <Text size="2">
+                            {partySeatCount != null && seatTotal
+                              ? `${partySeatCount}/${seatTotal}`
                               : '—'}
                           </Text>
                         </Table.Cell>
                         <Table.Cell
                           justify="center"
-                          style={repPct !== null
-                            ? {backgroundColor: repPct > 0.5 ? repBg((repPct - 0.5) * 1.2) : NEUTRAL}
+                          style={seatPct !== null
+                            ? {backgroundColor: seatPct > 0.5 ? povBg((seatPct - 0.5) * 1.5) : NEUTRAL}
                             : {}}
                         >
                           <Text size="2">
-                            {repPct !== null ? `${(repPct * 100).toFixed(1)}%` : '—'}
+                            {seatPct !== null ? `${(seatPct * 100).toFixed(1)}%` : '—'}
                           </Text>
                         </Table.Cell>
                         <Table.Cell
                           justify="end"
-                          style={disp !== null
-                            ? {
-                                backgroundColor:
-                                  disp > 0
-                                    ? demBg(Math.min(Math.abs(disp) * 2.5, 0.35))
-                                    : disp < 0
-                                    ? repBg(Math.min(Math.abs(disp) * 2.5, 0.35))
-                                    : 'transparent',
-                              }
-                            : {}}
+                          style={{backgroundColor: scaledBg(rawDisp ?? undefined, METRIC_CUTOFF.disp)}}
                         >
                           <Text size="2">
                             {disp !== null && numDistricts !== null
-                              ? dispLabel(disp, numDistricts)
+                              ? dispLabel(rawDisp!, numDistricts)
                               : '—'}
                           </Text>
                         </Table.Cell>
@@ -217,6 +238,7 @@ export function PartisanSection({evaluation}: Props) {
                 <Table.Header>
                   <Table.Row>
                     <Table.ColumnHeaderCell>Election</Table.ColumnHeaderCell>
+                    <Table.ColumnHeaderCell justify="end">Dispropor-<br />tionality</Table.ColumnHeaderCell>
                     <Table.ColumnHeaderCell justify="end">Efficiency<br />Gap</Table.ColumnHeaderCell>
                     <Table.ColumnHeaderCell justify="end">Mean<br />Median</Table.ColumnHeaderCell>
                     <Table.ColumnHeaderCell justify="end">Partisan<br />Bias</Table.ColumnHeaderCell>
@@ -229,17 +251,20 @@ export function PartisanSection({evaluation}: Props) {
                       <Table.Cell>
                         <Text size="2" weight="bold">{formatElectionKey(key)}</Text>
                       </Table.Cell>
-                      <Table.Cell justify="end" style={{backgroundColor: metricBg(evaluation.efficiency_gap?.[key])}}>
-                        <Text size="2">{formatPct(evaluation.efficiency_gap?.[key])}</Text>
+                      <Table.Cell justify="end" style={{backgroundColor: scaledBg(evaluation.disproportionality?.[key], METRIC_CUTOFF.disp)}}>
+                        <Text size="2">{formatPct(povSign(evaluation.disproportionality?.[key]))}</Text>
                       </Table.Cell>
-                      <Table.Cell justify="end" style={{backgroundColor: metricBg(evaluation.mean_median?.[key])}}>
-                        <Text size="2">{formatPct(evaluation.mean_median?.[key])}</Text>
+                      <Table.Cell justify="end" style={{backgroundColor: scaledBg(evaluation.efficiency_gap?.[key], METRIC_CUTOFF.efficiency_gap)}}>
+                        <Text size="2">{formatPct(povSign(evaluation.efficiency_gap?.[key]))}</Text>
                       </Table.Cell>
-                      <Table.Cell justify="end" style={{backgroundColor: metricBg(evaluation.partisan_bias?.[key])}}>
-                        <Text size="2">{formatPct(evaluation.partisan_bias?.[key])}</Text>
+                      <Table.Cell justify="end" style={{backgroundColor: scaledBg(evaluation.mean_median?.[key], METRIC_CUTOFF.mean_median)}}>
+                        <Text size="2">{formatPct(povSign(evaluation.mean_median?.[key]))}</Text>
                       </Table.Cell>
-                      <Table.Cell justify="end" style={{backgroundColor: metricBg(evaluation.eguia?.[key])}}>
-                        <Text size="2">{formatPct(evaluation.eguia?.[key])}</Text>
+                      <Table.Cell justify="end" style={{backgroundColor: scaledBg(evaluation.partisan_bias?.[key], METRIC_CUTOFF.partisan_bias)}}>
+                        <Text size="2">{formatPct(povSign(evaluation.partisan_bias?.[key]))}</Text>
+                      </Table.Cell>
+                      <Table.Cell justify="end" style={{backgroundColor: scaledBg(evaluation.eguia?.[key], METRIC_CUTOFF.eguia)}}>
+                        <Text size="2">{formatPct(povSign(evaluation.eguia?.[key]))}</Text>
                       </Table.Cell>
                     </Table.Row>
                   ))}
@@ -260,6 +285,12 @@ export function PartisanSection({evaluation}: Props) {
               <Table.Root size="1">
                 <Table.Body>
                   <Table.Row>
+                    <Table.Cell><Text size="2">Elections analyzed</Text></Table.Cell>
+                    <Table.Cell justify="end">
+                      <Text size="2" weight="bold">{competitiveness.n_elections}</Text>
+                    </Table.Cell>
+                  </Table.Row>
+                  <Table.Row>
                     <Table.Cell><Text size="2">Competitive contests</Text></Table.Cell>
                     <Table.Cell justify="end">
                       <Text size="2" weight="bold">
@@ -270,25 +301,25 @@ export function PartisanSection({evaluation}: Props) {
                   <Table.Row>
                     <Table.Cell><Text size="2">Swing districts</Text></Table.Cell>
                     <Table.Cell justify="end">
-                      <Text size="2" weight="bold">{competitiveness.n_swing_districts}</Text>
+                      <Text size="2" weight="bold">
+                        {competitiveness.n_swing_districts} / {competitiveness.n_districts}
+                      </Text>
                     </Table.Cell>
                   </Table.Row>
                   <Table.Row>
                     <Table.Cell><Text size="2">Safe Dem districts</Text></Table.Cell>
                     <Table.Cell justify="end">
-                      <Text size="2" weight="bold">{competitiveness.n_dem_districts}</Text>
+                      <Text size="2" weight="bold">
+                        {competitiveness.n_dem_districts} / {competitiveness.n_districts}
+                      </Text>
                     </Table.Cell>
                   </Table.Row>
                   <Table.Row>
                     <Table.Cell><Text size="2">Safe Rep districts</Text></Table.Cell>
                     <Table.Cell justify="end">
-                      <Text size="2" weight="bold">{competitiveness.n_rep_districts}</Text>
-                    </Table.Cell>
-                  </Table.Row>
-                  <Table.Row>
-                    <Table.Cell><Text size="2">Elections analyzed</Text></Table.Cell>
-                    <Table.Cell justify="end">
-                      <Text size="2" weight="bold">{competitiveness.n_elections}</Text>
+                      <Text size="2" weight="bold">
+                        {competitiveness.n_rep_districts} / {competitiveness.n_districts}
+                      </Text>
                     </Table.Cell>
                   </Table.Row>
                 </Table.Body>

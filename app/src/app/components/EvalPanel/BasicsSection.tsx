@@ -33,6 +33,13 @@ export function BasicsSection({evaluation}: Props) {
   const planName = mapDocument?.map_module ?? mapDocument?.map_metadata?.name ?? null;
 
   const {assigned_units, population_deviation, contiguous} = evaluation;
+  const isContiguous = contiguous ? Object.values(contiguous).every(Boolean) : null;
+  const nonContiguousDistricts = contiguous
+    ? Object.entries(contiguous)
+        .filter(([, v]) => !v)
+        .map(([k]) => k)
+        .sort((a, b) => Number(a) - Number(b))
+    : [];
 
   return (
     <Accordion.Root type="single" collapsible defaultValue="basics">
@@ -100,11 +107,22 @@ export function BasicsSection({evaluation}: Props) {
           <SubsectionHeading>Contiguity</SubsectionHeading>
           <Text size="2" as="p" mb="2">
             A plan is called contiguous if every district is internally connected. This plan appears
-            to be <strong>{contiguous ? 'contiguous' : 'not contiguous'}</strong>. Note that
+            to be <strong>{isContiguous ? 'contiguous' : 'not contiguous'}</strong>. Note that
             contiguity can be subtle because of bodies of water and because of disconnected units.
             Open the plan in the editor&apos;s <em>Map validation</em> panel to examine contiguity
             gaps.
           </Text>
+          {nonContiguousDistricts.length > 0 && (
+            <Text size="2" as="p" mb="2">
+              The following districts are not contiguous:{' '}
+              {nonContiguousDistricts.map((d, i) => (
+                <span key={d}>
+                  <strong>District {d}</strong>
+                  {i < nonContiguousDistricts.length - 1 ? ', ' : ''}
+                </span>
+              ))}
+            </Text>
+          )}
 
           {/* Population Deviation */}
           <SubsectionHeading>Population Deviation</SubsectionHeading>
