@@ -18,14 +18,12 @@ from app.models import Assignments
 
 def county_pieces(context: DocumentEvaluationContext) -> dict[CountyGeoid, Tuple[int, int, str]]:
     """Returns a mapping from county geoid to a tuple of
-    (forced_split_pieces, actual_split_pieces, county_name).
+    (population, actual_split_pieces, county_name).
 
-    A "split" occurs when a county is divided across multiple districts.  The "forced"
-    split pieces are the minimum number of pieces required to accommodate the population
-    of the county, given the ideal district population.  The "actual" split pieces are
-    the number of split pieces in the submitted plan. For unfinished districting plans,
-    the actual split pieces does not treat the unassigned area as a zone, and completely
-    unassigned counties will thus have a piece-count of 0.
+    A "split" occurs when a county is divided across multiple districts. The "actual"
+    split pieces are the number of pieces in the submitted plan. For unfinished districting
+    plans, the actual split pieces does not treat the unassigned area as a zone, and
+    completely unassigned counties will thus have a piece-count of 0.
 
     The number of counties split into two or more pieces can be easily derived from this
     mapping by counting the number of counties where `actual_split_pieces` is 2 or more.
@@ -40,7 +38,7 @@ def county_pieces(context: DocumentEvaluationContext) -> dict[CountyGeoid, Tuple
 
     return {
         county_geoid: (
-            (pop + context.ideal_population - 1) // context.ideal_population,
+            pop,
             len(county_zones.get(county_geoid, set())),
             COUNTY_CONTEXT.county_name(county_geoid),
         )

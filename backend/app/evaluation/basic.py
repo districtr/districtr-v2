@@ -74,6 +74,11 @@ def population_deviation(context: DocumentEvaluationContext) -> PopulationDeviat
         "deviation": deviation,
     }
 
+def ideal_population(context: DocumentEvaluationContext) -> int:
+    """Returns the ideal population per district (total population ÷ number of districts)."""
+    return context.ideal_population
+
+
 def contiguous(context: DocumentEvaluationContext) -> dict[int, bool]:
     """Returns whether the submitted plan is contiguous.
 
