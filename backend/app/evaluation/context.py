@@ -130,34 +130,60 @@ class DocumentEvaluationContext:
     @cached_property
     def dem_seats(self) -> dict[Election, int]:
         """Total Dem seats statewide for each election."""
-        return {col: sum(self.dem_wins[col]) for col in self.elections}
+        return {col: int(self.dem_wins[col].sum()) for col in self.elections}
 
     @cached_property
     def rep_seats(self) -> dict[Election, int]:
         """Total Rep seats statewide for each election."""
-        return {col: sum(self.rep_wins[col]) for col in self.elections}
+        return {col: int(self.rep_wins[col].sum()) for col in self.elections}
+
+    @cached_property    
+    def dem_votes(self) -> dict[Election, pd.Series]:
+        """Dem votes per district for each election."""
+        return {
+            col: self.demographic_data[col + "_dem"]
+            for col in self.elections
+        }
     
     @cached_property
-    def dem_vote_share(self) -> dict[Election, float]:
-        """Statewide Dem vote share for each election."""
-        shares = {}
-        for col in self.elections:
-            dem_votes = self.demographic_data[col + "_dem"].sum()
-            rep_votes = self.demographic_data[col + "_rep"].sum()
-            total_votes = dem_votes + rep_votes
-            shares[col] = float(dem_votes / total_votes) if total_votes > 0 else 0.0
-        return shares
+    def rep_votes(self) -> dict[Election, pd.Series]:
+        """Rep votes per district for each election."""
+        return {
+            col: self.demographic_data[col + "_rep"]
+            for col in self.elections
+        }
     
     @cached_property
-    def rep_vote_share(self) -> dict[Election, float]:
-        """Statewide Rep vote share for each election."""
-        shares = {}
-        for col in self.elections:
-            dem_votes = self.demographic_data[col + "_dem"].sum()
-            rep_votes = self.demographic_data[col + "_rep"].sum()
-            total_votes = dem_votes + rep_votes
-            shares[col] = float(rep_votes / total_votes) if total_votes > 0 else float("nan")
-        return shares
+    def total_votes(self) -> dict[Election, pd.Series]:
+        """Total votes per district for each election."""
+        return {
+            col: self.dem_votes[col] + self.rep_votes[col]
+            for col in self.elections
+        }
+    
+    @cached_property
+    def dem_state_votes(self) -> dict[Election, int]:
+        """Total Dem votes statewide for each election."""
+        return {
+            col: int(self.dem_votes[col].sum())
+            for col in self.elections
+        }
+
+    @cached_property
+    def rep_state_votes(self) -> dict[Election, int]:
+        """Total Rep votes statewide for each election."""
+        return {
+            col: int(self.rep_votes[col].sum())
+            for col in self.elections
+        }
+
+    @cached_property
+    def total_state_votes(self) -> dict[Election, int]:
+        """Total votes statewide for each election."""
+        return {
+            col: int(self.total_votes[col].sum())
+            for col in self.elections
+        }
 
     @cached_property
     def num_nonempty_districts(self) -> int:

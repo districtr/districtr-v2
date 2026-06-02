@@ -49,6 +49,7 @@ class Metric:
 
 METRICS: tuple[Metric, ...] = (
     Metric(key="seats", version=1, compute=partisans.seats),
+    Metric(key="votes", version=1, compute=partisans.votes),
     Metric(key="vote_shares", version=1, compute=partisans.vote_shares),
     Metric(key="efficiency_gap", version=1, compute=partisans.efficiency_gap),
     Metric(key="mean_median", version=1, compute=partisans.mean_median),

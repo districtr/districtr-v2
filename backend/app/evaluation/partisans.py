@@ -49,15 +49,14 @@ def efficiency_gap(context: DocumentEvaluationContext) -> dict[Election, float]:
             JSTOR: https://www.jstor.org/stable/43410706.
     """
     result: dict[Election, float] = {}
-    for col in context.elections:
-        dem_votes = context.demographic_data[col + "_dem"]
-        rep_votes = context.demographic_data[col + "_rep"]
+    for election in context.elections:
+        dem_votes = context.dem_votes[election]
+        rep_votes = context.rep_votes[election]
         wasted_votes_by_district = map(_wasted_votes, dem_votes, rep_votes)
         numerator = sum(
             rep_waste - dem_waste for dem_waste, rep_waste in wasted_votes_by_district
         )
-        total_votes = sum(dem_votes) + sum(rep_votes)
-        result[col] = numerator / total_votes if total_votes > 0 else float("nan")
+        result[election] = numerator / context.total_state_votes[election]
     return result
 
 
@@ -75,12 +74,24 @@ def seats(context: DocumentEvaluationContext) -> dict[Election, dict[str, int]]:
         election: {
             "dem": context.dem_seats[election],
             "rep": context.rep_seats[election],
+            "total": context.num_nonempty_districts,
+        }
+        for election in context.elections
+    }
+
+def votes(context: DocumentEvaluationContext) -> dict[Election, dict[str, int]]:
+    """Per-election vote counts: `{election: {"dem": n, "rep": n}}`."""
+    return {
+        election: {
+            "dem": context.dem_state_votes[election],
+            "rep": context.rep_state_votes[election],
+            "total": context.total_state_votes[election],
         }
         for election in context.elections
     }
 
 def vote_shares(context: DocumentEvaluationContext) -> dict[Election, dict[str, float]]:
-    """Per-election vote shares: `{election: {"dem": share, "rep": share}}`.
+    """Per-election, statewide vote shares: `{election: {"dem": share, "rep": share}}`.
 
     Formula:
         V_dem(e) = sum(dem_votes(d, e)) / sum(dem_votes(d, e) + rep_votes(d, e))
@@ -89,8 +100,8 @@ def vote_shares(context: DocumentEvaluationContext) -> dict[Election, dict[str, 
     """
     return {
         election: {
-            "dem": context.dem_vote_share[election],
-            "rep": context.rep_vote_share[election],
+            "dem": context.dem_state_votes[election] / context.total_state_votes[election],
+            "rep": context.rep_state_votes[election] / context.total_state_votes[election],
         }
         for election in context.elections
     }
@@ -112,11 +123,11 @@ def mean_median(context: DocumentEvaluationContext) -> dict[Election, float]:
         Doi: https://doi.org/10.1089/elj.2015.0358
     """
     result: dict[Election, float] = {}
-    for col in context.elections:
-        dem_votes = context.demographic_data[col + "_dem"]
-        rep_votes = context.demographic_data[col + "_rep"]
-        dem_vote_shares = dem_votes / (dem_votes + rep_votes)
-        result[col] = dem_vote_shares.median() - dem_vote_shares.mean()
+    for election in context.elections:
+        total = context.total_votes[election]
+        valid = total > 0
+        dem_vote_shares = context.dem_votes[election][valid] / total[valid]
+        result[election] = dem_vote_shares.median() - dem_vote_shares.mean()
     return result
 
 
@@ -161,13 +172,13 @@ def partisan_bias(context: DocumentEvaluationContext) -> dict[Election, float]:
         https://doi.org/10.1017/S000305541900056X
     """
     result: dict[Election, float] = {}
-    for col in context.elections:
-        dem_votes = context.demographic_data[col + "_dem"]
-        rep_votes = context.demographic_data[col + "_rep"]
-        dem_vote_shares = dem_votes / (dem_votes + rep_votes)
+    for election in context.elections:
+        total = context.total_votes[election]
+        valid = total > 0
+        dem_vote_shares = context.dem_votes[election][valid] / total[valid]
         mean_share = dem_vote_shares.mean()
         above_mean_districts = len(dem_vote_shares[dem_vote_shares > mean_share])
-        result[col] = above_mean_districts / context.num_nonempty_districts - 0.5
+        result[election] = above_mean_districts / context.num_nonempty_districts - 0.5
     return result
 
 
@@ -190,8 +201,8 @@ def disproportionality(context: DocumentEvaluationContext) -> dict[Election, flo
         https://doi.org/10.1017/S000305541900056X
     """
     result: dict[Election, float] = {}
-    for col in context.elections:
-        result[col] = (context.dem_seats[col] / context.num_nonempty_districts) - context.dem_vote_share[col]
+    for election in context.elections:
+        result[election] = (context.dem_seats[election] / context.num_nonempty_districts) - (context.dem_state_votes[election] / context.total_state_votes[election])
     return result
 
 def eguia_county(context: DocumentEvaluationContext) -> dict[Election, float]:
@@ -216,8 +227,8 @@ def eguia_county(context: DocumentEvaluationContext) -> dict[Election, float]:
     ideals = COUNTY_CONTEXT.ideals_for_eguia(context.parent_layer, context.session)
 
     result: dict[Election, float] = {}
-    for col in context.elections:
-        result[col] = (context.dem_seats[col] / context.num_nonempty_districts) - ideals.get(ElectionPartyKey(col + "_dem"), 0.0)
+    for election in context.elections:
+        result[election] = (context.dem_seats[election] / context.num_nonempty_districts) - ideals.get(ElectionPartyKey(election + "_dem"), 0.0)
     return result
 
 class CompetitiveMetrics(TypedDict):
@@ -262,22 +273,21 @@ def competitive_metrics(context: DocumentEvaluationContext) -> CompetitiveMetric
     dem_districts = [1] * n_districts
     rep_districts = [1] * n_districts
     n_competitive_districts = 0
-    for col in context.elections:
-        dem_districts = np.logical_and(dem_districts, context.dem_wins[col])
-        rep_districts = np.logical_and(rep_districts, context.rep_wins[col])
-        dem_vote_shares = context.demographic_data[col + "_dem"] / (
-            context.demographic_data[col + "_dem"] + context.demographic_data[col + "_rep"]
-        )
+    for election in context.elections:
+        dem_districts = np.logical_and(dem_districts, context.dem_wins[election])
+        rep_districts = np.logical_and(rep_districts, context.rep_wins[election])
+        valid = context.total_votes[election] > 0
+        dem_vote_shares = (context.dem_votes[election][valid] / context.total_votes[election][valid])
         competitive_districts = np.logical_and(dem_vote_shares >= 0.47, dem_vote_shares <= 0.53)
         n_competitive_districts += sum(competitive_districts)
-    n_dem_districts = sum(dem_districts)
-    n_rep_districts = sum(rep_districts)
+    n_dem_districts = int(sum(dem_districts))
+    n_rep_districts = int(sum(rep_districts))
     n_swing_districts = context.num_nonempty_districts - n_dem_districts - n_rep_districts
     return {
         "n_dem_districts": n_dem_districts,
         "n_rep_districts": n_rep_districts,
         "n_swing_districts": n_swing_districts,
-        "n_competitive_districts": n_competitive_districts,
+        "n_competitive_districts": int(n_competitive_districts),
         "n_districts": n_districts,
         "n_elections": n_elections,
     }

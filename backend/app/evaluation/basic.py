@@ -74,7 +74,7 @@ def population_deviation(context: DocumentEvaluationContext) -> PopulationDeviat
         "deviation": deviation,
     }
 
-def contiguous(context: DocumentEvaluationContext) -> bool:
+def contiguous(context: DocumentEvaluationContext) -> dict[int, bool]:
     """Returns whether the submitted plan is contiguous.
 
     Parent units listed in G.graph["non_contiguous_parents"] are expanded to
@@ -91,6 +91,7 @@ def contiguous(context: DocumentEvaluationContext) -> bool:
             nodes.update(G.nodes[geoid]["children"])
         else:
             nodes.add(geoid)
-    return all(
-        check_subgraph_contiguity(G, nodes) for nodes in zone_to_nodes.values()
-    )
+    return {
+        zone: check_subgraph_contiguity(G, nodes)
+        for zone, nodes in zone_to_nodes.items()
+    }

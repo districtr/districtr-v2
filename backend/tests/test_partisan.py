@@ -69,7 +69,7 @@ import sqlmodel
 from unittest.mock import MagicMock
 
 import pytest
-from hypothesis import given, settings
+from hypothesis import given, settings, assume
 from hypothesis import strategies as st
 
 from app.evaluation.context import DocumentEvaluationContext, GerrydbTableName, COUNTY_CONTEXT, CountyContext
@@ -83,6 +83,8 @@ from app.evaluation.partisans import (
     partisan_bias,
     disproportionality,
     seats,
+    votes,
+    vote_shares,
 )
 from app.models import DistrictUnionsResponse, DistrictrMap
 
@@ -153,13 +155,23 @@ _EXPECTED_PARTISAN_BIAS = {
 }
 
 _EXPECTED_SEATS = {
-    "pres_2016": {"dem": 2, "rep": 6},
-    "pres_2020": {"dem": 3, "rep": 5},
-    "pres_2024": {"dem": 4, "rep": 4},
-    "sen_2016": {"dem": 4, "rep": 4},
-    "sen_2018": {"dem": 1, "rep": 7},
-    "sen_2020": {"dem": 5, "rep": 3},
-    "sen_2022": {"dem": 6, "rep": 2},
+    "pres_2016": {"dem": 2, "rep": 6, "total": 8},
+    "pres_2020": {"dem": 3, "rep": 5, "total": 8},
+    "pres_2024": {"dem": 4, "rep": 4, "total": 8},
+    "sen_2016": {"dem": 4, "rep": 4, "total": 8},
+    "sen_2018": {"dem": 1, "rep": 7, "total": 8},
+    "sen_2020": {"dem": 5, "rep": 3, "total": 8},
+    "sen_2022": {"dem": 6, "rep": 2, "total": 8},
+}
+
+_EXPECTED_VOTES = {
+    "pres_2016": {"dem": 33547, "rep": 40036, "total": 73583},
+    "pres_2020": {"dem": 32469, "rep": 40954, "total": 73423},
+    "pres_2024": {"dem": 41413, "rep": 39509, "total": 80922},
+    "sen_2016": {"dem": 38782, "rep": 44665, "total": 83447},
+    "sen_2018": {"dem": 35974, "rep": 45683, "total": 81657},
+    "sen_2020": {"dem": 41053, "rep": 37330, "total": 78383},
+    "sen_2022": {"dem": 41259, "rep": 36598, "total": 77857},
 }
 
 _EXPECTED_PROPORTIONALITY = {
@@ -196,6 +208,10 @@ def test_seats_matches_gerrychain(grid_context):
     for col, expected in _EXPECTED_SEATS.items():
         assert result[col] == expected, f"{col}: {result[col]} != {expected}"
 
+def test_votes_matches_gerrychain(grid_context):
+    result = votes(grid_context)
+    for col, expected in _EXPECTED_VOTES.items():
+        assert result[col] == expected, f"{col}: {result[col]} != {expected}"
 
 def test_efficiency_gap_matches_gerrychain(grid_context):
     result = efficiency_gap(grid_context)
@@ -296,13 +312,23 @@ _GRID_EXPECTED_PARTISAN_BIAS = {
 }
 
 _GRID_EXPECTED_SEATS = {
-    "pres_2016": {"dem": 6, "rep": 2},
-    "pres_2020": {"dem": 5, "rep": 3},
-    "pres_2024": {"dem": 6, "rep": 2},
-    "sen_2016": {"dem": 7, "rep": 1},
-    "sen_2018": {"dem": 5, "rep": 3},
-    "sen_2020": {"dem": 5, "rep": 3},
-    "sen_2022": {"dem": 4, "rep": 4},
+    "pres_2016": {"dem": 6, "rep": 2, "total": 8},
+    "pres_2020": {"dem": 5, "rep": 3, "total": 8},
+    "pres_2024": {"dem": 6, "rep": 2, "total": 8},
+    "sen_2016": {"dem": 7, "rep": 1, "total": 8},
+    "sen_2018": {"dem": 5, "rep": 3, "total": 8},
+    "sen_2020": {"dem": 5, "rep": 3, "total": 8},
+    "sen_2022": {"dem": 4, "rep": 4, "total": 8},
+}
+
+_GRID_EXPECTED_VOTES = {
+    "pres_2016": {"dem": 17363, "rep": 16191, "total": 33554},
+    "pres_2020": {"dem": 16670, "rep": 16301, "total": 32971},
+    "pres_2024": {"dem": 15488, "rep": 15350, "total": 30838},
+    "sen_2016": {"dem": 17103, "rep": 15975, "total": 33078},
+    "sen_2018": {"dem": 16524, "rep": 16366, "total": 32890},
+    "sen_2020": {"dem": 15531, "rep": 15736, "total": 31267},
+    "sen_2022": {"dem": 15331, "rep": 14900, "total": 30231},
 }
 
 _GRID_EXPECTED_PROPORTIONALITY = {
@@ -358,6 +384,10 @@ def test_grid_seats_matches_gerrychain(grid_district_context):
     for col, expected in _GRID_EXPECTED_SEATS.items():
         assert result[col] == expected, f"{col}: {result[col]} != {expected}"
 
+def test_grid_votes_matches_gerrychain(grid_district_context):
+    result = votes(grid_district_context)
+    for col, expected in _GRID_EXPECTED_VOTES.items():
+        assert result[col] == expected, f"{col}: {result[col]} != {expected}"
 
 def test_grid_efficiency_gap_matches_gerrychain(grid_district_context):
     result = efficiency_gap(grid_district_context)
@@ -569,6 +599,37 @@ def test_eguia_uses_parent_layer_not_shatterable_view(
 
 
 # ---------------------------------------------------------------------------
+# Zero-total-votes error tests
+# ---------------------------------------------------------------------------
+
+_ZERO_VOTE_STATS = [
+    DistrictUnionsResponse(
+        zone=1, geometry=None,
+        demographic_data={"total_pop_20": 1000, "pres_2020_dem": 0, "pres_2020_rep": 0},
+        updated_at=_now,
+    )
+]
+
+
+def test_efficiency_gap_raises_on_zero_total_votes():
+    ctx = _StubEvaluationContext(_ZERO_VOTE_STATS)
+    with pytest.raises(ZeroDivisionError):
+        efficiency_gap(ctx)
+
+
+def test_vote_shares_raises_on_zero_total_votes():
+    ctx = _StubEvaluationContext(_ZERO_VOTE_STATS)
+    with pytest.raises(ZeroDivisionError):
+        vote_shares(ctx)
+
+
+def test_disproportionality_raises_on_zero_total_votes():
+    ctx = _StubEvaluationContext(_ZERO_VOTE_STATS)
+    with pytest.raises(ZeroDivisionError):
+        disproportionality(ctx)
+
+
+# ---------------------------------------------------------------------------
 # Fuzz tests — property-based, via Hypothesis
 #
 # Strategy: generate random vote distributions (min=0, including all-zero) and
@@ -615,11 +676,11 @@ def test_fuzz_seats_invariants(district_stats):
 @settings(max_examples=100)
 def test_fuzz_efficiency_gap_invariants(district_stats):
     ctx = _StubEvaluationContext(district_stats)
+    assume(all(ctx.total_state_votes[e] > 0 for e in ctx.elections))
     result = efficiency_gap(ctx)
     assert set(result.keys()) == set(_FUZZ_ELECTIONS)
     for col, val in result.items():
-        # nan is the defined return when total votes = 0
-        assert math.isnan(val) or (-1.0 <= val <= 1.0), f"{col}: EG {val} outside [-1, 1]"
+        assert -1.0 <= val <= 1.0, f"{col}: EG {val} outside [-1, 1]"
 
 
 @given(_partisan_district_stats())
@@ -629,7 +690,7 @@ def test_fuzz_mean_median_invariants(district_stats):
     result = mean_median(ctx)
     assert set(result.keys()) == set(_FUZZ_ELECTIONS)
     for col, val in result.items():
-        # nan when all districts in this election have zero votes
+        # nan when every district's total votes are zero (empty series after filtering)
         assert math.isnan(val) or (-0.5 <= val <= 0.5), f"{col}: mean-median {val} outside [-0.5, 0.5]"
 
 
@@ -652,11 +713,11 @@ def test_fuzz_partisan_bias_invariants(district_stats):
 @settings(max_examples=100)
 def test_fuzz_disproportionality_invariants(district_stats):
     ctx = _StubEvaluationContext(district_stats)
+    assume(all(ctx.total_state_votes[e] > 0 for e in ctx.elections))
     result = disproportionality(ctx)
     assert set(result.keys()) == set(_FUZZ_ELECTIONS)
     for col, val in result.items():
-        # nan when total votes = 0; otherwise seat_share - vote_share in [-1, 1]
-        assert math.isnan(val) or (-1.0 <= val <= 1.0), f"{col}: disproportionality {val} outside [-1, 1]"
+        assert -1.0 <= val <= 1.0, f"{col}: disproportionality {val} outside [-1, 1]"
 
 
 @given(_partisan_district_stats())
