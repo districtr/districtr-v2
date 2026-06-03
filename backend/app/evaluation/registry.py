@@ -37,7 +37,7 @@ from app.evaluation.context import DocumentEvaluationContext
 import app.evaluation.partisans as partisans
 import app.evaluation.splits as splits
 import app.evaluation.compactness as compactness
-import app.evaluation.validity as basic
+import app.evaluation.validity as validity
 
 
 @dataclass(frozen=True)
@@ -57,16 +57,16 @@ METRICS: tuple[Metric, ...] = (
     Metric(key="eguia", version=1, compute=partisans.eguia_county),
     Metric(key="disproportionality", version=1, compute=partisans.disproportionality),
     Metric(key="competitiveness", version=1, compute=partisans.competitive_metrics),
-    Metric(key="ideal_population", version=1, compute=basic.ideal_population),
+    Metric(key="ideal_population", version=1, compute=validity.ideal_population),
     Metric(key="county_pieces", version=1, compute=splits.county_pieces),
     Metric(key="district_county_membership", version=1, compute=splits.district_county_membership),
     Metric(key="cut_edges", version=1, compute=compactness.block_cut_edges),
     Metric(key="polsby_popper", version=1, compute=compactness.polsby_popper),
     Metric(key="reock", version=1, compute=compactness.reock),
-    Metric(key="population_deviation", version=1, compute=basic.population_deviation),
-    Metric(key="assigned_units", version=1, compute=basic.assigned_units),
-    Metric(key="unassigned_population", version=1, compute=basic.unassigned_population),
-    Metric(key="contiguous", version=1, compute=basic.contiguous),
+    Metric(key="population_deviation", version=1, compute=validity.population_deviation),
+    Metric(key="assigned_units", version=1, compute=validity.assigned_units),
+    Metric(key="unassigned_population", version=1, compute=validity.unassigned_population),
+    Metric(key="contiguous", version=1, compute=validity.contiguous),
 )
 
 
