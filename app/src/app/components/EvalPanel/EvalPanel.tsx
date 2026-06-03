@@ -8,7 +8,6 @@ import {BasicsSection} from './BasicsSection';
 import {PartisanSection} from './PartisanSection';
 import {CountySplitsSection} from './CountySplitsSection';
 import {CompactnessSection} from './CompactnessSection';
-import {DemographicsSection} from './DemographicsSection';
 
 export function EvalPanel() {
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -87,7 +86,6 @@ export function EvalPanel() {
           <PartisanSection evaluation={evaluation} />
           <CountySplitsSection evaluation={evaluation} />
           <CompactnessSection evaluation={evaluation} />
-          <DemographicsSection evaluation={evaluation} />
         </Flex>
       )}
     </div>
