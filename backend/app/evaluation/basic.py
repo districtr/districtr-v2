@@ -58,7 +58,9 @@ def assigned_units(context: DocumentEvaluationContext) -> AssignedUnitsResult:
 class PopulationDeviationResults(TypedDict):
     most_populous_district: int
     least_populous_district: int
-    deviation: float
+    top_to_bottom_deviation: float
+    maximal_absolute_deviation: int
+
 
 def population_deviation(context: DocumentEvaluationContext) -> PopulationDeviationResults:
     """Returns the population deviation statistics for the submitted plan."""
@@ -67,16 +69,24 @@ def population_deviation(context: DocumentEvaluationContext) -> PopulationDeviat
     least_populous_zone = int(col.idxmin())
     most_pop = col[most_populous_zone]
     least_pop = col[least_populous_zone]
-    deviation = (most_pop - least_pop) / least_pop if least_pop != 0 else float("inf")
+    ideal = context.ideal_population
+    top_to_bottom_deviation = (most_pop - least_pop) / least_pop if least_pop != 0 else float("inf")
+    maximal_absolute_deviation = int((col - ideal).abs().max())
     return {
         "most_populous_district": most_populous_zone,
         "least_populous_district": least_populous_zone,
-        "deviation": deviation,
+        "top_to_bottom_deviation": top_to_bottom_deviation,
+        "maximal_absolute_deviation": maximal_absolute_deviation,
     }
 
 def ideal_population(context: DocumentEvaluationContext) -> int:
     """Returns the ideal population per district (total population ÷ number of districts)."""
     return context.ideal_population
+
+
+def unassigned_population(context: DocumentEvaluationContext) -> tuple[int, int]:
+    """Returns (unassigned_population, total_population) for the document's plan."""
+    return context.unassigned_population, context.total_population
 
 
 def contiguous(context: DocumentEvaluationContext) -> dict[int, bool]:

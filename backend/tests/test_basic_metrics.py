@@ -13,7 +13,8 @@ Grid integration topology (8×8 blocks / 4×4 VTDs, 16 nodes each):
     population_deviation — simple_child_geos (6 blocks near Kansas, real geometry):
         {1,2,5,6} → zone 1 (total_pop_20=100+200+500+600=1400)
         {3,4}     → zone 2 (total_pop_20=300+400=700)
-        deviation = (1400−700)/700 = 1.0
+        top_to_bottom_deviation = (1400−700)/700 = 1.0
+        ideal = 2100 // 2 = 1050  →  maximal_absolute_deviation = 350
 """
 
 from datetime import datetime
@@ -22,7 +23,7 @@ import pytest
 from fastapi import BackgroundTasks
 from sqlmodel import Session
 
-from app.evaluation.basic import assigned_units, population_deviation
+from app.evaluation.basic import assigned_units, ideal_population, population_deviation
 from app.evaluation.context import DocumentEvaluationContext
 from tests.conftest import _vtd_geoid
 
@@ -114,7 +115,7 @@ def test_assigned_units_shatterable_parent_only(
 def test_population_deviation(
     client, session: Session, simple_child_geos_nonshatterable_districtr_map
 ):
-    """{1,2,5,6}→zone 1 (total_pop_20=1400), {3,4}→zone 2 (total_pop_20=700) → deviation=1.0."""
+    """{1,2,5,6}→zone 1 (pop=1400), {3,4}→zone 2 (pop=700), ideal=1050 → top_to_bottom=1.0, max_abs_dev=350."""
     resp = client.post("/api/create_document", json={"districtr_map_slug": "simple_child_ns"})
     assert resp.status_code == 201
     document_id = resp.json()["document_id"]
@@ -132,4 +133,33 @@ def test_population_deviation(
 
     assert result["most_populous_district"] == 1
     assert result["least_populous_district"] == 2
-    assert result["deviation"] == pytest.approx(1.0, abs=1e-6)
+    assert result["top_to_bottom_deviation"] == pytest.approx(1.0, abs=1e-6)
+    assert result["maximal_absolute_deviation"] == 350
+
+
+# ── ideal_population ──────────────────────────────────────────────────────────
+
+
+def test_ideal_population_uses_map_num_districts_not_assigned_count(
+    client, session: Session, simple_child_geos_nonshatterable_districtr_map
+):
+    """ideal_population divides by the map's num_districts (2), not the number of
+    currently non-empty districts — so a half-finished plan with only one zone
+    assigned still returns total_pop // 2, not total_pop // 1."""
+    resp = client.post("/api/create_document", json={"districtr_map_slug": "simple_child_ns"})
+    assert resp.status_code == 201
+    document_id = resp.json()["document_id"]
+
+    # Assign only 3 of 6 blocks to zone 1 — zone 2 is intentionally left empty.
+    # total_pop_20 across all 6 blocks = 100+200+300+400+500+600 = 2100
+    # ideal_population should be 2100 // 2 = 1050, not 2100 // 1 = 2100.
+    _put_assignments(client, document_id, [
+        ["000010000000001", 1],
+        ["000010000000002", 1],
+        ["000010000000003", 1],
+    ])
+
+    ctx = DocumentEvaluationContext(
+        background_tasks=BackgroundTasks(), session=session, document_id=document_id
+    )
+    assert ideal_population(ctx) == 1050

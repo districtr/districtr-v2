@@ -13,7 +13,7 @@ import logging
 import urllib.request
 from functools import cached_property
 from pathlib import Path
-from typing import Callable, ClassVar, NewType
+from typing import ClassVar, NewType
 
 import fastapi
 import numpy as np
@@ -191,15 +191,33 @@ class DocumentEvaluationContext:
         return sum(1 for d in self.district_stats if d.zone is not None)
     
     @cached_property
-    def ideal_population(self) -> int:
-        """Ideal population per district."""
-        total_pop = sum(
+    def total_population(self) -> int:
+        """Total population across all geographic units (assigned and unassigned)."""
+        return sum(
             d.demographic_data[TOTAL_POP_COL]
             for d in self.district_stats
             if (d.demographic_data and TOTAL_POP_COL in d.demographic_data
                 and d.demographic_data[TOTAL_POP_COL] is not None)
         )
-        return total_pop // self.num_nonempty_districts
+
+    @cached_property
+    def unassigned_population(self) -> int:
+        """Unassigned population and total state population."""
+        unassigned = next(
+            (d for d in self.district_stats if d.zone is None),
+            None
+        )
+        if (unassigned is None or not unassigned.demographic_data or TOTAL_POP_COL not in unassigned.demographic_data):
+            raise ValueError("No demographic data available for unassigned population.")
+        return int(unassigned.demographic_data[TOTAL_POP_COL])
+
+    @cached_property
+    def ideal_population(self) -> int:
+        """Ideal population per district (total population ÷ map's number of districts)."""
+        num_districts = self._districtr_map.num_districts
+        if not num_districts:
+            raise ValueError(f"DistrictrMap for document '{self.document_id}' has no num_districts set.")
+        return self.total_population // num_districts
     
     @cached_property
     def _districtr_map(self) -> DistrictrMap:
