@@ -336,11 +336,8 @@ class CountyContext:
     _name_cache: dict[CountyGeoid, str] = dataclasses.field(default_factory=dict)
     _attempts: dict[GerrydbTableName, int] = dataclasses.field(default_factory=dict)
 
-    def __post_init__(self) -> None:
-        self._name_cache = self._load_county_names()
-
     def _load_county_names(self) -> dict[CountyGeoid, str]:
-        """Load county geoid→name mapping from the bundled CSV, downloading it first if absent."""
+        """Load county geoid→name mapping from CSV, downloading from S3 first if absent."""
         if not self._COUNTY_NAMES_FILE.exists():
             self._fetch_county_names_file()
         result: dict[CountyGeoid, str] = {}
@@ -362,6 +359,8 @@ class CountyContext:
 
         Raises KeyError if the geoid is not in the Census county reference data.
         """
+        if not self._name_cache:
+            self._name_cache = self._load_county_names()
         return self._name_cache[geoid]
 
     def county_populations(

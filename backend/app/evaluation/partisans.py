@@ -270,8 +270,8 @@ def competitive_metrics(context: DocumentEvaluationContext) -> CompetitiveMetric
             "n_districts": n_districts,
             "n_elections": 0,
         }
-    dem_districts = [1] * n_districts
-    rep_districts = [1] * n_districts
+    dem_districts = np.ones(n_districts, dtype=bool)
+    rep_districts = np.ones(n_districts, dtype=bool)
     n_competitive_districts = 0
     for election in context.elections:
         dem_districts = np.logical_and(dem_districts, context.dem_wins[election])
