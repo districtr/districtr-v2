@@ -1,4 +1,4 @@
-"""Tests for basic evaluation metrics (app.evaluation.basic).
+"""Tests for validity evaluation metrics (app.evaluation.validity).
 
 Grid integration topology (8×8 blocks / 4×4 VTDs, 16 nodes each):
 
@@ -23,7 +23,7 @@ import pytest
 from fastapi import BackgroundTasks
 from sqlmodel import Session
 
-from app.evaluation.basic import assigned_units, ideal_population, population_deviation
+from app.evaluation.validity import assigned_units, ideal_population, population_deviation
 from app.evaluation.context import DocumentEvaluationContext
 from tests.conftest import _vtd_geoid
 

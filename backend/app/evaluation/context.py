@@ -262,7 +262,9 @@ class DocumentEvaluationContext:
     def parent_geo_unit_type(self) -> GeoUnitTypeName:
         """Parent unit type (e.g. 'vtd', 'block'). Raises ValueError if unset in districtrmap"""
         if not self._districtr_map.parent_geo_unit_type:
-            raise ValueError(f"Unknown parent_geo_unit_type '{self.parent_geo_unit_type}' for document '{self.document_id}'.")
+            raise ValueError(
+                f"DistrictrMap for document '{self.document_id}' has no parent_geo_unit_type set."
+            )
         return self._districtr_map.parent_geo_unit_type
 
     @cached_property

@@ -141,7 +141,7 @@ def get_assigned_nodes_bboxes(
     districtr_map: DistrictrMap,
     zone: int,
     G: Graph | None = None,
-) -> list[NodeWithBBoxes]:
+) -> list[NodeWithBBoxes] | None:
     """Return contiguous assigned nodes with bounding boxes for a specific zone.
 
     For shatterable maps (child_layer + parent_layer on districtr_map), unions both

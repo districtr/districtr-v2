@@ -20,7 +20,6 @@ class AssignedUnitsResult(TypedDict):
 def assigned_units(context: DocumentEvaluationContext) -> AssignedUnitsResult:
     """Returns assigned and total parent-unit counts for the document's districting plan."""
     unit_to_zone, parent_unit_to_zone = context.split_zone_assignments
-    G = get_graph(context.gerrydb_table)
     if not context.is_shatterable:
         return {
             "assigned_count": len(unit_to_zone),
@@ -38,6 +37,7 @@ def assigned_units(context: DocumentEvaluationContext) -> AssignedUnitsResult:
             "unit_type": context.parent_geo_unit_type,
         }
     
+    G = get_graph(context.gerrydb_table)
     partially_assigned_parents = {
         parent
         for unit in unit_to_zone

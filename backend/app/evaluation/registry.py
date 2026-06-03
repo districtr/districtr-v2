@@ -37,7 +37,7 @@ from app.evaluation.context import DocumentEvaluationContext
 import app.evaluation.partisans as partisans
 import app.evaluation.splits as splits
 import app.evaluation.compactness as compactness
-import app.evaluation.basic as basic
+import app.evaluation.validity as basic
 
 
 @dataclass(frozen=True)

@@ -103,7 +103,7 @@ import app.evaluation.graph as eval_graph_module
 from app.constants import GERRY_DB_SCHEMA
 from app.core.db import get_session
 from app.core.security import auth
-from app.evaluation.basic import population_deviation
+from app.evaluation.validity import population_deviation
 from app.evaluation.compactness import polsby_popper, reock, block_cut_edges
 from app.evaluation.context import DocumentEvaluationContext
 from app.evaluation.partisans import (
