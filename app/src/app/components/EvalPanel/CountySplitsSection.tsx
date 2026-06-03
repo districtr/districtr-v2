@@ -40,9 +40,9 @@ export function CountySplitsSection({evaluation}: Props) {
     ? allEntries.filter(e => focusedGeoids.has(e.geoid))
     : allEntries;
 
-  const splitCounties = entries.filter(e => e.actual >= 2).length;
+  const splitCounties = allEntries.filter(e => e.actual >= 2).length;
   const unnecessarySplits = idealPop !== null
-    ? entries.filter(e => e.actual > Math.ceil(e.pop / idealPop)).length
+    ? allEntries.filter(e => e.actual > Math.ceil(e.pop / idealPop)).length
     : null;
 
   return (
@@ -61,42 +61,24 @@ export function CountySplitsSection({evaluation}: Props) {
             the county&apos;s population would fill.
           </Text>
 
-          <Flex align="center" gap="3" mb="3" justify="end" wrap="wrap">
-            <Flex align="center" gap="2">
-              <Text size="1" color="gray">County boundaries</Text>
-              <Switch
-                size="1"
-                checked={mapOptions.showCountyBoundaries ?? false}
-                onCheckedChange={checked =>
-                  setMapOptions({showCountyBoundaries: checked, prominentCountyNames: checked})
-                }
-              />
-            </Flex>
-            {districts.length > 0 && (
-              <Flex align="center" gap="2">
-                <Text size="1" color="gray">Focus on</Text>
-                <Select.Root value={selectedDistrict} onValueChange={setSelectedDistrict} size="1">
-                  <Select.Trigger />
-                  <Select.Content>
-                    <Select.Item value="all">All districts</Select.Item>
-                    {districts.map(d => (
-                      <Select.Item key={d} value={String(d)}>
-                        District {d}
-                      </Select.Item>
-                    ))}
-                  </Select.Content>
-                </Select.Root>
-              </Flex>
-            )}
+          <Flex align="center" gap="2" mb="3" justify="end">
+            <Text size="1" color="gray">County boundaries</Text>
+            <Switch
+              size="1"
+              checked={mapOptions.showCountyBoundaries ?? false}
+              onCheckedChange={checked =>
+                setMapOptions({showCountyBoundaries: checked, prominentCountyNames: checked})
+              }
+            />
           </Flex>
 
           <SubsectionHeading>Summary</SubsectionHeading>
           <Table.Root size="1" mb="3">
             <Table.Body>
               <Table.Row>
-                <Table.Cell><Text size="2">Counties shown</Text></Table.Cell>
+                <Table.Cell><Text size="2">Total counties</Text></Table.Cell>
                 <Table.Cell justify="end">
-                  <Text size="2" weight="bold">{entries.length}</Text>
+                  <Text size="2" weight="bold">{allEntries.length}</Text>
                 </Table.Cell>
               </Table.Row>
               <Table.Row>
@@ -117,6 +99,20 @@ export function CountySplitsSection({evaluation}: Props) {
           </Table.Root>
 
           <SubsectionHeading>Per-County Detail</SubsectionHeading>
+          {districts.length > 0 && (
+            <Flex align="center" gap="2" mb="2" justify="end">
+              <Text size="1" color="gray">Focus on</Text>
+              <Select.Root value={selectedDistrict} onValueChange={setSelectedDistrict} size="1">
+                <Select.Trigger />
+                <Select.Content>
+                  <Select.Item value="all">All districts</Select.Item>
+                  {districts.map(d => (
+                    <Select.Item key={d} value={String(d)}>District {d}</Select.Item>
+                  ))}
+                </Select.Content>
+              </Select.Root>
+            </Flex>
+          )}
           {idealPop !== null && (
             <Text size="2" mb="2" as="p">
               The ideal district population for this plan is{' '}
