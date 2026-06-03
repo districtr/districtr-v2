@@ -10,7 +10,7 @@
 import csv
 import dataclasses
 import logging
-import urllib.request
+
 from functools import cached_property
 from pathlib import Path
 from typing import ClassVar, NewType
@@ -22,6 +22,7 @@ import pyproj
 import shapely
 import sqlalchemy
 import sqlmodel
+from app.core.config import settings
 from app.evaluation.models import CountyDemographics
 from app.models import Assignments, DistrictUnionsResponse, DistrictrMap, Document
 from app.utils import (
@@ -326,11 +327,9 @@ class CountyContext:
     # the DB indefinitely for a permanently malformed gerrydb table.
     MAX_LOAD_ATTEMPTS: ClassVar[int] = 3
 
-    _DATA_DIR: ClassVar[Path] = Path(__file__).parent.parent / "data"
+    _DATA_DIR: ClassVar[Path] = Path(settings.VOLUME_PATH)
     _COUNTY_NAMES_FILE: ClassVar[Path] = _DATA_DIR / "county_names.csv"
-    _COUNTY_NAMES_URL: ClassVar[str] = (
-        "https://www2.census.gov/geo/docs/reference/codes2020/national_county2020.txt"
-    )
+    _COUNTY_NAMES_S3_KEY: ClassVar[str] = "reference/county_names.csv"
 
     _cache: dict[GerrydbTableName, dict[ElectionPartyKey, float]] = dataclasses.field(default_factory=dict)
     _pop_cache: dict[GerrydbTableName, dict[CountyGeoid, int]] = dataclasses.field(default_factory=dict)
@@ -351,17 +350,12 @@ class CountyContext:
         return result
 
     def _fetch_county_names_file(self) -> None:
-        """Download the Census Bureau county reference file and save as the local CSV."""
-        logger.info("Downloading county names from Census Bureau to %s", self._COUNTY_NAMES_FILE)
+        """Download county names CSV from S3 and cache locally."""
+        logger.info("Downloading county names from S3 to %s", self._COUNTY_NAMES_FILE)
         self._DATA_DIR.mkdir(parents=True, exist_ok=True)
-        with urllib.request.urlopen(self._COUNTY_NAMES_URL) as resp:
-            lines = resp.read().decode("utf-8").splitlines()
-        reader = csv.DictReader(lines, delimiter="|")
-        with self._COUNTY_NAMES_FILE.open("w", newline="") as out:
-            writer = csv.writer(out)
-            writer.writerow(["geoid", "name"])
-            for row in reader:
-                writer.writerow([row["STATEFP"] + row["COUNTYFP"], row["COUNTYNAME"]])
+        s3 = settings.get_s3_client()
+        assert s3, "S3 client is not available"
+        s3.download_file(settings.R2_BUCKET_NAME, self._COUNTY_NAMES_S3_KEY, str(self._COUNTY_NAMES_FILE))
 
     def county_name(self, geoid: CountyGeoid) -> str:
         """Return the county name for `geoid` (e.g. "01001" → "Autauga County").
