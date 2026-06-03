@@ -7,7 +7,7 @@ Assignment scenarios:
     Three-zone: 6 VTDs, 2 per zone (1/2/3) → actual_split_pieces = 3
     Single-zone: same 6 VTDs, all zone 1  → actual_split_pieces = 1
 
-County population: 30000, ideal_population: 10000 → forced = ceil(30000/10000) = 3
+County population: 30000 (pre-seeded in COUNTY_CONTEXT cache).
 """
 
 from datetime import datetime
@@ -127,13 +127,13 @@ def test_county_pieces_unassigned_county_zero(three_zone_context):
     assert result[phantom][1] == 0
 
 
-# ── Forced split pieces ───────────────────────────────────────────────────────
+# ── Population ───────────────────────────────────────────────────────────────
 
 
-def test_county_pieces_forced_from_population(three_zone_context):
-    """forced = ceil(30000 / 10000) = 3."""
+def test_county_pieces_population(three_zone_context):
+    """First tuple element is the county population."""
     result = county_pieces(three_zone_context)
-    assert result[_KS_ELLIS_COUNTY][0] == 3
+    assert result[_KS_ELLIS_COUNTY][0] == _KS_ELLIS_TOTAL_POP
 
 
 # ── Retesting for old bug: cold cache + shatterable map ──────────────────────────────
@@ -164,19 +164,12 @@ def test_county_pieces_cold_cache_shatterable_map(
         COUNTY_CONTEXT._attempts.pop(_KS_ELLIS_PARENT_LAYER, None)
 
 
-def test_county_pieces_forced_never_zero(three_zone_context):
-    """Every county with nonzero population has forced >= 1."""
-    result = county_pieces(three_zone_context)
-    for geoid, (forced, _actual, _name) in result.items():
-        assert forced >= 1, f"{geoid}: forced should be >= 1"
-
-
-def test_county_pieces_unassigned_county_forced(three_zone_context):
-    """A county absent from assignments still gets a forced count from its population."""
+def test_county_pieces_unassigned_county_population(three_zone_context):
+    """A county absent from assignments still reports its population."""
     phantom = _KS_PHANTOM_COUNTY
     COUNTY_CONTEXT._pop_cache[_KS_ELLIS_TABLE][phantom] = 5000
     result = county_pieces(three_zone_context)
-    assert result[phantom][0] == 1  # ceil(5000 / 10000)
+    assert result[phantom][0] == 5000
 
 
 def test_county_pieces_keyed_by_county_pops(three_zone_context):
