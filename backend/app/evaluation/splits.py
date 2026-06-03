@@ -13,6 +13,11 @@ from app.evaluation.context import (
 )
 
 
+def _geo_id_to_county_geoid(geo_id: str) -> CountyGeoid:
+    bare = geo_id.split(":", 1)[1] if ":" in geo_id else geo_id
+    return CountyGeoid(bare[:5])
+
+
 def county_pieces(context: DocumentEvaluationContext) -> dict[CountyGeoid, Tuple[int, int, str]]:
     """Returns a mapping from county geoid to a tuple of
     (population, actual_split_pieces, county_name).
@@ -29,9 +34,7 @@ def county_pieces(context: DocumentEvaluationContext) -> dict[CountyGeoid, Tuple
 
     county_zones: dict[CountyGeoid, set[int]] = {}
     for geo_id, zone in context.zone_assignments:
-        bare_id = geo_id.split(":", 1)[1] if ":" in geo_id else geo_id
-        geoid = CountyGeoid(bare_id[:5])
-        county_zones.setdefault(geoid, set()).add(zone)
+        county_zones.setdefault(_geo_id_to_county_geoid(geo_id), set()).add(zone)
 
     return {
         county_geoid: (
@@ -49,8 +52,6 @@ def district_county_membership(context: DocumentEvaluationContext) -> dict[int, 
     """
     zone_counties: dict[int, set[str]] = {}
     for geo_id, zone in context.zone_assignments:
-        bare_id = geo_id.split(":", 1)[1] if ":" in geo_id else geo_id
-        geoid = CountyGeoid(bare_id[:5])
-        zone_counties.setdefault(zone, set()).add(geoid)
+        zone_counties.setdefault(zone, set()).add(_geo_id_to_county_geoid(geo_id))
 
     return {zone: sorted(counties) for zone, counties in zone_counties.items()}
