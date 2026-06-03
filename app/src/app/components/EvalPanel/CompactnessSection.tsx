@@ -3,7 +3,7 @@ import * as Accordion from '@radix-ui/react-accordion';
 import {Flex, Text, Table, Heading} from '@radix-ui/themes';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
-import {SubsectionHeading, formatDecimal} from './shared';
+import {SubsectionHeading, formatDecimal, useDistrictHover} from './shared';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 
 // Scores computed on EPSG:5070 (NAD83 / Conus Albers) via gerrytools.
@@ -87,6 +87,7 @@ function PerDistrictTable({
 }) {
   const getZoneColor = useZoneColorGetter();
   const zones = Object.keys(polsby_popper).sort((a, b) => Number(a) - Number(b));
+  const {onDistrictEnter, onDistrictLeave} = useDistrictHover();
 
   return (
     <Table.Root size="1">
@@ -99,7 +100,7 @@ function PerDistrictTable({
       </Table.Header>
       <Table.Body>
         {zones.map(zone => (
-          <Table.Row key={zone}>
+          <Table.Row key={zone} onMouseEnter={() => onDistrictEnter(zone)} onMouseLeave={onDistrictLeave} style={{cursor: 'default'}}>
             <Table.Cell>
               <Flex align="center" gap="2">
                 <div

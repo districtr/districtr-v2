@@ -4,7 +4,7 @@ import {Flex, Text, Heading, Callout} from '@radix-ui/themes';
 import {InfoCircledIcon, TriangleRightIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
-import {SubsectionHeading} from './shared';
+import {SubsectionHeading, useDistrictHover} from './shared';
 
 interface Props {
   evaluation: DocumentEvaluation;
@@ -24,6 +24,7 @@ const GEO_UNIT_DESCRIPTIONS: Record<string, string> = {
 
 export function BasicsSection({evaluation}: Props) {
   const mapDocument = useMapStore(state => state.mapDocument);
+  const {onDistrictEnter, onDistrictLeave} = useDistrictHover();
 
   const numDistricts = mapDocument?.num_districts ?? '—';
   const dataSource = mapDocument?.data_source_name ?? null;
@@ -129,7 +130,11 @@ export function BasicsSection({evaluation}: Props) {
               The following districts are not contiguous:{' '}
               {nonContiguousDistricts.map((d, i) => (
                 <span key={d}>
-                  <strong>District {d}</strong>
+                  <strong
+                    onMouseEnter={() => onDistrictEnter(d)}
+                    onMouseLeave={onDistrictLeave}
+                    style={{cursor: 'default'}}
+                  >District {d}</strong>
                   {i < nonContiguousDistricts.length - 1 ? ', ' : ''}
                 </span>
               ))}
@@ -149,9 +154,17 @@ export function BasicsSection({evaluation}: Props) {
           {population_deviation ? (
             <Text size="2" as="p">
               Your plan&apos;s most populous district is{' '}
-              <strong>District {population_deviation.most_populous_district}</strong> and least
+              <strong
+                onMouseEnter={() => onDistrictEnter(population_deviation.most_populous_district)}
+                onMouseLeave={onDistrictLeave}
+                style={{cursor: 'default'}}
+              >District {population_deviation.most_populous_district}</strong> and least
               populous district is{' '}
-              <strong>District {population_deviation.least_populous_district}</strong>, for a
+              <strong
+                onMouseEnter={() => onDistrictEnter(population_deviation.least_populous_district)}
+                onMouseLeave={onDistrictLeave}
+                style={{cursor: 'default'}}
+              >District {population_deviation.least_populous_district}</strong>, for a
               top-to-bottom deviation of{' '}
               <strong>{(population_deviation.top_to_bottom_deviation * 100).toFixed(2)}%</strong>{' '}
               and a maximal absolute deviation of{' '}

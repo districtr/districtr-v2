@@ -4,11 +4,12 @@ import {GEODATA_URL} from '@/app/utils/api/constants';
 import {FilterSpecification} from 'maplibre-gl';
 import {useMemo} from 'react';
 import {Layer, Source} from 'react-map-gl/maplibre';
-import {SENTINEL_EMPTY_ARRAY} from '@/app/constants/map/layerStyle';
+import {SENTINEL_EMPTY_ARRAY, HIGHLIGHT_LINE_COLOR, HIGHLIGHT_LINE_WIDTH} from '@/app/constants/map/layerStyle';
 import {CANONICAL_LAYER_IDS, COUNTY_SOURCE_ID} from '@/app/constants/map/layerIds';
 
 export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
   const mapOptions = useMapControlsStore(state => state.mapOptions);
+  const hoveredCountyGeoid = useMapControlsStore(state => state.hoveredCountyGeoid);
 
   const countyFilter = useMemo(() => {
     // If stateFipsSet is set and not empty, match any of its values
@@ -67,6 +68,21 @@ export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
             'fill-opacity': 0,
           }}
           filter={countyFilter}
+        />
+        <Layer
+          id={CANONICAL_LAYER_IDS.COUNTIES.HIGHLIGHT}
+          type="line"
+          source-layer="tl_2023_us_county"
+          paint={{
+            'line-color': HIGHLIGHT_LINE_COLOR,
+            'line-width': HIGHLIGHT_LINE_WIDTH,
+            'line-opacity': 0.2,
+          }}
+          filter={
+            hoveredCountyGeoid
+              ? ['==', ['get', 'GEOID'], hoveredCountyGeoid]
+              : ['==', ['get', 'GEOID'], '']
+          }
         />
         <Layer
           id={CANONICAL_LAYER_IDS.COUNTIES.LABELS}

@@ -243,7 +243,7 @@ export const Topbar: React.FC = () => {
                 variant="ghost"
                 onClick={() => router.push(`/map/${mapDocument?.public_id}`)}
               >
-                <Text size="2">Exit to public view</Text>
+                <Text size="2">Exit to display view</Text>
               </IconButton>
             ) : (
               <>

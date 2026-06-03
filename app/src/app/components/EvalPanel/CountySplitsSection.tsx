@@ -1,9 +1,10 @@
 'use client';
 import {useState} from 'react';
 import * as Accordion from '@radix-ui/react-accordion';
-import {Flex, Text, Table, Heading, Select} from '@radix-ui/themes';
+import {Flex, Text, Table, Heading, Select, Switch} from '@radix-ui/themes';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {SubsectionHeading} from './shared';
 
 interface Props {
@@ -12,6 +13,9 @@ interface Props {
 
 export function CountySplitsSection({evaluation}: Props) {
   const [selectedDistrict, setSelectedDistrict] = useState<string>('all');
+  const mapOptions = useMapControlsStore(state => state.mapOptions);
+  const setMapOptions = useMapControlsStore(state => state.setMapOptions);
+  const setHoveredCountyGeoid = useMapControlsStore(state => state.setHoveredCountyGeoid);
 
   const countyPieces = evaluation.county_pieces;
   const idealPop = evaluation.ideal_population ?? null;
@@ -57,22 +61,34 @@ export function CountySplitsSection({evaluation}: Props) {
             the county&apos;s population would fill.
           </Text>
 
-          {districts.length > 0 && (
-            <Flex align="center" gap="2" mb="3" justify="end">
-              <Text size="1" color="gray">Focus on district</Text>
-              <Select.Root value={selectedDistrict} onValueChange={setSelectedDistrict} size="1">
-                <Select.Trigger />
-                <Select.Content>
-                  <Select.Item value="all">All districts</Select.Item>
-                  {districts.map(d => (
-                    <Select.Item key={d} value={String(d)}>
-                      District {d}
-                    </Select.Item>
-                  ))}
-                </Select.Content>
-              </Select.Root>
+          <Flex align="center" gap="3" mb="3" justify="end" wrap="wrap">
+            <Flex align="center" gap="2">
+              <Text size="1" color="gray">County boundaries</Text>
+              <Switch
+                size="1"
+                checked={mapOptions.showCountyBoundaries ?? false}
+                onCheckedChange={checked =>
+                  setMapOptions({showCountyBoundaries: checked, prominentCountyNames: checked})
+                }
+              />
             </Flex>
-          )}
+            {districts.length > 0 && (
+              <Flex align="center" gap="2">
+                <Text size="1" color="gray">Focus on</Text>
+                <Select.Root value={selectedDistrict} onValueChange={setSelectedDistrict} size="1">
+                  <Select.Trigger />
+                  <Select.Content>
+                    <Select.Item value="all">All districts</Select.Item>
+                    {districts.map(d => (
+                      <Select.Item key={d} value={String(d)}>
+                        District {d}
+                      </Select.Item>
+                    ))}
+                  </Select.Content>
+                </Select.Root>
+              </Flex>
+            )}
+          </Flex>
 
           <SubsectionHeading>Summary</SubsectionHeading>
           <Table.Root size="1" mb="3">
@@ -129,7 +145,12 @@ export function CountySplitsSection({evaluation}: Props) {
                   const minimum = worth !== null ? Math.ceil(worth) : null;
                   const unnecessary = minimum !== null && actual > minimum;
                   return (
-                    <Table.Row key={geoid}>
+                    <Table.Row
+                      key={geoid}
+                      onMouseEnter={() => setHoveredCountyGeoid(geoid)}
+                      onMouseLeave={() => setHoveredCountyGeoid(null)}
+                      style={{cursor: 'default'}}
+                    >
                       <Table.Cell>
                         <Text size="2">{name}</Text>
                       </Table.Cell>
