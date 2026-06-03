@@ -225,7 +225,7 @@ def _annotate_graph_with_parents(
 
 
 def _build_combined_graph(G: Graph) -> None:
-    """Extend an annotated block graph in-place into a dual-level combined graph.
+    """Extend an annotated block graph (child level) in-place into a dual-level combined graph.
 
     Node attributes:
         child nodes — ``parent``: path of the owning parent unit (pre-existing)
@@ -250,10 +250,8 @@ def _build_combined_graph(G: Graph) -> None:
     G.graph["weighted_edges"] = {}
 
     for u, v in list(G.edges()):
-        p_u = G.nodes[u].get("parent")
-        p_v = G.nodes[v].get("parent")
-        if p_u is None or p_v is None:
-            continue
+        p_u = G.nodes[u]["parent"]
+        p_v = G.nodes[v]["parent"]
         if p_u != p_v:
             G.add_edge(u, p_v)
             G.add_edge(v, p_u)
@@ -264,7 +262,7 @@ def _build_combined_graph(G: Graph) -> None:
         G.add_edge(p_u, p_v)
 
     for node, data in list(G.nodes(data=True)):
-        parent = data.get("parent")
+        parent = data["parent"]
         if parent:
             if "children" not in G.nodes[parent]:
                 G.nodes[parent]["children"] = set()
