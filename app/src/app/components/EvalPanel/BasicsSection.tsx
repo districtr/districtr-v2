@@ -32,7 +32,7 @@ export function BasicsSection({evaluation}: Props) {
   const unitDescription = GEO_UNIT_DESCRIPTIONS[rawUnitType] ?? null;
   const planName = mapDocument?.map_module ?? mapDocument?.map_metadata?.name ?? null;
 
-  const {assigned_units, population_deviation, contiguous} = evaluation;
+  const {assigned_units, unassigned_population, population_deviation, contiguous} = evaluation;
   const isContiguous = contiguous ? Object.values(contiguous).every(Boolean) : null;
   const nonContiguousDistricts = contiguous
     ? Object.entries(contiguous)
@@ -79,24 +79,36 @@ export function BasicsSection({evaluation}: Props) {
           {/* Completeness */}
           <SubsectionHeading>Completeness</SubsectionHeading>
           {assigned_units ? (
-            <Text size="2" as="p" mb="2">
-              <strong>{assigned_units.assigned_count.toLocaleString()}</strong> of{' '}
-              <strong>{assigned_units.total_count.toLocaleString()}</strong>{' '}
-              {assigned_units.unit_type}s are assigned to a district
-              {assigned_units.partially_assigned_count > 0 && (
-                <>
-                  {' '}
-                  ({assigned_units.partially_assigned_count.toLocaleString()} partially assigned)
-                </>
+            <>
+              <Text size="2" as="p">
+                <strong>{assigned_units.assigned_count.toLocaleString()}</strong> of{' '}
+                <strong>{assigned_units.total_count.toLocaleString()}</strong>{' '}
+                {assigned_units.unit_type}s are assigned to a district
+                {assigned_units.partially_assigned_count > 0 && (
+                  <>
+                    {' '}
+                    ({assigned_units.partially_assigned_count.toLocaleString()} partially assigned)
+                  </>
+                )}
+                .
+              </Text>
+              {unassigned_population && (
+                <Text size="2" as="p">
+                  <strong>{unassigned_population[0].toLocaleString()}</strong> of{' '}
+                  <strong>{unassigned_population[1].toLocaleString()}</strong> people are not yet
+                  assigned to a district.
+                </Text>
               )}
-              . This plan is{' '}
-              <strong>
-                {assigned_units.assigned_count === assigned_units.total_count
-                  ? 'complete'
-                  : 'incomplete'}
-              </strong>
-              .
-            </Text>
+              <Text size="2" as="p" mb="2">
+                This plan is{' '}
+                <strong>
+                  {assigned_units.assigned_count === assigned_units.total_count
+                    ? 'complete'
+                    : 'incomplete'}
+                </strong>
+                .
+              </Text>
+            </>
           ) : (
             <Text size="2" as="p" mb="2">
               Not available for this plan.
@@ -141,7 +153,10 @@ export function BasicsSection({evaluation}: Props) {
               populous district is{' '}
               <strong>District {population_deviation.least_populous_district}</strong>, for a
               top-to-bottom deviation of{' '}
-              <strong>{(population_deviation.deviation * 100).toFixed(2)}%</strong>.
+              <strong>{(population_deviation.top_to_bottom_deviation * 100).toFixed(2)}%</strong>{' '}
+              and a maximal absolute deviation of{' '}
+              <strong>{population_deviation.maximal_absolute_deviation?.toLocaleString() ?? '—'}</strong>{' '}
+              people.
             </Text>
           ) : (
             <Text size="2">

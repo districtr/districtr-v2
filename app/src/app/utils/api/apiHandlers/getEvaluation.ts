@@ -46,7 +46,8 @@ type AssignedUnitsResult = {
 type PopulationDeviationResult = {
   most_populous_district: number;
   least_populous_district: number;
-  deviation: number;
+  top_to_bottom_deviation: number;
+  maximal_absolute_deviation: number;
 };
 
 export interface DocumentEvaluation {
@@ -67,6 +68,7 @@ export interface DocumentEvaluation {
   reock?: Record<ZoneKey, number>;
   majority_districts?: Record<RacialGroupKey, number[]>;
   assigned_units?: AssignedUnitsResult;
+  unassigned_population?: [number, number]; // [unassigned_pop, total_pop]
   population_deviation?: PopulationDeviationResult;
   contiguous?: Record<string, boolean>;
 }
