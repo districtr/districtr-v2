@@ -76,7 +76,16 @@ body {
     pointer;
 }
 
+.county-detail-scroll {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
 @media print {
+  .county-detail-scroll {
+    max-height: none !important;
+    overflow: visible !important;
+  }
   @page {
     margin: 2cm;
   }

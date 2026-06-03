@@ -107,47 +107,49 @@ export function CountySplitsSection({evaluation}: Props) {
               <strong>{idealPop.toLocaleString()}</strong>.
             </Text>
           )}
-          <Table.Root size="1">
-            <Table.Header>
-              <Table.Row>
-                <Table.ColumnHeaderCell>County Name</Table.ColumnHeaderCell>
-                <Table.ColumnHeaderCell justify="end">
-                  County<br />Population
-                </Table.ColumnHeaderCell>
-                <Table.ColumnHeaderCell justify="end">
-                  How Many Districts&apos;<br />Worth
-                </Table.ColumnHeaderCell>
-                <Table.ColumnHeaderCell justify="end">
-                  Pieces in<br />This Plan
-                </Table.ColumnHeaderCell>
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
-              {entries.map(({geoid, pop, actual, name}) => {
-                const worth = idealPop !== null ? pop / idealPop : null;
-                const minimum = worth !== null ? Math.ceil(worth) : null;
-                const unnecessary = minimum !== null && actual > minimum;
-                return (
-                  <Table.Row key={geoid}>
-                    <Table.Cell>
-                      <Text size="2">{name}</Text>
-                    </Table.Cell>
-                    <Table.Cell justify="end">
-                      <Text size="2">{pop.toLocaleString()}</Text>
-                    </Table.Cell>
-                    <Table.Cell justify="end">
-                      <Text size="2">{worth !== null ? worth.toFixed(2) : '—'}</Text>
-                    </Table.Cell>
-                    <Table.Cell justify="end">
-                      <Text size="2" weight={unnecessary ? 'bold' : 'regular'} color={unnecessary ? 'red' : undefined}>
-                        {actual}
-                      </Text>
-                    </Table.Cell>
-                  </Table.Row>
-                );
-              })}
-            </Table.Body>
-          </Table.Root>
+          <div className={entries.length > 15 ? 'county-detail-scroll' : undefined}>
+            <Table.Root size="1">
+              <Table.Header>
+                <Table.Row>
+                  <Table.ColumnHeaderCell>County Name</Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell justify="end">
+                    County<br />Population
+                  </Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell justify="end">
+                    How Many Districts&apos;<br />Worth
+                  </Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell justify="end">
+                    Pieces in<br />This Plan
+                  </Table.ColumnHeaderCell>
+                </Table.Row>
+              </Table.Header>
+              <Table.Body>
+                {entries.map(({geoid, pop, actual, name}) => {
+                  const worth = idealPop !== null ? pop / idealPop : null;
+                  const minimum = worth !== null ? Math.ceil(worth) : null;
+                  const unnecessary = minimum !== null && actual > minimum;
+                  return (
+                    <Table.Row key={geoid}>
+                      <Table.Cell>
+                        <Text size="2">{name}</Text>
+                      </Table.Cell>
+                      <Table.Cell justify="end">
+                        <Text size="2">{pop.toLocaleString()}</Text>
+                      </Table.Cell>
+                      <Table.Cell justify="end">
+                        <Text size="2">{worth !== null ? worth.toFixed(2) : '—'}</Text>
+                      </Table.Cell>
+                      <Table.Cell justify="end">
+                        <Text size="2" weight={unnecessary ? 'bold' : 'regular'} color={unnecessary ? 'red' : undefined}>
+                          {actual}
+                        </Text>
+                      </Table.Cell>
+                    </Table.Row>
+                  );
+                })}
+              </Table.Body>
+            </Table.Root>
+          </div>
         </Accordion.Content>
       </Accordion.Item>
     </Accordion.Root>
