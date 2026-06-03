@@ -36,7 +36,7 @@ export function EvalPanel() {
 
   return (
     <div
-      className="h-full overflow-y-auto flex-shrink-0 border-l border-gray-200 bg-white w-1/2"
+      className="eval-panel h-full overflow-y-auto flex-shrink-0 border-l border-gray-200 bg-white w-1/2"
     >
       <Flex direction="column" p="5" gap="1">
         <Flex justify="between" align="center">

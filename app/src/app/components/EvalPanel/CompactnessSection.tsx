@@ -1,6 +1,6 @@
 'use client';
 import * as Accordion from '@radix-ui/react-accordion';
-import {Flex, Text, Table, Heading, Tooltip} from '@radix-ui/themes';
+import {Flex, Text, Table, Heading} from '@radix-ui/themes';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {SubsectionHeading, formatDecimal} from './shared';
@@ -31,16 +31,50 @@ interface Props {
   evaluation: DocumentEvaluation;
 }
 
-function DistrictTooltip({name, image}: {name: string; image: string}) {
+const EXEMPLARS = [AL1, OK5, CO5];
+
+const SCORE_LABEL: Record<'polsby_popper' | 'reock', string> = {
+  polsby_popper: 'A Polsby-Popper score of',
+  reock: 'A Reock score of',
+};
+
+function ExemplarTable({scoreKey}: {scoreKey: 'polsby_popper' | 'reock'}) {
   return (
-    <Tooltip
-      content={
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={image} alt={name} style={{width: 160, height: 160, objectFit: 'contain'}} />
-      }
-    >
-      <span style={{textDecoration: 'underline dotted', cursor: 'help'}}>{name}</span>
-    </Tooltip>
+    <Table.Root size="1" mb="3">
+      <Table.Body>
+        <Table.Row>
+          <Table.RowHeaderCell>
+            <Text size="1">{SCORE_LABEL[scoreKey]}</Text>
+          </Table.RowHeaderCell>
+          {EXEMPLARS.map(e => (
+            <Table.Cell key={e.name} justify="center">
+              <Text size="2">{e[scoreKey].toFixed(3)}</Text>
+            </Table.Cell>
+          ))}
+        </Table.Row>
+        <Table.Row>
+          <Table.RowHeaderCell style={{verticalAlign: 'middle'}}>
+            <Text size="1">...is exemplified by...</Text>
+          </Table.RowHeaderCell>
+          {EXEMPLARS.map(e => (
+            <Table.Cell key={e.name} justify="center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={e.image} alt={e.name} style={{width: 100, height: 100, objectFit: 'contain', display: 'block', margin: '0 auto'}} />
+            </Table.Cell>
+          ))}
+        </Table.Row>
+        <Table.Row>
+          <Table.RowHeaderCell>
+            <Text size="1">Source</Text>
+          </Table.RowHeaderCell>
+          {EXEMPLARS.map(e => (
+            <Table.Cell key={e.name} justify="center">
+              <Text size="1">{e.name}</Text>
+            </Table.Cell>
+          ))}
+        </Table.Row>
+      </Table.Body>
+    </Table.Root>
   );
 }
 
@@ -134,14 +168,9 @@ export function CompactnessSection({evaluation}: Props) {
             The <strong>Polsby-Popper score</strong> compares a district&apos;s area to its
             perimeter. Scores range from 0 to 1; higher scores indicate more compact districts.
             Unlike cut edges, this measure depends on map projection and boundary resolution rather
-            than the choice of geographic units. For reference [2020 redistricting cycle], a score
-            of {AL1.polsby_popper.toFixed(3)} is exemplified
-            by <DistrictTooltip name={AL1.name} image={AL1.image} />; a score
-            of {OK5.polsby_popper.toFixed(3)} is exemplified
-            by <DistrictTooltip name={OK5.name} image={OK5.image} />; and a score
-            of {CO5.polsby_popper.toFixed(3)} is exemplified
-            by <DistrictTooltip name={CO5.name} image={CO5.image} />.
+            than the choice of geographic units.
           </Text>
+          <ExemplarTable scoreKey="polsby_popper" />
           {polsby_popper && (() => {
             const vals = Object.values(polsby_popper).filter(v => !isNaN(v));
             if (!vals.length) return null;
@@ -161,14 +190,9 @@ export function CompactnessSection({evaluation}: Props) {
             The <strong>Reock score</strong> is the ratio of a district&apos;s area to the area of
             the smallest circle that contains it. Like Polsby-Popper, scores range from 0 to 1;
             higher scores indicate more compact, circular districts. Reock is sensitive to map
-            projection and is computed on-demand when the evaluation view is opened. For reference
-            [2020 redistricting cycle], a score of {AL1.reock.toFixed(3)} is
-            exemplified by <DistrictTooltip name={AL1.name} image={AL1.image} />; a score
-            of {OK5.reock.toFixed(3)} is exemplified
-            by <DistrictTooltip name={OK5.name} image={OK5.image} />; and a score
-            of {CO5.reock.toFixed(3)} is exemplified
-            by <DistrictTooltip name={CO5.name} image={CO5.image} />.
+            projection and is computed on-demand when the evaluation view is opened.
           </Text>
+          <ExemplarTable scoreKey="reock" />
           {reock && (() => {
             const vals = Object.values(reock).filter(v => !isNaN(v));
             if (!vals.length) return null;
