@@ -499,7 +499,7 @@ class TestPopulationBalance:
     def test_deviation_is_one_person(self, fl_ctx):
         result = population_deviation(fl_ctx)
         ideal = 21_538_187 // 28  # 769 220
-        assert result["deviation"] == pytest.approx(1 / ideal, abs=1e-5)
+        assert result["top_to_bottom_deviation"] == pytest.approx(1 / ideal, abs=1e-5)
 
 
 # ── TestCompactness ───────────────────────────────────────────────────────────
