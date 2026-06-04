@@ -11,7 +11,7 @@ engine = create_engine(
 )
 
 
-@event.listens_for(engine, "connect")
+@event.listens_for(engine, "checkout")
 def set_db_timeouts(dbapi_conn, _):
     # Prevent runaway queries from holding pool connections indefinitely.
     # lock_timeout: fail fast if waiting for a row lock (e.g. concurrent saves on same document).
