@@ -32,6 +32,11 @@ _KS_ELLIS_IDEAL_POP = 10000
 # Rooks County, KS — real FIPS used as a phantom unassigned county in tests.
 _KS_PHANTOM_COUNTY = CountyGeoid("20163")
 
+_COUNTY_NAMES: dict[CountyGeoid, str] = {
+    _KS_ELLIS_COUNTY: "Ellis County",
+    _KS_PHANTOM_COUNTY: "Rooks County",
+}
+
 _THREE_ZONE_ASSIGNMENTS = [
     ["vtd:20051120060", 1],
     ["vtd:20051000280", 1],
@@ -78,12 +83,14 @@ def _create_context(client, session, assignments, ideal_population=_KS_ELLIS_IDE
     document_id = resp.json()["document_id"]
     _put_assignments(client, document_id, assignments)
     COUNTY_CONTEXT._pop_cache[_KS_ELLIS_TABLE] = {_KS_ELLIS_COUNTY: _KS_ELLIS_TOTAL_POP}
+    COUNTY_CONTEXT._name_cache.update(_COUNTY_NAMES)
     return _StubSplitsContext(session, document_id=document_id, ideal_population=ideal_population)
 
 
 def _cleanup_county_context():
     COUNTY_CONTEXT._pop_cache.pop(_KS_ELLIS_TABLE, None)
     COUNTY_CONTEXT._attempts.pop(_KS_ELLIS_TABLE, None)
+    COUNTY_CONTEXT._name_cache.clear()
 
 
 @pytest.fixture
@@ -149,6 +156,7 @@ def test_county_pieces_cold_cache_shatterable_map(
     _KS_ELLIS_PARENT_LAYER = GerrydbTableName("ks_ellis_county_vtd")
     _cleanup_county_context()
     COUNTY_CONTEXT._pop_cache[_KS_ELLIS_PARENT_LAYER] = {_KS_ELLIS_COUNTY: _KS_ELLIS_TOTAL_POP}
+    COUNTY_CONTEXT._name_cache.update(_COUNTY_NAMES)
     try:
         resp = client.post("/api/create_document", json={"districtr_map_slug": "ks_ellis_geos"})
         assert resp.status_code == 201
