@@ -22,11 +22,12 @@ def _wasted_votes(party1_votes: int, party2_votes: int) -> Tuple[int, int]:
     excess of the bare majority needed to win.
     """
     total_votes = party1_votes + party2_votes
+    threshold = total_votes // 2 + 1
     if party1_votes > party2_votes:
-        party1_waste = party1_votes - total_votes / 2
+        party1_waste = party1_votes - threshold
         party2_waste = party2_votes
     else:
-        party2_waste = party2_votes - total_votes / 2
+        party2_waste = party2_votes - threshold
         party1_waste = party1_votes
     return party1_waste, party2_waste
 

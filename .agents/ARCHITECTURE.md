@@ -148,15 +148,34 @@ Alembic with 50+ versions. UDF handling stores previous definitions under `sql/v
 1. **Input**: GeoPackage files (from GerryDB or external sources)
 2. **Tileset generation**: `ogr2ogr` → `tippecanoe` → PMTiles
 3. **Tabular data**: GeoPackage → DuckDB → Parquet
-4. **Upload**: Artifacts pushed to S3/Cloudflare R2
-5. **Consumption**: Frontend loads PMTiles (map tiles) and Parquet (demographics) directly from R2
+4. **Graph build**: child + parent GeoPackage → dual-level NetworkX graph pkl
+5. **Upload**: Artifacts pushed to S3/Cloudflare R2
+6. **Consumption**: Frontend loads PMTiles (map tiles) and Parquet (demographics)
+   directly from R2; backend loads graph pkls for contiguity checks and store locally
 
 ### CLI Commands
 
 - `tileset create-gerrydb-tileset` - Generate PMTiles from GeoPackage
 - `tileset merge-gerrydb-tilesets` - Combine parent+child for shatterable maps
-- `tabular` - Parquet generation for demographic data
-- `transforms` - Data transformation utilities
+- `tabular build-parquet` / `batch-build-parquet` - Parquet generation for demographic data
+- `transforms aggregate` - Aggregate block-level data to higher geographies
+- `transforms create-graph` - Build a dual-level graph pkl from two GeoPackage files
+- `transforms batch-create-graphs` - Batch build graph pkls from a config file
+
+### Batch Config Files
+
+Batch configs live in each sub-package's `configs/` directory and drive repeatable runs:
+
+| Config | Purpose |
+|--------|---------|
+| `tilesets/configs/v1_tileset_config.yml` | PMTiles for all v1 state maps |
+| `tilesets/configs/vap_and_election.yml` | PMTiles for older non-v1 maps |
+| `tabular/configs/v1_tabular_config.yml` | Parquet for all v1 state maps |
+| `tabular/configs/vap_and_election.yml` | Parquet for older non-v1 maps |
+| `transforms/configs/v1_graph_config.yml` | Graph pkls for all 51 v1 shatterable maps |
+| `transforms/configs/vap_and_election.yml` | Graph pkls for 10 older shatterable maps |
+
+Graph pkls are stored at `S3_BUCKET/graphs/<gerrydb_table_name>.pkl` and loaded at runtime by the backend contiguity endpoints.
 
 ## Infrastructure
 
