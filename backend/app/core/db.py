@@ -12,19 +12,18 @@ engine = create_engine(
 
 
 @event.listens_for(engine, "checkout")
-def set_db_timeouts(dbapi_conn, _):
+def set_db_timeouts(dbapi_conn, _connection_record, _connection_proxy):
     # Prevent runaway queries from holding pool connections indefinitely.
     # lock_timeout: fail fast if waiting for a row lock (e.g. concurrent saves on same document).
     # statement_timeout: hard ceiling on any single statement.
-    cursor = dbapi_conn.cursor()
-    cursor.execute("SET lock_timeout = '15s'")
-    cursor.execute("SET statement_timeout = '120s'")
-    # idle_in_transaction_session_timeout: backstop against connection leaks. If a
-    # connection is checked out with an open-but-idle transaction (e.g. a background
-    # task that opened a transaction and never committed/closed it), Postgres aborts
-    # it after this window so the connection returns to the pool instead of leaking.
-    cursor.execute("SET idle_in_transaction_session_timeout = '60s'")
-    cursor.close()
+    with dbapi_conn.cursor() as cursor:
+        cursor.execute("SET lock_timeout = '15s'")
+        cursor.execute("SET statement_timeout = '120s'")
+        # idle_in_transaction_session_timeout: backstop against connection leaks. If a
+        # connection is checked out with an open-but-idle transaction (e.g. a background
+        # task that opened a transaction and never committed/closed it), Postgres aborts
+        # it after this window so the connection returns to the pool instead of leaking.
+        cursor.execute("SET idle_in_transaction_session_timeout = '60s'")
 
 
 def get_session():
