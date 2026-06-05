@@ -1,8 +1,6 @@
 """Graph building pipeline - produces dual-level pkl graphs without DB access.
 
-Equivalent to the write path in backend/app/evaluation/graph.py, but derives
-parent-child relationships from GeoPackage spatial joins instead of the
-parentchildedges database table.
+Derives parent-child relationships from GeoPackage spatial joins.
 """
 
 import logging
