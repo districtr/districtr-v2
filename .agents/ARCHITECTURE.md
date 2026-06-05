@@ -162,21 +162,6 @@ Alembic with 50+ versions. UDF handling stores previous definitions under `sql/v
 - `transforms create-graph` - Build a dual-level graph pkl from two GeoPackage files
 - `transforms batch-create-graphs` - Batch build graph pkls from a config file
 
-### Batch Config Files
-
-Batch configs live in each sub-package's `configs/` directory and drive repeatable runs:
-
-| Config | Purpose |
-|--------|---------|
-| `tilesets/configs/v1_tileset_config.yml` | PMTiles for all v1 state maps |
-| `tilesets/configs/vap_and_election.yml` | PMTiles for older non-v1 maps |
-| `tabular/configs/v1_tabular_config.yml` | Parquet for all v1 state maps |
-| `tabular/configs/vap_and_election.yml` | Parquet for older non-v1 maps |
-| `transforms/configs/v1_graph_config.yml` | Graph pkls for all 51 v1 shatterable maps |
-| `transforms/configs/vap_and_election.yml` | Graph pkls for 10 older shatterable maps |
-
-Graph pkls are stored at `S3_BUCKET/graphs/<gerrydb_table_name>.pkl` and loaded at runtime by the backend contiguity endpoints.
-
 ## Infrastructure
 
 ### Local Development
