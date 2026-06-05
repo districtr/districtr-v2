@@ -50,6 +50,17 @@ type PopulationDeviationResult = {
   maximal_absolute_deviation: number;
 };
 
+type CountyPiecesInfo = {
+  total_pop: number;
+  pieces: number;
+  name: string;
+};
+
+type UnassignedPopulation = {
+  unassigned_population: number;
+  total_population: number;
+};
+
 export interface DocumentEvaluation {
   seats?: Record<ElectionKey, SeatsResult>;
   votes?: Record<ElectionKey, VotesResult>;
@@ -60,7 +71,7 @@ export interface DocumentEvaluation {
   eguia?: Record<ElectionKey, number>;
   disproportionality?: Record<ElectionKey, number>;
   competitiveness?: CompetitivenessResult;
-  county_pieces?: Record<CountyFIPS, [number, number, string]>; // tuple: [population, actual_pieces, county_name]
+  county_pieces?: Record<CountyFIPS, CountyPiecesInfo>;
   ideal_population?: number;
   district_county_membership?: Record<string, string[]>; // zone → sorted list of county FIPS geoids
   cut_edges?: CutEdgesResult;
@@ -68,10 +79,21 @@ export interface DocumentEvaluation {
   reock?: Record<ZoneKey, number>;
   majority_districts?: Record<RacialGroupKey, number[]>;
   assigned_units?: AssignedUnitsResult;
-  unassigned_population?: [number, number]; // [unassigned_pop, total_pop]
+  unassigned_population?: UnassignedPopulation;
   population_deviation?: PopulationDeviationResult;
   contiguous?: Record<string, boolean>;
 }
+
+export type MetricFailure = {
+  key: string;
+  error: string;
+};
+
+export type MetricsEnvelope = {
+  payload_version: number;
+  metrics: DocumentEvaluation;
+  failed: MetricFailure[];
+};
 
 export const getEvaluation = async (document_id?: string) => {
   if (!document_id) {
@@ -83,5 +105,5 @@ export const getEvaluation = async (document_id?: string) => {
     } as const;
   }
 
-  return await get<DocumentEvaluation>(`document/${document_id}/evaluation`)({});
+  return await get<MetricsEnvelope>(`document/${document_id}/evaluation`)({});
 }

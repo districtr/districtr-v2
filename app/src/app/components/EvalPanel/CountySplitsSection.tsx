@@ -33,7 +33,7 @@ export function CountySplitsSection({evaluation}: Props) {
       : new Set(membership?.[selectedDistrict] ?? []);
 
   const allEntries = Object.entries(countyPieces)
-    .map(([geoid, [pop, actual, name]]) => ({geoid, pop, actual, name}))
+    .map(([geoid, {total_pop: pop, pieces: actual, name}]) => ({geoid, pop, actual, name}))
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const entries = focusedGeoids

@@ -14,7 +14,7 @@ export function EvalPanel() {
 
   const publicId = mapDocument?.public_id;
 
-  const {data: evaluation, isLoading, isError} = useQuery({
+  const {data: envelope, isLoading, isError} = useQuery({
     queryKey: ['evaluation', publicId],
     queryFn: async () => {
       if (!publicId) return null;
@@ -24,6 +24,8 @@ export function EvalPanel() {
     },
     enabled: !!publicId,
   });
+
+  const evaluation = envelope?.metrics;
 
   const evalTablesOnly = useMapControlsStore(state => state.evalTablesOnly);
   const setEvalTablesOnly = useMapControlsStore(state => state.setEvalTablesOnly);

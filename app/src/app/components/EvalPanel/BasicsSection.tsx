@@ -95,8 +95,8 @@ export function BasicsSection({evaluation}: Props) {
               </Text>
               {unassigned_population && (
                 <Text size="2" as="p">
-                  <strong>{unassigned_population[0].toLocaleString()}</strong> of{' '}
-                  <strong>{unassigned_population[1].toLocaleString()}</strong> people are not yet
+                  <strong>{unassigned_population.unassigned_population.toLocaleString()}</strong> of{' '}
+                  <strong>{unassigned_population.total_population.toLocaleString()}</strong> people are not yet
                   assigned to a district.
                 </Text>
               )}
