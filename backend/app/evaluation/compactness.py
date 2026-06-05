@@ -1,7 +1,6 @@
 """Geometric compactness measures for electoral districts."""
 
 import logging
-from typing import TypedDict
 import math
 
 import shapely
@@ -9,13 +8,9 @@ from shapely import geometry
 
 from app.evaluation.context import DocumentEvaluationContext
 from app.evaluation.graph import get_graph
+from app.evaluation.types import CutEdgesResult, DistrictId
 
 logger = logging.getLogger(__name__)
-
-
-class CutEdgesResult(TypedDict):
-    cut_count: int
-    unit_type: str
 
 
 def block_cut_edges(context: DocumentEvaluationContext) -> CutEdgesResult:
@@ -94,7 +89,7 @@ def _district_polsby_popper(geom: geometry.base.BaseGeometry) -> float:
     return 4 * math.pi * geom.area / (geom.length**2)
 
 
-def polsby_popper(context: DocumentEvaluationContext) -> dict[int, float]:
+def polsby_popper(context: DocumentEvaluationContext) -> dict[DistrictId, float]:
     """Returns the per-district Polsby-Popper compactness score for a districting plan."""
     return {
         zone: _district_polsby_popper(geom)
@@ -112,7 +107,7 @@ def _district_reock(geom: geometry.base.BaseGeometry) -> float:
     return geom.area / (math.pi * min_circle_radius**2)
 
 
-def reock(context: DocumentEvaluationContext) -> dict[int, float]:
+def reock(context: DocumentEvaluationContext) -> dict[DistrictId, float]:
     """Returns the per-district Reock compactness score for a districting plan."""
     return {
         zone: _district_reock(geom)

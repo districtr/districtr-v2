@@ -1,6 +1,8 @@
 from fastapi.testclient import TestClient
 from pytest import fixture
-from networkx import Graph, write_gml, read_gml
+from networkx import Graph
+
+import pickle
 from app.contiguity.main import (
     check_subgraph_contiguity,
     subgraph_number_connected_components,
@@ -9,7 +11,6 @@ from app.contiguity.main import (
 import app.evaluation.graph as graph
 from app.models import DistrictrMap
 from app.utils import create_parent_child_edges
-from tempfile import NamedTemporaryFile
 from tests.constants import FIXTURES_PATH
 from sqlmodel import Session
 from datetime import datetime
@@ -48,15 +49,13 @@ def test_check_subgraph_number_connected_components(connected_graph):
     assert subgraph_number_connected_components(connected_graph, ["a", "c"]) == 2
 
 
-def test_load_gml(connected_graph):
-    with NamedTemporaryFile() as f:
-        write_gml(connected_graph, f.name)
-
-        with open(f.name, "rb") as f:
-            G = read_gml(f)
-            print(G.nodes)
-            print(G.edges)
-            test_check_subgraph_contiguity(G)
+def test_load_pkl(connected_graph, tmp_path):
+    pkl_path = tmp_path / "test_graph.pkl"
+    with open(pkl_path, "wb") as f:
+        pickle.dump(connected_graph, f)
+    with open(pkl_path, "rb") as f:
+        G = pickle.load(f)
+    test_check_subgraph_contiguity(G)
 
 
 def put_simple_contiguous_assignments(client: TestClient, document_id: str):
@@ -74,19 +73,18 @@ def put_simple_contiguous_assignments(client: TestClient, document_id: str):
     )
 
 
-@fixture
-def simple_geos_graph(simple_geos_gml_path: str) -> Graph:
-    """
-    Parents (vtd:)        Children (15-digit block)
-    vtd:...001 – vtd:...003       ...001 – ...005 – ...006
-    |            |                |        |        |
-    vtd:...002 ––                 ...003 – ...002 ––
-                                  |        |
-                                  ...004 ––
-
-    where vtd:...001 = { ...001, ...005 }, vtd:...002 = { ...002, ...003, ...004 }, vtd:...003 = { ...006 }
-    """
-    return graph.get_gerrydb_graph(simple_geos_gml_path, graph_file_format=graph.GraphFileFormat.gml)
+# simple_geos graph topology (see fixtures/graph/simple_geos.pkl):
+#
+#   Parents (vtd:)        Children (15-digit block)
+#   vtd:...001 – vtd:...003       ...001 – ...005 – ...006
+#   |            |                |        |        |
+#   vtd:...002 ––                 ...003 – ...002 ––
+#                                 |        |
+#                                 ...004 ––
+#
+#   vtd:...001 = { ...001, ...005 }
+#   vtd:...002 = { ...002, ...003, ...004 }
+#   vtd:...003 = { ...006 }
 
 
 # Idem in test_utils.py
@@ -115,14 +113,13 @@ def test_all_zones_contiguous(
     session: Session,
     simple_contiguous_assignments: str,
     simple_shatterable_districtr_map: str,
-    simple_geos_graph_files,
 ):
     """Both zones are contiguous when checked against the combined simple_geos graph."""
     document_id = simple_contiguous_assignments
     districtr_map = session.get(DistrictrMap, simple_shatterable_districtr_map)
     zone_assignments = get_assigned_nodes(session, document_id, districtr_map)
     G = graph.get_gerrydb_graph(
-        str(FIXTURES_PATH / "graph" / "simple_geos.pkl"), graph_file_format=graph.GraphFileFormat.pkl
+        str(FIXTURES_PATH / "graph" / "simple_geos.pkl")
     )
     for zone in zone_assignments:
         assert check_subgraph_contiguity(G, zone.nodes)
@@ -132,20 +129,19 @@ def test_subset_of_zones_contiguous(
     session: Session,
     simple_contiguous_assignments: str,
     simple_shatterable_districtr_map: str,
-    simple_geos_graph_files,
 ):
     """Zone 1 is contiguous when filtered and checked against the combined graph."""
     document_id = simple_contiguous_assignments
     districtr_map = session.get(DistrictrMap, simple_shatterable_districtr_map)
     (zone_assignment,) = get_assigned_nodes(session, document_id, districtr_map, zones=[1])
     G = graph.get_gerrydb_graph(
-        str(FIXTURES_PATH / "graph" / "simple_geos.pkl"), graph_file_format=graph.GraphFileFormat.pkl
+        str(FIXTURES_PATH / "graph" / "simple_geos.pkl")
     )
     assert check_subgraph_contiguity(G, zone_assignment.nodes)
 
 
 @fixture
-def mock_gerrydb_graph_file(monkeypatch, simple_geos_graph_files):
+def mock_gerrydb_graph_file(monkeypatch):
     def mock_get_file(gerrydb_name: str) -> str:
         return f"{FIXTURES_PATH}/graph/{gerrydb_name}.pkl"
 
@@ -210,7 +206,7 @@ def test_simple_geos_discontiguity(
     assert response.json() == {"1": 1, "2": 1}
 
     # Break one parent and create discontiguous assignments
-    # See `simple_geos_graph` fixture for graph diagram and
+    # See simple_geos graph topology comment above and
     # `simple_contigous_assignments` fixture for existing assignments
     assert response.status_code == 200
     response = client.put(
@@ -246,7 +242,7 @@ def test_simple_geos_discontiguity_subgraph_bboxes(
     assert response.json() == {"1": 1, "2": 1}
 
     # Break one parent and create discontiguous assignments
-    # See `simple_geos_graph` fixture for graph diagram and
+    # See simple_geos graph topology comment above and
     # `simple_contigous_assignments` fixture for existing assignments
     response = client.put(
         "/api/assignments",
@@ -336,7 +332,6 @@ def ks_ellis_assignments(client: TestClient, ks_ellis_document_id: str) -> str:
 
 def test_ks_ellis_geos_contiguity(
     client: TestClient, ks_ellis_assignments: str, mock_gerrydb_graph_file,
-    ks_ellis_geos_graph_file,
 ):
     document_id = ks_ellis_assignments
 
@@ -349,7 +344,6 @@ def test_ks_ellis_geos_contiguity(
 
 def test_fix_ks_ellis_geos_contiguity(
     client: TestClient, ks_ellis_assignments: str, mock_gerrydb_graph_file,
-    ks_ellis_geos_graph_file,
 ):
     document_id = ks_ellis_assignments
 

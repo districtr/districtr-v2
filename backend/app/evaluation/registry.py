@@ -31,46 +31,61 @@ repository (see the test module for setup instructions).
 
 import hashlib
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, Generic, TypeVar
 
 from app.evaluation.context import DocumentEvaluationContext
+from app.evaluation.types import (
+    CompetitiveMetrics,
+    CountyGeoid,
+    CountyPiecesInfo,
+    CutEdgesResult,
+    DistrictId, 
+    Election,
+    PopulationDeviationResults,
+    SeatCounts,
+    UnassignedPopulation,
+    VoteCounts,
+    VoteShares,
+    AssignedUnitsResult,
+)
 import app.evaluation.partisans as partisans
 import app.evaluation.splits as splits
 import app.evaluation.compactness as compactness
 import app.evaluation.validity as validity
 
+T = TypeVar("T")
 
 @dataclass(frozen=True)
-class Metric:
+class Metric(Generic[T]):
     key: str
     version: int
-    compute: Callable[[DocumentEvaluationContext], Any]
+    compute: Callable[[DocumentEvaluationContext], T]
 
 
-METRICS: tuple[Metric, ...] = (
-    Metric(key="seats", version=1, compute=partisans.seats),
-    Metric(key="votes", version=1, compute=partisans.votes),
-    Metric(key="vote_shares", version=1, compute=partisans.vote_shares),
-    Metric(key="efficiency_gap", version=1, compute=partisans.efficiency_gap),
-    Metric(key="mean_median", version=1, compute=partisans.mean_median),
-    Metric(key="partisan_bias", version=1, compute=partisans.partisan_bias),
-    Metric(key="eguia", version=1, compute=partisans.eguia_county),
-    Metric(key="disproportionality", version=1, compute=partisans.disproportionality),
-    Metric(key="competitiveness", version=1, compute=partisans.competitive_metrics),
-    Metric(key="ideal_population", version=1, compute=validity.ideal_population),
-    Metric(key="county_pieces", version=1, compute=splits.county_pieces),
-    Metric(key="district_county_membership", version=1, compute=splits.district_county_membership),
-    Metric(key="cut_edges", version=1, compute=compactness.block_cut_edges),
-    Metric(key="polsby_popper", version=1, compute=compactness.polsby_popper),
-    Metric(key="reock", version=1, compute=compactness.reock),
-    Metric(key="population_deviation", version=1, compute=validity.population_deviation),
-    Metric(key="assigned_units", version=1, compute=validity.assigned_units),
-    Metric(key="unassigned_population", version=1, compute=validity.unassigned_population),
-    Metric(key="contiguous", version=1, compute=validity.contiguous),
+METRICS: tuple[Metric[Any], ...] = (
+    Metric[dict[Election, SeatCounts]](key="seats", version=1, compute=partisans.seats),
+    Metric[dict[Election, VoteCounts]](key="votes", version=1, compute=partisans.votes),
+    Metric[dict[Election, VoteShares]](key="vote_shares", version=1, compute=partisans.vote_shares),
+    Metric[dict[Election, float]](key="efficiency_gap", version=1, compute=partisans.efficiency_gap),
+    Metric[dict[Election, float]](key="mean_median", version=1, compute=partisans.mean_median),
+    Metric[dict[Election, float]](key="partisan_bias", version=1, compute=partisans.partisan_bias),
+    Metric[dict[Election, float]](key="eguia", version=1, compute=partisans.eguia_county),
+    Metric[dict[Election, float]](key="disproportionality", version=1, compute=partisans.disproportionality),
+    Metric[CompetitiveMetrics](key="competitiveness", version=1, compute=partisans.competitive_metrics),
+    Metric[int](key="ideal_population", version=1, compute=validity.ideal_population),
+    Metric[dict[CountyGeoid, CountyPiecesInfo]](key="county_pieces", version=1, compute=splits.county_pieces),
+    Metric[dict[DistrictId, list[CountyGeoid]]](key="district_county_membership", version=1, compute=splits.district_county_membership),
+    Metric[CutEdgesResult](key="cut_edges", version=1, compute=compactness.block_cut_edges),
+    Metric[dict[DistrictId, float]](key="polsby_popper", version=1, compute=compactness.polsby_popper),
+    Metric[dict[DistrictId, float]](key="reock", version=1, compute=compactness.reock),
+    Metric[PopulationDeviationResults](key="population_deviation", version=1, compute=validity.population_deviation),
+    Metric[AssignedUnitsResult](key="assigned_units", version=1, compute=validity.assigned_units),
+    Metric[UnassignedPopulation](key="unassigned_population", version=1, compute=validity.unassigned_population),
+    Metric[dict[DistrictId, bool]](key="contiguous", version=1, compute=validity.contiguous),
 )
 
 
-def hash_payload_version(metrics: tuple[Metric, ...]) -> int:
+def hash_payload_version(metrics: tuple[Metric[Any], ...]) -> int:
     """Deterministic 63-bit hash of the supplied manifest.
 
     Stable across Python versions, OS processes, and architectures (uses ``hashlib``

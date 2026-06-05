@@ -1,6 +1,5 @@
 import csv as _csv
 import os
-import pickle
 import pytest
 from app.main import app
 from app.core.db import get_session
@@ -12,8 +11,9 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError, ProgrammingError
 import subprocess
 import app.evaluation.graph as eval_graph_module
-from app.evaluation.graph import get_graph as _get_graph_cached, _build_combined_graph
-from networkx import Graph
+from app.evaluation.graph import get_graph as _get_graph_cached
+from app.evaluation.context import GerrydbTableName
+from app.evaluation.types import Election
 from tests.constants import (
     POSTGRES_TEST_DB,
     POSTGRES_INTEGRATION_DB,
@@ -565,10 +565,6 @@ def ks_ellis_parent_layer_only_districtr_map(
     return inserted_districtr_map
 
 
-@pytest.fixture(name="simple_geos_gml_path")
-def simple_child_geos_gml_path_fixture() -> str:
-    return str(FIXTURES_PATH / "graph" / "simple_child_geos.gml")
-
 
 # ── Grid graph fixtures (8×8 blocks / 4×4 VTDs / 8 counties) ────────────────
 #
@@ -584,18 +580,20 @@ def simple_child_geos_gml_path_fixture() -> str:
 #
 # All parent-adjacency edge weights = 2 (two block edges cross each VTD boundary).
 
-BLOCK_GRID_NAME = "grid_child"
-PARENT_GRID_NAME = "grid_parent"
-GRID_COMBINED_NAME = "grid_shatterable"
+BLOCK_GRID_NAME = GerrydbTableName("grid_child")
+PARENT_GRID_NAME = GerrydbTableName("grid_parent")
+GRID_COMBINED_NAME = GerrydbTableName("grid_shatterable")
 
 _GRID_ELEC_COLS = [
-    "pres_2016_dem", "pres_2016_rep",
-    "pres_2020_dem", "pres_2020_rep",
-    "pres_2024_dem", "pres_2024_rep",
-    "sen_2016_dem", "sen_2016_rep",
-    "sen_2018_dem", "sen_2018_rep",
-    "sen_2020_dem", "sen_2020_rep",
-    "sen_2022_dem", "sen_2022_rep",
+    Election(e) for e in [
+        "pres_2016_dem", "pres_2016_rep",
+        "pres_2020_dem", "pres_2020_rep",
+        "pres_2024_dem", "pres_2024_rep",
+        "sen_2016_dem", "sen_2016_rep",
+        "sen_2018_dem", "sen_2018_rep",
+        "sen_2020_dem", "sen_2020_rep",
+        "sen_2022_dem", "sen_2022_rep",
+    ]
 ]
 
 # Block and VTD demographic data is stored in fixtures/gerrydb/grid_child.csv (64 rows)
@@ -682,132 +680,119 @@ def _vtd_geoid(pr: int, pc: int) -> str:
     return f"vtd:{county:05d}{pc % 2:06d}"
 
 
-def _build_grid_block_graph() -> Graph:
-    G = Graph()
-    for r in range(8):
-        for c in range(8):
-            G.add_node(_block_geoid(r, c), parent=_vtd_geoid(r // 2, c // 2))
-    for r in range(8):
-        for c in range(7):
-            G.add_edge(_block_geoid(r, c), _block_geoid(r, c + 1))
-    for r in range(7):
-        for c in range(8):
-            G.add_edge(_block_geoid(r, c), _block_geoid(r + 1, c))
-    return G
-
-
-def _build_grid_parent_graph() -> Graph:
-    G = Graph()
-    for pr in range(4):
-        for pc in range(4):
-            G.add_node(_vtd_geoid(pr, pc))
-    for pr in range(4):
-        for pc in range(3):
-            G.add_edge(_vtd_geoid(pr, pc), _vtd_geoid(pr, pc + 1), weight=2)
-    for pr in range(3):
-        for pc in range(4):
-            G.add_edge(_vtd_geoid(pr, pc), _vtd_geoid(pr + 1, pc), weight=2)
-    return G
-
-
-def _build_grid_combined_graph() -> Graph:
-    """Build the 80-node combined dual-level graph for the shatterable fixture map.
-
-    Starts from the annotated block graph (parent attrs already set by
-    _build_grid_block_graph) and extends it in-place via _build_combined_graph.
-    """
-    G = _build_grid_block_graph()
-    _build_combined_graph(G)
-    return G
-
-
-@pytest.fixture(scope="session")
-def grid_graph_files():
-    """Write the 8×8 block, 4×4 parent, and combined pkl files to fixtures/graph/ once per session."""
-
-    combined_path = FIXTURES_PATH / "graph" / f"{GRID_COMBINED_NAME}.pkl"
-    parent_as_nonshatterable_path = FIXTURES_PATH / "graph" / f"{PARENT_GRID_NAME}.pkl"
-    child_as_nonshatterable_path = FIXTURES_PATH / "graph" / f"{BLOCK_GRID_NAME}.pkl"
-
-    if not combined_path.exists():
-        with open(combined_path, "wb") as f:
-            pickle.dump(_build_grid_combined_graph(), f)
-    if not parent_as_nonshatterable_path.exists():
-        with open(parent_as_nonshatterable_path, "wb") as f:
-            pickle.dump(_build_grid_parent_graph(), f)
-    if not child_as_nonshatterable_path.exists():
-        with open(child_as_nonshatterable_path, "wb") as f:
-            pickle.dump(_build_grid_block_graph(), f)
-
-def _build_simple_geos_combined_graph() -> Graph:
-    """Build the combined dual-level graph for the simple_geos fixture (3 VTDs, 6 blocks).
-
-    Topology (from simple_child_geos.gml and fixture parent-child mapping):
-        vtd:000010000001 = { 000010000000001, 000010000000005 }
-        vtd:000010000002 = { 000010000000002, 000010000000003, 000010000000004 }
-        vtd:000010000003 = { 000010000000006 }
-    """
-    v1 = "vtd:000010000001"
-    v2 = "vtd:000010000002"
-    v3 = "vtd:000010000003"
-    parent_of = {
-        "000010000000001": v1,
-        "000010000000005": v1,
-        "000010000000002": v2,
-        "000010000000003": v2,
-        "000010000000004": v2,
-        "000010000000006": v3,
-    }
-    G = Graph()
-    for block, parent in parent_of.items():
-        G.add_node(block, parent=parent)
-    block_edges = [
-        ("000010000000001", "000010000000005"),
-        ("000010000000001", "000010000000003"),
-        ("000010000000005", "000010000000006"),
-        ("000010000000005", "000010000000002"),
-        ("000010000000006", "000010000000002"),
-        ("000010000000003", "000010000000004"),
-        ("000010000000003", "000010000000002"),
-        ("000010000000004", "000010000000002"),
-    ]
-    G.add_edges_from(block_edges)
-    _build_combined_graph(G)
-    return G
-
-
-@pytest.fixture(scope="session")
-def simple_geos_graph_files():
-    """Write the simple_geos combined pkl to fixtures/graph/ once per session."""
-    combined_path = FIXTURES_PATH / "graph" / "simple_geos.pkl"
-    if not combined_path.exists():
-        with open(combined_path, "wb") as f:
-            pickle.dump(_build_simple_geos_combined_graph(), f)
-
-
-@pytest.fixture(name="ks_ellis_geos_graph_file")
-def ks_ellis_geos_graph_file_fixture(session: Session, ks_ellis_county_vtd_gerrydb):
-    """Build and cache the ks_ellis VTD adjacency graph for shatterable contiguity tests.
-
-    Derives queen-contiguous VTD pairs via PostGIS ST_Touches on the already-loaded
-    gerrydb.ks_ellis_county_vtd table, then saves as a plain NetworkX pickle so the
-    mock_gerrydb_graph_file fixture can serve it.
-    """
-    path = FIXTURES_PATH / "graph" / "ks_ellis_geos.pkl"
-    if not path.exists():
-        rows = session.execute(text("""
-            SELECT a.path, b.path
-            FROM gerrydb.ks_ellis_county_vtd a
-            JOIN gerrydb.ks_ellis_county_vtd b ON a.path < b.path
-            WHERE ST_Touches(a.geometry, b.geometry)
-        """)).fetchall()
-        G = Graph([(r[0], r[1]) for r in rows])
-        with open(path, "wb") as f:
-            pickle.dump(G, f)
+# ---------------------------------------------------------------------------
+# Graph fixture generation — pkl files are pre-built and committed to
+# fixtures/graph/. The code below is kept as documentation so future
+# developers can regenerate them if needed.
+#
+# To regenerate, uncomment the code, add the required imports at the top
+# of the file (pickle, Graph from networkx, number_connected_components),
+# and run:
+#   pytest backend/tests/conftest.py --collect-only   # loads the module
+# or execute the functions directly in a Python session.
+#
+# For ks_ellis_geos.pkl, a live DB connection with the ks_ellis_county_vtd
+# gerrydb table loaded is required (see ks_ellis_county_vtd_gerrydb fixture).
+# ---------------------------------------------------------------------------
+#
+# def _build_grid_block_graph() -> Graph:
+#     G = Graph()
+#     for r in range(8):
+#         for c in range(8):
+#             G.add_node(_block_geoid(r, c), parent=_vtd_geoid(r // 2, c // 2))
+#     for r in range(8):
+#         for c in range(7):
+#             G.add_edge(_block_geoid(r, c), _block_geoid(r, c + 1))
+#     for r in range(7):
+#         for c in range(8):
+#             G.add_edge(_block_geoid(r, c), _block_geoid(r + 1, c))
+#     return G
+#
+# def _build_grid_parent_graph() -> Graph:
+#     G = Graph()
+#     for pr in range(4):
+#         for pc in range(4):
+#             G.add_node(_vtd_geoid(pr, pc))
+#     for pr in range(4):
+#         for pc in range(3):
+#             G.add_edge(_vtd_geoid(pr, pc), _vtd_geoid(pr, pc + 1), weight=2)
+#     for pr in range(3):
+#         for pc in range(4):
+#             G.add_edge(_vtd_geoid(pr, pc), _vtd_geoid(pr + 1, pc), weight=2)
+#     return G
+#
+# def _build_grid_combined_graph() -> Graph:
+#     """Inline of pipelines/transforms/graph.py:_build_combined_graph."""
+#     G = _build_grid_block_graph()
+#     G.graph["weighted_edges"] = {}
+#     for u, v in list(G.edges()):
+#         p_u = G.nodes[u]["parent"]
+#         p_v = G.nodes[v]["parent"]
+#         if p_u != p_v:
+#             G.add_edge(u, p_v)
+#             G.add_edge(v, p_u)
+#             key = (p_u, p_v) if p_u < p_v else (p_v, p_u)
+#             G.graph["weighted_edges"][key] = G.graph["weighted_edges"].get(key, 0) + 1
+#     for p_u, p_v in G.graph["weighted_edges"]:
+#         G.add_edge(p_u, p_v)
+#     for node, data in list(G.nodes(data=True)):
+#         parent = data.get("parent")
+#         if parent:
+#             G.nodes[parent].setdefault("children", set()).add(node)
+#     non_contiguous = set()
+#     for node, data in G.nodes(data=True):
+#         children = data.get("children")
+#         if children and number_connected_components(G.subgraph(children)) > 1:
+#             non_contiguous.add(node)
+#     G.graph["non_contiguous_parents"] = non_contiguous
+#     return G
+#
+# def _build_simple_geos_combined_graph() -> Graph:
+#     parent_of = {
+#         "000010000000001": "vtd:000010000001",
+#         "000010000000005": "vtd:000010000001",
+#         "000010000000002": "vtd:000010000002",
+#         "000010000000003": "vtd:000010000002",
+#         "000010000000004": "vtd:000010000002",
+#         "000010000000006": "vtd:000010000003",
+#     }
+#     G = Graph()
+#     for block, parent in parent_of.items():
+#         G.add_node(block, parent=parent)
+#     G.add_edges_from([
+#         ("000010000000001", "000010000000005"),
+#         ("000010000000001", "000010000000003"),
+#         ("000010000000005", "000010000000006"),
+#         ("000010000000005", "000010000000002"),
+#         ("000010000000006", "000010000000002"),
+#         ("000010000000003", "000010000000004"),
+#         ("000010000000003", "000010000000002"),
+#         ("000010000000004", "000010000000002"),
+#     ])
+#     _build_combined_graph_inline(G)
+#     return G
+#
+# # To write the grid pkls:
+# # for name, fn in [(GRID_COMBINED_NAME, _build_grid_combined_graph),
+# #                  (PARENT_GRID_NAME, _build_grid_parent_graph),
+# #                  (BLOCK_GRID_NAME, _build_grid_block_graph),
+# #                  ("simple_geos", _build_simple_geos_combined_graph)]:
+# #     with open(FIXTURES_PATH / "graph" / f"{name}.pkl", "wb") as f:
+# #         pickle.dump(fn(), f)
+#
+# # For ks_ellis_geos.pkl (requires DB + ks_ellis_county_vtd_gerrydb fixture):
+# # rows = session.execute(text("""
+# #     SELECT a.path, b.path FROM gerrydb.ks_ellis_county_vtd a
+# #     JOIN gerrydb.ks_ellis_county_vtd b ON a.path < b.path
+# #     WHERE ST_Touches(a.geometry, b.geometry)
+# # """)).fetchall()
+# # G = Graph([(r[0], r[1]) for r in rows])
+# # with open(FIXTURES_PATH / "graph" / "ks_ellis_geos.pkl", "wb") as f:
+# #     pickle.dump(G, f)
 
 
 @pytest.fixture(name="mock_grid_graph_file")
-def mock_grid_graph_file_fixture(monkeypatch, grid_graph_files):
+def mock_grid_graph_file_fixture(monkeypatch):
     """Redirect get_gerrydb_graph_file to fixtures/graph/ and flush the LRU cache."""
     def _get_file(gerrydb_name: str) -> str:
         return str(FIXTURES_PATH / "graph" / f"{gerrydb_name}.pkl")

@@ -55,6 +55,7 @@ from app.comments.settings import (
 )
 import app.contiguity.main as contiguity
 import app.evaluation.main as evaluation
+from app.evaluation.types import MetricsEnvelope
 import app.save_share.main as save_share
 import app.thumbnails.main as thumbnails
 from networkx import connected_components
@@ -174,7 +175,7 @@ def update_timestamp(
         .where(col(Document.document_id) == document_id)
         .values(updated_at=func.now())
         .returning(
-            Document.updated_at
+            col(Document.updated_at)
         )  # The `returning` on this makes it into a DML statement
     )
     updated_at = session.connection().execute(update_stmt).scalar_one()
@@ -319,7 +320,7 @@ async def get_document_stats(
     )
 
 
-@app.get("/api/document/{document_id}/evaluation")
+@app.get("/api/document/{document_id}/evaluation", response_model=MetricsEnvelope)
 async def get_document_evaluation(
     background_tasks: BackgroundTasks,
     document: Annotated[Document, Depends(get_protected_document)],
@@ -524,7 +525,7 @@ async def create_document(
         )
 
     stmt = (
-        select(  # type: ignore[no-matching-overload]
+        select(  # type: ignore[no-matching-overload] # ty: ignore[no-matching-overload]
             col(Document.document_id),
             col(Document.public_id),
             col(Document.created_at),

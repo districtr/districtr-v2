@@ -11,14 +11,14 @@ metrics code changes:
 
 Data sources
 ------------
-All files live in the project's R2 bucket under the ``test-fixtures/fl/`` prefix and
-must be downloaded manually before running this test suite:
+All files live in the project's S3 bucket and must be downloaded manually before
+running this test suite (set $S3_BUCKET to the bucket name):
 
     aws s3 cp s3://$S3_BUCKET/test-fixtures/fl/fl_cong2026_hybrid.txt \
         backend/tests/fixtures/fl/fl_cong2026_hybrid.txt
-    aws s3 cp s3://$S3_BUCKET/test-fixtures/fl/fl_vtd_districtr_view.gpkg \
+    aws s3 cp s3://$S3_BUCKET/gerrydb/fl_vtd_districtr_view.gpkg \
         data/gerrydb/fl_vtd_districtr_view.gpkg
-    aws s3 cp s3://$S3_BUCKET/test-fixtures/fl/fl_block_districtr_view.gpkg \
+    aws s3 cp s3://$S3_BUCKET/gerrydb/fl_block_districtr_view.gpkg \
         data/gerrydb/fl_block_districtr_view.gpkg
     aws s3 cp s3://$S3_BUCKET/test-fixtures/fl/fl_districtr_view.pkl \
         data/graphs/fl_districtr_view.pkl
@@ -92,6 +92,7 @@ import pickle
 import subprocess
 from datetime import datetime
 from pathlib import Path
+
 
 import pytest
 from fastapi import BackgroundTasks
@@ -474,7 +475,7 @@ def fl_ctx(integration_engine, fl_document_id, fl_graph):
     not a database mock.
     """
     original = eval_graph_module.get_graph
-    eval_graph_module.get_graph = lambda _name: fl_graph
+    eval_graph_module.get_graph = lambda _name: fl_graph  # type: ignore
     try:
         with Session(integration_engine, expire_on_commit=True) as session:
             ctx = DocumentEvaluationContext(
@@ -548,7 +549,7 @@ class TestCountySplits:
     def test_county_split_count(self, fl_ctx):
         result = county_pieces(fl_ctx)
         split_counties = sum(
-            1 for _forced, actual, _name in result.values() if actual >= 2
+            1 for entry in result.values() if entry["pieces"] >= 2
         )
         assert split_counties == EXPECTED_COUNTY_SPLITS
 
@@ -560,7 +561,7 @@ class TestCountySplits:
         zero-population pieces are absent.
         """
         result = county_pieces(fl_ctx)
-        total = sum(actual for _forced, actual, _name in result.values() if actual > 0)
+        total = sum(entry["pieces"] for entry in result.values() if entry["pieces"] > 0)
         assert total == EXPECTED_COUNTY_PIECES
 
     def test_returns_all_fl_counties(self, fl_ctx):

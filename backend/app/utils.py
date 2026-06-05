@@ -27,9 +27,9 @@ GeoUnitTypeName = NewType("GeoUnitTypeName", str)
 
 # Predicates for identifying parent-unit geo_ids based on the document's parent_geo_unit_type.
 GEOID_PREDICATES: dict[GeoUnitTypeName, Callable[[Geoid], bool]] = {
-    "vtd": lambda geo_id: geo_id.startswith("vtd:"),
-    "bg":  lambda geo_id: len(geo_id) == 12 and geo_id.isdigit(),
-    "block": lambda geo_id: len(geo_id) == 15 and geo_id.isdigit(),
+    GeoUnitTypeName("vtd"): lambda geo_id: geo_id.startswith("vtd:"),
+    GeoUnitTypeName("bg"): lambda geo_id: len(geo_id) == 12 and geo_id.isdigit(),
+    GeoUnitTypeName("block"): lambda geo_id: len(geo_id) == 15 and geo_id.isdigit(),
 }
 
 def assert_safe_ident(name: str) -> str:
@@ -194,7 +194,7 @@ def update_districtrmap(
 
     stmt = (
         update(DistrictrMap)
-        .where(DistrictrMap.districtr_map_slug == data.districtr_map_slug)  # pyright: ignore
+        .where(DistrictrMap.districtr_map_slug == data.districtr_map_slug)  # type: ignore
         .values(update_districtrmap)
         .returning(DistrictrMap)
     )

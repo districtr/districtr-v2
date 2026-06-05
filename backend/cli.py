@@ -19,15 +19,9 @@ from app.utils import (
 )
 from app.core.io import get_local_or_s3_path
 from app.constants import GERRY_DB_SCHEMA
-from app.evaluation.graph import (
-    GraphFileFormat,
-    build_combined_graph_from_gpkg,
-    graph_from_gpkg,
-    write_graph,
-)
 from functools import wraps
 from contextlib import contextmanager
-from sqlmodel import Session, select as sqlmodel_select
+from sqlmodel import Session
 from typing import Callable, TypeVar, Any, Literal
 from management.load_data import (
     load_sample_data,
@@ -340,72 +334,6 @@ def update_districtr_map(
     )
     logger.info(f"Districtr map updated successfully {result}")
 
-
-@cli.command("create-map-graphs")
-@click.option("--districtr-map-slug", "-d", help="Districtr map slug", required=True)
-@click.option(
-    "--gpkg",
-    "-g",
-    help=(
-        "Path or URL to the GeoPackage file. For shatterable maps this must be the "
-        "child-layer gpkg (block-level edges). For non-shatterable maps it is the "
-        "parent-layer gpkg."
-    ),
-    required=True,
-)
-@click.option(
-    "--graph-file-format",
-    help="Serialisation format. Supports gml and pkl",
-    required=False,
-    type=GraphFileFormat,
-    default=GraphFileFormat.pkl,
-)
-@click.option(
-    "--skip-upload",
-    help="Skip uploading graphs to S3",
-    is_flag=True,
-    default=False,
-)
-@with_session
-def create_map_graphs(
-    session: Session,
-    districtr_map_slug: str,
-    gpkg: str,
-    graph_file_format: GraphFileFormat,
-    skip_upload: bool,
-):
-    """Build graph file {gerrydb_table_name}.pkl for a districtr map.
-
-    For shatterable maps (those with a child layer), produces combined dual-level graph
-    with block nodes, parent nodes, cross-level edges, and G.graph["weighted_edges"]
-    dict.
-
-    For non-shatterable maps, produces plain adjacency graph.
-    """
-    m = session.exec(
-        sqlmodel_select(DistrictrMap).where(
-            DistrictrMap.districtr_map_slug == districtr_map_slug
-        )
-    ).one_or_none()
-    if m is None:
-        raise click.ClickException(f"No map found with slug {districtr_map_slug!r}")
-
-    upload = not skip_upload
-
-    if m.child_layer:
-        logger.info("Shatterable map — building combined dual-level graph")
-        G = build_combined_graph_from_gpkg(gpkg, session, str(m.uuid))
-    else:
-        logger.info("Non-shatterable map — building plain graph")
-        G = graph_from_gpkg(gpkg)
-    
-    write_graph(
-        G=G,
-        gerrydb_name=m.gerrydb_table_name,
-        upload_to_s3=upload,
-        graph_file_format=graph_file_format,
-    )
-    logger.info(f"Graph written for {m.gerrydb_table_name!r}")
 
 
 @cli.command("create-shatterable-districtr-view")

@@ -73,6 +73,7 @@ from hypothesis import given, settings, assume
 from hypothesis import strategies as st
 
 from app.evaluation.context import DocumentEvaluationContext, GerrydbTableName, COUNTY_CONTEXT, CountyContext
+from app.evaluation.types import Election, CompetitiveMetrics
 from app.evaluation.models import CountyDemographics
 from tests.conftest import PARENT_GRID_NAME, _GRID_BLOCK_ROWS, _GRID_ELEC_COLS
 from app.evaluation.partisans import (
@@ -98,8 +99,8 @@ class _StubEvaluationContext(DocumentEvaluationContext):
 
     def __init__(self, district_stats: list[DistrictUnionsResponse]):
         super().__init__(
-            background_tasks=None,  # type: ignore[arg-type]
-            session=None,  # type: ignore[arg-type]
+            background_tasks=None,  # type: ignore
+            session=None,  # type: ignore
             document_id="stub",
         )
         # Pre-populate the cached_property by writing to instance __dict__,
@@ -124,17 +125,20 @@ _DISTRICT_STATS = [
     DistrictUnionsResponse(zone=8, geometry=None, demographic_data={'total_pop_20': 10000, 'pres_2016_dem': 4521, 'pres_2016_rep': 5372, 'pres_2020_dem': 5352, 'pres_2020_rep': 3753, 'pres_2024_dem': 5044, 'pres_2024_rep': 5774, 'sen_2016_dem': 5897, 'sen_2016_rep': 4907, 'sen_2018_dem': 3893, 'sen_2018_rep': 7559, 'sen_2020_dem': 6047, 'sen_2020_rep': 2891, 'sen_2022_dem': 3731, 'sen_2022_rep': 4400}, updated_at=_now),
 ]
 
-_EXPECTED_EFFICIENCY_GAP = {
-    "pres_2016": -0.1488998817661688,
-    "pres_2020": -0.03673916892526865,
-    "pres_2024": -0.049405600454758905,
-    "sen_2016": 0.06955912135846705,
-    "sen_2018": -0.2698666372754326,
-    "sen_2020": 0.06604110585203424,
-    "sen_2022": 0.2200765505991754,
-}
+def _elec(d):
+    return {Election(k): v for k, v in d.items()}
 
-_EXPECTED_MEAN_MEDIAN = {
+_EXPECTED_EFFICIENCY_GAP = _elec({
+    "pres_2016": -0.1489474471005531,
+    "pres_2020": -0.03674597878049113,
+    "pres_2024": -0.049405600454758905,
+    "sen_2016": 0.06956511318561483,
+    "sen_2018": -0.2699339921868303,
+    "sen_2020": 0.06606024265465726,
+    "sen_2022": 0.22012150481010057,
+})
+
+_EXPECTED_MEAN_MEDIAN = _elec({
     "pres_2016": 0.011828363199443859,
     "pres_2020": -0.05294812449239761,
     "pres_2024": -0.03133991919594281,
@@ -142,9 +146,9 @@ _EXPECTED_MEAN_MEDIAN = {
     "sen_2018": -0.018161519480762223,
     "sen_2020": 0.04938689665103946,
     "sen_2022": -0.00040335852722683807,
-}
+})
 
-_EXPECTED_PARTISAN_BIAS = {
+_EXPECTED_PARTISAN_BIAS = _elec({
     "pres_2016": 0.125,
     "pres_2020": -0.125,
     "pres_2024": -0.125,
@@ -152,9 +156,9 @@ _EXPECTED_PARTISAN_BIAS = {
     "sen_2018": -0.125,
     "sen_2020": 0.125,
     "sen_2022": 0.0,
-}
+})
 
-_EXPECTED_SEATS = {
+_EXPECTED_SEATS = _elec({
     "pres_2016": {"dem": 2, "rep": 6, "total": 8},
     "pres_2020": {"dem": 3, "rep": 5, "total": 8},
     "pres_2024": {"dem": 4, "rep": 4, "total": 8},
@@ -162,9 +166,9 @@ _EXPECTED_SEATS = {
     "sen_2018": {"dem": 1, "rep": 7, "total": 8},
     "sen_2020": {"dem": 5, "rep": 3, "total": 8},
     "sen_2022": {"dem": 6, "rep": 2, "total": 8},
-}
+})
 
-_EXPECTED_VOTES = {
+_EXPECTED_VOTES = _elec({
     "pres_2016": {"dem": 33547, "rep": 40036, "total": 73583},
     "pres_2020": {"dem": 32469, "rep": 40954, "total": 73423},
     "pres_2024": {"dem": 41413, "rep": 39509, "total": 80922},
@@ -172,9 +176,9 @@ _EXPECTED_VOTES = {
     "sen_2018": {"dem": 35974, "rep": 45683, "total": 81657},
     "sen_2020": {"dem": 41053, "rep": 37330, "total": 78383},
     "sen_2022": {"dem": 41259, "rep": 36598, "total": 77857},
-}
+})
 
-_EXPECTED_PROPORTIONALITY = {
+_EXPECTED_PROPORTIONALITY = _elec({
     "pres_2016": -0.20590693502575325,
     "pres_2020": -0.0672183784372744,
     "pres_2024": -0.011764415115790516,
@@ -182,16 +186,16 @@ _EXPECTED_PROPORTIONALITY = {
     "sen_2018": -0.3155501059309061,
     "sen_2020": 0.10125122794483499,
     "sen_2022": 0.22006691755397711,
-}
+})
 
-_EXPECTED_COMPETITIVENESS = {
-    "n_dem_districts": 0,
-    "n_rep_districts": 0,
-    "n_swing_districts": 8,
-    "n_competitive_districts": 6,
-    "n_districts": 8,
-    "n_elections": 7,
-}
+_EXPECTED_COMPETITIVENESS = CompetitiveMetrics(
+    n_dem_districts=0,
+    n_rep_districts=0,
+    n_swing_districts=8,
+    n_competitive_districts=6,
+    n_districts=8,
+    n_elections=7,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -239,8 +243,7 @@ def test_proportionality_matches_gerrychain(grid_context):
 
 def test_competitiveness_matches_gerrychain(grid_context):
     result = competitive_metrics(grid_context)
-    for col, expected in _EXPECTED_COMPETITIVENESS.items():
-        assert result[col] == expected, f"{col}: {result[col]} != {expected}"
+    assert result == _EXPECTED_COMPETITIVENESS
 
 # ---------------------------------------------------------------------------
 # Grid-based partisan metric tests
@@ -267,11 +270,11 @@ def _aggregate_district_stats(block_rows: list[dict]) -> list[DistrictUnionsResp
 
 _GRID_DISTRICT_STATS = _aggregate_district_stats(_GRID_BLOCK_ROWS)
 
-_STUB_TABLE = "test_table"
+_STUB_TABLE = GerrydbTableName("test_table")
 
 # Expected scores computed by running gerrychain/gerrytools on the data in
 # fixtures/gerrydb/grid_child.csv (see generation script in conftest.py).
-_GRID_EXPECTED_EGUIA = {
+_GRID_EXPECTED_EGUIA = _elec({
     "pres_2016": 0.12564661366031227,
     "pres_2020": 0.23772631478110928,
     "pres_2024": 0.23591819139764347,
@@ -279,19 +282,19 @@ _GRID_EXPECTED_EGUIA = {
     "sen_2018": 0.10342226266883803,
     "sen_2020": 0.24783264680524952,
     "sen_2022": -0.14684117252610407,
-}
+})
 
-_GRID_EXPECTED_EFFICIENCY_GAP = {
-    "pres_2016": 0.18558145079573224,
-    "pres_2020": 0.15709259652421825,
-    "pres_2024": 0.20688760620014268,
-    "sen_2016": 0.35896970796299654,
-    "sen_2018": 0.1253268470659775,
-    "sen_2020": 0.12206159849042121,
-    "sen_2022": -0.023370050610300685,
-}
+_GRID_EXPECTED_EFFICIENCY_GAP = _elec({
+    "pres_2016": 0.18561125350181795,
+    "pres_2020": 0.15713809104971035,
+    "pres_2024": 0.20698488877359103,
+    "sen_2016": 0.3591208658322752,
+    "sen_2018": 0.1254180602006689,
+    "sen_2020": 0.12207758979115362,
+    "sen_2022": -0.023386589924249943,
+})
 
-_GRID_EXPECTED_MEAN_MEDIAN = {
+_GRID_EXPECTED_MEAN_MEDIAN = _elec({
     "pres_2016": 0.01186025265097057,
     "pres_2020": 0.0013322696352465746,
     "pres_2024": 0.00491290476478623,
@@ -299,9 +302,9 @@ _GRID_EXPECTED_MEAN_MEDIAN = {
     "sen_2018": 0.009402174334972146,
     "sen_2020": 0.010284980633473717,
     "sen_2022": -0.00993515807140416,
-}
+})
 
-_GRID_EXPECTED_PARTISAN_BIAS = {
+_GRID_EXPECTED_PARTISAN_BIAS = _elec({
     "pres_2016": 0.125,
     "pres_2020": 0.125,
     "pres_2024": 0.0,
@@ -309,9 +312,9 @@ _GRID_EXPECTED_PARTISAN_BIAS = {
     "sen_2018": 0.125,
     "sen_2020": 0.125,
     "sen_2022": 0.0,
-}
+})
 
-_GRID_EXPECTED_SEATS = {
+_GRID_EXPECTED_SEATS = _elec({
     "pres_2016": {"dem": 6, "rep": 2, "total": 8},
     "pres_2020": {"dem": 5, "rep": 3, "total": 8},
     "pres_2024": {"dem": 6, "rep": 2, "total": 8},
@@ -319,9 +322,9 @@ _GRID_EXPECTED_SEATS = {
     "sen_2018": {"dem": 5, "rep": 3, "total": 8},
     "sen_2020": {"dem": 5, "rep": 3, "total": 8},
     "sen_2022": {"dem": 4, "rep": 4, "total": 8},
-}
+})
 
-_GRID_EXPECTED_VOTES = {
+_GRID_EXPECTED_VOTES = _elec({
     "pres_2016": {"dem": 17363, "rep": 16191, "total": 33554},
     "pres_2020": {"dem": 16670, "rep": 16301, "total": 32971},
     "pres_2024": {"dem": 15488, "rep": 15350, "total": 30838},
@@ -329,9 +332,9 @@ _GRID_EXPECTED_VOTES = {
     "sen_2018": {"dem": 16524, "rep": 16366, "total": 32890},
     "sen_2020": {"dem": 15531, "rep": 15736, "total": 31267},
     "sen_2022": {"dem": 15331, "rep": 14900, "total": 30231},
-}
+})
 
-_GRID_EXPECTED_PROPORTIONALITY = {
+_GRID_EXPECTED_PROPORTIONALITY = _elec({
     "pres_2016": 0.23253561423377245,
     "pres_2020": 0.11940417336447184,
     "pres_2024": 0.24776250081068807,
@@ -339,16 +342,16 @@ _GRID_EXPECTED_PROPORTIONALITY = {
     "sen_2018": 0.1225980541197933,
     "sen_2020": 0.12827821665014233,
     "sen_2022": -0.007128444312129889,
-}
+})
 
-_GRID_EXPECTED_COMPETITIVENESS = {
-    "n_dem_districts": 0,
-    "n_rep_districts": 0,
-    "n_swing_districts": 8,
-    "n_competitive_districts": 29,
-    "n_districts": 8,
-    "n_elections": 7
-}
+_GRID_EXPECTED_COMPETITIVENESS = CompetitiveMetrics(
+    n_dem_districts=0,
+    n_rep_districts=0,
+    n_swing_districts=8,
+    n_competitive_districts=29,
+    n_districts=8,
+    n_elections=7
+)
 
 @pytest.fixture
 def grid_district_context():
@@ -448,18 +451,19 @@ def test_ideals_for_eguia_retries_then_gives_up():
     raise immediately without hitting the DB."""
     table = GerrydbTableName(_STUB_TABLE)
     singleton = CountyContext()
-    singleton._ensure_county_data = MagicMock()
-    singleton._compute_ideal = MagicMock(side_effect=ValueError("no data"))
+    singleton._ensure_county_data = MagicMock()  # type: ignore
+    mock_compute = MagicMock(side_effect=ValueError("no data"))
+    singleton._compute_ideal = mock_compute  # type: ignore
 
     for attempt in range(1, CountyContext.MAX_LOAD_ATTEMPTS + 1):
         with pytest.raises(ValueError):
             singleton.ideals_for_eguia(table, MagicMock())
-        assert singleton._compute_ideal.call_count == attempt
+        assert mock_compute.call_count == attempt
 
     # After exhausting attempts, raises without additional DB work.
     with pytest.raises(ValueError, match="failed to load after"):
         singleton.ideals_for_eguia(table, MagicMock())
-    assert singleton._compute_ideal.call_count == CountyContext.MAX_LOAD_ATTEMPTS
+    assert mock_compute.call_count == CountyContext.MAX_LOAD_ATTEMPTS
 
 
 def test_ideals_for_eguia_recovers_after_transient_failure():
@@ -469,8 +473,9 @@ def test_ideals_for_eguia_recovers_after_transient_failure():
     table = GerrydbTableName(_STUB_TABLE)
     good_ideals = {"pres_2020_dem": 0.6, "pres_2020_rep": 0.4}
     singleton = CountyContext()
-    singleton._ensure_county_data = MagicMock()
-    singleton._compute_ideal = MagicMock(side_effect=[ValueError("transient"), good_ideals])
+    singleton._ensure_county_data = MagicMock()  # type: ignore
+    mock_compute = MagicMock(side_effect=[ValueError("transient"), good_ideals])
+    singleton._compute_ideal = mock_compute  # type: ignore
 
     with pytest.raises(ValueError):
         singleton.ideals_for_eguia(table, MagicMock())
@@ -481,7 +486,7 @@ def test_ideals_for_eguia_recovers_after_transient_failure():
 
     # All further calls hit the cache — _compute_ideal is not called again.
     assert singleton.ideals_for_eguia(table, MagicMock()) == good_ideals
-    assert singleton._compute_ideal.call_count == 2
+    assert mock_compute.call_count == 2
 
 
 def test_ensure_county_data_calls_populate_when_no_valid_rows():
@@ -489,34 +494,35 @@ def test_ensure_county_data_calls_populate_when_no_valid_rows():
     non-null total_pop exists (covers both the no-rows and null-total_pop cases)."""
     table = GerrydbTableName(_STUB_TABLE)
     singleton = CountyContext()
-    singleton._populate_county_data = MagicMock()
+    mock_populate = MagicMock()
+    singleton._populate_county_data = mock_populate  # type: ignore
 
     mock_session = MagicMock()
     mock_session.exec.return_value.first.return_value = None
 
     singleton._ensure_county_data(table, mock_session)
 
-    singleton._populate_county_data.assert_called_once_with(table, mock_session)
+    mock_populate.assert_called_once_with(table, mock_session)
 
 
 def test_ensure_county_data_skips_populate_when_valid_rows_exist():
     """_ensure_county_data is a no-op when a row with non-null total_pop exists."""
     table = GerrydbTableName(_STUB_TABLE)
     singleton = CountyContext()
-    singleton._populate_county_data = MagicMock()
+    mock_populate = MagicMock()
+    singleton._populate_county_data = mock_populate  # type: ignore
 
     mock_session = MagicMock()
     mock_session.exec.return_value.first.return_value = MagicMock()
 
     singleton._ensure_county_data(table, mock_session)
 
-    singleton._populate_county_data.assert_not_called()
+    mock_populate.assert_not_called()
 
 
 def test_grid_competitiveness_matches_gerrychain(grid_district_context):
     result = competitive_metrics(grid_district_context)
-    for col, expected in _GRID_EXPECTED_COMPETITIVENESS.items():
-        assert result[col] == expected, f"{col}: {result[col]} != {expected}"
+    assert result == _GRID_EXPECTED_COMPETITIVENESS
 
 
 # ---------------------------------------------------------------------------

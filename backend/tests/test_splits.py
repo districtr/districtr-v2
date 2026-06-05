@@ -32,6 +32,11 @@ _KS_ELLIS_IDEAL_POP = 10000
 # Rooks County, KS — real FIPS used as a phantom unassigned county in tests.
 _KS_PHANTOM_COUNTY = CountyGeoid("20163")
 
+_COUNTY_NAMES: dict[CountyGeoid, str] = {
+    _KS_ELLIS_COUNTY: "Ellis County",
+    _KS_PHANTOM_COUNTY: "Rooks County",
+}
+
 _THREE_ZONE_ASSIGNMENTS = [
     ["vtd:20051120060", 1],
     ["vtd:20051000280", 1],
@@ -78,12 +83,14 @@ def _create_context(client, session, assignments, ideal_population=_KS_ELLIS_IDE
     document_id = resp.json()["document_id"]
     _put_assignments(client, document_id, assignments)
     COUNTY_CONTEXT._pop_cache[_KS_ELLIS_TABLE] = {_KS_ELLIS_COUNTY: _KS_ELLIS_TOTAL_POP}
+    COUNTY_CONTEXT._name_cache.update(_COUNTY_NAMES)
     return _StubSplitsContext(session, document_id=document_id, ideal_population=ideal_population)
 
 
 def _cleanup_county_context():
     COUNTY_CONTEXT._pop_cache.pop(_KS_ELLIS_TABLE, None)
     COUNTY_CONTEXT._attempts.pop(_KS_ELLIS_TABLE, None)
+    COUNTY_CONTEXT._name_cache.clear()
 
 
 @pytest.fixture
@@ -104,36 +111,36 @@ def single_zone_context(client, session: Session, ks_ellis_shatterable_districtr
 def test_county_pieces_actual_three_zones(three_zone_context):
     """2 VTDs each in 3 zones → actual = 3 for Ellis County."""
     result = county_pieces(three_zone_context)
-    assert result[_KS_ELLIS_COUNTY][1] == 3
+    assert result[_KS_ELLIS_COUNTY]["pieces"] == 3
 
 
 def test_county_pieces_actual_single_zone(single_zone_context):
     """All assigned VTDs in one zone → actual = 1."""
     result = county_pieces(single_zone_context)
-    assert result[_KS_ELLIS_COUNTY][1] == 1
+    assert result[_KS_ELLIS_COUNTY]["pieces"] == 1
 
 
 def test_county_pieces_name(three_zone_context):
-    """Third element of the tuple is the Census county name."""
+    """name field is the Census county name."""
     result = county_pieces(three_zone_context)
-    assert result[_KS_ELLIS_COUNTY][2] == "Ellis County"
+    assert result[_KS_ELLIS_COUNTY]["name"] == "Ellis County"
 
 
 def test_county_pieces_unassigned_county_zero(three_zone_context):
-    """A county absent from assignments has actual = 0."""
+    """A county absent from assignments has pieces = 0."""
     phantom = _KS_PHANTOM_COUNTY
     COUNTY_CONTEXT._pop_cache[_KS_ELLIS_TABLE][phantom] = 5000
     result = county_pieces(three_zone_context)
-    assert result[phantom][1] == 0
+    assert result[phantom]["pieces"] == 0
 
 
 # ── Population ───────────────────────────────────────────────────────────────
 
 
 def test_county_pieces_population(three_zone_context):
-    """First tuple element is the county population."""
+    """total_pop field is the county population."""
     result = county_pieces(three_zone_context)
-    assert result[_KS_ELLIS_COUNTY][0] == _KS_ELLIS_TOTAL_POP
+    assert result[_KS_ELLIS_COUNTY]["total_pop"] == _KS_ELLIS_TOTAL_POP
 
 
 # ── Retesting for old bug: cold cache + shatterable map ──────────────────────────────
@@ -149,6 +156,7 @@ def test_county_pieces_cold_cache_shatterable_map(
     _KS_ELLIS_PARENT_LAYER = GerrydbTableName("ks_ellis_county_vtd")
     _cleanup_county_context()
     COUNTY_CONTEXT._pop_cache[_KS_ELLIS_PARENT_LAYER] = {_KS_ELLIS_COUNTY: _KS_ELLIS_TOTAL_POP}
+    COUNTY_CONTEXT._name_cache.update(_COUNTY_NAMES)
     try:
         resp = client.post("/api/create_document", json={"districtr_map_slug": "ks_ellis_geos"})
         assert resp.status_code == 201
@@ -158,7 +166,7 @@ def test_county_pieces_cold_cache_shatterable_map(
         ctx = _StubSplitsContext(session, document_id=document_id)
 
         result = county_pieces(ctx)
-        assert result[_KS_ELLIS_COUNTY][1] == 3
+        assert result[_KS_ELLIS_COUNTY]["pieces"] == 3
     finally:
         COUNTY_CONTEXT._pop_cache.pop(_KS_ELLIS_PARENT_LAYER, None)
         COUNTY_CONTEXT._attempts.pop(_KS_ELLIS_PARENT_LAYER, None)
@@ -169,7 +177,7 @@ def test_county_pieces_unassigned_county_population(three_zone_context):
     phantom = _KS_PHANTOM_COUNTY
     COUNTY_CONTEXT._pop_cache[_KS_ELLIS_TABLE][phantom] = 5000
     result = county_pieces(three_zone_context)
-    assert result[phantom][0] == 5000
+    assert result[phantom]["total_pop"] == 5000
 
 
 def test_county_pieces_keyed_by_county_pops(three_zone_context):
