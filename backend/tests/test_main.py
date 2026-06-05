@@ -1277,12 +1277,12 @@ def test_get_document_evaluation_uses_cached_row(
 
     first = client.get(f"/api/document/{document_id}/evaluation")
     assert first.status_code == 200
-    assert first.json() == {"seats": {"dem": 1, "rep": 0}}
+    assert first.json()["metrics"] == {"seats": {"dem": 1, "rep": 0}}
     assert get_compute_calls() == 1
 
     second = client.get(f"/api/document/{document_id}/evaluation")
     assert second.status_code == 200
-    assert second.json() == {"seats": {"dem": 1, "rep": 0}}
+    assert second.json()["metrics"] == {"seats": {"dem": 1, "rep": 0}}
     assert get_compute_calls() == 1
 
 
@@ -1297,7 +1297,7 @@ def test_get_document_evaluation_refreshes_stale_cache(
 
     first = client.get(f"/api/document/{document_id}/evaluation")
     assert first.status_code == 200
-    assert first.json() == {"seats": {"dem": 1, "rep": 0}}
+    assert first.json()["metrics"] == {"seats": {"dem": 1, "rep": 0}}
     assert get_compute_calls() == 1
 
     cached = session.exec(
@@ -1308,7 +1308,7 @@ def test_get_document_evaluation_refreshes_stale_cache(
 
     second = client.get(f"/api/document/{document_id}/evaluation")
     assert second.status_code == 200
-    assert second.json() == {"seats": {"dem": 2, "rep": 0}}
+    assert second.json()["metrics"] == {"seats": {"dem": 2, "rep": 0}}
     assert get_compute_calls() == 2
 
     refreshed = session.exec(
@@ -1331,7 +1331,8 @@ def test_get_document_evaluation_recomputes_after_document_update(
 
     # First call: no cached row → computes and stores.
     result1 = evaluation_main.update_or_select_document_evaluation(bt, session, doc)
-    assert result1 == {"seats": {"dem": 1, "rep": 0}}
+    assert result1["metrics"] == {"seats": {"dem": 1, "rep": 0}}
+    assert result1["failed"] == []
     assert get_compute_calls() == 1
 
     # Backdate the evaluation to simulate the document being updated after caching.
@@ -1341,7 +1342,8 @@ def test_get_document_evaluation_recomputes_after_document_update(
 
     # Second call: evaluation is stale → recomputes and updates the row.
     result2 = evaluation_main.update_or_select_document_evaluation(bt, session, doc)
-    assert result2 == {"seats": {"dem": 2, "rep": 0}}
+    assert result2["metrics"] == {"seats": {"dem": 2, "rep": 0}}
+    assert result2["failed"] == []
     assert get_compute_calls() == 2
 
     # Cache must record a fresh evaluation timestamp so stale-check matches document.
@@ -1355,7 +1357,8 @@ def test_get_document_evaluation_recomputes_after_document_update(
 
     # Third call: evaluation is fresh → uses cache, no recompute.
     result3 = evaluation_main.update_or_select_document_evaluation(bt, session, doc)
-    assert result3 == {"seats": {"dem": 2, "rep": 0}}
+    assert result3["metrics"] == {"seats": {"dem": 2, "rep": 0}}
+    assert result3["failed"] == []
     assert get_compute_calls() == 2
 
 
@@ -1375,9 +1378,10 @@ def test_compute_metrics_returns_empty_payload_for_unassigned_document(monkeypat
             pass
 
     monkeypatch.setattr(evaluation_main, "DocumentEvaluationContext", _EmptyContext)
-    result, version = evaluation_main.compute_metrics(background_tasks=None, session=None, document_id="stub")  # type: ignore
-    assert result == {}
-    assert version == CURRENT_PAYLOAD_VERSION
+    envelope = evaluation_main.compute_metrics(background_tasks=None, session=None, document_id="stub")  # type: ignore
+    assert envelope["metrics"] == {}
+    assert envelope["payload_version"] == CURRENT_PAYLOAD_VERSION
+    assert envelope["failed"] == []
 
 
 def test_failed_metric_produces_partial_payload_version(

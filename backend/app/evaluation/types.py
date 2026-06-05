@@ -3,7 +3,7 @@
 See registry.py for the mapping of metric key to return type.
 """
 
-from typing import TypedDict, NewType
+from typing import Any, TypedDict, NewType
 
 from app.utils import GeoUnitTypeName
 
@@ -74,3 +74,16 @@ class PopulationDeviationResults(TypedDict):
 class UnassignedPopulation(TypedDict):
     unassigned_population: int
     total_population: int
+
+
+# ── Envelope ──────────────────────────────────────────────────────────────────
+
+class MetricFailure(TypedDict):
+    key: str
+    error: str
+
+
+class MetricsEnvelope(TypedDict):
+    payload_version: int
+    metrics: dict[str, Any]
+    failed: list[MetricFailure]
