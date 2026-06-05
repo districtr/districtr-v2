@@ -12,6 +12,8 @@ from sqlalchemy.exc import OperationalError, ProgrammingError
 import subprocess
 import app.evaluation.graph as eval_graph_module
 from app.evaluation.graph import get_graph as _get_graph_cached
+from app.evaluation.context import GerrydbTableName
+from app.evaluation.types import Election
 from tests.constants import (
     POSTGRES_TEST_DB,
     POSTGRES_INTEGRATION_DB,
@@ -578,18 +580,20 @@ def ks_ellis_parent_layer_only_districtr_map(
 #
 # All parent-adjacency edge weights = 2 (two block edges cross each VTD boundary).
 
-BLOCK_GRID_NAME = "grid_child"
-PARENT_GRID_NAME = "grid_parent"
-GRID_COMBINED_NAME = "grid_shatterable"
+BLOCK_GRID_NAME = GerrydbTableName("grid_child")
+PARENT_GRID_NAME = GerrydbTableName("grid_parent")
+GRID_COMBINED_NAME = GerrydbTableName("grid_shatterable")
 
 _GRID_ELEC_COLS = [
-    "pres_2016_dem", "pres_2016_rep",
-    "pres_2020_dem", "pres_2020_rep",
-    "pres_2024_dem", "pres_2024_rep",
-    "sen_2016_dem", "sen_2016_rep",
-    "sen_2018_dem", "sen_2018_rep",
-    "sen_2020_dem", "sen_2020_rep",
-    "sen_2022_dem", "sen_2022_rep",
+    Election(e) for e in [
+        "pres_2016_dem", "pres_2016_rep",
+        "pres_2020_dem", "pres_2020_rep",
+        "pres_2024_dem", "pres_2024_rep",
+        "sen_2016_dem", "sen_2016_rep",
+        "sen_2018_dem", "sen_2018_rep",
+        "sen_2020_dem", "sen_2020_rep",
+        "sen_2022_dem", "sen_2022_rep",
+    ]
 ]
 
 # Block and VTD demographic data is stored in fixtures/gerrydb/grid_child.csv (64 rows)

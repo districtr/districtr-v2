@@ -13,7 +13,7 @@ import logging
 
 from functools import cached_property
 from pathlib import Path
-from typing import ClassVar, NewType
+from typing import ClassVar, NewType, cast
 
 import fastapi
 import numpy as np
@@ -24,6 +24,7 @@ import sqlalchemy
 import sqlmodel
 from app.core.config import settings
 from app.evaluation.models import CountyDemographics
+from app.evaluation.types import Election, CountyGeoid, DistrictId
 from app.models import Assignments, DistrictUnionsResponse, DistrictrMap, Document
 from app.utils import (
     update_or_select_district_stats,
@@ -37,9 +38,7 @@ from app.utils import (
 logger = logging.getLogger(__name__)
 
 GerrydbTableName = NewType("GerrydbTableName", str)
-Election = NewType("Election", str)
 ElectionPartyKey = NewType("ElectionPartyKey", str)
-CountyGeoid = NewType("CountyGeoid", str)
 DemographicColumn = NewType("DemographicColumn", str)
 
 TOTAL_POP_COL = "total_pop_20"
@@ -72,13 +71,13 @@ class DocumentEvaluationContext:
         )
 
     @cached_property
-    def projected_district_geometries(self) -> dict[int, shapely.Geometry]:
+    def projected_district_geometries(self) -> dict[DistrictId, shapely.Geometry]:
         """Well-formed per-zone geometries projected to EPSG:5070, shared by compactness
         metrics."""
         districts = [d for d in self.district_stats if d.zone is not None and d.geometry]
         shapes = np.array([shapely.from_geojson(d.geometry) for d in districts], dtype=object)
         projected = shapely.transform(shapes, _reproject)
-        return {d.zone: geom for d, geom in zip(districts, projected) if not geom.is_empty}
+        return {cast(DistrictId, d.zone): geom for d, geom in zip(districts, projected) if not geom.is_empty}
 
     @cached_property
     def demographic_data(self) -> pd.DataFrame:
@@ -225,8 +224,8 @@ class DocumentEvaluationContext:
         """The DistrictrMap associated with this document."""
         m = self.session.exec(
             sqlmodel.select(DistrictrMap)
-            .join(Document, Document.districtr_map_slug == DistrictrMap.districtr_map_slug)
-            .where(Document.document_id == self.document_id)
+            .join(Document, sqlmodel.col(Document.districtr_map_slug) == sqlmodel.col(DistrictrMap.districtr_map_slug))
+            .where(sqlmodel.col(Document.document_id) == self.document_id)
         ).one_or_none()
         if m is None:
             raise ValueError(f"No DistrictrMap found for document '{self.document_id}'.")
@@ -266,7 +265,7 @@ class DocumentEvaluationContext:
             raise ValueError(
                 f"DistrictrMap for document '{self.document_id}' has no parent_geo_unit_type set."
             )
-        return self._districtr_map.parent_geo_unit_type
+        return GeoUnitTypeName(self._districtr_map.parent_geo_unit_type)
 
     @cached_property
     def num_parent_units(self) -> int:
@@ -278,25 +277,25 @@ class DocumentEvaluationContext:
         ).scalar()
 
     @cached_property
-    def zone_assignments(self) -> list[tuple[Geoid, int]]:
+    def zone_assignments(self) -> list[tuple[Geoid, DistrictId]]:
         """Assignment rows for this document."""
         rows = self.session.exec(
             sqlmodel.select(Assignments.geo_id, Assignments.zone)
-            .where(Assignments.document_id == self.document_id)
-            .where(Assignments.zone.isnot(None))
+            .where(sqlmodel.col(Assignments.document_id) == self.document_id)
+            .where(sqlmodel.col(Assignments.zone).isnot(None))
         ).all()
-        return rows
+        return [(Geoid(geo_id), DistrictId(zone)) for geo_id, zone in rows]
 
     @cached_property
-    def split_zone_assignments(self) -> tuple[dict[Geoid, int], dict[Geoid, int]]:
+    def split_zone_assignments(self) -> tuple[dict[Geoid, DistrictId], dict[Geoid, DistrictId]]:
         """Assignment rows split into (unit_to_zone, parent_unit_to_zone).
 
         unit_to_zone        — individually-assigned child units (bare block IDs)
                               or all units for non-shatterable maps.
         parent_unit_to_zone — whole-parent assignments (colon-prefixed geo_ids)
         """
-        unit_to_zone: dict[Geoid, int] = {}
-        parent_unit_to_zone: dict[Geoid, int] = {}
+        unit_to_zone: dict[Geoid, DistrictId] = {}
+        parent_unit_to_zone: dict[Geoid, DistrictId] = {}
         if self.is_shatterable:
             is_parent = GEOID_PREDICATES[self.parent_geo_unit_type]
             for geo_id, zone in self.zone_assignments:
@@ -433,8 +432,8 @@ class CountyContext:
         """
         exists = session.exec(
             sqlmodel.select(CountyDemographics)
-            .where(CountyDemographics.gerrydb_table_name == gerrydb_table)
-            .where(CountyDemographics.total_pop.isnot(None))
+            .where(sqlmodel.col(CountyDemographics.gerrydb_table_name) == gerrydb_table)
+            .where(sqlmodel.col(CountyDemographics.total_pop).isnot(None))
             .limit(1)
         ).first()
         if not exists:
@@ -515,7 +514,7 @@ class CountyContext:
             )
 
         df = pd.DataFrame([r.demographic_data or {} for r in rows])
-        county_pops = pd.array([r.total_pop or 0 for r in rows], dtype="int64")
+        county_pops = np.array([r.total_pop or 0 for r in rows], dtype="int64")
         total_pop = county_pops.sum()
         if total_pop == 0:
             raise ValueError(

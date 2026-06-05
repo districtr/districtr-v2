@@ -5,7 +5,7 @@ plan-wide scores. All signed metrics are reported from the **Democratic** party'
 of view: positive values indicate a Dem advantage, negative values a Rep advantage.
 """
 
-from typing import Tuple, TypedDict
+from typing import Tuple
 import numpy as np
 from app.evaluation.context import (
     DocumentEvaluationContext,
@@ -13,6 +13,12 @@ from app.evaluation.context import (
     ElectionPartyKey,
     COUNTY_CONTEXT,
 )
+from app.evaluation.types import (
+    CompetitiveMetrics, 
+    SeatCounts,
+    VoteShares,
+    VoteCounts,
+) 
 
 
 def _wasted_votes(party1_votes: int, party2_votes: int) -> Tuple[int, int]:
@@ -61,7 +67,7 @@ def efficiency_gap(context: DocumentEvaluationContext) -> dict[Election, float]:
     return result
 
 
-def seats(context: DocumentEvaluationContext) -> dict[Election, dict[str, int]]:
+def seats(context: DocumentEvaluationContext) -> dict[Election, SeatCounts]:
     """Per-election seat counts: `{election: {"dem": n, "rep": n}}`.
 
     Formula:
@@ -72,26 +78,26 @@ def seats(context: DocumentEvaluationContext) -> dict[Election, dict[str, int]]:
     Plurality-winner counts; ties contribute to neither party.
     """
     return {
-        election: {
-            "dem": context.dem_seats[election],
-            "rep": context.rep_seats[election],
-            "total": context.num_nonempty_districts,
-        }
+        election: SeatCounts(
+            dem=context.dem_seats[election],
+            rep=context.rep_seats[election],
+            total=context.num_nonempty_districts,
+        )
         for election in context.elections
     }
 
-def votes(context: DocumentEvaluationContext) -> dict[Election, dict[str, int]]:
+def votes(context: DocumentEvaluationContext) -> dict[Election, VoteCounts]:
     """Per-election vote counts: `{election: {"dem": n, "rep": n}}`."""
     return {
-        election: {
-            "dem": context.dem_state_votes[election],
-            "rep": context.rep_state_votes[election],
-            "total": context.total_state_votes[election],
-        }
+        election: VoteCounts(
+            dem=context.dem_state_votes[election],
+            rep=context.rep_state_votes[election],
+            total=context.total_state_votes[election],
+        )
         for election in context.elections
     }
 
-def vote_shares(context: DocumentEvaluationContext) -> dict[Election, dict[str, float]]:
+def vote_shares(context: DocumentEvaluationContext) -> dict[Election, VoteShares]:
     """Per-election, statewide vote shares: `{election: {"dem": share, "rep": share}}`.
 
     Formula:
@@ -100,10 +106,10 @@ def vote_shares(context: DocumentEvaluationContext) -> dict[Election, dict[str, 
         where d ranges over districts and e over elections.
     """
     return {
-        election: {
-            "dem": context.dem_state_votes[election] / context.total_state_votes[election],
-            "rep": context.rep_state_votes[election] / context.total_state_votes[election],
-        }
+        election: VoteShares(
+            dem=context.dem_state_votes[election] / context.total_state_votes[election],
+            rep=context.rep_state_votes[election] / context.total_state_votes[election],
+        )
         for election in context.elections
     }
 
@@ -201,10 +207,10 @@ def disproportionality(context: DocumentEvaluationContext) -> dict[Election, flo
         https://jkatz.caltech.edu/documents/28620/psym.pdf. Doi:
         https://doi.org/10.1017/S000305541900056X
     """
-    result: dict[Election, float] = {}
-    for election in context.elections:
-        result[election] = (context.dem_seats[election] / context.num_nonempty_districts) - (context.dem_state_votes[election] / context.total_state_votes[election])
-    return result
+    return {
+        election: (context.dem_seats[election] / context.num_nonempty_districts) - (context.dem_state_votes[election] / context.total_state_votes[election])
+        for election in context.elections
+    }
 
 def eguia_county(context: DocumentEvaluationContext) -> dict[Election, float]:
     """Per-election Eguia score (Dem POV).
@@ -226,21 +232,10 @@ def eguia_county(context: DocumentEvaluationContext) -> dict[Election, float]:
     # both the parent layer and the child layer (e.g. block-level vs. vtd-level), which, 
     # when aggregated, will result in double population counts.
     ideals = COUNTY_CONTEXT.ideals_for_eguia(context.parent_layer, context.session)
-
-    result: dict[Election, float] = {}
-    for election in context.elections:
-        result[election] = (context.dem_seats[election] / context.num_nonempty_districts) - ideals.get(ElectionPartyKey(election + "_dem"), 0.0)
-    return result
-
-class CompetitiveMetrics(TypedDict):
-    """Shape of the `competitive_metrics` payload."""
-    n_dem_districts: int
-    n_rep_districts: int
-    n_swing_districts: int
-    n_competitive_districts: int
-    n_districts: int
-    n_elections: int
-
+    return {
+        election: (context.dem_seats[election] / context.num_nonempty_districts) - ideals.get(ElectionPartyKey(election + "_dem"), 0.0)
+        for election in context.elections
+    }
 
 def competitive_metrics(context: DocumentEvaluationContext) -> CompetitiveMetrics:
     """Plan-wide partisan competitiveness metrics across all elections.
@@ -263,14 +258,14 @@ def competitive_metrics(context: DocumentEvaluationContext) -> CompetitiveMetric
     n_districts = context.num_nonempty_districts
     n_elections = len(context.elections)
     if n_elections == 0:
-        return {
-            "n_dem_districts": 0,
-            "n_rep_districts": 0,
-            "n_swing_districts": 0,
-            "n_competitive_districts": 0,
-            "n_districts": n_districts,
-            "n_elections": 0,
-        }
+        return CompetitiveMetrics(
+            n_dem_districts=0,
+            n_rep_districts=0,
+            n_swing_districts=0,
+            n_competitive_districts=0,
+            n_districts=n_districts,
+            n_elections=0,
+        )
     dem_districts = np.ones(n_districts, dtype=bool)
     rep_districts = np.ones(n_districts, dtype=bool)
     n_competitive_districts = 0
@@ -284,11 +279,11 @@ def competitive_metrics(context: DocumentEvaluationContext) -> CompetitiveMetric
     n_dem_districts = int(sum(dem_districts))
     n_rep_districts = int(sum(rep_districts))
     n_swing_districts = context.num_nonempty_districts - n_dem_districts - n_rep_districts
-    return {
-        "n_dem_districts": n_dem_districts,
-        "n_rep_districts": n_rep_districts,
-        "n_swing_districts": n_swing_districts,
-        "n_competitive_districts": int(n_competitive_districts),
-        "n_districts": n_districts,
-        "n_elections": n_elections,
-    }
+    return CompetitiveMetrics(
+        n_dem_districts=n_dem_districts,
+        n_rep_districts=n_rep_districts,
+        n_swing_districts=n_swing_districts,
+        n_competitive_districts=int(n_competitive_districts),
+        n_districts=n_districts,
+        n_elections=n_elections,
+    )

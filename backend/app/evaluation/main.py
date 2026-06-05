@@ -15,7 +15,7 @@ from sqlalchemy.sql import func
 from sqlmodel import Session, select
 
 from app.evaluation.models import Evaluation
-from app.evaluation.registry import CURRENT_PAYLOAD_VERSION, METRICS
+from app.evaluation.registry import CURRENT_PAYLOAD_VERSION, METRICS, Metric, hash_payload_version
 from app.evaluation.context import DocumentEvaluationContext
 from app.models import Document
 
@@ -45,18 +45,18 @@ def update_or_select_document_evaluation(
         and evaluation.updated_at >= document.updated_at
     ):
         return evaluation.metrics
-    computed_metrics = compute_metrics(background_tasks, session, document.document_id)
+    computed_metrics, computed_version = compute_metrics(background_tasks, session, document.document_id)
 
     if evaluation:
         evaluation.metrics = computed_metrics
-        evaluation.payload_version = CURRENT_PAYLOAD_VERSION
+        evaluation.payload_version = computed_version
         evaluation.updated_at = func.now()
     else:
         session.add(
             Evaluation(
                 document_id=document.document_id,
                 metrics=computed_metrics,
-                payload_version=CURRENT_PAYLOAD_VERSION,
+                payload_version=computed_version,
             )
         )
     session.commit()
@@ -65,19 +65,24 @@ def update_or_select_document_evaluation(
 
 def compute_metrics(
     background_tasks: BackgroundTasks, session: Session, document_id: str
-) -> dict[str, Any]:
-    """Build a fresh `DocumentEvaluationContext` and run every registered
-    metric, returning a `{metric_key: payload}` dict suitable for JSON
-    serialisation into `Evaluation.metrics`."""
+) -> tuple[dict[str, Any], int]:
+    """Build a fresh `DocumentEvaluationContext` and run every registered metric.
+
+    Returns a (payloads, version) pair where version is hashed from only the
+    metrics that succeeded. A partial version differs from CURRENT_PAYLOAD_VERSION,
+    so a subsequent request will detect staleness and recompute.
+    """
     context = DocumentEvaluationContext(
         background_tasks=background_tasks, session=session, document_id=document_id
     )
     if context.num_nonempty_districts == 0:
-        return {}
+        return {}, CURRENT_PAYLOAD_VERSION
     metric_payloads: dict[str, Any] = {}
+    succeeded: list[Metric[Any]] = []
     for metric in METRICS:
         try:
             metric_payloads[metric.key] = metric.compute(context)
+            succeeded.append(metric)
         except Exception:
             logger.exception("metric %s failed, skipping", metric.key)
-    return metric_payloads
+    return metric_payloads, hash_payload_version(tuple(succeeded))

@@ -11,6 +11,7 @@ from app.evaluation.context import (
     DocumentEvaluationContext,
     CountyGeoid,
 )
+from app.evaluation.types import CountyPiecesInfo, DistrictId
 
 
 def _geo_id_to_county_geoid(geo_id: str) -> CountyGeoid:
@@ -18,7 +19,7 @@ def _geo_id_to_county_geoid(geo_id: str) -> CountyGeoid:
     return CountyGeoid(bare[:5])
 
 
-def county_pieces(context: DocumentEvaluationContext) -> dict[CountyGeoid, Tuple[int, int, str]]:
+def county_pieces(context: DocumentEvaluationContext) -> dict[CountyGeoid, CountyPiecesInfo]:
     """Returns a mapping from county geoid to a tuple of
     (population, actual_split_pieces, county_name).
 
@@ -37,21 +38,21 @@ def county_pieces(context: DocumentEvaluationContext) -> dict[CountyGeoid, Tuple
         county_zones.setdefault(_geo_id_to_county_geoid(geo_id), set()).add(zone)
 
     return {
-        county_geoid: (
-            pop,
-            len(county_zones.get(county_geoid, set())),
-            COUNTY_CONTEXT.county_name(county_geoid),
+        county_geoid: CountyPiecesInfo(
+            total_pop=pop,
+            pieces=len(county_zones.get(county_geoid, set())),
+            name=COUNTY_CONTEXT.county_name(county_geoid),
         )
         for county_geoid, pop in county_pops.items()
     }
 
 
-def district_county_membership(context: DocumentEvaluationContext) -> dict[int, list[str]]:
+def district_county_membership(context: DocumentEvaluationContext) -> dict[DistrictId, list[CountyGeoid]]:
     """Returns a mapping from district (zone) to the sorted list of county geoids
     that overlap with that district.
     """
-    zone_counties: dict[int, set[str]] = {}
+    zone_counties: dict[DistrictId, set[CountyGeoid]] = {}
     for geo_id, zone in context.zone_assignments:
-        zone_counties.setdefault(zone, set()).add(_geo_id_to_county_geoid(geo_id))
+        zone_counties.setdefault(DistrictId(zone), set()).add(_geo_id_to_county_geoid(geo_id))
 
     return {zone: sorted(counties) for zone, counties in zone_counties.items()}
