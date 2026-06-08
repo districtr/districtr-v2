@@ -5,21 +5,16 @@ import {InfoCircledIcon, TriangleRightIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {SubsectionHeading, useDistrictHover} from './shared';
+import {type GeoUnit, GEO_UNITS, GEO_UNIT_LABELS} from '@constants/document/geoUnits';
 
 interface Props {
   evaluation: DocumentEvaluation;
 }
 
-const GEO_UNIT_LABELS: Record<string, string> = {
-  vtd: 'VTDs',
-  bg: 'block groups',
-  block: 'blocks',
-};
-
-const GEO_UNIT_DESCRIPTIONS: Record<string, string> = {
-  vtd: 'VTDs, also called "voting tabulation districts" or "voting districts," are the closest approximation of electoral precincts in Census geography.',
-  bg: 'Block groups are Census geographic units that nest within counties and tracts, typically containing 600–3,000 people.',
-  block: 'Census blocks are the smallest Census geographic unit, corresponding roughly to city blocks.',
+const GEO_UNIT_DESCRIPTIONS: Record<GeoUnit, string> = {
+  [GEO_UNITS.VTD]: 'VTDs, also called "voting tabulation districts" or "voting districts," are the closest approximation of electoral precincts in Census geography.',
+  [GEO_UNITS.BLOCK_GROUP]: 'Block groups are Census geographic units that nest within counties and tracts, typically containing 600–3,000 people.',
+  [GEO_UNITS.BLOCK]: 'Census blocks are the smallest Census geographic unit, corresponding roughly to city blocks.',
 };
 
 export function BasicsSection({evaluation}: Props) {
@@ -27,11 +22,11 @@ export function BasicsSection({evaluation}: Props) {
   const {onDistrictEnter, onDistrictLeave} = useDistrictHover();
 
   const numDistricts = mapDocument?.num_districts ?? '—';
-  const dataSource = mapDocument?.data_source_name ?? null;
-  const rawUnitType = mapDocument?.parent_geo_unit_type ?? mapDocument?.child_geo_unit_type ?? 'units';
-  const unitLabel = GEO_UNIT_LABELS[rawUnitType] ?? rawUnitType;
-  const unitDescription = GEO_UNIT_DESCRIPTIONS[rawUnitType] ?? null;
-  const planName = mapDocument?.map_module ?? mapDocument?.map_metadata?.name ?? null;
+  const dataSource = mapDocument?.data_source_name;
+  const rawUnitType = mapDocument?.parent_geo_unit_type;
+  const unitLabel = rawUnitType ? GEO_UNIT_LABELS[rawUnitType] : null;
+  const unitDescription = rawUnitType ? GEO_UNIT_DESCRIPTIONS[rawUnitType] : null;
+  const planName = mapDocument?.map_module ?? mapDocument?.map_metadata.name ?? null;
 
   const {assigned_units, unassigned_population, population_deviation, contiguous} = evaluation;
   const isContiguous = contiguous ? Object.values(contiguous).every(Boolean) : null;
@@ -59,10 +54,8 @@ export function BasicsSection({evaluation}: Props) {
               <InfoCircledIcon />
             </Callout.Icon>
             <Callout.Text>
-              {dataSource ? (
+              {mapDocument && (
                 <>Uses <strong>{dataSource}</strong> data on <strong>{unitLabel}</strong>.</>
-              ) : (
-                <>Uses <strong>{unitLabel}</strong>.</>
               )}
             </Callout.Text>
           </Callout.Root>
