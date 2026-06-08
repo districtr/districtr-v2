@@ -1,5 +1,6 @@
 'use client';
 import * as Accordion from '@radix-ui/react-accordion';
+import {useMemo} from 'react';
 import {Flex, Text, Table, Heading} from '@radix-ui/themes';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
@@ -38,7 +39,11 @@ const SCORE_LABEL: Record<'polsby_popper' | 'reock', string> = {
   reock: 'A Reock score of',
 };
 
-function ExemplarTable({scoreKey}: {scoreKey: 'polsby_popper' | 'reock'}) {
+interface ExemplarTableProps {
+  scoreKey: 'polsby_popper' | 'reock';
+}
+
+const ExemplarTable: React.FC<ExemplarTableProps> = ({scoreKey}) => {
   return (
     <Table.Root size="1" mb="3">
       <Table.Body>
@@ -78,58 +83,28 @@ function ExemplarTable({scoreKey}: {scoreKey: 'polsby_popper' | 'reock'}) {
   );
 }
 
-function PerDistrictTable({
-  polsby_popper,
-  reock,
-}: {
-  polsby_popper: Record<string, number>;
-  reock: Record<string, number>;
-}) {
-  const getZoneColor = useZoneColorGetter();
-  const zones = Object.keys(polsby_popper).sort((a, b) => Number(a) - Number(b));
-  const {onDistrictEnter, onDistrictLeave} = useDistrictHover();
-
-  return (
-    <Table.Root size="1">
-      <Table.Header>
-        <Table.Row>
-          <Table.ColumnHeaderCell>District</Table.ColumnHeaderCell>
-          <Table.ColumnHeaderCell justify="end">Polsby-Popper</Table.ColumnHeaderCell>
-          <Table.ColumnHeaderCell justify="end">Reock</Table.ColumnHeaderCell>
-        </Table.Row>
-      </Table.Header>
-      <Table.Body>
-        {zones.map(zone => (
-          <Table.Row key={zone} onMouseEnter={() => onDistrictEnter(zone)} onMouseLeave={onDistrictLeave} style={{cursor: 'default'}}>
-            <Table.Cell>
-              <Flex align="center" gap="2">
-                <div
-                  style={{
-                    width: 16,
-                    height: 16,
-                    borderRadius: '50%',
-                    backgroundColor: getZoneColor(Number(zone)),
-                    flexShrink: 0,
-                  }}
-                />
-                <Text size="2">{zone}</Text>
-              </Flex>
-            </Table.Cell>
-            <Table.Cell justify="end">
-              <Text size="2">{formatDecimal(polsby_popper[zone], 3)}</Text>
-            </Table.Cell>
-            <Table.Cell justify="end">
-              <Text size="2">{formatDecimal(reock[zone], 3)}</Text>
-            </Table.Cell>
-          </Table.Row>
-        ))}
-      </Table.Body>
-    </Table.Root>
-  );
-}
-
-export function CompactnessSection({evaluation}: Props) {
+export const CompactnessSection: React.FC<Props> = ({evaluation}) => {
   const {cut_edges, polsby_popper, reock} = evaluation;
+  const getZoneColor = useZoneColorGetter();
+  const {onDistrictEnter, onDistrictLeave} = useDistrictHover();
+  const zones = useMemo(
+    () => polsby_popper ? Object.keys(polsby_popper).sort((a, b) => Number(a) - Number(b)) : [],
+    [polsby_popper]
+  );
+
+  const ppStats = useMemo(() => {
+    if (!polsby_popper) return null;
+    const vals = Object.values(polsby_popper).filter(v => !isNaN(v));
+    if (!vals.length) return null;
+    return {min: Math.min(...vals), max: Math.max(...vals), mean: vals.reduce((a, b) => a + b, 0) / vals.length};
+  }, [polsby_popper]);
+
+  const reockStats = useMemo(() => {
+    if (!reock) return null;
+    const vals = Object.values(reock).filter(v => !isNaN(v));
+    if (!vals.length) return null;
+    return {min: Math.min(...vals), max: Math.max(...vals), mean: vals.reduce((a, b) => a + b, 0) / vals.length};
+  }, [reock]);
 
   return (
     <Accordion.Root type="single" collapsible defaultValue="compactness">
@@ -172,18 +147,12 @@ export function CompactnessSection({evaluation}: Props) {
             than the choice of geographic units.
           </Text>
           <ExemplarTable scoreKey="polsby_popper" />
-          {polsby_popper && (() => {
-            const vals = Object.values(polsby_popper).filter(v => !isNaN(v));
-            if (!vals.length) return null;
-            const min = Math.min(...vals), max = Math.max(...vals);
-            const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
-            return (
-              <Text size="2" as="p" mb="3">
-                In your plan, scores range from <strong>{min.toFixed(3)}</strong> to{' '}
-                <strong>{max.toFixed(3)}</strong>, with a mean of <strong>{mean.toFixed(3)}</strong>.
-              </Text>
-            );
-          })()}
+          {ppStats && (
+            <Text size="2" as="p" mb="3">
+              In your plan, scores range from <strong>{ppStats.min.toFixed(3)}</strong> to{' '}
+              <strong>{ppStats.max.toFixed(3)}</strong>, with a mean of <strong>{ppStats.mean.toFixed(3)}</strong>.
+            </Text>
+          )}
 
           {/* Reock */}
           <SubsectionHeading>Reock Scores</SubsectionHeading>
@@ -194,18 +163,12 @@ export function CompactnessSection({evaluation}: Props) {
             projection and is computed on-demand when the evaluation view is opened.
           </Text>
           <ExemplarTable scoreKey="reock" />
-          {reock && (() => {
-            const vals = Object.values(reock).filter(v => !isNaN(v));
-            if (!vals.length) return null;
-            const min = Math.min(...vals), max = Math.max(...vals);
-            const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
-            return (
-              <Text size="2" as="p" mb="3">
-                In your plan, scores range from <strong>{min.toFixed(3)}</strong> to{' '}
-                <strong>{max.toFixed(3)}</strong>, with a mean of <strong>{mean.toFixed(3)}</strong>.
-              </Text>
-            );
-          })()}
+          {reockStats && (
+            <Text size="2" as="p" mb="3">
+              In your plan, scores range from <strong>{reockStats.min.toFixed(3)}</strong> to{' '}
+              <strong>{reockStats.max.toFixed(3)}</strong>, with a mean of <strong>{reockStats.mean.toFixed(3)}</strong>.
+            </Text>
+          )}
 
           {/* Per-district detail */}
           {polsby_popper && (
@@ -213,10 +176,33 @@ export function CompactnessSection({evaluation}: Props) {
               <Text size="1" className="uppercase tracking-widest" mb="1" as="p">
                 Per-district scores
               </Text>
-              <PerDistrictTable
-                polsby_popper={polsby_popper}
-                reock={reock ?? {}}
-              />
+              <Table.Root size="1">
+                <Table.Header>
+                  <Table.Row>
+                    <Table.ColumnHeaderCell>District</Table.ColumnHeaderCell>
+                    <Table.ColumnHeaderCell justify="end">Polsby-Popper</Table.ColumnHeaderCell>
+                    <Table.ColumnHeaderCell justify="end">Reock</Table.ColumnHeaderCell>
+                  </Table.Row>
+                </Table.Header>
+                <Table.Body>
+                  {zones.map(zone => (
+                    <Table.Row key={zone} onMouseEnter={() => onDistrictEnter(zone)} onMouseLeave={onDistrictLeave} style={{cursor: 'default'}}>
+                      <Table.Cell>
+                        <Flex align="center" gap="2">
+                          <div style={{width: 16, height: 16, borderRadius: '50%', backgroundColor: getZoneColor(Number(zone)), flexShrink: 0}} />
+                          <Text size="2">{zone}</Text>
+                        </Flex>
+                      </Table.Cell>
+                      <Table.Cell justify="end">
+                        <Text size="2">{formatDecimal(polsby_popper[zone], 3)}</Text>
+                      </Table.Cell>
+                      <Table.Cell justify="end">
+                        <Text size="2">{formatDecimal((reock ?? {})[zone], 3)}</Text>
+                      </Table.Cell>
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table.Root>
             </>
           )}
 

@@ -11,7 +11,7 @@ interface Props {
   evaluation: DocumentEvaluation;
 }
 
-export function CountySplitsSection({evaluation}: Props) {
+export const CountySplitsSection: React.FC<Props> = ({evaluation}) => {
   const [selectedDistrict, setSelectedDistrict] = useState<string>('all');
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);

@@ -17,16 +17,19 @@ const GEO_UNIT_DESCRIPTIONS: Record<GeoUnit, string> = {
   [GEO_UNITS.BLOCK]: 'Census blocks are the smallest Census geographic unit, corresponding roughly to city blocks.',
 };
 
-export function BasicsSection({evaluation}: Props) {
+export const BasicsSection: React.FC<Props> = ({evaluation}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const {onDistrictEnter, onDistrictLeave} = useDistrictHover();
 
-  const numDistricts = mapDocument?.num_districts ?? '—';
-  const dataSource = mapDocument?.data_source_name;
-  const rawUnitType = mapDocument?.parent_geo_unit_type;
-  const unitLabel = rawUnitType ? GEO_UNIT_LABELS[rawUnitType] : null;
-  const unitDescription = rawUnitType ? GEO_UNIT_DESCRIPTIONS[rawUnitType] : null;
-  const planName = mapDocument?.map_module ?? mapDocument?.map_metadata.name ?? null;
+  const doc = mapDocument
+    ? {
+        numDistricts: mapDocument.num_districts ?? '—',
+        dataSource: mapDocument.data_source_name,
+        unitLabel: GEO_UNIT_LABELS[mapDocument.parent_geo_unit_type],
+        unitDescription: GEO_UNIT_DESCRIPTIONS[mapDocument.parent_geo_unit_type],
+        planName: mapDocument.map_module ?? mapDocument.map_metadata.name ?? null,
+      }
+    : null;
 
   const {assigned_units, unassigned_population, population_deviation, contiguous} = evaluation;
   const isContiguous = contiguous ? Object.values(contiguous).every(Boolean) : null;
@@ -49,26 +52,28 @@ export function BasicsSection({evaluation}: Props) {
         <Accordion.Content>
           {/* Data, Units, and Plan Type */}
           <SubsectionHeading>Data, Units, and Plan Type</SubsectionHeading>
-          <Callout.Root size="1" mb="2">
-            <Callout.Icon>
-              <InfoCircledIcon />
-            </Callout.Icon>
-            <Callout.Text>
-              {mapDocument && (
-                <>Uses <strong>{dataSource}</strong> data on <strong>{unitLabel}</strong>.</>
+          {doc && (
+            <>
+              <Callout.Root size="1" mb="2">
+                <Callout.Icon>
+                  <InfoCircledIcon />
+                </Callout.Icon>
+                <Callout.Text>
+                  Uses <strong>{doc.dataSource}</strong> data on <strong>{doc.unitLabel}</strong>.
+                </Callout.Text>
+              </Callout.Root>
+              {doc.unitDescription && (
+                <Text size="2" as="p" mb="1">{doc.unitDescription}</Text>
               )}
-            </Callout.Text>
-          </Callout.Root>
-          {unitDescription && (
-            <Text size="2" as="p" mb="1">{unitDescription}</Text>
+              <Text size="2" as="p">
+                {doc.planName ? (
+                  <>The plan type is <strong>{doc.planName}</strong> ({doc.numDistricts} districts).</>
+                ) : (
+                  <>This plan has <strong>{doc.numDistricts}</strong> districts.</>
+                )}
+              </Text>
+            </>
           )}
-          <Text size="2" as="p">
-            {planName ? (
-              <>The plan type is <strong>{planName}</strong> ({numDistricts} districts).</>
-            ) : (
-              <>This plan has <strong>{numDistricts}</strong> districts.</>
-            )}
-          </Text>
 
           {/* Completeness */}
           <SubsectionHeading>Completeness</SubsectionHeading>

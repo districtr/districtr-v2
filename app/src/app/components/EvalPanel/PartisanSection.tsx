@@ -69,7 +69,7 @@ function sortElections(keys: string[]): string[] {
   });
 }
 
-export function PartisanSection({evaluation}: Props) {
+export const PartisanSection: React.FC<Props> = ({evaluation}) => {
   const [pov, setPov] = useState<Pov>('dem');
   const elections = sortElections(Object.keys(evaluation.seats ?? {}));
   const n = elections.length;

@@ -9,7 +9,7 @@ import {PartisanSection} from './PartisanSection';
 import {CountySplitsSection} from './CountySplitsSection';
 import {CompactnessSection} from './CompactnessSection';
 
-export function EvalPanel() {
+export const EvalPanel: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
 
   const publicId = mapDocument?.public_id;
