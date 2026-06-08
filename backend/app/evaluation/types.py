@@ -5,7 +5,7 @@ See registry.py for the mapping of metric key to return type.
 
 from typing import Any, TypedDict, NewType
 
-from app.utils import GeoUnitTypeName
+from app.utils import GeoUnitType
 
 # ── Primitive types ───────────────────────────────────────────────────────────
 
@@ -61,7 +61,7 @@ class AssignedUnitsResult(TypedDict):
     assigned_count: int
     partially_assigned_count: int
     total_count: int
-    unit_type: GeoUnitTypeName
+    unit_type: GeoUnitType
 
 
 class PopulationDeviationResults(TypedDict):
