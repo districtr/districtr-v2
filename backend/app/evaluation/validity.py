@@ -4,7 +4,7 @@ contiguity, and population deviation.
 """
 
 from app.contiguity.main import check_subgraph_contiguity
-from app.evaluation.context import DocumentEvaluationContext, TOTAL_POP_COL, GeoUnitTypeName
+from app.evaluation.context import DocumentEvaluationContext, TOTAL_POP_COL, GeoUnitType
 from app.evaluation.graph import get_graph
 from app.evaluation.types import AssignedUnitsResult, PopulationDeviationResults, UnassignedPopulation, DistrictId
 

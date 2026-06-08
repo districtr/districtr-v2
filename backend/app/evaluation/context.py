@@ -31,7 +31,7 @@ from app.utils import (
     assert_safe_ident,
     get_gerrydb_numeric_cols,
     Geoid,
-    GeoUnitTypeName,
+    GeoUnitType,
     GEOID_PREDICATES,
 )
 
@@ -259,13 +259,13 @@ class DocumentEvaluationContext:
         return self.child_layer is not None
 
     @cached_property
-    def parent_geo_unit_type(self) -> GeoUnitTypeName:
+    def parent_geo_unit_type(self) -> GeoUnitType:
         """Parent unit type (e.g. 'vtd', 'block'). Raises ValueError if unset in districtrmap"""
         if not self._districtr_map.parent_geo_unit_type:
             raise ValueError(
                 f"DistrictrMap for document '{self.document_id}' has no parent_geo_unit_type set."
             )
-        return GeoUnitTypeName(self._districtr_map.parent_geo_unit_type)
+        return self._districtr_map.parent_geo_unit_type
 
     @cached_property
     def num_parent_units(self) -> int:

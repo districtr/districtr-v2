@@ -11,8 +11,7 @@ from sqlalchemy.types import UUID
 from sqlmodel import Session, select, Float
 
 from app.constants import GERRY_DB_SCHEMA, PUBLIC_SCHEMA
-from app.models import UUIDType, DistrictrMap, DistrictrMapUpdate
-from app.models import Document, DistrictUnionsResponse
+from app.models import UUIDType, DistrictrMap, DistrictrMapUpdate, Document, DistrictUnionsResponse, GeoUnitType
 from app.thumbnails.main import generate_thumbnail, THUMBNAIL_BUCKET
 from app.core.config import settings
 
@@ -23,13 +22,12 @@ logging.basicConfig(level=logging.INFO)
 _SAFE_IDENT_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 Geoid = NewType("Geoid", str)
-GeoUnitTypeName = NewType("GeoUnitTypeName", str)
 
 # Predicates for identifying parent-unit geo_ids based on the document's parent_geo_unit_type.
-GEOID_PREDICATES: dict[GeoUnitTypeName, Callable[[Geoid], bool]] = {
-    GeoUnitTypeName("vtd"): lambda geo_id: geo_id.startswith("vtd:"),
-    GeoUnitTypeName("bg"): lambda geo_id: len(geo_id) == 12 and geo_id.isdigit(),
-    GeoUnitTypeName("block"): lambda geo_id: len(geo_id) == 15 and geo_id.isdigit(),
+GEOID_PREDICATES: dict[GeoUnitType, Callable[[Geoid], bool]] = {
+    GeoUnitType.VTD: lambda geo_id: geo_id.startswith("vtd:"),
+    GeoUnitType.BLOCK_GROUP: lambda geo_id: len(geo_id) == 12 and geo_id.isdigit(),
+    GeoUnitType.BLOCK: lambda geo_id: len(geo_id) == 15 and geo_id.isdigit(),
 }
 
 def assert_safe_ident(name: str) -> str:
@@ -39,7 +37,7 @@ def assert_safe_ident(name: str) -> str:
     return name
 
 
-def infer_geo_unit_type(session: Session, layer_name: str) -> str:
+def infer_geo_unit_type(session: Session, layer_name: str) -> GeoUnitType:
     """Infer the geo unit type of a GerryDB layer by sampling one path value.
 
     Raises ValueError if the layer is empty or the path format is unrecognised.
