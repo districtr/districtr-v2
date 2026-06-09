@@ -39,7 +39,7 @@ export const PublicDistrictLayers: React.FC = () => {
           'line-color': HIGHLIGHT_LINE_COLOR,
           'line-width': ['case', ['boolean', ['feature-state', 'focused'], false], HIGHLIGHT_LINE_WIDTH, 0],
         }}
-        beforeId={DEFAULT_BLOCK_LAYER_ORDER.outlineBeforeId}
+        beforeId={DEFAULT_BLOCK_LAYER_ORDER.highlightBeforeId}
       />
     </>
   );

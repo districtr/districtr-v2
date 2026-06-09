@@ -11,7 +11,7 @@ export const EMPTY_FT_COLLECTION = {
 export const SENTINEL_EMPTY_VALUE: string = '-999';
 export const SENTINEL_EMPTY_ARRAY: string[] = [SENTINEL_EMPTY_VALUE];
 
-export const HIGHLIGHT_LINE_COLOR = '#000000';
+export const HIGHLIGHT_LINE_COLOR = '#666666';
 export const HIGHLIGHT_LINE_WIDTH = 3.5;
 
 export const COMMUNITY_ASSIGNMENT_STYLE = (colorScheme: string[]) => {

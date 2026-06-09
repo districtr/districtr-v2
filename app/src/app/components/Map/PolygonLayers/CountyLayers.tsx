@@ -5,7 +5,7 @@ import {FilterSpecification} from 'maplibre-gl';
 import {useMemo} from 'react';
 import {Layer, Source} from 'react-map-gl/maplibre';
 import {SENTINEL_EMPTY_ARRAY, HIGHLIGHT_LINE_COLOR, HIGHLIGHT_LINE_WIDTH} from '@/app/constants/map/layerStyle';
-import {CANONICAL_LAYER_IDS, COUNTY_SOURCE_ID} from '@/app/constants/map/layerIds';
+import {CANONICAL_LAYER_IDS, COUNTY_SOURCE_ID, MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
 
 export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
   const mapOptions = useMapControlsStore(state => state.mapOptions);
@@ -71,12 +71,12 @@ export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
         />
         <Layer
           id={CANONICAL_LAYER_IDS.COUNTIES.HIGHLIGHT}
+          beforeId={MAP_LAYER_ANCHOR_IDS.hover}
           type="line"
           source-layer="tl_2023_us_county"
           paint={{
             'line-color': HIGHLIGHT_LINE_COLOR,
             'line-width': HIGHLIGHT_LINE_WIDTH,
-            'line-opacity': 0.2,
           }}
           filter={
             hoveredCountyGeoid
