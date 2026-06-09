@@ -125,8 +125,8 @@ class Settings(BaseSettings):
     VOLUME_PATH: str = "/data"
     SQL_DIR: Path = Path(__file__).parent.parent / "sql"
 
-    # R2
-
+    # TODO: R2_BUCKET_NAME is a misnomer — storage has migrated to S3. Rename to
+    # S3_BUCKET_NAME and update all references and env var documentation.
     R2_BUCKET_NAME: str | None = None
     CDN_URL: str | None = None
     ACCOUNT_ID: str | None = None
