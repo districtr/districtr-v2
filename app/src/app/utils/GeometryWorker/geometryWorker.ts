@@ -120,7 +120,7 @@ const GeometryWorker: GeometryWorkerClass = {
       parents,
       children,
     };
-    console.log("SHATTERED", this.shatterIds, this.activeGeometries)
+    console.log('SHATTERED', this.shatterIds, this.activeGeometries);
   },
   removeGeometries(ids) {
     ids.forEach(id => {

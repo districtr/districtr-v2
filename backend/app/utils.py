@@ -282,15 +282,15 @@ def add_extent_to_districtrmap(
     logger.info(f"Adding extent for {districtr_map_uuid}...")
 
     if bounds:
-        assert all(b is not None for b in bounds), (
-            "If setting the extent manually, all values must be set."
-        )
+        assert all(
+            b is not None for b in bounds
+        ), "If setting the extent manually, all values must be set."
         assert len(bounds) == 4, "The extent must have 4 values."
         assert all(isinstance(b, float) for b in bounds), "All values must be floats."
         x_min, y_min, x_max, y_max = bounds
-        assert x_max > x_min and y_max > y_min, (
-            "The max values must be greater than the min values."
-        )
+        assert (
+            x_max > x_min and y_max > y_min
+        ), "The max values must be greater than the min values."
         stmt = text(
             "UPDATE districtrmap SET extent = ARRAY[:x_min, :y_min, :x_max, :y_max] WHERE uuid = :districtr_map_uuid RETURNING extent"
         ).bindparams(

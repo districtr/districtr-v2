@@ -62,7 +62,6 @@ import app.thumbnails.main as thumbnails
 from networkx import Graph, connected_components
 from app.models import (
     Assignments,
-    AssignmentsResponse,
     ColorsSetResult,
     CommunityAssignments,
     DocumentType,
@@ -163,7 +162,11 @@ async def log_slow_requests(request: Request, call_next):
     duration = time.monotonic() - start
     if duration > 30:
         logger.warning(
-            "SLOW %s %s %s %.1fs", request.method, request.url.path, response.status_code, duration
+            "SLOW %s %s %s %.1fs",
+            request.method,
+            request.url.path,
+            response.status_code,
+            duration,
         )
     return response
 
@@ -1356,9 +1359,7 @@ async def get_unassigned_geoids(
                 else:
                     orphans.append(gid)
 
-            for component in connected_components(
-                G.subgraph(node_to_originals.keys())
-            ):
+            for component in connected_components(G.subgraph(node_to_originals.keys())):
                 originals: list[str] = []
                 for parent_id in component:
                     originals.extend(node_to_originals[parent_id])
@@ -1473,9 +1474,7 @@ async def check_document_contiguity(
     return results
 
 
-@app.get(
-    "/api/document/{document_id}/contiguity/{zone}/connected_component_bboxes"
-)
+@app.get("/api/document/{document_id}/contiguity/{zone}/connected_component_bboxes")
 async def get_connected_component_bboxes(
     zone: int,
     document: Annotated[Document, Depends(get_protected_document)],

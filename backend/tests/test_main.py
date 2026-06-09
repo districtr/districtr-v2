@@ -19,7 +19,6 @@ import app.evaluation.main as evaluation_main
 from app.evaluation.models import Evaluation
 from app.models import Document
 from app.evaluation.registry import Metric, CURRENT_PAYLOAD_VERSION
-from time import sleep
 
 REQUIRED_AUTO_FIXTURES = [patch_recaptcha]
 
@@ -369,9 +368,9 @@ def test_new_document(client, ks_demo_view_census_blocks_districtrmap):
         },
     )
     data = response.json()
-    assert response.status_code == 201, (
-        f"Unexpected result: {response.status_code} {data.get('detail')}"
-    )
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
     document_id = data.get("document_id", None)
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
@@ -889,9 +888,9 @@ def test_new_document_from_block_assignments(client, simple_shatterable_district
         },
     )
     data = response.json()
-    assert response.status_code == 201, (
-        f"Unexpected result: {response.status_code} {data.get('detail')}"
-    )
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
     document_id = data.get("document_id", None)
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
@@ -918,9 +917,9 @@ def test_new_document_from_block_assignments_no_matched_parents(
         },
     )
     data = response.json()
-    assert response.status_code == 201, (
-        f"Unexpected result: {response.status_code} {data.get('detail')}"
-    )
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
     document_id = data.get("document_id", None)
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
@@ -940,9 +939,9 @@ def test_new_document_from_block_assignments_no_data(
         },
     )
     data = response.json()
-    assert response.status_code == 201, (
-        f"Unexpected result: {response.status_code} {data.get('detail')}"
-    )
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
     document_id = data.get("document_id", None)
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
@@ -969,9 +968,9 @@ def test_new_document_from_block_assignments_some_matched_parents(
         },
     )
     data = response.json()
-    assert response.status_code == 201, (
-        f"Unexpected result: {response.status_code} {data.get('detail')}"
-    )
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
     document_id = data.get("document_id", None)
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
@@ -998,9 +997,9 @@ def test_new_document_from_block_assignments_some_nulls(
         },
     )
     data = response.json()
-    assert response.status_code == 201, (
-        f"Unexpected result: {response.status_code} {data.get('detail')}"
-    )
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
     document_id = data.get("document_id", None)
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
@@ -1026,9 +1025,9 @@ def test_new_document_from_block_assignments_some_null_geoids(
         },
     )
     data = response.json()
-    assert response.status_code == 201, (
-        f"Unexpected result: {response.status_code} {data.get('detail')}"
-    )
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
     document_id = data.get("document_id", None)
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
@@ -1054,9 +1053,9 @@ def test_new_document_from_block_assignments_non_integer_mapping(
         },
     )
     data = response.json()
-    assert response.status_code == 201, (
-        f"Unexpected result: {response.status_code} {data.get('detail')}"
-    )
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
     document_id = data.get("document_id", None)
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
@@ -1082,9 +1081,9 @@ def test_new_document_from_block_assignments_too_many_unique_zones(
         },
     )
     data = response.json()
-    assert response.status_code == 201, (
-        f"Unexpected result: {response.status_code} {data.get('detail')}"
-    )
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
     document_id = data.get("document_id", None)
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
@@ -1113,9 +1112,9 @@ def test_new_document_from_block_assignments_no_children(
         },
     )
     data = response.json()
-    assert response.status_code == 201, (
-        f"Unexpected result: {response.status_code} {data.get('detail')}"
-    )
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
     document_id = data.get("document_id", None)
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
@@ -1143,9 +1142,9 @@ def test_new_document_from_block_assignments_duplicate_blocks_in_input(
     )
     data = response.json()
     detail = data.get("detail")
-    assert response.status_code == 400, (
-        f"Unexpected result: {response.status_code} {detail}"
-    )
+    assert (
+        response.status_code == 400
+    ), f"Unexpected result: {response.status_code} {detail}"
     assert (
         detail == "Duplicate geoids found in input data. Ensure all geoids are unique"
     )
@@ -1392,7 +1391,9 @@ def test_get_document_evaluation_recomputes_after_document_update(
     ev = session.exec(
         select(Evaluation).where(Evaluation.document_id == document_id)
     ).one()
-    doc = session.exec(select(Document).where(Document.document_id == document_id)).one()
+    doc = session.exec(
+        select(Document).where(Document.document_id == document_id)
+    ).one()
     assert ev.updated_at is not None
     assert doc.updated_at is not None
     assert ev.updated_at >= doc.updated_at
@@ -1849,6 +1850,6 @@ def test_put_empty_assignments_deletes_existing(client, document_id: str):
 
     # Verify assignments were deleted
     assignments = client.get(f"/api/get_assignments/{document_id}").json()
-    assert len(assignments) == 0, (
-        f"Expected 0 assignments after empty save, got {len(assignments)}"
-    )
+    assert (
+        len(assignments) == 0
+    ), f"Expected 0 assignments after empty save, got {len(assignments)}"
