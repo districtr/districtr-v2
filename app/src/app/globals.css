@@ -91,7 +91,7 @@ body {
   /* Map sits on top — tall enough to show the full state */
   .eval-map-wrapper {
     order: 1;
-    height: 400px !important;
+    height: 800px !important;
     width: 100% !important;
     flex: none !important;
   }
