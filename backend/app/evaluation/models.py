@@ -45,7 +45,9 @@ class CountyDemographics(SQLModel, table=True):
     # Gerrydb table that was aggregated to produce this row. Part of the
     # composite primary key so the same county GEOID can appear once per
     # source table (e.g. Navajo Nation spans multiple states/tables).
-    gerrydb_table_name: str = Field(sa_column=Column(Text, primary_key=True, index=True))
+    gerrydb_table_name: str = Field(
+        sa_column=Column(Text, primary_key=True, index=True)
+    )
     # Separate column for total_pop to support split-information queries without
     # deserialising the full demographic_data JSON.
     total_pop: int | None = Field(sa_column=Column(Integer, nullable=True))

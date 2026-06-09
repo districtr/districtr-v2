@@ -91,7 +91,13 @@ from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
 from sqlalchemy.sql.functions import coalesce
-from app.utils import update_or_select_district_stats
+from app.utils import (
+    update_or_select_district_stats,
+    district_stats_to_feature_collection,
+    publish_district_stats_to_r2,
+    stats_cdn_url,
+)
+from fastapi.responses import RedirectResponse
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from fiona.transform import transform
@@ -161,7 +167,11 @@ async def log_slow_requests(request: Request, call_next):
     duration = time.monotonic() - start
     if duration > 30:
         logger.warning(
-            "SLOW %s %s %s %.1fs", request.method, request.url.path, response.status_code, duration
+            "SLOW %s %s %s %.1fs",
+            request.method,
+            request.url.path,
+            response.status_code,
+            duration,
         )
     return response
 
@@ -323,11 +333,50 @@ async def db_is_alive(session: Session = Depends(get_session)):
 async def get_document_stats(
     background_tasks: BackgroundTasks,
     document: Annotated[Document, Depends(get_protected_document)],
+    document_id: DocumentID = Depends(parse_document_id),
     session: Session = Depends(get_session),
 ):
-    return update_or_select_district_stats(
+    """Per-zone district stats as a GeoJSON FeatureCollection.
+
+    For public (public_id) reads, redirects to the R2-hosted
+    `plans/display/{public_id}.geojson` when it's at least as fresh as the
+    document's assignments. Otherwise computes inline and enqueues a
+    background republish so the next viewer is served from the CDN.
+
+    Edit-mode reads always compute inline so the editor never sees stale
+    data, but still trigger a background republish for downstream viewers.
+    """
+    public_id = document.public_id
+    is_public_read = document_id.is_public
+    cdn_fresh = (
+        document.stats_published_at is not None
+        and document.stats_published_at >= document.assignments_updated_at
+    )
+
+    if is_public_read and cdn_fresh and public_id is not None:
+        cdn = stats_cdn_url(
+            public_id, cache_buster=str(int(document.stats_published_at.timestamp()))
+        )
+        if cdn:
+            return RedirectResponse(
+                url=cdn, status_code=status.HTTP_307_TEMPORARY_REDIRECT
+            )
+
+    rows = update_or_select_district_stats(
         session, document.document_id, background_tasks
     )
+
+    # Always (re)publish in the background when R2 is configured and the
+    # object is stale relative to the latest assignments. Skipped silently if
+    # there's no S3 client or no public_id.
+    if settings.get_s3_client() is not None and public_id is not None and not cdn_fresh:
+        background_tasks.add_task(
+            publish_district_stats_to_r2,
+            document_id=document.document_id,
+            public_id=public_id,
+        )
+
+    return district_stats_to_feature_collection(rows)
 
 
 @app.get("/api/document/{document_id}/evaluation")
@@ -750,6 +799,30 @@ async def update_assignments(
     # other clients).
     mutated = False
 
+    # Snapshot pre-existing district-mode assignments so we can compute the
+    # set of zones whose geometry/demographics changed in this request. Used
+    # below to drop only the affected rows from document.district_unions
+    # rather than wiping the cache for the whole document. Community maps
+    # don't feed into district_unions, so we skip the snapshot there.
+    diff_load_id: str | None = None
+    if not is_community_map:
+        diff_load_id, _ = str(uuid4()).split("-", maxsplit=1)
+        old_snapshot_table = f"old_assignments_{diff_load_id}"
+        session.connection().execute(
+            text(
+                f"CREATE TEMP TABLE {old_snapshot_table} "
+                f"(geo_id TEXT, zone INT) ON COMMIT DROP"
+            )
+        )
+        session.connection().execute(
+            text(
+                f"INSERT INTO {old_snapshot_table} (geo_id, zone) "
+                f"SELECT geo_id, zone FROM {assignment_table} "
+                f"WHERE document_id = :document_id"
+            ),
+            {"document_id": document_id},
+        )
+
     # The assignments field is always a full replacement set:
     #   [] means "delete all assignments" (user cleared everything)
     #   [...] means "replace with these assignments"
@@ -960,6 +1033,49 @@ async def update_assignments(
         # sync_fn always hits the DB (delete/insert/update), so count it.
         mutated = True
 
+    # For district maps, figure out which zones actually changed membership
+    # and evict only those rows from district_unions. The unassigned (NULL
+    # zone) row is always dropped when any zone changed, because its
+    # demographic totals depend on the sum across all assigned zones.
+    dirty_zones: list[int] = []
+    if diff_load_id is not None:
+        old_snapshot_table = f"old_assignments_{diff_load_id}"
+        dirty_rows = (
+            session.connection()
+            .execute(
+                text(
+                    f"""
+                SELECT DISTINCT z FROM (
+                    SELECT o.zone AS z
+                    FROM {old_snapshot_table} o
+                    LEFT JOIN {assignment_table} n
+                        ON n.document_id = :document_id AND n.geo_id = o.geo_id
+                    WHERE n.zone IS DISTINCT FROM o.zone
+                    UNION
+                    SELECT n.zone AS z
+                    FROM {assignment_table} n
+                    LEFT JOIN {old_snapshot_table} o ON o.geo_id = n.geo_id
+                    WHERE n.document_id = :document_id
+                      AND n.zone IS DISTINCT FROM o.zone
+                ) d
+                WHERE z IS NOT NULL
+                """
+                ),
+                {"document_id": document_id},
+            )
+            .all()
+        )
+        dirty_zones = [int(r[0]) for r in dirty_rows]
+        if dirty_zones:
+            session.connection().execute(
+                text(
+                    "DELETE FROM document.district_unions "
+                    "WHERE document_id = :document_id "
+                    "AND (zone = ANY(:dirty) OR zone IS NULL)"
+                ),
+                {"document_id": document_id, "dirty": dirty_zones},
+            )
+
     if mutated:
         updated_at = update_timestamp(session, document_id)
     else:
@@ -969,6 +1085,17 @@ async def update_assignments(
         updated_at = session.exec(
             select(Document.updated_at).where(Document.document_id == document_id)
         ).one()
+    if dirty_zones:
+        # Bump assignments_updated_at so /stats can tell that the CDN object
+        # is stale and republish, even on the path that doesn't otherwise
+        # change document.updated_at.
+        session.connection().execute(
+            text(
+                "UPDATE document.document SET assignments_updated_at = NOW() "
+                "WHERE document_id = :document_id"
+            ),
+            {"document_id": document_id},
+        )
     session.commit()
     if VERBOSE_LOGGING:
         logger.info(

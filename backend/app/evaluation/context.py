@@ -108,7 +108,9 @@ class DocumentEvaluationContext:
         """The DistrictrMap associated with this document."""
         return self.session.exec(
             sqlmodel.select(DistrictrMap)
-            .join(Document, Document.districtr_map_slug == DistrictrMap.districtr_map_slug)
+            .join(
+                Document, Document.districtr_map_slug == DistrictrMap.districtr_map_slug
+            )
             .where(Document.document_id == self.document_id)
         ).one_or_none()
 
@@ -116,7 +118,11 @@ class DocumentEvaluationContext:
     def gerrydb_table(self) -> GerrydbTableName | None:
         """The document's gerrydb table name (may be a shatterable UNION ALL view)."""
         m = self._districtr_map
-        return GerrydbTableName(m.gerrydb_table_name) if m and m.gerrydb_table_name else None
+        return (
+            GerrydbTableName(m.gerrydb_table_name)
+            if m and m.gerrydb_table_name
+            else None
+        )
 
     @cached_property
     def parent_layer(self) -> GerrydbTableName | None:
@@ -151,7 +157,9 @@ class IdealsForEguia:
     # the DB indefinitely for a permanently malformed gerrydb table.
     MAX_LOAD_ATTEMPTS: ClassVar[int] = 3
 
-    _cache: dict[GerrydbTableName, dict[ElectionPartyKey, float]] = dataclasses.field(default_factory=dict)
+    _cache: dict[GerrydbTableName, dict[ElectionPartyKey, float]] = dataclasses.field(
+        default_factory=dict
+    )
     _attempts: dict[GerrydbTableName, int] = dataclasses.field(default_factory=dict)
 
     def get(

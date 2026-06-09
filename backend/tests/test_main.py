@@ -19,7 +19,6 @@ import app.evaluation.main as evaluation_main
 from app.evaluation.models import Evaluation
 from app.models import Document
 from app.evaluation.registry import Metric, CURRENT_PAYLOAD_VERSION
-from time import sleep
 
 REQUIRED_AUTO_FIXTURES = [patch_recaptcha]
 
@@ -369,9 +368,9 @@ def test_new_document(client, ks_demo_view_census_blocks_districtrmap):
         },
     )
     data = response.json()
-    assert response.status_code == 201, (
-        f"Unexpected result: {response.status_code} {data.get('detail')}"
-    )
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
     document_id = data.get("document_id", None)
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
@@ -889,9 +888,9 @@ def test_new_document_from_block_assignments(client, simple_shatterable_district
         },
     )
     data = response.json()
-    assert response.status_code == 201, (
-        f"Unexpected result: {response.status_code} {data.get('detail')}"
-    )
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
     document_id = data.get("document_id", None)
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
@@ -918,9 +917,9 @@ def test_new_document_from_block_assignments_no_matched_parents(
         },
     )
     data = response.json()
-    assert response.status_code == 201, (
-        f"Unexpected result: {response.status_code} {data.get('detail')}"
-    )
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
     document_id = data.get("document_id", None)
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
@@ -940,9 +939,9 @@ def test_new_document_from_block_assignments_no_data(
         },
     )
     data = response.json()
-    assert response.status_code == 201, (
-        f"Unexpected result: {response.status_code} {data.get('detail')}"
-    )
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
     document_id = data.get("document_id", None)
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
@@ -969,9 +968,9 @@ def test_new_document_from_block_assignments_some_matched_parents(
         },
     )
     data = response.json()
-    assert response.status_code == 201, (
-        f"Unexpected result: {response.status_code} {data.get('detail')}"
-    )
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
     document_id = data.get("document_id", None)
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
@@ -998,9 +997,9 @@ def test_new_document_from_block_assignments_some_nulls(
         },
     )
     data = response.json()
-    assert response.status_code == 201, (
-        f"Unexpected result: {response.status_code} {data.get('detail')}"
-    )
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
     document_id = data.get("document_id", None)
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
@@ -1026,9 +1025,9 @@ def test_new_document_from_block_assignments_some_null_geoids(
         },
     )
     data = response.json()
-    assert response.status_code == 201, (
-        f"Unexpected result: {response.status_code} {data.get('detail')}"
-    )
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
     document_id = data.get("document_id", None)
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
@@ -1054,9 +1053,9 @@ def test_new_document_from_block_assignments_non_integer_mapping(
         },
     )
     data = response.json()
-    assert response.status_code == 201, (
-        f"Unexpected result: {response.status_code} {data.get('detail')}"
-    )
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
     document_id = data.get("document_id", None)
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
@@ -1082,9 +1081,9 @@ def test_new_document_from_block_assignments_too_many_unique_zones(
         },
     )
     data = response.json()
-    assert response.status_code == 201, (
-        f"Unexpected result: {response.status_code} {data.get('detail')}"
-    )
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
     document_id = data.get("document_id", None)
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
@@ -1113,9 +1112,9 @@ def test_new_document_from_block_assignments_no_children(
         },
     )
     data = response.json()
-    assert response.status_code == 201, (
-        f"Unexpected result: {response.status_code} {data.get('detail')}"
-    )
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
     document_id = data.get("document_id", None)
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
@@ -1143,9 +1142,9 @@ def test_new_document_from_block_assignments_duplicate_blocks_in_input(
     )
     data = response.json()
     detail = data.get("detail")
-    assert response.status_code == 400, (
-        f"Unexpected result: {response.status_code} {detail}"
-    )
+    assert (
+        response.status_code == 400
+    ), f"Unexpected result: {response.status_code} {detail}"
     assert (
         detail == "Duplicate geoids found in input data. Ensure all geoids are unique"
     )
@@ -1244,18 +1243,25 @@ def test_get_district_unions(client, document_id_total_vap):
     response = client.get(f"/api/document/{document_id_total_vap}/stats")
     assert response.status_code == 200
     data = response.json()
-    # 2 assigned zones + 1 unassigned row
-    assert len(data) == 3
-    assigned_rows = [d for d in data if d.get("zone") is not None]
-    unassigned_rows = [d for d in data if d.get("zone") is None]
-    assert len(assigned_rows) == 2
-    assert len(unassigned_rows) == 1
-    assert assigned_rows[0].get("geometry")
-    assert assigned_rows[0].get("demographic_data")
-    assert assigned_rows[0].get("updated_at")
-    # Unassigned row has no geometry but has demographic data
-    assert unassigned_rows[0].get("geometry") is None
-    assert unassigned_rows[0].get("demographic_data") is not None
+    assert data.get("type") == "FeatureCollection"
+    features = data.get("features", [])
+    # 2 assigned zones + 1 unassigned feature (null geometry)
+    assert len(features) == 3
+    assigned_features = [
+        f for f in features if f.get("properties", {}).get("zone") is not None
+    ]
+    unassigned_features = [
+        f for f in features if f.get("properties", {}).get("zone") is None
+    ]
+    assert len(assigned_features) == 2
+    assert len(unassigned_features) == 1
+    # geometry is now an embedded JSON object, not a stringified GeoJSON blob
+    assert assigned_features[0].get("geometry") is not None
+    assert isinstance(assigned_features[0].get("geometry"), dict)
+    assert assigned_features[0]["properties"].get("demographic_data")
+    assert assigned_features[0]["properties"].get("updated_at")
+    assert unassigned_features[0].get("geometry") is None
+    assert unassigned_features[0]["properties"].get("demographic_data") is not None
     # update assignments to re-generate stats
     response = client.put(
         "/api/assignments",
@@ -1271,8 +1277,9 @@ def test_get_district_unions(client, document_id_total_vap):
     response = client.get(f"/api/document/{document_id_total_vap}/stats")
     assert response.status_code == 200
     data = response.json()
-    # 1 assigned zone + 1 unassigned row
-    assert len(data) == 2
+    features = data.get("features", [])
+    # 1 assigned zone + 1 unassigned feature
+    assert len(features) == 2
 
     # get with public id
     document_info = client.get(f"/api/document/{document_id_total_vap}")
@@ -1281,7 +1288,89 @@ def test_get_district_unions(client, document_id_total_vap):
     )
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 2
+    features = data.get("features", [])
+    assert len(features) == 2
+
+
+def test_district_unions_dirty_zone_eviction(client, document_id_total_vap):
+    """Touching one zone leaves another zone's cached row in place.
+
+    Validates the optimistic-eviction path in PUT /api/assignments: only the
+    rows for zones whose membership actually changed (and the unassigned
+    aggregate, since it depends on the sum across all zones) get dropped
+    from document.district_unions.
+    """
+    # Seed: two zones, two cached rows.
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_total_vap,
+            "assignments": [
+                ["202090441022004", 1],
+                ["200979691001108", 2],
+            ],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+        },
+    )
+    assert response.status_code == 200
+
+    response = client.get(f"/api/document/{document_id_total_vap}/stats")
+    assert response.status_code == 200
+    initial = {
+        f["properties"]["zone"]: f["properties"]["updated_at"]
+        for f in response.json()["features"]
+        if f["properties"]["zone"] is not None
+    }
+    assert set(initial.keys()) == {1, 2}
+
+    # Re-write the SAME mapping. No zone is dirty → no rows should be
+    # rebuilt → both cached updated_at timestamps must survive.
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_total_vap,
+            "assignments": [
+                ["202090441022004", 1],
+                ["200979691001108", 2],
+            ],
+            "last_updated_at": response.json()["features"][0]["properties"][
+                "updated_at"
+            ],
+            "overwrite": True,
+        },
+    )
+    assert response.status_code == 200
+    response = client.get(f"/api/document/{document_id_total_vap}/stats")
+    same = {
+        f["properties"]["zone"]: f["properties"]["updated_at"]
+        for f in response.json()["features"]
+        if f["properties"]["zone"] is not None
+    }
+    assert same == initial, "no-op write must not evict any cached zone"
+
+    # Move a geo_id out of zone 1 into a fresh zone 3. Zone 1 changed, zone
+    # 3 is new — both should be (re)built. Zone 2's row should be untouched.
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_total_vap,
+            "assignments": [
+                ["202090441022004", 3],
+                ["200979691001108", 2],
+            ],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+            "overwrite": True,
+        },
+    )
+    assert response.status_code == 200
+    response = client.get(f"/api/document/{document_id_total_vap}/stats")
+    after = {
+        f["properties"]["zone"]: f["properties"]["updated_at"]
+        for f in response.json()["features"]
+        if f["properties"]["zone"] is not None
+    }
+    assert set(after.keys()) == {2, 3}
+    assert after[2] == initial[2], "zone 2 was not touched; its cache row must survive"
 
 
 @pytest.fixture
@@ -1392,7 +1481,9 @@ def test_get_document_evaluation_recomputes_after_document_update(
     ev = session.exec(
         select(Evaluation).where(Evaluation.document_id == document_id)
     ).one()
-    doc = session.exec(select(Document).where(Document.document_id == document_id)).one()
+    doc = session.exec(
+        select(Document).where(Document.document_id == document_id)
+    ).one()
     assert ev.updated_at is not None
     assert doc.updated_at is not None
     assert ev.updated_at >= doc.updated_at
@@ -1849,6 +1940,6 @@ def test_put_empty_assignments_deletes_existing(client, document_id: str):
 
     # Verify assignments were deleted
     assignments = client.get(f"/api/get_assignments/{document_id}").json()
-    assert len(assignments) == 0, (
-        f"Expected 0 assignments after empty save, got {len(assignments)}"
-    )
+    assert (
+        len(assignments) == 0
+    ), f"Expected 0 assignments after empty save, got {len(assignments)}"
