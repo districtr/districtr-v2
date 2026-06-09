@@ -8,12 +8,14 @@ interface ZoomToFeatureProps {
   selectedIndex: number | null;
   setSelectedIndex: (index: number) => void | Dispatch<SetStateAction<number | null>>;
   features: GeoJSON.Feature[] | GeoJSON.Polygon[];
+  padding?: number;
 }
 
 export default function ZoomToFeature({
   selectedIndex,
   setSelectedIndex,
   features,
+  padding,
 }: ZoomToFeatureProps) {
   const mapRef = useMapStore(state => state.getMapRef());
 
@@ -48,8 +50,9 @@ export default function ZoomToFeature({
     } else {
       return;
     }
+    const fitOptions = padding ? {padding} : undefined;
     if (isFeature(feature) && feature.properties?.bbox) {
-      mapRef?.fitBounds(feature.properties.bbox);
+      mapRef?.fitBounds(feature.properties.bbox, fitOptions);
       return;
     }
 
@@ -65,7 +68,7 @@ export default function ZoomToFeature({
     if (isPolygon(feature)) {
       let SW = {lng: feature.coordinates[0][0][0], lat: feature.coordinates[0][0][1]};
       let NE = {lng: feature.coordinates[0][2][0], lat: feature.coordinates[0][2][1]};
-      mapRef?.fitBounds([SW, NE]);
+      mapRef?.fitBounds([SW, NE], fitOptions);
       return;
     }
 

@@ -22,6 +22,7 @@ const updateData = async (
   const parentWithSameLayer = !isChild && data.current?.metadata?.layer === layer;
   if (childWithNoneBroken) {
     data.current = EMPTY_FT_COLLECTION;
+    if (GeometryWorker) GeometryWorker.setChildPointData(EMPTY_FT_COLLECTION);
     return new Date().toISOString();
   } else if (parentWithSameLayer) {
     // Do nothing
@@ -36,9 +37,12 @@ const updateData = async (
   });
   data.current = result;
 
-  // Send point data to GeometryWorker if this is the parent layer (not child)
-  if (!isChild && GeometryWorker) {
-    GeometryWorker.setPointData(data.current);
+  if (GeometryWorker) {
+    if (isChild) {
+      GeometryWorker.setChildPointData(data.current);
+    } else {
+      GeometryWorker.setPointData(data.current);
+    }
   }
 
   return new Date().toISOString();

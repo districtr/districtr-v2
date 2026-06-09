@@ -1306,29 +1306,93 @@ async def get_unassigned_geoids(
     exclude_ids: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
 ):
+    districtr_map = get_districtr_map(
+        document_id=DocumentID(document_id=document.document_id), session=session
+    )
+    parent_layer = districtr_map.parent_layer
+
+    # Enumerate geo_ids that could be unassigned: the union of any rows already
+    # tracked in document.assignments (covers shattered children) and every parent
+    # path. Then keep only those whose effective assignment is NULL.
     stmt = text(
-        "SELECT bbox from get_unassigned_bboxes(:doc_uuid, :exclude_ids)"
+        f"""
+        WITH possible_ids AS (
+            SELECT DISTINCT geo_id FROM document.assignments WHERE document_id = :doc_uuid
+            UNION
+            SELECT path AS geo_id FROM gerrydb.{parent_layer}
+        )
+        SELECT possible_ids.geo_id
+        FROM possible_ids
+        LEFT JOIN document.assignments doc
+            ON possible_ids.geo_id = doc.geo_id
+            AND doc.document_id = :doc_uuid
+        WHERE doc.zone IS NULL
+            AND possible_ids.geo_id <> ALL(:exclude_ids)
+        """
     ).bindparams(
         bindparam(key="doc_uuid", type_=UUIDType),
         bindparam(key="exclude_ids", type_=ARRAY(String)),
     )
     try:
-        results = (
-            session.connection()
+        unassigned_ids = [
+            row[0]
+            for row in session.connection()
             .execute(
                 stmt, {"doc_uuid": document.document_id, "exclude_ids": exclude_ids}
             )
             .fetchall()
-        )
+        ]
     except DataError:
-        # TODO: When is this happening? Should investigate
         logger.warning("No results found for unassigned geoids")
-        results = []
+        unassigned_ids = []
 
-    payload = msgpack.packb(
-        {"features": [row[0] for row in results if row[0] is not None]},
-        use_bin_type=True,
-    )
+    components: list[list[str]] = []
+    if unassigned_ids:
+        try:
+            G = await _get_graph(parent_layer)
+
+            # Resolve any child ids (shattered) up to their parents so adjacency
+            # works on a single graph. Multiple unassigned children of the same
+            # parent collapse to one node carrying all of their original ids.
+            unresolved = [gid for gid in unassigned_ids if gid not in G.nodes]
+            child_to_parent: dict[str, str] = {}
+            if unresolved:
+                child_to_parent = dict(
+                    session.exec(
+                        select(
+                            ParentChildEdges.child_path,
+                            ParentChildEdges.parent_path,
+                        )
+                        .where(ParentChildEdges.districtr_map == districtr_map.uuid)
+                        .where(col(ParentChildEdges.child_path).in_(unresolved))
+                    ).all()
+                )
+
+            # node_id (parent path) -> list of original geo_ids that resolve here
+            node_to_originals: dict[str, list[str]] = {}
+            orphans: list[str] = []
+            for gid in unassigned_ids:
+                if gid in G.nodes:
+                    node_to_originals.setdefault(gid, []).append(gid)
+                elif gid in child_to_parent:
+                    node_to_originals.setdefault(child_to_parent[gid], []).append(gid)
+                else:
+                    orphans.append(gid)
+
+            for component in connected_components(
+                G.subgraph(node_to_originals.keys())
+            ):
+                originals: list[str] = []
+                for parent_id in component:
+                    originals.extend(node_to_originals[parent_id])
+                components.append(originals)
+            # Orphans (no parent in edges and not in graph): keep visible as singletons.
+            components.extend([gid] for gid in orphans)
+        except HTTPException:
+            # Graph unavailable — fall back to one component per id.
+            components = [[gid] for gid in unassigned_ids]
+
+    payload = msgpack.packb({"components": components}, use_bin_type=True)
     return Response(content=payload, media_type="application/msgpack")
 
 
