@@ -28,7 +28,6 @@ from sqlalchemy import or_, and_
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound
 from app.core.db import get_session
 import logging
-import time
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -75,7 +74,6 @@ def get_protected_document(
     - UUID document IDs
     - Public IDs (numeric, for public sharing)
     """
-    t0 = time.monotonic()
     stmt = select(Document)
 
     if document_id.is_public:
@@ -91,11 +89,6 @@ def get_protected_document(
         logger.error(f"Error loading document: {str(e)}")
         raise HTTPException(status_code=500, detail="Error loading document")
 
-    logger.info(
-        f"get_protected_document: document_id={document_id.value} "
-        f"is_public={document_id.is_public} "
-        f"query_ms={(time.monotonic() - t0) * 1000:.1f}"
-    )
     return document
 
 

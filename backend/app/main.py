@@ -1142,7 +1142,6 @@ async def get_assignments(
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
 ):
-    t0 = time.monotonic()
     districtr_map_uuid, map_type = session.exec(
         select(DistrictrMap.uuid, Document.map_type)
         .join(
@@ -1152,7 +1151,6 @@ async def get_assignments(
         )
         .where(Document.document_id == document.document_id)
     ).one()
-    t_meta = time.monotonic()
     is_community_map = map_type == "community"
 
     if is_community_map:
@@ -1185,31 +1183,10 @@ async def get_assignments(
             )
             .where(Assignments.document_id == document.document_id)
         )
-    t_build = time.monotonic()
     rows = session.exec(stmt).all()
-    t_fetch = time.monotonic()
-
     payload = msgpack.packb(
         [tuple(r) for r in rows],
         use_bin_type=True,
-    )
-    t_serialize = time.monotonic()
-
-    meta_ms = (t_meta - t0) * 1000
-    build_ms = (t_build - t_meta) * 1000
-    fetch_ms = (t_fetch - t_build) * 1000
-    serialize_ms = (t_serialize - t_fetch) * 1000
-    total_ms = (t_serialize - t0) * 1000
-    logger.info(
-        f"GET /api/get_assignments/{document.document_id}: "
-        f"is_community_map={is_community_map}, "
-        f"assignment_count={len(rows)}, "
-        f"payload_bytes={len(payload)}, "
-        f"meta_query_ms={meta_ms:.1f}, "
-        f"stmt_build_ms={build_ms:.1f}, "
-        f"assignments_query_ms={fetch_ms:.1f}, "
-        f"serialize_ms={serialize_ms:.1f}, "
-        f"total_ms={total_ms:.1f}"
     )
     return Response(content=payload, media_type="application/msgpack")
 
