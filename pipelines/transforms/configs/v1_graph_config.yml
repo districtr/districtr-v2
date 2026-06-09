@@ -12,9 +12,8 @@ graphs:
   az_districtr_view_v1:
     child_gpkg: az_districtr_block_view_v1.gpkg
     parent_gpkg: az_districtr_vtd_view_v1.gpkg
-  ca_districtr_view_v1:
-    child_gpkg: ca_districtr_block_view_v1.gpkg
-    parent_gpkg: ca_districtr_bg_view_v1.gpkg
+  # ca_districtr_view_v1 is excluded: the block layer is too large to build the graph
+  # via the standard gpkg pipeline. The pre-built pkl must be uploaded to S3 manually.
   co_districtr_view_v1:
     child_gpkg: co_districtr_block_view_v1.gpkg
     parent_gpkg: co_districtr_vtd_view_v1.gpkg
@@ -99,9 +98,6 @@ graphs:
   nv_districtr_view_v1:
     child_gpkg: nv_districtr_block_view_v1.gpkg
     parent_gpkg: nv_districtr_vtd_view_v1.gpkg
-  ny_CD21_2025_view_v1:
-    child_gpkg: ny_block_2025_view_v1.gpkg
-    parent_gpkg: ny_hybrid_block_bg_2025_view_v1.gpkg
   ny_districtr_view_v1:
     child_gpkg: ny_districtr_block_view_v1.gpkg
     parent_gpkg: ny_districtr_vtd_view_v1.gpkg
