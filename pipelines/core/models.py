@@ -14,7 +14,7 @@ def get_filetype(file_path: str) -> str:
 
 class Config(BaseModel):
     name: str
-    version: str | None
+    version: str | None = None
 
     @classmethod
     def from_file(cls: Type[T], file_path: str) -> T:
