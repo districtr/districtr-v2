@@ -7,9 +7,19 @@ import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {useDistrictHover} from '@/app/hooks/useDistrictHover';
 import {type GeoUnit, GEO_UNITS, GEO_UNIT_LABELS} from '@constants/document/geoUnits';
 
-interface Props {
+interface BasicsSectionProps {
   evaluation: DocumentEvaluation;
 }
+
+const HOVER_BTN_STYLE: React.CSSProperties = {
+  background: 'none',
+  border: 'none',
+  padding: 0,
+  font: 'inherit',
+  fontWeight: 'bold',
+  cursor: 'default',
+  textDecoration: 'underline dotted',
+};
 
 const GEO_UNIT_DESCRIPTIONS: Record<GeoUnit, string> = {
   [GEO_UNITS.VTD]: 'VTDs, also called "voting tabulation districts" or "voting districts," are the closest approximation of electoral precincts in Census geography.',
@@ -17,7 +27,7 @@ const GEO_UNIT_DESCRIPTIONS: Record<GeoUnit, string> = {
   [GEO_UNITS.BLOCK]: 'Census blocks are the smallest Census geographic unit, corresponding roughly to city blocks.',
 };
 
-export const BasicsSection: React.FC<Props> = ({evaluation}) => {
+export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const {onDistrictEnter, onDistrictLeave} = useDistrictHover();
 
@@ -128,11 +138,7 @@ export const BasicsSection: React.FC<Props> = ({evaluation}) => {
               The following districts are not contiguous:{' '}
               {nonContiguousDistricts.map((d, i) => (
                 <span key={d}>
-                  <strong
-                    onMouseEnter={() => onDistrictEnter(d)}
-                    onMouseLeave={onDistrictLeave}
-                    style={{cursor: 'default'}}
-                  >District {d}</strong>
+                  <button type="button" style={HOVER_BTN_STYLE} onMouseEnter={() => onDistrictEnter(d)} onMouseLeave={onDistrictLeave} onFocus={() => onDistrictEnter(d)} onBlur={onDistrictLeave}>District {d}</button>
                   {i < nonContiguousDistricts.length - 1 ? ', ' : ''}
                 </span>
               ))}
@@ -152,17 +158,9 @@ export const BasicsSection: React.FC<Props> = ({evaluation}) => {
           {population_deviation ? (
             <Text size="2" as="p">
               Your plan&apos;s most populous district is{' '}
-              <strong
-                onMouseEnter={() => onDistrictEnter(population_deviation.most_populous_district)}
-                onMouseLeave={onDistrictLeave}
-                style={{cursor: 'default'}}
-              >District {population_deviation.most_populous_district}</strong> and least
+              <button type="button" style={HOVER_BTN_STYLE} onMouseEnter={() => onDistrictEnter(population_deviation.most_populous_district)} onMouseLeave={onDistrictLeave} onFocus={() => onDistrictEnter(population_deviation.most_populous_district)} onBlur={onDistrictLeave}>District {population_deviation.most_populous_district}</button>{' '}and least
               populous district is{' '}
-              <strong
-                onMouseEnter={() => onDistrictEnter(population_deviation.least_populous_district)}
-                onMouseLeave={onDistrictLeave}
-                style={{cursor: 'default'}}
-              >District {population_deviation.least_populous_district}</strong>, for a
+              <button type="button" style={HOVER_BTN_STYLE} onMouseEnter={() => onDistrictEnter(population_deviation.least_populous_district)} onMouseLeave={onDistrictLeave} onFocus={() => onDistrictEnter(population_deviation.least_populous_district)} onBlur={onDistrictLeave}>District {population_deviation.least_populous_district}</button>, for a
               top-to-bottom deviation of{' '}
               <strong>{(population_deviation.top_to_bottom_deviation * 100).toFixed(2)}%</strong>{' '}
               and a maximal absolute deviation of{' '}

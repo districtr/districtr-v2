@@ -106,6 +106,7 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
     return null;
   }
 
+  // TODO: refactor into a cleaner wrapper component and simplify child template logic
   return (
     <div className={`h-screen w-screen overflow-hidden flex justify-between p flex-col-reverse lg:flex-row-reverse landscape:flex-row-reverse${isEval ? ' eval-page-root' : ''}`}>
       {isPublicPage && isEval ? <EvalPanel/> : <SidebarComponent />}

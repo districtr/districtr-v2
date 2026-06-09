@@ -30,7 +30,7 @@ const CO5 = {
   image: '/co_district5.png',
 };
 
-interface Props {
+interface CompactnessSectionProps {
   evaluation: DocumentEvaluation;
 }
 
@@ -50,9 +50,9 @@ const ExemplarTable: React.FC<ExemplarTableProps> = ({scoreKey}) => {
     <Table.Root size="1" mb="3">
       <Table.Body>
         <Table.Row>
-          <Table.RowHeaderCell>
+          <Table.Cell>
             <Text size="1">{SCORE_LABEL[scoreKey]}</Text>
-          </Table.RowHeaderCell>
+          </Table.Cell>
           {EXEMPLARS.map(e => (
             <Table.Cell key={e.name} justify="center">
               <Text size="2">{e[scoreKey].toFixed(3)}</Text>
@@ -60,9 +60,9 @@ const ExemplarTable: React.FC<ExemplarTableProps> = ({scoreKey}) => {
           ))}
         </Table.Row>
         <Table.Row>
-          <Table.RowHeaderCell style={{verticalAlign: 'middle'}}>
+          <Table.Cell style={{verticalAlign: 'middle'}}>
             <Text size="1">...is exemplified by...</Text>
-          </Table.RowHeaderCell>
+          </Table.Cell>
           {EXEMPLARS.map(e => (
             <Table.Cell key={e.name} justify="center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -71,9 +71,9 @@ const ExemplarTable: React.FC<ExemplarTableProps> = ({scoreKey}) => {
           ))}
         </Table.Row>
         <Table.Row>
-          <Table.RowHeaderCell>
+          <Table.Cell>
             <Text size="1">Source</Text>
-          </Table.RowHeaderCell>
+          </Table.Cell>
           {EXEMPLARS.map(e => (
             <Table.Cell key={e.name} justify="center">
               <Text size="1">{e.name}</Text>
@@ -85,7 +85,7 @@ const ExemplarTable: React.FC<ExemplarTableProps> = ({scoreKey}) => {
   );
 }
 
-export const CompactnessSection: React.FC<Props> = ({evaluation}) => {
+export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluation}) => {
   const {cut_edges, polsby_popper, reock} = evaluation;
   const getZoneColor = useZoneColorGetter();
   const {onDistrictEnter, onDistrictLeave} = useDistrictHover();
@@ -188,7 +188,7 @@ export const CompactnessSection: React.FC<Props> = ({evaluation}) => {
                 </Table.Header>
                 <Table.Body>
                   {zones.map(zone => (
-                    <Table.Row key={zone} onMouseEnter={() => onDistrictEnter(zone)} onMouseLeave={onDistrictLeave} style={{cursor: 'default'}}>
+                    <Table.Row key={zone} tabIndex={0} onMouseEnter={() => onDistrictEnter(zone)} onMouseLeave={onDistrictLeave} onFocus={() => onDistrictEnter(zone)} onBlur={onDistrictLeave} style={{cursor: 'default'}}>
                       <Table.Cell>
                         <Flex align="center" gap="2">
                           <div style={{width: 16, height: 16, borderRadius: '50%', backgroundColor: getZoneColor(Number(zone)), flexShrink: 0}} />

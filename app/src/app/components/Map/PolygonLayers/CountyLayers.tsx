@@ -4,7 +4,7 @@ import {GEODATA_URL} from '@/app/utils/api/constants';
 import {FilterSpecification} from 'maplibre-gl';
 import {useMemo} from 'react';
 import {Layer, Source} from 'react-map-gl/maplibre';
-import {SENTINEL_EMPTY_ARRAY, HIGHLIGHT_LINE_COLOR, HIGHLIGHT_LINE_WIDTH} from '@/app/constants/map/layerStyle';
+import {SENTINEL_EMPTY_ARRAY, SENTINEL_EMPTY_VALUE, HIGHLIGHT_LINE_COLOR, HIGHLIGHT_LINE_WIDTH} from '@/app/constants/map/layerStyle';
 import {CANONICAL_LAYER_IDS, COUNTY_SOURCE_ID, MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
 
 export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
@@ -81,7 +81,7 @@ export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
           filter={
             hoveredCountyGeoid
               ? ['==', ['get', 'GEOID'], hoveredCountyGeoid]
-              : ['==', ['get', 'GEOID'], '']
+              : ['==', ['get', 'GEOID'], SENTINEL_EMPTY_VALUE]
           }
         />
         <Layer

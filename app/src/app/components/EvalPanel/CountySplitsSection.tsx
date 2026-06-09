@@ -6,11 +6,11 @@ import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 
-interface Props {
+interface CountySplitsSectionProps {
   evaluation: DocumentEvaluation;
 }
 
-export const CountySplitsSection: React.FC<Props> = ({evaluation}) => {
+export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluation}) => {
   const [selectedDistrict, setSelectedDistrict] = useState<string>('all');
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
@@ -118,7 +118,7 @@ export const CountySplitsSection: React.FC<Props> = ({evaluation}) => {
               <strong>{idealPop.toLocaleString()}</strong>.
             </Text>
           )}
-          <div className={entries.length > 15 ? 'county-detail-scroll' : undefined}>
+          <div className={entries.length > 15 ? 'max-h-[400px] overflow-y-auto print:max-h-none print:overflow-visible' : undefined}>
             <Table.Root size="1">
               <Table.Header>
                 <Table.Row>
@@ -142,8 +142,11 @@ export const CountySplitsSection: React.FC<Props> = ({evaluation}) => {
                   return (
                     <Table.Row
                       key={geoid}
+                      tabIndex={0}
                       onMouseEnter={() => setHoveredCountyGeoid(geoid)}
                       onMouseLeave={() => setHoveredCountyGeoid(null)}
+                      onFocus={() => setHoveredCountyGeoid(geoid)}
+                      onBlur={() => setHoveredCountyGeoid(null)}
                       style={{cursor: 'default'}}
                     >
                       <Table.Cell>

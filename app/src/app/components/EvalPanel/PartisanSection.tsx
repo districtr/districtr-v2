@@ -10,7 +10,7 @@ import {NUMBER_FORMATS} from '@/app/constants/demography/format';
 
 type Pov = 'dem' | 'rep';
 
-interface Props {
+interface PartisanSectionProps {
   evaluation: DocumentEvaluation;
 }
 
@@ -70,7 +70,7 @@ function sortElections(keys: string[]): string[] {
   });
 }
 
-export const PartisanSection: React.FC<Props> = ({evaluation}) => {
+export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) => {
   const [pov, setPov] = useState<Pov>('dem');
   const elections = sortElections(Object.keys(evaluation.seats ?? {}));
   const n = elections.length;

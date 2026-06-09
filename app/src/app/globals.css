@@ -76,16 +76,7 @@ body {
     pointer;
 }
 
-.county-detail-scroll {
-  max-height: 400px;
-  overflow-y: auto;
-}
-
 @media print {
-  .county-detail-scroll {
-    max-height: none !important;
-    overflow: visible !important;
-  }
   @page {
     margin: 2cm;
   }
@@ -100,7 +91,7 @@ body {
   /* Map sits on top — tall enough to show the full state */
   .eval-map-wrapper {
     order: 1;
-    height: 800px !important;
+    height: 400px !important;
     width: 100% !important;
     flex: none !important;
   }
