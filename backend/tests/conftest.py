@@ -1,5 +1,6 @@
 import os
 import pytest
+import msgpack
 from app.main import app
 from app.core.db import get_session
 from app.core.security import auth
@@ -26,7 +27,46 @@ from app.utils import (
     create_parent_child_edges,
 )
 
-client = TestClient(app)
+class MsgpackAwareTestClient(TestClient):
+    """TestClient that transparently bridges JSON-style call sites to the msgpack
+    wire format that some endpoints now require.
+
+    - PUT /api/assignments accepts a msgpack body; convert `json=` to msgpack bytes.
+    - GET /api/get_assignments/{id} returns msgpack-encoded [[geo_id, zone, parent_path], ...];
+      decode and reshape into dicts so existing `.json()` callers keep working.
+    - GET /api/document/{id}/unassigned and /contiguity/.../connected_component_bboxes
+      return msgpack; decode in place so `.json()` returns the underlying object.
+    """
+
+    def put(self, url, *args, **kwargs):
+        if url.rstrip("/").endswith("/api/assignments") and "json" in kwargs:
+            payload = kwargs.pop("json")
+            kwargs["content"] = msgpack.packb(payload, use_bin_type=True)
+            headers = dict(kwargs.get("headers") or {})
+            headers["Content-Type"] = "application/msgpack"
+            kwargs["headers"] = headers
+        return super().put(url, *args, **kwargs)
+
+    def get(self, url, *args, **kwargs):
+        response = super().get(url, *args, **kwargs)
+        if response.status_code != 200:
+            return response
+        path = url.split("?", 1)[0]
+        if "/api/get_assignments/" in path:
+            rows = msgpack.unpackb(response.content, raw=False)
+            decoded = [
+                {"geo_id": r[0], "zone": r[1], "parent_path": r[2]} for r in rows
+            ]
+            response.json = lambda: decoded  # type: ignore[method-assign]
+        elif path.endswith("/unassigned") or path.endswith(
+            "/connected_component_bboxes"
+        ):
+            decoded = msgpack.unpackb(response.content, raw=False)
+            response.json = lambda: decoded  # type: ignore[method-assign]
+        return response
+
+
+client = MsgpackAwareTestClient(app)
 
 
 @pytest.fixture(name="client")
@@ -40,7 +80,7 @@ def client_fixture(session: Session):
     app.dependency_overrides[get_session] = get_session_override
     app.dependency_overrides[auth.verify] = get_auth_result_override
 
-    client = TestClient(app, headers={"origin": "http://localhost:5173"})
+    client = MsgpackAwareTestClient(app, headers={"origin": "http://localhost:5173"})
     yield client
     app.dependency_overrides.clear()
 
@@ -63,7 +103,9 @@ def client_isolated_sessions_fixture(engine):
     app.dependency_overrides[get_session] = get_session_override
     app.dependency_overrides[auth.verify] = get_auth_result_override
 
-    isolated_client = TestClient(app, headers={"origin": "http://localhost:5173"})
+    isolated_client = MsgpackAwareTestClient(
+        app, headers={"origin": "http://localhost:5173"}
+    )
     yield isolated_client
     app.dependency_overrides.clear()
 
