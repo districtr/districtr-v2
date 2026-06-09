@@ -7,6 +7,7 @@ import bbox from '@turf/bbox';
 import nearestPoint from '@turf/nearest-point';
 import polylabel from 'polylabel';
 import {EMPTY_FT_COLLECTION} from '../../constants/map/layerStyle';
+import {getMsgpack} from '../api/msgpack';
 
 const POINT_LIMIT = 256;
 const MIN_POPULATION = 300;
@@ -318,15 +319,14 @@ const GeometryWorker: GeometryWorkerClass = {
   },
   async getUnassignedGeometries(documentId?: string, exclude_ids?: string[]) {
     const geomsToDissolve: GeoJSON.Feature[] = [];
-    const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${documentId}/unassigned`);
-    if (exclude_ids?.length) {
-      exclude_ids.forEach(id => url.searchParams.append('exclude_ids', id));
-    }
-    const remoteUnassignedFeatures = await fetch(url).then(r => r.json());
-    if (!remoteUnassignedFeatures?.features) {
+    const result = await getMsgpack<{features: Array<GeoJSON.MultiPolygon | GeoJSON.Polygon>}>(
+      `document/${documentId}/unassigned`,
+      exclude_ids?.length ? {exclude_ids} : undefined
+    );
+    if (!result.ok || !result.response?.features) {
       return {dissolved: {type: 'FeatureCollection', features: []}, overall: null};
     }
-    remoteUnassignedFeatures.features.forEach((geo: GeoJSON.MultiPolygon | GeoJSON.Polygon) => {
+    result.response.features.forEach((geo: GeoJSON.MultiPolygon | GeoJSON.Polygon) => {
       if (geo.type === 'Polygon') {
         geomsToDissolve.push({
           type: 'Feature',

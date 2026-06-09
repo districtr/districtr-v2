@@ -6,8 +6,9 @@ from fastapi import (
     HTTPException,
     Query,
 )
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from typing import Annotated, Any
+import msgpack
 import psutil
 import time
 
@@ -87,6 +88,7 @@ from app.comments.models import (
     Tag,
     CommentTag,
 )
+from pydantic import ValidationError
 from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
@@ -612,7 +614,7 @@ async def create_document(
 
 @app.put("/api/assignments")
 async def update_assignments(
-    data: AssignmentsCreate,
+    request: Request,
     background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
 ):
@@ -649,6 +651,22 @@ async def update_assignments(
         HTTPException: 400 if no assignments provided
         HTTPException: 409 if document was updated by another client and overwrite=False
     """
+    body_bytes = await request.body()
+    try:
+        raw = msgpack.unpackb(body_bytes, raw=False)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Could not decode msgpack body: {e}",
+        )
+    try:
+        data = AssignmentsCreate.model_validate(raw)
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=e.errors(),
+        )
+
     has_assignments = len(data.assignments) > 0
     has_metadata = data.metadata is not None
     has_comments = data.comments is not None
@@ -1119,11 +1137,12 @@ async def update_num_districts(
 
 
 # called by getAssignments in apiHandlers.ts
-@app.get("/api/get_assignments/{document_id}", response_model=list[AssignmentsResponse])
+@app.get("/api/get_assignments/{document_id}")
 async def get_assignments(
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
 ):
+    t0 = time.monotonic()
     districtr_map_uuid, map_type = session.exec(
         select(DistrictrMap.uuid, Document.map_type)
         .join(
@@ -1133,6 +1152,7 @@ async def get_assignments(
         )
         .where(Document.document_id == document.document_id)
     ).one()
+    t_meta = time.monotonic()
     is_community_map = map_type == "community"
 
     if is_community_map:
@@ -1165,15 +1185,33 @@ async def get_assignments(
             )
             .where(Assignments.document_id == document.document_id)
         )
-    results = session.exec(stmt).all()
-    if VERBOSE_LOGGING:
-        logger.info(
-            f"GET /api/get_assignments/{document.document_id}: "
-            f"is_community_map={is_community_map}, "
-            f"assignment_count={len(results)}, "
-            f"sample_zones={[r.zone for r in results[:5]]}"
-        )
-    return results
+    t_build = time.monotonic()
+    rows = session.exec(stmt).all()
+    t_fetch = time.monotonic()
+
+    payload = msgpack.packb(
+        [tuple(r) for r in rows],
+        use_bin_type=True,
+    )
+    t_serialize = time.monotonic()
+
+    meta_ms = (t_meta - t0) * 1000
+    build_ms = (t_build - t_meta) * 1000
+    fetch_ms = (t_fetch - t_build) * 1000
+    serialize_ms = (t_serialize - t_fetch) * 1000
+    total_ms = (t_serialize - t0) * 1000
+    logger.info(
+        f"GET /api/get_assignments/{document.document_id}: "
+        f"is_community_map={is_community_map}, "
+        f"assignment_count={len(rows)}, "
+        f"payload_bytes={len(payload)}, "
+        f"meta_query_ms={meta_ms:.1f}, "
+        f"stmt_build_ms={build_ms:.1f}, "
+        f"assignments_query_ms={fetch_ms:.1f}, "
+        f"serialize_ms={serialize_ms:.1f}, "
+        f"total_ms={total_ms:.1f}"
+    )
+    return Response(content=payload, media_type="application/msgpack")
 
 
 @app.get("/api/document/{document_id}", response_model=DocumentPublic)
@@ -1262,7 +1300,7 @@ async def get_document_list(
     ]
 
 
-@app.get("/api/document/{document_id}/unassigned", response_model=BBoxGeoJSONs)
+@app.get("/api/document/{document_id}/unassigned")
 async def get_unassigned_geoids(
     document: Annotated[Document, Depends(get_protected_document)],
     exclude_ids: list[str] = Query(default=[]),
@@ -1287,7 +1325,11 @@ async def get_unassigned_geoids(
         logger.warning("No results found for unassigned geoids")
         results = []
 
-    return {"features": [row[0] for row in results if row[0] is not None]}
+    payload = msgpack.packb(
+        {"features": [row[0] for row in results if row[0] is not None]},
+        use_bin_type=True,
+    )
+    return Response(content=payload, media_type="application/msgpack")
 
 
 async def _get_graph(gerrydb_name: str) -> Graph:
@@ -1390,7 +1432,9 @@ async def check_document_contiguity(
     return results
 
 
-@app.get("/api/document/{document_id}/contiguity/{zone}/connected_component_bboxes")
+@app.get(
+    "/api/document/{document_id}/contiguity/{zone}/connected_component_bboxes"
+)
 async def get_connected_component_bboxes(
     zone: int,
     document: Annotated[Document, Depends(get_protected_document)],
@@ -1519,7 +1563,10 @@ async def get_connected_component_bboxes(
             )
         )
 
-    return BBoxGeoJSONs(features=bboxes)
+    payload = msgpack.packb(
+        BBoxGeoJSONs(features=bboxes).model_dump(), use_bin_type=True
+    )
+    return Response(content=payload, media_type="application/msgpack")
 
 
 @app.put("/api/document/{document_id}/metadata", status_code=status.HTTP_200_OK)
