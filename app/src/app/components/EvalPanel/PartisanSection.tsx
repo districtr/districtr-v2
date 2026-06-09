@@ -4,7 +4,9 @@ import * as Accordion from '@radix-ui/react-accordion';
 import {Flex, Text, Table, Heading, SegmentedControl} from '@radix-ui/themes';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
-import {formatElectionKey, formatPct, SubsectionHeading} from './shared';
+import {formatElectionKey} from '@/app/utils/elections';
+import {formatNumber} from '@/app/utils/numbers';
+import {NUMBER_FORMATS} from '@/app/constants/demography/format';
 
 type Pov = 'dem' | 'rep';
 
@@ -53,7 +55,6 @@ function dispLabel(disp: number, numDistricts: number): string {
     : `Skews Republican by ${abs} seats`;
 }
 
-const fmtK = (n: number) => `${Math.round(n / 1000).toLocaleString()}k`;
 
 const LEVEL_ORDER: Record<string, number> = {pres: 0, sen: 1, gov: 2, ag: 3};
 
@@ -110,7 +111,7 @@ export const PartisanSection: React.FC<Props> = ({evaluation}) => {
           {/* Proportionality */}
           {n > 0 && (
             <>
-              <SubsectionHeading>Proportionality</SubsectionHeading>
+              <Heading size="2" align="center" mb="2" mt="4">Proportionality</Heading>
               <Flex align="center" gap="2" mb="3" justify="end">
                 <Text size="1" color="gray">Point of View</Text>
                 <SegmentedControl.Root
@@ -177,7 +178,7 @@ export const PartisanSection: React.FC<Props> = ({evaluation}) => {
                         <Table.Cell justify="center">
                           <Text size="2">
                             {partyVoteCount != null && votes
-                              ? `${fmtK(partyVoteCount)}/${fmtK(votes.total)}`
+                              ? `${formatNumber(partyVoteCount, NUMBER_FORMATS.COMPACT)}/${formatNumber(votes.total, NUMBER_FORMATS.COMPACT)}`
                               : '—'}
                           </Text>
                         </Table.Cell>
@@ -229,7 +230,7 @@ export const PartisanSection: React.FC<Props> = ({evaluation}) => {
           {/* Other Partisanship Metrics */}
           {n > 0 && (
             <>
-              <SubsectionHeading>Other Partisanship Metrics</SubsectionHeading>
+              <Heading size="2" align="center" mb="2" mt="4">Other Partisanship Metrics</Heading>
               <Text size="2" mb="3" as="p">
                 The following scores can all be found in the political science literature, but are
                 not necessarily endorsed by leading scholars at this time.
@@ -252,19 +253,19 @@ export const PartisanSection: React.FC<Props> = ({evaluation}) => {
                         <Text size="2" weight="bold">{formatElectionKey(key)}</Text>
                       </Table.Cell>
                       <Table.Cell justify="end" style={{backgroundColor: scaledBg(evaluation.disproportionality?.[key], METRIC_CUTOFF.disp)}}>
-                        <Text size="2">{formatPct(povSign(evaluation.disproportionality?.[key]))}</Text>
+                        <Text size="2">{formatNumber(povSign(evaluation.disproportionality?.[key]), NUMBER_FORMATS.SIGNED_PCT)}</Text>
                       </Table.Cell>
                       <Table.Cell justify="end" style={{backgroundColor: scaledBg(evaluation.efficiency_gap?.[key], METRIC_CUTOFF.efficiency_gap)}}>
-                        <Text size="2">{formatPct(povSign(evaluation.efficiency_gap?.[key]))}</Text>
+                        <Text size="2">{formatNumber(povSign(evaluation.efficiency_gap?.[key]), NUMBER_FORMATS.SIGNED_PCT)}</Text>
                       </Table.Cell>
                       <Table.Cell justify="end" style={{backgroundColor: scaledBg(evaluation.mean_median?.[key], METRIC_CUTOFF.mean_median)}}>
-                        <Text size="2">{formatPct(povSign(evaluation.mean_median?.[key]))}</Text>
+                        <Text size="2">{formatNumber(povSign(evaluation.mean_median?.[key]), NUMBER_FORMATS.SIGNED_PCT)}</Text>
                       </Table.Cell>
                       <Table.Cell justify="end" style={{backgroundColor: scaledBg(evaluation.partisan_bias?.[key], METRIC_CUTOFF.partisan_bias)}}>
-                        <Text size="2">{formatPct(povSign(evaluation.partisan_bias?.[key]))}</Text>
+                        <Text size="2">{formatNumber(povSign(evaluation.partisan_bias?.[key]), NUMBER_FORMATS.SIGNED_PCT)}</Text>
                       </Table.Cell>
                       <Table.Cell justify="end" style={{backgroundColor: scaledBg(evaluation.eguia?.[key], METRIC_CUTOFF.eguia)}}>
-                        <Text size="2">{formatPct(povSign(evaluation.eguia?.[key]))}</Text>
+                        <Text size="2">{formatNumber(povSign(evaluation.eguia?.[key]), NUMBER_FORMATS.SIGNED_PCT)}</Text>
                       </Table.Cell>
                     </Table.Row>
                   ))}
@@ -276,7 +277,7 @@ export const PartisanSection: React.FC<Props> = ({evaluation}) => {
           {/* Competitiveness Metrics */}
           {competitiveness && (
             <>
-              <SubsectionHeading>Competitiveness</SubsectionHeading>
+              <Heading size="2" align="center" mb="2" mt="4">Competitiveness</Heading>
               <Text size="2" mb="3" as="p">
                 Competitiveness measures how many districts are closely contested. A swing district
                 is one where the result could plausibly change with a small shift in the statewide

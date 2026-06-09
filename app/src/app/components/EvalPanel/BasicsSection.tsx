@@ -4,7 +4,7 @@ import {Flex, Text, Heading, Callout} from '@radix-ui/themes';
 import {InfoCircledIcon, TriangleRightIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
-import {SubsectionHeading, useDistrictHover} from './shared';
+import {useDistrictHover} from '@/app/hooks/useDistrictHover';
 import {type GeoUnit, GEO_UNITS, GEO_UNIT_LABELS} from '@constants/document/geoUnits';
 
 interface Props {
@@ -51,7 +51,7 @@ export const BasicsSection: React.FC<Props> = ({evaluation}) => {
         </Accordion.Trigger>
         <Accordion.Content>
           {/* Data, Units, and Plan Type */}
-          <SubsectionHeading>Data, Units, and Plan Type</SubsectionHeading>
+          <Heading size="2" align="center" mb="2" mt="4">Data, Units, and Plan Type</Heading>
           {doc && (
             <>
               <Callout.Root size="1" mb="2">
@@ -76,7 +76,7 @@ export const BasicsSection: React.FC<Props> = ({evaluation}) => {
           )}
 
           {/* Completeness */}
-          <SubsectionHeading>Completeness</SubsectionHeading>
+          <Heading size="2" align="center" mb="2" mt="4">Completeness</Heading>
           {assigned_units ? (
             <>
               <Text size="2" as="p">
@@ -115,7 +115,7 @@ export const BasicsSection: React.FC<Props> = ({evaluation}) => {
           )}
 
           {/* Contiguity */}
-          <SubsectionHeading>Contiguity</SubsectionHeading>
+          <Heading size="2" align="center" mb="2" mt="4">Contiguity</Heading>
           <Text size="2" as="p" mb="2">
             A plan is called contiguous if every district is internally connected. This plan appears
             to be <strong>{isContiguous ? 'contiguous' : 'not contiguous'}</strong>. Note that
@@ -140,7 +140,7 @@ export const BasicsSection: React.FC<Props> = ({evaluation}) => {
           )}
 
           {/* Population Deviation */}
-          <SubsectionHeading>Population Deviation</SubsectionHeading>
+          <Heading size="2" align="center" mb="2" mt="4">Population Deviation</Heading>
           <Text size="2" as="p" mb="2">
             The ideal size of a district is arrived at by dividing the total population of the state
             equally into the specified number of districts. Population deviation of a plan is

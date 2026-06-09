@@ -5,7 +5,6 @@ import {Flex, Text, Table, Heading, Select, Switch} from '@radix-ui/themes';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import {SubsectionHeading} from './shared';
 
 interface Props {
   evaluation: DocumentEvaluation;
@@ -72,7 +71,7 @@ export const CountySplitsSection: React.FC<Props> = ({evaluation}) => {
             />
           </Flex>
 
-          <SubsectionHeading>Summary</SubsectionHeading>
+          <Heading size="2" align="center" mb="2" mt="4">Summary</Heading>
           <Table.Root size="1" mb="3">
             <Table.Body>
               <Table.Row>
@@ -98,7 +97,7 @@ export const CountySplitsSection: React.FC<Props> = ({evaluation}) => {
             </Table.Body>
           </Table.Root>
 
-          <SubsectionHeading>Per-County Detail</SubsectionHeading>
+          <Heading size="2" align="center" mb="2" mt="4">Per-County Detail</Heading>
           {districts.length > 0 && (
             <Flex align="center" gap="2" mb="2" justify="end">
               <Text size="1" color="gray">Focus on</Text>

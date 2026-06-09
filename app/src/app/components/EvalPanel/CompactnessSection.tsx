@@ -4,7 +4,9 @@ import {useMemo} from 'react';
 import {Flex, Text, Table, Heading} from '@radix-ui/themes';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
-import {SubsectionHeading, formatDecimal, useDistrictHover} from './shared';
+import {useDistrictHover} from '@/app/hooks/useDistrictHover';
+import {formatNumber} from '@/app/utils/numbers';
+import {NUMBER_FORMATS} from '@/app/constants/demography/format';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 
 // Scores computed on EPSG:5070 (NAD83 / Conus Albers) via gerrytools.
@@ -118,7 +120,7 @@ export const CompactnessSection: React.FC<Props> = ({evaluation}) => {
         <Accordion.Content>
 
           {/* Cut Edges */}
-          <SubsectionHeading>Cut Edges</SubsectionHeading>
+          <Heading size="2" align="center" mb="2" mt="4">Cut Edges</Heading>
           {cut_edges ? (
             <>
               <Text size="2" mb="2" as="p">
@@ -139,7 +141,7 @@ export const CompactnessSection: React.FC<Props> = ({evaluation}) => {
           )}
 
           {/* Polsby-Popper */}
-          <SubsectionHeading>Polsby-Popper Scores</SubsectionHeading>
+          <Heading size="2" align="center" mb="2" mt="4">Polsby-Popper Scores</Heading>
           <Text size="2" as="p" mb="2">
             The <strong>Polsby-Popper score</strong> compares a district&apos;s area to its
             perimeter. Scores range from 0 to 1; higher scores indicate more compact districts.
@@ -155,7 +157,7 @@ export const CompactnessSection: React.FC<Props> = ({evaluation}) => {
           )}
 
           {/* Reock */}
-          <SubsectionHeading>Reock Scores</SubsectionHeading>
+          <Heading size="2" align="center" mb="2" mt="4">Reock Scores</Heading>
           <Text size="2" as="p" mb="2">
             The <strong>Reock score</strong> is the ratio of a district&apos;s area to the area of
             the smallest circle that contains it. Like Polsby-Popper, scores range from 0 to 1;
@@ -194,10 +196,10 @@ export const CompactnessSection: React.FC<Props> = ({evaluation}) => {
                         </Flex>
                       </Table.Cell>
                       <Table.Cell justify="end">
-                        <Text size="2">{formatDecimal(polsby_popper[zone], 3)}</Text>
+                        <Text size="2">{formatNumber(polsby_popper[zone], NUMBER_FORMATS.DECIMAL_3)}</Text>
                       </Table.Cell>
                       <Table.Cell justify="end">
-                        <Text size="2">{formatDecimal((reock ?? {})[zone], 3)}</Text>
+                        <Text size="2">{formatNumber((reock ?? {})[zone], NUMBER_FORMATS.DECIMAL_3)}</Text>
                       </Table.Cell>
                     </Table.Row>
                   ))}
