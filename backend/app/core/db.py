@@ -3,11 +3,18 @@ from sqlmodel import create_engine, Session
 
 from app.core.config import settings
 
+# Pool sizing is per worker process: total connections = workers (WEB_CONCURRENCY in
+# fly.toml) x (pool_size + max_overflow), plus background tasks that open their own
+# sessions. At 4 workers this allows up to 60 — keep Postgres max_connections comfortably
+# above that. Requests beyond the pool wait up to pool_timeout (default 30s) in their
+# threadpool thread, which acts as backpressure.
 engine = create_engine(
     str(settings.SQLALCHEMY_DATABASE_URI),
     echo=settings.ECHO_DB,
     pool_pre_ping=True,
     pool_recycle=3600,
+    pool_size=5,
+    max_overflow=10,
 )
 
 

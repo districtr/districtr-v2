@@ -9,6 +9,7 @@ from fastapi import (
 from fastapi.responses import JSONResponse
 from typing import Annotated, Any
 import psutil
+import threading
 import time
 
 import botocore.exceptions
@@ -131,7 +132,15 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 VERBOSE_LOGGING = settings.VERBOSE_LOGGING
 
+# Endpoint convention: this app uses the synchronous SQLAlchemy engine (app/core/db.py),
+# so any handler that touches the DB or does other blocking work (S3, bcrypt, networkx)
+# is declared as plain `def` — FastAPI runs those in its threadpool, keeping the event
+# loop free for other requests. Only declare a handler `async def` when everything in it
+# is non-blocking, or when it must await (then offload blocking parts via
+# run_in_threadpool, as the comment-creation endpoints do).
+
 _GRAPH_CACHE_MAX_SIZE = 10
+_graph_load_lock = threading.Lock()
 
 
 @lru_cache(maxsize=_GRAPH_CACHE_MAX_SIZE)
@@ -161,7 +170,11 @@ async def log_slow_requests(request: Request, call_next):
     duration = time.monotonic() - start
     if duration > 30:
         logger.warning(
-            "SLOW %s %s %s %.1fs", request.method, request.url.path, response.status_code, duration
+            "SLOW %s %s %s %.1fs",
+            request.method,
+            request.url.path,
+            response.status_code,
+            duration,
         )
     return response
 
@@ -308,7 +321,7 @@ async def root():
 
 
 @app.get("/db_is_alive")
-async def db_is_alive(session: Session = Depends(get_session)):
+def db_is_alive(session: Session = Depends(get_session)):
     try:
         session.connection().execute(text("SELECT 1"))
         return {"message": "DB is alive"}
@@ -320,7 +333,7 @@ async def db_is_alive(session: Session = Depends(get_session)):
 
 
 @app.get("/api/document/{document_id}/stats")
-async def get_document_stats(
+def get_document_stats(
     background_tasks: BackgroundTasks,
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
@@ -331,7 +344,7 @@ async def get_document_stats(
 
 
 @app.get("/api/document/{document_id}/evaluation")
-async def get_document_evaluation(
+def get_document_evaluation(
     background_tasks: BackgroundTasks,
     document: Annotated[Document, Depends(get_protected_document)],
     # TODO: consider using Annotated more consistently across dependencies.
@@ -348,9 +361,7 @@ async def get_document_evaluation(
     response_model=DocumentCreatePublic,
     status_code=status.HTTP_201_CREATED,
 )
-async def create_document(
-    data: DocumentCreate, session: Session = Depends(get_session)
-):
+def create_document(data: DocumentCreate, session: Session = Depends(get_session)):
     # Get DistrictrMap to inherit num_districts and other fields
     districtr_map_stmt = select(DistrictrMap).where(
         DistrictrMap.districtr_map_slug == data.districtr_map_slug
@@ -611,7 +622,7 @@ async def create_document(
 
 
 @app.put("/api/assignments")
-async def update_assignments(
+def update_assignments(
     data: AssignmentsCreate,
     background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
@@ -982,7 +993,7 @@ async def update_assignments(
     "/api/gerrydb/edges/{districtr_map_slug}",
     response_model=list[ShatterResult],
 )
-async def get_children(
+def get_children(
     districtr_map_slug: str,
     parent_geoid: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
@@ -1018,7 +1029,7 @@ async def get_children(
 
 
 @app.patch("/api/assignments/{document_id}/reset", status_code=status.HTTP_200_OK)
-async def reset_map(
+def reset_map(
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
 ):
@@ -1046,7 +1057,7 @@ async def reset_map(
     "/api/document/{document_id}/update_colors",
     response_model=ColorsSetResult,
 )
-async def update_colors(
+def update_colors(
     colors: list[str],
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
@@ -1083,7 +1094,7 @@ async def update_colors(
     "/api/document/{document_id}/num_districts",
     response_model=NumDistrictsSetResult,
 )
-async def update_num_districts(
+def update_num_districts(
     num_districts: int,
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
@@ -1120,7 +1131,7 @@ async def update_num_districts(
 
 # called by getAssignments in apiHandlers.ts
 @app.get("/api/get_assignments/{document_id}", response_model=list[AssignmentsResponse])
-async def get_assignments(
+def get_assignments(
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
 ):
@@ -1177,7 +1188,7 @@ async def get_assignments(
 
 
 @app.get("/api/document/{document_id}", response_model=DocumentPublic)
-async def get_document_object(
+def get_document_object(
     document_id: DocumentID = Depends(parse_document_id),
     session: Session = Depends(get_session),
 ):
@@ -1196,7 +1207,7 @@ async def get_document_object(
 
 
 @app.get("/api/documents/list")
-async def get_document_list(
+def get_document_list(
     session: Session = Depends(get_session),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, le=100),
@@ -1263,7 +1274,7 @@ async def get_document_list(
 
 
 @app.get("/api/document/{document_id}/unassigned", response_model=BBoxGeoJSONs)
-async def get_unassigned_geoids(
+def get_unassigned_geoids(
     document: Annotated[Document, Depends(get_protected_document)],
     exclude_ids: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
@@ -1290,7 +1301,7 @@ async def get_unassigned_geoids(
     return {"features": [row[0] for row in results if row[0] is not None]}
 
 
-async def _get_graph(gerrydb_name: str) -> Graph:
+def _get_graph(gerrydb_name: str) -> Graph:
     f"""
     Get a graph from the in-process LRU cache (max size {_GRAPH_CACHE_MAX_SIZE}) or load
     it from a local file or S3.
@@ -1302,14 +1313,15 @@ async def _get_graph(gerrydb_name: str) -> Graph:
         Graph: The graph for the given GerryDB.
 
     Note:
-        Despite being async, graph resolution and loading are synchronous (boto3, disk,
-        unpickle). They run on the asyncio event-loop thread, so a cache miss can block
-        this worker from handling other concurrent requests until loading finishes. Other
-        uvicorn workers are unaffected. Mitigations include keeping the LRU hot, or moving
-        this work to a thread pool / async I/O if contention becomes an issue.
+        Loading is blocking (boto3, disk, unpickle) and runs in the request threadpool
+        via the sync contiguity endpoints. The lock serializes loads: lru_cache does not
+        deduplicate concurrent misses, and two threads each unpickling a multi-hundred-MB
+        block graph for the same key would double peak memory. Cache hits acquire the
+        lock too, so a request for an already-cached graph waits out any in-flight load.
     """
     try:
-        G = _load_gerrydb_graph_cached(gerrydb_name)
+        with _graph_load_lock:
+            G = _load_gerrydb_graph_cached(gerrydb_name)
     except botocore.exceptions.ClientError as e:
         # TODO: Maybe in the future this should actually create the graph
         logger.error(f"Graph not found: {str(e)}")
@@ -1329,7 +1341,7 @@ async def _get_graph(gerrydb_name: str) -> Graph:
 
 
 @app.get("/api/document/{document_id}/contiguity")
-async def check_document_contiguity(
+def check_document_contiguity(
     document: Annotated[Document, Depends(get_protected_document)],
     zone: list[int] = Query(default=[]),
     session: Session = Depends(get_session),
@@ -1378,7 +1390,7 @@ async def check_document_contiguity(
             contiguity.ZoneBlockNodes(zone=row.zone, nodes=row.nodes) for row in result
         ]
 
-    G = await _get_graph(gerrydb_name)
+    G = _get_graph(gerrydb_name)
 
     results = {}
     for zone_blocks in zone_assignments:
@@ -1391,7 +1403,7 @@ async def check_document_contiguity(
 
 
 @app.get("/api/document/{document_id}/contiguity/{zone}/connected_component_bboxes")
-async def get_connected_component_bboxes(
+def get_connected_component_bboxes(
     zone: int,
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
@@ -1462,7 +1474,7 @@ async def get_connected_component_bboxes(
             },
         )
 
-    G = await _get_graph(gerrydb_name)
+    G = _get_graph(gerrydb_name)
     subgraph = G.subgraph(nodes=zone_assignments.nodes)
 
     if zone_assignments.node_data is None:
@@ -1523,7 +1535,7 @@ async def get_connected_component_bboxes(
 
 
 @app.put("/api/document/{document_id}/metadata", status_code=status.HTTP_200_OK)
-async def update_districtrmap_metadata(
+def update_districtrmap_metadata(
     metadata: DocumentMetadata,
     document: Document = Depends(get_document),
     session: Session = Depends(get_session),
@@ -1549,7 +1561,7 @@ async def update_districtrmap_metadata(
     "/api/gerrydb/views",
     #  response_model=list[DistrictrMapPublic]
 )
-async def get_projects(
+def get_projects(
     session: Session = Depends(get_session),
     group: str = Query(default="states"),
     offset: int = Query(default=0, ge=0),
@@ -1571,7 +1583,7 @@ async def get_projects(
 
 
 @app.get("/api/group/{group_slug}", response_model=MapGroup)
-async def get_group(
+def get_group(
     *,
     session: Session = Depends(get_session),
     group_slug: str,

@@ -122,7 +122,7 @@ def get_geojson_export_sql(
 
 
 @router.get("/api/document/{document_id}/export", status_code=status.HTTP_200_OK)
-async def export_document(
+def export_document(
     *,
     document_id: str,
     document: Annotated[Document, Depends(get_protected_document)],
