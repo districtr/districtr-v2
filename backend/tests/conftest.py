@@ -1,3 +1,4 @@
+import csv as _csv
 import os
 import pytest
 from app.main import app
@@ -9,10 +10,16 @@ from sqlmodel import create_engine, Session
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError, ProgrammingError
 import subprocess
+import app.evaluation.graph as eval_graph_module
+from app.evaluation.graph import get_graph as _get_graph_cached
+from app.evaluation.context import GerrydbTableName
+from app.evaluation.types import Election
 from tests.constants import (
     POSTGRES_TEST_DB,
+    POSTGRES_INTEGRATION_DB,
     TEARDOWN_TEST_DB,
     TEST_SQLALCHEMY_DATABASE_URI,
+    INTEGRATION_SQLALCHEMY_DATABASE_URI,
     TEST_POSTGRES_CONNECTION_STRING,
     FIXTURES_PATH,
     OGR2OGR_PG_CONNECTION_STRING,
@@ -71,6 +78,9 @@ def client_isolated_sessions_fixture(engine):
 my_env = os.environ.copy()
 my_env["POSTGRES_DB"] = POSTGRES_TEST_DB
 
+integration_env = os.environ.copy()
+integration_env["POSTGRES_DB"] = POSTGRES_INTEGRATION_DB
+
 
 @pytest.fixture(scope="session", name="engine")
 def engine_fixture(request):
@@ -120,6 +130,47 @@ def engine_fixture(request):
     request.addfinalizer(teardown)
 
     return create_engine(str(TEST_SQLALCHEMY_DATABASE_URI), echo=True)
+
+
+@pytest.fixture(scope="session", name="integration_engine")
+def integration_engine_fixture():
+    """Session-scoped engine for integration tests backed by a dedicated DB.
+
+    Unlike the unit-test ``engine``, this DB is never torn down — seeding
+    the FL geodata and parent-child edges is expensive, so we keep state
+    across runs.  Use ``docker-compose down -v`` to wipe it if needed.
+    """
+    url = TEST_POSTGRES_CONNECTION_STRING
+    _engine = create_engine(url)
+    conn = _engine.connect()
+    conn.execute(text("commit"))
+    try:
+        if conn.in_transaction():
+            conn.rollback()
+        conn.execution_options(isolation_level="AUTOCOMMIT").execute(
+            text(f"CREATE DATABASE {POSTGRES_INTEGRATION_DB}")
+        )
+    except (OperationalError, ProgrammingError):
+        pass  # already exists — reuse it
+
+    try:
+        subprocess.run(
+            ["alembic", "upgrade", "head"],
+            check=True,
+            env=integration_env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+    except subprocess.CalledProcessError as e:
+        print("Alembic upgrade failed:")
+        print("Return code:", e.returncode)
+        print("Standard Output:", e.output or e.stdout)
+        print("Error Output:", e.stderr)
+        raise e
+
+    conn.close()
+    return create_engine(str(INTEGRATION_SQLALCHEMY_DATABASE_URI), echo=True)
 
 
 @pytest.fixture
@@ -349,6 +400,20 @@ def simple_parent_child_geos_districtr_map_fixture(
     return inserted_districtr_map
 
 
+@pytest.fixture(name="simple_child_geos_nonshatterable_districtr_map")
+def simple_child_geos_nonshatterable_districtr_map_fixture(
+    session: Session, simple_child_geos_gerrydb
+):
+    return create_districtr_map(
+        session,
+        name="Simple child geos non-shatterable",
+        districtr_map_slug="simple_child_ns",
+        gerrydb_table_name="simple_child_geos",
+        num_districts=2,
+        parent_layer="simple_child_geos",
+    )
+
+
 @pytest.fixture
 def simple_shatterable_districtr_map_no_edges_yet(
     session: Session, gerrydb_simple_geos_view
@@ -498,3 +563,324 @@ def ks_ellis_parent_layer_only_districtr_map(
     )
     session.commit()
     return inserted_districtr_map
+
+
+# ── Grid graph fixtures (8×8 blocks / 4×4 VTDs / 8 counties) ────────────────
+#
+# Census-style GEOIDs encode the county→VTD→block hierarchy:
+#   county  c = (r//2)*2 + (col//4)   — 8 counties (0..7), 5-digit FIPS "ccccc"
+#   VTD    (pr, pc): county=pr*2+pc//2, within-county index=pc%2
+#           geo_id = "vtd:{county:05d}{pc%2:06d}"   (vtd: prefix → unit_type="vtd")
+#   block  (r, c): county=(r//2)*2+(c//4), within-county index=(r%2)*4+(c%4)
+#           geo_id = "{county:05d}{idx:07d}"          (bare → unit_type="block")
+#
+# _populate_county_data extracts LEFT(path, 5) / LEFT(SPLIT_PART(path,':',2), 5)
+# for the county GEOID — both encodings map to f"{county:05d}". ✓
+#
+# All parent-adjacency edge weights = 2 (two block edges cross each VTD boundary).
+
+BLOCK_GRID_NAME = GerrydbTableName("grid_child")
+PARENT_GRID_NAME = GerrydbTableName("grid_parent")
+GRID_COMBINED_NAME = GerrydbTableName("grid_shatterable")
+
+_GRID_ELEC_COLS = [
+    Election(e)
+    for e in [
+        "pres_2016_dem",
+        "pres_2016_rep",
+        "pres_2020_dem",
+        "pres_2020_rep",
+        "pres_2024_dem",
+        "pres_2024_rep",
+        "sen_2016_dem",
+        "sen_2016_rep",
+        "sen_2018_dem",
+        "sen_2018_rep",
+        "sen_2020_dem",
+        "sen_2020_rep",
+        "sen_2022_dem",
+        "sen_2022_rep",
+    ]
+]
+
+# Block and VTD demographic data is stored in fixtures/gerrydb/grid_child.csv (64 rows)
+# and fixtures/gerrydb/grid_parent.csv (16 rows).
+#
+# County layout (county = (row//2)*2 + (col//4)):
+#   cols 0-3   cols 4-7
+#   --------   --------
+#   0          1         rows 0-1
+#   2          3         rows 2-3
+#   4          5         rows 4-5
+#   6          7         rows 6-7
+# Districts: zone = row + 1, each district spans both county columns.
+#
+# Generation script (requires gerrychain/gerrytools, PYTHONHASHSEED=0):
+#
+#   import numpy as np, networkx as nx
+#   from gerrychain import Graph, Partition
+#   from gerrychain.updaters import Election, Tally
+#   from gerrytools.scoring.partisan import _eguia_election
+#
+#   rng = np.random.default_rng(99)
+#   cells = {}
+#   for n in range(64):
+#       row, col = divmod(n, 8)
+#       data = {"total_pop_20": int(rng.integers(500, 2001)),
+#               "county": (row // 2) * 2 + (col // 4),
+#               "zone":   row + 1}
+#       for elec in ELECTIONS:
+#           total = int(rng.integers(200, 801))
+#           dem = int(rng.integers(int(total * 0.3), int(total * 0.7) + 1))
+#           data[f"{elec}_dem"] = dem
+#           data[f"{elec}_rep"] = total - dem
+#       cells[n] = data
+#
+#   g = nx.convert_node_labels_to_integers(nx.grid_2d_graph(8, 8))
+#   for n in range(64): g.nodes[n].update(cells[n])
+#   gc_graph = Graph.from_networkx(g)
+#
+#   updaters = {e: Election(e, {"Democratic": f"{e}_dem", "Republican": f"{e}_rep"}) for e in ELECTIONS}
+#   updaters["total_pop_20"] = Tally("total_pop_20")
+#   district_part = Partition(gc_graph, {n: cells[n]["zone"]   for n in range(64)}, updaters=updaters)
+#   county_part   = Partition(gc_graph, {n: cells[n]["county"] for n in range(64)}, updaters=updaters)
+#   # Eguia: _eguia_election(district_part, e, "Democratic", county_part, "total_pop_20")
+
+
+# Read back for test_partisan.py (needed to derive _GRID_DISTRICT_STATS at import time).
+def _read_grid_csv(name: str) -> list[dict]:
+    path = FIXTURES_PATH / "gerrydb" / f"{name}.csv"
+    with open(path) as f:
+        rows = list(_csv.DictReader(f))
+    for row in rows:
+        for k in row:
+            if k != "path":
+                row[k] = int(row[k])
+    return rows
+
+
+_GRID_BLOCK_ROWS: list[dict] = _read_grid_csv(BLOCK_GRID_NAME)
+
+_GRID_TABLE_COLS = "path TEXT PRIMARY KEY, total_pop_20 INTEGER, " + ", ".join(
+    f"{c} INTEGER" for c in _GRID_ELEC_COLS
+)
+
+
+def _copy_csv_to_gerrydb(session: Session, table_name: str, csv_name: str) -> None:
+    path = FIXTURES_PATH / "gerrydb" / f"{csv_name}.csv"
+    cursor = session.connection().connection.cursor()
+    with open(path) as f, cursor.copy(
+        f"COPY gerrydb.{table_name} FROM STDIN CSV HEADER"
+    ) as copy:
+        for line in f:
+            copy.write(line)
+
+
+def _block_geoid(r: int, c: int) -> str:
+    """15-char block GEOID: 5-digit county FIPS + 10-digit within-county index."""
+    county = (r // 2) * 2 + (c // 4)
+    return f"{county:05d}{(r % 2) * 4 + (c % 4):010d}"
+
+
+def _vtd_geoid(pr: int, pc: int) -> str:
+    """VTD geo_id with 'vtd:' prefix: 5-digit county FIPS + 6-digit within-county index."""
+    county = pr * 2 + pc // 2
+    return f"vtd:{county:05d}{pc % 2:06d}"
+
+
+# ---------------------------------------------------------------------------
+# Graph fixture generation — pkl files are pre-built and committed to
+# fixtures/graph/. The code below is kept as documentation so future
+# developers can regenerate them if needed.
+#
+# To regenerate, uncomment the code, add the required imports at the top
+# of the file (pickle, Graph from networkx, number_connected_components),
+# and run:
+#   pytest backend/tests/conftest.py --collect-only   # loads the module
+# or execute the functions directly in a Python session.
+#
+# For ks_ellis_geos.pkl, a live DB connection with the ks_ellis_county_vtd
+# gerrydb table loaded is required (see ks_ellis_county_vtd_gerrydb fixture).
+# ---------------------------------------------------------------------------
+#
+# def _build_grid_block_graph() -> Graph:
+#     G = Graph()
+#     for r in range(8):
+#         for c in range(8):
+#             G.add_node(_block_geoid(r, c), parent=_vtd_geoid(r // 2, c // 2))
+#     for r in range(8):
+#         for c in range(7):
+#             G.add_edge(_block_geoid(r, c), _block_geoid(r, c + 1))
+#     for r in range(7):
+#         for c in range(8):
+#             G.add_edge(_block_geoid(r, c), _block_geoid(r + 1, c))
+#     return G
+#
+# def _build_grid_parent_graph() -> Graph:
+#     G = Graph()
+#     for pr in range(4):
+#         for pc in range(4):
+#             G.add_node(_vtd_geoid(pr, pc))
+#     for pr in range(4):
+#         for pc in range(3):
+#             G.add_edge(_vtd_geoid(pr, pc), _vtd_geoid(pr, pc + 1), weight=2)
+#     for pr in range(3):
+#         for pc in range(4):
+#             G.add_edge(_vtd_geoid(pr, pc), _vtd_geoid(pr + 1, pc), weight=2)
+#     return G
+#
+# def _build_grid_combined_graph() -> Graph:
+#     """Inline of pipelines/transforms/graph.py:_build_combined_graph."""
+#     G = _build_grid_block_graph()
+#     G.graph["weighted_edges"] = {}
+#     for u, v in list(G.edges()):
+#         p_u = G.nodes[u]["parent"]
+#         p_v = G.nodes[v]["parent"]
+#         if p_u != p_v:
+#             G.add_edge(u, p_v)
+#             G.add_edge(v, p_u)
+#             key = (p_u, p_v) if p_u < p_v else (p_v, p_u)
+#             G.graph["weighted_edges"][key] = G.graph["weighted_edges"].get(key, 0) + 1
+#     for p_u, p_v in G.graph["weighted_edges"]:
+#         G.add_edge(p_u, p_v)
+#     for node, data in list(G.nodes(data=True)):
+#         parent = data.get("parent")
+#         if parent:
+#             G.nodes[parent].setdefault("children", set()).add(node)
+#     non_contiguous = set()
+#     for node, data in G.nodes(data=True):
+#         children = data.get("children")
+#         if children and number_connected_components(G.subgraph(children)) > 1:
+#             non_contiguous.add(node)
+#     G.graph["non_contiguous_parents"] = non_contiguous
+#     return G
+#
+# def _build_simple_geos_combined_graph() -> Graph:
+#     parent_of = {
+#         "000010000000001": "vtd:000010000001",
+#         "000010000000005": "vtd:000010000001",
+#         "000010000000002": "vtd:000010000002",
+#         "000010000000003": "vtd:000010000002",
+#         "000010000000004": "vtd:000010000002",
+#         "000010000000006": "vtd:000010000003",
+#     }
+#     G = Graph()
+#     for block, parent in parent_of.items():
+#         G.add_node(block, parent=parent)
+#     G.add_edges_from([
+#         ("000010000000001", "000010000000005"),
+#         ("000010000000001", "000010000000003"),
+#         ("000010000000005", "000010000000006"),
+#         ("000010000000005", "000010000000002"),
+#         ("000010000000006", "000010000000002"),
+#         ("000010000000003", "000010000000004"),
+#         ("000010000000003", "000010000000002"),
+#         ("000010000000004", "000010000000002"),
+#     ])
+#     _build_combined_graph_inline(G)
+#     return G
+#
+# # To write the grid pkls:
+# # for name, fn in [(GRID_COMBINED_NAME, _build_grid_combined_graph),
+# #                  (PARENT_GRID_NAME, _build_grid_parent_graph),
+# #                  (BLOCK_GRID_NAME, _build_grid_block_graph),
+# #                  ("simple_geos", _build_simple_geos_combined_graph)]:
+# #     with open(FIXTURES_PATH / "graph" / f"{name}.pkl", "wb") as f:
+# #         pickle.dump(fn(), f)
+#
+# # For ks_ellis_geos.pkl (requires DB + ks_ellis_county_vtd_gerrydb fixture):
+# # rows = session.execute(text("""
+# #     SELECT a.path, b.path FROM gerrydb.ks_ellis_county_vtd a
+# #     JOIN gerrydb.ks_ellis_county_vtd b ON a.path < b.path
+# #     WHERE ST_Touches(a.geometry, b.geometry)
+# # """)).fetchall()
+# # G = Graph([(r[0], r[1]) for r in rows])
+# # with open(FIXTURES_PATH / "graph" / "ks_ellis_geos.pkl", "wb") as f:
+# #     pickle.dump(G, f)
+
+
+@pytest.fixture(name="mock_grid_graph_file")
+def mock_grid_graph_file_fixture(monkeypatch):
+    """Redirect get_gerrydb_graph_file to fixtures/graph/ and flush the LRU cache."""
+
+    def _get_file(gerrydb_name: str) -> str:
+        return str(FIXTURES_PATH / "graph" / f"{gerrydb_name}.pkl")
+
+    monkeypatch.setattr(eval_graph_module, "get_gerrydb_graph_file", _get_file)
+    _get_graph_cached.cache_clear()
+    yield
+    _get_graph_cached.cache_clear()
+
+
+_UPSERT_GERRYDBTABLE = text("""
+    INSERT INTO gerrydbtable (uuid, name, updated_at)
+    VALUES (gen_random_uuid(), :name, now())
+    ON CONFLICT (name) DO UPDATE SET updated_at = now()
+""")
+
+
+@pytest.fixture(name="grid_child_gerrydb")
+def grid_child_gerrydb_fixture(session: Session):
+    session.execute(_UPSERT_GERRYDBTABLE, {"name": BLOCK_GRID_NAME})
+    session.execute(
+        text(
+            f"CREATE TABLE IF NOT EXISTS gerrydb.{BLOCK_GRID_NAME} ({_GRID_TABLE_COLS})"
+        )
+    )
+    session.flush()
+    _copy_csv_to_gerrydb(session, BLOCK_GRID_NAME, BLOCK_GRID_NAME)
+
+
+@pytest.fixture(name="grid_parent_gerrydb")
+def grid_parent_gerrydb_fixture(session: Session):
+    session.execute(_UPSERT_GERRYDBTABLE, {"name": PARENT_GRID_NAME})
+    session.execute(
+        text(
+            f"CREATE TABLE IF NOT EXISTS gerrydb.{PARENT_GRID_NAME} ({_GRID_TABLE_COLS})"
+        )
+    )
+    session.flush()
+    _copy_csv_to_gerrydb(session, PARENT_GRID_NAME, PARENT_GRID_NAME)
+
+
+@pytest.fixture(name="grid_shatterable_districtr_map")
+def grid_shatterable_districtr_map_fixture(
+    session: Session, grid_child_gerrydb, grid_parent_gerrydb
+):
+    return create_districtr_map(
+        session,
+        name="Grid 8x8 shatterable map",
+        districtr_map_slug="grid_shatterable",
+        gerrydb_table_name=GRID_COMBINED_NAME,
+        num_districts=4,
+        parent_layer=PARENT_GRID_NAME,
+        child_layer=BLOCK_GRID_NAME,
+    )
+
+
+@pytest.fixture(name="grid_nonshatterable_child_districtr_map")
+def grid_nonshatterable_child_districtr_map_fixture(
+    session: Session, grid_child_gerrydb
+):
+    return create_districtr_map(
+        session,
+        name="Grid 8x8 non-shatterable block map",
+        districtr_map_slug="grid_child",
+        gerrydb_table_name=BLOCK_GRID_NAME,
+        num_districts=4,
+        parent_layer=BLOCK_GRID_NAME,
+    )
+
+
+@pytest.fixture(name="grid_nonshatterable_parent_districtr_map")
+def grid_nonshatterable_parent_districtr_map_fixture(
+    session: Session, grid_parent_gerrydb
+):
+    return create_districtr_map(
+        session,
+        name="Grid 4x4 non-shatterable VTD map",
+        districtr_map_slug="grid_parent",
+        gerrydb_table_name=PARENT_GRID_NAME,
+        num_districts=4,
+        parent_layer=PARENT_GRID_NAME,
+    )

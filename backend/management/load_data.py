@@ -22,7 +22,6 @@ from app.constants import GERRY_DB_SCHEMA
 import subprocess
 import json
 import yaml
-from app.contiguity import graph_from_gpkg, write_graph
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -256,11 +255,6 @@ def load_sample_data(
             )
 
         session.commit()
-
-        logger.info(f"Creating graph for {view._table_name}")
-        G = graph_from_gpkg(gpkg_path=gpkg)
-        out_path = write_graph(G=G, gerrydb_name=view._table_name)
-        logger.info(f"Graph saved to {out_path}")
 
     for view in config._shatterable_views:
         session = next(get_session())

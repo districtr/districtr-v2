@@ -5,6 +5,7 @@ export const DEFAULT_BLOCK_LAYER_ORDER = {
   zoneBeforeId: MAP_LAYER_ANCHOR_IDS.assignments,
   demographyBeforeId: MAP_LAYER_ANCHOR_IDS.demography,
   hoverBeforeId: MAP_LAYER_ANCHOR_IDS.hover,
+  highlightBeforeId: MAP_LAYER_ANCHOR_IDS.hover,
   outlineBeforeId: MAP_LAYER_ANCHOR_IDS.geometryOutline,
 };
 
