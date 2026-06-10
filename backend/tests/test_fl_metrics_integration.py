@@ -138,7 +138,7 @@ FL_DATA_AVAILABLE = all(
 pytestmark = pytest.mark.skipif(
     not FL_DATA_AVAILABLE,
     reason=(
-        "FL integration data not present. Download all four files from the R2 bucket "
+        "FL integration data not present. Download all four files from S3 "
         "under test-fixtures/fl/ — see the module docstring for the aws s3 cp commands."
     ),
 )

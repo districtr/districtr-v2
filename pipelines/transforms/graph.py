@@ -160,6 +160,14 @@ def _build_combined_graph(G: Graph) -> None:
     """
     G.graph["weighted_edges"] = {}
 
+    unannotated = [n for n, d in G.nodes(data=True) if "parent" not in d]
+    if unannotated:
+        raise ValueError(
+            f"{len(unannotated)} block node(s) have no parent annotation — "
+            f"spatial join likely failed for these blocks. "
+            f"Unannotated: {unannotated}"
+        )
+
     for u, v in list(G.edges()):
         p_u = G.nodes[u]["parent"]
         p_v = G.nodes[v]["parent"]
