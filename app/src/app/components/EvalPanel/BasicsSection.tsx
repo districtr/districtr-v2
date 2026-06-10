@@ -22,9 +22,12 @@ const HOVER_BTN_STYLE: React.CSSProperties = {
 };
 
 const GEO_UNIT_DESCRIPTIONS: Record<GeoUnit, string> = {
-  [GEO_UNITS.VTD]: 'VTDs, also called "voting tabulation districts" or "voting districts," are the closest approximation of electoral precincts in Census geography.',
-  [GEO_UNITS.BLOCK_GROUP]: 'Block groups are Census geographic units that nest within counties and tracts, typically containing 600–3,000 people.',
-  [GEO_UNITS.BLOCK]: 'Census blocks are the smallest Census geographic unit, corresponding roughly to city blocks.',
+  [GEO_UNITS.VTD]:
+    'VTDs, also called "voting tabulation districts" or "voting districts," are the closest approximation of electoral precincts in Census geography.',
+  [GEO_UNITS.BLOCK_GROUP]:
+    'Block groups are Census geographic units that nest within counties and tracts, typically containing 600–3,000 people.',
+  [GEO_UNITS.BLOCK]:
+    'Census blocks are the smallest Census geographic unit, corresponding roughly to city blocks.',
 };
 
 export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
@@ -61,7 +64,9 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
         </Accordion.Trigger>
         <Accordion.Content>
           {/* Data, Units, and Plan Type */}
-          <Heading size="2" align="center" mb="2" mt="4">Data, Units, and Plan Type</Heading>
+          <Heading size="2" align="center" mb="2" mt="4">
+            Data, Units, and Plan Type
+          </Heading>
           {doc && (
             <>
               <Callout.Root size="1" mb="2">
@@ -73,20 +78,28 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
                 </Callout.Text>
               </Callout.Root>
               {doc.unitDescription && (
-                <Text size="2" as="p" mb="1">{doc.unitDescription}</Text>
+                <Text size="2" as="p" mb="1">
+                  {doc.unitDescription}
+                </Text>
               )}
               <Text size="2" as="p">
                 {doc.planName ? (
-                  <>The plan type is <strong>{doc.planName}</strong> ({doc.numDistricts} districts).</>
+                  <>
+                    The plan type is <strong>{doc.planName}</strong> ({doc.numDistricts} districts).
+                  </>
                 ) : (
-                  <>This plan has <strong>{doc.numDistricts}</strong> districts.</>
+                  <>
+                    This plan has <strong>{doc.numDistricts}</strong> districts.
+                  </>
                 )}
               </Text>
             </>
           )}
 
           {/* Completeness */}
-          <Heading size="2" align="center" mb="2" mt="4">Completeness</Heading>
+          <Heading size="2" align="center" mb="2" mt="4">
+            Completeness
+          </Heading>
           {assigned_units ? (
             <>
               <Text size="2" as="p">
@@ -104,8 +117,8 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
               {unassigned_population && (
                 <Text size="2" as="p">
                   <strong>{unassigned_population.unassigned_population.toLocaleString()}</strong> of{' '}
-                  <strong>{unassigned_population.total_population.toLocaleString()}</strong> people are not yet
-                  assigned to a district.
+                  <strong>{unassigned_population.total_population.toLocaleString()}</strong> people
+                  are not yet assigned to a district.
                 </Text>
               )}
               <Text size="2" as="p" mb="2">
@@ -125,7 +138,9 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
           )}
 
           {/* Contiguity */}
-          <Heading size="2" align="center" mb="2" mt="4">Contiguity</Heading>
+          <Heading size="2" align="center" mb="2" mt="4">
+            Contiguity
+          </Heading>
           <Text size="2" as="p" mb="2">
             A plan is called contiguous if every district is internally connected. This plan appears
             to be <strong>{isContiguous ? 'contiguous' : 'not contiguous'}</strong>. Note that
@@ -138,7 +153,16 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
               The following districts are not contiguous:{' '}
               {nonContiguousDistricts.map((d, i) => (
                 <span key={d}>
-                  <button type="button" style={HOVER_BTN_STYLE} onMouseEnter={() => onDistrictEnter(d)} onMouseLeave={onDistrictLeave} onFocus={() => onDistrictEnter(d)} onBlur={onDistrictLeave}>District {d}</button>
+                  <button
+                    type="button"
+                    style={HOVER_BTN_STYLE}
+                    onMouseEnter={() => onDistrictEnter(d)}
+                    onMouseLeave={onDistrictLeave}
+                    onFocus={() => onDistrictEnter(d)}
+                    onBlur={onDistrictLeave}
+                  >
+                    District {d}
+                  </button>
                   {i < nonContiguousDistricts.length - 1 ? ', ' : ''}
                 </span>
               ))}
@@ -146,7 +170,9 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
           )}
 
           {/* Population Deviation */}
-          <Heading size="2" align="center" mb="2" mt="4">Population Deviation</Heading>
+          <Heading size="2" align="center" mb="2" mt="4">
+            Population Deviation
+          </Heading>
           <Text size="2" as="p" mb="2">
             The ideal size of a district is arrived at by dividing the total population of the state
             equally into the specified number of districts. Population deviation of a plan is
@@ -158,22 +184,40 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
           {population_deviation ? (
             <Text size="2" as="p">
               Your plan&apos;s most populous district is{' '}
-              <button type="button" style={HOVER_BTN_STYLE} onMouseEnter={() => onDistrictEnter(population_deviation.most_populous_district)} onMouseLeave={onDistrictLeave} onFocus={() => onDistrictEnter(population_deviation.most_populous_district)} onBlur={onDistrictLeave}>District {population_deviation.most_populous_district}</button>{' '}and least
-              populous district is{' '}
-              <button type="button" style={HOVER_BTN_STYLE} onMouseEnter={() => onDistrictEnter(population_deviation.least_populous_district)} onMouseLeave={onDistrictLeave} onFocus={() => onDistrictEnter(population_deviation.least_populous_district)} onBlur={onDistrictLeave}>District {population_deviation.least_populous_district}</button>, for a
-              top-to-bottom deviation of{' '}
+              <button
+                type="button"
+                style={HOVER_BTN_STYLE}
+                onMouseEnter={() => onDistrictEnter(population_deviation.most_populous_district)}
+                onMouseLeave={onDistrictLeave}
+                onFocus={() => onDistrictEnter(population_deviation.most_populous_district)}
+                onBlur={onDistrictLeave}
+              >
+                District {population_deviation.most_populous_district}
+              </button>{' '}
+              and least populous district is{' '}
+              <button
+                type="button"
+                style={HOVER_BTN_STYLE}
+                onMouseEnter={() => onDistrictEnter(population_deviation.least_populous_district)}
+                onMouseLeave={onDistrictLeave}
+                onFocus={() => onDistrictEnter(population_deviation.least_populous_district)}
+                onBlur={onDistrictLeave}
+              >
+                District {population_deviation.least_populous_district}
+              </button>
+              , for a top-to-bottom deviation of{' '}
               <strong>{(population_deviation.top_to_bottom_deviation * 100).toFixed(2)}%</strong>{' '}
               and a maximal absolute deviation of{' '}
-              <strong>{population_deviation.maximal_absolute_deviation?.toLocaleString() ?? '—'}</strong>{' '}
+              <strong>
+                {population_deviation.maximal_absolute_deviation?.toLocaleString() ?? '—'}
+              </strong>{' '}
               people.
             </Text>
           ) : (
-            <Text size="2">
-              Not available for this plan.
-            </Text>
+            <Text size="2">Not available for this plan.</Text>
           )}
         </Accordion.Content>
       </Accordion.Item>
     </Accordion.Root>
   );
-}
+};

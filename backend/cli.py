@@ -335,7 +335,6 @@ def update_districtr_map(
     logger.info(f"Districtr map updated successfully {result}")
 
 
-
 @cli.command("create-shatterable-districtr-view")
 @click.option("--parent-layer-name", help="Parent gerrydb layer name", required=True)
 @click.option("--child-layer-name", help="Child gerrydb layer name", required=False)

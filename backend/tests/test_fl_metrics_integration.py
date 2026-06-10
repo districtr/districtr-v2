@@ -117,7 +117,11 @@ from app.evaluation.partisans import (
 )
 from app.evaluation.splits import county_pieces
 from app.main import app
-from app.utils import create_districtr_map, create_parent_child_edges, create_shatterable_gerrydb_view
+from app.utils import (
+    create_districtr_map,
+    create_parent_child_edges,
+    create_shatterable_gerrydb_view,
+)
 from tests.constants import ACCOUNT_AUTH0_ID, INTEGRATION_OGR2OGR_PG_CONNECTION_STRING
 
 # ── file paths ────────────────────────────────────────────────────────────────
@@ -160,22 +164,66 @@ EXPECTED_CUT_EDGES = 6797
 
 # Table 2 – per-district Polsby-Popper (Cong2026, CDs 1–28)
 EXPECTED_PP_BY_DISTRICT: dict[int, float] = {
-    1: 0.478,  2: 0.482,  3: 0.502,  4: 0.318,  5: 0.525,
-    6: 0.482,  7: 0.404,  8: 0.442,  9: 0.359, 10: 0.365,
-    11: 0.330, 12: 0.407, 13: 0.547, 14: 0.437, 15: 0.257,
-    16: 0.372, 17: 0.320, 18: 0.403, 19: 0.384, 20: 0.412,
-    21: 0.509, 22: 0.403, 23: 0.460, 24: 0.321, 25: 0.161,
-    26: 0.546, 27: 0.691, 28: 0.241,
+    1: 0.478,
+    2: 0.482,
+    3: 0.502,
+    4: 0.318,
+    5: 0.525,
+    6: 0.482,
+    7: 0.404,
+    8: 0.442,
+    9: 0.359,
+    10: 0.365,
+    11: 0.330,
+    12: 0.407,
+    13: 0.547,
+    14: 0.437,
+    15: 0.257,
+    16: 0.372,
+    17: 0.320,
+    18: 0.403,
+    19: 0.384,
+    20: 0.412,
+    21: 0.509,
+    22: 0.403,
+    23: 0.460,
+    24: 0.321,
+    25: 0.161,
+    26: 0.546,
+    27: 0.691,
+    28: 0.241,
 }
 
 # Table 2 – per-district Reock (Cong2026, CDs 1–28)
 EXPECTED_REOCK_BY_DISTRICT: dict[int, float] = {
-    1: 0.538,  2: 0.458,  3: 0.573,  4: 0.384,  5: 0.560,
-    6: 0.736,  7: 0.468,  8: 0.436,  9: 0.467, 10: 0.463,
-    11: 0.412, 12: 0.415, 13: 0.498, 14: 0.521, 15: 0.326,
-    16: 0.391, 17: 0.269, 18: 0.662, 19: 0.458, 20: 0.479,
-    21: 0.491, 22: 0.483, 23: 0.494, 24: 0.382, 25: 0.166,
-    26: 0.526, 27: 0.669, 28: 0.216,
+    1: 0.538,
+    2: 0.458,
+    3: 0.573,
+    4: 0.384,
+    5: 0.560,
+    6: 0.736,
+    7: 0.468,
+    8: 0.436,
+    9: 0.467,
+    10: 0.463,
+    11: 0.412,
+    12: 0.415,
+    13: 0.498,
+    14: 0.521,
+    15: 0.326,
+    16: 0.391,
+    17: 0.269,
+    18: 0.662,
+    19: 0.458,
+    20: 0.479,
+    21: 0.491,
+    22: 0.483,
+    23: 0.494,
+    24: 0.382,
+    25: 0.166,
+    26: 0.526,
+    27: 0.669,
+    28: 0.216,
 }
 
 # Table 3 – county splits (Cong2026).
@@ -200,18 +248,81 @@ EXPECTED_COUNTY_PIECES = 101  # matches report exactly; county_pieces uses geome
 # Commissioner race (AGR18, V_Rep≈50%).  Likewise ``ag_22`` maps to ATG22.
 # Expected values for those two elections are taken from ATG18/ATG22 rows.
 EXPECTED_PARTISAN: dict[str, dict] = {
-    "pres_16": {"dem_seats": 9, "v_rep": 0.5062, "disprop": -0.172, "eg": -0.194, "mm": -0.045, "pb": -0.179},
-    "sen_16":  {"dem_seats": 6, "v_rep": 0.5398, "disprop": -0.246, "eg": -0.223, "mm": -0.017, "pb": -0.179},
-    "gov_18":  {"dem_seats": 9, "v_rep": 0.5020, "disprop": -0.177, "eg": -0.212, "mm": -0.030, "pb": -0.179},
-    "sen_18":  {"dem_seats": 9, "v_rep": 0.5007, "disprop": -0.178, "eg": -0.217, "mm": -0.031, "pb": -0.179},
-    "ag_18":   {"dem_seats": 9, "v_rep": 0.5306, "disprop": -0.148, "eg": -0.157, "mm": -0.038, "pb": -0.179},
-    "pres_20": {"dem_seats": 6, "v_rep": 0.5169, "disprop": -0.269, "eg": -0.271, "mm": -0.023, "pb": -0.214},
-    "gov_22":  {"dem_seats": 4, "v_rep": 0.5977, "disprop": -0.259, "eg": -0.198, "mm": -0.029, "pb": -0.250},
-    "sen_22":  {"dem_seats": 4, "v_rep": 0.5829, "disprop": -0.274, "eg": -0.227, "mm": -0.029, "pb": -0.286},
-    "ag_22":   {"dem_seats": 4, "v_rep": 0.6059, "disprop": -0.251, "eg": -0.181, "mm": -0.032, "pb": -0.214},
+    "pres_16": {
+        "dem_seats": 9,
+        "v_rep": 0.5062,
+        "disprop": -0.172,
+        "eg": -0.194,
+        "mm": -0.045,
+        "pb": -0.179,
+    },
+    "sen_16": {
+        "dem_seats": 6,
+        "v_rep": 0.5398,
+        "disprop": -0.246,
+        "eg": -0.223,
+        "mm": -0.017,
+        "pb": -0.179,
+    },
+    "gov_18": {
+        "dem_seats": 9,
+        "v_rep": 0.5020,
+        "disprop": -0.177,
+        "eg": -0.212,
+        "mm": -0.030,
+        "pb": -0.179,
+    },
+    "sen_18": {
+        "dem_seats": 9,
+        "v_rep": 0.5007,
+        "disprop": -0.178,
+        "eg": -0.217,
+        "mm": -0.031,
+        "pb": -0.179,
+    },
+    "ag_18": {
+        "dem_seats": 9,
+        "v_rep": 0.5306,
+        "disprop": -0.148,
+        "eg": -0.157,
+        "mm": -0.038,
+        "pb": -0.179,
+    },
+    "pres_20": {
+        "dem_seats": 6,
+        "v_rep": 0.5169,
+        "disprop": -0.269,
+        "eg": -0.271,
+        "mm": -0.023,
+        "pb": -0.214,
+    },
+    "gov_22": {
+        "dem_seats": 4,
+        "v_rep": 0.5977,
+        "disprop": -0.259,
+        "eg": -0.198,
+        "mm": -0.029,
+        "pb": -0.250,
+    },
+    "sen_22": {
+        "dem_seats": 4,
+        "v_rep": 0.5829,
+        "disprop": -0.274,
+        "eg": -0.227,
+        "mm": -0.029,
+        "pb": -0.286,
+    },
+    "ag_22": {
+        "dem_seats": 4,
+        "v_rep": 0.6059,
+        "disprop": -0.251,
+        "eg": -0.181,
+        "mm": -0.032,
+        "pb": -0.214,
+    },
 }
 
-COMPACT_TOLERANCE = 0.020   # ±2 pp for compactness scores
+COMPACT_TOLERANCE = 0.020  # ±2 pp for compactness scores
 PARTISAN_TOLERANCE = 0.020  # ±2 pp for partisan metrics
 VOTE_SHARE_TOLERANCE = 0.005  # ±0.5 pp for statewide vote shares
 
@@ -228,8 +339,7 @@ def fl_graph():
 
 @pytest.fixture(scope="module")
 def fl_assignments() -> list[list]:
-    """Read the pre-computed hybrid assignment file (VTD + block level).
-    """
+    """Read the pre-computed hybrid assignment file (VTD + block level)."""
     assignments: list[list] = []
     with open(HYBRID_ASSIGNMENT_FILE) as f:
         for line in f:
@@ -247,6 +357,7 @@ def fl_assignments() -> list[list]:
 @pytest.fixture(scope="module")
 def fl_client(integration_engine):
     """Module-scoped test client backed by per-request sessions."""
+
     def _get_session():
         with Session(integration_engine, expire_on_commit=True) as s:
             yield s
@@ -300,18 +411,24 @@ def _map_exists(engine, slug: str) -> str | None:
             {"slug": slug},
         ).scalar_one_or_none()
 
+
 def _ogr2ogr_load(gpkg: Path, layer: str, table: str) -> None:
     subprocess.run(
         [
             "ogr2ogr",
-            "-f", "PostgreSQL",
+            "-f",
+            "PostgreSQL",
             INTEGRATION_OGR2OGR_PG_CONNECTION_STRING,
             str(gpkg),
             layer,
-            "-lco", "OVERWRITE=yes",
-            "-lco", "GEOMETRY_NAME=geometry",
-            "-nln", f"{GERRY_DB_SCHEMA}.{table}",
-            "-nlt", "MULTIPOLYGON",
+            "-lco",
+            "OVERWRITE=yes",
+            "-lco",
+            "GEOMETRY_NAME=geometry",
+            "-nln",
+            f"{GERRY_DB_SCHEMA}.{table}",
+            "-nlt",
+            "MULTIPOLYGON",
         ],
         check=True,
         capture_output=True,
@@ -448,7 +565,9 @@ def fl_document_id(integration_engine, fl_client, fl_map, fl_assignments) -> str
             )
             session.commit()
 
-    resp = fl_client.post("/api/create_document", json={"districtr_map_slug": FL_MAP_SLUG})
+    resp = fl_client.post(
+        "/api/create_document", json={"districtr_map_slug": FL_MAP_SLUG}
+    )
     assert resp.status_code == 201, resp.text
     document_id = resp.json()["document_id"]
 
@@ -522,16 +641,18 @@ class TestCompactness:
     @pytest.mark.parametrize("district,expected_pp", EXPECTED_PP_BY_DISTRICT.items())
     def test_per_district_polsby_popper(self, fl_ctx, district, expected_pp):
         pp = polsby_popper(fl_ctx)
-        assert pp[district] == pytest.approx(expected_pp, abs=COMPACT_TOLERANCE), (
-            f"CD{district}: got {pp[district]:.3f}, expected {expected_pp:.3f}"
-        )
+        assert pp[district] == pytest.approx(
+            expected_pp, abs=COMPACT_TOLERANCE
+        ), f"CD{district}: got {pp[district]:.3f}, expected {expected_pp:.3f}"
 
-    @pytest.mark.parametrize("district,expected_reock", EXPECTED_REOCK_BY_DISTRICT.items())
+    @pytest.mark.parametrize(
+        "district,expected_reock", EXPECTED_REOCK_BY_DISTRICT.items()
+    )
     def test_per_district_reock(self, fl_ctx, district, expected_reock):
         r = reock(fl_ctx)
-        assert r[district] == pytest.approx(expected_reock, abs=COMPACT_TOLERANCE), (
-            f"CD{district}: got {r[district]:.3f}, expected {expected_reock:.3f}"
-        )
+        assert r[district] == pytest.approx(
+            expected_reock, abs=COMPACT_TOLERANCE
+        ), f"CD{district}: got {r[district]:.3f}, expected {expected_reock:.3f}"
 
     def test_block_cut_edges(self, fl_ctx):
         """Table 1: block-level cut edges via the metric function (exact)."""
@@ -548,9 +669,7 @@ class TestCountySplits:
 
     def test_county_split_count(self, fl_ctx):
         result = county_pieces(fl_ctx)
-        split_counties = sum(
-            1 for entry in result.values() if entry["pieces"] >= 2
-        )
+        split_counties = sum(1 for entry in result.values() if entry["pieces"] >= 2)
         assert split_counties == EXPECTED_COUNTY_SPLITS
 
     def test_county_piece_count(self, fl_ctx):
@@ -582,42 +701,44 @@ class TestPartisanMetrics:
     @pytest.mark.parametrize("election,expected", EXPECTED_PARTISAN.items())
     def test_seat_counts(self, fl_ctx, election, expected):
         result = seats(fl_ctx)
-        assert result[election]["dem"] == expected["dem_seats"], (
-            f"{election}: dem seats {result[election]['dem']} ≠ {expected['dem_seats']}"
-        )
+        assert (
+            result[election]["dem"] == expected["dem_seats"]
+        ), f"{election}: dem seats {result[election]['dem']} ≠ {expected['dem_seats']}"
         assert result[election]["rep"] == 28 - expected["dem_seats"]
 
     @pytest.mark.parametrize("election,expected", EXPECTED_PARTISAN.items())
     def test_republican_vote_share(self, fl_ctx, election, expected):
         result = vote_shares(fl_ctx)
-        assert result[election]["rep"] == pytest.approx(
-            expected["v_rep"], abs=VOTE_SHARE_TOLERANCE
+        assert (
+            result[election]["rep"]
+            == pytest.approx(expected["v_rep"], abs=VOTE_SHARE_TOLERANCE)
         ), f"{election}: rep VS {result[election]['rep']:.4f} vs {expected['v_rep']:.4f}"
 
     @pytest.mark.parametrize("election,expected", EXPECTED_PARTISAN.items())
     def test_disproportionality(self, fl_ctx, election, expected):
         result = disproportionality(fl_ctx)
-        assert result[election] == pytest.approx(expected["disprop"], abs=PARTISAN_TOLERANCE), (
-            f"{election}: disproportionality {result[election]:.3f} vs {expected['disprop']:.3f}"
-        )
+        assert (
+            result[election]
+            == pytest.approx(expected["disprop"], abs=PARTISAN_TOLERANCE)
+        ), f"{election}: disproportionality {result[election]:.3f} vs {expected['disprop']:.3f}"
 
     @pytest.mark.parametrize("election,expected", EXPECTED_PARTISAN.items())
     def test_efficiency_gap(self, fl_ctx, election, expected):
         result = efficiency_gap(fl_ctx)
-        assert result[election] == pytest.approx(expected["eg"], abs=PARTISAN_TOLERANCE), (
-            f"{election}: EG {result[election]:.3f} vs {expected['eg']:.3f}"
-        )
+        assert result[election] == pytest.approx(
+            expected["eg"], abs=PARTISAN_TOLERANCE
+        ), f"{election}: EG {result[election]:.3f} vs {expected['eg']:.3f}"
 
     @pytest.mark.parametrize("election,expected", EXPECTED_PARTISAN.items())
     def test_mean_median(self, fl_ctx, election, expected):
         result = mean_median(fl_ctx)
-        assert result[election] == pytest.approx(expected["mm"], abs=PARTISAN_TOLERANCE), (
-            f"{election}: MM {result[election]:.3f} vs {expected['mm']:.3f}"
-        )
+        assert result[election] == pytest.approx(
+            expected["mm"], abs=PARTISAN_TOLERANCE
+        ), f"{election}: MM {result[election]:.3f} vs {expected['mm']:.3f}"
 
     @pytest.mark.parametrize("election,expected", EXPECTED_PARTISAN.items())
     def test_partisan_bias(self, fl_ctx, election, expected):
         result = partisan_bias(fl_ctx)
-        assert result[election] == pytest.approx(expected["pb"], abs=PARTISAN_TOLERANCE), (
-            f"{election}: PB {result[election]:.3f} vs {expected['pb']:.3f}"
-        )
+        assert result[election] == pytest.approx(
+            expected["pb"], abs=PARTISAN_TOLERANCE
+        ), f"{election}: PB {result[election]:.3f} vs {expected['pb']:.3f}"

@@ -151,7 +151,11 @@ async def log_slow_requests(request: Request, call_next):
     duration = time.monotonic() - start
     if duration > 30:
         logger.warning(
-            "SLOW %s %s %s %.1fs", request.method, request.url.path, response.status_code, duration
+            "SLOW %s %s %s %.1fs",
+            request.method,
+            request.url.path,
+            response.status_code,
+            duration,
         )
     return response
 
@@ -1278,7 +1282,6 @@ async def get_unassigned_geoids(
         results = []
 
     return {"features": [row[0] for row in results if row[0] is not None]}
-
 
 
 @app.get("/api/document/{document_id}/contiguity")

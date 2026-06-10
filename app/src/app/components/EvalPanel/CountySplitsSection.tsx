@@ -27,22 +27,19 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
     .sort((a, b) => a - b);
 
   const focusedGeoids: Set<string> | null =
-    selectedDistrict === 'all'
-      ? null
-      : new Set(membership?.[selectedDistrict] ?? []);
+    selectedDistrict === 'all' ? null : new Set(membership?.[selectedDistrict] ?? []);
 
   const allEntries = Object.entries(countyPieces)
     .map(([geoid, {total_pop: pop, pieces: actual, name}]) => ({geoid, pop, actual, name}))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const entries = focusedGeoids
-    ? allEntries.filter(e => focusedGeoids.has(e.geoid))
-    : allEntries;
+  const entries = focusedGeoids ? allEntries.filter(e => focusedGeoids.has(e.geoid)) : allEntries;
 
   const splitCounties = allEntries.filter(e => e.actual >= 2).length;
-  const unnecessarySplits = idealPop !== null
-    ? allEntries.filter(e => e.actual > Math.ceil(e.pop / idealPop)).length
-    : null;
+  const unnecessarySplits =
+    idealPop !== null
+      ? allEntries.filter(e => e.actual > Math.ceil(e.pop / idealPop)).length
+      : null;
 
   return (
     <Accordion.Root type="single" collapsible defaultValue="county-splits">
@@ -56,12 +53,14 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
         <Accordion.Content>
           <Text size="2" mb="3" as="p">
             A county is <strong>split</strong> when its population is divided across two or more
-            districts. The <em>districts&apos; worth</em> column shows how many ideal-sized districts
-            the county&apos;s population would fill.
+            districts. The <em>districts&apos; worth</em> column shows how many ideal-sized
+            districts the county&apos;s population would fill.
           </Text>
 
           <Flex align="center" gap="2" mb="3" justify="end">
-            <Text size="1" color="gray">County boundaries</Text>
+            <Text size="1" color="gray">
+              County boundaries
+            </Text>
             <Switch
               size="1"
               checked={mapOptions.showCountyBoundaries ?? false}
@@ -71,42 +70,62 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
             />
           </Flex>
 
-          <Heading size="2" align="center" mb="2" mt="4">Summary</Heading>
+          <Heading size="2" align="center" mb="2" mt="4">
+            Summary
+          </Heading>
           <Table.Root size="1" mb="3">
             <Table.Body>
               <Table.Row>
-                <Table.Cell><Text size="2">Total counties</Text></Table.Cell>
+                <Table.Cell>
+                  <Text size="2">Total counties</Text>
+                </Table.Cell>
                 <Table.Cell justify="end">
-                  <Text size="2" weight="bold">{allEntries.length}</Text>
+                  <Text size="2" weight="bold">
+                    {allEntries.length}
+                  </Text>
                 </Table.Cell>
               </Table.Row>
               <Table.Row>
-                <Table.Cell><Text size="2">Split counties (2+ pieces)</Text></Table.Cell>
+                <Table.Cell>
+                  <Text size="2">Split counties (2+ pieces)</Text>
+                </Table.Cell>
                 <Table.Cell justify="end">
-                  <Text size="2" weight="bold">{splitCounties}</Text>
+                  <Text size="2" weight="bold">
+                    {splitCounties}
+                  </Text>
                 </Table.Cell>
               </Table.Row>
               {unnecessarySplits !== null && (
                 <Table.Row>
-                  <Table.Cell><Text size="2">Unnecessarily split counties</Text></Table.Cell>
+                  <Table.Cell>
+                    <Text size="2">Unnecessarily split counties</Text>
+                  </Table.Cell>
                   <Table.Cell justify="end">
-                    <Text size="2" weight="bold">{unnecessarySplits}</Text>
+                    <Text size="2" weight="bold">
+                      {unnecessarySplits}
+                    </Text>
                   </Table.Cell>
                 </Table.Row>
               )}
             </Table.Body>
           </Table.Root>
 
-          <Heading size="2" align="center" mb="2" mt="4">Per-County Detail</Heading>
+          <Heading size="2" align="center" mb="2" mt="4">
+            Per-County Detail
+          </Heading>
           {districts.length > 0 && (
             <Flex align="center" gap="2" mb="2" justify="end">
-              <Text size="1" color="gray">Focus on</Text>
+              <Text size="1" color="gray">
+                Focus on
+              </Text>
               <Select.Root value={selectedDistrict} onValueChange={setSelectedDistrict} size="1">
                 <Select.Trigger />
                 <Select.Content>
                   <Select.Item value="all">All districts</Select.Item>
                   {districts.map(d => (
-                    <Select.Item key={d} value={String(d)}>District {d}</Select.Item>
+                    <Select.Item key={d} value={String(d)}>
+                      District {d}
+                    </Select.Item>
                   ))}
                 </Select.Content>
               </Select.Root>
@@ -118,19 +137,31 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
               <strong>{idealPop.toLocaleString()}</strong>.
             </Text>
           )}
-          <div className={entries.length > 15 ? 'max-h-[400px] overflow-y-auto print:max-h-none print:overflow-visible' : undefined}>
+          <div
+            className={
+              entries.length > 15
+                ? 'max-h-[400px] overflow-y-auto print:max-h-none print:overflow-visible'
+                : undefined
+            }
+          >
             <Table.Root size="1">
               <Table.Header>
                 <Table.Row>
                   <Table.ColumnHeaderCell>County Name</Table.ColumnHeaderCell>
                   <Table.ColumnHeaderCell justify="end">
-                    County<br />Population
+                    County
+                    <br />
+                    Population
                   </Table.ColumnHeaderCell>
                   <Table.ColumnHeaderCell justify="end">
-                    How Many Districts&apos;<br />Worth
+                    How Many Districts&apos;
+                    <br />
+                    Worth
                   </Table.ColumnHeaderCell>
                   <Table.ColumnHeaderCell justify="end">
-                    Pieces in<br />This Plan
+                    Pieces in
+                    <br />
+                    This Plan
                   </Table.ColumnHeaderCell>
                 </Table.Row>
               </Table.Header>
@@ -159,7 +190,11 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                         <Text size="2">{worth !== null ? worth.toFixed(2) : '—'}</Text>
                       </Table.Cell>
                       <Table.Cell justify="end">
-                        <Text size="2" weight={unnecessary ? 'bold' : 'regular'} color={unnecessary ? 'red' : undefined}>
+                        <Text
+                          size="2"
+                          weight={unnecessary ? 'bold' : 'regular'}
+                          color={unnecessary ? 'red' : undefined}
+                        >
                           {actual}
                         </Text>
                       </Table.Cell>
@@ -173,4 +208,4 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
       </Accordion.Item>
     </Accordion.Root>
   );
-}
+};

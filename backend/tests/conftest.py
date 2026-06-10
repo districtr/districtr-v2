@@ -565,7 +565,6 @@ def ks_ellis_parent_layer_only_districtr_map(
     return inserted_districtr_map
 
 
-
 # ── Grid graph fixtures (8×8 blocks / 4×4 VTDs / 8 counties) ────────────────
 #
 # Census-style GEOIDs encode the county→VTD→block hierarchy:
@@ -585,14 +584,22 @@ PARENT_GRID_NAME = GerrydbTableName("grid_parent")
 GRID_COMBINED_NAME = GerrydbTableName("grid_shatterable")
 
 _GRID_ELEC_COLS = [
-    Election(e) for e in [
-        "pres_2016_dem", "pres_2016_rep",
-        "pres_2020_dem", "pres_2020_rep",
-        "pres_2024_dem", "pres_2024_rep",
-        "sen_2016_dem", "sen_2016_rep",
-        "sen_2018_dem", "sen_2018_rep",
-        "sen_2020_dem", "sen_2020_rep",
-        "sen_2022_dem", "sen_2022_rep",
+    Election(e)
+    for e in [
+        "pres_2016_dem",
+        "pres_2016_rep",
+        "pres_2020_dem",
+        "pres_2020_rep",
+        "pres_2024_dem",
+        "pres_2024_rep",
+        "sen_2016_dem",
+        "sen_2016_rep",
+        "sen_2018_dem",
+        "sen_2018_rep",
+        "sen_2020_dem",
+        "sen_2020_rep",
+        "sen_2022_dem",
+        "sen_2022_rep",
     ]
 ]
 
@@ -639,6 +646,7 @@ _GRID_ELEC_COLS = [
 #   county_part   = Partition(gc_graph, {n: cells[n]["county"] for n in range(64)}, updaters=updaters)
 #   # Eguia: _eguia_election(district_part, e, "Democratic", county_part, "total_pop_20")
 
+
 # Read back for test_partisan.py (needed to derive _GRID_DISTRICT_STATS at import time).
 def _read_grid_csv(name: str) -> list[dict]:
     path = FIXTURES_PATH / "gerrydb" / f"{name}.csv"
@@ -650,11 +658,11 @@ def _read_grid_csv(name: str) -> list[dict]:
                 row[k] = int(row[k])
     return rows
 
+
 _GRID_BLOCK_ROWS: list[dict] = _read_grid_csv(BLOCK_GRID_NAME)
 
-_GRID_TABLE_COLS = (
-    "path TEXT PRIMARY KEY, total_pop_20 INTEGER, "
-    + ", ".join(f"{c} INTEGER" for c in _GRID_ELEC_COLS)
+_GRID_TABLE_COLS = "path TEXT PRIMARY KEY, total_pop_20 INTEGER, " + ", ".join(
+    f"{c} INTEGER" for c in _GRID_ELEC_COLS
 )
 
 
@@ -794,6 +802,7 @@ def _vtd_geoid(pr: int, pc: int) -> str:
 @pytest.fixture(name="mock_grid_graph_file")
 def mock_grid_graph_file_fixture(monkeypatch):
     """Redirect get_gerrydb_graph_file to fixtures/graph/ and flush the LRU cache."""
+
     def _get_file(gerrydb_name: str) -> str:
         return str(FIXTURES_PATH / "graph" / f"{gerrydb_name}.pkl")
 
@@ -813,9 +822,11 @@ _UPSERT_GERRYDBTABLE = text("""
 @pytest.fixture(name="grid_child_gerrydb")
 def grid_child_gerrydb_fixture(session: Session):
     session.execute(_UPSERT_GERRYDBTABLE, {"name": BLOCK_GRID_NAME})
-    session.execute(text(
-        f"CREATE TABLE IF NOT EXISTS gerrydb.{BLOCK_GRID_NAME} ({_GRID_TABLE_COLS})"
-    ))
+    session.execute(
+        text(
+            f"CREATE TABLE IF NOT EXISTS gerrydb.{BLOCK_GRID_NAME} ({_GRID_TABLE_COLS})"
+        )
+    )
     session.flush()
     _copy_csv_to_gerrydb(session, BLOCK_GRID_NAME, BLOCK_GRID_NAME)
 
@@ -823,15 +834,19 @@ def grid_child_gerrydb_fixture(session: Session):
 @pytest.fixture(name="grid_parent_gerrydb")
 def grid_parent_gerrydb_fixture(session: Session):
     session.execute(_UPSERT_GERRYDBTABLE, {"name": PARENT_GRID_NAME})
-    session.execute(text(
-        f"CREATE TABLE IF NOT EXISTS gerrydb.{PARENT_GRID_NAME} ({_GRID_TABLE_COLS})"
-    ))
+    session.execute(
+        text(
+            f"CREATE TABLE IF NOT EXISTS gerrydb.{PARENT_GRID_NAME} ({_GRID_TABLE_COLS})"
+        )
+    )
     session.flush()
     _copy_csv_to_gerrydb(session, PARENT_GRID_NAME, PARENT_GRID_NAME)
 
 
 @pytest.fixture(name="grid_shatterable_districtr_map")
-def grid_shatterable_districtr_map_fixture(session: Session, grid_child_gerrydb, grid_parent_gerrydb):
+def grid_shatterable_districtr_map_fixture(
+    session: Session, grid_child_gerrydb, grid_parent_gerrydb
+):
     return create_districtr_map(
         session,
         name="Grid 8x8 shatterable map",
@@ -844,7 +859,9 @@ def grid_shatterable_districtr_map_fixture(session: Session, grid_child_gerrydb,
 
 
 @pytest.fixture(name="grid_nonshatterable_child_districtr_map")
-def grid_nonshatterable_child_districtr_map_fixture(session: Session, grid_child_gerrydb):
+def grid_nonshatterable_child_districtr_map_fixture(
+    session: Session, grid_child_gerrydb
+):
     return create_districtr_map(
         session,
         name="Grid 8x8 non-shatterable block map",
@@ -856,7 +873,9 @@ def grid_nonshatterable_child_districtr_map_fixture(session: Session, grid_child
 
 
 @pytest.fixture(name="grid_nonshatterable_parent_districtr_map")
-def grid_nonshatterable_parent_districtr_map_fixture(session: Session, grid_parent_gerrydb):
+def grid_nonshatterable_parent_districtr_map_fixture(
+    session: Session, grid_parent_gerrydb
+):
     return create_districtr_map(
         session,
         name="Grid 4x4 non-shatterable VTD map",

@@ -77,6 +77,7 @@ class ZoneContiguousNodes(BaseModel):
     zone: int
     nodes: list[str]
 
+
 def get_assigned_nodes(
     session: Session,
     document_id: str,
@@ -100,14 +101,17 @@ def get_assigned_nodes(
         binds.append(sa.bindparam(key="zones", type_=ARRAY(Integer)))
         params["zones"] = zones
 
-    non_contiguous: set[str] = G.graph.get("non_contiguous_parents", set()) if G else set()
+    non_contiguous: set[str] = (
+        G.graph.get("non_contiguous_parents", set()) if G else set()
+    )
     ncp_paths = list(non_contiguous)
 
     if ncp_paths:
         binds.append(sa.bindparam(key="ncp_paths", type_=ARRAY(sa.String)))
         params["ncp_paths"] = ncp_paths
         sql = sa.text(
-            _non_contiguous_parents_expand_ctes(map_uuid, zone_filter) + """
+            _non_contiguous_parents_expand_ctes(map_uuid, zone_filter)
+            + """
             SELECT zone, array_agg(geo_id) AS nodes
             FROM ids
             GROUP BY zone"""
@@ -175,14 +179,17 @@ def get_assigned_nodes_bboxes(
         safe_table = assert_safe_ident(gerrydb_table_name)
         geo_source = f"gerrydb.{safe_table} g"
 
-    non_contiguous: set[str] = G.graph.get("non_contiguous_parents", set()) if G else set()
+    non_contiguous: set[str] = (
+        G.graph.get("non_contiguous_parents", set()) if G else set()
+    )
     ncp_paths = list(non_contiguous)
 
     if ncp_paths and child_layer:
         binds.append(sa.bindparam(key="ncp_paths", type_=ARRAY(sa.String)))
         params["ncp_paths"] = ncp_paths
         sql = sa.text(
-            _non_contiguous_parents_expand_ctes(map_uuid, zone_filter) + f"""
+            _non_contiguous_parents_expand_ctes(map_uuid, zone_filter)
+            + f"""
             SELECT
                 ids.geo_id,
                 st_xmin(Box2D(g.geometry)) AS xmin,
@@ -214,11 +221,7 @@ def get_assigned_nodes_bboxes(
 
     return [
         NodeWithBBoxes(
-            node=row.geo_id,
-            xmin=row.xmin,
-            xmax=row.xmax,
-            ymin=row.ymin,
-            ymax=row.ymax
+            node=row.geo_id, xmin=row.xmin, xmax=row.xmax, ymin=row.ymin, ymax=row.ymax
         )
         for row in rows
     ]

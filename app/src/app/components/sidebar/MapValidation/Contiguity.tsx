@@ -11,17 +11,16 @@ import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 export const Contiguity = () => {
   const mapDocument = useMapStore(store => store.mapDocument);
   const getZoneColor = useZoneColorGetter();
-  const {data, isLoading, refetch, dataUpdatedAt} = useQuery(
-    {
-      queryKey: ['Contiguity', mapDocument?.document_id, mapDocument?.updated_at],
-      queryFn: async () => {
-        return await getContiguity(mapDocument);
-      },
-      enabled: !!mapDocument,
-      staleTime: 0,
-      retry: false,
-      placeholderData: previousData => previousData,
-      refetchOnWindowFocus: false,
+  const {data, isLoading, refetch, dataUpdatedAt} = useQuery({
+    queryKey: ['Contiguity', mapDocument?.document_id, mapDocument?.updated_at],
+    queryFn: async () => {
+      return await getContiguity(mapDocument);
+    },
+    enabled: !!mapDocument,
+    staleTime: 0,
+    retry: false,
+    placeholderData: previousData => previousData,
+    refetchOnWindowFocus: false,
   });
 
   const lastUpdatedContiguity = dataUpdatedAt

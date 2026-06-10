@@ -7,7 +7,6 @@ single `DocumentEvaluationContext` and run every metric in `METRICS`.
 """
 
 import logging
-import time
 from typing import Any
 
 from fastapi import BackgroundTasks
@@ -15,7 +14,12 @@ from sqlalchemy.sql import func
 from sqlmodel import Session, select
 
 from app.evaluation.models import Evaluation
-from app.evaluation.registry import CURRENT_PAYLOAD_VERSION, METRICS, Metric, hash_payload_version
+from app.evaluation.registry import (
+    CURRENT_PAYLOAD_VERSION,
+    METRICS,
+    Metric,
+    hash_payload_version,
+)
 from app.evaluation.context import DocumentEvaluationContext
 from app.evaluation.types import MetricFailure, MetricsEnvelope
 from app.models import Document
@@ -47,7 +51,11 @@ def update_or_select_document_evaluation(
         and document.updated_at
         and evaluation.updated_at >= document.updated_at
     ):
-        return MetricsEnvelope(payload_version=evaluation.payload_version, metrics=evaluation.metrics, failed=[])
+        return MetricsEnvelope(
+            payload_version=evaluation.payload_version,
+            metrics=evaluation.metrics,
+            failed=[],
+        )
     envelope = compute_metrics(background_tasks, session, document.document_id)
 
     if evaluation:
@@ -79,7 +87,9 @@ def compute_metrics(
         background_tasks=background_tasks, session=session, document_id=document_id
     )
     if context.num_nonempty_districts == 0:
-        return MetricsEnvelope(payload_version=CURRENT_PAYLOAD_VERSION, metrics={}, failed=[])
+        return MetricsEnvelope(
+            payload_version=CURRENT_PAYLOAD_VERSION, metrics={}, failed=[]
+        )
     metric_payloads: dict[str, Any] = {}
     succeeded: list[Metric[Any]] = []
     failures: list[MetricFailure] = []

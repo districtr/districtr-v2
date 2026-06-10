@@ -75,7 +75,11 @@ def block_cut_edges(context: DocumentEvaluationContext) -> CutEdgesResult:
                 # a parent, looking at direct parent-unit neighbers would be
                 # double-counting edges and subsume many block-to-block edges as a
                 # single block-to-parent edge.
-                if parent and parent in parent_unit_to_zone and zone_unit != parent_unit_to_zone[parent]:
+                if (
+                    parent
+                    and parent in parent_unit_to_zone
+                    and zone_unit != parent_unit_to_zone[parent]
+                ):
                     cut_count += 1
     cut_count += half_cut // 2
     return {"cut_count": cut_count, "unit_type": unit_type}

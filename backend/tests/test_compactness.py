@@ -27,16 +27,20 @@ Grid integration-test topology (8×8 blocks / 4×4 parents, all weights = 2):
 """
 
 from datetime import datetime
-from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import BackgroundTasks
-from networkx import Graph
 from sqlmodel import Session
 
 from app.evaluation.compactness import block_cut_edges, polsby_popper, reock
 from app.evaluation.context import DocumentEvaluationContext
-from tests.conftest import BLOCK_GRID_NAME, GRID_COMBINED_NAME, PARENT_GRID_NAME, _block_geoid, _vtd_geoid
+from tests.conftest import (
+    BLOCK_GRID_NAME,
+    GRID_COMBINED_NAME,
+    PARENT_GRID_NAME,
+    _block_geoid,
+    _vtd_geoid,
+)
 
 
 # ── Stub context ──────────────────────────────────────────────────────────────
@@ -51,7 +55,9 @@ class _StubCompactnessContext(DocumentEvaluationContext):
         gerrydb_table="test_table",
         parent_layer=None,
     ):
-        super().__init__(background_tasks=None, session=session, document_id=document_id)  # type: ignore[arg-type]
+        super().__init__(
+            background_tasks=None, session=session, document_id=document_id
+        )  # type: ignore[arg-type]
         self.__dict__["child_layer"] = child_layer
         self.__dict__["gerrydb_table"] = gerrydb_table
         self.__dict__["parent_layer"] = parent_layer
@@ -74,32 +80,51 @@ def _block_lr():
 
 def _block_4q():
     """64 block assignments: 4-quadrant zones (top-left=1, top-right=2, bottom-left=3, bottom-right=4)."""
-    return [[_block_geoid(r, c), (r // 4) * 2 + (c // 4) + 1] for r in range(8) for c in range(8)]
+    return [
+        [_block_geoid(r, c), (r // 4) * 2 + (c // 4) + 1]
+        for r in range(8)
+        for c in range(8)
+    ]
 
 
 def _vtd_lr():
     """16 VTD assignments: pc < 2 → zone 1, pc ≥ 2 → zone 2."""
-    return [[_vtd_geoid(pr, pc), 1 if pc < 2 else 2] for pr in range(4) for pc in range(4)]
+    return [
+        [_vtd_geoid(pr, pc), 1 if pc < 2 else 2] for pr in range(4) for pc in range(4)
+    ]
 
 
 def _vtd_4q():
     """16 VTD assignments: 4-quadrant zones."""
-    return [[_vtd_geoid(pr, pc), (pr // 2) * 2 + (pc // 2) + 1] for pr in range(4) for pc in range(4)]
+    return [
+        [_vtd_geoid(pr, pc), (pr // 2) * 2 + (pc // 2) + 1]
+        for pr in range(4)
+        for pc in range(4)
+    ]
 
 
 def _mixed_shatterable():
     """Top half (r=0..3) as block GEOIDs + bottom half (pr=2..3) as VTD GEOIDs."""
-    blocks = [[_block_geoid(r, c), 1 if c < 4 else 2] for r in range(4) for c in range(8)]
-    parents = [[_vtd_geoid(pr, pc), 3 if pc < 2 else 4] for pr in range(2, 4) for pc in range(4)]
+    blocks = [
+        [_block_geoid(r, c), 1 if c < 4 else 2] for r in range(4) for c in range(8)
+    ]
+    parents = [
+        [_vtd_geoid(pr, pc), 3 if pc < 2 else 4]
+        for pr in range(2, 4)
+        for pc in range(4)
+    ]
     return blocks + parents
 
 
 def _put_assignments(client, document_id: str, assignments: list) -> None:
-    resp = client.put("/api/assignments", json={
-        "document_id": document_id,
-        "assignments": assignments,
-        "last_updated_at": datetime.now().astimezone().isoformat(),
-    })
+    resp = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "assignments": assignments,
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+        },
+    )
     assert resp.status_code == 200
 
 
@@ -108,21 +133,27 @@ def _put_assignments(client, document_id: str, assignments: list) -> None:
 
 @pytest.fixture
 def grid_child_document(client, grid_nonshatterable_child_districtr_map):
-    resp = client.post("/api/create_document", json={"districtr_map_slug": "grid_child"})
+    resp = client.post(
+        "/api/create_document", json={"districtr_map_slug": "grid_child"}
+    )
     assert resp.status_code == 201
     return resp.json()["document_id"]
 
 
 @pytest.fixture
 def grid_parent_document(client, grid_nonshatterable_parent_districtr_map):
-    resp = client.post("/api/create_document", json={"districtr_map_slug": "grid_parent"})
+    resp = client.post(
+        "/api/create_document", json={"districtr_map_slug": "grid_parent"}
+    )
     assert resp.status_code == 201
     return resp.json()["document_id"]
 
 
 @pytest.fixture
 def grid_shatterable_document(client, grid_shatterable_districtr_map):
-    resp = client.post("/api/create_document", json={"districtr_map_slug": "grid_shatterable"})
+    resp = client.post(
+        "/api/create_document", json={"districtr_map_slug": "grid_shatterable"}
+    )
     assert resp.status_code == 201
     return resp.json()["document_id"]
 
@@ -136,8 +167,11 @@ def test_cut_edges_nonshatterable_child_lr(
     """8×8 block map, left-right split → 8 cut edges at the c=3/c=4 column boundary."""
     _put_assignments(client, grid_child_document, _block_lr())
     ctx = _StubCompactnessContext(
-        session, document_id=grid_child_document,
-        child_layer=None, gerrydb_table=BLOCK_GRID_NAME, parent_layer=BLOCK_GRID_NAME,
+        session,
+        document_id=grid_child_document,
+        child_layer=None,
+        gerrydb_table=BLOCK_GRID_NAME,
+        parent_layer=BLOCK_GRID_NAME,
     )
     result = block_cut_edges(ctx)
     assert result["unit_type"] == "block"
@@ -150,8 +184,11 @@ def test_cut_edges_nonshatterable_child_4q(
     """8×8 block map, 4-quadrant split → 16 cut edges (4 per boundary × 4 boundaries)."""
     _put_assignments(client, grid_child_document, _block_4q())
     ctx = _StubCompactnessContext(
-        session, document_id=grid_child_document,
-        child_layer=None, gerrydb_table=BLOCK_GRID_NAME, parent_layer=BLOCK_GRID_NAME,
+        session,
+        document_id=grid_child_document,
+        child_layer=None,
+        gerrydb_table=BLOCK_GRID_NAME,
+        parent_layer=BLOCK_GRID_NAME,
     )
     result = block_cut_edges(ctx)
     assert result["unit_type"] == "block"
@@ -167,8 +204,11 @@ def test_cut_edges_nonshatterable_vtd_parent_lr(
     """4×4 VTD map, left-right split → 4 cut edges (one VTD edge per row, no weight)."""
     _put_assignments(client, grid_parent_document, _vtd_lr())
     ctx = _StubCompactnessContext(
-        session, document_id=grid_parent_document,
-        child_layer=None, gerrydb_table=PARENT_GRID_NAME, parent_layer=PARENT_GRID_NAME,
+        session,
+        document_id=grid_parent_document,
+        child_layer=None,
+        gerrydb_table=PARENT_GRID_NAME,
+        parent_layer=PARENT_GRID_NAME,
     )
     result = block_cut_edges(ctx)
     assert result["unit_type"] == "vtd"
@@ -184,8 +224,10 @@ def test_cut_edges_shatterable_parent_only_lr(
     """Shatterable, all parents assigned, left-right → 8 cuts (4 edges × weight 2)."""
     _put_assignments(client, grid_shatterable_document, _vtd_lr())
     ctx = _StubCompactnessContext(
-        session, document_id=grid_shatterable_document,
-        child_layer=BLOCK_GRID_NAME, gerrydb_table=GRID_COMBINED_NAME,
+        session,
+        document_id=grid_shatterable_document,
+        child_layer=BLOCK_GRID_NAME,
+        gerrydb_table=GRID_COMBINED_NAME,
         parent_layer=PARENT_GRID_NAME,
     )
     result = block_cut_edges(ctx)
@@ -199,8 +241,10 @@ def test_cut_edges_shatterable_parent_only_4q(
     """Shatterable, all parents assigned, 4-quadrant → 16 cuts (8 edges × weight 2)."""
     _put_assignments(client, grid_shatterable_document, _vtd_4q())
     ctx = _StubCompactnessContext(
-        session, document_id=grid_shatterable_document,
-        child_layer=BLOCK_GRID_NAME, gerrydb_table=GRID_COMBINED_NAME,
+        session,
+        document_id=grid_shatterable_document,
+        child_layer=BLOCK_GRID_NAME,
+        gerrydb_table=GRID_COMBINED_NAME,
         parent_layer=PARENT_GRID_NAME,
     )
     result = block_cut_edges(ctx)
@@ -217,8 +261,10 @@ def test_cut_edges_shatterable_child_only_lr(
     """Shatterable, all blocks individually assigned, left-right → 8 cuts (same as non-shatterable child)."""
     _put_assignments(client, grid_shatterable_document, _block_lr())
     ctx = _StubCompactnessContext(
-        session, document_id=grid_shatterable_document,
-        child_layer=BLOCK_GRID_NAME, gerrydb_table=GRID_COMBINED_NAME,
+        session,
+        document_id=grid_shatterable_document,
+        child_layer=BLOCK_GRID_NAME,
+        gerrydb_table=GRID_COMBINED_NAME,
         parent_layer=PARENT_GRID_NAME,
     )
     result = block_cut_edges(ctx)
@@ -240,8 +286,10 @@ def test_cut_edges_shatterable_mixed_grid(
     """
     _put_assignments(client, grid_shatterable_document, _mixed_shatterable())
     ctx = _StubCompactnessContext(
-        session, document_id=grid_shatterable_document,
-        child_layer=BLOCK_GRID_NAME, gerrydb_table=GRID_COMBINED_NAME,
+        session,
+        document_id=grid_shatterable_document,
+        child_layer=BLOCK_GRID_NAME,
+        gerrydb_table=GRID_COMBINED_NAME,
         parent_layer=PARENT_GRID_NAME,
     )
     result = block_cut_edges(ctx)
@@ -260,16 +308,28 @@ def test_cut_edges_shatterable_mixed_grid(
 #   Zone 2: 0.5454707812
 
 
-def test_polsby_popper(client, session: Session, simple_child_geos_nonshatterable_districtr_map):
+def test_polsby_popper(
+    client, session: Session, simple_child_geos_nonshatterable_districtr_map
+):
     """{a,b,e,f} → zone 1, {c,d} → zone 2 against gerrychain reference values."""
-    resp = client.post("/api/create_document", json={"districtr_map_slug": "simple_child_ns"})
+    resp = client.post(
+        "/api/create_document", json={"districtr_map_slug": "simple_child_ns"}
+    )
     assert resp.status_code == 201
     document_id = resp.json()["document_id"]
 
-    _put_assignments(client, document_id, [
-        ["000010000000001", 1], ["000010000000002", 1], ["000010000000003", 2],
-        ["000010000000004", 2], ["000010000000005", 1], ["000010000000006", 1],
-    ])
+    _put_assignments(
+        client,
+        document_id,
+        [
+            ["000010000000001", 1],
+            ["000010000000002", 1],
+            ["000010000000003", 2],
+            ["000010000000004", 2],
+            ["000010000000005", 1],
+            ["000010000000006", 1],
+        ],
+    )
 
     ctx = DocumentEvaluationContext(
         background_tasks=BackgroundTasks(),
@@ -295,16 +355,28 @@ def test_polsby_popper(client, session: Session, simple_child_geos_nonshatterabl
 # cv2.minEnclosingCircle requires float32 input, losing ~4 digits of precision.
 
 
-def test_reock(client, session: Session, simple_child_geos_nonshatterable_districtr_map):
+def test_reock(
+    client, session: Session, simple_child_geos_nonshatterable_districtr_map
+):
     """{a,b,e,f} → zone 1, {c,d} → zone 2 against gerrytools reference values."""
-    resp = client.post("/api/create_document", json={"districtr_map_slug": "simple_child_ns"})
+    resp = client.post(
+        "/api/create_document", json={"districtr_map_slug": "simple_child_ns"}
+    )
     assert resp.status_code == 201
     document_id = resp.json()["document_id"]
 
-    _put_assignments(client, document_id, [
-        ["000010000000001", 1], ["000010000000002", 1], ["000010000000003", 2],
-        ["000010000000004", 2], ["000010000000005", 1], ["000010000000006", 1],
-    ])
+    _put_assignments(
+        client,
+        document_id,
+        [
+            ["000010000000001", 1],
+            ["000010000000002", 1],
+            ["000010000000003", 2],
+            ["000010000000004", 2],
+            ["000010000000005", 1],
+            ["000010000000006", 1],
+        ],
+    )
 
     ctx = DocumentEvaluationContext(
         background_tasks=BackgroundTasks(),

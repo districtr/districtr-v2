@@ -113,17 +113,20 @@ def aggregate(
 
 @transforms.command("create-graph")
 @click.option(
-    "--child-gpkg", "-c",
+    "--child-gpkg",
+    "-c",
     help="Path or S3 URI to block-level GeoPackage (must contain gerrydb_graph_edge layer)",
     required=True,
 )
 @click.option(
-    "--parent-gpkg", "-p",
+    "--parent-gpkg",
+    "-p",
     help="Path or S3 URI to parent-level GeoPackage",
     required=True,
 )
 @click.option(
-    "--gerrydb-name", "-g",
+    "--gerrydb-name",
+    "-g",
     help="GerryDB table name for the map (used as the output filename)",
     required=True,
 )
@@ -138,13 +141,16 @@ def aggregate(
     help="Layer name in parent GeoPackage (default: gpkg filename stem)",
 )
 @click.option(
-    "--out-path", "-o",
+    "--out-path",
+    "-o",
     default=None,
     help="Override output path (default: OUT_SCRATCH/graphs/<gerrydb-name>.pkl)",
 )
 @click.option(
-    "--upload", "-u",
-    is_flag=True, default=False,
+    "--upload",
+    "-u",
+    is_flag=True,
+    default=False,
     help="Upload the graph pkl to S3 after writing",
 )
 @click.option(
@@ -182,9 +188,19 @@ def create_graph(
 @transforms.command("batch-create-graphs")
 @click.option("--config-path", required=True, help="Path to graph batch config YAML")
 @click.option("--data-dir", default=None, help="Directory containing gpkg files")
-@click.option("--replace", "-f", is_flag=True, default=False, help="Rebuild even if output exists")
-@click.option("--upload", "-u", is_flag=True, default=False, help="Upload graphs to S3 after building")
-def batch_create_graphs(config_path: str, data_dir: str | None, replace: bool, upload: bool) -> None:
+@click.option(
+    "--replace", "-f", is_flag=True, default=False, help="Rebuild even if output exists"
+)
+@click.option(
+    "--upload",
+    "-u",
+    is_flag=True,
+    default=False,
+    help="Upload graphs to S3 after building",
+)
+def batch_create_graphs(
+    config_path: str, data_dir: str | None, replace: bool, upload: bool
+) -> None:
     """Build dual-level graph pkls for all maps in a batch config file."""
     batch = GraphBatch.from_file(file_path=config_path)
     batch.create_all(data_dir=data_dir, replace=replace, upload=upload)

@@ -14,7 +14,11 @@ export const EvalPanel: React.FC = () => {
 
   const publicId = mapDocument?.public_id;
 
-  const {data: envelope, isLoading, isError} = useQuery({
+  const {
+    data: envelope,
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ['evaluation', publicId],
     queryFn: async () => {
       if (!publicId) return null;
@@ -36,9 +40,7 @@ export const EvalPanel: React.FC = () => {
     : null;
 
   return (
-    <div
-      className="eval-panel h-full overflow-y-auto flex-shrink-0 border-l border-gray-200 bg-white w-1/2"
-    >
+    <div className="eval-panel h-full overflow-y-auto flex-shrink-0 border-l border-gray-200 bg-white w-1/2">
       <Flex direction="column" p="5" gap="1">
         <Flex justify="between" align="center">
           <Text size="1" className="uppercase tracking-widest">
@@ -58,9 +60,7 @@ export const EvalPanel: React.FC = () => {
         <Heading size="5" mt="1">
           Districting Plan Metrics
         </Heading>
-        <Text size="2">
-          {planName}
-        </Text>
+        <Text size="2">{planName}</Text>
         {snapshotDate && (
           <Text size="1">
             Snapshot of {snapshotDate} · Plan id {publicId}
@@ -92,4 +92,4 @@ export const EvalPanel: React.FC = () => {
       )}
     </div>
   );
-}
+};

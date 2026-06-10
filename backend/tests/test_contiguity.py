@@ -118,9 +118,7 @@ def test_all_zones_contiguous(
     document_id = simple_contiguous_assignments
     districtr_map = session.get(DistrictrMap, simple_shatterable_districtr_map)
     zone_assignments = get_assigned_nodes(session, document_id, districtr_map)
-    G = graph.get_gerrydb_graph(
-        str(FIXTURES_PATH / "graph" / "simple_geos.pkl")
-    )
+    G = graph.get_gerrydb_graph(str(FIXTURES_PATH / "graph" / "simple_geos.pkl"))
     for zone in zone_assignments:
         assert check_subgraph_contiguity(G, zone.nodes)
 
@@ -133,10 +131,10 @@ def test_subset_of_zones_contiguous(
     """Zone 1 is contiguous when filtered and checked against the combined graph."""
     document_id = simple_contiguous_assignments
     districtr_map = session.get(DistrictrMap, simple_shatterable_districtr_map)
-    (zone_assignment,) = get_assigned_nodes(session, document_id, districtr_map, zones=[1])
-    G = graph.get_gerrydb_graph(
-        str(FIXTURES_PATH / "graph" / "simple_geos.pkl")
+    (zone_assignment,) = get_assigned_nodes(
+        session, document_id, districtr_map, zones=[1]
     )
+    G = graph.get_gerrydb_graph(str(FIXTURES_PATH / "graph" / "simple_geos.pkl"))
     assert check_subgraph_contiguity(G, zone_assignment.nodes)
 
 
@@ -331,7 +329,9 @@ def ks_ellis_assignments(client: TestClient, ks_ellis_document_id: str) -> str:
 
 
 def test_ks_ellis_geos_contiguity(
-    client: TestClient, ks_ellis_assignments: str, mock_gerrydb_graph_file,
+    client: TestClient,
+    ks_ellis_assignments: str,
+    mock_gerrydb_graph_file,
 ):
     document_id = ks_ellis_assignments
 
@@ -343,7 +343,9 @@ def test_ks_ellis_geos_contiguity(
 
 
 def test_fix_ks_ellis_geos_contiguity(
-    client: TestClient, ks_ellis_assignments: str, mock_gerrydb_graph_file,
+    client: TestClient,
+    ks_ellis_assignments: str,
+    mock_gerrydb_graph_file,
 ):
     document_id = ks_ellis_assignments
 

@@ -131,4 +131,7 @@ def test_get_block_assignments_csv_export(
     )
     assert response.status_code == 200, response.json()
     assert response.headers["content-type"] == "text/csv; charset=utf-8"
-    assert response.text == "geo_id,zone\n000010000000001,1\n000010000000002,1\n000010000000003,2\n"
+    assert (
+        response.text
+        == "geo_id,zone\n000010000000001,1\n000010000000002,1\n000010000000003,2\n"
+    )

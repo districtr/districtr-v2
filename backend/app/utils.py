@@ -11,7 +11,14 @@ from sqlalchemy.types import UUID
 from sqlmodel import Session, select, Float
 
 from app.constants import GERRY_DB_SCHEMA, PUBLIC_SCHEMA
-from app.models import UUIDType, DistrictrMap, DistrictrMapUpdate, Document, DistrictUnionsResponse, GeoUnitType
+from app.models import (
+    UUIDType,
+    DistrictrMap,
+    DistrictrMapUpdate,
+    Document,
+    DistrictUnionsResponse,
+    GeoUnitType,
+)
 from app.thumbnails.main import generate_thumbnail, THUMBNAIL_BUCKET
 from app.core.config import settings
 
@@ -29,6 +36,7 @@ GEOID_PREDICATES: dict[GeoUnitType, Callable[[Geoid], bool]] = {
     GeoUnitType.BLOCK_GROUP: lambda geo_id: len(geo_id) == 12 and geo_id.isdigit(),
     GeoUnitType.BLOCK: lambda geo_id: len(geo_id) == 15 and geo_id.isdigit(),
 }
+
 
 def assert_safe_ident(name: str) -> str:
     """Assert that `name` is safe to interpolate into a SQL identifier position."""
@@ -151,7 +159,9 @@ def create_districtr_map(
         comment_length_limit=comment_length_limit,
         comment_count_limit=comment_count_limit,
         parent_geo_unit_type=infer_geo_unit_type(session, parent_layer),
-        child_geo_unit_type=infer_geo_unit_type(session, child_layer) if child_layer else None,
+        child_geo_unit_type=infer_geo_unit_type(session, child_layer)
+        if child_layer
+        else None,
     )
     session.add(districtr_map)
     session.flush()
@@ -311,15 +321,15 @@ def add_extent_to_districtrmap(
     logger.info(f"Adding extent for {districtr_map_uuid}...")
 
     if bounds:
-        assert all(b is not None for b in bounds), (
-            "If setting the extent manually, all values must be set."
-        )
+        assert all(
+            b is not None for b in bounds
+        ), "If setting the extent manually, all values must be set."
         assert len(bounds) == 4, "The extent must have 4 values."
         assert all(isinstance(b, float) for b in bounds), "All values must be floats."
         x_min, y_min, x_max, y_max = bounds
-        assert x_max > x_min and y_max > y_min, (
-            "The max values must be greater than the min values."
-        )
+        assert (
+            x_max > x_min and y_max > y_min
+        ), "The max values must be greater than the min values."
         stmt = text(
             "UPDATE districtrmap SET extent = ARRAY[:x_min, :y_min, :x_max, :y_max] WHERE uuid = :districtr_map_uuid RETURNING extent"
         ).bindparams(
