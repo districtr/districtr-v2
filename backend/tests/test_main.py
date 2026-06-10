@@ -1195,18 +1195,25 @@ def test_get_district_unions(client, document_id_total_vap):
     response = client.get(f"/api/document/{document_id_total_vap}/stats")
     assert response.status_code == 200
     data = response.json()
-    # 2 assigned zones + 1 unassigned row
-    assert len(data) == 3
-    assigned_rows = [d for d in data if d.get("zone") is not None]
-    unassigned_rows = [d for d in data if d.get("zone") is None]
-    assert len(assigned_rows) == 2
-    assert len(unassigned_rows) == 1
-    assert assigned_rows[0].get("geometry")
-    assert assigned_rows[0].get("demographic_data")
-    assert assigned_rows[0].get("updated_at")
-    # Unassigned row has no geometry but has demographic data
-    assert unassigned_rows[0].get("geometry") is None
-    assert unassigned_rows[0].get("demographic_data") is not None
+    assert data.get("type") == "FeatureCollection"
+    features = data.get("features", [])
+    # 2 assigned zones + 1 unassigned feature (null geometry)
+    assert len(features) == 3
+    assigned_features = [
+        f for f in features if f.get("properties", {}).get("zone") is not None
+    ]
+    unassigned_features = [
+        f for f in features if f.get("properties", {}).get("zone") is None
+    ]
+    assert len(assigned_features) == 2
+    assert len(unassigned_features) == 1
+    # geometry is now an embedded JSON object, not a stringified GeoJSON blob
+    assert assigned_features[0].get("geometry") is not None
+    assert isinstance(assigned_features[0].get("geometry"), dict)
+    assert assigned_features[0]["properties"].get("demographic_data")
+    assert assigned_features[0]["properties"].get("updated_at")
+    assert unassigned_features[0].get("geometry") is None
+    assert unassigned_features[0]["properties"].get("demographic_data") is not None
     # update assignments to re-generate stats
     response = client.put(
         "/api/assignments",
@@ -1222,8 +1229,9 @@ def test_get_district_unions(client, document_id_total_vap):
     response = client.get(f"/api/document/{document_id_total_vap}/stats")
     assert response.status_code == 200
     data = response.json()
-    # 1 assigned zone + 1 unassigned row
-    assert len(data) == 2
+    features = data.get("features", [])
+    # 1 assigned zone + 1 unassigned feature
+    assert len(features) == 2
 
     # get with public id
     document_info = client.get(f"/api/document/{document_id_total_vap}")
@@ -1232,7 +1240,89 @@ def test_get_district_unions(client, document_id_total_vap):
     )
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 2
+    features = data.get("features", [])
+    assert len(features) == 2
+
+
+def test_district_unions_dirty_zone_eviction(client, document_id_total_vap):
+    """Touching one zone leaves another zone's cached row in place.
+
+    Validates the optimistic-eviction path in PUT /api/assignments: only the
+    rows for zones whose membership actually changed (and the unassigned
+    aggregate, since it depends on the sum across all zones) get dropped
+    from document.district_unions.
+    """
+    # Seed: two zones, two cached rows.
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_total_vap,
+            "assignments": [
+                ["202090441022004", 1],
+                ["200979691001108", 2],
+            ],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+        },
+    )
+    assert response.status_code == 200
+
+    response = client.get(f"/api/document/{document_id_total_vap}/stats")
+    assert response.status_code == 200
+    initial = {
+        f["properties"]["zone"]: f["properties"]["updated_at"]
+        for f in response.json()["features"]
+        if f["properties"]["zone"] is not None
+    }
+    assert set(initial.keys()) == {1, 2}
+
+    # Re-write the SAME mapping. No zone is dirty → no rows should be
+    # rebuilt → both cached updated_at timestamps must survive.
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_total_vap,
+            "assignments": [
+                ["202090441022004", 1],
+                ["200979691001108", 2],
+            ],
+            "last_updated_at": response.json()["features"][0]["properties"][
+                "updated_at"
+            ],
+            "overwrite": True,
+        },
+    )
+    assert response.status_code == 200
+    response = client.get(f"/api/document/{document_id_total_vap}/stats")
+    same = {
+        f["properties"]["zone"]: f["properties"]["updated_at"]
+        for f in response.json()["features"]
+        if f["properties"]["zone"] is not None
+    }
+    assert same == initial, "no-op write must not evict any cached zone"
+
+    # Move a geo_id out of zone 1 into a fresh zone 3. Zone 1 changed, zone
+    # 3 is new — both should be (re)built. Zone 2's row should be untouched.
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_total_vap,
+            "assignments": [
+                ["202090441022004", 3],
+                ["200979691001108", 2],
+            ],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+            "overwrite": True,
+        },
+    )
+    assert response.status_code == 200
+    response = client.get(f"/api/document/{document_id_total_vap}/stats")
+    after = {
+        f["properties"]["zone"]: f["properties"]["updated_at"]
+        for f in response.json()["features"]
+        if f["properties"]["zone"] is not None
+    }
+    assert set(after.keys()) == {2, 3}
+    assert after[2] == initial[2], "zone 2 was not touched; its cache row must survive"
 
 
 @pytest.fixture

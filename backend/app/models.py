@@ -16,7 +16,7 @@ from sqlmodel import (
     Index,
 )
 from sqlalchemy.types import ARRAY
-from sqlalchemy.dialects.postgresql import JSON, ENUM
+from sqlalchemy.dialects.postgresql import JSON, ENUM, TIMESTAMP
 from sqlalchemy import Float, SmallInteger, text
 import pydantic_geojson
 from app.constants import DOCUMENT_SCHEMA
@@ -289,6 +289,22 @@ class Document(TimeStampMixin, SQLModel, table=True):
             server_default=DocumentType.DISTRICT.value,
         )
     )
+    # Bumped only on assignment writes that actually change geo_id → zone
+    # mapping. Drives per-zone district_unions cache invalidation and the
+    # CDN-vs-inline branch in /stats.
+    assignments_updated_at: datetime = Field(
+        sa_column=Column(
+            TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=text("NOW()"),
+        )
+    )
+    # Last successful upload of plans/display/{public_id}.geojson to S3.
+    # Compared against assignments_updated_at to decide if the CDN object is
+    # fresh enough to redirect to.
+    stats_published_at: datetime | None = Field(
+        sa_column=Column(TIMESTAMP(timezone=True), nullable=True)
+    )
 
 
 class DocumentCreate(BaseModel):
@@ -559,6 +575,8 @@ class DistrictUnions(TimeStampMixin, SQLModel, table=True):
 
 class DistrictUnionsResponse(BaseModel):
     zone: int | None
-    geometry: str | None
+    # Native GeoJSON object (Postgres ST_AsGeoJSON(...)::json) — avoids the
+    # client-side double-parse of a JSON-encoded string inside the outer JSON.
+    geometry: dict | None
     demographic_data: dict[str, int] | None
     updated_at: datetime

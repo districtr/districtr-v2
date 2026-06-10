@@ -11,7 +11,7 @@ graph TD
         P2["GeoPackage → DuckDB → Parquet"]
     end
 
-    subgraph S3["S3 / Cloudflare R2 CDN"]
+    subgraph S3["S3 / Cloudfront CDN"]
         Tiles["PMTiles<br/>(basemap + district tiles)"]
         Parquet["Parquet<br/>(demographic tables)"]
     end
@@ -66,7 +66,7 @@ graph TD
 
 ### Key wiring details
 
-- **Tiles & Parquet bypass the backend entirely.** The browser fetches PMTiles and Parquet directly from S3/R2 CDN using HTTP range requests. The backend does not provide geospatial data directly, but it has a canonical copy of GerryDB data used to find missing assignments and perform other geospatial data validation steps.
+- **Tiles & Parquet bypass the backend entirely.** The browser fetches PMTiles and Parquet directly from S3 CDN using HTTP range requests. The backend does not provide geospatial data directly, but it has a canonical copy of GerryDB data used to find missing assignments and perform other geospatial data validation steps.
 - **No Next.js API proxy.** The browser makes direct CORS requests to FastAPI with Auth0 JWT tokens in headers.
 - **Auth0 session managed by Next.js.** The Next.js server handles OAuth2 login/callback and stores the JWT in an httpOnly session cookie. Client-side code extracts the token for API requests.
 - **IndexedDB is a local draft cache**, not a sync layer. Debounced writes store in-progress assignments; the server remains source of truth via optimistic concurrency (`updated_at`).
@@ -149,7 +149,7 @@ Alembic with 50+ versions. UDF handling stores previous definitions under `sql/v
 2. **Tileset generation**: `ogr2ogr` → `tippecanoe` → PMTiles
 3. **Tabular data**: GeoPackage → DuckDB → Parquet
 4. **Graph build**: child + parent GeoPackage → dual-level NetworkX graph pkl
-5. **Upload**: Artifacts pushed to S3/Cloudflare R2
+5. **Upload**: Artifacts pushed to S3/Cloudflare S3
 6. **Consumption**: Frontend loads PMTiles (map tiles) and Parquet (demographics)
    directly from R2; backend loads graph pkls for contiguity checks and store locally
 
@@ -173,7 +173,7 @@ Docker Compose with 5 services: `db` (PostGIS), `backend` (Uvicorn), `frontend` 
 - **Frontend**: 1GB RAM, 1 shared CPU, EWR region
 - **Backend**: 8GB RAM, 4 shared CPUs, 10GB persistent volume, EWR region
 - Release command runs `alembic upgrade head` before backend startup
-- Tilesets and Parquet served from Cloudflare R2
+- Tilesets and Parquet served from S3 / Cloudfront CDN
 
 ### CI/CD (GitHub Actions)
 
