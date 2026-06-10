@@ -628,6 +628,17 @@ async def update_assignments(
     assignments. It uses optimistic concurrency control to prevent overwriting changes
     made by other clients.
 
+    Wire format (NOTE: the contract is not visible in the signature):
+        This endpoint takes the raw ``request`` body instead of a Pydantic body
+        parameter, so neither the request schema nor an example appears in OpenAPI.
+        - REQUEST: ``Content-Type: application/msgpack``. The body is a msgpack-encoded
+          map that is decoded and then validated against ``AssignmentsCreate`` (see
+          ``app/models.py``). Sending JSON will fail to decode (400).
+        - RESPONSE: plain JSON (a dict, serialized by FastAPI), NOT msgpack — see
+          Returns below. The frontend sends ``Accept: application/json`` accordingly.
+        We bypass the body param to avoid Pydantic re-validating the full assignments
+        list twice and to keep the large payload off the JSON path.
+
     The last_updated_at parameter is used for conflict detection:
     - The client should provide the timestamp of the last known update to the document
     - The server compares this with the document's current updated_at timestamp in the database
@@ -637,22 +648,30 @@ async def update_assignments(
       must be explicitly allowed by setting overwrite=True.
 
     Args:
-        data (AssignmentsCreate): The request data containing:
+        request (Request): Raw request whose msgpack body decodes to an
+            ``AssignmentsCreate`` payload:
             - document_id: The ID of the document to update
-            - assignments: List of assignment pairs [[geo_id, zone], ...]
+            - assignments: Full replacement set of positional pairs
+              ``[[geo_id, zone], ...]`` (NOT objects). ``[]`` means "clear all".
+              ``zone`` is an int, or null/absent for unassigned (community maps
+              coerce a missing/null zone to the 0 "unassigned" sentinel).
             - last_updated_at: Timestamp of the client's last known update (for conflict detection)
             - overwrite: If True, allows overwriting even if document was updated by another client
+            - map_type: Optional; must match the document's stored map_type ("default" vs "community")
             - metadata: Optional metadata to update the document
+            - comments: Optional list of district/community comments to sync
         session (Session): Database session dependency
 
     Returns:
-        dict: Response containing:
+        dict (JSON): Response containing:
             - assignments_inserted: Number of assignments inserted
             - updated_at: New timestamp after the update
 
     Raises:
-        HTTPException: 400 if no assignments provided
+        HTTPException: 400 if the body cannot be msgpack-decoded, or no changes provided
+        HTTPException: 404 if the document does not exist
         HTTPException: 409 if document was updated by another client and overwrite=False
+        HTTPException: 422 if the decoded body fails AssignmentsCreate validation
     """
     body_bytes = await request.body()
     try:
@@ -1151,10 +1170,24 @@ async def get_assignments(
     """
     The primary endpoint to get a row-like list of assignments.
 
-    Returns a format based on the query param `format`, one of:
-    - Tuple-like msgpack, a binary drop-in JSON format 
-    - A JSON array of objects (geo_id, zone, parent_path)
-    - A CSV much like the JSON output
+    Every row is the triple (geo_id, zone, parent_path), in that fixed order:
+    - geo_id (str): the assigned unit's path.
+    - zone (int | null): district number, or null when unassigned. For community
+      maps this is community_id with 0 ("unassigned") mapped to null.
+    - parent_path (str | null): parent unit for shattered children, else null.
+
+    The serialization is chosen by the `format` query param (see `package_rows`),
+    and the SAME columns are present in all three — only the framing differs:
+    - msgpack (default): `[[geo_id, zone, parent_path], ...]` — a POSITIONAL array
+      of triples (no keys), Content-Type application/msgpack. This is the hot path
+      the frontend consumes; keys are dropped to keep the payload small.
+    - json: `[{"geo_id", "zone", "parent_path"}, ...]` — an array of objects keyed
+      by column name, Content-Type application/json.
+    - csv: a header row `geo_id,zone,parent_path` plus one row per assignment,
+      Content-Type text/csv, sent as an attachment download.
+
+    NOTE: there is no FastAPI `response_model` here (the body is a raw `Response`),
+    so the msgpack shape above is the only place this contract is documented.
     """
     districtr_map_uuid, map_type = session.exec(
         select(DistrictrMap.uuid, Document.map_type)
@@ -1302,6 +1335,21 @@ async def get_unassigned_geoids(
     exclude_ids: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
 ):
+    """
+    Return the document's still-unassigned geo_ids, grouped into spatially
+    contiguous clusters so the client can zoom to each gap.
+
+    Response (msgpack, Content-Type application/msgpack; there is no FastAPI
+    `response_model`, so this is the only description of the wire shape):
+        {"components": [[geo_id, ...], ...]}
+    Each inner list is one connected component of adjacent unassigned units
+    (geo_id strings). Shattered children of the same parent collapse into the
+    same component; units with no adjacency info come back as singletons. An
+    empty `components` list means nothing is unassigned.
+
+    `exclude_ids` is a client-supplied set of already-shattered parent geo_ids
+    (see the SQL comment below) and is filtered out of the result.
+    """
     districtr_map = get_districtr_map(
         document_id=DocumentID(document_id=document.document_id), session=session
     )
@@ -1313,7 +1361,7 @@ async def get_unassigned_geoids(
     # IMPORTANT: This pathway relies on the client to explicitly provide `exclude_ids`.
     # These IDs reflect the already shattered parent geos, allowing the unassigned query
     # to know which parent units are shattered without joining on the parent/child edges.
-    # When we shatter a unit, we populate all blocks in the document, so we always have those 
+    # When we shatter a unit, we populate all blocks in the document, so we always have those
     # fully listed.
     stmt = text(
         f"""
@@ -1497,6 +1545,19 @@ async def get_connected_component_bboxes(
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
 ):
+    """
+    Return one bounding box per spatially contiguous piece of a single `zone`,
+    so the client can flag/zoom to disconnected fragments of a district.
+
+    Response (msgpack, Content-Type application/msgpack; no FastAPI
+    `response_model`, so this docstring is the wire contract):
+        `BBoxGeoJSONs.model_dump()` -> {"features": [<GeoJSON Polygon>, ...]}
+    Each feature is a GeoJSON Polygon (5-point closed ring) giving the bbox of
+    one connected component, with coordinates reprojected to EPSG:4326
+    (lon/lat). A single connected zone yields one feature; N fragments yield N.
+
+    Only supported for district maps — community maps return 400.
+    """
     if document.map_type == "community":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
