@@ -94,7 +94,7 @@ from sqlalchemy.sql.functions import coalesce
 from app.utils import (
     update_or_select_district_stats,
     district_stats_to_feature_collection,
-    publish_district_stats_to_r2,
+    publish_district_stats_to_s3,
     stats_cdn_url,
 )
 from fastapi.responses import RedirectResponse
@@ -338,7 +338,7 @@ async def get_document_stats(
 ):
     """Per-zone district stats as a GeoJSON FeatureCollection.
 
-    For public (public_id) reads, redirects to the R2-hosted
+    For public (public_id) reads, redirects to the S3-hosted
     `plans/display/{public_id}.geojson` when it's at least as fresh as the
     document's assignments. Otherwise computes inline and enqueues a
     background republish so the next viewer is served from the CDN.
@@ -366,12 +366,12 @@ async def get_document_stats(
         session, document.document_id, background_tasks
     )
 
-    # Always (re)publish in the background when R2 is configured and the
+    # Always (re)publish in the background when S3 is configured and the
     # object is stale relative to the latest assignments. Skipped silently if
     # there's no S3 client or no public_id.
     if settings.get_s3_client() is not None and public_id is not None and not cdn_fresh:
         background_tasks.add_task(
-            publish_district_stats_to_r2,
+            publish_district_stats_to_s3,
             document_id=document.document_id,
             public_id=public_id,
         )

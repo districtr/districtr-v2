@@ -34,7 +34,7 @@ def upgrade() -> None:
         )
     )
 
-    # Track when the public stats GeoJSON was last successfully uploaded to R2,
+    # Track when the public stats GeoJSON was last successfully uploaded to S3,
     # so /stats can 307 to the CDN when the object is at least as fresh as the
     # assignments.
     op.execute(

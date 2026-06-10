@@ -289,7 +289,7 @@ class Document(TimeStampMixin, SQLModel, table=True):
             server_default=text("NOW()"),
         )
     )
-    # Last successful upload of plans/display/{public_id}.geojson to R2.
+    # Last successful upload of plans/display/{public_id}.geojson to S3.
     # Compared against assignments_updated_at to decide if the CDN object is
     # fresh enough to redirect to.
     stats_published_at: datetime | None = Field(

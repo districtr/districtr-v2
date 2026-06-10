@@ -723,11 +723,11 @@ def _stats_object_key(public_id: int | str) -> str:
     return f"plans/display/{public_id}.geojson"
 
 
-def publish_district_stats_to_r2(
+def publish_district_stats_to_s3(
     document_id: str,
     public_id: int | str,
 ) -> None:
-    """Background task: rebuild stats + upload to R2 + stamp stats_published_at.
+    """Background task: rebuild stats + upload to S3 + stamp stats_published_at.
 
     Owns its own session because FastAPI background tasks must not share the
     request-scoped session (closed at teardown — would leak the checkout).

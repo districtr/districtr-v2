@@ -20,7 +20,7 @@ export const getPublicDistricts = async (mapDocument?: DocumentObject | null) =>
     throw new Error('No map document provided');
   }
   // /stats returns a GeoJSON FeatureCollection (or 307 redirects to the same
-  // shape on the R2 CDN). Each feature is a zone; the unassigned bucket is a
+  // shape on the S3 / Cloudfront CDN). Each feature is a zone; the unassigned bucket is a
   // feature with `geometry: null`.
   const response = await get<StatsFeatureCollection>(`document/${mapDocument?.public_id}/stats`)(
     {}
