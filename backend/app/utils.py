@@ -1,6 +1,10 @@
+import csv
+import io
 import json as json_mod
 import logging
 import re
+import msgpack
+from enum import Enum
 from uuid import uuid4
 from typing import Callable, List, NewType
 
@@ -11,6 +15,8 @@ from sqlalchemy.types import UUID
 from sqlmodel import Session, select, Float
 
 from app.constants import GERRY_DB_SCHEMA, PUBLIC_SCHEMA
+from typing import Iterable, Sequence
+from fastapi import Response
 from app.models import (
     UUIDType,
     DistrictrMap,
@@ -25,6 +31,74 @@ from app.core.config import settings
 metadata = MetaData()
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+
+
+class RowFormat(str, Enum):
+    """Wire formats supported by `package_rows`."""
+
+    msgpack = "msgpack"
+    json = "json"
+    csv = "csv"
+
+
+def package_rows(
+    rows: Iterable[Sequence],
+    fmt: RowFormat = RowFormat.msgpack,
+    columns: Sequence[str] | None = None,
+    filename: str | None = None,
+) -> Response:
+    """Serialize tabular rows into the requested format and wrap them in a Response.
+
+    Args:
+        rows: Iterable of row sequences (e.g. SQLAlchemy Row objects or tuples).
+        fmt: Output format — msgpack (default), json, or csv.
+        columns: Optional column names. Used as keys for json objects and as the
+            header row for csv. Ignored by msgpack, which always emits row tuples.
+        filename: Optional download filename; sets Content-Disposition when given.
+
+    Returns:
+        A FastAPI Response with the serialized payload and matching media type.
+    """
+    tuples = [tuple(row) for row in rows]
+    headers = (
+        {"Content-Disposition": f'attachment; filename="{filename}"'}
+        if filename
+        else None
+    )
+
+    if fmt == RowFormat.msgpack:
+        return Response(
+            content=msgpack.packb(tuples, use_bin_type=True),
+            media_type="application/msgpack",
+            headers=headers,
+        )
+
+    if fmt == RowFormat.json:
+        data = (
+            [dict(zip(columns, row)) for row in tuples]
+            if columns
+            else [list(row) for row in tuples]
+        )
+        return Response(
+            content=json_mod.dumps(data),
+            media_type="application/json",
+            headers=headers,
+        )
+
+    if fmt == RowFormat.csv:
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        if columns:
+            writer.writerow(columns)
+        writer.writerows(tuples)
+        return Response(
+            content=buffer.getvalue(),
+            media_type="text/csv",
+            headers=headers,
+        )
+
+    raise ValueError(f"Unsupported row format: {fmt}")  # pragma: no cover
+
 
 _SAFE_IDENT_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
