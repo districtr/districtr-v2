@@ -118,9 +118,7 @@ def test_all_zones_contiguous(
     document_id = simple_contiguous_assignments
     districtr_map = session.get(DistrictrMap, simple_shatterable_districtr_map)
     zone_assignments = get_assigned_nodes(session, document_id, districtr_map)
-    G = graph.get_gerrydb_graph(
-        str(FIXTURES_PATH / "graph" / "simple_geos.pkl")
-    )
+    G = graph.get_gerrydb_graph(str(FIXTURES_PATH / "graph" / "simple_geos.pkl"))
     for zone in zone_assignments:
         assert check_subgraph_contiguity(G, zone.nodes)
 
@@ -133,10 +131,10 @@ def test_subset_of_zones_contiguous(
     """Zone 1 is contiguous when filtered and checked against the combined graph."""
     document_id = simple_contiguous_assignments
     districtr_map = session.get(DistrictrMap, simple_shatterable_districtr_map)
-    (zone_assignment,) = get_assigned_nodes(session, document_id, districtr_map, zones=[1])
-    G = graph.get_gerrydb_graph(
-        str(FIXTURES_PATH / "graph" / "simple_geos.pkl")
+    (zone_assignment,) = get_assigned_nodes(
+        session, document_id, districtr_map, zones=[1]
     )
+    G = graph.get_gerrydb_graph(str(FIXTURES_PATH / "graph" / "simple_geos.pkl"))
     assert check_subgraph_contiguity(G, zone_assignment.nodes)
 
 
@@ -331,7 +329,9 @@ def ks_ellis_assignments(client: TestClient, ks_ellis_document_id: str) -> str:
 
 
 def test_ks_ellis_geos_contiguity(
-    client: TestClient, ks_ellis_assignments: str, mock_gerrydb_graph_file,
+    client: TestClient,
+    ks_ellis_assignments: str,
+    mock_gerrydb_graph_file,
 ):
     document_id = ks_ellis_assignments
 
@@ -343,7 +343,9 @@ def test_ks_ellis_geos_contiguity(
 
 
 def test_fix_ks_ellis_geos_contiguity(
-    client: TestClient, ks_ellis_assignments: str, mock_gerrydb_graph_file,
+    client: TestClient,
+    ks_ellis_assignments: str,
+    mock_gerrydb_graph_file,
 ):
     document_id = ks_ellis_assignments
 
@@ -475,3 +477,75 @@ def test_ks_ellis_parent_only_geos_zone_connected_components_missing_zone(
     assert response.status_code == 404, response.json()
     data = response.json()
     assert data["detail"] == "Zone not found"
+
+
+# ── /unassigned: grouping on the hybrid dual graph ────────────────────────────
+# These exercise get_unassigned_geoids, which after PR #541 groups unassigned
+# units directly on the combined parent+block graph (no resolving children up
+# to parents). simple_geos topology is in the comment near the top of this file;
+# the three parents are mutually adjacent and block ...006 borders parent ...001.
+
+
+def test_unassigned_all_parents_group_by_adjacency(
+    client: TestClient, document_id: str, mock_gerrydb_graph_file
+):
+    """Nothing assigned -> every parent is unassigned, and the three mutually
+    adjacent simple_geos parents collapse into a single component."""
+    response = client.get(f"/api/document/{document_id}/unassigned")
+    assert response.status_code == 200, response.json()
+    components = response.json()["components"]
+    assert len(components) == 1
+    assert sorted(components[0]) == [
+        "vtd:000010000001",
+        "vtd:000010000002",
+        "vtd:000010000003",
+    ]
+
+
+def test_unassigned_groups_parent_and_block_across_levels(
+    client: TestClient, document_id: str, mock_gerrydb_graph_file
+):
+    """Cross-level grouping: an unassigned parent (vtd:...001) and an unassigned
+    block in a different parent (block ...006, child of vtd:...003) are joined
+    via the hybrid graph's cross-level edge — no child->parent resolution."""
+    client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "assignments": [
+                ["vtd:000010000002", 1],
+                ["vtd:000010000003", 1],
+                ["000010000000006", None],  # block child of vtd:...003, unassigned
+                ["vtd:000010000001", None],  # parent unit, unassigned
+            ],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+        },
+    )
+    response = client.get(f"/api/document/{document_id}/unassigned")
+    assert response.status_code == 200, response.json()
+    components = response.json()["components"]
+    assert len(components) == 1
+    assert sorted(components[0]) == ["000010000000006", "vtd:000010000001"]
+
+
+def test_unassigned_falls_back_to_singletons_without_graph(
+    client: TestClient, document_id: str, monkeypatch
+):
+    """When the hybrid graph can't be loaded, each unassigned id is returned as
+    its own singleton so gaps stay visible."""
+    import fastapi
+    import app.main as main_module
+
+    def _raise(_name: str):
+        raise fastapi.HTTPException(status_code=404, detail="Graph unavailable")
+
+    monkeypatch.setattr(main_module, "get_graph", _raise)
+    response = client.get(f"/api/document/{document_id}/unassigned")
+    assert response.status_code == 200, response.json()
+    components = response.json()["components"]
+    assert sorted(len(c) for c in components) == [1, 1, 1]
+    assert sorted(c[0] for c in components) == [
+        "vtd:000010000001",
+        "vtd:000010000002",
+        "vtd:000010000003",
+    ]

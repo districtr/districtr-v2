@@ -1333,9 +1333,12 @@ async def get_unassigned_geoids(
     `response_model`, so this is the only description of the wire shape):
         {"components": [[geo_id, ...], ...]}
     Each inner list is one connected component of adjacent unassigned units
-    (geo_id strings). Shattered children of the same parent collapse into the
-    same component; units with no adjacency info come back as singletons. An
-    empty `components` list means nothing is unassigned.
+    (geo_id strings). Adjacency is computed on the hybrid dual graph, which
+    carries both parent-unit and child-block nodes, so unassigned parents and
+    unassigned shattered blocks are grouped by true geographic adjacency rather
+    than by collapsing children up to their parent. Units with no adjacency
+    info (or when the graph is unavailable) come back as singletons. An empty
+    `components` list means nothing is unassigned.
 
     `exclude_ids` is a client-supplied set of already-shattered parent geo_ids
     (see the SQL comment below) and is filtered out of the result.
@@ -1384,50 +1387,22 @@ async def get_unassigned_geoids(
     components: list[list[str]] = []
     if unassigned_ids:
         try:
-            G = await _get_graph(parent_layer)
-
-            # Resolve any child ids (shattered) up to their parents so adjacency
-            # works on a single graph. Multiple unassigned children of the same
-            # parent collapse to one node carrying all of their original ids.
-            unresolved = [gid for gid in unassigned_ids if gid not in G.nodes]
-            child_to_parent: dict[str, str] = {}
-            if unresolved:
-                child_to_parent = dict(
-                    session.exec(
-                        select(
-                            ParentChildEdges.child_path,
-                            ParentChildEdges.parent_path,
-                        )
-                        .where(ParentChildEdges.districtr_map == districtr_map.uuid)
-                        .where(col(ParentChildEdges.child_path).in_(unresolved))
-                    ).all()
-                )
-
-            # node_id (parent path) -> list of original geo_ids that resolve here
-            node_to_originals: dict[str, list[str]] = {}
-            orphans: list[str] = []
-            for gid in unassigned_ids:
-                if gid in G.nodes:
-                    node_to_originals.setdefault(gid, []).append(gid)
-                elif gid in child_to_parent:
-                    node_to_originals.setdefault(child_to_parent[gid], []).append(gid)
-                else:
-                    orphans.append(gid)
-
-            for component in connected_components(G.subgraph(node_to_originals.keys())):
-                originals: list[str] = []
-                for parent_id in component:
-                    originals.extend(node_to_originals[parent_id])
-                components.append(originals)
-            # Orphans (no parent in edges and not in graph): keep visible as singletons.
-            components.extend([gid] for gid in orphans)
+            G = get_graph(districtr_map.gerrydb_table_name)
+            # Non-contiguous unassigned parents are intentionally NOT expanded
+            present = [gid for gid in unassigned_ids if gid in G.nodes]
+            components = [
+                sorted(component)
+                for component in connected_components(G.subgraph(present))
+            ]
+            # Ids absent from the graph (orphans / data gaps): keep as singletons.
+            missing = [gid for gid in unassigned_ids if gid not in G.nodes]
+            components.extend([gid] for gid in missing)
         except HTTPException:
             # Graph unavailable — fall back to one component per id.
             components = [[gid] for gid in unassigned_ids]
 
     payload = msgpack.packb({"components": components}, use_bin_type=True)
     return Response(content=payload, media_type="application/msgpack")
-
 
 
 @app.get("/api/document/{document_id}/contiguity")
