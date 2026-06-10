@@ -1404,6 +1404,7 @@ async def get_unassigned_geoids(
     payload = msgpack.packb({"components": components}, use_bin_type=True)
     return Response(content=payload, media_type="application/msgpack")
 
+
 @app.get("/api/document/{document_id}/contiguity")
 async def check_document_contiguity(
     document: Annotated[Document, Depends(get_protected_document)],
