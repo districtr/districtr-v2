@@ -1323,14 +1323,10 @@ async def get_unassigned_geoids(
         bindparam(key="exclude_ids", type_=ARRAY(String)),
     )
     try:
-        unassigned_ids = [
-            row[0]
-            for row in session.connection()
-            .execute(
-                stmt, {"doc_uuid": document.document_id, "exclude_ids": exclude_ids}
-            )
-            .fetchall()
-        ]
+        result = session.execute(
+            stmt, {"doc_uuid": document.document_id, "exclude_ids": exclude_ids}
+        )
+        unassigned_ids = [row[0] for row in result.fetchall()]
     except DataError:
         logger.warning("No results found for unassigned geoids")
         unassigned_ids = []
