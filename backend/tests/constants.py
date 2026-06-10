@@ -9,7 +9,9 @@ FIXTURES_PATH = Path(__file__).parent / "fixtures"
 
 ENVIRONMENT = os.environ.get("ENVIRONMENT")
 POSTGRES_TEST_DB = os.environ.get("POSTGRES_TEST_DB", "districtr_test")
-POSTGRES_INTEGRATION_DB = os.environ.get("POSTGRES_INTEGRATION_DB", "districtr_integration_test")
+POSTGRES_INTEGRATION_DB = os.environ.get(
+    "POSTGRES_INTEGRATION_DB", "districtr_integration_test"
+)
 POSTGRES_SCHEME = "postgresql+psycopg"
 POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
 POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "postgres")

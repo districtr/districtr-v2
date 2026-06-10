@@ -74,10 +74,18 @@ class DocumentEvaluationContext:
     def projected_district_geometries(self) -> dict[DistrictId, shapely.Geometry]:
         """Well-formed per-zone geometries projected to EPSG:5070, shared by compactness
         metrics."""
-        districts = [d for d in self.district_stats if d.zone is not None and d.geometry]
-        shapes = np.array([shapely.from_geojson(d.geometry) for d in districts], dtype=object)
+        districts = [
+            d for d in self.district_stats if d.zone is not None and d.geometry
+        ]
+        shapes = np.array(
+            [shapely.from_geojson(d.geometry) for d in districts], dtype=object
+        )
         projected = shapely.transform(shapes, _reproject)
-        return {cast(DistrictId, d.zone): geom for d, geom in zip(districts, projected) if not geom.is_empty}
+        return {
+            cast(DistrictId, d.zone): geom
+            for d, geom in zip(districts, projected)
+            if not geom.is_empty
+        }
 
     @cached_property
     def demographic_data(self) -> pd.DataFrame:
@@ -137,77 +145,65 @@ class DocumentEvaluationContext:
         """Total Rep seats statewide for each election."""
         return {col: int(self.rep_wins[col].sum()) for col in self.elections}
 
-    @cached_property    
+    @cached_property
     def dem_votes(self) -> dict[Election, pd.Series]:
         """Dem votes per district for each election."""
-        return {
-            col: self.demographic_data[col + "_dem"]
-            for col in self.elections
-        }
-    
+        return {col: self.demographic_data[col + "_dem"] for col in self.elections}
+
     @cached_property
     def rep_votes(self) -> dict[Election, pd.Series]:
         """Rep votes per district for each election."""
-        return {
-            col: self.demographic_data[col + "_rep"]
-            for col in self.elections
-        }
-    
+        return {col: self.demographic_data[col + "_rep"] for col in self.elections}
+
     @cached_property
     def total_votes(self) -> dict[Election, pd.Series]:
         """Total votes per district for each election."""
         return {
-            col: self.dem_votes[col] + self.rep_votes[col]
-            for col in self.elections
+            col: self.dem_votes[col] + self.rep_votes[col] for col in self.elections
         }
-    
+
     @cached_property
     def dem_state_votes(self) -> dict[Election, int]:
         """Total Dem votes statewide for each election."""
-        return {
-            col: int(self.dem_votes[col].sum())
-            for col in self.elections
-        }
+        return {col: int(self.dem_votes[col].sum()) for col in self.elections}
 
     @cached_property
     def rep_state_votes(self) -> dict[Election, int]:
         """Total Rep votes statewide for each election."""
-        return {
-            col: int(self.rep_votes[col].sum())
-            for col in self.elections
-        }
+        return {col: int(self.rep_votes[col].sum()) for col in self.elections}
 
     @cached_property
     def total_state_votes(self) -> dict[Election, int]:
         """Total votes statewide for each election."""
-        return {
-            col: int(self.total_votes[col].sum())
-            for col in self.elections
-        }
+        return {col: int(self.total_votes[col].sum()) for col in self.elections}
 
     @cached_property
     def num_nonempty_districts(self) -> int:
         """Number of districts with an assigned zone."""
         return sum(1 for d in self.district_stats if d.zone is not None)
-    
+
     @cached_property
     def total_population(self) -> int:
         """Total population across all geographic units (assigned and unassigned)."""
         return sum(
             d.demographic_data[TOTAL_POP_COL]
             for d in self.district_stats
-            if (d.demographic_data and TOTAL_POP_COL in d.demographic_data
-                and d.demographic_data[TOTAL_POP_COL] is not None)
+            if (
+                d.demographic_data
+                and TOTAL_POP_COL in d.demographic_data
+                and d.demographic_data[TOTAL_POP_COL] is not None
+            )
         )
 
     @cached_property
     def unassigned_population(self) -> int:
         """Unassigned population and total state population."""
-        unassigned = next(
-            (d for d in self.district_stats if d.zone is None),
-            None
-        )
-        if (unassigned is None or not unassigned.demographic_data or TOTAL_POP_COL not in unassigned.demographic_data):
+        unassigned = next((d for d in self.district_stats if d.zone is None), None)
+        if (
+            unassigned is None
+            or not unassigned.demographic_data
+            or TOTAL_POP_COL not in unassigned.demographic_data
+        ):
             raise ValueError("No demographic data available for unassigned population.")
         return int(unassigned.demographic_data[TOTAL_POP_COL])
 
@@ -216,19 +212,27 @@ class DocumentEvaluationContext:
         """Ideal population per district (total population ÷ map's number of districts)."""
         num_districts = self._districtr_map.num_districts
         if not num_districts:
-            raise ValueError(f"DistrictrMap for document '{self.document_id}' has no num_districts set.")
+            raise ValueError(
+                f"DistrictrMap for document '{self.document_id}' has no num_districts set."
+            )
         return self.total_population // num_districts
-    
+
     @cached_property
     def _districtr_map(self) -> DistrictrMap:
         """The DistrictrMap associated with this document."""
         m = self.session.exec(
             sqlmodel.select(DistrictrMap)
-            .join(Document, sqlmodel.col(Document.districtr_map_slug) == sqlmodel.col(DistrictrMap.districtr_map_slug))
+            .join(
+                Document,
+                sqlmodel.col(Document.districtr_map_slug)
+                == sqlmodel.col(DistrictrMap.districtr_map_slug),
+            )
             .where(sqlmodel.col(Document.document_id) == self.document_id)
         ).one_or_none()
         if m is None:
-            raise ValueError(f"No DistrictrMap found for document '{self.document_id}'.")
+            raise ValueError(
+                f"No DistrictrMap found for document '{self.document_id}'."
+            )
         return m
 
     @cached_property
@@ -236,7 +240,9 @@ class DocumentEvaluationContext:
         """The document's gerrydb table name (may be a shatterable UNION ALL view)."""
         m = self._districtr_map
         if not m.gerrydb_table_name:
-            raise ValueError(f"Document '{self.document_id}' has no gerrydb table name.")
+            raise ValueError(
+                f"Document '{self.document_id}' has no gerrydb table name."
+            )
         return GerrydbTableName(m.gerrydb_table_name)
 
     @cached_property
@@ -287,7 +293,9 @@ class DocumentEvaluationContext:
         return [(Geoid(geo_id), DistrictId(zone)) for geo_id, zone in rows]
 
     @cached_property
-    def split_zone_assignments(self) -> tuple[dict[Geoid, DistrictId], dict[Geoid, DistrictId]]:
+    def split_zone_assignments(
+        self,
+    ) -> tuple[dict[Geoid, DistrictId], dict[Geoid, DistrictId]]:
         """Assignment rows split into (unit_to_zone, parent_unit_to_zone).
 
         unit_to_zone        — individually-assigned child units (bare block IDs)
@@ -299,7 +307,9 @@ class DocumentEvaluationContext:
         if self.is_shatterable:
             is_parent = GEOID_PREDICATES[self.parent_geo_unit_type]
             for geo_id, zone in self.zone_assignments:
-                (parent_unit_to_zone if is_parent(geo_id) else unit_to_zone)[geo_id] = zone
+                (parent_unit_to_zone if is_parent(geo_id) else unit_to_zone)[geo_id] = (
+                    zone
+                )
         else:
             for geo_id, zone in self.zone_assignments:
                 unit_to_zone[geo_id] = zone
@@ -330,8 +340,12 @@ class CountyContext:
     _COUNTY_NAMES_FILE: ClassVar[Path] = _DATA_DIR / "county_names.csv"
     _COUNTY_NAMES_S3_KEY: ClassVar[str] = "reference/county_names.csv"
 
-    _cache: dict[GerrydbTableName, dict[ElectionPartyKey, float]] = dataclasses.field(default_factory=dict)
-    _pop_cache: dict[GerrydbTableName, dict[CountyGeoid, int]] = dataclasses.field(default_factory=dict)
+    _cache: dict[GerrydbTableName, dict[ElectionPartyKey, float]] = dataclasses.field(
+        default_factory=dict
+    )
+    _pop_cache: dict[GerrydbTableName, dict[CountyGeoid, int]] = dataclasses.field(
+        default_factory=dict
+    )
     _name_cache: dict[CountyGeoid, str] = dataclasses.field(default_factory=dict)
     _attempts: dict[GerrydbTableName, int] = dataclasses.field(default_factory=dict)
 
@@ -351,7 +365,11 @@ class CountyContext:
         self._DATA_DIR.mkdir(parents=True, exist_ok=True)
         s3 = settings.get_s3_client()
         assert s3, "S3 client is not available"
-        s3.download_file(settings.R2_BUCKET_NAME, self._COUNTY_NAMES_S3_KEY, str(self._COUNTY_NAMES_FILE))
+        s3.download_file(
+            settings.R2_BUCKET_NAME,
+            self._COUNTY_NAMES_S3_KEY,
+            str(self._COUNTY_NAMES_FILE),
+        )
 
     def county_name(self, geoid: CountyGeoid) -> str:
         """Return the county name for `geoid` (e.g. "01001" → "Autauga County").
@@ -380,9 +398,9 @@ class CountyContext:
         self._attempts[gerrydb_table] = self._attempts.get(gerrydb_table, 0) + 1
         self._ensure_county_data(gerrydb_table, session)
         rows = session.exec(
-            sqlmodel.select(CountyDemographics.geoid, CountyDemographics.total_pop).where(
-                CountyDemographics.gerrydb_table_name == gerrydb_table
-            )
+            sqlmodel.select(
+                CountyDemographics.geoid, CountyDemographics.total_pop
+            ).where(CountyDemographics.gerrydb_table_name == gerrydb_table)
         ).all()
         pops = {
             CountyGeoid(geoid): int(total_pop)
@@ -541,5 +559,3 @@ class CountyContext:
 
 # Server-owned singleton. Shared across all requests; one entry per gerrydb table.
 COUNTY_CONTEXT = CountyContext()
-
-

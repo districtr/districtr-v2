@@ -4,9 +4,14 @@ contiguity, and population deviation.
 """
 
 from app.contiguity.main import check_subgraph_contiguity
-from app.evaluation.context import DocumentEvaluationContext, TOTAL_POP_COL, GeoUnitType
+from app.evaluation.context import DocumentEvaluationContext, TOTAL_POP_COL
 from app.evaluation.graph import get_graph
-from app.evaluation.types import AssignedUnitsResult, PopulationDeviationResults, UnassignedPopulation, DistrictId
+from app.evaluation.types import (
+    AssignedUnitsResult,
+    PopulationDeviationResults,
+    UnassignedPopulation,
+    DistrictId,
+)
 
 
 def assigned_units(context: DocumentEvaluationContext) -> AssignedUnitsResult:
@@ -28,16 +33,17 @@ def assigned_units(context: DocumentEvaluationContext) -> AssignedUnitsResult:
             total_count=context.num_parent_units,
             unit_type=context.parent_geo_unit_type,
         )
-    
+
     G = get_graph(context.gerrydb_table)
     partially_assigned_parents = {
-        parent
-        for unit in unit_to_zone
-        if (parent := G.nodes[unit].get("parent"))
+        parent for unit in unit_to_zone if (parent := G.nodes[unit].get("parent"))
     }
     fully_shattered = {
-        parent for parent in partially_assigned_parents
-        if all(child in unit_to_zone for child in G.nodes[parent].get("children", set()))
+        parent
+        for parent in partially_assigned_parents
+        if all(
+            child in unit_to_zone for child in G.nodes[parent].get("children", set())
+        )
     }
     return AssignedUnitsResult(
         assigned_count=assigned_count + len(fully_shattered),
@@ -47,7 +53,9 @@ def assigned_units(context: DocumentEvaluationContext) -> AssignedUnitsResult:
     )
 
 
-def population_deviation(context: DocumentEvaluationContext) -> PopulationDeviationResults:
+def population_deviation(
+    context: DocumentEvaluationContext,
+) -> PopulationDeviationResults:
     """Returns the population deviation statistics for the submitted plan."""
     col = context.demographic_data[TOTAL_POP_COL]
     most_populous_zone = int(col.idxmax())
@@ -55,7 +63,9 @@ def population_deviation(context: DocumentEvaluationContext) -> PopulationDeviat
     most_pop = col[most_populous_zone]
     least_pop = col[least_populous_zone]
     ideal = context.ideal_population
-    top_to_bottom_deviation = (most_pop - least_pop) / least_pop if least_pop != 0 else float("inf")
+    top_to_bottom_deviation = (
+        (most_pop - least_pop) / least_pop if least_pop != 0 else float("inf")
+    )
     maximal_absolute_deviation = int((col - ideal).abs().max())
     return PopulationDeviationResults(
         most_populous_district=most_populous_zone,
@@ -63,6 +73,7 @@ def population_deviation(context: DocumentEvaluationContext) -> PopulationDeviat
         top_to_bottom_deviation=top_to_bottom_deviation,
         maximal_absolute_deviation=maximal_absolute_deviation,
     )
+
 
 def ideal_population(context: DocumentEvaluationContext) -> int:
     """Returns the ideal population per district (total population ÷ number of districts)."""

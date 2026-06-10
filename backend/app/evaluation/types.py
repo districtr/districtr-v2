@@ -16,6 +16,7 @@ DistrictId = NewType("DistrictId", int)
 
 # ── Partisan ──────────────────────────────────────────────────────────────────
 
+
 class SeatCounts(TypedDict):
     dem: int
     rep: int
@@ -44,18 +45,23 @@ class CompetitiveMetrics(TypedDict):
 
 # ── Compactness ───────────────────────────────────────────────────────────────
 
+
 class CutEdgesResult(TypedDict):
     cut_count: int
     unit_type: str
 
+
 # ── Splits ───────────────────────────────────────────────────────────────────
+
 
 class CountyPiecesInfo(TypedDict):
     total_pop: int
     pieces: int
     name: str
 
+
 # ── Validity ──────────────────────────────────────────────────────────────────
+
 
 class AssignedUnitsResult(TypedDict):
     assigned_count: int
@@ -77,6 +83,7 @@ class UnassignedPopulation(TypedDict):
 
 
 # ── Envelope ──────────────────────────────────────────────────────────────────
+
 
 class MetricFailure(TypedDict):
     key: str

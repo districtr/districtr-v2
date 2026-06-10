@@ -277,11 +277,19 @@ class GraphBatch(Config):
             if not replace and out.exists():
                 LOGGER.info("Graph %s already exists, skipping", gerrydb_name)
                 continue
-            parent = cfg.parent_gpkg if data_dir is None else os.path.join(data_dir, cfg.parent_gpkg)
+            parent = (
+                cfg.parent_gpkg
+                if data_dir is None
+                else os.path.join(data_dir, cfg.parent_gpkg)
+            )
             LOGGER.info("Building graph for %r", gerrydb_name)
             if cfg.is_shatterable():
                 assert cfg.child_gpkg is not None
-                child = cfg.child_gpkg if data_dir is None else os.path.join(data_dir, cfg.child_gpkg)
+                child = (
+                    cfg.child_gpkg
+                    if data_dir is None
+                    else os.path.join(data_dir, cfg.child_gpkg)
+                )
                 G = build_combined_graph_from_gpkg(child, parent)
             else:
                 G = graph_from_gpkg(parent)
@@ -294,4 +302,6 @@ class GraphBatch(Config):
             path = Path(settings.OUT_SCRATCH) / _S3_GRAPH_PREFIX / f"{gerrydb_name}.pkl"
             s3_key = f"{_S3_GRAPH_PREFIX}/{gerrydb_name}.pkl"
             s3.upload_file(str(path), settings.S3_BUCKET, s3_key)
-            LOGGER.info("Uploaded %s to s3://%s/%s", gerrydb_name, settings.S3_BUCKET, s3_key)
+            LOGGER.info(
+                "Uploaded %s to s3://%s/%s", gerrydb_name, settings.S3_BUCKET, s3_key
+            )
