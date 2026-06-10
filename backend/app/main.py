@@ -92,7 +92,7 @@ from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
 from sqlalchemy.sql.functions import coalesce
-from app.utils import update_or_select_district_stats
+from app.utils import RowFormat, package_rows, update_or_select_district_stats
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from fiona.transform import transform
@@ -1143,6 +1143,10 @@ async def update_num_districts(
 @app.get("/api/get_assignments/{document_id}")
 async def get_assignments(
     document: Annotated[Document, Depends(get_protected_document)],
+    format: RowFormat = Query(
+        default=RowFormat.msgpack,
+        description="Response format: msgpack (default), json, or csv.",
+    ),
     session: Session = Depends(get_session),
 ):
     districtr_map_uuid, map_type = session.exec(
@@ -1187,11 +1191,16 @@ async def get_assignments(
             .where(Assignments.document_id == document.document_id)
         )
     rows = session.exec(stmt).all()
-    payload = msgpack.packb(
-        [tuple(r) for r in rows],
-        use_bin_type=True,
+    return package_rows(
+        rows,
+        fmt=format,
+        columns=["geo_id", "zone", "parent_path"],
+        filename=(
+            f"assignments_{document.document_id}.csv"
+            if format == RowFormat.csv
+            else None
+        ),
     )
-    return Response(content=payload, media_type="application/msgpack")
 
 
 @app.get("/api/document/{document_id}", response_model=DocumentPublic)

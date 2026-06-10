@@ -27,6 +27,7 @@ from app.utils import (
     create_parent_child_edges,
 )
 
+
 class MsgpackAwareTestClient(TestClient):
     """TestClient that transparently bridges JSON-style call sites to the msgpack
     wire format that some endpoints now require.
@@ -52,7 +53,12 @@ class MsgpackAwareTestClient(TestClient):
         if response.status_code != 200:
             return response
         path = url.split("?", 1)[0]
+        query = url.split("?", 1)[1] if "?" in url else ""
         if "/api/get_assignments/" in path:
+            # Only the default msgpack response needs decoding; json/csv responses
+            # are returned as-is so `.json()` / `.text` work natively.
+            if "format=" in query and "format=msgpack" not in query:
+                return response
             rows = msgpack.unpackb(response.content, raw=False)
             decoded = [
                 {"geo_id": r[0], "zone": r[1], "parent_path": r[2]} for r in rows

@@ -555,6 +555,55 @@ def test_patch_reset_assignments(client, document_id):
     assert len(assignments.json()) == 0
 
 
+def test_get_assignments_formats(client, document_id):
+    import csv
+    import io
+    import msgpack
+
+    test_put_assignments(client, document_id)
+
+    # Default (no format param) is msgpack.
+    default_response = client.get(f"/api/get_assignments/{document_id}")
+    assert default_response.status_code == 200
+    assert (
+        default_response.headers["content-type"].split(";")[0] == "application/msgpack"
+    )
+    msgpack_rows = msgpack.unpackb(default_response.content, raw=False)
+    assert len(msgpack_rows) == 3
+    expected = {
+        "202090441022004": 1,
+        "202090428002008": 1,
+        "200979691001108": 2,
+    }
+    assert {row[0]: row[1] for row in msgpack_rows} == expected
+
+    # Explicit msgpack matches the default.
+    explicit_msgpack = client.get(f"/api/get_assignments/{document_id}?format=msgpack")
+    assert explicit_msgpack.status_code == 200
+    assert explicit_msgpack.content == default_response.content
+
+    # JSON returns a list of objects keyed by column name.
+    json_response = client.get(f"/api/get_assignments/{document_id}?format=json")
+    assert json_response.status_code == 200
+    assert json_response.headers["content-type"].split(";")[0] == "application/json"
+    json_rows = json_response.json()
+    assert {row["geo_id"]: row["zone"] for row in json_rows} == expected
+    assert set(json_rows[0].keys()) == {"geo_id", "zone", "parent_path"}
+
+    # CSV returns a header row plus one row per assignment.
+    csv_response = client.get(f"/api/get_assignments/{document_id}?format=csv")
+    assert csv_response.status_code == 200
+    assert csv_response.headers["content-type"].split(";")[0] == "text/csv"
+    assert "attachment" in csv_response.headers["content-disposition"]
+    parsed = list(csv.reader(io.StringIO(csv_response.text)))
+    assert parsed[0] == ["geo_id", "zone", "parent_path"]
+    assert {row[0]: int(row[1]) for row in parsed[1:]} == expected
+
+    # Unknown formats are rejected by the enum validation.
+    bad_response = client.get(f"/api/get_assignments/{document_id}?format=xml")
+    assert bad_response.status_code == 422
+
+
 def test_list_gerydb_views(client, districtr_maps):
     response = client.get("/api/gerrydb/views")
     assert response.status_code == 200
