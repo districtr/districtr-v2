@@ -34,22 +34,21 @@ export default function ContiguityDetail({
   const [selectedFeature, setSelectedFeature] = useState<number | null>(null);
   const [showZoom, setShowZoom] = useState(false);
 
-  const {data, error, isLoading, isFetching} = useQuery(
-    {
-      queryKey: [`ConnectedComponentBboxes-${zone}`, `${mapDocument?.document_id}-${lastUpdated}`],
-      queryFn: async () => {
-        if (!mapDocument) return null;
-        const result = await getZoneConnectedComponentBBoxes(mapDocument, zone);
-        if (!result.ok) {
-          throw new Error(result.error.detail);
-        }
-        return result.response;
-      },
-      enabled: !!mapDocument && showZoom,
-      staleTime: 0,
-      retry: false,
-      placeholderData: null,
-      refetchOnWindowFocus: false,
+  const {data, error, isLoading, isFetching} = useQuery({
+    queryKey: [`ConnectedComponentBboxes-${zone}`, `${mapDocument?.document_id}-${lastUpdated}`],
+    queryFn: async () => {
+      if (!mapDocument) return null;
+      const result = await getZoneConnectedComponentBBoxes(mapDocument, zone);
+      if (!result.ok) {
+        throw new Error(result.error.detail);
+      }
+      return result.response;
+    },
+    enabled: !!mapDocument && showZoom,
+    staleTime: 0,
+    retry: false,
+    placeholderData: null,
+    refetchOnWindowFocus: false,
   });
 
   useEffect(() => {

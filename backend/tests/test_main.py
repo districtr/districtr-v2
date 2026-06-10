@@ -20,8 +20,11 @@ import app.evaluation.main as evaluation_main
 from unittest.mock import MagicMock
 from app.evaluation.models import Evaluation
 from app.models import Document
-from app.evaluation.registry import Metric, CURRENT_PAYLOAD_VERSION, hash_payload_version
-from time import sleep
+from app.evaluation.registry import (
+    Metric,
+    CURRENT_PAYLOAD_VERSION,
+    hash_payload_version,
+)
 
 REQUIRED_AUTO_FIXTURES = [patch_recaptcha]
 
@@ -217,7 +220,6 @@ def document_total_vap_fixture(
 
     document_id = response.json()["document_id"]
     return document_id
-
 
 
 @pytest.fixture(name="document_id_all_stats")
@@ -1343,7 +1345,11 @@ def patch_evaluation_metric(monkeypatch, evaluation_metric_counter):
     _compute, get_compute_calls = evaluation_metric_counter
     patched_metrics = (Metric(key="seats", version=1, compute=_compute),)
     monkeypatch.setattr(evaluation_main, "METRICS", patched_metrics)
-    monkeypatch.setattr(evaluation_main, "CURRENT_PAYLOAD_VERSION", hash_payload_version(patched_metrics))
+    monkeypatch.setattr(
+        evaluation_main,
+        "CURRENT_PAYLOAD_VERSION",
+        hash_payload_version(patched_metrics),
+    )
     return get_compute_calls
 
 
@@ -1352,10 +1358,18 @@ def patch_evaluation_metric_with_failure(monkeypatch, evaluation_metric_counter)
     _compute, get_compute_calls = evaluation_metric_counter
     patched_metrics = (
         Metric(key="seats", version=1, compute=_compute),
-        Metric[dict](key="broken", version=1, compute=MagicMock(side_effect=RuntimeError("transient error"))),  # type: ignore[arg-type]
+        Metric[dict](
+            key="broken",
+            version=1,
+            compute=MagicMock(side_effect=RuntimeError("transient error")),
+        ),  # type: ignore[arg-type]
     )
     monkeypatch.setattr(evaluation_main, "METRICS", patched_metrics)
-    monkeypatch.setattr(evaluation_main, "CURRENT_PAYLOAD_VERSION", hash_payload_version(patched_metrics))
+    monkeypatch.setattr(
+        evaluation_main,
+        "CURRENT_PAYLOAD_VERSION",
+        hash_payload_version(patched_metrics),
+    )
     return get_compute_calls
 
 
@@ -1417,7 +1431,9 @@ def test_get_document_evaluation_recomputes_after_document_update(
     document_id = assignments_document_id_total_vap
     bt = BackgroundTasks()
 
-    doc = session.exec(select(Document).where(Document.document_id == document_id)).one()
+    doc = session.exec(
+        select(Document).where(Document.document_id == document_id)
+    ).one()
 
     # First call: no cached row → computes and stores.
     result1 = evaluation_main.update_or_select_document_evaluation(bt, session, doc)
@@ -1426,7 +1442,9 @@ def test_get_document_evaluation_recomputes_after_document_update(
     assert get_compute_calls() == 1
 
     # Backdate the evaluation to simulate the document being updated after caching.
-    ev = session.exec(select(Evaluation).where(Evaluation.document_id == document_id)).one()
+    ev = session.exec(
+        select(Evaluation).where(Evaluation.document_id == document_id)
+    ).one()
     ev.updated_at = datetime(2020, 1, 1, tzinfo=timezone.utc)
     session.flush()
 
@@ -1468,7 +1486,9 @@ def test_compute_metrics_returns_empty_payload_for_unassigned_document(monkeypat
             pass
 
     monkeypatch.setattr(evaluation_main, "DocumentEvaluationContext", _EmptyContext)
-    envelope = evaluation_main.compute_metrics(background_tasks=None, session=None, document_id="stub")  # type: ignore
+    envelope = evaluation_main.compute_metrics(
+        background_tasks=None, session=None, document_id="stub"
+    )  # type: ignore
     assert envelope["metrics"] == {}
     assert envelope["payload_version"] == CURRENT_PAYLOAD_VERSION
     assert envelope["failed"] == []

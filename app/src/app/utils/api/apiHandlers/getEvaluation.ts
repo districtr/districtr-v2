@@ -1,7 +1,7 @@
 import {get} from '../factory';
 
 type ElectionKey = string; // e.g., "sen_18"
-type RacialGroupKey = "white" | "amin" | "asian_nhpi" | "h" | "b"; // Corresonpding to "pop" column prefixes
+type RacialGroupKey = 'white' | 'amin' | 'asian_nhpi' | 'h' | 'b'; // Corresonpding to "pop" column prefixes
 type ZoneKey = string;
 type CountyFIPS = string; // 5-digit FIPS code as a string
 
@@ -106,4 +106,4 @@ export const getEvaluation = async (document_id?: string) => {
   }
 
   return await get<MetricsEnvelope>(`document/${document_id}/evaluation`)({});
-}
+};

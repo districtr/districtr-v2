@@ -1407,7 +1407,6 @@ async def get_unassigned_geoids(
     return {"features": [row[0] for row in results if row[0] is not None]}
 
 
-
 @app.get("/api/document/{document_id}/contiguity")
 async def check_document_contiguity(
     document: Annotated[Document, Depends(get_protected_document)],

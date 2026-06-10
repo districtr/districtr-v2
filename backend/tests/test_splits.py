@@ -60,31 +60,46 @@ class _StubSplitsContext(DocumentEvaluationContext):
     """Real-session context that injects gerrydb_table and ideal_population directly,
     bypassing the DB lookups for those cached properties."""
 
-    def __init__(self, session, document_id, parent_layer=_KS_ELLIS_TABLE, ideal_population=_KS_ELLIS_IDEAL_POP):
-        super().__init__(background_tasks=None, session=session, document_id=document_id)  # type: ignore[arg-type]
+    def __init__(
+        self,
+        session,
+        document_id,
+        parent_layer=_KS_ELLIS_TABLE,
+        ideal_population=_KS_ELLIS_IDEAL_POP,
+    ):
+        super().__init__(
+            background_tasks=None, session=session, document_id=document_id
+        )  # type: ignore[arg-type]
         self.__dict__["district_stats"] = []
         self.__dict__["parent_layer"] = parent_layer
         self.__dict__["ideal_population"] = ideal_population
 
 
 def _put_assignments(client, document_id, assignments):
-    resp = client.put("/api/assignments", json={
-        "document_id": document_id,
-        "assignments": assignments,
-        "last_updated_at": datetime.now().astimezone().isoformat(),
-    })
+    resp = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "assignments": assignments,
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+        },
+    )
     assert resp.status_code == 200
 
 
 def _create_context(client, session, assignments, ideal_population=_KS_ELLIS_IDEAL_POP):
     """Create a document, insert assignments, pre-seed county pops, return a context."""
-    resp = client.post("/api/create_document", json={"districtr_map_slug": "ks_ellis_geos"})
+    resp = client.post(
+        "/api/create_document", json={"districtr_map_slug": "ks_ellis_geos"}
+    )
     assert resp.status_code == 201
     document_id = resp.json()["document_id"]
     _put_assignments(client, document_id, assignments)
     COUNTY_CONTEXT._pop_cache[_KS_ELLIS_TABLE] = {_KS_ELLIS_COUNTY: _KS_ELLIS_TOTAL_POP}
     COUNTY_CONTEXT._name_cache.update(_COUNTY_NAMES)
-    return _StubSplitsContext(session, document_id=document_id, ideal_population=ideal_population)
+    return _StubSplitsContext(
+        session, document_id=document_id, ideal_population=ideal_population
+    )
 
 
 def _cleanup_county_context():
@@ -94,13 +109,23 @@ def _cleanup_county_context():
 
 
 @pytest.fixture
-def three_zone_context(client, session: Session, ks_ellis_shatterable_districtr_map, gerrydb_ks_ellis_geos_view):
+def three_zone_context(
+    client,
+    session: Session,
+    ks_ellis_shatterable_districtr_map,
+    gerrydb_ks_ellis_geos_view,
+):
     yield _create_context(client, session, _THREE_ZONE_ASSIGNMENTS)
     _cleanup_county_context()
 
 
 @pytest.fixture
-def single_zone_context(client, session: Session, ks_ellis_shatterable_districtr_map, gerrydb_ks_ellis_geos_view):
+def single_zone_context(
+    client,
+    session: Session,
+    ks_ellis_shatterable_districtr_map,
+    gerrydb_ks_ellis_geos_view,
+):
     yield _create_context(client, session, _SINGLE_ZONE_ASSIGNMENTS)
     _cleanup_county_context()
 
@@ -145,7 +170,10 @@ def test_county_pieces_population(three_zone_context):
 
 # ── Retesting for old bug: cold cache + shatterable map ──────────────────────────────
 def test_county_pieces_cold_cache_shatterable_map(
-    client, session: Session, ks_ellis_shatterable_districtr_map, gerrydb_ks_ellis_geos_view
+    client,
+    session: Session,
+    ks_ellis_shatterable_districtr_map,
+    gerrydb_ks_ellis_geos_view,
 ):
     """county_pieces must work on a cold cache when the map is shatterable.
 
@@ -155,10 +183,14 @@ def test_county_pieces_cold_cache_shatterable_map(
     """
     _KS_ELLIS_PARENT_LAYER = GerrydbTableName("ks_ellis_county_vtd")
     _cleanup_county_context()
-    COUNTY_CONTEXT._pop_cache[_KS_ELLIS_PARENT_LAYER] = {_KS_ELLIS_COUNTY: _KS_ELLIS_TOTAL_POP}
+    COUNTY_CONTEXT._pop_cache[_KS_ELLIS_PARENT_LAYER] = {
+        _KS_ELLIS_COUNTY: _KS_ELLIS_TOTAL_POP
+    }
     COUNTY_CONTEXT._name_cache.update(_COUNTY_NAMES)
     try:
-        resp = client.post("/api/create_document", json={"districtr_map_slug": "ks_ellis_geos"})
+        resp = client.post(
+            "/api/create_document", json={"districtr_map_slug": "ks_ellis_geos"}
+        )
         assert resp.status_code == 201
         document_id = resp.json()["document_id"]
         _put_assignments(client, document_id, _THREE_ZONE_ASSIGNMENTS)
@@ -192,10 +224,15 @@ def test_county_pieces_keyed_by_county_pops(three_zone_context):
 
 
 def test_county_pieces_empty_when_no_county_pops(
-    client, session: Session, ks_ellis_shatterable_districtr_map, gerrydb_ks_ellis_geos_view
+    client,
+    session: Session,
+    ks_ellis_shatterable_districtr_map,
+    gerrydb_ks_ellis_geos_view,
 ):
     """Returns {} immediately when county_pops is empty."""
-    resp = client.post("/api/create_document", json={"districtr_map_slug": "ks_ellis_geos"})
+    resp = client.post(
+        "/api/create_document", json={"districtr_map_slug": "ks_ellis_geos"}
+    )
     assert resp.status_code == 201
     document_id = resp.json()["document_id"]
     _put_assignments(client, document_id, _THREE_ZONE_ASSIGNMENTS)
@@ -208,10 +245,15 @@ def test_county_pieces_empty_when_no_county_pops(
 
 
 def test_county_pieces_raises_when_attempts_exhausted(
-    client, session: Session, ks_ellis_shatterable_districtr_map, gerrydb_ks_ellis_geos_view
+    client,
+    session: Session,
+    ks_ellis_shatterable_districtr_map,
+    gerrydb_ks_ellis_geos_view,
 ):
     """Raises ValueError when county_populations has exhausted all load attempts."""
-    resp = client.post("/api/create_document", json={"districtr_map_slug": "ks_ellis_geos"})
+    resp = client.post(
+        "/api/create_document", json={"districtr_map_slug": "ks_ellis_geos"}
+    )
     assert resp.status_code == 201
     document_id = resp.json()["document_id"]
     COUNTY_CONTEXT._pop_cache.pop(_KS_ELLIS_TABLE, None)

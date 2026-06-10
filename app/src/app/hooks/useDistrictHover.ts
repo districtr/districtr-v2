@@ -10,14 +10,16 @@ export function useDistrictHover() {
     const id = String(zone);
     const map = getMapRef();
     if (!map) return;
-    if (prevRef.current) map.setFeatureState({source: PUBLIC_SOURCE_ID, id: prevRef.current}, {focused: false});
+    if (prevRef.current)
+      map.setFeatureState({source: PUBLIC_SOURCE_ID, id: prevRef.current}, {focused: false});
     map.setFeatureState({source: PUBLIC_SOURCE_ID, id}, {focused: true});
     prevRef.current = id;
   };
 
   const onDistrictLeave = () => {
     const map = getMapRef();
-    if (map && prevRef.current) map.setFeatureState({source: PUBLIC_SOURCE_ID, id: prevRef.current}, {focused: false});
+    if (map && prevRef.current)
+      map.setFeatureState({source: PUBLIC_SOURCE_ID, id: prevRef.current}, {focused: false});
     prevRef.current = null;
   };
 

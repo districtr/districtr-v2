@@ -1,14 +1,5 @@
 'use client';
-import {
-  Text,
-  DropdownMenu,
-  Flex,
-  Heading,
-  IconButton,
-  Link,
-  Tooltip,
-  Tabs,
-} from '@radix-ui/themes';
+import {Text, DropdownMenu, Flex, Heading, IconButton, Link, Tooltip, Tabs} from '@radix-ui/themes';
 import React, {useRef} from 'react';
 import {useMapStore} from '@store/mapStore';
 import {RecentMapsModal} from '@components/Toolbar/RecentMapsModal';
@@ -98,132 +89,135 @@ export const Topbar: React.FC = () => {
           justify={'between'}
         >
           <Flex align="center" gap="3">
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger className="ml-2">
-              <IconButton variant="ghost">
-                <HamburgerMenuIcon className="mr-2" />
-                <Heading size="3">Districtr</Heading>
-                {!mapDocument?.document_id && !isEval && (
-                  <>
-                    <ArrowLeftIcon fontSize={12} color="green" className="ml-2" />
-                    <Text size="1" className="italic" color="green">
-                      start here!
-                    </Text>
-                  </>
-                )}
-              </IconButton>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content>
-              <DropdownMenu.Item>
-                <Link href="/" color="gray">
-                  Home
-                </Link>
-              </DropdownMenu.Item>
-              {!isEval && (
-                <DropdownMenu.Sub>
-                  <Tooltip open={!mapDocument?.document_id} content="Start by selecting a geography">
-                    <DropdownMenu.SubTrigger>Create new map</DropdownMenu.SubTrigger>
-                  </Tooltip>
-                  <DropdownMenu.SubContent>
-                    <DropdownMenu.Sub>
-                      <DropdownMenu.SubTrigger>Select a geography</DropdownMenu.SubTrigger>
-                      <DropdownMenu.SubContent>
-                        {cleanMapViewList.length ? (
-                          cleanMapViewList.map((view, index) => (
-                            <DropdownMenu.Item
-                              key={index}
-                              onClick={() => handleSelectMap(view, mapMode)}
-                            >
-                              {mapMode === MAP_MODES.DISTRICTS
-                                ? view.name
-                                : sanitizeCommunityModuleName(view.name)}
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger className="ml-2">
+                <IconButton variant="ghost">
+                  <HamburgerMenuIcon className="mr-2" />
+                  <Heading size="3">Districtr</Heading>
+                  {!mapDocument?.document_id && !isEval && (
+                    <>
+                      <ArrowLeftIcon fontSize={12} color="green" className="ml-2" />
+                      <Text size="1" className="italic" color="green">
+                        start here!
+                      </Text>
+                    </>
+                  )}
+                </IconButton>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Content>
+                <DropdownMenu.Item>
+                  <Link href="/" color="gray">
+                    Home
+                  </Link>
+                </DropdownMenu.Item>
+                {!isEval && (
+                  <DropdownMenu.Sub>
+                    <Tooltip
+                      open={!mapDocument?.document_id}
+                      content="Start by selecting a geography"
+                    >
+                      <DropdownMenu.SubTrigger>Create new map</DropdownMenu.SubTrigger>
+                    </Tooltip>
+                    <DropdownMenu.SubContent>
+                      <DropdownMenu.Sub>
+                        <DropdownMenu.SubTrigger>Select a geography</DropdownMenu.SubTrigger>
+                        <DropdownMenu.SubContent>
+                          {cleanMapViewList.length ? (
+                            cleanMapViewList.map((view, index) => (
+                              <DropdownMenu.Item
+                                key={index}
+                                onClick={() => handleSelectMap(view, mapMode)}
+                              >
+                                {mapMode === MAP_MODES.DISTRICTS
+                                  ? view.name
+                                  : sanitizeCommunityModuleName(view.name)}
+                              </DropdownMenu.Item>
+                            ))
+                          ) : (
+                            <DropdownMenu.Item disabled>
+                              {mapViews?.isPending
+                                ? 'Loading geographies...'
+                                : 'No geographies available'}
                             </DropdownMenu.Item>
-                          ))
-                        ) : (
-                          <DropdownMenu.Item disabled>
-                            {mapViews?.isPending
-                              ? 'Loading geographies...'
-                              : 'No geographies available'}
-                          </DropdownMenu.Item>
-                        )}
-                      </DropdownMenu.SubContent>
-                    </DropdownMenu.Sub>
-                    <DropdownMenu.Item onClick={() => setModalOpen('upload')}>
-                      Upload block assignments
-                    </DropdownMenu.Item>
-                  </DropdownMenu.SubContent>
-                </DropdownMenu.Sub>
-              )}
-              <DropdownMenu.Sub>
-                <DropdownMenu.SubTrigger disabled={!mapDocument?.document_id}>
-                  Export assignments
-                </DropdownMenu.SubTrigger>
-                <DropdownMenu.SubContent>
-                  <DropdownMenu.Item>
-                    <Tooltip content="Download a CSV of Census GEOIDs and zone IDs">
-                      <a
-                        href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=CSV&export_type=ZoneAssignments`}
-                        download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
-                      >
-                        VTD assignments (CSV)
-                      </a>
-                    </Tooltip>
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item>
-                    <Tooltip content="Download a GeoJSON of Census GEOIDs and zone IDs">
-                      <a
-                        href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=GeoJSON&export_type=ZoneAssignments`}
-                        download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
-                      >
-                        VTD assignments (GeoJSON)
-                      </a>
-                    </Tooltip>
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item disabled={!mapDocument?.child_layer}>
-                    <Tooltip content="Download a CSV of Census Block GEOIDs and zone IDs">
-                      <a
-                        href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=CSV&export_type=BlockZoneAssignments`}
-                        download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
-                      >
-                        Block assignment (CSV)
-                      </a>
-                    </Tooltip>
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item>
-                    <Tooltip content="Download a GeoJSON of district boundaries">
-                      <a
-                        href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=GeoJSON&export_type=Districts`}
-                        download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
-                      >
-                        District boundaries (GeoJSON)
-                      </a>
-                    </Tooltip>
-                  </DropdownMenu.Item>
-                </DropdownMenu.SubContent>
-              </DropdownMenu.Sub>
-              <DropdownMenu.Item onClick={() => setModalOpen('recents')} disabled={false}>
-                View recent maps
-              </DropdownMenu.Item>
-              {!isEval && (
+                          )}
+                        </DropdownMenu.SubContent>
+                      </DropdownMenu.Sub>
+                      <DropdownMenu.Item onClick={() => setModalOpen('upload')}>
+                        Upload block assignments
+                      </DropdownMenu.Item>
+                    </DropdownMenu.SubContent>
+                  </DropdownMenu.Sub>
+                )}
                 <DropdownMenu.Sub>
-                  <DropdownMenu.SubTrigger
-                    disabled={!mapDocument?.document_id || access === ACCESS_STATES.READ}
-                  >
-                    Reset map
+                  <DropdownMenu.SubTrigger disabled={!mapDocument?.document_id}>
+                    Export assignments
                   </DropdownMenu.SubTrigger>
                   <DropdownMenu.SubContent>
-                    <Text size="2" className="w-[50vw] max-w-60 p-3">
-                      Are you sure? This will reset all zone assignments and broken geographies.{' '}
-                      <b>Resetting your map cannot be undone.</b>
-                    </Text>
-                    <DropdownMenu.Item onClick={handleReset} color="red">
-                      Reset map
+                    <DropdownMenu.Item>
+                      <Tooltip content="Download a CSV of Census GEOIDs and zone IDs">
+                        <a
+                          href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=CSV&export_type=ZoneAssignments`}
+                          download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
+                        >
+                          VTD assignments (CSV)
+                        </a>
+                      </Tooltip>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item>
+                      <Tooltip content="Download a GeoJSON of Census GEOIDs and zone IDs">
+                        <a
+                          href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=GeoJSON&export_type=ZoneAssignments`}
+                          download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
+                        >
+                          VTD assignments (GeoJSON)
+                        </a>
+                      </Tooltip>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item disabled={!mapDocument?.child_layer}>
+                      <Tooltip content="Download a CSV of Census Block GEOIDs and zone IDs">
+                        <a
+                          href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=CSV&export_type=BlockZoneAssignments`}
+                          download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
+                        >
+                          Block assignment (CSV)
+                        </a>
+                      </Tooltip>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item>
+                      <Tooltip content="Download a GeoJSON of district boundaries">
+                        <a
+                          href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=GeoJSON&export_type=Districts`}
+                          download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
+                        >
+                          District boundaries (GeoJSON)
+                        </a>
+                      </Tooltip>
                     </DropdownMenu.Item>
                   </DropdownMenu.SubContent>
                 </DropdownMenu.Sub>
-              )}
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
+                <DropdownMenu.Item onClick={() => setModalOpen('recents')} disabled={false}>
+                  View recent maps
+                </DropdownMenu.Item>
+                {!isEval && (
+                  <DropdownMenu.Sub>
+                    <DropdownMenu.SubTrigger
+                      disabled={!mapDocument?.document_id || access === ACCESS_STATES.READ}
+                    >
+                      Reset map
+                    </DropdownMenu.SubTrigger>
+                    <DropdownMenu.SubContent>
+                      <Text size="2" className="w-[50vw] max-w-60 p-3">
+                        Are you sure? This will reset all zone assignments and broken geographies.{' '}
+                        <b>Resetting your map cannot be undone.</b>
+                      </Text>
+                      <DropdownMenu.Item onClick={handleReset} color="red">
+                        Reset map
+                      </DropdownMenu.Item>
+                    </DropdownMenu.SubContent>
+                  </DropdownMenu.Sub>
+                )}
+              </DropdownMenu.Content>
+            </DropdownMenu.Root>
           </Flex>
           {isEval ? (
             <Heading

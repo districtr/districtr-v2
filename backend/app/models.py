@@ -33,10 +33,12 @@ COMMUNITY_HTML_TAG_RE = re.compile(r"<[^>]+>")
 COMMUNITY_CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
 COMMUNITY_WHITESPACE_RE = re.compile(r"\s+")
 
+
 class GeoUnitType(StrEnum):
     VTD = "vtd"
     BLOCK_GROUP = "bg"
     BLOCK = "block"
+
 
 def sanitize_community_name(name: str) -> str:
     """Normalize user-provided community names before validation/persistence.
@@ -99,9 +101,13 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     # Additional comments as necessary for module limitations
     comment: str | None = Field(nullable=True)
     # Census unit (usually VTDs) that the parent layer is made up of
-    parent_geo_unit_type: GeoUnitType | None = Field(sa_column=Column(String, nullable=True))
+    parent_geo_unit_type: GeoUnitType | None = Field(
+        sa_column=Column(String, nullable=True)
+    )
     # Census unit (usually blocks) that the child layer is made up of
-    child_geo_unit_type: GeoUnitType | None = Field(sa_column=Column(String, nullable=True))
+    child_geo_unit_type: GeoUnitType | None = Field(
+        sa_column=Column(String, nullable=True)
+    )
     # Name of the data source for the map
     data_source_name: str | None = Field(nullable=True)
     # State FIPS codes associated with this map

@@ -29,9 +29,7 @@ def upgrade() -> None:
         )
     )
     op.execute(
-        sa.text(
-            "UPDATE document.document SET assignments_updated_at = updated_at"
-        )
+        sa.text("UPDATE document.document SET assignments_updated_at = updated_at")
     )
 
     # Track when the public stats GeoJSON was last successfully uploaded to S3,
@@ -71,7 +69,9 @@ def downgrade() -> None:
         sa.text("DROP INDEX IF EXISTS document.ux_district_unions_doc_unassigned")
     )
     op.execute(
-        sa.text("ALTER TABLE document.document DROP COLUMN IF EXISTS stats_published_at")
+        sa.text(
+            "ALTER TABLE document.document DROP COLUMN IF EXISTS stats_published_at"
+        )
     )
     op.execute(
         sa.text(

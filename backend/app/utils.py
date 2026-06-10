@@ -3,7 +3,7 @@ import json as json_mod
 import logging
 import re
 from uuid import uuid4
-from typing import Callable, List, NewType
+from typing import Callable, NewType
 
 from fastapi import BackgroundTasks
 from sqlalchemy import text, update, Table, MetaData, func
@@ -11,9 +11,15 @@ from sqlalchemy import bindparam, Text
 from sqlalchemy.types import UUID
 from sqlmodel import Session, select, Float
 
-from fastapi import BackgroundTasks
 from app.constants import GERRY_DB_SCHEMA, PUBLIC_SCHEMA
-from app.models import UUIDType, DistrictrMap, DistrictrMapUpdate, Document, DistrictUnionsResponse, GeoUnitType
+from app.models import (
+    UUIDType,
+    DistrictrMap,
+    DistrictrMapUpdate,
+    Document,
+    DistrictUnionsResponse,
+    GeoUnitType,
+)
 from app.thumbnails.main import generate_thumbnail, THUMBNAIL_BUCKET
 from app.core.config import settings
 from app.core.db import engine
@@ -32,6 +38,7 @@ GEOID_PREDICATES: dict[GeoUnitType, Callable[[Geoid], bool]] = {
     GeoUnitType.BLOCK_GROUP: lambda geo_id: len(geo_id) == 12 and geo_id.isdigit(),
     GeoUnitType.BLOCK: lambda geo_id: len(geo_id) == 15 and geo_id.isdigit(),
 }
+
 
 def assert_safe_ident(name: str) -> str:
     """Assert that `name` is safe to interpolate into a SQL identifier position."""
@@ -154,7 +161,9 @@ def create_districtr_map(
         comment_length_limit=comment_length_limit,
         comment_count_limit=comment_count_limit,
         parent_geo_unit_type=infer_geo_unit_type(session, parent_layer),
-        child_geo_unit_type=infer_geo_unit_type(session, child_layer) if child_layer else None,
+        child_geo_unit_type=infer_geo_unit_type(session, child_layer)
+        if child_layer
+        else None,
     )
     session.add(districtr_map)
     session.flush()
