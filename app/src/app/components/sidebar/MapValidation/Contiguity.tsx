@@ -2,7 +2,6 @@ import {useMapStore} from '@/app/store/mapStore';
 import {getContiguity} from '@/app/utils/api/apiHandlers/getContiguity';
 import {Blockquote, Box, Flex, Table, Text} from '@radix-ui/themes';
 import {useQuery} from '@tanstack/react-query';
-import {queryClient} from '@utils/api/queryClient';
 import {useEffect, useMemo} from 'react';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 import {RefreshButton, TimestampDisplay} from '@/app/components/Time/TimestampDisplay';
@@ -12,20 +11,17 @@ import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 export const Contiguity = () => {
   const mapDocument = useMapStore(store => store.mapDocument);
   const getZoneColor = useZoneColorGetter();
-  const {data, isLoading, refetch, dataUpdatedAt} = useQuery(
-    {
-      queryKey: ['Contiguity', mapDocument?.document_id, mapDocument?.updated_at],
-      queryFn: async () => {
-        return await getContiguity(mapDocument);
-      },
-      enabled: !!mapDocument,
-      staleTime: 0,
-      retry: false,
-      placeholderData: previousData => previousData,
-      refetchOnWindowFocus: false,
+  const {data, isLoading, refetch, dataUpdatedAt} = useQuery({
+    queryKey: ['Contiguity', mapDocument?.document_id, mapDocument?.updated_at],
+    queryFn: async () => {
+      return await getContiguity(mapDocument);
     },
-    queryClient
-  );
+    enabled: !!mapDocument,
+    staleTime: 0,
+    retry: false,
+    placeholderData: previousData => previousData,
+    refetchOnWindowFocus: false,
+  });
 
   const lastUpdatedContiguity = dataUpdatedAt
     ? new Date(dataUpdatedAt ?? null).toISOString()
