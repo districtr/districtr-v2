@@ -12,7 +12,6 @@ import msgpack
 import psutil
 import time
 
-import botocore.exceptions
 from sqlalchemy.exc import (
     MultipleResultsFound,
     NoResultFound,
@@ -57,9 +56,10 @@ from app.comments.settings import (
 )
 import app.contiguity.main as contiguity
 import app.evaluation.main as evaluation
+from app.evaluation.types import MetricsEnvelope
 import app.save_share.main as save_share
 import app.thumbnails.main as thumbnails
-from networkx import Graph, connected_components
+from networkx import connected_components
 from app.models import (
     Assignments,
     ColorsSetResult,
@@ -93,8 +93,8 @@ from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
 from sqlalchemy.sql.functions import coalesce
 from app.utils import RowFormat, package_rows, update_or_select_district_stats
+from app.evaluation.graph import get_graph
 from contextlib import asynccontextmanager
-from functools import lru_cache
 from fiona.transform import transform
 from fastapi import BackgroundTasks
 from ._sanitize import (
@@ -131,16 +131,6 @@ Instrumentator(
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 VERBOSE_LOGGING = settings.VERBOSE_LOGGING
-
-_GRAPH_CACHE_MAX_SIZE = 10
-
-
-@lru_cache(maxsize=_GRAPH_CACHE_MAX_SIZE)
-def _load_gerrydb_graph_cached(gerrydb_name: str) -> Graph:
-    """Resolve path, download if needed, unpickle graph. LRU-cached by gerrydb_name."""
-    path = contiguity.get_gerrydb_graph_file(gerrydb_name)
-    logger.info(f"Graph cache miss, loading from {path}")
-    return contiguity.get_gerrydb_block_graph(path, replace_local_copy=False)
 
 
 # Set all CORS enabled origins
@@ -190,7 +180,7 @@ def update_timestamp(
         .where(col(Document.document_id) == document_id)
         .values(updated_at=func.now())
         .returning(
-            Document.updated_at
+            col(Document.updated_at)
         )  # The `returning` on this makes it into a DML statement
     )
     updated_at = session.connection().execute(update_stmt).scalar_one()
@@ -335,7 +325,7 @@ async def get_document_stats(
     )
 
 
-@app.get("/api/document/{document_id}/evaluation")
+@app.get("/api/document/{document_id}/evaluation", response_model=MetricsEnvelope)
 async def get_document_evaluation(
     background_tasks: BackgroundTasks,
     document: Annotated[Document, Depends(get_protected_document)],
@@ -540,7 +530,7 @@ async def create_document(
         )
 
     stmt = (
-        select(  # type: ignore[no-matching-overload]
+        select(  # type: ignore[no-matching-overload] # ty: ignore[no-matching-overload]
             col(Document.document_id),
             col(Document.public_id),
             col(Document.created_at),
@@ -1439,43 +1429,6 @@ async def get_unassigned_geoids(
     return Response(content=payload, media_type="application/msgpack")
 
 
-async def _get_graph(gerrydb_name: str) -> Graph:
-    f"""
-    Get a graph from the in-process LRU cache (max size {_GRAPH_CACHE_MAX_SIZE}) or load
-    it from a local file or S3.
-
-    Args:
-        gerrydb_name (str): The name of the GerryDB to get the graph for.
-
-    Returns:
-        Graph: The graph for the given GerryDB.
-
-    Note:
-        Despite being async, graph resolution and loading are synchronous (boto3, disk,
-        unpickle). They run on the asyncio event-loop thread, so a cache miss can block
-        this worker from handling other concurrent requests until loading finishes. Other
-        uvicorn workers are unaffected. Mitigations include keeping the LRU hot, or moving
-        this work to a thread pool / async I/O if contention becomes an issue.
-    """
-    try:
-        G = _load_gerrydb_graph_cached(gerrydb_name)
-    except botocore.exceptions.ClientError as e:
-        # TODO: Maybe in the future this should actually create the graph
-        logger.error(f"Graph not found: {str(e)}")
-        raise HTTPException(
-            status_code=404,
-            detail="Graph unavailable. This map does not support contiguity checks.",
-        )
-    except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Something went wrong: {str(e)}")
-
-    if not isinstance(G, Graph):
-        logger.error(f"Expected Graph, got {type(G)}")
-        raise HTTPException(status_code=500, detail="Error loading graph")
-
-    return G
-
 
 @app.get("/api/document/{document_id}/contiguity")
 async def check_document_contiguity(
@@ -1493,41 +1446,12 @@ async def check_document_contiguity(
         document_id=DocumentID(document_id=document.document_id), session=session
     )
 
-    if districtr_map.child_layer is not None:
-        logger.info(
-            f"Using child layer {districtr_map.child_layer} for document {document.document_id}"
-        )
-        gerrydb_name = districtr_map.child_layer
-        kwargs = {"zones": zone} if len(zone) > 0 else {}
-        zone_assignments = contiguity.get_block_assignments(
-            session, document.document_id, **kwargs
-        )
-    else:
-        gerrydb_name = districtr_map.parent_layer
-        logger.info(
-            f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document.document_id}"
-        )
-        sql = text("""
-            SELECT
-                zone,
-                array_agg(geo_id) as nodes
-            FROM
-                document.assignments
-            WHERE
-                document_id = :document_id
-                AND zone IS NOT NULL
-            GROUP BY
-                zone""")
-        result = (
-            session.connection()
-            .execute(sql, {"document_id": document.document_id})
-            .fetchall()
-        )
-        zone_assignments = [
-            contiguity.ZoneBlockNodes(zone=row.zone, nodes=row.nodes) for row in result
-        ]
-
-    G = await _get_graph(gerrydb_name)
+    gerrydb_name = districtr_map.gerrydb_table_name
+    kwargs = {"zones": zone} if len(zone) > 0 else {}
+    G = get_graph(gerrydb_name)
+    zone_assignments = contiguity.get_assigned_nodes(
+        session, document.document_id, districtr_map, G=G, **kwargs
+    )
 
     results = {}
     for zone_blocks in zone_assignments:
@@ -1567,71 +1491,23 @@ async def get_connected_component_bboxes(
     districtr_map = get_districtr_map(
         document_id=DocumentID(document_id=document.document_id), session=session
     )
-    if districtr_map.child_layer is not None:
-        logger.info(
-            f"Using child layer {districtr_map.child_layer} for document {document.document_id}"
-        )
-        gerrydb_name = districtr_map.child_layer
-        zone_assignments = contiguity.get_block_assignments_bboxes(
-            session, document.document_id, zones=[zone]
-        )
-        if len(zone_assignments) == 0:
-            raise HTTPException(status_code=404, detail="Zone not found")
-        elif len(zone_assignments) > 1:
-            raise HTTPException(status_code=500, detail="Multiple zones found")
-        zone_assignments = zone_assignments[0]
-    else:
-        gerrydb_name = districtr_map.parent_layer
-        logger.info(
-            f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document.document_id}"
-        )
-        sql = text(f"""
-            SELECT
-                geo_id,
-                st_xmin(box2d(gpd.geometry)) AS xmin,
-                st_xmax(box2d(gpd.geometry)) AS xmax,
-                st_ymin(box2d(gpd.geometry)) AS ymin,
-                st_ymax(box2d(gpd.geometry)) AS ymax
-            FROM
-                document.assignments a
-            LEFT JOIN
-                gerrydb.{gerrydb_name} gpd
-                ON a.geo_id = gpd.path
-            WHERE
-                document_id = :document_id
-                AND zone = :zone""")
+    gerrydb_name = districtr_map.gerrydb_table_name
+    G = get_graph(gerrydb_name)
+    node_bboxes = contiguity.get_assigned_nodes_bboxes(
+        session,
+        document.document_id,
+        districtr_map,
+        zone,
+        G=G,
+    )
+    if not node_bboxes:
+        raise HTTPException(status_code=404, detail="Zone not found")
 
-        results = (
-            session.connection()
-            .execute(sql, {"document_id": document.document_id, "zone": zone})
-            .all()
-        )
-
-        if not results or len(results) == 0:
-            raise HTTPException(status_code=404, detail="Zone not found")
-        nodes = [row.geo_id for row in results]
-        zone_assignments = contiguity.ZoneBlockNodes(
-            zone=zone,
-            nodes=list(nodes),
-            node_data={
-                row.geo_id: {
-                    "xmin": row.xmin,
-                    "xmax": row.xmax,
-                    "ymin": row.ymin,
-                    "ymax": row.ymax,
-                }
-                for row in results
-            },
-        )
-
-    G = await _get_graph(gerrydb_name)
-    subgraph = G.subgraph(nodes=zone_assignments.nodes)
-
-    if zone_assignments.node_data is None:
-        raise HTTPException(status_code=404, detail="Node data is missing")
-
+    node_data = {nb.node: nb for nb in node_bboxes}
+    subgraph = G.subgraph(nodes=list(node_data))
     zone_connected_components = connected_components(subgraph)
 
+    srid_table = districtr_map.parent_layer
     from_srid = (
         session.connection()
         .execute(
@@ -1640,7 +1516,7 @@ async def get_connected_component_bboxes(
                 WHERE f_table_name = :table_name
                     AND f_table_schema = 'gerrydb'
                 LIMIT 1"""),
-            {"table_name": gerrydb_name},
+            {"table_name": srid_table},
         )
         .scalar()
     )
@@ -1654,11 +1530,11 @@ async def get_connected_component_bboxes(
             float("-inf"),
         )
         for node in zone_connected_component:
-            node_data = zone_assignments.node_data[node]
-            minx = min(minx, node_data["xmin"])
-            miny = min(miny, node_data["ymin"])
-            maxx = max(maxx, node_data["xmax"])
-            maxy = max(maxy, node_data["ymax"])
+            nb = node_data[node]
+            minx = min(minx, nb.xmin)
+            miny = min(miny, nb.ymin)
+            maxx = max(maxx, nb.xmax)
+            maxy = max(maxy, nb.ymax)
 
         (_minx, _maxx), (_miny, _maxy) = transform(
             xs=[minx, maxx],
@@ -1764,22 +1640,15 @@ async def debug_graph_lru_cache() -> dict[str, Any]:
     """
     GerryDB graph LRU cache stats (hits/misses/size).
 
-    Per-graph heap size is not available: ``functools.lru_cache`` does not expose cached
-    entries. ``process.rss_*`` is whole-worker RSS for rough correlation only.
+    Per-graph heap size is not available: the cache does not expose individual entries.
+    ``process.rss_*`` is whole-worker RSS for rough correlation only.
     """
-    info = _load_gerrydb_graph_cached.cache_info()
-    params = _load_gerrydb_graph_cached.cache_parameters()
+    info = get_graph.cache_info()
     rss = psutil.Process().memory_info().rss
 
     return {
         "cache": "gerrydb_graph_lru",
-        "cache_info": {
-            "hits": info.hits,
-            "misses": info.misses,
-            "maxsize": info.maxsize,
-            "currsize": info.currsize,
-        },
-        "cache_parameters": dict(params),
+        "cache_info": info,
         "process": {
             "rss_bytes": rss,
             "rss_mb": round(rss / 1024 / 1024, 2),
