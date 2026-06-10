@@ -27,7 +27,7 @@ export const ZoomToUnassigned = () => {
   const unassigned = summaryStats?.unassigned;
 
   const fitToOverallBounds = () =>
-    unassignedOverallBbox && mapRef?.fitBounds(unassignedOverallBbox);
+    unassignedOverallBbox && mapRef?.fitBounds(unassignedOverallBbox, {padding: 240});
 
   useEffect(() => {
     if (!unassignedFeatureBboxes.length && !hasFoundUnassigned) {
@@ -59,6 +59,7 @@ export const ZoomToUnassigned = () => {
           features={unassignedFeatureBboxes}
           selectedIndex={selectedIndex}
           setSelectedIndex={setSelectedIndex}
+          padding={240}
         />
         <Button onClick={fitToOverallBounds} variant="surface" className="block">
           {`Show ${unassignedFeatureBboxes.length === 1 ? 'unassigned area' : 'all unassigned areas'}`}
