@@ -19,7 +19,6 @@ from app.utils import (
 )
 from app.core.io import get_local_or_s3_path
 from app.constants import GERRY_DB_SCHEMA
-from app.contiguity.main import write_graph, graph_from_gpkg, GraphFileFormat
 from functools import wraps
 from contextlib import contextmanager
 from sqlmodel import Session
@@ -335,40 +334,6 @@ def update_districtr_map(
     )
     logger.info(f"Districtr map updated successfully {result}")
 
-
-@cli.command("create-gerrydb-graph")
-@click.option("--gpkg", "-g", help="Path or URL to GeoPackage file", required=True)
-@click.option("--gerrydb-name", help="Name of the GerryDB table", required=False)
-@click.option(
-    "--graph-file-format",
-    help="Graph file format to exports. Supports gml and pkl",
-    required=False,
-    type=GraphFileFormat,
-    default=GraphFileFormat.pkl,
-)
-@click.option(
-    "--skip-upload",
-    help="Whether to upload to S3",
-    required=False,
-    default=False,
-    type=bool,
-    is_flag=True,
-)
-def create_gerrydb_graph(
-    gpkg: str,
-    gerrydb_name: str,
-    graph_file_format: GraphFileFormat,
-    skip_upload: bool,
-):
-    logger.info("Creating gerrydb graph GML...")
-    G = graph_from_gpkg(gpkg)
-    out_path_local = write_graph(
-        G=G,
-        gerrydb_name=gerrydb_name,
-        upload_to_s3=not skip_upload,
-        graph_file_format=graph_file_format,
-    )
-    logger.info(f"Graph file written to {out_path_local}")
 
 
 @cli.command("create-shatterable-districtr-view")

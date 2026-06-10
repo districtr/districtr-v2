@@ -1,6 +1,7 @@
 import click
 import logging
 from transforms.models import AggregateConfig
+from transforms.graph import build_combined_graph_from_gpkg, write_graph, GraphBatch
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -108,3 +109,82 @@ def aggregate(
     logger.info(f"Aggregating {layer_name} to {aggregate_to} level")
     config.generate_aggregated_gpkg()
     logger.info(f"Aggregation complete. Output saved to {out_path}")
+
+
+@transforms.command("create-graph")
+@click.option(
+    "--child-gpkg", "-c",
+    help="Path or S3 URI to block-level GeoPackage (must contain gerrydb_graph_edge layer)",
+    required=True,
+)
+@click.option(
+    "--parent-gpkg", "-p",
+    help="Path or S3 URI to parent-level GeoPackage",
+    required=True,
+)
+@click.option(
+    "--gerrydb-name", "-g",
+    help="GerryDB table name for the map (used as the output filename)",
+    required=True,
+)
+@click.option(
+    "--child-layer-name",
+    default=None,
+    help="Layer name in child GeoPackage (default: gpkg filename stem)",
+)
+@click.option(
+    "--parent-layer-name",
+    default=None,
+    help="Layer name in parent GeoPackage (default: gpkg filename stem)",
+)
+@click.option(
+    "--out-path", "-o",
+    default=None,
+    help="Override output path (default: OUT_SCRATCH/graphs/<gerrydb-name>.pkl)",
+)
+@click.option(
+    "--upload", "-u",
+    is_flag=True, default=False,
+    help="Upload the graph pkl to S3 after writing",
+)
+@click.option(
+    "--graph-edge-layer",
+    default="gerrydb_graph_edge",
+    help="Edge layer name in the child GeoPackage",
+)
+def create_graph(
+    child_gpkg: str,
+    parent_gpkg: str,
+    gerrydb_name: str,
+    child_layer_name: str | None,
+    parent_layer_name: str | None,
+    out_path: str | None,
+    upload: bool,
+    graph_edge_layer: str,
+) -> None:
+    """Build a dual-level combined graph pkl from two GeoPackage files.
+
+    No database access required — parent-child relationships are derived from
+    a spatial join of the child and parent GeoPackage geometries.
+    """
+    logger.info("Building graph for %r", gerrydb_name)
+    G = build_combined_graph_from_gpkg(
+        child_gpkg=child_gpkg,
+        parent_gpkg=parent_gpkg,
+        child_layer_name=child_layer_name,
+        parent_layer_name=parent_layer_name,
+        graph_edge_layer=graph_edge_layer,
+    )
+    path = write_graph(G, gerrydb_name, out_path=out_path, upload_to_s3=upload)
+    logger.info("Done. Graph written to %s", path)
+
+
+@transforms.command("batch-create-graphs")
+@click.option("--config-path", required=True, help="Path to graph batch config YAML")
+@click.option("--data-dir", default=None, help="Directory containing gpkg files")
+@click.option("--replace", "-f", is_flag=True, default=False, help="Rebuild even if output exists")
+@click.option("--upload", "-u", is_flag=True, default=False, help="Upload graphs to S3 after building")
+def batch_create_graphs(config_path: str, data_dir: str | None, replace: bool, upload: bool) -> None:
+    """Build dual-level graph pkls for all maps in a batch config file."""
+    batch = GraphBatch.from_file(file_path=config_path)
+    batch.create_all(data_dir=data_dir, replace=replace, upload=upload)

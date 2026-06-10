@@ -1,16 +1,17 @@
 import json as json_mod
+import logging
 import re
 from uuid import uuid4
+from typing import Callable, List, NewType
+
+from fastapi import BackgroundTasks
 from sqlalchemy import text, update, Table, MetaData, func
 from sqlalchemy import bindparam, Text
 from sqlalchemy.types import UUID
 from sqlmodel import Session, select, Float
-import logging
+
 from app.constants import GERRY_DB_SCHEMA, PUBLIC_SCHEMA
-from typing import List
-from app.models import UUIDType, DistrictrMap, DistrictrMapUpdate
-from app.models import Document, DistrictUnionsResponse
-from fastapi import BackgroundTasks
+from app.models import UUIDType, DistrictrMap, DistrictrMapUpdate, Document, DistrictUnionsResponse, GeoUnitType
 from app.thumbnails.main import generate_thumbnail, THUMBNAIL_BUCKET
 from app.core.config import settings
 
@@ -20,12 +21,38 @@ logging.basicConfig(level=logging.INFO)
 
 _SAFE_IDENT_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
+Geoid = NewType("Geoid", str)
+
+# Predicates for identifying parent-unit geo_ids based on the document's parent_geo_unit_type.
+GEOID_PREDICATES: dict[GeoUnitType, Callable[[Geoid], bool]] = {
+    GeoUnitType.VTD: lambda geo_id: geo_id.startswith("vtd:"),
+    GeoUnitType.BLOCK_GROUP: lambda geo_id: len(geo_id) == 12 and geo_id.isdigit(),
+    GeoUnitType.BLOCK: lambda geo_id: len(geo_id) == 15 and geo_id.isdigit(),
+}
 
 def assert_safe_ident(name: str) -> str:
     """Assert that `name` is safe to interpolate into a SQL identifier position."""
     if not _SAFE_IDENT_RE.match(name):
         raise ValueError(f"Unsafe SQL identifier: {name!r}")
     return name
+
+
+def infer_geo_unit_type(session: Session, layer_name: str) -> GeoUnitType:
+    """Infer the geo unit type of a GerryDB layer by sampling one path value.
+
+    Raises ValueError if the layer is empty or the path format is unrecognised.
+    """
+    safe = assert_safe_ident(layer_name)
+    row = session.execute(
+        text(f"SELECT path FROM gerrydb.{safe} LIMIT 1")
+    ).one_or_none()
+    if row is None:
+        raise ValueError(f"Layer {layer_name!r} is empty or does not exist")
+    path: str = row[0]
+    for unit_type, predicate in GEOID_PREDICATES.items():
+        if predicate(path):
+            return unit_type
+    raise ValueError(f"Unrecognised path format {path!r} in layer {layer_name!r}")
 
 
 def get_gerrydb_numeric_cols(session: Session, gerrydb_table: str) -> list[str]:
@@ -123,6 +150,8 @@ def create_districtr_map(
         statefps=statefps,
         comment_length_limit=comment_length_limit,
         comment_count_limit=comment_count_limit,
+        parent_geo_unit_type=infer_geo_unit_type(session, parent_layer),
+        child_geo_unit_type=infer_geo_unit_type(session, child_layer) if child_layer else None,
     )
     session.add(districtr_map)
     session.flush()
@@ -163,7 +192,7 @@ def update_districtrmap(
 
     stmt = (
         update(DistrictrMap)
-        .where(DistrictrMap.districtr_map_slug == data.districtr_map_slug)  # pyright: ignore
+        .where(DistrictrMap.districtr_map_slug == data.districtr_map_slug)  # type: ignore
         .values(update_districtrmap)
         .returning(DistrictrMap)
     )
@@ -482,7 +511,6 @@ def update_or_select_district_stats(
             {"document_id": document_id},
         )
         existing_mappings = result.mappings().all()
-        logger.info(f"Existing: {existing_mappings}")
         if existing_mappings:
             return [
                 DistrictUnionsResponse.model_validate(row) for row in existing_mappings
