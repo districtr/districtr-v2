@@ -110,7 +110,7 @@ export const handleFeatureSelection = (
 ) => {
   const {activeTool, selectedZone, setIsPainting} = useMapControlsStore.getState();
   if (MUTATION_TOOLS.includes(activeTool) && !canMutateAssignments()) return;
-  const {mutateZoneAssignments} = useAssignmentsStore.getState();
+  const {mutateZoneAssignments, ingestAccumulatedAssignments} = useAssignmentsStore.getState();
   switch (activeTool) {
     case ACTIVE_TOOLS.SHATTER:
       const documentId = mapStore.mapDocument?.document_id;
@@ -128,6 +128,9 @@ export const handleFeatureSelection = (
           activeTool === ACTIVE_TOOLS.BRUSH ? selectedZone : null
         );
         setIsPainting(false);
+        // Click-paints run after mouseup has already flipped isPainting to false,
+        // so the isPainting-subscription flush never fires for them — ingest directly.
+        ingestAccumulatedAssignments();
       }
   }
 };

@@ -311,6 +311,15 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const {setMapOptions, mapMode} = useMapControlsStore.getState();
       const focusedParentId = focusFeatures?.[0]?.id?.toString();
 
+      // Commit any paint still staged in accumulatedAssignments before healing:
+      // the heal below reads zoneAssignments and discards the staged map, so an
+      // unflushed click-paint would otherwise be reverted and lost.
+      if (mapMode === MAP_MODES.COI) {
+        useCoiAssignmentsStore.getState().ingestAccumulatedAssignments();
+      } else {
+        useAssignmentsStore.getState().ingestAccumulatedAssignments();
+      }
+
       set({
         captiveIds: new Set<string>(),
         focusFeatures: [],
