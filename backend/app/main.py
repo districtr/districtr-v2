@@ -1303,6 +1303,11 @@ async def get_unassigned_geoids(
     # Enumerate geo_ids that could be unassigned: the union of any rows already
     # tracked in document.assignments (covers shattered children) and every parent
     # path. Then keep only those whose effective assignment is NULL.
+    # IMPORTANT: This pathway relies on the client to explicitly provide `exclude_ids`.
+    # These IDs reflect the already shattered parent geos, allowing the unassigned query
+    # to know which parent units are shattered without joining on the parent/child edges.
+    # When we shatter a unit, we populate all blocks in the document, so we always have those 
+    # fully listed.
     stmt = text(
         f"""
         WITH possible_ids AS (
