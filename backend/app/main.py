@@ -1139,7 +1139,6 @@ async def update_num_districts(
     return NumDistrictsSetResult(num_districts=num_districts)
 
 
-# called by getAssignments in apiHandlers.ts
 @app.get("/api/get_assignments/{document_id}")
 async def get_assignments(
     document: Annotated[Document, Depends(get_protected_document)],
@@ -1149,6 +1148,14 @@ async def get_assignments(
     ),
     session: Session = Depends(get_session),
 ):
+    """
+    The primary endpoint to get a row-like list of assignments.
+
+    Returns a format based on the query param `format`, one of:
+    - Tuple-like msgpack, a binary drop-in JSON format 
+    - A JSON array of objects (geo_id, zone, parent_path)
+    - A CSV much like the JSON output
+    """
     districtr_map_uuid, map_type = session.exec(
         select(DistrictrMap.uuid, Document.map_type)
         .join(
