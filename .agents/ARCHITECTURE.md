@@ -148,15 +148,19 @@ Alembic with 50+ versions. UDF handling stores previous definitions under `sql/v
 1. **Input**: GeoPackage files (from GerryDB or external sources)
 2. **Tileset generation**: `ogr2ogr` → `tippecanoe` → PMTiles
 3. **Tabular data**: GeoPackage → DuckDB → Parquet
-4. **Upload**: Artifacts pushed to S3
-5. **Consumption**: Frontend loads PMTiles (map tiles) and Parquet (demographics) directly from S3
+4. **Graph build**: child + parent GeoPackage → dual-level NetworkX graph pkl
+5. **Upload**: Artifacts pushed to S3/Cloudflare S3
+6. **Consumption**: Frontend loads PMTiles (map tiles) and Parquet (demographics)
+   directly from R2; backend loads graph pkls for contiguity checks and store locally
 
 ### CLI Commands
 
 - `tileset create-gerrydb-tileset` - Generate PMTiles from GeoPackage
 - `tileset merge-gerrydb-tilesets` - Combine parent+child for shatterable maps
-- `tabular` - Parquet generation for demographic data
-- `transforms` - Data transformation utilities
+- `tabular build-parquet` / `batch-build-parquet` - Parquet generation for demographic data
+- `transforms aggregate` - Aggregate block-level data to higher geographies
+- `transforms create-graph` - Build a dual-level graph pkl from two GeoPackage files
+- `transforms batch-create-graphs` - Batch build graph pkls from a config file
 
 ## Infrastructure
 

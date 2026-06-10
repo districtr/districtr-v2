@@ -30,6 +30,10 @@ export interface MapControlsStore {
   setIsPainting: (isPainting: boolean) => void;
   isEditing: boolean;
   setIsEditing: (isEditing: boolean) => void;
+  isEval: boolean;
+  setIsEval: (isEval: boolean) => void;
+  evalTablesOnly: boolean;
+  setEvalTablesOnly: (tablesOnly: boolean) => void;
   activeTool: ActiveTool;
   setActiveTool: (tool: ActiveTool) => void;
   brushSize: number;
@@ -39,6 +43,8 @@ export interface MapControlsStore {
   mapOptions: MapOptions & DistrictrMapOptions;
   setMapOptions: (options: Partial<MapControlsStore['mapOptions']>) => void;
   setStateFp: (stateFp: string) => void;
+  hoveredCountyGeoid: string | null;
+  setHoveredCountyGeoid: (geoid: string | null) => void;
   setLockedZones: (zones: Array<NullableZone>) => void;
   toggleLockAllAreas: () => void;
   spatialUnit: SpatialUnit;
@@ -95,6 +101,10 @@ export const useMapControlsStore = create<MapControlsStore>()(
     setIsPainting: isPainting => set({isPainting}),
     isEditing: false,
     setIsEditing: isEditing => set({isEditing}),
+    isEval: false,
+    setIsEval: isEval => set({isEval}),
+    evalTablesOnly: false,
+    setEvalTablesOnly: evalTablesOnly => set({evalTablesOnly}),
     activeTool: ACTIVE_TOOLS.PAN,
     setActiveTool: tool => {
       const canEdit = useMapStore.getState().mapStatus?.access === ACCESS_STATES.EDIT;
@@ -108,6 +118,8 @@ export const useMapControlsStore = create<MapControlsStore>()(
     setPaintFunction: paintFunction => set({paintFunction}),
     mapOptions: DEFAULT_MAP_OPTIONS,
     setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
+    hoveredCountyGeoid: null,
+    setHoveredCountyGeoid: geoid => set({hoveredCountyGeoid: geoid}),
     setStateFp: stateFp => {
       const mapOptions = get().mapOptions;
       const stateFipsSet = mapOptions.stateFipsSet;

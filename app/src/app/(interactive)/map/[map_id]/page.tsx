@@ -7,5 +7,5 @@ export const generateMetadata = generateMapPageMetadata;
 
 export default async function ViewPage({params}: MapPageProps) {
   const {map_id} = await params;
-  return <MapPage isEditing={false} mapId={map_id} />;
+  return <MapPage isEditing={false} isEval={false} mapId={map_id} />;
 }
