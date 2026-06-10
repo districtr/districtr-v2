@@ -12,7 +12,7 @@ import {useChartStore} from '../store/chartStore';
  * @returns {Object} return.zoneStats - The zone statistics from the demography cache.
  */
 export const useSummaryStats = (showUnassigned = false) => {
-  // this triggers rendders on updates
+  // this triggers renders on updates
   const __demogHash = useDemographyStore(state => state.dataHash);
   const __chartHash = useChartStore(state => state.dataUpdateHash);
   const mapDocument = useMapStore(state => state.mapDocument);
