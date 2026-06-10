@@ -9,7 +9,6 @@ from fastapi import (
 from fastapi.responses import JSONResponse
 from typing import Annotated, Any
 import psutil
-import threading
 import time
 
 from sqlalchemy.exc import (
