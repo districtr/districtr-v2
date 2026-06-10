@@ -43,8 +43,6 @@ export const Topbar: React.FC = () => {
   // Save/Revert/etc. affordances.
   const isEditing = useMapControlsStore(state => state.isEditing);
   const isEval = useMapControlsStore(state => state.isEval);
-  const evalTablesOnly = useMapControlsStore(state => state.evalTablesOnly);
-  const setEvalTablesOnly = useMapControlsStore(state => state.setEvalTablesOnly);
   const mapViews = useMapStore(state => state.mapViews);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const router = useRouter();
@@ -247,6 +245,14 @@ export const Topbar: React.FC = () => {
               </IconButton>
             ) : (
               <>
+                {!isEditing && mapDocument?.public_id && (
+                  <IconButton
+                    variant="ghost"
+                    onClick={() => router.push(`/map/eval/${mapDocument.public_id}`)}
+                  >
+                    <Text size="2">Evaluation</Text>
+                  </IconButton>
+                )}
                 <SharePopoverAndModal handleMetadataChange={handleMetadataChange} />
                 {isEditing && <SavePopover />}
                 {isEditing && <RevertPopover />}
