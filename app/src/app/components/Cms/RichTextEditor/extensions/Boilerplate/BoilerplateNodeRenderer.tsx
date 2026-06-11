@@ -9,7 +9,8 @@ import Link from '@tiptap/extension-link';
 import {boilerplateContent} from './BoilerplateContent';
 
 export interface BoilerplateNodeRendererProps {
-  customContent?: object;
+  /** TipTap JSON document or an HTML string (CMS StreamField boilerplate blocks) */
+  customContent?: object | string;
 }
 
 // Extensions for rendering the rich text content

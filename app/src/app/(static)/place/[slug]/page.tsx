@@ -1,9 +1,9 @@
 import {LanguagePicker} from '@/app/components/LanguagePicker/LanguagePicker';
-import RichTextRenderer from '@/app/components/RichTextRenderer/RichTextRenderer';
+import StreamRenderer from '@/app/components/RichTextRenderer/StreamRenderer';
 import {ContentSection} from '@/app/components/Static/ContentSection';
 import {PlaceMapGrid} from '@/app/components/Static/Interactions/PlaceMapGrid';
 import {getAvailableDistrictrMaps} from '@/app/utils/api/apiHandlers/getAvailableDistrictrMaps';
-import {getCMSContent} from '@/app/utils/api/cms';
+import {getCMSContent} from '@/app/utils/api/cmsContent';
 import {Flex, Heading} from '@radix-ui/themes';
 import {cookies} from 'next/headers';
 
@@ -13,11 +13,11 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
   const [{slug}, userCookies] = await Promise.all([params, cookies()]);
   const language = userCookies.get('language')?.value ?? 'en';
   const [cmsData, maps] = await Promise.all([
-    getCMSContent(slug, language, 'places'),
+    getCMSContent('places', slug, language),
     getAvailableDistrictrMaps({}),
   ]).catch(() => [null, null]);
 
-  if (!cmsData?.content?.published_content || !maps) {
+  if (!cmsData?.content || !maps) {
     return (
       <Flex className="size-full" justify="center" align="center">
         <Heading>Content not found</Heading>
@@ -25,14 +25,15 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
     );
   }
 
+  const districtrMapSlugs = cmsData.content.districtr_map_slugs ?? [];
   const availableMaps = maps.ok
-    ? maps.response.filter(m => cmsData.content.districtr_map_slugs!.includes(m.districtr_map_slug))
+    ? maps.response.filter(m => districtrMapSlugs.includes(m.districtr_map_slug))
     : null;
 
   return (
     <Flex direction="column" width="100%">
       <Heading as="h1" size="6" mb="4">
-        {cmsData.content.published_content.title}
+        {cmsData.content.title}
       </Heading>
       <LanguagePicker
         preferredLanguage={language}
@@ -42,7 +43,7 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
         {Boolean(availableMaps?.length) && <PlaceMapGrid maps={availableMaps!} />}
       </ContentSection>
 
-      <RichTextRenderer content={cmsData.content.published_content.body} className="my-4" />
+      <StreamRenderer body={cmsData.content.body} className="my-4" />
     </Flex>
   );
 }
