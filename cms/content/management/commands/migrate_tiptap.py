@@ -66,11 +66,16 @@ def _normalize_raw(value):
     """Strip stream/list-item wrappers and ids so stored StreamField data can
     be compared with freshly converted raw data."""
     if isinstance(value, dict):
-        if "type" in value and "value" in value and set(value) <= {
-            "type",
-            "value",
-            "id",
-        }:
+        if (
+            "type" in value
+            and "value" in value
+            and set(value)
+            <= {
+                "type",
+                "value",
+                "id",
+            }
+        ):
             if value["type"] == "item":
                 # ListBlock child wrapper: fresh raw data uses plain lists.
                 return _normalize_raw(value["value"])
@@ -280,10 +285,7 @@ class Command(BaseCommand):
     def _upsert_page(self, config, row, entry, canonical_page, is_canonical):
         model = config["page_model"]
         locale = Locale.objects.get_or_create(language_code=row["language"])[0]
-        page = (
-            model.objects.filter(slug=row["slug"], locale=locale)
-            .first()
-        )
+        page = model.objects.filter(slug=row["slug"], locale=locale).first()
         created = False
         if page is not None:
             page = page.specific
@@ -337,9 +339,7 @@ class Command(BaseCommand):
                 return False
         elif page.districtr_map_slugs != (row["districtr_map_slugs"] or []):
             return False
-        return _normalize_raw(page.body.get_prep_value()) == _normalize_raw(
-            stream_data
-        )
+        return _normalize_raw(page.body.get_prep_value()) == _normalize_raw(stream_data)
 
     def _apply_row(self, config, page, row, entry):
         """Sync one page with one legacy row's published/draft docs.
@@ -377,9 +377,7 @@ class Command(BaseCommand):
     def _ensure_index(self, config, locale):
         """Get or create the per-type index page in the given locale."""
         index_model = config["index_model"]
-        default_locale = Locale.objects.get_or_create(
-            language_code=DEFAULT_LANGUAGE
-        )[0]
+        default_locale = Locale.objects.get_or_create(language_code=DEFAULT_LANGUAGE)[0]
 
         index = index_model.objects.filter(locale=default_locale).first()
         if index is None:
@@ -402,9 +400,7 @@ class Command(BaseCommand):
         return translated
 
     def _home_page(self):
-        site = (
-            Site.objects.filter(is_default_site=True).first() or Site.objects.first()
-        )
+        site = Site.objects.filter(is_default_site=True).first() or Site.objects.first()
         if site is not None:
             return site.root_page
         # Bare tree (e.g. minimal test fixtures): fall back to the first

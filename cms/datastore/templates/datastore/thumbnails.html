@@ -1,0 +1,44 @@
+{% extends "wagtailadmin/base.html" %}
+{% block titletag %}Thumbnails{% endblock %}
+
+{% block content %}
+    {% include "wagtailadmin/shared/header.html" with title="Thumbnails" subtitle="Regenerate map and plan previews" icon="image" %}
+
+    <div class="nice-padding">
+        <section>
+            <h2>Blank map thumbnail</h2>
+            <form action="" method="POST" novalidate>
+                {% csrf_token %}
+                <ul class="fields">
+                    {% for field in map_form %}
+                        <li>
+                            {% include "wagtailadmin/shared/field.html" with field=field %}
+                        </li>
+                    {% endfor %}
+                </ul>
+                <button type="submit" name="map_submit" value="1" class="button">
+                    Regenerate map thumbnail
+                </button>
+            </form>
+        </section>
+
+        <hr />
+
+        <section>
+            <h2>Plan (document) thumbnail</h2>
+            <form action="" method="POST" novalidate>
+                {% csrf_token %}
+                <ul class="fields">
+                    {% for field in document_form %}
+                        <li>
+                            {% include "wagtailadmin/shared/field.html" with field=field %}
+                        </li>
+                    {% endfor %}
+                </ul>
+                <button type="submit" name="document_submit" value="1" class="button">
+                    Regenerate document thumbnail
+                </button>
+            </form>
+        </section>
+    </div>
+{% endblock %}

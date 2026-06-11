@@ -12,6 +12,10 @@ wagtail-localize>=1.11
 # Media on S3/Cloudflare R2
 django-storages[s3]>=1.14
 
+# Service-to-service calls to the FastAPI backend (already a transitive
+# Wagtail dependency; pinned because datastore.services imports it directly)
+requests>=2.31
+
 # Transactional email via Resend
 django-anymail[resend]>=12.0
 

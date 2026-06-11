@@ -1,0 +1,27 @@
+{% extends "wagtailadmin/base.html" %}
+{% block titletag %}Import GeoPackage{% endblock %}
+
+{% block content %}
+    {% include "wagtailadmin/shared/header.html" with title="Import GeoPackage" subtitle="Load a gerrydb layer into the backend" icon="upload" %}
+
+    <div class="nice-padding">
+        <p>
+            Upload a <code>.gpkg</code> (or point at one already in the bucket)
+            and the backend imports the layer into the <code>gerrydb</code>
+            schema in the background — the same path as
+            <code>cli.py import-gerrydb-view</code>.
+        </p>
+        <form action="" method="POST" enctype="multipart/form-data" novalidate>
+            {% csrf_token %}
+            {% include "wagtailadmin/shared/non_field_errors.html" %}
+            <ul class="fields">
+                {% for field in form %}
+                    <li>
+                        {% include "wagtailadmin/shared/field.html" with field=field %}
+                    </li>
+                {% endfor %}
+            </ul>
+            <button type="submit" class="button">Schedule import</button>
+        </form>
+    </div>
+{% endblock %}

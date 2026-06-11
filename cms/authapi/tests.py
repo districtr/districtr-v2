@@ -11,12 +11,15 @@ the backend's verifier accepts our tokens with only config-level changes.
 """
 
 import json
+import tempfile
 
 import jwt as pyjwt
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
-from django.test import TestCase
+from django.core import mail
+from django.core.management import call_command
+from django.test import TestCase, override_settings
 
 from authapi.jwks import all_jwks, current_kid
 from authapi.scopes import ALL_SCOPES, scopes_for_user
@@ -162,3 +165,27 @@ class TokenEndpointTests(TestCase):
                 audience="https://wrong-audience/",
                 issuer=settings.JWT_ISSUER,
             )
+
+
+class ProvisionUsersTests(TestCase):
+    def test_sends_setup_email_despite_unusable_password(self):
+        # provision_users sets an unusable password (the email is how users
+        # set one), so it must bypass PasswordResetForm's usable-password
+        # filter, and derive the link domain from WAGTAILADMIN_BASE_URL
+        # (there is no request, and django.contrib.sites is not installed).
+        with tempfile.NamedTemporaryFile("w", suffix=".csv") as csv_file:
+            csv_file.write("email,name,group\nnew@districtr.org,New User,editor\n")
+            csv_file.flush()
+            with override_settings(WAGTAILADMIN_BASE_URL="https://cms.districtr.org"):
+                call_command("provision_users", csv_file.name)
+
+        user = get_user_model().objects.get(username="new@districtr.org")
+        self.assertFalse(user.has_usable_password())
+        self.assertEqual([g.name for g in user.groups.all()], ["editor"])
+
+        self.assertEqual(len(mail.outbox), 1)
+        message = mail.outbox[0]
+        self.assertEqual(message.to, ["new@districtr.org"])
+        self.assertIn(
+            "https://cms.districtr.org/admin/password_reset/confirm/", message.body
+        )

@@ -83,7 +83,10 @@ COMMENT_GALLERY_ATTRS = {
     "showMaps": True,
 }
 
-FORM_ATTRS = {"mandatoryTags": ["chicago", "ward-map"], "allowListModules": ["chi_wards"]}
+FORM_ATTRS = {
+    "mandatoryTags": ["chicago", "ward-map"],
+    "allowListModules": ["chi_wards"],
+}
 
 MAP_CREATE_BUTTONS_ATTRS = {
     "views": [{"name": "Chicago Wards", "districtr_map_slug": "chi_wards"}],
@@ -134,7 +137,13 @@ class ProsemirrorToHtmlTests(SimpleTestCase):
     def test_headings_all_levels(self):
         for level in range(1, 7):
             html = prosemirror_to_html(
-                doc({"type": "heading", "attrs": {"level": level}, "content": [text("T")]})
+                doc(
+                    {
+                        "type": "heading",
+                        "attrs": {"level": level},
+                        "content": [text("T")],
+                    }
+                )
             )
             self.assertEqual(html, f"<h{level}>T</h{level}>")
 
@@ -263,12 +272,19 @@ class TiptapToStreamDataTests(SimpleTestCase):
         self.assertFalse(value["showCreatedAt"])
 
     def test_form_node(self):
-        result = tiptap_to_stream_data(doc({"type": "formNode", "attrs": dict(FORM_ATTRS)}))
+        result = tiptap_to_stream_data(
+            doc({"type": "formNode", "attrs": dict(FORM_ATTRS)})
+        )
         self.assertEqual(result.stream_data[0], {"type": "form", "value": FORM_ATTRS})
 
     def test_map_create_buttons_node(self):
         result = tiptap_to_stream_data(
-            doc({"type": "mapCreateButtonsNode", "attrs": dict(MAP_CREATE_BUTTONS_ATTRS)})
+            doc(
+                {
+                    "type": "mapCreateButtonsNode",
+                    "attrs": dict(MAP_CREATE_BUTTONS_ATTRS),
+                }
+            )
         )
         self.assertEqual(
             result.stream_data[0],
@@ -445,7 +461,9 @@ class ContentApiTests(TestCase):
         content = payload["content"]
         self.assertEqual(content["districtr_map_slug"], "chi_wards")
         body = content["body"]
-        self.assertEqual([block["type"] for block in body], ["rich_text", "plan_gallery"])
+        self.assertEqual(
+            [block["type"] for block in body], ["rich_text", "plan_gallery"]
+        )
         self.assertEqual(body[0]["value"], "<p>English prose</p>")
         gallery = body[1]["value"]
         # Empty list filters are served as null, matching the legacy attrs.
@@ -496,6 +514,7 @@ class ContentApiTests(TestCase):
 # ---------------------------------------------------------------------------
 # migrate_tiptap command
 # ---------------------------------------------------------------------------
+
 
 def call_command(*args, **kwargs):
     """call_command with captured output to keep test runs quiet."""
@@ -627,9 +646,7 @@ class MigrateTiptapCommandTests(TestCase):
         place = PlacePage.objects.get(slug="chicago")
         self.assertTrue(place.live)
         self.assertEqual(place.districtr_map_slugs, ["chi_wards", "chi_blocks"])
-        self.assertIsInstance(
-            place.get_parent().specific, PlacesIndexPage
-        )
+        self.assertIsInstance(place.get_parent().specific, PlacesIndexPage)
         self.assertIsInstance(tag_en.get_parent().specific, TagsIndexPage)
 
     def test_command_is_idempotent(self):
@@ -693,7 +710,9 @@ class MigrateTiptapCommandTests(TestCase):
 
         self._seed_fixtures()
         with tempfile.NamedTemporaryFile(suffix=".json", mode="r") as report_file:
-            call_command("migrate_tiptap", "--dry-run", "--json-report", report_file.name)
+            call_command(
+                "migrate_tiptap", "--dry-run", "--json-report", report_file.name
+            )
             report = json.load(report_file)
         rows = {(r["content_type"], r["slug"], r["language"]) for r in report}
         self.assertIn(("tags", "fair-maps", "en"), rows)

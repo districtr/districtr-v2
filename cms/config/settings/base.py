@@ -165,6 +165,21 @@ WAGTAILSEARCH_BACKENDS = {
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "noreply@districtr.org")
 
 
+# FastAPI backend (service-to-service calls: GeoPackage imports, thumbnail
+# regeneration). The cms signs short-lived RS256 service tokens the backend
+# verifies against our JWKS.
+BACKEND_API_URL = os.environ.get("BACKEND_API_URL", "http://localhost:8000")
+
+# Object storage for GeoPackage uploads. Mirrors the backend's env contract
+# (backend/app/core/config.py): ACCOUNT_ID selects Cloudflare R2, otherwise
+# AWS_S3_ENDPOINT (if set) or plain AWS S3.
+AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID", "")
+AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
+GPKG_BUCKET = os.environ.get("R2_BUCKET_NAME") or os.environ.get("AWS_S3_BUCKET", "")
+R2_ACCOUNT_ID = os.environ.get("ACCOUNT_ID", "")
+AWS_S3_ENDPOINT = os.environ.get("AWS_S3_ENDPOINT", "")
+
+
 # JWT issuance. This service replaces Auth0 as the token issuer for both the
 # Next.js frontend (login/refresh) and the FastAPI backend (verification via
 # the /.well-known/jwks.json endpoint + the space-delimited `scope` claim).

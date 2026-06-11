@@ -1,9 +1,28 @@
 import csv
+from urllib.parse import urlparse
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import PasswordResetForm
 from django.contrib.auth.models import Group
 from django.core.management.base import BaseCommand, CommandError
+
+
+class AccountSetupForm(PasswordResetForm):
+    """PasswordResetForm that also emails users with unusable passwords.
+
+    Freshly provisioned accounts have no usable password yet — that is the
+    point of the setup email — but the stock form's get_users() silently
+    skips such users. The reset token itself works fine for them (it hashes
+    the unusable-password marker, so it invalidates once a password is set).
+    """
+
+    def get_users(self, email):
+        User = get_user_model()
+        email_field_name = User.get_email_field_name()
+        return User._default_manager.filter(
+            **{f"{email_field_name}__iexact": email, "is_active": True}
+        )
 
 
 class Command(BaseCommand):
@@ -63,10 +82,15 @@ class Command(BaseCommand):
                 user.save()
                 user.groups.add(group)
 
-                form = PasswordResetForm(data={"email": email})
+                # No request here, so derive the email's domain/protocol from
+                # WAGTAILADMIN_BASE_URL (django.contrib.sites isn't installed,
+                # making domain_override mandatory).
+                base_url = urlparse(settings.WAGTAILADMIN_BASE_URL)
+                form = AccountSetupForm(data={"email": email})
                 if form.is_valid():
                     form.save(
-                        use_https=True,
+                        domain_override=base_url.netloc,
+                        use_https=base_url.scheme == "https",
                         email_template_name="registration/password_reset_email.html",
                     )
                 self.stdout.write(f"created: {email} ({group_name})")

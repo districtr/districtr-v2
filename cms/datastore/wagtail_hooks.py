@@ -18,12 +18,15 @@ panels force a plain Django select instead.
 from functools import cached_property
 
 from django import forms
+from django.urls import path, reverse
 from wagtail import hooks
+from wagtail.admin.menu import MenuItem
 from wagtail.admin.panels import FieldPanel, MultiFieldPanel, ObjectList
 from wagtail.permission_policies.base import ModelPermissionPolicy
 from wagtail.snippets.models import register_snippet
 from wagtail.snippets.views.snippets import SnippetViewSet, SnippetViewSetGroup
 
+from datastore import views
 from datastore.models import (
     DistrictrMap,
     DistrictrMapOverlays,
@@ -32,6 +35,7 @@ from datastore.models import (
     MapGroup,
     Overlay,
 )
+from datastore.views import DATASTORE_ADMIN_PERMISSION
 
 
 @hooks.register("register_icons")
@@ -194,6 +198,17 @@ class GerryDBTableViewSet(SnippetViewSet):
         return ReadOnlyModelPermissionPolicy(self.model)
 
 
+class DataToolMenuItem(MenuItem):
+    """Submenu entry for the data-ops tool pages (import, thumbnails).
+
+    Mirrors the snippet permission gate: only users who may add datastore
+    rows (the admin group) see — or may use — the tools.
+    """
+
+    def is_shown(self, request):
+        return request.user.has_perm(DATASTORE_ADMIN_PERMISSION)
+
+
 class DataViewSetGroup(SnippetViewSetGroup):
     menu_label = "Data"
     menu_icon = "database"
@@ -207,5 +222,38 @@ class DataViewSetGroup(SnippetViewSetGroup):
         GerryDBTableViewSet,
     )
 
+    def get_submenu_items(self):
+        # Append the tool pages after the snippet listings, inside the same
+        # "Data" group menu.
+        menu_items = super().get_submenu_items()
+        order = len(menu_items) + 1
+        menu_items.append(
+            DataToolMenuItem(
+                "Import GeoPackage",
+                reverse("datastore_import_gpkg"),
+                icon_name="upload",
+                order=order,
+            )
+        )
+        menu_items.append(
+            DataToolMenuItem(
+                "Thumbnails",
+                reverse("datastore_thumbnails"),
+                icon_name="image",
+                order=order + 1,
+            )
+        )
+        return menu_items
+
 
 register_snippet(DataViewSetGroup)
+
+
+@hooks.register("register_admin_urls")
+def register_datastore_admin_urls():
+    # Mounted under /admin/ and wrapped in require_admin_access by Wagtail;
+    # the views additionally require DATASTORE_ADMIN_PERMISSION.
+    return [
+        path("data/import-gpkg/", views.import_gpkg, name="datastore_import_gpkg"),
+        path("data/thumbnails/", views.thumbnails, name="datastore_thumbnails"),
+    ]

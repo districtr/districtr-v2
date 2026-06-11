@@ -67,9 +67,7 @@ def _serialize_page(page, content_type):
         "slug": page.slug,
         "language": page.locale.language_code,
         "body": body.stream_block.get_api_representation(body),
-        "updated_at": (
-            page.last_published_at and page.last_published_at.isoformat()
-        ),
+        "updated_at": (page.last_published_at and page.last_published_at.isoformat()),
     }
     if content_type == "tags":
         content["districtr_map_slug"] = page.districtr_map_slug or None

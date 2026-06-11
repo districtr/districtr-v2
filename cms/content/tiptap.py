@@ -125,9 +125,7 @@ def _render_node(node: dict, warnings: list[str]) -> str:
     if node_type == "horizontalRule":
         return "<hr>"
 
-    warnings.append(
-        f"unsupported node type {node_type!r} degraded to its text content"
-    )
+    warnings.append(f"unsupported node type {node_type!r} degraded to its text content")
     return _render_children(node, warnings)
 
 
@@ -147,9 +145,7 @@ def prosemirror_to_html(doc: dict | None, warnings: list[str] | None = None) -> 
 # --------------------------------------------------------------------------
 
 
-def _struct_value_from_attrs(
-    block_name: str, attrs: dict, warnings: list[str]
-) -> dict:
+def _struct_value_from_attrs(block_name: str, attrs: dict, warnings: list[str]) -> dict:
     """Copy TipTap attrs verbatim into a struct value, normalising nulls.
 
     The struct definitions in content/blocks.py are the source of truth for
