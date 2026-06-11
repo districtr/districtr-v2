@@ -22,6 +22,7 @@ from django.core.management import call_command
 from django.test import TestCase, override_settings
 
 from authapi.jwks import all_jwks, current_kid
+from authapi.models import ReviewTagAssignment
 from authapi.scopes import ALL_SCOPES, scopes_for_user
 from authapi.serializers import DistrictrTokenObtainPairSerializer
 
@@ -110,6 +111,77 @@ class TokenContractTests(TestCase):
         self.assertEqual(keys[0]["alg"], "RS256")
         self.assertEqual(keys[0]["use"], "sig")
         self.assertEqual(keys[0]["kid"], current_kid())
+
+
+class ReviewTagScopingTests(TestCase):
+    """Per-user review scoping: ReviewTagAssignment → `review_tags` claim.
+
+    The FastAPI backend (backend/app/comments/main.py::allowed_review_tags)
+    treats an ABSENT claim — or a token carrying `read:read-all` — as
+    unrestricted, so these tests pin both the claim layout and the
+    read:read-all stripping in scopes_for_user.
+    """
+
+    def test_assignments_mint_sorted_review_tags_claim(self):
+        user = make_user("reviewer")
+        ReviewTagAssignment.objects.create(user=user, tag_slug="schools")
+        ReviewTagAssignment.objects.create(user=user, tag_slug="environment")
+
+        refresh = DistrictrTokenObtainPairSerializer.get_token(user)
+        payload = fastapi_style_verify(str(refresh.access_token))
+
+        self.assertEqual(payload["review_tags"], ["environment", "schools"])
+
+    def test_claim_absent_without_assignments(self):
+        user = make_user("reviewer")
+        refresh = DistrictrTokenObtainPairSerializer.get_token(user)
+        payload = fastapi_style_verify(str(refresh.access_token))
+        self.assertNotIn("review_tags", payload)
+
+    def test_read_all_stripped_when_assigned(self):
+        user = make_user("reviewer")
+        ReviewTagAssignment.objects.create(user=user, tag_slug="schools")
+
+        scopes = scopes_for_user(user).split()
+
+        self.assertNotIn("read:read-all", scopes)
+        self.assertIn("create:content_review", scopes)
+
+    def test_admin_group_keeps_read_all_despite_assignments(self):
+        user = make_user("admin")
+        ReviewTagAssignment.objects.create(user=user, tag_slug="schools")
+        self.assertIn("read:read-all", scopes_for_user(user).split())
+
+    def test_superuser_keeps_all_scopes_despite_assignments(self):
+        user = make_user(None)
+        user.is_superuser = True
+        user.save()
+        ReviewTagAssignment.objects.create(user=user, tag_slug="schools")
+        self.assertEqual(scopes_for_user(user).split(), ALL_SCOPES)
+
+    def test_refresh_propagates_review_tags(self):
+        user = make_user("reviewer", email="scoped@districtr.org")
+        ReviewTagAssignment.objects.create(user=user, tag_slug="schools")
+
+        response = self.client.post(
+            "/api/token/",
+            {"username": "scoped@districtr.org", "password": PASSWORD},
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        payload = fastapi_style_verify(data["access"])
+        self.assertEqual(payload["review_tags"], ["schools"])
+        self.assertNotIn("read:read-all", payload["scope"].split())
+
+        # Claims set on the refresh token propagate to refreshed access
+        # tokens unchanged — the restriction survives silent refresh.
+        refresh_response = self.client.post(
+            "/api/token/refresh/", {"refresh": data["refresh"]}
+        )
+        self.assertEqual(refresh_response.status_code, 200)
+        refreshed_payload = fastapi_style_verify(refresh_response.json()["access"])
+        self.assertEqual(refreshed_payload["review_tags"], ["schools"])
+        self.assertEqual(refreshed_payload["scope"], payload["scope"])
 
 
 class TokenEndpointTests(TestCase):

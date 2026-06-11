@@ -1,5 +1,8 @@
+import pytest
 from sqlmodel import Session, select, insert
 from unittest.mock import patch
+from app.main import app
+from app.core.security import auth
 from app.comments.models import Commenter, Comment, Tag, CommentTag, DocumentComment
 from tests.test_utils import (
     patch_recaptcha,
@@ -1411,3 +1414,172 @@ class TestListingComments:
         list_result = client.get("/api/comments/list")
         assert list_result.status_code == 200
         assert len(list_result.json()) == 0
+
+
+class TestReviewTagScoping:
+    """Per-user review scoping on the admin moderation endpoints.
+
+    The CMS mints a `review_tags` claim for reviewers with
+    ReviewTagAssignments (and strips `read:read-all` from their scopes);
+    allowed_review_tags + apply_allowed_tags_filter in app/comments/main.py
+    enforce it. The conftest client fixture overrides auth.verify with a
+    payload dict, so each test injects the claim/scope combination it needs.
+    """
+
+    RESTRICTED_PAYLOAD = {
+        "sub": "42",
+        "scope": "create:content_review",
+        "review_tags": ["environment"],
+    }
+
+    def _set_auth(self, payload: dict):
+        # The client fixture clears app.dependency_overrides on teardown.
+        app.dependency_overrides[auth.verify] = lambda: payload
+
+    def _make_comment(self, client, title: str, tags: list[str]) -> dict:
+        form_data = {
+            "commenter": {"first_name": "Scoped", "email": "scoped@example.com"},
+            "comment": {"title": title, "comment": f"{title} body."},
+            "tags": [{"tag": tag} for tag in tags],
+            "recaptcha_token": "test_token",
+        }
+        response = client.post("/api/comments/submit", json=form_data)
+        assert response.status_code == 201
+        return response.json()
+
+    @pytest.fixture(name="tagged_comments")
+    def tagged_comments_fixture(self, client):
+        """One comment tagged environment, one tagged schools, one untagged."""
+        with patch(
+            "app.comments.moderation.score_text",
+            return_value=TEST_MODERATION_SCORE,
+        ):
+            return {
+                "environment": self._make_comment(
+                    client, "Environment Comment", ["Environment"]
+                ),
+                "schools": self._make_comment(client, "Schools Comment", ["Schools"]),
+                "untagged": self._make_comment(client, "Untagged Comment", []),
+            }
+
+    def test_restricted_list_returns_only_allowed_tags(self, client, tagged_comments):
+        self._set_auth(self.RESTRICTED_PAYLOAD)
+        response = client.get("/api/comments/admin/list")
+        assert response.status_code == 200
+        comments = response.json()
+        # Tag `schools` is out of scope; untagged comments are invisible too.
+        assert [c["title"] for c in comments] == ["Environment Comment"]
+
+    def test_restricted_list_intersects_requested_tags(self, client, tagged_comments):
+        self._set_auth(self.RESTRICTED_PAYLOAD)
+        # Asking only for a disallowed tag → empty intersection → [].
+        response = client.get("/api/comments/admin/list?tags=schools")
+        assert response.status_code == 200
+        assert response.json() == []
+
+        # Mixed request narrows to the allowed subset.
+        response = client.get("/api/comments/admin/list?tags=schools&tags=environment")
+        assert response.status_code == 200
+        comments = response.json()
+        assert [c["title"] for c in comments] == ["Environment Comment"]
+
+    def test_unrestricted_without_claim_sees_all(self, client, tagged_comments):
+        self._set_auth({"sub": "42", "scope": "create:content_review"})
+        response = client.get("/api/comments/admin/list")
+        assert response.status_code == 200
+        assert len(response.json()) == 3
+
+    def test_read_all_scope_overrides_claim(self, client, tagged_comments):
+        self._set_auth(
+            {
+                "sub": "42",
+                "scope": "create:content_review read:read-all",
+                "review_tags": ["environment"],
+            }
+        )
+        response = client.get("/api/comments/admin/list")
+        assert response.status_code == 200
+        assert len(response.json()) == 3
+
+    def test_review_comment_in_scope_succeeds(self, client, tagged_comments):
+        self._set_auth(self.RESTRICTED_PAYLOAD)
+        response = client.post(
+            "/api/comments/admin/review",
+            json={
+                "content_type": "comment",
+                "review_status": "APPROVED",
+                "id": tagged_comments["environment"]["comment"]["id"],
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["new_status"] == "APPROVED"
+
+    def test_review_comment_out_of_scope_403(self, client, tagged_comments):
+        self._set_auth(self.RESTRICTED_PAYLOAD)
+        for key in ("schools", "untagged"):
+            response = client.post(
+                "/api/comments/admin/review",
+                json={
+                    "content_type": "comment",
+                    "review_status": "APPROVED",
+                    "id": tagged_comments[key]["comment"]["id"],
+                },
+            )
+            assert response.status_code == 403
+            assert "restricted to tags" in response.json()["detail"]
+
+    def test_review_tag_scoping(self, client, tagged_comments):
+        self._set_auth(self.RESTRICTED_PAYLOAD)
+        allowed_tag = tagged_comments["environment"]["tags"][0]
+        response = client.post(
+            "/api/comments/admin/review",
+            json={
+                "content_type": "tag",
+                "review_status": "APPROVED",
+                "id": allowed_tag["id"],
+            },
+        )
+        assert response.status_code == 200
+
+        disallowed_tag = tagged_comments["schools"]["tags"][0]
+        response = client.post(
+            "/api/comments/admin/review",
+            json={
+                "content_type": "tag",
+                "review_status": "APPROVED",
+                "id": disallowed_tag["id"],
+            },
+        )
+        assert response.status_code == 403
+        assert "outside that scope" in response.json()["detail"]
+
+    def test_review_commenter_403_for_restricted(
+        self, client, session: Session, tagged_comments
+    ):
+        self._set_auth(self.RESTRICTED_PAYLOAD)
+        commenter_id = session.exec(
+            select(Commenter.id).where(Commenter.email == "scoped@example.com")
+        ).first()
+        response = client.post(
+            "/api/comments/admin/review",
+            json={
+                "content_type": "commenter",
+                "review_status": "APPROVED",
+                "id": commenter_id,
+            },
+        )
+        assert response.status_code == 403
+        assert "commenters are not tag-scoped" in response.json()["detail"]
+
+    def test_district_comments_403_for_restricted(self, client):
+        # District comments carry no tags, so a tag scope can never match:
+        # restricted reviewers are refused outright.
+        self._set_auth(self.RESTRICTED_PAYLOAD)
+        response = client.get("/api/comments/admin/district-comments/list")
+        assert response.status_code == 403
+        assert "district comments are not tagged" in response.json()["detail"]
+
+    def test_district_comments_ok_for_unrestricted(self, client):
+        self._set_auth({"sub": "42", "scope": "create:content_review"})
+        response = client.get("/api/comments/admin/district-comments/list")
+        assert response.status_code == 200

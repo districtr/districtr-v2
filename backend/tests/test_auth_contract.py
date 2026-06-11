@@ -94,9 +94,16 @@ def mint_token(
     kid: str,
     scope: str = "create:content",
     expired: bool = False,
+    review_tags: list[str] | None = None,
     **extra_claims,
 ) -> str:
-    """Replicates cms/authapi token output: claim layout and kid header."""
+    """Replicates cms/authapi token output: claim layout and kid header.
+
+    `review_tags` mirrors the CMS's tag-scoped reviewer claim
+    (cms/authapi/serializers.py): present only for users with
+    ReviewTagAssignments — None omits the claim, matching the unrestricted
+    default.
+    """
     now = datetime.now(timezone.utc)
     payload = {
         "token_type": "access",
@@ -113,6 +120,8 @@ def mint_token(
         "iss": settings.AUTH_ISSUER,
         **extra_claims,
     }
+    if review_tags is not None:
+        payload["review_tags"] = review_tags
     return jwt.encode(payload, private_pem, algorithm="RS256", headers={"kid": kid})
 
 
@@ -145,6 +154,35 @@ def test_multiple_required_scopes(verifier, keypair, jwks):
 
     payload = run_verify(verifier, token, ["create:content", "update:publish"])
     assert payload["scope"] == "create:content update:publish"
+
+
+def test_review_tags_claim_round_trips(verifier, keypair, jwks):
+    """Tag-scoped reviewer token: the CMS strips read:read-all and mints a
+    sorted review_tags claim; the verifier must hand the claim through
+    unchanged for allowed_review_tags (app/comments/main.py) to enforce."""
+    private_pem, _ = keypair
+    kid = jwks["keys"][0]["kid"]
+    token = mint_token(
+        private_pem,
+        kid,
+        scope="create:content_review",
+        review_tags=["environment", "schools"],
+    )
+
+    payload = run_verify(verifier, token, ["create:content_review"])
+
+    assert payload["review_tags"] == ["environment", "schools"]
+    assert "read:read-all" not in payload["scope"].split()
+
+
+def test_review_tags_claim_absent_by_default(verifier, keypair, jwks):
+    private_pem, _ = keypair
+    kid = jwks["keys"][0]["kid"]
+    token = mint_token(private_pem, kid, scope="create:content_review")
+
+    payload = run_verify(verifier, token, ["create:content_review"])
+
+    assert "review_tags" not in payload
 
 
 def test_missing_scope_rejected(verifier, keypair, jwks):

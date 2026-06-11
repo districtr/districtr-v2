@@ -542,6 +542,59 @@ async def submit_full_comment(
 
 
 # -----------------------------
+# Review tag scoping
+# -----------------------------
+
+
+def allowed_review_tags(auth_result: dict) -> list[str] | None:
+    """Tag slugs the token holder may moderate, or None when unrestricted.
+
+    The CMS (cms/authapi) limits individual reviewers to specific comment
+    tags via ReviewTagAssignment rows, minted into the JWT as a `review_tags`
+    claim (sorted list of tag slugs). Semantics:
+
+    - `read:read-all` in the token scopes → None (unrestricted): that scope
+      means unrestricted read everywhere, and the CMS strips it from
+      tag-scoped reviewers so it can act as the admin/superuser escape hatch.
+    - `review_tags` claim absent → None (unrestricted): users with no
+      assignments are unrestricted (back-compat for internal reviewers).
+    - otherwise → the claim's list; an empty list allows nothing.
+    """
+    token_scopes = (auth_result.get("scope") or "").split()
+    if TokenScope.read_all_content in token_scopes:
+        return None
+    review_tags = auth_result.get("review_tags")
+    if review_tags is None:
+        return None
+    return [str(tag) for tag in review_tags]
+
+
+def apply_allowed_tags_filter(stmt: Select, allowed_tags: list[str]) -> Select:
+    """Restrict to comments carrying AT LEAST ONE allowed tag.
+
+    A single EXISTS over CommentTag→Tag with `Tag.slug IN allowed` gives
+    or-semantics across the reviewer's allowed tags. This is deliberately NOT
+    routed through `params.tags`/apply_tag_filter, which AND together one
+    EXISTS per tag — a reviewer allowed [a, b] must see comments tagged only
+    `a`. Untagged comments never match the EXISTS, so they are invisible to
+    restricted reviewers.
+    """
+    allowed_tag_exists = (
+        select(literal(1))
+        .select_from(CommentTag)
+        .join(Tag, col(Tag.id) == CommentTag.tag_id)
+        .where(
+            and_(
+                col(CommentTag.comment_id) == Comment.id,
+                col(Tag.slug).in_(allowed_tags),
+            )
+        )
+        .correlate(Comment)
+    )
+    return stmt.where(exists(allowed_tag_exists))
+
+
+# -----------------------------
 # Query Helper Functions
 # -----------------------------
 
@@ -1011,6 +1064,16 @@ async def list_comments_admin(
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.review_content]),
     review_status: ReviewStatus = Query(default=None),
 ):
+    # Tag-scoped reviewers (see allowed_review_tags): requested tags are
+    # intersected with the allowed set — asking only for tags outside the
+    # scope short-circuits to [] — and every result must carry at least one
+    # allowed tag (apply_allowed_tags_filter below), so untagged comments
+    # stay invisible to restricted reviewers.
+    allowed_tags = allowed_review_tags(auth_result)
+    if allowed_tags is not None and tags:
+        tags = [tag for tag in tags if tag in allowed_tags]
+        if not tags:
+            return []
     params = CommentFilterParams(
         tags=tags if tags else None,
         place=place,
@@ -1027,6 +1090,8 @@ async def list_comments_admin(
         max_moderation_score=max_moderation_score,
         review_status=review_status,
     )
+    if allowed_tags is not None:
+        stmt = apply_allowed_tags_filter(stmt, allowed_tags)
     results = session.exec(stmt).all()  # type: ignore[no-matching-overload]
     return results
 
@@ -1058,6 +1123,20 @@ async def list_district_comments_admin(
     review_status: ReviewStatus = Query(default=None),
 ):
     """List district-level comments for moderation. Filter by document_id, public_id, or comment_id."""
+    # District comments are created tag-less (_sync_scoped_comments builds
+    # bare Comment rows with no CommentTag links) and this query applies no
+    # tag filtering, so there is nothing for a tag scope to match against.
+    # Tag-scoped reviewers are therefore refused outright — simpler and safe,
+    # rather than silently returning everything or nothing.
+    if allowed_review_tags(auth_result) is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Your review access is restricted to specific comment tags; "
+                "district comments are not tagged and cannot be reviewed "
+                "with a tag-restricted account."
+            ),
+        )
     params = CommentFilterParams(
         place=place,
         state=state,
@@ -1113,6 +1192,54 @@ async def review_comment(
     entry = session.get(model, review_data.id)
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
+
+    # Tag-scoped reviewers (see allowed_review_tags) may only act within
+    # their allowed tags:
+    # - tag: the tag itself must be allowed;
+    # - comment: the comment must carry at least one allowed tag;
+    # - commenter: never — commenters span tags, so they are not tag-scoped.
+    allowed_tags = allowed_review_tags(auth_result)
+    if allowed_tags is not None:
+        if review_data.content_type == "commenter":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Your review access is restricted to specific comment "
+                    "tags; commenters are not tag-scoped and cannot be "
+                    "reviewed with a tag-restricted account."
+                ),
+            )
+        if review_data.content_type == "tag" and entry.slug not in allowed_tags:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    f"Your review access is restricted to tags "
+                    f"{sorted(allowed_tags)}; tag '{entry.slug}' is outside "
+                    "that scope."
+                ),
+            )
+        if review_data.content_type == "comment":
+            has_allowed_tag = session.exec(  # type: ignore[no-matching-overload]
+                select(literal(1))
+                .select_from(CommentTag)
+                .join(Tag, col(Tag.id) == CommentTag.tag_id)
+                .where(
+                    and_(
+                        col(CommentTag.comment_id) == review_data.id,
+                        col(Tag.slug).in_(allowed_tags),
+                    )
+                )
+                .limit(1)
+            ).first()
+            if has_allowed_tag is None:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=(
+                        f"Your review access is restricted to tags "
+                        f"{sorted(allowed_tags)}; this comment carries none "
+                        "of them."
+                    ),
+                )
 
     entry.review_status = review_data.review_status
     # Clearing the flag on review resolves the item from the moderator queue.

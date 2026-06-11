@@ -116,9 +116,7 @@ class ScheduleComposeTests(SimpleTestCase):
         )
         post.assert_called_once()
         args, kwargs = post.call_args
-        self.assertEqual(
-            args[0], "http://backend:8000/api/admin/districtr-map/compose"
-        )
+        self.assertEqual(args[0], "http://backend:8000/api/admin/districtr-map/compose")
         self.assertEqual(
             kwargs["json"],
             {
@@ -449,9 +447,7 @@ class UploadOverlayViewTests(TestCase):
             )
         overlay = Overlay.objects.get()
         self.assertTrue(
-            overlay.source.startswith(
-                "https://tilesets1.cdn.districtr.org/overlays/"
-            )
+            overlay.source.startswith("https://tilesets1.cdn.districtr.org/overlays/")
         )
         self.assertTrue(overlay.source.endswith("parks.geojson"))
 
@@ -672,9 +668,7 @@ class ReviewSiteMenuItemTests(TestCase):
 
     def test_shown_for_reviewer_editor_and_admin(self):
         for group in ("reviewer", "editor", "admin"):
-            user = make_admin_user(
-                email=f"{group}@districtr.org", group_name=group
-            )
+            user = make_admin_user(email=f"{group}@districtr.org", group_name=group)
             for item in self.items():
                 self.assertTrue(
                     item.is_shown(self.request_for(user)),

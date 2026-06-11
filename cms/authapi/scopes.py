@@ -62,12 +62,28 @@ def scopes_for_user(user) -> str:
     """Space-delimited scope claim for a Django user, from group membership.
 
     Superusers get every scope regardless of groups.
+
+    Tag-scoped reviewers: when the user has ReviewTagAssignments (see
+    authapi/models.py), the blanket `read:read-all` scope is stripped from
+    the computed scopes — the FastAPI backend treats `read:read-all` as
+    "unrestricted read" and would otherwise ignore the `review_tags` claim
+    minted alongside it. `create:content_review` is kept so the moderation
+    endpoints stay reachable (the backend then enforces the tag limits).
+    Superusers and members of the admin group are unaffected: their
+    assignments, if any, do not narrow their access.
     """
     if user.is_superuser:
         return " ".join(ALL_SCOPES)
+    group_names = [g.name for g in user.groups.all()]
     scopes: list[str] = []
-    for group in user.groups.all():
-        for scope in GROUP_SCOPES.get(group.name, []):
+    for name in group_names:
+        for scope in GROUP_SCOPES.get(name, []):
             if scope not in scopes:
                 scopes.append(scope)
+    if (
+        READ_ALL_CONTENT in scopes
+        and "admin" not in group_names
+        and user.review_tag_assignments.exists()
+    ):
+        scopes.remove(READ_ALL_CONTENT)
     return " ".join(scopes)
