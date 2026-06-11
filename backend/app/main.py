@@ -45,6 +45,7 @@ from app.core.dependencies import (
 )
 from app.core.models import DocumentID
 from app.core.config import settings
+import app.admin_ops.main as admin_ops
 import app.exports.main as exports
 import app.cms.main as cms
 import app.comments.main as comments
@@ -118,6 +119,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+app.include_router(admin_ops.router)
 app.include_router(exports.router)
 app.include_router(cms.router)
 app.include_router(comments.router)

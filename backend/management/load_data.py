@@ -11,7 +11,7 @@ from app.utils import (
     add_districtr_map_to_map_group,
 )
 from app.core.io import get_local_or_s3_path
-from app.main import get_session
+from app.core.db import get_session
 from app.core.config import settings
 from functools import wraps
 import logging
