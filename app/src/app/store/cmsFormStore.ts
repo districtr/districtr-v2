@@ -18,7 +18,7 @@ import {LANG_MAPPING} from '../utils/language';
 import {subscribeWithSelector} from 'zustand/middleware';
 import {DistrictrMap} from '../utils/api/apiHandlers/types';
 import {getAvailableDistrictrMaps} from '../utils/api/apiHandlers/getAvailableDistrictrMaps';
-import {ClientSession} from '@/app/lib/auth0';
+import {ClientSession} from '@/app/lib/auth';
 
 // Base form data interface with common fields
 interface BaseFormData {

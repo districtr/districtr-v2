@@ -9,7 +9,8 @@ export const useAuthRoutes = () => {
     router.push('/auth/logout');
   };
   const signIn = () => {
-    router.push('/auth/login');
+    const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+    router.push(`/auth/login?returnTo=${returnTo}`);
   };
   return {
     signOut,

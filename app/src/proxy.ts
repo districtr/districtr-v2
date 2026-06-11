@@ -1,29 +1,22 @@
-import {auth0} from '@/app/lib/auth0';
+import {NextResponse} from 'next/server';
+import {auth} from '@/auth';
 
-export async function proxy(request: Request) {
-  // Note that proxy uses the standard Request type
-  const authRes = await auth0.middleware(request);
-
-  const url = new URL(request.url);
-  const pathname = url.pathname;
-
-  // authentication routes — let the middleware handle it
-  if (pathname.startsWith('/auth')) {
-    return authRes;
-  }
+export const proxy = auth(request => {
+  const {pathname, search, origin} = request.nextUrl;
 
   if (pathname.startsWith('/admin')) {
-    const session = await auth0.getSession();
-
-    if (!session) {
-      return Response.redirect(`${url.origin}/auth/login`, 302);
+    const session = request.auth;
+    // No session, or the silent token refresh failed — force re-login
+    if (!session?.user || session.error === 'RefreshTokenError') {
+      const loginUrl = new URL('/auth/login', origin);
+      loginUrl.searchParams.set('returnTo', `${pathname}${search}`);
+      return NextResponse.redirect(loginUrl);
     }
-    return authRes;
   }
 
   // NOTE All other routes considered public
-  return authRes;
-}
+  return NextResponse.next();
+});
 
 export const config = {
   matcher: [

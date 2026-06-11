@@ -1,6 +1,6 @@
 import {LANG_MAPPING} from '../language';
 import {get, patch, post, del} from './factory';
-import {ClientSession} from '@/app/lib/auth0';
+import {ClientSession} from '@/app/lib/auth';
 
 export interface CMSContentCreate {
   slug: string;

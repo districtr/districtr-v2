@@ -1,6 +1,6 @@
 import {API_URL} from './constants';
 import {HTTP_METHOD} from 'next/dist/server/web/http';
-import {ClientSession} from '@/app/lib/auth0';
+import {ClientSession} from '@/app/lib/auth';
 export type QueryParams = Record<string, string | number | boolean | (string | number)[]>;
 /**
  * API endpoint handler factory

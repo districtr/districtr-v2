@@ -1,28 +1,17 @@
 'use client';
 import {Button, Flex, Text} from '@radix-ui/themes';
 import {useAuthRoutes} from '../../hooks/useAuthRoutes';
-import {useUser} from '@auth0/nextjs-auth0';
+import {useCmsFormStore} from '@/app/store/cmsFormStore';
 
 export const AuthButton = () => {
-  const {user} = useUser();
+  const user = useCmsFormStore(state => state.session?.user);
   const {signOut, signIn} = useAuthRoutes();
 
   return (
     <Flex gap="2" p="2" align="center" direction="row">
       {user ? (
         <>
-          <Flex direction="row" gap="1">
-            {' '}
-            {!!user?.picture && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={user.picture}
-                alt={user.name || 'Profile Image'}
-                className="size-6 rounded-full"
-              />
-            )}
-            <Text>{user?.name}</Text>
-          </Flex>
+          <Text>{user.name || user.email}</Text>
           <Button variant="surface" onClick={() => signOut()}>
             Sign out
           </Button>

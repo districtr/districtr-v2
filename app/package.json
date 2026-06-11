@@ -19,7 +19,6 @@
     "test:e2e:preview": "BASE_URL=$PREVIEW_URL playwright test"
   },
   "dependencies": {
-    "@auth0/nextjs-auth0": "^4.13.0",
     "@emotion/react": "^11.13.0",
     "@emotion/styled": "^11.13.0",
     "@mapbox/mapbox-gl-sync-move": "^0.3.1",
@@ -77,6 +76,7 @@
     "maplibre-gl": "^4.7.1",
     "nanoid": "^5.1.2",
     "next": "16.0.10",
+    "next-auth": "5.0.0-beta.31",
     "papaparse": "^5.5.2",
     "pmtiles": "^3.0.7",
     "polylabel": "^2.0.1",

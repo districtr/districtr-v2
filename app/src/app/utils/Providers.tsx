@@ -1,7 +1,7 @@
 'use client';
 import {useEffect} from 'react';
 import {useCmsFormStore} from '../store/cmsFormStore';
-import {ClientSession} from '@/app/lib/auth0';
+import {ClientSession} from '@/app/lib/auth';
 
 export const Providers: React.FC<{
   children: React.ReactNode;

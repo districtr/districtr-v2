@@ -1,5 +1,5 @@
 import type {Metadata} from 'next';
-import {auth0, ClientSession} from '@/app/lib/auth0';
+import {getServerSession} from '@/app/lib/auth';
 import {Providers} from '../utils/Providers';
 import {redirect} from 'next/navigation';
 import {AuthButton} from '../components/Auth/AuthButton';
@@ -15,18 +15,14 @@ export default async function AdminLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await auth0.getSession();
-  const clientSession: ClientSession = {
-    user: session?.user,
-    tokenSet: session?.tokenSet,
-  };
+  const session = await getServerSession();
 
   if (!session?.user || !session?.tokenSet?.accessToken) {
     redirect('/auth/login?returnTo=/admin/cms');
   }
 
   return (
-    <Providers session={clientSession}>
+    <Providers session={session}>
       <div className="min-h-screen bg-gray-100">
         <nav className="bg-white border-b border-gray-200 py-4 px-6">
           <div className="max-w-7xl mx-auto flex justify-between items-center">
