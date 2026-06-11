@@ -105,6 +105,10 @@ export interface CMSContentListItem {
   slug: string;
   title: string;
   language: string;
+  /** Map association for tags entries */
+  districtr_map_slug?: string | null;
+  /** Map associations for places entries */
+  districtr_map_slugs?: string[] | null;
 }
 
 export type GallerySection =

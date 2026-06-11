@@ -155,9 +155,7 @@ class GroupOnlyGalleryApiTests(TestCase):
         cls.user = make_user("partner", "partner@districtr.org")
 
     def _token(self):
-        return str(
-            DistrictrTokenObtainPairSerializer.get_token(self.user).access_token
-        )
+        return str(DistrictrTokenObtainPairSerializer.get_token(self.user).access_token)
 
     def test_anonymous_403(self):
         response = self.client.get("/api/galleries/partners-only")

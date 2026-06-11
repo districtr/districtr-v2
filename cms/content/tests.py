@@ -499,15 +499,40 @@ class ContentApiTests(TestCase):
         self.assertEqual(
             rows,
             [
-                {"slug": "fair-maps", "title": "Fair Maps", "language": "en"},
-                {"slug": "fair-maps", "title": "Mapas Justos", "language": "es"},
+                {
+                    "slug": "fair-maps",
+                    "title": "Fair Maps",
+                    "language": "en",
+                    "districtr_map_slug": "chi_wards",
+                },
+                {
+                    "slug": "fair-maps",
+                    "title": "Mapas Justos",
+                    "language": "es",
+                    "districtr_map_slug": "chi_wards",
+                },
             ],
         )
 
     def test_list_language_filter(self):
         rows = self.client.get("/api/content/tags/list?language=es").json()
         self.assertEqual(
-            rows, [{"slug": "fair-maps", "title": "Mapas Justos", "language": "es"}]
+            rows,
+            [
+                {
+                    "slug": "fair-maps",
+                    "title": "Mapas Justos",
+                    "language": "es",
+                    "districtr_map_slug": "chi_wards",
+                }
+            ],
+        )
+
+    def test_list_places_includes_map_slugs(self):
+        rows = self.client.get("/api/content/places/list").json()
+        self.assertEqual(
+            [r["districtr_map_slugs"] for r in rows if r["slug"] == "chicago"],
+            [["chi_wards", "chi_blocks"]],
         )
 
 

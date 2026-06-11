@@ -9,55 +9,188 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
-        ('datastore', '0002_grant_admin_group_permissions'),
-        ('wagtailcore', '0094_alter_page_locale'),
+        ("datastore", "0002_grant_admin_group_permissions"),
+        ("wagtailcore", "0094_alter_page_locale"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Gallery',
+            name="Gallery",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('live', models.BooleanField(default=True, editable=False, verbose_name='live')),
-                ('has_unpublished_changes', models.BooleanField(default=False, editable=False, verbose_name='has unpublished changes')),
-                ('first_published_at', models.DateTimeField(blank=True, db_index=True, null=True, verbose_name='first published at')),
-                ('last_published_at', models.DateTimeField(editable=False, null=True, verbose_name='last published at')),
-                ('go_live_at', models.DateTimeField(blank=True, null=True, verbose_name='go live date/time')),
-                ('expire_at', models.DateTimeField(blank=True, null=True, verbose_name='expiry date/time')),
-                ('expired', models.BooleanField(default=False, editable=False, verbose_name='expired')),
-                ('title', models.CharField(max_length=255)),
-                ('slug', models.SlugField(help_text='Public identifier: served at /api/galleries/<slug>.', max_length=255, unique=True)),
-                ('section', models.CharField(choices=[('consultant_drafts', 'Consultant drafts'), ('public_gallery', 'Public gallery'), ('works_in_progress', 'Works in progress'), ('coi_gallery', 'COI gallery')], default='public_gallery', max_length=32)),
-                ('visibility', models.CharField(choices=[('public', 'Public'), ('group_only', 'Group only')], default='public', max_length=16)),
-                ('description', wagtail.fields.RichTextField(blank=True)),
-                ('latest_revision', models.ForeignKey(blank=True, editable=False, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to='wagtailcore.revision', verbose_name='latest revision')),
-                ('live_revision', models.ForeignKey(blank=True, editable=False, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to='wagtailcore.revision', verbose_name='live revision')),
-                ('map_group', models.ForeignKey(blank=True, db_constraint=False, help_text='Optional map group this gallery is scoped to.', null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='+', to='datastore.mapgroup')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "live",
+                    models.BooleanField(
+                        default=True, editable=False, verbose_name="live"
+                    ),
+                ),
+                (
+                    "has_unpublished_changes",
+                    models.BooleanField(
+                        default=False,
+                        editable=False,
+                        verbose_name="has unpublished changes",
+                    ),
+                ),
+                (
+                    "first_published_at",
+                    models.DateTimeField(
+                        blank=True,
+                        db_index=True,
+                        null=True,
+                        verbose_name="first published at",
+                    ),
+                ),
+                (
+                    "last_published_at",
+                    models.DateTimeField(
+                        editable=False, null=True, verbose_name="last published at"
+                    ),
+                ),
+                (
+                    "go_live_at",
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="go live date/time"
+                    ),
+                ),
+                (
+                    "expire_at",
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="expiry date/time"
+                    ),
+                ),
+                (
+                    "expired",
+                    models.BooleanField(
+                        default=False, editable=False, verbose_name="expired"
+                    ),
+                ),
+                ("title", models.CharField(max_length=255)),
+                (
+                    "slug",
+                    models.SlugField(
+                        help_text="Public identifier: served at /api/galleries/<slug>.",
+                        max_length=255,
+                        unique=True,
+                    ),
+                ),
+                (
+                    "section",
+                    models.CharField(
+                        choices=[
+                            ("consultant_drafts", "Consultant drafts"),
+                            ("public_gallery", "Public gallery"),
+                            ("works_in_progress", "Works in progress"),
+                            ("coi_gallery", "COI gallery"),
+                        ],
+                        default="public_gallery",
+                        max_length=32,
+                    ),
+                ),
+                (
+                    "visibility",
+                    models.CharField(
+                        choices=[("public", "Public"), ("group_only", "Group only")],
+                        default="public",
+                        max_length=16,
+                    ),
+                ),
+                ("description", wagtail.fields.RichTextField(blank=True)),
+                (
+                    "latest_revision",
+                    models.ForeignKey(
+                        blank=True,
+                        editable=False,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="+",
+                        to="wagtailcore.revision",
+                        verbose_name="latest revision",
+                    ),
+                ),
+                (
+                    "live_revision",
+                    models.ForeignKey(
+                        blank=True,
+                        editable=False,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="+",
+                        to="wagtailcore.revision",
+                        verbose_name="live revision",
+                    ),
+                ),
+                (
+                    "map_group",
+                    models.ForeignKey(
+                        blank=True,
+                        db_constraint=False,
+                        help_text="Optional map group this gallery is scoped to.",
+                        null=True,
+                        on_delete=django.db.models.deletion.DO_NOTHING,
+                        related_name="+",
+                        to="datastore.mapgroup",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'gallery',
-                'verbose_name_plural': 'galleries',
+                "verbose_name": "gallery",
+                "verbose_name_plural": "galleries",
             },
-            bases=(wagtail.models.workflows.WorkflowMixin, wagtail.search.index.Indexed, models.Model),
+            bases=(
+                wagtail.models.workflows.WorkflowMixin,
+                wagtail.search.index.Indexed,
+                models.Model,
+            ),
         ),
         migrations.CreateModel(
-            name='GalleryEntry',
+            name="GalleryEntry",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('sort_order', models.IntegerField(blank=True, editable=False, null=True)),
-                ('document_public_id', models.PositiveIntegerField(help_text='Public id of the saved Districtr plan (document).')),
-                ('caption', models.CharField(blank=True, default='', max_length=255)),
-                ('gallery', modelcluster.fields.ParentalKey(on_delete=django.db.models.deletion.CASCADE, related_name='entries', to='galleries.gallery')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "sort_order",
+                    models.IntegerField(blank=True, editable=False, null=True),
+                ),
+                (
+                    "document_public_id",
+                    models.PositiveIntegerField(
+                        help_text="Public id of the saved Districtr plan (document)."
+                    ),
+                ),
+                ("caption", models.CharField(blank=True, default="", max_length=255)),
+                (
+                    "gallery",
+                    modelcluster.fields.ParentalKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="entries",
+                        to="galleries.gallery",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'gallery entry',
-                'verbose_name_plural': 'gallery entries',
-                'ordering': ['sort_order'],
-                'abstract': False,
+                "verbose_name": "gallery entry",
+                "verbose_name_plural": "gallery entries",
+                "ordering": ["sort_order"],
+                "abstract": False,
             },
         ),
     ]

@@ -131,12 +131,18 @@ def content_list(request, content_type):
         queryset = queryset.filter(locale__language_code=language)
 
     queryset = queryset.order_by("slug", "locale__language_code")
-    results = [
-        {
+    results = []
+    for page in queryset[offset : offset + limit]:
+        item = {
             "slug": page.slug,
             "title": page.title,
             "language": page.locale.language_code,
         }
-        for page in queryset[offset : offset + limit]
-    ]
+        # Map associations, used e.g. by the homepage PlaceMap to count
+        # modules per place without fetching each page.
+        if content_type == "tags":
+            item["districtr_map_slug"] = page.districtr_map_slug or None
+        else:
+            item["districtr_map_slugs"] = page.districtr_map_slugs or None
+        results.append(item)
     return _json(results)

@@ -1,4 +1,4 @@
-import {listCMSContent, PlacesCMSContent} from '@/app/utils/api/cms';
+import {listCMSContent} from '@/app/utils/api/cmsContent';
 import {GEODATA_URL} from '@/app/utils/api/constants';
 import * as topojson from 'topojson-client';
 import {create} from 'zustand';
@@ -22,15 +22,16 @@ export const usePlaceMapStore = create<{
   getData: async () => {
     const [topology, content] = await Promise.all([
       fetch(`${GEODATA_URL}/sprites/usa-topo.json`).then(r => r.json()),
-      listCMSContent('places') as Promise<PlacesCMSContent[]>,
+      listCMSContent('places'),
     ]);
-    const mapsBySlug = content?.reduce(
-      (acc, place) => {
-        acc[place.slug] = place.districtr_map_slugs?.length || 0;
-        return acc;
-      },
-      {} as Record<string, number>
-    );
+    const mapsBySlug =
+      content?.reduce(
+        (acc, place) => {
+          acc[place.slug] = place.districtr_map_slugs?.length || 0;
+          return acc;
+        },
+        {} as Record<string, number>
+      ) ?? {};
     // @ts-expect-error
     const {features: unitedStates} = topojson.feature(topology, topology.objects.states) as {
       type: 'FeatureCollection';
