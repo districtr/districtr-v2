@@ -29,6 +29,7 @@ from wagtail.search import index
 from wagtail_localize.fields import SynchronizedField
 
 from content.blocks import ContentStreamBlock
+from content.forms import PlacePageForm, TagPageForm
 
 
 class ContentPageBase(Page):
@@ -86,6 +87,9 @@ class TagPage(ContentPageBase):
         FieldPanel("districtr_map_slug"),
     ]
 
+    # Team-scoped members only get to pick a map their teams own (content/forms.py).
+    base_form_class = TagPageForm
+
     # The slug points at shared data, not prose — never send it to translators.
     override_translatable_fields = [SynchronizedField("districtr_map_slug")]
 
@@ -135,6 +139,9 @@ class PlacePage(ContentPageBase):
     content_panels = ContentPageBase.content_panels + [
         FieldPanel("districtr_map_slugs"),
     ]
+
+    # Team-scoped members only get to pick maps their teams own (content/forms.py).
+    base_form_class = PlacePageForm
 
     override_translatable_fields = [SynchronizedField("districtr_map_slugs")]
 

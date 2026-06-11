@@ -19,12 +19,12 @@ from django.contrib.auth import get_user_model
 from django.db.models import Q
 from wagtail import hooks
 from wagtail.admin.forms.choosers import BaseFilterForm
-from wagtail.admin.panels import FieldPanel
+from wagtail.admin.panels import FieldPanel, InlinePanel
 from wagtail.admin.viewsets.chooser import ChooserViewSet
 from wagtail.snippets.models import register_snippet
 from wagtail.snippets.views.snippets import SnippetViewSet
 
-from authapi.models import ReviewTagAssignment
+from authapi.models import ReviewTagAssignment, Team
 
 
 class UserSearchFilterForm(BaseFilterForm):
@@ -96,3 +96,43 @@ class ReviewTagAssignmentViewSet(SnippetViewSet):
 
 
 register_snippet(ReviewTagAssignmentViewSet)
+
+
+class TeamViewSet(SnippetViewSet):
+    """Admin-only "Teams" snippet: name a team, add member users, and assign
+    the MapGroups it owns. Only the `admin` group holds Team permissions
+    (authapi/migrations/0005), so the menu item never renders for other roles.
+
+    Membership/ownership take effect immediately for the Wagtail admin scoping
+    (authapi/teams.py) — no token round-trip, since this scoping is server-side
+    in the CMS, not carried in a JWT claim.
+    """
+
+    model = Team
+    icon = "group"
+    menu_label = "Teams"
+    menu_order = 260  # after "Review tag scopes" (250)
+    add_to_admin_menu = True
+    list_display = ["name", "slug"]
+    search_fields = ["name", "slug"]
+    list_per_page = 50
+
+    panels = [
+        FieldPanel("name"),
+        FieldPanel("slug"),
+        InlinePanel(
+            "memberships",
+            heading="Members",
+            label="Member",
+            panels=[FieldPanel("user", widget=user_chooser_viewset.widget_class)],
+        ),
+        InlinePanel(
+            "map_groups",
+            heading="Map groups owned",
+            label="Map group",
+            panels=[FieldPanel("map_group")],
+        ),
+    ]
+
+
+register_snippet(TeamViewSet)

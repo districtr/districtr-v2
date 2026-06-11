@@ -15,6 +15,8 @@ unrestricted review (back-compat for internal reviewers).
 from django.conf import settings
 from django.core.validators import RegexValidator
 from django.db import models
+from modelcluster.fields import ParentalKey
+from modelcluster.models import ClusterableModel
 
 # Matches the slugified tag format produced by the comments service
 # (backend slugify_tag: lowercase alphanumerics, hyphens, underscores).
@@ -52,3 +54,63 @@ class ReviewTagAssignment(models.Model):
 
     def __str__(self):
         return f"{self.user.get_username()} → {self.tag_slug}"
+
+
+class Team(ClusterableModel):
+    """A group of CMS users that owns one or more MapGroups.
+
+    Team membership scopes a non-admin user's Wagtail admin to their teams'
+    map groups: they see/edit only the galleries, tag pages, and Districtr map
+    modules tied to those groups (authapi/teams.py). Admins and superusers are
+    never scoped, nor are non-admin users with no team. Managed by admins in
+    the "Teams" snippet (authapi/wagtail_hooks.py).
+    """
+
+    name = models.CharField(max_length=255, unique=True)
+    slug = models.SlugField(max_length=255, unique=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class TeamMembership(models.Model):
+    """A user's membership in a Team (InlinePanel child of Team)."""
+
+    team = ParentalKey(Team, on_delete=models.CASCADE, related_name="memberships")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="team_memberships",
+    )
+
+    class Meta:
+        unique_together = [("team", "user")]
+
+    def __str__(self):
+        return f"{self.user.get_username()} ∈ {self.team.name}"
+
+
+class TeamMapGroup(models.Model):
+    """A MapGroup owned by a Team (InlinePanel child of Team).
+
+    db_constraint=False because MapGroup is a managed=False mirror of a
+    backend-owned table in the public schema — mirrors
+    datastore.DistrictrMapsToGroups.group.
+    """
+
+    team = ParentalKey(Team, on_delete=models.CASCADE, related_name="map_groups")
+    map_group = models.ForeignKey(
+        "datastore.MapGroup",
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="+",
+    )
+
+    class Meta:
+        unique_together = [("team", "map_group")]
+
+    def __str__(self):
+        return f"{self.team.name} → {self.map_group_id}"

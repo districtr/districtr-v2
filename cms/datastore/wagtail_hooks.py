@@ -19,14 +19,24 @@ from functools import cached_property
 
 from django import forms
 from django.conf import settings
+from django.http import Http404
 from django.urls import path, reverse
 from wagtail import hooks
 from wagtail.admin.menu import MenuItem
 from wagtail.admin.panels import FieldPanel, MultiFieldPanel, ObjectList
 from wagtail.permission_policies.base import ModelPermissionPolicy
 from wagtail.snippets.models import register_snippet
-from wagtail.snippets.views.snippets import SnippetViewSet, SnippetViewSetGroup
+from wagtail.snippets.views.snippets import (
+    InspectView,
+    SnippetViewSet,
+    SnippetViewSetGroup,
+)
 
+from authapi.teams import (
+    TeamScopedViewGrantPermissionPolicy,
+    scoped_queryset,
+    user_is_team_scoped,
+)
 from datastore import views
 from datastore.models import (
     DistrictrMap,
@@ -37,6 +47,10 @@ from datastore.models import (
     Overlay,
 )
 from datastore.views import DATASTORE_ADMIN_PERMISSION, OVERLAY_ADMIN_PERMISSION
+
+# DistrictrMap reaches a MapGroup through the DistrictrMapsToGroups link table
+# (related_name "group_links"); group_id is the MapGroup slug (its pk).
+DISTRICTRMAP_GROUP_FIELD = "group_links__group_id"
 
 
 @hooks.register("register_icons")
@@ -51,6 +65,25 @@ class ReadOnlyModelPermissionPolicy(ModelPermissionPolicy):
         if action in {"add", "change", "delete"}:
             return False
         return super().user_has_permission(user, action)
+
+
+class TeamScopedMapInspectView(InspectView):
+    """InspectView that 404s when a team-scoped member opens a Districtr map
+    outside their groups by URL — get_object() fetches straight from the model,
+    so the index get_queryset filter alone wouldn't stop a guessed UUID."""
+
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset)
+        if (
+            user_is_team_scoped(self.request.user)
+            and not scoped_queryset(
+                self.model, DISTRICTRMAP_GROUP_FIELD, self.request.user
+            )
+            .filter(pk=obj.pk)
+            .exists()
+        ):
+            raise Http404
+        return obj
 
 
 class DistrictrMapViewSet(SnippetViewSet):
@@ -68,6 +101,20 @@ class DistrictrMapViewSet(SnippetViewSet):
     search_fields = ["name", "districtr_map_slug"]
     list_per_page = 50
     inspect_view_enabled = True
+    inspect_view_class = TeamScopedMapInspectView
+
+    # Team-scoped members may browse (view/inspect) only the Districtr maps in
+    # their teams' groups; admins keep full edit access (authapi/teams.py).
+    def get_queryset(self, request):
+        if user_is_team_scoped(request.user):
+            return scoped_queryset(self.model, DISTRICTRMAP_GROUP_FIELD, request.user)
+        return None
+
+    @property
+    def permission_policy(self):
+        return TeamScopedViewGrantPermissionPolicy(
+            self.model, group_filter_field=DISTRICTRMAP_GROUP_FIELD
+        )
 
     # created_at/updated_at are auto-managed (auto_now_add/auto_now) and thus
     # not editable; every other mapped field is on the form.
