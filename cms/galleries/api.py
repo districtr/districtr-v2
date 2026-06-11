@@ -24,23 +24,13 @@ per-group scoping is needed.
 """
 
 from django.db.models import Count
-from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 from rest_framework_simplejwt.exceptions import TokenError
 from wagtail.rich_text import expand_db_html
 
 from authapi.tokens import KidAccessToken
+from core.api import _json
 from galleries.models import Gallery, GallerySection, GalleryVisibility
-
-
-def _cors(response):
-    # Public content: same posture as content/api.py.
-    response["Access-Control-Allow-Origin"] = "*"
-    return response
-
-
-def _json(payload, status=200):
-    return _cors(JsonResponse(payload, status=status, safe=False))
 
 
 def _has_valid_token(request) -> bool:

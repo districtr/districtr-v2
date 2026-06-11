@@ -2,16 +2,15 @@
 Service-to-service calls from the Wagtail admin to the FastAPI backend.
 
 The cms is the JWT issuer (authapi), so instead of a client-credentials flow
-we mint short-lived RS256 access tokens in-process (mirroring
-authapi/management/commands/issue_service_token.py) and the backend verifies
-them against our JWKS endpoint with the usual space-delimited `scope` claim.
+we mint short-lived RS256 access tokens in-process (authapi.tokens.
+mint_service_token, shared with the issue_service_token management command)
+and the backend verifies them against our JWKS endpoint with the usual
+space-delimited `scope` claim.
 
 GeoPackages are staged to the same bucket the backend reads from
 (backend/app/core/config.py::get_s3_client) before the import is scheduled
 via POST /api/admin/gerrydb/import.
 """
-
-from datetime import timedelta
 
 import boto3
 import requests
@@ -19,7 +18,7 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
 from authapi import scopes as auth_scopes
-from authapi.tokens import KidAccessToken
+from authapi.tokens import mint_service_token as _mint_service_token
 
 GPKG_UPLOAD_PREFIX = "gerrydb-uploads"
 OVERLAY_UPLOAD_PREFIX = "overlays"
@@ -33,13 +32,45 @@ class BackendAPIError(Exception):
 
 def mint_service_token(scopes: list[str], lifetime_minutes: int = 15) -> str:
     """Short-lived service token for backend calls (sub=service:cms-admin)."""
-    token = KidAccessToken()
-    token.set_exp(lifetime=timedelta(minutes=lifetime_minutes))
-    token["sub"] = "service:cms-admin"
-    token["scope"] = " ".join(scopes)
-    return str(token)
+    return _mint_service_token("cms-admin", scopes, lifetime_minutes=lifetime_minutes)
 
 
+def _post_backend(
+    path: str,
+    scopes: list[str],
+    json: dict | None = None,
+    ok_status: int = 200,
+    *,
+    what: str = "request",
+) -> dict:
+    """POST `path` to the backend with a fresh service token; return the body.
+
+    Any status other than `ok_status` raises BackendAPIError as
+    "Backend rejected the {what} (HTTP {status}): ...", surfacing the
+    response's JSON `detail` when present (else the first 500 chars of text).
+    """
+    token = mint_service_token(scopes)
+    response = requests.post(
+        f"{settings.BACKEND_API_URL}{path}",
+        json=json,
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
+    if response.status_code != ok_status:
+        try:
+            body = response.json()
+            detail = body.get("detail") if isinstance(body, dict) else None
+        except ValueError:
+            detail = None
+        raise BackendAPIError(
+            f"Backend rejected the {what} "
+            f"(HTTP {response.status_code}): {detail or response.text[:500]}"
+        )
+    return response.json()
+
+
+# Contract to mirror: backend/app/core/config.py::get_s3_client (the
+# R2-vs-S3 divergence is a cross-service question — keep them in lockstep).
 def get_s3_client():
     """boto3 client mirroring the backend's R2-vs-S3 conditional."""
     if not settings.AWS_ACCESS_KEY_ID or not settings.AWS_SECRET_ACCESS_KEY:
@@ -64,16 +95,21 @@ def get_s3_client():
     )
 
 
-def upload_gpkg(file_obj, key: str) -> str:
-    """Stream a GeoPackage to the bucket; returns the s3:// path."""
+def _upload(file_obj, prefix: str, key: str) -> str:
+    """Stream a file to the upload bucket under prefix/key; s3:// path back."""
     bucket = settings.GPKG_BUCKET
     if not bucket:
         raise ImproperlyConfigured(
             "No upload bucket configured (set R2_BUCKET_NAME or AWS_S3_BUCKET)"
         )
-    full_key = f"{GPKG_UPLOAD_PREFIX}/{key}"
+    full_key = f"{prefix}/{key}"
     get_s3_client().upload_fileobj(file_obj, bucket, full_key)
     return f"s3://{bucket}/{full_key}"
+
+
+def upload_gpkg(file_obj, key: str) -> str:
+    """Stream a GeoPackage to the bucket; returns the s3:// path."""
+    return _upload(file_obj, GPKG_UPLOAD_PREFIX, key)
 
 
 def upload_overlay(file_obj, key: str) -> str:
@@ -83,16 +119,11 @@ def upload_overlay(file_obj, key: str) -> str:
     (the CDN fronting the bucket) when configured; otherwise it falls back
     to the raw s3://bucket/key path.
     """
-    bucket = settings.GPKG_BUCKET
-    if not bucket:
-        raise ImproperlyConfigured(
-            "No upload bucket configured (set R2_BUCKET_NAME or AWS_S3_BUCKET)"
-        )
-    full_key = f"{OVERLAY_UPLOAD_PREFIX}/{key}"
-    get_s3_client().upload_fileobj(file_obj, bucket, full_key)
+    s3_path = _upload(file_obj, OVERLAY_UPLOAD_PREFIX, key)
     if settings.OVERLAY_PUBLIC_URL_BASE:
-        return f"{settings.OVERLAY_PUBLIC_URL_BASE.rstrip('/')}/{full_key}"
-    return f"s3://{bucket}/{full_key}"
+        base = settings.OVERLAY_PUBLIC_URL_BASE.rstrip("/")
+        return f"{base}/{OVERLAY_UPLOAD_PREFIX}/{key}"
+    return s3_path
 
 
 def schedule_import(
@@ -102,19 +133,13 @@ def schedule_import(
     rm: bool = False,
 ) -> dict:
     """POST /api/admin/gerrydb/import; returns the 202 response body."""
-    token = mint_service_token([auth_scopes.CREATE_DISTRICTR_MAPS])
-    response = requests.post(
-        f"{settings.BACKEND_API_URL}/api/admin/gerrydb/import",
+    return _post_backend(
+        "/api/admin/gerrydb/import",
+        [auth_scopes.CREATE_DISTRICTR_MAPS],
         json={"gpkg": gpkg_path, "layer": layer, "table_name": table_name, "rm": rm},
-        headers={"Authorization": f"Bearer {token}"},
-        timeout=REQUEST_TIMEOUT_SECONDS,
+        ok_status=202,
+        what="import",
     )
-    if response.status_code != 202:
-        raise BackendAPIError(
-            f"Backend rejected the import (HTTP {response.status_code}): "
-            f"{response.text[:500]}"
-        )
-    return response.json()
 
 
 def schedule_compose(
@@ -135,9 +160,9 @@ def schedule_compose(
     a JSON `detail` (409 = slug already exists, 404 = unknown layer/group)
     which is surfaced verbatim.
     """
-    token = mint_service_token([auth_scopes.CREATE_DISTRICTR_MAPS])
-    response = requests.post(
-        f"{settings.BACKEND_API_URL}/api/admin/districtr-map/compose",
+    return _post_backend(
+        "/api/admin/districtr-map/compose",
+        [auth_scopes.CREATE_DISTRICTR_MAPS],
         json={
             "name": name,
             "districtr_map_slug": districtr_map_slug,
@@ -149,49 +174,24 @@ def schedule_compose(
             "map_type": map_type,
             "visible": False,
         },
-        headers={"Authorization": f"Bearer {token}"},
-        timeout=REQUEST_TIMEOUT_SECONDS,
+        ok_status=202,
+        what="compose request",
     )
-    if response.status_code != 202:
-        try:
-            body = response.json()
-            detail = body.get("detail") if isinstance(body, dict) else None
-        except ValueError:
-            detail = None
-        raise BackendAPIError(
-            f"Backend rejected the compose request "
-            f"(HTTP {response.status_code}): {detail or response.text[:500]}"
-        )
-    return response.json()
 
 
 def regenerate_map_thumbnail(districtr_map_slug: str) -> dict:
     """POST /api/gerrydb/{slug}/thumbnail (scope create:content)."""
-    token = mint_service_token([auth_scopes.CREATE_CONTENT])
-    response = requests.post(
-        f"{settings.BACKEND_API_URL}/api/gerrydb/{districtr_map_slug}/thumbnail",
-        headers={"Authorization": f"Bearer {token}"},
-        timeout=REQUEST_TIMEOUT_SECONDS,
+    return _post_backend(
+        f"/api/gerrydb/{districtr_map_slug}/thumbnail",
+        [auth_scopes.CREATE_CONTENT],
+        what="thumbnail request",
     )
-    if response.status_code != 200:
-        raise BackendAPIError(
-            f"Backend rejected the thumbnail request "
-            f"(HTTP {response.status_code}): {response.text[:500]}"
-        )
-    return response.json()
 
 
 def regenerate_document_thumbnail(document_id: str) -> dict:
     """POST /api/document/{document_id}/thumbnail (scope create:content)."""
-    token = mint_service_token([auth_scopes.CREATE_CONTENT])
-    response = requests.post(
-        f"{settings.BACKEND_API_URL}/api/document/{document_id}/thumbnail",
-        headers={"Authorization": f"Bearer {token}"},
-        timeout=REQUEST_TIMEOUT_SECONDS,
+    return _post_backend(
+        f"/api/document/{document_id}/thumbnail",
+        [auth_scopes.CREATE_CONTENT],
+        what="thumbnail request",
     )
-    if response.status_code != 200:
-        raise BackendAPIError(
-            f"Backend rejected the thumbnail request "
-            f"(HTTP {response.status_code}): {response.text[:500]}"
-        )
-    return response.json()

@@ -7,6 +7,7 @@ never sets one. KidTokenBackend mirrors TokenBackend.encode but adds the
 RFC 7638 thumbprint of the active verifying key.
 """
 
+from datetime import timedelta
 from typing import Any, Optional
 
 import jwt
@@ -65,3 +66,17 @@ class KidRefreshToken(RefreshToken):
     @property
     def token_backend(self) -> TokenBackend:
         return get_kid_token_backend()
+
+
+def mint_service_token(name: str, scopes: list[str], lifetime_minutes: int = 15) -> str:
+    """Short-lived RS256 service token (sub=service:<name>, space-joined scopes).
+
+    The canonical service-to-service minting path: datastore/services.py uses
+    it for backend calls and the issue_service_token management command
+    delegates to it.
+    """
+    token = KidAccessToken()
+    token.set_exp(lifetime=timedelta(minutes=lifetime_minutes))
+    token["sub"] = f"service:{name}"
+    token["scope"] = " ".join(scopes)
+    return str(token)

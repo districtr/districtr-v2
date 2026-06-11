@@ -1,8 +1,6 @@
-from datetime import timedelta
-
 from django.core.management.base import BaseCommand
 
-from authapi.tokens import KidAccessToken
+from authapi.tokens import mint_service_token
 
 
 class Command(BaseCommand):
@@ -27,8 +25,10 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        token = KidAccessToken()
-        token.set_exp(lifetime=timedelta(minutes=options["lifetime_minutes"]))
-        token["sub"] = f"service:{options['name']}"
-        token["scope"] = options["scopes"]
-        self.stdout.write(str(token))
+        self.stdout.write(
+            mint_service_token(
+                options["name"],
+                options["scopes"].split(),
+                lifetime_minutes=options["lifetime_minutes"],
+            )
+        )

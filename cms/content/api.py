@@ -26,10 +26,10 @@ list -> plain list, rich_text -> HTML string).
 """
 
 from django.conf import settings
-from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 
 from content.models import PlacePage, TagPage
+from core.api import _json
 
 CONTENT_TYPE_PAGES = {
     "tags": TagPage,
@@ -43,16 +43,6 @@ MAX_PAGE_SIZE = 100
 _LANGUAGE_ORDER = {
     code: i for i, (code, _name) in enumerate(settings.WAGTAIL_CONTENT_LANGUAGES)
 }
-
-
-def _cors(response):
-    # Public content: same posture as the legacy FastAPI CORS middleware.
-    response["Access-Control-Allow-Origin"] = "*"
-    return response
-
-
-def _json(payload, status=200):
-    return _cors(JsonResponse(payload, status=status, safe=False))
 
 
 def _language_sort_key(code):
