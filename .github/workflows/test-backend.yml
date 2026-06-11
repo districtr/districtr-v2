@@ -14,9 +14,7 @@ jobs:
 
     services:
       postgres:
-        # PostGIS >= 3.4 + GEOS >= 3.12 required for ST_CoverageUnion (/stats query).
-        # Use the alpine image: it ships GEOS 3.14, while the Debian image lags at 3.9.
-        image: postgis/postgis:16-3.5-alpine
+        image: postgis/postgis:16-3.4
         env:
           POSTGRES_SCHEME: postgresql+psycopg
           POSTGRES_USER: postgres

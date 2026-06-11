@@ -92,21 +92,6 @@ class Settings(BaseSettings):
 
     ECHO_DB: bool = ENVIRONMENT not in (Environment.production, Environment.test)
 
-    # Lazy refresh: a low-priority background job that periodically recomputes the
-    # district_unions stats + thumbnail for settled plans whose output has gone stale
-    # (see app/jobs/lazy_refresh.py). Tuned to stay out of live request traffic's way:
-    # a single throttled worker drains a bounded, de-duplicated queue.
-    LAZY_REFRESH_ENABLED: bool = True
-    # How often the sweep looks for stale plans, and the "settled" window a plan must
-    # have gone without a save to qualify. Both default to 20 minutes.
-    LAZY_REFRESH_INTERVAL_SECONDS: int = 20 * 60
-    LAZY_REFRESH_STALE_MINUTES: int = 20
-    # Max stale plans enqueued per sweep, and the most that can sit queued at once.
-    LAZY_REFRESH_BATCH_LIMIT: int = 50
-    LAZY_REFRESH_QUEUE_MAXSIZE: int = 500
-    # Pause between processing queued plans, so refreshes trickle rather than burst.
-    LAZY_REFRESH_THROTTLE_SECONDS: float = 2.0
-
     # Moderation
 
     OPENAI_API_KEY: str | None = None
