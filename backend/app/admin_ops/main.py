@@ -1,5 +1,6 @@
 import logging
 import re
+from contextlib import nullcontext
 from typing import Literal
 from urllib.parse import urlparse
 
@@ -75,19 +76,14 @@ def run_gerrydb_import(
     """
     logger.info("Starting GerryDB import for layer %s from %s", layer, gpkg)
     try:
-        if session is not None:
+        # nullcontext leaves a caller-provided session open; an owned session
+        # is closed on exit. import_gerrydb_view commits internally, so no
+        # commit is needed here either way.
+        ctx = nullcontext(session) if session is not None else Session(engine)
+        with ctx as db_session:
             import_gerrydb_view(
-                session=session, layer=layer, gpkg=gpkg, table_name=table_name, rm=rm
+                session=db_session, layer=layer, gpkg=gpkg, table_name=table_name, rm=rm
             )
-        else:
-            with Session(engine) as owned_session:
-                import_gerrydb_view(
-                    session=owned_session,
-                    layer=layer,
-                    gpkg=gpkg,
-                    table_name=table_name,
-                    rm=rm,
-                )
     except Exception:
         logger.exception("GerryDB import failed for layer %s", layer)
         raise
@@ -252,9 +248,14 @@ def run_districtr_map_compose(
     """
     logger.info("Starting districtr map compose for %s", districtr_map_slug)
     try:
-        if session is not None:
+        # nullcontext leaves a caller-provided session open (and uncommitted —
+        # the caller owns the transaction); an owned session is committed here
+        # and closed on exit.
+        owns_session = session is None
+        ctx = nullcontext(session) if session is not None else Session(engine)
+        with ctx as db_session:
             _compose_districtr_map(
-                session,
+                db_session,
                 name=name,
                 districtr_map_slug=districtr_map_slug,
                 parent_layer=parent_layer,
@@ -265,21 +266,8 @@ def run_districtr_map_compose(
                 map_type=map_type,
                 visible=visible,
             )
-        else:
-            with Session(engine) as owned_session:
-                _compose_districtr_map(
-                    owned_session,
-                    name=name,
-                    districtr_map_slug=districtr_map_slug,
-                    parent_layer=parent_layer,
-                    child_layer=child_layer,
-                    num_districts=num_districts,
-                    tiles_s3_path=tiles_s3_path,
-                    group_slug=group_slug,
-                    map_type=map_type,
-                    visible=visible,
-                )
-                owned_session.commit()
+            if owns_session:
+                db_session.commit()
     except Exception:
         logger.exception("Districtr map compose failed for %s", districtr_map_slug)
         raise

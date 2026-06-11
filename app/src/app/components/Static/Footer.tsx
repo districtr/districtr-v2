@@ -101,7 +101,7 @@ export const Footer: React.FC = () => (
         <Text className="text-center my-1" size="3">
           Copyright 2025, Data and Democracy Lab. All rights reserved.
         </Text>
-        <Link href="/admin/cms">Admin Login</Link>
+        <Link href="/admin">Admin Login</Link>
       </Flex>
     </Box>
   </>

@@ -7,24 +7,50 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
-        ('authapi', '0001_create_groups'),
+        ("authapi", "0001_create_groups"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='ReviewTagAssignment',
+            name="ReviewTagAssignment",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('tag_slug', models.CharField(help_text="Slug of a comment tag in the comments service (e.g. 'environment'). The reviewer may only moderate comments carrying at least one assigned tag.", max_length=255, validators=[django.core.validators.RegexValidator(message='Use the slugified tag: lowercase letters, digits, hyphens, underscores.', regex='^[a-z0-9-_]+$')])),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='review_tag_assignments', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "tag_slug",
+                    models.CharField(
+                        help_text="Slug of a comment tag in the comments service (e.g. 'environment'). The reviewer may only moderate comments carrying at least one assigned tag.",
+                        max_length=255,
+                        validators=[
+                            django.core.validators.RegexValidator(
+                                message="Use the slugified tag: lowercase letters, digits, hyphens, underscores.",
+                                regex="^[a-z0-9-_]+$",
+                            )
+                        ],
+                    ),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="review_tag_assignments",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'unique_together': {('user', 'tag_slug')},
+                "unique_together": {("user", "tag_slug")},
             },
         ),
     ]

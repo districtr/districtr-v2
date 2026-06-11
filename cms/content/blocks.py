@@ -28,12 +28,16 @@ value itself is untouched until then).
 """
 
 from wagtail import blocks
+from wagtail.rich_text import expand_db_html
 
 # The full set of marks/nodes the legacy editor could produce
 # (app/src/app/components/RichTextRenderer/RichTextRenderer.tsx: StarterKit +
 # Underline + TextStyle/Color + Link + Image). There is no Draftail feature
 # for text color; converted color spans survive in the stored value but are
-# dropped if the block is re-edited in the admin.
+# dropped if the block is re-edited in the admin. "underline" is likewise NOT
+# a registered Draftail feature in Wagtail 7 — listing it only raises a
+# RuntimeWarning and renders no button, so it is omitted; converted <u> marks
+# survive in stored values the same way color spans do.
 RICH_TEXT_FEATURES = [
     "h1",
     "h2",
@@ -43,7 +47,6 @@ RICH_TEXT_FEATURES = [
     "h6",
     "bold",
     "italic",
-    "underline",
     "strikethrough",
     "ol",
     "ul",
@@ -73,6 +76,21 @@ def districtr_map_slug_choices():
     ]
 
 
+class FrontendRichTextBlock(blocks.RichTextBlock):
+    """RichTextBlock whose API representation is frontend-ready HTML.
+
+    The base block serves the raw database HTML, in which internal links and
+    images are contracted references (``<a linktype="page" id="3">``,
+    ``<embed embedtype="image" .../>``) that the Next.js frontend cannot
+    resolve. expand_db_html rewrites them into real ``href``/``<img>`` markup,
+    exactly as Wagtail template rendering would.
+    """
+
+    def get_api_representation(self, value, context=None):
+        html = super().get_api_representation(value, context=context)
+        return expand_db_html(html) if html else html
+
+
 class CompatStructBlock(blocks.StructBlock):
     """StructBlock whose API representation can null-out empty filter attrs.
 
@@ -94,7 +112,7 @@ class BoilerplateBlock(blocks.StructBlock):
     """TipTap ``boilerplateNode``: nests a ProseMirror doc under the
     ``customContent`` attr (rendered after the static About-the-data copy)."""
 
-    customContent = blocks.RichTextBlock(
+    customContent = FrontendRichTextBlock(
         required=False,
         features=RICH_TEXT_FEATURES,
         label="Custom content",
@@ -234,7 +252,7 @@ class MapCreateButtonsBlock(blocks.StructBlock):
 class ContentStreamBlock(blocks.StreamBlock):
     """Top-level body stream for tag/place pages."""
 
-    rich_text = blocks.RichTextBlock(features=RICH_TEXT_FEATURES, label="Rich text")
+    rich_text = FrontendRichTextBlock(features=RICH_TEXT_FEATURES, label="Rich text")
     boilerplate = BoilerplateBlock()
     section_header = SectionHeaderBlock()
     plan_gallery = PlanGalleryBlock()

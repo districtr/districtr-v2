@@ -18,7 +18,7 @@ export default async function AdminLayout({
   const session = await getServerSession();
 
   if (!session?.user || !session?.tokenSet?.accessToken) {
-    redirect('/auth/login?returnTo=/admin/cms');
+    redirect('/auth/login?returnTo=/admin');
   }
 
   return (

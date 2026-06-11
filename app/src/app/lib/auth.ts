@@ -14,8 +14,6 @@ export type ClientSession = {
   user?: SessionUser;
   tokenSet?: {
     accessToken: string;
-    /** Space-delimited scope claim from the access token. */
-    scope?: string;
   };
 };
 
@@ -34,8 +32,6 @@ export const getServerSession = async (): Promise<ClientSession | null> => {
       name: session.user.name,
       roles: session.user.roles ?? [],
     },
-    tokenSet: session.accessToken
-      ? {accessToken: session.accessToken, scope: session.scope}
-      : undefined,
+    tokenSet: session.accessToken ? {accessToken: session.accessToken} : undefined,
   };
 };

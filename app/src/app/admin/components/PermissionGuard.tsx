@@ -1,5 +1,6 @@
 'use client';
 import {useCmsFormStore} from '@/app/store/cmsFormStore';
+import {decodeJwtPayload} from '@/app/utils/jwt';
 import {Flex, Spinner, Text} from '@radix-ui/themes';
 
 interface PermissionGuardProps {
@@ -65,15 +66,14 @@ export default function PermissionGuard({children, requiredScope, fallback}: Per
       return 'No access token';
     }
 
-    // Parse the JWT token to check scopes (in a real app, you might want to do this server-side)
-    try {
-      const payload = JSON.parse(atob(session.tokenSet.accessToken.split('.')[1]));
-      const scopes = payload.scope ? payload.scope.split(' ') : [];
-      return scopes.includes(requiredScope) ? 'Has permission' : 'Missing permission';
-    } catch (error) {
-      console.error('Error parsing token:', error);
+    // Parse the JWT to check scopes; this is a UI gate only — the backend
+    // verifies the token signature and scopes on every request.
+    const payload = decodeJwtPayload(session.tokenSet.accessToken);
+    if (!payload) {
       return 'Error parsing token';
     }
+    const scopes = payload.scope ? payload.scope.split(' ') : [];
+    return scopes.includes(requiredScope) ? 'Has permission' : 'Missing permission';
   };
   const permissionStatus = getPermissionStatus();
   if (permissionStatus === 'Has permission') {

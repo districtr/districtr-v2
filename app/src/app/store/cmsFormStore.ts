@@ -1,5 +1,4 @@
 import {create} from 'zustand';
-import {subscribeWithSelector} from 'zustand/middleware';
 import {ClientSession} from '@/app/lib/auth';
 
 /**
@@ -13,9 +12,7 @@ export interface CmsFormStore {
   setSession: (session: CmsFormStore['session']) => void;
 }
 
-export const useCmsFormStore = create(
-  subscribeWithSelector<CmsFormStore>(set => ({
-    session: null,
-    setSession: session => set({session}),
-  }))
-);
+export const useCmsFormStore = create<CmsFormStore>(set => ({
+  session: null,
+  setSession: session => set({session}),
+}));

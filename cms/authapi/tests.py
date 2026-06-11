@@ -209,10 +209,15 @@ class TokenEndpointTests(TestCase):
         refreshed = refresh_response.json()
         refreshed_payload = fastapi_style_verify(refreshed["access"])
         self.assertEqual(refreshed_payload["scope"], payload["scope"])
-        # Rotation: a new refresh token is issued and the old one blacklists.
+        # Rotation: a new refresh token is issued, but the old one must REMAIN
+        # usable (BLACKLIST_AFTER_ROTATION=False). The Next.js frontend
+        # refreshes from both middleware and React Server Components; RSCs
+        # cannot persist the rotated cookie, so a single-use refresh token
+        # would deterministically 401 the side still holding the old token and
+        # force-log admins out every access-token lifetime.
         self.assertIn("refresh", refreshed)
         reuse = self.client.post("/api/token/refresh/", {"refresh": data["refresh"]})
-        self.assertEqual(reuse.status_code, 401)
+        self.assertEqual(reuse.status_code, 200)
 
     def test_bad_credentials_rejected(self):
         make_user("editor", email="bad@districtr.org")

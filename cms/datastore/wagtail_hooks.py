@@ -293,24 +293,52 @@ def register_datastore_admin_urls():
 # Cross-links to the legacy review pages on the Next.js frontend
 # ---------------------------------------------------------------------------
 
-# Groups whose members moderate comments/thumbnails on the frontend review
-# pages. Mirrors the frontend's own gating; the pages enforce auth themselves,
-# so this only controls menu visibility.
-REVIEW_LINK_GROUPS = ("admin", "editor", "reviewer")
+# Per-link group gates, matching the FastAPI scopes each frontend page needs
+# (authapi/scopes.py): Comment review and District comments require
+# create:content_review (admin + reviewer; editors lack it), Thumbnails
+# requires create:content (admin + editor; reviewers lack it). The pages
+# enforce auth themselves, so this only controls menu visibility — but a link
+# the user's token can only 403 on must not be shown. Partners never see any.
+COMMENT_REVIEW_GROUPS = frozenset({"admin", "reviewer"})
+THUMBNAIL_GROUPS = frozenset({"admin", "editor"})
 
 
 class ReviewSiteMenuItem(MenuItem):
-    """Top-level external link to a legacy review page on the frontend.
+    """Top-level external link to a legacy review page on the frontend,
+    shown only to superusers and members of ``groups``."""
 
-    Shown to reviewers/editors/admins (and superusers); partners never see
-    these.
-    """
+    def __init__(self, *args, groups=COMMENT_REVIEW_GROUPS, **kwargs):
+        self.groups = groups
+        super().__init__(*args, **kwargs)
 
     def is_shown(self, request):
         user = request.user
         if user.is_superuser:
             return True
-        return user.groups.filter(name__in=REVIEW_LINK_GROUPS).exists()
+        return user.groups.filter(name__in=self.groups).exists()
+
+
+class DistrictCommentsMenuItem(ReviewSiteMenuItem):
+    """District comments additionally requires unrestricted read access.
+
+    Tag-scoped reviewers (users with ReviewTagAssignment rows) have the
+    blanket read:read-all scope stripped from their tokens
+    (authapi/scopes.py), so the district-comments page always 403s for them
+    — hide the link. Admin-group members and superusers keep read:read-all
+    regardless of assignments, so they are unaffected.
+    """
+
+    def is_shown(self, request):
+        if not super().is_shown(request):
+            return False
+        user = request.user
+        if user.is_superuser or user.groups.filter(name="admin").exists():
+            return True
+        # Imported lazily: keep hook registration free of app-loading-order
+        # dependencies on authapi.
+        from authapi.models import ReviewTagAssignment
+
+        return not ReviewTagAssignment.objects.filter(user=user).exists()
 
 
 @hooks.register("register_admin_menu_item")
@@ -321,16 +349,18 @@ def register_comment_review_menu_item():
         f"{settings.FRONTEND_URL}/admin/review",
         icon_name="link-external",
         order=220,
+        groups=COMMENT_REVIEW_GROUPS,
     )
 
 
 @hooks.register("register_admin_menu_item")
 def register_district_comments_menu_item():
-    return ReviewSiteMenuItem(
+    return DistrictCommentsMenuItem(
         "District comments",
         f"{settings.FRONTEND_URL}/admin/review/district-comments",
         icon_name="link-external",
         order=230,
+        groups=COMMENT_REVIEW_GROUPS,
     )
 
 
@@ -341,4 +371,5 @@ def register_site_thumbnails_menu_item():
         f"{settings.FRONTEND_URL}/admin/thumbnails",
         icon_name="link-external",
         order=240,
+        groups=THUMBNAIL_GROUPS,
     )

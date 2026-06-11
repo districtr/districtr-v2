@@ -132,13 +132,6 @@ export interface CMSGallery {
   entries: CMSGalleryEntry[];
 }
 
-export interface CMSGalleryListItem {
-  slug: string;
-  title: string;
-  section: GallerySection;
-  entry_count: number;
-}
-
 /**
  * Fetch a single live CMS page by slug. The CMS falls back to English when the
  * requested language has no live page; returns null on 404 (no live page at all).
@@ -164,13 +157,22 @@ export const getCMSContent = async <T extends CmsContentTypes>(
 
 /**
  * Fetch a single live (published) curated plan gallery by slug. Returns null on
- * 404 (no live gallery) and on 403 (group_only gallery, no/invalid token —
- * this anonymous client never sends one).
+ * 404 (no live gallery) and on 403 (group_only gallery, no/insufficient token).
+ * Pass `accessToken` to authenticate for group_only galleries; authorized
+ * responses are fetched with no-store so they never enter a shared cache.
  */
-export const getGallery = async (slug: string): Promise<CMSGallery | null> => {
+export const getGallery = async (
+  slug: string,
+  accessToken?: string
+): Promise<CMSGallery | null> => {
   const url = `${CMS_API_URL}/api/galleries/${slug}`;
   try {
-    const response = await fetch(url);
+    const response = await fetch(
+      url,
+      accessToken
+        ? {headers: {Authorization: `Bearer ${accessToken}`}, cache: 'no-store'}
+        : undefined
+    );
     if (!response.ok) {
       console.error(`Failed to fetch CMS gallery (${response.status}): ${url}`);
       return null;
@@ -183,38 +185,16 @@ export const getGallery = async (slug: string): Promise<CMSGallery | null> => {
 };
 
 /**
- * List live public curated plan galleries, optionally filtered by section.
- * group_only galleries never appear here.
- */
-export const listGalleries = async (
-  section?: GallerySection
-): Promise<CMSGalleryListItem[] | null> => {
-  const searchParams = new URLSearchParams();
-  if (section) searchParams.set('section', section);
-  const url = `${CMS_API_URL}/api/galleries/?${searchParams.toString()}`;
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      console.error(`Failed to list CMS galleries (${response.status}): ${url}`);
-      return null;
-    }
-    return (await response.json()) as CMSGalleryListItem[];
-  } catch (error) {
-    console.error(error);
-    return null;
-  }
-};
-
-/**
- * List live CMS pages of a given type. Returns only pages live in the requested
- * language (English is the canonical language for all content).
+ * List live CMS pages of a given type. When `language` is provided, returns
+ * only pages live in that language; when omitted, the CMS returns pages across
+ * ALL languages (consumers dedupe by slug where needed).
  */
 export const listCMSContent = async (
   type: CmsContentTypes,
   params: {language?: string; offset?: number; limit?: number} = {}
 ): Promise<CMSContentListItem[] | null> => {
   const searchParams = new URLSearchParams();
-  searchParams.set('language', params.language ?? 'en');
+  if (params.language) searchParams.set('language', params.language);
   if (params.offset !== undefined) searchParams.set('offset', String(params.offset));
   if (params.limit !== undefined) searchParams.set('limit', String(params.limit));
   const url = `${CMS_API_URL}/api/content/${type}/list?${searchParams.toString()}`;

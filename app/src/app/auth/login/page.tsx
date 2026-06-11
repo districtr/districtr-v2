@@ -2,6 +2,7 @@ import type {Metadata} from 'next';
 import {redirect} from 'next/navigation';
 import {Box, Button, Card, Flex, Heading, Text, TextField} from '@radix-ui/themes';
 import {getServerSession} from '@/app/lib/auth';
+import {sanitizeReturnTo} from '@/app/utils/sanitizeReturnTo';
 import {loginAction} from './actions';
 
 export const metadata: Metadata = {
@@ -15,10 +16,7 @@ export default async function LoginPage({
   searchParams: Promise<{returnTo?: string; error?: string}>;
 }) {
   const params = await searchParams;
-  const returnTo =
-    params.returnTo && params.returnTo.startsWith('/') && !params.returnTo.startsWith('//')
-      ? params.returnTo
-      : '/admin';
+  const returnTo = sanitizeReturnTo(params.returnTo);
 
   // Already signed in — go straight to the destination
   const session = await getServerSession();

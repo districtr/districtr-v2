@@ -12,11 +12,14 @@ import io
 import json
 import uuid
 
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.core.management import call_command as django_call_command
 from django.core.management.base import CommandError
 from django.db import connection
 from django.test import SimpleTestCase, TestCase
 from wagtail.models import Locale, Page, Revision, Site
+from wagtail.permission_policies.pages import PagePermissionPolicy
 
 from content.models import PlacePage, PlacesIndexPage, TagPage, TagsIndexPage
 from content.tiptap import (
@@ -374,6 +377,61 @@ class TiptapToStreamDataTests(SimpleTestCase):
 
 
 # ---------------------------------------------------------------------------
+# Page permission grants (content.0002 data migration)
+# ---------------------------------------------------------------------------
+
+
+class PagePermissionGrantTests(TestCase):
+    """Wagtail's PagePermissionPolicy ignores Django model permissions — it
+    only looks at tree-scoped GroupPagePermission rows. The content.0002 data
+    migration grants them on the root page for editor/admin; without those
+    rows the Pages explorer is hidden entirely and editors cannot edit ANY
+    content pages."""
+
+    @staticmethod
+    def user_in_group(group_name):
+        user = get_user_model().objects.create_user(
+            username=f"{group_name}@districtr.org",
+            email=f"{group_name}@districtr.org",
+            password="correct-horse-battery-staple",
+        )
+        user.groups.add(Group.objects.get(name=group_name))
+        return user
+
+    def test_editor_passes_page_permission_checks(self):
+        user = self.user_in_group("editor")
+        policy = PagePermissionPolicy()
+        for action in ("add", "change", "publish"):
+            self.assertTrue(
+                policy.user_has_permission(user, action),
+                f"editor should have '{action}' page permission",
+            )
+        root = Page.get_first_root_node()
+        perms = root.permissions_for_user(user)
+        self.assertTrue(perms.can_add_subpage())
+
+    def test_admin_passes_page_permission_checks(self):
+        user = self.user_in_group("admin")
+        policy = PagePermissionPolicy()
+        for action in ("add", "change", "publish", "unlock"):
+            self.assertTrue(
+                policy.user_has_permission(user, action),
+                f"admin should have '{action}' page permission",
+            )
+
+    def test_partner_lacks_page_permissions(self):
+        user = self.user_in_group("partner")
+        policy = PagePermissionPolicy()
+        for action in ("add", "change", "publish"):
+            self.assertFalse(
+                policy.user_has_permission(user, action),
+                f"partner should NOT have '{action}' page permission",
+            )
+        root = Page.get_first_root_node()
+        self.assertFalse(root.permissions_for_user(user).can_add_subpage())
+
+
+# ---------------------------------------------------------------------------
 # Public compat API
 # ---------------------------------------------------------------------------
 
@@ -492,6 +550,44 @@ class ContentApiTests(TestCase):
         response = self.client.get("/api/content/nope/slug/fair-maps")
         self.assertEqual(response.status_code, 404)
 
+    def test_rich_text_internal_links_expanded_in_api(self):
+        # Stored rich text keeps Wagtail's contracted reference form
+        # (<a linktype="page" id="N">). The public API must serve expanded,
+        # frontend-ready HTML (real href, no linktype/embedtype attributes) —
+        # the Next.js frontend renders it verbatim.
+        target = TagPage(title="Target", slug="link-target")
+        self.tags_index.add_child(instance=target)
+        target.save_revision(clean=False).publish()
+
+        linker = TagPage(
+            title="Linker",
+            slug="linker",
+            body=[
+                {
+                    "type": "rich_text",
+                    "value": f'<p><a linktype="page" id="{target.pk}">go</a></p>',
+                },
+                {
+                    "type": "boilerplate",
+                    "value": {
+                        "customContent": (
+                            f'<p><a linktype="page" id="{target.pk}">also</a></p>'
+                        )
+                    },
+                },
+            ],
+        )
+        self.tags_index.add_child(instance=linker)
+        linker.save_revision(clean=False).publish()
+
+        payload = self.client.get("/api/content/tags/slug/linker").json()
+        body = payload["content"]["body"]
+        self.assertNotIn("linktype=", json.dumps(body))
+        self.assertIn(f'<a href="{target.url}">go</a>', body[0]["value"])
+        self.assertIn(
+            f'<a href="{target.url}">also</a>', body[1]["value"]["customContent"]
+        )
+
     def test_list_endpoint(self):
         response = self.client.get("/api/content/tags/list")
         self.assertEqual(response.status_code, 200)
@@ -513,6 +609,21 @@ class ContentApiTests(TestCase):
                 },
             ],
         )
+
+    def test_list_includes_non_english_only_pages_without_language_param(self):
+        # A slug whose ONLY live page is non-English must still appear in the
+        # unfiltered list: without a language param the endpoint serves live
+        # pages across ALL languages (no implicit English filter).
+        es_index = self.tags_index.get_translation(self.es)
+        solo = TagPage(title="Solo Español", slug="solo-es", locale=self.es)
+        es_index.add_child(instance=solo)
+        solo.save_revision(clean=False).publish()
+
+        rows = self.client.get("/api/content/tags/list").json()
+        self.assertIn(("solo-es", "es"), [(r["slug"], r["language"]) for r in rows])
+        # ... and explicit filtering still excludes it.
+        en_rows = self.client.get("/api/content/tags/list?language=en").json()
+        self.assertNotIn("solo-es", [r["slug"] for r in en_rows])
 
     def test_list_language_filter(self):
         rows = self.client.get("/api/content/tags/list?language=es").json()

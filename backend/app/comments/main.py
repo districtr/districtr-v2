@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from fastapi import (
     APIRouter,
     Depends,
@@ -544,6 +546,13 @@ async def submit_full_comment(
 # -----------------------------
 # Review tag scoping
 # -----------------------------
+#
+# Any new endpoint gated on the review_content scope MUST take
+# `Depends(review_auth)` rather than calling Security(auth.verify, ...) and
+# allowed_review_tags separately: the dependency guarantees the tag
+# restriction is delivered to every reviewer endpoint. How the restriction is
+# applied (intersection filter, blanket 403, per-content-type checks) stays a
+# per-handler policy.
 
 
 def allowed_review_tags(auth_result: dict) -> list[str] | None:
@@ -567,6 +576,30 @@ def allowed_review_tags(auth_result: dict) -> list[str] | None:
     if review_tags is None:
         return None
     return [str(tag) for tag in review_tags]
+
+
+@dataclass
+class ReviewAuthContext:
+    """Verified review_content token plus its tag restriction, if any."""
+
+    payload: dict
+    allowed_tags: list[str] | None
+
+
+async def review_auth(
+    auth_result: dict = Security(auth.verify, scopes=[TokenScope.review_content]),
+) -> ReviewAuthContext:
+    """Auth dependency for ALL review_content-scoped endpoints.
+
+    Bundles scope verification with parsing of the `review_tags` claim so a
+    handler cannot accidentally enforce the scope but skip the tag
+    restriction. Tests that override app.dependency_overrides[auth.verify]
+    keep working: this dependency chains through auth.verify.
+    """
+    return ReviewAuthContext(
+        payload=auth_result,
+        allowed_tags=allowed_review_tags(auth_result),
+    )
 
 
 def apply_allowed_tags_filter(stmt: Select, allowed_tags: list[str]) -> Select:
@@ -1061,7 +1094,7 @@ async def list_comments_admin(
     offset: int = Query(default=0),
     limit: int = Query(default=100),
     session: Session = Depends(get_session),
-    auth_result: dict = Security(auth.verify, scopes=[TokenScope.review_content]),
+    review_ctx: ReviewAuthContext = Depends(review_auth),
     review_status: ReviewStatus = Query(default=None),
 ):
     # Tag-scoped reviewers (see allowed_review_tags): requested tags are
@@ -1069,7 +1102,7 @@ async def list_comments_admin(
     # scope short-circuits to [] — and every result must carry at least one
     # allowed tag (apply_allowed_tags_filter below), so untagged comments
     # stay invisible to restricted reviewers.
-    allowed_tags = allowed_review_tags(auth_result)
+    allowed_tags = review_ctx.allowed_tags
     if allowed_tags is not None and tags:
         tags = [tag for tag in tags if tag in allowed_tags]
         if not tags:
@@ -1119,7 +1152,7 @@ async def list_district_comments_admin(
     offset: int = Query(default=0),
     limit: int = Query(default=100),
     session: Session = Depends(get_session),
-    auth_result: dict = Security(auth.verify, scopes=[TokenScope.review_content]),
+    review_ctx: ReviewAuthContext = Depends(review_auth),
     review_status: ReviewStatus = Query(default=None),
 ):
     """List district-level comments for moderation. Filter by document_id, public_id, or comment_id."""
@@ -1128,7 +1161,7 @@ async def list_district_comments_admin(
     # tag filtering, so there is nothing for a tag scope to match against.
     # Tag-scoped reviewers are therefore refused outright — simpler and safe,
     # rather than silently returning everything or nothing.
-    if allowed_review_tags(auth_result) is not None:
+    if review_ctx.allowed_tags is not None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=(
@@ -1181,7 +1214,7 @@ async def flag_comment(
 async def review_comment(
     review_data: ReviewStatusUpdate,
     session: Session = Depends(get_session),
-    auth_result: dict = Security(auth.verify, scopes=[TokenScope.review_content]),
+    review_ctx: ReviewAuthContext = Depends(review_auth),
 ):
     model = {
         "comment": Comment,
@@ -1198,7 +1231,7 @@ async def review_comment(
     # - tag: the tag itself must be allowed;
     # - comment: the comment must carry at least one allowed tag;
     # - commenter: never — commenters span tags, so they are not tag-scoped.
-    allowed_tags = allowed_review_tags(auth_result)
+    allowed_tags = review_ctx.allowed_tags
     if allowed_tags is not None:
         if review_data.content_type == "commenter":
             raise HTTPException(

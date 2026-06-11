@@ -114,7 +114,12 @@ def content_detail(request, content_type, slug):
 
 @require_GET
 def content_list(request, content_type):
-    """GET /api/content/<type>/list?language=xx&offset=n&limit=n"""
+    """GET /api/content/<type>/list?language=xx&offset=n&limit=n
+
+    Without a ``language`` param the list spans ALL languages — a slug whose
+    only live page is non-English must not vanish from the listing. Passing
+    ``language=xx`` filters to exactly that language (no English fallback).
+    """
     model = CONTENT_TYPE_PAGES.get(content_type)
     if model is None:
         return _json({"detail": f"Unknown content type '{content_type}'"}, status=404)

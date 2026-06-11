@@ -3,12 +3,7 @@
 import {AuthError} from 'next-auth';
 import {redirect} from 'next/navigation';
 import {signIn} from '@/auth';
-
-/** Only allow same-origin relative redirect targets. */
-const sanitizeReturnTo = (returnTo: FormDataEntryValue | null): string =>
-  typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.startsWith('//')
-    ? returnTo
-    : '/admin';
+import {sanitizeReturnTo} from '@/app/utils/sanitizeReturnTo';
 
 export async function loginAction(formData: FormData): Promise<void> {
   const returnTo = sanitizeReturnTo(formData.get('returnTo'));

@@ -217,7 +217,15 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=10),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=14),
     "ROTATE_REFRESH_TOKENS": True,
-    "BLACKLIST_AFTER_ROTATION": True,
+    # Refresh tokens MUST stay multi-use. The Next.js frontend refreshes from
+    # both middleware and React Server Components; RSCs cannot persist the
+    # rotated cookie, so single-use refresh tokens (blacklist-after-rotation)
+    # deterministically brick admin sessions: the middleware/RSC double
+    # refresh blacklists the token one side still holds and the next refresh
+    # 401s, force-logging admins out every ACCESS_TOKEN_LIFETIME. Trade-off:
+    # an old refresh token stays valid until its own 14-day exp. The
+    # token_blacklist app stays installed for outstanding-token bookkeeping.
+    "BLACKLIST_AFTER_ROTATION": False,
     "AUTH_TOKEN_CLASSES": ("authapi.tokens.KidAccessToken",),
     "UPDATE_LAST_LOGIN": True,
 }

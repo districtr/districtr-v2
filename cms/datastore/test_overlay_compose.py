@@ -19,6 +19,7 @@ from django.db import connection
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
+from authapi.models import ReviewTagAssignment
 from authapi.tests import fastapi_style_verify
 from datastore import services, wagtail_hooks
 from datastore.forms import MAX_OVERLAY_BYTES, ComposeMapForm, OverlayUploadForm
@@ -666,14 +667,42 @@ class ReviewSiteMenuItemTests(TestCase):
         # Galleries sits at 210; the cross-links follow it.
         self.assertEqual([item.order for item in self.items()], [220, 230, 240])
 
-    def test_shown_for_reviewer_editor_and_admin(self):
-        for group in ("reviewer", "editor", "admin"):
+    def test_visibility_matches_group_scopes(self):
+        # Per-link gates mirror the FastAPI scopes each page needs:
+        # Comment review / District comments need create:content_review
+        # (admin + reviewer), Thumbnails needs create:content (admin +
+        # editor). A link that can only 403 must not be shown.
+        expected = {
+            "admin": {"Comment review", "District comments", "Thumbnails (site)"},
+            "reviewer": {"Comment review", "District comments"},
+            "editor": {"Thumbnails (site)"},
+        }
+        for group, visible_labels in expected.items():
             user = make_admin_user(email=f"{group}@districtr.org", group_name=group)
-            for item in self.items():
-                self.assertTrue(
-                    item.is_shown(self.request_for(user)),
-                    f"{item.label} hidden for {group}",
-                )
+            request = self.request_for(user)
+            shown = {item.label for item in self.items() if item.is_shown(request)}
+            self.assertEqual(shown, visible_labels, f"wrong menu links for {group}")
+
+    def test_tag_scoped_reviewer_loses_district_comments_only(self):
+        # ReviewTagAssignment strips read:read-all from the reviewer's token
+        # (authapi/scopes.py), so the district-comments page always 403s for
+        # them — the link must disappear while Comment review stays.
+        user = make_admin_user(email="scoped@districtr.org", group_name="reviewer")
+        ReviewTagAssignment.objects.create(user=user, tag_slug="schools")
+        request = self.request_for(user)
+        shown = {item.label for item in self.items() if item.is_shown(request)}
+        self.assertEqual(shown, {"Comment review"})
+
+    def test_admin_with_assignments_keeps_district_comments(self):
+        # Admin-group members keep read:read-all despite assignments
+        # (scopes_for_user), so the link stays.
+        user = make_admin_user(email="adminscoped@districtr.org", group_name="admin")
+        ReviewTagAssignment.objects.create(user=user, tag_slug="schools")
+        request = self.request_for(user)
+        shown = {item.label for item in self.items() if item.is_shown(request)}
+        self.assertEqual(
+            shown, {"Comment review", "District comments", "Thumbnails (site)"}
+        )
 
     def test_shown_for_superuser_without_groups(self):
         user = get_user_model().objects.create_superuser(

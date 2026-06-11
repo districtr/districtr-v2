@@ -19,14 +19,12 @@ export const proxy = auth(request => {
 });
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico, sitemap.xml, robots.txt (metadata files)
-     * - api (API routes)
-     */
-    '/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|api).*)',
-  ],
+  /*
+   * Only run the auth() middleware where the session is actually used: /admin
+   * is the only gated surface (the logic above only checks /admin). Running
+   * auth() on every public page would invoke the jwt callback — and a token
+   * refresh — on anonymous traffic for no benefit; the /auth routes are route
+   * handlers and do not depend on middleware.
+   */
+  matcher: ['/admin/:path*'],
 };
