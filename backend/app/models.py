@@ -475,33 +475,50 @@ class MapGroup(SQLModel, table=True):
 
 class DistrictrMapsToGroups(SQLModel, table=True):
     __tablename__ = "districtrmaps_to_groups"
+    # Surrogate PK so external admin tooling (Django/Wagtail) can edit rows;
+    # the (districtrmap_uuid, group_slug) pair remains unique.
+    id: int | None = Field(default=None, primary_key=True)
     districtrmap_uuid: str = Field(
-        sa_column=Column(UUIDType, ForeignKey("districtrmap.uuid"), primary_key=True)
+        sa_column=Column(UUIDType, ForeignKey("districtrmap.uuid"), nullable=False)
     )
     group_slug: str = Field(
         sa_column=Column(
             String,
             ForeignKey("map_group.slug"),
-            primary_key=True,
+            nullable=False,
         )
+    )
+    __table_args__ = (
+        UniqueConstraint("districtrmap_uuid", "group_slug", name="group_map_unique"),
     )
 
 
 class DistrictrMapOverlays(SQLModel, table=True):
     __tablename__ = "districtrmap_overlays"
+    # Surrogate PK so external admin tooling (Django/Wagtail) can edit rows;
+    # the (districtr_map_id, overlay_id) pair remains unique.
+    id: int | None = Field(default=None, primary_key=True)
     districtr_map_id: str = Field(
         sa_column=Column(
             UUIDType,
             ForeignKey("districtrmap.uuid", ondelete="CASCADE"),
-            primary_key=True,
+            nullable=False,
         )
     )
     overlay_id: str = Field(
         sa_column=Column(
             UUIDType,
             ForeignKey("overlay.overlay_id", ondelete="CASCADE"),
-            primary_key=True,
+            nullable=False,
         )
+    )
+    __table_args__ = (
+        UniqueConstraint(
+            "districtr_map_id", "overlay_id", name="districtrmap_overlays_unique"
+        ),
+        # Created by migration 24137793FE9B; declared here so autogenerate
+        # doesn't propose dropping it.
+        Index("idx_districtrmap_overlays_overlay_id", "overlay_id"),
     )
 
 

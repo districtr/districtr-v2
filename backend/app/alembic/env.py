@@ -74,8 +74,7 @@ def get_url():
 
 
 def include_object(object, name, type_, reflected, compare_to):
-    print(object, name, type_, reflected, compare_to)
-    if hasattr(object, "schema") and object.schema == "gerrydb":
+    if hasattr(object, "schema") and object.schema in ("gerrydb", "admin"):
         return False
 
     if name and (
@@ -84,6 +83,13 @@ def include_object(object, name, type_, reflected, compare_to):
         or re.match(r"document.community_assignments_.+", name)
         or re.match(r"parentchildedges_.+", name)
         or re.match(r".*_districtr_view+", name)
+        # Tables owned by the Django/Wagtail CMS app (cms/). They normally live
+        # in the `admin` schema, but guard by prefix too in case search_path
+        # ever places them in public.
+        or re.match(
+            r"^(django_|auth_|wagtail|taggit_|token_blacklist_|authapi_|datastore_|content_|galleries_)",
+            name,
+        )
         # For whatever reason alembic fails to recognize it already exists
         or name == "document_geo_id_unique"
     ):
