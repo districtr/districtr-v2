@@ -24,6 +24,8 @@ urlpatterns = [
     ),
     # Public content compat API (replaces the legacy FastAPI /api/cms/content).
     path("api/content/", include("content.urls")),
+    # Public curated plan galleries (new capability — no legacy equivalent).
+    path("api/galleries/", include("galleries.urls")),
     path("django-admin/", admin.site.urls),
     path("admin/", include(wagtailadmin_urls)),
     path("documents/", include(wagtaildocs_urls)),

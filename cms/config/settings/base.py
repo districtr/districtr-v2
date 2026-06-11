@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     "authapi",
     "datastore",
     "content",
+    "galleries",
     "wagtail_localize",
     "wagtail_localize.locales",
     "wagtail.contrib.forms",

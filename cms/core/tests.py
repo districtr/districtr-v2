@@ -42,9 +42,7 @@ class PasswordResetEmailTests(TestCase):
         self.assertIn("Hi Ada", body)
         self.assertIn("Set your password", body)
         # Wagtail's reset-confirm view, on the admin host.
-        self.assertIn(
-            "https://cms.districtr.org/admin/password_reset/confirm/", body
-        )
+        self.assertIn("https://cms.districtr.org/admin/password_reset/confirm/", body)
         self.assertIn("https://cms.districtr.org/admin/login/", body)
         self.assertIn("expires", body)
         self.assertIn("ada@districtr.org", body)
