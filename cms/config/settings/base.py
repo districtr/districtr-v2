@@ -10,6 +10,7 @@ backend/app/alembic/env.py is the other half of this contract.
 """
 
 import os
+from datetime import timedelta
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -18,12 +19,11 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
 
 DEBUG = False
 
-ALLOWED_HOSTS = [
-    h for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",") if h
-]
+ALLOWED_HOSTS = [h for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",") if h]
 
 INSTALLED_APPS = [
     "core",
+    "authapi",
     "wagtail_localize",
     "wagtail_localize.locales",
     "wagtail.contrib.forms",
@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "modelcluster",
     "taggit",
     "rest_framework",
+    "rest_framework_simplejwt.token_blacklist",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -152,9 +153,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Wagtail
 WAGTAIL_SITE_NAME = "Districtr CMS"
-WAGTAILADMIN_BASE_URL = os.environ.get(
-    "WAGTAILADMIN_BASE_URL", "http://localhost:8001"
-)
+WAGTAILADMIN_BASE_URL = os.environ.get("WAGTAILADMIN_BASE_URL", "http://localhost:8001")
 WAGTAILSEARCH_BACKENDS = {
     "default": {
         "BACKEND": "wagtail.search.backends.database",
@@ -162,3 +161,42 @@ WAGTAILSEARCH_BACKENDS = {
 }
 
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "noreply@districtr.org")
+
+
+# JWT issuance. This service replaces Auth0 as the token issuer for both the
+# Next.js frontend (login/refresh) and the FastAPI backend (verification via
+# the /.well-known/jwks.json endpoint + the space-delimited `scope` claim).
+def _pem_from_env(name: str) -> str:
+    """PEMs arrive via env/secrets; tolerate literal \\n escapes."""
+    value = os.environ.get(name, "")
+    return value.replace("\\n", "\n")
+
+
+JWT_SIGNING_KEY = _pem_from_env("JWT_SIGNING_KEY")
+JWT_VERIFYING_KEY = _pem_from_env("JWT_VERIFYING_KEY")
+# During key rotation: serve the incoming public key alongside the active one.
+JWT_NEXT_VERIFYING_KEY = _pem_from_env("JWT_NEXT_VERIFYING_KEY")
+
+JWT_ISSUER = os.environ.get("JWT_ISSUER", WAGTAILADMIN_BASE_URL)
+JWT_AUDIENCE = os.environ.get("JWT_AUDIENCE", "http://localhost:8000/")
+
+SIMPLE_JWT = {
+    "ALGORITHM": "RS256",
+    "SIGNING_KEY": JWT_SIGNING_KEY,
+    "VERIFYING_KEY": JWT_VERIFYING_KEY,
+    "ISSUER": JWT_ISSUER,
+    "AUDIENCE": JWT_AUDIENCE,
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=10),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=14),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "AUTH_TOKEN_CLASSES": ("authapi.tokens.KidAccessToken",),
+    "UPDATE_LAST_LOGIN": True,
+}
+
+REST_FRAMEWORK = {
+    "DEFAULT_THROTTLE_RATES": {
+        # Brute-force guard on /api/token/
+        "login": "10/min",
+    },
+}

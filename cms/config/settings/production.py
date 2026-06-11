@@ -8,7 +8,9 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
 CSRF_TRUSTED_ORIGINS = [
-    o for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o  # noqa: F405
+    o
+    for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
+    if o  # noqa: F405
 ]
 
 # Media on S3 / Cloudflare R2. Mirrors backend/app/core/config.py
