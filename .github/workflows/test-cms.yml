@@ -5,6 +5,9 @@ on:
     paths:
       - "cms/**"
       - ".github/workflows/test-cms.yml"
+      # The datastore mirror drift check depends on the backend schema:
+      - "backend/app/models.py"
+      - "backend/app/alembic/**"
 
 jobs:
   container-job:
@@ -62,4 +65,37 @@ jobs:
 
       - name: Run tests
         run: python manage.py test
+        working-directory: cms
+
+      # Drift guard: datastore mirrors the Alembic-owned `public` tables with
+      # managed=False models. Run the backend's migrations against the same
+      # database, then verify the mirrors still match the live schema.
+      - name: Install backend dependencies (for Alembic)
+        run: |
+          pip install -r requirements.txt --no-cache-dir
+        working-directory: backend
+
+      - name: Run backend (Alembic) migrations
+        run: alembic upgrade head
+        working-directory: backend
+        env:
+          DOMAIN: postgres
+          ENVIRONMENT: test
+          PROJECT_NAME: Districtr v2 backend
+          BACKEND_CORS_ORIGINS: "http://localhost,http://localhost:5173"
+          SECRET_KEY: mysupersecretkey
+          DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/postgres
+          POSTGRES_SCHEME: postgresql+psycopg
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+          POSTGRES_SERVER: postgres
+          POSTGRES_PORT: 5432
+          AUTH_JWKS_URL: http://localhost:8001/.well-known/jwks.json
+          AUTH_AUDIENCE: http://localhost:8000/
+          AUTH_ISSUER: http://localhost:8001
+          AUTH_ALGORITHMS: RS256
+
+      - name: Check mirror drift
+        run: python manage.py check_mirror_drift
         working-directory: cms

@@ -222,4 +222,3 @@ def test_missing_token_rejected(verifier):
 
     with pytest.raises(UnauthenticatedException):
         anyio.run(_go)
-
