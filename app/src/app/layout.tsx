@@ -2,6 +2,7 @@ import type {Metadata} from 'next';
 import {Nunito} from 'next/font/google';
 import {Theme} from '@radix-ui/themes';
 import {FeedbackForm} from './components/FeedbackForm';
+import {VersionCheck} from './components/VersionCheck';
 import '@radix-ui/themes/styles.css';
 import './globals.css';
 
@@ -55,6 +56,7 @@ export default function RootLayout({
         <Theme accentColor="indigo" grayColor="gray" radius="large" scaling="95%">
           <main>{children}</main>
           <FeedbackForm />
+          <VersionCheck />
         </Theme>
       </body>
     </html>
