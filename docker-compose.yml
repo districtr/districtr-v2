@@ -24,7 +24,15 @@ services:
       - "8000:8000"
 
   db:
-    image: postgis/postgis:15-3.3-alpine
+    # PostGIS >= 3.4 and GEOS >= 3.12 are required for ST_CoverageUnion (used by the
+    # /stats district-union query). The alpine images ship a modern GEOS
+    # (15-3.5-alpine -> PostGIS 3.5 / GEOS 3.14); the Debian images lag (GEOS 3.9).
+    # These tags are amd64-only manifest lists, so pin the platform for Apple Silicon
+    # (runs under emulation, same as the previous image). After bumping, recreate the
+    # volume (`docker compose down -v`) or run `ALTER EXTENSION postgis UPDATE` so the
+    # installed extension matches the new image.
+    image: postgis/postgis:15-3.5-alpine
+    platform: linux/amd64
     container_name: postgres_db
     environment:
       POSTGRES_USER: postgres

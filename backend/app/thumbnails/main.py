@@ -24,6 +24,13 @@ logger = logging.getLogger(__name__)
 
 THUMBNAIL_BUCKET = settings.R2_BUCKET_NAME
 
+# Document-thumbnail render resolution. figsize is in inches; multiplied by dpi to
+# get the pixel dimensions. Now that thumbnails render precomputed district_unions
+# geometry (fast), we can afford a higher default resolution than the old 2.8in/100dpi
+# (280px) preview without slowing generation meaningfully.
+THUMBNAIL_FIGSIZE = (5.6, 5.6)
+THUMBNAIL_DPI = 200
+
 DISTRICT_COLORS = [
     "#0099cd",
     "#ffca5d",
@@ -192,10 +199,10 @@ def _generate_thumbnail(
 
     gdf["color"] = gdf.apply(lambda row: coloration(row), axis=1)
 
-    geoplt = gdf.plot(figsize=(2.8, 2.8), color=gdf["color"])
+    geoplt = gdf.plot(figsize=THUMBNAIL_FIGSIZE, color=gdf["color"])
     geoplt.set_axis_off()
     pic_IObytes = io.BytesIO()
-    geoplt.figure.savefig(pic_IObytes, format="png")
+    geoplt.figure.savefig(pic_IObytes, format="png", dpi=THUMBNAIL_DPI)
     plt.close(geoplt.figure)
     pic_IObytes.seek(0)
 
