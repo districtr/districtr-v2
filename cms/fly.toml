@@ -1,0 +1,37 @@
+# fly.toml app configuration file for the Districtr CMS (Wagtail)
+#
+# See https://fly.io/docs/reference/configuration/ for details.
+
+app = 'districtr-v2-cms'
+primary_region = 'ewr'
+
+[env]
+  DJANGO_SETTINGS_MODULE = 'config.settings.production'
+  DJANGO_ALLOWED_HOSTS = 'districtr-v2-cms.fly.dev'
+  DJANGO_CSRF_TRUSTED_ORIGINS = 'https://districtr-v2-cms.fly.dev'
+  WAGTAILADMIN_BASE_URL = 'https://districtr-v2-cms.fly.dev'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  # This service is the auth issuer (JWKS + token endpoints): keep one
+  # machine warm so logins never wait on a cold start.
+  min_machines_running = 1
+  processes = ['app']
+
+  [[http_service.checks]]
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '15s'
+    method = 'GET'
+    path = '/health'
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
+
+[deploy]
+  release_command = "bash -c 'python manage.py bootstrap_schema && python manage.py migrate --noinput'"

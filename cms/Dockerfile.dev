@@ -1,0 +1,14 @@
+# Dev image for the Districtr CMS (Wagtail); used by docker-compose.
+FROM python:3.12.7
+
+ENV PYTHONUNBUFFERED=1 \
+    DJANGO_SETTINGS_MODULE=config.settings.dev
+
+WORKDIR /districtr-cms
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

@@ -82,8 +82,12 @@ pipelines/build_client_rects/output/*
 data/**/*
 backend/.env.docker
 app/.env.docker
+cms/.env.docker
+cms/staticfiles/
+cms/media/
 !pre-commit/Dockerfile.dev
 !pipelines/Dockerfile.dev
+!cms/Dockerfile.dev
 pipelines/districtr_pipelines.egg*
 docker-compose.override.yml
 app/.env.docker

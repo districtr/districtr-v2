@@ -1,0 +1,65 @@
+name: Test CMS
+
+on:
+  push:
+    paths:
+      - "cms/**"
+      - ".github/workflows/test-cms.yml"
+
+jobs:
+  container-job:
+    runs-on: ubuntu-latest
+
+    container: python:3.12.6
+
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      DJANGO_SECRET_KEY: test-only-secret-key
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_SERVER: postgres
+      POSTGRES_PORT: 5432
+
+    steps:
+      - name: Checkout repo code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt --no-cache-dir
+        working-directory: cms
+
+      - name: Django system checks
+        run: python manage.py check
+        working-directory: cms
+
+      - name: Bootstrap schema and migrate
+        run: |
+          python manage.py bootstrap_schema
+          python manage.py migrate --noinput
+        working-directory: cms
+
+      - name: Check for missing migrations
+        run: python manage.py makemigrations --check --dry-run
+        working-directory: cms
+
+      - name: Run tests
+        run: python manage.py test
+        working-directory: cms
