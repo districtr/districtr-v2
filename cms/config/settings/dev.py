@@ -1,10 +1,10 @@
+import os
+
 from .base import *  # noqa: F403
 
 DEBUG = True
 
-SECRET_KEY = os.environ.get(  # noqa: F405
-    "DJANGO_SECRET_KEY", "django-insecure-dev-only-key"
-)
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-dev-only-key")
 
 ALLOWED_HOSTS = ["*"]
 

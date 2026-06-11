@@ -1,3 +1,5 @@
+import os
+
 from .base import *  # noqa: F403
 
 DEBUG = False
@@ -8,16 +10,14 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
 CSRF_TRUSTED_ORIGINS = [
-    o
-    for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
-    if o  # noqa: F405
+    o for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o
 ]
 
 # Media on S3 / Cloudflare R2. Mirrors backend/app/core/config.py
 # get_s3_client(): when ACCOUNT_ID is set, storage is Cloudflare R2; otherwise
 # plain AWS S3 (optionally with a custom AWS_S3_ENDPOINT).
-_account_id = os.environ.get("ACCOUNT_ID")  # noqa: F405
-_bucket = os.environ.get("R2_BUCKET_NAME") or os.environ.get("AWS_S3_BUCKET")  # noqa: F405
+_account_id = os.environ.get("ACCOUNT_ID")
+_bucket = os.environ.get("R2_BUCKET_NAME") or os.environ.get("AWS_S3_BUCKET")
 if _bucket:
     STORAGES["default"] = {  # noqa: F405
         "BACKEND": "storages.backends.s3.S3Storage",
