@@ -22,6 +22,7 @@ from authapi import scopes as auth_scopes
 from authapi.tokens import KidAccessToken
 
 GPKG_UPLOAD_PREFIX = "gerrydb-uploads"
+OVERLAY_UPLOAD_PREFIX = "overlays"
 
 REQUEST_TIMEOUT_SECONDS = 30
 
@@ -75,6 +76,25 @@ def upload_gpkg(file_obj, key: str) -> str:
     return f"s3://{bucket}/{full_key}"
 
 
+def upload_overlay(file_obj, key: str) -> str:
+    """Stream an overlay file to the bucket; returns its public source URL.
+
+    The URL stored on Overlay.source is built from OVERLAY_PUBLIC_URL_BASE
+    (the CDN fronting the bucket) when configured; otherwise it falls back
+    to the raw s3://bucket/key path.
+    """
+    bucket = settings.GPKG_BUCKET
+    if not bucket:
+        raise ImproperlyConfigured(
+            "No upload bucket configured (set R2_BUCKET_NAME or AWS_S3_BUCKET)"
+        )
+    full_key = f"{OVERLAY_UPLOAD_PREFIX}/{key}"
+    get_s3_client().upload_fileobj(file_obj, bucket, full_key)
+    if settings.OVERLAY_PUBLIC_URL_BASE:
+        return f"{settings.OVERLAY_PUBLIC_URL_BASE.rstrip('/')}/{full_key}"
+    return f"s3://{bucket}/{full_key}"
+
+
 def schedule_import(
     gpkg_path: str,
     layer: str,
@@ -93,6 +113,54 @@ def schedule_import(
         raise BackendAPIError(
             f"Backend rejected the import (HTTP {response.status_code}): "
             f"{response.text[:500]}"
+        )
+    return response.json()
+
+
+def schedule_compose(
+    *,
+    name: str,
+    districtr_map_slug: str,
+    parent_layer: str,
+    child_layer: str | None,
+    num_districts: int,
+    tiles_s3_path: str | None,
+    group_slug: str | None,
+    map_type: str,
+) -> dict:
+    """POST /api/admin/districtr-map/compose; returns the 202 response body.
+
+    The module is always composed hidden (visible=false): flip it on in the
+    Districtr maps snippet once it has been checked. Non-202 responses carry
+    a JSON `detail` (409 = slug already exists, 404 = unknown layer/group)
+    which is surfaced verbatim.
+    """
+    token = mint_service_token([auth_scopes.CREATE_DISTRICTR_MAPS])
+    response = requests.post(
+        f"{settings.BACKEND_API_URL}/api/admin/districtr-map/compose",
+        json={
+            "name": name,
+            "districtr_map_slug": districtr_map_slug,
+            "parent_layer": parent_layer,
+            "child_layer": child_layer,
+            "num_districts": num_districts,
+            "tiles_s3_path": tiles_s3_path,
+            "group_slug": group_slug,
+            "map_type": map_type,
+            "visible": False,
+        },
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
+    if response.status_code != 202:
+        try:
+            body = response.json()
+            detail = body.get("detail") if isinstance(body, dict) else None
+        except ValueError:
+            detail = None
+        raise BackendAPIError(
+            f"Backend rejected the compose request "
+            f"(HTTP {response.status_code}): {detail or response.text[:500]}"
         )
     return response.json()
 

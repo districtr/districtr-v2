@@ -18,6 +18,7 @@ panels force a plain Django select instead.
 from functools import cached_property
 
 from django import forms
+from django.conf import settings
 from django.urls import path, reverse
 from wagtail import hooks
 from wagtail.admin.menu import MenuItem
@@ -35,7 +36,7 @@ from datastore.models import (
     MapGroup,
     Overlay,
 )
-from datastore.views import DATASTORE_ADMIN_PERMISSION
+from datastore.views import DATASTORE_ADMIN_PERMISSION, OVERLAY_ADMIN_PERMISSION
 
 
 @hooks.register("register_icons")
@@ -199,14 +200,20 @@ class GerryDBTableViewSet(SnippetViewSet):
 
 
 class DataToolMenuItem(MenuItem):
-    """Submenu entry for the data-ops tool pages (import, thumbnails).
+    """Submenu entry for the data-ops tool pages (import, overlays, compose,
+    thumbnails).
 
     Mirrors the snippet permission gate: only users who may add datastore
-    rows (the admin group) see — or may use — the tools.
+    rows (the admin group) see — or may use — the tools. Each tool view
+    enforces the same permission server-side.
     """
 
+    def __init__(self, *args, permission=DATASTORE_ADMIN_PERMISSION, **kwargs):
+        self.permission = permission
+        super().__init__(*args, **kwargs)
+
     def is_shown(self, request):
-        return request.user.has_perm(DATASTORE_ADMIN_PERMISSION)
+        return request.user.has_perm(self.permission)
 
 
 class DataViewSetGroup(SnippetViewSetGroup):
@@ -237,10 +244,27 @@ class DataViewSetGroup(SnippetViewSetGroup):
         )
         menu_items.append(
             DataToolMenuItem(
+                "Upload overlay",
+                reverse("datastore_upload_overlay"),
+                icon_name="sliders",
+                order=order + 1,
+                permission=OVERLAY_ADMIN_PERMISSION,
+            )
+        )
+        menu_items.append(
+            DataToolMenuItem(
+                "Compose map module",
+                reverse("datastore_compose_map"),
+                icon_name="cogs",
+                order=order + 2,
+            )
+        )
+        menu_items.append(
+            DataToolMenuItem(
                 "Thumbnails",
                 reverse("datastore_thumbnails"),
                 icon_name="image",
-                order=order + 1,
+                order=order + 3,
             )
         )
         return menu_items
@@ -252,8 +276,69 @@ register_snippet(DataViewSetGroup)
 @hooks.register("register_admin_urls")
 def register_datastore_admin_urls():
     # Mounted under /admin/ and wrapped in require_admin_access by Wagtail;
-    # the views additionally require DATASTORE_ADMIN_PERMISSION.
+    # the views additionally require their datastore add permission.
     return [
         path("data/import-gpkg/", views.import_gpkg, name="datastore_import_gpkg"),
+        path(
+            "data/upload-overlay/",
+            views.upload_overlay,
+            name="datastore_upload_overlay",
+        ),
+        path("data/compose-map/", views.compose_map, name="datastore_compose_map"),
         path("data/thumbnails/", views.thumbnails, name="datastore_thumbnails"),
     ]
+
+
+# ---------------------------------------------------------------------------
+# Cross-links to the legacy review pages on the Next.js frontend
+# ---------------------------------------------------------------------------
+
+# Groups whose members moderate comments/thumbnails on the frontend review
+# pages. Mirrors the frontend's own gating; the pages enforce auth themselves,
+# so this only controls menu visibility.
+REVIEW_LINK_GROUPS = ("admin", "editor", "reviewer")
+
+
+class ReviewSiteMenuItem(MenuItem):
+    """Top-level external link to a legacy review page on the frontend.
+
+    Shown to reviewers/editors/admins (and superusers); partners never see
+    these.
+    """
+
+    def is_shown(self, request):
+        user = request.user
+        if user.is_superuser:
+            return True
+        return user.groups.filter(name__in=REVIEW_LINK_GROUPS).exists()
+
+
+@hooks.register("register_admin_menu_item")
+def register_comment_review_menu_item():
+    # Ordered right after Galleries (210).
+    return ReviewSiteMenuItem(
+        "Comment review",
+        f"{settings.FRONTEND_URL}/admin/review",
+        icon_name="link-external",
+        order=220,
+    )
+
+
+@hooks.register("register_admin_menu_item")
+def register_district_comments_menu_item():
+    return ReviewSiteMenuItem(
+        "District comments",
+        f"{settings.FRONTEND_URL}/admin/review/district-comments",
+        icon_name="link-external",
+        order=230,
+    )
+
+
+@hooks.register("register_admin_menu_item")
+def register_site_thumbnails_menu_item():
+    return ReviewSiteMenuItem(
+        "Thumbnails (site)",
+        f"{settings.FRONTEND_URL}/admin/thumbnails",
+        icon_name="link-external",
+        order=240,
+    )

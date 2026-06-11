@@ -180,6 +180,16 @@ GPKG_BUCKET = os.environ.get("R2_BUCKET_NAME") or os.environ.get("AWS_S3_BUCKET"
 R2_ACCOUNT_ID = os.environ.get("ACCOUNT_ID", "")
 AWS_S3_ENDPOINT = os.environ.get("AWS_S3_ENDPOINT", "")
 
+# Public base URL for uploaded overlay sources (Overlay.source). When the
+# bucket is fronted by a CDN (e.g. https://tilesets1.cdn.districtr.org in
+# prod), set this so the stored source is a browser-loadable URL; when unset,
+# the raw s3://bucket/key path is stored instead.
+OVERLAY_PUBLIC_URL_BASE = os.environ.get("OVERLAY_PUBLIC_URL_BASE", "")
+
+# Next.js frontend — used for admin-menu cross-links to the legacy review
+# pages (/admin/review, /admin/review/district-comments, /admin/thumbnails).
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+
 
 # JWT issuance. This service replaces Auth0 as the token issuer for both the
 # Next.js frontend (login/refresh) and the FastAPI backend (verification via

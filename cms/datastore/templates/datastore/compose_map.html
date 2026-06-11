@@ -1,0 +1,28 @@
+{% extends "wagtailadmin/base.html" %}
+{% block titletag %}Compose map module{% endblock %}
+
+{% block content %}
+    {% include "wagtailadmin/shared/header.html" with title="Compose map module" subtitle="Build a new Districtr map from imported gerrydb layers" icon="cogs" %}
+
+    <div class="nice-padding">
+        <p>
+            Compose a new map module from layers already imported into the
+            <code>gerrydb</code> schema. The backend builds it in the
+            background and the module is created <strong>hidden</strong> —
+            flip <code>visible</code> on in the Districtr maps listing once
+            it checks out.
+        </p>
+        <form action="" method="POST" novalidate>
+            {% csrf_token %}
+            {% include "wagtailadmin/shared/non_field_errors.html" %}
+            <ul class="fields">
+                {% for field in form %}
+                    <li>
+                        {% include "wagtailadmin/shared/field.html" with field=field %}
+                    </li>
+                {% endfor %}
+            </ul>
+            <button type="submit" class="button">Schedule composition</button>
+        </form>
+    </div>
+{% endblock %}

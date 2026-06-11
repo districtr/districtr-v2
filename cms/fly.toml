@@ -11,6 +11,8 @@ primary_region = 'ewr'
   DJANGO_CSRF_TRUSTED_ORIGINS = 'https://districtr-v2-cms.fly.dev'
   WAGTAILADMIN_BASE_URL = 'https://districtr-v2-cms.fly.dev'
   BACKEND_API_URL = 'https://districtr-v2-api.fly.dev'
+  FRONTEND_URL = 'https://districtr.org'
+  OVERLAY_PUBLIC_URL_BASE = 'https://tilesets1.cdn.districtr.org'
 
 [http_service]
   internal_port = 8080
