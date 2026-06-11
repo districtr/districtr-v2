@@ -114,7 +114,15 @@ if settings.ENVIRONMENT in ("production", "qa"):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    yield
+    # Imported here so the module's side-effect-free top level stays importable
+    # outside an event loop (e.g. CLI tools, alembic, tests that don't run lifespan).
+    from app.jobs import lazy_refresh
+
+    lazy_refresh.start()
+    try:
+        yield
+    finally:
+        await lazy_refresh.stop()
 
 
 app = FastAPI(lifespan=lifespan)
