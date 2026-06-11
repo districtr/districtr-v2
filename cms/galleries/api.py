@@ -32,6 +32,10 @@ from authapi.tokens import KidAccessToken
 from core.api import _json
 from galleries.models import Gallery, GallerySection, GalleryVisibility
 
+# Mirror content/api.py: clamp the list endpoint so a future caller can't ask
+# for an unbounded page while no client depends on "returns everything".
+MAX_PAGE_SIZE = 100
+
 
 def _has_valid_token(request) -> bool:
     """True when the request bears a valid Districtr-issued access token.
@@ -82,7 +86,13 @@ def gallery_detail(request, slug):
 
 @require_GET
 def gallery_list(request):
-    """GET /api/galleries/?section=public_gallery"""
+    """GET /api/galleries/?section=public_gallery&offset=n&limit=n"""
+    try:
+        offset = max(int(request.GET.get("offset", 0)), 0)
+        limit = min(int(request.GET.get("limit", MAX_PAGE_SIZE)), MAX_PAGE_SIZE)
+    except ValueError:
+        return _json({"detail": "offset and limit must be integers"}, status=400)
+
     queryset = Gallery.objects.filter(
         live=True, visibility=GalleryVisibility.PUBLIC
     ).annotate(entry_count=Count("entries"))
@@ -101,6 +111,6 @@ def gallery_list(request):
                 "section": gallery.section,
                 "entry_count": gallery.entry_count,
             }
-            for gallery in queryset.order_by("slug")
+            for gallery in queryset.order_by("slug")[offset : offset + limit]
         ]
     )

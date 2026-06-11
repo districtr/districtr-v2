@@ -39,9 +39,9 @@ def get_gerrydb_graph_file(
 
     s3 = settings.get_s3_client()
     assert s3, "S3 client is not available"
-    s3.head_object(Bucket=settings.R2_BUCKET_NAME, Key=s3_key)
+    s3.head_object(Bucket=settings.s3_bucket, Key=s3_key)
 
-    return f"s3://{settings.R2_BUCKET_NAME}/{s3_key}"
+    return f"s3://{settings.s3_bucket}/{s3_key}"
 
 
 def get_gerrydb_graph(file_path: str, replace_local_copy: bool = False) -> Graph:

@@ -69,22 +69,19 @@ def _post_backend(
     return response.json()
 
 
-# Contract to mirror: backend/app/core/config.py::get_s3_client (the
-# R2-vs-S3 divergence is a cross-service question — keep them in lockstep).
+# Contract to mirror: backend/app/core/config.py::get_s3_client. Storage is
+# AWS S3; keep the two clients in lockstep.
 def get_s3_client():
-    """boto3 client mirroring the backend's R2-vs-S3 conditional."""
+    """boto3 S3 client, mirroring the backend's get_s3_client."""
     if not settings.AWS_ACCESS_KEY_ID or not settings.AWS_SECRET_ACCESS_KEY:
         raise ImproperlyConfigured(
             "AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY are not configured"
         )
 
+    # AWS S3; AWS_S3_ENDPOINT overrides the host only for an S3-compatible
+    # endpoint.
     kwargs = {}
-    if settings.R2_ACCOUNT_ID:
-        kwargs["endpoint_url"] = (
-            f"https://{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
-        )
-        kwargs["region_name"] = "auto"
-    elif settings.AWS_S3_ENDPOINT:
+    if settings.AWS_S3_ENDPOINT:
         kwargs["endpoint_url"] = settings.AWS_S3_ENDPOINT
 
     return boto3.client(

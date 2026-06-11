@@ -19,7 +19,6 @@ from django.db import connection
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
-from authapi.models import ReviewTagAssignment
 from authapi.tests import fastapi_style_verify
 from datastore import services, wagtail_hooks
 from datastore.forms import MAX_OVERLAY_BYTES, ComposeMapForm, OverlayUploadForm
@@ -645,8 +644,6 @@ class ReviewSiteMenuItemTests(TestCase):
     def items(self):
         return [
             wagtail_hooks.register_comment_review_menu_item(),
-            wagtail_hooks.register_district_comments_menu_item(),
-            wagtail_hooks.register_site_thumbnails_menu_item(),
         ]
 
     def test_urls_built_from_frontend_url(self):
@@ -655,54 +652,27 @@ class ReviewSiteMenuItemTests(TestCase):
             [(item.label, item.url) for item in items],
             [
                 ("Comment review", f"{settings.FRONTEND_URL}/admin/review"),
-                (
-                    "District comments",
-                    f"{settings.FRONTEND_URL}/admin/review/district-comments",
-                ),
-                ("Thumbnails (site)", f"{settings.FRONTEND_URL}/admin/thumbnails"),
             ],
         )
 
     def test_ordered_after_galleries(self):
-        # Galleries sits at 210; the cross-links follow it.
-        self.assertEqual([item.order for item in self.items()], [220, 230, 240])
+        # Galleries sits at 210; the cross-link follows it.
+        self.assertEqual([item.order for item in self.items()], [220])
 
     def test_visibility_matches_group_scopes(self):
-        # Per-link gates mirror the FastAPI scopes each page needs:
-        # Comment review / District comments need create:content_review
-        # (admin + reviewer), Thumbnails needs create:content (admin +
-        # editor). A link that can only 403 must not be shown.
+        # The Comment review gate mirrors the FastAPI scope the page needs:
+        # create:content_review (admin + reviewer). Editors lack it, so the
+        # link that could only 403 for them must not be shown.
         expected = {
-            "admin": {"Comment review", "District comments", "Thumbnails (site)"},
-            "reviewer": {"Comment review", "District comments"},
-            "editor": {"Thumbnails (site)"},
+            "admin": {"Comment review"},
+            "reviewer": {"Comment review"},
+            "editor": set(),
         }
         for group, visible_labels in expected.items():
             user = make_admin_user(email=f"{group}@districtr.org", group_name=group)
             request = self.request_for(user)
             shown = {item.label for item in self.items() if item.is_shown(request)}
             self.assertEqual(shown, visible_labels, f"wrong menu links for {group}")
-
-    def test_tag_scoped_reviewer_loses_district_comments_only(self):
-        # ReviewTagAssignment strips read:read-all from the reviewer's token
-        # (authapi/scopes.py), so the district-comments page always 403s for
-        # them — the link must disappear while Comment review stays.
-        user = make_admin_user(email="scoped@districtr.org", group_name="reviewer")
-        ReviewTagAssignment.objects.create(user=user, tag_slug="schools")
-        request = self.request_for(user)
-        shown = {item.label for item in self.items() if item.is_shown(request)}
-        self.assertEqual(shown, {"Comment review"})
-
-    def test_admin_with_assignments_keeps_district_comments(self):
-        # Admin-group members keep read:read-all despite assignments
-        # (scopes_for_user), so the link stays.
-        user = make_admin_user(email="adminscoped@districtr.org", group_name="admin")
-        ReviewTagAssignment.objects.create(user=user, tag_slug="schools")
-        request = self.request_for(user)
-        shown = {item.label for item in self.items() if item.is_shown(request)}
-        self.assertEqual(
-            shown, {"Comment review", "District comments", "Thumbnails (site)"}
-        )
 
     def test_shown_for_superuser_without_groups(self):
         user = get_user_model().objects.create_superuser(

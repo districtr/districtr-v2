@@ -12,37 +12,24 @@ permission policy on its viewset (datastore/wagtail_hooks.py), regardless of
 the permissions granted here.
 """
 
-from django.apps import apps as global_apps
-from django.contrib.auth.management import create_permissions
 from django.db import migrations
+
+from core.migration_utils import ensure_permissions, model_permissions
 
 
 def grant_admin_permissions(apps, schema_editor):
-    # Permission rows are normally created by the post_migrate signal, which
-    # has not fired yet on a fresh database — create datastore's now.
-    create_permissions(
-        global_apps.get_app_config("datastore"),
-        apps=apps,
-        verbosity=0,
-        using=schema_editor.connection.alias,
-    )
+    # post_migrate hasn't fired on a fresh DB; materialize datastore's rows.
+    ensure_permissions("datastore", apps, schema_editor)
 
     Group = apps.get_model("auth", "Group")
-    Permission = apps.get_model("auth", "Permission")
     admin_group = Group.objects.get(name="admin")
-    datastore_permissions = Permission.objects.filter(
-        content_type__app_label="datastore"
-    )
-    admin_group.permissions.add(*datastore_permissions)
+    admin_group.permissions.add(*model_permissions(apps, "datastore"))
 
 
 def revoke_admin_permissions(apps, schema_editor):
     Group = apps.get_model("auth", "Group")
-    Permission = apps.get_model("auth", "Permission")
     admin_group = Group.objects.get(name="admin")
-    admin_group.permissions.remove(
-        *Permission.objects.filter(content_type__app_label="datastore")
-    )
+    admin_group.permissions.remove(*model_permissions(apps, "datastore"))
 
 
 class Migration(migrations.Migration):

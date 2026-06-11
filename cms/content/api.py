@@ -74,14 +74,23 @@ def content_detail(request, content_type, slug):
         return _json({"detail": f"Unknown content type '{content_type}'"}, status=404)
 
     language = request.GET.get("language") or DEFAULT_LANGUAGE
-    pages = {
-        page.locale.language_code: page
-        for page in model.objects.live().filter(slug=slug).select_related("locale")
-    }
-    available_languages = sorted(pages, key=_language_sort_key)
+    # Compute the available-language set from a lightweight values_list (no
+    # body columns), then fetch only the single chosen page in full — rather
+    # than loading every language's StreamField body just to pick one.
+    live_pages = model.objects.live().filter(slug=slug)
+    available_languages = sorted(
+        live_pages.values_list("locale__language_code", flat=True),
+        key=_language_sort_key,
+    )
 
-    preferred = language if language in pages else DEFAULT_LANGUAGE
-    page = pages.get(preferred)
+    preferred = language if language in available_languages else DEFAULT_LANGUAGE
+    page = (
+        live_pages.filter(locale__language_code=preferred)
+        .select_related("locale")
+        .first()
+        if preferred in available_languages
+        else None
+    )
     if page is None:
         return _json(
             {
@@ -120,7 +129,9 @@ def content_list(request, content_type):
     except ValueError:
         return _json({"detail": "offset and limit must be integers"}, status=400)
 
-    queryset = model.objects.live().select_related("locale")
+    # The list only emits slug/title/language/map-slug fields; defer the heavy
+    # StreamField body so we don't pull up to MAX_PAGE_SIZE full bodies.
+    queryset = model.objects.live().select_related("locale").defer("body")
     language = request.GET.get("language")
     if language:
         queryset = queryset.filter(locale__language_code=language)

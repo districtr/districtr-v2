@@ -18,9 +18,9 @@ publish):
   group in later migrations" — this is that migration).
 """
 
-from django.apps import apps as global_apps
-from django.contrib.auth.management import create_permissions
 from django.db import migrations
+
+from core.migration_utils import ensure_permissions, model_permissions
 
 GROUPS = ["admin", "editor", "reviewer", "partner"]
 PUBLISHER_GROUPS = ["admin", "editor"]
@@ -29,13 +29,10 @@ PARTNER_PERMISSIONS = ["add_gallery", "change_gallery"]
 
 def _galleries_permissions(apps, schema_editor):
     """All gallery permission rows, creating any that post_migrate would."""
-    create_permissions(
-        global_apps.get_app_config("galleries"),
-        apps=apps,
-        verbosity=0,
-        using=schema_editor.connection.alias,
-    )
+    ensure_permissions("galleries", apps, schema_editor)
 
+    # Gallery uses DraftStateMixin, so wagtail.snippets' post_migrate hook would
+    # add publish_gallery; on a fresh DB that hasn't fired, so create it here.
     ContentType = apps.get_model("contenttypes", "ContentType")
     Permission = apps.get_model("auth", "Permission")
     gallery_ct = ContentType.objects.get(app_label="galleries", model="gallery")
@@ -44,7 +41,7 @@ def _galleries_permissions(apps, schema_editor):
         codename="publish_gallery",
         defaults={"name": "Can publish gallery"},
     )
-    return Permission.objects.filter(content_type__app_label="galleries")
+    return model_permissions(apps, "galleries")
 
 
 def grant_group_permissions(apps, schema_editor):

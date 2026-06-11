@@ -10,40 +10,27 @@ tag scopes" menu item simply does not appear for them. Reviewers are the
 Follows the datastore/0002 and galleries/0002 pattern.
 """
 
-from django.apps import apps as global_apps
-from django.contrib.auth.management import create_permissions
 from django.db import migrations
+
+from core.migration_utils import ensure_permissions, model_permissions
 
 
 def grant_admin_permissions(apps, schema_editor):
-    # Permission rows are normally created by the post_migrate signal, which
-    # has not fired yet on a fresh database — create authapi's now.
-    create_permissions(
-        global_apps.get_app_config("authapi"),
-        apps=apps,
-        verbosity=0,
-        using=schema_editor.connection.alias,
-    )
+    # post_migrate hasn't fired on a fresh DB; materialize authapi's rows.
+    ensure_permissions("authapi", apps, schema_editor)
 
     Group = apps.get_model("auth", "Group")
-    Permission = apps.get_model("auth", "Permission")
     admin_group = Group.objects.get(name="admin")
-    authapi_permissions = Permission.objects.filter(
-        content_type__app_label="authapi",
-        content_type__model="reviewtagassignment",
+    admin_group.permissions.add(
+        *model_permissions(apps, "authapi", model="reviewtagassignment")
     )
-    admin_group.permissions.add(*authapi_permissions)
 
 
 def revoke_admin_permissions(apps, schema_editor):
     Group = apps.get_model("auth", "Group")
-    Permission = apps.get_model("auth", "Permission")
     admin_group = Group.objects.get(name="admin")
     admin_group.permissions.remove(
-        *Permission.objects.filter(
-            content_type__app_label="authapi",
-            content_type__model="reviewtagassignment",
-        )
+        *model_permissions(apps, "authapi", model="reviewtagassignment")
     )
 
 

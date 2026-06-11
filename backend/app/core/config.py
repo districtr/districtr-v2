@@ -125,27 +125,33 @@ class Settings(BaseSettings):
     VOLUME_PATH: str = "/data"
     SQL_DIR: Path = Path(__file__).parent.parent / "sql"
 
-    # TODO: R2_BUCKET_NAME is a misnomer — storage has migrated to S3. Rename to
-    # S3_BUCKET_NAME and update all references and env var documentation.
+    # Object storage is AWS S3. R2_BUCKET_NAME keeps its legacy env-var name —
+    # it is a live deployment secret — but despite the prefix it holds the S3
+    # bucket; AWS_S3_BUCKET is accepted as a forward-looking alias. Read the
+    # bucket through `s3_bucket`, never the raw field.
     R2_BUCKET_NAME: str | None = None
     CDN_URL: str | None = None
-    ACCOUNT_ID: str | None = None
     AWS_S3_BUCKET: str | None = None
+    # Optional custom S3 endpoint (e.g. an S3-compatible host); unset = real AWS.
     AWS_S3_ENDPOINT: str | None = None
     AWS_ACCESS_KEY_ID: str | None = None
     AWS_SECRET_ACCESS_KEY: str | None = None
+
+    @property
+    def s3_bucket(self) -> str | None:
+        """The S3 bucket name from either env var (legacy R2_BUCKET_NAME wins,
+        matching cms/config/settings GPKG_BUCKET resolution)."""
+        return self.R2_BUCKET_NAME or self.AWS_S3_BUCKET
 
     def get_s3_client(self):
         if not self.AWS_ACCESS_KEY_ID or not self.AWS_SECRET_ACCESS_KEY:
             return None
 
+        # AWS S3; AWS_S3_ENDPOINT overrides the host only for an S3-compatible
+        # endpoint. Mirrors cms/datastore/services.py::get_s3_client.
         kwargs = {}
-
-        if self.ACCOUNT_ID:
-            kwargs["endpoint_url"] = (
-                f"https://{self.ACCOUNT_ID}.r2.cloudflarestorage.com"
-            )
-            kwargs["region_name"] = "auto"
+        if self.AWS_S3_ENDPOINT:
+            kwargs["endpoint_url"] = self.AWS_S3_ENDPOINT
 
         return boto3.client(
             service_name="s3",
@@ -160,7 +166,7 @@ class Settings(BaseSettings):
         if self.CDN_URL is not None:
             return self.CDN_URL
 
-        return f"https://{self.R2_BUCKET_NAME}.s3.amazonaws.com"
+        return f"https://{self.s3_bucket}.s3.amazonaws.com"
 
     # Auth — tokens are issued by the Districtr CMS (cms/authapi) and
     # verified against its JWKS endpoint.

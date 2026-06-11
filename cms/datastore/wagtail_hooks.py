@@ -293,14 +293,12 @@ def register_datastore_admin_urls():
 # Cross-links to the legacy review pages on the Next.js frontend
 # ---------------------------------------------------------------------------
 
-# Per-link group gates, matching the FastAPI scopes each frontend page needs
-# (authapi/scopes.py): Comment review and District comments require
-# create:content_review (admin + reviewer; editors lack it), Thumbnails
-# requires create:content (admin + editor; reviewers lack it). The pages
-# enforce auth themselves, so this only controls menu visibility — but a link
-# the user's token can only 403 on must not be shown. Partners never see any.
+# Group gate for the Comment review cross-link, matching the FastAPI scope the
+# page needs (authapi/scopes.py): create:content_review (admin + reviewer;
+# editors lack it). The page enforces auth itself, so this only controls menu
+# visibility — but a link the user's token can only 403 on must not be shown.
+# Partners never see it.
 COMMENT_REVIEW_GROUPS = frozenset({"admin", "reviewer"})
-THUMBNAIL_GROUPS = frozenset({"admin", "editor"})
 
 
 class ReviewSiteMenuItem(MenuItem):
@@ -318,29 +316,6 @@ class ReviewSiteMenuItem(MenuItem):
         return user.groups.filter(name__in=self.groups).exists()
 
 
-class DistrictCommentsMenuItem(ReviewSiteMenuItem):
-    """District comments additionally requires unrestricted read access.
-
-    Tag-scoped reviewers (users with ReviewTagAssignment rows) have the
-    blanket read:read-all scope stripped from their tokens
-    (authapi/scopes.py), so the district-comments page always 403s for them
-    — hide the link. Admin-group members and superusers keep read:read-all
-    regardless of assignments, so they are unaffected.
-    """
-
-    def is_shown(self, request):
-        if not super().is_shown(request):
-            return False
-        user = request.user
-        if user.is_superuser or user.groups.filter(name="admin").exists():
-            return True
-        # Imported lazily: keep hook registration free of app-loading-order
-        # dependencies on authapi.
-        from authapi.models import ReviewTagAssignment
-
-        return not ReviewTagAssignment.objects.filter(user=user).exists()
-
-
 @hooks.register("register_admin_menu_item")
 def register_comment_review_menu_item():
     # Ordered right after Galleries (210).
@@ -350,26 +325,4 @@ def register_comment_review_menu_item():
         icon_name="link-external",
         order=220,
         groups=COMMENT_REVIEW_GROUPS,
-    )
-
-
-@hooks.register("register_admin_menu_item")
-def register_district_comments_menu_item():
-    return DistrictCommentsMenuItem(
-        "District comments",
-        f"{settings.FRONTEND_URL}/admin/review/district-comments",
-        icon_name="link-external",
-        order=230,
-        groups=COMMENT_REVIEW_GROUPS,
-    )
-
-
-@hooks.register("register_admin_menu_item")
-def register_site_thumbnails_menu_item():
-    return ReviewSiteMenuItem(
-        "Thumbnails (site)",
-        f"{settings.FRONTEND_URL}/admin/thumbnails",
-        icon_name="link-external",
-        order=240,
-        groups=THUMBNAIL_GROUPS,
     )

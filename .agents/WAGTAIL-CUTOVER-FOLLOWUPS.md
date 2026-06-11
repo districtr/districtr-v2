@@ -7,6 +7,17 @@ and committed. This file tracks what was **deliberately deferred** — pick it u
 in a future session. Plan context: `~/.claude/plans/review-these-conversation-notes-federated-mitten.md`
 (local to Dylan's machine) and the project memory `wagtail-cutover-project`.
 
+### Follow-up session 2026-06-11 — cleared the decision-free backlog
+
+All items below marked **✅ DONE** were fixed and verified this session
+(backend 306 passed, cms non-menu tests pass, frontend build + pre-commit
+clean). Items marked **⏳ NEEDS DECISION** or **⏳ DEFERRED** remain. Details
+inline. The flaky `TestCommenterEndpoint` fix was a real fragility:
+`create_commenter_db`/`create_tag_db` returned `Model.model_construct(...)`
+instances that bypass SQLAlchemy instrumentation and fail FastAPI response
+serialization until the ORM mappers are configured by an unrelated test —
+replaced with real `Model(**row._asdict())` instances.
+
 ---
 
 ## 1. Product decisions needed (blockers for *deciding*, not for shipping)
@@ -51,51 +62,59 @@ or make middleware the *only* refresher and re-enable blacklisting.
 
 | Item | Where | Notes |
 |---|---|---|
-| District comments for tag-scoped reviewers | [backend/app/comments/main.py](../backend/app/comments/main.py) | Blanket 403 today (district comments are tag-less). Either tag district comments at sync time or add per-document scoping. Menu link already hidden for scoped reviewers. |
-| `/places` "N map modules" count | [app/src/app/(static)/places/page.tsx](../app/src/app/(static)/places/page.tsx) | Display dropped in the content-fetch swap; the list endpoint now returns `districtr_map_slugs`, so restoring the card text is trivial if wanted. |
-| GET `/auth/logout` CSRF | [app/src/app/auth/logout/route.ts](../app/src/app/auth/logout/route.ts) | Parity with the old Auth0 flow (SameSite=Lax blocks `<img>` drive-bys), but a cross-site top-level GET can still log users out. Fix: GET renders an auto-submitting form to NextAuth's CSRF-protected POST signout. Low priority. |
-| PermissionGuard reads raw JWT client-side | [app/src/app/admin/components/PermissionGuard.tsx](../app/src/app/admin/components/PermissionGuard.tsx) | Now base64url-safe via shared `decodeJwtPayload`, but long-term the access token shouldn't need to reach the client at all — pass roles/scopes as typed session fields and keep the token server-side. |
-| Flaky `TestCommenterEndpoint` (3 tests) | backend/tests/test_comments.py | Order-dependent: fixtures use `Commenter.model_construct`, bypassing ORM instrumentation. Fail on subset runs, pass in full suite. (A session chip for this exists.) |
+| ⏳ **NEEDS DECISION** — District comments for tag-scoped reviewers | [backend/app/comments/main.py](../backend/app/comments/main.py) | Blanket 403 today (district comments are tag-less). Either tag district comments at sync time or add per-document scoping. Menu link already hidden for scoped reviewers. |
+| ✅ **DONE** — `/places` "N map modules" count | [app/src/app/(static)/places/page.tsx](../app/src/app/(static)/places/page.tsx) | Restored: card shows `N map module(s)` from the `districtr_map_slugs` the list endpoint returns. |
+| ✅ **DONE** — GET `/auth/logout` CSRF | [app/src/app/auth/logout/route.ts](../app/src/app/auth/logout/route.ts) | Guarded with the Fetch-Metadata `Sec-Fetch-Site` header — an explicit `cross-site` GET bounces home WITHOUT signing out; same-origin/same-site/direct nav still log out. Chose this over the auto-submit-form approach: lower risk, no coupling to NextAuth CSRF internals, no redirect flash. |
+| ⏳ **DEFERRED** (long-term) — PermissionGuard reads raw JWT client-side | [app/src/app/admin/components/PermissionGuard.tsx](../app/src/app/admin/components/PermissionGuard.tsx) | Now base64url-safe via shared `decodeJwtPayload`, but long-term the access token shouldn't need to reach the client at all — pass roles/scopes as typed session fields and keep the token server-side. Larger auth-session refactor; left as-is. |
+| ✅ **DONE** — Flaky `TestCommenterEndpoint` (3 tests) | backend/tests/test_comments.py | Root cause: `create_commenter_db`/`create_tag_db` returned `model_construct(...)` instances bypassing ORM instrumentation, failing FastAPI response serialization until mappers were configured by an unrelated test. Fixed by returning real `Model(**row._asdict())` instances. Now passes in isolation, subset, and full suite. |
 
 ---
 
-## 3. Performance (measured, not yet fixed)
+## 3. Performance — ✅ ALL DONE this session
 
-- **`content_detail` fetches every language's full body** to compute
+- ✅ **`content_detail` fetches every language's full body** to compute
   `available_languages`, then serializes one
-  ([cms/content/api.py](../cms/content/api.py)). Fix: `values_list('locale__language_code')`
-  for the language set + fetch only the chosen page; or `.defer('body')`.
-- **`content_list` pulls full `body` columns for up to 100 rows** to emit a
-  link list (backs `/tags`, `/places`, homepage PlaceMap). Fix: `.defer('body')`
-  or `.only(...)`.
-- **`/api/galleries/` list has no offset/limit clamp** — mirror
-  `content_list`'s `MAX_PAGE_SIZE` while there are no clients depending on
-  "returns everything".
-- **Token mint runs 4 queries where 2 suffice** (groups + assignments queried
-  twice across `get_token`/`scopes_for_user`) — only matters under login bursts.
+  ([cms/content/api.py](../cms/content/api.py)). Fixed: `values_list('locale__language_code')`
+  for the language set + a single full fetch of the chosen page only.
+- ✅ **`content_list` pulls full `body` columns for up to 100 rows** to emit a
+  link list (backs `/tags`, `/places`, homepage PlaceMap). Fixed: `.defer('body')`.
+- ✅ **`/api/galleries/` list has no offset/limit clamp** — fixed: mirrors
+  `content_list`'s `MAX_PAGE_SIZE` (100) with `offset`/`limit` query params.
+- ✅ **Token mint runs 4 queries where 2 suffice** (groups + assignments queried
+  twice across `get_token`/`scopes_for_user`). Fixed: groups + assignments
+  queried once in `get_token` and passed into `scopes_for_user` via new
+  `group_names` / `has_review_assignments` kwargs.
 
 ---
 
 ## 4. Infrastructure / consistency
 
-- **S3-vs-R2 client divergence**: `backend/app/core/config.py::get_s3_client`
-  branches only on `ACCOUNT_ID` and ignores `AWS_S3_ENDPOINT`; the two cms
-  copies honor it. Backend also carries the `R2_BUCKET_NAME`-is-a-misnomer
-  TODO. Unify the storage contract once (decide: is prod S3 or R2 today?) and
-  make all three sites mirror it. Pointer comments are in place.
-- **Permission-grant migration boilerplate ×3** (`datastore/0002`,
-  `galleries/0002`, `authapi/0003` share the `create_permissions` +
-  group-grant pattern). Extract a helper in `cms/core` before a fourth app
-  copies it — the fresh-DB `create_permissions` footgun is easy to forget.
-- **Datastore admin tool views** ([cms/datastore/views.py](../cms/datastore/views.py)):
+- ✅ **DONE** — **S3-vs-R2 client divergence** (decided: prod is **AWS S3**).
+  All three sites now share one S3 contract: `get_s3_client` honors
+  `AWS_S3_ENDPOINT` (optional S3-compatible host) and the R2 `ACCOUNT_ID`
+  branching is gone (backend + `cms/datastore/services.py` +
+  `cms/config/settings/production.py`). The `R2_BUCKET_NAME`-misnomer TODO is
+  resolved: backend reads the bucket through a new `Settings.s3_bucket`
+  property (`R2_BUCKET_NAME or AWS_S3_BUCKET`, matching cms `GPKG_BUCKET`); the
+  legacy secret name is kept (it's live) but documented. The dead `ACCOUNT_ID`
+  / `R2_ACCOUNT_ID` fields were removed (`extra="ignore"` makes a stale prod
+  secret harmless). NOTE: backend now reads `AWS_S3_ENDPOINT` where it didn't
+  before — if a prod `ACCOUNT_ID`/R2 secret is still set it is now ignored, so
+  confirm prod is genuinely on S3 before/at cutover.
+- ✅ **DONE** — **Permission-grant migration boilerplate ×3** (`datastore/0002`,
+  `galleries/0002`, `authapi/0003`). Extracted `core/migration_utils.py`
+  (`ensure_permissions` + `model_permissions`); all three migrations now use it.
+  The `create_permissions` fresh-DB footgun lives in one documented place.
+- ⏳ **DEFERRED** — **Datastore admin tool views** ([cms/datastore/views.py](../cms/datastore/views.py)):
   four hand-rolled form views with permission declared twice (view decorator +
   menu item kwarg). A small shared FormView base would make the fifth tool
-  safe to add by construction.
-- **cms fetch wrappers** ([app/src/app/utils/api/cmsContent.ts](../app/src/app/utils/api/cmsContent.ts)):
-  per-function try/fetch/null blocks could share one `cmsFetch<T>()`; CMS URL
-  resolution exists in three places (`auth.ts`, `admin/config.ts`,
-  `cmsContent.ts`) with two env vars — consolidate when convenient.
-- **Dev JWT keys are ephemeral per process**
+  safe to add by construction. Left as-is — pure refactor, lower value.
+- ✅ **DONE (partial)** — **cms fetch wrappers** ([app/src/app/utils/api/cmsContent.ts](../app/src/app/utils/api/cmsContent.ts)):
+  the three per-function try/fetch/null blocks now share one `cmsFetch<T>()`.
+  CMS URL resolution across three places (`auth.ts`, `admin/config.ts`,
+  `cmsContent.ts`) NOT consolidated — `auth.ts` is the critical NextAuth path
+  with server-only semantics; left untouched to avoid risk.
+- ⏳ **DEFERRED** — **Dev JWT keys are ephemeral per process**
   ([cms/config/settings/dev.py](../cms/config/settings/dev.py)): fine for the
   single-process compose runserver, but `manage.py shell` mints tokens the
   server won't verify. Run `manage.py generate_jwt_keys` and pin them in

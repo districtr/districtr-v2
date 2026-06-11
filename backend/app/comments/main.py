@@ -108,9 +108,11 @@ def create_commenter_db(commenter_data: CommenterCreate, session: Session) -> Co
 
     row = session.connection().execute(stmt).one()
     session.commit()
-    return Commenter.model_construct(
-        **row._asdict()
-    )  # model_construct also runs validation
+    # Build a fully instrumented ORM instance (NOT model_construct, which
+    # bypasses SQLAlchemy instrumentation — the resulting object then fails
+    # FastAPI response serialization until the mappers happen to be configured
+    # by something else, which made the commenter tests order-dependent).
+    return Commenter(**row._asdict())
 
 
 def create_comment_db(comment_data: CommentCreate, session: Session) -> Comment:
@@ -171,7 +173,8 @@ def create_tag_db(tag_data: TagCreate, session: Session) -> Tag:
 
     row = session.connection().execute(stmt, {"tag": tag_data.tag}).one()
     session.commit()
-    return Tag.model_construct(**row._asdict())  # model_construct also runs validation
+    # See create_commenter_db: a real ORM instance, not model_construct.
+    return Tag(**row._asdict())
 
 
 def create_comment_tag_associations(

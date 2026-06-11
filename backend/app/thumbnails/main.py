@@ -22,7 +22,7 @@ from app.core.io import file_exists, UnsupportedFileScheme
 router = APIRouter(tags=["thumbnails"])
 logger = logging.getLogger(__name__)
 
-THUMBNAIL_BUCKET = settings.R2_BUCKET_NAME
+THUMBNAIL_BUCKET = settings.s3_bucket
 
 DISTRICT_COLORS = [
     "#0099cd",

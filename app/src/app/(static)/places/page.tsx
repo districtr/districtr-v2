@@ -25,14 +25,20 @@ export default async function TagsPage() {
         gap="4"
       >
         {entries.length === 0 && <Text>No places available.</Text>}
-        {entries.map(content => (
-          <Card key={content.slug}>
-            <Heading as="h3" size="4">
-              {content.title}
-            </Heading>
-            <Link href={`/place/${content.slug}`}>Go to place</Link>
-          </Card>
-        ))}
+        {entries.map(content => {
+          const moduleCount = content.districtr_map_slugs?.length ?? 0;
+          return (
+            <Card key={content.slug}>
+              <Heading as="h3" size="4">
+                {content.title}
+              </Heading>
+              <Text as="p" size="2" color="gray">
+                {moduleCount} map module{moduleCount === 1 ? '' : 's'}
+              </Text>
+              <Link href={`/place/${content.slug}`}>Go to place</Link>
+            </Card>
+          );
+        })}
       </Grid>
     </Flex>
   );

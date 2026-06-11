@@ -80,7 +80,6 @@ class MintServiceTokenTests(SimpleTestCase):
     AWS_ACCESS_KEY_ID="key",
     AWS_SECRET_ACCESS_KEY="secret",
     GPKG_BUCKET="test-bucket",
-    R2_ACCOUNT_ID="",
     AWS_S3_ENDPOINT="",
 )
 class S3ClientTests(SimpleTestCase):
@@ -93,19 +92,9 @@ class S3ClientTests(SimpleTestCase):
             aws_secret_access_key="secret",
         )
 
-    @override_settings(R2_ACCOUNT_ID="acct123")
-    @mock.patch("datastore.services.boto3.client")
-    def test_r2_endpoint_from_account_id(self, boto3_client):
-        services.get_s3_client()
-        kwargs = boto3_client.call_args.kwargs
-        self.assertEqual(
-            kwargs["endpoint_url"], "https://acct123.r2.cloudflarestorage.com"
-        )
-        self.assertEqual(kwargs["region_name"], "auto")
-
     @override_settings(AWS_S3_ENDPOINT="https://minio.local:9000")
     @mock.patch("datastore.services.boto3.client")
-    def test_custom_endpoint_when_no_account_id(self, boto3_client):
+    def test_custom_endpoint_used_when_configured(self, boto3_client):
         services.get_s3_client()
         kwargs = boto3_client.call_args.kwargs
         self.assertEqual(kwargs["endpoint_url"], "https://minio.local:9000")

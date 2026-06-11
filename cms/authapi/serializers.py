@@ -18,11 +18,10 @@ class DistrictrTokenObtainPairSerializer(TokenObtainPairSerializer):
         # on the refresh token propagate to access tokens on refresh, so a
         # role change takes effect at next login, not next refresh — same
         # semantics as the Auth0 setup this replaces.
-        token["sub"] = str(user.pk)
-        token["scope"] = scopes_for_user(user)
-        token["email"] = user.email
-        token["name"] = user.get_full_name() or user.get_username()
-        token["roles"] = sorted(g.name for g in user.groups.all())
+        # Query groups and review-tag assignments once and reuse them for the
+        # roles claim, the scope claim, and the review_tags claim — rather than
+        # re-querying each inside scopes_for_user / the claim builders.
+        group_names = sorted(g.name for g in user.groups.all())
         # Tag-scoped review (authapi/models.py:ReviewTagAssignment): the
         # backend's comment-moderation endpoints limit the holder to comments
         # carrying these tag slugs. The claim is ABSENT when the user has no
@@ -32,6 +31,15 @@ class DistrictrTokenObtainPairSerializer(TokenObtainPairSerializer):
         review_tags = sorted(
             user.review_tag_assignments.values_list("tag_slug", flat=True)
         )
+        token["sub"] = str(user.pk)
+        token["scope"] = scopes_for_user(
+            user,
+            group_names=group_names,
+            has_review_assignments=bool(review_tags),
+        )
+        token["email"] = user.email
+        token["name"] = user.get_full_name() or user.get_username()
+        token["roles"] = group_names
         if review_tags:
             token["review_tags"] = review_tags
         return token

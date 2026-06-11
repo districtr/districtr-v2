@@ -58,7 +58,7 @@ GROUP_SCOPES = {
 }
 
 
-def scopes_for_user(user) -> str:
+def scopes_for_user(user, *, group_names=None, has_review_assignments=None) -> str:
     """Space-delimited scope claim for a Django user, from group membership.
 
     Superusers get every scope regardless of groups.
@@ -71,19 +71,23 @@ def scopes_for_user(user) -> str:
     endpoints stay reachable (the backend then enforces the tag limits).
     Superusers and members of the admin group are unaffected: their
     assignments, if any, do not narrow their access.
+
+    `group_names` / `has_review_assignments` let a caller that already has
+    these (the token serializer) pass them in to avoid re-querying groups and
+    assignments; when omitted they are loaded here.
     """
     if user.is_superuser:
         return " ".join(ALL_SCOPES)
-    group_names = [g.name for g in user.groups.all()]
+    if group_names is None:
+        group_names = [g.name for g in user.groups.all()]
     scopes: list[str] = []
     for name in group_names:
         for scope in GROUP_SCOPES.get(name, []):
             if scope not in scopes:
                 scopes.append(scope)
-    if (
-        READ_ALL_CONTENT in scopes
-        and "admin" not in group_names
-        and user.review_tag_assignments.exists()
-    ):
-        scopes.remove(READ_ALL_CONTENT)
+    if READ_ALL_CONTENT in scopes and "admin" not in group_names:
+        if has_review_assignments is None:
+            has_review_assignments = user.review_tag_assignments.exists()
+        if has_review_assignments:
+            scopes.remove(READ_ALL_CONTENT)
     return " ".join(scopes)

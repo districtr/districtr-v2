@@ -171,13 +171,13 @@ DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "noreply@districtr.org
 # verifies against our JWKS.
 BACKEND_API_URL = os.environ.get("BACKEND_API_URL", "http://localhost:8000")
 
-# Object storage for GeoPackage uploads. Mirrors the backend's env contract
-# (backend/app/core/config.py): ACCOUNT_ID selects Cloudflare R2, otherwise
-# AWS_S3_ENDPOINT (if set) or plain AWS S3.
+# Object storage for GeoPackage uploads is AWS S3. Mirrors the backend's env
+# contract (backend/app/core/config.py): AWS_S3_ENDPOINT (if set) overrides the
+# host for an S3-compatible endpoint, otherwise plain AWS S3. GPKG_BUCKET takes
+# the legacy R2_BUCKET_NAME secret or the AWS_S3_BUCKET alias.
 AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID", "")
 AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
 GPKG_BUCKET = os.environ.get("R2_BUCKET_NAME") or os.environ.get("AWS_S3_BUCKET", "")
-R2_ACCOUNT_ID = os.environ.get("ACCOUNT_ID", "")
 AWS_S3_ENDPOINT = os.environ.get("AWS_S3_ENDPOINT", "")
 
 # Public base URL for uploaded overlay sources (Overlay.source). When the

@@ -13,10 +13,9 @@ CSRF_TRUSTED_ORIGINS = [
     o for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o
 ]
 
-# Media on S3 / Cloudflare R2. Mirrors backend/app/core/config.py
-# get_s3_client(): when ACCOUNT_ID is set, storage is Cloudflare R2; otherwise
-# plain AWS S3 (optionally with a custom AWS_S3_ENDPOINT).
-_account_id = os.environ.get("ACCOUNT_ID")
+# Media on AWS S3. Mirrors backend/app/core/config.py get_s3_client():
+# AWS_S3_ENDPOINT (if set) overrides the host for an S3-compatible endpoint,
+# otherwise plain AWS S3.
 _bucket = os.environ.get("R2_BUCKET_NAME") or os.environ.get("AWS_S3_BUCKET")
 if _bucket:
     STORAGES["default"] = {  # noqa: F405
@@ -24,11 +23,7 @@ if _bucket:
         "OPTIONS": {
             "bucket_name": _bucket,
             "location": "cms-media",
-            "endpoint_url": (
-                f"https://{_account_id}.r2.cloudflarestorage.com"
-                if _account_id
-                else os.environ.get("AWS_S3_ENDPOINT") or None  # noqa: F405
-            ),
+            "endpoint_url": os.environ.get("AWS_S3_ENDPOINT") or None,  # noqa: F405
             "custom_domain": os.environ.get("CDN_DOMAIN") or None,  # noqa: F405
             "file_overwrite": False,
             "default_acl": None,
