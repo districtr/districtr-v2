@@ -162,12 +162,13 @@ class Settings(BaseSettings):
 
         return f"https://{self.R2_BUCKET_NAME}.s3.amazonaws.com"
 
-    # Auth0
+    # Auth — tokens are issued by the Districtr CMS (cms/authapi) and
+    # verified against its JWKS endpoint.
 
-    AUTH0_DOMAIN: str
-    AUTH0_API_AUDIENCE: str
-    AUTH0_ISSUER: str
-    AUTH0_ALGORITHMS: str
+    AUTH_JWKS_URL: str
+    AUTH_AUDIENCE: str
+    AUTH_ISSUER: str
+    AUTH_ALGORITHMS: str = "RS256"
 
 
 @lru_cache()

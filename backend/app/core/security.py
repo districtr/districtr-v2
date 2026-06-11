@@ -46,8 +46,7 @@ class VerifyToken:
 
         # This gets the JWKS from a given URL and does processing so you can
         # use any of the keys available
-        jwks_url = f"https://{self.config.AUTH0_DOMAIN}/.well-known/jwks.json"
-        self.jwks_client = jwt.PyJWKClient(jwks_url)
+        self.jwks_client = jwt.PyJWKClient(self.config.AUTH_JWKS_URL)
 
     async def verify(
         self,
@@ -70,18 +69,15 @@ class VerifyToken:
             payload = jwt.decode(
                 token.credentials,
                 signing_key,
-                algorithms=self.config.AUTH0_ALGORITHMS,  # type: ignore
-                audience=self.config.AUTH0_API_AUDIENCE,
-                issuer=self.config.AUTH0_ISSUER,
+                algorithms=self.config.AUTH_ALGORITHMS,  # type: ignore
+                audience=self.config.AUTH_AUDIENCE,
+                issuer=self.config.AUTH_ISSUER,
             )
         except Exception as error:
             raise UnauthorizedException(str(error))
 
         if not payload:
             raise UnauthorizedException("Invalid token")
-
-        if payload.get("gty") == "client-credentials":
-            return payload
 
         token_scopes = payload.get("scope", "").split()
 
