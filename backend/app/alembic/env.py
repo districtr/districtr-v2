@@ -17,7 +17,6 @@ from app.models import (
     CommunityAssignments,
     DistrictUnions,
 )
-from app.cms.models import TagsCMSContent, PlacesCMSContent
 from app.save_share.models import MapDocumentToken
 from app.comments.models import (
     Comment,
@@ -47,8 +46,6 @@ tables = [
     Document,
     MapDocumentUserSession,
     MapDocumentToken,
-    PlacesCMSContent,
-    TagsCMSContent,
     Comment,
     Commenter,
     Tag,
@@ -74,7 +71,10 @@ def get_url():
 
 
 def include_object(object, name, type_, reflected, compare_to):
-    if hasattr(object, "schema") and object.schema in ("gerrydb", "admin"):
+    # "cms" holds the legacy tags_content/places_content tables, which are no
+    # longer modeled here but must survive post-cutover so the Wagtail
+    # migrate_tiptap command can read them.
+    if hasattr(object, "schema") and object.schema in ("gerrydb", "admin", "cms"):
         return False
 
     if name and (
