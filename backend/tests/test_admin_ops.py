@@ -62,7 +62,9 @@ def test_import_passes_optional_fields(client):
 @pytest.mark.parametrize("field", ["layer", "table_name"])
 def test_import_rejects_sql_unsafe_identifiers(client, field, bad_identifier):
     with patch("app.admin_ops.main.import_gerrydb_view") as mock_import:
-        response = client.post(IMPORT_URL, json={**VALID_PAYLOAD, field: bad_identifier})
+        response = client.post(
+            IMPORT_URL, json={**VALID_PAYLOAD, field: bad_identifier}
+        )
 
     assert response.status_code == 422
     mock_import.assert_not_called()

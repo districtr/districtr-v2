@@ -22,6 +22,8 @@ urlpatterns = [
         DistrictrTokenRefreshView.as_view(),
         name="token_refresh",
     ),
+    # Public content compat API (replaces the legacy FastAPI /api/cms/content).
+    path("api/content/", include("content.urls")),
     path("django-admin/", admin.site.urls),
     path("admin/", include(wagtailadmin_urls)),
     path("documents/", include(wagtaildocs_urls)),
