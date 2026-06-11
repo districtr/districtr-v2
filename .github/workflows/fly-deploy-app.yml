@@ -20,9 +20,11 @@ jobs:
           if [ "${{ github.ref_name }}" = "dev" ]; then
             echo "app_name=districtr-v2-frontend-dev" >> $GITHUB_OUTPUT
             echo "api_url=https://districtr-v2-api-dev.fly.dev" >> $GITHUB_OUTPUT
+            echo "cms_url=https://districtr-v2-cms-dev.fly.dev" >> $GITHUB_OUTPUT
           else
             echo "app_name=districtr-v2-frontend" >> $GITHUB_OUTPUT
             echo "api_url=https://districtr-v2-api.fly.dev" >> $GITHUB_OUTPUT
+            echo "cms_url=https://districtr-v2-cms.fly.dev" >> $GITHUB_OUTPUT
           fi
       - name: Write .env.production
         run: |
@@ -33,6 +35,8 @@ jobs:
             NEXT_PUBLIC_S3_BUCKET_URL_MIRROR1=https://tilesets2.cdn.districtr.org
             NEXT_PUBLIC_S3_BUCKET_URL_MIRROR2=https://tilesets3.cdn.districtr.org
             NEXT_PUBLIC_API_URL=${{ steps.deploy-env.outputs.api_url }}
+            NEXT_PUBLIC_CMS_URL=${{ steps.deploy-env.outputs.cms_url }}
+            CMS_URL=${{ steps.deploy-env.outputs.cms_url }}
             EOF
         working-directory: app
       - uses: superfly/flyctl-actions/setup-flyctl@1.5
