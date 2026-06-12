@@ -1,0 +1,68 @@
+name: Infrastructure (Pulumi)
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - "infra/**"
+      - ".github/workflows/infra.yml"
+  pull_request:
+    branches:
+      - main
+      - dev
+    paths:
+      - "infra/**"
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  PULUMI_BACKEND_URL: s3://districtr-v2-pulumi-state?region=us-east-1
+
+# Serialize all pulumi-mutating jobs per branch (shared with the deploy
+# workflows); previews are read-only and can run anytime.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('infra-preview-{0}', github.event.number) || format('pulumi-{0}', github.ref_name) }}
+  cancel-in-progress: false
+
+jobs:
+  pulumi:
+    name: ${{ github.event_name == 'pull_request' && 'Preview' || 'Apply' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set stack
+        id: cfg
+        run: |
+          BRANCH="${{ github.base_ref || github.ref_name }}"
+          if [ "$BRANCH" = "dev" ]; then
+            echo "stack=dev" >> "$GITHUB_OUTPUT"
+          else
+            echo "stack=prod" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Install Pulumi
+        run: |
+          curl -fsSL https://get.pulumi.com | sh
+          echo "$HOME/.pulumi/bin" >> "$GITHUB_PATH"
+      - name: Install dependencies
+        working-directory: infra
+        run: npm ci
+      - name: Pulumi preview
+        if: github.event_name == 'pull_request'
+        working-directory: infra
+        run: |
+          pulumi stack select "${{ steps.cfg.outputs.stack }}"
+          pulumi preview --diff
+      - name: Pulumi up
+        if: github.event_name == 'push'
+        working-directory: infra
+        run: |
+          pulumi stack select "${{ steps.cfg.outputs.stack }}"
+          pulumi up --yes --diff

@@ -1,0 +1,17 @@
+# Prod stack — deployed from the `main` branch.
+# Secrets are set with `pulumi config set --secret <key>` (see README.md);
+# they are KMS-encrypted and safe to commit once set.
+secretsprovider: awskms://alias/districtr-pulumi-secrets?region=us-east-1
+config:
+  aws:region: us-east-1
+  districtr-infra:appDomain: districtr.org
+  districtr-infra:apiDomain: api.districtr.org
+  districtr-infra:extraDomains:
+    - www.districtr.org
+  districtr-infra:corsOrigins: https://districtr.org,https://www.districtr.org
+  # TODO(fill-in): values from `flyctl ssh console -C env -a districtr-v2-api`
+  districtr-infra:s3BucketName: districtr-v2-prod
+  districtr-infra:cdnUrl: https://tilesets1.cdn.districtr.org
+  districtr-infra:auth0Domain: fill-me.us.auth0.com
+  districtr-infra:auth0ApiAudience: fill-me
+  districtr-infra:auth0Issuer: https://fill-me.us.auth0.com/

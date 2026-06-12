@@ -134,9 +134,15 @@ class Settings(BaseSettings):
     AWS_S3_ENDPOINT: str | None = None
     AWS_ACCESS_KEY_ID: str | None = None
     AWS_SECRET_ACCESS_KEY: str | None = None
+    # When true and no static keys are set, use the default boto3 credential
+    # chain (ECS task role / instance profile). Callers treat a None client as
+    # "S3 not configured", so this must stay opt-in for local dev.
+    AWS_USE_DEFAULT_CREDENTIALS: bool = False
 
     def get_s3_client(self):
         if not self.AWS_ACCESS_KEY_ID or not self.AWS_SECRET_ACCESS_KEY:
+            if self.AWS_USE_DEFAULT_CREDENTIALS:
+                return boto3.client("s3")
             return None
 
         kwargs = {}

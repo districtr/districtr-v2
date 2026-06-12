@@ -1,0 +1,16 @@
+# Dev stack — deployed from the `dev` branch.
+# Secrets are set with `pulumi config set --secret <key>` (see README.md);
+# they are KMS-encrypted and safe to commit once set.
+secretsprovider: awskms://alias/districtr-pulumi-secrets?region=us-east-1
+config:
+  aws:region: us-east-1
+  # TODO(fill-in): real dev hostnames before first deploy
+  districtr-infra:appDomain: dev.districtr.org
+  districtr-infra:apiDomain: api.dev.districtr.org
+  districtr-infra:corsOrigins: https://dev.districtr.org
+  # TODO(fill-in): values from `flyctl ssh console -C env -a districtr-v2-api-dev`
+  districtr-infra:s3BucketName: districtr-v2-dev
+  districtr-infra:cdnUrl: https://tilesets1.cdn.districtr.org
+  districtr-infra:auth0Domain: fill-me.us.auth0.com
+  districtr-infra:auth0ApiAudience: fill-me
+  districtr-infra:auth0Issuer: https://fill-me.us.auth0.com/

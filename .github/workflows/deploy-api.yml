@@ -1,0 +1,110 @@
+name: AWS Deploy API
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy-api.yml"
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  PULUMI_BACKEND_URL: s3://districtr-v2-pulumi-state?region=us-east-1
+
+# Shared with infra.yml/deploy-app.yml: one pulumi mutation per branch at a
+# time; also serializes migrations.
+concurrency:
+  group: pulumi-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy API
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set stack
+        id: cfg
+        run: |
+          if [ "${{ github.ref_name }}" = "dev" ]; then
+            echo "stack=dev" >> "$GITHUB_OUTPUT"
+          else
+            echo "stack=prod" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr
+      - name: Build and push image
+        id: image
+        run: |
+          IMAGE="${{ steps.ecr.outputs.registry }}/districtr-${{ steps.cfg.outputs.stack }}-backend:${{ github.sha }}"
+          docker build -t "$IMAGE" backend
+          docker push "$IMAGE"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+      - name: Install Pulumi
+        run: |
+          curl -fsSL https://get.pulumi.com | sh
+          echo "$HOME/.pulumi/bin" >> "$GITHUB_PATH"
+      # Fly release_command equivalent: run `alembic upgrade head` as a
+      # one-off task with the new image. If it fails, the service is left
+      # untouched on the old image.
+      - name: Run database migrations
+        working-directory: infra
+        run: |
+          set -euo pipefail
+          STACK="${{ steps.cfg.outputs.stack }}"
+          pulumi stack select "$STACK"
+          CLUSTER=$(pulumi stack output clusterName)
+          SUBNETS=$(pulumi stack output publicSubnetIds --json | jq -r 'join(",")')
+          SG=$(pulumi stack output backendSecurityGroupId)
+
+          NEW_DEF=$(aws ecs describe-task-definition \
+              --task-definition "districtr-${STACK}-migrate" \
+              --query taskDefinition |
+            jq --arg IMAGE "${{ steps.image.outputs.image }}" \
+              '.containerDefinitions[0].image = $IMAGE
+               | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+                     .compatibilities, .registeredAt, .registeredBy)')
+          TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json "$NEW_DEF" \
+            --query taskDefinition.taskDefinitionArn --output text)
+
+          TASK_ARN=$(aws ecs run-task \
+            --cluster "$CLUSTER" \
+            --launch-type FARGATE \
+            --task-definition "$TASK_DEF_ARN" \
+            --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS],securityGroups=[$SG],assignPublicIp=ENABLED}" \
+            --query 'tasks[0].taskArn' --output text)
+          echo "Migration task: $TASK_ARN"
+
+          aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$TASK_ARN"
+
+          echo "--- migration logs ---"
+          aws logs tail "/districtr/${STACK}/migrate" --since 20m || true
+
+          EXIT_CODE=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" \
+            --query 'tasks[0].containers[0].exitCode' --output text)
+          if [ "$EXIT_CODE" != "0" ]; then
+            STOP_REASON=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" \
+              --query 'tasks[0].stoppedReason' --output text)
+            echo "::error::Migration failed (exit=$EXIT_CODE, reason=$STOP_REASON) — service not updated"
+            exit 1
+          fi
+      - name: Update service
+        working-directory: infra
+        run: |
+          set -euo pipefail
+          STACK="${{ steps.cfg.outputs.stack }}"
+          aws ssm put-parameter \
+            --name "/districtr/${STACK}/meta/backend-image-tag" \
+            --type String --value "${{ github.sha }}" --overwrite
+          npm ci
+          pulumi stack select "$STACK"
+          pulumi up --yes --diff
