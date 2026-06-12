@@ -2,22 +2,26 @@ from uuid import uuid4
 from fastapi import Depends
 from sqlalchemy.sql.functions import count
 from app.core.db import get_session
-from sqlalchemy import text, cast
+from sqlalchemy import cast, literal, text, Column, String, Integer, MetaData, Table
 from sqlmodel import Session, select
 from sqlalchemy.dialects.postgresql import insert, UUID as PG_UUID
 import logging
-from sqlalchemy import literal
+from networkx import Graph
 from app.models import (
     Assignments,
     CommunityAssignments,
     DistrictrMap,
 )
-from collections import defaultdict
 from app.core.config import settings
+from app.evaluation.graph import get_graph
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 VERBOSE_LOGGING = settings.VERBOSE_LOGGING
+
+
+class DuplicateGeoIdError(ValueError):
+    pass
 
 
 def duplicate_document_assignments(
@@ -102,6 +106,40 @@ def duplicate_document_community_assignments(
     return inserted_assignments
 
 
+def _heal_with_graph(zone_by_geo: dict[str, int], G: Graph) -> dict[str, int]:
+    """Replace uniform child-block assignments with their parent zone.
+
+    A parent is healed when every one of its children is present in zone_by_geo
+    and they all agree on the same zone. Healed children are removed and replaced
+    by a single parent entry.
+
+    Iterates over uploaded rows only (not all graph nodes) for O(N) performance.
+    """
+    # Group uploaded children by their parent
+    uploaded_by_parent: dict[str, dict[str, int]] = {}
+    for geo_id, zone in zone_by_geo.items():
+        node_data = G.nodes.get(geo_id)
+        if node_data is None:
+            continue
+        parent = node_data.get("parent")
+        if parent is None:
+            continue
+        uploaded_by_parent.setdefault(parent, {})[geo_id] = zone
+
+    to_remove: set[str] = set()
+    healed: dict[str, int] = {}
+    for parent, uploaded_children in uploaded_by_parent.items():
+        all_children: set[str] = G.nodes[parent].get("children", set())
+        if uploaded_children.keys() != all_children:
+            continue
+        zones = set(uploaded_children.values())
+        if len(zones) == 1:
+            healed[parent] = zones.pop()
+            to_remove.update(uploaded_children)
+
+    return {k: v for k, v in zone_by_geo.items() if k not in to_remove} | healed
+
+
 def batch_insert_assignments(
     document_id: str,
     assignments: list[list[str]],
@@ -122,140 +160,59 @@ def batch_insert_assignments(
         session (Session): Optional database session. This function is to be used typically
             by a higher level interface and executed within its session.
     """
-    stmt = select(DistrictrMap).where(
-        DistrictrMap.districtr_map_slug == districtr_map_slug
+    districtr_map = session.exec(
+        select(DistrictrMap).where(
+            DistrictrMap.districtr_map_slug == districtr_map_slug
+        )
+    ).one()
+
+    G = get_graph(districtr_map.gerrydb_table_name)
+
+    null_count = 0
+    invalid_count = 0
+    zone_by_geo: dict[str, int] = {}
+    num_districts = districtr_map.num_districts
+    for record in assignments:
+        if record[1] and record[1] != "":
+            geo_id = record[0]
+            zone = int(record[1])  # ValueError propagates for non-integer zones
+            if not geo_id or geo_id not in G or not 0 < zone <= (num_districts or zone):
+                invalid_count += 1
+                continue
+            if geo_id in zone_by_geo:
+                raise DuplicateGeoIdError(geo_id)
+            zone_by_geo[geo_id] = zone
+        else:
+            null_count += 1
+
+    logger.info(
+        f"{null_count} unassigned rows skipped, {invalid_count} invalid geo_ids/zones skipped"
     )
-    districtr_map = session.exec(stmt).one()
+
+    if districtr_map.child_layer is not None:
+        zone_by_geo = _heal_with_graph(zone_by_geo, G)
 
     load_id, _ = str(uuid4()).split("-", maxsplit=1)
-    temp_table_name = f"temp_assignments_{load_id}"
+    temp_table = f"temp_assignments_{load_id}"
 
     session.connection().execute(
-        text(
-            f"CREATE TEMP TABLE {temp_table_name} (geo_id TEXT, zone INT) ON COMMIT DROP"
-        )
+        text(f"CREATE TEMP TABLE {temp_table} (geo_id TEXT, zone INT) ON COMMIT DROP")
     )
-
-    def _get_next_id():
-        counter = 1
-        while True:
-            yield counter
-            counter += 1
-
-    id_generator = _get_next_id()
-    zone_to_id = defaultdict(lambda: next(id_generator))
-
     cursor = session.connection().connection.cursor()
-    with cursor.copy(f"COPY {temp_table_name} (geo_id, zone) FROM STDIN") as copy:
-        import_errors = 0
-        null_count = 0
-        for record in assignments:
-            try:
-                if record[1] and record[1] != "":
-                    zone_val = zone_to_id[record[1]]
-                    if (
-                        districtr_map.num_districts is not None
-                        and zone_val > districtr_map.num_districts
-                    ):
-                        raise ValueError("Too many unique zones provided")
-                    copy.write_row([record[0], zone_val])
-                else:
-                    null_count += 1
-            except ValueError:
-                import_errors += 1
+    with cursor.copy(f"COPY {temp_table} (geo_id, zone) FROM STDIN") as copy:
+        for geo_id, zone in zone_by_geo.items():
+            copy.write_row([geo_id, zone])
 
-    logger.info(
-        f"{import_errors} rows in the assignments provided failed to be written. {null_count} nulls were found"
+    temp = Table(
+        temp_table, MetaData(), Column("geo_id", String), Column("zone", Integer)
     )
-
-    # Default check against valid geoids
-    exists_clause = f"""
-    SELECT 1
-    FROM gerrydb."{districtr_map.parent_layer}" g
-    WHERE
-        g.path = t.geo_id"""
-
-    # Shattered map
-    if districtr_map.child_layer is not None:
-        parent_child_table = f'"parentchildedges_{districtr_map.uuid}"'
-
-        exists_clause = f"""
-        SELECT 1
-        FROM {parent_child_table} edges
-        WHERE (edges.districtr_map = '{districtr_map.uuid}') AND
-            (edges.parent_path = t.geo_id
-            OR edges.child_path = t.geo_id)"""
-
-        # Using a temp index can improve performance for large datasets
-        session.connection().execute(
-            text(
-                f"CREATE INDEX IF NOT EXISTS temptable_geo_id_idx_{load_id} ON {temp_table_name} (geo_id)"
-            )
+    session.connection().execute(
+        insert(Assignments).from_select(
+            ["geo_id", "zone", "document_id"],
+            select(temp.c.geo_id, temp.c.zone, cast(literal(document_id), PG_UUID)),
         )
-
-        # All children belonging to a single parent which share a zone can be healed
-        # to the parent if all parent children are accounted for
-        uniform_vtds = f"uniform_vtds_{load_id}"
-        session.connection().execute(
-            text(f"""
-            CREATE TEMPORARY TABLE {uniform_vtds} ON COMMIT DROP AS
-            SELECT
-                parent_path,
-                MIN(zone) AS zone
-            FROM
-                {parent_child_table}
-            LEFT JOIN
-                {temp_table_name} ON geo_id = {parent_child_table}.child_path
-            GROUP BY
-                parent_path
-            HAVING
-                COUNT(DISTINCT COALESCE(zone, -1)) = 1
-                AND COUNT(parent_path) = COUNT(*) FILTER (WHERE zone IS NOT NULL)
-        """)
-        )
-
-        session.connection().execute(
-            text(f"""
-            INSERT INTO {temp_table_name} (geo_id, zone)
-            SELECT parent_path, zone FROM {uniform_vtds}
-        """)
-        )
-
-        session.connection().execute(
-            text(f"""
-            DELETE FROM {temp_table_name}
-            WHERE geo_id IN (
-                SELECT child_path FROM {parent_child_table}
-                WHERE parent_path IN (
-                    SELECT parent_path FROM {uniform_vtds}
-                )
-            )
-        """)
-        )
-        # For non-shatterable maps, we don't need additional validation
-        # as the geo_ids should match the gerrydb table directly
-
-    inserted_assignments = (
-        session.connection()
-        .execute(
-            text(f"""
-        WITH inserted_geoids AS (
-            INSERT INTO document.assignments (geo_id, zone, document_id)
-            SELECT geo_id, zone, :document_id
-            FROM {temp_table_name} t
-            WHERE EXISTS (
-                {exists_clause}
-            )
-            RETURNING *
-        )
-        SELECT COUNT(*) FROM inserted_geoids
-        """),
-            {"document_id": document_id},
-        )
-        .scalar()
     )
-    logger.info(
-        f"Inserted {inserted_assignments} assignments to document `{document_id}`"
-    )
+    inserted = len(zone_by_geo)
+    logger.info(f"Inserted {inserted} assignments to document `{document_id}`")
 
-    return inserted_assignments
+    return inserted
