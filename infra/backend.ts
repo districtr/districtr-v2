@@ -84,7 +84,7 @@ export function createBackend(
       Statement: [
         {
           Effect: "Allow",
-          Action: ["s3:GetObject", "s3:PutObject", "s3:HeadObject", "s3:ListBucket"],
+          Action: ["s3:GetObject", "s3:PutObject", "s3:ListBucket"],
           Resource: [
             `arn:aws:s3:::${config.s3BucketName}`,
             `arn:aws:s3:::${config.s3BucketName}/*`,

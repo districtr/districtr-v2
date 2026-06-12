@@ -80,6 +80,51 @@ Backend ──task role + S3 gateway endpoint──► existing S3 bucket
    records from `dnsRecords` when ready to cut over. Apex domains
    (`districtr.org`) need ALIAS/CNAME-flattening support at the provider.
 
+## Fresh AWS account / cross-account bucket access
+
+This project can run in a fresh AWS account (same org) while the tileset
+bucket and CloudFront stay in the old account — no data migration needed.
+Browser traffic goes through CloudFront and is unaffected; only the
+backend's boto3 access (graph reads, thumbnail writes, county CSV) crosses
+accounts. Cross-account S3 needs an allow on both sides: the task role in
+`backend.ts` is the identity-side half (bucket ARNs aren't
+account-qualified), and the old account needs this bucket policy (one-time,
+manual — the bucket is not managed here):
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Sid": "DistrictrNewAccountBackend",
+    "Effect": "Allow",
+    "Principal": {"AWS": "arn:aws:iam::<NEW_ACCOUNT_ID>:root"},
+    "Action": ["s3:GetObject", "s3:PutObject", "s3:ListBucket"],
+    "Resource": [
+      "arn:aws:s3:::<bucket-name>",
+      "arn:aws:s3:::<bucket-name>/*"
+    ]
+  }]
+}
+```
+
+(Granting account root delegates the which-roles decision to this account's
+IAM. Alternative: `"Principal": "*"` with a
+`"Condition": {"StringEquals": {"aws:PrincipalOrgID": "o-xxxx"}}` to cover
+every account in the org.)
+
+Check on the old bucket before relying on this:
+
+- **Object Ownership** must be "Bucket owner enforced" so thumbnails written
+  by this account's role are owned by the bucket owner and CloudFront can
+  serve them. Older buckets may still have ACLs enabled — flip it first.
+- **Encryption**: SSE-S3 needs nothing extra; SSE-KMS with a customer-managed
+  key additionally needs `kms:Decrypt`/`kms:GenerateDataKey` for this account
+  in the key policy.
+- **Region**: the free S3 gateway endpoint only reaches buckets in the same
+  region as the VPC. If the bucket is not in this stack's region, reads still
+  work but pay cross-region transfer (~$0.02/GB) — prefer matching the
+  stack's region to the bucket.
+
 ## Day-to-day
 
 - `infra.yml` previews PRs touching `infra/**` and applies on push to
