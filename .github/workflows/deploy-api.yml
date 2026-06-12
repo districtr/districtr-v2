@@ -13,8 +13,8 @@ permissions:
   contents: read
 
 env:
-  AWS_REGION: us-east-1
-  PULUMI_BACKEND_URL: s3://districtr-v2-pulumi-state?region=us-east-1
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  PULUMI_BACKEND_URL: s3://districtr-v2-pulumi-state?region=${{ vars.AWS_REGION || 'us-east-1' }}
 
 # Shared with infra.yml/deploy-app.yml: one pulumi mutation per branch at a
 # time; also serializes migrations.

@@ -46,7 +46,10 @@ Backend ──task role + S3 gateway endpoint──► existing S3 bucket
    the role ARN the script prints. Keep existing secrets
    `SENTRY_AUTH_TOKEN`, `RECAPTCHA_SITE_KEY`, `NEXT_PUBLIC_MAPTILER_API_KEY`;
    add **variables** `API_URL_DEV` / `API_URL_PROD` (the public API URLs,
-   e.g. `https://api.dev.districtr.org`).
+   e.g. `https://api.dev.districtr.org`). Optional variable: `AWS_REGION`
+   (defaults to `us-east-1` in the workflows; it must match the region the
+   state bucket and stacks were bootstrapped in — it is a sync knob, not a
+   region switch).
 3. Initialize stacks:
    ```bash
    pulumi login 's3://districtr-v2-pulumi-state?region=us-east-1'

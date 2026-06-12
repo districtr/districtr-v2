@@ -19,8 +19,8 @@ permissions:
   contents: read
 
 env:
-  AWS_REGION: us-east-1
-  PULUMI_BACKEND_URL: s3://districtr-v2-pulumi-state?region=us-east-1
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  PULUMI_BACKEND_URL: s3://districtr-v2-pulumi-state?region=${{ vars.AWS_REGION || 'us-east-1' }}
 
 # Serialize all pulumi-mutating jobs per branch (shared with the deploy
 # workflows); previews are read-only and can run anytime.
