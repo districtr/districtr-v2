@@ -41,6 +41,7 @@ export function createDatabase(network: Network) {
     publiclyAccessible: config.dbPubliclyAccessible,
     multiAz: config.dbMultiAz,
     backupRetentionPeriod: config.isProd ? 7 : 1,
+    copyTagsToSnapshot: true,
     deletionProtection: config.isProd,
     skipFinalSnapshot: !config.isProd,
     finalSnapshotIdentifier: `${name}-db-final`,

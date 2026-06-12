@@ -127,17 +127,31 @@ Check on the old bucket before relying on this:
 
 ## Day-to-day
 
-- `infra.yml` previews PRs touching `infra/**` and applies on push to
-  `dev`/`main`.
-- `deploy-api.yml` / `deploy-app.yml` replace the Fly deploy workflows
-  (which remain until decommission): build → ECR → (migrate) → `pulumi up`.
-- Manual ops:
+- `infra.yml` applies on push to `dev`/`main`. There is deliberately no PR
+  preview: a preview executes the PR's code, which must not hold the (admin)
+  deploy role. Preview locally before merging:
   ```bash
   pulumi login 's3://districtr-v2-pulumi-state?region=us-east-1'
   cd infra && pulumi stack select dev
   pulumi preview
   pulumi stack output dnsRecords
   ```
+- `deploy-api.yml` / `deploy-app.yml` replace the Fly deploy workflows
+  (which remain until decommission): build → ECR → (migrate) → `pulumi up` →
+  verify the service stabilized on the new image (a circuit-breaker rollback
+  fails the run). Both support manual `workflow_dispatch` runs.
+- The three workflows use per-workflow concurrency groups and retry
+  `pulumi up` on state-lock contention; a push touching backend + app +
+  infra at once runs all three and they serialize via the lock.
+
+## Follow-ups (known, deliberate deferrals)
+
+- Scope the deploy role down from AdministratorAccess.
+- Pin GitHub Actions to commit SHAs and pin the Pulumi CLI version.
+- ALB access logs + WAF; RDS parameter tuning (`work_mem` etc.) and
+  `enabledCloudwatchLogsExports`; ECS Exec on dev for a `fly ssh` equivalent.
+- Lifecycle policy for noncurrent versions on the Pulumi state bucket.
+- ECR keeps the last 20 images — a long-pinned rollback tag can expire.
 
 ## Data migration (Fly Postgres → RDS)
 

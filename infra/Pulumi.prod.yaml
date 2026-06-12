@@ -15,3 +15,5 @@ config:
   districtr-infra:auth0Domain: fill-me.us.auth0.com
   districtr-infra:auth0ApiAudience: fill-me
   districtr-infra:auth0Issuer: https://fill-me.us.auth0.com/
+  # TODO(fill-in): without this, alarms publish to an SNS topic nobody reads
+  # districtr-infra:alarmEmail: ops@example.org

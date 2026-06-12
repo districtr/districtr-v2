@@ -11,8 +11,10 @@ export function createAlb(network: Network) {
     loadBalancerType: "application",
     securityGroups: [network.albSecurityGroup.id],
     subnets: network.publicSubnetIds,
-    // Slow exports / evaluation requests can exceed the 60s default.
+    // Slow exports / evaluation requests can exceed the 60s default. Target
+    // keep-alives are set to 130s to stay above this (see Dockerfiles).
     idleTimeout: 120,
+    enableDeletionProtection: config.isProd,
   });
 
   const backendTargetGroup = new aws.lb.TargetGroup(`${name}-backend-tg`, {

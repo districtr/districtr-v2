@@ -1,6 +1,32 @@
 """Tests for app.core.config.Settings."""
 
-from app.core.config import settings
+from app.core.config import Settings, settings
+
+
+def test_settings_validate_with_only_database_url(monkeypatch):
+    """ECS provides DATABASE_URL but no POSTGRES_* parts."""
+    for var in (
+        "POSTGRES_SCHEME",
+        "POSTGRES_SERVER",
+        "POSTGRES_PORT",
+        "POSTGRES_USER",
+        "POSTGRES_PASSWORD",
+        "POSTGRES_DB",
+    ):
+        monkeypatch.delenv(var, raising=False)
+
+    url = "postgresql+psycopg://user:pass@host:5432/districtr"
+    s = Settings(
+        _env_file=None,
+        DATABASE_URL=url,
+        PROJECT_NAME="Districtr v2 backend",
+        AUTH0_DOMAIN="my-tenant.us.auth0.com",
+        AUTH0_API_AUDIENCE="http://localhost:8000/",
+        AUTH0_ISSUER="https://my-tenant.us.auth0.com",
+        AUTH0_ALGORITHMS="RS256",
+    )
+
+    assert str(s.SQLALCHEMY_DATABASE_URI) == url
 
 
 def test_get_s3_client_none_without_credentials(monkeypatch):

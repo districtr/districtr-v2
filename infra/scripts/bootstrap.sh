@@ -42,6 +42,7 @@ else
   KEY_ID=$(aws kms create-key --description "Pulumi config secrets for districtr-v2" \
     --query KeyMetadata.KeyId --output text)
   aws kms create-alias --alias-name "$KMS_ALIAS" --target-key-id "$KEY_ID"
+  aws kms enable-key-rotation --key-id "$KEY_ID"
   echo "Created KMS key ${KEY_ID} (${KMS_ALIAS})"
 fi
 
@@ -57,8 +58,11 @@ else
   echo "Created GitHub OIDC provider"
 fi
 
-# 4. Deploy role assumable from dev/main pushes and PR preview runs.
-#    AdministratorAccess to start with; scoping down is a listed follow-up.
+# 4. Deploy role assumable ONLY from pushes to dev/main (NOT pull_request:
+#    previews execute the PR's code, which must never hold this role's
+#    AdministratorAccess). AdministratorAccess to start with; scoping down is
+#    a listed follow-up. Long max-session: a first `pulumi up` can wait on
+#    ACM validation + RDS Multi-AZ creation for well over an hour.
 TRUST_POLICY=$(cat <<EOF
 {
   "Version": "2012-10-17",
@@ -72,8 +76,7 @@ TRUST_POLICY=$(cat <<EOF
         "StringLike": {
           "token.actions.githubusercontent.com:sub": [
             "repo:${GITHUB_REPO}:ref:refs/heads/main",
-            "repo:${GITHUB_REPO}:ref:refs/heads/dev",
-            "repo:${GITHUB_REPO}:pull_request"
+            "repo:${GITHUB_REPO}:ref:refs/heads/dev"
           ]
         }
       }
@@ -89,6 +92,7 @@ else
   aws iam create-role --role-name "$ROLE_NAME" --assume-role-policy-document "$TRUST_POLICY"
   echo "Created role ${ROLE_NAME}"
 fi
+aws iam update-role --role-name "$ROLE_NAME" --max-session-duration 7200
 aws iam attach-role-policy --role-name "$ROLE_NAME" \
   --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
 

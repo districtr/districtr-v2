@@ -60,14 +60,15 @@ class Settings(BaseSettings):
 
     PROJECT_NAME: str
 
-    # Postgres
-
-    POSTGRES_SCHEME: str
-    POSTGRES_SERVER: str
+    # Postgres. DATABASE_URL is what deployments provide; the POSTGRES_*
+    # parts are an alternative for local/dev setups and default empty so a
+    # DATABASE_URL-only environment (e.g. ECS) validates.
+    POSTGRES_SCHEME: str = "postgresql+psycopg"
+    POSTGRES_SERVER: str = ""
     POSTGRES_PORT: int = 5432
-    POSTGRES_USER: str
-    POSTGRES_PASSWORD: str
-    POSTGRES_DB: str
+    POSTGRES_USER: str = ""
+    POSTGRES_PASSWORD: str = ""
+    POSTGRES_DB: str = ""
     DATABASE_URL: str
 
     # reCAPTCHA

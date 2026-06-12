@@ -7,12 +7,9 @@ on:
     paths:
       - "infra/**"
       - ".github/workflows/infra.yml"
-  pull_request:
-    branches:
-      - main
-      - dev
-    paths:
-      - "infra/**"
+  # No pull_request trigger: previews execute the PR's code, which must not
+  # hold the (admin) deploy role. Preview locally per infra/README.md.
+  workflow_dispatch:
 
 permissions:
   id-token: write
@@ -22,23 +19,23 @@ env:
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
   PULUMI_BACKEND_URL: s3://districtr-v2-pulumi-state?region=${{ vars.AWS_REGION || 'us-east-1' }}
 
-# Serialize all pulumi-mutating jobs per branch (shared with the deploy
-# workflows); previews are read-only and can run anytime.
+# Per-workflow group: concurrent `pulumi up`s across workflows are handled by
+# retrying on the S3 state lock (a shared group would silently cancel pending
+# runs once a third workflow queues).
 concurrency:
-  group: ${{ github.event_name == 'pull_request' && format('infra-preview-{0}', github.event.number) || format('pulumi-{0}', github.ref_name) }}
+  group: infra-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   pulumi:
-    name: ${{ github.event_name == 'pull_request' && 'Preview' || 'Apply' }}
+    name: Apply
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Set stack
         id: cfg
         run: |
-          BRANCH="${{ github.base_ref || github.ref_name }}"
-          if [ "$BRANCH" = "dev" ]; then
+          if [ "${{ github.ref_name }}" = "dev" ]; then
             echo "stack=dev" >> "$GITHUB_OUTPUT"
           else
             echo "stack=prod" >> "$GITHUB_OUTPUT"
@@ -47,6 +44,8 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+          # First apply can wait on ACM validation + RDS for over an hour.
+          role-duration-seconds: 7200
       - name: Install Pulumi
         run: |
           curl -fsSL https://get.pulumi.com | sh
@@ -54,15 +53,15 @@ jobs:
       - name: Install dependencies
         working-directory: infra
         run: npm ci
-      - name: Pulumi preview
-        if: github.event_name == 'pull_request'
-        working-directory: infra
-        run: |
-          pulumi stack select "${{ steps.cfg.outputs.stack }}"
-          pulumi preview --diff
       - name: Pulumi up
-        if: github.event_name == 'push'
         working-directory: infra
         run: |
+          set -euo pipefail
           pulumi stack select "${{ steps.cfg.outputs.stack }}"
-          pulumi up --yes --diff
+          # Retry: another workflow's `pulumi up` may hold the state lock.
+          for attempt in 1 2 3; do
+            if pulumi up --yes --diff; then exit 0; fi
+            echo "pulumi up failed (attempt $attempt); retrying in 60s in case of state-lock contention"
+            sleep 60
+          done
+          exit 1

@@ -7,6 +7,7 @@ on:
     paths:
       - "backend/**"
       - ".github/workflows/deploy-api.yml"
+  workflow_dispatch:
 
 permissions:
   id-token: write
@@ -16,10 +17,10 @@ env:
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
   PULUMI_BACKEND_URL: s3://districtr-v2-pulumi-state?region=${{ vars.AWS_REGION || 'us-east-1' }}
 
-# Shared with infra.yml/deploy-app.yml: one pulumi mutation per branch at a
-# time; also serializes migrations.
+# Per-workflow group (serializes migrations per branch); concurrent
+# `pulumi up`s across workflows are handled by retrying on the state lock.
 concurrency:
-  group: pulumi-${{ github.ref_name }}
+  group: aws-deploy-api-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -40,14 +41,24 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 7200
       - uses: aws-actions/amazon-ecr-login@v2
         id: ecr
+      # Skip if the tag exists: tags are immutable, and a rebuild produces a
+      # different digest — without this guard a failed run is unretryable.
       - name: Build and push image
         id: image
         run: |
-          IMAGE="${{ steps.ecr.outputs.registry }}/districtr-${{ steps.cfg.outputs.stack }}-backend:${{ github.sha }}"
-          docker build -t "$IMAGE" backend
-          docker push "$IMAGE"
+          set -euo pipefail
+          REPO="districtr-${{ steps.cfg.outputs.stack }}-backend"
+          IMAGE="${{ steps.ecr.outputs.registry }}/${REPO}:${{ github.sha }}"
+          if aws ecr describe-images --repository-name "$REPO" \
+              --image-ids imageTag="${{ github.sha }}" >/dev/null 2>&1; then
+            echo "Image already pushed for this sha; skipping build"
+          else
+            docker build -t "$IMAGE" backend
+            docker push "$IMAGE"
+          fi
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
       - name: Install Pulumi
         run: |
@@ -84,10 +95,23 @@ jobs:
             --query 'tasks[0].taskArn' --output text)
           echo "Migration task: $TASK_ARN"
 
-          aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$TASK_ARN"
+          # Own polling loop: `aws ecs wait tasks-stopped` gives up at 10
+          # minutes, which a long PostGIS migration can legitimately exceed.
+          DEADLINE=$((SECONDS + 2700))
+          STATUS=""
+          while [ "$SECONDS" -lt "$DEADLINE" ]; do
+            STATUS=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" \
+              --query 'tasks[0].lastStatus' --output text)
+            [ "$STATUS" = "STOPPED" ] && break
+            sleep 15
+          done
+          if [ "$STATUS" != "STOPPED" ]; then
+            echo "::error::Migration task still running after 45 minutes — investigate before redeploying"
+            exit 1
+          fi
 
           echo "--- migration logs ---"
-          aws logs tail "/districtr/${STACK}/migrate" --since 20m || true
+          aws logs tail "/districtr/${STACK}/migrate" --since 50m || true
 
           EXIT_CODE=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" \
             --query 'tasks[0].containers[0].exitCode' --output text)
@@ -107,4 +131,37 @@ jobs:
             --type String --value "${{ github.sha }}" --overwrite
           npm ci
           pulumi stack select "$STACK"
-          pulumi up --yes --diff
+          # Retry: another workflow's `pulumi up` may hold the state lock.
+          UPDATED=0
+          for attempt in 1 2 3; do
+            if pulumi up --yes --diff; then UPDATED=1; break; fi
+            echo "pulumi up failed (attempt $attempt); retrying in 60s in case of state-lock contention"
+            sleep 60
+          done
+          [ "$UPDATED" = "1" ] || exit 1
+      # `pulumi up` returns when the deployment is created, not when it
+      # succeeds. Wait for stability and fail red if the circuit breaker
+      # rolled back to the previous image.
+      - name: Verify rollout
+        working-directory: infra
+        run: |
+          set -euo pipefail
+          STACK="${{ steps.cfg.outputs.stack }}"
+          pulumi stack select "$STACK"
+          CLUSTER=$(pulumi stack output clusterName)
+          for attempt in 1 2 3; do
+            if aws ecs wait services-stable --cluster "$CLUSTER" --services backend; then break; fi
+            if [ "$attempt" = 3 ]; then
+              echo "::error::backend service did not stabilize"
+              exit 1
+            fi
+          done
+          RUNNING_TD=$(aws ecs describe-services --cluster "$CLUSTER" --services backend \
+            --query 'services[0].deployments[?status==`PRIMARY`].taskDefinition | [0]' --output text)
+          RUNNING_IMAGE=$(aws ecs describe-task-definition --task-definition "$RUNNING_TD" \
+            --query 'taskDefinition.containerDefinitions[0].image' --output text)
+          if [ "$RUNNING_IMAGE" != "${{ steps.image.outputs.image }}" ]; then
+            echo "::error::Deployment rolled back — service is running $RUNNING_IMAGE"
+            exit 1
+          fi
+          echo "Service is stable on ${RUNNING_IMAGE}"

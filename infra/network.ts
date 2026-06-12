@@ -93,19 +93,14 @@ export function createNetwork() {
     tags: {Name: `${name}-frontend-sg`},
   });
 
-  const dbSecurityGroup = new aws.ec2.SecurityGroup(`${name}-db-sg`, {
-    vpcId: vpc.id,
-    description: "RDS: 5432 from backend tasks only",
-    ingress: [{protocol: "tcp", fromPort: 5432, toPort: 5432, securityGroups: [backendSecurityGroup.id]}],
-    egress: [{protocol: "-1", fromPort: 0, toPort: 0, cidrBlocks: ["0.0.0.0/0"], ipv6CidrBlocks: ["::/0"]}],
-    tags: {Name: `${name}-db-sg`},
-  });
-
-  // Temporary operator access for pg_dump/pg_restore during migration.
+  // All rules inline: mixing inline rules with standalone SecurityGroupRule
+  // resources on one group makes the provider fight itself on refresh.
+  const dbIngress: aws.types.input.ec2.SecurityGroupIngress[] = [
+    {protocol: "tcp", fromPort: 5432, toPort: 5432, securityGroups: [backendSecurityGroup.id]},
+  ];
   if (config.dbPubliclyAccessible && config.operatorCidr) {
-    new aws.ec2.SecurityGroupRule(`${name}-db-operator-ingress`, {
-      type: "ingress",
-      securityGroupId: dbSecurityGroup.id,
+    // Temporary operator access for pg_dump/pg_restore during migration.
+    dbIngress.push({
       protocol: "tcp",
       fromPort: 5432,
       toPort: 5432,
@@ -113,6 +108,14 @@ export function createNetwork() {
       description: "Temporary operator access for data migration",
     });
   }
+
+  const dbSecurityGroup = new aws.ec2.SecurityGroup(`${name}-db-sg`, {
+    vpcId: vpc.id,
+    description: "RDS: 5432 from backend tasks only",
+    ingress: dbIngress,
+    egress: [{protocol: "-1", fromPort: 0, toPort: 0, cidrBlocks: ["0.0.0.0/0"], ipv6CidrBlocks: ["::/0"]}],
+    tags: {Name: `${name}-db-sg`},
+  });
 
   return {
     vpc,

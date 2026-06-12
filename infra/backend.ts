@@ -108,6 +108,8 @@ export function createBackend(
     {name: "AUTH0_ALGORITHMS", value: config.auth0Algorithms},
     // Auth via the task role (default boto3 chain), not static keys.
     {name: "AWS_USE_DEFAULT_CREDENTIALS", value: "true"},
+    // Keep boto3 on the regional S3 endpoint (and the free gateway path).
+    {name: "AWS_DEFAULT_REGION", value: region},
   ];
   const secrets = secretParams.map(s => ({name: s.envName, valueFrom: s.param.arn}));
 
@@ -219,7 +221,10 @@ export function createBackend(
       predefinedMetricSpecification: {
         predefinedMetricType: "ECSServiceAverageCPUUtilization",
       },
-      targetValue: 60,
+      // Single uvicorn worker on a multi-vCPU task plateaus near
+      // 100/vCPU-count percent average utilization; 45% still triggers
+      // scale-out before the worker saturates.
+      targetValue: 45,
       scaleOutCooldown: 60,
       scaleInCooldown: 300,
     },
