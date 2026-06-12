@@ -14,15 +14,17 @@ export function createCluster() {
     ],
   });
 
-  const logGroups = Object.fromEntries(
-    (["backend", "frontend", "migrate"] as const).map(component => [
-      component,
-      new aws.cloudwatch.LogGroup(`${name}-${component}-logs`, {
-        name: `/districtr/${config.stack}/${component}`,
-        retentionInDays: config.logRetentionDays,
-      }),
-    ])
-  ) as Record<"backend" | "frontend" | "migrate", aws.cloudwatch.LogGroup>;
+  const logGroup = (component: string) =>
+    new aws.cloudwatch.LogGroup(`${name}-${component}-logs`, {
+      name: `/districtr/${config.stack}/${component}`,
+      retentionInDays: config.logRetentionDays,
+    });
+
+  const logGroups = {
+    backend: logGroup("backend"),
+    frontend: logGroup("frontend"),
+    migrate: logGroup("migrate"),
+  };
 
   return {cluster, logGroups};
 }

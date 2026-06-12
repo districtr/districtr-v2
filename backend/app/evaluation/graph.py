@@ -23,24 +23,14 @@ def get_gerrydb_graph_file(
 ) -> str:
     """Resolve the path to a GerryDB graph pkl file.
 
-    Checks for a local copy first; falls back to S3 if absent.
+    Prefers a local copy (e.g. docker-compose bind mounts); otherwise
+    returns the S3 URI — a missing object surfaces as ClientError on fetch.
     """
     possible_local_path = Path(prefix) / _S3_GRAPH_PREFIX / f"{gerrydb_name}.pkl"
-    logger.info("Possible local path: %s", possible_local_path)
-
     if possible_local_path.exists():
-        logger.info("Local path exists")
         return str(possible_local_path)
 
-    logger.info("Local path does not exist, checking S3")
-    s3_key = f"{_S3_GRAPH_PREFIX}/{gerrydb_name}.pkl"
-    logger.info("S3 key: %s", s3_key)
-
-    s3 = settings.get_s3_client()
-    assert s3, "S3 client is not available"
-    s3.head_object(Bucket=settings.R2_BUCKET_NAME, Key=s3_key)
-
-    return f"s3://{settings.R2_BUCKET_NAME}/{s3_key}"
+    return f"s3://{settings.R2_BUCKET_NAME}/{_S3_GRAPH_PREFIX}/{gerrydb_name}.pkl"
 
 
 def get_gerrydb_graph(file_path: str) -> Graph:
@@ -50,7 +40,6 @@ def get_gerrydb_graph(file_path: str) -> Graph:
     `get_graph` is the only cache, so deployments need no data volume.
     """
     url = urlparse(file_path)
-    logger.info("URL: %s", url)
 
     if url.scheme == "s3":
         s3 = settings.get_s3_client()

@@ -18,18 +18,16 @@ const backend = createBackend(network, clusterResources, alb, repos, database);
 const frontend = createFrontend(network, clusterResources, alb, repos);
 createMonitoring(alb, database, clusterResources, backend, frontend);
 
-// --- Outputs consumed by the GitHub Actions workflows ---
+// --- Outputs consumed by the deploy workflows (migrate RunTask) ---
 export const clusterName = clusterResources.cluster.name;
 export const publicSubnetIds = pulumi.all(network.publicSubnetIds);
 export const backendSecurityGroupId = network.backendSecurityGroup.id;
-export const backendRepoUrl = repos.backendRepo.repositoryUrl;
-export const frontendRepoUrl = repos.frontendRepo.repositoryUrl;
-export const backendServiceName = backend.service.name;
-export const frontendServiceName = frontend.service.name;
 
 // --- Outputs for humans ---
 export const albDnsName = alb.alb.dnsName;
 export const dbAddress = database.db.address;
+export const backendRepoUrl = repos.backendRepo.repositoryUrl;
+export const frontendRepoUrl = repos.frontendRepo.repositoryUrl;
 
 // Every DNS record to create at the external DNS provider. The ACM
 // validation records must exist before the first `pulumi up` can finish

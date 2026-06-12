@@ -1,5 +1,4 @@
 import * as aws from "@pulumi/aws";
-import * as pulumi from "@pulumi/pulumi";
 import {config} from "./config";
 import {Alb} from "./alb";
 import {Database} from "./database";
@@ -27,7 +26,6 @@ export function createMonitoring(
   }
 
   const alarmDefaults = {
-    actionsEnabled: true,
     alarmActions: [topic.arn],
     okActions: [topic.arn],
     treatMissingData: "notBreaching",

@@ -152,7 +152,7 @@ export function createFrontend(
     },
   });
 
-  return {service, taskDefinition};
+  return {service};
 }
 
 export type Frontend = ReturnType<typeof createFrontend>;

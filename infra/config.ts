@@ -74,5 +74,3 @@ export const config = {
   alarmEmail: cfg.get("alarmEmail"),
   logRetentionDays: cfg.getNumber("logRetentionDays") ?? (isProd ? 90 : 30),
 };
-
-export type Config = typeof config;

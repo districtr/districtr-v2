@@ -102,7 +102,6 @@ export function createBackend(
     {name: "BACKEND_CORS_ORIGINS", value: config.corsOrigins},
     {name: "R2_BUCKET_NAME", value: config.s3BucketName},
     {name: "CDN_URL", value: config.cdnUrl},
-    {name: "VOLUME_PATH", value: "/data"},
     {name: "AUTH0_DOMAIN", value: config.auth0Domain},
     {name: "AUTH0_API_AUDIENCE", value: config.auth0ApiAudience},
     {name: "AUTH0_ISSUER", value: config.auth0Issuer},
@@ -226,7 +225,7 @@ export function createBackend(
     },
   });
 
-  return {service, taskDefinition, migrateTaskDefinition};
+  return {service};
 }
 
 export type Backend = ReturnType<typeof createBackend>;
