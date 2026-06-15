@@ -506,18 +506,21 @@ async def create_document(
                 session=session,
             )
         except NoResultFound:
+            session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="No districtr map found matching requested map",
             )
         except DuplicateGeoIdError:
+            session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Duplicate geoids found in input data. Ensure all geoids are unique",
             )
         except ValueError:
+            session.rollback()
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Invalid zone value in assignments",
             )
 

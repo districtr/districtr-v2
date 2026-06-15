@@ -992,7 +992,7 @@ def test_new_document_from_block_assignments_some_null_geoids(
 def test_new_document_from_block_assignments_non_integer_mapping(
     client, simple_shatterable_districtr_map, mock_grid_graph_file
 ):
-    # Non-integer zone strings are frontend misuse; backend raises ValueError → 500
+    # Non-numeric zone strings are client error; backend raises ValueError → 422
     response = client.post(
         "/api/create_document",
         json={
@@ -1007,7 +1007,7 @@ def test_new_document_from_block_assignments_non_integer_mapping(
             ],
         },
     )
-    assert response.status_code == 500
+    assert response.status_code == 422
 
 
 def test_new_document_from_block_assignments_too_many_unique_zones(
