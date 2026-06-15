@@ -1,6 +1,6 @@
 import {AssignmentsStore} from '@/app/store/assignmentsStore';
 import {Assignment, AssignmentArray} from '../api/apiHandlers/types';
-import {NullableZone} from '@/app/constants/types';
+import {type NullableZone} from '@constants/map/zone';
 
 export function formatAssignmentsFromState(
   document_id: string,

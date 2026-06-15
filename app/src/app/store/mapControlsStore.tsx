@@ -2,14 +2,18 @@
 import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
 import type {MapOptions} from 'maplibre-gl';
-import {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from '../constants/map/mapDefaults';
-import {ActiveTool, NullableZone, SpatialUnit, Zone} from '../constants/types';
+import {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from '@/app/constants/document/limits';
+import {MAP_MODES, type MapMode} from '@constants/map/mode';
+import {MAP_MODE_DEFAULT_OPTIONS} from '@constants/map/mapModeDefaults';
+import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
+import {NullableZone, Zone} from '@constants/map/zone';
+import {SpatialUnit} from '@constants/map/geography';
 import {DistrictrMapOptions} from './types';
-import {BasemapId} from '@/app/constants/map/layerStyle';
-import {MAP_MODE_DEFAULT_OPTIONS, type MapMode} from '@/app/constants/map/mapModeDefaults';
 import {useMapStore} from './mapStore';
 import {PaintEventHandler} from '@utils/map/types';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
+import {ACCESS_STATES} from '@constants/document/state';
+import {exposeStoreToWindow as _exposeControlsStore} from './exposeToWindow';
 
 type SidebarPanel =
   | 'layers'
@@ -26,6 +30,10 @@ export interface MapControlsStore {
   setIsPainting: (isPainting: boolean) => void;
   isEditing: boolean;
   setIsEditing: (isEditing: boolean) => void;
+  isEval: boolean;
+  setIsEval: (isEval: boolean) => void;
+  evalTablesOnly: boolean;
+  setEvalTablesOnly: (tablesOnly: boolean) => void;
   activeTool: ActiveTool;
   setActiveTool: (tool: ActiveTool) => void;
   brushSize: number;
@@ -35,6 +43,8 @@ export interface MapControlsStore {
   mapOptions: MapOptions & DistrictrMapOptions;
   setMapOptions: (options: Partial<MapControlsStore['mapOptions']>) => void;
   setStateFp: (stateFp: string) => void;
+  hoveredCountyGeoid: string | null;
+  setHoveredCountyGeoid: (geoid: string | null) => void;
   setLockedZones: (zones: Array<NullableZone>) => void;
   toggleLockAllAreas: () => void;
   spatialUnit: SpatialUnit;
@@ -45,7 +55,7 @@ export interface MapControlsStore {
   setMapMode: (mode: MapMode) => void;
 }
 
-const initialMapMode: MapControlsStore['mapMode'] = 'districts';
+const initialMapMode: MapControlsStore['mapMode'] = MAP_MODES.DISTRICTS;
 
 export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
   center: [-98.5795, 39.8283],
@@ -67,7 +77,7 @@ export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
   showPopulationTooltip: false,
   showBlockPopulationNumbers: false,
   showPopulationNumbers: false,
-  showDemographicMap: undefined,
+  demographicDisplayMode: undefined,
   overlayOpacity: OVERLAY_OPACITY,
   basemap: MAP_MODE_DEFAULT_OPTIONS.districts.basemap,
 };
@@ -80,7 +90,7 @@ export const useMapControlsStore = create<MapControlsStore>()(
     setSelectedZone: zone => {
       const mapStore = useMapStore.getState();
       const validZone =
-        get().mapMode === 'coi'
+        get().mapMode === MAP_MODES.COI
           ? mapStore.communities.some(community => community.id === zone)
           : zone <= (mapStore.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
       if (validZone && !get().isPainting) {
@@ -91,9 +101,13 @@ export const useMapControlsStore = create<MapControlsStore>()(
     setIsPainting: isPainting => set({isPainting}),
     isEditing: false,
     setIsEditing: isEditing => set({isEditing}),
-    activeTool: 'pan',
+    isEval: false,
+    setIsEval: isEval => set({isEval}),
+    evalTablesOnly: false,
+    setEvalTablesOnly: evalTablesOnly => set({evalTablesOnly}),
+    activeTool: ACTIVE_TOOLS.PAN,
     setActiveTool: tool => {
-      const canEdit = useMapStore.getState().mapStatus?.access === 'edit';
+      const canEdit = useMapStore.getState().mapStatus?.access === ACCESS_STATES.EDIT;
       if (canEdit) {
         set({activeTool: tool});
       }
@@ -104,6 +118,8 @@ export const useMapControlsStore = create<MapControlsStore>()(
     setPaintFunction: paintFunction => set({paintFunction}),
     mapOptions: DEFAULT_MAP_OPTIONS,
     setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
+    hoveredCountyGeoid: null,
+    setHoveredCountyGeoid: geoid => set({hoveredCountyGeoid: geoid}),
     setStateFp: stateFp => {
       const mapOptions = get().mapOptions;
       const stateFipsSet = mapOptions.stateFipsSet;
@@ -133,7 +149,7 @@ export const useMapControlsStore = create<MapControlsStore>()(
 
       if (shouldUnlockAllAreas) {
         nextLockPaintedAreas = [];
-      } else if (mapMode === 'coi') {
+      } else if (mapMode === MAP_MODES.COI) {
         nextLockPaintedAreas = mapStore.communities.map(community => community.id as NullableZone);
       } else {
         const numDistricts = mapStore.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
@@ -156,3 +172,5 @@ export const useMapControlsStore = create<MapControlsStore>()(
     setSidebarPanels: sidebarPanels => set({sidebarPanels}),
   }))
 );
+
+_exposeControlsStore('mapControlsStore', useMapControlsStore);

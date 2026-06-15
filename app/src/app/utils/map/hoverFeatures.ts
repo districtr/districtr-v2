@@ -1,6 +1,6 @@
 'use client';
 import type {MapGeoJSONFeature} from 'maplibre-gl';
-import type {MapFeatureInfo} from '@constants/types';
+import type {MapFeatureInfo} from '@constants/map/mapEvents';
 import {useMapStore} from '@/app/store/mapStore';
 
 export let previousHoverFeatures: Array<MapFeatureInfo> = [];

@@ -1,5 +1,9 @@
-# Use official Python image inclusive of gcc pre-requisites
-FROM python:3.12
+# Use official Python image inclusive of gcc pre-requisites.
+# Pinned to a specific patch version for reproducible dev builds; upgrade
+# intentionally by bumping this tag. For prod images, consider pinning to an
+# image digest (python:3.12.7@sha256:...) to defend against tag-drift in supply
+# chain attacks.
+FROM python:3.12.7
 
 # Set working directory inside the container
 WORKDIR /districtr-backend

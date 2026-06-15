@@ -1,12 +1,12 @@
-import {ConflictResolutionOptions, NullableZone, SyncConflictResolution} from '../constants/types';
-import {Zone, GDBPath} from '@constants/types';
+import {ConflictResolutionOptions, SyncConflictResolution} from '@constants/document/sync';
+import {NullableZone, Zone, GDBPath} from '@constants/map/zone';
 import GeometryWorker from '../utils/GeometryWorker';
-import {demographyCache} from '../utils/demography/demographyCache';
+import {demographyService} from '../utils/demography/demographyService';
 import {idb} from '../utils/idb/idb';
 import {useMapStore} from './mapStore';
 import {useDemographyStore} from './demography/demographyStore';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
-import {ConflictContext} from '../constants/types';
+import {ConflictContext} from '@constants/document/sync';
 import {checkIfSameZone} from '../utils/map/checkIfSameZone';
 import {formatAssignmentsFromDocument} from '../utils/map/formatAssignments';
 import {getAssignments} from '../utils/api/apiHandlers/getAssignments';
@@ -26,6 +26,8 @@ import {
 import {temporalManager} from '../utils/temporal';
 import {cloneTemporalSnapshot, AssignmentsTemporalSnapshot} from '../utils/temporalSnapshot';
 import {assignmentsTemporalConfig} from './middlewareConfig';
+import {exposeStoreToWindow as _exposeAssignmentsStore} from './exposeToWindow';
+import {MAP_MODES} from '@constants/map/mode';
 
 export interface AssignmentsStore {
   /** Map of geoid -> zone assignments currently in memory */
@@ -95,7 +97,8 @@ export interface AssignmentsStore {
   handleRevert: (mapDocument: DocumentObject) => Promise<void>;
   handlePutAssignmentsConflict: (
     resolution: SyncConflictResolution,
-    conflict: SyncConflictInfo
+    conflict: SyncConflictInfo,
+    options?: Pick<ConflictResolutionOptions, 'onNavigate' | 'onComplete'>
   ) => void;
   /** Unified conflict resolution method that handles both save and load conflicts */
   resolveConflict: (
@@ -278,14 +281,29 @@ const resolveFork = async ({
 }: ConflictDependencies) => {
   setMapLock({isLocked: true, reason: 'Creating a new plan from local changes.'});
   try {
-    const createMapDocumentResponse = await createMapDocument(syncConflictInfo.serverDocument);
+    const createMapDocumentResponse = await createMapDocument({
+      districtr_map_slug: syncConflictInfo.serverDocument.districtr_map_slug,
+      map_type: syncConflictInfo.serverDocument.map_type,
+      copy_from_doc: syncConflictInfo.serverDocument.document_id,
+    });
     if (!createMapDocumentResponse.ok) {
       throw new DocumentCreationError('Failed to create map document from assignments on server');
     }
-    setMapDocument(createMapDocumentResponse.response);
+    // Carry over any local comments (saved or in-flight) onto the new doc so the
+    // fork reflects the user's latest state. comment_ids are stripped because the
+    // server just duplicated comments onto the new doc with fresh ids.
+    const localComments = (syncConflictInfo.localDocument.document_comments || []).map(c => ({
+      zone: c.zone,
+      text: c.text,
+    }));
+    const newDocWithLocalComments = {
+      ...createMapDocumentResponse.response,
+      document_comments: localComments,
+    };
+    setMapDocument(newDocWithLocalComments);
     const data = await loadLocalAssignments(syncConflictInfo.localDocument.document_id);
     const response = await putUpdateAssignmentsAndVerify({
-      mapDocument: createMapDocumentResponse.response,
+      mapDocument: newDocWithLocalComments,
       zoneAssignments: data.zoneAssignments,
       shatterIds: data.shatterIds,
       childToParent: data.childToParent,
@@ -297,7 +315,7 @@ const resolveFork = async ({
       );
     }
     const updatedDocument = {
-      ...createMapDocumentResponse.response,
+      ...newDocWithLocalComments,
       updated_at: response.response.updated_at,
     };
     setMapDocument(updatedDocument);
@@ -434,7 +452,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       idb.updateIdbAssignments(mapDocument, data.zoneAssignments, mapDocument.updated_at, true);
       useMapStore.getState().mutateMapDocument(mapDocument);
     }
-    demographyCache.updatePopulations({
+    demographyService.updatePopulations({
       zoneAssignments: data.zoneAssignments,
       coalitionGroups: useDemographyStore.getState().coalitionGroups,
     });
@@ -599,12 +617,12 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
 
     if (!result) return;
     const {zoneAssignments, shatterIds, parentToChild, childToParent} = result;
-    demographyCache.updatePopulations({
+    demographyService.updatePopulations({
       zoneAssignments,
       coalitionGroups: useDemographyStore.getState().coalitionGroups,
     });
     idb.updateIdbAssignments(mapDocument, zoneAssignments);
-    temporalManager.resume('districts');
+    temporalManager.resume(MAP_MODES.DISTRICTS);
 
     set({
       zoneAssignments,
@@ -847,7 +865,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     options: ConflictResolutionOptions = {}
   ) => {
     const {onNavigate, onComplete, context = ConflictContext.Save} = options;
-    const {setMapDocument, setMapLock, setShowSaveConflictModal} = useMapStore.getState();
+    const {setMapDocument, setMapLock, setShowSaveConflictModal, setErrorNotification} =
+      useMapStore.getState();
     const dependencies: ConflictDependencies = {
       syncConflictInfo,
       store: get(),
@@ -858,36 +877,54 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
 
     setShowSaveConflictModal(false);
 
-    switch (resolution) {
-      case SyncConflictResolution.KeepLocal: {
-        await resolveKeepLocal(dependencies, context);
-        break;
+    // Wrap the whole switch so any resolver-helper failure (network error mid-Fork,
+    // setMapDocument failing on malformed data, etc.) surfaces via the notification
+    // system instead of becoming an unhandled promise rejection.
+    try {
+      switch (resolution) {
+        case SyncConflictResolution.KeepLocal: {
+          await resolveKeepLocal(dependencies, context);
+          break;
+        }
+        case SyncConflictResolution.UseLocal: {
+          await resolveUseLocal(dependencies, context);
+          break;
+        }
+        case SyncConflictResolution.UseServer: {
+          await resolveUseServer(dependencies);
+          break;
+        }
+        case SyncConflictResolution.Fork: {
+          await resolveFork(dependencies);
+          break;
+        }
+        default: {
+          const exhaustiveResolution: never = resolution;
+          throw new Error(`Unhandled sync conflict resolution: ${exhaustiveResolution}`);
+        }
       }
-      case SyncConflictResolution.UseLocal: {
-        await resolveUseLocal(dependencies, context);
-        break;
-      }
-      case SyncConflictResolution.UseServer: {
-        await resolveUseServer(dependencies);
-        break;
-      }
-      case SyncConflictResolution.Fork: {
-        await resolveFork(dependencies);
-        break;
-      }
-      default: {
-        const exhaustiveResolution: never = resolution;
-        throw new Error(`Unhandled sync conflict resolution: ${exhaustiveResolution}`);
-      }
+    } catch (error) {
+      console.error('[resolveConflict] failed', {resolution, error});
+      setErrorNotification({
+        severity: 1,
+        message: `Could not resolve save conflict: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        id: 'resolve-conflict-error',
+      });
     }
     onComplete?.();
   },
   handlePutAssignmentsConflict: async (
     resolution: SyncConflictResolution,
-    syncConflictInfo: SyncConflictInfo
+    syncConflictInfo: SyncConflictInfo,
+    options: Pick<ConflictResolutionOptions, 'onNavigate' | 'onComplete'> = {}
   ) => {
     await get().resolveConflict(resolution, syncConflictInfo, {
       context: ConflictContext.Save,
+      ...options,
     });
   },
 }));
+
+_exposeAssignmentsStore('assignmentsStore', useAssignmentsStore);

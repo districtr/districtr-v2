@@ -8,8 +8,10 @@ import {useSaveShareStore} from '@/app/store/saveShareStore';
 import {Link1Icon} from '@radix-ui/react-icons';
 import {useMapMetadata} from '@/app/hooks/useMapMetadata';
 import {DEFAULT_MAP_METADATA} from '@/app/utils/language';
+import {routeForType} from '@constants/document/routes';
 import {useRouter} from 'next/navigation';
 import {createMapDocument} from '@/app/utils/api/apiHandlers/createMapDocument';
+import {ACCESS_STATES} from '@constants/document/state';
 
 export const SaveShareModal: React.FC<{
   open: boolean;
@@ -25,7 +27,7 @@ export const SaveShareModal: React.FC<{
   );
   const [linkCopied, setLinkCopied] = useState(false);
   const setMapLock = useMapStore(state => state.setMapLock);
-  const isEditing = useMapStore(state => state.mapDocument?.access === 'edit');
+  const isEditing = useMapStore(state => state.mapDocument?.access === ACCESS_STATES.EDIT);
   const generateLink = useSaveShareStore(state => state.generateLink);
 
   const handleCopy = async () => {
@@ -44,7 +46,7 @@ export const SaveShareModal: React.FC<{
       },
     });
     if (response.ok) {
-      const routePrefix = response.response.map_type === 'community' ? 'coi' : 'map';
+      const routePrefix = routeForType(response.response.map_type);
       router.push(`/${routePrefix}/edit/${response.response.document_id}`);
       onClose();
     } else {

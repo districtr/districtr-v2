@@ -2,6 +2,7 @@ import {useCallback} from 'react';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
+import {MAP_MODES} from '@constants/map/mode';
 
 export const useSelectCommunity = () => {
   const mapMode = useMapControlsStore(state => state.mapMode);
@@ -16,7 +17,7 @@ export const useSelectCommunity = () => {
 
   return useCallback(
     (communityId: number) => {
-      if (mapMode !== 'coi') {
+      if (mapMode !== MAP_MODES.COI) {
         setSelectedZone(communityId);
         return;
       }

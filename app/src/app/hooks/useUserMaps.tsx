@@ -1,7 +1,8 @@
-import {DocumentObject} from '../utils/api/apiHandlers/types';
-import {useEffect, useState} from 'react';
-import {idb} from '../utils/idb/idb';
-import {useMapStore} from '../store/mapStore';
+import { DocumentObject } from '../utils/api/apiHandlers/types';
+import { useEffect, useState } from 'react';
+import { idb } from '../utils/idb/idb';
+import { useMapStore } from '../store/mapStore';
+import { MAP_TYPES } from '@constants/document/types';
 
 export const useUserMaps = (updateTrigger: string | null | number = null) => {
   const _updateTrigger = useMapStore(state => state.mapDocument);
@@ -24,19 +25,19 @@ export const useUserMaps = (updateTrigger: string | null | number = null) => {
         const coiMaps: DocumentObject[] = [];
         const districtMaps: DocumentObject[] = [];
         for (const doc of sortedDocs) {
-          if (doc.map_type === 'community') {
+          if (doc.map_type === MAP_TYPES.COMMUNITY) {
             coiMaps.push(doc);
           } else {
             districtMaps.push(doc);
           }
+          setCommunityMaps(coiMaps);
+          setDistrictMaps(districtMaps);
         }
-        setCommunityMaps(coiMaps);
-        setDistrictMaps(districtMaps);
       } finally {
         setLoading(false);
       }
     };
     loadRecentMaps();
   }, [_updateTrigger, updateTrigger]);
-  return {communityMaps, districtMaps, loading};
+  return { communityMaps, districtMaps, loading };
 };

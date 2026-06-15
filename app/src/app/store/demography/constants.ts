@@ -8,9 +8,11 @@ import {
 } from '@utils/api/summaryStats';
 import {scaleLinear} from '@visx/scale';
 import {AnyD3Scale} from './types';
+import {type SummaryType} from '@constants/demography/summary';
 
 export const DEFAULT_COLOR_SCHEME = chromatic.schemeBlues;
 export const DEFAULT_COLOR_SCHEME_GRAY = chromatic.schemeGreys;
+export const DEFAULT_CHOROPLETH_BIN_COUNT = 5;
 
 export const PARTISAN_SCALE = scaleLinear()
   .domain(Array.from({length: 11}, (_, i) => i / 10))
@@ -19,9 +21,7 @@ export const PARTISAN_SCALE = scaleLinear()
 // type up some abstractions / api layer stuff
 // tabular configuration
 export const choroplethMapVariables: {
-  TOTPOP: MapColumnConfiguration<SummaryStatConfig['TOTPOP']>;
-  VAP: MapColumnConfiguration<SummaryStatConfig['VAP']>;
-  VOTERHISTORY: MapColumnConfiguration<SummaryStatConfig['VOTERHISTORY']>;
+  [K in SummaryType]: MapColumnConfiguration<SummaryStatConfig[K]>;
 } = {
   TOTPOP: [
     {

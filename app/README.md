@@ -143,13 +143,14 @@ Canvas/map interactions use helper utilities:
 
 ```typescript
 import {getMapCenter, paintAtCoordinates, waitForMapLoad} from '../../utils/map-helpers';
+import {ACTIVE_TOOLS} from '@constants/map/tools';
 
 test('should paint on map', async ({page}) => {
   await page.goto('/map/edit/document-id');
   await waitForMapLoad(page);
 
   // Select brush tool
-  await page.getByTestId('brush-tool').click();
+  await page.getByTestId(ACTIVE_TOOLS.BRUSH).click();
 
   // Paint at map center
   const center = await getMapCenter(page);

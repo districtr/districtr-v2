@@ -7,25 +7,33 @@ import {DemographyStore} from './types';
 import {useAssignmentsStore} from '../assignmentsStore';
 import {useCoiAssignmentsStore} from '../coiAssignmentsStore';
 import {getDemography} from '@/app/utils/api/apiHandlers/getDemography';
-import {demographyCache} from '@/app/utils/demography/demographyCache';
-import {AllEvaluationConfigs, AllMapConfigs} from '@/app/utils/api/summaryStats';
-import {evalColumnConfigs} from './evaluationConfig';
-import {choroplethMapVariables} from './constants';
+import {demographyService} from '@/app/utils/demography/demographyService';
+import {getAvailableColumnSets} from '@/app/utils/demography/getAvailableColumnSets';
+import {DEFAULT_CHOROPLETH_BIN_COUNT} from './constants';
 import {idb} from '@/app/utils/idb/idb';
+import {type CoalitionGroupKey} from '@constants/demography/coalition';
 import {
-  CoalitionGroupKey,
   getCoalitionUniverseFromVariable,
   getSelectedCoalitionColumns,
   isCoalitionVariable,
 } from '@/app/utils/demography/coalition';
+import {COALITION_UNIVERSES, SUMMARY_TYPES} from '@constants/demography/summary';
+import {MAP_MODES} from '@constants/map/mode';
+import {ACCESS_STATES} from '@constants/document/state';
+import {MAP_TYPES} from '@constants/document/types';
 
 let coalitionHydrationRequestId = 0;
 let coalitionVersion = 0;
+// Request-id for updateData so rapid successive calls don't clobber each other:
+// two calls with different dataHashes both pass the cache guard, both fetch, and
+// the late resolver would otherwise win and leave the demographyService singleton
+// out of sync with the store's dataHash.
+let updateDataRequestId = 0;
 
 const getActiveBrokenIds = () => {
   const mapMode = useMapControlsStore.getState().mapMode;
   return Array.from(
-    mapMode === 'coi'
+    mapMode === MAP_MODES.COI
       ? useCoiAssignmentsStore.getState().shatterIds.parents
       : useAssignmentsStore.getState().shatterIds.parents
   );
@@ -63,7 +71,7 @@ export var useDemographyStore = create(
           coalitionRestoredSlug: null,
           coalitionHash: `${++coalitionVersion}`,
         });
-        demographyCache.updatePopulations();
+        demographyService.updatePopulations();
         return;
       }
       if (get().coalitionRestoredSlug === slug) return;
@@ -76,19 +84,19 @@ export var useDemographyStore = create(
         coalitionRestoredSlug: slug,
         coalitionHash: `${++coalitionVersion}`,
       });
-      demographyCache.updatePopulations({coalitionGroups});
+      demographyService.updatePopulations({coalitionGroups});
 
       const currentVariable = get().variable;
       if (isCoalitionVariable(currentVariable)) {
         const universe = getCoalitionUniverseFromVariable(currentVariable);
         const selectedColumns = getSelectedCoalitionColumns({
           selectedGroups: coalitionGroups,
-          availableColumns: demographyCache.availableColumns,
+          availableColumns: demographyService.availableColumns,
           universe,
         });
         if (!selectedColumns.length) {
           set({
-            variable: universe === 'TOTPOP' ? 'total_pop_20' : 'total_vap_20',
+            variable: universe === COALITION_UNIVERSES.TOTPOP ? 'total_pop_20' : 'total_vap_20',
           });
         }
       }
@@ -99,7 +107,7 @@ export var useDemographyStore = create(
         coalitionGroups: deduped,
         coalitionHash: `${++coalitionVersion}`,
       });
-      demographyCache.updatePopulations({coalitionGroups: deduped});
+      demographyService.updatePopulations({coalitionGroups: deduped});
 
       const {mapDocument} = useMapStore.getState();
       if (mapDocument?.districtr_map_slug) {
@@ -114,12 +122,12 @@ export var useDemographyStore = create(
         const universe = getCoalitionUniverseFromVariable(currentVariable);
         const selectedColumns = getSelectedCoalitionColumns({
           selectedGroups: deduped,
-          availableColumns: demographyCache.availableColumns,
+          availableColumns: demographyService.availableColumns,
           universe,
         });
         if (!selectedColumns.length) {
           set({
-            variable: universe === 'TOTPOP' ? 'total_pop_20' : 'total_vap_20',
+            variable: universe === COALITION_UNIVERSES.TOTPOP ? 'total_pop_20' : 'total_vap_20',
           });
         }
       }
@@ -130,7 +138,7 @@ export var useDemographyStore = create(
         coalitionRestoredSlug: null,
         coalitionHash: `${++coalitionVersion}`,
       });
-      demographyCache.updatePopulations();
+      demographyService.updatePopulations();
     },
     availableColumnSets: {
       evaluation: {},
@@ -156,14 +164,14 @@ export var useDemographyStore = create(
       });
     },
     unmount: () => {
-      const isSwappingMode = useMapControlsStore.getState().mapOptions.showDemographicMap;
+      const isSwappingMode = useMapControlsStore.getState().mapOptions.demographicDisplayMode;
       const currScale = get().scale;
       set({
         getMapRef: () => undefined,
         scale: isSwappingMode ? currScale : undefined,
       });
     },
-    numberOfBins: 5,
+    numberOfBins: DEFAULT_CHOROPLETH_BIN_COUNT,
     setNumberOfBins: numberOfBins => set({numberOfBins}),
     dataHash: '',
     setDataHash: dataHash => set({dataHash}),
@@ -176,10 +184,15 @@ export var useDemographyStore = create(
       const dataHash = `${brokenIds.join(',')}|${mapDocument.document_id}`;
 
       if (currDataHash === dataHash) return;
+
+      const requestId = ++updateDataRequestId;
       const result = await getDemography({
         mapDocument,
         brokenIds,
       });
+      // Bail if a newer updateData call has already been kicked off; otherwise this
+      // stale resolver would overwrite the fresh data with its own older results.
+      if (requestId !== updateDataRequestId) return;
       if (!result || !mapDocument) {
         setErrorNotification({
           message: 'Failed to get demography',
@@ -188,30 +201,17 @@ export var useDemographyStore = create(
         });
         return;
       }
-      demographyCache.update(result.columns, result.results, dataHash, get().coalitionGroups);
-      const availableColumns = demographyCache.availableColumns;
-      const availableEvalSets: Record<string, AllEvaluationConfigs> = Object.fromEntries(
-        Object.entries(evalColumnConfigs)
-          .map(([columnsetKey, config]) => [
-            columnsetKey,
-            config.filter(entry => availableColumns.includes(entry.sourceCol ?? entry.column)),
-          ])
-          .filter(([, config]) => config.length > 0)
-      );
-      const availableMapSets: Record<string, AllMapConfigs> = Object.fromEntries(
-        Object.entries(choroplethMapVariables)
-          .map(([columnsetKey, config]) => [
-            columnsetKey,
-            config.filter(entry => availableColumns.includes(entry.value)),
-          ])
-          .filter(([, config]) => config.length > 0)
-      );
+
+      const isCommunityPublic =
+        mapDocument.access === ACCESS_STATES.READ && mapDocument.map_type === MAP_TYPES.COMMUNITY;
+      if (mapDocument.access === ACCESS_STATES.READ && !isCommunityPublic) {
+        demographyService.updateOverlay(result.columns, result.results, dataHash);
+      } else {
+        demographyService.update(result.columns, result.results, dataHash, get().coalitionGroups);
+      }
 
       set({
-        availableColumnSets: {
-          evaluation: availableEvalSets,
-          map: availableMapSets,
-        },
+        availableColumnSets: getAvailableColumnSets(demographyService.availableColumns),
         dataHash,
       });
     },

@@ -151,13 +151,25 @@ const OverlayLayer = ({
     return null;
   }
 
+  // Hover highlight layer: give it an explicit id (and inherit the overlay's
+  // source-layer for pmtiles) so map-libre can dedupe across re-renders.
+  // Anonymous layers were accumulating duplicates every re-render.
+  const hoverLayerProps: any = {
+    id: `${layerId}-highlight`,
+    type: 'fill' as const,
+    paint: HIGHLIGHT_FILL_COLOR,
+  };
+  if (overlay.data_type === 'pmtiles' && overlay.source_layer) {
+    hoverLayerProps['source-layer'] = overlay.source_layer;
+  }
+
   return (
     <>
       <Source id={sourceId} {...sourceProps}>
         {/* Main overlay layer */}
         <Layer {...layerProps} />
         {/* Hover highlight layer */}
-        <Layer type="fill" paint={HIGHLIGHT_FILL_COLOR} />
+        <Layer {...hoverLayerProps} />
         {/* Selected constraint outline layer */}
         {selectedOutlineProps && <Layer {...selectedOutlineProps} />}
         {/* Invisible click layer for line overlays */}

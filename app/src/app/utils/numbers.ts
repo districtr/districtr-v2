@@ -1,3 +1,5 @@
+import {NUMBER_FORMATS, type NumberFormat} from '@constants/demography/format';
+
 const percentFormatter = new Intl.NumberFormat('en-US', {
   style: 'percent',
   minimumFractionDigits: 0,
@@ -19,26 +21,29 @@ const standardFormatter = new Intl.NumberFormat('en-US', {
 
 const stringFormatter = (n: number) => Math.round(n).toLocaleString();
 
-export type NumberFormats = 'percent' | 'string' | 'compact' | 'compact3' | 'partisan' | 'standard';
-export const formatNumber = (value: number | undefined, format: NumberFormats) => {
+export const formatNumber = (value: number | undefined, format: NumberFormat) => {
   if (value === undefined) {
     return value;
   }
   switch (format) {
-    case 'percent':
+    case NUMBER_FORMATS.PERCENT:
       return percentFormatter.format(value);
-    case 'string': // Added case for 'string'
+    case NUMBER_FORMATS.STRING: // Added case for 'string'
       return stringFormatter(value); // Format as string
-    case 'compact': // Added case for 'compact'
+    case NUMBER_FORMATS.COMPACT: // Added case for 'compact'
       return compactFormatter.format(value); // Format as compact
-    case 'compact3': // Added case for 'compact'
+    case NUMBER_FORMATS.COMPACT3: // Added case for 'compact'
       return compact3Formatter.format(value); // Format as compact
-    case 'partisan':
+    case NUMBER_FORMATS.PARTISAN:
       const party = value > 0 ? 'D' : 'R';
       const percentFormat = percentFormatter.format(Math.abs(value));
       return `${party} +${percentFormat}`;
-    case 'standard':
+    case NUMBER_FORMATS.STANDARD:
       return standardFormatter.format(value);
+    case NUMBER_FORMATS.SIGNED_PCT:
+      return value >= 0 ? `+${(value * 100).toFixed(2)}%` : `${(value * 100).toFixed(2)}%`;
+    case NUMBER_FORMATS.DECIMAL_3:
+      return isNaN(value) ? '—' : value.toFixed(3);
     default:
       const exhaustiveCheck: never = format;
       throw new Error(`Unhandled format case: ${exhaustiveCheck}`);

@@ -11,7 +11,7 @@ from app.core.config import settings
 from fastapi import APIRouter, Security, status, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from app.core.security import auth, TokenScope
-from app.core.db import get_session
+from app.core.db import get_session, engine
 from app.core.dependencies import get_document
 from app.models import Document
 from urllib.parse import urlparse
@@ -102,6 +102,25 @@ def write_image(out_path: str | Path, pic_IObytes: io.BytesIO) -> None:
 
 
 def generate_thumbnail(
+    document_id: str,
+    out_directory: str | None,
+    session: Session | None = None,
+) -> str:
+    """Generate a document thumbnail, owning the DB session unless one is given.
+
+    Background tasks must NOT receive the request-scoped session: it is closed at
+    request teardown, so any connection the task then checks out is never returned
+    to the pool (a leak). Called as a background task with ``session=None``, this
+    opens and closes its own session. Tests may pass a session to share their
+    transaction.
+    """
+    if session is not None:
+        return _generate_thumbnail(session, document_id, out_directory)
+    with Session(engine) as owned_session:
+        return _generate_thumbnail(owned_session, document_id, out_directory)
+
+
+def _generate_thumbnail(
     session: Session, document_id: str, out_directory: str | None
 ) -> str:
     """
@@ -207,7 +226,6 @@ async def make_thumbnail(
     *,
     document: Annotated[Document, Depends(get_document)],
     background_tasks: BackgroundTasks,
-    session: Session = Depends(get_session),
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
 ):
     if document.document_id is None:
@@ -217,7 +235,6 @@ async def make_thumbnail(
         )
     background_tasks.add_task(
         generate_thumbnail,
-        session=session,
         document_id=document.document_id,
         out_directory=THUMBNAIL_BUCKET,
     )
@@ -228,6 +245,22 @@ async def make_thumbnail(
 
 
 def generate_blank(
+    districtr_map_slug: str,
+    out_directory: str | None,
+    session: Session | None = None,
+) -> str:
+    """Generate a blank-map thumbnail, owning the DB session unless one is given.
+
+    See ``generate_thumbnail`` for why background tasks must not reuse the
+    request-scoped session.
+    """
+    if session is not None:
+        return _generate_blank(session, districtr_map_slug, out_directory)
+    with Session(engine) as owned_session:
+        return _generate_blank(owned_session, districtr_map_slug, out_directory)
+
+
+def _generate_blank(
     session: Session, districtr_map_slug: str, out_directory: str | None
 ) -> str:
     """
@@ -296,12 +329,10 @@ async def make_districtrmap_thumbnail(
     *,
     districtr_map_slug: str,
     background_tasks: BackgroundTasks,
-    session: Session = Depends(get_session),
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
 ):
     background_tasks.add_task(
         generate_blank,
-        session=session,
         districtr_map_slug=districtr_map_slug,
         out_directory=THUMBNAIL_BUCKET,
     )

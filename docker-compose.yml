@@ -66,7 +66,10 @@ services:
     env_file:
       - ./app/.env.docker
     ports:
-      - "3000:3000" # Expose Next.js on port 3000
+      # Host 3001 to avoid colliding with the dev frontend on 3000 when both
+      # are running. E2E tests configured for the prod preview should target
+      # http://localhost:3001.
+      - "3001:3000"
     command: sh -c "bun install && bun run build && bun run start"
     profiles: ["prod"]
 

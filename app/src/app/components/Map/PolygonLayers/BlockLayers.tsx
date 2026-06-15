@@ -17,9 +17,9 @@ export const BlockLayers: React.FC<{
   scope: BlockScope;
   layerFilter: FilterSpecification;
   outlineFilter: FilterSpecification;
-  sourceLayerId: string;
+  sourceLayerId?: string;
 }> = ({scope, layerFilter, outlineFilter, sourceLayerId}) => {
-  const showDemographicMap = useMapControlsStore(state => state.mapOptions.showDemographicMap);
+  const showDemographicMap = useMapControlsStore(state => state.mapOptions.demographicDisplayMode);
   const showDemographyOverlay = showDemographicMap === 'overlay';
   const showGeometryBackground = showDemographicMap !== 'overlay';
   const lineWidth = scope === 'CHILD' ? 1 : 2;

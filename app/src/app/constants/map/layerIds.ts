@@ -1,6 +1,7 @@
 export const CANONICAL_LAYER_IDS = {
   SOURCES: {
     BLOCK: 'blocks',
+    PUBLIC: 'public-districts',
     SELECTION_POINTS_PARENT: 'SELECTION_POINTS',
     SELECTION_POINTS_CHILD: 'SELECTION_POINTS_child',
     COUNTIES: 'counties',
@@ -28,6 +29,7 @@ export const CANONICAL_LAYER_IDS = {
     FILL: 'counties_fill',
     BOUNDARY: 'counties_boundary',
     LABELS: 'counties_labels',
+    HIGHLIGHT: 'counties_highlight',
   },
   BLOCK: {
     PARENT: {
@@ -47,11 +49,16 @@ export const CANONICAL_LAYER_IDS = {
       BACKGROUND: 'blocks-child-hover-background',
     },
   },
+  PUBLIC: {
+    FILL: 'public-district-fill',
+    OUTLINE: 'public-district-outline',
+    HIGHLIGHT: 'public-district-highlight',
+  },
   ZONE_LABELS: {
-    OUTLINE: 'ZONE_OUTLINE',
     TEXT: 'ZONE_LABEL',
     BACKGROUND: 'ZONE_LABEL_BG',
-    LOCK: 'ZONE_LOCK_LABE',
+    LOCK: 'ZONE_LOCK_LABEL',
+    COMMENT_INDICATOR: 'ZONE_COMMENT_INDICATOR',
   },
 } as const;
 
@@ -61,6 +68,7 @@ export type BlockScope = keyof typeof CANONICAL_LAYER_IDS.BLOCK;
 // These are included here so that the migration to new constants location does not
 // break things
 export const BLOCK_SOURCE_ID = CANONICAL_LAYER_IDS.SOURCES.BLOCK;
+export const PUBLIC_SOURCE_ID = CANONICAL_LAYER_IDS.SOURCES.PUBLIC;
 export const BLOCK_LAYER_ID = CANONICAL_LAYER_IDS.BLOCK.PARENT.BASE;
 export const BLOCK_LAYER_ID_CHILD = CANONICAL_LAYER_IDS.BLOCK.CHILD.BASE;
 export const BLOCK_POINTS_LAYER_ID = CANONICAL_LAYER_IDS.BLOCK.PARENT.POINTS;
@@ -96,11 +104,12 @@ export const LABELS_BREAK_LAYER_ID = CANONICAL_LAYER_IDS.BREAKS.LABELS;
 
 export const ZONE_LABEL_SOURCE_ID = CANONICAL_LAYER_IDS.SOURCES.ZONE_LABEL;
 export const ZONE_LABEL_LAYER_IDS = {
-  OUTLINE: CANONICAL_LAYER_IDS.ZONE_LABELS.OUTLINE,
   TEXT: CANONICAL_LAYER_IDS.ZONE_LABELS.TEXT,
   BACKGROUND: CANONICAL_LAYER_IDS.ZONE_LABELS.BACKGROUND,
   LOCK: CANONICAL_LAYER_IDS.ZONE_LABELS.LOCK,
+  COMMENT_INDICATOR: CANONICAL_LAYER_IDS.ZONE_LABELS.COMMENT_INDICATOR,
 } as const;
+export const ZONE_LABEL_LAYER_LIST: string[] = Object.values(ZONE_LABEL_LAYER_IDS);
 
 export const GEOMETRY_OUTLINE_LAYER_IDS = {
   parent: CANONICAL_LAYER_IDS.BLOCK.PARENT.OUTLINE,
@@ -124,7 +133,11 @@ export const getHoverLayerIds = (idBase: string) => ({
   lineId: `${idBase}${HOVER_LAYER_ID_SUFFIXES.line}`,
 });
 
-export const INTERACTIVE_LAYERS: string[] = [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD];
+export const INTERACTIVE_LAYERS: string[] = [
+  BLOCK_HOVER_LAYER_ID,
+  BLOCK_HOVER_LAYER_ID_CHILD,
+  CANONICAL_LAYER_IDS.PUBLIC.FILL,
+];
 export const PARENT_LAYERS: string[] = [BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID];
 export const CHILD_LAYERS: string[] = [
   BLOCK_LAYER_ID_CHILD,

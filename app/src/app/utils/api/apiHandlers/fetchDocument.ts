@@ -3,7 +3,8 @@ import {getDocument} from './getDocument';
 import {idb} from '@/app/utils/idb/idb';
 import {getAssignments} from './getAssignments';
 import {isUUID} from '../../metadata/isUUID';
-import {SyncConflictResolution} from '@/app/constants/types';
+import {type SyncConflictResolution} from '@constants/document/sync';
+import {MAP_TYPES} from '@constants/document/types';
 
 export interface DocumentFetchResult {
   document: DocumentObject;
@@ -43,7 +44,7 @@ export const fetchDocument = async (
 ): FetchDocumentResult => {
   const isPublic = !isUUID(document_id);
   const [idbDocument, remoteMetadata] = await Promise.all([
-    idb.getDocument(document_id),
+    isPublic ? Promise.resolve(null) : idb.getDocument(document_id),
     getDocument(document_id),
   ]);
 
@@ -61,6 +62,28 @@ export const fetchDocument = async (
     return {
       ok: false,
       error: remoteMetadata.error.detail || 'Failed to fetch document',
+    };
+  }
+
+  if (isPublic) {
+    // Community public views don't have a district-unions stats path, so fetch
+    // raw assignments for them. District public views rely on PublicSource and
+    // don't need per-geoid assignments here.
+    const isCommunityPublic = remoteMetadata.response.map_type === MAP_TYPES.COMMUNITY;
+    let assignments: Assignment[] = [];
+    if (isCommunityPublic) {
+      const remoteAssignments = await getAssignments(remoteMetadata.response);
+      if (remoteAssignments.ok) {
+        assignments = remoteAssignments.response;
+      }
+    }
+    return {
+      ok: true,
+      response: {
+        document: remoteMetadata.response,
+        assignments,
+        updateLocal: false,
+      },
     };
   }
 

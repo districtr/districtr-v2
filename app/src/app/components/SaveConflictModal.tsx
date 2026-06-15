@@ -1,4 +1,5 @@
 import React, {useEffect, useState} from 'react';
+import {useRouter} from 'next/navigation';
 import {SyncConflictInfo} from '@/app/utils/api/apiHandlers/fetchDocument';
 import {useMapStore} from '../store/mapStore';
 import {useAssignmentsStore} from '../store/assignmentsStore';
@@ -7,12 +8,21 @@ import {useMapControlsStore} from '../store/mapControlsStore';
 import {DocumentObject} from '../utils/api/apiHandlers/types';
 import {getDocument} from '../utils/api/apiHandlers/getDocument';
 import {SyncConflictModal} from './SyncConflictModal';
+import {MAP_MODES} from '@constants/map/mode';
+import {MAP_TYPES} from '@constants/document/types';
+import {MAP_ROUTES} from '@constants/document/routes';
+import {APP_LOADING_STATES} from '@constants/document/state';
+import {RENDERING_STATES} from '@constants/map/renderingState';
 
 export const SaveConflictModal: React.FC = ({}) => {
+  const router = useRouter();
   const showSaveConflictModal = useMapStore(state => state.showSaveConflictModal);
   const localMapDocument = useMapStore(state => state.mapDocument);
+  const setAppLoadingState = useMapStore(state => state.setAppLoadingState);
+  const setMapRenderingState = useMapStore(state => state.setMapRenderingState);
   const mapMode = useMapControlsStore(state => state.mapMode);
-  const isCommunity = localMapDocument?.map_type === 'community' || mapMode === 'coi';
+  const isCommunity =
+    localMapDocument?.map_type === MAP_TYPES.COMMUNITY || mapMode === MAP_MODES.COI;
   const districtLocalTimeUpdated = useAssignmentsStore(state => state.clientLastUpdated);
   const coiLocalTimeUpdated = useCoiAssignmentsStore(state => state.clientLastUpdated);
   const localTimeUpdated = isCommunity ? coiLocalTimeUpdated : districtLocalTimeUpdated;
@@ -39,19 +49,34 @@ export const SaveConflictModal: React.FC = ({}) => {
     fetchServerMapDocument();
   }, [showSaveConflictModal]);
 
+  if (!showSaveConflictModal || !localMapDocument) return null;
+
   const conflict: SyncConflictInfo = {
-    localDocument: localMapDocument!,
+    localDocument: localMapDocument,
     localLastUpdated: localTimeUpdated,
     serverDocument: serverMapDocument!,
     serverLastUpdated: serverTimeUpdated!,
   };
-  if (!showSaveConflictModal) return null;
 
   return (
     <SyncConflictModal
       open={showSaveConflictModal}
       conflict={conflict}
-      onResolve={resolution => handlePutAssignmentsConflict(resolution, conflict)}
+      onResolve={resolution =>
+        handlePutAssignmentsConflict(resolution, conflict, {
+          onNavigate: documentId => {
+            router.push(
+              isCommunity
+                ? `/${MAP_ROUTES.COI}/edit/${documentId}`
+                : `/${MAP_ROUTES.DISTRICTS}/edit/${documentId}`
+            );
+          },
+          onComplete: () => {
+            setAppLoadingState(APP_LOADING_STATES.LOADED);
+            setMapRenderingState(RENDERING_STATES.LOADED);
+          },
+        })
+      }
       loading={!serverMapDocument}
     />
   );

@@ -2,12 +2,14 @@
 import {Table} from '@radix-ui/themes';
 import {formatNumber} from '@utils/numbers';
 import {useTooltipStore} from '@store/tooltipStore';
-import {demographyCache} from '@utils/demography/demographyCache';
-import {useEffect, useState} from 'react';
+import {demographyService} from '@/app/utils/demography/demographyService';
+import {useEffect, useMemo, useState} from 'react';
 import {CONFIG_BY_COLUMN_SET} from '@store/demography/evaluationConfig';
 import {PARTISAN_SCALE} from '@store/demography/constants';
-import {INSPECTOR_TITLE, TOTAL_COLUMN} from '@components/Map/Tooltip/InpsectorTooltipConfig';
 import {previousHoverFeatures as hoverFeatures} from '@/app/utils/map/hoverFeatures';
+import {SUMMARY_TYPES, TOTAL_COLUMN} from '@constants/demography/summary';
+import {NUMBER_FORMATS} from '@constants/demography/format';
+import {INSPECTOR_TITLE} from '@constants/demography/inspectorLabels';
 
 const withOpacity = (color: string, opacity: number) => {
   if (color.startsWith('rgba(')) return color;
@@ -35,11 +37,17 @@ export const InspectorTooltip = () => {
   const activeColumns = useTooltipStore(state => state.activeColumns);
   const inspectorMode = useTooltipStore(state => state.inspectorMode);
   const inspectorFormat = useTooltipStore(state => state.inspectorFormat);
-  const usePercent = inspectorFormat === 'percent' || inspectorMode === 'VOTERHISTORY';
+  const usePercent =
+    inspectorFormat === NUMBER_FORMATS.PERCENT || inspectorMode === SUMMARY_TYPES.VOTERHISTORY;
   const columnSuffix = usePercent ? '_pct' : '';
   const standardFormat =
-    inspectorMode === 'VOTERHISTORY' ? 'partisan' : usePercent ? 'percent' : 'standard';
+    inspectorMode === SUMMARY_TYPES.VOTERHISTORY
+      ? NUMBER_FORMATS.PARTISAN
+      : usePercent
+        ? NUMBER_FORMATS.PERCENT
+        : NUMBER_FORMATS.STANDARD;
   const ids = hoverFeatures.map(f => f.id as string);
+  const stableIds = useMemo(() => ids, [ids.join(',')]);
   const [inspectorData, setInspectorData] = useState<Record<string, number>>({});
   const config = CONFIG_BY_COLUMN_SET[inspectorMode].sort((a, b) => a.label.localeCompare(b.label));
   const title = INSPECTOR_TITLE[inspectorMode];
@@ -49,10 +57,12 @@ export const InspectorTooltip = () => {
   const getRowBackground = (column: string) => {
     if (!showBars) return undefined;
     const rowPct =
-      inspectorMode === 'VOTERHISTORY' ? 1 : Math.max(0, inspectorData[`${column}_pct`] ?? 0);
+      inspectorMode === SUMMARY_TYPES.VOTERHISTORY
+        ? 1
+        : Math.max(0, inspectorData[`${column}_pct`] ?? 0);
     const widthPct = Math.min(rowPct, 1) * 100;
     const rowColor =
-      inspectorMode === 'VOTERHISTORY' && !isNaN(inspectorData[`${column}_pct`])
+      inspectorMode === SUMMARY_TYPES.VOTERHISTORY && !isNaN(inspectorData[`${column}_pct`])
         ? withOpacity(PARTISAN_SCALE((inspectorData[`${column}_pct`] + 1) / 2), 0.15)
         : 'rgba(17, 24, 39, 0.15)';
 
@@ -62,19 +72,19 @@ export const InspectorTooltip = () => {
   };
 
   useEffect(() => {
-    if (ids.length > 0) {
+    if (stableIds.length > 0) {
       const _activeColumns =
-        inspectorMode === 'VOTERHISTORY'
+        inspectorMode === SUMMARY_TYPES.VOTERHISTORY
           ? [...activeColumns, ...activeColumns.map(colName => colName.replace('_lean', '_total'))]
           : activeColumns;
-      const data = demographyCache.calculateSummaryStats(ids, _activeColumns);
+      const data = demographyService.calculateSummaryStats(stableIds, _activeColumns);
       if (data.length === 1) {
         setInspectorData(data[0]);
       }
     } else {
       setInspectorData({});
     }
-  }, [JSON.stringify(ids)]);
+  }, [activeColumns, inspectorMode, stableIds]);
 
   if (Object.keys(inspectorData).length === 0) return null;
 

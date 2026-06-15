@@ -6,13 +6,15 @@ import {MapStore, useMapStore} from './mapStore';
 import {useMapControlsStore} from './mapControlsStore';
 import {useAssignmentsStore} from './assignmentsStore';
 import {useCoiAssignmentsStore} from './coiAssignmentsStore';
-import {demographyCache} from '../utils/demography/demographyCache';
+import {demographyService} from '../utils/demography/demographyService';
 import {shallowCompareArray} from '../utils/arrays';
+import {MAP_MODES} from '@constants/map/mode';
+import {ACCESS_STATES} from '@constants/document/state';
+import {MAP_TYPES} from '@constants/document/types';
 
-export const initSubs = () => {
+export const initSubs = (readOnly = false) => {
   // these need to initialize after the map store
   const querySubs = getQueriesResultsSubs(useMapStore);
-  const mapEditSubs = getMapEditSubs(useMapStore);
 
   const demogInitSub = useDemographyStore.subscribe(
     state => state.getMapRef,
@@ -21,7 +23,7 @@ export const initSubs = () => {
       if (!mapRef) return;
       const {mapDocument} = useMapStore.getState();
       const {mapOptions} = useMapControlsStore.getState();
-      if (mapOptions.showDemographicMap) {
+      if (mapOptions.demographicDisplayMode) {
         useDemographyStore.getState().updateData(mapDocument);
       }
     }
@@ -31,6 +33,7 @@ export const initSubs = () => {
     state => state.mapDocument,
     (curr, prev) => {
       if (!curr || prev === curr || prev?.document_id === curr.document_id) return;
+      if (curr.access === ACCESS_STATES.READ && curr.map_type !== MAP_TYPES.COMMUNITY) return;
       useDemographyStore.getState().restoreCoalition(curr);
       useDemographyStore.getState().updateData(curr);
     }
@@ -53,21 +56,21 @@ export const initSubs = () => {
     state => state.mapDocument?.num_districts,
     (curr, prev) => {
       if (!curr || prev === curr) return;
-      demographyCache.updateSummaryStats();
+      demographyService.updateSummaryStats();
     }
   );
   const numCommunitiesSub = useMapStore.subscribe(
     state => state.numCommunities,
     (curr, prev) => {
       if (prev === curr) return;
-      demographyCache.updateSummaryStats();
+      demographyService.updateSummaryStats();
     }
   );
 
   const demogShatterSub = useAssignmentsStore.subscribe(
     state => state.shatterIds.parents,
     (curr, prev) => {
-      if (useMapControlsStore.getState().mapMode === 'coi') return;
+      if (useMapControlsStore.getState().mapMode === MAP_MODES.COI) return;
       if (!curr || prev === curr) return;
       const mapDocument = useMapStore.getState().mapDocument;
       if (!mapDocument) return;
@@ -77,7 +80,7 @@ export const initSubs = () => {
   const demogCoiShatterSub = useCoiAssignmentsStore.subscribe(
     state => state.shatterIds.parents,
     (curr, prev) => {
-      if (useMapControlsStore.getState().mapMode !== 'coi') return;
+      if (useMapControlsStore.getState().mapMode !== MAP_MODES.COI) return;
       if (!curr || prev === curr) return;
       const mapDocument = useMapStore.getState().mapDocument;
       if (!mapDocument) return;
@@ -89,7 +92,7 @@ export const initSubs = () => {
     state => state.isPainting,
     (isPainting, wasPainting) => {
       if (!wasPainting || isPainting) return;
-      if (useMapControlsStore.getState().mapMode === 'coi') {
+      if (useMapControlsStore.getState().mapMode === MAP_MODES.COI) {
         useCoiAssignmentsStore.getState().ingestAccumulatedAssignments();
         return;
       }
@@ -104,9 +107,33 @@ export const initSubs = () => {
     }
   );
 
+  const readOnlyUnsubs: Array<() => void> = [];
+
+  if (readOnly) {
+    // Fetch VTD data for overlay choropleth when demographic map is enabled
+    readOnlyUnsubs.push(
+      useMapControlsStore.subscribe(
+        state => state.mapOptions.demographicDisplayMode,
+        showDemographic => {
+          if (!showDemographic) return;
+          const {mapDocument} = useMapStore.getState();
+          if (mapDocument) {
+            useDemographyStore.getState().updateData(mapDocument);
+          }
+        }
+      )
+    );
+  }
+
+  const editorUnsubs: Array<() => void> = [];
+
+  if (!readOnly) {
+    const mapEditSubs = getMapEditSubs(useMapStore);
+    editorUnsubs.push(...mapEditSubs);
+  }
+
   const unsub = () => {
     querySubs();
-    mapEditSubs.forEach(sub => sub());
     demogInitSub();
     demogMapDocumentSub();
     clearTemporalOnDocChangeSub();
@@ -116,6 +143,8 @@ export const initSubs = () => {
     demogCoiShatterSub();
     paintFlushSub();
     featureFlagSub();
+    readOnlyUnsubs.forEach(sub => sub());
+    editorUnsubs.forEach(sub => sub());
   };
   return unsub;
 };

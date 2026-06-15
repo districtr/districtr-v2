@@ -1,20 +1,164 @@
+import csv
+import io
+import json as json_mod
+import logging
+import re
+import msgpack
+from enum import Enum
 from uuid import uuid4
+from typing import Callable, List, NewType
+
+from fastapi import BackgroundTasks
 from sqlalchemy import text, update, Table, MetaData, func
 from sqlalchemy import bindparam, Text
 from sqlalchemy.types import UUID
 from sqlmodel import Session, select, Float
-import logging
+
 from app.constants import GERRY_DB_SCHEMA, PUBLIC_SCHEMA
-from typing import List
-from app.models import UUIDType, DistrictrMap, DistrictrMapUpdate
-from app.models import Document, DistrictUnionsResponse
-from fastapi import BackgroundTasks
+from typing import Iterable, Sequence
+from fastapi import Response
+from app.models import (
+    UUIDType,
+    DistrictrMap,
+    DistrictrMapUpdate,
+    Document,
+    DistrictUnionsResponse,
+    GeoUnitType,
+)
 from app.thumbnails.main import generate_thumbnail, THUMBNAIL_BUCKET
 from app.core.config import settings
 
 metadata = MetaData()
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+
+
+class RowFormat(str, Enum):
+    """Wire formats supported by `package_rows`."""
+
+    msgpack = "msgpack"
+    json = "json"
+    csv = "csv"
+
+
+def package_rows(
+    rows: Iterable[Sequence],
+    fmt: RowFormat = RowFormat.msgpack,
+    columns: Sequence[str] | None = None,
+    filename: str | None = None,
+) -> Response:
+    """Serialize tabular rows into the requested format and wrap them in a Response.
+
+    Args:
+        rows: Iterable of row sequences (e.g. SQLAlchemy Row objects or tuples).
+        fmt: Output format — msgpack (default), json, or csv.
+        columns: Optional column names. Used as keys for json objects and as the
+            header row for csv. Ignored by msgpack, which always emits row tuples.
+        filename: Optional download filename; sets Content-Disposition when given.
+
+    Returns:
+        A FastAPI Response with the serialized payload and matching media type.
+    """
+    tuples = [tuple(row) for row in rows]
+    headers = (
+        {"Content-Disposition": f'attachment; filename="{filename}"'}
+        if filename
+        else None
+    )
+
+    if fmt == RowFormat.msgpack:
+        return Response(
+            content=msgpack.packb(tuples, use_bin_type=True),
+            media_type="application/msgpack",
+            headers=headers,
+        )
+
+    if fmt == RowFormat.json:
+        data = (
+            [dict(zip(columns, row)) for row in tuples]
+            if columns
+            else [list(row) for row in tuples]
+        )
+        return Response(
+            content=json_mod.dumps(data),
+            media_type="application/json",
+            headers=headers,
+        )
+
+    if fmt == RowFormat.csv:
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        if columns:
+            writer.writerow(columns)
+        writer.writerows(tuples)
+        return Response(
+            content=buffer.getvalue(),
+            media_type="text/csv",
+            headers=headers,
+        )
+
+    raise ValueError(f"Unsupported row format: {fmt}")  # pragma: no cover
+
+
+_SAFE_IDENT_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+Geoid = NewType("Geoid", str)
+
+# Predicates for identifying parent-unit geo_ids based on the document's parent_geo_unit_type.
+GEOID_PREDICATES: dict[GeoUnitType, Callable[[Geoid], bool]] = {
+    GeoUnitType.VTD: lambda geo_id: geo_id.startswith("vtd:"),
+    GeoUnitType.BLOCK_GROUP: lambda geo_id: len(geo_id) == 12 and geo_id.isdigit(),
+    GeoUnitType.BLOCK: lambda geo_id: len(geo_id) == 15 and geo_id.isdigit(),
+}
+
+
+def assert_safe_ident(name: str) -> str:
+    """Assert that `name` is safe to interpolate into a SQL identifier position."""
+    if not _SAFE_IDENT_RE.match(name):
+        raise ValueError(f"Unsafe SQL identifier: {name!r}")
+    return name
+
+
+def infer_geo_unit_type(session: Session, layer_name: str) -> GeoUnitType:
+    """Infer the geo unit type of a GerryDB layer by sampling one path value.
+
+    Raises ValueError if the layer is empty or the path format is unrecognised.
+    """
+    safe = assert_safe_ident(layer_name)
+    row = session.execute(
+        text(f"SELECT path FROM gerrydb.{safe} LIMIT 1")
+    ).one_or_none()
+    if row is None:
+        raise ValueError(f"Layer {layer_name!r} is empty or does not exist")
+    path: str = row[0]
+    for unit_type, predicate in GEOID_PREDICATES.items():
+        if predicate(path):
+            return unit_type
+    raise ValueError(f"Unrecognised path format {path!r} in layer {layer_name!r}")
+
+
+def get_gerrydb_numeric_cols(session: Session, gerrydb_table: str) -> list[str]:
+    """Return validated numeric column names for a gerrydb table, excluding geometry columns."""
+    rows = session.execute(
+        text("""
+            SELECT a.attname AS column_name
+            FROM pg_attribute a
+            JOIN pg_class t  ON a.attrelid = t.oid
+            JOIN pg_namespace s ON t.relnamespace = s.oid
+            WHERE a.attnum > 0
+              AND NOT a.attisdropped
+              AND t.relname = :mvname
+              AND s.nspname = 'gerrydb'
+              AND a.attname NOT IN ('geometry', 'geography', 'fid', 'path')
+              AND pg_catalog.format_type(a.atttypid, a.atttypmod) IN (
+                'double precision','integer','smallint','bigint',
+                'decimal','numeric','real','smallserial','bigserial','serial'
+              )
+            ORDER BY a.attnum
+        """),
+        {"mvname": gerrydb_table},
+    ).fetchall()
+    return [assert_safe_ident(row.column_name) for row in rows]
 
 
 def _quote_ident(name: str) -> str:
@@ -88,6 +232,10 @@ def create_districtr_map(
         statefps=statefps,
         comment_length_limit=comment_length_limit,
         comment_count_limit=comment_count_limit,
+        parent_geo_unit_type=infer_geo_unit_type(session, parent_layer),
+        child_geo_unit_type=infer_geo_unit_type(session, child_layer)
+        if child_layer
+        else None,
     )
     session.add(districtr_map)
     session.flush()
@@ -128,7 +276,7 @@ def update_districtrmap(
 
     stmt = (
         update(DistrictrMap)
-        .where(DistrictrMap.districtr_map_slug == data.districtr_map_slug)  # pyright: ignore
+        .where(DistrictrMap.districtr_map_slug == data.districtr_map_slug)  # type: ignore
         .values(update_districtrmap)
         .returning(DistrictrMap)
     )
@@ -447,7 +595,6 @@ def update_or_select_district_stats(
             {"document_id": document_id},
         )
         existing_mappings = result.mappings().all()
-        logger.info(f"Existing: {existing_mappings}")
         if existing_mappings:
             return [
                 DistrictUnionsResponse.model_validate(row) for row in existing_mappings
@@ -466,6 +613,7 @@ def update_or_select_district_stats(
             select(
                 Document,
                 DistrictrMap.gerrydb_table_name.label("gerrydb_table_name"),
+                DistrictrMap.parent_layer.label("parent_layer"),
             )
             .join(
                 DistrictrMap,
@@ -474,32 +622,13 @@ def update_or_select_district_stats(
             .where(Document.document_id == document_id)
         ).one()
         gerrydb_table = doc_row.gerrydb_table_name
+        parent_layer = doc_row.parent_layer
 
         # Discover numeric demographic columns (excluding geometry/fid/path)
         demographic_json = None
         if gerrydb_table:
-            column_info = session.execute(
-                text("""
-                    SELECT a.attname AS column_name
-                    FROM pg_attribute a
-                    JOIN pg_class t  ON a.attrelid = t.oid
-                    JOIN pg_namespace s ON t.relnamespace = s.oid
-                    WHERE a.attnum > 0
-                      AND NOT a.attisdropped
-                      AND t.relname = :mvname
-                      AND s.nspname = 'gerrydb'
-                      AND a.attname NOT IN ('geometry','fid','path')
-                      AND pg_catalog.format_type(a.atttypid, a.atttypmod) IN (
-                        'double precision','integer','smallint','bigint',
-                        'decimal','numeric','real','smallserial','bigserial','serial'
-                      )
-                    ORDER BY a.attnum;
-                """),
-                {"mvname": gerrydb_table},
-            ).fetchall()
-
-            if column_info:
-                demo_cols = [row.column_name for row in column_info]
+            demo_cols = get_gerrydb_numeric_cols(session, gerrydb_table)
+            if demo_cols:
                 json_pairs = [f"'{col}', SUM(demo.{col})" for col in demo_cols]
                 demographic_json = f"json_build_object({', '.join(json_pairs)})"
 
@@ -507,6 +636,7 @@ def update_or_select_district_stats(
         # NOTE: We must interpolate the document_id directly into the SQL string for the SELECT part,
         # because SQLAlchemy does not support parameter substitution for identifiers or for type casts in SELECT.
         # This is safe here because document_id is a UUID string from our own DB, not user input.
+        # Keep unassigned rows out of district_unions payload/aggregation.
         doc_id_sql = f"'{document_id}'::UUID"
         insert_sql = f"""
             INSERT INTO document.district_unions
@@ -544,13 +674,68 @@ def update_or_select_district_stats(
             DistrictUnionsResponse.model_validate(row) for row in rows
         ]
 
+        # Compute and insert unassigned row (total from parent_layer minus assigned)
+        if parent_layer and demographic_json:
+            safe_parent_layer = assert_safe_ident(parent_layer)
+            # demo_cols is already validated via assert_safe_ident above
+            total_json_pairs = [f"'{col}', SUM({col})" for col in demo_cols]
+            total_json = f"json_build_object({', '.join(total_json_pairs)})"
+            total_sql = (
+                f"SELECT {total_json} AS demographic_data "
+                f"FROM gerrydb.{safe_parent_layer}"
+            )
+            total_result = session.execute(text(total_sql)).mappings().first()
+
+            if total_result and total_result["demographic_data"]:
+                total_demo = total_result["demographic_data"]
+
+                # Sum assigned demographics across all zone rows
+                assigned_sum: dict = {}
+                for row_data in returned_rows:
+                    if row_data.demographic_data:
+                        for col, val in row_data.demographic_data.items():
+                            assigned_sum[col] = assigned_sum.get(col, 0) + val
+
+                # Unassigned = total - assigned. Clamp at 0: for shatterable maps the
+                # parent-layer SUM can double-count vs. child-level assignments, which
+                # would otherwise surface as a negative "unassigned" bucket.
+                unassigned_demo: dict = {}
+                for col, val in total_demo.items():
+                    unassigned_demo[col] = max(0, val - assigned_sum.get(col, 0))
+
+                # Insert the unassigned row
+                unassigned_insert = text("""
+                    INSERT INTO document.district_unions
+                        (document_id, zone, geometry, demographic_data, created_at, updated_at)
+                    VALUES (:document_id, NULL, NULL, :demographic_data, NOW(), NOW())
+                    RETURNING
+                        zone,
+                        ST_AsGeoJSON(geometry) AS geometry,
+                        demographic_data,
+                        updated_at
+                """)
+                unassigned_result = (
+                    session.execute(
+                        unassigned_insert,
+                        {
+                            "document_id": document_id,
+                            "demographic_data": json_mod.dumps(unassigned_demo),
+                        },
+                    )
+                    .mappings()
+                    .first()
+                )
+                if unassigned_result:
+                    returned_rows.append(
+                        DistrictUnionsResponse.model_validate(unassigned_result)
+                    )
+
         session.commit()
         s3 = settings.get_s3_client()
         if returned_rows and s3:
             # Kick off thumbnail generation (non-blocking)
             background_tasks.add_task(
                 generate_thumbnail,
-                session=session,
                 document_id=document_id,
                 out_directory=THUMBNAIL_BUCKET,
             )

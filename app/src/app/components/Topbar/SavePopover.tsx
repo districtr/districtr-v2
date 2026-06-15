@@ -7,6 +7,8 @@ import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {CloudSavedIcon, CloudNotSavedIcon} from './Icons';
+import {MAP_MODES} from '@constants/map/mode';
+import {MAP_TYPES} from '@constants/document/types';
 
 export const SavePopover = () => {
   const [hovered, setHovered] = useState(false);
@@ -17,7 +19,7 @@ export const SavePopover = () => {
   const coiSave = useCoiAssignmentsStore(state => state.handlePutAssignments);
   const coiClientLastUpdated = useCoiAssignmentsStore(state => state.clientLastUpdated);
   const mapMode = useMapControlsStore(state => state.mapMode);
-  const isCommunity = mapDocument?.map_type === 'community' || mapMode === 'coi';
+  const isCommunity = mapDocument?.map_type === MAP_TYPES.COMMUNITY || mapMode === MAP_MODES.COI;
   const activeClientLastUpdated = isCommunity ? coiClientLastUpdated : districtClientLastUpdated;
   const assignmentsOutdated =
     (mapDocument?.updated_at != null &&

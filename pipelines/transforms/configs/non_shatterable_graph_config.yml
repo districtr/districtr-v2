@@ -1,0 +1,100 @@
+name: non-shatterable batch graph build
+graphs:
+  alexandria_in:
+    parent_gpkg: alexandria_in.gpkg
+  austin_in:
+    parent_gpkg: austin_in.gpkg
+  bloomfield_in:
+    parent_gpkg: bloomfield_in.gpkg
+  clinton_in:
+    parent_gpkg: clinton_in.gpkg
+  co_block_all_basic_pops:
+    parent_gpkg: co_block_all_basic_pops.gpkg
+  co_block_p1_view:
+    parent_gpkg: co_block_p1_view.gpkg
+  co_block_p4_view:
+    parent_gpkg: co_block_p4_view.gpkg
+  co_vtd_all_basic_pops:
+    parent_gpkg: co_vtd_all_basic_pops.gpkg
+  co_vtd_p1_view:
+    parent_gpkg: co_vtd_p1_view.gpkg
+  co_vtd_p4_view:
+    parent_gpkg: co_vtd_p4_view.gpkg
+  de_demo_view_census_blocks:
+    parent_gpkg: de_demo_view_census_blocks.gpkg
+  de_demo_view_census_vtd:
+    parent_gpkg: de_demo_view_census_vtd.gpkg
+  delphi_in:
+    parent_gpkg: delphi_in.gpkg
+  elwood_in:
+    parent_gpkg: elwood_in.gpkg
+  ga_block_all_basic_pops:
+    parent_gpkg: ga_block_all_basic_pops.gpkg
+  ga_block_p1_view:
+    parent_gpkg: ga_block_p1_view.gpkg
+  ga_block_p4_view:
+    parent_gpkg: ga_block_p4_view.gpkg
+  ga_vtd_all_basic_pops:
+    parent_gpkg: ga_vtd_all_basic_pops.gpkg
+  ga_vtd_p1_view:
+    parent_gpkg: ga_vtd_p1_view.gpkg
+  ga_vtd_p4_view:
+    parent_gpkg: ga_vtd_p4_view.gpkg
+  garrett_in:
+    parent_gpkg: garrett_in.gpkg
+  greensburg_in:
+    parent_gpkg: greensburg_in.gpkg
+  jonesboro_in:
+    parent_gpkg: jonesboro_in.gpkg
+  kingsford_heights_in:
+    parent_gpkg: kingsford_heights_in.gpkg
+  ks_demo_view_census_blocks:
+    parent_gpkg: ks_demo_view_census_blocks.gpkg
+  ks_demo_view_census_vtd:
+    parent_gpkg: ks_demo_view_census_vtd.gpkg
+  ligonier_in:
+    parent_gpkg: ligonier_in.gpkg
+  marion_in:
+    parent_gpkg: marion_in.gpkg
+  mitchell_in:
+    parent_gpkg: mitchell_in.gpkg
+  monticello_in:
+    parent_gpkg: monticello_in.gpkg
+  nappanee_in:
+    parent_gpkg: nappanee_in.gpkg
+  pa_block_p4_view:
+    parent_gpkg: pa_block_p4_view.gpkg
+  pa_demo_view_census_vtd:
+    parent_gpkg: pa_demo_view_census_vtd.gpkg
+  pendleton_in:
+    parent_gpkg: pendleton_in.gpkg
+  porter_in:
+    parent_gpkg: porter_in.gpkg
+  ri_block_all_basic_pops:
+    parent_gpkg: ri_block_all_basic_pops.gpkg
+  ri_block_p1_view:
+    parent_gpkg: ri_block_p1_view.gpkg
+  ri_block_p4_view:
+    parent_gpkg: ri_block_p4_view.gpkg
+  ri_vtd_all_basic_pops:
+    parent_gpkg: ri_vtd_all_basic_pops.gpkg
+  ri_vtd_p1_view:
+    parent_gpkg: ri_vtd_p1_view.gpkg
+  ri_vtd_p4_view:
+    parent_gpkg: ri_vtd_p4_view.gpkg
+  rochester_in:
+    parent_gpkg: rochester_in.gpkg
+  southport_in:
+    parent_gpkg: southport_in.gpkg
+  speedway_in:
+    parent_gpkg: speedway_in.gpkg
+  sullivan_in:
+    parent_gpkg: sullivan_in.gpkg
+  tell_city_in:
+    parent_gpkg: tell_city_in.gpkg
+  union_city_in:
+    parent_gpkg: union_city_in.gpkg
+  winchester_in:
+    parent_gpkg: winchester_in.gpkg
+  wv_block_districtr_view:
+    parent_gpkg: wv_block_districtr_view.gpkg

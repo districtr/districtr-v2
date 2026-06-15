@@ -1,12 +1,12 @@
+import {GDBPath, NullableZone, Zone} from '@constants/map/zone';
+import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {
-  GDBPath,
-  NullableZone,
-  Zone,
   ConflictContext,
   ConflictResolutionOptions,
   SyncConflictResolution,
-} from '@constants/types';
-import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
+} from '@constants/document/sync';
+import {BLOCK_SOURCE_ID} from '@constants/map/layerIds';
+import {MAP_MODES} from '@constants/map/mode';
 import {Map as MaplibreMap, MapGeoJSONFeature} from 'maplibre-gl';
 import {Community, DocumentObject} from '../utils/api/apiHandlers/types';
 import {
@@ -46,7 +46,7 @@ export type CommunityData = Community & {
   assignments: Set<string>;
   lastUpdated: string | null;
 };
-export type CoiPaintMode = 'brush' | 'eraser';
+export type CoiPaintMode = typeof ACTIVE_TOOLS.BRUSH | typeof ACTIVE_TOOLS.ERASER;
 export type CoiAccumulatedMutation =
   | {type: 'assign'; community: Zone}
   | {type: 'erase-community'; community: Zone};
@@ -492,7 +492,7 @@ const healTouchedParentsIfEligible = ({
   const controlsState = useMapControlsStore.getState();
   if (
     touchedParentIds.size &&
-    controlsState.activeTool !== 'shatter' &&
+    controlsState.activeTool !== ACTIVE_TOOLS.SHATTER &&
     controlsState.mapOptions.mode !== 'break'
   ) {
     healParentsIfAllChildrenInSameCommunities(touchedParentIds);
@@ -651,14 +651,29 @@ const coiResolveFork = async ({
 }: CoiConflictDependencies) => {
   setMapLock({isLocked: true, reason: 'Creating a new plan from your changes.'});
   try {
-    const createMapDocumentResponse = await createMapDocument(syncConflictInfo.serverDocument);
+    const createMapDocumentResponse = await createMapDocument({
+      districtr_map_slug: syncConflictInfo.serverDocument.districtr_map_slug,
+      map_type: syncConflictInfo.serverDocument.map_type,
+      copy_from_doc: syncConflictInfo.serverDocument.document_id,
+    });
     if (!createMapDocumentResponse.ok) {
       throw new DocumentCreationError('Failed to create map document from assignments on server');
     }
-    setMapDocument(createMapDocumentResponse.response);
+    // Carry over any local comments (saved or in-flight) onto the new doc so the
+    // fork reflects the user's latest state. comment_ids are stripped because the
+    // server just duplicated comments onto the new doc with fresh ids.
+    const localComments = (syncConflictInfo.localDocument.document_comments || []).map(c => ({
+      zone: c.zone,
+      text: c.text,
+    }));
+    const newDocWithLocalComments = {
+      ...createMapDocumentResponse.response,
+      document_comments: localComments,
+    };
+    setMapDocument(newDocWithLocalComments);
     const data = await loadLocalCoiAssignments(syncConflictInfo.localDocument.document_id);
     const response = await putUpdateCoiAssignmentsAndVerify({
-      mapDocument: createMapDocumentResponse.response,
+      mapDocument: newDocWithLocalComments,
       communityAssignments: data.communityAssignments,
       shatterIds: data.shatterIds,
       childToParent: data.childToParent,
@@ -670,7 +685,7 @@ const coiResolveFork = async ({
       );
     }
     const updatedDocument = {
-      ...createMapDocumentResponse.response,
+      ...newDocWithLocalComments,
       updated_at: response.response.updated_at,
     };
     setMapDocument(updatedDocument);
@@ -800,10 +815,14 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     mapRef: MaplibreMap,
     features: Array<MapGeoJSONFeature>,
     community: Zone,
-    mode: CoiPaintMode = 'brush'
+    mode: CoiPaintMode = ACTIVE_TOOLS.BRUSH
   ) => {
     const {accumulatedAssignments, communityAssignments, communityLastUpdated} = get();
     const {setPaintedChanges} = useChartStore.getState();
+    // Clone the live Maps up front and mutate the local copies only.
+    const nextAccumulatedAssignments = new Map(accumulatedAssignments);
+    const nextCommunityLastUpdated = new Map(communityLastUpdated);
+
     // We can access the inner state of the map in a more ergonomic way than the convenience method `getFeatureState`
     // the inner state here gives us access to { [sourceLayer]: { [id]: { ...stateProperties }}}
     // So, we get things like `zone` and `locked` and `broken` etc without needing to check a bunch of different places
@@ -820,17 +839,17 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       if (!id || !sourceLayer) return;
 
       const currentFeatureState = featureStateCache[sourceLayer]?.[id] || {};
-      if (accumulatedAssignments.has(id) || currentFeatureState?.locked) return;
+      if (nextAccumulatedAssignments.has(id) || currentFeatureState?.locked) return;
 
       const currentCommunities = getCommunitiesForGeoidFromAssignments(communityAssignments, id);
       const newCommunities = new Set(currentCommunities);
       let mutationType: CoiAccumulatedMutation | null = null;
 
-      if (mode === 'eraser') {
+      if (mode === ACTIVE_TOOLS.ERASER) {
         if (!currentCommunities.has(community)) return; // Not part of this community, nothing to erase
         mutationType = {type: 'erase-community', community};
         newCommunities.delete(community);
-      } else if (mode === 'brush') {
+      } else if (mode === ACTIVE_TOOLS.BRUSH) {
         if (currentCommunities.has(community)) return; // Already part of this community, nothing to do
         mutationType = {type: 'assign', community};
         newCommunities.add(community);
@@ -838,18 +857,18 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
         return; // Invalid mode
       }
 
-      accumulatedAssignments.set(id, mutationType);
+      nextAccumulatedAssignments.set(id, mutationType);
 
       const featurePop = parseInt(feature.properties?.total_pop_20 || '0', 10);
       if (!isNaN(featurePop)) {
         if (mutationType.type === 'assign') {
           popChanges[mutationType.community] =
             (popChanges[mutationType.community] || 0) + featurePop;
-          communityLastUpdated.set(mutationType.community, editTime);
+          nextCommunityLastUpdated.set(mutationType.community, editTime);
         } else if (mutationType.type === 'erase-community') {
           popChanges[mutationType.community] =
             (popChanges[mutationType.community] || 0) - featurePop;
-          communityLastUpdated.set(mutationType.community, editTime);
+          nextCommunityLastUpdated.set(mutationType.community, editTime);
         }
       }
 
@@ -864,8 +883,8 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     });
 
     set({
-      accumulatedAssignments: new Map(accumulatedAssignments),
-      communityLastUpdated: new Map(communityLastUpdated),
+      accumulatedAssignments: nextAccumulatedAssignments,
+      communityLastUpdated: nextCommunityLastUpdated,
     });
 
     if (Object.keys(popChanges).length) {
@@ -1093,7 +1112,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     const activeParentId = focusFeatures?.[0]?.id?.toString();
     const activeParentHealed = !!(activeParentId && !newShatterIds.parents.has(activeParentId));
     if (
-      controlsState.activeTool !== 'shatter' &&
+      controlsState.activeTool !== ACTIVE_TOOLS.SHATTER &&
       captiveIds.size &&
       (activeParentHealed || remainingCaptiveIds.size === 0)
     ) {
@@ -1104,7 +1123,10 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       controlsState.setMapOptions({mode: 'default'});
       return;
     }
-    if (controlsState.activeTool !== 'shatter' && remainingCaptiveIds.size !== captiveIds.size) {
+    if (
+      controlsState.activeTool !== ACTIVE_TOOLS.SHATTER &&
+      remainingCaptiveIds.size !== captiveIds.size
+    ) {
       useMapStore.setState({captiveIds: remainingCaptiveIds});
     }
   },
@@ -1154,13 +1176,20 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     if (shouldReconstructCommunities) {
       const palette =
         mapDocument?.color_scheme ?? mapState.mapDocument?.color_scheme ?? DefaultColorScheme;
+      // Reconstruction runs when assignments exist but no matching metadata was saved
+      // (legacy docs, failed saves). Stamp each placeholder with the current time so
+      // the next save doesn't persist synthetic 1970 timestamps.
+      console.warn(
+        `[coi] Reconstructing ${assignedCommunityIds.length} community/communities from assignments with no metadata.`
+      );
+      const reconstructionTime = Date.now();
       const reconstructedCommunities = assignedCommunityIds.map((communityId, index) => ({
         id: communityId,
         render_order_id: index + 1,
         name: `Community ${index + 1}`,
         description: DEFAULT_COMMUNITY_DESCRIPTION,
         color: palette[communityId - 1] ?? palette[index % palette.length] ?? '#000000',
-        createdAt: new Date(index * 1000).toISOString(),
+        createdAt: new Date(reconstructionTime + index).toISOString(),
         descriptionCommentId: null,
       }));
       // console.log('[hydration] Reconstructing communities:', reconstructedCommunities.length);
@@ -1294,7 +1323,9 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
           affectedGeometries.add(geoid);
         });
         newAssignments.delete(community);
-        newLastUpdated.set(community, currTime);
+        // Match removeCommunity: drop the tracking entry entirely instead of stamping
+        // a lastUpdated on a community that no longer exists.
+        newLastUpdated.delete(community);
         removedCommunityIds.push(community);
       }
     });
@@ -1336,7 +1367,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       healParentsIfAllChildrenInSameCommunities: get().healParentsIfAllChildrenInSameCommunities,
     });
 
-    removedCommunityIds.forEach(id => temporalManager.purgeZone('coi', id));
+    removedCommunityIds.forEach(id => temporalManager.purgeZone(MAP_MODES.COI, id));
   },
 
   removeCommunity: (removedCommunity: Zone) => {
@@ -1394,7 +1425,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       healParentsIfAllChildrenInSameCommunities: get().healParentsIfAllChildrenInSameCommunities,
     });
 
-    temporalManager.purgeZone('coi', removedCommunity);
+    temporalManager.purgeZone(MAP_MODES.COI, removedCommunity);
   },
 
   handlePutAssignments: async (overwrite = false) => {
@@ -1541,3 +1572,6 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     await get().resolveConflict(resolution, sycnConflictInfo, options);
   },
 }));
+
+import {exposeStoreToWindow as _exposeCoiStore} from './exposeToWindow';
+_exposeCoiStore('coiAssignmentsStore', useCoiAssignmentsStore);

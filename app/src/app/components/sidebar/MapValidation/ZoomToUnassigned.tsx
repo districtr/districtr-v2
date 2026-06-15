@@ -6,6 +6,7 @@ import {Button, Flex, Text} from '@radix-ui/themes';
 import React, {useEffect, useRef} from 'react';
 import {RefreshButton, TimestampDisplay} from '../../Time/TimestampDisplay';
 import ZoomToFeature from './ZoomToFeature';
+import {NUMBER_FORMATS} from '@constants/demography/format';
 
 export const ZoomToUnassigned = () => {
   const {
@@ -26,7 +27,7 @@ export const ZoomToUnassigned = () => {
   const unassigned = summaryStats?.unassigned;
 
   const fitToOverallBounds = () =>
-    unassignedOverallBbox && mapRef?.fitBounds(unassignedOverallBbox);
+    unassignedOverallBbox && mapRef?.fitBounds(unassignedOverallBbox, {padding: 240});
 
   useEffect(() => {
     if (!unassignedFeatureBboxes.length && !hasFoundUnassigned) {
@@ -58,6 +59,7 @@ export const ZoomToUnassigned = () => {
           features={unassignedFeatureBboxes}
           selectedIndex={selectedIndex}
           setSelectedIndex={setSelectedIndex}
+          padding={240}
         />
         <Button onClick={fitToOverallBounds} variant="surface" className="block">
           {`Show ${unassignedFeatureBboxes.length === 1 ? 'unassigned area' : 'all unassigned areas'}`}
@@ -89,7 +91,7 @@ const InfoText: React.FC<{
       {isPlural ? 's' : ''}.&nbsp;{' '}
       {unassigned > 0 && (
         <>
-          <b>{formatNumber(unassigned, 'string')}</b> population are not yet assigned.
+          <b>{formatNumber(unassigned, NUMBER_FORMATS.STRING)}</b> population are not yet assigned.
         </>
       )}
     </Text>

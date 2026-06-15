@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   TrashIcon,
   Link2Icon,
@@ -25,20 +25,20 @@ import {
   ScrollArea,
   TextField,
 } from '@radix-ui/themes';
-import {useRouter} from 'next/navigation';
-import {DocumentObject} from '@utils/api/apiHandlers/types';
-import {idb} from '@/app/utils/idb/idb';
-import {useUserMaps} from '@/app/hooks/useUserMaps';
-import {useMapStore} from '@/app/store/mapStore';
-import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import { useRouter } from 'next/navigation';
+import { DocumentObject } from '@utils/api/apiHandlers/types';
+import { idb } from '@/app/utils/idb/idb';
+import { useUserMaps } from '@/app/hooks/useUserMaps';
+import { useMapStore } from '@/app/store/mapStore';
+import { useMapControlsStore } from '@/app/store/mapControlsStore';
+import { MAP_TABS, MAP_TAB_LABELS, MAP_TAB_LABEL_PLURAL, MapTab } from '@constants/document/tabs';
+import { routeForTab, mapTabFromMode } from '@constants/document/routes';
 import {
-  MapTab,
-  mapTabFromMode,
-  routeForTab,
+  DRAFT_STATUSES,
   DRAFT_STATUS_COLORS,
-  DRAFT_STATUS_LABELS,
-} from '@/app/constants/map/recentMaps';
-import {styled} from '@stitches/react';
+  DRAFT_STATUS_TEXT,
+} from '@constants/document/draftStatus';
+import { styled } from '@stitches/react';
 
 const UNKNOWN_MODULE = 'Unknown module';
 const getMapModule = (map: DocumentObject) => map.map_module || UNKNOWN_MODULE;
@@ -106,8 +106,8 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({
   const mapMode = useMapControlsStore(store => store.mapMode);
   const [activeTab, setActiveTab] = useState<MapTab>(mapTabFromMode(mapMode));
   const [updateTrigger, setUpdateTrigger] = useState<string | null | number>(null);
-  const {communityMaps, districtMaps, loading} = useUserMaps(updateTrigger);
-  const allTabMaps = activeTab === 'community' ? communityMaps : districtMaps;
+  const { communityMaps, districtMaps, loading } = useUserMaps(updateTrigger);
+  const recentMaps = activeTab === MAP_TABS.COMMUNITY ? communityMaps : districtMaps;
 
   const [textFilter, setTextFilter] = useState('');
   const [debouncedTextFilter, setDebouncedTextFilter] = useState('');
@@ -124,14 +124,14 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({
 
   const moduleOptions = useMemo(() => {
     if (!showFilters) return [];
-    const modules = Array.from(new Set(allTabMaps.map(getMapModule)));
+    const modules = Array.from(new Set(recentMaps.map(getMapModule)));
     return modules.sort((a, b) => a.localeCompare(b));
-  }, [allTabMaps, showFilters]);
+  }, [recentMaps, showFilters]);
 
   const filteredMaps = useMemo(() => {
-    if (!showFilters) return allTabMaps;
+    if (!showFilters) return recentMaps;
     const normalizedText = debouncedTextFilter.trim().toLowerCase();
-    return allTabMaps.filter(map => {
+    return recentMaps.filter(map => {
       const name = (map.map_metadata?.name || map.districtr_map_slug || '').toLowerCase();
       const module = getMapModule(map);
       const moduleMatches = moduleFilter === 'all' || module === moduleFilter;
@@ -142,7 +142,7 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({
         module.toLowerCase().includes(normalizedText);
       return moduleMatches && textMatches;
     });
-  }, [allTabMaps, debouncedTextFilter, moduleFilter, showFilters]);
+  }, [recentMaps, debouncedTextFilter, moduleFilter, showFilters]);
 
   const [currentPage, setCurrentPage] = useState(0);
 
@@ -261,7 +261,7 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({
   return (
     <Flex direction="column" gap="3">
       {showFilters && (
-        <Flex gap="4" align="start" direction={{initial: 'column', md: 'row'}}>
+        <Flex gap="4" align="start" direction={{ initial: 'column', md: 'row' }}>
           <Box className="w-full md:flex-1">
             <Text as="label" size="2" weight="medium">
               Text filter
@@ -299,8 +299,8 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({
       {showFilters && (
         <Flex justify="between" align="center">
           <Text size="2" color="gray">
-            Showing {filteredMaps.length} of {allTabMaps.length}{' '}
-            {activeTab === 'community' ? 'community' : 'district'} map
+            Showing {filteredMaps.length} of {recentMaps.length}{' '}
+            {activeTab === MAP_TABS.COMMUNITY ? 'community' : 'district'} map
             {filteredMaps.length === 1 ? '' : 's'}
           </Text>
 
@@ -318,36 +318,22 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({
           onValueChange={v => setActiveTab(v as MapTab)}
           size="2"
         >
-          <SegmentedControl.Item value="districts">
+          <SegmentedControl.Item value={MAP_TABS.DISTRICTS}>
             District Maps{districtMaps.length > 0 ? ` (${districtMaps.length})` : ''}
           </SegmentedControl.Item>
-          <SegmentedControl.Item value="community">
+          <SegmentedControl.Item value={MAP_TABS.COMMUNITY}>
             Community Maps{communityMaps.length > 0 ? ` (${communityMaps.length})` : ''}
           </SegmentedControl.Item>
         </SegmentedControl.Root>
       </Flex>
-
-      {filteredMaps.length === 0 ? (
-        showFilters && isFiltered ? (
-          <Flex
-            direction="column"
-            gap="2"
-            className="rounded-lg border border-dashed border-gray-300 p-5 bg-gray-50"
-          >
-            <Heading size="4">No maps match your filters</Heading>
-            <Text size="2" color="gray">
-              Try changing the text or module filters.
-            </Text>
-          </Flex>
-        ) : (
-          <Flex align="center" justify="center" className="py-10">
-            <Text color="gray" size="2">
-              No {activeTab === 'community' ? 'community' : 'district'} maps yet.
-            </Text>
-          </Flex>
-        )
+      {recentMaps.length === 0 ? (
+        <Flex align="center" justify="center" className="py-10">
+          <Text color="gray" size="2">
+            No {MAP_TAB_LABELS[activeTab]} maps yet.
+          </Text>
+        </Flex>
       ) : useScrollArea ? (
-        <ScrollArea scrollbars="vertical" style={{maxHeight}}>
+        <ScrollArea scrollbars="vertical" style={{ maxHeight }}>
           {cardList}
           {paginationControls}
         </ScrollArea>
@@ -364,7 +350,7 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({
 const CopyLinkDropdown: React.FC<{
   editUrl: string;
   publicUrl: string | null;
-}> = ({editUrl, publicUrl}) => {
+}> = ({ editUrl, publicUrl }) => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const handleCopy = (url: string, key: string) => {
@@ -402,14 +388,14 @@ const RecentMapCard: React.FC<{
   active: boolean;
   tab: MapTab;
   onDelete: (data: DocumentObject) => void;
-}> = ({data, onSelect, active, tab, onDelete}) => {
+}> = ({ data, onSelect, active, tab, onDelete }) => {
   const mapName = data?.map_metadata?.name || data.districtr_map_slug || 'Untitled Map';
-  const draftStatus = data?.map_metadata?.draft_status ?? 'scratch';
+  const draftStatus = data?.map_metadata?.draft_status ?? DRAFT_STATUSES.SCRATCH;
   const zoneCount =
-    tab === 'community'
+    tab === MAP_TABS.COMMUNITY
       ? (data.community_metadata_list?.length ?? data.num_communities ?? 0)
       : (data.num_districts ?? 0);
-  const zoneLabel = tab === 'community' ? 'communities' : 'districts';
+  const zoneLabel = MAP_TAB_LABEL_PLURAL[tab];
   const geoLabel = data.parent_geo_unit_type || data.gerrydb_table || data.districtr_map_slug;
   const route = routeForTab(tab);
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -421,7 +407,7 @@ const RecentMapCard: React.FC<{
       <Flex direction="row" align="center" justify="between" gap="3">
         <Flex direction="column" gap="1" className="min-w-0">
           <Flex align="center" gap="2" wrap="wrap">
-            <Text weight="medium" size="2" truncate {...(!active ? {'data-map-name': ''} : {})}>
+            <Text weight="medium" size="2" truncate {...(!active ? { 'data-map-name': '' } : {})}>
               {mapName}
             </Text>
             {active && (
@@ -430,7 +416,7 @@ const RecentMapCard: React.FC<{
               </Badge>
             )}
             <Badge size="1" color={DRAFT_STATUS_COLORS[draftStatus]} variant="soft">
-              {DRAFT_STATUS_LABELS[draftStatus]}
+              {DRAFT_STATUS_TEXT[draftStatus]}
             </Badge>
           </Flex>
           <Flex align="center" gap="3" wrap="wrap">
@@ -452,7 +438,7 @@ const RecentMapCard: React.FC<{
                 align="center"
                 gap="1"
                 data-open-hint=""
-                style={{opacity: 0, transition: 'opacity 150ms'}}
+                style={{ opacity: 0, transition: 'opacity 150ms' }}
               >
                 <Text size="1" weight="medium" color="blue">
                   Open map

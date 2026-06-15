@@ -10,6 +10,8 @@ import {PopulationLabels} from './PopulationLabels';
 import {SummaryRecord} from '@/app/utils/api/summaryStats';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
+import {MAP_MODES} from '@constants/map/mode';
+import {NUMBER_FORMATS} from '@constants/demography/format';
 
 export const PopulationChart: React.FC<{
   width: number;
@@ -30,7 +32,7 @@ export const PopulationChart: React.FC<{
   const colorScheme = useColorScheme();
   const getZoneColor = useZoneColorGetter();
   const mapMode = useMapControlsStore(state => state.mapMode);
-  const isCommunityMode = mapMode === 'coi';
+  const isCommunityMode = mapMode === MAP_MODES.COI;
 
   const {
     popBarScaleToCurrent: scaleToCurrent,
@@ -108,7 +110,9 @@ export const PopulationChart: React.FC<{
               <text textAnchor="start" fontSize="14px">
                 Ideal{' '}
                 {isHovered ? (
-                  <tspan color="gray">{formatNumber(effectiveIdealPopulation, 'string')}</tspan>
+                  <tspan color="gray">
+                    {formatNumber(effectiveIdealPopulation, NUMBER_FORMATS.STRING)}
+                  </tspan>
                 ) : (
                   ''
                 )}
@@ -187,7 +191,7 @@ export const PopulationChart: React.FC<{
           tickLabelProps={{
             fontSize: '14px',
           }}
-          tickFormat={v => formatNumber(v as number, 'compact')}
+          tickFormat={v => formatNumber(v as number, NUMBER_FORMATS.COMPACT)}
         />
       </Group>
     </svg>

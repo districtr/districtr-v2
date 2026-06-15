@@ -211,7 +211,7 @@ export async function interceptTileRequests(
     block?: boolean;
     delay?: number;
   } = {}
-): Promise<void> {
+): Promise<() => Promise<void>> {
   await page.route('**/*.pmtiles', async route => {
     if (options.block) {
       await route.abort();
@@ -222,6 +222,11 @@ export async function interceptTileRequests(
       await route.continue();
     }
   });
+  // Return a cleanup function so callers can remove the interceptor at the end
+  // of a test. Without cleanup, page.route handlers accumulate across tests
+  // (they're keyed on pattern + registration order) and leak across specs that
+  // share a page.
+  return () => page.unroute('**/*.pmtiles');
 }
 
 /**

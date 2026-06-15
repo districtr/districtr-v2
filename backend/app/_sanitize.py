@@ -4,16 +4,13 @@ from fastapi import (
     status,
     HTTPException,
 )
-from sqlmodel import Session, select, col
+from sqlmodel import Session, select
 from app.models import (
+    AssignmentsMetadata,
     CommunityMetadata,
     Document,
     MAX_COMMUNITY_NAME_LENGTH,
     sanitize_community_name,
-)
-from app.comments.models import (
-    Comment,
-    DocumentComment as FormDocumentComment,
 )
 
 
@@ -100,111 +97,38 @@ def _normalize_community_metadata_list(
     return normalized_communities
 
 
-def _load_existing_community_comments(
-    session: Session, document_id: str
-) -> list[CommentDict]:
+def _validate_community_save_payload(
+    *,
+    metadata: AssignmentsMetadata | None,
+) -> list[CommunityMetadata] | None:
     """
-    Load existing comments for a document from the database.
-
-    Args:
-        session (sqlmodel.Session): The SQLModel session to use for the database query.
-        document_id (str): The ID of the document for which to load comments. Expects a UUID string.
+    Validate the community metadata in the save payload for a community map.
 
     Returns:
-        A list of dictionaries representing the existing comments for the document, where each
-        dictionary contains the zone, text, and comment_id of a comment.
+        list[CommunityMetadata]: the validated, normalized list the caller should persist
+            (only when the payload included community_metadata_list).
+        None: the payload did not include community_metadata_list; caller should leave
+            existing metadata unchanged.
+
+    Raises:
+        HTTPException(400): if the payload explicitly provides an empty community_metadata_list
+            (community mode requires at least one community; to exit community mode, change
+            map_type instead), or if sanitization checks fail.
     """
-    existing_comments = session.exec(
-        select(FormDocumentComment.zone, Comment.comment)
-        .join(Comment, col(Comment.id) == col(FormDocumentComment.comment_id))
-        .where(
-            FormDocumentComment.document_id == document_id,
-            col(FormDocumentComment.zone).is_not(None),
-        )
-    ).all()
-    return [
-        {"zone": comment.zone, "text": comment.comment, "comment_id": None}
-        for comment in existing_comments
-    ]
+    incoming_list_provided = (
+        metadata is not None and metadata.community_metadata_list is not None
+    )
 
+    if not incoming_list_provided:
+        return None
 
-def _validate_community_comment_coverage(
-    community_metadata_list: list[CommunityMetadata],
-    comments: list[CommentDict],
-) -> None:
-    """
-    Validate that each community has at least one non-empty comment associated with it.
-
-    Args:
-        community_metadata_list (list[CommunityMetadata]): A list of CommunityMetadata instances
-            representing the communities defined for the document.
-        comments (list[CommentDict]): A list of dictionaries representing the
-            comments associated with the document, where each dictionary contains the zone, text,
-            and comment_id of a comment.
-    """
-    commented_zones = {
-        comment["zone"]
-        for comment in comments
-        if comment.get("zone") is not None and str(comment.get("text") or "").strip()
-    }
-    missing_comments = [
-        community.name or f"Community {community.render_order_id}"
-        for community in community_metadata_list
-        if community.id not in commented_zones
-    ]
-
-    if missing_comments:
+    if len(metadata.community_metadata_list) == 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                "Each community must include at least one non-empty comment before "
-                f"saving. Missing comments for: {', '.join(missing_comments)}"
+                "Community mode requires at least one community. "
+                "To exit community mode, change map_type instead of sending an empty list."
             ),
         )
 
-
-def _validate_community_save_payload(
-    *,
-    document_id: str,
-    metadata,
-    incoming_comments: list[CommentDict] | None,
-    session: Session,
-) -> list[CommunityMetadata] | None:
-    """
-    Validate the community metadata and comments in the save payload for a community map.
-
-    Args:
-        document_id (str): The ID of the document being saved.
-        metadata: The metadata included in the save payload, which may contain community metadata.
-        incoming_comments (list[CommentDict] | None): The comments included in the
-            save payload, where each comment is represented as a dictionary containing the zone,
-            text, and comment_id. This can be None if no comments were included in the payload.
-        session (sqlmodel.Session): The SQLModel session to use for any necessary database queries.
-
-    Returns:
-        A list of CommunityMetadata instances representing the validated and normalized community
-        metadata to be saved with the document, or None if no community metadata was included in
-        the payload (in which case existing metadata should be retained).
-    """
-    if metadata is not None and metadata.community_metadata_list is not None:
-        final_community_metadata_list = _normalize_community_metadata_list(
-            metadata.community_metadata_list
-        )
-    else:
-        final_community_metadata_list = _normalize_community_metadata_list(
-            _load_existing_community_metadata(session, document_id)
-        )
-
-    if not final_community_metadata_list:
-        return None
-
-    final_comments = (
-        incoming_comments
-        if incoming_comments is not None
-        else _load_existing_community_comments(session, document_id)
-    )
-    _validate_community_comment_coverage(final_community_metadata_list, final_comments)
-
-    if metadata is not None and metadata.community_metadata_list is not None:
-        return final_community_metadata_list
-    return None
+    return _normalize_community_metadata_list(metadata.community_metadata_list)

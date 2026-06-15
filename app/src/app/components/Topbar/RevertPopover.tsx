@@ -6,6 +6,8 @@ import {ResetIcon} from '@radix-ui/react-icons';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {MAP_MODES} from '@constants/map/mode';
+import {MAP_TYPES} from '@constants/document/types';
 
 export const RevertPopover = () => {
   const [hovered, setHovered] = useState(false);
@@ -18,7 +20,7 @@ export const RevertPopover = () => {
   const coiRevert = useCoiAssignmentsStore(state => state.handleRevert);
   const coiClientLastUpdated = useCoiAssignmentsStore(state => state.clientLastUpdated);
   const mapMode = useMapControlsStore(state => state.mapMode);
-  const isCommunity = mapDocument?.map_type === 'community' || mapMode === 'coi';
+  const isCommunity = mapDocument?.map_type === MAP_TYPES.COMMUNITY || mapMode === MAP_MODES.COI;
   const activeClientLastUpdated = isCommunity ? coiClientLastUpdated : districtClientLastUpdated;
   const isOutdated =
     (mapDocument?.updated_at != null &&

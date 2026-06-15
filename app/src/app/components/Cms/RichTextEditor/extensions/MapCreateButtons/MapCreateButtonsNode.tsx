@@ -2,6 +2,11 @@ import {Node, mergeAttributes} from '@tiptap/core';
 import {ReactNodeViewRenderer} from '@tiptap/react';
 import MapCreateButtonsNodeView from './MapCreateButtonsNodeView';
 import {getJsonHtmlRenderer, getStandardHtmlParser} from '../extensionUtils';
+import {
+  RICH_TEXT_NODE_TYPES,
+  MAP_CREATE_BUTTONS_ATTRIBUTES,
+  NODE_TYPE_ATTR_NAME,
+} from '@constants/cms';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -21,45 +26,34 @@ export const MapCreateButtonsNode = Node.create({
   defining: true,
   isolating: true,
   addAttributes() {
-    const attrs: {
-      name: string;
-      default?: any;
-      parseHTML?: (element: Element) => any;
-      renderHTML?: (attributes: Record<string, any>) => Record<string, any>;
-    }[] = [
-      {
-        name: 'views',
-        default: [],
-      },
-      {
-        name: 'type',
-        default: 'simple',
-      },
-    ];
-
-    return attrs.reduce(
-      (acc, attr) => {
-        acc[attr.name] = {
+    return Object.fromEntries(
+      MAP_CREATE_BUTTONS_ATTRIBUTES.map(attr => [
+        attr.name,
+        {
           default: attr.default ?? null,
-          parseHTML: attr.parseHTML ?? getStandardHtmlParser(attr.name),
-          renderHTML: attr.renderHTML ?? getJsonHtmlRenderer(attr.name),
-        };
-        return acc;
-      },
-      {} as Record<string, any>
+          parseHTML: getStandardHtmlParser(attr.name),
+          renderHTML: getJsonHtmlRenderer(attr.name),
+        },
+      ])
     );
   },
 
   parseHTML() {
     return [
       {
-        tag: 'div[data-type="map-create-buttons-node"]',
+        tag: `div[${NODE_TYPE_ATTR_NAME}="${RICH_TEXT_NODE_TYPES.MAP_CREATE_BUTTONS}"]`,
       },
     ];
   },
 
   renderHTML({HTMLAttributes}) {
-    return ['div', mergeAttributes(HTMLAttributes, {'data-type': 'map-create-buttons-node'}), 0];
+    return [
+      'div',
+      mergeAttributes(HTMLAttributes, {
+        [NODE_TYPE_ATTR_NAME]: RICH_TEXT_NODE_TYPES.MAP_CREATE_BUTTONS,
+      }),
+      0,
+    ];
   },
 
   addCommands() {

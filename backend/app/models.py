@@ -1,5 +1,5 @@
 from datetime import datetime
-from enum import Enum
+from enum import Enum, StrEnum
 import re
 import unicodedata
 from pydantic import BaseModel, field_validator
@@ -34,15 +34,30 @@ COMMUNITY_CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
 COMMUNITY_WHITESPACE_RE = re.compile(r"\s+")
 
 
+class GeoUnitType(StrEnum):
+    VTD = "vtd"
+    BLOCK_GROUP = "bg"
+    BLOCK = "block"
+
+
 def sanitize_community_name(name: str) -> str:
-    """Normalize user-provided community names before validation/persistence."""
+    """Normalize user-provided community names before validation/persistence.
+
+    Strips HTML tags, control characters, and Unicode format codepoints
+    (category Cf — bidi overrides, zero-width joiners, BOM, etc.) that NFKC
+    normalization does not fold and would otherwise let a name spoof its
+    rendered form or bury hidden bytes past the length cap.
+    """
     normalized = unicodedata.normalize("NFKC", name)
     without_tags = COMMUNITY_HTML_TAG_RE.sub("", normalized)
     # Collapse all whitespace (including tabs, newlines) to single spaces first,
     # then remove remaining non-whitespace control characters.
     collapsed_whitespace = COMMUNITY_WHITESPACE_RE.sub(" ", without_tags)
     without_control_chars = COMMUNITY_CONTROL_CHAR_RE.sub("", collapsed_whitespace)
-    return without_control_chars.strip()
+    without_format_chars = "".join(
+        c for c in without_control_chars if unicodedata.category(c) != "Cf"
+    )
+    return without_format_chars.strip()
 
 
 class DistrictrMap(TimeStampMixin, SQLModel, table=True):
@@ -86,9 +101,13 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     # Additional comments as necessary for module limitations
     comment: str | None = Field(nullable=True)
     # Census unit (usually VTDs) that the parent layer is made up of
-    parent_geo_unit_type: str | None = Field(nullable=True)
-    # Census unit (usually VTDs) that the child layer is made up of
-    child_geo_unit_type: str | None = Field(nullable=True)
+    parent_geo_unit_type: GeoUnitType | None = Field(
+        sa_column=Column(String, nullable=True)
+    )
+    # Census unit (usually blocks) that the child layer is made up of
+    child_geo_unit_type: GeoUnitType | None = Field(
+        sa_column=Column(String, nullable=True)
+    )
     # Name of the data source for the map
     data_source_name: str | None = Field(nullable=True)
     # State FIPS codes associated with this map
@@ -128,8 +147,8 @@ class DistrictrMapUpdate(BaseModel):
     visible: bool | None = None
     map_type: str = "default"
     comment: str | None = None
-    parent_geo_unit_type: str | None = None
-    child_geo_unit_type: str | None = None
+    parent_geo_unit_type: GeoUnitType | None = None
+    child_geo_unit_type: GeoUnitType | None = None
     data_source_name: str | None = None
     statefps: list[str] | None = None
     comment_length_limit: int | None = None
@@ -194,6 +213,18 @@ class CommunityMetadata(BaseModel):
     def sanitize_name(cls, value: str) -> str:
         if isinstance(value, str):
             return sanitize_community_name(value)
+        return value
+
+    @field_validator("id")
+    @classmethod
+    def positive_id(cls, value: int) -> int:
+        # id <= 0 is reserved: 0 is the "unassigned" sentinel used on the
+        # assignments side, and negative ids are reserved for future system use.
+        if value <= 0:
+            raise ValueError(
+                "Community id must be a positive integer; "
+                "ids <= 0 are reserved (0 is the unassigned sentinel)."
+            )
         return value
 
 
@@ -325,8 +356,8 @@ class DocumentPublic(BaseModel):
     document_type: DocumentType = DocumentType.DISTRICT
     map_module: str | None = None
     comment: str | None = None
-    parent_geo_unit_type: str | None = None
-    child_geo_unit_type: str | None = None
+    parent_geo_unit_type: GeoUnitType | None = None
+    child_geo_unit_type: GeoUnitType | None = None
     data_source_name: str | None = None
     overlays: list["OverlayPublic"] | None = None
     statefps: list[str] | None = None
@@ -518,16 +549,16 @@ class DistrictUnions(TimeStampMixin, SQLModel, table=True):
             UUIDType, ForeignKey(Document.document_id), index=True, nullable=False
         )
     )
-    zone: int = Field(nullable=False)
-    geometry: str = Field(
-        sa_column=Column(Geometry("MULTIPOLYGON", srid=4326), nullable=False)
+    zone: int | None = Field(nullable=True)
+    geometry: str | None = Field(
+        sa_column=Column(Geometry("MULTIPOLYGON", srid=4326), nullable=True)
     )
     # Store demographic data as JSONB since different tables have different columns
     demographic_data: dict | None = Field(sa_column=Column(JSON, nullable=True))
 
 
 class DistrictUnionsResponse(BaseModel):
-    zone: int
-    geometry: str
-    demographic_data: dict | None
+    zone: int | None
+    geometry: str | None
+    demographic_data: dict[str, int] | None
     updated_at: datetime

@@ -1,15 +1,18 @@
 import {DataDrivenPropertyValueSpecification, ExpressionSpecification} from 'maplibre-gl';
-export {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from './mapDefaults';
+export {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from '../document/limits';
 
-export const EMPTY_FT_COLLECTION: GeoJSON.FeatureCollection<any> = {
+export const EMPTY_FT_COLLECTION = {
   type: 'FeatureCollection',
   features: [],
-};
+} as const satisfies GeoJSON.FeatureCollection<GeoJSON.Geometry, GeoJSON.GeoJsonProperties>;
 
 // Sometimes, maplibre requires non-empty arrays for specifications
 // This serves as a placeholder for otherwise empty arrays
 export const SENTINEL_EMPTY_VALUE: string = '-999';
 export const SENTINEL_EMPTY_ARRAY: string[] = [SENTINEL_EMPTY_VALUE];
+
+export const HIGHLIGHT_LINE_COLOR = '#666666';
+export const HIGHLIGHT_LINE_WIDTH = 3.5;
 
 export const COMMUNITY_ASSIGNMENT_STYLE = (colorScheme: string[]) => {
   const colorStyleBaseline: any[] = ['case'];

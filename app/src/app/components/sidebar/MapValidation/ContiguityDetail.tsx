@@ -3,7 +3,6 @@ import {useMapStore} from '@/app/store/mapStore';
 import {getZoneConnectedComponentBBoxes} from '@/app/utils/api/apiHandlers/getZoneConnectedComponentBBoxes';
 import {Blockquote, Flex, IconButton, Spinner, Text, Tooltip} from '@radix-ui/themes';
 import {useQuery} from '@tanstack/react-query';
-import {queryClient} from '@utils/api/queryClient';
 import {useEffect, useState} from 'react';
 import {
   CheckCircledIcon,
@@ -35,25 +34,22 @@ export default function ContiguityDetail({
   const [selectedFeature, setSelectedFeature] = useState<number | null>(null);
   const [showZoom, setShowZoom] = useState(false);
 
-  const {data, error, isLoading, isFetching} = useQuery(
-    {
-      queryKey: [`ConnectedComponentBboxes-${zone}`, `${mapDocument?.document_id}-${lastUpdated}`],
-      queryFn: async () => {
-        if (!mapDocument) return null;
-        const result = await getZoneConnectedComponentBBoxes(mapDocument, zone);
-        if (!result.ok) {
-          throw new Error(result.error.detail);
-        }
-        return result.response;
-      },
-      enabled: !!mapDocument && showZoom,
-      staleTime: 0,
-      retry: false,
-      placeholderData: null,
-      refetchOnWindowFocus: false,
+  const {data, error, isLoading, isFetching} = useQuery({
+    queryKey: [`ConnectedComponentBboxes-${zone}`, `${mapDocument?.document_id}-${lastUpdated}`],
+    queryFn: async () => {
+      if (!mapDocument) return null;
+      const result = await getZoneConnectedComponentBBoxes(mapDocument, zone);
+      if (!result.ok) {
+        throw new Error(result.error.detail);
+      }
+      return result.response;
     },
-    queryClient
-  );
+    enabled: !!mapDocument && showZoom,
+    staleTime: 0,
+    retry: false,
+    placeholderData: null,
+    refetchOnWindowFocus: false,
+  });
 
   useEffect(() => {
     // Handle the case of:

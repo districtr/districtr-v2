@@ -1,10 +1,11 @@
 import {PersistOptions} from 'zustand/middleware';
-import {NullableZone} from '../constants/types';
+import {NullableZone} from '@constants/map/zone';
 import {AxiosError, AxiosResponse} from 'axios';
 import {StoreApi, UseBoundStore} from 'zustand';
 import {TemporalState} from 'zundo';
 import {MapStore} from './mapStore';
 import {BasemapId} from '@/app/constants/map/layerStyle';
+import {type DemographicMode} from '@constants/map/demographicMode';
 
 export type DistrictrMapOptions = {
   highlightBrokenDistricts?: boolean;
@@ -19,7 +20,7 @@ export type DistrictrMapOptions = {
   showCountyBoundaries?: boolean;
   showBlockPopulationNumbers?: boolean;
   showPopulationNumbers?: boolean;
-  showDemographicMap?: undefined | 'side-by-side' | 'overlay';
+  demographicDisplayMode?: undefined | DemographicMode;
   showPaintedDistricts?: boolean;
   overlayOpacity: number;
   basemap?: BasemapId;

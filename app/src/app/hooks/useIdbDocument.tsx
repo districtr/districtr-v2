@@ -18,14 +18,16 @@ export const useIdbDocument = (document_id: string | null | undefined) => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
+    let cancelled = false;
     const main = async () => {
       if (!document_id) {
-        setDocumentFromIdb(null);
+        if (!cancelled) setDocumentFromIdb(null);
       } else {
         const documentFromIdb = await idb.documents
           .where('id')
           .equals(document_id ?? '')
           .first();
+        if (cancelled) return;
         if (!documentFromIdb) {
           setDocumentFromIdb(null);
           return;
@@ -41,6 +43,16 @@ export const useIdbDocument = (document_id: string | null | undefined) => {
     timeoutRef.current = setTimeout(() => {
       main();
     }, idb.DEBOUNCE_DELAY);
+    return () => {
+      // Covers the component-unmount-during-debounce case: cancel the pending
+      // setTimeout AND the in-flight IDB read so we don't setState on an
+      // unmounted component.
+      cancelled = true;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
   }, [document_id, districtClientLastUpdated, coiClientLastUpdated, mapDocument]);
 
   return documentFromIdb;

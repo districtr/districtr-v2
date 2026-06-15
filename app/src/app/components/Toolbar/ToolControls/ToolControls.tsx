@@ -4,7 +4,7 @@ import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import React, {useRef} from 'react';
 import {BrushControls} from '@/app/components/Toolbar/ToolControls/BrushControls';
-import {ActiveTool} from '@constants/types';
+import {ActiveTool} from '@constants/map/tools';
 import {ExitBlockViewButtons} from '@/app/components/Toolbar/ExitBlockViewButtons';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {InspectorControls} from '@components/Toolbar/ToolControls/InspectorControls';

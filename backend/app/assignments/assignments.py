@@ -131,7 +131,9 @@ def batch_insert_assignments(
     temp_table_name = f"temp_assignments_{load_id}"
 
     session.connection().execute(
-        text(f"CREATE TEMP TABLE {temp_table_name} (geo_id TEXT, zone INT)")
+        text(
+            f"CREATE TEMP TABLE {temp_table_name} (geo_id TEXT, zone INT) ON COMMIT DROP"
+        )
     )
 
     def _get_next_id():
@@ -196,7 +198,7 @@ def batch_insert_assignments(
         uniform_vtds = f"uniform_vtds_{load_id}"
         session.connection().execute(
             text(f"""
-            CREATE TEMPORARY TABLE {uniform_vtds} AS
+            CREATE TEMPORARY TABLE {uniform_vtds} ON COMMIT DROP AS
             SELECT
                 parent_path,
                 MIN(zone) AS zone
