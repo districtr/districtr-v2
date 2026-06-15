@@ -314,9 +314,18 @@ def load_sample_data(
         if view.child_layer is not None:
             # Commit districtr views
             session.commit()
-            _create_parent_child_edges(
-                session=session, districtr_map_uuid=view.districtr_map_uuid
-            )
+            edges_exist = session.execute(
+                sa.text(
+                    "select 1 from parentchildedges where districtr_map = :uuid limit 1"
+                ),
+                {"uuid": u},
+            ).scalar()
+            if edges_exist:
+                logger.info(
+                    f"Parent-child edges for {view.districtr_map_slug} already exist."
+                )
+            else:
+                _create_parent_child_edges(session=session, districtr_map_uuid=u)
 
         session.commit()
 
