@@ -311,6 +311,7 @@ def create_shatterable_gerrydb_view(
 def create_parent_child_edges(
     session: Session,
     districtr_map_uuid: str,
+    force: bool = False,
 ) -> None:
     """
     Create the parent child edges for a given gerrydb map.
@@ -318,6 +319,8 @@ def create_parent_child_edges(
     Args:
         session: The database session.
         districtr_map_uuid: The UUID of the districtr map.
+        force: If True, drop any previously loaded edges for this map and
+            recreate them instead of raising when they already exist.
     """
     stmt = select(DistrictrMap).where(DistrictrMap.uuid == districtr_map_uuid)
     map_row = session.exec(stmt).one_or_none()
@@ -340,13 +343,21 @@ def create_parent_child_edges(
         count_stmt, {"uuid": districtr_map_uuid}
     ).scalar_one()
 
-    if previously_loaded:
-        raise ValueError(
-            f"Relationships for districtr_map {districtr_map_uuid} already loaded"
-        )
-
     uuid_str = str(districtr_map_uuid)
     partition_name = f"parentchildedges_{uuid_str}"
+
+    if previously_loaded:
+        if not force:
+            raise ValueError(
+                f"Relationships for districtr_map {districtr_map_uuid} already loaded"
+            )
+        logger.warning(
+            f"Relationships for districtr_map {districtr_map_uuid} already loaded; "
+            "force=True, dropping existing partition and reloading"
+        )
+        # Dropping the partition removes its rows, allowing the CREATE TABLE
+        # below to recreate the partition from scratch.
+        session.execute(text(f"DROP TABLE IF EXISTS {_quote_ident(partition_name)}"))
 
     create_sql = text(
         f"CREATE TABLE {_quote_ident(partition_name)} "
