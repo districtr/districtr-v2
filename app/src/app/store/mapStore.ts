@@ -391,6 +391,17 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const idIsSame = currentMapDocument?.document_id === mapDocument.document_id;
       const accessIsSame = currentMapDocument?.access === mapDocument.access;
       const documentIsSame = idIsSame && accessIsSame;
+      // Same underlying plan across a view switch (edit↔display↔evaluate). public_id
+      // is unique per plan, so a match means the user is just changing how they view
+      // the same map — preserve their current viewport instead of re-fitting.
+      const sameMapAcrossViews =
+        !!currentMapDocument &&
+        mapDocument.public_id != null &&
+        currentMapDocument.public_id === mapDocument.public_id;
+      const preservedBounds =
+        sameMapAcrossViews && mapControlsState.lastViewBounds
+          ? mapControlsState.lastViewBounds
+          : mapDocument.extent;
       const bothHaveData =
         typeof currentMapDocument?.updated_at === 'string' &&
         typeof mapDocument?.updated_at === 'string';
@@ -453,7 +464,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         mapOptions: {
           ...DEFAULT_MAP_OPTIONS,
           ...MAP_MODE_DEFAULT_OPTIONS[mapControlsState.mapMode],
-          bounds: mapDocument.extent,
+          bounds: preservedBounds,
           stateFipsSet: newStateFipsSet,
         },
         activeTool:
@@ -463,6 +474,12 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         selectedZone: communities[0]?.id ?? mapControlsState.selectedZone,
         sidebarPanels: ['population'],
         isPainting: false,
+        // Drop a remembered viewport when loading a different map so a fresh map
+        // fits to its extent; keep it across same-map view switches.
+        lastViewBounds: sameMapAcrossViews ? mapControlsState.lastViewBounds : null,
+        // Likewise clear the unlockable flag for a different map (re-derived from
+        // the `?pw=true` share link by the view switcher).
+        passwordUnlockable: sameMapAcrossViews ? mapControlsState.passwordUnlockable : false,
         isEditing: mapDocument.access === ACCESS_STATES.EDIT,
       });
 

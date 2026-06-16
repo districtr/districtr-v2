@@ -59,6 +59,20 @@ export const fetchDocument = async (
 
   if (!remoteMetadata.ok) {
     // console.error('[hydration] Remote metadata fetch failed:', remoteMetadata.error);
+    // The backend has no record of this document (e.g. a local-only/offline map, or
+    // the server lost it). If we hold a complete local copy, load that instead of
+    // failing so the user keeps their map and can re-sync later.
+    if (idbDocument) {
+      return {
+        ok: true,
+        response: {
+          document: idbDocument.document_metadata,
+          assignments: idbDocument.assignments,
+          updateLocal: false,
+          hasLocalEdits: idbDocument.clientLastUpdated !== idbDocument.document_metadata.updated_at,
+        },
+      };
+    }
     return {
       ok: false,
       error: remoteMetadata.error.detail || 'Failed to fetch document',

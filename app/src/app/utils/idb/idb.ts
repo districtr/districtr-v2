@@ -75,6 +75,17 @@ export class DocumentsDB extends Dexie {
       .then(documents => documents.map(document => document.document_metadata));
   }
 
+  /**
+   * Find the editable document_id (UUID) of a locally-stored map by its public_id,
+   * or null if the user has no local copy. Lets read-only/public views offer "Edit"
+   * for maps the user owns locally.
+   */
+  async getEditableIdByPublicId(publicId: number): Promise<string | null> {
+    const docs = await this.documents.toArray();
+    const match = docs.find(d => d.document_metadata?.public_id === publicId);
+    return match?.id ?? null;
+  }
+
   // Debounce state for batching rapid updates
   // Both the Zone and COI assignment updates can use the data format stores both a Zone/COI
   // id and a geoid.

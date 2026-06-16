@@ -136,6 +136,16 @@ export const useToolbarStore = create(
     }),
     {
       name: 'toolbarStore',
+      // The toolbar is fixed to the sidebar, so its location is no longer
+      // persisted. Bump the version to drop any previously stored 'map'
+      // placement for existing users.
+      version: 1,
+      // @ts-ignore - persisted state is a partial of ToolbarState
+      migrate: persistedState => {
+        const next = (persistedState ?? {}) as Partial<ToolbarState>;
+        delete next.toolbarLocation;
+        return next as ToolbarState;
+      },
       // @ts-ignore
       partialize: state => ({
         x: state.x,
@@ -143,7 +153,6 @@ export const useToolbarStore = create(
         rotation: state.rotation,
         toolbarSize: state.toolbarSize,
         customizeToolbar: state.customizeToolbar,
-        toolbarLocation: state.toolbarLocation,
       }),
     }
   )

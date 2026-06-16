@@ -9,18 +9,23 @@ import {routeManager} from '@/app/utils/map/mapUrlRoute';
 export const PasswordPromptModal = () => {
   const router = useRouter();
   const pwRequired = useSearchParams().get('pw');
-  const [dialogOpen, setDialogOpen] = React.useState(Boolean(pwRequired));
+  // Also openable on demand via the store flag (e.g. the view switcher's "Unlock"
+  // option), not just the `?pw=true` share link.
+  const passwordPrompt = useMapStore(store => store.passwordPrompt);
+  const setPasswordPrompt = useMapStore(store => store.setPasswordPrompt);
+  const [dialogOpen, setDialogOpen] = React.useState(Boolean(pwRequired) || passwordPrompt);
   const [password, setPassword] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const mapDocument = useMapStore(store => store.mapDocument);
 
   useEffect(() => {
-    setDialogOpen(Boolean(pwRequired));
-  }, [pwRequired]);
+    setDialogOpen(Boolean(pwRequired) || passwordPrompt);
+  }, [pwRequired, passwordPrompt]);
 
   const handleProceed = async (editAccess: boolean) => {
     if (!editAccess) {
+      setPasswordPrompt(false);
       // remove pw from url
       router.replace(window.location.pathname);
     } else if (mapDocument?.public_id && password) {
@@ -29,6 +34,7 @@ export const PasswordPromptModal = () => {
       try {
         const res = await postGrantEditAccess(mapDocument?.public_id, password);
         if (res.ok) {
+          setPasswordPrompt(false);
           setDialogOpen(false);
           router.push(`/${routeManager.mapUrlRoute}/edit/${res.response.document_id}`);
         } else {

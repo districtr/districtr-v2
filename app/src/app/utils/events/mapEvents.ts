@@ -383,7 +383,16 @@ export const handleMapIdle = (e: MapEvent) => {
   }
 };
 
-export const handleMapMoveEnd = () => {};
+export const handleMapMoveEnd = (e: ViewStateChangeEvent) => {
+  // Remember the current viewport so switching between the edit/display/evaluate
+  // views of the same map can restore it instead of re-fitting to the plan extent.
+  const map = e?.target;
+  if (!map?.getBounds) return;
+  const b = map.getBounds();
+  useMapControlsStore
+    .getState()
+    .setLastViewBounds([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
+};
 
 export const handleMapZoomEnd = (e: ViewStateChangeEvent) => {};
 

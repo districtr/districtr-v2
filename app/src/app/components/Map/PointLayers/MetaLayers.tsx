@@ -197,7 +197,14 @@ const ZoneNumbersLayer = () => {
   useEffect(() => {
     const map = getMapRef();
     if (map && !map.hasImage('lock')) {
-      map.loadImage('/lock.png').then(image => map.addImage('lock', image.data));
+      map.loadImage('/lock.png').then(image => {
+        // Re-check before adding: loadImage is async, so another run of this effect
+        // (or another layer) may have added 'lock' before this resolves, which would
+        // otherwise throw "An image named 'lock' already exists".
+        if (image?.data && !map.hasImage('lock')) {
+          map.addImage('lock', image.data);
+        }
+      });
       map.on('moveend', handleUpdate);
       map.on('zoomend', handleUpdate);
       map.on('resize', handleUpdate);

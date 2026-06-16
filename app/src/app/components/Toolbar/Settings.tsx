@@ -44,8 +44,6 @@ export const ToolSettings: React.FC = () => {
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const setToolbarSize = useToolbarStore(state => state.setToolbarSize);
   const toolbarSize = useToolbarStore(state => state.toolbarSize);
-  const customizeToolbar = useToolbarStore(state => state.customizeToolbar);
-  const setCustomizeToolbar = useToolbarStore(state => state.setCustomizeToolbar);
   const boundarySettings = useFeatureFlagStore(state => state.boundarySettings);
   const access = useMapStore(state => state.mapStatus?.access);
 
@@ -223,22 +221,9 @@ export const ToolSettings: React.FC = () => {
           </>
         )}
 
-        <CheckboxGroup.Root
-          defaultValue={[]}
-          name="toolbar"
-          value={[customizeToolbar ? 'customizeToolbar' : '']}
-        >
-          <Heading as="h3" weight="bold" size="3">
-            Toolbar Options
-          </Heading>
-          <CheckboxGroup.Item
-            value="customizeToolbar"
-            onClick={() => setCustomizeToolbar(!customizeToolbar)}
-            disabled={access === ACCESS_STATES.READ}
-          >
-            Enable draggable toolbar
-          </CheckboxGroup.Item>
-        </CheckboxGroup.Root>
+        <Heading as="h3" weight="bold" size="3">
+          Toolbar Options
+        </Heading>
         <Box>
           <Text size="2" className="p-0">
             Toolbar size:

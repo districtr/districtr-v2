@@ -3,13 +3,11 @@ import {Text, DropdownMenu, Flex, Heading, IconButton, Link, Tooltip, Tabs} from
 import React, {useRef} from 'react';
 import {useMapStore} from '@store/mapStore';
 import {ArrowLeftIcon, HamburgerMenuIcon} from '@radix-ui/react-icons';
-import {DistrictrMap, DocumentMetadata} from '@utils/api/apiHandlers/types';
+import {DocumentMetadata} from '@utils/api/apiHandlers/types';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
 import {PasswordPromptModal} from '../Toolbar/PasswordPromptModal';
 import {UploaderModal} from '../Toolbar/UploaderModal';
 import {MapHeader} from './MapHeader';
-import {useRouter} from 'next/navigation';
-import {createMapDocument} from '@/app/utils/api/apiHandlers/createMapDocument';
 import {SavePopover} from './SavePopover';
 import {SharePopoverAndModal} from './SharePopoverAndModal';
 import {SettingsPopoverAndModal} from './SettingsPopoverAndModal';
@@ -17,15 +15,12 @@ import {saveMapDocumentMetadata} from '@/app/utils/api/apiHandlers/saveMapDocume
 import {idb} from '@/app/utils/idb/idb';
 import {RevertPopover} from './RevertPopover';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import {sanitizeCommunityMaps, sanitizeCommunityModuleName} from '@/app/utils/communities';
-import {MAP_MODES, type MapMode} from '@constants/map/mode';
-import {routeForMode} from '@constants/document/routes';
-import {MAP_TYPES} from '@constants/document/types';
 import {ACCESS_STATES} from '@constants/document/state';
+import {ViewSwitcher} from './ViewSwitcher';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
-  const [modalOpen, setModalOpen] = React.useState<'upload' | 'recents' | null>(null);
+  const [modalOpen, setModalOpen] = React.useState<'upload' | null>(null);
   const mapDocument = useMapStore(state => state.mapDocument);
   const access = useMapStore(state => state.mapStatus?.access);
   // Read from mapControlsStore (set by the route/page) instead of inferring from
@@ -33,14 +28,8 @@ export const Topbar: React.FC = () => {
   // Save/Revert/etc. affordances.
   const isEditing = useMapControlsStore(state => state.isEditing);
   const isEval = useMapControlsStore(state => state.isEval);
-  const mapViews = useMapStore(state => state.mapViews);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
-  const router = useRouter();
   const updateMetadata = useMapStore(state => state.updateMetadata);
-  const mapMode = useMapControlsStore(state => state.mapMode);
-  const rawMapViewList = mapViews?.data || [];
-  const cleanMapViewList =
-    mapMode === MAP_MODES.DISTRICTS ? rawMapViewList : sanitizeCommunityMaps(rawMapViewList);
 
   const handleMetadataChange = async (updates: Partial<DocumentMetadata>) => {
     if (!mapDocument?.document_id) return;
@@ -57,24 +46,6 @@ export const Topbar: React.FC = () => {
         severity: 2,
       });
     }
-  };
-
-  const handleSelectMap = (selectedMap: DistrictrMap, mapMode: MapMode = MAP_MODES.DISTRICTS) => {
-    createMapDocument({
-      districtr_map_slug: selectedMap.districtr_map_slug,
-      map_type: mapMode === MAP_MODES.COI ? MAP_TYPES.COMMUNITY : MAP_TYPES.DEFAULT,
-    }).then(r => {
-      if (r.ok) {
-        const rootPath = routeForMode(mapMode);
-        router.push(`/${rootPath}/edit/${r.response.document_id}`);
-      } else {
-        setErrorNotification({
-          severity: 2,
-          id: 'map-failed-to-create',
-          message: r.error.detail,
-        });
-      }
-    });
   };
 
   return (
@@ -109,43 +80,15 @@ export const Topbar: React.FC = () => {
                     Home
                   </Link>
                 </DropdownMenu.Item>
+                <DropdownMenu.Item>
+                  <Link href="/places" color="gray">
+                    New map
+                  </Link>
+                </DropdownMenu.Item>
                 {!isEval && (
-                  <DropdownMenu.Sub>
-                    <Tooltip
-                      open={!mapDocument?.document_id}
-                      content="Start by selecting a geography"
-                    >
-                      <DropdownMenu.SubTrigger>Create new map</DropdownMenu.SubTrigger>
-                    </Tooltip>
-                    <DropdownMenu.SubContent>
-                      <DropdownMenu.Sub>
-                        <DropdownMenu.SubTrigger>Select a geography</DropdownMenu.SubTrigger>
-                        <DropdownMenu.SubContent>
-                          {cleanMapViewList.length ? (
-                            cleanMapViewList.map((view, index) => (
-                              <DropdownMenu.Item
-                                key={index}
-                                onClick={() => handleSelectMap(view, mapMode)}
-                              >
-                                {mapMode === MAP_MODES.DISTRICTS
-                                  ? view.name
-                                  : sanitizeCommunityModuleName(view.name)}
-                              </DropdownMenu.Item>
-                            ))
-                          ) : (
-                            <DropdownMenu.Item disabled>
-                              {mapViews?.isPending
-                                ? 'Loading geographies...'
-                                : 'No geographies available'}
-                            </DropdownMenu.Item>
-                          )}
-                        </DropdownMenu.SubContent>
-                      </DropdownMenu.Sub>
-                      <DropdownMenu.Item onClick={() => setModalOpen('upload')}>
-                        Upload block assignments
-                      </DropdownMenu.Item>
-                    </DropdownMenu.SubContent>
-                  </DropdownMenu.Sub>
+                  <DropdownMenu.Item onClick={() => setModalOpen('upload')}>
+                    Upload block assignments
+                  </DropdownMenu.Item>
                 )}
                 <DropdownMenu.Sub>
                   <DropdownMenu.SubTrigger disabled={!mapDocument?.document_id}>
@@ -194,8 +137,10 @@ export const Topbar: React.FC = () => {
                     </DropdownMenu.Item>
                   </DropdownMenu.SubContent>
                 </DropdownMenu.Sub>
-                <DropdownMenu.Item onClick={() => setModalOpen('recents')} disabled={false}>
-                  View recent maps
+                <DropdownMenu.Item>
+                  <Link href="/my-maps" color="gray">
+                    View recent maps
+                  </Link>
                 </DropdownMenu.Item>
                 {!isEval && (
                   <DropdownMenu.Sub>
@@ -229,23 +174,9 @@ export const Topbar: React.FC = () => {
             <MapHeader handleMetadataChange={handleMetadataChange} />
           )}
           <Flex direction="row" align="center" gapX="3">
-            {isEval ? (
-              <IconButton
-                variant="ghost"
-                onClick={() => router.push(`/map/${mapDocument?.public_id}`)}
-              >
-                <Text size="2">Exit to display view</Text>
-              </IconButton>
-            ) : (
+            <ViewSwitcher />
+            {!isEval && (
               <>
-                {!isEditing && mapDocument?.public_id && (
-                  <IconButton
-                    variant="ghost"
-                    onClick={() => router.push(`/map/eval/${mapDocument.public_id}`)}
-                  >
-                    <Text size="2">Evaluation</Text>
-                  </IconButton>
-                )}
                 <SharePopoverAndModal handleMetadataChange={handleMetadataChange} />
                 {isEditing && <SavePopover />}
                 {isEditing && <RevertPopover />}

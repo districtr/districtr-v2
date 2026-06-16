@@ -10,14 +10,12 @@ import {EvalPanel} from '@components/EvalPanel/EvalPanel';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
 import {ErrorNotification} from '@components/ErrorNotification';
-import {DraggableToolbar} from '@components/Toolbar/Toolbar';
 import {MapTooltip} from '@components/Map/Tooltip/MapTooltip';
 import {MapLockShade} from '@components/MapLockShade';
 import {Topbar} from '@/app/components/Topbar/Topbar';
 import {Flex} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {initSubs} from '@store/subscriptions';
-import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useDocumentWithSync} from '@/app/hooks/useDocumentWithSync';
 import {SaveConflictModal} from '../SaveConflictModal';
@@ -43,8 +41,8 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
   const isPublicPage = !isEditing && !!mapId && !isUUID(mapId);
   const setIsEditing = useMapControlsStore(state => state.setIsEditing);
   const setIsEval = useMapControlsStore(state => state.setIsEval);
+  const setEditableDocId = useMapControlsStore(state => state.setEditableDocId);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
-  const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
   // check if userid in local storage; if not, create one
   const userID = useMapStore(state => state.userID);
@@ -82,6 +80,13 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
   useEffect(() => {
     setIsEditing(isEditing);
   }, [isEditing, setIsEditing]);
+
+  // Retain the editable UUID for this session so the view switcher can route
+  // back to edit mode after navigating to a read-only display/eval view (which
+  // loads the doc by public_id and surfaces document_id as "anonymous").
+  useEffect(() => {
+    if (isEditing && mapId && isUUID(mapId)) setEditableDocId(mapId);
+  }, [isEditing, mapId, setEditableDocId]);
 
   useEffect(() => {
     setIsEval(isEval ?? false);
@@ -126,7 +131,6 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
           {isPublicPage ? <PublicMap /> : <MainMap />}
           {showDemographicMap && (isPublicPage ? <PublicDemographicMap /> : <DemographicMap />)}
         </Flex>
-        {toolbarLocation === 'map' && <DraggableToolbar />}
         {!!mapId && (
           <MapLockShade
             mapLock={mapLock}
