@@ -11,7 +11,6 @@ import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
 import {ErrorNotification} from '@components/ErrorNotification';
 import {MapTooltip} from '@components/Map/Tooltip/MapTooltip';
-import {MapLockShade} from '@components/MapLockShade';
 import {Topbar} from '@/app/components/Topbar/Topbar';
 import {Flex} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
@@ -47,7 +46,6 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
   // check if userid in local storage; if not, create one
   const userID = useMapStore(state => state.userID);
   const setUserID = useMapStore(state => state.setUserID);
-  const mapLock = useMapStore(state => state.mapLock);
 
   // Run migration on app load
   useEffect(() => {
@@ -55,11 +53,7 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
   }, []);
 
   // Load document with sync support
-  const {
-    isLoading: isLoadingDocument,
-    error: documentError,
-    conflictModal,
-  } = useDocumentWithSync({
+  const {error: documentError, conflictModal} = useDocumentWithSync({
     document_id: mapId || undefined,
     isPublicPage,
     enabled: isMapModeReady && !!mapId,
@@ -131,17 +125,6 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
           {isPublicPage ? <PublicMap /> : <MainMap />}
           {showDemographicMap && (isPublicPage ? <PublicDemographicMap /> : <DemographicMap />)}
         </Flex>
-        {!!mapId && (
-          <MapLockShade
-            mapLock={mapLock}
-            loadingState={{
-              isLoadingDocument,
-              isLoadingAssignments: isLoadingDocument,
-              isFetchingDocument: isLoadingDocument,
-              isFetchingAssignments: isLoadingDocument,
-            }}
-          />
-        )}
         <MapTooltip />
       </div>
       <MapContextMenu />

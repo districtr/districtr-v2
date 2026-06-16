@@ -17,6 +17,7 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
   const mapDocument = useMapStore(state => state.mapDocument);
   const flushMapState = useMapStore(state => state.flushMapState);
   const setMapRenderingState = useMapStore(state => state.setMapRenderingState);
+  const setLoadingState = useMapStore(state => state.setLoadingState);
   const setStateFp = useMapControlsStore(state => state.setStateFp);
   const setDemographyHash = useDemographyStore(state => state.setDataHash);
   const setAvailableColumnSets = useDemographyStore(state => state.setAvailableColumnSets);
@@ -56,7 +57,11 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
     // Because the data here is so much smaller, we can skip the assignment store stuff
     // This is faster, which matters for public maps where lots of people may be viewing
     // But few would edit
-    if (!publicDistrictsQuery.data) return;
+    if (!publicDistrictsQuery.data) {
+      // No data yet for this view; the loading overlay keeps covering the map.
+      setLoadingState('publicSourceLoaded', false);
+      return;
+    }
     if (publicDistrictsQuery.data.statefp) {
       setStateFp(publicDistrictsQuery.data.statefp);
     }
@@ -74,7 +79,14 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
     GeometryWorker?.setPublicFeatures(publicDistrictsQuery.data.geojsonFeatures);
 
     setMapRenderingState(RENDERING_STATES.LOADED);
-  }, [publicDistrictsQuery.data, setMapRenderingState, setStateFp, mapDocument?.public_id]);
+    setLoadingState('publicSourceLoaded', true);
+  }, [
+    publicDistrictsQuery.data,
+    setMapRenderingState,
+    setLoadingState,
+    setStateFp,
+    mapDocument?.public_id,
+  ]);
 
   if (!mapDocument || mapDocument.access !== ACCESS_STATES.READ) return null;
   if (flushMapState || publicDistrictsQuery.isPending) return null;

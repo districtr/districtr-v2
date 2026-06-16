@@ -160,12 +160,33 @@ const syncCommunityDescriptionComment = ({
   };
 };
 
+/**
+ * Boolean loading/rendering trackers that drive the global LoadingOverlay and view
+ * transitions. Each is owned by the component that produces it:
+ *  - documentLoading: a document fetch is in flight (useDocumentWithSync).
+ *  - publicSourceLoaded: the public district source has loaded its data (PublicSource).
+ *  - metricsLoaded: the evaluation metrics have loaded (EvalPanel).
+ */
+export interface LoadingStates {
+  documentLoading: boolean;
+  publicSourceLoaded: boolean;
+  metricsLoaded: boolean;
+}
+
+export const DEFAULT_LOADING_STATES: LoadingStates = {
+  documentLoading: false,
+  publicSourceLoaded: false,
+  metricsLoaded: false,
+};
+
 export interface MapStore {
   // LOAD AND RENDERING STATE TRACKING
   appLoadingState: AppLoadingState;
   setAppLoadingState: (state: MapStore['appLoadingState']) => void;
   mapRenderingState: RenderingState;
   setMapRenderingState: (state: MapStore['mapRenderingState']) => void;
+  loadingStates: LoadingStates;
+  setLoadingState: <K extends keyof LoadingStates>(key: K, value: LoadingStates[K]) => void;
   // MAP CANVAS REF AND CONTROLS
   getMapRef: () => maplibregl.Map | undefined;
   setMapRef: (map: MutableRefObject<MapRef | null>) => void;
@@ -302,6 +323,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     setAppLoadingState: appLoadingState => set({appLoadingState}),
     mapRenderingState: RENDERING_STATES.INITIALIZING,
     setMapRenderingState: mapRenderingState => set({mapRenderingState}),
+    loadingStates: {...DEFAULT_LOADING_STATES},
+    setLoadingState: (key, value) =>
+      set(state => ({loadingStates: {...state.loadingStates, [key]: value}})),
     captiveIds: new Set<string>(),
 
     exitBlockView: (lock: boolean = false) => {

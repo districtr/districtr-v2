@@ -3,7 +3,7 @@ import {Nunito} from 'next/font/google';
 import {Theme} from '@radix-ui/themes';
 import {FeedbackForm} from './components/FeedbackForm';
 import {VersionCheck} from './components/VersionCheck';
-import {ViewTransitionOverlay} from './components/Topbar/ViewTransitionOverlay';
+import {LoadingOverlay} from './components/Topbar/LoadingOverlay';
 import '@radix-ui/themes/styles.css';
 import './globals.css';
 
@@ -58,7 +58,7 @@ export default function RootLayout({
           <main>{children}</main>
           <FeedbackForm />
           <VersionCheck />
-          <ViewTransitionOverlay />
+          <LoadingOverlay />
         </Theme>
       </body>
     </html>

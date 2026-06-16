@@ -48,9 +48,13 @@ const ViewSwitcherItem: React.FC<{
       ? 'Unlock to draw and paint districts'
       : meta.description;
   return (
-    <DropdownMenu.Item disabled={disabled} onSelect={onSelect} style={{
-      padding: "1.5rem .25rem"
-    }}>
+    <DropdownMenu.Item
+      disabled={disabled}
+      onSelect={onSelect}
+      style={{
+        padding: '1.5rem .25rem',
+      }}
+    >
       <Flex align="center" justify="between" gap="4" width="100%" py="1">
         <Flex align="center" gap="3">
           <Icon className="size-4 shrink-0" />
@@ -92,6 +96,7 @@ export const ViewSwitcher: React.FC = () => {
   const passwordUnlockable = useMapControlsStore(state => state.passwordUnlockable);
   const setPasswordUnlockable = useMapControlsStore(state => state.setPasswordUnlockable);
   const setPasswordPrompt = useMapStore(state => state.setPasswordPrompt);
+  const setLoadingState = useMapStore(state => state.setLoadingState);
   const publicIdForLookup = useMapStore(state => state.mapDocument?.public_id ?? null);
   const pwParam = useSearchParams().get('pw');
   const [isMinting, setIsMinting] = React.useState(false);
@@ -208,9 +213,11 @@ export const ViewSwitcher: React.FC = () => {
       target = await mintAndResolve(mode);
     }
     if (!target) return;
-    // Show the transition overlay, then navigate immediately so the overlay covers
-    // the real load. ViewTransitionOverlay (rendered at the root) clears itself once
-    // the destination view is ready.
+    // Reset the destination's load flags and show the overlay, then navigate
+    // immediately so the overlay covers the real load and only clears once the
+    // destination view's data has loaded (see LoadingOverlay / useViewTransition).
+    setLoadingState('publicSourceLoaded', false);
+    setLoadingState('metricsLoaded', false);
     setViewTransition(mode);
     router.push(target);
   };

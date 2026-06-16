@@ -7,7 +7,6 @@ import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
 import {ErrorNotification} from '@components/ErrorNotification';
 import {MapTooltip} from '@components/Map/Tooltip/MapTooltip';
-import {MapLockShade} from '@components/MapLockShade';
 import {Topbar} from '@/app/components/Topbar/Topbar';
 import {Flex} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
@@ -38,17 +37,12 @@ const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => 
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const userID = useMapStore(state => state.userID);
   const setUserID = useMapStore(state => state.setUserID);
-  const mapLock = useMapStore(state => state.mapLock);
 
   useEffect(() => {
     migrateUserMapsFromLocalStorage();
   }, []);
 
-  const {
-    isLoading: isLoadingDocument,
-    error: documentError,
-    conflictModal,
-  } = useDocumentWithSync({
+  const {error: documentError, conflictModal} = useDocumentWithSync({
     document_id: documentId || undefined,
     isPublicPage,
     enabled: isMapModeReady && !!documentId,
@@ -98,17 +92,6 @@ const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => 
           <CoiMap />
           {showDemographicMap && <DemographicMap />}
         </Flex>
-        {!!documentId && (
-          <MapLockShade
-            mapLock={mapLock}
-            loadingState={{
-              isLoadingDocument,
-              isLoadingAssignments: isLoadingDocument,
-              isFetchingDocument: isLoadingDocument,
-              isFetchingAssignments: isLoadingDocument,
-            }}
-          />
-        )}
         <MapTooltip />
       </div>
       <MapContextMenu />

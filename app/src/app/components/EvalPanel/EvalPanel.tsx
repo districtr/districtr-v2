@@ -1,4 +1,5 @@
 'use client';
+import {useEffect} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {Flex, Heading, Spinner, Text} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
@@ -11,6 +12,7 @@ import {CompactnessSection} from './CompactnessSection';
 
 export const EvalPanel: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
+  const setLoadingState = useMapStore(state => state.setLoadingState);
 
   const publicId = mapDocument?.public_id;
 
@@ -30,6 +32,15 @@ export const EvalPanel: React.FC = () => {
   });
 
   const evaluation = envelope?.metrics;
+
+  // Tell the loading overlay when metrics are loading vs ready: reset on mount,
+  // mark loaded once the query settles (success or error).
+  useEffect(() => {
+    setLoadingState('metricsLoaded', false);
+  }, [setLoadingState]);
+  useEffect(() => {
+    if (!isLoading) setLoadingState('metricsLoaded', true);
+  }, [isLoading, setLoadingState]);
 
   const evalTablesOnly = useMapControlsStore(state => state.evalTablesOnly);
   const setEvalTablesOnly = useMapControlsStore(state => state.setEvalTablesOnly);
