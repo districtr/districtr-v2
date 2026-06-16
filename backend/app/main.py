@@ -1637,3 +1637,41 @@ async def debug_graph_lru_cache() -> dict[str, Any]:
             "note": "Resident set size of this worker process, not LRU cache only.",
         },
     }
+
+
+@app.get("/_debug/gerrydb/table_sizes")
+async def debug_gerrydb_table_sizes(
+    session: Session = Depends(get_session),
+) -> dict[str, Any]:
+    """
+    Exact row counts for every table in the ``gerrydb`` schema.
+
+    Runs ``COUNT(*)`` per table, so this is accurate but can be slow when the
+    schema holds many large geographic layers.
+    """
+    table_names = [
+        row[0]
+        for row in session.connection()
+        .execute(
+            text(
+                "SELECT tablename FROM pg_tables "
+                "WHERE schemaname = 'gerrydb' ORDER BY tablename"
+            )
+        )
+        .fetchall()
+    ]
+
+    tables = []
+    for name in table_names:
+        # ``name`` comes from the catalog; quote the identifier defensively.
+        count = session.connection().execute(
+            text(f'SELECT COUNT(*) FROM gerrydb."{name}"')
+        ).scalar_one()
+        tables.append({"table": name, "row_count": count})
+
+    return {
+        "schema": "gerrydb",
+        "table_count": len(tables),
+        "total_rows": sum(t["row_count"] for t in tables),
+        "tables": tables,
+    }
