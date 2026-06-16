@@ -16,7 +16,6 @@ from sqlalchemy.exc import (
     MultipleResultsFound,
     NoResultFound,
     DataError,
-    IntegrityError,
     OperationalError,
 )
 from sqlalchemy import text
@@ -34,6 +33,7 @@ from app.assignments import (
     duplicate_document_assignments,
     duplicate_document_community_assignments,
     batch_insert_assignments,
+    DuplicateGeoIdError,
 )
 from app.core.db import get_session
 from app.core.dependencies import (
@@ -506,16 +506,23 @@ async def create_document(
                 session=session,
             )
         except NoResultFound:
+            session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="No districtr map found matching requested map",
             )
-        except IntegrityError as e:
-            if "psycopg.errors.UniqueViolation" in str(e):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Duplicate geoids found in input data. Ensure all geoids are unique",
-                )
+        except DuplicateGeoIdError:
+            session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Duplicate geoids found in input data. Ensure all geoids are unique",
+            )
+        except ValueError:
+            session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Invalid zone value in assignments",
+            )
 
     if data.metadata is not None:
         # Inline (without an inner commit) so that the session.rollback() checks below
