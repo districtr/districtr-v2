@@ -9,6 +9,31 @@ export const EVAL_TRANSITION_STEPS = ['Loading data', 'Cutting edges', 'Finalizi
 /** Per-step dwell time; total transition ≈ steps × this (~3s for 3 steps). */
 export const EVAL_STEP_DURATION_MS = 1000;
 
+type StepStatus = 'done' | 'active' | 'pending';
+
+/** A single preparation step row. Owns its own status indicator and label styling
+ * so the overlay template stays declarative. */
+const EvalTransitionStep: React.FC<{label: string; status: StepStatus}> = ({label, status}) => (
+  <Flex align="center" gap="3">
+    <Flex align="center" justify="center" className="size-5 shrink-0">
+      {status === 'done' ? (
+        <CheckIcon className="size-5 text-green-600" />
+      ) : status === 'active' ? (
+        <Spinner size="2" />
+      ) : (
+        <span className="size-2 rounded-full bg-gray-300" />
+      )}
+    </Flex>
+    <Text
+      size="2"
+      color={status === 'pending' ? 'gray' : undefined}
+      weight={status === 'active' ? 'medium' : 'regular'}
+    >
+      {label}
+    </Text>
+  </Flex>
+);
+
 /**
  * Full-screen overlay that walks through a few evaluation "preparation" steps
  * before the evaluation page loads. Purely a perceived-progress speed bump.
@@ -35,30 +60,13 @@ export const EvalTransitionOverlay: React.FC<{activeStep: number; steps?: string
         </Flex>
 
         <Flex direction="column" gap="3">
-          {steps.map((label, i) => {
-            const done = i < activeStep;
-            const active = i === activeStep;
-            return (
-              <Flex key={label} align="center" gap="3">
-                <Flex align="center" justify="center" className="size-5 shrink-0">
-                  {done ? (
-                    <CheckIcon className="size-5 text-green-600" />
-                  ) : active ? (
-                    <Spinner size="2" />
-                  ) : (
-                    <span className="size-2 rounded-full bg-gray-300" />
-                  )}
-                </Flex>
-                <Text
-                  size="2"
-                  color={active || done ? undefined : 'gray'}
-                  weight={active ? 'medium' : 'regular'}
-                >
-                  {label}
-                </Text>
-              </Flex>
-            );
-          })}
+          {steps.map((label, i) => (
+            <EvalTransitionStep
+              key={label}
+              label={label}
+              status={i < activeStep ? 'done' : i === activeStep ? 'active' : 'pending'}
+            />
+          ))}
         </Flex>
 
         <div className="h-1 w-full overflow-hidden rounded-full bg-gray-200">
