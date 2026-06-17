@@ -2,7 +2,6 @@
 import {useQuery} from '@tanstack/react-query';
 import {Flex, Heading, Spinner, Text} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
-import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {getEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {BasicsSection} from './BasicsSection';
 import {PartisanSection} from './PartisanSection';
@@ -31,9 +30,6 @@ export const EvalPanel: React.FC = () => {
 
   const evaluation = envelope?.metrics;
 
-  const evalTablesOnly = useMapControlsStore(state => state.evalTablesOnly);
-  const setEvalTablesOnly = useMapControlsStore(state => state.setEvalTablesOnly);
-
   const planName = mapDocument?.map_metadata?.name ?? 'Untitled Plan';
   const snapshotDate = mapDocument?.updated_at
     ? new Date(mapDocument.updated_at).toLocaleString()
@@ -42,21 +38,9 @@ export const EvalPanel: React.FC = () => {
   return (
     <div className="eval-panel h-full overflow-y-auto flex-shrink-0 border-l border-gray-200 bg-white w-1/2">
       <Flex direction="column" p="5" gap="1">
-        <Flex justify="between" align="center">
-          <Text size="1" className="uppercase tracking-widest">
-            Districtr · Evaluation Report
-          </Text>
-          <label>
-            <Flex align="center" gap="1">
-              <input
-                type="checkbox"
-                checked={evalTablesOnly}
-                onChange={e => setEvalTablesOnly(e.target.checked)}
-              />
-              <Text size="1">Tables only</Text>
-            </Flex>
-          </label>
-        </Flex>
+        <Text size="1" className="uppercase tracking-widest">
+          Districtr · Evaluation Report
+        </Text>
         <Heading size="5" mt="1">
           Districting Plan Metrics
         </Heading>

@@ -166,9 +166,9 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
             />
           </Flex>
 
-          <Heading size="3" align="center" mb="2" mt="4">
+          <Text size="2" weight="bold" mb="2" mt="4" as="p">
             Summary
-          </Heading>
+          </Text>
           <div style={{width: 'fit-content', borderRight: '1px solid var(--gray-a5)'}}>
           <Table.Root size="1" mb="3">
             <Table.Body>
@@ -208,9 +208,9 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
           </Table.Root>
           </div>
 
-          <Heading size="3" align="center" mb="2" mt="4">
+          <Text size="2" weight="bold" mb="2" mt="4" as="p">
             Overly Split Counties
-          </Heading>
+          </Text>
           {idealPop !== null && (
             <Text size="2" mb="2" as="p">
               The ideal district population for this plan is{' '}

@@ -14,27 +14,48 @@ import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 const AL1 = {
   name: "Alabama's 1st Congressional District",
   polsby_popper: 0.1536,
-  reock: 0.2091,
   image: '/al_district1.png',
 };
 const OK5 = {
   name: "Oklahoma's 5th Congressional District",
   polsby_popper: 0.3419,
-  reock: 0.4993,
   image: '/ok_district5.png',
 };
 const CO5 = {
   name: "Colorado's 5th Congressional District",
   polsby_popper: 0.5589,
-  reock: 0.5459,
   image: '/co_district5.png',
+};
+
+const AL2 = {
+  name: "Alabama's 2nd Congressional District",
+  reock: 0.2238,
+  image: '/al_district2.png',
+};
+const OK2 = {
+  name: "Oklahoma's 2nd Congressional District",
+  reock: 0.4371,
+  image: '/ok_district2.png',
+};
+const CO2 = {
+  name: "Colorado's 2nd Congressional District",
+  reock: 0.6577,
+  image: '/co_district2.png',
 };
 
 interface CompactnessSectionProps {
   evaluation: DocumentEvaluation;
 }
 
-const EXEMPLARS = [AL1, OK5, CO5];
+interface Exemplar {
+  name: string;
+  image: string;
+  polsby_popper?: number;
+  reock?: number;
+}
+
+const PP_exemplars: Exemplar[] = [AL1, OK5, CO5];
+const REOCK_exemplars: Exemplar[] = [AL2, OK2, CO2];
 
 const SCORE_LABEL: Record<'polsby_popper' | 'reock', string> = {
   polsby_popper: 'A Polsby-Popper score of',
@@ -43,9 +64,10 @@ const SCORE_LABEL: Record<'polsby_popper' | 'reock', string> = {
 
 interface ExemplarTableProps {
   scoreKey: 'polsby_popper' | 'reock';
+  exemplars: Exemplar[];
 }
 
-const ExemplarTable: React.FC<ExemplarTableProps> = ({scoreKey}) => {
+const ExemplarTable: React.FC<ExemplarTableProps> = ({scoreKey, exemplars}) => {
   return (
     <Table.Root size="1" mb="3">
       <Table.Body>
@@ -53,9 +75,9 @@ const ExemplarTable: React.FC<ExemplarTableProps> = ({scoreKey}) => {
           <Table.Cell>
             <Text size="1">{SCORE_LABEL[scoreKey]}</Text>
           </Table.Cell>
-          {EXEMPLARS.map(e => (
+          {exemplars.map(e => (
             <Table.Cell key={e.name} justify="center">
-              <Text size="2">{e[scoreKey].toFixed(3)}</Text>
+              <Text size="2">{e[scoreKey]?.toFixed(3) ?? '—'}</Text>
             </Table.Cell>
           ))}
         </Table.Row>
@@ -63,7 +85,7 @@ const ExemplarTable: React.FC<ExemplarTableProps> = ({scoreKey}) => {
           <Table.Cell style={{verticalAlign: 'middle'}}>
             <Text size="1">...is exemplified by...</Text>
           </Table.Cell>
-          {EXEMPLARS.map(e => (
+          {exemplars.map(e => (
             <Table.Cell key={e.name} justify="center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -84,7 +106,7 @@ const ExemplarTable: React.FC<ExemplarTableProps> = ({scoreKey}) => {
           <Table.Cell>
             <Text size="1">Source</Text>
           </Table.Cell>
-          {EXEMPLARS.map(e => (
+          {exemplars.map(e => (
             <Table.Cell key={e.name} justify="center">
               <Text size="1">{e.name}</Text>
             </Table.Cell>
@@ -168,7 +190,7 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
             Unlike cut edges, this measure depends on map projection and boundary resolution rather
             than the choice of geographic units.
           </Text>
-          <ExemplarTable scoreKey="polsby_popper" />
+          <ExemplarTable scoreKey="polsby_popper" exemplars={PP_exemplars} />
           {ppStats && (
             <Text size="2" as="p" mb="3">
               In your plan, scores range from <strong>{ppStats.min.toFixed(3)}</strong> to{' '}
@@ -187,7 +209,7 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
             higher scores indicate more compact, circular districts. Reock is sensitive to map
             projection and is computed on-demand when the evaluation view is opened.
           </Text>
-          <ExemplarTable scoreKey="reock" />
+          <ExemplarTable scoreKey="reock" exemplars={REOCK_exemplars} />
           {reockStats && (
             <Text size="2" as="p" mb="3">
               In your plan, scores range from <strong>{reockStats.min.toFixed(3)}</strong> to{' '}
@@ -199,7 +221,7 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
           {/* Per-district detail */}
           {polsby_popper && (
             <>
-              <Text size="1" className="uppercase tracking-widest" mb="1" as="p">
+              <Text size="2" weight="bold" mb="2" mt="4" as="p">
                 Per-district scores
               </Text>
               <div style={{width: 'fit-content', borderRight: '1px solid var(--gray-a5)'}}>
