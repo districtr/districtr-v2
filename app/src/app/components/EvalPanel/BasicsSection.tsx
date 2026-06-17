@@ -1,10 +1,19 @@
 'use client';
+import {useState} from 'react';
 import * as Accordion from '@radix-ui/react-accordion';
-import {Flex, Text, Heading} from '@radix-ui/themes';
+import {Flex, Text, Heading, Select} from '@radix-ui/themes';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {useDistrictHover} from '@/app/hooks/useDistrictHover';
+
+type DeviationView = 'top_to_bottom' | 'max_absolute' | 'both';
+
+function formatDeviation(value: number): string {
+  const pct = value * 100;
+  const formatted = pct.toFixed(3);
+  return formatted === '0.000' ? 'under 0.001%' : `${formatted}%`;
+}
 
 interface BasicsSectionProps {
   evaluation: DocumentEvaluation;
@@ -23,6 +32,8 @@ const HOVER_BTN_STYLE: React.CSSProperties = {
 export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const {onDistrictEnter, onDistrictLeave} = useDistrictHover();
+
+  const [deviationView, setDeviationView] = useState<DeviationView>('top_to_bottom');
 
   const doc = mapDocument
     ? {
@@ -90,8 +101,6 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
             A plan is called contiguous if every district is internally connected. This plan appears
             to be <strong>{isContiguous ? 'contiguous' : 'not contiguous'}</strong>. Note that
             contiguity can be subtle because of bodies of water and because of disconnected units.
-            Open the plan in the editor&apos;s <em>Map validation</em> panel to examine contiguity
-            gaps.
           </Text>
           {nonContiguousDistricts.length > 0 && (
             <Text size="2" as="p" mb="2">
@@ -127,37 +136,67 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
             balanced.
           </Text>
           {population_deviation ? (
-            <Text size="2" as="p">
-              Your plan&apos;s most populous district is{' '}
-              <button
-                type="button"
-                style={HOVER_BTN_STYLE}
-                onMouseEnter={() => onDistrictEnter(population_deviation.most_populous_district)}
-                onMouseLeave={onDistrictLeave}
-                onFocus={() => onDistrictEnter(population_deviation.most_populous_district)}
-                onBlur={onDistrictLeave}
-              >
-                District {population_deviation.most_populous_district}
-              </button>{' '}
-              and least populous district is{' '}
-              <button
-                type="button"
-                style={HOVER_BTN_STYLE}
-                onMouseEnter={() => onDistrictEnter(population_deviation.least_populous_district)}
-                onMouseLeave={onDistrictLeave}
-                onFocus={() => onDistrictEnter(population_deviation.least_populous_district)}
-                onBlur={onDistrictLeave}
-              >
-                District {population_deviation.least_populous_district}
-              </button>
-              , for a top-to-bottom deviation of{' '}
-              <strong>{(population_deviation.top_to_bottom_deviation * 100).toFixed(2)}%</strong>{' '}
-              and a maximal absolute deviation of{' '}
-              <strong>
-                {population_deviation.maximal_absolute_deviation?.toLocaleString() ?? '—'}
-              </strong>{' '}
-              people.
-            </Text>
+            <>
+              <Flex align="center" gap="2" mb="2" justify="end">
+                <Text size="1" color="gray">
+                  Show
+                </Text>
+                <Select.Root
+                  value={deviationView}
+                  onValueChange={v => setDeviationView(v as DeviationView)}
+                  size="1"
+                >
+                  <Select.Trigger />
+                  <Select.Content>
+                    <Select.Item value="both">Both</Select.Item>
+                    <Select.Item value="top_to_bottom">Top-to-bottom</Select.Item>
+                    <Select.Item value="max_absolute">Max absolute</Select.Item>
+                  </Select.Content>
+                </Select.Root>
+              </Flex>
+              <Text size="2" as="p">
+                Your plan&apos;s most populous district is{' '}
+                <button
+                  type="button"
+                  style={HOVER_BTN_STYLE}
+                  onMouseEnter={() => onDistrictEnter(population_deviation.most_populous_district)}
+                  onMouseLeave={onDistrictLeave}
+                  onFocus={() => onDistrictEnter(population_deviation.most_populous_district)}
+                  onBlur={onDistrictLeave}
+                >
+                  District {population_deviation.most_populous_district}
+                </button>{' '}
+                and least populous district is{' '}
+                <button
+                  type="button"
+                  style={HOVER_BTN_STYLE}
+                  onMouseEnter={() => onDistrictEnter(population_deviation.least_populous_district)}
+                  onMouseLeave={onDistrictLeave}
+                  onFocus={() => onDistrictEnter(population_deviation.least_populous_district)}
+                  onBlur={onDistrictLeave}
+                >
+                  District {population_deviation.least_populous_district}
+                </button>
+                {deviationView !== 'max_absolute' && (
+                  <>
+                    , for a top-to-bottom deviation of{' '}
+                    <strong>{formatDeviation(population_deviation.top_to_bottom_deviation)}</strong>
+                  </>
+                )}
+                {deviationView === 'both' && <> and</>}
+                {deviationView !== 'top_to_bottom' && (
+                  <>
+                    {deviationView === 'max_absolute' ? ', with' : ''} a maximal absolute deviation
+                    of{' '}
+                    <strong>
+                      {population_deviation.maximal_absolute_deviation?.toLocaleString() ?? '—'}
+                    </strong>{' '}
+                    people
+                  </>
+                )}
+                .
+              </Text>
+            </>
           ) : (
             <Text size="2">Not available for this plan.</Text>
           )}
