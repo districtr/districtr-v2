@@ -38,6 +38,7 @@ type CutEdgesResult = {
 
 type AssignedUnitsResult = {
   assigned_count: number;
+  split_count: number;
   partially_assigned_count: number;
   total_count: number;
   unit_type: string;

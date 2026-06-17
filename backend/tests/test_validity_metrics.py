@@ -29,7 +29,7 @@ from app.evaluation.validity import (
     population_deviation,
 )
 from app.evaluation.context import DocumentEvaluationContext
-from tests.conftest import _vtd_geoid
+from tests.conftest import _block_geoid, _vtd_geoid
 
 
 def _put_assignments(client, document_id, assignments):
@@ -73,6 +73,7 @@ def test_assigned_units_all(
     result = assigned_units(ctx)
 
     assert result["assigned_count"] == 16
+    assert result["split_count"] == 0
     assert result["partially_assigned_count"] == 0
     assert result["total_count"] == 16
     assert result["unit_type"] == "vtd"
@@ -99,6 +100,7 @@ def test_assigned_units_partial(
     result = assigned_units(ctx)
 
     assert result["assigned_count"] == 4
+    assert result["split_count"] == 0
     assert result["partially_assigned_count"] == 0
     assert result["total_count"] == 16
 
@@ -127,6 +129,49 @@ def test_assigned_units_shatterable_parent_only(
     result = assigned_units(ctx)
 
     assert result["assigned_count"] == 16
+    assert result["split_count"] == 0
+    assert result["partially_assigned_count"] == 0
+    assert result["total_count"] == 16
+    assert result["unit_type"] == "vtd"
+
+
+def test_assigned_units_shatterable_split_vtd(
+    client, session: Session, grid_shatterable_districtr_map, mock_grid_graph_file
+):
+    """Shatterable map: one VTD shattered with blocks in 2 districts → split_count=1.
+
+    VTD(0,0) blocks: (0,0),(0,1) → zone 1; (1,0),(1,1) → zone 2.
+    Remaining 15 VTDs assigned whole → zone 1.
+    """
+    resp = client.post(
+        "/api/create_document", json={"districtr_map_slug": "grid_shatterable"}
+    )
+    assert resp.status_code == 201
+    document_id = resp.json()["document_id"]
+
+    # Assign the 4 blocks of VTD(0,0) split across two zones
+    split_block_assignments = [
+        [_block_geoid(0, 0), 1],
+        [_block_geoid(0, 1), 1],
+        [_block_geoid(1, 0), 2],
+        [_block_geoid(1, 1), 2],
+    ]
+    # Assign the other 15 VTDs as whole-VTD parent assignments
+    other_vtd_assignments = [
+        [_vtd_geoid(pr, pc), 1]
+        for pr in range(4)
+        for pc in range(4)
+        if (pr, pc) != (0, 0)
+    ]
+    _put_assignments(client, document_id, split_block_assignments + other_vtd_assignments)
+
+    ctx = DocumentEvaluationContext(
+        background_tasks=BackgroundTasks(), session=session, document_id=document_id
+    )
+    result = assigned_units(ctx)
+
+    assert result["assigned_count"] == 15
+    assert result["split_count"] == 1
     assert result["partially_assigned_count"] == 0
     assert result["total_count"] == 16
     assert result["unit_type"] == "vtd"

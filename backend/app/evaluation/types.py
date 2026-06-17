@@ -65,6 +65,7 @@ class CountyPiecesInfo(TypedDict):
 
 class AssignedUnitsResult(TypedDict):
     assigned_count: int
+    split_count: int
     partially_assigned_count: int
     total_count: int
     unit_type: GeoUnitType

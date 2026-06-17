@@ -1,11 +1,10 @@
 'use client';
 import * as Accordion from '@radix-ui/react-accordion';
-import {Flex, Text, Heading, Callout} from '@radix-ui/themes';
-import {InfoCircledIcon, TriangleRightIcon} from '@radix-ui/react-icons';
+import {Flex, Text, Heading} from '@radix-ui/themes';
+import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {useDistrictHover} from '@/app/hooks/useDistrictHover';
-import {type GeoUnit, GEO_UNITS, GEO_UNIT_LABELS} from '@constants/document/geoUnits';
 
 interface BasicsSectionProps {
   evaluation: DocumentEvaluation;
@@ -21,15 +20,6 @@ const HOVER_BTN_STYLE: React.CSSProperties = {
   textDecoration: 'underline dotted',
 };
 
-const GEO_UNIT_DESCRIPTIONS: Record<GeoUnit, string> = {
-  [GEO_UNITS.VTD]:
-    'VTDs, also called "voting tabulation districts" or "voting districts," are the closest approximation of electoral precincts in Census geography.',
-  [GEO_UNITS.BLOCK_GROUP]:
-    'Block groups are Census geographic units that nest within counties and tracts, typically containing 600–3,000 people.',
-  [GEO_UNITS.BLOCK]:
-    'Census blocks are the smallest Census geographic unit, corresponding roughly to city blocks.',
-};
-
 export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const {onDistrictEnter, onDistrictLeave} = useDistrictHover();
@@ -37,14 +27,17 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
   const doc = mapDocument
     ? {
         numDistricts: mapDocument.num_districts ?? '—',
-        dataSource: mapDocument.data_source_name,
-        unitLabel: GEO_UNIT_LABELS[mapDocument.parent_geo_unit_type],
-        unitDescription: GEO_UNIT_DESCRIPTIONS[mapDocument.parent_geo_unit_type],
-        planName: mapDocument.map_module ?? mapDocument.map_metadata.name ?? null,
+        dataSource: mapDocument.data_source_name ?? null,
+        planName: mapDocument.map_module ?? mapDocument.map_metadata.name?.replace(/\s*\(\d+\)\s*$/, '') ?? null,
       }
     : null;
 
   const {assigned_units, unassigned_population, population_deviation, contiguous} = evaluation;
+  const splitCount = assigned_units?.split_count ?? 0;
+  const isComplete =
+    assigned_units != null &&
+    assigned_units.assigned_count + splitCount === assigned_units.total_count &&
+    assigned_units.partially_assigned_count === 0;
   const isContiguous = contiguous ? Object.values(contiguous).every(Boolean) : null;
   const nonContiguousDistricts = contiguous
     ? Object.entries(contiguous)
@@ -63,77 +56,29 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
           </Flex>
         </Accordion.Trigger>
         <Accordion.Content>
-          {/* Data, Units, and Plan Type */}
-          <Heading size="2" align="center" mb="2" mt="4">
-            Data, Units, and Plan Type
-          </Heading>
+          {/* Data Source and Plan Type */}
           {doc && (
-            <>
-              <Callout.Root size="1" mb="2">
-                <Callout.Icon>
-                  <InfoCircledIcon />
-                </Callout.Icon>
-                <Callout.Text>
-                  Uses <strong>{doc.dataSource}</strong> data on <strong>{doc.unitLabel}</strong>.
-                </Callout.Text>
-              </Callout.Root>
-              {doc.unitDescription && (
-                <Text size="2" as="p" mb="1">
-                  {doc.unitDescription}
-                </Text>
+            <Text size="2" as="p" mt="4" mb="2">
+              {doc.dataSource && <>Uses <strong>{doc.dataSource}</strong> data. </>}
+              {doc.planName ? (
+                <>The plan type is <strong>{doc.planName}</strong> ({doc.numDistricts} districts).</>
+              ) : (
+                <>This plan has <strong>{doc.numDistricts}</strong> districts.</>
               )}
-              <Text size="2" as="p">
-                {doc.planName ? (
-                  <>
-                    The plan type is <strong>{doc.planName}</strong> ({doc.numDistricts} districts).
-                  </>
-                ) : (
-                  <>
-                    This plan has <strong>{doc.numDistricts}</strong> districts.
-                  </>
-                )}
-              </Text>
-            </>
+            </Text>
           )}
 
           {/* Completeness */}
-          <Heading size="2" align="center" mb="2" mt="4">
-            Completeness
-          </Heading>
-          {assigned_units ? (
-            <>
-              <Text size="2" as="p">
-                <strong>{assigned_units.assigned_count.toLocaleString()}</strong> of{' '}
-                <strong>{assigned_units.total_count.toLocaleString()}</strong>{' '}
-                {assigned_units.unit_type}s are assigned to a district
-                {assigned_units.partially_assigned_count > 0 && (
-                  <>
-                    {' '}
-                    ({assigned_units.partially_assigned_count.toLocaleString()} partially assigned)
-                  </>
-                )}
-                .
-              </Text>
+          {assigned_units && (
+            <Text size="2" as="p" mb="2">
               {unassigned_population && (
-                <Text size="2" as="p">
+                <>
                   <strong>{unassigned_population.unassigned_population.toLocaleString()}</strong> of{' '}
                   <strong>{unassigned_population.total_population.toLocaleString()}</strong> people
-                  are not yet assigned to a district.
-                </Text>
+                  are not yet assigned to a district.{' '}
+                </>
               )}
-              <Text size="2" as="p" mb="2">
-                This plan is{' '}
-                <strong>
-                  {assigned_units.assigned_count === assigned_units.total_count
-                    ? 'complete'
-                    : 'incomplete'}
-                </strong>
-                .
-              </Text>
-            </>
-          ) : (
-            <Text size="2" as="p" mb="2">
-              Not available for this plan.
+              This plan is <strong>{isComplete ? 'complete' : 'incomplete'}</strong>.
             </Text>
           )}
 
