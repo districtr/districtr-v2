@@ -1,9 +1,9 @@
 # Prod stack — deployed from the `main` branch.
 # Secrets are set with `pulumi config set --secret <key>` (see README.md);
 # they are KMS-encrypted and safe to commit once set.
-secretsprovider: awskms://alias/districtr-pulumi-secrets?region=us-east-1
+secretsprovider: awskms://alias/districtr-pulumi-secrets?region=us-east-2
 config:
-  aws:region: us-east-1
+  aws:region: us-east-2
   districtr-infra:appDomain: districtr.org
   districtr-infra:apiDomain: api.districtr.org
   districtr-infra:extraDomains:

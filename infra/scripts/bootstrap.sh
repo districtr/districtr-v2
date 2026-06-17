@@ -7,7 +7,7 @@
 #   GITHUB_REPO=<org>/districtr-v2 ./bootstrap.sh
 set -euo pipefail
 
-REGION="${REGION:-us-east-1}"
+REGION="${REGION:-us-east-2}"
 STATE_BUCKET="${STATE_BUCKET:-districtr-v2-pulumi-state}"
 KMS_ALIAS="${KMS_ALIAS:-alias/districtr-pulumi-secrets}"
 ROLE_NAME="${ROLE_NAME:-districtr-gha-deploy}"
@@ -20,6 +20,9 @@ echo "Bootstrapping account ${ACCOUNT_ID} in ${REGION} for repo ${GITHUB_REPO}"
 if aws s3api head-bucket --bucket "$STATE_BUCKET" 2>/dev/null; then
   echo "State bucket ${STATE_BUCKET} already exists"
 else
+  # us-east-1 is the only region that must OMIT LocationConstraint; every other
+  # region (incl. us-east-2) requires it, else the bucket silently lands in
+  # us-east-1.
   if [ "$REGION" = "us-east-1" ]; then
     aws s3api create-bucket --bucket "$STATE_BUCKET" --region "$REGION"
   else

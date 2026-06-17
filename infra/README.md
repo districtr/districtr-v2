@@ -47,15 +47,15 @@ Backend ──task role + S3 gateway endpoint──► existing S3 bucket
    `SENTRY_AUTH_TOKEN`, `RECAPTCHA_SITE_KEY`, `NEXT_PUBLIC_MAPTILER_API_KEY`;
    add **variables** `API_URL_DEV` / `API_URL_PROD` (the public API URLs,
    e.g. `https://api.dev.districtr.org`). Optional variable: `AWS_REGION`
-   (defaults to `us-east-1` in the workflows; it must match the region the
+   (defaults to `us-east-2` in the workflows; it must match the region the
    state bucket and stacks were bootstrapped in — it is a sync knob, not a
    region switch).
 3. Initialize stacks:
    ```bash
-   pulumi login 's3://districtr-v2-pulumi-state?region=us-east-1'
+   pulumi login 's3://districtr-v2-pulumi-state?region=us-east-2'
    cd infra && npm ci
-   pulumi stack init dev --secrets-provider='awskms://alias/districtr-pulumi-secrets?region=us-east-1'
-   pulumi stack init prod --secrets-provider='awskms://alias/districtr-pulumi-secrets?region=us-east-1'
+   pulumi stack init dev --secrets-provider='awskms://alias/districtr-pulumi-secrets?region=us-east-2'
+   pulumi stack init prod --secrets-provider='awskms://alias/districtr-pulumi-secrets?region=us-east-2'
    ```
 4. Fill in the `TODO(fill-in)` values in `Pulumi.dev.yaml` / `Pulumi.prod.yaml`
    (real values come from Fly: `flyctl ssh console -C env -a <app>`, NOT from
@@ -131,7 +131,7 @@ Check on the old bucket before relying on this:
   preview: a preview executes the PR's code, which must not hold the (admin)
   deploy role. Preview locally before merging:
   ```bash
-  pulumi login 's3://districtr-v2-pulumi-state?region=us-east-1'
+  pulumi login 's3://districtr-v2-pulumi-state?region=us-east-2'
   cd infra && pulumi stack select dev
   pulumi preview
   pulumi stack output dnsRecords

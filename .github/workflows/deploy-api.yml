@@ -14,8 +14,8 @@ permissions:
   contents: read
 
 env:
-  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
-  PULUMI_BACKEND_URL: s3://districtr-v2-pulumi-state?region=${{ vars.AWS_REGION || 'us-east-1' }}
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
+  PULUMI_BACKEND_URL: s3://districtr-v2-pulumi-state?region=${{ vars.AWS_REGION || 'us-east-2' }}
 
 # Per-workflow group (serializes migrations per branch); concurrent
 # `pulumi up`s across workflows are handled by retrying on the state lock.
