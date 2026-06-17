@@ -8,6 +8,7 @@ import {useDistrictHover} from '@/app/hooks/useDistrictHover';
 import {formatNumber} from '@/app/utils/numbers';
 import {NUMBER_FORMATS} from '@/app/constants/demography/format';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
+import {useZoomToDistrict} from '@/app/hooks/useZoomToDistrict';
 
 // Scores computed on EPSG:5070 (NAD83 / Conus Albers) via gerrytools.
 // All three districts are from the 2020 redistricting cycle.
@@ -121,6 +122,7 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
   const {cut_edges, polsby_popper, reock} = evaluation;
   const getZoneColor = useZoneColorGetter();
   const {onDistrictEnter, onDistrictLeave} = useDistrictHover();
+  const zoomToDistrict = useZoomToDistrict();
   const zones = useMemo(
     () => (polsby_popper ? Object.keys(polsby_popper).sort((a, b) => Number(a) - Number(b)) : []),
     [polsby_popper]
@@ -242,7 +244,8 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
                       onMouseLeave={onDistrictLeave}
                       onFocus={() => onDistrictEnter(zone)}
                       onBlur={onDistrictLeave}
-                      style={{cursor: 'default'}}
+                      onClick={() => zoomToDistrict(Number(zone))}
+                      style={{cursor: 'pointer'}}
                     >
                       <Table.Cell>
                         <Flex align="center" gap="2">
