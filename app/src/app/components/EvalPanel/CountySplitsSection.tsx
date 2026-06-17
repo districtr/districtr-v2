@@ -1,7 +1,6 @@
 'use client';
-import {useState} from 'react';
 import * as Accordion from '@radix-ui/react-accordion';
-import {Flex, Text, Table, Heading, Select, Switch} from '@radix-ui/themes';
+import {Flex, Text, Table, Heading, Switch} from '@radix-ui/themes';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {useMapStore} from '@store/mapStore';
@@ -22,7 +21,6 @@ interface CountySplitsSectionProps {
 }
 
 export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluation}) => {
-  const [selectedDistrict, setSelectedDistrict] = useState<string>('all');
   const mapDocument = useMapStore(state => state.mapDocument);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
@@ -30,7 +28,6 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
 
   const countyPieces = evaluation.county_pieces;
   const idealPop = evaluation.ideal_population ?? null;
-  const membership = evaluation.district_county_membership;
   const assignedUnits = evaluation.assigned_units;
 
   const unitLabel = mapDocument
@@ -41,18 +38,9 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
     : null;
   if (!countyPieces) return null;
 
-  const districts = Object.keys(membership ?? {})
-    .map(Number)
-    .sort((a, b) => a - b);
-
-  const focusedGeoids: Set<string> | null =
-    selectedDistrict === 'all' ? null : new Set(membership?.[selectedDistrict] ?? []);
-
   const allEntries = Object.entries(countyPieces)
     .map(([geoid, {total_pop: pop, pieces: actual, name}]) => ({geoid, pop, actual, name}))
     .sort((a, b) => a.name.localeCompare(b.name));
-
-  const entries = focusedGeoids ? allEntries.filter(e => focusedGeoids.has(e.geoid)) : allEntries;
 
   const splitCounties = allEntries.filter(e => e.actual >= 2).length;
   const unnecessarySplits =
@@ -221,100 +209,96 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
           </div>
 
           <Heading size="3" align="center" mb="2" mt="4">
-            Per-County Detail
+            Overly Split Counties
           </Heading>
-          {districts.length > 0 && (
-            <Flex align="center" gap="2" mb="2" justify="end">
-              <Text size="1" color="gray">
-                Focus on
-              </Text>
-              <Select.Root value={selectedDistrict} onValueChange={setSelectedDistrict} size="1">
-                <Select.Trigger />
-                <Select.Content>
-                  <Select.Item value="all">All districts</Select.Item>
-                  {districts.map(d => (
-                    <Select.Item key={d} value={String(d)}>
-                      District {d}
-                    </Select.Item>
-                  ))}
-                </Select.Content>
-              </Select.Root>
-            </Flex>
-          )}
           {idealPop !== null && (
             <Text size="2" mb="2" as="p">
               The ideal district population for this plan is{' '}
               <strong>{idealPop.toLocaleString()}</strong>.
             </Text>
           )}
-          <div
-            className={
-              entries.length > 15
-                ? 'max-h-[400px] overflow-y-auto print:max-h-none print:overflow-visible'
-                : undefined
+          {(() => {
+            const unnecessarySplitEntries =
+              idealPop !== null
+                ? allEntries.filter(e => e.actual > Math.ceil(e.pop / idealPop))
+                : [];
+            if (idealPop === null) {
+              return (
+                <Text size="2" color="gray" mb="3" as="p">
+                  Population targets not yet available.
+                </Text>
+              );
             }
-            style={{width: 'fit-content', borderRight: '1px solid var(--gray-a5)'}}
-          >
-            <Table.Root size="1">
-              <Table.Header>
-                <Table.Row>
-                  <Table.ColumnHeaderCell>County Name</Table.ColumnHeaderCell>
-                  <Table.ColumnHeaderCell justify="end">
-                    County
-                    <br />
-                    Population
-                  </Table.ColumnHeaderCell>
-                  <Table.ColumnHeaderCell justify="end">
-                    How Many
-                    <br />
-                    Districts&apos; Worth
-                  </Table.ColumnHeaderCell>
-                  <Table.ColumnHeaderCell justify="end">
-                    Pieces in
-                    <br />
-                    This Plan
-                  </Table.ColumnHeaderCell>
-                </Table.Row>
-              </Table.Header>
-              <Table.Body>
-                {entries.map(({geoid, pop, actual, name}) => {
-                  const worth = idealPop !== null ? pop / idealPop : null;
-                  const minimum = worth !== null ? Math.ceil(worth) : null;
-                  const unnecessary = minimum !== null && actual > minimum;
-                  return (
-                    <Table.Row
-                      key={geoid}
-                      tabIndex={0}
-                      onMouseEnter={() => setHoveredCountyGeoid(geoid)}
-                      onMouseLeave={() => setHoveredCountyGeoid(null)}
-                      onFocus={() => setHoveredCountyGeoid(geoid)}
-                      onBlur={() => setHoveredCountyGeoid(null)}
-                      style={{cursor: 'default'}}
-                    >
-                      <Table.Cell>
-                        <Text size="2">{name}</Text>
-                      </Table.Cell>
-                      <Table.Cell justify="end">
-                        <Text size="2">{pop.toLocaleString()}</Text>
-                      </Table.Cell>
-                      <Table.Cell justify="end">
-                        <Text size="2">{worth !== null ? worth.toFixed(2) : '—'}</Text>
-                      </Table.Cell>
-                      <Table.Cell justify="end">
-                        <Text
-                          size="2"
-                          weight={unnecessary ? 'bold' : 'regular'}
-                          color={unnecessary ? 'red' : undefined}
-                        >
-                          {actual}
-                        </Text>
-                      </Table.Cell>
+            if (unnecessarySplitEntries.length === 0) {
+              return (
+                <Text size="2" color="gray" mb="3" as="p">
+                  No counties are split more than necessary.
+                </Text>
+              );
+            }
+            return (
+              <div
+                className={
+                  unnecessarySplitEntries.length > 15
+                    ? 'max-h-[400px] overflow-y-auto print:max-h-none print:overflow-visible'
+                    : undefined
+                }
+                style={{width: 'fit-content', borderRight: '1px solid var(--gray-a5)'}}
+              >
+                <Table.Root size="1">
+                  <Table.Header>
+                    <Table.Row>
+                      <Table.ColumnHeaderCell>County Name</Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell justify="end">
+                        County
+                        <br />
+                        Population
+                      </Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell justify="end">
+                        How Many
+                        <br />
+                        Districts&apos; Worth
+                      </Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell justify="end">
+                        Pieces in
+                        <br />
+                        This Plan
+                      </Table.ColumnHeaderCell>
                     </Table.Row>
-                  );
-                })}
-              </Table.Body>
-            </Table.Root>
-          </div>
+                  </Table.Header>
+                  <Table.Body>
+                    {unnecessarySplitEntries.map(({geoid, pop, actual, name}) => {
+                      const worth = pop / idealPop;
+                      return (
+                        <Table.Row
+                          key={geoid}
+                          tabIndex={0}
+                          onMouseEnter={() => setHoveredCountyGeoid(geoid)}
+                          onMouseLeave={() => setHoveredCountyGeoid(null)}
+                          onFocus={() => setHoveredCountyGeoid(geoid)}
+                          onBlur={() => setHoveredCountyGeoid(null)}
+                          style={{cursor: 'default'}}
+                        >
+                          <Table.Cell>
+                            <Text size="2">{name}</Text>
+                          </Table.Cell>
+                          <Table.Cell justify="end">
+                            <Text size="2">{pop.toLocaleString()}</Text>
+                          </Table.Cell>
+                          <Table.Cell justify="end">
+                            <Text size="2">{worth.toFixed(2)}</Text>
+                          </Table.Cell>
+                          <Table.Cell justify="end">
+                            <Text size="2">{actual}</Text>
+                          </Table.Cell>
+                        </Table.Row>
+                      );
+                    })}
+                  </Table.Body>
+                </Table.Root>
+              </div>
+            );
+          })()}
         </Accordion.Content>
       </Accordion.Item>
     </Accordion.Root>
