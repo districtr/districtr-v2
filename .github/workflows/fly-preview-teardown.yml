@@ -1,0 +1,79 @@
+name: Fly Preview Teardown
+
+# Destroy a PR's preview apps. Runs when the PR is closed/merged, and also when
+# the last "Preview:" label is removed. Safe for both FE-only and Fullstack
+# previews: it only ever touches apps named after this PR number, never the
+# shared dev apps, and ignores apps that don't exist.
+
+on:
+  pull_request:
+    types: [closed, unlabeled]
+
+concurrency:
+  group: fly-preview-teardown-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  teardown:
+    name: Tear down preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Run on close/merge, OR when an unlabel leaves no preview label remaining.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (github.event.action == 'closed' ||
+       (github.event.action == 'unlabeled' &&
+        !contains(github.event.pull_request.labels.*.name, 'Preview: FE') &&
+        !contains(github.event.pull_request.labels.*.name, 'Preview: Fullstack')))
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_PREVIEW_API_TOKEN }}
+    steps:
+      - uses: superfly/flyctl-actions/setup-flyctl@1.5
+
+      - name: Destroy preview apps
+        env:
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          # Destroy frontend and API first, then the database cluster.
+          for app in \
+            "districtr-v2-${PR}-frontend-dev" \
+            "districtr-v2-${PR}-api-dev" \
+            "districtr-v2-${PR}-db-dev"; do
+            if flyctl status -a "$app" >/dev/null 2>&1; then
+              echo "Destroying $app ..."
+              flyctl apps destroy "$app" --yes
+            else
+              echo "$app does not exist, skipping."
+            fi
+          done
+
+      - name: Update PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- fly-preview -->';
+            const reason = context.payload.action === 'closed'
+              ? (context.payload.pull_request.merged ? 'PR merged' : 'PR closed')
+              : 'preview label removed';
+            const body = [
+              marker,
+              '### 🧹 Fly preview torn down',
+              '',
+              'Preview apps for this PR have been destroyed (' + reason + ').',
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number,
+            });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }

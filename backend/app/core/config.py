@@ -58,6 +58,11 @@ class Settings(BaseSettings):
         list[AnyUrl] | str, BeforeValidator(parse_cors)
     ] = []
 
+    # Regex of additional allowed CORS origins. Used so ephemeral preview
+    # frontends (e.g. https://districtr-v2-123-frontend-dev.fly.dev) can call a
+    # shared backend without re-listing every origin. See .github/PREVIEW_DEPLOYS.md.
+    BACKEND_CORS_ORIGIN_REGEX: str | None = None
+
     PROJECT_NAME: str
 
     # Postgres

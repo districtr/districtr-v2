@@ -134,11 +134,12 @@ VERBOSE_LOGGING = settings.VERBOSE_LOGGING
 
 
 # Set all CORS enabled origins
-if settings.BACKEND_CORS_ORIGINS:
+if settings.BACKEND_CORS_ORIGINS or settings.BACKEND_CORS_ORIGIN_REGEX:
     allow_origins = [str(origin).strip("/") for origin in settings.BACKEND_CORS_ORIGINS]
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allow_origins,
+        allow_origin_regex=settings.BACKEND_CORS_ORIGIN_REGEX,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

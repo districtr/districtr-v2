@@ -1,0 +1,230 @@
+name: Fly Preview Deploy
+
+# Conditionally deploy an ephemeral preview to Fly based on PR labels:
+#   - "Preview: FE"        -> frontend only, pointed at the shared dev backend/db
+#   - "Preview: Fullstack" -> frontend + backend, with a Postgres forked from dev
+#
+# Apps are named with the PR number, e.g.
+#   https://districtr-v2-123-frontend-dev.fly.dev
+#   https://districtr-v2-123-api-dev.fly.dev   (fullstack only)
+#
+# Teardown happens in fly-preview-teardown.yml on PR close/merge.
+# Required secrets / vars are documented in .github/PREVIEW_DEPLOYS.md.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled]
+
+concurrency:
+  group: fly-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    name: Deploy preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Only run when a preview label is present, and never for fork PRs (no secrets).
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (contains(github.event.pull_request.labels.*.name, 'Preview: FE') ||
+       contains(github.event.pull_request.labels.*.name, 'Preview: Fullstack'))
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_PREVIEW_API_TOKEN }}
+      DEV_API_URL: https://districtr-v2-api-dev.fly.dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve preview config
+        id: setup
+        env:
+          PR: ${{ github.event.pull_request.number }}
+          HAS_FULLSTACK: "${{ contains(github.event.pull_request.labels.*.name, 'Preview: Fullstack') }}"
+          HAS_FE: "${{ contains(github.event.pull_request.labels.*.name, 'Preview: FE') }}"
+        run: |
+          set -euo pipefail
+          if [ "$HAS_FULLSTACK" = "true" ]; then
+            mode=fullstack
+          elif [ "$HAS_FE" = "true" ]; then
+            mode=fe
+          else
+            mode=none
+          fi
+
+          fe_app="districtr-v2-${PR}-frontend-dev"
+          api_app="districtr-v2-${PR}-api-dev"
+          db_app="districtr-v2-${PR}-db-dev"
+          fe_url="https://${fe_app}.fly.dev"
+
+          if [ "$mode" = "fullstack" ]; then
+            api_url="https://${api_app}.fly.dev"
+          else
+            api_url="${DEV_API_URL}"
+          fi
+
+          {
+            echo "mode=$mode"
+            echo "fe_app=$fe_app"
+            echo "api_app=$api_app"
+            echo "db_app=$db_app"
+            echo "fe_url=$fe_url"
+            echo "api_url=$api_url"
+          } >> "$GITHUB_OUTPUT"
+          echo "Resolved mode=$mode  fe_url=$fe_url  api_url=$api_url"
+
+      - uses: superfly/flyctl-actions/setup-flyctl@1.5
+
+      - name: Deploy preview backend + forked database
+        if: steps.setup.outputs.mode == 'fullstack'
+        env:
+          ORG: ${{ vars.FLY_ORG }}
+          DEV_PG_APP: ${{ vars.DEV_PG_APP }}
+          DB_APP: ${{ steps.setup.outputs.db_app }}
+          API_APP: ${{ steps.setup.outputs.api_app }}
+          FE_URL: ${{ steps.setup.outputs.fe_url }}
+          API_URL: ${{ steps.setup.outputs.api_url }}
+          PREVIEW_DB_USER: ${{ secrets.PREVIEW_DB_USER }}
+          PREVIEW_DB_PASSWORD: ${{ secrets.PREVIEW_DB_PASSWORD }}
+          PREVIEW_DB_NAME: ${{ secrets.PREVIEW_DB_NAME }}
+          BE_SECRET_KEY: ${{ secrets.BE_SECRET_KEY }}
+          AUTH0_DOMAIN: ${{ secrets.AUTH0_DOMAIN }}
+          AUTH0_API_AUDIENCE: ${{ secrets.AUTH0_API_AUDIENCE }}
+          AUTH0_ISSUER: ${{ secrets.AUTH0_ISSUER }}
+          AUTH0_ALGORITHMS: ${{ secrets.AUTH0_ALGORITHMS }}
+          RECAPTCHA_SECRET_KEY: ${{ secrets.RECAPTCHA_SECRET_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET_NAME: ${{ vars.R2_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+
+          # 1) Fork the dev Postgres cluster (idempotent). The fork keeps dev's
+          #    users/password/database, so we reuse those credentials below.
+          if ! flyctl status -a "$DB_APP" >/dev/null 2>&1; then
+            echo "Forking $DEV_PG_APP -> $DB_APP ..."
+            flyctl postgres create \
+              --name "$DB_APP" \
+              --org "$ORG" \
+              --region ewr \
+              --fork-from "$DEV_PG_APP" \
+              --initial-cluster-size 1 \
+              --vm-size shared-cpu-1x \
+              --volume-size 10
+          else
+            echo "Postgres fork $DB_APP already exists, reusing."
+          fi
+
+          # 2) Ensure the backend app exists.
+          flyctl status -a "$API_APP" >/dev/null 2>&1 || flyctl apps create "$API_APP" -o "$ORG"
+
+          # 3) Stage secrets (applied by the deploy below; --stage avoids an extra restart).
+          DB_HOST="${DB_APP}.flycast"
+          DATABASE_URL="postgresql+psycopg://${PREVIEW_DB_USER}:${PREVIEW_DB_PASSWORD}@${DB_HOST}:5432/${PREVIEW_DB_NAME}?sslmode=disable"
+
+          args=(
+            DATABASE_URL="$DATABASE_URL"
+            POSTGRES_SCHEME="postgresql+psycopg"
+            POSTGRES_SERVER="$DB_HOST"
+            POSTGRES_PORT="5432"
+            POSTGRES_USER="$PREVIEW_DB_USER"
+            POSTGRES_PASSWORD="$PREVIEW_DB_PASSWORD"
+            POSTGRES_DB="$PREVIEW_DB_NAME"
+            SECRET_KEY="$BE_SECRET_KEY"
+            BACKEND_CORS_ORIGINS="${FE_URL},${API_URL}"
+            DOMAIN="${API_APP}.fly.dev"
+            AUTH0_DOMAIN="$AUTH0_DOMAIN"
+            AUTH0_API_AUDIENCE="$AUTH0_API_AUDIENCE"
+            AUTH0_ISSUER="$AUTH0_ISSUER"
+            AUTH0_ALGORITHMS="$AUTH0_ALGORITHMS"
+          )
+          # Optional secrets — only set when provided.
+          if [ -n "${RECAPTCHA_SECRET_KEY:-}" ];   then args+=( RECAPTCHA_SECRET_KEY="$RECAPTCHA_SECRET_KEY" ); fi
+          if [ -n "${AWS_ACCESS_KEY_ID:-}" ];      then args+=( AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" ); fi
+          if [ -n "${AWS_SECRET_ACCESS_KEY:-}" ];  then args+=( AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" ); fi
+          if [ -n "${R2_ACCOUNT_ID:-}" ];          then args+=( ACCOUNT_ID="$R2_ACCOUNT_ID" ); fi
+          if [ -n "${R2_BUCKET_NAME:-}" ];         then args+=( R2_BUCKET_NAME="$R2_BUCKET_NAME" ); fi
+
+          flyctl secrets set --stage -a "$API_APP" "${args[@]}"
+
+          # 4) Deploy (downsized for a preview). The release_command in
+          #    backend/fly.toml runs `alembic upgrade head` against the forked DB.
+          flyctl deploy backend --remote-only --app "$API_APP" --vm-memory 2048 --ha=false --yes
+
+      - name: Deploy preview frontend
+        env:
+          ORG: ${{ vars.FLY_ORG }}
+          FE_APP: ${{ steps.setup.outputs.fe_app }}
+          FE_URL: ${{ steps.setup.outputs.fe_url }}
+          API_URL: ${{ steps.setup.outputs.api_url }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          RECAPTCHA_SITE_KEY: ${{ secrets.RECAPTCHA_SITE_KEY }}
+          NEXT_PUBLIC_MAPTILER_API_KEY: ${{ secrets.NEXT_PUBLIC_MAPTILER_API_KEY }}
+          AUTH0_SECRET: ${{ secrets.AUTH0_SECRET }}
+          AUTH0_CLIENT_ID: ${{ secrets.AUTH0_CLIENT_ID }}
+          AUTH0_CLIENT_SECRET: ${{ secrets.AUTH0_CLIENT_SECRET }}
+          AUTH0_DOMAIN: ${{ secrets.AUTH0_DOMAIN }}
+          AUTH0_API_AUDIENCE: ${{ secrets.AUTH0_API_AUDIENCE }}
+        run: |
+          set -euo pipefail
+
+          flyctl status -a "$FE_APP" >/dev/null 2>&1 || flyctl apps create "$FE_APP" -o "$ORG"
+
+          # Build-time public env (baked into the image; Dockerfile COPYs this in).
+          cat > app/.env.production <<EOF
+          NEXT_PUBLIC_RECAPTCHA_SITE_KEY=${RECAPTCHA_SITE_KEY}
+          NEXT_PUBLIC_MAPTILER_API_KEY=${NEXT_PUBLIC_MAPTILER_API_KEY}
+          NEXT_PUBLIC_S3_BUCKET_URL=https://tilesets1.cdn.districtr.org
+          NEXT_PUBLIC_S3_BUCKET_URL_MIRROR1=https://tilesets2.cdn.districtr.org
+          NEXT_PUBLIC_S3_BUCKET_URL_MIRROR2=https://tilesets3.cdn.districtr.org
+          NEXT_PUBLIC_API_URL=${API_URL}
+          EOF
+
+          # Runtime secrets (Auth0 + base URL) — read server-side from process.env.
+          flyctl secrets set --stage -a "$FE_APP" \
+            AUTH0_SECRET="$AUTH0_SECRET" \
+            AUTH0_CLIENT_ID="$AUTH0_CLIENT_ID" \
+            AUTH0_CLIENT_SECRET="$AUTH0_CLIENT_SECRET" \
+            AUTH0_DOMAIN="$AUTH0_DOMAIN" \
+            AUTH0_AUDIENCE="$AUTH0_API_AUDIENCE" \
+            APP_BASE_URL="$FE_URL"
+
+          flyctl deploy app --remote-only --app "$FE_APP" --ha=false --yes
+
+      - name: Comment preview URLs on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const mode = '${{ steps.setup.outputs.mode }}';
+            const feUrl = '${{ steps.setup.outputs.fe_url }}';
+            const apiUrl = '${{ steps.setup.outputs.api_url }}';
+            const marker = '<!-- fly-preview -->';
+            const sharedNote = mode === 'fe' ? ' _(shared dev backend)_' : '';
+            const body = [
+              marker,
+              '### 🚀 Fly preview deployed',
+              '',
+              '**Mode:** `' + mode + '`',
+              '',
+              '| Service | URL |',
+              '| --- | --- |',
+              '| Frontend | ' + feUrl + ' |',
+              '| API | ' + apiUrl + sharedNote + ' |',
+              '',
+              '_Updated for commit `' + context.sha.slice(0, 7) + '`. Tears down automatically when this PR is closed._',
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number,
+            });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
