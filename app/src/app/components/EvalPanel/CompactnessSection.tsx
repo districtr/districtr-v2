@@ -137,7 +137,7 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
         </Accordion.Trigger>
         <Accordion.Content>
           {/* Cut Edges */}
-          <Heading size="2" align="center" mb="2" mt="4">
+          <Heading size="3" align="center" mb="2" mt="4">
             Cut Edges
           </Heading>
           {cut_edges ? (
@@ -159,7 +159,7 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
           )}
 
           {/* Polsby-Popper */}
-          <Heading size="2" align="center" mb="2" mt="4">
+          <Heading size="3" align="center" mb="2" mt="4">
             Polsby-Popper Scores
           </Heading>
           <Text size="2" as="p" mb="2">
@@ -178,7 +178,7 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
           )}
 
           {/* Reock */}
-          <Heading size="2" align="center" mb="2" mt="4">
+          <Heading size="3" align="center" mb="2" mt="4">
             Reock Scores
           </Heading>
           <Text size="2" as="p" mb="2">
@@ -202,11 +202,12 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
               <Text size="1" className="uppercase tracking-widest" mb="1" as="p">
                 Per-district scores
               </Text>
+              <div style={{width: 'fit-content', borderRight: '1px solid var(--gray-a5)'}}>
               <Table.Root size="1">
                 <Table.Header>
                   <Table.Row>
                     <Table.ColumnHeaderCell>District</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="end">Polsby-Popper</Table.ColumnHeaderCell>
+                    <Table.ColumnHeaderCell justify="end">Polsby-<br />Popper</Table.ColumnHeaderCell>
                     <Table.ColumnHeaderCell justify="end">Reock</Table.ColumnHeaderCell>
                   </Table.Row>
                 </Table.Header>
@@ -249,6 +250,7 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
                   ))}
                 </Table.Body>
               </Table.Root>
+              </div>
             </>
           )}
         </Accordion.Content>

@@ -94,7 +94,7 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
           )}
 
           {/* Contiguity */}
-          <Heading size="2" align="center" mb="2" mt="4">
+          <Heading size="3" align="center" mb="2" mt="4">
             Contiguity
           </Heading>
           <Text size="2" as="p" mb="2">
@@ -124,7 +124,7 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
           )}
 
           {/* Population Deviation */}
-          <Heading size="2" align="center" mb="2" mt="4">
+          <Heading size="3" align="center" mb="2" mt="4">
             Population Deviation
           </Heading>
           <Text size="2" as="p" mb="2">

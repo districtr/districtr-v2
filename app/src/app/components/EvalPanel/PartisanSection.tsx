@@ -56,16 +56,18 @@ function dispLabel(disp: number, numDistricts: number): string {
 const LEVEL_ORDER: Record<string, number> = {pres: 0, sen: 1, gov: 2, ag: 3};
 
 function sortElections(keys: string[]): string[] {
-  return [...keys].sort((a, b) => {
-    const aParts = a.split('_'),
-      bParts = b.split('_');
-    const aYear = Number(aParts[aParts.length - 1]);
-    const bYear = Number(bParts[bParts.length - 1]);
-    if (bYear !== aYear) return bYear - aYear; // descending year
-    const aLevel = LEVEL_ORDER[aParts[0]] ?? 99;
-    const bLevel = LEVEL_ORDER[bParts[0]] ?? 99;
-    return aLevel - bLevel; // pres < sen < gov
-  });
+  return keys
+    .filter(k => k.split('_')[0] in LEVEL_ORDER) // Only show statewide elections
+    .sort((a, b) => {
+      const aParts = a.split('_'),
+        bParts = b.split('_');
+      const aYear = Number(aParts[aParts.length - 1]);
+      const bYear = Number(bParts[bParts.length - 1]);
+      if (bYear !== aYear) return bYear - aYear; // descending year
+      const aLevel = LEVEL_ORDER[aParts[0]] ?? 99;
+      const bLevel = LEVEL_ORDER[bParts[0]] ?? 99;
+      return aLevel - bLevel; // pres < sen < gov
+    });
 }
 
 export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) => {
@@ -83,7 +85,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
   const firstSeats = n > 0 ? evaluation.seats?.[elections[0]] : null;
   const numDistricts = firstSeats?.total ?? null;
 
-  const avgSeatLean =
+  const avgSeatSkew =
     n > 0 && evaluation.disproportionality && numDistricts !== null
       ? elections.reduce((sum, key) => {
           return sum + (evaluation.disproportionality![key] ?? 0) * numDistricts;
@@ -113,49 +115,55 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
           {/* Proportionality */}
           {n > 0 && (
             <>
-              <Heading size="2" align="center" mb="2" mt="4">
+              <Heading size="3" align="center" mb="2" mt="4">
                 Proportionality
               </Heading>
-              <Flex align="center" gap="2" mb="3" justify="end">
-                <Text size="1" color="gray">
-                  Point of View
-                </Text>
-                <SegmentedControl.Root size="1" value={pov} onValueChange={v => setPov(v as Pov)}>
-                  <SegmentedControl.Item value="dem">Democrat</SegmentedControl.Item>
-                  <SegmentedControl.Item value="rep">Republican</SegmentedControl.Item>
-                </SegmentedControl.Root>
-              </Flex>
               <Text size="2" mb="3" as="p">
-                Relative to proportionality, your plan has an average lean of{' '}
-                {avgSeatLean !== null ? (
+                Relative to proportionality, your plan has an average skew of{' '}
+                {avgSeatSkew !== null ? (
                   <>
-                    <strong>{Math.abs(avgSeatLean).toFixed(1)} seats</strong> towards{' '}
-                    {avgSeatLean >= 0 ? 'Democrats' : 'Republicans'}
+                    <strong>{Math.abs(avgSeatSkew).toFixed(1)} seats</strong> towards{' '}
+                    {avgSeatSkew >= 0 ? 'Democrats' : 'Republicans'}
                   </>
                 ) : (
                   '—'
                 )}{' '}
                 over these elections.
               </Text>
-              <Text size="2" weight="bold" mb="2" as="p" style={{textAlign: 'center'}}>
-                Votes vs. Seats by Election (among the two major parties)
-              </Text>
+              <Flex direction="column" align="center" gap="2" mb="2">
+                <Text size="2" weight="bold">
+                  Votes vs. Seats by Election (among the two major parties)
+                </Text>
+                <Flex align="center" gap="2">
+                  <Text size="1" color="gray">
+                    Point of View
+                  </Text>
+                  <SegmentedControl.Root size="1" value={pov} onValueChange={v => setPov(v as Pov)}>
+                    <SegmentedControl.Item value="dem">Democrat</SegmentedControl.Item>
+                    <SegmentedControl.Item value="rep">Republican</SegmentedControl.Item>
+                  </SegmentedControl.Root>
+                </Flex>
+              </Flex>
               <Table.Root size="1" mb="3">
                 <Table.Header>
                   <Table.Row>
                     <Table.ColumnHeaderCell>Election</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="center" style={{color: povColor}}>
+                    <Table.ColumnHeaderCell justify="end">
+                      Total
+                      <br />
                       Votes
                     </Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="center" style={{color: povColor}}>
-                      Vote
+                    <Table.ColumnHeaderCell justify="end" style={{color: povColor}}>
+                      {pov === 'dem' ? 'D' : 'R'} Vote
                       <br />
                       Share
                     </Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="center" style={{color: povColor}}>
-                      Seats
+                    <Table.ColumnHeaderCell justify="end" style={{color: povColor}}>
+                      {pov === 'dem' ? 'D' : 'R'}
+                      <br />
+                      Districts
                     </Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="center" style={{color: povColor}}>
+                    <Table.ColumnHeaderCell justify="end" style={{color: povColor}}>
                       Seat
                       <br />
                       Share
@@ -173,7 +181,6 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                     const seatPct =
                       seatTotal && partySeatCount != null ? partySeatCount / seatTotal : null;
                     const votes = evaluation.votes?.[key];
-                    const partyVoteCount = votes?.[pov] ?? null;
                     const voteShare = evaluation.vote_shares?.[key]?.[pov] ?? null;
                     const rawDisp = evaluation.disproportionality?.[key] ?? null;
                     const disp = rawDisp !== null ? (pov === 'rep' ? -rawDisp : rawDisp) : null;
@@ -184,15 +191,13 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                             {formatElectionKey(key)}
                           </Text>
                         </Table.Cell>
-                        <Table.Cell justify="center">
+                        <Table.Cell justify="end">
                           <Text size="2">
-                            {partyVoteCount != null && votes
-                              ? `${formatNumber(partyVoteCount, NUMBER_FORMATS.COMPACT)}/${formatNumber(votes.total, NUMBER_FORMATS.COMPACT)}`
-                              : '—'}
+                            {votes != null ? votes.total.toLocaleString() : '—'}
                           </Text>
                         </Table.Cell>
                         <Table.Cell
-                          justify="center"
+                          justify="end"
                           style={{
                             backgroundColor:
                               voteShare != null
@@ -206,7 +211,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                             {voteShare != null ? `${(voteShare * 100).toFixed(1)}%` : '—'}
                           </Text>
                         </Table.Cell>
-                        <Table.Cell justify="center">
+                        <Table.Cell justify="end">
                           <Text size="2">
                             {partySeatCount != null && seatTotal
                               ? `${partySeatCount}/${seatTotal}`
@@ -214,7 +219,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                           </Text>
                         </Table.Cell>
                         <Table.Cell
-                          justify="center"
+                          justify="end"
                           style={
                             seatPct !== null
                               ? {
@@ -251,7 +256,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
           {/* Other Partisanship Metrics */}
           {n > 0 && (
             <>
-              <Heading size="2" align="center" mb="2" mt="4">
+              <Heading size="3" align="center" mb="2" mt="4">
                 Other Partisanship Metrics
               </Heading>
               <Text size="2" mb="3" as="p">
@@ -384,7 +389,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
           {/* Competitiveness Metrics */}
           {competitiveness && (
             <>
-              <Heading size="2" align="center" mb="2" mt="4">
+              <Heading size="3" align="center" mb="2" mt="4">
                 Competitiveness
               </Heading>
               <Text size="2" mb="3" as="p">
@@ -392,6 +397,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                 is one where the result could plausibly change with a small shift in the statewide
                 vote.
               </Text>
+              <div style={{width: 'fit-content', borderRight: '1px solid var(--gray-a5)'}}>
               <Table.Root size="1">
                 <Table.Body>
                   <Table.Row>
@@ -447,6 +453,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                   </Table.Row>
                 </Table.Body>
               </Table.Root>
+              </div>
             </>
           )}
         </Accordion.Content>

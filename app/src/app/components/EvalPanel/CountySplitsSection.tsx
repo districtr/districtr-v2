@@ -81,7 +81,7 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
         </Accordion.Trigger>
         <Accordion.Content>
           {/* Unit Assignment */}
-          <Heading size="2" align="center" mb="2" mt="4">
+          <Heading size="3" align="center" mb="2" mt="4">
             Higher-level Unit Splits
           </Heading>
           {unitLabel && (
@@ -91,6 +91,7 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
             </Text>
           )}
           {assignedUnits && unitTotalCount !== null && (
+            <div style={{width: 'fit-content', borderRight: '1px solid var(--gray-a5)'}}>
             <Table.Root size="1" mb="3">
               <Table.Body>
                 <Table.Row>
@@ -105,7 +106,7 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                 </Table.Row>
                 <Table.Row>
                   <Table.Cell>
-                    <Text size="2">Fully assigned (one district)</Text>
+                    <Text size="2">Fully assigned to one district</Text>
                   </Table.Cell>
                   <Table.Cell justify="end">
                     <Text size="2" weight="bold">
@@ -116,7 +117,7 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                 {unitSplitCount > 0 && (
                   <Table.Row>
                     <Table.Cell>
-                      <Text size="2">Split across districts</Text>
+                      <Text size="2">Fully assigned but split across districts</Text>
                     </Table.Cell>
                     <Table.Cell justify="end">
                       <Text size="2" weight="bold" color="orange">
@@ -151,10 +152,11 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                 )}
               </Table.Body>
             </Table.Root>
+            </div>
           )}
 
           {/* County Splits */}
-          <Heading size="2" align="center" mb="2" mt="4">
+          <Heading size="3" align="center" mb="2" mt="4">
             County Splits
           </Heading>
           <Text size="2" mb="3" as="p">
@@ -176,9 +178,10 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
             />
           </Flex>
 
-          <Heading size="2" align="center" mb="2" mt="4">
+          <Heading size="3" align="center" mb="2" mt="4">
             Summary
           </Heading>
+          <div style={{width: 'fit-content', borderRight: '1px solid var(--gray-a5)'}}>
           <Table.Root size="1" mb="3">
             <Table.Body>
               <Table.Row>
@@ -215,8 +218,9 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
               )}
             </Table.Body>
           </Table.Root>
+          </div>
 
-          <Heading size="2" align="center" mb="2" mt="4">
+          <Heading size="3" align="center" mb="2" mt="4">
             Per-County Detail
           </Heading>
           {districts.length > 0 && (
@@ -249,6 +253,7 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                 ? 'max-h-[400px] overflow-y-auto print:max-h-none print:overflow-visible'
                 : undefined
             }
+            style={{width: 'fit-content', borderRight: '1px solid var(--gray-a5)'}}
           >
             <Table.Root size="1">
               <Table.Header>
@@ -260,9 +265,9 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                     Population
                   </Table.ColumnHeaderCell>
                   <Table.ColumnHeaderCell justify="end">
-                    How Many Districts&apos;
+                    How Many
                     <br />
-                    Worth
+                    Districts&apos; Worth
                   </Table.ColumnHeaderCell>
                   <Table.ColumnHeaderCell justify="end">
                     Pieces in
