@@ -28,7 +28,7 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
     ? {
         numDistricts: mapDocument.num_districts ?? '—',
         dataSource: mapDocument.data_source_name ?? null,
-        planName: mapDocument.map_module ?? mapDocument.map_metadata.name?.replace(/\s*\(\d+\)\s*$/, '') ?? null,
+        planName: (mapDocument.map_module ?? mapDocument.map_metadata.name)?.replace(/\s*\(\d+\)\s*$/, '') ?? null,
       }
     : null;
 
