@@ -149,11 +149,11 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
   }, [reock]);
 
   return (
-    <Accordion.Root type="single" collapsible defaultValue="compactness">
+    <Accordion.Root type="single" collapsible>
       <Accordion.Item value="compactness">
         <Accordion.Trigger asChild>
-          <Flex align="center" gap="1" className="cursor-pointer w-full" py="2">
-            <TriangleRightIcon />
+          <Flex align="center" gap="1" className="cursor-pointer w-full group" py="2">
+            <TriangleRightIcon width={16} height={16} className="transition-transform duration-200 group-data-[state=open]:rotate-90" />
             <Heading size="4">Compactness</Heading>
           </Flex>
         </Accordion.Trigger>

@@ -58,11 +58,11 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
     : [];
 
   return (
-    <Accordion.Root type="single" collapsible defaultValue="basics">
+    <Accordion.Root type="single" collapsible>
       <Accordion.Item value="basics">
         <Accordion.Trigger asChild>
-          <Flex align="center" gap="1" className="cursor-pointer w-full" py="2">
-            <TriangleRightIcon className="accordion-chevron" />
+          <Flex align="center" gap="1" className="cursor-pointer w-full group" py="2">
+            <TriangleRightIcon width={16} height={16} className="transition-transform duration-200 group-data-[state=open]:rotate-90" />
             <Heading size="4">Basics</Heading>
           </Flex>
         </Accordion.Trigger>
