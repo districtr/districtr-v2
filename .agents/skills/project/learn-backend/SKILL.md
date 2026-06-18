@@ -42,12 +42,12 @@ Backend conventions for FastAPI + SQLModel/SQLAlchemy services, request dependen
 - Use SQLAlchemy text/bindparams safely when dynamic SQL is unavoidable.
 - Keep endpoint handlers thin when shared logic already exists in modules (`assignments`, `utils`, etc.).
 - Add/adjust tests under `backend/tests` for endpoint or DB behavior changes.
-- For bulk reads of scalar data (hundreds of rows or more), bypass SQLAlchemy and use the raw psycopg3 cursor directly: `session.connection().connection.cursor()`. SQLAlchemy `Row` construction costs ~50µs/row in Python — measured at ~525ms vs ~7ms for a 10k-row two-column result (~75x slower).
+- For bulk reads, materialization cost scales with what SQLAlchemy constructs per row — measured on a 10k-row two-column result: full ORM model (~50µs/row, ~525ms total), column-projected `Row` named-tuple via `select(Model.col1, Model.col2)` (~3µs/row, ~29ms), raw psycopg3 tuple via `session.connection().connection.cursor()` (~0.15µs/row, ~7ms). Prefer raw psycopg3 for bulk reads; column projection is acceptable otherwise.
 
 ## Anti-Patterns
 - Bypassing existing dependency guards and leaking private IDs.
 - Mixing unrelated concerns inside one endpoint without reusable helper boundaries.
-- Using `session.execute(...).fetchall()` on bulk result sets where no ORM validation is needed.
+- Fetching full ORM model instances (`session.exec(select(Model))`) for bulk reads where only a few columns are needed.
 
 ## Change Checklist
 1. Confirm endpoint auth/dependency behavior for public vs protected access.
