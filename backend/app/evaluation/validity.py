@@ -41,9 +41,7 @@ def assigned_units(context: DocumentEvaluationContext) -> AssignedUnitsResult:
     fully_shattered = {
         parent
         for parent in partially_assigned_parents
-        if all(
-            child in unit_to_zone for child in G.nodes[parent]["children"]
-        )
+        if all(child in unit_to_zone for child in G.nodes[parent]["children"])
     }
     return AssignedUnitsResult(
         assigned_count=assigned_count + len(fully_shattered),
