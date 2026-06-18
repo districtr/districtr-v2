@@ -25,9 +25,10 @@ router = APIRouter(tags=["exports"])
 logger = logging.getLogger(__name__)
 
 
-def build_block_assignments_csv(document_id: str, session: Session, out_file: str) -> None:
-    """Write a CSV of assignments for the given document to out_file.
-    """
+def build_block_assignments_csv(
+    document_id: str, session: Session, out_file: str
+) -> None:
+    """Write a CSV of assignments for the given document to out_file."""
     doc_row = session.exec(
         select(
             DistrictrMap.gerrydb_table_name,
@@ -54,7 +55,11 @@ def build_block_assignments_csv(document_id: str, session: Session, out_file: st
         writer = csv.writer(f, lineterminator="\n")
         writer.writerow(["geo_id", "zone"])
         for geo_id, zone in rows:
-            children: set[str] = G.nodes[geo_id].get("children", set()) if G is not None and geo_id in G.nodes else set()
+            children: set[str] = (
+                G.nodes[geo_id].get("children", set())
+                if G is not None and geo_id in G.nodes
+                else set()
+            )
             if children:
                 for child in sorted(children):
                     writer.writerow([child, zone])
@@ -63,14 +68,19 @@ def build_block_assignments_csv(document_id: str, session: Session, out_file: st
 
 
 def build_evaluation_json(
-    document: Document, session: Session, background_tasks: BackgroundTasks, out_file: str
+    document: Document,
+    session: Session,
+    background_tasks: BackgroundTasks,
+    out_file: str,
 ) -> None:
     envelope = update_or_select_document_evaluation(background_tasks, session, document)
     with open(out_file, "w") as f:
         json.dump(envelope, f)
 
 
-def build_districts_geojson(district_rows: list[DistrictUnionsResponse], out_file: str) -> None:
+def build_districts_geojson(
+    district_rows: list[DistrictUnionsResponse], out_file: str
+) -> None:
     # row.geometry is already a GeoJSON string from ST_AsGeoJSON — embed directly
     # as a raw fragment to avoid a json.loads() + json.dumps() round-trip on large geometries.
     features = ",".join(
@@ -82,7 +92,9 @@ def build_districts_geojson(district_rows: list[DistrictUnionsResponse], out_fil
         f.write(f'{{"type":"FeatureCollection","features":[{features}]}}')
 
 
-def build_districts_shapefile(district_rows: list[DistrictUnionsResponse], out_file: str) -> None:
+def build_districts_shapefile(
+    district_rows: list[DistrictUnionsResponse], out_file: str
+) -> None:
     rows = [r for r in district_rows if r.zone is not None and r.geometry is not None]
     zones = [str(r.zone) for r in rows]
     geoms = [shapely.from_geojson(r.geometry) for r in rows]
@@ -130,11 +142,15 @@ async def export_document(
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)
             )
-        return FileResponse(path=_out_file, media_type="text/csv; charset=utf-8", filename=out_file_name)
+        return FileResponse(
+            path=_out_file, media_type="text/csv; charset=utf-8", filename=out_file_name
+        )
 
     if _export_type == DocumentExportType.evaluation_json:
         build_evaluation_json(document, session, background_tasks, _out_file)
-        return FileResponse(path=_out_file, media_type="application/json", filename=out_file_name)
+        return FileResponse(
+            path=_out_file, media_type="application/json", filename=out_file_name
+        )
 
     # District boundary exports — refresh the district_unions cache then build from results
     district_rows = update_or_select_district_stats(
@@ -148,8 +164,12 @@ async def export_document(
 
     if _export_type == DocumentExportType.districts_geojson:
         build_districts_geojson(district_rows, _out_file)
-        return FileResponse(path=_out_file, media_type="application/json", filename=out_file_name)
+        return FileResponse(
+            path=_out_file, media_type="application/json", filename=out_file_name
+        )
 
     # Shapefile exports
     build_districts_shapefile(district_rows, _out_file)
-    return FileResponse(path=_out_file, media_type="application/zip", filename=out_file_name)
+    return FileResponse(
+        path=_out_file, media_type="application/zip", filename=out_file_name
+    )
