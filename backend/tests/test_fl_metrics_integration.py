@@ -96,7 +96,6 @@ from pathlib import Path
 
 import pytest
 from fastapi import BackgroundTasks
-from fastapi.testclient import TestClient
 from tests.conftest import MsgpackAwareTestClient
 from sqlalchemy import text
 from sqlmodel import Session
@@ -368,7 +367,9 @@ def fl_client(integration_engine):
 
     app.dependency_overrides[get_session] = _get_session
     app.dependency_overrides[auth.verify] = _get_auth
-    with MsgpackAwareTestClient(app, headers={"origin": "http://localhost:5173"}) as client:
+    with MsgpackAwareTestClient(
+        app, headers={"origin": "http://localhost:5173"}
+    ) as client:
         yield client
     app.dependency_overrides.clear()
 
