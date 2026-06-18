@@ -129,7 +129,7 @@ def _heal_with_graph(zone_by_geo: dict[str, int], G: Graph) -> dict[str, int]:
     to_remove: set[str] = set()
     healed: dict[str, int] = {}
     for parent, uploaded_children in uploaded_by_parent.items():
-        all_children: set[str] = G.nodes[parent].get("children", set())
+        all_children: set[str] = G.nodes[parent]["children"]
         if uploaded_children.keys() != all_children:
             continue
         zones = set(uploaded_children.values())

@@ -42,7 +42,7 @@ def assigned_units(context: DocumentEvaluationContext) -> AssignedUnitsResult:
         parent
         for parent in partially_assigned_parents
         if all(
-            child in unit_to_zone for child in G.nodes[parent].get("children", set())
+            child in unit_to_zone for child in G.nodes[parent]["children"]
         )
     }
     return AssignedUnitsResult(

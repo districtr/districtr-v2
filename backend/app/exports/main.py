@@ -11,10 +11,10 @@ from datetime import datetime, UTC
 from typing import Annotated
 from fastapi import APIRouter, status, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import FileResponse
-from sqlmodel import Session, select
+from sqlmodel import Session, select, col
 from app.core.dependencies import get_protected_document
 from app.core.db import get_session
-from app.models import Document, DistrictrMap, DistrictUnionsResponse
+from app.models import Document, DistrictrMap, DistrictUnionsResponse, Assignments
 from app.exports.models import DocumentExportType
 from app.utils import update_or_select_district_stats
 from app.evaluation.graph import get_graph
@@ -41,27 +41,26 @@ def build_block_assignments_csv(
         raise ValueError(f"No map found for document_id: {document_id}")
     gerrydb_table_name, child_layer = doc_row
 
-    G = get_graph(gerrydb_table_name) if child_layer is not None else None
+    rows = session.exec(
+        select(Assignments.geo_id, Assignments.zone)
+        .where(col(Assignments.document_id) == document_id)
+        .where(col(Assignments.zone).is_not(None))
+    ).all()
 
-    conn = session.connection().connection
-    cur = conn.cursor()
-    cur.execute(
-        f"SELECT geo_id, zone FROM document.assignments "
-        f"WHERE document_id = '{document_id}'::UUID AND zone IS NOT NULL"
-    )
-    rows = cur.fetchall()
+    if child_layer is None:
+        with open(out_file, "w", newline="") as f:
+            writer = csv.writer(f, lineterminator="\n")
+            writer.writerow(["geo_id", "zone"])
+            writer.writerows(rows)
+        return
 
+    G = get_graph(gerrydb_table_name)
     with open(out_file, "w", newline="") as f:
         writer = csv.writer(f, lineterminator="\n")
         writer.writerow(["geo_id", "zone"])
         for geo_id, zone in rows:
-            children: set[str] = (
-                G.nodes[geo_id].get("children", set())
-                if G is not None and geo_id in G.nodes
-                else set()
-            )
-            if children:
-                for child in sorted(children):
+            if "children" in G.nodes[geo_id]:
+                for child in G.nodes[geo_id]["children"]:
                     writer.writerow([child, zone])
             else:
                 writer.writerow([geo_id, zone])
