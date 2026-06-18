@@ -30,16 +30,17 @@ def test_get_unsupported_export_type(client: TestClient, assignments_document_id
     assert response.json()["detail"] == "'NiceSocks' is not a valid DocumentExportType"
 
 
-def test_get_block_assignments_csv_export_no_child_layer_raise(
+def test_get_block_assignments_csv_export_no_child_layer(
     client: TestClient, assignments_document_id: str
 ):
     response = client.get(
         f"/api/document/{assignments_document_id}/export?export_type=BlockAssignmentsCSV",
     )
-    assert response.status_code == 400, response.json()
-    assert response.json()["detail"].startswith(
-        f"Child layer is NULL for document_id: {assignments_document_id}. Block-level queries are not supported"
-    )
+    assert response.status_code == 200, response.json()
+    assert response.headers["content-type"] == "text/csv; charset=utf-8"
+    lines = response.text.strip().splitlines()
+    assert lines[0] == "geo_id,zone"
+    assert len(lines) == 4  # header + 3 assignments
 
 
 @pytest.fixture
@@ -72,7 +73,9 @@ def simple_child_geoids_document_id(
 
 
 def test_get_block_assignments_csv_export(
-    client: TestClient, simple_child_geoids_document_id: str
+    client: TestClient,
+    simple_child_geoids_document_id: str,
+    mock_grid_graph_file,
 ):
     document_id = simple_child_geoids_document_id
     response = client.get(

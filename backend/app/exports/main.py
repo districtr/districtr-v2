@@ -1,3 +1,5 @@
+import csv
+import json
 import logging
 import geopandas as gpd
 import shapely
@@ -6,81 +8,85 @@ import zipfile
 import os
 from app.core.io import remove_file
 from datetime import datetime, UTC
-from typing import Annotated, Any
-from fastapi import APIRouter, status, BackgroundTasks, Depends, HTTPException, Query
+from typing import Annotated
+from fastapi import APIRouter, status, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import FileResponse
-from sqlmodel import Session
-from sqlalchemy import text
-from psycopg.sql import SQL, Composed, Identifier, Literal
-from psycopg.errors import RaiseException
+from sqlmodel import Session, select
 from app.core.dependencies import get_protected_document
 from app.core.db import get_session
-from app.models import Document
+from app.models import Document, DistrictrMap, DistrictUnionsResponse
 from app.exports.models import DocumentExportType
 from app.utils import update_or_select_district_stats
+from app.evaluation.graph import get_graph
+from app.evaluation.main import update_or_select_document_evaluation
 
 
 router = APIRouter(tags=["exports"])
 logger = logging.getLogger(__name__)
 
 
-def get_block_assignments_csv_sql(**kwargs) -> tuple[Composed, list[Any]]:
-    sql = SQL("COPY ( {} ) TO STDOUT WITH (FORMAT CSV, HEADER, DELIMITER ',')").format(
-        SQL("SELECT * FROM get_block_assignments(%s)")
-    )
-    return sql, [kwargs["document_id"]]
-
-
-def get_districts_geojson_sql(**kwargs) -> tuple[Composed, list[Any]]:
-    # Reads pre-dissolved geometries from the district_unions cache.
-    # Caller must invoke update_or_select_district_stats first to ensure the cache is fresh.
-    sql = SQL("""COPY (
-        SELECT jsonb_build_object(
-            'type',     'FeatureCollection',
-            'features', COALESCE(jsonb_agg(features.feature), '[]'::jsonb))
-        FROM (
-          SELECT jsonb_build_object(
-            'type',       'Feature',
-            'id',         {id},
-            'geometry',   ST_AsGeoJSON(geometry)::jsonb,
-            'properties', to_jsonb(inputs) - 'geometry' - {id_name}
-          ) AS feature
-          FROM (
-            SELECT zone::TEXT AS zone, geometry
-            FROM document.district_unions
-            WHERE document_id = %s AND zone IS NOT NULL
-            ORDER BY zone
-          ) inputs
-        ) features
-    ) TO STDOUT""").format(
-        id=Identifier("inputs", "zone"),
-        id_name=Literal("zone"),
-    )
-    return sql, [kwargs["document_id"]]
-
-
-def generate_district_shapefile(document_id: str, session: Session, out_file: str) -> None:
-    # document_id is a trusted UUID string from document.document_id — safe to interpolate
-    result = session.execute(
-        text(f"""
-        SELECT zone::TEXT AS zone, ST_AsEWKB(geometry) AS geom
-        FROM document.district_unions
-        WHERE document_id = '{document_id}'::UUID AND zone IS NOT NULL
-        ORDER BY zone
-        """)
-    )
-    rows = result.fetchall()
-
-    if not rows:
-        raise ValueError(
-            "No district boundaries found — assign zones before exporting boundaries"
+def build_block_assignments_csv(document_id: str, session: Session, out_file: str) -> None:
+    """Write a CSV of assignments for the given document to out_file.
+    """
+    doc_row = session.exec(
+        select(
+            DistrictrMap.gerrydb_table_name,
+            DistrictrMap.child_layer,
         )
+        .join(Document)
+        .where(Document.document_id == document_id)
+    ).first()
+    if doc_row is None:
+        raise ValueError(f"No map found for document_id: {document_id}")
+    gerrydb_table_name, child_layer = doc_row
 
-    zones = [row[0] for row in rows]
-    geoms = shapely.from_wkb([bytes(row[1]) for row in rows])
+    G = get_graph(gerrydb_table_name) if child_layer is not None else None
 
+    conn = session.connection().connection
+    cur = conn.cursor()
+    cur.execute(
+        f"SELECT geo_id, zone FROM document.assignments "
+        f"WHERE document_id = '{document_id}'::UUID AND zone IS NOT NULL"
+    )
+    rows = cur.fetchall()
+
+    with open(out_file, "w", newline="") as f:
+        writer = csv.writer(f, lineterminator="\n")
+        writer.writerow(["geo_id", "zone"])
+        for geo_id, zone in rows:
+            children: set[str] = G.nodes[geo_id].get("children", set()) if G is not None and geo_id in G.nodes else set()
+            if children:
+                for child in sorted(children):
+                    writer.writerow([child, zone])
+            else:
+                writer.writerow([geo_id, zone])
+
+
+def build_evaluation_json(
+    document: Document, session: Session, background_tasks: BackgroundTasks, out_file: str
+) -> None:
+    envelope = update_or_select_document_evaluation(background_tasks, session, document)
+    with open(out_file, "w") as f:
+        json.dump(envelope, f)
+
+
+def build_districts_geojson(district_rows: list[DistrictUnionsResponse], out_file: str) -> None:
+    # row.geometry is already a GeoJSON string from ST_AsGeoJSON — embed directly
+    # as a raw fragment to avoid a json.loads() + json.dumps() round-trip on large geometries.
+    features = ",".join(
+        f'{{"type":"Feature","id":"{row.zone}","geometry":{row.geometry},"properties":{{"zone":"{row.zone}"}}}}'
+        for row in district_rows
+        if row.zone is not None and row.geometry is not None
+    )
+    with open(out_file, "w") as f:
+        f.write(f'{{"type":"FeatureCollection","features":[{features}]}}')
+
+
+def build_districts_shapefile(district_rows: list[DistrictUnionsResponse], out_file: str) -> None:
+    rows = [r for r in district_rows if r.zone is not None and r.geometry is not None]
+    zones = [str(r.zone) for r in rows]
+    geoms = [shapely.from_geojson(r.geometry) for r in rows]
     gdf = gpd.GeoDataFrame({"zone": zones}, geometry=geoms, crs="EPSG:4326")
-
     with tempfile.TemporaryDirectory() as tmpdir:
         shp_path = os.path.join(tmpdir, "districts.shp")
         gdf.to_file(shp_path, driver="ESRI Shapefile")
@@ -96,8 +102,6 @@ async def export_document(
     document: Annotated[Document, Depends(get_protected_document)],
     background_tasks: BackgroundTasks,
     export_type: str = "BlockAssignmentsCSV",
-    offset: int = Query(default=0, ge=0),
-    limit: int = Query(default=10_000, ge=0),
     session: Session = Depends(get_session),
 ) -> FileResponse:
     try:
@@ -109,53 +113,43 @@ async def export_document(
         )
 
     timestamp = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
-
-    # District exports read pre-dissolved geometry from the district_unions cache.
-    # Refresh the cache before querying so the export reflects the current assignments.
-    if _export_type in (DocumentExportType.districts_geojson, DocumentExportType.districts_shapefile):
-        update_or_select_district_stats(session, str(document.document_id), background_tasks)
-
-    if _export_type == DocumentExportType.districts_shapefile:
-        out_file_name = f"{document_id}_Districts_{timestamp}.zip"
-        _out_file = f"/tmp/{out_file_name}"
-        background_tasks.add_task(remove_file, _out_file)
-        try:
-            generate_district_shapefile(str(document.document_id), session, _out_file)
-        except ValueError as error:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)
-            )
-        return FileResponse(path=_out_file, media_type="application/zip", filename=out_file_name)
-
-    # COPY-based exports (CSV and GeoJSON)
     ext = {
         DocumentExportType.block_assignments_csv: "csv",
         DocumentExportType.districts_geojson: "geojson",
+        DocumentExportType.districts_shapefile: "zip",
+        DocumentExportType.evaluation_json: "json",
     }[_export_type]
     out_file_name = f"{document_id}_{_export_type.value}_{timestamp}.{ext}"
     _out_file = f"/tmp/{out_file_name}"
     background_tasks.add_task(remove_file, _out_file)
 
     if _export_type == DocumentExportType.block_assignments_csv:
-        sql, params = get_block_assignments_csv_sql(document_id=document.document_id)
-    else:
-        sql, params = get_districts_geojson_sql(document_id=document.document_id)
+        try:
+            build_block_assignments_csv(str(document.document_id), session, _out_file)
+        except ValueError as error:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)
+            )
+        return FileResponse(path=_out_file, media_type="text/csv; charset=utf-8", filename=out_file_name)
 
-    conn = session.connection().connection
-    with conn.cursor().copy(sql, params=params) as copy:
-        with open(_out_file, "wb") as f:
-            try:
-                while data := copy.read():
-                    f.write(data)
-                f.close()
-            except RaiseException as error:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=str(error),
-                )
+    if _export_type == DocumentExportType.evaluation_json:
+        build_evaluation_json(document, session, background_tasks, _out_file)
+        return FileResponse(path=_out_file, media_type="application/json", filename=out_file_name)
 
-    media_type = {
-        DocumentExportType.block_assignments_csv: "text/csv; charset=utf-8",
-        DocumentExportType.districts_geojson: "application/json",
-    }.get(_export_type, "text/plain; charset=utf-8")
-    return FileResponse(path=_out_file, media_type=media_type, filename=out_file_name)
+    # District boundary exports — refresh the district_unions cache then build from results
+    district_rows = update_or_select_district_stats(
+        session, str(document.document_id), background_tasks
+    )
+    if not any(r.zone is not None and r.geometry is not None for r in district_rows):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="No district boundaries found — assign zones before exporting boundaries",
+        )
+
+    if _export_type == DocumentExportType.districts_geojson:
+        build_districts_geojson(district_rows, _out_file)
+        return FileResponse(path=_out_file, media_type="application/json", filename=out_file_name)
+
+    # Shapefile exports
+    build_districts_shapefile(district_rows, _out_file)
+    return FileResponse(path=_out_file, media_type="application/zip", filename=out_file_name)

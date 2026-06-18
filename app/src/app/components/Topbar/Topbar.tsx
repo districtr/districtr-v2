@@ -183,6 +183,16 @@ export const Topbar: React.FC = () => {
                         </a>
                       </Tooltip>
                     </DropdownMenu.Item>
+                    <DropdownMenu.Item>
+                      <Tooltip content="Download a JSON of evaluation metrics for this map">
+                        <a
+                          href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?export_type=EvaluationJSON`}
+                          download={`districtr-evaluation-${mapDocument?.document_id}-${new Date().toDateString()}.json`}
+                        >
+                          Evaluation metrics (JSON)
+                        </a>
+                      </Tooltip>
+                    </DropdownMenu.Item>
                   </DropdownMenu.SubContent>
                 </DropdownMenu.Sub>
                 <DropdownMenu.Item onClick={() => setModalOpen('recents')} disabled={false}>
