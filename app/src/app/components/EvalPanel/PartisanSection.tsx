@@ -97,7 +97,11 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
       <Accordion.Item value="partisan">
         <Accordion.Trigger asChild>
           <Flex align="center" gap="1" className="cursor-pointer w-full group" py="2">
-            <TriangleRightIcon width={16} height={16} className="transition-transform duration-200 group-data-[state=open]:rotate-90" />
+            <TriangleRightIcon
+              width={16}
+              height={16}
+              className="transition-transform duration-200 group-data-[state=open]:rotate-90"
+            />
             <Heading size="4">Election Results and Partisanship</Heading>
           </Flex>
         </Accordion.Trigger>
@@ -192,9 +196,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                           </Text>
                         </Table.Cell>
                         <Table.Cell justify="end">
-                          <Text size="2">
-                            {votes != null ? votes.total.toLocaleString() : '—'}
-                          </Text>
+                          <Text size="2">{votes != null ? votes.total.toLocaleString() : '—'}</Text>
                         </Table.Cell>
                         <Table.Cell
                           justify="end"
@@ -398,61 +400,61 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                 vote.
               </Text>
               <div style={{width: 'fit-content', borderRight: '1px solid var(--gray-a5)'}}>
-              <Table.Root size="1">
-                <Table.Body>
-                  <Table.Row>
-                    <Table.Cell>
-                      <Text size="2">Elections analyzed</Text>
-                    </Table.Cell>
-                    <Table.Cell justify="end">
-                      <Text size="2" weight="bold">
-                        {competitiveness.n_elections}
-                      </Text>
-                    </Table.Cell>
-                  </Table.Row>
-                  <Table.Row>
-                    <Table.Cell>
-                      <Text size="2">Competitive contests</Text>
-                    </Table.Cell>
-                    <Table.Cell justify="end">
-                      <Text size="2" weight="bold">
-                        {competitiveness.n_competitive_districts} /{' '}
-                        {competitiveness.n_districts * competitiveness.n_elections}
-                      </Text>
-                    </Table.Cell>
-                  </Table.Row>
-                  <Table.Row>
-                    <Table.Cell>
-                      <Text size="2">Swing districts</Text>
-                    </Table.Cell>
-                    <Table.Cell justify="end">
-                      <Text size="2" weight="bold">
-                        {competitiveness.n_swing_districts} / {competitiveness.n_districts}
-                      </Text>
-                    </Table.Cell>
-                  </Table.Row>
-                  <Table.Row>
-                    <Table.Cell>
-                      <Text size="2">Safe Dem districts</Text>
-                    </Table.Cell>
-                    <Table.Cell justify="end">
-                      <Text size="2" weight="bold">
-                        {competitiveness.n_dem_districts} / {competitiveness.n_districts}
-                      </Text>
-                    </Table.Cell>
-                  </Table.Row>
-                  <Table.Row>
-                    <Table.Cell>
-                      <Text size="2">Safe Rep districts</Text>
-                    </Table.Cell>
-                    <Table.Cell justify="end">
-                      <Text size="2" weight="bold">
-                        {competitiveness.n_rep_districts} / {competitiveness.n_districts}
-                      </Text>
-                    </Table.Cell>
-                  </Table.Row>
-                </Table.Body>
-              </Table.Root>
+                <Table.Root size="1">
+                  <Table.Body>
+                    <Table.Row>
+                      <Table.Cell>
+                        <Text size="2">Elections analyzed</Text>
+                      </Table.Cell>
+                      <Table.Cell justify="end">
+                        <Text size="2" weight="bold">
+                          {competitiveness.n_elections}
+                        </Text>
+                      </Table.Cell>
+                    </Table.Row>
+                    <Table.Row>
+                      <Table.Cell>
+                        <Text size="2">Competitive contests</Text>
+                      </Table.Cell>
+                      <Table.Cell justify="end">
+                        <Text size="2" weight="bold">
+                          {competitiveness.n_competitive_districts} /{' '}
+                          {competitiveness.n_districts * competitiveness.n_elections}
+                        </Text>
+                      </Table.Cell>
+                    </Table.Row>
+                    <Table.Row>
+                      <Table.Cell>
+                        <Text size="2">Swing districts</Text>
+                      </Table.Cell>
+                      <Table.Cell justify="end">
+                        <Text size="2" weight="bold">
+                          {competitiveness.n_swing_districts} / {competitiveness.n_districts}
+                        </Text>
+                      </Table.Cell>
+                    </Table.Row>
+                    <Table.Row>
+                      <Table.Cell>
+                        <Text size="2">Safe Dem districts</Text>
+                      </Table.Cell>
+                      <Table.Cell justify="end">
+                        <Text size="2" weight="bold">
+                          {competitiveness.n_dem_districts} / {competitiveness.n_districts}
+                        </Text>
+                      </Table.Cell>
+                    </Table.Row>
+                    <Table.Row>
+                      <Table.Cell>
+                        <Text size="2">Safe Rep districts</Text>
+                      </Table.Cell>
+                      <Table.Cell justify="end">
+                        <Text size="2" weight="bold">
+                          {competitiveness.n_rep_districts} / {competitiveness.n_districts}
+                        </Text>
+                      </Table.Cell>
+                    </Table.Row>
+                  </Table.Body>
+                </Table.Root>
               </div>
             </>
           )}

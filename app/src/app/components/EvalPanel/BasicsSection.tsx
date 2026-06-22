@@ -6,6 +6,7 @@ import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {useDistrictHover} from '@/app/hooks/useDistrictHover';
+import {useZoomToDistrict} from '@/app/hooks/useZoomToDistrict';
 
 type DeviationView = 'top_to_bottom' | 'max_absolute' | 'both';
 
@@ -32,6 +33,7 @@ const HOVER_BTN_STYLE: React.CSSProperties = {
 export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const {onDistrictEnter, onDistrictLeave} = useDistrictHover();
+  const zoomToDistrict = useZoomToDistrict();
 
   const [deviationView, setDeviationView] = useState<DeviationView>('top_to_bottom');
 
@@ -39,7 +41,11 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
     ? {
         numDistricts: mapDocument.num_districts ?? '—',
         dataSource: mapDocument.data_source_name ?? null,
-        planName: (mapDocument.map_module ?? mapDocument.map_metadata.name)?.replace(/\s*\(\d+\)\s*$/, '') ?? null,
+        planName:
+          (mapDocument.map_module ?? mapDocument.map_metadata.name)?.replace(
+            /\s*\(\d+\)\s*$/,
+            ''
+          ) ?? null,
       }
     : null;
 
@@ -62,7 +68,11 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
       <Accordion.Item value="basics">
         <Accordion.Trigger asChild>
           <Flex align="center" gap="1" className="cursor-pointer w-full group" py="2">
-            <TriangleRightIcon width={16} height={16} className="transition-transform duration-200 group-data-[state=open]:rotate-90" />
+            <TriangleRightIcon
+              width={16}
+              height={16}
+              className="transition-transform duration-200 group-data-[state=open]:rotate-90"
+            />
             <Heading size="4">Basics</Heading>
           </Flex>
         </Accordion.Trigger>
@@ -70,11 +80,19 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
           {/* Data Source and Plan Type */}
           {doc && (
             <Text size="2" as="p" mt="4" mb="2">
-              {doc.dataSource && <>Uses <strong>{doc.dataSource}</strong> data. </>}
+              {doc.dataSource && (
+                <>
+                  Uses <strong>{doc.dataSource}</strong> data.{' '}
+                </>
+              )}
               {doc.planName ? (
-                <>The plan type is <strong>{doc.planName}</strong> ({doc.numDistricts} districts).</>
+                <>
+                  The plan type is <strong>{doc.planName}</strong> ({doc.numDistricts} districts).
+                </>
               ) : (
-                <>This plan has <strong>{doc.numDistricts}</strong> districts.</>
+                <>
+                  This plan has <strong>{doc.numDistricts}</strong> districts.
+                </>
               )}
             </Text>
           )}
@@ -109,7 +127,8 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
                 <span key={d}>
                   <button
                     type="button"
-                    style={HOVER_BTN_STYLE}
+                    style={{...HOVER_BTN_STYLE, cursor: 'pointer'}}
+                    onClick={() => zoomToDistrict(Number(d))}
                     onMouseEnter={() => onDistrictEnter(d)}
                     onMouseLeave={onDistrictLeave}
                     onFocus={() => onDistrictEnter(d)}

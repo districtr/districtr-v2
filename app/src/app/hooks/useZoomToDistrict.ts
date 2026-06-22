@@ -25,9 +25,10 @@ export function useZoomToDistrict() {
 
   return useCallback(
     (zone: number) => {
-      const data = queryClient.getQueryData<{geojsonFeatures: GeoJSON.Feature[]}>(
-        [PUBLIC_SOURCE_ID, mapDocument?.public_id]
-      );
+      const data = queryClient.getQueryData<{geojsonFeatures: GeoJSON.Feature[]}>([
+        PUBLIC_SOURCE_ID,
+        mapDocument?.public_id,
+      ]);
       const feature = data?.geojsonFeatures.find(f => f.properties?.zone === zone);
       if (!feature?.geometry) return;
       const bbox = geomBbox(feature.geometry);

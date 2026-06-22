@@ -30,9 +30,7 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
   const idealPop = evaluation.ideal_population ?? null;
   const assignedUnits = evaluation.assigned_units;
 
-  const unitLabel = mapDocument
-    ? GEO_UNIT_LABELS[mapDocument.parent_geo_unit_type]
-    : null;
+  const unitLabel = mapDocument ? GEO_UNIT_LABELS[mapDocument.parent_geo_unit_type] : null;
   const unitDescription = mapDocument
     ? GEO_UNIT_DESCRIPTIONS[mapDocument.parent_geo_unit_type]
     : null;
@@ -63,7 +61,11 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
       <Accordion.Item value="splits">
         <Accordion.Trigger asChild>
           <Flex align="center" gap="1" className="cursor-pointer w-full group" py="2">
-            <TriangleRightIcon width={16} height={16} className="transition-transform duration-200 group-data-[state=open]:rotate-90" />
+            <TriangleRightIcon
+              width={16}
+              height={16}
+              className="transition-transform duration-200 group-data-[state=open]:rotate-90"
+            />
             <Heading size="4">Splits</Heading>
           </Flex>
         </Accordion.Trigger>
@@ -80,66 +82,66 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
           )}
           {assignedUnits && unitTotalCount !== null && (
             <div style={{width: 'fit-content', borderRight: '1px solid var(--gray-a5)'}}>
-            <Table.Root size="1" mb="3">
-              <Table.Body>
-                <Table.Row>
-                  <Table.Cell>
-                    <Text size="2">Total {unitLabel ?? 'units'}</Text>
-                  </Table.Cell>
-                  <Table.Cell justify="end">
-                    <Text size="2" weight="bold">
-                      {unitTotalCount.toLocaleString()}
-                    </Text>
-                  </Table.Cell>
-                </Table.Row>
-                <Table.Row>
-                  <Table.Cell>
-                    <Text size="2">Fully assigned to one district</Text>
-                  </Table.Cell>
-                  <Table.Cell justify="end">
-                    <Text size="2" weight="bold">
-                      {unitAssignedCount.toLocaleString()}
-                    </Text>
-                  </Table.Cell>
-                </Table.Row>
-                {unitSplitCount > 0 && (
+              <Table.Root size="1" mb="3">
+                <Table.Body>
                   <Table.Row>
                     <Table.Cell>
-                      <Text size="2">Fully assigned but split across districts</Text>
+                      <Text size="2">Total {unitLabel ?? 'units'}</Text>
                     </Table.Cell>
                     <Table.Cell justify="end">
-                      <Text size="2" weight="bold" color="orange">
-                        {unitSplitCount.toLocaleString()}
+                      <Text size="2" weight="bold">
+                        {unitTotalCount.toLocaleString()}
                       </Text>
                     </Table.Cell>
                   </Table.Row>
-                )}
-                {unitPartialCount > 0 && (
                   <Table.Row>
                     <Table.Cell>
-                      <Text size="2">Partially assigned</Text>
+                      <Text size="2">Fully assigned to one district</Text>
                     </Table.Cell>
                     <Table.Cell justify="end">
-                      <Text size="2" weight="bold" color="orange">
-                        {unitPartialCount.toLocaleString()}
+                      <Text size="2" weight="bold">
+                        {unitAssignedCount.toLocaleString()}
                       </Text>
                     </Table.Cell>
                   </Table.Row>
-                )}
-                {unitUnassignedCount !== null && unitUnassignedCount > 0 && (
-                  <Table.Row>
-                    <Table.Cell>
-                      <Text size="2">Unassigned</Text>
-                    </Table.Cell>
-                    <Table.Cell justify="end">
-                      <Text size="2" weight="bold" color="red">
-                        {unitUnassignedCount.toLocaleString()}
-                      </Text>
-                    </Table.Cell>
-                  </Table.Row>
-                )}
-              </Table.Body>
-            </Table.Root>
+                  {unitSplitCount > 0 && (
+                    <Table.Row>
+                      <Table.Cell>
+                        <Text size="2">Fully assigned but split across districts</Text>
+                      </Table.Cell>
+                      <Table.Cell justify="end">
+                        <Text size="2" weight="bold" color="orange">
+                          {unitSplitCount.toLocaleString()}
+                        </Text>
+                      </Table.Cell>
+                    </Table.Row>
+                  )}
+                  {unitPartialCount > 0 && (
+                    <Table.Row>
+                      <Table.Cell>
+                        <Text size="2">Partially assigned</Text>
+                      </Table.Cell>
+                      <Table.Cell justify="end">
+                        <Text size="2" weight="bold" color="orange">
+                          {unitPartialCount.toLocaleString()}
+                        </Text>
+                      </Table.Cell>
+                    </Table.Row>
+                  )}
+                  {unitUnassignedCount !== null && unitUnassignedCount > 0 && (
+                    <Table.Row>
+                      <Table.Cell>
+                        <Text size="2">Unassigned</Text>
+                      </Table.Cell>
+                      <Table.Cell justify="end">
+                        <Text size="2" weight="bold" color="red">
+                          {unitUnassignedCount.toLocaleString()}
+                        </Text>
+                      </Table.Cell>
+                    </Table.Row>
+                  )}
+                </Table.Body>
+              </Table.Root>
             </div>
           )}
 
@@ -170,42 +172,42 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
             Summary
           </Text>
           <div style={{width: 'fit-content', borderRight: '1px solid var(--gray-a5)'}}>
-          <Table.Root size="1" mb="3">
-            <Table.Body>
-              <Table.Row>
-                <Table.Cell>
-                  <Text size="2">Total counties</Text>
-                </Table.Cell>
-                <Table.Cell justify="end">
-                  <Text size="2" weight="bold">
-                    {allEntries.length}
-                  </Text>
-                </Table.Cell>
-              </Table.Row>
-              <Table.Row>
-                <Table.Cell>
-                  <Text size="2">Split counties (2+ pieces)</Text>
-                </Table.Cell>
-                <Table.Cell justify="end">
-                  <Text size="2" weight="bold">
-                    {splitCounties}
-                  </Text>
-                </Table.Cell>
-              </Table.Row>
-              {unnecessarySplits !== null && (
+            <Table.Root size="1" mb="3">
+              <Table.Body>
                 <Table.Row>
                   <Table.Cell>
-                    <Text size="2">Unnecessarily split counties</Text>
+                    <Text size="2">Total counties</Text>
                   </Table.Cell>
                   <Table.Cell justify="end">
                     <Text size="2" weight="bold">
-                      {unnecessarySplits}
+                      {allEntries.length}
                     </Text>
                   </Table.Cell>
                 </Table.Row>
-              )}
-            </Table.Body>
-          </Table.Root>
+                <Table.Row>
+                  <Table.Cell>
+                    <Text size="2">Split counties (2+ pieces)</Text>
+                  </Table.Cell>
+                  <Table.Cell justify="end">
+                    <Text size="2" weight="bold">
+                      {splitCounties}
+                    </Text>
+                  </Table.Cell>
+                </Table.Row>
+                {unnecessarySplits !== null && (
+                  <Table.Row>
+                    <Table.Cell>
+                      <Text size="2">Unnecessarily split counties</Text>
+                    </Table.Cell>
+                    <Table.Cell justify="end">
+                      <Text size="2" weight="bold">
+                        {unnecessarySplits}
+                      </Text>
+                    </Table.Cell>
+                  </Table.Row>
+                )}
+              </Table.Body>
+            </Table.Root>
           </div>
 
           <Text size="2" weight="bold" mb="2" mt="4" as="p">

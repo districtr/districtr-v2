@@ -155,7 +155,11 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
       <Accordion.Item value="compactness">
         <Accordion.Trigger asChild>
           <Flex align="center" gap="1" className="cursor-pointer w-full group" py="2">
-            <TriangleRightIcon width={16} height={16} className="transition-transform duration-200 group-data-[state=open]:rotate-90" />
+            <TriangleRightIcon
+              width={16}
+              height={16}
+              className="transition-transform duration-200 group-data-[state=open]:rotate-90"
+            />
             <Heading size="4">Compactness</Heading>
           </Flex>
         </Accordion.Trigger>
@@ -227,54 +231,58 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
                 Per-district scores
               </Text>
               <div style={{width: 'fit-content', borderRight: '1px solid var(--gray-a5)'}}>
-              <Table.Root size="1">
-                <Table.Header>
-                  <Table.Row>
-                    <Table.ColumnHeaderCell>District</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="end">Polsby-<br />Popper</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="end">Reock</Table.ColumnHeaderCell>
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {zones.map(zone => (
-                    <Table.Row
-                      key={zone}
-                      tabIndex={0}
-                      onMouseEnter={() => onDistrictEnter(zone)}
-                      onMouseLeave={onDistrictLeave}
-                      onFocus={() => onDistrictEnter(zone)}
-                      onBlur={onDistrictLeave}
-                      onClick={() => zoomToDistrict(Number(zone))}
-                      style={{cursor: 'pointer'}}
-                    >
-                      <Table.Cell>
-                        <Flex align="center" gap="2">
-                          <div
-                            style={{
-                              width: 16,
-                              height: 16,
-                              borderRadius: '50%',
-                              backgroundColor: getZoneColor(Number(zone)),
-                              flexShrink: 0,
-                            }}
-                          />
-                          <Text size="2">{zone}</Text>
-                        </Flex>
-                      </Table.Cell>
-                      <Table.Cell justify="end">
-                        <Text size="2">
-                          {formatNumber(polsby_popper[zone], NUMBER_FORMATS.DECIMAL_3)}
-                        </Text>
-                      </Table.Cell>
-                      <Table.Cell justify="end">
-                        <Text size="2">
-                          {formatNumber((reock ?? {})[zone], NUMBER_FORMATS.DECIMAL_3)}
-                        </Text>
-                      </Table.Cell>
+                <Table.Root size="1">
+                  <Table.Header>
+                    <Table.Row>
+                      <Table.ColumnHeaderCell>District</Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell justify="end">
+                        Polsby-
+                        <br />
+                        Popper
+                      </Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell justify="end">Reock</Table.ColumnHeaderCell>
                     </Table.Row>
-                  ))}
-                </Table.Body>
-              </Table.Root>
+                  </Table.Header>
+                  <Table.Body>
+                    {zones.map(zone => (
+                      <Table.Row
+                        key={zone}
+                        tabIndex={0}
+                        onMouseEnter={() => onDistrictEnter(zone)}
+                        onMouseLeave={onDistrictLeave}
+                        onFocus={() => onDistrictEnter(zone)}
+                        onBlur={onDistrictLeave}
+                        onClick={() => zoomToDistrict(Number(zone))}
+                        style={{cursor: 'pointer'}}
+                      >
+                        <Table.Cell>
+                          <Flex align="center" gap="2">
+                            <div
+                              style={{
+                                width: 16,
+                                height: 16,
+                                borderRadius: '50%',
+                                backgroundColor: getZoneColor(Number(zone)),
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Text size="2">{zone}</Text>
+                          </Flex>
+                        </Table.Cell>
+                        <Table.Cell justify="end">
+                          <Text size="2">
+                            {formatNumber(polsby_popper[zone], NUMBER_FORMATS.DECIMAL_3)}
+                          </Text>
+                        </Table.Cell>
+                        <Table.Cell justify="end">
+                          <Text size="2">
+                            {formatNumber((reock ?? {})[zone], NUMBER_FORMATS.DECIMAL_3)}
+                          </Text>
+                        </Table.Cell>
+                      </Table.Row>
+                    ))}
+                  </Table.Body>
+                </Table.Root>
               </div>
             </>
           )}

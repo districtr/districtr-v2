@@ -50,17 +50,7 @@ export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
           paint={{
             'line-color': '#444',
             'line-opacity': 0.9,
-            'line-width': [
-              'interpolate',
-              ['exponential', 1.6],
-              ['zoom'],
-              6,
-              1.5,
-              9,
-              3,
-              18,
-              5,
-            ],
+            'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 6, 1.5, 9, 3, 18, 5],
           }}
           layout={{
             visibility: mapOptions.showCountyBoundaries ? 'visible' : 'none',

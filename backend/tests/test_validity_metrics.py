@@ -163,7 +163,9 @@ def test_assigned_units_shatterable_split_vtd(
         for pc in range(4)
         if (pr, pc) != (0, 0)
     ]
-    _put_assignments(client, document_id, split_block_assignments + other_vtd_assignments)
+    _put_assignments(
+        client, document_id, split_block_assignments + other_vtd_assignments
+    )
 
     ctx = DocumentEvaluationContext(
         background_tasks=BackgroundTasks(), session=session, document_id=document_id
