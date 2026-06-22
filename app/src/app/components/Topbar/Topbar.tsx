@@ -152,8 +152,7 @@ export const Topbar: React.FC = () => {
                 <DropdownMenu.Sub>
                   <DropdownMenu.SubTrigger
                     disabled={
-                      !mapDocument?.document_id ||
-                      mapDocument.document_id === ANONYMOUS_DOCUMENT_ID
+                      !mapDocument?.document_id || mapDocument.document_id === ANONYMOUS_DOCUMENT_ID
                     }
                   >
                     Export assignments
