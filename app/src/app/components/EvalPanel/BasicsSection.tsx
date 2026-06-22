@@ -80,7 +80,7 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
         <Accordion.Content className="pl-8">
           {/* Data Source and Plan Type */}
           {doc && (
-            <Text size="2" as="p" mt="4" mb="2">
+            <Text size="2" as="p" mb="2">
               {doc.dataSource && (
                 <>
                   Uses <strong>{doc.dataSource}</strong> data.{' '}
