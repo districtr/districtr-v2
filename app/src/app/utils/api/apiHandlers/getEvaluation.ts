@@ -42,6 +42,8 @@ type AssignedUnitsResult = {
   partially_assigned_count: number;
   total_count: number;
   unit_type: string;
+  assigned_child_count: number | null;
+  total_child_count: number | null;
 };
 
 type PopulationDeviationResult = {

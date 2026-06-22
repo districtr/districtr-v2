@@ -102,10 +102,10 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
               height={16}
               className="transition-transform duration-200 group-data-[state=open]:rotate-90"
             />
-            <Heading size="4">Election Results and Partisanship</Heading>
+            <Heading size="5">Election Results and Partisanship</Heading>
           </Flex>
         </Accordion.Trigger>
-        <Accordion.Content>
+        <Accordion.Content className="pl-8">
           {n > 0 && (
             <Text size="2" mb="3" as="p">
               Our current dataset contains{' '}
@@ -151,28 +151,28 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
               <Table.Root size="1" mb="3">
                 <Table.Header>
                   <Table.Row>
-                    <Table.ColumnHeaderCell>Election</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="end">
+                    <Table.ColumnHeaderCell justify="center">Election</Table.ColumnHeaderCell>
+                    <Table.ColumnHeaderCell justify="center">
                       Total
                       <br />
                       Votes
                     </Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="end" style={{color: povColor}}>
-                      {pov === 'dem' ? 'D' : 'R'} Vote
+                    <Table.ColumnHeaderCell justify="center" style={{color: povColor}}>
+                      {pov === 'dem' ? 'Dem' : 'Rep'} Vote
                       <br />
                       Share
                     </Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="end" style={{color: povColor}}>
-                      {pov === 'dem' ? 'D' : 'R'}
+                    <Table.ColumnHeaderCell justify="center" style={{color: povColor}}>
+                      {pov === 'dem' ? 'Dem' : 'Rep'}
                       <br />
                       Districts
                     </Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="end" style={{color: povColor}}>
-                      Seat
+                    <Table.ColumnHeaderCell justify="center" style={{color: povColor}}>
+                      {pov === 'dem' ? 'Dem' : 'Rep'} Seat
                       <br />
                       Share
                     </Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="end">
+                    <Table.ColumnHeaderCell justify="center">
                       Disproportionality
                     </Table.ColumnHeaderCell>
                   </Table.Row>
@@ -190,16 +190,16 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                     const disp = rawDisp !== null ? (pov === 'rep' ? -rawDisp : rawDisp) : null;
                     return (
                       <Table.Row key={key}>
-                        <Table.Cell>
+                        <Table.Cell justify="center">
                           <Text size="2" weight="bold">
                             {formatElectionKey(key)}
                           </Text>
                         </Table.Cell>
-                        <Table.Cell justify="end">
+                        <Table.Cell justify="center">
                           <Text size="2">{votes != null ? votes.total.toLocaleString() : '—'}</Text>
                         </Table.Cell>
                         <Table.Cell
-                          justify="end"
+                          justify="center"
                           style={{
                             backgroundColor:
                               voteShare != null
@@ -213,7 +213,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                             {voteShare != null ? `${(voteShare * 100).toFixed(1)}%` : '—'}
                           </Text>
                         </Table.Cell>
-                        <Table.Cell justify="end">
+                        <Table.Cell justify="center">
                           <Text size="2">
                             {partySeatCount != null && seatTotal
                               ? `${partySeatCount}/${seatTotal}`
@@ -221,7 +221,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                           </Text>
                         </Table.Cell>
                         <Table.Cell
-                          justify="end"
+                          justify="center"
                           style={
                             seatPct !== null
                               ? {
@@ -236,7 +236,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                           </Text>
                         </Table.Cell>
                         <Table.Cell
-                          justify="end"
+                          justify="center"
                           style={{
                             backgroundColor: scaledBg(rawDisp ?? undefined, METRIC_CUTOFF.disp),
                           }}
@@ -265,31 +265,40 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                 The following scores can all be found in the political science literature, but are
                 not necessarily endorsed by leading scholars at this time.
               </Text>
+              <Flex justify="center" align="center" gap="2" mb="2">
+                <Text size="1" color="gray">
+                  Point of View
+                </Text>
+                <SegmentedControl.Root size="1" value={pov} onValueChange={v => setPov(v as Pov)}>
+                  <SegmentedControl.Item value="dem">Democrat</SegmentedControl.Item>
+                  <SegmentedControl.Item value="rep">Republican</SegmentedControl.Item>
+                </SegmentedControl.Root>
+              </Flex>
               <Table.Root size="1" mb="3">
                 <Table.Header>
                   <Table.Row>
-                    <Table.ColumnHeaderCell>Election</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="end">
+                    <Table.ColumnHeaderCell justify="center">Election</Table.ColumnHeaderCell>
+                    <Table.ColumnHeaderCell justify="center">
                       Dispropor-
                       <br />
                       tionality
                     </Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="end">
+                    <Table.ColumnHeaderCell justify="center">
                       Efficiency
                       <br />
                       Gap
                     </Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="end">
+                    <Table.ColumnHeaderCell justify="center">
                       Mean
                       <br />
                       Median
                     </Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="end">
+                    <Table.ColumnHeaderCell justify="center">
                       Partisan
                       <br />
                       Bias
                     </Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="end">
+                    <Table.ColumnHeaderCell justify="center">
                       Eguia's
                       <br />
                       Metric
@@ -299,13 +308,13 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                 <Table.Body>
                   {elections.map(key => (
                     <Table.Row key={key}>
-                      <Table.Cell>
+                      <Table.Cell justify="center">
                         <Text size="2" weight="bold">
                           {formatElectionKey(key)}
                         </Text>
                       </Table.Cell>
                       <Table.Cell
-                        justify="end"
+                        justify="center"
                         style={{
                           backgroundColor: scaledBg(
                             evaluation.disproportionality?.[key],
@@ -321,7 +330,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                         </Text>
                       </Table.Cell>
                       <Table.Cell
-                        justify="end"
+                        justify="center"
                         style={{
                           backgroundColor: scaledBg(
                             evaluation.efficiency_gap?.[key],
@@ -337,7 +346,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                         </Text>
                       </Table.Cell>
                       <Table.Cell
-                        justify="end"
+                        justify="center"
                         style={{
                           backgroundColor: scaledBg(
                             evaluation.mean_median?.[key],
@@ -353,7 +362,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                         </Text>
                       </Table.Cell>
                       <Table.Cell
-                        justify="end"
+                        justify="center"
                         style={{
                           backgroundColor: scaledBg(
                             evaluation.partisan_bias?.[key],
@@ -369,7 +378,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                         </Text>
                       </Table.Cell>
                       <Table.Cell
-                        justify="end"
+                        justify="center"
                         style={{
                           backgroundColor: scaledBg(evaluation.eguia?.[key], METRIC_CUTOFF.eguia),
                         }}
@@ -403,20 +412,20 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                 <Table.Root size="1">
                   <Table.Body>
                     <Table.Row>
-                      <Table.Cell>
+                      <Table.Cell justify="center">
                         <Text size="2">Elections analyzed</Text>
                       </Table.Cell>
-                      <Table.Cell justify="end">
+                      <Table.Cell justify="center">
                         <Text size="2" weight="bold">
                           {competitiveness.n_elections}
                         </Text>
                       </Table.Cell>
                     </Table.Row>
                     <Table.Row>
-                      <Table.Cell>
+                      <Table.Cell justify="center">
                         <Text size="2">Competitive contests</Text>
                       </Table.Cell>
-                      <Table.Cell justify="end">
+                      <Table.Cell justify="center">
                         <Text size="2" weight="bold">
                           {competitiveness.n_competitive_districts} /{' '}
                           {competitiveness.n_districts * competitiveness.n_elections}
@@ -424,30 +433,30 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                       </Table.Cell>
                     </Table.Row>
                     <Table.Row>
-                      <Table.Cell>
+                      <Table.Cell justify="center">
                         <Text size="2">Swing districts</Text>
                       </Table.Cell>
-                      <Table.Cell justify="end">
+                      <Table.Cell justify="center">
                         <Text size="2" weight="bold">
                           {competitiveness.n_swing_districts} / {competitiveness.n_districts}
                         </Text>
                       </Table.Cell>
                     </Table.Row>
                     <Table.Row>
-                      <Table.Cell>
+                      <Table.Cell justify="center">
                         <Text size="2">Safe Dem districts</Text>
                       </Table.Cell>
-                      <Table.Cell justify="end">
+                      <Table.Cell justify="center">
                         <Text size="2" weight="bold">
                           {competitiveness.n_dem_districts} / {competitiveness.n_districts}
                         </Text>
                       </Table.Cell>
                     </Table.Row>
                     <Table.Row>
-                      <Table.Cell>
+                      <Table.Cell justify="center">
                         <Text size="2">Safe Rep districts</Text>
                       </Table.Cell>
-                      <Table.Cell justify="end">
+                      <Table.Cell justify="center">
                         <Text size="2" weight="bold">
                           {competitiveness.n_rep_districts} / {competitiveness.n_districts}
                         </Text>

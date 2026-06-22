@@ -1,7 +1,8 @@
 'use client';
 import {useState} from 'react';
 import * as Accordion from '@radix-ui/react-accordion';
-import {Badge, Flex, Text, Heading, Select} from '@radix-ui/themes';
+import {Flex, Text, Heading, Select} from '@radix-ui/themes';
+import {DistrictLabel} from './DistrictLabel';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
@@ -73,10 +74,10 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
               height={16}
               className="transition-transform duration-200 group-data-[state=open]:rotate-90"
             />
-            <Heading size="4">Basics</Heading>
+            <Heading size="5">Basics</Heading>
           </Flex>
         </Accordion.Trigger>
-        <Accordion.Content>
+        <Accordion.Content className="pl-8">
           {/* Data Source and Plan Type */}
           {doc && (
             <Text size="2" as="p" mt="4" mb="2">
@@ -107,6 +108,20 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
                   are not yet assigned to a district.{' '}
                 </>
               )}
+              {assigned_units.total_child_count !== null &&
+                assigned_units.assigned_child_count !== null &&
+                (() => {
+                  const unassignedBlocks =
+                    assigned_units.total_child_count - assigned_units.assigned_child_count;
+                  return (
+                    <>
+                      <strong>{unassignedBlocks.toLocaleString()}</strong> of{' '}
+                      <strong>{assigned_units.total_child_count.toLocaleString()}</strong>{' '}
+                      {unassignedBlocks === 1 ? 'block is' : 'blocks are'} not yet assigned to a
+                      district.{' '}
+                    </>
+                  );
+                })()}
               This plan is <strong>{isComplete ? 'complete' : 'incomplete'}</strong>.
             </Text>
           )}
@@ -125,19 +140,17 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
               <Text size="2" as="p" mb="1">
                 The following districts are not contiguous:
               </Text>
-              <Flex gap="1" wrap="wrap" mb="2">
+              <Flex gap="2" wrap="wrap" mb="2">
                 {nonContiguousDistricts.map(d => (
-                  <Badge
+                  <DistrictLabel
                     key={d}
-                    style={{cursor: 'pointer'}}
+                    zone={Number(d)}
                     onClick={() => zoomToDistrict(Number(d))}
                     onMouseEnter={() => onDistrictEnter(d)}
                     onMouseLeave={onDistrictLeave}
                     onFocus={() => onDistrictEnter(d)}
                     onBlur={onDistrictLeave}
-                  >
-                    District {d}
-                  </Badge>
+                  />
                 ))}
               </Flex>
             </>
@@ -211,7 +224,7 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
                     <strong>
                       {population_deviation.maximal_absolute_deviation?.toLocaleString() ?? '—'}
                     </strong>{' '}
-                    people
+                    {population_deviation.maximal_absolute_deviation === 1 ? 'person' : 'people'}
                   </>
                 )}
                 .

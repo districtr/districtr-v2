@@ -21,6 +21,8 @@ def assigned_units(context: DocumentEvaluationContext) -> AssignedUnitsResult:
                      all blocks shattered into the same district).
     split_count    — units fully shattered but whose blocks span two or more districts.
     partially_assigned_count — units where only some blocks are assigned.
+    assigned_child_count / total_child_count — block-level counts for shatterable maps,
+                     None for non-shatterable maps.
     """
     unit_to_zone, parent_unit_to_zone = context.split_zone_assignments
     if not context.is_shatterable:
@@ -30,9 +32,20 @@ def assigned_units(context: DocumentEvaluationContext) -> AssignedUnitsResult:
             partially_assigned_count=0,
             total_count=context.num_parent_units,
             unit_type=context.parent_geo_unit_type,
+            assigned_child_count=None,
+            total_child_count=None,
         )
 
     whole_assigned_count = len(parent_unit_to_zone)
+    G = get_graph(context.gerrydb_table)
+
+    parent_covered_children = sum(
+        len(G.nodes[p]["children"])
+        for p in parent_unit_to_zone
+        if "children" in G.nodes[p]
+    )
+    assigned_child_count = len(unit_to_zone) + parent_covered_children
+
     if not unit_to_zone:
         return AssignedUnitsResult(
             assigned_count=whole_assigned_count,
@@ -40,9 +53,10 @@ def assigned_units(context: DocumentEvaluationContext) -> AssignedUnitsResult:
             partially_assigned_count=0,
             total_count=context.num_parent_units,
             unit_type=context.parent_geo_unit_type,
+            assigned_child_count=assigned_child_count,
+            total_child_count=context.num_child_units,
         )
 
-    G = get_graph(context.gerrydb_table)
     partially_assigned_parents = {
         parent for unit in unit_to_zone if (parent := G.nodes[unit].get("parent"))
     }
@@ -67,6 +81,8 @@ def assigned_units(context: DocumentEvaluationContext) -> AssignedUnitsResult:
         - len(fully_shattered_split),
         total_count=context.num_parent_units,
         unit_type=context.parent_geo_unit_type,
+        assigned_child_count=assigned_child_count,
+        total_child_count=context.num_child_units,
     )
 
 

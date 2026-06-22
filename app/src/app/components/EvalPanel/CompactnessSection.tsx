@@ -1,13 +1,14 @@
 'use client';
 import * as Accordion from '@radix-ui/react-accordion';
 import {useMemo} from 'react';
-import {Badge, Flex, Text, Table, Heading} from '@radix-ui/themes';
+import {Flex, Text, Table, Heading} from '@radix-ui/themes';
+import {DistrictLabel} from './DistrictLabel';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {useDistrictHover} from '@/app/hooks/useDistrictHover';
 import {formatNumber} from '@/app/utils/numbers';
 import {NUMBER_FORMATS} from '@/app/constants/demography/format';
-import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
+
 import {useZoomToDistrict} from '@/app/hooks/useZoomToDistrict';
 
 // Scores computed on EPSG:5070 (NAD83 / Conus Albers) via gerrytools.
@@ -73,7 +74,7 @@ const ExemplarTable: React.FC<ExemplarTableProps> = ({scoreKey, exemplars}) => {
     <Table.Root size="1" mb="3">
       <Table.Body>
         <Table.Row>
-          <Table.Cell>
+          <Table.Cell justify="center">
             <Text size="1">{SCORE_LABEL[scoreKey]}</Text>
           </Table.Cell>
           {exemplars.map(e => (
@@ -83,7 +84,7 @@ const ExemplarTable: React.FC<ExemplarTableProps> = ({scoreKey, exemplars}) => {
           ))}
         </Table.Row>
         <Table.Row>
-          <Table.Cell style={{verticalAlign: 'middle'}}>
+          <Table.Cell justify="center" style={{verticalAlign: 'middle'}}>
             <Text size="1">...is exemplified by...</Text>
           </Table.Cell>
           {exemplars.map(e => (
@@ -104,7 +105,7 @@ const ExemplarTable: React.FC<ExemplarTableProps> = ({scoreKey, exemplars}) => {
           ))}
         </Table.Row>
         <Table.Row>
-          <Table.Cell>
+          <Table.Cell justify="center">
             <Text size="1">Source</Text>
           </Table.Cell>
           {exemplars.map(e => (
@@ -120,7 +121,6 @@ const ExemplarTable: React.FC<ExemplarTableProps> = ({scoreKey, exemplars}) => {
 
 export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluation}) => {
   const {cut_edges, polsby_popper, reock} = evaluation;
-  const getZoneColor = useZoneColorGetter();
   const {onDistrictEnter, onDistrictLeave} = useDistrictHover();
   const zoomToDistrict = useZoomToDistrict();
   const zones = useMemo(
@@ -160,10 +160,10 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
               height={16}
               className="transition-transform duration-200 group-data-[state=open]:rotate-90"
             />
-            <Heading size="4">Compactness</Heading>
+            <Heading size="5">Compactness</Heading>
           </Flex>
         </Accordion.Trigger>
-        <Accordion.Content>
+        <Accordion.Content className="pl-8">
           {/* Cut Edges */}
           <Heading size="3" align="center" mb="2" mt="4">
             Cut Edges
@@ -234,13 +234,13 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
                 <Table.Root size="1">
                   <Table.Header>
                     <Table.Row>
-                      <Table.ColumnHeaderCell>District</Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell justify="end">
+                      <Table.ColumnHeaderCell justify="center">District</Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell justify="center">
                         Polsby-
                         <br />
                         Popper
                       </Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell justify="end">Reock</Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell justify="center">Reock</Table.ColumnHeaderCell>
                     </Table.Row>
                   </Table.Header>
                   <Table.Body>
@@ -255,26 +255,15 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
                         onClick={() => zoomToDistrict(Number(zone))}
                         style={{cursor: 'pointer'}}
                       >
-                        <Table.Cell>
-                          <Flex align="center" gap="2">
-                            <div
-                              style={{
-                                width: 16,
-                                height: 16,
-                                borderRadius: '50%',
-                                backgroundColor: getZoneColor(Number(zone)),
-                                flexShrink: 0,
-                              }}
-                            />
-                            <Badge>{zone}</Badge>
-                          </Flex>
+                        <Table.Cell justify="center">
+                          <DistrictLabel zone={Number(zone)} />
                         </Table.Cell>
-                        <Table.Cell justify="end">
+                        <Table.Cell justify="center">
                           <Text size="2">
                             {formatNumber(polsby_popper[zone], NUMBER_FORMATS.DECIMAL_3)}
                           </Text>
                         </Table.Cell>
-                        <Table.Cell justify="end">
+                        <Table.Cell justify="center">
                           <Text size="2">
                             {formatNumber((reock ?? {})[zone], NUMBER_FORMATS.DECIMAL_3)}
                           </Text>

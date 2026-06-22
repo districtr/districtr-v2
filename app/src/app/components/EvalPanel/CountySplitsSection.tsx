@@ -1,6 +1,6 @@
 'use client';
 import * as Accordion from '@radix-ui/react-accordion';
-import {Flex, Text, Table, Heading, Switch} from '@radix-ui/themes';
+import {Flex, Text, Table, Heading, Switch, ScrollArea} from '@radix-ui/themes';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {useMapStore} from '@store/mapStore';
@@ -66,13 +66,13 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
               height={16}
               className="transition-transform duration-200 group-data-[state=open]:rotate-90"
             />
-            <Heading size="4">Splits</Heading>
+            <Heading size="5">Splits</Heading>
           </Flex>
         </Accordion.Trigger>
-        <Accordion.Content>
+        <Accordion.Content className="pl-8">
           {/* Unit Assignment */}
           <Heading size="3" align="center" mb="2" mt="4">
-            Higher-level Unit Splits
+            Unit Splits
           </Heading>
           {unitLabel && (
             <Text size="2" as="p" mb="2">
@@ -81,68 +81,38 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
             </Text>
           )}
           {assignedUnits && unitTotalCount !== null && (
-            <div style={{width: 'fit-content', borderRight: '1px solid var(--gray-a5)'}}>
-              <Table.Root size="1" mb="3">
-                <Table.Body>
-                  <Table.Row>
-                    <Table.Cell>
-                      <Text size="2">Total {unitLabel ?? 'units'}</Text>
-                    </Table.Cell>
-                    <Table.Cell justify="end">
-                      <Text size="2" weight="bold">
-                        {unitTotalCount.toLocaleString()}
-                      </Text>
-                    </Table.Cell>
-                  </Table.Row>
-                  <Table.Row>
-                    <Table.Cell>
-                      <Text size="2">Fully assigned to one district</Text>
-                    </Table.Cell>
-                    <Table.Cell justify="end">
-                      <Text size="2" weight="bold">
-                        {unitAssignedCount.toLocaleString()}
-                      </Text>
-                    </Table.Cell>
-                  </Table.Row>
-                  {unitSplitCount > 0 && (
-                    <Table.Row>
-                      <Table.Cell>
-                        <Text size="2">Fully assigned but split across districts</Text>
-                      </Table.Cell>
-                      <Table.Cell justify="end">
-                        <Text size="2" weight="bold" color="orange">
-                          {unitSplitCount.toLocaleString()}
-                        </Text>
-                      </Table.Cell>
-                    </Table.Row>
-                  )}
-                  {unitPartialCount > 0 && (
-                    <Table.Row>
-                      <Table.Cell>
-                        <Text size="2">Partially assigned</Text>
-                      </Table.Cell>
-                      <Table.Cell justify="end">
-                        <Text size="2" weight="bold" color="orange">
-                          {unitPartialCount.toLocaleString()}
-                        </Text>
-                      </Table.Cell>
-                    </Table.Row>
-                  )}
-                  {unitUnassignedCount !== null && unitUnassignedCount > 0 && (
-                    <Table.Row>
-                      <Table.Cell>
-                        <Text size="2">Unassigned</Text>
-                      </Table.Cell>
-                      <Table.Cell justify="end">
-                        <Text size="2" weight="bold" color="red">
-                          {unitUnassignedCount.toLocaleString()}
-                        </Text>
-                      </Table.Cell>
-                    </Table.Row>
-                  )}
-                </Table.Body>
-              </Table.Root>
-            </div>
+            <Text size="2" as="p" mb="2">
+              {(() => {
+                const fullyAssigned = unitAssignedCount + unitSplitCount;
+                const label = unitLabel ?? 'units';
+                return (
+                  <>
+                    Out of the total <strong>{unitTotalCount.toLocaleString()}</strong> {label},{' '}
+                    <strong>{fullyAssigned.toLocaleString()}</strong> are fully assigned
+                    {unitSplitCount > 0 && (
+                      <>
+                        {' '}
+                        (<strong>{unitAssignedCount.toLocaleString()}</strong> whole and{' '}
+                        <strong>{unitSplitCount.toLocaleString()}</strong> split)
+                      </>
+                    )}
+                    {unitPartialCount > 0 && (
+                      <>
+                        , with <strong color="orange">{unitPartialCount.toLocaleString()}</strong>{' '}
+                        partially assigned
+                      </>
+                    )}
+                    {unitUnassignedCount !== null && unitUnassignedCount > 0 && (
+                      <>
+                        {' '}
+                        and <strong>{unitUnassignedCount.toLocaleString()}</strong> unassigned
+                      </>
+                    )}
+                    .
+                  </>
+                );
+              })()}
+            </Text>
           )}
 
           {/* County Splits */}
@@ -175,20 +145,20 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
             <Table.Root size="1" mb="3">
               <Table.Body>
                 <Table.Row>
-                  <Table.Cell>
+                  <Table.Cell justify="center">
                     <Text size="2">Total counties</Text>
                   </Table.Cell>
-                  <Table.Cell justify="end">
+                  <Table.Cell justify="center">
                     <Text size="2" weight="bold">
                       {allEntries.length}
                     </Text>
                   </Table.Cell>
                 </Table.Row>
                 <Table.Row>
-                  <Table.Cell>
+                  <Table.Cell justify="center">
                     <Text size="2">Split counties (2+ pieces)</Text>
                   </Table.Cell>
-                  <Table.Cell justify="end">
+                  <Table.Cell justify="center">
                     <Text size="2" weight="bold">
                       {splitCounties}
                     </Text>
@@ -196,10 +166,10 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                 </Table.Row>
                 {unnecessarySplits !== null && (
                   <Table.Row>
-                    <Table.Cell>
+                    <Table.Cell justify="center">
                       <Text size="2">Unnecessarily split counties</Text>
                     </Table.Cell>
-                    <Table.Cell justify="end">
+                    <Table.Cell justify="center">
                       <Text size="2" weight="bold">
                         {unnecessarySplits}
                       </Text>
@@ -239,29 +209,29 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
               );
             }
             return (
-              <div
-                className={
-                  unnecessarySplitEntries.length > 15
-                    ? 'max-h-[400px] overflow-y-auto print:max-h-none print:overflow-visible'
-                    : undefined
-                }
-                style={{width: 'fit-content', borderRight: '1px solid var(--gray-a5)'}}
+              <ScrollArea
+                className={unnecessarySplitEntries.length > 15 ? 'print:max-h-none' : undefined}
+                style={{
+                  width: 'fit-content',
+                  borderRight: '1px solid var(--gray-a5)',
+                  ...(unnecessarySplitEntries.length > 15 ? {maxHeight: 400} : {}),
+                }}
               >
                 <Table.Root size="1">
                   <Table.Header>
                     <Table.Row>
-                      <Table.ColumnHeaderCell>County Name</Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell justify="end">
+                      <Table.ColumnHeaderCell justify="center">County Name</Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell justify="center">
                         County
                         <br />
                         Population
                       </Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell justify="end">
+                      <Table.ColumnHeaderCell justify="center">
                         How Many
                         <br />
                         Districts&apos; Worth
                       </Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell justify="end">
+                      <Table.ColumnHeaderCell justify="center">
                         Pieces in
                         <br />
                         This Plan
@@ -281,16 +251,16 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                           onBlur={() => setHoveredCountyGeoid(null)}
                           style={{cursor: 'default'}}
                         >
-                          <Table.Cell>
+                          <Table.Cell justify="center">
                             <Text size="2">{name}</Text>
                           </Table.Cell>
-                          <Table.Cell justify="end">
+                          <Table.Cell justify="center">
                             <Text size="2">{pop.toLocaleString()}</Text>
                           </Table.Cell>
-                          <Table.Cell justify="end">
+                          <Table.Cell justify="center">
                             <Text size="2">{worth.toFixed(2)}</Text>
                           </Table.Cell>
-                          <Table.Cell justify="end">
+                          <Table.Cell justify="center">
                             <Text size="2">{actual}</Text>
                           </Table.Cell>
                         </Table.Row>
@@ -298,7 +268,7 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                     })}
                   </Table.Body>
                 </Table.Root>
-              </div>
+              </ScrollArea>
             );
           })()}
         </Accordion.Content>

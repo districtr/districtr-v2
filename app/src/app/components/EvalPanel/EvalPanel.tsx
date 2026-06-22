@@ -67,7 +67,7 @@ export const EvalPanel: React.FC = () => {
       )}
 
       {evaluation && (
-        <Flex direction="column" gap="5" px="5" pb="5">
+        <Flex direction="column" gap="5" pl="2" pr="5" pb="5">
           <BasicsSection evaluation={evaluation} />
           <PartisanSection evaluation={evaluation} />
           <CountySplitsSection evaluation={evaluation} />

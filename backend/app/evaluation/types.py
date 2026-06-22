@@ -69,6 +69,8 @@ class AssignedUnitsResult(TypedDict):
     partially_assigned_count: int
     total_count: int
     unit_type: GeoUnitType
+    assigned_child_count: int | None
+    total_child_count: int | None
 
 
 class PopulationDeviationResults(TypedDict):
