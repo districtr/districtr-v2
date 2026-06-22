@@ -19,6 +19,7 @@ import {idb} from '@/app/utils/idb/idb';
 import {RevertPopover} from './RevertPopover';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {sanitizeCommunityMaps, sanitizeCommunityModuleName} from '@/app/utils/communities';
+import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
 import {MAP_MODES, type MapMode} from '@constants/map/mode';
 import {routeForMode} from '@constants/document/routes';
 import {MAP_TYPES} from '@constants/document/types';
@@ -149,7 +150,12 @@ export const Topbar: React.FC = () => {
                   </DropdownMenu.Sub>
                 )}
                 <DropdownMenu.Sub>
-                  <DropdownMenu.SubTrigger disabled={!mapDocument?.document_id}>
+                  <DropdownMenu.SubTrigger
+                    disabled={
+                      !mapDocument?.document_id ||
+                      mapDocument.document_id === ANONYMOUS_DOCUMENT_ID
+                    }
+                  >
                     Export assignments
                   </DropdownMenu.SubTrigger>
                   <DropdownMenu.SubContent>
