@@ -1,7 +1,7 @@
 'use client';
 import * as Accordion from '@radix-ui/react-accordion';
 import {useMemo} from 'react';
-import {Flex, Text, Table, Heading} from '@radix-ui/themes';
+import {Badge, Flex, Text, Table, Heading} from '@radix-ui/themes';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {useDistrictHover} from '@/app/hooks/useDistrictHover';
@@ -266,7 +266,7 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
                                 flexShrink: 0,
                               }}
                             />
-                            <Text size="2">{zone}</Text>
+                            <Badge>{zone}</Badge>
                           </Flex>
                         </Table.Cell>
                         <Table.Cell justify="end">

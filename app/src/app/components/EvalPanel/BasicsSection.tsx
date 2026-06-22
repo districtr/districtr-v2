@@ -1,7 +1,7 @@
 'use client';
 import {useState} from 'react';
 import * as Accordion from '@radix-ui/react-accordion';
-import {Flex, Text, Heading, Select} from '@radix-ui/themes';
+import {Badge, Flex, Text, Heading, Select} from '@radix-ui/themes';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
@@ -121,13 +121,15 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
             contiguity can be subtle because of bodies of water and because of disconnected units.
           </Text>
           {nonContiguousDistricts.length > 0 && (
-            <Text size="2" as="p" mb="2">
-              The following districts are not contiguous:{' '}
-              {nonContiguousDistricts.map((d, i) => (
-                <span key={d}>
-                  <button
-                    type="button"
-                    style={{...HOVER_BTN_STYLE, cursor: 'pointer'}}
+            <>
+              <Text size="2" as="p" mb="1">
+                The following districts are not contiguous:
+              </Text>
+              <Flex gap="1" wrap="wrap" mb="2">
+                {nonContiguousDistricts.map(d => (
+                  <Badge
+                    key={d}
+                    style={{cursor: 'pointer'}}
                     onClick={() => zoomToDistrict(Number(d))}
                     onMouseEnter={() => onDistrictEnter(d)}
                     onMouseLeave={onDistrictLeave}
@@ -135,11 +137,10 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
                     onBlur={onDistrictLeave}
                   >
                     District {d}
-                  </button>
-                  {i < nonContiguousDistricts.length - 1 ? ', ' : ''}
-                </span>
-              ))}
-            </Text>
+                  </Badge>
+                ))}
+              </Flex>
+            </>
           )}
 
           {/* Population Deviation */}
