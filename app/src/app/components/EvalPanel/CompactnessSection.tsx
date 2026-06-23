@@ -230,9 +230,31 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
               <Text size="2" weight="bold" mb="2" mt="4" as="p">
                 Per-district scores
               </Text>
-              <div style={{width: 'fit-content', borderRight: '1px solid var(--gray-a5)'}}>
-                <Table.Root size="1">
-                  <Table.Header>
+              {/* Table.Root hardcodes a ScrollArea wrapper (overflow:scroll) which breaks
+                  position:sticky on Table.Header. This is a known open issue in Radix Themes:
+                  https://github.com/radix-ui/themes/issues/584 (optional scrollArea prop)
+                  https://github.com/radix-ui/themes/issues/767 (sticky header broken)
+                  Workaround: apply Radix's own CSS classes to our own scroll div and render
+                  a plain <table> inside. Sub-components have no context dep on Table.Root. */}
+              <div
+                className={`rt-TableRoot rt-r-size-1 rt-variant-ghost${zones.length > 15 ? ' print:max-h-none' : ''}`}
+                style={{
+                  width: 'fit-content',
+                  borderRight: '1px solid var(--gray-a5)',
+                  ...(zones.length > 15
+                    ? {maxHeight: 400, overflowY: 'auto', paddingRight: 6}
+                    : {}),
+                }}
+              >
+                <table className="rt-TableRootTable">
+                  <Table.Header
+                    style={{
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 1,
+                      backgroundColor: 'var(--color-panel-solid)',
+                    }}
+                  >
                     <Table.Row>
                       <Table.ColumnHeaderCell justify="center">District</Table.ColumnHeaderCell>
                       <Table.ColumnHeaderCell justify="center">
@@ -255,15 +277,15 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
                         onClick={() => zoomToDistrict(Number(zone))}
                         style={{cursor: 'pointer'}}
                       >
-                        <Table.Cell justify="center">
+                        <Table.Cell justify="center" style={{verticalAlign: 'middle'}}>
                           <DistrictLabel zone={Number(zone)} />
                         </Table.Cell>
-                        <Table.Cell justify="center">
+                        <Table.Cell justify="center" style={{verticalAlign: 'middle'}}>
                           <Text size="2">
                             {formatNumber(polsby_popper[zone], NUMBER_FORMATS.DECIMAL_3)}
                           </Text>
                         </Table.Cell>
-                        <Table.Cell justify="center">
+                        <Table.Cell justify="center" style={{verticalAlign: 'middle'}}>
                           <Text size="2">
                             {formatNumber((reock ?? {})[zone], NUMBER_FORMATS.DECIMAL_3)}
                           </Text>
@@ -271,7 +293,7 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
                       </Table.Row>
                     ))}
                   </Table.Body>
-                </Table.Root>
+                </table>
               </div>
             </>
           )}

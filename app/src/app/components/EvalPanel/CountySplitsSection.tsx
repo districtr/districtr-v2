@@ -1,6 +1,6 @@
 'use client';
 import * as Accordion from '@radix-ui/react-accordion';
-import {Flex, Text, Table, Heading, Switch, ScrollArea} from '@radix-ui/themes';
+import {Flex, Text, Table, Heading, Switch} from '@radix-ui/themes';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {useMapStore} from '@store/mapStore';
@@ -208,17 +208,29 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                 </Text>
               );
             }
+            // See https://github.com/radix-ui/themes/issues/584 and /767 —
+            // Table.Root wraps in ScrollArea (overflow:scroll) which breaks position:sticky.
+            // Workaround: use Radix CSS classes on our own scroll div + plain <table>.
             return (
-              <ScrollArea
-                className={unnecessarySplitEntries.length > 15 ? 'print:max-h-none' : undefined}
+              <div
+                className={`rt-TableRoot rt-r-size-1 rt-variant-ghost${unnecessarySplitEntries.length > 15 ? ' print:max-h-none' : ''}`}
                 style={{
                   width: 'fit-content',
                   borderRight: '1px solid var(--gray-a5)',
-                  ...(unnecessarySplitEntries.length > 15 ? {maxHeight: 400} : {}),
+                  ...(unnecessarySplitEntries.length > 15
+                    ? {maxHeight: 400, overflowY: 'auto', paddingRight: 6}
+                    : {}),
                 }}
               >
-                <Table.Root size="1">
-                  <Table.Header>
+                <table className="rt-TableRootTable">
+                  <Table.Header
+                    style={{
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 1,
+                      backgroundColor: 'var(--color-panel-solid)',
+                    }}
+                  >
                     <Table.Row>
                       <Table.ColumnHeaderCell justify="center">County Name</Table.ColumnHeaderCell>
                       <Table.ColumnHeaderCell justify="center">
@@ -267,8 +279,8 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                       );
                     })}
                   </Table.Body>
-                </Table.Root>
-              </ScrollArea>
+                </table>
+              </div>
             );
           })()}
         </Accordion.Content>
