@@ -326,8 +326,11 @@ async def get_document_stats(
     )
 
 
+# Sync def: a cold get_graph (S3 fetch + unpickle) inside compute_metrics
+# runs for seconds; a plain def hands the whole request to FastAPI's
+# threadpool so it never blocks the event loop (or ALB health checks).
 @app.get("/api/document/{document_id}/evaluation", response_model=MetricsEnvelope)
-async def get_document_evaluation(
+def get_document_evaluation(
     background_tasks: BackgroundTasks,
     document: Annotated[Document, Depends(get_protected_document)],
     # TODO: consider using Annotated more consistently across dependencies.
