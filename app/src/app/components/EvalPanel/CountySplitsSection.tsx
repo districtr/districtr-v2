@@ -98,7 +98,10 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                     )}
                     {unitPartialCount > 0 && (
                       <>
-                        , with <strong color="orange">{unitPartialCount.toLocaleString()}</strong>{' '}
+                        , with{' '}
+                        <Text as="span" color="orange" weight="bold">
+                          {unitPartialCount.toLocaleString()}
+                        </Text>{' '}
                         partially assigned
                       </>
                     )}
@@ -213,13 +216,10 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
             // Workaround: use Radix CSS classes on our own scroll div + plain <table>.
             return (
               <div
-                className={`rt-TableRoot rt-r-size-1 rt-variant-ghost${unnecessarySplitEntries.length > 15 ? ' print:max-h-none' : ''}`}
+                className={`rt-TableRoot rt-r-size-1 rt-variant-ghost${unnecessarySplitEntries.length > 15 ? ' max-h-[400px] overflow-y-auto pr-[6px] print:max-h-none print:overflow-visible print:pr-0' : ''}`}
                 style={{
                   width: 'fit-content',
                   borderRight: '1px solid var(--gray-a5)',
-                  ...(unnecessarySplitEntries.length > 15
-                    ? {maxHeight: 400, overflowY: 'auto', paddingRight: 6}
-                    : {}),
                 }}
               >
                 <table className="rt-TableRootTable">

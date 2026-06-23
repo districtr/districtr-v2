@@ -15,6 +15,11 @@ Grid integration topology (8×8 blocks / 4×4 VTDs, 16 nodes each):
         {3,4}     → zone 2 (total_pop_20=300+400=700)
         top_to_bottom_deviation = (1400−700)/700 = 1.0
         ideal = 2100 // 2 = 1050  →  maximal_absolute_deviation = 350
+
+    Malformed state — parent + some children coexist in the same assignment set:
+        A single PUT containing both VTD(0,0) and 2 of its 4 blocks causes both the
+        parent and the children to land in assignments (healing only fires when ALL
+        children are present).  assigned_units should raise ValueError.
 """
 
 from datetime import datetime
@@ -351,3 +356,44 @@ def test_ideal_population_uses_map_num_districts_not_assigned_count(
         background_tasks=BackgroundTasks(), session=session, document_id=document_id
     )
     assert ideal_population(ctx) == 1050
+
+
+# ── malformed state: parent and children coexist in assignments ───────────────
+#
+# Reachable via incremental drawing: user assigns a VTD as a whole, then paints
+# individual blocks within it.  Each PUT is independently valid so the DB ends up
+# holding both the parent entry and child entries for the same VTD.
+
+
+def test_malformed_parent_and_some_children_coexist(
+    client, session: Session, grid_shatterable_districtr_map, mock_grid_graph_file
+):
+    """VTD(0,0) and 2 of its 4 blocks all sent in one PUT, along with 15 whole VTDs.
+
+    _heal_with_graph only heals when ALL children are present, so VTD(0,0) and the
+    2 blocks both survive into assignments.  assigned_units must raise ValueError
+    rather than silently returning inconsistent counts.
+    """
+    resp = client.post(
+        "/api/create_document", json={"districtr_map_slug": "grid_shatterable"}
+    )
+    assert resp.status_code == 201
+    document_id = resp.json()["document_id"]
+
+    malformed = [
+        [_vtd_geoid(0, 0), 1],
+        [_block_geoid(0, 0), 1],
+        [_block_geoid(0, 1), 1],
+    ] + [
+        [_vtd_geoid(pr, pc), 1]
+        for pr in range(4)
+        for pc in range(4)
+        if (pr, pc) != (0, 0)
+    ]
+    _put_assignments(client, document_id, malformed)
+
+    ctx = DocumentEvaluationContext(
+        background_tasks=BackgroundTasks(), session=session, document_id=document_id
+    )
+    with pytest.raises(ValueError, match="Malformed assignments"):
+        assigned_units(ctx)

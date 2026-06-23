@@ -3,6 +3,8 @@ Computes basic evaluation information, including the number of blocks assigned,
 contiguity, and population deviation.
 """
 
+import logging
+
 from app.contiguity.main import check_subgraph_contiguity
 from app.evaluation.context import DocumentEvaluationContext, TOTAL_POP_COL
 from app.evaluation.graph import get_graph
@@ -12,6 +14,8 @@ from app.evaluation.types import (
     UnassignedPopulation,
     DistrictId,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def assigned_units(context: DocumentEvaluationContext) -> AssignedUnitsResult:
@@ -61,6 +65,14 @@ def assigned_units(context: DocumentEvaluationContext) -> AssignedUnitsResult:
         parent for unit in unit_to_zone if (parent := G.nodes[unit].get("parent"))
     }
 
+    conflicting = partially_assigned_parents & parent_unit_to_zone.keys()
+    if conflicting:
+        raise ValueError(
+            f"Malformed assignments: {len(conflicting)} parent unit(s) appear alongside "
+            f"individual child assignments for the same unit: {conflicting}. "
+            "A parent and its children should not both be present in assignments."
+        )
+
     fully_shattered_one: set[str] = set()
     fully_shattered_split: set[str] = set()
     for parent in partially_assigned_parents:
@@ -71,6 +83,10 @@ def assigned_units(context: DocumentEvaluationContext) -> AssignedUnitsResult:
         if len(zones) > 1:
             fully_shattered_split.add(parent)
         else:
+            logger.warning(
+                "Parent unit %s is fully shattered into one zone — expected healing to have replaced its children with a single parent assignment",
+                parent,
+            )
             fully_shattered_one.add(parent)
 
     return AssignedUnitsResult(
