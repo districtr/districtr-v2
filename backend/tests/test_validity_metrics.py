@@ -77,6 +77,8 @@ def test_assigned_units_all(
     assert result["partially_assigned_count"] == 0
     assert result["total_count"] == 16
     assert result["unit_type"] == "vtd"
+    assert result["assigned_child_count"] is None
+    assert result["total_child_count"] is None
 
 
 def test_assigned_units_partial(
@@ -103,6 +105,8 @@ def test_assigned_units_partial(
     assert result["split_count"] == 0
     assert result["partially_assigned_count"] == 0
     assert result["total_count"] == 16
+    assert result["assigned_child_count"] is None
+    assert result["total_child_count"] is None
 
 
 # ── assigned_units: shatterable map, parent-only assignments ──────────────────
@@ -133,6 +137,9 @@ def test_assigned_units_shatterable_parent_only(
     assert result["partially_assigned_count"] == 0
     assert result["total_count"] == 16
     assert result["unit_type"] == "vtd"
+    # Shatterable: all 16 VTDs × 4 blocks each = 64 blocks covered via parent assignments
+    assert result["assigned_child_count"] == 64
+    assert result["total_child_count"] == 64
 
 
 def test_assigned_units_shatterable_split_vtd(
@@ -177,6 +184,102 @@ def test_assigned_units_shatterable_split_vtd(
     assert result["partially_assigned_count"] == 0
     assert result["total_count"] == 16
     assert result["unit_type"] == "vtd"
+    # 4 blocks directly in unit_to_zone + 15 VTDs × 4 blocks each = 64 total assigned blocks
+    assert result["assigned_child_count"] == 64
+    assert result["total_child_count"] == 64
+
+
+def test_assigned_units_shatterable_fully_shattered_one_zone(
+    client, session: Session, grid_shatterable_districtr_map, mock_grid_graph_file
+):
+    """Shatterable map: one VTD fully shattered but all blocks in the same district.
+
+    VTD(0,0) blocks: all 4 → zone 1.  This hits the fully_shattered_one path:
+    the VTD counts as assigned_count (not split_count), and all 64 blocks are covered.
+    Remaining 15 VTDs assigned whole → zone 1.
+    """
+    resp = client.post(
+        "/api/create_document", json={"districtr_map_slug": "grid_shatterable"}
+    )
+    assert resp.status_code == 201
+    document_id = resp.json()["document_id"]
+
+    one_zone_block_assignments = [
+        [_block_geoid(0, 0), 1],
+        [_block_geoid(0, 1), 1],
+        [_block_geoid(1, 0), 1],
+        [_block_geoid(1, 1), 1],
+    ]
+    other_vtd_assignments = [
+        [_vtd_geoid(pr, pc), 1]
+        for pr in range(4)
+        for pc in range(4)
+        if (pr, pc) != (0, 0)
+    ]
+    _put_assignments(
+        client, document_id, one_zone_block_assignments + other_vtd_assignments
+    )
+
+    ctx = DocumentEvaluationContext(
+        background_tasks=BackgroundTasks(), session=session, document_id=document_id
+    )
+    result = assigned_units(ctx)
+
+    assert result["assigned_count"] == 16  # fully_shattered_one counts as assigned
+    assert result["split_count"] == 0
+    assert result["partially_assigned_count"] == 0
+    assert result["total_count"] == 16
+    assert result["unit_type"] == "vtd"
+    # 4 direct blocks + 15 VTDs × 4 blocks each = 64
+    assert result["assigned_child_count"] == 64
+    assert result["total_child_count"] == 64
+
+
+def test_assigned_units_shatterable_partial_blocks(
+    client, session: Session, grid_shatterable_districtr_map, mock_grid_graph_file
+):
+    """Shatterable map: one VTD partially shattered (only 2 of 4 blocks assigned).
+
+    VTD(0,0) blocks: (0,0),(0,1) → zone 1; (1,0),(1,1) unassigned.
+    This hits the partially_assigned path: the parent VTD is neither fully
+    shattered nor whole-assigned.  assigned_child_count reflects only the
+    blocks that are actually assigned (2 + 15×4 = 62, not 64).
+    Remaining 15 VTDs assigned whole → zone 1.
+    """
+    resp = client.post(
+        "/api/create_document", json={"districtr_map_slug": "grid_shatterable"}
+    )
+    assert resp.status_code == 201
+    document_id = resp.json()["document_id"]
+
+    partial_block_assignments = [
+        [_block_geoid(0, 0), 1],
+        [_block_geoid(0, 1), 1],
+        # (1,0) and (1,1) intentionally left unassigned
+    ]
+    other_vtd_assignments = [
+        [_vtd_geoid(pr, pc), 1]
+        for pr in range(4)
+        for pc in range(4)
+        if (pr, pc) != (0, 0)
+    ]
+    _put_assignments(
+        client, document_id, partial_block_assignments + other_vtd_assignments
+    )
+
+    ctx = DocumentEvaluationContext(
+        background_tasks=BackgroundTasks(), session=session, document_id=document_id
+    )
+    result = assigned_units(ctx)
+
+    assert result["assigned_count"] == 15
+    assert result["split_count"] == 0
+    assert result["partially_assigned_count"] == 1
+    assert result["total_count"] == 16
+    assert result["unit_type"] == "vtd"
+    # 2 direct blocks + 15 VTDs × 4 blocks each = 62 (2 unassigned blocks excluded)
+    assert result["assigned_child_count"] == 62
+    assert result["total_child_count"] == 64
 
 
 # ── population_deviation ──────────────────────────────────────────────────────
