@@ -1,6 +1,5 @@
 'use client';
 import {Source} from 'react-map-gl/maplibre';
-import {EMPTY_FT_COLLECTION} from '@/app/constants/map/layerStyle';
 import {
   SELECTION_POINTS_SOURCE_ID,
   SELECTION_POINTS_SOURCE_ID_CHILD,
@@ -8,23 +7,21 @@ import {
 import {usePointData} from '@/app/hooks/usePointData';
 
 // PointSource component manages the point data sources for both parent and child layers
-export const PointSource: React.FC<{children: React.ReactNode}> = ({children}) => {
-  const parentData = usePointData(false);
-  const childData = usePointData(true);
+export const PointSource: React.FC<{children: React.ReactNode; isPublic?: boolean}> = ({
+  children,
+  isPublic,
+}) => {
+  const parentData = usePointData(false, isPublic);
+  const childData = usePointData(true, isPublic);
 
   return (
     <>
-      <Source
-        id={SELECTION_POINTS_SOURCE_ID}
-        type="geojson"
-        promoteId="path"
-        data={parentData.current || EMPTY_FT_COLLECTION}
-      />
+      <Source id={SELECTION_POINTS_SOURCE_ID} type="geojson" promoteId="path" data={parentData} />
       <Source
         id={SELECTION_POINTS_SOURCE_ID_CHILD}
         type="geojson"
         promoteId="path"
-        data={childData.current || EMPTY_FT_COLLECTION}
+        data={childData}
       />
       {children}
     </>

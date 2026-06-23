@@ -87,7 +87,7 @@ export const PublicDemographicMap: React.FC = () => {
         )}
       </BlockSource>
       <OverlayLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.overlays} />
-      <PointSource>
+      <PointSource isPublic>
         <MetaLayers isDemographicMap={true} />
       </PointSource>
       <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
