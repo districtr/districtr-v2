@@ -213,7 +213,7 @@ def _generate_thumbnail(
 
 
 @router.get("/api/document/{document_id}/thumbnail", status_code=status.HTTP_200_OK)
-async def get_thumbnail(*, document_id: str, session: Session = Depends(get_session)):
+def get_thumbnail(*, document_id: str, session: Session = Depends(get_session)):
     thumbail_file_path = get_document_thumbnail_file_path(document_id)
     if file_exists(thumbail_file_path):
         return RedirectResponse(url=f"{settings.cnd_url}/thumbnails/{document_id}.png")

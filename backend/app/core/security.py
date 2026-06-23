@@ -49,11 +49,14 @@ class VerifyToken:
         jwks_url = f"https://{self.config.AUTH0_DOMAIN}/.well-known/jwks.json"
         self.jwks_client = jwt.PyJWKClient(jwks_url)
 
-    async def verify(
+    def verify(
         self,
         security_scopes: SecurityScopes,
         token: HTTPAuthorizationCredentials | None = Depends(HTTPBearer()),
     ) -> dict:
+        # Deliberately sync: FastAPI runs sync dependencies in the threadpool, which
+        # keeps the blocking JWKS fetch (urllib, on cache miss/expiry) and jwt.decode
+        # off the event loop.
         if token is None:
             raise UnauthenticatedException
 

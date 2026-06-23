@@ -303,7 +303,7 @@ async def root():
 
 
 @app.get("/db_is_alive")
-async def db_is_alive(session: Session = Depends(get_session)):
+def db_is_alive(session: Session = Depends(get_session)):
     try:
         session.connection().execute(text("SELECT 1"))
         return {"message": "DB is alive"}
@@ -315,7 +315,7 @@ async def db_is_alive(session: Session = Depends(get_session)):
 
 
 @app.get("/api/document/{document_id}/stats")
-async def get_document_stats(
+def get_document_stats(
     background_tasks: BackgroundTasks,
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
@@ -343,9 +343,7 @@ async def get_document_evaluation(
     response_model=DocumentCreatePublic,
     status_code=status.HTTP_201_CREATED,
 )
-async def create_document(
-    data: DocumentCreate, session: Session = Depends(get_session)
-):
+def create_document(data: DocumentCreate, session: Session = Depends(get_session)):
     # Get DistrictrMap to inherit num_districts and other fields
     districtr_map_stmt = select(DistrictrMap).where(
         DistrictrMap.districtr_map_slug == data.districtr_map_slug
@@ -1019,7 +1017,7 @@ async def update_assignments(
     "/api/gerrydb/edges/{districtr_map_slug}",
     response_model=list[ShatterResult],
 )
-async def get_children(
+def get_children(
     districtr_map_slug: str,
     parent_geoid: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
@@ -1055,7 +1053,7 @@ async def get_children(
 
 
 @app.patch("/api/assignments/{document_id}/reset", status_code=status.HTTP_200_OK)
-async def reset_map(
+def reset_map(
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
 ):
@@ -1083,7 +1081,7 @@ async def reset_map(
     "/api/document/{document_id}/update_colors",
     response_model=ColorsSetResult,
 )
-async def update_colors(
+def update_colors(
     colors: list[str],
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
@@ -1120,7 +1118,7 @@ async def update_colors(
     "/api/document/{document_id}/num_districts",
     response_model=NumDistrictsSetResult,
 )
-async def update_num_districts(
+def update_num_districts(
     num_districts: int,
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
@@ -1241,7 +1239,7 @@ async def get_assignments(
 
 
 @app.get("/api/document/{document_id}", response_model=DocumentPublic)
-async def get_document_object(
+def get_document_object(
     document_id: DocumentID = Depends(parse_document_id),
     session: Session = Depends(get_session),
 ):
@@ -1260,7 +1258,7 @@ async def get_document_object(
 
 
 @app.get("/api/documents/list")
-async def get_document_list(
+def get_document_list(
     session: Session = Depends(get_session),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, le=100),
@@ -1413,7 +1411,7 @@ async def get_unassigned_geoids(
 
 
 @app.get("/api/document/{document_id}/contiguity")
-async def check_document_contiguity(
+def check_document_contiguity(
     document: Annotated[Document, Depends(get_protected_document)],
     zone: list[int] = Query(default=[]),
     session: Session = Depends(get_session),
@@ -1446,7 +1444,7 @@ async def check_document_contiguity(
 
 
 @app.get("/api/document/{document_id}/contiguity/{zone}/connected_component_bboxes")
-async def get_connected_component_bboxes(
+def get_connected_component_bboxes(
     zone: int,
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
@@ -1546,7 +1544,7 @@ async def get_connected_component_bboxes(
 
 
 @app.put("/api/document/{document_id}/metadata", status_code=status.HTTP_200_OK)
-async def update_districtrmap_metadata(
+def update_districtrmap_metadata(
     metadata: DocumentMetadata,
     document: Document = Depends(get_document),
     session: Session = Depends(get_session),
@@ -1572,7 +1570,7 @@ async def update_districtrmap_metadata(
     "/api/gerrydb/views",
     #  response_model=list[DistrictrMapPublic]
 )
-async def get_projects(
+def get_projects(
     session: Session = Depends(get_session),
     group: str = Query(default="states"),
     offset: int = Query(default=0, ge=0),
@@ -1594,7 +1592,7 @@ async def get_projects(
 
 
 @app.get("/api/group/{group_slug}", response_model=MapGroup)
-async def get_group(
+def get_group(
     *,
     session: Session = Depends(get_session),
     group_slug: str,

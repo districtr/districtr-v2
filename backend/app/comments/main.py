@@ -8,6 +8,7 @@ from fastapi import (
     Query,
     Request,
 )
+from fastapi.concurrency import run_in_threadpool
 from sqlmodel import Session, col
 from sqlalchemy.exc import IntegrityError, DataError
 from sqlalchemy.dialects.postgresql import insert
@@ -457,13 +458,19 @@ async def create_commenter(
     """Create a new commenter with upsert on conflict for name + email."""
     client_host = request.client.host if request.client else ""
     await recaptcha.verify_recaptcha(commenter_data.recaptcha_token, client_host)
-    try:
-        commenter = create_commenter_db(commenter_data.commenter, session)
-    except IntegrityError as e:
-        session.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
-        )
+
+    # Stays async for the recaptcha await; the sync-engine DB work runs in the
+    # threadpool so it doesn't block the event loop.
+    def _create() -> Commenter:
+        try:
+            return create_commenter_db(commenter_data.commenter, session)
+        except IntegrityError as e:
+            session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
+            )
+
+    commenter = await run_in_threadpool(_create)
 
     background_tasks.add_task(moderate_commenter, commenter)
     return commenter
@@ -481,13 +488,17 @@ async def create_comment(
     """Create a new comment without commenter foreign key."""
     client_host = request.client.host if request.client else ""
     await recaptcha.verify_recaptcha(comment_data.recaptcha_token, client_host)
-    try:
-        comment = create_comment_db(comment_data.comment, session)
-    except (DataError, IntegrityError) as e:
-        session.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
-        )
+
+    def _create() -> Comment:
+        try:
+            return create_comment_db(comment_data.comment, session)
+        except (DataError, IntegrityError) as e:
+            session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
+            )
+
+    comment = await run_in_threadpool(_create)
 
     background_tasks.add_task(moderate_comment, comment)
     return comment
@@ -503,13 +514,17 @@ async def create_tag(
     """Create a new tag using the slugify_tag SQL function."""
     client_host = request.client.host if request.client else ""
     await recaptcha.verify_recaptcha(tag_data.recaptcha_token, client_host)
-    try:
-        tag = create_tag_db(tag_data.tag, session)
-    except IntegrityError as e:
-        session.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
-        )
+
+    def _create() -> Tag:
+        try:
+            return create_tag_db(tag_data.tag, session)
+        except IntegrityError as e:
+            session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
+            )
+
+    tag = await run_in_threadpool(_create)
 
     background_tasks.add_task(moderate_tag, tag)
     return tag
@@ -529,13 +544,17 @@ async def submit_full_comment(
     """Submit a complete comment with commenter, comment, and tags."""
     client_host = request.client.host if request.client else ""
     await recaptcha.verify_recaptcha(form_data.recaptcha_token, client_host)
-    try:
-        response = create_full_comment_submission(form_data, session)
-    except (DataError, IntegrityError) as e:
-        session.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
-        )
+
+    def _create() -> FullCommentForm:
+        try:
+            return create_full_comment_submission(form_data, session)
+        except (DataError, IntegrityError) as e:
+            session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
+            )
+
+    response = await run_in_threadpool(_create)
 
     background_tasks.add_task(moderate_submission, response)
     return response
@@ -958,7 +977,7 @@ def get_admin_district_comments_query(
     "/list",
     response_model=list[PublicCommentResponse],
 )
-async def list_comments(
+def list_comments(
     *,
     session: Session = Depends(get_session),
     public_id: int | None = None,
@@ -991,7 +1010,7 @@ async def list_comments(
 
 
 @router.get("/admin/list", response_model=list[AdminCommentResponse])
-async def list_comments_admin(
+def list_comments_admin(
     tags: list[str] = Query(default=[]),
     place: str = Query(default=None),
     state: str = Query(default=None),
@@ -1032,7 +1051,7 @@ async def list_comments_admin(
 
 
 @router.get("/admin/district-comments/list", response_model=list[AdminCommentResponse])
-async def list_district_comments_admin(
+def list_district_comments_admin(
     document_id: str | None = Query(
         default=None, description="Filter by document UUID to look up district comments"
     ),
@@ -1079,7 +1098,7 @@ async def list_district_comments_admin(
 
 
 @router.post("/flag", status_code=status.HTTP_200_OK)
-async def flag_comment(
+def flag_comment(
     body: FlagCommentRequest,
     session: Session = Depends(get_session),
 ):
@@ -1099,7 +1118,7 @@ async def flag_comment(
 
 
 @router.post("/admin/review", response_model=ReviewUpdateResponse)
-async def review_comment(
+def review_comment(
     review_data: ReviewStatusUpdate,
     session: Session = Depends(get_session),
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.review_content]),

@@ -13,6 +13,13 @@ primary_region = 'ewr'
   PROJECT_NAME = 'Districtr v2 backend'
   R2_BUCKET_NAME = 'districtr-v2-dev'
   VOLUME_PATH = '/data'
+  # Uvicorn worker count (read by uvicorn when --workers is not passed). The machine is
+  # shared-cpu-4x/8gb; lower this to 2-3 if per-worker RSS (graph LRU caches, see
+  # /_debug/cache) pushes total memory too high.
+  WEB_CONCURRENCY = '4'
+  # Aggregate prometheus metrics across workers; without this, /metrics scrapes return
+  # counters from whichever worker answers. Dir is created in the Dockerfile.
+  PROMETHEUS_MULTIPROC_DIR = '/tmp/prometheus_multiproc'
 
 [[mounts]]
   source = 'gerrydb_views'
@@ -27,6 +34,14 @@ primary_region = 'ewr'
   auto_start_machines = true
   min_machines_running = 1
   processes = ['app']
+
+  # Without an explicit block, Fly defaults to ~25 concurrent *connections* per machine,
+  # which throttles at the proxy long before uvicorn (4 workers x 40-thread pools) is
+  # saturated. Soft limit steers load balancing; hard limit queues/rejects beyond it.
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 100
+    hard_limit = 150
 
 [metrics]
   port = 8080
