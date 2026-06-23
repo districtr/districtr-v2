@@ -175,7 +175,9 @@ def batch_insert_assignments(
     for record in assignments:
         if record[1] and record[1] != "":
             geo_id = record[0]
-            zone = int(float(record[1]))  # ValueError propagates for non-numeric zones (e.g. "District 1")
+            zone = int(
+                float(record[1])
+            )  # ValueError propagates for non-numeric zones (e.g. "District 1")
             if not geo_id or geo_id not in G or not 0 < zone <= (num_districts or zone):
                 invalid_count += 1
                 continue
