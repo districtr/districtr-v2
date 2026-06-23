@@ -30,6 +30,13 @@ jobs:
   pulumi:
     name: Apply
     runs-on: ubuntu-latest
+    # Dormant until the target AWS account is bootstrapped. Set the per-stack
+    # repo variable (AWS_DEPLOY_DEV / AWS_DEPLOY_PROD) to "true" to enable push
+    # deploys; workflow_dispatch always runs so manual/pre-cutover deploys work.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.ref_name == 'dev'  && vars.AWS_DEPLOY_DEV  == 'true') ||
+      (github.ref_name == 'main' && vars.AWS_DEPLOY_PROD == 'true')
     steps:
       - uses: actions/checkout@v4
       - name: Set stack
