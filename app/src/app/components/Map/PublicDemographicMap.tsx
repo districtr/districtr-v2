@@ -14,7 +14,7 @@ import {MapContainer} from './MapContainer';
 // @ts-ignore plugin has no types
 import syncMaps from '@mapbox/mapbox-gl-sync-move';
 import {useMapRenderer} from '@/app/hooks/useMapRenderer';
-import {PointSource} from './GeoSources/PointSource';
+
 import {BlockDemographicLayers} from './PolygonLayers/BlockDemographicLayers';
 import {MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';
@@ -87,9 +87,7 @@ export const PublicDemographicMap: React.FC = () => {
         )}
       </BlockSource>
       <OverlayLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.overlays} />
-      <PointSource isPublic>
-        <MetaLayers isDemographicMap={true} />
-      </PointSource>
+      <MetaLayers isDemographicMap={true} />
       <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
     </MapContainer>
   );

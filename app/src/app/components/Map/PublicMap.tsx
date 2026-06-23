@@ -14,7 +14,7 @@ import {OverlayLayers} from './PolygonLayers/OverlayLayers';
 import {MapLayerAnchors} from './MapLayerAnchors';
 import {MapContainer} from './MapContainer';
 import {useMapRenderer} from '@/app/hooks/useMapRenderer';
-import {PointSource} from './GeoSources/PointSource';
+
 import {MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
 import {PublicSource} from './GeoSources/PublicSource';
 import {PublicDistrictLayers} from './PolygonLayers/PublicDistrictLayers';
@@ -86,9 +86,7 @@ export const PublicMap: React.FC = () => {
         </BlockSource>
       )}
       <OverlayLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.overlays} />
-      <PointSource isPublic>
-        <MetaLayers isDemographicMap={false} />
-      </PointSource>
+      <MetaLayers isDemographicMap={false} />
       <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
     </MapContainer>
   );

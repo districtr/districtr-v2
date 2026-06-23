@@ -6,13 +6,9 @@ import {
 } from '@/app/constants/map/layerIds';
 import {usePointData} from '@/app/hooks/usePointData';
 
-// PointSource component manages the point data sources for both parent and child layers
-export const PointSource: React.FC<{children: React.ReactNode; isPublic?: boolean}> = ({
-  children,
-  isPublic,
-}) => {
-  const parentData = usePointData(false, isPublic);
-  const childData = usePointData(true, isPublic);
+export const PointSource: React.FC<{children: React.ReactNode}> = ({children}) => {
+  const parentData = usePointData(false);
+  const childData = usePointData(true);
 
   return (
     <>

@@ -7,7 +7,7 @@ import {EMPTY_FT_COLLECTION} from '../constants/map/layerStyle';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
 import GeometryWorker from '../utils/GeometryWorker';
 
-export const usePointData = (isChild?: boolean, isPublic?: boolean) => {
+export const usePointData = (isChild?: boolean) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const exposedChildIds = useAssignmentsStore(state => state.shatterIds.children);
   const layer = isChild ? mapDocument?.child_layer : mapDocument?.parent_layer;
@@ -24,7 +24,7 @@ export const usePointData = (isChild?: boolean, isPublic?: boolean) => {
         source: BLOCK_SOURCE_ID,
       });
     },
-    enabled: !isPublic && !!layer,
+    enabled: !!layer,
   });
 
   useEffect(() => {
