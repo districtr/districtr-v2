@@ -4,18 +4,16 @@
 secretsprovider: awskms://alias/districtr-pulumi-secrets?region=us-east-2
 config:
   aws:region: us-east-2
-  # TODO(fill-in): real dev hostnames before first deploy
+
   districtr-infra:appDomain: dev.districtr.org
   districtr-infra:apiDomain: api.dev.districtr.org
   districtr-infra:corsOrigins: https://dev.districtr.org
-  # TODO(fill-in): values from `flyctl ssh console -C env -a districtr-v2-api-dev`
   districtr-infra:s3BucketName: districtr-v2-dev
   districtr-infra:cdnUrl: https://tilesets1.cdn.districtr.org
   districtr-infra:auth0Domain: districtr-qa.us.auth0.com
-  districtr-infra:auth0ApiAudience: http://localhost:8000
+  districtr-infra:auth0ApiAudience: https://districtr-v2-api-dev.fly.dev
   districtr-infra:auth0Issuer: https://districtr-qa.us.auth0.com
-  # TODO(fill-in): without this, alarms publish to an SNS topic nobody reads
-  # districtr-infra:alarmEmail: ops@example.org
+  districtr-infra:alarmEmail: dhalpern@uchicago.edu
 
   districtr-infra:secretKey:
     secure: v1:JPIYNwHinzVBFMeH:7SXhe/J8zN6jZb/LKisf6a9LKf3AANZZt3Ecu3H8mBgPX+rExXAOJZXlXi4gAerH1CU3t7dgCHlrW82LS2UQNFekHDWUTLat6qStQlz6YH0=
