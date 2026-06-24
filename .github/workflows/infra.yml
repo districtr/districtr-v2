@@ -1,4 +1,4 @@
-name: Infrastructure (Pulumi)
+name: AWS Infrastructure (Pulumi)
 on:
   push:
     branches:
@@ -30,13 +30,12 @@ jobs:
   pulumi:
     name: Apply
     runs-on: ubuntu-latest
-    # Dormant until the target AWS account is bootstrapped. Set the per-stack
-    # repo variable (AWS_DEPLOY_DEV / AWS_DEPLOY_PROD) to "true" to enable push
-    # deploys; workflow_dispatch always runs so manual/pre-cutover deploys work.
+    # Runs only on dev/main (other branches can't assume the deploy role via
+    # OIDC anyway). On push, gated by the per-stack repo var (AWS_DEPLOY_DEV /
+    # AWS_DEPLOY_PROD); workflow_dispatch runs on dev/main without the var.
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.ref_name == 'dev'  && vars.AWS_DEPLOY_DEV  == 'true') ||
-      (github.ref_name == 'main' && vars.AWS_DEPLOY_PROD == 'true')
+      (github.ref_name == 'dev'  && (github.event_name == 'workflow_dispatch' || vars.AWS_DEPLOY_DEV  == 'true')) ||
+      (github.ref_name == 'main' && (github.event_name == 'workflow_dispatch' || vars.AWS_DEPLOY_PROD == 'true'))
     steps:
       - uses: actions/checkout@v4
       - name: Set stack
