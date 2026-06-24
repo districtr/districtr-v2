@@ -1,6 +1,7 @@
 'use client';
+import {useState} from 'react';
 import * as Accordion from '@radix-ui/react-accordion';
-import {Flex, Text, Table, Heading, Switch} from '@radix-ui/themes';
+import {Flex, Text, Table, Heading, Switch, Select} from '@radix-ui/themes';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {useMapStore} from '@store/mapStore';
@@ -25,6 +26,7 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const setHoveredCountyGeoid = useMapControlsStore(state => state.setHoveredCountyGeoid);
+  const [showMode, setShowMode] = useState<'overly-split-only' | 'all'>('overly-split-only');
 
   const countyPieces = evaluation.county_pieces;
   const idealPop = evaluation.ideal_population ?? null;
@@ -41,10 +43,16 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const splitCounties = allEntries.filter(e => e.actual >= 2).length;
-  const unnecessarySplits =
+  const overlySplitSet =
     idealPop !== null
-      ? allEntries.filter(e => e.actual > Math.ceil(e.pop / idealPop)).length
-      : null;
+      ? new Set(allEntries.filter(e => e.actual > Math.ceil(e.pop / idealPop)).map(e => e.geoid))
+      : new Set<string>();
+  const unnecessarySplits = idealPop !== null ? overlySplitSet.size : null;
+
+  const displayedEntries =
+    showMode === 'overly-split-only'
+      ? allEntries.filter(e => overlySplitSet.has(e.geoid))
+      : allEntries;
 
   // Derived unit assignment counts
   const unitSplitCount = assignedUnits?.split_count ?? 0;
@@ -183,106 +191,112 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
             </Table.Root>
           </div>
 
-          <Text size="2" weight="bold" mb="2" mt="4" as="p">
-            Overly Split Counties
-          </Text>
+          <Flex align="center" gap="2" mb="2" mt="4" justify="end">
+            <Text size="2" weight="bold">
+              Counties
+            </Text>
+            <Flex align="center" gap="1" style={{marginLeft: 'auto'}}>
+              <Text size="1" color="gray">
+                Show
+              </Text>
+              <Select.Root
+                size="1"
+                value={showMode}
+                onValueChange={v => setShowMode(v as 'overly-split-only' | 'all')}
+              >
+                <Select.Trigger />
+                <Select.Content>
+                  <Select.Item value="overly-split-only">unnecessarily split counties</Select.Item>
+                  <Select.Item value="all">all counties</Select.Item>
+                </Select.Content>
+              </Select.Root>
+            </Flex>
+          </Flex>
           {idealPop !== null && (
             <Text size="2" mb="2" as="p">
               The ideal district population for this plan is{' '}
               <strong>{idealPop.toLocaleString()}</strong>.
             </Text>
           )}
-          {(() => {
-            const unnecessarySplitEntries =
-              idealPop !== null
-                ? allEntries.filter(e => e.actual > Math.ceil(e.pop / idealPop))
-                : [];
-            if (idealPop === null) {
-              return (
-                <Text size="2" color="gray" mb="3" as="p">
-                  Population targets not yet available.
-                </Text>
-              );
-            }
-            if (unnecessarySplitEntries.length === 0) {
-              return (
-                <Text size="2" color="gray" mb="3" as="p">
-                  No counties are split more than necessary.
-                </Text>
-              );
-            }
+          {idealPop === null ? (
+            <Text size="2" color="gray" mb="3" as="p">
+              Population targets not yet available.
+            </Text>
+          ) : displayedEntries.length === 0 ? (
+            <Text size="2" color="gray" mb="3" as="p">
+              No counties are split more than necessary.
+            </Text>
+          ) : (
             // See https://github.com/radix-ui/themes/issues/584 and /767 —
             // Table.Root wraps in ScrollArea (overflow:scroll) which breaks position:sticky.
             // Workaround: use Radix CSS classes on our own scroll div + plain <table>.
-            return (
-              <div
-                className={`rt-TableRoot rt-r-size-1 rt-variant-ghost${unnecessarySplitEntries.length > 15 ? ' max-h-[400px] overflow-y-auto pr-[6px] print:max-h-none print:overflow-visible print:pr-0' : ''}`}
-                style={{
-                  width: 'fit-content',
-                  borderRight: '1px solid var(--gray-a5)',
-                }}
-              >
-                <table className="rt-TableRootTable">
-                  <Table.Header
-                    style={{
-                      position: 'sticky',
-                      top: 0,
-                      zIndex: 1,
-                      backgroundColor: 'var(--color-panel-solid)',
-                    }}
-                  >
-                    <Table.Row>
-                      <Table.ColumnHeaderCell justify="center">County Name</Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell justify="center">
-                        County
-                        <br />
-                        Population
-                      </Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell justify="center">
-                        How Many
-                        <br />
-                        Districts&apos; Worth
-                      </Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell justify="center">
-                        Pieces in
-                        <br />
-                        This Plan
-                      </Table.ColumnHeaderCell>
-                    </Table.Row>
-                  </Table.Header>
-                  <Table.Body>
-                    {unnecessarySplitEntries.map(({geoid, pop, actual, name}) => {
-                      const worth = pop / idealPop;
-                      return (
-                        <Table.Row
-                          key={geoid}
-                          tabIndex={0}
-                          onMouseEnter={() => setHoveredCountyGeoid(geoid)}
-                          onMouseLeave={() => setHoveredCountyGeoid(null)}
-                          onFocus={() => setHoveredCountyGeoid(geoid)}
-                          onBlur={() => setHoveredCountyGeoid(null)}
-                          style={{cursor: 'default'}}
-                        >
-                          <Table.Cell justify="center">
-                            <Text size="2">{name}</Text>
-                          </Table.Cell>
-                          <Table.Cell justify="center">
-                            <Text size="2">{pop.toLocaleString()}</Text>
-                          </Table.Cell>
-                          <Table.Cell justify="center">
-                            <Text size="2">{worth.toFixed(2)}</Text>
-                          </Table.Cell>
-                          <Table.Cell justify="center">
-                            <Text size="2">{actual}</Text>
-                          </Table.Cell>
-                        </Table.Row>
-                      );
-                    })}
-                  </Table.Body>
-                </table>
-              </div>
-            );
-          })()}
+            <div
+              className={`rt-TableRoot rt-r-size-1 rt-variant-ghost${displayedEntries.length > 15 ? ' max-h-[400px] overflow-y-auto pr-[6px] print:max-h-none print:overflow-visible print:pr-0' : ''}`}
+              style={{width: 'fit-content', borderRight: '1px solid var(--gray-a5)'}}
+            >
+              <table className="rt-TableRootTable">
+                <Table.Header
+                  style={{
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 1,
+                    backgroundColor: 'var(--color-panel-solid)',
+                  }}
+                >
+                  <Table.Row>
+                    <Table.ColumnHeaderCell justify="center">County Name</Table.ColumnHeaderCell>
+                    <Table.ColumnHeaderCell justify="center">
+                      County
+                      <br />
+                      Population
+                    </Table.ColumnHeaderCell>
+                    <Table.ColumnHeaderCell justify="center">
+                      How Many
+                      <br />
+                      Districts&apos; Worth
+                    </Table.ColumnHeaderCell>
+                    <Table.ColumnHeaderCell justify="center">
+                      Pieces in
+                      <br />
+                      This Plan
+                    </Table.ColumnHeaderCell>
+                  </Table.Row>
+                </Table.Header>
+                <Table.Body>
+                  {displayedEntries.map(({geoid, pop, actual, name}) => {
+                    const worth = idealPop !== null ? pop / idealPop : null;
+                    const isOverlySplit = overlySplitSet.has(geoid);
+                    return (
+                      <Table.Row
+                        key={geoid}
+                        tabIndex={0}
+                        onMouseEnter={() => setHoveredCountyGeoid(geoid)}
+                        onMouseLeave={() => setHoveredCountyGeoid(null)}
+                        onFocus={() => setHoveredCountyGeoid(geoid)}
+                        onBlur={() => setHoveredCountyGeoid(null)}
+                        style={{cursor: 'default'}}
+                      >
+                        <Table.Cell justify="center">
+                          <Text size="2">{name}</Text>
+                        </Table.Cell>
+                        <Table.Cell justify="center">
+                          <Text size="2">{pop.toLocaleString()}</Text>
+                        </Table.Cell>
+                        <Table.Cell justify="center">
+                          <Text size="2">{worth !== null ? worth.toFixed(2) : '—'}</Text>
+                        </Table.Cell>
+                        <Table.Cell justify="center">
+                          <Text size="2" color={isOverlySplit ? 'red' : undefined}>
+                            {actual}
+                          </Text>
+                        </Table.Cell>
+                      </Table.Row>
+                    );
+                  })}
+                </Table.Body>
+              </table>
+            </div>
+          )}
         </Accordion.Content>
       </Accordion.Item>
     </Accordion.Root>
