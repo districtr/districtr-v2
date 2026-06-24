@@ -18,7 +18,7 @@ Auth0, Sentry, DNS hosting, the data pipelines, and the CMS.
 ```mermaid
 flowchart TB
     client["Internet — browser / API clients"]
-    cdn["CloudFront + S3 · tiles, parquet<br/>(existing, external)"]
+    cdn["Tilesets CDN<br/>CloudFront + S3 · tiles, parquet<br/>(existing, external)"]
     acm["ACM · TLS 1.3 cert"]
     alb["Application Load Balancer<br/>public · SG-locked"]
 
@@ -31,10 +31,10 @@ flowchart TB
     tiles[("S3 tileset bucket<br/>graphs · thumbnails")]
 
     client -->|"HTTPS 443"| alb
-    client -->|"tiles"| cdn
     acm -. cert .-> alb
     alb -->|"host api.*"| be
     alb -->|"default"| fe
+    fe -. map tiles .-> cdn
     be -->|"5432"| rds
     be -->|"S3 gateway endpoint"| tiles
 
@@ -66,6 +66,8 @@ flowchart TB
 - RDS has no public IP; its security group admits only the backend tasks.
 - Graph pickles stream from S3 per cache miss (free in-region via the S3
   gateway endpoint) into the backend's in-process LRU.
+- The frontend loads map tiles and parquet from the tilesets CDN client-side
+  (URLs baked into the bundle) — not proxied through the ECS frontend.
 
 ## AWS services
 
