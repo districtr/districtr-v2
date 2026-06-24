@@ -18,42 +18,41 @@ Auth0, Sentry, DNS hosting, the data pipelines, and the CMS.
 ```mermaid
 flowchart TB
     client["Internet — browser / API clients"]
+    cdn["CloudFront + S3 · tiles, parquet<br/>(existing, external)"]
+    acm["ACM · TLS 1.3 cert"]
+    alb["Application Load Balancer<br/>public · SG-locked"]
 
-    subgraph external["External — not managed here"]
-      cdn["CloudFront + S3<br/>tiles · parquet · thumbnails"]
-      tiles[("S3 tileset bucket<br/>graphs · thumbnails")]
+    subgraph ecs["ECS Fargate"]
+      be["backend<br/>FastAPI :8080"]
+      fe["frontend<br/>Next.js :3000"]
     end
 
-    acm["ACM<br/>TLS 1.3 certificate"]
-    alb["Application Load Balancer<br/>public · SG-locked"]
-    be["ECS Fargate — backend<br/>FastAPI :8080"]
-    fe["ECS Fargate — frontend<br/>Next.js :3000"]
     rds[("RDS<br/>PostgreSQL + PostGIS")]
+    tiles[("S3 tileset bucket<br/>graphs · thumbnails")]
 
-    client -->|"tiles / parquet"| cdn
     client -->|"HTTPS 443"| alb
+    client -->|"tiles"| cdn
     acm -. cert .-> alb
     alb -->|"host api.*"| be
     alb -->|"default"| fe
     be -->|"5432"| rds
-    be -->|"boto3 · S3 gateway endpoint"| tiles
+    be -->|"S3 gateway endpoint"| tiles
 
-    subgraph crosscut["Cross-cutting · every task"]
+    subgraph platform["Platform · supports every task"]
       ecr["ECR<br/>images"]
-      ssm["SSM Parameter Store + KMS<br/>secrets · image tags"]
+      ssm["SSM + KMS<br/>secrets · image tags"]
       cw["CloudWatch<br/>logs · alarms"]
       sns["SNS<br/>email"]
       aas["Application Auto Scaling"]
     end
 
-    ecr -. image .-> be & fe
-    ssm -. inject .-> be & fe
-    be -. logs .-> cw
-    fe -. logs .-> cw
+    ecr -.-> ecs
+    ssm -.-> ecs
+    aas -.-> ecs
+    ecs -.-> cw
     cw --> sns
-    aas -. scale .-> be & fe
 
-    subgraph deploy["Deploys via GitHub Actions"]
+    subgraph deploy["Deploys"]
       gha["GitHub Actions"]
       role["IAM deploy role"]
       pul["Pulumi<br/>state in S3 · secrets via KMS"]
