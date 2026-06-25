@@ -191,6 +191,10 @@ One-time, with admin credentials:
    app/api routing records (CNAME → ALB) from `dnsRecords` when ready to serve
    traffic. Apex domains need ALIAS / CNAME-flattening support at the provider.
 
+> The base Alembic migration runs `CREATE EXTENSION IF NOT EXISTS postgis`, so
+> the first deploy's migrate task initializes PostGIS itself — a fresh RDS
+> database needs no manual SQL before migrations run.
+
 ## Cost
 
 Dev ≈ $135–150/mo, prod ≈ $490–510/mo at default sizing. To trim dev: Fargate
@@ -201,8 +205,8 @@ sizing settles.
 ## Known follow-ups
 
 - Scope the deploy role down from AdministratorAccess.
-- Pin GitHub Actions to commit SHAs and pin the Pulumi CLI version.
+- Pin GitHub Actions to commit SHAs (the Pulumi CLI is now version-pinned).
 - ALB access logs + WAF; RDS parameter tuning (`work_mem` etc.) and log
-  exports; ECS Exec on dev for shell access.
+  exports.
 - Lifecycle policy for noncurrent versions on the Pulumi state bucket.
 - ECR keeps only the last 20 images — a long-pinned rollback tag can expire.
