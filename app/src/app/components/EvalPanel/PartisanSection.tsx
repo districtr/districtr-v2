@@ -134,124 +134,135 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                 )}{' '}
                 over these elections.
               </Text>
-              <Flex direction="column" align="center" gap="2" mb="2">
-                <Text size="2" weight="bold">
-                  Votes vs. Seats by Election (among the two major parties)
+              <Text size="2" weight="bold" mb="2" as="p">
+                Votes vs. Seats by Election (among the two major parties)
+              </Text>
+              <Flex justify="start" align="center" gap="2" mb="2">
+                <Text size="1" color="gray">
+                  Point of View
                 </Text>
-                <Flex align="center" gap="2">
-                  <Text size="1" color="gray">
-                    Point of View
-                  </Text>
-                  <SegmentedControl.Root size="1" value={pov} onValueChange={v => setPov(v as Pov)}>
-                    <SegmentedControl.Item value="dem">Democrat</SegmentedControl.Item>
-                    <SegmentedControl.Item value="rep">Republican</SegmentedControl.Item>
-                  </SegmentedControl.Root>
-                </Flex>
+                <SegmentedControl.Root size="1" value={pov} onValueChange={v => setPov(v as Pov)}>
+                  <SegmentedControl.Item value="dem">Democrat</SegmentedControl.Item>
+                  <SegmentedControl.Item value="rep">Republican</SegmentedControl.Item>
+                </SegmentedControl.Root>
               </Flex>
-              <Table.Root size="1" mb="3">
-                <Table.Header>
-                  <Table.Row>
-                    <Table.ColumnHeaderCell justify="center">Election</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="center">
-                      Total
-                      <br />
-                      Votes
-                    </Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="center" style={{color: povColor}}>
-                      {pov === 'dem' ? 'Dem' : 'Rep'} Vote
-                      <br />
-                      Share
-                    </Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="center" style={{color: povColor}}>
-                      {pov === 'dem' ? 'Dem' : 'Rep'}
-                      <br />
-                      Districts
-                    </Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="center" style={{color: povColor}}>
-                      {pov === 'dem' ? 'Dem' : 'Rep'} Seat
-                      <br />
-                      Share
-                    </Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="center">
-                      Disproportionality
-                    </Table.ColumnHeaderCell>
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {elections.map(key => {
-                    const seats = evaluation.seats?.[key];
-                    const seatTotal = seats?.total ?? null;
-                    const partySeatCount = seats?.[pov] ?? null;
-                    const seatPct =
-                      seatTotal && partySeatCount != null ? partySeatCount / seatTotal : null;
-                    const votes = evaluation.votes?.[key];
-                    const voteShare = evaluation.vote_shares?.[key]?.[pov] ?? null;
-                    const rawDisp = evaluation.disproportionality?.[key] ?? null;
-                    const disp = rawDisp !== null ? (pov === 'rep' ? -rawDisp : rawDisp) : null;
-                    return (
-                      <Table.Row key={key}>
-                        <Table.Cell justify="center">
-                          <Text size="2" weight="bold">
-                            {formatElectionKey(key)}
-                          </Text>
-                        </Table.Cell>
-                        <Table.Cell justify="center">
-                          <Text size="2">{votes != null ? votes.total.toLocaleString() : '—'}</Text>
-                        </Table.Cell>
-                        <Table.Cell
-                          justify="center"
-                          style={{
-                            backgroundColor:
-                              voteShare != null
-                                ? voteShare > 0.5
-                                  ? povBg((voteShare - 0.5) * 1.5)
-                                  : NEUTRAL
-                                : undefined,
-                          }}
-                        >
-                          <Text size="2">
-                            {voteShare != null ? `${(voteShare * 100).toFixed(1)}%` : '—'}
-                          </Text>
-                        </Table.Cell>
-                        <Table.Cell justify="center">
-                          <Text size="2">
-                            {partySeatCount != null && seatTotal
-                              ? `${partySeatCount}/${seatTotal}`
-                              : '—'}
-                          </Text>
-                        </Table.Cell>
-                        <Table.Cell
-                          justify="center"
-                          style={
-                            seatPct !== null
-                              ? {
-                                  backgroundColor:
-                                    seatPct > 0.5 ? povBg((seatPct - 0.5) * 1.5) : NEUTRAL,
-                                }
-                              : {}
-                          }
-                        >
-                          <Text size="2">
-                            {seatPct !== null ? `${(seatPct * 100).toFixed(1)}%` : '—'}
-                          </Text>
-                        </Table.Cell>
-                        <Table.Cell
-                          justify="center"
-                          style={{
-                            backgroundColor: scaledBg(rawDisp ?? undefined, METRIC_CUTOFF.disp),
-                          }}
-                        >
-                          <Text size="2">
-                            {disp !== null && numDistricts !== null
-                              ? dispLabel(rawDisp!, numDistricts)
-                              : '—'}
-                          </Text>
-                        </Table.Cell>
-                      </Table.Row>
-                    );
-                  })}
-                </Table.Body>
-              </Table.Root>
+              <div style={{width: 'fit-content', overflowX: 'auto', maxWidth: '100%'}}>
+                <Table.Root size="1" mb="3">
+                  <Table.Header>
+                    <Table.Row>
+                      <Table.ColumnHeaderCell justify="center">Election</Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell justify="center">
+                        Total
+                        <br />
+                        Votes
+                      </Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell
+                        justify="center"
+                        style={{color: povColor, width: '8ch'}}
+                      >
+                        {pov === 'dem' ? 'Dem' : 'Rep'} Vote
+                        <br />
+                        Share
+                      </Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell
+                        justify="center"
+                        style={{color: povColor, width: '8ch'}}
+                      >
+                        {pov === 'dem' ? 'Dem' : 'Rep'}
+                        <br />
+                        Districts
+                      </Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell
+                        justify="center"
+                        style={{color: povColor, width: '8ch'}}
+                      >
+                        {pov === 'dem' ? 'Dem' : 'Rep'} Seat
+                        <br />
+                        Share
+                      </Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell justify="center" style={{minWidth: '22ch'}}>
+                        Disproportionality
+                      </Table.ColumnHeaderCell>
+                    </Table.Row>
+                  </Table.Header>
+                  <Table.Body>
+                    {elections.map(key => {
+                      const seats = evaluation.seats?.[key];
+                      const seatTotal = seats?.total ?? null;
+                      const partySeatCount = seats?.[pov] ?? null;
+                      const seatPct =
+                        seatTotal && partySeatCount != null ? partySeatCount / seatTotal : null;
+                      const votes = evaluation.votes?.[key];
+                      const voteShare = evaluation.vote_shares?.[key]?.[pov] ?? null;
+                      const rawDisp = evaluation.disproportionality?.[key] ?? null;
+                      const disp = rawDisp !== null ? (pov === 'rep' ? -rawDisp : rawDisp) : null;
+                      return (
+                        <Table.Row key={key}>
+                          <Table.Cell justify="center">
+                            <Text size="2" weight="bold">
+                              {formatElectionKey(key)}
+                            </Text>
+                          </Table.Cell>
+                          <Table.Cell justify="center">
+                            <Text size="2">
+                              {votes != null ? votes.total.toLocaleString() : '—'}
+                            </Text>
+                          </Table.Cell>
+                          <Table.Cell
+                            justify="center"
+                            style={{
+                              backgroundColor:
+                                voteShare != null
+                                  ? voteShare > 0.5
+                                    ? povBg((voteShare - 0.5) * 1.5)
+                                    : NEUTRAL
+                                  : undefined,
+                            }}
+                          >
+                            <Text size="2">
+                              {voteShare != null ? `${(voteShare * 100).toFixed(1)}%` : '—'}
+                            </Text>
+                          </Table.Cell>
+                          <Table.Cell justify="center">
+                            <Text size="2">
+                              {partySeatCount != null && seatTotal
+                                ? `${partySeatCount}/${seatTotal}`
+                                : '—'}
+                            </Text>
+                          </Table.Cell>
+                          <Table.Cell
+                            justify="center"
+                            style={
+                              seatPct !== null
+                                ? {
+                                    backgroundColor:
+                                      seatPct > 0.5 ? povBg((seatPct - 0.5) * 1.5) : NEUTRAL,
+                                  }
+                                : {}
+                            }
+                          >
+                            <Text size="2">
+                              {seatPct !== null ? `${(seatPct * 100).toFixed(1)}%` : '—'}
+                            </Text>
+                          </Table.Cell>
+                          <Table.Cell
+                            justify="center"
+                            style={{
+                              backgroundColor: scaledBg(rawDisp ?? undefined, METRIC_CUTOFF.disp),
+                            }}
+                          >
+                            <Text size="2">
+                              {disp !== null && numDistricts !== null
+                                ? dispLabel(rawDisp!, numDistricts)
+                                : '—'}
+                            </Text>
+                          </Table.Cell>
+                        </Table.Row>
+                      );
+                    })}
+                  </Table.Body>
+                </Table.Root>
+              </div>
             </>
           )}
 
@@ -265,7 +276,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                 The following scores can all be found in the political science literature, but are
                 not necessarily endorsed by leading scholars at this time.
               </Text>
-              <Flex justify="center" align="center" gap="2" mb="2">
+              <Flex justify="start" align="center" gap="2" mb="2">
                 <Text size="1" color="gray">
                   Point of View
                 </Text>
@@ -274,126 +285,130 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                   <SegmentedControl.Item value="rep">Republican</SegmentedControl.Item>
                 </SegmentedControl.Root>
               </Flex>
-              <Table.Root size="1" mb="3">
-                <Table.Header>
-                  <Table.Row>
-                    <Table.ColumnHeaderCell justify="center">Election</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="center">
-                      Dispropor-
-                      <br />
-                      tionality
-                    </Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="center">
-                      Efficiency
-                      <br />
-                      Gap
-                    </Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="center">
-                      Mean
-                      <br />
-                      Median
-                    </Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="center">
-                      Partisan
-                      <br />
-                      Bias
-                    </Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="center">
-                      Eguia's
-                      <br />
-                      Metric
-                    </Table.ColumnHeaderCell>
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {elections.map(key => (
-                    <Table.Row key={key}>
-                      <Table.Cell justify="center">
-                        <Text size="2" weight="bold">
-                          {formatElectionKey(key)}
-                        </Text>
-                      </Table.Cell>
-                      <Table.Cell
-                        justify="center"
-                        style={{
-                          backgroundColor: scaledBg(
-                            evaluation.disproportionality?.[key],
-                            METRIC_CUTOFF.disp
-                          ),
-                        }}
-                      >
-                        <Text size="2">
-                          {formatNumber(
-                            povSign(evaluation.disproportionality?.[key]),
-                            NUMBER_FORMATS.SIGNED_PCT
-                          )}
-                        </Text>
-                      </Table.Cell>
-                      <Table.Cell
-                        justify="center"
-                        style={{
-                          backgroundColor: scaledBg(
-                            evaluation.efficiency_gap?.[key],
-                            METRIC_CUTOFF.efficiency_gap
-                          ),
-                        }}
-                      >
-                        <Text size="2">
-                          {formatNumber(
-                            povSign(evaluation.efficiency_gap?.[key]),
-                            NUMBER_FORMATS.SIGNED_PCT
-                          )}
-                        </Text>
-                      </Table.Cell>
-                      <Table.Cell
-                        justify="center"
-                        style={{
-                          backgroundColor: scaledBg(
-                            evaluation.mean_median?.[key],
-                            METRIC_CUTOFF.mean_median
-                          ),
-                        }}
-                      >
-                        <Text size="2">
-                          {formatNumber(
-                            povSign(evaluation.mean_median?.[key]),
-                            NUMBER_FORMATS.SIGNED_PCT
-                          )}
-                        </Text>
-                      </Table.Cell>
-                      <Table.Cell
-                        justify="center"
-                        style={{
-                          backgroundColor: scaledBg(
-                            evaluation.partisan_bias?.[key],
-                            METRIC_CUTOFF.partisan_bias
-                          ),
-                        }}
-                      >
-                        <Text size="2">
-                          {formatNumber(
-                            povSign(evaluation.partisan_bias?.[key]),
-                            NUMBER_FORMATS.SIGNED_PCT
-                          )}
-                        </Text>
-                      </Table.Cell>
-                      <Table.Cell
-                        justify="center"
-                        style={{
-                          backgroundColor: scaledBg(evaluation.eguia?.[key], METRIC_CUTOFF.eguia),
-                        }}
-                      >
-                        <Text size="2">
-                          {formatNumber(
-                            povSign(evaluation.eguia?.[key]),
-                            NUMBER_FORMATS.SIGNED_PCT
-                          )}
-                        </Text>
-                      </Table.Cell>
+              <div style={{overflowX: 'auto', maxWidth: '100%'}}>
+                <Table.Root size="1" mb="3" style={{tableLayout: 'fixed', width: '58ch'}}>
+                  <Table.Header>
+                    <Table.Row>
+                      <Table.ColumnHeaderCell justify="center" style={{width: '10ch'}}>
+                        Election
+                      </Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell justify="center" style={{width: '9ch'}}>
+                        Dispropor-
+                        <br />
+                        tionality
+                      </Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell justify="center" style={{width: '9ch'}}>
+                        Efficiency
+                        <br />
+                        Gap
+                      </Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell justify="center" style={{width: '9ch'}}>
+                        Mean
+                        <br />
+                        Median
+                      </Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell justify="center" style={{width: '9ch'}}>
+                        Partisan
+                        <br />
+                        Bias
+                      </Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell justify="center" style={{width: '9ch'}}>
+                        Eguia's
+                        <br />
+                        Metric
+                      </Table.ColumnHeaderCell>
                     </Table.Row>
-                  ))}
-                </Table.Body>
-              </Table.Root>
+                  </Table.Header>
+                  <Table.Body>
+                    {elections.map(key => (
+                      <Table.Row key={key}>
+                        <Table.Cell justify="center">
+                          <Text size="2" weight="bold">
+                            {formatElectionKey(key)}
+                          </Text>
+                        </Table.Cell>
+                        <Table.Cell
+                          justify="center"
+                          style={{
+                            backgroundColor: scaledBg(
+                              evaluation.disproportionality?.[key],
+                              METRIC_CUTOFF.disp
+                            ),
+                          }}
+                        >
+                          <Text size="2">
+                            {formatNumber(
+                              povSign(evaluation.disproportionality?.[key]),
+                              NUMBER_FORMATS.SIGNED_PCT
+                            )}
+                          </Text>
+                        </Table.Cell>
+                        <Table.Cell
+                          justify="center"
+                          style={{
+                            backgroundColor: scaledBg(
+                              evaluation.efficiency_gap?.[key],
+                              METRIC_CUTOFF.efficiency_gap
+                            ),
+                          }}
+                        >
+                          <Text size="2">
+                            {formatNumber(
+                              povSign(evaluation.efficiency_gap?.[key]),
+                              NUMBER_FORMATS.SIGNED_PCT
+                            )}
+                          </Text>
+                        </Table.Cell>
+                        <Table.Cell
+                          justify="center"
+                          style={{
+                            backgroundColor: scaledBg(
+                              evaluation.mean_median?.[key],
+                              METRIC_CUTOFF.mean_median
+                            ),
+                          }}
+                        >
+                          <Text size="2">
+                            {formatNumber(
+                              povSign(evaluation.mean_median?.[key]),
+                              NUMBER_FORMATS.SIGNED_PCT
+                            )}
+                          </Text>
+                        </Table.Cell>
+                        <Table.Cell
+                          justify="center"
+                          style={{
+                            backgroundColor: scaledBg(
+                              evaluation.partisan_bias?.[key],
+                              METRIC_CUTOFF.partisan_bias
+                            ),
+                          }}
+                        >
+                          <Text size="2">
+                            {formatNumber(
+                              povSign(evaluation.partisan_bias?.[key]),
+                              NUMBER_FORMATS.SIGNED_PCT
+                            )}
+                          </Text>
+                        </Table.Cell>
+                        <Table.Cell
+                          justify="center"
+                          style={{
+                            backgroundColor: scaledBg(evaluation.eguia?.[key], METRIC_CUTOFF.eguia),
+                          }}
+                        >
+                          <Text size="2">
+                            {formatNumber(
+                              povSign(evaluation.eguia?.[key]),
+                              NUMBER_FORMATS.SIGNED_PCT
+                            )}
+                          </Text>
+                        </Table.Cell>
+                      </Table.Row>
+                    ))}
+                  </Table.Body>
+                </Table.Root>
+              </div>
             </>
           )}
 
