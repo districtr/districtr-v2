@@ -36,7 +36,7 @@ def _is_whole_pos_number(s: str) -> bool:
 
 
 def _build_zone_mapping(
-    raw_zones: list[str], num_districts: int | None
+    raw_zones: set[str], num_districts: int | None
 ) -> dict[str, int]:
     """Map raw zone strings to integer zone IDs.
 
@@ -45,16 +45,15 @@ def _build_zone_mapping(
     [1, num_districts]. Raises ValueError if the total number of distinct zones
     exceeds num_districts.
     """
-    seen: dict[str, int | None] = {}  # preserves insertion order, deduplicates
-    for z in raw_zones:
-        if z not in seen:
-            seen[z] = None
-
     numeric_map: dict[str, int] = {}
     string_labels: list[str] = []
-    for z in seen:
+    for z in raw_zones:
         if _is_whole_pos_number(z):
-            numeric_map[z] = round(float(z))
+            n = round(float(z))
+            if num_districts is None or n <= num_districts:
+                numeric_map[z] = n
+            else:
+                string_labels.append(z)
         else:
             string_labels.append(z)
 
@@ -231,37 +230,28 @@ def batch_insert_assignments(
 
     G = get_graph(districtr_map.gerrydb_table_name)
 
-    null_count = 0
-    invalid_count = 0
-    valid_pairs: list[tuple[str, str]] = []
-    seen_geo_ids: set[str] = set()
     num_districts = districtr_map.num_districts
+
+    raw_zones: set[str] = set()
     for record in assignments:
-        raw_zone = record[1] if len(record) > 1 else ""
-        if raw_zone and raw_zone != "":
-            geo_id = record[0]
-            if not geo_id or geo_id not in G:
-                invalid_count += 1
-                continue
-            if geo_id in seen_geo_ids:
-                raise DuplicateGeoIdError(geo_id)
-            seen_geo_ids.add(geo_id)
-            valid_pairs.append((geo_id, raw_zone))
-        else:
-            null_count += 1
+        raw_zones.add(record[1])
 
-    logger.info(
-        f"{null_count} unassigned rows skipped, {invalid_count} invalid geo_ids skipped"
-    )
+    zone_mapping = _build_zone_mapping(raw_zones, num_districts)
 
-    zone_mapping = _build_zone_mapping([z for _, z in valid_pairs], num_districts)
+    invalid_count = 0
+    seen_geo_ids: set[str] = set()
     zone_by_geo_int: dict[str, int] = {}
-    for geo_id, raw_zone in valid_pairs:
-        zone = zone_mapping.get(raw_zone)
-        if zone is None or not 0 < zone <= (num_districts or zone):
+    for record in assignments:
+        geo_id = record[0]
+        if not geo_id or geo_id not in G:
             invalid_count += 1
             continue
-        zone_by_geo_int[geo_id] = zone
+        if geo_id in seen_geo_ids:
+            raise DuplicateGeoIdError(geo_id)
+        seen_geo_ids.add(geo_id)
+        zone_by_geo_int[geo_id] = zone_mapping[record[1]]
+
+    logger.info(f"{invalid_count} invalid geo_ids skipped")
 
     if districtr_map.child_layer is not None:
         zone_by_geo: dict[str, int | None] = _heal_or_fill(zone_by_geo_int, G)

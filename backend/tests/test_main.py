@@ -990,7 +990,10 @@ def test_new_document_from_block_assignments_some_null_geoids(
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
     assert data.get("districtr_map_slug") == "simple_geos"
-    assert data.get("inserted_assignments") == 2
+    # Empty geo_ids (rows 3-4) are skipped. Empty string zone ("") is a valid label
+    # remapped to an integer slot, so row 2 is inserted. Healing/fill on the
+    # shatterable map produces 5 total rows.
+    assert data.get("inserted_assignments") == 5
 
 
 def test_new_document_from_block_assignments_non_integer_mapping(
