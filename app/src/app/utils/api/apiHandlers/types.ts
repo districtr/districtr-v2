@@ -2,6 +2,7 @@ import {type NullableZone} from '@constants/map/zone';
 import {type MapType} from '@constants/document/types';
 import type {DraftStatus} from '@constants/document/draftStatus';
 import {type AccessState} from '@constants/document/state';
+import {type GeoUnit} from '@constants/document/geoUnits';
 
 export interface Assignment {
   document_id: string;
@@ -94,7 +95,7 @@ export interface DocumentObject extends StatusObject {
   community_metadata_list?: Community[] | null;
   /** If false, users cannot change the number of districts on the frontend. */
   num_districts_modifiable?: boolean;
-  map_module: string | null;
+  map_module: string;
   created_at: string;
   updated_at: string;
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
@@ -102,11 +103,11 @@ export interface DocumentObject extends StatusObject {
   color_scheme: string[] | null;
   map_type: MapType;
   comment: string | null;
-  parent_geo_unit_type: string | null;
-  child_geo_unit_type: string | null;
-  data_source_name: string | null;
+  parent_geo_unit_type: GeoUnit;
+  child_geo_unit_type: GeoUnit | null;
+  data_source_name: string;
   overlays: Overlay[] | null;
-  statefps: string[] | null;
+  statefps: string[];
   document_comments?: DocumentComment[] | null;
   community_name_length_limit?: number;
   comment_length_limit: number;
@@ -137,11 +138,6 @@ export interface DocumentCreate {
   copy_from_doc?: string | number;
 }
 
-export interface ZonePopulation {
-  zone: number;
-  total_pop_20: number;
-}
-
 export type ShatterResult = Array<{
   child_path: string;
   parent_path: string;
@@ -163,10 +159,6 @@ export type LocalAssignmentsResponse = {
   documentId: string;
   assignments: Assignment[];
 };
-
-export type GetAssignmentsResponse = Promise<
-  RemoteAssignmentsResponse | LocalAssignmentsResponse | null
->;
 
 export type MapGroup = {
   name: string;
@@ -219,18 +211,6 @@ export interface FullCommentFormResponse {
   comment: CommentPublic;
   commenter: CommenterPublic;
   tags: TagPublic[];
-}
-
-export interface CommentListing {
-  comment: {
-    comment: string;
-    commenter_id: number;
-    document_id: string;
-    created_at: Date;
-    title: string;
-    updated_at: Date;
-  };
-  tags?: string[];
 }
 
 export interface Overlay {

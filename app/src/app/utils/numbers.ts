@@ -40,6 +40,10 @@ export const formatNumber = (value: number | undefined, format: NumberFormat) =>
       return `${party} +${percentFormat}`;
     case NUMBER_FORMATS.STANDARD:
       return standardFormatter.format(value);
+    case NUMBER_FORMATS.SIGNED_PCT:
+      return value >= 0 ? `+${(value * 100).toFixed(2)}%` : `${(value * 100).toFixed(2)}%`;
+    case NUMBER_FORMATS.DECIMAL_3:
+      return isNaN(value) ? '—' : value.toFixed(3);
     default:
       const exhaustiveCheck: never = format;
       throw new Error(`Unhandled format case: ${exhaustiveCheck}`);

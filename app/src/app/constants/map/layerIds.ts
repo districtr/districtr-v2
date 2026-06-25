@@ -29,6 +29,7 @@ export const CANONICAL_LAYER_IDS = {
     FILL: 'counties_fill',
     BOUNDARY: 'counties_boundary',
     LABELS: 'counties_labels',
+    HIGHLIGHT: 'counties_highlight',
   },
   BLOCK: {
     PARENT: {
@@ -51,6 +52,7 @@ export const CANONICAL_LAYER_IDS = {
   PUBLIC: {
     FILL: 'public-district-fill',
     OUTLINE: 'public-district-outline',
+    HIGHLIGHT: 'public-district-highlight',
   },
   ZONE_LABELS: {
     TEXT: 'ZONE_LABEL',

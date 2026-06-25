@@ -42,7 +42,7 @@ const validateRows = (rows: Array<Array<string>>, plan: DistrictrMap) => {
   const candidateIndices: Record<string, Record<number, number>> = {};
   // skip header row
   const rowstoTest = rows.slice(1, ROWS_TO_TEST);
-  rowstoTest.forEach((row, i) => {
+  rowstoTest.forEach(row => {
     row.forEach((value, j) => {
       tests.forEach(test => {
         if (!candidateIndices[test.name]) {
@@ -104,10 +104,21 @@ const validateRows = (rows: Array<Array<string>>, plan: DistrictrMap) => {
     };
   }
 
-  return {
-    ok: true,
-    colIndices: mostLikelyColumns as {GEOID: number; ZONE: number},
-  };
+  const colIndices = mostLikelyColumns as {GEOID: number; ZONE: number};
+  const zoneTest = tests.find(t => t.name === 'ZONE')!.test;
+  const invalidZoneRow = (rows as string[][])
+    .slice(1)
+    .find(row => row[colIndices.ZONE] && !zoneTest(row[colIndices.ZONE]));
+  if (invalidZoneRow) {
+    return {
+      ok: false,
+      detail: {
+        message: `Invalid zone value: "${invalidZoneRow[colIndices.ZONE]}". Zones must be integers between 1 and ${plan.num_districts}.`,
+      },
+    };
+  }
+
+  return {ok: true, colIndices};
 };
 
 export const processFile = ({

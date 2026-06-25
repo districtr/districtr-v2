@@ -2,34 +2,53 @@
 
 `DocumentEvaluationContext` is the data bag passed to every metric.
 
-`StateIdealsForEguia` is a singleton (`STATE_IDEALS_FOR_EGUIA`) holding population-weighted
-Dem/Rep county win probabilities keyed by gerrydb table name. It is only used by the
-Eguia metric.
+`CountyContext` is a singleton (`COUNTY_CONTEXT`) holding two per-gerrydb-table caches:
+  - county populations ({county_geoid: total_pop}), used by splits and Eguia metrics.
+  - population-weighted Dem/Rep county win probabilities, used only by the Eguia metric.
 """
 
+import csv
 import dataclasses
+import logging
+
 from functools import cached_property
-from typing import ClassVar, NewType
+from pathlib import Path
+from typing import ClassVar, NewType, cast
 
 import fastapi
 import numpy as np
 import pandas as pd
-import sqlmodel
+import pyproj
+import shapely
 import sqlalchemy
-
+import sqlmodel
+from app.core.config import settings
 from app.evaluation.models import CountyDemographics
-from app.models import DistrictUnionsResponse, DistrictrMap, Document
+from app.evaluation.types import Election, CountyGeoid, DistrictId
+from app.models import Assignments, DistrictUnionsResponse, DistrictrMap, Document
 from app.utils import (
     update_or_select_district_stats,
     assert_safe_ident,
     get_gerrydb_numeric_cols,
+    Geoid,
+    GeoUnitType,
+    GEOID_PREDICATES,
 )
 
+logger = logging.getLogger(__name__)
 
-StateFIPS = NewType("StateFIPS", str)
 GerrydbTableName = NewType("GerrydbTableName", str)
-Election = NewType("Election", str)
 ElectionPartyKey = NewType("ElectionPartyKey", str)
+DemographicColumn = NewType("DemographicColumn", str)
+
+TOTAL_POP_COL = "total_pop_20"
+
+_transformer = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:5070", always_xy=True)
+
+
+def _reproject(coords: np.ndarray) -> np.ndarray:
+    x, y = _transformer.transform(coords[:, 0], coords[:, 1])
+    return np.stack([x, y], axis=1)
 
 
 @dataclasses.dataclass
@@ -52,14 +71,33 @@ class DocumentEvaluationContext:
         )
 
     @cached_property
+    def projected_district_geometries(self) -> dict[DistrictId, shapely.Geometry]:
+        """Well-formed per-zone geometries projected to EPSG:5070, shared by compactness
+        metrics."""
+        districts = [
+            d for d in self.district_stats if d.zone is not None and d.geometry
+        ]
+        shapes = np.array(
+            [shapely.from_geojson(d.geometry) for d in districts], dtype=object
+        )
+        projected = shapely.transform(shapes, _reproject)
+        return {
+            cast(DistrictId, d.zone): geom
+            for d, geom in zip(districts, projected)
+            if not geom.is_empty
+        }
+
+    @cached_property
     def demographic_data(self) -> pd.DataFrame:
-        """Per-zone demographic data."""
+        """Per-zone demographic data for non-empty districts."""
         rows = [
             {"zone": d.zone, **d.demographic_data}
             for d in self.district_stats
             if d.demographic_data and d.zone is not None
         ]
-        return pd.DataFrame(rows).set_index("zone") if rows else pd.DataFrame()
+        if not rows or TOTAL_POP_COL not in rows[0]:
+            raise ValueError("No demographic data available for this document.")
+        return pd.DataFrame(rows).set_index("zone")
 
     @cached_property
     def elections(self) -> list[Election]:
@@ -68,6 +106,15 @@ class DocumentEvaluationContext:
             Election(s.removesuffix("_dem"))
             for s in self.demographic_data.columns
             if s.endswith("_dem")
+        ]
+
+    @cached_property
+    def demographic_columns(self) -> list[DemographicColumn]:
+        """Demographic columns (e.g. "hpop_20")"""
+        return [
+            col
+            for col in self.demographic_data.columns
+            if "pop" in col and not col.startswith(("other_pop", "total_pop"))
         ]
 
     @cached_property
@@ -91,12 +138,44 @@ class DocumentEvaluationContext:
     @cached_property
     def dem_seats(self) -> dict[Election, int]:
         """Total Dem seats statewide for each election."""
-        return {col: sum(self.dem_wins[col]) for col in self.elections}
+        return {col: int(self.dem_wins[col].sum()) for col in self.elections}
 
     @cached_property
     def rep_seats(self) -> dict[Election, int]:
         """Total Rep seats statewide for each election."""
-        return {col: sum(self.rep_wins[col]) for col in self.elections}
+        return {col: int(self.rep_wins[col].sum()) for col in self.elections}
+
+    @cached_property
+    def dem_votes(self) -> dict[Election, pd.Series]:
+        """Dem votes per district for each election."""
+        return {col: self.demographic_data[col + "_dem"] for col in self.elections}
+
+    @cached_property
+    def rep_votes(self) -> dict[Election, pd.Series]:
+        """Rep votes per district for each election."""
+        return {col: self.demographic_data[col + "_rep"] for col in self.elections}
+
+    @cached_property
+    def total_votes(self) -> dict[Election, pd.Series]:
+        """Total votes per district for each election."""
+        return {
+            col: self.dem_votes[col] + self.rep_votes[col] for col in self.elections
+        }
+
+    @cached_property
+    def dem_state_votes(self) -> dict[Election, int]:
+        """Total Dem votes statewide for each election."""
+        return {col: int(self.dem_votes[col].sum()) for col in self.elections}
+
+    @cached_property
+    def rep_state_votes(self) -> dict[Election, int]:
+        """Total Rep votes statewide for each election."""
+        return {col: int(self.rep_votes[col].sum()) for col in self.elections}
+
+    @cached_property
+    def total_state_votes(self) -> dict[Election, int]:
+        """Total votes statewide for each election."""
+        return {col: int(self.total_votes[col].sum()) for col in self.elections}
 
     @cached_property
     def num_nonempty_districts(self) -> int:
@@ -104,35 +183,152 @@ class DocumentEvaluationContext:
         return sum(1 for d in self.district_stats if d.zone is not None)
 
     @cached_property
-    def _districtr_map(self) -> DistrictrMap | None:
-        """The DistrictrMap associated with this document."""
-        return self.session.exec(
-            sqlmodel.select(DistrictrMap)
-            .join(Document, Document.districtr_map_slug == DistrictrMap.districtr_map_slug)
-            .where(Document.document_id == self.document_id)
-        ).one_or_none()
+    def total_population(self) -> int:
+        """Total population across all geographic units (assigned and unassigned)."""
+        return sum(
+            d.demographic_data[TOTAL_POP_COL]
+            for d in self.district_stats
+            if (
+                d.demographic_data
+                and TOTAL_POP_COL in d.demographic_data
+                and d.demographic_data[TOTAL_POP_COL] is not None
+            )
+        )
 
     @cached_property
-    def gerrydb_table(self) -> GerrydbTableName | None:
+    def unassigned_population(self) -> int:
+        """Unassigned population and total state population."""
+        unassigned = next((d for d in self.district_stats if d.zone is None), None)
+        if (
+            unassigned is None
+            or not unassigned.demographic_data
+            or TOTAL_POP_COL not in unassigned.demographic_data
+        ):
+            raise ValueError("No demographic data available for unassigned population.")
+        return int(unassigned.demographic_data[TOTAL_POP_COL])
+
+    @cached_property
+    def ideal_population(self) -> int:
+        """Ideal population per district (total population ÷ map's number of districts)."""
+        num_districts = self._districtr_map.num_districts
+        if not num_districts:
+            raise ValueError(
+                f"DistrictrMap for document '{self.document_id}' has no num_districts set."
+            )
+        return self.total_population // num_districts
+
+    @cached_property
+    def _districtr_map(self) -> DistrictrMap:
+        """The DistrictrMap associated with this document."""
+        m = self.session.exec(
+            sqlmodel.select(DistrictrMap)
+            .join(
+                Document,
+                sqlmodel.col(Document.districtr_map_slug)
+                == sqlmodel.col(DistrictrMap.districtr_map_slug),
+            )
+            .where(sqlmodel.col(Document.document_id) == self.document_id)
+        ).one_or_none()
+        if m is None:
+            raise ValueError(
+                f"No DistrictrMap found for document '{self.document_id}'."
+            )
+        return m
+
+    @cached_property
+    def gerrydb_table(self) -> GerrydbTableName:
         """The document's gerrydb table name (may be a shatterable UNION ALL view)."""
         m = self._districtr_map
-        return GerrydbTableName(m.gerrydb_table_name) if m and m.gerrydb_table_name else None
+        if not m.gerrydb_table_name:
+            raise ValueError(
+                f"Document '{self.document_id}' has no gerrydb table name."
+            )
+        return GerrydbTableName(m.gerrydb_table_name)
 
     @cached_property
-    def parent_layer(self) -> GerrydbTableName | None:
+    def parent_layer(self) -> GerrydbTableName:
         """The parent-layer gerrydb table name, used for county-level aggregation."""
         m = self._districtr_map
-        return GerrydbTableName(m.parent_layer) if m else None
+        if not m.parent_layer:
+            raise ValueError(f"Document '{self.document_id}' has no parent layer.")
+        return GerrydbTableName(m.parent_layer)
 
     @cached_property
     def child_layer(self) -> GerrydbTableName | None:
         """The child (block-level) gerrydb table name, or `None` for non-shatterable maps."""
         m = self._districtr_map
-        return GerrydbTableName(m.child_layer) if m and m.child_layer else None
+        return GerrydbTableName(m.child_layer) if m.child_layer else None
+
+    @cached_property
+    def is_shatterable(self) -> bool:
+        """Whether this map has a child (block) layer."""
+        return self.child_layer is not None
+
+    @cached_property
+    def parent_geo_unit_type(self) -> GeoUnitType:
+        """Parent unit type (e.g. 'vtd', 'block'). Raises ValueError if unset in districtrmap"""
+        if not self._districtr_map.parent_geo_unit_type:
+            raise ValueError(
+                f"DistrictrMap for document '{self.document_id}' has no parent_geo_unit_type set."
+            )
+        return self._districtr_map.parent_geo_unit_type
+
+    @cached_property
+    def num_parent_units(self) -> int:
+        """Total number of units in the parent layer."""
+        return self.session.execute(
+            sqlalchemy.text(
+                f"SELECT count(*) FROM gerrydb.{assert_safe_ident(self.parent_layer)}"
+            )
+        ).scalar()
+
+    @cached_property
+    def num_child_units(self) -> int | None:
+        """Total number of child (block) units, or None for non-shatterable maps."""
+        if not self.is_shatterable:
+            return None
+        return self.session.execute(
+            sqlalchemy.text(
+                f"SELECT count(*) FROM gerrydb.{assert_safe_ident(self.child_layer)}"
+            )
+        ).scalar()
+
+    @cached_property
+    def zone_assignments(self) -> list[tuple[Geoid, DistrictId]]:
+        """Assignment rows for this document."""
+        rows = self.session.exec(
+            sqlmodel.select(Assignments.geo_id, Assignments.zone)
+            .where(sqlmodel.col(Assignments.document_id) == self.document_id)
+            .where(sqlmodel.col(Assignments.zone).isnot(None))
+        ).all()
+        return [(Geoid(geo_id), DistrictId(zone)) for geo_id, zone in rows]
+
+    @cached_property
+    def split_zone_assignments(
+        self,
+    ) -> tuple[dict[Geoid, DistrictId], dict[Geoid, DistrictId]]:
+        """Assignment rows split into (unit_to_zone, parent_unit_to_zone).
+
+        unit_to_zone        — individually-assigned child units (bare block IDs)
+                              or all units for non-shatterable maps.
+        parent_unit_to_zone — whole-parent assignments (colon-prefixed geo_ids)
+        """
+        unit_to_zone: dict[Geoid, DistrictId] = {}
+        parent_unit_to_zone: dict[Geoid, DistrictId] = {}
+        if self.is_shatterable:
+            is_parent = GEOID_PREDICATES[self.parent_geo_unit_type]
+            for geo_id, zone in self.zone_assignments:
+                (parent_unit_to_zone if is_parent(geo_id) else unit_to_zone)[geo_id] = (
+                    zone
+                )
+        else:
+            for geo_id, zone in self.zone_assignments:
+                unit_to_zone[geo_id] = zone
+        return unit_to_zone, parent_unit_to_zone
 
 
 @dataclasses.dataclass
-class IdealsForEguia:
+class CountyContext:
     """A singleton lookup of per-gerrydb-table Eguia ideals, which are compared to the
     plan's seat outcomes to compute the Eguia metric.
 
@@ -151,10 +347,81 @@ class IdealsForEguia:
     # the DB indefinitely for a permanently malformed gerrydb table.
     MAX_LOAD_ATTEMPTS: ClassVar[int] = 3
 
-    _cache: dict[GerrydbTableName, dict[ElectionPartyKey, float]] = dataclasses.field(default_factory=dict)
+    _DATA_DIR: ClassVar[Path] = Path(settings.VOLUME_PATH)
+    _COUNTY_NAMES_FILE: ClassVar[Path] = _DATA_DIR / "county_names.csv"
+    _COUNTY_NAMES_S3_KEY: ClassVar[str] = "reference/county_names.csv"
+
+    _cache: dict[GerrydbTableName, dict[ElectionPartyKey, float]] = dataclasses.field(
+        default_factory=dict
+    )
+    _pop_cache: dict[GerrydbTableName, dict[CountyGeoid, int]] = dataclasses.field(
+        default_factory=dict
+    )
+    _name_cache: dict[CountyGeoid, str] = dataclasses.field(default_factory=dict)
     _attempts: dict[GerrydbTableName, int] = dataclasses.field(default_factory=dict)
 
-    def get(
+    def _load_county_names(self) -> dict[CountyGeoid, str]:
+        """Load county geoid→name mapping from CSV, downloading from S3 first if absent."""
+        if not self._COUNTY_NAMES_FILE.exists():
+            self._fetch_county_names_file()
+        result: dict[CountyGeoid, str] = {}
+        with self._COUNTY_NAMES_FILE.open(newline="") as f:
+            for row in csv.DictReader(f):
+                result[CountyGeoid(row["geoid"])] = row["name"]
+        return result
+
+    def _fetch_county_names_file(self) -> None:
+        """Download county names CSV from S3 and cache locally."""
+        logger.info("Downloading county names from S3 to %s", self._COUNTY_NAMES_FILE)
+        self._DATA_DIR.mkdir(parents=True, exist_ok=True)
+        s3 = settings.get_s3_client()
+        assert s3, "S3 client is not available"
+        s3.download_file(
+            settings.R2_BUCKET_NAME,
+            self._COUNTY_NAMES_S3_KEY,
+            str(self._COUNTY_NAMES_FILE),
+        )
+
+    def county_name(self, geoid: CountyGeoid) -> str:
+        """Return the county name for `geoid` (e.g. "01001" → "Autauga County").
+
+        Raises KeyError if the geoid is not in the Census county reference data.
+        """
+        if not self._name_cache:
+            self._name_cache = self._load_county_names()
+        return self._name_cache[geoid]
+
+    def county_populations(
+        self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
+    ) -> dict[CountyGeoid, int]:
+        """Return a {county_geoid: total_pop} dict for `gerrydb_table`.
+
+        Cached after first load. Raises ValueError if county data is unavailable.
+        Retried up to MAX_LOAD_ATTEMPTS times before raising.
+        """
+        if gerrydb_table in self._pop_cache:
+            return self._pop_cache[gerrydb_table]
+        if self._attempts.get(gerrydb_table, 0) >= self.MAX_LOAD_ATTEMPTS:
+            raise ValueError(
+                f"County data for '{gerrydb_table}' failed to load after "
+                f"{self.MAX_LOAD_ATTEMPTS} attempts."
+            )
+        self._attempts[gerrydb_table] = self._attempts.get(gerrydb_table, 0) + 1
+        self._ensure_county_data(gerrydb_table, session)
+        rows = session.exec(
+            sqlmodel.select(
+                CountyDemographics.geoid, CountyDemographics.total_pop
+            ).where(CountyDemographics.gerrydb_table_name == gerrydb_table)
+        ).all()
+        pops = {
+            CountyGeoid(geoid): int(total_pop)
+            for geoid, total_pop in rows
+            if geoid and total_pop is not None
+        }
+        self._pop_cache[gerrydb_table] = pops
+        return pops
+
+    def ideals_for_eguia(
         self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
     ) -> dict[ElectionPartyKey, float]:
         """Return the per-ElectionPartyKey seat share expectation dict for `gerrydb_table`.
@@ -165,21 +432,20 @@ class IdealsForEguia:
                 `evaluation.county_demographics` on first request.
             session: SQLModel session for any required DB queries.
 
-        A cached non-empty result is returned immediately. A cached empty result
-        (`{}`) means a prior attempt failed; the call is retried up to
-        `MAX_LOAD_ATTEMPTS` times. After that the singleton returns `{}` without
-        touching the DB, gracefully handling permanently malformed gerrydb tables.
+        Raises ValueError if county data is unavailable or malformed. Retried up to
+        `MAX_LOAD_ATTEMPTS` times before raising to avoid hammering the DB.
         """
-        cached = self._cache.get(gerrydb_table)
-        if cached:
-            return cached
+        if gerrydb_table in self._cache:
+            return self._cache[gerrydb_table]
         if self._attempts.get(gerrydb_table, 0) >= self.MAX_LOAD_ATTEMPTS:
-            return {}
+            raise ValueError(
+                f"County data for '{gerrydb_table}' failed to load after "
+                f"{self.MAX_LOAD_ATTEMPTS} attempts."
+            )
         self._attempts[gerrydb_table] = self._attempts.get(gerrydb_table, 0) + 1
         self._ensure_county_data(gerrydb_table, session)
-        ideals = self._compute_ideal(gerrydb_table, session)
-        self._cache[gerrydb_table] = ideals
-        return ideals
+        self._cache[gerrydb_table] = self._compute_ideal(gerrydb_table, session)
+        return self._cache[gerrydb_table]
 
     def _ensure_county_data(
         self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
@@ -195,8 +461,8 @@ class IdealsForEguia:
         """
         exists = session.exec(
             sqlmodel.select(CountyDemographics)
-            .where(CountyDemographics.gerrydb_table_name == gerrydb_table)
-            .where(CountyDemographics.total_pop.isnot(None))
+            .where(sqlmodel.col(CountyDemographics.gerrydb_table_name) == gerrydb_table)
+            .where(sqlmodel.col(CountyDemographics.total_pop).isnot(None))
             .limit(1)
         ).first()
         if not exists:
@@ -213,9 +479,10 @@ class IdealsForEguia:
         """
         safe_table = assert_safe_ident(gerrydb_table)
 
-        # Guard: skip if this is not a plain table (relkind='r'). Materialized views
-        # created by create_shatterable_gerrydb_view are UNION ALL of parent + child
-        # layers; aggregating them up to county level would double-count every row.
+        # Must be a plain table (relkind='r'). Materialized views created by
+        # create_shatterable_gerrydb_view are UNION ALL of parent + child layers;
+        # aggregating them up to county level would double-count every row.
+        # Callers must pass the plain parent layer, not the combined view.
         relkind = session.execute(
             sqlalchemy.text(
                 "SELECT relkind FROM pg_class "
@@ -225,12 +492,19 @@ class IdealsForEguia:
             {"name": gerrydb_table},
         ).scalar_one_or_none()
         if relkind != "r":
-            return
+            raise ValueError(
+                f"_populate_county_data requires a plain table (relkind='r'), "
+                f"got relkind={relkind!r} for '{gerrydb_table}'. "
+                f"Pass the parent layer table, not the combined shatterable view."
+            )
 
         demo_cols = get_gerrydb_numeric_cols(session, safe_table)
 
         if not demo_cols:
-            return
+            raise ValueError(
+                f"No numeric columns found in gerrydb table '{gerrydb_table}'. "
+                f"The table may not have been ingested with demographic data."
+            )
         json_pairs = [f"'{col}', SUM({col})" for col in demo_cols]
         demographic_json = f"json_build_object({', '.join(json_pairs)})"
         total_pop_expr = "SUM(total_pop_20)" if "total_pop_20" in demo_cols else "NULL"
@@ -263,17 +537,19 @@ class IdealsForEguia:
         ).all()
 
         if not rows:
-            return {}
+            raise ValueError(
+                f"No county demographics found for '{gerrydb_table}'. "
+                f"County data may not have been ingested for this table."
+            )
 
         df = pd.DataFrame([r.demographic_data or {} for r in rows])
-
-        if "total_pop_20" not in df.columns:
-            return {}
-
-        county_pops = df["total_pop_20"].fillna(0)
+        county_pops = np.array([r.total_pop or 0 for r in rows], dtype="int64")
         total_pop = county_pops.sum()
         if total_pop == 0:
-            return {}
+            raise ValueError(
+                f"Total county population is zero for '{gerrydb_table}'. "
+                f"County demographics may be missing total_pop_20."
+            )
 
         dem_cols: list[ElectionPartyKey] = [
             ElectionPartyKey(c) for c in df.columns if c.endswith("_dem")
@@ -293,4 +569,4 @@ class IdealsForEguia:
 
 
 # Server-owned singleton. Shared across all requests; one entry per gerrydb table.
-IDEALS_FOR_EGUIA = IdealsForEguia()
+COUNTY_CONTEXT = CountyContext()
