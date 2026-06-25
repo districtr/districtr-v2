@@ -1,7 +1,7 @@
 const TYPE_LABELS: Record<string, string> = {
-  pres: 'Pres',
-  gov: 'Gov',
-  sen: 'Sen',
+  pres: 'PRES',
+  gov: 'GOV',
+  sen: 'SEN',
   ag: 'AG',
 };
 
