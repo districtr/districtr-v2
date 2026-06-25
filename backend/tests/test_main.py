@@ -958,7 +958,11 @@ def test_new_document_from_block_assignments_some_nulls(
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
     assert data.get("districtr_map_slug") == "simple_geos"
-    assert data.get("inserted_assignments") == 3
+    # Assigned: 001→1, 003→1, 005→1, 006→3 (002 and 004 empty, skipped).
+    # A={001,005} all zone 1 → healed to A. C={006} zone 3 → healed to C.
+    # B={002,003,004}: only 003 assigned → 002 and 004 filled as null.
+    # Result: A, C, 003, 002(null), 004(null) = 5 rows.
+    assert data.get("inserted_assignments") == 5
 
 
 def test_new_document_from_block_assignments_some_null_geoids(
@@ -1037,8 +1041,10 @@ def test_new_document_from_block_assignments_too_many_unique_zones(
     assert data.get("districtr_map_slug") == "simple_geos"
     # Zones 4 and 5 exceed num_districts=3 and are skipped.
     # Remaining: 001 (zone 1), 002 (zone 2), 003 (zone 3), 005 (zone 1).
-    # 001+005 share zone 1 → healed to parent A. 002 and 003 differ → kept as blocks.
-    assert data.get("inserted_assignments") == 3
+    # A={001,005} all zone 1 → healed to parent A.
+    # B={002,003,004}: 002 and 003 assigned with different zones → kept; 004 missing → filled null.
+    # Result: A, 002, 003, 004(null) = 4 rows.
+    assert data.get("inserted_assignments") == 4
 
 
 def test_new_document_from_block_assignments_no_children(
