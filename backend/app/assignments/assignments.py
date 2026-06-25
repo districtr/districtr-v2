@@ -24,6 +24,56 @@ class DuplicateGeoIdError(ValueError):
     pass
 
 
+def _is_whole_pos_number(s: str) -> bool:
+    """True for positive integers without leading zeros (e.g. '2', '2.0') but not '01' or '1.5'."""
+    if not s or s[0] == "0":
+        return False
+    try:
+        n = float(s)
+        return n > 0 and n == int(n)
+    except ValueError:
+        return False
+
+
+def _build_zone_mapping(
+    raw_zones: list[str], num_districts: int | None
+) -> dict[str, int]:
+    """Map raw zone strings to integer zone IDs.
+
+    Whole-number strings (e.g. '2', '2.0') are parsed directly; all other non-empty
+    strings (e.g. 'District 1', '01') are remapped to unused integer slots in
+    [1, num_districts]. Raises ValueError if the total number of distinct zones
+    exceeds num_districts.
+    """
+    seen: dict[str, int | None] = {}  # preserves insertion order, deduplicates
+    for z in raw_zones:
+        if z not in seen:
+            seen[z] = None
+
+    numeric_map: dict[str, int] = {}
+    string_labels: list[str] = []
+    for z in seen:
+        if _is_whole_pos_number(z):
+            numeric_map[z] = round(float(z))
+        else:
+            string_labels.append(z)
+
+    used_ids = set(numeric_map.values())
+    total_zones = len(used_ids) + len(string_labels)
+    if num_districts is not None and total_zones > num_districts:
+        raise ValueError(
+            f"Too many zones: CSV contains {total_zones} distinct zones "
+            f"but the map only has {num_districts} districts"
+        )
+
+    cap = num_districts or total_zones
+    available = [i for i in range(1, cap + 1) if i not in used_ids][
+        : len(string_labels)
+    ]
+    mapping = {**numeric_map, **dict(zip(string_labels, available))}
+    return mapping
+
+
 def duplicate_document_assignments(
     from_document_id: str, to_document_id: str, session: Session = Depends(get_session)
 ) -> int | None:
@@ -183,26 +233,35 @@ def batch_insert_assignments(
 
     null_count = 0
     invalid_count = 0
-    zone_by_geo_int: dict[str, int] = {}
+    valid_pairs: list[tuple[str, str]] = []
+    seen_geo_ids: set[str] = set()
     num_districts = districtr_map.num_districts
     for record in assignments:
-        if record[1] and record[1] != "":
+        raw_zone = record[1] if len(record) > 1 else ""
+        if raw_zone and raw_zone != "":
             geo_id = record[0]
-            zone = int(
-                float(record[1])
-            )  # ValueError propagates for non-numeric zones (e.g. "District 1")
-            if not geo_id or geo_id not in G or not 0 < zone <= (num_districts or zone):
+            if not geo_id or geo_id not in G:
                 invalid_count += 1
                 continue
-            if geo_id in zone_by_geo_int:
+            if geo_id in seen_geo_ids:
                 raise DuplicateGeoIdError(geo_id)
-            zone_by_geo_int[geo_id] = zone
+            seen_geo_ids.add(geo_id)
+            valid_pairs.append((geo_id, raw_zone))
         else:
             null_count += 1
 
     logger.info(
-        f"{null_count} unassigned rows skipped, {invalid_count} invalid geo_ids/zones skipped"
+        f"{null_count} unassigned rows skipped, {invalid_count} invalid geo_ids skipped"
     )
+
+    zone_mapping = _build_zone_mapping([z for _, z in valid_pairs], num_districts)
+    zone_by_geo_int: dict[str, int] = {}
+    for geo_id, raw_zone in valid_pairs:
+        zone = zone_mapping.get(raw_zone)
+        if zone is None or not 0 < zone <= (num_districts or zone):
+            invalid_count += 1
+            continue
+        zone_by_geo_int[geo_id] = zone
 
     if districtr_map.child_layer is not None:
         zone_by_geo: dict[str, int | None] = _heal_or_fill(zone_by_geo_int, G)

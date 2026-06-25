@@ -517,11 +517,11 @@ async def create_document(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Duplicate geoids found in input data. Ensure all geoids are unique",
             )
-        except ValueError:
+        except ValueError as exc:
             session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Invalid zone value in assignments",
+                detail=str(exc),
             )
 
     if data.metadata is not None:

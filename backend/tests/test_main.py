@@ -996,7 +996,12 @@ def test_new_document_from_block_assignments_some_null_geoids(
 def test_new_document_from_block_assignments_non_integer_mapping(
     client, simple_shatterable_districtr_map, mock_grid_graph_file
 ):
-    # Non-numeric zone strings are client error; backend raises ValueError → 422
+    # String zone labels are remapped to integer slots by the backend.
+    # "My zone 1" → 1, "My zone 3" → 2 (2 labels, num_districts=3, no error).
+    # 001, 003, 005 → zone 1; 006 → zone 2; 002, 004 unassigned.
+    # _heal_or_fill: A={001,005} all zone 1 → healed; C={006} sole child zone 2 → healed;
+    # B={002,003,004}: 003=zone1, 002+004 missing → filled null.
+    # Result: A(1), C(2), 003(1), 002(null), 004(null) = 5 rows.
     response = client.post(
         "/api/create_document",
         json={
@@ -1011,12 +1016,17 @@ def test_new_document_from_block_assignments_non_integer_mapping(
             ],
         },
     )
-    assert response.status_code == 422
+    data = response.json()
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
+    assert data.get("inserted_assignments") == 5
 
 
 def test_new_document_from_block_assignments_too_many_unique_zones(
     client, simple_shatterable_districtr_map, mock_grid_graph_file
 ):
+    # 5 distinct zones with num_districts=3 → ValueError → 422.
     response = client.post(
         "/api/create_document",
         json={
@@ -1031,20 +1041,7 @@ def test_new_document_from_block_assignments_too_many_unique_zones(
             ],
         },
     )
-    data = response.json()
-    assert (
-        response.status_code == 201
-    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
-    document_id = data.get("document_id", None)
-    assert document_id
-    assert isinstance(uuid.UUID(document_id), uuid.UUID)
-    assert data.get("districtr_map_slug") == "simple_geos"
-    # Zones 4 and 5 exceed num_districts=3 and are skipped.
-    # Remaining: 001 (zone 1), 002 (zone 2), 003 (zone 3), 005 (zone 1).
-    # A={001,005} all zone 1 → healed to parent A.
-    # B={002,003,004}: 002 and 003 assigned with different zones → kept; 004 missing → filled null.
-    # Result: A, 002, 003, 004(null) = 4 rows.
-    assert data.get("inserted_assignments") == 4
+    assert response.status_code == 422
 
 
 def test_new_document_from_block_assignments_no_children(
