@@ -679,7 +679,6 @@ def update_or_select_district_stats(
             {"document_id": document_id},
         )
         rows = result.mappings().all()
-        logger.info(f"Result: {rows}")
         # Map the result rows to DistrictUnions objects
         returned_rows: List[DistrictUnionsResponse] = [
             DistrictUnionsResponse.model_validate(row) for row in rows

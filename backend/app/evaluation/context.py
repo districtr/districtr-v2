@@ -283,6 +283,17 @@ class DocumentEvaluationContext:
         ).scalar()
 
     @cached_property
+    def num_child_units(self) -> int | None:
+        """Total number of child (block) units, or None for non-shatterable maps."""
+        if not self.is_shatterable:
+            return None
+        return self.session.execute(
+            sqlalchemy.text(
+                f"SELECT count(*) FROM gerrydb.{assert_safe_ident(self.child_layer)}"
+            )
+        ).scalar()
+
+    @cached_property
     def zone_assignments(self) -> list[tuple[Geoid, DistrictId]]:
         """Assignment rows for this document."""
         rows = self.session.exec(
