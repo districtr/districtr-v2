@@ -46,9 +46,6 @@ const ViewSwitcherItem: React.FC<{
     <DropdownMenu.Item
       disabled={disabled}
       onSelect={onSelect}
-      style={{
-        padding: '1.5rem .25rem',
-      }}
     >
       <Flex align="center" justify="between" gap="4" width="100%" py="1">
         <Flex align="center" gap="3">
