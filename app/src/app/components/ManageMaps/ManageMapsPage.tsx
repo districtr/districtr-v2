@@ -1,9 +1,10 @@
 'use client';
 
-import React from 'react';
-import {Box, Callout, Flex, Heading, Text} from '@radix-ui/themes';
-import {ExclamationTriangleIcon} from '@radix-ui/react-icons';
+import React, {useState} from 'react';
+import {Box, Button, Callout, Flex, Heading, Text} from '@radix-ui/themes';
+import {ExclamationTriangleIcon, UploadIcon} from '@radix-ui/react-icons';
 import {RecentMapsList} from '@/app/components/RecentMapsList';
+import {UploaderModal} from '@/app/components/Toolbar/UploaderModal';
 
 const isSafariBrowser = (userAgent: string) => {
   return (
@@ -22,17 +23,23 @@ export const ManageMapsPage: React.FC = () => {
     () => typeof navigator !== 'undefined' && isSafariBrowser(navigator.userAgent),
     []
   );
+  const [importOpen, setImportOpen] = useState(false);
 
   return (
     <Flex direction="column" gap="5">
-      <Box>
-        <Heading size="7" as="h1">
-          My Maps
-        </Heading>
-        <Text size="3" color="gray">
-          Browse and manage maps saved in this browser.
-        </Text>
-      </Box>
+      <Flex direction="row" justify="between" align="start" wrap="wrap" gapY="2">
+        <Box>
+          <Heading size="7" as="h1">
+            Catalog
+          </Heading>
+          <Text size="3" color="gray">
+            Browse and manage maps saved in this browser.
+          </Text>
+        </Box>
+        <Button onClick={() => setImportOpen(true)} variant="soft">
+          <UploadIcon /> Import block assignments
+        </Button>
+      </Flex>
 
       <Callout.Root color="amber" size="2">
         <Callout.Icon>
@@ -58,6 +65,8 @@ export const ManageMapsPage: React.FC = () => {
       )}
 
       <RecentMapsList showFilters useScrollArea={false} pageSize={10} />
+
+      <UploaderModal open={importOpen} onClose={() => setImportOpen(false)} />
     </Flex>
   );
 };

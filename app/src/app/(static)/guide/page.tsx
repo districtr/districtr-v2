@@ -2,10 +2,12 @@ import {CTA} from '@/app/components/Static/Content/CTA';
 import {ContentSection} from '@/app/components/Static/ContentSection';
 import {LoopVideoPlayer} from '@/app/components/Static/LoopVideoPlayer';
 import {Box, Flex, Heading, Text} from '@radix-ui/themes';
+import {LearnSubNav} from '@/app/components/Static/LearnSubNav';
 
 export default function GuidePage() {
   return (
     <Flex direction="column" gapY="4">
+      <LearnSubNav />
       <Box>
         <Heading size="8" as="h1">
           Tutorial

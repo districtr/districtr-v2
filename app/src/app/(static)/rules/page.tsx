@@ -2,6 +2,7 @@ import {CTA} from '@/app/components/Static/Content/CTA';
 import {ContentSection} from '@/app/components/Static/ContentSection';
 import {Flex, Heading, Text, Link, Box, Grid, Blockquote} from '@radix-ui/themes';
 import Image from 'next/image';
+import {LearnSubNav} from '@/app/components/Static/LearnSubNav';
 
 const RuleSection: React.FC<{
   title: string;
@@ -22,6 +23,7 @@ const RuleSection: React.FC<{
 export default function GuidePage() {
   return (
     <Flex direction="column" gapY="4">
+      <LearnSubNav />
       <Heading as="h1">Rules of Redistricting</Heading>
       <Text size="3">
         A combination of national, state, and local rules guide the redistricting process. While the

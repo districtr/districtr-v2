@@ -1,5 +1,6 @@
-import {ManageMapsPage} from '@/app/components/ManageMaps/ManageMapsPage';
+import {redirect} from 'next/navigation';
 
+// Catalog replaced My Maps; keep this route working for existing links/bookmarks.
 export default function MapsPage() {
-  return <ManageMapsPage />;
+  redirect('/catalog');
 }
