@@ -5,6 +5,7 @@ import {Box, Button, Callout, Flex, Heading, Text} from '@radix-ui/themes';
 import {ExclamationTriangleIcon, UploadIcon} from '@radix-ui/react-icons';
 import {RecentMapsList} from '@/app/components/RecentMapsList';
 import {UploaderModal} from '@/app/components/Toolbar/UploaderModal';
+import {MAP_TABS, MapTab} from '@constants/document/tabs';
 
 const isSafariBrowser = (userAgent: string) => {
   return (
@@ -18,7 +19,12 @@ const isSafariBrowser = (userAgent: string) => {
   );
 };
 
-export const ManageMapsPage: React.FC = () => {
+const TITLES: Record<MapTab, string> = {
+  [MAP_TABS.DISTRICTS]: 'My District Plans',
+  [MAP_TABS.COMMUNITY]: 'My Community Maps',
+};
+
+export const ManageMapsPage: React.FC<{mapType: MapTab}> = ({mapType}) => {
   const isSafari = React.useMemo(
     () => typeof navigator !== 'undefined' && isSafariBrowser(navigator.userAgent),
     []
@@ -30,15 +36,17 @@ export const ManageMapsPage: React.FC = () => {
       <Flex direction="row" justify="between" align="start" wrap="wrap" gapY="2">
         <Box>
           <Heading size="7" as="h1">
-            Catalog
+            {TITLES[mapType]}
           </Heading>
           <Text size="3" color="gray">
             Browse and manage maps saved in this browser.
           </Text>
         </Box>
-        <Button onClick={() => setImportOpen(true)} variant="soft">
-          <UploadIcon /> Import block assignments
-        </Button>
+        {mapType === MAP_TABS.DISTRICTS && (
+          <Button onClick={() => setImportOpen(true)} variant="soft">
+            <UploadIcon /> Import block assignments
+          </Button>
+        )}
       </Flex>
 
       <Callout.Root color="amber" size="2">
@@ -64,7 +72,7 @@ export const ManageMapsPage: React.FC = () => {
         </Callout.Root>
       )}
 
-      <RecentMapsList showFilters useScrollArea={false} pageSize={10} />
+      <RecentMapsList showFilters useScrollArea={false} pageSize={10} mapType={mapType} />
 
       <UploaderModal open={importOpen} onClose={() => setImportOpen(false)} />
     </Flex>

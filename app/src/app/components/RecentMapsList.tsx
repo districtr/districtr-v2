@@ -92,6 +92,8 @@ export interface RecentMapsListProps {
   showFilters?: boolean;
   useScrollArea?: boolean;
   pageSize?: number;
+  /** Lock the list to a single map type and hide the District/Community switcher. */
+  mapType?: MapTab;
 }
 
 export const RecentMapsList: React.FC<RecentMapsListProps> = ({
@@ -100,11 +102,14 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({
   showFilters = false,
   useScrollArea = true,
   pageSize,
+  mapType,
 }) => {
   const router = useRouter();
   const mapDocument = useMapStore(store => store.mapDocument);
   const mapMode = useMapControlsStore(store => store.mapMode);
-  const [activeTab, setActiveTab] = useState<MapTab>(mapTabFromMode(mapMode));
+  const [tabState, setTabState] = useState<MapTab>(mapTabFromMode(mapMode));
+  // When mapType is provided, the list is locked to that type (no switcher).
+  const activeTab = mapType ?? tabState;
   const [updateTrigger, setUpdateTrigger] = useState<string | null | number>(null);
   const { communityMaps, districtMaps, loading } = useUserMaps(updateTrigger);
   const recentMaps = activeTab === MAP_TABS.COMMUNITY ? communityMaps : districtMaps;
@@ -114,7 +119,7 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({
   const [moduleFilter, setModuleFilter] = useState('all');
 
   useEffect(() => {
-    setActiveTab(mapTabFromMode(mapMode));
+    setTabState(mapTabFromMode(mapMode));
   }, [mapMode]);
 
   useEffect(() => {
@@ -312,20 +317,22 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({
         </Flex>
       )}
 
-      <Flex justify="center">
-        <SegmentedControl.Root
-          value={activeTab}
-          onValueChange={v => setActiveTab(v as MapTab)}
-          size="2"
-        >
-          <SegmentedControl.Item value={MAP_TABS.DISTRICTS}>
-            District Maps{districtMaps.length > 0 ? ` (${districtMaps.length})` : ''}
-          </SegmentedControl.Item>
-          <SegmentedControl.Item value={MAP_TABS.COMMUNITY}>
-            Community Maps{communityMaps.length > 0 ? ` (${communityMaps.length})` : ''}
-          </SegmentedControl.Item>
-        </SegmentedControl.Root>
-      </Flex>
+      {!mapType && (
+        <Flex justify="center">
+          <SegmentedControl.Root
+            value={activeTab}
+            onValueChange={v => setTabState(v as MapTab)}
+            size="2"
+          >
+            <SegmentedControl.Item value={MAP_TABS.DISTRICTS}>
+              District Maps{districtMaps.length > 0 ? ` (${districtMaps.length})` : ''}
+            </SegmentedControl.Item>
+            <SegmentedControl.Item value={MAP_TABS.COMMUNITY}>
+              Community Maps{communityMaps.length > 0 ? ` (${communityMaps.length})` : ''}
+            </SegmentedControl.Item>
+          </SegmentedControl.Root>
+        </Flex>
+      )}
       {recentMaps.length === 0 ? (
         <Flex align="center" justify="center" className="py-10">
           <Text color="gray" size="2">

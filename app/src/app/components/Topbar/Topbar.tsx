@@ -77,20 +77,15 @@ export const Topbar: React.FC = () => {
               </DropdownMenu.Trigger>
               <DropdownMenu.Content>
                 <DropdownMenu.Item>
-                  <Link href="/" color="gray">
+                  <a href="/">
                     Home
-                  </Link>
+                  </a>
                 </DropdownMenu.Item>
                 <DropdownMenu.Item>
-                  <Link href="/places" color="gray">
-                    New map
-                  </Link>
+                  <a href="/catalog">
+                    Catalog
+                  </a>
                 </DropdownMenu.Item>
-                {!isEval && (
-                  <DropdownMenu.Item onClick={() => setModalOpen('upload')}>
-                    Upload block assignments
-                  </DropdownMenu.Item>
-                )}
                 <DropdownMenu.Sub>
                   <DropdownMenu.SubTrigger
                     disabled={
@@ -142,11 +137,6 @@ export const Topbar: React.FC = () => {
                     </DropdownMenu.Item>
                   </DropdownMenu.SubContent>
                 </DropdownMenu.Sub>
-                <DropdownMenu.Item>
-                  <Link href="/my-maps" color="gray">
-                    View recent maps
-                  </Link>
-                </DropdownMenu.Item>
                 {!isEval && (
                   <DropdownMenu.Sub>
                     <DropdownMenu.SubTrigger
