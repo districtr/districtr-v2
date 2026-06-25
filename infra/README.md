@@ -134,14 +134,35 @@ Mechanics:
 - Per-workflow concurrency groups + state-lock retry let a push touching
   backend + app + infra run all three, serialized on the S3 state lock.
 
+## Local development
+
+Working on the Pulumi (TypeScript) code in `infra/`:
+
+1. **Install the Pulumi CLI**, pinned to the version CI uses (keep in sync with
+   `pulumi-version` in the deploy workflows):
+   ```bash
+   curl -fsSL https://get.pulumi.com | sh -s -- --version 3.242.0
+   pulumi version   # confirm it's on your PATH
+   ```
+2. **Install dependencies** from `infra/`, so `@pulumi/*` types resolve and your
+   editor type-checks the stack:
+   ```bash
+   cd infra && npm ci
+   ```
+3. **Preview before pushing.** Needs AWS credentials (read access to the state
+   bucket) and a login to the S3 state backend:
+   ```bash
+   pulumi login 's3://districtr-v2-pulumi-state?region=us-east-2'
+   pulumi stack select dev
+   pulumi preview   # diff only — never applies; CI owns `pulumi up`
+   ```
+
 ## Operating it
 
-Local preview and manual operations (read state; never auto-applied):
+Manual operations read state and are never auto-applied. After the local setup
+above (`pulumi login` + `npm ci` + `pulumi stack select`):
 
 ```bash
-pulumi login 's3://districtr-v2-pulumi-state?region=us-east-2'
-cd infra && npm ci && pulumi stack select dev
-pulumi preview
 pulumi stack output dnsRecords          # DNS records to create at the provider
 pulumi stack output --show-secrets      # incl. DATABASE_URL for manual DB access
 ```
