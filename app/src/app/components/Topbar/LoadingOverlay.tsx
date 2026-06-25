@@ -73,7 +73,7 @@ export const LoadingOverlay: React.FC = () => {
     return <EvalTransitionOverlay activeStep={step} />;
   }
   if (viewTransition === 'display') {
-    return <OverlayCard icon={EyeOpenIcon} message="Loading display view…" />;
+    return <OverlayCard icon={EyeOpenIcon} message="Loading view mode" />;
   }
   if (showBusy) {
     return <OverlayCard message={mapLock?.reason || 'Loading map…'} />;
