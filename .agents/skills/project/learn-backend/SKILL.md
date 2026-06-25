@@ -38,6 +38,12 @@ Backend conventions for FastAPI + SQLModel/SQLAlchemy services, request dependen
 - Keep API behavior aligned with frontend contracts in `app/src/app/utils/api/apiHandlers/types.ts`.
 - Avoid in-memory Python processing for large spatial/tabular operations when DB can perform set-based operations.
 
+## Shattered Parent Assignment Data Contract
+
+> **When a parent unit is shattered, every one of its children must have a row in `document.assignments`, with `zone = NULL` for unassigned children.**
+
+The frontend requires this to know which child block IDs to render as interactive. All write paths — interactive shattering (`shatter_parent.sql`) and CSV import (`_heal_or_fill`) — must uphold this invariant.
+
 ## Preferred Patterns
 - Use SQLAlchemy text/bindparams safely when dynamic SQL is unavoidable.
 - Keep endpoint handlers thin when shared logic already exists in modules (`assignments`, `utils`, etc.).
