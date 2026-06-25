@@ -48,19 +48,9 @@ export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
           type="line"
           source-layer="tl_2023_us_county"
           paint={{
-            'line-color': '#333',
-            'line-opacity': 0.8,
-            'line-width': [
-              'interpolate',
-              ['exponential', 1.6],
-              ['zoom'],
-              6,
-              0.625,
-              9,
-              1.625,
-              18,
-              2.25,
-            ],
+            'line-color': '#444',
+            'line-opacity': 0.9,
+            'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 6, 1.5, 9, 3, 18, 5],
           }}
           layout={{
             visibility: mapOptions.showCountyBoundaries ? 'visible' : 'none',

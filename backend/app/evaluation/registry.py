@@ -107,7 +107,7 @@ METRICS: tuple[Metric[Any], ...] = (
         key="population_deviation", version=1, compute=validity.population_deviation
     ),
     Metric[AssignedUnitsResult](
-        key="assigned_units", version=1, compute=validity.assigned_units
+        key="assigned_units", version=3, compute=validity.assigned_units
     ),
     Metric[UnassignedPopulation](
         key="unassigned_population", version=1, compute=validity.unassigned_population
