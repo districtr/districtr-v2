@@ -231,70 +231,84 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
             // Table.Root wraps in ScrollArea (overflow:scroll) which breaks position:sticky.
             // Workaround: use Radix CSS classes on our own scroll div + plain <table>.
             <div
-              className={`rt-TableRoot rt-r-size-1 rt-variant-surface${displayedEntries.length > 15 ? ' max-h-[400px] overflow-y-auto pr-[6px] print:max-h-none print:overflow-visible print:pr-0' : ''}`}
+              className="rt-TableRoot rt-r-size-1 rt-variant-surface"
               style={{width: 'fit-content'}}
             >
-              <table className="rt-TableRootTable" style={{overflow: 'visible'}}>
-                <Table.Header
-                  style={{
-                    position: 'sticky',
-                    top: 0,
-                    zIndex: 1,
-                    backgroundColor: 'var(--color-panel-solid)',
-                  }}
-                >
-                  <Table.Row>
-                    <Table.ColumnHeaderCell justify="center">County Name</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="center">
-                      County
-                      <br />
-                      Population
-                    </Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="center">
-                      How Many
-                      <br />
-                      Districts&apos; Worth
-                    </Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell justify="center">
-                      Pieces in
-                      <br />
-                      This Plan
-                    </Table.ColumnHeaderCell>
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {displayedEntries.map(({geoid, pop, actual, name}) => {
-                    const worth = idealPop !== null ? pop / idealPop : null;
-                    const isOverlySplit = overlySplitSet.has(geoid);
-                    return (
-                      <Table.Row
-                        key={geoid}
-                        tabIndex={0}
-                        onMouseEnter={() => setHoveredCountyGeoid(geoid)}
-                        onMouseLeave={() => setHoveredCountyGeoid(null)}
-                        onFocus={() => setHoveredCountyGeoid(geoid)}
-                        onBlur={() => setHoveredCountyGeoid(null)}
-                        style={{cursor: 'default'}}
+              <div
+                className={
+                  displayedEntries.length > 15
+                    ? 'max-h-[400px] overflow-y-auto [scrollbar-gutter:stable] print:max-h-none print:overflow-visible'
+                    : ''
+                }
+              >
+                <table className="rt-TableRootTable" style={{overflow: 'visible'}}>
+                  <Table.Header
+                    style={{
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 1,
+                      backgroundColor: 'var(--color-panel-solid)',
+                    }}
+                  >
+                    <Table.Row>
+                      <Table.ColumnHeaderCell justify="center">County Name</Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell justify="center">
+                        County
+                        <br />
+                        Population
+                      </Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell justify="center">
+                        How Many
+                        <br />
+                        Districts&apos; Worth
+                      </Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell
+                        justify="center"
+                        style={{paddingRight: 'calc(var(--table-cell-padding) + 8px)'}}
                       >
-                        <Table.Cell justify="center">
-                          <Text size="2">{name}</Text>
-                        </Table.Cell>
-                        <Table.Cell justify="center">
-                          <Text size="2">{pop.toLocaleString()}</Text>
-                        </Table.Cell>
-                        <Table.Cell justify="center">
-                          <Text size="2">{worth !== null ? worth.toFixed(2) : '—'}</Text>
-                        </Table.Cell>
-                        <Table.Cell justify="center">
-                          <Text size="2" color={isOverlySplit ? 'red' : undefined}>
-                            {actual}
-                          </Text>
-                        </Table.Cell>
-                      </Table.Row>
-                    );
-                  })}
-                </Table.Body>
-              </table>
+                        Pieces in
+                        <br />
+                        This Plan
+                      </Table.ColumnHeaderCell>
+                    </Table.Row>
+                  </Table.Header>
+                  <Table.Body>
+                    {displayedEntries.map(({geoid, pop, actual, name}) => {
+                      const worth = idealPop !== null ? pop / idealPop : null;
+                      const isOverlySplit = overlySplitSet.has(geoid);
+                      return (
+                        <Table.Row
+                          key={geoid}
+                          tabIndex={0}
+                          onMouseEnter={() => setHoveredCountyGeoid(geoid)}
+                          onMouseLeave={() => setHoveredCountyGeoid(null)}
+                          onFocus={() => setHoveredCountyGeoid(geoid)}
+                          onBlur={() => setHoveredCountyGeoid(null)}
+                          style={{cursor: 'default'}}
+                        >
+                          <Table.Cell justify="center">
+                            <Text size="2">{name}</Text>
+                          </Table.Cell>
+                          <Table.Cell justify="center">
+                            <Text size="2">{pop.toLocaleString()}</Text>
+                          </Table.Cell>
+                          <Table.Cell justify="center">
+                            <Text size="2">{worth !== null ? worth.toFixed(2) : '—'}</Text>
+                          </Table.Cell>
+                          <Table.Cell
+                            justify="center"
+                            style={{paddingRight: 'calc(var(--table-cell-padding) + 8px)'}}
+                          >
+                            <Text size="2" color={isOverlySplit ? 'red' : undefined}>
+                              {actual}
+                            </Text>
+                          </Table.Cell>
+                        </Table.Row>
+                      );
+                    })}
+                  </Table.Body>
+                </table>
+              </div>
             </div>
           )}
         </Accordion.Content>

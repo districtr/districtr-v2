@@ -237,57 +237,76 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
                   Workaround: apply Radix's own CSS classes to our own scroll div and render
                   a plain <table> inside. Sub-components have no context dep on Table.Root. */}
               <div
-                className={`rt-TableRoot rt-r-size-1 rt-variant-surface${zones.length > 15 ? ' max-h-[400px] overflow-y-auto pr-[6px] print:max-h-none print:overflow-visible print:pr-0' : ''}`}
+                className="rt-TableRoot rt-r-size-1 rt-variant-surface"
                 style={{width: 'fit-content'}}
               >
-                <table className="rt-TableRootTable" style={{overflow: 'visible'}}>
-                  <Table.Header
-                    style={{
-                      position: 'sticky',
-                      top: 0,
-                      zIndex: 1,
-                      backgroundColor: 'var(--color-panel-solid)',
-                    }}
-                  >
-                    <Table.Row>
-                      <Table.ColumnHeaderCell justify="center">District</Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell justify="center">
-                        Polsby-
-                        <br />
-                        Popper
-                      </Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell justify="center">Reock</Table.ColumnHeaderCell>
-                    </Table.Row>
-                  </Table.Header>
-                  <Table.Body>
-                    {zones.map(zone => (
-                      <Table.Row
-                        key={zone}
-                        tabIndex={0}
-                        onMouseEnter={() => onDistrictEnter(zone)}
-                        onMouseLeave={onDistrictLeave}
-                        onFocus={() => onDistrictEnter(zone)}
-                        onBlur={onDistrictLeave}
-                        onClick={() => zoomToDistrict(Number(zone))}
-                        style={{cursor: 'pointer'}}
-                      >
-                        <Table.Cell justify="center" style={{verticalAlign: 'middle'}}>
-                          <DistrictLabel zone={Number(zone)} />
-                        </Table.Cell>
-                        <Table.Cell justify="center" style={{verticalAlign: 'middle'}}>
-                          <Text size="2">
-                            {formatNumber(polsby_popper[zone], NUMBER_FORMATS.DECIMAL_3)}
-                          </Text>
-                        </Table.Cell>
-                        <Table.Cell justify="center" style={{verticalAlign: 'middle'}}>
-                          <Text size="2">
-                            {formatNumber((reock ?? {})[zone], NUMBER_FORMATS.DECIMAL_3)}
-                          </Text>
-                        </Table.Cell>
+                <div
+                  className={
+                    zones.length > 15
+                      ? 'max-h-[400px] overflow-y-auto [scrollbar-gutter:stable] print:max-h-none print:overflow-visible'
+                      : ''
+                  }
+                >
+                  <table className="rt-TableRootTable" style={{overflow: 'visible'}}>
+                    <Table.Header
+                      style={{
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 1,
+                        backgroundColor: 'var(--color-panel-solid)',
+                      }}
+                    >
+                      <Table.Row>
+                        <Table.ColumnHeaderCell justify="center">District</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell justify="center">
+                          Polsby-
+                          <br />
+                          Popper
+                        </Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell
+                          justify="center"
+                          style={{paddingRight: 'calc(var(--table-cell-padding) + 8px)'}}
+                        >
+                          Reock
+                        </Table.ColumnHeaderCell>
                       </Table.Row>
-                    ))}
-                  </Table.Body>
-                </table>
+                    </Table.Header>
+                    <Table.Body>
+                      {zones.map(zone => (
+                        <Table.Row
+                          key={zone}
+                          tabIndex={0}
+                          onMouseEnter={() => onDistrictEnter(zone)}
+                          onMouseLeave={onDistrictLeave}
+                          onFocus={() => onDistrictEnter(zone)}
+                          onBlur={onDistrictLeave}
+                          onClick={() => zoomToDistrict(Number(zone))}
+                          style={{cursor: 'pointer'}}
+                        >
+                          <Table.Cell justify="center" style={{verticalAlign: 'middle'}}>
+                            <DistrictLabel zone={Number(zone)} />
+                          </Table.Cell>
+                          <Table.Cell justify="center" style={{verticalAlign: 'middle'}}>
+                            <Text size="2">
+                              {formatNumber(polsby_popper[zone], NUMBER_FORMATS.DECIMAL_3)}
+                            </Text>
+                          </Table.Cell>
+                          <Table.Cell
+                            justify="center"
+                            style={{
+                              verticalAlign: 'middle',
+                              paddingRight: 'calc(var(--table-cell-padding) + 8px)',
+                            }}
+                          >
+                            <Text size="2">
+                              {formatNumber((reock ?? {})[zone], NUMBER_FORMATS.DECIMAL_3)}
+                            </Text>
+                          </Table.Cell>
+                        </Table.Row>
+                      ))}
+                    </Table.Body>
+                  </table>
+                </div>
               </div>
             </>
           )}
