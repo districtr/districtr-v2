@@ -46,7 +46,10 @@ export function createDatabase(network: Network) {
     skipFinalSnapshot: !config.isProd,
     finalSnapshotIdentifier: `${name}-db-final`,
     performanceInsightsEnabled: config.isProd,
-    applyImmediately: true,
+    // Prod defers parameter/instance-class changes to the maintenance window so
+    // they can't cause surprise business-hours unavailability; dev applies
+    // immediately for fast iteration. (Doesn't affect initial creation.)
+    applyImmediately: !config.isProd,
   });
 
   // Matches Settings.DATABASE_URL in backend/app/core/config.py.
