@@ -85,9 +85,11 @@ jobs:
           fi
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
       - name: Install Pulumi
-        run: |
-          curl -fsSL https://get.pulumi.com | sh
-          echo "$HOME/.pulumi/bin" >> "$GITHUB_PATH"
+        uses: pulumi/actions@v7
+        with:
+          # Exact pin (not the default ^3 range) so a Pulumi release can't
+          # silently change deploys; keep ~in sync with infra/package.json.
+          pulumi-version: 3.242.0
       - name: Update service
         working-directory: infra
         run: |
