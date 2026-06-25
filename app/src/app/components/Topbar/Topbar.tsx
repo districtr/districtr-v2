@@ -158,13 +158,13 @@ export const Topbar: React.FC = () => {
                     Export assignments
                   </DropdownMenu.SubTrigger>
                   <DropdownMenu.SubContent>
-                    <DropdownMenu.Item disabled={!mapDocument?.child_layer}>
-                      <Tooltip content="Download a CSV of Census Block GEOIDs and zone IDs">
+                    <DropdownMenu.Item>
+                      <Tooltip content="Download a CSV of GEOIDs and zone IDs">
                         <a
                           href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?export_type=BlockAssignmentsCSV`}
                           download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
                         >
-                          Block assignment (CSV)
+                          Unit assignments (CSV)
                         </a>
                       </Tooltip>
                     </DropdownMenu.Item>

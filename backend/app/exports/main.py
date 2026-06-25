@@ -72,6 +72,7 @@ def build_evaluation_json(
     background_tasks: BackgroundTasks,
     out_file: str,
 ) -> None:
+    """Write evaluation metrics JSON for the given document to out_file."""
     envelope = update_or_select_document_evaluation(background_tasks, session, document)
     with open(out_file, "w") as f:
         json.dump(envelope, f)
