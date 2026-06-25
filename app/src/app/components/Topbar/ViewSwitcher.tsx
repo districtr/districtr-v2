@@ -23,11 +23,11 @@ type ViewMode = 'edit' | 'display' | 'evaluate';
 
 const MODE_META: Record<
   ViewMode,
-  {label: string; description: string; Icon: React.ComponentType<{className?: string}>}
+  {label: string; Icon: React.ComponentType<{className?: string}>}
 > = {
-  edit: {label: 'Editing', description: 'Draw and paint districts', Icon: Pencil1Icon},
-  display: {label: 'Display', description: 'Read-only view with data panels', Icon: EyeOpenIcon},
-  evaluate: {label: 'Evaluate', description: 'Plan metrics and analysis', Icon: BarChartIcon},
+  edit: {label: 'Draw', Icon: Pencil1Icon},
+  display: {label: 'View', Icon: EyeOpenIcon},
+  evaluate: {label: 'Evaluate', Icon: BarChartIcon},
 };
 
 /** A single mode option in the switcher menu. Owns its own icon/description so the
@@ -42,11 +42,6 @@ const ViewSwitcherItem: React.FC<{
 }> = ({mode, isCurrent, disabled, disabledReason, locked, onSelect}) => {
   const meta = MODE_META[mode];
   const Icon = locked ? LockClosedIcon : meta.Icon;
-  const description = disabled
-    ? disabledReason
-    : locked
-      ? 'Unlock to draw and paint districts'
-      : meta.description;
   return (
     <DropdownMenu.Item
       disabled={disabled}
@@ -61,9 +56,6 @@ const ViewSwitcherItem: React.FC<{
           <Flex direction="column" gap="1">
             <Text size="2" weight="medium">
               {meta.label}
-            </Text>
-            <Text size="1" color="gray">
-              {description}
             </Text>
           </Flex>
         </Flex>
@@ -118,11 +110,13 @@ export const ViewSwitcher: React.FC = () => {
     };
   }, [publicIdForLookup]);
 
-  // Password-protected edit links carry `?pw=true`; remember that this map is
-  // unlockable so the affordance survives dismissing the prompt or switching views.
+  // A map is unlockable if the share link carries `?pw=true` or the document itself
+  // reports an edit password (so a viewer who landed on the bare public URL still gets
+  // the affordance). Remember it so it survives dismissing the prompt or switching views.
+  const passwordRequired = mapDocument?.password_required;
   React.useEffect(() => {
-    if (pwParam) setPasswordUnlockable(true);
-  }, [pwParam, publicIdForLookup, setPasswordUnlockable]);
+    if (pwParam || passwordRequired) setPasswordUnlockable(true);
+  }, [pwParam, passwordRequired, publicIdForLookup, setPasswordUnlockable]);
 
   // No map loaded yet (e.g. the empty "start here" landing) — nothing to switch.
   if (!mapDocument) return null;
@@ -236,11 +230,11 @@ export const ViewSwitcher: React.FC = () => {
           aria-label="Switch view"
         >
           {isMinting ? <Spinner size="1" /> : <CurrentIcon />}
-          {MODE_META[currentMode].label}
+          Mode: {MODE_META[currentMode].label}
           <CaretDownIcon />
         </Button>
       </DropdownMenu.Trigger>
-      <DropdownMenu.Content sideOffset={6} className="min-w-[264px]">
+      <DropdownMenu.Content sideOffset={6}>
         {modes.map(mode => (
           <ViewSwitcherItem
             key={mode}
