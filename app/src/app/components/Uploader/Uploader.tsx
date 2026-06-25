@@ -1,23 +1,12 @@
 'use client';
 import React, {useEffect, useRef, useState} from 'react';
-import {GerryDBViewSelector} from '@components/sidebar/GerryDBViewSelector';
 import {MapLink, processFile} from '@/app/utils/api/upload';
-import {
-  Link,
-  Flex,
-  Heading,
-  Table,
-  Text,
-  Tooltip,
-  Blockquote,
-  Select,
-  Button,
-  Spinner,
-} from '@radix-ui/themes';
+import {Link, Flex, Heading, Table, Text, Tooltip, Blockquote, Spinner} from '@radix-ui/themes';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 import {routeManager} from '@/app/utils/map/mapUrlRoute';
 import {MAP_ROUTES} from '@constants/document/routes';
 import {MAP_TYPES} from '@constants/document/types';
+import {getAvailableDistrictrMaps} from '@/app/utils/api/apiHandlers/getAvailableDistrictrMaps';
 
 export const Uploader: React.FC<{
   newTab?: boolean;
@@ -29,12 +18,16 @@ export const Uploader: React.FC<{
   const documentMapType = isCoiRoute ? MAP_TYPES.COMMUNITY : MAP_TYPES.DEFAULT;
   const [mapLinks, setMapLinks] = useState<MapLink[]>([]);
   const [error, setError] = useState<any>(undefined);
-  const [config, setConfig] = useState<{GEOID?: number; ZONE?: number}>({});
   const [file, setFile] = useState<File | undefined>(undefined);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [availableMaps, setAvailableMaps] = useState<DistrictrMap[] | undefined>(undefined);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const [districtrMap, setDistrictrMap] = useState<DistrictrMap | undefined>(undefined);
+  useEffect(() => {
+    getAvailableDistrictrMaps({}).then(result => {
+      if (result.ok) setAvailableMaps(result.response);
+    });
+  }, []);
 
   useEffect(() => {
     if (redirect) {
@@ -45,7 +38,6 @@ export const Uploader: React.FC<{
       }
     }
     setError(undefined);
-    setConfig({});
     setFile(undefined);
     setIsProcessing(false);
     inputRef.current?.value && (inputRef.current.value = '');
@@ -61,14 +53,14 @@ export const Uploader: React.FC<{
 
   const handleDrop = (event: React.DragEvent) => {
     event.preventDefault();
-    const file = event.dataTransfer.files?.[0];
-    setFile(file);
-    if (districtrMap) {
+    const droppedFile = event.dataTransfer.files?.[0];
+    setFile(droppedFile);
+    if (droppedFile && availableMaps) {
       setIsProcessing(true);
       processFile({
-        file,
+        file: droppedFile,
         setMapLinks,
-        districtrMap,
+        availableMaps,
         documentMapType,
         setError,
       });
@@ -76,34 +68,21 @@ export const Uploader: React.FC<{
   };
 
   const handleFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    setFile(file);
-    if (file && districtrMap) {
+    const selectedFile = event.target.files?.[0];
+    setFile(selectedFile);
+    if (selectedFile && availableMaps) {
       setIsProcessing(true);
       processFile({
-        file,
+        file: selectedFile,
         setMapLinks,
-        districtrMap,
+        availableMaps,
         documentMapType,
         setError,
       });
     }
   };
 
-  const handleRetry = () => {
-    if (file && districtrMap) {
-      setIsProcessing(true);
-      processFile({
-        file,
-        setMapLinks,
-        districtrMap,
-        documentMapType,
-        setError,
-        // @ts-ignore
-        config: config.ZONE !== undefined && config.GEOID !== undefined ? config : undefined,
-      });
-    }
-  };
+  const mapsLoaded = availableMaps !== undefined;
 
   return (
     <Flex direction="column" position="relative">
@@ -115,24 +94,27 @@ export const Uploader: React.FC<{
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
-        <GerryDBViewSelector value={districtrMap} onChange={setDistrictrMap} />
+        <Text size="2" color="gray">
+          Upload a CSV with census block GEOIDs in the first column and zone numbers in the second.
+          The congressional map will be inferred from the state.
+        </Text>
         <input
           type="file"
           name="uploader"
           className="hidden"
           id="file-input"
           onChange={handleFileSelected}
-          disabled={!districtrMap}
+          disabled={!mapsLoaded}
           ref={inputRef}
         />
         <label
           htmlFor="file-input"
-          className={`${!districtrMap ? 'bg-gray-200 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600'} text-white px-4 py-2 rounded cursor-pointer `}
+          className={`${!mapsLoaded ? 'bg-gray-200 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600'} text-white px-4 py-2 rounded cursor-pointer`}
         >
-          Choose a file
+          {mapsLoaded ? 'Choose a file' : 'Loading maps…'}
         </label>
       </Flex>
-      <UploadError error={error} config={config} setConfig={setConfig} handleRetry={handleRetry} />
+      <UploadError error={error} />
       {!!mapLinks.length && (
         <Flex direction="column" gapY="2" pt="4">
           <Heading size="2">Uploaded maps</Heading>
@@ -191,108 +173,14 @@ export const Uploader: React.FC<{
 export const UploadError: React.FC<{
   error?: {
     ok: boolean;
-    detail: {
-      message: string;
-      row: string[];
-      districtrMap: DistrictrMap;
-      expectedPrefix: string;
-      receivedState: string;
-      receivedPrefix: string;
-      expectedState: string;
-      headerRow: string[];
-    };
+    detail: {message: string};
   };
-  config: {GEOID?: number; ZONE?: number};
-  setConfig: React.Dispatch<React.SetStateAction<{GEOID?: number; ZONE?: number}>>;
-  handleRetry: () => void;
-}> = ({error, config, setConfig, handleRetry}) => {
+}> = ({error}) => {
   if (!error || error.ok) return null;
   console.error(error);
-
-  const handleConfig = (col: 'GEOID' | 'ZONE', index: number) => {
-    setConfig(prev => ({
-      ...prev,
-      [col]: index,
-    }));
-  };
-
-  switch (error.detail.message) {
-    case 'Block GEOID does not match state prefix':
-      return (
-        <Flex direction="column">
-          <Blockquote className="max-w-96 mt-2" color="red">
-            <Text>
-              Block GEOID <code>{JSON.stringify(error.detail.row[0])}</code> does not match state
-              prefix. We expected data for <code>{error.detail.expectedState}</code> (State code:{' '}
-              {error.detail.expectedPrefix}) but received data for {error.detail.receivedState}{' '}
-              (State code: {error.detail.receivedPrefix})
-              <br />
-              <br />
-              Please choose a plan for {error.detail.receivedState} or make sure your block
-              assignments only include IDs for {error.detail.expectedState}.
-            </Text>
-          </Blockquote>
-          <Button onClick={() => handleRetry()}>Retry</Button>
-        </Flex>
-      );
-    case 'Upload size exceeds maximum allowed limit (914231 records)':
-      return (
-        <Blockquote className="max-w-96 mt-2" color="red">
-          <Text>{error.detail.message}.</Text> Please upload a CSV with fewer assignments.
-        </Blockquote>
-      );
-    case 'Columns are ambiguous':
-    case 'Missing columns':
-      return (
-        <Flex direction="column" gapY="2">
-          <Blockquote className="max-w-96 mt-2" color="red">
-            <Text>{error.detail.message}.</Text> Please specify columns for the geographic
-            identifier (GEOID) and district number (zone) below:
-          </Blockquote>
-          <Select.Root
-            value={`${config.GEOID}`}
-            onValueChange={value => handleConfig('GEOID', +value)}
-          >
-            <Select.Trigger>
-              <Text>
-                Geographic Identifier{' '}
-                {!!config.GEOID && `(${error.detail.headerRow[config.GEOID]})`}
-              </Text>
-            </Select.Trigger>
-            <Select.Content>
-              {error.detail.headerRow.map((col, i) => (
-                <Select.Item key={i} value={`${i}`}>
-                  {col}
-                </Select.Item>
-              ))}
-            </Select.Content>
-          </Select.Root>
-          <Select.Root
-            value={`${config.ZONE}`}
-            onValueChange={value => handleConfig('ZONE', +value)}
-          >
-            <Select.Trigger>
-              <Text>
-                District number {!!config.ZONE && `(${error.detail.headerRow[config.ZONE]})`}
-              </Text>
-            </Select.Trigger>
-            <Select.Content>
-              {error.detail.headerRow.map((col, i) => (
-                <Select.Item key={i} value={`${i}`}>
-                  {col}
-                </Select.Item>
-              ))}
-            </Select.Content>
-          </Select.Root>
-          <Button onClick={() => handleRetry()}>Retry</Button>
-        </Flex>
-      );
-
-    default:
-      return (
-        <Blockquote className="max-w-96 mt-2" color="red">
-          <Text>{error.detail.message}.</Text>
-        </Blockquote>
-      );
-  }
+  return (
+    <Blockquote className="max-w-96 mt-2" color="red">
+      <Text>{error.detail.message}</Text>
+    </Blockquote>
+  );
 };
