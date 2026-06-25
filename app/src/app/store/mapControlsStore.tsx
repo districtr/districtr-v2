@@ -32,8 +32,6 @@ export interface MapControlsStore {
   setIsEditing: (isEditing: boolean) => void;
   isEval: boolean;
   setIsEval: (isEval: boolean) => void;
-  evalTablesOnly: boolean;
-  setEvalTablesOnly: (tablesOnly: boolean) => void;
   activeTool: ActiveTool;
   setActiveTool: (tool: ActiveTool) => void;
   brushSize: number;
@@ -103,8 +101,6 @@ export const useMapControlsStore = create<MapControlsStore>()(
     setIsEditing: isEditing => set({isEditing}),
     isEval: false,
     setIsEval: isEval => set({isEval}),
-    evalTablesOnly: false,
-    setEvalTablesOnly: evalTablesOnly => set({evalTablesOnly}),
     activeTool: ACTIVE_TOOLS.PAN,
     setActiveTool: tool => {
       const canEdit = useMapStore.getState().mapStatus?.access === ACCESS_STATES.EDIT;

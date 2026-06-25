@@ -70,7 +70,7 @@ def get_graph(gerrydb_name: str) -> Graph:
         logger.error("Graph not found: %s", e)
         raise fastapi.HTTPException(
             status_code=404,
-            detail="Graph unavailable. This map does not support contiguity checks.",
+            detail="Graph unavailable. Unable to complete this operation.",
         )
     except Exception as e:
         logger.error("Unexpected error loading graph: %s", e)

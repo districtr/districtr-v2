@@ -92,9 +92,19 @@ def import_gerrydb_view(session: Session, layer: str, gpkg: str, rm: bool):
 @cli.command("create-parent-child-edges")
 @click.option("--districtr-map-slug", "-d", help="Districtr map slug", required=False)
 @click.option("--districtr-map-uuid", "-u", help="Districtr map UUID", required=False)
+@click.option(
+    "--force",
+    "-f",
+    is_flag=True,
+    default=False,
+    help="Drop and recreate edges if they were already loaded for this map",
+)
 @with_session
 def create_parent_child_edges(
-    session: Session, districtr_map_slug: str | None, districtr_map_uuid: str | None
+    session: Session,
+    districtr_map_slug: str | None,
+    districtr_map_uuid: str | None,
+    force: bool,
 ):
     """
     Create parent-child edges for a districtr map.
@@ -115,7 +125,9 @@ def create_parent_child_edges(
             raise ValueError(f"Districtr map with slug {districtr_map_slug} not found")
 
     logger.info("Creating parent-child edges...")
-    _create_parent_child_edges(session=session, districtr_map_uuid=districtr_map_uuid)
+    _create_parent_child_edges(
+        session=session, districtr_map_uuid=districtr_map_uuid, force=force
+    )
     logger.info("Parent-child relationship upserted successfully.")
 
 

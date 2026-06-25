@@ -824,7 +824,9 @@ def test_group_data(client, session: Session):
     assert response.json().get("name") == "Map Group Two"
 
 
-def test_new_document_from_block_assignments(client, simple_shatterable_districtr_map):
+def test_new_document_from_block_assignments(
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
+):
     response = client.post(
         "/api/create_document",
         json={
@@ -852,7 +854,7 @@ def test_new_document_from_block_assignments(client, simple_shatterable_district
 
 
 def test_new_document_from_block_assignments_no_matched_parents(
-    client, simple_shatterable_districtr_map
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
 ):
     response = client.post(
         "/api/create_document",
@@ -881,7 +883,7 @@ def test_new_document_from_block_assignments_no_matched_parents(
 
 
 def test_new_document_from_block_assignments_no_data(
-    client, simple_shatterable_districtr_map
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
 ):
     response = client.post(
         "/api/create_document",
@@ -903,7 +905,7 @@ def test_new_document_from_block_assignments_no_data(
 
 
 def test_new_document_from_block_assignments_some_matched_parents(
-    client, simple_shatterable_districtr_map
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
 ):
     response = client.post(
         "/api/create_document",
@@ -932,7 +934,7 @@ def test_new_document_from_block_assignments_some_matched_parents(
 
 
 def test_new_document_from_block_assignments_some_nulls(
-    client, simple_shatterable_districtr_map
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
 ):
     response = client.post(
         "/api/create_document",
@@ -956,11 +958,15 @@ def test_new_document_from_block_assignments_some_nulls(
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
     assert data.get("districtr_map_slug") == "simple_geos"
-    assert data.get("inserted_assignments") == 3
+    # Assigned: 001→1, 003→1, 005→1, 006→3 (002 and 004 empty, skipped).
+    # A={001,005} all zone 1 → healed to A. C={006} zone 3 → healed to C.
+    # B={002,003,004}: only 003 assigned → 002 and 004 filled as null.
+    # Result: A, C, 003, 002(null), 004(null) = 5 rows.
+    assert data.get("inserted_assignments") == 5
 
 
 def test_new_document_from_block_assignments_some_null_geoids(
-    client, simple_shatterable_districtr_map
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
 ):
     response = client.post(
         "/api/create_document",
@@ -988,8 +994,9 @@ def test_new_document_from_block_assignments_some_null_geoids(
 
 
 def test_new_document_from_block_assignments_non_integer_mapping(
-    client, simple_shatterable_districtr_map
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
 ):
+    # Non-numeric zone strings are client error; backend raises ValueError → 422
     response = client.post(
         "/api/create_document",
         json={
@@ -1004,19 +1011,11 @@ def test_new_document_from_block_assignments_non_integer_mapping(
             ],
         },
     )
-    data = response.json()
-    assert (
-        response.status_code == 201
-    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
-    document_id = data.get("document_id", None)
-    assert document_id
-    assert isinstance(uuid.UUID(document_id), uuid.UUID)
-    assert data.get("districtr_map_slug") == "simple_geos"
-    assert data.get("inserted_assignments") == 3
+    assert response.status_code == 422
 
 
 def test_new_document_from_block_assignments_too_many_unique_zones(
-    client, simple_shatterable_districtr_map
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
 ):
     response = client.post(
         "/api/create_document",
@@ -1040,16 +1039,16 @@ def test_new_document_from_block_assignments_too_many_unique_zones(
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
     assert data.get("districtr_map_slug") == "simple_geos"
-    # Maximum number of districts is three
-    # - a + e => parent A
-    # - b -> still valid so single block
-    # - c -> still valid so single block
-    # - d and f are skipped
-    assert data.get("inserted_assignments") == 3
+    # Zones 4 and 5 exceed num_districts=3 and are skipped.
+    # Remaining: 001 (zone 1), 002 (zone 2), 003 (zone 3), 005 (zone 1).
+    # A={001,005} all zone 1 → healed to parent A.
+    # B={002,003,004}: 002 and 003 assigned with different zones → kept; 004 missing → filled null.
+    # Result: A, 002, 003, 004(null) = 4 rows.
+    assert data.get("inserted_assignments") == 4
 
 
 def test_new_document_from_block_assignments_no_children(
-    client, ks_demo_view_census_blocks_districtrmap
+    client, ks_demo_view_census_blocks_districtrmap, mock_grid_graph_file
 ):
     response = client.post(
         "/api/create_document",
@@ -1075,7 +1074,7 @@ def test_new_document_from_block_assignments_no_children(
 
 
 def test_new_document_from_block_assignments_duplicate_blocks_in_input(
-    client, simple_shatterable_districtr_map
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
 ):
     response = client.post(
         "/api/create_document",
