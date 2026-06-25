@@ -152,8 +152,8 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
           <Text size="2" weight="bold" mb="2" mt="4" as="p">
             Summary
           </Text>
-          <div style={{width: 'fit-content', borderRight: '1px solid var(--gray-a5)'}}>
-            <Table.Root size="1" mb="3">
+          <div style={{width: 'fit-content'}}>
+            <Table.Root size="1" mb="3" variant="surface">
               <Table.Body>
                 <Table.Row>
                   <Table.Cell justify="center">
@@ -231,10 +231,10 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
             // Table.Root wraps in ScrollArea (overflow:scroll) which breaks position:sticky.
             // Workaround: use Radix CSS classes on our own scroll div + plain <table>.
             <div
-              className={`rt-TableRoot rt-r-size-1 rt-variant-ghost${displayedEntries.length > 15 ? ' max-h-[400px] overflow-y-auto pr-[6px] print:max-h-none print:overflow-visible print:pr-0' : ''}`}
-              style={{width: 'fit-content', borderRight: '1px solid var(--gray-a5)'}}
+              className={`rt-TableRoot rt-r-size-1 rt-variant-surface${displayedEntries.length > 15 ? ' max-h-[400px] overflow-y-auto pr-[6px] print:max-h-none print:overflow-visible print:pr-0' : ''}`}
+              style={{width: 'fit-content'}}
             >
-              <table className="rt-TableRootTable">
+              <table className="rt-TableRootTable" style={{overflow: 'visible'}}>
                 <Table.Header
                   style={{
                     position: 'sticky',

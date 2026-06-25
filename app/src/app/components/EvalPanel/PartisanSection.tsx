@@ -147,7 +147,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                 </SegmentedControl.Root>
               </Flex>
               <div style={{width: 'fit-content', overflowX: 'auto', maxWidth: '100%'}}>
-                <Table.Root size="1" mb="3">
+                <Table.Root size="1" mb="3" variant="surface">
                   <Table.Header>
                     <Table.Row>
                       <Table.ColumnHeaderCell justify="center">Election</Table.ColumnHeaderCell>
@@ -285,8 +285,13 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                   <SegmentedControl.Item value="rep">Republican</SegmentedControl.Item>
                 </SegmentedControl.Root>
               </Flex>
-              <div style={{overflowX: 'auto', maxWidth: '100%'}}>
-                <Table.Root size="1" mb="3" style={{tableLayout: 'fixed', width: '58ch'}}>
+              <div style={{overflowX: 'auto', maxWidth: '100%', width: 'fit-content'}}>
+                <Table.Root
+                  size="1"
+                  mb="3"
+                  variant="surface"
+                  style={{tableLayout: 'fixed', width: '58ch'}}
+                >
                   <Table.Header>
                     <Table.Row>
                       <Table.ColumnHeaderCell justify="center" style={{width: '10ch'}}>
@@ -423,8 +428,8 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                 is one where the result could plausibly change with a small shift in the statewide
                 vote.
               </Text>
-              <div style={{width: 'fit-content', borderRight: '1px solid var(--gray-a5)'}}>
-                <Table.Root size="1">
+              <div style={{width: 'fit-content'}}>
+                <Table.Root size="1" variant="surface">
                   <Table.Body>
                     <Table.Row>
                       <Table.Cell justify="center">

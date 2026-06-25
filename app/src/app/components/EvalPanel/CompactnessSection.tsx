@@ -237,13 +237,10 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
                   Workaround: apply Radix's own CSS classes to our own scroll div and render
                   a plain <table> inside. Sub-components have no context dep on Table.Root. */}
               <div
-                className={`rt-TableRoot rt-r-size-1 rt-variant-ghost${zones.length > 15 ? ' max-h-[400px] overflow-y-auto pr-[6px] print:max-h-none print:overflow-visible print:pr-0' : ''}`}
-                style={{
-                  width: 'fit-content',
-                  borderRight: '1px solid var(--gray-a5)',
-                }}
+                className={`rt-TableRoot rt-r-size-1 rt-variant-surface${zones.length > 15 ? ' max-h-[400px] overflow-y-auto pr-[6px] print:max-h-none print:overflow-visible print:pr-0' : ''}`}
+                style={{width: 'fit-content'}}
               >
-                <table className="rt-TableRootTable">
+                <table className="rt-TableRootTable" style={{overflow: 'visible'}}>
                   <Table.Header
                     style={{
                       position: 'sticky',
