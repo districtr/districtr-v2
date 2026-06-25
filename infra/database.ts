@@ -15,9 +15,8 @@ export function createDatabase(network: Network) {
     special: false,
   });
 
-  // Subnets are public so dbPubliclyAccessible can be flipped for one-off
-  // data loads; with the flag off the instance has no public IP and the
-  // security group only admits backend tasks.
+  // Public subnets (the stack runs no NAT); the instance still gets no public
+  // IP (publiclyAccessible: false) and the SG only admits backend tasks.
   const subnetGroup = new aws.rds.SubnetGroup(`${name}-db-subnets`, {
     name: `${name}-db-subnets`,
     subnetIds: network.publicSubnetIds,
@@ -38,7 +37,7 @@ export function createDatabase(network: Network) {
     password: password.result,
     dbSubnetGroupName: subnetGroup.name,
     vpcSecurityGroupIds: [network.dbSecurityGroup.id],
-    publiclyAccessible: config.dbPubliclyAccessible,
+    publiclyAccessible: false,
     multiAz: config.dbMultiAz,
     backupRetentionPeriod: config.isProd ? 7 : 1,
     copyTagsToSnapshot: true,

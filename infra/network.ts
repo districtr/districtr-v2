@@ -6,7 +6,7 @@ import {config} from "./config";
 // private subnets + NAT: the tasks need broad outbound access (S3, Auth0,
 // OpenAI, Sentry) either way, inbound is only possible from the ALB security
 // group, and skipping NAT saves ~$32+/mo per environment. RDS never gets a
-// public IP unless dbPubliclyAccessible is flipped for a data load.
+// public IP; operators reach it via ECS Exec into a backend task.
 
 /** Carve /20 public subnets out of the stack's /16. */
 function subnetCidr(vpcCidr: string, index: number): string {
@@ -93,26 +93,12 @@ export function createNetwork() {
     tags: {Name: `${name}-frontend-sg`},
   });
 
-  // All rules inline: mixing inline rules with standalone SecurityGroupRule
-  // resources on one group makes the provider fight itself on refresh.
-  const dbIngress: aws.types.input.ec2.SecurityGroupIngress[] = [
-    {protocol: "tcp", fromPort: 5432, toPort: 5432, securityGroups: [backendSecurityGroup.id]},
-  ];
-  if (config.dbPubliclyAccessible && config.operatorCidr) {
-    // Temporary operator access for pg_dump/pg_restore during migration.
-    dbIngress.push({
-      protocol: "tcp",
-      fromPort: 5432,
-      toPort: 5432,
-      cidrBlocks: [config.operatorCidr],
-      description: "Temporary operator access for data migration",
-    });
-  }
-
   const dbSecurityGroup = new aws.ec2.SecurityGroup(`${name}-db-sg`, {
     vpcId: vpc.id,
     description: "RDS: 5432 from backend tasks only",
-    ingress: dbIngress,
+    // Operators reach RDS via ECS Exec into a backend task (see backend.ts);
+    // the DB never accepts connections from outside the VPC.
+    ingress: [{protocol: "tcp", fromPort: 5432, toPort: 5432, securityGroups: [backendSecurityGroup.id]}],
     egress: [{protocol: "-1", fromPort: 0, toPort: 0, cidrBlocks: ["0.0.0.0/0"], ipv6CidrBlocks: ["::/0"]}],
     tags: {Name: `${name}-db-sg`},
   });

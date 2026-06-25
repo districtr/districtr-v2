@@ -94,6 +94,29 @@ export function createBackend(
     }),
   });
 
+  // ECS Exec (SSM Session Manager): `aws ecs execute-command` into a running
+  // backend task to reach RDS from inside the VPC — the image already has
+  // psql/pg_dump and the SG already allows 5432, so data loads and backfills
+  // need no public DB exposure. Channels are SSM-scoped, hence Resource: "*".
+  new aws.iam.RolePolicy(`${name}-backend-task-ssm-exec`, {
+    role: taskRole.id,
+    policy: JSON.stringify({
+      Version: "2012-10-17",
+      Statement: [
+        {
+          Effect: "Allow",
+          Action: [
+            "ssmmessages:CreateControlChannel",
+            "ssmmessages:CreateDataChannel",
+            "ssmmessages:OpenControlChannel",
+            "ssmmessages:OpenDataChannel",
+          ],
+          Resource: "*",
+        },
+      ],
+    }),
+  });
+
   // --- Task definitions ---
   const environment = [
     {name: "ENVIRONMENT", value: config.environment},
@@ -178,6 +201,8 @@ export function createBackend(
       name: "backend",
       cluster: cluster.arn,
       launchType: "FARGATE",
+      // Operators shell into a task via SSM to reach RDS (see task-role policy).
+      enableExecuteCommand: true,
       taskDefinition: taskDefinition.arn,
       desiredCount: config.backendMinCount,
       networkConfiguration: {

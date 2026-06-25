@@ -63,9 +63,6 @@ export const config = {
   dbAllocatedStorage: cfg.getNumber("dbAllocatedStorage") ?? (isProd ? 100 : 20),
   dbMultiAz: cfg.getBoolean("dbMultiAz") ?? isProd,
   dbEngineVersion: cfg.get("dbEngineVersion") ?? "16",
-  // Flip on (with operatorCidr) only for pg_restore from outside the VPC.
-  dbPubliclyAccessible: cfg.getBoolean("dbPubliclyAccessible") ?? false,
-  operatorCidr: cfg.get("operatorCidr"),
 
   // Networking
   vpcCidr: cfg.get("vpcCidr") ?? (isProd ? "10.0.0.0/16" : "10.1.0.0/16"),
