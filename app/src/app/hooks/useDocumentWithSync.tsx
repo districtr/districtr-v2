@@ -135,10 +135,10 @@ export function useDocumentWithSync({
         setMapDocument(result.response.document);
         if (isCommunityDocument) {
           const data = formatCoiAssignmentsFromDocument(result.response.assignments);
-          ingestCoiFromDocument(data, result.response.document);
+          ingestCoiFromDocument(data, result.response.document, result.response.hasLocalEdits);
         } else {
           const data = formatAssignmentsFromDocument(result.response.assignments);
-          ingestDistrictFromDocument(data, result.response.document);
+          ingestDistrictFromDocument(data, result.response.document, result.response.hasLocalEdits);
         }
         // Set overlays from document response
         setMapDocument(result.response.document);
