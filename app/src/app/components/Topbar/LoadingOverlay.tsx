@@ -69,6 +69,11 @@ export const LoadingOverlay: React.FC = () => {
   const busy = Boolean(mapLock?.isLocked) || documentLoading;
   const showBusy = useDelayed(busy, BUSY_SHOW_DELAY_MS);
 
+  // Auto-save kicked off by a mode switch: the transition is already active, so surface
+  // the save explicitly and immediately (skipping the busy delay below).
+  if (viewTransition && mapLock?.isLocked) {
+    return <OverlayCard message="Saving changes…" />;
+  }
   if (viewTransition === 'evaluate') {
     return <EvalTransitionOverlay activeStep={step} />;
   }

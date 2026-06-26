@@ -177,19 +177,26 @@ export const ModeSwitcher: React.FC = () => {
       return;
     }
     // Persist any pending edits first so the read-only view reflects the latest map.
-    if (isOutdated && canEdit) {
-      setIsMinting(true);
-      try {
-        await save();
-      } finally {
-        setIsMinting(false);
-      }
+    // Show the transition overlay up front so the auto-save is visible — LoadingOverlay
+    // renders it as "Saving changes…" while the save runs, then the normal transition.
+    const needsSave = isOutdated && canEdit;
+    if (needsSave) {
+      // Reset the destination's load flags first so the transition overlay isn't
+      // immediately cleared (useViewTransition clears it once data is "ready"), then
+      // show it while the save runs — LoadingOverlay renders it as "Saving changes…".
+      setLoadingState('publicSourceLoaded', false);
+      setLoadingState('metricsLoaded', false);
+      setViewTransition(mode);
+      await save();
     }
     let target = targetFor(mode);
     if (!target && canEdit) {
       target = await mintAndResolve(mode);
     }
-    if (!target) return;
+    if (!target) {
+      if (needsSave) setViewTransition(null);
+      return;
+    }
     // Reset the destination's load flags and show the overlay, then navigate
     // immediately so the overlay covers the real load and only clears once the
     // destination view's data has loaded (see LoadingOverlay / useViewTransition).
