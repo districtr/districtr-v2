@@ -5,6 +5,7 @@ import {Button, Flex, Text, Dialog, Box, TextField, Progress, Blockquote} from '
 import {useRouter, useSearchParams} from 'next/navigation';
 import {postGrantEditAccess} from '@/app/utils/api/apiHandlers/postGrantEditAccess';
 import {routeManager} from '@/app/utils/map/mapUrlRoute';
+import {useEditableDocId} from '@/app/hooks/useEditableDocId';
 
 export const PasswordPromptModal = () => {
   const router = useRouter();
@@ -13,15 +14,20 @@ export const PasswordPromptModal = () => {
   // option), not just the `?pw=true` share link.
   const passwordPrompt = useMapStore(store => store.passwordPrompt);
   const setPasswordPrompt = useMapStore(store => store.setPasswordPrompt);
-  const [dialogOpen, setDialogOpen] = React.useState(Boolean(pwRequired) || passwordPrompt);
+  // Owners have a local editable copy and don't need a password for their own map,
+  // so don't prompt them — otherwise it looks like the password isn't protecting it.
+  const ownsMap = !!useEditableDocId();
+  const [dialogOpen, setDialogOpen] = React.useState(
+    (Boolean(pwRequired) || passwordPrompt) && !ownsMap
+  );
   const [password, setPassword] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const mapDocument = useMapStore(store => store.mapDocument);
 
   useEffect(() => {
-    setDialogOpen(Boolean(pwRequired) || passwordPrompt);
-  }, [pwRequired, passwordPrompt]);
+    setDialogOpen((Boolean(pwRequired) || passwordPrompt) && !ownsMap);
+  }, [pwRequired, passwordPrompt, ownsMap]);
 
   const handleProceed = async (editAccess: boolean) => {
     if (!editAccess) {

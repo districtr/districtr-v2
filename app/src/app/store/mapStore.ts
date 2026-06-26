@@ -219,6 +219,11 @@ export interface MapStore {
   initiateFlushMapState: () => Promise<void>;
   mutateMapDocument: (mapDocument: Partial<DocumentObject>) => void;
   clearUpdatedChanges: () => void;
+  /** Clear all editor-derived state when leaving the editor. Nulls mapDocument so
+   * re-opening the same map fully re-initializes instead of hitting setMapDocument's
+   * "same document" early-return (which is what left save state, the catalog
+   * "current" badge, and zone-number labels stale across sessions). */
+  resetMapState: () => void;
   mapStatus: StatusObject | null;
   setMapStatus: (mapStatus: Partial<StatusObject>) => void;
   setNumDistricts: (numDistricts: number) => void;
@@ -443,6 +448,12 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       resetZoneAssignments();
       useDemographyStore.getState().clear();
       useUnassignFeaturesStore.getState().reset();
+      // A different map is loading: drop the previous map's retained editable id so it
+      // can't enable Edit (or route to the wrong editor) for the new map. Same-map view
+      // switches (edit↔display↔evaluate) keep it so Edit stays reachable.
+      if (!sameMapAcrossViews) {
+        mapControlsState.setEditableDocId(null);
+      }
 
       let newStateFipsSet: Set<string> = new Set();
       if (mapDocument.statefps) {
@@ -602,6 +613,29 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         };
       }),
     clearUpdatedChanges: () => set({updated: {metadata: false, comments: false}}),
+
+    resetMapState: () => {
+      // Mirror the reset block in setMapDocument, but null the document so a later
+      // re-open of the same map fully re-initializes instead of early-returning.
+      const {resetZoneAssignments} = useAssignmentsStore.getState();
+      GeometryWorker?.clear();
+      GeometryWorker?.resetZones();
+      demographyService.clear();
+      resetZoneAssignments();
+      useDemographyStore.getState().clear();
+      useUnassignFeaturesStore.getState().reset();
+      set({
+        mapDocument: null,
+        updated: {metadata: false, comments: false},
+        loadingStates: {...DEFAULT_LOADING_STATES},
+        mapLock: null,
+      });
+      const mapControls = useMapControlsStore.getState();
+      mapControls.setEditableDocId(null);
+      mapControls.setIsEditing(false);
+      mapControls.setIsEval(false);
+      mapControls.setViewTransition(null);
+    },
 
     // ZONE DESCRIPTIONS
     pinnedDescriptionZone: null,

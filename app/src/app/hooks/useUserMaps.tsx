@@ -30,9 +30,11 @@ export const useUserMaps = (updateTrigger: string | null | number = null) => {
           } else {
             districtMaps.push(doc);
           }
-          setCommunityMaps(coiMaps);
-          setDistrictMaps(districtMaps);
         }
+        // Set once after the loop so deleting the last map clears the lists — an empty
+        // sortedDocs skips the loop, which would otherwise leave stale arrays rendered.
+        setCommunityMaps(coiMaps);
+        setDistrictMaps(districtMaps);
       } finally {
         setLoading(false);
       }
