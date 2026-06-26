@@ -12,6 +12,7 @@ import {useZoomToDistrict} from '@/app/hooks/useZoomToDistrict';
 type DeviationView = 'top_to_bottom' | 'max_absolute' | 'both';
 
 function formatDeviation(value: number): string {
+  if (value > 1) return 'over 100%';
   const pct = value * 100;
   const formatted = pct.toFixed(3);
   return formatted === '0.000' ? 'under 0.001%' : `${formatted}%`;

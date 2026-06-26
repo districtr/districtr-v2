@@ -66,7 +66,16 @@ export const EvalPanel: React.FC = () => {
         </Flex>
       )}
 
-      {evaluation && (
+      {evaluation && Object.keys(evaluation).length === 0 && (
+        <Flex p="5">
+          <Text size="3">
+            This plan is empty. Please add at least one district in the draw mode to see its
+            evaluation metrics.
+          </Text>
+        </Flex>
+      )}
+
+      {evaluation && Object.keys(evaluation).length > 0 && (
         <Flex direction="column" gap="5" pl="2" pr="5" pb="5">
           <BasicsSection evaluation={evaluation} />
           <PartisanSection evaluation={evaluation} />

@@ -123,11 +123,17 @@ def client_isolated_sessions_fixture(engine):
     app.dependency_overrides.clear()
 
 
+# alembic/env.py resolves DATABASE_URL ahead of POSTGRES_DB, so overriding only
+# POSTGRES_DB would migrate whatever DATABASE_URL points at (e.g. .env.test's
+# `postgres` DB), leaving the freshly-created test DB empty. Point alembic at the
+# same URI the test/integration engines use.
 my_env = os.environ.copy()
 my_env["POSTGRES_DB"] = POSTGRES_TEST_DB
+my_env["DATABASE_URL"] = str(TEST_SQLALCHEMY_DATABASE_URI)
 
 integration_env = os.environ.copy()
 integration_env["POSTGRES_DB"] = POSTGRES_INTEGRATION_DB
+integration_env["DATABASE_URL"] = str(INTEGRATION_SQLALCHEMY_DATABASE_URI)
 
 
 @pytest.fixture(scope="session", name="engine")

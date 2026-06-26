@@ -11,7 +11,6 @@ import fastapi
 from networkx import Graph
 
 from app.core.config import settings
-from app.core.io import download_file_from_s3
 
 logger = logging.getLogger(__name__)
 
@@ -24,40 +23,33 @@ def get_gerrydb_graph_file(
 ) -> str:
     """Resolve the path to a GerryDB graph pkl file.
 
-    Checks for a local copy first; falls back to S3 if absent.
+    Prefers a local copy (e.g. docker-compose bind mounts); otherwise
+    returns the S3 URI — a missing object surfaces as ClientError on fetch.
     """
     possible_local_path = Path(prefix) / _S3_GRAPH_PREFIX / f"{gerrydb_name}.pkl"
-    logger.info("Possible local path: %s", possible_local_path)
-
     if possible_local_path.exists():
-        logger.info("Local path exists")
         return str(possible_local_path)
 
-    logger.info("Local path does not exist, checking S3")
-    s3_key = f"{_S3_GRAPH_PREFIX}/{gerrydb_name}.pkl"
-    logger.info("S3 key: %s", s3_key)
-
-    s3 = settings.get_s3_client()
-    assert s3, "S3 client is not available"
-    s3.head_object(Bucket=settings.R2_BUCKET_NAME, Key=s3_key)
-
-    return f"s3://{settings.R2_BUCKET_NAME}/{s3_key}"
+    return f"s3://{settings.R2_BUCKET_NAME}/{_S3_GRAPH_PREFIX}/{gerrydb_name}.pkl"
 
 
-def get_gerrydb_graph(file_path: str, replace_local_copy: bool = False) -> Graph:
-    """Load a GerryDB graph pkl from a local path or an S3 URI."""
+def get_gerrydb_graph(file_path: str) -> Graph:
+    """Load a GerryDB graph pkl from a local path or an S3 URI.
+
+    S3 objects are streamed straight into memory — the lru_cache on
+    `get_graph` is the only cache, so deployments need no data volume.
+    """
     url = urlparse(file_path)
-    logger.info("URL: %s", url)
 
     if url.scheme == "s3":
         s3 = settings.get_s3_client()
         assert s3, "S3 client is not available"
-        path = download_file_from_s3(s3=s3, url=url, replace=replace_local_copy)
-    else:
-        path = file_path
+        key = url.path.lstrip("/")
+        logger.info("Streaming graph from s3://%s/%s", url.netloc, key)
+        response = s3.get_object(Bucket=url.netloc, Key=key)
+        return pickle.loads(response["Body"].read())
 
-    logger.info("Path: %s", path)
-    with open(path, "rb") as f:
+    with open(file_path, "rb") as f:
         return pickle.load(f)
 
 
@@ -73,7 +65,7 @@ def get_graph(gerrydb_name: str) -> Graph:
     try:
         path = get_gerrydb_graph_file(gerrydb_name)
         logger.info("Graph cache miss, loading from %s", path)
-        return get_gerrydb_graph(path, replace_local_copy=False)
+        return get_gerrydb_graph(path)
     except botocore.exceptions.ClientError as e:
         logger.error("Graph not found: %s", e)
         raise fastapi.HTTPException(

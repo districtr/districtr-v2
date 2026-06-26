@@ -19,6 +19,7 @@ import {idb} from '@/app/utils/idb/idb';
 import {RevertPopover} from './RevertPopover';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {sanitizeCommunityMaps, sanitizeCommunityModuleName} from '@/app/utils/communities';
+import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
 import {MAP_MODES, type MapMode} from '@constants/map/mode';
 import {routeForMode} from '@constants/document/routes';
 import {MAP_TYPES} from '@constants/document/types';
@@ -149,47 +150,51 @@ export const Topbar: React.FC = () => {
                   </DropdownMenu.Sub>
                 )}
                 <DropdownMenu.Sub>
-                  <DropdownMenu.SubTrigger disabled={!mapDocument?.document_id}>
+                  <DropdownMenu.SubTrigger
+                    disabled={
+                      !mapDocument?.document_id || mapDocument.document_id === ANONYMOUS_DOCUMENT_ID
+                    }
+                  >
                     Export assignments
                   </DropdownMenu.SubTrigger>
                   <DropdownMenu.SubContent>
                     <DropdownMenu.Item>
-                      <Tooltip content="Download a CSV of Census GEOIDs and zone IDs">
+                      <Tooltip content="Download a CSV of GEOIDs and zone IDs">
                         <a
-                          href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=CSV&export_type=ZoneAssignments`}
+                          href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?export_type=BlockAssignmentsCSV`}
                           download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
                         >
-                          VTD assignments (CSV)
+                          Unit assignments (CSV)
                         </a>
                       </Tooltip>
                     </DropdownMenu.Item>
                     <DropdownMenu.Item>
-                      <Tooltip content="Download a GeoJSON of Census GEOIDs and zone IDs">
+                      <Tooltip content="Download a GeoJSON of dissolved district boundary polygons">
                         <a
-                          href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=GeoJSON&export_type=ZoneAssignments`}
-                          download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
-                        >
-                          VTD assignments (GeoJSON)
-                        </a>
-                      </Tooltip>
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item disabled={!mapDocument?.child_layer}>
-                      <Tooltip content="Download a CSV of Census Block GEOIDs and zone IDs">
-                        <a
-                          href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=CSV&export_type=BlockZoneAssignments`}
-                          download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
-                        >
-                          Block assignment (CSV)
-                        </a>
-                      </Tooltip>
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item>
-                      <Tooltip content="Download a GeoJSON of district boundaries">
-                        <a
-                          href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=GeoJSON&export_type=Districts`}
-                          download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
+                          href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?export_type=DistrictsGeoJSON`}
+                          download={`districtr-districts-${mapDocument?.document_id}-${new Date().toDateString()}.geojson`}
                         >
                           District boundaries (GeoJSON)
+                        </a>
+                      </Tooltip>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item>
+                      <Tooltip content="Download a zipped Shapefile of dissolved district boundary polygons">
+                        <a
+                          href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?export_type=DistrictsShapefile`}
+                          download={`districtr-districts-${mapDocument?.document_id}-${new Date().toDateString()}.zip`}
+                        >
+                          District boundaries (Shapefile)
+                        </a>
+                      </Tooltip>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item>
+                      <Tooltip content="Download a JSON of evaluation metrics for this map">
+                        <a
+                          href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?export_type=EvaluationJSON`}
+                          download={`districtr-evaluation-${mapDocument?.document_id}-${new Date().toDateString()}.json`}
+                        >
+                          Evaluation metrics (JSON)
                         </a>
                       </Tooltip>
                     </DropdownMenu.Item>

@@ -106,38 +106,51 @@ def duplicate_document_community_assignments(
     return inserted_assignments
 
 
-def _heal_with_graph(zone_by_geo: dict[str, int], G: Graph) -> dict[str, int]:
-    """Replace uniform child-block assignments with their parent zone.
+def _heal_or_fill(zone_by_geo: dict[str, int], G: Graph) -> dict[str, int | None]:
+    """Heal uniform child assignments into their parent or fill unassigned siblings.
 
-    A parent is healed when every one of its children is present in zone_by_geo
-    and they all agree on the same zone. Healed children are removed and replaced
-    by a single parent entry.
+    Two operations run in a single pass over uploaded children:
 
-    Iterates over uploaded rows only (not all graph nodes) for O(N) performance.
+    - **Heal**: if every child of a parent is uploaded with the same zone, collapse
+      them into a single parent entry and remove the children.
+    - **Fill**: if only some children of a parent are uploaded, insert the missing
+      siblings with zone=None to uphold the shattered-parent contract.
+
+    Returns a dict mapping geo_id → zone (int) or None.
     """
-    # Group uploaded children by their parent
-    uploaded_by_parent: dict[str, dict[str, int]] = {}
+    children_assignments_by_parent: dict[str, dict[str, int]] = {}
     for geo_id, zone in zone_by_geo.items():
         node_data = G.nodes.get(geo_id)
+        # Only import geoid in our map
         if node_data is None:
             continue
-        parent = node_data.get("parent")
-        if parent is None:
+        # Only process child nodes
+        if "parent" not in node_data:
             continue
-        uploaded_by_parent.setdefault(parent, {})[geo_id] = zone
+        parent = node_data["parent"]
+        children_assignments_by_parent.setdefault(parent, {})[geo_id] = zone
 
     to_remove: set[str] = set()
     healed: dict[str, int] = {}
-    for parent, uploaded_children in uploaded_by_parent.items():
-        all_children: set[str] = G.nodes[parent].get("children", set())
-        if uploaded_children.keys() != all_children:
-            continue
-        zones = set(uploaded_children.values())
-        if len(zones) == 1:
-            healed[parent] = zones.pop()
-            to_remove.update(uploaded_children)
+    filled: dict[str, None] = {}
+    for parent, children_assignments in children_assignments_by_parent.items():
+        all_children: set[str] = G.nodes[parent]["children"]
+        if children_assignments.keys() == all_children:
+            zones = set(children_assignments.values())
+            if len(zones) == 1:
+                healed[parent] = zones.pop()
+                to_remove.update(children_assignments)
+        else:
+            for child in all_children:
+                if child not in children_assignments:
+                    filled[child] = None
 
-    return {k: v for k, v in zone_by_geo.items() if k not in to_remove} | healed
+    result: dict[str, int | None] = {
+        k: v for k, v in zone_by_geo.items() if k not in to_remove
+    }
+    result.update(healed)
+    result.update(filled)
+    return result
 
 
 def batch_insert_assignments(
@@ -170,7 +183,7 @@ def batch_insert_assignments(
 
     null_count = 0
     invalid_count = 0
-    zone_by_geo: dict[str, int] = {}
+    zone_by_geo_int: dict[str, int] = {}
     num_districts = districtr_map.num_districts
     for record in assignments:
         if record[1] and record[1] != "":
@@ -181,9 +194,9 @@ def batch_insert_assignments(
             if not geo_id or geo_id not in G or not 0 < zone <= (num_districts or zone):
                 invalid_count += 1
                 continue
-            if geo_id in zone_by_geo:
+            if geo_id in zone_by_geo_int:
                 raise DuplicateGeoIdError(geo_id)
-            zone_by_geo[geo_id] = zone
+            zone_by_geo_int[geo_id] = zone
         else:
             null_count += 1
 
@@ -192,7 +205,9 @@ def batch_insert_assignments(
     )
 
     if districtr_map.child_layer is not None:
-        zone_by_geo = _heal_with_graph(zone_by_geo, G)
+        zone_by_geo: dict[str, int | None] = _heal_or_fill(zone_by_geo_int, G)
+    else:
+        zone_by_geo = zone_by_geo_int
 
     load_id, _ = str(uuid4()).split("-", maxsplit=1)
     temp_table = f"temp_assignments_{load_id}"

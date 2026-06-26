@@ -1,0 +1,303 @@
+name: Fly Preview
+
+# Ephemeral Fly previews driven by PR labels. One workflow owns the whole
+# lifecycle (deploy + teardown) so a single PR-scoped concurrency group can
+# serialize them — a close/unlabel mid-deploy cancels the in-flight deploy
+# before destroying anything.
+#
+#   "Preview: FE"        -> frontend only, pointed at the shared dev backend/db
+#   "Preview: Fullstack" -> frontend + backend, with a Postgres forked from dev
+#
+# Apps are named with the PR number, e.g.
+#   https://districtr-v2-123-frontend-dev.fly.dev
+#   https://districtr-v2-123-api-dev.fly.dev   (fullstack only)
+#
+# Required repo VARS:    FLY_ORG, DEV_PG_APP, R2_BUCKET_NAME
+# Required repo SECRETS: FLY_PREVIEW_API_TOKEN (org-scoped: `fly tokens create org`),
+#   AUTH0_SECRET, AUTH0_CLIENT_ID, AUTH0_CLIENT_SECRET, AUTH0_DOMAIN, AUTH0_API_AUDIENCE,
+#   RECAPTCHA_SITE_KEY, NEXT_PUBLIC_MAPTILER_API_KEY, SENTRY_AUTH_TOKEN (optional);
+#   fullstack also needs: PREVIEW_DB_USER/PASSWORD/NAME, BE_SECRET_KEY, AUTH0_ISSUER,
+#   AUTH0_ALGORITHMS, and optionally RECAPTCHA_SECRET_KEY, AWS_ACCESS_KEY_ID/SECRET, R2_ACCOUNT_ID.
+# One-time: create the two labels, and set BACKEND_CORS_ORIGIN_REGEX on the dev backend
+#   so FE-only previews are allowed cross-origin (see PR description / config.py).
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled, closed]
+
+concurrency:
+  group: fly-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    name: Fly preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Act when a preview label is present (deploy; also covers close/merge while
+    # still labeled -> teardown), or when a preview label was just removed
+    # (teardown, or Fullstack->FE downgrade). Never for fork PRs (no secrets).
+    # Unrelated label changes and non-preview PRs are skipped.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (contains(github.event.pull_request.labels.*.name, 'Preview: FE') ||
+       contains(github.event.pull_request.labels.*.name, 'Preview: Fullstack') ||
+       (github.event.action == 'unlabeled' &&
+        startsWith(github.event.label.name, 'Preview:')))
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_PREVIEW_API_TOKEN }}
+      DEV_API_URL: https://districtr-v2-api-dev.fly.dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve preview config
+        id: setup
+        env:
+          PR: ${{ github.event.pull_request.number }}
+          ACTION: ${{ github.event.action }}
+          HAS_FULLSTACK: "${{ contains(github.event.pull_request.labels.*.name, 'Preview: Fullstack') }}"
+          HAS_FE: "${{ contains(github.event.pull_request.labels.*.name, 'Preview: FE') }}"
+        run: |
+          set -euo pipefail
+          # op = deploy | teardown ; mode = fullstack | fe | none
+          if [ "$ACTION" = "closed" ]; then
+            op=teardown; mode=none
+          elif [ "$HAS_FULLSTACK" = "true" ]; then
+            op=deploy; mode=fullstack
+          elif [ "$HAS_FE" = "true" ]; then
+            op=deploy; mode=fe
+          else
+            # last preview label was removed -> tear the whole preview down
+            op=teardown; mode=none
+          fi
+
+          fe_app="districtr-v2-${PR}-frontend-dev"
+          api_app="districtr-v2-${PR}-api-dev"
+          db_app="districtr-v2-${PR}-db-dev"
+          fe_url="https://${fe_app}.fly.dev"
+          if [ "$mode" = "fullstack" ]; then
+            api_url="https://${api_app}.fly.dev"
+          else
+            api_url="${DEV_API_URL}"
+          fi
+
+          {
+            echo "op=$op"
+            echo "mode=$mode"
+            echo "fe_app=$fe_app"
+            echo "api_app=$api_app"
+            echo "db_app=$db_app"
+            echo "fe_url=$fe_url"
+            echo "api_url=$api_url"
+          } >> "$GITHUB_OUTPUT"
+          echo "Resolved op=$op mode=$mode fe_url=$fe_url api_url=$api_url"
+
+      - uses: superfly/flyctl-actions/setup-flyctl@1.5
+
+      - name: Deploy preview backend + forked database
+        if: steps.setup.outputs.op == 'deploy' && steps.setup.outputs.mode == 'fullstack'
+        env:
+          ORG: ${{ vars.FLY_ORG }}
+          DEV_PG_APP: ${{ vars.DEV_PG_APP }}
+          DB_APP: ${{ steps.setup.outputs.db_app }}
+          API_APP: ${{ steps.setup.outputs.api_app }}
+          FE_URL: ${{ steps.setup.outputs.fe_url }}
+          API_URL: ${{ steps.setup.outputs.api_url }}
+          PREVIEW_DB_USER: ${{ secrets.PREVIEW_DB_USER }}
+          PREVIEW_DB_PASSWORD: ${{ secrets.PREVIEW_DB_PASSWORD }}
+          PREVIEW_DB_NAME: ${{ secrets.PREVIEW_DB_NAME }}
+          BE_SECRET_KEY: ${{ secrets.BE_SECRET_KEY }}
+          AUTH0_DOMAIN: ${{ secrets.AUTH0_DOMAIN }}
+          AUTH0_API_AUDIENCE: ${{ secrets.AUTH0_API_AUDIENCE }}
+          AUTH0_ISSUER: ${{ secrets.AUTH0_ISSUER }}
+          AUTH0_ALGORITHMS: ${{ secrets.AUTH0_ALGORITHMS }}
+          RECAPTCHA_SECRET_KEY: ${{ secrets.RECAPTCHA_SECRET_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET_NAME: ${{ vars.R2_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+
+          # 1) Fork the dev Postgres cluster (idempotent). The fork keeps dev's
+          #    users/password/database, so we reuse those credentials below.
+          if ! flyctl status -a "$DB_APP" >/dev/null 2>&1; then
+            echo "Forking $DEV_PG_APP -> $DB_APP ..."
+            flyctl postgres create \
+              --name "$DB_APP" \
+              --org "$ORG" \
+              --region ewr \
+              --fork-from "$DEV_PG_APP" \
+              --initial-cluster-size 1 \
+              --vm-size shared-cpu-1x \
+              --volume-size 10
+          else
+            echo "Postgres fork $DB_APP already exists, reusing."
+          fi
+
+          # 2) Ensure the backend app exists.
+          flyctl status -a "$API_APP" >/dev/null 2>&1 || flyctl apps create "$API_APP" -o "$ORG"
+
+          # 3) Stage secrets (applied by the deploy below; --stage avoids an extra restart).
+          DB_HOST="${DB_APP}.flycast"
+          DATABASE_URL="postgresql+psycopg://${PREVIEW_DB_USER}:${PREVIEW_DB_PASSWORD}@${DB_HOST}:5432/${PREVIEW_DB_NAME}?sslmode=disable"
+
+          args=(
+            DATABASE_URL="$DATABASE_URL"
+            POSTGRES_SCHEME="postgresql+psycopg"
+            POSTGRES_SERVER="$DB_HOST"
+            POSTGRES_PORT="5432"
+            POSTGRES_USER="$PREVIEW_DB_USER"
+            POSTGRES_PASSWORD="$PREVIEW_DB_PASSWORD"
+            POSTGRES_DB="$PREVIEW_DB_NAME"
+            SECRET_KEY="$BE_SECRET_KEY"
+            BACKEND_CORS_ORIGINS="${FE_URL},${API_URL}"
+            DOMAIN="${API_APP}.fly.dev"
+            AUTH0_DOMAIN="$AUTH0_DOMAIN"
+            AUTH0_API_AUDIENCE="$AUTH0_API_AUDIENCE"
+            AUTH0_ISSUER="$AUTH0_ISSUER"
+            AUTH0_ALGORITHMS="$AUTH0_ALGORITHMS"
+          )
+          # Optional secrets — only set when provided.
+          if [ -n "${RECAPTCHA_SECRET_KEY:-}" ];   then args+=( RECAPTCHA_SECRET_KEY="$RECAPTCHA_SECRET_KEY" ); fi
+          if [ -n "${AWS_ACCESS_KEY_ID:-}" ];      then args+=( AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" ); fi
+          if [ -n "${AWS_SECRET_ACCESS_KEY:-}" ];  then args+=( AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" ); fi
+          if [ -n "${R2_ACCOUNT_ID:-}" ];          then args+=( ACCOUNT_ID="$R2_ACCOUNT_ID" ); fi
+          if [ -n "${R2_BUCKET_NAME:-}" ];         then args+=( R2_BUCKET_NAME="$R2_BUCKET_NAME" ); fi
+
+          flyctl secrets set --stage -a "$API_APP" "${args[@]}"
+
+          # 4) Deploy (downsized for a preview). The release_command in
+          #    backend/fly.toml runs `alembic upgrade head` against the forked DB.
+          flyctl deploy backend --remote-only --app "$API_APP" --vm-memory 2048 --ha=false --yes
+
+      - name: Tear down stale preview backend (Fullstack -> FE downgrade)
+        # When the Fullstack label is dropped but FE remains, destroy the now-unused
+        # API + forked DB so they don't keep running; the frontend step below
+        # re-points at the shared dev backend.
+        if: steps.setup.outputs.op == 'deploy' && steps.setup.outputs.mode == 'fe'
+        env:
+          API_APP: ${{ steps.setup.outputs.api_app }}
+          DB_APP: ${{ steps.setup.outputs.db_app }}
+        run: |
+          set -euo pipefail
+          for app in "$API_APP" "$DB_APP"; do
+            if flyctl status -a "$app" >/dev/null 2>&1; then
+              echo "Destroying stale $app ..."
+              flyctl apps destroy "$app" --yes
+            fi
+          done
+
+      - name: Deploy preview frontend
+        if: steps.setup.outputs.op == 'deploy'
+        env:
+          ORG: ${{ vars.FLY_ORG }}
+          FE_APP: ${{ steps.setup.outputs.fe_app }}
+          FE_URL: ${{ steps.setup.outputs.fe_url }}
+          API_URL: ${{ steps.setup.outputs.api_url }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          RECAPTCHA_SITE_KEY: ${{ secrets.RECAPTCHA_SITE_KEY }}
+          NEXT_PUBLIC_MAPTILER_API_KEY: ${{ secrets.NEXT_PUBLIC_MAPTILER_API_KEY }}
+          AUTH0_SECRET: ${{ secrets.AUTH0_SECRET }}
+          AUTH0_CLIENT_ID: ${{ secrets.AUTH0_CLIENT_ID }}
+          AUTH0_CLIENT_SECRET: ${{ secrets.AUTH0_CLIENT_SECRET }}
+          AUTH0_DOMAIN: ${{ secrets.AUTH0_DOMAIN }}
+          AUTH0_API_AUDIENCE: ${{ secrets.AUTH0_API_AUDIENCE }}
+        run: |
+          set -euo pipefail
+
+          flyctl status -a "$FE_APP" >/dev/null 2>&1 || flyctl apps create "$FE_APP" -o "$ORG"
+
+          # Build-time public env (baked into the image; Dockerfile COPYs this in).
+          cat > app/.env.production <<EOF
+          NEXT_PUBLIC_RECAPTCHA_SITE_KEY=${RECAPTCHA_SITE_KEY}
+          NEXT_PUBLIC_MAPTILER_API_KEY=${NEXT_PUBLIC_MAPTILER_API_KEY}
+          NEXT_PUBLIC_S3_BUCKET_URL=https://tilesets1.cdn.districtr.org
+          NEXT_PUBLIC_S3_BUCKET_URL_MIRROR1=https://tilesets2.cdn.districtr.org
+          NEXT_PUBLIC_S3_BUCKET_URL_MIRROR2=https://tilesets3.cdn.districtr.org
+          NEXT_PUBLIC_API_URL=${API_URL}
+          EOF
+
+          # Runtime secrets (Auth0 + base URL) — read server-side from process.env.
+          flyctl secrets set --stage -a "$FE_APP" \
+            AUTH0_SECRET="$AUTH0_SECRET" \
+            AUTH0_CLIENT_ID="$AUTH0_CLIENT_ID" \
+            AUTH0_CLIENT_SECRET="$AUTH0_CLIENT_SECRET" \
+            AUTH0_DOMAIN="$AUTH0_DOMAIN" \
+            AUTH0_AUDIENCE="$AUTH0_API_AUDIENCE" \
+            APP_BASE_URL="$FE_URL"
+
+          flyctl deploy app --remote-only --app "$FE_APP" --ha=false --yes
+
+      - name: Tear down preview apps
+        if: steps.setup.outputs.op == 'teardown'
+        env:
+          FE_APP: ${{ steps.setup.outputs.fe_app }}
+          API_APP: ${{ steps.setup.outputs.api_app }}
+          DB_APP: ${{ steps.setup.outputs.db_app }}
+        run: |
+          set -euo pipefail
+          # Frontend and API first, then the database cluster. Only ever touches
+          # apps named after this PR, and ignores apps that don't exist.
+          for app in "$FE_APP" "$API_APP" "$DB_APP"; do
+            if flyctl status -a "$app" >/dev/null 2>&1; then
+              echo "Destroying $app ..."
+              flyctl apps destroy "$app" --yes
+            else
+              echo "$app does not exist, skipping."
+            fi
+          done
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        env:
+          OP: ${{ steps.setup.outputs.op }}
+          MODE: ${{ steps.setup.outputs.mode }}
+          FE_URL: ${{ steps.setup.outputs.fe_url }}
+          API_URL: ${{ steps.setup.outputs.api_url }}
+        with:
+          script: |
+            const { OP, MODE, FE_URL, API_URL } = process.env;
+            const marker = '<!-- fly-preview -->';
+            let body;
+            if (OP === 'deploy') {
+              const sharedNote = MODE === 'fe' ? ' _(shared dev backend)_' : '';
+              body = [
+                marker,
+                '### 🚀 Fly preview deployed',
+                '',
+                '**Mode:** `' + MODE + '`',
+                '',
+                '| Service | URL |',
+                '| --- | --- |',
+                '| Frontend | ' + FE_URL + ' |',
+                '| API | ' + API_URL + sharedNote + ' |',
+                '',
+                '_Updated for commit `' + context.sha.slice(0, 7) + '`. Tears down automatically when this PR is closed._',
+              ].join('\n');
+            } else {
+              const reason = context.payload.action === 'closed'
+                ? (context.payload.pull_request.merged ? 'PR merged' : 'PR closed')
+                : 'preview label removed';
+              body = [
+                marker,
+                '### 🧹 Fly preview torn down',
+                '',
+                'Preview apps for this PR have been destroyed (' + reason + ').',
+              ].join('\n');
+            }
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number,
+            });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
