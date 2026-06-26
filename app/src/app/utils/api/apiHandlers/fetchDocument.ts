@@ -62,7 +62,11 @@ export const fetchDocument = async (
     // The backend has no record of this document (e.g. a local-only/offline map, or
     // the server lost it). If we hold a complete local copy, load that instead of
     // failing so the user keeps their map and can re-sync later.
-    if (idbDocument) {
+    // Exception: an explicit remote fetch (e.g. the Revert handlers) must surface the
+    // failure instead of silently returning the local copy as a successful "remote"
+    // result — otherwise reverting against an unreachable backend re-ingests the same
+    // local edits and never reports the error.
+    if (idbDocument && source !== 'remote') {
       return {
         ok: true,
         response: {
