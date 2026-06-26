@@ -4,7 +4,7 @@ import {Flex, Heading, Spinner, Text} from '@radix-ui/themes';
 import {BarChartIcon, CheckIcon} from '@radix-ui/react-icons';
 
 /** Fake "speed bump" steps shown while transitioning into the evaluation view. */
-export const EVAL_TRANSITION_STEPS = ['Loading data', 'Cutting edges', 'Finalizing metrics'];
+export const EVAL_TRANSITION_STEPS = ['Loading data', 'Analyzing districts', 'Finalizing metrics'];
 
 /** Per-step dwell time; total transition ≈ steps × this (~3s for 3 steps). */
 export const EVAL_STEP_DURATION_MS = 1000;
