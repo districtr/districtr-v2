@@ -22,6 +22,10 @@ export function useViewTransition() {
   const metricsLoaded = useMapStore(state => state.loadingStates.metricsLoaded);
   const [step, setStep] = React.useState(0);
   const [minElapsed, setMinElapsed] = React.useState(false);
+  // Mirror viewTransition into a ref so the data-ready effect can read the latest
+  // value without depending on it — it only needs to re-run when the load flags change.
+  const viewTransitionRef = React.useRef(viewTransition);
+  viewTransitionRef.current = viewTransition;
 
   // Per transition: animate the eval steps, enforce the minimum duration, and arm
   // the safety timeout.
@@ -48,11 +52,13 @@ export function useViewTransition() {
 
   // Clear once the destination view's data is loaded and the minimum has elapsed.
   React.useEffect(() => {
-    if (!viewTransition || !minElapsed) return;
+    if (!minElapsed || !viewTransitionRef.current) return;
     const dataReady =
-      viewTransition === 'evaluate' ? publicSourceLoaded && metricsLoaded : publicSourceLoaded;
+      viewTransitionRef.current === 'evaluate'
+        ? publicSourceLoaded && metricsLoaded
+        : publicSourceLoaded;
     if (dataReady) setViewTransition(null);
-  }, [viewTransition, minElapsed, publicSourceLoaded, metricsLoaded, setViewTransition]);
+  }, [minElapsed, publicSourceLoaded, metricsLoaded, setViewTransition]);
 
   return {viewTransition, step};
 }
