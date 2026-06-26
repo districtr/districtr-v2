@@ -32,7 +32,7 @@ export const Header: React.FC = () => {
       <Link
         key={item.href}
         asChild
-        size="4"
+        size="5"
         weight="bold"
         color={active ? undefined : 'gray'}
         className={`!cursor-pointer ${active ? '!text-districtrBlue' : ''}`}
@@ -46,12 +46,12 @@ export const Header: React.FC = () => {
   return (
     <Box className="h-16 px-4 bg-gray-100 sticky top-0 shadow-sm z-[10000] flex items-center">
       <Flex direction="row" justify="between" align="center" className="mx-auto max-w-screen-lg w-full">
-        <Heading size="4" as="h3" className="site-title text-districtrBlue">
+        <Heading size="5" as="h3" className="site-title text-districtrBlue">
           <a href="/">Districtr</a>
         </Heading>
         <Flex
           direction="row"
-          gapX="4"
+          gapX="6"
           align="center"
           className="tracking-wider !hidden md:!flex"
         >
