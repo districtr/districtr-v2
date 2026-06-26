@@ -5,7 +5,10 @@ import {PUBLIC_SOURCE_ID} from '@constants/map/layerIds';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useClearMap} from '@/app/hooks/useClearMap';
-import {getPublicDistricts} from '@/app/utils/api/apiHandlers/getPublicDistricts';
+import {
+  getPublicDistricts,
+  publicDistrictsQueryKey,
+} from '@/app/utils/api/apiHandlers/getPublicDistricts';
 import {demographyService} from '@/app/utils/demography/demographyService';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {getAvailableColumnSets} from '@/app/utils/demography/getAvailableColumnSets';
@@ -29,7 +32,7 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
     // serve the pre-save districts from the staleTime window below. updated_at is
     // refetched fresh on every display load (useDocumentWithSync), so this changes
     // exactly when the plan changes.
-    queryKey: [PUBLIC_SOURCE_ID, mapDocument?.public_id, mapDocument?.updated_at],
+    queryKey: publicDistrictsQueryKey(mapDocument),
     queryFn: () => getPublicDistricts(mapDocument),
     enabled: Boolean(mapDocument?.access === ACCESS_STATES.READ && mapDocument?.public_id),
     // Public views are effectively read-only embeds; a 5-minute stale window drops
