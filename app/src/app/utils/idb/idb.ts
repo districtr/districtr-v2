@@ -81,6 +81,9 @@ export class DocumentsDB extends Dexie {
    * for maps the user owns locally.
    */
   async getEditableIdByPublicId(publicId: number): Promise<string | null> {
+    // TODO: This scans every stored document and is on a hot path. If users
+    // accumulate many maps, add a Dexie index on document_metadata.public_id and
+    // query by it instead of toArray().find().
     const docs = await this.documents.toArray();
     const match = docs.find(d => d.document_metadata?.public_id === publicId);
     return match?.id ?? null;
