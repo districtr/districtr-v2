@@ -274,7 +274,7 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({
             <TextField.Root
               value={textFilter}
               onChange={event => setTextFilter(event.target.value)}
-              placeholder="Filter by map name, slug, or module"
+              placeholder="Filter by map name or type"
             >
               <TextField.Slot>
                 <MagnifyingGlassIcon />
