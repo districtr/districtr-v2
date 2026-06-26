@@ -34,6 +34,25 @@ export const Topbar: React.FC = () => {
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const updateMetadata = useMapStore(state => state.updateMetadata);
 
+  // Export works for view-only users too: the backend resolves a public_id the same
+  // as a document UUID, so fall back to the public_id when the loaded doc is the
+  // anonymous read-only copy.
+  const exportId =
+    mapDocument?.document_id && mapDocument.document_id !== ANONYMOUS_DOCUMENT_ID
+      ? mapDocument.document_id
+      : mapDocument?.public_id;
+
+  const downloadExport = (exportType: string) => {
+    if (!exportId) return;
+    // Trigger via a transient anchor — a DropdownMenu.Item swallows a child anchor's
+    // click. The download filename comes from the backend's Content-Disposition.
+    const a = document.createElement('a');
+    a.href = `${process.env.NEXT_PUBLIC_API_URL}/api/document/${exportId}/export?export_type=${exportType}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
   const handleMetadataChange = async (updates: Partial<DocumentMetadata>) => {
     if (!mapDocument?.document_id) return;
     const response = await saveMapDocumentMetadata({
@@ -93,52 +112,40 @@ export const Topbar: React.FC = () => {
                   Catalog
                 </DropdownMenu.Item>
                 <DropdownMenu.Sub>
-                  <DropdownMenu.SubTrigger
-                    disabled={
-                      !mapDocument?.document_id || mapDocument.document_id === ANONYMOUS_DOCUMENT_ID
-                    }
-                  >
+                  <DropdownMenu.SubTrigger disabled={!exportId}>
                     Export assignments
                   </DropdownMenu.SubTrigger>
                   <DropdownMenu.SubContent>
-                    <DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      className="cursor-pointer"
+                      onSelect={() => downloadExport('BlockAssignmentsCSV')}
+                    >
                       <Tooltip content="Download a CSV of GEOIDs and zone IDs">
-                        <a
-                          href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?export_type=BlockAssignmentsCSV`}
-                          download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
-                        >
-                          Unit assignments (CSV)
-                        </a>
+                        <span>Unit assignments (CSV)</span>
                       </Tooltip>
                     </DropdownMenu.Item>
-                    <DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      className="cursor-pointer"
+                      onSelect={() => downloadExport('DistrictsGeoJSON')}
+                    >
                       <Tooltip content="Download a GeoJSON of dissolved district boundary polygons">
-                        <a
-                          href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?export_type=DistrictsGeoJSON`}
-                          download={`districtr-districts-${mapDocument?.document_id}-${new Date().toDateString()}.geojson`}
-                        >
-                          District boundaries (GeoJSON)
-                        </a>
+                        <span>District boundaries (GeoJSON)</span>
                       </Tooltip>
                     </DropdownMenu.Item>
-                    <DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      className="cursor-pointer"
+                      onSelect={() => downloadExport('DistrictsShapefile')}
+                    >
                       <Tooltip content="Download a zipped Shapefile of dissolved district boundary polygons">
-                        <a
-                          href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?export_type=DistrictsShapefile`}
-                          download={`districtr-districts-${mapDocument?.document_id}-${new Date().toDateString()}.zip`}
-                        >
-                          District boundaries (Shapefile)
-                        </a>
+                        <span>District boundaries (Shapefile)</span>
                       </Tooltip>
                     </DropdownMenu.Item>
-                    <DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      className="cursor-pointer"
+                      onSelect={() => downloadExport('EvaluationJSON')}
+                    >
                       <Tooltip content="Download a JSON of evaluation metrics for this map">
-                        <a
-                          href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?export_type=EvaluationJSON`}
-                          download={`districtr-evaluation-${mapDocument?.document_id}-${new Date().toDateString()}.json`}
-                        >
-                          Evaluation metrics (JSON)
-                        </a>
+                        <span>Evaluation metrics (JSON)</span>
                       </Tooltip>
                     </DropdownMenu.Item>
                   </DropdownMenu.SubContent>
