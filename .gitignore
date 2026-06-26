@@ -46,7 +46,6 @@ next-env.d.ts
 pnpm-lock.yaml
 
 # data
-db/*
 assets/
 # FL integration test fixtures (large, stored in R2 — see test_fl_metrics_integration.py)
 backend/tests/fixtures/fl/
