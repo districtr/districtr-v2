@@ -1,6 +1,7 @@
 'use client';
 import {Text, DropdownMenu, Flex, Heading, IconButton, Link, Tooltip, Tabs} from '@radix-ui/themes';
 import React, {useRef} from 'react';
+import {useRouter} from 'next/navigation';
 import {useMapStore} from '@store/mapStore';
 import {ArrowLeftIcon, HamburgerMenuIcon} from '@radix-ui/react-icons';
 import {DocumentMetadata} from '@utils/api/apiHandlers/types';
@@ -20,6 +21,7 @@ import {ACCESS_STATES} from '@constants/document/state';
 import {ViewSwitcher} from './ViewSwitcher';
 
 export const Topbar: React.FC = () => {
+  const router = useRouter();
   const handleReset = useMapStore(state => state.handleReset);
   const [modalOpen, setModalOpen] = React.useState<'upload' | null>(null);
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -76,15 +78,16 @@ export const Topbar: React.FC = () => {
                 </IconButton>
               </DropdownMenu.Trigger>
               <DropdownMenu.Content>
-                <DropdownMenu.Item>
-                  <a href="/">
-                    Home
-                  </a>
+                {/* onSelect (not an <a>) so the whole item is clickable: Radix Themes'
+                    Item swallows a child anchor's click, and asChild throws. */}
+                <DropdownMenu.Item className="cursor-pointer" onSelect={() => router.push('/')}>
+                  Home
                 </DropdownMenu.Item>
-                <DropdownMenu.Item>
-                  <a href="/catalog">
-                    Catalog
-                  </a>
+                <DropdownMenu.Item
+                  className="cursor-pointer"
+                  onSelect={() => router.push('/catalog')}
+                >
+                  Catalog
                 </DropdownMenu.Item>
                 <DropdownMenu.Sub>
                   <DropdownMenu.SubTrigger

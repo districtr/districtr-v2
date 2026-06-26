@@ -13,7 +13,13 @@ const NAV_ITEMS: {label: string; href: string; match: (pathname: string) => bool
     href: '/about',
     match: p => ['/about', '/guide', '/data', '/rules'].includes(p),
   },
-  {label: 'Draw', href: '/draw', match: p => p === '/draw'},
+  // Draw owns the place-picker landing pages too, so it stays active on /draw,
+  // the all-places directory, and individual state pages.
+  {
+    label: 'Draw',
+    href: '/draw',
+    match: p => p === '/draw' || p === '/places' || p.startsWith('/place/'),
+  },
   {label: 'Catalog', href: '/catalog', match: p => p.startsWith('/catalog') || p === '/my-maps'},
 ];
 
@@ -26,6 +32,7 @@ export const Header: React.FC = () => {
       <Link
         key={item.href}
         asChild
+        size="4"
         weight="bold"
         color={active ? undefined : 'gray'}
         className={`!cursor-pointer ${active ? '!text-districtrBlue' : ''}`}
@@ -46,7 +53,7 @@ export const Header: React.FC = () => {
           direction="row"
           gapX="4"
           align="center"
-          className="text-sm tracking-wider !hidden md:!flex"
+          className="tracking-wider !hidden md:!flex"
         >
           {linkItems.map((item, index) => (
             <React.Fragment key={index}>{item}</React.Fragment>
