@@ -15,7 +15,8 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {routeForMode} from '@constants/document/routes';
 import {ACCESS_STATES} from '@constants/document/state';
-import {isUUID} from '@/app/utils/metadata/isUUID';
+import {useEditableDocId} from '@/app/hooks/useEditableDocId';
+import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {patchSharePlan} from '@/app/utils/api/apiHandlers/patchSharePlan';
 import {idb} from '@/app/utils/idb/idb';
 
@@ -32,7 +33,7 @@ const MODE_META: Record<
 
 /** A single mode option in the switcher menu. Owns its own icon/description so the
  * switcher template stays declarative. `locked` is the password-gated edit state. */
-const ViewSwitcherItem: React.FC<{
+const ModeSwitcherItem: React.FC<{
   mode: ViewMode;
   isCurrent: boolean;
   disabled: boolean;
@@ -71,7 +72,7 @@ const ViewSwitcherItem: React.FC<{
  * when an editor switches to Display/Evaluate on an unshared draft we transparently
  * mint a read-only public_id first (no prompt) and then navigate.
  */
-export const ViewSwitcher: React.FC = () => {
+export const ModeSwitcher: React.FC = () => {
   const router = useRouter();
   const mapDocument = useMapStore(state => state.mapDocument);
   const access = useMapStore(state => state.mapStatus?.access);
@@ -80,7 +81,8 @@ export const ViewSwitcher: React.FC = () => {
   const isEditing = useMapControlsStore(state => state.isEditing);
   const isEval = useMapControlsStore(state => state.isEval);
   const mapMode = useMapControlsStore(state => state.mapMode);
-  const editableDocId = useMapControlsStore(state => state.editableDocId);
+  const editDocId = useEditableDocId();
+  const {isOutdated, save} = useMapSaveStatus();
   const setViewTransition = useMapControlsStore(state => state.setViewTransition);
   const passwordUnlockable = useMapControlsStore(state => state.passwordUnlockable);
   const setPasswordUnlockable = useMapControlsStore(state => state.setPasswordUnlockable);
@@ -89,23 +91,6 @@ export const ViewSwitcher: React.FC = () => {
   const publicIdForLookup = useMapStore(state => state.mapDocument?.public_id ?? null);
   const pwParam = useSearchParams().get('pw');
   const [isMinting, setIsMinting] = React.useState(false);
-  // Editable UUID of the user's LOCAL copy of this map (if any), looked up by
-  // public_id — lets the read-only/public view offer "Edit" for owned maps.
-  const [localEditDocId, setLocalEditDocId] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    let cancelled = false;
-    if (publicIdForLookup == null) {
-      setLocalEditDocId(null);
-      return;
-    }
-    idb.getEditableIdByPublicId(publicIdForLookup).then(id => {
-      if (!cancelled) setLocalEditDocId(id);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [publicIdForLookup]);
 
   // A map is unlockable if the share link carries `?pw=true` or the document itself
   // reports an edit password (so a viewer who landed on the bare public URL still gets
@@ -124,14 +109,6 @@ export const ViewSwitcher: React.FC = () => {
     mapMode === MAP_MODES.COI ? ['edit', 'display'] : ['edit', 'display', 'evaluate'];
   const prefix = routeForMode(mapMode);
 
-  // Public/eval pages load the doc read-only and surface document_id as "anonymous",
-  // so fall back to the UUID retained for this session (set while editing).
-  const liveDocId = mapDocument.document_id;
-  // A map can be edited if we hold its UUID directly (edit route), retained it this
-  // session, or have a local copy (owner). Password-protected maps without a local
-  // copy are editable by unlocking instead.
-  const editDocId =
-    (liveDocId && isUUID(liveDocId) ? liveDocId : null) ?? editableDocId ?? localEditDocId;
   const publicId = mapDocument.public_id ?? null;
   const canEdit = access === ACCESS_STATES.EDIT;
   const isUnlockable = passwordUnlockable;
@@ -199,6 +176,15 @@ export const ViewSwitcher: React.FC = () => {
       }
       return;
     }
+    // Persist any pending edits first so the read-only view reflects the latest map.
+    if (isOutdated && canEdit) {
+      setIsMinting(true);
+      try {
+        await save();
+      } finally {
+        setIsMinting(false);
+      }
+    }
     let target = targetFor(mode);
     if (!target && canEdit) {
       target = await mintAndResolve(mode);
@@ -233,7 +219,7 @@ export const ViewSwitcher: React.FC = () => {
       </DropdownMenu.Trigger>
       <DropdownMenu.Content sideOffset={6}>
         {modes.map(mode => (
-          <ViewSwitcherItem
+          <ModeSwitcherItem
             key={mode}
             mode={mode}
             isCurrent={mode === currentMode}

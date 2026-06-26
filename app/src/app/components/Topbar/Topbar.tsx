@@ -18,7 +18,7 @@ import {RevertPopover} from './RevertPopover';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
 import {ACCESS_STATES} from '@constants/document/state';
-import {ViewSwitcher} from './ViewSwitcher';
+import {ModeSwitcher} from './ModeSwitcher';
 
 export const Topbar: React.FC = () => {
   const router = useRouter();
@@ -82,6 +82,9 @@ export const Topbar: React.FC = () => {
                     Item swallows a child anchor's click, and asChild throws. */}
                 <DropdownMenu.Item className="cursor-pointer" onSelect={() => router.push('/')}>
                   Home
+                </DropdownMenu.Item>
+                <DropdownMenu.Item className="cursor-pointer" onSelect={() => router.push('/draw')}>
+                  Main Map
                 </DropdownMenu.Item>
                 <DropdownMenu.Item
                   className="cursor-pointer"
@@ -172,7 +175,7 @@ export const Topbar: React.FC = () => {
             <MapHeader handleMetadataChange={handleMetadataChange} />
           )}
           <Flex direction="row" align="center" gapX="3">
-            <ViewSwitcher />
+            <ModeSwitcher />
             {!isEval && (
               <>
                 <SharePopoverAndModal handleMetadataChange={handleMetadataChange} />
