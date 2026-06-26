@@ -32,32 +32,22 @@ test.describe('Topbar navigation menu', () => {
     await navigateToMap(page, sharedDocumentId);
   });
 
-  test('points creation and recent maps at the static pages, with no in-map creator', async ({
-    page,
-  }) => {
+  test('links saved maps to the static Catalog page, with no in-map creator', async ({page}) => {
     await openMainMenu(page);
 
-    // Goal 2 + 3: creation and recent maps live on the static pages.
-    await expect(page.locator('a[href="/places"]')).toBeVisible();
-    await expect(page.locator('a[href="/my-maps"]')).toBeVisible();
+    // Saved maps live on the static Catalog page.
+    await expect(page.locator('a[href="/catalog"]')).toBeVisible();
 
-    // Goal 1: the old in-map "Create new map" geography picker is gone.
+    // The old in-map "Create new map" geography picker is gone.
     await expect(page.getByText('Create new map', {exact: true})).toHaveCount(0);
     await expect(page.getByText('Select a geography', {exact: true})).toHaveCount(0);
   });
 
-  test('"New map" navigates to the places page', async ({page}) => {
+  test('"Catalog" navigates to the catalog page', async ({page}) => {
     await openMainMenu(page);
-    await page.locator('a[href="/places"]').click();
-    await page.waitForURL(/\/places/, {timeout: testTimeouts.long});
-    expect(page.url()).toMatch(/\/places/);
-  });
-
-  test('"View recent maps" navigates to the my-maps page', async ({page}) => {
-    await openMainMenu(page);
-    await page.locator('a[href="/my-maps"]').click();
-    await page.waitForURL(/\/my-maps/, {timeout: testTimeouts.long});
-    expect(page.url()).toMatch(/\/my-maps/);
+    await page.locator('a[href="/catalog"]').click();
+    await page.waitForURL(/\/catalog/, {timeout: testTimeouts.long});
+    expect(page.url()).toMatch(/\/catalog/);
   });
 });
 
