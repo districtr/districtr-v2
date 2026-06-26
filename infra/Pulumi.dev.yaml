@@ -1,0 +1,30 @@
+# Dev stack — deployed from the `dev` branch.
+# Secrets are set with `pulumi config set --secret <key>` (see README.md);
+# they are KMS-encrypted and safe to commit once set.
+secretsprovider: awskms://alias/districtr-pulumi-secrets?region=us-east-2
+config:
+  aws:region: us-east-2
+
+  districtr-infra:appDomain: dev.districtr.org
+  districtr-infra:apiDomain: api.dev.districtr.org
+  districtr-infra:corsOrigins: https://dev.districtr.org
+  districtr-infra:s3BucketName: districtr-v2-dev
+  districtr-infra:cdnUrl: https://tilesets1.cdn.districtr.org
+  districtr-infra:auth0Domain: districtr-qa.us.auth0.com
+  districtr-infra:auth0ApiAudience: https://districtr-v2-api-dev.fly.dev
+  districtr-infra:auth0Issuer: https://districtr-qa.us.auth0.com
+  districtr-infra:alarmEmail: dhalpern@uchicago.edu
+
+  districtr-infra:secretKey:
+    secure: v1:JPIYNwHinzVBFMeH:7SXhe/J8zN6jZb/LKisf6a9LKf3AANZZt3Ecu3H8mBgPX+rExXAOJZXlXi4gAerH1CU3t7dgCHlrW82LS2UQNFekHDWUTLat6qStQlz6YH0=
+  districtr-infra:auth0SessionSecret:
+    secure: v1:preJBiBl2u/24nkE:d9j76lvR+mP2fmQiEsQlhjdkJYVIxHBq84DK/t5Z1Ov1o/5yL9q6BhbxOmfcU+fpH0iamE2m+lmlED+/ScpIlU0uqcenjzTYqkVwwhhW4oY=
+  districtr-infra:auth0ClientId:
+    secure: v1:7vhEocXV2uTLSiF2:DjBuL4gu+lDxU6zaqs4ufPD4Qw==
+  districtr-infra:auth0ClientSecret:
+    secure: v1:E1jfy2eSCCa+cVlj:Y4LvQdhJ9JBYuu3X8w1O4Af51A==
+  districtr-infra:openaiApiKey:
+    secure: v1:y4Oj/4fDyHpHgIOF:CidsAQ1ZGfcAW4rl4DP90FY65wTJSWyu8d3J/uUq3QjTEv+fPM58bfGn2In/lozPGyWqMjOV+3Fv78gLu2l3u/NVc+caS1LQ283Q4WIdXta93AEbYEFu3hUTZRA9Vyh51dVHdQjAkAOjEYsUM1U47ihcOnUS8uj2YWQ08KZfuODYtu+EGUb0IZ/UVSokcD/cs0GttBosLx0dTV1S13MOBESNopRdZhD0xViFBDVHKn0HiUix3B23
+  districtr-infra:recaptchaSecretKey:
+    secure: v1:CfQ0O2vE3YmDDMLT:JRofCalrF8BjJ7xKGYblUIQdZEIBFqGyUlcjuQ8eTosp3vO+/pxWSWixWF7IPKx9ur4Nyl98np4=
+encryptedkey: AQICAHj6yTueuC8tIgZuox0MXVnRPRArkK17/XbXu79DQJprbwGC7rtfkhRUI2kk0wjNDUF7AAAAfjB8BgkqhkiG9w0BBwagbzBtAgEAMGgGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQM9YPp8N4WIXrfoXBGAgEQgDt+bS3FSHr7Dd6lXuoQf+YB971GuHmXfbwyq2kZcogg8wN6UP+VAFDyLsHxsaySqeKIAUt24DORG3GEnQ==

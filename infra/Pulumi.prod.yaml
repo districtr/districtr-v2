@@ -1,0 +1,32 @@
+# Prod stack — deployed from the `main` branch.
+# Secrets are set with `pulumi config set --secret <key>` (see README.md);
+# they are KMS-encrypted and safe to commit once set.
+secretsprovider: awskms://alias/districtr-pulumi-secrets?region=us-east-2
+config:
+  aws:region: us-east-2
+  districtr-infra:appDomain: beta.districtr.org
+  districtr-infra:apiDomain: api.beta.districtr.org
+  districtr-infra:extraDomains:
+    - www.beta.districtr.org
+  districtr-infra:corsOrigins: https://beta.districtr.org,https://www.beta.districtr.org
+
+  districtr-infra:s3BucketName: districtr-v2-prod
+  districtr-infra:cdnUrl: https://tilesets1.cdn.districtr.org
+  districtr-infra:auth0Domain: districtr.us.auth0.com
+  districtr-infra:auth0ApiAudience: https://districtr-v2-api.fly.dev
+  districtr-infra:auth0Issuer: https://districtr.us.auth0.com/
+  districtr-infra:alarmEmail: dhalpern@uchicago.edu
+
+  districtr-infra:secretKey:
+    secure: v1:dHM/3HqOvfLfoMgx:48kANUBIY2+yLOYo3BgQLly0YEOXYmw6K45Y9BabOph74VwoWV+oZ/mcvHcuD9GY1xz/vpwZcFJJQRxVwfH9sDeY+39I9ap/8xPDpQARDMs=
+  districtr-infra:auth0SessionSecret:
+    secure: v1:sIjiNW5eL0fvKI77:9GKfsZZNr4UiRuZt5h9fEcKyaAycpBzv9zdzHMk0+nPU5dx9Cw/bd0Iy8LcYNlp53LVeqjkTe8tWg0KsEGL+mLgz8rDnLi2KyqY1e4BLmCs=
+  districtr-infra:auth0ClientId:
+    secure: v1:sTNQgv6rkb5Fl6K4:mdBTYkKR2NHdFRQIoQBKaUyNO146gc+UdVSYLs/udffQ5TtG8FXhdd24Hxd47rsd
+  districtr-infra:auth0ClientSecret:
+    secure: v1:D06+V3SzmnWG9i7t:nqfvgfjP8VuSGg3xRO8VVyP7kV9y6tt/tAPe7oVWuhGM+ZfCBTy17oJy15EX+jVa0jLLlZHvCC41I0QAZxK2SwQRHQY1HwJpf8MJLDxgy7g=
+  districtr-infra:openaiApiKey:
+    secure: v1:iUv/8za+O1Hy6I1+:c0m3/SPlOxsRUVVr6IVdRsYsMRNQuQx4/HmxyajNrOIG+vMDT1AxrHc0NC4WaqaqQ4WTu9MwTxSGmTe4ljV7vGf9WHkG62Up+/Qqr4Zv952ZDmEekBjIi7mxMY4KBUvLIv1L3dGwvp//+nJsVLZDMB/C/vQdPZ2znZ2y6X9RB1yyl0cjgUwgLsXeYRFqBxy8lKCxL6ZTZGt3fUW3h3goFDZ2p432PUPkZDUv2K92PY6KPGpzNg19
+  districtr-infra:recaptchaSecretKey:
+    secure: v1:dLAr7AO8USvu8kB/:tF1k0Tbxs6VK89VOQ1kgYifnypv5F1DTLuH+bQjioC8Bt+PophjKCCIP/Vimoti143NKzz2gJWU=
+encryptedkey: AQICAHj6yTueuC8tIgZuox0MXVnRPRArkK17/XbXu79DQJprbwG8562WfSI1QBHo9z5z+VHHAAAAfjB8BgkqhkiG9w0BBwagbzBtAgEAMGgGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQMNr18ANhZILAPGfYuAgEQgDtZgnwevwLl0AZ2Wksv+tohreRZKPX5O0OEv4OHPMFWrzjTVBVGHWpFOpzPfSiuFgPcYc91Yi7ULtEezg==

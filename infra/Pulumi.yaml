@@ -1,0 +1,6 @@
+name: districtr-infra
+description: AWS infrastructure for Districtr v2 (ECS Fargate, RDS PostGIS, ALB)
+runtime:
+  name: nodejs
+  options:
+    packagemanager: npm

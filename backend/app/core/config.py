@@ -65,14 +65,15 @@ class Settings(BaseSettings):
 
     PROJECT_NAME: str
 
-    # Postgres
-
-    POSTGRES_SCHEME: str
-    POSTGRES_SERVER: str
+    # Postgres. DATABASE_URL is what deployments provide; the POSTGRES_*
+    # parts are an alternative for local/dev setups and default empty so a
+    # DATABASE_URL-only environment (e.g. ECS) validates.
+    POSTGRES_SCHEME: str = "postgresql+psycopg"
+    POSTGRES_SERVER: str = ""
     POSTGRES_PORT: int = 5432
-    POSTGRES_USER: str
-    POSTGRES_PASSWORD: str
-    POSTGRES_DB: str
+    POSTGRES_USER: str = ""
+    POSTGRES_PASSWORD: str = ""
+    POSTGRES_DB: str = ""
     DATABASE_URL: str
 
     # reCAPTCHA
@@ -139,9 +140,15 @@ class Settings(BaseSettings):
     AWS_S3_ENDPOINT: str | None = None
     AWS_ACCESS_KEY_ID: str | None = None
     AWS_SECRET_ACCESS_KEY: str | None = None
+    # When true and no static keys are set, use the default boto3 credential
+    # chain (ECS task role / instance profile). Callers treat a None client as
+    # "S3 not configured", so this must stay opt-in for local dev.
+    AWS_USE_DEFAULT_CREDENTIALS: bool = False
 
     def get_s3_client(self):
         if not self.AWS_ACCESS_KEY_ID or not self.AWS_SECRET_ACCESS_KEY:
+            if self.AWS_USE_DEFAULT_CREDENTIALS:
+                return boto3.client("s3")
             return None
 
         kwargs = {}
