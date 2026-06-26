@@ -21,6 +21,7 @@ from sqlalchemy.exc import (
 from sqlalchemy import text
 from sqlalchemy.types import Integer
 from sqlmodel import Session, String, select, true, update, col, literal
+from starlette.concurrency import run_in_threadpool
 from starlette.middleware.cors import CORSMiddleware
 import logging
 from sqlalchemy import bindparam
@@ -134,11 +135,12 @@ VERBOSE_LOGGING = settings.VERBOSE_LOGGING
 
 
 # Set all CORS enabled origins
-if settings.BACKEND_CORS_ORIGINS:
+if settings.BACKEND_CORS_ORIGINS or settings.BACKEND_CORS_ORIGIN_REGEX:
     allow_origins = [str(origin).strip("/") for origin in settings.BACKEND_CORS_ORIGINS]
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allow_origins,
+        allow_origin_regex=settings.BACKEND_CORS_ORIGIN_REGEX,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -325,8 +327,11 @@ async def get_document_stats(
     )
 
 
+# Sync def: a cold get_graph (S3 fetch + unpickle) inside compute_metrics
+# runs for seconds; a plain def hands the whole request to FastAPI's
+# threadpool so it never blocks the event loop (or ALB health checks).
 @app.get("/api/document/{document_id}/evaluation", response_model=MetricsEnvelope)
-async def get_document_evaluation(
+def get_document_evaluation(
     background_tasks: BackgroundTasks,
     document: Annotated[Document, Depends(get_protected_document)],
     # TODO: consider using Annotated more consistently across dependencies.
@@ -1394,7 +1399,9 @@ async def get_unassigned_geoids(
     components: list[list[str]] = []
     if unassigned_ids:
         try:
-            G = get_graph(districtr_map.gerrydb_table_name)
+            # Threadpool: a cold load (S3 fetch + unpickle) takes seconds and
+            # must not block the event loop (or ALB health checks).
+            G = await run_in_threadpool(get_graph, districtr_map.gerrydb_table_name)
             # Non-contiguous unassigned parents are intentionally NOT expanded
             present = [gid for gid in unassigned_ids if gid in G.nodes]
             components = [
@@ -1430,7 +1437,7 @@ async def check_document_contiguity(
 
     gerrydb_name = districtr_map.gerrydb_table_name
     kwargs = {"zones": zone} if len(zone) > 0 else {}
-    G = get_graph(gerrydb_name)
+    G = await run_in_threadpool(get_graph, gerrydb_name)
     zone_assignments = contiguity.get_assigned_nodes(
         session, document.document_id, districtr_map, G=G, **kwargs
     )
@@ -1474,7 +1481,7 @@ async def get_connected_component_bboxes(
         document_id=DocumentID(document_id=document.document_id), session=session
     )
     gerrydb_name = districtr_map.gerrydb_table_name
-    G = get_graph(gerrydb_name)
+    G = await run_in_threadpool(get_graph, gerrydb_name)
     node_bboxes = contiguity.get_assigned_nodes_bboxes(
         session,
         document.document_id,
