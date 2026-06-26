@@ -32,8 +32,6 @@ export interface MapControlsStore {
   setIsEditing: (isEditing: boolean) => void;
   isEval: boolean;
   setIsEval: (isEval: boolean) => void;
-  evalTablesOnly: boolean;
-  setEvalTablesOnly: (tablesOnly: boolean) => void;
   /**
    * UUID of the editable document for the current map session. Retained across
    * Edit→Display→Eval client navigations (which load the doc read-only via its
@@ -124,8 +122,6 @@ export const useMapControlsStore = create<MapControlsStore>()(
     setIsEditing: isEditing => set({isEditing}),
     isEval: false,
     setIsEval: isEval => set({isEval}),
-    evalTablesOnly: false,
-    setEvalTablesOnly: evalTablesOnly => set({evalTablesOnly}),
     editableDocId: null,
     setEditableDocId: editableDocId => set({editableDocId}),
     viewTransition: null,
