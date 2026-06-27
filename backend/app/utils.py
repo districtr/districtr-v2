@@ -579,15 +579,41 @@ def add_districtr_map_to_map_group(
         session.commit()
 
 
+def district_stats_in_sync(session: Session, document_id: str) -> bool:
+    """Return True if the document's district_unions output is newer than the document.
+
+    This is the same freshness predicate ``update_or_select_district_stats`` uses to
+    decide whether it can short-circuit. The periodic lazy-refresh job reuses it to
+    skip plans that were recomputed between being queued and being processed.
+    """
+    row = session.execute(
+        text("""
+            SELECT 1
+            FROM document.district_unions du
+            JOIN document.document d ON du.document_id = d.document_id
+            WHERE du.document_id = :document_id
+              AND du.updated_at > d.updated_at
+            LIMIT 1
+        """).bindparams(bindparam(key="document_id", type_=UUIDType)),
+        {"document_id": document_id},
+    ).first()
+    return row is not None
+
+
 def update_or_select_district_stats(
     session: Session,
     document_id: str,
-    background_tasks: BackgroundTasks,
+    background_tasks: BackgroundTasks | None = None,
 ) -> list[DistrictUnionsResponse]:
     """
     Update the district_unions materialized view for a document by creating
     unions of geometries grouped by zone, with demographic data aggregation.
     Returns the rows that were (re)inserted.
+
+    When ``background_tasks`` is provided (the request path) and rows are
+    recomputed, thumbnail regeneration is scheduled to run after the response.
+    Callers without a request scope (e.g. the lazy-refresh job) pass ``None`` and
+    are responsible for regenerating the thumbnail themselves.
     """
     try:
         # If already up to date, just return what's there
@@ -658,7 +684,22 @@ def update_or_select_district_stats(
             SELECT
                 {doc_id_sql} AS document_id,
                 zone::INTEGER AS zone,
-                ST_Multi(ST_Transform(ST_Union(geos.geometry), 4326)) AS geometry,
+                -- ST_CoverageUnion dissolves a set of edge-matched, non-overlapping
+                -- polygons (a coverage) far faster than ST_Union by only removing
+                -- shared edges. The geos assigned to a single zone tile that zone
+                -- without overlap, so they satisfy the coverage precondition.
+                -- Requires PostGIS >= 3.4 and GEOS >= 3.12.
+                -- ST_CoverageUnion drops the SRID (unlike ST_Union), so restore it
+                -- with MAX(ST_SRID(...)) (uniform per layer) before transforming.
+                ST_Multi(
+                    ST_Transform(
+                        ST_SetSRID(
+                            ST_CoverageUnion(geos.geometry),
+                            MAX(ST_SRID(geos.geometry))
+                        ),
+                        4326
+                    )
+                ) AS geometry,
                 {f"{demographic_json} AS demographic_data" if (gerrydb_table and demographic_json) else "NULL AS demographic_data"},
                 NOW() AS created_at,
                 NOW() AS updated_at
@@ -742,8 +783,9 @@ def update_or_select_district_stats(
 
         session.commit()
         s3 = settings.get_s3_client()
-        if returned_rows and s3:
-            # Kick off thumbnail generation (non-blocking)
+        if returned_rows and s3 and background_tasks is not None:
+            # Kick off thumbnail generation (non-blocking) after committing the
+            # refreshed district_unions so the thumbnail renders the new geometry.
             background_tasks.add_task(
                 generate_thumbnail,
                 document_id=document_id,
