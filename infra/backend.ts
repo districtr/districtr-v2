@@ -255,7 +255,7 @@ export function createBackend(
     },
   });
 
-  return {service};
+  return {service, executionRole, image, environment, secrets};
 }
 
 export type Backend = ReturnType<typeof createBackend>;

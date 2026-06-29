@@ -8,6 +8,7 @@ import {createAlb} from "./alb";
 import {createBackend} from "./backend";
 import {createFrontend} from "./frontend";
 import {createMonitoring} from "./monitoring";
+import {createGraphCheck} from "./graphcheck";
 
 const network = createNetwork();
 const repos = createRepos();
@@ -16,7 +17,8 @@ const clusterResources = createCluster();
 const alb = createAlb(network);
 const backend = createBackend(network, clusterResources, alb, repos, database);
 const frontend = createFrontend(network, clusterResources, alb, repos);
-createMonitoring(alb, database, clusterResources, backend, frontend);
+const {topic} = createMonitoring(alb, database, clusterResources, backend, frontend);
+createGraphCheck(clusterResources, network, backend, topic.arn);
 
 // --- Outputs consumed by the deploy workflows (migrate RunTask) ---
 export const clusterName = clusterResources.cluster.name;
