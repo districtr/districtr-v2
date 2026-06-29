@@ -274,7 +274,7 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({
             <TextField.Root
               value={textFilter}
               onChange={event => setTextFilter(event.target.value)}
-              placeholder="Filter by map name or type"
+              placeholder="Filter by name or state"
             >
               <TextField.Slot>
                 <MagnifyingGlassIcon />
@@ -402,6 +402,7 @@ const RecentMapCard: React.FC<{
     tab === MAP_TABS.COMMUNITY
       ? (data.community_metadata_list?.length ?? data.num_communities ?? 0)
       : (data.num_districts ?? 0);
+  const slug = data.districtr_map_slug
   const zoneLabel = MAP_TAB_LABEL_PLURAL[tab];
   const geoLabel = data.parent_geo_unit_type || data.gerrydb_table || data.districtr_map_slug;
   const route = routeForTab(tab);
@@ -427,14 +428,17 @@ const RecentMapCard: React.FC<{
             </Badge>
           </Flex>
           <Flex align="center" gap="3" wrap="wrap">
-            {geoLabel && (
-              <Text size="1" color="gray">
-                {geoLabel}
-              </Text>
-            )}
+            <Text size="1" color="gray">
+              {slug}
+            </Text>
             {zoneCount > 0 && (
               <Text size="1" color="gray">
                 {zoneCount} {zoneLabel}
+              </Text>
+            )}
+            {geoLabel && (
+              <Text size="1" color="gray">
+                {geoLabel}
               </Text>
             )}
             <Text size="1" color="gray">
