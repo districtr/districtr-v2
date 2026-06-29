@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {EVAL_TRANSITION_STEPS, EVAL_STEP_DURATION_MS} from './EvalTransitionOverlay';
@@ -15,21 +15,21 @@ const MAX_TRANSITION_MS = 15000;
  *
  * Returns the current transition (or null) and the active eval step for rendering.
  */
-export function useViewTransition() {
+export const useViewTransition = () => {
   const viewTransition = useMapControlsStore(state => state.viewTransition);
   const setViewTransition = useMapControlsStore(state => state.setViewTransition);
   const publicSourceLoaded = useMapStore(state => state.loadingStates.publicSourceLoaded);
   const metricsLoaded = useMapStore(state => state.loadingStates.metricsLoaded);
-  const [step, setStep] = React.useState(0);
-  const [minElapsed, setMinElapsed] = React.useState(false);
+  const [step, setStep] = useState(0);
+  const [minElapsed, setMinElapsed] = useState(false);
   // Mirror viewTransition into a ref so the data-ready effect can read the latest
   // value without depending on it — it only needs to re-run when the load flags change.
-  const viewTransitionRef = React.useRef(viewTransition);
+  const viewTransitionRef = useRef(viewTransition);
   viewTransitionRef.current = viewTransition;
 
   // Per transition: animate the eval steps, enforce the minimum duration, and arm
   // the safety timeout.
-  React.useEffect(() => {
+  useEffect(() => {
     if (!viewTransition) return;
     setStep(0);
     setMinElapsed(false);
@@ -51,7 +51,7 @@ export function useViewTransition() {
   }, [viewTransition, setViewTransition]);
 
   // Clear once the destination view's data is loaded and the minimum has elapsed.
-  React.useEffect(() => {
+  useEffect(() => {
     if (!minElapsed || !viewTransitionRef.current) return;
     const dataReady =
       viewTransitionRef.current === 'evaluate'
