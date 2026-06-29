@@ -36,12 +36,13 @@ export const MapDetailsSection: React.FC<{
           />
         </Flex>
       </Box>
-      <Accordion.Root
-        type="single"
-        collapsible
-        value={accordionOpen}
-        onValueChange={value => setAccordionOpen(value)}
-      >
+      {isEditing && (
+        <Accordion.Root
+          type="single"
+          collapsible
+          value={accordionOpen}
+          onValueChange={value => setAccordionOpen(value)}
+        >
         <Accordion.Item value="group">
           <Accordion.AccordionTrigger className="AccordionTrigger w-full mt-2" asChild>
             <Button className="w-full" variant="ghost">
@@ -83,9 +84,10 @@ export const MapDetailsSection: React.FC<{
                 disabled={!isEditing}
               />
             </Box>
-          </Accordion.AccordionContent>
-        </Accordion.Item>
-      </Accordion.Root>
+            </Accordion.AccordionContent>
+          </Accordion.Item>
+        </Accordion.Root>
+      )}
     </Flex>
   );
 };
