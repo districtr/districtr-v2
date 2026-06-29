@@ -8,7 +8,8 @@ import botocore.exceptions
 
 from app.core.db import engine
 from app.core.config import settings
-from sqlalchemy import col, text, update, select
+from sqlalchemy import text, update, select
+from sqlmodel import col
 from app.utils import (
     create_districtr_map as _create_districtr_map,
     create_map_group as _create_map_group,
