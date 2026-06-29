@@ -184,7 +184,7 @@ jobs:
 
           # 4) Deploy (downsized for a preview). The release_command in
           #    backend/fly.toml runs `alembic upgrade head` against the forked DB.
-          flyctl deploy backend --remote-only --app "$API_APP" --vm-memory 2048 --ha=false --yes --release-command-timeout 300
+          flyctl deploy backend --remote-only --app "$API_APP" --vm-memory 2048 --ha=false --yes --release-command-timeout 900
 
       - name: Tear down stale preview backend (Fullstack -> FE downgrade)
         # When the Fullstack label is dropped but FE remains, destroy the now-unused
