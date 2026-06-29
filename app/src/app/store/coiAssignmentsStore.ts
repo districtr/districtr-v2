@@ -124,7 +124,11 @@ export interface CoiAssignmentsStore {
   healParentsIfAllChildrenInSameCommunities: (parentIds?: Set<string>) => void;
 
   /** Ingests COI assignments and shatter state from document payload. */
-  ingestFromDocument: (data: CoiAssignmentsPayload, mapDocument?: DocumentObject) => void;
+  ingestFromDocument: (
+    data: CoiAssignmentsPayload,
+    mapDocument?: DocumentObject,
+    hasLocalEdits?: boolean
+  ) => void;
 
   replaceCommunityAssignments: (assignments: CommunityAssignmentsMap) => void;
   resetCommunityAssignments: () => void;
@@ -1131,10 +1135,17 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     }
   },
 
-  ingestFromDocument: (data: CoiAssignmentsPayload, mapDocument?: DocumentObject) => {
+  ingestFromDocument: (
+    data: CoiAssignmentsPayload,
+    mapDocument?: DocumentObject,
+    hasLocalEdits = false
+  ) => {
     const currentTime = new Date().toISOString();
     const baselineUpdatedAt =
       mapDocument?.updated_at ?? useMapStore.getState().mapDocument?.updated_at ?? currentTime;
+    // Keep unsaved local edits marked dirty (clientLastUpdated !== updated_at) so the
+    // save indicator stays correct on its own instead of being reset to in-sync.
+    const nextClientLastUpdated = hasLocalEdits ? currentTime : baselineUpdatedAt;
 
     // console.log('[hydration] ingestFromDocument called', {
     //   hasMapDocument: !!mapDocument,
@@ -1213,7 +1224,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       },
       parentToChild: new Map<string, Set<string>>(data.parentToChild),
       childToParent: new Map<string, string>(data.childToParent),
-      clientLastUpdated: baselineUpdatedAt,
+      clientLastUpdated: nextClientLastUpdated,
     });
 
     // console.log('[hydration] COI store updated, final state:', {
@@ -1222,7 +1233,12 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     // });
 
     if (mapDocument) {
-      idb.updateIdbCoiAssignments(mapDocument, data.communityAssignments, baselineUpdatedAt, true);
+      idb.updateIdbCoiAssignments(
+        mapDocument,
+        data.communityAssignments,
+        nextClientLastUpdated,
+        true
+      );
     }
   },
 

@@ -1,7 +1,7 @@
 import {useCallback} from 'react';
 import {useQueryClient} from '@tanstack/react-query';
 import {useMapStore} from '@/app/store/mapStore';
-import {PUBLIC_SOURCE_ID} from '@constants/map/layerIds';
+import {publicDistrictsQueryKey} from '@/app/utils/api/apiHandlers/getPublicDistricts';
 
 function geomBbox(geom: GeoJSON.Geometry): [number, number, number, number] | null {
   const coords: number[][] = [];
@@ -25,16 +25,15 @@ export function useZoomToDistrict() {
 
   return useCallback(
     (zone: number) => {
-      const data = queryClient.getQueryData<{geojsonFeatures: GeoJSON.Feature[]}>([
-        PUBLIC_SOURCE_ID,
-        mapDocument?.public_id,
-      ]);
+      const data = queryClient.getQueryData<{geojsonFeatures: GeoJSON.Feature[]}>(
+        publicDistrictsQueryKey(mapDocument)
+      );
       const feature = data?.geojsonFeatures.find(f => f.properties?.zone === zone);
       if (!feature?.geometry) return;
       const bbox = geomBbox(feature.geometry);
       if (!bbox) return;
       mapRef?.fitBounds(bbox, {padding: 60, duration: 500});
     },
-    [mapDocument?.public_id, mapRef, queryClient]
+    [mapDocument, mapRef, queryClient]
   );
 }

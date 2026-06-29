@@ -351,6 +351,9 @@ class DocumentPublic(BaseModel):
     extent: list[float] | None = None
     map_metadata: DocumentMetadata | None
     access: DocumentShareStatus = DocumentShareStatus.edit
+    # True when an edit password is set, so read-only viewers can be offered an
+    # "unlock to edit" affordance. The hash itself is never exposed.
+    password_required: bool = False
     color_scheme: list[str] | None = None
     map_type: str
     document_type: DocumentType = DocumentType.DISTRICT

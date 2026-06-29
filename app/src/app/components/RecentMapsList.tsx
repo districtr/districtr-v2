@@ -1,10 +1,21 @@
-import React, {useCallback, useEffect, useState} from 'react';
-import {TrashIcon, Link2Icon, ArrowRightIcon} from '@radix-ui/react-icons';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import {
+  TrashIcon,
+  Link2Icon,
+  ArrowRightIcon,
+  MagnifyingGlassIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from '@radix-ui/react-icons';
 import {
   Button,
   Flex,
   Text,
   Badge,
+  Box,
+  Heading,
+  Link,
+  Select,
   SegmentedControl,
   IconButton,
   AlertDialog,
@@ -12,6 +23,7 @@ import {
   Tooltip,
   Card,
   ScrollArea,
+  TextField,
 } from '@radix-ui/themes';
 import {useRouter} from 'next/navigation';
 import {DocumentObject} from '@utils/api/apiHandlers/types';
@@ -27,6 +39,9 @@ import {
   DRAFT_STATUS_TEXT,
 } from '@constants/document/draftStatus';
 import {styled} from '@stitches/react';
+
+const UNKNOWN_MODULE = 'Unknown module';
+const getMapModule = (map: DocumentObject) => map.map_module || UNKNOWN_MODULE;
 
 const StyledCard = styled(Card, {
   transition: 'all 150ms',
@@ -74,20 +89,83 @@ function formatRelativeDate(dateStr: string): string {
 export interface RecentMapsListProps {
   maxHeight?: string;
   onNavigate?: () => void;
+  showFilters?: boolean;
+  useScrollArea?: boolean;
+  pageSize?: number;
+  /** Lock the list to a single map type and hide the District/Community switcher. */
+  mapType?: MapTab;
 }
 
-export const RecentMapsList: React.FC<RecentMapsListProps> = ({maxHeight = '55vh', onNavigate}) => {
+export const RecentMapsList: React.FC<RecentMapsListProps> = ({
+  maxHeight = '55vh',
+  onNavigate,
+  showFilters = false,
+  useScrollArea = true,
+  pageSize,
+  mapType,
+}) => {
   const router = useRouter();
   const mapDocument = useMapStore(store => store.mapDocument);
   const mapMode = useMapControlsStore(store => store.mapMode);
-  const [activeTab, setActiveTab] = useState<MapTab>(mapTabFromMode(mapMode));
+  const [tabState, setTabState] = useState<MapTab>(mapTabFromMode(mapMode));
+  // When mapType is provided, the list is locked to that type (no switcher).
+  const activeTab = mapType ?? tabState;
   const [updateTrigger, setUpdateTrigger] = useState<string | null | number>(null);
-  const {communityMaps, districtMaps} = useUserMaps(updateTrigger);
+  const {communityMaps, districtMaps, loading} = useUserMaps(updateTrigger);
   const recentMaps = activeTab === MAP_TABS.COMMUNITY ? communityMaps : districtMaps;
 
+  const [textFilter, setTextFilter] = useState('');
+  const [debouncedTextFilter, setDebouncedTextFilter] = useState('');
+  const [moduleFilter, setModuleFilter] = useState('all');
+
   useEffect(() => {
-    setActiveTab(mapTabFromMode(mapMode));
+    setTabState(mapTabFromMode(mapMode));
   }, [mapMode]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedTextFilter(textFilter), 300);
+    return () => clearTimeout(timer);
+  }, [textFilter]);
+
+  const moduleOptions = useMemo(() => {
+    if (!showFilters) return [];
+    const modules = Array.from(new Set(recentMaps.map(getMapModule)));
+    return modules.sort((a, b) => a.localeCompare(b));
+  }, [recentMaps, showFilters]);
+
+  const filteredMaps = useMemo(() => {
+    if (!showFilters) return recentMaps;
+    const normalizedText = debouncedTextFilter.trim().toLowerCase();
+    return recentMaps.filter(map => {
+      const name = (map.map_metadata?.name || map.districtr_map_slug || '').toLowerCase();
+      const module = getMapModule(map);
+      const moduleMatches = moduleFilter === 'all' || module === moduleFilter;
+      const textMatches =
+        !normalizedText ||
+        name.includes(normalizedText) ||
+        map.districtr_map_slug.toLowerCase().includes(normalizedText) ||
+        module.toLowerCase().includes(normalizedText);
+      return moduleMatches && textMatches;
+    });
+  }, [recentMaps, debouncedTextFilter, moduleFilter, showFilters]);
+
+  const [currentPage, setCurrentPage] = useState(0);
+
+  // Reset page when filters, tab, or data change
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [debouncedTextFilter, moduleFilter, activeTab, filteredMaps.length]);
+
+  const totalPages = pageSize ? Math.max(1, Math.ceil(filteredMaps.length / pageSize)) : 1;
+  const safePage = Math.min(currentPage, totalPages - 1);
+  const paginatedMaps = pageSize
+    ? filteredMaps.slice(safePage * pageSize, (safePage + 1) * pageSize)
+    : filteredMaps;
+
+  const clearFilters = () => {
+    setTextFilter('');
+    setModuleFilter('all');
+  };
 
   const handleMapDocument = useCallback(
     (data: DocumentObject) => {
@@ -103,8 +181,36 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({maxHeight = '55vh
     setUpdateTrigger(Date.now());
   }, []);
 
+  if (loading) {
+    return (
+      <Flex align="center" justify="center" className="py-10">
+        <Text color="gray" size="2">
+          Loading maps…
+        </Text>
+      </Flex>
+    );
+  }
+
   const hasAnyMaps = communityMaps.length > 0 || districtMaps.length > 0;
+
   if (!hasAnyMaps) {
+    if (showFilters) {
+      return (
+        <Flex
+          direction="column"
+          gap="2"
+          className="rounded-lg border border-dashed border-gray-300 p-5 bg-gray-50"
+        >
+          <Heading size="4">No local maps found</Heading>
+          <Text size="2" color="gray">
+            Start a new map, then return here to manage local saved maps.
+          </Text>
+          <Box>
+            <Link href="/map">Go to mapping app</Link>
+          </Box>
+        </Flex>
+      );
+    }
     return (
       <Flex align="center" justify="center" className="py-10">
         <Text color="gray" size="2">
@@ -114,43 +220,135 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({maxHeight = '55vh
     );
   }
 
+  const cardList = (
+    <Flex direction="column" gap="2" pr={useScrollArea ? '3' : undefined} pt="1">
+      {paginatedMaps.map((userMap, i) => (
+        <RecentMapCard
+          key={userMap.document_id || i}
+          active={mapDocument?.document_id === userMap.document_id}
+          data={userMap}
+          tab={activeTab}
+          onSelect={handleMapDocument}
+          onDelete={() => handleDeleteMap(userMap.document_id)}
+        />
+      ))}
+    </Flex>
+  );
+
+  const paginationControls = pageSize && totalPages > 1 && (
+    <Flex justify="center" align="center" gap="3" pt="2">
+      <IconButton
+        variant="soft"
+        color="gray"
+        size="1"
+        disabled={safePage === 0}
+        onClick={() => setCurrentPage(p => p - 1)}
+      >
+        <ChevronLeftIcon />
+      </IconButton>
+      <Text size="2" color="gray">
+        Page {safePage + 1} of {totalPages}
+      </Text>
+      <IconButton
+        variant="soft"
+        color="gray"
+        size="1"
+        disabled={safePage >= totalPages - 1}
+        onClick={() => setCurrentPage(p => p + 1)}
+      >
+        <ChevronRightIcon />
+      </IconButton>
+    </Flex>
+  );
+
+  const isFiltered = showFilters && (textFilter || moduleFilter !== 'all');
+
   return (
     <Flex direction="column" gap="3">
-      <Flex justify="center">
-        <SegmentedControl.Root
-          value={activeTab}
-          onValueChange={v => setActiveTab(v as MapTab)}
-          size="2"
-        >
-          <SegmentedControl.Item value={MAP_TABS.DISTRICTS}>
-            District Maps{districtMaps.length > 0 ? ` (${districtMaps.length})` : ''}
-          </SegmentedControl.Item>
-          <SegmentedControl.Item value={MAP_TABS.COMMUNITY}>
-            Community Maps{communityMaps.length > 0 ? ` (${communityMaps.length})` : ''}
-          </SegmentedControl.Item>
-        </SegmentedControl.Root>
-      </Flex>
+      {showFilters && (
+        <Flex gap="4" align="start" direction={{initial: 'column', md: 'row'}}>
+          <Box className="w-full md:flex-1">
+            <Text as="label" size="2" weight="medium">
+              Text filter
+            </Text>
+            <TextField.Root
+              value={textFilter}
+              onChange={event => setTextFilter(event.target.value)}
+              placeholder="Filter by name or state"
+            >
+              <TextField.Slot>
+                <MagnifyingGlassIcon />
+              </TextField.Slot>
+            </TextField.Root>
+          </Box>
+          <Box>
+            <Text as="label" size="2" weight="medium">
+              Map module
+            </Text>
+            <br />
+            <Select.Root value={moduleFilter} onValueChange={setModuleFilter}>
+              <Select.Trigger placeholder="All modules" />
+              <Select.Content>
+                <Select.Item value="all">All modules</Select.Item>
+                {moduleOptions.map(module => (
+                  <Select.Item key={module} value={module}>
+                    {module}
+                  </Select.Item>
+                ))}
+              </Select.Content>
+            </Select.Root>
+          </Box>
+        </Flex>
+      )}
+
+      {showFilters && (
+        <Flex justify="between" align="center">
+          <Text size="2" color="gray">
+            Showing {filteredMaps.length} of {recentMaps.length}{' '}
+            {activeTab === MAP_TABS.COMMUNITY ? 'community' : 'district'} map
+            {filteredMaps.length === 1 ? '' : 's'}
+          </Text>
+
+          {isFiltered && (
+            <Button variant="soft" color="gray" onClick={clearFilters}>
+              Clear filters
+            </Button>
+          )}
+        </Flex>
+      )}
+
+      {!mapType && (
+        <Flex justify="center">
+          <SegmentedControl.Root
+            value={activeTab}
+            onValueChange={v => setTabState(v as MapTab)}
+            size="2"
+          >
+            <SegmentedControl.Item value={MAP_TABS.DISTRICTS}>
+              District Maps{districtMaps.length > 0 ? ` (${districtMaps.length})` : ''}
+            </SegmentedControl.Item>
+            <SegmentedControl.Item value={MAP_TABS.COMMUNITY}>
+              Community Maps{communityMaps.length > 0 ? ` (${communityMaps.length})` : ''}
+            </SegmentedControl.Item>
+          </SegmentedControl.Root>
+        </Flex>
+      )}
       {recentMaps.length === 0 ? (
         <Flex align="center" justify="center" className="py-10">
           <Text color="gray" size="2">
             No {MAP_TAB_LABELS[activeTab]} maps yet.
           </Text>
         </Flex>
-      ) : (
+      ) : useScrollArea ? (
         <ScrollArea scrollbars="vertical" style={{maxHeight}}>
-          <Flex direction="column" gap="2" pr="3" pt="1">
-            {recentMaps.map((userMap, i) => (
-              <RecentMapCard
-                key={userMap.document_id || i}
-                active={mapDocument?.document_id === userMap.document_id}
-                data={userMap}
-                tab={activeTab}
-                onSelect={handleMapDocument}
-                onDelete={() => handleDeleteMap(userMap.document_id)}
-              />
-            ))}
-          </Flex>
+          {cardList}
+          {paginationControls}
         </ScrollArea>
+      ) : (
+        <>
+          {cardList}
+          {paginationControls}
+        </>
       )}
     </Flex>
   );
@@ -204,6 +402,7 @@ const RecentMapCard: React.FC<{
     tab === MAP_TABS.COMMUNITY
       ? (data.community_metadata_list?.length ?? data.num_communities ?? 0)
       : (data.num_districts ?? 0);
+  const slug = data.districtr_map_slug
   const zoneLabel = MAP_TAB_LABEL_PLURAL[tab];
   const geoLabel = data.parent_geo_unit_type || data.gerrydb_table || data.districtr_map_slug;
   const route = routeForTab(tab);
@@ -229,14 +428,17 @@ const RecentMapCard: React.FC<{
             </Badge>
           </Flex>
           <Flex align="center" gap="3" wrap="wrap">
-            {geoLabel && (
-              <Text size="1" color="gray">
-                {geoLabel}
-              </Text>
-            )}
+            <Text size="1" color="gray">
+              {slug}
+            </Text>
             {zoneCount > 0 && (
               <Text size="1" color="gray">
                 {zoneCount} {zoneLabel}
+              </Text>
+            )}
+            {geoLabel && (
+              <Text size="1" color="gray">
+                {geoLabel}
               </Text>
             )}
             <Text size="1" color="gray">

@@ -101,9 +101,8 @@ body {
     display: none !important;
   }
 
-  /* Hide map UI controls and draggable toolbar */
-  .eval-map-wrapper .maplibregl-control-container,
-  .eval-map-wrapper [class*="DraggableToolbar"] {
+  /* Hide map UI controls */
+  .eval-map-wrapper .maplibregl-control-container {
     display: none !important;
   }
 
