@@ -5,7 +5,7 @@ import {createRepos} from "./ecr";
 import {createDatabase} from "./database";
 import {createCluster} from "./cluster";
 import {createAlb} from "./alb";
-import {createBackend} from "./backend";
+import {createBackendTaskConfig, createBackend} from "./backend";
 import {createFrontend} from "./frontend";
 import {createMonitoring} from "./monitoring";
 import {createGraphCheck} from "./graphcheck";
@@ -15,10 +15,11 @@ const repos = createRepos();
 const database = createDatabase(network);
 const clusterResources = createCluster();
 const alb = createAlb(network);
-const backend = createBackend(network, clusterResources, alb, repos, database);
+const backendTaskConfig = createBackendTaskConfig(repos, database);
+const backend = createBackend(network, clusterResources, alb, backendTaskConfig);
 const frontend = createFrontend(network, clusterResources, alb, repos);
 const {topic} = createMonitoring(alb, database, clusterResources, backend, frontend);
-createGraphCheck(clusterResources, network, backend, topic.arn);
+createGraphCheck(clusterResources, network, backendTaskConfig, topic.arn);
 
 // --- Outputs consumed by the deploy workflows (migrate RunTask) ---
 export const clusterName = clusterResources.cluster.name;

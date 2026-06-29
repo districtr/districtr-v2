@@ -11,15 +11,8 @@ const ECS_TASKS_TRUST = aws.iam.assumeRolePolicyForPrincipal({
   Service: "ecs-tasks.amazonaws.com",
 });
 
-export function createBackend(
-  network: Network,
-  clusterResources: ClusterResources,
-  alb: Alb,
-  repos: Repos,
-  database: Database
-) {
+export function createBackendTaskConfig(repos: Repos, database: Database) {
   const name = config.name;
-  const {cluster, logGroups} = clusterResources;
   const region = aws.getRegionOutput().name;
 
   // Deploy workflows write the git SHA here before `pulumi up`; the config
@@ -72,8 +65,51 @@ export function createBackend(
     }),
   });
 
-  // Task role replaces the static AWS keys the Fly deployment used: graphs
-  // (read) and thumbnails (write) live in the existing bucket.
+  const environment = [
+    {name: "ENVIRONMENT", value: config.environment},
+    {name: "DOMAIN", value: config.apiDomain},
+    {name: "PROJECT_NAME", value: "Districtr v2 backend"},
+    {name: "BACKEND_CORS_ORIGINS", value: config.corsOrigins},
+    {name: "R2_BUCKET_NAME", value: config.s3BucketName},
+    {name: "CDN_URL", value: config.cdnUrl},
+    {name: "AUTH0_DOMAIN", value: config.auth0Domain},
+    {name: "AUTH0_API_AUDIENCE", value: config.auth0ApiAudience},
+    {name: "AUTH0_ISSUER", value: config.auth0Issuer},
+    {name: "AUTH0_ALGORITHMS", value: config.auth0Algorithms},
+    // Auth via the task role (default boto3 chain), not static keys.
+    {name: "AWS_USE_DEFAULT_CREDENTIALS", value: "true"},
+    // Keep boto3 on the regional S3 endpoint (and the free gateway path).
+    {name: "AWS_DEFAULT_REGION", value: region},
+  ];
+  const secrets = secretParams.map(s => ({name: s.envName, valueFrom: s.param.arn}));
+
+  function logConfiguration(logGroup: aws.cloudwatch.LogGroup) {
+    return {
+      logDriver: "awslogs",
+      options: {
+        "awslogs-group": logGroup.name,
+        "awslogs-region": region,
+        "awslogs-stream-prefix": "ecs",
+      },
+    };
+  }
+
+  return {executionRole, image, environment, secrets, logConfiguration};
+}
+
+export type BackendTaskConfig = ReturnType<typeof createBackendTaskConfig>;
+
+export function createBackend(
+  network: Network,
+  clusterResources: ClusterResources,
+  alb: Alb,
+  taskConfig: BackendTaskConfig
+) {
+  const name = config.name;
+  const {cluster, logGroups} = clusterResources;
+  const {executionRole, image, environment, secrets, logConfiguration} = taskConfig;
+
+  // Task role: graphs (read) and thumbnails (write) in S3.
   const taskRole = new aws.iam.Role(`${name}-backend-task-role`, {
     assumeRolePolicy: ECS_TASKS_TRUST,
   });
@@ -118,35 +154,6 @@ export function createBackend(
   });
 
   // --- Task definitions ---
-  const environment = [
-    {name: "ENVIRONMENT", value: config.environment},
-    {name: "DOMAIN", value: config.apiDomain},
-    {name: "PROJECT_NAME", value: "Districtr v2 backend"},
-    {name: "BACKEND_CORS_ORIGINS", value: config.corsOrigins},
-    {name: "R2_BUCKET_NAME", value: config.s3BucketName},
-    {name: "CDN_URL", value: config.cdnUrl},
-    {name: "AUTH0_DOMAIN", value: config.auth0Domain},
-    {name: "AUTH0_API_AUDIENCE", value: config.auth0ApiAudience},
-    {name: "AUTH0_ISSUER", value: config.auth0Issuer},
-    {name: "AUTH0_ALGORITHMS", value: config.auth0Algorithms},
-    // Auth via the task role (default boto3 chain), not static keys.
-    {name: "AWS_USE_DEFAULT_CREDENTIALS", value: "true"},
-    // Keep boto3 on the regional S3 endpoint (and the free gateway path).
-    {name: "AWS_DEFAULT_REGION", value: region},
-  ];
-  const secrets = secretParams.map(s => ({name: s.envName, valueFrom: s.param.arn}));
-
-  function logConfiguration(logGroup: aws.cloudwatch.LogGroup) {
-    return {
-      logDriver: "awslogs",
-      options: {
-        "awslogs-group": logGroup.name,
-        "awslogs-region": region,
-        "awslogs-stream-prefix": "ecs",
-      },
-    };
-  }
-
   const taskDefinition = new aws.ecs.TaskDefinition(`${name}-backend-task`, {
     family: `${name}-backend`,
     cpu: `${config.backendCpu}`,
@@ -172,7 +179,7 @@ export function createBackend(
   // One-off `alembic upgrade head` task, RunTask-only (no service). The
   // deploy workflow registers a revision with the new image and runs it
   // before rolling the service — the Fly release_command equivalent.
-  const migrateTaskDefinition = new aws.ecs.TaskDefinition(`${name}-migrate-task`, {
+  new aws.ecs.TaskDefinition(`${name}-migrate-task`, {
     family: `${name}-migrate`,
     cpu: "1024",
     memory: "4096",
@@ -255,7 +262,7 @@ export function createBackend(
     },
   });
 
-  return {service, executionRole, image, environment, secrets};
+  return {service};
 }
 
 export type Backend = ReturnType<typeof createBackend>;

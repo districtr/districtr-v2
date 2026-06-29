@@ -3,7 +3,7 @@ import * as pulumi from "@pulumi/pulumi";
 import {config} from "./config";
 import {ClusterResources} from "./cluster";
 import {Network} from "./network";
-import {Backend} from "./backend";
+import {BackendTaskConfig} from "./backend";
 
 const ECS_TASKS_TRUST = aws.iam.assumeRolePolicyForPrincipal({
   Service: "ecs-tasks.amazonaws.com",
@@ -12,13 +12,12 @@ const ECS_TASKS_TRUST = aws.iam.assumeRolePolicyForPrincipal({
 export function createGraphCheck(
   clusterResources: ClusterResources,
   network: Network,
-  backend: Backend,
+  taskConfig: BackendTaskConfig,
   alarmTopicArn: pulumi.Input<string>
 ) {
   const name = config.name;
   const {cluster} = clusterResources;
-  const {executionRole, image, environment, secrets} = backend;
-  const region = aws.getRegionOutput().name;
+  const {executionRole, image, environment, secrets, logConfiguration} = taskConfig;
 
   const logGroup = new aws.cloudwatch.LogGroup(`${name}-graph-check-logs`, {
     name: `/districtr/${config.stack}/graph-check`,
@@ -81,14 +80,7 @@ export function createGraphCheck(
           {name: "ALARM_SNS_TOPIC_ARN", value: alarmTopicArn},
         ],
         secrets,
-        logConfiguration: {
-          logDriver: "awslogs",
-          options: {
-            "awslogs-group": logGroup.name,
-            "awslogs-region": region,
-            "awslogs-stream-prefix": "ecs",
-          },
-        },
+        logConfiguration: logConfiguration(logGroup),
       },
     ]),
   });
