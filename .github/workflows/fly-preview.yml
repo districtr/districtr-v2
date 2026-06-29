@@ -155,7 +155,7 @@ jobs:
 
           # 3) Stage secrets (applied by the deploy below; --stage avoids an extra restart).
           DB_HOST="${DB_APP}.flycast"
-          DATABASE_URL="postgresql+psycopg://${PREVIEW_DB_USER}:${PREVIEW_DB_PASSWORD}@${DB_HOST}:5432/${PREVIEW_DB_NAME}?sslmode=disable&connect_timeout=10"
+          DATABASE_URL="postgresql+psycopg://${PREVIEW_DB_USER}:${PREVIEW_DB_PASSWORD}@${DB_HOST}:5432/${PREVIEW_DB_NAME}?sslmode=disable"
 
           args=(
             DATABASE_URL="$DATABASE_URL"
