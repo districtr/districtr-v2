@@ -43,47 +43,47 @@ export const MapDetailsSection: React.FC<{
           value={accordionOpen}
           onValueChange={value => setAccordionOpen(value)}
         >
-        <Accordion.Item value="group">
-          <Accordion.AccordionTrigger className="AccordionTrigger w-full mt-2" asChild>
-            <Button className="w-full" variant="ghost">
-              <Flex direction="row" gap="2" align="center" justify="start" className="w-full">
-                <Text>Advanced</Text>
-                {accordionOpen === 'group' ? <ChevronUpIcon /> : <ChevronDownIcon />}
-              </Flex>
-            </Button>
-          </Accordion.AccordionTrigger>
-          <Accordion.AccordionContent className="AccordionContent">
-            <Grid columns="2" gap="2">
+          <Accordion.Item value="group">
+            <Accordion.AccordionTrigger className="AccordionTrigger w-full mt-2" asChild>
+              <Button className="w-full" variant="ghost">
+                <Flex direction="row" gap="2" align="center" justify="start" className="w-full">
+                  <Text>Advanced</Text>
+                  {accordionOpen === 'group' ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                </Flex>
+              </Button>
+            </Accordion.AccordionTrigger>
+            <Accordion.AccordionContent className="AccordionContent">
+              <Grid columns="2" gap="2">
+                <Box>
+                  <Text>Group</Text>
+                  <TextField.Root
+                    className="flex-1 w-full"
+                    value={mapMetadata.group ?? ''}
+                    placeholder="Group"
+                    disabled={!isEditing}
+                    onChange={e => onChange({group: e.target.value})}
+                  />
+                </Box>
+                <Box>
+                  <Text>Tags (coming soon)</Text>
+                  <TextField.Root
+                    className="flex-1 w-full"
+                    value={mapMetadata.tags ?? ''}
+                    placeholder="Tags"
+                    disabled={true}
+                  />
+                </Box>
+              </Grid>
               <Box>
-                <Text>Group</Text>
-                <TextField.Root
+                <Text>Comments</Text>
+                <TextArea
                   className="flex-1 w-full"
-                  value={mapMetadata.group ?? ''}
-                  placeholder="Group"
+                  value={mapMetadata.description ?? ''}
+                  placeholder="Comments or description"
+                  onChange={e => onChange({description: e.target.value})}
                   disabled={!isEditing}
-                  onChange={e => onChange({group: e.target.value})}
                 />
               </Box>
-              <Box>
-                <Text>Tags (coming soon)</Text>
-                <TextField.Root
-                  className="flex-1 w-full"
-                  value={mapMetadata.tags ?? ''}
-                  placeholder="Tags"
-                  disabled={true}
-                />
-              </Box>
-            </Grid>
-            <Box>
-              <Text>Comments</Text>
-              <TextArea
-                className="flex-1 w-full"
-                value={mapMetadata.description ?? ''}
-                placeholder="Comments or description"
-                onChange={e => onChange({description: e.target.value})}
-                disabled={!isEditing}
-              />
-            </Box>
             </Accordion.AccordionContent>
           </Accordion.Item>
         </Accordion.Root>

@@ -133,7 +133,7 @@ jobs:
               --fork-from "$DEV_PG_APP" \
               --initial-cluster-size 1 \
               --vm-size shared-cpu-1x \
-              --volume-size 10
+              --volume-size 100
           else
             echo "Postgres fork $DB_APP already exists, reusing."
           fi
