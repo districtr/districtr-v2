@@ -38,4 +38,4 @@ primary_region = 'ewr'
   cpus = 4
 
 [deploy]
-  release_command = "sh -c 'for i in $(seq 1 40); do alembic upgrade head && exit 0; echo \"DB not ready, retry $i/40...\"; sleep 20; done; exit 1'"
+  release_command = "alembic upgrade head"

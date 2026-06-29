@@ -135,6 +135,7 @@ jobs:
               --fork-from "$DEV_PG_APP" \
               --initial-cluster-size 1 \
               --vm-size shared-cpu-1x \
+              --vm-memory 2048 \
               --volume-size 100 || true
 
             echo "Waiting for $DB_APP to become healthy..."
