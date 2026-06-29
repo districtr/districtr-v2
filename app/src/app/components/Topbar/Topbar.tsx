@@ -1,16 +1,14 @@
 'use client';
 import {Text, DropdownMenu, Flex, Heading, IconButton, Link, Tooltip, Tabs} from '@radix-ui/themes';
 import React, {useRef} from 'react';
+import {useRouter} from 'next/navigation';
 import {useMapStore} from '@store/mapStore';
-import {RecentMapsModal} from '@components/Toolbar/RecentMapsModal';
 import {ArrowLeftIcon, HamburgerMenuIcon} from '@radix-ui/react-icons';
-import {DistrictrMap, DocumentMetadata} from '@utils/api/apiHandlers/types';
+import {DocumentMetadata} from '@utils/api/apiHandlers/types';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
 import {PasswordPromptModal} from '../Toolbar/PasswordPromptModal';
 import {UploaderModal} from '../Toolbar/UploaderModal';
 import {MapHeader} from './MapHeader';
-import {useRouter} from 'next/navigation';
-import {createMapDocument} from '@/app/utils/api/apiHandlers/createMapDocument';
 import {SavePopover} from './SavePopover';
 import {SharePopoverAndModal} from './SharePopoverAndModal';
 import {SettingsPopoverAndModal} from './SettingsPopoverAndModal';
@@ -18,16 +16,14 @@ import {saveMapDocumentMetadata} from '@/app/utils/api/apiHandlers/saveMapDocume
 import {idb} from '@/app/utils/idb/idb';
 import {RevertPopover} from './RevertPopover';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import {sanitizeCommunityMaps, sanitizeCommunityModuleName} from '@/app/utils/communities';
 import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
-import {MAP_MODES, type MapMode} from '@constants/map/mode';
-import {routeForMode} from '@constants/document/routes';
-import {MAP_TYPES} from '@constants/document/types';
 import {ACCESS_STATES} from '@constants/document/state';
+import {ModeSwitcher} from './ModeSwitcher';
 
 export const Topbar: React.FC = () => {
+  const router = useRouter();
   const handleReset = useMapStore(state => state.handleReset);
-  const [modalOpen, setModalOpen] = React.useState<'upload' | 'recents' | null>(null);
+  const [modalOpen, setModalOpen] = React.useState<'upload' | null>(null);
   const mapDocument = useMapStore(state => state.mapDocument);
   const access = useMapStore(state => state.mapStatus?.access);
   // Read from mapControlsStore (set by the route/page) instead of inferring from
@@ -35,14 +31,27 @@ export const Topbar: React.FC = () => {
   // Save/Revert/etc. affordances.
   const isEditing = useMapControlsStore(state => state.isEditing);
   const isEval = useMapControlsStore(state => state.isEval);
-  const mapViews = useMapStore(state => state.mapViews);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
-  const router = useRouter();
   const updateMetadata = useMapStore(state => state.updateMetadata);
-  const mapMode = useMapControlsStore(state => state.mapMode);
-  const rawMapViewList = mapViews?.data || [];
-  const cleanMapViewList =
-    mapMode === MAP_MODES.DISTRICTS ? rawMapViewList : sanitizeCommunityMaps(rawMapViewList);
+
+  // Export works for view-only users too: the backend resolves a public_id the same
+  // as a document UUID, so fall back to the public_id when the loaded doc is the
+  // anonymous read-only copy.
+  const exportId =
+    mapDocument?.document_id && mapDocument.document_id !== ANONYMOUS_DOCUMENT_ID
+      ? mapDocument.document_id
+      : mapDocument?.public_id;
+
+  const downloadExport = (exportType: string) => {
+    if (!exportId) return;
+    // Trigger via a transient anchor — a DropdownMenu.Item swallows a child anchor's
+    // click. The download filename comes from the backend's Content-Disposition.
+    const a = document.createElement('a');
+    a.href = `${process.env.NEXT_PUBLIC_API_URL}/api/document/${exportId}/export?export_type=${exportType}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
 
   const handleMetadataChange = async (updates: Partial<DocumentMetadata>) => {
     if (!mapDocument?.document_id) return;
@@ -59,24 +68,6 @@ export const Topbar: React.FC = () => {
         severity: 2,
       });
     }
-  };
-
-  const handleSelectMap = (selectedMap: DistrictrMap, mapMode: MapMode = MAP_MODES.DISTRICTS) => {
-    createMapDocument({
-      districtr_map_slug: selectedMap.districtr_map_slug,
-      map_type: mapMode === MAP_MODES.COI ? MAP_TYPES.COMMUNITY : MAP_TYPES.DEFAULT,
-    }).then(r => {
-      if (r.ok) {
-        const rootPath = routeForMode(mapMode);
-        router.push(`/${rootPath}/edit/${r.response.document_id}`);
-      } else {
-        setErrorNotification({
-          severity: 2,
-          id: 'map-failed-to-create',
-          message: r.error.detail,
-        });
-      }
-    });
   };
 
   return (
@@ -106,103 +97,59 @@ export const Topbar: React.FC = () => {
                 </IconButton>
               </DropdownMenu.Trigger>
               <DropdownMenu.Content>
-                <DropdownMenu.Item>
-                  <Link href="/" color="gray">
-                    Home
-                  </Link>
+                {/* onSelect (not an <a>) so the whole item is clickable: Radix Themes'
+                    Item swallows a child anchor's click, and asChild throws. */}
+                <DropdownMenu.Item className="cursor-pointer" onSelect={() => router.push('/')}>
+                  Home
                 </DropdownMenu.Item>
-                {!isEval && (
-                  <DropdownMenu.Sub>
-                    <Tooltip
-                      open={!mapDocument?.document_id}
-                      content="Start by selecting a geography"
-                    >
-                      <DropdownMenu.SubTrigger>Create new map</DropdownMenu.SubTrigger>
-                    </Tooltip>
-                    <DropdownMenu.SubContent>
-                      <DropdownMenu.Sub>
-                        <DropdownMenu.SubTrigger>Select a geography</DropdownMenu.SubTrigger>
-                        <DropdownMenu.SubContent>
-                          {cleanMapViewList.length ? (
-                            cleanMapViewList.map((view, index) => (
-                              <DropdownMenu.Item
-                                key={index}
-                                onClick={() => handleSelectMap(view, mapMode)}
-                              >
-                                {mapMode === MAP_MODES.DISTRICTS
-                                  ? view.name
-                                  : sanitizeCommunityModuleName(view.name)}
-                              </DropdownMenu.Item>
-                            ))
-                          ) : (
-                            <DropdownMenu.Item disabled>
-                              {mapViews?.isPending
-                                ? 'Loading geographies...'
-                                : 'No geographies available'}
-                            </DropdownMenu.Item>
-                          )}
-                        </DropdownMenu.SubContent>
-                      </DropdownMenu.Sub>
-                      <DropdownMenu.Item onClick={() => setModalOpen('upload')}>
-                        Upload block assignments
-                      </DropdownMenu.Item>
-                    </DropdownMenu.SubContent>
-                  </DropdownMenu.Sub>
-                )}
+                <DropdownMenu.Item className="cursor-pointer" onSelect={() => router.push('/draw')}>
+                  Main Map
+                </DropdownMenu.Item>
+                <DropdownMenu.Item
+                  className="cursor-pointer"
+                  onSelect={() => router.push('/catalog')}
+                >
+                  Catalog
+                </DropdownMenu.Item>
                 <DropdownMenu.Sub>
-                  <DropdownMenu.SubTrigger
-                    disabled={
-                      !mapDocument?.document_id || mapDocument.document_id === ANONYMOUS_DOCUMENT_ID
-                    }
-                  >
+                  <DropdownMenu.SubTrigger disabled={!exportId}>
                     Export assignments
                   </DropdownMenu.SubTrigger>
                   <DropdownMenu.SubContent>
-                    <DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      className="cursor-pointer"
+                      onSelect={() => downloadExport('BlockAssignmentsCSV')}
+                    >
                       <Tooltip content="Download a CSV of GEOIDs and zone IDs">
-                        <a
-                          href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?export_type=BlockAssignmentsCSV`}
-                          download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
-                        >
-                          Unit assignments (CSV)
-                        </a>
+                        <span>Unit assignments (CSV)</span>
                       </Tooltip>
                     </DropdownMenu.Item>
-                    <DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      className="cursor-pointer"
+                      onSelect={() => downloadExport('DistrictsGeoJSON')}
+                    >
                       <Tooltip content="Download a GeoJSON of dissolved district boundary polygons">
-                        <a
-                          href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?export_type=DistrictsGeoJSON`}
-                          download={`districtr-districts-${mapDocument?.document_id}-${new Date().toDateString()}.geojson`}
-                        >
-                          District boundaries (GeoJSON)
-                        </a>
+                        <span>District boundaries (GeoJSON)</span>
                       </Tooltip>
                     </DropdownMenu.Item>
-                    <DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      className="cursor-pointer"
+                      onSelect={() => downloadExport('DistrictsShapefile')}
+                    >
                       <Tooltip content="Download a zipped Shapefile of dissolved district boundary polygons">
-                        <a
-                          href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?export_type=DistrictsShapefile`}
-                          download={`districtr-districts-${mapDocument?.document_id}-${new Date().toDateString()}.zip`}
-                        >
-                          District boundaries (Shapefile)
-                        </a>
+                        <span>District boundaries (Shapefile)</span>
                       </Tooltip>
                     </DropdownMenu.Item>
-                    <DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      className="cursor-pointer"
+                      onSelect={() => downloadExport('EvaluationJSON')}
+                    >
                       <Tooltip content="Download a JSON of evaluation metrics for this map">
-                        <a
-                          href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?export_type=EvaluationJSON`}
-                          download={`districtr-evaluation-${mapDocument?.document_id}-${new Date().toDateString()}.json`}
-                        >
-                          Evaluation metrics (JSON)
-                        </a>
+                        <span>Evaluation metrics (JSON)</span>
                       </Tooltip>
                     </DropdownMenu.Item>
                   </DropdownMenu.SubContent>
                 </DropdownMenu.Sub>
-                <DropdownMenu.Item onClick={() => setModalOpen('recents')} disabled={false}>
-                  View recent maps
-                </DropdownMenu.Item>
                 {!isEval && (
                   <DropdownMenu.Sub>
                     <DropdownMenu.SubTrigger
@@ -235,23 +182,9 @@ export const Topbar: React.FC = () => {
             <MapHeader handleMetadataChange={handleMetadataChange} />
           )}
           <Flex direction="row" align="center" gapX="3">
-            {isEval ? (
-              <IconButton
-                variant="ghost"
-                onClick={() => router.push(`/map/${mapDocument?.public_id}`)}
-              >
-                <Text size="2">Exit to display view</Text>
-              </IconButton>
-            ) : (
+            <ModeSwitcher />
+            {!isEval && (
               <>
-                {!isEditing && mapDocument?.public_id && (
-                  <IconButton
-                    variant="ghost"
-                    onClick={() => router.push(`/map/eval/${mapDocument.public_id}`)}
-                  >
-                    <Text size="2">Evaluation</Text>
-                  </IconButton>
-                )}
                 <SharePopoverAndModal handleMetadataChange={handleMetadataChange} />
                 {isEditing && <SavePopover />}
                 {isEditing && <RevertPopover />}
@@ -262,7 +195,6 @@ export const Topbar: React.FC = () => {
         </Flex>
         <MobileDataTabs />
       </Flex>
-      <RecentMapsModal open={modalOpen === 'recents'} onClose={() => setModalOpen(null)} />
       <UploaderModal open={modalOpen === 'upload'} onClose={() => setModalOpen(null)} />
       <PasswordPromptModal />
     </>

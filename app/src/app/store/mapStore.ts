@@ -160,12 +160,33 @@ const syncCommunityDescriptionComment = ({
   };
 };
 
+/**
+ * Boolean loading/rendering trackers that drive the global LoadingOverlay and view
+ * transitions. Each is owned by the component that produces it:
+ *  - documentLoading: a document fetch is in flight (useDocumentWithSync).
+ *  - publicSourceLoaded: the public district source has loaded its data (PublicSource).
+ *  - metricsLoaded: the evaluation metrics have loaded (EvalPanel).
+ */
+export interface LoadingStates {
+  documentLoading: boolean;
+  publicSourceLoaded: boolean;
+  metricsLoaded: boolean;
+}
+
+export const DEFAULT_LOADING_STATES: LoadingStates = {
+  documentLoading: false,
+  publicSourceLoaded: false,
+  metricsLoaded: false,
+};
+
 export interface MapStore {
   // LOAD AND RENDERING STATE TRACKING
   appLoadingState: AppLoadingState;
   setAppLoadingState: (state: MapStore['appLoadingState']) => void;
   mapRenderingState: RenderingState;
   setMapRenderingState: (state: MapStore['mapRenderingState']) => void;
+  loadingStates: LoadingStates;
+  setLoadingState: <K extends keyof LoadingStates>(key: K, value: LoadingStates[K]) => void;
   // MAP CANVAS REF AND CONTROLS
   getMapRef: () => maplibregl.Map | undefined;
   setMapRef: (map: MutableRefObject<MapRef | null>) => void;
@@ -198,6 +219,11 @@ export interface MapStore {
   initiateFlushMapState: () => Promise<void>;
   mutateMapDocument: (mapDocument: Partial<DocumentObject>) => void;
   clearUpdatedChanges: () => void;
+  /** Clear all editor-derived state when leaving the editor. Nulls mapDocument so
+   * re-opening the same map fully re-initializes instead of hitting setMapDocument's
+   * "same document" early-return (which is what left save state, the catalog
+   * "current" badge, and zone-number labels stale across sessions). */
+  resetMapState: () => void;
   mapStatus: StatusObject | null;
   setMapStatus: (mapStatus: Partial<StatusObject>) => void;
   setNumDistricts: (numDistricts: number) => void;
@@ -302,6 +328,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     setAppLoadingState: appLoadingState => set({appLoadingState}),
     mapRenderingState: RENDERING_STATES.INITIALIZING,
     setMapRenderingState: mapRenderingState => set({mapRenderingState}),
+    loadingStates: {...DEFAULT_LOADING_STATES},
+    setLoadingState: (key, value) =>
+      set(state => ({loadingStates: {...state.loadingStates, [key]: value}})),
     captiveIds: new Set<string>(),
 
     exitBlockView: (lock: boolean = false) => {
@@ -391,6 +420,17 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const idIsSame = currentMapDocument?.document_id === mapDocument.document_id;
       const accessIsSame = currentMapDocument?.access === mapDocument.access;
       const documentIsSame = idIsSame && accessIsSame;
+      // Same underlying plan across a view switch (edit↔display↔evaluate). public_id
+      // is unique per plan, so a match means the user is just changing how they view
+      // the same map — preserve their current viewport instead of re-fitting.
+      const sameMapAcrossViews =
+        !!currentMapDocument &&
+        mapDocument.public_id != null &&
+        currentMapDocument.public_id === mapDocument.public_id;
+      const preservedBounds =
+        sameMapAcrossViews && mapControlsState.lastViewBounds
+          ? mapControlsState.lastViewBounds
+          : mapDocument.extent;
       const bothHaveData =
         typeof currentMapDocument?.updated_at === 'string' &&
         typeof mapDocument?.updated_at === 'string';
@@ -408,6 +448,12 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       resetZoneAssignments();
       useDemographyStore.getState().clear();
       useUnassignFeaturesStore.getState().reset();
+      // A different map is loading: drop the previous map's retained editable id so it
+      // can't enable Edit (or route to the wrong editor) for the new map. Same-map view
+      // switches (edit↔display↔evaluate) keep it so Edit stays reachable.
+      if (!sameMapAcrossViews) {
+        mapControlsState.setEditableDocId(null);
+      }
 
       let newStateFipsSet: Set<string> = new Set();
       if (mapDocument.statefps) {
@@ -453,7 +499,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         mapOptions: {
           ...DEFAULT_MAP_OPTIONS,
           ...MAP_MODE_DEFAULT_OPTIONS[mapControlsState.mapMode],
-          bounds: mapDocument.extent,
+          bounds: preservedBounds,
           stateFipsSet: newStateFipsSet,
         },
         activeTool:
@@ -463,6 +509,12 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         selectedZone: communities[0]?.id ?? mapControlsState.selectedZone,
         sidebarPanels: ['population'],
         isPainting: false,
+        // Drop a remembered viewport when loading a different map so a fresh map
+        // fits to its extent; keep it across same-map view switches.
+        lastViewBounds: sameMapAcrossViews ? mapControlsState.lastViewBounds : null,
+        // Likewise clear the unlockable flag for a different map (re-derived from
+        // the `?pw=true` share link by the view switcher).
+        passwordUnlockable: sameMapAcrossViews ? mapControlsState.passwordUnlockable : false,
         isEditing: mapDocument.access === ACCESS_STATES.EDIT,
       });
 
@@ -561,6 +613,29 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         };
       }),
     clearUpdatedChanges: () => set({updated: {metadata: false, comments: false}}),
+
+    resetMapState: () => {
+      // Mirror the reset block in setMapDocument, but null the document so a later
+      // re-open of the same map fully re-initializes instead of early-returning.
+      const {resetZoneAssignments} = useAssignmentsStore.getState();
+      GeometryWorker?.clear();
+      GeometryWorker?.resetZones();
+      demographyService.clear();
+      resetZoneAssignments();
+      useDemographyStore.getState().clear();
+      useUnassignFeaturesStore.getState().reset();
+      set({
+        mapDocument: null,
+        updated: {metadata: false, comments: false},
+        loadingStates: {...DEFAULT_LOADING_STATES},
+        mapLock: null,
+      });
+      const mapControls = useMapControlsStore.getState();
+      mapControls.setEditableDocId(null);
+      mapControls.setIsEditing(false);
+      mapControls.setIsEval(false);
+      mapControls.setViewTransition(null);
+    },
 
     // ZONE DESCRIPTIONS
     pinnedDescriptionZone: null,

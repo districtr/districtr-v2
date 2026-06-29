@@ -1,4 +1,5 @@
 'use client';
+import {useEffect} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {Flex, Heading, Spinner, Text} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
@@ -10,6 +11,7 @@ import {CompactnessSection} from './CompactnessSection';
 
 export const EvalPanel: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
+  const setLoadingState = useMapStore(state => state.setLoadingState);
 
   const publicId = mapDocument?.public_id;
 
@@ -27,6 +29,17 @@ export const EvalPanel: React.FC = () => {
     },
     enabled: !!publicId,
   });
+
+  // Signal the view-transition overlay, which holds the "Preparing evaluation"
+  // preloader until metricsLoaded is true (see useViewTransition). Reset on mount,
+  // mark loaded once the query settles. Without this the overlay hangs for the full
+  // 15s safety timeout on every eval navigation.
+  useEffect(() => {
+    setLoadingState('metricsLoaded', false);
+  }, [setLoadingState]);
+  useEffect(() => {
+    if (!isLoading) setLoadingState('metricsLoaded', true);
+  }, [isLoading, setLoadingState]);
 
   const evaluation = envelope?.metrics;
 

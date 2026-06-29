@@ -172,6 +172,15 @@ def get_document_public(
 
     result = session.exec(stmt).one()
 
+    # Surface whether this map is password-protected so read-only viewers can be
+    # offered an "unlock to edit" affordance. The hash itself is never exposed.
+    password_hash = session.exec(
+        select(MapDocumentToken.password_hash).where(
+            MapDocumentToken.document_id == result.real_document_id
+        )
+    ).first()
+    password_required = password_hash is not None
+
     # Fetch overlays via junction table if map has any
     overlays_list = None
     if result.districtr_map_uuid:
@@ -271,6 +280,7 @@ def get_document_public(
         extent=result.extent,
         map_metadata=result.map_metadata,
         access=result.access,
+        password_required=password_required,
         color_scheme=result.color_scheme,
         map_type=result.map_type,
         document_type=getattr(result, "document_type", DocumentType.DISTRICT),

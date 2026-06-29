@@ -1,9 +1,11 @@
 import {CTA} from '@/app/components/Static/Content/CTA';
 import {Flex, Heading, Text, Link, Box} from '@radix-ui/themes';
+import {LearnSubNav} from '@/app/components/Static/LearnSubNav';
 
 export default function GuidePage() {
   return (
     <Flex direction="column" gapY="4">
+      <LearnSubNav />
       <Heading as="h1" size="8">
         Data
       </Heading>
