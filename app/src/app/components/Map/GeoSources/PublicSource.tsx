@@ -64,7 +64,13 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
     // Because the data here is so much smaller, we can skip the assignment store stuff
     // This is faster, which matters for public maps where lots of people may be viewing
     // But few would edit
-    if (!publicDistrictsQuery.data) {
+    // Only feed public demography when the active document is actually the
+    // read-only view. During edit->view navigation the edit doc (which shares this
+    // public_id) is briefly active with cached query data; writing the hash here
+    // would race setMapDocument's clear() and strand the sidebar with an empty
+    // demogHash. `access` is in the dep list below so we re-assert once the view
+    // doc settles (i.e. after the clear).
+    if (mapDocument?.access !== ACCESS_STATES.READ || !publicDistrictsQuery.data) {
       // No data yet for this view; the loading overlay keeps covering the map.
       setLoadingState('publicSourceLoaded', false);
       return;
@@ -93,6 +99,7 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
     setLoadingState,
     setStateFp,
     mapDocument?.public_id,
+    mapDocument?.access,
   ]);
 
   if (!mapDocument || mapDocument.access !== ACCESS_STATES.READ) return null;

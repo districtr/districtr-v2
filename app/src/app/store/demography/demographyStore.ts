@@ -193,6 +193,12 @@ export var useDemographyStore = create(
       // Bail if a newer updateData call has already been kicked off; otherwise this
       // stale resolver would overwrite the fresh data with its own older results.
       if (requestId !== updateDataRequestId) return;
+      // Bail if the active document changed while fetching. Navigating to a
+      // read-only/public view loads demography directly via PublicSource (which
+      // never bumps updateDataRequestId), so an in-flight edit-doc fetch would
+      // otherwise clobber the view's demogHash back to `|{editUUID}` and leave the
+      // sidebar stuck "loading".
+      if (useMapStore.getState().mapDocument?.document_id !== mapDocument.document_id) return;
       if (!result || !mapDocument) {
         setErrorNotification({
           message: 'Failed to get demography',
