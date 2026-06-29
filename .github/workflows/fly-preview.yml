@@ -155,7 +155,7 @@ jobs:
 
           # 3) Stage secrets (applied by the deploy below; --stage avoids an extra restart).
           DB_HOST="${DB_APP}.flycast"
-          DATABASE_URL="postgresql+psycopg://${PREVIEW_DB_USER}:${PREVIEW_DB_PASSWORD}@${DB_HOST}:5432/${PREVIEW_DB_NAME}?sslmode=disable"
+          DATABASE_URL="postgresql+psycopg://${PREVIEW_DB_USER}:${PREVIEW_DB_PASSWORD}@${DB_HOST}:5432/${PREVIEW_DB_NAME}?sslmode=disable&connect_timeout=10"
 
           args=(
             DATABASE_URL="$DATABASE_URL"
@@ -184,7 +184,7 @@ jobs:
 
           # 4) Deploy (downsized for a preview). The release_command in
           #    backend/fly.toml runs `alembic upgrade head` against the forked DB.
-          flyctl deploy backend --remote-only --app "$API_APP" --vm-memory 2048 --ha=false --yes
+          flyctl deploy backend --remote-only --app "$API_APP" --vm-memory 2048 --ha=false --yes --release-command-timeout 300
 
       - name: Tear down stale preview backend (Fullstack -> FE downgrade)
         # When the Fullstack label is dropped but FE remains, destroy the now-unused
