@@ -26,6 +26,7 @@ export const SecondaryNav: React.FC<{items: SecondaryNavItem[]}> = ({items}) => 
         direction="row"
         gapX="5"
         align="center"
+        justify="center"
         className="text-sm tracking-wider overflow-x-auto"
       >
         {items.map(item => {
