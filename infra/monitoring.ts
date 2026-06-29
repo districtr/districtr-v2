@@ -17,11 +17,12 @@ export function createMonitoring(
 
   const topic = new aws.sns.Topic(`${name}-alarms`, {name: `${name}-alarms`});
 
-  if (config.alarmEmail) {
-    new aws.sns.TopicSubscription(`${name}-alarms-email`, {
+  for (const email of config.alarmEmails) {
+    const slug = email.replace(/[^a-z0-9]/gi, "-");
+    new aws.sns.TopicSubscription(`${name}-alarms-email-${slug}`, {
       topic: topic.arn,
       protocol: "email",
-      endpoint: config.alarmEmail,
+      endpoint: email,
     });
   }
 

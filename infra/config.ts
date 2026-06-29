@@ -68,6 +68,6 @@ export const config = {
   vpcCidr: cfg.get("vpcCidr") ?? (isProd ? "10.0.0.0/16" : "10.1.0.0/16"),
 
   // Monitoring
-  alarmEmail: cfg.get("alarmEmail"),
+  alarmEmails: cfg.getObject<string[]>("alarmEmails") ?? [],
   logRetentionDays: cfg.getNumber("logRetentionDays") ?? (isProd ? 90 : 30),
 };

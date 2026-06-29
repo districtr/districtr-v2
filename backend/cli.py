@@ -21,6 +21,7 @@ from app.utils import (
     create_spatial_index as _create_spatial_index,
 )
 from app.core.io import get_local_or_s3_path
+from app.evaluation.graph import _S3_GRAPH_PREFIX
 from app.constants import GERRY_DB_SCHEMA
 from functools import wraps
 from contextlib import contextmanager
@@ -844,14 +845,17 @@ def check_missing_graphs(session: Session):
 
     missing = []
     for m in maps:
-        key = f"graphs/{m.gerrydb_table_name}.pkl"
+        assert m.gerrydb_table_name is not None
+        key = f"{_S3_GRAPH_PREFIX}/{m.gerrydb_table_name}.pkl"
         try:
             s3.head_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
-            logger.info("Graph present: %s", key)
+            logger.info("Graph present: s3://%s/%s", settings.R2_BUCKET_NAME, key)
         except botocore.exceptions.ClientError as e:
             code = e.response.get("Error", {}).get("Code", "")
             if code in ("404", "NoSuchKey"):
-                logger.warning("Missing graph: %s", key)
+                logger.warning(
+                    "Missing graph: s3://%s/%s", settings.R2_BUCKET_NAME, key
+                )
             else:
                 logger.error("S3 error checking %s: %s", key, e)
             missing.append(m.gerrydb_table_name)
@@ -867,14 +871,16 @@ def check_missing_graphs(session: Session):
         logger.warning("ALARM_SNS_TOPIC_ARN not set — skipping SNS alert.")
         return
 
-    missing_list = "\n".join(f"  - graphs/{name}.pkl" for name in missing)
+    missing_list = "\n".join(
+        f"  - s3://{settings.R2_BUCKET_NAME}/{_S3_GRAPH_PREFIX}/{name}.pkl"
+        for name in missing
+    )
     sns = boto3.client("sns")
     sns.publish(
         TopicArn=topic_arn,
         Subject=f"[Districtr] {len(missing)} missing graph pkl file(s)",
         Message=(
-            f"The following gerrydb tables are missing graph pkl files in S3 "
-            f"(bucket: {settings.R2_BUCKET_NAME}):\n\n{missing_list}\n\n"
+            f"The following graph pkl files are missing in S3:\n\n{missing_list}\n\n"
             "Re-run the graph pipeline for each missing table to regenerate."
         ),
     )
