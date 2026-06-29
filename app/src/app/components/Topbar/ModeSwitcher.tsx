@@ -44,10 +44,7 @@ const ModeSwitcherItem: React.FC<{
   const meta = MODE_META[mode];
   const Icon = locked ? LockClosedIcon : meta.Icon;
   return (
-    <DropdownMenu.Item
-      disabled={disabled}
-      onSelect={onSelect}
-    >
+    <DropdownMenu.Item disabled={disabled} onSelect={onSelect}>
       <Flex align="center" justify="between" gap="4" width="100%" py="1">
         <Flex align="center" gap="3">
           <Icon className="size-4 shrink-0" />

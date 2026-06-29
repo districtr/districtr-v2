@@ -47,16 +47,16 @@ export const Header: React.FC = () => {
 
   return (
     <Box className="h-16 px-4 bg-gray-100 sticky top-0 shadow-sm z-[10000] flex items-center">
-      <Flex direction="row" justify="between" align="center" className="mx-auto max-w-screen-lg w-full">
+      <Flex
+        direction="row"
+        justify="between"
+        align="center"
+        className="mx-auto max-w-screen-lg w-full"
+      >
         <Link asChild size="5" weight="bold" className="site-title !text-districtrBlue">
           <a href="/">Districtr</a>
         </Link>
-        <Flex
-          direction="row"
-          gapX="2"
-          align="center"
-          className="tracking-wider !hidden md:!flex"
-        >
+        <Flex direction="row" gapX="2" align="center" className="tracking-wider !hidden md:!flex">
           {linkItems.map((item, index) => (
             <React.Fragment key={index}>{item}</React.Fragment>
           ))}

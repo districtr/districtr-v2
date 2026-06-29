@@ -22,7 +22,12 @@ export const SecondaryNav: React.FC<{items: SecondaryNavItem[]}> = ({items}) => 
       aria-label="Section"
       className="border-b border-gray-200 mb-4 py-2 sticky top-16 bg-white z-[9000]"
     >
-      <Flex direction="row" gapX="5" align="center" className="text-sm tracking-wider overflow-x-auto">
+      <Flex
+        direction="row"
+        gapX="5"
+        align="center"
+        className="text-sm tracking-wider overflow-x-auto"
+      >
         {items.map(item => {
           const active = pathname === item.href;
           return (

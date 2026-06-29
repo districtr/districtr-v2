@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   TrashIcon,
   Link2Icon,
@@ -25,20 +25,20 @@ import {
   ScrollArea,
   TextField,
 } from '@radix-ui/themes';
-import { useRouter } from 'next/navigation';
-import { DocumentObject } from '@utils/api/apiHandlers/types';
-import { idb } from '@/app/utils/idb/idb';
-import { useUserMaps } from '@/app/hooks/useUserMaps';
-import { useMapStore } from '@/app/store/mapStore';
-import { useMapControlsStore } from '@/app/store/mapControlsStore';
-import { MAP_TABS, MAP_TAB_LABELS, MAP_TAB_LABEL_PLURAL, MapTab } from '@constants/document/tabs';
-import { routeForTab, mapTabFromMode } from '@constants/document/routes';
+import {useRouter} from 'next/navigation';
+import {DocumentObject} from '@utils/api/apiHandlers/types';
+import {idb} from '@/app/utils/idb/idb';
+import {useUserMaps} from '@/app/hooks/useUserMaps';
+import {useMapStore} from '@/app/store/mapStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {MAP_TABS, MAP_TAB_LABELS, MAP_TAB_LABEL_PLURAL, MapTab} from '@constants/document/tabs';
+import {routeForTab, mapTabFromMode} from '@constants/document/routes';
 import {
   DRAFT_STATUSES,
   DRAFT_STATUS_COLORS,
   DRAFT_STATUS_TEXT,
 } from '@constants/document/draftStatus';
-import { styled } from '@stitches/react';
+import {styled} from '@stitches/react';
 
 const UNKNOWN_MODULE = 'Unknown module';
 const getMapModule = (map: DocumentObject) => map.map_module || UNKNOWN_MODULE;
@@ -111,7 +111,7 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({
   // When mapType is provided, the list is locked to that type (no switcher).
   const activeTab = mapType ?? tabState;
   const [updateTrigger, setUpdateTrigger] = useState<string | null | number>(null);
-  const { communityMaps, districtMaps, loading } = useUserMaps(updateTrigger);
+  const {communityMaps, districtMaps, loading} = useUserMaps(updateTrigger);
   const recentMaps = activeTab === MAP_TABS.COMMUNITY ? communityMaps : districtMaps;
 
   const [textFilter, setTextFilter] = useState('');
@@ -266,7 +266,7 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({
   return (
     <Flex direction="column" gap="3">
       {showFilters && (
-        <Flex gap="4" align="start" direction={{ initial: 'column', md: 'row' }}>
+        <Flex gap="4" align="start" direction={{initial: 'column', md: 'row'}}>
           <Box className="w-full md:flex-1">
             <Text as="label" size="2" weight="medium">
               Text filter
@@ -340,7 +340,7 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({
           </Text>
         </Flex>
       ) : useScrollArea ? (
-        <ScrollArea scrollbars="vertical" style={{ maxHeight }}>
+        <ScrollArea scrollbars="vertical" style={{maxHeight}}>
           {cardList}
           {paginationControls}
         </ScrollArea>
@@ -357,7 +357,7 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({
 const CopyLinkDropdown: React.FC<{
   editUrl: string;
   publicUrl: string | null;
-}> = ({ editUrl, publicUrl }) => {
+}> = ({editUrl, publicUrl}) => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const handleCopy = (url: string, key: string) => {
@@ -395,7 +395,7 @@ const RecentMapCard: React.FC<{
   active: boolean;
   tab: MapTab;
   onDelete: (data: DocumentObject) => void;
-}> = ({ data, onSelect, active, tab, onDelete }) => {
+}> = ({data, onSelect, active, tab, onDelete}) => {
   const mapName = data?.map_metadata?.name || data.districtr_map_slug || 'Untitled Map';
   const draftStatus = data?.map_metadata?.draft_status ?? DRAFT_STATUSES.SCRATCH;
   const zoneCount =
@@ -414,7 +414,7 @@ const RecentMapCard: React.FC<{
       <Flex direction="row" align="center" justify="between" gap="3">
         <Flex direction="column" gap="1" className="min-w-0">
           <Flex align="center" gap="2" wrap="wrap">
-            <Text weight="medium" size="2" truncate {...(!active ? { 'data-map-name': '' } : {})}>
+            <Text weight="medium" size="2" truncate {...(!active ? {'data-map-name': ''} : {})}>
               {mapName}
             </Text>
             {active && (
@@ -445,7 +445,7 @@ const RecentMapCard: React.FC<{
                 align="center"
                 gap="1"
                 data-open-hint=""
-                style={{ opacity: 0, transition: 'opacity 150ms' }}
+                style={{opacity: 0, transition: 'opacity 150ms'}}
               >
                 <Text size="1" weight="medium" color="blue">
                   Open map

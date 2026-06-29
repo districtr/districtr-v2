@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, {useState, useRef, useEffect} from 'react';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {EVAL_TRANSITION_STEPS, EVAL_STEP_DURATION_MS} from './EvalTransitionOverlay';
@@ -61,4 +61,4 @@ export const useViewTransition = () => {
   }, [minElapsed, publicSourceLoaded, metricsLoaded, setViewTransition]);
 
   return {viewTransition, step};
-}
+};

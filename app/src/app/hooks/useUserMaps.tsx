@@ -1,8 +1,8 @@
-import { DocumentObject } from '../utils/api/apiHandlers/types';
-import { useEffect, useState } from 'react';
-import { idb } from '../utils/idb/idb';
-import { useMapStore } from '../store/mapStore';
-import { MAP_TYPES } from '@constants/document/types';
+import {DocumentObject} from '../utils/api/apiHandlers/types';
+import {useEffect, useState} from 'react';
+import {idb} from '../utils/idb/idb';
+import {useMapStore} from '../store/mapStore';
+import {MAP_TYPES} from '@constants/document/types';
 
 export const useUserMaps = (updateTrigger: string | null | number = null) => {
   const _updateTrigger = useMapStore(state => state.mapDocument);
@@ -41,5 +41,5 @@ export const useUserMaps = (updateTrigger: string | null | number = null) => {
     };
     loadRecentMaps();
   }, [_updateTrigger, updateTrigger]);
-  return { communityMaps, districtMaps, loading };
+  return {communityMaps, districtMaps, loading};
 };
