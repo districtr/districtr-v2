@@ -402,7 +402,7 @@ const RecentMapCard: React.FC<{
     tab === MAP_TABS.COMMUNITY
       ? (data.community_metadata_list?.length ?? data.num_communities ?? 0)
       : (data.num_districts ?? 0);
-  const slug = data.districtr_map_slug
+  const slug = data.districtr_map_slug;
   const zoneLabel = MAP_TAB_LABEL_PLURAL[tab];
   const geoLabel = data.parent_geo_unit_type || data.gerrydb_table || data.districtr_map_slug;
   const route = routeForTab(tab);

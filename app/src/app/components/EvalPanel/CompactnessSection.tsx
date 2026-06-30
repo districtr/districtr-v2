@@ -238,7 +238,7 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
                   a plain <table> inside. Sub-components have no context dep on Table.Root. */}
               <div
                 className="rt-TableRoot rt-r-size-1 rt-variant-surface"
-                style={{width: 'fit-content'}}
+                style={{width: 'fit-content', overflow: 'hidden'}}
               >
                 <div
                   className={
