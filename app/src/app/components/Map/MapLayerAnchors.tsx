@@ -13,7 +13,7 @@ import {LABELS_BREAK_LAYER_ID, MAP_ORDER_ANCHORS_SOURCE_ID} from '@/app/constant
  * This prevents z-order from depending on React mount timing.
  * Keep this mounted before layer groups that reference `anchor-*` IDs.
  * Canonical top -> bottom ordering is defined in `MAP_LAYER_ANCHOR_ORDER`:
- * `hover -> overlays -> demography -> assignments -> geometryOutline -> counties`.
+ * `hover -> reference -> overlays -> demography -> assignments -> geometryOutline -> counties`.
  *
  *
  * NOTE: The geometry data is set to an empty GeoJSON collection, and the visibility of the
