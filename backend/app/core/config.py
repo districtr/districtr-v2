@@ -145,6 +145,10 @@ class Settings(BaseSettings):
     # "S3 not configured", so this must stay opt-in for local dev.
     AWS_USE_DEFAULT_CREDENTIALS: bool = False
 
+    # SNS topic ARN for operational alerts (e.g. missing graph pkl files).
+    # Populated by the ECS task definition; absent in local dev.
+    ALARM_SNS_TOPIC_ARN: str | None = None
+
     def get_s3_client(self):
         if not self.AWS_ACCESS_KEY_ID or not self.AWS_SECRET_ACCESS_KEY:
             if self.AWS_USE_DEFAULT_CREDENTIALS:

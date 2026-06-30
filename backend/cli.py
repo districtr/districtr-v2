@@ -3,10 +3,13 @@ import logging
 import re
 import uuid
 import json
+import boto3
+import botocore.exceptions
 
 from app.core.db import engine
 from app.core.config import settings
 from sqlalchemy import text, update, select
+from sqlmodel import col
 from app.utils import (
     create_districtr_map as _create_districtr_map,
     create_map_group as _create_map_group,
@@ -18,6 +21,7 @@ from app.utils import (
     create_spatial_index as _create_spatial_index,
 )
 from app.core.io import get_local_or_s3_path
+from app.evaluation.graph import _S3_GRAPH_PREFIX
 from app.constants import GERRY_DB_SCHEMA
 from functools import wraps
 from contextlib import contextmanager
@@ -820,6 +824,67 @@ def delete_overlay(session: Session, overlay_id: str):
         logger.info(f"Deleted overlay {overlay_id}")
     else:
         logger.error(f"Overlay with ID {overlay_id} not found")
+
+
+@cli.command("check-missing-graphs")
+@with_session
+def check_missing_graphs(session: Session):
+    """Query all DistrictrMap records and alert via SNS if any graph pkl is absent from S3."""
+    maps = session.scalars(
+        select(DistrictrMap).where(col(DistrictrMap.gerrydb_table_name).isnot(None))
+    ).all()
+
+    if not maps:
+        logger.info("No DistrictrMap records with gerrydb_table_name found.")
+        return
+
+    s3 = settings.get_s3_client()
+    if not s3:
+        logger.error("S3 client not available — check AWS credentials configuration.")
+        raise SystemExit(1)
+
+    missing = []
+    for m in maps:
+        assert m.gerrydb_table_name is not None
+        key = f"{_S3_GRAPH_PREFIX}/{m.gerrydb_table_name}.pkl"
+        try:
+            s3.head_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
+            logger.info("Graph present: s3://%s/%s", settings.R2_BUCKET_NAME, key)
+        except botocore.exceptions.ClientError as e:
+            code = e.response.get("Error", {}).get("Code", "")
+            if code in ("404", "NoSuchKey"):
+                logger.warning(
+                    "Missing graph: s3://%s/%s", settings.R2_BUCKET_NAME, key
+                )
+            else:
+                logger.error("S3 error checking %s: %s", key, e)
+            missing.append(m.gerrydb_table_name)
+
+    if not missing:
+        logger.info("All %d graph(s) present in S3.", len(maps))
+        return
+
+    logger.warning("Missing %d graph(s): %s", len(missing), missing)
+
+    topic_arn = settings.ALARM_SNS_TOPIC_ARN
+    if not topic_arn:
+        logger.warning("ALARM_SNS_TOPIC_ARN not set — skipping SNS alert.")
+        return
+
+    missing_list = "\n".join(
+        f"  - s3://{settings.R2_BUCKET_NAME}/{_S3_GRAPH_PREFIX}/{name}.pkl"
+        for name in missing
+    )
+    sns = boto3.client("sns")
+    sns.publish(
+        TopicArn=topic_arn,
+        Subject=f"[Districtr] {len(missing)} missing graph pkl file(s)",
+        Message=(
+            f"The following graph pkl files are missing in S3:\n\n{missing_list}\n\n"
+            "Re-run the graph pipeline for each missing table to regenerate."
+        ),
+    )
+    logger.info("Alert published to SNS topic %s", topic_arn)
 
 
 if __name__ == "__main__":
