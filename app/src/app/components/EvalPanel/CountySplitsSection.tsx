@@ -232,7 +232,7 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
             // Workaround: use Radix CSS classes on our own scroll div + plain <table>.
             <div
               className="rt-TableRoot rt-r-size-1 rt-variant-surface"
-              style={{width: 'fit-content'}}
+              style={{width: 'fit-content', overflow: 'hidden'}}
             >
               <div
                 className={
