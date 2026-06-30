@@ -45,11 +45,18 @@ const inferCongressionalMap = (
 ): DistrictrMap | null => {
   const abbr = FIPS_TO_ABBR[fips];
   if (!abbr) return null;
-  const prefix = abbr.toLowerCase() + '_';
+  const lower = abbr.toLowerCase();
+  // Prefer the canonical congressional slug, then name-matching, then state senate
+  // as a fallback for at-large states (AK, DE, ND, SD, WY) that have no congressional map.
   return (
+    availableMaps.find(m => m.districtr_map_slug === `${lower}_congressional_districts`) ??
     availableMaps.find(
-      m => m.districtr_map_slug.startsWith(prefix) && m.name.toLowerCase().includes('congressional')
-    ) ?? null
+      m =>
+        m.districtr_map_slug.startsWith(`${lower}_`) &&
+        m.name.toLowerCase().includes('congressional')
+    ) ??
+    availableMaps.find(m => m.districtr_map_slug === `${lower}_state_senate_districts`) ??
+    null
   );
 };
 
