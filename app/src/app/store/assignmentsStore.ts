@@ -75,7 +75,8 @@ export interface AssignmentsStore {
       parentToChild: AssignmentsStore['parentToChild'];
       childToParent: AssignmentsStore['childToParent'];
     },
-    mapDocument?: DocumentObject
+    mapDocument?: DocumentObject,
+    hasLocalEdits?: boolean
   ) => void;
 
   /** Replaces the entire assignment map (e.g. after loading from API) */
@@ -434,22 +435,27 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     });
   },
 
-  ingestFromDocument: (data, mapDocument) => {
+  ingestFromDocument: (data, mapDocument, hasLocalEdits = false) => {
     const baselineUpdatedAt =
       mapDocument?.updated_at ??
       useMapStore.getState().mapDocument?.updated_at ??
       new Date().toISOString();
+    // When the ingested assignments carry unsaved local edits, keep them marked dirty
+    // (clientLastUpdated !== updated_at) so the save indicator stays correct on its own.
+    // Otherwise a reload would stamp them as in-sync and the indicator could go dark
+    // with pending changes still present (e.g. across rapid navigation resets).
+    const nextClientLastUpdated = hasLocalEdits ? new Date().toISOString() : baselineUpdatedAt;
     set({
       zoneAssignments: new Map(data.zoneAssignments),
       shatterIds: data.shatterIds,
       parentToChild: new Map(data.parentToChild),
       childToParent: new Map(data.childToParent),
-      clientLastUpdated: baselineUpdatedAt,
+      clientLastUpdated: nextClientLastUpdated,
       pendingShatterUndoState: null,
     });
     if (mapDocument) {
       // Save immediately when loading from document (not during painting)
-      idb.updateIdbAssignments(mapDocument, data.zoneAssignments, mapDocument.updated_at, true);
+      idb.updateIdbAssignments(mapDocument, data.zoneAssignments, nextClientLastUpdated, true);
       useMapStore.getState().mutateMapDocument(mapDocument);
     }
     demographyService.updatePopulations({

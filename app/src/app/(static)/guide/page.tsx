@@ -2,10 +2,12 @@ import {CTA} from '@/app/components/Static/Content/CTA';
 import {ContentSection} from '@/app/components/Static/ContentSection';
 import {LoopVideoPlayer} from '@/app/components/Static/LoopVideoPlayer';
 import {Box, Flex, Heading, Text} from '@radix-ui/themes';
+import {LearnSubNav} from '@/app/components/Static/LearnSubNav';
 
 export default function GuidePage() {
   return (
     <Flex direction="column" gapY="4">
+      <LearnSubNav />
       <Box>
         <Heading size="8" as="h1">
           Tutorial
@@ -237,8 +239,8 @@ export default function GuidePage() {
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/save_map.webm`}
           />
           <Text size="3">
-            This allows you to return to your map from the “Recent Maps” tab in the upper left hand
-            drop down menu.
+            This allows you to return to your map from the “Manage local maps” page in the upper
+            left menu.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/recent_maps.webm`}

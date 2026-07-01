@@ -6,14 +6,11 @@ import SidebarComponent from '@components/sidebar/Sidebar';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
 import {ErrorNotification} from '@components/ErrorNotification';
-import {DraggableToolbar} from '@components/Toolbar/Toolbar';
 import {MapTooltip} from '@components/Map/Tooltip/MapTooltip';
-import {MapLockShade} from '@components/MapLockShade';
 import {Topbar} from '@/app/components/Topbar/Topbar';
 import {Flex} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {initSubs} from '@store/subscriptions';
-import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useDocumentWithSync} from '@/app/hooks/useDocumentWithSync';
 import {SaveConflictModal} from '../SaveConflictModal';
@@ -36,21 +33,16 @@ const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => 
     state => state.mapOptions.demographicDisplayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE
   );
   const setIsEditing = useMapControlsStore(state => state.setIsEditing);
-  const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
+  const setEditableDocId = useMapControlsStore(state => state.setEditableDocId);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const userID = useMapStore(state => state.userID);
   const setUserID = useMapStore(state => state.setUserID);
-  const mapLock = useMapStore(state => state.mapLock);
 
   useEffect(() => {
     migrateUserMapsFromLocalStorage();
   }, []);
 
-  const {
-    isLoading: isLoadingDocument,
-    error: documentError,
-    conflictModal,
-  } = useDocumentWithSync({
+  const {error: documentError, conflictModal} = useDocumentWithSync({
     document_id: documentId || undefined,
     isPublicPage,
     enabled: isMapModeReady && !!documentId,
@@ -69,6 +61,12 @@ const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => 
   useEffect(() => {
     setIsEditing(isEditing);
   }, [isEditing, setIsEditing]);
+
+  // Retain the editable UUID for this session so the view switcher can route
+  // back to edit mode after navigating to a read-only display view.
+  useEffect(() => {
+    if (isEditing && documentId && isUUID(documentId)) setEditableDocId(documentId);
+  }, [isEditing, documentId, setEditableDocId]);
 
   useEffect(() => {
     !userID && setUserID();
@@ -94,18 +92,6 @@ const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => 
           <CoiMap />
           {showDemographicMap && <DemographicMap />}
         </Flex>
-        {toolbarLocation === 'map' && <DraggableToolbar />}
-        {!!documentId && (
-          <MapLockShade
-            mapLock={mapLock}
-            loadingState={{
-              isLoadingDocument,
-              isLoadingAssignments: isLoadingDocument,
-              isFetchingDocument: isLoadingDocument,
-              isFetchingAssignments: isLoadingDocument,
-            }}
-          />
-        )}
         <MapTooltip />
       </div>
       <MapContextMenu />

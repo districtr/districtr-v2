@@ -68,7 +68,11 @@ export default function SidebarComponent() {
           }}
           onDrag={(e: any) => {
             if (e.clientX) {
-              setWidth(window.innerWidth - e.clientX);
+              // Clamp so the sidebar can't be dragged wider than the window — otherwise
+              // its handle slides off-screen-left and gets stuck until a refresh — or
+              // collapsed too small to use.
+              const next = window.innerWidth - e.clientX;
+              setWidth(Math.min(Math.max(next, 140), window.innerWidth - 50));
             }
           }}
           onStop={() => {

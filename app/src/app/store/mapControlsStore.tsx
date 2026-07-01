@@ -32,6 +32,27 @@ export interface MapControlsStore {
   setIsEditing: (isEditing: boolean) => void;
   isEval: boolean;
   setIsEval: (isEval: boolean) => void;
+  /**
+   * UUID of the editable document for the current map session. Retained across
+   * Edit→Display→Eval client navigations (which load the doc read-only via its
+   * public_id and surface document_id as "anonymous") so the view switcher can
+   * route back to the edit view. Null when the user has no edit access.
+   */
+  editableDocId: string | null;
+  setEditableDocId: (id: string | null) => void;
+  /** Active full-screen transition overlay shown while navigating into the
+   * display/evaluate view; null when no transition is in progress. */
+  viewTransition: 'display' | 'evaluate' | null;
+  setViewTransition: (transition: 'display' | 'evaluate' | null) => void;
+  /** Last visible map bounds (captured on moveend) used to preserve the viewport
+   * when switching between the edit/display/evaluate views of the same map. */
+  lastViewBounds: [number, number, number, number] | null;
+  setLastViewBounds: (bounds: [number, number, number, number] | null) => void;
+  /** True when the current map is a password-protected plan that can be unlocked
+   * for editing (observed via the `?pw=true` share link). Lets the view switcher
+   * offer "Unlock to draw and paint districts". Reset when a different map loads. */
+  passwordUnlockable: boolean;
+  setPasswordUnlockable: (unlockable: boolean) => void;
   activeTool: ActiveTool;
   setActiveTool: (tool: ActiveTool) => void;
   brushSize: number;
@@ -101,6 +122,14 @@ export const useMapControlsStore = create<MapControlsStore>()(
     setIsEditing: isEditing => set({isEditing}),
     isEval: false,
     setIsEval: isEval => set({isEval}),
+    editableDocId: null,
+    setEditableDocId: editableDocId => set({editableDocId}),
+    viewTransition: null,
+    setViewTransition: viewTransition => set({viewTransition}),
+    lastViewBounds: null,
+    setLastViewBounds: lastViewBounds => set({lastViewBounds}),
+    passwordUnlockable: false,
+    setPasswordUnlockable: passwordUnlockable => set({passwordUnlockable}),
     activeTool: ACTIVE_TOOLS.PAN,
     setActiveTool: tool => {
       const canEdit = useMapStore.getState().mapStatus?.access === ACCESS_STATES.EDIT;

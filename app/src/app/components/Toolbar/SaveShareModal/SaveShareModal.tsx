@@ -7,6 +7,7 @@ import {ShareMapSection} from './ShareMapSection';
 import {useSaveShareStore} from '@/app/store/saveShareStore';
 import {Link1Icon} from '@radix-ui/react-icons';
 import {useMapMetadata} from '@/app/hooks/useMapMetadata';
+import {useEditableDocId} from '@/app/hooks/useEditableDocId';
 import {DEFAULT_MAP_METADATA} from '@/app/utils/language';
 import {routeForType} from '@constants/document/routes';
 import {useRouter} from 'next/navigation';
@@ -28,6 +29,11 @@ export const SaveShareModal: React.FC<{
   const [linkCopied, setLinkCopied] = useState(false);
   const setMapLock = useMapStore(state => state.setMapLock);
   const isEditing = useMapStore(state => state.mapDocument?.access === ACCESS_STATES.EDIT);
+  const editableDocId = useEditableDocId();
+  // An editor who temporarily switched to the read-only view: let them share their
+  // own map instead of being prompted to make a copy (the copy flow is for true
+  // view-only users).
+  const canShareAsOwner = !isEditing && !!editableDocId;
   const generateLink = useSaveShareStore(state => state.generateLink);
 
   const handleCopy = async () => {
@@ -112,6 +118,25 @@ export const SaveShareModal: React.FC<{
               </Button>
               <Button variant="soft" onClick={handleSave} size="3" color="green">
                 Done
+              </Button>
+            </Flex>
+          ) : canShareAsOwner ? (
+            <Flex direction="column" gap="2" className="mt-4">
+              <Text>
+                You&apos;re viewing this map read-only. Switch to Draw mode to edit details or
+                sharing settings.
+              </Text>
+              <Button
+                variant="soft"
+                size="3"
+                onClick={() =>
+                  editableDocId && generateLink(editableDocId).then(() => setLinkCopied(true))
+                }
+              >
+                <Flex direction="row" gap="2" align="center" className="flex-0 w-fit">
+                  <Link1Icon />
+                  <Text>{linkCopied ? 'Copied!' : 'Copy Share Link'}</Text>
+                </Flex>
               </Button>
             </Flex>
           ) : (

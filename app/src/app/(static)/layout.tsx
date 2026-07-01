@@ -1,6 +1,7 @@
 import type {Metadata} from 'next';
 import {Header} from '@components/Static/Header';
 import {Footer} from '../components/Static/Footer';
+import {EditorStateReset} from '@components/Static/EditorStateReset';
 import {Box, Flex} from '@radix-ui/themes';
 
 export const metadata: Metadata = {
@@ -15,6 +16,7 @@ export default function RootLayout({
 }>) {
   return (
     <Flex direction="column" className="min-h-[100vh]" justify="center">
+      <EditorStateReset />
       <Header />
       <Box className="w-full flex-grow p-4 max-w-screen-lg mx-auto px-4 xl:px-0">{children}</Box>
       <Footer />

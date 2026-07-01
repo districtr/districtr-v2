@@ -56,6 +56,7 @@ export const CoiMap: React.FC = () => {
     if (!mapRef.current || !mapOptions.bounds) return;
     mapRef.current.fitBounds(mapOptions.bounds, {
       padding: 20,
+      animate: false,
     });
   }, [mapRef, mapOptions.bounds]);
 

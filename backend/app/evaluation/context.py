@@ -372,6 +372,7 @@ class CountyContext:
 
     def _fetch_county_names_file(self) -> None:
         """Download county names CSV from S3 and cache locally."""
+        # TODO Make this consistent with s3 streaming now that s3 reads have no cost
         logger.info("Downloading county names from S3 to %s", self._COUNTY_NAMES_FILE)
         self._DATA_DIR.mkdir(parents=True, exist_ok=True)
         s3 = settings.get_s3_client()

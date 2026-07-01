@@ -34,6 +34,7 @@ export function useDocumentWithSync({
   const [showConflictModal, setShowConflictModal] = useState(false);
   const setMapDocument = useMapStore(state => state.setMapDocument);
   const setAppLoadingState = useMapStore(state => state.setAppLoadingState);
+  const setLoadingState = useMapStore(state => state.setLoadingState);
   const mapMode = useMapControlsStore(state => state.mapMode);
   const ingestDistrictFromDocument = useAssignmentsStore(state => state.ingestFromDocument);
   const ingestCoiFromDocument = useCoiAssignmentsStore(state => state.ingestFromDocument);
@@ -134,10 +135,10 @@ export function useDocumentWithSync({
         setMapDocument(result.response.document);
         if (isCommunityDocument) {
           const data = formatCoiAssignmentsFromDocument(result.response.assignments);
-          ingestCoiFromDocument(data, result.response.document);
+          ingestCoiFromDocument(data, result.response.document, result.response.hasLocalEdits);
         } else {
           const data = formatAssignmentsFromDocument(result.response.assignments);
-          ingestDistrictFromDocument(data, result.response.document);
+          ingestDistrictFromDocument(data, result.response.document, result.response.hasLocalEdits);
         }
         // Set overlays from document response
         setMapDocument(result.response.document);
@@ -155,6 +156,15 @@ export function useDocumentWithSync({
       cancelled = true;
     };
   }, [document_id, enabled, isPublicPage, isCoiRoute, isDistrictRoute]);
+
+  // Mirror the fetch state into the store so the global loading overlay can show a
+  // loading state; clear it when this view unmounts.
+  useEffect(() => {
+    setLoadingState('documentLoading', isLoading);
+  }, [isLoading, setLoadingState]);
+  useEffect(() => {
+    return () => setLoadingState('documentLoading', false);
+  }, [setLoadingState]);
 
   return {
     isLoading,
