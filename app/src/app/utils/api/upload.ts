@@ -25,18 +25,24 @@ const validateBlockGeoid = (raw: string): string | null => {
   return null;
 };
 
-const validateGeoidSample = (rows: string[][], expectedFips: string, n = 5): string | null => {
-  const indices = new Set<number>();
-  while (indices.size < Math.min(n, rows.length - 1)) {
-    indices.add(1 + Math.floor(Math.random() * (rows.length - 1)));
-  }
-  for (const i of indices) {
-    const raw = `${rows[i][0] ?? ''}`.trim();
+const validateAllRows = (
+  rows: string[][]
+): {fips: string; error: null} | {fips: null; error: string} => {
+  const stateFips = new Set<string>();
+  for (const row of rows) {
+    const raw = `${row[0] ?? ''}`.trim();
     const err = validateBlockGeoid(raw);
-    if (err) return err;
-    if (raw.padStart(15, '0').slice(0, 2) !== expectedFips) return 'Mixed states in CSV';
+    if (err) return {fips: null, error: err};
+    stateFips.add(raw.padStart(15, '0').slice(0, 2));
   }
-  return null;
+  if (stateFips.size === 0) return {fips: null, error: 'No valid rows found'};
+  if (stateFips.size > 1) {
+    const names = [...stateFips]
+      .map(f => (FIPS_TO_NAME[f] ? `${FIPS_TO_NAME[f]} (${FIPS_TO_ABBR[f]})` : `FIPS ${f}`))
+      .join(', ');
+    return {fips: null, error: `Mixed states found in CSV: ${names}`};
+  }
+  return {fips: [...stateFips][0], error: null};
 };
 
 const inferCongressionalMap = (
@@ -111,14 +117,13 @@ export const processFile = ({
         return;
       }
 
-      const firstRowRaw = (allRows[0][0] ?? '').trim();
-      const firstRowGeoidError = validateBlockGeoid(firstRowRaw);
-      if (firstRowGeoidError) {
-        setError({ok: false, detail: {message: firstRowGeoidError}});
+      const validation = validateAllRows(allRows);
+      if (validation.error !== null) {
+        setError({ok: false, detail: {message: validation.error}});
         return;
       }
 
-      const fips = firstRowRaw.padStart(15, '0').slice(0, 2);
+      const {fips} = validation;
       const districtrMap = inferCongressionalMap(fips, availableMaps);
       if (!districtrMap) {
         const stateName = FIPS_TO_NAME[fips] ?? `FIPS ${fips}`;
@@ -126,12 +131,6 @@ export const processFile = ({
           ok: false,
           detail: {message: `No congressional map found for ${stateName}`},
         });
-        return;
-      }
-
-      const geoidError = validateGeoidSample(allRows, fips);
-      if (geoidError) {
-        setError({ok: false, detail: {message: geoidError}});
         return;
       }
 
