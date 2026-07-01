@@ -1,3 +1,4 @@
+from dataclasses import dataclass, field
 from uuid import uuid4
 from fastapi import Depends
 from sqlalchemy.sql.functions import count
@@ -22,6 +23,12 @@ VERBOSE_LOGGING = settings.VERBOSE_LOGGING
 
 class DuplicateGeoIdError(ValueError):
     pass
+
+
+@dataclass
+class BatchInsertResult:
+    inserted: int
+    skipped_geo_ids: list[str] = field(default_factory=list)
 
 
 def _is_whole_pos_number(s: str) -> bool:
@@ -207,7 +214,7 @@ def batch_insert_assignments(
     assignments: list[list[str]],
     districtr_map_slug: str,
     session: Session = Depends(get_session),
-) -> int | None:
+) -> BatchInsertResult:
     """
     Insert assignments into the document, `document_id`, healing assignments into
     partent assignments where possible if all children are assigned to the same zone.
@@ -238,20 +245,24 @@ def batch_insert_assignments(
 
     zone_mapping = _build_zone_mapping(raw_zones, num_districts)
 
-    invalid_count = 0
+    skipped_geo_ids: list[str] = []
     seen_geo_ids: set[str] = set()
     zone_by_geo_int: dict[str, int] = {}
     for record in assignments:
         geo_id = record[0]
         if not geo_id or geo_id not in G:
-            invalid_count += 1
+            if geo_id:
+                skipped_geo_ids.append(geo_id)
             continue
         if geo_id in seen_geo_ids:
             raise DuplicateGeoIdError(geo_id)
         seen_geo_ids.add(geo_id)
         zone_by_geo_int[geo_id] = zone_mapping[record[1]]
 
-    logger.info(f"{invalid_count} invalid geo_ids skipped")
+    if skipped_geo_ids:
+        logger.info(
+            "%d geo_ids not found in map graph and skipped", len(skipped_geo_ids)
+        )
 
     if districtr_map.child_layer is not None:
         zone_by_geo: dict[str, int | None] = _heal_or_fill(zone_by_geo_int, G)
@@ -281,4 +292,4 @@ def batch_insert_assignments(
     inserted = len(zone_by_geo)
     logger.info(f"Inserted {inserted} assignments to document `{document_id}`")
 
-    return inserted
+    return BatchInsertResult(inserted=inserted, skipped_geo_ids=skipped_geo_ids)

@@ -146,6 +146,16 @@ export const processFile = ({
           map_type: documentMapType,
         });
         if (uploadResult.ok && uploadResult.response?.document_id) {
+          const skipped = uploadResult.response.skipped_geo_ids ?? [];
+          if (skipped.length > 0) {
+            const preview = skipped.slice(0, 5).join(', ');
+            const more = skipped.length > 5 ? ` and ${skipped.length - 5} more` : '';
+            const {setErrorNotification} = useMapStore.getState();
+            setErrorNotification({
+              message: `${skipped.length} GEOID${skipped.length === 1 ? '' : 's'} in your CSV were not found in the map's geography and were skipped: ${preview}${more}.`,
+              severity: 2,
+            });
+          }
           setMapLinks(prev => [
             ...prev,
             {...districtrMap, document_id: uploadResult.response.document_id, filename: file.name},

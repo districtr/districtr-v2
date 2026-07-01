@@ -459,6 +459,7 @@ async def create_document(
     create_document_partition(session, document_id, "community_assignments")
 
     total_assignments = 0
+    skipped_geo_ids: list[str] = []
 
     if copied_document is not None:
         logger.info(
@@ -504,12 +505,14 @@ async def create_document(
             )
 
         try:
-            total_assignments = batch_insert_assignments(
+            insert_result = batch_insert_assignments(
                 document_id=document_id,
                 assignments=data.assignments,
                 districtr_map_slug=data.districtr_map_slug,
                 session=session,
             )
+            total_assignments = insert_result.inserted
+            skipped_geo_ids = insert_result.skipped_geo_ids
         except NoResultFound:
             session.rollback()
             raise HTTPException(
@@ -614,7 +617,9 @@ async def create_document(
 
     session.commit()
 
-    return doc
+    doc_dict = dict(doc._mapping)
+    doc_dict["skipped_geo_ids"] = skipped_geo_ids
+    return doc_dict
 
 
 @app.put("/api/assignments")

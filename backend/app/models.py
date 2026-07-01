@@ -372,6 +372,7 @@ class DocumentPublic(BaseModel):
 
 class DocumentCreatePublic(DocumentPublic):
     inserted_assignments: int
+    skipped_geo_ids: list[str] = []
 
 
 class Assignments(SQLModel, table=True):
