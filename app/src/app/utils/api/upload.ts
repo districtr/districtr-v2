@@ -13,6 +13,7 @@ const MAX_FILE_SIZE = 2_000_000_000; // 20mb
 export type MapLink = DistrictrMap & {
   document_id: string;
   filename: string;
+  skipped_geo_ids?: string[];
 };
 
 const isBlockGeoid = (v: string) => v.length === 15 && !isNaN(+v);
@@ -20,7 +21,7 @@ const isBlockGeoid = (v: string) => v.length === 15 && !isNaN(+v);
 const validateBlockGeoid = (raw: string): string | null => {
   const padded = raw.padStart(15, '0');
   if ((raw.length !== 14 && raw.length !== 15) || !isBlockGeoid(padded)) {
-    return 'Invalid GEOID in first column';
+    return `Invalid GEOID in first column: ${raw}`;
   }
   return null;
 };
@@ -40,6 +41,7 @@ const validateAllRows = (
     const names = [...stateFips]
       .map(f => (FIPS_TO_NAME[f] ? `${FIPS_TO_NAME[f]} (${FIPS_TO_ABBR[f]})` : `FIPS ${f}`))
       .join(', ');
+    // TODO: We might prompt users to indicate which state they intend the import for.
     return {fips: null, error: `Mixed states found in CSV: ${names}`};
   }
   return {fips: [...stateFips][0], error: null};
@@ -147,18 +149,14 @@ export const processFile = ({
         });
         if (uploadResult.ok && uploadResult.response?.document_id) {
           const skipped = uploadResult.response.skipped_geo_ids ?? [];
-          if (skipped.length > 0) {
-            const preview = skipped.slice(0, 5).join(', ');
-            const more = skipped.length > 5 ? ` and ${skipped.length - 5} more` : '';
-            const {setErrorNotification} = useMapStore.getState();
-            setErrorNotification({
-              message: `${skipped.length} GEOID${skipped.length === 1 ? '' : 's'} in your CSV were not found in the map's geography and were skipped: ${preview}${more}.`,
-              severity: 2,
-            });
-          }
           setMapLinks(prev => [
             ...prev,
-            {...districtrMap, document_id: uploadResult.response.document_id, filename: file.name},
+            {
+              ...districtrMap,
+              document_id: uploadResult.response.document_id,
+              filename: file.name,
+              skipped_geo_ids: skipped.length > 0 ? skipped : undefined,
+            },
           ]);
         } else {
           setError({

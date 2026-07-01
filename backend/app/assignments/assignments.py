@@ -68,7 +68,7 @@ def _build_zone_mapping(
     total_zones = len(used_ids) + len(string_labels)
     if num_districts is not None and total_zones > num_districts:
         raise ValueError(
-            f"Too many zones: CSV contains {total_zones} distinct zones "
+            f"Too many districts: CSV contains {total_zones} distinct districts "
             f"but the map only has {num_districts} districts"
         )
 

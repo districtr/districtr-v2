@@ -1,7 +1,8 @@
 'use client';
 import React, {useEffect, useRef, useState} from 'react';
 import {MapLink, processFile} from '@/app/utils/api/upload';
-import {Link, Flex, Heading, Table, Text, Tooltip, Blockquote, Spinner} from '@radix-ui/themes';
+import {Link, Flex, Heading, Text, Blockquote, Spinner, Callout} from '@radix-ui/themes';
+import {ExclamationTriangleIcon} from '@radix-ui/react-icons';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 import {routeManager} from '@/app/utils/map/mapUrlRoute';
 import {MAP_ROUTES} from '@constants/document/routes';
@@ -18,7 +19,7 @@ export const Uploader: React.FC<{
   const documentMapType = isCoiRoute ? MAP_TYPES.COMMUNITY : MAP_TYPES.DEFAULT;
   const [mapLinks, setMapLinks] = useState<MapLink[]>([]);
   const [error, setError] = useState<any>(undefined);
-  const [file, setFile] = useState<File | undefined>(undefined);
+  const [, setFile] = useState<File | undefined>(undefined);
   const [isProcessing, setIsProcessing] = useState(false);
   const [availableMaps, setAvailableMaps] = useState<DistrictrMap[] | undefined>(undefined);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -32,7 +33,9 @@ export const Uploader: React.FC<{
   useEffect(() => {
     if (redirect) {
       const newestMap = mapLinks[mapLinks.length - 1];
-      if (newestMap) {
+      // Don't auto-redirect when there are skipped GEOIDs — let the user
+      // review the warning and click "Go to map" manually.
+      if (newestMap && !newestMap.skipped_geo_ids?.length) {
         window.location.href = `/${routePrefix}/edit/${newestMap.document_id}`;
         onFinish?.();
       }
@@ -116,41 +119,36 @@ export const Uploader: React.FC<{
       </Flex>
       <UploadError error={error} />
       {!!mapLinks.length && (
-        <Flex direction="column" gapY="2" pt="4">
-          <Heading size="2">Uploaded maps</Heading>
-          <Table.Root className="p-0">
-            <Table.Header>
-              <Table.Row>
-                <Table.ColumnHeaderCell>Map</Table.ColumnHeaderCell>
-                <Table.ColumnHeaderCell>Link</Table.ColumnHeaderCell>
-                <Table.ColumnHeaderCell>Filename</Table.ColumnHeaderCell>
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
-              {mapLinks.map((map, i) => (
-                <Table.Row key={`map-uploads-${i}`}>
-                  <Table.Cell>{map.name}</Table.Cell>
-                  <Table.Cell>
-                    <Link
-                      href={`/${routePrefix}/edit/${map.document_id}`}
-                      target={newTab ? '_blank' : undefined}
-                    >
-                      Go to map
-                    </Link>
-                  </Table.Cell>
-                  <Table.Cell>
-                    {map.filename.length > 10 ? (
-                      <Tooltip content={map.filename}>
-                        <Text>{map.filename.substring(0, 10)}...</Text>
-                      </Tooltip>
-                    ) : (
-                      <Text>{map.filename}</Text>
-                    )}
-                  </Table.Cell>
-                </Table.Row>
-              ))}
-            </Table.Body>
-          </Table.Root>
+        <Flex direction="column" gapY="3" pt="4">
+          {mapLinks.map((map, i) => (
+            <Flex key={`map-uploads-${i}`} direction="column" gapY="2">
+              {map.skipped_geo_ids && map.skipped_geo_ids.length > 0 && (
+                <Callout.Root color="orange" size="1">
+                  <Callout.Icon>
+                    <ExclamationTriangleIcon />
+                  </Callout.Icon>
+                  <Callout.Text>
+                    {map.skipped_geo_ids.length} GEOID
+                    {map.skipped_geo_ids.length === 1 ? '' : 's'} not found in the map&apos;s
+                    geography and skipped: {map.skipped_geo_ids.slice(0, 5).join(', ')}
+                    {map.skipped_geo_ids.length > 5
+                      ? ` and ${map.skipped_geo_ids.length - 5} more`
+                      : ''}
+                    .
+                  </Callout.Text>
+                </Callout.Root>
+              )}
+              <Link
+                href={`/${routePrefix}/edit/${map.document_id}`}
+                target={newTab ? '_blank' : undefined}
+                className="self-start"
+              >
+                <button className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
+                  Go to the imported map
+                </button>
+              </Link>
+            </Flex>
+          ))}
         </Flex>
       )}
       {isProcessing && (
