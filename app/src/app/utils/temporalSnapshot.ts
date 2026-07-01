@@ -1,4 +1,4 @@
-import {NullableZone} from '../constants/types';
+import {type NullableZone} from '@constants/map/zone';
 
 export type AssignmentsTemporalSnapshot = {
   shatterIds: {

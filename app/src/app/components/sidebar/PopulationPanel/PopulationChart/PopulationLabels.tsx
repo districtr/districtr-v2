@@ -2,6 +2,7 @@ import React from 'react';
 import {formatNumber} from '@/app/utils/numbers';
 import {Group} from '@visx/group';
 import {SummaryRecord} from '@/app/utils/api/summaryStats';
+import {NUMBER_FORMATS} from '@constants/demography/format';
 
 export const PopulationLabels: React.FC<{
   xScale: (value: number) => number;
@@ -36,16 +37,16 @@ export const PopulationLabels: React.FC<{
       ? undefined
       : Math.abs(popDiff) < 1
         ? `0`
-        : formatNumber(popDiff, 'string');
+        : formatNumber(popDiff, NUMBER_FORMATS.STRING);
   const popDiffLabel =
     popDiff === undefined || _popDiffLabel === undefined
       ? undefined
       : popDiff >= 1
         ? `+${_popDiffLabel}`
         : _popDiffLabel;
-  const popLabel = formatNumber(entry.total_pop_20, 'string');
+  const popLabel = formatNumber(entry.total_pop_20, NUMBER_FORMATS.STRING);
   if (popLabel === undefined) return null;
-  const [left, top] = [xScale(entry.total_pop_20), yScale(index) + barHeight];
+  const [left, top] = [xScale(entry.total_pop_20), yScale(index) + 5 + barHeight / 2];
   const showDeviationLabel = hasIdealPopulation && !!(isHovered || showTopBottomDeviation);
 
   let offsetLeft = 0;
@@ -59,7 +60,14 @@ export const PopulationLabels: React.FC<{
     <Group left={left + offsetLeft} top={top} style={{pointerEvents: 'none'}}>
       {!!(isHovered || showPopNumbers) && (
         <>
-          <text x={5} y={-2} fontSize={14} fontWeight={'bold'} textAnchor="start">
+          <text
+            x={5}
+            y={0}
+            fontSize={14}
+            fontWeight={'bold'}
+            textAnchor="start"
+            dominantBaseline="central"
+          >
             {popLabel}
           </text>
         </>
@@ -68,16 +76,17 @@ export const PopulationLabels: React.FC<{
         <>
           <text
             x={-5}
-            y={-1}
+            y={0}
             fontSize={14}
             textAnchor="end"
+            dominantBaseline="central"
             fill="white"
             stroke="white"
             strokeWidth="3"
           >
             {popDiffLabel}
           </text>
-          <text x={-5} y={-1} fontSize={14} textAnchor="end">
+          <text x={-5} y={0} fontSize={14} textAnchor="end" dominantBaseline="central">
             {popDiffLabel}
           </text>
         </>

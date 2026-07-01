@@ -1,6 +1,6 @@
 import React, {useEffect, useRef} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
-import {NullableZone} from '@/app/constants/types';
+import {NullableZone} from '@constants/map/zone';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 import {ColorRadioGroup} from './ColorRadioGroup';
 import {ColorDropdown} from './ColorDropdown';

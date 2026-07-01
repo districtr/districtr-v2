@@ -7,6 +7,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import Draggable from 'react-draggable';
 import {DataPanelSpec, DataPanelsProps, defaultPanels} from './DataPanelUtils';
+import {MAP_MODES} from '@constants/map/mode';
 
 const ResizableAccordionPanel: React.FC<{panel: DataPanelSpec; open: boolean}> = ({
   panel,
@@ -88,7 +89,7 @@ const DataPanels: React.FC<DataPanelsProps> = ({panels = defaultPanels}) => {
   const setSidebarPanels = useMapControlsStore(state => state.setSidebarPanels);
   const visiblePanels = useMemo(
     () =>
-      mapMode === 'coi'
+      mapMode === MAP_MODES.COI
         ? panels.filter(
             panel =>
               panel.title !== 'mapValidation' &&

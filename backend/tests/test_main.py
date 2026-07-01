@@ -1,5 +1,5 @@
 import pytest
-from sqlmodel import Session
+from sqlmodel import Session, select
 from app.core.db import get_session
 from app.constants import GERRY_DB_SCHEMA
 from sqlalchemy import text
@@ -14,7 +14,17 @@ from app.utils import create_districtr_map, create_map_group
 from app.core.models import DocumentID
 from pydantic import ValidationError
 from tests.test_utils import handle_full_submission_approve, patch_recaptcha
-from datetime import datetime
+from datetime import datetime, timezone
+from fastapi import BackgroundTasks
+import app.evaluation.main as evaluation_main
+from unittest.mock import MagicMock
+from app.evaluation.models import Evaluation
+from app.models import Document
+from app.evaluation.registry import (
+    Metric,
+    CURRENT_PAYLOAD_VERSION,
+    hash_payload_version,
+)
 
 REQUIRED_AUTO_FIXTURES = [patch_recaptcha]
 
@@ -814,18 +824,20 @@ def test_group_data(client, session: Session):
     assert response.json().get("name") == "Map Group Two"
 
 
-def test_new_document_from_block_assignments(client, simple_shatterable_districtr_map):
+def test_new_document_from_block_assignments(
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
+):
     response = client.post(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
             "assignments": [
-                ["a", "1"],
-                ["b", "2"],
-                ["c", "2"],
-                ["d", "2"],
-                ["e", "1"],
-                ["f", "3"],
+                ["000010000000001", "1"],
+                ["000010000000002", "2"],
+                ["000010000000003", "2"],
+                ["000010000000004", "2"],
+                ["000010000000005", "1"],
+                ["000010000000006", "3"],
             ],
         },
     )
@@ -842,19 +854,19 @@ def test_new_document_from_block_assignments(client, simple_shatterable_district
 
 
 def test_new_document_from_block_assignments_no_matched_parents(
-    client, simple_shatterable_districtr_map
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
 ):
     response = client.post(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
             "assignments": [
-                ["a", "1"],
-                ["b", "2"],
-                ["c", "1"],
-                ["d", "2"],
-                ["e", "2"],
-                ["f", "1"],
+                ["000010000000001", "1"],
+                ["000010000000002", "2"],
+                ["000010000000003", "1"],
+                ["000010000000004", "2"],
+                ["000010000000005", "2"],
+                ["000010000000006", "1"],
             ],
         },
     )
@@ -871,7 +883,7 @@ def test_new_document_from_block_assignments_no_matched_parents(
 
 
 def test_new_document_from_block_assignments_no_data(
-    client, simple_shatterable_districtr_map
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
 ):
     response = client.post(
         "/api/create_document",
@@ -893,19 +905,19 @@ def test_new_document_from_block_assignments_no_data(
 
 
 def test_new_document_from_block_assignments_some_matched_parents(
-    client, simple_shatterable_districtr_map
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
 ):
     response = client.post(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
             "assignments": [
-                ["a", "1"],
-                ["b", "2"],
-                ["c", "1"],
-                ["d", "2"],
-                ["e", "1"],
-                ["f", "3"],
+                ["000010000000001", "1"],
+                ["000010000000002", "2"],
+                ["000010000000003", "1"],
+                ["000010000000004", "2"],
+                ["000010000000005", "1"],
+                ["000010000000006", "3"],
             ],
         },
     )
@@ -922,19 +934,19 @@ def test_new_document_from_block_assignments_some_matched_parents(
 
 
 def test_new_document_from_block_assignments_some_nulls(
-    client, simple_shatterable_districtr_map
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
 ):
     response = client.post(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
             "assignments": [
-                ["a", "1"],
-                ["b", ""],
-                ["c", "1"],
-                ["d", ""],
-                ["e", "1"],
-                ["f", "3"],
+                ["000010000000001", "1"],
+                ["000010000000002", ""],
+                ["000010000000003", "1"],
+                ["000010000000004", ""],
+                ["000010000000005", "1"],
+                ["000010000000006", "3"],
             ],
         },
     )
@@ -946,23 +958,27 @@ def test_new_document_from_block_assignments_some_nulls(
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
     assert data.get("districtr_map_slug") == "simple_geos"
-    assert data.get("inserted_assignments") == 3
+    # Assigned: 001→1, 003→1, 005→1, 006→3 (002 and 004 empty, skipped).
+    # A={001,005} all zone 1 → healed to A. C={006} zone 3 → healed to C.
+    # B={002,003,004}: only 003 assigned → 002 and 004 filled as null.
+    # Result: A, C, 003, 002(null), 004(null) = 5 rows.
+    assert data.get("inserted_assignments") == 5
 
 
 def test_new_document_from_block_assignments_some_null_geoids(
-    client, simple_shatterable_districtr_map
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
 ):
     response = client.post(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
             "assignments": [
-                ["a", "1"],
-                ["b", ""],
+                ["000010000000001", "1"],
+                ["000010000000002", ""],
                 ["", "1"],
                 ["", ""],
-                ["e", "1"],
-                ["f", "3"],
+                ["000010000000005", "1"],
+                ["000010000000006", "3"],
             ],
         },
     )
@@ -978,47 +994,40 @@ def test_new_document_from_block_assignments_some_null_geoids(
 
 
 def test_new_document_from_block_assignments_non_integer_mapping(
-    client, simple_shatterable_districtr_map
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
 ):
+    # Non-numeric zone strings are client error; backend raises ValueError → 422
     response = client.post(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
             "assignments": [
-                ["a", "My zone 1"],
-                ["b", ""],
-                ["c", "My zone 1"],
-                ["d", ""],
-                ["e", "My zone 1"],
-                ["f", "My zone 3"],
+                ["000010000000001", "My zone 1"],
+                ["000010000000002", ""],
+                ["000010000000003", "My zone 1"],
+                ["000010000000004", ""],
+                ["000010000000005", "My zone 1"],
+                ["000010000000006", "My zone 3"],
             ],
         },
     )
-    data = response.json()
-    assert (
-        response.status_code == 201
-    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
-    document_id = data.get("document_id", None)
-    assert document_id
-    assert isinstance(uuid.UUID(document_id), uuid.UUID)
-    assert data.get("districtr_map_slug") == "simple_geos"
-    assert data.get("inserted_assignments") == 3
+    assert response.status_code == 422
 
 
 def test_new_document_from_block_assignments_too_many_unique_zones(
-    client, simple_shatterable_districtr_map
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
 ):
     response = client.post(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
             "assignments": [
-                ["a", "1"],
-                ["b", "2"],
-                ["c", "3"],
-                ["d", "4"],
-                ["e", "1"],
-                ["f", "5"],
+                ["000010000000001", "1"],
+                ["000010000000002", "2"],
+                ["000010000000003", "3"],
+                ["000010000000004", "4"],
+                ["000010000000005", "1"],
+                ["000010000000006", "5"],
             ],
         },
     )
@@ -1030,16 +1039,16 @@ def test_new_document_from_block_assignments_too_many_unique_zones(
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
     assert data.get("districtr_map_slug") == "simple_geos"
-    # Maximum number of districts is three
-    # - a + e => parent A
-    # - b -> still valid so single block
-    # - c -> still valid so single block
-    # - d and f are skipped
-    assert data.get("inserted_assignments") == 3
+    # Zones 4 and 5 exceed num_districts=3 and are skipped.
+    # Remaining: 001 (zone 1), 002 (zone 2), 003 (zone 3), 005 (zone 1).
+    # A={001,005} all zone 1 → healed to parent A.
+    # B={002,003,004}: 002 and 003 assigned with different zones → kept; 004 missing → filled null.
+    # Result: A, 002, 003, 004(null) = 4 rows.
+    assert data.get("inserted_assignments") == 4
 
 
 def test_new_document_from_block_assignments_no_children(
-    client, ks_demo_view_census_blocks_districtrmap
+    client, ks_demo_view_census_blocks_districtrmap, mock_grid_graph_file
 ):
     response = client.post(
         "/api/create_document",
@@ -1065,20 +1074,20 @@ def test_new_document_from_block_assignments_no_children(
 
 
 def test_new_document_from_block_assignments_duplicate_blocks_in_input(
-    client, simple_shatterable_districtr_map
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
 ):
     response = client.post(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
             "assignments": [
-                ["a", "1"],
-                ["a", "1"],  # Dupe!
-                ["b", "2"],
-                ["c", "1"],
-                ["d", "2"],
-                ["e", "2"],
-                ["f", "1"],
+                ["000010000000001", "1"],
+                ["000010000000001", "1"],  # Dupe!
+                ["000010000000002", "2"],
+                ["000010000000003", "1"],
+                ["000010000000004", "2"],
+                ["000010000000005", "2"],
+                ["000010000000006", "1"],
             ],
         },
     )
@@ -1185,11 +1194,18 @@ def test_get_district_unions(client, document_id_total_vap):
     response = client.get(f"/api/document/{document_id_total_vap}/stats")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 2
-    assert data[0].get("zone")
-    assert data[0].get("geometry")
-    assert data[0].get("demographic_data")
-    assert data[0].get("updated_at")
+    # 2 assigned zones + 1 unassigned row
+    assert len(data) == 3
+    assigned_rows = [d for d in data if d.get("zone") is not None]
+    unassigned_rows = [d for d in data if d.get("zone") is None]
+    assert len(assigned_rows) == 2
+    assert len(unassigned_rows) == 1
+    assert assigned_rows[0].get("geometry")
+    assert assigned_rows[0].get("demographic_data")
+    assert assigned_rows[0].get("updated_at")
+    # Unassigned row has no geometry but has demographic data
+    assert unassigned_rows[0].get("geometry") is None
+    assert unassigned_rows[0].get("demographic_data") is not None
     # update assignments to re-generate stats
     response = client.put(
         "/api/assignments",
@@ -1205,7 +1221,8 @@ def test_get_district_unions(client, document_id_total_vap):
     response = client.get(f"/api/document/{document_id_total_vap}/stats")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 1
+    # 1 assigned zone + 1 unassigned row
+    assert len(data) == 2
 
     # get with public id
     document_info = client.get(f"/api/document/{document_id_total_vap}")
@@ -1214,7 +1231,203 @@ def test_get_district_unions(client, document_id_total_vap):
     )
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 1
+    assert len(data) == 2
+
+
+@pytest.fixture
+def evaluation_metric_counter():
+    compute_calls = 0
+
+    def _compute(_context):
+        nonlocal compute_calls
+        compute_calls += 1
+        return {"dem": compute_calls, "rep": 0}
+
+    def get_compute_calls():
+        return compute_calls
+
+    return _compute, get_compute_calls
+
+
+@pytest.fixture
+def patch_evaluation_metric(monkeypatch, evaluation_metric_counter):
+    _compute, get_compute_calls = evaluation_metric_counter
+    patched_metrics = (Metric(key="seats", version=1, compute=_compute),)
+    monkeypatch.setattr(evaluation_main, "METRICS", patched_metrics)
+    monkeypatch.setattr(
+        evaluation_main,
+        "CURRENT_PAYLOAD_VERSION",
+        hash_payload_version(patched_metrics),
+    )
+    return get_compute_calls
+
+
+@pytest.fixture
+def patch_evaluation_metric_with_failure(monkeypatch, evaluation_metric_counter):
+    _compute, get_compute_calls = evaluation_metric_counter
+    patched_metrics = (
+        Metric(key="seats", version=1, compute=_compute),
+        Metric[dict](
+            key="broken",
+            version=1,
+            compute=MagicMock(side_effect=RuntimeError("transient error")),
+        ),  # type: ignore[arg-type]
+    )
+    monkeypatch.setattr(evaluation_main, "METRICS", patched_metrics)
+    monkeypatch.setattr(
+        evaluation_main,
+        "CURRENT_PAYLOAD_VERSION",
+        hash_payload_version(patched_metrics),
+    )
+    return get_compute_calls
+
+
+def test_get_document_evaluation_uses_cached_row(
+    client, assignments_document_id_total_vap, patch_evaluation_metric
+):
+    get_compute_calls = patch_evaluation_metric
+    document_id = assignments_document_id_total_vap
+
+    first = client.get(f"/api/document/{document_id}/evaluation")
+    assert first.status_code == 200
+    assert first.json()["metrics"] == {"seats": {"dem": 1, "rep": 0}}
+    assert get_compute_calls() == 1
+
+    second = client.get(f"/api/document/{document_id}/evaluation")
+    assert second.status_code == 200
+    assert second.json()["metrics"] == {"seats": {"dem": 1, "rep": 0}}
+    assert get_compute_calls() == 1
+
+
+def test_get_document_evaluation_refreshes_stale_cache(
+    client,
+    assignments_document_id_total_vap,
+    patch_evaluation_metric,
+    session: Session,
+):
+    get_compute_calls = patch_evaluation_metric
+    document_id = assignments_document_id_total_vap
+
+    first = client.get(f"/api/document/{document_id}/evaluation")
+    assert first.status_code == 200
+    assert first.json()["metrics"] == {"seats": {"dem": 1, "rep": 0}}
+    assert get_compute_calls() == 1
+
+    cached = session.exec(
+        select(Evaluation).where(Evaluation.document_id == document_id)
+    ).one()
+    cached.payload_version = evaluation_main.CURRENT_PAYLOAD_VERSION + 1
+    session.commit()
+
+    second = client.get(f"/api/document/{document_id}/evaluation")
+    assert second.status_code == 200
+    assert second.json()["metrics"] == {"seats": {"dem": 2, "rep": 0}}
+    assert get_compute_calls() == 2
+
+    refreshed = session.exec(
+        select(Evaluation).where(Evaluation.document_id == document_id)
+    ).one()
+    assert refreshed.payload_version == evaluation_main.CURRENT_PAYLOAD_VERSION
+    assert refreshed.metrics == {"seats": {"dem": 2, "rep": 0}}
+
+
+def test_get_document_evaluation_recomputes_after_document_update(
+    assignments_document_id_total_vap,
+    patch_evaluation_metric,
+    session: Session,
+):
+    get_compute_calls = patch_evaluation_metric
+    document_id = assignments_document_id_total_vap
+    bt = BackgroundTasks()
+
+    doc = session.exec(
+        select(Document).where(Document.document_id == document_id)
+    ).one()
+
+    # First call: no cached row → computes and stores.
+    result1 = evaluation_main.update_or_select_document_evaluation(bt, session, doc)
+    assert result1["metrics"] == {"seats": {"dem": 1, "rep": 0}}
+    assert result1["failed"] == []
+    assert get_compute_calls() == 1
+
+    # Backdate the evaluation to simulate the document being updated after caching.
+    ev = session.exec(
+        select(Evaluation).where(Evaluation.document_id == document_id)
+    ).one()
+    ev.updated_at = datetime(2020, 1, 1, tzinfo=timezone.utc)
+    session.flush()
+
+    # Second call: evaluation is stale → recomputes and updates the row.
+    result2 = evaluation_main.update_or_select_document_evaluation(bt, session, doc)
+    assert result2["metrics"] == {"seats": {"dem": 2, "rep": 0}}
+    assert result2["failed"] == []
+    assert get_compute_calls() == 2
+
+    # Cache must record a fresh evaluation timestamp so stale-check matches document.
+    # If the existing-row branch only updates metrics/payload_version and omits
+    # updated_at, evaluation.updated_at stays behind document.updated_at and every
+    # subsequent GET recomputes (wasted work + get_compute_calls keeps growing).
+    session.refresh(ev)
+    assert ev.updated_at is not None
+    assert doc.updated_at is not None
+    assert ev.updated_at >= doc.updated_at
+
+    # Third call: evaluation is fresh → uses cache, no recompute.
+    result3 = evaluation_main.update_or_select_document_evaluation(bt, session, doc)
+    assert result3["metrics"] == {"seats": {"dem": 2, "rep": 0}}
+    assert result3["failed"] == []
+    assert get_compute_calls() == 2
+
+
+def test_compute_metrics_returns_empty_payload_for_unassigned_document(monkeypatch):
+    """compute_metrics returns {} when no districts are assigned.
+
+    Covers two real cases: a plan with zero assignments (district_stats is an
+    empty list) and a plan whose district_stats contains only the unassigned
+    row (zone=None). Both collapse to num_nonempty_districts == 0 and should
+    short-circuit to {} rather than returning a dict of empty per-metric dicts.
+    """
+
+    class _EmptyContext:
+        num_nonempty_districts = 0
+
+        def __init__(self, **_):
+            pass
+
+    monkeypatch.setattr(evaluation_main, "DocumentEvaluationContext", _EmptyContext)
+    envelope = evaluation_main.compute_metrics(
+        background_tasks=None, session=None, document_id="stub"
+    )  # type: ignore
+    assert envelope["metrics"] == {}
+    assert envelope["payload_version"] == CURRENT_PAYLOAD_VERSION
+    assert envelope["failed"] == []
+
+
+def test_failed_metric_produces_partial_payload_version(
+    client,
+    assignments_document_id_total_vap,
+    patch_evaluation_metric_with_failure,
+    session: Session,
+):
+    """A transient metric failure stores a partial payload_version so the next
+    request detects staleness and recomputes rather than serving an incomplete
+    cached result.
+    """
+    get_compute_calls = patch_evaluation_metric_with_failure
+    document_id = assignments_document_id_total_vap
+    client.get(f"/api/document/{document_id}/evaluation")
+    assert get_compute_calls() == 1
+
+    ev = session.exec(
+        select(Evaluation).where(Evaluation.document_id == document_id)
+    ).one()
+    assert ev.payload_version != CURRENT_PAYLOAD_VERSION
+    assert "seats" in ev.metrics
+    assert "broken" not in ev.metrics
+
+    # Next request must recompute because the stored version is partial.
+    client.get(f"/api/document/{document_id}/evaluation")
+    assert get_compute_calls() == 2
 
 
 # --- Variable num_districts / metadata backend tests ---

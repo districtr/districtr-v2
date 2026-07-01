@@ -3,6 +3,7 @@ import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {MinusIcon, PlusIcon} from '@radix-ui/react-icons';
 import {useEffect} from 'react';
+import {ACCESS_STATES} from '@constants/document/state';
 const BRUSH_MIN_SIZE = 1;
 const BRUSH_MAX_SIZE = 100;
 /**
@@ -58,7 +59,7 @@ export function BrushSizeSelector() {
     <Flex
       direction="row"
       width={'100%'}
-      style={access === 'read' ? {pointerEvents: 'none', opacity: 0.5} : {}}
+      style={access === ACCESS_STATES.READ ? {pointerEvents: 'none', opacity: 0.5} : {}}
     >
       <Flex direction="column" width="100%" gap="1">
         <Text size="1">Brush Size</Text>
@@ -67,10 +68,10 @@ export function BrushSizeSelector() {
             defaultValue={[brushSize]}
             size="2"
             value={[brushSize]}
-            onValueChange={access === 'read' ? () => {} : handleChangeEnd}
+            onValueChange={access === ACCESS_STATES.READ ? () => {} : handleChangeEnd}
             min={BRUSH_MIN_SIZE}
             max={BRUSH_MAX_SIZE}
-            disabled={access === 'read'}
+            disabled={access === ACCESS_STATES.READ}
           />
           <Text size="1" as="span" color="gray">
             {brushSize}

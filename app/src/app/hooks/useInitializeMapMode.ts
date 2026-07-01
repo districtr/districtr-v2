@@ -1,6 +1,7 @@
 'use client';
 import {useLayoutEffect, useState} from 'react';
-import {MAP_MODE_DEFAULT_OPTIONS, type MapMode} from '@/app/constants/map/mapModeDefaults';
+import {MAP_MODE_DEFAULT_OPTIONS} from '@constants/map/mapModeDefaults';
+import {type MapMode} from '@constants/map/mode';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 
 export const useInitializeMapMode = (mode: MapMode) => {

@@ -26,6 +26,7 @@ from app.comments.models import (
     CommentTag,
     DocumentComment,
 )
+from app.evaluation.models import Evaluation
 
 dotenv.load_dotenv()
 
@@ -55,6 +56,7 @@ tables = [
     DocumentComment,
     DistrictUnions,
     CommunityAssignments,
+    Evaluation,
 ]
 
 target_metadata = [SQLModel.metadata]
@@ -63,6 +65,12 @@ for table in tables:
 
 
 def get_url():
+    # DATABASE_URL is what deployments (ECS) provide; the POSTGRES_* parts are
+    # the local/compose fallback. Mirrors Settings.SQLALCHEMY_DATABASE_URI so
+    # migrations and the app resolve the same database.
+    database_url = os.getenv("DATABASE_URL")
+    if database_url:
+        return database_url
     user = os.getenv("POSTGRES_USER", "postgres")
     password = os.getenv("POSTGRES_PASSWORD", "")
     server = os.getenv("POSTGRES_SERVER", "db")

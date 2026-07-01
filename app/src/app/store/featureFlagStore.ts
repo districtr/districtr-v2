@@ -1,6 +1,7 @@
 import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
 import {DocumentObject} from '@utils/api/apiHandlers/types';
+import {MAP_TYPES} from '@constants/document/types';
 
 interface FeatureFlagStore {
   boundarySettings: boolean;
@@ -30,7 +31,7 @@ export const useFeatureFlagStore = create(
     },
     updateData: (mapDocument: DocumentObject | null) => {
       if (!mapDocument) return;
-      if (mapDocument.map_type === 'local') {
+      if (mapDocument.map_type === MAP_TYPES.LOCAL) {
         set({
           boundarySettings: false,
           paintCounties: false,

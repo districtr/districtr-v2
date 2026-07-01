@@ -1,15 +1,23 @@
 import {useMapStore} from '@/app/store/mapStore';
 import {Flex, Text, Tooltip} from '@radix-ui/themes';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {sanitizeCommunityModuleName} from '@/app/utils/communities';
+import {MAP_MODES} from '@constants/map/mode';
 
 export const MapContextModuleAndUnits = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const parentGeoUnitType = mapDocument?.parent_geo_unit_type;
   const childGeoUnitType = mapDocument?.child_geo_unit_type;
   const dataSourceName = mapDocument?.data_source_name;
+  const mapMode = useMapControlsStore(state => state.mapMode);
+  const sanitizedMapName =
+    mapMode === MAP_MODES.COI
+      ? sanitizeCommunityModuleName(mapDocument?.map_module)
+      : mapDocument?.map_module;
 
   const mapModuleDisplay = (
     <Text size="2" className="text-gray-500">
-      {mapDocument?.map_module || ''}
+      {sanitizedMapName}
     </Text>
   );
   if (!parentGeoUnitType && !childGeoUnitType) {

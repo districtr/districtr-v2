@@ -1,5 +1,6 @@
 import {getLayerFill} from '@constants/map/layerStyle';
 import {PARENT_LAYERS, CHILD_LAYERS, BLOCK_SOURCE_ID} from '@constants/map/layerIds';
+import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
 import {ColorZoneAssignmentsState} from '@utils/map/types';
 import {colorZoneAssignments} from '@utils/map/colorZoneAssignments';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
@@ -8,7 +9,8 @@ import {shallowCompareArray} from '@utils/arrays';
 import {useMapStore as _useMapStore} from '@store/mapStore';
 import {getFeatureUnderCursor} from '@utils/map/getFeatureUnderCursor';
 import {useDemographyStore as _useDemographyStore} from '../../store/demography/demographyStore';
-import {demographyCache} from '../demography/demographyCache';
+import {demographyService} from '../demography/demographyService';
+import {DEFAULT_CHOROPLETH_BIN_COUNT} from '@/app/store/demography/constants';
 import {FocusState, ShatterState} from './types';
 import {
   useMapControlsStore as _useMapControlsStore,
@@ -16,9 +18,13 @@ import {
 } from '@store/mapControlsStore';
 import {useAssignmentsStore as _useAssignmentsStore} from '@store/assignmentsStore';
 import {useCoiAssignmentsStore} from '@store/coiAssignmentsStore';
-import {Zone} from '@constants/types';
+import {Zone} from '@constants/map/zone';
 import {getCommunityFeatureStateKey, getPrimaryCommunityId} from '../communities';
 import GeometryWorker from '../GeometryWorker';
+import {MAP_MODES} from '@constants/map/mode';
+import {APP_LOADING_STATES} from '@constants/document/state';
+import {RENDERING_STATES} from '@constants/map/renderingState';
+import {RENDERER_TYPES, type RendererType} from '@constants/map/rendererType';
 
 /**
  * A class that manages the rendering of the map based on the state of the map store.
@@ -27,7 +33,8 @@ import GeometryWorker from '../GeometryWorker';
  */
 export class MapRenderSubscriber {
   mapRef: maplibregl.Map;
-  mapType: 'demographic' | 'main' = 'main';
+  mapType: RendererType = RENDERER_TYPES.MAIN;
+  readOnly: boolean;
   useMapStore: typeof _useMapStore;
   useDemographyStore: typeof _useDemographyStore;
   subscriptions: ReturnType<typeof _useMapStore.subscribe>[] = [];
@@ -48,14 +55,16 @@ export class MapRenderSubscriber {
 
   constructor(
     mapRef: maplibregl.Map,
-    mapType: 'demographic' | 'main' = 'main',
+    mapType: RendererType = RENDERER_TYPES.MAIN,
     useMapStore: typeof _useMapStore = _useMapStore,
     useDemographyStore: typeof _useDemographyStore = _useDemographyStore,
     useMapControlsStore: typeof _useMapControlsStore = _useMapControlsStore,
-    useAssignmentsStore: typeof _useAssignmentsStore = _useAssignmentsStore
+    useAssignmentsStore: typeof _useAssignmentsStore = _useAssignmentsStore,
+    readOnly = false
   ) {
     this.mapRef = mapRef;
     this.mapType = mapType;
+    this.readOnly = readOnly;
     this.useMapStore = useMapStore;
     this.useDemographyStore = useDemographyStore;
     this.useMapControlsStore = useMapControlsStore;
@@ -69,7 +78,7 @@ export class MapRenderSubscriber {
     const controlsState = this.useMapControlsStore.getState();
     const assignmentsState = this.useAssignmentsStore.getState();
     const coiAssignmentsState = this.useCoiAssignmentsStore.getState();
-    const isCoiMode = controlsState.mapMode === 'coi';
+    const isCoiMode = controlsState.mapMode === MAP_MODES.COI;
     const shatterIds = isCoiMode ? coiAssignmentsState.shatterIds : assignmentsState.shatterIds;
     const communitiesByGeoid = isCoiMode
       ? this.mapCommunitiesByGeoid(coiAssignmentsState.communityAssignments)
@@ -83,7 +92,11 @@ export class MapRenderSubscriber {
     const [, mapRenderingState, highlightBrokenDistricts] = currentState;
     const prevShatterIds = prevState?.[0];
     const {mapDocument, appLoadingState, setMapLock} = mapState;
-    if (mapRenderingState !== 'loaded' || appLoadingState !== 'loaded' || !mapDocument) {
+    if (
+      mapRenderingState !== RENDERING_STATES.LOADED ||
+      appLoadingState !== APP_LOADING_STATES.LOADED ||
+      !mapDocument
+    ) {
       return;
     }
     // Hide broken parents on parent layer
@@ -173,7 +186,7 @@ export class MapRenderSubscriber {
       }
     });
 
-    const isDemographic = this.mapType === 'demographic';
+    const isDemographic = this.mapType === RENDERER_TYPES.DEMOGRAPHIC;
 
     if (isDemographic) return;
     [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
@@ -198,18 +211,18 @@ export class MapRenderSubscriber {
       this.useMapStore.subscribe(store => store.focusFeatures, this.renderFocus.bind(this))
     );
   }
-  renderCursor(activeTool: MapControlsStore['activeTool']) {
+  renderCursor(activeTool: ActiveTool) {
     const {mapOptions, setPaintFunction} = this.useMapControlsStore.getState();
     const defaultPaintFunction = mapOptions.paintByCounty
       ? getFeaturesIntersectingCounties
       : getFeaturesInBbox;
     switch (activeTool) {
-      case 'pan':
-      case 'brush':
-      case 'eraser':
+      case ACTIVE_TOOLS.PAN:
+      case ACTIVE_TOOLS.BRUSH:
+      case ACTIVE_TOOLS.ERASER:
         setPaintFunction(defaultPaintFunction);
         break;
-      case 'shatter':
+      case ACTIVE_TOOLS.SHATTER:
         setPaintFunction(getFeatureUnderCursor);
         break;
       default:
@@ -267,7 +280,7 @@ export class MapRenderSubscriber {
   }
   applyHoverLayerOpacityFinalPass(
     captiveIds: Set<string>,
-    showDemographicMap: MapControlsStore['mapOptions']['showDemographicMap']
+    showDemographicMap: MapControlsStore['mapOptions']['demographicDisplayMode']
   ) {
     // Keep hover-layer opacity aligned with focus/break mode and overlay mode.
     // Color rendering can run independently of focus updates, so we re-assert this here.
@@ -393,9 +406,12 @@ export class MapRenderSubscriber {
     const newPrimaryAssignments = this.toPrimaryAssignments(newAssignmentsByGeoid);
     GeometryWorker?.updateZones(Array.from(newPrimaryAssignments.entries()));
     const coalitionGroups = this.useDemographyStore.getState().coalitionGroups;
-    demographyCache.updatePopulations({coalitionGroups});
+    demographyService.updatePopulations({coalitionGroups});
 
-    if (mapState.mapRenderingState !== 'loaded' || mapState.appLoadingState !== 'loaded') {
+    if (
+      mapState.mapRenderingState !== RENDERING_STATES.LOADED ||
+      mapState.appLoadingState !== APP_LOADING_STATES.LOADED
+    ) {
       this.updatePreviousCommunitySnapshot(newAssignmentsByGeoid, shatterIds);
       return;
     }
@@ -453,14 +469,14 @@ export class MapRenderSubscriber {
 
     this.applyHoverLayerOpacityFinalPass(
       mapState.captiveIds,
-      controlsState.mapOptions.showDemographicMap
+      controlsState.mapOptions.demographicDisplayMode
     );
     this.updatePreviousCommunitySnapshot(newAssignmentsByGeoid, shatterIds);
   }
   renderColorZones() {
     const mapState = this.useMapStore.getState();
     const controlsState = this.useMapControlsStore.getState();
-    if (controlsState.mapMode === 'coi') {
+    if (controlsState.mapMode === MAP_MODES.COI) {
       this.previousColorState = undefined;
       this.renderColorCommunities();
       return;
@@ -490,10 +506,13 @@ export class MapRenderSubscriber {
 
     // Update demography cache
     const coalitionGroups = this.useDemographyStore.getState().coalitionGroups;
-    demographyCache.updatePopulations({zoneAssignments, coalitionGroups});
+    demographyService.updatePopulations({zoneAssignments, coalitionGroups});
 
     // Only render colors if map is fully loaded
-    if (mapState.mapRenderingState !== 'loaded' || mapState.appLoadingState !== 'loaded') {
+    if (
+      mapState.mapRenderingState !== RENDERING_STATES.LOADED ||
+      mapState.appLoadingState !== APP_LOADING_STATES.LOADED
+    ) {
       this.previousColorState = currentState;
       return;
     }
@@ -505,7 +524,7 @@ export class MapRenderSubscriber {
 
     this.applyHoverLayerOpacityFinalPass(
       mapState.captiveIds,
-      controlsState.mapOptions.showDemographicMap
+      controlsState.mapOptions.demographicDisplayMode
     );
   }
   subscribeColorZones() {
@@ -522,7 +541,7 @@ export class MapRenderSubscriber {
           state.mapMode,
           state.mapOptions.lockPaintedAreas,
           state.mapOptions.showZoneNumbers,
-          state.mapOptions.showDemographicMap,
+          state.mapOptions.demographicDisplayMode,
           state.isPainting,
         ],
         () => this.renderColorZones(),
@@ -557,10 +576,11 @@ export class MapRenderSubscriber {
           ).some(geoids => geoids.size > 0);
           // If map just became loaded and we have assignments, ensure rendering
           if (
-            mapRenderingState === 'loaded' &&
-            mapState.appLoadingState === 'loaded' &&
-            ((controlsState.mapMode === 'coi' && hasCommunityAssignments) ||
-              (controlsState.mapMode !== 'coi' && assignmentsState.zoneAssignments.size > 0))
+            mapRenderingState === RENDERING_STATES.LOADED &&
+            mapState.appLoadingState === APP_LOADING_STATES.LOADED &&
+            ((controlsState.mapMode === MAP_MODES.COI && hasCommunityAssignments) ||
+              (controlsState.mapMode !== MAP_MODES.COI &&
+                assignmentsState.zoneAssignments.size > 0))
           ) {
             // Use requestAnimationFrame to ensure map is fully ready
             requestAnimationFrame(() => {
@@ -578,15 +598,16 @@ export class MapRenderSubscriber {
     const demographyState = this.useDemographyStore.getState();
 
     const demographyEnabled =
-      this.mapType === 'demographic' || controlsState.mapOptions.showDemographicMap === 'overlay';
+      this.mapType === RENDERER_TYPES.DEMOGRAPHIC ||
+      controlsState.mapOptions.demographicDisplayMode === 'overlay';
     if (!demographyEnabled || !mapState.mapDocument) return;
 
-    const mapScale = demographyCache.calculateDemographyColorScale({
+    const mapScale = demographyService.calculateDemographyColorScale({
       variable: demographyState.variable,
       variant: demographyState.variant,
       mapRef: this.mapRef,
       mapDocument: mapState.mapDocument,
-      numberOfBins: demographyState.numberOfBins || 5,
+      numberOfBins: demographyState.numberOfBins || DEFAULT_CHOROPLETH_BIN_COUNT,
       paintMap: true,
       coalitionGroups: demographyState.coalitionGroups,
     });
@@ -604,7 +625,7 @@ export class MapRenderSubscriber {
     );
     this.controlSubscriptions.push(
       this.useMapControlsStore.subscribe(
-        state => state.mapOptions.showDemographicMap,
+        state => state.mapOptions.demographicDisplayMode,
         () => this.renderDemographyColors()
       )
     );
@@ -656,6 +677,7 @@ export class MapRenderSubscriber {
     );
   }
   checkRender() {
+    if (this.readOnly) return;
     const mapRef = this.mapRef;
     const mapState = this.useMapStore.getState();
     const {isPainting, mapMode} = this.useMapControlsStore.getState();
@@ -664,15 +686,15 @@ export class MapRenderSubscriber {
     if (!featureStateCache) return;
 
     if (
-      mapState.mapRenderingState !== 'loaded' ||
-      mapState.appLoadingState !== 'loaded' ||
+      mapState.mapRenderingState !== RENDERING_STATES.LOADED ||
+      mapState.appLoadingState !== APP_LOADING_STATES.LOADED ||
       !mapState.mapDocument
     ) {
       return;
     }
     const mapDocument = mapState.mapDocument;
 
-    if (mapMode === 'coi') {
+    if (mapMode === MAP_MODES.COI) {
       const {communityAssignments, clientLastUpdated, shatterIds} =
         this.useCoiAssignmentsStore.getState();
       if (!clientLastUpdated.length) {
@@ -719,6 +741,8 @@ export class MapRenderSubscriber {
     }
 
     if (zoneAssignments.size === 0) return;
+    const source = mapRef.getSource(BLOCK_SOURCE_ID) as {type?: string} | undefined;
+    if (source?.type !== 'vector') return;
 
     const assignmentsToCheck = Array.from(zoneAssignments.entries())
       .filter(([, zone]) => zone !== null)
@@ -745,21 +769,25 @@ export class MapRenderSubscriber {
     const mapState = this.useMapStore.getState();
     const controlsState = this.useMapControlsStore.getState();
 
-    this.renderShatter();
-    this.renderCursor(controlsState.activeTool);
+    if (!this.readOnly) {
+      this.renderShatter();
+      this.renderCursor(controlsState.activeTool);
+    }
     this.renderFocus(mapState.focusFeatures);
-    if (this.mapType === 'main') {
+    if (!this.readOnly && this.mapType === RENDERER_TYPES.MAIN) {
       this.renderColorZones();
     }
     this.renderDemographyColors();
   }
   subscribe() {
-    this.subscribeShatter();
+    if (!this.readOnly) {
+      this.subscribeShatter();
+      this.subscribeCursor();
+    }
     this.subscribeBasemap();
-    this.subscribeCursor();
     this.subscribeFocus();
     this.subscribeDemographyColors();
-    if (this.mapType === 'main') {
+    if (!this.readOnly && this.mapType === RENDERER_TYPES.MAIN) {
       this.subscribeColorZones();
     }
     this.render();

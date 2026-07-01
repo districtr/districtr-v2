@@ -24,7 +24,7 @@ export const CoiBlockLayers: React.FC<{
   outlineFilter: FilterSpecification;
   sourceLayerId: string;
 }> = ({scope, layerFilter, outlineFilter, sourceLayerId}) => {
-  const showDemographicMap = useMapControlsStore(state => state.mapOptions.showDemographicMap);
+  const showDemographicMap = useMapControlsStore(state => state.mapOptions.demographicDisplayMode);
   const selectedCommunity = useMapControlsStore(state => state.selectedZone);
   const communities = useMapStore(state => state.communities);
   const communityVisibility = useCoiAssignmentsStore(state => state.communityVisibility);

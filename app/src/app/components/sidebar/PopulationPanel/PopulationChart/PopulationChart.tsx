@@ -10,6 +10,8 @@ import {PopulationLabels} from './PopulationLabels';
 import {SummaryRecord} from '@/app/utils/api/summaryStats';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
+import {MAP_MODES} from '@constants/map/mode';
+import {NUMBER_FORMATS} from '@constants/demography/format';
 
 export const PopulationChart: React.FC<{
   width: number;
@@ -32,7 +34,7 @@ export const PopulationChart: React.FC<{
   const colorScheme = useColorScheme();
   const getZoneColor = useZoneColorGetter();
   const mapMode = useMapControlsStore(state => state.mapMode);
-  const isCommunityMode = mapMode === 'coi';
+  const isCommunityMode = mapMode === MAP_MODES.COI;
 
   const {
     popBarScaleToCurrent: scaleToCurrent,
@@ -240,16 +242,43 @@ export const PopulationChart: React.FC<{
     >
       <Group left={margins.left} top={margins.top} onMouseLeave={() => setHoveredIndex(null)}>
         {!!effectiveIdealPopulation && (
-          <Group left={xScale(effectiveIdealPopulation) + 5} top={-5}>
-            <text textAnchor="start" fontSize="14px">
-              Ideal{' '}
-              {isHovered ? (
-                <tspan color="gray">{formatNumber(effectiveIdealPopulation, 'string')}</tspan>
-              ) : (
-                ''
-              )}
-            </text>
-          </Group>
+          <>
+            <Line
+              from={{x: xScale(effectiveIdealPopulation), y: margins.top * -1}}
+              to={{
+                x: xScale(effectiveIdealPopulation),
+                y: yMax,
+              }}
+              stroke="black"
+              strokeWidth="1"
+              strokeDasharray="3 3"
+            />
+            <Group left={xScale(effectiveIdealPopulation) + 5} top={-5}>
+              <text textAnchor="start" fontSize="14px">
+                Ideal{' '}
+                {isHovered ? (
+                  <tspan color="gray">
+                    {formatNumber(effectiveIdealPopulation, NUMBER_FORMATS.STRING)}
+                  </tspan>
+                ) : (
+                  ''
+                )}
+              </text>
+            </Group>
+            {!!effectiveTargetDeviation && (
+              <Bar
+                x={xScale(Math.max(0, effectiveIdealPopulation - effectiveTargetDeviation))}
+                width={
+                  xScale(Math.max(0, effectiveIdealPopulation + effectiveTargetDeviation)) -
+                  xScale(Math.max(0, effectiveIdealPopulation - effectiveTargetDeviation))
+                }
+                y={-margins.top}
+                height={yMax + margins.top}
+                fill="gray"
+                fillOpacity={0.15}
+              />
+            )}
+          </>
         )}
         {renderIdealReference(-margins.top, yMax)}
         {renderBars()}
@@ -262,7 +291,7 @@ export const PopulationChart: React.FC<{
           tickLabelProps={{
             fontSize: '14px',
           }}
-          tickFormat={v => formatNumber(v as number, 'compact')}
+          tickFormat={v => formatNumber(v as number, NUMBER_FORMATS.COMPACT)}
         />
       </Group>
     </svg>

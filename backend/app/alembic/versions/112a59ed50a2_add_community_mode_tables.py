@@ -86,21 +86,15 @@ def upgrade() -> None:
         sa.Column("map_type", maptype_enum, nullable=True, server_default="default"),
         schema="document",
     )
+    # Backfill map_type for existing documents from their parent DistrictrMap.
+    # The community_* branches that existed previously here were dead: num_communities,
+    # community_metadata_list, and community_assignments are all introduced by this
+    # same migration, so none of them can be set on existing rows at this point.
     op.execute(
         sa.text(
             """
             UPDATE document.document AS d
-            SET map_type = CASE
-                WHEN d.community_metadata_list IS NOT NULL
-                    OR d.num_communities IS NOT NULL
-                    OR EXISTS (
-                        SELECT 1
-                        FROM document.community_assignments AS ca
-                        WHERE ca.document_id = d.document_id
-                    )
-                THEN 'community'::maptype
-                ELSE COALESCE(dm.map_type, 'default'::maptype)
-            END
+            SET map_type = COALESCE(dm.map_type, 'default'::maptype)
             FROM public.districtrmap AS dm
             WHERE dm.districtr_map_slug = d.districtr_map_slug
             """
@@ -146,4 +140,10 @@ def downgrade() -> None:
     # Drop community columns
     op.drop_column("document", "community_metadata_list", schema="document")
     op.drop_column("document", "num_communities", schema="document")
-    # Note: PostgreSQL does not support removing values from enums.
+    # ⚠️ ONE-WAY MIGRATION WARNING ⚠️
+    # PostgreSQL does not support DROP VALUE on an enum type, so the 'community' value
+    # added to `maptype` in upgrade() will remain after this downgrade. Running upgrade()
+    # again is safe (IF NOT EXISTS), but strict equivalence with the pre-upgrade schema
+    # cannot be restored without renaming + recreating the enum and rewriting every
+    # column that references it. If you need a fully clean rollback, coordinate the enum
+    # recreation as a separate dedicated migration.

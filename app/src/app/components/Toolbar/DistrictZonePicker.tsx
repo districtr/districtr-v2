@@ -8,9 +8,10 @@ import {
   FALLBACK_NUM_DISTRICTS,
   MAX_NUM_DISTRICTS,
   MIN_NUM_DISTRICTS,
-} from '@/app/constants/map/mapDefaults';
+} from '@/app/constants/document/limits';
 import {MinusIcon, PlusIcon, Pencil1Icon} from '@radix-ui/react-icons';
 import {useState} from 'react';
+import {ACCESS_STATES} from '@constants/document/state';
 
 export const DistrictsZonePicker: React.FC = () => {
   const [showNumDistrictEditor, setShowNumDistrictEditor] = useState(false);
@@ -48,7 +49,7 @@ export const DistrictsZonePicker: React.FC = () => {
     }
   };
 
-  const isReadOnly = access === 'read';
+  const isReadOnly = access === ACCESS_STATES.READ;
   const canEditNumDistricts = numDistrictsModifiable && !isReadOnly;
 
   return (

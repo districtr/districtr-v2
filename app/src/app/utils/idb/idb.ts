@@ -1,10 +1,10 @@
 import {Assignment, DocumentMetadata, DocumentObject} from '../api/apiHandlers/types';
 import Dexie, {Table} from 'dexie';
-import {NullableZone} from '@/app/constants/types';
+import {type NullableZone} from '@constants/map/zone';
 import {formatAssignmentsFromState} from '../map/formatAssignments';
 import {formatCoiAssignmentsFromState} from '../map/formatCoiAssignments';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
-import {CoalitionGroupKey} from '../demography/coalition';
+import {type CoalitionGroupKey} from '@constants/demography/coalition';
 import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 // --- Main Document Entry ---
 export interface StoredDocument {
@@ -40,7 +40,11 @@ export class DocumentsDB extends Dexie {
     if (typeof window !== 'undefined') {
       window.addEventListener('beforeunload', e => {
         if (this.pendingUpdate) {
-          // Block unload until save completes
+          // Block unload until save completes, and try to flush synchronously. We
+          // can't await here, but kicking the flush before the prompt at least
+          // enqueues the IDB transaction so the browser has a chance to persist it
+          // when the user confirms staying on the page.
+          this.flushPendingUpdate();
           e.preventDefault();
           e.returnValue = '';
         }
@@ -71,6 +75,20 @@ export class DocumentsDB extends Dexie {
       .then(documents => documents.map(document => document.document_metadata));
   }
 
+  /**
+   * Find the editable document_id (UUID) of a locally-stored map by its public_id,
+   * or null if the user has no local copy. Lets read-only/public views offer "Edit"
+   * for maps the user owns locally.
+   */
+  async getEditableIdByPublicId(publicId: number): Promise<string | null> {
+    // TODO: This scans every stored document and is on a hot path. If users
+    // accumulate many maps, add a Dexie index on document_metadata.public_id and
+    // query by it instead of toArray().find().
+    const docs = await this.documents.toArray();
+    const match = docs.find(d => d.document_metadata?.public_id === publicId);
+    return match?.id ?? null;
+  }
+
   // Debounce state for batching rapid updates
   // Both the Zone and COI assignment updates can use the data format stores both a Zone/COI
   // id and a geoid.
@@ -95,7 +113,7 @@ export class DocumentsDB extends Dexie {
    * @param clientLastUpdated - Timestamp of the last update for conflict resolution
    * @param immediate - If true, saves immediately without debouncing
    */
-  private queueAssignmentsUpdate = (
+  private queueAssignmentsUpdate = async (
     mapDocument: DocumentObject,
     assignments: Assignment[],
     clientLastUpdated: string,
@@ -104,13 +122,20 @@ export class DocumentsDB extends Dexie {
     const document_id = mapDocument?.document_id;
     if (!document_id) return;
 
+    // If an unrelated document is already queued (e.g., user switched docs or
+    // switched between district and COI mode), flush it first so the earlier
+    // assignments aren't dropped.
+    if (this.pendingUpdate && this.pendingUpdate.mapDocument?.document_id !== document_id) {
+      await this.flushPendingUpdate();
+    }
+
     if (this.pendingUpdate?.timeoutId) {
       clearTimeout(this.pendingUpdate.timeoutId);
     }
     this.pendingUpdate = null;
 
     if (immediate) {
-      this.updateDocument({
+      await this.updateDocument({
         id: document_id,
         document_metadata: mapDocument,
         assignments,
@@ -225,9 +250,13 @@ export class DocumentsDB extends Dexie {
   };
 
   updateIdbMetadata = async (document_id: string, metadata: Partial<DocumentMetadata>) => {
+    // Flush any pending debounced assignment write first. Otherwise the pending
+    // write carries the pre-edit document_metadata and clobbers this change 500ms
+    // later.
+    await this.flushPendingUpdate();
     const currDocument = await this.getDocument(document_id);
     if (!currDocument) return;
-    this.updateDocument({
+    await this.updateDocument({
       id: document_id,
       document_metadata: {
         ...currDocument.document_metadata,
@@ -246,11 +275,12 @@ export class DocumentsDB extends Dexie {
     colorScheme: string[],
     clientLastUpdated?: string
   ) => {
+    await this.flushPendingUpdate();
     const currDocument = await this.getDocument(document_id);
     if (!currDocument) return;
     // Update clientLastUpdated to reflect local changes
     const newClientLastUpdated = clientLastUpdated || new Date().toISOString();
-    this.updateDocument({
+    await this.updateDocument({
       ...currDocument,
       document_metadata: {
         ...currDocument.document_metadata,
@@ -261,9 +291,10 @@ export class DocumentsDB extends Dexie {
   };
 
   updatePassword = async (document_id: string, password: string) => {
+    await this.flushPendingUpdate();
     const currDocument = await this.getDocument(document_id);
     if (!currDocument) return;
-    this.updateDocument({
+    await this.updateDocument({
       ...currDocument,
       password: password,
     });
@@ -303,6 +334,9 @@ export class DocumentsDB extends Dexie {
     document_metadata: DocumentObject,
     clientLastUpdated: string = new Date().toISOString()
   ) => {
+    // Flush any pending debounced assignment write first so the pending write
+    // doesn't re-overlay the pre-edit document_metadata on top of this change.
+    await this.flushPendingUpdate();
     const document_id = document_metadata.document_id;
     const curr = await this.getDocument(document_id);
     if (!curr) return;

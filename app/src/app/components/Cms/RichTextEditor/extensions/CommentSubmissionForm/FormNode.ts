@@ -2,6 +2,7 @@ import {Node, mergeAttributes} from '@tiptap/core';
 import {ReactNodeViewRenderer} from '@tiptap/react';
 import FormNodeView from './FormNodeView';
 import {getJsonHtmlRenderer, getStandardHtmlParser} from '../extensionUtils';
+import {RICH_TEXT_NODE_TYPES, FORM_ATTRIBUTES, NODE_TYPE_ATTR_NAME} from '@constants/cms';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -21,43 +22,31 @@ export const FormNode = Node.create({
   defining: true,
   isolating: true,
   addAttributes() {
-    const attrs: {
-      name: string;
-      default?: any;
-      parseHTML?: (element: Element) => any;
-      renderHTML?: (attributes: Record<string, any>) => Record<string, any>;
-    }[] = [
-      {
-        name: 'mandatoryTags',
-        default: [],
-      },
-      {
-        name: 'allowListModules',
-        default: [],
-      },
-    ];
-    return attrs.reduce(
-      (acc, attr) => {
-        acc[attr.name] = {
+    return Object.fromEntries(
+      FORM_ATTRIBUTES.map(attr => [
+        attr.name,
+        {
           default: attr.default ?? null,
-          parseHTML: attr.parseHTML ?? getStandardHtmlParser(attr.name),
-          renderHTML: attr.renderHTML ?? getJsonHtmlRenderer(attr.name),
-        };
-        return acc;
-      },
-      {} as Record<string, any>
+          parseHTML: getStandardHtmlParser(attr.name),
+          renderHTML: getJsonHtmlRenderer(attr.name),
+        },
+      ])
     );
   },
   parseHTML() {
     return [
       {
-        tag: 'div[data-type="form-node"]',
+        tag: `div[${NODE_TYPE_ATTR_NAME}="${RICH_TEXT_NODE_TYPES.FORM}"]`,
       },
     ];
   },
 
   renderHTML({HTMLAttributes}) {
-    return ['div', mergeAttributes(HTMLAttributes, {'data-type': 'form-node'}), 0];
+    return [
+      'div',
+      mergeAttributes(HTMLAttributes, {[NODE_TYPE_ATTR_NAME]: RICH_TEXT_NODE_TYPES.FORM}),
+      0,
+    ];
   },
 
   addCommands() {

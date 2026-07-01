@@ -3,33 +3,27 @@ import {Flex, IconButton} from '@radix-ui/themes';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import React, {useState} from 'react';
-import {ActiveTool} from '@constants/types';
+import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useActiveTools} from '@/app/components/Toolbar/ToolUtils';
 
 export const ToolButtons: React.FC<{
   showShortcuts: boolean;
   toolbarItemsRef: React.RefObject<HTMLDivElement>;
-  isMobile?: boolean;
-}> = ({showShortcuts, isMobile, toolbarItemsRef}) => {
+}> = ({showShortcuts, toolbarItemsRef}) => {
   const activeTool = useMapControlsStore(state => state.activeTool);
   const setActiveTool = useMapControlsStore(state => state.setActiveTool);
-  const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
   const [activeTooltip, setActiveTooltip] = useState<ActiveTool | null>(null);
-  const {rotation: userRotation, customizeToolbar, toolbarSize} = useToolbarStore(state => state);
+  const toolbarSize = useToolbarStore(state => state.toolbarSize);
   const activeTools = useActiveTools();
-  const rotation =
-    customizeToolbar && !isMobile && toolbarLocation === 'map' ? userRotation : 'horizontal';
-  const isSidebar = toolbarLocation === 'sidebar';
   return (
     <Flex
-      justify={toolbarLocation === 'map' ? 'center' : 'start'}
-      align={toolbarLocation === 'map' ? 'center' : 'start'}
+      justify="start"
+      align="start"
       ref={toolbarItemsRef}
-      direction={rotation === 'horizontal' ? 'row' : 'column'}
-      className={`${toolbarLocation === 'map' ? 'shadow-md overflow-hidden bg-white rounded-lg' : ''}`}
+      direction="row"
       width="100%"
-      wrap={isSidebar ? 'wrap' : 'nowrap'}
+      wrap="wrap"
       data-testid="toolbar"
     >
       {activeTools.map((tool, i) => {
@@ -40,27 +34,22 @@ export const ToolButtons: React.FC<{
               <Tooltip.Trigger
                 asChild
                 style={{
-                  flexGrow: isMobile || isSidebar ? 1 : undefined,
+                  flexGrow: 1,
                 }}
               >
                 <IconButton
                   key={`${tool.mode}-flex`}
                   data-testid={`${tool.mode}-tool`}
-                  className={`cursor-pointer ${i === 0 ? (rotation === 'horizontal' ? 'rounded-l-lg' : 'rounded-t-lg') : ''} ${
-                    i === activeTools.length - 1
-                      ? rotation === 'horizontal'
-                        ? 'rounded-r-lg'
-                        : 'rounded-b-lg'
-                      : ''
-                  } ${toolbarLocation === 'map' ? '' : 'flex-grow'}
-                  `}
+                  className={`cursor-pointer ${i === 0 ? 'rounded-l-lg' : ''} ${
+                    i === activeTools.length - 1 ? 'rounded-r-lg' : ''
+                  } flex-grow`}
                   onMouseEnter={() => setActiveTooltip(tool.mode)}
                   onMouseLeave={() => setActiveTooltip(null)}
                   onClick={() => {
                     if (tool.onClick) {
                       tool.onClick();
                     } else {
-                      setActiveTool(activeTool === tool.mode ? 'pan' : tool.mode);
+                      setActiveTool(activeTool === tool.mode ? ACTIVE_TOOLS.PAN : tool.mode);
                     }
                   }}
                   style={{
@@ -78,7 +67,7 @@ export const ToolButtons: React.FC<{
               </Tooltip.Trigger>
               <Tooltip.Portal>
                 <Tooltip.Content
-                  side={rotation === 'horizontal' ? 'top' : 'right'}
+                  side="top"
                   className="select-none rounded bg-gray-900 px-2 py-1 text-xs text-center text-white"
                   sideOffset={5}
                 >
@@ -88,16 +77,12 @@ export const ToolButtons: React.FC<{
                       <br />
                     </>
                   )}{' '}
-                  {rotation === 'horizontal' ? (
-                    tool.hotKeyLabel.split(' + ').map((key, i) => (
-                      <span key={i} className="text-xs">
-                        {key}
-                        <br />
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-xs">{tool.hotKeyLabel}</span>
-                  )}
+                  {tool.hotKeyLabel.split(' + ').map((key, i) => (
+                    <span key={i} className="text-xs">
+                      {key}
+                      <br />
+                    </span>
+                  ))}
                   <Tooltip.Arrow className="fill-gray-900" />
                 </Tooltip.Content>
               </Tooltip.Portal>

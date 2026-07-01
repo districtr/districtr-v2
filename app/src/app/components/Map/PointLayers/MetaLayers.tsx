@@ -10,7 +10,7 @@ import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
-import {demographyCache} from '@/app/utils/demography/demographyCache';
+import {demographyService} from '@/app/utils/demography/demographyService';
 import GeometryWorker from '@/app/utils/GeometryWorker';
 import React, {useLayoutEffect, useMemo, useState} from 'react';
 import {useEffect} from 'react';
@@ -148,7 +148,7 @@ const ZoneNumbersLayer = () => {
       currentView.getEast(),
       currentView.getNorth(),
     ] as [number, number, number, number];
-    const activeZones = demographyCache.populations
+    const activeZones = demographyService.populations
       .filter(p => p.total_pop_20 > 0)
       .map(p => p.zone);
     const mapState = useMapStore.getState();
@@ -197,7 +197,14 @@ const ZoneNumbersLayer = () => {
   useEffect(() => {
     const map = getMapRef();
     if (map && !map.hasImage('lock')) {
-      map.loadImage('/lock.png').then(image => map.addImage('lock', image.data));
+      map.loadImage('/lock.png').then(image => {
+        // Re-check before adding: loadImage is async, so another run of this effect
+        // (or another layer) may have added 'lock' before this resolves, which would
+        // otherwise throw "An image named 'lock' already exists".
+        if (image?.data && !map.hasImage('lock')) {
+          map.addImage('lock', image.data);
+        }
+      });
       map.on('moveend', handleUpdate);
       map.on('zoomend', handleUpdate);
       map.on('resize', handleUpdate);
@@ -276,9 +283,9 @@ const ZoneNumbersLayer = () => {
       ></Layer>
       {/* Simple circle indicator for zones with comments */}
       <Layer
-        id="ZONE_COMMENT_INDICATOR"
+        id={ZONE_LABEL_LAYER_IDS.COMMENT_INDICATOR}
         type="circle"
-        source="zone-label"
+        source={ZONE_LABEL_SOURCE_ID}
         paint={{
           'circle-radius': [
             'interpolate',

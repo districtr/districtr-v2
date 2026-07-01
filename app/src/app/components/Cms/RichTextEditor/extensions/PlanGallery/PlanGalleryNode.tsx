@@ -1,7 +1,9 @@
 import {Node, mergeAttributes} from '@tiptap/core';
 import {ReactNodeViewRenderer} from '@tiptap/react';
 import PlanGalleryNodeView from './PlanGalleryNodeView';
+import type {PlanGalleryProps} from './PlanGallery';
 import {getJsonHtmlRenderer, getStandardHtmlParser} from '../extensionUtils';
+import {RICH_TEXT_NODE_TYPES, PLAN_GALLERY_ATTRIBUTES, NODE_TYPE_ATTR_NAME} from '@constants/cms';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -21,85 +23,32 @@ export const PlanGalleryNode = Node.create({
   defining: true,
   isolating: true,
   addAttributes() {
-    const attrs: {
-      name: string;
-      default?: any;
-      parseHTML?: (element: Element) => any;
-      renderHTML?: (attributes: Record<string, any>) => Record<string, any>;
-    }[] = [
-      {
-        name: 'ids',
-      },
-      {
-        name: 'tags',
-      },
-      {
-        name: 'title',
-      },
-      {
-        name: 'description',
-      },
-      {
-        name: 'paginate',
-        default: true,
-      },
-      {
-        name: 'showListView',
-        default: true,
-      },
-      {
-        name: 'showThumbnails',
-        default: true,
-      },
-      {
-        name: 'showTitles',
-        default: true,
-      },
-      {
-        name: 'showDescriptions',
-        default: true,
-      },
-      {
-        name: 'showUpdatedAt',
-        default: true,
-      },
-      {
-        name: 'showTags',
-        default: true,
-      },
-      {
-        name: 'showModule',
-        default: true,
-      },
-      {
-        name: 'limit',
-        default: 12,
-      },
-    ];
-
-    return attrs.reduce(
-      (acc, attr) => {
-        acc[attr.name] = {
+    return Object.fromEntries(
+      PLAN_GALLERY_ATTRIBUTES.map(attr => [
+        attr.name,
+        {
           default: attr.default ?? null,
-          parseHTML: attr.parseHTML ?? getStandardHtmlParser(attr.name),
-          renderHTML: attr.renderHTML ?? getJsonHtmlRenderer(attr.name),
-        };
-        return acc;
-      },
-      {} as Record<string, any>
-    );
+          parseHTML: getStandardHtmlParser(attr.name),
+          renderHTML: getJsonHtmlRenderer(attr.name),
+        },
+      ])
+    ) as Record<keyof PlanGalleryProps, any>;
   },
 
   parseHTML() {
     return [
       {
-        tag: 'div[data-type="plan-gallery-node"]',
+        tag: `div[${NODE_TYPE_ATTR_NAME}="${RICH_TEXT_NODE_TYPES.PLAN_GALLERY}"]`,
       },
     ];
   },
 
   renderHTML({HTMLAttributes}) {
-    return ['div', mergeAttributes(HTMLAttributes, {'data-type': 'plan-gallery-node'}), 0];
+    return [
+      'div',
+      mergeAttributes(HTMLAttributes, {[NODE_TYPE_ATTR_NAME]: RICH_TEXT_NODE_TYPES.PLAN_GALLERY}),
+      0,
+    ];
   },
 
   addCommands() {

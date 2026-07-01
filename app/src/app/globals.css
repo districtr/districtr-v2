@@ -75,3 +75,46 @@ body {
     url(/break.png) 12 12,
     pointer;
 }
+
+@media print {
+  @page {
+    margin: 2cm;
+  }
+  /* Stack map on top, eval panel below */
+  .eval-page-root {
+    flex-direction: column !important;
+    height: auto !important;
+    overflow: visible !important;
+    width: 100% !important;
+  }
+
+  /* Map sits on top — tall enough to show the full state */
+  .eval-map-wrapper {
+    order: 1;
+    height: 800px !important;
+    width: 100% !important;
+    flex: none !important;
+  }
+
+  /* Hide the tab bar (Map / Districts / Demographics…) */
+  .eval-topbar-wrapper {
+    display: none !important;
+  }
+
+  /* Hide map UI controls */
+  .eval-map-wrapper .maplibregl-control-container {
+    display: none !important;
+  }
+
+  /* Eval panel flows below, full width, fully expanded */
+  .eval-panel {
+    order: 2;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    border-left: none !important;
+    /* Preserve background colors (e.g. partisan table cell shading) */
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}

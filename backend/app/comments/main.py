@@ -465,7 +465,7 @@ async def create_commenter(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         )
 
-    background_tasks.add_task(moderate_commenter, commenter, session)
+    background_tasks.add_task(moderate_commenter, commenter)
     return commenter
 
 
@@ -489,7 +489,7 @@ async def create_comment(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         )
 
-    background_tasks.add_task(moderate_comment, comment, session)
+    background_tasks.add_task(moderate_comment, comment)
     return comment
 
 
@@ -511,7 +511,7 @@ async def create_tag(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         )
 
-    background_tasks.add_task(moderate_tag, tag, session)
+    background_tasks.add_task(moderate_tag, tag)
     return tag
 
 
@@ -537,7 +537,7 @@ async def submit_full_comment(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         )
 
-    background_tasks.add_task(moderate_submission, response, session)
+    background_tasks.add_task(moderate_submission, response)
     return response
 
 
@@ -751,22 +751,16 @@ def get_comments_base_query(
 def moderate_comments_query(
     stmt: Select,
     moderation_threshold: float = MODERATION_THRESHOLD,
-    exclude_rejected: bool = True,
 ) -> Select:
     """
-    Moderate the comments query.
+    Apply moderation gates to a public comment list query:
+      - Comment: must pass (approved, unscored, or under threshold) AND not REJECTED
+      - Commenter: if present, must pass (same rules) AND not REJECTED
+      - Tags: excluded if ANY attached tag is REJECTED or scored offensive
     """
 
-    # -----------------------------
-    # Moderation gates
-    # - Comment: must pass
-    # - Commenter: if present, must pass
-    # - Tags: comment excluded if ANY attached tag fails
-    # -----------------------------
-    # Helper booleans (so the logic reads clearly)
     def passes_entity(score_col, status_col):
-        # Approved always passes
-        # Else must be under threshold or NULL (None)
+        # Approved always passes. Else must be under threshold or NULL (None).
         return or_(
             status_col == ReviewStatus.APPROVED,
             score_col.is_(None),
@@ -774,34 +768,30 @@ def moderate_comments_query(
         )
 
     # Comment moderation
-    comment_ok = passes_entity(Comment.moderation_score, Comment.review_status)
-    if exclude_rejected:
-        comment_ok = and_(
-            col(Comment.review_status) != ReviewStatus.REJECTED, comment_ok
-        )
+    comment_ok = and_(
+        col(Comment.review_status) != ReviewStatus.REJECTED,
+        passes_entity(Comment.moderation_score, Comment.review_status),
+    )
     stmt = stmt.where(comment_ok)
 
     # Commenter moderation (if commenter exists)
-    commenter_ok = passes_entity(Commenter.moderation_score, Commenter.review_status)
-    if exclude_rejected:
-        commenter_ok = and_(
-            col(Commenter.review_status) != ReviewStatus.REJECTED, commenter_ok
-        )
+    commenter_ok = and_(
+        col(Commenter.review_status) != ReviewStatus.REJECTED,
+        passes_entity(Commenter.moderation_score, Commenter.review_status),
+    )
     stmt = stmt.where(or_(col(Commenter.id).is_(None), commenter_ok))
 
     # Tag moderation: exclude the entire comment if ANY attached tag fails.
-    # We phrase this as NOT EXISTS(bad_tag)
-    bad_tag_conds = []
-    if exclude_rejected:
-        bad_tag_conds.append(Tag.review_status == ReviewStatus.REJECTED)
-    # Fails threshold unless explicitly approved
-    bad_tag_conds.append(
+    # We phrase this as NOT EXISTS(bad_tag). score_text semantics: 0=clean, 1=offensive,
+    # so "bad" means score at or above threshold.
+    bad_tag_conds = [
+        Tag.review_status == ReviewStatus.REJECTED,
         and_(
             col(Tag.review_status) != ReviewStatus.APPROVED,
             col(Tag.moderation_score).is_not(None),
-            col(Tag.moderation_score) <= moderation_threshold,
-        )
-    )
+            col(Tag.moderation_score) >= moderation_threshold,
+        ),
+    ]
 
     bad_tag_exists = (
         select(literal(1))
@@ -1018,7 +1008,7 @@ async def list_comments_admin(
     offset: int = Query(default=0),
     limit: int = Query(default=100),
     session: Session = Depends(get_session),
-    auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
+    auth_result: dict = Security(auth.verify, scopes=[TokenScope.review_content]),
     review_status: ReviewStatus = Query(default=None),
 ):
     params = CommentFilterParams(
@@ -1064,7 +1054,7 @@ async def list_district_comments_admin(
     offset: int = Query(default=0),
     limit: int = Query(default=100),
     session: Session = Depends(get_session),
-    auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
+    auth_result: dict = Security(auth.verify, scopes=[TokenScope.review_content]),
     review_status: ReviewStatus = Query(default=None),
 ):
     """List district-level comments for moderation. Filter by document_id, public_id, or comment_id."""
@@ -1097,6 +1087,11 @@ async def flag_comment(
     comment = session.get(Comment, body.comment_id)
     if not comment:
         raise HTTPException(status_code=404, detail="Comment not found")
+    # Only allow flagging comments that are publicly listable (not already REJECTED).
+    # Flagging a rejected comment gives moderators no signal (it's already hidden) and
+    # is a way to harass the moderation queue.
+    if comment.review_status == ReviewStatus.REJECTED:
+        raise HTTPException(status_code=404, detail="Comment not found")
     comment.review_flagged = True
     session.add(comment)
     session.commit()
@@ -1120,6 +1115,10 @@ async def review_comment(
         raise HTTPException(status_code=404, detail="Entry not found")
 
     entry.review_status = review_data.review_status
+    # Clearing the flag on review resolves the item from the moderator queue.
+    # Comment is the only entity that carries review_flagged today.
+    if hasattr(entry, "review_flagged"):
+        entry.review_flagged = False
     session.add(entry)
     session.commit()
     session.refresh(entry)

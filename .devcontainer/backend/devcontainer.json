@@ -5,15 +5,11 @@
   "runServices": ["backend", "db"],
   "workspaceFolder": "/districtr-backend",
   "shutdownAction": "stopCompose",
-  "forwardPorts": [8000, 5432],
+  "forwardPorts": [8000],
   "portsAttributes": {
     "8000": {
       "label": "Backend API",
       "onAutoForward": "notify"
-    },
-    "5432": {
-      "label": "PostgreSQL",
-      "onAutoForward": "silent"
     }
   },
   "postCreateCommand": "pip install -r requirements.txt",

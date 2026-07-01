@@ -2,7 +2,7 @@ import type {MapLayerEventType} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type {MutableRefObject} from 'react';
 import React, {useRef, useMemo} from 'react';
-import {MAP_OPTIONS, getMapStyleForBasemap} from '@constants/configuration';
+import {MAP_OPTIONS, getMapStyleForBasemap} from '@constants/map/viewDefaults';
 import {mapContainerEvents, mapEventHandlers} from '@utils/events/mapEvents';
 import {INTERACTIVE_LAYERS} from '@constants/map/layerIds';
 import GlMap, {type MapRef} from 'react-map-gl/maplibre';
@@ -11,6 +11,7 @@ import {useMapControlsStore} from '@store/mapControlsStore';
 import {useLayoutEffect} from 'react';
 import {MAPTILER_API_KEY} from '@/app/utils/api/constants';
 import {GeocodeSearchBar} from './GeocodeSearchBar';
+import {BASEMAP_IDS} from '@constants/map/layerStyle';
 
 /**
  * Shared rendering shell for both main and demographic map variants.
@@ -40,13 +41,13 @@ export const MapContainer: React.FC<{
   const mapBounds = useMapControlsStore(state => state.mapOptions.bounds);
   const document_id = useMapStore(state => state.mapDocument?.document_id);
   const activeTool = useMapControlsStore(state => state.activeTool);
-  const basemap = useMapControlsStore(state => state.mapOptions.basemap ?? 'minimal');
+  const basemap = useMapControlsStore(state => state.mapOptions.basemap ?? BASEMAP_IDS.MINIMAL);
 
   const mapStyle = useMemo(() => {
     const style = getMapStyleForBasemap(basemap);
     return style;
   }, [basemap]);
-  const showGeocode = basemap === 'streets' || basemap === 'satellite';
+  const showGeocode = basemap === BASEMAP_IDS.STREETS || basemap === BASEMAP_IDS.SATELLITE;
 
   useLayoutEffect(() => {
     if (!mapContainer.current) return;

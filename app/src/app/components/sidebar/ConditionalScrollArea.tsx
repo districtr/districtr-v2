@@ -8,11 +8,7 @@ export const ConditionalScrollArea: React.FC<{
 }> = ({children, shouldUseScrollableRows, maxHeight}) => {
   if (shouldUseScrollableRows) {
     return (
-      <ScrollArea
-        scrollbars="vertical"
-        className="flex-grow-1"
-        style={{maxHeight}}
-      >
+      <ScrollArea scrollbars="vertical" className="flex-grow-1" style={{maxHeight}}>
         {children}
       </ScrollArea>
     );

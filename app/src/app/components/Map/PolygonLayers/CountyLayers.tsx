@@ -4,11 +4,21 @@ import {GEODATA_URL} from '@/app/utils/api/constants';
 import {FilterSpecification} from 'maplibre-gl';
 import {useMemo} from 'react';
 import {Layer, Source} from 'react-map-gl/maplibre';
-import {SENTINEL_EMPTY_ARRAY} from '@/app/constants/map/layerStyle';
-import {CANONICAL_LAYER_IDS, COUNTY_SOURCE_ID} from '@/app/constants/map/layerIds';
+import {
+  SENTINEL_EMPTY_ARRAY,
+  SENTINEL_EMPTY_VALUE,
+  HIGHLIGHT_LINE_COLOR,
+  HIGHLIGHT_LINE_WIDTH,
+} from '@/app/constants/map/layerStyle';
+import {
+  CANONICAL_LAYER_IDS,
+  COUNTY_SOURCE_ID,
+  MAP_LAYER_ANCHOR_IDS,
+} from '@/app/constants/map/layerIds';
 
 export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
   const mapOptions = useMapControlsStore(state => state.mapOptions);
+  const hoveredCountyGeoid = useMapControlsStore(state => state.hoveredCountyGeoid);
 
   const countyFilter = useMemo(() => {
     // If stateFipsSet is set and not empty, match any of its values
@@ -38,19 +48,9 @@ export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
           type="line"
           source-layer="tl_2023_us_county"
           paint={{
-            'line-color': '#333',
-            'line-opacity': 0.8,
-            'line-width': [
-              'interpolate',
-              ['exponential', 1.6],
-              ['zoom'],
-              6,
-              0.625,
-              9,
-              1.625,
-              18,
-              2.25,
-            ],
+            'line-color': '#444',
+            'line-opacity': 0.9,
+            'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 6, 1.5, 9, 3, 18, 5],
           }}
           layout={{
             visibility: mapOptions.showCountyBoundaries ? 'visible' : 'none',
@@ -67,6 +67,21 @@ export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
             'fill-opacity': 0,
           }}
           filter={countyFilter}
+        />
+        <Layer
+          id={CANONICAL_LAYER_IDS.COUNTIES.HIGHLIGHT}
+          beforeId={MAP_LAYER_ANCHOR_IDS.hover}
+          type="line"
+          source-layer="tl_2023_us_county"
+          paint={{
+            'line-color': HIGHLIGHT_LINE_COLOR,
+            'line-width': HIGHLIGHT_LINE_WIDTH,
+          }}
+          filter={
+            hoveredCountyGeoid
+              ? ['==', ['get', 'GEOID'], hoveredCountyGeoid]
+              : ['==', ['get', 'GEOID'], SENTINEL_EMPTY_VALUE]
+          }
         />
         <Layer
           id={CANONICAL_LAYER_IDS.COUNTIES.LABELS}

@@ -1,6 +1,7 @@
 import {useIdbDocument} from '@/app/hooks/useIdbDocument';
 import {useMapStore} from '@/app/store/mapStore';
 import {useSaveShareStore} from '@/app/store/saveShareStore';
+import {ACCESS_STATES} from '@constants/document/state';
 import {EyeClosedIcon, EyeOpenIcon, Pencil1Icon} from '@radix-ui/react-icons';
 import {Button, Flex, Heading, Select, Text, TextField} from '@radix-ui/themes';
 import {useState} from 'react';
@@ -48,7 +49,7 @@ export const ShareMapSection: React.FC<{isEditing: boolean}> = ({isEditing}) => 
           </Select.Item>
         </Select.Content>
       </Select.Root>
-      {sharingMode === 'edit' && (
+      {sharingMode === ACCESS_STATES.EDIT && (
         <Flex direction="column" gap="2">
           <Text>Password</Text>
           <Flex direction="row" gap="2">

@@ -1,5 +1,8 @@
-import {NullableZone} from '@/app/constants/types';
-import {SummaryStatConfig} from '../summaryStats';
+import {type NullableZone} from '@constants/map/zone';
+import {type MapType} from '@constants/document/types';
+import type {DraftStatus} from '@constants/document/draftStatus';
+import {type AccessState} from '@constants/document/state';
+import {type GeoUnit} from '@constants/document/geoUnits';
 
 export interface Assignment {
   document_id: string;
@@ -21,7 +24,7 @@ export interface AssignmentsCreate {
   document_id: string;
   last_updated_at: string;
   overwrite: boolean;
-  map_type?: 'default' | 'community';
+  map_type?: MapType;
   metadata?: {
     color_scheme?: string[] | null;
     num_districts?: number | null;
@@ -48,17 +51,15 @@ export interface DistrictrMap {
   child_layer: string | null;
   tiles_s3_path: string | null;
   num_districts: number | null;
-  map_type: 'default' | 'local' | 'community';
+  map_type: MapType;
 }
 
 export interface StatusObject {
-  access: 'read' | 'edit';
+  access: AccessState;
   genesis: 'shared' | 'copied' | 'created';
   token?: string | null;
   password?: string | null;
 }
-
-export type DraftStatus = 'scratch' | 'in_progress' | 'ready_to_share';
 
 export interface DocumentMetadata {
   name: string | null;
@@ -82,6 +83,8 @@ export interface Community {
 export interface DocumentObject extends StatusObject {
   document_id: string;
   public_id: number | null;
+  /** True when the map has an edit password; lets read-only viewers unlock draw mode. */
+  password_required?: boolean;
   districtr_map_slug: string;
   gerrydb_table: string;
   parent_layer: string;
@@ -94,20 +97,19 @@ export interface DocumentObject extends StatusObject {
   community_metadata_list?: Community[] | null;
   /** If false, users cannot change the number of districts on the frontend. */
   num_districts_modifiable?: boolean;
-  map_module: string | null;
+  map_module: string;
   created_at: string;
   updated_at: string;
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
   map_metadata: DocumentMetadata;
   color_scheme: string[] | null;
-  // TODO: local should be something more description like 'small-town' or 'locality' or ???
-  map_type: 'default' | 'local' | 'community';
+  map_type: MapType;
   comment: string | null;
-  parent_geo_unit_type: string | null;
-  child_geo_unit_type: string | null;
-  data_source_name: string | null;
+  parent_geo_unit_type: GeoUnit;
+  child_geo_unit_type: GeoUnit | null;
+  data_source_name: string;
   overlays: Overlay[] | null;
-  statefps: string[] | null;
+  statefps: string[];
   document_comments?: DocumentComment[] | null;
   community_name_length_limit?: number;
   comment_length_limit: number;
@@ -133,14 +135,9 @@ export interface MinPublicDocument {
 
 export interface DocumentCreate {
   districtr_map_slug: string;
-  map_type?: 'default' | 'local' | 'community';
+  map_type?: MapType;
   metadata?: DocumentMetadata;
   copy_from_doc?: string | number;
-}
-
-export interface ZonePopulation {
-  zone: number;
-  total_pop_20: number;
 }
 
 export type ShatterResult = Array<{
@@ -164,10 +161,6 @@ export type LocalAssignmentsResponse = {
   documentId: string;
   assignments: Assignment[];
 };
-
-export type GetAssignmentsResponse = Promise<
-  RemoteAssignmentsResponse | LocalAssignmentsResponse | null
->;
 
 export type MapGroup = {
   name: string;
@@ -220,18 +213,6 @@ export interface FullCommentFormResponse {
   comment: CommentPublic;
   commenter: CommenterPublic;
   tags: TagPublic[];
-}
-
-export interface CommentListing {
-  comment: {
-    comment: string;
-    commenter_id: number;
-    document_id: string;
-    created_at: Date;
-    title: string;
-    updated_at: Date;
-  };
-  tags?: string[];
 }
 
 export interface Overlay {

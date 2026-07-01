@@ -1,32 +1,12 @@
 import {useState} from 'react';
 import {Box, Popover, Button, Flex, Text, IconButton, Inset, Grid} from '@radix-ui/themes';
-import {useMapStore} from '@/app/store/mapStore';
-import {useIdbDocument} from '@/app/hooks/useIdbDocument';
 import {CheckIcon, ExclamationTriangleIcon} from '@radix-ui/react-icons';
-import {useAssignmentsStore} from '@/app/store/assignmentsStore';
-import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
-import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {CloudSavedIcon, CloudNotSavedIcon} from './Icons';
 
 export const SavePopover = () => {
   const [hovered, setHovered] = useState(false);
-  const mapDocument = useMapStore(state => state.mapDocument);
-  const documentFromIdb = useIdbDocument(mapDocument?.document_id);
-  const districtSave = useAssignmentsStore(state => state.handlePutAssignments);
-  const districtClientLastUpdated = useAssignmentsStore(state => state.clientLastUpdated);
-  const coiSave = useCoiAssignmentsStore(state => state.handlePutAssignments);
-  const coiClientLastUpdated = useCoiAssignmentsStore(state => state.clientLastUpdated);
-  const mapMode = useMapControlsStore(state => state.mapMode);
-  const isCommunity = mapDocument?.map_type === 'community' || mapMode === 'coi';
-  const activeClientLastUpdated = isCommunity ? coiClientLastUpdated : districtClientLastUpdated;
-  const assignmentsOutdated =
-    (mapDocument?.updated_at != null &&
-      activeClientLastUpdated !== '' &&
-      activeClientLastUpdated !== mapDocument.updated_at) ||
-    documentFromIdb?.clientLastUpdated !== documentFromIdb?.document_metadata.updated_at;
-  const updated = useMapStore(state => Object.values(state.updated).some(Boolean));
-  const isOutdated = updated || assignmentsOutdated;
-  const handlePutAssignments = isCommunity ? coiSave : districtSave;
+  const {isOutdated, save: handlePutAssignments, lastSyncedAt} = useMapSaveStatus();
   return (
     <Popover.Root open={hovered}>
       <Popover.Trigger>
@@ -54,8 +34,7 @@ export const SavePopover = () => {
           <Flex direction="column" align="start" justify="center" gapX="3">
             <Box>
               <Text size="1" className="italic">
-                Last synced:{' '}
-                {new Date(documentFromIdb?.document_metadata.updated_at ?? '').toLocaleString()}
+                Last synced: {new Date(lastSyncedAt ?? '').toLocaleString()}
               </Text>
               <br />
               {isOutdated ? (

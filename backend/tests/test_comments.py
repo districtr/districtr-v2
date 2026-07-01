@@ -957,6 +957,16 @@ class TestCommentListEndpoints:
         handle_full_submission_approve(client, response.json())
         assert response.status_code == 201
 
+        # Moderation runs in a background task on its own DB session, which cannot
+        # write to this test's uncommitted rows; set the profane score on the shared
+        # session directly (score_text is mocked above regardless).
+        profane_comment = session.exec(
+            select(Comment).where(Comment.title == "Profane Comment")
+        ).one()
+        profane_comment.moderation_score = 1.0
+        session.add(profane_comment)
+        session.commit()
+
         # Get the list of comments - should only return the clean one
         response = client.get("/api/comments/list")
         assert response.status_code == 200
@@ -1113,6 +1123,20 @@ class TestCommentListEndpoints:
         }
         response = client.post("/api/comments/submit", json=high_form_data)
         assert response.status_code == 201
+
+        # Moderation runs in a background task on its own DB session, which cannot
+        # write to this test's uncommitted rows; set the scores on the shared session
+        # directly so the threshold filter has data to act on.
+        moderate_comment_row = session.exec(
+            select(Comment).where(Comment.title == "Moderate Comment")
+        ).one()
+        moderate_comment_row.moderation_score = 0.3
+        high_comment_row = session.exec(
+            select(Comment).where(Comment.title == "High Score Comment")
+        ).one()
+        high_comment_row.moderation_score = 0.8
+        session.add_all([moderate_comment_row, high_comment_row])
+        session.commit()
 
         # Test with default threshold (should exclude high score)
         response = client.get("/api/comments/admin/list")

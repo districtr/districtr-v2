@@ -102,40 +102,57 @@ def update_moderation_score(
         )
     except Exception as e:
         session.rollback()
-        logger.error(f"Failed to save commenter moderation score: {e}")
+        logger.error(
+            f"Failed to save moderation score for {type(cls).__name__} id={key}: {e}"
+        )
+        # Re-raise so background-task runners surface the failure instead of leaving
+        # moderation_score silently NULL.
+        raise
 
 
-def moderate_comment(comment: Comment, session: Session):
+def _moderate(cls: Table, key: int, text: str, session: Session | None) -> None:
+    """Score ``text`` and persist the result for ``cls``/``key``.
+
+    When ``session`` is None (the background-task case) a dedicated session is
+    opened and closed here. Background tasks must not reuse the request-scoped
+    session: it is already closed by the time they run, so any connection they then
+    check out would never be returned to the pool (a leak).
+    """
+    if session is not None:
+        moderate_text(cls=cls, key=key, text=text, session=session)
+    else:
+        with Session(engine) as owned_session:
+            moderate_text(cls=cls, key=key, text=text, session=owned_session)
+
+
+def moderate_comment(comment: Comment, session: Session | None = None) -> None:
     comment_text = f"{comment.title} {comment.comment}"
-    moderate_text(cls=Comment, key=comment.id, text=comment_text, session=session)
+    _moderate(Comment, comment.id, comment_text, session)
 
 
-def moderate_comment_by_id(comment_id: int, comment_text: str):
+def moderate_comment_by_id(comment_id: int, comment_text: str) -> None:
     """
     Moderate a comment by ID. Use when the Comment object may be detached
     (e.g. in background tasks after request session is closed).
     """
-    with Session(engine) as session:
-        moderate_text(cls=Comment, key=comment_id, text=comment_text, session=session)
+    _moderate(Comment, comment_id, comment_text, None)
 
 
-def moderate_commenter(commenter: Commenter, session: Session):
-    commenter_data = str(commenter)
-    moderate_text(cls=Commenter, key=commenter.id, text=commenter_data, session=session)
+def moderate_commenter(commenter: Commenter, session: Session | None = None) -> None:
+    _moderate(Commenter, commenter.id, str(commenter), session)
 
 
-def moderate_tag(tag: Tag, session: Session):
-    tag_data = str(tag)
-    moderate_text(cls=Tag, key=tag.id, text=tag_data, session=session)
+def moderate_tag(tag: Tag, session: Session | None = None) -> None:
+    _moderate(Tag, tag.id, str(tag), session)
 
 
 def moderate_submission(
     response: FullCommentForm,
-    session: Session,
+    session: Session | None = None,
 ) -> None:
     """
     Background task to check moderation scores for a complete comment submission.
-    Returns a dictionary with moderation scores for all components.
+    Each entity is scored on its own session when none is supplied.
     """
     moderate_comment(response.comment, session)
     moderate_commenter(response.commenter, session)

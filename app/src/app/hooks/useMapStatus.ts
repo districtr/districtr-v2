@@ -1,10 +1,11 @@
 import {useMemo} from 'react';
 import {useMapStore} from '../store/mapStore';
-import {STATUS_TOOLTIPS} from '../constants/notifications';
+import {STATUS_TOOLTIPS} from '../constants/document/statusMessages';
 import {useMapMetadata} from './useMapMetadata';
 import {BadgeProps} from '@radix-ui/themes';
 import {useSearchParams} from 'next/navigation';
 import {EyeOpenIcon, LockClosedIcon, LockOpen1Icon, Pencil2Icon} from '@radix-ui/react-icons';
+import {ACCESS_STATES} from '@constants/document/state';
 
 export const useMapStatus = () => {
   const document_id = useMapStore(state => state.mapDocument?.document_id);
@@ -20,7 +21,7 @@ export const useMapStatus = () => {
     if (pwRequired) {
       return [LockOpen1Icon, STATUS_TOOLTIPS.lockedWithPW, 'cyan'];
     }
-    if (access === 'read') {
+    if (access === ACCESS_STATES.READ) {
       return [EyeOpenIcon, STATUS_TOOLTIPS.viewOnly, 'blue'];
     }
     return [Pencil2Icon, STATUS_TOOLTIPS.editing, 'green'];

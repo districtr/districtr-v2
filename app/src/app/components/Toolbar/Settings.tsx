@@ -1,6 +1,6 @@
 import React from 'react';
 import {Heading, CheckboxGroup, Flex, Button, Text, Box, Select} from '@radix-ui/themes';
-import {type BasemapId} from '@/app/constants/map/layerStyle';
+import {type BasemapId, BASEMAP_IDS} from '@/app/constants/map/layerStyle';
 import {useFeatureFlagStore} from '@store/featureFlagStore';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
@@ -8,6 +8,8 @@ import {useToolbarStore} from '@/app/store/toolbarStore';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 import {ColorChangeModal} from './ColorChangeModal';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
+import {ACCESS_STATES} from '@constants/document/state';
+import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 
 const TOOLBAR_SIZES: Array<{label: string; value: number}> = [
   {
@@ -42,8 +44,6 @@ export const ToolSettings: React.FC = () => {
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const setToolbarSize = useToolbarStore(state => state.setToolbarSize);
   const toolbarSize = useToolbarStore(state => state.toolbarSize);
-  const customizeToolbar = useToolbarStore(state => state.customizeToolbar);
-  const setCustomizeToolbar = useToolbarStore(state => state.setCustomizeToolbar);
   const boundarySettings = useFeatureFlagStore(state => state.boundarySettings);
   const access = useMapStore(state => state.mapStatus?.access);
 
@@ -67,7 +67,9 @@ export const ToolSettings: React.FC = () => {
             (mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS)
               ? 'lockAll'
               : '',
-            mapOptions.showDemographicMap === 'side-by-side' ? 'showDemographicMap' : '',
+            mapOptions.demographicDisplayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE
+              ? 'showDemographicMap'
+              : '',
             mapOptions.showCountyBoundaries === true ? 'showCountyBoundaries' : '',
             mapOptions.showZoneNumbers === true ? 'showZoneNumbers' : '',
             parentsAreBroken && mapOptions.highlightBrokenDistricts === true
@@ -84,14 +86,14 @@ export const ToolSettings: React.FC = () => {
               Basemap:
             </Text>
             <Select.Root
-              value={mapOptions.basemap ?? 'minimal'}
+              value={mapOptions.basemap ?? BASEMAP_IDS.MINIMAL}
               onValueChange={(value: BasemapId) => setMapOptions({basemap: value})}
             >
               <Select.Trigger />
               <Select.Content>
-                <Select.Item value="minimal">Minimal</Select.Item>
-                <Select.Item value="streets">Streets</Select.Item>
-                <Select.Item value="satellite">Satellite</Select.Item>
+                <Select.Item value={BASEMAP_IDS.MINIMAL}>Minimal</Select.Item>
+                <Select.Item value={BASEMAP_IDS.STREETS}>Streets</Select.Item>
+                <Select.Item value={BASEMAP_IDS.SATELLITE}>Satellite</Select.Item>
               </Select.Content>
             </Select.Root>
           </Flex>
@@ -102,7 +104,7 @@ export const ToolSettings: React.FC = () => {
                 showPopulationTooltip: !mapOptions.showPopulationTooltip,
               })
             }
-            disabled={access === 'read'}
+            disabled={access === ACCESS_STATES.READ}
           >
             Show population tooltip
           </CheckboxGroup.Item>
@@ -175,7 +177,7 @@ export const ToolSettings: React.FC = () => {
             variant="outline"
             size="1"
             mt="2"
-            disabled={access === 'read'}
+            disabled={access === ACCESS_STATES.READ}
           >
             Customize district colors
           </Button>
@@ -219,22 +221,9 @@ export const ToolSettings: React.FC = () => {
           </>
         )}
 
-        <CheckboxGroup.Root
-          defaultValue={[]}
-          name="toolbar"
-          value={[customizeToolbar ? 'customizeToolbar' : '']}
-        >
-          <Heading as="h3" weight="bold" size="3">
-            Toolbar Options
-          </Heading>
-          <CheckboxGroup.Item
-            value="customizeToolbar"
-            onClick={() => setCustomizeToolbar(!customizeToolbar)}
-            disabled={access === 'read'}
-          >
-            Enable draggable toolbar
-          </CheckboxGroup.Item>
-        </CheckboxGroup.Root>
+        <Heading as="h3" weight="bold" size="3">
+          Toolbar Options
+        </Heading>
         <Box>
           <Text size="2" className="p-0">
             Toolbar size:

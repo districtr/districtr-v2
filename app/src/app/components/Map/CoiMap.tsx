@@ -3,7 +3,7 @@ import maplibregl, {FilterSpecification} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {Protocol} from 'pmtiles';
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
-import {MAP_OPTIONS} from '@constants/configuration';
+import {MAP_OPTIONS} from '@constants/map/viewDefaults';
 import {handleWheelOrPinch} from '@utils/events/mapEvents';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
@@ -21,6 +21,7 @@ import {CoiBlockLayers} from './PolygonLayers/CoiBlockLayers';
 import {MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';
 import {useAnchorLayersReady} from '@/app/hooks/useAnchorLayersReady';
+import {RENDERER_TYPES} from '@constants/map/rendererType';
 
 /**
  * COI (Community of Interest) map component. Mirrors MainMap layout and layers;
@@ -32,7 +33,7 @@ export const CoiMap: React.FC = () => {
   const childLayerFilter = useLayerFilter(true);
   const setMapRef = useMapStore(state => state.setMapRef);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
-  const {mapRef, onLoad} = useMapRenderer('main');
+  const {mapRef, onLoad} = useMapRenderer(RENDERER_TYPES.MAIN);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
   const areAnchorLayersReady = useAnchorLayersReady(mapRef, isMapLoaded, mapOptions.basemap);
 
@@ -55,6 +56,7 @@ export const CoiMap: React.FC = () => {
     if (!mapRef.current || !mapOptions.bounds) return;
     mapRef.current.fitBounds(mapOptions.bounds, {
       padding: 20,
+      animate: false,
     });
   }, [mapRef, mapOptions.bounds]);
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import {Dialog, Button, Flex, Text, Box, Spinner, Grid} from '@radix-ui/themes';
 import {Cross2Icon} from '@radix-ui/react-icons';
-import {SyncConflictResolution} from '@/app/constants/types';
+import {SyncConflictResolution} from '@constants/document/sync';
 import {SyncConflictInfo} from '@/app/utils/api/apiHandlers/fetchDocument';
 import {CloudIcon, LocalIcon, ForkIcon} from './SyncConflictModalIcons';
 
@@ -22,7 +22,17 @@ export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
   const serverDate = new Date(conflict.serverLastUpdated).toLocaleString();
 
   return (
-    <Dialog.Root open={open}>
+    <Dialog.Root
+      open={open}
+      onOpenChange={isOpen => {
+        // Allow ESC / backdrop to resolve as "keep local" (same as the "I'll
+        // deal with this later" action). Without onOpenChange the dialog is
+        // undismissable — WAI-ARIA violation and a frozen-feeling UX.
+        if (!isOpen) {
+          onResolve(SyncConflictResolution.KeepLocal);
+        }
+      }}
+    >
       <Dialog.Content>
         <Flex align="center" className="mb-4">
           <Dialog.Title className="m-0 text-xl font-bold flex-1">

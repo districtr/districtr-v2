@@ -19,7 +19,10 @@ from app.save_share.models import (
 from app.comments.models import DocumentComment, Comment
 from app.comments.moderation import MODERATION_THRESHOLD
 from app.comments.models import ReviewStatus
-from app.comments.settings import DEFAULT_MAX_COMMENTS_PER_DISTRICT
+from app.comments.settings import (
+    DEFAULT_MAX_COMMENT_LENGTH,
+    DEFAULT_MAX_COMMENTS_PER_DISTRICT,
+)
 from sqlalchemy.sql.functions import coalesce
 from sqlalchemy import or_, and_
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound
@@ -145,9 +148,9 @@ def get_document_public(
         col(DistrictrMap.uuid).label("districtr_map_uuid"),
         col(DistrictrMap.statefps).label("statefps"),
         literal(MAX_COMMUNITY_NAME_LENGTH).label("community_name_length_limit"),
-        coalesce(col(DistrictrMap.comment_length_limit), 240).label(
-            "comment_length_limit"
-        ),
+        coalesce(
+            col(DistrictrMap.comment_length_limit), DEFAULT_MAX_COMMENT_LENGTH
+        ).label("comment_length_limit"),
         coalesce(
             col(DistrictrMap.comment_count_limit), DEFAULT_MAX_COMMENTS_PER_DISTRICT
         ).label("comment_count_limit"),
@@ -168,6 +171,15 @@ def get_document_public(
         stmt = stmt.where(Document.document_id == document_id.value)
 
     result = session.exec(stmt).one()
+
+    # Surface whether this map is password-protected so read-only viewers can be
+    # offered an "unlock to edit" affordance. The hash itself is never exposed.
+    password_hash = session.exec(
+        select(MapDocumentToken.password_hash).where(
+            MapDocumentToken.document_id == result.real_document_id
+        )
+    ).first()
+    password_required = password_hash is not None
 
     # Fetch overlays via junction table if map has any
     overlays_list = None
@@ -268,6 +280,7 @@ def get_document_public(
         extent=result.extent,
         map_metadata=result.map_metadata,
         access=result.access,
+        password_required=password_required,
         color_scheme=result.color_scheme,
         map_type=result.map_type,
         document_type=getattr(result, "document_type", DocumentType.DISTRICT),

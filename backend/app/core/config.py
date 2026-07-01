@@ -58,16 +58,22 @@ class Settings(BaseSettings):
         list[AnyUrl] | str, BeforeValidator(parse_cors)
     ] = []
 
+    # Regex of additional allowed CORS origins. Used so ephemeral preview
+    # frontends (e.g. https://districtr-v2-123-frontend-dev.fly.dev) can call a
+    # shared backend without re-listing every origin. See .github/PREVIEW_DEPLOYS.md.
+    BACKEND_CORS_ORIGIN_REGEX: str | None = None
+
     PROJECT_NAME: str
 
-    # Postgres
-
-    POSTGRES_SCHEME: str
-    POSTGRES_SERVER: str
+    # Postgres. DATABASE_URL is what deployments provide; the POSTGRES_*
+    # parts are an alternative for local/dev setups and default empty so a
+    # DATABASE_URL-only environment (e.g. ECS) validates.
+    POSTGRES_SCHEME: str = "postgresql+psycopg"
+    POSTGRES_SERVER: str = ""
     POSTGRES_PORT: int = 5432
-    POSTGRES_USER: str
-    POSTGRES_PASSWORD: str
-    POSTGRES_DB: str
+    POSTGRES_USER: str = ""
+    POSTGRES_PASSWORD: str = ""
+    POSTGRES_DB: str = ""
     DATABASE_URL: str
 
     # reCAPTCHA
@@ -125,8 +131,8 @@ class Settings(BaseSettings):
     VOLUME_PATH: str = "/data"
     SQL_DIR: Path = Path(__file__).parent.parent / "sql"
 
-    # R2
-
+    # TODO: R2_BUCKET_NAME is a misnomer — storage has migrated to S3. Rename to
+    # S3_BUCKET_NAME and update all references and env var documentation.
     R2_BUCKET_NAME: str | None = None
     CDN_URL: str | None = None
     ACCOUNT_ID: str | None = None
@@ -134,9 +140,15 @@ class Settings(BaseSettings):
     AWS_S3_ENDPOINT: str | None = None
     AWS_ACCESS_KEY_ID: str | None = None
     AWS_SECRET_ACCESS_KEY: str | None = None
+    # When true and no static keys are set, use the default boto3 credential
+    # chain (ECS task role / instance profile). Callers treat a None client as
+    # "S3 not configured", so this must stay opt-in for local dev.
+    AWS_USE_DEFAULT_CREDENTIALS: bool = False
 
     def get_s3_client(self):
         if not self.AWS_ACCESS_KEY_ID or not self.AWS_SECRET_ACCESS_KEY:
+            if self.AWS_USE_DEFAULT_CREDENTIALS:
+                return boto3.client("s3")
             return None
 
         kwargs = {}

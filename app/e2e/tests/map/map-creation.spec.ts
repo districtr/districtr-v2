@@ -47,9 +47,8 @@ test.describe('Map Creation', () => {
     await waitForHydration(page);
     await createButtons.first().click();
 
-    // wait 5 seconds
-    await page.waitForTimeout(5000);
-    // Verify URL format
+    // Wait for the route to actually change instead of a blanket 5s sleep.
+    await page.waitForURL(/\/map\/edit\/[a-zA-Z0-9-]+/, {timeout: 15_000});
     expect(page.url()).toMatch(/\/map\/edit\/[a-zA-Z0-9-]+/);
   });
 });

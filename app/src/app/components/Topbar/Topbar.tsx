@@ -1,26 +1,14 @@
 'use client';
-import {
-  Text,
-  DropdownMenu,
-  Flex,
-  Heading,
-  IconButton,
-  Link,
-  Box,
-  Tooltip,
-  Tabs,
-} from '@radix-ui/themes';
+import {Text, DropdownMenu, Flex, Heading, IconButton, Link, Tooltip, Tabs} from '@radix-ui/themes';
 import React, {useRef} from 'react';
+import {useRouter} from 'next/navigation';
 import {useMapStore} from '@store/mapStore';
-import {RecentMapsModal} from '@components/Toolbar/RecentMapsModal';
 import {ArrowLeftIcon, HamburgerMenuIcon} from '@radix-ui/react-icons';
-import {DistrictrMap, DocumentMetadata} from '@utils/api/apiHandlers/types';
+import {DocumentMetadata} from '@utils/api/apiHandlers/types';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
 import {PasswordPromptModal} from '../Toolbar/PasswordPromptModal';
 import {UploaderModal} from '../Toolbar/UploaderModal';
 import {MapHeader} from './MapHeader';
-import {useRouter} from 'next/navigation';
-import {createMapDocument} from '@/app/utils/api/apiHandlers/createMapDocument';
 import {SavePopover} from './SavePopover';
 import {SharePopoverAndModal} from './SharePopoverAndModal';
 import {SettingsPopoverAndModal} from './SettingsPopoverAndModal';
@@ -28,19 +16,42 @@ import {saveMapDocumentMetadata} from '@/app/utils/api/apiHandlers/saveMapDocume
 import {idb} from '@/app/utils/idb/idb';
 import {RevertPopover} from './RevertPopover';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
+import {ACCESS_STATES} from '@constants/document/state';
+import {ModeSwitcher} from './ModeSwitcher';
 
 export const Topbar: React.FC = () => {
-  const handleReset = useMapStore(state => state.handleReset);
-  const [modalOpen, setModalOpen] = React.useState<'upload' | 'recents' | null>(null);
-  const mapDocument = useMapStore(state => state.mapDocument);
-  const isEditing = mapDocument?.document_id && mapDocument?.document_id !== 'anonymous';
-  const access = useMapStore(state => state.mapStatus?.access);
-  const mapViews = useMapStore(state => state.mapViews);
-  const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const router = useRouter();
+  const handleReset = useMapStore(state => state.handleReset);
+  const [modalOpen, setModalOpen] = React.useState<'upload' | null>(null);
+  const mapDocument = useMapStore(state => state.mapDocument);
+  const access = useMapStore(state => state.mapStatus?.access);
+  // Read from mapControlsStore (set by the route/page) instead of inferring from
+  // document_id. Public view documents have real UUIDs but should never expose
+  // Save/Revert/etc. affordances.
+  const isEditing = useMapControlsStore(state => state.isEditing);
+  const isEval = useMapControlsStore(state => state.isEval);
+  const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const updateMetadata = useMapStore(state => state.updateMetadata);
-  const mapMode = useMapControlsStore(state => state.mapMode);
-  const data = mapViews?.data || [];
+
+  // Export works for view-only users too: the backend resolves a public_id the same
+  // as a document UUID, so fall back to the public_id when the loaded doc is the
+  // anonymous read-only copy.
+  const exportId =
+    mapDocument?.document_id && mapDocument.document_id !== ANONYMOUS_DOCUMENT_ID
+      ? mapDocument.document_id
+      : mapDocument?.public_id;
+
+  const downloadExport = (exportType: string) => {
+    if (!exportId) return;
+    // Trigger via a transient anchor — a DropdownMenu.Item swallows a child anchor's
+    // click. The download filename comes from the backend's Content-Disposition.
+    const a = document.createElement('a');
+    a.href = `${process.env.NEXT_PUBLIC_API_URL}/api/document/${exportId}/export?export_type=${exportType}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
 
   const handleMetadataChange = async (updates: Partial<DocumentMetadata>) => {
     if (!mapDocument?.document_id) return;
@@ -59,27 +70,6 @@ export const Topbar: React.FC = () => {
     }
   };
 
-  const handleSelectMap = (
-    selectedMap: DistrictrMap,
-    mapType: 'districts' | 'coi' = 'districts'
-  ) => {
-    createMapDocument({
-      districtr_map_slug: selectedMap.districtr_map_slug,
-      map_type: mapType === 'coi' ? 'community' : 'default',
-    }).then(r => {
-      if (r.ok) {
-        const rootPath = mapType === 'districts' ? 'map' : 'coi';
-        router.push(`/${rootPath}/edit/${r.response.document_id}`);
-      } else {
-        setErrorNotification({
-          severity: 2,
-          id: 'map-failed-to-create',
-          message: r.error.detail,
-        });
-      }
-    });
-  };
-
   return (
     <>
       <Flex direction="column" className="h-auto">
@@ -90,135 +80,121 @@ export const Topbar: React.FC = () => {
           align={'center'}
           justify={'between'}
         >
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger className="ml-2">
-              <IconButton variant="ghost">
-                <HamburgerMenuIcon className="mr-2" />
-                <Heading size="3">Districtr</Heading>
-                {!mapDocument?.document_id && (
-                  <>
-                    <ArrowLeftIcon fontSize={12} color="green" className="ml-2" />
-                    <Text size="1" className="italic" color="green">
-                      start here!
-                    </Text>
-                  </>
-                )}
-              </IconButton>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content>
-              <DropdownMenu.Item>
-                <Link href="/" color="gray">
+          <Flex align="center" gap="3">
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger className="ml-2">
+                <IconButton variant="ghost">
+                  <HamburgerMenuIcon className="mr-2" />
+                  <Heading size="3">Districtr</Heading>
+                  {!mapDocument?.document_id && !isEval && (
+                    <>
+                      <ArrowLeftIcon fontSize={12} color="green" className="ml-2" />
+                      <Text size="1" className="italic" color="green">
+                        start here!
+                      </Text>
+                    </>
+                  )}
+                </IconButton>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Content>
+                {/* onSelect (not an <a>) so the whole item is clickable: Radix Themes'
+                    Item swallows a child anchor's click, and asChild throws. */}
+                <DropdownMenu.Item className="cursor-pointer" onSelect={() => router.push('/')}>
                   Home
-                </Link>
-              </DropdownMenu.Item>
-              <DropdownMenu.Sub>
-                <Tooltip open={!mapDocument?.document_id} content="Start by selecting a geography">
-                  <DropdownMenu.SubTrigger>Create new map</DropdownMenu.SubTrigger>
-                </Tooltip>
-                <DropdownMenu.SubContent>
+                </DropdownMenu.Item>
+                <DropdownMenu.Item className="cursor-pointer" onSelect={() => router.push('/draw')}>
+                  Main Map
+                </DropdownMenu.Item>
+                <DropdownMenu.Item
+                  className="cursor-pointer"
+                  onSelect={() => router.push('/catalog')}
+                >
+                  Catalog
+                </DropdownMenu.Item>
+                <DropdownMenu.Sub>
+                  <DropdownMenu.SubTrigger disabled={!exportId}>
+                    Export assignments
+                  </DropdownMenu.SubTrigger>
+                  <DropdownMenu.SubContent>
+                    <DropdownMenu.Item
+                      className="cursor-pointer"
+                      onSelect={() => downloadExport('BlockAssignmentsCSV')}
+                    >
+                      <Tooltip content="Download a CSV of GEOIDs and zone IDs">
+                        <span>Unit assignments (CSV)</span>
+                      </Tooltip>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      className="cursor-pointer"
+                      onSelect={() => downloadExport('DistrictsGeoJSON')}
+                    >
+                      <Tooltip content="Download a GeoJSON of dissolved district boundary polygons">
+                        <span>District boundaries (GeoJSON)</span>
+                      </Tooltip>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      className="cursor-pointer"
+                      onSelect={() => downloadExport('DistrictsShapefile')}
+                    >
+                      <Tooltip content="Download a zipped Shapefile of dissolved district boundary polygons">
+                        <span>District boundaries (Shapefile)</span>
+                      </Tooltip>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      className="cursor-pointer"
+                      onSelect={() => downloadExport('EvaluationJSON')}
+                    >
+                      <Tooltip content="Download a JSON of evaluation metrics for this map">
+                        <span>Evaluation metrics (JSON)</span>
+                      </Tooltip>
+                    </DropdownMenu.Item>
+                  </DropdownMenu.SubContent>
+                </DropdownMenu.Sub>
+                {!isEval && (
                   <DropdownMenu.Sub>
-                    <DropdownMenu.SubTrigger>Select a geography</DropdownMenu.SubTrigger>
+                    <DropdownMenu.SubTrigger
+                      disabled={!mapDocument?.document_id || access === ACCESS_STATES.READ}
+                    >
+                      Reset map
+                    </DropdownMenu.SubTrigger>
                     <DropdownMenu.SubContent>
-                      {data.length ? (
-                        data.map((view, index) => (
-                          <DropdownMenu.Item
-                            key={index}
-                            onClick={() => handleSelectMap(view, mapMode)}
-                          >
-                            {view.name}
-                          </DropdownMenu.Item>
-                        ))
-                      ) : (
-                        <DropdownMenu.Item disabled>
-                          {mapViews?.isPending
-                            ? 'Loading geographies...'
-                            : 'No geographies available'}
-                        </DropdownMenu.Item>
-                      )}
+                      <Text size="2" className="w-[50vw] max-w-60 p-3">
+                        Are you sure? This will reset all zone assignments and broken geographies.{' '}
+                        <b>Resetting your map cannot be undone.</b>
+                      </Text>
+                      <DropdownMenu.Item onClick={handleReset} color="red">
+                        Reset map
+                      </DropdownMenu.Item>
                     </DropdownMenu.SubContent>
                   </DropdownMenu.Sub>
-                  <DropdownMenu.Item onClick={() => setModalOpen('upload')}>
-                    Upload block assignments
-                  </DropdownMenu.Item>
-                </DropdownMenu.SubContent>
-              </DropdownMenu.Sub>
-              <DropdownMenu.Sub>
-                <DropdownMenu.SubTrigger disabled={!mapDocument?.document_id}>
-                  Export assignments
-                </DropdownMenu.SubTrigger>
-                <DropdownMenu.SubContent>
-                  <DropdownMenu.Item>
-                    <Tooltip content="Download a CSV of Census GEOIDs and zone IDs">
-                      <a
-                        href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=CSV&export_type=ZoneAssignments`}
-                        download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
-                      >
-                        VTD assignments (CSV)
-                      </a>
-                    </Tooltip>
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item>
-                    <Tooltip content="Download a GeoJSON of Census GEOIDs and zone IDs">
-                      <a
-                        href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=GeoJSON&export_type=ZoneAssignments`}
-                        download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
-                      >
-                        VTD assignments (GeoJSON)
-                      </a>
-                    </Tooltip>
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item disabled={!mapDocument?.child_layer}>
-                    <Tooltip content="Download a CSV of Census Block GEOIDs and zone IDs">
-                      <a
-                        href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=CSV&export_type=BlockZoneAssignments`}
-                        download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
-                      >
-                        Block assignment (CSV)
-                      </a>
-                    </Tooltip>
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item>
-                    <Tooltip content="Download a GeoJSON of district boundaries">
-                      <a
-                        href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=GeoJSON&export_type=Districts`}
-                        download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
-                      >
-                        District boundaries (GeoJSON)
-                      </a>
-                    </Tooltip>
-                  </DropdownMenu.Item>
-                </DropdownMenu.SubContent>
-              </DropdownMenu.Sub>
-              <DropdownMenu.Item onClick={() => setModalOpen('recents')} disabled={false}>
-                View recent maps
-              </DropdownMenu.Item>
-              <DropdownMenu.Sub>
-                <DropdownMenu.SubTrigger disabled={!mapDocument?.document_id || access === 'read'}>
-                  Reset map
-                </DropdownMenu.SubTrigger>
-                <DropdownMenu.SubContent>
-                  <Text size="2" className="w-[50vw] max-w-60 p-3">
-                    Are you sure? This will reset all zone assignments and broken geographies.{' '}
-                    <b>Resetting your map cannot be undone.</b>
-                  </Text>
-                  <DropdownMenu.Item onClick={handleReset} color="red">
-                    Reset map
-                  </DropdownMenu.Item>
-                </DropdownMenu.SubContent>
-              </DropdownMenu.Sub>
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
-          <MapHeader handleMetadataChange={handleMetadataChange} />
+                )}
+              </DropdownMenu.Content>
+            </DropdownMenu.Root>
+          </Flex>
+          {isEval ? (
+            <Heading
+              size="3"
+              className="absolute left-1/2 -translate-x-1/2 pointer-events-none select-none"
+            >
+              Evaluation Report
+            </Heading>
+          ) : (
+            <MapHeader handleMetadataChange={handleMetadataChange} />
+          )}
           <Flex direction="row" align="center" gapX="3">
-            <SharePopoverAndModal handleMetadataChange={handleMetadataChange} />
-            {isEditing && <SavePopover />}
-            {isEditing && <RevertPopover />}
-            <SettingsPopoverAndModal />
+            <ModeSwitcher />
+            {!isEval && (
+              <>
+                <SharePopoverAndModal handleMetadataChange={handleMetadataChange} />
+                {isEditing && <SavePopover />}
+                {isEditing && <RevertPopover />}
+                <SettingsPopoverAndModal />
+              </>
+            )}
           </Flex>
         </Flex>
         <MobileDataTabs />
       </Flex>
-      <RecentMapsModal open={modalOpen === 'recents'} onClose={() => setModalOpen(null)} />
       <UploaderModal open={modalOpen === 'upload'} onClose={() => setModalOpen(null)} />
       <PasswordPromptModal />
     </>

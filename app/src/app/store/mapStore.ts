@@ -1,8 +1,10 @@
 'use client';
 import type {MapGeoJSONFeature} from 'maplibre-gl';
 import type {MapRef} from 'react-map-gl/maplibre';
+import {exposeStoreToWindow} from './exposeToWindow';
 import {colorScheme as DefaultColorScheme} from '@constants/colors';
-import type {MapFeatureInfo} from '@constants/types';
+import {ACTIVE_TOOLS} from '@constants/map/tools';
+import type {MapFeatureInfo} from '@constants/map/mapEvents';
 import {
   Community,
   DistrictrMap,
@@ -18,13 +20,13 @@ import {ContextMenuState} from '@utils/map/types';
 import {resetZoneColors} from '@utils/map/resetZoneColors';
 import {setZones} from '@utils/map/setZones';
 import bbox from '@turf/bbox';
-import {FALLBACK_NUM_COMMUNITIES} from '../constants/map/mapDefaults';
+import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/document/limits';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
 import {createWithDevWrapperAndSubscribe} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
 import {nanoid} from 'nanoid';
 import {useUnassignFeaturesStore} from './unassignedFeatures';
-import {demographyCache} from '../utils/demography/demographyCache';
+import {demographyService} from '../utils/demography/demographyService';
 import {useDemographyStore} from './demography/demographyStore';
 import {extendColorArray} from '../utils/colors';
 import {getChildEdges} from '../utils/api/apiHandlers/getChildEdges';
@@ -46,6 +48,10 @@ import {
   syncCoiColorsToColorScheme,
 } from '../utils/communities';
 import {temporalManager} from '../utils/temporal';
+import {MAP_MODES} from '@constants/map/mode';
+import {APP_LOADING_STATES, type AppLoadingState, ACCESS_STATES} from '@constants/document/state';
+import {RENDERING_STATES, type RenderingState} from '@constants/map/renderingState';
+import {MAP_ROUTES} from '@constants/document/routes';
 
 const resolveNumCommunities = (
   mapDocument: DocumentObject | null | undefined,
@@ -154,12 +160,33 @@ const syncCommunityDescriptionComment = ({
   };
 };
 
+/**
+ * Boolean loading/rendering trackers that drive the global LoadingOverlay and view
+ * transitions. Each is owned by the component that produces it:
+ *  - documentLoading: a document fetch is in flight (useDocumentWithSync).
+ *  - publicSourceLoaded: the public district source has loaded its data (PublicSource).
+ *  - metricsLoaded: the evaluation metrics have loaded (EvalPanel).
+ */
+export interface LoadingStates {
+  documentLoading: boolean;
+  publicSourceLoaded: boolean;
+  metricsLoaded: boolean;
+}
+
+export const DEFAULT_LOADING_STATES: LoadingStates = {
+  documentLoading: false,
+  publicSourceLoaded: false,
+  metricsLoaded: false,
+};
+
 export interface MapStore {
   // LOAD AND RENDERING STATE TRACKING
-  appLoadingState: 'loaded' | 'initializing' | 'loading' | 'blurred';
+  appLoadingState: AppLoadingState;
   setAppLoadingState: (state: MapStore['appLoadingState']) => void;
-  mapRenderingState: 'loaded' | 'initializing' | 'loading';
+  mapRenderingState: RenderingState;
   setMapRenderingState: (state: MapStore['mapRenderingState']) => void;
+  loadingStates: LoadingStates;
+  setLoadingState: <K extends keyof LoadingStates>(key: K, value: LoadingStates[K]) => void;
   // MAP CANVAS REF AND CONTROLS
   getMapRef: () => maplibregl.Map | undefined;
   setMapRef: (map: MutableRefObject<MapRef | null>) => void;
@@ -192,6 +219,11 @@ export interface MapStore {
   initiateFlushMapState: () => Promise<void>;
   mutateMapDocument: (mapDocument: Partial<DocumentObject>) => void;
   clearUpdatedChanges: () => void;
+  /** Clear all editor-derived state when leaving the editor. Nulls mapDocument so
+   * re-opening the same map fully re-initializes instead of hitting setMapDocument's
+   * "same document" early-return (which is what left save state, the catalog
+   * "current" badge, and zone-number labels stale across sessions). */
+  resetMapState: () => void;
   mapStatus: StatusObject | null;
   setMapStatus: (mapStatus: Partial<StatusObject>) => void;
   setNumDistricts: (numDistricts: number) => void;
@@ -285,17 +317,20 @@ export interface MapStore {
 
 const initialLoadingState =
   typeof window !== 'undefined' &&
-  (window.location.pathname.startsWith('/map/') ||
-    window.location.pathname.startsWith('/map/edit/'))
-    ? 'loading'
-    : 'initializing';
+  (window.location.pathname.startsWith(`/${MAP_ROUTES.DISTRICTS}/`) ||
+    window.location.pathname.startsWith(`/${MAP_ROUTES.DISTRICTS}/edit/`))
+    ? APP_LOADING_STATES.LOADING
+    : APP_LOADING_STATES.INITIALIZING;
 
 export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr Map Store')(
   (set, get) => ({
     appLoadingState: initialLoadingState,
     setAppLoadingState: appLoadingState => set({appLoadingState}),
-    mapRenderingState: 'initializing',
+    mapRenderingState: RENDERING_STATES.INITIALIZING,
     setMapRenderingState: mapRenderingState => set({mapRenderingState}),
+    loadingStates: {...DEFAULT_LOADING_STATES},
+    setLoadingState: (key, value) =>
+      set(state => ({loadingStates: {...state.loadingStates, [key]: value}})),
     captiveIds: new Set<string>(),
 
     exitBlockView: (lock: boolean = false) => {
@@ -305,14 +340,23 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const {setMapOptions, mapMode} = useMapControlsStore.getState();
       const focusedParentId = focusFeatures?.[0]?.id?.toString();
 
+      // Commit any paint still staged in accumulatedAssignments before healing:
+      // the heal below reads zoneAssignments and discards the staged map, so an
+      // unflushed click-paint would otherwise be reverted and lost.
+      if (mapMode === MAP_MODES.COI) {
+        useCoiAssignmentsStore.getState().ingestAccumulatedAssignments();
+      } else {
+        useAssignmentsStore.getState().ingestAccumulatedAssignments();
+      }
+
       set({
         captiveIds: new Set<string>(),
         focusFeatures: [],
       });
       setMapOptions({mode: 'default'});
-      useMapControlsStore.setState({activeTool: 'shatter'});
+      useMapControlsStore.setState({activeTool: ACTIVE_TOOLS.SHATTER});
 
-      if (mapMode === 'coi') {
+      if (mapMode === MAP_MODES.COI) {
         healParentsIfAllChildrenInSameCommunities(
           focusedParentId ? new Set<string>([focusedParentId]) : undefined
         );
@@ -321,8 +365,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           focusedParentId ? {_parentIds: new Set<string>([focusedParentId])} : {},
           'state'
         );
-        temporalManager.resume(mapMode);
       }
+      // Resume the temporal recorder regardless of mode.
+      temporalManager.resume(mapMode);
     },
 
     getMapRef: () => undefined,
@@ -330,7 +375,10 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     setMapRef: mapRef => {
       set({
         getMapRef: () => mapRef.current?.getMap(),
-        appLoadingState: initialLoadingState === 'initializing' ? 'loaded' : get().appLoadingState,
+        appLoadingState:
+          initialLoadingState === APP_LOADING_STATES.INITIALIZING
+            ? APP_LOADING_STATES.LOADED
+            : get().appLoadingState,
       });
     },
 
@@ -372,6 +420,17 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const idIsSame = currentMapDocument?.document_id === mapDocument.document_id;
       const accessIsSame = currentMapDocument?.access === mapDocument.access;
       const documentIsSame = idIsSame && accessIsSame;
+      // Same underlying plan across a view switch (edit↔display↔evaluate). public_id
+      // is unique per plan, so a match means the user is just changing how they view
+      // the same map — preserve their current viewport instead of re-fitting.
+      const sameMapAcrossViews =
+        !!currentMapDocument &&
+        mapDocument.public_id != null &&
+        currentMapDocument.public_id === mapDocument.public_id;
+      const preservedBounds =
+        sameMapAcrossViews && mapControlsState.lastViewBounds
+          ? mapControlsState.lastViewBounds
+          : mapDocument.extent;
       const bothHaveData =
         typeof currentMapDocument?.updated_at === 'string' &&
         typeof mapDocument?.updated_at === 'string';
@@ -385,10 +444,16 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         GeometryWorker?.clear();
       }
       GeometryWorker?.resetZones();
-      demographyCache.clear();
+      demographyService.clear();
       resetZoneAssignments();
       useDemographyStore.getState().clear();
       useUnassignFeaturesStore.getState().reset();
+      // A different map is loading: drop the previous map's retained editable id so it
+      // can't enable Edit (or route to the wrong editor) for the new map. Same-map view
+      // switches (edit↔display↔evaluate) keep it so Edit stays reachable.
+      if (!sameMapAcrossViews) {
+        mapControlsState.setEditableDocId(null);
+      }
 
       let newStateFipsSet: Set<string> = new Set();
       if (mapDocument.statefps) {
@@ -434,14 +499,23 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         mapOptions: {
           ...DEFAULT_MAP_OPTIONS,
           ...MAP_MODE_DEFAULT_OPTIONS[mapControlsState.mapMode],
-          bounds: mapDocument.extent,
+          bounds: preservedBounds,
           stateFipsSet: newStateFipsSet,
         },
-        activeTool: mapDocument.access === 'edit' ? mapControlsState.activeTool : 'pan',
+        activeTool:
+          mapDocument.access === ACCESS_STATES.EDIT
+            ? mapControlsState.activeTool
+            : ACTIVE_TOOLS.PAN,
         selectedZone: communities[0]?.id ?? mapControlsState.selectedZone,
         sidebarPanels: ['population'],
         isPainting: false,
-        isEditing: mapDocument.access === 'edit',
+        // Drop a remembered viewport when loading a different map so a fresh map
+        // fits to its extent; keep it across same-map view switches.
+        lastViewBounds: sameMapAcrossViews ? mapControlsState.lastViewBounds : null,
+        // Likewise clear the unlockable flag for a different map (re-derived from
+        // the `?pw=true` share link by the view switcher).
+        passwordUnlockable: sameMapAcrossViews ? mapControlsState.passwordUnlockable : false,
+        isEditing: mapDocument.access === ACCESS_STATES.EDIT,
       });
 
       useAssignmentsStore.getState().resetShatterState();
@@ -472,9 +546,17 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         captiveIds: new Set(),
         focusFeatures: [],
         mapLock: null,
-        appLoadingState: mapDocument?.genesis === 'copied' ? 'loaded' : 'initializing',
+        // Fresh document load: drop any stale "unsaved changes" markers so the save
+        // indicator doesn't falsely flag a just-loaded doc as dirty.
+        updated: {metadata: false, comments: false},
+        appLoadingState:
+          mapDocument?.genesis === 'copied'
+            ? APP_LOADING_STATES.LOADED
+            : APP_LOADING_STATES.INITIALIZING,
         mapRenderingState:
-          mapDocument.tiles_s3_path === currentMapDocument?.tiles_s3_path ? 'loaded' : 'loading',
+          mapDocument.tiles_s3_path === currentMapDocument?.tiles_s3_path
+            ? RENDERING_STATES.LOADED
+            : RENDERING_STATES.LOADING,
       });
 
       // Persist cleaned comments to IDB so stale duplicates don't resurface
@@ -532,6 +614,29 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       }),
     clearUpdatedChanges: () => set({updated: {metadata: false, comments: false}}),
 
+    resetMapState: () => {
+      // Mirror the reset block in setMapDocument, but null the document so a later
+      // re-open of the same map fully re-initializes instead of early-returning.
+      const {resetZoneAssignments} = useAssignmentsStore.getState();
+      GeometryWorker?.clear();
+      GeometryWorker?.resetZones();
+      demographyService.clear();
+      resetZoneAssignments();
+      useDemographyStore.getState().clear();
+      useUnassignFeaturesStore.getState().reset();
+      set({
+        mapDocument: null,
+        updated: {metadata: false, comments: false},
+        loadingStates: {...DEFAULT_LOADING_STATES},
+        mapLock: null,
+      });
+      const mapControls = useMapControlsStore.getState();
+      mapControls.setEditableDocId(null);
+      mapControls.setIsEditing(false);
+      mapControls.setIsEval(false);
+      mapControls.setViewTransition(null);
+    },
+
     // ZONE DESCRIPTIONS
     pinnedDescriptionZone: null,
     setPinnedDescriptionZone: zone => set({pinnedDescriptionZone: zone}),
@@ -540,7 +645,11 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const {mapDocument, updated} = get();
       if (!mapDocument) return;
 
-      const trimmedText = (text ?? '').trim().slice(0, 240); // Max 240 chars
+      // Use the per-map comment_length_limit (set on DistrictrMap; falls back to the
+      // 240-char default via the backend). Hardcoding 240 here would silently truncate
+      // longer server-allowed descriptions on any map that raises the limit.
+      const limit = mapDocument.comment_length_limit ?? 240;
+      const trimmedText = (text ?? '').trim().slice(0, limit);
       const currentComments = mapDocument.document_comments || [];
       const existingIndex = currentComments.findIndex(c => c.zone === zone);
 
@@ -701,7 +810,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
 
       if (mapDocument.document_id) {
         const newClientLastUpdated = new Date().toISOString();
-        if (useMapControlsStore.getState().mapMode === 'coi') {
+        if (useMapControlsStore.getState().mapMode === MAP_MODES.COI) {
           useCoiAssignmentsStore.getState().setClientLastUpdated(newClientLastUpdated);
         } else {
           useAssignmentsStore.getState().setClientLastUpdated(newClientLastUpdated);
@@ -1034,7 +1143,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         shatterIds,
         parentToChild: currentParentToChild,
         childToParent: currentChildToParent,
-      } = mapMode === 'coi' ? useCoiAssignmentsStore.getState() : useAssignmentsStore.getState();
+      } = mapMode === MAP_MODES.COI
+        ? useCoiAssignmentsStore.getState()
+        : useAssignmentsStore.getState();
       let parents = new Set(shatterIds.parents);
       let children = new Set(shatterIds.children);
       let captiveIds = new Set<string>();
@@ -1060,7 +1171,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         }
       });
       // Need to shatter all communities that that have that assignment since they can overlap
-      if (mapMode === 'coi') {
+      if (mapMode === MAP_MODES.COI) {
         const {
           communityAssignments: currentCommunityAssignments,
           setShatterState,
@@ -1124,7 +1235,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           },
         ],
       });
-      useMapControlsStore.setState({activeTool: 'brush'});
+      useMapControlsStore.setState({activeTool: ACTIVE_TOOLS.BRUSH});
       setMapOptions({
         mode: 'break',
         bounds: mapBbox,
@@ -1141,7 +1252,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       }
       set({
         mapLock: {isLocked: true, reason: 'Resetting map'},
-        appLoadingState: 'loading',
+        appLoadingState: APP_LOADING_STATES.LOADING,
       });
       const resetResponse = await patchUpdateReset(document_id);
       if (!resetResponse.ok) {
@@ -1168,10 +1279,10 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         resetShatterState();
 
         set({
-          appLoadingState: 'loaded',
+          appLoadingState: APP_LOADING_STATES.LOADED,
           mapLock: null,
         });
-        useMapControlsStore.setState({activeTool: 'pan'});
+        useMapControlsStore.setState({activeTool: ACTIVE_TOOLS.PAN});
       }
     },
     focusFeatures: [],
@@ -1225,3 +1336,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     setPassword: password => set({password}),
   })
 );
+
+// Expose for Playwright E2E (see app/e2e/utils/store-helpers.ts). Dev-only, no-op in prod.
+exposeStoreToWindow('mapStore', useMapStore);

@@ -1,0 +1,114 @@
+import React, {useEffect, useLayoutEffect, useMemo} from 'react';
+import {Source} from 'react-map-gl/maplibre';
+import {useQuery} from '@tanstack/react-query';
+import {PUBLIC_SOURCE_ID} from '@constants/map/layerIds';
+import {useMapStore} from '@/app/store/mapStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useClearMap} from '@/app/hooks/useClearMap';
+import {
+  getPublicDistricts,
+  publicDistrictsQueryKey,
+} from '@/app/utils/api/apiHandlers/getPublicDistricts';
+import {demographyService} from '@/app/utils/demography/demographyService';
+import {useDemographyStore} from '@/app/store/demography/demographyStore';
+import {getAvailableColumnSets} from '@/app/utils/demography/getAvailableColumnSets';
+import GeometryWorker from '@/app/utils/GeometryWorker';
+import {RENDERING_STATES} from '@constants/map/renderingState';
+import {ACCESS_STATES} from '@constants/document/state';
+
+export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) => {
+  const mapDocument = useMapStore(state => state.mapDocument);
+  const flushMapState = useMapStore(state => state.flushMapState);
+  const setMapRenderingState = useMapStore(state => state.setMapRenderingState);
+  const setLoadingState = useMapStore(state => state.setLoadingState);
+  const setStateFp = useMapControlsStore(state => state.setStateFp);
+  const setDemographyHash = useDemographyStore(state => state.setDataHash);
+  const setAvailableColumnSets = useDemographyStore(state => state.setAvailableColumnSets);
+  const setErrorNotification = useMapStore(state => state.setErrorNotification);
+  useClearMap(mapDocument?.document_id);
+
+  const publicDistrictsQuery = useQuery({
+    // updated_at busts the cache on save: edit -> save -> display would otherwise
+    // serve the pre-save districts from the staleTime window below. updated_at is
+    // refetched fresh on every display load (useDocumentWithSync), so this changes
+    // exactly when the plan changes.
+    queryKey: publicDistrictsQueryKey(mapDocument),
+    queryFn: () => getPublicDistricts(mapDocument),
+    enabled: Boolean(mapDocument?.access === ACCESS_STATES.READ && mapDocument?.public_id),
+    // Public views are effectively read-only embeds; a 5-minute stale window drops
+    // the duplicate-refetch-on-every-mount problem for multi-tab / multi-embed
+    // pages without hiding genuinely new data for long. Retry is disabled because
+    // the failure cases here (bad public_id, moved doc) are not transient.
+    staleTime: 5 * 60 * 1000,
+    retry: 0,
+  });
+
+  useEffect(() => {
+    if (publicDistrictsQuery.isError) {
+      setErrorNotification({
+        message: publicDistrictsQuery.error?.message || 'Failed to fetch public district stats',
+        severity: 2,
+      });
+    }
+  }, [publicDistrictsQuery.isError, publicDistrictsQuery.error, setErrorNotification]);
+
+  const featureCollection = useMemo<GeoJSON.FeatureCollection>(() => {
+    return {
+      type: 'FeatureCollection',
+      features: publicDistrictsQuery.data?.geojsonFeatures ?? [],
+    };
+  }, [publicDistrictsQuery.data?.geojsonFeatures]);
+
+  useLayoutEffect(() => {
+    // This side effect basically handles all the data loading logic for public maps
+    // Because the data here is so much smaller, we can skip the assignment store stuff
+    // This is faster, which matters for public maps where lots of people may be viewing
+    // But few would edit
+    // Only feed public demography when the active document is actually the
+    // read-only view. During edit->view navigation the edit doc (which shares this
+    // public_id) is briefly active with cached query data; writing the hash here
+    // would race setMapDocument's clear() and strand the sidebar with an empty
+    // demogHash. `access` is in the dep list below so we re-assert once the view
+    // doc settles (i.e. after the clear).
+    if (mapDocument?.access !== ACCESS_STATES.READ || !publicDistrictsQuery.data) {
+      // No data yet for this view; the loading overlay keeps covering the map.
+      setLoadingState('publicSourceLoaded', false);
+      return;
+    }
+    if (publicDistrictsQuery.data.statefp) {
+      setStateFp(publicDistrictsQuery.data.statefp);
+    }
+
+    // Feed demographic data into demographyService for sidebar stats
+    const {columns, demographicData, assignments} = publicDistrictsQuery.data;
+    const hash = `anonymous|${mapDocument?.public_id}`;
+    demographyService.update(Array.from(columns), demographicData, hash, [], assignments);
+    setDemographyHash(hash);
+
+    // Set available column sets so sidebar knows which columns are available
+    setAvailableColumnSets(getAvailableColumnSets(demographyService.availableColumns));
+
+    // Load public geometries into GeometryWorker for zone label centroids
+    GeometryWorker?.setPublicFeatures(publicDistrictsQuery.data.geojsonFeatures);
+
+    setMapRenderingState(RENDERING_STATES.LOADED);
+    setLoadingState('publicSourceLoaded', true);
+  }, [
+    publicDistrictsQuery.data,
+    setMapRenderingState,
+    setLoadingState,
+    setStateFp,
+    mapDocument?.public_id,
+    mapDocument?.access,
+  ]);
+
+  if (!mapDocument || mapDocument.access !== ACCESS_STATES.READ) return null;
+  if (flushMapState || publicDistrictsQuery.isPending) return null;
+  if (publicDistrictsQuery.isError || !publicDistrictsQuery.data) return null;
+
+  return (
+    <Source id={PUBLIC_SOURCE_ID} type="geojson" data={featureCollection} promoteId="path">
+      {children}
+    </Source>
+  );
+};
