@@ -5,194 +5,158 @@ import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 import {uploadAssignments} from './apiHandlers/uploadAssignments';
 import {useMapStore} from '@/app/store/mapStore';
 import {type MapType} from '@constants/document/types';
+import {FIPS_TO_ABBR, FIPS_TO_NAME} from '@constants/meta/usStates';
 
 const MAX_ROWS = 914_231;
-const ROWS_TO_TEST = 200;
 const MAX_FILE_SIZE = 2_000_000_000; // 20mb
 
 export type MapLink = DistrictrMap & {
   document_id: string;
   filename: string;
+  skipped_geo_ids?: string[];
 };
 
-const getRowTests = (map: DistrictrMap) => [
-  {
-    name: 'GEOID',
-    test: (value: string | number) => {
-      return (
-        (typeof value === 'string' &&
-          (value.length === 15 || value.length === 14) &&
-          !isNaN(+value)) ||
-        (typeof value === 'number' && (String(value).length === 15 || String(value).length === 14))
-      );
-    },
-    strict: true,
-  },
-  {
-    name: 'ZONE',
-    test: (value: string | number | null) => {
-      return !value || (!isNaN(+value) && +value > 0 && +value <= (map.num_districts ?? 4));
-    },
-  },
-];
+const isBlockGeoid = (v: string) => v.length === 15 && !isNaN(+v);
 
-const validateRows = (rows: Array<Array<string>>, plan: DistrictrMap) => {
-  const tests = getRowTests(plan);
-  const headerRow = rows[0];
-  const candidateIndices: Record<string, Record<number, number>> = {};
-  // skip header row
-  const rowstoTest = rows.slice(1, ROWS_TO_TEST);
-  rowstoTest.forEach(row => {
-    row.forEach((value, j) => {
-      tests.forEach(test => {
-        if (!candidateIndices[test.name]) {
-          candidateIndices[test.name] = {};
-        }
-        if (test.test(value)) {
-          candidateIndices[test.name][j] = (candidateIndices[test.name][j] ?? 0) + 1;
-        }
-      });
-    });
-  });
-
-  const columnsAreAmbiguous = Object.values(candidateIndices).some(key => {
-    const values = Object.values(key);
-    const max = Math.max(...values);
-    return values.filter(v => v === max).length > 1;
-  });
-
-  if (columnsAreAmbiguous) {
-    return {
-      ok: false,
-      detail: {
-        message: 'Columns are ambiguous',
-        possibleIndices: candidateIndices as {
-          GEOID: Record<number, number>;
-          ZONE: Record<number, number>;
-        },
-        headerRow,
-      },
-    };
+const validateBlockGeoid = (raw: string): string | null => {
+  const padded = raw.padStart(15, '0');
+  if ((raw.length !== 14 && raw.length !== 15) || !isBlockGeoid(padded)) {
+    return `Invalid GEOID in first column: ${raw}`;
   }
+  return null;
+};
 
-  const mostLikelyColumns: Record<string, number> = {};
-  const candidateIndicesKeys = Object.keys(candidateIndices);
-  const missingColumns = [];
-  for (let i = 0; i < candidateIndicesKeys.length; i++) {
-    const key = candidateIndicesKeys[i];
-    const candidateFields = candidateIndices[key];
-    const max = Math.max(...Object.values(candidateFields));
-    const maxIndex = Object.keys(candidateFields)?.find(key => candidateFields[+key] === max);
-    if (!maxIndex) {
-      missingColumns.push(key);
-    } else {
-      mostLikelyColumns[key] = +maxIndex;
-    }
+const validateAllRows = (
+  rows: string[][]
+): {fips: string; error: null} | {fips: null; error: string} => {
+  const stateFips = new Set<string>();
+  for (const row of rows) {
+    const raw = `${row[0] ?? ''}`.trim();
+    const err = validateBlockGeoid(raw);
+    if (err) return {fips: null, error: err};
+    stateFips.add(raw.padStart(15, '0').slice(0, 2));
   }
-  if (missingColumns.length) {
-    return {
-      ok: false,
-      detail: {
-        possibleIndices: candidateIndices as {
-          GEOID: Record<number, number>;
-          ZONE: Record<number, number>;
-        },
-        message: 'Missing columns',
-        missingColumns,
-        headerRow,
-      },
-    };
+  if (stateFips.size === 0) return {fips: null, error: 'No valid rows found'};
+  if (stateFips.size > 1) {
+    const names = [...stateFips]
+      .map(f => (FIPS_TO_NAME[f] ? `${FIPS_TO_NAME[f]} (${FIPS_TO_ABBR[f]})` : `FIPS ${f}`))
+      .join(', ');
+    // TODO: We might prompt users to indicate which state they intend the import for.
+    return {fips: null, error: `Mixed states found in CSV: ${names}`};
   }
+  return {fips: [...stateFips][0], error: null};
+};
 
-  const colIndices = mostLikelyColumns as {GEOID: number; ZONE: number};
-  const zoneTest = tests.find(t => t.name === 'ZONE')!.test;
-  const invalidZoneRow = (rows as string[][])
-    .slice(1)
-    .find(row => row[colIndices.ZONE] && !zoneTest(row[colIndices.ZONE]));
-  if (invalidZoneRow) {
-    return {
-      ok: false,
-      detail: {
-        message: `Invalid zone value: "${invalidZoneRow[colIndices.ZONE]}". Zones must be integers between 1 and ${plan.num_districts}.`,
-      },
-    };
-  }
-
-  return {ok: true, colIndices};
+const inferCongressionalMap = (
+  fips: string,
+  availableMaps: DistrictrMap[]
+): DistrictrMap | null => {
+  const abbr = FIPS_TO_ABBR[fips];
+  if (!abbr) return null;
+  const lower = abbr.toLowerCase();
+  // Prefer the canonical congressional slug, then name-matching, then state senate
+  // as a fallback for at-large states (AK, DE, ND, SD, WY) that have no congressional map.
+  return (
+    availableMaps.find(m => m.districtr_map_slug === `${lower}_congressional_districts`) ??
+    availableMaps.find(
+      m =>
+        m.districtr_map_slug.startsWith(`${lower}_`) &&
+        m.name.toLowerCase().includes('congressional')
+    ) ??
+    availableMaps.find(m => m.districtr_map_slug === `${lower}_state_senate_districts`) ??
+    null
+  );
 };
 
 export const processFile = ({
   file,
   setMapLinks,
   setError,
-  districtrMap,
+  availableMaps,
   documentMapType = 'default',
-  config,
 }: {
   file: File;
   setMapLinks: React.Dispatch<React.SetStateAction<MapLink[]>>;
   setError: React.Dispatch<React.SetStateAction<any>>;
-  districtrMap: DistrictrMap;
+  availableMaps: DistrictrMap[];
   documentMapType?: MapType;
-  config?: {
-    ZONE: number;
-    GEOID: number;
-  };
 }) => {
   const {setErrorNotification} = useMapStore.getState();
+
   if (!file) {
-    setErrorNotification({
-      message: 'No file selected',
-      severity: 1,
-    });
+    setErrorNotification({message: 'No file selected', severity: 1});
     throw new Error('No file selected');
   }
   if (file.size > MAX_FILE_SIZE) {
-    setErrorNotification({
-      message: 'Block CSV file size exceeds limit (20mb)',
-      severity: 1,
-    });
+    setErrorNotification({message: 'Block CSV file size exceeds limit (20mb)', severity: 1});
     throw new Error('Block CSV file size exceeds limit');
   }
 
   Papa.parse(file, {
+    skipEmptyLines: true,
     complete: async results => {
-      const validation = config
-        ? {ok: true, colIndices: config}
-        : validateRows(results.data as Array<Array<string>>, districtrMap);
-      if (!validation.ok || !validation.colIndices) {
-        setError(validation);
-        return validation;
+      const allRows = results.data as string[][];
+
+      // If row 0 is a header (col 0 is not a GEOID), evict it without copying the
+      // array: swap it with the last row and pop. Row order does not matter because
+      // we build a GEOID→zone map, not an ordered list.
+      const row0Raw = (allRows[0]?.[0] ?? '').trim();
+      if (validateBlockGeoid(row0Raw) !== null) {
+        allRows[0] = allRows[allRows.length - 1];
+        allRows.pop();
       }
 
-      const {GEOID, ZONE} = validation.colIndices;
-      let result: {document_id: string} | undefined;
-      let geoidHandler = (geoid: string | number) => `${geoid}`.padStart(15, '0');
+      if (allRows.length === 0 || (allRows[0]?.length ?? 0) < 2) {
+        setError({ok: false, detail: {message: 'Missing columns'}});
+        return;
+      }
 
-      // All rows without the header
-      const rows = results.data.slice(1) as string[][];
-
-      if (rows.length > MAX_ROWS) {
+      if (allRows.length > MAX_ROWS) {
         setError({
           ok: false,
-          detail: {message: `Cannot upload more than ${MAX_ROWS} rows at once`},
+          detail: {message: `Upload size exceeds maximum allowed limit (${MAX_ROWS} records)`},
         });
+        return;
       }
+
+      const validation = validateAllRows(allRows);
+      if (validation.error !== null) {
+        setError({ok: false, detail: {message: validation.error}});
+        return;
+      }
+
+      const {fips} = validation;
+      const districtrMap = inferCongressionalMap(fips, availableMaps);
+      if (!districtrMap) {
+        const stateName = FIPS_TO_NAME[fips] ?? `FIPS ${fips}`;
+        setError({
+          ok: false,
+          detail: {message: `No congressional map found for ${stateName}`},
+        });
+        return;
+      }
+
+      const assignments: [string, string][] = allRows.map(r => [
+        (r[0] ?? '').padStart(15, '0'),
+        (r[1] ?? '').trim(),
+      ]);
 
       try {
         const uploadResult = await uploadAssignments({
-          assignments: rows.map(row => [
-            geoidHandler(row[GEOID]),
-            !row[ZONE] ? '' : String(+row[ZONE]),
-          ]),
+          assignments,
           districtr_map_slug: districtrMap.districtr_map_slug,
           map_type: documentMapType,
         });
         if (uploadResult.ok && uploadResult.response?.document_id) {
-          result = uploadResult.response;
-          setMapLinks(mapLinks => [
-            ...mapLinks,
-            {...districtrMap, document_id: result!.document_id, filename: file.name},
+          const skipped = uploadResult.response.skipped_geo_ids ?? [];
+          setMapLinks(prev => [
+            ...prev,
+            {
+              ...districtrMap,
+              document_id: uploadResult.response.document_id,
+              filename: file.name,
+              skipped_geo_ids: skipped.length > 0 ? skipped : undefined,
+            },
           ]);
         } else {
           setError({

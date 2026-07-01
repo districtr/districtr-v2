@@ -1,3 +1,4 @@
+from dataclasses import dataclass, field
 from uuid import uuid4
 from fastapi import Depends
 from sqlalchemy.sql.functions import count
@@ -22,6 +23,61 @@ VERBOSE_LOGGING = settings.VERBOSE_LOGGING
 
 class DuplicateGeoIdError(ValueError):
     pass
+
+
+@dataclass
+class BatchInsertResult:
+    inserted: int
+    skipped_geo_ids: list[str] = field(default_factory=list)
+
+
+def _is_whole_pos_number(s: str) -> bool:
+    """True for positive integers without leading zeros (e.g. '2', '2.0') but not '01' or '1.5'."""
+    if not s or s[0] == "0":
+        return False
+    try:
+        n = float(s)
+        return n > 0 and n == int(n)
+    except ValueError:
+        return False
+
+
+def _build_zone_mapping(
+    raw_zones: set[str], num_districts: int | None
+) -> dict[str, int]:
+    """Map raw zone strings to integer zone IDs.
+
+    Whole-number strings (e.g. '2', '2.0') are parsed directly; all other non-empty
+    strings (e.g. 'District 1', '01') are remapped to unused integer slots in
+    [1, num_districts]. Raises ValueError if the total number of distinct zones
+    exceeds num_districts.
+    """
+    numeric_map: dict[str, int] = {}
+    string_labels: list[str] = []
+    for z in raw_zones:
+        if _is_whole_pos_number(z):
+            n = round(float(z))
+            if num_districts is None or n <= num_districts:
+                numeric_map[z] = n
+            else:
+                string_labels.append(z)
+        else:
+            string_labels.append(z)
+
+    used_ids = set(numeric_map.values())
+    total_zones = len(used_ids) + len(string_labels)
+    if num_districts is not None and total_zones > num_districts:
+        raise ValueError(
+            f"Too many districts: CSV contains {total_zones} distinct districts "
+            f"but the map only has {num_districts} districts"
+        )
+
+    cap = num_districts or total_zones
+    available = [i for i in range(1, cap + 1) if i not in used_ids][
+        : len(string_labels)
+    ]
+    mapping = {**numeric_map, **dict(zip(string_labels, available))}
+    return mapping
 
 
 def duplicate_document_assignments(
@@ -158,7 +214,7 @@ def batch_insert_assignments(
     assignments: list[list[str]],
     districtr_map_slug: str,
     session: Session = Depends(get_session),
-) -> int | None:
+) -> BatchInsertResult:
     """
     Insert assignments into the document, `document_id`, healing assignments into
     partent assignments where possible if all children are assigned to the same zone.
@@ -181,28 +237,32 @@ def batch_insert_assignments(
 
     G = get_graph(districtr_map.gerrydb_table_name)
 
-    null_count = 0
-    invalid_count = 0
-    zone_by_geo_int: dict[str, int] = {}
     num_districts = districtr_map.num_districts
-    for record in assignments:
-        if record[1] and record[1] != "":
-            geo_id = record[0]
-            zone = int(
-                float(record[1])
-            )  # ValueError propagates for non-numeric zones (e.g. "District 1")
-            if not geo_id or geo_id not in G or not 0 < zone <= (num_districts or zone):
-                invalid_count += 1
-                continue
-            if geo_id in zone_by_geo_int:
-                raise DuplicateGeoIdError(geo_id)
-            zone_by_geo_int[geo_id] = zone
-        else:
-            null_count += 1
 
-    logger.info(
-        f"{null_count} unassigned rows skipped, {invalid_count} invalid geo_ids/zones skipped"
-    )
+    raw_zones: set[str] = set()
+    for record in assignments:
+        raw_zones.add(record[1])
+
+    zone_mapping = _build_zone_mapping(raw_zones, num_districts)
+
+    skipped_geo_ids: list[str] = []
+    seen_geo_ids: set[str] = set()
+    zone_by_geo_int: dict[str, int] = {}
+    for record in assignments:
+        geo_id = record[0]
+        if not geo_id or geo_id not in G:
+            if geo_id:
+                skipped_geo_ids.append(geo_id)
+            continue
+        if geo_id in seen_geo_ids:
+            raise DuplicateGeoIdError(geo_id)
+        seen_geo_ids.add(geo_id)
+        zone_by_geo_int[geo_id] = zone_mapping[record[1]]
+
+    if skipped_geo_ids:
+        logger.info(
+            "%d geo_ids not found in map graph and skipped", len(skipped_geo_ids)
+        )
 
     if districtr_map.child_layer is not None:
         zone_by_geo: dict[str, int | None] = _heal_or_fill(zone_by_geo_int, G)
@@ -232,4 +292,4 @@ def batch_insert_assignments(
     inserted = len(zone_by_geo)
     logger.info(f"Inserted {inserted} assignments to document `{document_id}`")
 
-    return inserted
+    return BatchInsertResult(inserted=inserted, skipped_geo_ids=skipped_geo_ids)
