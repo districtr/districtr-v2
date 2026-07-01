@@ -79,15 +79,15 @@ export function createBackend(
   });
   new aws.iam.RolePolicy(`${name}-backend-task-s3`, {
     role: taskRole.id,
-    policy: JSON.stringify({
+    policy: pulumi.jsonStringify({
       Version: "2012-10-17",
       Statement: [
         {
           Effect: "Allow",
           Action: ["s3:GetObject", "s3:PutObject", "s3:ListBucket"],
           Resource: [
-            `arn:aws:s3:::${config.s3BucketName}`,
-            `arn:aws:s3:::${config.s3BucketName}/*`,
+            pulumi.interpolate`arn:aws:s3:::${config.s3BucketName}`,
+            pulumi.interpolate`arn:aws:s3:::${config.s3BucketName}/*`,
           ],
         },
       ],
