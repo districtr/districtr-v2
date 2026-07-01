@@ -25,7 +25,7 @@ export const config = {
   corsOrigins: cfg.require("corsOrigins"),
 
   // Existing object storage / CDN — not managed by this project.
-  s3BucketName: cfg.require("s3BucketName"),
+  s3BucketName: cfg.requireSecret("s3BucketName"),
   cdnUrl: cfg.require("cdnUrl"),
 
   // Auth0 (non-secret identifiers)

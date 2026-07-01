@@ -4,17 +4,16 @@
 secretsprovider: awskms://alias/districtr-pulumi-secrets?region=us-east-2
 config:
   aws:region: us-east-2
-
   districtr-infra:appDomain: dev.districtr.org
   districtr-infra:apiDomain: api.dev.districtr.org
   districtr-infra:corsOrigins: https://dev.districtr.org
-  districtr-infra:s3BucketName: districtr-v2-dev
+  districtr-infra:s3BucketName:
+    secure: v1:NvATpjb2PUlKwXAz:1KdAv/sq7vkzINPAPM9twpRm7+/8c1GwvnlYKYsB7gr/DyMSjT5dsDZL
   districtr-infra:cdnUrl: https://tilesets1.cdn.districtr.org
   districtr-infra:auth0Domain: districtr-qa.us.auth0.com
   districtr-infra:auth0ApiAudience: https://districtr-v2-api-dev.fly.dev
   districtr-infra:auth0Issuer: https://districtr-qa.us.auth0.com
   districtr-infra:alarmEmail: dhalpern@uchicago.edu
-
   districtr-infra:secretKey:
     secure: v1:JPIYNwHinzVBFMeH:7SXhe/J8zN6jZb/LKisf6a9LKf3AANZZt3Ecu3H8mBgPX+rExXAOJZXlXi4gAerH1CU3t7dgCHlrW82LS2UQNFekHDWUTLat6qStQlz6YH0=
   districtr-infra:auth0SessionSecret:
