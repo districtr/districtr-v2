@@ -372,6 +372,8 @@ class DocumentPublic(BaseModel):
 
 class DocumentCreatePublic(DocumentPublic):
     inserted_assignments: int
+    skipped_geo_ids: list[str] = []
+    zone_label_remapping: dict[str, int] = {}
 
 
 class Assignments(SQLModel, table=True):
