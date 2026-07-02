@@ -16,35 +16,72 @@ export type MapLink = DistrictrMap & {
   skipped_geo_ids?: string[];
 };
 
-const isBlockGeoid = (v: string) => v.length === 15 && !isNaN(+v);
+type GeoidType = 'block' | 'bg' | 'vtd';
 
-const validateBlockGeoid = (raw: string): string | null => {
-  const padded = raw.padStart(15, '0');
-  if ((raw.length !== 14 && raw.length !== 15) || !isBlockGeoid(padded)) {
-    return `Invalid GEOID in first column: ${raw}`;
+type ParsedGeoid = {
+  type: GeoidType;
+  normalized: string;
+  stateFips: string;
+};
+
+/**
+ * Classify a raw GEOID string from a CSV first column.
+ *
+ * Supported formats:
+ *   block  — 14-15 numeric digits (census block, padded to 15)
+ *   bg     — 11-12 numeric digits (census block group, padded to 12)
+ *   vtd    — "vtd:" + state(2) + county(3) + alphanumeric code
+ *
+ * Returns null if the string matches none of these formats (e.g. a header row).
+ */
+const parseGeoid = (raw: string): ParsedGeoid | null => {
+  if (raw.startsWith('vtd:')) {
+    const inner = raw.slice(4);
+    // Must have at least state(2) + county(3) + 1 code char, and state/county must be digits.
+    if (inner.length >= 6 && /^\d{5}/.test(inner)) {
+      return {type: 'vtd', normalized: raw, stateFips: inner.slice(0, 2)};
+    }
+    return null;
   }
+
+  if (!/^\d+$/.test(raw)) return null;
+
+  if (raw.length >= 14 && raw.length <= 15) {
+    const normalized = raw.padStart(15, '0');
+    return {type: 'block', normalized, stateFips: normalized.slice(0, 2)};
+  }
+
+  if (raw.length >= 11 && raw.length <= 12) {
+    const normalized = raw.padStart(12, '0');
+    return {type: 'bg', normalized, stateFips: normalized.slice(0, 2)};
+  }
+
   return null;
 };
 
-const validateAllRows = (
-  rows: string[][]
-): {fips: string; error: null} | {fips: null; error: string} => {
-  const stateFips = new Set<string>();
+type PartitionResult = {
+  blockRows: string[][];
+  skippedGeoIds: string[];
+  stateFipsSet: Set<string>;
+};
+
+// Single pass over parsed CSV rows. Block GEOIDs proceed to upload; BG, VTD,
+// and unrecognized rows are collected as skipped warnings for the user.
+const partitionRows = (rows: string[][]): PartitionResult => {
+  const blockRows: string[][] = [];
+  const skippedGeoIds: string[] = [];
+  const stateFipsSet = new Set<string>();
   for (const row of rows) {
     const raw = `${row[0] ?? ''}`.trim();
-    const err = validateBlockGeoid(raw);
-    if (err) return {fips: null, error: err};
-    stateFips.add(raw.padStart(15, '0').slice(0, 2));
+    const parsed = parseGeoid(raw);
+    if (parsed?.type === 'block') {
+      blockRows.push(row);
+      stateFipsSet.add(parsed.stateFips);
+    } else {
+      skippedGeoIds.push(raw || '[empty]');
+    }
   }
-  if (stateFips.size === 0) return {fips: null, error: 'No valid rows found'};
-  if (stateFips.size > 1) {
-    const names = [...stateFips]
-      .map(f => (FIPS_TO_NAME[f] ? `${FIPS_TO_NAME[f]} (${FIPS_TO_ABBR[f]})` : `FIPS ${f}`))
-      .join(', ');
-    // TODO: We might prompt users to indicate which state they intend the import for.
-    return {fips: null, error: `Mixed states found in CSV: ${names}`};
-  }
-  return {fips: [...stateFips][0], error: null};
+  return {blockRows, skippedGeoIds, stateFipsSet};
 };
 
 const inferCongressionalMap = (
@@ -101,7 +138,7 @@ export const processFile = ({
       // array: swap it with the last row and pop. Row order does not matter because
       // we build a GEOID→zone map, not an ordered list.
       const row0Raw = (allRows[0]?.[0] ?? '').trim();
-      if (validateBlockGeoid(row0Raw) !== null) {
+      if (parseGeoid(row0Raw) === null) {
         allRows[0] = allRows[allRows.length - 1];
         allRows.pop();
       }
@@ -119,13 +156,22 @@ export const processFile = ({
         return;
       }
 
-      const validation = validateAllRows(allRows);
-      if (validation.error !== null) {
-        setError({ok: false, detail: {message: validation.error}});
+      const {blockRows, skippedGeoIds, stateFipsSet} = partitionRows(allRows);
+
+      if (stateFipsSet.size === 0) {
+        setError({ok: false, detail: {message: 'No valid block GEOIDs found'}});
+        return;
+      }
+      if (stateFipsSet.size > 1) {
+        const names = [...stateFipsSet]
+          .map(f => (FIPS_TO_NAME[f] ? `${FIPS_TO_NAME[f]} (${FIPS_TO_ABBR[f]})` : `FIPS ${f}`))
+          .join(', ');
+        // TODO: We might prompt users to indicate which state they intend the import for.
+        setError({ok: false, detail: {message: `Mixed states found in CSV: ${names}`}});
         return;
       }
 
-      const {fips} = validation;
+      const fips = [...stateFipsSet][0];
       const districtrMap = inferCongressionalMap(fips, availableMaps);
       if (!districtrMap) {
         const stateName = FIPS_TO_NAME[fips] ?? `FIPS ${fips}`;
@@ -136,7 +182,7 @@ export const processFile = ({
         return;
       }
 
-      const assignments: [string, string][] = allRows.map(r => [
+      const assignments: [string, string][] = blockRows.map(r => [
         (r[0] ?? '').padStart(15, '0'),
         (r[1] ?? '').trim(),
       ]);
@@ -148,14 +194,14 @@ export const processFile = ({
           map_type: documentMapType,
         });
         if (uploadResult.ok && uploadResult.response?.document_id) {
-          const skipped = uploadResult.response.skipped_geo_ids ?? [];
+          const allSkipped = [...skippedGeoIds, ...(uploadResult.response.skipped_geo_ids ?? [])];
           setMapLinks(prev => [
             ...prev,
             {
               ...districtrMap,
               document_id: uploadResult.response.document_id,
               filename: file.name,
-              skipped_geo_ids: skipped.length > 0 ? skipped : undefined,
+              skipped_geo_ids: allSkipped.length > 0 ? allSkipped : undefined,
             },
           ]);
         } else {
