@@ -34,7 +34,7 @@ export const Uploader: React.FC<{
     if (redirect) {
       const newestMap = mapLinks[mapLinks.length - 1];
       // Don't auto-redirect when there are skipped GEOIDs — let the user
-      // review the warning and click "Go to map" manually.
+      // review the warning and click "Show the map anyway" manually.
       if (newestMap && !newestMap.skipped_geo_ids?.length) {
         window.location.href = `/${routePrefix}/edit/${newestMap.document_id}`;
         onFinish?.();
