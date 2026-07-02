@@ -17,7 +17,7 @@ export const Uploader: React.FC<{
   const routePrefix = routeManager.mapUrlRoute;
   const isCoiRoute = routePrefix === MAP_ROUTES.COI;
   const documentMapType = isCoiRoute ? MAP_TYPES.COMMUNITY : MAP_TYPES.DEFAULT;
-  const [mapLinks, setMapLinks] = useState<MapLink[]>([]);
+  const [mapLink, setMapLink] = useState<MapLink | null>(null);
   const [error, setError] = useState<any>(undefined);
   const [, setFile] = useState<File | undefined>(undefined);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -31,13 +31,12 @@ export const Uploader: React.FC<{
   }, []);
 
   useEffect(() => {
-    if (redirect) {
-      const newestMap = mapLinks[mapLinks.length - 1];
+    if (redirect && mapLink) {
       // Don't auto-redirect when the user needs to review warnings — skipped
       // GEOIDs or remapped zone labels both require a manual "Continue" click.
-      const needsReview = newestMap?.skipped_geo_ids?.length || newestMap?.zone_label_remapping;
-      if (newestMap && !needsReview) {
-        window.location.href = `/${routePrefix}/edit/${newestMap.document_id}`;
+      const needsReview = mapLink.skipped_geo_ids?.length || mapLink.zone_label_remapping;
+      if (!needsReview) {
+        window.location.href = `/${routePrefix}/edit/${mapLink.document_id}`;
         onFinish?.();
       }
     }
@@ -45,7 +44,7 @@ export const Uploader: React.FC<{
     setFile(undefined);
     setIsProcessing(false);
     inputRef.current?.value && (inputRef.current.value = '');
-  }, [mapLinks]);
+  }, [mapLink]);
 
   useEffect(() => {
     setIsProcessing(false);
@@ -61,9 +60,10 @@ export const Uploader: React.FC<{
     setFile(droppedFile);
     if (droppedFile && availableMaps) {
       setIsProcessing(true);
+      setMapLink(null);
       processFile({
         file: droppedFile,
-        setMapLinks,
+        setMapLink,
         availableMaps,
         documentMapType,
         setError,
@@ -76,9 +76,10 @@ export const Uploader: React.FC<{
     setFile(selectedFile);
     if (selectedFile && availableMaps) {
       setIsProcessing(true);
+      setMapLink(null);
       processFile({
         file: selectedFile,
-        setMapLinks,
+        setMapLink,
         availableMaps,
         documentMapType,
         setError,
@@ -119,62 +120,58 @@ export const Uploader: React.FC<{
         </label>
       </Flex>
       <UploadError error={error} />
-      {!!mapLinks.length && (
-        <Flex direction="column" gapY="3" pt="4">
-          {mapLinks.map((map, i) => (
-            <Flex key={`map-uploads-${i}`} direction="column" gapY="2">
-              {map.skipped_geo_ids && map.skipped_geo_ids.length > 0 && (
-                <Callout.Root color="orange" size="1">
-                  <Callout.Icon>
-                    <ExclamationTriangleIcon />
-                  </Callout.Icon>
-                  <Callout.Text>
-                    {map.skipped_geo_ids.length} GEOID
-                    {map.skipped_geo_ids.length === 1 ? '' : 's'} not found in the map&apos;s
-                    geography and skipped: {map.skipped_geo_ids.slice(0, 5).join(', ')}
-                    {map.skipped_geo_ids.length > 5
-                      ? ` and ${map.skipped_geo_ids.length - 5} more`
-                      : ''}
-                    .
-                  </Callout.Text>
-                </Callout.Root>
-              )}
-              {map.zone_label_remapping && (
-                <Callout.Root color="blue" size="1">
-                  <Callout.Icon>
-                    <InfoCircledIcon />
-                  </Callout.Icon>
-                  <Callout.Text>
-                    <Text as="p" mb="1">
-                      The following district labels could not be used directly and were assigned new
-                      district numbers:
-                    </Text>
-                    <Text as="p" mb="1">
-                      {Object.entries(map.zone_label_remapping)
-                        .map(
-                          ([original, zone]) =>
-                            `District "${original || '(blank)'}" → District ${zone}`
-                        )
-                        .join(', ')}
-                    </Text>
-                    <Text as="p" color="gray">
-                      The original labels are saved as district comments — you can find them in the
-                      district panel in the draw mode.
-                    </Text>
-                  </Callout.Text>
-                </Callout.Root>
-              )}
-              <Link
-                href={`/${routePrefix}/edit/${map.document_id}`}
-                target={newTab ? '_blank' : undefined}
-                className="self-start"
-              >
-                <button className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
-                  Continue to map
-                </button>
-              </Link>
-            </Flex>
-          ))}
+      {mapLink && (
+        <Flex direction="column" gapY="2" pt="4">
+          {mapLink.skipped_geo_ids && mapLink.skipped_geo_ids.length > 0 && (
+            <Callout.Root color="orange" size="1">
+              <Callout.Icon>
+                <ExclamationTriangleIcon />
+              </Callout.Icon>
+              <Callout.Text>
+                {mapLink.skipped_geo_ids.length} GEOID
+                {mapLink.skipped_geo_ids.length === 1 ? '' : 's'} not found in the map&apos;s
+                geography and skipped: {mapLink.skipped_geo_ids.slice(0, 5).join(', ')}
+                {mapLink.skipped_geo_ids.length > 5
+                  ? ` and ${mapLink.skipped_geo_ids.length - 5} more`
+                  : ''}
+                .
+              </Callout.Text>
+            </Callout.Root>
+          )}
+          {mapLink.zone_label_remapping && (
+            <Callout.Root color="blue" size="1">
+              <Callout.Icon>
+                <InfoCircledIcon />
+              </Callout.Icon>
+              <Callout.Text>
+                <Text as="p" mb="1">
+                  The following district labels could not be used directly and were assigned new
+                  district numbers:
+                </Text>
+                <Text as="p" mb="1">
+                  {Object.entries(mapLink.zone_label_remapping)
+                    .map(
+                      ([original, zone]) =>
+                        `District "${original || '(blank)'}" → District "${zone}"`
+                    )
+                    .join(', ')}
+                </Text>
+                <Text as="p" color="gray">
+                  The original labels are saved as district comments — you can find them in the
+                  district panel in the draw mode.
+                </Text>
+              </Callout.Text>
+            </Callout.Root>
+          )}
+          <Link
+            href={`/${routePrefix}/edit/${mapLink.document_id}`}
+            target={newTab ? '_blank' : undefined}
+            className="self-start"
+          >
+            <button className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
+              Continue to map
+            </button>
+          </Link>
         </Flex>
       )}
       {isProcessing && (

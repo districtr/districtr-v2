@@ -110,13 +110,13 @@ const inferCongressionalMap = (
 
 export const processFile = ({
   file,
-  setMapLinks,
+  setMapLink,
   setError,
   availableMaps,
   documentMapType = 'default',
 }: {
   file: File;
-  setMapLinks: React.Dispatch<React.SetStateAction<MapLink[]>>;
+  setMapLink: React.Dispatch<React.SetStateAction<MapLink | null>>;
   setError: React.Dispatch<React.SetStateAction<any>>;
   availableMaps: DistrictrMap[];
   documentMapType?: MapType;
@@ -198,17 +198,14 @@ export const processFile = ({
         if (uploadResult.ok && uploadResult.response?.document_id) {
           const allSkipped = [...skippedGeoIds, ...(uploadResult.response.skipped_geo_ids ?? [])];
           const remapping = uploadResult.response.zone_label_remapping;
-          setMapLinks(prev => [
-            ...prev,
-            {
-              ...districtrMap,
-              document_id: uploadResult.response.document_id,
-              filename: file.name,
-              skipped_geo_ids: allSkipped.length > 0 ? allSkipped : undefined,
-              zone_label_remapping:
-                remapping && Object.keys(remapping).length > 0 ? remapping : undefined,
-            },
-          ]);
+          setMapLink({
+            ...districtrMap,
+            document_id: uploadResult.response.document_id,
+            filename: file.name,
+            skipped_geo_ids: allSkipped.length > 0 ? allSkipped : undefined,
+            zone_label_remapping:
+              remapping && Object.keys(remapping).length > 0 ? remapping : undefined,
+          });
         } else {
           setError({
             ok: false,
