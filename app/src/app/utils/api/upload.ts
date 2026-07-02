@@ -84,6 +84,8 @@ const partitionRows = (rows: string[][]): PartitionResult => {
   return {blockRows, skippedGeoIds, stateFipsSet};
 };
 
+// Slug patterns must stay in sync with how maps are named in the DB
+// A mismatch will silently break CSV import for that state.
 const inferCongressionalMap = (
   fips: string,
   availableMaps: DistrictrMap[]
@@ -162,11 +164,15 @@ export const processFile = ({
         setError({ok: false, detail: {message: 'No valid block GEOIDs found'}});
         return;
       }
+      // UX decision: we hard-fail on mixed states rather than guessing which state
+      // the user intended. A CSV from Dave's Redistricting App for a single state
+      // plan should never span multiple state FIPS codes; if it does, the file is
+      // likely mismatched or corrupted.
+      // TODO: We might prompt users to indicate which state they intend the import for.
       if (stateFipsSet.size > 1) {
         const names = [...stateFipsSet]
           .map(f => (FIPS_TO_NAME[f] ? `${FIPS_TO_NAME[f]} (${FIPS_TO_ABBR[f]})` : `FIPS ${f}`))
           .join(', ');
-        // TODO: We might prompt users to indicate which state they intend the import for.
         setError({ok: false, detail: {message: `Mixed states found in CSV: ${names}`}});
         return;
       }

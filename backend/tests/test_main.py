@@ -1101,6 +1101,35 @@ def test_new_document_from_block_assignments_duplicate_blocks_in_input(
     )
 
 
+def test_new_document_from_block_assignments_unknown_geoids_skipped(
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
+):
+    # Block geoids not present in the map graph are returned in skipped_geo_ids
+    # rather than causing an error. This covers the case where a CSV contains
+    # valid-looking block geoids from a different state or geography.
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos",
+            "assignments": [
+                ["000010000000001", "1"],
+                ["000010000000003", "1"],
+                ["000010000000005", "1"],
+                ["999990000000001", "1"],  # valid block format, not in graph
+                ["999990000000002", "2"],  # valid block format, not in graph
+            ],
+        },
+    )
+    data = response.json()
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
+    skipped = data.get("skipped_geo_ids", [])
+    assert "999990000000001" in skipped
+    assert "999990000000002" in skipped
+    assert len(skipped) == 2
+
+
 def test_document_list(
     client, session: Session, document_id_total_vap, document_id_all_stats
 ):
