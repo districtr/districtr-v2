@@ -60,7 +60,7 @@ const parseGeoid = (raw: string): ParsedGeoid | null => {
 };
 
 type PartitionResult = {
-  blockRows: string[][];
+  assignments: [string, string][];
   skippedGeoIds: string[];
   stateFipsSet: Set<string>;
 };
@@ -68,20 +68,20 @@ type PartitionResult = {
 // Single pass over parsed CSV rows. Block GEOIDs proceed to upload; BG, VTD,
 // and unrecognized rows are collected as skipped warnings for the user.
 const partitionRows = (rows: string[][]): PartitionResult => {
-  const blockRows: string[][] = [];
+  const assignments: [string, string][] = [];
   const skippedGeoIds: string[] = [];
   const stateFipsSet = new Set<string>();
   for (const row of rows) {
     const raw = `${row[0] ?? ''}`.trim();
     const parsed = parseGeoid(raw);
     if (parsed?.type === 'block') {
-      blockRows.push(row);
+      assignments.push([parsed.normalized, (row[1] ?? '').trim()]);
       stateFipsSet.add(parsed.stateFips);
     } else {
       skippedGeoIds.push(raw || '[empty]');
     }
   }
-  return {blockRows, skippedGeoIds, stateFipsSet};
+  return {assignments, skippedGeoIds, stateFipsSet};
 };
 
 // Slug patterns must stay in sync with how maps are named in the DB
@@ -158,7 +158,7 @@ export const processFile = ({
         return;
       }
 
-      const {blockRows, skippedGeoIds, stateFipsSet} = partitionRows(allRows);
+      const {assignments, skippedGeoIds, stateFipsSet} = partitionRows(allRows);
 
       if (stateFipsSet.size === 0) {
         setError({ok: false, detail: {message: 'No valid block GEOIDs found'}});
@@ -187,11 +187,6 @@ export const processFile = ({
         });
         return;
       }
-
-      const assignments: [string, string][] = blockRows.map(r => [
-        (r[0] ?? '').padStart(15, '0'),
-        (r[1] ?? '').trim(),
-      ]);
 
       try {
         const uploadResult = await uploadAssignments({
