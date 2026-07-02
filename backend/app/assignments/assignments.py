@@ -29,6 +29,7 @@ class DuplicateGeoIdError(ValueError):
 class BatchInsertResult:
     inserted: int
     skipped_geo_ids: list[str] = field(default_factory=list)
+    zone_label_remapping: dict[str, int] = field(default_factory=dict)
 
 
 def _is_whole_pos_number(s: str) -> bool:
@@ -264,6 +265,14 @@ def batch_insert_assignments(
             "%d geo_ids not found in map graph and skipped", len(skipped_geo_ids)
         )
 
+    # Labels that were non-numeric AND had at least one valid geo_id assigned to them.
+    valid_zone_ids: set[int] = set(zone_by_geo_int.values())
+    zone_label_remapping: dict[str, int] = {
+        original: new_zone
+        for original, new_zone in zone_mapping.items()
+        if not _is_whole_pos_number(original) and new_zone in valid_zone_ids
+    }
+
     if districtr_map.child_layer is not None:
         zone_by_geo: dict[str, int | None] = _heal_or_fill(zone_by_geo_int, G)
     else:
@@ -292,4 +301,8 @@ def batch_insert_assignments(
     inserted = len(zone_by_geo)
     logger.info(f"Inserted {inserted} assignments to document `{document_id}`")
 
-    return BatchInsertResult(inserted=inserted, skipped_geo_ids=skipped_geo_ids)
+    return BatchInsertResult(
+        inserted=inserted,
+        skipped_geo_ids=skipped_geo_ids,
+        zone_label_remapping=zone_label_remapping,
+    )

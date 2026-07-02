@@ -1026,6 +1026,81 @@ def test_new_document_from_block_assignments_non_integer_mapping(
     assert data.get("inserted_assignments") == 5
 
 
+def test_zone_label_remapping_returned_and_excludes_numeric(
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
+):
+    # Non-numeric string labels should appear in zone_label_remapping.
+    # Numeric labels ("1") must NOT appear — they are parsed directly.
+    # Empty string zones are remapped but keyed as "" in the dict.
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos",
+            "assignments": [
+                ["000010000000001", "My zone 1"],
+                ["000010000000003", "My zone 1"],
+                ["000010000000005", "My zone 1"],
+                ["000010000000006", "My zone 3"],
+            ],
+        },
+    )
+    data = response.json()
+    assert response.status_code == 201, data.get("detail")
+    remapping = data.get("zone_label_remapping", {})
+    assert "My zone 1" in remapping
+    assert "My zone 3" in remapping
+    assert isinstance(remapping["My zone 1"], int)
+    assert isinstance(remapping["My zone 3"], int)
+    # Numeric labels must not appear in remapping
+    assert "1" not in remapping
+    assert "3" not in remapping
+
+
+def test_zone_label_remapping_excludes_labels_with_no_valid_geoids(
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
+):
+    # A non-numeric label that maps only to unknown geo_ids must not appear
+    # in zone_label_remapping — it was remapped but never actually used.
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos",
+            "assignments": [
+                ["000010000000001", "Valid label"],
+                ["999990000000099", "Ghost label"],  # unknown geo_id, skipped
+            ],
+        },
+    )
+    data = response.json()
+    assert response.status_code == 201, data.get("detail")
+    remapping = data.get("zone_label_remapping", {})
+    assert "Valid label" in remapping
+    assert "Ghost label" not in remapping
+
+
+def test_zone_label_remapping_blank_label(
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
+):
+    # Empty string zone labels are included in zone_label_remapping keyed as "".
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos",
+            "assignments": [
+                ["000010000000001", "1"],
+                ["000010000000003", ""],
+                ["000010000000005", "1"],
+                ["000010000000006", "3"],
+            ],
+        },
+    )
+    data = response.json()
+    assert response.status_code == 201, data.get("detail")
+    remapping = data.get("zone_label_remapping", {})
+    assert "" in remapping
+    assert isinstance(remapping[""], int)
+
+
 def test_new_document_from_block_assignments_too_many_unique_zones(
     client, simple_shatterable_districtr_map, mock_grid_graph_file
 ):

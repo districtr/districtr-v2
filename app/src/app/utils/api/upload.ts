@@ -14,6 +14,7 @@ export type MapLink = DistrictrMap & {
   document_id: string;
   filename: string;
   skipped_geo_ids?: string[];
+  zone_label_remapping?: Record<string, number>;
 };
 
 type GeoidType = 'block' | 'bg' | 'vtd';
@@ -196,6 +197,7 @@ export const processFile = ({
         });
         if (uploadResult.ok && uploadResult.response?.document_id) {
           const allSkipped = [...skippedGeoIds, ...(uploadResult.response.skipped_geo_ids ?? [])];
+          const remapping = uploadResult.response.zone_label_remapping;
           setMapLinks(prev => [
             ...prev,
             {
@@ -203,6 +205,8 @@ export const processFile = ({
               document_id: uploadResult.response.document_id,
               filename: file.name,
               skipped_geo_ids: allSkipped.length > 0 ? allSkipped : undefined,
+              zone_label_remapping:
+                remapping && Object.keys(remapping).length > 0 ? remapping : undefined,
             },
           ]);
         } else {

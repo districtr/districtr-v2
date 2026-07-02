@@ -460,6 +460,7 @@ async def create_document(
 
     total_assignments = 0
     skipped_geo_ids: list[str] = []
+    zone_label_remapping: dict[str, int] = {}
 
     if copied_document is not None:
         logger.info(
@@ -513,6 +514,22 @@ async def create_document(
             )
             total_assignments = insert_result.inserted
             skipped_geo_ids = insert_result.skipped_geo_ids
+            zone_label_remapping = insert_result.zone_label_remapping
+            for original_label, new_zone in zone_label_remapping.items():
+                display_label = original_label if original_label else "(blank)"
+                label_comment = Comment(
+                    title=display_label,
+                    comment=f"Originally labeled as {display_label}",
+                )
+                session.add(label_comment)
+                session.flush()
+                session.add(
+                    FormDocumentComment(
+                        comment_id=label_comment.id,
+                        document_id=document_id,
+                        zone=new_zone,
+                    )
+                )
         except NoResultFound:
             session.rollback()
             raise HTTPException(
@@ -619,6 +636,7 @@ async def create_document(
 
     doc_dict = dict(doc._mapping)
     doc_dict["skipped_geo_ids"] = skipped_geo_ids
+    doc_dict["zone_label_remapping"] = zone_label_remapping
     return doc_dict
 
 

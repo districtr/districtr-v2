@@ -2,7 +2,7 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {MapLink, processFile} from '@/app/utils/api/upload';
 import {Link, Flex, Heading, Text, Blockquote, Spinner, Callout} from '@radix-ui/themes';
-import {ExclamationTriangleIcon} from '@radix-ui/react-icons';
+import {ExclamationTriangleIcon, InfoCircledIcon} from '@radix-ui/react-icons';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 import {routeManager} from '@/app/utils/map/mapUrlRoute';
 import {MAP_ROUTES} from '@constants/document/routes';
@@ -33,9 +33,10 @@ export const Uploader: React.FC<{
   useEffect(() => {
     if (redirect) {
       const newestMap = mapLinks[mapLinks.length - 1];
-      // Don't auto-redirect when there are skipped GEOIDs — let the user
-      // review the warning and click "Show the map anyway" manually.
-      if (newestMap && !newestMap.skipped_geo_ids?.length) {
+      // Don't auto-redirect when the user needs to review warnings — skipped
+      // GEOIDs or remapped zone labels both require a manual "Continue" click.
+      const needsReview = newestMap?.skipped_geo_ids?.length || newestMap?.zone_label_remapping;
+      if (newestMap && !needsReview) {
         window.location.href = `/${routePrefix}/edit/${newestMap.document_id}`;
         onFinish?.();
       }
@@ -138,13 +139,35 @@ export const Uploader: React.FC<{
                   </Callout.Text>
                 </Callout.Root>
               )}
+              {map.zone_label_remapping && (
+                <Callout.Root color="blue" size="1">
+                  <Callout.Icon>
+                    <InfoCircledIcon />
+                  </Callout.Icon>
+                  <Callout.Text>
+                    <Text as="p" mb="1">
+                      The following zone labels were not numeric and have been assigned new zone
+                      numbers:
+                    </Text>
+                    <Text as="p" mb="1">
+                      {Object.entries(map.zone_label_remapping)
+                        .map(([original, zone]) => `"${original || '(blank)'}" → Zone ${zone}`)
+                        .join(', ')}
+                    </Text>
+                    <Text as="p" color="gray">
+                      The original labels are saved as district comments — you can find them in each
+                      district&apos;s comment panel.
+                    </Text>
+                  </Callout.Text>
+                </Callout.Root>
+              )}
               <Link
                 href={`/${routePrefix}/edit/${map.document_id}`}
                 target={newTab ? '_blank' : undefined}
                 className="self-start"
               >
                 <button className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
-                  Show map anyway
+                  Continue to map
                 </button>
               </Link>
             </Flex>
