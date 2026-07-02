@@ -1056,6 +1056,30 @@ def test_zone_label_remapping_returned_and_excludes_numeric(
     assert "3" not in remapping
 
 
+def test_zone_label_remapping_returned_and_excludes_numeric_with_out_of_bounds(
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
+):
+    # Zone "1" is in-bounds (num_districts=3) — must NOT appear in remapping.
+    # Zone "5" exceeds num_districts=3, so it gets reassigned — must appear.
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos",
+            "assignments": [
+                ["000010000000001", "1"],
+                ["000010000000003", "1"],
+                ["000010000000006", "5"],
+            ],
+        },
+    )
+    data = response.json()
+    assert response.status_code == 201, data.get("detail")
+    remapping = data.get("zone_label_remapping", {})
+    assert "5" in remapping
+    assert remapping["5"] != 5
+    assert "1" not in remapping
+
+
 def test_zone_label_remapping_excludes_labels_with_no_valid_geoids(
     client, simple_shatterable_districtr_map, mock_grid_graph_file
 ):

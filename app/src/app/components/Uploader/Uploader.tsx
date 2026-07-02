@@ -146,17 +146,20 @@ export const Uploader: React.FC<{
                   </Callout.Icon>
                   <Callout.Text>
                     <Text as="p" mb="1">
-                      The following zone labels were not numeric and have been assigned new zone
-                      numbers:
+                      The following district labels could not be used directly and were assigned new
+                      district numbers:
                     </Text>
                     <Text as="p" mb="1">
                       {Object.entries(map.zone_label_remapping)
-                        .map(([original, zone]) => `"${original || '(blank)'}" → Zone ${zone}`)
+                        .map(
+                          ([original, zone]) =>
+                            `District "${original || '(blank)'}" → District ${zone}`
+                        )
                         .join(', ')}
                     </Text>
                     <Text as="p" color="gray">
-                      The original labels are saved as district comments — you can find them in each
-                      district&apos;s comment panel.
+                      The original labels are saved as district comments — you can find them in the
+                      district panel in the draw mode.
                     </Text>
                   </Callout.Text>
                 </Callout.Root>

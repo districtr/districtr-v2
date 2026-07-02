@@ -45,13 +45,18 @@ def _is_whole_pos_number(s: str) -> bool:
 
 def _build_zone_mapping(
     raw_zones: set[str], num_districts: int | None
-) -> dict[str, int]:
+) -> tuple[dict[str, int], set[str]]:
     """Map raw zone strings to integer zone IDs.
 
-    Whole-number strings (e.g. '2', '2.0') are parsed directly; all other non-empty
-    strings (e.g. 'District 1', '01') are remapped to unused integer slots in
-    [1, num_districts]. Raises ValueError if the total number of distinct zones
-    exceeds num_districts.
+    Whole-number strings (e.g. '2', '2.0') are parsed directly; all other
+    strings (e.g. 'District 1', '01') and out-of-bounds numbers (e.g. '5' on a
+    3-district map) are remapped to unused integer slots in [1, num_districts].
+    Raises ValueError if the total number of distinct zones exceeds num_districts.
+
+    Returns:
+        (mapping, remapped_keys) where remapped_keys is the set of labels that
+        were assigned a new slot — non-numeric strings, empty string, and
+        out-of-bounds numbers.
     """
     numeric_map: dict[str, int] = {}
     string_labels: list[str] = []
@@ -78,7 +83,7 @@ def _build_zone_mapping(
         : len(string_labels)
     ]
     mapping = {**numeric_map, **dict(zip(string_labels, available))}
-    return mapping
+    return mapping, set(string_labels)
 
 
 def duplicate_document_assignments(
@@ -244,7 +249,7 @@ def batch_insert_assignments(
     for record in assignments:
         raw_zones.add(record[1])
 
-    zone_mapping = _build_zone_mapping(raw_zones, num_districts)
+    zone_mapping, remapped_keys = _build_zone_mapping(raw_zones, num_districts)
 
     skipped_geo_ids: list[str] = []
     seen_geo_ids: set[str] = set()
@@ -265,12 +270,12 @@ def batch_insert_assignments(
             "%d geo_ids not found in map graph and skipped", len(skipped_geo_ids)
         )
 
-    # Labels that were non-numeric AND had at least one valid geo_id assigned to them.
+    # Remapped labels that had at least one valid geo_id: sub-dict of zone_mapping
+    # restricted to remapped_keys (non-numeric, out-of-bounds, empty string) whose
+    # assigned zone actually appears in the validated assignments.
     valid_zone_ids: set[int] = set(zone_by_geo_int.values())
     zone_label_remapping: dict[str, int] = {
-        original: new_zone
-        for original, new_zone in zone_mapping.items()
-        if not _is_whole_pos_number(original) and new_zone in valid_zone_ids
+        k: zone_mapping[k] for k in remapped_keys if zone_mapping[k] in valid_zone_ids
     }
 
     if districtr_map.child_layer is not None:
