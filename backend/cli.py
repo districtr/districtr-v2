@@ -834,7 +834,7 @@ def delete_overlay(session: Session, overlay_id: str):
 )
 @with_session
 def check_missing_graphs(session: Session, skip_alert: bool):
-    """Query all DistrictrMap records and alert via SNS if any graph pkl is absent from S3."""
+    """Query all visible DistrictrMap records and alert via SNS if any graph pkl is absent from S3."""
     topic_arn = settings.ALARM_SNS_TOPIC_ARN
     if not skip_alert and not topic_arn:
         raise click.UsageError(
@@ -842,7 +842,10 @@ def check_missing_graphs(session: Session, skip_alert: bool):
         )
 
     maps = session.scalars(
-        select(DistrictrMap).where(col(DistrictrMap.gerrydb_table_name).isnot(None))
+        select(DistrictrMap).where(
+            col(DistrictrMap.gerrydb_table_name).isnot(None),
+            col(DistrictrMap.visible).is_(True),
+        )
     ).all()
 
     if not maps:
