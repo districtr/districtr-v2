@@ -1,5 +1,28 @@
 import {auth0} from '@/app/lib/auth0';
 
+// ponytail: per-instance 60s cache; a toggle takes up to a minute to reach every visitor
+const UNDER_CONSTRUCTION_TTL_MS = 60_000;
+let underConstructionCache = {value: false, fetchedAt: 0};
+
+async function isUnderConstruction(): Promise<boolean> {
+  if (Date.now() - underConstructionCache.fetchedAt < UNDER_CONSTRUCTION_TTL_MS) {
+    return underConstructionCache.value;
+  }
+  try {
+    const apiUrl = process.env.NEXT_SERVER_API_URL ?? process.env.NEXT_PUBLIC_API_URL;
+    const res = await fetch(`${apiUrl}/api/cms/site_settings`);
+    const settings = await res.json();
+    underConstructionCache = {
+      value: settings.under_construction === true,
+      fetchedAt: Date.now(),
+    };
+  } catch {
+    // fail open: keep the site up if the API is unreachable
+    underConstructionCache.fetchedAt = Date.now();
+  }
+  return underConstructionCache.value;
+}
+
 export async function proxy(request: Request) {
   // Note that proxy uses the standard Request type
   const authRes = await auth0.middleware(request);
@@ -22,6 +45,10 @@ export async function proxy(request: Request) {
   }
 
   // NOTE All other routes considered public
+  if (pathname !== '/under-construction' && (await isUnderConstruction())) {
+    return Response.redirect(`${url.origin}/under-construction`, 302);
+  }
+
   return authRes;
 }
 

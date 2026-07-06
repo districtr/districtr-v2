@@ -91,6 +91,18 @@ class PlacesCMSContent(TimeStampMixin, SQLModel, table=True):
     )
 
 
+class SiteSettings(SQLModel, table=True):
+    __tablename__ = "site_settings"
+    metadata = MetaData(schema=CMS_SCHEMA)
+    # ponytail: single-row table, always id=1
+    id: int = Field(default=1, primary_key=True)
+    under_construction: bool = Field(default=False, nullable=False)
+
+
+class SiteSettingsUpdate(BaseModel):
+    under_construction: bool
+
+
 class CMSContentTypesEnum(str, enum.Enum):
     tags = "tags"
     places = "places"
