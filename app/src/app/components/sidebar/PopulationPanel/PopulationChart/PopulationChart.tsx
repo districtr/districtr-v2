@@ -183,6 +183,7 @@ export const PopulationChart: React.FC<{
         <div style={{position: 'sticky', top: 0, zIndex: 2, backgroundColor: 'var(--gray-1)'}}>
           <svg width={width} height={margins.top}>
             <Group left={margins.left}>
+              {renderIdealReference(0, margins.top)}
               {!!effectiveIdealPopulation && (
                 <text
                   x={xScale(effectiveIdealPopulation) + 5}
@@ -192,7 +193,9 @@ export const PopulationChart: React.FC<{
                 >
                   Ideal{' '}
                   {isHovered ? (
-                    <tspan color="gray">{formatNumber(effectiveIdealPopulation, 'string')}</tspan>
+                    <tspan color="gray">
+                      {formatNumber(effectiveIdealPopulation, NUMBER_FORMATS.STRING)}
+                    </tspan>
                   ) : (
                     ''
                   )}
@@ -220,7 +223,7 @@ export const PopulationChart: React.FC<{
                 tickLabelProps={{
                   fontSize: '14px',
                 }}
-                tickFormat={v => formatNumber(v as number, 'compact')}
+                tickFormat={v => formatNumber(v as number, NUMBER_FORMATS.COMPACT)}
               />
             </Group>
           </svg>
@@ -242,43 +245,18 @@ export const PopulationChart: React.FC<{
     >
       <Group left={margins.left} top={margins.top} onMouseLeave={() => setHoveredIndex(null)}>
         {!!effectiveIdealPopulation && (
-          <>
-            <Line
-              from={{x: xScale(effectiveIdealPopulation), y: margins.top * -1}}
-              to={{
-                x: xScale(effectiveIdealPopulation),
-                y: yMax,
-              }}
-              stroke="black"
-              strokeWidth="1"
-              strokeDasharray="3 3"
-            />
-            <Group left={xScale(effectiveIdealPopulation) + 5} top={-5}>
-              <text textAnchor="start" fontSize="14px">
-                Ideal{' '}
-                {isHovered ? (
-                  <tspan color="gray">
-                    {formatNumber(effectiveIdealPopulation, NUMBER_FORMATS.STRING)}
-                  </tspan>
-                ) : (
-                  ''
-                )}
-              </text>
-            </Group>
-            {!!effectiveTargetDeviation && (
-              <Bar
-                x={xScale(Math.max(0, effectiveIdealPopulation - effectiveTargetDeviation))}
-                width={
-                  xScale(Math.max(0, effectiveIdealPopulation + effectiveTargetDeviation)) -
-                  xScale(Math.max(0, effectiveIdealPopulation - effectiveTargetDeviation))
-                }
-                y={-margins.top}
-                height={yMax + margins.top}
-                fill="gray"
-                fillOpacity={0.15}
-              />
-            )}
-          </>
+          <Group left={xScale(effectiveIdealPopulation) + 5} top={-5}>
+            <text textAnchor="start" fontSize="14px">
+              Ideal{' '}
+              {isHovered ? (
+                <tspan color="gray">
+                  {formatNumber(effectiveIdealPopulation, NUMBER_FORMATS.STRING)}
+                </tspan>
+              ) : (
+                ''
+              )}
+            </text>
+          </Group>
         )}
         {renderIdealReference(-margins.top, yMax)}
         {renderBars()}
