@@ -843,7 +843,8 @@ def check_missing_graphs(session: Session):
         logger.error("S3 client not available — check AWS credentials configuration.")
         raise SystemExit(1)
 
-    missing = []
+    # (gerrydb_table_name, status) where status is "missing" or an S3 error code
+    problems = []
     for m in maps:
         assert m.gerrydb_table_name is not None
         key = f"{S3_GRAPH_PREFIX}/{m.gerrydb_table_name}.pkl"
@@ -852,36 +853,32 @@ def check_missing_graphs(session: Session):
             logger.info("Graph present: s3://%s/%s", settings.R2_BUCKET_NAME, key)
         except botocore.exceptions.ClientError as e:
             code = e.response.get("Error", {}).get("Code", "")
-            if code in ("404", "NoSuchKey"):
-                logger.warning(
-                    "Missing graph: s3://%s/%s", settings.R2_BUCKET_NAME, key
-                )
-            else:
-                logger.error("S3 error checking %s: %s", key, e)
-            missing.append(m.gerrydb_table_name)
+            status = "missing" if code in ("404", "NoSuchKey") else code or str(e)
+            logger.warning("Graph %s: s3://%s/%s", status, settings.R2_BUCKET_NAME, key)
+            problems.append((m.gerrydb_table_name, status))
 
-    if not missing:
+    if not problems:
         logger.info("All %d graph(s) present in S3.", len(maps))
         return
-
-    logger.warning("Missing %d graph(s): %s", len(missing), missing)
 
     topic_arn = settings.ALARM_SNS_TOPIC_ARN
     if not topic_arn:
         logger.warning("ALARM_SNS_TOPIC_ARN not set — skipping SNS alert.")
         return
 
-    missing_list = "\n".join(
-        f"  - s3://{settings.R2_BUCKET_NAME}/{S3_GRAPH_PREFIX}/{name}.pkl"
-        for name in missing
+    problem_list = "\n".join(
+        f"  - s3://{settings.R2_BUCKET_NAME}/{S3_GRAPH_PREFIX}/{name}.pkl — {status}"
+        for name, status in problems
     )
     sns = boto3.client("sns")
     sns.publish(
         TopicArn=topic_arn,
-        Subject=f"[Districtr] {len(missing)} missing graph pkl file(s)",
+        Subject=f"[Districtr] {len(problems)} graph pkl file(s) missing or unreachable",
         Message=(
-            f"The following graph pkl files are missing in S3:\n\n{missing_list}\n\n"
-            "Re-run the graph pipeline for each missing table to regenerate."
+            f"The following graph pkl files are missing or unreachable in S3:\n\n"
+            f"{problem_list}\n\n"
+            "For files marked 'missing', re-run the graph pipeline to regenerate; "
+            "other entries show the S3 error code encountered."
         ),
     )
     logger.info("Alert published to SNS topic %s", topic_arn)

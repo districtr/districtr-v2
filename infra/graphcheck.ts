@@ -36,7 +36,7 @@ export function createGraphCheck(
       Statement: [
         {
           Effect: "Allow",
-          Action: ["s3:GetObject", "s3:HeadObject", "s3:ListBucket"],
+          Action: ["s3:GetObject", "s3:ListBucket"],
           Resource: [
             pulumi.interpolate`arn:aws:s3:::${config.s3BucketName}`,
             pulumi.interpolate`arn:aws:s3:::${config.s3BucketName}/*`,
