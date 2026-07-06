@@ -1,7 +1,7 @@
 import React from 'react';
 import {SecondaryNav, SecondaryNavItem} from './SecondaryNav';
 
-const LEARN_ITEMS: SecondaryNavItem[] = [
+export const LEARN_ITEMS: SecondaryNavItem[] = [
   {label: 'About', href: '/about'},
   {label: 'Guide', href: '/guide'},
   {label: 'Data', href: '/data'},

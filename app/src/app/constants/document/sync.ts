@@ -1,3 +1,8 @@
+/** Cadence of the periodic auto-save while editing. */
+export const AUTOSAVE_INTERVAL_MS = 3 * 60 * 1000;
+/** Pause since the last edit required before a periodic auto-save fires. */
+export const AUTOSAVE_IDLE_MS = 10 * 1000;
+
 export const ConflictContext = {
   Save: 'save',
   Load: 'load',

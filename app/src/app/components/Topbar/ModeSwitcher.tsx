@@ -209,10 +209,10 @@ export const ModeSwitcher: React.FC = () => {
     <DropdownMenu.Root>
       <DropdownMenu.Trigger>
         <Button
-          variant="soft"
+          variant="surface"
           color="gray"
           size="2"
-          className="cursor-pointer"
+          className="cursor-pointer transition-shadow hover:shadow-md"
           disabled={isMinting}
           aria-label="Switch view"
         >
@@ -221,7 +221,10 @@ export const ModeSwitcher: React.FC = () => {
           <CaretDownIcon />
         </Button>
       </DropdownMenu.Trigger>
-      <DropdownMenu.Content sideOffset={6}>
+      <DropdownMenu.Content
+        sideOffset={6}
+        className="min-w-[var(--radix-dropdown-menu-trigger-width)]"
+      >
         {modes.map(mode => (
           <ModeSwitcherItem
             key={mode}

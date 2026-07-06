@@ -1,17 +1,26 @@
 'use client';
-import React from 'react';
+import React, {useState} from 'react';
 import {Box, DropdownMenu, Flex, IconButton, Link} from '@radix-ui/themes';
 import NextLink from 'next/link';
 import {usePathname} from 'next/navigation';
 import {HamburgerMenuIcon} from '@radix-ui/react-icons';
+import {SecondaryNav, SecondaryNavItem} from './SecondaryNav';
+import {LEARN_ITEMS} from './LearnSubNav';
+import {CATALOG_ITEMS} from './CatalogSubNav';
 
-const NAV_ITEMS: {label: string; href: string; match: (pathname: string) => boolean}[] = [
+const NAV_ITEMS: {
+  label: string;
+  href: string;
+  match: (pathname: string) => boolean;
+  subnav?: SecondaryNavItem[];
+}[] = [
   // Learn is a section (About/Guide/Data/Rules); the link lands on the first page
   // and the in-page subnav (LearnSubNav) handles movement within the section.
   {
     label: 'Learn',
     href: '/about',
     match: p => ['/about', '/guide', '/data', '/rules'].includes(p),
+    subnav: LEARN_ITEMS,
   },
   // Draw owns the place-picker landing pages too, so it stays active on /draw,
   // the all-places directory, and individual state pages.
@@ -20,11 +29,17 @@ const NAV_ITEMS: {label: string; href: string; match: (pathname: string) => bool
     href: '/draw',
     match: p => p === '/draw' || p === '/places' || p.startsWith('/place/'),
   },
-  {label: 'Catalog', href: '/catalog', match: p => p.startsWith('/catalog') || p === '/my-maps'},
+  {
+    label: 'Catalog',
+    href: '/catalog',
+    match: p => p.startsWith('/catalog') || p === '/my-maps',
+    subnav: CATALOG_ITEMS,
+  },
 ];
 
 export const Header: React.FC = () => {
   const pathname = usePathname();
+  const [hovered, setHovered] = useState<(typeof NAV_ITEMS)[number] | null>(null);
 
   const linkItems = NAV_ITEMS.map(item => {
     const active = item.match(pathname);
@@ -39,6 +54,7 @@ export const Header: React.FC = () => {
           active ? 'bg-districtrLightBlue !text-districtrBlue' : 'hover:bg-gray-200'
         }`}
         aria-current={active ? 'page' : undefined}
+        onMouseEnter={() => setHovered(item)}
       >
         <NextLink href={item.href}>{item.label}</NextLink>
       </Link>
@@ -46,7 +62,10 @@ export const Header: React.FC = () => {
   });
 
   return (
-    <Box className="h-16 px-4 bg-gray-100 sticky top-0 shadow-sm z-[10000] flex items-center">
+    <Box
+      className="h-16 px-4 bg-gray-100 sticky top-0 shadow-sm z-[10000] flex items-center"
+      onMouseLeave={() => setHovered(null)}
+    >
       <Flex
         direction="row"
         justify="between"
@@ -74,6 +93,9 @@ export const Header: React.FC = () => {
           </DropdownMenu.Content>
         </DropdownMenu.Root>
       </Flex>
+      {hovered?.subnav && !hovered.match(pathname) && (
+        <SecondaryNav floating items={hovered.subnav} />
+      )}
     </Box>
   );
 };
