@@ -24,6 +24,7 @@ export function createCluster() {
     backend: logGroup("backend"),
     frontend: logGroup("frontend"),
     migrate: logGroup("migrate"),
+    graphCheck: logGroup("graph-check"),
   };
 
   return {cluster, logGroups};
