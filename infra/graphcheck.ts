@@ -12,13 +12,8 @@ export function createGraphCheck(
   alarmTopicArn: pulumi.Input<string>
 ) {
   const name = config.name;
-  const {cluster} = clusterResources;
+  const {cluster, logGroups} = clusterResources;
   const {executionRole, image, environment, secrets, logConfiguration} = taskConfig;
-
-  const logGroup = new aws.cloudwatch.LogGroup(`${name}-graph-check-logs`, {
-    name: `/districtr/${config.stack}/graph-check`,
-    retentionInDays: config.logRetentionDays,
-  });
 
   // Dedicated task role: S3 read (graphs) + SNS publish (alerts).
   const taskRole = new aws.iam.Role(`${name}-graph-check-task-role`, {
@@ -76,7 +71,7 @@ export function createGraphCheck(
           {name: "ALARM_SNS_TOPIC_ARN", value: alarmTopicArn},
         ],
         secrets,
-        logConfiguration: logConfiguration(logGroup),
+        logConfiguration: logConfiguration(logGroups.graphCheck),
       },
     ]),
   });
