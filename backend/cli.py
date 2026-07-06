@@ -21,7 +21,7 @@ from app.utils import (
     create_spatial_index as _create_spatial_index,
 )
 from app.core.io import get_local_or_s3_path
-from app.evaluation.graph import _S3_GRAPH_PREFIX
+from app.evaluation.graph import S3_GRAPH_PREFIX
 from app.constants import GERRY_DB_SCHEMA
 from functools import wraps
 from contextlib import contextmanager
@@ -846,7 +846,7 @@ def check_missing_graphs(session: Session):
     missing = []
     for m in maps:
         assert m.gerrydb_table_name is not None
-        key = f"{_S3_GRAPH_PREFIX}/{m.gerrydb_table_name}.pkl"
+        key = f"{S3_GRAPH_PREFIX}/{m.gerrydb_table_name}.pkl"
         try:
             s3.head_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
             logger.info("Graph present: s3://%s/%s", settings.R2_BUCKET_NAME, key)
@@ -872,7 +872,7 @@ def check_missing_graphs(session: Session):
         return
 
     missing_list = "\n".join(
-        f"  - s3://{settings.R2_BUCKET_NAME}/{_S3_GRAPH_PREFIX}/{name}.pkl"
+        f"  - s3://{settings.R2_BUCKET_NAME}/{S3_GRAPH_PREFIX}/{name}.pkl"
         for name in missing
     )
     sns = boto3.client("sns")
