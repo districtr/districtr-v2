@@ -870,6 +870,11 @@ def check_missing_graphs(session: Session, skip_alert: bool):
             status = "missing" if code in ("404", "NoSuchKey") else code or str(e)
             logger.warning("Graph %s: s3://%s/%s", status, settings.R2_BUCKET_NAME, key)
             problems.append((m.gerrydb_table_name, status))
+        except botocore.exceptions.BotoCoreError as e:
+            # Non-HTTP failures: connection, timeout, credentials, etc.
+            status = type(e).__name__
+            logger.warning("Graph %s: s3://%s/%s", status, settings.R2_BUCKET_NAME, key)
+            problems.append((m.gerrydb_table_name, status))
 
     if not problems:
         logger.info("All %d graph(s) present in S3.", len(maps))
