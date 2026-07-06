@@ -9,8 +9,8 @@ config:
   districtr-infra:extraDomains:
     - www.beta.districtr.org
   districtr-infra:corsOrigins: https://beta.districtr.org,https://www.beta.districtr.org
-
-  districtr-infra:s3BucketName: districtr-v2-prod
+  districtr-infra:s3BucketName:
+    secure: v1:MS8AzWKQiTmtjfkB:oz6SV4+k43qsx7zvx/cdwVO4Be+fhIJd1wMaghY7OLAHbWwTV3gzHrTg
   districtr-infra:cdnUrl: https://tilesets1.cdn.districtr.org
   districtr-infra:auth0Domain: districtr.us.auth0.com
   districtr-infra:auth0ApiAudience: https://districtr-v2-api.fly.dev

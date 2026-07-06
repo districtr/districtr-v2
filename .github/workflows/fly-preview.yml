@@ -113,7 +113,7 @@ jobs:
           AUTH0_DOMAIN: ${{ secrets.AUTH0_DOMAIN }}
           AUTH0_API_AUDIENCE: ${{ secrets.AUTH0_API_AUDIENCE }}
           AUTH0_ISSUER: ${{ secrets.AUTH0_ISSUER }}
-          AUTH0_ALGORITHMS: ${{ secrets.AUTH0_ALGORITHMS }}
+          AUTH0_ALGORITHMS: RS256
           RECAPTCHA_SECRET_KEY: ${{ secrets.RECAPTCHA_SECRET_KEY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -126,6 +126,8 @@ jobs:
           #    users/password/database, so we reuse those credentials below.
           if ! flyctl status -a "$DB_APP" >/dev/null 2>&1; then
             echo "Forking $DEV_PG_APP -> $DB_APP ..."
+            # || true: the create command times out waiting for health checks on
+            # large volume forks; the wait loop below retries until Postgres is up.
             flyctl postgres create \
               --name "$DB_APP" \
               --org "$ORG" \
@@ -133,7 +135,18 @@ jobs:
               --fork-from "$DEV_PG_APP" \
               --initial-cluster-size 1 \
               --vm-size shared-cpu-1x \
-              --volume-size 10
+              --vm-memory 2048 \
+              --volume-size 100 || true
+
+            echo "Waiting for $DB_APP to become healthy..."
+            for i in $(seq 1 20); do
+              if flyctl status -a "$DB_APP" 2>/dev/null | grep -q "running"; then
+                echo "$DB_APP is healthy."
+                break
+              fi
+              echo "  attempt $i/20 — sleeping 30s"
+              sleep 30
+            done
           else
             echo "Postgres fork $DB_APP already exists, reusing."
           fi
@@ -172,7 +185,7 @@ jobs:
 
           # 4) Deploy (downsized for a preview). The release_command in
           #    backend/fly.toml runs `alembic upgrade head` against the forked DB.
-          flyctl deploy backend --remote-only --app "$API_APP" --vm-memory 2048 --ha=false --yes
+          flyctl deploy backend --remote-only --app "$API_APP" --vm-memory 2048 --ha=false --yes --release-command-timeout 900
 
       - name: Tear down stale preview backend (Fullstack -> FE downgrade)
         # When the Fullstack label is dropped but FE remains, destroy the now-unused
