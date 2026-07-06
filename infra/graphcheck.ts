@@ -3,11 +3,7 @@ import * as pulumi from "@pulumi/pulumi";
 import {config} from "./config";
 import {ClusterResources} from "./cluster";
 import {Network} from "./network";
-import {BackendTaskConfig} from "./backend";
-
-const ECS_TASKS_TRUST = aws.iam.assumeRolePolicyForPrincipal({
-  Service: "ecs-tasks.amazonaws.com",
-});
+import {BackendTaskConfig, ECS_TASKS_TRUST} from "./backendtask";
 
 export function createGraphCheck(
   clusterResources: ClusterResources,
