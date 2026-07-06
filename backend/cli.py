@@ -827,9 +827,20 @@ def delete_overlay(session: Session, overlay_id: str):
 
 
 @cli.command("check-missing-graphs")
+@click.option(
+    "--skip-alert",
+    is_flag=True,
+    help="Log results without publishing to SNS (for local runs without ALARM_SNS_TOPIC_ARN)",
+)
 @with_session
-def check_missing_graphs(session: Session):
+def check_missing_graphs(session: Session, skip_alert: bool):
     """Query all DistrictrMap records and alert via SNS if any graph pkl is absent from S3."""
+    topic_arn = settings.ALARM_SNS_TOPIC_ARN
+    if not skip_alert and not topic_arn:
+        raise click.UsageError(
+            "ALARM_SNS_TOPIC_ARN is not set. Set it, or pass --skip-alert to run without SNS."
+        )
+
     maps = session.scalars(
         select(DistrictrMap).where(col(DistrictrMap.gerrydb_table_name).isnot(None))
     ).all()
@@ -861,9 +872,8 @@ def check_missing_graphs(session: Session):
         logger.info("All %d graph(s) present in S3.", len(maps))
         return
 
-    topic_arn = settings.ALARM_SNS_TOPIC_ARN
-    if not topic_arn:
-        logger.warning("ALARM_SNS_TOPIC_ARN not set — skipping SNS alert.")
+    if skip_alert:
+        logger.info("--skip-alert set — not publishing to SNS.")
         return
 
     problem_list = "\n".join(
