@@ -13,8 +13,9 @@ Grid integration topology (8×8 blocks / 4×4 VTDs, 16 nodes each):
     population_deviation — simple_child_geos (6 blocks near Kansas, real geometry):
         {1,2,5,6} → zone 1 (total_pop_20=100+200+500+600=1400)
         {3,4}     → zone 2 (total_pop_20=300+400=700)
-        top_to_bottom_deviation = (1400−700)/700 = 1.0
-        ideal = 2100 // 2 = 1050  →  maximal_absolute_deviation = 350
+        ideal = 2100 // 2 = 1050
+        top_to_bottom_deviation = (1400−700)/1050 = 2/3
+        maximal_absolute_deviation = 350
 
     Malformed state — parent + some children coexist in the same assignment set:
         A single PUT containing both VTD(0,0) and 2 of its 4 blocks causes both the
@@ -293,7 +294,7 @@ def test_assigned_units_shatterable_partial_blocks(
 def test_population_deviation(
     client, session: Session, simple_child_geos_nonshatterable_districtr_map
 ):
-    """{1,2,5,6}→zone 1 (pop=1400), {3,4}→zone 2 (pop=700), ideal=1050 → top_to_bottom=1.0, max_abs_dev=350."""
+    """{1,2,5,6}→zone 1 (pop=1400), {3,4}→zone 2 (pop=700), ideal=1050 → top_to_bottom=2/3, max_abs_dev=350."""
     resp = client.post(
         "/api/create_document", json={"districtr_map_slug": "simple_child_ns"}
     )
@@ -320,7 +321,7 @@ def test_population_deviation(
 
     assert result["most_populous_district"] == 1
     assert result["least_populous_district"] == 2
-    assert result["top_to_bottom_deviation"] == pytest.approx(1.0, abs=1e-6)
+    assert result["top_to_bottom_deviation"] == pytest.approx(700 / 1050, abs=1e-6)
     assert result["maximal_absolute_deviation"] == 350
 
 
