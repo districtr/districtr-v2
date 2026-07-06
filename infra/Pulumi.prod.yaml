@@ -9,13 +9,16 @@ config:
   districtr-infra:extraDomains:
     - www.beta.districtr.org
   districtr-infra:corsOrigins: https://beta.districtr.org,https://www.beta.districtr.org
-
-  districtr-infra:s3BucketName: districtr-v2-prod
+  districtr-infra:s3BucketName:
+    secure: v1:MS8AzWKQiTmtjfkB:oz6SV4+k43qsx7zvx/cdwVO4Be+fhIJd1wMaghY7OLAHbWwTV3gzHrTg
   districtr-infra:cdnUrl: https://tilesets1.cdn.districtr.org
   districtr-infra:auth0Domain: districtr.us.auth0.com
   districtr-infra:auth0ApiAudience: https://districtr-v2-api.fly.dev
   districtr-infra:auth0Issuer: https://districtr.us.auth0.com/
-  districtr-infra:alarmEmail: dhalpern@uchicago.edu
+  districtr-infra:alarmEmails:
+    - dhalpern@uchicago.edu
+    - gfang@uchicago.edu
+    - peter@mggg.org
 
   districtr-infra:secretKey:
     secure: v1:dHM/3HqOvfLfoMgx:48kANUBIY2+yLOYo3BgQLly0YEOXYmw6K45Y9BabOph74VwoWV+oZ/mcvHcuD9GY1xz/vpwZcFJJQRxVwfH9sDeY+39I9ap/8xPDpQARDMs=
