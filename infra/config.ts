@@ -48,6 +48,10 @@ export const config = {
   backendImageTagOverride: cfg.get("backendImageTag"),
   frontendImageTagOverride: cfg.get("frontendImageTag"),
 
+  // Forces the frontend into maintenance mode during planned downtime
+  // (e.g. DB migration), independent of the CMS flag in the database.
+  underConstruction: cfg.getBoolean("underConstruction") ?? false,
+
   // Task sizing (Fargate cpu units / MiB)
   backendCpu: cfg.getNumber("backendCpu") ?? (isProd ? 2048 : 1024),
   backendMemory: cfg.getNumber("backendMemory") ?? 8192,
