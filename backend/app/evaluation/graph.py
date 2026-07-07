@@ -14,7 +14,7 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-_S3_GRAPH_PREFIX = "graphs"
+S3_GRAPH_PREFIX = "graphs"
 
 
 def get_gerrydb_graph_file(
@@ -26,11 +26,11 @@ def get_gerrydb_graph_file(
     Prefers a local copy (e.g. docker-compose bind mounts); otherwise
     returns the S3 URI — a missing object surfaces as ClientError on fetch.
     """
-    possible_local_path = Path(prefix) / _S3_GRAPH_PREFIX / f"{gerrydb_name}.pkl"
+    possible_local_path = Path(prefix) / S3_GRAPH_PREFIX / f"{gerrydb_name}.pkl"
     if possible_local_path.exists():
         return str(possible_local_path)
 
-    return f"s3://{settings.R2_BUCKET_NAME}/{_S3_GRAPH_PREFIX}/{gerrydb_name}.pkl"
+    return f"s3://{settings.R2_BUCKET_NAME}/{S3_GRAPH_PREFIX}/{gerrydb_name}.pkl"
 
 
 def get_gerrydb_graph(file_path: str) -> Graph:

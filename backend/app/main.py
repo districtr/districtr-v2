@@ -459,6 +459,8 @@ async def create_document(
     create_document_partition(session, document_id, "community_assignments")
 
     total_assignments = 0
+    skipped_geo_ids: list[str] = []
+    zone_label_remapping: dict[str, int] = {}
 
     if copied_document is not None:
         logger.info(
@@ -504,12 +506,30 @@ async def create_document(
             )
 
         try:
-            total_assignments = batch_insert_assignments(
+            insert_result = batch_insert_assignments(
                 document_id=document_id,
                 assignments=data.assignments,
                 districtr_map_slug=data.districtr_map_slug,
                 session=session,
             )
+            total_assignments = insert_result.inserted
+            skipped_geo_ids = insert_result.skipped_geo_ids
+            zone_label_remapping = insert_result.zone_label_remapping
+            for original_label, new_zone in zone_label_remapping.items():
+                display_label = original_label if original_label else "(blank)"
+                label_comment = Comment(
+                    title=display_label,
+                    comment=f"Originally labeled as {display_label}",
+                )
+                session.add(label_comment)
+                session.flush()
+                session.add(
+                    FormDocumentComment(
+                        comment_id=label_comment.id,
+                        document_id=document_id,
+                        zone=new_zone,
+                    )
+                )
         except NoResultFound:
             session.rollback()
             raise HTTPException(
@@ -522,11 +542,11 @@ async def create_document(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Duplicate geoids found in input data. Ensure all geoids are unique",
             )
-        except ValueError:
+        except ValueError as exc:
             session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Invalid zone value in assignments",
+                detail=str(exc),
             )
 
     if data.metadata is not None:
@@ -614,7 +634,10 @@ async def create_document(
 
     session.commit()
 
-    return doc
+    doc_dict = dict(doc._mapping)
+    doc_dict["skipped_geo_ids"] = skipped_geo_ids
+    doc_dict["zone_label_remapping"] = zone_label_remapping
+    return doc_dict
 
 
 @app.put("/api/assignments")

@@ -25,7 +25,7 @@ export const config = {
   corsOrigins: cfg.require("corsOrigins"),
 
   // Existing object storage / CDN — not managed by this project.
-  s3BucketName: cfg.require("s3BucketName"),
+  s3BucketName: cfg.requireSecret("s3BucketName"),
   cdnUrl: cfg.require("cdnUrl"),
 
   // Auth0 (non-secret identifiers)
@@ -68,6 +68,6 @@ export const config = {
   vpcCidr: cfg.get("vpcCidr") ?? (isProd ? "10.0.0.0/16" : "10.1.0.0/16"),
 
   // Monitoring
-  alarmEmail: cfg.get("alarmEmail"),
+  alarmEmails: cfg.getObject<string[]>("alarmEmails") ?? [],
   logRetentionDays: cfg.getNumber("logRetentionDays") ?? (isProd ? 90 : 30),
 };
