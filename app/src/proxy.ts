@@ -1,6 +1,5 @@
 import {auth0} from '@/app/lib/auth0';
 
-// ponytail: per-instance 60s cache; a toggle takes up to a minute to reach every visitor
 const UNDER_CONSTRUCTION_TTL_MS = 60_000;
 let underConstructionCache = {value: false, fetchedAt: 0};
 
