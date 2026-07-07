@@ -17,7 +17,7 @@ type ChartMargins = {left: number; right: number; top: number; bottom: number};
 const DEFAULT_MARGINS: ChartMargins = {left: 5, right: 20, top: 6, bottom: 10};
 
 /** Height of the standalone top-axis strip rendered by PopulationChartAxis. */
-export const POP_CHART_AXIS_HEIGHT = 36;
+export const POP_CHART_AXIS_HEIGHT = 46;
 
 // The axis strip and the bar chart are separate components (the axis sits outside the
 // scroll area), so they must derive the exact same x-scale from the same inputs.
@@ -69,42 +69,49 @@ export const PopulationChartAxis: React.FC<{
     margins
   );
   if (xMax <= 0 || !data.length) return null;
-  const lineY = POP_CHART_AXIS_HEIGHT - 1;
+  const lineY = POP_CHART_AXIS_HEIGHT - 2;
+  const approxCharWidth = 8;
 
-  // The "Ideal" label shares the line with the tick numbers, and the ideal value can land
-  // anywhere on the axis. Estimate label extents (~8px/char at 14px font) and place the
-  // label on whichever side of the dashed line doesn't collide with a tick number.
+  // Two-line "Ideal / <number>" label above the axis, centered on the ideal position
+  // (clamped to the chart edges). The number line shares its band with the tick numbers;
+  // any tick label the ideal label would cover is suppressed (its tick mark remains).
   let idealLabel: React.ReactNode = null;
+  let idealLabelXRange: [number, number] | null = null;
   if (effectiveIdealPopulation) {
     const idealX = xScale(effectiveIdealPopulation);
-    const text = `Ideal ${formatNumber(effectiveIdealPopulation, NUMBER_FORMATS.STRING)}`;
-    const approxCharWidth = 8;
-    const labelWidth = text.length * approxCharWidth;
-    const tickValues: number[] = xScale.ticks(2);
-    const collidesWithTicks = (x0: number, x1: number) =>
-      tickValues.some(t => {
-        const tickText = formatNumber(t, NUMBER_FORMATS.COMPACT) ?? '';
-        const halfTickWidth = (tickText.length * approxCharWidth) / 2;
-        const tickX = xScale(t);
-        return x0 < tickX + halfTickWidth && x1 > tickX - halfTickWidth;
-      });
-    const fitsRight =
-      idealX + 5 + labelWidth <= xMax && !collidesWithTicks(idealX + 5, idealX + 5 + labelWidth);
-    const anchor = fitsRight ? 'start' : 'end';
-    const x = fitsRight ? idealX + 5 : idealX - 5;
+    const numberText = formatNumber(effectiveIdealPopulation, NUMBER_FORMATS.STRING) ?? '';
+    const halfWidth = (numberText.length * approxCharWidth) / 2;
+    const x = Math.min(Math.max(idealX, halfWidth), xMax - halfWidth);
+    idealLabelXRange = [x - halfWidth - 4, x + halfWidth + 4];
     idealLabel = (
-      <text
-        x={x}
-        y={lineY - 11}
-        textAnchor={anchor}
-        fontSize="14px"
-        stroke="var(--color-background)"
-        strokeWidth={4}
-        style={{paintOrder: 'stroke'}}
-      >
-        {text}
+      <text textAnchor="middle" fontSize="14px">
+        <tspan x={x} y={lineY - 28}>
+          Ideal
+        </tspan>
+        <tspan x={x} y={lineY - 12}>
+          {numberText}
+        </tspan>
       </text>
     );
+  }
+
+  // Tick labels hidden behind the ideal label are suppressed (their tick marks stay) —
+  // but never all of them. If every default tick label collides (e.g. "200K" right under
+  // "Ideal 222,066"), escalate to denser "nice" tick sets until at least one non-zero
+  // label remains visible.
+  const collidesWithIdealLabel = (v: number) => {
+    if (!idealLabelXRange) return false;
+    const label = formatNumber(v, NUMBER_FORMATS.COMPACT) ?? '';
+    const halfTickWidth = (label.length * approxCharWidth) / 2;
+    const tickX = xScale(v);
+    return (
+      tickX + halfTickWidth > idealLabelXRange[0] && tickX - halfTickWidth < idealLabelXRange[1]
+    );
+  };
+  let tickValues: number[] = xScale.ticks(2);
+  for (const density of [4, 6, 10]) {
+    if (tickValues.some(v => v !== 0 && !collidesWithIdealLabel(v))) break;
+    tickValues = xScale.ticks(density);
   }
 
   return (
@@ -115,11 +122,15 @@ export const PopulationChartAxis: React.FC<{
         <AxisTop
           scale={xScale}
           top={lineY}
-          numTicks={2}
+          tickValues={tickValues}
           tickLabelProps={{
             fontSize: '14px',
           }}
-          tickFormat={v => formatNumber(v as number, NUMBER_FORMATS.COMPACT)}
+          tickFormat={v =>
+            collidesWithIdealLabel(v as number)
+              ? ''
+              : formatNumber(v as number, NUMBER_FORMATS.COMPACT)
+          }
         />
         {idealLabel}
       </Group>
