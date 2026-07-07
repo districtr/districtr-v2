@@ -4,6 +4,12 @@ const UNDER_CONSTRUCTION_TTL_MS = 60_000;
 let underConstructionCache = {value: false, fetchedAt: 0};
 
 async function isUnderConstruction(): Promise<boolean> {
+  // Env override for planned downtime: forces maintenance mode even when the
+  // backend (where the DB flag lives) is itself down. Read at request time,
+  // so it applies to every instance from its first request.
+  if (process.env.UNDER_CONSTRUCTION === 'true') {
+    return true;
+  }
   if (Date.now() - underConstructionCache.fetchedAt < UNDER_CONSTRUCTION_TTL_MS) {
     return underConstructionCache.value;
   }

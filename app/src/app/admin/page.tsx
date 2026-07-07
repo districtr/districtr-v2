@@ -34,7 +34,7 @@ function UnderConstructionToggle() {
       <div className="px-4 py-5 sm:p-6">
         <h3 className="text-lg font-medium text-gray-900">Under Construction Mode</h3>
         <p className="mt-2 text-sm text-gray-500">
-          When on, all public traffic is redirected to an under construction page. Admin pages stay
+          When on, all page views are redirected to an under construction page. Admin pages stay
           accessible. Takes up to a minute to apply.
         </p>
         <label className="mt-4 inline-flex items-center gap-2">
