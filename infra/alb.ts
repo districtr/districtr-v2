@@ -1,21 +1,65 @@
 import * as aws from "@pulumi/aws";
+import * as pulumi from "@pulumi/pulumi";
 import {config} from "./config";
 import {Network} from "./network";
 
 export function createAlb(network: Network) {
   const name = config.name;
 
-  const alb = new aws.lb.LoadBalancer(`${name}-alb`, {
-    name: `${name}-alb`,
-    internal: false,
-    loadBalancerType: "application",
-    securityGroups: [network.albSecurityGroup.id],
-    subnets: network.publicSubnetIds,
-    // Slow exports / evaluation requests can exceed the 60s default. Target
-    // keep-alives are set to 130s to stay above this (see Dockerfiles).
-    idleTimeout: 120,
-    enableDeletionProtection: config.isProd,
+  // ALB access logs are the only per-request latency source AWS offers
+  // (CloudWatch TargetResponseTime is per-target-group only). Queried with
+  // Athena — table DDL and canned queries live in infra/athena/. The bucket
+  // name is auto-generated (unique suffix); `pulumi stack output albLogsBucket`
+  // prints it.
+  const accessLogsBucket = new aws.s3.BucketV2(`${name}-alb-logs`, {
+    forceDestroy: !config.isProd,
   });
+  new aws.s3.BucketLifecycleConfigurationV2(`${name}-alb-logs-lifecycle`, {
+    bucket: accessLogsBucket.id,
+    rules: [
+      {
+        id: "expire",
+        status: "Enabled",
+        filter: {},
+        expiration: {days: config.logRetentionDays},
+      },
+    ],
+  });
+  // The ELB service account (per-region AWS-owned account) writes the logs.
+  const accessLogsPolicy = new aws.s3.BucketPolicy(`${name}-alb-logs-policy`, {
+    bucket: accessLogsBucket.id,
+    policy: pulumi.jsonStringify({
+      Version: "2012-10-17",
+      Statement: [
+        {
+          Effect: "Allow",
+          Principal: {AWS: aws.elb.getServiceAccountOutput().arn},
+          Action: "s3:PutObject",
+          Resource: pulumi.interpolate`${accessLogsBucket.arn}/alb/AWSLogs/${
+            aws.getCallerIdentityOutput().accountId
+          }/*`,
+        },
+      ],
+    }),
+  });
+
+  const alb = new aws.lb.LoadBalancer(
+    `${name}-alb`,
+    {
+      name: `${name}-alb`,
+      internal: false,
+      loadBalancerType: "application",
+      securityGroups: [network.albSecurityGroup.id],
+      subnets: network.publicSubnetIds,
+      // Slow exports / evaluation requests can exceed the 60s default. Target
+      // keep-alives are set to 130s to stay above this (see Dockerfiles).
+      idleTimeout: 120,
+      enableDeletionProtection: config.isProd,
+      accessLogs: {bucket: accessLogsBucket.bucket, prefix: "alb", enabled: true},
+    },
+    // The ALB verifies it can write to the bucket when logging is enabled.
+    {dependsOn: [accessLogsPolicy]}
+  );
 
   const backendTargetGroup = new aws.lb.TargetGroup(`${name}-backend-tg`, {
     name: `${name}-backend`,
@@ -109,6 +153,7 @@ export function createAlb(network: Network) {
 
   return {
     alb,
+    accessLogsBucket,
     backendTargetGroup,
     frontendTargetGroup,
     certificate,

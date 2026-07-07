@@ -1,0 +1,5 @@
+# Stress-test harness deps only — deliberately NOT in backend/requirements.txt
+# (the prod image must not grow). Install into a venv on the runner/host.
+locust>=2.32
+msgpack>=1.0
+pydantic-settings>=2.0

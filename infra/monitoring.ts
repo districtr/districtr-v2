@@ -1,4 +1,5 @@
 import * as aws from "@pulumi/aws";
+import * as pulumi from "@pulumi/pulumi";
 import {config} from "./config";
 import {Alb} from "./alb";
 import {Database} from "./database";
@@ -119,6 +120,76 @@ export function createMonitoring(
     threshold: 80,
     comparisonOperator: "GreaterThanThreshold",
     alarmDescription: "RDS CPU above 80%",
+  });
+
+  // One pane of glass for stress-test runs (see infra/athena/OBSERVABILITY.md).
+  // Dashboard only — deliberately no new alarms.
+  new aws.cloudwatch.Dashboard(`${name}-stress-test-dashboard`, {
+    dashboardName: `${name}-stress-test`,
+    dashboardBody: pulumi
+      .all([
+        aws.getRegionOutput().name,
+        clusterResources.cluster.name,
+        backend.service.name,
+        alb.alb.arnSuffix,
+        alb.backendTargetGroup.arnSuffix,
+        database.db.identifier,
+      ])
+      .apply(([region, cluster, service, albId, tgId, dbId]) => {
+        const ecs = ["ClusterName", cluster, "ServiceName", service];
+        const widget = (
+          index: number,
+          title: string,
+          metrics: unknown[][],
+          extra: Record<string, unknown> = {}
+        ) => ({
+          type: "metric",
+          x: (index % 3) * 8,
+          y: Math.floor(index / 3) * 6,
+          width: 8,
+          height: 6,
+          properties: {title, region, period: 60, metrics, ...extra},
+        });
+        return JSON.stringify({
+          widgets: [
+            widget(0, "Backend CPU %", [
+              ["AWS/ECS", "CPUUtilization", ...ecs, {stat: "Average", label: "avg"}],
+              ["...", {stat: "Maximum", label: "max"}],
+            ]),
+            widget(1, "Backend memory %", [
+              ["AWS/ECS", "MemoryUtilization", ...ecs, {stat: "Average", label: "avg"}],
+              ["...", {stat: "Maximum", label: "max"}],
+            ]),
+            // Container Insights (enabled on the prod cluster) — watch
+            // autoscaling kick in past the 45% CPU target.
+            widget(2, "Backend running tasks", [
+              ["ECS/ContainerInsights", "RunningTaskCount", ...ecs, {stat: "Maximum"}],
+              ["ECS/ContainerInsights", "DesiredTaskCount", ...ecs, {stat: "Maximum"}],
+            ]),
+            widget(3, "ALB requests & 5xx / min", [
+              ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", albId, {stat: "Sum"}],
+              ["AWS/ApplicationELB", "HTTPCode_Target_5XX_Count", "LoadBalancer", albId, {stat: "Sum"}],
+              ["AWS/ApplicationELB", "HTTPCode_ELB_5XX_Count", "LoadBalancer", albId, {stat: "Sum"}],
+            ]),
+            widget(4, "Backend target response time (s)", [
+              ["AWS/ApplicationELB", "TargetResponseTime", "TargetGroup", tgId, "LoadBalancer", albId, {stat: "p50"}],
+              ["...", {stat: "p95"}],
+              ["...", {stat: "p99"}],
+            ]),
+            widget(5, "RDS CPU % & connections", [
+              ["AWS/RDS", "CPUUtilization", "DBInstanceIdentifier", dbId, {stat: "Average"}],
+              ["AWS/RDS", "DatabaseConnections", "DBInstanceIdentifier", dbId, {stat: "Maximum", yAxis: "right"}],
+            ]),
+            widget(6, "RDS IOPS", [
+              ["AWS/RDS", "ReadIOPS", "DBInstanceIdentifier", dbId, {stat: "Average"}],
+              ["AWS/RDS", "WriteIOPS", "DBInstanceIdentifier", dbId, {stat: "Average"}],
+            ]),
+            widget(7, "RDS freeable memory", [
+              ["AWS/RDS", "FreeableMemory", "DBInstanceIdentifier", dbId, {stat: "Minimum"}],
+            ]),
+          ],
+        });
+      }),
   });
 
   new aws.cloudwatch.MetricAlarm(`${name}-db-storage`, {

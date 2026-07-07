@@ -29,6 +29,8 @@ export const backendSecurityGroupId = network.backendSecurityGroup.id;
 
 // --- Outputs for humans ---
 export const albDnsName = alb.alb.dnsName;
+// Fill into the Athena DDL LOCATION (infra/athena/alb_access_logs_ddl.sql).
+export const albLogsBucket = alb.accessLogsBucket.bucket;
 export const dbAddress = database.db.address;
 export const backendRepoUrl = repos.backendRepo.repositoryUrl;
 export const frontendRepoUrl = repos.frontendRepo.repositoryUrl;

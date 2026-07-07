@@ -10,6 +10,7 @@ import logging
 from typing import Any
 
 from fastapi import BackgroundTasks
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql import func
 from sqlmodel import Session, select
 
@@ -70,7 +71,12 @@ def update_or_select_document_evaluation(
                 payload_version=envelope["payload_version"],
             )
         )
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        # A concurrent request computed and cached the same document first
+        # (both saw a cold cache); our freshly computed envelope is still valid.
+        session.rollback()
     return envelope
 
 

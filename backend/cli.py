@@ -35,6 +35,14 @@ from management.load_data import (
 from os import environ
 from app.models import DistrictrMap, Overlay
 from datetime import datetime, timezone
+from stress_test.config import settings as stress_settings
+from stress_test.seed import (
+    NAME_PREFIX as STRESS_TEST_NAME_PREFIX,
+    delete_documents as _delete_stress_documents,
+    find_stress_documents as _find_stress_documents,
+    manifest_document_ids as _manifest_document_ids,
+    seed_documents as _seed_stress_documents,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -900,6 +908,87 @@ def check_missing_graphs(session: Session, skip_alert: bool):
         ),
     )
     logger.info("Alert published to SNS topic %s", topic_arn)
+
+
+@cli.command("stress-test-seed")
+@click.option(
+    "--config-url",
+    help="Stress-test config JSON (URL or local path). Default: $STRESS_CONFIG_URL "
+    "or the CDN config (see stress_test/config.py).",
+)
+@click.option(
+    "--base-url",
+    help="API origin to create seed documents against (seeding goes over HTTP so "
+    "docs are created exactly as the app would). Default: $STRESS_BASE_URL or "
+    "http://localhost:8000.",
+)
+@click.option(
+    "--run-id",
+    help="Tags document names, User-Agent, and the manifest filename. "
+    "Default: $STRESS_RUN_ID.",
+)
+@click.option(
+    "--manifest",
+    help="Manifest output path (local or s3://). "
+    "Default: stress_test_manifest_<run-id>.json.",
+)
+@with_session
+def stress_test_seed(
+    session: Session,
+    config_url: str | None,
+    base_url: str | None,
+    run_id: str | None,
+    manifest: str | None,
+):
+    """Create the stress-test seed documents from the config JSON and write the
+    manifest of created document ids (STRESS_TEST_PLAN.md §5 WS2)."""
+    run_id = run_id or stress_settings.RUN_ID
+    documents = _seed_stress_documents(
+        session=session,
+        base_url=base_url or stress_settings.BASE_URL,
+        config_url=config_url or stress_settings.CONFIG_URL,
+        run_id=run_id,
+        manifest_path=manifest or f"stress_test_manifest_{run_id}.json",
+    )
+    logger.info(f"Seeded {len(documents)} documents")
+
+
+@cli.command("stress-test-cleanup")
+@click.option(
+    "--manifest",
+    "-m",
+    "manifests",
+    multiple=True,
+    help="Manifest JSON (seed or runtime shape; local path or s3://). Repeatable.",
+)
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    help="Delete leftover [STRESS-TEST]-named documents without prompting",
+)
+@with_session
+def stress_test_cleanup(session: Session, manifests: tuple[str, ...], yes: bool):
+    """Delete stress-test documents (rows + assignment partitions): everything
+    listed in the given manifests, then — belt and suspenders — any leftover
+    document whose metadata name starts with [STRESS-TEST], after confirmation."""
+    ids: list[str] = []
+    for path in manifests:
+        ids.extend(_manifest_document_ids(get_local_or_s3_path(file_path=path)))
+    if ids:
+        deleted = _delete_stress_documents(session, ids)
+        logger.info(f"Deleted {deleted} of {len(ids)} manifest-listed documents")
+
+    leftovers = _find_stress_documents(session)
+    if not leftovers:
+        logger.info(f"No {STRESS_TEST_NAME_PREFIX}-named documents remain")
+        return
+    for document_id, name in leftovers:
+        click.echo(f"  {document_id}  {name}")
+    if yes or click.confirm(
+        f"Delete these {len(leftovers)} {STRESS_TEST_NAME_PREFIX}-named document(s)?"
+    ):
+        _delete_stress_documents(session, [document_id for document_id, _ in leftovers])
 
 
 if __name__ == "__main__":
