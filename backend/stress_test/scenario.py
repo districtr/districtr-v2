@@ -59,5 +59,3 @@ def editor_save_times(
     rng = _rng(seed, f"editor-saves:{editor_idx}")
     end = max(window, start + 1)
     return sorted(rng.uniform(start, end) for _ in range(SAVES_PER_EDITOR))
-
-
