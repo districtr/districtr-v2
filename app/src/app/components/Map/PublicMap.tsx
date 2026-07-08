@@ -70,7 +70,7 @@ export const PublicMap: React.FC = () => {
       }}
     >
       <MapLayerAnchors />
-      <CountyLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.counties} />
+      <CountyLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.reference} />
       <PublicSource>
         <PublicDistrictLayers />
       </PublicSource>

@@ -75,7 +75,7 @@ export const MainMap: React.FC = () => {
       {isMapLoaded && <MapLayerAnchors />}
       {areAnchorLayersReady && (
         <>
-          <CountyLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.counties} />
+          <CountyLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.reference} />
           <BlockSource>
             {!!mapDocument?.parent_layer && (
               <BlockLayers
