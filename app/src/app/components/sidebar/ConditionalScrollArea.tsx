@@ -8,7 +8,15 @@ export const ConditionalScrollArea: React.FC<{
 }> = ({children, shouldUseScrollableRows, maxHeight}) => {
   if (shouldUseScrollableRows) {
     return (
-      <ScrollArea scrollbars="vertical" className="flex-grow-1" style={{maxHeight}}>
+      // type="always" keeps the scrollbar visible even while not scrolling — it is the
+      // sole affordance that more rows exist below (no fade-out effect).
+      <ScrollArea
+        scrollbars="vertical"
+        type="always"
+        size="2"
+        className="flex-grow-1"
+        style={{maxHeight}}
+      >
         {children}
       </ScrollArea>
     );
