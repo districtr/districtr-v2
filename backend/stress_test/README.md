@@ -1,7 +1,9 @@
 # Districtr stress-test harness
 
 Locust harness implementing the traffic model in `STRESS_TEST_PLAN.md` §3:
-viewers (Poisson arrivals; document + msgpack assignments), eval users
+viewers (non-homogeneous Poisson arrivals with a Beta(2,5) ramp-and-decay
+intensity — spike ~20% into the window, exactly n per run; document + msgpack
+assignments), eval users
 (viewer sequence + `/evaluation`), and editors (uniform arrivals; 3 plan
 copies via `copy_from_doc`, 3 msgpack full-replacement saves with
 `last_updated_at` optimistic-concurrency threading; a subset also hits
