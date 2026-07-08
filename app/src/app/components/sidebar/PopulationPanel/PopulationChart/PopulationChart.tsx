@@ -1,10 +1,10 @@
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import React, {useMemo, useState} from 'react';
+import React, {useMemo, useState, useCallback} from 'react';
 import {formatNumber} from '@/app/utils/numbers';
 import {Group} from '@visx/group';
 import {Bar, Line} from '@visx/shape';
 import {scaleLinear} from '@visx/scale';
-import {AxisTop} from '@visx/axis';
+import {AxisBottom} from '@visx/axis';
 import {useChartStore} from '@/app/store/chartStore';
 import {PopulationLabels} from './PopulationLabels';
 import {SummaryRecord} from '@/app/utils/api/summaryStats';
@@ -13,157 +13,59 @@ import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {MAP_MODES} from '@constants/map/mode';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 
-type ChartMargins = {left: number; right: number; top: number; bottom: number};
-const DEFAULT_MARGINS: ChartMargins = {left: 5, right: 20, top: 6, bottom: 10};
-
-/** Height of the standalone top-axis strip rendered by PopulationChartAxis. */
-export const POP_CHART_AXIS_HEIGHT = 46;
-
-// The axis strip and the bar chart are separate components (the axis sits outside the
-// scroll area), so they must derive the exact same x-scale from the same inputs.
-const usePopulationXScale = (
-  width: number,
-  data: Array<SummaryRecord>,
-  idealPopulation: number | undefined,
-  margins: ChartMargins
-) => {
-  const scaleToCurrent = useChartStore(state => state.chartOptions.popBarScaleToCurrent);
+export const PopulationChart: React.FC<{
+  width: number;
+  height: number;
+  data: Array<SummaryRecord>;
+  margins?: {left: number; right: number; top: number; bottom: number};
+  idealPopulation?: number;
+  enableStickyRows?: boolean;
+  onBarSelect?: (zone: number) => void;
+}> = ({
+  width,
+  height,
+  data,
+  idealPopulation,
+  enableStickyRows = false,
+  onBarSelect,
+  margins = {left: 5, right: 20, top: 20, bottom: 80},
+}) => {
+  const chartOptions = useChartStore(state => state.chartOptions);
+  const colorScheme = useColorScheme();
+  const getZoneColor = useZoneColorGetter();
   const mapMode = useMapControlsStore(state => state.mapMode);
   const isCommunityMode = mapMode === MAP_MODES.COI;
-  const effectiveIdealPopulation = isCommunityMode ? undefined : idealPopulation;
 
+  const {
+    popBarScaleToCurrent: scaleToCurrent,
+    popTargetPopDeviation: targetDeviation,
+    popShowPopNumbers: showPopNumbers,
+    popShowTopBottomDeviation: showTopBottomDeviation,
+  } = chartOptions;
+  const effectiveIdealPopulation = isCommunityMode ? undefined : idealPopulation;
+  const effectiveTargetDeviation = isCommunityMode ? undefined : targetDeviation;
+  const effectiveShowTopBottomDeviation = isCommunityMode ? false : showTopBottomDeviation;
+  const [xMax, yMax] = [
+    width - margins.left - margins.right,
+    height - margins.top - margins.bottom,
+  ];
   const maxPop = Math.max(...data.map(r => r.total_pop_20));
   const xMaxValue = scaleToCurrent
     ? maxPop * 1.05
     : Math.max((effectiveIdealPopulation || 0) * 1.3, ...data.map(r => r.total_pop_20 * 1.2));
   const xMinValue = scaleToCurrent ? Math.min(...data.map(r => r.total_pop_20)) : 0;
-  const xMax = width - margins.left - margins.right;
 
-  const xScale = useMemo(
-    () =>
-      scaleLinear<number>({
-        domain: [xMinValue, xMaxValue],
-        range: [xMinValue > 0 ? (isCommunityMode ? 5 : 100) : 0, xMax],
-        nice: true,
-      }),
-    [isCommunityMode, xMax, xMaxValue, xMinValue]
+  const xScale = useCallback(
+    scaleLinear<number>({
+      domain: [xMinValue, xMaxValue],
+      range: [
+        xMinValue > 0 ? (isCommunityMode ? 5 : 100) : 0,
+        width - margins.left - margins.right,
+      ],
+      nice: true,
+    }),
+    [isCommunityMode, width, xMaxValue, xMinValue]
   );
-
-  return {xScale, xMax, effectiveIdealPopulation, maxPop, isCommunityMode};
-};
-
-/**
- * Standalone top axis strip. Rendered above the (possibly scrollable) bar rows so the
- * axis and the lock-all control never scroll out of view.
- */
-export const PopulationChartAxis: React.FC<{
-  width: number;
-  data: Array<SummaryRecord>;
-  idealPopulation?: number;
-  margins?: ChartMargins;
-}> = ({width, data, idealPopulation, margins = DEFAULT_MARGINS}) => {
-  const {xScale, xMax, effectiveIdealPopulation} = usePopulationXScale(
-    width,
-    data,
-    idealPopulation,
-    margins
-  );
-  if (xMax <= 0 || !data.length) return null;
-  const lineY = POP_CHART_AXIS_HEIGHT - 2;
-  const approxCharWidth = 8;
-
-  // Two-line "Ideal / <number>" label above the axis, centered on the ideal position
-  // (clamped to the chart edges). The number line shares its band with the tick numbers;
-  // any tick label the ideal label would cover is suppressed (its tick mark remains).
-  let idealLabel: React.ReactNode = null;
-  let idealLabelXRange: [number, number] | null = null;
-  if (effectiveIdealPopulation) {
-    const idealX = xScale(effectiveIdealPopulation);
-    const numberText = formatNumber(effectiveIdealPopulation, NUMBER_FORMATS.STRING) ?? '';
-    const halfWidth = (numberText.length * approxCharWidth) / 2;
-    const x = Math.min(Math.max(idealX, halfWidth), xMax - halfWidth);
-    idealLabelXRange = [x - halfWidth - 4, x + halfWidth + 4];
-    idealLabel = (
-      <text textAnchor="middle" fontSize="14px">
-        <tspan x={x} y={lineY - 28}>
-          Ideal
-        </tspan>
-        <tspan x={x} y={lineY - 12}>
-          {numberText}
-        </tspan>
-      </text>
-    );
-  }
-
-  // Tick labels hidden behind the ideal label are suppressed (their tick marks stay) —
-  // but never all of them. If every default tick label collides (e.g. "200K" right under
-  // "Ideal 222,066"), escalate to denser "nice" tick sets until at least one non-zero
-  // label remains visible.
-  const collidesWithIdealLabel = (v: number) => {
-    if (!idealLabelXRange) return false;
-    const label = formatNumber(v, NUMBER_FORMATS.COMPACT) ?? '';
-    const halfTickWidth = (label.length * approxCharWidth) / 2;
-    const tickX = xScale(v);
-    return (
-      tickX + halfTickWidth > idealLabelXRange[0] && tickX - halfTickWidth < idealLabelXRange[1]
-    );
-  };
-  let tickValues: number[] = xScale.ticks(2);
-  for (const density of [4, 6, 10]) {
-    if (tickValues.some(v => v !== 0 && !collidesWithIdealLabel(v))) break;
-    tickValues = xScale.ticks(density);
-  }
-
-  return (
-    <svg width={width} height={POP_CHART_AXIS_HEIGHT} style={{display: 'block'}}>
-      <Group left={margins.left}>
-        {/* Occasionally, the "nice" formatting makes part of the axis missing */}
-        <Line from={{x: 0, y: lineY}} to={{x: xMax, y: lineY}} stroke="black" />
-        <AxisTop
-          scale={xScale}
-          top={lineY}
-          tickValues={tickValues}
-          tickLabelProps={{
-            fontSize: '14px',
-          }}
-          tickFormat={v =>
-            collidesWithIdealLabel(v as number)
-              ? ''
-              : formatNumber(v as number, NUMBER_FORMATS.COMPACT)
-          }
-        />
-        {idealLabel}
-      </Group>
-    </svg>
-  );
-};
-
-export const PopulationChart: React.FC<{
-  width: number;
-  height: number;
-  data: Array<SummaryRecord>;
-  margins?: ChartMargins;
-  idealPopulation?: number;
-  onBarSelect?: (zone: number) => void;
-}> = ({width, height, data, idealPopulation, onBarSelect, margins = DEFAULT_MARGINS}) => {
-  const chartOptions = useChartStore(state => state.chartOptions);
-  const colorScheme = useColorScheme();
-  const getZoneColor = useZoneColorGetter();
-
-  const {
-    popTargetPopDeviation: targetDeviation,
-    popShowPopNumbers: showPopNumbers,
-    popShowTopBottomDeviation: showTopBottomDeviation,
-  } = chartOptions;
-  const {xScale, xMax, effectiveIdealPopulation, maxPop, isCommunityMode} = usePopulationXScale(
-    width,
-    data,
-    idealPopulation,
-    margins
-  );
-  const effectiveTargetDeviation = isCommunityMode ? undefined : targetDeviation;
-  const effectiveShowTopBottomDeviation = isCommunityMode ? false : showTopBottomDeviation;
-  const yMax = height - margins.top - margins.bottom;
   const barHeight = yMax / data.length - 6;
 
   const yScale = useMemo(
@@ -180,16 +82,16 @@ export const PopulationChart: React.FC<{
 
   // Render helpers (not components) — they close over shared state (scales, hover, colors)
   // and are only used within this component, so plain functions avoid prop-drilling 10+ values.
-  const renderIdealReference = () => {
+  const renderIdealReference = (fromY: number, referenceHeight: number) => {
     if (!effectiveIdealPopulation) return null;
 
     return (
       <>
         <Line
-          from={{x: xScale(effectiveIdealPopulation), y: 0}}
+          from={{x: xScale(effectiveIdealPopulation), y: fromY}}
           to={{
             x: xScale(effectiveIdealPopulation),
-            y: yMax,
+            y: referenceHeight,
           }}
           stroke="black"
           strokeWidth="1"
@@ -202,8 +104,8 @@ export const PopulationChart: React.FC<{
               xScale(Math.max(0, effectiveIdealPopulation + effectiveTargetDeviation)) -
               xScale(Math.max(0, effectiveIdealPopulation - effectiveTargetDeviation))
             }
-            y={0}
-            height={yMax}
+            y={fromY}
+            height={referenceHeight - fromY}
             fill="gray"
             fillOpacity={0.15}
           />
@@ -268,11 +170,73 @@ export const PopulationChart: React.FC<{
     return null;
   }
 
+  if (enableStickyRows) {
+    return (
+      <div
+        style={{height, position: 'relative'}}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => {
+          setIsHovered(false);
+          setHoveredIndex(null);
+        }}
+      >
+        <div style={{position: 'sticky', top: 0, zIndex: 2, backgroundColor: 'var(--gray-1)'}}>
+          <svg width={width} height={margins.top}>
+            <Group left={margins.left}>
+              {renderIdealReference(0, margins.top)}
+              {!!effectiveIdealPopulation && (
+                <text
+                  x={xScale(effectiveIdealPopulation) + 5}
+                  y={margins.top - 5}
+                  textAnchor="start"
+                  fontSize="14px"
+                >
+                  Ideal{' '}
+                  {isHovered ? (
+                    <tspan color="gray">
+                      {formatNumber(effectiveIdealPopulation, NUMBER_FORMATS.STRING)}
+                    </tspan>
+                  ) : (
+                    ''
+                  )}
+                </text>
+              )}
+            </Group>
+          </svg>
+        </div>
+        <svg width={width} height={yMax}>
+          <Group left={margins.left} onMouseLeave={() => setHoveredIndex(null)}>
+            {renderIdealReference(0, yMax)}
+            {renderBars()}
+          </Group>
+        </svg>
+        {/* Sticky axis pinned to bottom of scroll viewport; offset accounts for ScrollArea padding */}
+        <div style={{position: 'sticky', bottom: -30, zIndex: 2, width: '100%'}}>
+          <svg width={width} height={margins.bottom}>
+            <Group left={margins.left} top={6}>
+              <rect x={0} y={0} width={xMax} height={50} fill="var(--gray-1)" />
+              <Line from={{x: 0, y: 0}} to={{x: xMax, y: 0}} stroke="black" />
+              <AxisBottom
+                scale={xScale}
+                top={0}
+                numTicks={2}
+                tickLabelProps={{
+                  fontSize: '14px',
+                }}
+                tickFormat={v => formatNumber(v as number, NUMBER_FORMATS.COMPACT)}
+              />
+            </Group>
+          </svg>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <svg
       width={width}
       height={height}
-      style={{position: 'relative', display: 'block'}}
+      style={{position: 'relative'}}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => {
         setIsHovered(false);
@@ -280,8 +244,33 @@ export const PopulationChart: React.FC<{
       }}
     >
       <Group left={margins.left} top={margins.top} onMouseLeave={() => setHoveredIndex(null)}>
-        {renderIdealReference()}
+        {!!effectiveIdealPopulation && (
+          <Group left={xScale(effectiveIdealPopulation) + 5} top={-5}>
+            <text textAnchor="start" fontSize="14px">
+              Ideal{' '}
+              {isHovered ? (
+                <tspan color="gray">
+                  {formatNumber(effectiveIdealPopulation, NUMBER_FORMATS.STRING)}
+                </tspan>
+              ) : (
+                ''
+              )}
+            </text>
+          </Group>
+        )}
+        {renderIdealReference(-margins.top, yMax)}
         {renderBars()}
+        {/* Occasionally, the "nice" formatting makes part of the axis missing */}
+        <Line from={{x: 0, y: yMax + 6}} to={{x: xMax, y: yMax + 6}} stroke="black" />
+        <AxisBottom
+          scale={xScale}
+          top={yMax + 6}
+          numTicks={2}
+          tickLabelProps={{
+            fontSize: '14px',
+          }}
+          tickFormat={v => formatNumber(v as number, NUMBER_FORMATS.COMPACT)}
+        />
       </Group>
     </svg>
   );

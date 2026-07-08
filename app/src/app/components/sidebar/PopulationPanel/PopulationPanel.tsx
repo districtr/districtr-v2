@@ -6,11 +6,7 @@ import InfoTip from '@components/InfoTip';
 import {useChartStore} from '@store/chartStore';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
-import {
-  PopulationChart,
-  PopulationChartAxis,
-  POP_CHART_AXIS_HEIGHT,
-} from './PopulationChart/PopulationChart';
+import {PopulationChart} from './PopulationChart/PopulationChart';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
 import {LockClosedIcon, LockOpen2Icon, Pencil1Icon} from '@radix-ui/react-icons';
 import {useZonePopulations} from '@/app/hooks/useDemography';
@@ -33,14 +29,11 @@ const maxNumberOrderedBars = 40; // max number of zones to consider while keepin
 // The chart draws bars at yScale(i) + 5 with height (ROW_HEIGHT - 6), so bar
 // centers land at TOP_MARGIN + 21 + i * ROW_HEIGHT. The left column mirrors
 // that with a fixed top spacer + fixed-height rows (align-center) so icons
-// line up with bars: SPACER + ROW_HEIGHT/2 = TOP_MARGIN + 21 ⇒ SPACER = TOP_MARGIN + 2.
-// The axis renders in a separate header strip above the (scrollable) rows, so both
-// header and rows must use the same fixed left column width to keep x-scales aligned.
+// line up with bars: SPACER + ROW_HEIGHT/2 = TOP_MARGIN + 21 ⇒ SPACER = 22.
 const POP_ROW_HEIGHT = 38;
-const POP_CHART_TOP_MARGIN = 6;
-const POP_CHART_BOTTOM_MARGIN = 10;
-const POP_LEFT_COL_TOP_SPACER = 8;
-const POP_LEFT_COL_WIDTH = '5rem';
+const POP_CHART_TOP_MARGIN = 20;
+const POP_CHART_BOTTOM_MARGIN = 80;
+const POP_LEFT_COL_TOP_SPACER = 22;
 
 export const PopulationPanel = () => {
   const {populationData, demoIsLoaded} = useZonePopulations();
@@ -158,45 +151,27 @@ export const PopulationPanel = () => {
           idealPopulation={effectiveIdealPopulation}
         />
       </Flex>
-      {/* Fixed header: lock-all control + value axis. Never scrolls. */}
-      <Flex direction="row" width={'100%'} gap="1">
-        <Flex
-          justify="end"
-          align="center"
-          className="flex-grow-0 p-0"
-          style={{width: POP_LEFT_COL_WIDTH, flexShrink: 0, overflow: 'visible'}}
-        >
-          {!isCommunityMode && (
-            <IconButton
-              onClick={toggleLockAllAreas}
-              variant="ghost"
-              disabled={access === ACCESS_STATES.READ}
-              style={{opacity: isEditing ? 1 : 0}}
-              aria-label={allAreLocked ? 'Unlock all districts' : 'Lock all districts'}
-            >
-              {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
-            </IconButton>
-          )}
-        </Flex>
-        <ParentSize style={{height: `${POP_CHART_AXIS_HEIGHT}px`, width: '100%'}}>
-          {({width}) => (
-            <PopulationChartAxis
-              width={width}
-              data={populationData}
-              idealPopulation={effectiveIdealPopulation}
-            />
-          )}
-        </ParentSize>
-      </Flex>
       <div style={{position: 'relative'}}>
         <ConditionalScrollArea shouldUseScrollableRows={shouldUseScrollableRows} maxHeight="60vh">
           <Flex direction="row" width={'100%'} gap="1">
-            <Flex
-              direction={'column'}
-              className={'flex-grow-0 p-0'}
-              style={{width: POP_LEFT_COL_WIDTH, flexShrink: 0}}
-            >
-              <Flex style={{height: POP_LEFT_COL_TOP_SPACER}} />
+            <Flex direction={'column'} className={'flex-grow-0 p-0'} minWidth={'5rem'}>
+              <Flex
+                justify="end"
+                align="center"
+                style={{height: POP_LEFT_COL_TOP_SPACER, overflow: 'visible'}}
+              >
+                {!isCommunityMode && (
+                  <IconButton
+                    onClick={toggleLockAllAreas}
+                    variant="ghost"
+                    disabled={access === ACCESS_STATES.READ}
+                    style={{opacity: isEditing ? 1 : 0}}
+                    aria-label={allAreLocked ? 'Unlock all districts' : 'Lock all districts'}
+                  >
+                    {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
+                  </IconButton>
+                )}
+              </Flex>
               {/* @ts-ignore */}
               {populationData.map(d => (
                 <Flex
@@ -273,6 +248,7 @@ export const PopulationPanel = () => {
                   height={height}
                   data={populationData}
                   idealPopulation={effectiveIdealPopulation}
+                  enableStickyRows={shouldUseScrollableRows}
                   onBarSelect={selectCommunity}
                   margins={{
                     left: 5,
