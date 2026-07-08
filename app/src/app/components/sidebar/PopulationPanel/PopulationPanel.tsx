@@ -12,6 +12,9 @@ import {
   PopulationChartIdealLabel,
   POP_CHART_AXIS_HEIGHT,
   POP_CHART_LABEL_HEIGHT,
+  POP_CHART_MARGINS,
+  getBarCenterY,
+  getChartHeight,
 } from './PopulationChart/PopulationChart';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
 import {LockClosedIcon, LockOpen2Icon, Pencil1Icon} from '@radix-ui/react-icons';
@@ -30,18 +33,15 @@ import {MAP_MODES, MAP_MODE_LABELS, MAP_MODE_LABEL_PLURAL} from '@constants/map/
 import {ACCESS_STATES} from '@constants/document/state';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 
-// The chart draws bars at yScale(i) + 5 with height (ROW_HEIGHT - 6), so bar
-// centers land at TOP_MARGIN + 21 + i * ROW_HEIGHT. The left column mirrors
-// that with a fixed top spacer + fixed-height rows (align-center) so icons
-// line up with bars: SPACER + ROW_HEIGHT/2 = TOP_MARGIN + 21 ⇒ SPACER = 22.
 // The "Ideal" label and the axis render in separate fixed strips above/below the
 // (scrollable) rows, so all three rows must use the same fixed left column width to
 // keep their x-scales aligned.
 const POP_ROW_HEIGHT = 38;
-const POP_CHART_TOP_MARGIN = 6;
-const POP_CHART_BOTTOM_MARGIN = 0;
-const POP_LEFT_COL_TOP_SPACER = 8;
 const POP_LEFT_COL_WIDTH = '5rem';
+// The left column stacks fixed-height rows (align-center); this spacer lines their
+// centers up with the chart's bars. Derived from the chart's bar geometry.
+const POP_LEFT_COL_TOP_SPACER =
+  getBarCenterY(POP_CHART_MARGINS.top, POP_ROW_HEIGHT) - POP_ROW_HEIGHT / 2;
 
 export const PopulationPanel = () => {
   const {populationData, demoIsLoaded} = useZonePopulations();
@@ -189,7 +189,7 @@ export const PopulationPanel = () => {
           shouldUseScrollableRows={shouldUseScrollableRows}
           // Show 10.6 rows so the half-visible row signals more content below;
           // 60vh keeps the panel usable on short viewports.
-          maxHeight={`min(60vh, ${POP_CHART_TOP_MARGIN + Math.round(10.6 * POP_ROW_HEIGHT)}px)`}
+          maxHeight={`min(60vh, ${POP_CHART_MARGINS.top + Math.round(10.6 * POP_ROW_HEIGHT)}px)`}
         >
           <Flex direction="row" width={'100%'} gap="1">
             <Flex
@@ -262,25 +262,17 @@ export const PopulationPanel = () => {
             </Flex>
             <ParentSize
               style={{
-                height: populationData.length
-                  ? `${populationData.length * POP_ROW_HEIGHT + POP_CHART_TOP_MARGIN + POP_CHART_BOTTOM_MARGIN}px`
-                  : '200px',
+                height: `${getChartHeight(populationData.length, POP_ROW_HEIGHT)}px`,
                 width: '100%',
               }}
             >
-              {({width, height}) => (
+              {({width}) => (
                 <PopulationChart
                   width={width}
-                  height={height}
+                  rowHeight={POP_ROW_HEIGHT}
                   data={populationData}
                   idealPopulation={effectiveIdealPopulation}
                   onBarSelect={selectCommunity}
-                  margins={{
-                    left: 5,
-                    right: 20,
-                    top: POP_CHART_TOP_MARGIN,
-                    bottom: POP_CHART_BOTTOM_MARGIN,
-                  }}
                 />
               )}
             </ParentSize>

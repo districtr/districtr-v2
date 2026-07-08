@@ -14,12 +14,31 @@ import {MAP_MODES} from '@constants/map/mode';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 
 type ChartMargins = {left: number; right: number; top: number; bottom: number};
-const DEFAULT_MARGINS: ChartMargins = {left: 5, right: 20, top: 6, bottom: 0};
+/** Margins shared by the chart body, the label strip, and the axis strip. */
+export const POP_CHART_MARGINS: ChartMargins = {left: 5, right: 20, top: 6, bottom: 0};
+
+/** Total chart height for a given row count — the single source of truth the panel must
+ *  use to size the chart's container, so bar spacing always equals rowHeight. */
+export const getChartHeight = (
+  count: number,
+  rowHeight: number,
+  margins: ChartMargins = POP_CHART_MARGINS
+) => count * rowHeight + margins.top + margins.bottom;
 
 /** Height of the standalone bottom-axis strip rendered by PopulationChartAxis. */
 export const POP_CHART_AXIS_HEIGHT = 36;
 /** Height of the standalone "Ideal" label strip rendered by PopulationChartIdealLabel. */
 export const POP_CHART_LABEL_HEIGHT = 22;
+
+/**
+ * y of the first bar's center, measured from the top of the chart svg. Bars are drawn at
+ * yScale(i) + 5 with height (rowHeight - 6), so the center of bar i lands at
+ * marginTop + 5 + (rowHeight - 6) / 2 + i * rowHeight. A sibling column that stacks
+ * fixed-height rows can align its row centers to the bars with a top spacer of
+ * getBarCenterY(marginTop, rowHeight) - rowHeight / 2.
+ */
+export const getBarCenterY = (marginTop: number, rowHeight: number) =>
+  marginTop + 5 + (rowHeight - 6) / 2;
 
 // The axis strip and the bar chart are separate components (the axis sits below the
 // scroll area), so they must derive the exact same x-scale from the same inputs.
@@ -64,7 +83,7 @@ export const PopulationChartIdealLabel: React.FC<{
   data: Array<SummaryRecord>;
   idealPopulation?: number;
   margins?: ChartMargins;
-}> = ({width, data, idealPopulation, margins = DEFAULT_MARGINS}) => {
+}> = ({width, data, idealPopulation, margins = POP_CHART_MARGINS}) => {
   const {xScale, xMax, effectiveIdealPopulation} = usePopulationXScale(
     width,
     data,
@@ -97,7 +116,7 @@ export const PopulationChartAxis: React.FC<{
   data: Array<SummaryRecord>;
   idealPopulation?: number;
   margins?: ChartMargins;
-}> = ({width, data, idealPopulation, margins = DEFAULT_MARGINS}) => {
+}> = ({width, data, idealPopulation, margins = POP_CHART_MARGINS}) => {
   const {xScale, xMax} = usePopulationXScale(width, data, idealPopulation, margins);
   if (xMax <= 0 || !data.length) return null;
   return (
@@ -121,12 +140,14 @@ export const PopulationChartAxis: React.FC<{
 
 export const PopulationChart: React.FC<{
   width: number;
-  height: number;
+  /** Height of each bar row. The chart derives its own total height from this, so bar
+   *  spacing matches sibling columns that stack rows of the same height. */
+  rowHeight: number;
   data: Array<SummaryRecord>;
   margins?: ChartMargins;
   idealPopulation?: number;
   onBarSelect?: (zone: number) => void;
-}> = ({width, height, data, idealPopulation, onBarSelect, margins = DEFAULT_MARGINS}) => {
+}> = ({width, rowHeight, data, idealPopulation, onBarSelect, margins = POP_CHART_MARGINS}) => {
   const chartOptions = useChartStore(state => state.chartOptions);
   const colorScheme = useColorScheme();
   const getZoneColor = useZoneColorGetter();
@@ -144,8 +165,9 @@ export const PopulationChart: React.FC<{
   );
   const effectiveTargetDeviation = isCommunityMode ? undefined : targetDeviation;
   const effectiveShowTopBottomDeviation = isCommunityMode ? false : showTopBottomDeviation;
-  const yMax = height - margins.top - margins.bottom;
-  const barHeight = yMax / data.length - 6;
+  const height = getChartHeight(data.length, rowHeight, margins);
+  const yMax = data.length * rowHeight;
+  const barHeight = rowHeight - 6;
 
   const yScale = useMemo(
     () =>
