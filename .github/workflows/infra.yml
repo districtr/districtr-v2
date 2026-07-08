@@ -1,0 +1,78 @@
+name: AWS Infrastructure (Pulumi)
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - "infra/**"
+      - ".github/workflows/infra.yml"
+  # No pull_request trigger: previews execute the PR's code, which must not
+  # hold the (admin) deploy role. Preview locally per infra/README.md.
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
+  PULUMI_BACKEND_URL: s3://districtr-v2-pulumi-state?region=${{ vars.AWS_REGION || 'us-east-2' }}
+  # Maintenance-mode flag read by infra/config.ts. Must be set in every
+  # workflow that runs `pulumi up`, or an unrelated deploy flips it back.
+  UNDER_CONSTRUCTION: ${{ vars.UNDER_CONSTRUCTION || 'false' }}
+
+# Per-workflow group: concurrent `pulumi up`s across workflows are handled by
+# retrying on the S3 state lock (a shared group would silently cancel pending
+# runs once a third workflow queues).
+concurrency:
+  group: infra-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  pulumi:
+    name: Apply
+    runs-on: ubuntu-latest
+    # Runs only on dev/main (other branches can't assume the deploy role via
+    # OIDC anyway). On push, gated by the per-stack repo var (AWS_DEPLOY_DEV /
+    # AWS_DEPLOY_PROD); workflow_dispatch runs on dev/main without the var.
+    if: >-
+      (github.ref_name == 'dev'  && (github.event_name == 'workflow_dispatch' || vars.AWS_DEPLOY_DEV  == 'true')) ||
+      (github.ref_name == 'main' && (github.event_name == 'workflow_dispatch' || vars.AWS_DEPLOY_PROD == 'true'))
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set stack
+        id: cfg
+        run: |
+          if [ "${{ github.ref_name }}" = "dev" ]; then
+            echo "stack=dev" >> "$GITHUB_OUTPUT"
+          else
+            echo "stack=prod" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          # First apply can wait on ACM validation + RDS for over an hour.
+          role-duration-seconds: 7200
+      - name: Install Pulumi
+        uses: pulumi/actions@v7
+        with:
+          # Exact pin (not the default ^3 range) so a Pulumi release can't
+          # silently change deploys; keep ~in sync with infra/package.json.
+          pulumi-version: 3.242.0
+      - name: Install dependencies
+        working-directory: infra
+        run: npm ci
+      - name: Pulumi up
+        working-directory: infra
+        run: |
+          set -euo pipefail
+          pulumi stack select "${{ steps.cfg.outputs.stack }}"
+          # Retry: another workflow's `pulumi up` may hold the state lock.
+          for attempt in 1 2 3; do
+            if pulumi up --yes --diff; then exit 0; fi
+            echo "pulumi up failed (attempt $attempt); retrying in 60s in case of state-lock contention"
+            sleep 60
+          done
+          exit 1

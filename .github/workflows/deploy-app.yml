@@ -1,0 +1,137 @@
+name: AWS Deploy App (Pulumi)
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - "app/**"
+      - ".github/workflows/deploy-app.yml"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: aws-deploy-app-${{ github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
+  PULUMI_BACKEND_URL: s3://districtr-v2-pulumi-state?region=${{ vars.AWS_REGION || 'us-east-2' }}
+  # Maintenance-mode flag read by infra/config.ts. Must be set in every
+  # workflow that runs `pulumi up`, or an unrelated deploy flips it back.
+  UNDER_CONSTRUCTION: ${{ vars.UNDER_CONSTRUCTION || 'false' }}
+
+jobs:
+  deploy:
+    name: Deploy app
+    runs-on: ubuntu-latest
+    # Runs only on dev/main (other branches can't assume the deploy role via
+    # OIDC anyway). On push, gated by the per-stack repo var (AWS_DEPLOY_DEV /
+    # AWS_DEPLOY_PROD); workflow_dispatch runs on dev/main without the var.
+    if: >-
+      (github.ref_name == 'dev'  && (github.event_name == 'workflow_dispatch' || vars.AWS_DEPLOY_DEV  == 'true')) ||
+      (github.ref_name == 'main' && (github.event_name == 'workflow_dispatch' || vars.AWS_DEPLOY_PROD == 'true'))
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set stack
+        id: cfg
+        run: |
+          if [ "${{ github.ref_name }}" = "dev" ]; then
+            echo "stack=dev" >> "$GITHUB_OUTPUT"
+            echo "api_url=${{ vars.API_URL_DEV }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "stack=prod" >> "$GITHUB_OUTPUT"
+            echo "api_url=${{ vars.API_URL_PROD }}" >> "$GITHUB_OUTPUT"
+          fi
+      # NEXT_PUBLIC_* values are baked into the bundle at build time; this
+      # mirrors the Fly deploy workflow (the CI-written file wins over the
+      # Dockerfile ARG-derived one). Quoted delimiter: secret values must not
+      # be shell-expanded.
+      - name: Write .env.production
+        working-directory: app
+        run: |
+          cat <<'EOF' > .env.production
+          NEXT_PUBLIC_RECAPTCHA_SITE_KEY=${{ secrets.RECAPTCHA_SITE_KEY }}
+          NEXT_PUBLIC_MAPTILER_API_KEY=${{ secrets.NEXT_PUBLIC_MAPTILER_API_KEY }}
+          NEXT_PUBLIC_S3_BUCKET_URL=https://tilesets1.cdn.districtr.org
+          NEXT_PUBLIC_S3_BUCKET_URL_MIRROR1=https://tilesets2.cdn.districtr.org
+          NEXT_PUBLIC_S3_BUCKET_URL_MIRROR2=https://tilesets3.cdn.districtr.org
+          NEXT_PUBLIC_API_URL=${{ steps.cfg.outputs.api_url }}
+          NEXT_PUBLIC_BUILD_TAG=${{ github.sha }}
+          EOF
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 7200
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr
+      # Skip if the tag exists: tags are immutable, and a rebuild produces a
+      # different digest — without this guard a failed run is unretryable.
+      - name: Build and push image
+        id: image
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          REPO="districtr-${{ steps.cfg.outputs.stack }}-frontend"
+          IMAGE="${{ steps.ecr.outputs.registry }}/${REPO}:${{ github.sha }}"
+          if aws ecr describe-images --repository-name "$REPO" \
+              --image-ids imageTag="${{ github.sha }}" >/dev/null 2>&1; then
+            echo "Image already pushed for this sha; skipping build"
+          else
+            docker build --secret id=SENTRY_AUTH_TOKEN,env=SENTRY_AUTH_TOKEN -t "$IMAGE" app
+            docker push "$IMAGE"
+          fi
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+      - name: Install Pulumi
+        uses: pulumi/actions@v7
+        with:
+          # Exact pin (not the default ^3 range) so a Pulumi release can't
+          # silently change deploys; keep ~in sync with infra/package.json.
+          pulumi-version: 3.242.0
+      - name: Update service
+        working-directory: infra
+        run: |
+          set -euo pipefail
+          STACK="${{ steps.cfg.outputs.stack }}"
+          aws ssm put-parameter \
+            --name "/districtr/${STACK}/meta/frontend-image-tag" \
+            --type String --value "${{ github.sha }}" --overwrite
+          npm ci
+          pulumi stack select "$STACK"
+          # Retry: another workflow's `pulumi up` may hold the state lock.
+          UPDATED=0
+          for attempt in 1 2 3; do
+            if pulumi up --yes --diff; then UPDATED=1; break; fi
+            echo "pulumi up failed (attempt $attempt); retrying in 60s in case of state-lock contention"
+            sleep 60
+          done
+          [ "$UPDATED" = "1" ] || exit 1
+      # Fail red if the circuit breaker rolled the deployment back.
+      - name: Verify rollout
+        working-directory: infra
+        run: |
+          set -euo pipefail
+          STACK="${{ steps.cfg.outputs.stack }}"
+          pulumi stack select "$STACK"
+          CLUSTER=$(pulumi stack output clusterName)
+          for attempt in 1 2 3; do
+            if aws ecs wait services-stable --cluster "$CLUSTER" --services frontend; then break; fi
+            if [ "$attempt" = 3 ]; then
+              echo "::error::frontend service did not stabilize"
+              exit 1
+            fi
+          done
+          RUNNING_TD=$(aws ecs describe-services --cluster "$CLUSTER" --services frontend \
+            --query 'services[0].deployments[?status==`PRIMARY`].taskDefinition | [0]' --output text)
+          RUNNING_IMAGE=$(aws ecs describe-task-definition --task-definition "$RUNNING_TD" \
+            --query 'taskDefinition.containerDefinitions[0].image' --output text)
+          if [ "$RUNNING_IMAGE" != "${{ steps.image.outputs.image }}" ]; then
+            echo "::error::Deployment rolled back — service is running $RUNNING_IMAGE"
+            exit 1
+          fi
+          echo "Service is stable on ${RUNNING_IMAGE}"

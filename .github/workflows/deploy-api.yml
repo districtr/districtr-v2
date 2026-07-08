@@ -1,0 +1,185 @@
+name: AWS Deploy API (Pulumi)
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy-api.yml"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
+  PULUMI_BACKEND_URL: s3://districtr-v2-pulumi-state?region=${{ vars.AWS_REGION || 'us-east-2' }}
+  # Maintenance-mode flag read by infra/config.ts. Must be set in every
+  # workflow that runs `pulumi up`, or an unrelated deploy flips it back.
+  UNDER_CONSTRUCTION: ${{ vars.UNDER_CONSTRUCTION || 'false' }}
+
+# Per-workflow group (serializes migrations per branch); concurrent
+# `pulumi up`s across workflows are handled by retrying on the state lock.
+concurrency:
+  group: aws-deploy-api-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy API
+    runs-on: ubuntu-latest
+    # Runs only on dev/main (other branches can't assume the deploy role via
+    # OIDC anyway). On push, gated by the per-stack repo var (AWS_DEPLOY_DEV /
+    # AWS_DEPLOY_PROD); workflow_dispatch runs on dev/main without the var.
+    if: >-
+      (github.ref_name == 'dev'  && (github.event_name == 'workflow_dispatch' || vars.AWS_DEPLOY_DEV  == 'true')) ||
+      (github.ref_name == 'main' && (github.event_name == 'workflow_dispatch' || vars.AWS_DEPLOY_PROD == 'true'))
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set stack
+        id: cfg
+        run: |
+          if [ "${{ github.ref_name }}" = "dev" ]; then
+            echo "stack=dev" >> "$GITHUB_OUTPUT"
+          else
+            echo "stack=prod" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 7200
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr
+      # Skip if the tag exists: tags are immutable, and a rebuild produces a
+      # different digest — without this guard a failed run is unretryable.
+      - name: Build and push image
+        id: image
+        run: |
+          set -euo pipefail
+          REPO="districtr-${{ steps.cfg.outputs.stack }}-backend"
+          IMAGE="${{ steps.ecr.outputs.registry }}/${REPO}:${{ github.sha }}"
+          if aws ecr describe-images --repository-name "$REPO" \
+              --image-ids imageTag="${{ github.sha }}" >/dev/null 2>&1; then
+            echo "Image already pushed for this sha; skipping build"
+          else
+            docker build -t "$IMAGE" backend
+            docker push "$IMAGE"
+          fi
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+      - name: Install Pulumi
+        uses: pulumi/actions@v7
+        with:
+          # Exact pin (not the default ^3 range) so a Pulumi release can't
+          # silently change deploys; keep ~in sync with infra/package.json.
+          pulumi-version: 3.242.0
+      # Fly release_command equivalent: run `alembic upgrade head` as a
+      # one-off task with the new image. If it fails, the service is left
+      # untouched on the old image.
+      - name: Run database migrations
+        working-directory: infra
+        run: |
+          set -euo pipefail
+          STACK="${{ steps.cfg.outputs.stack }}"
+          pulumi stack select "$STACK"
+          CLUSTER=$(pulumi stack output clusterName)
+          SUBNETS=$(pulumi stack output publicSubnetIds --json | jq -r 'join(",")')
+          SG=$(pulumi stack output backendSecurityGroupId)
+
+          NEW_DEF=$(aws ecs describe-task-definition \
+              --task-definition "districtr-${STACK}-migrate" \
+              --query taskDefinition |
+            jq --arg IMAGE "${{ steps.image.outputs.image }}" \
+              '.containerDefinitions[0].image = $IMAGE
+               | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+                     .compatibilities, .registeredAt, .registeredBy)')
+          TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json "$NEW_DEF" \
+            --query taskDefinition.taskDefinitionArn --output text)
+
+          TASK_ARN=$(aws ecs run-task \
+            --cluster "$CLUSTER" \
+            --launch-type FARGATE \
+            --task-definition "$TASK_DEF_ARN" \
+            --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS],securityGroups=[$SG],assignPublicIp=ENABLED}" \
+            --query 'tasks[0].taskArn' --output text)
+          # run-task returns a `failures` array (not `tasks`) when Fargate can't
+          # place the task; taskArn then resolves to "None" and the poll loop
+          # would otherwise spin for the full 45-minute deadline.
+          if [ -z "$TASK_ARN" ] || [ "$TASK_ARN" = "None" ]; then
+            echo "::error::Failed to place migration task — check ECS capacity and IAM permissions"
+            exit 1
+          fi
+          echo "Migration task: $TASK_ARN"
+
+          # Own polling loop: `aws ecs wait tasks-stopped` gives up at 10
+          # minutes, which a long PostGIS migration can legitimately exceed.
+          DEADLINE=$((SECONDS + 2700))
+          STATUS=""
+          while [ "$SECONDS" -lt "$DEADLINE" ]; do
+            STATUS=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" \
+              --query 'tasks[0].lastStatus' --output text)
+            [ "$STATUS" = "STOPPED" ] && break
+            sleep 15
+          done
+          if [ "$STATUS" != "STOPPED" ]; then
+            echo "::error::Migration task still running after 45 minutes — investigate before redeploying"
+            exit 1
+          fi
+
+          echo "--- migration logs ---"
+          aws logs tail "/districtr/${STACK}/migrate" --since 50m || true
+
+          EXIT_CODE=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" \
+            --query 'tasks[0].containers[0].exitCode' --output text)
+          if [ "$EXIT_CODE" != "0" ]; then
+            STOP_REASON=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" \
+              --query 'tasks[0].stoppedReason' --output text)
+            echo "::error::Migration failed (exit=$EXIT_CODE, reason=$STOP_REASON) — service not updated"
+            exit 1
+          fi
+      - name: Update service
+        working-directory: infra
+        run: |
+          set -euo pipefail
+          STACK="${{ steps.cfg.outputs.stack }}"
+          aws ssm put-parameter \
+            --name "/districtr/${STACK}/meta/backend-image-tag" \
+            --type String --value "${{ github.sha }}" --overwrite
+          npm ci
+          pulumi stack select "$STACK"
+          # Retry: another workflow's `pulumi up` may hold the state lock.
+          UPDATED=0
+          for attempt in 1 2 3; do
+            if pulumi up --yes --diff; then UPDATED=1; break; fi
+            echo "pulumi up failed (attempt $attempt); retrying in 60s in case of state-lock contention"
+            sleep 60
+          done
+          [ "$UPDATED" = "1" ] || exit 1
+      # `pulumi up` returns when the deployment is created, not when it
+      # succeeds. Wait for stability and fail red if the circuit breaker
+      # rolled back to the previous image.
+      - name: Verify rollout
+        working-directory: infra
+        run: |
+          set -euo pipefail
+          STACK="${{ steps.cfg.outputs.stack }}"
+          pulumi stack select "$STACK"
+          CLUSTER=$(pulumi stack output clusterName)
+          for attempt in 1 2 3; do
+            if aws ecs wait services-stable --cluster "$CLUSTER" --services backend; then break; fi
+            if [ "$attempt" = 3 ]; then
+              echo "::error::backend service did not stabilize"
+              exit 1
+            fi
+          done
+          RUNNING_TD=$(aws ecs describe-services --cluster "$CLUSTER" --services backend \
+            --query 'services[0].deployments[?status==`PRIMARY`].taskDefinition | [0]' --output text)
+          RUNNING_IMAGE=$(aws ecs describe-task-definition --task-definition "$RUNNING_TD" \
+            --query 'taskDefinition.containerDefinitions[0].image' --output text)
+          if [ "$RUNNING_IMAGE" != "${{ steps.image.outputs.image }}" ]; then
+            echo "::error::Deployment rolled back — service is running $RUNNING_IMAGE"
+            exit 1
+          fi
+          echo "Service is stable on ${RUNNING_IMAGE}"
