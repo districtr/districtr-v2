@@ -16,6 +16,9 @@ permissions:
 env:
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
   PULUMI_BACKEND_URL: s3://districtr-v2-pulumi-state?region=${{ vars.AWS_REGION || 'us-east-2' }}
+  # Maintenance-mode flag read by infra/config.ts. Must be set in every
+  # workflow that runs `pulumi up`, or an unrelated deploy flips it back.
+  UNDER_CONSTRUCTION: ${{ vars.UNDER_CONSTRUCTION || 'false' }}
 
 # Per-workflow group (serializes migrations per branch); concurrent
 # `pulumi up`s across workflows are handled by retrying on the state lock.

@@ -48,6 +48,13 @@ export const config = {
   backendImageTagOverride: cfg.get("backendImageTag"),
   frontendImageTagOverride: cfg.get("frontendImageTag"),
 
+  // Forces the frontend into maintenance mode during planned downtime
+  // (e.g. DB migration), independent of the CMS flag in the database.
+  // CI passes the UNDER_CONSTRUCTION repo variable through the environment;
+  // Pulumi config overrides for manual runs.
+  underConstruction:
+    cfg.getBoolean("underConstruction") ?? process.env.UNDER_CONSTRUCTION === "true",
+
   // Task sizing (Fargate cpu units / MiB)
   backendCpu: cfg.getNumber("backendCpu") ?? (isProd ? 2048 : 1024),
   backendMemory: cfg.getNumber("backendMemory") ?? 8192,
