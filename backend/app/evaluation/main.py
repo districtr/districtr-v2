@@ -29,8 +29,6 @@ from app.models import Document
 
 logger = logging.getLogger(__name__)
 
-# Cache-cold losers poll the cache at this cadence while the winner computes,
-# and give up waiting (computing themselves) after the deadline.
 EVAL_LOCK_POLL_SECONDS = 1.0
 EVAL_LOCK_WAIT_SECONDS = 120.0
 
@@ -67,12 +65,10 @@ def update_or_select_document_evaluation(
 
     On a miss, a per-document Postgres advisory lock serializes computes
     across all backend tasks so a thundering herd of cache-cold requests runs
-    one compute instead of N. Losers must not block inside the lock call —
-    a parked waiter holds a pooled connection for the whole compute, so ~15
-    cache-cold requests on one document would exhaust a task's pool (5 + 10
-    overflow) and starve unrelated endpoints. Instead they try the lock,
-    roll back (returning the connection to the pool) and sleep, re-checking
-    the cache until the winner commits.
+    one compute instead of N. Losers poll instead of blocking on the lock:
+    a parked waiter holds its pooled connection for the whole compute, so
+    ~15 cache-cold requests on one document would exhaust a task's pool
+    (5 + 10 overflow) and starve unrelated endpoints.
 
     Failures are never cached — a cache hit always returns `failed=[]`.
     """
@@ -87,8 +83,7 @@ def update_or_select_document_evaluation(
         text("SELECT pg_try_advisory_xact_lock(hashtextextended(:doc, 0))"),
         {"doc": str(document.document_id)},
     ).scalar_one():
-        # End the transaction so the pool reclaims our connection while we
-        # sleep; the next query begins a fresh one.
+        # End the transaction so the pool reclaims our connection while we sleep.
         session.rollback()
         sleep(EVAL_LOCK_POLL_SECONDS)
         evaluation = session.exec(
@@ -97,17 +92,16 @@ def update_or_select_document_evaluation(
         if cached := _cached_envelope(evaluation, document):
             return cached
         if monotonic() >= deadline:
-            # Winner is pathologically slow or wedged: compute without the
-            # lock rather than fail — the IntegrityError path below already
-            # tolerates concurrent commits of the same document.
+            # Winner is wedged; compute without the lock rather than fail —
+            # the IntegrityError path below tolerates concurrent commits.
             logger.warning(
                 "evaluation lock wait timed out for %s; computing without it",
                 document.document_id,
             )
             break
     else:
-        # Got the lock — but a winner may have committed between our cache
-        # check and the acquire; re-read past the identity map first.
+        # A winner may have committed between our cache check and the
+        # acquire; expire so the re-read isn't served from the identity map.
         session.expire_all()
         evaluation = session.exec(
             select(Evaluation).where(Evaluation.document_id == document.document_id)

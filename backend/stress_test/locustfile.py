@@ -190,7 +190,6 @@ class Editor(SessionUser):
         self.sleep_until(start)
         seed_doc = self.rng.choice(EDIT_DOCS)
 
-        # Create 3 plans, all copies of the same seed (§3).
         plans = []
         for i in range(PLANS_PER_EDITOR):
             doc = self.api.create_document(

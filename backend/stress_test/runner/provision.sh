@@ -116,10 +116,9 @@ python3.12 -m venv backend/stress_test/venv
 backend/stress_test/venv/bin/pip install -r backend/stress_test/requirements.txt
 chown -R ec2-user:ec2-user /home/ec2-user/districtr-v2
 touch /home/ec2-user/bootstrap-done
-# Self-destruct backstop for a forgotten teardown.sh: with shutdown behavior
-# 'terminate' this kills the instance in 12h (far beyond any run, ~\$17/day
-# if left idling). Cancel with: shutdown -c. teardown.sh remains the proper
-# cleanup (SG, IAM, temp 8080 rule are NOT covered by this).
+# Backstop for a forgotten teardown.sh — an idle c7i.4xlarge costs ~\$17/day.
+# Halt becomes terminate via the launch flag; SG/IAM/8080 rule still need
+# teardown.sh.
 shutdown -h +720 "stress-runner 12h self-destruct — cancel with shutdown -c"
 EOF
 

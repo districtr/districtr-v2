@@ -45,8 +45,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
     DOMAIN: str = "localhost"
     ENVIRONMENT: Environment = Environment.local
-    # Sentry tracing/profiling sample rate — a task-env config flip, so quota
-    # pressure (e.g. a stress-test run) doesn't need a code change + deploy.
+    # Env var so lowering it under Sentry quota pressure is a config flip,
+    # not a code change + deploy.
     SENTRY_TRACES_SAMPLE_RATE: float = 1.0
 
     @computed_field  # type: ignore[misc]
