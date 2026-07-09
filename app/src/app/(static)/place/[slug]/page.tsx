@@ -25,8 +25,11 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
     );
   }
 
+  // Preserve the order saved in the CMS, not the order of the available-maps list.
   const availableMaps = maps.ok
-    ? maps.response.filter(m => cmsData.content.districtr_map_slugs!.includes(m.districtr_map_slug))
+    ? (cmsData.content.districtr_map_slugs ?? [])
+        .map(slug => maps.response.find(m => m.districtr_map_slug === slug))
+        .filter((m): m is NonNullable<typeof m> => m !== undefined)
     : null;
 
   return (

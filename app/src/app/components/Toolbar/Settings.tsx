@@ -32,10 +32,6 @@ const TOOLBAR_SIZES: Array<{label: string; value: number}> = [
 /** Layers
  * This component is responsible for rendering the layers that can be toggled
  * on and off in the map.
- *
- * TODO:
- * - Support numbering for painted districts
- * - Support tribes and communities
  */
 export const ToolSettings: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -98,38 +94,6 @@ export const ToolSettings: React.FC = () => {
             </Select.Root>
           </Flex>
           <CheckboxGroup.Item
-            value="showPopulationTooltip"
-            onClick={() =>
-              setMapOptions({
-                showPopulationTooltip: !mapOptions.showPopulationTooltip,
-              })
-            }
-            disabled={access === ACCESS_STATES.READ}
-          >
-            Show population tooltip
-          </CheckboxGroup.Item>
-          <CheckboxGroup.Item
-            value="showPopulationNumbers"
-            onClick={() =>
-              setMapOptions({
-                showPopulationNumbers: !mapOptions.showPopulationNumbers,
-              })
-            }
-          >
-            Show population labels on whole precincts
-          </CheckboxGroup.Item>
-          <CheckboxGroup.Item
-            value="showBlockPopulationNumbers"
-            onClick={() =>
-              setMapOptions({
-                showBlockPopulationNumbers: !mapOptions.showBlockPopulationNumbers,
-              })
-            }
-            disabled={!mapDocument?.child_layer}
-          >
-            Show population labels on exposed blocks
-          </CheckboxGroup.Item>
-          <CheckboxGroup.Item
             value="showPaintedDistricts"
             onClick={() =>
               setMapOptions({
@@ -149,6 +113,38 @@ export const ToolSettings: React.FC = () => {
             }
           >
             Show numbering for painted districts
+          </CheckboxGroup.Item>
+          <CheckboxGroup.Item
+            value="showPopulationTooltip"
+            onClick={() =>
+              setMapOptions({
+                showPopulationTooltip: !mapOptions.showPopulationTooltip,
+              })
+            }
+            disabled={access === ACCESS_STATES.READ}
+          >
+            Show population tooltip
+          </CheckboxGroup.Item>
+          <CheckboxGroup.Item
+            value="showPopulationNumbers"
+            onClick={() =>
+              setMapOptions({
+                showPopulationNumbers: !mapOptions.showPopulationNumbers,
+              })
+            }
+          >
+            Show population on map (all units)
+          </CheckboxGroup.Item>
+          <CheckboxGroup.Item
+            value="showBlockPopulationNumbers"
+            onClick={() =>
+              setMapOptions({
+                showBlockPopulationNumbers: !mapOptions.showBlockPopulationNumbers,
+              })
+            }
+            disabled={!mapDocument?.child_layer}
+          >
+            Show population labels on exposed blocks
           </CheckboxGroup.Item>
           <CheckboxGroup.Item
             value="higlightUnassigned"
@@ -213,9 +209,6 @@ export const ToolSettings: React.FC = () => {
                 }
               >
                 Emphasize county names
-              </CheckboxGroup.Item>
-              <CheckboxGroup.Item value="2" disabled>
-                Show tribes and communities
               </CheckboxGroup.Item>
             </CheckboxGroup.Root>
           </>

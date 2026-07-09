@@ -73,6 +73,13 @@ export default function GuidePage() {
         </Link>{' '}
         database, which stores all sorts of geospatial data.
       </Text>
+      <Text size="3">
+        Election results and voter history data are provided courtesy of{' '}
+        <Link href="https://davesredistricting.org" target="_blank">
+          Dave&apos;s Redistricting
+        </Link>
+        .
+      </Text>
       <CTA />
     </Flex>
   );

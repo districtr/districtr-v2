@@ -323,12 +323,12 @@ const EvaluationTableHeader: React.FC<EvaluationTableHeaderProps> = ({columnConf
   return (
     <Table.Header>
       <Table.Row className="bg-gray-50 border-b">
-        <Table.ColumnHeaderCell className="py-2 px-4 text-left font-semibold">
+        <Table.ColumnHeaderCell className="py-1 px-2 text-left font-semibold">
           Zone
         </Table.ColumnHeaderCell>
         {!!columnConfigs &&
           columnConfigs.map((f, i) => (
-            <Table.ColumnHeaderCell className="py-2 px-4 text-right font-semibold" key={i}>
+            <Table.ColumnHeaderCell className="py-1 px-2 text-right font-semibold" key={i}>
               <Flex justify="end" align="center" gap="1">
                 <span>{f.label}</span>
                 {f.tooltip && (
@@ -381,7 +381,11 @@ const EvaluationTableRow: React.FC<EvaluationTableRowProps> = ({
   const zoneName = isUniverse
     ? 'Overall'
     : isUnassigned
-      ? 'Unassigned'
+      ? (
+          <Tooltip content="Unassigned population">
+            <span aria-label="Unassigned">∅</span>
+          </Tooltip>
+        )
       : mapMode === MAP_MODES.COI
         ? getCommunityDisplayNumber(communities, row.zone as number)
         : row.zone;
@@ -394,7 +398,7 @@ const EvaluationTableRow: React.FC<EvaluationTableRowProps> = ({
   return (
     <Table.Row className={`border-b ${isUniverse ? 'bg-gray-100' : 'hover:bg-gray-50'}`}>
       <Table.Cell
-        className={`py-2 px-4 font-medium flex flex-row items-center gap-1 ${isUniverse ? 'font-semibold' : ''}`}
+        className={`py-1 px-2 font-medium flex flex-row items-center gap-1 ${isUniverse ? 'font-semibold' : ''}`}
       >
         <span className={'size-4 inline-block rounded-md'} style={{backgroundColor}}></span>
         {zoneName}
@@ -455,7 +459,7 @@ const EvaluationTableCell: React.FC<EvaluationTableCellProps> = ({
 
   return (
     <Table.Cell
-      className={`py-2 px-4 text-right ${isUniverse ? 'font-semibold' : ''}`}
+      className={`py-1 px-2 text-right ${isUniverse ? 'font-semibold' : ''}`}
       style={{
         backgroundColor,
       }}

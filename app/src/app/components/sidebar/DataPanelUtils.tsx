@@ -19,7 +19,7 @@ export interface DataPanelsProps {
 export const defaultPanels: DataPanelSpec[] = [
   {
     title: 'population',
-    label: 'Districts',
+    label: 'Population',
     content: <PopulationPanel />,
   },
   {
@@ -27,8 +27,8 @@ export const defaultPanels: DataPanelSpec[] = [
     label: 'Demographics',
     content: (
       <SummaryPanel
-        defaultColumnSet={SUMMARY_TYPES.VAP}
-        displayedColumnSets={[SUMMARY_TYPES.VAP, SUMMARY_TYPES.TOTPOP]}
+        defaultColumnSet={SUMMARY_TYPES.TOTPOP}
+        displayedColumnSets={[SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP]}
       />
     ),
   },
@@ -44,7 +44,7 @@ export const defaultPanels: DataPanelSpec[] = [
   },
   {
     title: 'mapValidation',
-    label: 'Map validation',
+    label: 'Validity check',
     content: <MapValidation />,
   },
   {

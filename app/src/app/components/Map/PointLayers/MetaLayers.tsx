@@ -61,7 +61,8 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
           ['match', ['get', 'path'], Array.from(shatterIds.parents), true, false],
         ] as FilterSpecification;
       } else {
-        return HIDE_ALL_FILTER;
+        // No broken precincts: show labels on all whole units.
+        return ['literal', true] as FilterSpecification;
       }
     }
   }, [child, !child && shatterIds, child && captiveIds]);

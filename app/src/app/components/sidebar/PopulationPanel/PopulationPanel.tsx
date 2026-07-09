@@ -1,6 +1,6 @@
 import {Flex, Heading, IconButton, Spinner, Text} from '@radix-ui/themes';
 import React, {useMemo, useState} from 'react';
-import {formatNumber} from '@utils/numbers';
+import {formatDeviationPct, formatNumber} from '@utils/numbers';
 import {ParentSize} from '@visx/responsive'; // Import ParentSize
 import InfoTip from '@components/InfoTip';
 import {useChartStore} from '@store/chartStore';
@@ -315,10 +315,8 @@ export const PopulationPanel = () => {
             zoneStats?.maxPopulation !== undefined &&
             zoneStats?.maxPopulation !== 0 ? (
               <>
-                <b>
-                  {formatNumber(zoneStats.range / zoneStats?.maxPopulation, NUMBER_FORMATS.PERCENT)}
-                </b>{' '}
-                ({formatNumber(zoneStats.range || 0, NUMBER_FORMATS.STRING)})
+                <b>{formatDeviationPct(zoneStats.range / zoneStats?.maxPopulation)}</b> (
+                {formatNumber(zoneStats.range || 0, NUMBER_FORMATS.STRING)} people)
               </>
             ) : (
               ` will appear when all ${zoneLabelPlural} are started`

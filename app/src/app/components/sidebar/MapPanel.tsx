@@ -274,19 +274,6 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                             Show data as percent
                           </Flex>
                         </Text>
-                        {isOverlay && (
-                          <Flex direction="column" gapY="2">
-                            <Text>Overlay Opacity</Text>
-                            <Slider
-                              value={[mapOptions.overlayOpacity]}
-                              onValueChange={value => setMapOptions({overlayOpacity: value[0]})}
-                              min={0}
-                              max={1}
-                              step={0.01}
-                            />
-                          </Flex>
-                        )}
-
                         {demographicDisplayMode === DEMOGRAPHIC_MODES.OVERLAY && (
                           <Flex direction="column" gapY="1">
                             <Flex direction="row" gapX="1" align="center">
@@ -319,6 +306,18 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                 )}
               </Flex>
             </Flex>
+            {isOverlay && !!mapVariableConfig && (
+              <Flex direction="column" gapY="2" pb="2">
+                <Text>Overlay Opacity</Text>
+                <Slider
+                  value={[mapOptions.overlayOpacity]}
+                  onValueChange={value => setMapOptions({overlayOpacity: value[0]})}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                />
+              </Flex>
+            )}
           </Flex>
 
           {!!mapVariableConfig && scale && 'invertExtent' in scale ? (

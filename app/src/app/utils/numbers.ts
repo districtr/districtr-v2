@@ -2,9 +2,18 @@ import {NUMBER_FORMATS, type NumberFormat} from '@constants/demography/format';
 
 const percentFormatter = new Intl.NumberFormat('en-US', {
   style: 'percent',
-  minimumFractionDigits: 0,
+  minimumFractionDigits: 1,
   maximumFractionDigits: 1,
 });
+const deviationPctFormatter = new Intl.NumberFormat('en-US', {
+  style: 'percent',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 3,
+});
+// 0.001% as a ratio; below this we show "<0.001%" instead of a misleading 0.00%.
+const MIN_DEVIATION_PCT = 0.00001;
+export const formatDeviationPct = (value: number) =>
+  value > 0 && value < MIN_DEVIATION_PCT ? '<0.001%' : deviationPctFormatter.format(value);
 const compactFormatter = new Intl.NumberFormat('en-US', {
   notation: 'compact',
   compactDisplay: 'short',
