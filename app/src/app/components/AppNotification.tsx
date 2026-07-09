@@ -5,11 +5,26 @@ import {AlertDialog, Button, Flex, Text} from '@radix-ui/themes';
 import {CheckCircledIcon, ExclamationTriangleIcon, InfoCircledIcon} from '@radix-ui/react-icons';
 import * as Toast from '@radix-ui/react-toast';
 
-/** Per-type presentation: dialog title, accent color, and toast icon. */
+/** Per-type presentation: dialog title, accent color, toast background, and icon. */
 const TYPE_META = {
-  error: {title: 'Error', color: 'red', iconClass: 'text-red-600', Icon: ExclamationTriangleIcon},
-  notification: {title: 'Notice', color: 'blue', iconClass: 'text-blue-600', Icon: InfoCircledIcon},
-  success: {title: 'Success', color: 'green', iconClass: 'text-green-600', Icon: CheckCircledIcon},
+  error: {
+    title: 'Error',
+    color: 'red',
+    toastClass: 'bg-red-600 border-red-700',
+    Icon: ExclamationTriangleIcon,
+  },
+  notification: {
+    title: 'Notice',
+    color: 'blue',
+    toastClass: 'bg-blue-600 border-blue-700',
+    Icon: InfoCircledIcon,
+  },
+  success: {
+    title: 'Success',
+    color: 'green',
+    toastClass: 'bg-green-600 border-green-700',
+    Icon: CheckCircledIcon,
+  },
 } as const;
 
 /**
@@ -37,7 +52,7 @@ export const AppNotification = () => {
   }
   const type = notification.type ?? 'notification';
   const isError = type === 'error';
-  const {title, color, iconClass, Icon} = TYPE_META[type];
+  const {title, color, toastClass, Icon} = TYPE_META[type];
   const Description = () => (
     <>
       <Text as="p" mb={'4'}>
@@ -81,28 +96,35 @@ export const AppNotification = () => {
         <Toast.Provider swipeDirection="right" duration={isError ? 5000 : 3000}>
           <Toast.Root
             key={seq}
-            className="flex flex-col rounded-md bg-white p-[15px] shadow-[hsl(206_22%_7%_/_35%)_0px_10px_38px_-10px,_hsl(206_22%_7%_/_20%)_0px_10px_20px_-15px] data-[swipe=cancel]:translate-x-0 data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[state=closed]:animate-hide data-[state=open]:animate-slideIn data-[swipe=end]:animate-swipeOut data-[swipe=cancel]:transition-[transform_200ms_ease-out]"
+            className={`flex flex-col rounded-lg border p-4 text-white shadow-[hsl(206_22%_7%_/_35%)_0px_10px_38px_-10px,_hsl(206_22%_7%_/_20%)_0px_10px_20px_-15px] data-[swipe=cancel]:translate-x-0 data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[state=closed]:animate-hide data-[state=open]:animate-slideIn data-[swipe=end]:animate-swipeOut data-[swipe=cancel]:transition-[transform_200ms_ease-out] ${toastClass}`}
             open={uiActive}
             onOpenChange={setUiActive}
           >
             {isError ? (
               <>
-                <Toast.Title className="mb-[5px] text-[15px] font-medium text-slate12">
-                  {title}
+                <Toast.Title asChild>
+                  <Text size="3" weight="bold" className="mb-1 flex items-center gap-2">
+                    <Icon className="size-5 shrink-0" />
+                    {title}
+                  </Text>
                 </Toast.Title>
                 <Toast.Description asChild>
                   <Description />
                 </Toast.Description>
                 <Toast.Action asChild altText="Dismiss">
-                  <Button variant="solid" color={color} onClick={() => setUiActive(false)}>
+                  <Button
+                    variant="solid"
+                    className="!bg-white/25 !text-white hover:!bg-white/35"
+                    onClick={() => setUiActive(false)}
+                  >
                     Dismiss
                   </Button>
                 </Toast.Action>
               </>
             ) : (
               <Toast.Title asChild>
-                <Text size="2" weight="medium" className="flex items-center gap-2">
-                  <Icon className={`shrink-0 ${iconClass}`} />
+                <Text size="3" weight="medium" className="flex items-center gap-2">
+                  <Icon className="size-5 shrink-0" />
                   {notification.message}
                 </Text>
               </Toast.Title>
