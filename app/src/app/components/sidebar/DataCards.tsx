@@ -1,13 +1,16 @@
-import {Box, Button, Card, Flex, Heading, Text} from '@radix-ui/themes';
+import {Box, Button, Card, Flex, Heading, IconButton, Popover, Text} from '@radix-ui/themes';
 import React, {useState} from 'react';
 import {
   ArrowLeftIcon,
   BarChartIcon,
   BorderNoneIcon,
+  CaretDownIcon,
   ColorWheelIcon,
+  Cross2Icon,
   GlobeIcon,
   GridIcon,
   LayersIcon,
+  PlusIcon,
   TableIcon,
 } from '@radix-ui/react-icons';
 import PopulationPanel from './PopulationPanel';
@@ -126,13 +129,45 @@ const FEATURE_CARDS = {
 
 type CardKey = keyof typeof FEATURE_CARDS;
 
-export const DataCards: React.FC = () => {
-  const mapMode = useMapControlsStore(state => state.mapMode);
-  const [currCard, setCurrCard] = useState<CardKey | null>(null);
+const FeatureCardButton: React.FC<{
+  cardKey: CardKey;
+  card: FeatureCard;
+  onClick: () => void;
+}> = ({cardKey, card, onClick}) => {
+  const Icon = card.icon;
+  return (
+    <Card asChild>
+      <button
+        onClick={onClick}
+        className="cursor-pointer w-full text-left hover:bg-blue-50"
+        data-testid={`data-panel-${cardKey}`}
+      >
+        <Flex gap="3" align="center">
+          <Icon className="shrink-0" />
+          <Box>
+            <Text as="div" size="2" weight="bold">
+              {card.label}
+            </Text>
+            <Text as="div" size="1" color="gray">
+              {card.description}
+            </Text>
+          </Box>
+        </Flex>
+      </button>
+    </Card>
+  );
+};
 
-  const visibleCards = (Object.entries(FEATURE_CARDS) as Array<[CardKey, FeatureCard]>).filter(
+const useVisibleCards = () => {
+  const mapMode = useMapControlsStore(state => state.mapMode);
+  return (Object.entries(FEATURE_CARDS) as Array<[CardKey, FeatureCard]>).filter(
     ([, card]) => mapMode !== MAP_MODES.COI || !card.districtsOnly
   );
+};
+
+export const DataCards: React.FC = () => {
+  const [currCard, setCurrCard] = useState<CardKey | null>(null);
+  const visibleCards = useVisibleCards();
   // Self-heals if the map mode changes while a now-hidden card is open.
   const active = visibleCards.find(([key]) => key === currCard)?.[1];
 
@@ -156,28 +191,88 @@ export const DataCards: React.FC = () => {
 
   return (
     <Flex direction="column" gap="2" data-testid="data-panels">
-      {visibleCards.map(([key, card]) => {
-        const Icon = card.icon;
-        return (
-          <Card key={key} asChild>
-            <button
-              onClick={() => setCurrCard(key)}
-              className="cursor-pointer w-full text-left hover:bg-blue-50"
-              data-testid={`data-panel-${key}`}
-            >
-              <Flex gap="3" align="center">
-                <Icon className="shrink-0" />
-                <Box>
-                  <Text as="div" size="2" weight="bold">
-                    {card.label}
-                  </Text>
-                  <Text as="div" size="1" color="gray">
-                    {card.description}
-                  </Text>
-                </Box>
+      {visibleCards.map(([key, card]) => (
+        <FeatureCardButton key={key} cardKey={key} card={card} onClick={() => setCurrCard(key)} />
+      ))}
+    </Flex>
+  );
+};
+
+/**
+ * Super Draw's sidebar: a persistent dropdown of the same feature cards.
+ * Selected features stack in the scroll area below, each dismissible via a
+ * close button in its top-right corner.
+ */
+export const SuperDrawCards: React.FC = () => {
+  const [openCards, setOpenCards] = useState<CardKey[]>([]);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const visibleCards = useVisibleCards();
+
+  // Drop cards hidden by a mode change (e.g. districts-only cards in COI).
+  const shownCards = openCards.filter(key => visibleCards.some(([k]) => k === key));
+  const addableCards = visibleCards.filter(([key]) => !shownCards.includes(key));
+
+  const addCard = (key: CardKey) => {
+    setOpenCards(prev => [...prev, key]);
+    setMenuOpen(false);
+  };
+  const removeCard = (key: CardKey) => setOpenCards(prev => prev.filter(k => k !== key));
+
+  return (
+    <Flex direction="column" gap="3" data-testid="data-panels">
+      <Popover.Root open={menuOpen} onOpenChange={setMenuOpen}>
+        <Popover.Trigger>
+          <Button size="3" variant="surface" className="w-full cursor-pointer">
+            <Flex align="center" justify="between" width="100%">
+              <Flex align="center" gap="2">
+                <PlusIcon />
+                Add a feature
               </Flex>
-            </button>
-          </Card>
+              <CaretDownIcon />
+            </Flex>
+          </Button>
+        </Popover.Trigger>
+        <Popover.Content
+          className="w-[var(--radix-popover-trigger-width)]"
+          maxHeight="60vh"
+          size="1"
+        >
+          <Flex direction="column" gap="2">
+            {addableCards.length === 0 && (
+              <Text size="2" color="gray" align="center">
+                All features added
+              </Text>
+            )}
+            {addableCards.map(([key, card]) => (
+              <FeatureCardButton key={key} cardKey={key} card={card} onClick={() => addCard(key)} />
+            ))}
+          </Flex>
+        </Popover.Content>
+      </Popover.Root>
+      {shownCards.map(key => {
+        const card = FEATURE_CARDS[key];
+        return (
+          <Box
+            key={key}
+            className="border border-gray-300 rounded-lg bg-white p-3"
+            data-testid={`data-panel-${key}-open`}
+          >
+            <Flex justify="between" align="center" mb="2">
+              <Heading as="h3" size="3">
+                {card.label}
+              </Heading>
+              <IconButton
+                variant="ghost"
+                color="gray"
+                className="cursor-pointer"
+                onClick={() => removeCard(key)}
+                aria-label={`Close ${card.label}`}
+              >
+                <Cross2Icon />
+              </IconButton>
+            </Flex>
+            {card.content}
+          </Box>
         );
       })}
     </Flex>
