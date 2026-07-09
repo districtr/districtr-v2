@@ -13,11 +13,11 @@ everywhere below.
       `districtr-prod-backend-memory-high` (ECS mem >85%) and
       `districtr-prod-db-cpu-high` (RDS CPU >80%); each also sends an OK
       email when it clears. Table in `infra/athena/OBSERVABILITY.md`.
-- [ ] **Sentry quota**: `traces_sample_rate=1.0` is hard-coded in
-      `backend/app/main.py:110` (not an env var). Expected load ≈ 35 rps ×
-      900 s ≈ 30k transactions + profiles. Check remaining Sentry quota; if
-      tight, lowering the rate is a **code change + deploy**, not a config
-      flip — decide before the run.
+- [ ] **Sentry quota**: tracing is sampled at `SENTRY_TRACES_SAMPLE_RATE`
+      (backend task env var, default 1.0). Expected load ≈ 35 rps × 900 s ≈
+      30k transactions + profiles. Check remaining Sentry quota; if tight,
+      lower the rate via the task env var (config flip + service restart) —
+      decide before the run.
 - [ ] **RDS snapshot**: confirm a recent automated snapshot exists
       (`aws rds describe-db-snapshots --db-instance-identifier <prod-db> --query 'DBSnapshots[-1].SnapshotCreateTime'`).
 - [ ] **Deploy observability** (deferred until run day): `cd infra && pulumi preview --stack prod`
