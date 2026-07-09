@@ -98,7 +98,7 @@ export const MapActionsDropdown: React.FC<{
               onSelect={() => save()}
             >
               Save map
-              <Text size="1" color="gray">
+              <Text size="1">
                 (autosave on)
               </Text>
               {isOutdated && <CloudNotSavedIcon className="size-4" />}
