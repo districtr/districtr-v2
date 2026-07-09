@@ -1,5 +1,5 @@
 'use client';
-import {useEffect, useRef} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
@@ -10,11 +10,16 @@ import {AUTOSAVE_INTERVAL_MS, AUTOSAVE_IDLE_MS} from '@constants/document/sync';
 
 /**
  * Auto-saves pending changes while editing: on tab close/hide, on window
- * unfocus, and every 3 minutes — the periodic save waits for a 10s pause since
+ * unfocus, and every 3 minutes — the periodic save waits for a 45s pause since
  * the last edit so it never fires mid-brushstroke.
+ *
+ * Returns `isAutoSaving`, true while a timer-driven save runs (held for a
+ * minimum beat so an instant save doesn't read as a UI glitch) — drives the
+ * "Auto-saving…" popup in the topbar.
  */
 export function useAutoSave() {
   const {isOutdated, save} = useMapSaveStatus();
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
   const access = useMapStore(state => state.mapStatus?.access);
   const isEditing = useMapControlsStore(state => state.isEditing);
   const documentId = useMapStore(state => state.mapDocument?.document_id);
@@ -47,6 +52,18 @@ export function useAutoSave() {
       }
     };
 
+    // Timer-driven saves show the "Auto-saving…" popup, held at least 1.5s so a
+    // near-instant save doesn't flash by looking like a glitch.
+    const saveWithNotice = async () => {
+      if (!ref.current.enabled || saving) return;
+      setIsAutoSaving(true);
+      try {
+        await Promise.all([saveNow(), new Promise(resolve => setTimeout(resolve, 1500))]);
+      } finally {
+        setIsAutoSaving(false);
+      }
+    };
+
     let idleTimer: ReturnType<typeof setTimeout>;
     const attempt = () => {
       if (!ref.current.enabled) return;
@@ -55,7 +72,7 @@ export function useAutoSave() {
         clearTimeout(idleTimer);
         idleTimer = setTimeout(attempt, AUTOSAVE_IDLE_MS - idle);
       } else {
-        saveNow();
+        saveWithNotice();
       }
     };
     const interval = setInterval(attempt, AUTOSAVE_INTERVAL_MS);
@@ -74,4 +91,6 @@ export function useAutoSave() {
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, []);
+
+  return {isAutoSaving};
 }

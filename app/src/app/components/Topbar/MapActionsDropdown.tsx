@@ -98,6 +98,9 @@ export const MapActionsDropdown: React.FC<{
               onSelect={() => save()}
             >
               Save map
+              <Text size="1" color="gray">
+                (autosave on)
+              </Text>
               {isOutdated && <CloudNotSavedIcon className="size-4" />}
             </DropdownMenu.Item>
           )}
@@ -149,7 +152,7 @@ export const MapActionsDropdown: React.FC<{
             </DropdownMenu.SubContent>
           </DropdownMenu.Sub>
           <DropdownMenu.Item className="cursor-pointer" onSelect={() => openModal('settings')}>
-            Visual map settings
+            Visual settings
           </DropdownMenu.Item>
           <DropdownMenu.Separator />
           {isEditing && (
