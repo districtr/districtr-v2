@@ -30,6 +30,10 @@ everywhere below.
 - [ ] **Code pushed**: all `backend/stress_test/` + `infra/` work committed and
       pushed to `github.com/districtr/districtr-v2`; `REPO_SHA=$(git rev-parse origin/main)`
       is what the runner bootstraps from.
+- [ ] **Eval lock fix live in prod**: the per-document `/evaluation` compute
+      lock must be merged to main **and deployed to the prod backend** before
+      the run — merged-but-undeployed reintroduces the cache-cold 500 burst
+      the abort criteria no longer excuse.
 - [ ] **Provision runner**: `cd backend/stress_test/runner && RESULTS_BUCKET=<backend bucket> REPO_SHA=<sha> ./provision.sh`
       (bucket = Pulumi `s3BucketName` / task env `R2_BUCKET_NAME`). Wait for
       `/home/ec2-user/bootstrap-done`, then run the printed
@@ -46,7 +50,7 @@ everywhere below.
       rule not authorized), cache snapshots, both manifests. Then delete the
       dry-run docs with the cleanup one-liner (step 5) using the `dry1`
       manifests. Known non-fatal: locust exits 1 if *any* request failed
-      (eval-race 500s / create 504s are known) — judge by the S3 artifacts.
+      (create 504s are known) — judge by the S3 artifacts.
 
 ## 2. Baseline (15 min idle)
 
@@ -69,14 +73,16 @@ everywhere below.
   - **DatabaseConnections** vs the ~15/task ceiling (pool 5 + overflow 10);
     a plateau at 15×tasks with rising latency = pool exhaustion.
   - **ALB 5xx** (target + ELB) and TargetResponseTime p95/p99.
-  - Known suspects: burst of eval 500s on cache-cold `/evaluation` races,
-    occasional `create_document` 504s at the 15 s lock_timeout.
+  - Known suspects: occasional `create_document` 504s at the 15 s
+    lock_timeout. Cache-cold `/evaluation` 500 bursts were fixed by the
+    per-document compute lock — with the fix deployed, any eval-500 burst is
+    a **finding**, not expected noise.
 
 ## 4. Abort criteria
 
-Abort if any of: **sustained target 5xx** (alarm `alb-target-5xx`, >25/5 min,
-beyond the known eval-race burst), **RDS CPU pinned >90%**, **unhealthy
-backend targets**, or **real-user complaints**. Abort switch (graceful — the
+Abort if any of: **sustained target 5xx** (alarm `alb-target-5xx`, >25/5 min),
+**RDS CPU pinned >90%**, **unhealthy backend targets**, or **real-user
+complaints**. Abort switch (graceful — the
 harness flushes the runtime manifest and run.sh still uploads all artifacts):
 
 ```sh
