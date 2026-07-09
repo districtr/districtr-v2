@@ -112,9 +112,7 @@ def population_deviation(
     most_pop = col[most_populous_zone]
     least_pop = col[least_populous_zone]
     ideal = context.ideal_population
-    top_to_bottom_deviation = (
-        (most_pop - least_pop) / least_pop if least_pop != 0 else float("inf")
-    )
+    top_to_bottom_deviation = (most_pop - least_pop) / ideal
     maximal_absolute_deviation = int((col - ideal).abs().max())
     return PopulationDeviationResults(
         most_populous_district=most_populous_zone,

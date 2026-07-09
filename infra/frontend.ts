@@ -84,6 +84,7 @@ export function createFrontend(
           {name: "AUTH0_ISSUER", value: config.auth0Issuer},
           {name: "AUTH0_AUDIENCE", value: config.auth0ApiAudience},
           {name: "AUTH0_ALGORITHMS", value: config.auth0Algorithms},
+          {name: "UNDER_CONSTRUCTION", value: String(config.underConstruction)},
         ],
         secrets: secretParams.map(s => ({name: s.envName, valueFrom: s.param.arn})),
         logConfiguration: {

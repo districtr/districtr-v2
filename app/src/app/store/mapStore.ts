@@ -355,7 +355,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         focusFeatures: [],
       });
       setMapOptions({mode: 'default'});
-      useMapControlsStore.setState({activeTool: ACTIVE_TOOLS.SHATTER});
 
       if (mapMode === MAP_MODES.COI) {
         healParentsIfAllChildrenInSameCommunities(

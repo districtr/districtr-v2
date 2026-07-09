@@ -6,14 +6,24 @@ import InfoTip from '@components/InfoTip';
 import {useChartStore} from '@store/chartStore';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
-import {PopulationChart} from './PopulationChart/PopulationChart';
+import {
+  PopulationChart,
+  PopulationChartAxis,
+  PopulationChartIdealLabel,
+  POP_CHART_AXIS_HEIGHT,
+  POP_CHART_LABEL_HEIGHT,
+  POP_CHART_MARGINS,
+  getBarCenterY,
+  getChartHeight,
+} from './PopulationChart/PopulationChart';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
 import {LockClosedIcon, LockOpen2Icon, Pencil1Icon} from '@radix-ui/react-icons';
 import {useZonePopulations} from '@/app/hooks/useDemography';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {ZoneDescriptionPopover} from './ZoneDescriptionPopover';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
-import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/document/limits';
+import {ConditionalScrollArea} from '../ConditionalScrollArea';
+import {FALLBACK_NUM_COMMUNITIES} from '@constants/document/limits';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {getCommunityRenderOrderId, getUnusedCommunityColors} from '@/app/utils/communities';
 import {useSelectCommunity} from '@/app/hooks/useSelectCommunity';
@@ -23,16 +33,15 @@ import {MAP_MODES, MAP_MODE_LABELS, MAP_MODE_LABEL_PLURAL} from '@constants/map/
 import {ACCESS_STATES} from '@constants/document/state';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 
-const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
-
-// The chart draws bars at yScale(i) + 5 with height (ROW_HEIGHT - 6), so bar
-// centers land at TOP_MARGIN + 21 + i * ROW_HEIGHT. The left column mirrors
-// that with a fixed top spacer + fixed-height rows (align-center) so icons
-// line up with bars: SPACER + ROW_HEIGHT/2 = TOP_MARGIN + 21 ⇒ SPACER = 22.
+// The "Ideal" label and the axis render in separate fixed strips above/below the
+// (scrollable) rows, so all three rows must use the same fixed left column width to
+// keep their x-scales aligned.
 const POP_ROW_HEIGHT = 38;
-const POP_CHART_TOP_MARGIN = 20;
-const POP_CHART_BOTTOM_MARGIN = 80;
-const POP_LEFT_COL_TOP_SPACER = 22;
+const POP_LEFT_COL_WIDTH = '5rem';
+// The left column stacks fixed-height rows (align-center); this spacer lines their
+// centers up with the chart's bars. Derived from the chart's bar geometry.
+const POP_LEFT_COL_TOP_SPACER =
+  getBarCenterY(POP_CHART_MARGINS.top, POP_ROW_HEIGHT) - POP_ROW_HEIGHT / 2;
 
 export const PopulationPanel = () => {
   const {populationData, demoIsLoaded} = useZonePopulations();
@@ -68,6 +77,7 @@ export const PopulationPanel = () => {
   const updateCommunity = useMapStore(state => state.updateCommunity);
   const getZoneColor = useZoneColorGetter();
   const isEditing = useMapControlsStore(state => state.isEditing);
+  const shouldUseScrollableRows = populationData.length > 10;
   const selectCommunity = useSelectCommunity();
   const colorScheme = useColorScheme();
   const [editingCommunityId, setEditingCommunityId] = useState<number | null>(null);
@@ -132,7 +142,13 @@ export const PopulationPanel = () => {
     );
   }
   return (
-    <Flex gap="0" direction="column">
+    <Flex
+      gap="0"
+      direction="column"
+      style={
+        shouldUseScrollableRows ? {maxHeight: '80vh', overflow: 'hidden'} : {maxHeight: '80vh'}
+      }
+    >
       <Flex direction="row" gap={'2'} align="center">
         <Heading as="h3" size="3">
           {`Total population by ${zoneLabel}`}
@@ -143,104 +159,135 @@ export const PopulationPanel = () => {
           idealPopulation={effectiveIdealPopulation}
         />
       </Flex>
-      <Flex direction="row" width={'100%'} gap="1">
-        <Flex direction={'column'} className={'flex-grow-0 p-0'} minWidth={'5rem'}>
-          <Flex
-            justify="end"
-            align="center"
-            style={{height: POP_LEFT_COL_TOP_SPACER, overflow: 'visible'}}
-          >
-            {!isCommunityMode && (
-              <IconButton
-                onClick={toggleLockAllAreas}
-                variant="ghost"
-                disabled={access === ACCESS_STATES.READ}
-                style={{opacity: isEditing ? 1 : 0}}
-                aria-label={allAreLocked ? 'Unlock all districts' : 'Lock all districts'}
-              >
-                {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
-              </IconButton>
-            )}
-          </Flex>
-          {/* @ts-ignore */}
-          {populationData.map((d, i) => (
-            <Flex
-              key={d.zone}
-              direction={'row'}
-              gapX="1"
-              align={'center'}
-              className="p-0 m-0"
-              justify={'between'}
-              style={{height: POP_ROW_HEIGHT}}
+      {/* Fixed header: lock-all control + "Ideal" label strip. Never scrolls. */}
+      <Flex direction="row" width={'100%'} gap="1" mt="2">
+        <Flex justify="end" align="center" style={{width: POP_LEFT_COL_WIDTH, flexShrink: 0}}>
+          {!isCommunityMode && (
+            <IconButton
+              onClick={toggleLockAllAreas}
+              variant="ghost"
+              disabled={access === ACCESS_STATES.READ}
+              style={{opacity: isEditing ? 1 : 0}}
+              aria-label={allAreLocked ? 'Unlock all districts' : 'Lock all districts'}
             >
-              {!!showDistrictNumbers && (
-                <IconButton
-                  variant={'outline'}
-                  onClick={() => selectCommunity(d.zone)}
-                  size="1"
-                  className={`${selectedZone === d.zone ? 'bg-gray-100' : '!shadow-none'} max-w-12 flex-grow`}
-                >
-                  <Text weight={selectedZone === d.zone ? 'bold' : 'regular'}>
-                    {mapMode === MAP_MODES.COI
-                      ? (getCommunityRenderOrderId(communities, d.zone) ?? d.zone)
-                      : d.zone}
-                  </Text>
-                </IconButton>
-              )}
-              <Flex gap="0" align="center">
-                <ZoneDescriptionPopover zone={d.zone} color={getZoneColor(d.zone)} />
-                {!!isEditing && (
-                  <>
-                    {isCommunityMode ? (
-                      <IconButton
-                        onClick={() => handleEditCommunity(d.zone)}
-                        variant="ghost"
-                        disabled={access === ACCESS_STATES.READ}
-                        aria-label={`Edit community ${d.zone}`}
-                      >
-                        <Pencil1Icon />
-                      </IconButton>
-                    ) : (
-                      <IconButton
-                        onClick={() => handleLockChange(d.zone)}
-                        variant="ghost"
-                        disabled={access === ACCESS_STATES.READ}
-                        aria-label={
-                          lockPaintedAreas.includes(d.zone)
-                            ? `Unlock district ${d.zone}`
-                            : `Lock district ${d.zone}`
-                        }
-                      >
-                        {lockPaintedAreas.includes(d.zone) ? <LockClosedIcon /> : <LockOpen2Icon />}
-                      </IconButton>
-                    )}
-                  </>
-                )}
-              </Flex>
-            </Flex>
-          ))}
+              {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
+            </IconButton>
+          )}
         </Flex>
-        <ParentSize
-          style={{
-            height: populationData.length
-              ? `${populationData.length * POP_ROW_HEIGHT + POP_CHART_TOP_MARGIN + POP_CHART_BOTTOM_MARGIN}px`
-              : '200px',
-            width: '100%',
-          }}
-        >
-          {({width, height}) => (
-            <PopulationChart
+        <ParentSize style={{height: `${POP_CHART_LABEL_HEIGHT}px`, width: '100%'}}>
+          {({width}) => (
+            <PopulationChartIdealLabel
               width={width}
-              height={height}
               data={populationData}
               idealPopulation={effectiveIdealPopulation}
-              onBarSelect={selectCommunity}
-              margins={{
-                left: 5,
-                right: 20,
-                top: POP_CHART_TOP_MARGIN,
-                bottom: POP_CHART_BOTTOM_MARGIN,
+            />
+          )}
+        </ParentSize>
+      </Flex>
+      <div style={{position: 'relative'}}>
+        <ConditionalScrollArea
+          shouldUseScrollableRows={shouldUseScrollableRows}
+          // Show 10.6 rows so the half-visible row signals more content below;
+          // 60vh keeps the panel usable on short viewports.
+          maxHeight={`min(60vh, ${POP_CHART_MARGINS.top + Math.round(10.6 * POP_ROW_HEIGHT)}px)`}
+        >
+          <Flex direction="row" width={'100%'} gap="1">
+            <Flex
+              direction={'column'}
+              className={'flex-grow-0 p-0'}
+              style={{width: POP_LEFT_COL_WIDTH, flexShrink: 0}}
+            >
+              <Flex style={{height: POP_LEFT_COL_TOP_SPACER}} />
+              {/* @ts-ignore */}
+              {populationData.map(d => (
+                <Flex
+                  key={d.zone}
+                  direction={'row'}
+                  gapX="1"
+                  align={'center'}
+                  className="p-0 m-0"
+                  justify={'between'}
+                  style={{height: POP_ROW_HEIGHT}}
+                >
+                  {!!showDistrictNumbers && (
+                    <IconButton
+                      variant={'outline'}
+                      onClick={() => selectCommunity(d.zone)}
+                      size="1"
+                      className={`${selectedZone === d.zone ? 'bg-gray-100' : '!shadow-none'} max-w-12 flex-grow`}
+                    >
+                      <Text weight={selectedZone === d.zone ? 'bold' : 'regular'}>
+                        {mapMode === MAP_MODES.COI
+                          ? (getCommunityRenderOrderId(communities, d.zone) ?? d.zone)
+                          : d.zone}
+                      </Text>
+                    </IconButton>
+                  )}
+                  <Flex gap="0" align="center">
+                    <ZoneDescriptionPopover zone={d.zone} color={getZoneColor(d.zone)} />
+                    {!!isEditing && (
+                      <>
+                        {isCommunityMode ? (
+                          <IconButton
+                            onClick={() => handleEditCommunity(d.zone)}
+                            variant="ghost"
+                            disabled={access === ACCESS_STATES.READ}
+                            aria-label={`Edit community ${d.zone}`}
+                          >
+                            <Pencil1Icon />
+                          </IconButton>
+                        ) : (
+                          <IconButton
+                            onClick={() => handleLockChange(d.zone)}
+                            variant="ghost"
+                            disabled={access === ACCESS_STATES.READ}
+                            aria-label={
+                              lockPaintedAreas.includes(d.zone)
+                                ? `Unlock district ${d.zone}`
+                                : `Lock district ${d.zone}`
+                            }
+                          >
+                            {lockPaintedAreas.includes(d.zone) ? (
+                              <LockClosedIcon />
+                            ) : (
+                              <LockOpen2Icon />
+                            )}
+                          </IconButton>
+                        )}
+                      </>
+                    )}
+                  </Flex>
+                </Flex>
+              ))}
+            </Flex>
+            <ParentSize
+              style={{
+                height: `${getChartHeight(populationData.length, POP_ROW_HEIGHT)}px`,
+                width: '100%',
               }}
+            >
+              {({width}) => (
+                <PopulationChart
+                  width={width}
+                  rowHeight={POP_ROW_HEIGHT}
+                  data={populationData}
+                  idealPopulation={effectiveIdealPopulation}
+                  onBarSelect={selectCommunity}
+                />
+              )}
+            </ParentSize>
+          </Flex>
+        </ConditionalScrollArea>
+      </div>
+      {/* Fixed axis strip below the scrollable rows. Never scrolls. */}
+      <Flex direction="row" width={'100%'} gap="1">
+        <Flex style={{width: POP_LEFT_COL_WIDTH, flexShrink: 0}} />
+        <ParentSize style={{height: `${POP_CHART_AXIS_HEIGHT}px`, width: '100%'}}>
+          {({width}) => (
+            <PopulationChartAxis
+              width={width}
+              data={populationData}
+              idealPopulation={effectiveIdealPopulation}
             />
           )}
         </ParentSize>

@@ -8,6 +8,7 @@ import {idb} from '../../idb/idb';
 import {getAssignments} from './getAssignments';
 import {useMapStore} from '@/app/store/mapStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
+import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 
 type PutUpdateAssignmentsAndVerifyResponse =
   | {
@@ -156,7 +157,15 @@ export const putUpdateAssignmentsAndVerify = async ({
     assignments: freshServerAssignments.response,
     clientLastUpdated: assignmentsPostResponse.response.updated_at,
   });
+  // Pause zundo before syncing clientLastUpdated to the server timestamp.
+  // setClientLastUpdated triggers temporalDiff, which would otherwise treat this
+  // server-sync as a user edit: pushing a snapshot onto pastStates and clearing
+  // futureStates, corrupting undo/redo history after a save.
+  useAssignmentsStore.temporal.getState().pause();
+  useCoiAssignmentsStore.temporal.getState().pause();
   useAssignmentsStore.getState().setClientLastUpdated(assignmentsPostResponse.response.updated_at);
+  useAssignmentsStore.temporal.getState().resume();
+  useCoiAssignmentsStore.temporal.getState().resume();
   useMapStore.getState().mutateMapDocument({
     updated_at: assignmentsPostResponse.response.updated_at,
     ...(document_comments && {document_comments}),
