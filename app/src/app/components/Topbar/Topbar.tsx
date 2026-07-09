@@ -48,6 +48,7 @@ export const Topbar: React.FC = () => {
       <Flex direction="column" className="h-auto">
         <Flex
           dir="row"
+          wrap="wrap"
           className="border-b-[1px] border-gray-500 lg:shadow-xl p-1 pl-5 pr-2 relative"
           gap="4"
           align={'center'}
@@ -97,7 +98,7 @@ export const Topbar: React.FC = () => {
           ) : (
             <MapHeader handleMetadataChange={handleMetadataChange} />
           )}
-          <Flex direction="row" align="center" gapX="3">
+          <Flex direction="row" align="center" wrap="wrap" gapX="3" gapY="1">
             <ModeSwitcher />
             {!isEval && <MapActionsDropdown handleMetadataChange={handleMetadataChange} />}
           </Flex>

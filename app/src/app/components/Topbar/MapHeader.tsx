@@ -12,7 +12,7 @@ export const MapHeader: React.FC<{
   const mapMetadata = useMapMetadata();
 
   return (
-    <Flex direction="row" align="center" gapX="2">
+    <Flex direction="row" align="center" gapX="2" className="min-w-0 max-w-full overflow-hidden">
       <MapTitleDisplay
         mapMetadata={mapMetadata}
         mapDocument={mapDocument}
