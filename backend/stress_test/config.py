@@ -25,10 +25,10 @@ class StressSettings(BaseSettings):
     # 0.01 = 1% smoke run).
     SCALE: float = 1.0
     WINDOW_SECONDS: int = 900
-    # CDN config JSON listing seed plans (see STRESS_TEST_PLAN.md §8). May be
-    # an http(s) URL or a local file path (used by the smoke fixture).
+    # CDN config JSON listing seed plans (slug + assignments path per row).
+    # May be an http(s) URL or a local file path (used by the smoke fixture).
     CONFIG_URL: str = DEFAULT_CONFIG_URL
-    # Seed manifest produced by the seed step (WS2 `stress-test-seed`, or
+    # Seed manifest produced by the seed step (`cli.py stress-test-seed`, or
     # smoke_seed.py locally): {"documents": [{"document_id", "districtr_map_slug"}]}
     SEED_MANIFEST: str = ""
     # Manifest of documents created at runtime by editors; consumed by cleanup.

@@ -4,9 +4,9 @@ row (with its assignments) and writes the seed manifest the locustfile reads.
     STRESS_CONFIG_URL=fixtures/local_config.json STRESS_RUN_ID=smoke \
         python smoke_seed.py
 
-Production seeding is WS2's `stress-test-seed` CLI command (see
-STRESS_TEST_PLAN.md §5); this script only exists so WS1 smoke runs don't
-depend on it. Both write the same manifest shape:
+Production seeding is the `stress-test-seed` CLI command (backend/cli.py);
+this script only exists so local smoke runs don't depend on it. Both write
+the same manifest shape:
     {"run_id": ..., "documents": [{"document_id", "districtr_map_slug", "use"}]}
 """
 

@@ -1,4 +1,4 @@
-"""Seed + cleanup logic for the production stress test (STRESS_TEST_PLAN.md §5 WS2).
+"""Seed + cleanup logic for the production stress test.
 
 Called by the `stress-test-seed` / `stress-test-cleanup` commands in
 backend/cli.py, which run inside a backend task (local docker-compose, or prod

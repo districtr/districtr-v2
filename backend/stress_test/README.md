@@ -1,6 +1,6 @@
 # Districtr stress-test harness
 
-Locust harness implementing the traffic model in `STRESS_TEST_PLAN.md` §3:
+Locust harness implementing the production stress-test traffic model:
 viewers (non-homogeneous Poisson arrivals with a Beta(2,5) ramp-and-decay
 intensity — spike ~20% into the window, exactly n per run; document + msgpack
 assignments), eval users
@@ -43,7 +43,7 @@ Full-scale counts (`scenario.py`): 10,000 viewers + 2,500 eval + 250 editors
 The harness needs seed *documents*, produced from the config JSON before the
 run:
 
-- **Production:** the `stress-test-seed` CLI command (plan §5 WS2) creates
+- **Production:** the `stress-test-seed` CLI command (backend/cli.py) creates
   the 10 seed docs and writes the seed manifest.
 - **Local/smoke:** `smoke_seed.py` does the same over HTTP from the fixture
   config.
@@ -164,7 +164,7 @@ aws ecs execute-command --cluster "$CLUSTER" --task "$TASK" \
         --manifest s3://\$R2_BUCKET_NAME/stress-test/stress_test_manifest_$RUN_ID.json'"
 ```
 
-After the run (runtime manifest uploaded to S3 by the runner, WS4):
+After the run (runtime manifest uploaded to S3 by the runner's run.sh):
 
 ```sh
 aws ecs execute-command --cluster "$CLUSTER" --task "$TASK" \

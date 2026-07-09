@@ -1,7 +1,7 @@
 # Stress-test observability
 
-What WS3 adds and how the operator uses it during a stress-test run
-(see `STRESS_TEST_PLAN.md` §5 WS3, §7).
+What the stress-test observability build-out adds and how the operator uses
+it during a run.
 
 - **ALB access logs** (`infra/alb.ts`): S3 bucket + `accessLogs` on the ALB.
   Per-request server-side latency, queried with Athena (this directory).
@@ -45,7 +45,7 @@ This is a documented manual pair, intentionally not wired into Pulumi:
 
 ```bash
 BACKEND_SG=$(pulumi stack output backendSecurityGroupId)   # prod stack
-RUNNER_SG=<runner instance SG id, from WS4 provisioning>
+RUNNER_SG=<runner instance SG id, printed by runner/provision.sh>
 
 # Before the run:
 aws ec2 authorize-security-group-ingress --group-id "$BACKEND_SG" \
@@ -76,8 +76,8 @@ while true; do
 done
 ```
 
-Upload `metrics/` to the run's S3 results prefix afterwards (WS4 does this in
-its artifact-upload step). Per-run cache hit rates: also snapshot
+Upload `metrics/` to the run's S3 results prefix afterwards (runner/run.sh
+does this in its artifact-upload step). Per-run cache hit rates: also snapshot
 `http://$ip:8080/_debug/cache` before and after the run.
 
 ## Existing alarms that may fire during the run
@@ -91,7 +91,7 @@ Likely to fire:
 
 | Alarm | Threshold | Why it may fire |
 |---|---|---|
-| `districtr-prod-backend-memory-high` | ECS memory avg > 85% for 2×5 min | Eval load fills the in-RAM graph cache — the plan's expected suspect |
+| `districtr-prod-backend-memory-high` | ECS memory avg > 85% for 2×5 min | Eval load fills the in-RAM graph cache — the expected suspect |
 | `districtr-prod-db-cpu-high` | RDS CPU avg > 80% for 2×5 min | Concurrent COPY writes + assignment reads |
 
 Possible if things go wrong (also the run's abort criteria):

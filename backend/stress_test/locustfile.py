@@ -1,6 +1,6 @@
 """Locust harness for the districtr production stress test.
 
-Three populations (STRESS_TEST_PLAN.md §3), all spawned at t=0. Each user
+Three populations (traffic model in README.md), all spawned at t=0. Each user
 pre-computes its session-start offset (fixed RNG seed → reproducible), sleeps
 until then, runs one session, and stops. Run headless with -u/-r set to the
 total user count logged at startup, e.g.:

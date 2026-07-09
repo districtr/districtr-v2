@@ -1,12 +1,12 @@
 """Traffic-model constants and pre-sampled arrival-time schedules.
 
 All sampling uses `random.Random` seeded from STRESS_RNG_SEED (plus a
-population label) so runs are reproducible (STRESS_TEST_PLAN.md §3/§4).
+population label) so runs are reproducible.
 """
 
 import random
 
-# Full-scale population counts (STRESS_TEST_PLAN.md §3); multiplied by SCALE.
+# Full-scale population counts (traffic model in README.md); multiplied by SCALE.
 VIEWERS = 10_000
 EVAL_USERS = 2_500
 EDITORS = 250

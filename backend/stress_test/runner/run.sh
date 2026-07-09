@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One stress-test run, executed ON the runner instance (via SSM). Pulls the
 # seed manifest from S3, runs Locust headless with the /metrics scrape loop
-# (STRESS_TEST_PLAN.md §5 WS3/WS4), then uploads everything to
+# (infra/athena/OBSERVABILITY.md), then uploads everything to
 # s3://$RESULTS_BUCKET/stress-test/<RUN_ID>/ and prints the prefix. An abort
 # (pkill -TERM -f locust) still uploads: Locust flushes the runtime manifest
 # on SIGTERM and this script keeps going after Locust exits.
@@ -29,7 +29,7 @@ export STRESS_RUN_ID="$RUN_ID" STRESS_SCALE="$SCALE" \
   STRESS_WINDOW_SECONDS="$WINDOW_SECONDS" STRESS_BASE_URL="$BASE_URL"
 [ -n "${CONFIG_URL:-}" ] && export STRESS_CONFIG_URL="$CONFIG_URL"
 
-# Seed manifest written to S3 by `stress-test-seed --manifest s3://...` (WS2)
+# Seed manifest written to S3 by `cli.py stress-test-seed --manifest s3://...`
 SEED_MANIFEST="stress_test_manifest_${RUN_ID}.json"
 aws s3 cp "${S3_PREFIX}/${SEED_MANIFEST}" "$SEED_MANIFEST"
 
@@ -95,7 +95,7 @@ wait "$SCRAPE_PID" 2>/dev/null || true
 snapshot_cache after
 
 # --- Upload artifacts; runtime manifest also goes to the top-level prefix
-# where the documented stress-test-cleanup one-liner expects it (WS2).
+# where the documented stress-test-cleanup one-liner expects it.
 RUNTIME_MANIFEST="stress_test_runtime_manifest_${RUN_ID}.json"
 cp "$RUNTIME_MANIFEST" "$ART/" 2>/dev/null || echo "no runtime manifest (no editor ran?)"
 cp "$SEED_MANIFEST" "$ART/"

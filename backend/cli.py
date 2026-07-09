@@ -941,7 +941,8 @@ def stress_test_seed(
     manifest: str | None,
 ):
     """Create the stress-test seed documents from the config JSON and write the
-    manifest of created document ids (STRESS_TEST_PLAN.md §5 WS2)."""
+    manifest of created document ids (consumed by the locustfile and by
+    `stress-test-cleanup`)."""
     run_id = run_id or stress_settings.RUN_ID
     documents = _seed_stress_documents(
         session=session,
