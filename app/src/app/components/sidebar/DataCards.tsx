@@ -250,7 +250,7 @@ export const DataCards: React.FC = () => {
  * close button in its top-right corner.
  */
 export const SuperDrawCards: React.FC = () => {
-  const [openCards, setOpenCards] = useState<CardKey[]>([]);
+  const [openCards, setOpenCards] = useState<CardKey[]>(['population']);
   const [menuOpen, setMenuOpen] = useState(false);
   const visibleCards = useVisibleCards();
 
