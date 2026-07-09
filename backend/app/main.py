@@ -107,7 +107,8 @@ from ._sanitize import (
 if settings.ENVIRONMENT in ("production", "qa"):
     sentry_sdk.init(
         dsn="https://b14aae02017e3a9c425de4b22af7dd0c@o4507623009091584.ingest.us.sentry.io/4507623009746944",
-        traces_sample_rate=1.0,
+        traces_sample_rate=settings.SENTRY_TRACES_SAMPLE_RATE,
+        # relative to traces_sample_rate, so one knob scales both
         profiles_sample_rate=1.0,
         environment=settings.ENVIRONMENT.value,
     )
