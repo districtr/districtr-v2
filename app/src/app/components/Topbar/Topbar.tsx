@@ -1,5 +1,5 @@
 'use client';
-import {Text, DropdownMenu, Flex, Heading, IconButton, Tabs} from '@radix-ui/themes';
+import {Text, DropdownMenu, Flex, Heading, IconButton, Spinner, Tabs} from '@radix-ui/themes';
 import React, {useRef} from 'react';
 import {useRouter} from 'next/navigation';
 import {useMapStore} from '@store/mapStore';
@@ -18,7 +18,7 @@ import {useAutoSave} from '@/app/hooks/useAutoSave';
 
 export const Topbar: React.FC = () => {
   const router = useRouter();
-  useAutoSave();
+  const {isAutoSaving} = useAutoSave();
   const [modalOpen, setModalOpen] = React.useState<'upload' | null>(null);
   const mapDocument = useMapStore(state => state.mapDocument);
   const isEval = useMapControlsStore(state => state.isEval);
@@ -103,6 +103,16 @@ export const Topbar: React.FC = () => {
         </Flex>
         <MobileDataTabs />
       </Flex>
+      {isAutoSaving && (
+        <Flex
+          align="center"
+          gap="2"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[10000] rounded-full bg-gray-900/90 px-4 py-2 text-white shadow-lg"
+        >
+          <Spinner size="1" />
+          <Text size="2">Auto-saving your map…</Text>
+        </Flex>
+      )}
       <UploaderModal open={modalOpen === 'upload'} onClose={() => setModalOpen(null)} />
       <PasswordPromptModal />
     </>

@@ -45,7 +45,7 @@ export const SecondaryNav: React.FC<{items: SecondaryNavItem[]; floating?: boole
               asChild
               weight={active ? 'bold' : 'regular'}
               color={active ? undefined : 'gray'}
-              className={`whitespace-nowrap !cursor-pointer ${active ? '!text-districtrBlue' : ''}`}
+              className={`whitespace-nowrap !cursor-pointer !underline-offset-4 hover:!underline hover:!decoration-2 hover:!text-districtrBlue ${active ? '!text-districtrBlue' : ''}`}
               aria-current={active ? 'page' : undefined}
             >
               <NextLink href={item.href}>{item.label}</NextLink>
