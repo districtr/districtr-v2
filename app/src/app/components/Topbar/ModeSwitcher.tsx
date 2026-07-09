@@ -74,7 +74,7 @@ export const ModeSwitcher: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const access = useMapStore(state => state.mapStatus?.access);
   const mutateMapDocument = useMapStore(state => state.mutateMapDocument);
-  const setErrorNotification = useMapStore(state => state.setErrorNotification);
+  const setNotification = useMapStore(state => state.setNotification);
   const isEditing = useMapControlsStore(state => state.isEditing);
   const isEval = useMapControlsStore(state => state.isEval);
   const mapMode = useMapControlsStore(state => state.mapMode);
@@ -148,7 +148,7 @@ export const ModeSwitcher: React.FC = () => {
         access_type: ACCESS_STATES.READ,
       });
       if (!resp.ok) {
-        setErrorNotification({message: resp.error.detail, severity: 2});
+        setNotification({message: resp.error.detail, importance: 2, type: 'error'});
         return null;
       }
       const newPublicId = resp.response.public_id;
@@ -209,10 +209,10 @@ export const ModeSwitcher: React.FC = () => {
     <DropdownMenu.Root>
       <DropdownMenu.Trigger>
         <Button
-          variant="soft"
+          variant="surface"
           color="gray"
           size="2"
-          className="cursor-pointer"
+          className="cursor-pointer transition-shadow hover:shadow-md"
           disabled={isMinting}
           aria-label="Switch view"
         >
@@ -221,7 +221,10 @@ export const ModeSwitcher: React.FC = () => {
           <CaretDownIcon />
         </Button>
       </DropdownMenu.Trigger>
-      <DropdownMenu.Content sideOffset={6}>
+      <DropdownMenu.Content
+        sideOffset={6}
+        className="min-w-[var(--radix-dropdown-menu-trigger-width)]"
+      >
         {modes.map(mode => (
           <ModeSwitcherItem
             key={mode}
