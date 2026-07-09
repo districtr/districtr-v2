@@ -9,6 +9,7 @@ import {
 } from '@radix-ui/react-icons';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 import {fastUniqBy} from '@/app/utils/arrays';
 import {useMemo} from 'react';
@@ -28,6 +29,8 @@ export const OverlaysPanel = () => {
 
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
+  // Paint-mask creation is a Super Draw feature (releasing stays available).
+  const superDraw = useToolbarStore(state => state.superDraw);
 
   // We want an easy way to make implicit map overlay groups, like outlines and labels.
   // We could make a construct to manage groupings of overlays, but that's a pain.
@@ -55,7 +58,7 @@ export const OverlaysPanel = () => {
           </Flex>
         </Button>
       )}
-      {!!(!paintConstraint && selectingLayerId) && (
+      {!!(superDraw && !paintConstraint && selectingLayerId) && (
         <Callout.Root color="violet" size="1" className="flex">
           <Flex justify="between" align="center" gap="2" className="mx-auto">
             <Callout.Icon>
@@ -109,26 +112,28 @@ export const OverlaysPanel = () => {
                   checked={enabledOverlayIds.has(overlay.name)}
                   onCheckedChange={() => toggleOverlay(overlay.name)}
                 />
-                <Tooltip content="Choose an area to paint within.">
-                  <IconButton
-                    onClick={() => handleLocateClick(overlay.overlay_id)}
-                    disabled={!enabledOverlayIds.has(overlay.name)}
-                    variant="ghost"
-                    color="blue"
-                    size="1"
-                    radius="full"
-                    className="cursor-pointer"
-                    style={{
-                      opacity: enabledOverlayIds.has(overlay.name) ? 1 : 0.5,
-                    }}
-                  >
-                    {paintConstraint?.overlayId === overlay.overlay_id ? (
-                      <MaskOffIcon />
-                    ) : (
-                      <MaskOnIcon />
-                    )}
-                  </IconButton>
-                </Tooltip>
+                {superDraw && (
+                  <Tooltip content="Choose an area to paint within.">
+                    <IconButton
+                      onClick={() => handleLocateClick(overlay.overlay_id)}
+                      disabled={!enabledOverlayIds.has(overlay.name)}
+                      variant="ghost"
+                      color="blue"
+                      size="1"
+                      radius="full"
+                      className="cursor-pointer"
+                      style={{
+                        opacity: enabledOverlayIds.has(overlay.name) ? 1 : 0.5,
+                      }}
+                    >
+                      {paintConstraint?.overlayId === overlay.overlay_id ? (
+                        <MaskOffIcon />
+                      ) : (
+                        <MaskOnIcon />
+                      )}
+                    </IconButton>
+                  </Tooltip>
+                )}
               </Flex>
             </Flex>
           ))

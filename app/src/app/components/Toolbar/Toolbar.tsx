@@ -37,9 +37,10 @@ export const Toolbar: React.FC = () => {
 
     return () => {
       document.removeEventListener('keydown', handleKeyPress);
-      document.removeEventListener('keydown', handleKeyPress);
+      document.removeEventListener('keyup', handleKeyPress);
     };
-  }, []);
+    // activeTools changes with mode/undo state; re-bind so hotkeys aren't stale.
+  }, [activeTools, setActiveTool]);
 
   if (!isEditing) return null;
   return (

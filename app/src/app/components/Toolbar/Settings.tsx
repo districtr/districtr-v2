@@ -40,6 +40,7 @@ export const ToolSettings: React.FC = () => {
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const setToolbarSize = useToolbarStore(state => state.setToolbarSize);
   const toolbarSize = useToolbarStore(state => state.toolbarSize);
+  const superDraw = useToolbarStore(state => state.superDraw);
   const boundarySettings = useFeatureFlagStore(state => state.boundarySettings);
   const access = useMapStore(state => state.mapStatus?.access);
 
@@ -77,22 +78,24 @@ export const ToolSettings: React.FC = () => {
             Map Options
           </Heading>
 
-          <Flex direction="row" gapX="2" align="center">
-            <Text size="2" className="p-0">
-              Basemap:
-            </Text>
-            <Select.Root
-              value={mapOptions.basemap ?? BASEMAP_IDS.MINIMAL}
-              onValueChange={(value: BasemapId) => setMapOptions({basemap: value})}
-            >
-              <Select.Trigger />
-              <Select.Content>
-                <Select.Item value={BASEMAP_IDS.MINIMAL}>Minimal</Select.Item>
-                <Select.Item value={BASEMAP_IDS.STREETS}>Streets</Select.Item>
-                <Select.Item value={BASEMAP_IDS.SATELLITE}>Satellite</Select.Item>
-              </Select.Content>
-            </Select.Root>
-          </Flex>
+          {superDraw && (
+            <Flex direction="row" gapX="2" align="center">
+              <Text size="2" className="p-0">
+                Basemap:
+              </Text>
+              <Select.Root
+                value={mapOptions.basemap ?? BASEMAP_IDS.MINIMAL}
+                onValueChange={(value: BasemapId) => setMapOptions({basemap: value})}
+              >
+                <Select.Trigger />
+                <Select.Content>
+                  <Select.Item value={BASEMAP_IDS.MINIMAL}>Minimal</Select.Item>
+                  <Select.Item value={BASEMAP_IDS.STREETS}>Streets</Select.Item>
+                  <Select.Item value={BASEMAP_IDS.SATELLITE}>Satellite</Select.Item>
+                </Select.Content>
+              </Select.Root>
+            </Flex>
+          )}
           <CheckboxGroup.Item
             value="showPaintedDistricts"
             onClick={() =>
@@ -135,17 +138,19 @@ export const ToolSettings: React.FC = () => {
           >
             Show population on map (all units)
           </CheckboxGroup.Item>
-          <CheckboxGroup.Item
-            value="showBlockPopulationNumbers"
-            onClick={() =>
-              setMapOptions({
-                showBlockPopulationNumbers: !mapOptions.showBlockPopulationNumbers,
-              })
-            }
-            disabled={!mapDocument?.child_layer}
-          >
-            Show population labels on exposed blocks
-          </CheckboxGroup.Item>
+          {superDraw && (
+            <CheckboxGroup.Item
+              value="showBlockPopulationNumbers"
+              onClick={() =>
+                setMapOptions({
+                  showBlockPopulationNumbers: !mapOptions.showBlockPopulationNumbers,
+                })
+              }
+              disabled={!mapDocument?.child_layer}
+            >
+              Show population labels on exposed blocks
+            </CheckboxGroup.Item>
+          )}
           <CheckboxGroup.Item
             value="higlightUnassigned"
             onClick={() =>
@@ -156,27 +161,31 @@ export const ToolSettings: React.FC = () => {
           >
             Highlight unassigned areas
           </CheckboxGroup.Item>
-          <CheckboxGroup.Item
-            value="highlightBrokenDistricts"
-            disabled={!parentsAreBroken}
-            onClick={() =>
-              setMapOptions({
-                highlightBrokenDistricts: !mapOptions.highlightBrokenDistricts,
-              })
-            }
-          >
-            Highlight broken precincts
-          </CheckboxGroup.Item>
+          {superDraw && (
+            <CheckboxGroup.Item
+              value="highlightBrokenDistricts"
+              disabled={!parentsAreBroken}
+              onClick={() =>
+                setMapOptions({
+                  highlightBrokenDistricts: !mapOptions.highlightBrokenDistricts,
+                })
+              }
+            >
+              Highlight broken precincts
+            </CheckboxGroup.Item>
+          )}
 
-          <Button
-            onClick={() => setColorModalOpen(true)}
-            variant="outline"
-            size="1"
-            mt="2"
-            disabled={access === ACCESS_STATES.READ}
-          >
-            Customize district colors
-          </Button>
+          {superDraw && (
+            <Button
+              onClick={() => setColorModalOpen(true)}
+              variant="outline"
+              size="1"
+              mt="2"
+              disabled={access === ACCESS_STATES.READ}
+            >
+              Customize district colors
+            </Button>
+          )}
         </CheckboxGroup.Root>
         {boundarySettings && (
           <>
@@ -200,16 +209,18 @@ export const ToolSettings: React.FC = () => {
               >
                 Show county boundaries
               </CheckboxGroup.Item>
-              <CheckboxGroup.Item
-                value="prominentCountyNames"
-                onClick={() =>
-                  setMapOptions({
-                    prominentCountyNames: !mapOptions.prominentCountyNames,
-                  })
-                }
-              >
-                Emphasize county names
-              </CheckboxGroup.Item>
+              {superDraw && (
+                <CheckboxGroup.Item
+                  value="prominentCountyNames"
+                  onClick={() =>
+                    setMapOptions({
+                      prominentCountyNames: !mapOptions.prominentCountyNames,
+                    })
+                  }
+                >
+                  Emphasize county names
+                </CheckboxGroup.Item>
+              )}
             </CheckboxGroup.Root>
           </>
         )}

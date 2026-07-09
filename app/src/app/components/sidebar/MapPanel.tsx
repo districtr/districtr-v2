@@ -1,6 +1,7 @@
 'use client';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {MapControlsStore, useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 import {formatNumber} from '@/app/utils/numbers';
 import {
   GearIcon,
@@ -95,7 +96,12 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   const mapMode = useMapControlsStore(state => state.mapMode);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
+  const superDraw = useToolbarStore(state => state.superDraw);
   const isOverlay = demographicDisplayMode === DEMOGRAPHIC_MODES.OVERLAY;
+  // Draw mode keeps the choropleth simple: overlay only, no side-by-side view.
+  const displayModes = superDraw
+    ? mapDisplayModes
+    : mapDisplayModes.filter(m => m.value !== DEMOGRAPHIC_MODES.SIDE_BY_SIDE);
 
   const variable = useDemographyStore(state => state.variable);
   const variant = useDemographyStore(state => state.variant);
@@ -204,7 +210,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
     <Flex direction="column">
       <Flex direction="row" gap="3" align="center" className="rounded-md" wrap="wrap">
         <Text>Display mode</Text>
-        {mapDisplayModes.map((option, i) => (
+        {displayModes.map((option, i) => (
           <Button
             key={i}
             variant={demographicDisplayMode === option.value ? 'solid' : 'outline'}
@@ -234,7 +240,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                   </Select.Content>
                 </Select.Root>
 
-                {!!mapVariableConfig && (
+                {!!mapVariableConfig && superDraw && (
                   <Popover.Root>
                     <Popover.Trigger>
                       <GearIcon />

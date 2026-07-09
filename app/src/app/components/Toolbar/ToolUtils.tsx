@@ -13,8 +13,12 @@ import {useCallback} from 'react';
 import {debounce} from 'lodash';
 import {useTemporalStore, useCoiTemporalStore} from '@/app/store/temporalStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {ACCESS_STATES} from '@constants/document/state';
+
+// Tools only exposed in Super Draw mode.
+const SUPER_DRAW_TOOLS: ActiveTool[] = [ACTIVE_TOOLS.SHATTER, ACTIVE_TOOLS.INSPECTOR];
 
 export type ActiveToolConfig = {
   hotKeyAccessor: (event: KeyboardEvent) => boolean;
@@ -34,6 +38,7 @@ export const useActiveTools = () => {
   const access = useMapStore(state => state.mapStatus?.access);
   const isEditing = access === ACCESS_STATES.EDIT;
   const mapMode = useMapControlsStore(state => state.mapMode);
+  const superDraw = useToolbarStore(state => state.superDraw);
 
   const districtsTemporal = useTemporalStore();
   const coiTemporal = useCoiTemporalStore();
@@ -125,5 +130,7 @@ export const useActiveTools = () => {
       },
     },
   ];
-  return config;
+  // Filtering (rather than disabling) also removes the tools' hotkeys, since the
+  // toolbar's key handler only checks the tools returned here.
+  return superDraw ? config : config.filter(t => !SUPER_DRAW_TOOLS.includes(t.mode));
 };

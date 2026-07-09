@@ -19,6 +19,7 @@ import {interpolateGreys} from 'd3-scale-chromatic';
 import {SummaryRecord} from '@/app/utils/api/summaryStats';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 import {
   modeButtonConfig,
   numberFormats,
@@ -157,6 +158,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
   const colorScheme = useColorScheme();
   const getZoneColor = useZoneColorGetter();
   const mapMode = useMapControlsStore(state => state.mapMode);
+  const superDraw = useToolbarStore(state => state.superDraw);
   const communities = useMapStore(state => state.communities);
   const summaryStatConfig = summaryStatLabels.find(f => f.value === summaryType);
   const displayedStatLabels = summaryStatLabels.filter(f =>
@@ -265,59 +267,57 @@ const Evaluation: React.FC<EvaluationProps> = ({
             </Flex>
           )}
         </Flex>
-        <Popover.Root>
-          <Popover.Trigger>
-            <IconButton variant="ghost" size="3" aria-label="Open evaluation options">
-              <GearIcon />
-            </IconButton>
-          </Popover.Trigger>
-          <Popover.Content>
-            <Heading as="h4" size="3">
-              Summary Options
-            </Heading>
-            {showModeButtons && (
-              <Flex align="center" gap="3" my="2" wrap="wrap">
-                {modeButtonConfig.map((mode, i) => (
-                  <Button
-                    key={i}
-                    variant={mode.value === evalMode ? 'solid' : 'outline'}
-                    onClick={() => setEvalMode(mode.value)}
-                  >
-                    {mode.label}
-                  </Button>
-                ))}
+        {superDraw && (
+          <Popover.Root>
+            <Popover.Trigger>
+              <IconButton variant="ghost" size="3" aria-label="Open evaluation options">
+                <GearIcon />
+              </IconButton>
+            </Popover.Trigger>
+            <Popover.Content>
+              <Heading as="h4" size="3">
+                Summary Options
+              </Heading>
+              {showModeButtons && (
+                <Flex align="center" gap="3" my="2" wrap="wrap">
+                  {modeButtonConfig.map((mode, i) => (
+                    <Button
+                      key={i}
+                      variant={mode.value === evalMode ? 'solid' : 'outline'}
+                      onClick={() => setEvalMode(mode.value)}
+                    >
+                      {mode.label}
+                    </Button>
+                  ))}
+                </Flex>
+              )}
+              <Flex align="center" gap="3" mt="1">
+                <CheckboxGroup.Root
+                  defaultValue={[]}
+                  orientation="horizontal"
+                  name="evaluation-options"
+                  value={[colorBg ? 'colorBg' : '', showUnassigned ? 'unassigned' : '']}
+                >
+                  <CheckboxGroup.Item value="unassigned" onClick={() => setShowUnassigned(v => !v)}>
+                    Show Unassigned Population
+                  </CheckboxGroup.Item>
+                  <CheckboxGroup.Item value="colorBg" onClick={() => setColorBg(v => !v)}>
+                    <Flex gap="3">
+                      <p>Color Cells By Values</p>
+                    </Flex>
+                  </CheckboxGroup.Item>
+                </CheckboxGroup.Root>
               </Flex>
-            )}
-            <Flex align="center" gap="3" mt="1">
-              <CheckboxGroup.Root
-                defaultValue={[]}
-                orientation="horizontal"
-                name="evaluation-options"
-                value={[colorBg ? 'colorBg' : '', showUnassigned ? 'unassigned' : '']}
-              >
-                <CheckboxGroup.Item value="unassigned" onClick={() => setShowUnassigned(v => !v)}>
-                  Show Unassigned Population
-                </CheckboxGroup.Item>
-                <CheckboxGroup.Item value="colorBg" onClick={() => setColorBg(v => !v)}>
-                  <Flex gap="3">
-                    <p>Color Cells By Values</p>
-                  </Flex>
-                </CheckboxGroup.Item>
-              </CheckboxGroup.Root>
-            </Flex>
-          </Popover.Content>
-        </Popover.Root>
+            </Popover.Content>
+          </Popover.Root>
+        )}
       </Flex>
       {isVoterHistory && (
         <Flex justify="start" align="center" gap="2" pb="2">
           <Text size="1" color="gray">
             Point of View
           </Text>
-          <SegmentedControl.Root
-            size="1"
-            value={pov}
-            onValueChange={v => setPov(v as PartisanPov)}
-          >
+          <SegmentedControl.Root size="1" value={pov} onValueChange={v => setPov(v as PartisanPov)}>
             <SegmentedControl.Item value="dem">Democrat</SegmentedControl.Item>
             <SegmentedControl.Item value="rep">Republican</SegmentedControl.Item>
           </SegmentedControl.Root>
@@ -405,17 +405,17 @@ const EvaluationTableRow: React.FC<EvaluationTableRowProps> = ({
 }) => {
   const isUniverse = Boolean((row as Record<string, unknown>).__isUniverse) || row.zone === 0;
   const isUnassigned = !isUniverse && row.zone === undefined;
-  const zoneName = isUniverse
-    ? 'Overall'
-    : isUnassigned
-      ? (
-          <Tooltip content="Unassigned population">
-            <span aria-label="Unassigned">∅</span>
-          </Tooltip>
-        )
-      : mapMode === MAP_MODES.COI
-        ? getCommunityDisplayNumber(communities, row.zone as number)
-        : row.zone;
+  const zoneName = isUniverse ? (
+    'Overall'
+  ) : isUnassigned ? (
+    <Tooltip content="Unassigned population">
+      <span aria-label="Unassigned">∅</span>
+    </Tooltip>
+  ) : mapMode === MAP_MODES.COI ? (
+    getCommunityDisplayNumber(communities, row.zone as number)
+  ) : (
+    row.zone
+  );
   const backgroundColor = isUniverse
     ? '#111111'
     : isUnassigned

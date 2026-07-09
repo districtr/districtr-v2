@@ -6,6 +6,7 @@ import InfoTip from '@components/InfoTip';
 import {useChartStore} from '@store/chartStore';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
+import {useToolbarStore} from '@store/toolbarStore';
 import {
   PopulationChart,
   PopulationChartAxis,
@@ -77,6 +78,7 @@ export const PopulationPanel = () => {
   const updateCommunity = useMapStore(state => state.updateCommunity);
   const getZoneColor = useZoneColorGetter();
   const isEditing = useMapControlsStore(state => state.isEditing);
+  const superDraw = useToolbarStore(state => state.superDraw);
   const shouldUseScrollableRows = populationData.length > 10;
   const selectCommunity = useSelectCommunity();
   const colorScheme = useColorScheme();
@@ -153,11 +155,13 @@ export const PopulationPanel = () => {
         <Heading as="h3" size="3">
           {`Total population by ${zoneLabel}`}
         </Heading>
-        <PopulationPanelOptions
-          chartOptions={chartOptions}
-          setChartOptions={setChartOptions}
-          idealPopulation={effectiveIdealPopulation}
-        />
+        {superDraw && (
+          <PopulationPanelOptions
+            chartOptions={chartOptions}
+            setChartOptions={setChartOptions}
+            idealPopulation={effectiveIdealPopulation}
+          />
+        )}
       </Flex>
       {/* Fixed header: lock-all control + "Ideal" label strip. Never scrolls. */}
       <Flex direction="row" width={'100%'} gap="1" mt="2">
