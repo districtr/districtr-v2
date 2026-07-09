@@ -26,10 +26,8 @@ export const ZoomToUnassigned = () => {
   const initialMapDocument = useRef(mapDocument);
   const unassigned = summaryStats?.unassigned;
 
-  // A moderate padding: the overall bbox is typically statewide, so a large context
-  // margin only forces the camera farther out than the state view — but the bbox is
-  // centroid-derived and under-covers the true geometry, so the margin must also absorb
-  // boundary units spilling past it.
+  // Generous padding: the centroid-derived bbox under-covers the true geometry, so the
+  // margin also absorbs boundary units spilling past it.
   const fitToOverallBounds = () =>
     unassignedOverallBbox &&
     mapRef?.fitBounds(unassignedOverallBbox, {padding: getFitBoundsPadding(mapRef, 240)});

@@ -6,16 +6,9 @@ import {Feature, Polygon} from 'geojson';
 import type {Map as MapLibreMap, PaddingOptions} from 'maplibre-gl';
 
 /**
- * Clamp a desired fitBounds padding to the map canvas size.
- *
- * fitBounds applies padding to both sides of each dimension, so a fixed padding can
- * consume most of the canvas on small viewports (short/narrow windows, elevated browser
- * page zoom). MapLibre then squeezes the target bounds into the few remaining pixels —
- * zooming out far beyond the intended view — or refuses to move at all once the padding
- * exceeds the canvas ("Map cannot fit within canvas..."). Clamping each dimension's
- * padding to a third of that canvas dimension guarantees at least a third of the canvas
- * is left for the fitted bounds, while keeping generous margins — the bboxes are built
- * from unit centroids, so the actual geometry spills past the bbox into the margins.
+ * Clamp fitBounds padding to a quarter of each canvas dimension, so at least half the
+ * canvas remains for the fitted bounds. Unclamped, a fixed padding can eat most of a
+ * small canvas, forcing extreme zoom-outs or a no-op.
  */
 export const getFitBoundsPadding = (
   map: MapLibreMap | null | undefined,
@@ -74,14 +67,10 @@ export default function ZoomToFeature({
     } else {
       return;
     }
-    // maxZoom guards against degenerate bboxes: these are built from unit centroids, so a
-    // single-unit component collapses to a point and would otherwise zoom to street level.
-    // TODO: the cost of the guard is that genuinely small features (e.g. a single
-    // unassigned urban block, or exposed children after shatter) can't be zoomed closer
-    // than zoom 10 from here — users must zoom in manually. The principled fix is
-    // shipping per-unit bbox (or size) columns in the points parquet so component bboxes
-    // reflect true extents; piggyback that the next time the points parquets are
-    // regenerated, then remove this cap.
+    // Bboxes are centroid-derived, so a single-unit component collapses to a point and
+    // would zoom to street level without the cap.
+    // TODO: the cap also blocks legitimate street-level zooms; remove it once the points
+    // parquets carry per-unit bbox/size columns.
     const fitOptions = {
       maxZoom: 10,
       ...(padding ? {padding: getFitBoundsPadding(mapRef, padding)} : {}),
