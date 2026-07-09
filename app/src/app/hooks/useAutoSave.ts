@@ -6,12 +6,12 @@ import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 import {useMapSaveStatus} from './useMapSaveStatus';
 import {ACCESS_STATES} from '@constants/document/state';
-import {AUTOSAVE_INTERVAL_MS, AUTOSAVE_IDLE_MS} from '@constants/document/sync';
+import {AUTOSAVE_DEBOUNCE_MS} from '@constants/document/sync';
 
 /**
- * Auto-saves pending changes while editing: on tab close/hide, on window
- * unfocus, and every 3 minutes — the periodic save waits for a 45s pause since
- * the last edit so it never fires mid-brushstroke.
+ * Auto-saves pending changes while editing: 30 seconds after a painting session
+ * ends (each edit resets the timer, so it never fires mid-brushstroke), and
+ * immediately on tab close/hide or window unfocus.
  *
  * Returns `isAutoSaving`, true while a timer-driven save runs (held for a
  * minimum beat so an instant save doesn't read as a UI glitch) — drives the
@@ -32,13 +32,6 @@ export function useAutoSave() {
   };
 
   useEffect(() => {
-    // Latest client edit across both map types ("last paint").
-    const lastEditMs = () =>
-      Math.max(
-        Date.parse(useAssignmentsStore.getState().clientLastUpdated) || 0,
-        Date.parse(useCoiAssignmentsStore.getState().clientLastUpdated) || 0
-      );
-
     // Single-flight: blur and visibilitychange fire together on alt-tab, and a
     // second concurrent save would PUT a stale last_updated_at and fail.
     let saving = false;
@@ -64,18 +57,27 @@ export function useAutoSave() {
       }
     };
 
+    // Debounced save: each client edit (paint, comment, undo) bumps the store's
+    // clientLastUpdated and resets this timer, so the save lands 30s after the
+    // painting session ends. Post-save server syncs also bump clientLastUpdated
+    // — those match mapDocument.updated_at and are skipped so a save doesn't
+    // reschedule itself.
     let idleTimer: ReturnType<typeof setTimeout>;
-    const attempt = () => {
-      if (!ref.current.enabled) return;
-      const idle = Date.now() - lastEditMs();
-      if (idle < AUTOSAVE_IDLE_MS) {
-        clearTimeout(idleTimer);
-        idleTimer = setTimeout(attempt, AUTOSAVE_IDLE_MS - idle);
-      } else {
-        saveWithNotice();
-      }
+    const onClientLastUpdated = (clientLastUpdated: string) => {
+      if (clientLastUpdated === useMapStore.getState().mapDocument?.updated_at) return;
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(saveWithNotice, AUTOSAVE_DEBOUNCE_MS);
     };
-    const interval = setInterval(attempt, AUTOSAVE_INTERVAL_MS);
+    const unsubDistrict = useAssignmentsStore.subscribe((state, prev) => {
+      if (state.clientLastUpdated !== prev.clientLastUpdated) {
+        onClientLastUpdated(state.clientLastUpdated);
+      }
+    });
+    const unsubCoi = useCoiAssignmentsStore.subscribe((state, prev) => {
+      if (state.clientLastUpdated !== prev.clientLastUpdated) {
+        onClientLastUpdated(state.clientLastUpdated);
+      }
+    });
 
     const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden') saveNow();
@@ -84,7 +86,8 @@ export function useAutoSave() {
     window.addEventListener('blur', saveNow);
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
-      clearInterval(interval);
+      unsubDistrict();
+      unsubCoi();
       clearTimeout(idleTimer);
       window.removeEventListener('pagehide', saveNow);
       window.removeEventListener('blur', saveNow);
