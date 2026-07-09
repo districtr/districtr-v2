@@ -35,6 +35,7 @@ const TYPE_META = {
  */
 export const AppNotification = () => {
   const notification = useMapStore(state => state.notification);
+  const setNotification = useMapStore(state => state.setNotification);
   const [uiActive, setUiActive] = useState(true);
   // Bumped per notification so back-to-back identical messages (e.g. repeated
   // autosaves) remount the toast and restart its auto-dismiss timer.
@@ -98,7 +99,12 @@ export const AppNotification = () => {
             key={seq}
             className={`flex flex-col rounded-lg border p-4 text-white shadow-[hsl(206_22%_7%_/_35%)_0px_10px_38px_-10px,_hsl(206_22%_7%_/_20%)_0px_10px_20px_-15px] data-[swipe=cancel]:translate-x-0 data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[state=closed]:animate-hide data-[state=open]:animate-slideIn data-[swipe=end]:animate-swipeOut data-[swipe=cancel]:transition-[transform_200ms_ease-out] ${toastClass}`}
             open={uiActive}
-            onOpenChange={setUiActive}
+            onOpenChange={(openChange) => {
+              setUiActive(openChange)
+              if (!openChange) {
+                setNotification({})
+              }
+            }}
           >
             {isError ? (
               <>
