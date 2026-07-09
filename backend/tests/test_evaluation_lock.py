@@ -2,8 +2,9 @@
 
 Two requests that both see a cold cache must not both run compute_metrics:
 the per-document advisory lock in update_or_select_document_evaluation
-serializes them, and the loser returns the winner's committed row. Pre-fix,
-the loser 500'd with a UniqueViolation on evaluation_pkey.
+serializes them, and the loser polls the cache (holding no DB connection
+while it sleeps) until it returns the winner's committed row. Pre-fix, the
+loser 500'd with a UniqueViolation on evaluation_pkey.
 
 Uses real commits on independent connections (advisory locks are
 connection-scoped), so it manages its own rows instead of the
@@ -32,9 +33,7 @@ def committed_document_fixture(engine):
     with Session(engine) as session:
         # create_districtr_map probes the layer table; a stub is enough since
         # compute_metrics is patched out in the test.
-        session.execute(
-            text(f"CREATE TABLE IF NOT EXISTS gerrydb.{SLUG} (path TEXT)")
-        )
+        session.execute(text(f"CREATE TABLE IF NOT EXISTS gerrydb.{SLUG} (path TEXT)"))
         # one block-format geoid so infer_geo_unit_type recognizes the layer
         session.execute(
             text(f"INSERT INTO gerrydb.{SLUG} (path) VALUES ('200519661001001')")
@@ -115,11 +114,11 @@ def test_concurrent_cold_evaluations_compute_once(
     assert compute_entered.wait(timeout=10), "winner never reached compute"
 
     # Winner holds the advisory lock, parked in compute, nothing committed:
-    # the loser sees a cold cache and must block on the lock.
+    # the loser sees a cold cache and must wait in the try-lock poll loop.
     loser = threading.Thread(target=request)
     loser.start()
     loser.join(timeout=1)
-    assert loser.is_alive(), "loser should be blocked on the advisory lock"
+    assert loser.is_alive(), "loser should be waiting in the poll loop"
 
     release_compute.set()
     winner.join(timeout=30)
@@ -133,8 +132,6 @@ def test_concurrent_cold_evaluations_compute_once(
 
     with Session(engine) as session:
         rows = session.exec(
-            select(Evaluation).where(
-                Evaluation.document_id == committed_document_id
-            )
+            select(Evaluation).where(Evaluation.document_id == committed_document_id)
         ).all()
         assert len(rows) == 1
