@@ -1,5 +1,7 @@
+'use client';
 import {Box, Button, Card, Flex, Heading, IconButton, Popover, Text} from '@radix-ui/themes';
 import React, {useState} from 'react';
+import {AnimatePresence, motion} from 'framer-motion';
 import {
   ArrowLeftIcon,
   BarChartIcon,
@@ -33,8 +35,8 @@ type FeatureCard = {
 };
 
 /**
- * Draw mode's flat feature list: one card per module, shown one at a time,
- * instead of Super Draw's accordion of multi-section panels.
+ * The feature-card registry shared by Draw and Super Draw. Rendered in a
+ * two-wide grid, so the order pairs rows: tables together, maps together.
  */
 const FEATURE_CARDS = {
   population: {
@@ -43,6 +45,18 @@ const FEATURE_CARDS = {
     icon: BarChartIcon,
     content: <PopulationPanel />,
     districtsOnly: true,
+  },
+  coalitionBuilder: {
+    label: 'Coalition builder',
+    description: 'Combine demographic groups into a coalition',
+    icon: ColorWheelIcon,
+    content: (
+      <SummaryPanel
+        defaultColumnSet={SUMMARY_TYPES.TOTPOP}
+        displayedColumnSets={[SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP]}
+        sections={['coalition']}
+      />
+    ),
   },
   demographyTable: {
     label: 'Demographics table',
@@ -53,18 +67,6 @@ const FEATURE_CARDS = {
         defaultColumnSet={SUMMARY_TYPES.TOTPOP}
         displayedColumnSets={[SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP]}
         sections={['evaluation']}
-      />
-    ),
-  },
-  demographyMap: {
-    label: 'Demographics map',
-    description: 'Color the map by population and race',
-    icon: GlobeIcon,
-    content: (
-      <SummaryPanel
-        defaultColumnSet={SUMMARY_TYPES.TOTPOP}
-        displayedColumnSets={[SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP]}
-        sections={['map']}
       />
     ),
   },
@@ -81,6 +83,18 @@ const FEATURE_CARDS = {
     ),
     districtsOnly: true,
   },
+  demographyMap: {
+    label: 'Demographics map',
+    description: 'Color the map by population and race',
+    icon: GlobeIcon,
+    content: (
+      <SummaryPanel
+        defaultColumnSet={SUMMARY_TYPES.TOTPOP}
+        displayedColumnSets={[SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP]}
+        sections={['map']}
+      />
+    ),
+  },
   voterHistoryMap: {
     label: 'Election results map',
     description: 'Color the map by past election results',
@@ -93,18 +107,6 @@ const FEATURE_CARDS = {
       />
     ),
     districtsOnly: true,
-  },
-  coalitionBuilder: {
-    label: 'Coalition builder',
-    description: 'Combine demographic groups into a coalition',
-    icon: ColorWheelIcon,
-    content: (
-      <SummaryPanel
-        defaultColumnSet={SUMMARY_TYPES.TOTPOP}
-        displayedColumnSets={[SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP]}
-        sections={['coalition']}
-      />
-    ),
   },
   contiguityCheck: {
     label: 'Contiguity check',
@@ -142,26 +144,47 @@ const FeatureCardButton: React.FC<{
     <Card asChild>
       <button
         onClick={onClick}
-        className={`cursor-pointer w-full text-left hover:bg-blue-50 ${selected ? 'bg-blue-50' : ''}`}
+        className={`cursor-pointer w-full h-full text-left transition-all duration-150 hover:bg-blue-50 hover:shadow-md hover:-translate-y-0.5 ${
+          selected ? 'bg-blue-50' : ''
+        }`}
         data-testid={`data-panel-${cardKey}`}
         aria-pressed={selected}
       >
-        <Flex gap="3" align="center">
-          <Icon className="shrink-0" />
-          <Box flexGrow="1">
-            <Text as="div" size="2" weight="bold">
+        <Flex direction="column" gap="1" height="100%">
+          <Flex gap="2" align="center">
+            <Icon className="shrink-0" />
+            <Text as="div" size="2" weight="bold" className="flex-grow">
               {card.label}
             </Text>
-            <Text as="div" size="1" color="gray">
-              {card.description}
-            </Text>
-          </Box>
-          {selected && <CheckIcon className="shrink-0 text-blue-700" />}
+            {selected && <CheckIcon className="shrink-0 text-blue-700" />}
+          </Flex>
+          <Text as="div" size="1" color="gray">
+            {card.description}
+          </Text>
         </Flex>
       </button>
     </Card>
   );
 };
+
+/** The two-wide card grid shared by Draw mode and the Super Draw dropdown. */
+const FeatureCardGrid: React.FC<{
+  cards: Array<[CardKey, FeatureCard]>;
+  onSelect: (key: CardKey) => void;
+  selectedKeys?: CardKey[];
+}> = ({cards, onSelect, selectedKeys}) => (
+  <div className="grid grid-cols-2 gap-2">
+    {cards.map(([key, card]) => (
+      <FeatureCardButton
+        key={key}
+        cardKey={key}
+        card={card}
+        selected={selectedKeys?.includes(key)}
+        onClick={() => onSelect(key)}
+      />
+    ))}
+  </div>
+);
 
 const useVisibleCards = () => {
   const mapMode = useMapControlsStore(state => state.mapMode);
@@ -170,36 +193,54 @@ const useVisibleCards = () => {
   );
 };
 
+// Drill-in slides forward (grid exits left, module enters from the right);
+// going back reverses the motion.
+const viewTransition = {duration: 0.18, ease: 'easeOut'} as const;
+
 export const DataCards: React.FC = () => {
   const [currCard, setCurrCard] = useState<CardKey | null>(null);
   const visibleCards = useVisibleCards();
   // Self-heals if the map mode changes while a now-hidden card is open.
   const active = visibleCards.find(([key]) => key === currCard)?.[1];
 
-  if (active) {
-    return (
-      <Flex direction="column" gap="3" data-testid="data-panels">
-        <Button
-          variant="ghost"
-          onClick={() => setCurrCard(null)}
-          className="self-start cursor-pointer"
-        >
-          <ArrowLeftIcon /> Back to features
-        </Button>
-        <Heading as="h3" size="3">
-          {active.label}
-        </Heading>
-        <Box>{active.content}</Box>
-      </Flex>
-    );
-  }
-
   return (
-    <Flex direction="column" gap="2" data-testid="data-panels">
-      {visibleCards.map(([key, card]) => (
-        <FeatureCardButton key={key} cardKey={key} card={card} onClick={() => setCurrCard(key)} />
-      ))}
-    </Flex>
+    <Box data-testid="data-panels" className="overflow-x-clip">
+      <AnimatePresence mode="wait" initial={false}>
+        {active ? (
+          <motion.div
+            key={currCard}
+            initial={{opacity: 0, x: 32}}
+            animate={{opacity: 1, x: 0}}
+            exit={{opacity: 0, x: 32}}
+            transition={viewTransition}
+          >
+            <Flex direction="column" gap="3">
+              <Button
+                variant="ghost"
+                onClick={() => setCurrCard(null)}
+                className="self-start cursor-pointer"
+              >
+                <ArrowLeftIcon /> Back to features
+              </Button>
+              <Heading as="h3" size="3">
+                {active.label}
+              </Heading>
+              <Box>{active.content}</Box>
+            </Flex>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="grid"
+            initial={{opacity: 0, x: -32}}
+            animate={{opacity: 1, x: 0}}
+            exit={{opacity: 0, x: -32}}
+            transition={viewTransition}
+          >
+            <FeatureCardGrid cards={visibleCards} onSelect={setCurrCard} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </Box>
   );
 };
 
@@ -241,45 +282,42 @@ export const SuperDrawCards: React.FC = () => {
           maxHeight="60vh"
           size="1"
         >
-          <Flex direction="column" gap="2">
-            {visibleCards.map(([key, card]) => (
-              <FeatureCardButton
-                key={key}
-                cardKey={key}
-                card={card}
-                selected={shownCards.includes(key)}
-                onClick={() => toggleCard(key)}
-              />
-            ))}
-          </Flex>
+          <FeatureCardGrid cards={visibleCards} onSelect={toggleCard} selectedKeys={shownCards} />
         </Popover.Content>
       </Popover.Root>
-      {shownCards.map(key => {
-        const card = FEATURE_CARDS[key];
-        return (
-          <Box
-            key={key}
-            className="border border-gray-300 rounded-lg bg-white p-3"
-            data-testid={`data-panel-${key}-open`}
-          >
-            <Flex justify="between" align="center" mb="2">
-              <Heading as="h3" size="3">
-                {card.label}
-              </Heading>
-              <IconButton
-                variant="ghost"
-                color="gray"
-                className="cursor-pointer"
-                onClick={() => removeCard(key)}
-                aria-label={`Close ${card.label}`}
-              >
-                <Cross2Icon />
-              </IconButton>
-            </Flex>
-            {card.content}
-          </Box>
-        );
-      })}
+      <AnimatePresence initial={false}>
+        {shownCards.map(key => {
+          const card = FEATURE_CARDS[key];
+          return (
+            <motion.div
+              key={key}
+              layout
+              initial={{opacity: 0, y: -12, scale: 0.97}}
+              animate={{opacity: 1, y: 0, scale: 1}}
+              exit={{opacity: 0, scale: 0.97}}
+              transition={{duration: 0.2, ease: 'easeOut'}}
+              className="border border-gray-300 rounded-lg bg-white p-3"
+              data-testid={`data-panel-${key}-open`}
+            >
+              <Flex justify="between" align="center" mb="2">
+                <Heading as="h3" size="3">
+                  {card.label}
+                </Heading>
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  className="cursor-pointer"
+                  onClick={() => removeCard(key)}
+                  aria-label={`Close ${card.label}`}
+                >
+                  <Cross2Icon />
+                </IconButton>
+              </Flex>
+              {card.content}
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
     </Flex>
   );
 };
