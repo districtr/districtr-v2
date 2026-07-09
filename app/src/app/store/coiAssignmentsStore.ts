@@ -1448,7 +1448,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     // console.log('[COI save] handlePutAssignments called, overwrite:', overwrite);
     await idb.flushPendingUpdate();
 
-    const {mapDocument, setMapLock, setNotification, setShowSaveConflictModal} =
+    const {mapDocument, setMapLock, setNotification, setShowSaveConflictModal, updated} =
       useMapStore.getState();
     if (!mapDocument?.document_id || !mapDocument.updated_at) {
       // console.error('[COI save] Aborting save: missing document_id or updated_at', {
@@ -1465,6 +1465,12 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       // );
       return;
     }
+    // Whether this save carries real local edits (paints, comments, metadata).
+    // Mode switches trigger a defensive save even when nothing changed, and a
+    // "Map saved" toast there misleads — so only announce saves with a delta.
+    const hasPendingChanges =
+      Object.values(updated).some(Boolean) ||
+      (get().clientLastUpdated !== '' && get().clientLastUpdated !== mapDocument.updated_at);
     setMapLock({isLocked: true, reason: 'Saving Coi assignment plan'});
     try {
       const documentForSave: DocumentObject = {
@@ -1505,7 +1511,9 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       } else if (assignmntsPostResponse.ok) {
         // console.log('[COI save] Save succeeded:', assignmntsPostResponse.response);
         setShowSaveConflictModal(false);
-        setNotification({message: 'Map saved', importance: 2, type: 'success'});
+        if (hasPendingChanges) {
+          setNotification({message: 'Map saved', importance: 2, type: 'success'});
+        }
       }
     } finally {
       setMapLock(null);

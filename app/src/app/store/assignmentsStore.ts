@@ -790,11 +790,17 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     // Flush any pending IDB updates before explicit save
     await idb.flushPendingUpdate();
 
-    const {mapDocument, setMapLock, setNotification, setShowSaveConflictModal} =
+    const {mapDocument, setMapLock, setNotification, setShowSaveConflictModal, updated} =
       useMapStore.getState();
     if (!mapDocument?.document_id || !mapDocument.updated_at) return;
     const idbDocument = await idb.getDocument(mapDocument?.document_id);
     if (!idbDocument) return;
+    // Whether this save carries real local edits (paints, comments, metadata).
+    // Mode switches trigger a defensive save even when nothing changed, and a
+    // "Map saved" toast there misleads — so only announce saves with a delta.
+    const hasPendingChanges =
+      Object.values(updated).some(Boolean) ||
+      (get().clientLastUpdated !== '' && get().clientLastUpdated !== mapDocument.updated_at);
     setMapLock({isLocked: true, reason: 'Saving plan'});
 
     try {
@@ -831,7 +837,9 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         });
       } else if (assignmentsPostResponse.ok) {
         setShowSaveConflictModal(false);
-        setNotification({message: 'Map saved', importance: 2, type: 'success'});
+        if (hasPendingChanges) {
+          setNotification({message: 'Map saved', importance: 2, type: 'success'});
+        }
       }
     } finally {
       setMapLock(null);
