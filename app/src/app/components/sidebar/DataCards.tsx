@@ -5,6 +5,7 @@ import {
   BarChartIcon,
   BorderNoneIcon,
   CaretDownIcon,
+  CheckIcon,
   ColorWheelIcon,
   Cross2Icon,
   GlobeIcon,
@@ -133,18 +134,21 @@ const FeatureCardButton: React.FC<{
   cardKey: CardKey;
   card: FeatureCard;
   onClick: () => void;
-}> = ({cardKey, card, onClick}) => {
+  /** Marks the panel as currently open (dropdown toggle state). */
+  selected?: boolean;
+}> = ({cardKey, card, onClick, selected}) => {
   const Icon = card.icon;
   return (
     <Card asChild>
       <button
         onClick={onClick}
-        className="cursor-pointer w-full text-left hover:bg-blue-50"
+        className={`cursor-pointer w-full text-left hover:bg-blue-50 ${selected ? 'bg-blue-50' : ''}`}
         data-testid={`data-panel-${cardKey}`}
+        aria-pressed={selected}
       >
         <Flex gap="3" align="center">
           <Icon className="shrink-0" />
-          <Box>
+          <Box flexGrow="1">
             <Text as="div" size="2" weight="bold">
               {card.label}
             </Text>
@@ -152,6 +156,7 @@ const FeatureCardButton: React.FC<{
               {card.description}
             </Text>
           </Box>
+          {selected && <CheckIcon className="shrink-0 text-blue-700" />}
         </Flex>
       </button>
     </Card>
@@ -210,12 +215,11 @@ export const SuperDrawCards: React.FC = () => {
 
   // Drop cards hidden by a mode change (e.g. districts-only cards in COI).
   const shownCards = openCards.filter(key => visibleCards.some(([k]) => k === key));
-  const addableCards = visibleCards.filter(([key]) => !shownCards.includes(key));
 
-  const addCard = (key: CardKey) => {
-    setOpenCards(prev => [...prev, key]);
-    setMenuOpen(false);
-  };
+  // The dropdown keeps open panels listed (checked) so they can be toggled
+  // off from there too; it stays open for toggling several at once.
+  const toggleCard = (key: CardKey) =>
+    setOpenCards(prev => (prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]));
   const removeCard = (key: CardKey) => setOpenCards(prev => prev.filter(k => k !== key));
 
   return (
@@ -226,7 +230,7 @@ export const SuperDrawCards: React.FC = () => {
             <Flex align="center" justify="between" width="100%">
               <Flex align="center" gap="2">
                 <PlusIcon />
-                Add a feature
+                Add a panel
               </Flex>
               <CaretDownIcon />
             </Flex>
@@ -238,13 +242,14 @@ export const SuperDrawCards: React.FC = () => {
           size="1"
         >
           <Flex direction="column" gap="2">
-            {addableCards.length === 0 && (
-              <Text size="2" color="gray" align="center">
-                All features added
-              </Text>
-            )}
-            {addableCards.map(([key, card]) => (
-              <FeatureCardButton key={key} cardKey={key} card={card} onClick={() => addCard(key)} />
+            {visibleCards.map(([key, card]) => (
+              <FeatureCardButton
+                key={key}
+                cardKey={key}
+                card={card}
+                selected={shownCards.includes(key)}
+                onClick={() => toggleCard(key)}
+              />
             ))}
           </Flex>
         </Popover.Content>
