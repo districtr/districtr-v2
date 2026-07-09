@@ -1448,7 +1448,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     // console.log('[COI save] handlePutAssignments called, overwrite:', overwrite);
     await idb.flushPendingUpdate();
 
-    const {mapDocument, setMapLock, setErrorNotification, setShowSaveConflictModal} =
+    const {mapDocument, setMapLock, setNotification, setShowSaveConflictModal} =
       useMapStore.getState();
     if (!mapDocument?.document_id || !mapDocument.updated_at) {
       // console.error('[COI save] Aborting save: missing document_id or updated_at', {
@@ -1497,13 +1497,15 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
         setShowSaveConflictModal(true);
       } else if (!assignmntsPostResponse.ok) {
         // console.error('[COI save] Save failed:', assignmntsPostResponse.error);
-        setErrorNotification({
+        setNotification({
           message: assignmntsPostResponse.error,
-          severity: 2,
+          importance: 2,
+          type: 'error',
         });
       } else if (assignmntsPostResponse.ok) {
         // console.log('[COI save] Save succeeded:', assignmntsPostResponse.response);
         setShowSaveConflictModal(false);
+        setNotification({message: 'Map saved', importance: 2, type: 'success'});
       }
     } finally {
       setMapLock(null);
@@ -1515,13 +1517,14 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       mapDocument.document_id,
       '/coi/edit'
     );
-    const {setErrorNotification, setMapLock, initiateFlushMapState} = useMapStore.getState();
+    const {setNotification, setMapLock, initiateFlushMapState} = useMapStore.getState();
     await initiateFlushMapState();
     if (!confirmedMapDocument) {
-      setErrorNotification({
+      setNotification({
         message:
           'The map you are trying to revert to is not the current map. Please refresh your page and try again.',
-        severity: 2,
+        importance: 2,
+        type: 'error',
       });
       return;
     }
@@ -1529,9 +1532,10 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     try {
       const documentResult = await fetchDocument(mapDocument.document_id, 'remote');
       if (!documentResult.ok) {
-        setErrorNotification({
+        setNotification({
           message: 'Failed to fetch document. Please refresh your page and try again.',
-          severity: 2,
+          importance: 2,
+          type: 'error',
         });
         return;
       }

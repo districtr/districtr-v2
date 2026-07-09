@@ -74,7 +74,7 @@ export const ModeSwitcher: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const access = useMapStore(state => state.mapStatus?.access);
   const mutateMapDocument = useMapStore(state => state.mutateMapDocument);
-  const setErrorNotification = useMapStore(state => state.setErrorNotification);
+  const setNotification = useMapStore(state => state.setNotification);
   const isEditing = useMapControlsStore(state => state.isEditing);
   const isEval = useMapControlsStore(state => state.isEval);
   const mapMode = useMapControlsStore(state => state.mapMode);
@@ -148,7 +148,7 @@ export const ModeSwitcher: React.FC = () => {
         access_type: ACCESS_STATES.READ,
       });
       if (!resp.ok) {
-        setErrorNotification({message: resp.error.detail, severity: 2});
+        setNotification({message: resp.error.detail, importance: 2, type: 'error'});
         return null;
       }
       const newPublicId = resp.response.public_id;

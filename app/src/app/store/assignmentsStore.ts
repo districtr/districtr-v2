@@ -790,7 +790,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     // Flush any pending IDB updates before explicit save
     await idb.flushPendingUpdate();
 
-    const {mapDocument, setMapLock, setErrorNotification, setShowSaveConflictModal} =
+    const {mapDocument, setMapLock, setNotification, setShowSaveConflictModal} =
       useMapStore.getState();
     if (!mapDocument?.document_id || !mapDocument.updated_at) return;
     const idbDocument = await idb.getDocument(mapDocument?.document_id);
@@ -824,12 +824,14 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       ) {
         setShowSaveConflictModal(true);
       } else if (!assignmentsPostResponse.ok) {
-        setErrorNotification({
+        setNotification({
           message: assignmentsPostResponse.error,
-          severity: 2,
+          importance: 2,
+          type: 'error',
         });
       } else if (assignmentsPostResponse.ok) {
         setShowSaveConflictModal(false);
+        setNotification({message: 'Map saved', importance: 2, type: 'success'});
       }
     } finally {
       setMapLock(null);
@@ -837,14 +839,15 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
   },
   handleRevert: async (mapDocument: DocumentObject) => {
     const confirmedMapDocument = confirmMapDocumentUrlParameter(mapDocument.document_id);
-    const {setErrorNotification, setMapLock, initiateFlushMapState} = useMapStore.getState();
+    const {setNotification, setMapLock, initiateFlushMapState} = useMapStore.getState();
     await initiateFlushMapState();
     const {ingestFromDocument} = get();
     if (!confirmedMapDocument) {
-      setErrorNotification({
+      setNotification({
         message:
           'The map you are trying to revert to is not the current map. Please refresh your page and try again.',
-        severity: 2,
+        importance: 2,
+        type: 'error',
       });
       return;
     }
@@ -852,9 +855,10 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     try {
       const documentResult = await fetchDocument(mapDocument.document_id, 'remote');
       if (!documentResult.ok) {
-        setErrorNotification({
+        setNotification({
           message: 'Failed to fetch document. Please refresh your page and try again.',
-          severity: 2,
+          importance: 2,
+          type: 'error',
         });
         return;
       }
@@ -871,7 +875,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     options: ConflictResolutionOptions = {}
   ) => {
     const {onNavigate, onComplete, context = ConflictContext.Save} = options;
-    const {setMapDocument, setMapLock, setShowSaveConflictModal, setErrorNotification} =
+    const {setMapDocument, setMapLock, setShowSaveConflictModal, setNotification} =
       useMapStore.getState();
     const dependencies: ConflictDependencies = {
       syncConflictInfo,
@@ -911,8 +915,9 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       }
     } catch (error) {
       console.error('[resolveConflict] failed', {resolution, error});
-      setErrorNotification({
-        severity: 1,
+      setNotification({
+        importance: 1,
+        type: 'error',
         message: `Could not resolve save conflict: ${
           error instanceof Error ? error.message : String(error)
         }`,

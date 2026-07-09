@@ -22,7 +22,7 @@ export const Topbar: React.FC = () => {
   const [modalOpen, setModalOpen] = React.useState<'upload' | null>(null);
   const mapDocument = useMapStore(state => state.mapDocument);
   const isEval = useMapControlsStore(state => state.isEval);
-  const setErrorNotification = useMapStore(state => state.setErrorNotification);
+  const setNotification = useMapStore(state => state.setNotification);
   const updateMetadata = useMapStore(state => state.updateMetadata);
 
   const handleMetadataChange = async (updates: Partial<DocumentMetadata>) => {
@@ -35,9 +35,10 @@ export const Topbar: React.FC = () => {
       idb.updateIdbMetadata(mapDocument?.document_id, updates);
       updateMetadata(updates);
     } else {
-      setErrorNotification({
+      setNotification({
         message: 'Failed to save metadata',
-        severity: 2,
+        importance: 2,
+        type: 'error',
       });
     }
   };

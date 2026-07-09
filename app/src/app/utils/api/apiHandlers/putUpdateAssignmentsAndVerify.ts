@@ -138,8 +138,8 @@ export const putUpdateAssignmentsAndVerify = async ({
     }
   }
   if (commentsModerated) {
-    useMapStore.getState().setErrorNotification({
-      severity: 2,
+    useMapStore.getState().setNotification({
+      importance: 2,
       message:
         'Some district descriptions were adjusted during moderation. Latest versions shown below.',
       id: `comment-moderated-${assignmentsPostResponse.response.updated_at}`,

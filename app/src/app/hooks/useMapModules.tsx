@@ -6,7 +6,7 @@ import {useMapStore} from '../store/mapStore';
 
 export const useMapModules = () => {
   const [mapModules, setMapModules] = useState<DistrictrMap[]>([]);
-  const setErrorNotification = useMapStore(state => state.setErrorNotification);
+  const setNotification = useMapStore(state => state.setNotification);
   useEffect(() => {
     const loadMapModules = async () => {
       const modules = await getAvailableDistrictrMaps({
@@ -14,9 +14,10 @@ export const useMapModules = () => {
         offset: 0,
       });
       if (!modules.ok) {
-        setErrorNotification({
+        setNotification({
           message: modules.error.detail,
-          severity: 2,
+          importance: 2,
+          type: 'error',
           id: `load-map-modules-${modules.error.detail}`,
         });
         return;
