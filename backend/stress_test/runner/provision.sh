@@ -116,6 +116,11 @@ python3.12 -m venv backend/stress_test/venv
 backend/stress_test/venv/bin/pip install -r backend/stress_test/requirements.txt
 chown -R ec2-user:ec2-user /home/ec2-user/districtr-v2
 touch /home/ec2-user/bootstrap-done
+# Self-destruct backstop for a forgotten teardown.sh: with shutdown behavior
+# 'terminate' this kills the instance in 12h (far beyond any run, ~\$17/day
+# if left idling). Cancel with: shutdown -c. teardown.sh remains the proper
+# cleanup (SG, IAM, temp 8080 rule are NOT covered by this).
+shutdown -h +720 "stress-runner 12h self-destruct — cancel with shutdown -c"
 EOF
 
 # --- Launch (AL2023, no key pair, public IP for egress — the stack has no NAT)
@@ -127,6 +132,7 @@ INSTANCE_ID=$(aws ec2 run-instances \
   --subnet-id "$SUBNET_ID" --security-group-ids "$RUNNER_SG" \
   --associate-public-ip-address \
   --iam-instance-profile "Name=$NAME" \
+  --instance-initiated-shutdown-behavior terminate \
   --metadata-options HttpTokens=required \
   --block-device-mappings '[{"DeviceName":"/dev/xvda","Ebs":{"VolumeSize":20,"VolumeType":"gp3"}}]' \
   --user-data "file://$USERDATA" \
@@ -144,6 +150,10 @@ Runner provisioned.
 
 Bootstrap takes ~2 min (done when /home/ec2-user/bootstrap-done exists;
 log: /var/log/stress-runner-bootstrap.log).
+
+The instance self-terminates 12h after boot as a cost backstop (cancel on
+the box with: sudo shutdown -c). Run ./teardown.sh anyway — the SG, IAM
+role/profile, and temp 8080 rule outlive the instance.
 
 Next steps (see backend/stress_test/README.md "Runner"):
   # temp SG rule so the runner can scrape /metrics (revoke in teardown.sh):
