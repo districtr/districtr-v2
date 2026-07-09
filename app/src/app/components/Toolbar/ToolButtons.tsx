@@ -55,14 +55,19 @@ export const ToolButtons: React.FC<{
                   style={{
                     width: toolbarSize,
                     height: toolbarSize,
-                    ...(tool?.iconStyle || {}),
                   }}
                   variant={tool.variant || activeTool === tool.mode ? 'solid' : 'surface'}
                   color={tool.color}
                   radius="none"
                   disabled={tool.disabled}
                 >
-                  <IconComponent width={toolbarSize * 0.4} height={toolbarSize * 0.4} />
+                  {/* iconStyle (e.g. redo's mirror transform) applies to the icon only —
+                      on the button it would mirror the corner rounding too. */}
+                  <IconComponent
+                    width={toolbarSize * 0.4}
+                    height={toolbarSize * 0.4}
+                    style={tool.iconStyle}
+                  />
                 </IconButton>
               </Tooltip.Trigger>
               <Tooltip.Portal>

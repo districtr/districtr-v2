@@ -21,14 +21,14 @@ export const QuickMapSettings: React.FC = () => {
 
   return (
     <CheckboxGroup.Root
-      size="1"
+      size="2"
       name="quick-map-settings"
       value={[
         ...QUICK_TOGGLES.filter(t => mapOptions[t.key] === true).map(t => t.key),
         mapOptions.showCountyBoundaries === true ? 'showCountyBoundaries' : '',
       ]}
     >
-      <Text size="1" weight="bold" mt="1">
+      <Text size="2" weight="bold" mt="1">
         Map display
       </Text>
       {QUICK_TOGGLES.map(toggle => (

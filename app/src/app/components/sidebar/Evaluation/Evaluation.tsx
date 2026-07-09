@@ -15,7 +15,7 @@ import {
 } from '@radix-ui/themes';
 import {Flex, Text} from '@radix-ui/themes';
 import {formatNumber} from '@/app/utils/numbers';
-import {interpolateGreys} from 'd3-scale-chromatic';
+import {interpolateBlues, interpolateGreys, interpolateReds} from 'd3-scale-chromatic';
 import {SummaryRecord} from '@/app/utils/api/summaryStats';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
@@ -25,7 +25,6 @@ import {
   numberFormats,
   summaryStatLabels,
 } from '@/app/store/demography/evaluationConfig';
-import {PARTISAN_SCALE} from '@/app/store/demography/constants';
 import {GearIcon, InfoCircledIcon} from '@radix-ui/react-icons';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {demographyService} from '@/app/utils/demography/demographyService';
@@ -314,7 +313,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
       </Flex>
       {isVoterHistory && (
         <Flex justify="start" align="center" gap="2" pb="2">
-          <Text size="1" color="gray">
+          <Text size="2" color="gray">
             Point of View
           </Text>
           <SegmentedControl.Root size="1" value={pov} onValueChange={v => setPov(v as PartisanPov)}>
@@ -349,12 +348,12 @@ const EvaluationTableHeader: React.FC<EvaluationTableHeaderProps> = ({columnConf
   return (
     <Table.Header>
       <Table.Row className="bg-gray-50 border-b">
-        <Table.ColumnHeaderCell className="py-1 px-2 text-left font-semibold">
+        <Table.ColumnHeaderCell className="py-1 px-2 align-middle text-left font-semibold">
           Zone
         </Table.ColumnHeaderCell>
         {!!columnConfigs &&
           columnConfigs.map((f, i) => (
-            <Table.ColumnHeaderCell className="py-1 px-2 text-right font-semibold" key={i}>
+            <Table.ColumnHeaderCell className="py-1 px-2 align-middle text-right font-semibold" key={i}>
               <Flex justify="end" align="center" gap="1">
                 <span>{f.label}</span>
                 {f.tooltip && (
@@ -432,7 +431,7 @@ const EvaluationTableRow: React.FC<EvaluationTableRowProps> = ({
   return (
     <Table.Row className={`border-b ${isUniverse ? 'bg-gray-100' : 'hover:bg-gray-50'}`}>
       <Table.Cell
-        className={`py-1 px-2 font-medium flex flex-row items-center gap-1 ${isUniverse ? 'font-semibold' : ''}`}
+        className={`py-1 px-2 align-middle font-medium flex flex-row items-center gap-1 ${isUniverse ? 'font-semibold' : ''}`}
       >
         <span className={'size-4 inline-block rounded-md'} style={{backgroundColor}}></span>
         {zoneName}
@@ -484,9 +483,10 @@ const EvaluationTableCell: React.FC<EvaluationTableCellProps> = ({
   let backgroundColor: string | undefined;
   if (!hasValidColorValue || isUniverse) {
   } else if (colorBg && summaryType === SUMMARY_TYPES.VOTERHISTORY) {
-    // Values are raw two-party shares (0-1); color always tracks dem share so
-    // blue/red stays consistent across POVs.
-    backgroundColor = PARTISAN_SCALE(pov === 'dem' ? numericValue! : 1 - numericValue!);
+    // Color by the selected party's share: blue scale for Democrat POV, red for
+    // Republican. Halved alpha keeps the text readable at high shares.
+    const interpolatePov = pov === 'dem' ? interpolateBlues : interpolateReds;
+    backgroundColor = interpolatePov(numericValue!).replace('rgb', 'rgba').replace(')', ',0.5)');
   } else if (colorBg && !isUnassigned) {
     backgroundColor = interpolateGreys(colorValue as number)
       .replace('rgb', 'rgba')
@@ -497,7 +497,7 @@ const EvaluationTableCell: React.FC<EvaluationTableCellProps> = ({
 
   return (
     <Table.Cell
-      className={`py-1 px-2 text-right ${isUniverse ? 'font-semibold' : ''}`}
+      className={`py-1 px-2 align-middle text-right ${isUniverse ? 'font-semibold' : ''}`}
       style={{
         backgroundColor,
       }}
