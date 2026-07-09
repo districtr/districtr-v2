@@ -4,6 +4,10 @@ import {persist} from 'zustand/middleware';
 export type ToolbarState = {
   toolbarSize: number;
   setToolbarSize: (size: ToolbarState['toolbarSize']) => void;
+  // Super Draw exposes the full editing toolset; plain Draw hides the advanced
+  // tools/settings. Persisted so a user's choice sticks across sessions.
+  superDraw: boolean;
+  setSuperDraw: (superDraw: boolean) => void;
 };
 
 export const useToolbarStore = create(
@@ -11,6 +15,8 @@ export const useToolbarStore = create(
     set => ({
       toolbarSize: 40,
       setToolbarSize: size => set({toolbarSize: size}),
+      superDraw: false,
+      setSuperDraw: superDraw => set({superDraw}),
     }),
     {
       name: 'toolbarStore',
@@ -21,10 +27,13 @@ export const useToolbarStore = create(
       // @ts-ignore - legacy persisted state had extra fields
       migrate: persistedState => {
         const prev = (persistedState ?? {}) as Partial<ToolbarState>;
-        return {toolbarSize: prev.toolbarSize ?? 40} as ToolbarState;
+        return {
+          toolbarSize: prev.toolbarSize ?? 40,
+          superDraw: prev.superDraw ?? false,
+        } as ToolbarState;
       },
       // @ts-ignore - persisted state is a partial of ToolbarState
-      partialize: state => ({toolbarSize: state.toolbarSize}),
+      partialize: state => ({toolbarSize: state.toolbarSize, superDraw: state.superDraw}),
     }
   )
 );

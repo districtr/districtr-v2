@@ -7,6 +7,7 @@ import {
   CheckIcon,
   EyeOpenIcon,
   LockClosedIcon,
+  MagicWandIcon,
   Pencil1Icon,
 } from '@radix-ui/react-icons';
 import {useRouter, useSearchParams} from 'next/navigation';
@@ -16,20 +17,27 @@ import {MAP_MODES} from '@constants/map/mode';
 import {routeForMode} from '@constants/document/routes';
 import {ACCESS_STATES} from '@constants/document/state';
 import {useEditableDocId} from '@/app/hooks/useEditableDocId';
+import {useToolbarStore} from '@/app/store/toolbarStore';
+import {ACTIVE_TOOLS} from '@constants/map/tools';
+import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {patchSharePlan} from '@/app/utils/api/apiHandlers/patchSharePlan';
 import {idb} from '@/app/utils/idb/idb';
 
-type ViewMode = 'edit' | 'display' | 'evaluate';
+type ViewMode = 'draw' | 'superdraw' | 'display' | 'evaluate';
 
 const MODE_META: Record<
   ViewMode,
   {label: string; Icon: React.ComponentType<{className?: string}>}
 > = {
-  edit: {label: 'Draw', Icon: Pencil1Icon},
+  draw: {label: 'Draw', Icon: Pencil1Icon},
+  superdraw: {label: 'Super Draw', Icon: MagicWandIcon},
   display: {label: 'View', Icon: EyeOpenIcon},
   evaluate: {label: 'Evaluate', Icon: BarChartIcon},
 };
+
+const isDrawMode = (mode: ViewMode): mode is 'draw' | 'superdraw' =>
+  mode === 'draw' || mode === 'superdraw';
 
 /** A single mode option in the switcher menu. Owns its own icon/description so the
  * switcher template stays declarative. `locked` is the password-gated edit state. */
@@ -77,6 +85,8 @@ export const ModeSwitcher: React.FC = () => {
   const setNotification = useMapStore(state => state.setNotification);
   const isEditing = useMapControlsStore(state => state.isEditing);
   const isEval = useMapControlsStore(state => state.isEval);
+  const superDraw = useToolbarStore(state => state.superDraw);
+  const setSuperDraw = useToolbarStore(state => state.setSuperDraw);
   const mapMode = useMapControlsStore(state => state.mapMode);
   const editDocId = useEditableDocId();
   const {isOutdated, save} = useMapSaveStatus();
@@ -100,10 +110,18 @@ export const ModeSwitcher: React.FC = () => {
   // No map loaded yet (e.g. the empty "start here" landing) — nothing to switch.
   if (!mapDocument) return null;
 
-  const currentMode: ViewMode = isEval ? 'evaluate' : isEditing ? 'edit' : 'display';
+  const currentMode: ViewMode = isEval
+    ? 'evaluate'
+    : isEditing
+      ? superDraw
+        ? 'superdraw'
+        : 'draw'
+      : 'display';
   // COI has no evaluation route/view.
   const modes: ViewMode[] =
-    mapMode === MAP_MODES.COI ? ['edit', 'display'] : ['edit', 'display', 'evaluate'];
+    mapMode === MAP_MODES.COI
+      ? ['draw', 'superdraw', 'display']
+      : ['draw', 'superdraw', 'display', 'evaluate'];
   const prefix = routeForMode(mapMode);
 
   const publicId = mapDocument.public_id ?? null;
@@ -115,7 +133,8 @@ export const ModeSwitcher: React.FC = () => {
 
   const targetFor = (mode: ViewMode): string | null => {
     switch (mode) {
-      case 'edit':
+      case 'draw':
+      case 'superdraw':
         return editDocId ? `/${prefix}/edit/${editDocId}` : null;
       case 'display':
         return publicId ? `/${prefix}/${publicId}` : null;
@@ -126,7 +145,7 @@ export const ModeSwitcher: React.FC = () => {
 
   const isDisabled = (mode: ViewMode): boolean => {
     if (mode === currentMode) return false;
-    if (mode === 'edit') return !editDocId && !isUnlockable;
+    if (isDrawMode(mode)) return !editDocId && !isUnlockable;
     // display / evaluate: available once a public_id exists; otherwise only an
     // editor can reach them (we mint a public_id on the fly).
     if (publicId) return false;
@@ -134,7 +153,7 @@ export const ModeSwitcher: React.FC = () => {
   };
 
   const disabledReasonFor = (mode: ViewMode): string =>
-    mode === 'edit' ? "You don't have edit access" : 'Unavailable for this map';
+    isDrawMode(mode) ? "You don't have edit access" : 'Unavailable for this map';
 
   /** Editor switching to display/evaluate on an unshared draft: mint a read-only
    * public_id, persist it, and return the freshly-resolved target route. */
@@ -164,8 +183,24 @@ export const ModeSwitcher: React.FC = () => {
 
   const handleSelect = async (mode: ViewMode) => {
     if (mode === currentMode || isDisabled(mode)) return;
-    // Edit: route straight in when we hold the UUID; otherwise unlock with a password.
-    if (mode === 'edit') {
+    // Draw / Super Draw: same edit route, different client-side toolset flag.
+    if (isDrawMode(mode)) {
+      setSuperDraw(mode === 'superdraw');
+      if (mode === 'draw') {
+        // Leaving Super Draw: back out of super-only active state so the user
+        // isn't stranded on a hidden tool or display mode.
+        const {activeTool, setActiveTool, mapOptions, setMapOptions} =
+          useMapControlsStore.getState();
+        if (activeTool === ACTIVE_TOOLS.SHATTER || activeTool === ACTIVE_TOOLS.INSPECTOR) {
+          setActiveTool(ACTIVE_TOOLS.PAN);
+        }
+        if (mapOptions.demographicDisplayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE) {
+          setMapOptions({demographicDisplayMode: DEMOGRAPHIC_MODES.OVERLAY});
+        }
+      }
+      // Already editing: pure client toggle, no navigation.
+      if (isEditing) return;
+      // Route straight in when we hold the UUID; otherwise unlock with a password.
       if (editDocId) {
         router.push(`/${prefix}/edit/${editDocId}`);
       } else if (isUnlockable) {
@@ -232,7 +267,7 @@ export const ModeSwitcher: React.FC = () => {
             isCurrent={mode === currentMode}
             disabled={isDisabled(mode)}
             disabledReason={disabledReasonFor(mode)}
-            locked={mode === 'edit' && editLocked}
+            locked={isDrawMode(mode) && editLocked}
             onSelect={() => handleSelect(mode)}
           />
         ))}
