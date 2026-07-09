@@ -379,8 +379,15 @@ const EvaluationTableBody: React.FC<EvaluationTableBodyProps> = ({rows, ...props
         <EvaluationTableRow
           // Stable per-row key so React reconciles correctly when the rows
           // array is re-ordered (e.g., universe/unassigned swap). Array-index
-          // keys would otherwise force re-mounts / miss updates.
-          key={typeof row.zone === 'number' ? row.zone : 'universe'}
+          // keys would otherwise force re-mounts / miss updates. Unassigned
+          // (zone === undefined) and universe rows need distinct keys.
+          key={
+            typeof row.zone === 'number'
+              ? row.zone
+              : row.zone === undefined
+                ? 'unassigned'
+                : 'universe'
+          }
           {...props}
           row={row}
         />
