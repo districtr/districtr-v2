@@ -7,16 +7,18 @@ import {
   SummaryStatConfig,
 } from '@utils/api/summaryStats';
 import {scaleLinear} from '@visx/scale';
-import {AnyD3Scale} from './types';
+import {type ScaleLinear} from 'd3-scale';
 import {type SummaryType} from '@constants/demography/summary';
 
 export const DEFAULT_COLOR_SCHEME = chromatic.schemeBlues;
 export const DEFAULT_COLOR_SCHEME_GRAY = chromatic.schemeGreys;
+export const DEFAULT_CONTINUOUS_COLOR_SCHEME = chromatic.interpolateBlues;
+export const DEFAULT_CONTINUOUS_COLOR_SCHEME_GRAY = chromatic.interpolateGreys;
 export const DEFAULT_CHOROPLETH_BIN_COUNT = 5;
 
 export const PARTISAN_SCALE = scaleLinear()
   .domain(Array.from({length: 11}, (_, i) => i / 10))
-  .range(chromatic.schemeRdBu[11]) as AnyD3Scale;
+  .range(chromatic.schemeRdBu[11]) as unknown as ScaleLinear<number, string>;
 
 // type up some abstractions / api layer stuff
 // tabular configuration

@@ -145,9 +145,25 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   };
 
   const canBePercent = mapVariableConfig?.variants?.includes('percent');
+  // Continuous (fixed partisan or unclassed percent) scales ignore binning
+  const usesBins = !mapVariableConfig?.fixedScale && !(canBePercent && variant === 'percent');
   const labelFormat =
     canBePercent && variant === 'percent' ? NUMBER_FORMATS.PERCENT : NUMBER_FORMATS.COMPACT;
   const colors = scale?.range() || [];
+  const isContinuousScale = !!scale && !('invertExtent' in scale);
+  const continuousLegendLabels = mapVariableConfig?.customLegendLabels ?? [
+    '0%',
+    '25%',
+    '50%',
+    '75%',
+    '100%',
+  ];
+  const continuousLegendColors = useMemo(() => {
+    if (!isContinuousScale || !scale) return [];
+    const domain = scale.domain();
+    const [d0, d1] = [domain[0], domain[domain.length - 1]];
+    return Array.from({length: 11}, (_, i) => scale(d0 + ((d1 - d0) * i) / 10) as string);
+  }, [isContinuousScale, scale]);
 
   const handleChangeVariable = (newVariable: DemographyVariable) => {
     setVariable(newVariable);
@@ -244,23 +260,25 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                         <Heading as="h3" size="3">
                           Choropleth Map Settings
                         </Heading>
-                        <Flex direction="row" gapX="3" align="center">
-                          <Text>Max number of bins: {numberOfbins}</Text>
-                          <IconButton
-                            variant="ghost"
-                            onClick={() => setNumberOfBins(numberOfbins - 1)}
-                            disabled={numberOfbins < 4}
-                          >
-                            <MinusIcon />
-                          </IconButton>
-                          <IconButton
-                            variant="ghost"
-                            onClick={() => setNumberOfBins(numberOfbins + 1)}
-                            disabled={numberOfbins > 8}
-                          >
-                            <PlusIcon />
-                          </IconButton>
-                        </Flex>
+                        {usesBins && (
+                          <Flex direction="row" gapX="3" align="center">
+                            <Text>Max number of bins: {numberOfbins}</Text>
+                            <IconButton
+                              variant="ghost"
+                              onClick={() => setNumberOfBins(numberOfbins - 1)}
+                              disabled={numberOfbins < 4}
+                            >
+                              <MinusIcon />
+                            </IconButton>
+                            <IconButton
+                              variant="ghost"
+                              onClick={() => setNumberOfBins(numberOfbins + 1)}
+                              disabled={numberOfbins > 8}
+                            >
+                              <PlusIcon />
+                            </IconButton>
+                          </Flex>
+                        )}
                         <Text
                           as="label"
                           className={`${canBePercent ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
@@ -362,19 +380,14 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                 }}
               </LegendThreshold>
             </Flex>
-          ) : !!mapVariableConfig &&
-            scale &&
-            mapVariableConfig?.fixedScale &&
-            mapVariableConfig.customLegendLabels ? (
+          ) : !!mapVariableConfig && isContinuousScale ? (
             <Flex direction={'column'} justify="center" gapX="2" width="100%">
               <LinearGradient
-                colors={mapVariableConfig.fixedScale
-                  .domain()
-                  .map((d: number) => mapVariableConfig.fixedScale!(d))}
-                numTicks={mapVariableConfig.customLegendLabels.length}
+                colors={continuousLegendColors}
+                numTicks={continuousLegendLabels.length}
               />
               <Flex direction={'row'} width="100%" justify="between">
-                {mapVariableConfig.customLegendLabels.map((label: string, i: number) => (
+                {continuousLegendLabels.map((label: string, i: number) => (
                   <Text key={`legend-label-${i}`}>{label}</Text>
                 ))}
               </Flex>

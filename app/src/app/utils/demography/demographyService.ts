@@ -30,6 +30,8 @@ import {
   choroplethMapVariables,
   DEFAULT_COLOR_SCHEME,
   DEFAULT_COLOR_SCHEME_GRAY,
+  DEFAULT_CONTINUOUS_COLOR_SCHEME,
+  DEFAULT_CONTINUOUS_COLOR_SCHEME_GRAY,
 } from '@/app/store/demography/constants';
 import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
@@ -640,6 +642,17 @@ class DemographyService {
     ) as string;
     if (config.fixedScale) {
       this.colorScale = config.fixedScale as AnyD3Scale;
+    } else if (variant === 'percent' && config.variants?.includes('percent')) {
+      // Unclassed continuous scale over the full 0-100% range for share-of-population maps
+      const displayMode = useMapControlsStore.getState().mapOptions.demographicDisplayMode;
+      const interpolator =
+        displayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE
+          ? DEFAULT_CONTINUOUS_COLOR_SCHEME
+          : DEFAULT_CONTINUOUS_COLOR_SCHEME_GRAY;
+      this.colorScale = scale
+        .scaleSequential(interpolator)
+        .domain([0, 1])
+        .clamp(true) as AnyD3Scale;
     } else {
       const quantiles = this.calculateQuantiles(config, variableName, numberOfBins);
       if (!quantiles) return;
