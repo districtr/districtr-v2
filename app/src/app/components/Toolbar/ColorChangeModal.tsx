@@ -20,7 +20,7 @@ export const ColorChangeModal: React.FC<{
   const [dialogOpen, setDialogOpen] = React.useState(open || false);
   const [colorSelectIndex, setColorSelectIndex] = useState(0);
   const [innerColorScheme, setInnerColorScheme] = useState(colorScheme);
-  const setErrorNotification = useMapStore(store => store.setErrorNotification);
+  const setNotification = useMapStore(store => store.setNotification);
 
   useEffect(() => {
     setInnerColorScheme(colorScheme);

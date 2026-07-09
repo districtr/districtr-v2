@@ -23,7 +23,7 @@ const mapValidationPanel = [
 export const MapValidation = () => {
   const mapType = useMapStore(state => state.mapDocument?.map_type);
   const mapMode = useMapControlsStore(state => state.mapMode);
-  const setErrorNotification = useMapStore(state => state.setErrorNotification);
+  const setNotification = useMapStore(state => state.setNotification);
   const [activePanel, setActivePanel] = useState(
     mapValidationPanel[mapType === MAP_TYPES.LOCAL ? 1 : 0].label
   );
@@ -35,12 +35,13 @@ export const MapValidation = () => {
 
   useEffect(() => {
     if (mapDocument?.map_type === MAP_TYPES.COMMUNITY || mapMode === MAP_MODES.COI) {
-      setErrorNotification({
+      setNotification({
         message: 'Map validation is not available for community maps.',
-        severity: 2,
+        importance: 2,
+        type: 'error',
       });
     }
-  }, [mapDocument?.map_type, mapMode, setErrorNotification]);
+  }, [mapDocument?.map_type, mapMode, setNotification]);
 
   if (mapDocument?.map_type === MAP_TYPES.COMMUNITY || mapMode === MAP_MODES.COI) {
     return null;

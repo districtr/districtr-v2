@@ -19,7 +19,7 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
   setPassword: password => set({password}),
   generateLink: async (editDocId?: string) => {
     const {password, sharingMode} = get();
-    const {setErrorNotification, mapDocument} = useMapStore.getState();
+    const {setNotification, mapDocument} = useMapStore.getState();
     // editDocId lets an editor share while temporarily in the read-only view, where
     // mapDocument is the anonymous public copy. Fall back to the loaded doc otherwise.
     const documentId = editDocId ?? mapDocument?.document_id;
@@ -30,7 +30,11 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
     }
 
     if (!documentId || !mapDocument) {
-      setErrorNotification({message: 'No document found while generating share link', severity: 2});
+      setNotification({
+        message: 'No document found while generating share link',
+        importance: 2,
+        type: 'error',
+      });
       return;
     }
     const response = await patchSharePlan({
@@ -39,7 +43,7 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
       access_type: sharingMode,
     });
     if (!response.ok) {
-      setErrorNotification({message: response.error.detail, severity: 2});
+      setNotification({message: response.error.detail, importance: 2, type: 'error'});
       return;
     }
     const {public_id: publicId} = response.response;
@@ -62,7 +66,7 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
     if (!mapDocument?.document_id) {
       return;
     }
-    const {setErrorNotification} = useMapStore.getState();
+    const {setNotification} = useMapStore.getState();
     const response = await patchSharePlan({
       document_id: mapDocument?.document_id,
       password: password ?? null,
@@ -72,7 +76,7 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
       set({password});
       idb.updatePassword(mapDocument?.document_id, password);
     } else {
-      setErrorNotification({message: response.error.detail, severity: 2});
+      setNotification({message: response.error.detail, importance: 2, type: 'error'});
     }
   },
   sharingMode: ACCESS_STATES.READ,

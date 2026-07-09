@@ -195,12 +195,13 @@ export interface MapStore {
     reason: string;
   } | null;
   setMapLock: (lock: MapStore['mapLock']) => void;
-  errorNotification: {
+  notification: {
     message?: string;
-    severity?: 1 | 2 | 3; // 1: dialog, 2: toast, 3: silent
+    importance?: 1 | 2 | 3; // 1: dialog, 2: toast, 3: silent
+    type?: 'error' | 'notification' | 'success'; // default 'notification'
     id?: string;
   };
-  setErrorNotification: (errorNotification: MapStore['errorNotification']) => void;
+  setNotification: (notification: MapStore['notification']) => void;
   showSaveConflictModal: boolean;
   setShowSaveConflictModal: (show: boolean) => void;
   // MAP DOCUMENT
@@ -385,9 +386,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
 
     setMapLock: mapLock => set({mapLock}),
 
-    errorNotification: {},
+    notification: {},
 
-    setErrorNotification: errorNotification => set({errorNotification}),
+    setNotification: notification => set({notification}),
 
     showSaveConflictModal: false,
 
@@ -1128,8 +1129,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       });
       if (!edgesResult?.length) {
         set({
-          errorNotification: {
-            severity: 2,
+          notification: {
+            importance: 2,
+            type: 'error',
             message: `Breaking this geography failed. Please refresh this page and try again. If this error persists, please share the error code below the Districtr team.`,
             id: `break-patchShatter-no-children-${mapDocument?.districtr_map_slug}-${mapDocument?.document_id}-geoid-${JSON.stringify(geoids)}`,
           },
@@ -1256,8 +1258,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const resetResponse = await patchUpdateReset(document_id);
       if (!resetResponse.ok) {
         set({
-          errorNotification: {
-            severity: 2,
+          notification: {
+            importance: 2,
+            type: 'error',
             message:
               'Failed to reset map. Please refresh this page and try again. If this error persists, please share the error code below the Districtr team.',
           },
@@ -1311,8 +1314,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const {mapDocument} = get();
       if (!mapDocument) {
         set({
-          errorNotification: {
-            severity: 2,
+          notification: {
+            importance: 2,
+            type: 'error',
             message: 'Tried to update metadata on a map document that does not exist',
             id: 'updateMetadata-no-map-document',
           },

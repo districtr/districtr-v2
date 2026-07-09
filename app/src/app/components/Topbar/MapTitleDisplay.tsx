@@ -104,7 +104,7 @@ export const MapTitleDisplay: React.FC<{
                 onClick={() => setOpen(true)}
                 tabIndex={0}
                 style={{outline: 'none'}}
-                aria-label="Edit map name and metadata"
+                aria-label="Edit map name and information"
               >
                 <DraftStatusIcon />
                 {!!mapName && (
@@ -136,7 +136,7 @@ export const MapTitleDisplay: React.FC<{
               >
                 <Cross2Icon />
               </IconButton>
-              <Dialog.Title>Edit Map Name & Metadata</Dialog.Title>
+              <Dialog.Title>Edit Map Name and Information</Dialog.Title>
               <Box mb="3">
                 <Text as="label" size="2" htmlFor="map-title" mb="1">
                   Map Name
@@ -169,6 +169,9 @@ export const MapTitleDisplay: React.FC<{
                 />
               </Box>
 
+              <Text as="label" size="2" htmlFor="map-desc" mb="1">
+                Draft status
+              </Text>
               <SegmentedControl.Root
                 value={mapStatusInner}
                 onValueChange={e => setMapStatusInner(e as DraftStatus)}

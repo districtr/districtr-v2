@@ -1,5 +1,5 @@
 'use client';
-import {Text, DropdownMenu, Flex, Heading, IconButton, Link, Tooltip, Tabs} from '@radix-ui/themes';
+import {Text, DropdownMenu, Flex, Heading, IconButton, Spinner, Tabs} from '@radix-ui/themes';
 import React, {useRef} from 'react';
 import {useRouter} from 'next/navigation';
 import {useMapStore} from '@store/mapStore';
@@ -9,49 +9,21 @@ import {defaultPanels} from '@components/sidebar/DataPanelUtils';
 import {PasswordPromptModal} from '../Toolbar/PasswordPromptModal';
 import {UploaderModal} from '../Toolbar/UploaderModal';
 import {MapHeader} from './MapHeader';
-import {SavePopover} from './SavePopover';
-import {SharePopoverAndModal} from './SharePopoverAndModal';
-import {SettingsPopoverAndModal} from './SettingsPopoverAndModal';
 import {saveMapDocumentMetadata} from '@/app/utils/api/apiHandlers/saveMapDocumentMetadata';
 import {idb} from '@/app/utils/idb/idb';
-import {RevertPopover} from './RevertPopover';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
-import {ACCESS_STATES} from '@constants/document/state';
 import {ModeSwitcher} from './ModeSwitcher';
+import {MapActionsDropdown} from './MapActionsDropdown';
+import {useAutoSave} from '@/app/hooks/useAutoSave';
 
 export const Topbar: React.FC = () => {
   const router = useRouter();
-  const handleReset = useMapStore(state => state.handleReset);
+  const {isAutoSaving} = useAutoSave();
   const [modalOpen, setModalOpen] = React.useState<'upload' | null>(null);
   const mapDocument = useMapStore(state => state.mapDocument);
-  const access = useMapStore(state => state.mapStatus?.access);
-  // Read from mapControlsStore (set by the route/page) instead of inferring from
-  // document_id. Public view documents have real UUIDs but should never expose
-  // Save/Revert/etc. affordances.
-  const isEditing = useMapControlsStore(state => state.isEditing);
   const isEval = useMapControlsStore(state => state.isEval);
-  const setErrorNotification = useMapStore(state => state.setErrorNotification);
+  const setNotification = useMapStore(state => state.setNotification);
   const updateMetadata = useMapStore(state => state.updateMetadata);
-
-  // Export works for view-only users too: the backend resolves a public_id the same
-  // as a document UUID, so fall back to the public_id when the loaded doc is the
-  // anonymous read-only copy.
-  const exportId =
-    mapDocument?.document_id && mapDocument.document_id !== ANONYMOUS_DOCUMENT_ID
-      ? mapDocument.document_id
-      : mapDocument?.public_id;
-
-  const downloadExport = (exportType: string) => {
-    if (!exportId) return;
-    // Trigger via a transient anchor — a DropdownMenu.Item swallows a child anchor's
-    // click. The download filename comes from the backend's Content-Disposition.
-    const a = document.createElement('a');
-    a.href = `${process.env.NEXT_PUBLIC_API_URL}/api/document/${exportId}/export?export_type=${exportType}`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  };
 
   const handleMetadataChange = async (updates: Partial<DocumentMetadata>) => {
     if (!mapDocument?.document_id) return;
@@ -63,9 +35,10 @@ export const Topbar: React.FC = () => {
       idb.updateIdbMetadata(mapDocument?.document_id, updates);
       updateMetadata(updates);
     } else {
-      setErrorNotification({
+      setNotification({
         message: 'Failed to save metadata',
-        severity: 2,
+        importance: 2,
+        type: 'error',
       });
     }
   };
@@ -75,6 +48,7 @@ export const Topbar: React.FC = () => {
       <Flex direction="column" className="h-auto">
         <Flex
           dir="row"
+          wrap="wrap"
           className="border-b-[1px] border-gray-500 lg:shadow-xl p-1 pl-5 pr-2 relative"
           gap="4"
           align={'center'}
@@ -111,63 +85,6 @@ export const Topbar: React.FC = () => {
                 >
                   Catalog
                 </DropdownMenu.Item>
-                <DropdownMenu.Sub>
-                  <DropdownMenu.SubTrigger disabled={!exportId}>
-                    Export assignments
-                  </DropdownMenu.SubTrigger>
-                  <DropdownMenu.SubContent>
-                    <DropdownMenu.Item
-                      className="cursor-pointer"
-                      onSelect={() => downloadExport('BlockAssignmentsCSV')}
-                    >
-                      <Tooltip content="Download a CSV of GEOIDs and zone IDs">
-                        <span>Unit assignments (CSV)</span>
-                      </Tooltip>
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item
-                      className="cursor-pointer"
-                      onSelect={() => downloadExport('DistrictsGeoJSON')}
-                    >
-                      <Tooltip content="Download a GeoJSON of dissolved district boundary polygons">
-                        <span>District boundaries (GeoJSON)</span>
-                      </Tooltip>
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item
-                      className="cursor-pointer"
-                      onSelect={() => downloadExport('DistrictsShapefile')}
-                    >
-                      <Tooltip content="Download a zipped Shapefile of dissolved district boundary polygons">
-                        <span>District boundaries (Shapefile)</span>
-                      </Tooltip>
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item
-                      className="cursor-pointer"
-                      onSelect={() => downloadExport('EvaluationJSON')}
-                    >
-                      <Tooltip content="Download a JSON of evaluation metrics for this map">
-                        <span>Evaluation metrics (JSON)</span>
-                      </Tooltip>
-                    </DropdownMenu.Item>
-                  </DropdownMenu.SubContent>
-                </DropdownMenu.Sub>
-                {!isEval && (
-                  <DropdownMenu.Sub>
-                    <DropdownMenu.SubTrigger
-                      disabled={!mapDocument?.document_id || access === ACCESS_STATES.READ}
-                    >
-                      Reset map
-                    </DropdownMenu.SubTrigger>
-                    <DropdownMenu.SubContent>
-                      <Text size="2" className="w-[50vw] max-w-60 p-3">
-                        Are you sure? This will reset all zone assignments and broken geographies.{' '}
-                        <b>Resetting your map cannot be undone.</b>
-                      </Text>
-                      <DropdownMenu.Item onClick={handleReset} color="red">
-                        Reset map
-                      </DropdownMenu.Item>
-                    </DropdownMenu.SubContent>
-                  </DropdownMenu.Sub>
-                )}
               </DropdownMenu.Content>
             </DropdownMenu.Root>
           </Flex>
@@ -181,20 +98,23 @@ export const Topbar: React.FC = () => {
           ) : (
             <MapHeader handleMetadataChange={handleMetadataChange} />
           )}
-          <Flex direction="row" align="center" gapX="3">
+          <Flex direction="row" align="center" wrap="wrap" gapX="3" gapY="1">
             <ModeSwitcher />
-            {!isEval && (
-              <>
-                <SharePopoverAndModal handleMetadataChange={handleMetadataChange} />
-                {isEditing && <SavePopover />}
-                {isEditing && <RevertPopover />}
-                <SettingsPopoverAndModal />
-              </>
-            )}
+            {!isEval && <MapActionsDropdown handleMetadataChange={handleMetadataChange} />}
           </Flex>
         </Flex>
         <MobileDataTabs />
       </Flex>
+      {isAutoSaving && (
+        <Flex
+          align="center"
+          gap="2"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[10000] rounded-full bg-gray-900/90 px-4 py-2 text-white shadow-lg"
+        >
+          <Spinner size="1" />
+          <Text size="2">Auto-saving your map…</Text>
+        </Flex>
+      )}
       <UploaderModal open={modalOpen === 'upload'} onClose={() => setModalOpen(null)} />
       <PasswordPromptModal />
     </>
