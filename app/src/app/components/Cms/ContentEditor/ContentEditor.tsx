@@ -3,8 +3,7 @@ import {useCmsFormStore} from '@/app/store/cmsFormStore';
 import {LANG_MAPPING} from '@/app/utils/language';
 import {Box, Button, Flex, Grid, Heading, Select, Text, TextField} from '@radix-ui/themes';
 import dynamic from 'next/dynamic';
-import {CheckCircledIcon} from '@radix-ui/react-icons';
-import {PlacesCMSContent} from '@/app/utils/api/cms';
+import {MapMultiSelector} from './MapMultiSelector';
 
 const RichTextEditor = dynamic(() => import('@/app/components/Cms/RichTextEditor'), {ssr: false});
 
@@ -133,42 +132,7 @@ export const ContentEditor: React.FC = () => {
           </Flex>
         )}
 
-        {contentType === 'places' && (
-          <Flex direction="column">
-            <Text as="label" htmlFor="districtr_map_slug">
-              Map (optional)
-            </Text>
-            <Select.Root
-              // @ts-ignore
-              value={formData?.content.districtr_map_slugs}
-              onValueChange={handleChange('districtr_map_slugs', true)}
-            >
-              {' '}
-              <Select.Trigger>
-                <Text>
-                  {(formData?.content as unknown as PlacesCMSContent)?.districtr_map_slugs?.length
-                    ? (formData?.content as unknown as PlacesCMSContent)?.districtr_map_slugs
-                        ?.length + ' maps selected'
-                    : 'Select a map'}
-                </Text>
-              </Select.Trigger>
-              <Select.Content>
-                {maps.map((map, i) => (
-                  <Select.Item key={i} value={map.districtr_map_slug}>
-                    {/* @ts-ignore */}
-                    <Flex direction="row" gapX="1">
-                      {/* @ts-ignore */}
-                      {formData?.content.districtr_map_slugs?.includes(map.districtr_map_slug) ? (
-                        <CheckCircledIcon color="green" />
-                      ) : null}
-                      <Text>{map.name}</Text>
-                    </Flex>
-                  </Select.Item>
-                ))}
-              </Select.Content>
-            </Select.Root>
-          </Flex>
-        )}
+        {contentType === 'places' && <MapMultiSelector />}
       </Grid>
       <Flex direction={'column'} gapY="2">
         <Text as="label" htmlFor="body">
