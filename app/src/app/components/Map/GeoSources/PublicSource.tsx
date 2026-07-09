@@ -24,7 +24,7 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
   const setStateFp = useMapControlsStore(state => state.setStateFp);
   const setDemographyHash = useDemographyStore(state => state.setDataHash);
   const setAvailableColumnSets = useDemographyStore(state => state.setAvailableColumnSets);
-  const setErrorNotification = useMapStore(state => state.setErrorNotification);
+  const setNotification = useMapStore(state => state.setNotification);
   useClearMap(mapDocument?.document_id);
 
   const publicDistrictsQuery = useQuery({
@@ -45,12 +45,13 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
 
   useEffect(() => {
     if (publicDistrictsQuery.isError) {
-      setErrorNotification({
+      setNotification({
         message: publicDistrictsQuery.error?.message || 'Failed to fetch public district stats',
-        severity: 2,
+        importance: 2,
+        type: 'error',
       });
     }
-  }, [publicDistrictsQuery.isError, publicDistrictsQuery.error, setErrorNotification]);
+  }, [publicDistrictsQuery.isError, publicDistrictsQuery.error, setNotification]);
 
   const featureCollection = useMemo<GeoJSON.FeatureCollection>(() => {
     return {

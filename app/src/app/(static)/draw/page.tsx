@@ -9,7 +9,7 @@ export default function DrawPage() {
   const [uploadOpen, setUploadOpen] = useState(false);
 
   return (
-    <Flex direction="column" gapY="4">
+    <Flex direction="column" gapY="4" pt="4">
       <Flex direction="row" justify="between" align="start" wrap="wrap" gapY="2">
         <Box>
           <Heading as="h1" size="8">

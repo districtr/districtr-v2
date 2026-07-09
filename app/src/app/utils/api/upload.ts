@@ -121,14 +121,18 @@ export const processFile = ({
   availableMaps: DistrictrMap[];
   documentMapType?: MapType;
 }) => {
-  const {setErrorNotification} = useMapStore.getState();
+  const {setNotification} = useMapStore.getState();
 
   if (!file) {
-    setErrorNotification({message: 'No file selected', severity: 1});
+    setNotification({message: 'No file selected', importance: 1, type: 'error'});
     throw new Error('No file selected');
   }
   if (file.size > MAX_FILE_SIZE) {
-    setErrorNotification({message: 'Block CSV file size exceeds limit (20mb)', severity: 1});
+    setNotification({
+      message: 'Block CSV file size exceeds limit (20mb)',
+      importance: 1,
+      type: 'error',
+    });
     throw new Error('Block CSV file size exceeds limit');
   }
 

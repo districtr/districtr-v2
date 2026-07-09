@@ -5,7 +5,7 @@ import {CoiMap} from '@components/Map/CoiMap';
 import SidebarComponent from '@components/sidebar/Sidebar';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
-import {ErrorNotification} from '@components/ErrorNotification';
+import {AppNotification} from '@components/AppNotification';
 import {MapTooltip} from '@components/Map/Tooltip/MapTooltip';
 import {Topbar} from '@/app/components/Topbar/Topbar';
 import {Flex} from '@radix-ui/themes';
@@ -34,7 +34,7 @@ const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => 
   );
   const setIsEditing = useMapControlsStore(state => state.setIsEditing);
   const setEditableDocId = useMapControlsStore(state => state.setEditableDocId);
-  const setErrorNotification = useMapStore(state => state.setErrorNotification);
+  const setNotification = useMapStore(state => state.setNotification);
   const userID = useMapStore(state => state.userID);
   const setUserID = useMapStore(state => state.setUserID);
 
@@ -50,13 +50,14 @@ const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => 
 
   useEffect(() => {
     if (documentError && documentId) {
-      setErrorNotification({
+      setNotification({
         message: `Failed to load document: ${documentError.message}`,
         id: `document-load-error-${documentId}`,
-        severity: 1,
+        importance: 1,
+        type: 'error',
       });
     }
-  }, [documentError, documentId, setErrorNotification]);
+  }, [documentError, documentId, setNotification]);
 
   useEffect(() => {
     setIsEditing(isEditing);
@@ -95,7 +96,7 @@ const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => 
         <MapTooltip />
       </div>
       <MapContextMenu />
-      <ErrorNotification />
+      <AppNotification />
       {conflictModal}
       <SaveConflictModal />
     </div>

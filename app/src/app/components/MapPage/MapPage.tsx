@@ -9,7 +9,7 @@ import SidebarComponent from '@components/sidebar/Sidebar';
 import {EvalPanel} from '@components/EvalPanel/EvalPanel';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
-import {ErrorNotification} from '@components/ErrorNotification';
+import {AppNotification} from '@components/AppNotification';
 import {MapTooltip} from '@components/Map/Tooltip/MapTooltip';
 import {Topbar} from '@/app/components/Topbar/Topbar';
 import {Flex} from '@radix-ui/themes';
@@ -42,7 +42,7 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
   const setIsEval = useMapControlsStore(state => state.setIsEval);
   const setEditableDocId = useMapControlsStore(state => state.setEditableDocId);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
-  const setErrorNotification = useMapStore(state => state.setErrorNotification);
+  const setNotification = useMapStore(state => state.setNotification);
   // check if userid in local storage; if not, create one
   const userID = useMapStore(state => state.userID);
   const setUserID = useMapStore(state => state.setUserID);
@@ -62,13 +62,14 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
   // Handle document loading errors
   useEffect(() => {
     if (documentError && mapId) {
-      setErrorNotification({
+      setNotification({
         message: `Failed to load document: ${documentError.message}`,
         id: `document-load-error-${mapId}`,
-        severity: 1,
+        importance: 1,
+        type: 'error',
       });
     }
-  }, [documentError, mapId, setErrorNotification]);
+  }, [documentError, mapId, setNotification]);
 
   // Set editing mode based on the route
   useEffect(() => {
@@ -128,7 +129,7 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
         <MapTooltip />
       </div>
       <MapContextMenu />
-      <ErrorNotification />
+      <AppNotification />
       {conflictModal}
       <SaveConflictModal />
       <ZoneDescriptionModal />

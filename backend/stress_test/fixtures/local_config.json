@@ -1,0 +1,12 @@
+[
+  {
+    "districtr_map_slug": "al_congressional_districts",
+    "assignments_path": "stress-data/al_congressional_fixture.msgpack",
+    "use": ["edit", "view"]
+  },
+  {
+    "districtr_map_slug": "al_state_senate_districts",
+    "assignments_path": "stress-data/al_state_senate_fixture.msgpack",
+    "use": ["view"]
+  }
+]
