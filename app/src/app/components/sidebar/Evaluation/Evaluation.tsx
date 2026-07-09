@@ -7,6 +7,7 @@ import {
   Heading,
   IconButton,
   Popover,
+  SegmentedControl,
   Select,
   Spinner,
   Table,
@@ -69,6 +70,8 @@ type EvaluationTableHeaderProps = {
   columnConfigs: ColumnConfig[];
 };
 
+type PartisanPov = 'dem' | 'rep';
+
 type EvaluationTableBodyProps = {
   rows: EvaluationDataRow[];
   colorScheme: string[];
@@ -81,6 +84,7 @@ type EvaluationTableBodyProps = {
   mapMode: string;
   communities: ReturnType<typeof useMapStore.getState>['communities'];
   getZoneColor: (zone: number | null, fallback?: string) => string;
+  pov: PartisanPov;
 };
 
 type EvaluationTableRowProps = Omit<EvaluationTableBodyProps, 'rows'> & {
@@ -143,6 +147,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
   const [evalMode, setEvalMode] = useState<EvalMode>(EVAL_MODES.SHARE);
   const [colorBg, setColorBg] = useState<boolean>(true);
   const [showUnassigned, setShowUnassigned] = useState<boolean>(true);
+  const [pov, setPov] = useState<PartisanPov>('dem');
   const {zoneStats, demoIsLoaded, zoneData, summaryStats} = useSummaryStats(showUnassigned);
   const coalitionGroups = useDemographyStore(state => state.coalitionGroups);
 
@@ -161,8 +166,13 @@ const Evaluation: React.FC<EvaluationProps> = ({
   const showModeButtons = Boolean(
     summaryStatConfig?.supportedModes?.length && summaryStatConfig?.supportedModes?.length > 1
   );
-  const numberFormat =
-    numberFormats[summaryType === SUMMARY_TYPES.VOTERHISTORY ? EVAL_MODES.PARTISAN : evalMode];
+  const numberFormat = numberFormats[evalMode];
+  const isVoterHistory = summaryType === SUMMARY_TYPES.VOTERHISTORY;
+  // Voter history columns are dem-share; Republican POV swaps to the rep-share columns.
+  const effectiveColumnConfigs =
+    isVoterHistory && pov === 'rep'
+      ? columnConfigs.map(c => ({...c, column: c.column.replace('_dem', '_rep')}))
+      : columnConfigs;
 
   useEffect(() => {
     if (
@@ -298,13 +308,28 @@ const Evaluation: React.FC<EvaluationProps> = ({
           </Popover.Content>
         </Popover.Root>
       </Flex>
+      {isVoterHistory && (
+        <Flex justify="start" align="center" gap="2" pb="2">
+          <Text size="1" color="gray">
+            Point of View
+          </Text>
+          <SegmentedControl.Root
+            size="1"
+            value={pov}
+            onValueChange={v => setPov(v as PartisanPov)}
+          >
+            <SegmentedControl.Item value="dem">Democrat</SegmentedControl.Item>
+            <SegmentedControl.Item value="rep">Republican</SegmentedControl.Item>
+          </SegmentedControl.Root>
+        </Flex>
+      )}
       <Box overflowX="auto" className="text-sm">
         <Table.Root className="min-w-full border-collapse">
-          <EvaluationTableHeader columnConfigs={columnConfigs} />
+          <EvaluationTableHeader columnConfigs={effectiveColumnConfigs} />
           <EvaluationTableBody
             rows={rows}
             colorScheme={colorScheme}
-            columnConfigs={columnConfigs}
+            columnConfigs={effectiveColumnConfigs}
             evalMode={evalMode}
             colorBg={colorBg}
             summaryType={summaryType}
@@ -313,6 +338,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
             mapMode={mapMode}
             communities={communities}
             getZoneColor={getZoneColor}
+            pov={pov}
           />
         </Table.Root>
       </Box>
@@ -375,6 +401,7 @@ const EvaluationTableRow: React.FC<EvaluationTableRowProps> = ({
   mapMode,
   communities,
   getZoneColor,
+  pov,
 }) => {
   const isUniverse = Boolean((row as Record<string, unknown>).__isUniverse) || row.zone === 0;
   const isUnassigned = !isUniverse && row.zone === undefined;
@@ -416,6 +443,7 @@ const EvaluationTableRow: React.FC<EvaluationTableRowProps> = ({
             summaryType={summaryType}
             numberFormat={numberFormat}
             maxValues={maxValues}
+            pov={pov}
           />
         ))}
     </Table.Row>
@@ -432,6 +460,7 @@ const EvaluationTableCell: React.FC<EvaluationTableCellProps> = ({
   summaryType,
   numberFormat,
   maxValues,
+  pov,
 }) => {
   const column = evalMode === EVAL_MODES.COUNT ? columnConfig.column : `${columnConfig.column}_pct`;
   const value = (row as Record<string, number | undefined>)[column];
@@ -448,7 +477,9 @@ const EvaluationTableCell: React.FC<EvaluationTableCellProps> = ({
   let backgroundColor: string | undefined;
   if (!hasValidColorValue || isUniverse) {
   } else if (colorBg && summaryType === SUMMARY_TYPES.VOTERHISTORY) {
-    backgroundColor = PARTISAN_SCALE((numericValue! + 1) / 2);
+    // Values are raw two-party shares (0-1); color always tracks dem share so
+    // blue/red stays consistent across POVs.
+    backgroundColor = PARTISAN_SCALE(pov === 'dem' ? numericValue! : 1 - numericValue!);
   } else if (colorBg && !isUnassigned) {
     backgroundColor = interpolateGreys(colorValue as number)
       .replace('rgb', 'rgba')

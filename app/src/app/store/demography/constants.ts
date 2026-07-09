@@ -101,7 +101,7 @@ export const choroplethMapVariables: {
       label: `Election: ${label}`,
       value: columns[0],
       fixedScale: PARTISAN_SCALE,
-      customLegendLabels: ['+100 (R)', 'Even', '+100 (D)'],
+      customLegendLabels: ['100% Rep', 'Even', '100% Dem'],
       // Current voter history data has two columns always, dem and rep
       expression: (row: DemographyRow) => {
         return row[columns[0]] / (row[columns[1]] + row[columns[0]]);
