@@ -1,6 +1,6 @@
 'use client';
 import {Box, Button, Card, Flex, Heading, IconButton, Popover, Text} from '@radix-ui/themes';
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {AnimatePresence, motion} from 'framer-motion';
 import {
   ArrowLeftIcon,
@@ -22,8 +22,10 @@ import {Contiguity} from './MapValidation/Contiguity';
 import {ZoomToUnassigned} from './MapValidation/ZoomToUnassigned';
 import {SummaryPanel} from './SummaryPanel';
 import {useMapControlsStore} from '@store/mapControlsStore';
+import {useDemographyStore} from '@store/demography/demographyStore';
 import {MAP_MODES} from '@constants/map/mode';
-import {SUMMARY_TYPES} from '@constants/demography/summary';
+import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
+import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 
 type FeatureCard = {
   label: string;
@@ -32,6 +34,9 @@ type FeatureCard = {
   content: React.ReactNode;
   /** Hidden in communities (COI) mode, matching the accordion's panel filter. */
   districtsOnly?: boolean;
+  /** Choropleth map panels: opening enables the overlay for this column
+   * group with default settings; closing disables it. */
+  mapGroup?: SummaryType;
 };
 
 /**
@@ -94,6 +99,7 @@ const FEATURE_CARDS = {
         sections={['map']}
       />
     ),
+    mapGroup: SUMMARY_TYPES.TOTPOP,
   },
   voterHistoryMap: {
     label: 'Election results map',
@@ -107,6 +113,7 @@ const FEATURE_CARDS = {
       />
     ),
     districtsOnly: true,
+    mapGroup: SUMMARY_TYPES.VOTERHISTORY,
   },
   contiguityCheck: {
     label: 'Contiguity check',
@@ -131,6 +138,34 @@ const FEATURE_CARDS = {
 } as const satisfies Record<string, FeatureCard>;
 
 type CardKey = keyof typeof FEATURE_CARDS;
+
+// Typed accessor: entries in the const registry don't all carry the optional
+// keys, so widen to the FeatureCard shape for property access.
+const cardOf = (key: CardKey): FeatureCard => FEATURE_CARDS[key];
+
+/**
+ * While a map-panel card is open, the choropleth overlay is on with default
+ * settings for that card's column group; closing it (or unmounting, e.g. on a
+ * mode switch) turns the overlay off.
+ */
+const useMapPanelLifecycle = (mapGroup: SummaryType | undefined) => {
+  useEffect(() => {
+    if (!mapGroup) return;
+    const demography = useDemographyStore.getState();
+    const variables = demography.availableColumnSets.map[mapGroup] ?? [];
+    // Default variable: the group's first entry, unless the current one
+    // already belongs to this group.
+    if (variables.length && !variables.some(v => v.value === demography.variable)) {
+      demography.setVariable(variables[0].value);
+    }
+    useMapControlsStore
+      .getState()
+      .setMapOptions({demographicDisplayMode: DEMOGRAPHIC_MODES.OVERLAY});
+    return () => {
+      useMapControlsStore.getState().setMapOptions({demographicDisplayMode: undefined});
+    };
+  }, [mapGroup]);
+};
 
 const FeatureCardButton: React.FC<{
   cardKey: CardKey;
@@ -173,7 +208,8 @@ const FeatureCardGrid: React.FC<{
   onSelect: (key: CardKey) => void;
   selectedKeys?: CardKey[];
 }> = ({cards, onSelect, selectedKeys}) => (
-  <div className="grid grid-cols-2 gap-2">
+  // pt-1: headroom so the hover lift doesn't clip against the container edge.
+  <div className="grid grid-cols-2 gap-2 pt-1">
     {cards.map(([key, card]) => (
       <FeatureCardButton
         key={key}
@@ -202,6 +238,7 @@ export const DataCards: React.FC = () => {
   const visibleCards = useVisibleCards();
   // Self-heals if the map mode changes while a now-hidden card is open.
   const active = visibleCards.find(([key]) => key === currCard)?.[1];
+  useMapPanelLifecycle(active?.mapGroup);
 
   return (
     <Box data-testid="data-panels" className="overflow-x-clip">
@@ -257,10 +294,19 @@ export const SuperDrawCards: React.FC = () => {
   // Drop cards hidden by a mode change (e.g. districts-only cards in COI).
   const shownCards = openCards.filter(key => visibleCards.some(([k]) => k === key));
 
+  // There's one choropleth, so only one map panel can be open at a time.
+  const openMapKey = shownCards.find(key => cardOf(key).mapGroup);
+  useMapPanelLifecycle(openMapKey ? cardOf(openMapKey).mapGroup : undefined);
+
   // The dropdown keeps open panels listed (checked) so they can be toggled
   // off from there too; it stays open for toggling several at once.
   const toggleCard = (key: CardKey) =>
-    setOpenCards(prev => (prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]));
+    setOpenCards(prev => {
+      if (prev.includes(key)) return prev.filter(k => k !== key);
+      // Adding a map panel replaces any other open map panel.
+      const base = cardOf(key).mapGroup ? prev.filter(k => !cardOf(k).mapGroup) : prev;
+      return [...base, key];
+    });
   const removeCard = (key: CardKey) => setOpenCards(prev => prev.filter(k => k !== key));
 
   return (
