@@ -164,7 +164,7 @@ const SECTIONS: SidebarSection[] = [
         displayedColumnSets={[SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP]}
         tabs={[
           {value: 'evaluation', label: 'Table'},
-          {value: 'map', label: 'Overlay Layer'},
+          {value: 'map', label: 'Map Layer'},
         ]}
         mapGroup={SUMMARY_TYPES.TOTPOP}
         withCoalition
@@ -182,7 +182,7 @@ const SECTIONS: SidebarSection[] = [
         displayedColumnSets={[SUMMARY_TYPES.VOTERHISTORY]}
         tabs={[
           {value: 'evaluation', label: 'Table'},
-          {value: 'map', label: 'Overlay Layer'},
+          {value: 'map', label: 'Map Layer'},
         ]}
         mapGroup={SUMMARY_TYPES.VOTERHISTORY}
       />

@@ -226,7 +226,7 @@ export const ToolSettings: React.FC = () => {
                   value={entry.group}
                   onClick={() => toggleOverlayGroup(entry)}
                 >
-                  Toggle overlay layer ({entry.label})
+                  Toggle overlay map layer ({entry.label})
                 </CheckboxGroup.Item>
               ))}
             </CheckboxGroup.Root>
