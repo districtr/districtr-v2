@@ -152,6 +152,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
     }
   };
 
+  const opacityStates = getOpacityStates(mapOptions, setMapOptions, mapMode);
   const canBePercent = mapVariableConfig?.variants?.includes('percent');
   const labelFormat =
     canBePercent && variant === 'percent' ? NUMBER_FORMATS.PERCENT : NUMBER_FORMATS.COMPACT;
@@ -322,14 +323,12 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                 <SegmentedControl.Root
                   size="1"
                   value={`${Math.max(
-                    getOpacityStates(mapOptions, setMapOptions, mapMode).findIndex(o => o.selected),
+                    opacityStates.findIndex(o => o.selected),
                     0
                   )}`}
-                  onValueChange={v =>
-                    getOpacityStates(mapOptions, setMapOptions, mapMode)[Number(v)]?.onClick()
-                  }
+                  onValueChange={v => opacityStates[Number(v)]?.onClick()}
                 >
-                  {getOpacityStates(mapOptions, setMapOptions, mapMode).map((option, i) => (
+                  {opacityStates.map((option, i) => (
                     <SegmentedControl.Item key={i} value={`${i}`}>
                       {option.label}
                     </SegmentedControl.Item>

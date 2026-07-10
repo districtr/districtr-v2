@@ -1,7 +1,6 @@
 'use client';
 import {Button, Flex, SegmentedControl, Text} from '@radix-ui/themes';
 import React, {useEffect, useState} from 'react';
-import {AnimatePresence, motion} from 'framer-motion';
 import {
   CheckCircledIcon,
   ChevronDownIcon,
@@ -16,55 +15,34 @@ import OverlaysPanel from './OverlaysPanel';
 import {MapValidation} from './MapValidation/MapValidation';
 import {SummaryPanel, type SectionKey} from './SummaryPanel';
 import {MapControlsStore, useMapControlsStore} from '@store/mapControlsStore';
-import {useDemographyStore} from '@store/demography/demographyStore';
-import {overlayMemory} from '@utils/demography/overlayMemory';
+import {activateOverlayGroup} from '@utils/demography/overlayMemory';
 import {MAP_MODES} from '@constants/map/mode';
 import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
-import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 
-/** Shared height-collapse for the accordion sections and coalition expander. */
+/** Shared height-collapse for the accordion sections and coalition expander.
+ * CSS grid-rows transition; children unmount once the close animation ends so
+ * collapsed panels don't keep rendering or subscribing. */
 const AnimatedCollapse: React.FC<{open: boolean; children: React.ReactNode}> = ({
   open,
   children,
-}) => (
-  <AnimatePresence initial={false}>
-    {open && (
-      <motion.div
-        initial={{height: 0, opacity: 0}}
-        animate={{height: 'auto', opacity: 1}}
-        exit={{height: 0, opacity: 0}}
-        transition={{duration: 0.2, ease: 'easeOut'}}
-        className="overflow-hidden"
-      >
-        {children}
-      </motion.div>
-    )}
-  </AnimatePresence>
-);
-
-/**
- * Entering a Map tab turns the choropleth overlay on with the last-used (or
- * default) settings for that column group, and remembers the config for the
- * Visual settings overlay toggles. The overlay intentionally stays on when
- * navigating away — it's turned off from those toggles or the display-mode
- * control.
- */
-const useMapPanelLifecycle = (mapGroup: SummaryType | undefined) => {
+}) => {
+  const [mounted, setMounted] = useState(open);
   useEffect(() => {
-    if (!mapGroup) return;
-    const demography = useDemographyStore.getState();
-    const variables = demography.availableColumnSets.map[mapGroup] ?? [];
-    let variable = demography.variable;
-    if (variables.length && !variables.some(v => v.value === variable)) {
-      variable = overlayMemory.variables[mapGroup] ?? variables[0].value;
-      demography.setVariable(variable);
+    if (open) {
+      setMounted(true);
+      return;
     }
-    overlayMemory.lastGroup = mapGroup;
-    overlayMemory.variables[mapGroup] = variable;
-    useMapControlsStore
-      .getState()
-      .setMapOptions({demographicDisplayMode: DEMOGRAPHIC_MODES.OVERLAY});
-  }, [mapGroup]);
+    const timeout = setTimeout(() => setMounted(false), 200);
+    return () => clearTimeout(timeout);
+  }, [open]);
+  return (
+    <div
+      className="grid transition-[grid-template-rows] duration-200 ease-out"
+      style={{gridTemplateRows: open ? '1fr' : '0fr'}}
+    >
+      <div className="min-h-0 overflow-hidden">{mounted ? children : null}</div>
+    </div>
+  );
 };
 
 /** Collapsible, opt-in coalition builder attached above the demographics
@@ -114,7 +92,14 @@ const TabbedSummaryPanel: React.FC<{
   withCoalition?: boolean;
 }> = ({defaultColumnSet, displayedColumnSets, tabs, mapGroup, withCoalition}) => {
   const [tab, setTab] = useState<SectionKey>(tabs[0].value);
-  useMapPanelLifecycle(tab === 'map' ? mapGroup : undefined);
+  const handleTabChange = (v: string) => {
+    setTab(v as SectionKey);
+    // Opening the Map tab turns the choropleth overlay on with the last-used
+    // (or default) settings for this column group. The overlay intentionally
+    // stays on when navigating away — it's turned off from the Visual settings
+    // toggles or the display-mode control.
+    if (v === 'map') activateOverlayGroup(mapGroup);
+  };
   return (
     <Flex direction="column" gap="2">
       {withCoalition && (
@@ -123,7 +108,7 @@ const TabbedSummaryPanel: React.FC<{
           displayedColumnSets={displayedColumnSets}
         />
       )}
-      <SegmentedControl.Root size="2" value={tab} onValueChange={v => setTab(v as SectionKey)}>
+      <SegmentedControl.Root size="2" value={tab} onValueChange={handleTabChange}>
         {tabs.map(t => (
           <SegmentedControl.Item key={t.value} value={t.value}>
             {t.label}
@@ -131,7 +116,6 @@ const TabbedSummaryPanel: React.FC<{
         ))}
       </SegmentedControl.Root>
       <SummaryPanel
-        key={tab}
         defaultColumnSet={defaultColumnSet}
         displayedColumnSets={displayedColumnSets}
         sections={[tab]}
@@ -142,7 +126,7 @@ const TabbedSummaryPanel: React.FC<{
 
 type SidebarSectionKey = MapControlsStore['sidebarPanels'][number];
 
-type SidebarSection = {
+export type SidebarSection = {
   key: SidebarSectionKey;
   label: string;
   description: string;
@@ -152,9 +136,10 @@ type SidebarSection = {
   districtsOnly?: boolean;
 };
 
-/** The old organization: one scrollable accordion of five sections, shared by
- * Draw and Super Draw (the modes gate density inside sections, not layout). */
-const SECTIONS: SidebarSection[] = [
+/** The single registry of sidebar panels, shared by Draw and Super Draw (the
+ * modes gate density inside sections, not layout). The mobile tab view derives
+ * its panel list from this too (see DataPanelUtils). */
+export const SECTIONS: SidebarSection[] = [
   {
     key: 'population',
     label: 'District overview',

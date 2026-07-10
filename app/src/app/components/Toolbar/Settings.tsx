@@ -12,7 +12,8 @@ import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {ACCESS_STATES} from '@constants/document/state';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
-import {overlayMemory} from '@utils/demography/overlayMemory';
+import {OVERLAY_OPACITY} from '@/app/constants/document/limits';
+import {activateOverlayGroup, overlayMemory} from '@utils/demography/overlayMemory';
 
 /** Layers
  * This component is responsible for rendering the layers that can be toggled
@@ -27,13 +28,13 @@ export const ToolSettings: React.FC = () => {
   const boundarySettings = useFeatureFlagStore(state => state.boundarySettings);
   const access = useMapStore(state => state.mapStatus?.access);
   const variable = useDemographyStore(state => state.variable);
-  const setVariable = useDemographyStore(state => state.setVariable);
   const availableMapVariables = useDemographyStore(state => state.availableColumnSets.map);
 
   const [colorModalOpen, setColorModalOpen] = React.useState(false);
 
   // Overlay layer toggles: once a choropleth has been configured, offer to
-  // toggle it (with its last config). Super Draw always offers both types.
+  // toggle it (with its last config). Super Draw offers every group that has
+  // data on this map; a group with no variables gets no checkbox.
   const electionVariables = availableMapVariables[SUMMARY_TYPES.VOTERHISTORY] ?? [];
   const isElectionVariable = electionVariables.some(v => v.value === variable);
   const overlayOn = mapOptions.demographicDisplayMode === DEMOGRAPHIC_MODES.OVERLAY;
@@ -43,29 +44,28 @@ export const ToolSettings: React.FC = () => {
       : overlayMemory.lastGroup
         ? [overlayMemory.lastGroup]
         : []
-  ).map(group => ({
-    group,
-    label: group === SUMMARY_TYPES.VOTERHISTORY ? 'election' : 'demographic',
-    active:
-      overlayOn &&
-      (group === SUMMARY_TYPES.VOTERHISTORY ? isElectionVariable : !isElectionVariable),
-  }));
+  )
+    .filter(group => (availableMapVariables[group] ?? []).length > 0)
+    .map(group => ({
+      group,
+      label: group === SUMMARY_TYPES.VOTERHISTORY ? 'election' : 'demographic',
+      active:
+        overlayOn &&
+        (group === SUMMARY_TYPES.VOTERHISTORY ? isElectionVariable : !isElectionVariable),
+    }));
 
   const toggleOverlayGroup = ({group, active}: {group: SummaryType; active: boolean}) => {
     if (active) {
-      setMapOptions({demographicDisplayMode: undefined});
+      // Also back out of the "Show Thematic Map" preset (which hides painted
+      // districts) — turning the overlay off must never leave a blank map.
+      setMapOptions({
+        demographicDisplayMode: undefined,
+        showPaintedDistricts: true,
+        overlayOpacity: OVERLAY_OPACITY,
+      });
       return;
     }
-    const groupVariables = availableMapVariables[group] ?? [];
-    const nextVariable =
-      overlayMemory.variables[group] ??
-      (groupVariables.length ? groupVariables[0].value : undefined);
-    if (nextVariable) {
-      setVariable(nextVariable);
-      overlayMemory.variables[group] = nextVariable;
-    }
-    overlayMemory.lastGroup = group;
-    setMapOptions({demographicDisplayMode: DEMOGRAPHIC_MODES.OVERLAY});
+    activateOverlayGroup(group);
   };
 
   return (
