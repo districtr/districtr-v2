@@ -3,6 +3,7 @@ import {Flex, Heading, Text, Link, Box} from '@radix-ui/themes';
 import Image from 'next/image';
 import {ContentSection} from '../components/Static/ContentSection';
 import {ResponsivePlaceMap} from '../components/Static/PlaceMap/PlaceMap';
+import {ImportBlockAssignments} from '../components/Static/Interactions/ImportBlockAssignments';
 import {DevTeam} from '../components/Static/Content/DevTeam';
 import {CTA} from '../components/Static/Content/CTA';
 
@@ -137,9 +138,15 @@ const Main: React.FC = () => {
         </Flex>
       </ContentSection>
       <ContentSection title="Where would you like to start?">
-        <Box className="w-full aspect-square mx-auto lg:aspect-video">
-          <ResponsivePlaceMap />
-        </Box>
+        <Flex direction="column" gapY="3">
+          <Text size="5">
+            Pick a state on the map, or import a block-assignment file from another tool.
+          </Text>
+          <ImportBlockAssignments />
+          <Box className="w-full aspect-square mx-auto lg:aspect-video">
+            <ResponsivePlaceMap />
+          </Box>
+        </Flex>
       </ContentSection>
       <ContentSection title="About Districtr">
         <Flex direction="column" gapY="4" py="4">
