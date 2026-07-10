@@ -8,10 +8,6 @@ export interface DataPanelSpec {
   content?: React.ReactNode;
 }
 
-export interface DataPanelsProps {
-  panels?: DataPanelSpec[];
-}
-
 // Derived from the sidebar's SECTIONS registry so desktop and mobile can't
 // drift on labels or content.
 export const defaultPanels: DataPanelSpec[] = SECTIONS.map(section => ({
