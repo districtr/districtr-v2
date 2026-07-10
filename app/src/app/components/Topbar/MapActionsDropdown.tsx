@@ -14,10 +14,10 @@ import {ACCESS_STATES} from '@constants/document/state';
 import {DocumentMetadata} from '@utils/api/apiHandlers/types';
 import {SaveShareModal} from '../Toolbar/SaveShareModal/SaveShareModal';
 import {ToolSettings} from '../Toolbar/Settings';
-import {CloudNotSavedIcon} from './Icons';
 
-/** Consolidated "Map actions" menu for the editor topbar: save, share, export,
- * settings, revert, and reset in one dropdown. */
+/** Consolidated "Map actions" menu for the editor topbar: share, export,
+ * settings, revert, and reset in one dropdown. Saving lives in the topbar
+ * SaveButton. */
 export const MapActionsDropdown: React.FC<{
   handleMetadataChange: (updates: Partial<DocumentMetadata>) => Promise<void>;
 }> = ({handleMetadataChange}) => {
@@ -26,7 +26,7 @@ export const MapActionsDropdown: React.FC<{
   const access = useMapStore(state => state.mapStatus?.access);
   const handleReset = useMapStore(state => state.handleReset);
   const isEditing = useMapControlsStore(state => state.isEditing);
-  const {isOutdated, save} = useMapSaveStatus();
+  const {isOutdated} = useMapSaveStatus();
   const districtRevert = useAssignmentsStore(state => state.handleRevert);
   const coiRevert = useCoiAssignmentsStore(state => state.handleRevert);
   const mapMode = useMapControlsStore(state => state.mapMode);
@@ -74,15 +74,7 @@ export const MapActionsDropdown: React.FC<{
             className="cursor-pointer relative transition-shadow hover:shadow-md"
             data-testid="map-actions-trigger"
           >
-            <span className="relative">
-              <MixIcon className={isEditing && isOutdated ? 'text-red-600' : undefined} />
-              {isEditing && isOutdated && (
-                <span
-                  className="absolute -top-1 -right-1 size-2 rounded-full bg-red-500"
-                  aria-label="Unsaved changes"
-                />
-              )}
-            </span>
+            <MixIcon />
             Map actions
             <CaretDownIcon />
           </Button>
@@ -91,19 +83,6 @@ export const MapActionsDropdown: React.FC<{
           sideOffset={6}
           className="min-w-[var(--radix-dropdown-menu-trigger-width)]"
         >
-          {isEditing && (
-            <DropdownMenu.Item
-              className="cursor-pointer"
-              disabled={!isOutdated}
-              onSelect={() => save()}
-            >
-              Save map
-              <Text size="1">
-                (autosave on)
-              </Text>
-              {isOutdated && <CloudNotSavedIcon className="size-4" />}
-            </DropdownMenu.Item>
-          )}
           <DropdownMenu.Item
             className="cursor-pointer"
             disabled={!mapDocument?.document_id}

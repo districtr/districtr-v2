@@ -100,7 +100,7 @@ export const Topbar: React.FC = () => {
             <MapHeader handleMetadataChange={handleMetadataChange} />
           )}
           <Flex direction="row" align="center" wrap="wrap" gapX="3" gapY="1">
-            {!isEval && <SaveButton />}
+            {!isEval && <SaveButton iconOnly />}
             <ModeSwitcher />
             {!isEval && <MapActionsDropdown handleMetadataChange={handleMetadataChange} />}
           </Flex>
