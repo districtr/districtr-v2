@@ -12,7 +12,6 @@ import {ACCESS_STATES} from '@constants/document/state';
 import {MAP_TYPES} from '@constants/document/types';
 
 export const initSubs = (readOnly = false) => {
-
   const demogInitSub = useDemographyStore.subscribe(
     state => state.getMapRef,
     getMapRef => {
