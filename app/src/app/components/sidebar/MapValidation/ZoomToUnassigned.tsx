@@ -2,7 +2,7 @@ import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useMapStore} from '@/app/store/mapStore';
 import {useUnassignFeaturesStore} from '@/app/store/unassignedFeatures';
 import {formatNumber} from '@/app/utils/numbers';
-import {Button, Flex, Text} from '@radix-ui/themes';
+import {Flex, Text} from '@radix-ui/themes';
 import React, {useEffect, useRef} from 'react';
 import {RefreshButton, TimestampDisplay} from '../../Time/TimestampDisplay';
 import ZoomToFeature from './ZoomToFeature';
@@ -15,19 +15,15 @@ export const ZoomToUnassigned = () => {
     setSelectedIndex,
     unassignedFeatureBboxes,
     hasFoundUnassigned,
-    unassignedOverallBbox,
     reset,
     lastUpdated,
   } = useUnassignFeaturesStore(state => state);
-  const mapRef = useMapStore(state => state.getMapRef());
   const mapDocument = useMapStore(state => state.mapDocument);
   const {summaryStats} = useSummaryStats();
   // prevent duplicate requests to get unassigned features
   const initialMapDocument = useRef(mapDocument);
+  const lastSavedAt = useRef(mapDocument?.updated_at);
   const unassigned = summaryStats?.unassigned;
-
-  const fitToOverallBounds = () =>
-    unassignedOverallBbox && mapRef?.fitBounds(unassignedOverallBbox, {padding: 240});
 
   useEffect(() => {
     if (!unassignedFeatureBboxes.length && !hasFoundUnassigned) {
@@ -45,6 +41,15 @@ export const ZoomToUnassigned = () => {
     }
   }, [mapDocument?.document_id]);
 
+  // Auto-refresh after a save lands while this panel is open (updated_at moves
+  // when assignments are persisted to the cloud).
+  useEffect(() => {
+    if (mapDocument?.updated_at && lastSavedAt.current !== mapDocument.updated_at) {
+      lastSavedAt.current = mapDocument.updated_at;
+      updateUnassignedFeatures();
+    }
+  }, [mapDocument?.updated_at]);
+
   return (
     <Flex direction="column">
       {unassigned !== undefined && (
@@ -54,6 +59,11 @@ export const ZoomToUnassigned = () => {
           numFeatures={unassignedFeatureBboxes.length}
         />
       )}
+      {unassignedFeatureBboxes.length > 0 && (
+        <Text size="1" color="gray" mt="2">
+          Zoom to unassigned area
+        </Text>
+      )}
       <Flex direction="row" align="center" gapX="2" gapY="2" wrap="wrap" justify="start" pt="2">
         <ZoomToFeature
           features={unassignedFeatureBboxes}
@@ -61,9 +71,6 @@ export const ZoomToUnassigned = () => {
           setSelectedIndex={setSelectedIndex}
           padding={240}
         />
-        <Button onClick={fitToOverallBounds} variant="surface" className="block">
-          {`Show ${unassignedFeatureBboxes.length === 1 ? 'unassigned area' : 'all unassigned areas'}`}
-        </Button>
       </Flex>
       <Flex direction="row" gapX="4" pt="4" align="center">
         <RefreshButton onClick={updateUnassignedFeatures} />

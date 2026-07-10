@@ -26,22 +26,19 @@ export const ColorChangeModal: React.FC<{
     setInnerColorScheme(colorScheme);
   }, [colorScheme]);
 
-  const filteredColors = useMemo(
-    () =>
-      DefaultColorScheme.filter(color => !colorScheme.slice(0, numDistricts).includes(color)).slice(
-        0,
-        17
-      ),
-    [innerColorScheme, numDistricts]
-  );
+  // Prefer unused colors first, but always offer the full palette — with many
+  // districts every color may be in use, and an empty picker is a dead end.
+  const swatchColors = useMemo(() => {
+    const used = new Set(innerColorScheme.slice(0, numDistricts));
+    const unused = DefaultColorScheme.filter(color => !used.has(color));
+    return [...unused, ...DefaultColorScheme.filter(color => used.has(color))];
+  }, [innerColorScheme, numDistricts]);
 
   const handleColorPick = (idx: number, color: ColorResult) => {
-    const planColors = innerColorScheme.slice(0, numDistricts);
-    if (planColors.includes(color.hex)) {
-      // reject repeating a district color
-      return;
-    }
-    let dupe = [...planColors];
+    // Preserve the full scheme length — slicing to numDistricts here used to
+    // truncate the saved color_scheme. Duplicates are allowed: with more
+    // districts than palette colors they're unavoidable.
+    const dupe = [...innerColorScheme];
     dupe[colorSelectIndex] = color.hex;
     setInnerColorScheme(dupe);
   };
@@ -102,7 +99,7 @@ export const ColorChangeModal: React.FC<{
               </Heading>
               <TwitterPicker
                 color={innerColorScheme[colorSelectIndex]}
-                colors={filteredColors}
+                colors={swatchColors}
                 onChangeComplete={color => handleColorPick(colorSelectIndex, color)}
                 triangle="hide"
                 className="!shadow-none !w-full"

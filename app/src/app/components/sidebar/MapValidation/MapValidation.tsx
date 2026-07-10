@@ -16,7 +16,7 @@ const mapValidationPanel = [
     component: <Contiguity />,
   },
   {
-    label: 'Unassigned Areas',
+    label: 'Completeness',
     component: <ZoomToUnassigned />,
   },
 ];

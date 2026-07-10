@@ -1,5 +1,5 @@
 import {ChevronLeftIcon, ChevronRightIcon} from '@radix-ui/react-icons';
-import {Box, IconButton, Select} from '@radix-ui/themes';
+import {Button, Flex, Select} from '@radix-ui/themes';
 import {useEffect, useLayoutEffect, useState, Dispatch, SetStateAction} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
 import {Feature, Polygon} from 'geojson';
@@ -79,49 +79,69 @@ export default function ZoomToFeature({
     zoomToFeature(selectedIndex);
   }, [selectedIndex]);
 
+  const selectFeature = (index: number) => {
+    // Allow re-zooming to the currently selected feature: setSelectedIndex is a
+    // no-op when the index is unchanged, so zoom explicitly.
+    if (index === selectedIndex) {
+      zoomToFeature(index);
+    } else {
+      setSelectedIndex(index);
+    }
+  };
+
+  if (!features.length) return null;
+
   return (
-    <div>
+    <Flex direction="column" gap="2">
+      {/* Few areas: pick directly with buttons; many: a dropdown. */}
+      {features.length < 10 ? (
+        <Flex direction="row" gap="1" wrap="wrap">
+          {features.map((_, index) => (
+            <Button
+              key={index}
+              size="1"
+              variant={index === selectedIndex ? 'solid' : 'outline'}
+              onClick={() => selectFeature(index)}
+              className="cursor-pointer"
+            >
+              {index + 1}
+            </Button>
+          ))}
+        </Flex>
+      ) : (
+        <Select.Root value={`${selectedIndex || 0}`}>
+          <Select.Trigger />
+          <Select.Content>
+            {features.map((_, index) => (
+              <Select.Item key={index} value={`${index}`} onMouseDown={() => selectFeature(index)}>
+                {index + 1}
+              </Select.Item>
+            ))}
+          </Select.Content>
+        </Select.Root>
+      )}
       {features.length > 1 && (
-        <Box>
-          <IconButton
+        <Flex direction="row" gap="2">
+          <Button
+            size="1"
             variant="outline"
             onClick={() => changeSelectedIndex(-1)}
             disabled={!selectedIndex || selectedIndex === 0}
+            className="cursor-pointer"
           >
-            <ChevronLeftIcon />
-          </IconButton>
-          <Select.Root value={`${selectedIndex || 0}`}>
-            <Select.Trigger mx="2" />
-            <Select.Content>
-              {features.map((_, index) => (
-                <Select.Item
-                  key={index}
-                  value={`${index}`}
-                  onMouseDown={() => {
-                    // Allow re-zooming to currently selected feature
-                    // The root level onValueChange event won't trigger if the same item is clicked
-                    if (index === selectedIndex) {
-                      zoomToFeature(index);
-                    } else {
-                      setSelectedIndex(index);
-                    }
-                  }}
-                >
-                  {index + 1}
-                </Select.Item>
-              ))}
-            </Select.Content>
-          </Select.Root>
-
-          <IconButton
+            <ChevronLeftIcon /> Previous
+          </Button>
+          <Button
+            size="1"
             variant="outline"
             onClick={() => changeSelectedIndex(1)}
             disabled={selectedIndex === features.length - 1}
+            className="cursor-pointer"
           >
-            <ChevronRightIcon />
-          </IconButton>
-        </Box>
+            Next <ChevronRightIcon />
+          </Button>
+        </Flex>
       )}
-    </div>
+    </Flex>
   );
 }
