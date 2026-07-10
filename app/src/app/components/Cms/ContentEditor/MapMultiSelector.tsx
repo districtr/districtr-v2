@@ -18,6 +18,7 @@ export const MapMultiSelector: React.FC = () => {
 
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(-1);
+  const listboxId = 'map-multi-selector-listbox';
 
   const suggestions = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -84,7 +85,12 @@ export const MapMultiSelector: React.FC = () => {
           onKeyDown={handleKeyDown}
           placeholder="Search maps by name…"
           role="combobox"
+          aria-autocomplete="list"
+          aria-controls={listboxId}
           aria-expanded={suggestions.length > 0}
+          aria-activedescendant={
+            activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined
+          }
         >
           <TextField.Slot>
             <MagnifyingGlassIcon />
@@ -92,12 +98,14 @@ export const MapMultiSelector: React.FC = () => {
         </TextField.Root>
         {suggestions.length > 0 && (
           <ul
+            id={listboxId}
             role="listbox"
             className="absolute top-full left-0 right-0 z-10 mt-1 max-h-60 overflow-auto rounded-md border border-gray-200 bg-white shadow-lg"
           >
             {suggestions.map((map, i) => (
               <li
                 key={map.districtr_map_slug}
+                id={`${listboxId}-option-${i}`}
                 role="option"
                 aria-selected={i === activeIndex}
                 className={`cursor-pointer px-3 py-2 text-sm ${
