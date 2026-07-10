@@ -4,8 +4,10 @@ import * as Tooltip from '@radix-ui/react-tooltip';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import React, {useState} from 'react';
 import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
-import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useActiveTools} from '@/app/components/Toolbar/ToolUtils';
+
+// Fixed button size; the old user-configurable size picker was removed.
+const TOOLBAR_SIZE = 40;
 
 export const ToolButtons: React.FC<{
   showShortcuts: boolean;
@@ -14,7 +16,6 @@ export const ToolButtons: React.FC<{
   const activeTool = useMapControlsStore(state => state.activeTool);
   const setActiveTool = useMapControlsStore(state => state.setActiveTool);
   const [activeTooltip, setActiveTooltip] = useState<ActiveTool | null>(null);
-  const toolbarSize = useToolbarStore(state => state.toolbarSize);
   const activeTools = useActiveTools();
   return (
     <Flex
@@ -53,8 +54,8 @@ export const ToolButtons: React.FC<{
                     }
                   }}
                   style={{
-                    width: toolbarSize,
-                    height: toolbarSize,
+                    width: TOOLBAR_SIZE,
+                    height: TOOLBAR_SIZE,
                   }}
                   variant={tool.variant || activeTool === tool.mode ? 'solid' : 'surface'}
                   color={tool.color}
@@ -64,8 +65,8 @@ export const ToolButtons: React.FC<{
                   {/* iconStyle (e.g. redo's mirror transform) applies to the icon only —
                       on the button it would mirror the corner rounding too. */}
                   <IconComponent
-                    width={toolbarSize * 0.4}
-                    height={toolbarSize * 0.4}
+                    width={TOOLBAR_SIZE * 0.4}
+                    height={TOOLBAR_SIZE * 0.4}
                     style={tool.iconStyle}
                   />
                 </IconButton>

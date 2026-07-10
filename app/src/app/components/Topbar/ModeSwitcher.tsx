@@ -18,8 +18,6 @@ import {routeForMode} from '@constants/document/routes';
 import {ACCESS_STATES} from '@constants/document/state';
 import {useEditableDocId} from '@/app/hooks/useEditableDocId';
 import {useToolbarStore} from '@/app/store/toolbarStore';
-import {ACTIVE_TOOLS} from '@constants/map/tools';
-import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {patchSharePlan} from '@/app/utils/api/apiHandlers/patchSharePlan';
 import {idb} from '@/app/utils/idb/idb';
@@ -184,19 +182,12 @@ export const ModeSwitcher: React.FC = () => {
   const handleSelect = async (mode: ViewMode) => {
     if (mode === currentMode || isDisabled(mode)) return;
     // Draw / Super Draw: same edit route, different client-side toolset flag.
+    // setSuperDraw handles backing out of super-only tools/settings on exit.
     if (isDrawMode(mode)) {
-      setSuperDraw(mode === 'superdraw');
-      if (mode === 'draw') {
-        // Leaving Super Draw: back out of super-only active state so the user
-        // isn't stranded on a hidden tool or display mode.
-        const {activeTool, setActiveTool, mapOptions, setMapOptions} =
-          useMapControlsStore.getState();
-        if (activeTool === ACTIVE_TOOLS.SHATTER || activeTool === ACTIVE_TOOLS.INSPECTOR) {
-          setActiveTool(ACTIVE_TOOLS.PAN);
-        }
-        if (mapOptions.demographicDisplayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE) {
-          setMapOptions({demographicDisplayMode: DEMOGRAPHIC_MODES.OVERLAY});
-        }
+      // Only flip (and persist) the mode once we can actually enter the editor —
+      // a cancelled password prompt must not leave superDraw switched on.
+      if (isEditing || editDocId) {
+        setSuperDraw(mode === 'superdraw');
       }
       // Already editing: pure client toggle, no navigation.
       if (isEditing) return;
