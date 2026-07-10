@@ -1,4 +1,3 @@
-import {getQueriesResultsSubs} from '@utils/api/queries';
 import {useDemographyStore} from './demography/demographyStore';
 import {useFeatureFlagStore} from './featureFlagStore';
 import {getMapEditSubs} from './mapEditSubs';
@@ -13,8 +12,6 @@ import {ACCESS_STATES} from '@constants/document/state';
 import {MAP_TYPES} from '@constants/document/types';
 
 export const initSubs = (readOnly = false) => {
-  // these need to initialize after the map store
-  const querySubs = getQueriesResultsSubs(useMapStore);
 
   const demogInitSub = useDemographyStore.subscribe(
     state => state.getMapRef,
@@ -133,7 +130,6 @@ export const initSubs = (readOnly = false) => {
   }
 
   const unsub = () => {
-    querySubs();
     demogInitSub();
     demogMapDocumentSub();
     clearTemporalOnDocChangeSub();

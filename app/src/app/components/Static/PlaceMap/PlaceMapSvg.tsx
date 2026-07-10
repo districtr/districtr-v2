@@ -1,9 +1,9 @@
 'use client';
 import React from 'react';
-import {AlbersUsa} from '@visx/geo';
-import {Text} from '@radix-ui/themes';
-import {usePlaceMapStore, FeatureShape} from './utils';
-import {US_STATE_META} from '@/app/constants/meta/usStates';
+import { AlbersUsa } from '@visx/geo';
+import { Text } from '@radix-ui/themes';
+import { usePlaceMapStore, FeatureShape } from './utils';
+import { US_STATE_META } from '@/app/constants/meta/usStates';
 
 export const background = '#FFFFFF';
 export const FILL_COLOR = '#0099cd';
@@ -12,15 +12,15 @@ export const HOVER_COLOR = '#006b9c';
 export const PlaceMapSvg: React.FC<{
   width: number;
   height: number;
-  onHover: (hovered: {name: string; abbr: string} | null) => void;
+  onHover: (hovered: { name: string; abbr: string } | null) => void;
   onClick: (name: string) => void;
-}> = ({width, height, onHover, onClick}) => {
+}> = ({ width, height, onHover, onClick }) => {
   const centerX = width / 2;
   const centerY = width < 400 ? height / 3 : height / 2;
   const scale = Math.min(width * 1.3, height * 1.7);
   const unitedStates = usePlaceMapStore(state => state.data);
   const getData = usePlaceMapStore(state => state.getData);
-  const mapsBySlug = usePlaceMapStore(state => state.mapsBySlug);
+
   if (!unitedStates) {
     getData();
     return <Text>Loading...</Text>;
@@ -32,18 +32,16 @@ export const PlaceMapSvg: React.FC<{
         scale={scale}
         translate={[centerX, centerY - 25]}
       >
-        {({features}) =>
-          features.map(({feature, path}, i) => {
+        {({ features }) =>
+          features.map(({ feature, path }, i) => {
             // @ts-ignore
-            const entry = US_STATE_META.find(({FIPS}) => FIPS === feature.id);
+            const entry = US_STATE_META.find(({ FIPS }) => FIPS === feature.id);
             if (!entry) return null;
-            const slug = entry?.NAME?.toLowerCase().replaceAll(' ', '-');
-            const fillColor = entry && mapsBySlug?.[slug] ? `fill-[#0099cd]` : `fill-gray-200`;
             return (
               <path
                 key={`map-feature-${i}`}
                 d={path || ''}
-                className={`transition-all cursor-pointer ${fillColor} hover:fill-[#006b9c]`}
+                className={`transition-all cursor-pointer fill-[#0099cd] hover:fill-[#006b9c]`}
                 stroke={background}
                 strokeWidth={1}
                 onMouseEnter={() =>

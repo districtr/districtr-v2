@@ -1,43 +1,31 @@
-import {listCMSContent, PlacesCMSContent} from '@/app/utils/api/cms';
-import {GEODATA_URL} from '@/app/utils/api/constants';
+import { listCMSContent, PlacesCMSContent } from '@/app/utils/api/cms';
+import { GEODATA_URL } from '@/app/utils/api/constants';
 import * as topojson from 'topojson-client';
-import {create} from 'zustand';
+import { create } from 'zustand';
 
 export interface FeatureShape {
   type: 'Feature';
   id: string;
-  geometry: {coordinates: [number, number][][]; type: 'Polygon'};
-  properties: {name: string};
+  geometry: { coordinates: [number, number][][]; type: 'Polygon' };
+  properties: { name: string };
 }
 
 export const usePlaceMapStore = create<{
   data: FeatureShape[] | null;
   getData: () => void;
-  hovered: {name: string; abbr: string} | null;
-  setHovered: (hovered: {name: string; abbr: string} | null) => void;
-  mapsBySlug: Record<string, number>;
+  hovered: { name: string; abbr: string } | null;
+  setHovered: (hovered: { name: string; abbr: string } | null) => void;
 }>(set => ({
   data: null,
-  mapsBySlug: {},
   getData: async () => {
-    const [topology, content] = await Promise.all([
-      fetch(`${GEODATA_URL}/sprites/usa-topo.json`).then(r => r.json()),
-      listCMSContent('places') as Promise<PlacesCMSContent[]>,
-    ]);
-    const mapsBySlug = content?.reduce(
-      (acc, place) => {
-        acc[place.slug] = place.districtr_map_slugs?.length || 0;
-        return acc;
-      },
-      {} as Record<string, number>
-    );
+    const topology = await fetch(`${GEODATA_URL}/sprites/usa-topo.json`).then(r => r.json())
     // @ts-expect-error
-    const {features: unitedStates} = topojson.feature(topology, topology.objects.states) as {
+    const { features: unitedStates } = topojson.feature(topology, topology.objects.states) as {
       type: 'FeatureCollection';
       features: FeatureShape[];
     };
-    set({data: unitedStates, mapsBySlug});
+    set({ data: unitedStates });
   },
   hovered: null,
-  setHovered: hovered => set({hovered}),
+  setHovered: hovered => set({ hovered }),
 }));

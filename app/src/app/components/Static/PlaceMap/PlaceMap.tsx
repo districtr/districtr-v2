@@ -1,20 +1,19 @@
 'use client';
-import React, {useState} from 'react';
-import {useParentSize} from '@visx/responsive';
-import {Box, Button, Flex, Select, Link} from '@radix-ui/themes';
-import {useRouter} from 'next/navigation';
-import {PlaceMapSvg} from './PlaceMapSvg';
-import {US_STATE_META} from '@/app/constants/meta/usStates';
-import {usePlaceMapStore} from './utils';
+import React, { useState } from 'react';
+import { useParentSize } from '@visx/responsive';
+import { Box, Button, Flex, Select, Link } from '@radix-ui/themes';
+import { useRouter } from 'next/navigation';
+import { PlaceMapSvg } from './PlaceMapSvg';
+import { US_STATE_META } from '@/app/constants/meta/usStates';
+import { usePlaceMapStore } from './utils';
 
 export const background = '#FFFFFF';
 export const FILL_COLOR = '#0099cd';
 export const HOVER_COLOR = '#006b9c';
 
 export const colors: string[] = ['#744DCA', '#3D009C', '#9020FF', '#C630FD'];
-export const PlaceSelector: React.FC<{onChange: (abbr: string) => void}> = ({onChange}) => {
+export const PlaceSelector: React.FC<{ onChange: (abbr: string) => void }> = ({ onChange }) => {
   const hovered = usePlaceMapStore(state => state.hovered);
-  const mapsBySlug = usePlaceMapStore(state => state.mapsBySlug);
   return (
     <Select.Root size="3" onValueChange={onChange} value="">
       <Select.Trigger
@@ -27,17 +26,16 @@ export const PlaceSelector: React.FC<{onChange: (abbr: string) => void}> = ({onC
             ...place,
             slug: place.NAME.toLowerCase().replaceAll(' ', '-'),
           }))
-          .map((place: (typeof US_STATE_META)[number] & {slug: string}, i: number) => (
+          .map((place: (typeof US_STATE_META)[number] & { slug: string }, i: number) => (
             <Select.Item value={place.slug} key={i}>
-              {place.NAME}{' '}
-              {`${place.NAME && mapsBySlug?.[place.slug] ? `(${mapsBySlug?.[place.slug]} map${mapsBySlug?.[place.slug] > 1 ? 's' : ''})` : ``}`}
+              {place.NAME}
             </Select.Item>
           ))}
       </Select.Content>
     </Select.Root>
   );
 };
-export const PlaceMap: React.FC<{width: number; height: number}> = ({width, height}) => {
+export const PlaceMap: React.FC<{ width: number; height: number }> = ({ width, height }) => {
   const setHovered = usePlaceMapStore(state => state.setHovered);
   const router = useRouter();
   const handleRoute = (name: string) =>
@@ -65,7 +63,7 @@ export const PlaceMap: React.FC<{width: number; height: number}> = ({width, heig
 };
 
 export const ResponsivePlaceMap: React.FC = () => {
-  const {parentRef, width, height} = useParentSize();
+  const { parentRef, width, height } = useParentSize();
 
   return (
     <Box

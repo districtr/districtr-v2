@@ -206,11 +206,6 @@ export interface MapStore {
   showSaveConflictModal: boolean;
   setShowSaveConflictModal: (show: boolean) => void;
   // MAP DOCUMENT
-  /**
-   * Available districtr views
-   */
-  mapViews: Partial<QueryObserverResult<DistrictrMap[], Error>>;
-  setMapViews: (maps: MapStore['mapViews']) => void;
   mapDocument: DocumentObject | null;
   updated: {
     metadata: boolean;
@@ -394,10 +389,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     showSaveConflictModal: false,
 
     setShowSaveConflictModal: show => set({showSaveConflictModal: show}),
-
-    mapViews: {isPending: true},
-
-    setMapViews: mapViews => set({mapViews}),
 
     mapDocument: null,
 
