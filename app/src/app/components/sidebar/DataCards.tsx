@@ -119,7 +119,7 @@ const SECTIONS: SidebarSection[] = [
         tabs={[
           {value: 'evaluation', label: 'Table'},
           {value: 'map', label: 'Map'},
-          {value: 'coalition', label: 'Coalition'},
+          {value: 'coalition', label: 'Coalition Builder'},
         ]}
         mapGroup={SUMMARY_TYPES.TOTPOP}
       />
