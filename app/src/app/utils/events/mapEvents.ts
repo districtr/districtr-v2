@@ -203,6 +203,10 @@ export const handleMapMouseUp = (e: MapLayerMouseEvent | MapLayerTouchEvent) => 
   }
 };
 
+// Cleanup for an in-flight middle-mouse pan; module-level so a second
+// middle-click can never stack a duplicate listener pair.
+let endMiddleMousePan: (() => void) | null = null;
+
 export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const mapRef = e.target;
   const mapControls = useMapControlsStore.getState();
@@ -213,17 +217,28 @@ export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) =
   if (originalEvent?.button === 1) {
     // Suppress the browser's middle-click autoscroll and any tool behavior.
     originalEvent.preventDefault();
+    endMiddleMousePan?.();
     let last = originalEvent;
     const onMove = (me: MouseEvent) => {
+      // A release outside the window never delivers a mouseup; the buttons
+      // bitmask (4 = middle) tells us the drag ended, so end the pan here.
+      if (!(me.buttons & 4)) {
+        endMiddleMousePan?.();
+        return;
+      }
       mapRef.panBy([last.clientX - me.clientX, last.clientY - me.clientY], {animate: false});
       last = me;
     };
-    const onUp = () => {
+    const onUp = () => endMiddleMousePan?.();
+    endMiddleMousePan = () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('blur', onUp);
+      endMiddleMousePan = null;
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
+    window.addEventListener('blur', onUp);
     return;
   }
 
