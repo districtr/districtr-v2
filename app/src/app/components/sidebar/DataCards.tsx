@@ -3,10 +3,10 @@ import {Button, Flex, SegmentedControl, Text} from '@radix-ui/themes';
 import React, {useEffect, useState} from 'react';
 import {AnimatePresence, motion} from 'framer-motion';
 import {
-  BarChartIcon,
   CheckCircledIcon,
   ChevronDownIcon,
   ColorWheelIcon,
+  Component1Icon,
   LayersIcon,
   PersonIcon,
   PieChartIcon,
@@ -146,16 +146,16 @@ type SidebarSection = {
 const SECTIONS: SidebarSection[] = [
   {
     key: 'population',
-    label: 'District Overview',
-    description: 'Population by district, deviation, and unassigned people',
-    icon: BarChartIcon,
+    label: 'District overview',
+    description: 'Population, district notes, deviation',
+    icon: Component1Icon,
     content: <PopulationPanel />,
     districtsOnly: true,
   },
   {
     key: 'demography',
     label: 'Demographics',
-    description: 'Race and population tables, maps, and coalitions',
+    description: 'Demographic tables and map layers',
     icon: PersonIcon,
     content: (
       <TabbedSummaryPanel
@@ -173,7 +173,7 @@ const SECTIONS: SidebarSection[] = [
   {
     key: 'election',
     label: 'Elections',
-    description: 'Past election results by district, as a table or map',
+    description: 'Prior election data tables and map layers',
     icon: PieChartIcon,
     content: (
       <TabbedSummaryPanel
@@ -191,15 +191,15 @@ const SECTIONS: SidebarSection[] = [
   {
     key: 'mapValidation',
     label: 'Validity check',
-    description: 'Check contiguity and find unassigned areas',
+    description: 'Contiguity and completeness',
     icon: CheckCircledIcon,
     content: <MapValidation />,
     districtsOnly: true,
   },
   {
     key: 'overlays',
-    label: 'Boundaries and areas',
-    description: 'County boundaries and reference layers',
+    label: 'Overlays',
+    description: 'Boundaries and areas',
     icon: LayersIcon,
     content: <OverlaysPanel />,
   },

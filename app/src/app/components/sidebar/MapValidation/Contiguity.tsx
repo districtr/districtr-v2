@@ -4,7 +4,6 @@ import {Blockquote, Box, Flex, Table, Text} from '@radix-ui/themes';
 import {useQuery} from '@tanstack/react-query';
 import {useEffect, useMemo} from 'react';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
-import {RefreshButton, TimestampDisplay} from '@/app/components/Time/TimestampDisplay';
 import ContiguityDetail from './ContiguityDetail';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 
@@ -102,10 +101,6 @@ export const Contiguity = () => {
           ))}
         </Table.Body>
       </Table.Root>
-      <Flex direction="row" gapX="4" pt="4" align="center">
-        <RefreshButton onClick={refetch} />
-        {Boolean(lastUpdatedContiguity) && <TimestampDisplay timestamp={lastUpdatedContiguity} />}
-      </Flex>
     </Box>
   );
 };
