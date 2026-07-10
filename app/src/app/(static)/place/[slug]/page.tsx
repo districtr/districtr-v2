@@ -5,6 +5,7 @@ import {PlaceMapGrid} from '@/app/components/Static/Interactions/PlaceMapGrid';
 import {getAvailableDistrictrMaps} from '@/app/utils/api/apiHandlers/getAvailableDistrictrMaps';
 import {getCMSContent} from '@/app/utils/api/cms';
 import {Flex, Heading} from '@radix-ui/themes';
+import {ImportBlockAssignments} from '@/app/components/Static/Interactions/ImportBlockAssignments';
 import {cookies} from 'next/headers';
 
 export const revalidate = 3600;
@@ -43,6 +44,9 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
       />
       <ContentSection title="Draw a plan from scratch">
         {Boolean(availableMaps?.length) && <PlaceMapGrid maps={availableMaps!} />}
+        <Flex direction="column" align="start" pt="3">
+          <ImportBlockAssignments />
+        </Flex>
       </ContentSection>
 
       <RichTextRenderer content={cmsData.content.published_content.body} className="my-4" />

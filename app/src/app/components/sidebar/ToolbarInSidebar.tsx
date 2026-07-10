@@ -17,7 +17,7 @@ export const ToolbarInSidebar = () => {
       className={`my-1 flex-none ${activeTool !== ACTIVE_TOOLS.PAN && 'border-b-[1px] border-gray-300'}`}
     >
       <Toolbar />
-      <Flex justify="end" py="2">
+      <Flex justify="start" py="2">
         {/* Visual settings live next to the toolbar as a dropdown, not a modal. */}
         <Popover.Root>
           <Popover.Trigger>
@@ -37,7 +37,7 @@ export const ToolbarInSidebar = () => {
             size="1"
             maxHeight="70vh"
             maxWidth="min(90vw, 320px)"
-            align="end"
+            align="start"
             className="overflow-y-auto"
           >
             <ToolSettings />
