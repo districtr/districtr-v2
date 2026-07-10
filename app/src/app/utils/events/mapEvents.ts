@@ -208,6 +208,25 @@ export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) =
   const mapControls = useMapControlsStore.getState();
   const activeTool = mapControls.activeTool;
 
+  // Middle-mouse drag always pans the map, regardless of the active tool.
+  const originalEvent = 'button' in e.originalEvent ? (e.originalEvent as MouseEvent) : null;
+  if (originalEvent?.button === 1) {
+    // Suppress the browser's middle-click autoscroll and any tool behavior.
+    originalEvent.preventDefault();
+    let last = originalEvent;
+    const onMove = (me: MouseEvent) => {
+      mapRef.panBy([last.clientX - me.clientX, last.clientY - me.clientY], {animate: false});
+      last = me;
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return;
+  }
+
   if (activeTool === ACTIVE_TOOLS.PAN) {
     // enable drag pan
     mapRef.dragPan.enable();

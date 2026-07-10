@@ -60,20 +60,12 @@ body {
 
 .cursor-pan {
 }
-.cursor-brush canvas {
-  cursor:
-    url(/paintbrush.png) 20 20,
-    none;
-}
+.cursor-brush canvas,
 .cursor-eraser canvas {
-  cursor:
-    url(/eraser.png) 16 16,
-    pointer;
+  cursor: crosshair;
 }
 .cursor-shatter canvas {
-  cursor:
-    url(/break.png) 12 12,
-    pointer;
+  cursor: pointer;
 }
 
 @media print {
