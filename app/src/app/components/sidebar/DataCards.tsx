@@ -15,6 +15,7 @@ import OverlaysPanel from './OverlaysPanel';
 import {MapValidation} from './MapValidation/MapValidation';
 import {SummaryPanel, type SectionKey} from './SummaryPanel';
 import {MapControlsStore, useMapControlsStore} from '@store/mapControlsStore';
+import {useToolbarStore} from '@store/toolbarStore';
 import {useDemographyStore} from '@store/demography/demographyStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
@@ -43,6 +44,10 @@ const useMapPanelLifecycle = (mapGroup: SummaryType | undefined) => {
       .getState()
       .setMapOptions({demographicDisplayMode: DEMOGRAPHIC_MODES.OVERLAY});
     return () => {
+      // Super Draw keeps the choropleth up when leaving the Map tab (power
+      // users manage it via the display-mode buttons); only simplified Draw
+      // auto-cleans it.
+      if (useToolbarStore.getState().superDraw) return;
       if (claim === mapPanelClaim) {
         useMapControlsStore.getState().setMapOptions({demographicDisplayMode: undefined});
       }
@@ -62,7 +67,7 @@ const TabbedSummaryPanel: React.FC<{
   useMapPanelLifecycle(tab === 'map' ? mapGroup : undefined);
   return (
     <Flex direction="column" gap="2">
-      <SegmentedControl.Root size="1" value={tab} onValueChange={v => setTab(v as SectionKey)}>
+      <SegmentedControl.Root size="2" value={tab} onValueChange={v => setTab(v as SectionKey)}>
         {tabs.map(t => (
           <SegmentedControl.Item key={t.value} value={t.value}>
             {t.label}
