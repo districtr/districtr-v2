@@ -100,7 +100,8 @@ export const Uploader: React.FC<{
         onDrop={handleDrop}
       >
         <Text size="2" color="gray">
-          Upload a CSV with 2020 census block GEOIDs in the first column and District zone numbers in the second column.
+          Upload a CSV with 2020 census block GEOIDs in the first column and District zone numbers
+          in the second column.
         </Text>
         <input
           type="file"
