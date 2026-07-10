@@ -1,5 +1,4 @@
 import {EMPTY_FT_COLLECTION, ZONE_LABEL_STYLE} from '@/app/constants/map/layerStyle';
-import {HIDE_ALL_FILTER} from '@/app/constants/map/layerFilters';
 import {
   SELECTION_POINTS_SOURCE_ID,
   SELECTION_POINTS_SOURCE_ID_CHILD,
@@ -65,7 +64,7 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
         return ['literal', true] as FilterSpecification;
       }
     }
-  }, [child, !child && shatterIds, child && captiveIds]);
+  }, [child, showPopulationNumbers, !child && shatterIds, child && captiveIds]);
 
   // Use the shared source from PointSelectionLayer (parent layer)
   if (!child && !showPopulationNumbers) {

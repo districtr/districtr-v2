@@ -100,9 +100,11 @@ const InfoText: React.FC<{
     );
   }
   if (hasFoundUnassigned && !numFeatures) {
-    <Text size="2" my="1">
-      No unassigned areas found.
-    </Text>;
+    return (
+      <Text size="2" my="1">
+        No unassigned areas found.
+      </Text>
+    );
   }
   const isPlural = numFeatures > 1 || numFeatures === 0;
   return (
