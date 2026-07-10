@@ -89,7 +89,6 @@ export const numberFormats: Record<EvalMode, NumberFormat> = {
   [EVAL_MODES.SHARE]: NUMBER_FORMATS.PERCENT,
   [EVAL_MODES.COUNT]: NUMBER_FORMATS.STRING,
   [EVAL_MODES.TOTPOP]: NUMBER_FORMATS.PERCENT,
-  [EVAL_MODES.PARTISAN]: NUMBER_FORMATS.PARTISAN,
 };
 
 export const summaryStatLabels: Array<{

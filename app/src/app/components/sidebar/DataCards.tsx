@@ -22,6 +22,26 @@ import {MAP_MODES} from '@constants/map/mode';
 import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 
+/** Shared height-collapse for the accordion sections and coalition expander. */
+const AnimatedCollapse: React.FC<{open: boolean; children: React.ReactNode}> = ({
+  open,
+  children,
+}) => (
+  <AnimatePresence initial={false}>
+    {open && (
+      <motion.div
+        initial={{height: 0, opacity: 0}}
+        animate={{height: 'auto', opacity: 1}}
+        exit={{height: 0, opacity: 0}}
+        transition={{duration: 0.2, ease: 'easeOut'}}
+        className="overflow-hidden"
+      >
+        {children}
+      </motion.div>
+    )}
+  </AnimatePresence>
+);
+
 /**
  * Entering a Map tab turns the choropleth overlay on with the last-used (or
  * default) settings for that column group, and remembers the config for the
@@ -73,23 +93,13 @@ const CoalitionExpander: React.FC<{
           />
         </Flex>
       </Button>
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            initial={{height: 0, opacity: 0}}
-            animate={{height: 'auto', opacity: 1}}
-            exit={{height: 0, opacity: 0}}
-            transition={{duration: 0.2, ease: 'easeOut'}}
-            className="overflow-hidden"
-          >
-            <SummaryPanel
-              defaultColumnSet={defaultColumnSet}
-              displayedColumnSets={displayedColumnSets}
-              sections={['coalition']}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <AnimatedCollapse open={open}>
+        <SummaryPanel
+          defaultColumnSet={defaultColumnSet}
+          displayedColumnSets={displayedColumnSets}
+          sections={['coalition']}
+        />
+      </AnimatedCollapse>
     </Flex>
   );
 };
@@ -237,19 +247,9 @@ const AccordionSection: React.FC<{
           />
         </Flex>
       </button>
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            initial={{height: 0, opacity: 0}}
-            animate={{height: 'auto', opacity: 1}}
-            exit={{height: 0, opacity: 0}}
-            transition={{duration: 0.2, ease: 'easeOut'}}
-            className="overflow-hidden"
-          >
-            <div className="px-3 pb-3">{section.content}</div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <AnimatedCollapse open={open}>
+        <div className="px-3 pb-3">{section.content}</div>
+      </AnimatedCollapse>
     </div>
   );
 };

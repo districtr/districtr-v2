@@ -1,7 +1,7 @@
 'use client';
 import React, {useState} from 'react';
-import {Box, Button, Dialog, DropdownMenu, Flex, IconButton, Text, Tooltip} from '@radix-ui/themes';
-import {CaretDownIcon, Cross2Icon, MixIcon} from '@radix-ui/react-icons';
+import {Button, Dialog, DropdownMenu, Flex, Text, Tooltip} from '@radix-ui/themes';
+import {CaretDownIcon, MixIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';

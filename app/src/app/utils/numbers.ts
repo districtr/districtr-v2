@@ -37,16 +37,12 @@ export const formatNumber = (value: number | undefined, format: NumberFormat) =>
   switch (format) {
     case NUMBER_FORMATS.PERCENT:
       return percentFormatter.format(value);
-    case NUMBER_FORMATS.STRING: // Added case for 'string'
-      return stringFormatter(value); // Format as string
-    case NUMBER_FORMATS.COMPACT: // Added case for 'compact'
-      return compactFormatter.format(value); // Format as compact
-    case NUMBER_FORMATS.COMPACT3: // Added case for 'compact'
-      return compact3Formatter.format(value); // Format as compact
-    case NUMBER_FORMATS.PARTISAN:
-      const party = value > 0 ? 'D' : 'R';
-      const percentFormat = percentFormatter.format(Math.abs(value));
-      return `${party} +${percentFormat}`;
+    case NUMBER_FORMATS.STRING:
+      return stringFormatter(value);
+    case NUMBER_FORMATS.COMPACT:
+      return compactFormatter.format(value);
+    case NUMBER_FORMATS.COMPACT3:
+      return compact3Formatter.format(value);
     case NUMBER_FORMATS.STANDARD:
       return standardFormatter.format(value);
     case NUMBER_FORMATS.SIGNED_PCT:
