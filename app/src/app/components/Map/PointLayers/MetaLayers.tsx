@@ -89,12 +89,12 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
           ['zoom'],
           0,
           0,
-          10, // z 10 font 8
-          8,
-          12,
+          10, // readable as soon as the labels appear
+          11,
           12,
           14,
-          14,
+          15, // keeps growing when zoomed in close
+          18,
         ],
         'text-anchor': 'center',
         'text-offset': [0, 0],

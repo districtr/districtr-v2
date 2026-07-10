@@ -15,7 +15,6 @@ import OverlaysPanel from './OverlaysPanel';
 import {MapValidation} from './MapValidation/MapValidation';
 import {SummaryPanel, type SectionKey} from './SummaryPanel';
 import {MapControlsStore, useMapControlsStore} from '@store/mapControlsStore';
-import {activateOverlayGroup} from '@utils/demography/overlayMemory';
 import {MAP_MODES} from '@constants/map/mode';
 import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
 
@@ -88,18 +87,11 @@ const TabbedSummaryPanel: React.FC<{
   defaultColumnSet: SummaryType;
   displayedColumnSets: Array<SummaryType>;
   tabs: Array<{value: SectionKey; label: string}>;
-  mapGroup: SummaryType;
   withCoalition?: boolean;
-}> = ({defaultColumnSet, displayedColumnSets, tabs, mapGroup, withCoalition}) => {
+}> = ({defaultColumnSet, displayedColumnSets, tabs, withCoalition}) => {
   const [tab, setTab] = useState<SectionKey>(tabs[0].value);
-  const handleTabChange = (v: string) => {
-    setTab(v as SectionKey);
-    // Opening the Map tab turns the choropleth overlay on with the last-used
-    // (or default) settings for this column group. The overlay intentionally
-    // stays on when navigating away — it's turned off from the Visual settings
-    // toggles or the display-mode control.
-    if (v === 'map') activateOverlayGroup(mapGroup);
-  };
+  // Opening the Map Layer tab shows the choropleth controls but doesn't turn
+  // the overlay on — the user enables it from the display-mode control.
   return (
     <Flex direction="column" gap="2">
       {withCoalition && (
@@ -108,7 +100,7 @@ const TabbedSummaryPanel: React.FC<{
           displayedColumnSets={displayedColumnSets}
         />
       )}
-      <SegmentedControl.Root size="2" value={tab} onValueChange={handleTabChange}>
+      <SegmentedControl.Root size="2" value={tab} onValueChange={v => setTab(v as SectionKey)}>
         {tabs.map(t => (
           <SegmentedControl.Item key={t.value} value={t.value}>
             {t.label}
@@ -161,7 +153,6 @@ export const SECTIONS: SidebarSection[] = [
           {value: 'evaluation', label: 'Table'},
           {value: 'map', label: 'Map Layer'},
         ]}
-        mapGroup={SUMMARY_TYPES.TOTPOP}
         withCoalition
       />
     ),
@@ -179,7 +170,6 @@ export const SECTIONS: SidebarSection[] = [
           {value: 'evaluation', label: 'Table'},
           {value: 'map', label: 'Map Layer'},
         ]}
-        mapGroup={SUMMARY_TYPES.VOTERHISTORY}
       />
     ),
     districtsOnly: true,
