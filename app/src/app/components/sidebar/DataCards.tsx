@@ -209,7 +209,7 @@ const SECTIONS: SidebarSection[] = [
   },
   {
     key: 'overlays',
-    label: 'Overlays',
+    label: 'Boundaries and areas',
     description: 'Boundaries and areas',
     icon: LayersIcon,
     content: <OverlaysPanel />,
