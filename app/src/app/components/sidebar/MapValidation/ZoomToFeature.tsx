@@ -3,6 +3,23 @@ import {Button, Flex, Select} from '@radix-ui/themes';
 import {useEffect, useLayoutEffect, useState, Dispatch, SetStateAction} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
 import {Feature, Polygon} from 'geojson';
+import type {Map as MapLibreMap, PaddingOptions} from 'maplibre-gl';
+
+/**
+ * Clamp fitBounds padding to a quarter of each canvas dimension, so at least half the
+ * canvas remains for the fitted bounds. Unclamped, a fixed padding can eat most of a
+ * small canvas, forcing extreme zoom-outs or a no-op.
+ */
+export const getFitBoundsPadding = (
+  map: MapLibreMap | null | undefined,
+  desiredPadding: number
+): PaddingOptions | number => {
+  const canvas = map?.getCanvas();
+  if (!canvas) return desiredPadding;
+  const horizontal = Math.max(0, Math.min(desiredPadding, Math.floor(canvas.clientWidth / 4)));
+  const vertical = Math.max(0, Math.min(desiredPadding, Math.floor(canvas.clientHeight / 4)));
+  return {top: vertical, bottom: vertical, left: horizontal, right: horizontal};
+};
 
 interface ZoomToFeatureProps {
   selectedIndex: number | null;
@@ -50,7 +67,14 @@ export default function ZoomToFeature({
     } else {
       return;
     }
-    const fitOptions = padding ? {padding} : undefined;
+    // Bboxes are centroid-derived, so a single-unit component collapses to a point and
+    // would zoom to street level without the cap.
+    // TODO: the cap also blocks legitimate street-level zooms; remove it once the points
+    // parquets carry per-unit bbox/size columns.
+    const fitOptions = {
+      maxZoom: 10,
+      ...(padding ? {padding: getFitBoundsPadding(mapRef, padding)} : {}),
+    };
     if (isFeature(feature) && feature.properties?.bbox) {
       mapRef?.fitBounds(feature.properties.bbox, fitOptions);
       return;

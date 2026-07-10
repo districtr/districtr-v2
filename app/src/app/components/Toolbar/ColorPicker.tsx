@@ -45,8 +45,11 @@ export const ColorPicker = <T extends boolean>({
   const handleKeyPressSubmit = () => {
     if (!hotkeyRef.current) return;
     const index = parseInt(hotkeyRef.current) - 1;
-    const newValue = colorScheme[index];
     hotkeyRef.current = null;
+    const numDistricts =
+      useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
+    if (index < 0 || index >= numDistricts) return;
+    const newValue = colorScheme[index];
     if (multiple) {
     } else {
       onValueChange(index, newValue);
