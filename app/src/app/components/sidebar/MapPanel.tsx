@@ -20,6 +20,7 @@ import {
   Heading,
   IconButton,
   Popover,
+  SegmentedControl,
   Slider,
   Text,
   Tooltip,
@@ -40,6 +41,7 @@ import {getCoalitionLabel, getSelectedCoalitionColumns} from '@/app/utils/demogr
 import {MAP_MODES} from '@constants/map/mode';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
+import {overlayMemory} from '@utils/demography/overlayMemory';
 
 type MapPanelProps = {
   columnGroup: keyof typeof choroplethMapVariables;
@@ -157,6 +159,9 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
 
   const handleChangeVariable = (newVariable: DemographyVariable) => {
     setVariable(newVariable);
+    // Remember the choice so the Visual settings overlay toggle restores it.
+    overlayMemory.variables[columnGroup] = newVariable;
+    overlayMemory.lastGroup = columnGroup;
   };
 
   const handleChangePercent = (usePercent: boolean) => {
@@ -287,7 +292,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
               </Flex>
             </Flex>
             {/* Painted-district visibility belongs with the choropleth controls,
-                so the overlay-mode cycle lives here rather than in map settings. */}
+                so the overlay-mode presets live here rather than in map settings. */}
             {isOverlay && !!mapVariableConfig && (
               <Flex direction="column" gapY="1" pb="2">
                 <Flex direction="row" gapX="1" align="center">
@@ -298,27 +303,40 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                     </IconButton>
                   </Tooltip>
                 </Flex>
-                <Flex direction="row" gapX="0" align="center" wrap="wrap">
+                <SegmentedControl.Root
+                  size="1"
+                  value={`${Math.max(
+                    getOpacityStates(mapOptions, setMapOptions, mapMode).findIndex(o => o.selected),
+                    0
+                  )}`}
+                  onValueChange={v =>
+                    getOpacityStates(mapOptions, setMapOptions, mapMode)[Number(v)]?.onClick()
+                  }
+                >
                   {getOpacityStates(mapOptions, setMapOptions, mapMode).map((option, i) => (
-                    <Button
-                      key={i}
-                      size="1"
-                      className="!rounded-none mr-[-2px]"
-                      variant={option.selected ? 'solid' : 'outline'}
-                      onClick={option.onClick}
-                    >
+                    <SegmentedControl.Item key={i} value={`${i}`}>
                       {option.label}
-                    </Button>
+                    </SegmentedControl.Item>
                   ))}
-                </Flex>
+                </SegmentedControl.Root>
               </Flex>
             )}
-            {isOverlay && !!mapVariableConfig && (
+            {/* Fine-grained per-layer opacity is a Super Draw control; Draw
+                relies on the overlay-mode presets alone. */}
+            {isOverlay && !!mapVariableConfig && superDraw && (
               <Flex direction="column" gapY="2" pb="2">
-                <Text>Overlay Opacity</Text>
+                <Text>Overlay layer opacity</Text>
                 <Slider
                   value={[mapOptions.overlayOpacity]}
                   onValueChange={value => setMapOptions({overlayOpacity: value[0]})}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                />
+                <Text>Districts layer opacity</Text>
+                <Slider
+                  value={[mapOptions.zonesOpacity ?? 1]}
+                  onValueChange={value => setMapOptions({zonesOpacity: value[0]})}
                   min={0}
                   max={1}
                   step={0.01}

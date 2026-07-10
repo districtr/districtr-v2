@@ -1,34 +1,19 @@
 import React from 'react';
-import {Heading, CheckboxGroup, Flex, Button, Text, Box, Select} from '@radix-ui/themes';
+import {Heading, CheckboxGroup, Flex, Button, Text, Select} from '@radix-ui/themes';
 import {type BasemapId, BASEMAP_IDS} from '@/app/constants/map/layerStyle';
 import {useFeatureFlagStore} from '@store/featureFlagStore';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
+import {useDemographyStore} from '@store/demography/demographyStore';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 import {ColorChangeModal} from './ColorChangeModal';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {ACCESS_STATES} from '@constants/document/state';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
+import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
+import {overlayMemory} from '@utils/demography/overlayMemory';
 
-const TOOLBAR_SIZES: Array<{label: string; value: number}> = [
-  {
-    label: 'Small',
-    value: 30,
-  },
-  {
-    label: 'Medium',
-    value: 40,
-  },
-  {
-    label: 'Large',
-    value: 54,
-  },
-  {
-    label: 'Huge',
-    value: 80,
-  },
-];
 /** Layers
  * This component is responsible for rendering the layers that can be toggled
  * on and off in the map.
@@ -38,13 +23,50 @@ export const ToolSettings: React.FC = () => {
   const parentsAreBroken = useAssignmentsStore(state => state.shatterIds.parents.size);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
-  const setToolbarSize = useToolbarStore(state => state.setToolbarSize);
-  const toolbarSize = useToolbarStore(state => state.toolbarSize);
   const superDraw = useToolbarStore(state => state.superDraw);
   const boundarySettings = useFeatureFlagStore(state => state.boundarySettings);
   const access = useMapStore(state => state.mapStatus?.access);
+  const variable = useDemographyStore(state => state.variable);
+  const setVariable = useDemographyStore(state => state.setVariable);
+  const availableMapVariables = useDemographyStore(state => state.availableColumnSets.map);
 
   const [colorModalOpen, setColorModalOpen] = React.useState(false);
+
+  // Overlay layer toggles: once a choropleth has been configured, offer to
+  // toggle it (with its last config). Super Draw always offers both types.
+  const electionVariables = availableMapVariables[SUMMARY_TYPES.VOTERHISTORY] ?? [];
+  const isElectionVariable = electionVariables.some(v => v.value === variable);
+  const overlayOn = mapOptions.demographicDisplayMode === DEMOGRAPHIC_MODES.OVERLAY;
+  const overlayGroups: Array<{group: SummaryType; label: string; active: boolean}> = (
+    superDraw
+      ? ([SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VOTERHISTORY] as SummaryType[])
+      : overlayMemory.lastGroup
+        ? [overlayMemory.lastGroup]
+        : []
+  ).map(group => ({
+    group,
+    label: group === SUMMARY_TYPES.VOTERHISTORY ? 'election' : 'demographic',
+    active:
+      overlayOn &&
+      (group === SUMMARY_TYPES.VOTERHISTORY ? isElectionVariable : !isElectionVariable),
+  }));
+
+  const toggleOverlayGroup = ({group, active}: {group: SummaryType; active: boolean}) => {
+    if (active) {
+      setMapOptions({demographicDisplayMode: undefined});
+      return;
+    }
+    const groupVariables = availableMapVariables[group] ?? [];
+    const nextVariable =
+      overlayMemory.variables[group] ??
+      (groupVariables.length ? groupVariables[0].value : undefined);
+    if (nextVariable) {
+      setVariable(nextVariable);
+      overlayMemory.variables[group] = nextVariable;
+    }
+    overlayMemory.lastGroup = group;
+    setMapOptions({demographicDisplayMode: DEMOGRAPHIC_MODES.OVERLAY});
+  };
 
   return (
     <>
@@ -105,7 +127,7 @@ export const ToolSettings: React.FC = () => {
             }
             disabled={mapDocument === null}
           >
-            Show painted districts
+            Painted districts
           </CheckboxGroup.Item>
           <CheckboxGroup.Item
             value="showZoneNumbers"
@@ -115,7 +137,7 @@ export const ToolSettings: React.FC = () => {
               })
             }
           >
-            Show numbering for painted districts
+            District numbers
           </CheckboxGroup.Item>
           <CheckboxGroup.Item
             value="showPopulationTooltip"
@@ -126,7 +148,7 @@ export const ToolSettings: React.FC = () => {
             }
             disabled={access === ACCESS_STATES.READ}
           >
-            Show population tooltip
+            Population tooltip
           </CheckboxGroup.Item>
           <CheckboxGroup.Item
             value="showPopulationNumbers"
@@ -136,7 +158,7 @@ export const ToolSettings: React.FC = () => {
               })
             }
           >
-            Show population on map (all units)
+            Population on map (all units)
           </CheckboxGroup.Item>
           {superDraw && (
             <CheckboxGroup.Item
@@ -148,7 +170,7 @@ export const ToolSettings: React.FC = () => {
               }
               disabled={!mapDocument?.child_layer}
             >
-              Show population labels on exposed blocks
+              Population labels on exposed blocks
             </CheckboxGroup.Item>
           )}
           <CheckboxGroup.Item
@@ -187,6 +209,27 @@ export const ToolSettings: React.FC = () => {
             </Button>
           )}
         </CheckboxGroup.Root>
+        {overlayGroups.length > 0 && (
+          <>
+            <Heading as="h3" weight="bold" size="3">
+              Overlay layer
+            </Heading>
+            <CheckboxGroup.Root
+              name="overlayLayers"
+              value={overlayGroups.filter(g => g.active).map(g => g.group)}
+            >
+              {overlayGroups.map(entry => (
+                <CheckboxGroup.Item
+                  key={entry.group}
+                  value={entry.group}
+                  onClick={() => toggleOverlayGroup(entry)}
+                >
+                  Toggle overlay layer ({entry.label})
+                </CheckboxGroup.Item>
+              ))}
+            </CheckboxGroup.Root>
+          </>
+        )}
         {boundarySettings && (
           <>
             <Heading as="h3" weight="bold" size="3">
@@ -207,7 +250,7 @@ export const ToolSettings: React.FC = () => {
                   })
                 }
               >
-                Show county boundaries
+                County boundaries
               </CheckboxGroup.Item>
               {superDraw && (
                 <CheckboxGroup.Item
@@ -224,29 +267,6 @@ export const ToolSettings: React.FC = () => {
             </CheckboxGroup.Root>
           </>
         )}
-
-        <Heading as="h3" weight="bold" size="3">
-          Toolbar Options
-        </Heading>
-        <Box>
-          <Text size="2" className="p-0">
-            Toolbar size:
-          </Text>
-          <Flex direction="row" gapX="2" wrap="wrap" pt="0">
-            {TOOLBAR_SIZES.map(size => (
-              <Button
-                key={size.value}
-                variant={'ghost'}
-                style={{
-                  fontWeight: toolbarSize === size.value ? 'bold' : 'normal',
-                }}
-                onClick={() => setToolbarSize(size.value)}
-              >
-                {size.label}
-              </Button>
-            ))}
-          </Flex>
-        </Box>
       </Flex>
 
       <ColorChangeModal open={colorModalOpen} onClose={() => setColorModalOpen(false)} />

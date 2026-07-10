@@ -1,5 +1,5 @@
 'use client';
-import {Flex, SegmentedControl, Text} from '@radix-ui/themes';
+import {Button, Flex, SegmentedControl, Text} from '@radix-ui/themes';
 import React, {useEffect, useState} from 'react';
 import {AnimatePresence, motion} from 'framer-motion';
 import {
@@ -15,54 +15,87 @@ import OverlaysPanel from './OverlaysPanel';
 import {MapValidation} from './MapValidation/MapValidation';
 import {SummaryPanel, type SectionKey} from './SummaryPanel';
 import {MapControlsStore, useMapControlsStore} from '@store/mapControlsStore';
-import {useToolbarStore} from '@store/toolbarStore';
 import {useDemographyStore} from '@store/demography/demographyStore';
+import {overlayMemory} from '@utils/demography/overlayMemory';
 import {MAP_MODES} from '@constants/map/mode';
 import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 
 /**
- * While a Map tab is active, the choropleth overlay is on with default
- * settings for that column group; leaving the tab or unmounting (collapsing
- * the section, switching modes) turns the overlay off.
+ * Entering a Map tab turns the choropleth overlay on with the last-used (or
+ * default) settings for that column group, and remembers the config for the
+ * Visual settings overlay toggles. The overlay intentionally stays on when
+ * navigating away — it's turned off from those toggles or the display-mode
+ * control.
  */
-// Claim token: if another Map tab took over after this one, its enable wins
-// and this one's cleanup must not turn the overlay off.
-let mapPanelClaim = 0;
 const useMapPanelLifecycle = (mapGroup: SummaryType | undefined) => {
   useEffect(() => {
     if (!mapGroup) return;
-    const claim = ++mapPanelClaim;
     const demography = useDemographyStore.getState();
     const variables = demography.availableColumnSets.map[mapGroup] ?? [];
-    // Default variable: the group's first entry, unless the current one
-    // already belongs to this group.
-    if (variables.length && !variables.some(v => v.value === demography.variable)) {
-      demography.setVariable(variables[0].value);
+    let variable = demography.variable;
+    if (variables.length && !variables.some(v => v.value === variable)) {
+      variable = overlayMemory.variables[mapGroup] ?? variables[0].value;
+      demography.setVariable(variable);
     }
+    overlayMemory.lastGroup = mapGroup;
+    overlayMemory.variables[mapGroup] = variable;
     useMapControlsStore
       .getState()
       .setMapOptions({demographicDisplayMode: DEMOGRAPHIC_MODES.OVERLAY});
-    return () => {
-      // Super Draw keeps the choropleth up when leaving the Map tab (power
-      // users manage it via the display-mode buttons); only simplified Draw
-      // auto-cleans it.
-      if (useToolbarStore.getState().superDraw) return;
-      if (claim === mapPanelClaim) {
-        useMapControlsStore.getState().setMapOptions({demographicDisplayMode: undefined});
-      }
-    };
   }, [mapGroup]);
 };
 
-/** Table / Map (/ Coalition) tabs over a single SummaryPanel section, so the
- * table and map live in one accordion section instead of two. */
+/** Collapsible, opt-in coalition builder attached below the demographics
+ * table/map instead of floating as its own tab. */
+const CoalitionExpander: React.FC<{
+  defaultColumnSet: SummaryType;
+  displayedColumnSets: Array<SummaryType>;
+}> = ({defaultColumnSet, displayedColumnSets}) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <Flex direction="column" gap="2">
+      <Button
+        variant="ghost"
+        size="1"
+        onClick={() => setOpen(o => !o)}
+        className="self-start cursor-pointer"
+      >
+        <ChevronDownIcon
+          className={`transition-transform duration-200 ${open ? '' : '-rotate-90'}`}
+        />
+        Create a coalition (optional)
+      </Button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{height: 0, opacity: 0}}
+            animate={{height: 'auto', opacity: 1}}
+            exit={{height: 0, opacity: 0}}
+            transition={{duration: 0.2, ease: 'easeOut'}}
+            className="overflow-hidden"
+          >
+            <SummaryPanel
+              defaultColumnSet={defaultColumnSet}
+              displayedColumnSets={displayedColumnSets}
+              sections={['coalition']}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </Flex>
+  );
+};
+
+/** Table / Map tabs over a single SummaryPanel section, so the table and map
+ * live in one accordion section instead of two. */
 const TabbedSummaryPanel: React.FC<{
   defaultColumnSet: SummaryType;
   displayedColumnSets: Array<SummaryType>;
   tabs: Array<{value: SectionKey; label: string}>;
   mapGroup: SummaryType;
-}> = ({defaultColumnSet, displayedColumnSets, tabs, mapGroup}) => {
+  withCoalition?: boolean;
+}> = ({defaultColumnSet, displayedColumnSets, tabs, mapGroup, withCoalition}) => {
   const [tab, setTab] = useState<SectionKey>(tabs[0].value);
   useMapPanelLifecycle(tab === 'map' ? mapGroup : undefined);
   return (
@@ -80,6 +113,12 @@ const TabbedSummaryPanel: React.FC<{
         displayedColumnSets={displayedColumnSets}
         sections={[tab]}
       />
+      {withCoalition && (
+        <CoalitionExpander
+          defaultColumnSet={defaultColumnSet}
+          displayedColumnSets={displayedColumnSets}
+        />
+      )}
     </Flex>
   );
 };
@@ -101,7 +140,7 @@ type SidebarSection = {
 const SECTIONS: SidebarSection[] = [
   {
     key: 'population',
-    label: 'Population',
+    label: 'District Overview',
     description: 'Population by district, deviation, and unassigned people',
     icon: BarChartIcon,
     content: <PopulationPanel />,
@@ -119,9 +158,9 @@ const SECTIONS: SidebarSection[] = [
         tabs={[
           {value: 'evaluation', label: 'Table'},
           {value: 'map', label: 'Map'},
-          {value: 'coalition', label: 'Coalition Builder'},
         ]}
         mapGroup={SUMMARY_TYPES.TOTPOP}
+        withCoalition
       />
     ),
   },
@@ -153,7 +192,7 @@ const SECTIONS: SidebarSection[] = [
   },
   {
     key: 'overlays',
-    label: 'Overlays',
+    label: 'Boundaries and areas',
     description: 'County boundaries and reference layers',
     icon: LayersIcon,
     content: <OverlaysPanel />,

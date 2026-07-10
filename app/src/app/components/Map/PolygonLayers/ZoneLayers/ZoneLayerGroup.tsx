@@ -19,10 +19,12 @@ export const ZoneLayerGroup: React.FC<{
   const captiveIds = useMapStore(state => state.captiveIds);
   const isOverlayed =
     useMapControlsStore(state => state.mapOptions.demographicDisplayMode) === 'overlay';
-  const layerOpacity = useMemo(
-    () => getLayerFill(captiveIds, isOverlayed),
-    [captiveIds, isOverlayed]
-  );
+  const zonesOpacity = useMapControlsStore(state => state.mapOptions.zonesOpacity ?? 1);
+  const layerOpacity = useMemo(() => {
+    const fill = getLayerFill(captiveIds, isOverlayed);
+    // Scale the whole fill expression by the user's districts-layer opacity.
+    return zonesOpacity === 1 ? fill : (['*', fill, zonesOpacity] as typeof fill);
+  }, [captiveIds, isOverlayed, zonesOpacity]);
   return (
     <>
       <ZoneHighlightLayer

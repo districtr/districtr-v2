@@ -13,7 +13,6 @@ import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
 import {ACCESS_STATES} from '@constants/document/state';
 import {DocumentMetadata} from '@utils/api/apiHandlers/types';
 import {SaveShareModal} from '../Toolbar/SaveShareModal/SaveShareModal';
-import {ToolSettings} from '../Toolbar/Settings';
 
 /** Consolidated "Map actions" menu for the editor topbar: share, export,
  * settings, revert, and reset in one dropdown. Saving lives in the topbar
@@ -21,7 +20,7 @@ import {ToolSettings} from '../Toolbar/Settings';
 export const MapActionsDropdown: React.FC<{
   handleMetadataChange: (updates: Partial<DocumentMetadata>) => Promise<void>;
 }> = ({handleMetadataChange}) => {
-  const [modal, setModal] = useState<'share' | 'settings' | 'revert' | null>(null);
+  const [modal, setModal] = useState<'share' | 'revert' | null>(null);
   const mapDocument = useMapStore(state => state.mapDocument);
   const access = useMapStore(state => state.mapStatus?.access);
   const handleReset = useMapStore(state => state.handleReset);
@@ -35,8 +34,7 @@ export const MapActionsDropdown: React.FC<{
 
   // Defer past the dropdown's close so Radix doesn't leave pointer-events:none
   // stuck on the body when a dialog opens from onSelect.
-  const openModal = (which: 'share' | 'settings' | 'revert') =>
-    setTimeout(() => setModal(which), 0);
+  const openModal = (which: 'share' | 'revert') => setTimeout(() => setModal(which), 0);
 
   // Export works for view-only users too: the backend resolves a public_id the same
   // as a document UUID, so fall back to the public_id when the loaded doc is the
@@ -130,9 +128,6 @@ export const MapActionsDropdown: React.FC<{
               </DropdownMenu.Item>
             </DropdownMenu.SubContent>
           </DropdownMenu.Sub>
-          <DropdownMenu.Item className="cursor-pointer" onSelect={() => openModal('settings')}>
-            Visual settings
-          </DropdownMenu.Item>
           <DropdownMenu.Separator />
           {isEditing && (
             <DropdownMenu.Item
@@ -166,20 +161,6 @@ export const MapActionsDropdown: React.FC<{
         onClose={() => setModal(null)}
         handleMetadataChange={handleMetadataChange}
       />
-      <Dialog.Root open={modal === 'settings'} onOpenChange={open => !open && setModal(null)}>
-        <Dialog.Content>
-          <Box className="size-full relative">
-            <IconButton
-              className="!absolute !top-0 !right-0"
-              variant="ghost"
-              onClick={() => setModal(null)}
-            >
-              <Cross2Icon />
-            </IconButton>
-            <ToolSettings />
-          </Box>
-        </Dialog.Content>
-      </Dialog.Root>
       <Dialog.Root open={modal === 'revert'} onOpenChange={open => !open && setModal(null)}>
         <Dialog.Content style={{maxWidth: 400}}>
           <Dialog.Title>Revert to Last Saved?</Dialog.Title>
