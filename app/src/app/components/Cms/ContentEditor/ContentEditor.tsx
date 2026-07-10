@@ -20,6 +20,18 @@ export const ContentEditor: React.FC = () => {
   const [contentHasChanged, setContentHasChanged] = useState(false);
 
   useEffect(() => {
+    // Everything the form can edit and save — including the map selections, so
+    // e.g. only reordering a place page's maps still enables Update Content.
+    // Nullish fields normalize so an absent saved field equals an empty draft.
+    const comparable = (input?: object) => {
+      const content = (input ?? {}) as Record<string, unknown>;
+      return {
+        title: content.title,
+        body: content.body,
+        districtr_map_slug: content.districtr_map_slug ?? null,
+        districtr_map_slugs: content.districtr_map_slugs ?? [],
+      };
+    };
     if (
       !editingContent &&
       formData?.content.slug &&
@@ -34,8 +46,8 @@ export const ContentEditor: React.FC = () => {
         setContentHasChanged(false);
       } else {
         const contentChanged =
-          JSON.stringify({title: currentEditContent.title, body: currentEditContent.body}) !==
-          JSON.stringify({title: formData?.content.title, body: formData?.content.body});
+          JSON.stringify(comparable(currentEditContent)) !==
+          JSON.stringify(comparable(formData?.content));
         setContentHasChanged(contentChanged);
       }
     } else {

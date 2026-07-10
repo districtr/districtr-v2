@@ -124,43 +124,46 @@ export const MapMultiSelector: React.FC = () => {
           </ul>
         )}
       </Flex>
-      {selectedSlugs.map((slug, i) => (
-        <Flex key={slug} direction="row" align="center" gapX="2">
-          <Text size="1" color="gray" className="w-4 text-right">
-            {i + 1}.
-          </Text>
-          <Text size="2" className="flex-grow truncate">
-            {nameFor(slug)}
-          </Text>
-          <IconButton
-            variant="ghost"
-            size="1"
-            disabled={i === 0}
-            onClick={() => move(i, -1)}
-            aria-label={`Move ${nameFor(slug)} up`}
-          >
-            <ArrowUpIcon />
-          </IconButton>
-          <IconButton
-            variant="ghost"
-            size="1"
-            disabled={i === selectedSlugs.length - 1}
-            onClick={() => move(i, 1)}
-            aria-label={`Move ${nameFor(slug)} down`}
-          >
-            <ArrowDownIcon />
-          </IconButton>
-          <IconButton
-            variant="ghost"
-            size="1"
-            color="red"
-            onClick={() => removeMap(slug)}
-            aria-label={`Remove ${nameFor(slug)}`}
-          >
-            <Cross2Icon />
-          </IconButton>
-        </Flex>
-      ))}
+      {/* Scroll rather than grow unbounded when a place has many maps. */}
+      <Flex direction="column" gapY="2" className="max-h-72 overflow-y-auto">
+        {selectedSlugs.map((slug, i) => (
+          <Flex key={slug} direction="row" align="center" gapX="2">
+            <Text size="1" color="gray" className="w-4 text-right">
+              {i + 1}.
+            </Text>
+            <Text size="2" className="flex-grow truncate">
+              {nameFor(slug)}
+            </Text>
+            <IconButton
+              variant="ghost"
+              size="1"
+              disabled={i === 0}
+              onClick={() => move(i, -1)}
+              aria-label={`Move ${nameFor(slug)} up`}
+            >
+              <ArrowUpIcon />
+            </IconButton>
+            <IconButton
+              variant="ghost"
+              size="1"
+              disabled={i === selectedSlugs.length - 1}
+              onClick={() => move(i, 1)}
+              aria-label={`Move ${nameFor(slug)} down`}
+            >
+              <ArrowDownIcon />
+            </IconButton>
+            <IconButton
+              variant="ghost"
+              size="1"
+              color="red"
+              onClick={() => removeMap(slug)}
+              aria-label={`Remove ${nameFor(slug)}`}
+            >
+              <Cross2Icon />
+            </IconButton>
+          </Flex>
+        ))}
+      </Flex>
     </Flex>
   );
 };
