@@ -11,6 +11,11 @@ export const Toolbar: React.FC = () => {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const toolbarItemsRef = useRef<HTMLDivElement | null>(null);
   const activeTools = useActiveTools();
+  // The handler reads the latest tools through a ref so the document listeners
+  // mount once instead of re-binding on every render (painting re-renders the
+  // toolbar constantly via undo/redo state).
+  const activeToolsRef = useRef(activeTools);
+  activeToolsRef.current = activeTools;
 
   useEffect(() => {
     // Listen for option/alt to reveal shortcuts, and trigger tool hotkeys.
@@ -19,13 +24,11 @@ export const Toolbar: React.FC = () => {
       // if active element is an input, don't do anything
       if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement)
         return;
-      if (event.altKey) {
-        setShowShortcuts(true);
-      } else {
-        setShowShortcuts(false);
-      }
-
-      const tool = activeTools.find(f => f.hotKeyAccessor(event));
+      setShowShortcuts(event.altKey);
+      // Dispatch on keydown only — the keyup listener exists just to clear the
+      // alt-shortcuts hint. Firing on both would run hotkeys like ⌘Z twice.
+      if (event.type !== 'keydown') return;
+      const tool = activeToolsRef.current.find(f => f.hotKeyAccessor(event));
       if (tool) {
         event.preventDefault();
         tool.onClick ? tool.onClick() : setActiveTool(tool.mode);
@@ -39,8 +42,7 @@ export const Toolbar: React.FC = () => {
       document.removeEventListener('keydown', handleKeyPress);
       document.removeEventListener('keyup', handleKeyPress);
     };
-    // activeTools changes with mode/undo state; re-bind so hotkeys aren't stale.
-  }, [activeTools, setActiveTool]);
+  }, [setActiveTool]);
 
   if (!isEditing) return null;
   return (
