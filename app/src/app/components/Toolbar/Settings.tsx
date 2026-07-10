@@ -150,16 +150,18 @@ export const ToolSettings: React.FC = () => {
           >
             Population tooltip
           </CheckboxGroup.Item>
-          <CheckboxGroup.Item
-            value="showPopulationNumbers"
-            onClick={() =>
-              setMapOptions({
-                showPopulationNumbers: !mapOptions.showPopulationNumbers,
-              })
-            }
-          >
-            Population on map (all units)
-          </CheckboxGroup.Item>
+          {superDraw && (
+            <CheckboxGroup.Item
+              value="showPopulationNumbers"
+              onClick={() =>
+                setMapOptions({
+                  showPopulationNumbers: !mapOptions.showPopulationNumbers,
+                })
+              }
+            >
+              Population on map (all units)
+            </CheckboxGroup.Item>
+          )}
           {superDraw && (
             <CheckboxGroup.Item
               value="showBlockPopulationNumbers"
@@ -252,18 +254,16 @@ export const ToolSettings: React.FC = () => {
               >
                 County boundaries
               </CheckboxGroup.Item>
-              {superDraw && (
-                <CheckboxGroup.Item
-                  value="prominentCountyNames"
-                  onClick={() =>
-                    setMapOptions({
-                      prominentCountyNames: !mapOptions.prominentCountyNames,
-                    })
-                  }
-                >
-                  Emphasize county names
-                </CheckboxGroup.Item>
-              )}
+              <CheckboxGroup.Item
+                value="prominentCountyNames"
+                onClick={() =>
+                  setMapOptions({
+                    prominentCountyNames: !mapOptions.prominentCountyNames,
+                  })
+                }
+              >
+                Emphasize county names
+              </CheckboxGroup.Item>
             </CheckboxGroup.Root>
           </>
         )}
