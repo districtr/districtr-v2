@@ -8,8 +8,7 @@ import {ToolbarInSidebar} from './ToolbarInSidebar';
 import {styled} from '@stitches/react';
 import {MapContextComment} from './MapContextComment';
 import {CoiCommunityViewer} from './CoiCommunityViewer';
-import {useToolbarStore} from '@/app/store/toolbarStore';
-import {DataCards, SuperDrawCards} from './DataCards';
+import {DataCards} from './DataCards';
 
 const StyledScrollArea = styled(ScrollArea, {
   maxWidth: '100%',
@@ -20,7 +19,6 @@ const StyledScrollArea = styled(ScrollArea, {
 
 export default function SidebarComponent() {
   const document_id = useMapStore(store => store.mapDocument?.document_id);
-  const superDraw = useToolbarStore(store => store.superDraw);
   const [width, setWidth] = React.useState(350);
   const [hovered, setHovered] = React.useState(false);
   const [dragging, setDragging] = React.useState(false);
@@ -121,7 +119,7 @@ export default function SidebarComponent() {
                 opacity: document_id ? 1 : 0.25,
               }}
             >
-              {superDraw ? <SuperDrawCards /> : <DataCards />}
+              <DataCards />
             </Box>
           </Flex>
         </StyledScrollArea>
