@@ -24,7 +24,7 @@ export const ToolbarInSidebar = () => {
             <Button
               variant="surface"
               color="gray"
-              size="2"
+              size="1"
               className="cursor-pointer transition-shadow hover:shadow-md"
               data-testid="visual-settings-trigger"
             >
@@ -33,7 +33,13 @@ export const ToolbarInSidebar = () => {
               <CaretDownIcon />
             </Button>
           </Popover.Trigger>
-          <Popover.Content size="1" maxHeight="70vh" align="end">
+          <Popover.Content
+            size="1"
+            maxHeight="70vh"
+            maxWidth="min(90vw, 320px)"
+            align="end"
+            className="overflow-y-auto"
+          >
             <ToolSettings />
           </Popover.Content>
         </Popover.Root>

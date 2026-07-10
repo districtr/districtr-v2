@@ -58,6 +58,7 @@ const CoalitionExpander: React.FC<{
     <Flex direction="column" gap="2">
       <Button
         variant="surface"
+        color="gray"
         size="2"
         onClick={() => setOpen(o => !o)}
         className="w-full cursor-pointer"

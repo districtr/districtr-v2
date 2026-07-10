@@ -4,8 +4,6 @@ import {useMapControlsStore} from '@store/mapControlsStore';
 import {useFeatureFlagStore} from '@store/featureFlagStore';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {BrushSizeSelector} from '@components/Toolbar/ToolControls/BrushSizeSelector';
-import {QuickMapSettings} from '@components/Toolbar/ToolControls/QuickMapSettings';
-import {useToolbarStore} from '@store/toolbarStore';
 import PaintByCounty from '@components/Toolbar/PaintByCounty';
 import {ZonePicker} from '@components/Toolbar/ZonePicker';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
@@ -14,7 +12,6 @@ import {MAP_MODES} from '@constants/map/mode';
 export const BrushControls = () => {
   const activeTool = useMapControlsStore(state => state.activeTool);
   const mapMode = useMapControlsStore(state => state.mapMode);
-  const superDraw = useToolbarStore(state => state.superDraw);
   const paintCounties = useFeatureFlagStore(state => state.paintCounties);
   const paintConstraint = useOverlayStore(state => state.paintConstraint);
   const clearPaintConstraint = useOverlayStore(state => state.clearPaintConstraint);
@@ -48,9 +45,6 @@ export const BrushControls = () => {
           </Flex>
         </Button>
       )}
-      {/* In Draw mode, surface the key display toggles next to the paint controls
-          instead of burying them in the settings dialog. */}
-      {!superDraw && <QuickMapSettings />}
     </Flex>
   );
 };
