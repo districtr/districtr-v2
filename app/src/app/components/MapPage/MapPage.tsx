@@ -12,6 +12,7 @@ import {queryClient} from '@utils/api/queryClient';
 import {AppNotification} from '@components/AppNotification';
 import {MapTooltip} from '@components/Map/Tooltip/MapTooltip';
 import {Topbar} from '@/app/components/Topbar/Topbar';
+import {MobileToolbar} from '@/app/components/Toolbar/MobileToolbar';
 import {Flex} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {initSubs} from '@store/subscriptions';
@@ -122,10 +123,11 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
         ) : (
           <Topbar />
         )}
-        <Flex direction="row" height="100%">
+        <Flex direction="row" className="flex-1 min-h-0">
           {isPublicPage ? <PublicMap /> : <MainMap />}
           {showDemographicMap && (isPublicPage ? <PublicDemographicMap /> : <DemographicMap />)}
         </Flex>
+        <MobileToolbar />
         <MapTooltip />
       </div>
       <MapContextMenu />

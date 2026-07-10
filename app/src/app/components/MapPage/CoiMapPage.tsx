@@ -16,6 +16,7 @@ import {useDocumentWithSync} from '@/app/hooks/useDocumentWithSync';
 import {SaveConflictModal} from '../SaveConflictModal';
 import {migrateUserMapsFromLocalStorage} from '@/app/utils/idb/migrateUserMaps';
 import {DemographicMap} from '../Map/DemographicMap';
+import {MobileToolbar} from '@/app/components/Toolbar/MobileToolbar';
 import {useInitializeMapMode} from '@/app/hooks/useInitializeMapMode';
 import {MAP_MODES} from '@constants/map/mode';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
@@ -89,10 +90,11 @@ const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => 
       <SidebarComponent />
       <div className={`h-full relative w-full flex-1 flex flex-col lg:h-screen landscape:h-screen`}>
         <Topbar />
-        <Flex direction="row" height="100%">
+        <Flex direction="row" className="flex-1 min-h-0">
           <CoiMap />
           {showDemographicMap && <DemographicMap />}
         </Flex>
+        <MobileToolbar />
         <MapTooltip />
       </div>
       <MapContextMenu />
