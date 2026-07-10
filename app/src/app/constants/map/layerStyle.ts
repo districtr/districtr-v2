@@ -48,7 +48,10 @@ export const ZONE_LABEL_STYLE = (colorScheme: string[]) => {
 
 export function getLayerFill(
   captiveIds?: Set<string>,
-  isDemographic?: boolean
+  isDemographic?: boolean,
+  // User's "Districts layer opacity" multiplier; applied here so the declarative
+  // (ZoneLayerGroup) and imperative (mapRenderSubs setPaintProperty) paths agree.
+  opacityScale: number = 1
 ): DataDrivenPropertyValueSpecification<number> {
   const baseOpacity = isDemographic ? 1 : 0.6;
   const innerFillSpec = [
@@ -75,24 +78,25 @@ export function getLayerFill(
     baseOpacity + 0.1,
     0,
   ] as unknown as DataDrivenPropertyValueSpecification<number>;
-  if (captiveIds?.size) {
-    return [
-      'case',
-      ['boolean', ['feature-state', 'broken'], false],
-      0,
-      // @ts-ignore
-      ['!', ['==', ['feature-state', 'zone'], null]],
-      [
+  const fill = captiveIds?.size
+    ? ([
         'case',
-        ['!', ['in', ['get', 'path'], ['literal', Array.from(captiveIds)]]],
-        baseOpacity - 0.25,
-        innerFillSpec,
-      ],
-      0,
-    ] as unknown as DataDrivenPropertyValueSpecification<number>;
-  } else {
-    return innerFillSpec;
-  }
+        ['boolean', ['feature-state', 'broken'], false],
+        0,
+        // @ts-ignore
+        ['!', ['==', ['feature-state', 'zone'], null]],
+        [
+          'case',
+          ['!', ['in', ['get', 'path'], ['literal', Array.from(captiveIds)]]],
+          baseOpacity - 0.25,
+          innerFillSpec,
+        ],
+        0,
+      ] as unknown as DataDrivenPropertyValueSpecification<number>)
+    : innerFillSpec;
+  return opacityScale === 1
+    ? fill
+    : (['*', fill, opacityScale] as unknown as DataDrivenPropertyValueSpecification<number>);
 }
 export const BASEMAP_IDS = {
   MINIMAL: 'minimal',
