@@ -1,8 +1,9 @@
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useMapStore} from '@/app/store/mapStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useUnassignFeaturesStore} from '@/app/store/unassignedFeatures';
 import {formatNumber} from '@/app/utils/numbers';
-import {Flex, Text} from '@radix-ui/themes';
+import {Checkbox, Flex, Text} from '@radix-ui/themes';
 import React, {useEffect, useRef} from 'react';
 import ZoomToFeature from './ZoomToFeature';
 import {NUMBER_FORMATS} from '@constants/demography/format';
@@ -17,6 +18,8 @@ export const ZoomToUnassigned = () => {
     reset,
   } = useUnassignFeaturesStore(state => state);
   const mapDocument = useMapStore(state => state.mapDocument);
+  const higlightUnassigned = useMapControlsStore(state => state.mapOptions.higlightUnassigned);
+  const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const {summaryStats} = useSummaryStats();
   // prevent duplicate requests to get unassigned features
   const initialMapDocument = useRef(mapDocument);
@@ -57,6 +60,16 @@ export const ZoomToUnassigned = () => {
           numFeatures={unassignedFeatureBboxes.length}
         />
       )}
+      {/* Same map option as Visual settings' "Highlight unassigned areas". */}
+      <Text as="label" size="2" mt="2" className="cursor-pointer">
+        <Flex gap="2" align="center">
+          <Checkbox
+            checked={higlightUnassigned === true}
+            onCheckedChange={() => setMapOptions({higlightUnassigned: !higlightUnassigned})}
+          />
+          Show unassigned areas on the map
+        </Flex>
+      </Text>
       {unassignedFeatureBboxes.length > 0 && (
         <Text size="1" color="gray" mt="2">
           Zoom to unassigned area
