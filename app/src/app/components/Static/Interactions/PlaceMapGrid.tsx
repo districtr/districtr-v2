@@ -19,7 +19,7 @@ export const PlaceMapGrid: React.FC<{maps: Partial<DistrictrMap>[]}> = ({maps}) 
           size="2"
         >
           <SegmentedControl.Item value={MAP_TABS.DISTRICTS}>District Plan</SegmentedControl.Item>
-          <SegmentedControl.Item value={MAP_TABS.COMMUNITY}>Community Plan</SegmentedControl.Item>
+          <SegmentedControl.Item value={MAP_TABS.COMMUNITY}>Community Map</SegmentedControl.Item>
         </SegmentedControl.Root>
       </Flex>
       <Grid
