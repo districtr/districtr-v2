@@ -86,14 +86,20 @@ const InfoText: React.FC<{
   numFeatures: number;
 }> = ({unassigned, hasFoundUnassigned, numFeatures}) => {
   if (!hasFoundUnassigned) {
-    return <Text my="1">Loading...</Text>;
+    return (
+      <Text size="2" my="1">
+        Loading...
+      </Text>
+    );
   }
   if (hasFoundUnassigned && !numFeatures) {
-    <Text my="1">No unassigned areas found.</Text>;
+    <Text size="2" my="1">
+      No unassigned areas found.
+    </Text>;
   }
   const isPlural = numFeatures > 1 || numFeatures === 0;
   return (
-    <Text my="1">
+    <Text size="2" my="1">
       There {isPlural ? 'are' : 'is'} <b>{numFeatures}</b> unassigned area
       {isPlural ? 's' : ''}.&nbsp;{' '}
       {unassigned > 0 && (

@@ -214,24 +214,38 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   return (
     <Flex direction="column">
       <Flex direction="row" gap="3" align="center" className="rounded-md" wrap="wrap">
-        <Text>Display mode</Text>
-        {displayModes.map((option, i) => (
-          <Button
-            key={i}
-            variant={demographicDisplayMode === option.value ? 'solid' : 'outline'}
-            onClick={() => handleSetMapMode(option.value)}
-          >
-            {!!option.icon && option.icon}
-            {option.label}
-          </Button>
-        ))}
+        <Text size="2" weight="medium">
+          Display mode
+        </Text>
+        <SegmentedControl.Root
+          size="1"
+          value={demographicDisplayMode ?? 'none'}
+          onValueChange={v =>
+            handleSetMapMode(
+              v === 'none'
+                ? undefined
+                : (v as MapControlsStore['mapOptions']['demographicDisplayMode'])
+            )
+          }
+        >
+          {displayModes.map((option, i) => (
+            <SegmentedControl.Item key={i} value={option.value ?? 'none'}>
+              <Flex align="center" gap="1">
+                {!!option.icon && option.icon}
+                {option.label}
+              </Flex>
+            </SegmentedControl.Item>
+          ))}
+        </SegmentedControl.Root>
       </Flex>
       {demographicDisplayMode !== undefined && (
         <>
           <Flex direction="column" pt="2">
             <Flex direction="row" gap="3" align="start" py="2" wrap="wrap">
               <Flex direction="row" gap="3" align="center" wrap="wrap">
-                <Text>Map variable</Text>
+                <Text size="2" weight="medium">
+                  Map variable
+                </Text>
                 <Select.Root value={variable} onValueChange={handleChangeVariable}>
                   <Select.Trigger>
                     <Text>{mapVariableConfig?.label ?? 'Select a variable'}</Text>
@@ -296,7 +310,9 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
             {isOverlay && !!mapVariableConfig && (
               <Flex direction="column" gapY="1" pb="2">
                 <Flex direction="row" gapX="1" align="center">
-                  <Text>Overlay mode</Text>
+                  <Text size="2" weight="medium">
+                    Overlay mode
+                  </Text>
                   <Tooltip content="Press 'x' to cycle through the overlay modes.">
                     <IconButton variant="ghost">
                       <InfoCircledIcon />
@@ -325,7 +341,9 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                 relies on the overlay-mode presets alone. */}
             {isOverlay && !!mapVariableConfig && superDraw && (
               <Flex direction="column" gapY="2" pb="2">
-                <Text>Overlay layer opacity</Text>
+                <Text size="2" weight="medium">
+                  Overlay layer opacity
+                </Text>
                 <Slider
                   value={[mapOptions.overlayOpacity]}
                   onValueChange={value => setMapOptions({overlayOpacity: value[0]})}
@@ -333,7 +351,9 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                   max={1}
                   step={0.01}
                 />
-                <Text>Districts layer opacity</Text>
+                <Text size="2" weight="medium">
+                  Districts layer opacity
+                </Text>
                 <Slider
                   value={[mapOptions.zonesOpacity ?? 1]}
                   onValueChange={value => setMapOptions({zonesOpacity: value[0]})}
@@ -405,7 +425,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
             </Flex>
           ) : null}
           {!!mapVariableConfig && demographicDisplayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE && (
-            <Text size="2" align="center">
+            <Text size="1" color="gray" align="center">
               Gray = zero population
             </Text>
           )}

@@ -309,19 +309,19 @@ export const PopulationPanel = () => {
       {!!idealPopulation && !isCommunityMode && (
         <Flex direction={'row'} justify={'between'} align={'start'} wrap="wrap">
           <Flex direction="column" gapX="2" minWidth={'10rem'}>
-            <Text>Ideal Population</Text>
+            <Text size="2">Ideal population</Text>
             <Text weight={'bold'} className="mb-2">
               {formatNumber(idealPopulation, NUMBER_FORMATS.STRING)}
             </Text>
             {unassigned !== undefined && (
               <>
-                <Text>Unassigned</Text>
+                <Text size="2">Unassigned</Text>
                 <Text weight={'bold'}>{formatNumber(unassigned, NUMBER_FORMATS.STRING)}</Text>
               </>
             )}
           </Flex>
 
-          <Text>
+          <Text size="2">
             Top-to-bottom population deviation <InfoTip tips="topToBottomDeviation" />
             <br />
             {allPainted &&

@@ -1,4 +1,4 @@
-import {Blockquote, Button, Flex, Text, Tabs} from '@radix-ui/themes';
+import {Blockquote, Button, Flex, SegmentedControl, Text} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {Contiguity} from './Contiguity';
 import {ZoomToUnassigned} from './ZoomToUnassigned';
@@ -67,15 +67,14 @@ export const MapValidation = () => {
           </Blockquote>
         </>
       )}
-      <Tabs.Root value={activePanel} onValueChange={setActivePanel}>
-        <Tabs.List justify={'start'}>
-          {mapValidationPanel.map((panel, index) => (
-            <Tabs.Trigger key={index} value={panel.label} className="text-center">
-              {panel.label}
-            </Tabs.Trigger>
-          ))}
-        </Tabs.List>
-      </Tabs.Root>
+      {/* Segmented control to match the Table | Map sub-section tabs. */}
+      <SegmentedControl.Root size="2" value={activePanel} onValueChange={setActivePanel}>
+        {mapValidationPanel.map((panel, index) => (
+          <SegmentedControl.Item key={index} value={panel.label}>
+            {panel.label}
+          </SegmentedControl.Item>
+        ))}
+      </SegmentedControl.Root>
 
       {!!Component && Component}
     </Flex>

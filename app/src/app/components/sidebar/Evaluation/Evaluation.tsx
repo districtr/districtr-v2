@@ -2,13 +2,11 @@ import React, {useEffect, useState} from 'react';
 import {
   Blockquote,
   Box,
-  Button,
   CheckboxGroup,
   Heading,
   IconButton,
   Popover,
   SegmentedControl,
-  Select,
   Spinner,
   Table,
   Tooltip,
@@ -250,21 +248,21 @@ const Evaluation: React.FC<EvaluationProps> = ({
             </Heading>
           )}
           {showSummaryTypeSelect && (
-            <Flex direction="row" gap="2" align="center">
-              <Text size="2">Summary type</Text>
-              <Select.Root
+            <Flex direction="row" gap="2" align="center" wrap="wrap">
+              <Text size="2" weight="medium">
+                Summary type
+              </Text>
+              <SegmentedControl.Root
+                size="1"
                 value={summaryType}
                 onValueChange={value => setSummaryType(value as SummaryType)}
               >
-                <Select.Trigger />
-                <Select.Content>
-                  {displayedStatLabels.map(({value, label}) => (
-                    <Select.Item key={value} value={value}>
-                      {label}
-                    </Select.Item>
-                  ))}
-                </Select.Content>
-              </Select.Root>
+                {displayedStatLabels.map(({value, label}) => (
+                  <SegmentedControl.Item key={value} value={value}>
+                    {label}
+                  </SegmentedControl.Item>
+                ))}
+              </SegmentedControl.Root>
             </Flex>
           )}
         </Flex>
@@ -281,15 +279,17 @@ const Evaluation: React.FC<EvaluationProps> = ({
               </Heading>
               {showModeButtons && (
                 <Flex align="center" gap="3" my="2" wrap="wrap">
-                  {modeButtonConfig.map((mode, i) => (
-                    <Button
-                      key={i}
-                      variant={mode.value === evalMode ? 'solid' : 'outline'}
-                      onClick={() => setEvalMode(mode.value)}
-                    >
-                      {mode.label}
-                    </Button>
-                  ))}
+                  <SegmentedControl.Root
+                    size="1"
+                    value={evalMode}
+                    onValueChange={v => setEvalMode(v as EvalMode)}
+                  >
+                    {modeButtonConfig.map((mode, i) => (
+                      <SegmentedControl.Item key={i} value={mode.value}>
+                        {mode.label}
+                      </SegmentedControl.Item>
+                    ))}
+                  </SegmentedControl.Root>
                 </Flex>
               )}
               <Flex align="center" gap="3" mt="1">
@@ -300,12 +300,10 @@ const Evaluation: React.FC<EvaluationProps> = ({
                   value={[colorBg ? 'colorBg' : '', showUnassigned ? 'unassigned' : '']}
                 >
                   <CheckboxGroup.Item value="unassigned" onClick={() => setShowUnassigned(v => !v)}>
-                    Show Unassigned Population
+                    Show unassigned population
                   </CheckboxGroup.Item>
                   <CheckboxGroup.Item value="colorBg" onClick={() => setColorBg(v => !v)}>
-                    <Flex gap="3">
-                      <p>Color Cells By Values</p>
-                    </Flex>
+                    Color cells by values
                   </CheckboxGroup.Item>
                 </CheckboxGroup.Root>
               </Flex>
@@ -316,8 +314,8 @@ const Evaluation: React.FC<EvaluationProps> = ({
       {isVoterHistory && (
         <Flex direction="column" gap="1" pb="2">
           <Flex justify="start" align="center" gap="2">
-            <Text size="2" color="gray">
-              Point of View
+            <Text size="2" weight="medium">
+              Point of view
             </Text>
             <SegmentedControl.Root
               size="1"
