@@ -212,6 +212,13 @@ export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) =
   const mapControls = useMapControlsStore.getState();
   const activeTool = mapControls.activeTool;
 
+  // A second finger means a pinch/two-finger gesture, never a paint stroke —
+  // cancel any in-progress paint and let maplibre's touchZoomRotate handle it.
+  if ('points' in e && e.points.length > 1) {
+    mapControls.setIsPainting(false);
+    return;
+  }
+
   // Middle-mouse drag always pans the map, regardless of the active tool.
   const originalEvent = 'button' in e.originalEvent ? (e.originalEvent as MouseEvent) : null;
   if (originalEvent?.button === 1) {
@@ -360,8 +367,10 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   // sourceCapabilities exists on the UIEvent constructor, which does not appear
   // properly tpyed in the default map events
   // https://developer.mozilla.org/en-US/docs/Web/API/UIEvent/sourceCapabilities
+  // Maplibre touch events carry `points`/`lngLats` (not `touches`) — the
+  // TouchEvent lives on originalEvent.
   const isTouchEvent =
-    'touches' in e || (e.originalEvent as any)?.sourceCapabilities?.firesTouchEvents;
+    'touches' in e.originalEvent || (e.originalEvent as any)?.sourceCapabilities?.firesTouchEvents;
   if (isBrushingTool && !isTouchEvent && !isPainting) {
     setHoverFeatures(selectedFeatures || []);
   }
@@ -507,6 +516,13 @@ export const mapEventHandlers = {
   onZoomEnd: handleMapZoomEnd,
   onContextMenu: handleMapContextMenu,
   onData: handleDataLoad,
+  // The mouse handlers are typed for MapLayerTouchEvent too; wiring them here
+  // is what makes touch painting work (maplibre does not synthesize
+  // mousedown/mousemove for touch drags).
+  onTouchStart: handleMapMouseDown,
+  onTouchMove: handleMapMouseMove,
+  onTouchEnd: handleMapMouseUp,
+  onTouchCancel: handleMapMouseUp,
 } as const;
 
 export const handleWheelOrPinch = (e: MouseEvent | TouchEvent, map: MapRef | null) => {
