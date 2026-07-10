@@ -21,6 +21,7 @@ import {resetZoneColors} from '@utils/map/resetZoneColors';
 import {setZones} from '@utils/map/setZones';
 import bbox from '@turf/bbox';
 import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/document/limits';
+import {MAP_TYPES} from '@constants/document/types';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
 import {createWithDevWrapperAndSubscribe} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
@@ -493,7 +494,13 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         count: numCommunities,
         colorScheme,
       });
-      colorScheme = syncCoiColorsToColorScheme(communities, colorScheme);
+      // Only community maps mirror community colors back into the scheme —
+      // districts maps get a fallback phantom community whose frozen default
+      // color would otherwise clobber customized district colors on every
+      // mutate (the "custom colors don't save" bug).
+      if (mapDocument.map_type === MAP_TYPES.COMMUNITY) {
+        colorScheme = syncCoiColorsToColorScheme(communities, colorScheme);
+      }
 
       useMapControlsStore.setState({
         mapOptions: {
@@ -600,7 +607,12 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           count: nextNumCommunities,
           colorScheme: nextColorScheme,
         });
-        const syncedColorScheme = syncCoiColorsToColorScheme(nextCommunities, nextColorScheme);
+        // See setMapDocument: community-color sync is COI-only, otherwise the
+        // phantom fallback community reverts customized district colors.
+        const syncedColorScheme =
+          nextMapDocument.map_type === MAP_TYPES.COMMUNITY
+            ? syncCoiColorsToColorScheme(nextCommunities, nextColorScheme)
+            : nextColorScheme;
         return {
           mapDocument: {
             ...nextMapDocument,
