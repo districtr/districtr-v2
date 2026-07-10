@@ -45,6 +45,7 @@ import {
 import {type NumberFormat} from '@constants/demography/format';
 import {EVAL_MODES, type EvalMode} from '@constants/demography/evalMode';
 import {MAP_MODES} from '@constants/map/mode';
+import {PovSwitcher, type Pov} from '@components/Shared/PovSwitcher';
 
 type ColumnConfig = {
   label: string;
@@ -70,8 +71,6 @@ type EvaluationTableHeaderProps = {
   zoneHeader?: string;
 };
 
-type PartisanPov = 'dem' | 'rep';
-
 type EvaluationTableBodyProps = {
   rows: EvaluationDataRow[];
   colorScheme: string[];
@@ -84,7 +83,7 @@ type EvaluationTableBodyProps = {
   mapMode: string;
   communities: ReturnType<typeof useMapStore.getState>['communities'];
   getZoneColor: (zone: number | null, fallback?: string) => string;
-  pov: PartisanPov;
+  pov: Pov;
 };
 
 type EvaluationTableRowProps = Omit<EvaluationTableBodyProps, 'rows'> & {
@@ -147,7 +146,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
   const [evalMode, setEvalMode] = useState<EvalMode>(EVAL_MODES.SHARE);
   const [colorBg, setColorBg] = useState<boolean>(true);
   const [showUnassigned, setShowUnassigned] = useState<boolean>(true);
-  const [pov, setPov] = useState<PartisanPov>('dem');
+  const [pov, setPov] = useState<Pov>('dem');
   const {zoneStats, demoIsLoaded, zoneData, summaryStats} = useSummaryStats(showUnassigned);
   const coalitionGroups = useDemographyStore(state => state.coalitionGroups);
 
@@ -313,19 +312,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
       </Flex>
       {isVoterHistory && (
         <Flex direction="column" gap="1" pb="2">
-          <Flex justify="start" align="center" gap="2">
-            <Text size="2" weight="medium">
-              Point of view
-            </Text>
-            <SegmentedControl.Root
-              size="1"
-              value={pov}
-              onValueChange={v => setPov(v as PartisanPov)}
-            >
-              <SegmentedControl.Item value="dem">Democratic</SegmentedControl.Item>
-              <SegmentedControl.Item value="rep">Republican</SegmentedControl.Item>
-            </SegmentedControl.Root>
-          </Flex>
+          <PovSwitcher pov={pov} setPov={setPov} labelSize="2" />
           <Text size="1" color="gray">
             Vote shares reflect the two major parties only.
           </Text>

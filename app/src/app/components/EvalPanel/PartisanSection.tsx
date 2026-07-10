@@ -1,14 +1,13 @@
 'use client';
 import {useState} from 'react';
 import * as Accordion from '@radix-ui/react-accordion';
-import {Flex, Text, Table, Heading, SegmentedControl} from '@radix-ui/themes';
+import {Flex, Text, Table, Heading} from '@radix-ui/themes';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {formatElectionKey} from '@/app/utils/elections';
 import {formatNumber} from '@/app/utils/numbers';
 import {NUMBER_FORMATS} from '@/app/constants/demography/format';
-
-type Pov = 'dem' | 'rep';
+import {PovSwitcher, type Pov} from '@components/Shared/PovSwitcher';
 
 interface PartisanSectionProps {
   evaluation: DocumentEvaluation;
@@ -137,14 +136,8 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
               <Text size="2" weight="bold" mb="2" as="p">
                 Votes vs. Seats by Election (among the two major parties)
               </Text>
-              <Flex justify="start" align="center" gap="2" mb="2">
-                <Text size="1" color="gray">
-                  Point of View
-                </Text>
-                <SegmentedControl.Root size="1" value={pov} onValueChange={v => setPov(v as Pov)}>
-                  <SegmentedControl.Item value="dem">Democratic</SegmentedControl.Item>
-                  <SegmentedControl.Item value="rep">Republican</SegmentedControl.Item>
-                </SegmentedControl.Root>
+              <Flex mb="2">
+                <PovSwitcher pov={pov} setPov={setPov} />
               </Flex>
               <div style={{width: 'fit-content', overflowX: 'auto', maxWidth: '100%'}}>
                 <Table.Root size="1" mb="3" variant="surface">
@@ -276,14 +269,8 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                 The following scores can all be found in the political science literature, but are
                 not necessarily endorsed by leading scholars at this time.
               </Text>
-              <Flex justify="start" align="center" gap="2" mb="2">
-                <Text size="1" color="gray">
-                  Point of View
-                </Text>
-                <SegmentedControl.Root size="1" value={pov} onValueChange={v => setPov(v as Pov)}>
-                  <SegmentedControl.Item value="dem">Democratic</SegmentedControl.Item>
-                  <SegmentedControl.Item value="rep">Republican</SegmentedControl.Item>
-                </SegmentedControl.Root>
+              <Flex mb="2">
+                <PovSwitcher pov={pov} setPov={setPov} />
               </Flex>
               <div style={{overflowX: 'auto', maxWidth: '100%', width: 'fit-content'}}>
                 <Table.Root
