@@ -15,7 +15,8 @@ import {
 } from '@radix-ui/themes';
 import {Flex, Text} from '@radix-ui/themes';
 import {formatNumber} from '@/app/utils/numbers';
-import {interpolateBlues, interpolateGreys, interpolateReds} from 'd3-scale-chromatic';
+import {interpolateGreys} from 'd3-scale-chromatic';
+import {PARTISAN_SCALE} from '@/app/store/demography/constants';
 import {SummaryRecord} from '@/app/utils/api/summaryStats';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
@@ -68,6 +69,7 @@ type EvaluationDataRow = SummaryRecord | Record<string, string | number | boolea
 
 type EvaluationTableHeaderProps = {
   columnConfigs: ColumnConfig[];
+  zoneHeader?: string;
 };
 
 type PartisanPov = 'dem' | 'rep';
@@ -312,19 +314,31 @@ const Evaluation: React.FC<EvaluationProps> = ({
         )}
       </Flex>
       {isVoterHistory && (
-        <Flex justify="start" align="center" gap="2" pb="2">
-          <Text size="2" color="gray">
-            Point of View
+        <Flex direction="column" gap="1" pb="2">
+          <Flex justify="start" align="center" gap="2">
+            <Text size="2" color="gray">
+              Point of View
+            </Text>
+            <SegmentedControl.Root
+              size="1"
+              value={pov}
+              onValueChange={v => setPov(v as PartisanPov)}
+            >
+              <SegmentedControl.Item value="dem">Democratic</SegmentedControl.Item>
+              <SegmentedControl.Item value="rep">Republican</SegmentedControl.Item>
+            </SegmentedControl.Root>
+          </Flex>
+          <Text size="1" color="gray">
+            Vote shares reflect the two major parties only.
           </Text>
-          <SegmentedControl.Root size="1" value={pov} onValueChange={v => setPov(v as PartisanPov)}>
-            <SegmentedControl.Item value="dem">Democrat</SegmentedControl.Item>
-            <SegmentedControl.Item value="rep">Republican</SegmentedControl.Item>
-          </SegmentedControl.Root>
         </Flex>
       )}
       <Box overflowX="auto" className="text-sm">
         <Table.Root className="min-w-full border-collapse">
-          <EvaluationTableHeader columnConfigs={effectiveColumnConfigs} />
+          <EvaluationTableHeader
+            columnConfigs={effectiveColumnConfigs}
+            zoneHeader={mapMode === MAP_MODES.COI ? 'Community' : 'District'}
+          />
           <EvaluationTableBody
             rows={rows}
             colorScheme={colorScheme}
@@ -344,16 +358,22 @@ const Evaluation: React.FC<EvaluationProps> = ({
     </Box>
   );
 };
-const EvaluationTableHeader: React.FC<EvaluationTableHeaderProps> = ({columnConfigs}) => {
+const EvaluationTableHeader: React.FC<EvaluationTableHeaderProps> = ({
+  columnConfigs,
+  zoneHeader = 'District',
+}) => {
   return (
     <Table.Header>
       <Table.Row className="bg-gray-50 border-b">
         <Table.ColumnHeaderCell className="py-1 px-2 align-middle text-left font-semibold">
-          Zone
+          {zoneHeader}
         </Table.ColumnHeaderCell>
         {!!columnConfigs &&
           columnConfigs.map((f, i) => (
-            <Table.ColumnHeaderCell className="py-1 px-2 align-middle text-right font-semibold" key={i}>
+            <Table.ColumnHeaderCell
+              className="py-1 px-2 align-middle text-right font-semibold"
+              key={i}
+            >
               <Flex justify="end" align="center" gap="1">
                 <span>{f.label}</span>
                 {f.tooltip && (
@@ -483,10 +503,9 @@ const EvaluationTableCell: React.FC<EvaluationTableCellProps> = ({
   let backgroundColor: string | undefined;
   if (!hasValidColorValue || isUniverse) {
   } else if (colorBg && summaryType === SUMMARY_TYPES.VOTERHISTORY) {
-    // Color by the selected party's share: blue scale for Democrat POV, red for
-    // Republican. Halved alpha keeps the text readable at high shares.
-    const interpolatePov = pov === 'dem' ? interpolateBlues : interpolateReds;
-    backgroundColor = interpolatePov(numericValue!).replace('rgb', 'rgba').replace(')', ',0.5)');
+    // Diverging red <- white -> blue keyed to the two-party dem share, matching
+    // the choropleth map; identical coloring in either POV.
+    backgroundColor = PARTISAN_SCALE(pov === 'dem' ? numericValue! : 1 - numericValue!);
   } else if (colorBg && !isUnassigned) {
     backgroundColor = interpolateGreys(colorValue as number)
       .replace('rgb', 'rgba')

@@ -140,7 +140,7 @@ const Main: React.FC = () => {
       <ContentSection title="Where would you like to start?">
         <Flex direction="column" gapY="3">
           <Text size="5">
-            Pick a state on the map, or import a block-assignment file from another tool.
+            Pick a state on the map, or upload a block-assignment file from another tool.
           </Text>
           <ImportBlockAssignments />
           <Box className="w-full aspect-square mx-auto lg:aspect-video">

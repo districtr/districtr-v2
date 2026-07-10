@@ -50,7 +50,7 @@ function dispLabel(disp: number, numDistricts: number): string {
   const seatLean = disp * numDistricts;
   if (Math.abs(seatLean) < 0.05) return 'As proportional as possible';
   const abs = Math.abs(seatLean).toFixed(1);
-  return seatLean > 0 ? `Skews Democrat by ${abs} seats` : `Skews Republican by ${abs} seats`;
+  return seatLean > 0 ? `Skews Democratic by ${abs} seats` : `Skews Republican by ${abs} seats`;
 }
 
 const LEVEL_ORDER: Record<string, number> = {pres: 0, sen: 1, gov: 2, ag: 3};
@@ -142,7 +142,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                   Point of View
                 </Text>
                 <SegmentedControl.Root size="1" value={pov} onValueChange={v => setPov(v as Pov)}>
-                  <SegmentedControl.Item value="dem">Democrat</SegmentedControl.Item>
+                  <SegmentedControl.Item value="dem">Democratic</SegmentedControl.Item>
                   <SegmentedControl.Item value="rep">Republican</SegmentedControl.Item>
                 </SegmentedControl.Root>
               </Flex>
@@ -281,7 +281,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                   Point of View
                 </Text>
                 <SegmentedControl.Root size="1" value={pov} onValueChange={v => setPov(v as Pov)}>
-                  <SegmentedControl.Item value="dem">Democrat</SegmentedControl.Item>
+                  <SegmentedControl.Item value="dem">Democratic</SegmentedControl.Item>
                   <SegmentedControl.Item value="rep">Republican</SegmentedControl.Item>
                 </SegmentedControl.Root>
               </Flex>

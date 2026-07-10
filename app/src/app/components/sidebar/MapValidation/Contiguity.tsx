@@ -68,9 +68,9 @@ export const Contiguity = () => {
         <Table.Header>
           <Table.Row>
             <Table.ColumnHeaderCell>
-              <Text>Zone</Text>
+              <Text>District</Text>
             </Table.ColumnHeaderCell>
-            <Table.ColumnHeaderCell>Contiguity</Table.ColumnHeaderCell>
+            <Table.ColumnHeaderCell>Number of pieces</Table.ColumnHeaderCell>
           </Table.Row>
         </Table.Header>
 
