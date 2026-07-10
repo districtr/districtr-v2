@@ -6,6 +6,7 @@ import {
   BarChartIcon,
   CheckCircledIcon,
   ChevronDownIcon,
+  ColorWheelIcon,
   LayersIcon,
   PersonIcon,
   PieChartIcon,
@@ -46,7 +47,7 @@ const useMapPanelLifecycle = (mapGroup: SummaryType | undefined) => {
   }, [mapGroup]);
 };
 
-/** Collapsible, opt-in coalition builder attached below the demographics
+/** Collapsible, opt-in coalition builder attached above the demographics
  * table/map instead of floating as its own tab. */
 const CoalitionExpander: React.FC<{
   defaultColumnSet: SummaryType;
@@ -56,15 +57,20 @@ const CoalitionExpander: React.FC<{
   return (
     <Flex direction="column" gap="2">
       <Button
-        variant="ghost"
-        size="1"
+        variant="surface"
+        size="2"
         onClick={() => setOpen(o => !o)}
-        className="self-start cursor-pointer"
+        className="w-full cursor-pointer"
       >
-        <ChevronDownIcon
-          className={`transition-transform duration-200 ${open ? '' : '-rotate-90'}`}
-        />
-        Create a coalition (optional)
+        <Flex align="center" justify="between" width="100%">
+          <Flex align="center" gap="2">
+            <ColorWheelIcon />
+            Create a coalition (optional)
+          </Flex>
+          <ChevronDownIcon
+            className={`transition-transform duration-200 ${open ? '' : '-rotate-90'}`}
+          />
+        </Flex>
       </Button>
       <AnimatePresence initial={false}>
         {open && (
@@ -100,6 +106,12 @@ const TabbedSummaryPanel: React.FC<{
   useMapPanelLifecycle(tab === 'map' ? mapGroup : undefined);
   return (
     <Flex direction="column" gap="2">
+      {withCoalition && (
+        <CoalitionExpander
+          defaultColumnSet={defaultColumnSet}
+          displayedColumnSets={displayedColumnSets}
+        />
+      )}
       <SegmentedControl.Root size="2" value={tab} onValueChange={v => setTab(v as SectionKey)}>
         {tabs.map(t => (
           <SegmentedControl.Item key={t.value} value={t.value}>
@@ -113,12 +125,6 @@ const TabbedSummaryPanel: React.FC<{
         displayedColumnSets={displayedColumnSets}
         sections={[tab]}
       />
-      {withCoalition && (
-        <CoalitionExpander
-          defaultColumnSet={defaultColumnSet}
-          displayedColumnSets={displayedColumnSets}
-        />
-      )}
     </Flex>
   );
 };
@@ -157,7 +163,7 @@ const SECTIONS: SidebarSection[] = [
         displayedColumnSets={[SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP]}
         tabs={[
           {value: 'evaluation', label: 'Table'},
-          {value: 'map', label: 'Map'},
+          {value: 'map', label: 'Overlay Layer'},
         ]}
         mapGroup={SUMMARY_TYPES.TOTPOP}
         withCoalition
@@ -175,7 +181,7 @@ const SECTIONS: SidebarSection[] = [
         displayedColumnSets={[SUMMARY_TYPES.VOTERHISTORY]}
         tabs={[
           {value: 'evaluation', label: 'Table'},
-          {value: 'map', label: 'Map'},
+          {value: 'map', label: 'Overlay Layer'},
         ]}
         mapGroup={SUMMARY_TYPES.VOTERHISTORY}
       />

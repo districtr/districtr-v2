@@ -4,7 +4,6 @@ import {useUnassignFeaturesStore} from '@/app/store/unassignedFeatures';
 import {formatNumber} from '@/app/utils/numbers';
 import {Flex, Text} from '@radix-ui/themes';
 import React, {useEffect, useRef} from 'react';
-import {RefreshButton, TimestampDisplay} from '../../Time/TimestampDisplay';
 import ZoomToFeature from './ZoomToFeature';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 
@@ -16,7 +15,6 @@ export const ZoomToUnassigned = () => {
     unassignedFeatureBboxes,
     hasFoundUnassigned,
     reset,
-    lastUpdated,
   } = useUnassignFeaturesStore(state => state);
   const mapDocument = useMapStore(state => state.mapDocument);
   const {summaryStats} = useSummaryStats();
@@ -71,10 +69,6 @@ export const ZoomToUnassigned = () => {
           setSelectedIndex={setSelectedIndex}
           padding={240}
         />
-      </Flex>
-      <Flex direction="row" gapX="4" pt="4" align="center">
-        <RefreshButton onClick={updateUnassignedFeatures} />
-        <TimestampDisplay timestamp={lastUpdated} />
       </Flex>
     </Flex>
   );

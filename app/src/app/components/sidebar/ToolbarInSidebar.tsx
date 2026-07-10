@@ -8,19 +8,26 @@ import {ToolSettings} from '../Toolbar/Settings';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 
 // The toolbar is fixed to the sidebar; it can no longer be moved to the map area.
+// Tool buttons wrap on narrow sidebars, so no horizontal scrolling here.
 export const ToolbarInSidebar = () => {
   const activeTool = useMapControlsStore(store => store.activeTool);
 
   return (
     <Box
-      className={`my-1 flex-none ${activeTool !== ACTIVE_TOOLS.PAN && 'border-b-[1px] border-gray-300'} overflow-x-auto overflow-y-hidden`}
+      className={`my-1 flex-none ${activeTool !== ACTIVE_TOOLS.PAN && 'border-b-[1px] border-gray-300'}`}
     >
       <Toolbar />
-      <Flex justify="end" py="1">
+      <Flex justify="end" py="2">
         {/* Visual settings live next to the toolbar as a dropdown, not a modal. */}
         <Popover.Root>
           <Popover.Trigger>
-            <Button variant="ghost" color="gray" size="1" className="cursor-pointer">
+            <Button
+              variant="surface"
+              color="gray"
+              size="2"
+              className="cursor-pointer transition-shadow hover:shadow-md"
+              data-testid="visual-settings-trigger"
+            >
               <MixerHorizontalIcon />
               Visual settings
               <CaretDownIcon />
