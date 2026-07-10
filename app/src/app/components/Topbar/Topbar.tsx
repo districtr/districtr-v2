@@ -14,6 +14,7 @@ import {idb} from '@/app/utils/idb/idb';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {ModeSwitcher} from './ModeSwitcher';
 import {MapActionsDropdown} from './MapActionsDropdown';
+import {SaveButton} from './SaveButton';
 import {useAutoSave} from '@/app/hooks/useAutoSave';
 
 export const Topbar: React.FC = () => {
@@ -99,6 +100,7 @@ export const Topbar: React.FC = () => {
             <MapHeader handleMetadataChange={handleMetadataChange} />
           )}
           <Flex direction="row" align="center" wrap="wrap" gapX="3" gapY="1">
+            {!isEval && <SaveButton />}
             <ModeSwitcher />
             {!isEval && <MapActionsDropdown handleMetadataChange={handleMetadataChange} />}
           </Flex>

@@ -280,38 +280,39 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                             Show data as percent
                           </Flex>
                         </Text>
-                        {demographicDisplayMode === DEMOGRAPHIC_MODES.OVERLAY && (
-                          <Flex direction="column" gapY="1">
-                            <Flex direction="row" gapX="1" align="center">
-                              <Text>Overlay mode</Text>
-                              <Tooltip content="Press 'x' to cycle through the overlay modes.">
-                                <IconButton variant="ghost">
-                                  <InfoCircledIcon />
-                                </IconButton>
-                              </Tooltip>
-                            </Flex>
-                            <Flex direction="row" gapX="0" align="center" wrap="wrap">
-                              {getOpacityStates(mapOptions, setMapOptions, mapMode).map(
-                                (option, i) => (
-                                  <Button
-                                    key={i}
-                                    className="!rounded-none mr-[-2px]"
-                                    variant={option.selected ? 'solid' : 'outline'}
-                                    onClick={option.onClick}
-                                  >
-                                    {option.label}
-                                  </Button>
-                                )
-                              )}
-                            </Flex>
-                          </Flex>
-                        )}
                       </Flex>
                     </Popover.Content>
                   </Popover.Root>
                 )}
               </Flex>
             </Flex>
+            {/* Painted-district visibility belongs with the choropleth controls,
+                so the overlay-mode cycle lives here rather than in map settings. */}
+            {isOverlay && !!mapVariableConfig && (
+              <Flex direction="column" gapY="1" pb="2">
+                <Flex direction="row" gapX="1" align="center">
+                  <Text>Overlay mode</Text>
+                  <Tooltip content="Press 'x' to cycle through the overlay modes.">
+                    <IconButton variant="ghost">
+                      <InfoCircledIcon />
+                    </IconButton>
+                  </Tooltip>
+                </Flex>
+                <Flex direction="row" gapX="0" align="center" wrap="wrap">
+                  {getOpacityStates(mapOptions, setMapOptions, mapMode).map((option, i) => (
+                    <Button
+                      key={i}
+                      size="1"
+                      className="!rounded-none mr-[-2px]"
+                      variant={option.selected ? 'solid' : 'outline'}
+                      onClick={option.onClick}
+                    >
+                      {option.label}
+                    </Button>
+                  ))}
+                </Flex>
+              </Flex>
+            )}
             {isOverlay && !!mapVariableConfig && (
               <Flex direction="column" gapY="2" pb="2">
                 <Text>Overlay Opacity</Text>
