@@ -55,7 +55,8 @@ export const MapActionsDropdown: React.FC<{
             data-testid="map-actions-trigger"
           >
             <MixIcon />
-            Map actions
+            {/* Icon-only on phones to keep the topbar to one row. */}
+            <span className="hidden md:inline">Map actions</span>
             <CaretDownIcon />
           </Button>
         </DropdownMenu.Trigger>

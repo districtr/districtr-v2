@@ -201,6 +201,11 @@ export const handleMapMouseUp = (e: MapLayerMouseEvent | MapLayerTouchEvent) => 
     // set isPainting to false
     mapControls.setIsPainting(false);
   }
+  // Touch has no mouseleave/move-away to dismiss the paint tooltip, so it
+  // would stick at the last finger position — clear it on lift.
+  if ('touches' in e.originalEvent) {
+    useTooltipStore.getState().setTooltip(null);
+  }
 };
 
 // Cleanup for an in-flight middle-mouse pan; module-level so a second

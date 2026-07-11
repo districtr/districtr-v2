@@ -243,7 +243,8 @@ export const ModeSwitcher: React.FC = () => {
           aria-label="Switch view"
         >
           {isMinting ? <Spinner size="1" /> : <CurrentIcon />}
-          Mode: {MODE_META[currentMode].label}
+          {/* Icon-only on phones; the dropdown spells out the modes. */}
+          <span className="hidden md:inline">Mode: {MODE_META[currentMode].label}</span>
           <CaretDownIcon />
         </Button>
       </DropdownMenu.Trigger>
