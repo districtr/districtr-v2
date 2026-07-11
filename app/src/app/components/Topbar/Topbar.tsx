@@ -106,7 +106,8 @@ export const Topbar: React.FC = () => {
             {!isEval && <MapActionsDropdown handleMetadataChange={handleMetadataChange} />}
           </Flex>
         </Flex>
-        <MobileDataTabs />
+        {/* Editor panel tabs don't apply to the eval report view. */}
+        {!isEval && <MobileDataTabs />}
       </Flex>
       {isAutoSaving && (
         <Flex

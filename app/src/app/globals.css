@@ -68,6 +68,23 @@ body {
   cursor: crosshair;
 }
 
+/* Small screens (portrait): the eval report stacks — the page root is already
+   column-reverse below lg, so cap the map at the top and let the report take
+   the rest, scrolling within itself. Landscape and lg+ keep side-by-side. */
+@media (max-width: 1023px) and (orientation: portrait) {
+  .eval-map-wrapper {
+    height: 35vh !important;
+    height: 35dvh !important;
+    flex: none !important;
+  }
+  .eval-panel {
+    width: 100% !important;
+    flex: 1 1 0px;
+    min-height: 0;
+    border-left: none !important;
+  }
+}
+
 @media print {
   @page {
     margin: 2cm;
