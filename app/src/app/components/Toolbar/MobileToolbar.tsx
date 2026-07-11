@@ -15,7 +15,7 @@ export const MobileToolbar: React.FC = () => {
   const isDesktop = useIsDesktop();
   if (isDesktop) return null;
   return (
-    <div className="lg:hidden flex flex-col-reverse flex-none bg-white border-t border-gray-500 max-h-[50dvh] overflow-y-auto px-2">
+    <div className="lg:hidden flex flex-col-reverse flex-none bg-white border-t border-gray-500 max-h-[50dvh] overflow-y-auto">
       <Toolbar />
     </div>
   );
