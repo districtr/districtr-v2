@@ -139,12 +139,14 @@ export const MobileDataTabs: React.FC = () => {
   const tabContainerBottom = tabContainerRef.current?.getBoundingClientRect()?.bottom || 80;
   return (
     <>
+      {/* The six tabs are wider than a phone, so the strip scrolls itself —
+          start-justified so the first tab is never clipped off-screen. */}
       <div
-        className="block shadow-xl border-b-[1px] border-gray-500 lg:hidden"
+        className="block shadow-xl border-b-[1px] border-gray-500 lg:hidden overflow-x-auto"
         ref={tabContainerRef}
       >
         <Tabs.Root defaultValue="account" value={activeTab} onValueChange={setActiveTab}>
-          <Tabs.List justify={'center'}>
+          <Tabs.List justify={'start'} className="min-w-max">
             {mobileTabPanels.map(f => (
               <Tabs.Trigger key={f.title} value={f.title}>
                 {f.label}
@@ -158,11 +160,12 @@ export const MobileDataTabs: React.FC = () => {
         TODO: Make map less itchy about mounting/unmounting and have the amin "app space" on mobile have a better DOM structure
       */}
       {!!activePanel?.content && (
+        // bottom-0 (within the dvh-constrained map wrapper) instead of a 100vh
+        // height calc, which overshot the visual viewport on mobile browsers.
         <div
-          className="absolute w-full left-0 z-[10000] bg-white overflow-y-auto p-4"
+          className="absolute w-full left-0 bottom-0 z-[10000] bg-white overflow-y-auto p-4"
           style={{
             top: tabContainerBottom,
-            height: `calc(100vh - ${tabContainerBottom}px)`,
           }}
         >
           {activePanel.content}

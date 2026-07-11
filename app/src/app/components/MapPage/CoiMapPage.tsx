@@ -86,9 +86,11 @@ const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => 
   }
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex justify-between p flex-col-reverse lg:flex-row-reverse landscape:flex-row-reverse">
+    <div className="h-screen h-dvh w-screen overflow-hidden flex justify-between p flex-col-reverse lg:flex-row-reverse landscape:flex-row-reverse">
       <SidebarComponent />
-      <div className={`h-full relative w-full flex-1 flex flex-col lg:h-screen landscape:h-screen`}>
+      <div
+        className={`h-full relative w-full flex-1 flex flex-col lg:h-screen lg:h-dvh landscape:h-screen landscape:h-dvh`}
+      >
         <Topbar />
         <Flex direction="row" className="flex-1 min-h-0">
           <CoiMap />
