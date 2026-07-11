@@ -12,6 +12,7 @@ import {MapHeader} from './MapHeader';
 import {saveMapDocumentMetadata} from '@/app/utils/api/apiHandlers/saveMapDocumentMetadata';
 import {idb} from '@/app/utils/idb/idb';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {MAP_MODES} from '@constants/map/mode';
 import {ModeSwitcher} from './ModeSwitcher';
 import {MapActionsDropdown} from './MapActionsDropdown';
 import {SaveButton} from './SaveButton';
@@ -123,7 +124,12 @@ export const Topbar: React.FC = () => {
   );
 };
 
-const mobileTabPanels = [
+const mobileTabPanels: Array<{
+  title: string;
+  label: string;
+  content?: React.ReactNode;
+  districtsOnly?: boolean;
+}> = [
   {
     title: 'map',
     label: 'Map',
@@ -134,7 +140,13 @@ const mobileTabPanels = [
 
 export const MobileDataTabs: React.FC = () => {
   const [activeTab, setActiveTab] = React.useState(mobileTabPanels[0].title);
-  const activePanel = mobileTabPanels?.find(panel => panel.title === activeTab);
+  const mapMode = useMapControlsStore(state => state.mapMode);
+  // Same panel filter as the desktop sidebar: districts-only panels
+  // (elections, validity, ...) don't apply to community (COI) maps.
+  const visiblePanels = mobileTabPanels.filter(
+    panel => mapMode !== MAP_MODES.COI || !panel.districtsOnly
+  );
+  const activePanel = visiblePanels.find(panel => panel.title === activeTab);
   const tabContainerRef = useRef<HTMLDivElement>(null);
   const tabContainerBottom = tabContainerRef.current?.getBoundingClientRect()?.bottom || 80;
   return (
@@ -147,7 +159,7 @@ export const MobileDataTabs: React.FC = () => {
       >
         <Tabs.Root defaultValue="account" value={activeTab} onValueChange={setActiveTab}>
           <Tabs.List justify={'start'} className="min-w-max">
-            {mobileTabPanels.map(f => (
+            {visiblePanels.map(f => (
               <Tabs.Trigger key={f.title} value={f.title}>
                 {f.label}
               </Tabs.Trigger>

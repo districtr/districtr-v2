@@ -6,6 +6,8 @@ export interface DataPanelSpec {
   label: string;
   icon?: React.ReactNode;
   content?: React.ReactNode;
+  /** Hidden in communities (COI) mode, mirroring the sidebar's filter. */
+  districtsOnly?: boolean;
 }
 
 // Derived from the sidebar's SECTIONS registry so desktop and mobile can't
@@ -14,4 +16,5 @@ export const defaultPanels: DataPanelSpec[] = SECTIONS.map(section => ({
   title: section.key,
   label: section.label,
   content: section.content,
+  districtsOnly: section.districtsOnly,
 }));
