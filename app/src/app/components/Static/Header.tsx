@@ -4,9 +4,13 @@ import {Box, DropdownMenu, Flex, IconButton, Link} from '@radix-ui/themes';
 import NextLink from 'next/link';
 import {usePathname} from 'next/navigation';
 import {HamburgerMenuIcon} from '@radix-ui/react-icons';
-import {SecondaryNav, SecondaryNavItem} from './SecondaryNav';
+import {SecondaryNavItem} from './SecondaryNav';
 import {LEARN_ITEMS} from './LearnSubNav';
 import {CATALOG_ITEMS} from './CatalogSubNav';
+
+// Draw has no in-page subnav; this exists so its hover dropdown is parallel
+// with the other top-level items.
+const DRAW_ITEMS: SecondaryNavItem[] = [{label: 'Jump to the map', href: '/map/edit'}];
 
 const NAV_ITEMS: {
   label: string;
@@ -28,6 +32,7 @@ const NAV_ITEMS: {
     label: 'Draw',
     href: '/draw',
     match: p => p === '/draw' || p === '/places' || p.startsWith('/place/'),
+    subnav: DRAW_ITEMS,
   },
   {
     label: 'Catalog',
@@ -41,11 +46,10 @@ export const Header: React.FC = () => {
   const pathname = usePathname();
   const [hovered, setHovered] = useState<(typeof NAV_ITEMS)[number] | null>(null);
 
-  const linkItems = NAV_ITEMS.map(item => {
+  const navLink = (item: (typeof NAV_ITEMS)[number]) => {
     const active = item.match(pathname);
     return (
       <Link
-        key={item.href}
         asChild
         size="5"
         weight="bold"
@@ -54,12 +58,11 @@ export const Header: React.FC = () => {
           active ? 'bg-districtrLightBlue !text-districtrBlue' : 'hover:bg-gray-200'
         }`}
         aria-current={active ? 'page' : undefined}
-        onMouseEnter={() => setHovered(item)}
       >
         <NextLink href={item.href}>{item.label}</NextLink>
       </Link>
     );
-  });
+  };
 
   return (
     <Box
@@ -76,8 +79,32 @@ export const Header: React.FC = () => {
           <a href="/">Districtr</a>
         </Link>
         <Flex direction="row" gapX="2" align="center" className="tracking-wider !hidden md:!flex">
-          {linkItems.map((item, index) => (
-            <React.Fragment key={index}>{item}</React.Fragment>
+          {NAV_ITEMS.map(item => (
+            <div key={item.href} className="relative" onMouseEnter={() => setHovered(item)}>
+              {navLink(item)}
+              {/* The section's pages preview as a dropdown anchored to its
+                  nav item; the padding bridges the hover gap to the panel. */}
+              {hovered === item && item.subnav && (
+                <div className="absolute left-0 top-full z-[10001] pt-3">
+                  <nav
+                    aria-label={`${item.label} section`}
+                    className="min-w-max rounded-lg border border-gray-200 bg-white py-1 shadow-md"
+                  >
+                    {item.subnav.map(sub => (
+                      <Link
+                        key={sub.href}
+                        asChild
+                        size="2"
+                        color="gray"
+                        className="block whitespace-nowrap px-4 py-1.5 !cursor-pointer hover:bg-gray-100 hover:!text-districtrBlue"
+                      >
+                        <NextLink href={sub.href}>{sub.label}</NextLink>
+                      </Link>
+                    ))}
+                  </nav>
+                </div>
+              )}
+            </div>
           ))}
         </Flex>
         <DropdownMenu.Root>
@@ -87,15 +114,12 @@ export const Header: React.FC = () => {
             </IconButton>
           </DropdownMenu.Trigger>
           <DropdownMenu.Content className="p-2" size="2">
-            {linkItems.map((item, index) => (
-              <DropdownMenu.Item key={index}>{item}</DropdownMenu.Item>
+            {NAV_ITEMS.map(item => (
+              <DropdownMenu.Item key={item.href}>{navLink(item)}</DropdownMenu.Item>
             ))}
           </DropdownMenu.Content>
         </DropdownMenu.Root>
       </Flex>
-      {hovered?.subnav && !hovered.match(pathname) && (
-        <SecondaryNav floating items={hovered.subnav} />
-      )}
     </Box>
   );
 };
