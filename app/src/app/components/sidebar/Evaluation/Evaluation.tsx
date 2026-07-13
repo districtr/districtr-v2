@@ -46,6 +46,7 @@ import {type NumberFormat} from '@constants/demography/format';
 import {EVAL_MODES, type EvalMode} from '@constants/demography/evalMode';
 import {MAP_MODES} from '@constants/map/mode';
 import {PovSwitcher, type Pov} from '@components/Shared/PovSwitcher';
+import {ConditionalScrollArea} from '../ConditionalScrollArea';
 
 type ColumnConfig = {
   label: string;
@@ -318,28 +319,32 @@ const Evaluation: React.FC<EvaluationProps> = ({
           </Text>
         </Flex>
       )}
-      <Box overflowX="auto" className="text-sm">
-        <Table.Root className="min-w-full border-collapse">
-          <EvaluationTableHeader
-            columnConfigs={effectiveColumnConfigs}
-            zoneHeader={mapMode === MAP_MODES.COI ? 'Community' : 'District'}
-          />
-          <EvaluationTableBody
-            rows={rows}
-            colorScheme={colorScheme}
-            columnConfigs={effectiveColumnConfigs}
-            evalMode={evalMode}
-            colorBg={colorBg}
-            summaryType={summaryType}
-            numberFormat={numberFormat}
-            maxValues={maxValues}
-            mapMode={mapMode}
-            communities={communities}
-            getZoneColor={getZoneColor}
-            pov={pov}
-          />
-        </Table.Root>
-      </Box>
+      {/* One row per district/community — scroll past ten, like the
+          population panel. */}
+      <ConditionalScrollArea shouldUseScrollableRows={rows.length > 10} maxHeight="60vh">
+        <Box overflowX="auto" className="text-sm">
+          <Table.Root className="min-w-full border-collapse">
+            <EvaluationTableHeader
+              columnConfigs={effectiveColumnConfigs}
+              zoneHeader={mapMode === MAP_MODES.COI ? 'Community' : 'District'}
+            />
+            <EvaluationTableBody
+              rows={rows}
+              colorScheme={colorScheme}
+              columnConfigs={effectiveColumnConfigs}
+              evalMode={evalMode}
+              colorBg={colorBg}
+              summaryType={summaryType}
+              numberFormat={numberFormat}
+              maxValues={maxValues}
+              mapMode={mapMode}
+              communities={communities}
+              getZoneColor={getZoneColor}
+              pov={pov}
+            />
+          </Table.Root>
+        </Box>
+      </ConditionalScrollArea>
     </Box>
   );
 };

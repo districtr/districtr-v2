@@ -6,6 +6,7 @@ import {useEffect, useMemo} from 'react';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 import ContiguityDetail from './ContiguityDetail';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
+import {ConditionalScrollArea} from '../ConditionalScrollArea';
 
 export const Contiguity = () => {
   const mapDocument = useMapStore(store => store.mapDocument);
@@ -63,44 +64,47 @@ export const Contiguity = () => {
 
   return (
     <Box>
-      <Table.Root size="1">
-        <Table.Header>
-          <Table.Row>
-            <Table.ColumnHeaderCell>
-              <Text>District</Text>
-            </Table.ColumnHeaderCell>
-            <Table.ColumnHeaderCell>Number of pieces</Table.ColumnHeaderCell>
-          </Table.Row>
-        </Table.Header>
-
-        <Table.Body>
-          {tableData.map((row: any, i: number) => (
-            <Table.Row key={i}>
-              <Table.Cell>
-                <Flex align="center" gap="2">
-                  <div
-                    style={{
-                      width: '15px',
-                      height: '15px',
-                      backgroundColor: getZoneColor(row.zone),
-                      borderRadius: '4px',
-                    }}
-                  />
-                  <Text weight="bold">{row.zone}</Text>
-                </Flex>
-              </Table.Cell>
-              <Table.Cell>
-                <ContiguityDetail
-                  zone={row.zone}
-                  contiguity={row.contiguity}
-                  lastUpdated={lastUpdatedContiguity}
-                  handleUpdateParent={refetch}
-                />
-              </Table.Cell>
+      {/* One row per district — scroll past ten, like the population panel. */}
+      <ConditionalScrollArea shouldUseScrollableRows={tableData.length > 10} maxHeight="60vh">
+        <Table.Root size="1">
+          <Table.Header>
+            <Table.Row>
+              <Table.ColumnHeaderCell>
+                <Text>District</Text>
+              </Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Number of pieces</Table.ColumnHeaderCell>
             </Table.Row>
-          ))}
-        </Table.Body>
-      </Table.Root>
+          </Table.Header>
+
+          <Table.Body>
+            {tableData.map((row: any, i: number) => (
+              <Table.Row key={i}>
+                <Table.Cell>
+                  <Flex align="center" gap="2">
+                    <div
+                      style={{
+                        width: '15px',
+                        height: '15px',
+                        backgroundColor: getZoneColor(row.zone),
+                        borderRadius: '4px',
+                      }}
+                    />
+                    <Text weight="bold">{row.zone}</Text>
+                  </Flex>
+                </Table.Cell>
+                <Table.Cell>
+                  <ContiguityDetail
+                    zone={row.zone}
+                    contiguity={row.contiguity}
+                    lastUpdated={lastUpdatedContiguity}
+                    handleUpdateParent={refetch}
+                  />
+                </Table.Cell>
+              </Table.Row>
+            ))}
+          </Table.Body>
+        </Table.Root>
+      </ConditionalScrollArea>
     </Box>
   );
 };

@@ -7,6 +7,7 @@ import {Checkbox, Flex, Text} from '@radix-ui/themes';
 import React, {useEffect, useRef} from 'react';
 import ZoomToFeature from './ZoomToFeature';
 import {NUMBER_FORMATS} from '@constants/demography/format';
+import {ConditionalScrollArea} from '../ConditionalScrollArea';
 
 export const ZoomToUnassigned = () => {
   const {
@@ -75,14 +76,21 @@ export const ZoomToUnassigned = () => {
           Zoom to unassigned area
         </Text>
       )}
-      <Flex direction="row" align="center" gapX="2" gapY="2" wrap="wrap" justify="start" pt="2">
-        <ZoomToFeature
-          features={unassignedFeatureBboxes}
-          selectedIndex={selectedIndex}
-          setSelectedIndex={setSelectedIndex}
-          padding={240}
-        />
-      </Flex>
+      {/* A map can have hundreds of unassigned areas — scroll the grid once
+          it's more than a few rows of buttons. */}
+      <ConditionalScrollArea
+        shouldUseScrollableRows={unassignedFeatureBboxes.length > 20}
+        maxHeight="40vh"
+      >
+        <Flex direction="row" align="center" gapX="2" gapY="2" wrap="wrap" justify="start" pt="2">
+          <ZoomToFeature
+            features={unassignedFeatureBboxes}
+            selectedIndex={selectedIndex}
+            setSelectedIndex={setSelectedIndex}
+            padding={240}
+          />
+        </Flex>
+      </ConditionalScrollArea>
     </Flex>
   );
 };
