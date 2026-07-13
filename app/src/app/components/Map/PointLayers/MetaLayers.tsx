@@ -90,11 +90,11 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
           0,
           0,
           10, // readable as soon as the labels appear
-          11,
-          12,
           14,
-          15, // keeps growing when zoomed in close
-          18,
+          13,
+          20,
+          16, // keeps growing at block-level zooms
+          28,
         ],
         'text-anchor': 'center',
         'text-offset': [0, 0],
@@ -105,7 +105,8 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
       paint={{
         'text-color': '#000',
         'text-halo-color': '#fff',
-        'text-halo-width': 2,
+        // Scales with the larger text so the numbers stay legible over color.
+        'text-halo-width': 2.5,
       }}
     />
   );
