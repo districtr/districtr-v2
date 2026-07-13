@@ -1,26 +1,17 @@
-# v2 GerryDB view import list — STEP 1 of 2.
+# GerryDB view import list for the v2 layer generation: 52 geographies
+# (50 states + DC + PR), two layers each — a shatter parent and a block
+# child. Source geopackages live on S3 under `gerrydb/`, named
+# `{geo}_districtr_{layer}_view_v2.gpkg`.
 #
-# 104 entries: 52 geographies (50 states + DC + PR, new in v2) x
-# {parent, block} layers. Source geopackages live on S3 under
-# `gerrydb/` named `{geo}_districtr_{layer}_view_v2.gpkg`.
+# The parent layer is `vtd` except for ca, hi, or, wv, whose v2 sources
+# have no vtd layer; they use `bg`.
 #
-# Parent layer is `vtd` for all geographies except ca, hi, or, wv, which
-# have no vtd source layer in v2 (mirrors v1: those four use `bg` as the
-# shatter parent). DC and PR are assumed to ship a `vtd` parent layer like
-# the other 48 states/DC/PR pairing here — verify this against the actual
-# v2 S3 manifest before running the import; this config was authored from
-# the geography/layer list in the task brief, not by listing the bucket.
+# v2 source data splits discontiguous VTDs into contiguous parts with
+# `-datadem-N` suffixed geo_ids; all v2 VTD geometries are single-part.
 #
-# v2 data fix (verified): discontiguous VTDs were split into contiguous
-# parts with `-datadem-N` suffixed geo_ids; all v2 VTD geometries are
-# single-part. No special handling needed here — ogr2ogr imports the view
-# as-is, and geo_id handling is downstream (pipelines/backend).
-#
-# Run first, standalone:
-#   docker-compose exec backend python cli.py batch-create-districtr-maps \
-#     --config-file=management/configs/v2_gerrydb_views.yaml --data-dir=/data
-#
-# Then run v2_backend_config.yml (map modules) — see that file's header.
+# Layers imported here are referenced by v2_backend_config.yml and
+# v2_custom_districts_config.yml. Loaded with
+# `python cli.py batch-create-districtr-maps`.
 gerrydb_views:
 - gpkg: al_districtr_vtd_view_v2.gpkg
   layer: al_districtr_vtd_view_v2

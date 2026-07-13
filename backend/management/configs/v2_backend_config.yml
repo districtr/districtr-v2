@@ -1,230 +1,38 @@
-# v2 map modules — STEP 2 of 2 (after v2_gerrydb_views.yaml has been imported).
+# Map modules for the v2 layer generation: 52 geographies (50 states +
+# DC + PR). Slugs carry a `_v2` suffix; names refer to the real-world
+# legislative bodies they redistrict. Each geography gets one module per
+# geographically districted body: congressional, state senate, and state
+# house for most states; at-large states have no congressional module.
 #
-# 146 districtr_maps: 3 per state mirroring v1's per-state module set and
-# district counts exactly (congressional/state-senate/state-house, or the
-# at-large-state subset — see v1_backend_config.yml), 1 for DC, 2 for PR.
-# All slugs carry a `_v2` suffix; names are unchanged from v1 (they name
-# real-world legislative bodies, not the data vintage). ca/hi/or/wv use the
-# `bg` layer as shatter parent (no v2 vtd source), same as v1.
+# DC has a single module, dc_council_wards_v2 (8 districts): DC's House
+# seat is a non-voting at-large Delegate and is not redistricted. Of the
+# DC Council's 13 seats, only the 8 ward seats are geographically
+# districted (DC Code Sec. 1-204.01). The State Board of Education's 8
+# districts share the ward boundaries (a module for it would duplicate
+# this one's geometry), and Advisory Neighborhood Commissions (~296
+# single-member districts) sit below this tool's granularity.
 #
-# ## Review required: DC and PR module counts (no v1 precedent)
+# PR has two modules; its House seat is a single at-large non-voting
+# Resident Commissioner and is not redistricted.
+#   - pr_senate_districts_v2 (8): the PR Senate has 27 seats — 16 elected
+#     from 8 senatorial districts (two senators per district) plus 11
+#     at-large. num_districts counts the 8 drawn districts; note each
+#     elects two members, unlike the single-member districts elsewhere in
+#     this config.
+#   - pr_house_districts_v2 (40): the PR House has 51 seats — 40
+#     single-member representative districts plus 11 at-large.
 #
-# DC (1 module — no congressional map, no state senate/house):
-#   - DC has no voting House seat; the at-large, non-voting Delegate is not
-#     redistricted. (Ballotpedia: DC's At-Large Congressional District)
-#   - `dc_council_wards_v2`: 8 districts, one per DC Council ward. The
-#     DC Council has 13 seats total (8 ward + 4 at-large + chair at-large,
-#     DC Code Sec. 1-204.01) but only the 8 ward seats are geographically
-#     districted, so num_districts = 8.
-#   - Not modeled: the DC State Board of Education (8 single-member
-#     districts + 1 at-large) reuses the same ward boundaries as the
-#     Council, so it would be a duplicate map on identical geometry —
-#     flagging in case a reviewer wants it as a separate module anyway.
-#   - Not modeled: Advisory Neighborhood Commissions (~296 single-member
-#     districts) — too granular for this tool's scope.
+# All modules join the `states` map group. The views listing
+# (GET /api/gerrydb/views, get_projects() in backend/app/main.py) returns
+# the maps of a group with visible = true, so a module appears in the
+# frontend picker once loaded; setting visible = false removes it from
+# the picker without affecting documents that reference it (see the
+# `visible` field in backend/app/models.py).
 #
-# PR (2 modules — no congressional map):
-#   - PR's House seat is a single, at-large, non-voting Resident
-#     Commissioner (4-year term) — not redistricted, same reasoning as DC.
-#     (Wikipedia: Resident Commissioner of Puerto Rico)
-#   - `pr_senate_districts_v2`: 8 districts. PR Senate has 27 seats: 16 from
-#     8 senatorial districts (2 senators/district) + 11 at-large. The
-#     *districted* count is 8, so num_districts = 8 (a district here elects
-#     2 senators, unlike the single-member "districts" elsewhere in this
-#     config — flag for reviewer, since num_districts semantics may need to
-#     mean something different for this module).
-#   - `pr_house_districts_v2`: 40 districts. PR House has 51 seats: 40 from
-#     single-member representative districts + 11 at-large. num_districts = 40.
-#   - Sources: Wikipedia "Legislative Assembly of Puerto Rico", "Senate of
-#     Puerto Rico", "House of Representatives of Puerto Rico"; Ballotpedia
-#     "Puerto Rico Legislative Assembly".
-#   - HUMAN VERIFICATION NEEDED: these are 2026 civics-reference figures,
-#     not sourced from the v2 gerrydb geometries themselves. Confirm the
-#     imported pr_districtr_vtd_view_v2 geometry actually carries 8/40
-#     district identifiers before wiring these counts in for real.
-#
-# map_groups: v2 modules are added to the SAME `states` group v1 modules
-# use, so they appear in the FE picker (GET /api/gerrydb/views?group=states,
-# see backend/app/main.py get_projects()) immediately once loaded and
-# `visible=true` (the DistrictrMap default) — no FE change needed. This is
-# intentional: it lets v1 and v2 coexist in the picker during verification.
-# The loader creates any missing group automatically (idempotently) from
-# map_group_definitions below — no manual `cli.py create-map-group` step
-# is required before running this config.
-#
-# ---------------------------------------------------------------------------
-# RETIREMENT OF v1 (separate, explicit, run only after v2 is loaded and
-# verified — NOT part of loading this config):
-#
-# The picker (`GET /api/gerrydb/views`) filters on `DistrictrMap.visible`
-# (backend/app/main.py get_projects(), around line 1602). Existing Documents
-# referencing v1 districtr_map_slugs are looked up directly by slug
-# (e.g. PUT /api/document, GET /api/document/{id}) and do NOT filter on
-# `visible`, so setting v1 rows invisible hides them from the picker only —
-# already-created documents on v1 maps keep working.
-#
-# Run this SQL directly against the backend DB once v2 is verified (e.g.
-# via `docker-compose exec db psql -U districtr -d districtr` or the
-# project's usual DB-access path):
-#
-#   UPDATE districtrmap
-#   SET visible = false
-#   WHERE districtr_map_slug IN (
-#     'al_congressional_districts',
-#     'al_state_senate_districts',
-#     'al_state_house_districts',
-#     'ak_state_senate_districts',
-#     'ak_state_house_districts',
-#     'az_congressional_districts',
-#     'az_state_senate_districts',
-#     'az_state_house_districts',
-#     'ar_congressional_districts',
-#     'ar_state_senate_districts',
-#     'ar_state_house_districts',
-#     'ca_congressional_districts',
-#     'ca_state_senate_districts',
-#     'ca_state_house_districts',
-#     'co_congressional_districts',
-#     'co_state_senate_districts',
-#     'co_state_house_districts',
-#     'ct_congressional_districts',
-#     'ct_state_senate_districts',
-#     'ct_state_house_districts',
-#     'de_state_senate_districts',
-#     'de_state_house_districts',
-#     'fl_congressional_districts',
-#     'fl_state_senate_districts',
-#     'fl_state_house_districts',
-#     'ga_congressional_districts',
-#     'ga_state_senate_districts',
-#     'ga_state_house_districts',
-#     'hi_congressional_districts',
-#     'hi_state_senate_districts',
-#     'hi_state_house_districts',
-#     'id_congressional_districts',
-#     'id_state_senate_districts',
-#     'id_state_house_districts',
-#     'il_congressional_districts',
-#     'il_state_senate_districts',
-#     'il_state_house_districts',
-#     'in_congressional_districts',
-#     'in_state_senate_districts',
-#     'in_state_house_districts',
-#     'ia_congressional_districts',
-#     'ia_state_senate_districts',
-#     'ia_state_house_districts',
-#     'ks_congressional_districts',
-#     'ks_state_senate_districts',
-#     'ks_state_house_districts',
-#     'ky_congressional_districts',
-#     'ky_state_senate_districts',
-#     'ky_state_house_districts',
-#     'la_congressional_districts',
-#     'la_state_senate_districts',
-#     'la_state_house_districts',
-#     'me_congressional_districts',
-#     'me_state_senate_districts',
-#     'me_state_house_districts',
-#     'md_congressional_districts',
-#     'md_state_senate_districts',
-#     'md_state_house_districts',
-#     'ma_congressional_districts',
-#     'ma_state_senate_districts',
-#     'ma_state_house_districts',
-#     'mi_congressional_districts',
-#     'mi_state_senate_districts',
-#     'mi_state_house_districts',
-#     'mn_congressional_districts',
-#     'mn_state_senate_districts',
-#     'mn_state_house_districts',
-#     'ms_congressional_districts',
-#     'ms_state_senate_districts',
-#     'ms_state_house_districts',
-#     'mo_congressional_districts',
-#     'mo_state_senate_districts',
-#     'mo_state_house_districts',
-#     'mt_congressional_districts',
-#     'mt_state_senate_districts',
-#     'mt_state_house_districts',
-#     'ne_congressional_districts',
-#     'ne_state_senate_districts',
-#     'nv_congressional_districts',
-#     'nv_state_senate_districts',
-#     'nv_state_house_districts',
-#     'nh_congressional_districts',
-#     'nh_state_senate_districts',
-#     'nh_state_house_districts',
-#     'nj_congressional_districts',
-#     'nj_state_senate_districts',
-#     'nj_state_house_districts',
-#     'nm_congressional_districts',
-#     'nm_state_senate_districts',
-#     'nm_state_house_districts',
-#     'ny_congressional_districts',
-#     'ny_state_senate_districts',
-#     'ny_state_house_districts',
-#     'nc_congressional_districts',
-#     'nc_state_senate_districts',
-#     'nc_state_house_districts',
-#     'nd_state_senate_districts',
-#     'nd_state_house_districts',
-#     'oh_congressional_districts',
-#     'oh_state_senate_districts',
-#     'oh_state_house_districts',
-#     'ok_congressional_districts',
-#     'ok_state_senate_districts',
-#     'ok_state_house_districts',
-#     'or_congressional_districts',
-#     'or_state_senate_districts',
-#     'or_state_house_districts',
-#     'pa_congressional_districts',
-#     'pa_state_senate_districts',
-#     'pa_state_house_districts',
-#     'ri_congressional_districts',
-#     'ri_state_senate_districts',
-#     'ri_state_house_districts',
-#     'sc_congressional_districts',
-#     'sc_state_senate_districts',
-#     'sc_state_house_districts',
-#     'sd_state_senate_districts',
-#     'sd_state_house_districts',
-#     'tn_congressional_districts',
-#     'tn_state_senate_districts',
-#     'tn_state_house_districts',
-#     'tx_congressional_districts',
-#     'tx_state_senate_districts',
-#     'tx_state_house_districts',
-#     'ut_congressional_districts',
-#     'ut_state_senate_districts',
-#     'ut_state_house_districts',
-#     'vt_state_senate_districts',
-#     'vt_state_house_districts',
-#     'va_congressional_districts',
-#     'va_state_senate_districts',
-#     'va_state_house_districts',
-#     'wa_congressional_districts',
-#     'wa_state_senate_districts',
-#     'wa_state_house_districts',
-#     'wv_congressional_districts',
-#     'wv_state_senate_districts',
-#     'wv_state_house_districts',
-#     'wi_congressional_districts',
-#     'wi_state_senate_districts',
-#     'wi_state_house_districts',
-#     'wy_state_senate_districts',
-#     'wy_state_house_districts'
-#   );
-#
-# NOTE: `backend/cli.py update-districtr-map` (options include
-# `--visibility`) looked like the natural CLI path for this, but static
-# review of that command turned up what appears to be a pre-existing bug:
-# its `districtr_map_slug` and `data_source_name` function parameters have
-# no corresponding @click.option/@click.argument decorator, so click would
-# not be able to supply them. This worker could not run the backend
-# container to confirm the command actually fails — flagging as unverified.
-# Until confirmed fixed, use the SQL above rather than
-# `update-districtr-map --visibility false`.
-# ---------------------------------------------------------------------------
+# Layers referenced here are imported by v2_gerrydb_views.yaml. The
+# loader creates any map group missing from the database using
+# map_group_definitions; a group without a definition gets a title-cased
+# slug as its name.
 shatterable_views:
 - child_layer: al_districtr_block_view_v2
   districtr_map_slug: al_districtr_view_v2

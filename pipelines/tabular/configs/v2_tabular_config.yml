@@ -1,5 +1,6 @@
-# v2 batch tabular build — 52 geographies (50 states + DC + PR).
-# Mirrors v1_tabular_config.yml.
+# Tabular batch for the v2 layer generation: 52 geographies (50 states +
+# DC + PR). The parent layer is vtd except for ca/hi/or/wv, whose v2
+# sources have no vtd layer; they use bg.
 datasets:
   al_districtr_view_v2:
     child_gpkg: al_districtr_block_view_v2.gpkg

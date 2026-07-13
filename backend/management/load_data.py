@@ -134,9 +134,8 @@ def _create_parent_child_edges(session: Session, **kwargs):
 
     # If another map with the same parent/child layers already has edges, copy
     # from that partition instead of re-running the expensive spatial join.
-    # (Ported from fix/import-modules: v2 shares parent/child layer pairs
-    # across a state's congressional/senate/house map modules, exactly like
-    # v1, so this avoids re-running the spatial join up to 3x per state.)
+    # A geography's map modules (congressional/senate/house/custom) share one
+    # layer pair, so their edge sets are identical.
     districtr_map_uuid = kwargs["districtr_map_uuid"]
     map_row = session.exec(
         select(DistrictrMap).where(DistrictrMap.uuid == districtr_map_uuid)
@@ -399,12 +398,6 @@ def load_sample_data(
             logger.info(f"Created districtr map with UUID {u}")
 
         if view.child_layer is not None:
-            # Ported from fix/import-modules along with the edge-copy speedup
-            # above: also fixes a pre-existing bug on this branch where the
-            # uuid passed here was `view.districtr_map_uuid` — a field that
-            # does not exist on DistrictrMapPublic (see backend/app/models.py),
-            # which would raise AttributeError for every newly-created map
-            # with a child_layer. Use the resolved `u` instead.
             edges_exist = session.execute(
                 sa.text(
                     "SELECT COUNT(*) > 0 FROM parentchildedges WHERE districtr_map = :uuid"
@@ -421,9 +414,8 @@ def load_sample_data(
 
         session.commit()
 
-    # Ensure every referenced map group exists before adding memberships, so
-    # configs need no manual `cli.py create-map-group` prerequisite. Idempotent:
-    # check-before-create, matching the exists-checks used for views/maps above.
+    # Ensure every group referenced by map_groups exists before adding
+    # memberships (check-before-create, idempotent across re-runs).
     group_names = {d.slug: d.name for d in config._map_group_definitions}
     referenced_slugs = sorted({g.group_slug for g in config._map_groups})
     for slug in referenced_slugs:

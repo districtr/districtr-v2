@@ -1,29 +1,16 @@
-# v2 custom (flexible) district maps — one per v2 geography (52: 50 states + DC + PR).
+# Flexible (custom) district maps — one per v2 geography (52: 50 states
+# + DC + PR). These reuse the v2 gerrydb layers and set
+# num_districts_modifiable: true, so the district count is not fixed to a
+# legislative body's size and can be changed after creation (e.g. by CSV
+# assignment import). num_districts is the default and minimum count:
+# each geography's congressional-district count, or 2 — the app's
+# minimum — for geographies with no congressional map (at-large states,
+# DC, and PR).
 #
-# Mirrors fix/import-modules' v1_custom_districts_config.yml pattern: these
-# reuse the v2 gerrydb layers already imported by v2_gerrydb_views.yaml, with
-# num_districts_modifiable: true so the CSV importer can set the district
-# count from the uploaded file rather than inheriting a fixed legislative
-# count. num_districts is a FLOOR, not a fixed value: it defaults to each
-# geography's congressional-district count (2 for geographies with no
-# congressional map — v1's at-large states, plus DC and PR here, since the
-# app requires at least 2 districts); uploads can grow the count but never
-# shrink below this default (see backend/app/assignments/assignments.py in
-# fix/import-modules for the enforcement logic — NOT ported onto this
-# branch, see load_data.py header note).
-#
-# DC and PR both default to 2: neither has a congressional map (see
-# v2_backend_config.yml's "Review required" section for sourcing), so they
-# fall back to the same floor as v1's at-large states rather than to their
-# ward/senate/house counts. HUMAN VERIFICATION NEEDED if a higher floor
-# (e.g. 8 for DC wards) is preferred instead.
-#
-# gerrydb_views and shatterable_views are omitted — both are created by
-# v2_gerrydb_views.yaml / v2_backend_config.yml, which must run first.
-#
-# The `custom` map group is created automatically (idempotently) by the
-# loader from map_group_definitions at the bottom of this file — no manual
-# `cli.py create-map-group` step is required.
+# gerrydb_views and shatterable_views are omitted: the layers are
+# imported by v2_gerrydb_views.yaml and the shatterable views are created
+# by v2_backend_config.yml. The `custom` map group is created by the
+# loader from map_group_definitions.
 districtr_maps:
 - child_layer: al_districtr_block_view_v2
   districtr_map_slug: al_custom_districts_v2
