@@ -2,7 +2,7 @@
 import React, {useState} from 'react';
 import {Box, DropdownMenu, Flex, IconButton, Link} from '@radix-ui/themes';
 import NextLink from 'next/link';
-import {usePathname} from 'next/navigation';
+import {usePathname, useRouter} from 'next/navigation';
 import {HamburgerMenuIcon} from '@radix-ui/react-icons';
 import {SecondaryNavItem} from './SecondaryNav';
 import {LEARN_ITEMS} from './LearnSubNav';
@@ -44,6 +44,7 @@ const NAV_ITEMS: {
 
 export const Header: React.FC = () => {
   const pathname = usePathname();
+  const router = useRouter();
   const [hovered, setHovered] = useState<(typeof NAV_ITEMS)[number] | null>(null);
 
   const navLink = (item: (typeof NAV_ITEMS)[number]) => {
@@ -114,9 +115,24 @@ export const Header: React.FC = () => {
             </IconButton>
           </DropdownMenu.Trigger>
           <DropdownMenu.Content className="p-2" size="2">
-            {NAV_ITEMS.map(item => (
-              <DropdownMenu.Item key={item.href}>{navLink(item)}</DropdownMenu.Item>
-            ))}
+            {/* Plain menu rows via onSelect (Radix Themes' Item throws with an
+                asChild anchor) — the desktop pill styling doubled up with the
+                menu item's own hover/press highlight and looked off. */}
+            {NAV_ITEMS.map(item => {
+              const active = item.match(pathname);
+              return (
+                <DropdownMenu.Item
+                  key={item.href}
+                  onSelect={() => router.push(item.href)}
+                  className={`!cursor-pointer ${
+                    active ? '!bg-districtrLightBlue !text-districtrBlue !font-bold' : ''
+                  }`}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  {item.label}
+                </DropdownMenu.Item>
+              );
+            })}
           </DropdownMenu.Content>
         </DropdownMenu.Root>
       </Flex>
