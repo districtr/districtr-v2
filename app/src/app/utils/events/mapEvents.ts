@@ -376,7 +376,9 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   // TouchEvent lives on originalEvent.
   const isTouchEvent =
     'touches' in e.originalEvent || (e.originalEvent as any)?.sourceCapabilities?.firesTouchEvents;
-  if (isBrushingTool && !isTouchEvent && !isPainting) {
+  // Keep updating while painting too, so the brush footprint follows the
+  // cursor during a drag instead of freezing at the mousedown spot.
+  if (isBrushingTool && !isTouchEvent) {
     setHoverFeatures(selectedFeatures || []);
   }
   const isMutationTool = activeTool === ACTIVE_TOOLS.BRUSH || activeTool === ACTIVE_TOOLS.ERASER;
