@@ -377,6 +377,7 @@ def load_sample_data(
                 child_layer=view.child_layer,
                 tiles_s3_path=view.tiles_s3_path,
                 num_districts=view.num_districts,
+                num_districts_modifiable=view.num_districts_modifiable,
             )
             logger.info(f"Adding extent to districtr map with UUID {u}")
             add_extent_to_districtrmap(session=session, districtr_map_uuid=u)
