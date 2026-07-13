@@ -1,9 +1,15 @@
+import logging
+import secrets
+from datetime import datetime, timedelta, timezone
+
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import SecurityScopes, HTTPAuthorizationCredentials, HTTPBearer
 import httpx
 
 from app.core.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 class TokenScope:
@@ -129,3 +135,63 @@ class VerifyRecaptcha:
 
 
 recaptcha = VerifyRecaptcha()
+
+
+async def verify_recaptcha_v3(token: str, ip: str | None) -> float:
+    """Verify a reCAPTCHA v3 token and return its score.
+
+    Raises HTTPException 400 if verification fails or the score is below
+    RECAPTCHA_V3_SCORE_THRESHOLD.
+    """
+    settings = get_settings()
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://www.google.com/recaptcha/api/siteverify",
+            data={
+                "secret": settings.RECAPTCHA_V3_SECRET_KEY,
+                "response": token,
+                "remoteip": ip,
+            },
+        )
+    result = response.json()
+    score = result.get("score", 0.0)
+    if not result.get("success") or score < settings.RECAPTCHA_V3_SCORE_THRESHOLD:
+        raise HTTPException(status_code=400, detail="reCAPTCHA verification failed")
+    return score
+
+
+def mint_session_token() -> tuple[str, datetime]:
+    """Mint a stateless HMAC-signed session token and its expiry."""
+    settings = get_settings()
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(hours=settings.SESSION_TOKEN_TTL_HOURS)
+    token = jwt.encode(
+        {"iat": now, "exp": expires_at}, settings.SECRET_KEY, algorithm="HS256"
+    )
+    return token, expires_at
+
+
+def require_session(
+    x_districtr_session: str | None = Header(None, alias="X-Districtr-Session"),
+) -> None:
+    """FastAPI dependency: require a valid session token (or research API key).
+
+    Stateless — verifies the HMAC signature only, no DB access. When
+    SESSION_ENFORCE is false, missing/invalid tokens only log a warning.
+    """
+    settings = get_settings()
+    if (
+        settings.RESEARCH_API_KEY
+        and x_districtr_session
+        and secrets.compare_digest(x_districtr_session, settings.RESEARCH_API_KEY)
+    ):
+        return
+    if x_districtr_session:
+        try:
+            jwt.decode(x_districtr_session, settings.SECRET_KEY, algorithms=["HS256"])
+            return
+        except jwt.InvalidTokenError:
+            pass
+    if settings.SESSION_ENFORCE:
+        raise HTTPException(status_code=401, detail="session_required")
+    logger.warning("Missing or invalid session token")

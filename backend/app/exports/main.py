@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse
 from sqlmodel import Session, select, col
 from app.core.dependencies import get_protected_document
 from app.core.db import get_session
+from app.core.security import require_session
 from app.models import Document, DistrictrMap, DistrictUnionsResponse, Assignments
 from app.exports.models import DocumentExportType
 from app.utils import update_or_select_district_stats
@@ -107,7 +108,11 @@ def build_districts_shapefile(
                 zf.write(os.path.join(tmpdir, fname), arcname=fname)
 
 
-@router.get("/api/document/{document_id}/export", status_code=status.HTTP_200_OK)
+@router.get(
+    "/api/document/{document_id}/export",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_session)],
+)
 async def export_document(
     *,
     document_id: str,

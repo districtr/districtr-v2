@@ -5,6 +5,7 @@ import {createRepos} from "./ecr";
 import {createDatabase} from "./database";
 import {createCluster} from "./cluster";
 import {createAlb} from "./alb";
+import {createWaf} from "./waf";
 import {createBackendTaskConfig} from "./backendtask";
 import {createBackend} from "./backend";
 import {createFrontend} from "./frontend";
@@ -16,10 +17,11 @@ const repos = createRepos();
 const database = createDatabase(network);
 const clusterResources = createCluster();
 const alb = createAlb(network);
+const waf = createWaf(alb);
 const backendTaskConfig = createBackendTaskConfig(repos, database);
 const backend = createBackend(network, clusterResources, alb, backendTaskConfig);
 const frontend = createFrontend(network, clusterResources, alb, repos);
-const {topic} = createMonitoring(alb, database, clusterResources, backend, frontend);
+const {topic} = createMonitoring(alb, database, clusterResources, backend, frontend, waf);
 createGraphCheck(clusterResources, network, backendTaskConfig, topic.arn);
 
 // --- Outputs consumed by the deploy workflows (migrate RunTask) ---

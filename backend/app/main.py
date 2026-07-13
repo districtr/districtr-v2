@@ -46,6 +46,11 @@ from app.core.dependencies import (
 )
 from app.core.models import DocumentID
 from app.core.config import settings
+from app.core.security import (
+    mint_session_token,
+    require_session,
+    verify_recaptcha_v3,
+)
 import app.exports.main as exports
 import app.cms.main as cms
 import app.comments.main as comments
@@ -88,7 +93,7 @@ from app.comments.models import (
     Tag,
     CommentTag,
 )
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
@@ -146,6 +151,18 @@ if settings.BACKEND_CORS_ORIGINS or settings.BACKEND_CORS_ORIGIN_REGEX:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Strict-Transport-Security"] = (
+        "max-age=63072000; includeSubDomains"
+    )
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
 
 
 @app.middleware("http")
@@ -317,7 +334,21 @@ async def db_is_alive(session: Session = Depends(get_session)):
         )
 
 
-@app.get("/api/document/{document_id}/stats")
+class SessionCreate(BaseModel):
+    recaptcha_token: str
+
+
+@app.post("/api/session")
+async def create_session(data: SessionCreate, request: Request):
+    """Mint a stateless session token, verifying reCAPTCHA v3 when configured."""
+    if settings.RECAPTCHA_V3_SECRET_KEY:
+        client_ip = request.client.host if request.client else None
+        await verify_recaptcha_v3(data.recaptcha_token, client_ip)
+    token, expires_at = mint_session_token()
+    return {"token": token, "expires_at": expires_at.isoformat()}
+
+
+@app.get("/api/document/{document_id}/stats", dependencies=[Depends(require_session)])
 async def get_document_stats(
     background_tasks: BackgroundTasks,
     document: Annotated[Document, Depends(get_protected_document)],
@@ -331,7 +362,11 @@ async def get_document_stats(
 # Sync def: a cold get_graph (S3 fetch + unpickle) inside compute_metrics
 # runs for seconds; a plain def hands the whole request to FastAPI's
 # threadpool so it never blocks the event loop (or ALB health checks).
-@app.get("/api/document/{document_id}/evaluation", response_model=MetricsEnvelope)
+@app.get(
+    "/api/document/{document_id}/evaluation",
+    response_model=MetricsEnvelope,
+    dependencies=[Depends(require_session)],
+)
 def get_document_evaluation(
     background_tasks: BackgroundTasks,
     document: Annotated[Document, Depends(get_protected_document)],
@@ -348,6 +383,7 @@ def get_document_evaluation(
     "/api/create_document",
     response_model=DocumentCreatePublic,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_session)],
 )
 async def create_document(
     data: DocumentCreate, session: Session = Depends(get_session)
@@ -641,7 +677,7 @@ async def create_document(
     return doc_dict
 
 
-@app.put("/api/assignments")
+@app.put("/api/assignments", dependencies=[Depends(require_session)])
 async def update_assignments(
     request: Request,
     background_tasks: BackgroundTasks,
@@ -1083,7 +1119,11 @@ async def get_children(
     return results
 
 
-@app.patch("/api/assignments/{document_id}/reset", status_code=status.HTTP_200_OK)
+@app.patch(
+    "/api/assignments/{document_id}/reset",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_session)],
+)
 async def reset_map(
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
@@ -1111,6 +1151,7 @@ async def reset_map(
 @app.patch(
     "/api/document/{document_id}/update_colors",
     response_model=ColorsSetResult,
+    dependencies=[Depends(require_session)],
 )
 async def update_colors(
     colors: list[str],
@@ -1148,6 +1189,7 @@ async def update_colors(
 @app.put(
     "/api/document/{document_id}/num_districts",
     response_model=NumDistrictsSetResult,
+    dependencies=[Depends(require_session)],
 )
 async def update_num_districts(
     num_districts: int,
@@ -1355,7 +1397,10 @@ async def get_document_list(
     ]
 
 
-@app.get("/api/document/{document_id}/unassigned")
+@app.get(
+    "/api/document/{document_id}/unassigned",
+    dependencies=[Depends(require_session)],
+)
 async def get_unassigned_geoids(
     document: Annotated[Document, Depends(get_protected_document)],
     exclude_ids: list[str] = Query(default=[]),
@@ -1443,7 +1488,10 @@ async def get_unassigned_geoids(
     return Response(content=payload, media_type="application/msgpack")
 
 
-@app.get("/api/document/{document_id}/contiguity")
+@app.get(
+    "/api/document/{document_id}/contiguity",
+    dependencies=[Depends(require_session)],
+)
 async def check_document_contiguity(
     document: Annotated[Document, Depends(get_protected_document)],
     zone: list[int] = Query(default=[]),
@@ -1476,7 +1524,10 @@ async def check_document_contiguity(
     return results
 
 
-@app.get("/api/document/{document_id}/contiguity/{zone}/connected_component_bboxes")
+@app.get(
+    "/api/document/{document_id}/contiguity/{zone}/connected_component_bboxes",
+    dependencies=[Depends(require_session)],
+)
 async def get_connected_component_bboxes(
     zone: int,
     document: Annotated[Document, Depends(get_protected_document)],
@@ -1576,7 +1627,11 @@ async def get_connected_component_bboxes(
     return Response(content=payload, media_type="application/msgpack")
 
 
-@app.put("/api/document/{document_id}/metadata", status_code=status.HTTP_200_OK)
+@app.put(
+    "/api/document/{document_id}/metadata",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_session)],
+)
 async def update_districtrmap_metadata(
     metadata: DocumentMetadata,
     document: Document = Depends(get_document),

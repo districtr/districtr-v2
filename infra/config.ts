@@ -41,6 +41,8 @@ export const config = {
   auth0SessionSecret: cfg.requireSecret("auth0SessionSecret"),
   openaiApiKey: cfg.getSecret("openaiApiKey"),
   recaptchaSecretKey: cfg.getSecret("recaptchaSecretKey"),
+  recaptchaV3SecretKey: cfg.getSecret("recaptchaV3SecretKey"),
+  researchApiKey: cfg.getSecret("researchApiKey"),
 
   // Image tags. Deploy workflows write the current git SHA to
   // /districtr/{stack}/meta/{backend,frontend}-image-tag in SSM before
@@ -73,6 +75,8 @@ export const config = {
 
   // Networking
   vpcCidr: cfg.get("vpcCidr") ?? (isProd ? "10.0.0.0/16" : "10.1.0.0/16"),
+  // WAF allow-before-everything IPs (CIDRs, e.g. "1.2.3.4/32"); empty = no rule.
+  wafAllowlistIps: cfg.getObject<string[]>("wafAllowlistIps") ?? [],
 
   // Monitoring
   alarmEmails: cfg.getObject<string[]>("alarmEmails") ?? [],
