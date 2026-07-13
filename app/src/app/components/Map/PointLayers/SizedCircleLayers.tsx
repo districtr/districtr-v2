@@ -38,8 +38,6 @@ export const SizedCircleLayer: React.FC<{child?: boolean}> = ({child = false}) =
         ],
         // Transparency comes from the color ramp's alpha (transparent -> black)
         'circle-opacity': 1,
-        'circle-stroke-color': '#FFFFFF',
-        'circle-stroke-width': 0.5,
       }}
     />
   );
