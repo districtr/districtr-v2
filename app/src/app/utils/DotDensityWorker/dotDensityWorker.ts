@@ -7,7 +7,7 @@ import type {DotDensityTileBuffers, DotDensityWorkerClass} from './dotDensityWor
 
 type Ring = Array<{x: number; y: number}>;
 
-/** Shoelace area in MVT screen coords (y-down): positive = exterior ring. */
+/** Shoelace sum in MVT screen coords; sign depends on winding convention. */
 const signedArea = (ring: Ring) => {
   let sum = 0;
   for (let i = 0, len = ring.length, j = len - 1; i < len; j = i++) {
@@ -20,15 +20,13 @@ class DotDensityWorker implements DotDensityWorkerClass {
   private pmtiles: PMTiles | null = null;
   private tilesetUrl = '';
   private sourceLayer = '';
-  private populationColumn = 'total_pop_20';
 
-  init(tilesetUrl: string, sourceLayer: string, populationColumn = 'total_pop_20') {
+  init(tilesetUrl: string, sourceLayer: string) {
     if (!this.pmtiles || this.tilesetUrl !== tilesetUrl) {
       this.pmtiles = new PMTiles(tilesetUrl);
       this.tilesetUrl = tilesetUrl;
     }
     this.sourceLayer = sourceLayer;
-    this.populationColumn = populationColumn;
   }
 
   async getTileBuffers(z: number, x: number, y: number): Promise<DotDensityTileBuffers | null> {
@@ -48,16 +46,17 @@ class DotDensityWorker implements DotDensityWorkerClass {
 
     const positions: number[] = [];
     const indices: number[] = [];
-    const densities: number[] = [];
+    const featureIndices: number[] = [];
+    const paths: string[] = [];
+    const areas: number[] = [];
     // Tile-local area × 4^-z = area in mercator world units ([0,1]² world)
     const tileToWorldArea = 4 ** -z;
-    let featureCount = 0;
 
     for (let i = 0; i < layer.length; i++) {
       const feature = layer.feature(i);
       if (feature.type !== 3) continue; // polygons only
-      const pop = Number(feature.properties[this.populationColumn]);
-      if (!Number.isFinite(pop) || pop <= 0) continue;
+      const path = feature.properties.path;
+      if (typeof path !== 'string') continue;
       const extent = feature.extent;
       const polygons = classifyRings(feature.loadGeometry()) as unknown as Ring[][];
       if (!polygons.length) continue;
@@ -68,7 +67,7 @@ class DotDensityWorker implements DotDensityWorkerClass {
       const staged: Array<{verts: number[]; tris: number[]}> = [];
       for (const rings of polygons) {
         for (const ring of rings) {
-          // exterior rings are positive, holes negative, so the sum is net area
+          // exteriors dominate and holes carry the opposite sign
           tileLocalArea += signedArea(ring) / (extent * extent);
         }
         const {vertices, holes, dimensions} = flatten(
@@ -77,34 +76,36 @@ class DotDensityWorker implements DotDensityWorkerClass {
         const tris = earcut(vertices, holes, dimensions);
         if (tris.length) staged.push({verts: vertices, tris});
       }
-      // abs: exteriors dominate and holes carry the opposite sign, so the net
-      // magnitude is the polygon area regardless of ring winding convention
+      // abs: net magnitude is the polygon area regardless of winding convention
       const worldArea = Math.abs(tileLocalArea) * tileToWorldArea;
       if (worldArea <= 0 || !staged.length) continue;
-      const density = pop / worldArea;
 
+      const fidx = paths.length;
+      paths.push(path);
+      areas.push(worldArea);
       for (const {verts, tris} of staged) {
         const base = positions.length / 2;
         for (let v = 0; v < verts.length; v += 2) {
           positions.push(verts[v], verts[v + 1]);
-          densities.push(density);
+          featureIndices.push(fidx);
         }
         for (const t of tris) indices.push(base + t);
       }
-      featureCount++;
     }
 
     if (!indices.length) return null;
     const result: DotDensityTileBuffers = {
       positions: new Float32Array(positions),
       indices: new Uint32Array(indices),
-      densities: new Float32Array(densities),
-      featureCount,
+      featureIndices: new Float32Array(featureIndices),
+      paths,
+      areas: new Float64Array(areas),
     };
     return transfer(result, [
       result.positions.buffer,
       result.indices.buffer,
-      result.densities.buffer,
+      result.featureIndices.buffer,
+      result.areas.buffer,
     ]);
   }
 }

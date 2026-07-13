@@ -3,6 +3,7 @@ import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {MapControlsStore, useMapControlsStore} from '@/app/store/mapControlsStore';
 import {formatNumber} from '@/app/utils/numbers';
 import {
+  DotsHorizontalIcon,
   GearIcon,
   InfoCircledIcon,
   MinusIcon,
@@ -10,6 +11,7 @@ import {
   ShadowInnerIcon,
   ViewVerticalIcon,
 } from '@radix-ui/react-icons';
+import {DotDensityLegend} from './DotDensityLegend';
 import {
   Blockquote,
   Box,
@@ -63,6 +65,11 @@ const mapDisplayModes: Array<{
     label: 'Overlay',
     value: DEMOGRAPHIC_MODES.OVERLAY,
     icon: <ShadowInnerIcon />,
+  },
+  {
+    label: 'Dot density',
+    value: DEMOGRAPHIC_MODES.DOT_DENSITY,
+    icon: <DotsHorizontalIcon />,
   },
 ];
 
@@ -215,7 +222,9 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
           </Button>
         ))}
       </Flex>
-      {demographicDisplayMode !== undefined && (
+      {demographicDisplayMode === DEMOGRAPHIC_MODES.DOT_DENSITY && <DotDensityLegend />}
+      {demographicDisplayMode !== undefined &&
+        demographicDisplayMode !== DEMOGRAPHIC_MODES.DOT_DENSITY && (
         <>
           <Flex direction="column" pt="2">
             <Flex direction="row" gap="3" align="start" py="2" wrap="wrap">

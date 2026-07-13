@@ -6,30 +6,41 @@
  * are deterministic across tiles, frames, and zooms. Vertices are tile-local
  * [0,1]; the composed u_matrix carries all large mercator magnitudes (built in
  * float64 on the CPU), which is what keeps high zooms jitter-free in float32.
+ *
+ * Per-feature race-category densities live in a per-tile RGBA32F texture,
+ * 2 texels per feature:
+ *   texel 2i   = densities of categories 0..3
+ *   texel 2i+1 = (density 4, density 5, total-population density, unused)
+ * A dot exists by Bernoulli thinning against the total density; its category
+ * comes from re-using the same hash draw against the cumulative category sums.
  */
 
 export const DOT_DENSITY_VERT = `#version 300 es
 in vec2 a_pos;
-in float a_density;
+in float a_fidx;
 uniform mat4 u_matrix;
 out vec2 v_local;
-flat out float v_density;
+flat out int v_fidx;
 void main() {
   v_local = a_pos;
-  v_density = a_density;
+  v_fidx = int(a_fidx);
   gl_Position = u_matrix * vec4(a_pos, 0.0, 1.0);
 }`;
 
 export const DOT_DENSITY_FRAG = `#version 300 es
 precision highp float;
+precision highp int;
 in vec2 v_local;
-flat in float v_density;      // people per mercator-world-unit^2
+flat in int v_fidx;
+uniform sampler2D u_density;  // RGBA32F, 2 texels per feature
+uniform int u_texWidth;
 uniform vec2 u_cellOrigin;    // tile origin in cell units; integer-valued, <= 2^24 so exact in f32
 uniform float u_cellsPerTile; // 2^(n - dataZoom)
 uniform float u_cellAreaWorld;// 4^-n
 uniform float u_peoplePerDot;
 uniform float u_dotRadius;    // in cell units, < 0.5
-uniform vec4 u_color;         // straight alpha; premultiplied on output
+uniform vec3 u_palette[6];
+uniform float u_opacity;
 out vec4 fragColor;
 
 // pcg2d hash: uint in, well-distributed uint out
@@ -44,6 +55,10 @@ uvec2 pcg2d(uvec2 v) {
   return v;
 }
 
+vec4 texelAt(int i) {
+  return texelFetch(u_density, ivec2(i % u_texWidth, i / u_texWidth), 0);
+}
+
 void main() {
   // Kill the tippecanoe buffer: tiles then partition the plane exactly and
   // edge dots are completed identically by the neighboring tile.
@@ -53,15 +68,32 @@ void main() {
   vec2 cellIdx = floor(cellF);
   uvec2 cell = uvec2(u_cellOrigin + cellIdx);
   uvec2 h2 = pcg2d(cell);
-  vec3 h = vec3(
+  vec4 h = vec4(
     float(h2.x & 0xffffu),
     float(h2.x >> 16u),
-    float(h2.y & 0xffffu)
+    float(h2.y & 0xffffu),
+    float(h2.y >> 16u)
   ) / 65535.0;
 
+  vec4 dA = texelAt(2 * v_fidx);
+  vec4 dB = texelAt(2 * v_fidx + 1);
+  float totalDensity = dB.z;
+
   // Bernoulli thinning: expected dots per cell from the feature's density
-  float expected = min(v_density * u_cellAreaWorld / u_peoplePerDot, 1.0);
-  if (h.z >= expected) discard;
+  float expected = min(totalDensity * u_cellAreaWorld / u_peoplePerDot, 1.0);
+  if (expected <= 0.0 || h.z >= expected) discard;
+
+  // Category from an independent hash channel over the cumulative sums
+  float cats[6] = float[6](dA.x, dA.y, dA.z, dA.w, dB.x, dB.y);
+  float catSum = cats[0] + cats[1] + cats[2] + cats[3] + cats[4] + cats[5];
+  if (catSum <= 0.0) discard;
+  float r = h.w * catSum;
+  int k = 5;
+  float acc = 0.0;
+  for (int i = 0; i < 6; i++) {
+    acc += cats[i];
+    if (r < acc) { k = i; break; }
+  }
 
   // Jitter keeps the whole disc inside its cell: complete circles, no overlap
   vec2 center = cellIdx + 0.5 + (h.xy - 0.5) * (1.0 - 2.0 * u_dotRadius);
@@ -70,8 +102,8 @@ void main() {
   float coverage = 1.0 - smoothstep(u_dotRadius - aa, u_dotRadius + aa, d);
   if (coverage <= 0.0) discard;
 
-  float alpha = u_color.a * coverage;
-  fragColor = vec4(u_color.rgb * alpha, alpha);
+  float alpha = u_opacity * coverage;
+  fragColor = vec4(u_palette[k] * alpha, alpha);
 }`;
 
 export const compileProgram = (
