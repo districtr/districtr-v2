@@ -68,6 +68,14 @@ body {
   cursor: crosshair;
 }
 
+/* Never let the browser treat map touches as page scroll/zoom gestures.
+   Maplibre relaxes its own touch-action to `pan-x pan-y` whenever dragPan is
+   disabled (i.e. exactly while painting), which let vertical brush strokes
+   scroll and rubber-band the whole page on mobile. */
+.maplibregl-canvas-container {
+  touch-action: none;
+}
+
 /* Small screens (portrait): the eval report stacks — the page root is already
    column-reverse below lg, so cap the map at the top and let the report take
    the rest, scrolling within itself. Landscape and lg+ keep side-by-side. */
