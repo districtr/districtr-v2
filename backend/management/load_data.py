@@ -9,6 +9,7 @@ from app.utils import (
     add_extent_to_districtrmap,
     create_spatial_index,
     add_districtr_map_to_map_group,
+    create_map_group,
 )
 from app.core.io import get_local_or_s3_path
 from app.main import get_session
@@ -214,6 +215,19 @@ class ShatterableViewImport(BaseModel):
     child_layer: str
 
 
+class MapGroupDefinition(BaseModel):
+    """Display name for a map group, keyed by slug.
+
+    Groups referenced by `map_groups` entries are created automatically if
+    absent; this section supplies the human-facing name (e.g. slug `custom`
+    -> name "Custom Districts"). Groups without a definition fall back to a
+    title-cased slug.
+    """
+
+    slug: str
+    name: str
+
+
 def get_filetype(file_path: str) -> str:
     _, ext = os.path.splitext(file_path)
     return ext.lower()
@@ -224,6 +238,7 @@ class Config(BaseModel):
     shatterable_views: list[ShatterableViewImport] | None = None
     districtr_maps: list[DistrictrMapPublic] | None = None
     map_groups: list[ConfigMapGroup] | None = None
+    map_group_definitions: list[MapGroupDefinition] | None = None
 
     @computed_field
     @property
@@ -244,6 +259,11 @@ class Config(BaseModel):
     @property
     def _map_groups(self) -> list[ConfigMapGroup]:
         return self.map_groups or []
+
+    @computed_field
+    @property
+    def _map_group_definitions(self) -> list[MapGroupDefinition]:
+        return self.map_group_definitions or []
 
     @classmethod
     def from_file(cls, file_path: str) -> "Config":
@@ -399,6 +419,25 @@ def load_sample_data(
                 _create_parent_child_edges(session=session, districtr_map_uuid=u)
 
         session.commit()
+
+    # Ensure every referenced map group exists before adding memberships, so
+    # configs need no manual `cli.py create-map-group` prerequisite. Idempotent:
+    # check-before-create, matching the exists-checks used for views/maps above.
+    group_names = {d.slug: d.name for d in config._map_group_definitions}
+    referenced_slugs = sorted({g.group_slug for g in config._map_groups})
+    for slug in referenced_slugs:
+        session = next(get_session())
+        group_exists = session.execute(
+            sa.text("select 1 from map_group where slug = :slug limit 1"),
+            {"slug": slug},
+        ).scalar()
+        session.rollback()
+        if group_exists:
+            logger.info(f"Map group `{slug}` already exists.")
+            continue
+        name = group_names.get(slug, slug.replace("_", " ").replace("-", " ").title())
+        create_map_group(session=session, group_name=name, slug=slug)
+        logger.info(f"Created map group `{slug}` ({name}).")
 
     for group in config._map_groups:
         session = next(get_session())

@@ -48,6 +48,9 @@
 # see backend/app/main.py get_projects()) immediately once loaded and
 # `visible=true` (the DistrictrMap default) — no FE change needed. This is
 # intentional: it lets v1 and v2 coexist in the picker during verification.
+# The loader creates any missing group automatically (idempotently) from
+# map_group_definitions below — no manual `cli.py create-map-group` step
+# is required before running this config.
 #
 # ---------------------------------------------------------------------------
 # RETIREMENT OF v1 (separate, explicit, run only after v2 is loaded and
@@ -1747,3 +1750,6 @@ map_groups:
   group_slug: states
 - districtr_map_slug: pr_house_districts_v2
   group_slug: states
+map_group_definitions:
+- slug: states
+  name: States
