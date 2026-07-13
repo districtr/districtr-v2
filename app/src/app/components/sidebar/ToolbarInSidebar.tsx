@@ -1,10 +1,9 @@
 'use client';
 import React from 'react';
-import {Box, Button, Flex, Popover} from '@radix-ui/themes';
-import {CaretDownIcon, MixerHorizontalIcon} from '@radix-ui/react-icons';
+import {Box, Flex} from '@radix-ui/themes';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {Toolbar} from '../Toolbar/Toolbar';
-import {ToolSettings} from '../Toolbar/Settings';
+import {VisualSettingsPopover} from '../Toolbar/VisualSettingsPopover';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useIsDesktop} from '@/app/hooks/useIsDesktop';
 
@@ -24,30 +23,7 @@ export const ToolbarInSidebar = () => {
       {isDesktop && <Toolbar />}
       <Flex justify="start" py="2">
         {/* Visual settings live next to the toolbar as a dropdown, not a modal. */}
-        <Popover.Root>
-          <Popover.Trigger>
-            <Button
-              variant="surface"
-              color="gray"
-              size="1"
-              className="cursor-pointer transition-shadow hover:shadow-md"
-              data-testid="visual-settings-trigger"
-            >
-              <MixerHorizontalIcon />
-              Visual settings
-              <CaretDownIcon />
-            </Button>
-          </Popover.Trigger>
-          <Popover.Content
-            size="1"
-            maxHeight="70vh"
-            maxWidth="min(90vw, 320px)"
-            align="start"
-            className="overflow-y-auto"
-          >
-            <ToolSettings />
-          </Popover.Content>
-        </Popover.Root>
+        <VisualSettingsPopover />
       </Flex>
     </Box>
   );

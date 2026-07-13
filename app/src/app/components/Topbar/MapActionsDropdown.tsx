@@ -1,28 +1,27 @@
 'use client';
 import React, {useState} from 'react';
-import {Button, Dialog, DropdownMenu, Text, Tooltip} from '@radix-ui/themes';
+import {Button, DropdownMenu, Text, Tooltip} from '@radix-ui/themes';
 import {CaretDownIcon, MixIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
 import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
 import {ACCESS_STATES} from '@constants/document/state';
 import {DocumentMetadata} from '@utils/api/apiHandlers/types';
 import {SaveShareModal} from '../Toolbar/SaveShareModal/SaveShareModal';
-import {ToolSettings} from '../Toolbar/Settings';
 
 /** Consolidated "Map actions" menu for the editor topbar: share, export,
- * settings, and reset in one dropdown. Saving lives in the topbar
- * SaveButton. */
+ * and reset in one dropdown. Saving lives in the topbar SaveButton;
+ * Visual settings sit next to the toolbar (sidebar or mobile dock). */
 export const MapActionsDropdown: React.FC<{
   handleMetadataChange: (updates: Partial<DocumentMetadata>) => Promise<void>;
 }> = ({handleMetadataChange}) => {
-  const [modal, setModal] = useState<'share' | 'settings' | null>(null);
+  const [modal, setModal] = useState<'share' | null>(null);
   const mapDocument = useMapStore(state => state.mapDocument);
   const access = useMapStore(state => state.mapStatus?.access);
   const handleReset = useMapStore(state => state.handleReset);
 
   // Defer past the dropdown's close so Radix doesn't leave pointer-events:none
   // stuck on the body when a dialog opens from onSelect.
-  const openModal = (which: 'share' | 'settings') => setTimeout(() => setModal(which), 0);
+  const openModal = (which: 'share') => setTimeout(() => setModal(which), 0);
 
   // Export works for view-only users too: the backend resolves a public_id the same
   // as a document UUID, so fall back to the public_id when the loaded doc is the
@@ -112,15 +111,6 @@ export const MapActionsDropdown: React.FC<{
             </DropdownMenu.SubContent>
           </DropdownMenu.Sub>
           <DropdownMenu.Separator />
-          {/* Below lg the sidebar (and its Visual settings popover) is hidden,
-              so the settings need an entry point here. Desktop uses the sidebar. */}
-          <DropdownMenu.Item
-            className="cursor-pointer lg:hidden"
-            disabled={!mapDocument?.document_id}
-            onSelect={() => openModal('settings')}
-          >
-            Visual settings
-          </DropdownMenu.Item>
           <DropdownMenu.Sub>
             <DropdownMenu.SubTrigger
               disabled={!mapDocument?.document_id || access === ACCESS_STATES.READ}
@@ -144,12 +134,6 @@ export const MapActionsDropdown: React.FC<{
         onClose={() => setModal(null)}
         handleMetadataChange={handleMetadataChange}
       />
-      <Dialog.Root open={modal === 'settings'} onOpenChange={open => !open && setModal(null)}>
-        <Dialog.Content style={{maxWidth: 360}} className="max-h-[80vh] overflow-y-auto">
-          <Dialog.Title>Visual settings</Dialog.Title>
-          <ToolSettings />
-        </Dialog.Content>
-      </Dialog.Root>
     </>
   );
 };

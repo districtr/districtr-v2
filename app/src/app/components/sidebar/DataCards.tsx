@@ -223,7 +223,9 @@ const AccordionSection: React.FC<{
         </Flex>
       </button>
       <AnimatedCollapse open={open}>
-        <div className="px-3 pb-3">{section.content}</div>
+        {/* Panels with many districts/rows can get very tall — cap each one
+            and scroll inside it so the other cards stay reachable. */}
+        <div className="px-3 pb-3 max-h-[60dvh] overflow-y-auto">{section.content}</div>
       </AnimatedCollapse>
     </div>
   );
