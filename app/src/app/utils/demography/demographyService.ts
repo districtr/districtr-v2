@@ -640,18 +640,28 @@ class DemographyService {
         ? `${config.value}_pct`
         : config.value
     ) as string;
+    const isTotal = !config.variants;
     if (config.fixedScale) {
       this.colorScale = config.fixedScale as AnyD3Scale;
-    } else if (variant === 'percent' && config.variants?.includes('percent')) {
-      // Unclassed continuous scale over the full 0-100% range for share-of-population maps
+    } else if (isTotal || (variant === 'percent' && config.variants?.includes('percent'))) {
+      // Unclassed continuous scale: 0-100% for share-of-population maps,
+      // 0-max for total population maps
       const displayMode = useMapControlsStore.getState().mapOptions.demographicDisplayMode;
       const interpolator =
         displayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE
           ? DEFAULT_CONTINUOUS_COLOR_SCHEME
           : DEFAULT_CONTINUOUS_COLOR_SCHEME_GRAY;
+      let domainMax = 1;
+      if (isTotal) {
+        const dataTable = (this.overlayTable ?? this.table)!;
+        const stats = dataTable.rollup({maxValue: op.max(variableName)}).objects()[0] as {
+          maxValue?: number;
+        };
+        domainMax = stats?.maxValue || 1;
+      }
       this.colorScale = scale
         .scaleSequential(interpolator)
-        .domain([0, 1])
+        .domain([0, domainMax])
         .clamp(true) as AnyD3Scale;
     } else {
       const quantiles = this.calculateQuantiles(config, variableName, numberOfBins);

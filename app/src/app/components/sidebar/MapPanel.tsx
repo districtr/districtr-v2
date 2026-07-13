@@ -145,25 +145,31 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   };
 
   const canBePercent = mapVariableConfig?.variants?.includes('percent');
-  // Continuous (fixed partisan or unclassed percent) scales ignore binning
-  const usesBins = !mapVariableConfig?.fixedScale && !(canBePercent && variant === 'percent');
+  // Continuous (fixed partisan, unclassed percent, or total) scales ignore binning;
+  // only raw-count variants of demographic groups use quantile bins
+  const usesBins =
+    !mapVariableConfig?.fixedScale &&
+    !!mapVariableConfig?.variants &&
+    !(canBePercent && variant === 'percent');
   const labelFormat =
     canBePercent && variant === 'percent' ? NUMBER_FORMATS.PERCENT : NUMBER_FORMATS.COMPACT;
   const colors = scale?.range() || [];
   const isContinuousScale = !!scale && !('invertExtent' in scale);
-  const continuousLegendLabels = mapVariableConfig?.customLegendLabels ?? [
-    '0%',
-    '25%',
-    '50%',
-    '75%',
-    '100%',
-  ];
+  const scaleDomain = isContinuousScale && scale ? scale.domain() : [0, 1];
+  const [domainMin, domainMax] = [scaleDomain[0], scaleDomain[scaleDomain.length - 1]];
+  const continuousLegendLabels =
+    mapVariableConfig?.customLegendLabels ??
+    Array.from(
+      {length: 5},
+      (_, i) => formatNumber(domainMin + ((domainMax - domainMin) * i) / 4, labelFormat) ?? ''
+    );
   const continuousLegendColors = useMemo(() => {
     if (!isContinuousScale || !scale) return [];
-    const domain = scale.domain();
-    const [d0, d1] = [domain[0], domain[domain.length - 1]];
-    return Array.from({length: 11}, (_, i) => scale(d0 + ((d1 - d0) * i) / 10) as string);
-  }, [isContinuousScale, scale]);
+    return Array.from(
+      {length: 11},
+      (_, i) => scale(domainMin + ((domainMax - domainMin) * i) / 10) as string
+    );
+  }, [isContinuousScale, scale, domainMin, domainMax]);
 
   const handleChangeVariable = (newVariable: DemographyVariable) => {
     setVariable(newVariable);
