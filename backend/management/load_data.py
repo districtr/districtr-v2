@@ -15,7 +15,7 @@ from app.main import get_session
 from app.core.config import settings
 from functools import wraps
 import logging
-from sqlmodel import Session
+from sqlmodel import Session, select
 from app.models import DistrictrMapPublic, DistrictrMap, ConfigMapGroup
 from pydantic import BaseModel, computed_field
 from app.constants import GERRY_DB_SCHEMA
@@ -128,6 +128,72 @@ def _create_districtr_map(session: Session, **kwargs) -> str:
 
 @continue_on_previous_load
 def _create_parent_child_edges(session: Session, **kwargs):
+    # Spatial join over large states can exceed the default 120s API timeout.
+    session.execute(sa.text("SET statement_timeout = '0'"))
+
+    # If another map with the same parent/child layers already has edges, copy
+    # from that partition instead of re-running the expensive spatial join.
+    # (Ported from fix/import-modules: v2 shares parent/child layer pairs
+    # across a state's congressional/senate/house map modules, exactly like
+    # v1, so this avoids re-running the spatial join up to 3x per state.)
+    districtr_map_uuid = kwargs["districtr_map_uuid"]
+    map_row = session.exec(
+        select(DistrictrMap).where(DistrictrMap.uuid == districtr_map_uuid)
+    ).one_or_none()
+
+    if map_row and map_row.child_layer:
+        existing = session.execute(
+            sa.text("""
+                SELECT dm.uuid
+                FROM districtrmap dm
+                WHERE dm.parent_layer = :parent_layer
+                  AND dm.child_layer  = :child_layer
+                  AND dm.uuid        != :uuid
+                  AND EXISTS (
+                      SELECT 1 FROM parentchildedges pce
+                      WHERE pce.districtr_map = dm.uuid
+                  )
+                LIMIT 1
+            """),
+            {
+                "parent_layer": map_row.parent_layer,
+                "child_layer": map_row.child_layer,
+                "uuid": str(districtr_map_uuid),
+            },
+        ).one_or_none()
+
+        if existing:
+            uuid_str = str(districtr_map_uuid)
+            partition_name = f"parentchildedges_{uuid_str}"
+            # Name the source partition directly to bypass partition pruning on the
+            # parameterized query — without this, PostgreSQL scans all partitions.
+            source_partition_name = f"parentchildedges_{existing.uuid}"
+            partition_exists = session.execute(
+                sa.text(
+                    "SELECT 1 FROM pg_tables"
+                    " WHERE schemaname = 'public' AND tablename = :name"
+                ),
+                {"name": partition_name},
+            ).scalar()
+            if not partition_exists:
+                session.execute(
+                    sa.text(
+                        f'CREATE TABLE "{partition_name}" '
+                        f"PARTITION OF parentchildedges FOR VALUES IN ('{uuid_str}')"
+                    )
+                )
+            session.execute(
+                sa.text(f"""
+                    INSERT INTO "{partition_name}" (created_at, districtr_map, parent_path, child_path)
+                    SELECT now(), '{uuid_str}', parent_path, child_path
+                    FROM "{source_partition_name}"
+                """),
+            )
+            logger.info(
+                "Copied parent-child edges from %s to %s", existing.uuid, uuid_str
+            )
+            return
+
     create_parent_child_edges(session=session, **kwargs)
 
 
@@ -296,9 +362,7 @@ def load_sample_data(
             add_extent_to_districtrmap(session=session, districtr_map_uuid=u)
             session.commit()
 
-        if u is not None:
-            logger.info(f"Created districtr map with UUID {u}")
-        else:
+        if u is None:
             session = next(get_session())
             u = session.exec(
                 sa.select(DistrictrMap.uuid).where(  # pyright: ignore
@@ -310,13 +374,29 @@ def load_sample_data(
                 raise ValueError(
                     f"Districtr map with districtr_map_slug {view.districtr_map_slug} not found"
                 )
+        else:
+            logger.info(f"Created districtr map with UUID {u}")
 
         if view.child_layer is not None:
-            # Commit districtr views
-            session.commit()
-            _create_parent_child_edges(
-                session=session, districtr_map_uuid=view.districtr_map_uuid
-            )
+            # Ported from fix/import-modules along with the edge-copy speedup
+            # above: also fixes a pre-existing bug on this branch where the
+            # uuid passed here was `view.districtr_map_uuid` — a field that
+            # does not exist on DistrictrMapPublic (see backend/app/models.py),
+            # which would raise AttributeError for every newly-created map
+            # with a child_layer. Use the resolved `u` instead.
+            edges_exist = session.execute(
+                sa.text(
+                    "SELECT COUNT(*) > 0 FROM parentchildedges WHERE districtr_map = :uuid"
+                ),
+                {"uuid": u},
+            ).scalar()
+            if edges_exist:
+                logger.info(
+                    f"Parent-child edges for {view.districtr_map_slug} already exist, skipping."
+                )
+            else:
+                session.commit()
+                _create_parent_child_edges(session=session, districtr_map_uuid=u)
 
         session.commit()
 
