@@ -14,6 +14,8 @@ export const DEFAULT_COLOR_SCHEME = chromatic.schemeBlues;
 export const DEFAULT_COLOR_SCHEME_GRAY = chromatic.schemeGreys;
 export const DEFAULT_CONTINUOUS_COLOR_SCHEME = chromatic.interpolateBlues;
 export const DEFAULT_CONTINUOUS_COLOR_SCHEME_GRAY = chromatic.interpolateGreys;
+// Sized circles sit on top of colored districts, so shade opacity instead of hue
+export const SIZED_CIRCLE_COLOR_SCHEME = (t: number) => `rgba(0, 0, 0, ${t})`;
 export const DEFAULT_CHOROPLETH_BIN_COUNT = 5;
 
 export const PARTISAN_SCALE = scaleLinear()

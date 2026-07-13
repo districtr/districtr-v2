@@ -3,6 +3,7 @@ import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {MapControlsStore, useMapControlsStore} from '@/app/store/mapControlsStore';
 import {formatNumber} from '@/app/utils/numbers';
 import {
+  CircleIcon,
   GearIcon,
   InfoCircledIcon,
   MinusIcon,
@@ -63,6 +64,11 @@ const mapDisplayModes: Array<{
     label: 'Overlay',
     value: DEMOGRAPHIC_MODES.OVERLAY,
     icon: <ShadowInnerIcon />,
+  },
+  {
+    label: 'Sized circles',
+    value: DEMOGRAPHIC_MODES.SIZED_CIRCLES,
+    icon: <CircleIcon />,
   },
 ];
 
@@ -141,6 +147,13 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
     setMapOptions({demographicDisplayMode: newMode});
     if (!mapVariableConfig && currentVariableList.length) {
       setVariable(currentVariableList[0].value);
+    }
+    // Sized circles encode the count in the circle size; shade by share
+    if (
+      newMode === DEMOGRAPHIC_MODES.SIZED_CIRCLES &&
+      mapVariableConfig?.variants?.includes('percent')
+    ) {
+      setVariant('percent');
     }
   };
 
@@ -402,6 +415,11 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
           {!!mapVariableConfig && demographicDisplayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE && (
             <Text size="2" align="center">
               Gray = zero population
+            </Text>
+          )}
+          {!!mapVariableConfig && demographicDisplayMode === DEMOGRAPHIC_MODES.SIZED_CIRCLES && (
+            <Text size="2" align="center">
+              Circle area scales with total population
             </Text>
           )}
         </>
