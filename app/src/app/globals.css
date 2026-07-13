@@ -76,6 +76,12 @@ body {
   touch-action: none;
 }
 
+/* The canvas is focusable, so every tap/paint drew a focus ring around the
+   whole map. */
+.maplibregl-canvas {
+  outline: none;
+}
+
 /* Small screens (portrait): the eval report stacks — the page root is already
    column-reverse below lg, so cap the map at the top and let the report take
    the rest, scrolling within itself. Landscape and lg+ keep side-by-side. */
