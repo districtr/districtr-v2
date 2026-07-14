@@ -300,6 +300,19 @@ def create_districtr_map(
 )
 @click.option("--comment", "-c", help="Comment", type=str, required=False)
 @click.option(
+    "--districtr-map-slug",
+    "-s",
+    help="Slug of the districtr map to update",
+    type=str,
+    required=True,
+)
+@click.option(
+    "--data-source-name",
+    help="Data source name",
+    type=str,
+    required=False,
+)
+@click.option(
     "--parent-geo-unit-type",
     "-pgeo",
     help="Parent geo unit type for display only.",
