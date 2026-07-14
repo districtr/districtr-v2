@@ -26,6 +26,19 @@ export interface DemographyStore {
    */
   setNumberOfBins: (numberOfBins: number) => void;
 
+  /** Dot density category labels currently toggled off. */
+  dotDensityDisabled: string[];
+  toggleDotDensityCategory: (label: string) => void;
+  /** User multiplier on dots-per-people (higher = more dots). */
+  dotDensityFactor: number;
+  setDotDensityFactor: (dotDensityFactor: number) => void;
+  /** User multiplier on dot radius. */
+  dotDensitySize: number;
+  setDotDensitySize: (dotDensitySize: number) => void;
+  /** Dot layer opacity (0-1). */
+  dotDensityOpacity: number;
+  setDotDensityOpacity: (dotDensityOpacity: number) => void;
+
   /**
    * Sets the function to get the reference to the MapLibre GL map instance.
    * @param getMapRef - The function to get the map reference.

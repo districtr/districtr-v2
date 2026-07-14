@@ -173,6 +173,21 @@ export var useDemographyStore = create(
     },
     numberOfBins: DEFAULT_CHOROPLETH_BIN_COUNT,
     setNumberOfBins: numberOfBins => set({numberOfBins}),
+    dotDensityDisabled: [],
+    toggleDotDensityCategory: label => {
+      const current = get().dotDensityDisabled;
+      set({
+        dotDensityDisabled: current.includes(label)
+          ? current.filter(l => l !== label)
+          : [...current, label],
+      });
+    },
+    dotDensityFactor: 1,
+    setDotDensityFactor: dotDensityFactor => set({dotDensityFactor}),
+    dotDensitySize: 1,
+    setDotDensitySize: dotDensitySize => set({dotDensitySize}),
+    dotDensityOpacity: 1,
+    setDotDensityOpacity: dotDensityOpacity => set({dotDensityOpacity}),
     dataHash: '',
     setDataHash: dataHash => set({dataHash}),
     updateData: async (mapDocument, _brokenIds) => {

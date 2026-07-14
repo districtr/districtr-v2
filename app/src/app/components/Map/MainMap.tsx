@@ -12,6 +12,7 @@ import {CountyLayers} from './PolygonLayers/CountyLayers';
 import {BlockSource} from './GeoSources/BlockSource';
 import {MetaLayers} from './PointLayers/MetaLayers';
 import {PointSelectionLayer} from './PointLayers/PointSelectionLayer';
+import {DotDensityLayer} from './CustomLayers/DotDensityLayer';
 import {OverlayLayers} from './PolygonLayers/OverlayLayers';
 import {MapLayerAnchors} from './MapLayerAnchors';
 import {MapContainer} from './MapContainer';
@@ -95,6 +96,7 @@ export const MainMap: React.FC = () => {
             )}
           </BlockSource>
           <OverlayLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.overlays} />
+          <DotDensityLayer />
           <PointSource>
             <PointSelectionLayer />
             <PointSelectionLayer child />

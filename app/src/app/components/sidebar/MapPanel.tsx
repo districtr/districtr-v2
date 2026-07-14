@@ -1,8 +1,8 @@
 'use client';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {MapControlsStore, useMapControlsStore} from '@/app/store/mapControlsStore';
-import {formatNumber} from '@/app/utils/numbers';
 import {
+  DotsHorizontalIcon,
   GearIcon,
   InfoCircledIcon,
   MinusIcon,
@@ -10,6 +10,8 @@ import {
   ShadowInnerIcon,
   ViewVerticalIcon,
 } from '@radix-ui/react-icons';
+import {DotDensityLegend} from './DotDensityLegend';
+import {ChoroplethLegend} from './ChoroplethLegend';
 import {
   Blockquote,
   Box,
@@ -24,7 +26,6 @@ import {
   Tooltip,
 } from '@radix-ui/themes';
 import {Select} from '@radix-ui/themes';
-import {LegendLabel, LegendThreshold} from '@visx/legend';
 import React, {useEffect, useMemo} from 'react';
 import {choroplethMapVariables} from '@/app/store/demography/constants';
 import {OVERLAY_OPACITY} from '@constants/map/layerStyle';
@@ -39,6 +40,8 @@ import {getCoalitionLabel, getSelectedCoalitionColumns} from '@/app/utils/demogr
 import {MAP_MODES} from '@constants/map/mode';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
+import {useMapStore} from '@/app/store/mapStore';
+import {ACCESS_STATES} from '@constants/document/state';
 
 type MapPanelProps = {
   columnGroup: keyof typeof choroplethMapVariables;
@@ -63,6 +66,11 @@ const mapDisplayModes: Array<{
     label: 'Overlay',
     value: DEMOGRAPHIC_MODES.OVERLAY,
     icon: <ShadowInnerIcon />,
+  },
+  {
+    label: 'Dot density',
+    value: DEMOGRAPHIC_MODES.DOT_DENSITY,
+    icon: <DotsHorizontalIcon />,
   },
 ];
 
@@ -93,6 +101,16 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
     state => state.mapOptions.demographicDisplayMode
   );
   const mapMode = useMapControlsStore(state => state.mapMode);
+  const isReadOnlyDoc = useMapStore(
+    state => state.mapDocument?.access === ACCESS_STATES.READ
+  );
+  // The dot density renderer only mounts in MainMap (district edit maps);
+  // public pages render PublicMap and COI pages render CoiMap, so hide the
+  // option where selecting it could not draw anything.
+  const supportsDotDensity = mapMode !== MAP_MODES.COI && !isReadOnlyDoc;
+  const availableDisplayModes = supportsDotDensity
+    ? mapDisplayModes
+    : mapDisplayModes.filter(option => option.value !== DEMOGRAPHIC_MODES.DOT_DENSITY);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const isOverlay = demographicDisplayMode === DEMOGRAPHIC_MODES.OVERLAY;
@@ -145,9 +163,6 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   };
 
   const canBePercent = mapVariableConfig?.variants?.includes('percent');
-  const labelFormat =
-    canBePercent && variant === 'percent' ? NUMBER_FORMATS.PERCENT : NUMBER_FORMATS.COMPACT;
-  const colors = scale?.range() || [];
 
   const handleChangeVariable = (newVariable: DemographyVariable) => {
     setVariable(newVariable);
@@ -204,7 +219,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
     <Flex direction="column">
       <Flex direction="row" gap="3" align="center" className="rounded-md" wrap="wrap">
         <Text>Display mode</Text>
-        {mapDisplayModes.map((option, i) => (
+        {availableDisplayModes.map((option, i) => (
           <Button
             key={i}
             variant={demographicDisplayMode === option.value ? 'solid' : 'outline'}
@@ -215,7 +230,9 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
           </Button>
         ))}
       </Flex>
-      {demographicDisplayMode !== undefined && (
+      {demographicDisplayMode === DEMOGRAPHIC_MODES.DOT_DENSITY && <DotDensityLegend />}
+      {demographicDisplayMode !== undefined &&
+        demographicDisplayMode !== DEMOGRAPHIC_MODES.DOT_DENSITY && (
         <>
           <Flex direction="column" pt="2">
             <Flex direction="row" gap="3" align="start" py="2" wrap="wrap">
@@ -321,65 +338,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
             </Flex>
           </Flex>
 
-          {!!mapVariableConfig && scale && 'invertExtent' in scale ? (
-            <Flex direction={'row'} justify="center" gapX="2">
-              <LegendThreshold
-                scale={scale}
-                labelFormat={label => formatNumber(label as number, labelFormat)}
-                className="w-full"
-              >
-                {labels => {
-                  return (
-                    <Flex direction={'column'} width="100%">
-                      <Flex direction="row" width="100%">
-                        {labels.map((label, i) => (
-                          <Box
-                            width={'100%'}
-                            style={{
-                              display: 'inline-block',
-                              height: '1rem',
-                              backgroundColor: colors[i] as string,
-                              opacity: isOverlay ? mapOptions.overlayOpacity : 0.9,
-                            }}
-                            key={`legend-bar-${i}`}
-                          ></Box>
-                        ))}
-                      </Flex>
-
-                      <Flex
-                        direction="row"
-                        width={`${100 - 100 / colors.length / 2}%`}
-                        style={{paddingLeft: `${100 / colors.length / 2}%`}}
-                      >
-                        {labels.slice(1).map((label, i) => (
-                          <LegendLabel align="center" key={`legend-label-text-${i}`}>
-                            {formatNumber(label.datum as number, labelFormat)}
-                          </LegendLabel>
-                        ))}
-                      </Flex>
-                    </Flex>
-                  );
-                }}
-              </LegendThreshold>
-            </Flex>
-          ) : !!mapVariableConfig &&
-            scale &&
-            mapVariableConfig?.fixedScale &&
-            mapVariableConfig.customLegendLabels ? (
-            <Flex direction={'column'} justify="center" gapX="2" width="100%">
-              <LinearGradient
-                colors={mapVariableConfig.fixedScale
-                  .domain()
-                  .map((d: number) => mapVariableConfig.fixedScale!(d))}
-                numTicks={mapVariableConfig.customLegendLabels.length}
-              />
-              <Flex direction={'row'} width="100%" justify="between">
-                {mapVariableConfig.customLegendLabels.map((label: string, i: number) => (
-                  <Text key={`legend-label-${i}`}>{label}</Text>
-                ))}
-              </Flex>
-            </Flex>
-          ) : null}
+          {!!mapVariableConfig && <ChoroplethLegend />}
           {!!mapVariableConfig && demographicDisplayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE && (
             <Text size="2" align="center">
               Gray = zero population
@@ -391,35 +350,3 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   );
 };
 
-const LinearGradient: React.FC<{
-  colors: string[];
-  numTicks: number;
-}> = ({colors, numTicks}) => {
-  return (
-    <Box width="100%" height="1rem" position="relative" px="2">
-      <Box
-        width="100%"
-        height="100%"
-        position="absolute"
-        top="0"
-        left="0"
-        style={{
-          background: `linear-gradient(to right, ${colors.join(',')})`,
-        }}
-      />
-      <Flex
-        direction="row"
-        width="100%"
-        height="100%"
-        position="absolute"
-        top="0"
-        left="0"
-        justify="between"
-      >
-        {Array.from({length: numTicks}).map((_, i) => (
-          <Box key={`legend-bar-${i}`} height="100%" className="border-r border-black" />
-        ))}
-      </Flex>
-    </Box>
-  );
-};
