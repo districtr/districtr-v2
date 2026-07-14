@@ -4,24 +4,6 @@
 # geographically districted body: congressional, state senate, and state
 # house for most states; at-large states have no congressional module.
 #
-# DC has a single module, dc_council_wards_v2 (8 districts): DC's House
-# seat is a non-voting at-large Delegate and is not redistricted. Of the
-# DC Council's 13 seats, only the 8 ward seats are geographically
-# districted (DC Code Sec. 1-204.01). The State Board of Education's 8
-# districts share the ward boundaries (a module for it would duplicate
-# this one's geometry), and Advisory Neighborhood Commissions (~296
-# single-member districts) sit below this tool's granularity.
-#
-# PR has two modules; its House seat is a single at-large non-voting
-# Resident Commissioner and is not redistricted.
-#   - pr_senate_districts_v2 (8): the PR Senate has 27 seats — 16 elected
-#     from 8 senatorial districts (two senators per district) plus 11
-#     at-large. num_districts counts the 8 drawn districts; note each
-#     elects two members, unlike the single-member districts elsewhere in
-#     this config.
-#   - pr_house_districts_v2 (40): the PR House has 51 seats — 40
-#     single-member representative districts plus 11 at-large.
-#
 # All modules join the `states` map group. The views listing
 # (GET /api/gerrydb/views, get_projects() in backend/app/main.py) returns
 # the maps of a group with visible = true, so a module appears in the
