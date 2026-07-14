@@ -12,7 +12,12 @@ import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 export const overlayMemory: {
   variables: Partial<Record<SummaryType, DemographyVariable>>;
   lastGroup: SummaryType | null;
-} = {variables: {}, lastGroup: null};
+  /** Overlay-mode preset captured when the overlay is toggled off from Visual
+   * settings, restored on the next activation — so the toggles round-trip the
+   * same opacity/painted-districts state the panel controls set. */
+  overlayOpacity: number | null;
+  showPaintedDistricts: boolean | null;
+} = {variables: {}, lastGroup: null, overlayOpacity: null, showPaintedDistricts: null};
 
 /**
  * Turn the choropleth overlay on for a column group, restoring the last-used
@@ -33,6 +38,12 @@ export const activateOverlayGroup = (group: SummaryType): boolean => {
   }
   overlayMemory.lastGroup = group;
   overlayMemory.variables[group] = variable;
-  useMapControlsStore.getState().setMapOptions({demographicDisplayMode: DEMOGRAPHIC_MODES.OVERLAY});
+  useMapControlsStore.getState().setMapOptions({
+    demographicDisplayMode: DEMOGRAPHIC_MODES.OVERLAY,
+    ...(overlayMemory.overlayOpacity !== null && {overlayOpacity: overlayMemory.overlayOpacity}),
+    ...(overlayMemory.showPaintedDistricts !== null && {
+      showPaintedDistricts: overlayMemory.showPaintedDistricts,
+    }),
+  });
   return true;
 };

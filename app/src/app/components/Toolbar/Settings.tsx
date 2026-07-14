@@ -1,5 +1,13 @@
 import React from 'react';
-import {Heading, CheckboxGroup, Flex, Button, Text, Select} from '@radix-ui/themes';
+import {
+  Heading,
+  CheckboxGroup,
+  Flex,
+  Button,
+  Text,
+  Select,
+  SegmentedControl,
+} from '@radix-ui/themes';
 import {type BasemapId, BASEMAP_IDS} from '@/app/constants/map/layerStyle';
 import {useFeatureFlagStore} from '@store/featureFlagStore';
 import {useMapStore} from '@store/mapStore';
@@ -32,13 +40,14 @@ export const ToolSettings: React.FC = () => {
 
   const [colorModalOpen, setColorModalOpen] = React.useState(false);
 
-  // Overlay layer toggles: once a choropleth has been configured, offer to
-  // toggle it (with its last config). Super Draw offers every group that has
-  // data on this map; a group with no variables gets no checkbox.
+  // Overlay layer: one selection among none / demographic / election (the
+  // groups are mutually exclusive, so this is a mode picker, not independent
+  // checkboxes). Super Draw offers every group with data on this map; Draw
+  // offers only the last-configured group.
   const electionVariables = availableMapVariables[SUMMARY_TYPES.VOTERHISTORY] ?? [];
   const isElectionVariable = electionVariables.some(v => v.value === variable);
   const overlayOn = mapOptions.demographicDisplayMode === DEMOGRAPHIC_MODES.OVERLAY;
-  const overlayGroups: Array<{group: SummaryType; label: string; active: boolean}> = (
+  const overlayGroups: Array<{group: SummaryType; label: string}> = (
     superDraw
       ? ([SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VOTERHISTORY] as SummaryType[])
       : overlayMemory.lastGroup
@@ -48,16 +57,21 @@ export const ToolSettings: React.FC = () => {
     .filter(group => (availableMapVariables[group] ?? []).length > 0)
     .map(group => ({
       group,
-      label: group === SUMMARY_TYPES.VOTERHISTORY ? 'election' : 'demographic',
-      active:
-        overlayOn &&
-        (group === SUMMARY_TYPES.VOTERHISTORY ? isElectionVariable : !isElectionVariable),
+      label: group === SUMMARY_TYPES.VOTERHISTORY ? 'Election' : 'Demographic',
     }));
+  const overlayValue = !overlayOn
+    ? 'none'
+    : isElectionVariable
+      ? SUMMARY_TYPES.VOTERHISTORY
+      : SUMMARY_TYPES.TOTPOP;
 
-  const toggleOverlayGroup = ({group, active}: {group: SummaryType; active: boolean}) => {
-    if (active) {
-      // Also back out of the "Show Thematic Map" preset (which hides painted
-      // districts) — turning the overlay off must never leave a blank map.
+  const handleOverlayChange = (value: string) => {
+    if (value === 'none') {
+      // Remember the overlay-mode preset so re-enabling restores it, then back
+      // out of "Show Thematic Map" (which hides painted districts) — turning
+      // the overlay off must never leave a blank map.
+      overlayMemory.overlayOpacity = mapOptions.overlayOpacity;
+      overlayMemory.showPaintedDistricts = mapOptions.showPaintedDistricts ?? true;
       setMapOptions({
         demographicDisplayMode: undefined,
         showPaintedDistricts: true,
@@ -65,7 +79,7 @@ export const ToolSettings: React.FC = () => {
       });
       return;
     }
-    activateOverlayGroup(group);
+    activateOverlayGroup(value as SummaryType);
   };
 
   return (
@@ -216,20 +230,18 @@ export const ToolSettings: React.FC = () => {
             <Heading as="h3" weight="bold" size="3">
               Map overlay layer
             </Heading>
-            <CheckboxGroup.Root
-              name="overlayLayers"
-              value={overlayGroups.filter(g => g.active).map(g => g.group)}
+            <SegmentedControl.Root
+              size="1"
+              value={overlayValue}
+              onValueChange={handleOverlayChange}
             >
+              <SegmentedControl.Item value="none">None</SegmentedControl.Item>
               {overlayGroups.map(entry => (
-                <CheckboxGroup.Item
-                  key={entry.group}
-                  value={entry.group}
-                  onClick={() => toggleOverlayGroup(entry)}
-                >
-                  Toggle map overlay layer ({entry.label})
-                </CheckboxGroup.Item>
+                <SegmentedControl.Item key={entry.group} value={entry.group}>
+                  {entry.label}
+                </SegmentedControl.Item>
               ))}
-            </CheckboxGroup.Root>
+            </SegmentedControl.Root>
           </>
         )}
         {boundarySettings && (
