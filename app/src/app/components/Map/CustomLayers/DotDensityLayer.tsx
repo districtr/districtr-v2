@@ -138,6 +138,10 @@ export const DotDensityLayer: React.FC = () => {
     let categories: DotDensityCategory[] = [];
     let rowIndex: Map<string, number[]> | null = null;
     const inflight = new Set<string>();
+    // Child tile contents depend on the exposed-children filter. Bumped on
+    // every shatter change so in-flight requests made under the old filter
+    // are discarded on arrival instead of installing stale geometry.
+    let childFilterEpoch = 0;
     const shatteredParents = () => useAssignmentsStore.getState().shatterIds.parents;
     const exposedChildren = () => useAssignmentsStore.getState().shatterIds.children;
 
@@ -174,10 +178,18 @@ export const DotDensityLayer: React.FC = () => {
       sourceLayer: string,
       filterPaths?: string[]
     ) => {
+      const epoch = childFilterEpoch;
+      const isChild = key.startsWith('c:');
+      let stale = false;
       inflight.add(key);
       DotDensityWorker!.getTileBuffers(tile.z, tile.x, tile.y, sourceLayer, filterPaths)
         .then(buffers => {
-          if (alive && buffers) {
+          if (!alive) return;
+          if (isChild && epoch !== childFilterEpoch) {
+            stale = true;
+            return;
+          }
+          if (buffers) {
             layer.setTileData(key, tile, buffers);
             if (!rowIndex) refreshRowIndex();
             applyDensities(key, buffers.paths, buffers.areas);
@@ -185,7 +197,12 @@ export const DotDensityLayer: React.FC = () => {
           }
         })
         .catch(e => console.warn('[dotdensity] tile failed', key, e))
-        .finally(() => inflight.delete(key));
+        .finally(() => {
+          inflight.delete(key);
+          // The shatter-time updateCover skipped this key while it was
+          // inflight; refetch now that the slot is free.
+          if (stale && alive) updateCover();
+        });
     };
 
     const updateCover = () => {
@@ -225,7 +242,9 @@ export const DotDensityLayer: React.FC = () => {
 
     const onShatterChange = () => {
       if (!alive) return;
-      // Child tile contents depend on the exposed-id filter: drop and refetch
+      // Child tile contents depend on the exposed-id filter: invalidate
+      // in-flight requests, then drop resident tiles and refetch
+      childFilterEpoch++;
       for (const key of layer.tileKeys()) {
         if (key.startsWith('c:')) layer.removeTile(key);
       }

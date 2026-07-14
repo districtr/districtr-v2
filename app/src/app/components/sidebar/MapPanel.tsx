@@ -40,6 +40,8 @@ import {getCoalitionLabel, getSelectedCoalitionColumns} from '@/app/utils/demogr
 import {MAP_MODES} from '@constants/map/mode';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
+import {useMapStore} from '@/app/store/mapStore';
+import {ACCESS_STATES} from '@constants/document/state';
 
 type MapPanelProps = {
   columnGroup: keyof typeof choroplethMapVariables;
@@ -99,6 +101,16 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
     state => state.mapOptions.demographicDisplayMode
   );
   const mapMode = useMapControlsStore(state => state.mapMode);
+  const isReadOnlyDoc = useMapStore(
+    state => state.mapDocument?.access === ACCESS_STATES.READ
+  );
+  // The dot density renderer only mounts in MainMap (district edit maps);
+  // public pages render PublicMap and COI pages render CoiMap, so hide the
+  // option where selecting it could not draw anything.
+  const supportsDotDensity = mapMode !== MAP_MODES.COI && !isReadOnlyDoc;
+  const availableDisplayModes = supportsDotDensity
+    ? mapDisplayModes
+    : mapDisplayModes.filter(option => option.value !== DEMOGRAPHIC_MODES.DOT_DENSITY);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const isOverlay = demographicDisplayMode === DEMOGRAPHIC_MODES.OVERLAY;
@@ -207,7 +219,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
     <Flex direction="column">
       <Flex direction="row" gap="3" align="center" className="rounded-md" wrap="wrap">
         <Text>Display mode</Text>
-        {mapDisplayModes.map((option, i) => (
+        {availableDisplayModes.map((option, i) => (
           <Button
             key={i}
             variant={demographicDisplayMode === option.value ? 'solid' : 'outline'}
