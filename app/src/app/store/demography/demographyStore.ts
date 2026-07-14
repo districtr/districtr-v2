@@ -184,6 +184,8 @@ export var useDemographyStore = create(
     },
     dotDensityFactor: 1,
     setDotDensityFactor: dotDensityFactor => set({dotDensityFactor}),
+    dotDensitySize: 1,
+    setDotDensitySize: dotDensitySize => set({dotDensitySize}),
     dataHash: '',
     setDataHash: dataHash => set({dataHash}),
     updateData: async (mapDocument, _brokenIds) => {

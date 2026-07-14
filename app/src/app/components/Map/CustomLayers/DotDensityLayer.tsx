@@ -169,6 +169,7 @@ export const DotDensityLayer: React.FC = () => {
     const applyDensityFactor = () => {
       if (!alive) return;
       layer.setDensityFactor(useDemographyStore.getState().dotDensityFactor);
+      layer.setSizeFactor(useDemographyStore.getState().dotDensitySize);
       map.triggerRepaint();
     };
 
@@ -266,6 +267,7 @@ export const DotDensityLayer: React.FC = () => {
       useDemographyStore.subscribe(s => s.coalitionHash, rebuildAllDensities),
       useDemographyStore.subscribe(s => s.dotDensityDisabled, rebuildAllDensities),
       useDemographyStore.subscribe(s => s.dotDensityFactor, applyDensityFactor),
+      useDemographyStore.subscribe(s => s.dotDensitySize, applyDensityFactor),
       useAssignmentsStore.subscribe(s => s.shatterIds, onShatterChange),
     ];
     refreshRowIndex();

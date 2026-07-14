@@ -32,6 +32,9 @@ export interface DemographyStore {
   /** User multiplier on dots-per-people (higher = more dots). */
   dotDensityFactor: number;
   setDotDensityFactor: (dotDensityFactor: number) => void;
+  /** User multiplier on dot radius. */
+  dotDensitySize: number;
+  setDotDensitySize: (dotDensitySize: number) => void;
 
   /**
    * Sets the function to get the reference to the MapLibre GL map instance.

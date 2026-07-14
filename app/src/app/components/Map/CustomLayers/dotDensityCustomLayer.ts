@@ -46,6 +46,7 @@ export class DotDensityCustomLayer implements CustomLayerInterface {
   private uniforms: Record<string, WebGLUniformLocation | null> = {};
   private paletteFlat = new Float32Array(18);
   private densityFactor = 1;
+  private sizeFactor = 1;
 
   /** Category colors in texture-slot order; padded to the shader's 6 slots. */
   setPalette(hexes: string[]) {
@@ -57,6 +58,11 @@ export class DotDensityCustomLayer implements CustomLayerInterface {
   /** User multiplier on dots-per-people (higher = more dots). */
   setDensityFactor(factor: number) {
     this.densityFactor = factor > 0 ? factor : 1;
+  }
+
+  /** User multiplier on dot radius; scaled radius stays under one cell. */
+  setSizeFactor(factor: number) {
+    this.sizeFactor = factor > 0 ? factor : 1;
   }
 
   onAdd(map: MapLibreMap, glCtx: WebGLRenderingContext | WebGL2RenderingContext) {
@@ -197,7 +203,10 @@ export class DotDensityCustomLayer implements CustomLayerInterface {
 
     gl.uniform1f(this.uniforms.u_cellAreaWorld, 4 ** -n);
     gl.uniform1f(this.uniforms.u_peoplePerDot, peoplePerDot);
-    gl.uniform1f(this.uniforms.u_dotRadius, DOT_DENSITY_DOT_RADIUS);
+    gl.uniform1f(
+      this.uniforms.u_dotRadius,
+      Math.min(0.98, DOT_DENSITY_DOT_RADIUS * this.sizeFactor)
+    );
     gl.uniform3fv(this.uniforms.u_palette, this.paletteFlat);
     gl.uniform1f(this.uniforms.u_opacity, 1.0);
     gl.uniform1i(this.uniforms.u_texWidth, DOT_DENSITY_TEXTURE_WIDTH);

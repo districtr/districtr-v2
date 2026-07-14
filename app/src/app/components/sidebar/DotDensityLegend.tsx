@@ -6,6 +6,8 @@ import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {
   DOT_DENSITY_FACTOR_MAX,
   DOT_DENSITY_FACTOR_MIN,
+  DOT_DENSITY_SIZE_MAX,
+  DOT_DENSITY_SIZE_MIN,
 } from '@constants/demography/dotDensity';
 import {getActiveDotDensityCategories} from '@/app/components/Map/CustomLayers/DotDensityLayer';
 import {gridLevelForZoom, peoplePerDotForLevel} from '@/app/utils/dotDensity/tileMath';
@@ -24,6 +26,8 @@ export const DotDensityLegend: React.FC = () => {
   const toggleCategory = useDemographyStore(state => state.toggleDotDensityCategory);
   const densityFactor = useDemographyStore(state => state.dotDensityFactor);
   const setDensityFactor = useDemographyStore(state => state.setDotDensityFactor);
+  const dotSize = useDemographyStore(state => state.dotDensitySize);
+  const setDotSize = useDemographyStore(state => state.setDotDensitySize);
   // re-derive categories when the variable/coalition changes
   useDemographyStore(state => state.variable);
   useDemographyStore(state => state.coalitionHash);
@@ -86,6 +90,19 @@ export const DotDensityLegend: React.FC = () => {
           min={DOT_DENSITY_FACTOR_MIN}
           max={DOT_DENSITY_FACTOR_MAX}
           step={0.5}
+          size="1"
+        />
+      </Flex>
+      <Flex direction="row" gapX="2" align="center">
+        <Text size="2" className="whitespace-nowrap">
+          Dot size &times;{dotSize}
+        </Text>
+        <Slider
+          value={[dotSize]}
+          onValueChange={value => setDotSize(value[0])}
+          min={DOT_DENSITY_SIZE_MIN}
+          max={DOT_DENSITY_SIZE_MAX}
+          step={0.25}
           size="1"
         />
       </Flex>

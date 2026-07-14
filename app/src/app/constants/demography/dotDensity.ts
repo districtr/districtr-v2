@@ -96,6 +96,14 @@ export const getDotDensityCategories = (
 export const DOT_DENSITY_FACTOR_MIN = 0.5;
 export const DOT_DENSITY_FACTOR_MAX = 24;
 
+/**
+ * Range of the user-facing dot size multiplier. Max keeps the scaled radius
+ * under one cell so the shader's 3x3 neighborhood still finds every
+ * covering dot.
+ */
+export const DOT_DENSITY_SIZE_MIN = 0.5;
+export const DOT_DENSITY_SIZE_MAX = 2.5;
+
 /** Width in texels of the per-tile density textures (2 texels per feature). */
 export const DOT_DENSITY_TEXTURE_WIDTH = 1024;
 
