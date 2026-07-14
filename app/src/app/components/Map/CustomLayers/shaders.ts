@@ -83,6 +83,12 @@ void main() {
   float catSum = cats[0] + cats[1] + cats[2] + cats[3] + cats[4] + cats[5];
   if (catSum <= 0.0) discard;
 
+  // AA width = pixel footprint in cell units, derived from the continuous
+  // cellF. (fwidth of the per-dot distance would spike wherever the winning
+  // dot changes between adjacent pixels — cell borders — and wash a faint
+  // grid over the dots.)
+  float aa = max(length(vec2(dFdx(cellF.x), dFdy(cellF.x))), 1e-4);
+
   // Scan the 3x3 cell neighborhood: dot centers jitter across their whole
   // cell and discs overlap freely, so any nearby cell's dot may cover this
   // fragment. Each dot carries a random depth; the deepest covering dot
@@ -108,7 +114,6 @@ void main() {
         if (h.z >= p) continue;
         vec2 center = nIdx + h.xy;
         float d = distance(cellF, center);
-        float aa = max(fwidth(d), 1e-4);
         float cov = 1.0 - smoothstep(u_dotRadius - aa, u_dotRadius + aa, d);
         if (cov <= 0.0) continue;
         // Random z (h.w); +1 bonus for solid coverage so a dot's AA fringe
