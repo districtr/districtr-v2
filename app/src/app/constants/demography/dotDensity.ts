@@ -31,23 +31,26 @@ export type DotDensityCategory = {
 
 /**
  * Base race categories rendered as dot colors, with their column per
- * universe. Vivid, hue-spaced palette (dots are small; punchy beats subtle).
+ * universe. Palette follows the classic Racial Dot Map convention
+ * (Cooper Center 2013 → CNN → Dave's Redistricting): White blue,
+ * Black green, Asian red, Hispanic orange — familiar to redistricting
+ * users. AMIN takes the classic brown "other" slot; Other goes gray.
  */
 export const DOT_DENSITY_BASE_CATEGORIES: Array<{
   label: string;
   hex: string;
   columns: Record<DotDensityUniverse, string>;
 }> = [
-  {label: 'White', hex: '#2563EB', columns: {TOTPOP: 'white_pop_20', VAP: 'white_vap_20'}},
-  {label: 'Black', hex: '#16A34A', columns: {TOTPOP: 'bpop_20', VAP: 'bvap_20'}},
-  {label: 'Hispanic', hex: '#F97316', columns: {TOTPOP: 'hpop_20', VAP: 'hvap_20'}},
+  {label: 'White', hex: '#4E79C7', columns: {TOTPOP: 'white_pop_20', VAP: 'white_vap_20'}},
+  {label: 'Black', hex: '#2E9940', columns: {TOTPOP: 'bpop_20', VAP: 'bvap_20'}},
+  {label: 'Hispanic', hex: '#F5A623', columns: {TOTPOP: 'hpop_20', VAP: 'hvap_20'}},
   {
     label: 'Asian/NHPI',
-    hex: '#DB2777',
+    hex: '#D62F27',
     columns: {TOTPOP: 'asian_nhpi_pop_20', VAP: 'asian_nhpi_vap_20'},
   },
-  {label: 'AMIN', hex: '#DC2626', columns: {TOTPOP: 'amin_pop_20', VAP: 'amin_vap_20'}},
-  {label: 'Other', hex: '#52525B', columns: {TOTPOP: 'other_pop_20', VAP: 'other_vap_20'}},
+  {label: 'AMIN', hex: '#8B6C42', columns: {TOTPOP: 'amin_pop_20', VAP: 'amin_vap_20'}},
+  {label: 'Other', hex: '#767676', columns: {TOTPOP: 'other_pop_20', VAP: 'other_vap_20'}},
 ];
 
 /** Color for the Coalition Builder merged category. */
@@ -80,7 +83,7 @@ export const getDotDensityCategories = (
 
 /** Range of the user-facing dot density multiplier. */
 export const DOT_DENSITY_FACTOR_MIN = 0.5;
-export const DOT_DENSITY_FACTOR_MAX = 8;
+export const DOT_DENSITY_FACTOR_MAX = 24;
 
 /** Width in texels of the per-tile density textures (2 texels per feature). */
 export const DOT_DENSITY_TEXTURE_WIDTH = 1024;
