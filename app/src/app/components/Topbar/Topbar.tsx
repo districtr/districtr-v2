@@ -13,6 +13,7 @@ import {saveMapDocumentMetadata} from '@/app/utils/api/apiHandlers/saveMapDocume
 import {idb} from '@/app/utils/idb/idb';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {MAP_MODES} from '@constants/map/mode';
+import {useIsDesktop} from '@/app/hooks/useIsDesktop';
 import {ModeSwitcher} from './ModeSwitcher';
 import {MapActionsDropdown} from './MapActionsDropdown';
 import {SaveButton} from './SaveButton';
@@ -142,6 +143,13 @@ const mobileTabPanels: Array<{
 export const MobileDataTabs: React.FC = () => {
   const [activeTab, setActiveTab] = React.useState(mobileTabPanels[0].title);
   const mapMode = useMapControlsStore(state => state.mapMode);
+  // Snap back to the Map tab when the viewport grows past lg — otherwise a
+  // panel opened at mobile width lingers over the map on desktop, where the
+  // tab strip that could dismiss it is hidden.
+  const isDesktop = useIsDesktop();
+  React.useEffect(() => {
+    if (isDesktop) setActiveTab('map');
+  }, [isDesktop]);
   // Same panel filter as the desktop sidebar: districts-only panels
   // (elections, validity, ...) don't apply to community (COI) maps.
   const visiblePanels = mobileTabPanels.filter(
@@ -176,7 +184,7 @@ export const MobileDataTabs: React.FC = () => {
         // bottom-0 (within the dvh-constrained map wrapper) instead of a 100vh
         // height calc, which overshot the visual viewport on mobile browsers.
         <div
-          className="absolute w-full left-0 bottom-0 z-[10000] bg-white overflow-y-auto p-4"
+          className="absolute w-full left-0 bottom-0 z-[10000] bg-white overflow-y-auto p-4 lg:hidden"
           style={{
             top: tabContainerBottom,
           }}
