@@ -19,7 +19,7 @@ export const DOT_DENSITY_DOT_RADIUS = 0.3;
  * 1 person/dot from ~z14 up.
  * ponytail: tuned by eyeball for CO VTDs; revisit with real calibration
  */
-export const DOT_DENSITY_PPD_ANCHOR_LEVEL = 23;
+export const DOT_DENSITY_PPD_ANCHOR_LEVEL = 22;
 
 /**
  * Race categories rendered as dot colors, per universe. Order matters: it is

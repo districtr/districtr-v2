@@ -2,6 +2,7 @@
 import React, {useEffect} from 'react';
 import {MapContextMenu} from '@components/ContextMenu';
 import {MainMap} from '@components/Map/MainMap';
+import {MobileMapLegend} from '@components/Map/MobileMapLegend';
 import {PublicMap} from '@components/Map/PublicMap';
 import {DemographicMap} from '@components/Map/DemographicMap';
 import {PublicDemographicMap} from '@components/Map/PublicDemographicMap';
@@ -126,6 +127,7 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
           {isPublicPage ? <PublicMap /> : <MainMap />}
           {showDemographicMap && (isPublicPage ? <PublicDemographicMap /> : <DemographicMap />)}
         </Flex>
+        <MobileMapLegend />
         <MapTooltip />
       </div>
       <MapContextMenu />
