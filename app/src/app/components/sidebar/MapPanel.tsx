@@ -147,9 +147,15 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
 
   const handleSetMapMode = (newMode: MapControlsStore['mapOptions']['demographicDisplayMode']) => {
     setMapOptions({demographicDisplayMode: newMode});
-    // Remember overlay vs. comparison so the Visual settings choropleth
-    // toggle reactivates with the user's most recent display mode.
-    if (newMode) overlayMemory.displayMode = newMode;
+    // Toggling a layer on registers it with the Visual settings toggle:
+    // remember the display mode (overlay vs. comparison), the group, and the
+    // variable it's showing.
+    if (newMode) {
+      overlayMemory.displayMode = newMode;
+      overlayMemory.lastGroup = columnGroup;
+      const effectiveVariable = mapVariableConfig ? variable : currentVariableList[0]?.value;
+      if (effectiveVariable) overlayMemory.variables[columnGroup] = effectiveVariable;
+    }
     if (!mapVariableConfig && currentVariableList.length) {
       setVariable(currentVariableList[0].value);
     }

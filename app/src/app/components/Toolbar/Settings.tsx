@@ -43,17 +43,19 @@ export const ToolSettings: React.FC = () => {
   // Overlay layer: one selection among none / demographic / election (the
   // groups are mutually exclusive, so this is a mode picker, not independent
   // checkboxes). Super Draw offers every group with data on this map; Draw
-  // offers only the last-configured group.
+  // offers each group the user has toggled on so far — either alone is
+  // enough, both appear once both have been used.
   const electionVariables = availableMapVariables[SUMMARY_TYPES.VOTERHISTORY] ?? [];
   const isElectionVariable = electionVariables.some(v => v.value === variable);
   // "On" means either display mode — overlay or the side-by-side comparison.
   const overlayOn = mapOptions.demographicDisplayMode !== undefined;
+  const allGroups = [SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VOTERHISTORY] as SummaryType[];
   const overlayGroups: Array<{group: SummaryType; label: string}> = (
     superDraw
-      ? ([SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VOTERHISTORY] as SummaryType[])
-      : overlayMemory.lastGroup
-        ? [overlayMemory.lastGroup]
-        : []
+      ? allGroups
+      : allGroups.filter(
+          group => overlayMemory.variables[group] || overlayMemory.lastGroup === group
+        )
   )
     .filter(group => (availableMapVariables[group] ?? []).length > 0)
     .map(group => ({
