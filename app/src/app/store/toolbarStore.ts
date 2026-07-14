@@ -10,11 +10,18 @@ export type ToolbarState = {
   // tools/settings. Persisted so a user's choice sticks across sessions.
   superDraw: boolean;
   setSuperDraw: (superDraw: boolean) => void;
+  /** Draw mode requested from the view switcher while an edit-password unlock
+   * is pending — applied by the password modal on success, cleared on cancel.
+   * Never persisted, so a cancelled prompt can't flip the saved mode. */
+  pendingSuperDraw: boolean | null;
+  setPendingSuperDraw: (pending: boolean | null) => void;
 };
 
 export const useToolbarStore = create(
   persist<ToolbarState>(
     set => ({
+      pendingSuperDraw: null,
+      setPendingSuperDraw: pendingSuperDraw => set({pendingSuperDraw}),
       superDraw: false,
       setSuperDraw: superDraw => {
         set({superDraw});

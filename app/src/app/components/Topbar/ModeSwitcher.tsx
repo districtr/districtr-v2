@@ -85,6 +85,7 @@ export const ModeSwitcher: React.FC = () => {
   const isEval = useMapControlsStore(state => state.isEval);
   const superDraw = useToolbarStore(state => state.superDraw);
   const setSuperDraw = useToolbarStore(state => state.setSuperDraw);
+  const setPendingSuperDraw = useToolbarStore(state => state.setPendingSuperDraw);
   const mapMode = useMapControlsStore(state => state.mapMode);
   const editDocId = useEditableDocId();
   const {isOutdated, save} = useMapSaveStatus();
@@ -195,6 +196,9 @@ export const ModeSwitcher: React.FC = () => {
       if (editDocId) {
         router.push(`/${prefix}/edit/${editDocId}`);
       } else if (isUnlockable) {
+        // Remember which draw mode was requested so a successful unlock lands
+        // in it; the password modal clears this on cancel without persisting.
+        setPendingSuperDraw(mode === 'superdraw');
         setPasswordPrompt(true);
       }
       return;
