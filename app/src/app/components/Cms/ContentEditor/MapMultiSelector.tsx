@@ -12,7 +12,8 @@ import {PlacesCMSContent} from '@/app/utils/api/cms';
 export const MapMultiSelector: React.FC = () => {
   const maps = useCmsFormStore(state => state.maps);
   const formData = useCmsFormStore(state => state.formData);
-  const handleChange = useCmsFormStore(state => state.handleChange);
+  const setFormValue = useCmsFormStore(state => state.setFormValue);
+  const toggleFormListValue = useCmsFormStore(state => state.toggleFormListValue);
   const selectedSlugs =
     (formData?.content as unknown as PlacesCMSContent)?.districtr_map_slugs ?? [];
 
@@ -35,21 +36,20 @@ export const MapMultiSelector: React.FC = () => {
   const nameFor = (slug: string) => maps.find(m => m.districtr_map_slug === slug)?.name ?? slug;
 
   const addMap = (slug: string) => {
-    // The `multiple` branch appends, preserving insertion order.
-    handleChange('districtr_map_slugs', true)(slug);
+    // Toggling an absent slug appends it, preserving insertion order.
+    toggleFormListValue('districtr_map_slugs')(slug);
     setQuery('');
     setActiveIndex(-1);
   };
 
-  const removeMap = (slug: string) => handleChange('districtr_map_slugs', true)(slug);
+  const removeMap = (slug: string) => toggleFormListValue('districtr_map_slugs')(slug);
 
   const move = (index: number, delta: number) => {
     const target = index + delta;
     if (target < 0 || target >= selectedSlugs.length) return;
     const next = [...selectedSlugs];
     [next[index], next[target]] = [next[target], next[index]];
-    // The non-multiple branch sets the property wholesale.
-    handleChange('districtr_map_slugs')(next);
+    setFormValue('districtr_map_slugs')(next);
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {

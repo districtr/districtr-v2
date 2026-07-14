@@ -10,7 +10,7 @@ const RichTextEditor = dynamic(() => import('@/app/components/Cms/RichTextEditor
 export const ContentEditor: React.FC = () => {
   const contentType = useCmsFormStore(state => state.contentType);
   const editingContent = useCmsFormStore(state => state.editingContent);
-  const handleChange = useCmsFormStore(state => state.handleChange);
+  const setFormValue = useCmsFormStore(state => state.setFormValue);
   const formData = useCmsFormStore(state => state.formData);
   const maps = useCmsFormStore(state => state.maps);
   // const setFormData = useCmsFormStore(state => state.setFormData);
@@ -83,7 +83,7 @@ export const ContentEditor: React.FC = () => {
           </Text>
           <TextField.Root
             value={formData?.content?.title}
-            onChange={e => handleChange('title')(e.target.value)}
+            onChange={e => setFormValue('title')(e.target.value)}
             placeholder="Page Title"
           />
         </Flex>
@@ -94,7 +94,7 @@ export const ContentEditor: React.FC = () => {
           </Text>
           <TextField.Root
             value={formData?.content.slug}
-            onChange={e => handleChange('slug')(e.target.value)}
+            onChange={e => setFormValue('slug')(e.target.value)}
             placeholder="texas-districts"
             disabled={!!editingContent}
           />
@@ -107,7 +107,7 @@ export const ContentEditor: React.FC = () => {
           <Select.Root
             required
             value={formData?.content.language}
-            onValueChange={handleChange('language')}
+            onValueChange={setFormValue('language')}
           >
             {' '}
             <Select.Trigger />
@@ -130,7 +130,7 @@ export const ContentEditor: React.FC = () => {
               // @ts-ignore
               value={formData?.content.districtr_map_slug}
               // @ts-ignore
-              onValueChange={handleChange('districtr_map_slug')}
+              onValueChange={setFormValue('districtr_map_slug')}
             >
               <Select.Trigger placeholder="Select a map" />
               <Select.Content>
@@ -152,7 +152,7 @@ export const ContentEditor: React.FC = () => {
         </Text>
         <RichTextEditor
           content={formData?.content.body || {}}
-          onChange={handleChange('body')}
+          onChange={setFormValue('body')}
           // weird formatting, do not include a placeholder
           placeholder=""
         />

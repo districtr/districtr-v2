@@ -18,6 +18,10 @@ import {MapControlsStore, useMapControlsStore} from '@store/mapControlsStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
 
+// One constant drives both the CSS transition and the delayed unmount so the
+// two can't drift apart.
+const COLLAPSE_DURATION_MS = 200;
+
 /** Shared height-collapse for the accordion sections and coalition expander.
  * CSS grid-rows transition; children unmount once the close animation ends so
  * collapsed panels don't keep rendering or subscribing. */
@@ -31,13 +35,16 @@ const AnimatedCollapse: React.FC<{open: boolean; children: React.ReactNode}> = (
       setMounted(true);
       return;
     }
-    const timeout = setTimeout(() => setMounted(false), 200);
+    const timeout = setTimeout(() => setMounted(false), COLLAPSE_DURATION_MS);
     return () => clearTimeout(timeout);
   }, [open]);
   return (
     <div
-      className="grid transition-[grid-template-rows] duration-200 ease-out"
-      style={{gridTemplateRows: open ? '1fr' : '0fr'}}
+      className="grid transition-[grid-template-rows] ease-out"
+      style={{
+        gridTemplateRows: open ? '1fr' : '0fr',
+        transitionDuration: `${COLLAPSE_DURATION_MS}ms`,
+      }}
     >
       <div className="min-h-0 overflow-hidden">{mounted ? children : null}</div>
     </div>
