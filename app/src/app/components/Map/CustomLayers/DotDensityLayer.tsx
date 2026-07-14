@@ -9,7 +9,7 @@ import {demographyService} from '@/app/utils/demography/demographyService';
 import {getSelectedCoalitionColumns} from '@/app/utils/demography/coalition';
 import DotDensityWorker from '@/app/utils/DotDensityWorker';
 import {TILESET_URL} from '@/app/utils/api/constants';
-import {MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
+import {LABELS_BREAK_LAYER_ID} from '@/app/constants/map/layerIds';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 import {SUMMARY_TYPES} from '@constants/demography/summary';
 import {
@@ -126,8 +126,10 @@ export const DotDensityLayer: React.FC = () => {
     const layer = new DotDensityCustomLayer();
     const addLayer = () => {
       if (map.getLayer(DOT_DENSITY_LAYER_ID)) return;
-      const beforeId = map.getLayer(MAP_LAYER_ANCHOR_IDS.demography)
-        ? MAP_LAYER_ANCHOR_IDS.demography
+      // Above every districtr layer (zones, hover, counties, overlays all
+      // insert below the basemap's label break), under city/state labels
+      const beforeId = map.getLayer(LABELS_BREAK_LAYER_ID)
+        ? LABELS_BREAK_LAYER_ID
         : undefined;
       map.addLayer(layer, beforeId);
     };
@@ -170,6 +172,7 @@ export const DotDensityLayer: React.FC = () => {
       if (!alive) return;
       layer.setDensityFactor(useDemographyStore.getState().dotDensityFactor);
       layer.setSizeFactor(useDemographyStore.getState().dotDensitySize);
+      layer.setOpacity(useDemographyStore.getState().dotDensityOpacity);
       map.triggerRepaint();
     };
 
@@ -268,6 +271,7 @@ export const DotDensityLayer: React.FC = () => {
       useDemographyStore.subscribe(s => s.dotDensityDisabled, rebuildAllDensities),
       useDemographyStore.subscribe(s => s.dotDensityFactor, applyDensityFactor),
       useDemographyStore.subscribe(s => s.dotDensitySize, applyDensityFactor),
+      useDemographyStore.subscribe(s => s.dotDensityOpacity, applyDensityFactor),
       useAssignmentsStore.subscribe(s => s.shatterIds, onShatterChange),
     ];
     refreshRowIndex();

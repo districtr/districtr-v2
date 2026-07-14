@@ -47,6 +47,7 @@ export class DotDensityCustomLayer implements CustomLayerInterface {
   private paletteFlat = new Float32Array(18);
   private densityFactor = 1;
   private sizeFactor = 1;
+  private opacity = 1;
 
   /** Category colors in texture-slot order; padded to the shader's 6 slots. */
   setPalette(hexes: string[]) {
@@ -63,6 +64,10 @@ export class DotDensityCustomLayer implements CustomLayerInterface {
   /** User multiplier on dot radius; scaled radius stays under one cell. */
   setSizeFactor(factor: number) {
     this.sizeFactor = factor > 0 ? factor : 1;
+  }
+
+  setOpacity(opacity: number) {
+    this.opacity = Math.min(1, Math.max(0, opacity));
   }
 
   onAdd(map: MapLibreMap, glCtx: WebGLRenderingContext | WebGL2RenderingContext) {
@@ -208,7 +213,7 @@ export class DotDensityCustomLayer implements CustomLayerInterface {
       Math.min(0.98, DOT_DENSITY_DOT_RADIUS * this.sizeFactor)
     );
     gl.uniform3fv(this.uniforms.u_palette, this.paletteFlat);
-    gl.uniform1f(this.uniforms.u_opacity, 1.0);
+    gl.uniform1f(this.uniforms.u_opacity, this.opacity);
     gl.uniform1i(this.uniforms.u_texWidth, DOT_DENSITY_TEXTURE_WIDTH);
     gl.uniform1i(this.uniforms.u_density, 0);
     gl.activeTexture(gl.TEXTURE0);

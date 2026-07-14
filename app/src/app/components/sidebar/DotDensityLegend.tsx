@@ -28,6 +28,8 @@ export const DotDensityLegend: React.FC = () => {
   const setDensityFactor = useDemographyStore(state => state.setDotDensityFactor);
   const dotSize = useDemographyStore(state => state.dotDensitySize);
   const setDotSize = useDemographyStore(state => state.setDotDensitySize);
+  const opacity = useDemographyStore(state => state.dotDensityOpacity);
+  const setOpacity = useDemographyStore(state => state.setDotDensityOpacity);
   // re-derive categories when the variable/coalition changes
   useDemographyStore(state => state.variable);
   useDemographyStore(state => state.coalitionHash);
@@ -103,6 +105,19 @@ export const DotDensityLegend: React.FC = () => {
           min={DOT_DENSITY_SIZE_MIN}
           max={DOT_DENSITY_SIZE_MAX}
           step={0.25}
+          size="1"
+        />
+      </Flex>
+      <Flex direction="row" gapX="2" align="center">
+        <Text size="2" className="whitespace-nowrap">
+          Opacity {Math.round(opacity * 100)}%
+        </Text>
+        <Slider
+          value={[opacity]}
+          onValueChange={value => setOpacity(value[0])}
+          min={0.1}
+          max={1}
+          step={0.05}
           size="1"
         />
       </Flex>
