@@ -25,6 +25,14 @@ export const DOT_DENSITY_DOT_RADIUS = 0.38;
 export const DOT_DENSITY_MAX_DOTS_PER_CELL = 3;
 
 /**
+ * Fraction of the cell that dot centers jitter across (centered). The
+ * (1 - jitter)/2 margins on each side guarantee a minimum gap between dots
+ * of neighboring cells, so points spread out instead of stacking across
+ * cell borders — while staying far too random to read as a grid.
+ */
+export const DOT_DENSITY_JITTER = 0.75;
+
+/**
  * Anchor for the people-per-dot policy: ppd = 2^(anchor - gridLevel).
  * Grid level ≈ zoom + 6, so this gives ~250 people/dot at state view and
  * 1 person/dot from ~z14 up. The user-facing density factor divides into it.

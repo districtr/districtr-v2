@@ -1,4 +1,7 @@
-import {DOT_DENSITY_MAX_DOTS_PER_CELL} from '@constants/demography/dotDensity';
+import {
+  DOT_DENSITY_JITTER,
+  DOT_DENSITY_MAX_DOTS_PER_CELL,
+} from '@constants/demography/dotDensity';
 
 /**
  * GLSL (WebGL2 / GLSL ES 3.00) for the procedural dot density layer.
@@ -112,10 +115,11 @@ void main() {
           float(seed.y >> 16u)
         ) / 65535.0;
         if (h.z >= p) continue;
-        // R2 low-discrepancy offset per candidate: dots sharing a cell land
-        // well apart (torus distance ~0.3+ cells) instead of clobbering each
-        // other at random, which reads as better coverage at the same count
-        vec2 center = nIdx + fract(h.xy + float(j) * vec2(0.7548777, 0.5698403));
+        // R2 low-discrepancy offset per candidate spreads dots sharing a
+        // cell; the damped amplitude leaves margins at cell edges so dots
+        // from neighboring cells keep a minimum gap instead of stacking
+        vec2 jit = fract(h.xy + float(j) * vec2(0.7548777, 0.5698403));
+        vec2 center = nIdx + 0.5 + (jit - 0.5) * ${DOT_DENSITY_JITTER};
         float d = distance(cellF, center);
         float cov = 1.0 - smoothstep(u_dotRadius - aa, u_dotRadius + aa, d);
         if (cov <= 0.0) continue;
