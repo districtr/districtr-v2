@@ -94,7 +94,7 @@ export const getDotDensityCategories = (
 
 /** Range of the user-facing dot density multiplier. */
 export const DOT_DENSITY_FACTOR_MIN = 0.5;
-export const DOT_DENSITY_FACTOR_MAX = 24;
+export const DOT_DENSITY_FACTOR_MAX = 100;
 
 /**
  * Range of the user-facing dot size multiplier. Max keeps the scaled radius
