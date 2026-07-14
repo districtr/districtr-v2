@@ -99,20 +99,6 @@ body {
   }
 }
 
-/* Never let the browser treat map touches as page scroll/zoom gestures.
-   Maplibre relaxes its own touch-action to `pan-x pan-y` whenever dragPan is
-   disabled (i.e. exactly while painting), which let vertical brush strokes
-   scroll and rubber-band the whole page on mobile. */
-.maplibregl-canvas-container {
-  touch-action: none;
-}
-
-/* The canvas is focusable, so every tap/paint drew a focus ring around the
-   whole map. */
-.maplibregl-canvas {
-  outline: none;
-}
-
 @media print {
   @page {
     margin: 2cm;
