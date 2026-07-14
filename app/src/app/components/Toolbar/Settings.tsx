@@ -46,7 +46,8 @@ export const ToolSettings: React.FC = () => {
   // offers only the last-configured group.
   const electionVariables = availableMapVariables[SUMMARY_TYPES.VOTERHISTORY] ?? [];
   const isElectionVariable = electionVariables.some(v => v.value === variable);
-  const overlayOn = mapOptions.demographicDisplayMode === DEMOGRAPHIC_MODES.OVERLAY;
+  // "On" means either display mode — overlay or the side-by-side comparison.
+  const overlayOn = mapOptions.demographicDisplayMode !== undefined;
   const overlayGroups: Array<{group: SummaryType; label: string}> = (
     superDraw
       ? ([SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VOTERHISTORY] as SummaryType[])
@@ -67,9 +68,12 @@ export const ToolSettings: React.FC = () => {
 
   const handleOverlayChange = (value: string) => {
     if (value === 'none') {
-      // Remember the overlay-mode preset so re-enabling restores it, then back
-      // out of "Show Thematic Map" (which hides painted districts) — turning
-      // the overlay off must never leave a blank map.
+      // Remember the display mode and overlay preset so re-enabling restores
+      // them, then back out of "Show Thematic Map" (which hides painted
+      // districts) — turning the overlay off must never leave a blank map.
+      if (mapOptions.demographicDisplayMode) {
+        overlayMemory.displayMode = mapOptions.demographicDisplayMode;
+      }
       overlayMemory.overlayOpacity = mapOptions.overlayOpacity;
       overlayMemory.showPaintedDistricts = mapOptions.showPaintedDistricts ?? true;
       setMapOptions({
@@ -228,7 +232,9 @@ export const ToolSettings: React.FC = () => {
         {overlayGroups.length > 0 && (
           <>
             <Heading as="h3" weight="bold" size="3">
-              Map overlay layer
+              {/* Super Draw can show the choropleth as overlay OR comparison,
+                  so "overlay" would be a misnomer there. */}
+              {superDraw ? 'Map choropleth layer' : 'Map overlay layer'}
             </Heading>
             <SegmentedControl.Root
               size="1"

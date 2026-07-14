@@ -2,7 +2,8 @@ import type {SummaryType} from '@constants/demography/summary';
 import type {DemographyVariable} from '@constants/demography/coalition';
 import {useDemographyStore} from '@store/demography/demographyStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
-import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
+import {useToolbarStore} from '@store/toolbarStore';
+import {DEMOGRAPHIC_MODES, type DemographicMode} from '@constants/map/demographicMode';
 
 /**
  * Last-used choropleth config per layer type, so the Visual settings overlay
@@ -17,7 +18,16 @@ export const overlayMemory: {
    * same opacity/painted-districts state the panel controls set. */
   overlayOpacity: number | null;
   showPaintedDistricts: boolean | null;
-} = {variables: {}, lastGroup: null, overlayOpacity: null, showPaintedDistricts: null};
+  /** The most recently used display mode (overlay vs. side-by-side comparison),
+   * so activating a choropleth layer reuses the user's last choice. */
+  displayMode: DemographicMode | null;
+} = {
+  variables: {},
+  lastGroup: null,
+  overlayOpacity: null,
+  showPaintedDistricts: null,
+  displayMode: null,
+};
 
 /**
  * Turn the choropleth overlay on for a column group, restoring the last-used
@@ -38,8 +48,15 @@ export const activateOverlayGroup = (group: SummaryType): boolean => {
   }
   overlayMemory.lastGroup = group;
   overlayMemory.variables[group] = variable;
+  // Reuse the last-used display mode; side-by-side is a Super Draw feature,
+  // so plain Draw always falls back to the overlay.
+  const displayMode =
+    overlayMemory.displayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE &&
+    useToolbarStore.getState().superDraw
+      ? DEMOGRAPHIC_MODES.SIDE_BY_SIDE
+      : DEMOGRAPHIC_MODES.OVERLAY;
   useMapControlsStore.getState().setMapOptions({
-    demographicDisplayMode: DEMOGRAPHIC_MODES.OVERLAY,
+    demographicDisplayMode: displayMode,
     ...(overlayMemory.overlayOpacity !== null && {overlayOpacity: overlayMemory.overlayOpacity}),
     ...(overlayMemory.showPaintedDistricts !== null && {
       showPaintedDistricts: overlayMemory.showPaintedDistricts,
