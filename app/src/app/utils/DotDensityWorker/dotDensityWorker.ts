@@ -19,30 +19,33 @@ const signedArea = (ring: Ring) => {
 class DotDensityWorker implements DotDensityWorkerClass {
   private pmtiles: PMTiles | null = null;
   private tilesetUrl = '';
-  private sourceLayer = '';
 
-  init(tilesetUrl: string, sourceLayer: string) {
+  init(tilesetUrl: string) {
     if (!this.pmtiles || this.tilesetUrl !== tilesetUrl) {
       this.pmtiles = new PMTiles(tilesetUrl);
       this.tilesetUrl = tilesetUrl;
     }
-    this.sourceLayer = sourceLayer;
   }
 
-  async getTileBuffers(z: number, x: number, y: number): Promise<DotDensityTileBuffers | null> {
-    if (!this.pmtiles || !this.sourceLayer) {
-      throw new Error(`not initialized url=${this.tilesetUrl} layer=${this.sourceLayer}`);
+  async getTileBuffers(
+    z: number,
+    x: number,
+    y: number,
+    sourceLayer: string,
+    filterPaths?: string[]
+  ): Promise<DotDensityTileBuffers | null> {
+    if (!this.pmtiles) {
+      throw new Error('not initialized');
     }
     const resp = await this.pmtiles.getZxy(z, x, y);
     // Absent tiles (outside the state's extent) are routine, not an error
     if (!resp?.data) return null;
     const tile = new VectorTile(new PbfReader(new Uint8Array(resp.data)));
-    const layer = tile.layers[this.sourceLayer];
-    if (!layer) {
-      throw new Error(
-        `missing layer ${this.sourceLayer}; tile has [${Object.keys(tile.layers).join(', ')}]`
-      );
-    }
+    const layer = tile.layers[sourceLayer];
+    // Layers can legitimately drop out of low-zoom tiles (tippecanoe
+    // --drop-smallest); treat like an absent tile
+    if (!layer) return null;
+    const allowed = filterPaths ? new Set(filterPaths) : null;
 
     const positions: number[] = [];
     const indices: number[] = [];
@@ -57,6 +60,7 @@ class DotDensityWorker implements DotDensityWorkerClass {
       if (feature.type !== 3) continue; // polygons only
       const path = feature.properties.path;
       if (typeof path !== 'string') continue;
+      if (allowed && !allowed.has(path)) continue;
       const extent = feature.extent;
       const polygons = classifyRings(feature.loadGeometry()) as unknown as Ring[][];
       if (!polygons.length) continue;

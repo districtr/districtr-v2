@@ -4,7 +4,6 @@ import {
   composeTileMatrix,
   gridLevelForZoom,
   peoplePerDotForLevel,
-  tileKey,
   type TileID,
 } from '@/app/utils/dotDensity/tileMath';
 import {
@@ -97,10 +96,9 @@ export class DotDensityCustomLayer implements CustomLayerInterface {
     for (const [key, tile] of this.tiles) fn(key, tile.paths, tile.areas);
   }
 
-  setTileData(id: TileID, data: DotDensityTileBuffers) {
+  setTileData(key: string, id: TileID, data: DotDensityTileBuffers) {
     const gl = this.gl;
     if (!gl || !this.program) return;
-    const key = tileKey(id);
     this.removeTile(key);
 
     const vao = gl.createVertexArray()!;

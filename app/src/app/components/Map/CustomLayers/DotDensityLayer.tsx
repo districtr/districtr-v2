@@ -3,6 +3,7 @@ import {useEffect, useMemo} from 'react';
 import {useMap} from 'react-map-gl/maplibre';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {demographyService} from '@/app/utils/demography/demographyService';
 import DotDensityWorker from '@/app/utils/DotDensityWorker';
@@ -13,7 +14,12 @@ import {
   DOT_DENSITY_CATEGORIES,
   type DotDensityUniverse,
 } from '@constants/demography/dotDensity';
-import {coverForBounds, dataZoomForMapZoom, tileKey} from '@/app/utils/dotDensity/tileMath';
+import {
+  coverForBounds,
+  dataZoomForMapZoom,
+  tileKey,
+  type TileID,
+} from '@/app/utils/dotDensity/tileMath';
 import {DotDensityCustomLayer, DOT_DENSITY_LAYER_ID} from './dotDensityCustomLayer';
 
 const universeForVariable = (variable: string): DotDensityUniverse =>
@@ -38,14 +44,19 @@ const buildRowIndex = (universe: DotDensityUniverse): Map<string, number[]> | nu
   return index;
 };
 
-/** RGBA32F texel data: 2 texels per feature (cats 0-3 | cat4, cat5, total, 0). */
+/**
+ * RGBA32F texel data: 2 texels per feature (cats 0-3 | cat4, cat5, total, 0).
+ * Excluded paths (shattered parents) keep zero densities → no dots.
+ */
 const buildTexels = (
   paths: string[],
   areas: Float64Array,
-  rowIndex: Map<string, number[]>
+  rowIndex: Map<string, number[]>,
+  exclude?: Set<string>
 ): Float32Array => {
   const texels = new Float32Array(paths.length * 8);
   for (let i = 0; i < paths.length; i++) {
+    if (exclude?.has(paths[i])) continue;
     const counts = rowIndex.get(paths[i]);
     const area = areas[i];
     if (!counts || !(area > 0)) continue;
@@ -63,13 +74,16 @@ const buildTexels = (
 
 /**
  * Mounts the shader-stippled dot density custom layer and keeps its tile set
- * and density textures in sync with the viewport and demography state.
+ * and density textures in sync with the viewport, demography state, and
+ * shattering. Shattered parents stop stippling; their exposed child blocks
+ * are decoded (path-filtered) and stippled at block resolution.
  * Active via the "Dot density" display mode, or ?dotdensity=1 for debugging.
  */
 export const DotDensityLayer: React.FC = () => {
   const mapRef = useMap();
   const tilesPath = useMapStore(state => state.mapDocument?.tiles_s3_path);
   const parentLayer = useMapStore(state => state.mapDocument?.parent_layer);
+  const childLayer = useMapStore(state => state.mapDocument?.child_layer);
   const isDotDensityMode = useMapControlsStore(
     state => state.mapOptions.demographicDisplayMode === DEMOGRAPHIC_MODES.DOT_DENSITY
   );
@@ -94,11 +108,13 @@ export const DotDensityLayer: React.FC = () => {
       map.addLayer(layer, beforeId);
     };
     addLayer();
-    DotDensityWorker.init(`${TILESET_URL}/${tilesPath}`, parentLayer);
+    DotDensityWorker.init(`${TILESET_URL}/${tilesPath}`);
 
     let alive = true;
     let rowIndex: Map<string, number[]> | null = null;
     const inflight = new Set<string>();
+    const shatteredParents = () => useAssignmentsStore.getState().shatterIds.parents;
+    const exposedChildren = () => useAssignmentsStore.getState().shatterIds.children;
 
     const refreshRowIndex = () => {
       const universe = universeForVariable(useDemographyStore.getState().variable);
@@ -107,7 +123,8 @@ export const DotDensityLayer: React.FC = () => {
 
     const applyDensities = (key: string, paths: string[], areas: Float64Array) => {
       if (!rowIndex) return;
-      layer.setTileDensities(key, buildTexels(paths, areas, rowIndex));
+      const exclude = key.startsWith('p:') ? shatteredParents() : undefined;
+      layer.setTileDensities(key, buildTexels(paths, areas, rowIndex, exclude));
     };
 
     const rebuildAllDensities = () => {
@@ -116,6 +133,26 @@ export const DotDensityLayer: React.FC = () => {
       if (!rowIndex) return;
       layer.forEachTile(applyDensities);
       map.triggerRepaint();
+    };
+
+    const fetchTile = (
+      key: string,
+      tile: TileID,
+      sourceLayer: string,
+      filterPaths?: string[]
+    ) => {
+      inflight.add(key);
+      DotDensityWorker!.getTileBuffers(tile.z, tile.x, tile.y, sourceLayer, filterPaths)
+        .then(buffers => {
+          if (alive && buffers) {
+            layer.setTileData(key, tile, buffers);
+            if (!rowIndex) refreshRowIndex();
+            applyDensities(key, buffers.paths, buffers.areas);
+            map.triggerRepaint();
+          }
+        })
+        .catch(e => console.warn('[dotdensity] tile failed', key, e))
+        .finally(() => inflight.delete(key));
     };
 
     const updateCover = () => {
@@ -130,26 +167,40 @@ export const DotDensityLayer: React.FC = () => {
         },
         z
       );
-      const wanted = new Set(cover.map(tileKey));
+      const children = childLayer ? Array.from(exposedChildren()) : [];
+      const wanted = new Set<string>();
+      for (const tile of cover) {
+        wanted.add(`p:${tileKey(tile)}`);
+        if (children.length) wanted.add(`c:${tileKey(tile)}`);
+      }
       for (const key of layer.tileKeys()) {
         if (!wanted.has(key)) layer.removeTile(key);
       }
       for (const tile of cover) {
-        const key = tileKey(tile);
-        if (layer.hasTile(key) || inflight.has(key)) continue;
-        inflight.add(key);
-        DotDensityWorker!.getTileBuffers(tile.z, tile.x, tile.y)
-          .then(buffers => {
-            if (alive && buffers) {
-              layer.setTileData(tile, buffers);
-              if (!rowIndex) refreshRowIndex();
-              applyDensities(key, buffers.paths, buffers.areas);
-              map.triggerRepaint();
-            }
-          })
-          .catch(e => console.warn('[dotdensity] tile failed', key, e))
-          .finally(() => inflight.delete(key));
+        const pKey = `p:${tileKey(tile)}`;
+        if (!layer.hasTile(pKey) && !inflight.has(pKey)) {
+          fetchTile(pKey, tile, parentLayer);
+        }
+        if (children.length && childLayer) {
+          const cKey = `c:${tileKey(tile)}`;
+          if (!layer.hasTile(cKey) && !inflight.has(cKey)) {
+            fetchTile(cKey, tile, childLayer, children);
+          }
+        }
       }
+    };
+
+    const onShatterChange = () => {
+      if (!alive) return;
+      // Child tile contents depend on the exposed-id filter: drop and refetch
+      for (const key of layer.tileKeys()) {
+        if (key.startsWith('c:')) layer.removeTile(key);
+      }
+      // Zero the newly shattered parents (or restore healed ones)
+      if (!rowIndex) refreshRowIndex();
+      if (rowIndex) layer.forEachTile(applyDensities);
+      updateCover();
+      map.triggerRepaint();
     };
 
     // Basemap changes rebuild the style and drop custom layers; re-add.
@@ -159,6 +210,7 @@ export const DotDensityLayer: React.FC = () => {
     map.on('styledata', onStyleData);
     const unsubData = useDemographyStore.subscribe(s => s.dataHash, rebuildAllDensities);
     const unsubVariable = useDemographyStore.subscribe(s => s.variable, rebuildAllDensities);
+    const unsubShatter = useAssignmentsStore.subscribe(s => s.shatterIds, onShatterChange);
     refreshRowIndex();
     updateCover();
 
@@ -166,12 +218,13 @@ export const DotDensityLayer: React.FC = () => {
       alive = false;
       unsubData();
       unsubVariable();
+      unsubShatter();
       map.off('moveend', updateCover);
       map.off('zoomend', updateCover);
       map.off('styledata', onStyleData);
       if (map.getLayer(DOT_DENSITY_LAYER_ID)) map.removeLayer(DOT_DENSITY_LAYER_ID);
     };
-  }, [enabled, mapRef, tilesPath, parentLayer]);
+  }, [enabled, mapRef, tilesPath, parentLayer, childLayer]);
 
   return null;
 };

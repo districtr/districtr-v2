@@ -13,8 +13,17 @@ export type DotDensityTileBuffers = {
 };
 
 export type DotDensityWorkerClass = {
-  /** Point the worker at a PMTiles archive and source-layer. */
-  init: (tilesetUrl: string, sourceLayer: string) => void;
-  /** Fetch, decode, and tessellate one tile. Null when the tile or layer is absent. */
-  getTileBuffers: (z: number, x: number, y: number) => Promise<DotDensityTileBuffers | null>;
+  /** Point the worker at a PMTiles archive. */
+  init: (tilesetUrl: string) => void;
+  /**
+   * Fetch, decode, and tessellate one tile's source-layer, optionally keeping
+   * only the given feature paths. Null when the tile or layer is absent.
+   */
+  getTileBuffers: (
+    z: number,
+    x: number,
+    y: number,
+    sourceLayer: string,
+    filterPaths?: string[]
+  ) => Promise<DotDensityTileBuffers | null>;
 };
