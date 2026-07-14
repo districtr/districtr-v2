@@ -1,3 +1,5 @@
+import {DOT_DENSITY_MAX_DOTS_PER_CELL} from '@constants/demography/dotDensity';
+
 /**
  * GLSL (WebGL2 / GLSL ES 3.00) for the procedural dot density layer.
  *
@@ -38,10 +40,12 @@ uniform vec2 u_cellOrigin;    // tile origin in cell units; integer-valued, <= 2
 uniform float u_cellsPerTile; // 2^(n - dataZoom)
 uniform float u_cellAreaWorld;// 4^-n
 uniform float u_peoplePerDot;
-uniform float u_dotRadius;    // in cell units, < 0.5
+uniform float u_dotRadius;    // in cell units, < 1 (3x3 neighborhood search)
 uniform vec3 u_palette[6];
 uniform float u_opacity;
 out vec4 fragColor;
+
+#define MAX_DOTS_PER_CELL ${DOT_DENSITY_MAX_DOTS_PER_CELL}
 
 // pcg2d hash: uint in, well-distributed uint out
 uvec2 pcg2d(uvec2 v) {
@@ -66,28 +70,64 @@ void main() {
 
   vec2 cellF = v_local * u_cellsPerTile;
   vec2 cellIdx = floor(cellF);
-  uvec2 cell = uvec2(u_cellOrigin + cellIdx);
-  uvec2 h2 = pcg2d(cell);
-  vec4 h = vec4(
-    float(h2.x & 0xffffu),
-    float(h2.x >> 16u),
-    float(h2.y & 0xffffu),
-    float(h2.y >> 16u)
-  ) / 65535.0;
 
   vec4 dA = texelAt(2 * v_fidx);
   vec4 dB = texelAt(2 * v_fidx + 1);
   float totalDensity = dB.z;
+  // Expected dots per cell; cells hold up to MAX_DOTS_PER_CELL, so dense
+  // areas pile up overlapping dots instead of saturating into a grid
+  float lambda = totalDensity * u_cellAreaWorld / u_peoplePerDot;
+  if (lambda <= 0.0) discard;
 
-  // Bernoulli thinning: expected dots per cell from the feature's density
-  float expected = min(totalDensity * u_cellAreaWorld / u_peoplePerDot, 1.0);
-  if (expected <= 0.0 || h.z >= expected) discard;
-
-  // Category from an independent hash channel over the cumulative sums
   float cats[6] = float[6](dA.x, dA.y, dA.z, dA.w, dB.x, dB.y);
   float catSum = cats[0] + cats[1] + cats[2] + cats[3] + cats[4] + cats[5];
   if (catSum <= 0.0) discard;
-  float r = h.w * catSum;
+
+  // Scan the 3x3 cell neighborhood: dot centers jitter across their whole
+  // cell and discs overlap freely, so any nearby cell's dot may cover this
+  // fragment. Each dot carries a random depth; the deepest covering dot
+  // wins (solid coverage beats edge coverage) = randomized painter's order.
+  float bestScore = -1.0;
+  float bestCov = 0.0;
+  uvec2 bestSeed = uvec2(0u);
+  for (int dy = -1; dy <= 1; dy++) {
+    for (int dx = -1; dx <= 1; dx++) {
+      vec2 nIdx = cellIdx + vec2(float(dx), float(dy));
+      uvec2 cell = uvec2(ivec2(u_cellOrigin + nIdx));
+      for (int j = 0; j < MAX_DOTS_PER_CELL; j++) {
+        float p = clamp(lambda - float(j), 0.0, 1.0);
+        if (p <= 0.0) break;
+        uvec2 seed = pcg2d(cell ^ uvec2(uint(j) * 0x9E3779B9u + 0x68E31DA4u,
+                                        uint(j) * 0x85EBCA6Bu + 0xB5297A4Du));
+        vec4 h = vec4(
+          float(seed.x & 0xffffu),
+          float(seed.x >> 16u),
+          float(seed.y & 0xffffu),
+          float(seed.y >> 16u)
+        ) / 65535.0;
+        if (h.z >= p) continue;
+        vec2 center = nIdx + h.xy;
+        float d = distance(cellF, center);
+        float aa = max(fwidth(d), 1e-4);
+        float cov = 1.0 - smoothstep(u_dotRadius - aa, u_dotRadius + aa, d);
+        if (cov <= 0.0) continue;
+        // Random z (h.w); +1 bonus for solid coverage so a dot's AA fringe
+        // never punches a translucent hole through a dot beneath it
+        float score = h.w + (cov >= 0.99 ? 1.0 : 0.0);
+        if (score > bestScore) {
+          bestScore = score;
+          bestCov = cov;
+          bestSeed = seed;
+        }
+      }
+    }
+  }
+  if (bestScore < 0.0) discard;
+
+  // Category from a second hash of the winning dot's seed (independent of
+  // its position/existence draws)
+  uvec2 hc = pcg2d(bestSeed);
+  float r = (float(hc.x & 0xffffu) / 65535.0) * catSum;
   int k = 5;
   float acc = 0.0;
   for (int i = 0; i < 6; i++) {
@@ -95,14 +135,7 @@ void main() {
     if (r < acc) { k = i; break; }
   }
 
-  // Jitter keeps the whole disc inside its cell: complete circles, no overlap
-  vec2 center = cellIdx + 0.5 + (h.xy - 0.5) * (1.0 - 2.0 * u_dotRadius);
-  float d = distance(cellF, center);
-  float aa = max(fwidth(d), 1e-4);
-  float coverage = 1.0 - smoothstep(u_dotRadius - aa, u_dotRadius + aa, d);
-  if (coverage <= 0.0) discard;
-
-  float alpha = u_opacity * coverage;
+  float alpha = u_opacity * bestCov;
   fragColor = vec4(u_palette[k] * alpha, alpha);
 }`;
 

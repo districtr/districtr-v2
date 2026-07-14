@@ -8,10 +8,21 @@
  */
 
 /** Target stipple cell size in CSS pixels; controls dot spacing on screen. */
-export const DOT_DENSITY_CELL_PX = 7;
+export const DOT_DENSITY_CELL_PX = 6;
 
-/** Dot radius as a fraction of a cell (must stay < 0.5 so discs never cross cells). */
-export const DOT_DENSITY_DOT_RADIUS = 0.3;
+/**
+ * Dot radius as a fraction of a cell. Centers jitter across the whole cell
+ * and discs may overlap neighbors (kept < 1 so the shader's 3×3 neighborhood
+ * search finds every covering dot).
+ */
+export const DOT_DENSITY_DOT_RADIUS = 0.38;
+
+/**
+ * Max dots a single stipple cell can hold. Cells draw ceil(expected) dots up
+ * to this cap with random positions and stacking, so dense areas read as
+ * chaotic overlapping clusters instead of a saturated one-dot-per-cell grid.
+ */
+export const DOT_DENSITY_MAX_DOTS_PER_CELL = 3;
 
 /**
  * Anchor for the people-per-dot policy: ppd = 2^(anchor - gridLevel).
@@ -19,7 +30,7 @@ export const DOT_DENSITY_DOT_RADIUS = 0.3;
  * 1 person/dot from ~z14 up. The user-facing density factor divides into it.
  * ponytail: tuned by eyeball for CO VTDs; revisit with real calibration
  */
-export const DOT_DENSITY_PPD_ANCHOR_LEVEL = 21;
+export const DOT_DENSITY_PPD_ANCHOR_LEVEL = 20;
 
 export type DotDensityUniverse = 'TOTPOP' | 'VAP';
 
