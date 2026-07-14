@@ -12,9 +12,9 @@ graphs:
   ar_districtr_view_v2:
     child_gpkg: ar_districtr_block_view_v2.gpkg
     parent_gpkg: ar_districtr_vtd_view_v2.gpkg
-  # ca_districtr_view_v2 is excluded: CA's block layer is too large to
-  # build the graph via the standard gpkg pipeline. Its pre-built pkl
-  # must be uploaded to S3 manually.
+  ca_districtr_view_v2:
+    child_gpkg: ca_districtr_block_view_v2.gpkg
+    parent_gpkg: ca_districtr_bg_view_v2.gpkg
   co_districtr_view_v2:
     child_gpkg: co_districtr_block_view_v2.gpkg
     parent_gpkg: co_districtr_vtd_view_v2.gpkg
