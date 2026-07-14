@@ -8,8 +8,8 @@ import {
 } from '@/app/utils/dotDensity/tileMath';
 import {
   DOT_DENSITY_DOT_RADIUS,
-  DOT_DENSITY_PALETTE,
   DOT_DENSITY_TEXTURE_WIDTH,
+  hexToRgb01,
 } from '@constants/demography/dotDensity';
 import {compileProgram, DOT_DENSITY_FRAG, DOT_DENSITY_VERT} from './shaders';
 
@@ -44,7 +44,20 @@ export class DotDensityCustomLayer implements CustomLayerInterface {
   private tiles = new Map<string, GpuTile>();
   private attribs = {pos: 0, fidx: 0};
   private uniforms: Record<string, WebGLUniformLocation | null> = {};
-  private paletteFlat = new Float32Array(DOT_DENSITY_PALETTE.flatMap(p => p.rgb));
+  private paletteFlat = new Float32Array(18);
+  private densityFactor = 1;
+
+  /** Category colors in texture-slot order; padded to the shader's 6 slots. */
+  setPalette(hexes: string[]) {
+    const flat = new Float32Array(18);
+    hexes.slice(0, 6).forEach((hex, i) => flat.set(hexToRgb01(hex), i * 3));
+    this.paletteFlat = flat;
+  }
+
+  /** User multiplier on dots-per-people (higher = more dots). */
+  setDensityFactor(factor: number) {
+    this.densityFactor = factor > 0 ? factor : 1;
+  }
 
   onAdd(map: MapLibreMap, glCtx: WebGLRenderingContext | WebGL2RenderingContext) {
     // maplibre-gl 4.x always renders with WebGL2; the union in the type is legacy
@@ -174,7 +187,7 @@ export class DotDensityCustomLayer implements CustomLayerInterface {
     if (!this.program || !this.map || !this.tiles.size) return;
     const zoom = this.map.getZoom();
     const n = gridLevelForZoom(zoom);
-    const peoplePerDot = peoplePerDotForLevel(n);
+    const peoplePerDot = peoplePerDotForLevel(n) / this.densityFactor;
 
     gl.useProgram(this.program);
     gl.enable(gl.BLEND);
@@ -186,7 +199,7 @@ export class DotDensityCustomLayer implements CustomLayerInterface {
     gl.uniform1f(this.uniforms.u_peoplePerDot, peoplePerDot);
     gl.uniform1f(this.uniforms.u_dotRadius, DOT_DENSITY_DOT_RADIUS);
     gl.uniform3fv(this.uniforms.u_palette, this.paletteFlat);
-    gl.uniform1f(this.uniforms.u_opacity, 0.9);
+    gl.uniform1f(this.uniforms.u_opacity, 1.0);
     gl.uniform1i(this.uniforms.u_texWidth, DOT_DENSITY_TEXTURE_WIDTH);
     gl.uniform1i(this.uniforms.u_density, 0);
     gl.activeTexture(gl.TEXTURE0);

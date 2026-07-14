@@ -15,53 +15,72 @@ export const DOT_DENSITY_DOT_RADIUS = 0.3;
 
 /**
  * Anchor for the people-per-dot policy: ppd = 2^(anchor - gridLevel).
- * Grid level ≈ zoom + 6, so this gives ~512 people/dot at state view and
- * 1 person/dot from ~z14 up.
+ * Grid level ≈ zoom + 6, so this gives ~250 people/dot at state view and
+ * 1 person/dot from ~z14 up. The user-facing density factor divides into it.
  * ponytail: tuned by eyeball for CO VTDs; revisit with real calibration
  */
-export const DOT_DENSITY_PPD_ANCHOR_LEVEL = 22;
+export const DOT_DENSITY_PPD_ANCHOR_LEVEL = 21;
+
+export type DotDensityUniverse = 'TOTPOP' | 'VAP';
+
+export type DotDensityCategory = {
+  label: string;
+  hex: string;
+  columns: string[];
+};
 
 /**
- * Race categories rendered as dot colors, per universe. Order matters: it is
- * the category index in the shader's density texture and palette.
+ * Base race categories rendered as dot colors, with their column per
+ * universe. Vivid, hue-spaced palette (dots are small; punchy beats subtle).
  */
-export const DOT_DENSITY_CATEGORIES = {
-  TOTPOP: {
-    total: 'total_pop_20',
-    columns: [
-      'white_pop_20',
-      'bpop_20',
-      'hpop_20',
-      'asian_nhpi_pop_20',
-      'amin_pop_20',
-      'other_pop_20',
-    ],
+export const DOT_DENSITY_BASE_CATEGORIES: Array<{
+  label: string;
+  hex: string;
+  columns: Record<DotDensityUniverse, string>;
+}> = [
+  {label: 'White', hex: '#2563EB', columns: {TOTPOP: 'white_pop_20', VAP: 'white_vap_20'}},
+  {label: 'Black', hex: '#16A34A', columns: {TOTPOP: 'bpop_20', VAP: 'bvap_20'}},
+  {label: 'Hispanic', hex: '#F97316', columns: {TOTPOP: 'hpop_20', VAP: 'hvap_20'}},
+  {
+    label: 'Asian/NHPI',
+    hex: '#DB2777',
+    columns: {TOTPOP: 'asian_nhpi_pop_20', VAP: 'asian_nhpi_vap_20'},
   },
-  VAP: {
-    total: 'total_vap_20',
-    columns: [
-      'white_vap_20',
-      'bvap_20',
-      'hvap_20',
-      'asian_nhpi_vap_20',
-      'amin_vap_20',
-      'other_vap_20',
-    ],
-  },
-} as const;
+  {label: 'AMIN', hex: '#DC2626', columns: {TOTPOP: 'amin_pop_20', VAP: 'amin_vap_20'}},
+  {label: 'Other', hex: '#52525B', columns: {TOTPOP: 'other_pop_20', VAP: 'other_vap_20'}},
+];
 
-export type DotDensityUniverse = keyof typeof DOT_DENSITY_CATEGORIES;
+/** Color for the Coalition Builder merged category. */
+export const DOT_DENSITY_COALITION_HEX = '#7C3AED';
 
-/** Okabe-Ito derived, colorblind-aware; same order as the category columns. */
-export const DOT_DENSITY_PALETTE: Array<{label: string; hex: string; rgb: [number, number, number]}> =
-  [
-    {label: 'White', hex: '#56B4E9', rgb: [0.337, 0.706, 0.914]},
-    {label: 'Black', hex: '#009E73', rgb: [0.0, 0.62, 0.451]},
-    {label: 'Hispanic', hex: '#E69F00', rgb: [0.902, 0.624, 0.0]},
-    {label: 'Asian/NHPI', hex: '#CC79A7', rgb: [0.8, 0.475, 0.655]},
-    {label: 'AMIN', hex: '#D55E00', rgb: [0.835, 0.369, 0.0]},
-    {label: 'Other', hex: '#999999', rgb: [0.6, 0.6, 0.6]},
-  ];
+export const hexToRgb01 = (hex: string): [number, number, number] => [
+  parseInt(hex.slice(1, 3), 16) / 255,
+  parseInt(hex.slice(3, 5), 16) / 255,
+  parseInt(hex.slice(5, 7), 16) / 255,
+];
+
+/**
+ * The categories currently rendered, in texture-slot order. When Coalition
+ * Builder columns are active they merge into a single leading Coalition
+ * category and the member races drop out (no double counting). Always ≤ 6
+ * entries (the shader's slot count).
+ */
+export const getDotDensityCategories = (
+  universe: DotDensityUniverse,
+  coalitionColumns: string[]
+): DotDensityCategory[] => {
+  const coalition = new Set(coalitionColumns);
+  const base = DOT_DENSITY_BASE_CATEGORIES.filter(
+    cat => !coalition.has(cat.columns[universe])
+  ).map(cat => ({label: cat.label, hex: cat.hex, columns: [cat.columns[universe]]}));
+  return coalition.size
+    ? [{label: 'Coalition', hex: DOT_DENSITY_COALITION_HEX, columns: coalitionColumns}, ...base]
+    : base;
+};
+
+/** Range of the user-facing dot density multiplier. */
+export const DOT_DENSITY_FACTOR_MIN = 0.5;
+export const DOT_DENSITY_FACTOR_MAX = 8;
 
 /** Width in texels of the per-tile density textures (2 texels per feature). */
 export const DOT_DENSITY_TEXTURE_WIDTH = 1024;

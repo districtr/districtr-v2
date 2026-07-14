@@ -6,12 +6,15 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {demographyService} from '@/app/utils/demography/demographyService';
+import {getSelectedCoalitionColumns} from '@/app/utils/demography/coalition';
 import DotDensityWorker from '@/app/utils/DotDensityWorker';
 import {TILESET_URL} from '@/app/utils/api/constants';
 import {MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
+import {SUMMARY_TYPES} from '@constants/demography/summary';
 import {
-  DOT_DENSITY_CATEGORIES,
+  getDotDensityCategories,
+  type DotDensityCategory,
   type DotDensityUniverse,
 } from '@constants/demography/dotDensity';
 import {
@@ -25,33 +28,57 @@ import {DotDensityCustomLayer, DOT_DENSITY_LAYER_ID} from './dotDensityCustomLay
 const universeForVariable = (variable: string): DotDensityUniverse =>
   variable.includes('vap') ? 'VAP' : 'TOTPOP';
 
-/** path → per-category counts + total, from the client-side demography table. */
-const buildRowIndex = (universe: DotDensityUniverse): Map<string, number[]> | null => {
+/** The categories currently rendered: coalition (if built) + remaining races. */
+export const getActiveDotDensityCategories = (): DotDensityCategory[] => {
+  const {variable, coalitionGroups} = useDemographyStore.getState();
+  const universe = universeForVariable(variable);
+  const coalitionColumns = getSelectedCoalitionColumns({
+    selectedGroups: coalitionGroups,
+    availableColumns: demographyService.availableColumns,
+    universe: universe === 'VAP' ? SUMMARY_TYPES.VAP : SUMMARY_TYPES.TOTPOP,
+  });
+  return getDotDensityCategories(universe, coalitionColumns);
+};
+
+/**
+ * path → per-category counts + enabled total, from the client-side demography
+ * table. Disabled categories contribute zero counts and drop out of the total,
+ * so their dots disappear rather than recolor.
+ */
+const buildRowIndex = (
+  categories: DotDensityCategory[],
+  disabled: Set<string>
+): Map<string, number[]> | null => {
   const table = demographyService.overlayTable ?? demographyService.table;
   if (!table) return null;
-  const {columns, total} = DOT_DENSITY_CATEGORIES[universe];
   const available = new Set(table.columnNames());
-  if (!available.has(total)) return null;
   const rows = table.objects() as Array<Record<string, unknown>>;
   const index = new Map<string, number[]>();
   for (const row of rows) {
     const path = row.path as string;
     if (!path) continue;
-    const values = columns.map(c => (available.has(c) ? Number(row[c]) || 0 : 0));
-    values.push(Number(row[total]) || 0);
+    let total = 0;
+    const values = categories.map(cat => {
+      if (disabled.has(cat.label)) return 0;
+      const count = cat.columns.reduce(
+        (sum, c) => sum + (available.has(c) ? Number(row[c]) || 0 : 0),
+        0
+      );
+      total += count;
+      return count;
+    });
+    values.push(total);
     index.set(path, values);
   }
   return index;
 };
 
-/**
- * RGBA32F texel data: 2 texels per feature (cats 0-3 | cat4, cat5, total, 0).
- * Excluded paths (shattered parents) keep zero densities → no dots.
- */
+/** RGBA32F texel data: 2 texels per feature (cats 0-3 | cat4, cat5, total, 0). */
 const buildTexels = (
   paths: string[],
   areas: Float64Array,
   rowIndex: Map<string, number[]>,
+  categoryCount: number,
   exclude?: Set<string>
 ): Float32Array => {
   const texels = new Float32Array(paths.length * 8);
@@ -61,23 +88,20 @@ const buildTexels = (
     const area = areas[i];
     if (!counts || !(area > 0)) continue;
     const o = i * 8;
-    texels[o] = counts[0] / area;
-    texels[o + 1] = counts[1] / area;
-    texels[o + 2] = counts[2] / area;
-    texels[o + 3] = counts[3] / area;
-    texels[o + 4] = counts[4] / area;
-    texels[o + 5] = counts[5] / area;
-    texels[o + 6] = counts[6] / area; // total-population density
+    for (let c = 0; c < categoryCount && c < 6; c++) {
+      texels[o + c] = counts[c] / area;
+    }
+    texels[o + 6] = counts[categoryCount] / area; // enabled-total density
   }
   return texels;
 };
 
 /**
  * Mounts the shader-stippled dot density custom layer and keeps its tile set
- * and density textures in sync with the viewport, demography state, and
- * shattering. Shattered parents stop stippling; their exposed child blocks
- * are decoded (path-filtered) and stippled at block resolution.
- * Active via the "Dot density" display mode, or ?dotdensity=1 for debugging.
+ * and density textures in sync with the viewport, demography state, coalition
+ * builder, category toggles, and shattering. Shattered parents stop stippling;
+ * their exposed child blocks are decoded (path-filtered) and stippled at block
+ * resolution. Active via the "Dot density" display mode, or ?dotdensity=1.
  */
 export const DotDensityLayer: React.FC = () => {
   const mapRef = useMap();
@@ -111,20 +135,23 @@ export const DotDensityLayer: React.FC = () => {
     DotDensityWorker.init(`${TILESET_URL}/${tilesPath}`);
 
     let alive = true;
+    let categories: DotDensityCategory[] = [];
     let rowIndex: Map<string, number[]> | null = null;
     const inflight = new Set<string>();
     const shatteredParents = () => useAssignmentsStore.getState().shatterIds.parents;
     const exposedChildren = () => useAssignmentsStore.getState().shatterIds.children;
 
     const refreshRowIndex = () => {
-      const universe = universeForVariable(useDemographyStore.getState().variable);
-      rowIndex = buildRowIndex(universe);
+      categories = getActiveDotDensityCategories();
+      layer.setPalette(categories.map(c => c.hex));
+      const disabled = new Set(useDemographyStore.getState().dotDensityDisabled);
+      rowIndex = buildRowIndex(categories, disabled);
     };
 
     const applyDensities = (key: string, paths: string[], areas: Float64Array) => {
       if (!rowIndex) return;
       const exclude = key.startsWith('p:') ? shatteredParents() : undefined;
-      layer.setTileDensities(key, buildTexels(paths, areas, rowIndex, exclude));
+      layer.setTileDensities(key, buildTexels(paths, areas, rowIndex, categories.length, exclude));
     };
 
     const rebuildAllDensities = () => {
@@ -132,6 +159,12 @@ export const DotDensityLayer: React.FC = () => {
       refreshRowIndex();
       if (!rowIndex) return;
       layer.forEachTile(applyDensities);
+      map.triggerRepaint();
+    };
+
+    const applyDensityFactor = () => {
+      if (!alive) return;
+      layer.setDensityFactor(useDemographyStore.getState().dotDensityFactor);
       map.triggerRepaint();
     };
 
@@ -208,17 +241,21 @@ export const DotDensityLayer: React.FC = () => {
     map.on('moveend', updateCover);
     map.on('zoomend', updateCover);
     map.on('styledata', onStyleData);
-    const unsubData = useDemographyStore.subscribe(s => s.dataHash, rebuildAllDensities);
-    const unsubVariable = useDemographyStore.subscribe(s => s.variable, rebuildAllDensities);
-    const unsubShatter = useAssignmentsStore.subscribe(s => s.shatterIds, onShatterChange);
+    const subs = [
+      useDemographyStore.subscribe(s => s.dataHash, rebuildAllDensities),
+      useDemographyStore.subscribe(s => s.variable, rebuildAllDensities),
+      useDemographyStore.subscribe(s => s.coalitionHash, rebuildAllDensities),
+      useDemographyStore.subscribe(s => s.dotDensityDisabled, rebuildAllDensities),
+      useDemographyStore.subscribe(s => s.dotDensityFactor, applyDensityFactor),
+      useAssignmentsStore.subscribe(s => s.shatterIds, onShatterChange),
+    ];
     refreshRowIndex();
+    applyDensityFactor();
     updateCover();
 
     return () => {
       alive = false;
-      unsubData();
-      unsubVariable();
-      unsubShatter();
+      subs.forEach(unsub => unsub());
       map.off('moveend', updateCover);
       map.off('zoomend', updateCover);
       map.off('styledata', onStyleData);
