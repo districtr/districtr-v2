@@ -290,7 +290,10 @@ class Config(BaseModel):
 
 
 def load_sample_data(
-    config: Config, data_dir: str, skip_gerrydb_loads: bool = False
+    config: Config,
+    data_dir: str,
+    skip_gerrydb_loads: bool = False,
+    visibility_override: bool | None = None,
 ) -> None:
     """
     Load sample data from the specified data directory.
@@ -377,6 +380,11 @@ def load_sample_data(
                 tiles_s3_path=view.tiles_s3_path,
                 num_districts=view.num_districts,
                 num_districts_modifiable=view.num_districts_modifiable,
+                visibility=(
+                    visibility_override
+                    if visibility_override is not None
+                    else view.visible
+                ),
             )
             logger.info(f"Adding extent to districtr map with UUID {u}")
             add_extent_to_districtrmap(session=session, districtr_map_uuid=u)

@@ -439,8 +439,14 @@ def add_extent_to_districtr_map(
     is_flag=True,
     help="Skip loading data into GerryDB",
 )
+@click.option(
+    "--hidden",
+    is_flag=True,
+    help="Create every map with visible=false, overriding the config; "
+    "a later UPDATE flips visibility to launch",
+)
 def batch_create_districtr_maps(
-    config_file: str, data_dir: str, skip_gerrydb_loads: bool
+    config_file: str, data_dir: str, skip_gerrydb_loads: bool, hidden: bool
 ):
     logger.info(f"Loading data from {config_file}")
 
@@ -449,7 +455,10 @@ def batch_create_districtr_maps(
 
     logger.info("Loading sample data...")
     load_sample_data(
-        config=config, data_dir=data_dir, skip_gerrydb_loads=skip_gerrydb_loads
+        config=config,
+        data_dir=data_dir,
+        skip_gerrydb_loads=skip_gerrydb_loads,
+        visibility_override=False if hidden else None,
     )
 
     logger.info("Successfully loaded new data")
