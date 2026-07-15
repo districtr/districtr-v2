@@ -90,6 +90,10 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     # where does this go?
     # when you create the view, pull the columns that you need
     # we'll want discrete management steps
+    # Gates discovery only: the views listing (GET /api/gerrydb/views) filters
+    # on visible, so invisible maps do not appear in the frontend picker.
+    # Documents reference maps by districtr_map_slug without filtering on
+    # visible, so hiding a map never breaks documents already created on it.
     visible: bool = Field(sa_column=Column(Boolean, nullable=False, default=True))
     map_type: str = Field(
         sa_column=Column(
