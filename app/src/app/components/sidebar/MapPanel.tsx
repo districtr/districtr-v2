@@ -4,6 +4,7 @@ import {MapControlsStore, useMapControlsStore} from '@/app/store/mapControlsStor
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {formatNumber} from '@/app/utils/numbers';
 import {
+  CircleIcon,
   GearIcon,
   InfoCircledIcon,
   MinusIcon,
@@ -66,6 +67,11 @@ const mapDisplayModes: Array<{
     label: 'Overlay',
     value: DEMOGRAPHIC_MODES.OVERLAY,
     icon: <ShadowInnerIcon />,
+  },
+  {
+    label: 'Sized circles',
+    value: DEMOGRAPHIC_MODES.SIZED_CIRCLES,
+    icon: <CircleIcon />,
   },
 ];
 
@@ -159,13 +165,42 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
     if (!mapVariableConfig && currentVariableList.length) {
       setVariable(currentVariableList[0].value);
     }
+    // Sized circles encode the count in the circle size; shade by share
+    if (
+      newMode === DEMOGRAPHIC_MODES.SIZED_CIRCLES &&
+      mapVariableConfig?.variants?.includes('percent')
+    ) {
+      setVariant('percent');
+    }
   };
 
   const opacityStates = getOpacityStates(mapOptions, setMapOptions, mapMode);
   const canBePercent = mapVariableConfig?.variants?.includes('percent');
+  // Continuous (fixed partisan, unclassed percent, or total) scales ignore binning;
+  // only raw-count variants of demographic groups use quantile bins
+  const usesBins =
+    !mapVariableConfig?.fixedScale &&
+    !!mapVariableConfig?.variants &&
+    !(canBePercent && variant === 'percent');
   const labelFormat =
     canBePercent && variant === 'percent' ? NUMBER_FORMATS.PERCENT : NUMBER_FORMATS.COMPACT;
-  const colors = scale?.range() || [];
+  const isContinuousScale = !!scale && !('invertExtent' in scale);
+  const colors = scale && !isContinuousScale ? scale.range() : [];
+  const scaleDomain = isContinuousScale && scale ? scale.domain() : [0, 1];
+  const [domainMin, domainMax] = [scaleDomain[0], scaleDomain[scaleDomain.length - 1]];
+  const continuousLegendLabels =
+    mapVariableConfig?.customLegendLabels ??
+    Array.from(
+      {length: 5},
+      (_, i) => formatNumber(domainMin + ((domainMax - domainMin) * i) / 4, labelFormat) ?? ''
+    );
+  const continuousLegendColors = useMemo(() => {
+    if (!isContinuousScale || !scale) return [];
+    return Array.from(
+      {length: 11},
+      (_, i) => scale(domainMin + ((domainMax - domainMin) * i) / 10) as string
+    );
+  }, [isContinuousScale, scale, domainMin, domainMax]);
 
   const handleChangeVariable = (newVariable: DemographyVariable) => {
     setVariable(newVariable);
@@ -279,23 +314,25 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                         <Heading as="h3" size="3">
                           Choropleth Map Settings
                         </Heading>
-                        <Flex direction="row" gapX="3" align="center">
-                          <Text>Max number of bins: {numberOfbins}</Text>
-                          <IconButton
-                            variant="ghost"
-                            onClick={() => setNumberOfBins(numberOfbins - 1)}
-                            disabled={numberOfbins < 4}
-                          >
-                            <MinusIcon />
-                          </IconButton>
-                          <IconButton
-                            variant="ghost"
-                            onClick={() => setNumberOfBins(numberOfbins + 1)}
-                            disabled={numberOfbins > 8}
-                          >
-                            <PlusIcon />
-                          </IconButton>
-                        </Flex>
+                        {usesBins && (
+                          <Flex direction="row" gapX="3" align="center">
+                            <Text>Max number of bins: {numberOfbins}</Text>
+                            <IconButton
+                              variant="ghost"
+                              onClick={() => setNumberOfBins(numberOfbins - 1)}
+                              disabled={numberOfbins < 4}
+                            >
+                              <MinusIcon />
+                            </IconButton>
+                            <IconButton
+                              variant="ghost"
+                              onClick={() => setNumberOfBins(numberOfbins + 1)}
+                              disabled={numberOfbins > 8}
+                            >
+                              <PlusIcon />
+                            </IconButton>
+                          </Flex>
+                        )}
                         <Text
                           as="label"
                           className={`${canBePercent ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
@@ -414,19 +451,14 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                 }}
               </LegendThreshold>
             </Flex>
-          ) : !!mapVariableConfig &&
-            scale &&
-            mapVariableConfig?.fixedScale &&
-            mapVariableConfig.customLegendLabels ? (
+          ) : !!mapVariableConfig && isContinuousScale ? (
             <Flex direction={'column'} justify="center" gapX="2" width="100%">
               <LinearGradient
-                colors={mapVariableConfig.fixedScale
-                  .domain()
-                  .map((d: number) => mapVariableConfig.fixedScale!(d))}
-                numTicks={mapVariableConfig.customLegendLabels.length}
+                colors={continuousLegendColors}
+                numTicks={continuousLegendLabels.length}
               />
               <Flex direction={'row'} width="100%" justify="between">
-                {mapVariableConfig.customLegendLabels.map((label: string, i: number) => (
+                {continuousLegendLabels.map((label: string, i: number) => (
                   <Text key={`legend-label-${i}`}>{label}</Text>
                 ))}
               </Flex>
@@ -435,6 +467,11 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
           {!!mapVariableConfig && demographicDisplayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE && (
             <Text size="1" color="gray" align="center">
               Gray = zero population
+            </Text>
+          )}
+          {!!mapVariableConfig && demographicDisplayMode === DEMOGRAPHIC_MODES.SIZED_CIRCLES && (
+            <Text size="2" align="center">
+              Circle area scales with total population
             </Text>
           )}
         </>

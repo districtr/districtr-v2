@@ -605,7 +605,8 @@ export class MapRenderSubscriber {
 
     const demographyEnabled =
       this.mapType === RENDERER_TYPES.DEMOGRAPHIC ||
-      controlsState.mapOptions.demographicDisplayMode === 'overlay';
+      controlsState.mapOptions.demographicDisplayMode === 'overlay' ||
+      controlsState.mapOptions.demographicDisplayMode === 'sized-circles';
     if (!demographyEnabled || !mapState.mapDocument) return;
 
     const mapScale = demographyService.calculateDemographyColorScale({
