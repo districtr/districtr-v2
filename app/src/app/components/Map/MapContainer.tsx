@@ -101,6 +101,10 @@ export const MapContainer: React.FC<{
         onMouseLeave={mapEventHandlers.onMouseLeave}
         onMouseOut={mapEventHandlers.onMouseOut}
         onMouseUp={mapEventHandlers.onMouseUp}
+        onTouchStart={mapEventHandlers.onTouchStart}
+        onTouchMove={mapEventHandlers.onTouchMove}
+        onTouchEnd={mapEventHandlers.onTouchEnd}
+        onTouchCancel={mapEventHandlers.onTouchCancel}
         onZoomStart={mapEventHandlers.onZoom}
         onIdle={mapEventHandlers.onIdle}
         onMoveEnd={mapEventHandlers.onMoveEnd}

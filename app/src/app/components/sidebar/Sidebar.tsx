@@ -1,6 +1,5 @@
 'use client';
 import React, {useRef, useEffect} from 'react';
-import DataPanels from './DataPanels';
 import {Box, Flex, IconButton, ScrollArea} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import Draggable from 'react-draggable';
@@ -9,6 +8,7 @@ import {ToolbarInSidebar} from './ToolbarInSidebar';
 import {styled} from '@stitches/react';
 import {MapContextComment} from './MapContextComment';
 import {CoiCommunityViewer} from './CoiCommunityViewer';
+import {DataCards} from './DataCards';
 
 const StyledScrollArea = styled(ScrollArea, {
   maxWidth: '100%',
@@ -119,7 +119,7 @@ export default function SidebarComponent() {
                 opacity: document_id ? 1 : 0.25,
               }}
             >
-              <DataPanels />
+              <DataCards />
             </Box>
           </Flex>
         </StyledScrollArea>

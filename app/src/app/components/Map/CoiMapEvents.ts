@@ -158,9 +158,13 @@ export const handleCoiMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerT
   }
 
   const selectedFeatures = paintFunction(mapRef, e, brushSize, paintLayers);
+  // Maplibre touch events carry `points`/`lngLats` (not `touches`) — the
+  // TouchEvent lives on originalEvent.
   const isTouchEvent =
-    'touches' in e || (e.originalEvent as any)?.sourceCapabilities?.firesTouchEvents;
-  if (isBrushingTool && !isTouchEvent && !isPainting) {
+    'touches' in e.originalEvent || (e.originalEvent as any)?.sourceCapabilities?.firesTouchEvents;
+  // Keep updating while painting too, so the brush footprint follows the
+  // cursor during a drag instead of freezing at the mousedown spot.
+  if (isBrushingTool && !isTouchEvent) {
     setHoverFeatures(selectedFeatures || []);
   }
   if (selectedFeatures && isBrushingTool && isPainting && hasCommunities) {
@@ -201,4 +205,7 @@ export const coiMapEventHandlers = {
   ...mapEventHandlers,
   onClick: handleCoiMapClick,
   onMouseMove: handleCoiMapMouseMove,
+  // Touch drags must run the COI mutation path, not the districts one the
+  // base handlers would use.
+  onTouchMove: handleCoiMapMouseMove,
 } as const;

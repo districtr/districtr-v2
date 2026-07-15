@@ -10,7 +10,7 @@ export default function CmsHome() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div className="bg-white overflow-hidden shadow rounded-lg">
           <div className="px-4 py-5 sm:p-6">
-            <h3 className="text-lg font-medium text-gray-900">Tags</h3>
+            <h3 className="text-lg font-medium text-gray-900">Portals</h3>
             <p className="mt-2 text-sm text-gray-500">
               Pages for specific problems, like Cook County Redistricting or Detroit School Board
               Districts.
@@ -19,7 +19,7 @@ export default function CmsHome() {
               href="/admin/cms/tags"
               className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
-              Go to Tags
+              Go to Portals
             </a>
           </div>
         </div>
