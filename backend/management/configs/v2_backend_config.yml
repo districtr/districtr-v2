@@ -1566,6 +1566,9 @@ districtr_maps:
   num_districts: 8
   parent_layer: dc_districtr_vtd_view_v2
   tiles_s3_path: tilesets/dc_districtr_view_v2.pmtiles
+# PR's Legislative Assembly also seats 11 senators and 11 representatives
+# elected at large (STV, with minority-party representation clauses);
+# modules cover districted seats only, hence 8 senate / 40 house.
 - child_layer: pr_districtr_block_view_v2
   districtr_map_slug: pr_senate_districts_v2
   gerrydb_table_name: pr_districtr_view_v2
