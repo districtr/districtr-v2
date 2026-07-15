@@ -94,10 +94,13 @@ interface CmsFormStore {
   setPreviewData: (data: MinimalPreviewData) => void;
   loadData: (contentType: CmsContentTypes) => Promise<void>;
   loadMapList: () => Promise<DistrictrMap[] | undefined>;
-  handleChange: <T extends keyof BaseFormData | 'districtr_map_slug' | 'districtr_map_slugs'>(
-    property: T,
-    multiple?: boolean
+  /** Set a form field to the given value wholesale. */
+  setFormValue: <T extends keyof BaseFormData | 'districtr_map_slug' | 'districtr_map_slugs'>(
+    property: T
   ) => (value: any) => void;
+  /** Toggle a value's membership in a string-list form field (add if absent,
+   * remove if present), appending in insertion order. */
+  toggleFormListValue: <T extends 'districtr_map_slugs'>(property: T) => (value: string) => void;
   handleSubmit: () => Promise<void>;
   handleDelete: (id: string) => Promise<void>;
   handlePublish: (id: string) => Promise<void>;
@@ -166,40 +169,28 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
   },
 
   // Handle form field changes
-  handleChange:
-    (property, multiple = false) =>
-    value => {
-      const {contentType, formData: _formData} = get();
-      if (!_formData || !contentType) return;
+  setFormValue: property => value => {
+    const {contentType, formData: _formData} = get();
+    if (!_formData || !contentType) return;
+    set({
+      formData: {
+        contentType: _formData.contentType,
+        content: {
+          ..._formData.content,
+          [property]: value,
+        },
+      },
+    });
+  },
 
-      if (!multiple) {
-        // Create a new form data object with updated property
-        const newFormData = {
-          contentType: _formData.contentType,
-          content: {
-            ..._formData.content,
-            [property]: value,
-          },
-        };
-        set({formData: newFormData});
-      } else {
-        let newValue = (_formData.content[property as keyof typeof _formData.content] ??
-          []) as string[];
-        if (newValue.includes(value)) {
-          newValue = newValue.filter(v => v !== value);
-        } else {
-          newValue.push(value);
-        }
-        const newFormData = {
-          contentType: _formData.contentType,
-          content: {
-            ..._formData.content,
-            [property]: newValue,
-          },
-        };
-        set({formData: newFormData});
-      }
-    },
+  toggleFormListValue: property => value => {
+    const {contentType, formData: _formData} = get();
+    if (!_formData || !contentType) return;
+    const current = ((_formData.content as unknown as Record<string, unknown>)[property] ??
+      []) as string[];
+    const next = current.includes(value) ? current.filter(v => v !== value) : [...current, value];
+    get().setFormValue(property)(next);
+  },
 
   // Submit form data (create or update)
   handleSubmit: async () => {

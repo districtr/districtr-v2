@@ -1,17 +1,14 @@
 import {useMapStore} from '@/app/store/mapStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import GeometryWorker from '@/app/utils/GeometryWorker';
-import {LngLatBoundsLike} from 'maplibre-gl';
 import {create} from 'zustand';
 import {demographyService} from '../utils/demography/demographyService';
 import {ACCESS_STATES} from '@constants/document/state';
 
 type UnassignedFeatureStore = {
   unassignedFeatureBboxes: GeoJSON.Feature[];
-  unassignedOverallBbox: LngLatBoundsLike | null;
   hasFoundUnassigned: boolean;
   selectedIndex: number | null;
-  lastUpdated: string | null;
   setSelectedIndex: (index: number | null) => void;
   reset: () => void;
   updateUnassignedFeatures: () => void;
@@ -19,15 +16,12 @@ type UnassignedFeatureStore = {
 
 export const useUnassignFeaturesStore = create<UnassignedFeatureStore>((set, get) => ({
   unassignedFeatureBboxes: [],
-  unassignedOverallBbox: null,
   hasFoundUnassigned: false,
   selectedIndex: null,
-  lastUpdated: null,
   setSelectedIndex: (index: number | null) => set({selectedIndex: index}),
   reset: () =>
     set({
       unassignedFeatureBboxes: [],
-      unassignedOverallBbox: null,
       hasFoundUnassigned: false,
       selectedIndex: null,
     }),
@@ -51,9 +45,7 @@ export const useUnassignFeaturesStore = create<UnassignedFeatureStore>((set, get
     set({
       hasFoundUnassigned: true,
       selectedIndex: null,
-      unassignedOverallBbox: unassignedGeometries?.overall || null,
       unassignedFeatureBboxes: unassignedGeometries?.dissolved?.features || [],
-      lastUpdated: new Date().toLocaleString(),
     });
   },
 }));

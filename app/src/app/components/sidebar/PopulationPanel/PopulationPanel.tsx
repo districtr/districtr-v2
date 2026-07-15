@@ -1,11 +1,12 @@
-import {Flex, Heading, IconButton, Spinner, Text} from '@radix-ui/themes';
+import {Flex, Heading, IconButton, Spinner, Text, Tooltip} from '@radix-ui/themes';
 import React, {useMemo, useState} from 'react';
-import {formatNumber} from '@utils/numbers';
+import {formatDeviationPct, formatNumber} from '@utils/numbers';
 import {ParentSize} from '@visx/responsive'; // Import ParentSize
 import InfoTip from '@components/InfoTip';
 import {useChartStore} from '@store/chartStore';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
+import {useToolbarStore} from '@store/toolbarStore';
 import {
   PopulationChart,
   PopulationChartAxis,
@@ -77,6 +78,7 @@ export const PopulationPanel = () => {
   const updateCommunity = useMapStore(state => state.updateCommunity);
   const getZoneColor = useZoneColorGetter();
   const isEditing = useMapControlsStore(state => state.isEditing);
+  const superDraw = useToolbarStore(state => state.superDraw);
   const shouldUseScrollableRows = populationData.length > 10;
   const selectCommunity = useSelectCommunity();
   const colorScheme = useColorScheme();
@@ -153,25 +155,29 @@ export const PopulationPanel = () => {
         <Heading as="h3" size="3">
           {`Total population by ${zoneLabel}`}
         </Heading>
-        <PopulationPanelOptions
-          chartOptions={chartOptions}
-          setChartOptions={setChartOptions}
-          idealPopulation={effectiveIdealPopulation}
-        />
+        {superDraw && (
+          <PopulationPanelOptions
+            chartOptions={chartOptions}
+            setChartOptions={setChartOptions}
+            idealPopulation={effectiveIdealPopulation}
+          />
+        )}
       </Flex>
       {/* Fixed header: lock-all control + "Ideal" label strip. Never scrolls. */}
       <Flex direction="row" width={'100%'} gap="1" mt="2">
         <Flex justify="end" align="center" style={{width: POP_LEFT_COL_WIDTH, flexShrink: 0}}>
           {!isCommunityMode && (
-            <IconButton
-              onClick={toggleLockAllAreas}
-              variant="ghost"
-              disabled={access === ACCESS_STATES.READ}
-              style={{opacity: isEditing ? 1 : 0}}
-              aria-label={allAreLocked ? 'Unlock all districts' : 'Lock all districts'}
-            >
-              {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
-            </IconButton>
+            <Tooltip content="Lock or unlock all districts. Locked districts can't be painted over.">
+              <IconButton
+                onClick={toggleLockAllAreas}
+                variant="ghost"
+                disabled={access === ACCESS_STATES.READ}
+                style={{opacity: isEditing ? 1 : 0}}
+                aria-label={allAreLocked ? 'Unlock all districts' : 'Lock all districts'}
+              >
+                {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
+              </IconButton>
+            </Tooltip>
           )}
         </Flex>
         <ParentSize style={{height: `${POP_CHART_LABEL_HEIGHT}px`, width: '100%'}}>
@@ -237,22 +243,30 @@ export const PopulationPanel = () => {
                             <Pencil1Icon />
                           </IconButton>
                         ) : (
-                          <IconButton
-                            onClick={() => handleLockChange(d.zone)}
-                            variant="ghost"
-                            disabled={access === ACCESS_STATES.READ}
-                            aria-label={
+                          <Tooltip
+                            content={
                               lockPaintedAreas.includes(d.zone)
-                                ? `Unlock district ${d.zone}`
-                                : `Lock district ${d.zone}`
+                                ? 'Unlock this district to allow painting over it'
+                                : "Lock this district so it can't be painted over"
                             }
                           >
-                            {lockPaintedAreas.includes(d.zone) ? (
-                              <LockClosedIcon />
-                            ) : (
-                              <LockOpen2Icon />
-                            )}
-                          </IconButton>
+                            <IconButton
+                              onClick={() => handleLockChange(d.zone)}
+                              variant="ghost"
+                              disabled={access === ACCESS_STATES.READ}
+                              aria-label={
+                                lockPaintedAreas.includes(d.zone)
+                                  ? `Unlock district ${d.zone}`
+                                  : `Lock district ${d.zone}`
+                              }
+                            >
+                              {lockPaintedAreas.includes(d.zone) ? (
+                                <LockClosedIcon />
+                              ) : (
+                                <LockOpen2Icon />
+                              )}
+                            </IconButton>
+                          </Tooltip>
                         )}
                       </>
                     )}
@@ -295,19 +309,19 @@ export const PopulationPanel = () => {
       {!!idealPopulation && !isCommunityMode && (
         <Flex direction={'row'} justify={'between'} align={'start'} wrap="wrap">
           <Flex direction="column" gapX="2" minWidth={'10rem'}>
-            <Text>Ideal Population</Text>
+            <Text size="2">Ideal population</Text>
             <Text weight={'bold'} className="mb-2">
               {formatNumber(idealPopulation, NUMBER_FORMATS.STRING)}
             </Text>
             {unassigned !== undefined && (
               <>
-                <Text>Unassigned</Text>
+                <Text size="2">Unassigned</Text>
                 <Text weight={'bold'}>{formatNumber(unassigned, NUMBER_FORMATS.STRING)}</Text>
               </>
             )}
           </Flex>
 
-          <Text>
+          <Text size="2">
             Top-to-bottom population deviation <InfoTip tips="topToBottomDeviation" />
             <br />
             {allPainted &&
@@ -315,10 +329,8 @@ export const PopulationPanel = () => {
             zoneStats?.maxPopulation !== undefined &&
             zoneStats?.maxPopulation !== 0 ? (
               <>
-                <b>
-                  {formatNumber(zoneStats.range / zoneStats?.maxPopulation, NUMBER_FORMATS.PERCENT)}
-                </b>{' '}
-                ({formatNumber(zoneStats.range || 0, NUMBER_FORMATS.STRING)})
+                <b>{formatDeviationPct(zoneStats.range / zoneStats?.maxPopulation)}</b> (
+                {formatNumber(zoneStats.range || 0, NUMBER_FORMATS.STRING)} people)
               </>
             ) : (
               ` will appear when all ${zoneLabelPlural} are started`

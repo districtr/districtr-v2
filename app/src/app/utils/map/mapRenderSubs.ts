@@ -189,13 +189,14 @@ export class MapRenderSubscriber {
     const isDemographic = this.mapType === RENDERER_TYPES.DEMOGRAPHIC;
 
     if (isDemographic) return;
+    const zonesOpacity = this.useMapControlsStore.getState().mapOptions.zonesOpacity ?? 1;
     [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
       const isHover = layerId.includes('hover');
       if (isHover && this.mapRef.getLayer(layerId)) {
         this.mapRef.setPaintProperty(
           layerId,
           'fill-opacity',
-          getLayerFill(captiveIds.size ? captiveIds : undefined, isDemographic)
+          getLayerFill(captiveIds.size ? captiveIds : undefined, isDemographic, zonesOpacity)
         );
       }
     });
@@ -284,12 +285,17 @@ export class MapRenderSubscriber {
   ) {
     // Keep hover-layer opacity aligned with focus/break mode and overlay mode.
     // Color rendering can run independently of focus updates, so we re-assert this here.
+    const zonesOpacity = this.useMapControlsStore.getState().mapOptions.zonesOpacity ?? 1;
     [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
       if (!layerId.includes('hover') || !this.mapRef.getLayer(layerId)) return;
       this.mapRef.setPaintProperty(
         layerId,
         'fill-opacity',
-        getLayerFill(captiveIds.size ? captiveIds : undefined, showDemographicMap === 'overlay')
+        getLayerFill(
+          captiveIds.size ? captiveIds : undefined,
+          showDemographicMap === 'overlay',
+          zonesOpacity
+        )
       );
     });
   }

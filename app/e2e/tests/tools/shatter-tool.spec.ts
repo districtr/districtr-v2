@@ -23,6 +23,14 @@ test.describe('Shatter Tool', () => {
       test.skip(true, 'No document ID available');
       return;
     }
+    // The shatter tool is only rendered in Super Draw; seed the persisted
+    // toolbar store so a fresh browser context doesn't silently skip the suite.
+    await page.addInitScript(() => {
+      window.localStorage.setItem(
+        'toolbarStore',
+        JSON.stringify({state: {superDraw: true}, version: 3})
+      );
+    });
     await navigateToMap(page, sharedDocumentId);
   });
 

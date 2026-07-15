@@ -2,12 +2,11 @@ import React, {useEffect, useState} from 'react';
 import {
   Blockquote,
   Box,
-  Button,
   CheckboxGroup,
   Heading,
   IconButton,
   Popover,
-  Select,
+  SegmentedControl,
   Spinner,
   Table,
   Tooltip,
@@ -15,15 +14,16 @@ import {
 import {Flex, Text} from '@radix-ui/themes';
 import {formatNumber} from '@/app/utils/numbers';
 import {interpolateGreys} from 'd3-scale-chromatic';
+import {PARTISAN_SCALE} from '@/app/store/demography/constants';
 import {SummaryRecord} from '@/app/utils/api/summaryStats';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 import {
   modeButtonConfig,
   numberFormats,
   summaryStatLabels,
 } from '@/app/store/demography/evaluationConfig';
-import {PARTISAN_SCALE} from '@/app/store/demography/constants';
 import {GearIcon, InfoCircledIcon} from '@radix-ui/react-icons';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {demographyService} from '@/app/utils/demography/demographyService';
@@ -45,6 +45,8 @@ import {
 import {type NumberFormat} from '@constants/demography/format';
 import {EVAL_MODES, type EvalMode} from '@constants/demography/evalMode';
 import {MAP_MODES} from '@constants/map/mode';
+import {PovSwitcher, type Pov} from '@components/Shared/PovSwitcher';
+import {ConditionalScrollArea} from '../ConditionalScrollArea';
 
 type ColumnConfig = {
   label: string;
@@ -67,6 +69,7 @@ type EvaluationDataRow = SummaryRecord | Record<string, string | number | boolea
 
 type EvaluationTableHeaderProps = {
   columnConfigs: ColumnConfig[];
+  zoneHeader?: string;
 };
 
 type EvaluationTableBodyProps = {
@@ -81,6 +84,7 @@ type EvaluationTableBodyProps = {
   mapMode: string;
   communities: ReturnType<typeof useMapStore.getState>['communities'];
   getZoneColor: (zone: number | null, fallback?: string) => string;
+  pov: Pov;
 };
 
 type EvaluationTableRowProps = Omit<EvaluationTableBodyProps, 'rows'> & {
@@ -143,6 +147,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
   const [evalMode, setEvalMode] = useState<EvalMode>(EVAL_MODES.SHARE);
   const [colorBg, setColorBg] = useState<boolean>(true);
   const [showUnassigned, setShowUnassigned] = useState<boolean>(true);
+  const [pov, setPov] = useState<Pov>('dem');
   const {zoneStats, demoIsLoaded, zoneData, summaryStats} = useSummaryStats(showUnassigned);
   const coalitionGroups = useDemographyStore(state => state.coalitionGroups);
 
@@ -152,6 +157,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
   const colorScheme = useColorScheme();
   const getZoneColor = useZoneColorGetter();
   const mapMode = useMapControlsStore(state => state.mapMode);
+  const superDraw = useToolbarStore(state => state.superDraw);
   const communities = useMapStore(state => state.communities);
   const summaryStatConfig = summaryStatLabels.find(f => f.value === summaryType);
   const displayedStatLabels = summaryStatLabels.filter(f =>
@@ -161,8 +167,13 @@ const Evaluation: React.FC<EvaluationProps> = ({
   const showModeButtons = Boolean(
     summaryStatConfig?.supportedModes?.length && summaryStatConfig?.supportedModes?.length > 1
   );
-  const numberFormat =
-    numberFormats[summaryType === SUMMARY_TYPES.VOTERHISTORY ? EVAL_MODES.PARTISAN : evalMode];
+  const numberFormat = numberFormats[evalMode];
+  const isVoterHistory = summaryType === SUMMARY_TYPES.VOTERHISTORY;
+  // Voter history columns are dem-share; Republican POV swaps to the rep-share columns.
+  const effectiveColumnConfigs =
+    isVoterHistory && pov === 'rep'
+      ? columnConfigs.map(c => ({...c, column: c.column.replace('_dem', '_rep')}))
+      : columnConfigs;
 
   useEffect(() => {
     if (
@@ -237,98 +248,122 @@ const Evaluation: React.FC<EvaluationProps> = ({
             </Heading>
           )}
           {showSummaryTypeSelect && (
-            <Flex direction="row" gap="2" align="center">
-              <Text size="2">Summary type</Text>
-              <Select.Root
+            <Flex direction="row" gap="2" align="center" wrap="wrap">
+              <Text size="2" weight="medium">
+                Summary type
+              </Text>
+              <SegmentedControl.Root
+                size="1"
                 value={summaryType}
                 onValueChange={value => setSummaryType(value as SummaryType)}
               >
-                <Select.Trigger />
-                <Select.Content>
-                  {displayedStatLabels.map(({value, label}) => (
-                    <Select.Item key={value} value={value}>
-                      {label}
-                    </Select.Item>
-                  ))}
-                </Select.Content>
-              </Select.Root>
+                {displayedStatLabels.map(({value, label}) => (
+                  <SegmentedControl.Item key={value} value={value}>
+                    {label}
+                  </SegmentedControl.Item>
+                ))}
+              </SegmentedControl.Root>
             </Flex>
           )}
         </Flex>
-        <Popover.Root>
-          <Popover.Trigger>
-            <IconButton variant="ghost" size="3" aria-label="Open evaluation options">
-              <GearIcon />
-            </IconButton>
-          </Popover.Trigger>
-          <Popover.Content>
-            <Heading as="h4" size="3">
-              Summary Options
-            </Heading>
-            {showModeButtons && (
-              <Flex align="center" gap="3" my="2" wrap="wrap">
-                {modeButtonConfig.map((mode, i) => (
-                  <Button
-                    key={i}
-                    variant={mode.value === evalMode ? 'solid' : 'outline'}
-                    onClick={() => setEvalMode(mode.value)}
+        {superDraw && (
+          <Popover.Root>
+            <Popover.Trigger>
+              <IconButton variant="ghost" size="3" aria-label="Open evaluation options">
+                <GearIcon />
+              </IconButton>
+            </Popover.Trigger>
+            <Popover.Content>
+              <Heading as="h4" size="3">
+                Summary Options
+              </Heading>
+              {showModeButtons && (
+                <Flex align="center" gap="3" my="2" wrap="wrap">
+                  <SegmentedControl.Root
+                    size="1"
+                    value={evalMode}
+                    onValueChange={v => setEvalMode(v as EvalMode)}
                   >
-                    {mode.label}
-                  </Button>
-                ))}
+                    {modeButtonConfig.map((mode, i) => (
+                      <SegmentedControl.Item key={i} value={mode.value}>
+                        {mode.label}
+                      </SegmentedControl.Item>
+                    ))}
+                  </SegmentedControl.Root>
+                </Flex>
+              )}
+              <Flex align="center" gap="3" mt="1">
+                <CheckboxGroup.Root
+                  defaultValue={[]}
+                  orientation="horizontal"
+                  name="evaluation-options"
+                  value={[colorBg ? 'colorBg' : '', showUnassigned ? 'unassigned' : '']}
+                >
+                  <CheckboxGroup.Item value="unassigned" onClick={() => setShowUnassigned(v => !v)}>
+                    Show unassigned population
+                  </CheckboxGroup.Item>
+                  <CheckboxGroup.Item value="colorBg" onClick={() => setColorBg(v => !v)}>
+                    Color cells by values
+                  </CheckboxGroup.Item>
+                </CheckboxGroup.Root>
               </Flex>
-            )}
-            <Flex align="center" gap="3" mt="1">
-              <CheckboxGroup.Root
-                defaultValue={[]}
-                orientation="horizontal"
-                name="evaluation-options"
-                value={[colorBg ? 'colorBg' : '', showUnassigned ? 'unassigned' : '']}
-              >
-                <CheckboxGroup.Item value="unassigned" onClick={() => setShowUnassigned(v => !v)}>
-                  Show Unassigned Population
-                </CheckboxGroup.Item>
-                <CheckboxGroup.Item value="colorBg" onClick={() => setColorBg(v => !v)}>
-                  <Flex gap="3">
-                    <p>Color Cells By Values</p>
-                  </Flex>
-                </CheckboxGroup.Item>
-              </CheckboxGroup.Root>
-            </Flex>
-          </Popover.Content>
-        </Popover.Root>
+            </Popover.Content>
+          </Popover.Root>
+        )}
       </Flex>
-      <Box overflowX="auto" className="text-sm">
-        <Table.Root className="min-w-full border-collapse">
-          <EvaluationTableHeader columnConfigs={columnConfigs} />
-          <EvaluationTableBody
-            rows={rows}
-            colorScheme={colorScheme}
-            columnConfigs={columnConfigs}
-            evalMode={evalMode}
-            colorBg={colorBg}
-            summaryType={summaryType}
-            numberFormat={numberFormat}
-            maxValues={maxValues}
-            mapMode={mapMode}
-            communities={communities}
-            getZoneColor={getZoneColor}
-          />
-        </Table.Root>
-      </Box>
+      {isVoterHistory && (
+        <Flex direction="column" gap="1" pb="2">
+          <PovSwitcher pov={pov} setPov={setPov} labelSize="2" />
+          <Text size="1" color="gray">
+            Vote shares reflect the two major parties only.
+          </Text>
+        </Flex>
+      )}
+      {/* One row per district/community — scroll past ten, like the
+          population panel. */}
+      <ConditionalScrollArea shouldUseScrollableRows={rows.length > 10} maxHeight="60vh">
+        <Box overflowX="auto" className="text-sm">
+          <Table.Root className="min-w-full border-collapse">
+            <EvaluationTableHeader
+              columnConfigs={effectiveColumnConfigs}
+              zoneHeader={mapMode === MAP_MODES.COI ? 'Community' : 'District'}
+            />
+            <EvaluationTableBody
+              rows={rows}
+              colorScheme={colorScheme}
+              columnConfigs={effectiveColumnConfigs}
+              evalMode={evalMode}
+              colorBg={colorBg}
+              summaryType={summaryType}
+              numberFormat={numberFormat}
+              maxValues={maxValues}
+              mapMode={mapMode}
+              communities={communities}
+              getZoneColor={getZoneColor}
+              pov={pov}
+            />
+          </Table.Root>
+        </Box>
+      </ConditionalScrollArea>
     </Box>
   );
 };
-const EvaluationTableHeader: React.FC<EvaluationTableHeaderProps> = ({columnConfigs}) => {
+const EvaluationTableHeader: React.FC<EvaluationTableHeaderProps> = ({
+  columnConfigs,
+  zoneHeader = 'District',
+}) => {
   return (
     <Table.Header>
       <Table.Row className="bg-gray-50 border-b">
-        <Table.ColumnHeaderCell className="py-2 px-4 text-left font-semibold">
-          Zone
+        <Table.ColumnHeaderCell className="py-1 px-2 align-middle text-left font-semibold">
+          {zoneHeader}
         </Table.ColumnHeaderCell>
         {!!columnConfigs &&
           columnConfigs.map((f, i) => (
-            <Table.ColumnHeaderCell className="py-2 px-4 text-right font-semibold" key={i}>
+            <Table.ColumnHeaderCell
+              className="py-1 px-2 align-middle text-right font-semibold"
+              key={i}
+            >
               <Flex justify="end" align="center" gap="1">
                 <span>{f.label}</span>
                 {f.tooltip && (
@@ -353,8 +388,15 @@ const EvaluationTableBody: React.FC<EvaluationTableBodyProps> = ({rows, ...props
         <EvaluationTableRow
           // Stable per-row key so React reconciles correctly when the rows
           // array is re-ordered (e.g., universe/unassigned swap). Array-index
-          // keys would otherwise force re-mounts / miss updates.
-          key={typeof row.zone === 'number' ? row.zone : 'universe'}
+          // keys would otherwise force re-mounts / miss updates. Unassigned
+          // (zone === undefined) and universe rows need distinct keys.
+          key={
+            typeof row.zone === 'number'
+              ? row.zone
+              : row.zone === undefined
+                ? 'unassigned'
+                : 'universe'
+          }
           {...props}
           row={row}
         />
@@ -375,16 +417,21 @@ const EvaluationTableRow: React.FC<EvaluationTableRowProps> = ({
   mapMode,
   communities,
   getZoneColor,
+  pov,
 }) => {
   const isUniverse = Boolean((row as Record<string, unknown>).__isUniverse) || row.zone === 0;
   const isUnassigned = !isUniverse && row.zone === undefined;
-  const zoneName = isUniverse
-    ? 'Overall'
-    : isUnassigned
-      ? 'Unassigned'
-      : mapMode === MAP_MODES.COI
-        ? getCommunityDisplayNumber(communities, row.zone as number)
-        : row.zone;
+  const zoneName = isUniverse ? (
+    'Overall'
+  ) : isUnassigned ? (
+    <Tooltip content="Unassigned population">
+      <span aria-label="Unassigned">∅</span>
+    </Tooltip>
+  ) : mapMode === MAP_MODES.COI ? (
+    getCommunityDisplayNumber(communities, row.zone as number)
+  ) : (
+    row.zone
+  );
   const backgroundColor = isUniverse
     ? '#111111'
     : isUnassigned
@@ -394,7 +441,7 @@ const EvaluationTableRow: React.FC<EvaluationTableRowProps> = ({
   return (
     <Table.Row className={`border-b ${isUniverse ? 'bg-gray-100' : 'hover:bg-gray-50'}`}>
       <Table.Cell
-        className={`py-2 px-4 font-medium flex flex-row items-center gap-1 ${isUniverse ? 'font-semibold' : ''}`}
+        className={`py-1 px-2 align-middle font-medium flex flex-row items-center gap-1 ${isUniverse ? 'font-semibold' : ''}`}
       >
         <span className={'size-4 inline-block rounded-md'} style={{backgroundColor}}></span>
         {zoneName}
@@ -412,6 +459,7 @@ const EvaluationTableRow: React.FC<EvaluationTableRowProps> = ({
             summaryType={summaryType}
             numberFormat={numberFormat}
             maxValues={maxValues}
+            pov={pov}
           />
         ))}
     </Table.Row>
@@ -428,6 +476,7 @@ const EvaluationTableCell: React.FC<EvaluationTableCellProps> = ({
   summaryType,
   numberFormat,
   maxValues,
+  pov,
 }) => {
   const column = evalMode === EVAL_MODES.COUNT ? columnConfig.column : `${columnConfig.column}_pct`;
   const value = (row as Record<string, number | undefined>)[column];
@@ -444,7 +493,9 @@ const EvaluationTableCell: React.FC<EvaluationTableCellProps> = ({
   let backgroundColor: string | undefined;
   if (!hasValidColorValue || isUniverse) {
   } else if (colorBg && summaryType === SUMMARY_TYPES.VOTERHISTORY) {
-    backgroundColor = PARTISAN_SCALE((numericValue! + 1) / 2);
+    // Diverging red <- white -> blue keyed to the two-party dem share, matching
+    // the choropleth map; identical coloring in either POV.
+    backgroundColor = PARTISAN_SCALE(pov === 'dem' ? numericValue! : 1 - numericValue!);
   } else if (colorBg && !isUnassigned) {
     backgroundColor = interpolateGreys(colorValue as number)
       .replace('rgb', 'rgba')
@@ -455,7 +506,7 @@ const EvaluationTableCell: React.FC<EvaluationTableCellProps> = ({
 
   return (
     <Table.Cell
-      className={`py-2 px-4 text-right ${isUniverse ? 'font-semibold' : ''}`}
+      className={`py-1 px-2 align-middle text-right ${isUniverse ? 'font-semibold' : ''}`}
       style={{
         backgroundColor,
       }}

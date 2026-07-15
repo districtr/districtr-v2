@@ -29,83 +29,83 @@ export const choroplethMapVariables: {
 } = {
   TOTPOP: [
     {
-      label: 'Population: Total',
+      label: 'Total',
       value: 'total_pop_20',
       colorScheme: chromatic.schemeBuGn,
     },
     {
-      label: 'Population: Black',
+      label: 'Black',
       value: 'bpop_20',
       variants: ['percent', 'raw'],
     },
     {
-      label: 'Population: Hispanic',
+      label: 'Hispanic',
       value: 'hpop_20',
       variants: ['percent', 'raw'],
     },
     {
-      label: 'Population: Asian',
+      label: 'Asian',
       value: 'asian_nhpi_pop_20',
       variants: ['percent', 'raw'],
     },
     {
-      label: 'Population: AMIN',
+      label: 'AMIN',
       value: 'amin_pop_20',
       variants: ['percent', 'raw'],
     },
     {
-      label: 'Population: White',
+      label: 'White',
       value: 'white_pop_20',
       variants: ['percent', 'raw'],
     },
     {
-      label: 'Population: Other',
+      label: 'Other',
       value: 'other_pop_20',
       variants: ['percent', 'raw'],
     },
   ],
   VAP: [
     {
-      label: 'Voting Population: Total',
+      label: 'VAP Total',
       value: 'total_vap_20',
     },
     {
-      label: 'Voting Population: Black',
+      label: 'VAP Black',
       value: 'bvap_20',
       variants: ['percent', 'raw'],
     },
     {
-      label: 'Voting Population: Hispanic',
+      label: 'VAP Hispanic',
       value: 'hvap_20',
       variants: ['percent', 'raw'],
     },
     {
-      label: 'Voting Population: Asian',
+      label: 'VAP Asian',
       value: 'asian_nhpi_vap_20',
       variants: ['percent', 'raw'],
     },
     {
-      label: 'Voting Population: AMIN',
+      label: 'VAP AMIN',
       value: 'amin_vap_20',
       variants: ['percent', 'raw'],
     },
     {
-      label: 'Voting Population: White',
+      label: 'VAP White',
       value: 'white_vap_20',
       variants: ['percent', 'raw'],
     },
     {
-      label: 'Voting Population: Other',
+      label: 'VAP Other',
       value: 'other_vap_20',
       variants: ['percent', 'raw'],
     },
   ],
   VOTERHISTORY: [
     ...Object.entries(ALL_VOTER_COLUMN_GROUPINGS).map(([label, {columns}]) => ({
-      label: `Election: ${label}`,
+      label: `${label}`,
       value: columns[0],
       fixedScale: PARTISAN_SCALE,
-      customLegendLabels: ['+100 (R)', 'Even', '+100 (D)'],
+      customLegendLabels: ['100% Rep', 'Even', '100% Dem'],
       // Current voter history data has two columns always, dem and rep
       expression: (row: DemographyRow) => {
         return row[columns[0]] / (row[columns[1]] + row[columns[0]]);

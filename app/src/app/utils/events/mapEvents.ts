@@ -201,12 +201,58 @@ export const handleMapMouseUp = (e: MapLayerMouseEvent | MapLayerTouchEvent) => 
     // set isPainting to false
     mapControls.setIsPainting(false);
   }
+  // Touch has no mouseleave/move-away to dismiss the paint tooltip, so it
+  // would stick at the last finger position — clear it on lift.
+  if ('touches' in e.originalEvent) {
+    useTooltipStore.getState().setTooltip(null);
+  }
 };
+
+// Cleanup for an in-flight middle-mouse pan; module-level so a second
+// middle-click can never stack a duplicate listener pair.
+let endMiddleMousePan: (() => void) | null = null;
 
 export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const mapRef = e.target;
   const mapControls = useMapControlsStore.getState();
   const activeTool = mapControls.activeTool;
+
+  // A second finger means a pinch/two-finger gesture, never a paint stroke —
+  // cancel any in-progress paint and let maplibre's touchZoomRotate handle it.
+  if ('points' in e && e.points.length > 1) {
+    mapControls.setIsPainting(false);
+    return;
+  }
+
+  // Middle-mouse drag always pans the map, regardless of the active tool.
+  const originalEvent = 'button' in e.originalEvent ? (e.originalEvent as MouseEvent) : null;
+  if (originalEvent?.button === 1) {
+    // Suppress the browser's middle-click autoscroll and any tool behavior.
+    originalEvent.preventDefault();
+    endMiddleMousePan?.();
+    let last = originalEvent;
+    const onMove = (me: MouseEvent) => {
+      // A release outside the window never delivers a mouseup; the buttons
+      // bitmask (4 = middle) tells us the drag ended, so end the pan here.
+      if (!(me.buttons & 4)) {
+        endMiddleMousePan?.();
+        return;
+      }
+      mapRef.panBy([last.clientX - me.clientX, last.clientY - me.clientY], {animate: false});
+      last = me;
+    };
+    const onUp = () => endMiddleMousePan?.();
+    endMiddleMousePan = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('blur', onUp);
+      endMiddleMousePan = null;
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('blur', onUp);
+    return;
+  }
 
   if (activeTool === ACTIVE_TOOLS.PAN) {
     // enable drag pan
@@ -326,9 +372,13 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   // sourceCapabilities exists on the UIEvent constructor, which does not appear
   // properly tpyed in the default map events
   // https://developer.mozilla.org/en-US/docs/Web/API/UIEvent/sourceCapabilities
+  // Maplibre touch events carry `points`/`lngLats` (not `touches`) — the
+  // TouchEvent lives on originalEvent.
   const isTouchEvent =
-    'touches' in e || (e.originalEvent as any)?.sourceCapabilities?.firesTouchEvents;
-  if (isBrushingTool && !isTouchEvent && !isPainting) {
+    'touches' in e.originalEvent || (e.originalEvent as any)?.sourceCapabilities?.firesTouchEvents;
+  // Keep updating while painting too, so the brush footprint follows the
+  // cursor during a drag instead of freezing at the mousedown spot.
+  if (isBrushingTool && !isTouchEvent) {
     setHoverFeatures(selectedFeatures || []);
   }
   const isMutationTool = activeTool === ACTIVE_TOOLS.BRUSH || activeTool === ACTIVE_TOOLS.ERASER;
@@ -473,6 +523,13 @@ export const mapEventHandlers = {
   onZoomEnd: handleMapZoomEnd,
   onContextMenu: handleMapContextMenu,
   onData: handleDataLoad,
+  // The mouse handlers are typed for MapLayerTouchEvent too; wiring them here
+  // is what makes touch painting work (maplibre does not synthesize
+  // mousedown/mousemove for touch drags).
+  onTouchStart: handleMapMouseDown,
+  onTouchMove: handleMapMouseMove,
+  onTouchEnd: handleMapMouseUp,
+  onTouchCancel: handleMapMouseUp,
 } as const;
 
 export const handleWheelOrPinch = (e: MouseEvent | TouchEvent, map: MapRef | null) => {

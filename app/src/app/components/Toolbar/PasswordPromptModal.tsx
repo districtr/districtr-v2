@@ -6,6 +6,7 @@ import {useRouter, useSearchParams} from 'next/navigation';
 import {postGrantEditAccess} from '@/app/utils/api/apiHandlers/postGrantEditAccess';
 import {routeManager} from '@/app/utils/map/mapUrlRoute';
 import {useEditableDocId} from '@/app/hooks/useEditableDocId';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 
 export const PasswordPromptModal = () => {
   const router = useRouter();
@@ -32,6 +33,8 @@ export const PasswordPromptModal = () => {
   const handleProceed = async (editAccess: boolean) => {
     if (!editAccess) {
       setPasswordPrompt(false);
+      // A cancelled unlock abandons any requested draw mode.
+      useToolbarStore.getState().setPendingSuperDraw(null);
       // remove pw from url
       router.replace(window.location.pathname);
     } else if (mapDocument?.public_id && password) {
@@ -42,6 +45,13 @@ export const PasswordPromptModal = () => {
         if (res.ok) {
           setPasswordPrompt(false);
           setDialogOpen(false);
+          // Land in the draw mode the view switcher asked for (e.g. Super
+          // Draw), now that the unlock actually succeeded.
+          const {pendingSuperDraw, setPendingSuperDraw, setSuperDraw} = useToolbarStore.getState();
+          if (pendingSuperDraw !== null) {
+            setSuperDraw(pendingSuperDraw);
+            setPendingSuperDraw(null);
+          }
           router.push(`/${routeManager.mapUrlRoute}/edit/${res.response.document_id}`);
         } else {
           setError(res.error?.detail ?? 'An unknown error occurred');
