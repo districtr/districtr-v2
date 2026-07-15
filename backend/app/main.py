@@ -8,6 +8,7 @@ from fastapi import (
 )
 from fastapi.responses import JSONResponse, Response
 from typing import Annotated, Any
+import anyio
 import msgpack
 import psutil
 import time
@@ -116,6 +117,9 @@ if settings.ENVIRONMENT in ("production", "qa"):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Sync-route concurrency; default 40 would cap below the DB pool
+    # (60/task, app/core/db.py). Needs a running event loop, hence lifespan.
+    anyio.to_thread.current_default_thread_limiter().total_tokens = 80
     yield
 
 
