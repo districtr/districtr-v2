@@ -184,8 +184,8 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
     !(canBePercent && variant === 'percent');
   const labelFormat =
     canBePercent && variant === 'percent' ? NUMBER_FORMATS.PERCENT : NUMBER_FORMATS.COMPACT;
-  const colors = scale?.range() || [];
   const isContinuousScale = !!scale && !('invertExtent' in scale);
+  const colors = scale && !isContinuousScale ? scale.range() : [];
   const scaleDomain = isContinuousScale && scale ? scale.domain() : [0, 1];
   const [domainMin, domainMax] = [scaleDomain[0], scaleDomain[scaleDomain.length - 1]];
   const continuousLegendLabels =
