@@ -84,6 +84,10 @@ export const CoiMapContainer: React.FC<{
         onMouseLeave={coiMapEventHandlers.onMouseLeave}
         onMouseOut={coiMapEventHandlers.onMouseOut}
         onMouseUp={coiMapEventHandlers.onMouseUp}
+        onTouchStart={coiMapEventHandlers.onTouchStart}
+        onTouchMove={coiMapEventHandlers.onTouchMove}
+        onTouchEnd={coiMapEventHandlers.onTouchEnd}
+        onTouchCancel={coiMapEventHandlers.onTouchCancel}
         onZoomStart={coiMapEventHandlers.onZoom}
         onIdle={coiMapEventHandlers.onIdle}
         onMoveEnd={coiMapEventHandlers.onMoveEnd}

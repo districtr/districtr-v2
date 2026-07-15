@@ -48,11 +48,6 @@ export const derivedColumnsConfig = {
       return [
         ...acc,
         {
-          label: curr.columns[0].replace('_dem', '_lean'),
-          column: curr.columns[0],
-          expression: row => row[curr.columns[0]] - row[curr.columns[1]],
-        },
-        {
           label: curr.columns[0].replace('_dem', '_total'),
           column: curr.columns[0],
           expression: row => row[curr.columns[0]] + row[curr.columns[1]],
@@ -64,18 +59,15 @@ export const derivedColumnsConfig = {
 };
 
 export const derivedRollups = {
+  // X_dem_pct / X_rep_pct are raw two-party vote shares (dem+rep denominator).
   VOTERHISTORY: Object.values(ALL_VOTER_COLUMN_GROUPINGS).reduce(
     (acc, curr) => {
+      const total = curr.columns[0].replace('_dem', '_total');
       return [
         ...acc,
-        {
-          total: curr.columns[0].replace('_dem', '_total'),
-          col: curr.columns[0].replace('_dem', '_total'),
-        },
-        {
-          total: curr.columns[0].replace('_dem', '_total'),
-          col: curr.columns[0].replace('_dem', '_lean'),
-        },
+        {total, col: total},
+        {total, col: curr.columns[0]},
+        {total, col: curr.columns[1]},
       ];
     },
     [] as {total: string; col: string}[]

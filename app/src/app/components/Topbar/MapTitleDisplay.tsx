@@ -9,7 +9,6 @@ import {
   TextArea,
   Box,
   IconButton,
-  Popover,
 } from '@radix-ui/themes';
 import {useEffect, useState} from 'react';
 import {MAX_TITLE_LENGTH} from '@/app/utils/language';
@@ -21,7 +20,7 @@ import {
   DRAFT_STATUS_ORDER,
 } from '@constants/document/draftStatus';
 import {Cross2Icon, Pencil1Icon} from '@radix-ui/react-icons';
-import {MapContextModuleAndUnits} from './MapContextModuleAndUnits';
+import {useMapModuleInfo} from './MapContextModuleAndUnits';
 import {InProgressIcon, ReadyIcon, ScratchWorkIcon} from './Icons';
 import {SegmentedControl} from '@radix-ui/themes';
 import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
@@ -38,10 +37,10 @@ export const MapTitleDisplay: React.FC<{
   handleMetadataChange: (updates: Partial<DocumentMetadata>) => Promise<void>;
 }> = ({mapMetadata, mapDocument, handleMetadataChange}) => {
   const [mapTitleInner, setMapTitleInner] = useState<string>('');
-  const [hovered, setHovered] = useState(false);
   const [mapDescriptionInner, setMapDescriptionInner] = useState<string>('');
   const [mapStatusInner, setMapStatusInner] = useState<DraftStatus>(DRAFT_STATUSES.SCRATCH);
   const [open, setOpen] = useState(false);
+  const {moduleName, unitsSentence, dataSourceSentence} = useMapModuleInfo();
 
   const _mapName = mapMetadata?.name ?? mapDocument?.map_metadata?.name ?? '';
   const _mapDescription = mapMetadata?.description ?? mapDocument?.map_metadata?.description ?? '';
@@ -53,6 +52,19 @@ export const MapTitleDisplay: React.FC<{
   const draftStatus = mapMetadata?.draft_status ?? DRAFT_STATUSES.SCRATCH;
   const DraftStatusIcon = statusIcons[draftStatus];
 
+  // The module shows inline until the map is named, then moves into the
+  // hover — one condensed tooltip instead of stacked popover + tooltip.
+  const displayTitle = mapName || moduleName;
+  const tooltipContent = [
+    isTruncated ? _mapName + '.' : null,
+    mapName ? moduleName + '.' : null,
+    dataSourceSentence,
+    unitsSentence,
+    editing ? 'Click to edit the map name and details.' : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   useEffect(() => {
     setMapTitleInner(_mapName);
     setMapDescriptionInner(_mapDescription ?? '');
@@ -63,68 +75,41 @@ export const MapTitleDisplay: React.FC<{
     return null;
   }
 
-  // If not editing, just show text or truncated text with tooltip
+  // If not editing, just show the name (or module) with one combined tooltip
   if (!editing) {
-    return (
+    const display = (
       <Flex align="center" gapX="1" direction="row">
-        <Flex direction="row" align="center" gapX="1">
-          <DraftStatusIcon />
-          {isTruncated ? (
-            <Tooltip content={_mapName}>
-              <Flex align="center" gapX="1" direction="row">
-                <Text size="2">{mapName}</Text>
-                <MapContextModuleAndUnits />
-              </Flex>
-            </Tooltip>
-          ) : (
-            <Text size="2">{mapName}</Text>
-          )}
-          <MapContextModuleAndUnits />
-        </Flex>
+        <DraftStatusIcon />
+        <Text size="2" className={mapName ? '' : 'text-gray-500'}>
+          {displayTitle}
+        </Text>
       </Flex>
     );
+    return tooltipContent ? <Tooltip content={tooltipContent}>{display}</Tooltip> : display;
   }
 
-  // If editing, show popover hint, open dialog for editing on click
+  // If editing, one condensed tooltip (edit hint + module/unit info); click
+  // opens the edit dialog.
   if (editing) {
     return (
       <>
-        <Popover.Root open={hovered}>
-          <Popover.Trigger
+        <Tooltip content={tooltipContent}>
+          <Button
+            variant="ghost"
+            color="gray"
+            className="cursor-pointer"
             onClick={() => setOpen(true)}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
+            aria-label="Edit map name and information"
           >
-            <Button variant="ghost" color="gray" className="cursor-pointer">
-              <Flex
-                align="center"
-                gapX="1"
-                direction="row"
-                className="cursor-pointer"
-                onClick={() => setOpen(true)}
-                tabIndex={0}
-                style={{outline: 'none'}}
-                aria-label="Edit map name and information"
-              >
-                <DraftStatusIcon />
-                {!!mapName && (
-                  <Text size="2" className="font-bold text-black">
-                    {mapName || '(Edit map name)'}
-                  </Text>
-                )}
-                <MapContextModuleAndUnits />
-                {editing ? <Pencil1Icon /> : null}
-              </Flex>
-            </Button>
-          </Popover.Trigger>
-          <Popover.Content align="center" className="w-full">
-            <Flex direction="row" gap="2" align="center" justify="center">
-              <Text size="1" className="text-center">
-                Click to edit map name and metadata
+            <Flex align="center" gapX="1" direction="row">
+              <DraftStatusIcon />
+              <Text size="2" className={mapName ? 'font-bold text-black' : 'text-gray-500'}>
+                {displayTitle || '(Edit map name)'}
               </Text>
+              <Pencil1Icon />
             </Flex>
-          </Popover.Content>
-        </Popover.Root>
+          </Button>
+        </Tooltip>
 
         <Dialog.Root open={open} onOpenChange={setOpen}>
           <Dialog.Content style={{maxWidth: 400}}>

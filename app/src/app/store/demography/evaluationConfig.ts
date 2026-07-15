@@ -41,17 +41,20 @@ export const VAPColumnConfig: EvalColumnConfiguration<SummaryStatConfig[typeof S
     {column: 'white_vap_20', label: 'White'},
     {column: 'other_vap_20', label: 'Other'},
   ];
-// TODO FIX typing
-export const VoterColumnConfig: EvalColumnConfiguration<any> = [
-  {column: 'sen_22_lean', label: '2022 Sen', sourceCol: 'sen_22_rep'},
-  {column: 'gov_22_lean', label: '2022 Gov', sourceCol: 'gov_22_rep'},
-  {column: 'ag_22_lean', label: '2022 AG', sourceCol: 'ag_22_rep'},
-  {column: 'pres_20_lean', label: '2020 Pres', sourceCol: 'pres_20_rep'},
-  {column: 'sen_18_lean', label: '2018 Sen', sourceCol: 'sen_18_rep'},
-  {column: 'gov_18_lean', label: '2018 Gov', sourceCol: 'gov_18_rep'},
-  {column: 'ag_18_lean', label: '2018 AG', sourceCol: 'ag_18_rep'},
-  {column: 'pres_16_lean', label: '2016 Pres', sourceCol: 'pres_16_rep'},
-  {column: 'sen_16_lean', label: '2016 Sen', sourceCol: 'sen_16_rep'},
+// Columns are the Democratic candidate's votes; the table derives the raw
+// two-party share (X_dem_pct) and swaps to X_rep for the Republican POV.
+export const VoterColumnConfig: EvalColumnConfiguration<
+  SummaryStatConfig[typeof SUMMARY_TYPES.VOTERHISTORY]
+> = [
+  {column: 'sen_22_dem', label: '2022 Sen'},
+  {column: 'gov_22_dem', label: '2022 Gov'},
+  {column: 'ag_22_dem', label: '2022 AG'},
+  {column: 'pres_20_dem', label: '2020 Pres'},
+  {column: 'sen_18_dem', label: '2018 Sen'},
+  {column: 'gov_18_dem', label: '2018 Gov'},
+  {column: 'ag_18_dem', label: '2018 AG'},
+  {column: 'pres_16_dem', label: '2016 Pres'},
+  {column: 'sen_16_dem', label: '2016 Sen'},
 ];
 
 export const CONFIG_BY_COLUMN_SET: Record<
@@ -86,7 +89,6 @@ export const numberFormats: Record<EvalMode, NumberFormat> = {
   [EVAL_MODES.SHARE]: NUMBER_FORMATS.PERCENT,
   [EVAL_MODES.COUNT]: NUMBER_FORMATS.STRING,
   [EVAL_MODES.TOTPOP]: NUMBER_FORMATS.PERCENT,
-  [EVAL_MODES.PARTISAN]: NUMBER_FORMATS.PARTISAN,
 };
 
 export const summaryStatLabels: Array<{
@@ -95,13 +97,13 @@ export const summaryStatLabels: Array<{
   supportedModes: EvalMode[];
 }> = [
   {
-    value: SUMMARY_TYPES.VAP,
-    label: 'Voting age population',
+    value: SUMMARY_TYPES.TOTPOP,
+    label: 'Total population',
     supportedModes: [EVAL_MODES.SHARE, EVAL_MODES.COUNT],
   },
   {
-    value: SUMMARY_TYPES.TOTPOP,
-    label: 'Total population',
+    value: SUMMARY_TYPES.VAP,
+    label: 'Voting age population',
     supportedModes: [EVAL_MODES.SHARE, EVAL_MODES.COUNT],
   },
   {

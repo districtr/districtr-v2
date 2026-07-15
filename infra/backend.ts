@@ -169,6 +169,24 @@ export function createBackend(
     },
   });
 
+  // The workload is I/O-bound, so CPU stays low while requests queue and the
+  // policy above never fires. ECS scales out when either policy demands it.
+  new aws.appautoscaling.Policy(`${name}-backend-req-scaling-policy`, {
+    policyType: "TargetTrackingScaling",
+    serviceNamespace: scalingTarget.serviceNamespace,
+    scalableDimension: scalingTarget.scalableDimension,
+    resourceId: scalingTarget.resourceId,
+    targetTrackingScalingPolicyConfiguration: {
+      predefinedMetricSpecification: {
+        predefinedMetricType: "ALBRequestCountPerTarget",
+        resourceLabel: pulumi.interpolate`${alb.alb.arnSuffix}/${alb.backendTargetGroup.arnSuffix}`,
+      },
+      targetValue: config.backendRequestsPerTarget,
+      scaleOutCooldown: 60,
+      scaleInCooldown: 300,
+    },
+  });
+
   return {service};
 }
 

@@ -12,8 +12,11 @@ import {MapHeader} from './MapHeader';
 import {saveMapDocumentMetadata} from '@/app/utils/api/apiHandlers/saveMapDocumentMetadata';
 import {idb} from '@/app/utils/idb/idb';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {MAP_MODES} from '@constants/map/mode';
+import {useIsDesktop} from '@/app/hooks/useIsDesktop';
 import {ModeSwitcher} from './ModeSwitcher';
 import {MapActionsDropdown} from './MapActionsDropdown';
+import {SaveButton} from './SaveButton';
 import {useAutoSave} from '@/app/hooks/useAutoSave';
 
 export const Topbar: React.FC = () => {
@@ -99,11 +102,13 @@ export const Topbar: React.FC = () => {
             <MapHeader handleMetadataChange={handleMetadataChange} />
           )}
           <Flex direction="row" align="center" wrap="wrap" gapX="3" gapY="1">
+            {!isEval && <SaveButton />}
             <ModeSwitcher />
             {!isEval && <MapActionsDropdown handleMetadataChange={handleMetadataChange} />}
           </Flex>
         </Flex>
-        <MobileDataTabs />
+        {/* Editor panel tabs don't apply to the eval report view. */}
+        {!isEval && <MobileDataTabs />}
       </Flex>
       {isAutoSaving && (
         <Flex
@@ -121,7 +126,12 @@ export const Topbar: React.FC = () => {
   );
 };
 
-const mobileTabPanels = [
+const mobileTabPanels: Array<{
+  title: string;
+  label: string;
+  content?: React.ReactNode;
+  districtsOnly?: boolean;
+}> = [
   {
     title: 'map',
     label: 'Map',
@@ -132,18 +142,33 @@ const mobileTabPanels = [
 
 export const MobileDataTabs: React.FC = () => {
   const [activeTab, setActiveTab] = React.useState(mobileTabPanels[0].title);
-  const activePanel = mobileTabPanels?.find(panel => panel.title === activeTab);
+  const mapMode = useMapControlsStore(state => state.mapMode);
+  // Snap back to the Map tab when the viewport grows past lg — otherwise a
+  // panel opened at mobile width lingers over the map on desktop, where the
+  // tab strip that could dismiss it is hidden.
+  const isDesktop = useIsDesktop();
+  React.useEffect(() => {
+    if (isDesktop) setActiveTab('map');
+  }, [isDesktop]);
+  // Same panel filter as the desktop sidebar: districts-only panels
+  // (elections, validity, ...) don't apply to community (COI) maps.
+  const visiblePanels = mobileTabPanels.filter(
+    panel => mapMode !== MAP_MODES.COI || !panel.districtsOnly
+  );
+  const activePanel = visiblePanels.find(panel => panel.title === activeTab);
   const tabContainerRef = useRef<HTMLDivElement>(null);
   const tabContainerBottom = tabContainerRef.current?.getBoundingClientRect()?.bottom || 80;
   return (
     <>
+      {/* The six tabs are wider than a phone, so the strip scrolls itself —
+          start-justified so the first tab is never clipped off-screen. */}
       <div
-        className="block shadow-xl border-b-[1px] border-gray-500 lg:hidden"
+        className="block shadow-xl border-b-[1px] border-gray-500 lg:hidden overflow-x-auto"
         ref={tabContainerRef}
       >
         <Tabs.Root defaultValue="account" value={activeTab} onValueChange={setActiveTab}>
-          <Tabs.List justify={'center'}>
-            {mobileTabPanels.map(f => (
+          <Tabs.List justify={'start'} className="min-w-max">
+            {visiblePanels.map(f => (
               <Tabs.Trigger key={f.title} value={f.title}>
                 {f.label}
               </Tabs.Trigger>
@@ -156,11 +181,12 @@ export const MobileDataTabs: React.FC = () => {
         TODO: Make map less itchy about mounting/unmounting and have the amin "app space" on mobile have a better DOM structure
       */}
       {!!activePanel?.content && (
+        // bottom-0 (within the dvh-constrained map wrapper) instead of a 100vh
+        // height calc, which overshot the visual viewport on mobile browsers.
         <div
-          className="absolute w-full left-0 z-[10000] bg-white overflow-y-auto p-4"
+          className="absolute w-full left-0 bottom-0 z-[10000] bg-white overflow-y-auto p-4 lg:hidden"
           style={{
             top: tabContainerBottom,
-            height: `calc(100vh - ${tabContainerBottom}px)`,
           }}
         >
           {activePanel.content}

@@ -20,6 +20,14 @@ REPO_SHA="${REPO_SHA:?Set REPO_SHA to the pinned commit containing backend/stres
 # Backend S3 bucket (pulumi config s3BucketName / task env R2_BUCKET_NAME);
 # artifacts live under stress-test/.
 RESULTS_BUCKET="${RESULTS_BUCKET:?Set RESULTS_BUCKET to the backend S3 bucket name}"
+# Easy slip: the ALB access-logs bucket, which the IAM policy can't write to.
+case "$RESULTS_BUCKET" in
+  *alb-logs*)
+    echo "RESULTS_BUCKET ($RESULTS_BUCKET) looks like the ALB access-logs bucket;" \
+      "use the backend data bucket (pulumi config s3BucketName, e.g. districtr-cdn-data-f1eb3d1)" >&2
+    exit 1
+    ;;
+esac
 
 export AWS_DEFAULT_REGION="$REGION"
 

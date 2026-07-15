@@ -25,9 +25,12 @@ import {MAP_MODES} from '@constants/map/mode';
 type SummaryPanelProps = {
   defaultColumnSet: SummaryType;
   displayedColumnSets: Array<SummaryType>;
+  /** Which sections to render (default all). A single section renders its module
+   * directly with no collapsible header — used by the Draw-mode feature cards. */
+  sections?: Array<SectionKey>;
 };
 
-type SectionKey = 'evaluation' | 'map' | 'coalition';
+export type SectionKey = 'evaluation' | 'map' | 'coalition';
 
 const SectionHeader: React.FC<{
   title: string;
@@ -53,6 +56,7 @@ const SectionHeader: React.FC<{
 export const SummaryPanel: React.FC<SummaryPanelProps> = ({
   defaultColumnSet,
   displayedColumnSets,
+  sections,
 }) => {
   const availableSummaries = useDemographyStore(state => state.availableColumnSets.evaluation);
   const coalitionGroups = useDemographyStore(state => state.coalitionGroups);
@@ -119,6 +123,10 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
   })();
   const isCommunityMode = mapMode === MAP_MODES.COI;
   const orderedCommunities = sortCommunitiesByRenderOrder(communities);
+  const shownSections: Array<SectionKey> = sections ?? ['evaluation', 'map', 'coalition'];
+  // Single-section mode: no collapsible header, the module just renders.
+  const isSingle = shownSections.length === 1;
+  const sectionOpen = (section: SectionKey) => isSingle || openSections[section];
 
   useEffect(() => {
     if (!availableColumnSets.length) return;
@@ -149,55 +157,75 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
   }
   return (
     <Flex direction="column" gap="2">
-      <SectionHeader
-        title={'Table'}
-        isOpen={openSections.evaluation}
-        onToggle={() => toggleSection('evaluation')}
-      />
-      {isCommunityMode && orderedCommunities.length > 0 && openSections.evaluation && (
-        <Flex direction="row" gap="4" align="center" wrap="wrap" px="0">
-          <Text size="2">Community</Text>
-          <Select.Root
-            value={String(selectedZone)}
-            onValueChange={value => setSelectedZone(Number(value))}
-          >
-            <Select.Trigger />
-            <Select.Content>
-              {orderedCommunities.map(community => (
-                <Select.Item key={community.id} value={String(community.id)}>
-                  {community.name}
-                </Select.Item>
-              ))}
-            </Select.Content>
-          </Select.Root>
-        </Flex>
-      )}
-      {openSections.evaluation && (
-        <Evaluation
-          summaryType={summaryType}
-          setSummaryType={setSummaryType}
-          columnConfigs={columnConfigs}
-          displayedColumnSets={displayedColumnSets}
-          singleZone={isCommunityMode && orderedCommunities.length > 0 ? selectedZone : undefined}
-          universeTotals={
-            isCommunityMode && orderedCommunities.length > 0
-              ? demographyService.universeTotals
-              : undefined
-          }
-        />
-      )}
-      <SectionHeader title="Map" isOpen={openSections.map} onToggle={() => toggleSection('map')} />
-      {openSections.map && (
-        <MapPanel columnGroup={summaryType} displayedColumnSets={displayedColumnSets} />
-      )}
-      {canShowCoalition && (
+      {shownSections.includes('evaluation') && (
         <>
-          <SectionHeader
-            title="Coalition Builder"
-            isOpen={openSections.coalition}
-            onToggle={() => toggleSection('coalition')}
-          />
-          {openSections.coalition && <CoalitionBuilder summaryType={summaryType} />}
+          {!isSingle && (
+            <SectionHeader
+              title={'Table'}
+              isOpen={openSections.evaluation}
+              onToggle={() => toggleSection('evaluation')}
+            />
+          )}
+          {isCommunityMode && orderedCommunities.length > 0 && sectionOpen('evaluation') && (
+            <Flex direction="row" gap="4" align="center" wrap="wrap" px="0">
+              <Text size="2">Community</Text>
+              <Select.Root
+                value={String(selectedZone)}
+                onValueChange={value => setSelectedZone(Number(value))}
+              >
+                <Select.Trigger />
+                <Select.Content>
+                  {orderedCommunities.map(community => (
+                    <Select.Item key={community.id} value={String(community.id)}>
+                      {community.name}
+                    </Select.Item>
+                  ))}
+                </Select.Content>
+              </Select.Root>
+            </Flex>
+          )}
+          {sectionOpen('evaluation') && (
+            <Evaluation
+              summaryType={summaryType}
+              setSummaryType={setSummaryType}
+              columnConfigs={columnConfigs}
+              displayedColumnSets={displayedColumnSets}
+              singleZone={
+                isCommunityMode && orderedCommunities.length > 0 ? selectedZone : undefined
+              }
+              universeTotals={
+                isCommunityMode && orderedCommunities.length > 0
+                  ? demographyService.universeTotals
+                  : undefined
+              }
+            />
+          )}
+        </>
+      )}
+      {shownSections.includes('map') && (
+        <>
+          {!isSingle && (
+            <SectionHeader
+              title="Map"
+              isOpen={openSections.map}
+              onToggle={() => toggleSection('map')}
+            />
+          )}
+          {sectionOpen('map') && (
+            <MapPanel columnGroup={summaryType} displayedColumnSets={displayedColumnSets} />
+          )}
+        </>
+      )}
+      {shownSections.includes('coalition') && canShowCoalition && (
+        <>
+          {!isSingle && (
+            <SectionHeader
+              title="Coalition Builder"
+              isOpen={openSections.coalition}
+              onToggle={() => toggleSection('coalition')}
+            />
+          )}
+          {sectionOpen('coalition') && <CoalitionBuilder summaryType={summaryType} />}
         </>
       )}
     </Flex>

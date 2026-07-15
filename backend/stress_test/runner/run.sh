@@ -13,6 +13,14 @@ RUN_ID="${RUN_ID:?Set RUN_ID}"
 SCALE="${SCALE:-0.01}"
 WINDOW_SECONDS="${WINDOW_SECONDS:-900}"
 RESULTS_BUCKET="${RESULTS_BUCKET:?Set RESULTS_BUCKET to the backend S3 bucket name}"
+# Same guard as provision.sh: the ALB access-logs bucket is not writable here.
+case "$RESULTS_BUCKET" in
+  *alb-logs*)
+    echo "RESULTS_BUCKET ($RESULTS_BUCKET) looks like the ALB access-logs bucket;" \
+      "use the backend data bucket (e.g. districtr-cdn-data-f1eb3d1)" >&2
+    exit 1
+    ;;
+esac
 BASE_URL="${BASE_URL:-https://api.beta.districtr.org}"
 CLUSTER="${CLUSTER:-districtr-prod}"
 export AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-us-east-2}"

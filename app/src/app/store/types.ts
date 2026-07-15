@@ -23,6 +23,8 @@ export type DistrictrMapOptions = {
   demographicDisplayMode?: undefined | DemographicMode;
   showPaintedDistricts?: boolean;
   overlayOpacity: number;
+  /** Opacity multiplier for the painted-districts (zones) layer. */
+  zonesOpacity?: number;
   basemap?: BasemapId;
 };
 
