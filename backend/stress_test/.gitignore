@@ -1,0 +1,10 @@
+venv/
+artifacts/
+*.html
+*_stats.csv
+*_stats_history.csv
+*_failures.csv
+*_exceptions.csv
+stress_test_manifest_*.json
+stress_test_runtime_manifest_*.json
+.env

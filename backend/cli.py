@@ -3,10 +3,13 @@ import logging
 import re
 import uuid
 import json
+import boto3
+import botocore.exceptions
 
 from app.core.db import engine
 from app.core.config import settings
 from sqlalchemy import text, update, select
+from sqlmodel import col
 from app.utils import (
     create_districtr_map as _create_districtr_map,
     create_map_group as _create_map_group,
@@ -18,6 +21,7 @@ from app.utils import (
     create_spatial_index as _create_spatial_index,
 )
 from app.core.io import get_local_or_s3_path
+from app.evaluation.graph import S3_GRAPH_PREFIX
 from app.constants import GERRY_DB_SCHEMA
 from functools import wraps
 from contextlib import contextmanager
@@ -31,6 +35,14 @@ from management.load_data import (
 from os import environ
 from app.models import DistrictrMap, Overlay
 from datetime import datetime, timezone
+from stress_test.config import settings as stress_settings
+from stress_test.seed import (
+    NAME_PREFIX as STRESS_TEST_NAME_PREFIX,
+    delete_documents as _delete_stress_documents,
+    find_stress_documents as _find_stress_documents,
+    manifest_document_ids as _manifest_document_ids,
+    seed_documents as _seed_stress_documents,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -92,9 +104,19 @@ def import_gerrydb_view(session: Session, layer: str, gpkg: str, rm: bool):
 @cli.command("create-parent-child-edges")
 @click.option("--districtr-map-slug", "-d", help="Districtr map slug", required=False)
 @click.option("--districtr-map-uuid", "-u", help="Districtr map UUID", required=False)
+@click.option(
+    "--force",
+    "-f",
+    is_flag=True,
+    default=False,
+    help="Drop and recreate edges if they were already loaded for this map",
+)
 @with_session
 def create_parent_child_edges(
-    session: Session, districtr_map_slug: str | None, districtr_map_uuid: str | None
+    session: Session,
+    districtr_map_slug: str | None,
+    districtr_map_uuid: str | None,
+    force: bool,
 ):
     """
     Create parent-child edges for a districtr map.
@@ -115,7 +137,9 @@ def create_parent_child_edges(
             raise ValueError(f"Districtr map with slug {districtr_map_slug} not found")
 
     logger.info("Creating parent-child edges...")
-    _create_parent_child_edges(session=session, districtr_map_uuid=districtr_map_uuid)
+    _create_parent_child_edges(
+        session=session, districtr_map_uuid=districtr_map_uuid, force=force
+    )
     logger.info("Parent-child relationship upserted successfully.")
 
 
@@ -808,6 +832,164 @@ def delete_overlay(session: Session, overlay_id: str):
         logger.info(f"Deleted overlay {overlay_id}")
     else:
         logger.error(f"Overlay with ID {overlay_id} not found")
+
+
+@cli.command("check-missing-graphs")
+@click.option(
+    "--skip-alert",
+    is_flag=True,
+    help="Log results without publishing to SNS (for local runs without ALARM_SNS_TOPIC_ARN)",
+)
+@with_session
+def check_missing_graphs(session: Session, skip_alert: bool):
+    """Query all visible DistrictrMap records and alert via SNS if any graph pkl is absent from S3."""
+    topic_arn = settings.ALARM_SNS_TOPIC_ARN
+    if not skip_alert and not topic_arn:
+        raise click.UsageError(
+            "ALARM_SNS_TOPIC_ARN is not set. Set it, or pass --skip-alert to run without SNS."
+        )
+
+    maps = session.scalars(
+        select(DistrictrMap).where(
+            col(DistrictrMap.gerrydb_table_name).isnot(None),
+            col(DistrictrMap.visible).is_(True),
+        )
+    ).all()
+
+    if not maps:
+        logger.info("No DistrictrMap records with gerrydb_table_name found.")
+        return
+
+    s3 = settings.get_s3_client()
+    if not s3:
+        logger.error("S3 client not available — check AWS credentials configuration.")
+        raise SystemExit(1)
+
+    # (gerrydb_table_name, status) where status is "missing" or an S3 error code
+    problems = []
+    for m in maps:
+        assert m.gerrydb_table_name is not None
+        key = f"{S3_GRAPH_PREFIX}/{m.gerrydb_table_name}.pkl"
+        try:
+            s3.head_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
+            logger.info("Graph present: s3://%s/%s", settings.R2_BUCKET_NAME, key)
+        except botocore.exceptions.ClientError as e:
+            code = e.response.get("Error", {}).get("Code", "")
+            status = "missing" if code in ("404", "NoSuchKey") else code or str(e)
+            logger.warning("Graph %s: s3://%s/%s", status, settings.R2_BUCKET_NAME, key)
+            problems.append((m.gerrydb_table_name, status))
+        except botocore.exceptions.BotoCoreError as e:
+            # Non-HTTP failures: connection, timeout, credentials, etc.
+            status = type(e).__name__
+            logger.warning("Graph %s: s3://%s/%s", status, settings.R2_BUCKET_NAME, key)
+            problems.append((m.gerrydb_table_name, status))
+
+    if not problems:
+        logger.info("All %d graph(s) present in S3.", len(maps))
+        return
+
+    if skip_alert:
+        logger.info("--skip-alert set — not publishing to SNS.")
+        return
+
+    problem_list = "\n".join(
+        f"  - s3://{settings.R2_BUCKET_NAME}/{S3_GRAPH_PREFIX}/{name}.pkl — {status}"
+        for name, status in problems
+    )
+    sns = boto3.client("sns")
+    sns.publish(
+        TopicArn=topic_arn,
+        Subject=f"[Districtr] {len(problems)} graph pkl file(s) missing or unreachable",
+        Message=(
+            f"The following graph pkl files are missing or unreachable in S3:\n\n"
+            f"{problem_list}\n\n"
+            "For files marked 'missing', re-run the graph pipeline to regenerate; "
+            "other entries show the S3 error code encountered."
+        ),
+    )
+    logger.info("Alert published to SNS topic %s", topic_arn)
+
+
+@cli.command("stress-test-seed")
+@click.option(
+    "--config-url",
+    help="Stress-test config JSON (URL or local path). Default: $STRESS_CONFIG_URL "
+    "or the CDN config (see stress_test/config.py).",
+)
+@click.option(
+    "--base-url",
+    help="API origin to create seed documents against (seeding goes over HTTP so "
+    "docs are created exactly as the app would). Default: $STRESS_BASE_URL or "
+    "http://localhost:8000.",
+)
+@click.option(
+    "--run-id",
+    help="Tags document names, User-Agent, and the manifest filename. "
+    "Default: $STRESS_RUN_ID.",
+)
+@click.option(
+    "--manifest",
+    help="Manifest output path (local or s3://). "
+    "Default: stress_test_manifest_<run-id>.json.",
+)
+@with_session
+def stress_test_seed(
+    session: Session,
+    config_url: str | None,
+    base_url: str | None,
+    run_id: str | None,
+    manifest: str | None,
+):
+    """Create the stress-test seed documents from the config JSON and write the
+    manifest of created document ids (consumed by the locustfile and by
+    `stress-test-cleanup`)."""
+    run_id = run_id or stress_settings.RUN_ID
+    documents = _seed_stress_documents(
+        session=session,
+        base_url=base_url or stress_settings.BASE_URL,
+        config_url=config_url or stress_settings.CONFIG_URL,
+        run_id=run_id,
+        manifest_path=manifest or f"stress_test_manifest_{run_id}.json",
+    )
+    logger.info(f"Seeded {len(documents)} documents")
+
+
+@cli.command("stress-test-cleanup")
+@click.option(
+    "--manifest",
+    "-m",
+    "manifests",
+    multiple=True,
+    help="Manifest JSON (seed or runtime shape; local path or s3://). Repeatable.",
+)
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    help="Delete leftover [STRESS-TEST]-named documents without prompting",
+)
+@with_session
+def stress_test_cleanup(session: Session, manifests: tuple[str, ...], yes: bool):
+    """Delete stress-test documents (rows + assignment partitions): everything
+    listed in the given manifests, then — belt and suspenders — any leftover
+    document whose metadata name starts with [STRESS-TEST], after confirmation."""
+    ids: list[str] = []
+    for path in manifests:
+        ids.extend(_manifest_document_ids(get_local_or_s3_path(file_path=path)))
+    if ids:
+        deleted = _delete_stress_documents(session, ids)
+        logger.info(f"Deleted {deleted} of {len(ids)} manifest-listed documents")
+
+    leftovers = _find_stress_documents(session)
+    if not leftovers:
+        logger.info(f"No {STRESS_TEST_NAME_PREFIX}-named documents remain")
+        return
+    for document_id, name in leftovers:
+        click.echo(f"  {document_id}  {name}")
+    if yes or click.confirm(
+        f"Delete these {len(leftovers)} {STRESS_TEST_NAME_PREFIX}-named document(s)?"
+    ):
+        _delete_stress_documents(session, [document_id for document_id, _ in leftovers])
 
 
 if __name__ == "__main__":

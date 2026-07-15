@@ -3,6 +3,15 @@ import {AllTabularColumns} from '../summaryStats';
 import {DocumentObject} from './types';
 import {ColumnarTableData} from '../../ParquetWorker/parquetWorker.types';
 import {get} from '../factory';
+import {PUBLIC_SOURCE_ID} from '@constants/map/layerIds';
+
+/**
+ * Shared React Query key for the public districts query. `updated_at` busts the
+ * cache when the plan changes; every consumer (PublicSource, useZoomToDistrict)
+ * must build the key through this helper so the keys can't drift apart.
+ */
+export const publicDistrictsQueryKey = (mapDocument?: DocumentObject | null) =>
+  [PUBLIC_SOURCE_ID, mapDocument?.public_id, mapDocument?.updated_at] as const;
 
 type PublicDistrictData = {
   zone: NullableZone;

@@ -28,7 +28,7 @@ export const GeocodeSearchBar: React.FC<{
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
-  const setErrorNotification = useMapStore(state => state.setErrorNotification);
+  const setNotification = useMapStore(state => state.setNotification);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const listboxId = 'geocode-search-listbox';
@@ -91,15 +91,16 @@ export const GeocodeSearchBar: React.FC<{
         setOpen(true);
       } catch {
         setSuggestions([]);
-        setErrorNotification({
+        setNotification({
           message: 'Failed to search for places.',
-          severity: 2,
+          importance: 2,
+          type: 'error',
         });
       } finally {
         setLoading(false);
       }
     },
-    [mapRef, mapBounds, setErrorNotification]
+    [mapRef, mapBounds, setNotification]
   );
 
   useEffect(() => {

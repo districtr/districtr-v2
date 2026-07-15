@@ -21,6 +21,7 @@ const config: Config = {
         districtrBlue: '#0099cd',
         districtrDarkBlue: '#006b9c',
         districtrIndigo: 'rgba(0, 0, 139)',
+        districtrPurple: '#cd0099',
       },
     },
   },

@@ -15,28 +15,16 @@ export const usePlaceMapStore = create<{
   getData: () => void;
   hovered: {name: string; abbr: string} | null;
   setHovered: (hovered: {name: string; abbr: string} | null) => void;
-  mapsBySlug: Record<string, number>;
 }>(set => ({
   data: null,
-  mapsBySlug: {},
   getData: async () => {
-    const [topology, content] = await Promise.all([
-      fetch(`${GEODATA_URL}/sprites/usa-topo.json`).then(r => r.json()),
-      listCMSContent('places') as Promise<PlacesCMSContent[]>,
-    ]);
-    const mapsBySlug = content?.reduce(
-      (acc, place) => {
-        acc[place.slug] = place.districtr_map_slugs?.length || 0;
-        return acc;
-      },
-      {} as Record<string, number>
-    );
+    const topology = await fetch(`${GEODATA_URL}/sprites/usa-topo.json`).then(r => r.json());
     // @ts-expect-error
     const {features: unitedStates} = topojson.feature(topology, topology.objects.states) as {
       type: 'FeatureCollection';
       features: FeatureShape[];
     };
-    set({data: unitedStates, mapsBySlug});
+    set({data: unitedStates});
   },
   hovered: null,
   setHovered: hovered => set({hovered}),

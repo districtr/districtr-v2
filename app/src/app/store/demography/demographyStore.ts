@@ -178,7 +178,7 @@ export var useDemographyStore = create(
     updateData: async (mapDocument, _brokenIds) => {
       const {dataHash: currDataHash} = get();
       const brokenIds = _brokenIds ?? getActiveBrokenIds();
-      const {setErrorNotification} = useMapStore.getState();
+      const {setNotification} = useMapStore.getState();
       if (!mapDocument) return;
       // based on current map state
       const dataHash = `${brokenIds.join(',')}|${mapDocument.document_id}`;
@@ -193,10 +193,17 @@ export var useDemographyStore = create(
       // Bail if a newer updateData call has already been kicked off; otherwise this
       // stale resolver would overwrite the fresh data with its own older results.
       if (requestId !== updateDataRequestId) return;
+      // Bail if the active document changed while fetching. Navigating to a
+      // read-only/public view loads demography directly via PublicSource (which
+      // never bumps updateDataRequestId), so an in-flight edit-doc fetch would
+      // otherwise clobber the view's demogHash back to `|{editUUID}` and leave the
+      // sidebar stuck "loading".
+      if (useMapStore.getState().mapDocument?.document_id !== mapDocument.document_id) return;
       if (!result || !mapDocument) {
-        setErrorNotification({
+        setNotification({
           message: 'Failed to get demography',
-          severity: 1,
+          importance: 1,
+          type: 'error',
           id: 'demography-get-error',
         });
         return;

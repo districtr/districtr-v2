@@ -16,4 +16,6 @@ RUN pip install -r requirements.txt
 
 COPY . ./
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+# keep-alive must exceed the ALB idle timeout (120s); a shorter target
+# keep-alive lets the server close connections the ALB is reusing -> 502s.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080", "--timeout-keep-alive", "130"]

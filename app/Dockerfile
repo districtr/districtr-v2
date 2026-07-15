@@ -35,8 +35,14 @@ RUN echo NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL && \
 # Copy application code
 COPY --link . .
 
-# Build application
-RUN bun run build
+# Build application. SENTRY_AUTH_TOKEN (sourcemap upload) is mounted as a
+# BuildKit secret so it never lands in an image layer; the build still works
+# without it.
+RUN --mount=type=secret,id=SENTRY_AUTH_TOKEN \
+    if [ -s /run/secrets/SENTRY_AUTH_TOKEN ]; then \
+      export SENTRY_AUTH_TOKEN="$(cat /run/secrets/SENTRY_AUTH_TOKEN)"; \
+    fi && \
+    bun run build
 
 # Final stage for app image
 FROM base

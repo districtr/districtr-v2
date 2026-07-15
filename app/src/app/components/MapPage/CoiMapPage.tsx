@@ -5,20 +5,18 @@ import {CoiMap} from '@components/Map/CoiMap';
 import SidebarComponent from '@components/sidebar/Sidebar';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
-import {ErrorNotification} from '@components/ErrorNotification';
-import {DraggableToolbar} from '@components/Toolbar/Toolbar';
+import {AppNotification} from '@components/AppNotification';
 import {MapTooltip} from '@components/Map/Tooltip/MapTooltip';
-import {MapLockShade} from '@components/MapLockShade';
 import {Topbar} from '@/app/components/Topbar/Topbar';
 import {Flex} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {initSubs} from '@store/subscriptions';
-import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useDocumentWithSync} from '@/app/hooks/useDocumentWithSync';
 import {SaveConflictModal} from '../SaveConflictModal';
 import {migrateUserMapsFromLocalStorage} from '@/app/utils/idb/migrateUserMaps';
 import {DemographicMap} from '../Map/DemographicMap';
+import {MobileToolbar} from '@/app/components/Toolbar/MobileToolbar';
 import {useInitializeMapMode} from '@/app/hooks/useInitializeMapMode';
 import {MAP_MODES} from '@constants/map/mode';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
@@ -36,21 +34,16 @@ const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => 
     state => state.mapOptions.demographicDisplayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE
   );
   const setIsEditing = useMapControlsStore(state => state.setIsEditing);
-  const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
-  const setErrorNotification = useMapStore(state => state.setErrorNotification);
+  const setEditableDocId = useMapControlsStore(state => state.setEditableDocId);
+  const setNotification = useMapStore(state => state.setNotification);
   const userID = useMapStore(state => state.userID);
   const setUserID = useMapStore(state => state.setUserID);
-  const mapLock = useMapStore(state => state.mapLock);
 
   useEffect(() => {
     migrateUserMapsFromLocalStorage();
   }, []);
 
-  const {
-    isLoading: isLoadingDocument,
-    error: documentError,
-    conflictModal,
-  } = useDocumentWithSync({
+  const {error: documentError, conflictModal} = useDocumentWithSync({
     document_id: documentId || undefined,
     isPublicPage,
     enabled: isMapModeReady && !!documentId,
@@ -58,17 +51,24 @@ const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => 
 
   useEffect(() => {
     if (documentError && documentId) {
-      setErrorNotification({
+      setNotification({
         message: `Failed to load document: ${documentError.message}`,
         id: `document-load-error-${documentId}`,
-        severity: 1,
+        importance: 1,
+        type: 'error',
       });
     }
-  }, [documentError, documentId, setErrorNotification]);
+  }, [documentError, documentId, setNotification]);
 
   useEffect(() => {
     setIsEditing(isEditing);
   }, [isEditing, setIsEditing]);
+
+  // Retain the editable UUID for this session so the view switcher can route
+  // back to edit mode after navigating to a read-only display view.
+  useEffect(() => {
+    if (isEditing && documentId && isUUID(documentId)) setEditableDocId(documentId);
+  }, [isEditing, documentId, setEditableDocId]);
 
   useEffect(() => {
     !userID && setUserID();
@@ -86,30 +86,21 @@ const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => 
   }
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex justify-between p flex-col-reverse lg:flex-row-reverse landscape:flex-row-reverse">
+    <div className="h-screen h-dvh w-screen overflow-hidden flex justify-between p flex-col-reverse lg:flex-row-reverse landscape:flex-row-reverse">
       <SidebarComponent />
-      <div className={`h-full relative w-full flex-1 flex flex-col lg:h-screen landscape:h-screen`}>
+      <div
+        className={`h-full relative w-full flex-1 flex flex-col lg:h-screen lg:h-dvh landscape:h-screen landscape:h-dvh`}
+      >
         <Topbar />
-        <Flex direction="row" height="100%">
+        <Flex direction="row" className="flex-1 min-h-0">
           <CoiMap />
           {showDemographicMap && <DemographicMap />}
         </Flex>
-        {toolbarLocation === 'map' && <DraggableToolbar />}
-        {!!documentId && (
-          <MapLockShade
-            mapLock={mapLock}
-            loadingState={{
-              isLoadingDocument,
-              isLoadingAssignments: isLoadingDocument,
-              isFetchingDocument: isLoadingDocument,
-              isFetchingAssignments: isLoadingDocument,
-            }}
-          />
-        )}
+        <MobileToolbar />
         <MapTooltip />
       </div>
       <MapContextMenu />
-      <ErrorNotification />
+      <AppNotification />
       {conflictModal}
       <SaveConflictModal />
     </div>

@@ -1,5 +1,5 @@
 import {IconButtonProps, IconProps} from '@radix-ui/themes';
-import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
+import {ACTIVE_TOOLS, SUPER_DRAW_TOOLS, type ActiveTool} from '@constants/map/tools';
 import {useMapStore} from '@/app/store/mapStore';
 import {
   EraserIcon,
@@ -9,10 +9,11 @@ import {
   ResetIcon,
   MagnifyingGlassIcon,
 } from '@radix-ui/react-icons';
-import {useCallback} from 'react';
+import {useMemo, useRef} from 'react';
 import {debounce} from 'lodash';
 import {useTemporalStore, useCoiTemporalStore} from '@/app/store/temporalStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {ACCESS_STATES} from '@constants/document/state';
 
@@ -34,14 +35,22 @@ export const useActiveTools = () => {
   const access = useMapStore(state => state.mapStatus?.access);
   const isEditing = access === ACCESS_STATES.EDIT;
   const mapMode = useMapControlsStore(state => state.mapMode);
+  const superDraw = useToolbarStore(state => state.superDraw);
 
   const districtsTemporal = useTemporalStore();
   const coiTemporal = useCoiTemporalStore();
   const {futureStates, pastStates, redo, undo} =
     mapMode === MAP_MODES.COI ? coiTemporal : districtsTemporal;
 
-  const handleUndo = useCallback(debounce(undo, 100), [undo]);
-  const handleRedo = useCallback(debounce(redo, 100), [redo]);
+  // One debounce instance for the component lifetime (the store returns fresh
+  // undo/redo wrappers every render, which would otherwise defeat debouncing);
+  // refs keep it pointed at the latest wrappers.
+  const undoRef = useRef(undo);
+  const redoRef = useRef(redo);
+  undoRef.current = undo;
+  redoRef.current = redo;
+  const handleUndo = useMemo(() => debounce(() => undoRef.current(), 100), []);
+  const handleRedo = useMemo(() => debounce(() => redoRef.current(), 100), []);
   const metaKey =
     typeof navigator !== 'undefined' && navigator.platform.includes('Mac') ? '⌘' : 'Ctrl';
 
@@ -125,5 +134,7 @@ export const useActiveTools = () => {
       },
     },
   ];
-  return config;
+  // Filtering (rather than disabling) also removes the tools' hotkeys, since the
+  // toolbar's key handler only checks the tools returned here.
+  return superDraw ? config : config.filter(t => !SUPER_DRAW_TOOLS.includes(t.mode));
 };

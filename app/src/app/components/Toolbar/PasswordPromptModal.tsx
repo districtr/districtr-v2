@@ -5,22 +5,36 @@ import {Button, Flex, Text, Dialog, Box, TextField, Progress, Blockquote} from '
 import {useRouter, useSearchParams} from 'next/navigation';
 import {postGrantEditAccess} from '@/app/utils/api/apiHandlers/postGrantEditAccess';
 import {routeManager} from '@/app/utils/map/mapUrlRoute';
+import {useEditableDocId} from '@/app/hooks/useEditableDocId';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 
 export const PasswordPromptModal = () => {
   const router = useRouter();
   const pwRequired = useSearchParams().get('pw');
-  const [dialogOpen, setDialogOpen] = React.useState(Boolean(pwRequired));
+  // Also openable on demand via the store flag (e.g. the view switcher's "Unlock"
+  // option), not just the `?pw=true` share link.
+  const passwordPrompt = useMapStore(store => store.passwordPrompt);
+  const setPasswordPrompt = useMapStore(store => store.setPasswordPrompt);
+  // Owners have a local editable copy and don't need a password for their own map,
+  // so don't prompt them — otherwise it looks like the password isn't protecting it.
+  const ownsMap = !!useEditableDocId();
+  const [dialogOpen, setDialogOpen] = React.useState(
+    (Boolean(pwRequired) || passwordPrompt) && !ownsMap
+  );
   const [password, setPassword] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const mapDocument = useMapStore(store => store.mapDocument);
 
   useEffect(() => {
-    setDialogOpen(Boolean(pwRequired));
-  }, [pwRequired]);
+    setDialogOpen((Boolean(pwRequired) || passwordPrompt) && !ownsMap);
+  }, [pwRequired, passwordPrompt, ownsMap]);
 
   const handleProceed = async (editAccess: boolean) => {
     if (!editAccess) {
+      setPasswordPrompt(false);
+      // A cancelled unlock abandons any requested draw mode.
+      useToolbarStore.getState().setPendingSuperDraw(null);
       // remove pw from url
       router.replace(window.location.pathname);
     } else if (mapDocument?.public_id && password) {
@@ -29,7 +43,15 @@ export const PasswordPromptModal = () => {
       try {
         const res = await postGrantEditAccess(mapDocument?.public_id, password);
         if (res.ok) {
+          setPasswordPrompt(false);
           setDialogOpen(false);
+          // Land in the draw mode the view switcher asked for (e.g. Super
+          // Draw), now that the unlock actually succeeded.
+          const {pendingSuperDraw, setPendingSuperDraw, setSuperDraw} = useToolbarStore.getState();
+          if (pendingSuperDraw !== null) {
+            setSuperDraw(pendingSuperDraw);
+            setPendingSuperDraw(null);
+          }
           router.push(`/${routeManager.mapUrlRoute}/edit/${res.response.document_id}`);
         } else {
           setError(res.error?.detail ?? 'An unknown error occurred');

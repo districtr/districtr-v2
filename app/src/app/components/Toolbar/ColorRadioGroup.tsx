@@ -5,20 +5,23 @@ import {ColorPickerProps} from './ColorPicker';
 import {styled} from '@stitches/react';
 
 const StyledRadioGroupItem = styled(RadioGroup.Item, {
+  // Bigger below lg: 20px pips are too small a touch target in the mobile dock.
+  '--pip-size': '1.25rem',
+  '@media (max-width: 1023px)': {'--pip-size': '2.25rem'},
   borderRadius: 8,
-  width: '1.25rem',
-  height: '1.25rem',
+  width: 'var(--pip-size)',
+  height: 'var(--pip-size)',
   border: 'var(--border-width) solid var(--gray-200)',
   '&::after': {
     borderRadius: 8,
-    width: '1.25rem',
-    height: '1.25rem',
+    width: 'var(--pip-size)',
+    height: 'var(--pip-size)',
   },
   '&::before': {
     borderRadius: 8,
     background: 'none',
-    width: '1.25rem',
-    height: '1.25rem',
+    width: 'var(--pip-size)',
+    height: 'var(--pip-size)',
   },
 });
 

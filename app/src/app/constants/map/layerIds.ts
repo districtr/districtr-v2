@@ -13,6 +13,7 @@ export const CANONICAL_LAYER_IDS = {
   },
   MAP_ANCHORS: {
     HOVER: 'anchor-hover',
+    REFERENCE: 'anchor-reference',
     OVERLAYS: 'anchor-overlays',
     GEOMETRY_OUTLINE: 'anchor-geometry-outline',
     DEMOGRAPHY: 'anchor-demography',
@@ -37,6 +38,7 @@ export const CANONICAL_LAYER_IDS = {
       HOVER: 'blocks-hover',
       HIGHLIGHT: 'blocks-highlight',
       POINTS: 'blocks-points',
+      SIZED_CIRCLES: 'blocks-sized-circles',
       OUTLINE: 'blocks-outline',
       BACKGROUND: 'blocks-hover-background',
     },
@@ -45,6 +47,7 @@ export const CANONICAL_LAYER_IDS = {
       HOVER: 'blocks-child-hover',
       HIGHLIGHT: 'blocks-highlight-child',
       POINTS: 'blocks-points-child',
+      SIZED_CIRCLES: 'blocks-sized-circles-child',
       OUTLINE: 'blocks-child-outline',
       BACKGROUND: 'blocks-child-hover-background',
     },
@@ -93,6 +96,9 @@ export const MAP_ORDER_ANCHORS_SOURCE_ID = CANONICAL_LAYER_IDS.SOURCES.MAP_ORDER
  */
 export const MAP_LAYER_ANCHOR_IDS = {
   hover: CANONICAL_LAYER_IDS.MAP_ANCHORS.HOVER,
+  // External geographic context for evaluating the redistricting plan (e.g. county boundaries).
+  // Sits above all depicting layers so reference lines remain visible through fills.
+  reference: CANONICAL_LAYER_IDS.MAP_ANCHORS.REFERENCE,
   overlays: CANONICAL_LAYER_IDS.MAP_ANCHORS.OVERLAYS,
   geometryOutline: CANONICAL_LAYER_IDS.MAP_ANCHORS.GEOMETRY_OUTLINE,
   demography: CANONICAL_LAYER_IDS.MAP_ANCHORS.DEMOGRAPHY,

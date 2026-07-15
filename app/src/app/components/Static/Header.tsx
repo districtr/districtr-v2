@@ -1,62 +1,141 @@
 'use client';
 import React, {useState} from 'react';
-import {Box, DropdownMenu, Flex, Heading, IconButton} from '@radix-ui/themes';
-import {Link} from '@radix-ui/themes';
-import {PlaceMapModal} from './PlaceMap/PlaceMapModal';
+import {Box, DropdownMenu, Flex, IconButton, Link} from '@radix-ui/themes';
+import NextLink from 'next/link';
+import {usePathname, useRouter} from 'next/navigation';
 import {HamburgerMenuIcon} from '@radix-ui/react-icons';
+import {SecondaryNavItem} from './SecondaryNav';
+import {LEARN_ITEMS} from './LearnSubNav';
+import {CATALOG_ITEMS} from './CatalogSubNav';
+
+// Draw has no in-page subnav; this exists so its hover dropdown is parallel
+// with the other top-level items.
+const DRAW_ITEMS: SecondaryNavItem[] = [{label: 'Jump to the map', href: '/draw'}];
+
+const NAV_ITEMS: {
+  label: string;
+  href: string;
+  match: (pathname: string) => boolean;
+  subnav?: SecondaryNavItem[];
+}[] = [
+  // Learn is a section (About/Guide/Data/Rules); the link lands on the first page
+  // and the in-page subnav (LearnSubNav) handles movement within the section.
+  {
+    label: 'Learn',
+    href: '/about',
+    match: p => ['/about', '/guide', '/data', '/rules'].includes(p),
+    subnav: LEARN_ITEMS,
+  },
+  // Draw owns the place-picker landing pages too, so it stays active on /draw,
+  // the all-places directory, and individual state pages.
+  {
+    label: 'Draw',
+    href: '/draw',
+    match: p => p === '/draw' || p === '/places' || p.startsWith('/place/'),
+    subnav: DRAW_ITEMS,
+  },
+  {
+    label: 'Catalog',
+    href: '/catalog',
+    match: p => p.startsWith('/catalog') || p === '/my-maps',
+    subnav: CATALOG_ITEMS,
+  },
+];
 
 export const Header: React.FC = () => {
-  const [modalOpen, setModalOpen] = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
+  const [hovered, setHovered] = useState<(typeof NAV_ITEMS)[number] | null>(null);
 
-  const linkItems = [
-    <Link href="/about" key={`link-items-1`} className="!font-bold !cursor-pointer">
-      About Districtr
-    </Link>,
-    <Link href="/guide" key={`link-items-2`} className="!font-bold !cursor-pointer">
-      Guide
-    </Link>,
-    <Link href="/data" key={`link-items-3`} className="!font-bold !cursor-pointer">
-      Data
-    </Link>,
-    <Link href="/rules" key={`link-items-4`} className="!font-bold !cursor-pointer">
-      Rules of Redistricting
-    </Link>,
-    <Link
-      className="!font-bold !cursor-pointer"
-      onClick={() => setModalOpen(true)}
-      key={`link-items-5`}
-    >
-      Start Mapping
-    </Link>,
-  ];
+  const navLink = (item: (typeof NAV_ITEMS)[number]) => {
+    const active = item.match(pathname);
+    return (
+      <Link
+        asChild
+        size="5"
+        weight="bold"
+        color={active ? undefined : 'gray'}
+        className={`!cursor-pointer rounded-full px-3 py-1 transition-colors ${
+          active ? 'bg-districtrLightBlue !text-districtrBlue' : 'hover:bg-gray-200'
+        }`}
+        aria-current={active ? 'page' : undefined}
+      >
+        <NextLink href={item.href}>{item.label}</NextLink>
+      </Link>
+    );
+  };
 
   return (
-    <>
-      <Box className="p-4 bg-gray-100 sticky top-0 shadow-sm z-[10000]">
-        <Flex direction="row" justify="between" className="mx-auto max-w-screen-lg">
-          <Heading size="4" as="h3" className="site-title text-districtrBlue">
-            <a href="/">Districtr</a>
-          </Heading>
-          <Flex direction="row" gapX="4" className="text-sm tracking-wider !hidden md:!flex">
-            {linkItems.map((item, index) => (
-              <React.Fragment key={index}>{item}</React.Fragment>
-            ))}
-          </Flex>
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger>
-              <IconButton variant="ghost" className="md:!hidden" size="3">
-                <HamburgerMenuIcon />
-              </IconButton>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content className="p-2" size="2">
-              {linkItems.map((item, index) => (
-                <DropdownMenu.Item key={index}>{item}</DropdownMenu.Item>
-              ))}
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
+    <Box
+      className="h-16 px-4 bg-gray-100 sticky top-0 shadow-sm z-[10000] flex items-center"
+      onMouseLeave={() => setHovered(null)}
+    >
+      <Flex
+        direction="row"
+        justify="between"
+        align="center"
+        className="mx-auto max-w-screen-lg w-full"
+      >
+        <Link asChild size="5" weight="bold" className="site-title !text-districtrBlue">
+          <a href="/">Districtr</a>
+        </Link>
+        <Flex direction="row" gapX="2" align="center" className="tracking-wider !hidden md:!flex">
+          {NAV_ITEMS.map(item => (
+            <div key={item.href} className="relative" onMouseEnter={() => setHovered(item)}>
+              {navLink(item)}
+              {/* The section's pages preview as a dropdown anchored to its
+                  nav item; the padding bridges the hover gap to the panel. */}
+              {hovered === item && item.subnav && (
+                <div className="absolute left-0 top-full z-[10001] pt-3">
+                  <nav
+                    aria-label={`${item.label} section`}
+                    className="min-w-max rounded-lg border border-gray-200 bg-white py-1 shadow-md"
+                  >
+                    {item.subnav.map(sub => (
+                      <Link
+                        key={sub.href}
+                        asChild
+                        size="2"
+                        color="gray"
+                        className="block whitespace-nowrap px-4 py-1.5 !cursor-pointer hover:bg-gray-100 hover:!text-districtrBlue"
+                      >
+                        <NextLink href={sub.href}>{sub.label}</NextLink>
+                      </Link>
+                    ))}
+                  </nav>
+                </div>
+              )}
+            </div>
+          ))}
         </Flex>
-      </Box>
-      <PlaceMapModal _open={modalOpen} _setOpen={setModalOpen} noTrigger />
-    </>
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger>
+            <IconButton variant="ghost" className="md:!hidden" size="3">
+              <HamburgerMenuIcon />
+            </IconButton>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Content className="p-2" size="2">
+            {/* Plain menu rows via onSelect (Radix Themes' Item throws with an
+                asChild anchor) — the desktop pill styling doubled up with the
+                menu item's own hover/press highlight and looked off. */}
+            {NAV_ITEMS.map(item => {
+              const active = item.match(pathname);
+              return (
+                <DropdownMenu.Item
+                  key={item.href}
+                  onSelect={() => router.push(item.href)}
+                  className={`!cursor-pointer ${
+                    active ? '!bg-districtrLightBlue !text-districtrBlue !font-bold' : ''
+                  }`}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  {item.label}
+                </DropdownMenu.Item>
+              );
+            })}
+          </DropdownMenu.Content>
+        </DropdownMenu.Root>
+      </Flex>
+    </Box>
   );
 };

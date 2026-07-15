@@ -1,4 +1,4 @@
-import {Blockquote, Button, Flex, Text, Tabs} from '@radix-ui/themes';
+import {Blockquote, Button, Flex, SegmentedControl, Text} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {Contiguity} from './Contiguity';
 import {ZoomToUnassigned} from './ZoomToUnassigned';
@@ -16,14 +16,14 @@ const mapValidationPanel = [
     component: <Contiguity />,
   },
   {
-    label: 'Unassigned Areas',
+    label: 'Completeness',
     component: <ZoomToUnassigned />,
   },
 ];
 export const MapValidation = () => {
   const mapType = useMapStore(state => state.mapDocument?.map_type);
   const mapMode = useMapControlsStore(state => state.mapMode);
-  const setErrorNotification = useMapStore(state => state.setErrorNotification);
+  const setNotification = useMapStore(state => state.setNotification);
   const [activePanel, setActivePanel] = useState(
     mapValidationPanel[mapType === MAP_TYPES.LOCAL ? 1 : 0].label
   );
@@ -35,12 +35,13 @@ export const MapValidation = () => {
 
   useEffect(() => {
     if (mapDocument?.map_type === MAP_TYPES.COMMUNITY || mapMode === MAP_MODES.COI) {
-      setErrorNotification({
+      setNotification({
         message: 'Map validation is not available for community maps.',
-        severity: 2,
+        importance: 2,
+        type: 'error',
       });
     }
-  }, [mapDocument?.map_type, mapMode, setErrorNotification]);
+  }, [mapDocument?.map_type, mapMode, setNotification]);
 
   if (mapDocument?.map_type === MAP_TYPES.COMMUNITY || mapMode === MAP_MODES.COI) {
     return null;
@@ -66,15 +67,14 @@ export const MapValidation = () => {
           </Blockquote>
         </>
       )}
-      <Tabs.Root value={activePanel} onValueChange={setActivePanel}>
-        <Tabs.List justify={'start'}>
-          {mapValidationPanel.map((panel, index) => (
-            <Tabs.Trigger key={index} value={panel.label} className="text-center">
-              {panel.label}
-            </Tabs.Trigger>
-          ))}
-        </Tabs.List>
-      </Tabs.Root>
+      {/* Segmented control to match the Table | Map sub-section tabs. */}
+      <SegmentedControl.Root size="2" value={activePanel} onValueChange={setActivePanel}>
+        {mapValidationPanel.map((panel, index) => (
+          <SegmentedControl.Item key={index} value={panel.label}>
+            {panel.label}
+          </SegmentedControl.Item>
+        ))}
+      </SegmentedControl.Root>
 
       {!!Component && Component}
     </Flex>

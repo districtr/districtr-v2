@@ -83,6 +83,8 @@ export interface Community {
 export interface DocumentObject extends StatusObject {
   document_id: string;
   public_id: number | null;
+  /** True when the map has an edit password; lets read-only viewers unlock draw mode. */
+  password_required?: boolean;
   districtr_map_slug: string;
   gerrydb_table: string;
   parent_layer: string;

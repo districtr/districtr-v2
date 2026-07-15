@@ -40,12 +40,7 @@ export const InspectorTooltip = () => {
   const usePercent =
     inspectorFormat === NUMBER_FORMATS.PERCENT || inspectorMode === SUMMARY_TYPES.VOTERHISTORY;
   const columnSuffix = usePercent ? '_pct' : '';
-  const standardFormat =
-    inspectorMode === SUMMARY_TYPES.VOTERHISTORY
-      ? NUMBER_FORMATS.PARTISAN
-      : usePercent
-        ? NUMBER_FORMATS.PERCENT
-        : NUMBER_FORMATS.STANDARD;
+  const standardFormat = usePercent ? NUMBER_FORMATS.PERCENT : NUMBER_FORMATS.STANDARD;
   const ids = hoverFeatures.map(f => f.id as string);
   const stableIds = useMemo(() => ids, [ids.join(',')]);
   const [inspectorData, setInspectorData] = useState<Record<string, number>>({});
@@ -63,7 +58,8 @@ export const InspectorTooltip = () => {
     const widthPct = Math.min(rowPct, 1) * 100;
     const rowColor =
       inspectorMode === SUMMARY_TYPES.VOTERHISTORY && !isNaN(inspectorData[`${column}_pct`])
-        ? withOpacity(PARTISAN_SCALE((inspectorData[`${column}_pct`] + 1) / 2), 0.15)
+        ? // _pct is the raw two-party dem share (0-1)
+          withOpacity(PARTISAN_SCALE(inspectorData[`${column}_pct`]), 0.15)
         : 'rgba(17, 24, 39, 0.15)';
 
     return {
@@ -75,7 +71,7 @@ export const InspectorTooltip = () => {
     if (stableIds.length > 0) {
       const _activeColumns =
         inspectorMode === SUMMARY_TYPES.VOTERHISTORY
-          ? [...activeColumns, ...activeColumns.map(colName => colName.replace('_lean', '_total'))]
+          ? [...activeColumns, ...activeColumns.map(colName => colName.replace('_dem', '_total'))]
           : activeColumns;
       const data = demographyService.calculateSummaryStats(stableIds, _activeColumns);
       if (data.length === 1) {
