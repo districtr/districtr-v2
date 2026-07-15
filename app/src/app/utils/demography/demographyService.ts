@@ -632,9 +632,7 @@ class DemographyService {
       const color = isNaN(+row.colorValue) ? '#CCCCCC' : colorScale(+row.colorValue);
       // sqrt so circle AREA is proportional to population
       const radius =
-        row.sizeValue > 0
-          ? MAX_SIZED_CIRCLE_RADIUS_PX * Math.sqrt(row.sizeValue / maxSize)
-          : 0;
+        row.sizeValue > 0 ? MAX_SIZED_CIRCLE_RADIUS_PX * Math.sqrt(row.sizeValue / maxSize) : 0;
       mapRef.setFeatureState(
         {
           source:
@@ -747,7 +745,9 @@ class DemographyService {
 
       const displayMode = useMapControlsStore.getState().mapOptions.demographicDisplayMode;
       const defaultColor =
-        displayMode === DEMOGRAPHIC_MODES.OVERLAY ? DEFAULT_COLOR_SCHEME_GRAY : DEFAULT_COLOR_SCHEME;
+        displayMode === DEMOGRAPHIC_MODES.OVERLAY
+          ? DEFAULT_COLOR_SCHEME_GRAY
+          : DEFAULT_COLOR_SCHEME;
       let colorscheme = defaultColor[Math.max(3, actualBinsLength)];
 
       if (actualBinsLength < 3) {
