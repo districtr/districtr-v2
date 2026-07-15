@@ -1,8 +1,3 @@
-# DC is absent: dc_districtr_block_view_v2.gpkg ships no
-# gerrydb_graph_edge layer, so its graph cannot be built until a fixed
-# gpkg arrives (v1 excluded CA for the same defect). DC maps work
-# without a graph, but contiguity/evaluation is unavailable and the
-# graph-integrity check flags visible maps with no graph.
 name: v2 batch graph build
 graphs:
   al_districtr_view_v2:
@@ -155,6 +150,9 @@ graphs:
   wy_districtr_view_v2:
     child_gpkg: wy_districtr_block_view_v2.gpkg
     parent_gpkg: wy_districtr_vtd_view_v2.gpkg
+  dc_districtr_view_v2:
+    child_gpkg: dc_districtr_block_view_v2.gpkg
+    parent_gpkg: dc_districtr_vtd_view_v2.gpkg
   pr_districtr_view_v2:
     child_gpkg: pr_districtr_block_view_v2.gpkg
     parent_gpkg: pr_districtr_vtd_view_v2.gpkg
