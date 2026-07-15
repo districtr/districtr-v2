@@ -1,6 +1,7 @@
 # Tabular batch for the v2 layer generation: 52 geographies (50 states +
-# DC + PR). The parent layer is vtd except for ca/hi/or/wv, whose v2
-# sources have no vtd layer; they use bg.
+# DC + PR). The parent layer is vtd except for ca/hi/or/wv (no v2 vtd
+# layer) and me (vtd does not cover the unorganized territories); these
+# use bg.
 datasets:
   al_districtr_view_v2:
     child_gpkg: al_districtr_block_view_v2.gpkg
@@ -77,7 +78,7 @@ datasets:
   me_districtr_view_v2:
     child_gpkg: me_districtr_block_view_v2.gpkg
     out_path: me_districtr_view_v2.parquet
-    parent_gpkg: me_districtr_vtd_view_v2.gpkg
+    parent_gpkg: me_districtr_bg_view_v2.gpkg
   md_districtr_view_v2:
     child_gpkg: md_districtr_block_view_v2.gpkg
     out_path: md_districtr_view_v2.parquet

@@ -1,6 +1,7 @@
 # Tileset batch for the v2 layer generation: 52 geographies (50 states +
-# DC + PR). The parent layer is vtd except for ca/hi/or/wv, whose v2
-# sources have no vtd layer; they use bg.
+# DC + PR). The parent layer is vtd except for ca/hi/or/wv (no v2 vtd
+# layer) and me (vtd does not cover the unorganized territories); these
+# use bg.
 name: v2 batch tileset load
 tilesets:
   al_districtr_view_v2:
@@ -130,9 +131,9 @@ tilesets:
     layer_name: la_districtr_block_view_v2
     new_layer_name: la_districtr_block_view_v2
   me_districtr_view_v2:
-  - gpkg: me_districtr_vtd_view_v2.gpkg
-    layer_name: me_districtr_vtd_view_v2
-    new_layer_name: me_districtr_vtd_view_v2
+  - gpkg: me_districtr_bg_view_v2.gpkg
+    layer_name: me_districtr_bg_view_v2
+    new_layer_name: me_districtr_bg_view_v2
   - gpkg: me_districtr_block_view_v2.gpkg
     layer_name: me_districtr_block_view_v2
     new_layer_name: me_districtr_block_view_v2

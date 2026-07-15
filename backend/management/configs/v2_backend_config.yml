@@ -21,8 +21,10 @@
 # child. Source geopackages live on S3 under `gerrydb/`, named
 # `{geo}_districtr_{layer}_view_v2.gpkg`.
 #
-# The parent layer is `vtd` except for ca, hi, or, wv, whose v2 sources
-# have no vtd layer; they use `bg`.
+# The parent layer is `vtd` except for ca, hi, or, wv (whose v2 sources
+# have no vtd layer) and me (whose vtd layer does not cover the
+# unorganized territories, leaving most blocks there without a parent);
+# these use `bg`.
 #
 # v2 source data splits discontiguous VTDs into contiguous parts with
 # `-datadem-N` suffixed geo_ids; all v2 VTD geometries are single-part.
@@ -140,9 +142,9 @@ gerrydb_views:
 - gpkg: la_districtr_block_view_v2.gpkg
   layer: la_districtr_block_view_v2
   table_name: la_districtr_block_view_v2
-- gpkg: me_districtr_vtd_view_v2.gpkg
-  layer: me_districtr_vtd_view_v2
-  table_name: me_districtr_vtd_view_v2
+- gpkg: me_districtr_bg_view_v2.gpkg
+  layer: me_districtr_bg_view_v2
+  table_name: me_districtr_bg_view_v2
 - gpkg: me_districtr_block_view_v2.gpkg
   layer: me_districtr_block_view_v2
   table_name: me_districtr_block_view_v2
@@ -421,7 +423,7 @@ shatterable_views:
 - child_layer: me_districtr_block_view_v2
   districtr_map_slug: me_districtr_view_v2
   gerrydb_table_name: me_districtr_view_v2
-  parent_layer: me_districtr_vtd_view_v2
+  parent_layer: me_districtr_bg_view_v2
 - child_layer: md_districtr_block_view_v2
   districtr_map_slug: md_districtr_view_v2
   gerrydb_table_name: md_districtr_view_v2
@@ -925,21 +927,21 @@ districtr_maps:
   gerrydb_table_name: me_districtr_view_v2
   name: ME Congressional Districts (2)
   num_districts: 2
-  parent_layer: me_districtr_vtd_view_v2
+  parent_layer: me_districtr_bg_view_v2
   tiles_s3_path: tilesets/me_districtr_view_v2.pmtiles
 - child_layer: me_districtr_block_view_v2
   districtr_map_slug: me_state_senate_districts_v2
   gerrydb_table_name: me_districtr_view_v2
   name: ME State Senate Districts (35)
   num_districts: 35
-  parent_layer: me_districtr_vtd_view_v2
+  parent_layer: me_districtr_bg_view_v2
   tiles_s3_path: tilesets/me_districtr_view_v2.pmtiles
 - child_layer: me_districtr_block_view_v2
   districtr_map_slug: me_state_house_districts_v2
   gerrydb_table_name: me_districtr_view_v2
   name: ME State House Districts (151)
   num_districts: 151
-  parent_layer: me_districtr_vtd_view_v2
+  parent_layer: me_districtr_bg_view_v2
   tiles_s3_path: tilesets/me_districtr_view_v2.pmtiles
 - child_layer: md_districtr_block_view_v2
   districtr_map_slug: md_congressional_districts_v2
@@ -1743,7 +1745,7 @@ districtr_maps:
   name: ME Districts
   num_districts: 2
   num_districts_modifiable: true
-  parent_layer: me_districtr_vtd_view_v2
+  parent_layer: me_districtr_bg_view_v2
   tiles_s3_path: tilesets/me_districtr_view_v2.pmtiles
 - child_layer: md_districtr_block_view_v2
   districtr_map_slug: md_custom_districts_v2
