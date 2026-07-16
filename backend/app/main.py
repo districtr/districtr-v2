@@ -24,6 +24,7 @@ from sqlalchemy.types import Integer
 from sqlmodel import Session, String, select, true, update, col, literal
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 import logging
 from sqlalchemy import bindparam
 from sqlmodel import ARRAY
@@ -159,6 +160,8 @@ if settings.BACKEND_CORS_ORIGINS or settings.BACKEND_CORS_ORIGIN_REGEX:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
 @app.middleware("http")
@@ -341,7 +344,9 @@ def get_document_evaluation(
     status_code=status.HTTP_201_CREATED,
 )
 async def create_document(
-    data: DocumentCreate, session: Session = Depends(get_session)
+    data: DocumentCreate,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
 ):
     # Get DistrictrMap to inherit num_districts and other fields
     districtr_map_stmt = select(DistrictrMap).where(
@@ -620,6 +625,13 @@ async def create_document(
         )
 
     session.commit()
+
+    if doc.public_id and (total_assignments > 0 or copied_document is not None):
+        background_tasks.add_task(
+            publish_district_stats_to_s3,
+            document_id=document_id,
+            public_id=doc.public_id,
+        )
 
     doc_dict = dict(doc._mapping)
     doc_dict["skipped_geo_ids"] = skipped_geo_ids
@@ -1099,7 +1111,16 @@ async def update_assignments(
             ),
             {"document_id": document_id},
         )
+    public_id = session.exec(
+        select(Document.public_id).where(Document.document_id == document_id)
+    ).one_or_none()
     session.commit()
+    if mutated and not is_community_map and public_id is not None:
+        background_tasks.add_task(
+            publish_district_stats_to_s3,
+            document_id=document_id,
+            public_id=public_id,
+        )
     if VERBOSE_LOGGING:
         logger.info(
             f"PUT /api/assignments complete: document_id={document_id}, "
