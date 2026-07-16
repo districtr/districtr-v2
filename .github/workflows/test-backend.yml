@@ -13,8 +13,8 @@ jobs:
     container: python:3.12.6
 
     services:
-      postgres:
-        image: postgis/postgis:16-3.4
+      postgres:        
+        image: postgis/postgis:16-3.5-alpine
         env:
           POSTGRES_SCHEME: postgresql+psycopg
           POSTGRES_USER: postgres
