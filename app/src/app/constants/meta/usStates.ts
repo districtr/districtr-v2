@@ -11,6 +11,7 @@ export const US_STATE_META: Array<{
   {FIPS: '08', NAME: 'Colorado', ABBR: 'CO'},
   {FIPS: '09', NAME: 'Connecticut', ABBR: 'CT'},
   {FIPS: '10', NAME: 'Delaware', ABBR: 'DE'},
+  {FIPS: '11', NAME: 'Washington, DC', ABBR: 'DC'},
   {FIPS: '12', NAME: 'Florida', ABBR: 'FL'},
   {FIPS: '13', NAME: 'Georgia', ABBR: 'GA'},
   {FIPS: '15', NAME: 'Hawaii', ABBR: 'HI'},
