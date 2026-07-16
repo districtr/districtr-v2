@@ -39,7 +39,7 @@ graph TD
     end
 
     subgraph DB["PostgreSQL 15 + PostGIS 3.3"]
-        Tables["Partitioned assignments · PostGIS geometry<br/>Document schema · UDFs (legacy)"]
+        Tables["Assignments (plain tables) · PostGIS geometry<br/>Document schema · district_unions cache · UDFs (legacy)"]
     end
 
     P1 -->|upload| Tiles
@@ -117,9 +117,11 @@ IndexedDB serves as offline cache and conflict resolution source. Debounced writ
 |-------|---------|
 | `DistrictrMap` | Map metadata (slug, layers, tiles path, num_districts, visibility) |
 | `Document` | Map document instance (UUID, auto-increment public_id, metadata JSON) |
-| `Assignments` | Partitioned table: document_id → partition, geo_id → zone mapping |
+| `Assignments` | Plain table: geo_id → zone mapping per document (LIST partitioning removed — was causing ACCESS EXCLUSIVE lock convoys) |
+| `CommunityAssignments` | Plain table: geo_id → community_id mapping (same departition as Assignments) |
+| `DistrictUnions` | Per-zone cached geometry + demographic stats; `zone` and `geometry` nullable for the unassigned-totals row |
 | `GerryDBTable` | Reference to loaded geospatial data layers |
-| `ParentChildEdges` | Shatter topology: parent-child geometry nesting (partitioned) |
+| `ParentChildEdges` | Shatter topology: parent-child geometry nesting (LIST-partitioned on `districtr_map`) |
 
 ### Key API Patterns
 
@@ -131,7 +133,10 @@ IndexedDB serves as offline cache and conflict resolution source. Debounced writ
 ### Database Design
 
 - Schema isolation: `public` for maps/references, `document` schema for document-specific tables
-- Table partitioning on `document_id` for Assignments and ParentChildEdges
+- `document.assignments` and `document.community_assignments` are **plain tables** (LIST partitioning on `document_id` was removed — per-document `CREATE TABLE … PARTITION OF` took ACCESS EXCLUSIVE locks globally, causing lock convoys under concurrent load). `ParentChildEdges` remains LIST-partitioned on `districtr_map`.
+- `document.district_unions` — per-zone cached geometry + demographic totals, rebuilt lazily on cache miss. Only zones whose membership changed on a save are evicted and rebuilt. `zone` and `geometry` are nullable to store an unassigned-totals row (zone = NULL).
+- `document.document` carries two staleness timestamps: `assignments_updated_at` (bumped when zone membership changes) and `stats_published_at` (stamped when the CDN object is published). `/stats` redirects public reads to S3 when `stats_published_at ≥ assignments_updated_at`.
+- `DistrictUnionsResponse.geometry` is `dict | None` — native JSON emitted by `ST_AsGeoJSON(…)::json`, not a serialized string.
 - PostGIS geometry columns for spatial queries
 - **SQLAlchemy-first policy**: No new UDFs; existing UDF paths are legacy
 
@@ -183,7 +188,7 @@ Docker Compose with 5 services: `db` (PostGIS), `backend` (Uvicorn), `frontend` 
 ## Key Architectural Decisions
 
 1. **Server-centric computation** - Metrics, contiguity, and spatial operations run server-side, not in tiles
-2. **Partitioned assignments** - Per-document table partitions for isolation and scale
+2. **Plain assignment tables** - Per-document LIST partitioning was removed; row-level locking on plain tables eliminated lock convoys that caused >90% failure rates under concurrent load
 3. **Optimistic concurrency** - `updated_at` timestamps for conflict detection; IDB as local cache
 4. **Subscription-based sync** - Cross-store effects via explicit subscriptions, not ad hoc listeners
 5. **Worker offloading** - Heavy geometry and data parsing in Web Workers to keep UI responsive
