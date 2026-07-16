@@ -712,6 +712,7 @@ def update_or_select_district_stats(
                 FROM geos
                 {demo_join}
                 GROUP BY zone
+                ON CONFLICT DO NOTHING
                 RETURNING
                     zone,
                     ST_AsGeoJSON(geometry)::json AS geometry,
@@ -728,7 +729,7 @@ def update_or_select_district_stats(
             try:
                 sp = session.begin_nested()
                 result = session.execute(
-                    text(coverage_sql + "\nON CONFLICT DO NOTHING"),
+                    text(coverage_sql),
                     {"document_id": document_id, "missing_zones": list(missing_zones)},
                 )
                 rebuilt_rows = list(result.mappings().all())
@@ -736,7 +737,7 @@ def update_or_select_district_stats(
             except Exception:
                 sp.rollback()
                 result = session.execute(
-                    text(insert_sql + "\nON CONFLICT DO NOTHING"),
+                    text(insert_sql),
                     {"document_id": document_id, "missing_zones": list(missing_zones)},
                 )
                 rebuilt_rows = list(result.mappings().all())
