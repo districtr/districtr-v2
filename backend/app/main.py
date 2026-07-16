@@ -100,9 +100,8 @@ from app.utils import (
     district_stats_to_feature_collection,
     publish_district_stats_to_s3,
     stats_cdn_url,
-    RowFormat, 
-    package_rows, 
-    update_or_select_district_stats
+    RowFormat,
+    package_rows,
 )
 from app.evaluation.graph import get_graph
 from contextlib import asynccontextmanager
@@ -1181,12 +1180,18 @@ async def reset_map(
             {"document_id": document.document_id},
         )
 
-    # Reset color scheme
-    stmt = text(
-        "UPDATE document.document SET color_scheme = NULL WHERE document_id = :document_id"
-    ).bindparams(bindparam(key="document_id", type_=UUIDType))
     session.connection().execute(
-        stmt,
+        text(
+            "DELETE FROM document.district_unions WHERE document_id = :document_id"
+        ).bindparams(bindparam(key="document_id", type_=UUIDType)),
+        {"document_id": document.document_id},
+    )
+    session.connection().execute(
+        text(
+            "UPDATE document.document "
+            "SET color_scheme = NULL, assignments_updated_at = NOW() "
+            "WHERE document_id = :document_id"
+        ).bindparams(bindparam(key="document_id", type_=UUIDType)),
         {"document_id": document.document_id},
     )
 
