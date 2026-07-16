@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import random
 from sqlalchemy import text
 from sqlmodel import Session
+from uuid import UUID
 from app.core.config import settings
 from fastapi import APIRouter, Security, status, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import RedirectResponse
@@ -159,18 +160,19 @@ def _generate_thumbnail(
     [count] = results.one()
 
     if count == 0:
+        validated_id = str(UUID(str(document_id)))
         sql = f"""
             SELECT ST_Collect(geometry) AS geom, zone
             FROM gerrydb.{parent_layer} geos
-            LEFT JOIN "document.assignments_{document_id}" assigned ON geos.path = assigned.geo_id
+            LEFT JOIN document.assignments assigned ON geos.path = assigned.geo_id AND assigned.document_id = '{validated_id}'
             GROUP BY zone
         """
         if child_layer is not None:
             sql += f"""UNION
             (SELECT ST_Collect(geometry) AS geom, zone
-            FROM "document.assignments_{document_id}" assigned
+            FROM document.assignments assigned
             INNER JOIN gerrydb.{child_layer} blocks ON blocks.path = assigned.geo_id
-            WHERE zone IS NOT NULL
+            WHERE assigned.document_id = '{validated_id}' AND zone IS NOT NULL
             GROUP BY zone)"""
     else:
         sql = f"""

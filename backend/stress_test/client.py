@@ -8,6 +8,7 @@ import msgpack
 DOCUMENT = "/api/document/{id}"
 ASSIGNMENTS_GET = "/api/get_assignments/{id}"
 EVALUATION = "/api/document/{id}/evaluation"
+STATS = "/api/document/{id}/stats"
 CREATE_DOCUMENT = "/api/create_document"
 ASSIGNMENTS_PUT = "/api/assignments"
 
@@ -55,6 +56,18 @@ class StressClient:
             f"/api/document/{document_id}/evaluation",
             headers=self.headers,
             name=EVALUATION,
+            catch_response=True,
+        ) as resp:
+            if resp.status_code != 200:
+                resp.failure(f"HTTP {resp.status_code}")
+                return None
+            return resp.json()
+
+    def get_document_stats(self, document_id: str) -> dict | None:
+        with self.http.get(
+            f"/api/document/{document_id}/stats",
+            headers=self.headers,
+            name=STATS,
             catch_response=True,
         ) as resp:
             if resp.status_code != 200:
