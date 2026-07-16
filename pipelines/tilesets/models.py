@@ -126,6 +126,10 @@ class GerryDBTileset(BaseModel):
         Outputs a parquet with x, y, and total_population columns. Output should be in EPSG:4326.
         """
         logger.info("Creating points parquet file...")
+        out_path = f"{settings.OUT_SCRATCH}/{self.layer_name}_points.parquet"
+        if os.path.exists(out_path) and not replace:
+            logger.info("File already exists. Skipping creation.")
+            return out_path
         s3 = settings.get_s3_client()
         url = urlparse(self.gpkg)
         logger.info("URL: %s", url)

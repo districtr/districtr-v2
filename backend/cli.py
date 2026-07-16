@@ -300,6 +300,19 @@ def create_districtr_map(
 )
 @click.option("--comment", "-c", help="Comment", type=str, required=False)
 @click.option(
+    "--districtr-map-slug",
+    "-s",
+    help="Slug of the districtr map to update",
+    type=str,
+    required=True,
+)
+@click.option(
+    "--data-source-name",
+    help="Data source name",
+    type=str,
+    required=False,
+)
+@click.option(
     "--parent-geo-unit-type",
     "-pgeo",
     help="Parent geo unit type for display only.",
@@ -426,8 +439,14 @@ def add_extent_to_districtr_map(
     is_flag=True,
     help="Skip loading data into GerryDB",
 )
+@click.option(
+    "--hidden",
+    is_flag=True,
+    help="Create every map with visible=false, overriding the config; "
+    "a later UPDATE flips visibility to launch",
+)
 def batch_create_districtr_maps(
-    config_file: str, data_dir: str, skip_gerrydb_loads: bool
+    config_file: str, data_dir: str, skip_gerrydb_loads: bool, hidden: bool
 ):
     logger.info(f"Loading data from {config_file}")
 
@@ -436,7 +455,10 @@ def batch_create_districtr_maps(
 
     logger.info("Loading sample data...")
     load_sample_data(
-        config=config, data_dir=data_dir, skip_gerrydb_loads=skip_gerrydb_loads
+        config=config,
+        data_dir=data_dir,
+        skip_gerrydb_loads=skip_gerrydb_loads,
+        visibility_override=False if hidden else None,
     )
 
     logger.info("Successfully loaded new data")
@@ -970,7 +992,7 @@ def stress_test_seed(
 )
 @with_session
 def stress_test_cleanup(session: Session, manifests: tuple[str, ...], yes: bool):
-    """Delete stress-test documents (rows + assignment partitions): everything
+    """Delete stress-test documents (rows + assignment rows): everything
     listed in the given manifests, then — belt and suspenders — any leftover
     document whose metadata name starts with [STRESS-TEST], after confirmation."""
     ids: list[str] = []

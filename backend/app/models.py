@@ -90,6 +90,10 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     # where does this go?
     # when you create the view, pull the columns that you need
     # we'll want discrete management steps
+    # Gates discovery only: the views listing (GET /api/gerrydb/views) filters
+    # on visible, so invisible maps do not appear in the frontend picker.
+    # Documents reference maps by districtr_map_slug without filtering on
+    # visible, so hiding a map never breaks documents already created on it.
     visible: bool = Field(sa_column=Column(Boolean, nullable=False, default=True))
     map_type: str = Field(
         sa_column=Column(
@@ -377,11 +381,6 @@ class DocumentCreatePublic(DocumentPublic):
 
 
 class Assignments(SQLModel, table=True):
-    # this is the empty parent table; not a partition itself
-    __table_args__ = (
-        UniqueConstraint("document_id", "geo_id", name="document_geo_id_unique"),
-        {"postgresql_partition_by": "LIST (document_id)"},
-    )
     metadata = MetaData(schema=DOCUMENT_SCHEMA)
     document_id: str = Field(sa_column=Column(UUIDType, primary_key=True))
     geo_id: str = Field(primary_key=True)
@@ -390,23 +389,6 @@ class Assignments(SQLModel, table=True):
 
 class CommunityAssignments(SQLModel, table=True):
     __tablename__ = "community_assignments"
-    __table_args__ = (
-        Index(
-            "ix_document_community_assignments_community_id",
-            "community_id",
-        ),
-        Index(
-            "ix_document_community_assignments_geo_id",
-            "geo_id",
-        ),
-        UniqueConstraint(
-            "document_id",
-            "community_id",
-            "geo_id",
-            name="document_community_geo_id_unique",
-        ),
-        {"postgresql_partition_by": "LIST (document_id)"},
-    )
     metadata = MetaData(schema=DOCUMENT_SCHEMA)
     document_id: str = Field(sa_column=Column(UUIDType, primary_key=True))
     community_id: int = Field(

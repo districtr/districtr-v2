@@ -104,10 +104,15 @@ _SAFE_IDENT_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 Geoid = NewType("Geoid", str)
 
+# gerrydb sources (v2 onward) split discontiguous units into contiguous parts
+# whose geo_ids carry a `-datadem-N` suffix on the base id. VTDs and block
+# groups can be split; blocks are atomic census units and are never split.
+_BG_GEOID_RE = re.compile(r"\d{12}(-datadem-\d+)?")
+
 # Predicates for identifying parent-unit geo_ids based on the document's parent_geo_unit_type.
 GEOID_PREDICATES: dict[GeoUnitType, Callable[[Geoid], bool]] = {
     GeoUnitType.VTD: lambda geo_id: geo_id.startswith("vtd:"),
-    GeoUnitType.BLOCK_GROUP: lambda geo_id: len(geo_id) == 12 and geo_id.isdigit(),
+    GeoUnitType.BLOCK_GROUP: lambda geo_id: bool(_BG_GEOID_RE.fullmatch(geo_id)),
     GeoUnitType.BLOCK: lambda geo_id: len(geo_id) == 15 and geo_id.isdigit(),
 }
 
