@@ -745,15 +745,19 @@ def update_or_select_district_stats(
             if len(rebuilt_rows) < len(missing_zones):
                 inserted_zones = {r["zone"] for r in rebuilt_rows}
                 conflicted = [z for z in missing_zones if z not in inserted_zones]
-                fill = session.execute(
-                    text(
-                        "SELECT zone, ST_AsGeoJSON(geometry)::json AS geometry, "
-                        "demographic_data, updated_at "
-                        "FROM document.district_unions "
-                        "WHERE document_id = :document_id AND zone = ANY(:zones)"
-                    ).bindparams(bindparam(key="document_id", type_=UUIDType)),
-                    {"document_id": document_id, "zones": conflicted},
-                ).mappings().all()
+                fill = (
+                    session.execute(
+                        text(
+                            "SELECT zone, ST_AsGeoJSON(geometry)::json AS geometry, "
+                            "demographic_data, updated_at "
+                            "FROM document.district_unions "
+                            "WHERE document_id = :document_id AND zone = ANY(:zones)"
+                        ).bindparams(bindparam(key="document_id", type_=UUIDType)),
+                        {"document_id": document_id, "zones": conflicted},
+                    )
+                    .mappings()
+                    .all()
+                )
                 rebuilt_rows.extend(fill)
 
         assigned_rows: list[dict] = list(cached_assigned) + rebuilt_rows
@@ -830,15 +834,19 @@ def update_or_select_district_stats(
                 )
                 if not unassigned_row:
                     # Lost the race — re-fetch from the winner's insert.
-                    unassigned_row = session.execute(
-                        text(
-                            "SELECT zone, ST_AsGeoJSON(geometry)::json AS geometry, "
-                            "demographic_data, updated_at "
-                            "FROM document.district_unions "
-                            "WHERE document_id = :document_id AND zone IS NULL"
-                        ).bindparams(bindparam(key="document_id", type_=UUIDType)),
-                        {"document_id": document_id},
-                    ).mappings().first()
+                    unassigned_row = (
+                        session.execute(
+                            text(
+                                "SELECT zone, ST_AsGeoJSON(geometry)::json AS geometry, "
+                                "demographic_data, updated_at "
+                                "FROM document.district_unions "
+                                "WHERE document_id = :document_id AND zone IS NULL"
+                            ).bindparams(bindparam(key="document_id", type_=UUIDType)),
+                            {"document_id": document_id},
+                        )
+                        .mappings()
+                        .first()
+                    )
                 if unassigned_row:
                     returned_rows.append(
                         DistrictUnionsResponse.model_validate(unassigned_row)
