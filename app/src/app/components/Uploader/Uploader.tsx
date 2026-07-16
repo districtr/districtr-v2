@@ -26,18 +26,13 @@ export const Uploader: React.FC<{
 
   useEffect(() => {
     // Custom (num_districts_modifiable) maps live in the 'custom' group, not
-    // 'states', so they don't clutter the public map picker. Fetch both so
-    // map inference can prefer custom maps with congressional as fallback.
-    Promise.all([getAvailableDistrictrMaps({}), getAvailableDistrictrMaps({group: 'custom'})]).then(
-      ([states, custom]) => {
-        if (states.ok || custom.ok) {
-          setAvailableMaps([
-            ...(custom.ok ? custom.response : []),
-            ...(states.ok ? states.response : []),
-          ]);
-        }
+    // 'states', so they don't clutter the public map picker. CSV imports
+    // target custom maps exclusively.
+    getAvailableDistrictrMaps({group: 'custom'}).then(custom => {
+      if (custom.ok) {
+        setAvailableMaps(custom.response);
       }
-    );
+    });
   }, []);
 
   useEffect(() => {
