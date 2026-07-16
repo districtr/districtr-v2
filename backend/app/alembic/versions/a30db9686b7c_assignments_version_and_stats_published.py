@@ -1,7 +1,7 @@
 """assignments_updated_at, stats_published_at, district_unions partial uniques
 
 Revision ID: a30db9686b7c
-Revises: b4e2f8a91c30
+Revises: 7e57b49573e0
 Create Date: 2026-06-09 00:00:00.000000
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 
 revision: str = "a30db9686b7c"
-down_revision: Union[str, None] = "b4e2f8a91c30"
+down_revision: Union[str, None] = "7e57b49573e0"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
