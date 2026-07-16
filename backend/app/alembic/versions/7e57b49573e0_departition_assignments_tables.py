@@ -17,6 +17,18 @@ A nested-loop join via the existing (child_path, districtr_map) index was also
 tested: 140ms, worse than the planner's hash join. If get_assignments ever
 needs to be faster, denormalize parent_path onto assignments; don't partition.
 
+Runs in two phases because a single-transaction DROP CASCADE of N partitions
+needs ~3-4 lock slots per partition and exhausted the lock table
+(max_locks_per_transaction × max_connections) on databases with thousands of
+stress-test partitions:
+- Phase 1 (one transaction, atomic): rename the partitioned parents out of the
+  way, create plain tables, copy data, build PKs. Lock cost is ~1 AccessShare
+  per partition (the copy scan) — the part that fit even where the drop failed.
+- Phase 2 (autocommit): drop the orphaned partitions in batches of 500
+  (~2k lock slots per transaction), then the old parents. Safe to re-run: a
+  failure here leaves the migration unstamped, and phase 1 skips tables that
+  are already plain.
+
 Revision ID: 7e57b49573e0
 Revises: 3e2c40e7d148
 Create Date: 2026-07-16 12:00:00.000000
@@ -25,6 +37,7 @@ Create Date: 2026-07-16 12:00:00.000000
 
 from typing import Sequence, Union
 
+import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
@@ -33,65 +46,53 @@ down_revision: Union[str, None] = "3e2c40e7d148"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
+_OLD_SUFFIX = "_old_departition"
+_DROP_BATCH = 500
+
+_TABLES = (
+    (
+        "assignments",
+        "document_id UUID NOT NULL, geo_id VARCHAR NOT NULL, zone INTEGER",
+        "document_id, geo_id, zone",
+        "assignments_pkey PRIMARY KEY (document_id, geo_id)",
+    ),
+    (
+        "community_assignments",
+        "document_id UUID NOT NULL, community_id SMALLINT NOT NULL, geo_id VARCHAR NOT NULL",
+        "document_id, community_id, geo_id",
+        "community_assignments_pkey PRIMARY KEY (document_id, community_id, geo_id)",
+    ),
+)
+
 
 def upgrade() -> None:
-    # Serialize against all app writers for the whole transaction. Without
-    # this, a write committing between the INSERT..SELECT and the DROP would
-    # be silently lost.
-    op.execute("LOCK TABLE document.assignments IN ACCESS EXCLUSIVE MODE")
-    op.execute("LOCK TABLE document.community_assignments IN ACCESS EXCLUSIVE MODE")
+    conn = op.get_bind()
 
-    op.execute(
-        """
-        CREATE TABLE document.assignments_new (
-            document_id UUID NOT NULL,
-            geo_id VARCHAR NOT NULL,
-            zone INTEGER
-        )
-        """
-    )
-    op.execute(
-        """
-        INSERT INTO document.assignments_new (document_id, geo_id, zone)
-        SELECT document_id, geo_id, zone FROM document.assignments
-        """
-    )
-    # CASCADE drops every per-document partition (public."document.assignments_<uuid>")
-    op.execute("DROP TABLE document.assignments CASCADE")
-    op.execute("ALTER TABLE document.assignments_new RENAME TO assignments")
-    # PK added after the bulk load: one fast index build instead of
-    # incremental maintenance. Old PK was named document_geo_id_unique.
-    op.execute(
-        """
-        ALTER TABLE document.assignments
-        ADD CONSTRAINT assignments_pkey PRIMARY KEY (document_id, geo_id)
-        """
-    )
+    # ---- Phase 1: atomic swap. The ACCESS EXCLUSIVE lock held to the end of
+    # the transaction means no write can slip between the copy and the rename.
+    for table, columns, column_list, pk in _TABLES:
+        is_partitioned = conn.execute(
+            sa.text(
+                "SELECT c.relkind = 'p' FROM pg_class c "
+                "JOIN pg_namespace n ON n.oid = c.relnamespace "
+                "WHERE n.nspname = 'document' AND c.relname = :t"
+            ),
+            {"t": table},
+        ).scalar()
+        if not is_partitioned:
+            continue  # re-run after a phase-2 failure: this table already swapped
 
-    op.execute(
-        """
-        CREATE TABLE document.community_assignments_new (
-            document_id UUID NOT NULL,
-            community_id SMALLINT NOT NULL,
-            geo_id VARCHAR NOT NULL
+        op.execute(f"LOCK TABLE document.{table} IN ACCESS EXCLUSIVE MODE")
+        op.execute(f"ALTER TABLE document.{table} RENAME TO {table}{_OLD_SUFFIX}")
+        op.execute(f"CREATE TABLE document.{table} ({columns})")
+        op.execute(
+            f"INSERT INTO document.{table} ({column_list}) "
+            f"SELECT {column_list} FROM document.{table}{_OLD_SUFFIX}"
         )
-        """
-    )
-    op.execute(
-        """
-        INSERT INTO document.community_assignments_new (document_id, community_id, geo_id)
-        SELECT document_id, community_id, geo_id FROM document.community_assignments
-        """
-    )
-    op.execute("DROP TABLE document.community_assignments CASCADE")
-    op.execute("ALTER TABLE document.community_assignments_new RENAME TO community_assignments")
-    op.execute(
-        """
-        ALTER TABLE document.community_assignments
-        ADD CONSTRAINT community_assignments_pkey
-        PRIMARY KEY (document_id, community_id, geo_id)
-        """
-    )
+        # PK added after the bulk load: one fast index build instead of
+        # incremental maintenance. Old PKs were named document_geo_id_unique /
+        # document_community_geo_id_unique.
+        op.execute(f"ALTER TABLE document.{table} ADD CONSTRAINT {pk}")
     # Intentionally not recreated:
     #  - ix_document_community_assignments_community_id / _geo_id: every query
     #    filters on document_id first, so the PK prefix covers them; dropping
@@ -103,9 +104,32 @@ def upgrade() -> None:
     op.execute("DROP FUNCTION IF EXISTS create_document(TEXT)")
     op.execute("DROP FUNCTION IF EXISTS create_assignment_partition_sql(TEXT)")
 
-    # Fresh tables have no planner stats until autoanalyze runs.
-    op.execute("ANALYZE document.assignments")
-    op.execute("ANALYZE document.community_assignments")
+    # ---- Phase 2: drop the orphaned partitions in lock-bounded batches.
+    with op.get_context().autocommit_block():
+        for table, *_ in _TABLES:
+            old = f"document.{table}{_OLD_SUFFIX}"
+            while True:
+                names = (
+                    conn.execute(
+                        sa.text(
+                            "SELECT format('%I.%I', n.nspname, c.relname) "
+                            "FROM pg_inherits i "
+                            "JOIN pg_class c ON c.oid = i.inhrelid "
+                            "JOIN pg_namespace n ON n.oid = c.relnamespace "
+                            "WHERE i.inhparent = to_regclass(:parent) "
+                            "LIMIT :batch"
+                        ),
+                        {"parent": old, "batch": _DROP_BATCH},
+                    )
+                    .scalars()
+                    .all()
+                )
+                if not names:
+                    break
+                conn.execute(sa.text("DROP TABLE " + ", ".join(names)))
+            op.execute(f'DROP TABLE IF EXISTS {old}')
+            # Fresh tables have no planner stats until autoanalyze runs.
+            op.execute(f"ANALYZE document.{table}")
 
 
 def downgrade() -> None:
