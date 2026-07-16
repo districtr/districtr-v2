@@ -1334,7 +1334,6 @@ def test_get_district_unions(client, document_id_total_vap):
     ]
     assert len(assigned_features) == 2
     assert len(unassigned_features) == 1
-    # geometry is now an embedded JSON object, not a stringified GeoJSON blob
     assert assigned_features[0].get("geometry") is not None
     assert isinstance(assigned_features[0].get("geometry"), dict)
     assert assigned_features[0]["properties"].get("demographic_data")

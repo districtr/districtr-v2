@@ -774,7 +774,6 @@ def update_or_select_district_stats(
         ) or (rebuilt_rows and parent_layer and demographic_json)
 
         if needs_unassigned and parent_layer and demographic_json:
-            # Drop any stale unassigned row before reinserting.
             session.execute(
                 text(
                     "DELETE FROM document.district_unions "
@@ -932,7 +931,7 @@ def publish_district_stats_to_s3(
         ).first()
         if not doc_snap:
             return
-        # #5: thundering-herd guard — skip if another task already published
+        # Thundering-herd guard — skip if another task already published
         # a fresh object for this document.
         if (
             doc_snap.stats_published_at is not None
@@ -941,15 +940,15 @@ def publish_district_stats_to_s3(
         ):
             return
         # Snapshot the assignments timestamp before rebuilding so the stamp
-        # below (#4) reflects what we built from, not when we finished. If a
-        # save commits mid-publish its newer assignments_updated_at will still
-        # exceed our stats_published_at, keeping cdn_fresh False.
+        # reflects what we built from, not when we finished. If a save commits
+        # mid-publish its newer assignments_updated_at will still exceed our
+        # stats_published_at, keeping cdn_fresh False.
         snap_ts = doc_snap.assignments_updated_at
 
         rows = update_or_select_district_stats(
             owned_session, document_id, BackgroundTasks()
         )
-        # #7: call thumbnail directly so it isn't swallowed by the throwaway bag.
+        # Call thumbnail directly — passing BackgroundTasks() would swallow the enqueue.
         if any(r.zone is not None and r.geometry is not None for r in rows):
             generate_thumbnail(document_id=document_id, out_directory=THUMBNAIL_BUCKET)
 
@@ -968,7 +967,7 @@ def publish_district_stats_to_s3(
             CacheControl="public, max-age=60, must-revalidate",
         )
 
-        # #4: stamp with the pre-rebuild snapshot, not NOW().
+        # Stamp with the pre-rebuild snapshot, not NOW().
         owned_session.execute(
             text(
                 "UPDATE document.document SET stats_published_at = :ts "
