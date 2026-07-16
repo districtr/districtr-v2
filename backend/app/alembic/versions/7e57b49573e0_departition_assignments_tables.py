@@ -22,7 +22,7 @@ needs ~3-4 lock slots per partition and exhausted the lock table
 (max_locks_per_transaction × max_connections) on databases with thousands of
 stress-test partitions:
 - Phase 1 (one transaction, atomic): rename the partitioned parents out of the
-  way, create plain tables, copy data, build PKs. Lock cost is ~1 AccessShare
+  way, create plain tables, copy data, build PKs, analyze. Lock cost is ~1 AccessShare
   per partition (the copy scan) — the part that fit even where the drop failed.
 - Phase 2 (autocommit): drop the orphaned partitions in batches, then the old
   parents. Safe to re-run: a failure here leaves the migration unstamped, and
@@ -46,9 +46,11 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 _OLD_SUFFIX = "_old_departition"
-# Each dropped partition costs ~3-4 lock-table slots; 500/batch stays well
-# under max_locks_per_transaction × max_connections even on small instances.
-_DROP_BATCH = 500
+# A dropped community_assignments partition locks ~7 relations (heap, 4
+# indexes, TOAST table + index); 200/batch keeps a batch under ~1,400 slots,
+# a fraction of max_locks_per_transaction × max_connections even on small
+# instances.
+_DROP_BATCH = 200
 
 # The old ix_document_community_assignments_community_id / _geo_id indexes are
 # intentionally not recreated: every query filters on document_id first, so
@@ -70,16 +72,19 @@ _TABLES = [
 
 
 def _is_partitioned(conn, table: str) -> bool:
-    return bool(
-        conn.execute(
-            sa.text(
-                "SELECT c.relkind = 'p' FROM pg_class c "
-                "JOIN pg_namespace n ON n.oid = c.relnamespace "
-                "WHERE n.nspname = 'document' AND c.relname = :t"
-            ),
-            {"t": table},
-        ).scalar()
-    )
+    partitioned = conn.execute(
+        sa.text(
+            "SELECT c.relkind = 'p' FROM pg_class c "
+            "JOIN pg_namespace n ON n.oid = c.relnamespace "
+            "WHERE n.nspname = 'document' AND c.relname = :t"
+        ),
+        {"t": table},
+    ).scalar()
+    if partitioned is None:
+        # Missing entirely (botched restore, manual drop): fail loudly rather
+        # than stamping a migration that leaves the app with no table.
+        raise RuntimeError(f"document.{table} does not exist")
+    return partitioned
 
 
 def _swap_to_plain_table(table: str, columns: str, select_list: str, pk_columns: str):
@@ -106,6 +111,9 @@ def _swap_to_plain_table(table: str, columns: str, select_list: str, pk_columns:
         f"ALTER TABLE document.{table} "
         f"ADD CONSTRAINT {table}_pkey PRIMARY KEY ({pk_columns})"
     )
+    # ANALYZE is transaction-safe, so stats commit atomically with the swap —
+    # the new table is never live without planner statistics.
+    op.execute(f"ANALYZE document.{table}")
 
 
 def _drop_old_partitions(conn, table: str):
@@ -131,7 +139,8 @@ def _drop_old_partitions(conn, table: str):
         )
         if not partitions:
             break
-        conn.execute(sa.text("DROP TABLE " + ", ".join(partitions)))
+        # IF EXISTS: tolerate a concurrent runner dropping the same batch.
+        conn.execute(sa.text("DROP TABLE IF EXISTS " + ", ".join(partitions)))
     op.execute(f"DROP TABLE IF EXISTS {old}")
 
 
@@ -151,11 +160,10 @@ def upgrade() -> None:
     op.execute("DROP FUNCTION IF EXISTS create_assignment_partition_sql(TEXT)")
 
     # Phase 2 (autocommit): drop the orphaned partitions in lock-bounded
-    # batches, then refresh planner stats on the new tables.
+    # batches, then the old parents.
     with op.get_context().autocommit_block():
         for spec in _TABLES:
             _drop_old_partitions(conn, spec["table"])
-            op.execute(f"ANALYZE document.{spec['table']}")
 
 
 def downgrade() -> None:
