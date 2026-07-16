@@ -28,7 +28,7 @@ import logging
 from sqlalchemy import bindparam
 from sqlmodel import ARRAY
 from datetime import datetime
-from uuid import UUID, uuid4
+from uuid import uuid4
 import sentry_sdk
 from prometheus_fastapi_instrumentator import Instrumentator
 from app.assignments import (
@@ -192,67 +192,6 @@ def update_timestamp(
     )
     updated_at = session.connection().execute(update_stmt).scalar_one()
     return updated_at
-
-
-_PARTITION_TABLES = ("assignments", "community_assignments")
-
-
-def _validate_partition_identifiers(document_id: str, table_name: str) -> None:
-    if table_name not in _PARTITION_TABLES:
-        raise ValueError(
-            f"Unsupported partition table: {table_name!r}. "
-            f"Expected one of {_PARTITION_TABLES}."
-        )
-    try:
-        UUID(document_id)
-    except (ValueError, TypeError, AttributeError) as exc:
-        raise ValueError(f"document_id must be a UUID; got {document_id!r}") from exc
-
-
-def create_document_partition(
-    session: Session, document_id: str, table_name: str
-) -> None:
-    """
-    Create a partition for a document in the specified table (assignments or community_assignments).
-
-    Args:
-        session (Session): The database session to use for executing the SQL statement.
-        document_id (str): The ID of the document for which to create the partition.
-        table_name (str): Must be one of "assignments" or "community_assignments".
-    """
-    _validate_partition_identifiers(document_id, table_name)
-    partition_name = f"document.{table_name}_{document_id}"
-    stmt = text(f"""
-        CREATE TABLE "{partition_name}"
-        PARTITION OF document.{table_name}
-        FOR VALUES IN ('{document_id}')
-    """)
-    session.connection().execute(stmt)
-
-
-def reset_document_partition(
-    session: Session, document_id: str, table_name: str
-) -> None:
-    """
-    Drop and recreate a partition for a document in the specified table
-    (assignments or community_assignments).
-
-    Args:
-        session (Session): The database session to use for executing the SQL statements.
-        document_id (str): The ID of the document for which to reset the partition.
-        table_name (str): Must be one of "assignments" or "community_assignments".
-    """
-    _validate_partition_identifiers(document_id, table_name)
-    partition_name = f"document.{table_name}_{document_id}"
-    session.connection().execute(
-        text(f'DROP TABLE IF EXISTS "{partition_name}" CASCADE;')
-    )
-    stmt = text(f"""
-        CREATE TABLE "{partition_name}"
-        PARTITION OF document.{table_name}
-        FOR VALUES IN ('{document_id}')
-    """)
-    session.connection().execute(stmt)
 
 
 def duplicate_document_comments(
@@ -457,11 +396,6 @@ async def create_document(
     )
     session.add(new_document)
     session.flush()  # Flush to get the public_id assigned
-    # Under most circumstances, we DO NOT want to use f-strings in SQL statements.
-    # However, in this case, we are using a dynamic table name, and SQLAlchemy / Postgres do not
-    # support bind params for identifiers or partition values, so we need to use f-strings.
-    create_document_partition(session, document_id, "assignments")
-    create_document_partition(session, document_id, "community_assignments")
 
     total_assignments = 0
     skipped_geo_ids: list[str] = []
@@ -1092,8 +1026,13 @@ async def reset_map(
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
 ):
-    reset_document_partition(session, document.document_id, "assignments")
-    reset_document_partition(session, document.document_id, "community_assignments")
+    for table in ("document.assignments", "document.community_assignments"):
+        session.connection().execute(
+            text(f"DELETE FROM {table} WHERE document_id = :document_id").bindparams(
+                bindparam(key="document_id", type_=UUIDType)
+            ),
+            {"document_id": document.document_id},
+        )
 
     # Reset color scheme
     stmt = text(
@@ -1107,7 +1046,7 @@ async def reset_map(
     session.commit()
 
     return {
-        "message": "Assignments partition reset",
+        "message": "Assignments reset",
         "document_id": document.document_id,
     }
 
