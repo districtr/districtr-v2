@@ -718,11 +718,43 @@ def update_or_select_district_stats(
                     demographic_data,
                     updated_at
             """
-            result = session.execute(
-                text(insert_sql),
-                {"document_id": document_id, "missing_zones": list(missing_zones)},
+            # ST_CoverageUnion is faster (linear) but requires valid coverage
+            # topology (no overlaps, shared edges identical). Fall back to
+            # ST_UnaryUnion if it errors (topology violation or old PostGIS).
+            coverage_sql = insert_sql.replace(
+                "ST_UnaryUnion(ST_Collect(geos.geometry))",
+                "ST_CoverageUnion(ST_Collect(geos.geometry))",
             )
-            rebuilt_rows = list(result.mappings().all())
+            try:
+                sp = session.begin_nested()
+                result = session.execute(
+                    text(coverage_sql + "\nON CONFLICT DO NOTHING"),
+                    {"document_id": document_id, "missing_zones": list(missing_zones)},
+                )
+                rebuilt_rows = list(result.mappings().all())
+                sp.commit()
+            except Exception:
+                sp.rollback()
+                result = session.execute(
+                    text(insert_sql + "\nON CONFLICT DO NOTHING"),
+                    {"document_id": document_id, "missing_zones": list(missing_zones)},
+                )
+                rebuilt_rows = list(result.mappings().all())
+            # Zones that lost the race (DO NOTHING) won't appear in RETURNING —
+            # re-select them from the now-populated cache.
+            if len(rebuilt_rows) < len(missing_zones):
+                inserted_zones = {r["zone"] for r in rebuilt_rows}
+                conflicted = [z for z in missing_zones if z not in inserted_zones]
+                fill = session.execute(
+                    text(
+                        "SELECT zone, ST_AsGeoJSON(geometry)::json AS geometry, "
+                        "demographic_data, updated_at "
+                        "FROM document.district_unions "
+                        "WHERE document_id = :document_id AND zone = ANY(:zones)"
+                    ).bindparams(bindparam(key="document_id", type_=UUIDType)),
+                    {"document_id": document_id, "zones": conflicted},
+                ).mappings().all()
+                rebuilt_rows.extend(fill)
 
         assigned_rows: list[dict] = list(cached_assigned) + rebuilt_rows
         returned_rows: list[DistrictUnionsResponse] = [
@@ -778,6 +810,7 @@ def update_or_select_district_stats(
                     INSERT INTO document.district_unions
                         (document_id, zone, geometry, demographic_data, created_at, updated_at)
                     VALUES (:document_id, NULL, NULL, :demographic_data, NOW(), NOW())
+                    ON CONFLICT DO NOTHING
                     RETURNING
                         zone,
                         ST_AsGeoJSON(geometry)::json AS geometry,
@@ -795,6 +828,17 @@ def update_or_select_district_stats(
                     .mappings()
                     .first()
                 )
+                if not unassigned_row:
+                    # Lost the race — re-fetch from the winner's insert.
+                    unassigned_row = session.execute(
+                        text(
+                            "SELECT zone, ST_AsGeoJSON(geometry)::json AS geometry, "
+                            "demographic_data, updated_at "
+                            "FROM document.district_unions "
+                            "WHERE document_id = :document_id AND zone IS NULL"
+                        ).bindparams(bindparam(key="document_id", type_=UUIDType)),
+                        {"document_id": document_id},
+                    ).mappings().first()
                 if unassigned_row:
                     returned_rows.append(
                         DistrictUnionsResponse.model_validate(unassigned_row)
@@ -868,25 +912,39 @@ def publish_district_stats_to_s3(
         return
 
     with Session(engine) as owned_session:
-        # In test environments the calling request's transaction can be
-        # rolled back before this background task runs, leaving the document
-        # invisible from a fresh session. That's not a real error — just
-        # exit quietly so we don't log a scary "Failed to update" trace.
-        exists = owned_session.execute(
+        # Read freshness snapshot before any work. In test environments the
+        # calling request's transaction can be rolled back before this task
+        # runs, leaving the document invisible — exit quietly in that case.
+        doc_snap = owned_session.execute(
             text(
-                "SELECT 1 FROM document.document WHERE document_id = :document_id"
+                "SELECT assignments_updated_at, stats_published_at "
+                "FROM document.document WHERE document_id = :document_id"
             ).bindparams(bindparam(key="document_id", type_=UUIDType)),
             {"document_id": document_id},
         ).first()
-        if not exists:
+        if not doc_snap:
             return
+        # #5: thundering-herd guard — skip if another task already published
+        # a fresh object for this document.
+        if (
+            doc_snap.stats_published_at is not None
+            and doc_snap.assignments_updated_at is not None
+            and doc_snap.stats_published_at >= doc_snap.assignments_updated_at
+        ):
+            return
+        # Snapshot the assignments timestamp before rebuilding so the stamp
+        # below (#4) reflects what we built from, not when we finished. If a
+        # save commits mid-publish its newer assignments_updated_at will still
+        # exceed our stats_published_at, keeping cdn_fresh False.
+        snap_ts = doc_snap.assignments_updated_at
 
-        # Pull rows via the same code path so the cache stays warm. A throw-
-        # away BackgroundTasks bag swallows the thumbnail enqueue that would
-        # otherwise need a request scope.
         rows = update_or_select_district_stats(
             owned_session, document_id, BackgroundTasks()
         )
+        # #7: call thumbnail directly so it isn't swallowed by the throwaway bag.
+        if any(r.zone is not None and r.geometry is not None for r in rows):
+            generate_thumbnail(document_id=document_id, out_directory=THUMBNAIL_BUCKET)
+
         body = json_mod.dumps(
             district_stats_to_feature_collection(rows),
             separators=(",", ":"),
@@ -899,18 +957,16 @@ def publish_district_stats_to_s3(
             Body=gzipped,
             ContentType="application/geo+json",
             ContentEncoding="gzip",
-            # Short TTL with revalidation: the object URL is stable per
-            # public_id, so we can't rely on immutable caching. Frontend can
-            # cache-bust with ?v={stats_published_at} when the doc changes.
             CacheControl="public, max-age=60, must-revalidate",
         )
 
+        # #4: stamp with the pre-rebuild snapshot, not NOW().
         owned_session.execute(
             text(
-                "UPDATE document.document SET stats_published_at = NOW() "
+                "UPDATE document.document SET stats_published_at = :ts "
                 "WHERE document_id = :document_id"
             ).bindparams(bindparam(key="document_id", type_=UUIDType)),
-            {"document_id": document_id},
+            {"document_id": document_id, "ts": snap_ts},
         )
         owned_session.commit()
 
