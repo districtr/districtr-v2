@@ -25,9 +25,19 @@ export const Uploader: React.FC<{
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    getAvailableDistrictrMaps({}).then(result => {
-      if (result.ok) setAvailableMaps(result.response);
-    });
+    // Custom (num_districts_modifiable) maps live in the 'custom' group, not
+    // 'states', so they don't clutter the public map picker. Fetch both so
+    // map inference can prefer custom maps with congressional as fallback.
+    Promise.all([getAvailableDistrictrMaps({}), getAvailableDistrictrMaps({group: 'custom'})]).then(
+      ([states, custom]) => {
+        if (states.ok || custom.ok) {
+          setAvailableMaps([
+            ...(custom.ok ? custom.response : []),
+            ...(states.ok ? states.response : []),
+          ]);
+        }
+      }
+    );
   }, []);
 
   useEffect(() => {

@@ -87,16 +87,15 @@ const partitionRows = (rows: string[][]): PartitionResult => {
 
 // Slug patterns must stay in sync with how maps are named in the DB
 // A mismatch will silently break CSV import for that state.
-const inferCongressionalMap = (
-  fips: string,
-  availableMaps: DistrictrMap[]
-): DistrictrMap | null => {
+const inferMapForCsv = (fips: string, availableMaps: DistrictrMap[]): DistrictrMap | null => {
   const abbr = FIPS_TO_ABBR[fips];
   if (!abbr) return null;
   const lower = abbr.toLowerCase();
-  // Prefer the canonical congressional slug, then name-matching, then state senate
-  // as a fallback for at-large states (AK, DE, ND, SD, WY) that have no congressional map.
+  // Prefer custom_districts maps (num_districts_modifiable=true) so the zone count
+  // from the CSV drives the district count instead of locking to a fixed map.
+  // Fall back to congressional, then name-matching, then state senate for at-large states.
   return (
+    availableMaps.find(m => m.districtr_map_slug === `${lower}_custom_districts`) ??
     availableMaps.find(m => m.districtr_map_slug === `${lower}_congressional_districts`) ??
     availableMaps.find(
       m =>
@@ -183,12 +182,12 @@ export const processFile = ({
       }
 
       const fips = [...stateFipsSet][0];
-      const districtrMap = inferCongressionalMap(fips, availableMaps);
+      const districtrMap = inferMapForCsv(fips, availableMaps);
       if (!districtrMap) {
         const stateName = FIPS_TO_NAME[fips] ?? `FIPS ${fips}`;
         setError({
           ok: false,
-          detail: {message: `No congressional map found for ${stateName}`},
+          detail: {message: `No map found for ${stateName}`},
         });
         return;
       }

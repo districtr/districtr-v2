@@ -1057,14 +1057,15 @@ def test_zone_label_remapping_returned_and_excludes_numeric(
 
 
 def test_zone_label_remapping_returned_and_excludes_numeric_with_out_of_bounds(
-    client, simple_shatterable_districtr_map, mock_grid_graph_file
+    client, simple_shatterable_fixed_districtr_map, mock_grid_graph_file
 ):
-    # Zone "1" is in-bounds (num_districts=3) — must NOT appear in remapping.
-    # Zone "5" exceeds num_districts=3, so it gets reassigned — must appear.
+    # On a fixed-districts map: zone "1" is in-bounds (num_districts=3) — must
+    # NOT appear in remapping. Zone "5" exceeds num_districts=3, so it gets
+    # reassigned — must appear.
     response = client.post(
         "/api/create_document",
         json={
-            "districtr_map_slug": "simple_geos",
+            "districtr_map_slug": "simple_geos_fixed",
             "assignments": [
                 ["000010000000001", "1"],
                 ["000010000000003", "1"],
@@ -1078,6 +1079,28 @@ def test_zone_label_remapping_returned_and_excludes_numeric_with_out_of_bounds(
     assert "5" in remapping
     assert remapping["5"] != 5
     assert "1" not in remapping
+
+
+def test_out_of_bounds_zone_accepted_on_modifiable_map(
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
+):
+    # On a modifiable map, zone "5" beyond the default num_districts=3 is kept
+    # as-is (no remapping) and the document's num_districts grows to match.
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos",
+            "assignments": [
+                ["000010000000001", "1"],
+                ["000010000000003", "1"],
+                ["000010000000006", "5"],
+            ],
+        },
+    )
+    data = response.json()
+    assert response.status_code == 201, data.get("detail")
+    assert data.get("zone_label_remapping", {}) == {}
+    assert data["num_districts"] == 5
 
 
 def test_zone_label_remapping_excludes_labels_with_no_valid_geoids(
@@ -1126,9 +1149,101 @@ def test_zone_label_remapping_blank_label(
 
 
 def test_new_document_from_block_assignments_too_many_unique_zones(
+    client, simple_shatterable_fixed_districtr_map, mock_grid_graph_file
+):
+    # 5 distinct zones with num_districts=3 on a fixed map → ValueError → 422.
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos_fixed",
+            "assignments": [
+                ["000010000000001", "1"],
+                ["000010000000002", "2"],
+                ["000010000000003", "3"],
+                ["000010000000004", "4"],
+                ["000010000000005", "1"],
+                ["000010000000006", "5"],
+            ],
+        },
+    )
+    assert response.status_code == 422
+
+
+def test_fixed_map_without_num_districts_raises(
+    client, session, simple_shatterable_districtr_map, mock_grid_graph_file
+):
+    # A fixed-district map with num_districts=NULL is broken data; uploading
+    # assignments to it must fail loudly rather than silently uncapping zones.
+    create_districtr_map(
+        session,
+        name="Broken fixed map",
+        districtr_map_slug="simple_geos_broken",
+        gerrydb_table_name="simple_geos",
+        num_districts=None,
+        num_districts_modifiable=False,
+        parent_layer="simple_parent_geos",
+        child_layer="simple_child_geos",
+    )
+    session.commit()
+    with pytest.raises(RuntimeError, match="num_districts is NULL"):
+        client.post(
+            "/api/create_document",
+            json={
+                "districtr_map_slug": "simple_geos_broken",
+                "assignments": [["000010000000001", "1"]],
+            },
+        )
+
+
+def test_partial_plan_keeps_default_num_districts_on_modifiable_map(
     client, simple_shatterable_districtr_map, mock_grid_graph_file
 ):
-    # 5 distinct zones with num_districts=3 → ValueError → 422.
+    # A partial plan using fewer zones than the map's default (num_districts=3)
+    # must not shrink the document's district count below that default.
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos",
+            "assignments": [
+                ["000010000000001", "1"],
+                ["000010000000003", "2"],
+            ],
+        },
+    )
+    data = response.json()
+    assert response.status_code == 201, data.get("detail")
+    assert data["num_districts"] == 3
+
+
+def test_outlier_zone_label_remapped_on_modifiable_map(
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
+):
+    # A lone accidental label ('196' on a default-3 map) is remapped instead of
+    # inflating the district count; the original label is reported so it can be
+    # preserved as a district comment.
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos",
+            "assignments": [
+                ["000010000000001", "1"],
+                ["000010000000003", "196"],
+            ],
+        },
+    )
+    data = response.json()
+    assert response.status_code == 201, data.get("detail")
+    assert data["num_districts"] == 3
+    remapping = data.get("zone_label_remapping", {})
+    assert "196" in remapping
+    assert remapping["196"] <= 3
+
+
+def test_many_unique_zones_accepted_on_modifiable_map(
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
+):
+    # 5 distinct zones exceed the modifiable map's default num_districts=3;
+    # the upload succeeds and the document's num_districts follows the CSV.
     response = client.post(
         "/api/create_document",
         json={
@@ -1143,7 +1258,9 @@ def test_new_document_from_block_assignments_too_many_unique_zones(
             ],
         },
     )
-    assert response.status_code == 422
+    data = response.json()
+    assert response.status_code == 201, data.get("detail")
+    assert data["num_districts"] == 5
 
 
 def test_new_document_from_block_assignments_no_children(

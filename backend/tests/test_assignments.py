@@ -1,7 +1,7 @@
 import networkx as nx
 import pytest
 
-from app.assignments.assignments import _heal_or_fill
+from app.assignments.assignments import _detect_outlier_labels, _heal_or_fill
 
 
 @pytest.fixture
@@ -76,3 +76,40 @@ def test_no_child_nodes_unaffected(two_parent_graph):
     two_parent_graph.add_node("standalone")
     result = _heal_or_fill({"standalone": 3}, two_parent_graph)
     assert result == {"standalone": 3}
+
+
+# --- outlier label detection ---
+
+
+def test_outlier_single_huge_label_flagged():
+    # A lone zone labeled '196' on a map defaulting to 8 districts is accidental.
+    assert _detect_outlier_labels({"196"}, 8) == {"196"}
+
+
+def test_outlier_partial_plan_label_trusted():
+    # 'district 5 of 8' style partial plans are within the reference — trusted.
+    assert _detect_outlier_labels({"5"}, 8) == set()
+
+
+def test_outlier_among_dense_labels_flagged():
+    labels = {str(i) for i in range(1, 11)} | {"196"}
+    assert _detect_outlier_labels(labels, 8) == {"196"}
+
+
+def test_two_outliers_flagged():
+    labels = {str(i) for i in range(1, 11)} | {"150", "196"}
+    assert _detect_outlier_labels(labels, 8) == {"150", "196"}
+
+
+def test_spread_out_labels_trusted():
+    # Three similarly large labels anchor the reference — genuinely spread out.
+    assert _detect_outlier_labels({"100", "200", "300"}, 8) == set()
+
+
+def test_dense_plan_untouched():
+    labels = {str(i) for i in range(1, 18)}
+    assert _detect_outlier_labels(labels, 8) == set()
+
+
+def test_non_numeric_labels_ignored_by_detection():
+    assert _detect_outlier_labels({"District A", "District B"}, 8) == set()

@@ -70,7 +70,10 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     # We'll want to enforce the constraint tha the gerrydb_table_name is either in
     # GerrydbTable.name or a materialized view of two GerryDBTables some other way.
     gerrydb_table_name: str | None = Field(nullable=True)
-    # Null means default number of districts? Should we have a sensible default?
+    # On fixed maps (num_districts_modifiable=False) this is the exact district
+    # count and must not be NULL (batch_insert_assignments raises on such rows).
+    # On modifiable/custom maps it is the default and floor for new documents:
+    # a CSV upload can grow a document's count beyond it but never below it.
     num_districts: int | None = Field(nullable=True, default=None)
     # If False, users cannot change the number of districts on the frontend.
     num_districts_modifiable: bool = Field(
