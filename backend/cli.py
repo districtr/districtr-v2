@@ -992,7 +992,7 @@ def stress_test_seed(
 )
 @with_session
 def stress_test_cleanup(session: Session, manifests: tuple[str, ...], yes: bool):
-    """Delete stress-test documents (rows + assignment partitions): everything
+    """Delete stress-test documents (rows + assignment rows): everything
     listed in the given manifests, then — belt and suspenders — any leftover
     document whose metadata name starts with [STRESS-TEST], after confirmation."""
     ids: list[str] = []
