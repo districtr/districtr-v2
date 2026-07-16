@@ -104,10 +104,10 @@ METRICS: tuple[Metric[Any], ...] = (
     ),
     Metric[dict[DistrictId, float]](key="reock", version=1, compute=compactness.reock),
     Metric[PopulationDeviationResults](
-        key="population_deviation", version=1, compute=validity.population_deviation
+        key="population_deviation", version=2, compute=validity.population_deviation
     ),
     Metric[AssignedUnitsResult](
-        key="assigned_units", version=1, compute=validity.assigned_units
+        key="assigned_units", version=3, compute=validity.assigned_units
     ),
     Metric[UnassignedPopulation](
         key="unassigned_population", version=1, compute=validity.unassigned_population

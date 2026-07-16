@@ -8,8 +8,11 @@ import {ColorMultiDropdown} from './ColorMultiDropdown';
 import {ColorCheckbox} from './ColorCheckbox';
 import {colorScheme as DefaultColorScheme} from '@/app/constants/colors';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
+import {useIsDesktop} from '@/app/hooks/useIsDesktop';
 
 const MAX_INLINE_DISTRICT_PIPS = 25;
+// Swatch grids get cramped in the mobile dock; collapse to the dropdown sooner.
+const MAX_INLINE_DISTRICT_PIPS_MOBILE = 10;
 export type ColorPickerProps<T extends boolean = false> = T extends true
   ? {
       defaultValue: number[];
@@ -39,14 +42,19 @@ export const ColorPicker = <T extends boolean>({
   const mapDocument = useMapStore(state => state.mapDocument);
   const _stateColorScheme = useColorScheme();
   const colorScheme = _colorScheme ?? _stateColorScheme;
+  const isDesktop = useIsDesktop();
+  const maxInlinePips = isDesktop ? MAX_INLINE_DISTRICT_PIPS : MAX_INLINE_DISTRICT_PIPS_MOBILE;
   const hotkeyRef = useRef<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleKeyPressSubmit = () => {
     if (!hotkeyRef.current) return;
     const index = parseInt(hotkeyRef.current) - 1;
-    const newValue = colorScheme[index];
     hotkeyRef.current = null;
+    const numDistricts =
+      useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
+    if (index < 0 || index >= numDistricts) return;
+    const newValue = colorScheme[index];
     if (multiple) {
     } else {
       onValueChange(index, newValue);
@@ -92,7 +100,7 @@ export const ColorPicker = <T extends boolean>({
   }, []);
 
   if (multiple) {
-    if (mapDocument?.num_districts! > MAX_INLINE_DISTRICT_PIPS) {
+    if (mapDocument?.num_districts! > maxInlinePips) {
       return (
         <ColorMultiDropdown
           colorScheme={colorScheme}
@@ -117,7 +125,7 @@ export const ColorPicker = <T extends boolean>({
     }
   }
 
-  if (mapDocument?.num_districts! > MAX_INLINE_DISTRICT_PIPS) {
+  if (mapDocument?.num_districts! > maxInlinePips) {
     return (
       <ColorDropdown
         colorScheme={colorScheme}

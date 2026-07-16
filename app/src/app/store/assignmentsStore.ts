@@ -75,7 +75,8 @@ export interface AssignmentsStore {
       parentToChild: AssignmentsStore['parentToChild'];
       childToParent: AssignmentsStore['childToParent'];
     },
-    mapDocument?: DocumentObject
+    mapDocument?: DocumentObject,
+    hasLocalEdits?: boolean
   ) => void;
 
   /** Replaces the entire assignment map (e.g. after loading from API) */
@@ -434,22 +435,27 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     });
   },
 
-  ingestFromDocument: (data, mapDocument) => {
+  ingestFromDocument: (data, mapDocument, hasLocalEdits = false) => {
     const baselineUpdatedAt =
       mapDocument?.updated_at ??
       useMapStore.getState().mapDocument?.updated_at ??
       new Date().toISOString();
+    // When the ingested assignments carry unsaved local edits, keep them marked dirty
+    // (clientLastUpdated !== updated_at) so the save indicator stays correct on its own.
+    // Otherwise a reload would stamp them as in-sync and the indicator could go dark
+    // with pending changes still present (e.g. across rapid navigation resets).
+    const nextClientLastUpdated = hasLocalEdits ? new Date().toISOString() : baselineUpdatedAt;
     set({
       zoneAssignments: new Map(data.zoneAssignments),
       shatterIds: data.shatterIds,
       parentToChild: new Map(data.parentToChild),
       childToParent: new Map(data.childToParent),
-      clientLastUpdated: baselineUpdatedAt,
+      clientLastUpdated: nextClientLastUpdated,
       pendingShatterUndoState: null,
     });
     if (mapDocument) {
       // Save immediately when loading from document (not during painting)
-      idb.updateIdbAssignments(mapDocument, data.zoneAssignments, mapDocument.updated_at, true);
+      idb.updateIdbAssignments(mapDocument, data.zoneAssignments, nextClientLastUpdated, true);
       useMapStore.getState().mutateMapDocument(mapDocument);
     }
     demographyService.updatePopulations({
@@ -784,11 +790,17 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     // Flush any pending IDB updates before explicit save
     await idb.flushPendingUpdate();
 
-    const {mapDocument, setMapLock, setErrorNotification, setShowSaveConflictModal} =
+    const {mapDocument, setMapLock, setNotification, setShowSaveConflictModal, updated} =
       useMapStore.getState();
     if (!mapDocument?.document_id || !mapDocument.updated_at) return;
     const idbDocument = await idb.getDocument(mapDocument?.document_id);
     if (!idbDocument) return;
+    // Whether this save carries real local edits (paints, comments, metadata).
+    // Mode switches trigger a defensive save even when nothing changed, and a
+    // "Map saved" toast there misleads — so only announce saves with a delta.
+    const hasPendingChanges =
+      Object.values(updated).some(Boolean) ||
+      (get().clientLastUpdated !== '' && get().clientLastUpdated !== mapDocument.updated_at);
     setMapLock({isLocked: true, reason: 'Saving plan'});
 
     try {
@@ -818,12 +830,16 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       ) {
         setShowSaveConflictModal(true);
       } else if (!assignmentsPostResponse.ok) {
-        setErrorNotification({
+        setNotification({
           message: assignmentsPostResponse.error,
-          severity: 2,
+          importance: 2,
+          type: 'error',
         });
       } else if (assignmentsPostResponse.ok) {
         setShowSaveConflictModal(false);
+        if (hasPendingChanges) {
+          setNotification({message: 'Map saved', importance: 2, type: 'success'});
+        }
       }
     } finally {
       setMapLock(null);
@@ -831,14 +847,15 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
   },
   handleRevert: async (mapDocument: DocumentObject) => {
     const confirmedMapDocument = confirmMapDocumentUrlParameter(mapDocument.document_id);
-    const {setErrorNotification, setMapLock, initiateFlushMapState} = useMapStore.getState();
+    const {setNotification, setMapLock, initiateFlushMapState} = useMapStore.getState();
     await initiateFlushMapState();
     const {ingestFromDocument} = get();
     if (!confirmedMapDocument) {
-      setErrorNotification({
+      setNotification({
         message:
           'The map you are trying to revert to is not the current map. Please refresh your page and try again.',
-        severity: 2,
+        importance: 2,
+        type: 'error',
       });
       return;
     }
@@ -846,9 +863,10 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     try {
       const documentResult = await fetchDocument(mapDocument.document_id, 'remote');
       if (!documentResult.ok) {
-        setErrorNotification({
+        setNotification({
           message: 'Failed to fetch document. Please refresh your page and try again.',
-          severity: 2,
+          importance: 2,
+          type: 'error',
         });
         return;
       }
@@ -865,7 +883,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     options: ConflictResolutionOptions = {}
   ) => {
     const {onNavigate, onComplete, context = ConflictContext.Save} = options;
-    const {setMapDocument, setMapLock, setShowSaveConflictModal, setErrorNotification} =
+    const {setMapDocument, setMapLock, setShowSaveConflictModal, setNotification} =
       useMapStore.getState();
     const dependencies: ConflictDependencies = {
       syncConflictInfo,
@@ -905,8 +923,9 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       }
     } catch (error) {
       console.error('[resolveConflict] failed', {resolution, error});
-      setErrorNotification({
-        severity: 1,
+      setNotification({
+        importance: 1,
+        type: 'error',
         message: `Could not resolve save conflict: ${
           error instanceof Error ? error.message : String(error)
         }`,

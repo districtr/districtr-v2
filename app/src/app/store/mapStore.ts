@@ -21,6 +21,7 @@ import {resetZoneColors} from '@utils/map/resetZoneColors';
 import {setZones} from '@utils/map/setZones';
 import bbox from '@turf/bbox';
 import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/document/limits';
+import {MAP_TYPES} from '@constants/document/types';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
 import {createWithDevWrapperAndSubscribe} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
@@ -160,12 +161,33 @@ const syncCommunityDescriptionComment = ({
   };
 };
 
+/**
+ * Boolean loading/rendering trackers that drive the global LoadingOverlay and view
+ * transitions. Each is owned by the component that produces it:
+ *  - documentLoading: a document fetch is in flight (useDocumentWithSync).
+ *  - publicSourceLoaded: the public district source has loaded its data (PublicSource).
+ *  - metricsLoaded: the evaluation metrics have loaded (EvalPanel).
+ */
+export interface LoadingStates {
+  documentLoading: boolean;
+  publicSourceLoaded: boolean;
+  metricsLoaded: boolean;
+}
+
+export const DEFAULT_LOADING_STATES: LoadingStates = {
+  documentLoading: false,
+  publicSourceLoaded: false,
+  metricsLoaded: false,
+};
+
 export interface MapStore {
   // LOAD AND RENDERING STATE TRACKING
   appLoadingState: AppLoadingState;
   setAppLoadingState: (state: MapStore['appLoadingState']) => void;
   mapRenderingState: RenderingState;
   setMapRenderingState: (state: MapStore['mapRenderingState']) => void;
+  loadingStates: LoadingStates;
+  setLoadingState: <K extends keyof LoadingStates>(key: K, value: LoadingStates[K]) => void;
   // MAP CANVAS REF AND CONTROLS
   getMapRef: () => maplibregl.Map | undefined;
   setMapRef: (map: MutableRefObject<MapRef | null>) => void;
@@ -174,20 +196,16 @@ export interface MapStore {
     reason: string;
   } | null;
   setMapLock: (lock: MapStore['mapLock']) => void;
-  errorNotification: {
+  notification: {
     message?: string;
-    severity?: 1 | 2 | 3; // 1: dialog, 2: toast, 3: silent
+    importance?: 1 | 2 | 3; // 1: dialog, 2: toast, 3: silent
+    type?: 'error' | 'notification' | 'success'; // default 'notification'
     id?: string;
   };
-  setErrorNotification: (errorNotification: MapStore['errorNotification']) => void;
+  setNotification: (notification: MapStore['notification']) => void;
   showSaveConflictModal: boolean;
   setShowSaveConflictModal: (show: boolean) => void;
   // MAP DOCUMENT
-  /**
-   * Available districtr views
-   */
-  mapViews: Partial<QueryObserverResult<DistrictrMap[], Error>>;
-  setMapViews: (maps: MapStore['mapViews']) => void;
   mapDocument: DocumentObject | null;
   updated: {
     metadata: boolean;
@@ -198,6 +216,11 @@ export interface MapStore {
   initiateFlushMapState: () => Promise<void>;
   mutateMapDocument: (mapDocument: Partial<DocumentObject>) => void;
   clearUpdatedChanges: () => void;
+  /** Clear all editor-derived state when leaving the editor. Nulls mapDocument so
+   * re-opening the same map fully re-initializes instead of hitting setMapDocument's
+   * "same document" early-return (which is what left save state, the catalog
+   * "current" badge, and zone-number labels stale across sessions). */
+  resetMapState: () => void;
   mapStatus: StatusObject | null;
   setMapStatus: (mapStatus: Partial<StatusObject>) => void;
   setNumDistricts: (numDistricts: number) => void;
@@ -302,6 +325,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     setAppLoadingState: appLoadingState => set({appLoadingState}),
     mapRenderingState: RENDERING_STATES.INITIALIZING,
     setMapRenderingState: mapRenderingState => set({mapRenderingState}),
+    loadingStates: {...DEFAULT_LOADING_STATES},
+    setLoadingState: (key, value) =>
+      set(state => ({loadingStates: {...state.loadingStates, [key]: value}})),
     captiveIds: new Set<string>(),
 
     exitBlockView: (lock: boolean = false) => {
@@ -311,12 +337,20 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const {setMapOptions, mapMode} = useMapControlsStore.getState();
       const focusedParentId = focusFeatures?.[0]?.id?.toString();
 
+      // Commit any paint still staged in accumulatedAssignments before healing:
+      // the heal below reads zoneAssignments and discards the staged map, so an
+      // unflushed click-paint would otherwise be reverted and lost.
+      if (mapMode === MAP_MODES.COI) {
+        useCoiAssignmentsStore.getState().ingestAccumulatedAssignments();
+      } else {
+        useAssignmentsStore.getState().ingestAccumulatedAssignments();
+      }
+
       set({
         captiveIds: new Set<string>(),
         focusFeatures: [],
       });
       setMapOptions({mode: 'default'});
-      useMapControlsStore.setState({activeTool: ACTIVE_TOOLS.SHATTER});
 
       if (mapMode === MAP_MODES.COI) {
         healParentsIfAllChildrenInSameCommunities(
@@ -348,17 +382,13 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
 
     setMapLock: mapLock => set({mapLock}),
 
-    errorNotification: {},
+    notification: {},
 
-    setErrorNotification: errorNotification => set({errorNotification}),
+    setNotification: notification => set({notification}),
 
     showSaveConflictModal: false,
 
     setShowSaveConflictModal: show => set({showSaveConflictModal: show}),
-
-    mapViews: {isPending: true},
-
-    setMapViews: mapViews => set({mapViews}),
 
     mapDocument: null,
 
@@ -382,6 +412,17 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const idIsSame = currentMapDocument?.document_id === mapDocument.document_id;
       const accessIsSame = currentMapDocument?.access === mapDocument.access;
       const documentIsSame = idIsSame && accessIsSame;
+      // Same underlying plan across a view switch (edit↔display↔evaluate). public_id
+      // is unique per plan, so a match means the user is just changing how they view
+      // the same map — preserve their current viewport instead of re-fitting.
+      const sameMapAcrossViews =
+        !!currentMapDocument &&
+        mapDocument.public_id != null &&
+        currentMapDocument.public_id === mapDocument.public_id;
+      const preservedBounds =
+        sameMapAcrossViews && mapControlsState.lastViewBounds
+          ? mapControlsState.lastViewBounds
+          : mapDocument.extent;
       const bothHaveData =
         typeof currentMapDocument?.updated_at === 'string' &&
         typeof mapDocument?.updated_at === 'string';
@@ -399,6 +440,12 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       resetZoneAssignments();
       useDemographyStore.getState().clear();
       useUnassignFeaturesStore.getState().reset();
+      // A different map is loading: drop the previous map's retained editable id so it
+      // can't enable Edit (or route to the wrong editor) for the new map. Same-map view
+      // switches (edit↔display↔evaluate) keep it so Edit stays reachable.
+      if (!sameMapAcrossViews) {
+        mapControlsState.setEditableDocId(null);
+      }
 
       let newStateFipsSet: Set<string> = new Set();
       if (mapDocument.statefps) {
@@ -438,13 +485,19 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         count: numCommunities,
         colorScheme,
       });
-      colorScheme = syncCoiColorsToColorScheme(communities, colorScheme);
+      // Only community maps mirror community colors back into the scheme —
+      // districts maps get a fallback phantom community whose frozen default
+      // color would otherwise clobber customized district colors on every
+      // mutate (the "custom colors don't save" bug).
+      if (mapDocument.map_type === MAP_TYPES.COMMUNITY) {
+        colorScheme = syncCoiColorsToColorScheme(communities, colorScheme);
+      }
 
       useMapControlsStore.setState({
         mapOptions: {
           ...DEFAULT_MAP_OPTIONS,
           ...MAP_MODE_DEFAULT_OPTIONS[mapControlsState.mapMode],
-          bounds: mapDocument.extent,
+          bounds: preservedBounds,
           stateFipsSet: newStateFipsSet,
         },
         activeTool:
@@ -454,6 +507,12 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         selectedZone: communities[0]?.id ?? mapControlsState.selectedZone,
         sidebarPanels: ['population'],
         isPainting: false,
+        // Drop a remembered viewport when loading a different map so a fresh map
+        // fits to its extent; keep it across same-map view switches.
+        lastViewBounds: sameMapAcrossViews ? mapControlsState.lastViewBounds : null,
+        // Likewise clear the unlockable flag for a different map (re-derived from
+        // the `?pw=true` share link by the view switcher).
+        passwordUnlockable: sameMapAcrossViews ? mapControlsState.passwordUnlockable : false,
         isEditing: mapDocument.access === ACCESS_STATES.EDIT,
       });
 
@@ -539,7 +598,12 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           count: nextNumCommunities,
           colorScheme: nextColorScheme,
         });
-        const syncedColorScheme = syncCoiColorsToColorScheme(nextCommunities, nextColorScheme);
+        // See setMapDocument: community-color sync is COI-only, otherwise the
+        // phantom fallback community reverts customized district colors.
+        const syncedColorScheme =
+          nextMapDocument.map_type === MAP_TYPES.COMMUNITY
+            ? syncCoiColorsToColorScheme(nextCommunities, nextColorScheme)
+            : nextColorScheme;
         return {
           mapDocument: {
             ...nextMapDocument,
@@ -552,6 +616,29 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         };
       }),
     clearUpdatedChanges: () => set({updated: {metadata: false, comments: false}}),
+
+    resetMapState: () => {
+      // Mirror the reset block in setMapDocument, but null the document so a later
+      // re-open of the same map fully re-initializes instead of early-returning.
+      const {resetZoneAssignments} = useAssignmentsStore.getState();
+      GeometryWorker?.clear();
+      GeometryWorker?.resetZones();
+      demographyService.clear();
+      resetZoneAssignments();
+      useDemographyStore.getState().clear();
+      useUnassignFeaturesStore.getState().reset();
+      set({
+        mapDocument: null,
+        updated: {metadata: false, comments: false},
+        loadingStates: {...DEFAULT_LOADING_STATES},
+        mapLock: null,
+      });
+      const mapControls = useMapControlsStore.getState();
+      mapControls.setEditableDocId(null);
+      mapControls.setIsEditing(false);
+      mapControls.setIsEval(false);
+      mapControls.setViewTransition(null);
+    },
 
     // ZONE DESCRIPTIONS
     pinnedDescriptionZone: null,
@@ -1045,8 +1132,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       });
       if (!edgesResult?.length) {
         set({
-          errorNotification: {
-            severity: 2,
+          notification: {
+            importance: 2,
+            type: 'error',
             message: `Breaking this geography failed. Please refresh this page and try again. If this error persists, please share the error code below the Districtr team.`,
             id: `break-patchShatter-no-children-${mapDocument?.districtr_map_slug}-${mapDocument?.document_id}-geoid-${JSON.stringify(geoids)}`,
           },
@@ -1173,8 +1261,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const resetResponse = await patchUpdateReset(document_id);
       if (!resetResponse.ok) {
         set({
-          errorNotification: {
-            severity: 2,
+          notification: {
+            importance: 2,
+            type: 'error',
             message:
               'Failed to reset map. Please refresh this page and try again. If this error persists, please share the error code below the Districtr team.',
           },
@@ -1228,8 +1317,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const {mapDocument} = get();
       if (!mapDocument) {
         set({
-          errorNotification: {
-            severity: 2,
+          notification: {
+            importance: 2,
+            type: 'error',
             message: 'Tried to update metadata on a map document that does not exist',
             id: 'updateMetadata-no-map-document',
           },

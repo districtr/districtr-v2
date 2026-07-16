@@ -283,6 +283,17 @@ class DocumentEvaluationContext:
         ).scalar()
 
     @cached_property
+    def num_child_units(self) -> int | None:
+        """Total number of child (block) units, or None for non-shatterable maps."""
+        if not self.is_shatterable:
+            return None
+        return self.session.execute(
+            sqlalchemy.text(
+                f"SELECT count(*) FROM gerrydb.{assert_safe_ident(self.child_layer)}"
+            )
+        ).scalar()
+
+    @cached_property
     def zone_assignments(self) -> list[tuple[Geoid, DistrictId]]:
         """Assignment rows for this document."""
         rows = self.session.exec(
@@ -361,6 +372,7 @@ class CountyContext:
 
     def _fetch_county_names_file(self) -> None:
         """Download county names CSV from S3 and cache locally."""
+        # TODO Make this consistent with s3 streaming now that s3 reads have no cost
         logger.info("Downloading county names from S3 to %s", self._COUNTY_NAMES_FILE)
         self._DATA_DIR.mkdir(parents=True, exist_ok=True)
         s3 = settings.get_s3_client()

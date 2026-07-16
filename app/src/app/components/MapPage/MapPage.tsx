@@ -9,15 +9,13 @@ import SidebarComponent from '@components/sidebar/Sidebar';
 import {EvalPanel} from '@components/EvalPanel/EvalPanel';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
-import {ErrorNotification} from '@components/ErrorNotification';
-import {DraggableToolbar} from '@components/Toolbar/Toolbar';
+import {AppNotification} from '@components/AppNotification';
 import {MapTooltip} from '@components/Map/Tooltip/MapTooltip';
-import {MapLockShade} from '@components/MapLockShade';
 import {Topbar} from '@/app/components/Topbar/Topbar';
+import {MobileToolbar} from '@/app/components/Toolbar/MobileToolbar';
 import {Flex} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {initSubs} from '@store/subscriptions';
-import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useDocumentWithSync} from '@/app/hooks/useDocumentWithSync';
 import {SaveConflictModal} from '../SaveConflictModal';
@@ -43,13 +41,12 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
   const isPublicPage = !isEditing && !!mapId && !isUUID(mapId);
   const setIsEditing = useMapControlsStore(state => state.setIsEditing);
   const setIsEval = useMapControlsStore(state => state.setIsEval);
+  const setEditableDocId = useMapControlsStore(state => state.setEditableDocId);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
-  const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
-  const setErrorNotification = useMapStore(state => state.setErrorNotification);
+  const setNotification = useMapStore(state => state.setNotification);
   // check if userid in local storage; if not, create one
   const userID = useMapStore(state => state.userID);
   const setUserID = useMapStore(state => state.setUserID);
-  const mapLock = useMapStore(state => state.mapLock);
 
   // Run migration on app load
   useEffect(() => {
@@ -57,11 +54,7 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
   }, []);
 
   // Load document with sync support
-  const {
-    isLoading: isLoadingDocument,
-    error: documentError,
-    conflictModal,
-  } = useDocumentWithSync({
+  const {error: documentError, conflictModal} = useDocumentWithSync({
     document_id: mapId || undefined,
     isPublicPage,
     enabled: isMapModeReady && !!mapId,
@@ -70,18 +63,26 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
   // Handle document loading errors
   useEffect(() => {
     if (documentError && mapId) {
-      setErrorNotification({
+      setNotification({
         message: `Failed to load document: ${documentError.message}`,
         id: `document-load-error-${mapId}`,
-        severity: 1,
+        importance: 1,
+        type: 'error',
       });
     }
-  }, [documentError, mapId, setErrorNotification]);
+  }, [documentError, mapId, setNotification]);
 
   // Set editing mode based on the route
   useEffect(() => {
     setIsEditing(isEditing);
   }, [isEditing, setIsEditing]);
+
+  // Retain the editable UUID for this session so the view switcher can route
+  // back to edit mode after navigating to a read-only display/eval view (which
+  // loads the doc by public_id and surfaces document_id as "anonymous").
+  useEffect(() => {
+    if (isEditing && mapId && isUUID(mapId)) setEditableDocId(mapId);
+  }, [isEditing, mapId, setEditableDocId]);
 
   useEffect(() => {
     setIsEval(isEval ?? false);
@@ -109,11 +110,11 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
   // TODO: refactor into a cleaner wrapper component and simplify child template logic
   return (
     <div
-      className={`h-screen w-screen overflow-hidden flex justify-between p flex-col-reverse lg:flex-row-reverse landscape:flex-row-reverse${isEval ? ' eval-page-root' : ''}`}
+      className={`h-screen h-dvh w-screen overflow-hidden flex justify-between p flex-col-reverse lg:flex-row-reverse landscape:flex-row-reverse${isEval ? ' eval-page-root' : ''}`}
     >
       {isPublicPage && isEval ? <EvalPanel /> : <SidebarComponent />}
       <div
-        className={`h-full relative w-full flex-1 flex flex-col lg:h-screen landscape:h-screen${isEval ? ' eval-map-wrapper' : ''}`}
+        className={`h-full relative w-full flex-1 flex flex-col lg:h-screen lg:h-dvh landscape:h-screen landscape:h-dvh${isEval ? ' eval-map-wrapper' : ''}`}
       >
         {isEval ? (
           <div className="eval-topbar-wrapper">
@@ -122,26 +123,15 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
         ) : (
           <Topbar />
         )}
-        <Flex direction="row" height="100%">
+        <Flex direction="row" className="flex-1 min-h-0">
           {isPublicPage ? <PublicMap /> : <MainMap />}
           {showDemographicMap && (isPublicPage ? <PublicDemographicMap /> : <DemographicMap />)}
         </Flex>
-        {toolbarLocation === 'map' && <DraggableToolbar />}
-        {!!mapId && (
-          <MapLockShade
-            mapLock={mapLock}
-            loadingState={{
-              isLoadingDocument,
-              isLoadingAssignments: isLoadingDocument,
-              isFetchingDocument: isLoadingDocument,
-              isFetchingAssignments: isLoadingDocument,
-            }}
-          />
-        )}
+        <MobileToolbar />
         <MapTooltip />
       </div>
       <MapContextMenu />
-      <ErrorNotification />
+      <AppNotification />
       {conflictModal}
       <SaveConflictModal />
       <ZoneDescriptionModal />

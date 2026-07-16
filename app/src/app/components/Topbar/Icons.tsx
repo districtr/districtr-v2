@@ -66,9 +66,9 @@ export const CloudSavedIcon: React.FC = () => (
   </svg>
 );
 
-export const CloudNotSavedIcon: React.FC = () => (
+export const CloudNotSavedIcon: React.FC<{className?: string}> = ({className = 'size-6'}) => (
   <svg
-    className="size-6"
+    className={className}
     xmlns="http://www.w3.org/2000/svg"
     viewBox="0 0 100 100"
     style={{

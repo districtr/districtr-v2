@@ -1,12 +1,11 @@
 import {expose} from 'comlink';
-import dissolve from '@turf/dissolve';
 import centerOfMass from '@turf/center-of-mass';
 import {GeometryWorkerClass, MinGeoJSONFeature} from './geometryWorker.types';
 import {LngLatBoundsLike} from 'maplibre-gl';
-import bbox from '@turf/bbox';
 import nearestPoint from '@turf/nearest-point';
 import polylabel from 'polylabel';
 import {EMPTY_FT_COLLECTION} from '../../constants/map/layerStyle';
+import {getMsgpack} from '../api/msgpack';
 
 const POINT_LIMIT = 256;
 const MIN_POPULATION = 300;
@@ -49,18 +48,6 @@ const interiorCenter = (
   };
 };
 
-const explodeMultiPolygonToPolygons = (
-  feature: GeoJSON.MultiPolygon
-): Array<GeoJSON.Feature<GeoJSON.Polygon>> => {
-  return feature.coordinates.map(coords => ({
-    type: 'Feature',
-    geometry: {
-      type: 'Polygon',
-      coordinates: coords,
-    },
-  })) as Array<GeoJSON.Feature<GeoJSON.Polygon>>;
-};
-
 const GeometryWorker: GeometryWorkerClass = {
   geometries: {},
   activeGeometries: {},
@@ -81,6 +68,10 @@ const GeometryWorker: GeometryWorkerClass = {
   },
   getPointData(): GeoJSON.FeatureCollection<GeoJSON.Point> {
     return this.pointData;
+  },
+  childPointData: EMPTY_FT_COLLECTION,
+  setChildPointData(pointData: GeoJSON.FeatureCollection<GeoJSON.Point>) {
+    this.childPointData = pointData;
   },
   getPropsById(ids: string[]) {
     const features: MinGeoJSONFeature[] = [];
@@ -144,6 +135,7 @@ const GeometryWorker: GeometryWorkerClass = {
       parents: [],
       children: [],
     };
+    this.childPointData = EMPTY_FT_COLLECTION;
   },
   resetZones() {
     this.zoneAssignments = {};
@@ -317,57 +309,96 @@ const GeometryWorker: GeometryWorkerClass = {
     this.updateZones(zoneEntries);
   },
   async getUnassignedGeometries(documentId?: string, exclude_ids?: string[]) {
-    const geomsToDissolve: GeoJSON.Feature[] = [];
-    const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${documentId}/unassigned`);
-    if (exclude_ids?.length) {
-      exclude_ids.forEach(id => url.searchParams.append('exclude_ids', id));
+    const empty = {
+      dissolved: {type: 'FeatureCollection' as const, features: []},
+      overall: null,
+    };
+    const result = await getMsgpack<{components: string[][]}>(
+      `document/${documentId}/unassigned`,
+      exclude_ids?.length ? {exclude_ids} : undefined
+    );
+    if (!result.ok || !result.response?.components?.length) {
+      return empty;
     }
-    const remoteUnassignedFeatures = await fetch(url).then(r => r.json());
-    if (!remoteUnassignedFeatures?.features) {
-      return {dissolved: {type: 'FeatureCollection', features: []}, overall: null};
-    }
-    remoteUnassignedFeatures.features.forEach((geo: GeoJSON.MultiPolygon | GeoJSON.Polygon) => {
-      if (geo.type === 'Polygon') {
-        geomsToDissolve.push({
-          type: 'Feature',
-          properties: {},
-          geometry: geo,
-        });
-      } else if (geo.type === 'MultiPolygon') {
-        const polygons = explodeMultiPolygonToPolygons(geo);
-        polygons.forEach(p => geomsToDissolve.push(p));
+
+    // Index centroids by geo_id from both parent and child point sets.
+    const centroidById: Record<string, [number, number]> = {};
+    const indexPoints = (fc: GeoJSON.FeatureCollection<GeoJSON.Point>) => {
+      fc.features.forEach(f => {
+        const path = f.properties?.path;
+        if (path && f.geometry.coordinates.length >= 2) {
+          centroidById[path] = [f.geometry.coordinates[0], f.geometry.coordinates[1]];
+        }
+      });
+    };
+    indexPoints(this.pointData);
+    indexPoints(this.childPointData);
+
+    const componentFeatures: GeoJSON.Feature<GeoJSON.Polygon>[] = [];
+    let oMinX = Infinity;
+    let oMinY = Infinity;
+    let oMaxX = -Infinity;
+    let oMaxY = -Infinity;
+
+    for (const component of result.response.components) {
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      let hits = 0;
+      for (const id of component) {
+        const c = centroidById[id];
+        if (!c) continue;
+        hits++;
+        if (c[0] < minX) minX = c[0];
+        if (c[0] > maxX) maxX = c[0];
+        if (c[1] < minY) minY = c[1];
+        if (c[1] > maxY) maxY = c[1];
       }
-    });
+      if (!hits) continue;
 
-    if (!geomsToDissolve.length) {
-      return {dissolved: {type: 'FeatureCollection', features: []}, overall: null};
+      if (minX < oMinX) oMinX = minX;
+      if (maxX > oMaxX) oMaxX = maxX;
+      if (minY < oMinY) oMinY = minY;
+      if (maxY > oMaxY) oMaxY = maxY;
+
+      componentFeatures.push({
+        type: 'Feature',
+        properties: {
+          bbox: [minX, minY, maxX, maxY],
+          minX,
+          minY,
+          geo_ids: component,
+        },
+        geometry: {
+          type: 'Polygon',
+          coordinates: [
+            [
+              [minX, minY],
+              [maxX, minY],
+              [maxX, maxY],
+              [minX, maxY],
+              [minX, minY],
+            ],
+          ],
+        },
+      });
     }
-    let dissolved = dissolve({
-      type: 'FeatureCollection',
-      features: geomsToDissolve as GeoJSON.Feature<GeoJSON.Polygon>[],
-    });
 
-    const overall = bbox(dissolved) as LngLatBoundsLike;
+    if (!componentFeatures.length) return empty;
 
-    for (let i = 0; i < dissolved.features.length; i++) {
-      const geom = dissolved.features[i].geometry;
-      dissolved.features[i].properties = {
-        ...(dissolved.features[i].properties || {}),
-        bbox: bbox(geom),
-        minX: geom.coordinates[0][0][0],
-        minY: geom.coordinates[0][0][1],
-      };
-    }
-    // sort by minX and minY
-    dissolved.features = dissolved.features.sort((a, b) => {
+    componentFeatures.sort((a, b) => {
       if (a.properties!.minY > b.properties!.minY) return -1;
       if (a.properties!.minX < b.properties!.minX) return 1;
       return 0;
     });
 
     return {
-      dissolved,
-      overall,
+      dissolved: {
+        type: 'FeatureCollection' as const,
+        features: componentFeatures,
+      },
+      overall: [oMinX, oMinY, oMaxX, oMaxY] as LngLatBoundsLike,
     };
   },
 };

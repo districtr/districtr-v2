@@ -34,20 +34,11 @@ test.describe('Share Map', () => {
       return;
     }
 
-    // Look for share button
+    // Share lives inside the Map actions menu
+    await page.locator('[data-testid="map-actions-trigger"]').click();
     const shareButton = page.locator('[data-testid="share-button"]');
-    const shareLink = page.locator('button:has-text("Share"), a:has-text("Share")');
 
-    // Either a dedicated share button or a generic one should exist
-    const hasShareButton = await shareButton.isVisible().catch(() => false);
-    const hasShareLink = await shareLink
-      .first()
-      .isVisible()
-      .catch(() => false);
-
-    // At least one share option should be available
-    // (This might be in a menu or modal)
-    expect(hasShareButton || hasShareLink).toBe(true);
+    await expect(shareButton).toBeVisible();
   });
 
   test('should open share modal when clicking share', async ({page}) => {
@@ -57,7 +48,8 @@ test.describe('Share Map', () => {
       return;
     }
 
-    // Look for share button
+    // Open the Map actions menu, then click share
+    await page.locator('[data-testid="map-actions-trigger"]').click();
     const shareButton = page.locator('[data-testid="share-button"]');
 
     await expect(shareButton).toBeVisible();
@@ -196,17 +188,13 @@ test.describe('Map Reset', () => {
       return;
     }
 
-    // Look for reset button
-    const resetButton = page.locator('[data-testid="reset-button"], button:has-text("Reset")');
+    // Reset lives inside the Map actions menu
+    await page.locator('[data-testid="map-actions-trigger"]').click();
+    const resetItem = page.locator('[role="menuitem"]:has-text("Reset map")');
+    await expect(resetItem.first()).toBeVisible();
 
-    // Reset might be in a menu or settings
-    const settingsButton = page.locator('button:has-text("Settings")');
-    if (await settingsButton.isVisible()) {
-      await settingsButton.click();
-      await page.waitForTimeout(300);
-    }
-
-    // Map should still be functional
+    // Close the menu; map should still be functional
+    await page.keyboard.press('Escape');
     await expect(mapCanvas).toBeVisible();
   });
 
@@ -217,28 +205,25 @@ test.describe('Map Reset', () => {
       return;
     }
 
-    // Find and click reset button
-    const resetButton = page.locator('button:has-text("Reset")');
+    // Open the Map actions menu and hover the Reset submenu
+    await page.locator('[data-testid="map-actions-trigger"]').click();
+    const resetTrigger = page.locator('[role="menuitem"]:has-text("Reset map")').first();
 
-    if (await resetButton.first().isVisible()) {
-      await resetButton.first().click();
+    if (await resetTrigger.isVisible()) {
+      await resetTrigger.hover();
       await page.waitForTimeout(500);
 
-      // A confirmation dialog should appear
-      const confirmDialog = page.locator('[role="alertdialog"], [role="dialog"]');
+      // The submenu shows a confirmation warning before resetting
+      const confirmText = page.locator('text=Resetting your map cannot be undone');
 
-      if (await confirmDialog.isVisible()) {
-        await expect(confirmDialog).toBeVisible();
-
-        // Cancel the reset
-        const cancelButton = confirmDialog.locator('button:has-text("Cancel")');
-        if (await cancelButton.isVisible()) {
-          await cancelButton.click();
-        }
+      if (await confirmText.isVisible()) {
+        await expect(confirmText).toBeVisible();
       }
     }
 
-    // Map should still be visible
+    // Dismiss the menu; map should still be visible
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
     await expect(mapCanvas).toBeVisible();
   });
 });

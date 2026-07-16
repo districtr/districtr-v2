@@ -1,55 +1,20 @@
-import PopulationPanel from '@components/sidebar/PopulationPanel';
 import {MapControlsStore} from '@/app/store/mapControlsStore';
-import {MapValidation} from './MapValidation/MapValidation';
-import {SummaryPanel} from './SummaryPanel';
-import OverlaysPanel from './OverlaysPanel';
-import {SUMMARY_TYPES} from '@constants/demography/summary';
+import {SECTIONS} from './DataCards';
 
 export interface DataPanelSpec {
   title: MapControlsStore['sidebarPanels'][number];
   label: string;
   icon?: React.ReactNode;
   content?: React.ReactNode;
+  /** Hidden in communities (COI) mode, mirroring the sidebar's filter. */
+  districtsOnly?: boolean;
 }
 
-export interface DataPanelsProps {
-  panels?: DataPanelSpec[];
-}
-
-export const defaultPanels: DataPanelSpec[] = [
-  {
-    title: 'population',
-    label: 'Districts',
-    content: <PopulationPanel />,
-  },
-  {
-    title: 'demography',
-    label: 'Demographics',
-    content: (
-      <SummaryPanel
-        defaultColumnSet={SUMMARY_TYPES.VAP}
-        displayedColumnSets={[SUMMARY_TYPES.VAP, SUMMARY_TYPES.TOTPOP]}
-      />
-    ),
-  },
-  {
-    title: 'election',
-    label: 'Elections',
-    content: (
-      <SummaryPanel
-        defaultColumnSet={SUMMARY_TYPES.VOTERHISTORY}
-        displayedColumnSets={[SUMMARY_TYPES.VOTERHISTORY]}
-      />
-    ),
-  },
-  {
-    title: 'mapValidation',
-    label: 'Map validation',
-    content: <MapValidation />,
-  },
-  {
-    title: 'overlays',
-    label: 'Overlays',
-    content: <OverlaysPanel />,
-  },
-];
+// Derived from the sidebar's SECTIONS registry so desktop and mobile can't
+// drift on labels or content.
+export const defaultPanels: DataPanelSpec[] = SECTIONS.map(section => ({
+  title: section.key,
+  label: section.label,
+  content: section.content,
+  districtsOnly: section.districtsOnly,
+}));

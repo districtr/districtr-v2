@@ -1,36 +1,30 @@
 'use client';
-import React, {useState} from 'react';
-import {Box, Button, Flex, Text} from '@radix-ui/themes';
-import {PinLeftIcon} from '@radix-ui/react-icons';
+import React from 'react';
+import {Box, Flex} from '@radix-ui/themes';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
-import {useToolbarStore} from '@/app/store/toolbarStore';
 import {Toolbar} from '../Toolbar/Toolbar';
+import {VisualSettingsPopover} from '../Toolbar/VisualSettingsPopover';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useIsDesktop} from '@/app/hooks/useIsDesktop';
 
+// The toolbar is fixed to the sidebar; it can no longer be moved to the map area.
+// Tool buttons wrap on narrow sidebars, so no horizontal scrolling here.
 export const ToolbarInSidebar = () => {
-  const toolbarLocation = useToolbarStore(store => store.toolbarLocation);
   const activeTool = useMapControlsStore(store => store.activeTool);
-  const setToolbarLocation = useToolbarStore(store => store.setToolbarLocation);
-  const [hovered, setHovered] = useState(false);
-  if (toolbarLocation !== 'sidebar') return null;
+  // Below lg the MobileToolbar dock owns the (single) Toolbar instance — its
+  // subtree registers document-level hotkey listeners, so it must never mount
+  // twice. The sidebar is CSS-hidden below lg anyway.
+  const isDesktop = useIsDesktop();
 
   return (
     <Box
-      className={`my-1 flex-none ${activeTool !== ACTIVE_TOOLS.PAN && 'border-b-[1px] border-gray-300'} overflow-x-auto overflow-y-hidden`}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      className={`my-1 flex-none ${activeTool !== ACTIVE_TOOLS.PAN && 'border-b-[1px] border-gray-300'}`}
     >
-      <Button
-        variant="ghost"
-        onClick={() => setToolbarLocation('map')}
-        className={`${hovered ? '' : '!opacity-0'}`}
-      >
-        <Flex direction={'row'} align="center" gapX="2" p="1">
-          <PinLeftIcon fontSize={'1'} />
-          <Text size="1">Move toolbar to map area</Text>
-        </Flex>
-      </Button>
-      <Toolbar />
+      {isDesktop && <Toolbar />}
+      <Flex justify="start" py="2">
+        {/* Visual settings live next to the toolbar as a dropdown, not a modal. */}
+        <VisualSettingsPopover />
+      </Flex>
     </Box>
   );
 };

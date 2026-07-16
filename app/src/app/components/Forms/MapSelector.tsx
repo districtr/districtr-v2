@@ -1,7 +1,6 @@
 'use client';
 import {useEffect, useRef, useState} from 'react';
 import {useFormState} from '@/app/store/formState';
-import {useMapStore} from '@/app/store/mapStore';
 import {getDocument} from '@/app/utils/api/apiHandlers/getDocument';
 import {DocumentObject} from '@/app/utils/api/apiHandlers/types';
 import {TILESET_URL} from '@/app/utils/api/constants';
@@ -43,7 +42,6 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
   const [dataResponse, setDataResponse] = useState<ValidationResponse | null>(null);
 
   const showMapSelector = useFormState(state => state.showMapSelector);
-  const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const comment = useFormState(state => state.comment);
   const mapId = comment?.document_id ?? '';
   const [savedMapId, setSavedMapId] = useState<string | null>(null);

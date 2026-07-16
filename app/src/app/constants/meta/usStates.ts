@@ -56,6 +56,9 @@ export const US_STATE_META: Array<{
   {FIPS: '72', NAME: 'Puerto Rico', ABBR: 'PR'},
 ] as const;
 
+export const FIPS_TO_ABBR = Object.fromEntries(US_STATE_META.map(s => [s.FIPS, s.ABBR]));
+export const FIPS_TO_NAME = Object.fromEntries(US_STATE_META.map(s => [s.FIPS, s.NAME]));
+
 export const VALID_STATES_LABELS = US_STATE_META.map(
   ({NAME}) =>
     ({

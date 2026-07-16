@@ -1,9 +1,11 @@
 import {CTA} from '@/app/components/Static/Content/CTA';
 import {Flex, Heading, Text, Link, Box} from '@radix-ui/themes';
+import {LearnSubNav} from '@/app/components/Static/LearnSubNav';
 
 export default function GuidePage() {
   return (
     <Flex direction="column" gapY="4">
+      <LearnSubNav />
       <Heading as="h1" size="8">
         Data
       </Heading>
@@ -70,6 +72,13 @@ export default function GuidePage() {
           gerrydb
         </Link>{' '}
         database, which stores all sorts of geospatial data.
+      </Text>
+      <Text size="3">
+        Election results and voter history data are provided courtesy of{' '}
+        <Link href="https://davesredistricting.org" target="_blank">
+          Dave&apos;s Redistricting
+        </Link>
+        .
       </Text>
       <CTA />
     </Flex>

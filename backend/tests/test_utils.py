@@ -7,11 +7,12 @@ from app.utils import (
     create_parent_child_edges,
     add_extent_to_districtrmap,
     update_districtrmap,
+    GEOID_PREDICATES,
 )
 from sqlmodel import Session
 import subprocess
 from app.constants import GERRY_DB_SCHEMA
-from app.models import DistrictrMap
+from app.models import DistrictrMap, GeoUnitType
 from tests.constants import OGR2OGR_PG_CONNECTION_STRING, FIXTURES_PATH
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
@@ -373,3 +374,31 @@ def handle_full_submission_approve(client, form_response: FullCommentFormRespons
         )
     if "id" in form_response["comment"] and form_response["comment"]["id"] is not None:
         handle_approve_comment_entry(client, "comment", form_response["comment"]["id"])
+
+
+# GEOID_PREDICATES — pure unit tests, no DB fixtures.
+@pytest.mark.parametrize(
+    "unit_type,geo_id,expected",
+    [
+        # VTD ids are prefixed; the prefix check accepts split parts too.
+        (GeoUnitType.VTD, "vtd:15009-980000", True),
+        (GeoUnitType.VTD, "vtd:15009-980000-datadem-1", True),
+        (GeoUnitType.VTD, "150099800001", False),
+        # Block groups: bare 12-digit ids, or split parts with a
+        # `-datadem-N` suffix.
+        (GeoUnitType.BLOCK_GROUP, "150099800001", True),
+        (GeoUnitType.BLOCK_GROUP, "150099800001-datadem-1", True),
+        (GeoUnitType.BLOCK_GROUP, "150099800001-datadem-12", True),
+        (GeoUnitType.BLOCK_GROUP, "150099800001-datadem-", False),
+        (GeoUnitType.BLOCK_GROUP, "150099800001-other-1", False),
+        (GeoUnitType.BLOCK_GROUP, "15009980000", False),
+        (GeoUnitType.BLOCK_GROUP, "150099800001999", False),
+        (GeoUnitType.BLOCK_GROUP, "vtd:15009-980000", False),
+        # Blocks are atomic census units and are never split: 15 digits, strict.
+        (GeoUnitType.BLOCK, "150099800001999", True),
+        (GeoUnitType.BLOCK, "150099800001", False),
+        (GeoUnitType.BLOCK, "150099800001999-datadem-1", False),
+    ],
+)
+def test_geoid_predicates(unit_type, geo_id, expected):
+    assert GEOID_PREDICATES[unit_type](geo_id) is expected

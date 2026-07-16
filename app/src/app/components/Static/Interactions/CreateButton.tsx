@@ -17,7 +17,7 @@ export const CreateButton: React.FC<{
   const router = useRouter();
   const userID = useMapStore(stat => stat.userID);
   const setUserID = useMapStore(stat => stat.setUserID);
-  const setErrorNotification = useMapStore(stat => stat.setErrorNotification);
+  const setNotification = useMapStore(stat => stat.setNotification);
   const shouldMakeCommunity = isCommunity ?? routeManager.mapUrlRoute === MAP_ROUTES.COI;
 
   useEffect(() => {
@@ -35,9 +35,10 @@ export const CreateButton: React.FC<{
             `/${shouldMakeCommunity ? MAP_ROUTES.COI : MAP_ROUTES.DISTRICTS}/edit/${r.response.document_id}`
           );
         } else {
-          setErrorNotification({
+          setNotification({
             message: r.error.detail,
-            severity: 2,
+            importance: 2,
+            type: 'error',
           });
         }
       });

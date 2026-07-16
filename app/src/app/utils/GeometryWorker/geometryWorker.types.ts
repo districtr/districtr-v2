@@ -46,6 +46,13 @@ export type GeometryWorkerClass = {
    */
   getPointData: () => GeoJSON.FeatureCollection<GeoJSON.Point>;
   /**
+   * Centroids for shattered child geo_ids. Maintained separately from pointData
+   * (which holds parent-layer centroids) so unassigned-area lookups can resolve
+   * children that don't exist in the parent point set.
+   */
+  childPointData: GeoJSON.FeatureCollection<GeoJSON.Point>;
+  setChildPointData: (pointData: GeoJSON.FeatureCollection<GeoJSON.Point>) => void;
+  /**
    * Updates the zone assignments of the geometries.
    * @param entries - An array of [id, zone] pairs to update.
    */
