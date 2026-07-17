@@ -9,9 +9,9 @@ from urllib.parse import urlparse
 
 import botocore.exceptions
 import fastapi
-from networkx import Graph
 
 from app.core.config import settings
+from app.evaluation.district_graph import DistrictGraph
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +34,15 @@ def get_gerrydb_graph_file(
     return f"s3://{settings.R2_BUCKET_NAME}/{S3_GRAPH_PREFIX}/{gerrydb_name}.pkl"
 
 
-def get_gerrydb_graph(file_path: str) -> Graph:
+def get_gerrydb_graph(file_path: str) -> DistrictGraph:
     """Load a GerryDB graph pkl from a local path or an S3 URI.
 
     S3 objects are streamed straight into memory — the lru_cache on
     `get_graph` is the only cache, so deployments need no data volume.
+
+    The pickled networkx graph is converted to a compact DistrictGraph
+    (~10x less resident memory); the transient networkx object is freed
+    once conversion returns.
     """
     url = urlparse(file_path)
 
@@ -48,10 +52,12 @@ def get_gerrydb_graph(file_path: str) -> Graph:
         key = url.path.lstrip("/")
         logger.info("Streaming graph from s3://%s/%s", url.netloc, key)
         response = s3.get_object(Bucket=url.netloc, Key=key)
-        return pickle.loads(response["Body"].read())
+        nx_graph = pickle.loads(response["Body"].read())
+    else:
+        with open(file_path, "rb") as f:
+            nx_graph = pickle.load(f)
 
-    with open(file_path, "rb") as f:
-        return pickle.load(f)
+    return DistrictGraph.from_networkx(nx_graph)
 
 
 # Must exceed the distinct-map working set or evictions force multi-second
@@ -60,7 +66,7 @@ _GRAPH_CACHE_MAX_SIZE = 15
 
 
 @lru_cache(maxsize=_GRAPH_CACHE_MAX_SIZE)
-def _load_graph(gerrydb_name: str) -> Graph:
+def _load_graph(gerrydb_name: str) -> DistrictGraph:
     try:
         path = get_gerrydb_graph_file(gerrydb_name)
         logger.info("Graph cache miss, loading from %s", path)
@@ -85,7 +91,7 @@ _graph_locks: dict[str, threading.Lock] = {}
 _graph_locks_guard = threading.Lock()
 
 
-def get_graph(gerrydb_name: str) -> Graph:
+def get_graph(gerrydb_name: str) -> DistrictGraph:
     """Load a graph from local disk or S3, LRU-cached by gerrydb_name.
 
     Raises HTTPException (404 or 500) if the graph is unavailable.
