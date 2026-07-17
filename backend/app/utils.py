@@ -653,9 +653,9 @@ def update_or_select_district_stats(
         # Need the gerrydb table + columns for any rebuild work.
         doc_row = session.exec(
             select(
-                Document,
                 DistrictrMap.gerrydb_table_name.label("gerrydb_table_name"),
                 DistrictrMap.parent_layer.label("parent_layer"),
+                Document.public_id.label("public_id"),
             )
             .join(
                 DistrictrMap,
@@ -673,6 +673,40 @@ def update_or_select_district_stats(
             if demo_cols:
                 json_pairs = [f"'{col}', SUM(demo.{col})" for col in demo_cols]
                 demographic_json = f"json_build_object({', '.join(json_pairs)})"
+
+        # Serialize concurrent cache rebuilds at the document level: a loser
+        # blocks here instead of computing an expensive spatial union it will
+        # lose to ON CONFLICT. After acquiring the lock, re-check the cache —
+        # the winner may have already warmed it.
+        if missing_zones and doc_row.public_id is not None:
+            session.execute(
+                text("SELECT pg_advisory_xact_lock(:key)"),
+                {"key": doc_row.public_id},
+            )
+            post_lock_rows = (
+                session.execute(
+                    text(
+                        "SELECT du.zone, ST_AsGeoJSON(du.geometry)::json AS geometry, "
+                        "du.demographic_data, du.updated_at "
+                        "FROM document.district_unions du "
+                        "WHERE du.document_id = :document_id"
+                    ).bindparams(bindparam(key="document_id", type_=UUIDType)),
+                    {"document_id": document_id},
+                )
+                .mappings()
+                .all()
+            )
+            cached_assigned = [r for r in post_lock_rows if r["zone"] is not None]
+            cached_unassigned = next(
+                (r for r in post_lock_rows if r["zone"] is None), None
+            )
+            cached_zone_set = {int(r["zone"]) for r in cached_assigned}
+            missing_zones = sorted(current_zones - cached_zone_set)
+            if not missing_zones and cached_unassigned is not None:
+                return [
+                    DistrictUnionsResponse.model_validate(r) for r in post_lock_rows
+                ]
+            cached_rows = post_lock_rows
 
         # Rebuild missing zones. document_id is interpolated directly because
         # SQLAlchemy doesn't bind values for SELECT targets in INSERT/SELECT;
