@@ -122,6 +122,70 @@ export function createMonitoring(
     alarmDescription: "RDS CPU above 80%",
   });
 
+  // Stress-test observed failure modes: latency wall, connection exhaustion,
+  // burst-credit collapse. These three were the leading indicators the prior
+  // CPU/5xx-only set lacked.
+
+  new aws.cloudwatch.MetricAlarm(`${name}-alb-target-latency`, {
+    ...alarmDefaults,
+    name: `${name}-alb-target-latency-high`,
+    namespace: "AWS/ApplicationELB",
+    metricName: "TargetResponseTime",
+    dimensions: {
+      LoadBalancer: alb.alb.arnSuffix,
+      TargetGroup: alb.backendTargetGroup.arnSuffix,
+    },
+    extendedStatistic: "p95",
+    period: 60,
+    evaluationPeriods: 2,
+    threshold: 5,
+    comparisonOperator: "GreaterThanThreshold",
+    alarmDescription: "Backend p95 response time above 5s (stress runs hit 120s wall)",
+  });
+
+  new aws.cloudwatch.MetricAlarm(`${name}-db-connections`, {
+    ...alarmDefaults,
+    name: `${name}-db-connections-high`,
+    namespace: "AWS/RDS",
+    metricName: "DatabaseConnections",
+    dimensions: {DBInstanceIdentifier: database.db.identifier},
+    statistic: "Maximum",
+    period: 60,
+    evaluationPeriods: 2,
+    threshold: 700, // ~80% of t4g.large's ~900 max; revisit if instance class changes
+    comparisonOperator: "GreaterThanThreshold",
+    alarmDescription: "RDS connections above 700 (pool/connection exhaustion risk)",
+  });
+
+  new aws.cloudwatch.MetricAlarm(`${name}-db-cpu-credits`, {
+    ...alarmDefaults,
+    name: `${name}-db-cpu-credits-low`,
+    namespace: "AWS/RDS",
+    metricName: "CPUCreditBalance",
+    dimensions: {DBInstanceIdentifier: database.db.identifier},
+    statistic: "Minimum",
+    period: 300,
+    evaluationPeriods: 1,
+    threshold: 100,
+    comparisonOperator: "LessThanThreshold",
+    alarmDescription: "RDS CPU credit balance below 100 (t4g burst exhaustion risk)",
+  });
+
+  // ponytail: threshold uncalibrated — set 1000 as placeholder; tune after a healthy-load baseline run
+  new aws.cloudwatch.MetricAlarm(`${name}-alb-requests-per-target`, {
+    ...alarmDefaults,
+    name: `${name}-alb-request-count-per-target-high`,
+    namespace: "AWS/ApplicationELB",
+    metricName: "RequestCountPerTarget",
+    dimensions: {TargetGroup: alb.backendTargetGroup.arnSuffix},
+    statistic: "Sum",
+    period: 60,
+    evaluationPeriods: 2,
+    threshold: 1000,
+    comparisonOperator: "GreaterThanThreshold",
+    alarmDescription: "Requests per target high — queue building ahead of autoscale lag",
+  });
+
   // One pane of glass for stress-test runs (see infra/athena/OBSERVABILITY.md).
   // Dashboard only — deliberately no new alarms.
   new aws.cloudwatch.Dashboard(`${name}-stress-test-dashboard`, {
