@@ -126,9 +126,7 @@ class DistrictGraph:
         node_ids = np.sort(np.asarray(list(G.nodes()), dtype=str))
         idx = {node: i for i, node in enumerate(node_ids.tolist())}
         if G.number_of_edges():
-            edges = np.asarray(
-                [(idx[u], idx[v]) for u, v in G.edges()], dtype=np.int32
-            )
+            edges = np.asarray([(idx[u], idx[v]) for u, v in G.edges()], dtype=np.int32)
         else:
             edges = np.empty((0, 2), dtype=np.int32)
 
@@ -155,10 +153,38 @@ class DistrictGraph:
                 if we is not None
                 else None
             ),
-            non_contiguous_parents=(
-                {str(p) for p in ncp} if ncp is not None else None
-            ),
+            non_contiguous_parents=({str(p) for p in ncp} if ncp is not None else None),
         )
+
+    @classmethod
+    def from_npz(cls, file) -> "DistrictGraph":
+        """Load from an npz file path or file-like object (see pipelines
+        ``graph_to_npz_arrays`` for the writer — keep the two in sync)."""
+        with np.load(file, allow_pickle=False) as data:
+            version = int(data["format_version"])
+            if version != 1:
+                raise ValueError(f"Unsupported graph npz format_version: {version}")
+            parent_ids = data["parent_ids"]
+            weighted_edges = None
+            if bool(data["has_weighted_edges"]):
+                pid = parent_ids.tolist()
+                weighted_edges = {
+                    (pid[a], pid[b]): int(w)
+                    for (a, b), w in zip(
+                        data["we_keys"].tolist(), data["we_vals"].tolist()
+                    )
+                }
+            non_contiguous_parents = None
+            if bool(data["has_non_contiguous_parents"]):
+                non_contiguous_parents = set(data["non_contiguous_parents"].tolist())
+            return cls(
+                node_ids=data["node_ids"],
+                edges=data["edges"],
+                parent_ids=parent_ids,
+                parent_of=data["parent_of"],
+                weighted_edges=weighted_edges,
+                non_contiguous_parents=non_contiguous_parents,
+            )
 
     # -- lookups ------------------------------------------------------------
 
@@ -204,9 +230,7 @@ class DistrictGraph:
 
     def _subset_indices(self, subset: Iterable[Hashable]) -> np.ndarray:
         """Indices of subset ids present in the graph (unknown ids dropped)."""
-        ids = np.asarray(
-            [node for node in subset if isinstance(node, str)], dtype=str
-        )
+        ids = np.asarray([node for node in subset if isinstance(node, str)], dtype=str)
         if ids.size == 0:
             return np.empty(0, dtype=np.int64)
         pos = np.searchsorted(self._node_ids, ids)
@@ -218,9 +242,7 @@ class DistrictGraph:
         """Union-find over edges internal to the subset; returns {node_idx: root}."""
         member = np.zeros(len(self._node_ids), dtype=bool)
         member[idxs] = True
-        internal = self._edges[
-            member[self._edges[:, 0]] & member[self._edges[:, 1]]
-        ]
+        internal = self._edges[member[self._edges[:, 0]] & member[self._edges[:, 1]]]
 
         # ponytail: python-loop union-find, ~0.1s per 30k-node zone. If profiling
         # ever flags it, scipy.sparse.csgraph.connected_components is the upgrade.
