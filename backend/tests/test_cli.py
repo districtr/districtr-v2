@@ -497,3 +497,167 @@ def test_link_overlays_to_maps_invalid_selectors(engine, link_test_maps):
 
     no_selector_proc = run_cli("link-overlays-to-maps")
     assert no_selector_proc.returncode != 0, "Missing selectors did not fail"
+
+
+SYNC_TEST_SOURCE = "https://x/overlays/al_cd.geojson"
+SYNC_TEST_STALE_NAME = "Sync Metadata Test Stale Name"
+SYNC_TEST_STALE_DESCRIPTION = "Stale description"
+SYNC_TEST_NEW_NAME = "Congressional Districts"
+SYNC_TEST_NEW_DESCRIPTION = "Used in 2026 elections"
+SYNC_TEST_ABSENT_SOURCE = "https://x/overlays/zz_none.geojson"
+
+
+def purge_sync_test_rows(session: Session):
+    """Delete committed overlays created by the sync-overlay-metadata tests."""
+    session.execute(
+        text("DELETE FROM overlay WHERE source = ANY(:sources)"),
+        {"sources": [SYNC_TEST_SOURCE, SYNC_TEST_ABSENT_SOURCE]},
+    )
+    session.commit()
+
+
+def create_sync_test_overlay(
+    engine,
+    layer_type: str,
+    source: str,
+    name: str = SYNC_TEST_STALE_NAME,
+    description: str = SYNC_TEST_STALE_DESCRIPTION,
+) -> str:
+    """Create a committed overlay row visible to CLI subprocesses."""
+    overlay_id = str(uuid4())
+    with Session(engine) as overlay_session:
+        overlay_session.add(
+            Overlay(
+                overlay_id=overlay_id,
+                name=name,
+                description=description,
+                data_type="geojson",
+                layer_type=layer_type,
+                source=source,
+            )
+        )
+        overlay_session.commit()
+    return overlay_id
+
+
+def get_overlay_name_description(engine, overlay_id: str) -> tuple[str, str]:
+    with Session(engine) as query_session:
+        row = query_session.execute(
+            text(
+                "SELECT name, description FROM overlay WHERE overlay_id = :overlay_id"
+            ),
+            {"overlay_id": overlay_id},
+        ).one()
+    return row.name, row.description
+
+
+@pytest.fixture(name="sync_test_cleanup")
+def sync_test_cleanup_fixture(engine):
+    """Purge sync-overlay-metadata test overlays before and after each test."""
+    with Session(engine) as setup_session:
+        purge_sync_test_rows(setup_session)
+    yield
+    with Session(engine) as teardown_session:
+        purge_sync_test_rows(teardown_session)
+
+
+def test_sync_overlay_metadata_updates_all_matching(
+    engine, tmp_path, sync_test_cleanup
+):
+    """Both overlays sharing a source key get the new name and description"""
+    line_overlay_id = create_sync_test_overlay(engine, "line", SYNC_TEST_SOURCE)
+    text_overlay_id = create_sync_test_overlay(engine, "text", SYNC_TEST_SOURCE)
+
+    metadata_path = tmp_path / "metadata.json"
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "al_cd": {
+                    "name": SYNC_TEST_NEW_NAME,
+                    "description": SYNC_TEST_NEW_DESCRIPTION,
+                    "source": "Dave's Redistricting App",
+                    "plan_name": "AL 2026 Congressional",
+                    "year": "2026",
+                }
+            }
+        )
+    )
+
+    result_proc = run_cli("sync-overlay-metadata", "--metadata", str(metadata_path))
+    assert (
+        result_proc.returncode == 0
+    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+
+    for overlay_id in (line_overlay_id, text_overlay_id):
+        name, description = get_overlay_name_description(engine, overlay_id)
+        assert name == SYNC_TEST_NEW_NAME, "Overlay name not updated"
+        assert (
+            description == SYNC_TEST_NEW_DESCRIPTION
+        ), "Overlay description not updated"
+
+
+def test_sync_overlay_metadata_dry_run_no_changes(engine, tmp_path, sync_test_cleanup):
+    """--dry-run leaves the overlay name and description unchanged"""
+    overlay_id = create_sync_test_overlay(engine, "line", SYNC_TEST_SOURCE)
+
+    metadata_path = tmp_path / "metadata.json"
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "al_cd": {
+                    "name": SYNC_TEST_NEW_NAME,
+                    "description": SYNC_TEST_NEW_DESCRIPTION,
+                }
+            }
+        )
+    )
+
+    result_proc = run_cli(
+        "sync-overlay-metadata", "--metadata", str(metadata_path), "--dry-run"
+    )
+    assert (
+        result_proc.returncode == 0
+    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+
+    name, description = get_overlay_name_description(engine, overlay_id)
+    assert name == SYNC_TEST_STALE_NAME, "Dry run changed overlay name"
+    assert (
+        description == SYNC_TEST_STALE_DESCRIPTION
+    ), "Dry run changed overlay description"
+
+
+def test_sync_overlay_metadata_absent_key_unchanged(
+    engine, tmp_path, sync_test_cleanup
+):
+    """An overlay whose key is absent from the metadata is left unchanged"""
+    overlay_id = create_sync_test_overlay(engine, "line", SYNC_TEST_ABSENT_SOURCE)
+
+    metadata_path = tmp_path / "metadata.json"
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "al_cd": {
+                    "name": SYNC_TEST_NEW_NAME,
+                    "description": SYNC_TEST_NEW_DESCRIPTION,
+                }
+            }
+        )
+    )
+
+    result_proc = run_cli("sync-overlay-metadata", "--metadata", str(metadata_path))
+    assert (
+        result_proc.returncode == 0
+    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+
+    name, description = get_overlay_name_description(engine, overlay_id)
+    assert name == SYNC_TEST_STALE_NAME, "Absent-key overlay name changed"
+    assert (
+        description == SYNC_TEST_STALE_DESCRIPTION
+    ), "Absent-key overlay description changed"
+
+
+def test_sync_overlay_metadata_missing_file_fails(engine, tmp_path):
+    """A nonexistent metadata file exits non-zero"""
+    missing_path = tmp_path / "does_not_exist.json"
+    result_proc = run_cli("sync-overlay-metadata", "--metadata", str(missing_path))
+    assert result_proc.returncode != 0, "Nonexistent metadata file did not fail"

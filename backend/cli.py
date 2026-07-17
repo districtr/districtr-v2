@@ -981,6 +981,81 @@ def delete_overlay(session: Session, overlay_id: str):
         logger.error(f"Overlay with ID {overlay_id} not found")
 
 
+@cli.command("sync-overlay-metadata")
+@click.option(
+    "--metadata",
+    "-m",
+    help="Path to the metadata JSON file",
+    required=True,
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Log what would change without writing",
+)
+@with_session
+def sync_overlay_metadata(session: Session, metadata: str, dry_run: bool):
+    """Bulk-update overlay name and description from a published metadata JSON file.
+
+    Overlays are matched to metadata entries by the basename of their source URL:
+    a source ending in `{key}.geojson` matches the metadata entry keyed by `{key}`.
+    """
+    try:
+        with open(metadata) as f:
+            metadata_by_key = json.load(f)
+    except FileNotFoundError:
+        raise click.UsageError(f"Metadata file not found: {metadata}")
+    except json.JSONDecodeError as e:
+        raise click.UsageError(f"Invalid JSON in metadata file {metadata}: {e}")
+
+    overlays = session.execute(
+        text(
+            "SELECT overlay_id, source, name, description FROM overlay WHERE source IS NOT NULL"
+        )
+    ).all()
+
+    updated_count = 0
+    for overlay in overlays:
+        key = overlay.source.rsplit("/", 1)[-1].removesuffix(".geojson")
+        entry = metadata_by_key.get(key)
+        if entry is None:
+            logger.info(f"No metadata entry for {key}; leaving overlay unchanged")
+            continue
+
+        new_name = entry.get("name")
+        new_description = entry.get("description")
+        if new_name == overlay.name and new_description == overlay.description:
+            logger.debug(f"Overlay {key} already up to date")
+            continue
+
+        if dry_run:
+            logger.info(f"Would update {key}: name/description")
+            updated_count += 1
+            continue
+
+        session.execute(
+            text(
+                """UPDATE overlay
+                SET name = :name, description = :description, updated_at = :updated_at
+                WHERE overlay_id = :overlay_id"""
+            ),
+            {
+                "name": new_name,
+                "description": new_description,
+                "updated_at": datetime.now(timezone.utc),
+                "overlay_id": overlay.overlay_id,
+            },
+        )
+        logger.info(f"Updated {key}: name/description")
+        updated_count += 1
+
+    if dry_run:
+        logger.info(f"Dry run: {updated_count} overlay(s) would be updated")
+    else:
+        logger.info(f"Updated {updated_count} overlay(s)")
+
+
 @cli.command("check-missing-graphs")
 @click.option(
     "--skip-alert",
