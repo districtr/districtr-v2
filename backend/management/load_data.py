@@ -3,7 +3,6 @@ import sqlalchemy as sa
 from pathlib import Path
 
 from app.utils import (
-    create_parent_child_edges,
     create_districtr_map,
     create_shatterable_gerrydb_view,
     add_extent_to_districtrmap,
@@ -16,7 +15,7 @@ from app.main import get_session
 from app.core.config import settings
 from functools import wraps
 import logging
-from sqlmodel import Session, select
+from sqlmodel import Session
 from app.models import DistrictrMapPublic, DistrictrMap, ConfigMapGroup
 from pydantic import BaseModel, computed_field
 from app.constants import GERRY_DB_SCHEMA
@@ -125,76 +124,6 @@ def _create_shatterable_gerrydb_view(session: Session, **kwargs):
 @continue_on_previous_load
 def _create_districtr_map(session: Session, **kwargs) -> str:
     return create_districtr_map(session=session, **kwargs)
-
-
-@continue_on_previous_load
-def _create_parent_child_edges(session: Session, **kwargs):
-    # Spatial join over large states can exceed the default 120s API timeout.
-    session.execute(sa.text("SET statement_timeout = '0'"))
-
-    # If another map with the same parent/child layers already has edges, copy
-    # from that partition instead of re-running the expensive spatial join.
-    # A geography's map modules (congressional/senate/house/custom) share one
-    # layer pair, so their edge sets are identical.
-    districtr_map_uuid = kwargs["districtr_map_uuid"]
-    map_row = session.exec(
-        select(DistrictrMap).where(DistrictrMap.uuid == districtr_map_uuid)
-    ).one_or_none()
-
-    if map_row and map_row.child_layer:
-        existing = session.execute(
-            sa.text("""
-                SELECT dm.uuid
-                FROM districtrmap dm
-                WHERE dm.parent_layer = :parent_layer
-                  AND dm.child_layer  = :child_layer
-                  AND dm.uuid        != :uuid
-                  AND EXISTS (
-                      SELECT 1 FROM parentchildedges pce
-                      WHERE pce.districtr_map = dm.uuid
-                  )
-                LIMIT 1
-            """),
-            {
-                "parent_layer": map_row.parent_layer,
-                "child_layer": map_row.child_layer,
-                "uuid": str(districtr_map_uuid),
-            },
-        ).one_or_none()
-
-        if existing:
-            uuid_str = str(districtr_map_uuid)
-            partition_name = f"parentchildedges_{uuid_str}"
-            # Name the source partition directly to bypass partition pruning on the
-            # parameterized query — without this, PostgreSQL scans all partitions.
-            source_partition_name = f"parentchildedges_{existing.uuid}"
-            partition_exists = session.execute(
-                sa.text(
-                    "SELECT 1 FROM pg_tables"
-                    " WHERE schemaname = 'public' AND tablename = :name"
-                ),
-                {"name": partition_name},
-            ).scalar()
-            if not partition_exists:
-                session.execute(
-                    sa.text(
-                        f'CREATE TABLE "{partition_name}" '
-                        f"PARTITION OF parentchildedges FOR VALUES IN ('{uuid_str}')"
-                    )
-                )
-            session.execute(
-                sa.text(f"""
-                    INSERT INTO "{partition_name}" (created_at, districtr_map, parent_path, child_path)
-                    SELECT now(), '{uuid_str}', parent_path, child_path
-                    FROM "{source_partition_name}"
-                """),
-            )
-            logger.info(
-                "Copied parent-child edges from %s to %s", existing.uuid, uuid_str
-            )
-            return
-
-    create_parent_child_edges(session=session, **kwargs)
 
 
 class GerryDBViewImport(BaseModel):
@@ -404,21 +333,6 @@ def load_sample_data(
                 )
         else:
             logger.info(f"Created districtr map with UUID {u}")
-
-        if view.child_layer is not None:
-            edges_exist = session.execute(
-                sa.text(
-                    "SELECT COUNT(*) > 0 FROM parentchildedges WHERE districtr_map = :uuid"
-                ),
-                {"uuid": u},
-            ).scalar()
-            if edges_exist:
-                logger.info(
-                    f"Parent-child edges for {view.districtr_map_slug} already exist, skipping."
-                )
-            else:
-                session.commit()
-                _create_parent_child_edges(session=session, districtr_map_uuid=u)
 
         session.commit()
 
