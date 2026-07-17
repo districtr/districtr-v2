@@ -66,6 +66,50 @@ def test_get_gerrydb_graph_file_prefers_local_npz(tmp_path):
     )
 
 
+def test_load_graph_uses_shared_disk_cache(monkeypatch, tmp_path):
+    """First load writes the mmap cache; later loads (any worker) mmap it."""
+    import numpy as np
+
+    monkeypatch.setattr(
+        graph_module.settings, "GRAPH_CACHE_PATH", str(tmp_path), raising=False
+    )
+    monkeypatch.setattr(
+        graph_module,
+        "get_gerrydb_graph_file",
+        lambda name: str(FIXTURES_PATH / "graph" / f"{name}.pkl"),
+    )
+
+    G1 = graph_module._load_via_disk_cache("simple_geos")
+    assert (tmp_path / "simple_geos" / "meta.json").exists()
+    # Even the writing worker gets the mmap-backed copy
+    assert isinstance(G1._node_ids, np.memmap)
+
+    # A "second worker" (fresh call, no in-process LRU) loads from the cache
+    G2 = graph_module._load_via_disk_cache("simple_geos")
+    assert isinstance(G2._node_ids, np.memmap)
+    assert list(G2.nodes) == list(G1.nodes)
+    assert G2.graph == G1.graph
+
+
+def test_load_graph_recovers_from_corrupt_disk_cache(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        graph_module.settings, "GRAPH_CACHE_PATH", str(tmp_path), raising=False
+    )
+    monkeypatch.setattr(
+        graph_module,
+        "get_gerrydb_graph_file",
+        lambda name: str(FIXTURES_PATH / "graph" / f"{name}.pkl"),
+    )
+    cache_dir = tmp_path / "simple_geos"
+    cache_dir.mkdir()
+    (cache_dir / "meta.json").write_text("not json {")
+
+    G = graph_module._load_via_disk_cache("simple_geos")
+    assert "weighted_edges" in G.graph
+    # Cache was rebuilt cleanly
+    assert (cache_dir / "meta.json").read_text().startswith("{")
+
+
 def test_s3_npz_missing_falls_back_to_pkl(monkeypatch):
     """An S3 npz miss retries the legacy pkl key before giving up."""
     import botocore.exceptions

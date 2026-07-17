@@ -134,6 +134,12 @@ class Settings(BaseSettings):
     VOLUME_PATH: str = "/data"
     SQL_DIR: Path = Path(__file__).parent.parent / "sql"
 
+    # Local directory of memory-mapped graph arrays shared by all uvicorn
+    # workers in the container (one physical copy via the OS page cache).
+    # Lives for the container lifetime — same staleness semantics as the
+    # in-process LRU; a redeploy or task restart starts fresh.
+    GRAPH_CACHE_PATH: str = "/tmp/districtr-graph-cache"
+
     # TODO: R2_BUCKET_NAME is a misnomer — storage has migrated to S3. Rename to
     # S3_BUCKET_NAME and update all references and env var documentation.
     R2_BUCKET_NAME: str | None = None

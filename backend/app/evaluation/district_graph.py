@@ -18,6 +18,10 @@ native ``str``, never ``np.str_`` (they flow into psycopg bind params, msgpack,
 and CSV writers).
 """
 
+import json
+import os
+import shutil
+from pathlib import Path
 from typing import Hashable, Iterable
 
 import numpy as np
@@ -96,12 +100,6 @@ class DistrictGraph:
         child_idx = np.nonzero(parent_of >= 0)[0].astype(np.int32)
         by_parent = np.argsort(parent_of[child_idx], kind="stable")
         self._children_sorted = child_idx[by_parent]
-        parents_sorted = parent_of[self._children_sorted]
-        uniq, starts = np.unique(parents_sorted, return_index=True)
-        ends = np.append(starts[1:], len(parents_sorted))
-        self._children_slices: dict[int, tuple[int, int]] = {
-            int(p): (int(s), int(e)) for p, s, e in zip(uniq, starts, ends)
-        }
 
         # For each node, its index in parent_ids if the node is itself a parent
         # unit, else -1 (vectorized searchsorted over both sorted arrays).
@@ -111,6 +109,21 @@ class DistrictGraph:
             pos = np.minimum(pos, len(parent_ids) - 1)
             is_parent = parent_ids[pos] == node_ids
             self._as_parent[is_parent] = pos[is_parent]
+
+        self._finalize(weighted_edges, non_contiguous_parents)
+
+    def _finalize(
+        self,
+        weighted_edges: dict[tuple[str, str], int] | None,
+        non_contiguous_parents: set[str] | None,
+    ) -> None:
+        """Build the small per-process structures derived from the arrays."""
+        parents_sorted = np.asarray(self._parent_of)[self._children_sorted]
+        uniq, starts = np.unique(parents_sorted, return_index=True)
+        ends = np.append(starts[1:], len(parents_sorted))
+        self._children_slices: dict[int, tuple[int, int]] = {
+            int(p): (int(s), int(e)) for p, s, e in zip(uniq, starts, ends)
+        }
 
         self.graph: dict = {}
         if weighted_edges is not None:
@@ -185,6 +198,100 @@ class DistrictGraph:
                 weighted_edges=weighted_edges,
                 non_contiguous_parents=non_contiguous_parents,
             )
+
+    # -- shared-memory disk cache -------------------------------------------
+    #
+    # All uvicorn workers in a container memory-map the same array files, so
+    # the OS page cache keeps one physical copy of each graph regardless of
+    # worker count. Only the small dicts built in _finalize are per-process.
+
+    _CACHE_ARRAYS = (
+        "node_ids",
+        "edges",
+        "parent_ids",
+        "parent_of",
+        "adj",
+        "adj_offsets",
+        "children_sorted",
+        "as_parent",
+    )
+    _CACHE_VERSION = 1
+
+    def save_cache(self, cache_dir: Path) -> None:
+        """Atomically write the graph as mmap-able .npy files + meta.json.
+
+        Concurrent writers race benignly: each writes a private tmp dir and
+        the first rename wins; losers discard their copy.
+        """
+        cache_dir = Path(cache_dir)
+        tmp_dir = cache_dir.with_name(f"{cache_dir.name}.tmp-{os.getpid()}")
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            for name in self._CACHE_ARRAYS:
+                np.save(tmp_dir / f"{name}.npy", getattr(self, f"_{name}"))
+            we = self.graph.get("weighted_edges")
+            if we is not None:
+                np.save(
+                    tmp_dir / "we_a.npy",
+                    np.asarray([a for a, _ in we], dtype=str),
+                )
+                np.save(
+                    tmp_dir / "we_b.npy",
+                    np.asarray([b for _, b in we], dtype=str),
+                )
+                np.save(
+                    tmp_dir / "we_vals.npy",
+                    np.asarray(list(we.values()), dtype=np.int32),
+                )
+            ncp = self.graph.get("non_contiguous_parents")
+            if ncp is not None:
+                np.save(tmp_dir / "ncp.npy", np.asarray(sorted(ncp), dtype=str))
+            meta = {
+                "cache_version": self._CACHE_VERSION,
+                "has_weighted_edges": we is not None,
+                "has_non_contiguous_parents": ncp is not None,
+            }
+            (tmp_dir / "meta.json").write_text(json.dumps(meta))
+            os.rename(tmp_dir, cache_dir)
+        except OSError:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+            if not (cache_dir / "meta.json").exists():
+                raise
+
+    @classmethod
+    def load_cache(cls, cache_dir: Path) -> "DistrictGraph":
+        """Load a graph from save_cache output, memory-mapping the arrays."""
+        cache_dir = Path(cache_dir)
+        meta = json.loads((cache_dir / "meta.json").read_text())
+        if meta["cache_version"] != cls._CACHE_VERSION:
+            raise ValueError(
+                f"Unsupported graph cache_version: {meta['cache_version']}"
+            )
+
+        g = object.__new__(cls)
+        for name in cls._CACHE_ARRAYS:
+            setattr(
+                g,
+                f"_{name}",
+                np.load(cache_dir / f"{name}.npy", mmap_mode="r"),
+            )
+
+        weighted_edges = None
+        if meta["has_weighted_edges"]:
+            weighted_edges = {
+                (a, b): int(w)
+                for a, b, w in zip(
+                    np.load(cache_dir / "we_a.npy").tolist(),
+                    np.load(cache_dir / "we_b.npy").tolist(),
+                    np.load(cache_dir / "we_vals.npy").tolist(),
+                )
+            }
+        non_contiguous_parents = None
+        if meta["has_non_contiguous_parents"]:
+            non_contiguous_parents = set(np.load(cache_dir / "ncp.npy").tolist())
+
+        g._finalize(weighted_edges, non_contiguous_parents)
+        return g
 
     # -- lookups ------------------------------------------------------------
 
