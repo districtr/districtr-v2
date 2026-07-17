@@ -736,6 +736,12 @@ def update_or_select_district_stats(
                 sp.commit()
             except Exception:
                 sp.rollback()
+                logger.info(
+                    "ST_CoverageUnion failed for document %s zones %s; "
+                    "falling back to ST_UnaryUnion",
+                    document_id,
+                    list(missing_zones),
+                )
                 result = session.execute(
                     text(insert_sql),
                     {"document_id": document_id, "missing_zones": list(missing_zones)},
