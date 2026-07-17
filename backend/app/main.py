@@ -444,6 +444,11 @@ async def create_document(
                 detail=f"Upload size exceeds maximum allowed limit ({max_records} records)",
             )
 
+        # Warm the graph LRU off the event loop: batch_insert_assignments calls
+        # get_graph synchronously, and a cold load (S3 fetch + deserialize)
+        # takes seconds.
+        await run_in_threadpool(get_graph, districtr_map.gerrydb_table_name)
+
         try:
             insert_result = batch_insert_assignments(
                 document_id=document_id,
