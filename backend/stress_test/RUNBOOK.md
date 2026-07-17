@@ -1,113 +1,326 @@
 # Stress-test run protocol (operator runbook)
 
-Operator checklist for the production stress-test run.
-Commands are documented in full in `README.md` (harness, seed/cleanup, runner)
-and `infra/athena/OBSERVABILITY.md` (dashboard, Athena, SG rule, alarms).
-Region is `us-east-2` throughout. Pick a `RUN_ID` (e.g. `run1`) and use it
-everywhere below.
+Self-contained checklist for production stress-test runs. No README round-trips.
+Region is `us-east-2` throughout.
 
-## 1. Pre-flight (day of run, before provisioning)
+---
 
-- [ ] **Notify alarm recipients** (`alarmEmails` in `Pulumi.prod.yaml`:
-      dhalpern@, gfang@, peter@) of the run window. Likely to fire:
-      `districtr-prod-backend-memory-high` (ECS mem >85%) and
-      `districtr-prod-db-cpu-high` (RDS CPU >80%); each also sends an OK
-      email when it clears. Table in `infra/athena/OBSERVABILITY.md`.
-- [ ] **Sentry quota**: tracing is sampled at `SENTRY_TRACES_SAMPLE_RATE`
-      (backend task env var, default 1.0). Expected load ≈ 35 rps × 900 s ≈
-      30k transactions + profiles. Check remaining Sentry quota; if tight,
-      lower the rate via the task env var (config flip + service restart) —
-      decide before the run.
-- [ ] **RDS snapshot**: confirm a recent automated snapshot exists
-      (`aws rds describe-db-snapshots --db-instance-identifier <prod-db> --query 'DBSnapshots[-1].SnapshotCreateTime'`).
-- [ ] **Deploy observability** (deferred until run day): `cd infra && pulumi preview --stack prod`
-      — expect 4 creates (logs bucket + lifecycle + policy, dashboard) and 1
-      in-place ALB update — then `pulumi up`. ALB access logs must be live
-      before the dry run so Athena has data. Note the `albLogsBucket` output;
-      one-time Athena table setup per `infra/athena/OBSERVABILITY.md`.
-- [ ] **CDN config live**: `curl -sf https://tilesets1.cdn.districtr.org/stress-test/config.json`
-      returns the stress-test config JSON (was 403 during build).
-- [ ] **Code pushed**: all `backend/stress_test/` + `infra/` work committed and
-      pushed to `github.com/districtr/districtr-v2`; `REPO_SHA=$(git rev-parse origin/main)`
-      is what the runner bootstraps from.
-- [ ] **Eval lock fix live in prod**: the per-document `/evaluation` compute
-      lock must be merged to main **and deployed to the prod backend** before
-      the run — merged-but-undeployed reintroduces the cache-cold 500 burst
-      the abort criteria no longer excuse.
-- [ ] **Provision runner**: `cd backend/stress_test/runner && RESULTS_BUCKET=<backend bucket> REPO_SHA=<sha> ./provision.sh`
-      (bucket = Pulumi `s3BucketName` / task env `R2_BUCKET_NAME`). Wait for
-      `/home/ec2-user/bootstrap-done`, then run the printed
-      `authorize-security-group-ingress` one-liner (temp 8080 rule for
-      `/metrics` scrapes).
-- [ ] **Seed** via ECS Exec (README "Prod" section):
-      `python cli.py stress-test-seed --run-id $RUN_ID --base-url http://localhost:8080 --manifest s3://$R2_BUCKET_NAME/stress-test/stress_test_manifest_$RUN_ID.json`.
-      Aborts before creating anything if a config slug is missing from prod.
-- [ ] **`SCALE=0.01` dry run green, same day** (deferred acceptance check):
-      seed a throwaway `RUN_ID=dry1`, then
-      `aws ssm send-command ... 'commands=["env RESULTS_BUCKET=<bucket> RUN_ID=dry1 SCALE=0.01 /home/ec2-user/districtr-v2/backend/stress_test/runner/run.sh > /home/ec2-user/dry1.log 2>&1"],executionTimeout=["5400"]'`
-      (~127 users, ~18 min). Verify `aws s3 ls s3://<bucket>/stress-test/dry1/`
-      shows CSVs, HTML, `locust.log`, `metrics/*.prom` (empty metrics/ = 8080
-      rule not authorized), cache snapshots, both manifests. Then delete the
-      dry-run docs with the cleanup one-liner (step 5) using the `dry1`
-      manifests. Known non-fatal: locust exits 1 if *any* request failed
-      (create 504s are known) — judge by the S3 artifacts.
+## 0. Variables
 
-## 2. Baseline (15 min idle)
-
-- [ ] Open CloudWatch dashboard **`districtr-prod-stress-test`** and let it
-      sit ≥15 min with no test traffic. Note idle values: ECS CPU/mem, running
-      task count (expect 2), ALB RequestCount + p50/p95/p99, RDS CPU +
-      DatabaseConnections. Screenshot for the results report.
-
-## 3. The run (`SCALE=1.0`)
-
-- [ ] Trigger (detached; survives dropped SSM session):
-      `aws ssm send-command --region us-east-2 --instance-ids $INSTANCE_ID --document-name AWS-RunShellScript --parameters 'commands=["env RESULTS_BUCKET=<bucket> RUN_ID=run1 SCALE=1.0 /home/ec2-user/districtr-v2/backend/stress_test/runner/run.sh > /home/ec2-user/run1.log 2>&1"],executionTimeout=["5400"]'`
-      — 12,750 users over a 900 s window + 180 s tail (~18 min).
-- [ ] Tail progress: `aws ssm start-session --target $INSTANCE_ID`, then
-      `tail -f /home/ec2-user/run1.log`. Also watch runner CPU (`top`) — if the
-      single locust process pins a core, note it for the results report
-      (`--processes 4` next time).
-- [ ] Watch on the dashboard:
-  - **Task count**: expect autoscale 2→N once CPU passes 45% (60 s cooldown).
-  - **DatabaseConnections** vs the ~15/task ceiling (pool 5 + overflow 10);
-    a plateau at 15×tasks with rising latency = pool exhaustion.
-  - **ALB 5xx** (target + ELB) and TargetResponseTime p95/p99.
-  - Known suspects: occasional `create_document` 504s at the 15 s
-    lock_timeout. Cache-cold `/evaluation` 500 bursts were fixed by the
-    per-document compute lock — with the fix deployed, any eval-500 burst is
-    a **finding**, not expected noise.
-
-## 4. Abort criteria
-
-Abort if any of: **sustained target 5xx** (alarm `alb-target-5xx`, >25/5 min),
-**RDS CPU pinned >90%**, **unhealthy backend targets**, or **real-user
-complaints**. Abort switch (graceful — the
-harness flushes the runtime manifest and run.sh still uploads all artifacts):
+Set once; every later block uses these names.
 
 ```sh
-aws ssm send-command --region us-east-2 --instance-ids $INSTANCE_ID \
-    --document-name AWS-RunShellScript \
-    --parameters 'commands=["pkill -TERM -f locust"]'
+export AWS_DEFAULT_REGION=us-east-2
+export CLUSTER=districtr-prod
+
+# Pulumi state lives in S3 — log in before any pulumi command
+pulumi login 's3://districtr-v2-pulumi-state?region=us-east-2'
+
+export BUCKET=$(cd infra && pulumi config get s3BucketName --stack prod)
+export RUN_ID=run1
+export INSTANCE_ID=$(aws ec2 describe-instances \
+  --filters "Name=tag:Name,Values=districtr-prod-stress-runner" \
+            "Name=instance-state-name,Values=running" \
+  --query 'Reservations[].Instances[].InstanceId' --output text)
 ```
 
-Even after an abort, do all of step 5.
+---
 
-## 5. Post-run
+## 1. One-time setup
 
-- [ ] **Artifacts**: run.sh prints `Artifacts: s3://<bucket>/stress-test/run1/`
-      — confirm CSVs, HTML, `locust.log`, `metrics/`, cache before/after, both
-      manifests are there.
-- [ ] **Cleanup** (ECS Exec, README "Prod" section):
-      `python cli.py stress-test-cleanup -m s3://$R2_BUCKET_NAME/stress-test/stress_test_manifest_run1.json -m s3://$R2_BUCKET_NAME/stress-test/stress_test_runtime_manifest_run1.json --yes`
-      (`--yes` also sweeps any leftover `[STRESS-TEST]`-named docs).
-- [ ] **Verify counts**: cleanup output reports deletions and lists 0
-      remaining `[STRESS-TEST]` documents; spot-check one seed id —
-      `GET /api/document/<seed document_id>` → 404.
-- [ ] **Revoke the temp 8080 SG rule + teardown**: `./teardown.sh` (runner
-      dir) revokes the rule, terminates the instance, deletes the runner SG
-      and IAM role/profile.
-- [ ] **Snapshot the dashboard** (run window + the idle baseline) and pull
-      Athena results (`infra/athena/*.sql`; logs deliver in ~5 min batches).
-      Hand everything to the results write-up.
-- [ ] Confirm any alarms that fired have cleared (OK emails received).
+Do these steps once per environment, not per run. Each has a verify command.
+
+### Bucket contents
+
+Upload config and data files. Key names must match the `assignments_path` values
+in `config.json` **exactly** — extension mismatches cause silent 404s that abort
+the seed.
+
+```sh
+aws s3 cp backend/stress_test/config.json s3://$BUCKET/stress-test/config.json
+aws s3 cp --recursive backend/stress_test/stress-data/ s3://$BUCKET/stress-test/stress-data/
+aws s3 cp --recursive backend/stress_test/graphs/ s3://$BUCKET/stress-test/graphs/
+```
+
+Verify CDN propagation:
+```sh
+curl -sf https://tilesets1.cdn.districtr.org/stress-test/config.json
+```
+
+### Athena table
+
+```sh
+ALB_LOGS_BUCKET=$(cd infra && pulumi stack output albLogsBucket --stack prod)
+
+QEID=$(sed "s/REPLACE_BUCKET/$ALB_LOGS_BUCKET/g" infra/athena/create_table.sql \
+  | aws athena start-query-execution \
+      --query-string file:///dev/stdin \
+      --result-configuration OutputLocation=s3://$ALB_LOGS_BUCKET/athena-results/ \
+      --query 'QueryExecutionId' --output text)
+
+aws athena get-query-execution --query-execution-id "$QEID" \
+  --query 'QueryExecution.Status.State' --output text
+# Expected: SUCCEEDED
+```
+
+### Runner IAM verification
+
+The runner role must have write access to the **data bucket**, not the ALB logs
+bucket (prior misconfiguration caused upload failures).
+
+```sh
+ROLE_NAME=$(aws iam list-instance-profiles \
+  --query 'InstanceProfiles[?contains(InstanceProfileName,`stress-runner`)].Roles[0].RoleName' \
+  --output text)
+aws iam get-role-policy --role-name "$ROLE_NAME" --policy-name StressTestS3
+# Confirm Resource shows $BUCKET (not *-alb-logs-*)
+```
+
+If it shows the wrong bucket, fix inline:
+```sh
+aws iam put-role-policy --role-name "$ROLE_NAME" --policy-name StressTestS3 \
+  --policy-document "{
+    \"Version\":\"2012-10-17\",
+    \"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:PutObject\",\"s3:ListBucket\"],
+    \"Resource\":[\"arn:aws:s3:::$BUCKET\",\"arn:aws:s3:::$BUCKET/*\"]}]}"
+```
+
+---
+
+## 2. Pre-flight (day of run, before provisioning)
+
+- [ ] **Notify alarm recipients** (`alarmEmails` in `Pulumi.prod.yaml`: dhalpern@, gfang@,
+      peter@) of the run window. Alarms likely to fire: `districtr-prod-backend-memory-high`,
+      `districtr-prod-db-cpu-high`, `districtr-prod-alb-target-latency-high`,
+      `districtr-prod-db-connections-high`. Each also sends an OK email when it clears.
+- [ ] **Sentry quota**: tracing sampled at `SENTRY_TRACES_SAMPLE_RATE` (default 1.0).
+      Expected ~30k transactions. Check remaining quota; lower via task env var + service
+      restart if tight — decide before the run.
+- [ ] **RDS snapshot**: confirm a recent automated snapshot exists:
+  ```sh
+  aws rds describe-db-snapshots --db-instance-identifier districtr-prod \
+    --query 'DBSnapshots[-1].SnapshotCreateTime' --output text
+  ```
+- [ ] **Deploy observability** (first run only): `cd infra && pulumi preview --stack prod`
+      (expect 4 creates: logs bucket + lifecycle + policy + dashboard, 1 ALB update),
+      then `pulumi up`. ALB access logs must be live before the dry run.
+- [ ] **One-time setup complete** (§1): CDN config curl returns 200, Athena table
+      `SUCCEEDED`, IAM shows data bucket.
+- [ ] **Deploy verification gate** — confirm the running backend is the intended SHA
+      and migrations are applied _before_ seeding (skipping this was the run3 lesson):
+  ```sh
+  REPO_SHA=$(git rev-parse origin/main)
+  aws ecs update-service --cluster $CLUSTER --service backend --force-new-deployment
+  aws ecs wait services-stable --cluster $CLUSTER --services backend
+  # Confirm image SHA
+  TASK_ARN=$(aws ecs list-tasks --cluster $CLUSTER --service-name backend \
+    --query 'taskArns[0]' --output text)
+  aws ecs describe-tasks --cluster $CLUSTER --tasks $TASK_ARN \
+    --query 'tasks[0].containers[0].image' --output text
+  # Then run a psql \d+ document.assignments via ECS Exec to confirm schema
+  ```
+- [ ] **Code pushed**: all `backend/stress_test/` + `infra/` changes pushed;
+      `REPO_SHA=$(git rev-parse origin/main)` is what the runner bootstraps from.
+- [ ] **Eval lock fix live**: the per-document `/evaluation` compute lock must be
+      deployed to prod — merged-but-undeployed reintroduces the cache-cold 500 burst
+      the abort criteria no longer excuse.
+- [ ] **Provision runner**:
+  ```sh
+  cd backend/stress_test/runner
+  RESULTS_BUCKET=$BUCKET REPO_SHA=$REPO_SHA ./provision.sh
+  # Wait for: /home/ec2-user/bootstrap-done
+  # Then run the printed authorize-security-group-ingress one-liner (temp 8080 rule)
+  export INSTANCE_ID=$(aws ec2 describe-instances \
+    --filters "Name=tag:Name,Values=districtr-prod-stress-runner" \
+              "Name=instance-state-name,Values=running" \
+    --query 'Reservations[].Instances[].InstanceId' --output text)
+  ```
+- [ ] **Seed** (ECS Exec into backend task):
+  ```sh
+  TASK_ARN=$(aws ecs list-tasks --cluster $CLUSTER --service-name backend \
+    --query 'taskArns[0]' --output text)
+  aws ecs execute-command --cluster $CLUSTER --task $TASK_ARN \
+    --container backend --interactive --command \
+    "python cli.py stress-test-seed --run-id $RUN_ID --base-url http://localhost:8080 \
+    --manifest s3://$BUCKET/stress-test/stress_test_manifest_${RUN_ID}.json"
+  ```
+  Aborts before creating anything if a config slug is missing from prod.
+- [ ] **`SCALE=0.01` dry run green, same day** (deferred acceptance check):
+  ```sh
+  aws ssm send-command --region $AWS_DEFAULT_REGION \
+    --instance-ids $INSTANCE_ID \
+    --document-name AWS-RunShellScript \
+    --parameters "commands=[\"env RESULTS_BUCKET=$BUCKET RUN_ID=dry1 SCALE=0.01 \
+    /home/ec2-user/districtr-v2/backend/stress_test/runner/run.sh \
+    > /home/ec2-user/dry1.log 2>&1\"],executionTimeout=[\"5400\"]"
+  ```
+  Verify: `aws s3 ls s3://$BUCKET/stress-test/dry1/` — expect CSVs, HTML,
+  `locust.log`, `metrics/*.prom` (empty metrics/ = 8080 rule not authorized),
+  cache snapshots, both manifests. Then cleanup:
+  ```sh
+  aws ecs execute-command --cluster $CLUSTER --task $TASK_ARN \
+    --container backend --interactive --command \
+    "python cli.py stress-test-cleanup \
+    -m s3://$BUCKET/stress-test/stress_test_manifest_dry1.json \
+    -m s3://$BUCKET/stress-test/stress_test_runtime_manifest_dry1.json --yes"
+  ```
+  Known non-fatal: locust exits 1 if any request failed (create 504s are expected).
+
+---
+
+## 3. Baseline (15 min idle)
+
+Open CloudWatch dashboard **`districtr-prod-stress-test`** and wait ≥15 min with
+no test traffic. Note idle values: ECS CPU/mem, running task count (expect 2),
+ALB RequestCount + p50/p95/p99, RDS CPU + DatabaseConnections. Screenshot for
+the results report.
+
+---
+
+## 4. The run (`SCALE=1.0`)
+
+Trigger (detached; survives dropped SSM session):
+```sh
+CMD_ID=$(aws ssm send-command --region $AWS_DEFAULT_REGION \
+  --instance-ids $INSTANCE_ID \
+  --document-name AWS-RunShellScript \
+  --parameters "commands=[\"env RESULTS_BUCKET=$BUCKET RUN_ID=$RUN_ID SCALE=1.0 \
+  /home/ec2-user/districtr-v2/backend/stress_test/runner/run.sh \
+  > /home/ec2-user/${RUN_ID}.log 2>&1\"],executionTimeout=[\"5400\"]" \
+  --query 'Command.CommandId' --output text)
+echo "CMD_ID=$CMD_ID"
+```
+
+Check command status:
+```sh
+aws ssm get-command-invocation --command-id $CMD_ID --instance-id $INSTANCE_ID \
+  --query '[Status, StatusDetails]' --output text
+# InProgress → Success (or Failed on abort)
+```
+
+Tail the log (two options):
+```sh
+# Option A: SSM session on the runner
+aws ssm start-session --target $INSTANCE_ID
+sudo tail -f /home/ec2-user/${RUN_ID}.log
+
+# Option B: one-shot from your laptop
+aws ssm send-command --region $AWS_DEFAULT_REGION \
+  --instance-ids $INSTANCE_ID --document-name AWS-RunShellScript \
+  --parameters "commands=[\"tail -100 /home/ec2-user/${RUN_ID}.log\"]" \
+  --query 'Command.CommandId' --output text
+# then get-command-invocation StandardOutputContent for that ID
+```
+
+Watch on the dashboard:
+- **Task count**: expect autoscale 2→N once CPU passes 45% (60 s cooldown; ~8 min lag).
+- **DatabaseConnections** vs ~15/task ceiling (pool 5 + overflow 10); plateau + rising
+  latency = pool exhaustion. Alarm fires at 700.
+- **ALB TargetResponseTime p95** — alarm fires at >5 s. Every full run has hit the 120 s wall.
+- **RDS CPUCreditBalance** — alarm fires at <100 credits; 0 = sustained 100% CPU on burstable instance.
+- **ALB 5xx** (target + ELB) and p99.
+- Known noise: `create_document` 504s at the 15 s lock_timeout. Cache-cold `/evaluation`
+  500 bursts were fixed; any eval-500 burst post-fix is a **finding**.
+
+---
+
+## 5. Abort criteria
+
+Abort if any: **sustained target 5xx** (alarm `alb-target-5xx` >25/5 min), **RDS CPU
+pinned >90%**, **unhealthy backend targets**, **real-user complaints**.
+
+Graceful abort (harness flushes runtime manifest; run.sh still uploads all artifacts):
+```sh
+aws ssm send-command --region $AWS_DEFAULT_REGION \
+  --instance-ids $INSTANCE_ID \
+  --document-name AWS-RunShellScript \
+  --parameters 'commands=["pkill -TERM -f locust"]'
+```
+
+Even after an abort, do step 6.
+
+---
+
+## 6. Post-run
+
+- [ ] **Artifacts**: `aws s3 ls s3://$BUCKET/stress-test/$RUN_ID/` — expect CSVs,
+      HTML, `locust.log`, `metrics/`, cache before/after, both manifests.
+- [ ] **Cleanup** (ECS Exec):
+  ```sh
+  aws ecs execute-command --cluster $CLUSTER --task $TASK_ARN \
+    --container backend --interactive --command \
+    "python cli.py stress-test-cleanup \
+    -m s3://$BUCKET/stress-test/stress_test_manifest_${RUN_ID}.json \
+    -m s3://$BUCKET/stress-test/stress_test_runtime_manifest_${RUN_ID}.json --yes"
+  ```
+  `--yes` also sweeps any leftover `[STRESS-TEST]`-named docs.
+- [ ] **Verify counts**: cleanup output reports deletions; 0 remaining `[STRESS-TEST]`
+      docs. Spot-check: `GET /api/document/<seed_doc_id>` → 404.
+- [ ] **Revoke 8080 rule + teardown**:
+  ```sh
+  cd backend/stress_test/runner && ./teardown.sh
+  ```
+  Revokes the temp SG rule, terminates the instance, deletes runner SG and IAM role/profile.
+- [ ] **Snapshot the dashboard** (run window + idle baseline) and pull Athena results
+      (`infra/athena/*.sql`; logs batch in ~5 min).
+- [ ] **Confirm alarms cleared** (OK emails for: latency, connections, credit balance, CPU).
+
+---
+
+## Per-workflow (class-isolated) runs
+
+Run a single user class with its own `RUN_ID` and scale. Metrics, cache snapshots,
+and S3 artifact upload are fully preserved (no direct-locust bypass needed).
+
+```sh
+CMD_ID=$(aws ssm send-command --region $AWS_DEFAULT_REGION \
+  --instance-ids $INSTANCE_ID \
+  --document-name AWS-RunShellScript \
+  --parameters "commands=[\"env RESULTS_BUCKET=$BUCKET RUN_ID=editors50 SCALE=0.5 \
+  USER_CLASSES=Editor \
+  /home/ec2-user/districtr-v2/backend/stress_test/runner/run.sh \
+  > /home/ec2-user/editors50.log 2>&1\"],executionTimeout=[\"5400\"]" \
+  --query 'Command.CommandId' --output text)
+```
+
+Available classes (from `locustfile.py`): `Viewer`, `EvalUser`, `Editor`.
+`USER_CLASSES` is passed as positional args to locust, which selects only those
+classes. Use a reduced `SCALE` to match the intended user count for that class alone.
+
+---
+
+## Operational helpers
+
+### Runner-alive check / re-provision
+
+The runner EC2 self-terminates after 12 h. Check:
+```sh
+aws ec2 describe-instances \
+  --filters "Name=tag:Name,Values=districtr-prod-stress-runner" \
+            "Name=instance-state-name,Values=running" \
+  --query 'Reservations[].Instances[].InstanceId' --output text
+# Empty = terminated; re-run provision.sh and refresh INSTANCE_ID (§2 step 8)
+```
+
+### Reading root-owned logs
+
+SSM send-command runs as root; `sudo tail` or send-command tail both work:
+```sh
+# From SSM session on runner:
+sudo tail -f /home/ec2-user/${RUN_ID}.log
+
+# Or one-shot from laptop — get CommandId, then read StandardOutputContent:
+aws ssm get-command-invocation --command-id $CMD_ID --instance-id $INSTANCE_ID \
+  --query 'StandardOutputContent' --output text
+```
+
+---
+
+## Failure triage
+
+| Code / error | Likely cause | Known noise? |
+|---|---|---|
+| **504** | ALB idle/total timeout; capacity shortfall or slow target | `create_document` 504s at 15 s lock_timeout are **expected noise**; sustained 504s elsewhere are a **finding** |
+| **502** | Target reset mid-response (OOM, task shutdown during autoscale) | Brief bursts during scale-out are noise; sustained = finding |
+| **500** | App error (check Sentry + backend logs) | Pre-fix eval-500 bursts were noise; post-fix any 500 burst is a **finding** |
+| `msgpack` / `Expecting value` | Truncated body — target returned partial response before timeout/reset | Parse artifact; the underlying 504/502 is the real signal |

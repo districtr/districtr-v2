@@ -94,7 +94,8 @@ trap 'kill "$SCRAPE_PID" 2>/dev/null || true' EXIT
 set +e
 venv/bin/locust --headless -f locustfile.py \
   -u "$TOTAL" -r "$SPAWN_RATE" -t "${DURATION}s" \
-  --csv "$ART/$RUN_ID" --html "$ART/$RUN_ID.html" 2>&1 | tee "$ART/locust.log"
+  --csv "$ART/$RUN_ID" --html "$ART/$RUN_ID.html" \
+  ${USER_CLASSES:-} 2>&1 | tee "$ART/locust.log"
 LOCUST_EXIT=${PIPESTATUS[0]}
 set -e
 
