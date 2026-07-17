@@ -101,6 +101,7 @@ from sqlalchemy import text
 from sqlmodel import Session
 
 import app.evaluation.graph as eval_graph_module
+from app.evaluation.district_graph import DistrictGraph
 from app.constants import GERRY_DB_SCHEMA
 from app.core.db import get_session
 from app.core.security import auth
@@ -119,7 +120,6 @@ from app.evaluation.splits import county_pieces
 from app.main import app
 from app.utils import (
     create_districtr_map,
-    create_parent_child_edges,
     create_shatterable_gerrydb_view,
 )
 from tests.constants import ACCOUNT_AUTH0_ID, INTEGRATION_OGR2OGR_PG_CONNECTION_STRING
@@ -334,7 +334,7 @@ VOTE_SHARE_TOLERANCE = 0.005  # ±0.5 pp for statewide vote shares
 def fl_graph():
     """Load the combined block+VTD dual graph."""
     with open(GRAPH_PKL, "rb") as f:
-        return pickle.load(f)
+        return DistrictGraph.from_networkx(pickle.load(f))
 
 
 @pytest.fixture(scope="module")
@@ -517,12 +517,6 @@ def fl_map(integration_engine, fl_view) -> str:
             child_layer=FL_BLOCK_TABLE,
             num_districts=28,
         )
-        session.commit()
-
-    # Spatial join to build parent–child edges (PostGIS ST_Contains).
-    # This is slow for 390 K blocks but only runs once per database.
-    with Session(integration_engine) as session:
-        create_parent_child_edges(session, map_uuid)
         session.commit()
 
     return map_uuid

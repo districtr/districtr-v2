@@ -4,7 +4,6 @@ from app.utils import (
     create_districtr_map,
     create_map_group,
     create_shatterable_gerrydb_view,
-    create_parent_child_edges,
     add_extent_to_districtrmap,
     update_districtrmap,
     GEOID_PREDICATES,
@@ -274,17 +273,6 @@ def test_create_shatterable_gerrydb_view(
     session.commit()
 
 
-def test_create_parent_child_edges(
-    session: Session,
-    simple_shatterable_districtr_map_no_edges_yet: str,
-):
-    create_parent_child_edges(
-        session=session,
-        districtr_map_uuid=simple_shatterable_districtr_map_no_edges_yet,
-    )
-    session.commit()
-
-
 @pytest.fixture(name="document_id")
 def document_id_fixture(
     client, session: Session, simple_shatterable_districtr_map, gerrydb_simple_geos_view
@@ -300,7 +288,7 @@ def document_id_fixture(
     return doc["document_id"]
 
 
-def test_get_edges(client, session: Session, document_id):
+def test_get_edges(client, session: Session, document_id, mock_gerrydb_graph_file):
     response = client.put(
         "/api/assignments",
         json={

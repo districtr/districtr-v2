@@ -14,14 +14,13 @@ from app.utils import (
     create_districtr_map as _create_districtr_map,
     create_map_group as _create_map_group,
     create_shatterable_gerrydb_view as _create_shatterable_gerrydb_view,
-    create_parent_child_edges as _create_parent_child_edges,
     add_extent_to_districtrmap as _add_extent_to_districtrmap,
     add_districtr_map_to_map_group as _add_districtr_map_to_map_group,
     update_districtrmap as _update_districtrmap,
     create_spatial_index as _create_spatial_index,
 )
 from app.core.io import get_local_or_s3_path
-from app.evaluation.graph import S3_GRAPH_PREFIX
+from app.evaluation.graph import S3_GRAPH_PREFIX, get_graph
 from app.constants import GERRY_DB_SCHEMA
 from functools import wraps
 from contextlib import contextmanager
@@ -101,67 +100,66 @@ def import_gerrydb_view(session: Session, layer: str, gpkg: str, rm: bool):
     )
 
 
-@cli.command("create-parent-child-edges")
-@click.option("--districtr-map-slug", "-d", help="Districtr map slug", required=False)
-@click.option("--districtr-map-uuid", "-u", help="Districtr map UUID", required=False)
-@click.option(
-    "--force",
-    "-f",
-    is_flag=True,
-    default=False,
-    help="Drop and recreate edges if they were already loaded for this map",
-)
+@cli.command("verify-graph-edges")
+@click.option("--districtr-map-slug", "-d", help="Limit to one map", required=False)
 @with_session
-def create_parent_child_edges(
-    session: Session,
-    districtr_map_slug: str | None,
-    districtr_map_uuid: str | None,
-    force: bool,
-):
-    """
-    Create parent-child edges for a districtr map.
-    Inlined equivalent of add_parent_child_relationships (parent_child_relationships.sql).
-    """
-    if not districtr_map_slug and not districtr_map_uuid:
-        raise ValueError(
-            "Either slug (--districtr-map-slug) or UUID (--districtr-map-uuid) must be provided"
-        )
+def verify_graph_edges(session: Session, districtr_map_slug: str | None):
+    """Compare parentchildedges rows against graph parent-child data.
 
+    Transition tool: run against production BEFORE applying the migration
+    that drops parentchildedges, to confirm the graphs carry identical
+    relationships. Exits non-zero on any mismatch.
+    """
+    stmt = select(DistrictrMap).where(
+        col(DistrictrMap.child_layer).isnot(None),
+        col(DistrictrMap.visible).is_(True),
+    )
     if districtr_map_slug:
-        districtr_map_uuid = session.scalars(
-            select(DistrictrMap.uuid).where(
-                DistrictrMap.districtr_map_slug == districtr_map_slug
+        stmt = stmt.where(DistrictrMap.districtr_map_slug == districtr_map_slug)
+    maps = session.scalars(stmt).all()
+
+    failures = 0
+    for m in maps:
+        assert m.gerrydb_table_name is not None
+        db_pairs = set(
+            session.execute(
+                text(
+                    "SELECT parent_path, child_path FROM parentchildedges "
+                    "WHERE districtr_map = :uuid"
+                ),
+                {"uuid": str(m.uuid)},
+            ).fetchall()
+        )
+        try:
+            G = get_graph(m.gerrydb_table_name)
+        except Exception as e:
+            logger.error("%s: graph unavailable (%s)", m.districtr_map_slug, e)
+            failures += 1
+            continue
+        node_list = list(G.nodes)
+        graph_pairs = {
+            (parent, child)
+            for child, parent in zip(node_list, G.parents_of(node_list))
+            if parent is not None
+        }
+        if db_pairs == graph_pairs:
+            logger.info("%s: OK (%d edges match)", m.districtr_map_slug, len(db_pairs))
+        else:
+            failures += 1
+            only_db = list(db_pairs - graph_pairs)[:5]
+            only_graph = list(graph_pairs - db_pairs)[:5]
+            logger.error(
+                "%s: MISMATCH — %d only in DB (e.g. %s), %d only in graph (e.g. %s)",
+                m.districtr_map_slug,
+                len(db_pairs - graph_pairs),
+                only_db,
+                len(graph_pairs - db_pairs),
+                only_graph,
             )
-        ).first()
-        if not districtr_map_uuid:
-            raise ValueError(f"Districtr map with slug {districtr_map_slug} not found")
 
-    logger.info("Creating parent-child edges...")
-    _create_parent_child_edges(
-        session=session, districtr_map_uuid=districtr_map_uuid, force=force
-    )
-    logger.info("Parent-child relationship upserted successfully.")
-
-
-@cli.command("delete-parent-child-edges")
-@click.option("--districtr-map", "-d", help="Districtr map name", required=True)
-@with_session
-def delete_parent_child_edges(session: Session, districtr_map: str):
-    logger.info("Deleting parent-child edges...")
-
-    delete_query = text(
-        """
-        DELETE FROM parentchildedges
-        WHERE districtr_map = :districtr_map
-    """
-    )
-    session.execute(
-        delete_query,
-        {
-            "districtr_map": districtr_map,
-        },
-    )
-    logger.info("Parent-child relationship upserted successfully.")
+    if failures:
+        raise SystemExit(f"{failures} map(s) failed edge verification")
+    logger.info("All %d shatterable map(s) verified.", len(maps))
 
 
 @cli.command("create-districtr-map")
@@ -864,7 +862,7 @@ def delete_overlay(session: Session, overlay_id: str):
 )
 @with_session
 def check_missing_graphs(session: Session, skip_alert: bool):
-    """Query all visible DistrictrMap records and alert via SNS if any graph pkl is absent from S3."""
+    """Query all visible DistrictrMap records and alert via SNS if any graph file (npz or pkl) is absent from S3."""
     topic_arn = settings.ALARM_SNS_TOPIC_ARN
     if not skip_alert and not topic_arn:
         raise click.UsageError(
@@ -888,22 +886,32 @@ def check_missing_graphs(session: Session, skip_alert: bool):
         raise SystemExit(1)
 
     # (gerrydb_table_name, status) where status is "missing" or an S3 error code
+    # Either format satisfies the check during the pkl -> npz migration.
     problems = []
     for m in maps:
         assert m.gerrydb_table_name is not None
-        key = f"{S3_GRAPH_PREFIX}/{m.gerrydb_table_name}.pkl"
-        try:
-            s3.head_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
-            logger.info("Graph present: s3://%s/%s", settings.R2_BUCKET_NAME, key)
-        except botocore.exceptions.ClientError as e:
-            code = e.response.get("Error", {}).get("Code", "")
-            status = "missing" if code in ("404", "NoSuchKey") else code or str(e)
-            logger.warning("Graph %s: s3://%s/%s", status, settings.R2_BUCKET_NAME, key)
-            problems.append((m.gerrydb_table_name, status))
-        except botocore.exceptions.BotoCoreError as e:
-            # Non-HTTP failures: connection, timeout, credentials, etc.
-            status = type(e).__name__
-            logger.warning("Graph %s: s3://%s/%s", status, settings.R2_BUCKET_NAME, key)
+        status = None
+        for suffix in ("npz", "pkl"):
+            key = f"{S3_GRAPH_PREFIX}/{m.gerrydb_table_name}.{suffix}"
+            try:
+                s3.head_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
+                logger.info("Graph present: s3://%s/%s", settings.R2_BUCKET_NAME, key)
+                status = None
+                break
+            except botocore.exceptions.ClientError as e:
+                code = e.response.get("Error", {}).get("Code", "")
+                status = "missing" if code in ("404", "NoSuchKey") else code or str(e)
+            except botocore.exceptions.BotoCoreError as e:
+                # Non-HTTP failures: connection, timeout, credentials, etc.
+                status = type(e).__name__
+        if status is not None:
+            logger.warning(
+                "Graph %s: s3://%s/%s/%s.{npz,pkl}",
+                status,
+                settings.R2_BUCKET_NAME,
+                S3_GRAPH_PREFIX,
+                m.gerrydb_table_name,
+            )
             problems.append((m.gerrydb_table_name, status))
 
     if not problems:
@@ -915,15 +923,15 @@ def check_missing_graphs(session: Session, skip_alert: bool):
         return
 
     problem_list = "\n".join(
-        f"  - s3://{settings.R2_BUCKET_NAME}/{S3_GRAPH_PREFIX}/{name}.pkl — {status}"
+        f"  - s3://{settings.R2_BUCKET_NAME}/{S3_GRAPH_PREFIX}/{name}.{{npz,pkl}} — {status}"
         for name, status in problems
     )
     sns = boto3.client("sns")
     sns.publish(
         TopicArn=topic_arn,
-        Subject=f"[Districtr] {len(problems)} graph pkl file(s) missing or unreachable",
+        Subject=f"[Districtr] {len(problems)} graph file(s) missing or unreachable",
         Message=(
-            f"The following graph pkl files are missing or unreachable in S3:\n\n"
+            f"The following graph files are missing or unreachable in S3:\n\n"
             f"{problem_list}\n\n"
             "For files marked 'missing', re-run the graph pipeline to regenerate; "
             "other entries show the S3 error code encountered."

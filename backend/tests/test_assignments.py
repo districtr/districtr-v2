@@ -2,10 +2,11 @@ import networkx as nx
 import pytest
 
 from app.assignments.assignments import _heal_or_fill
+from app.evaluation.district_graph import DistrictGraph
 
 
 @pytest.fixture
-def two_parent_graph():
+def two_parent_nx_graph():
     """Minimal dual-level graph: parent A (c1, c2), parent B (c3, c4, c5)."""
     G = nx.Graph()
     G.add_nodes_from(["c1", "c2", "c3", "c4", "c5"])
@@ -17,6 +18,11 @@ def two_parent_graph():
     G.add_node("A", children={"c1", "c2"})
     G.add_node("B", children={"c3", "c4", "c5"})
     return G
+
+
+@pytest.fixture
+def two_parent_graph(two_parent_nx_graph):
+    return DistrictGraph.from_networkx(two_parent_nx_graph)
 
 
 # --- heal behaviour ---
@@ -71,8 +77,9 @@ def test_fill_does_not_overwrite_assigned(two_parent_graph):
     assert result == {"c1": 1, "c2": None, "c3": 1, "c4": 2, "c5": 2}
 
 
-def test_no_child_nodes_unaffected(two_parent_graph):
+def test_no_child_nodes_unaffected(two_parent_nx_graph):
     # Nodes without a "parent" key pass through unchanged
-    two_parent_graph.add_node("standalone")
-    result = _heal_or_fill({"standalone": 3}, two_parent_graph)
+    two_parent_nx_graph.add_node("standalone")
+    G = DistrictGraph.from_networkx(two_parent_nx_graph)
+    result = _heal_or_fill({"standalone": 3}, G)
     assert result == {"standalone": 3}

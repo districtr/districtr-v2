@@ -61,7 +61,6 @@ import app.evaluation.main as evaluation
 from app.evaluation.types import MetricsEnvelope
 import app.save_share.main as save_share
 import app.thumbnails.main as thumbnails
-from networkx import connected_components
 from app.models import (
     Assignments,
     ColorsSetResult,
@@ -76,7 +75,6 @@ from app.models import (
     DocumentMetadata,
     MAX_COMMUNITY_NAME_LENGTH,
     UUIDType,
-    ParentChildEdges,
     ShatterResult,
     BBoxGeoJSONs,
     MapGroup,
@@ -443,6 +441,11 @@ async def create_document(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                 detail=f"Upload size exceeds maximum allowed limit ({max_records} records)",
             )
+
+        # Warm the graph LRU off the event loop: batch_insert_assignments calls
+        # get_graph synchronously, and a cold load (S3 fetch + deserialize)
+        # takes seconds.
+        await run_in_threadpool(get_graph, districtr_map.gerrydb_table_name)
 
         try:
             insert_result = batch_insert_assignments(
@@ -991,34 +994,22 @@ async def get_children(
     parent_geoid: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
 ):
-    db_districtr_map_uuid = (
+    gerrydb_table_name = (
         session.connection()
         .execute(
-            select(DistrictrMap.uuid).where(
+            select(DistrictrMap.gerrydb_table_name).where(
                 DistrictrMap.districtr_map_slug == districtr_map_slug
             )
         )
         .scalar_one()
     )
-    stmt = text("""SELECT child_path, parent_path
-        FROM parentchildedges pce
-        WHERE pce.parent_path = ANY(:parent_geoids)
-        AND pce.districtr_map = :districtr_map_uuid""").bindparams(
-        bindparam(key="districtr_map_uuid", type_=UUIDType),
-        bindparam(key="parent_geoids", type_=ARRAY(String)),
-    )
-    results = (
-        session.connection()
-        .execute(
-            stmt,
-            {
-                "districtr_map_uuid": db_districtr_map_uuid,
-                "parent_geoids": parent_geoid,
-            },
-        )
-        .fetchall()
-    )
-    return results
+    G = await run_in_threadpool(get_graph, gerrydb_table_name)
+    return [
+        ShatterResult(parent_path=parent, child_path=child)
+        for parent in parent_geoid
+        if parent in G
+        for child in sorted(G.nodes[parent].get("children", ()))
+    ]
 
 
 @app.patch("/api/assignments/{document_id}/reset", status_code=status.HTTP_200_OK)
@@ -1158,8 +1149,12 @@ async def get_assignments(
     NOTE: there is no FastAPI `response_model` here (the body is a raw `Response`),
     so the msgpack shape above is the only place this contract is documented.
     """
-    districtr_map_uuid, map_type = session.exec(
-        select(DistrictrMap.uuid, Document.map_type)
+    gerrydb_table_name, child_layer, map_type = session.exec(
+        select(
+            DistrictrMap.gerrydb_table_name,
+            DistrictrMap.child_layer,
+            Document.map_type,
+        )
         .join(
             Document,
             onclause=col(Document.districtr_map_slug)
@@ -1170,36 +1165,28 @@ async def get_assignments(
     is_community_map = map_type == "community"
 
     if is_community_map:
-        stmt = (
-            select(
-                CommunityAssignments.geo_id,
-                func.nullif(CommunityAssignments.community_id, 0).label("zone"),
-                ParentChildEdges.parent_path,
-            )
-            .outerjoin(
-                ParentChildEdges,
-                onclause=(
-                    col(CommunityAssignments.geo_id) == ParentChildEdges.child_path
-                )
-                & (col(ParentChildEdges.districtr_map) == districtr_map_uuid),
-            )
-            .where(CommunityAssignments.document_id == document.document_id)
-        )
+        stmt = select(
+            CommunityAssignments.geo_id,
+            func.nullif(CommunityAssignments.community_id, 0).label("zone"),
+        ).where(CommunityAssignments.document_id == document.document_id)
     else:
-        stmt = (
-            select(
-                Assignments.geo_id,
-                Assignments.zone,
-                ParentChildEdges.parent_path,
-            )
-            .outerjoin(
-                ParentChildEdges,
-                onclause=(col(Assignments.geo_id) == ParentChildEdges.child_path)
-                & (col(ParentChildEdges.districtr_map) == districtr_map_uuid),
-            )
-            .where(Assignments.document_id == document.document_id)
+        stmt = select(Assignments.geo_id, Assignments.zone).where(
+            Assignments.document_id == document.document_id
         )
-    rows = session.exec(stmt).all()
+    assignment_rows = session.exec(stmt).all()
+
+    # parent_path marks shattered children so the client can rebuild shatter
+    # state. Non-shatterable maps have no parents — skip the graph entirely.
+    if child_layer is not None and assignment_rows:
+        G = await run_in_threadpool(get_graph, gerrydb_table_name)
+        parents = G.parents_of([row.geo_id for row in assignment_rows])
+        rows = [
+            (row.geo_id, row.zone, parent)
+            for row, parent in zip(assignment_rows, parents)
+        ]
+    else:
+        rows = [(row.geo_id, row.zone, None) for row in assignment_rows]
+
     return package_rows(
         rows,
         fmt=format,
@@ -1372,8 +1359,7 @@ async def get_unassigned_geoids(
             # Non-contiguous unassigned parents are intentionally NOT expanded
             present = [gid for gid in unassigned_ids if gid in G.nodes]
             components = [
-                sorted(component)
-                for component in connected_components(G.subgraph(present))
+                sorted(component) for component in G.connected_components(present)
             ]
             # Ids absent from the graph (orphans / data gaps): keep as singletons.
             missing = [gid for gid in unassigned_ids if gid not in G.nodes]
@@ -1460,8 +1446,7 @@ async def get_connected_component_bboxes(
         raise HTTPException(status_code=404, detail="Zone not found")
 
     node_data = {nb.node: nb for nb in node_bboxes}
-    subgraph = G.subgraph(nodes=list(node_data))
-    zone_connected_components = connected_components(subgraph)
+    zone_connected_components = G.connected_components(list(node_data))
 
     srid_table = districtr_map.parent_layer
     from_srid = (
