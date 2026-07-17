@@ -51,9 +51,9 @@ export default function DataPage() {
         3.5 million households across the United States each year, and produces two data products
         from this survey: <b>1-year estimates</b> and <b>5-year estimates</b>. 1-year estimates are
         estimated population statistics published for Census-designated areas with 65,000 people or
-        more, and so are unsuitable for redistricting. The <b>5-year estimates</b> are estimated population
-        statistics, including income and some demographic data, and are published at the block group
-        level regardless of population.
+        more, and so are unsuitable for redistricting. The <b>5-year estimates</b> are estimated
+        population statistics, including income and some demographic data, and are published at the
+        block group level regardless of population.
       </Text>
       <Text size="3">
         To compute the demographic categories like &quot;Black&quot; and &quot;Asian&quot; in

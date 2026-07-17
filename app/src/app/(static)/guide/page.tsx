@@ -16,20 +16,19 @@ export default function GuidePage() {
       <ContentSection title="Getting Started With Districts">
         <Flex direction="column" gapY="4">
           <Text size="3">
-            On the Districtr homepage, click “Draw” in the top right corner. You will
-            be redirected to an interactive map of the United States. Click the state for which
-            you wish to redistrict. All states are available, as well as Washington,
-            D.C. and Puerto Rico.
+            On the Districtr homepage, click “Draw” in the top right corner. You will be redirected
+            to an interactive map of the United States. Click the state for which you wish to
+            redistrict. All states are available, as well as Washington, D.C. and Puerto Rico.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/draw_menu.webm`}
           />
           <Text size="3">
             Once you have selected a state, you will be directed to its landing page. The landing
-            page contains all mapping options along with background information. Choose a
-            locality (state, region, county, or city) and district type by clicking on a card.
-            The available localities and districts vary by state. (Additional localities can be
-            added upon request.)
+            page contains all mapping options along with background information. Choose a locality
+            (state, region, county, or city) and district type by clicking on a card. The available
+            localities and districts vary by state. (Additional localities can be added upon
+            request.)
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/select_module.webm`}
@@ -60,8 +59,8 @@ export default function GuidePage() {
           </Heading>
 
           <Text size="3">
-            To draw your first district, select the paintbrush icon on the toolbar at the top of
-            the side panel. Click and drag on the map to add units to your district.
+            To draw your first district, select the paintbrush icon on the toolbar at the top of the
+            side panel. Click and drag on the map to add units to your district.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/drawing_on_map.webm`}
@@ -69,8 +68,8 @@ export default function GuidePage() {
           <Text size="3">
             To draw another district, select a new color from the color bar that appears when you
             click the paint icon. Each color corresponds to a different district. For pages with
-            large numbers of districts, only one color will show when you start. For these, use
-            the dropdown menu to select a different color.
+            large numbers of districts, only one color will show when you start. For these, use the
+            dropdown menu to select a different color.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/drawing_another_district.webm`}
@@ -90,16 +89,16 @@ export default function GuidePage() {
           />
           <Text size="3">
             To inspect districts without altering them, or to avoid painting over already-drawn
-            areas, toggle the lock icon next to the district number in the list of districts in
-            the “Population” tab.
+            areas, toggle the lock icon next to the district number in the list of districts in the
+            “Population” tab.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/district_lock.webm`}
           />
           <Text size="3">
-            To correct the boundaries of your districts, click the erase icon on the toolbar at
-            the top of the side panel. Click and drag to remove units from that district. The size
-            of the eraser can be adjusted by dragging the slider.
+            To correct the boundaries of your districts, click the erase icon on the toolbar at the
+            top of the side panel. Click and drag to remove units from that district. The size of
+            the eraser can be adjusted by dragging the slider.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/eraser.webm`}
@@ -111,7 +110,7 @@ export default function GuidePage() {
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/undo_redo.webm`}
           />
-    
+
           <Heading as="h3" size="4">
             Districts
           </Heading>
@@ -163,9 +162,9 @@ export default function GuidePage() {
           </Heading>
           <Text size="3">
             In the elections tab you can view how your districts would have behaved under past
-            election data. Just like the demographics tab, you can choose to view the election
-            data as a choropleth on top of the map by selecting “Overlay” under “Display Modes”, or
-            view it as sized circles by selecting “Sized Circles”.
+            election data. Just like the demographics tab, you can choose to view the election data
+            as a choropleth on top of the map by selecting “Overlay” under “Display Modes”, or view
+            it as sized circles by selecting “Sized Circles”.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/election_panel.webm`}
@@ -175,8 +174,8 @@ export default function GuidePage() {
             Map Validation
           </Heading>
           <Text size="3">
-            Under the map validation tab, you can check whether your map is missing any
-            geographic units.
+            Under the map validation tab, you can check whether your map is missing any geographic
+            units.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/completeness_check.webm`}
@@ -191,17 +190,18 @@ export default function GuidePage() {
       <ContentSection title="Map Modes">
         <Flex direction="column" gapY="4">
           <Text size="3">
-            The “Mode” switcher in the top bar lets you move between different ways of working
-            with your map: <b>Draw</b> for building your plan, <b>View</b> for a clean read-only
-            display of it, and <b>Evaluate</b> for a dashboard of statistics about it. (There’s
-            also a <b>Super Draw</b> mode with extra drawing tools for more advanced users — more
-            on that at the end of this guide.) Switching to View or Evaluate works from a
-            shareable link to your map; if you haven’t shared your map yet, Districtr
-            automatically creates that shareable version for you the first time you switch, so you
-            never have to leave the editor to set it up.
+            The “Mode” switcher in the top bar lets you move between different ways of working with
+            your map: <b>Draw</b> for building your plan, <b>View</b> for a clean read-only display
+            of it, and <b>Evaluate</b> for a dashboard of statistics about it. (There’s also a{' '}
+            <b>Super Draw</b> mode with extra drawing tools for more advanced users — more on that
+            at the end of this guide.) Switching to View or Evaluate works from a shareable link to
+            your map; if you haven’t shared your map yet, Districtr automatically creates that
+            shareable version for you the first time you switch, so you never have to leave the
+            editor to set it up.
           </Text>
           <Text size="3">
-            <b>View mode</b> shows your map without any of the editing tools. This is the view others see when you share a public link to your map. 
+            <b>View mode</b> shows your map without any of the editing tools. This is the view
+            others see when you share a public link to your map.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/view_mode.webm`}
@@ -223,9 +223,9 @@ export default function GuidePage() {
             Saving your Map
           </Heading>
           <Text size="3">
-            Your map automatically saves as you work. Clicking the map title at the middle of the top bar allows you to edit the map name
-            and any comments about the map. Optionally, you can toggle your map from a draft to
-            “Ready to Share” if you are fully finished.
+            Your map automatically saves as you work. Clicking the map title at the middle of the
+            top bar allows you to edit the map name and any comments about the map. Optionally, you
+            can toggle your map from a draft to “Ready to Share” if you are fully finished.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/edit_metadata.webm`}
@@ -243,8 +243,8 @@ export default function GuidePage() {
             Sharing your Map
           </Heading>
           <Text size="3">
-            Clicking the “Share” button saves the map you created and allows you to share a link
-            to the map. You can either share a frozen link, which does not allow editing of the
+            Clicking the “Share” button saves the map you created and allows you to share a link to
+            the map. You can either share a frozen link, which does not allow editing of the
             original map, or an editable link, which only allows people with a password to edit.
           </Text>
           <LoopVideoPlayer
@@ -271,8 +271,8 @@ export default function GuidePage() {
             format with other platforms is a CSV assignment file which maps Census blocks to
             districts. Click on the “Map Action” menu in the upper right corner of the map and
             select “Export assignments”, then “Block assignments”. Alternatively, you can also
-            export your district shapes as a GeoJSON or a shapefile, or export evaluation metrics
-            as a JSON file.
+            export your district shapes as a GeoJSON or a shapefile, or export evaluation metrics as
+            a JSON file.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/export.webm`}
@@ -285,8 +285,8 @@ export default function GuidePage() {
         <Flex direction="column" gapY="4">
           <Text size="3">
             You now know everything you need to draw and share a plan — but if you want to go
-            further, <b>Super Draw</b> mode unlocks additional tools for fine-tuning your
-            districts. Switch into it from the same “Mode” menu described above.
+            further, <b>Super Draw</b> mode unlocks additional tools for fine-tuning your districts.
+            Switch into it from the same “Mode” menu described above.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/switch_mode.webm`}
@@ -294,8 +294,7 @@ export default function GuidePage() {
           <Text size="3">
             If you need to use smaller units of geography to balance the population of your
             districts, click the break icon on the toolbar at the top of the side panel. Then click
-            on
-            a unit you want to “shatter”, allowing you to paint subsets of the original unit. You
+            on a unit you want to “shatter”, allowing you to paint subsets of the original unit. You
             can see the population number of each broken piece by clicking the gear icon in the
             upper right corner of the map and selecting “Show total population labels on blocks”.
           </Text>

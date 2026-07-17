@@ -11,10 +11,11 @@ export const DevTeam: React.FC = () => (
       <b>Project Team:</b> Peter Rock, Moon Duchin
     </Text>
     <Text size="3">
-      <b>Past Contributors:</b> Chris Donnay (past project manager), Anna Bailliekova, Nick Doiron, Mario Giampieri, Raphael Laude, Max Hully, Ruth Buck (originating team), Liz Kopecky (past project
-      manager), Jamie Atlas, Eion Blanchard, Jack Deschler,
-      Chris Gernon, Peter Horvath, Muniba Khan, Zhenghong Lieu, JN Matthews, Anthony Pizzimenti,
-      Heather Rosenfeld, Anna Schall, and many more
+      <b>Past Contributors:</b> Chris Donnay (past project manager), Anna Bailliekova, Nick Doiron,
+      Mario Giampieri, Raphael Laude, Max Hully, Ruth Buck (originating team), Liz Kopecky (past
+      project manager), Jamie Atlas, Eion Blanchard, Jack Deschler, Chris Gernon, Peter Horvath,
+      Muniba Khan, Zhenghong Lieu, JN Matthews, Anthony Pizzimenti, Heather Rosenfeld, Anna Schall,
+      and many more
     </Text>
   </>
 );
