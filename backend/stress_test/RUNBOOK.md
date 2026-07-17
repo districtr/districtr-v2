@@ -26,68 +26,7 @@ export INSTANCE_ID=$(aws ec2 describe-instances \
 
 ---
 
-## 1. One-time setup
-
-Do these steps once per environment, not per run. Each has a verify command.
-
-### Bucket contents
-
-Upload config and data files. Key names must match the `assignments_path` values
-in `config.json` **exactly** — extension mismatches cause silent 404s that abort
-the seed.
-
-```sh
-aws s3 cp backend/stress_test/config.json s3://$BUCKET/stress-test/config.json
-aws s3 cp --recursive backend/stress_test/stress-data/ s3://$BUCKET/stress-test/stress-data/
-aws s3 cp --recursive backend/stress_test/graphs/ s3://$BUCKET/stress-test/graphs/
-```
-
-Verify CDN propagation:
-```sh
-curl -sf https://tilesets1.cdn.districtr.org/stress-test/config.json
-```
-
-### Athena table
-
-```sh
-ALB_LOGS_BUCKET=$(cd infra && pulumi stack output albLogsBucket --stack prod)
-
-QEID=$(sed "s/REPLACE_BUCKET/$ALB_LOGS_BUCKET/g" infra/athena/create_table.sql \
-  | aws athena start-query-execution \
-      --query-string file:///dev/stdin \
-      --result-configuration OutputLocation=s3://$ALB_LOGS_BUCKET/athena-results/ \
-      --query 'QueryExecutionId' --output text)
-
-aws athena get-query-execution --query-execution-id "$QEID" \
-  --query 'QueryExecution.Status.State' --output text
-# Expected: SUCCEEDED
-```
-
-### Runner IAM verification
-
-The runner role must have write access to the **data bucket**, not the ALB logs
-bucket (prior misconfiguration caused upload failures).
-
-```sh
-ROLE_NAME=$(aws iam list-instance-profiles \
-  --query 'InstanceProfiles[?contains(InstanceProfileName,`stress-runner`)].Roles[0].RoleName' \
-  --output text)
-aws iam get-role-policy --role-name "$ROLE_NAME" --policy-name StressTestS3
-# Confirm Resource shows $BUCKET (not *-alb-logs-*)
-```
-
-If it shows the wrong bucket, fix inline:
-```sh
-aws iam put-role-policy --role-name "$ROLE_NAME" --policy-name StressTestS3 \
-  --policy-document "{
-    \"Version\":\"2012-10-17\",
-    \"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:PutObject\",\"s3:ListBucket\"],
-    \"Resource\":[\"arn:aws:s3:::$BUCKET\",\"arn:aws:s3:::$BUCKET/*\"]}]}"
-```
-
----
-
-## 2. Pre-flight (day of run, before provisioning)
+## 1. Pre-flight (day of run, before provisioning)
 
 - [ ] **Notify alarm recipients** (`alarmEmails` in `Pulumi.prod.yaml`: dhalpern@, gfang@,
       peter@) of the run window. Alarms likely to fire: `districtr-prod-backend-memory-high`,
@@ -101,11 +40,6 @@ aws iam put-role-policy --role-name "$ROLE_NAME" --policy-name StressTestS3 \
   aws rds describe-db-snapshots --db-instance-identifier districtr-prod \
     --query 'DBSnapshots[-1].SnapshotCreateTime' --output text
   ```
-- [ ] **Deploy observability** (first run only): `cd infra && pulumi preview --stack prod`
-      (expect 4 creates: logs bucket + lifecycle + policy + dashboard, 1 ALB update),
-      then `pulumi up`. ALB access logs must be live before the dry run.
-- [ ] **One-time setup complete** (§1): CDN config curl returns 200, Athena table
-      `SUCCEEDED`, IAM shows data bucket.
 - [ ] **Deploy verification gate** — confirm the running backend is the intended SHA
       and migrations are applied _before_ seeding (skipping this was the run3 lesson):
   ```sh
@@ -168,7 +102,7 @@ aws iam put-role-policy --role-name "$ROLE_NAME" --policy-name StressTestS3 \
 
 ---
 
-## 3. Baseline (15 min idle)
+## 2. Baseline (15 min idle)
 
 Open CloudWatch dashboard **`districtr-prod-stress-test`** and wait ≥15 min with
 no test traffic. Note idle values: ECS CPU/mem, running task count (expect 2),
@@ -177,7 +111,7 @@ the results report.
 
 ---
 
-## 4. The run (`SCALE=1.0`)
+## 3. The run (`SCALE=1.0`)
 
 Trigger (detached; survives dropped SSM session):
 ```sh
@@ -224,7 +158,7 @@ Watch on the dashboard:
 
 ---
 
-## 5. Abort criteria
+## 4. Abort criteria
 
 Abort if any: **sustained target 5xx** (alarm `alb-target-5xx` >25/5 min), **RDS CPU
 pinned >90%**, **unhealthy backend targets**, **real-user complaints**.
@@ -241,7 +175,7 @@ Even after an abort, do step 6.
 
 ---
 
-## 6. Post-run
+## 5. Post-run
 
 - [ ] **Artifacts**: `aws s3 ls s3://$BUCKET/stress-test/$RUN_ID/` — expect CSVs,
       HTML, `locust.log`, `metrics/`, cache before/after, both manifests.
