@@ -3,6 +3,7 @@
 import io
 import logging
 import pickle
+import shutil
 import threading
 from functools import lru_cache
 from pathlib import Path
@@ -82,12 +83,40 @@ def get_gerrydb_graph(file_path: str) -> DistrictGraph:
 _GRAPH_CACHE_MAX_SIZE = 15
 
 
+def _load_via_disk_cache(gerrydb_name: str) -> DistrictGraph:
+    """Load through the shared mmap disk cache (one physical copy per
+    container across all uvicorn workers); degrade to a private in-memory
+    copy if the cache directory is unusable."""
+    cache_dir = Path(settings.GRAPH_CACHE_PATH) / gerrydb_name
+    if (cache_dir / "meta.json").exists():
+        try:
+            logger.info("Loading graph %s from disk cache", gerrydb_name)
+            return DistrictGraph.load_cache(cache_dir)
+        except Exception:
+            logger.warning(
+                "Corrupt graph disk cache %s — rebuilding", cache_dir, exc_info=True
+            )
+            shutil.rmtree(cache_dir, ignore_errors=True)
+
+    G = get_gerrydb_graph(get_gerrydb_graph_file(gerrydb_name))
+    try:
+        G.save_cache(cache_dir)
+        # Reload memory-mapped so this worker shares pages too.
+        return DistrictGraph.load_cache(cache_dir)
+    except OSError:
+        logger.warning(
+            "Could not write graph disk cache %s — using a private copy",
+            cache_dir,
+            exc_info=True,
+        )
+        return G
+
+
 @lru_cache(maxsize=_GRAPH_CACHE_MAX_SIZE)
 def _load_graph(gerrydb_name: str) -> DistrictGraph:
     try:
-        path = get_gerrydb_graph_file(gerrydb_name)
-        logger.info("Graph cache miss, loading from %s", path)
-        return get_gerrydb_graph(path)
+        logger.info("Graph cache miss, loading %s", gerrydb_name)
+        return _load_via_disk_cache(gerrydb_name)
     except botocore.exceptions.ClientError as e:
         logger.error("Graph not found: %s", e)
         raise fastapi.HTTPException(

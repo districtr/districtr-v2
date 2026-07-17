@@ -157,3 +157,49 @@ def test_from_npz_rejects_unknown_version(tmp_path):
     np.savez(bad, format_version=np.int32(999))
     with pytest.raises(ValueError, match="format_version"):
         DistrictGraph.from_npz(bad)
+
+
+# -- shared mmap disk cache ---------------------------------------------------
+
+
+def test_save_load_cache_round_trip(nx_graph, dg, tmp_path):
+    import numpy as np
+
+    cache_dir = tmp_path / "cached"
+    dg.save_cache(cache_dir)
+    loaded = DistrictGraph.load_cache(cache_dir)
+
+    # Arrays are memory-mapped (shared across worker processes by the OS)
+    assert isinstance(loaded._node_ids, np.memmap)
+    assert isinstance(loaded._adj, np.memmap)
+
+    assert list(loaded.nodes) == list(dg.nodes)
+    for node in dg.nodes:
+        assert loaded.nodes[node] == dg.nodes[node]
+        assert set(loaded.neighbors(node)) == set(dg.neighbors(node))
+    assert loaded.graph == dg.graph
+
+    subset = list(dg.nodes)[: max(1, len(dg) // 2)]
+    expected = {frozenset(c) for c in dg.connected_components(subset)}
+    assert {frozenset(c) for c in loaded.connected_components(subset)} == expected
+
+
+def test_save_cache_race_first_writer_wins(dg, tmp_path):
+    cache_dir = tmp_path / "cached"
+    dg.save_cache(cache_dir)
+    # A second (racing) writer must not fail or corrupt the existing cache
+    dg.save_cache(cache_dir)
+    loaded = DistrictGraph.load_cache(cache_dir)
+    assert list(loaded.nodes) == list(dg.nodes)
+
+
+def test_load_cache_rejects_unknown_version(dg, tmp_path):
+    import json
+
+    cache_dir = tmp_path / "cached"
+    dg.save_cache(cache_dir)
+    meta = json.loads((cache_dir / "meta.json").read_text())
+    meta["cache_version"] = 999
+    (cache_dir / "meta.json").write_text(json.dumps(meta))
+    with pytest.raises(ValueError, match="cache_version"):
+        DistrictGraph.load_cache(cache_dir)
