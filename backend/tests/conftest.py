@@ -853,10 +853,12 @@ def _vtd_geoid(pr: int, pc: int) -> str:
 # #     pickle.dump(G, f)
 
 
-@pytest.fixture(autouse=True, scope="session")
+@pytest.fixture(autouse=True)
 def _isolated_graph_disk_cache(tmp_path_factory):
-    """Point the shared mmap graph cache at a per-session temp dir so test
-    runs never reuse stale cached arrays from an earlier code state."""
+    """Point the shared mmap graph cache at a fresh temp dir per test.
+
+    Per-test (not per-session) so a graph cached by one test's mock can't
+    leak into a test that forgot to request a graph mock fixture."""
     from app.core.config import settings as app_settings
 
     app_settings.GRAPH_CACHE_PATH = str(tmp_path_factory.mktemp("graph-cache"))
@@ -873,6 +875,12 @@ def mock_grid_graph_file_fixture(monkeypatch):
     _get_graph_cached.cache_clear()
     yield
     _get_graph_cached.cache_clear()
+
+
+@pytest.fixture(name="mock_gerrydb_graph_file")
+def mock_gerrydb_graph_file_fixture(mock_grid_graph_file):
+    """Alias: any fixture graph by gerrydb name (not just grids)."""
+    yield
 
 
 _UPSERT_GERRYDBTABLE = text("""

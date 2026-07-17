@@ -326,6 +326,29 @@ class DistrictGraph:
     def __len__(self) -> int:
         return len(self._node_ids)
 
+    def parents_of(self, ids: Iterable[str]) -> list[str | None]:
+        """Vectorized parent lookup: one searchsorted pass over all ids.
+
+        Unknown ids and ids without a parent map to None (mirrors the old
+        ``LEFT JOIN parentchildedges`` semantics).
+        """
+        id_list = list(ids)
+        if not id_list or not len(self._node_ids):
+            return [None] * len(id_list)
+        arr = np.asarray(id_list, dtype=str)
+        pos = np.minimum(np.searchsorted(self._node_ids, arr), len(self._node_ids) - 1)
+        known = self._node_ids[pos] == arr
+        parent_idx = np.where(known, self._parent_of[pos], -1)
+        pid = self._parent_ids.tolist()
+        return [pid[p] if p >= 0 else None for p in parent_idx.tolist()]
+
+    def children_of(self, node: str) -> frozenset[str]:
+        """Children of a parent unit; empty frozenset if it has none."""
+        i = self._index_of(node)
+        if i is None:
+            raise KeyError(node)
+        return self._node_attrs(i).get("children", frozenset())
+
     def neighbors(self, node: str) -> list[str]:
         i = self._index_of(node)
         if i is None:

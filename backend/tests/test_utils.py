@@ -300,7 +300,7 @@ def document_id_fixture(
     return doc["document_id"]
 
 
-def test_get_edges(client, session: Session, document_id):
+def test_get_edges(client, session: Session, document_id, mock_gerrydb_graph_file):
     response = client.put(
         "/api/assignments",
         json={
