@@ -120,7 +120,6 @@ from app.evaluation.splits import county_pieces
 from app.main import app
 from app.utils import (
     create_districtr_map,
-    create_parent_child_edges,
     create_shatterable_gerrydb_view,
 )
 from tests.constants import ACCOUNT_AUTH0_ID, INTEGRATION_OGR2OGR_PG_CONNECTION_STRING
@@ -518,12 +517,6 @@ def fl_map(integration_engine, fl_view) -> str:
             child_layer=FL_BLOCK_TABLE,
             num_districts=28,
         )
-        session.commit()
-
-    # Spatial join to build parent–child edges (PostGIS ST_Contains).
-    # This is slow for 390 K blocks but only runs once per database.
-    with Session(integration_engine) as session:
-        create_parent_child_edges(session, map_uuid)
         session.commit()
 
     return map_uuid
