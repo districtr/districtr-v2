@@ -116,7 +116,8 @@ export default function GuidePage() {
             Districts
           </Heading>
           <Text size="3">
-            To hide the districts from the map, click the "visual setting" at the top of the side panel and uncheck the "Painted districts" box.
+            To hide the districts from the map, click the “visual setting” at the top of the side
+            panel and uncheck the “Painted districts” box.
           </Text>
           <Text size="3">
             To remove county boundaries overlaid on your map, toggle the “County Boundaries” box.
@@ -140,7 +141,7 @@ export default function GuidePage() {
             corner of the map and then choose the “Highlight unassigned areas” box.
           </Text>
           <LoopVideoPlayer
-            videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/highlight_unassigned.webm`}
+            videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/highlight_unassigned.webm`}
           />
 
           <Heading as="h3" size="4">
@@ -148,8 +149,10 @@ export default function GuidePage() {
           </Heading>
           <Text size="3">
             Under this tab, you can study the demographic make up of your districts. You have the
-            option of total population or voting age population. Under the "Map Layer" tab, you can choose to view the demographic
-            data as a choropleth on top of the map by selecting "Overlay" under "Display Modes", or view it as sized circles by selecting "Sized Circles".
+            option of total population or voting age population. Under the “Map Layer” tab, you can
+            choose to view the demographic data as a choropleth on top of the map by selecting
+            “Overlay” under “Display Modes”, or view it as sized circles by selecting “Sized
+            Circles”.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/demographics_panel.webm`}
@@ -161,7 +164,8 @@ export default function GuidePage() {
           <Text size="3">
             In the elections tab you can view how your districts would have behaved under past
             election data. Just like the demographics tab, you can choose to view the election
-            data as a choropleth on top of the map by selecting "Overlay" under "Display Modes", or view it as sized circles by selecting "Sized Circles".
+            data as a choropleth on top of the map by selecting “Overlay” under “Display Modes”, or
+            view it as sized circles by selecting “Sized Circles”.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/election_panel.webm`}
@@ -203,7 +207,9 @@ export default function GuidePage() {
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/view_mode.webm`}
           />
           <Text size="3">
-            <b>Evaluate mode</b> lists commonly used evaluation metrics for your plan. You see see whether your plans is complete, contiguous, population-balance, as well as how compact it districts are and how much it favors a party given past election data.
+            <b>Evaluate mode</b> lists commonly used evaluation metrics for your plan. You can see
+            whether your plan is complete, contiguous, and population-balanced, as well as how
+            compact its districts are and how much it favors a party given past election data.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/evaluation_mode.webm`}
@@ -225,7 +231,9 @@ export default function GuidePage() {
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/edit_metadata.webm`}
           />
           <Text size="3">
-            The "Catalog" from the main page stores all your maps, which allows you to switch between different maps you have seen. You can go there at any time from the navigational menu of the "Districtr" icon.
+            The “Catalog” from the main page stores all your maps, which allows you to switch
+            between different maps you have worked on. You can go there at any time from the
+            navigational menu of the “Districtr” icon.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/map_catalog.webm`}
@@ -261,8 +269,10 @@ export default function GuidePage() {
           <Text size="3">
             Districtr provides the option to export a map in several formats. The most compatible
             format with other platforms is a CSV assignment file which maps Census blocks to
-            districts. Click on the "Map Action" menu in the upper right corner of the map and select “Export
-            assignments”, then “Block assignments”. Alternatively, you can also export your district shapes as a GeoJson or a shape file, or export evaluation metrics as a json file.
+            districts. Click on the “Map Action” menu in the upper right corner of the map and
+            select “Export assignments”, then “Block assignments”. Alternatively, you can also
+            export your district shapes as a GeoJSON or a shapefile, or export evaluation metrics
+            as a JSON file.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/export.webm`}
@@ -293,10 +303,10 @@ export default function GuidePage() {
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/shatter.webm`}
           />
           <Text size="3">
-            Super Draw allows you change whether population statistic is displayed by
-            share or by count, click the gear icon to the right of “Summary Type” and choose
-            “Population by Share” or “Population by Count”. The Super Draw mode also allows you to 
-            switch on a side-by-side demographic and elections choropleth instead of overlay.
+            Super Draw allows you to change whether the population statistic is displayed by share
+            or by count: click the gear icon to the right of “Summary Type” and choose “Population
+            by Share” or “Population by Count”. The Super Draw mode also allows you to switch on a
+            side-by-side demographic and elections choropleth instead of an overlay.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/super_draw_side_by_side.webm`}

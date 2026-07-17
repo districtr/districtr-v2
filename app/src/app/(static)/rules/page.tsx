@@ -20,7 +20,7 @@ const RuleSection: React.FC<{
   );
 };
 
-export default function GuidePage() {
+export default function RulesPage() {
   return (
     <Flex direction="column" gapY="4">
       <LearnSubNav />
@@ -43,7 +43,7 @@ export default function GuidePage() {
         >
           <RuleSection
             title="Population balance"
-            description="Districts should have very close to the same Population"
+            description="Districts should have very close to the same population"
             image="/equalpop.png"
             imageAlt="Equal Population"
           />
@@ -94,7 +94,7 @@ export default function GuidePage() {
         <Link href="https://districtr.org/assets/the-rules-for-districtr.pdf" target="_blank">
           handout
         </Link>
-        . friend of the Lab Doug Spencer maintains a guide to state-by-state rules at{' '}
+        . Friend of the Lab Doug Spencer maintains a guide to state-by-state rules at{' '}
         <Link href="https://redistricting.lls.edu/" target="_blank">
           All About Redistricting
         </Link>

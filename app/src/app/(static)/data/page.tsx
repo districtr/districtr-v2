@@ -2,7 +2,7 @@ import {CTA} from '@/app/components/Static/Content/CTA';
 import {Flex, Heading, Text, Link, Box} from '@radix-ui/themes';
 import {LearnSubNav} from '@/app/components/Static/LearnSubNav';
 
-export default function GuidePage() {
+export default function DataPage() {
   return (
     <Flex direction="column" gapY="4">
       <LearnSubNav />
@@ -49,10 +49,9 @@ export default function GuidePage() {
         block level. The <b>American Community Survey (ACS)</b> is another large dataset produced by
         the United States Census Bureau. To collect data, the Census Bureau surveys approximately
         3.5 million households across the United States each year, and produces two data products
-        from households across the United States each year, and produces two data products from this
-        survey: <b>1-year estimates</b> and <b>5-year estimates</b>. 1-year estimates are estimated
-        population statistics published for Census-designated areas with 65,000 people or more, and
-        so is unsuitable for redistricting. The <b>5-year estimates</b> are estimated population
+        from this survey: <b>1-year estimates</b> and <b>5-year estimates</b>. 1-year estimates are
+        estimated population statistics published for Census-designated areas with 65,000 people or
+        more, and so are unsuitable for redistricting. The <b>5-year estimates</b> are estimated population
         statistics, including income and some demographic data, and are published at the block group
         level regardless of population.
       </Text>
@@ -66,8 +65,8 @@ export default function GuidePage() {
         . On the backend, all of our data comes from the{' '}
         <Link href="https://mggg.org/" target="_blank">
           Data and Democracy Lab
-        </Link>{' '}
-        Redistricting Lab&apos;s{' '}
+        </Link>
+        &apos;s{' '}
         <Link href="https://github.com/mggg/gerrydb-client-py" target="_blank">
           gerrydb
         </Link>{' '}
