@@ -270,6 +270,7 @@ export default function GuidePage() {
         </Flex>
       </ContentSection>
 
+      <CTA />
       <ContentSection title="Super Draw">
         <Flex direction="column" gapY="4">
           <Text size="3">
@@ -302,7 +303,6 @@ export default function GuidePage() {
           />
         </Flex>
       </ContentSection>
-      <CTA />
     </Flex>
   );
 }
