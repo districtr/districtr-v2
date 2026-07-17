@@ -726,8 +726,8 @@ def update_or_select_district_stats(
                 "ST_UnaryUnion(ST_Collect(geos.geometry))",
                 "ST_CoverageUnion(ST_Collect(geos.geometry))",
             )
+            sp = session.begin_nested()
             try:
-                sp = session.begin_nested()
                 result = session.execute(
                     text(coverage_sql),
                     {"document_id": document_id, "missing_zones": list(missing_zones)},
