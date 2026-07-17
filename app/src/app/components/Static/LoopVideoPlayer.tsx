@@ -4,7 +4,7 @@ import {useEffect, useRef} from 'react';
 import {useInView} from 'react-intersection-observer';
 
 /** Pause on the final frame for this long before restarting the loop. */
-const LOOP_HOLD_MS = 300;
+const LOOP_HOLD_MS = 500;
 
 export const LoopVideoPlayer: React.FC<{videoUrl: string}> = ({videoUrl}) => {
   const videoRef = useRef<HTMLVideoElement>(null);
