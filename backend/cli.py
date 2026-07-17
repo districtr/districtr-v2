@@ -670,6 +670,131 @@ def add_overlay_to_map(session: Session, districtr_map_slug: str, overlay_id: st
         logger.error(f"Map with slug {districtr_map_slug} not found")
 
 
+@cli.command("link-overlays-to-maps")
+@click.option(
+    "--overlay-name",
+    "-n",
+    "overlay_names",
+    help="Link all overlays with this name (can be specified multiple times)",
+    multiple=True,
+    required=False,
+)
+@click.option(
+    "--overlay-source",
+    "-so",
+    "overlay_sources",
+    help="Link all overlays with this exact source URL or S3 path (can be specified multiple times)",
+    multiple=True,
+    required=False,
+)
+@click.option(
+    "--overlay-id",
+    "-o",
+    "overlay_ids",
+    help="Overlay UUID to link (can be specified multiple times)",
+    multiple=True,
+    required=False,
+)
+@click.option(
+    "--all-overlays",
+    is_flag=True,
+    default=False,
+    help="Link every overlay",
+)
+@click.option(
+    "--statefps",
+    "-s",
+    help="Only link to maps whose statefps overlap these FIPS codes (can be specified multiple times). Omit to link to all maps",
+    multiple=True,
+    required=False,
+)
+@with_session
+def link_overlays_to_maps(
+    session: Session,
+    overlay_names: tuple[str, ...],
+    overlay_sources: tuple[str, ...],
+    overlay_ids: tuple[str, ...],
+    all_overlays: bool,
+    statefps: tuple[str, ...],
+):
+    if (
+        not overlay_names
+        and not overlay_sources
+        and not overlay_ids
+        and not all_overlays
+    ):
+        raise click.UsageError(
+            "Provide at least one of --overlay-name, --overlay-source, --overlay-id, or --all-overlays"
+        )
+
+    resolved_overlay_ids: list[str] = []
+
+    for overlay_name in overlay_names:
+        rows = session.execute(
+            text(
+                "SELECT overlay_id FROM overlay WHERE name = :name ORDER BY created_at"
+            ),
+            {"name": overlay_name},
+        ).all()
+        if not rows:
+            raise click.UsageError(f"No overlays found with name {overlay_name}")
+        resolved_overlay_ids.extend(str(row.overlay_id) for row in rows)
+
+    for overlay_source in overlay_sources:
+        rows = session.execute(
+            text(
+                "SELECT overlay_id FROM overlay WHERE source = :source ORDER BY created_at"
+            ),
+            {"source": overlay_source},
+        ).all()
+        if not rows:
+            raise click.UsageError(f"No overlays found with source {overlay_source}")
+        resolved_overlay_ids.extend(str(row.overlay_id) for row in rows)
+
+    for overlay_id in overlay_ids:
+        # Validate UUID format
+        try:
+            overlay_uuid = uuid.UUID(overlay_id)
+        except ValueError:
+            raise click.UsageError(
+                f"Invalid UUID format: {overlay_id}. Overlay ID must be a valid UUID."
+            )
+
+        overlay_check = session.execute(
+            text("SELECT overlay_id FROM overlay WHERE overlay_id = :overlay_id"),
+            {"overlay_id": str(overlay_uuid)},
+        ).one_or_none()
+        if not overlay_check:
+            raise click.UsageError(f"Overlay with ID {overlay_id} not found")
+        resolved_overlay_ids.append(str(overlay_uuid))
+
+    if all_overlays:
+        rows = session.execute(
+            text("SELECT overlay_id FROM overlay ORDER BY created_at")
+        ).all()
+        resolved_overlay_ids.extend(str(row.overlay_id) for row in rows)
+
+    # Dedupe while preserving order
+    resolved_overlay_ids = list(dict.fromkeys(resolved_overlay_ids))
+
+    statefps_filter = list(statefps) if statefps else None
+
+    stmt = text(
+        """INSERT INTO districtrmap_overlays (districtr_map_id, overlay_id)
+        SELECT uuid, CAST(:overlay_id AS uuid) FROM districtrmap
+        WHERE (CAST(:statefps AS varchar[]) IS NULL OR statefps && CAST(:statefps AS varchar[]))
+        ON CONFLICT (districtr_map_id, overlay_id) DO NOTHING
+        RETURNING districtr_map_id"""
+    )
+    for overlay_id in resolved_overlay_ids:
+        result = session.execute(
+            stmt,
+            {"overlay_id": overlay_id, "statefps": statefps_filter},
+        )
+        linked_map_ids = result.scalars().all()
+        logger.info(f"Linked overlay {overlay_id} to {len(linked_map_ids)} map(s)")
+
+
 @cli.command("remove-overlay-from-map")
 @click.option("--districtr-map-slug", "-d", help="DistrictrMap slug", required=True)
 @click.option("--overlay-id", "-o", help="Overlay ID to remove", required=True)
