@@ -31,7 +31,6 @@ from app.constants import GERRY_DB_SCHEMA
 from app.utils import (
     create_districtr_map,
     create_shatterable_gerrydb_view,
-    create_parent_child_edges,
 )
 
 
@@ -446,9 +445,6 @@ def simple_parent_child_geos_districtr_map_fixture(
         tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
         parent_layer="simple_parent_geos",
         child_layer="simple_child_geos",
-    )
-    create_parent_child_edges(
-        session=session, districtr_map_uuid=inserted_districtr_map
     )
     session.commit()
     return inserted_districtr_map

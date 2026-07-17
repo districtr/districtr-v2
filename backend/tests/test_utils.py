@@ -4,7 +4,6 @@ from app.utils import (
     create_districtr_map,
     create_map_group,
     create_shatterable_gerrydb_view,
-    create_parent_child_edges,
     add_extent_to_districtrmap,
     update_districtrmap,
     GEOID_PREDICATES,
@@ -270,17 +269,6 @@ def test_create_shatterable_gerrydb_view(
         parent_layer="simple_parent_geos",
         child_layer="simple_child_geos",
         gerrydb_table_name="simple_geos_test",
-    )
-    session.commit()
-
-
-def test_create_parent_child_edges(
-    session: Session,
-    simple_shatterable_districtr_map_no_edges_yet: str,
-):
-    create_parent_child_edges(
-        session=session,
-        districtr_map_uuid=simple_shatterable_districtr_map_no_edges_yet,
     )
     session.commit()
 

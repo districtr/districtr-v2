@@ -6,14 +6,12 @@ from pydantic import BaseModel, field_validator
 from sqlmodel import (
     Field,
     ForeignKey,
-    UniqueConstraint,
     Column,
     MetaData,
     String,
     Boolean,
     Integer,
     Text,
-    Index,
 )
 from sqlalchemy.types import ARRAY
 from sqlalchemy.dialects.postgresql import JSON, ENUM
@@ -163,35 +161,6 @@ class GerryDBTable(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     # Must correspond to the layer name in the tileset
     name: str = Field(nullable=False, unique=True)
-
-
-class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
-    __table_args__ = (
-        UniqueConstraint(
-            "districtr_map",
-            "parent_path",
-            "child_path",
-            name="districtr_map_parent_child_edge_unique",
-        ),
-        Index(
-            "idx_parentchildedges_child_path_districtr_map",
-            "child_path",
-            "districtr_map",
-        ),
-        {"postgresql_partition_by": "LIST (districtr_map)"},
-    )
-    __tablename__ = "parentchildedges"
-
-    districtr_map: str = Field(
-        sa_column=Column(
-            UUIDType,
-            ForeignKey("districtrmap.uuid"),
-            nullable=False,
-            primary_key=True,
-        )
-    )
-    parent_path: str = Field(sa_column=Column(String, nullable=False, primary_key=True))
-    child_path: str = Field(sa_column=Column(String, nullable=False, primary_key=True))
 
 
 class DocumentMetadata(BaseModel):

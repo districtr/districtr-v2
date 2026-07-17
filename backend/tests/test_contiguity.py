@@ -11,7 +11,6 @@ from app.contiguity.main import (
 )
 import app.evaluation.graph as graph
 from app.models import DistrictrMap
-from app.utils import create_parent_child_edges
 from tests.constants import FIXTURES_PATH
 from sqlmodel import Session
 from datetime import datetime
@@ -277,9 +276,6 @@ def ks_ellis_document_id(
     ks_ellis_shatterable_districtr_map,
     gerrydb_ks_ellis_geos_view,
 ):
-    create_parent_child_edges(
-        session=session, districtr_map_uuid=ks_ellis_shatterable_districtr_map
-    )
     response = client.post(
         "/api/create_document",
         json={"districtr_map_slug": "ks_ellis_geos"},
