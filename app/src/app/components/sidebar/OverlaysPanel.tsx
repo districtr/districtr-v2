@@ -15,6 +15,7 @@ import {fastUniqBy} from '@/app/utils/arrays';
 import {useMemo} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
 import {COUNTY_SOURCE_ID} from '@/app/constants/map/layerIds';
+import {OverlayMetadataModal} from './OverlayMetadataModal';
 
 export const OverlaysPanel = () => {
   const availableOverlays = useMapStore(state => state.mapDocument?.overlays ?? []);
@@ -51,6 +52,9 @@ export const OverlaysPanel = () => {
 
   return (
     <Flex gap="3" direction="column">
+      <Flex justify="end" align="center">
+        <OverlayMetadataModal />
+      </Flex>
       {paintConstraint && (
         <Button variant="outline" color="orange" onClick={clearPaintConstraint}>
           <Flex justify="between" align="center" gap="2">
@@ -78,7 +82,7 @@ export const OverlaysPanel = () => {
       <Flex justify="between" align="center" gap="2">
         <Flex direction="column" gap="1">
           <Text size="2" weight="medium">
-            County Boundaries and Labels
+            Counties
           </Text>
           <Text size="1" color="gray">
             Show county boundaries and labels
@@ -112,11 +116,7 @@ export const OverlaysPanel = () => {
                   opacity: mapOptions.showCountyBoundaries ? 1 : 0.5,
                 }}
               >
-                {paintConstraint?.overlayId === COUNTY_SOURCE_ID ? (
-                  <MaskOffIcon />
-                ) : (
-                  <MaskOnIcon />
-                )}
+                {paintConstraint?.overlayId === COUNTY_SOURCE_ID ? <MaskOffIcon /> : <MaskOnIcon />}
               </IconButton>
             </Tooltip>
           )}

@@ -11,10 +11,7 @@ import {
   HIGHLIGHT_LINE_COLOR,
   HIGHLIGHT_LINE_WIDTH,
 } from '@/app/constants/map/layerStyle';
-import {
-  HIGHLIGHT_FILL_COLOR,
-  SELECTED_LINE_STYLE,
-} from '@/app/constants/map/overlayLayerStyles';
+import {HIGHLIGHT_FILL_COLOR, SELECTED_LINE_STYLE} from '@/app/constants/map/overlayLayerStyles';
 import {
   CANONICAL_LAYER_IDS,
   COUNTY_SOURCE_ID,
