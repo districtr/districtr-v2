@@ -2,6 +2,7 @@
 
 import logging
 import pickle
+import threading
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urlparse
@@ -59,11 +60,7 @@ _GRAPH_CACHE_MAX_SIZE = 15
 
 
 @lru_cache(maxsize=_GRAPH_CACHE_MAX_SIZE)
-def get_graph(gerrydb_name: str) -> Graph:
-    """Load a graph from local disk or S3, LRU-cached by gerrydb_name.
-
-    Raises HTTPException (404 or 500) if the graph is unavailable.
-    """
+def _load_graph(gerrydb_name: str) -> Graph:
     try:
         path = get_gerrydb_graph_file(gerrydb_name)
         logger.info("Graph cache miss, loading from %s", path)
@@ -79,3 +76,26 @@ def get_graph(gerrydb_name: str) -> Graph:
         raise fastapi.HTTPException(
             status_code=500, detail=f"Something went wrong: {e}"
         )
+
+
+# Per-graph locks so concurrent requests for the same uncached graph don't
+# each fetch + deserialize it (N× memory spike); lru_cache alone dedupes
+# results, not in-flight loads. Bounded by the number of distinct maps.
+_graph_locks: dict[str, threading.Lock] = {}
+_graph_locks_guard = threading.Lock()
+
+
+def get_graph(gerrydb_name: str) -> Graph:
+    """Load a graph from local disk or S3, LRU-cached by gerrydb_name.
+
+    Raises HTTPException (404 or 500) if the graph is unavailable.
+    """
+    with _graph_locks_guard:
+        lock = _graph_locks.setdefault(gerrydb_name, threading.Lock())
+    with lock:
+        return _load_graph(gerrydb_name)
+
+
+# Delegate for /_debug/cache and test teardown.
+get_graph.cache_info = _load_graph.cache_info  # type: ignore[attr-defined]
+get_graph.cache_clear = _load_graph.cache_clear  # type: ignore[attr-defined]
