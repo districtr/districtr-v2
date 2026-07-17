@@ -14,14 +14,13 @@ from app.utils import (
     create_districtr_map as _create_districtr_map,
     create_map_group as _create_map_group,
     create_shatterable_gerrydb_view as _create_shatterable_gerrydb_view,
-    create_parent_child_edges as _create_parent_child_edges,
     add_extent_to_districtrmap as _add_extent_to_districtrmap,
     add_districtr_map_to_map_group as _add_districtr_map_to_map_group,
     update_districtrmap as _update_districtrmap,
     create_spatial_index as _create_spatial_index,
 )
 from app.core.io import get_local_or_s3_path
-from app.evaluation.graph import S3_GRAPH_PREFIX
+from app.evaluation.graph import S3_GRAPH_PREFIX, get_graph
 from app.constants import GERRY_DB_SCHEMA
 from functools import wraps
 from contextlib import contextmanager
@@ -101,67 +100,66 @@ def import_gerrydb_view(session: Session, layer: str, gpkg: str, rm: bool):
     )
 
 
-@cli.command("create-parent-child-edges")
-@click.option("--districtr-map-slug", "-d", help="Districtr map slug", required=False)
-@click.option("--districtr-map-uuid", "-u", help="Districtr map UUID", required=False)
-@click.option(
-    "--force",
-    "-f",
-    is_flag=True,
-    default=False,
-    help="Drop and recreate edges if they were already loaded for this map",
-)
+@cli.command("verify-graph-edges")
+@click.option("--districtr-map-slug", "-d", help="Limit to one map", required=False)
 @with_session
-def create_parent_child_edges(
-    session: Session,
-    districtr_map_slug: str | None,
-    districtr_map_uuid: str | None,
-    force: bool,
-):
-    """
-    Create parent-child edges for a districtr map.
-    Inlined equivalent of add_parent_child_relationships (parent_child_relationships.sql).
-    """
-    if not districtr_map_slug and not districtr_map_uuid:
-        raise ValueError(
-            "Either slug (--districtr-map-slug) or UUID (--districtr-map-uuid) must be provided"
-        )
+def verify_graph_edges(session: Session, districtr_map_slug: str | None):
+    """Compare parentchildedges rows against graph parent-child data.
 
+    Transition tool: run against production BEFORE applying the migration
+    that drops parentchildedges, to confirm the graphs carry identical
+    relationships. Exits non-zero on any mismatch.
+    """
+    stmt = select(DistrictrMap).where(
+        col(DistrictrMap.child_layer).isnot(None),
+        col(DistrictrMap.visible).is_(True),
+    )
     if districtr_map_slug:
-        districtr_map_uuid = session.scalars(
-            select(DistrictrMap.uuid).where(
-                DistrictrMap.districtr_map_slug == districtr_map_slug
+        stmt = stmt.where(DistrictrMap.districtr_map_slug == districtr_map_slug)
+    maps = session.scalars(stmt).all()
+
+    failures = 0
+    for m in maps:
+        assert m.gerrydb_table_name is not None
+        db_pairs = set(
+            session.execute(
+                text(
+                    "SELECT parent_path, child_path FROM parentchildedges "
+                    "WHERE districtr_map = :uuid"
+                ),
+                {"uuid": str(m.uuid)},
+            ).fetchall()
+        )
+        try:
+            G = get_graph(m.gerrydb_table_name)
+        except Exception as e:
+            logger.error("%s: graph unavailable (%s)", m.districtr_map_slug, e)
+            failures += 1
+            continue
+        node_list = list(G.nodes)
+        graph_pairs = {
+            (parent, child)
+            for child, parent in zip(node_list, G.parents_of(node_list))
+            if parent is not None
+        }
+        if db_pairs == graph_pairs:
+            logger.info("%s: OK (%d edges match)", m.districtr_map_slug, len(db_pairs))
+        else:
+            failures += 1
+            only_db = list(db_pairs - graph_pairs)[:5]
+            only_graph = list(graph_pairs - db_pairs)[:5]
+            logger.error(
+                "%s: MISMATCH — %d only in DB (e.g. %s), %d only in graph (e.g. %s)",
+                m.districtr_map_slug,
+                len(db_pairs - graph_pairs),
+                only_db,
+                len(graph_pairs - db_pairs),
+                only_graph,
             )
-        ).first()
-        if not districtr_map_uuid:
-            raise ValueError(f"Districtr map with slug {districtr_map_slug} not found")
 
-    logger.info("Creating parent-child edges...")
-    _create_parent_child_edges(
-        session=session, districtr_map_uuid=districtr_map_uuid, force=force
-    )
-    logger.info("Parent-child relationship upserted successfully.")
-
-
-@cli.command("delete-parent-child-edges")
-@click.option("--districtr-map", "-d", help="Districtr map name", required=True)
-@with_session
-def delete_parent_child_edges(session: Session, districtr_map: str):
-    logger.info("Deleting parent-child edges...")
-
-    delete_query = text(
-        """
-        DELETE FROM parentchildedges
-        WHERE districtr_map = :districtr_map
-    """
-    )
-    session.execute(
-        delete_query,
-        {
-            "districtr_map": districtr_map,
-        },
-    )
-    logger.info("Parent-child relationship upserted successfully.")
+    if failures:
+        raise SystemExit(f"{failures} map(s) failed edge verification")
+    logger.info("All %d shatterable map(s) verified.", len(maps))
 
 
 @cli.command("create-districtr-map")
