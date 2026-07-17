@@ -3,6 +3,7 @@ from pytest import fixture
 from networkx import Graph
 
 import pickle
+from app.evaluation.district_graph import DistrictGraph
 from app.contiguity.main import (
     check_subgraph_contiguity,
     subgraph_number_connected_components,
@@ -17,7 +18,7 @@ from datetime import datetime
 
 
 @fixture
-def connected_graph():
+def connected_nx_graph():
     G = Graph()
     # a - b
     # |   |
@@ -27,6 +28,11 @@ def connected_graph():
     G.add_edge("c", "d")
     G.add_edge("d", "a")
     return G
+
+
+@fixture
+def connected_graph(connected_nx_graph):
+    return DistrictGraph.from_networkx(connected_nx_graph)
 
 
 def test_check_subgraph_contiguity(connected_graph):
@@ -49,12 +55,11 @@ def test_check_subgraph_number_connected_components(connected_graph):
     assert subgraph_number_connected_components(connected_graph, ["a", "c"]) == 2
 
 
-def test_load_pkl(connected_graph, tmp_path):
+def test_load_pkl(connected_nx_graph, tmp_path):
     pkl_path = tmp_path / "test_graph.pkl"
     with open(pkl_path, "wb") as f:
-        pickle.dump(connected_graph, f)
-    with open(pkl_path, "rb") as f:
-        G = pickle.load(f)
+        pickle.dump(connected_nx_graph, f)
+    G = graph.get_gerrydb_graph(str(pkl_path))
     test_check_subgraph_contiguity(G)
 
 

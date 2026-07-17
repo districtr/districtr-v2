@@ -61,7 +61,6 @@ import app.evaluation.main as evaluation
 from app.evaluation.types import MetricsEnvelope
 import app.save_share.main as save_share
 import app.thumbnails.main as thumbnails
-from networkx import connected_components
 from app.models import (
     Assignments,
     ColorsSetResult,
@@ -1377,8 +1376,7 @@ async def get_unassigned_geoids(
             # Non-contiguous unassigned parents are intentionally NOT expanded
             present = [gid for gid in unassigned_ids if gid in G.nodes]
             components = [
-                sorted(component)
-                for component in connected_components(G.subgraph(present))
+                sorted(component) for component in G.connected_components(present)
             ]
             # Ids absent from the graph (orphans / data gaps): keep as singletons.
             missing = [gid for gid in unassigned_ids if gid not in G.nodes]
@@ -1465,8 +1463,7 @@ async def get_connected_component_bboxes(
         raise HTTPException(status_code=404, detail="Zone not found")
 
     node_data = {nb.node: nb for nb in node_bboxes}
-    subgraph = G.subgraph(nodes=list(node_data))
-    zone_connected_components = connected_components(subgraph)
+    zone_connected_components = G.connected_components(list(node_data))
 
     srid_table = districtr_map.parent_layer
     from_srid = (

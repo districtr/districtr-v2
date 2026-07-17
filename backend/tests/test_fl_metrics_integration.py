@@ -101,6 +101,7 @@ from sqlalchemy import text
 from sqlmodel import Session
 
 import app.evaluation.graph as eval_graph_module
+from app.evaluation.district_graph import DistrictGraph
 from app.constants import GERRY_DB_SCHEMA
 from app.core.db import get_session
 from app.core.security import auth
@@ -334,7 +335,7 @@ VOTE_SHARE_TOLERANCE = 0.005  # ±0.5 pp for statewide vote shares
 def fl_graph():
     """Load the combined block+VTD dual graph."""
     with open(GRAPH_PKL, "rb") as f:
-        return pickle.load(f)
+        return DistrictGraph.from_networkx(pickle.load(f))
 
 
 @pytest.fixture(scope="module")

@@ -7,7 +7,7 @@ from sqlalchemy import cast, literal, text, Column, String, Integer, MetaData, T
 from sqlmodel import Session, select
 from sqlalchemy.dialects.postgresql import insert, UUID as PG_UUID
 import logging
-from networkx import Graph
+from app.evaluation.district_graph import DistrictGraph
 from app.models import (
     Assignments,
     CommunityAssignments,
@@ -168,7 +168,9 @@ def duplicate_document_community_assignments(
     return inserted_assignments
 
 
-def _heal_or_fill(zone_by_geo: dict[str, int], G: Graph) -> dict[str, int | None]:
+def _heal_or_fill(
+    zone_by_geo: dict[str, int], G: DistrictGraph
+) -> dict[str, int | None]:
     """Heal uniform child assignments into their parent or fill unassigned siblings.
 
     Two operations run in a single pass over uploaded children:
