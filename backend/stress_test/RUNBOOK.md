@@ -93,20 +93,6 @@ aws ssm get-command-invocation --command-id $CMD_ID --instance-id $INSTANCE_ID \
 # InProgress → Success (or Failed on abort)
 ```
 
-Tail the log (two options):
-```sh
-# Option A: SSM session on the runner
-aws ssm start-session --target $INSTANCE_ID
-sudo tail -f /home/ec2-user/${RUN_ID}.log
-
-# Option B: one-shot from your laptop
-aws ssm send-command --region $AWS_DEFAULT_REGION \
-  --instance-ids $INSTANCE_ID --document-name AWS-RunShellScript \
-  --parameters "commands=[\"tail -100 /home/ec2-user/${RUN_ID}.log\"]" \
-  --query 'Command.CommandId' --output text
-# then get-command-invocation StandardOutputContent for that ID
-```
-
 Watch on the dashboard:
 - **Task count**: expect autoscale 2→N once CPU passes 45% (60 s cooldown; ~8 min lag).
 - **DatabaseConnections** vs ~15/task ceiling (pool 5 + overflow 10); plateau + rising
