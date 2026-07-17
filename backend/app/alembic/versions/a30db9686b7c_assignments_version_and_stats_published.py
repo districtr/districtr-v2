@@ -42,6 +42,11 @@ def upgrade() -> None:
         )
     )
 
+    # Old cached rows pre-date the per-zone freshness model; clear before
+    # building the unique indexes so any pre-existing duplicates don't block
+    # index creation.
+    op.execute(sa.text("DELETE FROM document.district_unions"))
+
     # Enable per-(document, zone) upserts in district_unions. Two partial
     # uniques because Postgres treats NULLs as distinct in normal unique
     # indexes — we need to forbid duplicate unassigned (NULL-zone) rows too.
@@ -57,10 +62,6 @@ def upgrade() -> None:
             "ON document.district_unions (document_id) WHERE zone IS NULL"
         )
     )
-
-    # Old cached rows pre-date the per-zone freshness model; clear so the next
-    # /stats hit rebuilds with the new semantics.
-    op.execute(sa.text("DELETE FROM document.district_unions"))
 
 
 def downgrade() -> None:
