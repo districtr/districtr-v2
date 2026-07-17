@@ -3,11 +3,28 @@ import {Box} from '@radix-ui/themes';
 import {useEffect, useRef} from 'react';
 import {useInView} from 'react-intersection-observer';
 
+/** Pause on the final frame for this long before restarting the loop. */
+const LOOP_HOLD_MS = 300;
+
 export const LoopVideoPlayer: React.FC<{videoUrl: string}> = ({videoUrl}) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const {ref, inView} = useInView({
     threshold: 0.2,
   });
+  const inViewRef = useRef(inView);
+  inViewRef.current = inView;
+
+  // Looping is manual (no `loop` attribute) so the last frame can hold briefly
+  // before the video restarts.
+  const handleEnded = () => {
+    window.setTimeout(() => {
+      const video = videoRef.current;
+      if (video && inViewRef.current) {
+        video.currentTime = 0;
+        video.play().catch(() => {});
+      }
+    }, LOOP_HOLD_MS);
+  };
 
   useEffect(() => {
     if (!videoRef.current) return;
@@ -48,7 +65,7 @@ export const LoopVideoPlayer: React.FC<{videoUrl: string}> = ({videoUrl}) => {
       ref={ref}
       className="w-full h-auto max-w-[800px] mx-auto shadow-xl m-4 border-districtrIndigo border-2 rounded-lg overflow-hidden"
     >
-      <video ref={videoRef} src={videoUrl} loop muted playsInline preload="true" />
+      <video ref={videoRef} src={videoUrl} onEnded={handleEnded} muted playsInline preload="true" />
     </Box>
   );
 };
