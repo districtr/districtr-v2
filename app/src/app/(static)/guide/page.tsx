@@ -16,9 +16,9 @@ export default function GuidePage() {
       <ContentSection title="Getting Started With Districts">
         <Flex direction="column" gapY="4">
           <Text size="3">
-            On the Districtr homepage, click “Jump to the Map” in the top right corner. You will
+            On the Districtr homepage, click “Draw” in the top right corner. You will
             be redirected to an interactive map of the United States. Click the state for which
-            you wish to make a districting plan. All states are available, as well as Washington,
+            you wish to redistrict. All states are available, as well as Washington,
             D.C. and Puerto Rico.
           </Text>
           <LoopVideoPlayer
@@ -34,19 +34,31 @@ export default function GuidePage() {
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/select_module.webm`}
           />
+          <Text size="3">You will now be redirected to your selected districting page.</Text>
+        </Flex>
+      </ContentSection>
+      <ContentSection title="Main Tools">
+        <Flex direction="column" gapY="4">
+          <Heading as="h3" size="4">
+            Moving across the map
+          </Heading>
+
           <Text size="3">
-            You will now be redirected to your selected districting page. Select the hand icon on
-            the toolbar at the bottom of the map, then click and drag to pan across the map. To
-            zoom in and out, use the plus and minus buttons in the bottom right corner of the map,
-            or use a mouse scroll wheel or trackpad.
+            Select the hand icon on the toolbar at the bottom of the map. Then click and drag to pan
+            across the map.
+          </Text>
+          <Text size="3">
+            To zoom in and out, use the plus and minus buttons in the bottom right corner of the
+            map. You can also use a mouse scroll wheel or trackpad.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/moving_in_map.webm`}
           />
-        </Flex>
-      </ContentSection>
-      <ContentSection title="Drawing Districts">
-        <Flex direction="column" gapY="4">
+
+          <Heading as="h3" size="4">
+            Drawing the districts
+          </Heading>
+
           <Text size="3">
             To draw your first district, select the paintbrush icon on the toolbar at the bottom
             of the map. Click and drag on the map to add units to your district.
