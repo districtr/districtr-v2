@@ -308,3 +308,78 @@ def test_build_combined_graph_from_gpkg_non_contiguous(non_contiguous_gpkgs):
     )
 
     assert "vtd_A" in G.graph["non_contiguous_parents"]
+
+
+# ---------------------------------------------------------------------------
+# npz serialization (read by the backend's DistrictGraph.from_npz)
+# ---------------------------------------------------------------------------
+
+
+def test_npz_write_read_round_trip(tmp_path):
+    import numpy as np
+
+    from transforms.graph import GraphFileFormat
+
+    G = Graph([("b1", "b2"), ("b2", "b3"), ("b3", "p2")])
+    G.nodes["b1"]["parent"] = "p1"
+    G.nodes["b2"]["parent"] = "p1"
+    G.nodes["b3"]["parent"] = "p2"
+    G.add_node("p1", children={"b1", "b2"})
+    G.nodes["p2"]["children"] = {"b3"}
+    G.graph["weighted_edges"] = {("p1", "p2"): 1}
+    G.graph["non_contiguous_parents"] = {"p1"}
+
+    out = GraphFileFormat.npz.write_graph(G, tmp_path / "g")
+    assert out == tmp_path / "g.npz"
+
+    # Read raw (backend-independent) and verify the format-1 schema
+    with np.load(out, allow_pickle=False) as d:
+        assert int(d["format_version"]) == 1
+        node_ids = d["node_ids"].tolist()
+        assert node_ids == sorted(G.nodes())
+        assert d["edges"].shape == (G.number_of_edges(), 2)
+        edges = {
+            tuple(sorted((node_ids[u], node_ids[v]))) for u, v in d["edges"].tolist()
+        }
+        assert edges == {tuple(sorted(e)) for e in G.edges()}
+        parent_ids = d["parent_ids"].tolist()
+        assert parent_ids == ["p1", "p2"]
+        parents = {
+            node_ids[i]: parent_ids[p]
+            for i, p in enumerate(d["parent_of"].tolist())
+            if p >= 0
+        }
+        assert parents == {"b1": "p1", "b2": "p1", "b3": "p2"}
+        assert bool(d["has_weighted_edges"])
+        we = {
+            (parent_ids[a], parent_ids[b]): int(w)
+            for (a, b), w in zip(d["we_keys"].tolist(), d["we_vals"].tolist())
+        }
+        assert we == {("p1", "p2"): 1}
+        assert bool(d["has_non_contiguous_parents"])
+        assert d["non_contiguous_parents"].tolist() == ["p1"]
+
+
+def test_npz_plain_graph_has_no_attr_flags(tmp_path):
+    import numpy as np
+
+    from transforms.graph import GraphFileFormat
+
+    G = Graph([("a", "b")])
+    out = GraphFileFormat.npz.write_graph(G, tmp_path / "plain")
+    with np.load(out, allow_pickle=False) as d:
+        assert not bool(d["has_weighted_edges"])
+        assert not bool(d["has_non_contiguous_parents"])
+        assert d["parent_ids"].size == 0
+        assert (d["parent_of"] == -1).all()
+
+
+def test_write_graph_dual_writes_pkl_and_npz(tmp_path, monkeypatch):
+    from transforms import graph as graph_module
+
+    monkeypatch.setattr(graph_module.settings, "OUT_SCRATCH", str(tmp_path))
+    G = Graph([("a", "b")])
+    paths = graph_module.write_graph(G, "dualtest")
+    assert [p.suffix for p in paths] == [".pkl", ".npz"]
+    for p in paths:
+        assert p.exists()

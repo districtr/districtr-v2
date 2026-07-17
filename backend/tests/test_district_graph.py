@@ -49,7 +49,7 @@ def test_node_attrs_match(nx_graph, dg):
         else:
             assert "children" not in attrs
         if "parent" in attrs:
-            assert type(attrs["parent"]) is str
+            assert attrs["parent"].__class__ is str
 
 
 def test_graph_attrs_match(nx_graph, dg):
@@ -104,7 +104,7 @@ def test_component_ids_are_native_str(dg):
     subset = list(dg.nodes)[:20]
     for component in dg.connected_components(subset):
         for node in component:
-            assert type(node) is str
+            assert node.__class__ is str
 
 
 def test_non_shatterable_graph():
@@ -128,3 +128,32 @@ def test_single_node_no_edges():
     assert "only" in dg
     assert dg.neighbors("only") == []
     assert dg.is_connected(["only"])
+
+
+# npz fixtures are generated from the pkl fixtures by the pipelines writer
+# (transforms/graph.py graph_to_npz_arrays), so these tests also verify
+# writer/reader schema compatibility across the two components.
+@pytest.mark.parametrize("name", ["simple_geos", "ks_ellis_county_block"])
+def test_from_npz_matches_from_networkx(name):
+    with open(FIXTURES_PATH / "graph" / f"{name}.pkl", "rb") as f:
+        via_pkl = DistrictGraph.from_networkx(pickle.load(f))
+    via_npz = DistrictGraph.from_npz(FIXTURES_PATH / "graph" / f"{name}.npz")
+
+    assert list(via_npz.nodes) == list(via_pkl.nodes)
+    for node in via_pkl.nodes:
+        assert via_npz.nodes[node] == via_pkl.nodes[node]
+        assert set(via_npz.neighbors(node)) == set(via_pkl.neighbors(node))
+    assert via_npz.graph == via_pkl.graph
+
+    subset = list(via_pkl.nodes)[: len(via_pkl.nodes) // 2]
+    expected = {frozenset(c) for c in via_pkl.connected_components(subset)}
+    assert {frozenset(c) for c in via_npz.connected_components(subset)} == expected
+
+
+def test_from_npz_rejects_unknown_version(tmp_path):
+    import numpy as np
+
+    bad = tmp_path / "bad.npz"
+    np.savez(bad, format_version=np.int32(999))
+    with pytest.raises(ValueError, match="format_version"):
+        DistrictGraph.from_npz(bad)

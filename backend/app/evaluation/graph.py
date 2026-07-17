@@ -1,5 +1,6 @@
 """Graph I/O and runtime utilities for contiguity evaluation."""
 
+import io
 import logging
 import pickle
 import threading
@@ -22,27 +23,38 @@ def get_gerrydb_graph_file(
     gerrydb_name: str,
     prefix: str = settings.VOLUME_PATH,
 ) -> str:
-    """Resolve the path to a GerryDB graph pkl file.
+    """Resolve the path to a GerryDB graph file (npz preferred, pkl legacy).
 
     Prefers a local copy (e.g. docker-compose bind mounts); otherwise
-    returns the S3 URI — a missing object surfaces as ClientError on fetch.
+    returns the S3 npz URI — `get_gerrydb_graph` falls back to the pkl
+    object if the npz is missing, and a missing object surfaces as
+    ClientError on fetch.
     """
-    possible_local_path = Path(prefix) / S3_GRAPH_PREFIX / f"{gerrydb_name}.pkl"
-    if possible_local_path.exists():
-        return str(possible_local_path)
+    for suffix in ("npz", "pkl"):
+        possible_local_path = (
+            Path(prefix) / S3_GRAPH_PREFIX / f"{gerrydb_name}.{suffix}"
+        )
+        if possible_local_path.exists():
+            return str(possible_local_path)
 
-    return f"s3://{settings.R2_BUCKET_NAME}/{S3_GRAPH_PREFIX}/{gerrydb_name}.pkl"
+    return f"s3://{settings.R2_BUCKET_NAME}/{S3_GRAPH_PREFIX}/{gerrydb_name}.npz"
+
+
+def _parse_graph_bytes(data: bytes, file_path: str) -> DistrictGraph:
+    if file_path.endswith(".npz"):
+        return DistrictGraph.from_npz(io.BytesIO(data))
+    # Legacy pickled networkx graph: convert to a compact DistrictGraph
+    # (~10x less resident memory); the transient nx object is freed on return.
+    logger.warning("Loading legacy pkl graph %s — rebuild as npz", file_path)
+    return DistrictGraph.from_networkx(pickle.loads(data))
 
 
 def get_gerrydb_graph(file_path: str) -> DistrictGraph:
-    """Load a GerryDB graph pkl from a local path or an S3 URI.
+    """Load a GerryDB graph (npz, or legacy nx pkl) from a local path or S3 URI.
 
     S3 objects are streamed straight into memory — the lru_cache on
     `get_graph` is the only cache, so deployments need no data volume.
-
-    The pickled networkx graph is converted to a compact DistrictGraph
-    (~10x less resident memory); the transient networkx object is freed
-    once conversion returns.
+    An S3 npz miss falls back to the legacy pkl object.
     """
     url = urlparse(file_path)
 
@@ -50,14 +62,19 @@ def get_gerrydb_graph(file_path: str) -> DistrictGraph:
         s3 = settings.get_s3_client()
         assert s3, "S3 client is not available"
         key = url.path.lstrip("/")
-        logger.info("Streaming graph from s3://%s/%s", url.netloc, key)
-        response = s3.get_object(Bucket=url.netloc, Key=key)
-        nx_graph = pickle.loads(response["Body"].read())
-    else:
-        with open(file_path, "rb") as f:
-            nx_graph = pickle.load(f)
+        try:
+            logger.info("Streaming graph from s3://%s/%s", url.netloc, key)
+            response = s3.get_object(Bucket=url.netloc, Key=key)
+        except botocore.exceptions.ClientError as e:
+            if e.response["Error"]["Code"] != "NoSuchKey" or not key.endswith(".npz"):
+                raise
+            key = key.removesuffix(".npz") + ".pkl"
+            logger.info("npz missing, falling back to s3://%s/%s", url.netloc, key)
+            response = s3.get_object(Bucket=url.netloc, Key=key)
+        return _parse_graph_bytes(response["Body"].read(), key)
 
-    return DistrictGraph.from_networkx(nx_graph)
+    with open(file_path, "rb") as f:
+        return _parse_graph_bytes(f.read(), file_path)
 
 
 # Must exceed the distinct-map working set or evictions force multi-second
