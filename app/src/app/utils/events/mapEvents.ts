@@ -24,6 +24,8 @@ import {
   BLOCK_POINTS_LAYER_ID_CHILD,
   ZONE_LABEL_LAYER_LIST,
   INTERACTIVE_LAYERS,
+  CANONICAL_LAYER_IDS,
+  COUNTY_SOURCE_ID,
 } from '@constants/map/layerIds';
 import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
 import {ResetMapSelectState} from '@utils/events/handlers';
@@ -50,6 +52,16 @@ export const MUTATION_TOOLS: ActiveTool[] = [
 ];
 
 export const EMPTY_FEATURE_ARRAY: MapGeoJSONFeature[] = [];
+
+/**
+ * The clickable layer while selecting a paint-mask area. The built-in county
+ * layer (COUNTY_SOURCE_ID sentinel) uses its always-on invisible fill layer;
+ * overlays use their dedicated click layer.
+ */
+export const getSelectingClickLayer = (selectingLayerId: string) =>
+  selectingLayerId === COUNTY_SOURCE_ID
+    ? CANONICAL_LAYER_IDS.COUNTIES.FILL
+    : `overlay-click-${selectingLayerId}`;
 /*
  MapEvent handling; these functions are called by the event listeners in the MapComponent
  */
@@ -172,7 +184,7 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
 
   if (selectingLayerId) {
     const features = mapRef.queryRenderedFeatures(e.point, {
-      layers: [`overlay-click-${selectingLayerId}`],
+      layers: [getSelectingClickLayer(selectingLayerId)],
     });
     if (features.length > 0) {
       setPaintConstraint(selectingLayerId, features[0].id as string);
@@ -354,7 +366,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   const isBrushingTool = sourceLayer && ALL_BRUSHING_TOOLS.includes(activeTool);
   if (selectingLayerId) {
     const features = mapRef.queryRenderedFeatures(e.point, {
-      layers: [`overlay-click-${selectingLayerId}`],
+      layers: [getSelectingClickLayer(selectingLayerId)],
     });
     if (features.length > 0) {
       setHoverFeatures([features[0]]);

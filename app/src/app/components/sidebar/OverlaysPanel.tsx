@@ -14,6 +14,7 @@ import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 import {fastUniqBy} from '@/app/utils/arrays';
 import {useMemo} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
+import {COUNTY_SOURCE_ID} from '@/app/constants/map/layerIds';
 
 export const OverlaysPanel = () => {
   const availableOverlays = useMapStore(state => state.mapDocument?.overlays ?? []);
@@ -83,15 +84,43 @@ export const OverlaysPanel = () => {
             Show county boundaries and labels
           </Text>
         </Flex>
-        <Switch
-          checked={mapOptions.showCountyBoundaries ?? false}
-          onCheckedChange={checked =>
-            setMapOptions({
-              showCountyBoundaries: checked,
-              prominentCountyNames: checked,
-            })
-          }
-        />
+        <Flex direction="row" gap="2" align="center" justify="center">
+          <Switch
+            checked={mapOptions.showCountyBoundaries ?? false}
+            onCheckedChange={checked => {
+              setMapOptions({
+                showCountyBoundaries: checked,
+                prominentCountyNames: checked,
+              });
+              // Release the county paint mask when its layer is hidden
+              if (!checked && paintConstraint?.overlayId === COUNTY_SOURCE_ID) {
+                clearPaintConstraint();
+              }
+            }}
+          />
+          {superDraw && (
+            <Tooltip content="Choose an area to paint within.">
+              <IconButton
+                onClick={() => handleLocateClick(COUNTY_SOURCE_ID)}
+                disabled={!mapOptions.showCountyBoundaries}
+                variant="ghost"
+                color="blue"
+                size="1"
+                radius="full"
+                className="cursor-pointer"
+                style={{
+                  opacity: mapOptions.showCountyBoundaries ? 1 : 0.5,
+                }}
+              >
+                {paintConstraint?.overlayId === COUNTY_SOURCE_ID ? (
+                  <MaskOffIcon />
+                ) : (
+                  <MaskOnIcon />
+                )}
+              </IconButton>
+            </Tooltip>
+          )}
+        </Flex>
       </Flex>
       {/* Regular Overlay Layers */}
       {hasOverlays
