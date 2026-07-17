@@ -506,6 +506,19 @@ async def create_document(
             total_assignments = insert_result.inserted
             skipped_geo_ids = insert_result.skipped_geo_ids
             zone_label_remapping = insert_result.zone_label_remapping
+            # On modifiable maps the uploaded plan can grow the district count
+            # beyond the map's default, but never shrink it — a partial plan
+            # keeps the default and the user can still lower it manually.
+            if (
+                districtr_map.num_districts_modifiable
+                and insert_result.max_assigned_zone is not None
+                and insert_result.max_assigned_zone > (districtr_map.num_districts or 2)
+            ):
+                new_document.num_districts = insert_result.max_assigned_zone
+                session.add(new_document)
+                # The response select below reads through session.connection(),
+                # which does not autoflush.
+                session.flush()
             for original_label, new_zone in zone_label_remapping.items():
                 display_label = original_label if original_label else "(blank)"
                 label_comment = Comment(
