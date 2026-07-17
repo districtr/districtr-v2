@@ -44,8 +44,8 @@ export default function GuidePage() {
           </Heading>
 
           <Text size="3">
-            Select the hand icon on the toolbar at the bottom of the map. Then click and drag to pan
-            across the map.
+            Select the hand icon on the toolbar at the top of the side panel, on the right of the
+            map. Then click and drag to pan across the map.
           </Text>
           <Text size="3">
             To zoom in and out, use the plus and minus buttons in the bottom right corner of the
@@ -60,8 +60,8 @@ export default function GuidePage() {
           </Heading>
 
           <Text size="3">
-            To draw your first district, select the paintbrush icon on the toolbar at the bottom
-            of the map. Click and drag on the map to add units to your district.
+            To draw your first district, select the paintbrush icon on the toolbar at the top of
+            the side panel. Click and drag on the map to add units to your district.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/drawing_on_map.webm`}
@@ -90,8 +90,8 @@ export default function GuidePage() {
           />
           <Text size="3">
             To correct the boundaries of your districts, click the erase icon on the toolbar at
-            the bottom of the map. Click and drag to remove units from that district. The size of
-            the eraser can be adjusted by dragging the slider.
+            the top of the side panel. Click and drag to remove units from that district. The size
+            of the eraser can be adjusted by dragging the slider.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/eraser.webm`}
@@ -274,7 +274,8 @@ export default function GuidePage() {
           </Text>
           <Text size="3">
             If you need to use smaller units of geography to balance the population of your
-            districts, click the break icon on the toolbar at the bottom of the map. Then click on
+            districts, click the break icon on the toolbar at the top of the side panel. Then click
+            on
             a unit you want to “shatter”, allowing you to paint subsets of the original unit. You
             can see the population number of each broken piece by clicking the gear icon in the
             upper right corner of the map and selecting “Show total population labels on blocks”.
