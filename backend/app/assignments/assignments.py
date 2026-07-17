@@ -25,11 +25,23 @@ class DuplicateGeoIdError(ValueError):
     pass
 
 
+# Same global bound as the metadata endpoint's num_districts validation.
+MAX_DISTRICTS = 538
+
+# A numeric zone label is treated as accidental (and remapped) when it exceeds
+# OUTLIER_FACTOR times the plan's reference label — see _detect_outlier_labels.
+OUTLIER_FACTOR = 5
+MAX_OUTLIERS = 2
+
+
 @dataclass
 class BatchInsertResult:
     inserted: int
     skipped_geo_ids: list[str] = field(default_factory=list)
     zone_label_remapping: dict[str, int] = field(default_factory=dict)
+    # Highest zone id actually assigned; drives the document's num_districts
+    # on maps with num_districts_modifiable.
+    max_assigned_zone: int | None = None
 
 
 def _is_whole_pos_number(s: str) -> bool:
@@ -43,27 +55,62 @@ def _is_whole_pos_number(s: str) -> bool:
         return False
 
 
+def _detect_outlier_labels(raw_zones: set[str], default_num_districts: int) -> set[str]:
+    """Numeric zone labels that are almost certainly accidental, e.g. '196' in
+    a plan whose other labels are 1..10.
+
+    User labels carry meaning, so this is deliberately conservative. Only the
+    MAX_OUTLIERS largest labels can be flagged, and each only when it exceeds
+    OUTLIER_FACTOR times a reference: the larger of the next-largest remaining
+    label and the map's default district count. Anchoring the reference on the
+    next-largest label means that when three or more labels are similarly
+    large, the plan's labels are genuinely spread out and nothing is flagged.
+    """
+    numeric = sorted(
+        {round(float(z)) for z in raw_zones if _is_whole_pos_number(z)}, reverse=True
+    )
+    reference = max(
+        numeric[MAX_OUTLIERS] if len(numeric) > MAX_OUTLIERS else 0,
+        default_num_districts,
+    )
+    cutoff = OUTLIER_FACTOR * reference
+    outlier_values = {n for n in numeric[:MAX_OUTLIERS] if n > cutoff}
+    return {
+        z
+        for z in raw_zones
+        if _is_whole_pos_number(z) and round(float(z)) in outlier_values
+    }
+
+
 def _build_zone_mapping(
-    raw_zones: set[str], num_districts: int | None
+    raw_zones: set[str], zone_cap: int, outlier_reference: int | None = None
 ) -> tuple[dict[str, int], set[str]]:
     """Map raw zone strings to integer zone IDs.
 
     Whole-number strings (e.g. '2', '2.0') are parsed directly; all other
-    strings (e.g. 'District 1', '01') and out-of-bounds numbers (e.g. '5' on a
-    3-district map) are remapped to unused integer slots in [1, num_districts].
-    Raises ValueError if the total number of distinct zones exceeds num_districts.
+    strings (e.g. 'District 1', '01') and numbers above zone_cap (e.g. '5' with
+    a cap of 3) are remapped to unused integer slots in [1, zone_cap].
+    Raises ValueError if the total number of distinct zones exceeds zone_cap.
+
+    When outlier_reference is given (the map's default district count, on
+    modifiable maps where labels drive the document's district count), numeric
+    labels flagged by _detect_outlier_labels are remapped like non-numeric ones.
 
     Returns:
         (mapping, remapped_keys) where remapped_keys is the set of labels that
-        were assigned a new slot — non-numeric strings, empty string, and
-        out-of-bounds numbers.
+        were assigned a new slot — non-numeric strings, empty string,
+        above-cap numbers, and detected outliers.
     """
+    outliers: set[str] = set()
+    if outlier_reference is not None:
+        outliers = _detect_outlier_labels(raw_zones, outlier_reference)
+
     numeric_map: dict[str, int] = {}
     string_labels: list[str] = []
     for z in raw_zones:
-        if _is_whole_pos_number(z):
+        if _is_whole_pos_number(z) and z not in outliers:
             n = round(float(z))
-            if num_districts is None or n <= num_districts:
+            if n <= zone_cap:
                 numeric_map[z] = n
             else:
                 string_labels.append(z)
@@ -72,14 +119,13 @@ def _build_zone_mapping(
 
     used_ids = set(numeric_map.values())
     total_zones = len(used_ids) + len(string_labels)
-    if num_districts is not None and total_zones > num_districts:
+    if total_zones > zone_cap:
         raise ValueError(
             f"Too many districts: CSV contains {total_zones} distinct districts "
-            f"but the map only has {num_districts} districts"
+            f"but the map only has {zone_cap} districts"
         )
 
-    cap = num_districts or total_zones
-    available = [i for i in range(1, cap + 1) if i not in used_ids][
+    available = [i for i in range(1, zone_cap + 1) if i not in used_ids][
         : len(string_labels)
     ]
     mapping = {**numeric_map, **dict(zip(string_labels, available))}
@@ -243,13 +289,36 @@ def batch_insert_assignments(
 
     G = get_graph(districtr_map.gerrydb_table_name)
 
-    num_districts = districtr_map.num_districts
+    if districtr_map.num_districts_modifiable:
+        # The uploaded plan drives the district count, so distinct zones are
+        # capped only by the global bound rather than the map's default.
+        zone_cap = MAX_DISTRICTS
+    elif districtr_map.num_districts is None:
+        # Broken map row: a fixed-district map without a district count can
+        # neither bound nor display zones. RuntimeError (not ValueError) so it
+        # surfaces as a 500 rather than being blamed on the upload.
+        raise RuntimeError(
+            f"Data issue: map {districtr_map.districtr_map_slug!r} has "
+            "num_districts_modifiable=False but num_districts is NULL"
+        )
+    else:
+        zone_cap = districtr_map.num_districts
 
     raw_zones: set[str] = set()
     for record in assignments:
         raw_zones.add(record[1])
 
-    zone_mapping, remapped_keys = _build_zone_mapping(raw_zones, num_districts)
+    zone_mapping, remapped_keys = _build_zone_mapping(
+        raw_zones,
+        zone_cap,
+        # Only modifiable maps grow their district count from labels, so only
+        # they are exposed to accidental labels inflating it (e.g. '196').
+        outlier_reference=(
+            (districtr_map.num_districts or 2)
+            if districtr_map.num_districts_modifiable
+            else None
+        ),
+    )
 
     skipped_geo_ids: list[str] = []
     seen_geo_ids: set[str] = set()
@@ -310,4 +379,5 @@ def batch_insert_assignments(
         inserted=inserted,
         skipped_geo_ids=skipped_geo_ids,
         zone_label_remapping=zone_label_remapping,
+        max_assigned_zone=max(valid_zone_ids, default=None),
     )
