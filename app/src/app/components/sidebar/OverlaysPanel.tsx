@@ -18,18 +18,7 @@ import {useMemo} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
 import {COUNTY_SOURCE_ID} from '@/app/constants/map/layerIds';
 import type {Overlay} from '@/app/utils/api/apiHandlers/types';
-import {OverlayMetadataModal} from './OverlayMetadataModal';
-
-// Enacted-plan datasets (from the source-URL suffix, e.g. `al_cd` -> "cd") are
-// grouped under a "Legislative Districts" heading; everything else follows.
-const LEGISLATIVE_DATASETS = new Set(['cd', 'sldu', 'sldl', 'sld']);
-const datasetKey = (source: string | null) =>
-  source
-    ?.split('/')
-    .pop()
-    ?.replace(/\.geojson$/, '')
-    .split('_')
-    .pop() ?? '';
+import {OverlayMetadataModal, isLegislativeOverlay} from './OverlayMetadataModal';
 
 export const OverlaysPanel = () => {
   const availableOverlays = useMapStore(state => state.mapDocument?.overlays ?? []);
@@ -62,12 +51,8 @@ export const OverlaysPanel = () => {
     return fastUniqBy(sortedOverlays, 'name');
   }, [availableOverlays]);
 
-  const legislativeOverlays = overlaysGroupedByName.filter(o =>
-    LEGISLATIVE_DATASETS.has(datasetKey(o.source))
-  );
-  const otherOverlays = overlaysGroupedByName.filter(
-    o => !LEGISLATIVE_DATASETS.has(datasetKey(o.source))
-  );
+  const legislativeOverlays = overlaysGroupedByName.filter(isLegislativeOverlay);
+  const otherOverlays = overlaysGroupedByName.filter(o => !isLegislativeOverlay(o));
 
   const renderOverlayRow = (overlay: Overlay) => (
     <Flex key={overlay.overlay_id} justify="between" align="center" gap="2">

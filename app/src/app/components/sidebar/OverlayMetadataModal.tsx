@@ -55,6 +55,13 @@ const getOverlayKey = (source: string | null): string | null => {
   return basename.replace(/\.geojson$/, '');
 };
 
+// Enacted-plan datasets (from the source-URL suffix, e.g. `al_cd` -> "cd") are
+// grouped under a "Legislative Districts" heading in the panel and this modal.
+export const LEGISLATIVE_DATASETS = new Set(['cd', 'sldu', 'sldl', 'sld']);
+export const datasetKey = (source: string | null) => getOverlayKey(source)?.split('_').pop() ?? '';
+export const isLegislativeOverlay = (overlay: Overlay) =>
+  LEGISLATIVE_DATASETS.has(datasetKey(overlay.source));
+
 /**
  * Derive the base URL where `overlay_metadata.json` lives by stripping the
  * basename off any overlay's source URL.
@@ -130,6 +137,20 @@ export const OverlayMetadataModal: React.FC = () => {
   };
 
   const uniqueOverlays = fastUniqBy(overlays as Overlay[], 'name');
+  const legislativeOverlays = uniqueOverlays.filter(isLegislativeOverlay);
+  const otherOverlays = uniqueOverlays.filter(o => !isLegislativeOverlay(o));
+
+  const entryFor = (overlay: Overlay): OverlayMetadataEntry => {
+    const key = getOverlayKey(overlay.source);
+    return (
+      (key ? metadata?.[key] : undefined) ?? {
+        name: overlay.name,
+        description: overlay.description ?? '',
+        source: '',
+        retrieved: '',
+      }
+    );
+  };
 
   return (
     <Dialog.Root open={open} onOpenChange={handleOpenChange}>
@@ -162,7 +183,8 @@ export const OverlayMetadataModal: React.FC = () => {
             <Spinner />
           </Flex>
         ) : (
-          <Flex direction="column" gap="3" mt="3">
+          // Header stays put; the boundary list scrolls within a capped height.
+          <Flex direction="column" gap="3" mt="3" style={{maxHeight: '60vh', overflowY: 'auto'}}>
             {error && (
               <Callout.Root color="amber" size="1">
                 <Callout.Icon>
@@ -173,26 +195,24 @@ export const OverlayMetadataModal: React.FC = () => {
                 </Callout.Text>
               </Callout.Root>
             )}
+            {legislativeOverlays.length > 0 && (
+              <>
+                <Text size="2" weight="bold">
+                  Legislative Districts
+                </Text>
+                {legislativeOverlays.map(overlay => (
+                  <OverlaySection key={overlay.overlay_id} entry={entryFor(overlay)} />
+                ))}
+                <Separator size="4" />
+              </>
+            )}
             <OverlaySection entry={COUNTY_ENTRY} />
-            {uniqueOverlays.map(overlay => {
-              const key = getOverlayKey(overlay.source);
-              const entry = key ? metadata?.[key] : undefined;
-              return (
-                <React.Fragment key={overlay.overlay_id}>
-                  <Separator size="4" />
-                  <OverlaySection
-                    entry={
-                      entry ?? {
-                        name: overlay.name,
-                        description: overlay.description ?? '',
-                        source: '',
-                        retrieved: '',
-                      }
-                    }
-                  />
-                </React.Fragment>
-              );
-            })}
+            {otherOverlays.map(overlay => (
+              <React.Fragment key={overlay.overlay_id}>
+                <Separator size="4" />
+                <OverlaySection entry={entryFor(overlay)} />
+              </React.Fragment>
+            ))}
           </Flex>
         )}
       </Dialog.Content>
