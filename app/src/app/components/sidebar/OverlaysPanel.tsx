@@ -1,21 +1,35 @@
 'use client';
-import {Flex, Text, Switch, Spinner, Button, Callout, IconButton, Tooltip} from '@radix-ui/themes';
 import {
-  CrossCircledIcon,
-  InfoCircledIcon,
-  MaskOffIcon,
-  MaskOnIcon,
-  TargetIcon,
-} from '@radix-ui/react-icons';
+  Flex,
+  Text,
+  Switch,
+  Button,
+  Callout,
+  IconButton,
+  Tooltip,
+  Separator,
+} from '@radix-ui/themes';
+import {MaskOffIcon, MaskOnIcon, TargetIcon} from '@radix-ui/react-icons';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
-import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 import {fastUniqBy} from '@/app/utils/arrays';
 import {useMemo} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
 import {COUNTY_SOURCE_ID} from '@/app/constants/map/layerIds';
+import type {Overlay} from '@/app/utils/api/apiHandlers/types';
 import {OverlayMetadataModal} from './OverlayMetadataModal';
+
+// Enacted-plan datasets (from the source-URL suffix, e.g. `al_cd` -> "cd") are
+// grouped under a "Legislative Districts" heading; everything else follows.
+const LEGISLATIVE_DATASETS = new Set(['cd', 'sldu', 'sldl', 'sld']);
+const datasetKey = (source: string | null) =>
+  source
+    ?.split('/')
+    .pop()
+    ?.replace(/\.geojson$/, '')
+    .split('_')
+    .pop() ?? '';
 
 export const OverlaysPanel = () => {
   const availableOverlays = useMapStore(state => state.mapDocument?.overlays ?? []);
@@ -48,7 +62,51 @@ export const OverlaysPanel = () => {
     return fastUniqBy(sortedOverlays, 'name');
   }, [availableOverlays]);
 
-  const hasOverlays = availableOverlays.length > 0;
+  const legislativeOverlays = overlaysGroupedByName.filter(o =>
+    LEGISLATIVE_DATASETS.has(datasetKey(o.source))
+  );
+  const otherOverlays = overlaysGroupedByName.filter(
+    o => !LEGISLATIVE_DATASETS.has(datasetKey(o.source))
+  );
+
+  const renderOverlayRow = (overlay: Overlay) => (
+    <Flex key={overlay.overlay_id} justify="between" align="center" gap="2">
+      <Flex direction="column" gap="1">
+        <Text size="2" weight="medium">
+          {overlay.name}
+        </Text>
+        {overlay.description && (
+          <Text size="1" color="gray">
+            {overlay.description}
+          </Text>
+        )}
+      </Flex>
+      <Flex direction="row" gap="2" align="center" justify="center">
+        <Switch
+          checked={enabledOverlayIds.has(overlay.name)}
+          onCheckedChange={() => toggleOverlay(overlay.name)}
+        />
+        {superDraw && (
+          <Tooltip content="Choose an area to paint within.">
+            <IconButton
+              onClick={() => handleLocateClick(overlay.overlay_id)}
+              disabled={!enabledOverlayIds.has(overlay.name)}
+              variant="ghost"
+              color="blue"
+              size="1"
+              radius="full"
+              className="cursor-pointer"
+              style={{
+                opacity: enabledOverlayIds.has(overlay.name) ? 1 : 0.5,
+              }}
+            >
+              {paintConstraint?.overlayId === overlay.overlay_id ? <MaskOffIcon /> : <MaskOnIcon />}
+            </IconButton>
+          </Tooltip>
+        )}
+      </Flex>
+    </Flex>
+  );
 
   return (
     <Flex gap="3" direction="column">
@@ -78,6 +136,18 @@ export const OverlaysPanel = () => {
           </Flex>
         </Callout.Root>
       )}
+
+      {/* Congressional + state legislative districts, grouped under a heading */}
+      {legislativeOverlays.length > 0 && (
+        <>
+          <Text size="2" weight="bold">
+            Legislative Districts
+          </Text>
+          {legislativeOverlays.map(renderOverlayRow)}
+          <Separator size="4" />
+        </>
+      )}
+
       {/* County Layer Controls - Always shown as pseudo-overlay */}
       <Flex justify="between" align="center" gap="2">
         <Flex direction="column" gap="1">
@@ -122,51 +192,9 @@ export const OverlaysPanel = () => {
           )}
         </Flex>
       </Flex>
-      {/* Regular Overlay Layers */}
-      {hasOverlays
-        ? overlaysGroupedByName.map(overlay => (
-            <Flex key={overlay.overlay_id} justify="between" align="center" gap="2">
-              <Flex direction="column" gap="1">
-                <Text size="2" weight="medium">
-                  {overlay.name}
-                </Text>
-                {overlay.description && (
-                  <Text size="1" color="gray">
-                    {overlay.description}
-                  </Text>
-                )}
-              </Flex>
-              <Flex direction="row" gap="2" align="center" justify="center">
-                <Switch
-                  checked={enabledOverlayIds.has(overlay.name)}
-                  onCheckedChange={() => toggleOverlay(overlay.name)}
-                />
-                {superDraw && (
-                  <Tooltip content="Choose an area to paint within.">
-                    <IconButton
-                      onClick={() => handleLocateClick(overlay.overlay_id)}
-                      disabled={!enabledOverlayIds.has(overlay.name)}
-                      variant="ghost"
-                      color="blue"
-                      size="1"
-                      radius="full"
-                      className="cursor-pointer"
-                      style={{
-                        opacity: enabledOverlayIds.has(overlay.name) ? 1 : 0.5,
-                      }}
-                    >
-                      {paintConstraint?.overlayId === overlay.overlay_id ? (
-                        <MaskOffIcon />
-                      ) : (
-                        <MaskOnIcon />
-                      )}
-                    </IconButton>
-                  </Tooltip>
-                )}
-              </Flex>
-            </Flex>
-          ))
-        : null}
+
+      {/* Remaining boundaries (metro areas, school districts, tribal areas) */}
+      {otherOverlays.map(renderOverlayRow)}
     </Flex>
   );
 };
