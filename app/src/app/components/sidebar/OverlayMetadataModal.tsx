@@ -56,11 +56,11 @@ const getOverlayKey = (source: string | null): string | null => {
 };
 
 // Enacted-plan datasets (from the source-URL suffix, e.g. `al_cd` -> "cd") are
-// grouped under a "Legislative Districts" heading in the panel and this modal.
-export const LEGISLATIVE_DATASETS = new Set(['cd', 'sldu', 'sldl', 'sld']);
+// grouped under a "Enacted Districts" heading in the panel and this modal.
+export const ENACTED_DATASETS = new Set(['cd', 'sldu', 'sldl', 'sld']);
 export const datasetKey = (source: string | null) => getOverlayKey(source)?.split('_').pop() ?? '';
 export const isLegislativeOverlay = (overlay: Overlay) =>
-  LEGISLATIVE_DATASETS.has(datasetKey(overlay.source));
+  ENACTED_DATASETS.has(datasetKey(overlay.source));
 
 /**
  * Derive the base URL where `overlay_metadata.json` lives by stripping the
@@ -198,7 +198,7 @@ export const OverlayMetadataModal: React.FC = () => {
             {legislativeOverlays.length > 0 && (
               <>
                 <Text size="2" weight="bold">
-                  Legislative Districts
+                  Enacted Districts
                 </Text>
                 {legislativeOverlays.map(overlay => (
                   <OverlaySection key={overlay.overlay_id} entry={entryFor(overlay)} />
