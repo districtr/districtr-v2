@@ -1,4 +1,12 @@
-import {Button, CheckboxGroup, Flex, IconButton, Radio, Text, TextField} from '@radix-ui/themes';
+import {
+  Button,
+  CheckboxGroup,
+  Flex,
+  IconButton,
+  SegmentedControl,
+  Text,
+  TextField,
+} from '@radix-ui/themes';
 import React, {useEffect} from 'react'; // Import ParentSize
 import {Popover} from '@radix-ui/themes';
 import {GearIcon} from '@radix-ui/react-icons';
@@ -100,46 +108,22 @@ export const PopulationPanelOptions: React.FC<{
           )}
           {!isCommunityMode && (
             <Flex direction="column" gap="1" py="2" mt="2">
-              <Text size="2">
-                X-Axis bar scaling
+              <Text size="2" weight="medium">
+                X-axis bar scaling
                 <InfoTip tips="barScaling" />
               </Text>
-              <Flex
-                direction="row"
-                align="center"
-                gap="2"
-                onClick={() =>
-                  setChartOptions({popBarScaleToCurrent: !chartOptions.popBarScaleToCurrent})
-                }
-                className="cursor-pointer"
+              <SegmentedControl.Root
+                size="1"
+                value={chartOptions.popBarScaleToCurrent ? 'current' : 'ideal'}
+                onValueChange={v => setChartOptions({popBarScaleToCurrent: v === 'current'})}
               >
-                <Radio
-                  name="Scale bars default"
-                  value="default"
-                  checked={!chartOptions.popBarScaleToCurrent}
-                />
-                <Text size={'2'}>Scale bars from zero to ideal (default)</Text>
-              </Flex>
-              <Flex
-                direction="row"
-                align="center"
-                gap="2"
-                onClick={() =>
-                  setChartOptions({popBarScaleToCurrent: !chartOptions.popBarScaleToCurrent})
-                }
-                className="cursor-pointer"
-              >
-                <Radio
-                  name="Scale bars to zone populations"
-                  value="zones"
-                  checked={chartOptions.popBarScaleToCurrent}
-                />
-                <Text size={'2'}>Scale bars to current zone population range</Text>
-              </Flex>
+                <SegmentedControl.Item value="ideal">Zero to ideal</SegmentedControl.Item>
+                <SegmentedControl.Item value="current">Current range</SegmentedControl.Item>
+              </SegmentedControl.Root>
 
               {!!idealPopulation && (
                 <Flex direction="column" align="start" gapX="2" pt="2">
-                  <Text className="py-2">
+                  <Text size="2" weight="medium" className="py-2">
                     Target deviation from ideal
                     <InfoTip tips="maxDeviation" />
                   </Text>
@@ -172,7 +156,9 @@ export const PopulationPanelOptions: React.FC<{
                           </IconButton>
                         </TextField.Slot>
                       </TextField.Root>
-                      <Text size="1">Percent</Text>
+                      <Text size="1" color="gray">
+                        Percent
+                      </Text>
                     </Flex>
                     <Flex direction="column" flexGrow={'1'}>
                       <TextField.Root
@@ -195,7 +181,9 @@ export const PopulationPanelOptions: React.FC<{
                           }
                         }}
                       ></TextField.Root>
-                      <Text size="1">Population</Text>
+                      <Text size="1" color="gray">
+                        Population
+                      </Text>
                     </Flex>
                   </Flex>
                 </Flex>

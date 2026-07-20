@@ -3,7 +3,11 @@ import {op, table, escape} from 'arquero';
 import type {ColumnTable} from 'arquero';
 import {FALLBACK_NUM_DISTRICTS} from '../../constants/map/layerStyle';
 import {FALLBACK_NUM_COMMUNITIES} from '../../constants/document/limits';
-import {BLOCK_SOURCE_ID} from '../../constants/map/layerIds';
+import {
+  BLOCK_SOURCE_ID,
+  SELECTION_POINTS_SOURCE_ID,
+  SELECTION_POINTS_SOURCE_ID_CHILD,
+} from '../../constants/map/layerIds';
 import {MapGeoJSONFeature} from 'maplibre-gl';
 import {MapStore, useMapStore} from '../../store/mapStore';
 import {useAssignmentsStore, ZoneAssignmentsMap} from '../../store/assignmentsStore';
@@ -22,6 +26,7 @@ import {
   TabularDataWithPercent,
   AllMapConfigs,
   possibleRollups,
+  possibleDerivedColumns,
 } from '../api/summaryStats';
 import {getColumnDerives, getPctDerives, getRollups} from './arquero';
 import * as scale from 'd3-scale';
@@ -30,6 +35,9 @@ import {
   choroplethMapVariables,
   DEFAULT_COLOR_SCHEME,
   DEFAULT_COLOR_SCHEME_GRAY,
+  DEFAULT_CONTINUOUS_COLOR_SCHEME,
+  DEFAULT_CONTINUOUS_COLOR_SCHEME_GRAY,
+  SIZED_CIRCLE_COLOR_SCHEME,
 } from '@/app/store/demography/constants';
 import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
@@ -62,7 +70,11 @@ type MapVariableConfig = {
   fixedScale?: any; // eslint-disable-line @typescript-eslint/no-explicit-any -- visx AnyD3Scale is broader than our local AnyD3Scale
   variants?: Array<'percent' | 'raw'>;
   customLegendLabels?: string[];
+  /** Column driving circle size in sized-circles mode; resolved from rollup config if unset */
+  sizeColumn?: string;
 };
+
+const MAX_SIZED_CIRCLE_RADIUS_PX = 20;
 
 const asNumericRecord = (row: SummaryRecord | Record<string, unknown>): Record<string, number> =>
   row as unknown as Record<string, number>;
@@ -576,6 +588,63 @@ class DemographyService {
   }
 
   /**
+   * Paints the sized-circles mode: circles at unit centroids on the selection
+   * point sources, sized by the universe total population and shaded by the
+   * current color scale (typically the percent share).
+   */
+  paintSizedCircles({
+    config,
+    variableName,
+    mapRef,
+  }: {
+    config: MapVariableConfig;
+    variableName: string;
+    mapRef: maplibregl.Map;
+  }) {
+    const dataTable = this.overlayTable ?? this.table;
+    if (!dataTable || !this.colorScale) return;
+    const colorScale = this.colorScale;
+    // Universe total for the selected variable: race groups and totals resolve via
+    // rollup config; voter history via its derived `*_total` column.
+    const sizeColumn =
+      config.sizeColumn ??
+      possibleRollups.find(r => r.col === config.value)?.total ??
+      possibleDerivedColumns.find(d => d.column === config.value && d.label.endsWith('_total'))
+        ?.label;
+    if (!sizeColumn) return;
+    const derives = {
+      colorValue: config.expression
+        ? escape(config.expression)
+        : escape((row: Record<string, number>) => row[variableName]),
+      sizeValue: escape((row: Record<string, number>) => row[sizeColumn]),
+    };
+    const rows = dataTable
+      .derive(derives)
+      .select('path', 'sourceLayer', 'colorValue', 'sizeValue')
+      .objects() as Array<TableRow & {colorValue: number; sizeValue: number}>;
+    const maxSize = rows.reduce((max, row) => Math.max(max, row.sizeValue || 0), 0);
+    if (!maxSize) return;
+    const parentLayer = useMapStore.getState().mapDocument?.parent_layer;
+    rows.forEach(row => {
+      if (!row.path) return;
+      const color = isNaN(+row.colorValue) ? '#CCCCCC' : colorScale(+row.colorValue);
+      // sqrt so circle AREA is proportional to population
+      const radius =
+        row.sizeValue > 0 ? MAX_SIZED_CIRCLE_RADIUS_PX * Math.sqrt(row.sizeValue / maxSize) : 0;
+      mapRef.setFeatureState(
+        {
+          source:
+            row.sourceLayer === parentLayer
+              ? SELECTION_POINTS_SOURCE_ID
+              : SELECTION_POINTS_SOURCE_ID_CHILD,
+          id: row.path,
+        },
+        {color, radius, hasColor: true}
+      );
+    });
+  }
+
+  /**
    * Generates a color scale for demographic data and applies it to the map.
    *
    * @param {Object} params - The parameters for generating the color scale.
@@ -621,6 +690,7 @@ class DemographyService {
       config = {
         value: variable,
         variants: ['percent', 'raw'],
+        sizeColumn: totalColumn,
         expression: (row: Record<string, number>) => {
           const coalitionTotal = coalitionColumns.reduce((sum, column) => {
             const value = row[column];
@@ -638,8 +708,33 @@ class DemographyService {
         ? `${config.value}_pct`
         : config.value
     ) as string;
+    const isTotal = !config.variants;
     if (config.fixedScale) {
       this.colorScale = config.fixedScale as AnyD3Scale;
+    } else if (isTotal || (variant === 'percent' && config.variants?.includes('percent'))) {
+      // Unclassed continuous scale: 0-100% for share-of-population maps,
+      // 0-max for total population maps
+      const displayMode = useMapControlsStore.getState().mapOptions.demographicDisplayMode;
+      // Grayscale only for the polygon overlay atop colored districts;
+      // circles shade transparent-to-black so district colors show through
+      const interpolator =
+        displayMode === DEMOGRAPHIC_MODES.SIZED_CIRCLES
+          ? SIZED_CIRCLE_COLOR_SCHEME
+          : displayMode === DEMOGRAPHIC_MODES.OVERLAY
+            ? DEFAULT_CONTINUOUS_COLOR_SCHEME_GRAY
+            : DEFAULT_CONTINUOUS_COLOR_SCHEME;
+      let domainMax = 1;
+      if (isTotal) {
+        const dataTable = (this.overlayTable ?? this.table)!;
+        const stats = dataTable.rollup({maxValue: op.max(variableName)}).objects()[0] as {
+          maxValue?: number;
+        };
+        domainMax = stats?.maxValue || 1;
+      }
+      this.colorScale = scale
+        .scaleSequential(interpolator)
+        .domain([0, domainMax])
+        .clamp(true) as AnyD3Scale;
     } else {
       const quantiles = this.calculateQuantiles(config, variableName, numberOfBins);
       if (!quantiles) return;
@@ -648,9 +743,9 @@ class DemographyService {
 
       const displayMode = useMapControlsStore.getState().mapOptions.demographicDisplayMode;
       const defaultColor =
-        displayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE
-          ? DEFAULT_COLOR_SCHEME
-          : DEFAULT_COLOR_SCHEME_GRAY;
+        displayMode === DEMOGRAPHIC_MODES.OVERLAY
+          ? DEFAULT_COLOR_SCHEME_GRAY
+          : DEFAULT_COLOR_SCHEME;
       let colorscheme = defaultColor[Math.max(3, actualBinsLength)];
 
       if (actualBinsLength < 3) {
@@ -662,11 +757,16 @@ class DemographyService {
         .range(colorscheme);
     }
     if (paintMap) {
-      this.paintDemography({
-        config,
-        variableName,
-        mapRef,
-      });
+      const displayMode = useMapControlsStore.getState().mapOptions.demographicDisplayMode;
+      if (displayMode === DEMOGRAPHIC_MODES.SIZED_CIRCLES) {
+        this.paintSizedCircles({config, variableName, mapRef});
+      } else {
+        this.paintDemography({
+          config,
+          variableName,
+          mapRef,
+        });
+      }
     }
     return this.colorScale;
   }

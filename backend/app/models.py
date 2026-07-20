@@ -16,7 +16,7 @@ from sqlmodel import (
     Index,
 )
 from sqlalchemy.types import ARRAY
-from sqlalchemy.dialects.postgresql import JSON, ENUM
+from sqlalchemy.dialects.postgresql import JSON, ENUM, TIMESTAMP
 from sqlalchemy import Float, SmallInteger, text
 import pydantic_geojson
 from app.constants import DOCUMENT_SCHEMA
@@ -70,7 +70,10 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     # We'll want to enforce the constraint tha the gerrydb_table_name is either in
     # GerrydbTable.name or a materialized view of two GerryDBTables some other way.
     gerrydb_table_name: str | None = Field(nullable=True)
-    # Null means default number of districts? Should we have a sensible default?
+    # On fixed maps (num_districts_modifiable=False) this is the exact district
+    # count and must not be NULL (batch_insert_assignments raises on such rows).
+    # On modifiable/custom maps it is the default and floor for new documents:
+    # a CSV upload can grow a document's count beyond it but never below it.
     num_districts: int | None = Field(nullable=True, default=None)
     # If False, users cannot change the number of districts on the frontend.
     num_districts_modifiable: bool = Field(
@@ -90,6 +93,10 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     # where does this go?
     # when you create the view, pull the columns that you need
     # we'll want discrete management steps
+    # Gates discovery only: the views listing (GET /api/gerrydb/views) filters
+    # on visible, so invisible maps do not appear in the frontend picker.
+    # Documents reference maps by districtr_map_slug without filtering on
+    # visible, so hiding a map never breaks documents already created on it.
     visible: bool = Field(sa_column=Column(Boolean, nullable=False, default=True))
     map_type: str = Field(
         sa_column=Column(
@@ -289,6 +296,22 @@ class Document(TimeStampMixin, SQLModel, table=True):
             server_default=DocumentType.DISTRICT.value,
         )
     )
+    # Bumped only on assignment writes that actually change geo_id → zone
+    # mapping. Drives per-zone district_unions cache invalidation and the
+    # CDN-vs-inline branch in /stats.
+    assignments_updated_at: datetime = Field(
+        sa_column=Column(
+            TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=text("NOW()"),
+        )
+    )
+    # Last successful upload of plans/display/{public_id}.geojson to S3.
+    # Compared against assignments_updated_at to decide if the CDN object is
+    # fresh enough to redirect to.
+    stats_published_at: datetime | None = Field(
+        sa_column=Column(TIMESTAMP(timezone=True), nullable=True)
+    )
 
 
 class DocumentCreate(BaseModel):
@@ -377,11 +400,6 @@ class DocumentCreatePublic(DocumentPublic):
 
 
 class Assignments(SQLModel, table=True):
-    # this is the empty parent table; not a partition itself
-    __table_args__ = (
-        UniqueConstraint("document_id", "geo_id", name="document_geo_id_unique"),
-        {"postgresql_partition_by": "LIST (document_id)"},
-    )
     metadata = MetaData(schema=DOCUMENT_SCHEMA)
     document_id: str = Field(sa_column=Column(UUIDType, primary_key=True))
     geo_id: str = Field(primary_key=True)
@@ -390,23 +408,6 @@ class Assignments(SQLModel, table=True):
 
 class CommunityAssignments(SQLModel, table=True):
     __tablename__ = "community_assignments"
-    __table_args__ = (
-        Index(
-            "ix_document_community_assignments_community_id",
-            "community_id",
-        ),
-        Index(
-            "ix_document_community_assignments_geo_id",
-            "geo_id",
-        ),
-        UniqueConstraint(
-            "document_id",
-            "community_id",
-            "geo_id",
-            name="document_community_geo_id_unique",
-        ),
-        {"postgresql_partition_by": "LIST (document_id)"},
-    )
     metadata = MetaData(schema=DOCUMENT_SCHEMA)
     document_id: str = Field(sa_column=Column(UUIDType, primary_key=True))
     community_id: int = Field(
@@ -564,6 +565,8 @@ class DistrictUnions(TimeStampMixin, SQLModel, table=True):
 
 class DistrictUnionsResponse(BaseModel):
     zone: int | None
-    geometry: str | None
+    # Native GeoJSON object (Postgres ST_AsGeoJSON(...)::json) — avoids the
+    # client-side double-parse of a JSON-encoded string inside the outer JSON.
+    geometry: dict | None
     demographic_data: dict[str, int] | None
     updated_at: datetime

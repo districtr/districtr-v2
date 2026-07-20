@@ -1,12 +1,13 @@
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useMapStore} from '@/app/store/mapStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useUnassignFeaturesStore} from '@/app/store/unassignedFeatures';
 import {formatNumber} from '@/app/utils/numbers';
-import {Button, Flex, Text} from '@radix-ui/themes';
+import {Checkbox, Flex, Text} from '@radix-ui/themes';
 import React, {useEffect, useRef} from 'react';
-import {RefreshButton, TimestampDisplay} from '../../Time/TimestampDisplay';
 import ZoomToFeature from './ZoomToFeature';
 import {NUMBER_FORMATS} from '@constants/demography/format';
+import {ConditionalScrollArea} from '../ConditionalScrollArea';
 
 export const ZoomToUnassigned = () => {
   const {
@@ -15,19 +16,16 @@ export const ZoomToUnassigned = () => {
     setSelectedIndex,
     unassignedFeatureBboxes,
     hasFoundUnassigned,
-    unassignedOverallBbox,
     reset,
-    lastUpdated,
   } = useUnassignFeaturesStore(state => state);
-  const mapRef = useMapStore(state => state.getMapRef());
   const mapDocument = useMapStore(state => state.mapDocument);
+  const higlightUnassigned = useMapControlsStore(state => state.mapOptions.higlightUnassigned);
+  const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const {summaryStats} = useSummaryStats();
   // prevent duplicate requests to get unassigned features
   const initialMapDocument = useRef(mapDocument);
+  const lastSavedAt = useRef(mapDocument?.updated_at);
   const unassigned = summaryStats?.unassigned;
-
-  const fitToOverallBounds = () =>
-    unassignedOverallBbox && mapRef?.fitBounds(unassignedOverallBbox, {padding: 240});
 
   useEffect(() => {
     if (!unassignedFeatureBboxes.length && !hasFoundUnassigned) {
@@ -45,6 +43,15 @@ export const ZoomToUnassigned = () => {
     }
   }, [mapDocument?.document_id]);
 
+  // Auto-refresh after a save lands while this panel is open (updated_at moves
+  // when assignments are persisted to the cloud).
+  useEffect(() => {
+    if (mapDocument?.updated_at && lastSavedAt.current !== mapDocument.updated_at) {
+      lastSavedAt.current = mapDocument.updated_at;
+      updateUnassignedFeatures();
+    }
+  }, [mapDocument?.updated_at]);
+
   return (
     <Flex direction="column">
       {unassigned !== undefined && (
@@ -54,21 +61,36 @@ export const ZoomToUnassigned = () => {
           numFeatures={unassignedFeatureBboxes.length}
         />
       )}
-      <Flex direction="row" align="center" gapX="2" gapY="2" wrap="wrap" justify="start" pt="2">
-        <ZoomToFeature
-          features={unassignedFeatureBboxes}
-          selectedIndex={selectedIndex}
-          setSelectedIndex={setSelectedIndex}
-          padding={240}
-        />
-        <Button onClick={fitToOverallBounds} variant="surface" className="block">
-          {`Show ${unassignedFeatureBboxes.length === 1 ? 'unassigned area' : 'all unassigned areas'}`}
-        </Button>
-      </Flex>
-      <Flex direction="row" gapX="4" pt="4" align="center">
-        <RefreshButton onClick={updateUnassignedFeatures} />
-        <TimestampDisplay timestamp={lastUpdated} />
-      </Flex>
+      {/* Same map option as Visual settings' "Highlight unassigned areas". */}
+      <Text as="label" size="2" mt="2" className="cursor-pointer">
+        <Flex gap="2" align="center">
+          <Checkbox
+            checked={higlightUnassigned === true}
+            onCheckedChange={() => setMapOptions({higlightUnassigned: !higlightUnassigned})}
+          />
+          Show unassigned areas on the map
+        </Flex>
+      </Text>
+      {unassignedFeatureBboxes.length > 0 && (
+        <Text size="1" color="gray" mt="2">
+          Zoom to unassigned area
+        </Text>
+      )}
+      {/* A map can have hundreds of unassigned areas — scroll the grid once
+          it's more than a few rows of buttons. */}
+      <ConditionalScrollArea
+        shouldUseScrollableRows={unassignedFeatureBboxes.length > 20}
+        maxHeight="40vh"
+      >
+        <Flex direction="row" align="center" gapX="2" gapY="2" wrap="wrap" justify="start" pt="2">
+          <ZoomToFeature
+            features={unassignedFeatureBboxes}
+            selectedIndex={selectedIndex}
+            setSelectedIndex={setSelectedIndex}
+            padding={240}
+          />
+        </Flex>
+      </ConditionalScrollArea>
     </Flex>
   );
 };
@@ -79,14 +101,22 @@ const InfoText: React.FC<{
   numFeatures: number;
 }> = ({unassigned, hasFoundUnassigned, numFeatures}) => {
   if (!hasFoundUnassigned) {
-    return <Text my="1">Loading...</Text>;
+    return (
+      <Text size="2" my="1">
+        Loading...
+      </Text>
+    );
   }
   if (hasFoundUnassigned && !numFeatures) {
-    <Text my="1">No unassigned areas found.</Text>;
+    return (
+      <Text size="2" my="1">
+        No unassigned areas found.
+      </Text>
+    );
   }
   const isPlural = numFeatures > 1 || numFeatures === 0;
   return (
-    <Text my="1">
+    <Text size="2" my="1">
       There {isPlural ? 'are' : 'is'} <b>{numFeatures}</b> unassigned area
       {isPlural ? 's' : ''}.&nbsp;{' '}
       {unassigned > 0 && (

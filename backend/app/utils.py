@@ -1,3 +1,4 @@
+import gzip
 import csv
 import io
 import json as json_mod
@@ -6,7 +7,7 @@ import re
 import msgpack
 from enum import Enum
 from uuid import uuid4
-from typing import Callable, List, NewType
+from typing import Callable, NewType
 
 from fastapi import BackgroundTasks
 from sqlalchemy import text, update, Table, MetaData, func
@@ -27,6 +28,7 @@ from app.models import (
 )
 from app.thumbnails.main import generate_thumbnail, THUMBNAIL_BUCKET
 from app.core.config import settings
+from app.core.db import engine
 
 metadata = MetaData()
 logger = logging.getLogger(__name__)
@@ -104,10 +106,15 @@ _SAFE_IDENT_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 Geoid = NewType("Geoid", str)
 
+# gerrydb sources (v2 onward) split discontiguous units into contiguous parts
+# whose geo_ids carry a `-datadem-N` suffix on the base id. VTDs and block
+# groups can be split; blocks are atomic census units and are never split.
+_BG_GEOID_RE = re.compile(r"\d{12}(-datadem-\d+)?")
+
 # Predicates for identifying parent-unit geo_ids based on the document's parent_geo_unit_type.
 GEOID_PREDICATES: dict[GeoUnitType, Callable[[Geoid], bool]] = {
     GeoUnitType.VTD: lambda geo_id: geo_id.startswith("vtd:"),
-    GeoUnitType.BLOCK_GROUP: lambda geo_id: len(geo_id) == 12 and geo_id.isdigit(),
+    GeoUnitType.BLOCK_GROUP: lambda geo_id: bool(_BG_GEOID_RE.fullmatch(geo_id)),
     GeoUnitType.BLOCK: lambda geo_id: len(geo_id) == 15 and geo_id.isdigit(),
 }
 
@@ -584,47 +591,71 @@ def update_or_select_district_stats(
     document_id: str,
     background_tasks: BackgroundTasks,
 ) -> list[DistrictUnionsResponse]:
-    """
-    Update the district_unions materialized view for a document by creating
-    unions of geometries grouped by zone, with demographic data aggregation.
-    Returns the rows that were (re)inserted.
+    """Return up-to-date per-zone stats for a document.
+
+    Per-zone caching: rows in document.district_unions are authoritative for
+    zones still present in document.assignments. The PUT /api/assignments
+    handler is responsible for dropping rows belonging to zones whose
+    membership changed (and the unassigned row when anything changed), so any
+    row that survives here is fresh.
+
+    Cache miss path rebuilds only the missing zones (and the unassigned row),
+    using `ST_UnaryUnion(ST_Collect(...))` for the per-zone union — faster
+    than the `ST_Union(...)` aggregate for many small inputs — and emits
+    geometry as native JSON (`ST_AsGeoJSON(...)::json`) so callers don't have
+    to re-parse a stringified payload.
     """
     try:
-        # If already up to date, just return what's there
-        result = session.execute(
-            text("""
-            SELECT
-                du.zone,
-                ST_AsGeoJSON(du.geometry) AS geometry,
-                du.demographic_data,
-                du.updated_at
-            FROM document.district_unions du
-            JOIN document.document d ON du.document_id = d.document_id
-            WHERE du.document_id = :document_id
-              AND du.updated_at > d.updated_at
-        """).bindparams(bindparam(key="document_id", type_=UUIDType)),
-            {"document_id": document_id},
-        )
-        existing_mappings = result.mappings().all()
-        if existing_mappings:
-            return [
-                DistrictUnionsResponse.model_validate(row) for row in existing_mappings
-            ]
-
-        # Clear existing data for this document
-        session.execute(
+        # Identify the zones that need rebuilding by comparing current
+        # assignments against whatever rows are already cached.
+        current_zones_rows = session.execute(
             text(
-                "DELETE FROM document.district_unions WHERE document_id = :document_id"
-            ),
+                "SELECT DISTINCT zone FROM document.assignments "
+                "WHERE document_id = :document_id AND zone IS NOT NULL"
+            ).bindparams(bindparam(key="document_id", type_=UUIDType)),
             {"document_id": document_id},
+        ).all()
+        current_zones: set[int] = {int(r[0]) for r in current_zones_rows}
+
+        cached_rows = (
+            session.execute(
+                text(
+                    """
+                SELECT
+                    du.zone,
+                    ST_AsGeoJSON(du.geometry)::json AS geometry,
+                    du.demographic_data,
+                    du.updated_at
+                FROM document.district_unions du
+                WHERE du.document_id = :document_id
+                """
+                ).bindparams(bindparam(key="document_id", type_=UUIDType)),
+                {"document_id": document_id},
+            )
+            .mappings()
+            .all()
         )
 
-        # Gather document + gerrydb table info
+        cached_assigned = [r for r in cached_rows if r["zone"] is not None]
+        cached_unassigned = next((r for r in cached_rows if r["zone"] is None), None)
+        cached_zone_set = {int(r["zone"]) for r in cached_assigned}
+
+        missing_zones = sorted(current_zones - cached_zone_set)
+        # If the assignments shrank (a zone was emptied), the orphaned cache
+        # row was already dropped by the assignments endpoint, so we don't
+        # need to delete it here. The cache only ever drifts on the
+        # "needs-rebuild" side.
+
+        # Fast path: every current zone is cached and unassigned is present.
+        if not missing_zones and cached_unassigned is not None:
+            return [DistrictUnionsResponse.model_validate(r) for r in cached_rows]
+
+        # Need the gerrydb table + columns for any rebuild work.
         doc_row = session.exec(
             select(
-                Document,
                 DistrictrMap.gerrydb_table_name.label("gerrydb_table_name"),
                 DistrictrMap.parent_layer.label("parent_layer"),
+                Document.public_id.label("public_id"),
             )
             .join(
                 DistrictrMap,
@@ -635,59 +666,165 @@ def update_or_select_district_stats(
         gerrydb_table = doc_row.gerrydb_table_name
         parent_layer = doc_row.parent_layer
 
-        # Discover numeric demographic columns (excluding geometry/fid/path)
         demographic_json = None
+        demo_cols: list[str] = []
         if gerrydb_table:
             demo_cols = get_gerrydb_numeric_cols(session, gerrydb_table)
             if demo_cols:
                 json_pairs = [f"'{col}', SUM(demo.{col})" for col in demo_cols]
                 demographic_json = f"json_build_object({', '.join(json_pairs)})"
 
-        # Build INSERT ... RETURNING to get created rows back
-        # NOTE: We must interpolate the document_id directly into the SQL string for the SELECT part,
-        # because SQLAlchemy does not support parameter substitution for identifiers or for type casts in SELECT.
-        # This is safe here because document_id is a UUID string from our own DB, not user input.
-        # Keep unassigned rows out of district_unions payload/aggregation.
-        doc_id_sql = f"'{document_id}'::UUID"
-        insert_sql = f"""
-            INSERT INTO document.district_unions
-                (document_id, zone, geometry, demographic_data, created_at, updated_at)
-            WITH geos AS (
-                SELECT * FROM get_zone_assignments_geo(:document_id)
+        # Serialize concurrent cache rebuilds at the document level: a loser
+        # blocks here instead of computing an expensive spatial union it will
+        # lose to ON CONFLICT. After acquiring the lock, re-check the cache —
+        # the winner may have already warmed it.
+        if missing_zones and doc_row.public_id is not None:
+            session.execute(
+                text("SELECT pg_advisory_xact_lock(:key)"),
+                {"key": doc_row.public_id},
             )
-            SELECT
-                {doc_id_sql} AS document_id,
-                zone::INTEGER AS zone,
-                ST_Multi(ST_Transform(ST_Union(geos.geometry), 4326)) AS geometry,
-                {f"{demographic_json} AS demographic_data" if (gerrydb_table and demographic_json) else "NULL AS demographic_data"},
-                NOW() AS created_at,
-                NOW() AS updated_at
-            FROM geos
-            {f"INNER JOIN gerrydb.{gerrydb_table} demo ON demo.path = geos.geo_id" if (gerrydb_table and demographic_json) else ""}
-            WHERE zone IS NOT NULL
-            GROUP BY zone
-            RETURNING
-                zone,
-                ST_AsGeoJSON(geometry) AS geometry,
-                demographic_data,
-                updated_at
-        """
+            post_lock_rows = (
+                session.execute(
+                    text(
+                        "SELECT du.zone, ST_AsGeoJSON(du.geometry)::json AS geometry, "
+                        "du.demographic_data, du.updated_at "
+                        "FROM document.district_unions du "
+                        "WHERE du.document_id = :document_id"
+                    ).bindparams(bindparam(key="document_id", type_=UUIDType)),
+                    {"document_id": document_id},
+                )
+                .mappings()
+                .all()
+            )
+            cached_assigned = [r for r in post_lock_rows if r["zone"] is not None]
+            cached_unassigned = next(
+                (r for r in post_lock_rows if r["zone"] is None), None
+            )
+            cached_zone_set = {int(r["zone"]) for r in cached_assigned}
+            missing_zones = sorted(current_zones - cached_zone_set)
+            if not missing_zones and cached_unassigned is not None:
+                return [
+                    DistrictUnionsResponse.model_validate(r) for r in post_lock_rows
+                ]
+            cached_rows = post_lock_rows
 
-        # Execute and map the returned rows into DistrictUnions objects
-        result = session.execute(
-            text(insert_sql),
-            {"document_id": document_id},
-        )
-        rows = result.mappings().all()
-        # Map the result rows to DistrictUnions objects
-        returned_rows: List[DistrictUnionsResponse] = [
-            DistrictUnionsResponse.model_validate(row) for row in rows
+        # Rebuild missing zones. document_id is interpolated directly because
+        # SQLAlchemy doesn't bind values for SELECT targets in INSERT/SELECT;
+        # it's a UUID from our own DB, not user input.
+        rebuilt_rows: list[dict] = []
+        if missing_zones:
+            doc_id_sql = f"'{document_id}'::UUID"
+            demo_select = (
+                f"{demographic_json} AS demographic_data"
+                if (gerrydb_table and demographic_json)
+                else "NULL AS demographic_data"
+            )
+            demo_join = (
+                f"INNER JOIN gerrydb.{gerrydb_table} demo ON demo.path = geos.geo_id"
+                if (gerrydb_table and demographic_json)
+                else ""
+            )
+            insert_sql = f"""
+                INSERT INTO document.district_unions
+                    (document_id, zone, geometry, demographic_data, created_at, updated_at)
+                WITH geos AS (
+                    SELECT * FROM get_zone_assignments_geo(:document_id)
+                    WHERE zone IS NOT NULL AND zone::INTEGER = ANY(:missing_zones)
+                )
+                SELECT
+                    {doc_id_sql} AS document_id,
+                    zone::INTEGER AS zone,
+                    ST_Multi(
+                        ST_Transform(
+                            ST_UnaryUnion(ST_Collect(geos.geometry)),
+                            4326
+                        )
+                    ) AS geometry,
+                    {demo_select},
+                    NOW(),
+                    NOW()
+                FROM geos
+                {demo_join}
+                GROUP BY zone
+                ON CONFLICT DO NOTHING
+                RETURNING
+                    zone,
+                    ST_AsGeoJSON(geometry)::json AS geometry,
+                    demographic_data,
+                    updated_at
+            """
+            # ST_CoverageUnion is faster (linear) but requires valid coverage
+            # topology (no overlaps, shared edges identical). Fall back to
+            # ST_UnaryUnion if it errors (topology violation or old PostGIS).
+            coverage_sql = insert_sql.replace(
+                "ST_UnaryUnion(ST_Collect(geos.geometry))",
+                "ST_CoverageUnion(ST_Collect(geos.geometry))",
+            )
+            sp = session.begin_nested()
+            try:
+                result = session.execute(
+                    text(coverage_sql),
+                    {"document_id": document_id, "missing_zones": list(missing_zones)},
+                )
+                rebuilt_rows = list(result.mappings().all())
+                sp.commit()
+            except Exception:
+                sp.rollback()
+                logger.info(
+                    "ST_CoverageUnion failed for document %s zones %s; "
+                    "falling back to ST_UnaryUnion",
+                    document_id,
+                    list(missing_zones),
+                )
+                result = session.execute(
+                    text(insert_sql),
+                    {"document_id": document_id, "missing_zones": list(missing_zones)},
+                )
+                rebuilt_rows = list(result.mappings().all())
+            # Zones that lost the race (DO NOTHING) won't appear in RETURNING —
+            # re-select them from the now-populated cache.
+            if len(rebuilt_rows) < len(missing_zones):
+                inserted_zones = {r["zone"] for r in rebuilt_rows}
+                conflicted = [z for z in missing_zones if z not in inserted_zones]
+                fill = (
+                    session.execute(
+                        text(
+                            "SELECT zone, ST_AsGeoJSON(geometry)::json AS geometry, "
+                            "demographic_data, updated_at "
+                            "FROM document.district_unions "
+                            "WHERE document_id = :document_id AND zone = ANY(:zones)"
+                        ).bindparams(bindparam(key="document_id", type_=UUIDType)),
+                        {"document_id": document_id, "zones": conflicted},
+                    )
+                    .mappings()
+                    .all()
+                )
+                rebuilt_rows.extend(fill)
+
+        assigned_rows: list[dict] = list(cached_assigned) + rebuilt_rows
+        returned_rows: list[DistrictUnionsResponse] = [
+            DistrictUnionsResponse.model_validate(r) for r in assigned_rows
         ]
 
-        # Compute and insert unassigned row (total from parent_layer minus assigned)
-        if parent_layer and demographic_json:
+        # Recompute the unassigned row if any zone was rebuilt or if it was
+        # missing entirely. The unassigned demographics depend on the sum
+        # across all assigned zones, so it must be regenerated alongside any
+        # zone-level change.
+        needs_unassigned = (
+            cached_unassigned is None and parent_layer and demographic_json
+        ) or (rebuilt_rows and parent_layer and demographic_json)
+
+        if needs_unassigned and parent_layer and demographic_json:
+            session.execute(
+                text(
+                    "DELETE FROM document.district_unions "
+                    "WHERE document_id = :document_id AND zone IS NULL"
+                ).bindparams(bindparam(key="document_id", type_=UUIDType)),
+                {"document_id": document_id},
+            )
+
             safe_parent_layer = assert_safe_ident(parent_layer)
-            # demo_cols is already validated via assert_safe_ident above
+            # demo_cols already validated by get_gerrydb_numeric_cols
             total_json_pairs = [f"'{col}', SUM({col})" for col in demo_cols]
             total_json = f"json_build_object({', '.join(total_json_pairs)})"
             total_sql = (
@@ -699,32 +836,32 @@ def update_or_select_district_stats(
             if total_result and total_result["demographic_data"]:
                 total_demo = total_result["demographic_data"]
 
-                # Sum assigned demographics across all zone rows
                 assigned_sum: dict = {}
-                for row_data in returned_rows:
-                    if row_data.demographic_data:
-                        for col, val in row_data.demographic_data.items():
+                for r in returned_rows:
+                    if r.demographic_data:
+                        for col, val in r.demographic_data.items():
                             assigned_sum[col] = assigned_sum.get(col, 0) + val
 
-                # Unassigned = total - assigned. Clamp at 0: for shatterable maps the
-                # parent-layer SUM can double-count vs. child-level assignments, which
-                # would otherwise surface as a negative "unassigned" bucket.
-                unassigned_demo: dict = {}
-                for col, val in total_demo.items():
-                    unassigned_demo[col] = max(0, val - assigned_sum.get(col, 0))
+                # Clamp at 0: for shatterable maps the parent-layer SUM can
+                # double-count vs. child-level assignments, otherwise we'd
+                # surface a negative "unassigned" bucket.
+                unassigned_demo: dict = {
+                    col: max(0, val - assigned_sum.get(col, 0))
+                    for col, val in total_demo.items()
+                }
 
-                # Insert the unassigned row
                 unassigned_insert = text("""
                     INSERT INTO document.district_unions
                         (document_id, zone, geometry, demographic_data, created_at, updated_at)
                     VALUES (:document_id, NULL, NULL, :demographic_data, NOW(), NOW())
+                    ON CONFLICT DO NOTHING
                     RETURNING
                         zone,
-                        ST_AsGeoJSON(geometry) AS geometry,
+                        ST_AsGeoJSON(geometry)::json AS geometry,
                         demographic_data,
                         updated_at
                 """)
-                unassigned_result = (
+                unassigned_row = (
                     session.execute(
                         unassigned_insert,
                         {
@@ -735,15 +872,35 @@ def update_or_select_district_stats(
                     .mappings()
                     .first()
                 )
-                if unassigned_result:
-                    returned_rows.append(
-                        DistrictUnionsResponse.model_validate(unassigned_result)
+                if not unassigned_row:
+                    # Lost the race — re-fetch from the winner's insert.
+                    unassigned_row = (
+                        session.execute(
+                            text(
+                                "SELECT zone, ST_AsGeoJSON(geometry)::json AS geometry, "
+                                "demographic_data, updated_at "
+                                "FROM document.district_unions "
+                                "WHERE document_id = :document_id AND zone IS NULL"
+                            ).bindparams(bindparam(key="document_id", type_=UUIDType)),
+                            {"document_id": document_id},
+                        )
+                        .mappings()
+                        .first()
                     )
+                if unassigned_row:
+                    returned_rows.append(
+                        DistrictUnionsResponse.model_validate(unassigned_row)
+                    )
+        elif cached_unassigned is not None:
+            returned_rows.append(
+                DistrictUnionsResponse.model_validate(cached_unassigned)
+            )
 
         session.commit()
+
         s3 = settings.get_s3_client()
-        if returned_rows and s3:
-            # Kick off thumbnail generation (non-blocking)
+        if returned_rows and s3 and rebuilt_rows:
+            # Thumbnail regen only matters when geometry actually changed.
             background_tasks.add_task(
                 generate_thumbnail,
                 document_id=document_id,
@@ -756,5 +913,117 @@ def update_or_select_district_stats(
         logger.error(
             f"Failed to update district unions for document {document_id}: {e}"
         )
-        # optional: session.rollback()
         raise
+
+
+def district_stats_to_feature_collection(
+    rows: list[DistrictUnionsResponse],
+) -> dict:
+    """Wrap per-zone district stats as a GeoJSON FeatureCollection.
+
+    The unassigned row (zone=None, geometry=None) becomes a Feature with a
+    null geometry — GeoJSON allows this — so consumers can iterate features
+    uniformly and still see the totals bucket.
+    """
+    features = []
+    for r in rows:
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": r.geometry,
+                "properties": {
+                    "zone": r.zone,
+                    "demographic_data": r.demographic_data,
+                    "updated_at": r.updated_at.isoformat(),
+                },
+            }
+        )
+    return {"type": "FeatureCollection", "features": features}
+
+
+def _stats_object_key(public_id: int | str) -> str:
+    return f"plans/display/{public_id}.geojson"
+
+
+def publish_district_stats_to_s3(
+    document_id: str,
+    public_id: int | str,
+) -> None:
+    """Background task: rebuild stats + upload to S3 + stamp stats_published_at.
+
+    Owns its own session because FastAPI background tasks must not share the
+    request-scoped session (closed at teardown — would leak the checkout).
+    """
+    s3 = settings.get_s3_client()
+    bucket = settings.R2_BUCKET_NAME
+    if s3 is None or bucket is None:
+        return
+
+    with Session(engine) as owned_session:
+        # Read freshness snapshot before any work. In test environments the
+        # calling request's transaction can be rolled back before this task
+        # runs, leaving the document invisible — exit quietly in that case.
+        doc_snap = owned_session.execute(
+            text(
+                "SELECT assignments_updated_at, stats_published_at "
+                "FROM document.document WHERE document_id = :document_id"
+            ).bindparams(bindparam(key="document_id", type_=UUIDType)),
+            {"document_id": document_id},
+        ).first()
+        if not doc_snap:
+            return
+        # Thundering-herd guard — skip if another task already published
+        # a fresh object for this document.
+        if (
+            doc_snap.stats_published_at is not None
+            and doc_snap.assignments_updated_at is not None
+            and doc_snap.stats_published_at >= doc_snap.assignments_updated_at
+        ):
+            return
+        # Snapshot the assignments timestamp before rebuilding so the stamp
+        # reflects what we built from, not when we finished. If a save commits
+        # mid-publish its newer assignments_updated_at will still exceed our
+        # stats_published_at, keeping cdn_fresh False.
+        snap_ts = doc_snap.assignments_updated_at
+
+        rows = update_or_select_district_stats(
+            owned_session, document_id, BackgroundTasks()
+        )
+        # Call thumbnail directly — passing BackgroundTasks() would swallow the enqueue.
+        if any(r.zone is not None and r.geometry is not None for r in rows):
+            generate_thumbnail(document_id=document_id, out_directory=THUMBNAIL_BUCKET)
+
+        body = json_mod.dumps(
+            district_stats_to_feature_collection(rows),
+            separators=(",", ":"),
+        ).encode("utf-8")
+        gzipped = gzip.compress(body)
+
+        s3.put_object(
+            Bucket=bucket,
+            Key=_stats_object_key(public_id),
+            Body=gzipped,
+            ContentType="application/geo+json",
+            ContentEncoding="gzip",
+            CacheControl="public, max-age=60, must-revalidate",
+        )
+
+        # Stamp with the pre-rebuild snapshot, not NOW().
+        owned_session.execute(
+            text(
+                "UPDATE document.document SET stats_published_at = :ts "
+                "WHERE document_id = :document_id"
+            ).bindparams(bindparam(key="document_id", type_=UUIDType)),
+            {"document_id": document_id, "ts": snap_ts},
+        )
+        owned_session.commit()
+
+
+def stats_cdn_url(public_id: int | str, cache_buster: str | None = None) -> str | None:
+    cdn = settings.cnd_url
+    if not cdn:
+        return None
+    url = f"{cdn.rstrip('/')}/{_stats_object_key(public_id)}"
+    if cache_buster:
+        url = f"{url}?v={cache_buster}"
+    return url

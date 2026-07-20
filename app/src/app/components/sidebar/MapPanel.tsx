@@ -1,8 +1,10 @@
 'use client';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {MapControlsStore, useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 import {formatNumber} from '@/app/utils/numbers';
 import {
+  CircleIcon,
   GearIcon,
   InfoCircledIcon,
   MinusIcon,
@@ -19,6 +21,7 @@ import {
   Heading,
   IconButton,
   Popover,
+  SegmentedControl,
   Slider,
   Text,
   Tooltip,
@@ -39,6 +42,7 @@ import {getCoalitionLabel, getSelectedCoalitionColumns} from '@/app/utils/demogr
 import {MAP_MODES} from '@constants/map/mode';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
+import {overlayMemory} from '@utils/demography/overlayMemory';
 
 type MapPanelProps = {
   columnGroup: keyof typeof choroplethMapVariables;
@@ -63,6 +67,11 @@ const mapDisplayModes: Array<{
     label: 'Overlay',
     value: DEMOGRAPHIC_MODES.OVERLAY,
     icon: <ShadowInnerIcon />,
+  },
+  {
+    label: 'Sized circles',
+    value: DEMOGRAPHIC_MODES.SIZED_CIRCLES,
+    icon: <CircleIcon />,
   },
 ];
 
@@ -95,7 +104,12 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   const mapMode = useMapControlsStore(state => state.mapMode);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
+  const superDraw = useToolbarStore(state => state.superDraw);
   const isOverlay = demographicDisplayMode === DEMOGRAPHIC_MODES.OVERLAY;
+  // Draw mode keeps the choropleth simple: overlay only, no side-by-side view.
+  const displayModes = superDraw
+    ? mapDisplayModes
+    : mapDisplayModes.filter(m => m.value !== DEMOGRAPHIC_MODES.SIDE_BY_SIDE);
 
   const variable = useDemographyStore(state => state.variable);
   const variant = useDemographyStore(state => state.variant);
@@ -139,18 +153,60 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
 
   const handleSetMapMode = (newMode: MapControlsStore['mapOptions']['demographicDisplayMode']) => {
     setMapOptions({demographicDisplayMode: newMode});
+    // Toggling a layer on registers it with the Visual settings toggle:
+    // remember the display mode (overlay vs. comparison), the group, and the
+    // variable it's showing.
+    if (newMode) {
+      overlayMemory.displayMode = newMode;
+      overlayMemory.lastGroup = columnGroup;
+      const effectiveVariable = mapVariableConfig ? variable : currentVariableList[0]?.value;
+      if (effectiveVariable) overlayMemory.variables[columnGroup] = effectiveVariable;
+    }
     if (!mapVariableConfig && currentVariableList.length) {
       setVariable(currentVariableList[0].value);
     }
+    // Sized circles encode the count in the circle size; shade by share
+    if (
+      newMode === DEMOGRAPHIC_MODES.SIZED_CIRCLES &&
+      mapVariableConfig?.variants?.includes('percent')
+    ) {
+      setVariant('percent');
+    }
   };
 
+  const opacityStates = getOpacityStates(mapOptions, setMapOptions, mapMode);
   const canBePercent = mapVariableConfig?.variants?.includes('percent');
+  // Continuous (fixed partisan, unclassed percent, or total) scales ignore binning;
+  // only raw-count variants of demographic groups use quantile bins
+  const usesBins =
+    !mapVariableConfig?.fixedScale &&
+    !!mapVariableConfig?.variants &&
+    !(canBePercent && variant === 'percent');
   const labelFormat =
     canBePercent && variant === 'percent' ? NUMBER_FORMATS.PERCENT : NUMBER_FORMATS.COMPACT;
-  const colors = scale?.range() || [];
+  const isContinuousScale = !!scale && !('invertExtent' in scale);
+  const colors = scale && !isContinuousScale ? scale.range() : [];
+  const scaleDomain = isContinuousScale && scale ? scale.domain() : [0, 1];
+  const [domainMin, domainMax] = [scaleDomain[0], scaleDomain[scaleDomain.length - 1]];
+  const continuousLegendLabels =
+    mapVariableConfig?.customLegendLabels ??
+    Array.from(
+      {length: 5},
+      (_, i) => formatNumber(domainMin + ((domainMax - domainMin) * i) / 4, labelFormat) ?? ''
+    );
+  const continuousLegendColors = useMemo(() => {
+    if (!isContinuousScale || !scale) return [];
+    return Array.from(
+      {length: 11},
+      (_, i) => scale(domainMin + ((domainMax - domainMin) * i) / 10) as string
+    );
+  }, [isContinuousScale, scale, domainMin, domainMax]);
 
   const handleChangeVariable = (newVariable: DemographyVariable) => {
     setVariable(newVariable);
+    // Remember the choice so the Visual settings overlay toggle restores it.
+    overlayMemory.variables[columnGroup] = newVariable;
+    overlayMemory.lastGroup = columnGroup;
   };
 
   const handleChangePercent = (usePercent: boolean) => {
@@ -203,24 +259,38 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   return (
     <Flex direction="column">
       <Flex direction="row" gap="3" align="center" className="rounded-md" wrap="wrap">
-        <Text>Display mode</Text>
-        {mapDisplayModes.map((option, i) => (
-          <Button
-            key={i}
-            variant={demographicDisplayMode === option.value ? 'solid' : 'outline'}
-            onClick={() => handleSetMapMode(option.value)}
-          >
-            {!!option.icon && option.icon}
-            {option.label}
-          </Button>
-        ))}
+        <Text size="2" weight="medium">
+          Display mode
+        </Text>
+        <SegmentedControl.Root
+          size="1"
+          value={demographicDisplayMode ?? 'none'}
+          onValueChange={v =>
+            handleSetMapMode(
+              v === 'none'
+                ? undefined
+                : (v as MapControlsStore['mapOptions']['demographicDisplayMode'])
+            )
+          }
+        >
+          {displayModes.map((option, i) => (
+            <SegmentedControl.Item key={i} value={option.value ?? 'none'}>
+              <Flex align="center" gap="1">
+                {!!option.icon && option.icon}
+                {option.label}
+              </Flex>
+            </SegmentedControl.Item>
+          ))}
+        </SegmentedControl.Root>
       </Flex>
       {demographicDisplayMode !== undefined && (
         <>
           <Flex direction="column" pt="2">
             <Flex direction="row" gap="3" align="start" py="2" wrap="wrap">
               <Flex direction="row" gap="3" align="center" wrap="wrap">
-                <Text>Map variable</Text>
+                <Text size="2" weight="medium">
+                  {columnGroup === 'VOTERHISTORY' ? 'Choose Election' : 'Choose Population'}
+                </Text>
                 <Select.Root value={variable} onValueChange={handleChangeVariable}>
                   <Select.Trigger>
                     <Text>{mapVariableConfig?.label ?? 'Select a variable'}</Text>
@@ -234,7 +304,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                   </Select.Content>
                 </Select.Root>
 
-                {!!mapVariableConfig && (
+                {!!mapVariableConfig && superDraw && (
                   <Popover.Root>
                     <Popover.Trigger>
                       <GearIcon />
@@ -244,23 +314,25 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                         <Heading as="h3" size="3">
                           Choropleth Map Settings
                         </Heading>
-                        <Flex direction="row" gapX="3" align="center">
-                          <Text>Max number of bins: {numberOfbins}</Text>
-                          <IconButton
-                            variant="ghost"
-                            onClick={() => setNumberOfBins(numberOfbins - 1)}
-                            disabled={numberOfbins < 4}
-                          >
-                            <MinusIcon />
-                          </IconButton>
-                          <IconButton
-                            variant="ghost"
-                            onClick={() => setNumberOfBins(numberOfbins + 1)}
-                            disabled={numberOfbins > 8}
-                          >
-                            <PlusIcon />
-                          </IconButton>
-                        </Flex>
+                        {usesBins && (
+                          <Flex direction="row" gapX="3" align="center">
+                            <Text>Max number of bins: {numberOfbins}</Text>
+                            <IconButton
+                              variant="ghost"
+                              onClick={() => setNumberOfBins(numberOfbins - 1)}
+                              disabled={numberOfbins < 4}
+                            >
+                              <MinusIcon />
+                            </IconButton>
+                            <IconButton
+                              variant="ghost"
+                              onClick={() => setNumberOfBins(numberOfbins + 1)}
+                              disabled={numberOfbins > 8}
+                            >
+                              <PlusIcon />
+                            </IconButton>
+                          </Flex>
+                        )}
                         <Text
                           as="label"
                           className={`${canBePercent ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
@@ -274,51 +346,68 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                             Show data as percent
                           </Flex>
                         </Text>
-                        {isOverlay && (
-                          <Flex direction="column" gapY="2">
-                            <Text>Overlay Opacity</Text>
-                            <Slider
-                              value={[mapOptions.overlayOpacity]}
-                              onValueChange={value => setMapOptions({overlayOpacity: value[0]})}
-                              min={0}
-                              max={1}
-                              step={0.01}
-                            />
-                          </Flex>
-                        )}
-
-                        {demographicDisplayMode === DEMOGRAPHIC_MODES.OVERLAY && (
-                          <Flex direction="column" gapY="1">
-                            <Flex direction="row" gapX="1" align="center">
-                              <Text>Overlay mode</Text>
-                              <Tooltip content="Press 'x' to cycle through the overlay modes.">
-                                <IconButton variant="ghost">
-                                  <InfoCircledIcon />
-                                </IconButton>
-                              </Tooltip>
-                            </Flex>
-                            <Flex direction="row" gapX="0" align="center" wrap="wrap">
-                              {getOpacityStates(mapOptions, setMapOptions, mapMode).map(
-                                (option, i) => (
-                                  <Button
-                                    key={i}
-                                    className="!rounded-none mr-[-2px]"
-                                    variant={option.selected ? 'solid' : 'outline'}
-                                    onClick={option.onClick}
-                                  >
-                                    {option.label}
-                                  </Button>
-                                )
-                              )}
-                            </Flex>
-                          </Flex>
-                        )}
                       </Flex>
                     </Popover.Content>
                   </Popover.Root>
                 )}
               </Flex>
             </Flex>
+            {/* Painted-district visibility belongs with the choropleth controls,
+                so the overlay-mode presets live here rather than in map settings. */}
+            {isOverlay && !!mapVariableConfig && (
+              <Flex direction="column" gapY="1" pb="2">
+                <Flex direction="row" gapX="1" align="center">
+                  <Text size="2" weight="medium">
+                    Overlay mode
+                  </Text>
+                  <Tooltip content="Press 'x' to cycle through the overlay modes.">
+                    <IconButton variant="ghost">
+                      <InfoCircledIcon />
+                    </IconButton>
+                  </Tooltip>
+                </Flex>
+                <SegmentedControl.Root
+                  size="1"
+                  value={`${Math.max(
+                    opacityStates.findIndex(o => o.selected),
+                    0
+                  )}`}
+                  onValueChange={v => opacityStates[Number(v)]?.onClick()}
+                >
+                  {opacityStates.map((option, i) => (
+                    <SegmentedControl.Item key={i} value={`${i}`}>
+                      {option.label}
+                    </SegmentedControl.Item>
+                  ))}
+                </SegmentedControl.Root>
+              </Flex>
+            )}
+            {/* Fine-grained per-layer opacity is a Super Draw control; Draw
+                relies on the overlay-mode presets alone. */}
+            {isOverlay && !!mapVariableConfig && superDraw && (
+              <Flex direction="column" gapY="2" pb="2">
+                <Text size="2" weight="medium">
+                  Overlay layer opacity
+                </Text>
+                <Slider
+                  value={[mapOptions.overlayOpacity]}
+                  onValueChange={value => setMapOptions({overlayOpacity: value[0]})}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                />
+                <Text size="2" weight="medium">
+                  Districts layer opacity
+                </Text>
+                <Slider
+                  value={[mapOptions.zonesOpacity ?? 1]}
+                  onValueChange={value => setMapOptions({zonesOpacity: value[0]})}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                />
+              </Flex>
+            )}
           </Flex>
 
           {!!mapVariableConfig && scale && 'invertExtent' in scale ? (
@@ -362,27 +451,27 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                 }}
               </LegendThreshold>
             </Flex>
-          ) : !!mapVariableConfig &&
-            scale &&
-            mapVariableConfig?.fixedScale &&
-            mapVariableConfig.customLegendLabels ? (
+          ) : !!mapVariableConfig && isContinuousScale ? (
             <Flex direction={'column'} justify="center" gapX="2" width="100%">
               <LinearGradient
-                colors={mapVariableConfig.fixedScale
-                  .domain()
-                  .map((d: number) => mapVariableConfig.fixedScale!(d))}
-                numTicks={mapVariableConfig.customLegendLabels.length}
+                colors={continuousLegendColors}
+                numTicks={continuousLegendLabels.length}
               />
               <Flex direction={'row'} width="100%" justify="between">
-                {mapVariableConfig.customLegendLabels.map((label: string, i: number) => (
+                {continuousLegendLabels.map((label: string, i: number) => (
                   <Text key={`legend-label-${i}`}>{label}</Text>
                 ))}
               </Flex>
             </Flex>
           ) : null}
           {!!mapVariableConfig && demographicDisplayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE && (
-            <Text size="2" align="center">
+            <Text size="1" color="gray" align="center">
               Gray = zero population
+            </Text>
+          )}
+          {!!mapVariableConfig && demographicDisplayMode === DEMOGRAPHIC_MODES.SIZED_CIRCLES && (
+            <Text size="2" align="center">
+              Circle area scales with total population
             </Text>
           )}
         </>

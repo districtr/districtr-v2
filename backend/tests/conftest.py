@@ -454,6 +454,29 @@ def simple_parent_child_geos_districtr_map_fixture(
     return inserted_districtr_map
 
 
+@pytest.fixture(name="simple_shatterable_fixed_districtr_map")
+def simple_shatterable_fixed_districtr_map_fixture(
+    session: Session, simple_shatterable_districtr_map
+):
+    """Same layers/graph as simple_geos but num_districts_modifiable=False."""
+    inserted_districtr_map = create_districtr_map(
+        session,
+        name="Simple shatterable layer (fixed districts)",
+        districtr_map_slug="simple_geos_fixed",
+        gerrydb_table_name="simple_geos",
+        num_districts=3,
+        num_districts_modifiable=False,
+        tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
+        parent_layer="simple_parent_geos",
+        child_layer="simple_child_geos",
+    )
+    create_parent_child_edges(
+        session=session, districtr_map_uuid=inserted_districtr_map
+    )
+    session.commit()
+    return inserted_districtr_map
+
+
 @pytest.fixture(name="simple_child_geos_nonshatterable_districtr_map")
 def simple_child_geos_nonshatterable_districtr_map_fixture(
     session: Session, simple_child_geos_gerrydb

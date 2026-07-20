@@ -1057,14 +1057,15 @@ def test_zone_label_remapping_returned_and_excludes_numeric(
 
 
 def test_zone_label_remapping_returned_and_excludes_numeric_with_out_of_bounds(
-    client, simple_shatterable_districtr_map, mock_grid_graph_file
+    client, simple_shatterable_fixed_districtr_map, mock_grid_graph_file
 ):
-    # Zone "1" is in-bounds (num_districts=3) — must NOT appear in remapping.
-    # Zone "5" exceeds num_districts=3, so it gets reassigned — must appear.
+    # On a fixed-districts map: zone "1" is in-bounds (num_districts=3) — must
+    # NOT appear in remapping. Zone "5" exceeds num_districts=3, so it gets
+    # reassigned — must appear.
     response = client.post(
         "/api/create_document",
         json={
-            "districtr_map_slug": "simple_geos",
+            "districtr_map_slug": "simple_geos_fixed",
             "assignments": [
                 ["000010000000001", "1"],
                 ["000010000000003", "1"],
@@ -1078,6 +1079,28 @@ def test_zone_label_remapping_returned_and_excludes_numeric_with_out_of_bounds(
     assert "5" in remapping
     assert remapping["5"] != 5
     assert "1" not in remapping
+
+
+def test_out_of_bounds_zone_accepted_on_modifiable_map(
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
+):
+    # On a modifiable map, zone "5" beyond the default num_districts=3 is kept
+    # as-is (no remapping) and the document's num_districts grows to match.
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos",
+            "assignments": [
+                ["000010000000001", "1"],
+                ["000010000000003", "1"],
+                ["000010000000006", "5"],
+            ],
+        },
+    )
+    data = response.json()
+    assert response.status_code == 201, data.get("detail")
+    assert data.get("zone_label_remapping", {}) == {}
+    assert data["num_districts"] == 5
 
 
 def test_zone_label_remapping_excludes_labels_with_no_valid_geoids(
@@ -1126,9 +1149,101 @@ def test_zone_label_remapping_blank_label(
 
 
 def test_new_document_from_block_assignments_too_many_unique_zones(
+    client, simple_shatterable_fixed_districtr_map, mock_grid_graph_file
+):
+    # 5 distinct zones with num_districts=3 on a fixed map → ValueError → 422.
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos_fixed",
+            "assignments": [
+                ["000010000000001", "1"],
+                ["000010000000002", "2"],
+                ["000010000000003", "3"],
+                ["000010000000004", "4"],
+                ["000010000000005", "1"],
+                ["000010000000006", "5"],
+            ],
+        },
+    )
+    assert response.status_code == 422
+
+
+def test_fixed_map_without_num_districts_raises(
+    client, session, simple_shatterable_districtr_map, mock_grid_graph_file
+):
+    # A fixed-district map with num_districts=NULL is broken data; uploading
+    # assignments to it must fail loudly rather than silently uncapping zones.
+    create_districtr_map(
+        session,
+        name="Broken fixed map",
+        districtr_map_slug="simple_geos_broken",
+        gerrydb_table_name="simple_geos",
+        num_districts=None,
+        num_districts_modifiable=False,
+        parent_layer="simple_parent_geos",
+        child_layer="simple_child_geos",
+    )
+    session.commit()
+    with pytest.raises(RuntimeError, match="num_districts is NULL"):
+        client.post(
+            "/api/create_document",
+            json={
+                "districtr_map_slug": "simple_geos_broken",
+                "assignments": [["000010000000001", "1"]],
+            },
+        )
+
+
+def test_partial_plan_keeps_default_num_districts_on_modifiable_map(
     client, simple_shatterable_districtr_map, mock_grid_graph_file
 ):
-    # 5 distinct zones with num_districts=3 → ValueError → 422.
+    # A partial plan using fewer zones than the map's default (num_districts=3)
+    # must not shrink the document's district count below that default.
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos",
+            "assignments": [
+                ["000010000000001", "1"],
+                ["000010000000003", "2"],
+            ],
+        },
+    )
+    data = response.json()
+    assert response.status_code == 201, data.get("detail")
+    assert data["num_districts"] == 3
+
+
+def test_outlier_zone_label_remapped_on_modifiable_map(
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
+):
+    # A lone accidental label ('196' on a default-3 map) is remapped instead of
+    # inflating the district count; the original label is reported so it can be
+    # preserved as a district comment.
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos",
+            "assignments": [
+                ["000010000000001", "1"],
+                ["000010000000003", "196"],
+            ],
+        },
+    )
+    data = response.json()
+    assert response.status_code == 201, data.get("detail")
+    assert data["num_districts"] == 3
+    remapping = data.get("zone_label_remapping", {})
+    assert "196" in remapping
+    assert remapping["196"] <= 3
+
+
+def test_many_unique_zones_accepted_on_modifiable_map(
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
+):
+    # 5 distinct zones exceed the modifiable map's default num_districts=3;
+    # the upload succeeds and the document's num_districts follows the CSV.
     response = client.post(
         "/api/create_document",
         json={
@@ -1143,7 +1258,9 @@ def test_new_document_from_block_assignments_too_many_unique_zones(
             ],
         },
     )
-    assert response.status_code == 422
+    data = response.json()
+    assert response.status_code == 201, data.get("detail")
+    assert data["num_districts"] == 5
 
 
 def test_new_document_from_block_assignments_no_children(
@@ -1322,18 +1439,24 @@ def test_get_district_unions(client, document_id_total_vap):
     response = client.get(f"/api/document/{document_id_total_vap}/stats")
     assert response.status_code == 200
     data = response.json()
-    # 2 assigned zones + 1 unassigned row
-    assert len(data) == 3
-    assigned_rows = [d for d in data if d.get("zone") is not None]
-    unassigned_rows = [d for d in data if d.get("zone") is None]
-    assert len(assigned_rows) == 2
-    assert len(unassigned_rows) == 1
-    assert assigned_rows[0].get("geometry")
-    assert assigned_rows[0].get("demographic_data")
-    assert assigned_rows[0].get("updated_at")
-    # Unassigned row has no geometry but has demographic data
-    assert unassigned_rows[0].get("geometry") is None
-    assert unassigned_rows[0].get("demographic_data") is not None
+    assert data.get("type") == "FeatureCollection"
+    features = data.get("features", [])
+    # 2 assigned zones + 1 unassigned feature (null geometry)
+    assert len(features) == 3
+    assigned_features = [
+        f for f in features if f.get("properties", {}).get("zone") is not None
+    ]
+    unassigned_features = [
+        f for f in features if f.get("properties", {}).get("zone") is None
+    ]
+    assert len(assigned_features) == 2
+    assert len(unassigned_features) == 1
+    assert assigned_features[0].get("geometry") is not None
+    assert isinstance(assigned_features[0].get("geometry"), dict)
+    assert assigned_features[0]["properties"].get("demographic_data")
+    assert assigned_features[0]["properties"].get("updated_at")
+    assert unassigned_features[0].get("geometry") is None
+    assert unassigned_features[0]["properties"].get("demographic_data") is not None
     # update assignments to re-generate stats
     response = client.put(
         "/api/assignments",
@@ -1349,8 +1472,9 @@ def test_get_district_unions(client, document_id_total_vap):
     response = client.get(f"/api/document/{document_id_total_vap}/stats")
     assert response.status_code == 200
     data = response.json()
-    # 1 assigned zone + 1 unassigned row
-    assert len(data) == 2
+    features = data.get("features", [])
+    # 1 assigned zone + 1 unassigned feature
+    assert len(features) == 2
 
     # get with public id
     document_info = client.get(f"/api/document/{document_id_total_vap}")
@@ -1359,7 +1483,89 @@ def test_get_district_unions(client, document_id_total_vap):
     )
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 2
+    features = data.get("features", [])
+    assert len(features) == 2
+
+
+def test_district_unions_dirty_zone_eviction(client, document_id_total_vap):
+    """Touching one zone leaves another zone's cached row in place.
+
+    Validates the optimistic-eviction path in PUT /api/assignments: only the
+    rows for zones whose membership actually changed (and the unassigned
+    aggregate, since it depends on the sum across all zones) get dropped
+    from document.district_unions.
+    """
+    # Seed: two zones, two cached rows.
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_total_vap,
+            "assignments": [
+                ["202090441022004", 1],
+                ["200979691001108", 2],
+            ],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+        },
+    )
+    assert response.status_code == 200
+
+    response = client.get(f"/api/document/{document_id_total_vap}/stats")
+    assert response.status_code == 200
+    initial = {
+        f["properties"]["zone"]: f["properties"]["updated_at"]
+        for f in response.json()["features"]
+        if f["properties"]["zone"] is not None
+    }
+    assert set(initial.keys()) == {1, 2}
+
+    # Re-write the SAME mapping. No zone is dirty → no rows should be
+    # rebuilt → both cached updated_at timestamps must survive.
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_total_vap,
+            "assignments": [
+                ["202090441022004", 1],
+                ["200979691001108", 2],
+            ],
+            "last_updated_at": response.json()["features"][0]["properties"][
+                "updated_at"
+            ],
+            "overwrite": True,
+        },
+    )
+    assert response.status_code == 200
+    response = client.get(f"/api/document/{document_id_total_vap}/stats")
+    same = {
+        f["properties"]["zone"]: f["properties"]["updated_at"]
+        for f in response.json()["features"]
+        if f["properties"]["zone"] is not None
+    }
+    assert same == initial, "no-op write must not evict any cached zone"
+
+    # Move a geo_id out of zone 1 into a fresh zone 3. Zone 1 changed, zone
+    # 3 is new — both should be (re)built. Zone 2's row should be untouched.
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_total_vap,
+            "assignments": [
+                ["202090441022004", 3],
+                ["200979691001108", 2],
+            ],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+            "overwrite": True,
+        },
+    )
+    assert response.status_code == 200
+    response = client.get(f"/api/document/{document_id_total_vap}/stats")
+    after = {
+        f["properties"]["zone"]: f["properties"]["updated_at"]
+        for f in response.json()["features"]
+        if f["properties"]["zone"] is not None
+    }
+    assert set(after.keys()) == {2, 3}
+    assert after[2] == initial[2], "zone 2 was not touched; its cache row must survive"
 
 
 @pytest.fixture

@@ -3,15 +3,14 @@ import {useCmsFormStore} from '@/app/store/cmsFormStore';
 import {LANG_MAPPING} from '@/app/utils/language';
 import {Box, Button, Flex, Grid, Heading, Select, Text, TextField} from '@radix-ui/themes';
 import dynamic from 'next/dynamic';
-import {CheckCircledIcon} from '@radix-ui/react-icons';
-import {PlacesCMSContent} from '@/app/utils/api/cms';
+import {MapMultiSelector} from './MapMultiSelector';
 
 const RichTextEditor = dynamic(() => import('@/app/components/Cms/RichTextEditor'), {ssr: false});
 
 export const ContentEditor: React.FC = () => {
   const contentType = useCmsFormStore(state => state.contentType);
   const editingContent = useCmsFormStore(state => state.editingContent);
-  const handleChange = useCmsFormStore(state => state.handleChange);
+  const setFormValue = useCmsFormStore(state => state.setFormValue);
   const formData = useCmsFormStore(state => state.formData);
   const maps = useCmsFormStore(state => state.maps);
   // const setFormData = useCmsFormStore(state => state.setFormData);
@@ -21,6 +20,18 @@ export const ContentEditor: React.FC = () => {
   const [contentHasChanged, setContentHasChanged] = useState(false);
 
   useEffect(() => {
+    // Everything the form can edit and save — including the map selections, so
+    // e.g. only reordering a place page's maps still enables Update Content.
+    // Nullish fields normalize so an absent saved field equals an empty draft.
+    const comparable = (input?: object) => {
+      const content = (input ?? {}) as Record<string, unknown>;
+      return {
+        title: content.title,
+        body: content.body,
+        districtr_map_slug: content.districtr_map_slug ?? null,
+        districtr_map_slugs: content.districtr_map_slugs ?? [],
+      };
+    };
     if (
       !editingContent &&
       formData?.content.slug &&
@@ -35,8 +46,8 @@ export const ContentEditor: React.FC = () => {
         setContentHasChanged(false);
       } else {
         const contentChanged =
-          JSON.stringify({title: currentEditContent.title, body: currentEditContent.body}) !==
-          JSON.stringify({title: formData?.content.title, body: formData?.content.body});
+          JSON.stringify(comparable(currentEditContent)) !==
+          JSON.stringify(comparable(formData?.content));
         setContentHasChanged(contentChanged);
       }
     } else {
@@ -72,7 +83,7 @@ export const ContentEditor: React.FC = () => {
           </Text>
           <TextField.Root
             value={formData?.content?.title}
-            onChange={e => handleChange('title')(e.target.value)}
+            onChange={e => setFormValue('title')(e.target.value)}
             placeholder="Page Title"
           />
         </Flex>
@@ -83,7 +94,7 @@ export const ContentEditor: React.FC = () => {
           </Text>
           <TextField.Root
             value={formData?.content.slug}
-            onChange={e => handleChange('slug')(e.target.value)}
+            onChange={e => setFormValue('slug')(e.target.value)}
             placeholder="texas-districts"
             disabled={!!editingContent}
           />
@@ -96,7 +107,7 @@ export const ContentEditor: React.FC = () => {
           <Select.Root
             required
             value={formData?.content.language}
-            onValueChange={handleChange('language')}
+            onValueChange={setFormValue('language')}
           >
             {' '}
             <Select.Trigger />
@@ -119,7 +130,7 @@ export const ContentEditor: React.FC = () => {
               // @ts-ignore
               value={formData?.content.districtr_map_slug}
               // @ts-ignore
-              onValueChange={handleChange('districtr_map_slug')}
+              onValueChange={setFormValue('districtr_map_slug')}
             >
               <Select.Trigger placeholder="Select a map" />
               <Select.Content>
@@ -133,42 +144,7 @@ export const ContentEditor: React.FC = () => {
           </Flex>
         )}
 
-        {contentType === 'places' && (
-          <Flex direction="column">
-            <Text as="label" htmlFor="districtr_map_slug">
-              Map (optional)
-            </Text>
-            <Select.Root
-              // @ts-ignore
-              value={formData?.content.districtr_map_slugs}
-              onValueChange={handleChange('districtr_map_slugs', true)}
-            >
-              {' '}
-              <Select.Trigger>
-                <Text>
-                  {(formData?.content as unknown as PlacesCMSContent)?.districtr_map_slugs?.length
-                    ? (formData?.content as unknown as PlacesCMSContent)?.districtr_map_slugs
-                        ?.length + ' maps selected'
-                    : 'Select a map'}
-                </Text>
-              </Select.Trigger>
-              <Select.Content>
-                {maps.map((map, i) => (
-                  <Select.Item key={i} value={map.districtr_map_slug}>
-                    {/* @ts-ignore */}
-                    <Flex direction="row" gapX="1">
-                      {/* @ts-ignore */}
-                      {formData?.content.districtr_map_slugs?.includes(map.districtr_map_slug) ? (
-                        <CheckCircledIcon color="green" />
-                      ) : null}
-                      <Text>{map.name}</Text>
-                    </Flex>
-                  </Select.Item>
-                ))}
-              </Select.Content>
-            </Select.Root>
-          </Flex>
-        )}
+        {contentType === 'places' && <MapMultiSelector />}
       </Grid>
       <Flex direction={'column'} gapY="2">
         <Text as="label" htmlFor="body">
@@ -176,7 +152,7 @@ export const ContentEditor: React.FC = () => {
         </Text>
         <RichTextEditor
           content={formData?.content.body || {}}
-          onChange={handleChange('body')}
+          onChange={setFormValue('body')}
           // weird formatting, do not include a placeholder
           placeholder=""
         />

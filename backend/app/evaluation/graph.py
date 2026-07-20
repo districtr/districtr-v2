@@ -53,7 +53,9 @@ def get_gerrydb_graph(file_path: str) -> Graph:
         return pickle.load(f)
 
 
-_GRAPH_CACHE_MAX_SIZE = 10
+# Must exceed the distinct-map working set or evictions force multi-second
+# cold S3 reloads; each cached graph costs real memory, so raise with care.
+_GRAPH_CACHE_MAX_SIZE = 15
 
 
 @lru_cache(maxsize=_GRAPH_CACHE_MAX_SIZE)

@@ -62,6 +62,8 @@ export const config = {
   backendMemory: cfg.getNumber("backendMemory") ?? 8192,
   backendMinCount: cfg.getNumber("backendMinCount") ?? (isProd ? 2 : 1),
   backendMaxCount: cfg.getNumber("backendMaxCount") ?? (isProd ? 6 : 2),
+  // ALB requests/min per backend task before scale-out.
+  backendRequestsPerTarget: cfg.getNumber("backendRequestsPerTarget") ?? 600,
   frontendCpu: cfg.getNumber("frontendCpu") ?? (isProd ? 1024 : 512),
   frontendMemory: cfg.getNumber("frontendMemory") ?? 2048,
   frontendMinCount: cfg.getNumber("frontendMinCount") ?? (isProd ? 2 : 1),

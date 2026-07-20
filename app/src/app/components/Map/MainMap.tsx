@@ -12,6 +12,7 @@ import {CountyLayers} from './PolygonLayers/CountyLayers';
 import {BlockSource} from './GeoSources/BlockSource';
 import {MetaLayers} from './PointLayers/MetaLayers';
 import {PointSelectionLayer} from './PointLayers/PointSelectionLayer';
+import {SizedCircleLayer} from './PointLayers/SizedCircleLayers';
 import {OverlayLayers} from './PolygonLayers/OverlayLayers';
 import {MapLayerAnchors} from './MapLayerAnchors';
 import {MapContainer} from './MapContainer';
@@ -98,6 +99,8 @@ export const MainMap: React.FC = () => {
           <PointSource>
             <PointSelectionLayer />
             <PointSelectionLayer child />
+            <SizedCircleLayer />
+            <SizedCircleLayer child />
             <MetaLayers isDemographicMap={false} />
           </PointSource>
           <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />

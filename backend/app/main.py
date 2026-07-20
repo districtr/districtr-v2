@@ -8,6 +8,7 @@ from fastapi import (
 )
 from fastapi.responses import JSONResponse, Response
 from typing import Annotated, Any
+import anyio
 import msgpack
 import psutil
 import time
@@ -23,11 +24,12 @@ from sqlalchemy.types import Integer
 from sqlmodel import Session, String, select, true, update, col, literal
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 import logging
 from sqlalchemy import bindparam
 from sqlmodel import ARRAY
 from datetime import datetime
-from uuid import UUID, uuid4
+from uuid import uuid4
 import sentry_sdk
 from prometheus_fastapi_instrumentator import Instrumentator
 from app.assignments import (
@@ -98,10 +100,18 @@ from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
 from sqlalchemy.sql.functions import coalesce
-from app.utils import RowFormat, package_rows, update_or_select_district_stats
+from app.utils import (
+    update_or_select_district_stats,
+    district_stats_to_feature_collection,
+    publish_district_stats_to_s3,
+    stats_cdn_url,
+    RowFormat,
+    package_rows,
+)
 from app.evaluation.graph import get_graph
 from contextlib import asynccontextmanager
 from fiona.transform import transform
+from fastapi.responses import RedirectResponse
 from fastapi import BackgroundTasks
 from ._sanitize import (
     CommentDict,
@@ -121,6 +131,9 @@ if settings.ENVIRONMENT in ("production", "qa"):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Sync-route concurrency; default 40 would cap below the DB pool
+    # (60/task, app/core/db.py). Needs a running event loop, hence lifespan.
+    anyio.to_thread.current_default_thread_limiter().total_tokens = 80
     yield
 
 
@@ -151,6 +164,8 @@ if settings.BACKEND_CORS_ORIGINS or settings.BACKEND_CORS_ORIGIN_REGEX:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
 @app.middleware("http")
@@ -205,67 +220,6 @@ def update_timestamp(
     )
     updated_at = session.connection().execute(update_stmt).scalar_one()
     return updated_at
-
-
-_PARTITION_TABLES = ("assignments", "community_assignments")
-
-
-def _validate_partition_identifiers(document_id: str, table_name: str) -> None:
-    if table_name not in _PARTITION_TABLES:
-        raise ValueError(
-            f"Unsupported partition table: {table_name!r}. "
-            f"Expected one of {_PARTITION_TABLES}."
-        )
-    try:
-        UUID(document_id)
-    except (ValueError, TypeError, AttributeError) as exc:
-        raise ValueError(f"document_id must be a UUID; got {document_id!r}") from exc
-
-
-def create_document_partition(
-    session: Session, document_id: str, table_name: str
-) -> None:
-    """
-    Create a partition for a document in the specified table (assignments or community_assignments).
-
-    Args:
-        session (Session): The database session to use for executing the SQL statement.
-        document_id (str): The ID of the document for which to create the partition.
-        table_name (str): Must be one of "assignments" or "community_assignments".
-    """
-    _validate_partition_identifiers(document_id, table_name)
-    partition_name = f"document.{table_name}_{document_id}"
-    stmt = text(f"""
-        CREATE TABLE "{partition_name}"
-        PARTITION OF document.{table_name}
-        FOR VALUES IN ('{document_id}')
-    """)
-    session.connection().execute(stmt)
-
-
-def reset_document_partition(
-    session: Session, document_id: str, table_name: str
-) -> None:
-    """
-    Drop and recreate a partition for a document in the specified table
-    (assignments or community_assignments).
-
-    Args:
-        session (Session): The database session to use for executing the SQL statements.
-        document_id (str): The ID of the document for which to reset the partition.
-        table_name (str): Must be one of "assignments" or "community_assignments".
-    """
-    _validate_partition_identifiers(document_id, table_name)
-    partition_name = f"document.{table_name}_{document_id}"
-    session.connection().execute(
-        text(f'DROP TABLE IF EXISTS "{partition_name}" CASCADE;')
-    )
-    stmt = text(f"""
-        CREATE TABLE "{partition_name}"
-        PARTITION OF document.{table_name}
-        FOR VALUES IN ('{document_id}')
-    """)
-    session.connection().execute(stmt)
 
 
 def duplicate_document_comments(
@@ -352,11 +306,50 @@ async def create_session(data: SessionCreate, request: Request):
 async def get_document_stats(
     background_tasks: BackgroundTasks,
     document: Annotated[Document, Depends(get_protected_document)],
+    document_id: DocumentID = Depends(parse_document_id),
     session: Session = Depends(get_session),
 ):
-    return update_or_select_district_stats(
+    """Per-zone district stats as a GeoJSON FeatureCollection.
+
+    For public (public_id) reads, redirects to the S3-hosted
+    `plans/display/{public_id}.geojson` when it's at least as fresh as the
+    document's assignments. Otherwise computes inline and enqueues a
+    background republish so the next viewer is served from the CDN.
+
+    Edit-mode reads always compute inline so the editor never sees stale
+    data, but still trigger a background republish for downstream viewers.
+    """
+    public_id = document.public_id
+    is_public_read = document_id.is_public
+    cdn_fresh = (
+        document.stats_published_at is not None
+        and document.stats_published_at >= document.assignments_updated_at
+    )
+
+    if is_public_read and cdn_fresh and public_id is not None:
+        cdn = stats_cdn_url(
+            public_id, cache_buster=str(int(document.stats_published_at.timestamp()))
+        )
+        if cdn:
+            return RedirectResponse(
+                url=cdn, status_code=status.HTTP_307_TEMPORARY_REDIRECT
+            )
+
+    rows = update_or_select_district_stats(
         session, document.document_id, background_tasks
     )
+
+    # Always (re)publish in the background when S3 is configured and the
+    # object is stale relative to the latest assignments. Skipped silently if
+    # there's no S3 client or no public_id.
+    if settings.get_s3_client() is not None and public_id is not None and not cdn_fresh:
+        background_tasks.add_task(
+            publish_district_stats_to_s3,
+            document_id=document.document_id,
+            public_id=public_id,
+        )
+
+    return district_stats_to_feature_collection(rows)
 
 
 # Sync def: a cold get_graph (S3 fetch + unpickle) inside compute_metrics
@@ -386,7 +379,9 @@ def get_document_evaluation(
     dependencies=[Depends(require_session)],
 )
 async def create_document(
-    data: DocumentCreate, session: Session = Depends(get_session)
+    data: DocumentCreate,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
 ):
     # Get DistrictrMap to inherit num_districts and other fields
     districtr_map_stmt = select(DistrictrMap).where(
@@ -489,11 +484,6 @@ async def create_document(
     )
     session.add(new_document)
     session.flush()  # Flush to get the public_id assigned
-    # Under most circumstances, we DO NOT want to use f-strings in SQL statements.
-    # However, in this case, we are using a dynamic table name, and SQLAlchemy / Postgres do not
-    # support bind params for identifiers or partition values, so we need to use f-strings.
-    create_document_partition(session, document_id, "assignments")
-    create_document_partition(session, document_id, "community_assignments")
 
     total_assignments = 0
     skipped_geo_ids: list[str] = []
@@ -552,6 +542,19 @@ async def create_document(
             total_assignments = insert_result.inserted
             skipped_geo_ids = insert_result.skipped_geo_ids
             zone_label_remapping = insert_result.zone_label_remapping
+            # On modifiable maps the uploaded plan can grow the district count
+            # beyond the map's default, but never shrink it — a partial plan
+            # keeps the default and the user can still lower it manually.
+            if (
+                districtr_map.num_districts_modifiable
+                and insert_result.max_assigned_zone is not None
+                and insert_result.max_assigned_zone > (districtr_map.num_districts or 2)
+            ):
+                new_document.num_districts = insert_result.max_assigned_zone
+                session.add(new_document)
+                # The response select below reads through session.connection(),
+                # which does not autoflush.
+                session.flush()
             for original_label, new_zone in zone_label_remapping.items():
                 display_label = original_label if original_label else "(blank)"
                 label_comment = Comment(
@@ -670,6 +673,13 @@ async def create_document(
         )
 
     session.commit()
+
+    if doc.public_id and (total_assignments > 0 or copied_document is not None):
+        background_tasks.add_task(
+            publish_district_stats_to_s3,
+            document_id=document_id,
+            public_id=doc.public_id,
+        )
 
     doc_dict = dict(doc._mapping)
     doc_dict["skipped_geo_ids"] = skipped_geo_ids
@@ -851,6 +861,30 @@ async def update_assignments(
     # true no-op requests (which would otherwise break optimistic concurrency for
     # other clients).
     mutated = False
+
+    # Snapshot pre-existing district-mode assignments so we can compute the
+    # set of zones whose geometry/demographics changed in this request. Used
+    # below to drop only the affected rows from document.district_unions
+    # rather than wiping the cache for the whole document. Community maps
+    # don't feed into district_unions, so we skip the snapshot there.
+    diff_load_id: str | None = None
+    if not is_community_map:
+        diff_load_id, _ = str(uuid4()).split("-", maxsplit=1)
+        old_snapshot_table = f"old_assignments_{diff_load_id}"
+        session.connection().execute(
+            text(
+                f"CREATE TEMP TABLE {old_snapshot_table} "
+                f"(geo_id TEXT, zone INT) ON COMMIT DROP"
+            )
+        )
+        session.connection().execute(
+            text(
+                f"INSERT INTO {old_snapshot_table} (geo_id, zone) "
+                f"SELECT geo_id, zone FROM {assignment_table} "
+                f"WHERE document_id = :document_id"
+            ),
+            {"document_id": document_id},
+        )
 
     # The assignments field is always a full replacement set:
     #   [] means "delete all assignments" (user cleared everything)
@@ -1062,6 +1096,49 @@ async def update_assignments(
         # sync_fn always hits the DB (delete/insert/update), so count it.
         mutated = True
 
+    # For district maps, figure out which zones actually changed membership
+    # and evict only those rows from district_unions. The unassigned (NULL
+    # zone) row is always dropped when any zone changed, because its
+    # demographic totals depend on the sum across all assigned zones.
+    dirty_zones: list[int] = []
+    if diff_load_id is not None:
+        old_snapshot_table = f"old_assignments_{diff_load_id}"
+        dirty_rows = (
+            session.connection()
+            .execute(
+                text(
+                    f"""
+                SELECT DISTINCT z FROM (
+                    SELECT o.zone AS z
+                    FROM {old_snapshot_table} o
+                    LEFT JOIN {assignment_table} n
+                        ON n.document_id = :document_id AND n.geo_id = o.geo_id
+                    WHERE n.zone IS DISTINCT FROM o.zone
+                    UNION
+                    SELECT n.zone AS z
+                    FROM {assignment_table} n
+                    LEFT JOIN {old_snapshot_table} o ON o.geo_id = n.geo_id
+                    WHERE n.document_id = :document_id
+                      AND n.zone IS DISTINCT FROM o.zone
+                ) d
+                WHERE z IS NOT NULL
+                """
+                ),
+                {"document_id": document_id},
+            )
+            .all()
+        )
+        dirty_zones = [int(r[0]) for r in dirty_rows]
+        if dirty_zones:
+            session.connection().execute(
+                text(
+                    "DELETE FROM document.district_unions "
+                    "WHERE document_id = :document_id "
+                    "AND (zone = ANY(:dirty) OR zone IS NULL)"
+                ),
+                {"document_id": document_id, "dirty": dirty_zones},
+            )
+
     if mutated:
         updated_at = update_timestamp(session, document_id)
     else:
@@ -1071,7 +1148,27 @@ async def update_assignments(
         updated_at = session.exec(
             select(Document.updated_at).where(Document.document_id == document_id)
         ).one()
+    if dirty_zones:
+        # Bump assignments_updated_at so /stats can tell that the CDN object
+        # is stale and republish, even on the path that doesn't otherwise
+        # change document.updated_at.
+        session.connection().execute(
+            text(
+                "UPDATE document.document SET assignments_updated_at = NOW() "
+                "WHERE document_id = :document_id"
+            ),
+            {"document_id": document_id},
+        )
+    public_id = session.exec(
+        select(Document.public_id).where(Document.document_id == document_id)
+    ).one_or_none()
     session.commit()
+    if mutated and not is_community_map and public_id is not None:
+        background_tasks.add_task(
+            publish_district_stats_to_s3,
+            document_id=document_id,
+            public_id=public_id,
+        )
     if VERBOSE_LOGGING:
         logger.info(
             f"PUT /api/assignments complete: document_id={document_id}, "
@@ -1128,22 +1225,33 @@ async def reset_map(
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
 ):
-    reset_document_partition(session, document.document_id, "assignments")
-    reset_document_partition(session, document.document_id, "community_assignments")
+    for table in ("document.assignments", "document.community_assignments"):
+        session.connection().execute(
+            text(f"DELETE FROM {table} WHERE document_id = :document_id").bindparams(
+                bindparam(key="document_id", type_=UUIDType)
+            ),
+            {"document_id": document.document_id},
+        )
 
-    # Reset color scheme
-    stmt = text(
-        "UPDATE document.document SET color_scheme = NULL WHERE document_id = :document_id"
-    ).bindparams(bindparam(key="document_id", type_=UUIDType))
     session.connection().execute(
-        stmt,
+        text(
+            "DELETE FROM document.district_unions WHERE document_id = :document_id"
+        ).bindparams(bindparam(key="document_id", type_=UUIDType)),
+        {"document_id": document.document_id},
+    )
+    session.connection().execute(
+        text(
+            "UPDATE document.document "
+            "SET color_scheme = NULL, assignments_updated_at = NOW() "
+            "WHERE document_id = :document_id"
+        ).bindparams(bindparam(key="document_id", type_=UUIDType)),
         {"document_id": document.document_id},
     )
 
     session.commit()
 
     return {
-        "message": "Assignments partition reset",
+        "message": "Assignments reset",
         "document_id": document.document_id,
     }
 

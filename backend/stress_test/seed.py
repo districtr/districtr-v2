@@ -146,24 +146,16 @@ def find_stress_documents(session: Session) -> list[tuple[str, str]]:
 
 
 def delete_documents(session: Session, document_ids: list[str]) -> int:
-    """Fully delete documents: drop their assignments/community_assignments
-    partitions (as the reset endpoint does), delete dependent rows, then the
+    """Fully delete documents: delete assignment rows and dependent rows, then the
     document rows themselves (document.evaluation cascades via FK). Ids not in
-    the DB are no-ops. Commits per chunk to keep the DDL lock count per
-    transaction small. Returns the number of document rows deleted."""
-    ids = [str(UUID(d)) for d in document_ids]  # validate before f-string DDL
+    the DB are no-ops. Commits per chunk for transactional hygiene. Returns the
+    number of document rows deleted."""
+    ids = [str(UUID(d)) for d in document_ids]  # validate
     deleted = 0
     chunk_size = 50
     for start in range(0, len(ids), chunk_size):
         chunk = ids[start : start + chunk_size]
         conn = session.connection()
-        for document_id in chunk:
-            for table in ("assignments", "community_assignments"):
-                conn.execute(
-                    text(
-                        f'DROP TABLE IF EXISTS "document.{table}_{document_id}" CASCADE'
-                    )
-                )
         params = {"ids": chunk}
         id_filter = "document_id = ANY(CAST(:ids AS uuid[]))"
         conn.execute(
@@ -181,6 +173,8 @@ def delete_documents(session: Session, document_ids: list[str]) -> int:
             "document.district_unions",
             "document.map_document_user_session",
             "document.map_document_token",
+            "document.assignments",
+            "document.community_assignments",
         ):
             conn.execute(text(f"DELETE FROM {table} WHERE {id_filter}"), params)
         result = conn.execute(

@@ -25,8 +25,13 @@ export const Uploader: React.FC<{
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    getAvailableDistrictrMaps({}).then(result => {
-      if (result.ok) setAvailableMaps(result.response);
+    // Custom (num_districts_modifiable) maps live in the 'custom' group, not
+    // 'states', so they don't clutter the public map picker. CSV imports
+    // target custom maps exclusively.
+    getAvailableDistrictrMaps({group: 'custom'}).then(custom => {
+      if (custom.ok) {
+        setAvailableMaps(custom.response);
+      }
     });
   }, []);
 
@@ -100,8 +105,8 @@ export const Uploader: React.FC<{
         onDrop={handleDrop}
       >
         <Text size="2" color="gray">
-          Upload a CSV with census block GEOIDs in the first column and zone numbers in the second.
-          The congressional map will be inferred from the state.
+          Upload a CSV with 2020 census block GEOIDs in the first column and District zone numbers
+          in the second column.
         </Text>
         <input
           type="file"
