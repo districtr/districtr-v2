@@ -1,7 +1,7 @@
 import {CTA} from '@/app/components/Static/Content/CTA';
 import {ContentSection} from '@/app/components/Static/ContentSection';
 import {LoopVideoPlayer} from '@/app/components/Static/LoopVideoPlayer';
-import {Box, Flex, Heading, Text} from '@radix-ui/themes';
+import {Flex, Heading, Text} from '@radix-ui/themes';
 import {LearnSubNav} from '@/app/components/Static/LearnSubNav';
 import {GuideToc, type GuideTocEntry} from '@/app/components/Static/GuideToc';
 import {slugify} from '@/app/utils/slugify';
@@ -33,11 +33,6 @@ export default function GuidePage() {
       <GuideToc entries={TOC_ENTRIES} />
       <Flex direction="column" gapY="4" className="min-w-0 flex-1">
         <LearnSubNav />
-        <Box>
-          <Heading size="8" as="h1">
-            Tutorial
-          </Heading>
-        </Box>
         <ContentSection title="Getting Started With Districts">
           <Flex direction="column" gapY="4">
             <Text size="3">
