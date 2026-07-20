@@ -18,11 +18,6 @@ const Main: React.FC = () => {
         <Text size="4">
           Districtr is a free browser-based tool for drawing districts and mapping your community.
         </Text>
-        <Text size="4" className="py-4 text-center">
-          This is a beta release of Districtr 2.0. We have a limited selection of states available
-          for mapping, and are accepting user feedback via the green &quot;Feedback&quot; button in
-          the bottom right corner.
-        </Text>
       </Flex>
       <ContentSection
         title="Help shape our democracy!"
@@ -98,7 +93,7 @@ const Main: React.FC = () => {
           >
             <Flex direction={'column'} gapY="4">
               <Heading size="6" as="h3" className="text-orange-700 mb-4">
-                You can draw your community (coming soon)
+                You can draw your community
               </Heading>
               <Text size="5">
                 Communities of Interest (known as “COIs”) are groups or neighborhoods with

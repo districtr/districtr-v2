@@ -89,8 +89,8 @@ export default function GuidePage() {
           />
           <Text size="3">
             To inspect districts without altering them, or to avoid painting over already-drawn
-            areas, toggle the lock icon next to the district number in the list of districts in the
-            “Population” tab.
+            areas, toggle the lock icon next to the district number in the “District overview”
+            panel.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/district_lock.webm`}
@@ -112,47 +112,56 @@ export default function GuidePage() {
           />
 
           <Heading as="h3" size="4">
-            Districts
+            Visual settings
           </Heading>
           <Text size="3">
-            To hide the districts from the map, click the “visual setting” at the top of the side
-            panel and uncheck the “Painted districts” box.
+            Click the gear icon (“Visual settings”) at the top of the side panel to control what the
+            map shows. From here, you can uncheck “Painted districts” to hide the districts from the
+            map, toggle “County Boundaries” to show or remove county boundaries, and check
+            “Highlight unassigned areas” to see which units you still need to color.
           </Text>
-          <Text size="3">
-            To remove county boundaries overlaid on your map, toggle the “County Boundaries” box.
-          </Text>
+          <LoopVideoPlayer
+            videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/visual_settings.webm`}
+          />
         </Flex>
       </ContentSection>
 
       <ContentSection title="Data Panels">
         <Flex direction="column" gapY="4">
           <Heading as="h3" size="4">
-            Population
+            District overview
           </Heading>
 
           <Text size="3">
-            The population tab allows you to view the population of each drawn district. To balance
-            your population evenly between districts, make reference to the ideal population count
-            and vertical bar provided in this tab.
-          </Text>
-          <Text size="3">
-            To see which units you still need to color, click the gear icon in the upper right
-            corner of the map and then choose the “Highlight unassigned areas” box.
+            The “District overview” panel lists each drawn district — click a district number to
+            select it and switch the brush to that district's color. It also shows the population of
+            each district; to balance your population evenly between districts, make reference to
+            the ideal population count and vertical bar provided in this panel.
           </Text>
           <LoopVideoPlayer
-            videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/highlight_unassigned.webm`}
+            videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/district_overview.webm`}
           />
 
           <Heading as="h3" size="4">
             Demographics
           </Heading>
           <Text size="3">
-            Under this tab, you can study the demographic make up of your districts. You have the
-            option of total population or voting age population. Under the “Map Layer” tab, you can
-            choose to view the demographic data as a choropleth on top of the map by selecting
-            “Overlay” under “Display Modes”, or view it as sized circles by selecting “Sized
-            Circles”.
+            Under this panel, you can study the demographic make up of your districts:
           </Text>
+          <ul className="list-disc pl-6">
+            <li>
+              <Text size="3">
+                Choose total population or voting age population as the statistic.
+              </Text>
+            </li>
+            <li>
+              <Text size="3">
+                Under the “Map Layer” tab, view the demographic data as a choropleth on top of the
+                map by selecting “Overlay” under “Display Modes”, or as sized circles by selecting
+                “Sized Circles”.
+              </Text>
+            </li>
+          </ul>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/demographics_panel.webm`}
           />
@@ -223,9 +232,10 @@ export default function GuidePage() {
             Saving your Map
           </Heading>
           <Text size="3">
-            Your map automatically saves as you work. Clicking the map title at the middle of the
-            top bar allows you to edit the map name and any comments about the map. Optionally, you
-            can toggle your map from a draft to “Ready to Share” if you are fully finished.
+            Your map automatically saves as you work, right in your browser's local storage — no
+            account or login needed. Clicking the map title at the middle of the top bar allows you
+            to edit the map name and any comments about the map. Optionally, you can toggle your map
+            from a draft to “Ready to Share” if you are fully finished.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/edit_metadata.webm`}
@@ -294,7 +304,7 @@ export default function GuidePage() {
           <Text size="3">
             If you need to use smaller units of geography to balance the population of your
             districts, click the break icon on the toolbar at the top of the side panel. Then click
-            on a unit you want to “shatter”, allowing you to paint subsets of the original unit. You
+            on a unit you want to “break”, allowing you to paint subsets of the original unit. You
             can see the population number of each broken piece by clicking the gear icon in the
             upper right corner of the map and selecting “Show total population labels on blocks”.
           </Text>
