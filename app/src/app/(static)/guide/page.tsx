@@ -170,8 +170,8 @@ export default function GuidePage() {
             Elections
           </Heading>
           <Text size="3">
-            In the elections tab you can view how your districts would have behaved under past
-            election data. Just like the demographics tab, you can choose to view the election data
+            In the elections panel you can view how your districts would have behaved under past
+            election data. Just like the demographics panel, you can choose to view the election data
             as a choropleth on top of the map by selecting “Overlay” under “Display Modes”, or view
             it as sized circles by selecting “Sized Circles”.
           </Text>
@@ -183,7 +183,7 @@ export default function GuidePage() {
             Map Validation
           </Heading>
           <Text size="3">
-            Under the map validation tab, you can check whether your map is missing any geographic
+            Under the map validation panel, you can check whether your map is missing any geographic
             units.
           </Text>
           <LoopVideoPlayer
