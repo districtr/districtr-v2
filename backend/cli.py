@@ -1023,8 +1023,8 @@ def sync_overlay_metadata(session: Session, metadata: str, dry_run: bool):
             logger.info(f"No metadata entry for {key}; leaving overlay unchanged")
             continue
 
-        new_name = entry.get("name")
-        new_description = entry.get("description")
+        new_name = entry["name"]
+        new_description = entry["description"]
         if new_name == overlay.name and new_description == overlay.description:
             logger.debug(f"Overlay {key} already up to date")
             continue
