@@ -1,4 +1,4 @@
-import {Box, Flex, Link, Text} from '@radix-ui/themes';
+import {Flex, Link, Text} from '@radix-ui/themes';
 import React from 'react';
 import {slugify} from '@/app/utils/slugify';
 
@@ -12,43 +12,39 @@ export interface GuideTocEntry {
  * via the shared `slugify`, so the links can't drift out of sync with the page. */
 export const GuideToc: React.FC<{entries: GuideTocEntry[]}> = ({entries}) => {
   return (
-    <Box asChild className="hidden lg:block w-48 shrink-0">
-      <nav aria-label="Guide sections">
-        <Box className="sticky top-28">
-          <Flex direction="column" gapY="2">
-            {entries.map(({title, subsections}) => (
-              <Box key={title}>
-                <Link
-                  href={`#${slugify(title)}`}
-                  size="2"
-                  weight="bold"
-                  color="gray"
-                  className="!cursor-pointer hover:!text-districtrBlue"
-                >
-                  {title}
-                </Link>
-                {!!subsections?.length && (
-                  <Flex direction="column" gapY="1" className="pl-3 mt-1">
-                    {subsections.map(sub => (
-                      <Link
-                        key={sub}
-                        href={`#${slugify(sub)}`}
-                        size="1"
-                        color="gray"
-                        className="!cursor-pointer hover:!text-districtrBlue"
-                      >
-                        <Text as="p" className="truncate">
-                          {sub}
-                        </Text>
-                      </Link>
-                    ))}
-                  </Flex>
-                )}
-              </Box>
-            ))}
+    <nav aria-label="Guide sections" className="hidden lg:block w-56 shrink-0 sticky top-28 h-fit">
+      <Flex direction="column" gapY="3">
+        {entries.map(({title, subsections}) => (
+          <Flex direction="column" gapY="1" key={title}>
+            <Link
+              href={`#${slugify(title)}`}
+              size="3"
+              weight="bold"
+              color="gray"
+              className="!cursor-pointer hover:!text-districtrBlue"
+            >
+              {title}
+            </Link>
+            {!!subsections?.length && (
+              <Flex direction="column" gapY="1" className="pl-3">
+                {subsections.map(sub => (
+                  <Link
+                    href={`#${slugify(sub)}`}
+                    size="2"
+                    color="gray"
+                    className="!cursor-pointer hover:!text-districtrBlue"
+                    key={sub}
+                  >
+                    <Text as="p" className="truncate">
+                      {sub}
+                    </Text>
+                  </Link>
+                ))}
+              </Flex>
+            )}
           </Flex>
-        </Box>
-      </nav>
-    </Box>
+        ))}
+      </Flex>
+    </nav>
   );
 };
