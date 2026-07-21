@@ -108,47 +108,6 @@ export default function ZoomToFeature({
     padding: getFitBoundsPadding(mapRef, 40),
   });
 
-  // Pulse the target geometries' outlines a few times after arrival (via the
-  // `zoomFlash` feature-state on the highlight layers) so tiny targets are
-  // findable at a glance.
-  const pulseTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pulsedIds = useRef<string[]>([]);
-
-  const setFlash = (on: boolean) => {
-    const sourceLayers = [mapDocument?.parent_layer, mapDocument?.child_layer].filter(
-      (l): l is string => !!l
-    );
-    pulsedIds.current.forEach(id =>
-      sourceLayers.forEach(sourceLayer =>
-        mapRef?.setFeatureState({source: BLOCK_SOURCE_ID, sourceLayer, id}, {zoomFlash: on})
-      )
-    );
-  };
-
-  const clearPulse = () => {
-    if (pulseTimer.current) clearInterval(pulseTimer.current);
-    pulseTimer.current = null;
-    if (pulsedIds.current.length) setFlash(false);
-    pulsedIds.current = [];
-  };
-
-  const pulseGeometries = (geoIds: string[]) => {
-    clearPulse();
-    pulsedIds.current = geoIds;
-    setFlash(true);
-    let ticks = 0;
-    pulseTimer.current = setInterval(() => {
-      ticks++;
-      if (ticks >= 5) {
-        clearPulse(); // three on-phases total, ending off
-        return;
-      }
-      setFlash(ticks % 2 === 0);
-    }, 300);
-  };
-
-  useEffect(() => clearPulse, []);
-
   // After the snap, wait for the map to go idle (tiles loaded), then fly in.
   // With geoIds, the map is queried for the geometries' rendered pieces and the
   // fly targets their union bbox — needed because unassigned-area bboxes are
@@ -164,9 +123,6 @@ export default function ZoomToFeature({
         (geoIds?.length && queryRenderedBounds(geoIds)) || approxBounds,
         finalFitOptions()
       );
-      if (geoIds?.length) {
-        mapRef.once('moveend', () => pulseGeometries(geoIds));
-      }
     };
     pendingIdleHandler.current = onIdle;
     mapRef.once('idle', onIdle);
@@ -218,7 +174,6 @@ export default function ZoomToFeature({
       mapRef?.off('idle', pendingIdleHandler.current);
       pendingIdleHandler.current = null;
     }
-    clearPulse();
     const bounds = getFeatureBounds(feature);
     if (!bounds) {
       console.error('Invalid feature type');
