@@ -74,8 +74,6 @@ type MapVariableConfig = {
   sizeColumn?: string;
 };
 
-// ponytail: fixed max pixel radius regardless of zoom; add zoom interpolation if
-// circles read poorly at low zooms
 const MAX_SIZED_CIRCLE_RADIUS_PX = 20;
 
 const asNumericRecord = (row: SummaryRecord | Record<string, unknown>): Record<string, number> =>

@@ -20,6 +20,7 @@ import {
   EMPTY_FEATURE_ARRAY,
   POINT_SELECT_TOOLS,
   TOOLTIP_TOOLS,
+  getSelectingClickLayer,
   mapEventHandlers,
 } from '@/app/utils/events/mapEvents';
 
@@ -101,7 +102,7 @@ export const handleCoiMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouch
 
   if (selectingLayerId) {
     const features = mapRef.queryRenderedFeatures(e.point, {
-      layers: [`overlay-click-${selectingLayerId}`],
+      layers: [getSelectingClickLayer(selectingLayerId)],
     });
     if (features.length > 0) {
       setPaintConstraint(selectingLayerId, features[0].id as string);
@@ -143,7 +144,7 @@ export const handleCoiMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerT
   const isBrushingTool = sourceLayer && ALL_BRUSHING_TOOLS.includes(activeTool);
   if (selectingLayerId) {
     const features = mapRef.queryRenderedFeatures(e.point, {
-      layers: [`overlay-click-${selectingLayerId}`],
+      layers: [getSelectingClickLayer(selectingLayerId)],
     });
     if (features.length > 0) {
       setHoverFeatures([features[0]]);

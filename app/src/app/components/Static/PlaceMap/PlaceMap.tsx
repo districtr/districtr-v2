@@ -24,7 +24,7 @@ export const PlaceSelector: React.FC<{onChange: (abbr: string) => void}> = ({onC
         {US_STATE_META.sort((a, b) => a.NAME.localeCompare(b.NAME))
           .map(place => ({
             ...place,
-            slug: place.NAME.toLowerCase().replaceAll(' ', '-'),
+            slug: place.SLUG ?? place.NAME.toLowerCase().replaceAll(' ', '-'),
           }))
           .map((place: (typeof US_STATE_META)[number] & {slug: string}, i: number) => (
             <Select.Item value={place.slug} key={i}>
