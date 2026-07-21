@@ -481,6 +481,36 @@ def add_extent_to_districtrmap(
                 rec.parent_layer
             ) INTO layer_extent;
 
+            -- A >180-degree-wide bbox is impossible for a legitimate single-state
+            -- layer. It means the geometry straddles the antimeridian (e.g.
+            -- Alaska's Aleutian islands, recorded with longitudes on both the
+            -- -179.x and +179.x side), and the naive ST_XMin/ST_XMax above
+            -- produced a near-global span instead of the true, much narrower,
+            -- extent. Recompute using ST_ShiftLongitude, which maps negative
+            -- longitudes into the 0..360 range so the data becomes contiguous;
+            -- the resulting bbox may have coordinates outside +/-180, which
+            -- MapLibre's fitBounds handles correctly for antimeridian-crossing
+            -- regions.
+            IF (ST_XMax(layer_extent) - ST_XMin(layer_extent)) > 180 THEN
+                EXECUTE format('
+                    SELECT ST_Extent(
+                        ST_ShiftLongitude(
+                            ST_Transform(
+                                ST_SetSRID(
+                                    geometry,
+                                    (SELECT ST_SRID(geometry) FROM gerrydb.%I WHERE geometry IS NOT NULL LIMIT 1)
+                                ),
+                                4326
+                            )
+                        )
+                    )
+                    FROM gerrydb.%I
+                    WHERE geometry IS NOT NULL',
+                    rec.parent_layer,
+                    rec.parent_layer
+                ) INTO layer_extent;
+            END IF;
+
             UPDATE districtrmap
             SET extent = ARRAY[
                 ST_XMin(layer_extent),
