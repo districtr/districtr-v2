@@ -2,10 +2,11 @@
 import {useEffect, useState} from 'react';
 import {useParams} from 'next/navigation';
 import {Flex, Heading, Text, Link} from '@radix-ui/themes';
+import {LEGACY_DISTRICTR_URL} from '@/app/constants/legacy';
 
 export default function LegacyPlanRedirect() {
   const {id} = useParams<{id: string}>();
-  const url = `https://districtr.org/plan/${id}`;
+  const url = `${LEGACY_DISTRICTR_URL}/plan/${id}`;
   const [seconds, setSeconds] = useState(5);
 
   useEffect(() => {

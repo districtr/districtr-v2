@@ -3,10 +3,11 @@ import {usePathname} from 'next/navigation';
 import {Box, Flex, Heading, Link, Text} from '@radix-ui/themes';
 import {Header} from '@components/Static/Header';
 import {Footer} from '@components/Static/Footer';
+import {LEGACY_DISTRICTR_URL} from '@/app/constants/legacy';
 
 export default function NotFound() {
   const pathname = usePathname();
-  const legacyUrl = `https://districtr.org${pathname ?? ''}`;
+  const legacyUrl = `${LEGACY_DISTRICTR_URL}${pathname ?? ''}`;
 
   return (
     <Flex direction="column" className="min-h-[100vh]" justify="center">
@@ -17,7 +18,7 @@ export default function NotFound() {
           <Text size="3" align="center">
             You&apos;ve landed on Districtr 2.0, and this page doesn&apos;t exist here. Looking for
             a page from the original Districtr? Try{' '}
-            <Link href={legacyUrl}>districtr.org{pathname}</Link>.
+            <Link href={legacyUrl}>{legacyUrl.replace('https://', '')}</Link>.
           </Text>
           <Link href="/">Back to the Districtr 2.0 home page</Link>
         </Flex>
