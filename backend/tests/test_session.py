@@ -7,14 +7,20 @@ from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.core.db import get_session
-from app.core.security import mint_session_token, require_session
+from app.core.security import SESSION_AUDIENCE, mint_session_token, require_session
 from app.main import app
 
 
 def _expired_token() -> str:
+    # Carries the session audience so this exercises the expiry check
+    # specifically, not the missing-aud rejection.
     now = datetime.now(timezone.utc)
     return jwt.encode(
-        {"iat": now - timedelta(hours=5), "exp": now - timedelta(hours=1)},
+        {
+            "iat": now - timedelta(hours=5),
+            "exp": now - timedelta(hours=1),
+            "aud": SESSION_AUDIENCE,
+        },
         settings.SECRET_KEY,
         algorithm="HS256",
     )

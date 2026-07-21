@@ -155,7 +155,11 @@ async def verify_recaptcha_v3(token: str, ip: str | None) -> float:
         )
     result = response.json()
     score = result.get("score", 0.0)
-    if not result.get("success") or score < settings.RECAPTCHA_V3_SCORE_THRESHOLD:
+    if (
+        not result.get("success")
+        or result.get("action") != "session"
+        or score < settings.RECAPTCHA_V3_SCORE_THRESHOLD
+    ):
         raise HTTPException(status_code=400, detail="reCAPTCHA verification failed")
     return score
 

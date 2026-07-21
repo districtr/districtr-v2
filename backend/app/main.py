@@ -298,7 +298,14 @@ class SessionCreate(BaseModel):
 async def create_session(data: SessionCreate, request: Request):
     """Mint a stateless session token, verifying reCAPTCHA v3 when configured."""
     if settings.RECAPTCHA_V3_SECRET_KEY:
-        client_ip = request.client.host if request.client else None
+        # Behind the ALB, request.client is the LB node; the user is the
+        # first X-Forwarded-For entry.
+        forwarded = request.headers.get("x-forwarded-for")
+        client_ip = (
+            forwarded.split(",")[0].strip()
+            if forwarded
+            else (request.client.host if request.client else None)
+        )
         await verify_recaptcha_v3(data.recaptcha_token, client_ip)
     token, expires_at = mint_session_token()
     return {"token": token, "expires_at": expires_at.isoformat()}

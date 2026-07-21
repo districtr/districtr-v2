@@ -31,11 +31,36 @@ export function createWaf(alb: Alb) {
 
   rules.push(
     {
-      name: "rate-limit",
+      // Scoped to the API host: the same ALB serves the frontend, and page
+      // loads (_next/static etc.) would otherwise count toward the limit and
+      // let one classroom NAT block itself off the whole site.
+      name: "rate-limit-api",
       priority: 1,
       action: {block: {}},
-      statement: {rateBasedStatement: {limit: 2000, aggregateKeyType: "IP"}},
-      visibilityConfig: visibility(`${name}-waf-rate-limit`),
+      statement: {
+        rateBasedStatement: {
+          limit: 2000,
+          aggregateKeyType: "IP",
+          scopeDownStatement: {
+            byteMatchStatement: {
+              searchString: config.apiDomain,
+              fieldToMatch: {singleHeader: {name: "host"}},
+              positionalConstraint: "EXACTLY",
+              textTransformations: [{priority: 0, type: "LOWERCASE"}],
+            },
+          },
+        },
+      },
+      visibilityConfig: visibility(`${name}-waf-rate-limit-api`),
+    },
+    {
+      // Coarse backstop for everything else the ALB serves (frontend pages
+      // and assets) — high enough that shared-IP browsing never trips it.
+      name: "rate-limit-any",
+      priority: 5,
+      action: {block: {}},
+      statement: {rateBasedStatement: {limit: 10000, aggregateKeyType: "IP"}},
+      visibilityConfig: visibility(`${name}-waf-rate-limit-any`),
     },
     {
       name: "aws-ip-reputation",
