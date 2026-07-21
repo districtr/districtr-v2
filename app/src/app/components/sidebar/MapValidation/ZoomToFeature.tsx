@@ -91,8 +91,8 @@ export default function ZoomToFeature({
   // tight padding so the target fills the viewport; the wider `padding` prop only
   // frames the general-area snap.
   const finalFitOptions = () => ({
-    duration: 350,
-    padding: getFitBoundsPadding(mapRef, 15),
+    duration: 700,
+    padding: getFitBoundsPadding(mapRef, 40),
   });
 
   // Once tiles have loaded, query the map for the geometries' rendered pieces and
