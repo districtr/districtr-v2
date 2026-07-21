@@ -1,4 +1,4 @@
-import {ChevronLeftIcon, ChevronRightIcon} from '@radix-ui/react-icons';
+import {CheckIcon, ChevronLeftIcon, ChevronRightIcon} from '@radix-ui/react-icons';
 import {Button, Flex, Select} from '@radix-ui/themes';
 import {useEffect, useLayoutEffect, useRef, useState, Dispatch, SetStateAction} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
@@ -27,6 +27,8 @@ interface ZoomToFeatureProps {
   setSelectedIndex: (index: number) => void | Dispatch<SetStateAction<number | null>>;
   features: Array<GeoJSON.Feature | GeoJSON.Polygon>;
   padding?: number;
+  /** Optional display labels per feature; falls back to 1-based numbering. */
+  labels?: string[];
 }
 
 export default function ZoomToFeature({
@@ -34,6 +36,7 @@ export default function ZoomToFeature({
   setSelectedIndex,
   features,
   padding,
+  labels,
 }: ZoomToFeatureProps) {
   const mapRef = useMapStore(state => state.getMapRef());
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -50,16 +53,23 @@ export default function ZoomToFeature({
     setHasMounted(true);
   }, []);
 
-  const changeSelectedIndex = (amount: number) => {
-    const prevIndex = selectedIndex || 0;
-    const newIndex = prevIndex + amount;
-    if (newIndex < 0 || newIndex >= features.length) return;
-    setSelectedIndex(newIndex);
-  };
-
   function isFeature(feature: any): feature is Feature {
     return feature && typeof feature === 'object' && feature.type === 'Feature';
   }
+
+  // Areas already dealt with (e.g. assigned since the list was built) stay in the
+  // list with a check instead of being renumbered away; navigation skips them.
+  const isResolved = (feature: Feature | Polygon) =>
+    isFeature(feature) && !!feature.properties?.resolved;
+
+  const findUnresolved = (from: number, direction: 1 | -1): number | null => {
+    for (let i = from; i >= 0 && i < features.length; i += direction) {
+      if (!isResolved(features[i])) return i;
+    }
+    return null;
+  };
+  const nextIndex = findUnresolved(selectedIndex === null ? 0 : selectedIndex + 1, 1);
+  const prevIndex = selectedIndex === null ? null : findUnresolved(selectedIndex - 1, -1);
 
   function isPolygon(feature: any): feature is Polygon {
     return feature && typeof feature === 'object' && feature.type === 'Polygon';
@@ -98,6 +108,47 @@ export default function ZoomToFeature({
     padding: getFitBoundsPadding(mapRef, 40),
   });
 
+  // Pulse the target geometries' outlines a few times after arrival (via the
+  // `zoomFlash` feature-state on the highlight layers) so tiny targets are
+  // findable at a glance.
+  const pulseTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pulsedIds = useRef<string[]>([]);
+
+  const setFlash = (on: boolean) => {
+    const sourceLayers = [mapDocument?.parent_layer, mapDocument?.child_layer].filter(
+      (l): l is string => !!l
+    );
+    pulsedIds.current.forEach(id =>
+      sourceLayers.forEach(sourceLayer =>
+        mapRef?.setFeatureState({source: BLOCK_SOURCE_ID, sourceLayer, id}, {zoomFlash: on})
+      )
+    );
+  };
+
+  const clearPulse = () => {
+    if (pulseTimer.current) clearInterval(pulseTimer.current);
+    pulseTimer.current = null;
+    if (pulsedIds.current.length) setFlash(false);
+    pulsedIds.current = [];
+  };
+
+  const pulseGeometries = (geoIds: string[]) => {
+    clearPulse();
+    pulsedIds.current = geoIds;
+    setFlash(true);
+    let ticks = 0;
+    pulseTimer.current = setInterval(() => {
+      ticks++;
+      if (ticks >= 5) {
+        clearPulse(); // three on-phases total, ending off
+        return;
+      }
+      setFlash(ticks % 2 === 0);
+    }, 300);
+  };
+
+  useEffect(() => clearPulse, []);
+
   // After the snap, wait for the map to go idle (tiles loaded), then fly in.
   // With geoIds, the map is queried for the geometries' rendered pieces and the
   // fly targets their union bbox — needed because unassigned-area bboxes are
@@ -113,6 +164,9 @@ export default function ZoomToFeature({
         (geoIds?.length && queryRenderedBounds(geoIds)) || approxBounds,
         finalFitOptions()
       );
+      if (geoIds?.length) {
+        mapRef.once('moveend', () => pulseGeometries(geoIds));
+      }
     };
     pendingIdleHandler.current = onIdle;
     mapRef.once('idle', onIdle);
@@ -164,6 +218,7 @@ export default function ZoomToFeature({
       mapRef?.off('idle', pendingIdleHandler.current);
       pendingIdleHandler.current = null;
     }
+    clearPulse();
     const bounds = getFeatureBounds(feature);
     if (!bounds) {
       console.error('Invalid feature type');
@@ -216,25 +271,37 @@ export default function ZoomToFeature({
       {/* Few areas: pick directly with buttons; many: a dropdown. */}
       {features.length < 10 ? (
         <Flex direction="row" gap="1" wrap="wrap">
-          {features.map((_, index) => (
-            <Button
-              key={index}
-              size="1"
-              variant={index === selectedIndex ? 'solid' : 'outline'}
-              onClick={() => selectFeature(index)}
-              className="cursor-pointer"
-            >
-              {index + 1}
-            </Button>
-          ))}
+          {features.map((feature, index) => {
+            const resolved = isResolved(feature);
+            return (
+              <Button
+                key={index}
+                size="1"
+                color={resolved ? 'green' : undefined}
+                variant={resolved ? 'soft' : index === selectedIndex ? 'solid' : 'outline'}
+                disabled={resolved}
+                onClick={() => selectFeature(index)}
+                className="cursor-pointer"
+              >
+                {resolved && <CheckIcon />}
+                {labels?.[index] ?? index + 1}
+              </Button>
+            );
+          })}
         </Flex>
       ) : (
         <Select.Root value={`${selectedIndex || 0}`}>
           <Select.Trigger />
           <Select.Content>
-            {features.map((_, index) => (
-              <Select.Item key={index} value={`${index}`} onMouseDown={() => selectFeature(index)}>
-                {index + 1}
+            {features.map((feature, index) => (
+              <Select.Item
+                key={index}
+                value={`${index}`}
+                disabled={isResolved(feature)}
+                onMouseDown={() => selectFeature(index)}
+              >
+                {isResolved(feature) ? '✓ ' : ''}
+                {labels?.[index] ?? index + 1}
               </Select.Item>
             ))}
           </Select.Content>
@@ -245,17 +312,18 @@ export default function ZoomToFeature({
           <Button
             size="1"
             variant="outline"
-            onClick={() => changeSelectedIndex(-1)}
-            disabled={!selectedIndex || selectedIndex === 0}
+            onClick={() => prevIndex !== null && setSelectedIndex(prevIndex)}
+            disabled={prevIndex === null}
             className="cursor-pointer"
           >
             <ChevronLeftIcon /> Previous
           </Button>
+          {/* The core loop is "fix this one, go to the next" — Next is primary. */}
           <Button
             size="1"
-            variant="outline"
-            onClick={() => changeSelectedIndex(1)}
-            disabled={selectedIndex === features.length - 1}
+            variant="solid"
+            onClick={() => nextIndex !== null && setSelectedIndex(nextIndex)}
+            disabled={nextIndex === null}
             className="cursor-pointer"
           >
             Next <ChevronRightIcon />

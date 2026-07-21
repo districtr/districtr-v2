@@ -59,6 +59,9 @@ export const ZoomToUnassigned = () => {
           unassigned={unassigned}
           hasFoundUnassigned={hasFoundUnassigned}
           numFeatures={unassignedFeatureBboxes.length}
+          numRemaining={
+            unassignedFeatureBboxes.filter(feature => !feature.properties?.resolved).length
+          }
         />
       )}
       {/* Same map option as Visual settings' "Highlight unassigned areas". */}
@@ -99,7 +102,8 @@ const InfoText: React.FC<{
   unassigned: number;
   hasFoundUnassigned: boolean;
   numFeatures: number;
-}> = ({unassigned, hasFoundUnassigned, numFeatures}) => {
+  numRemaining: number;
+}> = ({unassigned, hasFoundUnassigned, numFeatures, numRemaining}) => {
   if (!hasFoundUnassigned) {
     return (
       <Text size="2" my="1">
@@ -111,6 +115,27 @@ const InfoText: React.FC<{
     return (
       <Text size="2" my="1">
         No unassigned areas found.
+      </Text>
+    );
+  }
+  if (numRemaining === 0) {
+    return (
+      <Text size="2" my="1">
+        All <b>{numFeatures}</b> unassigned areas have been assigned. 🎉
+      </Text>
+    );
+  }
+  // Once progress has been made, lead with the checklist framing.
+  if (numRemaining < numFeatures) {
+    return (
+      <Text size="2" my="1">
+        <b>{numRemaining}</b> of <b>{numFeatures}</b> unassigned areas remaining.&nbsp;{' '}
+        {unassigned > 0 && (
+          <>
+            <b>{formatNumber(unassigned, NUMBER_FORMATS.STRING)}</b> population are not yet
+            assigned.
+          </>
+        )}
       </Text>
     );
   }

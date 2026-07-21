@@ -49,6 +49,11 @@ export const Contiguity = () => {
         });
       }
     }
+    // Broken zones first — they're what the user opened this panel to find.
+    const isBroken = (row: any) => row.contiguity !== null && row.contiguity > 1;
+    cleanData.sort(
+      (a: any, b: any) => Number(isBroken(b)) - Number(isBroken(a)) || a.zone - b.zone
+    );
     return cleanData;
   }, [data]);
 

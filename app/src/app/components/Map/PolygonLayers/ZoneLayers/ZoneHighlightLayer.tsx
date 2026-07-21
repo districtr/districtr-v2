@@ -28,6 +28,9 @@ export const ZoneHighlightLayer: React.FC<{
       'line-opacity': 1,
       'line-color': [
         'case',
+        // Transient flash after zoom-to-feature lands, so the target stands out.
+        ['boolean', ['feature-state', 'zoomFlash'], false],
+        '#D946EF',
         ['boolean', ['feature-state', 'focused'], false],
         '#000000',
         ['boolean', ['feature-state', 'highlighted'], false],
@@ -39,6 +42,8 @@ export const ZoneHighlightLayer: React.FC<{
       ],
       'line-width': [
         'case',
+        ['boolean', ['feature-state', 'zoomFlash'], false],
+        5,
         [
           'any',
           ['boolean', ['feature-state', 'focused'], false],
