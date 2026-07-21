@@ -81,6 +81,14 @@ export const LoadingOverlay: React.FC = () => {
   if (viewTransition === 'display') {
     return <OverlayCard icon={EyeOpenIcon} message="Loading view mode" />;
   }
+  // Silent locks (background autosave) keep the page-wide interaction guard the
+  // visible card used to provide — otherwise topbar/sidebar edits landing while
+  // the save PUT is in flight get clobbered by its completion handlers — just
+  // without rendering anything. Shown immediately: it's invisible, so the
+  // anti-flash delay below doesn't apply.
+  if (mapLock?.isLocked && mapLock.silent) {
+    return <div className="fixed inset-0 z-[100000] cursor-not-allowed" aria-hidden />;
+  }
   if (showBusy) {
     return <OverlayCard message={mapLock?.reason || 'Loading map…'} />;
   }
