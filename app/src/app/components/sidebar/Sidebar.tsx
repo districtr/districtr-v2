@@ -105,11 +105,18 @@ export default function SidebarComponent() {
         <ToolbarInSidebar />
         <CoiCommunityViewer />
         <MapContextComment />
+        {/* Negative right margin bleeds this ScrollArea's box (and the Radix
+            scrollbar rendered at its edge) out past the sidebar's own `p-3`
+            padding, out to the sidebar's true right edge — flush against the
+            browser window, the easiest target to grab (no need to aim short
+            of the edge). Matching padding-right inside keeps DataCards'
+            visual inset the same as before; only the scrollbar moved. */}
         <StyledScrollArea
           className="size-full overflow-y-auto flex-grow-1 max-w-full"
           scrollbars="vertical"
+          style={{marginRight: '-0.75rem'}}
         >
-          <Flex direction="column" gap="3" className="w-full">
+          <Flex direction="column" gap="3" className="w-full" style={{paddingRight: '0.75rem'}}>
             <Box
               display={{
                 initial: 'none',
