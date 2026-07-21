@@ -87,9 +87,12 @@ export default function ZoomToFeature({
   };
 
   // Animated fit options shared by every final zoom, so all paths land the same way.
+  // Fixed short duration (rather than speed-based, which scales with distance) and a
+  // tight padding so the target fills the viewport; the wider `padding` prop only
+  // frames the general-area snap.
   const finalFitOptions = () => ({
-    speed: 2.4, // default 1.2; zippier since we already snapped nearby
-    ...(padding ? {padding: getFitBoundsPadding(mapRef, padding)} : {}),
+    duration: 700,
+    padding: getFitBoundsPadding(mapRef, 40),
   });
 
   // Once tiles have loaded, query the map for the geometries' rendered pieces and
