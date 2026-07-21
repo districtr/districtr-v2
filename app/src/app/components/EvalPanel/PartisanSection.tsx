@@ -8,6 +8,7 @@ import {formatElectionKey} from '@/app/utils/elections';
 import {formatNumber} from '@/app/utils/numbers';
 import {NUMBER_FORMATS} from '@/app/constants/demography/format';
 import {PovSwitcher, type Pov} from '@components/Shared/PovSwitcher';
+import {getReadableTextColor} from '@/app/utils/colors';
 
 interface PartisanSectionProps {
   evaluation: DocumentEvaluation;
@@ -43,6 +44,14 @@ const scaledBg = (value: number | undefined, cutoff: number) => {
   if (value > 0) return demBg(alpha);
   if (value < 0) return repBg(alpha);
   return undefined;
+};
+
+// Mirrors scaledBg's alpha calculation so cells near MAX_ALPHA (dark) get
+// readable white text instead of the default dark text.
+const scaledTextColor = (value: number | undefined, cutoff: number) => {
+  if (value == null) return undefined;
+  const alpha = Math.min(Math.abs(value) / cutoff, 1.0) * MAX_ALPHA;
+  return getReadableTextColor(value > 0 ? DEM : REP, alpha);
 };
 
 function dispLabel(disp: number, numDistricts: number): string {
@@ -242,6 +251,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                             justify="center"
                             style={{
                               backgroundColor: scaledBg(rawDisp ?? undefined, METRIC_CUTOFF.disp),
+                              color: scaledTextColor(rawDisp ?? undefined, METRIC_CUTOFF.disp),
                             }}
                           >
                             <Text size="2">
@@ -326,6 +336,10 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                               evaluation.disproportionality?.[key],
                               METRIC_CUTOFF.disp
                             ),
+                            color: scaledTextColor(
+                              evaluation.disproportionality?.[key],
+                              METRIC_CUTOFF.disp
+                            ),
                           }}
                         >
                           <Text size="2">
@@ -339,6 +353,10 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                           justify="center"
                           style={{
                             backgroundColor: scaledBg(
+                              evaluation.efficiency_gap?.[key],
+                              METRIC_CUTOFF.efficiency_gap
+                            ),
+                            color: scaledTextColor(
                               evaluation.efficiency_gap?.[key],
                               METRIC_CUTOFF.efficiency_gap
                             ),
@@ -358,6 +376,10 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                               evaluation.mean_median?.[key],
                               METRIC_CUTOFF.mean_median
                             ),
+                            color: scaledTextColor(
+                              evaluation.mean_median?.[key],
+                              METRIC_CUTOFF.mean_median
+                            ),
                           }}
                         >
                           <Text size="2">
@@ -374,6 +396,10 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                               evaluation.partisan_bias?.[key],
                               METRIC_CUTOFF.partisan_bias
                             ),
+                            color: scaledTextColor(
+                              evaluation.partisan_bias?.[key],
+                              METRIC_CUTOFF.partisan_bias
+                            ),
                           }}
                         >
                           <Text size="2">
@@ -387,6 +413,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                           justify="center"
                           style={{
                             backgroundColor: scaledBg(evaluation.eguia?.[key], METRIC_CUTOFF.eguia),
+                            color: scaledTextColor(evaluation.eguia?.[key], METRIC_CUTOFF.eguia),
                           }}
                         >
                           <Text size="2">

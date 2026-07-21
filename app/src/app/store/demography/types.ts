@@ -1,4 +1,4 @@
-import {AllEvaluationConfigs, AllMapConfigs} from '@/app/utils/api/summaryStats';
+import {AllDemographyTableConfigs, AllMapConfigs} from '@/app/utils/api/summaryStats';
 import {type ScaleLinear, type ScaleSequential, type ScaleThreshold} from 'd3-scale';
 import {type MapStore} from '../mapStore';
 import {type CoalitionGroupKey, DemographyVariable} from '@constants/demography/coalition';
@@ -55,7 +55,7 @@ export interface DemographyStore {
   setCoalitionGroups: (groups: CoalitionGroupKey[]) => Promise<void>;
   resetCoalition: () => void;
   availableColumnSets: {
-    evaluation: Record<string, AllEvaluationConfigs>;
+    evaluation: Record<string, AllDemographyTableConfigs>;
     map: Record<string, AllMapConfigs>;
   };
   setAvailableColumnSets: (columnSets: Partial<DemographyStore['availableColumnSets']>) => void;

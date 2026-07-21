@@ -41,7 +41,7 @@ import {
 } from '@/app/store/demography/constants';
 import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
-import {evalColumnConfigs} from '@/app/store/demography/evaluationConfig';
+import {evalColumnConfigs} from '@/app/store/demography/demographyTableConfig';
 import {
   SUMMARY_TYPES,
   COALITION_UNIVERSES,

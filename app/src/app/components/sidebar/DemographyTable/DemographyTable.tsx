@@ -23,7 +23,7 @@ import {
   modeButtonConfig,
   numberFormats,
   summaryStatLabels,
-} from '@/app/store/demography/evaluationConfig';
+} from '@/app/store/demography/demographyTableConfig';
 import {GearIcon, InfoCircledIcon} from '@radix-ui/react-icons';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {demographyService} from '@/app/utils/demography/demographyService';
@@ -42,20 +42,26 @@ import {
   isCoalitionUniverse,
   TOTAL_COLUMN,
 } from '@constants/demography/summary';
-import {type NumberFormat} from '@constants/demography/format';
-import {EVAL_MODES, type EvalMode} from '@constants/demography/evalMode';
+import {NUMBER_FORMATS, type NumberFormat} from '@constants/demography/format';
+import {
+  TABLE_DISPLAY_MODES,
+  type TableDisplayMode,
+} from '@constants/demography/demographyTableMode';
 import {MAP_MODES} from '@constants/map/mode';
 import {PovSwitcher, type Pov} from '@components/Shared/PovSwitcher';
 import {ConditionalScrollArea} from '../ConditionalScrollArea';
+import {getReadableTextColor} from '@/app/utils/colors';
 
 type ColumnConfig = {
   label: string;
   column: string;
   sourceCol?: string;
   tooltip?: string;
+  /** Denominator column: always a raw count, never shaded, never a share of itself. */
+  isTotal?: boolean;
 };
 
-type EvaluationProps = {
+type DemographyTableProps = {
   summaryType: SummaryType;
   setSummaryType: (summaryType: SummaryType) => void;
   displayedColumnSets?: Array<SummaryType>;
@@ -65,18 +71,18 @@ type EvaluationProps = {
   universeTotals?: SummaryRecord | null;
 };
 
-type EvaluationDataRow = SummaryRecord | Record<string, string | number | boolean>;
+type DemographyTableDataRow = SummaryRecord | Record<string, string | number | boolean>;
 
-type EvaluationTableHeaderProps = {
+type DemographyTableHeaderProps = {
   columnConfigs: ColumnConfig[];
   zoneHeader?: string;
 };
 
-type EvaluationTableBodyProps = {
-  rows: EvaluationDataRow[];
+type DemographyTableBodyProps = {
+  rows: DemographyTableDataRow[];
   colorScheme: string[];
   columnConfigs: ColumnConfig[];
-  evalMode: EvalMode;
+  evalMode: TableDisplayMode;
   colorBg: boolean;
   summaryType: SummaryType;
   numberFormat: NumberFormat;
@@ -87,12 +93,12 @@ type EvaluationTableBodyProps = {
   pov: Pov;
 };
 
-type EvaluationTableRowProps = Omit<EvaluationTableBodyProps, 'rows'> & {
-  row: EvaluationDataRow;
+type DemographyTableRowProps = Omit<DemographyTableBodyProps, 'rows'> & {
+  row: DemographyTableDataRow;
 };
 
-type EvaluationTableCellProps = Omit<
-  EvaluationTableRowProps,
+type DemographyTableCellProps = Omit<
+  DemographyTableRowProps,
   'columnConfigs' | 'colorScheme' | 'mapMode' | 'communities' | 'getZoneColor'
 > & {
   columnConfig: ColumnConfig;
@@ -135,7 +141,7 @@ function buildUniverseRow({
   return row;
 }
 
-const Evaluation: React.FC<EvaluationProps> = ({
+const DemographyTable: React.FC<DemographyTableProps> = ({
   summaryType,
   setSummaryType,
   displayedColumnSets,
@@ -144,7 +150,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
   singleZone,
   universeTotals,
 }) => {
-  const [evalMode, setEvalMode] = useState<EvalMode>(EVAL_MODES.SHARE);
+  const [evalMode, setEvalMode] = useState<TableDisplayMode>(TABLE_DISPLAY_MODES.SHARE);
   const [colorBg, setColorBg] = useState<boolean>(true);
   const [showUnassigned, setShowUnassigned] = useState<boolean>(true);
   const [pov, setPov] = useState<Pov>('dem');
@@ -217,7 +223,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
         })
       : undefined;
 
-  const baseRows: EvaluationDataRow[] = (() => {
+  const baseRows: DemographyTableDataRow[] = (() => {
     if (singleZone != null) {
       const filtered = zoneData.filter(r => r.zone === singleZone);
       return [...filtered, ...(universeRow ? [universeRow] : [])];
@@ -282,7 +288,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
                   <SegmentedControl.Root
                     size="1"
                     value={evalMode}
-                    onValueChange={v => setEvalMode(v as EvalMode)}
+                    onValueChange={v => setEvalMode(v as TableDisplayMode)}
                   >
                     {modeButtonConfig.map((mode, i) => (
                       <SegmentedControl.Item key={i} value={mode.value}>
@@ -324,11 +330,11 @@ const Evaluation: React.FC<EvaluationProps> = ({
       <ConditionalScrollArea shouldUseScrollableRows={rows.length > 10} maxHeight="60vh">
         <Box overflowX="auto" className="text-sm">
           <Table.Root className="min-w-full border-collapse">
-            <EvaluationTableHeader
+            <DemographyTableHeader
               columnConfigs={effectiveColumnConfigs}
               zoneHeader={mapMode === MAP_MODES.COI ? 'Community' : 'District'}
             />
-            <EvaluationTableBody
+            <DemographyTableBody
               rows={rows}
               colorScheme={colorScheme}
               columnConfigs={effectiveColumnConfigs}
@@ -348,7 +354,7 @@ const Evaluation: React.FC<EvaluationProps> = ({
     </Box>
   );
 };
-const EvaluationTableHeader: React.FC<EvaluationTableHeaderProps> = ({
+const DemographyTableHeader: React.FC<DemographyTableHeaderProps> = ({
   columnConfigs,
   zoneHeader = 'District',
 }) => {
@@ -381,11 +387,11 @@ const EvaluationTableHeader: React.FC<EvaluationTableHeaderProps> = ({
   );
 };
 
-const EvaluationTableBody: React.FC<EvaluationTableBodyProps> = ({rows, ...props}) => {
+const DemographyTableBody: React.FC<DemographyTableBodyProps> = ({rows, ...props}) => {
   return (
     <Table.Body>
       {rows.map(row => (
-        <EvaluationTableRow
+        <DemographyTableRow
           // Stable per-row key so React reconciles correctly when the rows
           // array is re-ordered (e.g., universe/unassigned swap). Array-index
           // keys would otherwise force re-mounts / miss updates. Unassigned
@@ -405,7 +411,7 @@ const EvaluationTableBody: React.FC<EvaluationTableBodyProps> = ({rows, ...props
   );
 };
 
-const EvaluationTableRow: React.FC<EvaluationTableRowProps> = ({
+const DemographyTableRow: React.FC<DemographyTableRowProps> = ({
   row,
   colorScheme,
   columnConfigs,
@@ -448,7 +454,7 @@ const EvaluationTableRow: React.FC<EvaluationTableRowProps> = ({
       </Table.Cell>
       {!!columnConfigs &&
         columnConfigs.map(columnConfig => (
-          <EvaluationTableCell
+          <DemographyTableCell
             key={columnConfig.column}
             row={row}
             evalMode={evalMode}
@@ -466,7 +472,7 @@ const EvaluationTableRow: React.FC<EvaluationTableRowProps> = ({
   );
 };
 
-const EvaluationTableCell: React.FC<EvaluationTableCellProps> = ({
+const DemographyTableCell: React.FC<DemographyTableCellProps> = ({
   row,
   evalMode,
   columnConfig,
@@ -478,28 +484,36 @@ const EvaluationTableCell: React.FC<EvaluationTableCellProps> = ({
   maxValues,
   pov,
 }) => {
-  const column = evalMode === EVAL_MODES.COUNT ? columnConfig.column : `${columnConfig.column}_pct`;
+  const isTotalColumn = Boolean(columnConfig.isTotal);
+  const column = isTotalColumn
+    ? columnConfig.column
+    : evalMode === TABLE_DISPLAY_MODES.COUNT
+      ? columnConfig.column
+      : `${columnConfig.column}_pct`;
   const value = (row as Record<string, number | undefined>)[column];
   const numericValue = typeof value === 'number' && Number.isFinite(value) ? value : undefined;
   let colorValue: number | undefined;
-  if (numericValue !== undefined) {
+  if (numericValue !== undefined && !isTotalColumn) {
     colorValue =
-      evalMode === EVAL_MODES.COUNT && maxValues[column] !== 0
+      evalMode === TABLE_DISPLAY_MODES.COUNT && maxValues[column] !== 0
         ? numericValue / maxValues[column]
         : numericValue;
   }
   const hasValidColorValue =
     colorValue !== undefined && typeof colorValue === 'number' && Number.isFinite(colorValue);
   let backgroundColor: string | undefined;
-  if (!hasValidColorValue || isUniverse) {
+  let textColor: string | undefined;
+  if (!hasValidColorValue || isUniverse || isTotalColumn) {
   } else if (colorBg && summaryType === SUMMARY_TYPES.VOTERHISTORY) {
     // Diverging red <- white -> blue keyed to the two-party dem share, matching
     // the choropleth map; identical coloring in either POV.
-    backgroundColor = PARTISAN_SCALE(pov === 'dem' ? numericValue! : 1 - numericValue!);
+    const partisanValue = pov === 'dem' ? numericValue! : 1 - numericValue!;
+    backgroundColor = PARTISAN_SCALE(partisanValue);
+    textColor = getReadableTextColor(backgroundColor, 1);
   } else if (colorBg && !isUnassigned) {
-    backgroundColor = interpolateGreys(colorValue as number)
-      .replace('rgb', 'rgba')
-      .replace(')', ',0.5)');
+    const greyColor = interpolateGreys(colorValue as number);
+    backgroundColor = greyColor.replace('rgb', 'rgba').replace(')', ',0.5)');
+    textColor = getReadableTextColor(greyColor, 0.5);
   } else {
     backgroundColor = 'initial';
   }
@@ -509,10 +523,13 @@ const EvaluationTableCell: React.FC<EvaluationTableCellProps> = ({
       className={`py-1 px-2 align-middle text-right ${isUniverse ? 'font-semibold' : ''}`}
       style={{
         backgroundColor,
+        color: textColor,
       }}
     >
-      {numericValue === undefined ? '--' : formatNumber(numericValue, numberFormat)}
+      {numericValue === undefined
+        ? '--'
+        : formatNumber(numericValue, isTotalColumn ? NUMBER_FORMATS.STRING : numberFormat)}
     </Table.Cell>
   );
 };
-export default Evaluation;
+export default DemographyTable;

@@ -1,5 +1,5 @@
 import {Blockquote, Button, Flex, Heading, Select, Text} from '@radix-ui/themes';
-import Evaluation from './Evaluation/Evaluation';
+import DemographyTable from './DemographyTable/DemographyTable';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useEffect, useState} from 'react';
 import {MapPanel} from './MapPanel';
@@ -90,6 +90,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
     column: string;
     sourceCol?: string;
     tooltip?: string;
+    isTotal?: boolean;
   }> = (() => {
     if (!summaryType || !baseColumnConfig) return [];
     if (summaryType !== SUMMARY_TYPES.TOTPOP && summaryType !== SUMMARY_TYPES.VAP)
@@ -185,7 +186,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
             </Flex>
           )}
           {sectionOpen('evaluation') && (
-            <Evaluation
+            <DemographyTable
               summaryType={summaryType}
               setSummaryType={setSummaryType}
               columnConfigs={columnConfigs}

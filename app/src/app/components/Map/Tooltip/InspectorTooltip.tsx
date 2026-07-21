@@ -4,7 +4,7 @@ import {formatNumber} from '@utils/numbers';
 import {useTooltipStore} from '@store/tooltipStore';
 import {demographyService} from '@/app/utils/demography/demographyService';
 import {useEffect, useMemo, useState} from 'react';
-import {CONFIG_BY_COLUMN_SET} from '@store/demography/evaluationConfig';
+import {CONFIG_BY_COLUMN_SET} from '@store/demography/demographyTableConfig';
 import {PARTISAN_SCALE} from '@store/demography/constants';
 import {previousHoverFeatures as hoverFeatures} from '@/app/utils/map/hoverFeatures';
 import {SUMMARY_TYPES, TOTAL_COLUMN} from '@constants/demography/summary';
