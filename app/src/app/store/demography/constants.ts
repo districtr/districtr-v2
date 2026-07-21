@@ -11,11 +11,15 @@ import {type ScaleLinear} from 'd3-scale';
 import {type SummaryType} from '@constants/demography/summary';
 
 export const DEFAULT_COLOR_SCHEME = chromatic.schemeBlues;
-export const DEFAULT_COLOR_SCHEME_GRAY = chromatic.schemeGreys;
 export const DEFAULT_CONTINUOUS_COLOR_SCHEME = chromatic.interpolateBlues;
-export const DEFAULT_CONTINUOUS_COLOR_SCHEME_GRAY = chromatic.interpolateGreys;
-// Sized circles sit on top of colored districts, so shade opacity instead of hue
+// Sized circles and the overlay choropleth sit on top of colored districts,
+// so shade transparent-to-black (an alpha ramp) instead of white-to-black
 export const SIZED_CIRCLE_COLOR_SCHEME = (t: number) => `rgba(0, 0, 0, ${t})`;
+export const DEFAULT_CONTINUOUS_COLOR_SCHEME_GRAY = SIZED_CIRCLE_COLOR_SCHEME;
+// Binned equivalent of d3's schemeGreys: index k holds k bins ramping alpha 0→1
+export const DEFAULT_COLOR_SCHEME_GRAY = Array.from({length: 10}, (_, k) =>
+  Array.from({length: k}, (_, i) => `rgba(0, 0, 0, ${k > 1 ? +(i / (k - 1)).toFixed(2) : 1})`)
+);
 export const DEFAULT_CHOROPLETH_BIN_COUNT = 5;
 
 export const PARTISAN_SCALE = scaleLinear()
