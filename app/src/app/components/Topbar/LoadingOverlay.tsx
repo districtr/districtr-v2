@@ -66,12 +66,13 @@ export const LoadingOverlay: React.FC = () => {
   const mapLock = useMapStore(state => state.mapLock);
   const documentLoading = useMapStore(state => state.loadingStates.documentLoading);
 
-  const busy = Boolean(mapLock?.isLocked) || documentLoading;
+  // Silent locks (background autosave) block edits but never show the overlay.
+  const busy = Boolean(mapLock?.isLocked && !mapLock.silent) || documentLoading;
   const showBusy = useDelayed(busy, BUSY_SHOW_DELAY_MS);
 
   // Auto-save kicked off by a mode switch: the transition is already active, so surface
   // the save explicitly and immediately (skipping the busy delay below).
-  if (viewTransition && mapLock?.isLocked) {
+  if (viewTransition && mapLock?.isLocked && !mapLock.silent) {
     return <OverlayCard message="Saving changes…" />;
   }
   if (viewTransition === 'evaluate') {
