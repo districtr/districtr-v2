@@ -1,6 +1,5 @@
 import {devtools, DevtoolsOptions, PersistOptions} from 'zustand/middleware';
 import {MapStore} from './mapStore';
-import {MIN_DIFF_MS} from '@constants/document/temporal';
 import {ZundoOptions} from 'zundo';
 import {AssignmentsStore} from './assignmentsStore';
 import {CoiAssignmentsStore} from './coiAssignmentsStore';
@@ -35,9 +34,14 @@ export const devToolsConfig: DevtoolsOptions = {
   },
 };
 
-// Shared diff function for all temporal stores — only fires when clientLastUpdated changes
-// and enough time has passed since the last snapshot. Generic over the store type so the
-// same function can drive both district and COI zundo configurations.
+// Shared diff function for all temporal stores — fires once per real edit (every set that
+// bumps clientLastUpdated AND replaces a tracked collection). Generic over the store type so
+// the same function can drive both district and COI zundo configurations.
+//
+// Every mutation path replaces tracked Maps/Sets wholesale, so reference equality across all
+// partialized keys is a reliable O(keys) "did anything actually change" check. Timestamp-only
+// bumps (comment/metadata edits, save syncs) keep identical refs and are skipped — otherwise
+// they'd create dead undo steps that appear to do nothing.
 interface TemporalDiffSnapshot {
   clientLastUpdated?: string;
   pendingShatterUndoState?: AssignmentsStore['pendingShatterUndoState'];
@@ -51,16 +55,18 @@ export const temporalDiff = <T extends TemporalDiffSnapshot>(
   if (!past.clientLastUpdated || !curr.clientLastUpdated) return null;
   // If the client timestamp is the same, don't store
   if (past.clientLastUpdated === curr.clientLastUpdated) return null;
-  // If not yet ingested, don't store
-  if (past.clientLastUpdated === '' || curr.clientLastUpdated === '') return null;
-  // If the difference is less than the minimum diff time, don't store
-  if (
-    new Date(curr.clientLastUpdated).getTime() - new Date(past.clientLastUpdated).getTime() <
-    MIN_DIFF_MS
-  )
-    return null;
+  // Timestamp-only bump: no tracked collection was replaced, so nothing to undo
+  const contentChanged = (Object.keys(past) as Array<keyof T>).some(
+    key => key !== 'clientLastUpdated' && past[key] !== curr[key]
+  );
+  if (!contentChanged) return null;
   if (past.pendingShatterUndoState && !curr.pendingShatterUndoState) {
-    return cloneTemporalSnapshot(past.pendingShatterUndoState) as unknown as Partial<T>;
+    // pendingShatterUndoState: null so restoring this entry can't leave a stale
+    // pending snapshot in the store (entries are applied as partial merges).
+    return {
+      ...cloneTemporalSnapshot(past.pendingShatterUndoState),
+      pendingShatterUndoState: null,
+    } as unknown as Partial<T>;
   }
   return past;
 };
