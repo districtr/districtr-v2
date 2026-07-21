@@ -57,7 +57,7 @@ const Main: React.FC = () => {
           >
             <Flex direction={'column'}>
               <Heading size="6" as="h3" className="text-purple-700 mb-4">
-                You can draw districts (in limited states)
+                You can draw districts
               </Heading>
               <Text size="5">
                 In the U.S., there&apos;s a big redistricting cycle every 10 years after new Census
