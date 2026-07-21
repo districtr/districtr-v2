@@ -177,11 +177,17 @@ export default function ZoomToFeature({
         ...(padding ? {padding: getFitBoundsPadding(mapRef, padding)} : {}),
       });
       if (camera) {
+        // Two levels out, not more: a bigger gap means a faster zoom rush
+        // during the fly-in, which amplifies motion sickness.
+        let snapZoom = Math.min((camera.zoom ?? 10) - 2, 10);
+        // But never wider than the map document's own extent.
+        if (mapDocument?.extent) {
+          const extentZoom = mapRef.cameraForBounds(mapDocument.extent)?.zoom;
+          if (extentZoom !== undefined) snapZoom = Math.max(snapZoom, extentZoom);
+        }
         mapRef.jumpTo({
           center: camera.center,
-          // Two levels out, not more: a bigger gap means a faster zoom rush
-          // during the fly-in, which amplifies motion sickness.
-          zoom: Math.max(0, Math.min((camera.zoom ?? 10) - 2, 10)),
+          zoom: Math.max(0, snapZoom),
         });
       }
     }
