@@ -91,7 +91,7 @@ from app.comments.models import (
     CommentTag,
 )
 from pydantic import ValidationError
-from pydantic_geojson import PolygonModel
+from pydantic_geojson import FeatureModel, PolygonModel
 from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
 from sqlalchemy.sql.functions import coalesce
@@ -1600,6 +1600,9 @@ async def get_connected_component_bboxes(
     Each feature is a GeoJSON Polygon (5-point closed ring) giving the bbox of
     one connected component, with coordinates reprojected to EPSG:4326
     (lon/lat). A single connected zone yields one feature; N fragments yield N.
+    Single-geometry components are instead a GeoJSON Feature wrapping that
+    Polygon, with properties {"bbox": [minx, miny, maxx, maxy], "geo_ids":
+    [geo_id]} so the client can zoom to the exact rendered geometry.
 
     Only supported for district maps — community maps return 400.
     """
@@ -1664,19 +1667,31 @@ async def get_connected_component_bboxes(
             dst_crs="EPSG:4326",
         )
 
-        bboxes.append(
-            PolygonModel(
-                coordinates=[
-                    [
-                        Coordinates(lon=_minx, lat=_miny),
-                        Coordinates(lon=_maxx, lat=_miny),
-                        Coordinates(lon=_maxx, lat=_maxy),
-                        Coordinates(lon=_minx, lat=_maxy),
-                        Coordinates(lon=_minx, lat=_miny),
-                    ]
+        polygon = PolygonModel(
+            coordinates=[
+                [
+                    Coordinates(lon=_minx, lat=_miny),
+                    Coordinates(lon=_maxx, lat=_miny),
+                    Coordinates(lon=_maxx, lat=_maxy),
+                    Coordinates(lon=_minx, lat=_maxy),
+                    Coordinates(lon=_minx, lat=_miny),
                 ]
-            )
+            ]
         )
+        if len(zone_connected_component) == 1:
+            # Single-geometry components carry their geo_id so the client can
+            # snap to the area, then zoom to the rendered geometry's true bbox.
+            bboxes.append(
+                FeatureModel(
+                    properties={
+                        "bbox": [_minx, _miny, _maxx, _maxy],
+                        "geo_ids": [str(n) for n in zone_connected_component],
+                    },
+                    geometry=polygon,
+                )
+            )
+        else:
+            bboxes.append(polygon)
 
     payload = msgpack.packb(
         BBoxGeoJSONs(features=bboxes).model_dump(), use_bin_type=True

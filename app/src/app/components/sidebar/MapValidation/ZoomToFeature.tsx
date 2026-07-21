@@ -1,9 +1,10 @@
 import {ChevronLeftIcon, ChevronRightIcon} from '@radix-ui/react-icons';
 import {Button, Flex, Select} from '@radix-ui/themes';
-import {useEffect, useLayoutEffect, useState, Dispatch, SetStateAction} from 'react';
+import {useEffect, useLayoutEffect, useRef, useState, Dispatch, SetStateAction} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
 import {Feature, Polygon} from 'geojson';
-import type {Map as MapLibreMap, PaddingOptions} from 'maplibre-gl';
+import type {LngLatBoundsLike, Map as MapLibreMap, PaddingOptions} from 'maplibre-gl';
+import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerIds';
 
 /**
  * Clamp fitBounds padding to a quarter of each canvas dimension, so at least half the
@@ -24,7 +25,7 @@ export const getFitBoundsPadding = (
 interface ZoomToFeatureProps {
   selectedIndex: number | null;
   setSelectedIndex: (index: number) => void | Dispatch<SetStateAction<number | null>>;
-  features: GeoJSON.Feature[] | GeoJSON.Polygon[];
+  features: Array<GeoJSON.Feature | GeoJSON.Polygon>;
   padding?: number;
 }
 
@@ -35,6 +36,10 @@ export default function ZoomToFeature({
   padding,
 }: ZoomToFeatureProps) {
   const mapRef = useMapStore(state => state.getMapRef());
+  const mapDocument = useMapStore(state => state.mapDocument);
+  // Pending 'idle' handler from a single-geometry zoom; cancelled when a new
+  // zoom starts so a stale handler can't yank the camera later.
+  const pendingIdleHandler = useRef<(() => void) | null>(null);
 
   // on repeat visit, prevent zooming to bounds on first render
   const [hasMounted, setHasMounted] = useState(false);
@@ -60,6 +65,82 @@ export default function ZoomToFeature({
     return feature && typeof feature === 'object' && feature.type === 'Polygon';
   }
 
+  const getFeatureBounds = (feature: Feature | Polygon): LngLatBoundsLike | null => {
+    if (isFeature(feature) && feature.properties?.bbox) {
+      return feature.properties.bbox;
+    }
+    // Assumes the Polygon is a bbox ring à la PostGIS `ST_Envelope`:
+    // ((MINX, MINY), (MAXX, MINY), (MAXX, MAXY), (MINX, MAXY), (MINX, MINY)),
+    // so corners 0 and 2 are SW/NE. An arbitrary polygon won't work here.
+    const polygon = isPolygon(feature)
+      ? feature
+      : isFeature(feature) && isPolygon(feature.geometry)
+        ? feature.geometry
+        : null;
+    if (polygon) {
+      return [
+        {lng: polygon.coordinates[0][0][0], lat: polygon.coordinates[0][0][1]},
+        {lng: polygon.coordinates[0][2][0], lat: polygon.coordinates[0][2][1]},
+      ];
+    }
+    return null;
+  };
+
+  // Snap (no animation) to the general area, then once tiles have loaded, query
+  // the map for the geometry's rendered pieces and zoom to their true bbox.
+  // Needed because unassigned-area bboxes are centroid-derived: a single-unit
+  // component collapses to a point that says nothing about the unit's extent.
+  const zoomToSingleGeometry = (geoId: string, approxBounds: LngLatBoundsLike) => {
+    if (!mapRef) return;
+    mapRef.fitBounds(approxBounds, {
+      animate: false,
+      maxZoom: 10,
+      ...(padding ? {padding: getFitBoundsPadding(mapRef, padding)} : {}),
+    });
+    const onIdle = () => {
+      pendingIdleHandler.current = null;
+      const sourceLayers = [mapDocument?.parent_layer, mapDocument?.child_layer].filter(
+        (l): l is string => !!l
+      );
+      const pieces = sourceLayers.flatMap(sourceLayer =>
+        mapRef.querySourceFeatures(BLOCK_SOURCE_ID, {
+          sourceLayer,
+          filter: ['==', ['get', 'path'], geoId],
+        })
+      );
+      if (!pieces.length) return;
+      // A feature can be split across tiles; union the bboxes of every piece.
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      const eat = (coords: any) => {
+        if (typeof coords[0] === 'number') {
+          if (coords[0] < minX) minX = coords[0];
+          if (coords[0] > maxX) maxX = coords[0];
+          if (coords[1] < minY) minY = coords[1];
+          if (coords[1] > maxY) maxY = coords[1];
+        } else {
+          coords.forEach(eat);
+        }
+      };
+      pieces.forEach(p => 'coordinates' in p.geometry && eat(p.geometry.coordinates));
+      if (minX > maxX) return;
+      mapRef.fitBounds(
+        [
+          [minX, minY],
+          [maxX, maxY],
+        ],
+        {
+          maxZoom: 16,
+          ...(padding ? {padding: getFitBoundsPadding(mapRef, padding)} : {}),
+        }
+      );
+    };
+    pendingIdleHandler.current = onIdle;
+    mapRef.once('idle', onIdle);
+  };
+
   const zoomToFeature = (selectedIndex: number | null) => {
     let feature;
     if (selectedIndex !== null && hasMounted) {
@@ -67,36 +148,25 @@ export default function ZoomToFeature({
     } else {
       return;
     }
-    // Bboxes are centroid-derived, so a single-unit component collapses to a point and
-    // would zoom to street level without the cap.
-    // TODO: the cap also blocks legitimate street-level zooms; remove it once the points
-    // parquets carry per-unit bbox/size columns.
-    const fitOptions = {
+    if (pendingIdleHandler.current) {
+      mapRef?.off('idle', pendingIdleHandler.current);
+      pendingIdleHandler.current = null;
+    }
+    const bounds = getFeatureBounds(feature);
+    if (!bounds) {
+      console.error('Invalid feature type');
+      return;
+    }
+    const geoIds = isFeature(feature) ? feature.properties?.geo_ids : undefined;
+    if (geoIds?.length === 1) {
+      zoomToSingleGeometry(geoIds[0], bounds);
+      return;
+    }
+    // Multi-geometry bboxes span real extents; the cap only guards degenerate cases.
+    mapRef?.fitBounds(bounds, {
       maxZoom: 10,
       ...(padding ? {padding: getFitBoundsPadding(mapRef, padding)} : {}),
-    };
-    if (isFeature(feature) && feature.properties?.bbox) {
-      mapRef?.fitBounds(feature.properties.bbox, fitOptions);
-      return;
-    }
-
-    // This is just assuming that the Polygon is the valid BBOX output from
-    // `ST_Envelope` function in PostGIS, which:
-    // ```
-    // Returns the double-precision (float8) minimum bounding box for the supplied geometry, as a geometry.
-    // The polygon is defined by the corner points of the bounding box
-    // ((MINX, MINY), (MINX, MAXY), (MAXX, MAXY), (MAXX, MINY), (MINX, MINY)).
-    // (PostGIS will add a ZMIN/ZMAX coordinate as well).
-    // ```
-    // If an arbitrary polygon is provided, this won't work.
-    if (isPolygon(feature)) {
-      let SW = {lng: feature.coordinates[0][0][0], lat: feature.coordinates[0][0][1]};
-      let NE = {lng: feature.coordinates[0][2][0], lat: feature.coordinates[0][2][1]};
-      mapRef?.fitBounds([SW, NE], fitOptions);
-      return;
-    }
-
-    console.error('Invalid feature type');
+    });
   };
 
   useEffect(() => {
