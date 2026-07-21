@@ -86,17 +86,19 @@ export default function ZoomToFeature({
     return null;
   };
 
-  // Snap (no animation) to the general area, then once tiles have loaded, query
-  // the map for the geometry's rendered pieces and zoom to their true bbox.
-  // Needed because unassigned-area bboxes are centroid-derived: a single-unit
-  // component collapses to a point that says nothing about the unit's extent.
-  const zoomToSingleGeometry = (geoId: string, approxBounds: LngLatBoundsLike) => {
+  // Animated fit options shared by every final zoom, so all paths land the same way.
+  const finalFitOptions = () => ({
+    maxZoom: 16,
+    speed: 2.4, // default 1.2; zippier since we already snapped nearby
+    ...(padding ? {padding: getFitBoundsPadding(mapRef, padding)} : {}),
+  });
+
+  // Once tiles have loaded, query the map for the geometries' rendered pieces and
+  // zoom to their union bbox. Needed because unassigned-area bboxes are
+  // centroid-derived: they understate the true extent, and a single-unit
+  // component collapses to a point.
+  const zoomToRenderedGeometries = (geoIds: string[]) => {
     if (!mapRef) return;
-    mapRef.fitBounds(approxBounds, {
-      animate: false,
-      maxZoom: 10,
-      ...(padding ? {padding: getFitBoundsPadding(mapRef, padding)} : {}),
-    });
     const onIdle = () => {
       pendingIdleHandler.current = null;
       const sourceLayers = [mapDocument?.parent_layer, mapDocument?.child_layer].filter(
@@ -105,7 +107,7 @@ export default function ZoomToFeature({
       const pieces = sourceLayers.flatMap(sourceLayer =>
         mapRef.querySourceFeatures(BLOCK_SOURCE_ID, {
           sourceLayer,
-          filter: ['==', ['get', 'path'], geoId],
+          filter: ['in', ['get', 'path'], ['literal', geoIds]],
         })
       );
       if (!pieces.length) return;
@@ -131,11 +133,7 @@ export default function ZoomToFeature({
           [minX, minY],
           [maxX, maxY],
         ],
-        {
-          maxZoom: 16,
-          speed: 2.4, // default 1.2; zippier since we already snapped nearby
-          ...(padding ? {padding: getFitBoundsPadding(mapRef, padding)} : {}),
-        }
+        finalFitOptions()
       );
     };
     pendingIdleHandler.current = onIdle;
@@ -158,17 +156,21 @@ export default function ZoomToFeature({
       console.error('Invalid feature type');
       return;
     }
-    const geoIds = isFeature(feature) ? feature.properties?.geo_ids : undefined;
-    if (geoIds?.length === 1) {
-      zoomToSingleGeometry(geoIds[0], bounds);
-      return;
-    }
-    // Multi-geometry bboxes span real extents; the cap only guards degenerate cases.
+    // Consistent two-step for every feature: snap (no animation) to the general
+    // area, then animate in to the precise bounds.
     mapRef?.fitBounds(bounds, {
+      animate: false,
       maxZoom: 10,
-      speed: 2.4,
       ...(padding ? {padding: getFitBoundsPadding(mapRef, padding)} : {}),
     });
+    const geoIds = isFeature(feature) ? feature.properties?.geo_ids : undefined;
+    if (geoIds?.length) {
+      // Centroid-derived bounds: refine from the map's rendered geometries.
+      zoomToRenderedGeometries(geoIds);
+    } else {
+      // Real bbox (e.g. contiguity components): zoom straight to it.
+      mapRef?.fitBounds(bounds, finalFitOptions());
+    }
   };
 
   useEffect(() => {
