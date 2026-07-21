@@ -96,7 +96,7 @@ export default function ZoomToFeature({
   // zoom to their union bbox. Needed because unassigned-area bboxes are
   // centroid-derived: they understate the true extent, and a single-unit
   // component collapses to a point.
-  const zoomToRenderedGeometries = (geoIds: string[]) => {
+  const zoomToRenderedGeometries = (geoIds: string[], approxBounds: LngLatBoundsLike) => {
     if (!mapRef) return;
     const onIdle = () => {
       pendingIdleHandler.current = null;
@@ -109,7 +109,12 @@ export default function ZoomToFeature({
           filter: ['in', ['get', 'path'], ['literal', geoIds]],
         })
       );
-      if (!pieces.length) return;
+      if (!pieces.length) {
+        // Geometry not in the tiles at this zoom; still fly to the approximate
+        // bounds rather than stranding the camera at the general area.
+        mapRef.fitBounds(approxBounds, finalFitOptions());
+        return;
+      }
       // A feature can be split across tiles; union the bboxes of every piece.
       let minX = Infinity;
       let minY = Infinity;
@@ -126,7 +131,10 @@ export default function ZoomToFeature({
         }
       };
       pieces.forEach(p => 'coordinates' in p.geometry && eat(p.geometry.coordinates));
-      if (minX > maxX) return;
+      if (minX > maxX) {
+        mapRef.fitBounds(approxBounds, finalFitOptions());
+        return;
+      }
       mapRef.fitBounds(
         [
           [minX, minY],
@@ -156,16 +164,23 @@ export default function ZoomToFeature({
       return;
     }
     // Consistent two-step for every feature: snap (no animation) to the general
-    // area, then animate in to the precise bounds.
-    mapRef?.fitBounds(bounds, {
-      animate: false,
-      maxZoom: 10,
-      ...(padding ? {padding: getFitBoundsPadding(mapRef, padding)} : {}),
-    });
+    // area — centered on the target but a few zoom levels out — then fly in to
+    // the precise bounds.
+    if (mapRef) {
+      const camera = mapRef.cameraForBounds(bounds, {
+        ...(padding ? {padding: getFitBoundsPadding(mapRef, padding)} : {}),
+      });
+      if (camera) {
+        mapRef.jumpTo({
+          center: camera.center,
+          zoom: Math.max(0, Math.min((camera.zoom ?? 10) - 3, 10)),
+        });
+      }
+    }
     const geoIds = isFeature(feature) ? feature.properties?.geo_ids : undefined;
     if (geoIds?.length) {
       // Centroid-derived bounds: refine from the map's rendered geometries.
-      zoomToRenderedGeometries(geoIds);
+      zoomToRenderedGeometries(geoIds, bounds);
     } else {
       // Real bbox (e.g. contiguity components): zoom straight to it.
       mapRef?.fitBounds(bounds, finalFitOptions());
