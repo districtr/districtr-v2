@@ -170,7 +170,8 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({
   const handleMapDocument = useCallback(
     (data: DocumentObject) => {
       const route = routeForTab(activeTab);
-      router.push(`/${route}/edit/${data.document_id}`);
+      // Prefer the public id in the URL; the UUID is only for the secret share link.
+      router.push(`/${route}/edit/${data.public_id ?? data.document_id}`);
       onNavigate?.();
     },
     [activeTab, router, onNavigate]
@@ -377,7 +378,7 @@ const CopyLinkDropdown: React.FC<{
       </Tooltip>
       <DropdownMenu.Content align="end" onClick={e => e.stopPropagation()}>
         <DropdownMenu.Item onClick={() => handleCopy(editUrl, 'edit')}>
-          {copiedKey === 'edit' ? 'Copied!' : 'Copy edit link'}
+          {copiedKey === 'edit' ? 'Copied!' : 'Copy edit link (treat this link like a password)'}
         </DropdownMenu.Item>
         {publicUrl && (
           <DropdownMenu.Item onClick={() => handleCopy(publicUrl, 'public')}>

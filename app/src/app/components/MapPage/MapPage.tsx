@@ -22,6 +22,7 @@ import {SaveConflictModal} from '../SaveConflictModal';
 import {ZoneDescriptionModal} from '@components/Map/Tooltip/ZoneDescriptionModal';
 import {migrateUserMapsFromLocalStorage} from '@/app/utils/idb/migrateUserMaps';
 import {isUUID} from '@/app/utils/metadata/isUUID';
+import {useEditRouteId} from '@/app/hooks/useEditRouteId';
 import {useInitializeMapMode} from '@/app/hooks/useInitializeMapMode';
 import {MAP_MODES} from '@constants/map/mode';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
@@ -53,11 +54,15 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
     migrateUserMapsFromLocalStorage();
   }, []);
 
+  // On edit routes the URL shows the public id; resolve it to the editable UUID
+  // (and keep the UUID out of the address bar when arriving via a UUID link).
+  const resolvedMapId = useEditRouteId(mapId, isEditing, 'map');
+
   // Load document with sync support
   const {error: documentError, conflictModal} = useDocumentWithSync({
-    document_id: mapId || undefined,
+    document_id: resolvedMapId || undefined,
     isPublicPage,
-    enabled: isMapModeReady && !!mapId,
+    enabled: isMapModeReady && !!resolvedMapId,
   });
 
   // Handle document loading errors
@@ -81,8 +86,8 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
   // back to edit mode after navigating to a read-only display/eval view (which
   // loads the doc by public_id and surfaces document_id as "anonymous").
   useEffect(() => {
-    if (isEditing && mapId && isUUID(mapId)) setEditableDocId(mapId);
-  }, [isEditing, mapId, setEditableDocId]);
+    if (isEditing && resolvedMapId && isUUID(resolvedMapId)) setEditableDocId(resolvedMapId);
+  }, [isEditing, resolvedMapId, setEditableDocId]);
 
   useEffect(() => {
     setIsEval(isEval ?? false);

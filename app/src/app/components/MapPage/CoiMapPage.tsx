@@ -21,6 +21,7 @@ import {useInitializeMapMode} from '@/app/hooks/useInitializeMapMode';
 import {MAP_MODES} from '@constants/map/mode';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 import {isUUID} from '@/app/utils/metadata/isUUID';
+import {useEditRouteId} from '@/app/hooks/useEditRouteId';
 
 interface CoiMapPageProps {
   isEditing: boolean;
@@ -43,10 +44,14 @@ const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => 
     migrateUserMapsFromLocalStorage();
   }, []);
 
+  // On edit routes the URL shows the public id; resolve it to the editable UUID
+  // (and keep the UUID out of the address bar when arriving via a UUID link).
+  const resolvedDocumentId = useEditRouteId(documentId, isEditing, 'coi');
+
   const {error: documentError, conflictModal} = useDocumentWithSync({
-    document_id: documentId || undefined,
+    document_id: resolvedDocumentId || undefined,
     isPublicPage,
-    enabled: isMapModeReady && !!documentId,
+    enabled: isMapModeReady && !!resolvedDocumentId,
   });
 
   useEffect(() => {
@@ -67,8 +72,9 @@ const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => 
   // Retain the editable UUID for this session so the view switcher can route
   // back to edit mode after navigating to a read-only display view.
   useEffect(() => {
-    if (isEditing && documentId && isUUID(documentId)) setEditableDocId(documentId);
-  }, [isEditing, documentId, setEditableDocId]);
+    if (isEditing && resolvedDocumentId && isUUID(resolvedDocumentId))
+      setEditableDocId(resolvedDocumentId);
+  }, [isEditing, resolvedDocumentId, setEditableDocId]);
 
   useEffect(() => {
     !userID && setUserID();
