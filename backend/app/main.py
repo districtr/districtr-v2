@@ -163,6 +163,8 @@ if settings.BACKEND_CORS_ORIGINS or settings.BACKEND_CORS_ORIGIN_REGEX:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        # Let the browser read export filenames cross-origin.
+        expose_headers=["Content-Disposition"],
     )
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)

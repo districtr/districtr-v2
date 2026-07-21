@@ -7,6 +7,7 @@ import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
 import {ACCESS_STATES} from '@constants/document/state';
 import {DocumentMetadata} from '@utils/api/apiHandlers/types';
 import {SaveShareModal} from '../Toolbar/SaveShareModal/SaveShareModal';
+import {fetchWithSession} from '@utils/api/session';
 
 /** Consolidated "Map actions" menu for the editor topbar: share, export,
  * and reset in one dropdown. Saving lives in the topbar SaveButton;
@@ -31,15 +32,29 @@ export const MapActionsDropdown: React.FC<{
       ? mapDocument.document_id
       : mapDocument?.public_id;
 
-  const downloadExport = (exportType: string) => {
+  const downloadExport = async (exportType: string) => {
     if (!exportId) return;
-    // Trigger via a transient anchor — a DropdownMenu.Item swallows a child anchor's
-    // click. The download filename comes from the backend's Content-Disposition.
+    // Fetch via the session-aware client (plain anchor navigation can't attach
+    // the X-Districtr-Session header) and save the blob through a transient
+    // anchor. Filename comes from the backend's Content-Disposition.
+    const response = await fetchWithSession(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/document/${exportId}/export?export_type=${exportType}`
+    );
+    if (!response.ok) {
+      console.error('Export failed', response.status);
+      return;
+    }
+    const filename =
+      response.headers.get('Content-Disposition')?.match(/filename="?([^";]+)"?/)?.[1] ??
+      `districtr-export-${exportId}.${exportType.toLowerCase()}`;
+    const url = URL.createObjectURL(await response.blob());
     const a = document.createElement('a');
-    a.href = `${process.env.NEXT_PUBLIC_API_URL}/api/document/${exportId}/export?export_type=${exportType}`;
+    a.href = url;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     a.remove();
+    URL.revokeObjectURL(url);
   };
 
   return (

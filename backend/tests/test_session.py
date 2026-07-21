@@ -42,6 +42,19 @@ def test_invalid_header_401_when_enforced(monkeypatch, header):
     assert exc.value.detail == "session_required"
 
 
+def test_share_token_rejected(monkeypatch):
+    """A share JWT (same key, no exp/aud) must not pass the session gate."""
+    monkeypatch.setattr(settings, "SESSION_ENFORCE", True)
+    share_token = jwt.encode(
+        {"token_id": "abc", "access": "edit", "password_required": False},
+        settings.SECRET_KEY,
+        algorithm="HS256",
+    )
+    with pytest.raises(HTTPException) as exc:
+        require_session(share_token)
+    assert exc.value.status_code == 401
+
+
 def test_research_api_key_accepted(monkeypatch):
     monkeypatch.setattr(settings, "SESSION_ENFORCE", True)
     monkeypatch.setattr(settings, "RESEARCH_API_KEY", "research-key")

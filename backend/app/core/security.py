@@ -160,13 +160,20 @@ async def verify_recaptcha_v3(token: str, ip: str | None) -> float:
     return score
 
 
+# Audience claim distinguishing session tokens from other JWTs signed with
+# SECRET_KEY (e.g. share tokens, which have no aud and never expire).
+SESSION_AUDIENCE = "districtr:session"
+
+
 def mint_session_token() -> tuple[str, datetime]:
     """Mint a stateless HMAC-signed session token and its expiry."""
     settings = get_settings()
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(hours=settings.SESSION_TOKEN_TTL_HOURS)
     token = jwt.encode(
-        {"iat": now, "exp": expires_at}, settings.SECRET_KEY, algorithm="HS256"
+        {"iat": now, "exp": expires_at, "aud": SESSION_AUDIENCE},
+        settings.SECRET_KEY,
+        algorithm="HS256",
     )
     return token, expires_at
 
@@ -188,7 +195,13 @@ def require_session(
         return
     if x_districtr_session:
         try:
-            jwt.decode(x_districtr_session, settings.SECRET_KEY, algorithms=["HS256"])
+            jwt.decode(
+                x_districtr_session,
+                settings.SECRET_KEY,
+                algorithms=["HS256"],
+                audience=SESSION_AUDIENCE,
+                options={"require": ["exp", "aud"]},
+            )
             return
         except jwt.InvalidTokenError:
             pass
