@@ -13,17 +13,25 @@ import {PUBLIC_SOURCE_ID} from '@constants/map/layerIds';
 export const publicDistrictsQueryKey = (mapDocument?: DocumentObject | null) =>
   [PUBLIC_SOURCE_ID, mapDocument?.public_id, mapDocument?.updated_at] as const;
 
-type PublicDistrictData = {
+type StatsFeatureProperties = {
   zone: NullableZone;
   demographic_data: Record<string, unknown> | null;
-  geometry: string | GeoJSON.Geometry | null;
+  updated_at?: string;
 };
+
+type StatsFeatureCollection = GeoJSON.FeatureCollection<
+  GeoJSON.Geometry | null,
+  StatsFeatureProperties
+>;
 
 export const getPublicDistricts = async (mapDocument?: DocumentObject | null) => {
   if (!mapDocument) {
     throw new Error('No map document provided');
   }
-  const response = await get<Array<PublicDistrictData>>(`document/${mapDocument?.public_id}/stats`)(
+  // /stats returns a GeoJSON FeatureCollection (or 307 redirects to the same
+  // shape on the S3 / Cloudfront CDN). Each feature is a zone; the unassigned bucket is a
+  // feature with `geometry: null`.
+  const response = await get<StatsFeatureCollection>(`document/${mapDocument?.public_id}/stats`)(
     {}
   );
   if (!response.ok) {
@@ -38,33 +46,31 @@ export const getPublicDistricts = async (mapDocument?: DocumentObject | null) =>
   };
   const assignments: Map<string, NullableZone> = new Map();
   let statefp = '';
-  response.response.forEach((row: PublicDistrictData) => {
+  const features = response.response?.features ?? [];
+  features.forEach(feature => {
+    const props = feature.properties ?? ({} as StatsFeatureProperties);
+    const zone = props.zone ?? null;
     const demographicDataRow =
-      row.demographic_data && typeof row.demographic_data === 'object' ? row.demographic_data : {};
+      props.demographic_data && typeof props.demographic_data === 'object'
+        ? props.demographic_data
+        : {};
     if (typeof demographicDataRow.statefp === 'string') {
       statefp = demographicDataRow.statefp;
     }
-    const path = row.zone !== null ? String(row.zone) : '__unassigned__';
+    const path = zone !== null ? String(zone) : '__unassigned__';
 
-    // Only create GeoJSON features for assigned zones (unassigned has no geometry)
-    if (row.zone !== null && row.geometry) {
-      const geometry =
-        typeof row.geometry === 'string'
-          ? (JSON.parse(row.geometry) as GeoJSON.Geometry)
-          : row.geometry;
-      const feature = {
+    if (zone !== null && feature.geometry) {
+      geojsonFeatures.push({
         type: 'Feature',
-        geometry,
+        geometry: feature.geometry as GeoJSON.Geometry,
         properties: {
           ...demographicDataRow,
-          zone: row.zone,
+          zone,
           path,
         },
-      } as GeoJSON.Feature<GeoJSON.Geometry, GeoJSON.GeoJsonProperties>;
-      geojsonFeatures.push(feature);
+      });
     }
 
-    // Always include demographic data (including unassigned) for correct totals
     demographicData.path.push(path);
     demographicData.sourceLayer.push(mapDocument?.parent_layer ?? '');
     Object.entries(demographicDataRow).forEach(([column, value]) => {
@@ -76,7 +82,7 @@ export const getPublicDistricts = async (mapDocument?: DocumentObject | null) =>
       if (!(typedColumn in demographicData)) demographicData[typedColumn] = [];
       demographicData[typedColumn]!.push(numericValue);
     });
-    assignments.set(path, row.zone);
+    assignments.set(path, zone);
   });
 
   return {

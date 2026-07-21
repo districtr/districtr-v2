@@ -1,17 +1,17 @@
 ---
 name: learn-db-query
-description: SQLAlchemy-first DB patterns, Alembic migrations, partition handling, and UDF policy
+description: SQLAlchemy-first DB patterns, Alembic migrations, ParentChildEdges partition handling, and UDF policy
 user-invocable: false
 ---
 
 # DB Query & Migrations
 
-Database implementation standards for SQLAlchemy-first query design, migration safety, partition handling, and controlled migration away from legacy UDFs.
+Database implementation standards for SQLAlchemy-first query design, migration safety, and controlled migration away from legacy UDFs.
 
 ## When To Use
 - You are changing DB query logic in backend code.
 - You are writing/changing Alembic migrations.
-- You are touching partitioned tables, spatial joins, or legacy SQL/UDF files.
+- You are touching `ParentChildEdges` (the only remaining partitioned table), spatial joins, or legacy SQL/UDF files.
 
 ## Canonical Files
 - `backend/app/core/db.py`
@@ -26,7 +26,7 @@ Database implementation standards for SQLAlchemy-first query design, migration s
 - Database is **PostgreSQL 15 with PostGIS 3.3**. Spatial types and functions are available.
 - **SQLAlchemy-First**: prefer SQLAlchemy/SQLModel query composition and parameterized set-based SQL.
 - No schema change ships without Alembic migration coverage.
-- Partition-sensitive operations must preserve partition creation/routing semantics.
+- `document.assignments` and `document.community_assignments` are **plain tables** (departitioned). Only `ParentChildEdges` remains LIST-partitioned (on `districtr_map`); partition-routing semantics apply there only.
 - Bind parameters are required for values; identifier interpolation is restricted and justified.
 - Keep migration behavior deterministic in both upgrade and downgrade paths.
 
@@ -49,7 +49,7 @@ Legacy UDFs remain supported but should not expand. When touching UDF-backed flo
 1. Confirm query can be expressed with SQLAlchemy + set-based SQL first.
 2. If raw SQL is needed, confirm bindparam usage and SQL injection safety.
 3. Add/adjust migration and downgrade for schema-impacting changes.
-4. Validate partition behavior for assignments/parent-child edges where relevant.
+4. Validate partition behavior for `ParentChildEdges` where relevant (assignments are unpartitioned plain tables).
 5. Add or update backend tests covering query correctness and edge cases.
 
 ## Validation Commands
@@ -59,5 +59,6 @@ Legacy UDFs remain supported but should not expand. When touching UDF-backed flo
 ## Common Failure Modes
 - Broken downgrades from migration-only forward assumptions.
 - Query regressions from replacing set-based SQL with Python-side loops.
-- Partition mismatches causing inserts to fail or route incorrectly.
+- Partition mismatches on `ParentChildEdges` causing inserts to fail or route incorrectly (assignments no longer partitioned).
 - Raw SQL safety bugs from string interpolation of values.
+- Concurrent cache rebuilds into `district_unions` without `ON CONFLICT DO NOTHING` → unique-violation 500s.

@@ -78,7 +78,7 @@ class DocumentEvaluationContext:
             d for d in self.district_stats if d.zone is not None and d.geometry
         ]
         shapes = np.array(
-            [shapely.from_geojson(d.geometry) for d in districts], dtype=object
+            [shapely.geometry.shape(d.geometry) for d in districts], dtype=object
         )
         projected = shapely.transform(shapes, _reproject)
         return {

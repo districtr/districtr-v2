@@ -31,6 +31,9 @@ export const CANONICAL_LAYER_IDS = {
     BOUNDARY: 'counties_boundary',
     LABELS: 'counties_labels',
     HIGHLIGHT: 'counties_highlight',
+    HOVER_FILL: 'counties_hover_fill',
+    MASK: 'counties_mask',
+    SELECTED: 'counties_selected',
   },
   BLOCK: {
     PARENT: {

@@ -16,7 +16,7 @@ from sqlmodel import (
     Index,
 )
 from sqlalchemy.types import ARRAY
-from sqlalchemy.dialects.postgresql import JSON, ENUM
+from sqlalchemy.dialects.postgresql import JSON, ENUM, TIMESTAMP
 from sqlalchemy import Float, SmallInteger, text
 import pydantic_geojson
 from app.constants import DOCUMENT_SCHEMA
@@ -70,7 +70,10 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     # We'll want to enforce the constraint tha the gerrydb_table_name is either in
     # GerrydbTable.name or a materialized view of two GerryDBTables some other way.
     gerrydb_table_name: str | None = Field(nullable=True)
-    # Null means default number of districts? Should we have a sensible default?
+    # On fixed maps (num_districts_modifiable=False) this is the exact district
+    # count and must not be NULL (batch_insert_assignments raises on such rows).
+    # On modifiable/custom maps it is the default and floor for new documents:
+    # a CSV upload can grow a document's count beyond it but never below it.
     num_districts: int | None = Field(nullable=True, default=None)
     # If False, users cannot change the number of districts on the frontend.
     num_districts_modifiable: bool = Field(
@@ -292,6 +295,22 @@ class Document(TimeStampMixin, SQLModel, table=True):
             nullable=False,
             server_default=DocumentType.DISTRICT.value,
         )
+    )
+    # Bumped only on assignment writes that actually change geo_id → zone
+    # mapping. Drives per-zone district_unions cache invalidation and the
+    # CDN-vs-inline branch in /stats.
+    assignments_updated_at: datetime = Field(
+        sa_column=Column(
+            TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=text("NOW()"),
+        )
+    )
+    # Last successful upload of plans/display/{public_id}.geojson to S3.
+    # Compared against assignments_updated_at to decide if the CDN object is
+    # fresh enough to redirect to.
+    stats_published_at: datetime | None = Field(
+        sa_column=Column(TIMESTAMP(timezone=True), nullable=True)
     )
 
 
@@ -546,6 +565,8 @@ class DistrictUnions(TimeStampMixin, SQLModel, table=True):
 
 class DistrictUnionsResponse(BaseModel):
     zone: int | None
-    geometry: str | None
+    # Native GeoJSON object (Postgres ST_AsGeoJSON(...)::json) — avoids the
+    # client-side double-parse of a JSON-encoded string inside the outer JSON.
+    geometry: dict | None
     demographic_data: dict[str, int] | None
     updated_at: datetime

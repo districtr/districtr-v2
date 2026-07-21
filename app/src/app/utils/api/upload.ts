@@ -85,25 +85,18 @@ const partitionRows = (rows: string[][]): PartitionResult => {
   return {assignments, skippedGeoIds, stateFipsSet};
 };
 
-// Slug patterns must stay in sync with how maps are named in the DB
-// A mismatch will silently break CSV import for that state.
-const inferCongressionalMap = (
-  fips: string,
-  availableMaps: DistrictrMap[]
-): DistrictrMap | null => {
+// CSV imports target the state's custom (modifiable-district) map by naming
+// convention: every deployed environment must have a visible custom module
+// for the importer to work. There is no fallback to fixed-district maps —
+// their locked num_districts silently clamps uploaded plans. The v1 slug is
+// accepted while environments that predate the v2 catalog remain in service.
+const inferMapForCsv = (fips: string, availableMaps: DistrictrMap[]): DistrictrMap | null => {
   const abbr = FIPS_TO_ABBR[fips];
   if (!abbr) return null;
   const lower = abbr.toLowerCase();
-  // Prefer the canonical congressional slug, then name-matching, then state senate
-  // as a fallback for at-large states (AK, DE, ND, SD, WY) that have no congressional map.
   return (
-    availableMaps.find(m => m.districtr_map_slug === `${lower}_congressional_districts`) ??
-    availableMaps.find(
-      m =>
-        m.districtr_map_slug.startsWith(`${lower}_`) &&
-        m.name.toLowerCase().includes('congressional')
-    ) ??
-    availableMaps.find(m => m.districtr_map_slug === `${lower}_state_senate_districts`) ??
+    availableMaps.find(m => m.districtr_map_slug === `${lower}_custom_districts_v2`) ??
+    availableMaps.find(m => m.districtr_map_slug === `${lower}_custom_districts`) ??
     null
   );
 };
@@ -183,12 +176,12 @@ export const processFile = ({
       }
 
       const fips = [...stateFipsSet][0];
-      const districtrMap = inferCongressionalMap(fips, availableMaps);
+      const districtrMap = inferMapForCsv(fips, availableMaps);
       if (!districtrMap) {
         const stateName = FIPS_TO_NAME[fips] ?? `FIPS ${fips}`;
         setError({
           ok: false,
-          detail: {message: `No congressional map found for ${stateName}`},
+          detail: {message: `No custom districts map available for ${stateName}`},
         });
         return;
       }
