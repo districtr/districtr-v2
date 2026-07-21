@@ -89,9 +89,12 @@ export default function ZoomToFeature({
   // Animated fit options shared by every final zoom, so all paths land the same way.
   // Fixed short duration (rather than speed-based, which scales with distance) and a
   // tight padding so the target fills the viewport; the wider `padding` prop only
-  // frames the general-area snap.
+  // frames the general-area snap. `linear` swaps flyTo's zoom-out-then-in swoop for a
+  // straight ease — the swoop is what reads as motion sickness. (MapLibre already
+  // skips animation entirely for users with OS-level reduced motion.)
   const finalFitOptions = () => ({
     duration: 700,
+    linear: true,
     padding: getFitBoundsPadding(mapRef, 40),
   });
 
@@ -176,7 +179,9 @@ export default function ZoomToFeature({
       if (camera) {
         mapRef.jumpTo({
           center: camera.center,
-          zoom: Math.max(0, Math.min((camera.zoom ?? 10) - 3, 10)),
+          // Two levels out, not more: a bigger gap means a faster zoom rush
+          // during the fly-in, which amplifies motion sickness.
+          zoom: Math.max(0, Math.min((camera.zoom ?? 10) - 2, 10)),
         });
       }
     }
