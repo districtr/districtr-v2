@@ -88,7 +88,6 @@ export default function ZoomToFeature({
 
   // Animated fit options shared by every final zoom, so all paths land the same way.
   const finalFitOptions = () => ({
-    maxZoom: 16,
     speed: 2.4, // default 1.2; zippier since we already snapped nearby
     ...(padding ? {padding: getFitBoundsPadding(mapRef, padding)} : {}),
   });
