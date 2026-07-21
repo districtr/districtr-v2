@@ -20,6 +20,8 @@ import {
 } from '@/app/constants/document/limits';
 import {MinusIcon, PlusIcon, Pencil1Icon} from '@radix-ui/react-icons';
 import {ACCESS_STATES} from '@constants/document/state';
+import {temporalManager} from '@/app/utils/temporal';
+import {MAP_MODES} from '@constants/map/mode';
 
 export const DistrictsZonePicker: React.FC = () => {
   const [showNumDistrictEditor, setShowNumDistrictEditor] = useState(false);
@@ -54,15 +56,21 @@ export const DistrictsZonePicker: React.FC = () => {
     setNumDistricts(newNumDistricts);
     if (newNumDistricts < numDistricts) {
       removeAssignmentsForZonesAbove(newNumDistricts);
+      // num_districts isn't part of the undo/redo history, so rewinding could
+      // resurrect assignments in zones that no longer exist. Clear history at
+      // this boundary — the dialog already tells the user this can't be undone.
+      temporalManager.clear(MAP_MODES.DISTRICTS);
       if (selectedZone > newNumDistricts) {
         setSelectedZone(1);
       }
     }
   };
 
-  const requestNumDistricts = (requested: number) => {
+  /** Clamps and applies a requested count. Returns the committed value, or
+   * null when nothing changed yet (no-op, or deferred to the confirm dialog). */
+  const requestNumDistricts = (requested: number): number | null => {
     const clamped = Math.max(MIN_NUM_DISTRICTS, Math.min(MAX_NUM_DISTRICTS, requested));
-    if (clamped === numDistricts) return;
+    if (clamped === numDistricts) return null;
     if (clamped < numDistricts) {
       const {zoneAssignments} = useAssignmentsStore.getState();
       let hasAssignmentsAbove = false;
@@ -71,10 +79,11 @@ export const DistrictsZonePicker: React.FC = () => {
       });
       if (hasAssignmentsAbove) {
         setPendingDecrease(clamped);
-        return;
+        return null;
       }
     }
     commitNumDistricts(clamped);
+    return clamped;
   };
 
   const handleCommitDraft = () => {
@@ -83,10 +92,10 @@ export const DistrictsZonePicker: React.FC = () => {
       setDraftCount(String(numDistricts));
       return;
     }
-    requestNumDistricts(parsed);
-    // If the request was clamped or needs confirmation, snap the draft back to
-    // the current value; a confirmed change re-syncs via the effect above.
-    setDraftCount(String(numDistricts));
+    const committed = requestNumDistricts(parsed);
+    // Sync the draft to the value just committed; on a no-op or a change
+    // pending confirmation, snap back to the still-current count.
+    setDraftCount(String(committed ?? numDistricts));
   };
 
   const isReadOnly = access === ACCESS_STATES.READ;
@@ -122,7 +131,10 @@ export const DistrictsZonePicker: React.FC = () => {
                 size="1"
                 onChange={e => setDraftCount(e.target.value)}
                 onBlur={handleCommitDraft}
-                onKeyDown={e => {
+                // Commit on keyup, not keydown: keydown fires on OS key-repeat,
+                // and once the confirm dialog opens (auto-focusing Cancel) a
+                // repeated Enter would land on Cancel and silently dismiss it.
+                onKeyUp={e => {
                   if (e.key === 'Enter') {
                     e.currentTarget.blur();
                   }
