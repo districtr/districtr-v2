@@ -40,9 +40,19 @@ export default function ZoomToFeature({
 }: ZoomToFeatureProps) {
   const mapRef = useMapStore(state => state.getMapRef());
   const mapDocument = useMapStore(state => state.mapDocument);
-  // Pending 'idle' handler from a single-geometry zoom; cancelled when a new
-  // zoom starts so a stale handler can't yank the camera later.
+  // Pending 'idle' handler from an in-flight zoom; cancelled when a new zoom
+  // starts — or the component unmounts — so a stale handler can't yank the
+  // camera later.
   const pendingIdleHandler = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pendingIdleHandler.current) {
+        mapRef?.off('idle', pendingIdleHandler.current);
+        pendingIdleHandler.current = null;
+      }
+    };
+  }, [mapRef]);
 
   // on repeat visit, prevent zooming to bounds on first render
   const [hasMounted, setHasMounted] = useState(false);
