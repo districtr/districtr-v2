@@ -1,4 +1,5 @@
-import {Blockquote, Button, Flex, SegmentedControl, Text} from '@radix-ui/themes';
+import {Button, Callout, Flex, SegmentedControl, Text} from '@radix-ui/themes';
+import {ExclamationTriangleIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@/app/store/mapStore';
 import {Contiguity} from './Contiguity';
 import {ZoomToUnassigned} from './ZoomToUnassigned';
@@ -50,22 +51,20 @@ export const MapValidation = () => {
   return (
     <Flex direction="column" gap="2">
       {isOutdated && (
-        <>
-          <Blockquote size="2" color="red">
-            <Text>
-              Map validation requires that your plan be saved to the cloud. Displaying results for
-              your last save.
-            </Text>
-            <br />
-            <br />
-            <Button onClick={() => handlePutAssignments()} variant="outline">
-              <Flex direction="row" gap="2" align="center" justify="center">
-                <CloudNotSavedIcon />
-                <Text>Save Changes</Text>
-              </Flex>
-            </Button>
-          </Blockquote>
-        </>
+        <Callout.Root color="red" role="alert">
+          <Callout.Icon>
+            <ExclamationTriangleIcon />
+          </Callout.Icon>
+          <Callout.Text size="3" weight="medium">
+            You have unsaved changes — results below are from your last save.
+          </Callout.Text>
+          <Button onClick={() => handlePutAssignments()} color="red" className="cursor-pointer">
+            <Flex direction="row" gap="2" align="center" justify="center">
+              <CloudNotSavedIcon />
+              <Text>Save changes to update</Text>
+            </Flex>
+          </Button>
+        </Callout.Root>
       )}
       {/* Segmented control to match the Table | Map sub-section tabs. */}
       <SegmentedControl.Root size="2" value={activePanel} onValueChange={setActivePanel}>
