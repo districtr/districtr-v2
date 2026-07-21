@@ -133,6 +133,7 @@ export default function ZoomToFeature({
         ],
         {
           maxZoom: 16,
+          speed: 2.4, // default 1.2; zippier since we already snapped nearby
           ...(padding ? {padding: getFitBoundsPadding(mapRef, padding)} : {}),
         }
       );
@@ -165,6 +166,7 @@ export default function ZoomToFeature({
     // Multi-geometry bboxes span real extents; the cap only guards degenerate cases.
     mapRef?.fitBounds(bounds, {
       maxZoom: 10,
+      speed: 2.4,
       ...(padding ? {padding: getFitBoundsPadding(mapRef, padding)} : {}),
     });
   };

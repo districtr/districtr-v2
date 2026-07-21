@@ -87,7 +87,7 @@ export const ZoomToUnassigned = () => {
             features={unassignedFeatureBboxes}
             selectedIndex={selectedIndex}
             setSelectedIndex={setSelectedIndex}
-            padding={240}
+            padding={100}
           />
         </Flex>
       </ConditionalScrollArea>
