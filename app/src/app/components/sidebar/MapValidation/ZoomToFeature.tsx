@@ -98,59 +98,59 @@ export default function ZoomToFeature({
     padding: getFitBoundsPadding(mapRef, 40),
   });
 
-  // Once tiles have loaded, query the map for the geometries' rendered pieces and
-  // zoom to their union bbox. Needed because unassigned-area bboxes are
+  // After the snap, wait for the map to go idle (tiles loaded), then fly in.
+  // With geoIds, the map is queried for the geometries' rendered pieces and the
+  // fly targets their union bbox — needed because unassigned-area bboxes are
   // centroid-derived: they understate the true extent, and a single-unit
-  // component collapses to a point.
-  const zoomToRenderedGeometries = (geoIds: string[], approxBounds: LngLatBoundsLike) => {
+  // component collapses to a point. Without geoIds the fly targets approxBounds
+  // directly; waiting for idle anyway keeps the pacing identical to the
+  // query path, so every zoom reads as snap → beat → fly.
+  const flyInAfterIdle = (approxBounds: LngLatBoundsLike, geoIds?: string[]) => {
     if (!mapRef) return;
     const onIdle = () => {
       pendingIdleHandler.current = null;
-      const sourceLayers = [mapDocument?.parent_layer, mapDocument?.child_layer].filter(
-        (l): l is string => !!l
-      );
-      const pieces = sourceLayers.flatMap(sourceLayer =>
-        mapRef.querySourceFeatures(BLOCK_SOURCE_ID, {
-          sourceLayer,
-          filter: ['in', ['get', 'path'], ['literal', geoIds]],
-        })
-      );
-      if (!pieces.length) {
-        // Geometry not in the tiles at this zoom; still fly to the approximate
-        // bounds rather than stranding the camera at the general area.
-        mapRef.fitBounds(approxBounds, finalFitOptions());
-        return;
-      }
-      // A feature can be split across tiles; union the bboxes of every piece.
-      let minX = Infinity;
-      let minY = Infinity;
-      let maxX = -Infinity;
-      let maxY = -Infinity;
-      const eat = (coords: any) => {
-        if (typeof coords[0] === 'number') {
-          if (coords[0] < minX) minX = coords[0];
-          if (coords[0] > maxX) maxX = coords[0];
-          if (coords[1] < minY) minY = coords[1];
-          if (coords[1] > maxY) maxY = coords[1];
-        } else {
-          coords.forEach(eat);
-        }
-      };
-      pieces.forEach(p => 'coordinates' in p.geometry && eat(p.geometry.coordinates));
-      if (minX > maxX) {
-        mapRef.fitBounds(approxBounds, finalFitOptions());
-        return;
-      }
       mapRef.fitBounds(
-        [
-          [minX, minY],
-          [maxX, maxY],
-        ],
+        (geoIds?.length && queryRenderedBounds(geoIds)) || approxBounds,
         finalFitOptions()
       );
     };
     pendingIdleHandler.current = onIdle;
     mapRef.once('idle', onIdle);
+  };
+
+  // Union bbox of the geometries' rendered tile pieces, or null if none are in
+  // the loaded tiles (a feature can be split across tiles).
+  const queryRenderedBounds = (geoIds: string[]): LngLatBoundsLike | null => {
+    if (!mapRef) return null;
+    const sourceLayers = [mapDocument?.parent_layer, mapDocument?.child_layer].filter(
+      (l): l is string => !!l
+    );
+    const pieces = sourceLayers.flatMap(sourceLayer =>
+      mapRef.querySourceFeatures(BLOCK_SOURCE_ID, {
+        sourceLayer,
+        filter: ['in', ['get', 'path'], ['literal', geoIds]],
+      })
+    );
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    const eat = (coords: any) => {
+      if (typeof coords[0] === 'number') {
+        if (coords[0] < minX) minX = coords[0];
+        if (coords[0] > maxX) maxX = coords[0];
+        if (coords[1] < minY) minY = coords[1];
+        if (coords[1] > maxY) maxY = coords[1];
+      } else {
+        coords.forEach(eat);
+      }
+    };
+    pieces.forEach(p => 'coordinates' in p.geometry && eat(p.geometry.coordinates));
+    if (minX > maxX) return null;
+    return [
+      [minX, minY],
+      [maxX, maxY],
+    ];
   };
 
   const zoomToFeature = (selectedIndex: number | null) => {
@@ -186,13 +186,7 @@ export default function ZoomToFeature({
       }
     }
     const geoIds = isFeature(feature) ? feature.properties?.geo_ids : undefined;
-    if (geoIds?.length) {
-      // Centroid-derived bounds: refine from the map's rendered geometries.
-      zoomToRenderedGeometries(geoIds, bounds);
-    } else {
-      // Real bbox (e.g. contiguity components): zoom straight to it.
-      mapRef?.fitBounds(bounds, finalFitOptions());
-    }
+    flyInAfterIdle(bounds, geoIds);
   };
 
   useEffect(() => {
