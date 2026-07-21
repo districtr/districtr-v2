@@ -553,6 +553,11 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         childToParent,
       };
     } else {
+      // Healing is an automatic consequence of the triggering gesture (exiting block
+      // view), not a user edit — suppress its undo snapshot so it coalesces into that
+      // gesture's history entry instead of adding a transient pre-heal step.
+      const {isTracking, pause} = useAssignmentsStore.temporal.getState();
+      isTracking && pause();
       set({
         zoneAssignments: new Map(zoneAssignments),
         accumulatedAssignments: new Map<string, NullableZone>(),
@@ -566,6 +571,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         pendingShatterUndoState: null,
         zonesLastUpdated: new Map(get().zonesLastUpdated),
       });
+      isTracking && useAssignmentsStore.temporal.getState().resume();
     }
   },
   ingestAccumulatedAssignments: () => {
