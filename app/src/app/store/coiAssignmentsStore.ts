@@ -1095,6 +1095,11 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     if (!healed) return;
 
     const currentTime = new Date().toISOString();
+    // Healing is an automatic consequence of the gesture that triggered it (paint or
+    // exiting block view), not a user edit — suppress its undo snapshot so it coalesces
+    // into that gesture's history entry instead of adding a transient pre-heal step.
+    const {isTracking, pause, resume} = useCoiAssignmentsStore.temporal.getState();
+    isTracking && pause();
     set({
       communityAssignments,
       accumulatedAssignments: new Map<string, CoiAccumulatedMutation>(),
@@ -1104,6 +1109,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       childToParent,
       clientLastUpdated: currentTime,
     });
+    isTracking && resume();
 
     if (mapDocument) {
       idb.updateIdbCoiAssignments(mapDocument, communityAssignments, currentTime, true);
