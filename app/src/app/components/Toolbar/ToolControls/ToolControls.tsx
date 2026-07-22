@@ -23,8 +23,11 @@ const ToolControlsConfig: Record<
     Component: BrushControls,
   },
   // The break flow is guided by the on-map BlockModePill (which also hosts
-  // the exit control), so it needs no sidebar controls.
-  shatter: {},
+  // the exit control); the sidebar keeps the paint controls, since breaking
+  // leads straight into painting blocks.
+  shatter: {
+    Component: BrushControls,
+  },
   inspector: {
     Component: InspectorControls,
   },

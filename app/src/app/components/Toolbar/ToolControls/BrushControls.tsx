@@ -15,6 +15,8 @@ export const BrushControls = () => {
   const clearPaintConstraint = useOverlayStore(state => state.clearPaintConstraint);
   const showZonePicker =
     activeTool === ACTIVE_TOOLS.BRUSH ||
+    // Break paints blocks, so it keeps the full paint controls.
+    activeTool === ACTIVE_TOOLS.SHATTER ||
     (mapMode === MAP_MODES.COI && activeTool === ACTIVE_TOOLS.ERASER);
 
   return (
