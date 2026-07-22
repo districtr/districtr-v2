@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import {Button, DropdownMenu, Flex, Spinner, Text} from '@radix-ui/themes';
+import {Button, DropdownMenu, Flex, Spinner, Text, Tooltip} from '@radix-ui/themes';
 import {
   BarChartIcon,
   CaretDownIcon,
@@ -26,10 +26,15 @@ type ViewMode = 'draw' | 'superdraw' | 'display' | 'evaluate';
 
 const MODE_META: Record<
   ViewMode,
-  {label: string; Icon: React.ComponentType<{className?: string}>}
+  {label: string; Icon: React.ComponentType<{className?: string}>; tooltip?: string}
 > = {
   draw: {label: 'Draw', Icon: Pencil1Icon},
-  superdraw: {label: 'Super Draw', Icon: MagicWandIcon},
+  superdraw: {
+    label: 'Super Draw',
+    Icon: MagicWandIcon,
+    tooltip:
+      'Advanced drawing for power users: break units into census blocks, inspect map data, and access extra options.',
+  },
   display: {label: 'View', Icon: EyeOpenIcon},
   evaluate: {label: 'Evaluate', Icon: BarChartIcon},
 };
@@ -49,7 +54,7 @@ const ModeSwitcherItem: React.FC<{
 }> = ({mode, isCurrent, disabled, disabledReason, locked, onSelect}) => {
   const meta = MODE_META[mode];
   const Icon = locked ? LockClosedIcon : meta.Icon;
-  return (
+  const item = (
     <DropdownMenu.Item disabled={disabled} onSelect={onSelect}>
       <Flex align="center" justify="between" gap="4" width="100%" py="1">
         <Flex align="center" gap="3">
@@ -63,6 +68,13 @@ const ModeSwitcherItem: React.FC<{
         {isCurrent && <CheckIcon className="shrink-0" />}
       </Flex>
     </DropdownMenu.Item>
+  );
+  return meta.tooltip ? (
+    <Tooltip content={meta.tooltip} side="right" maxWidth="260px">
+      {item}
+    </Tooltip>
+  ) : (
+    item
   );
 };
 
