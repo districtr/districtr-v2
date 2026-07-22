@@ -7,6 +7,10 @@ import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 import {getFeaturesIntersectingCounties} from '@utils/map/getFeaturesIntersectingCounties';
 import {ACCESS_STATES} from '@constants/document/state';
 
+// Mirrors PRESET_BUTTON_STYLE in BrushSizeSelector (not imported — that file
+// imports this one, and a cycle isn't worth three properties).
+const PRESET_BUTTON_STYLE = {height: 24, margin: 0, borderRadius: 7};
+
 export const COUNTY_BRUSH_FLASH_ID = 'county-brush';
 
 /** County-brush state + setter, shared by the toolbar button and the
@@ -45,11 +49,15 @@ export default function PaintByCounty() {
     <Tooltip content="Paint whole counties at a time">
       <Button
         size="1"
-        radius="none"
-        variant={paintByCounty ? 'solid' : 'surface'}
+        variant={paintByCounty ? 'solid' : 'ghost'}
+        color={paintByCounty ? undefined : 'gray'}
+        style={{
+          ...PRESET_BUTTON_STYLE,
+          ...(paintByCounty ? {boxShadow: '0 1px 3px var(--gray-a7)'} : {}),
+        }}
         onClick={() => setCountyBrush(!paintByCounty)}
         disabled={access === ACCESS_STATES.READ}
-        className={flashTarget === COUNTY_BRUSH_FLASH_ID ? 'flash-target' : ''}
+        className={`tool-button ${flashTarget === COUNTY_BRUSH_FLASH_ID ? 'flash-target' : ''}`}
       >
         Counties
       </Button>

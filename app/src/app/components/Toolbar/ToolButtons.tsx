@@ -30,26 +30,34 @@ export const ToolButtons: React.FC<{
 
   const renderTool = (tool: ActiveToolConfig, buttonStyle: React.CSSProperties) => {
     const IconComponent = tool.icon;
+    const isActive = activeTool === tool.mode;
     return (
       <Tooltip.Provider key={`toolbar-tooltip-${tool.mode}`}>
         <Tooltip.Root open={showShortcuts || activeTooltip === tool.mode || undefined}>
           <Tooltip.Trigger asChild style={{flexGrow: buttonStyle.flexGrow as number | undefined}}>
             <IconButton
               data-testid={`${tool.mode}-tool`}
-              className="cursor-pointer"
+              className="cursor-pointer tool-button"
               onMouseEnter={() => setActiveTooltip(tool.mode)}
               onMouseLeave={() => setActiveTooltip(null)}
               onClick={() => {
                 if (tool.onClick) {
                   tool.onClick();
                 } else {
-                  setActiveTool(activeTool === tool.mode ? ACTIVE_TOOLS.PAN : tool.mode);
+                  setActiveTool(isActive ? ACTIVE_TOOLS.PAN : tool.mode);
                 }
               }}
-              style={{position: 'relative', height: TOOLBAR_HEIGHT, ...buttonStyle}}
-              variant={tool.variant || activeTool === tool.mode ? 'solid' : 'surface'}
-              color={tool.color}
-              radius="none"
+              style={{
+                position: 'relative',
+                height: TOOLBAR_HEIGHT,
+                // Ghost buttons carry negative alignment margins; neutralize inside the track.
+                margin: 0,
+                borderRadius: 7,
+                ...(isActive ? {boxShadow: '0 1px 3px var(--gray-a7)'} : {}),
+                ...buttonStyle,
+              }}
+              variant={tool.variant ?? (isActive ? 'solid' : 'ghost')}
+              color={isActive ? tool.color : 'gray'}
               disabled={tool.disabled}
             >
               {/* Single-key shortcuts float in the button's top-right corner;
@@ -119,20 +127,11 @@ export const ToolButtons: React.FC<{
       gap="2"
       data-testid="toolbar"
     >
-      <Flex direction="row" wrap="wrap" className="flex-grow">
-        {mainTools.map((tool, i) =>
-          renderTool(tool, {
-            minWidth: TOOLBAR_SIZE,
-            flexGrow: 1,
-            ...(i === 0 ? {borderTopLeftRadius: 8, borderBottomLeftRadius: 8} : {}),
-            ...(i === mainTools.length - 1
-              ? {borderTopRightRadius: 8, borderBottomRightRadius: 8}
-              : {}),
-          })
-        )}
+      <Flex direction="row" wrap="wrap" className="flex-grow segmented-track">
+        {mainTools.map(tool => renderTool(tool, {minWidth: TOOLBAR_SIZE, flexGrow: 1}))}
       </Flex>
-      <Flex direction="row" gap="1">
-        {historyTools.map(tool => renderTool(tool, {width: HISTORY_BUTTON_WIDTH, borderRadius: 8}))}
+      <Flex direction="row" className="segmented-track">
+        {historyTools.map(tool => renderTool(tool, {width: HISTORY_BUTTON_WIDTH}))}
       </Flex>
     </Flex>
   );

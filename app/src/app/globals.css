@@ -142,6 +142,24 @@ body {
   }
 }
 
+/* Segmented tool groups: a soft recessed track holding floating buttons. */
+.segmented-track {
+  background: var(--gray-a3);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+}
+.tool-button {
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    box-shadow 120ms ease,
+    transform 80ms ease;
+}
+.tool-button:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
 /* Brief attention flash for controls targeted by Getting Started hints. */
 @keyframes districtr-flash {
   0%,

@@ -1,10 +1,9 @@
-import {Slider, Flex, Heading, Text, IconButton, Button, Tooltip} from '@radix-ui/themes';
+import {Slider, Flex, Text, Button, Tooltip} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useFeatureFlagStore} from '@store/featureFlagStore';
 import {useToolbarStore} from '@store/toolbarStore';
-import {MinusIcon, PlusIcon} from '@radix-ui/react-icons';
-import {useEffect} from 'react';
+import {useEffect, type CSSProperties} from 'react';
 import {ACCESS_STATES} from '@constants/document/state';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
 import PaintByCounty, {useCountyBrush} from '@components/Toolbar/PaintByCounty';
@@ -17,6 +16,14 @@ const BRUSH_PRESETS = [
   {label: 'M', value: 50},
   {label: 'L', value: 90},
 ];
+// Every button in the preset track (PaintByCounty keeps its own copy): fixed
+// height so ghost/solid toggles don't reflow, margin 0 to cancel Radix ghost
+// buttons' negative alignment margins.
+const PRESET_BUTTON_STYLE: CSSProperties = {
+  height: 24,
+  margin: 0,
+  borderRadius: 7,
+};
 /**
  * BrushSizeSelector
  * Note: right now the brush size is an arbitrary value between
@@ -90,13 +97,15 @@ export function BrushSizeSelector() {
           <Text size="2" style={{flexShrink: 0}}>
             Brush Size
           </Text>
-          <Flex gap="0" flexShrink="0">
+          <Flex flexShrink="0" align="center" className="segmented-track">
             {superDraw && canBreak && (
               <Tooltip content="Break a unit into census blocks and paint them individually">
                 <Button
                   size="1"
-                  radius="none"
-                  variant="surface"
+                  variant="ghost"
+                  color="gray"
+                  className="tool-button"
+                  style={PRESET_BUTTON_STYLE}
                   onClick={handleBlocks}
                   disabled={access === ACCESS_STATES.READ}
                 >
@@ -104,22 +113,30 @@ export function BrushSizeSelector() {
                 </Button>
               </Tooltip>
             )}
-            {BRUSH_PRESETS.map(preset => (
-              <Button
-                key={preset.label}
-                size="1"
-                radius="none"
-                variant={!paintByCounty && brushSize === preset.value ? 'solid' : 'surface'}
-                onClick={() => {
-                  if (paintByCounty) setCountyBrush(false);
-                  setBrushSize(preset.value);
-                }}
-                disabled={access === ACCESS_STATES.READ}
-                aria-label={`Brush size ${preset.label}: ${preset.value}`}
-              >
-                {preset.label}
-              </Button>
-            ))}
+            {BRUSH_PRESETS.map(preset => {
+              const isActive = !paintByCounty && brushSize === preset.value;
+              return (
+                <Button
+                  key={preset.label}
+                  size="1"
+                  variant={isActive ? 'solid' : 'ghost'}
+                  color={isActive ? undefined : 'gray'}
+                  className="tool-button"
+                  style={{
+                    ...PRESET_BUTTON_STYLE,
+                    ...(isActive ? {boxShadow: '0 1px 3px var(--gray-a7)'} : {}),
+                  }}
+                  onClick={() => {
+                    if (paintByCounty) setCountyBrush(false);
+                    setBrushSize(preset.value);
+                  }}
+                  disabled={access === ACCESS_STATES.READ}
+                  aria-label={`Brush size ${preset.label}: ${preset.value}`}
+                >
+                  {preset.label}
+                </Button>
+              );
+            })}
             {paintCounties && <PaintByCounty />}
           </Flex>
           <Slider
@@ -130,6 +147,7 @@ export function BrushSizeSelector() {
             min={BRUSH_MIN_SIZE}
             max={BRUSH_MAX_SIZE}
             disabled={access === ACCESS_STATES.READ}
+            radius="full"
             // ponytail: rail uses --gray-a3/a5; bump locally for a more visible passive state
             // Grayed (but still usable — dragging it exits county mode) while
             // the county brush is on.
@@ -138,10 +156,22 @@ export function BrushSizeSelector() {
                 '--gray-a3': 'var(--gray-a6)',
                 '--gray-a5': 'var(--gray-a8)',
                 opacity: paintByCounty ? 0.4 : 1,
+                transition: 'opacity 120ms ease',
               } as React.CSSProperties
             }
           />
-          <Text size="2" as="span" color="gray" style={{opacity: paintByCounty ? 0.4 : 1}}>
+          <Text
+            size="2"
+            as="span"
+            color="gray"
+            style={{
+              // Reserve three digits so the row doesn't shift as the value changes.
+              minWidth: '3ch',
+              textAlign: 'right',
+              fontVariantNumeric: 'tabular-nums',
+              opacity: paintByCounty ? 0.4 : 1,
+            }}
+          >
             {brushSize}
           </Text>
         </Flex>
