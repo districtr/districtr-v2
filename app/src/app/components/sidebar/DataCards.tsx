@@ -17,6 +17,8 @@ import {SummaryPanel, type SectionKey} from './SummaryPanel';
 import {MapControlsStore, useMapControlsStore} from '@store/mapControlsStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
+import {HelpTip} from '@components/InfoTip/HelpTip';
+import type {HelpTipKey} from '@components/InfoTip/helpTipContent';
 
 // One constant drives both the CSS transition and the delayed unmount so the
 // two can't drift apart.
@@ -133,6 +135,8 @@ export type SidebarSection = {
   content: React.ReactNode;
   /** Hidden in communities (COI) mode, matching the old accordion's filter. */
   districtsOnly?: boolean;
+  /** Contextual HelpTip key shown next to the section's accordion header, if any. */
+  helpTip?: HelpTipKey;
 };
 
 /** The single registry of sidebar panels, shared by Draw and Super Draw (the
@@ -163,6 +167,7 @@ export const SECTIONS: SidebarSection[] = [
         withCoalition
       />
     ),
+    helpTip: 'demographics',
   },
   {
     key: 'election',
@@ -180,6 +185,7 @@ export const SECTIONS: SidebarSection[] = [
       />
     ),
     districtsOnly: true,
+    helpTip: 'elections',
   },
   {
     key: 'mapValidation',
@@ -209,26 +215,36 @@ const AccordionSection: React.FC<{
       className="border border-gray-300 rounded-lg bg-white"
       data-testid={`data-panel-${section.key}`}
     >
-      <button
-        onClick={onToggle}
-        aria-expanded={open}
-        className="w-full cursor-pointer text-left p-3 rounded-lg transition-colors hover:bg-blue-50"
+      {/* The HelpTip's own trigger is a button too, so it renders as a sibling of
+          (not nested inside) this header button — nested <button>s are invalid HTML
+          and would break click/hydration semantics. */}
+      <Flex
+        align="center"
+        className="p-3 rounded-lg transition-colors hover:bg-blue-50"
+        gap="1"
       >
-        <Flex gap="2" align="center">
-          <Icon className="shrink-0" />
-          <Flex direction="column" className="flex-grow">
-            <Text as="div" size="2" weight="bold">
-              {section.label}
-            </Text>
-            <Text as="div" size="1" color="gray">
-              {section.description}
-            </Text>
+        <button
+          onClick={onToggle}
+          aria-expanded={open}
+          className="flex-grow cursor-pointer text-left"
+        >
+          <Flex gap="2" align="center">
+            <Icon className="shrink-0" />
+            <Flex direction="column" className="flex-grow">
+              <Text as="div" size="2" weight="bold">
+                {section.label}
+              </Text>
+              <Text as="div" size="1" color="gray">
+                {section.description}
+              </Text>
+            </Flex>
+            <ChevronDownIcon
+              className={`shrink-0 transition-transform duration-200 ${open ? '' : '-rotate-90'}`}
+            />
           </Flex>
-          <ChevronDownIcon
-            className={`shrink-0 transition-transform duration-200 ${open ? '' : '-rotate-90'}`}
-          />
-        </Flex>
-      </button>
+        </button>
+        {section.helpTip && <HelpTip tip={section.helpTip} />}
+      </Flex>
       <AnimatedCollapse open={open}>
         <div className="px-3 pb-3">{section.content}</div>
       </AnimatedCollapse>
