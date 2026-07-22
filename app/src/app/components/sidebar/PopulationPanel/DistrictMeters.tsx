@@ -160,17 +160,20 @@ export const DistrictMeters = () => {
                 }`}
                 data-testid={`district-meter-row-${d.zone}`}
               >
-                <Text
-                  size="2"
-                  weight={selectedZone === d.zone ? 'bold' : 'regular'}
-                  style={{width: LABEL_COL_WIDTH, flexShrink: 0}}
-                >
-                  {d.zone}
-                </Text>
-                {/* Icons manage their own interactions; don't let clicks re-select the row.
-                    Lock renders first so it lines up under the header's lock-all. */}
-                <Flex align="center" gap="3" flexShrink="0" onClick={e => e.stopPropagation()}>
-                  {isEditing && (
+                {/* Number + comment nest in the "District" column; lock follows
+                    in its own column, aligned under the header's lock-all.
+                    Icons manage their own interactions; don't let clicks
+                    re-select the row. */}
+                <Flex align="center" gap="1" style={{width: LABEL_COL_WIDTH, flexShrink: 0}}>
+                  <Text size="2" weight={selectedZone === d.zone ? 'bold' : 'regular'}>
+                    {d.zone}
+                  </Text>
+                  <Flex align="center" onClick={e => e.stopPropagation()}>
+                    <ZoneDescriptionPopover zone={d.zone} color={color} />
+                  </Flex>
+                </Flex>
+                {isEditing && (
+                  <Flex align="center" flexShrink="0" onClick={e => e.stopPropagation()}>
                     <Tooltip
                       content={
                         locked
@@ -190,9 +193,8 @@ export const DistrictMeters = () => {
                         {locked ? <LockClosedIcon /> : <LockOpen2Icon />}
                       </IconButton>
                     </Tooltip>
-                  )}
-                  <ZoneDescriptionPopover zone={d.zone} color={color} />
-                </Flex>
+                  </Flex>
+                )}
                 <Box
                   flexGrow="1"
                   style={{
@@ -280,27 +282,29 @@ export const DistrictMeters = () => {
         mt="1"
         style={{borderTop: '1px solid var(--gray-4)'}}
       >
-        <Text size="1" weight="bold" style={{width: LABEL_COL_WIDTH, flexShrink: 0}}>
+        <Text size="2" weight="bold" style={{width: LABEL_COL_WIDTH, flexShrink: 0}}>
           Plan
         </Text>
         <Box flexGrow="1" />
+        {/* Captions are content-width and right-aligned; when wider than their
+            column they overflow left into the empty footer space. */}
         <Flex direction="column" align="end" style={{width: DEV_COL_WIDTH, flexShrink: 0}}>
-          <Text size="1" weight="bold" style={{fontVariantNumeric: 'tabular-nums'}}>
+          <Text size="2" weight="bold" style={{fontVariantNumeric: 'tabular-nums'}}>
             {maxDeviation !== undefined ? signedNumber(maxDeviation) : '—'}
           </Text>
-          <Flex align="center" gap="0">
-            <Text size="1" color="gray" style={{fontSize: 10, lineHeight: 1.3}}>
+          <Flex align="center" gap="0" style={{whiteSpace: 'nowrap'}}>
+            <Text size="1" color="gray">
               max from ideal
             </Text>
             <InfoTip tips="maxDeviation" />
           </Flex>
         </Flex>
         <Flex direction="column" align="end" style={{width: POP_COL_WIDTH, flexShrink: 0}}>
-          <Text size="1" weight="bold" style={{fontVariantNumeric: 'tabular-nums'}}>
+          <Text size="2" weight="bold" style={{fontVariantNumeric: 'tabular-nums'}}>
             {topToBottomPct !== undefined ? formatDeviationPct(topToBottomPct) : '—'}
           </Text>
-          <Flex align="center" gap="0">
-            <Text size="1" color="gray" style={{fontSize: 10, lineHeight: 1.3}}>
+          <Flex align="center" gap="0" style={{whiteSpace: 'nowrap'}}>
+            <Text size="1" color="gray">
               top-to-bottom
             </Text>
             <InfoTip tips="topToBottomDeviation" />
