@@ -19,7 +19,6 @@ config:
     - dhalpern@uchicago.edu
     - gfang@uchicago.edu
     - peter@mggg.org
-
   districtr-infra:secretKey:
     secure: v1:dHM/3HqOvfLfoMgx:48kANUBIY2+yLOYo3BgQLly0YEOXYmw6K45Y9BabOph74VwoWV+oZ/mcvHcuD9GY1xz/vpwZcFJJQRxVwfH9sDeY+39I9ap/8xPDpQARDMs=
   districtr-infra:auth0SessionSecret:
@@ -32,4 +31,6 @@ config:
     secure: v1:iUv/8za+O1Hy6I1+:c0m3/SPlOxsRUVVr6IVdRsYsMRNQuQx4/HmxyajNrOIG+vMDT1AxrHc0NC4WaqaqQ4WTu9MwTxSGmTe4ljV7vGf9WHkG62Up+/Qqr4Zv952ZDmEekBjIi7mxMY4KBUvLIv1L3dGwvp//+nJsVLZDMB/C/vQdPZ2znZ2y6X9RB1yyl0cjgUwgLsXeYRFqBxy8lKCxL6ZTZGt3fUW3h3goFDZ2p432PUPkZDUv2K92PY6KPGpzNg19
   districtr-infra:recaptchaSecretKey:
     secure: v1:dLAr7AO8USvu8kB/:tF1k0Tbxs6VK89VOQ1kgYifnypv5F1DTLuH+bQjioC8Bt+PophjKCCIP/Vimoti143NKzz2gJWU=
+  districtr-infra:recaptchaV3SecretKey:
+    secure: v1:bvFjeLgjJglE7A77:3FWRrO+LFHVkLThUluraOyFniTWl5x2nd7A0PtdYlfmcxF0w4Kc4m7srGDlNbz//Yxf4TTSnZ80=
 encryptedkey: AQICAHj6yTueuC8tIgZuox0MXVnRPRArkK17/XbXu79DQJprbwG8562WfSI1QBHo9z5z+VHHAAAAfjB8BgkqhkiG9w0BBwagbzBtAgEAMGgGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQMNr18ANhZILAPGfYuAgEQgDtZgnwevwLl0AZ2Wksv+tohreRZKPX5O0OEv4OHPMFWrzjTVBVGHWpFOpzPfSiuFgPcYc91Yi7ULtEezg==
