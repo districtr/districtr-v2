@@ -2,7 +2,7 @@
 import {Flex, IconButton, Kbd, Text} from '@radix-ui/themes';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import {useMapControlsStore} from '@store/mapControlsStore';
-import React, {useState} from 'react';
+import React from 'react';
 import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
 import {useActiveTools} from '@/app/components/Toolbar/ToolUtils';
 import type {ActiveToolConfig} from '@/app/components/Toolbar/ToolUtils';
@@ -23,7 +23,6 @@ export const ToolButtons: React.FC<{
 }> = ({showShortcuts, toolbarItemsRef}) => {
   const activeTool = useMapControlsStore(state => state.activeTool);
   const setActiveTool = useMapControlsStore(state => state.setActiveTool);
-  const [activeTooltip, setActiveTooltip] = useState<ActiveTool | null>(null);
   const activeTools = useActiveTools();
   const mainTools = activeTools.filter(tool => !HISTORY_TOOLS.includes(tool.mode));
   const historyTools = activeTools.filter(tool => HISTORY_TOOLS.includes(tool.mode));
@@ -33,13 +32,14 @@ export const ToolButtons: React.FC<{
     const isActive = activeTool === tool.mode;
     return (
       <Tooltip.Provider key={`toolbar-tooltip-${tool.mode}`}>
-        <Tooltip.Root open={showShortcuts || activeTooltip === tool.mode || undefined}>
+        {/* Buttons name themselves (label + corner hotkey), so no hover tooltip —
+            this one only opens while Alt reveals shortcuts, covering the chorded
+            undo/redo hotkeys that don't fit the corner. */}
+        <Tooltip.Root open={showShortcuts}>
           <Tooltip.Trigger asChild style={{flexGrow: buttonStyle.flexGrow as number | undefined}}>
             <IconButton
               data-testid={`${tool.mode}-tool`}
               className="cursor-pointer tool-button"
-              onMouseEnter={() => setActiveTooltip(tool.mode)}
-              onMouseLeave={() => setActiveTooltip(null)}
               onClick={() => {
                 if (tool.onClick) {
                   tool.onClick();
@@ -100,12 +100,6 @@ export const ToolButtons: React.FC<{
               className="select-none rounded bg-gray-900 px-2 py-1 text-xs text-center text-white"
               sideOffset={5}
             >
-              {!showShortcuts && (
-                <>
-                  {tool.label}
-                  <br />
-                </>
-              )}{' '}
               {tool.hotKeyLabel.split(' + ').map((key, i) => (
                 <span key={i} className="text-xs">
                   {key}
