@@ -96,6 +96,13 @@ export const DistrictMeters = () => {
           <InfoTip tips="idealPopulation" />
         </Flex>
       )}
+      {unassigned !== undefined && unassigned > 0 && (
+        <Flex align="center" justify="end" px="1" pb="1">
+          <Text size="1" color="gray">
+            Unassigned population: <b>{formatNumber(unassigned, NUMBER_FORMATS.STRING)}</b>
+          </Text>
+        </Flex>
+      )}
       {/* Column header: lock-all sits in the same column as the row locks. */}
       <Flex align="center" gap="1" px="1" pb="1">
         <Text size="1" color="gray" style={{width: LABEL_COL_WIDTH, flexShrink: 0}}>
@@ -282,42 +289,33 @@ export const DistrictMeters = () => {
         mt="1"
         style={{borderTop: '1px solid var(--gray-4)'}}
       >
-        <Text size="2" weight="bold" style={{width: LABEL_COL_WIDTH, flexShrink: 0}}>
-          Plan
-        </Text>
         <Box flexGrow="1" />
         {/* Captions are content-width and right-aligned; when wider than their
             column they overflow left into the empty footer space. */}
         <Flex direction="column" align="end" style={{width: DEV_COL_WIDTH, flexShrink: 0}}>
-          <Text size="2" weight="bold" style={{fontVariantNumeric: 'tabular-nums'}}>
-            {maxDeviation !== undefined ? signedNumber(maxDeviation) : '—'}
+          <Text size="1" color="gray">
+            max from ideal
           </Text>
           <Flex align="center" gap="0" style={{whiteSpace: 'nowrap'}}>
-            <Text size="1" color="gray">
-              max from ideal
+            <Text size="2" weight="bold" style={{fontVariantNumeric: 'tabular-nums'}}>
+              {maxDeviation !== undefined ? signedNumber(maxDeviation) : '—'}
             </Text>
             <InfoTip tips="maxDeviation" />
           </Flex>
         </Flex>
         <Flex direction="column" align="end" style={{width: POP_COL_WIDTH, flexShrink: 0}}>
-          <Text size="2" weight="bold" style={{fontVariantNumeric: 'tabular-nums'}}>
-            {topToBottomPct !== undefined ? formatDeviationPct(topToBottomPct) : '—'}
+          <Text size="1" color="gray">
+            top-to-bottom
           </Text>
           <Flex align="center" gap="0" style={{whiteSpace: 'nowrap'}}>
-            <Text size="1" color="gray">
-              top-to-bottom
+            <Text size="2" weight="bold" style={{fontVariantNumeric: 'tabular-nums'}}>
+              {topToBottomPct !== undefined ? formatDeviationPct(topToBottomPct) : '—'}
             </Text>
             <InfoTip tips="topToBottomDeviation" />
           </Flex>
         </Flex>
       </Flex>
-      {unassigned !== undefined && unassigned > 0 && (
-        <Flex align="center" justify="end" px="1" pt="1">
-          <Text size="1" color="gray">
-            Unassigned population: <b>{formatNumber(unassigned, NUMBER_FORMATS.STRING)}</b>
-          </Text>
-        </Flex>
-      )}
+
       {!allPainted && (
         <Text size="1" color="gray" mt="1">
           Plan totals appear when all districts are started

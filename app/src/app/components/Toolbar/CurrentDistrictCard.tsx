@@ -79,9 +79,8 @@ export const CurrentDistrictCard: React.FC<{children: React.ReactNode}> = ({chil
           </Text>
           {!!idealPopulation && (
             <Text size="1" color="gray">
-              {formatNumber(population, NUMBER_FORMATS.STRING)} of ~
-              {formatNumber(idealPopulation, NUMBER_FORMATS.STRING)} people ·{' '}
-              {Math.round(fillPct * 100)}%
+              {formatNumber(population, NUMBER_FORMATS.STRING)} /{' '}
+              {formatNumber(idealPopulation, NUMBER_FORMATS.STRING)} ({Math.round(fillPct * 100)}%)
             </Text>
           )}
         </Flex>
