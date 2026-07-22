@@ -1,4 +1,42 @@
 import {colorScheme as DefaultColorScheme} from '@/app/constants/colors';
+
+/**
+ * Picks readable text color for a given background: 'white' if the background
+ * (blended toward white by 1 - alpha, since alpha'd cells sit on a white/
+ * near-white page background) is dark enough that default dark text would be
+ * hard to read, otherwise undefined (inherit the default dark text).
+ *
+ * `color` is the un-alpha'd base color (hex or `rgb(...)`) and `alpha` is
+ * supplied separately, rather than one pre-composed CSS string, so callers
+ * using CSS color-mix()/similar (not machine-parseable the way rgb()/hex are)
+ * can still pass their known base color + alpha directly.
+ */
+export function getReadableTextColor(color: string, alpha: number = 1): 'white' | undefined {
+  const rgb = parseColorToRgb(color);
+  if (!rgb) return undefined;
+  const [r, g, b] = rgb;
+  const blend = (channel: number) => channel * alpha + 255 * (1 - alpha);
+  const luminance = (0.299 * blend(r) + 0.587 * blend(g) + 0.114 * blend(b)) / 255;
+  return luminance < 0.55 ? 'white' : undefined;
+}
+
+function parseColorToRgb(color: string): [number, number, number] | null {
+  const rgbMatch = color.match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/i);
+  if (rgbMatch) {
+    const [, r, g, b] = rgbMatch;
+    return [Number(r), Number(g), Number(b)];
+  }
+  const hexMatch = color.match(/^#([0-9a-f]{6})$/i);
+  if (hexMatch) {
+    const hex = hexMatch[1];
+    return [
+      parseInt(hex.slice(0, 2), 16),
+      parseInt(hex.slice(2, 4), 16),
+      parseInt(hex.slice(4, 6), 16),
+    ];
+  }
+  return null;
+}
 export const extendColorArray = (
   colorArray: string[],
   numDistricts: number,
