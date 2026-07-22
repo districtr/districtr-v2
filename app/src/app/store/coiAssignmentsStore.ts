@@ -29,6 +29,7 @@ import {fetchDocument, SyncConflictInfo} from '../utils/api/apiHandlers/fetchDoc
 import {getAssignments} from '../utils/api/apiHandlers/getAssignments';
 import {createMapDocument} from '../utils/api/apiHandlers/createMapDocument';
 import {confirmMapDocumentUrlParameter} from '../utils/map/confirmMapDocumentUrlParameter';
+import {editPath} from '../utils/map/editUrl';
 
 import {createWithFullMiddlewares} from './middlewares';
 import {coiAssignmentsTemporalConfig} from './middlewareConfig';
@@ -162,7 +163,7 @@ export interface CoiAssignmentsStore {
     resolution: SyncConflictResolution,
     syncConflictInfo: SyncConflictInfo,
     options?: {
-      onNavigate?: (documentId: string) => void;
+      onNavigate?: (document: DocumentObject) => void;
       onComplete?: () => void;
       context?: ConflictContext;
     }
@@ -527,7 +528,7 @@ type CoiConflictDependencies = {
   store: CoiAssignmentsStore;
   setMapDocument: (doc: DocumentObject) => void;
   setMapLock: (lock: {isLocked: boolean; reason: string} | null) => void;
-  onNavigate?: (documentId: string) => void;
+  onNavigate?: (document: DocumentObject) => void;
   onComplete?: () => void;
 };
 
@@ -696,9 +697,10 @@ const coiResolveFork = async ({
     store.setClientLastUpdated(response.response.updated_at);
     store.ingestFromDocument(data, updatedDocument);
     if (onNavigate) {
-      onNavigate(createMapDocumentResponse.response.document_id);
+      onNavigate(createMapDocumentResponse.response);
     } else {
-      history.pushState(null, '', `/coi/edit/${createMapDocumentResponse.response.document_id}`);
+      const {document_id, public_id} = createMapDocumentResponse.response;
+      history.pushState(null, '', editPath('coi', document_id, public_id));
     }
   } finally {
     setMapLock(null);

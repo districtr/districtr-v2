@@ -21,7 +21,8 @@ import {useInitializeMapMode} from '@/app/hooks/useInitializeMapMode';
 import {MAP_MODES} from '@constants/map/mode';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 import {isUUID} from '@/app/utils/metadata/isUUID';
-import {useEditRouteId} from '@/app/hooks/useEditRouteId';
+import {expandUUID, PRIVATE_EDIT_ID_PARAM} from '@/app/utils/map/editUrl';
+import {useSearchParams} from 'next/navigation';
 
 interface CoiMapPageProps {
   isEditing: boolean;
@@ -44,14 +45,15 @@ const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => 
     migrateUserMapsFromLocalStorage();
   }, []);
 
-  // On edit routes the URL shows the public id; resolve it to the editable UUID
-  // (and keep the UUID out of the address bar when arriving via a UUID link).
-  const resolvedDocumentId = useEditRouteId(documentId, isEditing, 'coi');
+  // Edit URLs show the public id in the path; the editable UUID travels in the
+  // private_edit_id query param (treat it like a password).
+  const privateEditId = useSearchParams().get(PRIVATE_EDIT_ID_PARAM);
+  const loadDocumentId = (isEditing && privateEditId && expandUUID(privateEditId)) || documentId;
 
   const {error: documentError, conflictModal} = useDocumentWithSync({
-    document_id: resolvedDocumentId || undefined,
+    document_id: loadDocumentId || undefined,
     isPublicPage,
-    enabled: isMapModeReady && !!resolvedDocumentId,
+    enabled: isMapModeReady && !!loadDocumentId,
   });
 
   useEffect(() => {
@@ -72,9 +74,8 @@ const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => 
   // Retain the editable UUID for this session so the view switcher can route
   // back to edit mode after navigating to a read-only display view.
   useEffect(() => {
-    if (isEditing && resolvedDocumentId && isUUID(resolvedDocumentId))
-      setEditableDocId(resolvedDocumentId);
-  }, [isEditing, resolvedDocumentId, setEditableDocId]);
+    if (isEditing && loadDocumentId && isUUID(loadDocumentId)) setEditableDocId(loadDocumentId);
+  }, [isEditing, loadDocumentId, setEditableDocId]);
 
   useEffect(() => {
     !userID && setUserID();

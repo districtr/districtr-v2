@@ -22,7 +22,8 @@ import {SaveConflictModal} from '../SaveConflictModal';
 import {ZoneDescriptionModal} from '@components/Map/Tooltip/ZoneDescriptionModal';
 import {migrateUserMapsFromLocalStorage} from '@/app/utils/idb/migrateUserMaps';
 import {isUUID} from '@/app/utils/metadata/isUUID';
-import {useEditRouteId} from '@/app/hooks/useEditRouteId';
+import {expandUUID, PRIVATE_EDIT_ID_PARAM} from '@/app/utils/map/editUrl';
+import {useSearchParams} from 'next/navigation';
 import {useInitializeMapMode} from '@/app/hooks/useInitializeMapMode';
 import {MAP_MODES} from '@constants/map/mode';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
@@ -54,15 +55,16 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
     migrateUserMapsFromLocalStorage();
   }, []);
 
-  // On edit routes the URL shows the public id; resolve it to the editable UUID
-  // (and keep the UUID out of the address bar when arriving via a UUID link).
-  const resolvedMapId = useEditRouteId(mapId, isEditing, 'map');
+  // Edit URLs show the public id in the path; the editable UUID travels in the
+  // private_edit_id query param (treat it like a password).
+  const privateEditId = useSearchParams().get(PRIVATE_EDIT_ID_PARAM);
+  const documentId = (isEditing && privateEditId && expandUUID(privateEditId)) || mapId;
 
   // Load document with sync support
   const {error: documentError, conflictModal} = useDocumentWithSync({
-    document_id: resolvedMapId || undefined,
+    document_id: documentId || undefined,
     isPublicPage,
-    enabled: isMapModeReady && !!resolvedMapId,
+    enabled: isMapModeReady && !!documentId,
   });
 
   // Handle document loading errors
@@ -86,8 +88,8 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
   // back to edit mode after navigating to a read-only display/eval view (which
   // loads the doc by public_id and surfaces document_id as "anonymous").
   useEffect(() => {
-    if (isEditing && resolvedMapId && isUUID(resolvedMapId)) setEditableDocId(resolvedMapId);
-  }, [isEditing, resolvedMapId, setEditableDocId]);
+    if (isEditing && documentId && isUUID(documentId)) setEditableDocId(documentId);
+  }, [isEditing, documentId, setEditableDocId]);
 
   useEffect(() => {
     setIsEval(isEval ?? false);

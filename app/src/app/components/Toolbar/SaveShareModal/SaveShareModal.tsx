@@ -10,6 +10,7 @@ import {useMapMetadata} from '@/app/hooks/useMapMetadata';
 import {useEditableDocId} from '@/app/hooks/useEditableDocId';
 import {DEFAULT_MAP_METADATA} from '@/app/utils/language';
 import {routeForType} from '@constants/document/routes';
+import {editPath} from '@/app/utils/map/editUrl';
 import {useRouter} from 'next/navigation';
 import {createMapDocument} from '@/app/utils/api/apiHandlers/createMapDocument';
 import {ACCESS_STATES} from '@constants/document/state';
@@ -57,7 +58,9 @@ export const SaveShareModal: React.FC<{
     });
     if (response.ok) {
       const routePrefix = routeForType(response.response.map_type);
-      router.push(`/${routePrefix}/edit/${response.response.document_id}`);
+      router.push(
+        editPath(routePrefix, response.response.document_id, response.response.public_id)
+      );
       onClose();
     } else {
       setNotification({

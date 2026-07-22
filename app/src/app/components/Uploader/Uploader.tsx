@@ -5,6 +5,7 @@ import {Link, Flex, Heading, Text, Blockquote, Spinner, Callout} from '@radix-ui
 import {ExclamationTriangleIcon, InfoCircledIcon} from '@radix-ui/react-icons';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 import {routeManager} from '@/app/utils/map/mapUrlRoute';
+import {editPath} from '@/app/utils/map/editUrl';
 import {MAP_ROUTES} from '@constants/document/routes';
 import {MAP_TYPES} from '@constants/document/types';
 import {getAvailableDistrictrMaps} from '@/app/utils/api/apiHandlers/getAvailableDistrictrMaps';
@@ -41,7 +42,7 @@ export const Uploader: React.FC<{
       // GEOIDs or remapped zone labels both require a manual "Continue" click.
       const needsReview = mapLink.skipped_geo_ids?.length || mapLink.zone_label_remapping;
       if (!needsReview) {
-        window.location.href = `/${routePrefix}/edit/${mapLink.document_id}`;
+        window.location.href = editPath(routePrefix, mapLink.document_id, mapLink.public_id);
         onFinish?.();
       }
     }
@@ -169,7 +170,7 @@ export const Uploader: React.FC<{
             </Callout.Root>
           )}
           <Link
-            href={`/${routePrefix}/edit/${mapLink.document_id}`}
+            href={editPath(routePrefix, mapLink.document_id, mapLink.public_id)}
             target={newTab ? '_blank' : undefined}
             className="self-start"
           >

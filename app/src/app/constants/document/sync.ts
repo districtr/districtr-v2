@@ -14,7 +14,7 @@ export enum SyncConflictResolution {
 }
 
 export type ConflictResolutionOptions = {
-  onNavigate?: (documentId: string) => void;
+  onNavigate?: (document: import('../../utils/api/apiHandlers/types').DocumentObject) => void;
   onComplete?: () => void;
   context?: ConflictContext;
 };

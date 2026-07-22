@@ -33,6 +33,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {MAP_TABS, MAP_TAB_LABELS, MAP_TAB_LABEL_PLURAL, MapTab} from '@constants/document/tabs';
 import {routeForTab, mapTabFromMode} from '@constants/document/routes';
+import {editPath} from '@/app/utils/map/editUrl';
 import {
   DRAFT_STATUSES,
   DRAFT_STATUS_COLORS,
@@ -170,8 +171,7 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({
   const handleMapDocument = useCallback(
     (data: DocumentObject) => {
       const route = routeForTab(activeTab);
-      // Prefer the public id in the URL; the UUID is only for the secret share link.
-      router.push(`/${route}/edit/${data.public_id ?? data.document_id}`);
+      router.push(editPath(route, data.document_id, data.public_id));
       onNavigate?.();
     },
     [activeTab, router, onNavigate]
@@ -408,7 +408,7 @@ const RecentMapCard: React.FC<{
   const geoLabel = data.parent_geo_unit_type || data.gerrydb_table || data.districtr_map_slug;
   const route = routeForTab(tab);
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const editUrl = `${origin}/${route}/edit/${data.document_id}`;
+  const editUrl = `${origin}${editPath(route, data.document_id, data.public_id)}`;
   const publicUrl = data.public_id ? `${origin}/${route}/${data.public_id}` : null;
 
   return (
