@@ -298,11 +298,13 @@ class SessionCreate(BaseModel):
 async def create_session(data: SessionCreate, request: Request):
     """Mint a stateless session token, verifying reCAPTCHA v3 when configured."""
     if settings.RECAPTCHA_V3_SECRET_KEY:
-        # Behind the ALB, request.client is the LB node; the user is the
-        # first X-Forwarded-For entry.
+        # Behind the ALB, request.client is the LB node. The ALB appends the
+        # IP it saw at the TCP layer to the END of X-Forwarded-For; earlier
+        # entries are client-supplied and spoofable, so trust only the last.
+        # (Revisit if a CDN/proxy is ever added in front of the ALB.)
         forwarded = request.headers.get("x-forwarded-for")
         client_ip = (
-            forwarded.split(",")[0].strip()
+            forwarded.rsplit(",", 1)[-1].strip()
             if forwarded
             else (request.client.host if request.client else None)
         )
