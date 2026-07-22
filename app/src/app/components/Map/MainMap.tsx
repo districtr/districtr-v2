@@ -16,6 +16,7 @@ import {SizedCircleLayer} from './PointLayers/SizedCircleLayers';
 import {OverlayLayers} from './PolygonLayers/OverlayLayers';
 import {MapLayerAnchors} from './MapLayerAnchors';
 import {MapContainer} from './MapContainer';
+import {MapHintPill} from './MapHintPill';
 import {useMapRenderer} from '@/app/hooks/useMapRenderer';
 import {PointSource} from './GeoSources/PointSource';
 import {BlockLayers} from './PolygonLayers/BlockLayers';
@@ -104,6 +105,7 @@ export const MainMap: React.FC = () => {
             <MetaLayers isDemographicMap={false} />
           </PointSource>
           <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
+          <MapHintPill />
         </>
       )}
     </MapContainer>

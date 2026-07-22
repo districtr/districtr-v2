@@ -14,6 +14,11 @@ import {
 } from '@radix-ui/react-icons';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
+import {useUiHintStore} from '@/app/store/uiHintStore';
+
+// "Find disconnected fragments" clicks older than this don't auto-expand rows
+// that mount later for unrelated reasons.
+const EXPAND_HINT_WINDOW_MS = 5000;
 
 interface ContiguityDetailProps {
   zone: number;
@@ -34,6 +39,20 @@ export default function ContiguityDetail({
 
   const [selectedFeature, setSelectedFeature] = useState<number | null>(null);
   const [showZoom, setShowZoom] = useState(false);
+  const expandDiscontiguousAt = useUiHintStore(state => state.expandDiscontiguousAt);
+
+  // Opened via the Getting Started "find disconnected fragments" hint:
+  // discontiguous rows expand themselves.
+  useEffect(() => {
+    if (
+      contiguity &&
+      contiguity > 1 &&
+      expandDiscontiguousAt &&
+      Date.now() - expandDiscontiguousAt < EXPAND_HINT_WINDOW_MS
+    ) {
+      setShowZoom(true);
+    }
+  }, [expandDiscontiguousAt, contiguity]);
 
   const {data, error, isLoading, isFetching} = useQuery({
     queryKey: [`ConnectedComponentBboxes-${zone}`, `${mapDocument?.document_id}-${lastUpdated}`],
