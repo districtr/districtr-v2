@@ -16,7 +16,7 @@ const nunito = Nunito({
 
 const DISTRICTR_LOGO = [
   {
-    url: 'https://districtr-v2-frontend.fly.dev/_next/image?url=%2Fdistrictr_logo.jpg&w=1920&q=75',
+    url: 'https://districtr.org/_next/image?url=%2Fdistrictr_logo.jpg&w=1920&q=75',
     width: 1136,
     height: 423,
   },

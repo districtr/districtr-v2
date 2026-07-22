@@ -6,7 +6,13 @@ config:
   aws:region: us-east-2
   districtr-infra:appDomain: dev.districtr.org
   districtr-infra:apiDomain: api.dev.districtr.org
+  # Wildcard SAN for label-based PR previews (pr-<N>.dev.districtr.org).
+  # Same ACM validation CNAME as the apex, so no new DNS validation record;
+  # routing needs a one-time wildcard CNAME `*.dev.districtr.org` -> dev ALB.
+  districtr-infra:extraDomains:
+    - "*.dev.districtr.org"
   districtr-infra:corsOrigins: https://dev.districtr.org
+  districtr-infra:corsOriginRegex: '^https://pr-\d+\.dev\.districtr\.org$'
   districtr-infra:s3BucketName:
     secure: v1:NvATpjb2PUlKwXAz:1KdAv/sq7vkzINPAPM9twpRm7+/8c1GwvnlYKYsB7gr/DyMSjT5dsDZL
   districtr-infra:cdnUrl: https://tilesets1.cdn.districtr.org

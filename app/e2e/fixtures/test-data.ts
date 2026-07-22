@@ -15,7 +15,7 @@ const backendURL =
  * Determine if we're testing against local or remote environment
  */
 export const isLocal = baseURL.includes('localhost') || baseURL.includes('frontend:3000');
-export const isPreview = baseURL.includes('fly.dev') || baseURL.includes('preview');
+export const isPreview = /\/\/(api-)?pr-\d+\./.test(baseURL) || baseURL.includes('preview');
 export const isProduction = !isLocal && !isPreview;
 export {isDocker};
 
