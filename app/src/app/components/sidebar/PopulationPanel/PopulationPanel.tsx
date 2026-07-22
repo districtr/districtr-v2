@@ -3,6 +3,7 @@ import React, {useMemo, useState} from 'react';
 import {formatDeviationPct, formatNumber} from '@utils/numbers';
 import {ParentSize} from '@visx/responsive'; // Import ParentSize
 import InfoTip from '@components/InfoTip';
+import {HelpTip} from '@components/InfoTip/HelpTip';
 import {useChartStore} from '@store/chartStore';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
@@ -155,6 +156,7 @@ export const PopulationPanel = () => {
         <Heading as="h3" size="3">
           {`Total population by ${zoneLabel}`}
         </Heading>
+        <HelpTip tip="districtOverview" />
         {superDraw && (
           <PopulationPanelOptions
             chartOptions={chartOptions}
@@ -165,19 +167,22 @@ export const PopulationPanel = () => {
       </Flex>
       {/* Fixed header: lock-all control + "Ideal" label strip. Never scrolls. */}
       <Flex direction="row" width={'100%'} gap="1" mt="2">
-        <Flex justify="end" align="center" style={{width: POP_LEFT_COL_WIDTH, flexShrink: 0}}>
+        <Flex justify="end" align="center" gap="0" style={{width: POP_LEFT_COL_WIDTH, flexShrink: 0}}>
           {!isCommunityMode && (
-            <Tooltip content="Lock or unlock all districts. Locked districts can't be painted over.">
-              <IconButton
-                onClick={toggleLockAllAreas}
-                variant="ghost"
-                disabled={access === ACCESS_STATES.READ}
-                style={{opacity: isEditing ? 1 : 0}}
-                aria-label={allAreLocked ? 'Unlock all districts' : 'Lock all districts'}
-              >
-                {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
-              </IconButton>
-            </Tooltip>
+            <>
+              <Tooltip content="Lock or unlock all districts. Locked districts can't be painted over.">
+                <IconButton
+                  onClick={toggleLockAllAreas}
+                  variant="ghost"
+                  disabled={access === ACCESS_STATES.READ}
+                  style={{opacity: isEditing ? 1 : 0}}
+                  aria-label={allAreLocked ? 'Unlock all districts' : 'Lock all districts'}
+                >
+                  {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
+                </IconButton>
+              </Tooltip>
+              {isEditing && <HelpTip tip="districtLock" />}
+            </>
           )}
         </Flex>
         <ParentSize style={{height: `${POP_CHART_LABEL_HEIGHT}px`, width: '100%'}}>
