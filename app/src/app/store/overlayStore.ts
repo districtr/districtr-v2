@@ -5,6 +5,9 @@ import {Overlay} from '@utils/api/apiHandlers/types';
 import {useMapStore} from './mapStore';
 import {dissolve} from '@turf/turf';
 import {Feature, MapGeoJSONFeature} from 'maplibre-gl';
+import {COUNTY_SOURCE_ID} from '@constants/map/layerIds';
+
+const COUNTY_SOURCE_LAYER = 'tl_2023_us_county';
 
 export interface OverlayPaintConstraint {
   overlayId: string;
@@ -80,8 +83,15 @@ export const useOverlayStore = create(
         clearPaintConstraint();
         return;
       }
-      // query source layer for feature id
-      const sourceFeatures = mapRef?.querySourceFeatures(`overlay-source-${overlayId}`);
+      // query source layer for feature id; the built-in county layer is a
+      // pseudo-overlay with its own source and source-layer
+      const sourceFeatures =
+        overlayId === COUNTY_SOURCE_ID
+          ? mapRef?.querySourceFeatures(COUNTY_SOURCE_ID, {
+              sourceLayer: COUNTY_SOURCE_LAYER,
+              filter: ['==', ['get', 'GEOID'], featureId],
+            })
+          : mapRef?.querySourceFeatures(`overlay-source-${overlayId}`);
       const matchingFeatures = sourceFeatures?.filter((feature: any) => feature.id === featureId);
       if (matchingFeatures && matchingFeatures.length > 0) {
         set({

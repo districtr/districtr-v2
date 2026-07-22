@@ -74,8 +74,6 @@ type MapVariableConfig = {
   sizeColumn?: string;
 };
 
-// ponytail: fixed max pixel radius regardless of zoom; add zoom interpolation if
-// circles read poorly at low zooms
 const MAX_SIZED_CIRCLE_RADIUS_PX = 20;
 
 const asNumericRecord = (row: SummaryRecord | Record<string, unknown>): Record<string, number> =>
@@ -126,6 +124,15 @@ class DemographyService {
    * Updates to match the zone assignments in the state.
    */
   zoneTable?: ColumnTable;
+
+  /**
+   * True once `updatePublicDemography()` (public/read-only views) has loaded data.
+   * `this.table` is then already one row per zone — see document.district_unions —
+   * so population calculation must skip the block/zone join and assignment stores
+   * entirely, which are never populated in view mode. Reset by `update()` (edit/COI
+   * path) and `clear()` so edit and view sessions can't leak state into each other.
+   */
+  private isPublicSource: boolean = false;
 
   /**
    * The summary of populations.
@@ -180,17 +187,37 @@ class DemographyService {
     columns: AllTabularColumns[number][],
     data: ColumnarTableData,
     hash: string,
-    coalitionGroups: CoalitionGroupKey[] = [],
-    _zoneAssignments?: ZoneAssignmentsMap
+    coalitionGroups: CoalitionGroupKey[] = []
   ): void {
     if (hash === this.hash) return;
+    this.isPublicSource = false;
     this.availableColumns = columns;
     this.table = table(data).derive(getColumnDerives(columns)).dedupe('path');
-    const populationAssignments = _zoneAssignments ?? getActivePopulationAssignments();
     const popsOk = this.updatePopulations({
-      zoneAssignments: populationAssignments,
+      zoneAssignments: getActivePopulationAssignments(),
       coalitionGroups,
     });
+    if (!popsOk) return;
+    this.updateSummaryStats();
+    this.hash = hash;
+  }
+
+  /**
+   * View-mode counterpart to `update()`: loads demography that the backend has
+   * already aggregated per district (document.district_unions), so there is no
+   * assignments concept to thread through — see calculatePopulationsFromZoneTable.
+   */
+  updatePublicDemography(
+    columns: AllTabularColumns[number][],
+    data: ColumnarTableData,
+    hash: string,
+    coalitionGroups: CoalitionGroupKey[] = []
+  ): void {
+    if (hash === this.hash) return;
+    this.isPublicSource = true;
+    this.availableColumns = columns;
+    this.table = table(data).derive(getColumnDerives(columns)).dedupe('path');
+    const popsOk = this.updatePopulations({coalitionGroups});
     if (!popsOk) return;
     this.updateSummaryStats();
     this.hash = hash;
@@ -242,6 +269,7 @@ class DemographyService {
     this.overlayTable = undefined;
     this.overlayHash = '';
     this.zoneTable = undefined;
+    this.isPublicSource = false;
     this.populations = [];
     this.summaryStats = {};
     this.universeTotals = null;
@@ -343,15 +371,9 @@ class DemographyService {
     zoneAssignments?: PopulationAssignments,
     coalitionGroups: CoalitionGroupKey[] = []
   ): {ok: true; table: SummaryTable} | {ok: false} {
-    const mapState = useMapStore.getState();
-    const mapMode = useMapControlsStore.getState().mapMode;
-    const zoneIds =
-      mapMode === MAP_MODES.COI
-        ? sortCommunitiesByRenderOrder(mapState.communities).map(community => community.id)
-        : Array.from(
-            {length: mapState.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS},
-            (_, i) => i + 1
-          );
+    if (this.isPublicSource) {
+      return this.calculatePopulationsFromZoneTable(coalitionGroups);
+    }
     this.updateZoneTable(zoneAssignments ?? getActivePopulationAssignments());
 
     if (!this.table || !this.zoneTable) {
@@ -372,7 +394,6 @@ class DemographyService {
       };
     }
     const columns = this.table.columnNames();
-    // if any tot
     const populationsTable = joinedTable
       .groupby('zone')
       .rollup(getRollups(columns, 'sum'))
@@ -382,10 +403,66 @@ class DemographyService {
       .rollup(getRollups(columns, 'max'))
       .objects()[0] as MaxValues;
 
+    return this.finalizePopulations(
+      populationsTable.objects() as SummaryTable,
+      maxRollups,
+      coalitionGroups
+    );
+  }
+
+  /**
+   * View-mode counterpart to the block-join path above. `this.table` is already
+   * one row per zone (the backend pre-aggregates demography per district — see
+   * document.district_unions), so population calculation is just deriving `zone`
+   * from `path` and percent columns; no assignments/join concept applies.
+   */
+  private calculatePopulationsFromZoneTable(
+    coalitionGroups: CoalitionGroupKey[]
+  ): {ok: true; table: SummaryTable} | {ok: false} {
+    if (!this.table) {
+      return {ok: false};
+    }
+    const columns = this.table.columnNames();
+    const populationsTable = this.table
+      .derive({
+        zone: escape((row: TableRow) => (row.path === '__unassigned__' ? null : +row.path)),
+      })
+      .derive(getPctDerives(columns));
+
+    const maxRollups = populationsTable
+      .rollup(getRollups(columns, 'max'))
+      .objects()[0] as MaxValues;
+
+    return this.finalizePopulations(
+      populationsTable.objects() as SummaryTable,
+      maxRollups,
+      coalitionGroups
+    );
+  }
+
+  /**
+   * Shared tail of both population-calculation paths: fills in zero rows for
+   * unpainted/unassigned zones, applies coalition columns, sorts, and updates
+   * zoneStats/summaryStats derived from the final per-zone table.
+   */
+  private finalizePopulations(
+    zonePopulationsTable: SummaryTable,
+    maxRollups: MaxValues | undefined,
+    coalitionGroups: CoalitionGroupKey[]
+  ): {ok: true; table: SummaryTable} {
+    const mapState = useMapStore.getState();
+    const mapMode = useMapControlsStore.getState().mapMode;
+    const zoneIds =
+      mapMode === MAP_MODES.COI
+        ? sortCommunitiesByRenderOrder(mapState.communities).map(community => community.id)
+        : Array.from(
+            {length: mapState.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS},
+            (_, i) => i + 1
+          );
+
     if (maxRollups) {
       this.zoneStats.maxValues = maxRollups as MaxValues & Record<string, number>;
     }
-    const zonePopulationsTable = populationsTable.objects() as SummaryTable;
     const populatedZoneIds = new Set(
       zonePopulationsTable
         .map(row => row.zone)

@@ -2,6 +2,8 @@
 tagging, and `name=` grouping so per-document URLs collapse into one stat per
 route."""
 
+import os
+
 import msgpack
 
 # Canonical Locust stat names, one per route.
@@ -21,6 +23,11 @@ class StressClient:
     def __init__(self, http, user_agent: str):
         self.http = http
         self.headers = {"User-Agent": user_agent}
+        # Bypasses the captcha session gate once SESSION_ENFORCE is on;
+        # see RUNBOOK.md "Session key" for how to configure it.
+        session_key = os.environ.get("STRESS_SESSION_KEY")
+        if session_key:
+            self.headers["X-Districtr-Session"] = session_key
 
     def get_document(self, document_id: str) -> dict | None:
         with self.http.get(

@@ -1,5 +1,6 @@
 'use client';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useOverlayStore} from '@/app/store/overlayStore';
 import {GEODATA_URL} from '@/app/utils/api/constants';
 import {FilterSpecification} from 'maplibre-gl';
 import {useMemo} from 'react';
@@ -10,6 +11,7 @@ import {
   HIGHLIGHT_LINE_COLOR,
   HIGHLIGHT_LINE_WIDTH,
 } from '@/app/constants/map/layerStyle';
+import {HIGHLIGHT_FILL_COLOR, SELECTED_LINE_STYLE} from '@/app/constants/map/overlayLayerStyles';
 import {
   CANONICAL_LAYER_IDS,
   COUNTY_SOURCE_ID,
@@ -19,6 +21,9 @@ import {
 export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const hoveredCountyGeoid = useMapControlsStore(state => state.hoveredCountyGeoid);
+  const paintConstraint = useOverlayStore(state => state.paintConstraint);
+  const countyMaskId =
+    paintConstraint?.overlayId === COUNTY_SOURCE_ID ? paintConstraint.featureId : null;
 
   const countyFilter = useMemo(() => {
     // If stateFipsSet is set and not empty, match any of its values
@@ -41,6 +46,7 @@ export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
         id={COUNTY_SOURCE_ID}
         type="vector"
         url={`pmtiles://${GEODATA_URL}/basemaps/tiger/tiger2023/tl_2023_us_county_full.pmtiles`}
+        promoteId="GEOID"
       >
         <Layer
           id={CANONICAL_LAYER_IDS.COUNTIES.BOUNDARY}
@@ -83,6 +89,47 @@ export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
               : ['==', ['get', 'GEOID'], SENTINEL_EMPTY_VALUE]
           }
         />
+        {/* Hover highlight while choosing a county paint mask (feature-state hover) */}
+        <Layer
+          id={CANONICAL_LAYER_IDS.COUNTIES.HOVER_FILL}
+          beforeId={MAP_LAYER_ANCHOR_IDS.hover}
+          type="fill"
+          source-layer="tl_2023_us_county"
+          paint={HIGHLIGHT_FILL_COLOR}
+          filter={countyFilter}
+        />
+        {/* Dim everything outside the active county paint mask.
+            NOTE: must be direct children of <Source> (no fragment) so
+            react-map-gl can inject the source prop. */}
+        {countyMaskId && (
+          <Layer
+            id={CANONICAL_LAYER_IDS.COUNTIES.MASK}
+            beforeId={MAP_LAYER_ANCHOR_IDS.hover}
+            type="fill"
+            source-layer="tl_2023_us_county"
+            paint={{
+              'fill-color': '#FFFFFF',
+              'fill-opacity': 0.75,
+            }}
+            filter={
+              [
+                'all',
+                countyFilter,
+                ['!', ['==', ['get', 'GEOID'], countyMaskId]],
+              ] as FilterSpecification
+            }
+          />
+        )}
+        {countyMaskId && (
+          <Layer
+            id={CANONICAL_LAYER_IDS.COUNTIES.SELECTED}
+            beforeId={MAP_LAYER_ANCHOR_IDS.hover}
+            type="line"
+            source-layer="tl_2023_us_county"
+            paint={SELECTED_LINE_STYLE}
+            filter={['==', ['get', 'GEOID'], countyMaskId]}
+          />
+        )}
         <Layer
           id={CANONICAL_LAYER_IDS.COUNTIES.LABELS}
           beforeId={mapOptions.prominentCountyNames ? undefined : MAP_LAYER_ANCHOR_IDS.counties}

@@ -114,7 +114,7 @@ environment (DB access), so they run inside a backend task — local
 docker-compose or prod via ECS Exec. Seeding itself goes over HTTP
 (`POST /api/create_document` + `PUT /api/assignments`) so seed documents are
 created exactly as the app creates them; the DB is used to validate config
-slugs against `districtrmap` and, for cleanup, to drop assignment partitions.
+slugs against `districtrmap` and, for cleanup, to delete assignment rows.
 
 - **seed**: one document per config row, metadata name
   `[STRESS-TEST] <run-id> seed <slug>`, manifest written write-through (a
@@ -124,12 +124,11 @@ slugs against `districtrmap` and, for cleanup, to drop assignment partitions.
   prod — the Fargate task filesystem is ephemeral).
 - **cleanup**: `-m/--manifest` (repeatable, local or `s3://`) accepts both
   manifest shapes (seed `{documents: [...]}` and runtime
-  `{created_documents: [...]}`). Deletes each document fully: drops its
-  `document.assignments_<id>` / `document.community_assignments_<id>`
-  partitions (mirroring `PATCH /api/assignments/{id}/reset`, minus the
-  recreate), deletes comment/district-union/session/token rows, then the
-  document row (`document.evaluation` cascades). Chunked commits (50
-  docs/transaction) keep DDL lock counts under the 15s `lock_timeout`.
+  `{created_documents: [...]}`). Deletes each document fully: removes rows
+  from `document.assignments` and `document.community_assignments` (plain
+  tables — no per-document partitions since migration `7e57b49573e0`), deletes
+  comment/district-union/session/token rows, then the document row
+  (`document.evaluation` cascades). Chunked commits (50 docs/transaction).
   Afterwards it lists any leftover document whose metadata name starts with
   `[STRESS-TEST]` and prompts before deleting them (`--yes` to skip the
   prompt — required non-interactively).

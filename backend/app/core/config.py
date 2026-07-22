@@ -82,6 +82,13 @@ class Settings(BaseSettings):
     # reCAPTCHA
     RECAPTCHA_SECRET_KEY: str | None = None
 
+    # Silent-captcha session tokens (reCAPTCHA v3 + stateless HMAC session JWTs)
+    RECAPTCHA_V3_SECRET_KEY: str | None = None
+    RECAPTCHA_V3_SCORE_THRESHOLD: float = 0.5
+    SESSION_TOKEN_TTL_HOURS: int = 4
+    SESSION_ENFORCE: bool = False
+    RESEARCH_API_KEY: str | None = None
+
     @computed_field  # type: ignore[misc]
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn:

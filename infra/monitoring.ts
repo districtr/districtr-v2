@@ -6,13 +6,15 @@ import {Database} from "./database";
 import {ClusterResources} from "./cluster";
 import {Backend} from "./backend";
 import {Frontend} from "./frontend";
+import {Waf} from "./waf";
 
 export function createMonitoring(
   alb: Alb,
   database: Database,
   clusterResources: ClusterResources,
   backend: Backend,
-  frontend: Frontend
+  frontend: Frontend,
+  waf: Waf
 ) {
   const name = config.name;
 
@@ -107,6 +109,24 @@ export function createMonitoring(
       alarmDescription: `${label} service memory above 85%`,
     });
   }
+
+  new aws.cloudwatch.MetricAlarm(`${name}-waf-blocked`, {
+    ...alarmDefaults,
+    name: `${name}-waf-blocked-requests`,
+    namespace: "AWS/WAFV2",
+    metricName: "BlockedRequests",
+    dimensions: {
+      WebACL: waf.webAcl.name,
+      Region: aws.getRegionOutput().name,
+      Rule: "ALL",
+    },
+    statistic: "Sum",
+    period: 300,
+    evaluationPeriods: 1,
+    threshold: 1000,
+    comparisonOperator: "GreaterThanThreshold",
+    alarmDescription: "WAF blocked >1000 requests in 5 min (attack or false positives)",
+  });
 
   new aws.cloudwatch.MetricAlarm(`${name}-db-cpu`, {
     ...alarmDefaults,

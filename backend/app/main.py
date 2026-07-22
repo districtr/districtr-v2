@@ -24,6 +24,7 @@ from sqlalchemy.types import Integer
 from sqlmodel import Session, String, select, true, update, col, literal
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 import logging
 from sqlalchemy import bindparam
 from sqlmodel import ARRAY
@@ -47,6 +48,11 @@ from app.core.dependencies import (
 )
 from app.core.models import DocumentID
 from app.core.config import settings
+from app.core.security import (
+    mint_session_token,
+    require_session,
+    verify_recaptcha_v3,
+)
 import app.exports.main as exports
 import app.cms.main as cms
 import app.comments.main as comments
@@ -89,15 +95,23 @@ from app.comments.models import (
     Tag,
     CommentTag,
 )
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
 from sqlalchemy.sql.functions import coalesce
-from app.utils import RowFormat, package_rows, update_or_select_district_stats
+from app.utils import (
+    update_or_select_district_stats,
+    district_stats_to_feature_collection,
+    publish_district_stats_to_s3,
+    stats_cdn_url,
+    RowFormat,
+    package_rows,
+)
 from app.evaluation.graph import get_graph
 from contextlib import asynccontextmanager
 from fiona.transform import transform
+from fastapi.responses import RedirectResponse
 from fastapi import BackgroundTasks
 from ._sanitize import (
     CommentDict,
@@ -149,7 +163,23 @@ if settings.BACKEND_CORS_ORIGINS or settings.BACKEND_CORS_ORIGIN_REGEX:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        # Let the browser read export filenames cross-origin.
+        expose_headers=["Content-Disposition"],
     )
+
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Strict-Transport-Security"] = (
+        "max-age=63072000; includeSubDomains"
+    )
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
 
 
 @app.middleware("http")
@@ -260,21 +290,87 @@ async def db_is_alive(session: Session = Depends(get_session)):
         )
 
 
-@app.get("/api/document/{document_id}/stats")
+class SessionCreate(BaseModel):
+    recaptcha_token: str
+
+
+@app.post("/api/session")
+async def create_session(data: SessionCreate, request: Request):
+    """Mint a stateless session token, verifying reCAPTCHA v3 when configured."""
+    if settings.RECAPTCHA_V3_SECRET_KEY:
+        # Behind the ALB, request.client is the LB node. The ALB appends the
+        # IP it saw at the TCP layer to the END of X-Forwarded-For; earlier
+        # entries are client-supplied and spoofable, so trust only the last.
+        # (Revisit if a CDN/proxy is ever added in front of the ALB.)
+        forwarded = request.headers.get("x-forwarded-for")
+        client_ip = (
+            forwarded.rsplit(",", 1)[-1].strip()
+            if forwarded
+            else (request.client.host if request.client else None)
+        )
+        await verify_recaptcha_v3(data.recaptcha_token, client_ip)
+    token, expires_at = mint_session_token()
+    return {"token": token, "expires_at": expires_at.isoformat()}
+
+
+@app.get("/api/document/{document_id}/stats", dependencies=[Depends(require_session)])
 async def get_document_stats(
     background_tasks: BackgroundTasks,
     document: Annotated[Document, Depends(get_protected_document)],
+    document_id: DocumentID = Depends(parse_document_id),
     session: Session = Depends(get_session),
 ):
-    return update_or_select_district_stats(
+    """Per-zone district stats as a GeoJSON FeatureCollection.
+
+    For public (public_id) reads, redirects to the S3-hosted
+    `plans/display/{public_id}.geojson` when it's at least as fresh as the
+    document's assignments. Otherwise computes inline and enqueues a
+    background republish so the next viewer is served from the CDN.
+
+    Edit-mode reads always compute inline so the editor never sees stale
+    data, but still trigger a background republish for downstream viewers.
+    """
+    public_id = document.public_id
+    is_public_read = document_id.is_public
+    cdn_fresh = (
+        document.stats_published_at is not None
+        and document.stats_published_at >= document.assignments_updated_at
+    )
+
+    if is_public_read and cdn_fresh and public_id is not None:
+        cdn = stats_cdn_url(
+            public_id, cache_buster=str(int(document.stats_published_at.timestamp()))
+        )
+        if cdn:
+            return RedirectResponse(
+                url=cdn, status_code=status.HTTP_307_TEMPORARY_REDIRECT
+            )
+
+    rows = update_or_select_district_stats(
         session, document.document_id, background_tasks
     )
+
+    # Always (re)publish in the background when S3 is configured and the
+    # object is stale relative to the latest assignments. Skipped silently if
+    # there's no S3 client or no public_id.
+    if settings.get_s3_client() is not None and public_id is not None and not cdn_fresh:
+        background_tasks.add_task(
+            publish_district_stats_to_s3,
+            document_id=document.document_id,
+            public_id=public_id,
+        )
+
+    return district_stats_to_feature_collection(rows)
 
 
 # Sync def: a cold get_graph (S3 fetch + unpickle) inside compute_metrics
 # runs for seconds; a plain def hands the whole request to FastAPI's
 # threadpool so it never blocks the event loop (or ALB health checks).
-@app.get("/api/document/{document_id}/evaluation", response_model=MetricsEnvelope)
+@app.get(
+    "/api/document/{document_id}/evaluation",
+    response_model=MetricsEnvelope,
+    dependencies=[Depends(require_session)],
+)
 def get_document_evaluation(
     background_tasks: BackgroundTasks,
     document: Annotated[Document, Depends(get_protected_document)],
@@ -291,9 +387,12 @@ def get_document_evaluation(
     "/api/create_document",
     response_model=DocumentCreatePublic,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_session)],
 )
 async def create_document(
-    data: DocumentCreate, session: Session = Depends(get_session)
+    data: DocumentCreate,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
 ):
     # Get DistrictrMap to inherit num_districts and other fields
     districtr_map_stmt = select(DistrictrMap).where(
@@ -454,6 +553,19 @@ async def create_document(
             total_assignments = insert_result.inserted
             skipped_geo_ids = insert_result.skipped_geo_ids
             zone_label_remapping = insert_result.zone_label_remapping
+            # On modifiable maps the uploaded plan can grow the district count
+            # beyond the map's default, but never shrink it — a partial plan
+            # keeps the default and the user can still lower it manually.
+            if (
+                districtr_map.num_districts_modifiable
+                and insert_result.max_assigned_zone is not None
+                and insert_result.max_assigned_zone > (districtr_map.num_districts or 2)
+            ):
+                new_document.num_districts = insert_result.max_assigned_zone
+                session.add(new_document)
+                # The response select below reads through session.connection(),
+                # which does not autoflush.
+                session.flush()
             for original_label, new_zone in zone_label_remapping.items():
                 display_label = original_label if original_label else "(blank)"
                 label_comment = Comment(
@@ -573,13 +685,20 @@ async def create_document(
 
     session.commit()
 
+    if doc.public_id and (total_assignments > 0 or copied_document is not None):
+        background_tasks.add_task(
+            publish_district_stats_to_s3,
+            document_id=document_id,
+            public_id=doc.public_id,
+        )
+
     doc_dict = dict(doc._mapping)
     doc_dict["skipped_geo_ids"] = skipped_geo_ids
     doc_dict["zone_label_remapping"] = zone_label_remapping
     return doc_dict
 
 
-@app.put("/api/assignments")
+@app.put("/api/assignments", dependencies=[Depends(require_session)])
 async def update_assignments(
     request: Request,
     background_tasks: BackgroundTasks,
@@ -753,6 +872,30 @@ async def update_assignments(
     # true no-op requests (which would otherwise break optimistic concurrency for
     # other clients).
     mutated = False
+
+    # Snapshot pre-existing district-mode assignments so we can compute the
+    # set of zones whose geometry/demographics changed in this request. Used
+    # below to drop only the affected rows from document.district_unions
+    # rather than wiping the cache for the whole document. Community maps
+    # don't feed into district_unions, so we skip the snapshot there.
+    diff_load_id: str | None = None
+    if not is_community_map:
+        diff_load_id, _ = str(uuid4()).split("-", maxsplit=1)
+        old_snapshot_table = f"old_assignments_{diff_load_id}"
+        session.connection().execute(
+            text(
+                f"CREATE TEMP TABLE {old_snapshot_table} "
+                f"(geo_id TEXT, zone INT) ON COMMIT DROP"
+            )
+        )
+        session.connection().execute(
+            text(
+                f"INSERT INTO {old_snapshot_table} (geo_id, zone) "
+                f"SELECT geo_id, zone FROM {assignment_table} "
+                f"WHERE document_id = :document_id"
+            ),
+            {"document_id": document_id},
+        )
 
     # The assignments field is always a full replacement set:
     #   [] means "delete all assignments" (user cleared everything)
@@ -964,6 +1107,49 @@ async def update_assignments(
         # sync_fn always hits the DB (delete/insert/update), so count it.
         mutated = True
 
+    # For district maps, figure out which zones actually changed membership
+    # and evict only those rows from district_unions. The unassigned (NULL
+    # zone) row is always dropped when any zone changed, because its
+    # demographic totals depend on the sum across all assigned zones.
+    dirty_zones: list[int] = []
+    if diff_load_id is not None:
+        old_snapshot_table = f"old_assignments_{diff_load_id}"
+        dirty_rows = (
+            session.connection()
+            .execute(
+                text(
+                    f"""
+                SELECT DISTINCT z FROM (
+                    SELECT o.zone AS z
+                    FROM {old_snapshot_table} o
+                    LEFT JOIN {assignment_table} n
+                        ON n.document_id = :document_id AND n.geo_id = o.geo_id
+                    WHERE n.zone IS DISTINCT FROM o.zone
+                    UNION
+                    SELECT n.zone AS z
+                    FROM {assignment_table} n
+                    LEFT JOIN {old_snapshot_table} o ON o.geo_id = n.geo_id
+                    WHERE n.document_id = :document_id
+                      AND n.zone IS DISTINCT FROM o.zone
+                ) d
+                WHERE z IS NOT NULL
+                """
+                ),
+                {"document_id": document_id},
+            )
+            .all()
+        )
+        dirty_zones = [int(r[0]) for r in dirty_rows]
+        if dirty_zones:
+            session.connection().execute(
+                text(
+                    "DELETE FROM document.district_unions "
+                    "WHERE document_id = :document_id "
+                    "AND (zone = ANY(:dirty) OR zone IS NULL)"
+                ),
+                {"document_id": document_id, "dirty": dirty_zones},
+            )
+
     if mutated:
         updated_at = update_timestamp(session, document_id)
     else:
@@ -973,7 +1159,27 @@ async def update_assignments(
         updated_at = session.exec(
             select(Document.updated_at).where(Document.document_id == document_id)
         ).one()
+    if dirty_zones:
+        # Bump assignments_updated_at so /stats can tell that the CDN object
+        # is stale and republish, even on the path that doesn't otherwise
+        # change document.updated_at.
+        session.connection().execute(
+            text(
+                "UPDATE document.document SET assignments_updated_at = NOW() "
+                "WHERE document_id = :document_id"
+            ),
+            {"document_id": document_id},
+        )
+    public_id = session.exec(
+        select(Document.public_id).where(Document.document_id == document_id)
+    ).one_or_none()
     session.commit()
+    if mutated and not is_community_map and public_id is not None:
+        background_tasks.add_task(
+            publish_district_stats_to_s3,
+            document_id=document_id,
+            public_id=public_id,
+        )
     if VERBOSE_LOGGING:
         logger.info(
             f"PUT /api/assignments complete: document_id={document_id}, "
@@ -1021,7 +1227,11 @@ async def get_children(
     return results
 
 
-@app.patch("/api/assignments/{document_id}/reset", status_code=status.HTTP_200_OK)
+@app.patch(
+    "/api/assignments/{document_id}/reset",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_session)],
+)
 async def reset_map(
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
@@ -1034,12 +1244,18 @@ async def reset_map(
             {"document_id": document.document_id},
         )
 
-    # Reset color scheme
-    stmt = text(
-        "UPDATE document.document SET color_scheme = NULL WHERE document_id = :document_id"
-    ).bindparams(bindparam(key="document_id", type_=UUIDType))
     session.connection().execute(
-        stmt,
+        text(
+            "DELETE FROM document.district_unions WHERE document_id = :document_id"
+        ).bindparams(bindparam(key="document_id", type_=UUIDType)),
+        {"document_id": document.document_id},
+    )
+    session.connection().execute(
+        text(
+            "UPDATE document.document "
+            "SET color_scheme = NULL, assignments_updated_at = NOW() "
+            "WHERE document_id = :document_id"
+        ).bindparams(bindparam(key="document_id", type_=UUIDType)),
         {"document_id": document.document_id},
     )
 
@@ -1054,6 +1270,7 @@ async def reset_map(
 @app.patch(
     "/api/document/{document_id}/update_colors",
     response_model=ColorsSetResult,
+    dependencies=[Depends(require_session)],
 )
 async def update_colors(
     colors: list[str],
@@ -1091,6 +1308,7 @@ async def update_colors(
 @app.put(
     "/api/document/{document_id}/num_districts",
     response_model=NumDistrictsSetResult,
+    dependencies=[Depends(require_session)],
 )
 async def update_num_districts(
     num_districts: int,
@@ -1298,7 +1516,10 @@ async def get_document_list(
     ]
 
 
-@app.get("/api/document/{document_id}/unassigned")
+@app.get(
+    "/api/document/{document_id}/unassigned",
+    dependencies=[Depends(require_session)],
+)
 async def get_unassigned_geoids(
     document: Annotated[Document, Depends(get_protected_document)],
     exclude_ids: list[str] = Query(default=[]),
@@ -1386,7 +1607,10 @@ async def get_unassigned_geoids(
     return Response(content=payload, media_type="application/msgpack")
 
 
-@app.get("/api/document/{document_id}/contiguity")
+@app.get(
+    "/api/document/{document_id}/contiguity",
+    dependencies=[Depends(require_session)],
+)
 async def check_document_contiguity(
     document: Annotated[Document, Depends(get_protected_document)],
     zone: list[int] = Query(default=[]),
@@ -1419,7 +1643,10 @@ async def check_document_contiguity(
     return results
 
 
-@app.get("/api/document/{document_id}/contiguity/{zone}/connected_component_bboxes")
+@app.get(
+    "/api/document/{document_id}/contiguity/{zone}/connected_component_bboxes",
+    dependencies=[Depends(require_session)],
+)
 async def get_connected_component_bboxes(
     zone: int,
     document: Annotated[Document, Depends(get_protected_document)],
@@ -1519,7 +1746,11 @@ async def get_connected_component_bboxes(
     return Response(content=payload, media_type="application/msgpack")
 
 
-@app.put("/api/document/{document_id}/metadata", status_code=status.HTTP_200_OK)
+@app.put(
+    "/api/document/{document_id}/metadata",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_session)],
+)
 async def update_districtrmap_metadata(
     metadata: DocumentMetadata,
     document: Document = Depends(get_document),

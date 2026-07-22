@@ -406,6 +406,49 @@ def simple_child_geos_gerrydb_fixture(session: Session, simple_child_geos):
     session.close()
 
 
+@pytest.fixture(name="antimeridian_geos")
+def antimeridian_geos_fixture(session: Session):
+    """Two small polygons straddling the antimeridian, mirroring Alaska's Aleutian
+    islands, so extent computation can be tested for that failure mode."""
+    layer = "antimeridian_geos"
+    result = subprocess.run(
+        args=[
+            "ogr2ogr",
+            "-f",
+            "PostgreSQL",
+            OGR2OGR_PG_CONNECTION_STRING,
+            FIXTURES_PATH / "gerrydb" / f"{layer}.geojson",
+            "-lco",
+            "OVERWRITE=yes",
+            "-nln",
+            f"{GERRY_DB_SCHEMA}.{layer}",
+            "-nlt",
+            "MULTIPOLYGON",
+            "-lco",
+            "GEOMETRY_NAME=geometry",
+        ],
+    )
+
+    if result.returncode != 0:
+        print(f"ogr2ogr failed. Got {result}")
+        raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
+
+
+@pytest.fixture(name="antimeridian_geos_gerrydb")
+def antimeridian_geos_gerrydb_fixture(session: Session, antimeridian_geos):
+    upsert_query = text("""
+        INSERT INTO gerrydbtable (uuid, name, updated_at)
+        VALUES (gen_random_uuid(), :name, now())
+        ON CONFLICT (name)
+        DO UPDATE SET
+            updated_at = now()
+    """)
+    session.begin()
+    session.execute(upsert_query, {"name": "antimeridian_geos"})
+    session.commit()
+    session.close()
+
+
 @pytest.fixture(name="gerrydb_simple_geos_view")
 def gerrydb_simple_geos_view_fixture(
     session: Session, simple_parent_geos_gerrydb, simple_child_geos_gerrydb
@@ -443,6 +486,29 @@ def simple_parent_child_geos_districtr_map_fixture(
         districtr_map_slug="simple_geos",
         gerrydb_table_name="simple_geos",
         num_districts=3,
+        tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
+        parent_layer="simple_parent_geos",
+        child_layer="simple_child_geos",
+    )
+    create_parent_child_edges(
+        session=session, districtr_map_uuid=inserted_districtr_map
+    )
+    session.commit()
+    return inserted_districtr_map
+
+
+@pytest.fixture(name="simple_shatterable_fixed_districtr_map")
+def simple_shatterable_fixed_districtr_map_fixture(
+    session: Session, simple_shatterable_districtr_map
+):
+    """Same layers/graph as simple_geos but num_districts_modifiable=False."""
+    inserted_districtr_map = create_districtr_map(
+        session,
+        name="Simple shatterable layer (fixed districts)",
+        districtr_map_slug="simple_geos_fixed",
+        gerrydb_table_name="simple_geos",
+        num_districts=3,
+        num_districts_modifiable=False,
         tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
         parent_layer="simple_parent_geos",
         child_layer="simple_child_geos",

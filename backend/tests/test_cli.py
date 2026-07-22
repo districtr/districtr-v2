@@ -1,4 +1,5 @@
-from app.models import Overlay
+import pytest
+from app.models import DistrictrMap, Overlay
 from sqlmodel import Session
 from tests.constants import (
     POSTGRES_TEST_DB,
@@ -11,7 +12,8 @@ from tests.constants import (
 from pathlib import Path
 import subprocess
 import os
-from sqlalchemy import select
+from sqlalchemy import select, text
+from uuid import uuid4
 import json
 
 test_env = os.environ.copy()
@@ -268,3 +270,394 @@ def test_update_overlay(session: Session):
         f"Updated overlay {original_overlay_id}" in result_output
     ), "Overlay not updated"
     cleanup_overlay(session, "Updated Overlay")
+
+
+LINK_TEST_OVERLAY_NAME = "Link Overlays Test Overlay"
+LINK_TEST_PARENT_LAYER = "link_overlays_test_layer"
+LINK_TEST_MAP_SLUGS = ("link_overlays_test_map_ks", "link_overlays_test_map_mo")
+
+
+def run_cli(*args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ["python", "cli.py", *args],
+        cwd=str(backend_dir),
+        env=test_env,
+        capture_output=True,
+        text=True,
+    )
+
+
+def purge_link_test_rows(session: Session):
+    """Delete committed rows from the link-overlays tests, including leftovers from killed runs."""
+    session.execute(
+        text(
+            """DELETE FROM districtrmap_overlays
+            WHERE overlay_id IN (SELECT overlay_id FROM overlay WHERE name = :name)
+            OR districtr_map_id IN (
+                SELECT uuid FROM districtrmap WHERE districtr_map_slug = ANY(:slugs)
+            )"""
+        ),
+        {"name": LINK_TEST_OVERLAY_NAME, "slugs": list(LINK_TEST_MAP_SLUGS)},
+    )
+    session.execute(
+        text("DELETE FROM overlay WHERE name = :name"),
+        {"name": LINK_TEST_OVERLAY_NAME},
+    )
+    session.execute(
+        text("DELETE FROM districtrmap WHERE districtr_map_slug = ANY(:slugs)"),
+        {"slugs": list(LINK_TEST_MAP_SLUGS)},
+    )
+    session.commit()
+
+
+@pytest.fixture(name="link_test_maps")
+def link_test_maps_fixture(engine):
+    """Two committed districtrmap rows (statefps ['20'] and ['29']).
+
+    The CLI runs as a subprocess with its own database connection, so these
+    rows must be committed with a real Session(engine) — the rollback-session
+    fixture used elsewhere is invisible to subprocesses.
+    """
+    with Session(engine) as setup_session:
+        purge_link_test_rows(setup_session)
+        setup_session.execute(
+            text(
+                """INSERT INTO gerrydbtable (uuid, name, updated_at)
+                VALUES (gen_random_uuid(), :name, now())
+                ON CONFLICT (name)
+                DO UPDATE SET
+                    updated_at = now()"""
+            ),
+            {"name": LINK_TEST_PARENT_LAYER},
+        )
+        map_uuids: dict[str, str] = {}
+        for statefp, districtr_map_slug in zip(("20", "29"), LINK_TEST_MAP_SLUGS):
+            districtr_map = DistrictrMap(
+                uuid=str(uuid4()),
+                name=f"Link overlays test map {statefp}",
+                districtr_map_slug=districtr_map_slug,
+                parent_layer=LINK_TEST_PARENT_LAYER,
+                visible=True,
+                map_type="default",
+                num_districts_modifiable=True,
+                statefps=[statefp],
+            )
+            setup_session.add(districtr_map)
+            map_uuids[statefp] = districtr_map.uuid
+        setup_session.commit()
+
+    yield map_uuids
+
+    with Session(engine) as teardown_session:
+        purge_link_test_rows(teardown_session)
+
+
+def create_link_test_overlay(engine, source: str | None = None) -> str:
+    """Create a committed overlay row visible to CLI subprocesses."""
+    overlay_id = str(uuid4())
+    with Session(engine) as overlay_session:
+        overlay_session.add(
+            Overlay(
+                overlay_id=overlay_id,
+                name=LINK_TEST_OVERLAY_NAME,
+                data_type="geojson",
+                layer_type="fill",
+                source=source,
+            )
+        )
+        overlay_session.commit()
+    return overlay_id
+
+
+def get_linked_map_ids(engine, overlay_id: str) -> set[str]:
+    with Session(engine) as query_session:
+        rows = query_session.execute(
+            text(
+                "SELECT districtr_map_id FROM districtrmap_overlays WHERE overlay_id = :overlay_id"
+            ),
+            {"overlay_id": overlay_id},
+        ).all()
+    return {str(row.districtr_map_id) for row in rows}
+
+
+def test_link_overlays_to_maps_by_name(engine, link_test_maps):
+    """Linking by --overlay-name links the overlay to all maps"""
+    overlay_id = create_link_test_overlay(engine)
+
+    result_proc = run_cli(
+        "link-overlays-to-maps", "--overlay-name", LINK_TEST_OVERLAY_NAME
+    )
+    assert (
+        result_proc.returncode == 0
+    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+
+    linked_map_ids = get_linked_map_ids(engine, overlay_id)
+    assert link_test_maps["20"] in linked_map_ids, "Overlay not linked to KS map"
+    assert link_test_maps["29"] in linked_map_ids, "Overlay not linked to MO map"
+
+
+def test_link_overlays_to_maps_statefps_filter(engine, link_test_maps):
+    """--statefps only links to maps whose statefps array overlaps the filter"""
+    overlay_id = create_link_test_overlay(engine)
+
+    result_proc = run_cli(
+        "link-overlays-to-maps",
+        "--overlay-name",
+        LINK_TEST_OVERLAY_NAME,
+        "--statefps",
+        "20",
+    )
+    assert (
+        result_proc.returncode == 0
+    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+
+    linked_map_ids = get_linked_map_ids(engine, overlay_id)
+    assert link_test_maps["20"] in linked_map_ids, "Overlay not linked to KS map"
+    assert (
+        link_test_maps["29"] not in linked_map_ids
+    ), "Overlay linked to MO map despite statefps filter"
+
+
+def test_link_overlays_to_maps_by_source(engine, link_test_maps):
+    """--overlay-source selects only the overlay rows with that exact source"""
+    ks_overlay_id = create_link_test_overlay(
+        engine, source="s3://bucket/link-test-ks.geojson"
+    )
+    mo_overlay_id = create_link_test_overlay(
+        engine, source="s3://bucket/link-test-mo.geojson"
+    )
+
+    result_proc = run_cli(
+        "link-overlays-to-maps",
+        "--overlay-source",
+        "s3://bucket/link-test-ks.geojson",
+        "--statefps",
+        "20",
+    )
+    assert (
+        result_proc.returncode == 0
+    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+
+    ks_linked_map_ids = get_linked_map_ids(engine, ks_overlay_id)
+    assert (
+        link_test_maps["20"] in ks_linked_map_ids
+    ), "Source-selected overlay not linked to KS map"
+    assert (
+        link_test_maps["29"] not in ks_linked_map_ids
+    ), "Source-selected overlay linked to MO map despite statefps filter"
+    assert (
+        get_linked_map_ids(engine, mo_overlay_id) == set()
+    ), "Overlay with a different source was linked"
+
+
+def test_link_overlays_to_maps_idempotent(engine, link_test_maps):
+    """Running the command twice leaves the junction table unchanged"""
+    overlay_id = create_link_test_overlay(engine)
+
+    first_proc = run_cli(
+        "link-overlays-to-maps", "--overlay-name", LINK_TEST_OVERLAY_NAME
+    )
+    assert (
+        first_proc.returncode == 0
+    ), f"CLI command failed: {first_proc.stderr or first_proc.stdout}"
+    first_linked_map_ids = get_linked_map_ids(engine, overlay_id)
+
+    second_proc = run_cli(
+        "link-overlays-to-maps", "--overlay-name", LINK_TEST_OVERLAY_NAME
+    )
+    assert (
+        second_proc.returncode == 0
+    ), f"CLI command failed: {second_proc.stderr or second_proc.stdout}"
+    second_linked_map_ids = get_linked_map_ids(engine, overlay_id)
+
+    assert (
+        second_linked_map_ids == first_linked_map_ids
+    ), "Second run changed the junction table"
+
+
+def test_link_overlays_to_maps_invalid_selectors(engine, link_test_maps):
+    """Unknown name/source/id, invalid UUID, and missing selectors all fail"""
+    unknown_name_proc = run_cli(
+        "link-overlays-to-maps", "--overlay-name", "No Such Overlay Name"
+    )
+    assert unknown_name_proc.returncode != 0, "Unknown overlay name did not fail"
+
+    unknown_source_proc = run_cli(
+        "link-overlays-to-maps",
+        "--overlay-source",
+        "s3://bucket/no-such-source.geojson",
+    )
+    assert unknown_source_proc.returncode != 0, "Unknown overlay source did not fail"
+
+    invalid_uuid_proc = run_cli("link-overlays-to-maps", "--overlay-id", "not-a-uuid")
+    assert invalid_uuid_proc.returncode != 0, "Invalid UUID format did not fail"
+
+    unknown_uuid_proc = run_cli("link-overlays-to-maps", "--overlay-id", str(uuid4()))
+    assert unknown_uuid_proc.returncode != 0, "Unknown overlay UUID did not fail"
+
+    no_selector_proc = run_cli("link-overlays-to-maps")
+    assert no_selector_proc.returncode != 0, "Missing selectors did not fail"
+
+
+SYNC_TEST_SOURCE = "https://x/overlays/al_cd.geojson"
+SYNC_TEST_STALE_NAME = "Sync Metadata Test Stale Name"
+SYNC_TEST_STALE_DESCRIPTION = "Stale description"
+SYNC_TEST_NEW_NAME = "Congressional Districts"
+SYNC_TEST_NEW_DESCRIPTION = "Used in 2026 elections"
+SYNC_TEST_ABSENT_SOURCE = "https://x/overlays/zz_none.geojson"
+
+
+def purge_sync_test_rows(session: Session):
+    """Delete committed overlays created by the sync-overlay-metadata tests."""
+    session.execute(
+        text("DELETE FROM overlay WHERE source = ANY(:sources)"),
+        {"sources": [SYNC_TEST_SOURCE, SYNC_TEST_ABSENT_SOURCE]},
+    )
+    session.commit()
+
+
+def create_sync_test_overlay(
+    engine,
+    layer_type: str,
+    source: str,
+    name: str = SYNC_TEST_STALE_NAME,
+    description: str = SYNC_TEST_STALE_DESCRIPTION,
+) -> str:
+    """Create a committed overlay row visible to CLI subprocesses."""
+    overlay_id = str(uuid4())
+    with Session(engine) as overlay_session:
+        overlay_session.add(
+            Overlay(
+                overlay_id=overlay_id,
+                name=name,
+                description=description,
+                data_type="geojson",
+                layer_type=layer_type,
+                source=source,
+            )
+        )
+        overlay_session.commit()
+    return overlay_id
+
+
+def get_overlay_name_description(engine, overlay_id: str) -> tuple[str, str]:
+    with Session(engine) as query_session:
+        row = query_session.execute(
+            text(
+                "SELECT name, description FROM overlay WHERE overlay_id = :overlay_id"
+            ),
+            {"overlay_id": overlay_id},
+        ).one()
+    return row.name, row.description
+
+
+@pytest.fixture(name="sync_test_cleanup")
+def sync_test_cleanup_fixture(engine):
+    """Purge sync-overlay-metadata test overlays before and after each test."""
+    with Session(engine) as setup_session:
+        purge_sync_test_rows(setup_session)
+    yield
+    with Session(engine) as teardown_session:
+        purge_sync_test_rows(teardown_session)
+
+
+def test_sync_overlay_metadata_updates_all_matching(
+    engine, tmp_path, sync_test_cleanup
+):
+    """Both overlays sharing a source key get the new name and description"""
+    line_overlay_id = create_sync_test_overlay(engine, "line", SYNC_TEST_SOURCE)
+    text_overlay_id = create_sync_test_overlay(engine, "text", SYNC_TEST_SOURCE)
+
+    metadata_path = tmp_path / "metadata.json"
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "al_cd": {
+                    "name": SYNC_TEST_NEW_NAME,
+                    "description": SYNC_TEST_NEW_DESCRIPTION,
+                    "source": "Dave's Redistricting App",
+                    "plan_name": "AL 2026 Congressional",
+                    "year": "2026",
+                }
+            }
+        )
+    )
+
+    result_proc = run_cli("sync-overlay-metadata", "--metadata", str(metadata_path))
+    assert (
+        result_proc.returncode == 0
+    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+
+    for overlay_id in (line_overlay_id, text_overlay_id):
+        name, description = get_overlay_name_description(engine, overlay_id)
+        assert name == SYNC_TEST_NEW_NAME, "Overlay name not updated"
+        assert (
+            description == SYNC_TEST_NEW_DESCRIPTION
+        ), "Overlay description not updated"
+
+
+def test_sync_overlay_metadata_dry_run_no_changes(engine, tmp_path, sync_test_cleanup):
+    """--dry-run leaves the overlay name and description unchanged"""
+    overlay_id = create_sync_test_overlay(engine, "line", SYNC_TEST_SOURCE)
+
+    metadata_path = tmp_path / "metadata.json"
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "al_cd": {
+                    "name": SYNC_TEST_NEW_NAME,
+                    "description": SYNC_TEST_NEW_DESCRIPTION,
+                }
+            }
+        )
+    )
+
+    result_proc = run_cli(
+        "sync-overlay-metadata", "--metadata", str(metadata_path), "--dry-run"
+    )
+    assert (
+        result_proc.returncode == 0
+    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+
+    name, description = get_overlay_name_description(engine, overlay_id)
+    assert name == SYNC_TEST_STALE_NAME, "Dry run changed overlay name"
+    assert (
+        description == SYNC_TEST_STALE_DESCRIPTION
+    ), "Dry run changed overlay description"
+
+
+def test_sync_overlay_metadata_absent_key_unchanged(
+    engine, tmp_path, sync_test_cleanup
+):
+    """An overlay whose key is absent from the metadata is left unchanged"""
+    overlay_id = create_sync_test_overlay(engine, "line", SYNC_TEST_ABSENT_SOURCE)
+
+    metadata_path = tmp_path / "metadata.json"
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "al_cd": {
+                    "name": SYNC_TEST_NEW_NAME,
+                    "description": SYNC_TEST_NEW_DESCRIPTION,
+                }
+            }
+        )
+    )
+
+    result_proc = run_cli("sync-overlay-metadata", "--metadata", str(metadata_path))
+    assert (
+        result_proc.returncode == 0
+    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+
+    name, description = get_overlay_name_description(engine, overlay_id)
+    assert name == SYNC_TEST_STALE_NAME, "Absent-key overlay name changed"
+    assert (
+        description == SYNC_TEST_STALE_DESCRIPTION
+    ), "Absent-key overlay description changed"
+
+
+def test_sync_overlay_metadata_missing_file_fails(engine, tmp_path):
+    """A nonexistent metadata file exits non-zero"""
+    missing_path = tmp_path / "does_not_exist.json"
+    result_proc = run_cli("sync-overlay-metadata", "--metadata", str(missing_path))
+    assert result_proc.returncode != 0, "Nonexistent metadata file did not fail"

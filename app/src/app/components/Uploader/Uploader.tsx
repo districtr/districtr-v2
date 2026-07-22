@@ -25,8 +25,13 @@ export const Uploader: React.FC<{
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    getAvailableDistrictrMaps({}).then(result => {
-      if (result.ok) setAvailableMaps(result.response);
+    // Custom (num_districts_modifiable) maps live in the 'custom' group, not
+    // 'states', so they don't clutter the public map picker. CSV imports
+    // target custom maps exclusively.
+    getAvailableDistrictrMaps({group: 'custom'}).then(custom => {
+      if (custom.ok) {
+        setAvailableMaps(custom.response);
+      }
     });
   }, []);
 
