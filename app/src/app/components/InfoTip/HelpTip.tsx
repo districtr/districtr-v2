@@ -17,7 +17,13 @@ const stopPropagation = (event: React.SyntheticEvent) => {
   event.stopPropagation();
 };
 
-export const HelpTip: React.FC<{tip: HelpTipKey}> = ({tip}) => {
+export const HelpTip: React.FC<{
+  tip: HelpTipKey;
+  /** Notified on every open/close transition, in addition to HelpTip's own internal
+   * state — lets a parent (e.g. a DropdownMenu.Content hosting this HelpTip inline)
+   * track whether the popover is open without owning that state itself. */
+  onOpenChange?: (open: boolean) => void;
+}> = ({tip, onOpenChange}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const entry = helpTipContent[tip];
@@ -28,6 +34,7 @@ export const HelpTip: React.FC<{tip: HelpTipKey}> = ({tip}) => {
       // Reset to collapsed so the popover doesn't reopen mid-video next time.
       setIsExpanded(false);
     }
+    onOpenChange?.(open);
   };
 
   const videoUrl = entry.videoFile
