@@ -15,7 +15,8 @@ import {formatNumber} from '@utils/numbers';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {ACCESS_STATES} from '@constants/document/state';
 
-const LABEL_COL_WIDTH = 84;
+// Rows show just the number; "District" lives in the column header.
+const LABEL_COL_WIDTH = 52;
 const DEV_COL_WIDTH = 84;
 const POP_COL_WIDTH = 76;
 // A district reads as overfull once it passes ideal population by 5%.
@@ -83,7 +84,9 @@ export const DistrictMeters = () => {
     <Flex direction="column" gap="0" mt="2">
       {/* Column header: lock-all sits in the same column as the row locks. */}
       <Flex align="center" gap="1" px="1" pb="1">
-        <Box style={{width: LABEL_COL_WIDTH, flexShrink: 0}} />
+        <Text size="1" color="gray" style={{width: LABEL_COL_WIDTH, flexShrink: 0}}>
+          District
+        </Text>
         {isEditing && (
           <Tooltip content="Lock or unlock all districts. Locked districts can't be painted over.">
             <IconButton
@@ -148,7 +151,7 @@ export const DistrictMeters = () => {
                   weight={selectedZone === d.zone ? 'bold' : 'regular'}
                   style={{width: LABEL_COL_WIDTH, flexShrink: 0}}
                 >
-                  District {d.zone}
+                  {d.zone}
                 </Text>
                 {/* Icons manage their own interactions; don't let clicks re-select the row.
                     Lock renders first so it lines up under the header's lock-all. */}
