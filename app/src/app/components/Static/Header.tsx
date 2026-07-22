@@ -18,11 +18,12 @@ const NAV_ITEMS: {
   match: (pathname: string) => boolean;
   subnav?: SecondaryNavItem[];
 }[] = [
-  // Learn is a section (About/Guide/Data/Rules); the link lands on the first page
-  // and the in-page subnav (LearnSubNav) handles movement within the section.
+  // Learn is a section (About/Guide/Data/Rules); the link lands on Guide, the
+  // most useful entry point, and the in-page subnav (LearnSubNav) handles
+  // movement within the rest of the section.
   {
     label: 'Learn',
-    href: '/about',
+    href: '/guide',
     match: p => ['/about', '/guide', '/data', '/rules'].includes(p),
     subnav: LEARN_ITEMS,
   },
