@@ -123,7 +123,7 @@ function ComponentZoomList({
   const labels = hasSizes
     ? fragments.map((f, i) => {
         const n = nGeos(f)!;
-        return `Fragment ${i + 1} · ${n} unit${n === 1 ? '' : 's'}`;
+        return `Fragment · ${n} unit${n === 1 ? '' : 's'}`;
       })
     : undefined;
 
