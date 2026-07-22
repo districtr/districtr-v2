@@ -6,6 +6,26 @@ and `infra/athena/OBSERVABILITY.md` (dashboard, Athena, SG rule, alarms).
 Region is `us-east-2` throughout. Pick a `RUN_ID` (e.g. `run1`) and use it
 everywhere below.
 
+## Session key (WAF / captcha gate)
+
+TODO(researchApiKey): configure before the next run now that the WAF and
+session gate exist. Steps:
+
+1. Set the key on the stack (once): `cd infra && pulumi config set --secret
+   researchApiKey <value> --stack prod` and commit the updated
+   `Pulumi.prod.yaml` (value is KMS-encrypted). Redeploy the backend so the
+   `RESEARCH_API_KEY` task secret exists.
+2. Pass it to every run and seed invocation as `STRESS_SESSION_KEY=<value>`
+   (add it to the `env ...` prefix of the SSM `run.sh` commands below and to
+   the local `stress-test-seed` invocation). `client.py`/`seed.py` then send
+   it as `X-Districtr-Session`, which bypasses the captcha session gate —
+   required once `SESSION_ENFORCE=true`, and harmless (and log-quieting)
+   before that.
+3. The WAF rate limit is separate and IP-based: after `provision.sh`,
+   allowlist the runner IP (`pulumi config set --path 'wafAllowlistIps[0]'
+   "<runner-ip>/32" --stack prod && pulumi up`), and remove it after
+   teardown. Without this the rate rule blocks the runner at 2,000 req/5min.
+
 ## 1. Pre-flight (day of run, before provisioning)
 
 - [ ] **Notify alarm recipients** (`alarmEmails` in `Pulumi.prod.yaml`:
