@@ -15,20 +15,25 @@ export const GeometryBackgroundLayer: React.FC<{
   visibleMembershipKeys?: string[];
 }> = ({id, sourceLayerId, filter, beforeId, style, visibleMembershipKeys}) => {
   const backgroundOpacity = style?.backgroundOpacity ?? 0.2;
-  const hideWhenAssignedExpression = (visibleMembershipKeys?.length
-    ? [
-        'any',
-        ...visibleMembershipKeys.map(membershipKey => [
+  // Hide broken parents too, so their gray background doesn't tint the child
+  // blocks rendered on top of them.
+  const hideWhenAssignedExpression = [
+    'any',
+    ['boolean', ['feature-state', 'broken'], false],
+    ...(visibleMembershipKeys?.length
+      ? visibleMembershipKeys.map(membershipKey => [
           'boolean',
           ['feature-state', membershipKey],
           false,
+        ])
+      : [
+          [
+            '!=',
+            ['coalesce', ['feature-state', 'zone'], SENTINEL_EMPTY_VALUE],
+            SENTINEL_EMPTY_VALUE,
+          ],
         ]),
-      ]
-    : [
-        '!=',
-        ['coalesce', ['feature-state', 'zone'], SENTINEL_EMPTY_VALUE],
-        SENTINEL_EMPTY_VALUE,
-      ]) as unknown as ExpressionSpecification;
+  ] as unknown as ExpressionSpecification;
 
   const layerProps: LayerProps = {
     id,
