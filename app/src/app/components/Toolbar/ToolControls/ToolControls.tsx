@@ -47,7 +47,7 @@ export const ToolControls: React.FC = () => {
     return null;
   }
   return (
-    <div className="bg-white w-full p-4">
+    <div className="bg-white w-full py-4">
       <Component />
       <ExitBlockViewButtons />
     </div>

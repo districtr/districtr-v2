@@ -194,6 +194,8 @@ export interface MapStore {
   mapLock: {
     isLocked: boolean;
     reason: string;
+    // Silent locks (background autosave) still block edits but skip the overlay.
+    silent?: boolean;
   } | null;
   setMapLock: (lock: MapStore['mapLock']) => void;
   notification: {

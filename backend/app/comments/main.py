@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError, DataError
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import text, func, select, String, Select, update, delete
 
-from app.core.security import auth, TokenScope
+from app.core.security import auth, require_session, TokenScope
 from sqlalchemy.sql import or_, and_, exists, literal, cast, case
 
 from app.core.dependencies import get_protected_document, validate_document_exists
@@ -1078,7 +1078,11 @@ async def list_district_comments_admin(
     return results
 
 
-@router.post("/flag", status_code=status.HTTP_200_OK)
+@router.post(
+    "/flag",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_session)],
+)
 async def flag_comment(
     body: FlagCommentRequest,
     session: Session = Depends(get_session),

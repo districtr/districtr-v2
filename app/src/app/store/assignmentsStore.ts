@@ -94,7 +94,7 @@ export interface AssignmentsStore {
 
   /** Clears all shatter state */
   resetShatterState: () => void;
-  handlePutAssignments: (overwrite?: boolean) => Promise<void>;
+  handlePutAssignments: (overwrite?: boolean, opts?: {silent?: boolean}) => Promise<void>;
   handleRevert: (mapDocument: DocumentObject) => Promise<void>;
   handlePutAssignmentsConflict: (
     resolution: SyncConflictResolution,
@@ -553,6 +553,11 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         childToParent,
       };
     } else {
+      // Healing is an automatic consequence of the triggering gesture (exiting block
+      // view), not a user edit — suppress its undo snapshot so it coalesces into that
+      // gesture's history entry instead of adding a transient pre-heal step.
+      const {isTracking, pause} = useAssignmentsStore.temporal.getState();
+      isTracking && pause();
       set({
         zoneAssignments: new Map(zoneAssignments),
         accumulatedAssignments: new Map<string, NullableZone>(),
@@ -566,6 +571,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         pendingShatterUndoState: null,
         zonesLastUpdated: new Map(get().zonesLastUpdated),
       });
+      isTracking && useAssignmentsStore.temporal.getState().resume();
     }
   },
   ingestAccumulatedAssignments: () => {
@@ -786,7 +792,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     });
   },
 
-  handlePutAssignments: async (overwrite = false) => {
+  handlePutAssignments: async (overwrite = false, {silent = false} = {}) => {
     // Flush any pending IDB updates before explicit save
     await idb.flushPendingUpdate();
 
@@ -801,7 +807,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     const hasPendingChanges =
       Object.values(updated).some(Boolean) ||
       (get().clientLastUpdated !== '' && get().clientLastUpdated !== mapDocument.updated_at);
-    setMapLock({isLocked: true, reason: 'Saving plan'});
+    setMapLock({isLocked: true, reason: 'Saving plan', silent});
 
     try {
       // Use mapStore.mapDocument (has latest comments from in-memory edits) merged with
@@ -837,7 +843,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         });
       } else if (assignmentsPostResponse.ok) {
         setShowSaveConflictModal(false);
-        if (hasPendingChanges) {
+        if (hasPendingChanges && !silent) {
           setNotification({message: 'Map saved', importance: 2, type: 'success'});
         }
       }

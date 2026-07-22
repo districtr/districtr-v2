@@ -151,7 +151,7 @@ export interface CoiAssignmentsStore {
   removeCommunitiesAbove: (maxCommunity: number) => void;
   removeCommunity: (removedCommunity: Zone) => void;
 
-  handlePutAssignments: (overwrite?: boolean) => Promise<void>;
+  handlePutAssignments: (overwrite?: boolean, opts?: {silent?: boolean}) => Promise<void>;
   handleRevert: (mapDocument: DocumentObject) => Promise<void>;
   resolveConflict: (
     resolution: SyncConflictResolution,
@@ -1095,6 +1095,11 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     if (!healed) return;
 
     const currentTime = new Date().toISOString();
+    // Healing is an automatic consequence of the gesture that triggered it (paint or
+    // exiting block view), not a user edit — suppress its undo snapshot so it coalesces
+    // into that gesture's history entry instead of adding a transient pre-heal step.
+    const {isTracking, pause, resume} = useCoiAssignmentsStore.temporal.getState();
+    isTracking && pause();
     set({
       communityAssignments,
       accumulatedAssignments: new Map<string, CoiAccumulatedMutation>(),
@@ -1104,6 +1109,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       childToParent,
       clientLastUpdated: currentTime,
     });
+    isTracking && resume();
 
     if (mapDocument) {
       idb.updateIdbCoiAssignments(mapDocument, communityAssignments, currentTime, true);
@@ -1444,7 +1450,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     temporalManager.purgeZone(MAP_MODES.COI, removedCommunity);
   },
 
-  handlePutAssignments: async (overwrite = false) => {
+  handlePutAssignments: async (overwrite = false, {silent = false} = {}) => {
     // console.log('[COI save] handlePutAssignments called, overwrite:', overwrite);
     await idb.flushPendingUpdate();
 
@@ -1471,7 +1477,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     const hasPendingChanges =
       Object.values(updated).some(Boolean) ||
       (get().clientLastUpdated !== '' && get().clientLastUpdated !== mapDocument.updated_at);
-    setMapLock({isLocked: true, reason: 'Saving Coi assignment plan'});
+    setMapLock({isLocked: true, reason: 'Saving Coi assignment plan', silent});
     try {
       const documentForSave: DocumentObject = {
         ...idbDocument.document_metadata,
@@ -1511,7 +1517,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       } else if (assignmntsPostResponse.ok) {
         // console.log('[COI save] Save succeeded:', assignmntsPostResponse.response);
         setShowSaveConflictModal(false);
-        if (hasPendingChanges) {
+        if (hasPendingChanges && !silent) {
           setNotification({message: 'Map saved', importance: 2, type: 'success'});
         }
       }
