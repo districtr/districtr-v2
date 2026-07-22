@@ -88,6 +88,10 @@ export const ZoomToUnassigned = () => {
             selectedIndex={selectedIndex}
             setSelectedIndex={setSelectedIndex}
             padding={100}
+            labels={unassignedFeatureBboxes.map(feature => {
+              const n = feature.properties?.geo_ids?.length;
+              return n ? `Area · ${n} unit${n === 1 ? '' : 's'}` : 'Area';
+            })}
           />
         </Flex>
       </ConditionalScrollArea>
