@@ -2,15 +2,18 @@ import {useMapStore} from '@/app/store/mapStore';
 import {getContiguity} from '@/app/utils/api/apiHandlers/getContiguity';
 import {Blockquote, Box, Flex, Table, Text} from '@radix-ui/themes';
 import {useQuery} from '@tanstack/react-query';
-import {useEffect, useMemo} from 'react';
+import {useEffect, useMemo, useState} from 'react';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 import ContiguityDetail from './ContiguityDetail';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {ConditionalScrollArea} from '../ConditionalScrollArea';
+import {ShowAllDistrictsButton} from '../ShowAllDistrictsButton';
 
 export const Contiguity = () => {
   const mapDocument = useMapStore(store => store.mapDocument);
   const getZoneColor = useZoneColorGetter();
+  // Unstarted districts (no contiguity entry) stay hidden by default.
+  const [showAll, setShowAll] = useState(false);
   const {data, isLoading, refetch, dataUpdatedAt} = useQuery({
     queryKey: ['Contiguity', mapDocument?.document_id, mapDocument?.updated_at],
     queryFn: async () => {
@@ -56,6 +59,9 @@ export const Contiguity = () => {
     return cleanData;
   }, [data]);
 
+  const startedRows = tableData.filter((row: any) => row.contiguity !== null);
+  const visibleRows = showAll ? tableData : startedRows;
+
   if (isLoading) {
     return <div>Loading...</div>;
   }
@@ -69,7 +75,7 @@ export const Contiguity = () => {
   return (
     <Box>
       {/* One row per district — scroll past ten, like the population panel. */}
-      <ConditionalScrollArea shouldUseScrollableRows={tableData.length > 10} maxHeight="60vh">
+      <ConditionalScrollArea shouldUseScrollableRows={visibleRows.length > 10} maxHeight="60vh">
         <Table.Root size="1">
           <Table.Header>
             <Table.Row>
@@ -81,7 +87,7 @@ export const Contiguity = () => {
           </Table.Header>
 
           <Table.Body>
-            {tableData.map((row: any, i: number) => (
+            {visibleRows.map((row: any, i: number) => (
               <Table.Row key={i}>
                 <Table.Cell>
                   <Flex align="center" gap="2">
@@ -109,6 +115,14 @@ export const Contiguity = () => {
           </Table.Body>
         </Table.Root>
       </ConditionalScrollArea>
+      <Flex>
+        <ShowAllDistrictsButton
+          showAll={showAll}
+          onToggle={() => setShowAll(!showAll)}
+          total={tableData.length}
+          hiddenCount={tableData.length - startedRows.length}
+        />
+      </Flex>
     </Box>
   );
 };
