@@ -101,7 +101,7 @@ export const CurrentDistrictCard: React.FC<{children: React.ReactNode}> = ({chil
               <Popover.Trigger>
                 <Button size="1" variant="surface" color="gray" disabled={isReadOnly}>
                   <Pencil1Icon />
-                  {description ? 'Edit district description' : 'Add district description'}
+                  {description ? 'Edit description' : 'Add description'}
                 </Button>
               </Popover.Trigger>
               <Popover.Content style={{width: 300}} align="start">
