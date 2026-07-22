@@ -218,11 +218,7 @@ const AccordionSection: React.FC<{
       {/* The HelpTip's own trigger is a button too, so it renders as a sibling of
           (not nested inside) this header button — nested <button>s are invalid HTML
           and would break click/hydration semantics. */}
-      <Flex
-        align="center"
-        className="p-3 rounded-lg transition-colors hover:bg-blue-50"
-        gap="1"
-      >
+      <Flex align="center" className="p-3 rounded-lg transition-colors hover:bg-blue-50" gap="1">
         <button
           onClick={onToggle}
           aria-expanded={open}

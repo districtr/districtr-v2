@@ -167,7 +167,12 @@ export const PopulationPanel = () => {
       </Flex>
       {/* Fixed header: lock-all control + "Ideal" label strip. Never scrolls. */}
       <Flex direction="row" width={'100%'} gap="1" mt="2">
-        <Flex justify="end" align="center" gap="0" style={{width: POP_LEFT_COL_WIDTH, flexShrink: 0}}>
+        <Flex
+          justify="end"
+          align="center"
+          gap="0"
+          style={{width: POP_LEFT_COL_WIDTH, flexShrink: 0}}
+        >
           {!isCommunityMode && (
             <>
               <Tooltip content="Lock or unlock all districts. Locked districts can't be painted over.">
