@@ -22,6 +22,7 @@ import {MinusIcon, PlusIcon, Pencil1Icon} from '@radix-ui/react-icons';
 import {ACCESS_STATES} from '@constants/document/state';
 import {temporalManager} from '@/app/utils/temporal';
 import {MAP_MODES} from '@constants/map/mode';
+import {HelpTip} from '@/app/components/InfoTip/HelpTip';
 
 export const DistrictsZonePicker: React.FC = () => {
   const [showNumDistrictEditor, setShowNumDistrictEditor] = useState(false);
@@ -173,7 +174,14 @@ export const DistrictsZonePicker: React.FC = () => {
             </>
           )}
         </Flex>
-        <ColorPicker onValueChange={handleRadioChange} defaultValue={0} value={selectedZone - 1} />
+        <Flex align="center" gap="1">
+          <ColorPicker
+            onValueChange={handleRadioChange}
+            defaultValue={0}
+            value={selectedZone - 1}
+          />
+          <HelpTip tip="switchDistrict" />
+        </Flex>
       </Flex>
       <AlertDialog.Root
         open={pendingDecrease !== null}
