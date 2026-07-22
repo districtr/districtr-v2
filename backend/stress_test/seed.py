@@ -12,6 +12,7 @@ PATCH /api/assignments/{id}/reset, app/main.py:1085, minus the recreate).
 
 import json
 import logging
+import os
 from urllib.parse import urlparse
 from uuid import UUID
 
@@ -72,6 +73,11 @@ def seed_documents(
         )
 
     headers = {"User-Agent": f"districtr-stress-test/{run_id}"}
+    # Bypasses the captcha session gate once SESSION_ENFORCE is on;
+    # see RUNBOOK.md "Session key" for how to configure it.
+    session_key = os.environ.get("STRESS_SESSION_KEY")
+    if session_key:
+        headers["X-Districtr-Session"] = session_key
     documents: list[dict] = []
     for row in rows:
         slug = row["districtr_map_slug"]
