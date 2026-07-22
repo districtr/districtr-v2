@@ -21,6 +21,14 @@ export const MapActionsDropdown: React.FC<{
   const handleReset = useMapStore(state => state.handleReset);
   const setNotification = useMapStore(state => state.setNotification);
 
+  const notifyExportFailed = (reason: string) =>
+    setNotification({
+      importance: 2,
+      type: 'error',
+      message: 'Exporting this map failed. Please try again in a moment.',
+      id: `export-failed-${exportId}-${reason}`,
+    });
+
   // Defer past the dropdown's close so Radix doesn't leave pointer-events:none
   // stuck on the body when a dialog opens from onSelect.
   const openModal = (which: 'share') => setTimeout(() => setModal(which), 0);
@@ -62,14 +70,6 @@ export const MapActionsDropdown: React.FC<{
       notifyExportFailed('network');
     }
   };
-
-  const notifyExportFailed = (reason: string) =>
-    setNotification({
-      importance: 2,
-      type: 'error',
-      message: 'Exporting this map failed. Please try again in a moment.',
-      id: `export-failed-${exportId}-${reason}`,
-    });
 
   return (
     <>
