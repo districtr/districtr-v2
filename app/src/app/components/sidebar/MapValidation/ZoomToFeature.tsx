@@ -1,4 +1,4 @@
-import {CheckIcon, ChevronLeftIcon, ChevronRightIcon} from '@radix-ui/react-icons';
+import {ChevronLeftIcon, ChevronRightIcon} from '@radix-ui/react-icons';
 import {Button, Flex, Select} from '@radix-ui/themes';
 import {useEffect, useLayoutEffect, useRef, useState, Dispatch, SetStateAction} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
@@ -40,19 +40,17 @@ export default function ZoomToFeature({
 }: ZoomToFeatureProps) {
   const mapRef = useMapStore(state => state.getMapRef());
   const mapDocument = useMapStore(state => state.mapDocument);
-  // Pending 'idle' handler from an in-flight zoom; cancelled when a new zoom
-  // starts — or the component unmounts — so a stale handler can't yank the
-  // camera later.
-  const pendingIdleHandler = useRef<(() => void) | null>(null);
+  // Cancels the in-flight zoom's pending fly (idle listener + dwell timer);
+  // called when a new zoom starts — or the component unmounts — so a stale
+  // handler can't yank the camera later.
+  const cancelPendingFly = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     return () => {
-      if (pendingIdleHandler.current) {
-        mapRef?.off('idle', pendingIdleHandler.current);
-        pendingIdleHandler.current = null;
-      }
+      cancelPendingFly.current?.();
+      cancelPendingFly.current = null;
     };
-  }, [mapRef]);
+  }, []);
 
   // on repeat visit, prevent zooming to bounds on first render
   const [hasMounted, setHasMounted] = useState(false);
@@ -67,19 +65,8 @@ export default function ZoomToFeature({
     return feature && typeof feature === 'object' && feature.type === 'Feature';
   }
 
-  // Areas already dealt with (e.g. assigned since the list was built) stay in the
-  // list with a check instead of being renumbered away; navigation skips them.
-  const isResolved = (feature: Feature | Polygon) =>
-    isFeature(feature) && !!feature.properties?.resolved;
-
-  const findUnresolved = (from: number, direction: 1 | -1): number | null => {
-    for (let i = from; i >= 0 && i < features.length; i += direction) {
-      if (!isResolved(features[i])) return i;
-    }
-    return null;
-  };
-  const nextIndex = findUnresolved(selectedIndex === null ? 0 : selectedIndex + 1, 1);
-  const prevIndex = selectedIndex === null ? null : findUnresolved(selectedIndex - 1, -1);
+  const nextIndex = selectedIndex === null ? 0 : selectedIndex + 1;
+  const prevIndex = selectedIndex === null ? null : selectedIndex - 1;
 
   function isPolygon(feature: any): feature is Polygon {
     return feature && typeof feature === 'object' && feature.type === 'Polygon';
@@ -118,23 +105,42 @@ export default function ZoomToFeature({
     padding: getFitBoundsPadding(mapRef, 40),
   });
 
-  // After the snap, wait for the map to go idle (tiles loaded), then fly in.
-  // With geoIds, the map is queried for the geometries' rendered pieces and the
-  // fly targets their union bbox — needed because unassigned-area bboxes are
-  // centroid-derived: they understate the true extent, and a single-unit
-  // component collapses to a point. Without geoIds the fly targets approxBounds
-  // directly; waiting for idle anyway keeps the pacing identical to the
-  // query path, so every zoom reads as snap → beat → fly.
+  // After the snap, wait for the map to go idle (tiles loaded) AND a minimum
+  // dwell, then fly in. With geoIds, the map is queried for the geometries'
+  // rendered pieces and the fly targets their union bbox — needed because
+  // unassigned-area bboxes are centroid-derived: they understate the true
+  // extent, and a single-unit component collapses to a point. Without geoIds
+  // the fly targets approxBounds directly; waiting anyway keeps the pacing
+  // identical to the query path, so every zoom reads as snap → beat → fly.
+  // The dwell floor keeps the beat perceptible even when tiles are cached and
+  // idle fires immediately — the pause is what lets the user orient.
+  const MIN_DWELL_MS = 400;
   const flyInAfterIdle = (approxBounds: LngLatBoundsLike, geoIds?: string[]) => {
     if (!mapRef) return;
-    const onIdle = () => {
-      pendingIdleHandler.current = null;
+    let idleDone = false;
+    let dwellDone = false;
+    let cancelled = false;
+    const maybeFly = () => {
+      if (cancelled || !idleDone || !dwellDone) return;
+      cancelPendingFly.current = null;
       mapRef.fitBounds(
         (geoIds?.length && queryRenderedBounds(geoIds)) || approxBounds,
         finalFitOptions()
       );
     };
-    pendingIdleHandler.current = onIdle;
+    const onIdle = () => {
+      idleDone = true;
+      maybeFly();
+    };
+    const dwellTimer = setTimeout(() => {
+      dwellDone = true;
+      maybeFly();
+    }, MIN_DWELL_MS);
+    cancelPendingFly.current = () => {
+      cancelled = true;
+      clearTimeout(dwellTimer);
+      mapRef.off('idle', onIdle);
+    };
     mapRef.once('idle', onIdle);
   };
 
@@ -180,10 +186,8 @@ export default function ZoomToFeature({
     } else {
       return;
     }
-    if (pendingIdleHandler.current) {
-      mapRef?.off('idle', pendingIdleHandler.current);
-      pendingIdleHandler.current = null;
-    }
+    cancelPendingFly.current?.();
+    cancelPendingFly.current = null;
     const bounds = getFeatureBounds(feature);
     if (!bounds) {
       console.error('Invalid feature type');
@@ -236,36 +240,24 @@ export default function ZoomToFeature({
       {/* Few areas: pick directly with buttons; many: a dropdown. */}
       {features.length < 10 ? (
         <Flex direction="row" gap="1" wrap="wrap">
-          {features.map((feature, index) => {
-            const resolved = isResolved(feature);
-            return (
-              <Button
-                key={index}
-                size="1"
-                color={resolved ? 'green' : undefined}
-                variant={resolved ? 'soft' : index === selectedIndex ? 'solid' : 'outline'}
-                disabled={resolved}
-                onClick={() => selectFeature(index)}
-                className="cursor-pointer"
-              >
-                {resolved && <CheckIcon />}
-                {labels?.[index] ?? index + 1}
-              </Button>
-            );
-          })}
+          {features.map((_, index) => (
+            <Button
+              key={index}
+              size="1"
+              variant={index === selectedIndex ? 'solid' : 'outline'}
+              onClick={() => selectFeature(index)}
+              className="cursor-pointer"
+            >
+              {labels?.[index] ?? index + 1}
+            </Button>
+          ))}
         </Flex>
       ) : (
         <Select.Root value={`${selectedIndex || 0}`}>
           <Select.Trigger />
           <Select.Content>
-            {features.map((feature, index) => (
-              <Select.Item
-                key={index}
-                value={`${index}`}
-                disabled={isResolved(feature)}
-                onMouseDown={() => selectFeature(index)}
-              >
-                {isResolved(feature) ? '✓ ' : ''}
+            {features.map((_, index) => (
+              <Select.Item key={index} value={`${index}`} onMouseDown={() => selectFeature(index)}>
                 {labels?.[index] ?? index + 1}
               </Select.Item>
             ))}
@@ -277,8 +269,8 @@ export default function ZoomToFeature({
           <Button
             size="1"
             variant="outline"
-            onClick={() => prevIndex !== null && setSelectedIndex(prevIndex)}
-            disabled={prevIndex === null}
+            onClick={() => prevIndex !== null && prevIndex >= 0 && setSelectedIndex(prevIndex)}
+            disabled={prevIndex === null || prevIndex < 0}
             className="cursor-pointer"
           >
             <ChevronLeftIcon /> Previous
@@ -287,8 +279,8 @@ export default function ZoomToFeature({
           <Button
             size="1"
             variant="solid"
-            onClick={() => nextIndex !== null && setSelectedIndex(nextIndex)}
-            disabled={nextIndex === null}
+            onClick={() => nextIndex < features.length && setSelectedIndex(nextIndex)}
+            disabled={nextIndex >= features.length}
             className="cursor-pointer"
           >
             Next <ChevronRightIcon />
