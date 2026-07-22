@@ -1,4 +1,4 @@
-import {IconButtonProps, IconProps} from '@radix-ui/themes';
+import {IconProps} from '@radix-ui/themes';
 import {ACTIVE_TOOLS, SUPER_DRAW_TOOLS, type ActiveTool} from '@constants/map/tools';
 import {useMapStore} from '@/app/store/mapStore';
 import {
@@ -23,8 +23,6 @@ export type ActiveToolConfig = {
   mode: ActiveTool;
   disabled?: boolean;
   label: string;
-  variant?: IconButtonProps['variant'];
-  color?: IconButtonProps['color'];
   icon: React.ForwardRefExoticComponent<IconProps & React.RefAttributes<SVGSVGElement>>;
   iconStyle?: React.CSSProperties;
   onClick?: () => void;

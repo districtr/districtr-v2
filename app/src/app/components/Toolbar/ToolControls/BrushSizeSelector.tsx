@@ -61,7 +61,9 @@ export function BrushSizeSelector() {
     setBrushSize(value.length ? value[0] : 0);
   };
   const handlePlusMinus = (change: number) => {
-    let newValue = brushSize + change;
+    // Read from the store, not the closure: the hotkey effect below mounts once,
+    // so a captured brushSize would be stale after the first press.
+    let newValue = useMapControlsStore.getState().brushSize + change;
     if (newValue > BRUSH_MAX_SIZE) {
       newValue = BRUSH_MAX_SIZE;
     } else if (newValue < BRUSH_MIN_SIZE) {
@@ -146,10 +148,9 @@ export function BrushSizeSelector() {
             {paintCounties && <PaintByCounty />}
           </Flex>
           <Slider
-            defaultValue={[brushSize]}
             size="3"
             value={[brushSize]}
-            onValueChange={access === ACCESS_STATES.READ ? () => {} : handleChangeEnd}
+            onValueChange={handleChangeEnd}
             min={BRUSH_MIN_SIZE}
             max={BRUSH_MAX_SIZE}
             disabled={access === ACCESS_STATES.READ}

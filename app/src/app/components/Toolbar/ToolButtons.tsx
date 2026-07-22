@@ -19,8 +19,7 @@ const HISTORY_TOOLS: ActiveTool[] = [ACTIVE_TOOLS.UNDO, ACTIVE_TOOLS.REDO];
 
 export const ToolButtons: React.FC<{
   showShortcuts: boolean;
-  toolbarItemsRef: React.RefObject<HTMLDivElement>;
-}> = ({showShortcuts, toolbarItemsRef}) => {
+}> = ({showShortcuts}) => {
   const activeTool = useMapControlsStore(state => state.activeTool);
   const setActiveTool = useMapControlsStore(state => state.setActiveTool);
   const activeTools = useActiveTools();
@@ -30,70 +29,72 @@ export const ToolButtons: React.FC<{
   const renderTool = (tool: ActiveToolConfig, buttonStyle: React.CSSProperties) => {
     const IconComponent = tool.icon;
     const isActive = activeTool === tool.mode;
+    const singleKey = tool.hotKeyLabel.length === 1;
+    const button = (
+      <IconButton
+        key={tool.mode}
+        data-testid={`${tool.mode}-tool`}
+        className="cursor-pointer tool-button"
+        onClick={() => {
+          if (tool.onClick) {
+            tool.onClick();
+          } else {
+            setActiveTool(isActive ? ACTIVE_TOOLS.PAN : tool.mode);
+          }
+        }}
+        style={{
+          position: 'relative',
+          height: TOOLBAR_HEIGHT,
+          // Radix ghost buttons use content-box sizing, their own padding, and
+          // negative alignment margins; neutralize all three so ghost and solid
+          // render the same size (content is centered, so padding can be 0).
+          boxSizing: 'border-box',
+          padding: 0,
+          margin: 0,
+          borderRadius: 7,
+          boxShadow: isActive ? '0 1px 3px var(--gray-a7)' : 'inset 0 0 0 1px var(--gray-a6)',
+          ...buttonStyle,
+        }}
+        variant={isActive ? 'solid' : 'ghost'}
+        color={isActive ? undefined : 'gray'}
+        disabled={tool.disabled}
+      >
+        {/* Single-key shortcuts float in the button's top-right corner. */}
+        {singleKey && (
+          <Kbd
+            size="1"
+            style={{
+              position: 'absolute',
+              top: 2,
+              right: 4,
+              background: 'transparent',
+              boxShadow: 'none',
+              color: 'inherit',
+              opacity: 0.7,
+            }}
+          >
+            {tool.hotKeyLabel}
+          </Kbd>
+        )}
+        <Flex direction="column" align="center" gap="1">
+          {/* iconStyle (e.g. redo's mirror transform) applies to the icon only —
+              on the button it would mirror the corner rounding too. */}
+          <IconComponent
+            width={TOOLBAR_SIZE * 0.4}
+            height={TOOLBAR_SIZE * 0.4}
+            style={tool.iconStyle}
+          />
+          <Text size="1">{tool.label}</Text>
+        </Flex>
+      </IconButton>
+    );
+    // Buttons name themselves (label + corner hotkey), so only chorded shortcuts
+    // (⌘Z) need a tooltip — and only while Alt reveals shortcuts, never on hover.
+    if (singleKey) return button;
     return (
-      <Tooltip.Provider key={`toolbar-tooltip-${tool.mode}`}>
-        {/* Buttons name themselves (label + corner hotkey), so no hover tooltip —
-            this one only opens while Alt reveals shortcuts, covering the chorded
-            undo/redo hotkeys that don't fit the corner. */}
+      <Tooltip.Provider key={tool.mode}>
         <Tooltip.Root open={showShortcuts}>
-          <Tooltip.Trigger asChild style={{flexGrow: buttonStyle.flexGrow as number | undefined}}>
-            <IconButton
-              data-testid={`${tool.mode}-tool`}
-              className="cursor-pointer tool-button"
-              onClick={() => {
-                if (tool.onClick) {
-                  tool.onClick();
-                } else {
-                  setActiveTool(isActive ? ACTIVE_TOOLS.PAN : tool.mode);
-                }
-              }}
-              style={{
-                position: 'relative',
-                height: TOOLBAR_HEIGHT,
-                // Radix ghost buttons use content-box sizing, their own padding, and
-                // negative alignment margins; neutralize all three so ghost and solid
-                // render the same size (content is centered, so padding can be 0).
-                boxSizing: 'border-box',
-                padding: 0,
-                margin: 0,
-                borderRadius: 7,
-                boxShadow: isActive ? '0 1px 3px var(--gray-a7)' : 'inset 0 0 0 1px var(--gray-a6)',
-                ...buttonStyle,
-              }}
-              variant={tool.variant ?? (isActive ? 'solid' : 'ghost')}
-              color={isActive ? tool.color : 'gray'}
-              disabled={tool.disabled}
-            >
-              {/* Single-key shortcuts float in the button's top-right corner;
-                  chorded ones (⌘Z) stay tooltip-only. */}
-              {tool.hotKeyLabel.length === 1 && (
-                <Kbd
-                  size="1"
-                  style={{
-                    position: 'absolute',
-                    top: 2,
-                    right: 4,
-                    background: 'transparent',
-                    boxShadow: 'none',
-                    color: 'inherit',
-                    opacity: 0.7,
-                  }}
-                >
-                  {tool.hotKeyLabel}
-                </Kbd>
-              )}
-              <Flex direction="column" align="center" gap="1">
-                {/* iconStyle (e.g. redo's mirror transform) applies to the icon only —
-                    on the button it would mirror the corner rounding too. */}
-                <IconComponent
-                  width={TOOLBAR_SIZE * 0.4}
-                  height={TOOLBAR_SIZE * 0.4}
-                  style={tool.iconStyle}
-                />
-                <Text size="1">{tool.label}</Text>
-              </Flex>
-            </IconButton>
-          </Tooltip.Trigger>
+          <Tooltip.Trigger asChild>{button}</Tooltip.Trigger>
           <Tooltip.Portal>
             <Tooltip.Content
               side="top"
@@ -101,7 +102,7 @@ export const ToolButtons: React.FC<{
               sideOffset={5}
             >
               {tool.hotKeyLabel.split(' + ').map((key, i) => (
-                <span key={i} className="text-xs">
+                <span key={i}>
                   {key}
                   <br />
                 </span>
@@ -118,7 +119,6 @@ export const ToolButtons: React.FC<{
     <Flex
       justify="start"
       align="start"
-      ref={toolbarItemsRef}
       direction="row"
       width="100%"
       wrap="wrap"
