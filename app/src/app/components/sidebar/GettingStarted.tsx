@@ -5,6 +5,7 @@ import {CheckIcon, ChevronDownIcon} from '@radix-ui/react-icons';
 import {useQuery} from '@tanstack/react-query';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useUiHintStore, type ValidationTab} from '@/app/store/uiHintStore';
 import {useZonePopulations} from '@/app/hooks/useDemography';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
@@ -29,6 +30,7 @@ const ROUGH_DRAW_UNASSIGNED_RATIO = 0.25;
 export const GettingStarted = () => {
   const isEditing = useMapControlsStore(state => state.isEditing);
   const mapMode = useMapControlsStore(state => state.mapMode);
+  const superDraw = useToolbarStore(state => state.superDraw);
   const mapDocument = useMapStore(state => state.mapDocument);
   const numDistricts = mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
   const {populationData} = useZonePopulations();
@@ -52,14 +54,16 @@ export const GettingStarted = () => {
   const {data: contiguityData} = useQuery({
     queryKey: ['Contiguity', mapDocument?.document_id, mapDocument?.updated_at],
     queryFn: async () => await getContiguity(mapDocument),
-    enabled: !!mapDocument && isEditing && mapMode === MAP_MODES.DISTRICTS,
+    enabled: !!mapDocument && isEditing && !superDraw && mapMode === MAP_MODES.DISTRICTS,
     staleTime: 0,
     retry: false,
     placeholderData: previousData => previousData,
     refetchOnWindowFocus: false,
   });
 
-  if (!isEditing || mapMode !== MAP_MODES.DISTRICTS || !mapDocument?.document_id) return null;
+  // Super Draw users don't need onboarding.
+  if (superDraw || !isEditing || mapMode !== MAP_MODES.DISTRICTS || !mapDocument?.document_id)
+    return null;
 
   const paintedZones = populationData.filter(d => (d.total_pop_20 ?? 0) > 0).length;
   const contiguousZones =
