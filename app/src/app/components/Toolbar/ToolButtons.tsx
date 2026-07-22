@@ -50,9 +50,11 @@ export const ToolButtons: React.FC<{
               style={{
                 position: 'relative',
                 height: TOOLBAR_HEIGHT,
-                // Radix ghost buttons use content-box sizing and negative alignment
-                // margins; neutralize both so ghost and solid render the same size.
+                // Radix ghost buttons use content-box sizing, their own padding, and
+                // negative alignment margins; neutralize all three so ghost and solid
+                // render the same size (content is centered, so padding can be 0).
                 boxSizing: 'border-box',
+                padding: 0,
                 margin: 0,
                 borderRadius: 7,
                 boxShadow: isActive ? '0 1px 3px var(--gray-a7)' : 'inset 0 0 0 1px var(--gray-a6)',

@@ -12,6 +12,8 @@ import {ACCESS_STATES} from '@constants/document/state';
 const PRESET_BUTTON_STYLE: React.CSSProperties = {
   height: 24,
   boxSizing: 'border-box',
+  paddingLeft: 8,
+  paddingRight: 8,
   margin: 0,
   borderRadius: 7,
   boxShadow: 'inset 0 0 0 1px var(--gray-a6)',

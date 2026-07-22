@@ -17,12 +17,15 @@ const BRUSH_PRESETS = [
   {label: 'L', value: 90},
 ];
 // Every button in the preset track (PaintByCounty keeps its own copy): fixed
-// border-box height so ghost/solid toggles don't reflow (ghost is content-box
-// by default), margin 0 to cancel ghost's negative alignment margins, and a
-// hairline outline that active states override with a lift shadow.
+// border-box height and padding so ghost/solid toggles don't reflow (ghost is
+// content-box with its own padding by default), margin 0 to cancel ghost's
+// negative alignment margins, and a hairline outline that active states
+// override with a lift shadow.
 const PRESET_BUTTON_STYLE: CSSProperties = {
   height: 24,
   boxSizing: 'border-box',
+  paddingLeft: 8,
+  paddingRight: 8,
   margin: 0,
   borderRadius: 7,
   boxShadow: 'inset 0 0 0 1px var(--gray-a6)',
