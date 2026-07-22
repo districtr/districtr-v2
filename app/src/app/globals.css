@@ -141,3 +141,17 @@ body {
     -webkit-print-color-adjust: exact;
   }
 }
+
+/* Brief attention flash for controls targeted by Getting Started hints. */
+@keyframes districtr-flash {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 0 4px var(--accent-8);
+  }
+}
+.flash-target {
+  animation: districtr-flash 0.6s ease-in-out 2;
+}

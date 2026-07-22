@@ -1,0 +1,38 @@
+import {create} from 'zustand';
+
+export type ValidationTab = 'Contiguity' | 'Completeness';
+
+// Carries one-shot "scent" intents from the Getting Started checklist to the
+// controls they point at: open a validity-check tab, auto-expand broken
+// districts, and briefly flash the target control.
+interface UiHintStore {
+  /** Consumed (and cleared) by MapValidation to switch its active tab. */
+  validationTabRequest: ValidationTab | null;
+  requestValidationTab: (tab: ValidationTab) => void;
+  clearValidationTabRequest: () => void;
+  /** Timestamp of the last "find disconnected fragments" click; ContiguityDetail
+   * auto-expands discontiguous districts that mount shortly after. */
+  expandDiscontiguousAt: number;
+  pingExpandDiscontiguous: () => void;
+  /** Briefly highlights the control with the matching flash id. */
+  flashTarget: string | null;
+  flash: (target: string) => void;
+}
+
+const FLASH_DURATION_MS = 1600;
+
+export const useUiHintStore = create<UiHintStore>(set => ({
+  validationTabRequest: null,
+  requestValidationTab: tab => set({validationTabRequest: tab}),
+  clearValidationTabRequest: () => set({validationTabRequest: null}),
+  expandDiscontiguousAt: 0,
+  pingExpandDiscontiguous: () => set({expandDiscontiguousAt: Date.now()}),
+  flashTarget: null,
+  flash: target => {
+    set({flashTarget: target});
+    setTimeout(
+      () => set(state => (state.flashTarget === target ? {flashTarget: null} : state)),
+      FLASH_DURATION_MS
+    );
+  },
+}));
