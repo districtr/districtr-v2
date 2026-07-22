@@ -95,8 +95,8 @@ from app.comments.models import (
     Tag,
     CommentTag,
 )
+from pydantic_geojson import FeatureModel, PolygonModel
 from pydantic import BaseModel, ValidationError
-from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
 from sqlalchemy.sql.functions import coalesce
@@ -1658,10 +1658,15 @@ async def get_connected_component_bboxes(
 
     Response (msgpack, Content-Type application/msgpack; no FastAPI
     `response_model`, so this docstring is the wire contract):
-        `BBoxGeoJSONs.model_dump()` -> {"features": [<GeoJSON Polygon>, ...]}
-    Each feature is a GeoJSON Polygon (5-point closed ring) giving the bbox of
-    one connected component, with coordinates reprojected to EPSG:4326
-    (lon/lat). A single connected zone yields one feature; N fragments yield N.
+        `BBoxGeoJSONs.model_dump()` -> {"features": [<GeoJSON Feature>, ...]}
+    Each feature is a GeoJSON Feature wrapping a bbox Polygon (5-point closed
+    ring) for one connected component, with coordinates reprojected to
+    EPSG:4326 (lon/lat) and properties {"bbox": [minx, miny, maxx, maxy],
+    "n_geos": <component size>}; single-geometry components also carry
+    "geo_ids": [geo_id] so the client can zoom to the exact rendered geometry.
+    Features are sorted largest component first, so features[0] is the zone's
+    main body and the rest are fragments. A single connected zone yields one
+    feature; N pieces yield N.
 
     Only supported for district maps — community maps return 400.
     """
@@ -1705,6 +1710,8 @@ async def get_connected_component_bboxes(
     )
 
     bboxes = []
+    # Largest first: features[0] is the main body, the rest are fragments.
+    zone_connected_components = sorted(zone_connected_components, key=len, reverse=True)
     for zone_connected_component in zone_connected_components:
         minx, miny, maxx, maxy = (
             float("inf"),
@@ -1726,19 +1733,26 @@ async def get_connected_component_bboxes(
             dst_crs="EPSG:4326",
         )
 
-        bboxes.append(
-            PolygonModel(
-                coordinates=[
-                    [
-                        Coordinates(lon=_minx, lat=_miny),
-                        Coordinates(lon=_maxx, lat=_miny),
-                        Coordinates(lon=_maxx, lat=_maxy),
-                        Coordinates(lon=_minx, lat=_maxy),
-                        Coordinates(lon=_minx, lat=_miny),
-                    ]
+        polygon = PolygonModel(
+            coordinates=[
+                [
+                    Coordinates(lon=_minx, lat=_miny),
+                    Coordinates(lon=_maxx, lat=_miny),
+                    Coordinates(lon=_maxx, lat=_maxy),
+                    Coordinates(lon=_minx, lat=_maxy),
+                    Coordinates(lon=_minx, lat=_miny),
                 ]
-            )
+            ]
         )
+        properties: dict = {
+            "bbox": [_minx, _miny, _maxx, _maxy],
+            "n_geos": len(zone_connected_component),
+        }
+        if len(zone_connected_component) == 1:
+            # Single-geometry components carry their geo_id so the client can
+            # snap to the area, then zoom to the rendered geometry's true bbox.
+            properties["geo_ids"] = [str(n) for n in zone_connected_component]
+        bboxes.append(FeatureModel(properties=properties, geometry=polygon))
 
     payload = msgpack.packb(
         BBoxGeoJSONs(features=bboxes).model_dump(), use_bin_type=True

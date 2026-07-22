@@ -263,6 +263,18 @@ def test_simple_geos_discontiguity_subgraph_bboxes(
     assert response.status_code == 200
     data = response.json()
     assert len(data["features"]) == 2
+    # All components are Features with bbox + n_geos, sorted largest first so
+    # features[0] is the main body. Single-geometry components also carry their
+    # geo_id so the client can zoom to the exact rendered geometry.
+    sizes = [f["properties"]["n_geos"] for f in data["features"]]
+    assert sizes == sorted(sizes, reverse=True)
+    assert any(size == 1 for size in sizes)
+    for f in data["features"]:
+        assert f["type"] == "Feature"
+        assert len(f["properties"]["bbox"]) == 4
+        assert f["geometry"]["type"] == "Polygon"
+        if f["properties"]["n_geos"] == 1:
+            assert len(f["properties"]["geo_ids"]) == 1
 
 
 @fixture
