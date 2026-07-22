@@ -11,7 +11,8 @@ import {useSelectCommunity} from '@/app/hooks/useSelectCommunity';
 import {ZoneDescriptionPopover} from './ZoneDescriptionPopover';
 import {ConditionalScrollArea} from '../ConditionalScrollArea';
 import {ShowAllDistrictsButton} from '../ShowAllDistrictsButton';
-import {formatNumber} from '@utils/numbers';
+import {formatDeviationPct, formatNumber} from '@utils/numbers';
+import InfoTip from '@components/InfoTip';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {ACCESS_STATES} from '@constants/document/state';
 
@@ -70,7 +71,11 @@ export const DistrictMeters = () => {
           return Math.abs(deviation) > Math.abs(worst) ? deviation : worst;
         }, 0)
       : undefined;
-  const topToBottom = allPainted ? zoneStats?.range : undefined;
+  const topToBottomPct =
+    allPainted && zoneStats?.range !== undefined && zoneStats?.maxPopulation
+      ? zoneStats.range / zoneStats.maxPopulation
+      : undefined;
+  const unassigned = summaryStats?.unassigned;
 
   const handleLockChange = (zone: number) => {
     if (lockPaintedAreas.includes(zone)) {
@@ -82,6 +87,15 @@ export const DistrictMeters = () => {
 
   return (
     <Flex direction="column" gap="0" mt="2">
+      {/* Ideal population sits with the table it contextualizes ("Vs. ideal"). */}
+      {!!idealPopulation && (
+        <Flex align="center" justify="end" px="1" pb="1">
+          <Text size="1" color="gray">
+            Ideal population: <b>{formatNumber(idealPopulation, NUMBER_FORMATS.STRING)}</b>
+          </Text>
+          <InfoTip tips="idealPopulation" />
+        </Flex>
+      )}
       {/* Column header: lock-all sits in the same column as the row locks. */}
       <Flex align="center" gap="1" px="1" pb="1">
         <Text size="1" color="gray" style={{width: LABEL_COL_WIDTH, flexShrink: 0}}>
@@ -155,7 +169,7 @@ export const DistrictMeters = () => {
                 </Text>
                 {/* Icons manage their own interactions; don't let clicks re-select the row.
                     Lock renders first so it lines up under the header's lock-all. */}
-                <Flex align="center" flexShrink="0" onClick={e => e.stopPropagation()}>
+                <Flex align="center" gap="3" flexShrink="0" onClick={e => e.stopPropagation()}>
                   {isEditing && (
                     <Tooltip
                       content={
@@ -274,19 +288,32 @@ export const DistrictMeters = () => {
           <Text size="1" weight="bold" style={{fontVariantNumeric: 'tabular-nums'}}>
             {maxDeviation !== undefined ? signedNumber(maxDeviation) : '—'}
           </Text>
-          <Text size="1" color="gray" style={{fontSize: 10, lineHeight: 1.3, textAlign: 'right'}}>
-            max from ideal
-          </Text>
+          <Flex align="center" gap="0">
+            <Text size="1" color="gray" style={{fontSize: 10, lineHeight: 1.3}}>
+              max from ideal
+            </Text>
+            <InfoTip tips="maxDeviation" />
+          </Flex>
         </Flex>
         <Flex direction="column" align="end" style={{width: POP_COL_WIDTH, flexShrink: 0}}>
           <Text size="1" weight="bold" style={{fontVariantNumeric: 'tabular-nums'}}>
-            {topToBottom !== undefined ? formatNumber(topToBottom, NUMBER_FORMATS.STRING) : '—'}
+            {topToBottomPct !== undefined ? formatDeviationPct(topToBottomPct) : '—'}
           </Text>
-          <Text size="1" color="gray" style={{fontSize: 10, lineHeight: 1.3, textAlign: 'right'}}>
-            top-to-bottom
-          </Text>
+          <Flex align="center" gap="0">
+            <Text size="1" color="gray" style={{fontSize: 10, lineHeight: 1.3}}>
+              top-to-bottom
+            </Text>
+            <InfoTip tips="topToBottomDeviation" />
+          </Flex>
         </Flex>
       </Flex>
+      {unassigned !== undefined && unassigned > 0 && (
+        <Flex align="center" justify="end" px="1" pt="1">
+          <Text size="1" color="gray">
+            Unassigned population: <b>{formatNumber(unassigned, NUMBER_FORMATS.STRING)}</b>
+          </Text>
+        </Flex>
+      )}
       {!allPainted && (
         <Text size="1" color="gray" mt="1">
           Plan totals appear when all districts are started

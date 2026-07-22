@@ -1,8 +1,6 @@
 import {Flex, Heading, IconButton, Spinner, Text, Tooltip} from '@radix-ui/themes';
 import React, {useMemo, useState} from 'react';
-import {formatNumber} from '@utils/numbers';
 import {ParentSize} from '@visx/responsive'; // Import ParentSize
-import InfoTip from '@components/InfoTip';
 import {useChartStore} from '@store/chartStore';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
@@ -33,7 +31,6 @@ import {EditCommunityDialog} from '@/app/components/Toolbar/EditCommunityDialog'
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {MAP_MODES, MAP_MODE_LABELS} from '@constants/map/mode';
 import {ACCESS_STATES} from '@constants/document/state';
-import {NUMBER_FORMATS} from '@constants/demography/format';
 
 // The "Ideal" label and the axis render in separate fixed strips above/below the
 // (scrollable) rows, so all three rows must use the same fixed left column width to
@@ -49,7 +46,6 @@ export const PopulationPanel = () => {
   const {populationData, demoIsLoaded} = useZonePopulations();
   const {summaryStats} = useSummaryStats();
   const idealPopulation = summaryStats?.idealpop;
-  const unassigned = summaryStats.unassigned;
   const mapDocument = useMapStore(state => state.mapDocument);
   const mapMode = useMapControlsStore(state => state.mapMode);
   const numDistricts = useMapStore(
@@ -309,24 +305,6 @@ export const PopulationPanel = () => {
             </ParentSize>
           </Flex>
         </>
-      )}
-      {!!idealPopulation && !isCommunityMode && (
-        <Flex direction={'row'} justify={'between'} align={'start'} wrap="wrap">
-          <Flex direction="column" gapX="2" minWidth={'10rem'}>
-            <Text size="2">
-              Ideal population <InfoTip tips="idealPopulation" />
-            </Text>
-            <Text weight={'bold'} className="mb-2">
-              {formatNumber(idealPopulation, NUMBER_FORMATS.STRING)}
-            </Text>
-            {unassigned !== undefined && (
-              <>
-                <Text size="2">Unassigned</Text>
-                <Text weight={'bold'}>{formatNumber(unassigned, NUMBER_FORMATS.STRING)}</Text>
-              </>
-            )}
-          </Flex>
-        </Flex>
       )}
       {editingCommunity && (
         <EditCommunityDialog
