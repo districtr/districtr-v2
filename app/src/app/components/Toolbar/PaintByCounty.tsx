@@ -8,8 +8,14 @@ import {getFeaturesIntersectingCounties} from '@utils/map/getFeaturesIntersectin
 import {ACCESS_STATES} from '@constants/document/state';
 
 // Mirrors PRESET_BUTTON_STYLE in BrushSizeSelector (not imported — that file
-// imports this one, and a cycle isn't worth three properties).
-const PRESET_BUTTON_STYLE = {height: 24, margin: 0, borderRadius: 7};
+// imports this one, and a cycle isn't worth a few properties).
+const PRESET_BUTTON_STYLE: React.CSSProperties = {
+  height: 24,
+  boxSizing: 'border-box',
+  margin: 0,
+  borderRadius: 7,
+  boxShadow: 'inset 0 0 0 1px var(--gray-a6)',
+};
 
 export const COUNTY_BRUSH_FLASH_ID = 'county-brush';
 

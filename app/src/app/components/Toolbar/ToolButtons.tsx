@@ -50,10 +50,12 @@ export const ToolButtons: React.FC<{
               style={{
                 position: 'relative',
                 height: TOOLBAR_HEIGHT,
-                // Ghost buttons carry negative alignment margins; neutralize inside the track.
+                // Radix ghost buttons use content-box sizing and negative alignment
+                // margins; neutralize both so ghost and solid render the same size.
+                boxSizing: 'border-box',
                 margin: 0,
                 borderRadius: 7,
-                ...(isActive ? {boxShadow: '0 1px 3px var(--gray-a7)'} : {}),
+                boxShadow: isActive ? '0 1px 3px var(--gray-a7)' : 'inset 0 0 0 1px var(--gray-a6)',
                 ...buttonStyle,
               }}
               variant={tool.variant ?? (isActive ? 'solid' : 'ghost')}
