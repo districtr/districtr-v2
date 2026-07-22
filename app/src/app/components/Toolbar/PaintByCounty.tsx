@@ -1,4 +1,4 @@
-import {Box, Text, Checkbox, Flex, Switch} from '@radix-ui/themes';
+import {Card, Checkbox, Flex, Text, Tooltip} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useOverlayStore} from '@/app/store/overlayStore';
@@ -29,20 +29,19 @@ export default function PaintByCounty() {
   };
 
   return (
-    <Text as="label" size="2">
-      <Flex gap="1" direction="column">
-        County Brush
-        <Switch
-          size="2"
-          checked={paintByCounty}
-          defaultChecked={false}
-          onClick={handleToggle}
-          disabled={access === ACCESS_STATES.READ}
-          radius="small"
-          // ponytail: unchecked track uses --gray-a3/a5; bump locally for a more visible passive state
-          style={{'--gray-a3': 'var(--gray-a6)', '--gray-a5': 'var(--gray-a8)'} as React.CSSProperties}
-        />{' '}
-      </Flex>
-    </Text>
+    <Tooltip content="Paint whole counties at a time">
+      <Card size="1" className={paintByCounty ? 'bg-indigo-50' : ''}>
+        <Text as="label" size="2" className="cursor-pointer select-none">
+          <Flex gap="2" align="center">
+            <Checkbox
+              checked={paintByCounty}
+              onCheckedChange={handleToggle}
+              disabled={access === ACCESS_STATES.READ}
+            />
+            County Brush
+          </Flex>
+        </Text>
+      </Card>
+    </Tooltip>
   );
 }

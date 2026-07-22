@@ -108,12 +108,7 @@ export const PopulationChartIdealLabel: React.FC<{
         <text x={x} y={POP_CHART_LABEL_HEIGHT - 6} textAnchor="middle" fontSize="14px">
           {text}
         </text>
-        <foreignObject
-          x={x + halfWidth}
-          y={0}
-          width={infoTipWidth}
-          height={POP_CHART_LABEL_HEIGHT}
-        >
+        <foreignObject x={x + halfWidth} y={0} width={infoTipWidth} height={POP_CHART_LABEL_HEIGHT}>
           <InfoTip tips="idealPopulation" />
         </foreignObject>
       </Group>

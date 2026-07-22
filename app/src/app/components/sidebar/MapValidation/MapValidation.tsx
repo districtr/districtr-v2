@@ -1,4 +1,4 @@
-import {Button, Callout, Flex, SegmentedControl, Text} from '@radix-ui/themes';
+import {Button, Callout, Flex, SegmentedControl} from '@radix-ui/themes';
 import {ExclamationTriangleIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@/app/store/mapStore';
 import {Contiguity} from './Contiguity';
@@ -7,7 +7,6 @@ import {useEffect, useState} from 'react';
 import {useIdbDocument} from '@/app/hooks/useIdbDocument';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import {CloudNotSavedIcon} from '../../Topbar/Icons';
 import {MAP_MODES} from '@constants/map/mode';
 import {MAP_TYPES} from '@constants/document/types';
 
@@ -51,18 +50,15 @@ export const MapValidation = () => {
   return (
     <Flex direction="column" gap="2">
       {isOutdated && (
-        <Callout.Root color="red" role="alert">
+        <Callout.Root color="red" role="alert" className="flex flex-col items-center">
           <Callout.Icon>
             <ExclamationTriangleIcon />
           </Callout.Icon>
-          <Callout.Text size="3" weight="medium">
-            You have unsaved changes — results below are from your last save.
+          <Callout.Text size="3" weight="medium" className="text-center">
+            You have unsaved changes — results are from your last save.
           </Callout.Text>
           <Button onClick={() => handlePutAssignments()} color="red" className="cursor-pointer">
-            <Flex direction="row" gap="2" align="center" justify="center">
-              <CloudNotSavedIcon />
-              <Text>Save changes to update</Text>
-            </Flex>
+            Save changes to update
           </Button>
         </Callout.Root>
       )}
