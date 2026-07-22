@@ -1,10 +1,12 @@
-import {Slider, Flex, Heading, Text, IconButton, Button} from '@radix-ui/themes';
+import {Slider, Flex, Heading, Text, IconButton, Button, Tooltip} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useFeatureFlagStore} from '@store/featureFlagStore';
+import {useToolbarStore} from '@store/toolbarStore';
 import {MinusIcon, PlusIcon} from '@radix-ui/react-icons';
 import {useEffect} from 'react';
 import {ACCESS_STATES} from '@constants/document/state';
+import {ACTIVE_TOOLS} from '@constants/map/tools';
 import PaintByCounty, {useCountyBrush} from '@components/Toolbar/PaintByCounty';
 const BRUSH_MIN_SIZE = 1;
 const BRUSH_MAX_SIZE = 100;
@@ -30,6 +32,15 @@ export function BrushSizeSelector() {
   const access = useMapStore(state => state.mapStatus?.access);
   const paintCounties = useFeatureFlagStore(state => state.paintCounties);
   const {paintByCounty, setCountyBrush} = useCountyBrush();
+  const setActiveTool = useMapControlsStore(state => state.setActiveTool);
+  const superDraw = useToolbarStore(state => state.superDraw);
+  const canBreak = useMapStore(state => Boolean(state.mapDocument?.child_layer));
+
+  const handleBlocks = () => {
+    // Entering break mode; county painting is meaningless at block scale.
+    if (paintByCounty) setCountyBrush(false);
+    setActiveTool(ACTIVE_TOOLS.SHATTER);
+  };
 
   const handleChangeEnd = (value: Array<number>) => {
     // Sizing the brush means painting by units again.
@@ -80,6 +91,19 @@ export function BrushSizeSelector() {
             Brush Size
           </Text>
           <Flex gap="0" flexShrink="0">
+            {superDraw && canBreak && (
+              <Tooltip content="Break a unit into census blocks and paint them individually">
+                <Button
+                  size="1"
+                  radius="none"
+                  variant="surface"
+                  onClick={handleBlocks}
+                  disabled={access === ACCESS_STATES.READ}
+                >
+                  Blocks
+                </Button>
+              </Tooltip>
+            )}
             {BRUSH_PRESETS.map(preset => (
               <Button
                 key={preset.label}

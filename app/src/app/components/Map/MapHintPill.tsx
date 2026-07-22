@@ -3,8 +3,10 @@ import React, {useState} from 'react';
 import {Flex, IconButton, Text} from '@radix-ui/themes';
 import {Cross2Icon, InfoCircledIcon} from '@radix-ui/react-icons';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useMapStore} from '@/app/store/mapStore';
 import {useZonePopulations} from '@/app/hooks/useDemography';
 import {MAP_MODES} from '@constants/map/mode';
+import {ACTIVE_TOOLS} from '@constants/map/tools';
 
 /**
  * Concept 1a: a contextual hint pill replaces the empty first paint stroke.
@@ -13,6 +15,8 @@ import {MAP_MODES} from '@constants/map/mode';
 export const MapHintPill = () => {
   const isEditing = useMapControlsStore(state => state.isEditing);
   const mapMode = useMapControlsStore(state => state.mapMode);
+  const activeTool = useMapControlsStore(state => state.activeTool);
+  const inBlockView = useMapStore(state => state.captiveIds.size > 0);
   const {populationData, demoIsLoaded} = useZonePopulations();
   // Session-local dismiss is enough; the pill self-retires on first paint.
   const [dismissed, setDismissed] = useState(false);
@@ -23,7 +27,10 @@ export const MapHintPill = () => {
     !isEditing ||
     mapMode !== MAP_MODES.DISTRICTS ||
     !demoIsLoaded ||
-    anythingPainted
+    anythingPainted ||
+    // The break-flow pill owns this spot while breaking/painting blocks.
+    activeTool === ACTIVE_TOOLS.SHATTER ||
+    inBlockView
   )
     return null;
 
