@@ -10,11 +10,6 @@ export const TOTPOPColumnConfig: DemographyTableColumnConfiguration<
   SummaryStatConfig[typeof SUMMARY_TYPES.TOTPOP]
 > = [
   {
-    label: 'Total',
-    column: 'total_pop_20',
-    isTotal: true,
-  },
-  {
     label: 'Black',
     column: 'bpop_20',
   },
@@ -38,18 +33,23 @@ export const TOTPOPColumnConfig: DemographyTableColumnConfiguration<
     label: 'Other',
     column: 'other_pop_20',
   },
+  {
+    label: 'Total',
+    column: 'total_pop_20',
+    isTotal: true,
+  },
 ];
 
 export const VAPColumnConfig: DemographyTableColumnConfiguration<
   SummaryStatConfig[typeof SUMMARY_TYPES.VAP]
 > = [
-  {label: 'Total', column: 'total_vap_20', isTotal: true},
   {column: 'bvap_20', label: 'Black'},
   {column: 'hvap_20', label: 'Hispanic'},
   {column: 'amin_vap_20', label: 'AMIN'},
   {column: 'asian_nhpi_vap_20', label: 'Asian'},
   {column: 'white_vap_20', label: 'White'},
   {column: 'other_vap_20', label: 'Other'},
+  {label: 'Total', column: 'total_vap_20', isTotal: true},
 ];
 // Columns are the Democratic candidate's votes; the table derives the raw
 // two-party share (X_dem_pct) and swaps to X_rep for the Republican POV.
@@ -98,7 +98,6 @@ export const modeButtonConfig: Array<{label: string; value: TableDisplayMode}> =
 export const numberFormats: Record<TableDisplayMode, NumberFormat> = {
   [TABLE_DISPLAY_MODES.SHARE]: NUMBER_FORMATS.PERCENT,
   [TABLE_DISPLAY_MODES.COUNT]: NUMBER_FORMATS.STRING,
-  [TABLE_DISPLAY_MODES.TOTPOP]: NUMBER_FORMATS.PERCENT,
 };
 
 export const summaryStatLabels: Array<{

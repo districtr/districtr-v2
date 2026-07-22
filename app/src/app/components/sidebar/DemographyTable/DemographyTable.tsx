@@ -526,7 +526,12 @@ const DemographyTableCell: React.FC<DemographyTableCellProps> = ({
         color: textColor,
       }}
     >
-      {numericValue === undefined
+      {/* An empty/unpainted district has no data for the Total column's underlying
+          zone, which arrives as a real 0 (needed elsewhere for chart scaling and
+          min/max stats) rather than undefined — display it the same as "no data"
+          (`--`) so it doesn't read as a legitimate zero, and so TOTPOP and VAP
+          render consistently for the same empty district. */}
+      {numericValue === undefined || (isTotalColumn && numericValue === 0)
         ? '--'
         : formatNumber(numericValue, isTotalColumn ? NUMBER_FORMATS.STRING : numberFormat)}
     </Table.Cell>
