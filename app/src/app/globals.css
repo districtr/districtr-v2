@@ -142,9 +142,8 @@ body {
   }
 }
 
-/* Segmented tool groups: a soft recessed track holding floating buttons. */
+/* Segmented tool groups: transparent track, buttons float on the sidebar. */
 .segmented-track {
-  background: var(--gray-a3);
   border-radius: 10px;
   padding: 3px;
   gap: 2px;
