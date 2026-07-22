@@ -5,6 +5,7 @@ import {Button, Flex, Text, Dialog, Box, TextField, Progress, Blockquote} from '
 import {useRouter, useSearchParams} from 'next/navigation';
 import {postGrantEditAccess} from '@/app/utils/api/apiHandlers/postGrantEditAccess';
 import {routeManager} from '@/app/utils/map/mapUrlRoute';
+import {editPath} from '@/app/utils/map/editUrl';
 import {useEditableDocId} from '@/app/hooks/useEditableDocId';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 
@@ -52,7 +53,9 @@ export const PasswordPromptModal = () => {
             setSuperDraw(pendingSuperDraw);
             setPendingSuperDraw(null);
           }
-          router.push(`/${routeManager.mapUrlRoute}/edit/${res.response.document_id}`);
+          router.push(
+            editPath(routeManager.mapUrlRoute, res.response.document_id, mapDocument.public_id)
+          );
         } else {
           setError(res.error?.detail ?? 'An unknown error occurred');
         }

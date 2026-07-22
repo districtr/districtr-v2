@@ -10,6 +10,7 @@ import {useMapMetadata} from '@/app/hooks/useMapMetadata';
 import {useEditableDocId} from '@/app/hooks/useEditableDocId';
 import {DEFAULT_MAP_METADATA} from '@/app/utils/language';
 import {routeForType} from '@constants/document/routes';
+import {editPath} from '@/app/utils/map/editUrl';
 import {useRouter} from 'next/navigation';
 import {createMapDocument} from '@/app/utils/api/apiHandlers/createMapDocument';
 import {ACCESS_STATES} from '@constants/document/state';
@@ -35,6 +36,10 @@ export const SaveShareModal: React.FC<{
   // view-only users).
   const canShareAsOwner = !isEditing && !!editableDocId;
   const generateLink = useSaveShareStore(state => state.generateLink);
+  const sharingMode = useSaveShareStore(state => state.sharingMode);
+  const sharePassword = useSaveShareStore(state => state.password);
+  // Without a password, the editable share link contains the secret UUID.
+  const isSecretEditLink = sharingMode === ACCESS_STATES.EDIT && !sharePassword;
 
   const handleCopy = async () => {
     if (!mapDocument?.public_id) return;
@@ -53,7 +58,9 @@ export const SaveShareModal: React.FC<{
     });
     if (response.ok) {
       const routePrefix = routeForType(response.response.map_type);
-      router.push(`/${routePrefix}/edit/${response.response.document_id}`);
+      router.push(
+        editPath(routePrefix, response.response.document_id, response.response.public_id)
+      );
       onClose();
     } else {
       setNotification({
@@ -106,20 +113,27 @@ export const SaveShareModal: React.FC<{
           <hr className="my-4" />
           <ShareMapSection isEditing={isEditing} />
           {isEditing ? (
-            <Flex direction="row" gap="2" justify="between" className="mt-4">
-              <Button
-                variant="soft"
-                onClick={() => generateLink().then(() => setLinkCopied(true))}
-                size="3"
-              >
-                <Flex direction="row" gap="2" align="center" className="flex-0 w-fit">
-                  <Link1Icon />
-                  <Text>{linkCopied ? 'Copied!' : 'Copy Share Link'}</Text>
-                </Flex>
-              </Button>
-              <Button variant="soft" onClick={handleSave} size="3" color="green">
-                Done
-              </Button>
+            <Flex direction="column" gap="2" className="mt-4">
+              <Flex direction="row" gap="2" justify="between">
+                <Button
+                  variant="soft"
+                  onClick={() => generateLink().then(() => setLinkCopied(true))}
+                  size="3"
+                >
+                  <Flex direction="row" gap="2" align="center" className="flex-0 w-fit">
+                    <Link1Icon />
+                    <Text>{linkCopied ? 'Copied!' : 'Copy Share Link'}</Text>
+                  </Flex>
+                </Button>
+                <Button variant="soft" onClick={handleSave} size="3" color="green">
+                  Done
+                </Button>
+              </Flex>
+              {isSecretEditLink && (
+                <Text size="1" color="orange">
+                  Treat this link like a password — anyone who has it can edit this map.
+                </Text>
+              )}
             </Flex>
           ) : canShareAsOwner ? (
             <Flex direction="column" gap="2" className="mt-4">
@@ -139,6 +153,11 @@ export const SaveShareModal: React.FC<{
                   <Text>{linkCopied ? 'Copied!' : 'Copy Share Link'}</Text>
                 </Flex>
               </Button>
+              {isSecretEditLink && (
+                <Text size="1" color="orange">
+                  Treat this link like a password — anyone who has it can edit this map.
+                </Text>
+              )}
             </Flex>
           ) : (
             <Flex direction="column" gap="2">

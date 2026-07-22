@@ -22,6 +22,8 @@ import {SaveConflictModal} from '../SaveConflictModal';
 import {ZoneDescriptionModal} from '@components/Map/Tooltip/ZoneDescriptionModal';
 import {migrateUserMapsFromLocalStorage} from '@/app/utils/idb/migrateUserMaps';
 import {isUUID} from '@/app/utils/metadata/isUUID';
+import {expandUUID, PRIVATE_EDIT_ID_PARAM} from '@/app/utils/map/editUrl';
+import {useSearchParams} from 'next/navigation';
 import {useInitializeMapMode} from '@/app/hooks/useInitializeMapMode';
 import {MAP_MODES} from '@constants/map/mode';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
@@ -53,11 +55,16 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
     migrateUserMapsFromLocalStorage();
   }, []);
 
+  // Edit URLs show the public id in the path; the editable UUID travels in the
+  // private_edit_id query param (treat it like a password).
+  const privateEditId = useSearchParams().get(PRIVATE_EDIT_ID_PARAM);
+  const documentId = (isEditing && privateEditId && expandUUID(privateEditId)) || mapId;
+
   // Load document with sync support
   const {error: documentError, conflictModal} = useDocumentWithSync({
-    document_id: mapId || undefined,
+    document_id: documentId || undefined,
     isPublicPage,
-    enabled: isMapModeReady && !!mapId,
+    enabled: isMapModeReady && !!documentId,
   });
 
   // Handle document loading errors
@@ -81,8 +88,8 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
   // back to edit mode after navigating to a read-only display/eval view (which
   // loads the doc by public_id and surfaces document_id as "anonymous").
   useEffect(() => {
-    if (isEditing && mapId && isUUID(mapId)) setEditableDocId(mapId);
-  }, [isEditing, mapId, setEditableDocId]);
+    if (isEditing && documentId && isUUID(documentId)) setEditableDocId(documentId);
+  }, [isEditing, documentId, setEditableDocId]);
 
   useEffect(() => {
     setIsEval(isEval ?? false);

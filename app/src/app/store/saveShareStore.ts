@@ -3,6 +3,7 @@ import {MapStore, useMapStore} from './mapStore';
 import {idb} from '../utils/idb/idb';
 import {patchSharePlan} from '../utils/api/apiHandlers/patchSharePlan';
 import {routeForType} from '@constants/document/routes';
+import {editPath} from '../utils/map/editUrl';
 import {ACCESS_STATES, type AccessState} from '@constants/document/state';
 
 interface SaveShareStore {
@@ -53,8 +54,10 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
     if (sharingMode === ACCESS_STATES.READ) {
       // Do nothing!
     } else if (sharingMode === ACCESS_STATES.EDIT && !password) {
-      // Direct link to edit page
-      shareableLink.pathname = `/${routePrefix}/edit/${documentId}`;
+      // Direct edit link carrying the private edit id — treat it like a password
+      shareableLink = new URL(
+        `${window.location.origin}${editPath(routePrefix, documentId, publicId)}`
+      );
     } else {
       // Password protected link
       shareableLink.searchParams.set('pw', 'true');
