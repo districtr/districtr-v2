@@ -80,6 +80,9 @@ export const MapContainer: React.FC<{
           <GeocodeSearchBar mapRef={mapRef} mapBounds={mapBounds} />
         </div>
       )}
+      {/* pointer-events-none on the container kills hover, so the not-allowed
+          cursor while locked needs this event-catching overlay. */}
+      {mapLock && <div className="absolute inset-0 z-20 pointer-events-auto cursor-not-allowed" />}
       <GlMap
         ref={mapRef}
         mapStyle={mapStyle}
