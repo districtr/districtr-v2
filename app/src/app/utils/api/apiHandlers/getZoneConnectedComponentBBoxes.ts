@@ -14,8 +14,9 @@ export const getZoneConnectedComponentBBoxes = async (
     } as const;
   }
 
-  // Multi-geometry components are raw bbox Polygons; single-geometry components
-  // are Features carrying {bbox, geo_ids} properties.
+  // Features carry {bbox, n_geos} properties (plus geo_ids for single-geometry
+  // components), sorted largest component first; raw bbox Polygons may still
+  // appear in payloads from older backends.
   return await getMsgpack<{
     features: Array<GeoJSON.Feature<GeoJSON.Polygon> | GeoJSON.Polygon>;
   }>(`document/${mapDocument.public_id}/contiguity/${zone}/connected_component_bboxes`);
