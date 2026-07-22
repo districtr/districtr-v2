@@ -13,6 +13,7 @@ import {
   QuestionMarkCircledIcon,
 } from '@radix-ui/react-icons';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 
 interface ContiguityDetailProps {
   zone: number;
@@ -102,10 +103,11 @@ export default function ContiguityDetail({
 }
 
 /**
- * Zooming to a discontiguous zone's main body is never useful — the strays are
- * the problem. When the payload carries component sizes (sorted largest first),
- * offer only the fragments as zoom targets and note the main body's size.
- * Falls back to listing every component for older payloads without sizes.
+ * Zooming to a discontiguous zone's main body is rarely useful — the strays are
+ * the problem — so when the payload carries component sizes (sorted largest
+ * first), offer only the fragments as zoom targets and note the main body's
+ * size. Super Draw mode includes the main body as a target too. Falls back to
+ * listing every component for older payloads without sizes.
  */
 function ComponentZoomList({
   features,
@@ -116,29 +118,35 @@ function ComponentZoomList({
   selectedFeature: number | null;
   setSelectedFeature: (index: number | null) => void;
 }) {
+  const superDraw = useToolbarStore(state => state.superDraw);
   const nGeos = (f: (typeof features)[number]) =>
     'properties' in f ? (f.properties?.n_geos as number | undefined) : undefined;
   const hasSizes = features.length > 0 && features.every(f => nGeos(f) !== undefined);
-  const fragments = hasSizes ? features.slice(1) : features;
+  const targets = hasSizes && !superDraw ? features.slice(1) : features;
   const labels = hasSizes
-    ? fragments.map((f, i) => {
+    ? targets.map((f, i) => {
         const n = nGeos(f)!;
-        return `Fragment · ${n} unit${n === 1 ? '' : 's'}`;
+        const isMainBody = superDraw && i === 0;
+        return `${isMainBody ? 'Main body' : 'Fragment'} · ${n} unit${n === 1 ? '' : 's'}`;
       })
     : undefined;
 
   return (
     <Flex direction="column" gap="1" justify="start" align="start" py="2">
-      {hasSizes ? (
+      {!hasSizes ? (
+        <Text color="gray">Zoom to components</Text>
+      ) : superDraw ? (
         <Text color="gray" size="1">
-          Main body: {nGeos(features[0])} units. Zoom to the stray fragment
-          {fragments.length === 1 ? '' : 's'}:
+          Zoom to a component:
         </Text>
       ) : (
-        <Text color="gray">Zoom to components</Text>
+        <Text color="gray" size="1">
+          Main body: {nGeos(features[0])} units. Zoom to the stray fragment
+          {targets.length === 1 ? '' : 's'}:
+        </Text>
       )}
       <ZoomToFeature
-        features={fragments}
+        features={targets}
         selectedIndex={selectedFeature}
         setSelectedIndex={setSelectedFeature}
         labels={labels}
