@@ -19,6 +19,7 @@ export const MapActionsDropdown: React.FC<{
   const mapDocument = useMapStore(state => state.mapDocument);
   const access = useMapStore(state => state.mapStatus?.access);
   const handleReset = useMapStore(state => state.handleReset);
+  const setNotification = useMapStore(state => state.setNotification);
 
   // Defer past the dropdown's close so Radix doesn't leave pointer-events:none
   // stuck on the body when a dialog opens from onSelect.
@@ -42,7 +43,7 @@ export const MapActionsDropdown: React.FC<{
         `${process.env.NEXT_PUBLIC_API_URL}/api/document/${exportId}/export?export_type=${exportType}`
       );
       if (!response.ok) {
-        console.error('Export failed', response.status);
+        notifyExportFailed(`${response.status}`);
         return;
       }
       const filename =
@@ -58,8 +59,17 @@ export const MapActionsDropdown: React.FC<{
       URL.revokeObjectURL(url);
     } catch (e) {
       console.error('Export failed', e);
+      notifyExportFailed('network');
     }
   };
+
+  const notifyExportFailed = (reason: string) =>
+    setNotification({
+      importance: 2,
+      type: 'error',
+      message: 'Exporting this map failed. Please try again in a moment.',
+      id: `export-failed-${exportId}-${reason}`,
+    });
 
   return (
     <>
