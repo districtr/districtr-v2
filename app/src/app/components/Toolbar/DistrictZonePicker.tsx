@@ -130,12 +130,15 @@ export const DistrictsZonePicker: React.FC = () => {
                 variant="soft"
                 size="1"
                 onChange={e => setDraftCount(e.target.value)}
-                onBlur={handleCommitDraft}
+                // Only Enter commits; clicking away abandons the edit.
+                onBlur={() => setDraftCount(String(numDistricts))}
                 // Commit on keyup, not keydown: keydown fires on OS key-repeat,
                 // and once the confirm dialog opens (auto-focusing Cancel) a
                 // repeated Enter would land on Cancel and silently dismiss it.
                 onKeyUp={e => {
                   if (e.key === 'Enter') {
+                    handleCommitDraft();
+                  } else if (e.key === 'Escape') {
                     e.currentTarget.blur();
                   }
                 }}
