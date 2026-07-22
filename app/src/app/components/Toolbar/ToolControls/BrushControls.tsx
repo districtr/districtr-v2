@@ -1,18 +1,16 @@
-import {Box, Flex, Button, Text} from '@radix-ui/themes';
+import {Flex, Button, Text} from '@radix-ui/themes';
 import {MaskOffIcon} from '@radix-ui/react-icons';
 import {useMapControlsStore} from '@store/mapControlsStore';
-import {useFeatureFlagStore} from '@store/featureFlagStore';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {BrushSizeSelector} from '@components/Toolbar/ToolControls/BrushSizeSelector';
-import PaintByCounty from '@components/Toolbar/PaintByCounty';
 import {ZonePicker} from '@components/Toolbar/ZonePicker';
+import {CurrentDistrictCard} from '@components/Toolbar/CurrentDistrictCard';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {MAP_MODES} from '@constants/map/mode';
 
 export const BrushControls = () => {
   const activeTool = useMapControlsStore(state => state.activeTool);
   const mapMode = useMapControlsStore(state => state.mapMode);
-  const paintCounties = useFeatureFlagStore(state => state.paintCounties);
   const paintConstraint = useOverlayStore(state => state.paintConstraint);
   const clearPaintConstraint = useOverlayStore(state => state.clearPaintConstraint);
   const showZonePicker =
@@ -21,22 +19,19 @@ export const BrushControls = () => {
 
   return (
     <Flex direction="column" gapY="2" justify="between" wrap="wrap">
-      <Flex direction="row" gapX="4" wrap="wrap" align="center">
-        <Box className="flex-grow" style={{flexGrow: 1}}>
-          <BrushSizeSelector />
-        </Box>
-        {paintCounties && (
-          // mt centers the card on the slider track, offsetting the "Brush Size"
-          // label above it (flex centering shifts content by half the margin)
-          <Box className="mt-3">
-            <PaintByCounty />
-          </Box>
-        )}
-      </Flex>
+      <BrushSizeSelector />
       {showZonePicker ? (
-        <Flex direction="row" flexGrow={'0'} maxWidth={'100%'} p="0" m="0">
-          <ZonePicker />
-        </Flex>
+        mapMode === MAP_MODES.DISTRICTS ? (
+          // Concept 1a: the picker lives inside a card naming the district
+          // being painted, with its fill state and per-district actions.
+          <CurrentDistrictCard>
+            <ZonePicker />
+          </CurrentDistrictCard>
+        ) : (
+          <Flex direction="row" flexGrow={'0'} maxWidth={'100%'} p="0" m="0">
+            <ZonePicker />
+          </Flex>
+        )
       ) : null}
 
       {paintConstraint && (

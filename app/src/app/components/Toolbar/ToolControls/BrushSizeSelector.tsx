@@ -1,11 +1,20 @@
-import {Slider, Flex, Heading, Text, IconButton} from '@radix-ui/themes';
+import {Slider, Flex, Heading, Text, IconButton, Button} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
+import {useFeatureFlagStore} from '@store/featureFlagStore';
 import {MinusIcon, PlusIcon} from '@radix-ui/react-icons';
 import {useEffect} from 'react';
 import {ACCESS_STATES} from '@constants/document/state';
+import PaintByCounty, {useCountyBrush} from '@components/Toolbar/PaintByCounty';
 const BRUSH_MIN_SIZE = 1;
 const BRUSH_MAX_SIZE = 100;
+// Concept 1a: named presets so first-timers don't face a bare 1–100 number.
+// The slider stays for fine control.
+const BRUSH_PRESETS = [
+  {label: 'S', value: 10},
+  {label: 'M', value: 50},
+  {label: 'L', value: 90},
+];
 /**
  * BrushSizeSelector
  * Note: right now the brush size is an arbitrary value between
@@ -19,8 +28,12 @@ export function BrushSizeSelector() {
   const brushSize = useMapControlsStore(state => state.brushSize);
   const setBrushSize = useMapControlsStore(state => state.setBrushSize);
   const access = useMapStore(state => state.mapStatus?.access);
+  const paintCounties = useFeatureFlagStore(state => state.paintCounties);
+  const {paintByCounty, setCountyBrush} = useCountyBrush();
 
   const handleChangeEnd = (value: Array<number>) => {
+    // Sizing the brush means painting by units again.
+    if (paintByCounty) setCountyBrush(false);
     setBrushSize(value.length ? value[0] : 0);
   };
   const handlePlusMinus = (change: number) => {
@@ -62,8 +75,29 @@ export function BrushSizeSelector() {
       style={access === ACCESS_STATES.READ ? {pointerEvents: 'none', opacity: 0.5} : {}}
     >
       <Flex direction="column" width="100%" gap="1">
-        <Text size="2">Brush Size</Text>
-        <Flex direction="row" gapX="2" mb="3" align="center" width="100%">
+        <Flex direction="row" gapX="2" align="center" width="100%">
+          <Text size="2" style={{flexShrink: 0}}>
+            Brush Size
+          </Text>
+          <Flex gap="0" flexShrink="0">
+            {BRUSH_PRESETS.map(preset => (
+              <Button
+                key={preset.label}
+                size="1"
+                radius="none"
+                variant={!paintByCounty && brushSize === preset.value ? 'solid' : 'surface'}
+                onClick={() => {
+                  if (paintByCounty) setCountyBrush(false);
+                  setBrushSize(preset.value);
+                }}
+                disabled={access === ACCESS_STATES.READ}
+                aria-label={`Brush size ${preset.label}: ${preset.value}`}
+              >
+                {preset.label}
+              </Button>
+            ))}
+            {paintCounties && <PaintByCounty />}
+          </Flex>
           <Slider
             defaultValue={[brushSize]}
             size="3"
@@ -73,11 +107,17 @@ export function BrushSizeSelector() {
             max={BRUSH_MAX_SIZE}
             disabled={access === ACCESS_STATES.READ}
             // ponytail: rail uses --gray-a3/a5; bump locally for a more visible passive state
+            // Grayed (but still usable — dragging it exits county mode) while
+            // the county brush is on.
             style={
-              {'--gray-a3': 'var(--gray-a6)', '--gray-a5': 'var(--gray-a8)'} as React.CSSProperties
+              {
+                '--gray-a3': 'var(--gray-a6)',
+                '--gray-a5': 'var(--gray-a8)',
+                opacity: paintByCounty ? 0.4 : 1,
+              } as React.CSSProperties
             }
           />
-          <Text size="2" as="span" color="gray">
+          <Text size="2" as="span" color="gray" style={{opacity: paintByCounty ? 0.4 : 1}}>
             {brushSize}
           </Text>
         </Flex>

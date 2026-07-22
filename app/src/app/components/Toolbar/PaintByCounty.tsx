@@ -1,25 +1,29 @@
-import {Card, Checkbox, Flex, Text, Tooltip} from '@radix-ui/themes';
+import {Button, Tooltip} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useOverlayStore} from '@/app/store/overlayStore';
+import {useUiHintStore} from '@/app/store/uiHintStore';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 import {getFeaturesIntersectingCounties} from '@utils/map/getFeaturesIntersectingCounties';
 import {ACCESS_STATES} from '@constants/document/state';
 
-export default function PaintByCounty() {
+export const COUNTY_BRUSH_FLASH_ID = 'county-brush';
+
+/** County-brush state + setter, shared by the toolbar button and the
+ * Getting Started hint that enables it remotely. */
+export const useCountyBrush = () => {
   const mapRef = useMapStore(state => state.getMapRef());
   const setPaintFunction = useMapControlsStore(state => state.setPaintFunction);
   const paintByCounty = useMapControlsStore(state => state.mapOptions.paintByCounty);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
-  const access = useMapStore(state => state.mapStatus?.access);
   const clearPaintConstraint = useOverlayStore(state => state.clearPaintConstraint);
 
-  const handleToggle = () => {
+  const setCountyBrush = (enabled: boolean) => {
     if (!mapRef) return;
     setMapOptions({
-      paintByCounty: !paintByCounty,
+      paintByCounty: enabled,
     });
-    if (!paintByCounty) {
+    if (enabled) {
       // Clear overlay constraint when enabling county paint
       clearPaintConstraint();
       setPaintFunction(getFeaturesIntersectingCounties);
@@ -28,20 +32,27 @@ export default function PaintByCounty() {
     }
   };
 
+  return {paintByCounty, setCountyBrush};
+};
+
+// A toggle button styled to sit inline with the S/M/L brush presets.
+export default function PaintByCounty() {
+  const {paintByCounty, setCountyBrush} = useCountyBrush();
+  const access = useMapStore(state => state.mapStatus?.access);
+  const flashTarget = useUiHintStore(state => state.flashTarget);
+
   return (
     <Tooltip content="Paint whole counties at a time">
-      <Card size="1" className={paintByCounty ? 'bg-indigo-50' : ''}>
-        <Text as="label" size="2" className="cursor-pointer select-none">
-          <Flex gap="2" align="center">
-            <Checkbox
-              checked={paintByCounty}
-              onCheckedChange={handleToggle}
-              disabled={access === ACCESS_STATES.READ}
-            />
-            County Brush
-          </Flex>
-        </Text>
-      </Card>
+      <Button
+        size="1"
+        radius="none"
+        variant={paintByCounty ? 'solid' : 'surface'}
+        onClick={() => setCountyBrush(!paintByCounty)}
+        disabled={access === ACCESS_STATES.READ}
+        className={flashTarget === COUNTY_BRUSH_FLASH_ID ? 'flash-target' : ''}
+      >
+        Counties
+      </Button>
     </Tooltip>
   );
 }
