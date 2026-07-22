@@ -1,5 +1,14 @@
-import React from 'react';
-import {Box, Flex, Button, Text, TextField, IconButton, Tooltip} from '@radix-ui/themes';
+import React, {useEffect, useState} from 'react';
+import {
+  Box,
+  Flex,
+  Button,
+  Text,
+  TextField,
+  IconButton,
+  Tooltip,
+  AlertDialog,
+} from '@radix-ui/themes';
 import {useMapStore} from '../../store/mapStore';
 import {useMapControlsStore} from '../../store/mapControlsStore';
 import {useAssignmentsStore} from '../../store/assignmentsStore';
@@ -10,8 +19,9 @@ import {
   MIN_NUM_DISTRICTS,
 } from '@/app/constants/document/limits';
 import {MinusIcon, PlusIcon, Pencil1Icon} from '@radix-ui/react-icons';
-import {useState} from 'react';
 import {ACCESS_STATES} from '@constants/document/state';
+import {temporalManager} from '@/app/utils/temporal';
+import {MAP_MODES} from '@constants/map/mode';
 
 export const DistrictsZonePicker: React.FC = () => {
   const [showNumDistrictEditor, setShowNumDistrictEditor] = useState(false);
@@ -27,26 +37,65 @@ export const DistrictsZonePicker: React.FC = () => {
   const numDistricts = mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
   const numDistrictsModifiable = mapDocument?.num_districts_modifiable !== false;
 
+  // Draft text for the count input; only committed on blur/Enter so the user
+  // can clear the field while typing a new value.
+  const [draftCount, setDraftCount] = useState(String(numDistricts));
+  // A requested decrease that would delete assignments, awaiting confirmation.
+  const [pendingDecrease, setPendingDecrease] = useState<number | null>(null);
+
+  useEffect(() => {
+    setDraftCount(String(numDistricts));
+  }, [numDistricts]);
+
   const handleRadioChange = (index: number, _color: string) => {
     const value = index + 1;
     setSelectedZone(value);
   };
 
-  const handleIncreaseDistricts = () => {
-    const newNumDistricts = numDistricts + 1;
+  const commitNumDistricts = (newNumDistricts: number) => {
     setNumDistricts(newNumDistricts);
+    if (newNumDistricts < numDistricts) {
+      removeAssignmentsForZonesAbove(newNumDistricts);
+      // num_districts isn't part of the undo/redo history, so rewinding could
+      // resurrect assignments in zones that no longer exist. Clear history at
+      // this boundary — the dialog already tells the user this can't be undone.
+      temporalManager.clear(MAP_MODES.DISTRICTS);
+      if (selectedZone > newNumDistricts) {
+        setSelectedZone(1);
+      }
+    }
   };
 
-  const handleDecreaseDistricts = () => {
-    if (numDistricts <= MIN_NUM_DISTRICTS) return;
-    const newNumDistricts = numDistricts - 1;
-    setNumDistricts(newNumDistricts);
-    // Remove assignments for zones above the new max
-    removeAssignmentsForZonesAbove(newNumDistricts);
-    // If selected zone is now invalid, reset to zone 1
-    if (selectedZone > newNumDistricts) {
-      setSelectedZone(1);
+  /** Clamps and applies a requested count. Returns the committed value, or
+   * null when nothing changed yet (no-op, or deferred to the confirm dialog). */
+  const requestNumDistricts = (requested: number): number | null => {
+    const clamped = Math.max(MIN_NUM_DISTRICTS, Math.min(MAX_NUM_DISTRICTS, requested));
+    if (clamped === numDistricts) return null;
+    if (clamped < numDistricts) {
+      const {zoneAssignments} = useAssignmentsStore.getState();
+      let hasAssignmentsAbove = false;
+      zoneAssignments.forEach(zone => {
+        if (zone !== null && zone > clamped) hasAssignmentsAbove = true;
+      });
+      if (hasAssignmentsAbove) {
+        setPendingDecrease(clamped);
+        return null;
+      }
     }
+    commitNumDistricts(clamped);
+    return clamped;
+  };
+
+  const handleCommitDraft = () => {
+    const parsed = parseInt(draftCount, 10);
+    if (isNaN(parsed)) {
+      setDraftCount(String(numDistricts));
+      return;
+    }
+    const committed = requestNumDistricts(parsed);
+    // Sync the draft to the value just committed; on a no-op or a change
+    // pending confirmation, snap back to the still-current count.
+    setDraftCount(String(committed ?? numDistricts));
   };
 
   const isReadOnly = access === ACCESS_STATES.READ;
@@ -68,25 +117,29 @@ export const DistrictsZonePicker: React.FC = () => {
               <Button
                 variant="ghost"
                 size="1"
-                onClick={handleDecreaseDistricts}
+                onClick={() => requestNumDistricts(numDistricts - 1)}
                 disabled={numDistricts <= MIN_NUM_DISTRICTS}
               >
                 <MinusIcon />
               </Button>
               <TextField.Root
                 type="number"
-                min={2}
+                min={MIN_NUM_DISTRICTS}
                 max={MAX_NUM_DISTRICTS}
-                value={numDistricts}
+                value={draftCount}
                 variant="soft"
                 size="1"
-                onChange={e => {
-                  const val = Math.max(
-                    MIN_NUM_DISTRICTS,
-                    Math.min(MAX_NUM_DISTRICTS, Number(e.target.value))
-                  );
-                  if (!isNaN(val)) {
-                    setNumDistricts(val);
+                onChange={e => setDraftCount(e.target.value)}
+                // Only Enter commits; clicking away abandons the edit.
+                onBlur={() => setDraftCount(String(numDistricts))}
+                // Commit on keyup, not keydown: keydown fires on OS key-repeat,
+                // and once the confirm dialog opens (auto-focusing Cancel) a
+                // repeated Enter would land on Cancel and silently dismiss it.
+                onKeyUp={e => {
+                  if (e.key === 'Enter') {
+                    handleCommitDraft();
+                  } else if (e.key === 'Escape') {
+                    e.currentTarget.blur();
                   }
                 }}
                 mx={'1'}
@@ -95,7 +148,7 @@ export const DistrictsZonePicker: React.FC = () => {
               <Button
                 variant="ghost"
                 size="1"
-                onClick={handleIncreaseDistricts}
+                onClick={() => requestNumDistricts(numDistricts + 1)}
                 disabled={numDistricts >= MAX_NUM_DISTRICTS}
               >
                 <PlusIcon />
@@ -122,6 +175,37 @@ export const DistrictsZonePicker: React.FC = () => {
         </Flex>
         <ColorPicker onValueChange={handleRadioChange} defaultValue={0} value={selectedZone - 1} />
       </Flex>
+      <AlertDialog.Root
+        open={pendingDecrease !== null}
+        onOpenChange={open => !open && setPendingDecrease(null)}
+      >
+        <AlertDialog.Content maxWidth="450px">
+          <AlertDialog.Title>Reduce number of districts</AlertDialog.Title>
+          <AlertDialog.Description size="2">
+            Reducing your plan to {pendingDecrease} districts will remove all assignments in
+            districts above {pendingDecrease}. This cannot be undone.
+          </AlertDialog.Description>
+          <Flex gap="3" mt="4" justify="end">
+            <AlertDialog.Cancel>
+              <Button variant="soft" color="gray">
+                Cancel
+              </Button>
+            </AlertDialog.Cancel>
+            <AlertDialog.Action>
+              <Button
+                variant="solid"
+                color="red"
+                onClick={() => {
+                  if (pendingDecrease !== null) commitNumDistricts(pendingDecrease);
+                  setPendingDecrease(null);
+                }}
+              >
+                Remove assignments
+              </Button>
+            </AlertDialog.Action>
+          </Flex>
+        </AlertDialog.Content>
+      </AlertDialog.Root>
     </Box>
   );
 };
