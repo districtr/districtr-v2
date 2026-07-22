@@ -22,6 +22,10 @@ export const getFitBoundsPadding = (
   return {top: vertical, bottom: vertical, left: horizontal, right: horizontal};
 };
 
+/** Minimum hold at the general-area snap before the fly-in, so the orienting
+ * pause is perceptible even when tiles are cached and 'idle' fires at once. */
+const MIN_DWELL_MS = 400;
+
 interface ZoomToFeatureProps {
   selectedIndex: number | null;
   setSelectedIndex: (index: number) => void | Dispatch<SetStateAction<number | null>>;
@@ -93,28 +97,21 @@ export default function ZoomToFeature({
     return null;
   };
 
-  // Animated fit options shared by every final zoom, so all paths land the same way.
-  // Fixed short duration (rather than speed-based, which scales with distance) and a
-  // tight padding so the target fills the viewport; the wider `padding` prop only
-  // frames the general-area snap. `linear` swaps flyTo's zoom-out-then-in swoop for a
-  // straight ease — the swoop is what reads as motion sickness. (MapLibre already
-  // skips animation entirely for users with OS-level reduced motion.)
+  // Fixed duration (speed-based scales with distance), tight padding (the
+  // `padding` prop only frames the snap), and linear to avoid flyTo's
+  // zoom-out-then-in swoop.
   const finalFitOptions = () => ({
     duration: 700,
     linear: true,
     padding: getFitBoundsPadding(mapRef, 40),
   });
 
-  // After the snap, wait for the map to go idle (tiles loaded) AND a minimum
-  // dwell, then fly in. With geoIds, the map is queried for the geometries'
-  // rendered pieces and the fly targets their union bbox — needed because
-  // unassigned-area bboxes are centroid-derived: they understate the true
-  // extent, and a single-unit component collapses to a point. Without geoIds
-  // the fly targets approxBounds directly; waiting anyway keeps the pacing
-  // identical to the query path, so every zoom reads as snap → beat → fly.
-  // The dwell floor keeps the beat perceptible even when tiles are cached and
-  // idle fires immediately — the pause is what lets the user orient.
-  const MIN_DWELL_MS = 400;
+  // After the snap, wait for both map idle (tiles loaded) and the minimum
+  // dwell, then fly in. With geoIds, the fly targets the union bbox of the
+  // geometries' rendered pieces — approxBounds is centroid-derived, so it
+  // understates the true extent and collapses to a point for a single unit.
+  // Without geoIds the fly targets approxBounds directly, waiting anyway so
+  // both paths share the same pacing.
   const flyInAfterIdle = (approxBounds: LngLatBoundsLike, geoIds?: string[]) => {
     if (!mapRef) return;
     let idleDone = false;
@@ -193,9 +190,7 @@ export default function ZoomToFeature({
       console.error('Invalid feature type');
       return;
     }
-    // Consistent two-step for every feature: snap (no animation) to the general
-    // area — centered on the target but a few zoom levels out — then fly in to
-    // the precise bounds.
+    // Snap (no animation) to the general area, then fly in to the precise bounds.
     if (mapRef) {
       const camera = mapRef.cameraForBounds(bounds, {
         ...(padding ? {padding: getFitBoundsPadding(mapRef, padding)} : {}),
@@ -275,7 +270,6 @@ export default function ZoomToFeature({
           >
             <ChevronLeftIcon /> Previous
           </Button>
-          {/* The core loop is "fix this one, go to the next" — Next is primary. */}
           <Button
             size="1"
             variant="solid"
