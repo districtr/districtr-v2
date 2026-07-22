@@ -1,4 +1,5 @@
-import {Blockquote, Button, Flex, SegmentedControl, Text} from '@radix-ui/themes';
+import {Button, Callout, Flex, SegmentedControl} from '@radix-ui/themes';
+import {ExclamationTriangleIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@/app/store/mapStore';
 import {Contiguity} from './Contiguity';
 import {ZoomToUnassigned} from './ZoomToUnassigned';
@@ -6,7 +7,6 @@ import {useEffect, useState} from 'react';
 import {useIdbDocument} from '@/app/hooks/useIdbDocument';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import {CloudNotSavedIcon} from '../../Topbar/Icons';
 import {MAP_MODES} from '@constants/map/mode';
 import {MAP_TYPES} from '@constants/document/types';
 
@@ -50,22 +50,17 @@ export const MapValidation = () => {
   return (
     <Flex direction="column" gap="2">
       {isOutdated && (
-        <>
-          <Blockquote size="2" color="red">
-            <Text>
-              Map validation requires that your plan be saved to the cloud. Displaying results for
-              your last save.
-            </Text>
-            <br />
-            <br />
-            <Button onClick={() => handlePutAssignments()} variant="outline">
-              <Flex direction="row" gap="2" align="center" justify="center">
-                <CloudNotSavedIcon />
-                <Text>Save Changes</Text>
-              </Flex>
-            </Button>
-          </Blockquote>
-        </>
+        <Callout.Root color="red" role="alert" className="flex flex-col items-center">
+          <Callout.Icon>
+            <ExclamationTriangleIcon />
+          </Callout.Icon>
+          <Callout.Text size="3" weight="medium" className="text-center">
+            You have unsaved changes — results are from your last save.
+          </Callout.Text>
+          <Button onClick={() => handlePutAssignments()} color="red" className="cursor-pointer">
+            Save changes to update
+          </Button>
+        </Callout.Root>
       )}
       {/* Segmented control to match the Table | Map sub-section tabs. */}
       <SegmentedControl.Root size="2" value={activePanel} onValueChange={setActivePanel}>
