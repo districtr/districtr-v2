@@ -52,10 +52,7 @@ export const Contiguity = () => {
         });
       }
     }
-    const isBroken = (row: any) => row.contiguity !== null && row.contiguity > 1;
-    cleanData.sort(
-      (a: any, b: any) => Number(isBroken(b)) - Number(isBroken(a)) || a.zone - b.zone
-    );
+    // Rows stay in district order (the loop builds them 1..n).
     return cleanData;
   }, [data]);
 
