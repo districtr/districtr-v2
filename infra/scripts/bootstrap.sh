@@ -99,6 +99,114 @@ aws iam update-role --role-name "$ROLE_NAME" --max-session-duration 7200
 aws iam attach-role-policy --role-name "$ROLE_NAME" \
   --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
 
+# 4b. Preview role for label-based PR previews (.github/workflows/preview.yml).
+#     Separate from the deploy role on purpose: pull_request runs execute the
+#     PR's code, so this role is scoped to dev preview resources instead of
+#     AdministratorAccess. Fork PRs never get an OIDC token at all.
+PREVIEW_ROLE_NAME="${PREVIEW_ROLE_NAME:-districtr-gha-preview}"
+PREVIEW_TRUST=$(cat <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {"Federated": "${OIDC_ARN}"},
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {"token.actions.githubusercontent.com:aud": "sts.amazonaws.com"},
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": "repo:${GITHUB_REPO}:pull_request"
+        }
+      }
+    }
+  ]
+}
+EOF
+)
+PREVIEW_POLICY=$(cat <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "EcrAuth",
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*"
+    },
+    {
+      "Sid": "EcrDevRepos",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:BatchCheckLayerAvailability", "ecr:BatchGetImage", "ecr:DescribeImages",
+        "ecr:GetDownloadUrlForLayer", "ecr:InitiateLayerUpload", "ecr:UploadLayerPart",
+        "ecr:CompleteLayerUpload", "ecr:PutImage", "ecr:ListImages", "ecr:BatchDeleteImage"
+      ],
+      "Resource": "arn:aws:ecr:${REGION}:${ACCOUNT_ID}:repository/districtr-dev-*"
+    },
+    {
+      "Sid": "EcsElbLogs",
+      "Effect": "Allow",
+      "Action": [
+        "ecs:Describe*", "ecs:List*", "ecs:RegisterTaskDefinition", "ecs:RunTask",
+        "ecs:CreateService", "ecs:UpdateService", "ecs:DeleteService", "ecs:TagResource",
+        "elasticloadbalancing:Describe*", "elasticloadbalancing:CreateTargetGroup",
+        "elasticloadbalancing:DeleteTargetGroup", "elasticloadbalancing:ModifyTargetGroupAttributes",
+        "elasticloadbalancing:CreateRule", "elasticloadbalancing:DeleteRule",
+        "elasticloadbalancing:AddTags",
+        "logs:GetLogEvents", "logs:FilterLogEvents", "logs:DescribeLogGroups",
+        "logs:DescribeLogStreams"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "RdsPreviewFork",
+      "Effect": "Allow",
+      "Action": [
+        "rds:DescribeDBInstances", "rds:DescribeDBSnapshots",
+        "rds:RestoreDBInstanceFromDBSnapshot", "rds:DeleteDBInstance", "rds:AddTagsToResource"
+      ],
+      "Resource": [
+        "arn:aws:rds:${REGION}:${ACCOUNT_ID}:db:districtr-dev-*",
+        "arn:aws:rds:${REGION}:${ACCOUNT_ID}:snapshot:rds:districtr-dev-db-*",
+        "arn:aws:rds:${REGION}:${ACCOUNT_ID}:subgrp:districtr-dev-db-subnets",
+        "arn:aws:rds:${REGION}:${ACCOUNT_ID}:og:*",
+        "arn:aws:rds:${REGION}:${ACCOUNT_ID}:pg:*"
+      ]
+    },
+    {
+      "Sid": "SsmPreview",
+      "Effect": "Allow",
+      "Action": ["ssm:GetParameter", "ssm:GetParameters"],
+      "Resource": "arn:aws:ssm:${REGION}:${ACCOUNT_ID}:parameter/districtr/dev/backend/DATABASE_URL"
+    },
+    {
+      "Sid": "SsmPreviewWrite",
+      "Effect": "Allow",
+      "Action": ["ssm:PutParameter", "ssm:DeleteParameter", "ssm:GetParameter"],
+      "Resource": "arn:aws:ssm:${REGION}:${ACCOUNT_ID}:parameter/districtr/dev/preview/*"
+    },
+    {
+      "Sid": "PassDevTaskRoles",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::${ACCOUNT_ID}:role/districtr-dev-*",
+      "Condition": {"StringEquals": {"iam:PassedToService": "ecs-tasks.amazonaws.com"}}
+    }
+  ]
+}
+EOF
+)
+if aws iam get-role --role-name "$PREVIEW_ROLE_NAME" >/dev/null 2>&1; then
+  echo "Role ${PREVIEW_ROLE_NAME} already exists; updating policies"
+  aws iam update-assume-role-policy --role-name "$PREVIEW_ROLE_NAME" --policy-document "$PREVIEW_TRUST"
+else
+  aws iam create-role --role-name "$PREVIEW_ROLE_NAME" --assume-role-policy-document "$PREVIEW_TRUST"
+  echo "Created role ${PREVIEW_ROLE_NAME}"
+fi
+aws iam update-role --role-name "$PREVIEW_ROLE_NAME" --max-session-duration 7200
+aws iam put-role-policy --role-name "$PREVIEW_ROLE_NAME" \
+  --policy-name preview-deploy --policy-document "$PREVIEW_POLICY"
+
 # 5. Seed image-tag parameters (deploy workflows overwrite these with git SHAs)
 for STACK in dev prod; do
   for COMPONENT in backend frontend; do
@@ -123,4 +231,5 @@ Next steps:
      (and the same for prod)
   4. Fill in Pulumi.dev.yaml / Pulumi.prod.yaml and set secrets (see README.md)
   5. Set GitHub repo variable AWS_DEPLOY_ROLE_ARN=arn:aws:iam::${ACCOUNT_ID}:role/${ROLE_NAME}
+  6. Set GitHub repo variable AWS_PREVIEW_ROLE_ARN=arn:aws:iam::${ACCOUNT_ID}:role/${PREVIEW_ROLE_NAME}
 EOF

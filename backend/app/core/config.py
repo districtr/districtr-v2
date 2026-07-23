@@ -62,8 +62,8 @@ class Settings(BaseSettings):
     ] = []
 
     # Regex of additional allowed CORS origins. Used so ephemeral preview
-    # frontends (e.g. https://districtr-v2-123-frontend-dev.fly.dev) can call a
-    # shared backend without re-listing every origin. See .github/PREVIEW_DEPLOYS.md.
+    # frontends (e.g. https://pr-123.dev.districtr.org) can call a shared
+    # backend without re-listing every origin. See .github/workflows/preview.yml.
     BACKEND_CORS_ORIGIN_REGEX: str | None = None
 
     PROJECT_NAME: str
