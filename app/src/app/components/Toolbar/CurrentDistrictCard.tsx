@@ -70,6 +70,7 @@ export const CurrentDistrictCard: React.FC<{children: React.ReactNode}> = ({chil
               bottom: 0,
               height: `${Math.min(1, fillPct) * 100}%`,
               background: color,
+              transition: 'height 150ms ease',
             }}
           />
         </Box>

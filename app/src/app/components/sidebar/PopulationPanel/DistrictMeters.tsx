@@ -1,7 +1,7 @@
 'use client';
 import React, {useState} from 'react';
 import {Box, Flex, IconButton, Text, Tooltip} from '@radix-ui/themes';
-import {ChevronRightIcon, LockClosedIcon, LockOpen2Icon} from '@radix-ui/react-icons';
+import {LockClosedIcon, LockOpen2Icon} from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useZonePopulations} from '@/app/hooks/useDemography';
@@ -23,10 +23,10 @@ const POP_COL_WIDTH = 76;
 // A district reads as overfull once it passes ideal population by 5%.
 const OVERFULL_RATIO = 1.05;
 const ROW_SCROLL_THRESHOLD = 10;
-// One overflow chevron per 10% over ideal, capped so extreme early-draw
-// ratios can't flood the row.
-const CHEVRON_PER_OVER_RATIO = 0.1;
-const MAX_OVERFLOW_CHEVRONS = 5;
+// Ideal population sits at a fixed tick partway along the track, so a bar can
+// visibly cross it: the red excess segment past the tick shows how far over a
+// district is (up to 1/IDEAL_TICK = 125% of ideal before clamping).
+const IDEAL_TICK = 0.8;
 
 // Unicode minus to match the tabular figures.
 const signedNumber = (value: number) =>
@@ -148,12 +148,6 @@ export const DistrictMeters = () => {
             const overfull = fill > OVERFULL_RATIO;
             const color = getZoneColor(d.zone);
             const locked = lockPaintedAreas.includes(d.zone);
-            const overflowChevrons = overfull
-              ? Math.min(
-                  MAX_OVERFLOW_CHEVRONS,
-                  Math.max(1, Math.floor((fill - 1) / CHEVRON_PER_OVER_RATIO + 1e-6))
-                )
-              : 0;
             return (
               <Flex
                 key={d.zone}
@@ -202,48 +196,54 @@ export const DistrictMeters = () => {
                     </Tooltip>
                   </Flex>
                 )}
-                <Box
-                  flexGrow="1"
-                  style={{
-                    height: 8,
-                    borderRadius: 99,
-                    background: 'var(--gray-a4)',
-                    overflow: 'hidden',
-                    position: 'relative',
-                  }}
-                >
+                <Box flexGrow="1" style={{height: 8, position: 'relative'}}>
+                  {/* Track clips the fills; the tick renders outside it so it
+                      can overhang the bar's height. */}
                   <Box
                     style={{
-                      width: `${Math.min(1, fill) * 100}%`,
-                      height: '100%',
-                      background: color,
+                      position: 'absolute',
+                      inset: 0,
+                      borderRadius: 99,
+                      background: 'var(--gray-a4)',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <Box
+                      style={{
+                        width: `${Math.min(1, fill) * IDEAL_TICK * 100}%`,
+                        height: '100%',
+                        background: color,
+                        transition: 'width 150ms ease',
+                      }}
+                    />
+                    {/* Population past ideal crosses the tick in red. */}
+                    {fill > 1 && (
+                      <Box
+                        style={{
+                          position: 'absolute',
+                          left: `${IDEAL_TICK * 100}%`,
+                          top: 0,
+                          bottom: 0,
+                          width: `${(Math.min(fill, 1 / IDEAL_TICK) - 1) * IDEAL_TICK * 100}%`,
+                          background: 'var(--red-9)',
+                          transition: 'width 150ms ease',
+                        }}
+                      />
+                    )}
+                  </Box>
+                  {/* Ideal-population tick, slightly taller than the bar. */}
+                  <Box
+                    style={{
+                      position: 'absolute',
+                      left: `${IDEAL_TICK * 100}%`,
+                      top: -2,
+                      bottom: -2,
+                      width: 2,
+                      marginLeft: -1,
+                      borderRadius: 1,
+                      background: 'var(--gray-8)',
                     }}
                   />
-                  {/* One chevron per 10% over ideal, riding the end of the bar. */}
-                  {overflowChevrons > 0 && (
-                    <Flex
-                      align="center"
-                      style={{
-                        position: 'absolute',
-                        right: 2,
-                        top: 0,
-                        bottom: 0,
-                        color: 'white',
-                      }}
-                    >
-                      {Array.from({length: overflowChevrons}).map((_, i) => (
-                        <ChevronRightIcon
-                          key={i}
-                          width={12}
-                          height={12}
-                          style={{
-                            marginLeft: i ? -7 : 0,
-                            filter: 'drop-shadow(0 0 1px rgba(0,0,0,0.6))',
-                          }}
-                        />
-                      ))}
-                    </Flex>
-                  )}
                 </Box>
                 <Text
                   size="2"

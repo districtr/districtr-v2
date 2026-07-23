@@ -15,6 +15,7 @@ import OverlaysPanel from './OverlaysPanel';
 import {MapValidation} from './MapValidation/MapValidation';
 import {SummaryPanel, type SectionKey} from './SummaryPanel';
 import {MapControlsStore, useMapControlsStore} from '@store/mapControlsStore';
+import {useUiHintStore} from '@store/uiHintStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
 
@@ -91,12 +92,23 @@ const CoalitionExpander: React.FC<{
 /** Table / Map tabs over a single SummaryPanel section, so the table and map
  * live in one accordion section instead of two. */
 const TabbedSummaryPanel: React.FC<{
+  panelKey: 'demography' | 'election';
   defaultColumnSet: SummaryType;
   displayedColumnSets: Array<SummaryType>;
   tabs: Array<{value: SectionKey; label: string}>;
   withCoalition?: boolean;
-}> = ({defaultColumnSet, displayedColumnSets, tabs, withCoalition}) => {
+}> = ({panelKey, defaultColumnSet, displayedColumnSets, tabs, withCoalition}) => {
   const [tab, setTab] = useState<SectionKey>(tabs[0].value);
+  // One-shot tab request from the Improve-your-plan hints (same pattern as
+  // MapValidation's validationTabRequest).
+  const summaryTabRequest = useUiHintStore(state => state.summaryTabRequest);
+  const clearSummaryTabRequest = useUiHintStore(state => state.clearSummaryTabRequest);
+  useEffect(() => {
+    if (summaryTabRequest?.panel === panelKey) {
+      setTab(summaryTabRequest.tab);
+      clearSummaryTabRequest();
+    }
+  }, [summaryTabRequest, panelKey, clearSummaryTabRequest]);
   // Opening the Map Layer tab shows the choropleth controls but doesn't turn
   // the overlay on — the user enables it from the display-mode control.
   return (
@@ -154,6 +166,7 @@ export const SECTIONS: SidebarSection[] = [
     icon: PersonIcon,
     content: (
       <TabbedSummaryPanel
+        panelKey="demography"
         defaultColumnSet={SUMMARY_TYPES.TOTPOP}
         displayedColumnSets={[SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP]}
         tabs={[
@@ -171,6 +184,7 @@ export const SECTIONS: SidebarSection[] = [
     icon: PieChartIcon,
     content: (
       <TabbedSummaryPanel
+        panelKey="election"
         defaultColumnSet={SUMMARY_TYPES.VOTERHISTORY}
         displayedColumnSets={[SUMMARY_TYPES.VOTERHISTORY]}
         tabs={[

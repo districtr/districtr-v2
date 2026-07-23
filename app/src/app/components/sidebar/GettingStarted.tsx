@@ -11,6 +11,9 @@ import {useZonePopulations} from '@/app/hooks/useDemography';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useCountyBrush, COUNTY_BRUSH_FLASH_ID} from '@/app/components/Toolbar/PaintByCounty';
 import {MODE_SWITCHER_FLASH_ID} from '@/app/components/Topbar/ModeSwitcher';
+import {POPULATION_TOOLTIP_FLASH_ID} from '@/app/components/Toolbar/Settings';
+import {activateOverlayGroup} from '@utils/demography/overlayMemory';
+import {SUMMARY_TYPES} from '@constants/demography/summary';
 import {getContiguity} from '@/app/utils/api/apiHandlers/getContiguity';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 import {formatNumber} from '@utils/numbers';
@@ -53,7 +56,9 @@ export const GettingStarted = () => {
   const setSidebarPanels = useMapControlsStore(state => state.setSidebarPanels);
   const {setCountyBrush} = useCountyBrush();
   const requestValidationTab = useUiHintStore(state => state.requestValidationTab);
+  const requestSummaryTab = useUiHintStore(state => state.requestSummaryTab);
   const pingExpandDiscontiguous = useUiHintStore(state => state.pingExpandDiscontiguous);
+  const pingVisualSettingsOpen = useUiHintStore(state => state.pingVisualSettingsOpen);
   const flash = useUiHintStore(state => state.flash);
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => {
@@ -181,17 +186,41 @@ export const GettingStarted = () => {
         : [
             {
               label: 'Show population tooltips as you paint',
-              onClick: () => setMapOptions({showPopulationTooltip: true}),
+              onClick: () => {
+                // Enable it, then show where the setting lives.
+                setMapOptions({showPopulationTooltip: true});
+                pingVisualSettingsOpen();
+                flash(POPULATION_TOOLTIP_FLASH_ID);
+              },
             },
-            {label: 'Show the demographic map', onClick: () => openSidebarPanel('demography')},
+            {
+              label: 'Show the demographic map',
+              onClick: () => {
+                activateOverlayGroup(SUMMARY_TYPES.TOTPOP);
+                requestSummaryTab({panel: 'demography', tab: 'map'});
+                openSidebarPanel('demography');
+              },
+            },
           ],
     },
     {
       label: 'Understand demographic and voter histories',
       done: sidebarPanels.includes('demography') && sidebarPanels.includes('election'),
       hints: [
-        {label: 'Show the demographic table', onClick: () => openSidebarPanel('demography')},
-        {label: 'Show the voter history table', onClick: () => openSidebarPanel('election')},
+        {
+          label: 'Show the demographic table',
+          onClick: () => {
+            requestSummaryTab({panel: 'demography', tab: 'evaluation'});
+            openSidebarPanel('demography');
+          },
+        },
+        {
+          label: 'Show the voter history table',
+          onClick: () => {
+            requestSummaryTab({panel: 'election', tab: 'evaluation'});
+            openSidebarPanel('election');
+          },
+        },
       ],
     },
     {
