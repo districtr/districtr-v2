@@ -66,6 +66,10 @@ export const GettingStarted = () => {
   const pingVisualSettingsOpen = useUiHintStore(state => state.pingVisualSettingsOpen);
   const flash = useUiHintStore(state => state.flash);
   const [collapsed, setCollapsed] = useState(false);
+  // Which checklist is showing. "Improve your plan" unlocks when Getting
+  // started completes, but switching is always user-driven — no auto-advance,
+  // and you can page back.
+  const [showImprove, setShowImprove] = useState(false);
   useEffect(() => {
     setCollapsed(localStorage.getItem(COLLAPSE_KEY) === '1');
   }, []);
@@ -260,7 +264,8 @@ export const GettingStarted = () => {
     },
   ];
 
-  const items = gettingStartedDone ? improveItems : steps;
+  const improveVisible = showImprove && gettingStartedDone;
+  const items = improveVisible ? improveItems : steps;
 
   const toggleCollapsed = () => {
     localStorage.setItem(COLLAPSE_KEY, collapsed ? '0' : '1');
@@ -282,10 +287,10 @@ export const GettingStarted = () => {
     >
       <Flex align="center" justify="between" onClick={toggleCollapsed} style={{cursor: 'pointer'}}>
         <Text size="2" weight="bold">
-          {gettingStartedDone ? 'Improve your plan' : 'Getting started'}
+          {improveVisible ? 'Improve your plan' : 'Getting started'}
         </Text>
         <Flex align="center" gap="2">
-          {!gettingStartedDone && (
+          {!improveVisible && !gettingStartedDone && (
             <Text size="1" color="gray">
               {doneCount} of {steps.length} done
             </Text>
@@ -344,6 +349,28 @@ export const GettingStarted = () => {
                 </Button>
               ))}
           </Flex>
+        ))}
+      {!collapsed &&
+        gettingStartedDone &&
+        (improveVisible ? (
+          <Button
+            variant="ghost"
+            size="1"
+            color="gray"
+            onClick={() => setShowImprove(false)}
+            style={{alignSelf: 'start'}}
+          >
+            ← Getting started
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="1"
+            onClick={() => setShowImprove(true)}
+            style={{alignSelf: 'start', fontWeight: 600}}
+          >
+            Next: Improve your plan →
+          </Button>
         ))}
     </Flex>
   );
