@@ -25,6 +25,13 @@ export const LoopVideoPlayer: React.FC<{videoUrl: string | string[]}> = ({videoU
   });
   const inViewRef = useRef(inView);
   inViewRef.current = inView;
+  // True only for the very first render, to skip the `[index]` effect's own play()
+  // call then (the separate `[inView]` effect below owns that first play). Not the
+  // same thing as "index === 0": a multi-clip sequence wraps back to index 0 after
+  // its last clip, and that transition needs an explicit play() just like any other
+  // — checking `index > 0` there instead would skip it on every wrap, leaving the
+  // video loaded but paused after one full cycle.
+  const isFirstRenderRef = useRef(true);
 
   // A different `videoUrl` prop (e.g. HelpTip switching tips) should restart the cycle.
   useEffect(() => {
@@ -67,12 +74,17 @@ export const LoopVideoPlayer: React.FC<{videoUrl: string | string[]}> = ({videoU
     }
   };
 
-  // Cycling to the next clip changes `src`, which the browser treats as a fresh load —
-  // needs an explicit play() once that's ready, unlike the same-source restart above.
+  // Cycling to the next clip (or wrapping back to the first) changes `src`, which
+  // the browser treats as a fresh load — needs an explicit play() once that's
+  // ready, unlike the same-source restart above.
   useEffect(() => {
     setIsLoading(true);
     setHasError(false);
-    if (inViewRef.current && index > 0) play();
+    if (isFirstRenderRef.current) {
+      isFirstRenderRef.current = false;
+    } else if (inViewRef.current) {
+      play();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index]);
 
