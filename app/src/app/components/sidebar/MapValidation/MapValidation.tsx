@@ -1,6 +1,5 @@
 import {Button, Callout, Flex, SegmentedControl} from '@radix-ui/themes';
 import {ExclamationTriangleIcon} from '@radix-ui/react-icons';
-import {HelpTip} from '@components/InfoTip/HelpTip';
 import {useMapStore} from '@/app/store/mapStore';
 import {Contiguity} from './Contiguity';
 import {ZoomToUnassigned} from './ZoomToUnassigned';
@@ -64,20 +63,13 @@ export const MapValidation = () => {
         </Callout.Root>
       )}
       {/* Segmented control to match the Table | Map sub-section tabs. */}
-      <Flex align="center" gap="1">
-        <SegmentedControl.Root size="2" value={activePanel} onValueChange={setActivePanel}>
-          {mapValidationPanel.map((panel, index) => (
-            <SegmentedControl.Item key={index} value={panel.label}>
-              {panel.label}
-            </SegmentedControl.Item>
-          ))}
-        </SegmentedControl.Root>
-        <HelpTip
-          tip={
-            activePanel === 'Contiguity' ? 'mapValidationContiguity' : 'mapValidationCompleteness'
-          }
-        />
-      </Flex>
+      <SegmentedControl.Root size="2" value={activePanel} onValueChange={setActivePanel}>
+        {mapValidationPanel.map((panel, index) => (
+          <SegmentedControl.Item key={index} value={panel.label}>
+            {panel.label}
+          </SegmentedControl.Item>
+        ))}
+      </SegmentedControl.Root>
 
       {!!Component && Component}
     </Flex>

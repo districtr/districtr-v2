@@ -156,7 +156,6 @@ export const PopulationPanel = () => {
         <Heading as="h3" size="3">
           {`Total population by ${zoneLabel}`}
         </Heading>
-        <HelpTip tip="districtOverview" />
         {superDraw && (
           <PopulationPanelOptions
             chartOptions={chartOptions}
@@ -165,13 +164,18 @@ export const PopulationPanel = () => {
           />
         )}
       </Flex>
-      {/* Fixed header: lock-all control + "Ideal" label strip. Never scrolls. */}
-      <Flex direction="row" width={'100%'} gap="1" mt="2">
+      {/* Fixed header: lock-all control + "Ideal" label strip. Never scrolls.
+          align="center" on this row (not just the left column below) matters: without
+          it, the default cross-axis "stretch" forces the left column to the height of
+          its sibling (POP_CHART_LABEL_HEIGHT, 22px) rather than the icon's own natural
+          size, centering the lock-all icon within a shorter box than each per-district
+          row uses (POP_ROW_HEIGHT, 38px) — the two ended up at different positions
+          relative to their neighboring text as a result. */}
+      <Flex direction="row" width={'100%'} gap="1" mt="2" align="center">
         <Flex
           justify="end"
           align="center"
-          gap="0"
-          style={{width: POP_LEFT_COL_WIDTH, flexShrink: 0}}
+          style={{width: POP_LEFT_COL_WIDTH, flexShrink: 0, position: 'relative'}}
         >
           {!isCommunityMode && (
             <>
@@ -179,6 +183,7 @@ export const PopulationPanel = () => {
                 <IconButton
                   onClick={toggleLockAllAreas}
                   variant="ghost"
+                  size="1"
                   disabled={access === ACCESS_STATES.READ}
                   style={{opacity: isEditing ? 1 : 0}}
                   aria-label={allAreLocked ? 'Unlock all districts' : 'Lock all districts'}
@@ -186,7 +191,23 @@ export const PopulationPanel = () => {
                   {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
                 </IconButton>
               </Tooltip>
-              {isEditing && <HelpTip tip="districtLock" />}
+              {/* Positioned out of flow, just past the column's right edge — the
+                  in-flow content here must end with the lock button so it lines up
+                  with each per-district row's own lock icon (the rightmost item in
+                  their group), but the icon still reads naturally as following the
+                  lock rather than leading it. There's clear space here before the
+                  "Ideal" label strip starts. */}
+              <Flex
+                align="center"
+                style={{
+                  position: 'absolute',
+                  left: '100%',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                }}
+              >
+                <HelpTip tip="districtLock" />
+              </Flex>
             </>
           )}
         </Flex>
@@ -247,6 +268,7 @@ export const PopulationPanel = () => {
                           <IconButton
                             onClick={() => handleEditCommunity(d.zone)}
                             variant="ghost"
+                            size="1"
                             disabled={access === ACCESS_STATES.READ}
                             aria-label={`Edit community ${d.zone}`}
                           >
@@ -263,6 +285,7 @@ export const PopulationPanel = () => {
                             <IconButton
                               onClick={() => handleLockChange(d.zone)}
                               variant="ghost"
+                              size="1"
                               disabled={access === ACCESS_STATES.READ}
                               aria-label={
                                 lockPaintedAreas.includes(d.zone)

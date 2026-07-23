@@ -6,9 +6,14 @@ import {ToolSettings} from './Settings';
 import {HelpTip} from '@components/InfoTip/HelpTip';
 
 /** Visual settings as a compact popover button — lives beside the toolbar in
- * the desktop sidebar and in the mobile dock. */
+ * the desktop sidebar and in the mobile dock.
+ *
+ * The info icon sits directly against the button's trailing edge (rather than
+ * literally inside the <button>) because HelpTip's trigger, and the link inside
+ * its expanded content, are themselves interactive elements — nesting either
+ * inside another <button> is invalid HTML. */
 export const VisualSettingsPopover: React.FC = () => (
-  <Flex align="center" gap="1">
+  <Flex align="center" gap="0">
     <Popover.Root>
       <Popover.Trigger>
         <Button

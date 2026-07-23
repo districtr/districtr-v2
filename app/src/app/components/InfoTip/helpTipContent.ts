@@ -1,6 +1,9 @@
 export interface HelpTipEntry {
   text: string;
+  /** Single clip. Use `videoFiles` instead for an entry covering more than one clip. */
   videoFile?: string;
+  /** Multiple clips, shown one after another when expanded (e.g. two related checks). */
+  videoFiles?: string[];
   guideAnchor?: string;
 }
 
@@ -48,11 +51,6 @@ export const helpTipContent = {
     videoFile: 'drawing_another_district.webm',
     guideAnchor: 'drawing-the-districts',
   },
-  districtLock: {
-    text: 'Toggle the lock icon next to a district to protect it from being painted over while you work on other districts.',
-    videoFile: 'district_lock.webm',
-    guideAnchor: 'district-overview',
-  },
   visualSettings: {
     text: 'Control what the map shows: hide painted districts, toggle county boundaries, or highlight unassigned areas that still need a district.',
     videoFile: 'visual_settings.webm',
@@ -63,10 +61,10 @@ export const helpTipContent = {
     videoFile: 'district_overview.webm',
     guideAnchor: 'district-overview',
   },
-  mapModes: {
-    text: 'Switch between Draw (build your plan), View (a clean read-only display), Evaluate (statistics about your plan), and Super Draw (extra tools for advanced users).',
-    videoFile: 'switch_mode.webm',
-    guideAnchor: 'map-modes',
+  districtLock: {
+    text: 'Toggle the lock icon next to a district to protect it from being painted over while you work on other districts.',
+    videoFile: 'district_lock.webm',
+    guideAnchor: 'district-overview',
   },
   demographics: {
     text: 'View the demographic makeup of your districts by total population or voting age population, as a map overlay or as sized circles.',
@@ -78,14 +76,9 @@ export const helpTipContent = {
     videoFile: 'election_panel.webm',
     guideAnchor: 'elections',
   },
-  mapValidationCompleteness: {
-    text: 'Check whether your map is missing any geographic units that still need to be assigned to a district.',
-    videoFile: 'completeness_check.webm',
-    guideAnchor: 'map-validation',
-  },
-  mapValidationContiguity: {
-    text: 'Check whether each of your districts forms a single, connected shape.',
-    videoFile: 'contiguity_check.webm',
+  mapValidation: {
+    text: 'Check whether your map is missing any geographic units, and whether each district forms a single, connected shape.',
+    videoFiles: ['completeness_check.webm', 'contiguity_check.webm'],
     guideAnchor: 'map-validation',
   },
   superDraw: {

@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import {Button, DropdownMenu, Flex, Spinner, Text} from '@radix-ui/themes';
+import {Button, DropdownMenu, Flex, Spinner, Text, Tooltip} from '@radix-ui/themes';
 import {
   BarChartIcon,
   CaretDownIcon,
@@ -21,7 +21,7 @@ import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {patchSharePlan} from '@/app/utils/api/apiHandlers/patchSharePlan';
 import {idb} from '@/app/utils/idb/idb';
-import {HelpTip} from '@components/InfoTip/HelpTip';
+import {helpTipContent} from '@components/InfoTip/helpTipContent';
 
 type ViewMode = 'draw' | 'superdraw' | 'display' | 'evaluate';
 
@@ -41,10 +41,12 @@ const isDrawMode = (mode: ViewMode): mode is 'draw' | 'superdraw' =>
 /** A single mode option in the switcher menu. Owns its own icon/description so the
  * switcher template stays declarative. `locked` is the password-gated edit state.
  *
- * The Super Draw row additionally hosts an inline HelpTip. `onSuperDrawHelpOpenChange`
- * lets the parent `ModeSwitcher` know when that nested popover is open, so it can stop
- * the surrounding `DropdownMenu.Content` from treating the popover's (portaled) content
- * as an "interact outside" event and closing the whole menu out from under it. */
+ * Super Draw's explanation is a plain hover Tooltip over the whole row, not the richer
+ * HelpTip (video + guide link) used elsewhere: nesting HelpTip's own interactive
+ * Popover/HoverCard inside this DropdownMenu.Item repeatedly fought the parent menu's
+ * own click/hover/sizing behavior (mode-switching on click, the menu closing or
+ * growing past the trigger's width, the card itself losing hover). A non-interactive
+ * Tooltip has none of those failure modes. */
 const ModeSwitcherItem: React.FC<{
   mode: ViewMode;
   isCurrent: boolean;
@@ -52,26 +54,31 @@ const ModeSwitcherItem: React.FC<{
   disabledReason: string;
   locked: boolean;
   onSelect: () => void;
-  onSuperDrawHelpOpenChange?: (open: boolean) => void;
-}> = ({mode, isCurrent, disabled, disabledReason, locked, onSelect, onSuperDrawHelpOpenChange}) => {
+}> = ({mode, isCurrent, disabled, disabledReason, locked, onSelect}) => {
   const meta = MODE_META[mode];
   const Icon = locked ? LockClosedIcon : meta.Icon;
+  const row = (
+    <Flex align="center" justify="between" gap="4" width="100%" py="1">
+      <Flex align="center" gap="3">
+        <Icon className="size-4 shrink-0" />
+        <Flex direction="column" gap="1">
+          <Text size="2" weight="medium">
+            {meta.label}
+          </Text>
+        </Flex>
+      </Flex>
+      {isCurrent && <CheckIcon className="shrink-0" />}
+    </Flex>
+  );
   return (
     <DropdownMenu.Item disabled={disabled} onSelect={onSelect}>
-      <Flex align="center" justify="between" gap="4" width="100%" py="1">
-        <Flex align="center" gap="3">
-          <Icon className="size-4 shrink-0" />
-          <Flex direction="column" gap="1">
-            <Text size="2" weight="medium">
-              {meta.label}
-            </Text>
-          </Flex>
-          {mode === 'superdraw' && (
-            <HelpTip tip="superDraw" onOpenChange={onSuperDrawHelpOpenChange} />
-          )}
-        </Flex>
-        {isCurrent && <CheckIcon className="shrink-0" />}
-      </Flex>
+      {mode === 'superdraw' ? (
+        <Tooltip content={helpTipContent.superDraw.text} side="right">
+          {row}
+        </Tooltip>
+      ) : (
+        row
+      )}
     </DropdownMenu.Item>
   );
 };
@@ -107,10 +114,6 @@ export const ModeSwitcher: React.FC = () => {
   const publicIdForLookup = useMapStore(state => state.mapDocument?.public_id ?? null);
   const pwParam = useSearchParams().get('pw');
   const [isMinting, setIsMinting] = React.useState(false);
-  // Tracks whether the Super Draw row's inline HelpTip popover is open, so the
-  // DropdownMenu.Content below can suppress its "interact outside" close while the
-  // user is clicking/reading inside that (portaled) popover. See ModeSwitcherItem.
-  const [superDrawHelpOpen, setSuperDrawHelpOpen] = React.useState(false);
 
   // A map is unlockable if the share link carries `?pw=true` or the document itself
   // reports an edit password (so a viewer who landed on the bare public URL still gets
@@ -250,51 +253,38 @@ export const ModeSwitcher: React.FC = () => {
   const CurrentIcon = MODE_META[currentMode].Icon;
 
   return (
-    <Flex align="center" gap="1">
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger>
-          <Button
-            variant="surface"
-            color="gray"
-            size="2"
-            className="cursor-pointer transition-shadow hover:shadow-md"
-            disabled={isMinting}
-            aria-label="Switch view"
-          >
-            {isMinting ? <Spinner size="1" /> : <CurrentIcon />}
-            {/* Icon-only on phones; the dropdown spells out the modes. */}
-            <span className="hidden md:inline">Mode: {MODE_META[currentMode].label}</span>
-            <CaretDownIcon />
-          </Button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Content
-          sideOffset={6}
-          className="min-w-[var(--radix-dropdown-menu-trigger-width)]"
-          onInteractOutside={event => {
-            // The Super Draw row's HelpTip is a Popover.Content portaled to
-            // document.body, so Radix sees interacting with it as "outside" this
-            // DropdownMenu.Content and would otherwise close the whole menu. Swallow
-            // that specific case while the help popover is open.
-            if (superDrawHelpOpen) {
-              event.preventDefault();
-            }
-          }}
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger>
+        <Button
+          variant="surface"
+          color="gray"
+          size="2"
+          className="cursor-pointer transition-shadow hover:shadow-md"
+          disabled={isMinting}
+          aria-label="Switch view"
         >
-          {modes.map(mode => (
-            <ModeSwitcherItem
-              key={mode}
-              mode={mode}
-              isCurrent={mode === currentMode}
-              disabled={isDisabled(mode)}
-              disabledReason={disabledReasonFor(mode)}
-              locked={isDrawMode(mode) && editLocked}
-              onSelect={() => handleSelect(mode)}
-              onSuperDrawHelpOpenChange={setSuperDrawHelpOpen}
-            />
-          ))}
-        </DropdownMenu.Content>
-      </DropdownMenu.Root>
-      <HelpTip tip="mapModes" />
-    </Flex>
+          {isMinting ? <Spinner size="1" /> : <CurrentIcon />}
+          {/* Icon-only on phones; the dropdown spells out the modes. */}
+          <span className="hidden md:inline">Mode: {MODE_META[currentMode].label}</span>
+          <CaretDownIcon />
+        </Button>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content
+        sideOffset={6}
+        className="min-w-[var(--radix-dropdown-menu-trigger-width)]"
+      >
+        {modes.map(mode => (
+          <ModeSwitcherItem
+            key={mode}
+            mode={mode}
+            isCurrent={mode === currentMode}
+            disabled={isDisabled(mode)}
+            disabledReason={disabledReasonFor(mode)}
+            locked={isDrawMode(mode) && editLocked}
+            onSelect={() => handleSelect(mode)}
+          />
+        ))}
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
   );
 };

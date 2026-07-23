@@ -174,12 +174,16 @@ export const DistrictsZonePicker: React.FC = () => {
             </>
           )}
         </Flex>
-        <Flex align="center" gap="1">
+        <Flex align="start" gap="1">
           <ColorPicker
             onValueChange={handleRadioChange}
             defaultValue={0}
             value={selectedZone - 1}
           />
+          {/* align="start", not "center": each color patch has its district number
+              printed below it, so centering against the whole ColorPicker block (patch
+              + number) pulls this below the patches themselves — top-aligning instead
+              lines it up with the patches, which is the row it's actually explaining. */}
           <HelpTip tip="switchDistrict" />
         </Flex>
       </Flex>

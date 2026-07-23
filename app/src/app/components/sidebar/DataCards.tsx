@@ -150,6 +150,7 @@ export const SECTIONS: SidebarSection[] = [
     icon: Component1Icon,
     content: <PopulationPanel />,
     districtsOnly: true,
+    helpTip: 'districtOverview',
   },
   {
     key: 'demography',
@@ -194,6 +195,7 @@ export const SECTIONS: SidebarSection[] = [
     icon: CheckCircledIcon,
     content: <MapValidation />,
     districtsOnly: true,
+    helpTip: 'mapValidation',
   },
   {
     key: 'overlays',
@@ -212,35 +214,56 @@ const AccordionSection: React.FC<{
   const Icon = section.icon;
   return (
     <div
-      className="border border-gray-300 rounded-lg bg-white"
+      className="relative border border-gray-300 rounded-lg bg-white"
       data-testid={`data-panel-${section.key}`}
     >
-      {/* The HelpTip's own trigger is a button too, so it renders as a sibling of
-          (not nested inside) this header button — nested <button>s are invalid HTML
-          and would break click/hydration semantics. */}
-      <Flex align="center" className="p-3 rounded-lg transition-colors hover:bg-blue-50" gap="1">
-        <button
-          onClick={onToggle}
-          aria-expanded={open}
-          className="flex-grow cursor-pointer text-left"
-        >
-          <Flex gap="2" align="center">
-            <Icon className="shrink-0" />
-            <Flex direction="column" className="flex-grow">
-              <Text as="div" size="2" weight="bold">
-                {section.label}
-              </Text>
-              <Text as="div" size="1" color="gray">
+      {/* Exactly dev's original single-row layout (icon + the label/description column +
+          chevron, all centered together as one group). A literal <button> can't legally
+          contain HelpTip (its trigger, and the link inside its expanded content, are
+          themselves interactive — invalid to nest inside a <button>), which is why
+          earlier attempts pulled the description onto its own row outside the button,
+          breaking the centering, or pinned the icon to a fixed corner instead of the
+          text. A div with role="button" has the same semantics for our purposes but
+          carries no such restriction, so the icon can sit inline right after the
+          description, in the same row, without touching the original layout at all. */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onToggle}
+        onKeyDown={event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onToggle();
+          }
+        }}
+        aria-expanded={open}
+        className="w-full cursor-pointer text-left p-3 rounded-lg transition-colors hover:bg-blue-50"
+      >
+        <Flex gap="2" align="center">
+          <Icon className="shrink-0" />
+          <Flex direction="column" className="flex-grow">
+            <Text as="div" size="2" weight="bold">
+              {section.label}
+            </Text>
+            <Flex align="center" gap="1">
+              <Text as="span" size="1" color="gray">
                 {section.description}
               </Text>
+              {section.helpTip && (
+                // Stops the click from also toggling the card open/closed — HelpTip is
+                // hover-triggered, but its "watch video"/guide links are still real
+                // clicks that would otherwise bubble up to this row's own onClick.
+                <span onClick={event => event.stopPropagation()}>
+                  <HelpTip tip={section.helpTip} />
+                </span>
+              )}
             </Flex>
-            <ChevronDownIcon
-              className={`shrink-0 transition-transform duration-200 ${open ? '' : '-rotate-90'}`}
-            />
           </Flex>
-        </button>
-        {section.helpTip && <HelpTip tip={section.helpTip} />}
-      </Flex>
+          <ChevronDownIcon
+            className={`shrink-0 transition-transform duration-200 ${open ? '' : '-rotate-90'}`}
+          />
+        </Flex>
+      </div>
       <AnimatedCollapse open={open}>
         <div className="px-3 pb-3">{section.content}</div>
       </AnimatedCollapse>
