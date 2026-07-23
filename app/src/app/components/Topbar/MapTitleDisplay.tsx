@@ -24,6 +24,7 @@ import {useMapModuleInfo} from './MapContextModuleAndUnits';
 import {InProgressIcon, ReadyIcon, ScratchWorkIcon} from './Icons';
 import {SegmentedControl} from '@radix-ui/themes';
 import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
+import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
 
 const statusIcons: Record<DraftStatus, React.FC> = {
   [DRAFT_STATUSES.SCRATCH]: ScratchWorkIcon,
@@ -88,12 +89,12 @@ export const MapTitleDisplay: React.FC<{
     return tooltipContent ? <Tooltip content={tooltipContent}>{display}</Tooltip> : display;
   }
 
-  // If editing, one condensed tooltip (edit hint + module/unit info); click
+  // If editing, HelpTip explains what clicking does (with a demo video); click
   // opens the edit dialog.
   if (editing) {
     return (
       <>
-        <Tooltip content={tooltipContent}>
+        <HelpTip tip="editMapDetails" openDelay={HELP_TIP_FAST_DELAY}>
           <Button
             variant="ghost"
             color="gray"
@@ -109,7 +110,7 @@ export const MapTitleDisplay: React.FC<{
               <Pencil1Icon />
             </Flex>
           </Button>
-        </Tooltip>
+        </HelpTip>
 
         <Dialog.Root open={open} onOpenChange={setOpen}>
           <Dialog.Content style={{maxWidth: 400}}>

@@ -17,8 +17,8 @@ import {SummaryPanel, type SectionKey} from './SummaryPanel';
 import {MapControlsStore, useMapControlsStore} from '@store/mapControlsStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
-import {HelpTip} from '@components/InfoTip/HelpTip';
-import type {HelpTipKey} from '@components/InfoTip/helpTipContent';
+import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
+import type {HelpTipKey} from '@components/HelpTip/helpTipContent';
 
 // One constant drives both the CSS transition and the delayed unmount so the
 // two can't drift apart.
@@ -130,7 +130,6 @@ type SidebarSectionKey = MapControlsStore['sidebarPanels'][number];
 export type SidebarSection = {
   key: SidebarSectionKey;
   label: string;
-  description: string;
   icon: React.ComponentType<{className?: string}>;
   content: React.ReactNode;
   /** Hidden in communities (COI) mode, matching the old accordion's filter. */
@@ -146,7 +145,6 @@ export const SECTIONS: SidebarSection[] = [
   {
     key: 'population',
     label: 'District overview',
-    description: 'Population, district notes, deviation',
     icon: Component1Icon,
     content: <PopulationPanel />,
     districtsOnly: true,
@@ -155,7 +153,6 @@ export const SECTIONS: SidebarSection[] = [
   {
     key: 'demography',
     label: 'Demographics',
-    description: 'Demographic tables and map layers',
     icon: PersonIcon,
     content: (
       <TabbedSummaryPanel
@@ -173,7 +170,6 @@ export const SECTIONS: SidebarSection[] = [
   {
     key: 'election',
     label: 'Elections',
-    description: 'Prior election data tables and map layers',
     icon: PieChartIcon,
     content: (
       <TabbedSummaryPanel
@@ -191,7 +187,6 @@ export const SECTIONS: SidebarSection[] = [
   {
     key: 'mapValidation',
     label: 'Validity check',
-    description: 'Contiguity and completeness',
     icon: CheckCircledIcon,
     content: <MapValidation />,
     districtsOnly: true,
@@ -200,7 +195,6 @@ export const SECTIONS: SidebarSection[] = [
   {
     key: 'overlays',
     label: 'Boundaries and areas',
-    description: 'Boundaries and areas',
     icon: LayersIcon,
     content: <OverlaysPanel />,
   },
@@ -217,15 +211,11 @@ const AccordionSection: React.FC<{
       className="relative border border-gray-300 rounded-lg bg-white"
       data-testid={`data-panel-${section.key}`}
     >
-      {/* Exactly dev's original single-row layout (icon + the label/description column +
-          chevron, all centered together as one group). A literal <button> can't legally
-          contain HelpTip (its trigger, and the link inside its expanded content, are
-          themselves interactive — invalid to nest inside a <button>), which is why
-          earlier attempts pulled the description onto its own row outside the button,
-          breaking the centering, or pinned the icon to a fixed corner instead of the
-          text. A div with role="button" has the same semantics for our purposes but
-          carries no such restriction, so the icon can sit inline right after the
-          description, in the same row, without touching the original layout at all. */}
+      {/* One row (icon, label + HelpTip, chevron): everything shares one
+          line-height, so vertical centering needs no per-row height matching.
+          A literal <button> can't legally contain HelpTip (its trigger is itself
+          interactive) — a div with role="button" carries the same semantics
+          without that restriction. */}
       <div
         role="button"
         tabIndex={0}
@@ -241,23 +231,18 @@ const AccordionSection: React.FC<{
       >
         <Flex gap="2" align="center">
           <Icon className="shrink-0" />
-          <Flex direction="column" className="flex-grow">
-            <Text as="div" size="2" weight="bold">
+          <Flex align="center" gap="1" className="flex-grow">
+            <Text size="2" weight="bold">
               {section.label}
             </Text>
-            <Flex align="center" gap="1">
-              <Text as="span" size="1" color="gray">
-                {section.description}
-              </Text>
-              {section.helpTip && (
-                // Stops the click from also toggling the card open/closed — HelpTip is
-                // hover-triggered, but its "watch video"/guide links are still real
-                // clicks that would otherwise bubble up to this row's own onClick.
-                <span onClick={event => event.stopPropagation()}>
-                  <HelpTip tip={section.helpTip} />
-                </span>
-              )}
-            </Flex>
+            {section.helpTip && (
+              // Stops the click from also toggling the card open/closed — HelpTip is
+              // hover-triggered, but its "watch video"/guide links are still real
+              // clicks that would otherwise bubble up to this row's own onClick.
+              <span onClick={event => event.stopPropagation()}>
+                <HelpTip tip={section.helpTip} openDelay={HELP_TIP_FAST_DELAY} />
+              </span>
+            )}
           </Flex>
           <ChevronDownIcon
             className={`shrink-0 transition-transform duration-200 ${open ? '' : '-rotate-90'}`}

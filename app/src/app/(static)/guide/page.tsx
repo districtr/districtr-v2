@@ -19,7 +19,12 @@ const TOC_ENTRIES: GuideTocEntry[] = [
   {title: 'Map Modes'},
   {
     title: 'Saving, Sharing, Importing & Exporting',
-    subsections: ['Saving your Map', 'Sharing your Map', 'Importing Maps', 'Exporting Maps'],
+    subsections: [
+      'Edit map names and details',
+      'Sharing your Map',
+      'Importing Maps',
+      'Exporting Maps',
+    ],
   },
   {title: 'Super Draw'},
 ];
@@ -251,8 +256,8 @@ export default function GuidePage() {
 
         <ContentSection title="Saving, Sharing, Importing & Exporting">
           <Flex direction="column" gapY="4">
-            <Heading as="h3" size="4" {...subheadingAnchor('Saving your Map')}>
-              Saving your Map
+            <Heading as="h3" size="4" {...subheadingAnchor('Edit map names and details')}>
+              Edit map names and details
             </Heading>
             <Text size="3">
               Your map automatically saves as you work, right in your browser's local storage — no

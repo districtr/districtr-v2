@@ -22,7 +22,7 @@ import {MinusIcon, PlusIcon, Pencil1Icon} from '@radix-ui/react-icons';
 import {ACCESS_STATES} from '@constants/document/state';
 import {temporalManager} from '@/app/utils/temporal';
 import {MAP_MODES} from '@constants/map/mode';
-import {HelpTip} from '@/app/components/InfoTip/HelpTip';
+import {HelpTip, HELP_TIP_FAST_DELAY} from '@/app/components/HelpTip/HelpTip';
 
 export const DistrictsZonePicker: React.FC = () => {
   const [showNumDistrictEditor, setShowNumDistrictEditor] = useState(false);
@@ -184,7 +184,7 @@ export const DistrictsZonePicker: React.FC = () => {
               printed below it, so centering against the whole ColorPicker block (patch
               + number) pulls this below the patches themselves — top-aligning instead
               lines it up with the patches, which is the row it's actually explaining. */}
-          <HelpTip tip="switchDistrict" />
+          <HelpTip tip="switchDistrict" openDelay={HELP_TIP_FAST_DELAY} />
         </Flex>
       </Flex>
       <AlertDialog.Root

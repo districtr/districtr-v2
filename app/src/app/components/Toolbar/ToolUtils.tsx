@@ -1,4 +1,4 @@
-import {IconProps} from '@radix-ui/themes';
+import {IconButtonProps, IconProps} from '@radix-ui/themes';
 import {ACTIVE_TOOLS, SUPER_DRAW_TOOLS, type ActiveTool} from '@constants/map/tools';
 import {useMapStore} from '@/app/store/mapStore';
 import {
@@ -16,7 +16,7 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {ACCESS_STATES} from '@constants/document/state';
-import type {HelpTipKey} from '@/app/components/InfoTip/helpTipContent';
+import type {HelpTipKey} from '@/app/components/HelpTip/helpTipContent';
 
 export type ActiveToolConfig = {
   hotKeyAccessor: (event: KeyboardEvent) => boolean;
@@ -24,13 +24,12 @@ export type ActiveToolConfig = {
   mode: ActiveTool;
   disabled?: boolean;
   label: string;
+  variant?: IconButtonProps['variant'];
+  color?: IconButtonProps['color'];
   icon: React.ForwardRefExoticComponent<IconProps & React.RefAttributes<SVGSVGElement>>;
   iconStyle?: React.CSSProperties;
   onClick?: () => void;
   helpKey?: HelpTipKey;
-  /** Renders smaller than the main tools, visually grouped apart from them (e.g.
-   * Undo/Redo) — same button height, less flex weight. */
-  compact?: boolean;
 };
 
 export const useActiveTools = () => {
@@ -92,6 +91,38 @@ export const useActiveTools = () => {
       },
     },
     {
+      hotKeyLabel: `${metaKey} + Z`,
+      mode: ACTIVE_TOOLS.UNDO,
+      disabled: pastStates.length === 0 || !isEditing,
+      label: 'Undo',
+      icon: ResetIcon,
+      // Same helpKey as Redo: one explanation covers the pair.
+      helpKey: 'undoRedo',
+      onClick: () => {
+        handleUndo();
+      },
+      hotKeyAccessor: e => {
+        // command or control Z
+        return (e.metaKey || e.ctrlKey) && !e.shiftKey && e.code === 'KeyZ';
+      },
+    },
+    {
+      hotKeyLabel: `${metaKey} + Shift + Z`,
+      mode: ACTIVE_TOOLS.REDO,
+      disabled: futureStates.length === 0 || !isEditing,
+      label: 'Redo',
+      icon: ResetIcon,
+      iconStyle: {transform: 'rotateY(180deg)'},
+      helpKey: 'undoRedo',
+      onClick: () => {
+        handleRedo();
+      },
+      hotKeyAccessor: e => {
+        // command or control AND shift + y
+        return (e.metaKey || e.ctrlKey) && e.shiftKey && e.code === 'KeyZ';
+      },
+    },
+    {
       hotKeyLabel: 'B',
       mode: ACTIVE_TOOLS.SHATTER,
       disabled: !mapDocument?.child_layer,
@@ -109,41 +140,6 @@ export const useActiveTools = () => {
       icon: MagnifyingGlassIcon,
       hotKeyAccessor: e => {
         return e.code === 'KeyI';
-      },
-    },
-    // Undo/Redo render last (and smaller — see `compact` on ToolButtons), so the main
-    // tools — Move/Paint/Erase, plus Break/Inspector in Super Draw — stay one joined
-    // group instead of being split by this pair sitting in the middle.
-    {
-      hotKeyLabel: `${metaKey} + Z`,
-      mode: ACTIVE_TOOLS.UNDO,
-      disabled: pastStates.length === 0 || !isEditing,
-      label: 'Undo',
-      icon: ResetIcon,
-      compact: true,
-      onClick: () => {
-        handleUndo();
-      },
-      hotKeyAccessor: e => {
-        // command or control Z
-        return (e.metaKey || e.ctrlKey) && !e.shiftKey && e.code === 'KeyZ';
-      },
-    },
-    {
-      hotKeyLabel: `${metaKey} + Shift + Z`,
-      mode: ACTIVE_TOOLS.REDO,
-      disabled: futureStates.length === 0 || !isEditing,
-      label: 'Redo',
-      icon: ResetIcon,
-      iconStyle: {transform: 'rotateY(180deg)'},
-      helpKey: 'undoRedo',
-      compact: true,
-      onClick: () => {
-        handleRedo();
-      },
-      hotKeyAccessor: e => {
-        // command or control AND shift + y
-        return (e.metaKey || e.ctrlKey) && e.shiftKey && e.code === 'KeyZ';
       },
     },
   ];

@@ -1,5 +1,5 @@
 'use client';
-import {Box} from '@radix-ui/themes';
+import {Box, Flex, Spinner, Text} from '@radix-ui/themes';
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {useInView} from 'react-intersection-observer';
 
@@ -12,6 +12,13 @@ const LOOP_HOLD_MS = 500;
 export const LoopVideoPlayer: React.FC<{videoUrl: string | string[]}> = ({videoUrl}) => {
   const urls = useMemo(() => (Array.isArray(videoUrl) ? videoUrl : [videoUrl]), [videoUrl]);
   const [index, setIndex] = useState(0);
+  // Each `src` change (including cycling to the next clip) is a fresh load — shown
+  // as a spinner over the video's own reserved footprint rather than a blank/frozen
+  // frame, so the modal's size doesn't jump once the video becomes ready.
+  const [isLoading, setIsLoading] = useState(true);
+  // Without this, a clip that 404s or CORS-fails just spins forever — `loadeddata`
+  // never fires, and nothing else says so.
+  const [hasError, setHasError] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const {ref, inView} = useInView({
     threshold: 0.2,
@@ -63,6 +70,8 @@ export const LoopVideoPlayer: React.FC<{videoUrl: string | string[]}> = ({videoU
   // Cycling to the next clip changes `src`, which the browser treats as a fresh load —
   // needs an explicit play() once that's ready, unlike the same-source restart above.
   useEffect(() => {
+    setIsLoading(true);
+    setHasError(false);
     if (inViewRef.current && index > 0) play();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index]);
@@ -90,15 +99,38 @@ export const LoopVideoPlayer: React.FC<{videoUrl: string | string[]}> = ({videoU
   return (
     <Box
       ref={ref}
-      className="w-full h-auto max-w-[800px] mx-auto shadow-xl m-4 border-districtrIndigo border-2 rounded-lg overflow-hidden"
+      className="relative w-full h-auto max-w-[800px] mx-auto shadow-xl m-4 border-districtrIndigo border-2 rounded-lg overflow-hidden"
+      // Reserves a 16:9 footprint while loading/errored — an absolutely-positioned
+      // spinner (or error message) has nothing to size itself against otherwise,
+      // since the video has no intrinsic height yet and Box's own height is
+      // otherwise content-derived.
+      style={isLoading || hasError ? {aspectRatio: '16 / 9'} : undefined}
     >
+      {isLoading && !hasError && (
+        <Flex align="center" justify="center" className="absolute inset-0 bg-gray-50">
+          <Spinner size="3" />
+        </Flex>
+      )}
+      {hasError && (
+        <Flex align="center" justify="center" className="absolute inset-0 bg-gray-50 p-4">
+          <Text size="2" color="gray" align="center">
+            This video couldn&apos;t load. Try again later.
+          </Text>
+        </Flex>
+      )}
       <video
         ref={videoRef}
         src={urls[index]}
         onEnded={handleEnded}
+        onLoadedData={() => setIsLoading(false)}
+        onError={() => {
+          setIsLoading(false);
+          setHasError(true);
+        }}
         muted
         playsInline
         preload="true"
+        className={isLoading || hasError ? 'invisible' : undefined}
       />
     </Box>
   );

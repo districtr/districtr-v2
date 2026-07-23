@@ -1,9 +1,8 @@
-import {Flex, Heading, IconButton, Spinner, Text, Tooltip} from '@radix-ui/themes';
+import {Flex, Heading, IconButton, Spinner, Text} from '@radix-ui/themes';
 import React, {useMemo, useState} from 'react';
 import {formatDeviationPct, formatNumber} from '@utils/numbers';
 import {ParentSize} from '@visx/responsive'; // Import ParentSize
-import InfoTip from '@components/InfoTip';
-import {HelpTip} from '@components/InfoTip/HelpTip';
+import {HelpTip, HELP_TIP_HOVER_DELAY, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
 import {useChartStore} from '@store/chartStore';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
@@ -165,50 +164,25 @@ export const PopulationPanel = () => {
         )}
       </Flex>
       {/* Fixed header: lock-all control + "Ideal" label strip. Never scrolls.
-          align="center" on this row (not just the left column below) matters: without
-          it, the default cross-axis "stretch" forces the left column to the height of
-          its sibling (POP_CHART_LABEL_HEIGHT, 22px) rather than the icon's own natural
-          size, centering the lock-all icon within a shorter box than each per-district
-          row uses (POP_ROW_HEIGHT, 38px) — the two ended up at different positions
-          relative to their neighboring text as a result. */}
+          align="center" on this row matters: the default cross-axis "stretch" would
+          force the left column to its sibling strip's height (POP_CHART_LABEL_HEIGHT)
+          instead of the icon's natural size, centering the lock-all icon at a
+          different height than the per-district rows' own lock icons. */}
       <Flex direction="row" width={'100%'} gap="1" mt="2" align="center">
-        <Flex
-          justify="end"
-          align="center"
-          style={{width: POP_LEFT_COL_WIDTH, flexShrink: 0, position: 'relative'}}
-        >
+        <Flex justify="end" align="center" style={{width: POP_LEFT_COL_WIDTH, flexShrink: 0}}>
           {!isCommunityMode && (
-            <>
-              <Tooltip content="Lock or unlock all districts. Locked districts can't be painted over.">
-                <IconButton
-                  onClick={toggleLockAllAreas}
-                  variant="ghost"
-                  size="1"
-                  disabled={access === ACCESS_STATES.READ}
-                  style={{opacity: isEditing ? 1 : 0}}
-                  aria-label={allAreLocked ? 'Unlock all districts' : 'Lock all districts'}
-                >
-                  {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
-                </IconButton>
-              </Tooltip>
-              {/* Positioned out of flow, just past the column's right edge — the
-                  in-flow content here must end with the lock button so it lines up
-                  with each per-district row's own lock icon (the rightmost item in
-                  their group), but the icon still reads naturally as following the
-                  lock rather than leading it. There's clear space here before the
-                  "Ideal" label strip starts. */}
-              <Flex
-                align="center"
-                style={{
-                  position: 'absolute',
-                  left: '100%',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                }}
+            <HelpTip tip="districtLock" openDelay={HELP_TIP_HOVER_DELAY}>
+              <IconButton
+                onClick={toggleLockAllAreas}
+                variant="ghost"
+                size="1"
+                disabled={access === ACCESS_STATES.READ}
+                style={{opacity: isEditing ? 1 : 0}}
+                aria-label={allAreLocked ? 'Unlock all districts' : 'Lock all districts'}
               >
-                <HelpTip tip="districtLock" />
-              </Flex>
-            </>
+                {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
+              </IconButton>
+            </HelpTip>
           )}
         </Flex>
         <ParentSize style={{height: `${POP_CHART_LABEL_HEIGHT}px`, width: '100%'}}>
@@ -275,13 +249,7 @@ export const PopulationPanel = () => {
                             <Pencil1Icon />
                           </IconButton>
                         ) : (
-                          <Tooltip
-                            content={
-                              lockPaintedAreas.includes(d.zone)
-                                ? 'Unlock this district to allow painting over it'
-                                : "Lock this district so it can't be painted over"
-                            }
-                          >
+                          <HelpTip tip="districtLock" openDelay={HELP_TIP_HOVER_DELAY}>
                             <IconButton
                               onClick={() => handleLockChange(d.zone)}
                               variant="ghost"
@@ -299,7 +267,7 @@ export const PopulationPanel = () => {
                                 <LockOpen2Icon />
                               )}
                             </IconButton>
-                          </Tooltip>
+                          </HelpTip>
                         )}
                       </>
                     )}
@@ -343,7 +311,7 @@ export const PopulationPanel = () => {
         <Flex direction={'row'} justify={'between'} align={'start'} wrap="wrap">
           <Flex direction="column" gapX="2" minWidth={'10rem'}>
             <Text size="2">
-              Ideal population <InfoTip tips="idealPopulation" />
+              Ideal population <HelpTip tip="idealPopulation" openDelay={HELP_TIP_FAST_DELAY} />
             </Text>
             <Text weight={'bold'} className="mb-2">
               {formatNumber(idealPopulation, NUMBER_FORMATS.STRING)}
@@ -357,7 +325,8 @@ export const PopulationPanel = () => {
           </Flex>
 
           <Text size="2">
-            Top-to-bottom population deviation <InfoTip tips="topToBottomDeviation" />
+            Top-to-bottom population deviation{' '}
+            <HelpTip tip="topToBottomDeviation" openDelay={HELP_TIP_FAST_DELAY} />
             <br />
             {allPainted &&
             zoneStats?.range !== undefined &&

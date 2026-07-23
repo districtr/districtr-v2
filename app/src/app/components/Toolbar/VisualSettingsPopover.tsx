@@ -3,17 +3,17 @@ import React from 'react';
 import {Button, Flex, Popover} from '@radix-ui/themes';
 import {CaretDownIcon, MixerHorizontalIcon} from '@radix-ui/react-icons';
 import {ToolSettings} from './Settings';
-import {HelpTip} from '@components/InfoTip/HelpTip';
+import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
 
 /** Visual settings as a compact popover button — lives beside the toolbar in
  * the desktop sidebar and in the mobile dock.
  *
- * The info icon sits directly against the button's trailing edge (rather than
- * literally inside the <button>) because HelpTip's trigger, and the link inside
- * its expanded content, are themselves interactive elements — nesting either
- * inside another <button> is invalid HTML. */
+ * The info icon sits as a flex sibling after the button (rather than literally
+ * inside it) because HelpTip's trigger, and the link inside its expanded
+ * content, are themselves interactive elements — nesting either inside another
+ * <button> is invalid HTML. */
 export const VisualSettingsPopover: React.FC = () => (
-  <Flex align="center" gap="0">
+  <Flex align="center" gap="1">
     <Popover.Root>
       <Popover.Trigger>
         <Button
@@ -38,6 +38,6 @@ export const VisualSettingsPopover: React.FC = () => (
         <ToolSettings />
       </Popover.Content>
     </Popover.Root>
-    <HelpTip tip="visualSettings" />
+    <HelpTip tip="visualSettings" openDelay={HELP_TIP_FAST_DELAY} />
   </Flex>
 );

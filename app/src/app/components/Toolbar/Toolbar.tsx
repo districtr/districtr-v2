@@ -17,8 +17,7 @@ export const Toolbar: React.FC = () => {
   activeToolsRef.current = activeTools;
 
   useEffect(() => {
-    // Trigger tool hotkeys. Shortcuts are always shown on the toolbar buttons now,
-    // so this no longer also needs to reveal an alt-key hint.
+    // Trigger tool hotkeys.
     const handleKeyDown = (event: KeyboardEvent) => {
       const activeElement = document.activeElement;
       // if active element is an input, don't do anything
