@@ -41,16 +41,7 @@ export const MapTooltip = () => {
       >
         <Box flexGrow="1">
           {tooltip.data.map((entry, i) => (
-            <Text
-              key={`tooltip-${i}`}
-              as="div"
-              size="1"
-              // First line is the headline (e.g. the district being painted);
-              // later lines are supporting detail.
-              weight={i === 0 ? 'medium' : undefined}
-              color={i === 0 ? undefined : 'gray'}
-              style={{whiteSpace: 'nowrap'}}
-            >
+            <Text key={`tooltip-${i}`} as="div" size="1" style={{whiteSpace: 'nowrap'}}>
               {entry.label}:{' '}
               {!isNaN(+(entry.value as number))
                 ? formatNumber(entry.value as number, NUMBER_FORMATS.STRING)

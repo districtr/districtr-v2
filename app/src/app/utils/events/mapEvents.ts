@@ -26,6 +26,7 @@ import {
   INTERACTIVE_LAYERS,
   CANONICAL_LAYER_IDS,
   COUNTY_SOURCE_ID,
+  BLOCK_SOURCE_ID,
 } from '@constants/map/layerIds';
 import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
 import {ResetMapSelectState} from '@utils/events/handlers';
@@ -35,6 +36,8 @@ import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useChartStore} from '@/app/store/chartStore';
 import {demographyService} from '@utils/demography/demographyService';
+import {formatNumber} from '@utils/numbers';
+import {NUMBER_FORMATS} from '@constants/demography/format';
 import {setHoverFeatures} from '../map/hoverFeatures';
 import {RENDERING_STATES} from '@constants/map/renderingState';
 import {ACCESS_STATES} from '@constants/document/state';
@@ -419,29 +422,54 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   ) {
     const data: Array<{label: string; value: unknown}> = [];
     if (mapOptions.showPopulationTooltip) {
-      // Lead with the district being painted — its live fill (base
-      // populations + this stroke's painted changes) as a share of ideal —
-      // then the population sitting under the brush footprint.
-      if (activeTool === ACTIVE_TOOLS.BRUSH) {
-        const idealPopulation = demographyService.summaryStats?.idealpop;
-        if (idealPopulation) {
-          const basePopulation =
-            demographyService.populations.find(row => row.zone === selectedZone)?.total_pop_20 ?? 0;
-          const painted = useChartStore.getState().paintedChanges[selectedZone] ?? 0;
-          const pctOfIdeal = Math.round(((basePopulation + painted) / idealPopulation) * 100);
-          data.push({
-            label: `District ${selectedZone}`,
-            value: `${pctOfIdeal}% of ideal`,
-          });
-        }
-      }
+      // Line 1: population under the brush footprint. Line 2: the painting
+      // district's live diff from ideal (base populations + this stroke's
+      // painted changes). Line 3+: each district losing area under the brush,
+      // projected to its diff from ideal after this paint action.
       data.push({
-        label: 'Under brush',
+        label: 'Population',
         value: selectedFeatures.reduce(
           (acc, curr) => acc + parseInt(curr.properties.total_pop_20),
           0
         ),
       });
+      const idealPopulation = demographyService.summaryStats?.idealpop;
+      if (activeTool === ACTIVE_TOOLS.BRUSH && idealPopulation) {
+        const paintedChanges = useChartStore.getState().paintedChanges;
+        const livePopulation = (zone: number) =>
+          (demographyService.populations.find(row => row.zone === zone)?.total_pop_20 ?? 0) +
+          (paintedChanges[zone] ?? 0);
+        const diffFromIdeal = (population: number) => {
+          const diff = population - idealPopulation;
+          return `${diff > 0 ? '+' : ''}${formatNumber(diff, NUMBER_FORMATS.STRING)} vs. ideal`;
+        };
+        data.push({
+          label: `District ${selectedZone}`,
+          value: diffFromIdeal(livePopulation(selectedZone)),
+        });
+        const brushPopulationByZone = new Map<number, number>();
+        for (const feature of selectedFeatures) {
+          // Feature state is the live source of truth for assignments, kept
+          // in sync mid-stroke (zoneAssignments only ingests on mouseup).
+          const zone = mapRef.getFeatureState({
+            source: BLOCK_SOURCE_ID,
+            sourceLayer: feature.properties.__sourceLayer || feature.sourceLayer,
+            id: feature.id,
+          })?.zone;
+          if (zone && zone !== selectedZone) {
+            brushPopulationByZone.set(
+              zone,
+              (brushPopulationByZone.get(zone) ?? 0) + parseInt(feature.properties.total_pop_20)
+            );
+          }
+        }
+        for (const [zone, brushPopulation] of brushPopulationByZone) {
+          data.push({
+            label: `District ${zone} would be`,
+            value: diffFromIdeal(livePopulation(zone) - brushPopulation),
+          });
+        }
+      }
     }
     setTooltip({...e.point, data});
   } else {
