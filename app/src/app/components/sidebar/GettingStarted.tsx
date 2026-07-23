@@ -10,6 +10,7 @@ import {useUiHintStore, type ValidationTab} from '@/app/store/uiHintStore';
 import {useZonePopulations} from '@/app/hooks/useDemography';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useCountyBrush, COUNTY_BRUSH_FLASH_ID} from '@/app/components/Toolbar/PaintByCounty';
+import {MODE_SWITCHER_FLASH_ID} from '@/app/components/Topbar/ModeSwitcher';
 import {getContiguity} from '@/app/utils/api/apiHandlers/getContiguity';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 import {formatNumber} from '@utils/numbers';
@@ -21,6 +22,14 @@ const COLLAPSE_KEY = 'districtr-getting-started-collapsed';
 // Above this share of unassigned population, suggest the county brush for
 // rough drawing; below it, point at the unassigned-areas finder.
 const ROUGH_DRAW_UNASSIGNED_RATIO = 0.25;
+// "Improve your plan" population-balance stages: above ROUGH, point at the
+// painting aids (population tooltip, demographic map); between the two,
+// suggest block-level Super Draw; under FINE the item checks off.
+const BALANCE_ROUGH_DEVIATION = 0.1;
+const BALANCE_FINE_DEVIATION = 0.01;
+
+type Hint = {label: string; onClick: () => void};
+type ChecklistItem = {label: string; done: boolean; hints?: Hint[]};
 
 /**
  * A collapsible (not dismissible) checklist replacing the blank-map moment for
@@ -38,6 +47,8 @@ export const GettingStarted = () => {
   const unassigned = summaryStats?.unassigned;
   const idealPopulation = summaryStats?.idealpop;
   const setActiveTool = useMapControlsStore(state => state.setActiveTool);
+  const setMapOptions = useMapControlsStore(state => state.setMapOptions);
+  const setSuperDraw = useToolbarStore(state => state.setSuperDraw);
   const sidebarPanels = useMapControlsStore(state => state.sidebarPanels);
   const setSidebarPanels = useMapControlsStore(state => state.setSidebarPanels);
   const {setCountyBrush} = useCountyBrush();
@@ -78,19 +89,23 @@ export const GettingStarted = () => {
       ? unassigned / (idealPopulation * numDistricts)
       : undefined;
 
-  const openValidationTab = (tab: ValidationTab) => {
-    if (!sidebarPanels.includes('mapValidation')) {
-      setSidebarPanels([...sidebarPanels, 'mapValidation']);
+  const openSidebarPanel = (key: (typeof sidebarPanels)[number]) => {
+    if (!sidebarPanels.includes(key)) {
+      setSidebarPanels([...sidebarPanels, key]);
     }
-    requestValidationTab(tab);
-    flash(`validation-${tab.toLowerCase()}`);
-    // Bring the validity-check card into view; a beat later so a newly opened
-    // panel has committed and started expanding.
+    // Bring the card into view; a beat later so a newly opened panel has
+    // committed and started expanding.
     setTimeout(() => {
       document
-        .querySelector('[data-testid="data-panel-mapValidation"]')
+        .querySelector(`[data-testid="data-panel-${key}"]`)
         ?.scrollIntoView({behavior: 'smooth', block: 'start'});
     }, 100);
+  };
+
+  const openValidationTab = (tab: ValidationTab) => {
+    requestValidationTab(tab);
+    flash(`validation-${tab.toLowerCase()}`);
+    openSidebarPanel('mapValidation');
   };
 
   const handleCountyBrushHint = () => {
@@ -115,11 +130,10 @@ export const GettingStarted = () => {
     ? {label: 'Find disconnected fragments', onClick: handleFindDisconnected}
     : undefined;
 
-  const steps = [
+  const steps: ChecklistItem[] = [
     {
       label: `Start drawing all districts (${paintedZones}/${numDistricts})`,
       done: paintedZones >= numDistricts,
-      hint: undefined as {label: string; onClick: () => void} | undefined,
     },
     {
       label: `Assign all population to a district${
@@ -128,15 +142,66 @@ export const GettingStarted = () => {
           : ''
       }`,
       done: unassigned === 0,
-      hint: populationHint,
+      hints: populationHint && [populationHint],
     },
     {
       label: `Keep districts contiguous (${contiguousZones}/${numDistricts})`,
       done: contiguousZones >= numDistricts,
-      hint: contiguityHint,
+      hints: contiguityHint && [contiguityHint],
     },
   ];
   const doneCount = steps.filter(s => s.done).length;
+  const gettingStartedDone = doneCount === steps.length;
+
+  // Largest district deviation from the ideal population, driving the staged
+  // balance hints in "Improve your plan".
+  const maxDeviation =
+    idealPopulation && populationData.length
+      ? Math.max(...populationData.map(d => Math.abs((d.total_pop_20 ?? 0) - idealPopulation))) /
+        idealPopulation
+      : undefined;
+  const balanced = maxDeviation !== undefined && maxDeviation <= BALANCE_FINE_DEVIATION;
+  const roughlyBalanced = maxDeviation !== undefined && maxDeviation <= BALANCE_ROUGH_DEVIATION;
+
+  const improveItems: ChecklistItem[] = [
+    {
+      label: `Balance district populations${
+        maxDeviation !== undefined
+          ? ` (largest deviation ${formatNumber(maxDeviation, NUMBER_FORMATS.PERCENT)})`
+          : ''
+      }`,
+      done: balanced,
+      hints: roughlyBalanced
+        ? [
+            {
+              label: 'Perfect populations with census blocks in Super Draw',
+              onClick: () => setSuperDraw(true),
+            },
+          ]
+        : [
+            {
+              label: 'Show population tooltips as you paint',
+              onClick: () => setMapOptions({showPopulationTooltip: true}),
+            },
+            {label: 'Show the demographic map', onClick: () => openSidebarPanel('demography')},
+          ],
+    },
+    {
+      label: 'Understand demographic and voter histories',
+      done: sidebarPanels.includes('demography') && sidebarPanels.includes('election'),
+      hints: [
+        {label: 'Show the demographic table', onClick: () => openSidebarPanel('demography')},
+        {label: 'Show the voter history table', onClick: () => openSidebarPanel('election')},
+      ],
+    },
+    {
+      label: 'Evaluate your plan further',
+      done: false,
+      hints: [{label: 'Go to Evaluate mode', onClick: () => flash(MODE_SWITCHER_FLASH_ID)}],
+    },
+  ];
+
+  const items = gettingStartedDone ? improveItems : steps;
 
   const toggleCollapsed = () => {
     localStorage.setItem(COLLAPSE_KEY, collapsed ? '0' : '1');
@@ -158,12 +223,14 @@ export const GettingStarted = () => {
     >
       <Flex align="center" justify="between" onClick={toggleCollapsed} style={{cursor: 'pointer'}}>
         <Text size="2" weight="bold">
-          Getting started
+          {gettingStartedDone ? 'Improve your plan' : 'Getting started'}
         </Text>
         <Flex align="center" gap="2">
-          <Text size="1" color="gray">
-            {doneCount} of {steps.length} done
-          </Text>
+          {!gettingStartedDone && (
+            <Text size="1" color="gray">
+              {doneCount} of {steps.length} done
+            </Text>
+          )}
           <IconButton
             variant="ghost"
             color="gray"
@@ -182,7 +249,7 @@ export const GettingStarted = () => {
         </Flex>
       </Flex>
       {!collapsed &&
-        steps.map(step => (
+        items.map(step => (
           <Flex key={step.label} direction="column" gap="1">
             <Flex align="center" gap="2">
               <Flex
@@ -204,16 +271,18 @@ export const GettingStarted = () => {
                 {step.label}
               </Text>
             </Flex>
-            {!step.done && step.hint && (
-              <Button
-                variant="ghost"
-                size="1"
-                onClick={step.hint.onClick}
-                style={{marginLeft: 26, alignSelf: 'start', fontWeight: 600}}
-              >
-                {step.hint.label} →
-              </Button>
-            )}
+            {!step.done &&
+              step.hints?.map(hint => (
+                <Button
+                  key={hint.label}
+                  variant="ghost"
+                  size="1"
+                  onClick={hint.onClick}
+                  style={{marginLeft: 26, alignSelf: 'start', fontWeight: 600}}
+                >
+                  {hint.label} →
+                </Button>
+              ))}
           </Flex>
         ))}
     </Flex>

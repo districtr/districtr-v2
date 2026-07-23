@@ -18,11 +18,15 @@ import {routeForMode} from '@constants/document/routes';
 import {ACCESS_STATES} from '@constants/document/state';
 import {useEditableDocId} from '@/app/hooks/useEditableDocId';
 import {useToolbarStore} from '@/app/store/toolbarStore';
+import {useUiHintStore} from '@/app/store/uiHintStore';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {patchSharePlan} from '@/app/utils/api/apiHandlers/patchSharePlan';
 import {idb} from '@/app/utils/idb/idb';
 
 type ViewMode = 'draw' | 'superdraw' | 'display' | 'evaluate';
+
+/** Flash id so sidebar hints (e.g. "Go to Evaluate mode") can point at the switcher. */
+export const MODE_SWITCHER_FLASH_ID = 'mode-switcher';
 
 const MODE_META: Record<
   ViewMode,
@@ -108,6 +112,7 @@ export const ModeSwitcher: React.FC = () => {
   const setLoadingState = useMapStore(state => state.setLoadingState);
   const publicIdForLookup = useMapStore(state => state.mapDocument?.public_id ?? null);
   const pwParam = useSearchParams().get('pw');
+  const flashTarget = useUiHintStore(state => state.flashTarget);
   const [isMinting, setIsMinting] = React.useState(false);
 
   // A map is unlockable if the share link carries `?pw=true` or the document itself
@@ -254,7 +259,9 @@ export const ModeSwitcher: React.FC = () => {
           variant="surface"
           color="gray"
           size="2"
-          className="cursor-pointer transition-shadow hover:shadow-md"
+          className={`cursor-pointer transition-shadow hover:shadow-md ${
+            flashTarget === MODE_SWITCHER_FLASH_ID ? 'flash-target' : ''
+          }`}
           disabled={isMinting}
           aria-label="Switch view"
         >
