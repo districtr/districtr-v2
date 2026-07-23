@@ -6,19 +6,6 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
 
-const PILL_STYLE: React.CSSProperties = {
-  position: 'absolute',
-  bottom: 24,
-  left: '50%',
-  transform: 'translateX(-50%)',
-  zIndex: 10,
-  background: 'white',
-  borderRadius: 99,
-  boxShadow: '0 4px 16px rgba(0,0,20,0.25)',
-  pointerEvents: 'auto',
-  whiteSpace: 'nowrap',
-};
-
 /**
  * Guides the break-into-blocks flow: prompts for a unit while the break tool
  * is armed, then (in block view) constrains the viewport to the captured
@@ -81,9 +68,9 @@ export const BlockModePill = () => {
 
   if (inBlockView) {
     return (
-      <Flex align="center" gap="2" px="3" py="2" style={PILL_STYLE} data-testid="block-mode-pill">
-        <Text size="2">Painting blocks</Text>
-        <Button size="1" variant="solid" onClick={() => exitBlockView()}>
+      <Flex align="center" gap="3" px="4" py="3" className="map-pill" data-testid="block-mode-pill">
+        <Text size="3">Painting blocks</Text>
+        <Button size="2" variant="solid" onClick={() => exitBlockView()}>
           Exit block view (Esc)
         </Button>
       </Flex>
@@ -91,9 +78,9 @@ export const BlockModePill = () => {
   }
   if (activeTool === ACTIVE_TOOLS.SHATTER) {
     return (
-      <Flex align="center" gap="2" px="3" py="2" style={PILL_STYLE} data-testid="block-mode-pill">
-        <InfoCircledIcon style={{color: 'var(--accent-9)', flexShrink: 0}} />
-        <Text size="2">
+      <Flex align="center" gap="3" px="4" py="3" className="map-pill" data-testid="block-mode-pill">
+        <InfoCircledIcon width={18} height={18} style={{color: 'var(--accent-9)', flexShrink: 0}} />
+        <Text size="3">
           <b>Choose a unit</b> to break into blocks
         </Text>
       </Flex>
