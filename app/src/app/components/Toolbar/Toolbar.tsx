@@ -9,7 +9,6 @@ export const Toolbar: React.FC = () => {
   const isEditing = useMapControlsStore(state => state.isEditing);
   const setActiveTool = useMapControlsStore(state => state.setActiveTool);
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const toolbarItemsRef = useRef<HTMLDivElement | null>(null);
   const activeTools = useActiveTools();
   // The handler reads the latest tools through a ref so the document listeners
   // mount once instead of re-binding on every render (painting re-renders the
@@ -47,7 +46,7 @@ export const Toolbar: React.FC = () => {
   if (!isEditing) return null;
   return (
     <>
-      <ToolButtons showShortcuts={showShortcuts} toolbarItemsRef={toolbarItemsRef} />
+      <ToolButtons showShortcuts={showShortcuts} />
       <ToolControls />
     </>
   );

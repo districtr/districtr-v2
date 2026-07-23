@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import {Button, DropdownMenu, Flex, Spinner, Text} from '@radix-ui/themes';
+import {Button, DropdownMenu, Flex, Spinner, Text, Tooltip} from '@radix-ui/themes';
 import {
   BarChartIcon,
   CaretDownIcon,
@@ -18,18 +18,27 @@ import {routeForMode} from '@constants/document/routes';
 import {ACCESS_STATES} from '@constants/document/state';
 import {useEditableDocId} from '@/app/hooks/useEditableDocId';
 import {useToolbarStore} from '@/app/store/toolbarStore';
+import {useUiHintStore, visitedEvalStorageKey} from '@/app/store/uiHintStore';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {patchSharePlan} from '@/app/utils/api/apiHandlers/patchSharePlan';
 import {idb} from '@/app/utils/idb/idb';
 
 type ViewMode = 'draw' | 'superdraw' | 'display' | 'evaluate';
 
+/** Flash id so sidebar hints (e.g. "Go to Evaluate mode") can point at the switcher. */
+export const MODE_SWITCHER_FLASH_ID = 'mode-switcher';
+
 const MODE_META: Record<
   ViewMode,
-  {label: string; Icon: React.ComponentType<{className?: string}>}
+  {label: string; Icon: React.ComponentType<{className?: string}>; tooltip?: string}
 > = {
   draw: {label: 'Draw', Icon: Pencil1Icon},
-  superdraw: {label: 'Super Draw', Icon: MagicWandIcon},
+  superdraw: {
+    label: 'Super Draw',
+    Icon: MagicWandIcon,
+    tooltip:
+      'Advanced drawing for power users: break units into census blocks, inspect map data, and access extra options.',
+  },
   display: {label: 'View', Icon: EyeOpenIcon},
   evaluate: {label: 'Evaluate', Icon: BarChartIcon},
 };
@@ -49,7 +58,7 @@ const ModeSwitcherItem: React.FC<{
 }> = ({mode, isCurrent, disabled, disabledReason, locked, onSelect}) => {
   const meta = MODE_META[mode];
   const Icon = locked ? LockClosedIcon : meta.Icon;
-  return (
+  const item = (
     <DropdownMenu.Item disabled={disabled} onSelect={onSelect}>
       <Flex align="center" justify="between" gap="4" width="100%" py="1">
         <Flex align="center" gap="3">
@@ -63,6 +72,13 @@ const ModeSwitcherItem: React.FC<{
         {isCurrent && <CheckIcon className="shrink-0" />}
       </Flex>
     </DropdownMenu.Item>
+  );
+  return meta.tooltip ? (
+    <Tooltip content={meta.tooltip} side="right" maxWidth="260px">
+      {item}
+    </Tooltip>
+  ) : (
+    item
   );
 };
 
@@ -96,6 +112,7 @@ export const ModeSwitcher: React.FC = () => {
   const setLoadingState = useMapStore(state => state.setLoadingState);
   const publicIdForLookup = useMapStore(state => state.mapDocument?.public_id ?? null);
   const pwParam = useSearchParams().get('pw');
+  const flashTarget = useUiHintStore(state => state.flashTarget);
   const [isMinting, setIsMinting] = React.useState(false);
 
   // A map is unlockable if the share link carries `?pw=true` or the document itself
@@ -182,6 +199,11 @@ export const ModeSwitcher: React.FC = () => {
 
   const handleSelect = async (mode: ViewMode) => {
     if (mode === currentMode || isDisabled(mode)) return;
+    // Remember the visit so "Improve your plan" can check off its Evaluate item
+    // when the user comes back to the editor.
+    if (mode === 'evaluate' && editDocId) {
+      localStorage.setItem(visitedEvalStorageKey(editDocId), '1');
+    }
     // Draw / Super Draw: same edit route, different client-side toolset flag.
     // setSuperDraw handles backing out of super-only tools/settings on exit.
     if (isDrawMode(mode)) {
@@ -242,7 +264,9 @@ export const ModeSwitcher: React.FC = () => {
           variant="surface"
           color="gray"
           size="2"
-          className="cursor-pointer transition-shadow hover:shadow-md"
+          className={`cursor-pointer transition-shadow hover:shadow-md ${
+            flashTarget === MODE_SWITCHER_FLASH_ID ? 'flash-target' : ''
+          }`}
           disabled={isMinting}
           aria-label="Switch view"
         >

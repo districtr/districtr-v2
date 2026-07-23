@@ -7,6 +7,7 @@ import {useEffect, useState} from 'react';
 import {useIdbDocument} from '@/app/hooks/useIdbDocument';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useUiHintStore} from '@/app/store/uiHintStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {MAP_TYPES} from '@constants/document/types';
 
@@ -32,6 +33,17 @@ export const MapValidation = () => {
   const idbDocument = useIdbDocument(mapDocument?.document_id);
   const isOutdated = idbDocument?.clientLastUpdated !== idbDocument?.document_metadata.updated_at;
   const handlePutAssignments = useAssignmentsStore(state => state.handlePutAssignments);
+  const validationTabRequest = useUiHintStore(state => state.validationTabRequest);
+  const clearValidationTabRequest = useUiHintStore(state => state.clearValidationTabRequest);
+  const flashTarget = useUiHintStore(state => state.flashTarget);
+
+  // One-shot tab request from the Getting Started hints.
+  useEffect(() => {
+    if (validationTabRequest) {
+      setActivePanel(validationTabRequest);
+      clearValidationTabRequest();
+    }
+  }, [validationTabRequest, clearValidationTabRequest]);
 
   useEffect(() => {
     if (mapDocument?.map_type === MAP_TYPES.COMMUNITY || mapMode === MAP_MODES.COI) {
@@ -65,7 +77,13 @@ export const MapValidation = () => {
       {/* Segmented control to match the Table | Map sub-section tabs. */}
       <SegmentedControl.Root size="2" value={activePanel} onValueChange={setActivePanel}>
         {mapValidationPanel.map((panel, index) => (
-          <SegmentedControl.Item key={index} value={panel.label}>
+          <SegmentedControl.Item
+            key={index}
+            value={panel.label}
+            className={
+              flashTarget === `validation-${panel.label.toLowerCase()}` ? 'flash-target' : ''
+            }
+          >
             {panel.label}
           </SegmentedControl.Item>
         ))}

@@ -51,6 +51,7 @@ import {MAP_MODES} from '@constants/map/mode';
 import {PovSwitcher, type Pov} from '@components/Shared/PovSwitcher';
 import {ConditionalScrollArea} from '../ConditionalScrollArea';
 import {getReadableTextColor} from '@/app/utils/colors';
+import {ShowAllDistrictsButton} from '../ShowAllDistrictsButton';
 
 type ColumnConfig = {
   label: string;
@@ -154,6 +155,10 @@ const DemographyTable: React.FC<DemographyTableProps> = ({
   const [colorBg, setColorBg] = useState<boolean>(true);
   const [showUnassigned, setShowUnassigned] = useState<boolean>(true);
   const [pov, setPov] = useState<Pov>('dem');
+  // Unstarted districts stay hidden by default (they have no data anyway);
+  // "show all" adds their empty rows.
+  const [showAllDistricts, setShowAllDistricts] = useState(false);
+  const numDistricts = useMapStore(state => state.mapDocument?.num_districts) ?? 0;
   const {zoneStats, demoIsLoaded, zoneData, summaryStats} = useSummaryStats(showUnassigned);
   const coalitionGroups = useDemographyStore(state => state.coalitionGroups);
 
@@ -231,7 +236,21 @@ const DemographyTable: React.FC<DemographyTableProps> = ({
     return [...zoneData, ...(universeRow ? [universeRow] : [])];
   })();
 
-  const rows = baseRows.sort((a, b) => {
+  // Districts absent from the demography cache haven't been started; they only
+  // appear (as empty rows) once "show all districts" is on.
+  const isAllDistrictsTable = mapMode === MAP_MODES.DISTRICTS && singleZone == null;
+  const startedDistricts = isAllDistrictsTable
+    ? new Set(baseRows.map(r => r.zone).filter(zone => typeof zone === 'number' && zone > 0))
+    : new Set<unknown>();
+  const hiddenDistricts = isAllDistrictsTable ? numDistricts - startedDistricts.size : 0;
+  const missingZoneRows: DemographyTableDataRow[] =
+    isAllDistrictsTable && showAllDistricts
+      ? Array.from({length: numDistricts}, (_, i) => i + 1)
+          .filter(zone => !startedDistricts.has(zone))
+          .map(zone => ({zone}) as DemographyTableDataRow)
+      : [];
+
+  const rows = [...baseRows, ...missingZoneRows].sort((a, b) => {
     const aIsUniverse = Boolean((a as Record<string, unknown>).__isUniverse) || a.zone === 0;
     const bIsUniverse = Boolean((b as Record<string, unknown>).__isUniverse) || b.zone === 0;
     if (aIsUniverse) return 1;
@@ -351,6 +370,14 @@ const DemographyTable: React.FC<DemographyTableProps> = ({
           </Table.Root>
         </Box>
       </ConditionalScrollArea>
+      <Flex>
+        <ShowAllDistrictsButton
+          showAll={showAllDistricts}
+          onToggle={() => setShowAllDistricts(!showAllDistricts)}
+          total={numDistricts}
+          hiddenCount={hiddenDistricts}
+        />
+      </Flex>
     </Box>
   );
 };

@@ -141,3 +141,61 @@ body {
     -webkit-print-color-adjust: exact;
   }
 }
+
+/* Segmented tool groups: transparent track, buttons float on the sidebar.
+   No padding — the group's outer edges align with neighboring components. */
+.segmented-track {
+  border-radius: 10px;
+  gap: 2px;
+}
+.tool-button {
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    box-shadow 120ms ease,
+    transform 80ms ease;
+}
+.tool-button:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+/* Bottom-center map pills (first-paint hint, break flow): accent ring, strong
+   shadow, and a slide-up entrance so they register over the basemap. */
+@keyframes map-pill-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 16px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+.map-pill {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  background: white;
+  border: 1.5px solid var(--accent-8);
+  border-radius: 99px;
+  box-shadow: 0 6px 24px rgba(0, 0, 20, 0.35);
+  pointer-events: auto;
+  white-space: nowrap;
+  animation: map-pill-in 0.25s ease-out;
+}
+
+/* Brief attention flash for controls targeted by Getting Started hints. */
+@keyframes districtr-flash {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 0 4px var(--accent-8);
+  }
+}
+.flash-target {
+  animation: districtr-flash 0.6s ease-in-out 2;
+}

@@ -22,6 +22,9 @@ import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
 import {OVERLAY_OPACITY} from '@/app/constants/document/limits';
 import {activateOverlayGroup, overlayMemory} from '@utils/demography/overlayMemory';
+import {useUiHintStore} from '@store/uiHintStore';
+
+export const POPULATION_TOOLTIP_FLASH_ID = 'population-tooltip-toggle';
 
 /** Layers
  * This component is responsible for rendering the layers that can be toggled
@@ -39,6 +42,7 @@ export const ToolSettings: React.FC = () => {
   const availableMapVariables = useDemographyStore(state => state.availableColumnSets.map);
 
   const [colorModalOpen, setColorModalOpen] = React.useState(false);
+  const flashTarget = useUiHintStore(state => state.flashTarget);
 
   // Overlay layer: one selection among none / demographic / election (the
   // groups are mutually exclusive, so this is a mode picker, not independent
@@ -167,6 +171,7 @@ export const ToolSettings: React.FC = () => {
               })
             }
             disabled={access === ACCESS_STATES.READ}
+            className={flashTarget === POPULATION_TOOLTIP_FLASH_ID ? 'flash-target' : ''}
           >
             Population tooltip
           </CheckboxGroup.Item>

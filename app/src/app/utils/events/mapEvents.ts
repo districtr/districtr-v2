@@ -26,6 +26,7 @@ import {
   INTERACTIVE_LAYERS,
   CANONICAL_LAYER_IDS,
   COUNTY_SOURCE_ID,
+  BLOCK_SOURCE_ID,
 } from '@constants/map/layerIds';
 import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
 import {ResetMapSelectState} from '@utils/events/handlers';
@@ -33,6 +34,10 @@ import GeometryWorker from '../GeometryWorker';
 import {throttle} from 'lodash';
 import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
+import {useChartStore} from '@/app/store/chartStore';
+import {demographyService} from '@utils/demography/demographyService';
+import {formatNumber} from '@utils/numbers';
+import {NUMBER_FORMATS} from '@constants/demography/format';
 import {setHoverFeatures} from '../map/hoverFeatures';
 import {RENDERING_STATES} from '@constants/map/renderingState';
 import {ACCESS_STATES} from '@constants/document/state';
@@ -415,21 +420,60 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
     selectedFeatures?.length &&
     (mapOptions.showPopulationTooltip || TOOLTIP_TOOLS.includes(activeTool))
   ) {
-    setTooltip({
-      ...e.point,
-      data: mapOptions.showPopulationTooltip
-        ? [
-            {
-              label: 'Total Pop',
-              value:
-                selectedFeatures?.reduce(
-                  (acc, curr) => acc + parseInt(curr.properties.total_pop_20),
-                  0
-                ) ?? 'N/A',
-            },
-          ]
-        : [],
-    });
+    const data: Array<{label: string; value: unknown}> = [];
+    if (mapOptions.showPopulationTooltip) {
+      // Line 1: population under the brush footprint. Lines 2+: what each
+      // affected district's diff from ideal WILL BE once this brush lands —
+      // the painting district gains the footprint, the districts it overlaps
+      // lose their share. Locked features don't move, so they project as
+      // no-ops, matching what mutateZoneAssignments will actually do.
+      data.push({
+        label: 'Population',
+        value: selectedFeatures.reduce(
+          (acc, curr) => acc + parseInt(curr.properties.total_pop_20),
+          0
+        ),
+      });
+      const idealPopulation = demographyService.summaryStats?.idealpop;
+      if (activeTool === ACTIVE_TOOLS.BRUSH && idealPopulation) {
+        const paintedChanges = useChartStore.getState().paintedChanges;
+        const livePopulation = (zone: number) =>
+          (demographyService.populations.find(row => row.zone === zone)?.total_pop_20 ?? 0) +
+          (paintedChanges[zone] ?? 0);
+        const diffFromIdeal = (population: number) => {
+          const diff = population - idealPopulation;
+          return `${diff > 0 ? '+' : ''}${formatNumber(diff, NUMBER_FORMATS.STRING)} vs. ideal`;
+        };
+        let paintedGain = 0;
+        const lossByZone = new Map<number, number>();
+        for (const feature of selectedFeatures) {
+          // Feature state is the live source of truth for assignments, kept
+          // in sync mid-stroke (zoneAssignments only ingests on mouseup).
+          const state = mapRef.getFeatureState({
+            source: BLOCK_SOURCE_ID,
+            sourceLayer: feature.properties.__sourceLayer || feature.sourceLayer,
+            id: feature.id,
+          });
+          const zone = state?.zone;
+          if (state?.locked || zone === selectedZone) continue;
+          const population = parseInt(feature.properties.total_pop_20);
+          if (isNaN(population)) continue;
+          paintedGain += population;
+          if (zone) lossByZone.set(zone, (lossByZone.get(zone) ?? 0) + population);
+        }
+        data.push({
+          label: `District ${selectedZone} would be`,
+          value: diffFromIdeal(livePopulation(selectedZone) + paintedGain),
+        });
+        for (const [zone, loss] of lossByZone) {
+          data.push({
+            label: `District ${zone} would be`,
+            value: diffFromIdeal(livePopulation(zone) - loss),
+          });
+        }
+      }
+    }
+    setTooltip({...e.point, data});
   } else {
     setTooltip(null);
   }
