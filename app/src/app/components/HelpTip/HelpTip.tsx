@@ -188,12 +188,7 @@ export const HelpTip: React.FC<{
       {/* openDelay={NEVER_MS} deliberately benches Radix's own open path — see the
           component doc comment. closeDelay is real: it's the grace period for
           moving the cursor from the trigger into the card. */}
-      <HoverCard.Root
-        open={open}
-        onOpenChange={setOpen}
-        openDelay={NEVER_MS}
-        closeDelay={300}
-      >
+      <HoverCard.Root open={open} onOpenChange={setOpen} openDelay={NEVER_MS} closeDelay={300}>
         <HoverCard.Trigger>{trigger}</HoverCard.Trigger>
         <HoverCard.Content
           style={{width: COLLAPSED_WIDTH}}

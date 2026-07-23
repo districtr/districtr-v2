@@ -129,7 +129,7 @@ export const LoopVideoPlayer: React.FC<{videoUrl: string | string[]}> = ({videoU
         }}
         muted
         playsInline
-        preload="true"
+        preload="auto"
         className={isLoading || hasError ? 'invisible' : undefined}
       />
     </Box>
