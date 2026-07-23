@@ -422,10 +422,11 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   ) {
     const data: Array<{label: string; value: unknown}> = [];
     if (mapOptions.showPopulationTooltip) {
-      // Line 1: population under the brush footprint. Line 2: the painting
-      // district's live diff from ideal (base populations + this stroke's
-      // painted changes). Line 3+: each district losing area under the brush,
-      // projected to its diff from ideal after this paint action.
+      // Line 1: population under the brush footprint. Lines 2+: what each
+      // affected district's diff from ideal WILL BE once this brush lands —
+      // the painting district gains the footprint, the districts it overlaps
+      // lose their share. Locked features don't move, so they project as
+      // no-ops, matching what mutateZoneAssignments will actually do.
       data.push({
         label: 'Population',
         value: selectedFeatures.reduce(
@@ -443,30 +444,31 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
           const diff = population - idealPopulation;
           return `${diff > 0 ? '+' : ''}${formatNumber(diff, NUMBER_FORMATS.STRING)} vs. ideal`;
         };
-        data.push({
-          label: `District ${selectedZone}`,
-          value: diffFromIdeal(livePopulation(selectedZone)),
-        });
-        const brushPopulationByZone = new Map<number, number>();
+        let paintedGain = 0;
+        const lossByZone = new Map<number, number>();
         for (const feature of selectedFeatures) {
           // Feature state is the live source of truth for assignments, kept
           // in sync mid-stroke (zoneAssignments only ingests on mouseup).
-          const zone = mapRef.getFeatureState({
+          const state = mapRef.getFeatureState({
             source: BLOCK_SOURCE_ID,
             sourceLayer: feature.properties.__sourceLayer || feature.sourceLayer,
             id: feature.id,
-          })?.zone;
-          if (zone && zone !== selectedZone) {
-            brushPopulationByZone.set(
-              zone,
-              (brushPopulationByZone.get(zone) ?? 0) + parseInt(feature.properties.total_pop_20)
-            );
-          }
+          });
+          const zone = state?.zone;
+          if (state?.locked || zone === selectedZone) continue;
+          const population = parseInt(feature.properties.total_pop_20);
+          if (isNaN(population)) continue;
+          paintedGain += population;
+          if (zone) lossByZone.set(zone, (lossByZone.get(zone) ?? 0) + population);
         }
-        for (const [zone, brushPopulation] of brushPopulationByZone) {
+        data.push({
+          label: `District ${selectedZone} would be`,
+          value: diffFromIdeal(livePopulation(selectedZone) + paintedGain),
+        });
+        for (const [zone, loss] of lossByZone) {
           data.push({
             label: `District ${zone} would be`,
-            value: diffFromIdeal(livePopulation(zone) - brushPopulation),
+            value: diffFromIdeal(livePopulation(zone) - loss),
           });
         }
       }
