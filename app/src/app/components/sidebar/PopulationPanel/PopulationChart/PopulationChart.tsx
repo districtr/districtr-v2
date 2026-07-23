@@ -12,7 +12,7 @@ import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {MAP_MODES} from '@constants/map/mode';
 import {NUMBER_FORMATS} from '@constants/demography/format';
-import InfoTip from '@components/InfoTip';
+import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
 
 type ChartMargins = {left: number; right: number; top: number; bottom: number};
 /** Margins shared by the chart body, the label strip, and the axis strip. */
@@ -109,7 +109,7 @@ export const PopulationChartIdealLabel: React.FC<{
           {text}
         </text>
         <foreignObject x={x + halfWidth} y={0} width={infoTipWidth} height={POP_CHART_LABEL_HEIGHT}>
-          <InfoTip tips="idealPopulation" />
+          <HelpTip tip="idealPopulation" openDelay={HELP_TIP_FAST_DELAY} />
         </foreignObject>
       </Group>
     </svg>

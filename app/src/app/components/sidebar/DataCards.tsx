@@ -17,6 +17,8 @@ import {SummaryPanel, type SectionKey} from './SummaryPanel';
 import {MapControlsStore, useMapControlsStore} from '@store/mapControlsStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
+import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
+import type {HelpTipKey} from '@components/HelpTip/helpTipContent';
 
 // One constant drives both the CSS transition and the delayed unmount so the
 // two can't drift apart.
@@ -128,11 +130,12 @@ type SidebarSectionKey = MapControlsStore['sidebarPanels'][number];
 export type SidebarSection = {
   key: SidebarSectionKey;
   label: string;
-  description: string;
   icon: React.ComponentType<{className?: string}>;
   content: React.ReactNode;
   /** Hidden in communities (COI) mode, matching the old accordion's filter. */
   districtsOnly?: boolean;
+  /** Contextual HelpTip key shown next to the section's accordion header, if any. */
+  helpTip?: HelpTipKey;
 };
 
 /** The single registry of sidebar panels, shared by Draw and Super Draw (the
@@ -142,15 +145,14 @@ export const SECTIONS: SidebarSection[] = [
   {
     key: 'population',
     label: 'District overview',
-    description: 'Population, district notes, deviation',
     icon: Component1Icon,
     content: <PopulationPanel />,
     districtsOnly: true,
+    helpTip: 'districtOverview',
   },
   {
     key: 'demography',
     label: 'Demographics',
-    description: 'Demographic tables and map layers',
     icon: PersonIcon,
     content: (
       <TabbedSummaryPanel
@@ -163,11 +165,11 @@ export const SECTIONS: SidebarSection[] = [
         withCoalition
       />
     ),
+    helpTip: 'demographics',
   },
   {
     key: 'election',
     label: 'Elections',
-    description: 'Prior election data tables and map layers',
     icon: PieChartIcon,
     content: (
       <TabbedSummaryPanel
@@ -180,19 +182,19 @@ export const SECTIONS: SidebarSection[] = [
       />
     ),
     districtsOnly: true,
+    helpTip: 'elections',
   },
   {
     key: 'mapValidation',
     label: 'Validity check',
-    description: 'Contiguity and completeness',
     icon: CheckCircledIcon,
     content: <MapValidation />,
     districtsOnly: true,
+    helpTip: 'mapValidation',
   },
   {
     key: 'overlays',
     label: 'Boundaries and areas',
-    description: 'Boundaries and areas',
     icon: LayersIcon,
     content: <OverlaysPanel />,
   },
@@ -206,29 +208,47 @@ const AccordionSection: React.FC<{
   const Icon = section.icon;
   return (
     <div
-      className="border border-gray-300 rounded-lg bg-white"
+      className="relative border border-gray-300 rounded-lg bg-white"
       data-testid={`data-panel-${section.key}`}
     >
-      <button
+      {/* One row (icon, label + HelpTip, chevron): everything shares one
+          line-height, so vertical centering needs no per-row height matching.
+          A literal <button> can't legally contain HelpTip (its trigger is itself
+          interactive) — a div with role="button" carries the same semantics
+          without that restriction. */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={onToggle}
+        onKeyDown={event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onToggle();
+          }
+        }}
         aria-expanded={open}
         className="w-full cursor-pointer text-left p-3 rounded-lg transition-colors hover:bg-blue-50"
       >
         <Flex gap="2" align="center">
           <Icon className="shrink-0" />
-          <Flex direction="column" className="flex-grow">
-            <Text as="div" size="2" weight="bold">
+          <Flex align="center" gap="1" className="flex-grow">
+            <Text size="2" weight="bold">
               {section.label}
             </Text>
-            <Text as="div" size="1" color="gray">
-              {section.description}
-            </Text>
+            {section.helpTip && (
+              // Stops the click from also toggling the card open/closed — HelpTip is
+              // hover-triggered, but its "watch video"/guide links are still real
+              // clicks that would otherwise bubble up to this row's own onClick.
+              <span onClick={event => event.stopPropagation()}>
+                <HelpTip tip={section.helpTip} openDelay={HELP_TIP_FAST_DELAY} />
+              </span>
+            )}
           </Flex>
           <ChevronDownIcon
             className={`shrink-0 transition-transform duration-200 ${open ? '' : '-rotate-90'}`}
           />
         </Flex>
-      </button>
+      </div>
       <AnimatedCollapse open={open}>
         <div className="px-3 pb-3">{section.content}</div>
       </AnimatedCollapse>
