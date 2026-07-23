@@ -10,7 +10,6 @@ import {MapContextComment} from './MapContextComment';
 import {CoiCommunityViewer} from './CoiCommunityViewer';
 import {DataCards} from './DataCards';
 import {GettingStarted} from './GettingStarted';
-import {PaintDetails} from '../Toolbar/ToolControls/PaintDetails';
 
 const StyledScrollArea = styled(ScrollArea, {
   maxWidth: '100%',
@@ -125,9 +124,6 @@ export default function SidebarComponent() {
           style={{'--scrollarea-scrollbar-vertical-margin-right': '0px'} as React.CSSProperties}
         >
           <Flex direction="column" gap="3" className="w-full" style={{paddingRight: '0.75rem'}}>
-            {/* Brush size + current-district card scroll with the panels so the
-                sticky region above stays short on small screens. */}
-            <PaintDetails />
             <Box
               display={{
                 initial: 'none',

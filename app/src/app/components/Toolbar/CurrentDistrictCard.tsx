@@ -18,7 +18,7 @@ import {ACCESS_STATES} from '@constants/document/state';
  * per-district actions (lock, description) visible labeled buttons.
  * Children (the zone picker pips) render inside the card.
  */
-export const CurrentDistrictCard: React.FC<{children?: React.ReactNode}> = ({children}) => {
+export const CurrentDistrictCard: React.FC<{children: React.ReactNode}> = ({children}) => {
   const selectedZone = useMapControlsStore(state => state.selectedZone);
   const lockPaintedAreas = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);
   const setLockedZones = useMapControlsStore(state => state.setLockedZones);
