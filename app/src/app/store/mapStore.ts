@@ -1225,10 +1225,15 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       }
 
       const featureBbox = features[0].geometry && bbox(features[0].geometry);
-      const mapBbox =
-        featureBbox?.length && featureBbox?.length >= 4
-          ? (featureBbox.slice(0, 4) as maplibregl.LngLatBoundsLike)
-          : undefined;
+      // Pad the unit's bbox so the fitted block view has breathing room
+      // around the broken unit instead of pinning its edges to the viewport.
+      let mapBbox: maplibregl.LngLatBoundsLike | undefined = undefined;
+      if (featureBbox?.length && featureBbox.length >= 4) {
+        const [west, south, east, north] = featureBbox as [number, number, number, number];
+        const padX = (east - west) * 0.15;
+        const padY = (north - south) * 0.15;
+        mapBbox = [west - padX, south - padY, east + padX, north + padY];
+      }
 
       set({
         mapLock: null,

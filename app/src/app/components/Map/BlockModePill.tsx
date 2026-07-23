@@ -44,10 +44,25 @@ export const BlockModePill = () => {
       // Half-bbox padding: room to nudge, not to leave.
       const padX = (east - west) / 2;
       const padY = (north - south) / 2;
-      map.setMaxBounds([west - padX, south - padY, east + padX, north + padY]);
+      const maxBounds: [number, number, number, number] = [
+        west - padX,
+        south - padY,
+        east + padX,
+        north + padY,
+      ];
+      map.setMaxBounds(maxBounds);
+      // maxBounds only implicitly floors the zoom; the scroll handler keeps
+      // accumulating its target below that floor, so zooming back in must pay
+      // off the invisible overshoot first and feels stuck. An explicit minZoom
+      // clamps the scroll target too.
+      // ponytail: contain-fit zoom sits a bit below the implicit floor when the
+      // bbox and viewport aspects differ; residual overshoot is <1 zoom level.
+      const fitZoom = map.cameraForBounds(maxBounds)?.zoom;
+      if (fitZoom !== undefined) map.setMinZoom(Math.max(0, fitZoom));
     }
     return () => {
       map.setMaxBounds(null);
+      map.setMinZoom(null);
     };
   }, [inBlockView, bounds, getMapRef]);
 
