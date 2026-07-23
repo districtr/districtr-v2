@@ -417,33 +417,31 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
     selectedFeatures?.length &&
     (mapOptions.showPopulationTooltip || TOOLTIP_TOOLS.includes(activeTool))
   ) {
-    const data: Array<{label: string; value: unknown}> = mapOptions.showPopulationTooltip
-      ? [
-          {
-            label: 'Total Pop',
-            value:
-              selectedFeatures?.reduce(
-                (acc, curr) => acc + parseInt(curr.properties.total_pop_20),
-                0
-              ) ?? 'N/A',
-          },
-        ]
-      : [];
-    // While the brush is armed, anchor the numbers to the district being
-    // painted: its live fill (base populations + this stroke's painted
-    // changes) as a share of ideal.
-    if (mapOptions.showPopulationTooltip && activeTool === ACTIVE_TOOLS.BRUSH) {
-      const idealPopulation = demographyService.summaryStats?.idealpop;
-      if (idealPopulation) {
-        const basePopulation =
-          demographyService.populations.find(row => row.zone === selectedZone)?.total_pop_20 ?? 0;
-        const painted = useChartStore.getState().paintedChanges[selectedZone] ?? 0;
-        const pctOfIdeal = Math.round(((basePopulation + painted) / idealPopulation) * 100);
-        data.push({
-          label: `District ${selectedZone}`,
-          value: `${pctOfIdeal}% of ideal`,
-        });
+    const data: Array<{label: string; value: unknown}> = [];
+    if (mapOptions.showPopulationTooltip) {
+      // Lead with the district being painted — its live fill (base
+      // populations + this stroke's painted changes) as a share of ideal —
+      // then the population sitting under the brush footprint.
+      if (activeTool === ACTIVE_TOOLS.BRUSH) {
+        const idealPopulation = demographyService.summaryStats?.idealpop;
+        if (idealPopulation) {
+          const basePopulation =
+            demographyService.populations.find(row => row.zone === selectedZone)?.total_pop_20 ?? 0;
+          const painted = useChartStore.getState().paintedChanges[selectedZone] ?? 0;
+          const pctOfIdeal = Math.round(((basePopulation + painted) / idealPopulation) * 100);
+          data.push({
+            label: `District ${selectedZone}`,
+            value: `${pctOfIdeal}% of ideal`,
+          });
+        }
       }
+      data.push({
+        label: 'Under brush',
+        value: selectedFeatures.reduce(
+          (acc, curr) => acc + parseInt(curr.properties.total_pop_20),
+          0
+        ),
+      });
     }
     setTooltip({...e.point, data});
   } else {

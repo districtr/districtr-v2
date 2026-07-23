@@ -30,9 +30,9 @@ const COLLAPSE_KEY = 'districtr-getting-started-collapsed';
 // Above this share of unassigned population, suggest the county brush for
 // rough drawing; below it, point at the unassigned-areas finder.
 const ROUGH_DRAW_UNASSIGNED_RATIO = 0.25;
-// "Improve your plan" population-balance stages: above ROUGH, point at the
-// painting aids (population tooltip, demographic map); between the two,
-// suggest block-level Super Draw; under FINE the item checks off.
+// Population-balance stages: above ROUGH, point at the painting aids
+// (population tooltip, demographic map); between the two, suggest block-level
+// Super Draw; under FINE the step checks off.
 const BALANCE_ROUGH_DEVIATION = 0.1;
 const BALANCE_FINE_DEVIATION = 0.01;
 
@@ -159,31 +159,8 @@ export const GettingStarted = () => {
     ? {label: 'Find disconnected fragments', onClick: handleFindDisconnected}
     : undefined;
 
-  const steps: ChecklistItem[] = [
-    {
-      label: `Start drawing all districts (${paintedZones}/${numDistricts})`,
-      done: paintedZones >= numDistricts,
-    },
-    {
-      label: `Assign all population to a district${
-        unassigned !== undefined
-          ? ` (${formatNumber(unassigned, NUMBER_FORMATS.STRING)} population remaining)`
-          : ''
-      }`,
-      done: unassigned === 0,
-      hints: populationHint && [populationHint],
-    },
-    {
-      label: `Keep districts contiguous (${contiguousZones}/${numDistricts})`,
-      done: contiguousZones >= numDistricts,
-      hints: contiguityHint && [contiguityHint],
-    },
-  ];
-  const doneCount = steps.filter(s => s.done).length;
-  const gettingStartedDone = doneCount === steps.length;
-
   // Largest district deviation from the ideal population, driving the staged
-  // balance hints in "Improve your plan".
+  // balance hints.
   const maxDeviation =
     idealPopulation && populationData.length
       ? Math.max(...populationData.map(d => Math.abs((d.total_pop_20 ?? 0) - idealPopulation))) /
@@ -191,16 +168,11 @@ export const GettingStarted = () => {
       : undefined;
   const balanced = maxDeviation !== undefined && maxDeviation <= BALANCE_FINE_DEVIATION;
   const roughlyBalanced = maxDeviation !== undefined && maxDeviation <= BALANCE_ROUGH_DEVIATION;
-
-  const improveItems: ChecklistItem[] = [
-    {
-      label: `Balance district populations${
-        maxDeviation !== undefined
-          ? ` (largest deviation ${formatNumber(maxDeviation, NUMBER_FORMATS.PERCENT)})`
-          : ''
-      }`,
-      done: balanced,
-      hints: roughlyBalanced
+  // Balance hints are premature while population is still unassigned; the
+  // earlier steps' hints cover that phase.
+  const balanceHints =
+    unassigned === 0
+      ? roughlyBalanced
         ? [
             {
               label: 'Perfect populations with census blocks in Super Draw',
@@ -225,8 +197,42 @@ export const GettingStarted = () => {
                 openSidebarPanel('demography');
               },
             },
-          ],
+          ]
+      : undefined;
+
+  const steps: ChecklistItem[] = [
+    {
+      label: `Start drawing all districts (${paintedZones}/${numDistricts})`,
+      done: paintedZones >= numDistricts,
     },
+    {
+      label: `Assign all population to a district${
+        unassigned !== undefined
+          ? ` (${formatNumber(unassigned, NUMBER_FORMATS.STRING)} population remaining)`
+          : ''
+      }`,
+      done: unassigned === 0,
+      hints: populationHint && [populationHint],
+    },
+    {
+      label: `Keep districts contiguous (${contiguousZones}/${numDistricts})`,
+      done: contiguousZones >= numDistricts,
+      hints: contiguityHint && [contiguityHint],
+    },
+    {
+      label: `Balance district populations${
+        maxDeviation !== undefined
+          ? ` (largest deviation ${formatNumber(maxDeviation, NUMBER_FORMATS.PERCENT)})`
+          : ''
+      }`,
+      done: balanced,
+      hints: balanceHints,
+    },
+  ];
+  const doneCount = steps.filter(s => s.done).length;
+  const gettingStartedDone = doneCount === steps.length;
+
+  const improveItems: ChecklistItem[] = [
     {
       label: 'Understand demographic and voter histories',
       done: tablesViewed || bothTablesOpen,
