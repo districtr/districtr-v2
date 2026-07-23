@@ -3,6 +3,14 @@ import {create} from 'zustand';
 export type ValidationTab = 'Contiguity' | 'Completeness';
 export type SummaryTabRequest = {panel: 'demography' | 'election'; tab: 'evaluation' | 'map'};
 
+/** Per-document localStorage keys backing the "Improve your plan" done states
+ * that can't be derived from live UI state (panels reset on view switches;
+ * evaluation is a different route entirely). Written by the panels/switcher,
+ * read by GettingStarted; a neutral home avoids component import cycles. */
+export const visitedEvalStorageKey = (documentId: string) => `districtr-visited-eval-${documentId}`;
+export const viewedTablesStorageKey = (documentId: string) =>
+  `districtr-viewed-tables-${documentId}`;
+
 // Carries one-shot "scent" intents from the Getting Started checklist to the
 // controls they point at: open a validity-check tab, auto-expand broken
 // districts, and briefly flash the target control.

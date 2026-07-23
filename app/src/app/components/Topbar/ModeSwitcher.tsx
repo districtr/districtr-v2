@@ -18,7 +18,7 @@ import {routeForMode} from '@constants/document/routes';
 import {ACCESS_STATES} from '@constants/document/state';
 import {useEditableDocId} from '@/app/hooks/useEditableDocId';
 import {useToolbarStore} from '@/app/store/toolbarStore';
-import {useUiHintStore} from '@/app/store/uiHintStore';
+import {useUiHintStore, visitedEvalStorageKey} from '@/app/store/uiHintStore';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {patchSharePlan} from '@/app/utils/api/apiHandlers/patchSharePlan';
 import {idb} from '@/app/utils/idb/idb';
@@ -199,6 +199,11 @@ export const ModeSwitcher: React.FC = () => {
 
   const handleSelect = async (mode: ViewMode) => {
     if (mode === currentMode || isDisabled(mode)) return;
+    // Remember the visit so "Improve your plan" can check off its Evaluate item
+    // when the user comes back to the editor.
+    if (mode === 'evaluate' && editDocId) {
+      localStorage.setItem(visitedEvalStorageKey(editDocId), '1');
+    }
     // Draw / Super Draw: same edit route, different client-side toolset flag.
     // setSuperDraw handles backing out of super-only tools/settings on exit.
     if (isDrawMode(mode)) {

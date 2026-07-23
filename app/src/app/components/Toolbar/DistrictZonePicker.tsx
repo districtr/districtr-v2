@@ -110,7 +110,7 @@ export const DistrictsZonePicker: React.FC = () => {
       <Flex direction="column" gap="2">
         <Flex align="center" gap="2">
           <Text size="2" weight="medium">
-            Districts:
+            Number of districts:
           </Text>
           {canEditNumDistricts && showNumDistrictEditor ? (
             <>

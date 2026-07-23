@@ -125,7 +125,7 @@ export const useActiveTools = () => {
     {
       hotKeyLabel: 'I',
       mode: ACTIVE_TOOLS.INSPECTOR,
-      label: 'Inspector',
+      label: 'Inspect',
       icon: MagnifyingGlassIcon,
       hotKeyAccessor: e => {
         return e.code === 'KeyI';

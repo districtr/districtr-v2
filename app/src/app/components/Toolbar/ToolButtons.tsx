@@ -126,7 +126,11 @@ export const ToolButtons: React.FC<{
       data-testid="toolbar"
     >
       <Flex direction="row" wrap="wrap" className="flex-grow segmented-track">
-        {mainTools.map(tool => renderTool(tool, {minWidth: TOOLBAR_SIZE, flexGrow: 1}))}
+        {/* flexBasis 0 (not auto) so every tool gets the same width regardless
+            of label length. */}
+        {mainTools.map(tool =>
+          renderTool(tool, {minWidth: TOOLBAR_SIZE, flexGrow: 1, flexBasis: 0})
+        )}
       </Flex>
       <Flex direction="row" className="segmented-track">
         {historyTools.map(tool => renderTool(tool, {width: HISTORY_BUTTON_WIDTH}))}

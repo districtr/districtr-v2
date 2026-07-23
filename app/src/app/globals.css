@@ -142,10 +142,10 @@ body {
   }
 }
 
-/* Segmented tool groups: transparent track, buttons float on the sidebar. */
+/* Segmented tool groups: transparent track, buttons float on the sidebar.
+   No padding — the group's outer edges align with neighboring components. */
 .segmented-track {
   border-radius: 10px;
-  padding: 3px;
   gap: 2px;
 }
 .tool-button {

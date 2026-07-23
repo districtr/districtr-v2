@@ -6,7 +6,12 @@ import {useQuery} from '@tanstack/react-query';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
-import {useUiHintStore, type ValidationTab} from '@/app/store/uiHintStore';
+import {
+  useUiHintStore,
+  visitedEvalStorageKey,
+  viewedTablesStorageKey,
+  type ValidationTab,
+} from '@/app/store/uiHintStore';
 import {useZonePopulations} from '@/app/hooks/useDemography';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useCountyBrush, COUNTY_BRUSH_FLASH_ID} from '@/app/components/Toolbar/PaintByCounty';
@@ -64,6 +69,25 @@ export const GettingStarted = () => {
   useEffect(() => {
     setCollapsed(localStorage.getItem(COLLAPSE_KEY) === '1');
   }, []);
+
+  // Done states that outlive UI state: sidebar panels reset when switching
+  // views and evaluation is a separate route, so both are persisted per
+  // document (the Evaluate visit is written by the mode switcher).
+  const documentId = mapDocument?.document_id;
+  const [tablesViewed, setTablesViewed] = useState(false);
+  const [evalVisited, setEvalVisited] = useState(false);
+  useEffect(() => {
+    if (!documentId) return;
+    setTablesViewed(localStorage.getItem(viewedTablesStorageKey(documentId)) === '1');
+    setEvalVisited(localStorage.getItem(visitedEvalStorageKey(documentId)) === '1');
+  }, [documentId]);
+  const bothTablesOpen = sidebarPanels.includes('demography') && sidebarPanels.includes('election');
+  useEffect(() => {
+    if (documentId && bothTablesOpen && !tablesViewed) {
+      localStorage.setItem(viewedTablesStorageKey(documentId), '1');
+      setTablesViewed(true);
+    }
+  }, [documentId, bothTablesOpen, tablesViewed]);
 
   // Same query key as the map-validation Contiguity panel, so the two share a
   // cache entry; keying on updated_at refetches contiguity on each save.
@@ -205,7 +229,7 @@ export const GettingStarted = () => {
     },
     {
       label: 'Understand demographic and voter histories',
-      done: sidebarPanels.includes('demography') && sidebarPanels.includes('election'),
+      done: tablesViewed || bothTablesOpen,
       hints: [
         {
           label: 'Show the demographic table',
@@ -225,7 +249,7 @@ export const GettingStarted = () => {
     },
     {
       label: 'Evaluate your plan further',
-      done: false,
+      done: evalVisited,
       hints: [{label: 'Go to Evaluate mode', onClick: () => flash(MODE_SWITCHER_FLASH_ID)}],
     },
   ];
@@ -281,20 +305,21 @@ export const GettingStarted = () => {
         items.map(step => (
           <Flex key={step.label} direction="column" gap="1">
             <Flex align="center" gap="2">
+              {/* Small, muted status dot — deliberately not radio-button sized,
+                  since the rows aren't clickable. */}
               <Flex
                 align="center"
                 justify="center"
                 flexShrink="0"
-                width="18px"
-                height="18px"
+                width="14px"
+                height="14px"
                 style={{
                   borderRadius: 99,
-                  background: step.done ? 'var(--accent-9)' : 'transparent',
-                  border: step.done ? 'none' : '1.5px solid var(--gray-8)',
+                  background: step.done ? 'var(--accent-9)' : 'var(--gray-a4)',
                   color: 'white',
                 }}
               >
-                {step.done && <CheckIcon width={12} height={12} />}
+                {step.done && <CheckIcon width={10} height={10} />}
               </Flex>
               <Text size="1" color={step.done ? 'gray' : undefined}>
                 {step.label}
