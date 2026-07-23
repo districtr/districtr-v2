@@ -420,7 +420,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
     selectedFeatures?.length &&
     (mapOptions.showPopulationTooltip || TOOLTIP_TOOLS.includes(activeTool))
   ) {
-    const data: Array<{label: string; value: unknown}> = [];
+    const data: Array<{label: string; value: unknown; dot?: string}> = [];
     if (mapOptions.showPopulationTooltip) {
       // Line 1: population under the brush footprint. Lines 2+: what each
       // affected district's diff from ideal WILL BE once this brush lands —
@@ -444,6 +444,14 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
           const diff = population - idealPopulation;
           return `${diff > 0 ? '+' : ''}${formatNumber(diff, NUMBER_FORMATS.STRING)} vs. ideal`;
         };
+        // Green when the click moves the district closer to ideal, red when
+        // farther; no dot when nothing changes.
+        const closerDot = (zone: number, change: number) => {
+          const current = Math.abs(livePopulation(zone) - idealPopulation);
+          const projected = Math.abs(livePopulation(zone) + change - idealPopulation);
+          if (projected === current) return undefined;
+          return projected < current ? 'var(--green-9)' : 'var(--red-9)';
+        };
         let paintedGain = 0;
         const lossByZone = new Map<number, number>();
         for (const feature of selectedFeatures) {
@@ -464,11 +472,13 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
         data.push({
           label: `District ${selectedZone} would be`,
           value: diffFromIdeal(livePopulation(selectedZone) + paintedGain),
+          dot: closerDot(selectedZone, paintedGain),
         });
         for (const [zone, loss] of lossByZone) {
           data.push({
             label: `District ${zone} would be`,
             value: diffFromIdeal(livePopulation(zone) - loss),
+            dot: closerDot(zone, -loss),
           });
         }
       }

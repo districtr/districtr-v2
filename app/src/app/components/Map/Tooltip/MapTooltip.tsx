@@ -42,6 +42,18 @@ export const MapTooltip = () => {
         <Box flexGrow="1">
           {tooltip.data.map((entry, i) => (
             <Text key={`tooltip-${i}`} as="div" size="1" style={{whiteSpace: 'nowrap'}}>
+              {entry.dot && (
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: 7,
+                    height: 7,
+                    borderRadius: 99,
+                    background: entry.dot,
+                    marginRight: 5,
+                  }}
+                />
+              )}
               {entry.label}:{' '}
               {!isNaN(+(entry.value as number))
                 ? formatNumber(entry.value as number, NUMBER_FORMATS.STRING)
