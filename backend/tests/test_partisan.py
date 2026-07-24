@@ -567,10 +567,12 @@ def grid_district_context():
 
 
 @pytest.fixture
-def eguia_context(session, grid_shatterable_districtr_map):
+def eguia_context(session, grid_shatterable_districtr_map, mock_grid_graph_file):
     """Exercises the full Eguia path with a real DB session (no mocks).
 
     Data sourced from _GRID_BLOCK_ROWS / _GRID_VTD_ROWS in conftest.py.
+    mock_grid_graph_file is required because _ensure_county_data now also
+    populates component_populations, which needs a real graph.
     """
     COUNTY_CONTEXT._cache.pop(PARENT_GRID_NAME, None)
     COUNTY_CONTEXT._attempts.pop(PARENT_GRID_NAME, None)

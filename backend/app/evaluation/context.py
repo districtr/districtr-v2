@@ -514,18 +514,28 @@ class CountyContext:
         self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
     ) -> None:
         """Populate `evaluation.county_demographics` for `gerrydb_table` unless at
-        least one row with a non-null total_pop already exists.
+        least one row with non-null total_pop AND non-null component_populations
+        already exists.
 
         Requiring total_pop IS NOT NULL (rather than mere row existence) guards
         against a previous load that inserted rows without population data (e.g.
         because the gerrydb table lacked total_pop_20). Those rows are present but
         unusable, so we attempt re-population rather than treating them as a
-        successful prior load.
+        successful prior load. Also requiring component_populations IS NOT NULL
+        backfills rows written before that column existed, or from a run where
+        _populate_component_populations previously raised (e.g. a since-resolved
+        transient graph-fetch failure) — `_populate_component_populations` always
+        either fills in every county for the table or raises, so any single row
+        having both set is a reliable proxy for the whole table being done. Tables
+        that genuinely lack total_pop_20 never satisfy this (total_pop stays NULL
+        for every row), so this doesn't change their existing bounded-retry
+        behavior via `_attempts`.
         """
         exists = session.exec(
             sqlmodel.select(CountyDemographics)
             .where(sqlmodel.col(CountyDemographics.gerrydb_table_name) == gerrydb_table)
             .where(sqlmodel.col(CountyDemographics.total_pop).isnot(None))
+            .where(sqlmodel.col(CountyDemographics.component_populations).isnot(None))
             .limit(1)
         ).first()
         if not exists:
@@ -605,9 +615,11 @@ class CountyContext:
         disconnected land pieces (e.g. islands, exclaves) forces at least that many
         districts regardless of how any plan draws lines.
 
-        Best-effort: skipped (component_populations stays NULL) if no graph is
-        available for this parent layer, since total_pop/demographic_data above
-        must not depend on graph availability. Does not expand non-contiguous
+        Graphs are expected to already exist in S3 by the time a gerrydb table is
+        ingested, same as every other caller of get_graph in this codebase (e.g.
+        validity.contiguous, splits.county_pieces) — a missing graph here is a real
+        data problem, not a normal runtime condition, so it raises rather than
+        silently leaving component_populations NULL. Does not expand non-contiguous
         parents to block children — this is VTD/parent-unit-level connectivity,
         not the finer sub-VTD connectivity `county_pieces` uses.
         """
@@ -620,18 +632,12 @@ class CountyContext:
             {"parent_layer": gerrydb_table},
         ).scalar_one_or_none()
         if graph_name is None:
-            return
-
-        try:
-            G = get_graph(GerrydbTableName(graph_name))
-        except fastapi.HTTPException:
-            logger.warning(
-                "No graph available for '%s'; skipping component_populations "
-                "for county_demographics rows from '%s'.",
-                graph_name,
-                gerrydb_table,
+            raise ValueError(
+                f"No DistrictrMap references parent_layer '{gerrydb_table}'; "
+                f"cannot resolve which graph to use for component_populations."
             )
-            return
+
+        G = get_graph(GerrydbTableName(graph_name))
 
         rows = session.execute(
             sqlalchemy.text(

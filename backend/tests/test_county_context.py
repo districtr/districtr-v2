@@ -10,10 +10,14 @@ already several disconnected land pieces (islands, exclaves).
 
 from datetime import datetime
 
+import fastapi
+import pytest
 from fastapi import BackgroundTasks
 from networkx import Graph
+from sqlalchemy import text as sqlmodel_text
 from sqlmodel import Session, select
 
+import app.evaluation.context as context_module
 from app.evaluation.context import (
     COUNTY_CONTEXT,
     DocumentEvaluationContext,
@@ -75,6 +79,86 @@ def test_simple_geos_county_demographics_component_populations(
         ).one()
 
         assert row.total_pop == 2100
+        assert row.component_populations == [2100]
+    finally:
+        COUNTY_CONTEXT._pop_cache.pop(parent_layer, None)
+        COUNTY_CONTEXT._attempts.pop(parent_layer, None)
+
+
+def test_populate_county_data_raises_when_graph_unavailable(
+    session: Session,
+    simple_shatterable_districtr_map,
+    gerrydb_simple_geos_view,
+    monkeypatch,
+):
+    """Graphs are expected to already exist in S3 by the time a gerrydb table is
+    ingested — a missing graph is a real data problem and must raise, not
+    silently leave component_populations NULL, matching every other get_graph
+    call site in this codebase (validity.contiguous, splits.county_pieces)."""
+
+    def _raise(_name):
+        raise fastapi.HTTPException(status_code=404, detail="Graph unavailable")
+
+    monkeypatch.setattr(context_module, "get_graph", _raise)
+    parent_layer = "simple_parent_geos"
+    try:
+        with pytest.raises(fastapi.HTTPException):
+            COUNTY_CONTEXT._populate_county_data(parent_layer, session)
+    finally:
+        COUNTY_CONTEXT._pop_cache.pop(parent_layer, None)
+        COUNTY_CONTEXT._attempts.pop(parent_layer, None)
+
+
+def test_populate_component_populations_raises_when_no_districtrmap(
+    session: Session,
+):
+    """No DistrictrMap references this parent_layer at all -> can't resolve a
+    graph name -> raise, not silently skip."""
+    with pytest.raises(ValueError):
+        COUNTY_CONTEXT._populate_component_populations(
+            "no_such_parent_layer", "no_such_parent_layer", session
+        )
+
+
+def test_ensure_county_data_backfills_missing_component_populations(
+    session: Session,
+    simple_shatterable_districtr_map,
+    gerrydb_simple_geos_view,
+    mock_grid_graph_file,
+):
+    """A pre-existing row with total_pop set but component_populations still NULL
+    (e.g. written before this column existed) gets backfilled on next access,
+    rather than being permanently treated as "already done"."""
+    parent_layer = "simple_parent_geos"
+    try:
+        session.execute(
+            sqlmodel_text(
+                "INSERT INTO evaluation.county_demographics "
+                "(geoid, gerrydb_table_name, total_pop, demographic_data) "
+                "VALUES ('00001', :parent_layer, 2100, '{}') "
+                "ON CONFLICT (geoid, gerrydb_table_name) DO NOTHING"
+            ),
+            {"parent_layer": parent_layer},
+        )
+        session.commit()
+
+        row = session.exec(
+            select(CountyDemographics).where(
+                CountyDemographics.geoid == "00001",
+                CountyDemographics.gerrydb_table_name == parent_layer,
+            )
+        ).one()
+        assert row.component_populations is None  # pre-existing, unbackfilled
+
+        COUNTY_CONTEXT._ensure_county_data(parent_layer, session)
+
+        session.expire_all()
+        row = session.exec(
+            select(CountyDemographics).where(
+                CountyDemographics.geoid == "00001",
+                CountyDemographics.gerrydb_table_name == parent_layer,
+            )
+        ).one()
         assert row.component_populations == [2100]
     finally:
         COUNTY_CONTEXT._pop_cache.pop(parent_layer, None)
