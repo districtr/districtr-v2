@@ -8,6 +8,7 @@ payload shape advances.
 
 from sqlalchemy import BigInteger, Integer, Text
 from sqlalchemy.dialects.postgresql import JSON, JSONB
+from sqlalchemy.types import ARRAY
 from sqlmodel import Column, Field, ForeignKey, MetaData
 
 from app.constants import DOCUMENT_SCHEMA, EVALUATION_SCHEMA
@@ -52,3 +53,11 @@ class CountyDemographics(SQLModel, table=True):
     # deserialising the full demographic_data JSON.
     total_pop: int | None = Field(sa_column=Column(Integer, nullable=True))
     demographic_data: dict | None = Field(sa_column=Column(JSON, nullable=True))
+    # Population of each of the county's own geographically connected components
+    # (independent of any document/plan — some counties are inherently several
+    # disconnected land pieces, e.g. islands or exclaves). Used to compute the
+    # forced-minimum split count as sum(ceil(p/ideal_pop) for p in this list),
+    # a tighter bound than ceil(total_pop/ideal_pop) for multi-component counties.
+    component_populations: list[int] | None = Field(
+        sa_column=Column(ARRAY(Integer), nullable=True)
+    )

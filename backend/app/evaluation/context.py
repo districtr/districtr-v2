@@ -22,7 +22,9 @@ import pyproj
 import shapely
 import sqlalchemy
 import sqlmodel
+from app.contiguity.main import subgraph_connected_components
 from app.core.config import settings
+from app.evaluation.graph import get_graph
 from app.evaluation.models import CountyDemographics
 from app.evaluation.types import Election, CountyGeoid, DistrictId
 from app.models import Assignments, DistrictUnionsResponse, DistrictrMap, Document
@@ -49,6 +51,16 @@ _transformer = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:5070", always_xy=T
 def _reproject(coords: np.ndarray) -> np.ndarray:
     x, y = _transformer.transform(coords[:, 0], coords[:, 1])
     return np.stack([x, y], axis=1)
+
+
+def component_populations_for_nodes(G, population_by_node: dict) -> list[int]:
+    """Partition population_by_node's keys into connected components on G and
+    return each component's total population, one entry per component.
+    """
+    components = subgraph_connected_components(G, population_by_node.keys())
+    return [
+        sum(population_by_node[node] for node in component) for component in components
+    ]
 
 
 @dataclasses.dataclass
@@ -373,6 +385,9 @@ class CountyContext:
     _pop_cache: dict[GerrydbTableName, dict[CountyGeoid, int]] = dataclasses.field(
         default_factory=dict
     )
+    _component_pop_cache: dict[GerrydbTableName, dict[CountyGeoid, list[int]]] = (
+        dataclasses.field(default_factory=dict)
+    )
     _name_cache: dict[CountyGeoid, str] = dataclasses.field(default_factory=dict)
     _attempts: dict[GerrydbTableName, int] = dataclasses.field(default_factory=dict)
 
@@ -437,6 +452,43 @@ class CountyContext:
         }
         self._pop_cache[gerrydb_table] = pops
         return pops
+
+    def county_component_populations(
+        self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
+    ) -> dict[CountyGeoid, list[int]]:
+        """Return a {county_geoid: component_populations} dict for `gerrydb_table`.
+
+        component_populations is the population of each of the county's own
+        connected components (document-independent — see _populate_component_populations).
+        A county missing from the result (or with an empty list) means the
+        precompute couldn't determine this (e.g. no graph available); callers
+        should fall back to the single-total ceil(total_pop/ideal_pop) bound.
+
+        Cached after first load. Raises ValueError if county data is unavailable.
+        Retried up to MAX_LOAD_ATTEMPTS times before raising (same gate as
+        county_populations, since both are populated by the same job).
+        """
+        if gerrydb_table in self._component_pop_cache:
+            return self._component_pop_cache[gerrydb_table]
+        if self._attempts.get(gerrydb_table, 0) >= self.MAX_LOAD_ATTEMPTS:
+            raise ValueError(
+                f"County data for '{gerrydb_table}' failed to load after "
+                f"{self.MAX_LOAD_ATTEMPTS} attempts."
+            )
+        self._attempts[gerrydb_table] = self._attempts.get(gerrydb_table, 0) + 1
+        self._ensure_county_data(gerrydb_table, session)
+        rows = session.exec(
+            sqlmodel.select(
+                CountyDemographics.geoid, CountyDemographics.component_populations
+            ).where(CountyDemographics.gerrydb_table_name == gerrydb_table)
+        ).all()
+        component_pops = {
+            CountyGeoid(geoid): list(component_populations)
+            for geoid, component_populations in rows
+            if geoid and component_populations is not None
+        }
+        self._component_pop_cache[gerrydb_table] = component_pops
+        return component_pops
 
     def ideals_for_eguia(
         self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
@@ -524,7 +576,8 @@ class CountyContext:
             )
         json_pairs = [f"'{col}', SUM({col})" for col in demo_cols]
         demographic_json = f"json_build_object({', '.join(json_pairs)})"
-        total_pop_expr = "SUM(total_pop_20)" if "total_pop_20" in demo_cols else "NULL"
+        has_total_pop = "total_pop_20" in demo_cols
+        total_pop_expr = "SUM(total_pop_20)" if has_total_pop else "NULL"
 
         insert_sql = f"""
             INSERT INTO evaluation.county_demographics (geoid, gerrydb_table_name, total_pop, demographic_data)
@@ -541,6 +594,86 @@ class CountyContext:
             ON CONFLICT (geoid, gerrydb_table_name) DO NOTHING
         """
         session.execute(sqlalchemy.text(insert_sql), {"gerrydb_table": gerrydb_table})
+        session.commit()
+
+        if has_total_pop:
+            self._populate_component_populations(gerrydb_table, safe_table, session)
+
+    def _populate_component_populations(
+        self,
+        gerrydb_table: GerrydbTableName,
+        safe_table: str,
+        session: sqlmodel.Session,
+    ) -> None:
+        """Populate component_populations: each county's own connected components
+        (VTD/parent-unit adjacency only, ignoring any document/assignment) and the
+        population of each. Document-independent — a county that's already several
+        disconnected land pieces (e.g. islands, exclaves) forces at least that many
+        districts regardless of how any plan draws lines.
+
+        Best-effort: skipped (component_populations stays NULL) if no graph is
+        available for this parent layer, since total_pop/demographic_data above
+        must not depend on graph availability. Does not expand non-contiguous
+        parents to block children — this is VTD/parent-unit-level connectivity,
+        not the finer sub-VTD connectivity `county_pieces` uses.
+        """
+        graph_name = session.execute(
+            sqlalchemy.text(
+                "SELECT gerrydb_table_name FROM districtrmap "
+                "WHERE parent_layer = :parent_layer AND gerrydb_table_name IS NOT NULL "
+                "LIMIT 1"
+            ),
+            {"parent_layer": gerrydb_table},
+        ).scalar_one_or_none()
+        if graph_name is None:
+            return
+
+        try:
+            G = get_graph(GerrydbTableName(graph_name))
+        except fastapi.HTTPException:
+            logger.warning(
+                "No graph available for '%s'; skipping component_populations "
+                "for county_demographics rows from '%s'.",
+                graph_name,
+                gerrydb_table,
+            )
+            return
+
+        rows = session.execute(
+            sqlalchemy.text(
+                f"""
+                SELECT
+                    CASE
+                        WHEN path LIKE '%:%' THEN LEFT(SPLIT_PART(path, ':', 2), 5)
+                        ELSE LEFT(path, 5)
+                    END AS geoid,
+                    path,
+                    total_pop_20
+                FROM gerrydb.{safe_table}
+                """
+            )
+        ).all()
+
+        county_nodes: dict[str, dict[str, int]] = {}
+        for geoid, path, pop in rows:
+            county_nodes.setdefault(geoid, {})[path] = pop or 0
+
+        for geoid, population_by_path in county_nodes.items():
+            component_populations = component_populations_for_nodes(
+                G, population_by_path
+            )
+            session.execute(
+                sqlalchemy.text(
+                    "UPDATE evaluation.county_demographics "
+                    "SET component_populations = :component_populations "
+                    "WHERE geoid = :geoid AND gerrydb_table_name = :gerrydb_table"
+                ),
+                {
+                    "component_populations": component_populations,
+                    "geoid": geoid,
+                    "gerrydb_table": gerrydb_table,
+                },
+            )
         session.commit()
 
     def _compute_ideal(

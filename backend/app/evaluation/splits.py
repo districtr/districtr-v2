@@ -41,6 +41,11 @@ def county_pieces(
     county_pops: dict[CountyGeoid, int] = COUNTY_CONTEXT.county_populations(
         context.parent_layer, context.session
     )
+    county_component_pops: dict[CountyGeoid, list[int]] = (
+        COUNTY_CONTEXT.county_component_populations(
+            context.parent_layer, context.session
+        )
+    )
 
     county_pieces_count: dict[CountyGeoid, int] = {}
     if county_pops:
@@ -64,6 +69,7 @@ def county_pieces(
             total_pop=pop,
             pieces=county_pieces_count.get(county_geoid, 0),
             name=COUNTY_CONTEXT.county_name(county_geoid),
+            component_populations=county_component_pops.get(county_geoid, []),
         )
         for county_geoid, pop in county_pops.items()
     }
