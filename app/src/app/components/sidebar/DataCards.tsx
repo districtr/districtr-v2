@@ -102,6 +102,30 @@ const DataLayersPanel: React.FC = () => {
   );
 };
 
+/** Validity check plus the demographics/elections tables. Only reachable in
+ * districts mode (the tab is districtsOnly), so no COI filtering here. */
+const EvaluationPanel: React.FC = () => (
+  <Flex direction="column">
+    <DataLayerSection label="Validity check">
+      <MapValidation />
+    </DataLayerSection>
+    <DataLayerSection label="Demographics">
+      <SummaryPanel
+        defaultColumnSet={SUMMARY_TYPES.TOTPOP}
+        displayedColumnSets={[SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP]}
+        sections={['evaluation']}
+      />
+    </DataLayerSection>
+    <DataLayerSection label="Elections">
+      <SummaryPanel
+        defaultColumnSet={SUMMARY_TYPES.VOTERHISTORY}
+        displayedColumnSets={[SUMMARY_TYPES.VOTERHISTORY]}
+        sections={['evaluation']}
+      />
+    </DataLayerSection>
+  </Flex>
+);
+
 export type SidebarSection = {
   key: string;
   label: string;
@@ -127,7 +151,7 @@ export const SECTIONS: SidebarSection[] = [
   {
     key: 'evaluation',
     label: 'Evaluation',
-    content: <MapValidation />,
+    content: <EvaluationPanel />,
     districtsOnly: true,
   },
 ];
