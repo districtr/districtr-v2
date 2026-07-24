@@ -23,6 +23,7 @@ import {
   Popover,
   SegmentedControl,
   Slider,
+  Switch,
   Text,
   Tooltip,
 } from '@radix-ui/themes';
@@ -256,34 +257,57 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
       </Blockquote>
     );
   }
+  // Whether THIS panel's data group is the one being shown on the map — the
+  // active variable belongs to exactly one group, which is what makes the two
+  // heatmap switches mutually exclusive.
+  const heatmapOn = demographicDisplayMode !== undefined && !!mapVariableConfig;
+  const heatmapLabel =
+    columnGroup === 'VOTERHISTORY' ? 'Show election heatmap' : 'Show population heatmap';
+
   return (
     <Flex direction="column">
-      <Flex direction="row" gap="3" align="center" className="rounded-md" wrap="wrap">
-        <Text size="2" weight="medium">
-          Display mode
+      {superDraw ? (
+        <Flex direction="row" gap="3" align="center" className="rounded-md" wrap="wrap">
+          <Text size="2" weight="medium">
+            Display mode
+          </Text>
+          <SegmentedControl.Root
+            size="1"
+            value={demographicDisplayMode ?? 'none'}
+            onValueChange={v =>
+              handleSetMapMode(
+                v === 'none'
+                  ? undefined
+                  : (v as MapControlsStore['mapOptions']['demographicDisplayMode'])
+              )
+            }
+          >
+            {displayModes.map((option, i) => (
+              <SegmentedControl.Item key={i} value={option.value ?? 'none'}>
+                <Flex align="center" gap="1">
+                  {!!option.icon && option.icon}
+                  {option.label}
+                </Flex>
+              </SegmentedControl.Item>
+            ))}
+          </SegmentedControl.Root>
+        </Flex>
+      ) : (
+        // Plain Draw: one on/off switch per data group. Turning one on claims
+        // the (single) choropleth for that group, so the other switch turns off.
+        <Text as="label" size="2" weight="medium">
+          <Flex gap="2" align="center">
+            <Switch
+              checked={heatmapOn}
+              onCheckedChange={checked =>
+                handleSetMapMode(checked ? DEMOGRAPHIC_MODES.OVERLAY : undefined)
+              }
+            />
+            {heatmapLabel}
+          </Flex>
         </Text>
-        <SegmentedControl.Root
-          size="1"
-          value={demographicDisplayMode ?? 'none'}
-          onValueChange={v =>
-            handleSetMapMode(
-              v === 'none'
-                ? undefined
-                : (v as MapControlsStore['mapOptions']['demographicDisplayMode'])
-            )
-          }
-        >
-          {displayModes.map((option, i) => (
-            <SegmentedControl.Item key={i} value={option.value ?? 'none'}>
-              <Flex align="center" gap="1">
-                {!!option.icon && option.icon}
-                {option.label}
-              </Flex>
-            </SegmentedControl.Item>
-          ))}
-        </SegmentedControl.Root>
-      </Flex>
-      {demographicDisplayMode !== undefined && (
+      )}
+      {demographicDisplayMode !== undefined && (superDraw || heatmapOn) && (
         <>
           <Flex direction="column" pt="2">
             <Flex direction="row" gap="3" align="start" py="2" wrap="wrap">

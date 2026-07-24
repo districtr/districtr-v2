@@ -1,15 +1,14 @@
 'use client';
-import {Box, Button, Flex, SegmentedControl, Tabs, Text} from '@radix-ui/themes';
+import {Box, Flex, Tabs, Text} from '@radix-ui/themes';
 import React, {useEffect, useState} from 'react';
-import {ChevronDownIcon, ColorWheelIcon} from '@radix-ui/react-icons';
+import {ChevronDownIcon} from '@radix-ui/react-icons';
 import PopulationPanel from './PopulationPanel';
 import OverlaysPanel from './OverlaysPanel';
 import {MapValidation} from './MapValidation/MapValidation';
-import {SummaryPanel, type SectionKey} from './SummaryPanel';
+import {SummaryPanel} from './SummaryPanel';
 import {useMapControlsStore} from '@store/mapControlsStore';
-import {useUiHintStore} from '@store/uiHintStore';
 import {MAP_MODES} from '@constants/map/mode';
-import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
+import {SUMMARY_TYPES} from '@constants/demography/summary';
 
 // One constant drives both the CSS transition and the delayed unmount so the
 // two can't drift apart.
@@ -44,89 +43,6 @@ const AnimatedCollapse: React.FC<{open: boolean; children: React.ReactNode}> = (
   );
 };
 
-/** Collapsible, opt-in coalition builder attached above the demographics
- * table/map instead of floating as its own tab. */
-const CoalitionExpander: React.FC<{
-  defaultColumnSet: SummaryType;
-  displayedColumnSets: Array<SummaryType>;
-}> = ({defaultColumnSet, displayedColumnSets}) => {
-  const [open, setOpen] = useState(false);
-  return (
-    <Flex direction="column" gap="2">
-      <Button
-        variant="surface"
-        color="gray"
-        size="2"
-        onClick={() => setOpen(o => !o)}
-        className="w-full cursor-pointer"
-      >
-        <Flex align="center" justify="between" width="100%">
-          <Flex align="center" gap="2">
-            <ColorWheelIcon />
-            Create a coalition (optional)
-          </Flex>
-          <ChevronDownIcon
-            className={`transition-transform duration-200 ${open ? '' : '-rotate-90'}`}
-          />
-        </Flex>
-      </Button>
-      <AnimatedCollapse open={open}>
-        <SummaryPanel
-          defaultColumnSet={defaultColumnSet}
-          displayedColumnSets={displayedColumnSets}
-          sections={['coalition']}
-        />
-      </AnimatedCollapse>
-    </Flex>
-  );
-};
-
-/** Table / Map tabs over a single SummaryPanel section, so the table and map
- * live in one section instead of two. */
-const TabbedSummaryPanel: React.FC<{
-  panelKey: 'demography' | 'election';
-  defaultColumnSet: SummaryType;
-  displayedColumnSets: Array<SummaryType>;
-  tabs: Array<{value: SectionKey; label: string}>;
-  withCoalition?: boolean;
-}> = ({panelKey, defaultColumnSet, displayedColumnSets, tabs, withCoalition}) => {
-  const [tab, setTab] = useState<SectionKey>(tabs[0].value);
-  // One-shot tab request from UI hints (same pattern as MapValidation's
-  // validationTabRequest).
-  const summaryTabRequest = useUiHintStore(state => state.summaryTabRequest);
-  const clearSummaryTabRequest = useUiHintStore(state => state.clearSummaryTabRequest);
-  useEffect(() => {
-    if (summaryTabRequest?.panel === panelKey) {
-      setTab(summaryTabRequest.tab);
-      clearSummaryTabRequest();
-    }
-  }, [summaryTabRequest, panelKey, clearSummaryTabRequest]);
-  // Opening the Map Layer tab shows the choropleth controls but doesn't turn
-  // the overlay on — the user enables it from the display-mode control.
-  return (
-    <Flex direction="column" gap="2">
-      {withCoalition && (
-        <CoalitionExpander
-          defaultColumnSet={defaultColumnSet}
-          displayedColumnSets={displayedColumnSets}
-        />
-      )}
-      <SegmentedControl.Root size="2" value={tab} onValueChange={v => setTab(v as SectionKey)}>
-        {tabs.map(t => (
-          <SegmentedControl.Item key={t.value} value={t.value}>
-            {t.label}
-          </SegmentedControl.Item>
-        ))}
-      </SegmentedControl.Root>
-      <SummaryPanel
-        defaultColumnSet={defaultColumnSet}
-        displayedColumnSets={displayedColumnSets}
-        sections={[tab]}
-      />
-    </Flex>
-  );
-};
-
 /** A quiet section header in the Data Layers tab: no card chrome, just a
  * heading row in the shared plane. Collapsible but open by default. */
 const DataLayerSection: React.FC<{label: string; children: React.ReactNode}> = ({
@@ -157,39 +73,31 @@ const DataLayerSection: React.FC<{label: string; children: React.ReactNode}> = (
   );
 };
 
-/** Demographics, elections, and boundaries as one flat menu of layers. */
+/** Boundaries, demographics, and elections as one flat menu of layers.
+ * Demographics/elections expose just their map-layer (heatmap) controls. */
 const DataLayersPanel: React.FC = () => {
   const mapMode = useMapControlsStore(state => state.mapMode);
   return (
     <Flex direction="column">
+      <DataLayerSection label="Boundaries and areas">
+        <OverlaysPanel />
+      </DataLayerSection>
       <DataLayerSection label="Demographics">
-        <TabbedSummaryPanel
-          panelKey="demography"
+        <SummaryPanel
           defaultColumnSet={SUMMARY_TYPES.TOTPOP}
           displayedColumnSets={[SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP]}
-          tabs={[
-            {value: 'evaluation', label: 'Table'},
-            {value: 'map', label: 'Map Layer'},
-          ]}
-          withCoalition
+          sections={['map']}
         />
       </DataLayerSection>
       {mapMode !== MAP_MODES.COI && (
         <DataLayerSection label="Elections">
-          <TabbedSummaryPanel
-            panelKey="election"
+          <SummaryPanel
             defaultColumnSet={SUMMARY_TYPES.VOTERHISTORY}
             displayedColumnSets={[SUMMARY_TYPES.VOTERHISTORY]}
-            tabs={[
-              {value: 'evaluation', label: 'Table'},
-              {value: 'map', label: 'Map Layer'},
-            ]}
+            sections={['map']}
           />
         </DataLayerSection>
       )}
-      <DataLayerSection label="Boundaries and areas">
-        <OverlaysPanel />
-      </DataLayerSection>
     </Flex>
   );
 };
