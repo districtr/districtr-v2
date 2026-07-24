@@ -1,7 +1,13 @@
 'use client';
 import React, {useState} from 'react';
 import {Box, Button, Flex, IconButton, Text, Tooltip} from '@radix-ui/themes';
-import {CheckIcon, LockClosedIcon, LockOpen2Icon} from '@radix-ui/react-icons';
+import {
+  CheckIcon,
+  EyeNoneIcon,
+  EyeOpenIcon,
+  LockClosedIcon,
+  LockOpen2Icon,
+} from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useToolbarStore} from '@store/toolbarStore';
@@ -310,14 +316,18 @@ export const DistrictMeters = () => {
             {unassigned !== undefined ? formatNumber(unassigned, NUMBER_FORMATS.STRING) : '—'}
           </Text>
           {!allAssigned && isEditing && (
-            <Flex gap="3" mt="1">
+            <Flex gap="2" mt="1">
+              {/* Same toggle-button treatment as Lock painted. */}
               <Button
                 size="1"
-                variant="ghost"
+                variant={higlightUnassigned ? 'solid' : 'surface'}
+                color="gray"
+                highContrast={higlightUnassigned}
                 onClick={() => setMapOptions({higlightUnassigned: !higlightUnassigned})}
-                style={{fontWeight: 600}}
+                aria-pressed={higlightUnassigned}
               >
-                {higlightUnassigned ? 'Hide on map' : 'Show on map'}
+                {higlightUnassigned ? <EyeOpenIcon /> : <EyeNoneIcon />}
+                Show on map
               </Button>
               <Button
                 size="1"

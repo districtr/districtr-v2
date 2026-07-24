@@ -54,16 +54,21 @@ const DataLayerSection: React.FC<{label: string; children: React.ReactNode}> = (
   const [open, setOpen] = useState(true);
   return (
     <Flex direction="column">
+      {/* Negative margin + matching padding: the button (and its hover wash)
+          runs the full panel width while the label stays on the same left
+          edge as the section content below it. */}
       <button
         onClick={() => setOpen(o => !o)}
         aria-expanded={open}
-        className="w-full cursor-pointer text-left px-2 py-2 rounded transition-colors hover:bg-[var(--gray-2)]"
+        className="w-auto cursor-pointer text-left -mx-2 px-2 py-3 rounded transition-colors hover:bg-[var(--gray-2)]"
       >
         <Flex align="center" justify="between">
-          <Text size="2" weight="medium">
+          <Text size="3" weight="medium">
             {label}
           </Text>
           <ChevronDownIcon
+            width={18}
+            height={18}
             className={`shrink-0 transition-transform duration-200 ${open ? '' : '-rotate-90'}`}
           />
         </Flex>
@@ -80,7 +85,9 @@ const DataLayerSection: React.FC<{label: string; children: React.ReactNode}> = (
 const DataLayersPanel: React.FC = () => {
   const mapMode = useMapControlsStore(state => state.mapMode);
   return (
-    <Flex direction="column">
+    // px matches the headers' negative margin: hover washes span the full
+    // panel while header text and section content share one left edge.
+    <Flex direction="column" px="2">
       <DataLayerSection label="Boundaries and areas">
         <OverlaysPanel />
       </DataLayerSection>
@@ -111,7 +118,7 @@ const DataLayersPanel: React.FC = () => {
 /** Validity check plus the demographics/elections tables. Only reachable in
  * districts mode (the tab is districtsOnly), so no COI filtering here. */
 const EvaluationPanel: React.FC = () => (
-  <Flex direction="column">
+  <Flex direction="column" px="2">
     <DataLayerSection label="Validity check">
       <MapValidation />
     </DataLayerSection>
@@ -184,9 +191,13 @@ export const DataCards: React.FC = () => {
   return (
     <Flex direction="column" gap="2" data-testid="data-panels">
       <Tabs.Root value={activeTab} onValueChange={setTab}>
-        <Tabs.List justify="center">
+        <Tabs.List justify="center" size="2">
           {visibleSections.map(section => (
-            <Tabs.Trigger key={section.key} value={section.key}>
+            <Tabs.Trigger
+              key={section.key}
+              value={section.key}
+              style={{fontSize: 16, height: 48}}
+            >
               {section.label}
             </Tabs.Trigger>
           ))}
