@@ -31,33 +31,21 @@ export const MapTooltip = () => {
   return (
     <Popover.Root open={true}>
       <Popover.Content
-        size="1"
         style={{
           position: 'fixed',
-          left: tooltip.x + 14,
-          top: tooltip.y + 14,
+          left: tooltip.x + 10,
+          top: tooltip.y + 10,
           pointerEvents: 'none',
         }}
       >
         <Box flexGrow="1">
           {tooltip.data.map((entry, i) => (
-            <Text key={`tooltip-${i}`} as="div" size="1" style={{whiteSpace: 'nowrap'}}>
-              {entry.dot && (
-                <span
-                  style={{
-                    display: 'inline-block',
-                    width: 7,
-                    height: 7,
-                    borderRadius: 99,
-                    background: entry.dot,
-                    marginRight: 5,
-                  }}
-                />
-              )}
+            <Text key={`tooltip-${i}`} style={{whiteSpace: 'nowrap'}}>
+              {/* @ts-ignore */}
               {entry.label}:{' '}
               {!isNaN(+(entry.value as number))
                 ? formatNumber(entry.value as number, NUMBER_FORMATS.STRING)
-                : (entry.value as string)}
+                : entry.value}
             </Text>
           ))}
           {isInspectorMode && <InspectorTooltip />}

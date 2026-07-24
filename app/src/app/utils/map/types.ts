@@ -51,9 +51,7 @@ export type ContextMenuState = {
 export type TooltipState = {
   x: number;
   y: number;
-  /** `dot` renders a small colored bullet before the line (e.g. green/red for
-   * moving closer to / farther from the ideal population). */
-  data: Array<{label: string; value: unknown; dot?: string}>;
+  data: Array<{label: string; value: unknown}>;
 };
 
 export type ColorZoneAssignmentsState = [
