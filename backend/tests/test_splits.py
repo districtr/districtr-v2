@@ -3,9 +3,11 @@
 All tests use the ks_ellis_county_vtd + ks_ellis_county_block gerrydb fixtures
 (Ellis County, KS — all VTDs/blocks have county FIPS 20051) with a real DB session.
 
-Assignment scenarios:
-    Three-zone: 6 VTDs, 2 per zone (1/2/3) → actual_split_pieces = 3
-    Single-zone: same 6 VTDs, all zone 1  → actual_split_pieces = 1
+Assignment scenarios (VTD pairs chosen to be mutually adjacent in the real
+ks_ellis_geos graph, and transitively connected across pairs, so the single-zone
+case forms one connected component):
+    Three-zone: 6 VTDs, 2 per zone (1/2/3), each pair adjacent → actual_split_pieces = 3
+    Single-zone: same 6 VTDs, all zone 1, transitively connected → actual_split_pieces = 1
 
 County population: 30000 (pre-seeded in COUNTY_CONTEXT cache).
 """
@@ -38,21 +40,21 @@ _COUNTY_NAMES: dict[CountyGeoid, str] = {
 }
 
 _THREE_ZONE_ASSIGNMENTS = [
-    ["vtd:20051120060", 1],
-    ["vtd:20051000280", 1],
-    ["vtd:20051900090", 2],
-    ["vtd:20051900010", 2],
-    ["vtd:20051900100", 3],
-    ["vtd:20051900070", 3],
+    ["vtd:2005100003A", 1],
+    ["vtd:20051000240", 1],
+    ["vtd:20051000230", 2],
+    ["vtd:20051000220", 2],
+    ["vtd:20051120050", 3],
+    ["vtd:20051900040", 3],
 ]
 
 _SINGLE_ZONE_ASSIGNMENTS = [
-    ["vtd:20051120060", 1],
-    ["vtd:20051000280", 1],
-    ["vtd:20051900090", 1],
-    ["vtd:20051900010", 1],
-    ["vtd:20051900100", 1],
-    ["vtd:20051900070", 1],
+    ["vtd:2005100003A", 1],
+    ["vtd:20051000240", 1],
+    ["vtd:20051000230", 1],
+    ["vtd:20051000220", 1],
+    ["vtd:20051120050", 1],
+    ["vtd:20051900040", 1],
 ]
 
 
@@ -114,6 +116,7 @@ def three_zone_context(
     session: Session,
     ks_ellis_shatterable_districtr_map,
     gerrydb_ks_ellis_geos_view,
+    mock_grid_graph_file,
 ):
     yield _create_context(client, session, _THREE_ZONE_ASSIGNMENTS)
     _cleanup_county_context()
@@ -125,6 +128,7 @@ def single_zone_context(
     session: Session,
     ks_ellis_shatterable_districtr_map,
     gerrydb_ks_ellis_geos_view,
+    mock_grid_graph_file,
 ):
     yield _create_context(client, session, _SINGLE_ZONE_ASSIGNMENTS)
     _cleanup_county_context()
@@ -143,6 +147,33 @@ def test_county_pieces_actual_single_zone(single_zone_context):
     """All assigned VTDs in one zone → actual = 1."""
     result = county_pieces(single_zone_context)
     assert result[_KS_ELLIS_COUNTY]["pieces"] == 1
+
+
+def test_county_pieces_disconnected_same_zone_counts_as_two(
+    client,
+    session: Session,
+    ks_ellis_shatterable_districtr_map,
+    gerrydb_ks_ellis_geos_view,
+    mock_grid_graph_file,
+):
+    """Regression guard: one zone split into two disconnected areas within a
+    county must count as 2 pieces, not 1 — the bug this metric fixes. VTDs
+    900090 and 900070 are both in Ellis County but not adjacent (confirmed
+    against the real ks_ellis_geos graph), and no other assigned unit bridges
+    them, so the same-zone assignment below must yield 2 connected components."""
+    try:
+        ctx = _create_context(
+            client,
+            session,
+            [
+                ["vtd:20051900090", 1],
+                ["vtd:20051900070", 1],
+            ],
+        )
+        result = county_pieces(ctx)
+        assert result[_KS_ELLIS_COUNTY]["pieces"] == 2
+    finally:
+        _cleanup_county_context()
 
 
 def test_county_pieces_name(three_zone_context):
@@ -174,6 +205,7 @@ def test_county_pieces_cold_cache_shatterable_map(
     session: Session,
     ks_ellis_shatterable_districtr_map,
     gerrydb_ks_ellis_geos_view,
+    mock_grid_graph_file,
 ):
     """county_pieces must work on a cold cache when the map is shatterable.
 
