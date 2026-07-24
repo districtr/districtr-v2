@@ -6,6 +6,7 @@ import pickle
 from app.contiguity.main import (
     check_subgraph_contiguity,
     subgraph_number_connected_components,
+    subgraph_connected_components,
     get_assigned_nodes,
 )
 import app.evaluation.graph as graph
@@ -47,6 +48,21 @@ def test_check_subgraph_number_connected_components(connected_graph):
     assert subgraph_number_connected_components(connected_graph, ["a", "b"]) == 1
     assert subgraph_number_connected_components(connected_graph, ["a"]) == 1
     assert subgraph_number_connected_components(connected_graph, ["a", "c"]) == 2
+
+
+def test_subgraph_connected_components(connected_graph):
+    """Returns each component's node set, not just the count."""
+    components = subgraph_connected_components(connected_graph, ["a", "b", "c", "d"])
+    assert len(components) == 1
+    assert components[0] == {"a", "b", "c", "d"}
+
+    components = subgraph_connected_components(connected_graph, ["a", "c"])
+    assert len(components) == 2
+    assert sorted(components, key=len) == [{"a"}, {"c"}]
+
+    components = subgraph_connected_components(connected_graph, ["a", "b", "d"])
+    assert len(components) == 1
+    assert components[0] == {"a", "b", "d"}
 
 
 def test_load_pkl(connected_graph, tmp_path):

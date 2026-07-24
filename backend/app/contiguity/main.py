@@ -1,4 +1,9 @@
-from networkx import Graph, is_connected, number_connected_components
+from networkx import (
+    Graph,
+    is_connected,
+    number_connected_components,
+    connected_components,
+)
 from typing import Iterable, Hashable, Any
 from app.models import UUIDType, DistrictrMap
 from app.utils import assert_safe_ident
@@ -22,6 +27,19 @@ def subgraph_number_connected_components(
 ) -> int:
     SG = G.subgraph(subgraph_nodes)
     return number_connected_components(SG)
+
+
+def subgraph_connected_components(
+    G: Graph, subgraph_nodes: Iterable[Hashable]
+) -> list[set[Hashable]]:
+    """Partition subgraph_nodes into connected components.
+
+    Unlike subgraph_number_connected_components, returns each component's
+    node set rather than just the count, so callers can aggregate
+    per-component data (e.g. population sums).
+    """
+    SG = G.subgraph(subgraph_nodes)
+    return list(connected_components(SG))
 
 
 def expand_non_contiguous_parents(G: Graph, nodes: Iterable[str]) -> set[str]:
