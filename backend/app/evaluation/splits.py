@@ -58,14 +58,14 @@ def county_pieces(
 
     return {
         county_geoid: CountyPiecesInfo(
-            total_pop=county_data.total_pop[county_geoid],
-            pieces=pieces,
+            total_pop=pop,
+            pieces=county_pieces_count[county_geoid],
             name=COUNTY_CONTEXT.county_name(county_geoid),
             component_populations=county_data.component_populations.get(
                 county_geoid, []
             ),
         )
-        for county_geoid, pieces in county_pieces_count.items()
+        for county_geoid, pop in county_data.total_pop.items()
     }
 
 

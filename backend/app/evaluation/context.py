@@ -430,56 +430,39 @@ class CountyContext:
         return self._name_cache[geoid]
 
     def county_data(
-        self,
-        gerrydb_table_name: GerrydbTableName,
-        session: sqlmodel.Session,
+        self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
     ) -> CountyPopulationData:
-        """Return total_pop and component_populations dicts for `gerrydb_table_name`,
-        in one query/one attempts-check — both come from the same
-        _populate_county_data job and every caller (county_pieces) needs both.
-
-        gerrydb_table_name is the map's own DistrictrMap.gerrydb_table_name — the
-        same identifier graphs are keyed by everywhere else in this codebase, and
-        the only identifier callers need to supply. _populate_county_data resolves
-        the actual aggregation source (parent_layer) internally — see its
-        docstring for why that resolution belongs there rather than being pushed
-        onto every caller.
+        """Return total_pop and component_populations for `gerrydb_table` (the
+        map's own DistrictrMap.gerrydb_table_name — the identifier graphs are
+        keyed by everywhere else in this codebase).
 
         component_populations is the population of each of the county's own
-        connected components (document-independent — see _populate_component_populations).
-        A county missing from that dict (or with an empty list) means the
-        precompute couldn't determine this (e.g. no graph available); callers
+        connected components (document-independent — see
+        _populate_component_populations). A county missing from that dict, or
+        with an empty list, means it's unavailable (e.g. no graph); callers
         should fall back to the single-total ceil(total_pop/ideal_pop) bound.
 
-        Cached after first load (checked via the total_pop cache only — if a
-        caller has pre-seeded `_pop_cache` directly, e.g. in tests,
-        component_populations degrades to {} without an extra DB round trip,
-        consistent with its documented best-effort/fallback contract).
-        Raises ValueError if county data is unavailable. Retried up to
-        MAX_LOAD_ATTEMPTS times before raising.
+        Cached after first load. Raises ValueError if county data is unavailable.
+        Retried up to MAX_LOAD_ATTEMPTS times before raising.
         """
-        if gerrydb_table_name in self._pop_cache:
+        if gerrydb_table in self._pop_cache:
             return CountyPopulationData(
-                total_pop=self._pop_cache[gerrydb_table_name],
-                component_populations=self._component_pop_cache.get(
-                    gerrydb_table_name, {}
-                ),
+                total_pop=self._pop_cache[gerrydb_table],
+                component_populations=self._component_pop_cache.get(gerrydb_table, {}),
             )
-        if self._attempts.get(gerrydb_table_name, 0) >= self.MAX_LOAD_ATTEMPTS:
+        if self._attempts.get(gerrydb_table, 0) >= self.MAX_LOAD_ATTEMPTS:
             raise ValueError(
-                f"County data for '{gerrydb_table_name}' failed to load after "
+                f"County data for '{gerrydb_table}' failed to load after "
                 f"{self.MAX_LOAD_ATTEMPTS} attempts."
             )
-        self._attempts[gerrydb_table_name] = (
-            self._attempts.get(gerrydb_table_name, 0) + 1
-        )
-        self._ensure_county_data(gerrydb_table_name, session)
+        self._attempts[gerrydb_table] = self._attempts.get(gerrydb_table, 0) + 1
+        self._ensure_county_data(gerrydb_table, session)
         rows = session.exec(
             sqlmodel.select(
                 CountyDemographics.geoid,
                 CountyDemographics.total_pop,
                 CountyDemographics.component_populations,
-            ).where(CountyDemographics.gerrydb_table_name == gerrydb_table_name)
+            ).where(CountyDemographics.gerrydb_table_name == gerrydb_table)
         ).all()
         total_pop = {
             CountyGeoid(geoid): int(pop)
@@ -491,111 +474,90 @@ class CountyContext:
             for geoid, _, component_populations in rows
             if geoid and component_populations is not None
         }
-        self._pop_cache[gerrydb_table_name] = total_pop
-        self._component_pop_cache[gerrydb_table_name] = component_pops
+        self._pop_cache[gerrydb_table] = total_pop
+        self._component_pop_cache[gerrydb_table] = component_pops
         return CountyPopulationData(
             total_pop=total_pop, component_populations=component_pops
         )
 
     def ideals_for_eguia(
-        self,
-        gerrydb_table_name: GerrydbTableName,
-        session: sqlmodel.Session,
+        self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
     ) -> dict[ElectionPartyKey, float]:
-        """Return the per-ElectionPartyKey seat share expectation dict for
-        `gerrydb_table_name` (the map's own DistrictrMap.gerrydb_table_name —
-        cache key, and the key evaluation.county_demographics rows are stored
-        under). _populate_county_data resolves the aggregation source
-        (parent_layer) internally.
+        """Return the per-ElectionPartyKey seat share expectation dict for `gerrydb_table`.
+
+        Args:
+            gerrydb_table: Source VTD/block table whose county-level aggregates
+                back the ideal. Used both as the cache key and to populate
+                `evaluation.county_demographics` on first request.
+            session: SQLModel session for any required DB queries.
 
         Raises ValueError if county data is unavailable or malformed. Retried up to
         `MAX_LOAD_ATTEMPTS` times before raising to avoid hammering the DB.
         """
-        if gerrydb_table_name in self._cache:
-            return self._cache[gerrydb_table_name]
-        if self._attempts.get(gerrydb_table_name, 0) >= self.MAX_LOAD_ATTEMPTS:
+        if gerrydb_table in self._cache:
+            return self._cache[gerrydb_table]
+        if self._attempts.get(gerrydb_table, 0) >= self.MAX_LOAD_ATTEMPTS:
             raise ValueError(
-                f"County data for '{gerrydb_table_name}' failed to load after "
+                f"County data for '{gerrydb_table}' failed to load after "
                 f"{self.MAX_LOAD_ATTEMPTS} attempts."
             )
-        self._attempts[gerrydb_table_name] = (
-            self._attempts.get(gerrydb_table_name, 0) + 1
-        )
-        self._ensure_county_data(gerrydb_table_name, session)
-        self._cache[gerrydb_table_name] = self._compute_ideal(
-            gerrydb_table_name, session
-        )
-        return self._cache[gerrydb_table_name]
+        self._attempts[gerrydb_table] = self._attempts.get(gerrydb_table, 0) + 1
+        self._ensure_county_data(gerrydb_table, session)
+        self._cache[gerrydb_table] = self._compute_ideal(gerrydb_table, session)
+        return self._cache[gerrydb_table]
 
     def _ensure_county_data(
-        self,
-        gerrydb_table_name: GerrydbTableName,
-        session: sqlmodel.Session,
+        self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
     ) -> None:
-        """Populate `evaluation.county_demographics` for `gerrydb_table_name`
-        unless at least one row with non-null total_pop AND non-null
+        """Populate `evaluation.county_demographics` for `gerrydb_table` unless
+        at least one row with non-null total_pop AND non-null
         component_populations already exists.
 
-        Requiring total_pop IS NOT NULL (rather than mere row existence) guards
-        against a previous load that inserted rows without population data (e.g.
-        because the gerrydb table lacked total_pop_20). Those rows are present but
-        unusable, so we attempt re-population rather than treating them as a
-        successful prior load. Also requiring component_populations IS NOT NULL
-        backfills rows written before that column existed, or from a run where
-        _populate_component_populations previously raised (e.g. a since-resolved
-        transient graph-fetch failure) — `_populate_component_populations` always
-        either fills in every county for the table or raises, so any single row
-        having both set is a reliable proxy for the whole table being done. Tables
-        that genuinely lack total_pop_20 never satisfy this (total_pop stays NULL
-        for every row), so this doesn't change their existing bounded-retry
-        behavior via `_attempts`.
+        Requiring total_pop IS NOT NULL guards against a previous load that
+        inserted rows without population data (e.g. the table lacked
+        total_pop_20). Requiring component_populations IS NOT NULL backfills
+        rows written before that column existed. Both are checked on the same
+        row since _populate_county_data always fills in both together (when
+        total_pop_20 exists) or raises.
         """
         exists = session.exec(
             sqlmodel.select(CountyDemographics)
-            .where(
-                sqlmodel.col(CountyDemographics.gerrydb_table_name)
-                == gerrydb_table_name
-            )
+            .where(sqlmodel.col(CountyDemographics.gerrydb_table_name) == gerrydb_table)
             .where(sqlmodel.col(CountyDemographics.total_pop).isnot(None))
             .where(sqlmodel.col(CountyDemographics.component_populations).isnot(None))
             .limit(1)
         ).first()
         if not exists:
-            self._populate_county_data(gerrydb_table_name, session)
+            self._populate_county_data(gerrydb_table, session)
 
     def _populate_county_data(
-        self,
-        gerrydb_table_name: GerrydbTableName,
-        session: sqlmodel.Session,
+        self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
     ) -> None:
         """Aggregate unit-level demographics up to county level.
 
         Resolves parent_layer — the actual table to aggregate from — from
-        gerrydb_table_name via the DistrictrMap that registered it. This lookup
-        is deliberate, not just plumbing: it documents and enforces that county
-        population aggregation must always resolve down to a real base layer,
-        never a materialized (shatterable UNION ALL) view — see the relkind
-        guard below.
+        gerrydb_table via the DistrictrMap that registered it, rather than
+        taking it as a parameter: this documents and enforces that county
+        population aggregation must always resolve to a real base layer,
+        never the combined shatterable view (the relkind='r' guard below is
+        what actually prevents the resulting double-counting).
 
         Extracts the county GEOID (first 5 characters) from each row's path,
         handling both colon-prefixed paths (e.g. ``vtd:20051XXXX`` → ``20051``)
-        and bare block paths (e.g. ``200510726002341`` → ``20051``). Rows are
-        stored keyed by gerrydb_table_name (the map's own identifier) but
-        aggregated from parent_layer.
+        and bare block paths (e.g. ``200510726002341`` → ``20051``).
         """
         parent_layer = session.execute(
             sqlalchemy.text(
                 "SELECT parent_layer FROM districtrmap "
-                "WHERE gerrydb_table_name = :gerrydb_table_name "
+                "WHERE gerrydb_table_name = :gerrydb_table "
                 "AND parent_layer IS NOT NULL LIMIT 1"
             ),
-            {"gerrydb_table_name": gerrydb_table_name},
+            {"gerrydb_table": gerrydb_table},
         ).scalar_one_or_none()
         if parent_layer is None:
             raise ValueError(
-                f"No DistrictrMap references gerrydb_table_name "
-                f"'{gerrydb_table_name}'; cannot resolve which table to "
-                f"aggregate county population data from."
+                f"No DistrictrMap references gerrydb_table_name '{gerrydb_table}'; "
+                f"cannot resolve which table to aggregate county population data from."
             )
         safe_table = assert_safe_ident(parent_layer)
 
@@ -614,9 +576,7 @@ class CountyContext:
             raise ValueError(
                 f"_populate_county_data requires a plain table (relkind='r'), "
                 f"got relkind={relkind!r} for parent_layer '{parent_layer}' "
-                f"(resolved from gerrydb_table_name '{gerrydb_table_name}'). "
-                f"The DistrictrMap's parent_layer must be the base table, not "
-                f"the combined shatterable view."
+                f"(resolved from gerrydb_table_name '{gerrydb_table}')."
             )
 
         demo_cols = get_gerrydb_numeric_cols(session, safe_table)
@@ -638,48 +598,37 @@ class CountyContext:
                     WHEN path LIKE '%:%' THEN LEFT(SPLIT_PART(path, ':', 2), 5)
                     ELSE LEFT(path, 5)
                 END AS geoid,
-                :gerrydb_table_name AS gerrydb_table_name,
+                :gerrydb_table AS gerrydb_table_name,
                 {total_pop_expr} AS total_pop,
                 {demographic_json} AS demographic_data
             FROM gerrydb.{safe_table}
             GROUP BY geoid
             ON CONFLICT (geoid, gerrydb_table_name) DO NOTHING
         """
-        session.execute(
-            sqlalchemy.text(insert_sql),
-            {"gerrydb_table_name": gerrydb_table_name},
-        )
+        session.execute(sqlalchemy.text(insert_sql), {"gerrydb_table": gerrydb_table})
         session.commit()
 
         if has_total_pop:
-            self._populate_component_populations(
-                gerrydb_table_name, safe_table, session
-            )
+            self._populate_component_populations(gerrydb_table, safe_table, session)
 
     def _populate_component_populations(
         self,
-        gerrydb_table_name: GerrydbTableName,
+        gerrydb_table: GerrydbTableName,
         safe_table: str,
         session: sqlmodel.Session,
     ) -> None:
         """Populate component_populations: each county's own connected components
         (VTD/parent-unit adjacency only, ignoring any document/assignment) and the
-        population of each. Document-independent — a county that's already several
-        disconnected land pieces (e.g. islands, exclaves) forces at least that many
-        districts regardless of how any plan draws lines.
+        population of each -- document-independent, since a county that's already
+        several disconnected land pieces (islands, exclaves) forces at least that
+        many districts regardless of how any plan draws lines.
 
-        gerrydb_table_name is the same identifier graphs are keyed by everywhere
-        else in this codebase, so no DB lookup is needed to find the graph.
-
-        Graphs are expected to already exist in S3 by the time a gerrydb table is
-        ingested, same as every other caller of get_graph in this codebase (e.g.
-        validity.contiguous, splits.county_pieces) — a missing graph here is a real
-        data problem, not a normal runtime condition, so it raises rather than
-        silently leaving component_populations NULL. Does not expand non-contiguous
-        parents to block children — this is VTD/parent-unit-level connectivity,
-        not the finer sub-VTD connectivity `county_pieces` uses.
+        gerrydb_table is the same identifier graphs are keyed by everywhere else
+        in this codebase, so the graph lookup needs no extra DB round trip. A
+        missing graph raises rather than silently leaving component_populations
+        NULL, matching every other get_graph() call site in this codebase.
         """
-        G = get_graph(gerrydb_table_name)
+        G = get_graph(gerrydb_table)
 
         rows = session.execute(
             sqlalchemy.text(
@@ -699,9 +648,9 @@ class CountyContext:
         county_nodes: dict[str, dict[str, int]] = {}
         for geoid, path, pop in rows:
             # total_pop_20 isn't reliably an integer column across all gerrydb
-            # tables (some store it numeric/float) — coerce so component sums
-            # stay a uniform int, since psycopg's array adapter rejects a
-            # mixed float/int Python list for an ARRAY(Integer) column.
+            # tables (some store it numeric/float) -- coerce so component sums
+            # stay a uniform int, since psycopg's array adapter rejects a mixed
+            # float/int Python list for an ARRAY(Integer) column.
             county_nodes.setdefault(geoid, {})[path] = int(pop or 0)
 
         for geoid, population_by_path in county_nodes.items():
@@ -717,7 +666,7 @@ class CountyContext:
                 {
                     "component_populations": component_populations,
                     "geoid": geoid,
-                    "gerrydb_table": gerrydb_table_name,
+                    "gerrydb_table": gerrydb_table,
                 },
             )
         session.commit()

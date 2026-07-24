@@ -665,22 +665,21 @@ def test_grid_competitiveness_matches_gerrychain(grid_district_context):
 
 # ---------------------------------------------------------------------------
 # Retesting for a past bug: eguia county aggregation must aggregate from
-# parent_layer (VTD base table), not the shatterable UNION ALL materialized
-# view — even though rows are now stored keyed by gerrydb_table_name (which,
-# for a shatterable map, is that same materialized view's name). Aggregating
-# FROM the view would double-count every county because both VTD and block
-# rows resolve to the same 5-char county GEOID; the relkind='r' guard in
-# _populate_county_data (see test_populate_county_data_rejects_materialized_view
-# in test_county_context.py) is what actually prevents that. This test instead
-# guards the caller side: eguia_county must still be threading parent_layer
-# through as the aggregation source, not accidentally passing gerrydb_table_name
-# for both key and source.
+# parent_layer (VTD base table), never the shatterable UNION ALL materialized
+# view, even though rows are now stored keyed by gerrydb_table_name (which,
+# for a shatterable map, is that view's own name) -- aggregating FROM the view
+# would double-count every county. The relkind='r' guard in _populate_county_data
+# (see test_populate_county_data_rejects_materialized_view in
+# test_county_context.py) is what actually prevents that.
 # ---------------------------------------------------------------------------
 
 
 def test_eguia_uses_parent_layer_not_shatterable_view(
     session, gerrydb_ks_ellis_geos_view, ks_ellis_shatterable_districtr_map
 ):
+    """Regression: county_demographics rows must be aggregated from parent_layer
+    (VTD base table), never from the shatterable UNION ALL view, even though
+    both are stored under the same gerrydb_table_name key."""
     parent_layer = GerrydbTableName("ks_ellis_county_vtd")
     shatterable_view = GerrydbTableName("ks_ellis_geos")
 

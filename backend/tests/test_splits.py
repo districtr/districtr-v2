@@ -185,13 +185,14 @@ def test_county_pieces_disconnected_same_zone_counts_as_two(
 def test_county_pieces_raises_on_assigned_county_missing_from_pops(
     three_zone_context,
 ):
-    """An assigned geo_id whose county has no entry in county_pops (e.g. every
-    unit in that county missing total_pop_20, so county_data() filtered it out)
-    is a data-integrity problem, not something to silently skip — county_pieces_count
-    is pre-seeded from county_pops' keys only, so an unrecognized county_geoid
-    raises KeyError rather than being silently ignored.
+    """An assigned geo_id whose county has no entry in total_pop (e.g. every
+    unit in that county missing total_pop_20, so county_data() filtered it
+    out) is a data-integrity problem, not something to silently skip --
+    county_pieces_count is pre-seeded from total_pop's keys only, so an
+    unrecognized county_geoid raises KeyError rather than being silently
+    ignored.
 
-    county_pops must stay non-empty here (otherwise the "not county_pops"
+    total_pop must stay non-empty here (otherwise the "not total_pop"
     early-return short-circuits before this code path is reached) but must
     not contain the Ellis County key the assignments actually resolve to.
     """
