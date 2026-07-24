@@ -233,10 +233,12 @@ def eguia_county(context: DocumentEvaluationContext) -> dict[Election, float]:
         Election Law Journal, 21(1): 84–103. Doi: https://doi.org/10.1089/elj.2020.0691
     """
 
-    # Keyed by parent_layer rather than gerrydb_table_name, since the latter may integrate
-    # both the parent layer and the child layer (e.g. block-level vs. vtd-level), which,
-    # when aggregated, will result in double population counts.
-    ideals = COUNTY_CONTEXT.ideals_for_eguia(context.parent_layer, context.session)
+    # Cached and stored under gerrydb_table_name (the map's own identifier, same
+    # key graphs use). _populate_county_data resolves parent_layer internally and
+    # aggregates from it, never from gerrydb_table_name directly — the latter may
+    # integrate both the parent layer and the child layer (e.g. block-level vs.
+    # vtd-level), which, when aggregated, would double-count population.
+    ideals = COUNTY_CONTEXT.ideals_for_eguia(context.gerrydb_table, context.session)
     return {
         election: (context.dem_seats[election] / context.num_nonempty_districts)
         - ideals.get(ElectionPartyKey(election + "_dem"), 0.0)

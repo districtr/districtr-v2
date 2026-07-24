@@ -160,14 +160,39 @@ def test_populate_county_data_rejects_materialized_view(
 ):
     """_populate_county_data must raise for materialized views.
 
-    The shatterable gerrydb view (ks_ellis_geos) is a UNION ALL of VTD and
-    block rows. Inserting from it would double-count every county.
-    The pg_class.relkind guard must raise rather than silently skip.
+    parent_layer is now resolved internally from a DistrictrMap row rather than
+    passed in directly, so reproducing this bug means registering a
+    deliberately misconfigured map whose parent_layer points at the
+    materialized view itself (ks_ellis_geos, a UNION ALL of VTD and block
+    rows) rather than the real VTD base table — aggregating from it would
+    double-count every county. The pg_class.relkind guard must raise rather
+    than silently skip. A unique gerrydb_table_name avoids colliding with
+    ks_ellis_shatterable_districtr_map's own (correctly-configured) row,
+    which isn't used by this test.
     """
     shatterable_view = GerrydbTableName("ks_ellis_geos")
+    key = GerrydbTableName("misconfigured_ks_ellis")
+
+    session.execute(
+        sqlmodel_text(
+            "INSERT INTO gerrydbtable (uuid, name, updated_at) "
+            "VALUES (gen_random_uuid(), :name, now()) "
+            "ON CONFLICT (name) DO UPDATE SET updated_at = now()"
+        ),
+        {"name": shatterable_view},
+    )
+    create_districtr_map(
+        session,
+        name="Misconfigured map",
+        districtr_map_slug="misconfigured_ks_ellis",
+        gerrydb_table_name=key,
+        parent_layer=shatterable_view,  # wrong on purpose: the view, not the VTD table
+        num_districts=2,
+    )
+    session.commit()
 
     with pytest.raises(ValueError, match="plain table"):
-        CountyContext()._populate_county_data(shatterable_view, session)
+        CountyContext()._populate_county_data(key, session)
 
 
 def test_simple_geos_county_demographics_component_populations(
@@ -179,29 +204,30 @@ def test_simple_geos_county_demographics_component_populations(
     """simple_parent_geos: 3 VTDs (600/900/600 pop), all mutually adjacent in the
     real simple_geos graph, all county "00001" -> one connected component summing
     to total_pop (2100). Confirms the SQL wiring end-to-end; the disconnected-case
-    math itself is covered by the pure unit tests above."""
-    parent_layer = "simple_parent_geos"
+    math itself is covered by the pure unit tests above.
+
+    Stored/keyed by gerrydb_table_name ("simple_geos", the map's own identifier —
+    also the graph's key), aggregated from parent_layer ("simple_parent_geos")."""
+    gerrydb_table_name = "simple_geos"
     try:
-        COUNTY_CONTEXT._populate_county_data(parent_layer, session)
+        COUNTY_CONTEXT._populate_county_data(gerrydb_table_name, session)
 
         row = session.exec(
             select(CountyDemographics).where(
                 CountyDemographics.geoid == "00001",
-                CountyDemographics.gerrydb_table_name == parent_layer,
+                CountyDemographics.gerrydb_table_name == gerrydb_table_name,
             )
         ).one()
 
         assert row.total_pop == 2100
         assert row.component_populations == [2100]
     finally:
-        COUNTY_CONTEXT._pop_cache.pop(parent_layer, None)
-        COUNTY_CONTEXT._attempts.pop(parent_layer, None)
+        COUNTY_CONTEXT._pop_cache.pop(gerrydb_table_name, None)
+        COUNTY_CONTEXT._attempts.pop(gerrydb_table_name, None)
 
 
 def test_populate_county_data_handles_non_integer_total_pop_20(
     session: Session,
-    simple_shatterable_districtr_map,
-    gerrydb_simple_geos_view,
     mock_grid_graph_file,
 ):
     """Regression: real gerrydb tables don't reliably store total_pop_20 as an
@@ -210,11 +236,14 @@ def test_populate_county_data_handles_non_integer_total_pop_20(
     array adapter for the ARRAY(Integer) column ("cannot dump lists of mixed
     types; got: float, int") the first time this ran against real CO data.
 
-    Uses a standalone plain table (not simple_parent_geos directly — that one
-    can't have its column type altered, since simple_geos_view's materialized
-    view depends on it) with the same paths, reusing the real simple_geos
-    graph fixture by pointing a new DistrictrMap's gerrydb_table_name at it.
+    Registers its own DistrictrMap (gerrydb_table_name="simple_geos", to reuse
+    the real simple_geos graph fixture; parent_layer="float_pop_test_table",
+    the synthetic table below) rather than using the simple_shatterable_districtr_map
+    fixture, since that fixture's own row would collide on gerrydb_table_name
+    with a different parent_layer -- ambiguous for the LIMIT 1 resolution in
+    _populate_county_data.
     """
+    gerrydb_table_name = "simple_geos"
     parent_layer = "float_pop_test_table"
     try:
         session.execute(
@@ -243,18 +272,18 @@ def test_populate_county_data_handles_non_integer_total_pop_20(
             session,
             name="Float pop test",
             districtr_map_slug="float_pop_test",
-            gerrydb_table_name="simple_geos",  # reuse the real simple_geos graph fixture
+            gerrydb_table_name=gerrydb_table_name,  # reuse the real simple_geos graph
             parent_layer=parent_layer,
             num_districts=2,
         )
         session.commit()
 
-        COUNTY_CONTEXT._populate_county_data(parent_layer, session)
+        COUNTY_CONTEXT._populate_county_data(gerrydb_table_name, session)
 
         row = session.exec(
             select(CountyDemographics).where(
                 CountyDemographics.geoid == "00001",
-                CountyDemographics.gerrydb_table_name == parent_layer,
+                CountyDemographics.gerrydb_table_name == gerrydb_table_name,
             )
         ).one()
 
@@ -262,19 +291,8 @@ def test_populate_county_data_handles_non_integer_total_pop_20(
         assert all(isinstance(p, int) for p in row.component_populations)
         assert sum(row.component_populations) == row.total_pop
     finally:
-        COUNTY_CONTEXT._pop_cache.pop(parent_layer, None)
-        COUNTY_CONTEXT._attempts.pop(parent_layer, None)
-
-
-def test_populate_component_populations_raises_when_no_districtrmap(
-    session: Session,
-):
-    """No DistrictrMap references this parent_layer at all -> can't resolve a
-    graph name -> raise, not silently skip."""
-    with pytest.raises(ValueError):
-        COUNTY_CONTEXT._populate_component_populations(
-            "no_such_parent_layer", "no_such_parent_layer", session
-        )
+        COUNTY_CONTEXT._pop_cache.pop(gerrydb_table_name, None)
+        COUNTY_CONTEXT._attempts.pop(gerrydb_table_name, None)
 
 
 def test_ensure_county_data_backfills_missing_component_populations(
@@ -285,41 +303,43 @@ def test_ensure_county_data_backfills_missing_component_populations(
 ):
     """A pre-existing row with total_pop set but component_populations still NULL
     (e.g. written before this column existed) gets backfilled on next access,
-    rather than being permanently treated as "already done"."""
-    parent_layer = "simple_parent_geos"
+    rather than being permanently treated as "already done". Keyed by
+    gerrydb_table_name ("simple_geos"), aggregated from parent_layer
+    ("simple_parent_geos") when the backfill runs."""
+    gerrydb_table_name = "simple_geos"
     try:
         session.execute(
             sqlmodel_text(
                 "INSERT INTO evaluation.county_demographics "
                 "(geoid, gerrydb_table_name, total_pop, demographic_data) "
-                "VALUES ('00001', :parent_layer, 2100, '{}') "
+                "VALUES ('00001', :gerrydb_table_name, 2100, '{}') "
                 "ON CONFLICT (geoid, gerrydb_table_name) DO NOTHING"
             ),
-            {"parent_layer": parent_layer},
+            {"gerrydb_table_name": gerrydb_table_name},
         )
         session.commit()
 
         row = session.exec(
             select(CountyDemographics).where(
                 CountyDemographics.geoid == "00001",
-                CountyDemographics.gerrydb_table_name == parent_layer,
+                CountyDemographics.gerrydb_table_name == gerrydb_table_name,
             )
         ).one()
         assert row.component_populations is None  # pre-existing, unbackfilled
 
-        COUNTY_CONTEXT._ensure_county_data(parent_layer, session)
+        COUNTY_CONTEXT._ensure_county_data(gerrydb_table_name, session)
 
         session.expire_all()
         row = session.exec(
             select(CountyDemographics).where(
                 CountyDemographics.geoid == "00001",
-                CountyDemographics.gerrydb_table_name == parent_layer,
+                CountyDemographics.gerrydb_table_name == gerrydb_table_name,
             )
         ).one()
         assert row.component_populations == [2100]
     finally:
-        COUNTY_CONTEXT._pop_cache.pop(parent_layer, None)
-        COUNTY_CONTEXT._attempts.pop(parent_layer, None)
+        COUNTY_CONTEXT._pop_cache.pop(gerrydb_table_name, None)
+        COUNTY_CONTEXT._attempts.pop(gerrydb_table_name, None)
 
 
 def test_county_pieces_includes_component_populations(
@@ -330,8 +350,9 @@ def test_county_pieces_includes_component_populations(
     mock_grid_graph_file,
 ):
     """county_pieces()'s returned CountyPiecesInfo carries component_populations
-    end-to-end (forced-minimum input), independent of pieces/total_pop."""
-    parent_layer = "simple_parent_geos"
+    end-to-end (forced-minimum input), independent of pieces/total_pop. Cached
+    under gerrydb_table_name ("simple_geos"), not parent_layer."""
+    gerrydb_table_name = "simple_geos"
     COUNTY_CONTEXT._name_cache["00001"] = "Test County"
     try:
         resp = client.post(
@@ -354,7 +375,7 @@ def test_county_pieces_includes_component_populations(
         result = county_pieces(ctx)
         assert result["00001"]["component_populations"] == [2100]
     finally:
-        COUNTY_CONTEXT._pop_cache.pop(parent_layer, None)
-        COUNTY_CONTEXT._component_pop_cache.pop(parent_layer, None)
-        COUNTY_CONTEXT._attempts.pop(parent_layer, None)
+        COUNTY_CONTEXT._pop_cache.pop(gerrydb_table_name, None)
+        COUNTY_CONTEXT._component_pop_cache.pop(gerrydb_table_name, None)
+        COUNTY_CONTEXT._attempts.pop(gerrydb_table_name, None)
         COUNTY_CONTEXT._name_cache.pop("00001", None)

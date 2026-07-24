@@ -648,7 +648,7 @@ def test_eguia_raises_once_attempts_exhausted():
     """eguia() raises ValueError once MAX_LOAD_ATTEMPTS is reached without a successful
     ideal computation (e.g. malformed gerrydb table missing total_pop_20)."""
     ctx = _StubEvaluationContext(_GRID_DISTRICT_STATS)
-    ctx.parent_layer = GerrydbTableName(_STUB_TABLE)
+    ctx.gerrydb_table = GerrydbTableName(_STUB_TABLE)
 
     COUNTY_CONTEXT._attempts[_STUB_TABLE] = CountyContext.MAX_LOAD_ATTEMPTS
     try:
@@ -664,18 +664,23 @@ def test_grid_competitiveness_matches_gerrychain(grid_district_context):
 
 
 # ---------------------------------------------------------------------------
-# Retesting for a past bug: eguia county aggregation must use parent_layer (VTD base
-# table), not the shatterable UNION ALL materialized view.
+# Retesting for a past bug: eguia county aggregation must aggregate from
+# parent_layer (VTD base table), not the shatterable UNION ALL materialized
+# view — even though rows are now stored keyed by gerrydb_table_name (which,
+# for a shatterable map, is that same materialized view's name). Aggregating
+# FROM the view would double-count every county because both VTD and block
+# rows resolve to the same 5-char county GEOID; the relkind='r' guard in
+# _populate_county_data (see test_populate_county_data_rejects_materialized_view
+# in test_county_context.py) is what actually prevents that. This test instead
+# guards the caller side: eguia_county must still be threading parent_layer
+# through as the aggregation source, not accidentally passing gerrydb_table_name
+# for both key and source.
 # ---------------------------------------------------------------------------
 
 
 def test_eguia_uses_parent_layer_not_shatterable_view(
     session, gerrydb_ks_ellis_geos_view, ks_ellis_shatterable_districtr_map
 ):
-    """Regression: county_demographics must be keyed by parent_layer (VTD base
-    table), never by the shatterable UNION ALL view. Aggregating the view would
-    double-count every county because both VTD and block rows resolve to the
-    same 5-char county GEOID."""
     parent_layer = GerrydbTableName("ks_ellis_county_vtd")
     shatterable_view = GerrydbTableName("ks_ellis_geos")
 
@@ -708,23 +713,26 @@ def test_eguia_uses_parent_layer_not_shatterable_view(
         except ValueError:
             pass  # Computation may fail if county data lacks election columns; side effects are what matter.
 
-        parent_rows = session.exec(
-            sqlmodel.select(CountyDemographics).where(
-                CountyDemographics.gerrydb_table_name == parent_layer
-            )
-        ).all()
-        assert (
-            len(parent_rows) > 0
-        ), "county_demographics must be populated from parent_layer (VTD base table)"
-
+        # Rows are stored keyed by gerrydb_table_name (the map's own identifier,
+        # "ks_ellis_geos" for this shatterable map) -- never by the bare
+        # parent_layer string, which is only ever the aggregation SOURCE.
         view_rows = session.exec(
             sqlmodel.select(CountyDemographics).where(
                 CountyDemographics.gerrydb_table_name == shatterable_view
             )
         ).all()
         assert (
-            len(view_rows) == 0
-        ), "county_demographics must not be populated from a materialized view"
+            len(view_rows) > 0
+        ), "county_demographics must be keyed by gerrydb_table_name"
+
+        parent_rows = session.exec(
+            sqlmodel.select(CountyDemographics).where(
+                CountyDemographics.gerrydb_table_name == parent_layer
+            )
+        ).all()
+        assert (
+            len(parent_rows) == 0
+        ), "county_demographics must never be keyed by the bare parent_layer string"
     finally:
         for key in [parent_layer, shatterable_view]:
             COUNTY_CONTEXT._cache.pop(key, None)

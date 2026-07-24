@@ -38,7 +38,7 @@ def county_pieces(
     The number of counties split into two or more pieces can be easily derived from this
     mapping by counting the number of counties where `actual_split_pieces` is 2 or more.
     """
-    county_data = COUNTY_CONTEXT.county_data(context.parent_layer, context.session)
+    county_data = COUNTY_CONTEXT.county_data(context.gerrydb_table, context.session)
     if not county_data.total_pop:
         return {}
 

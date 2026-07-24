@@ -27,7 +27,11 @@ from app.evaluation.context import (
 from app.evaluation.splits import county_pieces
 
 
-_KS_ELLIS_TABLE = GerrydbTableName("ks_ellis_county_vtd")
+_KS_ELLIS_PARENT_LAYER = GerrydbTableName("ks_ellis_county_vtd")
+# The map's own gerrydb_table_name — the shatterable combined view for this
+# map, and (post-refactor) the CountyContext cache/lookup key. Distinct from
+# _KS_ELLIS_PARENT_LAYER, which is only ever the SQL aggregation source.
+_KS_ELLIS_TABLE = GerrydbTableName("ks_ellis_geos")
 _KS_ELLIS_COUNTY = CountyGeoid("20051")
 _KS_ELLIS_TOTAL_POP = 30000
 _KS_ELLIS_IDEAL_POP = 10000
@@ -59,14 +63,16 @@ _SINGLE_ZONE_ASSIGNMENTS = [
 
 
 class _StubSplitsContext(DocumentEvaluationContext):
-    """Real-session context that injects gerrydb_table and ideal_population directly,
-    bypassing the DB lookups for those cached properties."""
+    """Real-session context that injects parent_layer and ideal_population directly,
+    bypassing the DB lookup for parent_layer (gerrydb_table still resolves for real
+    via _districtr_map, since the tests using this stub always create a real
+    document first)."""
 
     def __init__(
         self,
         session,
         document_id,
-        parent_layer=_KS_ELLIS_TABLE,
+        parent_layer=_KS_ELLIS_PARENT_LAYER,
         ideal_population=_KS_ELLIS_IDEAL_POP,
     ):
         super().__init__(
@@ -217,25 +223,29 @@ def test_county_pieces_population(three_zone_context):
     assert result[_KS_ELLIS_COUNTY]["total_pop"] == _KS_ELLIS_TOTAL_POP
 
 
-# ── Retesting for old bug: cold cache + shatterable map ──────────────────────────────
-def test_county_pieces_cold_cache_shatterable_map(
+# ── Retesting for old bug: shatterable map's aggregation source ──────────────
+def test_county_pieces_shatterable_map(
     client,
     session: Session,
     ks_ellis_shatterable_districtr_map,
     gerrydb_ks_ellis_geos_view,
     mock_grid_graph_file,
 ):
-    """county_pieces must work on a cold cache when the map is shatterable.
+    """county_pieces must work correctly on a shatterable map.
 
-    The old bug: county_pieces passes context.gerrydb_table (the combined
-    materialized view, relkind='m') to county_data, which trips the
-    relkind != 'r' guard in _populate_county_data.
+    The old bug: county_pieces passed context.gerrydb_table (the combined
+    materialized view, relkind='m') straight through as the aggregation
+    source, tripping the relkind != 'r' guard in _populate_county_data.
+    county_data now takes only gerrydb_table_name (the cache key);
+    _populate_county_data resolves the actual aggregation source
+    (parent_layer) itself from the registered DistrictrMap, so the wrong
+    table can no longer be threaded through by a caller mistake. This test
+    is mostly a sanity check that a correctly-configured shatterable map
+    still works end-to-end — the guard itself has its own dedicated test
+    in test_county_context.py.
     """
-    _KS_ELLIS_PARENT_LAYER = GerrydbTableName("ks_ellis_county_vtd")
     _cleanup_county_context()
-    COUNTY_CONTEXT._pop_cache[_KS_ELLIS_PARENT_LAYER] = {
-        _KS_ELLIS_COUNTY: _KS_ELLIS_TOTAL_POP
-    }
+    COUNTY_CONTEXT._pop_cache[_KS_ELLIS_TABLE] = {_KS_ELLIS_COUNTY: _KS_ELLIS_TOTAL_POP}
     COUNTY_CONTEXT._name_cache.update(_COUNTY_NAMES)
     try:
         resp = client.post(
@@ -250,7 +260,7 @@ def test_county_pieces_cold_cache_shatterable_map(
         result = county_pieces(ctx)
         assert result[_KS_ELLIS_COUNTY]["pieces"] == 3
     finally:
-        COUNTY_CONTEXT._pop_cache.pop(_KS_ELLIS_PARENT_LAYER, None)
+        _cleanup_county_context()
         COUNTY_CONTEXT._attempts.pop(_KS_ELLIS_PARENT_LAYER, None)
 
 

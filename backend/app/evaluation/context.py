@@ -430,11 +430,20 @@ class CountyContext:
         return self._name_cache[geoid]
 
     def county_data(
-        self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
+        self,
+        gerrydb_table_name: GerrydbTableName,
+        session: sqlmodel.Session,
     ) -> CountyPopulationData:
-        """Return total_pop and component_populations dicts for `gerrydb_table`,
+        """Return total_pop and component_populations dicts for `gerrydb_table_name`,
         in one query/one attempts-check — both come from the same
         _populate_county_data job and every caller (county_pieces) needs both.
+
+        gerrydb_table_name is the map's own DistrictrMap.gerrydb_table_name — the
+        same identifier graphs are keyed by everywhere else in this codebase, and
+        the only identifier callers need to supply. _populate_county_data resolves
+        the actual aggregation source (parent_layer) internally — see its
+        docstring for why that resolution belongs there rather than being pushed
+        onto every caller.
 
         component_populations is the population of each of the county's own
         connected components (document-independent — see _populate_component_populations).
@@ -449,24 +458,28 @@ class CountyContext:
         Raises ValueError if county data is unavailable. Retried up to
         MAX_LOAD_ATTEMPTS times before raising.
         """
-        if gerrydb_table in self._pop_cache:
+        if gerrydb_table_name in self._pop_cache:
             return CountyPopulationData(
-                total_pop=self._pop_cache[gerrydb_table],
-                component_populations=self._component_pop_cache.get(gerrydb_table, {}),
+                total_pop=self._pop_cache[gerrydb_table_name],
+                component_populations=self._component_pop_cache.get(
+                    gerrydb_table_name, {}
+                ),
             )
-        if self._attempts.get(gerrydb_table, 0) >= self.MAX_LOAD_ATTEMPTS:
+        if self._attempts.get(gerrydb_table_name, 0) >= self.MAX_LOAD_ATTEMPTS:
             raise ValueError(
-                f"County data for '{gerrydb_table}' failed to load after "
+                f"County data for '{gerrydb_table_name}' failed to load after "
                 f"{self.MAX_LOAD_ATTEMPTS} attempts."
             )
-        self._attempts[gerrydb_table] = self._attempts.get(gerrydb_table, 0) + 1
-        self._ensure_county_data(gerrydb_table, session)
+        self._attempts[gerrydb_table_name] = (
+            self._attempts.get(gerrydb_table_name, 0) + 1
+        )
+        self._ensure_county_data(gerrydb_table_name, session)
         rows = session.exec(
             sqlmodel.select(
                 CountyDemographics.geoid,
                 CountyDemographics.total_pop,
                 CountyDemographics.component_populations,
-            ).where(CountyDemographics.gerrydb_table_name == gerrydb_table)
+            ).where(CountyDemographics.gerrydb_table_name == gerrydb_table_name)
         ).all()
         total_pop = {
             CountyGeoid(geoid): int(pop)
@@ -478,44 +491,50 @@ class CountyContext:
             for geoid, _, component_populations in rows
             if geoid and component_populations is not None
         }
-        self._pop_cache[gerrydb_table] = total_pop
-        self._component_pop_cache[gerrydb_table] = component_pops
+        self._pop_cache[gerrydb_table_name] = total_pop
+        self._component_pop_cache[gerrydb_table_name] = component_pops
         return CountyPopulationData(
             total_pop=total_pop, component_populations=component_pops
         )
 
     def ideals_for_eguia(
-        self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
+        self,
+        gerrydb_table_name: GerrydbTableName,
+        session: sqlmodel.Session,
     ) -> dict[ElectionPartyKey, float]:
-        """Return the per-ElectionPartyKey seat share expectation dict for `gerrydb_table`.
-
-        Args:
-            gerrydb_table: Source VTD/block table whose county-level aggregates
-                back the ideal. Used both as the cache key and to populate
-                `evaluation.county_demographics` on first request.
-            session: SQLModel session for any required DB queries.
+        """Return the per-ElectionPartyKey seat share expectation dict for
+        `gerrydb_table_name` (the map's own DistrictrMap.gerrydb_table_name —
+        cache key, and the key evaluation.county_demographics rows are stored
+        under). _populate_county_data resolves the aggregation source
+        (parent_layer) internally.
 
         Raises ValueError if county data is unavailable or malformed. Retried up to
         `MAX_LOAD_ATTEMPTS` times before raising to avoid hammering the DB.
         """
-        if gerrydb_table in self._cache:
-            return self._cache[gerrydb_table]
-        if self._attempts.get(gerrydb_table, 0) >= self.MAX_LOAD_ATTEMPTS:
+        if gerrydb_table_name in self._cache:
+            return self._cache[gerrydb_table_name]
+        if self._attempts.get(gerrydb_table_name, 0) >= self.MAX_LOAD_ATTEMPTS:
             raise ValueError(
-                f"County data for '{gerrydb_table}' failed to load after "
+                f"County data for '{gerrydb_table_name}' failed to load after "
                 f"{self.MAX_LOAD_ATTEMPTS} attempts."
             )
-        self._attempts[gerrydb_table] = self._attempts.get(gerrydb_table, 0) + 1
-        self._ensure_county_data(gerrydb_table, session)
-        self._cache[gerrydb_table] = self._compute_ideal(gerrydb_table, session)
-        return self._cache[gerrydb_table]
+        self._attempts[gerrydb_table_name] = (
+            self._attempts.get(gerrydb_table_name, 0) + 1
+        )
+        self._ensure_county_data(gerrydb_table_name, session)
+        self._cache[gerrydb_table_name] = self._compute_ideal(
+            gerrydb_table_name, session
+        )
+        return self._cache[gerrydb_table_name]
 
     def _ensure_county_data(
-        self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
+        self,
+        gerrydb_table_name: GerrydbTableName,
+        session: sqlmodel.Session,
     ) -> None:
-        """Populate `evaluation.county_demographics` for `gerrydb_table` unless at
-        least one row with non-null total_pop AND non-null component_populations
-        already exists.
+        """Populate `evaluation.county_demographics` for `gerrydb_table_name`
+        unless at least one row with non-null total_pop AND non-null
+        component_populations already exists.
 
         Requiring total_pop IS NOT NULL (rather than mere row existence) guards
         against a previous load that inserted rows without population data (e.g.
@@ -533,49 +552,78 @@ class CountyContext:
         """
         exists = session.exec(
             sqlmodel.select(CountyDemographics)
-            .where(sqlmodel.col(CountyDemographics.gerrydb_table_name) == gerrydb_table)
+            .where(
+                sqlmodel.col(CountyDemographics.gerrydb_table_name)
+                == gerrydb_table_name
+            )
             .where(sqlmodel.col(CountyDemographics.total_pop).isnot(None))
             .where(sqlmodel.col(CountyDemographics.component_populations).isnot(None))
             .limit(1)
         ).first()
         if not exists:
-            self._populate_county_data(gerrydb_table, session)
+            self._populate_county_data(gerrydb_table_name, session)
 
     def _populate_county_data(
-        self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
+        self,
+        gerrydb_table_name: GerrydbTableName,
+        session: sqlmodel.Session,
     ) -> None:
         """Aggregate unit-level demographics up to county level.
 
+        Resolves parent_layer — the actual table to aggregate from — from
+        gerrydb_table_name via the DistrictrMap that registered it. This lookup
+        is deliberate, not just plumbing: it documents and enforces that county
+        population aggregation must always resolve down to a real base layer,
+        never a materialized (shatterable UNION ALL) view — see the relkind
+        guard below.
+
         Extracts the county GEOID (first 5 characters) from each row's path,
         handling both colon-prefixed paths (e.g. ``vtd:20051XXXX`` → ``20051``)
-        and bare block paths (e.g. ``200510726002341`` → ``20051``).
+        and bare block paths (e.g. ``200510726002341`` → ``20051``). Rows are
+        stored keyed by gerrydb_table_name (the map's own identifier) but
+        aggregated from parent_layer.
         """
-        safe_table = assert_safe_ident(gerrydb_table)
+        parent_layer = session.execute(
+            sqlalchemy.text(
+                "SELECT parent_layer FROM districtrmap "
+                "WHERE gerrydb_table_name = :gerrydb_table_name "
+                "AND parent_layer IS NOT NULL LIMIT 1"
+            ),
+            {"gerrydb_table_name": gerrydb_table_name},
+        ).scalar_one_or_none()
+        if parent_layer is None:
+            raise ValueError(
+                f"No DistrictrMap references gerrydb_table_name "
+                f"'{gerrydb_table_name}'; cannot resolve which table to "
+                f"aggregate county population data from."
+            )
+        safe_table = assert_safe_ident(parent_layer)
 
         # Must be a plain table (relkind='r'). Materialized views created by
         # create_shatterable_gerrydb_view are UNION ALL of parent + child layers;
         # aggregating them up to county level would double-count every row.
-        # Callers must pass the plain parent layer, not the combined view.
         relkind = session.execute(
             sqlalchemy.text(
                 "SELECT relkind FROM pg_class "
                 "JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid "
                 "WHERE relname = :name AND nspname = 'gerrydb'"
             ),
-            {"name": gerrydb_table},
+            {"name": parent_layer},
         ).scalar_one_or_none()
         if relkind != "r":
             raise ValueError(
                 f"_populate_county_data requires a plain table (relkind='r'), "
-                f"got relkind={relkind!r} for '{gerrydb_table}'. "
-                f"Pass the parent layer table, not the combined shatterable view."
+                f"got relkind={relkind!r} for parent_layer '{parent_layer}' "
+                f"(resolved from gerrydb_table_name '{gerrydb_table_name}'). "
+                f"The DistrictrMap's parent_layer must be the base table, not "
+                f"the combined shatterable view."
             )
 
         demo_cols = get_gerrydb_numeric_cols(session, safe_table)
 
         if not demo_cols:
             raise ValueError(
-                f"No numeric columns found in gerrydb table '{gerrydb_table}'. "
+                f"No numeric columns found in gerrydb table '{parent_layer}'. "
                 f"The table may not have been ingested with demographic data."
             )
         json_pairs = [f"'{col}', SUM({col})" for col in demo_cols]
@@ -590,22 +638,27 @@ class CountyContext:
                     WHEN path LIKE '%:%' THEN LEFT(SPLIT_PART(path, ':', 2), 5)
                     ELSE LEFT(path, 5)
                 END AS geoid,
-                :gerrydb_table AS gerrydb_table_name,
+                :gerrydb_table_name AS gerrydb_table_name,
                 {total_pop_expr} AS total_pop,
                 {demographic_json} AS demographic_data
             FROM gerrydb.{safe_table}
             GROUP BY geoid
             ON CONFLICT (geoid, gerrydb_table_name) DO NOTHING
         """
-        session.execute(sqlalchemy.text(insert_sql), {"gerrydb_table": gerrydb_table})
+        session.execute(
+            sqlalchemy.text(insert_sql),
+            {"gerrydb_table_name": gerrydb_table_name},
+        )
         session.commit()
 
         if has_total_pop:
-            self._populate_component_populations(gerrydb_table, safe_table, session)
+            self._populate_component_populations(
+                gerrydb_table_name, safe_table, session
+            )
 
     def _populate_component_populations(
         self,
-        gerrydb_table: GerrydbTableName,
+        gerrydb_table_name: GerrydbTableName,
         safe_table: str,
         session: sqlmodel.Session,
     ) -> None:
@@ -615,6 +668,9 @@ class CountyContext:
         disconnected land pieces (e.g. islands, exclaves) forces at least that many
         districts regardless of how any plan draws lines.
 
+        gerrydb_table_name is the same identifier graphs are keyed by everywhere
+        else in this codebase, so no DB lookup is needed to find the graph.
+
         Graphs are expected to already exist in S3 by the time a gerrydb table is
         ingested, same as every other caller of get_graph in this codebase (e.g.
         validity.contiguous, splits.county_pieces) — a missing graph here is a real
@@ -623,21 +679,7 @@ class CountyContext:
         parents to block children — this is VTD/parent-unit-level connectivity,
         not the finer sub-VTD connectivity `county_pieces` uses.
         """
-        graph_name = session.execute(
-            sqlalchemy.text(
-                "SELECT gerrydb_table_name FROM districtrmap "
-                "WHERE parent_layer = :parent_layer AND gerrydb_table_name IS NOT NULL "
-                "LIMIT 1"
-            ),
-            {"parent_layer": gerrydb_table},
-        ).scalar_one_or_none()
-        if graph_name is None:
-            raise ValueError(
-                f"No DistrictrMap references parent_layer '{gerrydb_table}'; "
-                f"cannot resolve which graph to use for component_populations."
-            )
-
-        G = get_graph(GerrydbTableName(graph_name))
+        G = get_graph(gerrydb_table_name)
 
         rows = session.execute(
             sqlalchemy.text(
@@ -675,7 +717,7 @@ class CountyContext:
                 {
                     "component_populations": component_populations,
                     "geoid": geoid,
-                    "gerrydb_table": gerrydb_table,
+                    "gerrydb_table": gerrydb_table_name,
                 },
             )
         session.commit()
