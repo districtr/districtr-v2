@@ -355,6 +355,12 @@ class DocumentEvaluationContext:
         return unit_to_zone, parent_unit_to_zone
 
 
+@dataclasses.dataclass(frozen=True)
+class CountyPopulationData:
+    total_pop: dict[CountyGeoid, int]
+    component_populations: dict[CountyGeoid, list[int]]
+
+
 @dataclasses.dataclass
 class CountyContext:
     """A singleton lookup of per-gerrydb-table Eguia ideals, which are compared to the
@@ -423,53 +429,31 @@ class CountyContext:
             self._name_cache = self._load_county_names()
         return self._name_cache[geoid]
 
-    def county_populations(
+    def county_data(
         self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
-    ) -> dict[CountyGeoid, int]:
-        """Return a {county_geoid: total_pop} dict for `gerrydb_table`.
-
-        Cached after first load. Raises ValueError if county data is unavailable.
-        Retried up to MAX_LOAD_ATTEMPTS times before raising.
-        """
-        if gerrydb_table in self._pop_cache:
-            return self._pop_cache[gerrydb_table]
-        if self._attempts.get(gerrydb_table, 0) >= self.MAX_LOAD_ATTEMPTS:
-            raise ValueError(
-                f"County data for '{gerrydb_table}' failed to load after "
-                f"{self.MAX_LOAD_ATTEMPTS} attempts."
-            )
-        self._attempts[gerrydb_table] = self._attempts.get(gerrydb_table, 0) + 1
-        self._ensure_county_data(gerrydb_table, session)
-        rows = session.exec(
-            sqlmodel.select(
-                CountyDemographics.geoid, CountyDemographics.total_pop
-            ).where(CountyDemographics.gerrydb_table_name == gerrydb_table)
-        ).all()
-        pops = {
-            CountyGeoid(geoid): int(total_pop)
-            for geoid, total_pop in rows
-            if geoid and total_pop is not None
-        }
-        self._pop_cache[gerrydb_table] = pops
-        return pops
-
-    def county_component_populations(
-        self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
-    ) -> dict[CountyGeoid, list[int]]:
-        """Return a {county_geoid: component_populations} dict for `gerrydb_table`.
+    ) -> CountyPopulationData:
+        """Return total_pop and component_populations dicts for `gerrydb_table`,
+        in one query/one attempts-check — both come from the same
+        _populate_county_data job and every caller (county_pieces) needs both.
 
         component_populations is the population of each of the county's own
         connected components (document-independent — see _populate_component_populations).
-        A county missing from the result (or with an empty list) means the
+        A county missing from that dict (or with an empty list) means the
         precompute couldn't determine this (e.g. no graph available); callers
         should fall back to the single-total ceil(total_pop/ideal_pop) bound.
 
-        Cached after first load. Raises ValueError if county data is unavailable.
-        Retried up to MAX_LOAD_ATTEMPTS times before raising (same gate as
-        county_populations, since both are populated by the same job).
+        Cached after first load (checked via the total_pop cache only — if a
+        caller has pre-seeded `_pop_cache` directly, e.g. in tests,
+        component_populations degrades to {} without an extra DB round trip,
+        consistent with its documented best-effort/fallback contract).
+        Raises ValueError if county data is unavailable. Retried up to
+        MAX_LOAD_ATTEMPTS times before raising.
         """
-        if gerrydb_table in self._component_pop_cache:
-            return self._component_pop_cache[gerrydb_table]
+        if gerrydb_table in self._pop_cache:
+            return CountyPopulationData(
+                total_pop=self._pop_cache[gerrydb_table],
+                component_populations=self._component_pop_cache.get(gerrydb_table, {}),
+            )
         if self._attempts.get(gerrydb_table, 0) >= self.MAX_LOAD_ATTEMPTS:
             raise ValueError(
                 f"County data for '{gerrydb_table}' failed to load after "
@@ -479,16 +463,26 @@ class CountyContext:
         self._ensure_county_data(gerrydb_table, session)
         rows = session.exec(
             sqlmodel.select(
-                CountyDemographics.geoid, CountyDemographics.component_populations
+                CountyDemographics.geoid,
+                CountyDemographics.total_pop,
+                CountyDemographics.component_populations,
             ).where(CountyDemographics.gerrydb_table_name == gerrydb_table)
         ).all()
+        total_pop = {
+            CountyGeoid(geoid): int(pop)
+            for geoid, pop, _ in rows
+            if geoid and pop is not None
+        }
         component_pops = {
             CountyGeoid(geoid): list(component_populations)
-            for geoid, component_populations in rows
+            for geoid, _, component_populations in rows
             if geoid and component_populations is not None
         }
+        self._pop_cache[gerrydb_table] = total_pop
         self._component_pop_cache[gerrydb_table] = component_pops
-        return component_pops
+        return CountyPopulationData(
+            total_pop=total_pop, component_populations=component_pops
+        )
 
     def ideals_for_eguia(
         self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session

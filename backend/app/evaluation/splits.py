@@ -38,24 +38,16 @@ def county_pieces(
     The number of counties split into two or more pieces can be easily derived from this
     mapping by counting the number of counties where `actual_split_pieces` is 2 or more.
     """
-    county_pops: dict[CountyGeoid, int] = COUNTY_CONTEXT.county_populations(
-        context.parent_layer, context.session
-    )
+    county_data = COUNTY_CONTEXT.county_data(context.parent_layer, context.session)
+    county_pops = county_data.total_pop
     if not county_pops:
         return {}
-
-    county_component_pops: dict[CountyGeoid, list[int]] = (
-        COUNTY_CONTEXT.county_component_populations(
-            context.parent_layer, context.session
-        )
-    )
+    county_component_pops = county_data.component_populations
 
     G = get_graph(context.gerrydb_table)
     county_zone_nodes: dict[tuple[CountyGeoid, int], set[str]] = {}
     for geo_id, zone in context.zone_assignments:
         county_geoid = _geo_id_to_county_geoid(geo_id)
-        if county_geoid not in county_pops:
-            continue
         county_zone_nodes.setdefault((county_geoid, zone), set()).add(geo_id)
 
     county_pieces_count: dict[CountyGeoid, int] = dict.fromkeys(county_pops, 0)

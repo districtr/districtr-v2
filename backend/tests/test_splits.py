@@ -176,6 +176,24 @@ def test_county_pieces_disconnected_same_zone_counts_as_two(
         _cleanup_county_context()
 
 
+def test_county_pieces_raises_on_assigned_county_missing_from_pops(
+    three_zone_context,
+):
+    """An assigned geo_id whose county has no entry in county_pops (e.g. every
+    unit in that county missing total_pop_20, so county_data() filtered it out)
+    is a data-integrity problem, not something to silently skip — county_pieces_count
+    is pre-seeded from county_pops' keys only, so an unrecognized county_geoid
+    raises KeyError rather than being silently ignored.
+
+    county_pops must stay non-empty here (otherwise the "not county_pops"
+    early-return short-circuits before this code path is reached) but must
+    not contain the Ellis County key the assignments actually resolve to.
+    """
+    COUNTY_CONTEXT._pop_cache[_KS_ELLIS_TABLE] = {_KS_PHANTOM_COUNTY: 5000}
+    with pytest.raises(KeyError):
+        county_pieces(three_zone_context)
+
+
 def test_county_pieces_name(three_zone_context):
     """name field is the Census county name."""
     result = county_pieces(three_zone_context)
@@ -210,7 +228,7 @@ def test_county_pieces_cold_cache_shatterable_map(
     """county_pieces must work on a cold cache when the map is shatterable.
 
     The old bug: county_pieces passes context.gerrydb_table (the combined
-    materialized view, relkind='m') to county_populations, which trips the
+    materialized view, relkind='m') to county_data, which trips the
     relkind != 'r' guard in _populate_county_data.
     """
     _KS_ELLIS_PARENT_LAYER = GerrydbTableName("ks_ellis_county_vtd")
@@ -282,7 +300,7 @@ def test_county_pieces_raises_when_attempts_exhausted(
     ks_ellis_shatterable_districtr_map,
     gerrydb_ks_ellis_geos_view,
 ):
-    """Raises ValueError when county_populations has exhausted all load attempts."""
+    """Raises ValueError when county_data has exhausted all load attempts."""
     resp = client.post(
         "/api/create_document", json={"districtr_map_slug": "ks_ellis_geos"}
     )
