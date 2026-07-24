@@ -11,6 +11,7 @@ import {
 } from '@radix-ui/themes';
 import {useMapStore} from '../../store/mapStore';
 import {useMapControlsStore} from '../../store/mapControlsStore';
+import {useToolbarStore} from '../../store/toolbarStore';
 import {useAssignmentsStore} from '../../store/assignmentsStore';
 import {ColorPicker} from './ColorPicker';
 import {
@@ -28,6 +29,7 @@ export const DistrictsZonePicker: React.FC = () => {
   const selectedZone = useMapControlsStore(state => state.selectedZone);
   const setSelectedZone = useMapControlsStore(state => state.setSelectedZone);
   const access = useMapStore(state => state.mapStatus?.access);
+  const superDraw = useToolbarStore(state => state.superDraw);
   const mapDocument = useMapStore(state => state.mapDocument);
   const setNumDistricts = useMapStore(state => state.setNumDistricts);
   const removeAssignmentsForZonesAbove = useAssignmentsStore(
@@ -108,6 +110,9 @@ export const DistrictsZonePicker: React.FC = () => {
       width="100%"
     >
       <Flex direction="column" gap="2">
+        {/* The district count and its editor are Super Draw features; plain
+            Draw shows just the color pips. */}
+        {superDraw && (
         <Flex align="center" gap="2">
           <Text size="2" weight="medium">
             Number of districts:
@@ -173,7 +178,13 @@ export const DistrictsZonePicker: React.FC = () => {
             </>
           )}
         </Flex>
-        <ColorPicker onValueChange={handleRadioChange} defaultValue={0} value={selectedZone - 1} />
+        )}
+        <ColorPicker
+          onValueChange={handleRadioChange}
+          defaultValue={0}
+          value={selectedZone - 1}
+          pipsOnly={!superDraw}
+        />
       </Flex>
       <AlertDialog.Root
         open={pendingDecrease !== null}
