@@ -1,7 +1,7 @@
 'use client';
 import React, {useState} from 'react';
 import {Box, Flex, IconButton, Text, Tooltip} from '@radix-ui/themes';
-import {LockClosedIcon, LockOpen2Icon} from '@radix-ui/react-icons';
+import {CheckIcon, LockClosedIcon, LockOpen2Icon} from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useToolbarStore} from '@store/toolbarStore';
@@ -24,6 +24,20 @@ const ROW_SCROLL_THRESHOLD = 10;
 // visibly cross it: the red excess segment past the tick shows how far over a
 // district is (up to 1/IDEAL_TICK = 125% of ideal before clamping).
 const IDEAL_TICK = 0.8;
+// Within this share of ideal a district counts as balanced and its row earns
+// a green check — the per-row "correct guess" moment.
+const BALANCED_TOLERANCE = 0.01;
+// A playful spring so bars visibly *land* when population changes.
+const BAR_SPRING = 'width 350ms cubic-bezier(0.34, 1.56, 0.64, 1)';
+// Wordle green, roughly; Radix grass-9 keeps it on-palette.
+const SUCCESS_COLOR = 'var(--grass-9)';
+
+// Scoreboard-style stat labels: small caps, wide tracking.
+const STAT_LABEL_STYLE: React.CSSProperties = {
+  textTransform: 'uppercase',
+  letterSpacing: '0.08em',
+  fontSize: 11,
+};
 
 // Unicode minus to match the tabular figures.
 const signedNumber = (value: number) =>
@@ -69,6 +83,12 @@ export const DistrictMeters = () => {
         }, 0)
       : undefined;
   const unassigned = summaryStats?.unassigned;
+  const allAssigned = unassigned === 0;
+  const allBalanced =
+    maxDeviation !== undefined &&
+    !!idealPopulation &&
+    Math.abs(maxDeviation / idealPopulation) <= BALANCED_TOLERANCE;
+  const planComplete = allAssigned && allBalanced;
 
   const handleLockChange = (zone: number) => {
     if (lockPaintedAreas.includes(zone)) {
@@ -98,6 +118,11 @@ export const DistrictMeters = () => {
                     deviation < 0 ? '−' : '+'
                   }${formatNumber(Math.abs(deviation / idealPopulation), NUMBER_FORMATS.PERCENT)})`
                 : `District ${d.zone}`;
+            const balanced =
+              population > 0 &&
+              deviation !== undefined &&
+              !!idealPopulation &&
+              Math.abs(deviation / idealPopulation) <= BALANCED_TOLERANCE;
             return (
               <Flex
                 key={d.zone}
@@ -158,7 +183,7 @@ export const DistrictMeters = () => {
                           width: `${Math.min(1, fill) * IDEAL_TICK * 100}%`,
                           height: '100%',
                           background: color,
-                          transition: 'width 150ms ease',
+                          transition: BAR_SPRING,
                         }}
                       />
                       {/* Population past ideal crosses the tick in black. */}
@@ -171,7 +196,7 @@ export const DistrictMeters = () => {
                             bottom: 0,
                             width: `${(Math.min(fill, 1 / IDEAL_TICK) - 1) * IDEAL_TICK * 100}%`,
                             background: 'var(--gray-12)',
-                            transition: 'width 150ms ease',
+                            transition: BAR_SPRING,
                           }}
                         />
                       )}
@@ -193,18 +218,26 @@ export const DistrictMeters = () => {
                     />
                   </Box>
                 </Tooltip>
-                <Text
-                  size="2"
-                  color={overfull ? 'red' : 'gray'}
-                  style={{
-                    width: POP_COL_WIDTH,
-                    textAlign: 'right',
-                    flexShrink: 0,
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
+                {/* Balanced rows earn a green check — the per-row "got it"
+                    moment. */}
+                <Flex
+                  align="center"
+                  justify="end"
+                  gap="1"
+                  style={{width: POP_COL_WIDTH, flexShrink: 0}}
                 >
-                  {formatNumber(population, NUMBER_FORMATS.STRING)}
-                </Text>
+                  {balanced && <CheckIcon style={{color: SUCCESS_COLOR}} width={14} height={14} />}
+                  <Text
+                    size="2"
+                    color={overfull ? 'red' : 'gray'}
+                    style={{
+                      fontVariantNumeric: 'tabular-nums',
+                      ...(balanced ? {color: SUCCESS_COLOR, fontWeight: 600} : {}),
+                    }}
+                  >
+                    {formatNumber(population, NUMBER_FORMATS.STRING)}
+                  </Text>
+                </Flex>
               </Flex>
             );
           })}
@@ -216,7 +249,8 @@ export const DistrictMeters = () => {
         total={populationData.length}
         hiddenCount={hiddenCount}
       />
-      {/* Plan-wide status: two stat blocks under the chart. */}
+      {/* Plan-wide scoreboard: two stat blocks under the chart, turning green
+          as each goal is met, with a quiet completion line when both are. */}
       <Flex
         gap="4"
         px="1"
@@ -226,22 +260,44 @@ export const DistrictMeters = () => {
         style={{borderTop: '1px solid var(--gray-4)'}}
       >
         <Flex direction="column">
-          <Text size="1" color="gray">
+          <Text color="gray" style={STAT_LABEL_STYLE}>
             Unassigned
           </Text>
-          <Text size="4" weight="bold" style={{fontVariantNumeric: 'tabular-nums'}}>
+          <Text
+            size="4"
+            weight="bold"
+            style={{
+              fontVariantNumeric: 'tabular-nums',
+              ...(allAssigned ? {color: SUCCESS_COLOR} : {}),
+            }}
+          >
             {unassigned !== undefined ? formatNumber(unassigned, NUMBER_FORMATS.STRING) : '—'}
           </Text>
         </Flex>
         <Flex direction="column" align="end">
-          <Text size="1" color="gray">
+          <Text color="gray" style={STAT_LABEL_STYLE}>
             Max deviation
           </Text>
-          <Text size="4" weight="bold" style={{fontVariantNumeric: 'tabular-nums'}}>
+          <Text
+            size="4"
+            weight="bold"
+            style={{
+              fontVariantNumeric: 'tabular-nums',
+              ...(allBalanced ? {color: SUCCESS_COLOR} : {}),
+            }}
+          >
             {maxDeviation !== undefined ? signedNumber(maxDeviation) : '—'}
           </Text>
         </Flex>
       </Flex>
+      {planComplete && (
+        <Flex align="center" justify="center" gap="1" pt="2">
+          <CheckIcon style={{color: SUCCESS_COLOR}} />
+          <Text size="1" weight="medium" style={{color: SUCCESS_COLOR}}>
+            Every person assigned, every district balanced
+          </Text>
+        </Flex>
+      )}
     </Flex>
   );
 };

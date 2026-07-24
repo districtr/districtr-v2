@@ -168,7 +168,7 @@ export const DataCards: React.FC = () => {
   return (
     <Flex direction="column" gap="2" data-testid="data-panels">
       <Tabs.Root value={activeTab} onValueChange={setTab}>
-        <Tabs.List>
+        <Tabs.List justify="center">
           {visibleSections.map(section => (
             <Tabs.Trigger key={section.key} value={section.key}>
               {section.label}
