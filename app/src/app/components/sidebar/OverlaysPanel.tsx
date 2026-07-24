@@ -95,9 +95,6 @@ export const OverlaysPanel = () => {
 
   return (
     <Flex gap="3" direction="column">
-      <Flex justify="end" align="center">
-        <OverlayMetadataModal />
-      </Flex>
       {paintConstraint && (
         <Button variant="outline" color="orange" onClick={clearPaintConstraint}>
           <Flex justify="between" align="center" gap="2">
@@ -180,6 +177,7 @@ export const OverlaysPanel = () => {
 
       {/* Remaining boundaries (metro areas, school districts, tribal areas) */}
       {otherOverlays.map(renderOverlayRow)}
+      <OverlayMetadataModal />
     </Flex>
   );
 };

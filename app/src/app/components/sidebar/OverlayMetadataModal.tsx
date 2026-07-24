@@ -1,15 +1,6 @@
 'use client';
 import React, {useState} from 'react';
-import {
-  Dialog,
-  Flex,
-  Text,
-  Heading,
-  Separator,
-  Spinner,
-  Callout,
-  IconButton,
-} from '@radix-ui/themes';
+import {Button, Dialog, Flex, Text, Heading, Separator, Spinner, Callout} from '@radix-ui/themes';
 import {InfoCircledIcon, Cross2Icon} from '@radix-ui/react-icons';
 import {useMapStore} from '@/app/store/mapStore';
 import {fastUniqBy} from '@/app/utils/arrays';
@@ -155,16 +146,16 @@ export const OverlayMetadataModal: React.FC = () => {
   return (
     <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Trigger>
-        <IconButton
-          variant="ghost"
+        <Button
+          variant="surface"
           color="gray"
           size="1"
           className="cursor-pointer"
-          title="About these boundaries"
-          aria-label="About these boundaries"
+          style={{alignSelf: 'start'}}
         >
           <InfoCircledIcon />
-        </IconButton>
+          About these boundaries
+        </Button>
       </Dialog.Trigger>
       <Dialog.Content className="max-w-[500px]">
         <Flex align="start" justify="between">

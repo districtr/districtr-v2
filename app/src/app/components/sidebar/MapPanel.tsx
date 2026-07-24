@@ -262,7 +262,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   // heatmap switches mutually exclusive.
   const heatmapOn = demographicDisplayMode !== undefined && !!mapVariableConfig;
   const heatmapLabel =
-    columnGroup === 'VOTERHISTORY' ? 'Show election heatmap' : 'Show population heatmap';
+    columnGroup === 'VOTERHISTORY' ? 'Show election data layer' : 'Show population data layer';
 
   return (
     <Flex direction="column">
