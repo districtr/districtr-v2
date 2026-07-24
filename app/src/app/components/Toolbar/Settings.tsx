@@ -120,10 +120,6 @@ export const ToolSettings: React.FC = () => {
               : '',
           ]}
         >
-          <Heading as="h3" weight="bold" size="3">
-            Map Options
-          </Heading>
-
           {superDraw && (
             <Flex direction="row" gapX="2" align="center">
               <Text size="2" className="p-0">
@@ -236,12 +232,13 @@ export const ToolSettings: React.FC = () => {
             </Button>
           )}
         </CheckboxGroup.Root>
-        {overlayGroups.length > 0 && (
+        {/* Plain Draw controls the choropleth from the Demographics/Elections
+            heatmap switches in the same tab; this quick picker would duplicate
+            them, so it's Super Draw only. */}
+        {superDraw && overlayGroups.length > 0 && (
           <>
             <Heading as="h3" weight="bold" size="3">
-              {/* Super Draw can show the choropleth as overlay OR comparison,
-                  so "overlay" would be a misnomer there. */}
-              {superDraw ? 'Map choropleth layer' : 'Map overlay layer'}
+              Map choropleth layer
             </Heading>
             <SegmentedControl.Root
               size="1"

@@ -19,6 +19,10 @@ interface UiHintStore {
   validationTabRequest: ValidationTab | null;
   requestValidationTab: (tab: ValidationTab) => void;
   clearValidationTabRequest: () => void;
+  /** Consumed (and cleared) by DataCards to switch the sidebar tab. */
+  sidebarTabRequest: string | null;
+  requestSidebarTab: (tab: string) => void;
+  clearSidebarTabRequest: () => void;
   /** Consumed (and cleared) by the matching TabbedSummaryPanel to switch its
    * Table / Map Layer tab. */
   summaryTabRequest: SummaryTabRequest | null;
@@ -42,6 +46,9 @@ export const useUiHintStore = create<UiHintStore>(set => ({
   validationTabRequest: null,
   requestValidationTab: tab => set({validationTabRequest: tab}),
   clearValidationTabRequest: () => set({validationTabRequest: null}),
+  sidebarTabRequest: null,
+  requestSidebarTab: tab => set({sidebarTabRequest: tab}),
+  clearSidebarTabRequest: () => set({sidebarTabRequest: null}),
   summaryTabRequest: null,
   requestSummaryTab: request => set({summaryTabRequest: request}),
   clearSummaryTabRequest: () => set({summaryTabRequest: null}),

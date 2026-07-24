@@ -1,6 +1,6 @@
 'use client';
 import React, {useState} from 'react';
-import {Box, Flex, IconButton, Text, Tooltip} from '@radix-ui/themes';
+import {Box, Button, Flex, IconButton, Text, Tooltip} from '@radix-ui/themes';
 import {CheckIcon, LockClosedIcon, LockOpen2Icon} from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
@@ -13,6 +13,8 @@ import {ZoneDescriptionPopover} from './ZoneDescriptionPopover';
 import {ConditionalScrollArea} from '../ConditionalScrollArea';
 import {ShowAllDistrictsButton} from '../ShowAllDistrictsButton';
 import {formatNumber} from '@utils/numbers';
+import InfoTip from '@components/InfoTip';
+import {useUiHintStore} from '@store/uiHintStore';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {ACCESS_STATES} from '@constants/document/state';
 
@@ -56,17 +58,23 @@ export const DistrictMeters = () => {
   const selectedZone = useMapControlsStore(state => state.selectedZone);
   const lockPaintedAreas = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);
   const setLockedZones = useMapControlsStore(state => state.setLockedZones);
+  const higlightUnassigned = useMapControlsStore(
+    state => state.mapOptions.higlightUnassigned ?? false
+  );
+  const setMapOptions = useMapControlsStore(state => state.setMapOptions);
+  const requestSidebarTab = useUiHintStore(state => state.requestSidebarTab);
+  const requestValidationTab = useUiHintStore(state => state.requestValidationTab);
   const isEditing = useMapControlsStore(state => state.isEditing);
   const superDraw = useToolbarStore(state => state.superDraw);
   const access = useMapStore(state => state.mapStatus?.access);
   const getZoneColor = useZoneColorGetter();
   const selectCommunity = useSelectCommunity();
 
-  // Unstarted districts stay hidden by default so the overview matches what's
-  // actually on the map — except in small plans (<10 districts), where all
-  // bars fit comfortably and default to visible. Null = no explicit choice.
+  // Plain Draw always shows every district's bar. Super Draw hides unstarted
+  // districts by default (small plans still default to all); null = no
+  // explicit choice.
   const [showAllOverride, setShowAllOverride] = useState<boolean | null>(null);
-  const showAll = showAllOverride ?? populationData.length < 10;
+  const showAll = !superDraw || (showAllOverride ?? populationData.length < 10);
   const startedData = populationData.filter(d => (d.total_pop_20 ?? 0) > 0);
   const visibleData = showAll ? populationData : startedData;
   const hiddenCount = populationData.length - startedData.length;
@@ -98,8 +106,34 @@ export const DistrictMeters = () => {
     }
   };
 
+  const handleFindUnassigned = () => {
+    requestValidationTab('Completeness');
+    requestSidebarTab('evaluation');
+  };
+
   return (
     <Flex direction="column" gap="0" mt="2">
+      {/* The ideal population, labeled where its line crosses the bars. */}
+      {!!idealPopulation && (
+        <Flex gap="1" px="1" pb="1">
+          <Box flexGrow="1" style={{position: 'relative', height: 16}}>
+            <Text
+              size="1"
+              color="gray"
+              style={{
+                position: 'absolute',
+                left: `${IDEAL_TICK * 100}%`,
+                bottom: 0,
+                transform: 'translateX(-50%)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Ideal {formatNumber(idealPopulation, NUMBER_FORMATS.STRING)}
+            </Text>
+          </Box>
+          <Box style={{width: POP_COL_WIDTH, flexShrink: 0}} />
+        </Flex>
+      )}
       <ConditionalScrollArea
         shouldUseScrollableRows={visibleData.length > ROW_SCROLL_THRESHOLD}
         maxHeight="60vh"
@@ -243,12 +277,14 @@ export const DistrictMeters = () => {
           })}
         </Flex>
       </ConditionalScrollArea>
-      <ShowAllDistrictsButton
-        showAll={showAll}
-        onToggle={() => setShowAllOverride(!showAll)}
-        total={populationData.length}
-        hiddenCount={hiddenCount}
-      />
+      {superDraw && (
+        <ShowAllDistrictsButton
+          showAll={showAll}
+          onToggle={() => setShowAllOverride(!showAll)}
+          total={populationData.length}
+          hiddenCount={hiddenCount}
+        />
+      )}
       {/* Plan-wide scoreboard: two stat blocks under the chart, turning green
           as each goal is met, with a quiet completion line when both are. */}
       <Flex
@@ -273,11 +309,34 @@ export const DistrictMeters = () => {
           >
             {unassigned !== undefined ? formatNumber(unassigned, NUMBER_FORMATS.STRING) : '—'}
           </Text>
+          {!allAssigned && isEditing && (
+            <Flex gap="3" mt="1">
+              <Button
+                size="1"
+                variant="ghost"
+                onClick={() => setMapOptions({higlightUnassigned: !higlightUnassigned})}
+                style={{fontWeight: 600}}
+              >
+                {higlightUnassigned ? 'Hide on map' : 'Show on map'}
+              </Button>
+              <Button
+                size="1"
+                variant="ghost"
+                onClick={handleFindUnassigned}
+                style={{fontWeight: 600}}
+              >
+                Find areas →
+              </Button>
+            </Flex>
+          )}
         </Flex>
         <Flex direction="column" align="end">
-          <Text color="gray" style={STAT_LABEL_STYLE}>
-            Max deviation
-          </Text>
+          <Flex align="center" gap="0">
+            <Text color="gray" style={STAT_LABEL_STYLE}>
+              Max deviation
+            </Text>
+            <InfoTip tips="maxDeviation" />
+          </Flex>
           <Text
             size="4"
             weight="bold"

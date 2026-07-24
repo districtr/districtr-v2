@@ -6,7 +6,9 @@ import PopulationPanel from './PopulationPanel';
 import OverlaysPanel from './OverlaysPanel';
 import {MapValidation} from './MapValidation/MapValidation';
 import {SummaryPanel} from './SummaryPanel';
+import {ToolSettings} from '../Toolbar/Settings';
 import {useMapControlsStore} from '@store/mapControlsStore';
+import {useUiHintStore} from '@store/uiHintStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {SUMMARY_TYPES} from '@constants/demography/summary';
 
@@ -55,7 +57,7 @@ const DataLayerSection: React.FC<{label: string; children: React.ReactNode}> = (
       <button
         onClick={() => setOpen(o => !o)}
         aria-expanded={open}
-        className="w-full cursor-pointer text-left py-2 rounded transition-colors hover:bg-[var(--gray-2)]"
+        className="w-full cursor-pointer text-left px-2 py-2 rounded transition-colors hover:bg-[var(--gray-2)]"
       >
         <Flex align="center" justify="between">
           <Text size="2" weight="medium">
@@ -98,6 +100,10 @@ const DataLayersPanel: React.FC = () => {
           />
         </DataLayerSection>
       )}
+      {/* The old Visual settings popover contents live here now. */}
+      <DataLayerSection label="Map options">
+        <ToolSettings />
+      </DataLayerSection>
     </Flex>
   );
 };
@@ -164,6 +170,16 @@ export const DataCards: React.FC = () => {
   const [tab, setTab] = useState(SECTIONS[0].key);
   // Mode switches can hide the current tab; fall back to the first visible one.
   const activeTab = visibleSections.some(s => s.key === tab) ? tab : visibleSections[0].key;
+  // One-shot tab request from other panels (e.g. "Find unassigned" jumps to
+  // the Evaluation tab's completeness check).
+  const sidebarTabRequest = useUiHintStore(state => state.sidebarTabRequest);
+  const clearSidebarTabRequest = useUiHintStore(state => state.clearSidebarTabRequest);
+  useEffect(() => {
+    if (sidebarTabRequest) {
+      setTab(sidebarTabRequest);
+      clearSidebarTabRequest();
+    }
+  }, [sidebarTabRequest, clearSidebarTabRequest]);
 
   return (
     <Flex direction="column" gap="2" data-testid="data-panels">
