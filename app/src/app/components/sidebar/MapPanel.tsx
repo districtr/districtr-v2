@@ -295,17 +295,45 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
       ) : (
         // Plain Draw: one on/off switch per data group. Turning one on claims
         // the (single) choropleth for that group, so the other switch turns off.
-        <Text as="label" size="2" weight="medium">
-          <Flex gap="2" align="center">
-            <Switch
-              checked={heatmapOn}
-              onCheckedChange={checked =>
-                handleSetMapMode(checked ? DEMOGRAPHIC_MODES.OVERLAY : undefined)
+        <Flex direction="column" gap="2">
+          <Text as="label" size="2" weight="medium">
+            <Flex gap="2" align="center">
+              <Switch
+                checked={heatmapOn}
+                onCheckedChange={checked =>
+                  handleSetMapMode(checked ? DEMOGRAPHIC_MODES.OVERLAY : undefined)
+                }
+              />
+              {heatmapLabel}
+            </Flex>
+          </Text>
+          {heatmapOn && (
+            <SegmentedControl.Root
+              size="1"
+              value={
+                demographicDisplayMode === DEMOGRAPHIC_MODES.SIZED_CIRCLES ? 'circles' : 'heatmap'
               }
-            />
-            {heatmapLabel}
-          </Flex>
-        </Text>
+              onValueChange={v =>
+                handleSetMapMode(
+                  v === 'circles' ? DEMOGRAPHIC_MODES.SIZED_CIRCLES : DEMOGRAPHIC_MODES.OVERLAY
+                )
+              }
+            >
+              <SegmentedControl.Item value="heatmap">
+                <Flex align="center" gap="1">
+                  <ShadowInnerIcon />
+                  Heatmap
+                </Flex>
+              </SegmentedControl.Item>
+              <SegmentedControl.Item value="circles">
+                <Flex align="center" gap="1">
+                  <CircleIcon />
+                  Sized circles
+                </Flex>
+              </SegmentedControl.Item>
+            </SegmentedControl.Root>
+          )}
+        </Flex>
       )}
       {demographicDisplayMode !== undefined && (superDraw || heatmapOn) && (
         <>
