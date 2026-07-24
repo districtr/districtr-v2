@@ -119,16 +119,7 @@ const ZoneNumbersLayer = () => {
   const colorScheme = useColorScheme();
   const mapDocumentId = useMapStore(state => state.mapDocument?.document_id);
   const getMapRef = useMapStore(state => state.getMapRef);
-  const zoneLockedAreas = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);
-  const lockAssignedAreas = useMapControlsStore(
-    state => state.mapOptions.lockAssignedAreas ?? false
-  );
-  const numDistricts = useMapStore(state => state.mapDocument?.num_districts ?? 0);
-  // Freeze mode reads as "every painted district is locked": swap all zone
-  // number labels for lock icons.
-  const lockedAreas = lockAssignedAreas
-    ? Array.from({length: numDistricts}, (_, i) => i + 1)
-    : zoneLockedAreas;
+  const lockedAreas = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);
   const [zoneNumberData, setZoneNumberData] =
     useState<GeoJSON.FeatureCollection>(EMPTY_FT_COLLECTION);
   const mapRenderingState = useMapStore(state => state.mapRenderingState);
