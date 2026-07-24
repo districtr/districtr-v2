@@ -49,8 +49,10 @@ export const DistrictMeters = () => {
   const selectCommunity = useSelectCommunity();
 
   // Unstarted districts stay hidden by default so the overview matches what's
-  // actually on the map.
-  const [showAll, setShowAll] = useState(false);
+  // actually on the map — except in small plans (<10 districts), where all
+  // bars fit comfortably and default to visible. Null = no explicit choice.
+  const [showAllOverride, setShowAllOverride] = useState<boolean | null>(null);
+  const showAll = showAllOverride ?? populationData.length < 10;
   const startedData = populationData.filter(d => (d.total_pop_20 ?? 0) > 0);
   const visibleData = showAll ? populationData : startedData;
   const hiddenCount = populationData.length - startedData.length;
@@ -139,7 +141,7 @@ export const DistrictMeters = () => {
                 {/* District number and exact deviation live in the hover
                     tooltip; the bar's color and tick carry the story. */}
                 <Tooltip content={tooltip}>
-                  <Box flexGrow="1" style={{height: 8, position: 'relative'}}>
+                  <Box flexGrow="1" style={{height: 16, position: 'relative'}}>
                     {/* Track clips the fills; the tick renders outside it so it
                       can overhang the bar's height. */}
                     <Box
@@ -174,16 +176,16 @@ export const DistrictMeters = () => {
                         />
                       )}
                     </Box>
-                    {/* Per-row segment of the shared ideal line. The ±12px
+                    {/* Per-row segment of the shared ideal line. The ±8px
                         overhang bridges the gap to the neighboring rows' bars.
-                        ponytail: 12 = (32px row rhythm − 8px bar) / 2; if row
+                        ponytail: 8 = (32px row rhythm − 16px bar) / 2; if row
                         height changes the line gets gaps or overlap. */}
                     <Box
                       style={{
                         position: 'absolute',
                         left: `${IDEAL_TICK * 100}%`,
-                        top: -12,
-                        bottom: -12,
+                        top: -8,
+                        bottom: -8,
                         width: 2,
                         marginLeft: -1,
                         background: 'var(--gray-a6)',
@@ -210,7 +212,7 @@ export const DistrictMeters = () => {
       </ConditionalScrollArea>
       <ShowAllDistrictsButton
         showAll={showAll}
-        onToggle={() => setShowAll(!showAll)}
+        onToggle={() => setShowAllOverride(!showAll)}
         total={populationData.length}
         hiddenCount={hiddenCount}
       />
