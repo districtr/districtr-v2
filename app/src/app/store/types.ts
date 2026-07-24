@@ -11,6 +11,9 @@ export type DistrictrMapOptions = {
   highlightBrokenDistricts?: boolean;
   higlightUnassigned?: boolean;
   lockPaintedAreas: Array<NullableZone>;
+  /** Freeze mode: every already-assigned area is protected from re-assignment,
+   * regardless of which district it belongs to (unlike per-zone locks above). */
+  lockAssignedAreas?: boolean;
   mode: 'default' | 'break';
   showZoneNumbers?: boolean;
   paintByCounty?: boolean;

@@ -55,6 +55,11 @@ export const filterFeatures = ({
     filterFunctions.push(f => captiveIds.has(f.id?.toString() || ''));
   }
   if (filterLocked) {
+    // Freeze mode: anything already assigned to a district is untouchable,
+    // regardless of which district — only unassigned areas can be painted.
+    if (mapOptions.lockAssignedAreas && mapMode === MAP_MODES.DISTRICTS) {
+      filterFunctions.push(f => !zoneAssignments.get(f.id?.toString() || ''));
+    }
     if (activeTool === ACTIVE_TOOLS.BRUSH && mapOptions.lockPaintedAreas.includes(selectedZone)) {
       return [];
     } else if (mapOptions.lockPaintedAreas.length) {

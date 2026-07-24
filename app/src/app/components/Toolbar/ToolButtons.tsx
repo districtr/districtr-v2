@@ -2,6 +2,7 @@
 import {Flex, IconButton, Kbd, Text} from '@radix-ui/themes';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import {useMapControlsStore} from '@store/mapControlsStore';
+import {useToolbarStore} from '@store/toolbarStore';
 import React from 'react';
 import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
 import {useActiveTools} from '@/app/components/Toolbar/ToolUtils';
@@ -22,6 +23,9 @@ export const ToolButtons: React.FC<{
 }> = ({showShortcuts}) => {
   const activeTool = useMapControlsStore(state => state.activeTool);
   const setActiveTool = useMapControlsStore(state => state.setActiveTool);
+  // Shortcut previews (corner hotkey + alt-reveal tooltips) are Super Draw
+  // only; the hotkeys themselves still work in plain Draw.
+  const showHotkeyHints = useToolbarStore(state => state.superDraw);
   const activeTools = useActiveTools();
   const mainTools = activeTools.filter(tool => !HISTORY_TOOLS.includes(tool.mode));
   const historyTools = activeTools.filter(tool => HISTORY_TOOLS.includes(tool.mode));
@@ -60,7 +64,7 @@ export const ToolButtons: React.FC<{
         disabled={tool.disabled}
       >
         {/* Single-key shortcuts float in the button's top-right corner. */}
-        {singleKey && (
+        {singleKey && showHotkeyHints && (
           <Kbd
             size="1"
             style={{
@@ -90,7 +94,7 @@ export const ToolButtons: React.FC<{
     );
     // Buttons name themselves (label + corner hotkey), so only chorded shortcuts
     // (⌘Z) need a tooltip — and only while Alt reveals shortcuts, never on hover.
-    if (singleKey) return button;
+    if (singleKey || !showHotkeyHints) return button;
     return (
       <Tooltip.Provider key={tool.mode}>
         <Tooltip.Root open={showShortcuts}>
