@@ -36,8 +36,10 @@ export const PasswordPromptModal = () => {
       setPasswordPrompt(false);
       // A cancelled unlock abandons any requested draw mode.
       useToolbarStore.getState().setPendingSuperDraw(null);
-      // remove pw from url
-      router.replace(window.location.pathname);
+      // remove pw from url, keeping other params (e.g. private_edit_id)
+      const url = new URL(window.location.href);
+      url.searchParams.delete('pw');
+      router.replace(url.pathname + url.search);
     } else if (mapDocument?.public_id && password) {
       setIsLoading(true);
       setError(null);

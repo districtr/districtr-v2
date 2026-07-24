@@ -3,6 +3,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import {createMapDocument} from '@/app/utils/api/apiHandlers/createMapDocument';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 import {routeManager} from '@/app/utils/map/mapUrlRoute';
+import {editPath} from '@/app/utils/map/editUrl';
 import {MAP_TYPES} from '@constants/document/types';
 import {MAP_ROUTES} from '@constants/document/routes';
 import {Button} from '@radix-ui/themes';
@@ -32,7 +33,11 @@ export const CreateButton: React.FC<{
       }).then(r => {
         if (r.ok) {
           router.push(
-            `/${shouldMakeCommunity ? MAP_ROUTES.COI : MAP_ROUTES.DISTRICTS}/edit/${r.response.document_id}`
+            editPath(
+              shouldMakeCommunity ? MAP_ROUTES.COI : MAP_ROUTES.DISTRICTS,
+              r.response.document_id,
+              r.response.public_id
+            )
           );
         } else {
           setNotification({
