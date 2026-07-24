@@ -34,6 +34,7 @@ from app.evaluation.context import (
 )
 from app.evaluation.models import CountyDemographics
 from app.evaluation.splits import county_pieces
+from app.utils import create_districtr_map
 
 _STUB_TABLE = GerrydbTableName("test_table")
 
@@ -192,6 +193,74 @@ def test_simple_geos_county_demographics_component_populations(
 
         assert row.total_pop == 2100
         assert row.component_populations == [2100]
+    finally:
+        COUNTY_CONTEXT._pop_cache.pop(parent_layer, None)
+        COUNTY_CONTEXT._attempts.pop(parent_layer, None)
+
+
+def test_populate_county_data_handles_non_integer_total_pop_20(
+    session: Session,
+    simple_shatterable_districtr_map,
+    gerrydb_simple_geos_view,
+    mock_grid_graph_file,
+):
+    """Regression: real gerrydb tables don't reliably store total_pop_20 as an
+    integer column (some are numeric/float). Mixing float total_pop_20 values
+    with the int 0 fallback (for a NULL row) in one Python list broke psycopg's
+    array adapter for the ARRAY(Integer) column ("cannot dump lists of mixed
+    types; got: float, int") the first time this ran against real CO data.
+
+    Uses a standalone plain table (not simple_parent_geos directly — that one
+    can't have its column type altered, since simple_geos_view's materialized
+    view depends on it) with the same paths, reusing the real simple_geos
+    graph fixture by pointing a new DistrictrMap's gerrydb_table_name at it.
+    """
+    parent_layer = "float_pop_test_table"
+    try:
+        session.execute(
+            sqlmodel_text(
+                "CREATE TABLE gerrydb.float_pop_test_table "
+                "(path TEXT PRIMARY KEY, total_pop_20 DOUBLE PRECISION)"
+            )
+        )
+        session.execute(
+            sqlmodel_text(
+                "INSERT INTO gerrydb.float_pop_test_table (path, total_pop_20) VALUES "
+                "('vtd:000010000001', 600), "
+                "('vtd:000010000002', 900), "
+                "('vtd:000010000003', NULL)"
+            )
+        )
+        session.execute(
+            sqlmodel_text(
+                "INSERT INTO gerrydbtable (uuid, name, updated_at) "
+                "VALUES (gen_random_uuid(), :name, now()) "
+                "ON CONFLICT (name) DO UPDATE SET updated_at = now()"
+            ),
+            {"name": parent_layer},
+        )
+        create_districtr_map(
+            session,
+            name="Float pop test",
+            districtr_map_slug="float_pop_test",
+            gerrydb_table_name="simple_geos",  # reuse the real simple_geos graph fixture
+            parent_layer=parent_layer,
+            num_districts=2,
+        )
+        session.commit()
+
+        COUNTY_CONTEXT._populate_county_data(parent_layer, session)
+
+        row = session.exec(
+            select(CountyDemographics).where(
+                CountyDemographics.geoid == "00001",
+                CountyDemographics.gerrydb_table_name == parent_layer,
+            )
+        ).one()
+
+        assert row.component_populations is not None
+        assert all(isinstance(p, int) for p in row.component_populations)
+        assert sum(row.component_populations) == row.total_pop
     finally:
         COUNTY_CONTEXT._pop_cache.pop(parent_layer, None)
         COUNTY_CONTEXT._attempts.pop(parent_layer, None)

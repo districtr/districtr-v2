@@ -656,7 +656,11 @@ class CountyContext:
 
         county_nodes: dict[str, dict[str, int]] = {}
         for geoid, path, pop in rows:
-            county_nodes.setdefault(geoid, {})[path] = pop or 0
+            # total_pop_20 isn't reliably an integer column across all gerrydb
+            # tables (some store it numeric/float) — coerce so component sums
+            # stay a uniform int, since psycopg's array adapter rejects a
+            # mixed float/int Python list for an ARRAY(Integer) column.
+            county_nodes.setdefault(geoid, {})[path] = int(pop or 0)
 
         for geoid, population_by_path in county_nodes.items():
             component_populations = component_populations_for_nodes(
