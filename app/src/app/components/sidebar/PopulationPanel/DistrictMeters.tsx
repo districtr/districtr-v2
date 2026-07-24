@@ -18,8 +18,10 @@ import {ACCESS_STATES} from '@constants/document/state';
 
 // Rows show just the number; "District" lives in the column header.
 const LABEL_COL_WIDTH = 52;
+// DEV_COL_WIDTH only aligns the footer aggregates now; the per-row deviation
+// column moved into a hover tooltip on the bar.
 const DEV_COL_WIDTH = 84;
-const POP_COL_WIDTH = 76;
+const POP_COL_WIDTH = 84;
 // A district reads as overfull once it passes ideal population by 5%.
 const OVERFULL_RATIO = 1.05;
 const ROW_SCROLL_THRESHOLD = 10;
@@ -125,16 +127,9 @@ export const DistrictMeters = () => {
         <Text
           size="1"
           color="gray"
-          style={{width: DEV_COL_WIDTH, textAlign: 'right', flexShrink: 0}}
-        >
-          Vs. ideal
-        </Text>
-        <Text
-          size="1"
-          color="gray"
           style={{width: POP_COL_WIDTH, textAlign: 'right', flexShrink: 0}}
         >
-          People
+          Population
         </Text>
       </Flex>
       <ConditionalScrollArea
@@ -148,6 +143,14 @@ export const DistrictMeters = () => {
             const overfull = fill > OVERFULL_RATIO;
             const color = getZoneColor(d.zone);
             const locked = lockPaintedAreas.includes(d.zone);
+            const deviation = idealPopulation ? population - idealPopulation : undefined;
+            const deviationLabel =
+              deviation !== undefined && idealPopulation
+                ? `${signedNumber(deviation)} vs. ideal (${deviation < 0 ? '−' : '+'}${formatNumber(
+                    Math.abs(deviation / idealPopulation),
+                    NUMBER_FORMATS.PERCENT
+                  )})`
+                : undefined;
             return (
               <Flex
                 key={d.zone}
@@ -196,70 +199,62 @@ export const DistrictMeters = () => {
                     </Tooltip>
                   </Flex>
                 )}
-                <Box flexGrow="1" style={{height: 8, position: 'relative'}}>
-                  {/* Track clips the fills; the tick renders outside it so it
+                {/* Exact deviation lives in a hover tooltip; the bar and tick
+                    carry the story visually. */}
+                <Tooltip content={deviationLabel ?? ''} hidden={!deviationLabel}>
+                  <Box flexGrow="1" style={{height: 8, position: 'relative'}}>
+                    {/* Track clips the fills; the tick renders outside it so it
                       can overhang the bar's height. */}
-                  <Box
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      borderRadius: 99,
-                      background: 'var(--gray-a4)',
-                      overflow: 'hidden',
-                    }}
-                  >
                     <Box
                       style={{
-                        width: `${Math.min(1, fill) * IDEAL_TICK * 100}%`,
-                        height: '100%',
-                        background: color,
-                        transition: 'width 150ms ease',
+                        position: 'absolute',
+                        inset: 0,
+                        borderRadius: 99,
+                        background: 'var(--gray-a4)',
+                        overflow: 'hidden',
                       }}
-                    />
-                    {/* Population past ideal crosses the tick in red. */}
-                    {fill > 1 && (
+                    >
                       <Box
                         style={{
-                          position: 'absolute',
-                          left: `${IDEAL_TICK * 100}%`,
-                          top: 0,
-                          bottom: 0,
-                          width: `${(Math.min(fill, 1 / IDEAL_TICK) - 1) * IDEAL_TICK * 100}%`,
-                          background: 'var(--red-9)',
+                          width: `${Math.min(1, fill) * IDEAL_TICK * 100}%`,
+                          height: '100%',
+                          background: color,
                           transition: 'width 150ms ease',
                         }}
                       />
-                    )}
+                      {/* Population past ideal crosses the tick in red. */}
+                      {fill > 1 && (
+                        <Box
+                          style={{
+                            position: 'absolute',
+                            left: `${IDEAL_TICK * 100}%`,
+                            top: 0,
+                            bottom: 0,
+                            width: `${(Math.min(fill, 1 / IDEAL_TICK) - 1) * IDEAL_TICK * 100}%`,
+                            background: 'var(--red-9)',
+                            transition: 'width 150ms ease',
+                          }}
+                        />
+                      )}
+                    </Box>
+                    {/* Ideal-population tick, slightly taller than the bar. */}
+                    <Box
+                      style={{
+                        position: 'absolute',
+                        left: `${IDEAL_TICK * 100}%`,
+                        top: -2,
+                        bottom: -2,
+                        width: 2,
+                        marginLeft: -1,
+                        borderRadius: 1,
+                        background: 'var(--gray-8)',
+                      }}
+                    />
                   </Box>
-                  {/* Ideal-population tick, slightly taller than the bar. */}
-                  <Box
-                    style={{
-                      position: 'absolute',
-                      left: `${IDEAL_TICK * 100}%`,
-                      top: -2,
-                      bottom: -2,
-                      width: 2,
-                      marginLeft: -1,
-                      borderRadius: 1,
-                      background: 'var(--gray-8)',
-                    }}
-                  />
-                </Box>
+                </Tooltip>
                 <Text
                   size="2"
                   color={overfull ? 'red' : 'gray'}
-                  style={{
-                    width: DEV_COL_WIDTH,
-                    textAlign: 'right',
-                    flexShrink: 0,
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
-                >
-                  {idealPopulation ? signedNumber(population - idealPopulation) : '—'}
-                </Text>
-                <Text
-                  size="2"
-                  color="gray"
                   style={{
                     width: POP_COL_WIDTH,
                     textAlign: 'right',

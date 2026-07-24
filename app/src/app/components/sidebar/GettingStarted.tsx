@@ -1,5 +1,5 @@
 'use client';
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {Button, Flex, IconButton, Text} from '@radix-ui/themes';
 import {CheckIcon, ChevronDownIcon} from '@radix-ui/react-icons';
 import {useQuery} from '@tanstack/react-query';
@@ -105,10 +105,6 @@ export const GettingStarted = () => {
     refetchOnWindowFocus: false,
   });
 
-  // Super Draw users don't need onboarding.
-  if (superDraw || !isEditing || mapMode !== MAP_MODES.DISTRICTS || !mapDocument?.document_id)
-    return null;
-
   const paintedZones = populationData.filter(d => (d.total_pop_20 ?? 0) > 0).length;
   const contiguousZones =
     contiguityData?.ok === true
@@ -121,6 +117,33 @@ export const GettingStarted = () => {
     unassigned !== undefined && idealPopulation
       ? unassigned / (idealPopulation * numDistricts)
       : undefined;
+
+  // Largest district deviation from the ideal population, driving the staged
+  // balance hints.
+  const maxDeviation =
+    idealPopulation && populationData.length
+      ? Math.max(...populationData.map(d => Math.abs((d.total_pop_20 ?? 0) - idealPopulation))) /
+        idealPopulation
+      : undefined;
+  const balanced = maxDeviation !== undefined && maxDeviation <= BALANCE_FINE_DEVIATION;
+  const roughlyBalanced = maxDeviation !== undefined && maxDeviation <= BALANCE_ROUGH_DEVIATION;
+
+  const stepsDone =
+    paintedZones >= numDistricts && unassigned === 0 && contiguousZones >= numDistricts && balanced;
+  const improveDone = (tablesViewed || bothTablesOpen) && evalVisited;
+  // Once the list being shown completes, tuck the card away — the header stays
+  // as a one-line status the user can re-expand. Transition-triggered so an
+  // explicit expand afterwards isn't fought.
+  const currentListDone = showImprove ? improveDone : stepsDone;
+  const wasDone = useRef(false);
+  useEffect(() => {
+    if (currentListDone && !wasDone.current) setCollapsed(true);
+    wasDone.current = currentListDone;
+  }, [currentListDone]);
+
+  // Super Draw users don't need onboarding.
+  if (superDraw || !isEditing || mapMode !== MAP_MODES.DISTRICTS || !mapDocument?.document_id)
+    return null;
 
   const openSidebarPanel = (key: (typeof sidebarPanels)[number]) => {
     if (!sidebarPanels.includes(key)) {
@@ -163,15 +186,6 @@ export const GettingStarted = () => {
     ? {label: 'Find disconnected fragments', onClick: handleFindDisconnected}
     : undefined;
 
-  // Largest district deviation from the ideal population, driving the staged
-  // balance hints.
-  const maxDeviation =
-    idealPopulation && populationData.length
-      ? Math.max(...populationData.map(d => Math.abs((d.total_pop_20 ?? 0) - idealPopulation))) /
-        idealPopulation
-      : undefined;
-  const balanced = maxDeviation !== undefined && maxDeviation <= BALANCE_FINE_DEVIATION;
-  const roughlyBalanced = maxDeviation !== undefined && maxDeviation <= BALANCE_ROUGH_DEVIATION;
   // Balance hints are premature while population is still unassigned; the
   // earlier steps' hints cover that phase.
   const balanceHints =
@@ -278,17 +292,37 @@ export const GettingStarted = () => {
       gap="2"
       p="3"
       flexShrink="0"
+      // Neutral, quiet chrome — this is ambient status, not a call to action.
       style={{
-        background: 'var(--accent-2)',
-        border: '1px solid var(--accent-6)',
+        background: 'var(--gray-a2)',
+        border: '1px solid var(--gray-a5)',
         borderRadius: 10,
       }}
       data-testid="getting-started"
     >
       <Flex align="center" justify="between" onClick={toggleCollapsed} style={{cursor: 'pointer'}}>
-        <Text size="2" weight="bold">
-          {improveVisible ? 'Improve your plan' : 'Getting started'}
-        </Text>
+        <Flex align="center" gap="2">
+          <Text size="2" weight="bold" color={currentListDone ? 'gray' : undefined}>
+            {currentListDone ? '✓ ' : ''}
+            {improveVisible ? 'Improve your plan' : 'Getting started'}
+          </Text>
+          {/* Collapsed done state reads "✓ Getting started · Improve your plan →"
+              — the next list is reachable without re-expanding the finished one. */}
+          {collapsed && gettingStartedDone && !improveVisible && (
+            <Button
+              variant="ghost"
+              size="1"
+              onClick={e => {
+                e.stopPropagation();
+                setShowImprove(true);
+                setCollapsed(false);
+              }}
+              style={{fontWeight: 600}}
+            >
+              Improve your plan →
+            </Button>
+          )}
+        </Flex>
         <Flex align="center" gap="2">
           {!improveVisible && !gettingStartedDone && (
             <Text size="1" color="gray">
