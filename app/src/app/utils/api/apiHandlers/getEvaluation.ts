@@ -57,6 +57,9 @@ type CountyPiecesInfo = {
   total_pop: number;
   pieces: number;
   name: string;
+  // Population of each of the county's own connected components, independent of
+  // any document/plan (e.g. islands, exclaves). Empty when unavailable.
+  component_populations: number[];
 };
 
 type UnassignedPopulation = {

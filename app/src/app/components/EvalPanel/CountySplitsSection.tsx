@@ -39,13 +39,28 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
   if (!countyPieces) return null;
 
   const allEntries = Object.entries(countyPieces)
-    .map(([geoid, {total_pop: pop, pieces: actual, name}]) => ({geoid, pop, actual, name}))
+    .map(([geoid, {total_pop: pop, pieces: actual, name, component_populations}]) => ({
+      geoid,
+      pop,
+      actual,
+      name,
+      componentPopulations: component_populations,
+    }))
     .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Forced minimum: sum of ceil(component pop / ideal) over the county's own
+  // connected components (islands/exclaves force at least one district each,
+  // independent of the plan) — a tighter bound than ceil(total_pop / ideal).
+  // Falls back to the single-total bound when component data is unavailable.
+  const forcedMinimum = (e: (typeof allEntries)[number], ideal: number) =>
+    e.componentPopulations.length > 0
+      ? e.componentPopulations.reduce((sum, p) => sum + Math.ceil(p / ideal), 0)
+      : Math.ceil(e.pop / ideal);
 
   const splitCounties = allEntries.filter(e => e.actual >= 2).length;
   const overlySplitSet =
     idealPop !== null
-      ? new Set(allEntries.filter(e => e.actual > Math.ceil(e.pop / idealPop)).map(e => e.geoid))
+      ? new Set(allEntries.filter(e => e.actual > forcedMinimum(e, idealPop)).map(e => e.geoid))
       : new Set<string>();
   const unnecessarySplits = idealPop !== null ? overlySplitSet.size : null;
 
@@ -273,8 +288,17 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                     </Table.Row>
                   </Table.Header>
                   <Table.Body>
-                    {displayedEntries.map(({geoid, pop, actual, name}) => {
+                    {displayedEntries.map(({geoid, pop, actual, name, componentPopulations}) => {
                       const worth = idealPop !== null ? pop / idealPop : null;
+                      // For counties with more than one inherent connected component,
+                      // show the per-component fractional breakdown (e.g.
+                      // "0.04 + 0.06 + 1.32") instead of one number, so it's visible
+                      // the county is physically several disconnected pieces rather
+                      // than one uniform mass.
+                      const worthDisplay =
+                        idealPop !== null && componentPopulations.length > 1
+                          ? componentPopulations.map(p => (p / idealPop).toFixed(2)).join(' + ')
+                          : (worth?.toFixed(2) ?? '—');
                       const isOverlySplit = overlySplitSet.has(geoid);
                       return (
                         <Table.Row
@@ -293,7 +317,7 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                             <Text size="2">{pop.toLocaleString()}</Text>
                           </Table.Cell>
                           <Table.Cell justify="center">
-                            <Text size="2">{worth !== null ? worth.toFixed(2) : '—'}</Text>
+                            <Text size="2">{worthDisplay}</Text>
                           </Table.Cell>
                           <Table.Cell
                             justify="center"
