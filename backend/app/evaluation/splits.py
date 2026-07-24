@@ -41,33 +41,33 @@ def county_pieces(
     county_pops: dict[CountyGeoid, int] = COUNTY_CONTEXT.county_populations(
         context.parent_layer, context.session
     )
+    if not county_pops:
+        return {}
+
     county_component_pops: dict[CountyGeoid, list[int]] = (
         COUNTY_CONTEXT.county_component_populations(
             context.parent_layer, context.session
         )
     )
 
-    county_pieces_count: dict[CountyGeoid, int] = {}
-    if county_pops:
-        G = get_graph(context.gerrydb_table)
-        county_zone_nodes: dict[tuple[CountyGeoid, int], set[str]] = {}
-        for geo_id, zone in context.zone_assignments:
-            county_geoid = _geo_id_to_county_geoid(geo_id)
-            if county_geoid not in county_pops:
-                continue
-            county_zone_nodes.setdefault((county_geoid, zone), set()).add(geo_id)
+    G = get_graph(context.gerrydb_table)
+    county_zone_nodes: dict[tuple[CountyGeoid, int], set[str]] = {}
+    for geo_id, zone in context.zone_assignments:
+        county_geoid = _geo_id_to_county_geoid(geo_id)
+        if county_geoid not in county_pops:
+            continue
+        county_zone_nodes.setdefault((county_geoid, zone), set()).add(geo_id)
 
-        for (county_geoid, _zone), nodes in county_zone_nodes.items():
-            expanded_nodes = expand_non_contiguous_parents(G, nodes)
-            components = subgraph_connected_components(G, expanded_nodes)
-            county_pieces_count[county_geoid] = county_pieces_count.get(
-                county_geoid, 0
-            ) + len(components)
+    county_pieces_count: dict[CountyGeoid, int] = dict.fromkeys(county_pops, 0)
+    for (county_geoid, _zone), nodes in county_zone_nodes.items():
+        expanded_nodes = expand_non_contiguous_parents(G, nodes)
+        components = subgraph_connected_components(G, expanded_nodes)
+        county_pieces_count[county_geoid] += len(components)
 
     return {
         county_geoid: CountyPiecesInfo(
             total_pop=pop,
-            pieces=county_pieces_count.get(county_geoid, 0),
+            pieces=county_pieces_count[county_geoid],
             name=COUNTY_CONTEXT.county_name(county_geoid),
             component_populations=county_component_pops.get(county_geoid, []),
         )
