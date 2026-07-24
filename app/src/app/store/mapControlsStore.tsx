@@ -15,14 +15,6 @@ import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 import {ACCESS_STATES} from '@constants/document/state';
 import {exposeStoreToWindow as _exposeControlsStore} from './exposeToWindow';
 
-type SidebarPanel =
-  | 'layers'
-  | 'population'
-  | 'demography'
-  | 'election'
-  | 'mapValidation'
-  | 'overlays';
-
 export interface MapControlsStore {
   selectedZone: Zone;
   setSelectedZone: (zone: Zone) => void;
@@ -68,8 +60,6 @@ export interface MapControlsStore {
   toggleLockAllAreas: () => void;
   spatialUnit: SpatialUnit;
   setSpatialUnit: (unit: SpatialUnit) => void;
-  sidebarPanels: SidebarPanel[];
-  setSidebarPanels: (panels: SidebarPanel[]) => void;
   mapMode: MapMode;
   setMapMode: (mode: MapMode) => void;
 }
@@ -194,8 +184,6 @@ export const useMapControlsStore = create<MapControlsStore>()(
     },
     spatialUnit: 'tract',
     setSpatialUnit: spatialUnit => set({spatialUnit}),
-    sidebarPanels: ['population'],
-    setSidebarPanels: sidebarPanels => set({sidebarPanels}),
   }))
 );
 

@@ -1,20 +1,12 @@
 'use client';
-import {Button, Flex, SegmentedControl, Text} from '@radix-ui/themes';
+import {Box, Button, Flex, SegmentedControl, Tabs, Text} from '@radix-ui/themes';
 import React, {useEffect, useState} from 'react';
-import {
-  CheckCircledIcon,
-  ChevronDownIcon,
-  ColorWheelIcon,
-  Component1Icon,
-  LayersIcon,
-  PersonIcon,
-  PieChartIcon,
-} from '@radix-ui/react-icons';
+import {ChevronDownIcon, ColorWheelIcon} from '@radix-ui/react-icons';
 import PopulationPanel from './PopulationPanel';
 import OverlaysPanel from './OverlaysPanel';
 import {MapValidation} from './MapValidation/MapValidation';
 import {SummaryPanel, type SectionKey} from './SummaryPanel';
-import {MapControlsStore, useMapControlsStore} from '@store/mapControlsStore';
+import {useMapControlsStore} from '@store/mapControlsStore';
 import {useUiHintStore} from '@store/uiHintStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
@@ -23,7 +15,7 @@ import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
 // two can't drift apart.
 const COLLAPSE_DURATION_MS = 200;
 
-/** Shared height-collapse for the accordion sections and coalition expander.
+/** Shared height-collapse for the data-layer sections and coalition expander.
  * CSS grid-rows transition; children unmount once the close animation ends so
  * collapsed panels don't keep rendering or subscribing. */
 const AnimatedCollapse: React.FC<{open: boolean; children: React.ReactNode}> = ({
@@ -90,7 +82,7 @@ const CoalitionExpander: React.FC<{
 };
 
 /** Table / Map tabs over a single SummaryPanel section, so the table and map
- * live in one accordion section instead of two. */
+ * live in one section instead of two. */
 const TabbedSummaryPanel: React.FC<{
   panelKey: 'demography' | 'election';
   defaultColumnSet: SummaryType;
@@ -99,8 +91,8 @@ const TabbedSummaryPanel: React.FC<{
   withCoalition?: boolean;
 }> = ({panelKey, defaultColumnSet, displayedColumnSets, tabs, withCoalition}) => {
   const [tab, setTab] = useState<SectionKey>(tabs[0].value);
-  // One-shot tab request from the Improve-your-plan hints (same pattern as
-  // MapValidation's validationTabRequest).
+  // One-shot tab request from UI hints (same pattern as MapValidation's
+  // validationTabRequest).
   const summaryTabRequest = useUiHintStore(state => state.summaryTabRequest);
   const clearSummaryTabRequest = useUiHintStore(state => state.clearSummaryTabRequest);
   useEffect(() => {
@@ -135,145 +127,132 @@ const TabbedSummaryPanel: React.FC<{
   );
 };
 
-type SidebarSectionKey = MapControlsStore['sidebarPanels'][number];
-
-export type SidebarSection = {
-  key: SidebarSectionKey;
-  label: string;
-  description: string;
-  icon: React.ComponentType<{className?: string}>;
-  content: React.ReactNode;
-  /** Hidden in communities (COI) mode, matching the old accordion's filter. */
-  districtsOnly?: boolean;
-};
-
-/** The single registry of sidebar panels, shared by Draw and Super Draw (the
- * modes gate density inside sections, not layout). The mobile tab view derives
- * its panel list from this too (see DataPanelUtils). */
-export const SECTIONS: SidebarSection[] = [
-  {
-    key: 'population',
-    label: 'District overview',
-    description: 'Population, district notes, deviation',
-    icon: Component1Icon,
-    content: <PopulationPanel />,
-    districtsOnly: true,
-  },
-  {
-    key: 'demography',
-    label: 'Demographics',
-    description: 'Demographic tables and map layers',
-    icon: PersonIcon,
-    content: (
-      <TabbedSummaryPanel
-        panelKey="demography"
-        defaultColumnSet={SUMMARY_TYPES.TOTPOP}
-        displayedColumnSets={[SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP]}
-        tabs={[
-          {value: 'evaluation', label: 'Table'},
-          {value: 'map', label: 'Map Layer'},
-        ]}
-        withCoalition
-      />
-    ),
-  },
-  {
-    key: 'election',
-    label: 'Elections',
-    description: 'Prior election data tables and map layers',
-    icon: PieChartIcon,
-    content: (
-      <TabbedSummaryPanel
-        panelKey="election"
-        defaultColumnSet={SUMMARY_TYPES.VOTERHISTORY}
-        displayedColumnSets={[SUMMARY_TYPES.VOTERHISTORY]}
-        tabs={[
-          {value: 'evaluation', label: 'Table'},
-          {value: 'map', label: 'Map Layer'},
-        ]}
-      />
-    ),
-    districtsOnly: true,
-  },
-  {
-    key: 'mapValidation',
-    label: 'Validity check',
-    description: 'Contiguity and completeness',
-    icon: CheckCircledIcon,
-    content: <MapValidation />,
-    districtsOnly: true,
-  },
-  {
-    key: 'overlays',
-    label: 'Boundaries and areas',
-    description: 'Boundaries and areas',
-    icon: LayersIcon,
-    content: <OverlaysPanel />,
-  },
-];
-
-const AccordionSection: React.FC<{
-  section: SidebarSection;
-  open: boolean;
-  onToggle: () => void;
-}> = ({section, open, onToggle}) => {
-  const Icon = section.icon;
+/** A quiet section header in the Data Layers tab: no card chrome, just a
+ * heading row in the shared plane. Collapsible but open by default. */
+const DataLayerSection: React.FC<{label: string; children: React.ReactNode}> = ({
+  label,
+  children,
+}) => {
+  const [open, setOpen] = useState(true);
   return (
-    <div
-      className="border border-gray-300 rounded-lg bg-white"
-      data-testid={`data-panel-${section.key}`}
-    >
+    <Flex direction="column">
       <button
-        onClick={onToggle}
+        onClick={() => setOpen(o => !o)}
         aria-expanded={open}
-        className="w-full cursor-pointer text-left p-3 rounded-lg transition-colors hover:bg-blue-50"
+        className="w-full cursor-pointer text-left py-2 rounded transition-colors hover:bg-[var(--gray-2)]"
       >
-        <Flex gap="2" align="center">
-          <Icon className="shrink-0" />
-          <Flex direction="column" className="flex-grow">
-            <Text as="div" size="2" weight="bold">
-              {section.label}
-            </Text>
-            <Text as="div" size="1" color="gray">
-              {section.description}
-            </Text>
-          </Flex>
+        <Flex align="center" justify="between">
+          <Text size="2" weight="medium">
+            {label}
+          </Text>
           <ChevronDownIcon
             className={`shrink-0 transition-transform duration-200 ${open ? '' : '-rotate-90'}`}
           />
         </Flex>
       </button>
       <AnimatedCollapse open={open}>
-        <div className="px-3 pb-3">{section.content}</div>
+        <Box pb="3">{children}</Box>
       </AnimatedCollapse>
-    </div>
+    </Flex>
   );
 };
 
+/** Demographics, elections, and boundaries as one flat menu of layers. */
+const DataLayersPanel: React.FC = () => {
+  const mapMode = useMapControlsStore(state => state.mapMode);
+  return (
+    <Flex direction="column">
+      <DataLayerSection label="Demographics">
+        <TabbedSummaryPanel
+          panelKey="demography"
+          defaultColumnSet={SUMMARY_TYPES.TOTPOP}
+          displayedColumnSets={[SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP]}
+          tabs={[
+            {value: 'evaluation', label: 'Table'},
+            {value: 'map', label: 'Map Layer'},
+          ]}
+          withCoalition
+        />
+      </DataLayerSection>
+      {mapMode !== MAP_MODES.COI && (
+        <DataLayerSection label="Elections">
+          <TabbedSummaryPanel
+            panelKey="election"
+            defaultColumnSet={SUMMARY_TYPES.VOTERHISTORY}
+            displayedColumnSets={[SUMMARY_TYPES.VOTERHISTORY]}
+            tabs={[
+              {value: 'evaluation', label: 'Table'},
+              {value: 'map', label: 'Map Layer'},
+            ]}
+          />
+        </DataLayerSection>
+      )}
+      <DataLayerSection label="Boundaries and areas">
+        <OverlaysPanel />
+      </DataLayerSection>
+    </Flex>
+  );
+};
+
+export type SidebarSection = {
+  key: string;
+  label: string;
+  content: React.ReactNode;
+  /** Hidden in communities (COI) mode. */
+  districtsOnly?: boolean;
+};
+
+/** The three sidebar tabs, shared by Draw and Super Draw. The mobile tab view
+ * derives its panel list from this too (see DataPanelUtils). */
+export const SECTIONS: SidebarSection[] = [
+  {
+    key: 'population',
+    label: 'Population',
+    content: <PopulationPanel />,
+    districtsOnly: true,
+  },
+  {
+    key: 'dataLayers',
+    label: 'Data Layers',
+    content: <DataLayersPanel />,
+  },
+  {
+    key: 'evaluation',
+    label: 'Evaluation',
+    content: <MapValidation />,
+    districtsOnly: true,
+  },
+];
+
 export const DataCards: React.FC = () => {
   const mapMode = useMapControlsStore(state => state.mapMode);
-  const sidebarPanels = useMapControlsStore(state => state.sidebarPanels);
-  const setSidebarPanels = useMapControlsStore(state => state.setSidebarPanels);
-
   const visibleSections = SECTIONS.filter(
     section => mapMode !== MAP_MODES.COI || !section.districtsOnly
   );
-
-  const toggleSection = (key: SidebarSectionKey) =>
-    setSidebarPanels(
-      sidebarPanels.includes(key) ? sidebarPanels.filter(k => k !== key) : [...sidebarPanels, key]
-    );
+  const [tab, setTab] = useState(SECTIONS[0].key);
+  // Mode switches can hide the current tab; fall back to the first visible one.
+  const activeTab = visibleSections.some(s => s.key === tab) ? tab : visibleSections[0].key;
 
   return (
     <Flex direction="column" gap="2" data-testid="data-panels">
-      {visibleSections.map(section => (
-        <AccordionSection
-          key={section.key}
-          section={section}
-          open={sidebarPanels.includes(section.key)}
-          onToggle={() => toggleSection(section.key)}
-        />
-      ))}
+      <Tabs.Root value={activeTab} onValueChange={setTab}>
+        <Tabs.List>
+          {visibleSections.map(section => (
+            <Tabs.Trigger key={section.key} value={section.key}>
+              {section.label}
+            </Tabs.Trigger>
+          ))}
+        </Tabs.List>
+        {visibleSections.map(section => (
+          <Tabs.Content
+            key={section.key}
+            value={section.key}
+            data-testid={`data-panel-${section.key}`}
+          >
+            <Box pt="2">{section.content}</Box>
+          </Tabs.Content>
+        ))}
+      </Tabs.Root>
     </Flex>
   );
 };

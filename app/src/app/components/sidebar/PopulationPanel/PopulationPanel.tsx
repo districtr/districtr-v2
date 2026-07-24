@@ -143,18 +143,24 @@ export const PopulationPanel = () => {
         shouldUseScrollableRows ? {maxHeight: '80vh', overflow: 'hidden'} : {maxHeight: '80vh'}
       }
     >
-      <Flex direction="row" gap={'2'} align="center">
-        <Heading as="h3" size="3">
-          {`Total population by ${zoneLabel}`}
-        </Heading>
-        {superDraw && (
-          <PopulationPanelOptions
-            chartOptions={chartOptions}
-            setChartOptions={setChartOptions}
-            idealPopulation={effectiveIdealPopulation}
-          />
-        )}
-      </Flex>
+      {/* The Population tab already names the panel; only COI mode (with its
+          different zone label) keeps a heading. */}
+      {(isCommunityMode || superDraw) && (
+        <Flex direction="row" gap={'2'} align="center">
+          {isCommunityMode && (
+            <Heading as="h3" size="3">
+              {`Total population by ${zoneLabel}`}
+            </Heading>
+          )}
+          {superDraw && (
+            <PopulationPanelOptions
+              chartOptions={chartOptions}
+              setChartOptions={setChartOptions}
+              idealPopulation={effectiveIdealPopulation}
+            />
+          )}
+        </Flex>
+      )}
       {/* Districts render as population meters; the visx bar chart remains for
           COI mode, which has no ideal population to meter against. */}
       {!isCommunityMode ? (

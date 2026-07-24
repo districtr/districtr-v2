@@ -278,11 +278,11 @@ test.describe('Sidebar Responsiveness', () => {
     const toolbar = page.locator('[data-testid="toolbar"]');
     await expect(toolbar).toBeVisible();
 
-    // Selecting the paint tool reveals the brush controls (district picker).
+    // Selecting the paint tool reveals the brush controls (size slider).
     const brushTool = page.locator(testSelectors.brushTool);
     if (await brushTool.isVisible()) {
       await brushTool.click();
-      await expect(page.getByText('Brush Size')).toBeVisible();
+      await expect(page.getByRole('slider')).toBeVisible();
     }
   });
 

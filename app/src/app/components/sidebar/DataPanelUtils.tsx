@@ -1,8 +1,7 @@
-import {MapControlsStore} from '@/app/store/mapControlsStore';
 import {SECTIONS} from './DataCards';
 
 export interface DataPanelSpec {
-  title: MapControlsStore['sidebarPanels'][number];
+  title: string;
   label: string;
   icon?: React.ReactNode;
   content?: React.ReactNode;

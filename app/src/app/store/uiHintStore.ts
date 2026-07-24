@@ -6,7 +6,7 @@ export type SummaryTabRequest = {panel: 'demography' | 'election'; tab: 'evaluat
 /** Per-document localStorage keys backing the "Improve your plan" done states
  * that can't be derived from live UI state (panels reset on view switches;
  * evaluation is a different route entirely). Written by the panels/switcher,
- * read by GettingStarted; a neutral home avoids component import cycles. */
+ * kept for any future onboarding UI; a neutral home avoids import cycles. */
 export const visitedEvalStorageKey = (documentId: string) => `districtr-visited-eval-${documentId}`;
 export const viewedTablesStorageKey = (documentId: string) =>
   `districtr-viewed-tables-${documentId}`;

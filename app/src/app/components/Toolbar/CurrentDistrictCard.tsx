@@ -4,6 +4,7 @@ import {Box, Button, Flex, Popover, Text} from '@radix-ui/themes';
 import {LockClosedIcon, LockOpen2Icon, Pencil1Icon} from '@radix-ui/react-icons';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useZonePopulations} from '@/app/hooks/useDemography';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
@@ -23,6 +24,7 @@ export const CurrentDistrictCard: React.FC<{children: React.ReactNode}> = ({chil
   const lockPaintedAreas = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);
   const setLockedZones = useMapControlsStore(state => state.setLockedZones);
   const isEditing = useMapControlsStore(state => state.isEditing);
+  const superDraw = useToolbarStore(state => state.superDraw);
   const access = useMapStore(state => state.mapStatus?.access);
   const description = useMapStore(state => state.getZoneDescriptionForZone(selectedZone));
   const getZoneColor = useZoneColorGetter();
@@ -76,7 +78,7 @@ export const CurrentDistrictCard: React.FC<{children: React.ReactNode}> = ({chil
         </Box>
         <Flex direction="column" flexGrow="1">
           <Text size="2" weight="bold">
-            Painting District {selectedZone}
+            District {selectedZone}
           </Text>
           {!!idealPopulation && (
             <Text size="1" color="gray">
@@ -85,7 +87,8 @@ export const CurrentDistrictCard: React.FC<{children: React.ReactNode}> = ({chil
             </Text>
           )}
         </Flex>
-        {isEditing && (
+        {/* Per-district lock and description are Super Draw features. */}
+        {isEditing && superDraw && (
           <Flex gap="2" flexShrink="0" wrap="wrap">
             <Button
               size="1"

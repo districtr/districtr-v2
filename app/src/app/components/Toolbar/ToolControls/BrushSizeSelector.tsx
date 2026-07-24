@@ -1,4 +1,4 @@
-import {Slider, Flex, Text, Button, Tooltip} from '@radix-ui/themes';
+import {Slider, Flex, Button, Tooltip} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useFeatureFlagStore} from '@store/featureFlagStore';
@@ -102,9 +102,6 @@ export function BrushSizeSelector() {
     >
       <Flex direction="column" width="100%" gap="1">
         <Flex direction="row" gapX="2" align="center" width="100%">
-          <Text size="2" style={{flexShrink: 0}}>
-            Brush Size
-          </Text>
           <Flex flexShrink="0" align="center" className="segmented-track">
             {superDraw && canBreak && (
               <Tooltip content="Break a unit into census blocks and paint them individually">
@@ -155,6 +152,7 @@ export function BrushSizeSelector() {
             max={BRUSH_MAX_SIZE}
             disabled={access === ACCESS_STATES.READ}
             radius="full"
+            aria-label="Brush size"
             // ponytail: rail uses --gray-a3/a5; bump locally for a more visible passive state
             // Grayed (but still usable — dragging it exits county mode) while
             // the county brush is on.
@@ -167,20 +165,6 @@ export function BrushSizeSelector() {
               } as React.CSSProperties
             }
           />
-          <Text
-            size="2"
-            as="span"
-            color="gray"
-            style={{
-              // Reserve three digits so the row doesn't shift as the value changes.
-              minWidth: '3ch',
-              textAlign: 'right',
-              fontVariantNumeric: 'tabular-nums',
-              opacity: paintByCounty ? 0.4 : 1,
-            }}
-          >
-            {brushSize}
-          </Text>
         </Flex>
       </Flex>
     </Flex>
