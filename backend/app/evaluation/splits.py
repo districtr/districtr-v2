@@ -39,10 +39,8 @@ def county_pieces(
     mapping by counting the number of counties where `actual_split_pieces` is 2 or more.
     """
     county_data = COUNTY_CONTEXT.county_data(context.parent_layer, context.session)
-    county_pops = county_data.total_pop
-    if not county_pops:
+    if not county_data.total_pop:
         return {}
-    county_component_pops = county_data.component_populations
 
     G = get_graph(context.gerrydb_table)
     county_zone_nodes: dict[tuple[CountyGeoid, int], set[str]] = {}
@@ -50,7 +48,9 @@ def county_pieces(
         county_geoid = _geo_id_to_county_geoid(geo_id)
         county_zone_nodes.setdefault((county_geoid, zone), set()).add(geo_id)
 
-    county_pieces_count: dict[CountyGeoid, int] = dict.fromkeys(county_pops, 0)
+    county_pieces_count: dict[CountyGeoid, int] = dict.fromkeys(
+        county_data.total_pop, 0
+    )
     for (county_geoid, _zone), nodes in county_zone_nodes.items():
         expanded_nodes = expand_non_contiguous_parents(G, nodes)
         components = subgraph_connected_components(G, expanded_nodes)
@@ -58,10 +58,12 @@ def county_pieces(
 
     return {
         county_geoid: CountyPiecesInfo(
-            total_pop=county_pops[county_geoid],
+            total_pop=county_data.total_pop[county_geoid],
             pieces=pieces,
             name=COUNTY_CONTEXT.county_name(county_geoid),
-            component_populations=county_component_pops.get(county_geoid, []),
+            component_populations=county_data.component_populations.get(
+                county_geoid, []
+            ),
         )
         for county_geoid, pieces in county_pieces_count.items()
     }
