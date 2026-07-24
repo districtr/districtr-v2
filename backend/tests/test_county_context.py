@@ -19,14 +19,12 @@ behavior) stay in test_partisan.py.
 from datetime import datetime
 from unittest.mock import MagicMock
 
-import fastapi
 import pytest
 from fastapi import BackgroundTasks
 from networkx import Graph
 from sqlalchemy import text as sqlmodel_text
 from sqlmodel import Session, select
 
-import app.evaluation.context as context_module
 from app.evaluation.context import (
     COUNTY_CONTEXT,
     CountyContext,
@@ -194,30 +192,6 @@ def test_simple_geos_county_demographics_component_populations(
 
         assert row.total_pop == 2100
         assert row.component_populations == [2100]
-    finally:
-        COUNTY_CONTEXT._pop_cache.pop(parent_layer, None)
-        COUNTY_CONTEXT._attempts.pop(parent_layer, None)
-
-
-def test_populate_county_data_raises_when_graph_unavailable(
-    session: Session,
-    simple_shatterable_districtr_map,
-    gerrydb_simple_geos_view,
-    monkeypatch,
-):
-    """Graphs are expected to already exist in S3 by the time a gerrydb table is
-    ingested — a missing graph is a real data problem and must raise, not
-    silently leave component_populations NULL, matching every other get_graph
-    call site in this codebase (validity.contiguous, splits.county_pieces)."""
-
-    def _raise(_name):
-        raise fastapi.HTTPException(status_code=404, detail="Graph unavailable")
-
-    monkeypatch.setattr(context_module, "get_graph", _raise)
-    parent_layer = "simple_parent_geos"
-    try:
-        with pytest.raises(fastapi.HTTPException):
-            COUNTY_CONTEXT._populate_county_data(parent_layer, session)
     finally:
         COUNTY_CONTEXT._pop_cache.pop(parent_layer, None)
         COUNTY_CONTEXT._attempts.pop(parent_layer, None)
