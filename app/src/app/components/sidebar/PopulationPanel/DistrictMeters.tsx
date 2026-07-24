@@ -30,15 +30,22 @@ const ROW_SCROLL_THRESHOLD = 10;
 // district is (up to 1/IDEAL_TICK = 125% of ideal before clamping).
 const IDEAL_TICK = 0.8;
 
+// Districts within this share of ideal are "close enough" — no end-of-bar
+// hint. Matches the Getting started balance step's fine tolerance.
+const HINT_TOLERANCE = 0.01;
+
 // Unicode minus to match the tabular figures.
 const signedNumber = (value: number) =>
   `${value < 0 ? '−' : '+'}${formatNumber(Math.abs(value), NUMBER_FORMATS.STRING)}`;
+const signedCompact = (value: number) =>
+  `${value < 0 ? '−' : '+'}${formatNumber(Math.abs(value), NUMBER_FORMATS.COMPACT)}`;
 
 /**
  * District overview as a set of population meters: each district fills toward
- * ideal population, turning red once overfull. Two numeric columns (deviation
- * from ideal, total population) sit right of the meters with plan-wide
- * aggregates at the bottom.
+ * a shared, labeled "ideal" line, turning red past it. A compact ±hint at the
+ * end of off-target bars shows how far to go; exact deviation lives in the
+ * bar's hover tooltip. One numeric column (total population) sits right of
+ * the meters with plan-wide aggregates at the bottom.
  */
 export const DistrictMeters = () => {
   const {populationData} = useZonePopulations();
@@ -123,7 +130,23 @@ export const DistrictMeters = () => {
             </IconButton>
           </Tooltip>
         )}
-        <Box flexGrow="1" />
+        {/* This spacer occupies the same flex slot as the row bars, so a label
+            at IDEAL_TICK% here sits exactly atop the shared ideal line. */}
+        <Box flexGrow="1" style={{position: 'relative', alignSelf: 'stretch'}}>
+          <Text
+            size="1"
+            color="gray"
+            style={{
+              position: 'absolute',
+              left: `${IDEAL_TICK * 100}%`,
+              bottom: 0,
+              transform: 'translateX(-50%)',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            ideal
+          </Text>
+        </Box>
         <Text
           size="1"
           color="gray"
@@ -151,6 +174,14 @@ export const DistrictMeters = () => {
                     NUMBER_FORMATS.PERCENT
                   )})`
                 : undefined;
+            const hint =
+              deviation !== undefined &&
+              idealPopulation &&
+              Math.abs(deviation / idealPopulation) > HINT_TOLERANCE
+                ? signedCompact(deviation)
+                : undefined;
+            // Where the visible bar (fill or red excess) ends, in track %.
+            const barEndPct = Math.min(fill, 1 / IDEAL_TICK) * IDEAL_TICK * 100;
             return (
               <Flex
                 key={d.zone}
@@ -237,19 +268,43 @@ export const DistrictMeters = () => {
                         />
                       )}
                     </Box>
-                    {/* Ideal-population tick, slightly taller than the bar. */}
+                    {/* Per-row segment of the shared ideal line. The ±12px
+                        overhang bridges the gap to the neighboring rows' bars.
+                        ponytail: 12 = (32px row rhythm − 8px bar) / 2; if row
+                        height changes the line gets gaps or overlap. */}
                     <Box
                       style={{
                         position: 'absolute',
                         left: `${IDEAL_TICK * 100}%`,
-                        top: -2,
-                        bottom: -2,
+                        top: -12,
+                        bottom: -12,
                         width: 2,
                         marginLeft: -1,
-                        borderRadius: 1,
-                        background: 'var(--gray-8)',
+                        background: 'var(--gray-a6)',
                       }}
                     />
+                    {/* Compact "how far to go" hint at the end of off-target
+                        bars; capped so it never leaves the track (worst case it
+                        overlaps a deep-red excess). */}
+                    {hint && (
+                      <Text
+                        style={{
+                          position: 'absolute',
+                          left: `min(calc(${barEndPct}% + 6px), calc(100% - 34px))`,
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          fontSize: 10,
+                          lineHeight: '10px',
+                          color: deviation && deviation > 0 ? 'var(--red-10)' : 'var(--gray-10)',
+                          whiteSpace: 'nowrap',
+                          pointerEvents: 'none',
+                          fontVariantNumeric: 'tabular-nums',
+                          transition: 'left 150ms ease',
+                        }}
+                      >
+                        {hint}
+                      </Text>
+                    )}
                   </Box>
                 </Tooltip>
                 <Text
