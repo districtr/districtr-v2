@@ -477,7 +477,7 @@ const RecentMapCard: React.FC<{
                   </IconButton>
                 </AlertDialog.Trigger>
               </Tooltip>
-              <AlertDialog.Content maxWidth="400px">
+              <AlertDialog.Content maxWidth="400px" onClick={e => e.stopPropagation()}>
                 <AlertDialog.Title>Remove map</AlertDialog.Title>
                 <AlertDialog.Description>
                   This will remove the map from your recent list. This cannot be undone.
