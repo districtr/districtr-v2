@@ -161,7 +161,7 @@ export const DistrictMeters = () => {
                           transition: 'width 150ms ease',
                         }}
                       />
-                      {/* Population past ideal crosses the tick in red. */}
+                      {/* Population past ideal crosses the tick in black. */}
                       {fill > 1 && (
                         <Box
                           style={{
@@ -170,7 +170,7 @@ export const DistrictMeters = () => {
                             top: 0,
                             bottom: 0,
                             width: `${(Math.min(fill, 1 / IDEAL_TICK) - 1) * IDEAL_TICK * 100}%`,
-                            background: 'var(--red-9)',
+                            background: 'var(--gray-12)',
                             transition: 'width 150ms ease',
                           }}
                         />
