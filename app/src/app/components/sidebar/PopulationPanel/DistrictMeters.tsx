@@ -216,28 +216,31 @@ export const DistrictMeters = () => {
         total={populationData.length}
         hiddenCount={hiddenCount}
       />
-      {/* Plan-wide status: two quiet lines under the chart. */}
+      {/* Plan-wide status: two stat blocks under the chart. */}
       <Flex
-        direction="column"
-        align="end"
-        gap="0"
+        gap="4"
         px="1"
-        pt="2"
-        mt="1"
+        pt="3"
+        mt="2"
+        justify="between"
         style={{borderTop: '1px solid var(--gray-4)'}}
       >
-        <Text size="1" color="gray">
-          Unassigned{' '}
-          <Text weight="bold" style={{fontVariantNumeric: 'tabular-nums'}}>
+        <Flex direction="column">
+          <Text size="1" color="gray">
+            Unassigned
+          </Text>
+          <Text size="4" weight="bold" style={{fontVariantNumeric: 'tabular-nums'}}>
             {unassigned !== undefined ? formatNumber(unassigned, NUMBER_FORMATS.STRING) : '—'}
           </Text>
-        </Text>
-        <Text size="1" color="gray">
-          Max deviation{' '}
-          <Text weight="bold" style={{fontVariantNumeric: 'tabular-nums'}}>
+        </Flex>
+        <Flex direction="column" align="end">
+          <Text size="1" color="gray">
+            Max deviation
+          </Text>
+          <Text size="4" weight="bold" style={{fontVariantNumeric: 'tabular-nums'}}>
             {maxDeviation !== undefined ? signedNumber(maxDeviation) : '—'}
           </Text>
-        </Text>
+        </Flex>
       </Flex>
     </Flex>
   );
