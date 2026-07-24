@@ -209,13 +209,29 @@ class DocumentEvaluationContext:
 
     @cached_property
     def ideal_population(self) -> int:
-        """Ideal population per district (total population ÷ map's number of districts)."""
-        num_districts = self._districtr_map.num_districts
+        """Ideal population per district (total population ÷ document's number of districts).
+
+        Falls back to the map's default when the document has not set its own
+        (e.g. `num_districts_modifiable` maps let the document override the map default).
+        """
+        num_districts = (
+            self._document.num_districts or self._districtr_map.num_districts
+        )
         if not num_districts:
-            raise ValueError(
-                f"DistrictrMap for document '{self.document_id}' has no num_districts set."
-            )
+            raise ValueError(f"Document '{self.document_id}' has no num_districts set.")
         return self.total_population // num_districts
+
+    @cached_property
+    def _document(self) -> Document:
+        """The Document row associated with this evaluation context."""
+        d = self.session.exec(
+            sqlmodel.select(Document).where(
+                sqlmodel.col(Document.document_id) == self.document_id
+            )
+        ).one_or_none()
+        if d is None:
+            raise ValueError(f"No Document found for document_id '{self.document_id}'.")
+        return d
 
     @cached_property
     def _districtr_map(self) -> DistrictrMap:
