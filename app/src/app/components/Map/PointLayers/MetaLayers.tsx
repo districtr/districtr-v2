@@ -38,6 +38,12 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
   const showPopulationNumbers = useMapControlsStore(
     state => state.mapOptions.showPopulationNumbers
   );
+  // ZoneNumbersLayer renders under this same condition, at the same
+  // centroids — nudge population numbers clear of the district-number
+  // circle so the two never visually collide.
+  const showZoneNumbers = useMapControlsStore(state => state.mapOptions.showZoneNumbers);
+  const showPaintedDistricts = useMapControlsStore(state => state.mapOptions.showPaintedDistricts);
+  const avoidsZoneNumber = showZoneNumbers && showPaintedDistricts;
 
   // Create filter based on which population numbers to show
   const populationFilter = useMemo<FilterSpecification>(() => {
@@ -99,7 +105,9 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
           28,
         ],
         'text-anchor': 'center',
-        'text-offset': [0, 0],
+        // In ems, so it scales with text-size same as the district-number
+        // circle scales with zoom — keeps clearance consistent.
+        'text-offset': avoidsZoneNumber ? [0, 1.6] : [0, 0],
         // padding
         'text-padding': 0,
         'text-allow-overlap': ['step', ['zoom'], false, 12, true],
