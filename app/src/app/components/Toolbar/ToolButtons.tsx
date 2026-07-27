@@ -129,9 +129,10 @@ export const ToolButtons: React.FC<{
       gap="4"
       data-testid="toolbar"
     >
-      <Flex direction="row" wrap="nowrap" className="flex-grow" gap="1">
+      <Flex direction="row" wrap="wrap" className="flex-grow" gap="1">
         {/* flexBasis 0 (not auto) so every tool gets the same width regardless
-            of label length. */}
+            of label length. Wraps because the sidebar resizes down to 140px,
+            below the five Super Draw tools' combined minimum. */}
         {mainTools.map(tool =>
           renderTool(tool, {minWidth: TOOLBAR_SIZE, flexGrow: 1, flexBasis: 0})
         )}
