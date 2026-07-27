@@ -243,7 +243,7 @@ const ZoneNumbersLayer = () => {
         paint={{
           'circle-color': '#fff',
           'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 10, 10, 15, 15, 18],
-          'circle-opacity': 0.8,
+          'circle-opacity': 0.9,
           'circle-stroke-color': ZONE_LABEL_STYLE(colorScheme) || '#000',
           'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 5, 1.5, 15, 2.5],
         }}
