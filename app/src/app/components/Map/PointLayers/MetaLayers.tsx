@@ -4,6 +4,7 @@ import {
   SELECTION_POINTS_SOURCE_ID_CHILD,
   ZONE_LABEL_SOURCE_ID,
   ZONE_LABEL_LAYER_IDS,
+  MAP_LAYER_ANCHOR_IDS,
 } from '@/app/constants/map/layerIds';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useMapStore} from '@/app/store/mapStore';
@@ -21,9 +22,9 @@ import {FilterSpecification} from 'maplibre-gl';
 export const MetaLayers: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
   return (
     <>
+      {!isDemographicMap && <ZoneNumbersLayer />}
       <PopulationTextLayer />
       <PopulationTextLayer child />
-      {!isDemographicMap && <ZoneNumbersLayer />}
     </>
   );
 };
@@ -79,6 +80,7 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
       id={`POPULATION_TEXT_${child ? 'CHILD' : 'PARENT'}`}
       type="symbol"
       source={child ? SELECTION_POINTS_SOURCE_ID_CHILD : SELECTION_POINTS_SOURCE_ID}
+      beforeId={MAP_LAYER_ANCHOR_IDS.reference}
       filter={populationFilter}
       layout={{
         'text-field': ['get', 'total_pop_20'],
