@@ -162,12 +162,15 @@ export const HelpTip: React.FC<{
     // with negative margins, which can leave it internally taller than the text
     // line it sits in. A fixed 16px flex box matches size="1" Text's line-height
     // exactly, so it can never make its row taller than the text beside it.
+    // No onClickCapture here (unlike the cloned-trigger branch above): this icon's
+    // click doesn't activate anything else worth protecting help from lingering
+    // over, so closing on click would only fight the hover a reflexive click just
+    // opened.
     <span
       role="button"
       tabIndex={0}
       onPointerEnter={handlePointerEnter}
       onPointerLeave={handlePointerLeave}
-      onClickCapture={handleClick}
       className="cursor-help shrink-0 inline-flex items-center justify-center"
       style={{
         width: 16,

@@ -134,7 +134,13 @@ export const LoopVideoPlayer: React.FC<{videoUrl: string | string[]}> = ({videoU
         ref={videoRef}
         src={urls[index]}
         onEnded={handleEnded}
+        // Both events clear loading, not just one: `loadeddata` (first frame
+        // decoded) and `canplay` (enough buffered to start) don't reliably fire in
+        // the same order or both fire at all across browsers/first-load timing —
+        // relying on only one left the first open of a session occasionally stuck
+        // spinning even though the video was actually ready.
         onLoadedData={() => setIsLoading(false)}
+        onCanPlay={() => setIsLoading(false)}
         onError={() => {
           setIsLoading(false);
           setHasError(true);
