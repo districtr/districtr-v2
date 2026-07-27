@@ -52,15 +52,20 @@ export const PopulationLabels: React.FC<{
   // Over-ideal bars anchor their labels to the ideal line — deviation to its left, population
   // to its right — so the numbers stay put instead of chasing the (clipped) bar end.
   const isOverIdeal = hasIdealPopulation && entry.total_pop_20 > idealPopulation;
+  // "Current range" scaling starts the domain at the smallest current population, so
+  // the ideal line can fall outside the plot entirely (every district over ideal
+  // extrapolates it negative). Clamp the anchor into the plot area.
+  const idealX = hasIdealPopulation ? xScale(idealPopulation) : 0;
+  const idealOnPlot = isOverIdeal && idealX >= 0 && idealX <= xMax;
   const [left, top] = [
-    isOverIdeal ? xScale(idealPopulation) : Math.min(xScale(entry.total_pop_20), xMax),
+    isOverIdeal ? Math.min(Math.max(idealX, 0), xMax) : Math.min(xScale(entry.total_pop_20), xMax),
     yScale(index) + 5 + barHeight / 2,
   ];
   const showDeviationLabel = hasIdealPopulation && !!(isHovered || showTopBottomDeviation);
 
   let offsetLeft = 0;
-  if (isOverIdeal) {
-    // anchored at the ideal line, which always leaves room on both sides
+  if (idealOnPlot) {
+    // anchored at the ideal line, which leaves room on both sides
   } else if (popDiffLabel && left < popDiffLabel.length * 8 && showDeviationLabel) {
     offsetLeft = Math.max(popDiffLabel.length, 2) * 8 + 4;
   } else if (left > width - popLabel.length * 10) {
