@@ -250,12 +250,16 @@ export default function ZoomToFeature({
     // which falls below 1 on a long path — the camera then races most of the way
     // and crawls the rest. easeTo just interpolates, so the pan holds one pace.
     const panOnly = singleUnit && !rendered;
+    // Arm the follow-up zoom before the pan: with prefers-reduced-motion (or
+    // any other path where maplibre runs the animation synchronously) easeTo
+    // emits moveend before it returns, and a listener installed after the call
+    // would never see it — the pan would land and the zoom never happen.
+    if (panOnly) zoomInAfterPan(geoIds!);
     mapRef.easeTo({
       center: camera.center,
       ...(panOnly ? {} : {zoom: camera.zoom}),
       duration: PAN_DURATION_MS,
     });
-    if (panOnly) zoomInAfterPan(geoIds!);
   };
 
   useEffect(() => {
