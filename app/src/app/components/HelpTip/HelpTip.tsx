@@ -21,16 +21,14 @@ const VIDEO_MODAL_MAX_WIDTH = 720;
 // clicks, and a controlled `open` prop doesn't clear it.
 const NEVER_MS = 2 ** 30;
 
-/** Delay (ms) before help opens on a whole-element trigger someone frequently
- * clicks to do their actual work (a toolbar tool, a lock toggle, a mode switch) —
- * long enough that a quick pass-through hover on the way to clicking doesn't pop
- * help open and get in the way. */
-export const HELP_TIP_HOVER_DELAY = 1000;
+/** Delay (ms) before help opens on hover — the default for every trigger. */
+export const HELP_TIP_HOVER_DELAY = 1500;
 
-/** Delay (ms) for triggers that are mostly *read*, not clicked for frequent,
- * repeated work — a stats figure, a panel's own explainer icon, an occasional
- * settings/edit button. These should feel as immediate as plain tooltips. */
-export const HELP_TIP_FAST_DELAY = 150;
+/** No delay: for a handful of dense, text-only stats explainers (e.g. ideal
+ * population, top-to-bottom deviation) where the icon itself is the only thing
+ * being hovered — there's no risk of a pass-through hover on the way to
+ * clicking something else, so it should feel as immediate as a plain tooltip. */
+export const HELP_TIP_FAST_DELAY = 0;
 
 /** The video modal, split out of `HelpTip` so a caller that needs its own trigger
  * for the video (rather than the in-card link) can still reuse it directly. */
@@ -81,13 +79,14 @@ export const HelpTipVideoDialog: React.FC<{
  * opening a full-window modal with the clip and a guide link.
  *
  * Responsibility is split with Radix's HoverCard: OPENING is owned entirely by this
- * component (its own pointerenter-started timer, cancelled by pointerleave or any
- * click), with Radix's internal open timer disabled via a huge openDelay — that
- * timer can't be cancelled from outside, so it would otherwise fire stale opens
- * after a click (help popping over an open dropdown menu, or mid-paint, with no
- * pointer event left to ever close it). CLOSING stays Radix's: its closeDelay grace
- * period lets the cursor travel from the trigger into the card, and a late close is
- * self-correcting where a late open is not.
+ * component (its own pointerenter-started timer, cancelled by pointerleave), with
+ * Radix's internal open timer disabled via a huge openDelay — that timer can't be
+ * cancelled from outside, so it would otherwise fire stale opens after the pointer
+ * has already left (help popping open with no pointer event left to ever close
+ * it). CLOSING stays Radix's: its closeDelay grace period lets the cursor travel
+ * from the trigger into the card, and only actually leaving both — not clicking —
+ * closes the card, so a click that does real work (selecting a tool, opening a
+ * dropdown item) doesn't fight the hover that got the user there.
  */
 export const HelpTip: React.FC<{
   tip: HelpTipKey;
@@ -95,7 +94,7 @@ export const HelpTip: React.FC<{
    * icon. Used where a dedicated icon would be one affordance too many and the control
    * HelpTip is explaining can just BE the trigger (e.g. a toolbar button, a lock icon). */
   children?: React.ReactNode;
-  /** Hover delay before opening — see `HELP_TIP_HOVER_DELAY` / `HELP_TIP_FAST_DELAY`. */
+  /** Hover delay before opening — see `HELP_TIP_HOVER_DELAY`. */
   openDelay?: number;
   /** Replaces `helpTipContent[tip].text` for callers whose explanation depends on live
    * state (e.g. SaveButton's "unsaved changes" vs "all changes saved") — the dictionary
@@ -116,13 +115,6 @@ export const HelpTip: React.FC<{
     openTimerRef.current = window.setTimeout(() => setOpen(true), openDelay);
   };
   const handlePointerLeave = () => cancelOpenTimer();
-  // Any click on the trigger kills help outright: cancels a pending open (so it
-  // can't fire later, after the user has moved on to whatever the click did) and
-  // closes an already-open card.
-  const handleClick = () => {
-    cancelOpenTimer();
-    setOpen(false);
-  };
   useEffect(() => cancelOpenTimer, []);
 
   // Widened to the interface: `helpTipContent`'s `satisfies` (see helpTipContent.ts)
@@ -140,7 +132,6 @@ export const HelpTip: React.FC<{
   type TriggerProps = {
     onPointerEnter?: (e: React.PointerEvent) => void;
     onPointerLeave?: (e: React.PointerEvent) => void;
-    onClickCapture?: (e: React.MouseEvent) => void;
   };
   const trigger = children ? (
     React.cloneElement(children as React.ReactElement<TriggerProps>, {
@@ -152,20 +143,12 @@ export const HelpTip: React.FC<{
         handlePointerLeave();
         (children as React.ReactElement<TriggerProps>).props.onPointerLeave?.(event);
       },
-      onClickCapture: (event: React.MouseEvent) => {
-        handleClick();
-        (children as React.ReactElement<TriggerProps>).props.onClickCapture?.(event);
-      },
     })
   ) : (
     // A plain span, not IconButton: ghost IconButton pads itself and cancels that
     // with negative margins, which can leave it internally taller than the text
     // line it sits in. A fixed 16px flex box matches size="1" Text's line-height
     // exactly, so it can never make its row taller than the text beside it.
-    // No onClickCapture here (unlike the cloned-trigger branch above): this icon's
-    // click doesn't activate anything else worth protecting help from lingering
-    // over, so closing on click would only fight the hover a reflexive click just
-    // opened.
     <span
       role="button"
       tabIndex={0}
@@ -202,9 +185,10 @@ export const HelpTip: React.FC<{
           // pointerdown outside Content's DOM by default — and the trigger is a
           // separate portaled element, so clicking it counts as "outside" and
           // closes the card that same click just reopened. Opening/closing here is
-          // fully owned by our own pointerenter/pointerleave timers (and, for
-          // whole-button triggers, the click-cancels-pending-open handler above) —
-          // this default adds a second, unwanted dismissal path on top of that.
+          // fully owned by our own pointerenter/pointerleave timers — a click
+          // should never dismiss help on its own, only the pointer actually
+          // leaving both the trigger and the card does — so this default adds an
+          // unwanted second dismissal path on top of that.
           onPointerDownOutside={event => event.preventDefault()}
         >
           <Flex direction="column" gapY="2">
@@ -218,7 +202,7 @@ export const HelpTip: React.FC<{
                   setVideoOpen(true);
                 }}
               >
-                Watch video ▸
+                See demonstration ▸
               </Link>
             )}
           </Flex>

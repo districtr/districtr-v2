@@ -17,7 +17,7 @@ import {SummaryPanel, type SectionKey} from './SummaryPanel';
 import {MapControlsStore, useMapControlsStore} from '@store/mapControlsStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
-import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
+import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 import type {HelpTipKey} from '@components/HelpTip/helpTipContent';
 
 // One constant drives both the CSS transition and the delayed unmount so the
@@ -134,7 +134,9 @@ export type SidebarSection = {
   content: React.ReactNode;
   /** Hidden in communities (COI) mode, matching the old accordion's filter. */
   districtsOnly?: boolean;
-  /** Contextual HelpTip key shown next to the section's accordion header, if any. */
+  /** Contextual HelpTip key, shown by hovering the section's accordion header
+   * itself (no separate icon — icons are reserved for inside the expanded
+   * panels), if any. */
   helpTip?: HelpTipKey;
 };
 
@@ -206,49 +208,45 @@ const AccordionSection: React.FC<{
   onToggle: () => void;
 }> = ({section, open, onToggle}) => {
   const Icon = section.icon;
+  // The row itself is the hover trigger — no separate icon — so its own onClick
+  // (toggling the accordion) has to survive being cloned by HelpTip below.
+  const headerRow = (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onToggle}
+      onKeyDown={event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onToggle();
+        }
+      }}
+      aria-expanded={open}
+      className="w-full cursor-pointer text-left p-3 rounded-lg transition-colors hover:bg-blue-50"
+    >
+      <Flex gap="2" align="center">
+        <Icon className="shrink-0" />
+        <Text size="2" weight="bold" className="flex-grow">
+          {section.label}
+        </Text>
+        <ChevronDownIcon
+          className={`shrink-0 transition-transform duration-200 ${open ? '' : '-rotate-90'}`}
+        />
+      </Flex>
+    </div>
+  );
   return (
     <div
       className="relative border border-gray-300 rounded-lg bg-white"
       data-testid={`data-panel-${section.key}`}
     >
-      {/* One row (icon, label + HelpTip, chevron): everything shares one
-          line-height, so vertical centering needs no per-row height matching.
-          A literal <button> can't legally contain HelpTip (its trigger is itself
-          interactive) — a div with role="button" carries the same semantics
-          without that restriction. */}
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={onToggle}
-        onKeyDown={event => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            onToggle();
-          }
-        }}
-        aria-expanded={open}
-        className="w-full cursor-pointer text-left p-3 rounded-lg transition-colors hover:bg-blue-50"
-      >
-        <Flex gap="2" align="center">
-          <Icon className="shrink-0" />
-          <Flex align="center" gap="1" className="flex-grow">
-            <Text size="2" weight="bold">
-              {section.label}
-            </Text>
-            {section.helpTip && (
-              // Stops the click from also toggling the card open/closed — HelpTip is
-              // hover-triggered, but its "watch video"/guide links are still real
-              // clicks that would otherwise bubble up to this row's own onClick.
-              <span onClick={event => event.stopPropagation()}>
-                <HelpTip tip={section.helpTip} openDelay={HELP_TIP_FAST_DELAY} />
-              </span>
-            )}
-          </Flex>
-          <ChevronDownIcon
-            className={`shrink-0 transition-transform duration-200 ${open ? '' : '-rotate-90'}`}
-          />
-        </Flex>
-      </div>
+      {section.helpTip ? (
+        <HelpTip tip={section.helpTip} openDelay={HELP_TIP_HOVER_DELAY}>
+          {headerRow}
+        </HelpTip>
+      ) : (
+        headerRow
+      )}
       <AnimatedCollapse open={open}>
         <div className="px-3 pb-3">{section.content}</div>
       </AnimatedCollapse>
