@@ -35,6 +35,8 @@ export type DistrictrChartOptions = {
   popShowDistrictNumbers: boolean;
   popBarScaleToCurrent: boolean;
   popShowTopBottomDeviation: boolean;
+  /** Include zones with no population yet. Off by default — the chart shows started zones only. */
+  popShowAllZones: boolean;
 };
 
 interface APIErrorResponse extends AxiosResponse {

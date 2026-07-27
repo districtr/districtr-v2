@@ -20,6 +20,7 @@ export const useChartStore = create(
         popShowTopBottomDeviation: true,
         popShowDistrictNumbers: true,
         popBarScaleToCurrent: false,
+        popShowAllZones: false,
       },
       setChartOptions: options => set({chartOptions: {...get().chartOptions, ...options}}),
       dataUpdateHash: '',

@@ -16,6 +16,8 @@ export const PopulationLabels: React.FC<{
   showPopNumbers: boolean;
   showTopBottomDeviation: boolean;
   width: number;
+  /** Right edge of the plot area. Bars past it are clipped, so labels clamp here too. */
+  xMax: number;
 }> = ({
   xScale,
   yScale,
@@ -28,6 +30,7 @@ export const PopulationLabels: React.FC<{
   showPopNumbers,
   showTopBottomDeviation,
   width,
+  xMax,
 }) => {
   // TODO: Split labels into poplabels and ideal pop label diff
   const hasIdealPopulation = idealPopulation !== undefined;
@@ -46,11 +49,19 @@ export const PopulationLabels: React.FC<{
         : _popDiffLabel;
   const popLabel = formatNumber(entry.total_pop_20, NUMBER_FORMATS.STRING);
   if (popLabel === undefined) return null;
-  const [left, top] = [xScale(entry.total_pop_20), yScale(index) + 5 + barHeight / 2];
+  // Over-ideal bars anchor their labels to the ideal line — deviation to its left, population
+  // to its right — so the numbers stay put instead of chasing the (clipped) bar end.
+  const isOverIdeal = hasIdealPopulation && entry.total_pop_20 > idealPopulation;
+  const [left, top] = [
+    isOverIdeal ? xScale(idealPopulation) : Math.min(xScale(entry.total_pop_20), xMax),
+    yScale(index) + 5 + barHeight / 2,
+  ];
   const showDeviationLabel = hasIdealPopulation && !!(isHovered || showTopBottomDeviation);
 
   let offsetLeft = 0;
-  if (popDiffLabel && left < popDiffLabel.length * 8 && showDeviationLabel) {
+  if (isOverIdeal) {
+    // anchored at the ideal line, which always leaves room on both sides
+  } else if (popDiffLabel && left < popDiffLabel.length * 8 && showDeviationLabel) {
     offsetLeft = Math.max(popDiffLabel.length, 2) * 8 + 4;
   } else if (left > width - popLabel.length * 10) {
     offsetLeft = -popLabel.length * 10;

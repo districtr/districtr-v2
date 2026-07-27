@@ -1,4 +1,4 @@
-import {Flex, Heading, IconButton, Spinner, Text, Tooltip} from '@radix-ui/themes';
+import {Button, Flex, Heading, IconButton, Spinner, Text, Tooltip} from '@radix-ui/themes';
 import React, {useMemo, useState} from 'react';
 import {formatDeviationPct, formatNumber} from '@utils/numbers';
 import {ParentSize} from '@visx/responsive'; // Import ParentSize
@@ -79,7 +79,15 @@ export const PopulationPanel = () => {
   const getZoneColor = useZoneColorGetter();
   const isEditing = useMapControlsStore(state => state.isEditing);
   const superDraw = useToolbarStore(state => state.superDraw);
-  const shouldUseScrollableRows = populationData.length > 10;
+  // Unstarted zones are padded in with total_pop_20 = 0; hide them unless asked for.
+  const startedData = useMemo(
+    () => populationData.filter(d => d.total_pop_20 > 0),
+    [populationData]
+  );
+  const showAllZones = chartOptions.popShowAllZones;
+  const visibleData = showAllZones ? populationData : startedData;
+  const hasUnstartedZones = startedData.length < populationData.length;
+  const shouldUseScrollableRows = visibleData.length > 10;
   const selectCommunity = useSelectCommunity();
   const colorScheme = useColorScheme();
   const [editingCommunityId, setEditingCommunityId] = useState<number | null>(null);
@@ -155,6 +163,18 @@ export const PopulationPanel = () => {
         <Heading as="h3" size="3">
           {`Total population by ${zoneLabel}`}
         </Heading>
+        {hasUnstartedZones && (
+          <Button
+            size="1"
+            variant={showAllZones ? 'solid' : 'surface'}
+            color="gray"
+            highContrast={showAllZones}
+            aria-pressed={showAllZones}
+            onClick={() => setChartOptions({popShowAllZones: !showAllZones})}
+          >
+            {`Show all ${zoneLabelPlural}`}
+          </Button>
+        )}
         {superDraw && (
           <PopulationPanelOptions
             chartOptions={chartOptions}
@@ -163,149 +183,157 @@ export const PopulationPanel = () => {
           />
         )}
       </Flex>
-      {/* Fixed header: lock-all control + "Ideal" label strip. Never scrolls. */}
-      <Flex direction="row" width={'100%'} gap="1" mt="2">
-        <Flex justify="end" align="center" style={{width: POP_LEFT_COL_WIDTH, flexShrink: 0}}>
-          {!isCommunityMode && (
-            <Tooltip content="Lock or unlock all districts. Locked districts can't be painted over.">
-              <IconButton
-                onClick={toggleLockAllAreas}
-                variant="ghost"
-                disabled={access === ACCESS_STATES.READ}
-                style={{opacity: isEditing ? 1 : 0}}
-                aria-label={allAreLocked ? 'Unlock all districts' : 'Lock all districts'}
-              >
-                {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
-              </IconButton>
-            </Tooltip>
-          )}
-        </Flex>
-        <ParentSize style={{height: `${POP_CHART_LABEL_HEIGHT}px`, width: '100%'}}>
-          {({width}) => (
-            <PopulationChartIdealLabel
-              width={width}
-              data={populationData}
-              idealPopulation={effectiveIdealPopulation}
-            />
-          )}
-        </ParentSize>
-      </Flex>
-      <div style={{position: 'relative'}}>
-        <ConditionalScrollArea
-          shouldUseScrollableRows={shouldUseScrollableRows}
-          // Show 10.6 rows so the half-visible row signals more content below;
-          // 60vh keeps the panel usable on short viewports.
-          maxHeight={`min(60vh, ${POP_CHART_MARGINS.top + Math.round(10.6 * POP_ROW_HEIGHT)}px)`}
-        >
-          <Flex direction="row" width={'100%'} gap="1">
-            <Flex
-              direction={'column'}
-              className={'flex-grow-0 p-0'}
-              style={{width: POP_LEFT_COL_WIDTH, flexShrink: 0}}
-            >
-              <Flex style={{height: POP_LEFT_COL_TOP_SPACER}} />
-              {/* @ts-ignore */}
-              {populationData.map(d => (
-                <Flex
-                  key={d.zone}
-                  direction={'row'}
-                  gapX="1"
-                  align={'center'}
-                  className="p-0 m-0"
-                  justify={'between'}
-                  style={{height: POP_ROW_HEIGHT}}
-                >
-                  {!!showDistrictNumbers && (
-                    <IconButton
-                      variant={'outline'}
-                      onClick={() => selectCommunity(d.zone)}
-                      size="1"
-                      className={`${selectedZone === d.zone ? 'bg-gray-100' : '!shadow-none'} max-w-12 flex-grow`}
-                    >
-                      <Text weight={selectedZone === d.zone ? 'bold' : 'regular'}>
-                        {mapMode === MAP_MODES.COI
-                          ? (getCommunityRenderOrderId(communities, d.zone) ?? d.zone)
-                          : d.zone}
-                      </Text>
-                    </IconButton>
-                  )}
-                  <Flex gap="0" align="center">
-                    <ZoneDescriptionPopover zone={d.zone} color={getZoneColor(d.zone)} />
-                    {!!isEditing && (
-                      <>
-                        {isCommunityMode ? (
-                          <IconButton
-                            onClick={() => handleEditCommunity(d.zone)}
-                            variant="ghost"
-                            disabled={access === ACCESS_STATES.READ}
-                            aria-label={`Edit community ${d.zone}`}
-                          >
-                            <Pencil1Icon />
-                          </IconButton>
-                        ) : (
-                          <Tooltip
-                            content={
-                              lockPaintedAreas.includes(d.zone)
-                                ? 'Unlock this district to allow painting over it'
-                                : "Lock this district so it can't be painted over"
-                            }
-                          >
-                            <IconButton
-                              onClick={() => handleLockChange(d.zone)}
-                              variant="ghost"
-                              disabled={access === ACCESS_STATES.READ}
-                              aria-label={
-                                lockPaintedAreas.includes(d.zone)
-                                  ? `Unlock district ${d.zone}`
-                                  : `Lock district ${d.zone}`
-                              }
-                            >
-                              {lockPaintedAreas.includes(d.zone) ? (
-                                <LockClosedIcon />
-                              ) : (
-                                <LockOpen2Icon />
-                              )}
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </>
-                    )}
-                  </Flex>
-                </Flex>
-              ))}
+      {!visibleData.length ? (
+        <Text color="gray" size="2" className="py-4">
+          Start drawing to see population chart
+        </Text>
+      ) : (
+        <>
+          {/* Fixed header: lock-all control + "Ideal" label strip. Never scrolls. */}
+          <Flex direction="row" width={'100%'} gap="1" mt="2">
+            <Flex justify="end" align="center" style={{width: POP_LEFT_COL_WIDTH, flexShrink: 0}}>
+              {!isCommunityMode && (
+                <Tooltip content="Lock or unlock all districts. Locked districts can't be painted over.">
+                  <IconButton
+                    onClick={toggleLockAllAreas}
+                    variant="ghost"
+                    disabled={access === ACCESS_STATES.READ}
+                    style={{opacity: isEditing ? 1 : 0}}
+                    aria-label={allAreLocked ? 'Unlock all districts' : 'Lock all districts'}
+                  >
+                    {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
+                  </IconButton>
+                </Tooltip>
+              )}
             </Flex>
-            <ParentSize
-              style={{
-                height: `${getChartHeight(populationData.length, POP_ROW_HEIGHT)}px`,
-                width: '100%',
-              }}
-            >
+            <ParentSize style={{height: `${POP_CHART_LABEL_HEIGHT}px`, width: '100%'}}>
               {({width}) => (
-                <PopulationChart
+                <PopulationChartIdealLabel
                   width={width}
-                  rowHeight={POP_ROW_HEIGHT}
-                  data={populationData}
+                  data={visibleData}
                   idealPopulation={effectiveIdealPopulation}
-                  onBarSelect={selectCommunity}
                 />
               )}
             </ParentSize>
           </Flex>
-        </ConditionalScrollArea>
-      </div>
-      {/* Fixed axis strip below the scrollable rows. Never scrolls. */}
-      <Flex direction="row" width={'100%'} gap="1">
-        <Flex style={{width: POP_LEFT_COL_WIDTH, flexShrink: 0}} />
-        <ParentSize style={{height: `${POP_CHART_AXIS_HEIGHT}px`, width: '100%'}}>
-          {({width}) => (
-            <PopulationChartAxis
-              width={width}
-              data={populationData}
-              idealPopulation={effectiveIdealPopulation}
-            />
-          )}
-        </ParentSize>
-      </Flex>
+          <div style={{position: 'relative'}}>
+            <ConditionalScrollArea
+              shouldUseScrollableRows={shouldUseScrollableRows}
+              // Show 10.6 rows so the half-visible row signals more content below;
+              // 60vh keeps the panel usable on short viewports.
+              maxHeight={`min(60vh, ${POP_CHART_MARGINS.top + Math.round(10.6 * POP_ROW_HEIGHT)}px)`}
+            >
+              <Flex direction="row" width={'100%'} gap="1">
+                <Flex
+                  direction={'column'}
+                  className={'flex-grow-0 p-0'}
+                  style={{width: POP_LEFT_COL_WIDTH, flexShrink: 0}}
+                >
+                  <Flex style={{height: POP_LEFT_COL_TOP_SPACER}} />
+                  {/* @ts-ignore */}
+                  {visibleData.map(d => (
+                    <Flex
+                      key={d.zone}
+                      direction={'row'}
+                      gapX="1"
+                      align={'center'}
+                      className="p-0 m-0"
+                      justify={'between'}
+                      style={{height: POP_ROW_HEIGHT}}
+                    >
+                      {!!showDistrictNumbers && (
+                        <IconButton
+                          variant={'outline'}
+                          onClick={() => selectCommunity(d.zone)}
+                          size="1"
+                          className={`${selectedZone === d.zone ? 'bg-gray-100' : '!shadow-none'} max-w-12 flex-grow`}
+                        >
+                          <Text weight={selectedZone === d.zone ? 'bold' : 'regular'}>
+                            {mapMode === MAP_MODES.COI
+                              ? (getCommunityRenderOrderId(communities, d.zone) ?? d.zone)
+                              : d.zone}
+                          </Text>
+                        </IconButton>
+                      )}
+                      <Flex gap="0" align="center">
+                        <ZoneDescriptionPopover zone={d.zone} color={getZoneColor(d.zone)} />
+                        {!!isEditing && (
+                          <>
+                            {isCommunityMode ? (
+                              <IconButton
+                                onClick={() => handleEditCommunity(d.zone)}
+                                variant="ghost"
+                                disabled={access === ACCESS_STATES.READ}
+                                aria-label={`Edit community ${d.zone}`}
+                              >
+                                <Pencil1Icon />
+                              </IconButton>
+                            ) : (
+                              <Tooltip
+                                content={
+                                  lockPaintedAreas.includes(d.zone)
+                                    ? 'Unlock this district to allow painting over it'
+                                    : "Lock this district so it can't be painted over"
+                                }
+                              >
+                                <IconButton
+                                  onClick={() => handleLockChange(d.zone)}
+                                  variant="ghost"
+                                  disabled={access === ACCESS_STATES.READ}
+                                  aria-label={
+                                    lockPaintedAreas.includes(d.zone)
+                                      ? `Unlock district ${d.zone}`
+                                      : `Lock district ${d.zone}`
+                                  }
+                                >
+                                  {lockPaintedAreas.includes(d.zone) ? (
+                                    <LockClosedIcon />
+                                  ) : (
+                                    <LockOpen2Icon />
+                                  )}
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </>
+                        )}
+                      </Flex>
+                    </Flex>
+                  ))}
+                </Flex>
+                <ParentSize
+                  style={{
+                    height: `${getChartHeight(visibleData.length, POP_ROW_HEIGHT)}px`,
+                    width: '100%',
+                  }}
+                >
+                  {({width}) => (
+                    <PopulationChart
+                      width={width}
+                      rowHeight={POP_ROW_HEIGHT}
+                      data={visibleData}
+                      idealPopulation={effectiveIdealPopulation}
+                      onBarSelect={selectCommunity}
+                    />
+                  )}
+                </ParentSize>
+              </Flex>
+            </ConditionalScrollArea>
+          </div>
+          {/* Fixed axis strip below the scrollable rows. Never scrolls. */}
+          <Flex direction="row" width={'100%'} gap="1">
+            <Flex style={{width: POP_LEFT_COL_WIDTH, flexShrink: 0}} />
+            <ParentSize style={{height: `${POP_CHART_AXIS_HEIGHT}px`, width: '100%'}}>
+              {({width}) => (
+                <PopulationChartAxis
+                  width={width}
+                  data={visibleData}
+                  idealPopulation={effectiveIdealPopulation}
+                />
+              )}
+            </ParentSize>
+          </Flex>
+        </>
+      )}
       {!!idealPopulation && !isCommunityMode && (
         <Flex direction={'row'} justify={'between'} align={'start'} wrap="wrap">
           <Flex direction="column" gapX="2" minWidth={'10rem'}>

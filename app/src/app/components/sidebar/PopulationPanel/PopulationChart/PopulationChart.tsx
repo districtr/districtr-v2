@@ -26,6 +26,22 @@ export const getChartHeight = (
   margins: ChartMargins = POP_CHART_MARGINS
 ) => count * rowHeight + margins.top + margins.bottom;
 
+/** Diagonal hatch marking the portion of a bar that overshoots the ideal population. */
+const OVERAGE_HATCH_ID = 'pop-chart-overage-hatch';
+const OverageHatch = () => (
+  <defs>
+    <pattern
+      id={OVERAGE_HATCH_ID}
+      patternUnits="userSpaceOnUse"
+      width={6}
+      height={6}
+      patternTransform="rotate(45)"
+    >
+      <line x1={0} y1={0} x2={0} y2={6} stroke="black" strokeWidth={2} strokeOpacity={0.35} />
+    </pattern>
+  </defs>
+);
+
 /** Height of the standalone bottom-axis strip rendered by PopulationChartAxis. */
 export const POP_CHART_AXIS_HEIGHT = 36;
 /** Height of the standalone "Ideal" label strip rendered by PopulationChartIdealLabel. */
@@ -55,9 +71,13 @@ const usePopulationXScale = (
   const effectiveIdealPopulation = isCommunityMode ? undefined : idealPopulation;
 
   const maxPop = Math.max(...data.map(r => r.total_pop_20));
+  // ponytail: with an ideal, the domain is pinned to 130% of it so one outsized district
+  // can't squash every other bar. Bars past the cap are clipped and hatched.
   const xMaxValue = scaleToCurrent
     ? maxPop * 1.05
-    : Math.max((effectiveIdealPopulation || 0) * 1.3, ...data.map(r => r.total_pop_20 * 1.2));
+    : effectiveIdealPopulation
+      ? effectiveIdealPopulation * 1.3
+      : Math.max(0, ...data.map(r => r.total_pop_20 * 1.2));
   const xMinValue = scaleToCurrent ? Math.min(...data.map(r => r.total_pop_20)) : 0;
   const xMax = width - margins.left - margins.right;
 
@@ -225,55 +245,72 @@ export const PopulationChart: React.FC<{
   };
 
   const renderBars = () =>
-    data.map((entry, index) => (
-      <React.Fragment key={`pop-bar-group-${index}`}>
-        {entry.total_pop_20 > 0 && (
-          <>
-            <Bar
-              key={`bar-interactive-${entry.zone}`}
-              x={0}
-              y={yScale(index)}
-              width={xMax}
-              height={barHeight + 10}
-              className="opacity-0 hover:opacity-10 transition-opacity duration-300 cursor-pointer"
-              onClick={() => onBarSelect?.(entry.zone)}
-              onMouseEnter={() => setHoveredIndex(index)}
-              onMouseMove={() => setHoveredIndex(index)}
-              onMouseLeave={() => setHoveredIndex(null)}
-            />
-            <Bar
-              key={`bar-${entry.zone}`}
-              x={0}
-              y={yScale(index) + 5}
-              width={entry.total_pop_20 > 0 ? xScale(entry.total_pop_20) : 0}
-              height={barHeight}
-              fill={getZoneColor(entry.zone, colorScheme[entry.zone - 1] ?? '#000000')}
-              fillOpacity={0.9}
-              style={{
-                pointerEvents: 'none',
+    data.map((entry, index) => {
+      // Bars are clipped to the fixed domain; anything past it keeps the hatch running to the edge.
+      const barEnd = Math.min(xScale(entry.total_pop_20), xMax);
+      const overIdealStart = effectiveIdealPopulation ? xScale(effectiveIdealPopulation) : 0;
+      return (
+        <React.Fragment key={`pop-bar-group-${index}`}>
+          {entry.total_pop_20 > 0 && (
+            <>
+              <Bar
+                key={`bar-interactive-${entry.zone}`}
+                x={0}
+                y={yScale(index)}
+                width={xMax}
+                height={barHeight + 10}
+                className="opacity-0 hover:opacity-10 transition-opacity duration-300 cursor-pointer"
+                onClick={() => onBarSelect?.(entry.zone)}
+                onMouseEnter={() => setHoveredIndex(index)}
+                onMouseMove={() => setHoveredIndex(index)}
+                onMouseLeave={() => setHoveredIndex(null)}
+              />
+              <Bar
+                key={`bar-${entry.zone}`}
+                x={0}
+                y={yScale(index) + 5}
+                width={barEnd}
+                height={barHeight}
+                fill={getZoneColor(entry.zone, colorScheme[entry.zone - 1] ?? '#000000')}
+                fillOpacity={0.9}
+                style={{
+                  pointerEvents: 'none',
+                }}
+              />
+              {barEnd > overIdealStart && !!effectiveIdealPopulation && (
+                <Bar
+                  key={`bar-over-${entry.zone}`}
+                  x={overIdealStart}
+                  y={yScale(index) + 5}
+                  width={barEnd - overIdealStart}
+                  height={barHeight}
+                  fill={`url(#${OVERAGE_HATCH_ID})`}
+                  style={{pointerEvents: 'none'}}
+                />
+              )}
+            </>
+          )}
+          {entry.total_pop_20 > 0 && (
+            <PopulationLabels
+              {...{
+                xScale,
+                yScale,
+                entry,
+                maxPop,
+                idealPopulation: effectiveIdealPopulation,
+                index,
+                barHeight,
+                isHovered,
+                showPopNumbers,
+                showTopBottomDeviation: effectiveShowTopBottomDeviation,
+                width,
+                xMax,
               }}
             />
-          </>
-        )}
-        {entry.total_pop_20 > 0 && (
-          <PopulationLabels
-            {...{
-              xScale,
-              yScale,
-              entry,
-              maxPop,
-              idealPopulation: effectiveIdealPopulation,
-              index,
-              barHeight,
-              isHovered,
-              showPopNumbers,
-              showTopBottomDeviation: effectiveShowTopBottomDeviation,
-              width,
-            }}
-          />
-        )}
-      </React.Fragment>
-    ));
+          )}
+        </React.Fragment>
+      );
+    });
 
   // Parent container not ready yet
   if (xMax < 0) {
@@ -291,6 +328,7 @@ export const PopulationChart: React.FC<{
         setHoveredIndex(null);
       }}
     >
+      <OverageHatch />
       <Group left={margins.left} top={margins.top} onMouseLeave={() => setHoveredIndex(null)}>
         {renderIdealReference()}
         {renderBars()}
