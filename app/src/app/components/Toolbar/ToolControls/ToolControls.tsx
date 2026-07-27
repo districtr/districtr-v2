@@ -1,11 +1,8 @@
 'use client';
-import {Text} from '@radix-ui/themes';
-import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import React from 'react';
 import {BrushControls} from '@/app/components/Toolbar/ToolControls/BrushControls';
 import {ActiveTool} from '@constants/map/tools';
-import {ExitBlockViewButtons} from '@/app/components/Toolbar/ExitBlockViewButtons';
 import {InspectorControls} from '@components/Toolbar/ToolControls/InspectorControls';
 
 const ToolControlsConfig: Record<
@@ -13,27 +10,20 @@ const ToolControlsConfig: Record<
   {Component?: () => React.JSX.Element; focused?: boolean}
 > = {
   pan: {},
-  undo: {
-    Component: () => <React.Fragment />,
-  },
-  redo: {
-    Component: () => <React.Fragment />,
-  },
+  // Unreachable as activeTool (they fire onClick instead), listed for the type.
+  undo: {},
+  redo: {},
   brush: {
     Component: BrushControls,
   },
   eraser: {
     Component: BrushControls,
   },
+  // The break flow is guided by the on-map BlockModePill (which also hosts
+  // the exit control); the sidebar keeps the paint controls, since breaking
+  // leads straight into painting blocks.
   shatter: {
-    Component: () => {
-      const focusFeatures = useMapStore(state => state.focusFeatures);
-      if (focusFeatures.length) {
-        return <Text>Focused on {focusFeatures[0].id}</Text>;
-      } else {
-        return <Text>Click a feature to show the census blocks within it</Text>;
-      }
-    },
+    Component: BrushControls,
   },
   inspector: {
     Component: InspectorControls,
@@ -49,7 +39,6 @@ export const ToolControls: React.FC = () => {
   return (
     <div className="bg-white w-full py-4">
       <Component />
-      <ExitBlockViewButtons />
     </div>
   );
 };
