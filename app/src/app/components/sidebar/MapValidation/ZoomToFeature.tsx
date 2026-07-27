@@ -3,7 +3,12 @@ import {Button, Flex, Select} from '@radix-ui/themes';
 import {useEffect, useLayoutEffect, useRef, useState, Dispatch, SetStateAction} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
 import {Feature, Polygon} from 'geojson';
-import type {LngLatBoundsLike, Map as MapLibreMap, PaddingOptions} from 'maplibre-gl';
+import type {
+  LngLatBoundsLike,
+  Map as MapLibreMap,
+  MapSourceDataEvent,
+  PaddingOptions,
+} from 'maplibre-gl';
 import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerIds';
 
 /**
@@ -22,9 +27,20 @@ export const getFitBoundsPadding = (
   return {top: vertical, bottom: vertical, left: horizontal, right: horizontal};
 };
 
-/** Minimum hold at the general-area snap before the fly-in, so the orienting
- * pause is perceptible even when tiles are cached and 'idle' fires at once. */
-const MIN_DWELL_MS = 400;
+/** The move over to the target: eased at both ends, no hard cut, no pull-back. */
+const PAN_DURATION_MS = 1500;
+
+/** The zoom that follows for a single-unit target, once it has loaded. */
+const ZOOM_DURATION_MS = 800;
+
+/** Cap on those zoom moves. Measuring against loaded tiles converges in one or
+ * two, but the loop must not be able to run away. */
+const MAX_SETTLE_MOVES = 4;
+
+/** Backstop for bounds with no area — a sliver, or a bbox that came through as
+ * a point — which would otherwise frame at the map's own ceiling of 22. Real
+ * geometry fits well inside this, so it doesn't cap ordinary targets. */
+const MAX_ZOOM = 16;
 
 interface ZoomToFeatureProps {
   selectedIndex: number | null;
@@ -97,52 +113,79 @@ export default function ZoomToFeature({
     return null;
   };
 
-  // Fixed duration (speed-based scales with distance), tight padding (the
-  // `padding` prop only frames the snap), and linear to avoid flyTo's
-  // zoom-out-then-in swoop.
-  const finalFitOptions = () => ({
-    duration: 700,
-    linear: true,
-    padding: getFitBoundsPadding(mapRef, 40),
-  });
+  // Camera that frames `bounds` with room around it: generous padding and a
+  // zoom cap, so a one-unit target doesn't fill the canvas at street level with
+  // nothing around it to orient by.
+  const cameraForFrame = (bounds: LngLatBoundsLike) =>
+    mapRef?.cameraForBounds(bounds, {
+      padding: getFitBoundsPadding(mapRef, padding ?? 80),
+      maxZoom: MAX_ZOOM,
+    });
 
-  // After the snap, wait for both map idle (tiles loaded) and the minimum
-  // dwell, then fly in. With geoIds, the fly targets the union bbox of the
-  // geometries' rendered pieces — approxBounds is centroid-derived, so it
-  // understates the true extent and collapses to a point for a single unit.
-  // Without geoIds the fly targets approxBounds directly, waiting anyway so
-  // both paths share the same pacing.
-  const flyInAfterIdle = (approxBounds: LngLatBoundsLike, geoIds?: string[]) => {
+  // Second motion, for a target whose bbox is a single unit's centroid — a
+  // point, with no extent to frame. The pan takes the camera there at the zoom
+  // it already had; once the unit's real geometry is in the loaded tiles we
+  // know how far to zoom, and go. Both conditions have to hold, so whichever
+  // lands last starts the zoom: the tiles usually arrive during the pan, making
+  // it one continuous motion. Never re-aims the pan itself — interrupting an
+  // ease from inside a map event is what made the camera stall mid-move.
+  const zoomInAfterPan = (geoIds: string[]) => {
     if (!mapRef) return;
-    let idleDone = false;
-    let dwellDone = false;
-    let cancelled = false;
-    const maybeFly = () => {
-      if (cancelled || !idleDone || !dwellDone) return;
-      cancelPendingFly.current = null;
-      mapRef.fitBounds(
-        (geoIds?.length && queryRenderedBounds(geoIds)) || approxBounds,
-        finalFitOptions()
-      );
-    };
-    const onIdle = () => {
-      idleDone = true;
-      maybeFly();
-    };
-    const dwellTimer = setTimeout(() => {
-      dwellDone = true;
-      maybeFly();
-    }, MIN_DWELL_MS);
-    cancelPendingFly.current = () => {
-      cancelled = true;
-      clearTimeout(dwellTimer);
+    let panDone = false;
+    let moves = 0;
+    const stop = () => {
+      mapRef.off('moveend', onMoveEnd);
+      mapRef.off('sourcedata', onSourceData);
       mapRef.off('idle', onIdle);
+      cancelPendingFly.current = null;
     };
-    mapRef.once('idle', onIdle);
+    // Measure the unit's rendered extent and ease to it. The measurement only
+    // covers loaded tiles, which cover roughly the viewport — so a unit larger
+    // than the screen comes back clipped, and easing to it lands short. Zooming
+    // out loads more of it, so we measure again each time the map settles and
+    // keep going until the framing we'd move to is the one we're already in.
+    const tryZoom = () => {
+      if (!panDone) return;
+      if (moves >= MAX_SETTLE_MOVES) return stop();
+      const rendered = queryRenderedBounds(geoIds);
+      const camera = rendered && cameraForFrame(rendered);
+      if (!camera) return;
+      const zoom = camera.zoom ?? mapRef.getZoom();
+      if (moves > 0 && Math.abs(zoom - mapRef.getZoom()) < 0.25) return; // settled
+      moves++;
+      // One shot per settle: further tiles arriving mid-ease would stack up
+      // more of them. The next measurement happens on idle.
+      mapRef.off('sourcedata', onSourceData);
+      // Out of the map event that got us here: an ease started from inside one
+      // runs while the outgoing animation's frame loop is still going, and that
+      // loop truncates it — the taller the zoom delta, the shorter it lands.
+      setTimeout(() => mapRef.easeTo({center: camera.center, zoom, duration: ZOOM_DURATION_MS}), 0);
+    };
+    const onMoveEnd = () => {
+      mapRef.off('moveend', onMoveEnd);
+      panDone = true;
+      tryZoom();
+    };
+    const onSourceData = (e: MapSourceDataEvent) => {
+      if (e.sourceId === BLOCK_SOURCE_ID) tryZoom();
+    };
+    // Idle means the camera is at rest and the tiles it wanted have arrived —
+    // the moment to re-measure. If that produces no move, we're either framed
+    // or the geometry is never going to render: either way, stop listening
+    // rather than leave a handler armed to yank the camera during a later pan.
+    const onIdle = () => {
+      const before = moves;
+      tryZoom();
+      if (moves === before) stop();
+    };
+    mapRef.on('moveend', onMoveEnd);
+    mapRef.on('sourcedata', onSourceData);
+    mapRef.on('idle', onIdle);
+    cancelPendingFly.current = stop;
   };
 
   // Union bbox of the geometries' rendered tile pieces, or null if none are in
-  // the loaded tiles (a feature can be split across tiles).
+  // the loaded tiles.
   const queryRenderedBounds = (geoIds: string[]): LngLatBoundsLike | null => {
     if (!mapRef) return null;
     const sourceLayers = [mapDocument?.parent_layer, mapDocument?.child_layer].filter(
@@ -186,32 +229,33 @@ export default function ZoomToFeature({
     cancelPendingFly.current?.();
     cancelPendingFly.current = null;
     const bounds = getFeatureBounds(feature);
-    if (!bounds) {
-      console.error('Invalid feature type');
+    if (!bounds || !mapRef) {
+      if (!bounds) console.error('Invalid feature type');
       return;
     }
-    // Snap (no animation) to the general area, then fly in to the precise bounds.
-    if (mapRef) {
-      const camera = mapRef.cameraForBounds(bounds, {
-        ...(padding ? {padding: getFitBoundsPadding(mapRef, padding)} : {}),
-      });
-      if (camera) {
-        // Two levels out, not more: a bigger gap means a faster zoom rush
-        // during the fly-in, which amplifies motion sickness.
-        let snapZoom = Math.min((camera.zoom ?? 10) - 2, 10);
-        // But never wider than the map document's own extent.
-        if (mapDocument?.extent) {
-          const extentZoom = mapRef.cameraForBounds(mapDocument.extent)?.zoom;
-          if (extentZoom !== undefined) snapZoom = Math.max(snapZoom, extentZoom);
-        }
-        mapRef.jumpTo({
-          center: camera.center,
-          zoom: Math.max(0, snapZoom),
-        });
-      }
-    }
-    const geoIds = isFeature(feature) ? feature.properties?.geo_ids : undefined;
-    flyInAfterIdle(bounds, geoIds);
+    // A multi-unit target's bbox has real extent, so its framing is settled up
+    // front and one ease does the whole job. A single unit's bbox is just its
+    // centroid, so unless the unit is already rendered (a nearby target, or a
+    // repeat visit) we pan there at the current zoom and hand the zoom-in to
+    // the second motion.
+    const geoIds: string[] | undefined = isFeature(feature)
+      ? feature.properties?.geo_ids
+      : undefined;
+    const singleUnit = geoIds?.length === 1;
+    const rendered = singleUnit ? queryRenderedBounds(geoIds!) : null;
+    const camera = cameraForFrame(rendered ?? bounds);
+    if (!camera) return;
+    // easeTo, not flyTo: flyTo always arcs, and the `minZoom` knob that would
+    // flatten the arc also replaces its curve with rho = sqrt(wMax / u1 * 2),
+    // which falls below 1 on a long path — the camera then races most of the way
+    // and crawls the rest. easeTo just interpolates, so the pan holds one pace.
+    const panOnly = singleUnit && !rendered;
+    mapRef.easeTo({
+      center: camera.center,
+      ...(panOnly ? {} : {zoom: camera.zoom}),
+      duration: PAN_DURATION_MS,
+    });
+    if (panOnly) zoomInAfterPan(geoIds!);
   };
 
   useEffect(() => {
