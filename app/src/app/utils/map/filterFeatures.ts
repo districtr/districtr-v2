@@ -57,7 +57,11 @@ export const filterFeatures = ({
   if (filterLocked) {
     // Freeze mode: anything already assigned to a district is untouchable,
     // regardless of which district — only unassigned areas can be painted.
-    if (mapOptions.lockAssignedAreas && mapMode === MAP_MODES.DISTRICTS) {
+    // Paint tools only: the toggle governs repaint/erase, so Break and Inspect
+    // (which select through the same paintFunction) must still see assigned
+    // features or they'd have nothing to act on.
+    const isPaintTool = activeTool === ACTIVE_TOOLS.BRUSH || activeTool === ACTIVE_TOOLS.ERASER;
+    if (isPaintTool && mapOptions.lockAssignedAreas && mapMode === MAP_MODES.DISTRICTS) {
       filterFunctions.push(f => !zoneAssignments.get(f.id?.toString() || ''));
     }
     if (activeTool === ACTIVE_TOOLS.BRUSH && mapOptions.lockPaintedAreas.includes(selectedZone)) {
