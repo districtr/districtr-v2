@@ -198,6 +198,14 @@ export const HelpTip: React.FC<{
           align="start"
           side={side}
           avoidCollisions={!side}
+          // Radix's own DismissableLayer, wrapping Content, dismisses on any
+          // pointerdown outside Content's DOM by default — and the trigger is a
+          // separate portaled element, so clicking it counts as "outside" and
+          // closes the card that same click just reopened. Opening/closing here is
+          // fully owned by our own pointerenter/pointerleave timers (and, for
+          // whole-button triggers, the click-cancels-pending-open handler above) —
+          // this default adds a second, unwanted dismissal path on top of that.
+          onPointerDownOutside={event => event.preventDefault()}
         >
           <Flex direction="column" gapY="2">
             <Text size="2">{displayText}</Text>
