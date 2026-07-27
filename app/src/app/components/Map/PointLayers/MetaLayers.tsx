@@ -21,9 +21,9 @@ import {FilterSpecification} from 'maplibre-gl';
 export const MetaLayers: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
   return (
     <>
-      {!isDemographicMap && <ZoneNumbersLayer />}
       <PopulationTextLayer />
       <PopulationTextLayer child />
+      {!isDemographicMap && <ZoneNumbersLayer />}
     </>
   );
 };
