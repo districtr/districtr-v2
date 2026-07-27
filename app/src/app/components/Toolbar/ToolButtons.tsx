@@ -31,6 +31,7 @@ export const ToolButtons: React.FC<{
           <IconButton
             key={`${tool.mode}-flex`}
             data-testid={`${tool.mode}-tool`}
+            aria-label={tool.label}
             className={`cursor-pointer ${i === 0 ? 'lg:rounded-l-lg' : ''} ${
               i === activeTools.length - 1 ? 'lg:rounded-r-lg' : ''
             } flex-grow`}

@@ -119,6 +119,7 @@ export const MapTitleDisplay: React.FC<{
                 className="!absolute !top-0 !right-0"
                 variant="ghost"
                 onClick={() => setOpen(false)}
+                aria-label="Close"
               >
                 <Cross2Icon />
               </IconButton>

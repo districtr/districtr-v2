@@ -19,13 +19,15 @@ export const LoopVideoPlayer: React.FC<{videoUrl: string | string[]}> = ({videoU
   // Without this, a clip that 404s or CORS-fails just spins forever — `loadeddata`
   // never fires, and nothing else says so.
   const [hasError, setHasError] = useState(false);
-  // Fraction (0-1) through the current clip's own timeline. Resets to 0 every time
-  // `currentTime` does (loop restart or advancing to the next clip), so the bar
-  // visibly snaps back rather than crawling to 100% and stalling — a fast, frequent
-  // reset reads as "this clip is short," addressing the same time-commitment
-  // hesitation that a duration label would, without implying a fixed runtime that
-  // doesn't really apply to a looping clip.
-  const [progress, setProgress] = useState(0);
+  // Seconds into the *current* clip's own timeline — combined with clipDurations
+  // below to get the bar's overall position across the whole multi-clip sequence.
+  const [currentTime, setCurrentTime] = useState(0);
+  // Each clip's duration, probed up front (not discovered as we naturally play
+  // through them) so the bar reflects the whole sequence's length from the very
+  // first cycle, rather than under-estimating the total until every clip has been
+  // visited once and visibly snapping shorter each time a new clip's duration
+  // becomes known.
+  const [clipDurations, setClipDurations] = useState<number[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const {ref, inView} = useInView({
     // Nearly fully visible, not just partially: on a scrolling page with several
@@ -49,6 +51,34 @@ export const LoopVideoPlayer: React.FC<{videoUrl: string | string[]}> = ({videoU
   // A different `videoUrl` prop (e.g. HelpTip switching tips) should restart the cycle.
   useEffect(() => {
     setIndex(0);
+  }, [urls]);
+
+  // Probe every clip's duration via throwaway offscreen <video> elements, in
+  // parallel, up front — not the visible player's own onLoadedMetadata as it
+  // naturally cycles through clips, which would only learn a clip's length the
+  // first time it's played. `preload="metadata"` fetches just enough to read
+  // `duration`, not the full clip, so this is cheap even though it briefly
+  // duplicates a request the visible player also makes for clip 1.
+  useEffect(() => {
+    let cancelled = false;
+    setClipDurations([]);
+    Promise.all(
+      urls.map(
+        url =>
+          new Promise<number>(resolve => {
+            const probe = document.createElement('video');
+            probe.preload = 'metadata';
+            probe.src = url;
+            probe.onloadedmetadata = () => resolve(probe.duration || 0);
+            probe.onerror = () => resolve(0);
+          })
+      )
+    ).then(durations => {
+      if (!cancelled) setClipDurations(durations);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [urls]);
 
   // Looping is manual (no `loop` attribute) so the last frame can hold briefly before
@@ -93,7 +123,7 @@ export const LoopVideoPlayer: React.FC<{videoUrl: string | string[]}> = ({videoU
   useEffect(() => {
     setIsLoading(true);
     setHasError(false);
-    setProgress(0);
+    setCurrentTime(0);
     if (isFirstRenderRef.current) {
       isFirstRenderRef.current = false;
     } else if (inViewRef.current) {
@@ -121,6 +151,21 @@ export const LoopVideoPlayer: React.FC<{videoUrl: string | string[]}> = ({videoU
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inView]);
+
+  // Overall position across the whole sequence once every clip's duration is
+  // known; falls back to just the current clip's own fraction until then (or if
+  // a probe ever fails) — still a reasonable bar, just clip-local instead of
+  // sequence-wide for that brief window.
+  const allDurationsKnown = clipDurations.length === urls.length && clipDurations.every(d => d > 0);
+  const totalDuration = allDurationsKnown ? clipDurations.reduce((sum, d) => sum + d, 0) : 0;
+  const elapsedBeforeCurrentClip = allDurationsKnown
+    ? clipDurations.slice(0, index).reduce((sum, d) => sum + d, 0)
+    : 0;
+  const progress = allDurationsKnown
+    ? (elapsedBeforeCurrentClip + currentTime) / totalDuration
+    : videoRef.current?.duration
+      ? currentTime / videoRef.current.duration
+      : 0;
 
   return (
     <Box
@@ -155,10 +200,7 @@ export const LoopVideoPlayer: React.FC<{videoUrl: string | string[]}> = ({videoU
         // spinning even though the video was actually ready.
         onLoadedData={() => setIsLoading(false)}
         onCanPlay={() => setIsLoading(false)}
-        onTimeUpdate={event => {
-          const video = event.currentTarget;
-          if (video.duration) setProgress(video.currentTime / video.duration);
-        }}
+        onTimeUpdate={event => setCurrentTime(event.currentTarget.currentTime)}
         onError={() => {
           setIsLoading(false);
           setHasError(true);

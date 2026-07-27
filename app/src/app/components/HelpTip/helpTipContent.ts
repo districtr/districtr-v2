@@ -15,25 +15,25 @@ export interface HelpTipEntry {
 export const helpTipContent = {
   pan: {
     title: 'Moving around the map',
-    text: 'Select the hand icon, then click and drag to pan across the map. Use the plus/minus buttons, or your mouse scroll wheel or trackpad, to zoom in and out.',
+    text: 'Click to select the pan tool. With this tool selected, click and drag to pan across the map. Use the plus/minus buttons, or your mouse scroll wheel or trackpad, to zoom in and out.',
     videoFile: 'moving_in_map.webm',
     guideAnchor: 'moving-across-the-map',
   },
   paint: {
     title: 'Drawing districts',
-    text: 'Select the paintbrush icon, then click and drag on the map to add units to your district.',
+    text: 'Click to select the paintbrush tool. With this tool selected, click and drag on the map to add units to your district.',
     videoFile: 'drawing_on_map.webm',
     guideAnchor: 'drawing-the-districts',
   },
   erase: {
     title: 'Erasing',
-    text: 'Select the eraser icon, then click and drag to remove units from a district. Adjust the eraser size with the slider.',
+    text: 'Click to select the eraser tool. With this tool selected, click and drag to remove units from a district. Adjust the eraser size with the slider.',
     videoFile: 'eraser.webm',
     guideAnchor: 'drawing-the-districts',
   },
   break: {
     title: 'Breaking a unit into blocks',
-    text: 'Click a unit to "break" it into smaller pieces, so you can paint subsets of it — useful for fine-tuning population balance. Only available in Super Draw mode.',
+    text: 'Click to select the break tool. With this tool selected, click a unit to "break" it into smaller pieces, so you can paint subsets of it — useful for fine-tuning population balance. Only available in Super Draw mode.',
     videoFile: 'shatter.webm',
     guideAnchor: 'super-draw',
   },

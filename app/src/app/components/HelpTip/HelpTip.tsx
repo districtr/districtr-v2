@@ -1,5 +1,5 @@
 'use client';
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import dynamic from 'next/dynamic';
 import {Box, Button, Dialog, Flex, HoverCard, Link, Text} from '@radix-ui/themes';
 import {InfoCircledIcon} from '@radix-ui/react-icons';
@@ -38,10 +38,19 @@ export const HelpTipVideoDialog: React.FC<{
   onOpenChange: (open: boolean) => void;
 }> = ({tip, open, onOpenChange}) => {
   const entry: HelpTipEntry = helpTipContent[tip];
-  const videoFiles = entry.videoFiles ?? (entry.videoFile ? [entry.videoFile] : []);
-  const videoUrls = videoFiles.map(
-    file => `${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/${file}`
-  );
+  // Memoized on `entry` (stable per `tip` — a property lookup on the static
+  // helpTipContent dictionary, not a fresh object each render), not on the derived
+  // `videoFiles`/`videoUrls` arrays themselves: those are rebuilt fresh on every
+  // render regardless of whether `tip` changed, and LoopVideoPlayer treats a new
+  // array reference as a new video list — resetting playback to clip 1 — even
+  // when a totally unrelated ancestor re-render (e.g. autosave's status flip)
+  // is what actually triggered this render.
+  const videoUrls = useMemo(() => {
+    const videoFiles = entry.videoFiles ?? (entry.videoFile ? [entry.videoFile] : []);
+    return videoFiles.map(
+      file => `${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/${file}`
+    );
+  }, [entry]);
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Content style={{maxWidth: VIDEO_MODAL_MAX_WIDTH}}>
@@ -152,6 +161,7 @@ export const HelpTip: React.FC<{
     <span
       role="button"
       tabIndex={0}
+      aria-label={entry.title}
       onPointerEnter={handlePointerEnter}
       onPointerLeave={handlePointerLeave}
       className="cursor-help shrink-0 inline-flex items-center justify-center"

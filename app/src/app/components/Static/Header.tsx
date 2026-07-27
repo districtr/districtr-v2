@@ -111,7 +111,12 @@ export const Header: React.FC = () => {
         </Flex>
         <DropdownMenu.Root>
           <DropdownMenu.Trigger>
-            <IconButton variant="ghost" className="md:!hidden" size="3">
+            <IconButton
+              variant="ghost"
+              className="md:!hidden"
+              size="3"
+              aria-label="Open navigation menu"
+            >
               <HamburgerMenuIcon />
             </IconButton>
           </DropdownMenu.Trigger>

@@ -7,7 +7,13 @@ export const EditStatus: React.FC = () => {
   if (!StatusIcon || !statusColor || !statusTooltip) return null;
   return (
     <HelpTip tip="mapAccessStatus" text={statusTooltip}>
-      <IconButton variant="ghost" size="1" color={statusColor} onClick={onClick ?? undefined}>
+      <IconButton
+        variant="ghost"
+        size="1"
+        color={statusColor}
+        onClick={onClick ?? undefined}
+        aria-label={statusTooltip}
+      >
         <StatusIcon />
       </IconButton>
     </HelpTip>
