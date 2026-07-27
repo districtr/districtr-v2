@@ -4,6 +4,7 @@ import {Box, Flex} from '@radix-ui/themes';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {Toolbar} from '../Toolbar/Toolbar';
 import {VisualSettingsPopover} from '../Toolbar/VisualSettingsPopover';
+import {LockPaintedToggle} from '../Toolbar/LockPaintedToggle';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useIsDesktop} from '@/app/hooks/useIsDesktop';
 
@@ -21,8 +22,9 @@ export const ToolbarInSidebar = () => {
       className={`my-1 flex-none ${activeTool !== ACTIVE_TOOLS.PAN && 'border-b-[1px] border-gray-300'}`}
     >
       {isDesktop && <Toolbar />}
-      <Flex justify="start" py="2">
+      <Flex justify="start" py="2" gapX="1">
         {/* Visual settings live next to the toolbar as a dropdown, not a modal. */}
+        <LockPaintedToggle />
         <VisualSettingsPopover />
       </Flex>
     </Box>

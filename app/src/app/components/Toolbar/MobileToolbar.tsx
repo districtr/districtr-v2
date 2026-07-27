@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import {Toolbar} from './Toolbar';
+import {LockPaintedToggle} from './LockPaintedToggle';
 import {VisualSettingsPopover} from './VisualSettingsPopover';
 import {useIsDesktop} from '@/app/hooks/useIsDesktop';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
@@ -23,6 +24,7 @@ export const MobileToolbar: React.FC = () => {
       <Toolbar />
       {/* col-reverse: this row sits above the tool buttons/controls. */}
       <div className="flex justify-start px-2 py-1 border-b border-gray-200">
+        <LockPaintedToggle />
         <VisualSettingsPopover />
       </div>
     </div>

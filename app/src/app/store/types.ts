@@ -10,6 +10,7 @@ import {type DemographicMode} from '@constants/map/demographicMode';
 export type DistrictrMapOptions = {
   highlightBrokenDistricts?: boolean;
   higlightUnassigned?: boolean;
+  lockAssignedAreas: boolean;
   lockPaintedAreas: Array<NullableZone>;
   mode: 'default' | 'break';
   showZoneNumbers?: boolean;
