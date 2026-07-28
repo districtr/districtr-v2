@@ -51,7 +51,7 @@ from app.core.config import settings
 from app.core.security import (
     mint_session_token,
     require_session,
-    verify_recaptcha_v3,
+    verify_session_turnstile,
 )
 import app.exports.main as exports
 import app.cms.main as cms
@@ -291,13 +291,15 @@ async def db_is_alive(session: Session = Depends(get_session)):
 
 
 class SessionCreate(BaseModel):
+    # ponytail: wire name kept from the reCAPTCHA era; it now carries a
+    # Turnstile token. Renaming would churn every client/test for no behavior.
     recaptcha_token: str
 
 
 @app.post("/api/session")
 async def create_session(data: SessionCreate, request: Request):
-    """Mint a stateless session token, verifying reCAPTCHA v3 when configured."""
-    if settings.RECAPTCHA_V3_SECRET_KEY:
+    """Mint a stateless session token, verifying Turnstile when configured."""
+    if settings.TURNSTILE_SESSION_SECRET_KEY:
         # Behind the ALB, request.client is the LB node. The ALB appends the
         # IP it saw at the TCP layer to the END of X-Forwarded-For; earlier
         # entries are client-supplied and spoofable, so trust only the last.
@@ -308,7 +310,7 @@ async def create_session(data: SessionCreate, request: Request):
             if forwarded
             else (request.client.host if request.client else None)
         )
-        await verify_recaptcha_v3(data.recaptcha_token, client_ip)
+        await verify_session_turnstile(data.recaptcha_token, client_ip)
     token, expires_at = mint_session_token()
     return {"token": token, "expires_at": expires_at.isoformat()}
 

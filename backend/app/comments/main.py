@@ -56,7 +56,7 @@ from app.comments.moderation import (
     MODERATION_THRESHOLD,
 )
 from app.models import Document, DistrictrMap
-from app.core.security import recaptcha
+from app.core.security import turnstile
 
 from app.comments.settings import (
     DEFAULT_MAX_COMMENT_LENGTH,
@@ -456,7 +456,7 @@ async def create_commenter(
 ):
     """Create a new commenter with upsert on conflict for name + email."""
     client_host = request.client.host if request.client else ""
-    await recaptcha.verify_recaptcha(commenter_data.recaptcha_token, client_host)
+    await turnstile.verify_turnstile(commenter_data.recaptcha_token, client_host)
     try:
         commenter = create_commenter_db(commenter_data.commenter, session)
     except IntegrityError as e:
@@ -480,7 +480,7 @@ async def create_comment(
 ):
     """Create a new comment without commenter foreign key."""
     client_host = request.client.host if request.client else ""
-    await recaptcha.verify_recaptcha(comment_data.recaptcha_token, client_host)
+    await turnstile.verify_turnstile(comment_data.recaptcha_token, client_host)
     try:
         comment = create_comment_db(comment_data.comment, session)
     except (DataError, IntegrityError) as e:
@@ -502,7 +502,7 @@ async def create_tag(
 ):
     """Create a new tag using the slugify_tag SQL function."""
     client_host = request.client.host if request.client else ""
-    await recaptcha.verify_recaptcha(tag_data.recaptcha_token, client_host)
+    await turnstile.verify_turnstile(tag_data.recaptcha_token, client_host)
     try:
         tag = create_tag_db(tag_data.tag, session)
     except IntegrityError as e:
@@ -528,7 +528,7 @@ async def submit_full_comment(
 ):
     """Submit a complete comment with commenter, comment, and tags."""
     client_host = request.client.host if request.client else ""
-    await recaptcha.verify_recaptcha(form_data.recaptcha_token, client_host)
+    await turnstile.verify_turnstile(form_data.recaptcha_token, client_host)
     try:
         response = create_full_comment_submission(form_data, session)
     except (DataError, IntegrityError) as e:

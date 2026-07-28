@@ -323,10 +323,12 @@ See `.env.docker.example` for expected environment variables.
 
 Forthcoming survey and form submissions will require captcha. 
 
-To set up captcha:
-1. Go to https://www.google.com/recaptcha/admin
-2. Register your site and choose reCAPTCHA v2 ("I'm not a robot" checkbox)
-3. Get your Site Key and Secret Key
-4. Add environment variables
+To set up captcha (Cloudflare Turnstile):
+1. Go to the Cloudflare dashboard → Turnstile
+2. Create two widgets: a Managed widget for the comment form and an
+   Invisible widget for silent session tokens
+3. Get each widget's Site Key and Secret Key
+4. Set `TURNSTILE_SECRET_KEY` (form) and `TURNSTILE_SESSION_SECRET_KEY`
+   (session) here; the site keys go in the frontend env
 
-See more at https://developers.google.com/recaptcha/docs/verify
+See more at https://developers.cloudflare.com/turnstile/

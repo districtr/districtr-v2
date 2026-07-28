@@ -13,7 +13,7 @@ from tests.constants import (
 from app.utils import create_districtr_map, create_map_group
 from app.core.models import DocumentID
 from pydantic import ValidationError
-from tests.test_utils import handle_full_submission_approve, patch_recaptcha
+from tests.test_utils import handle_full_submission_approve, patch_turnstile
 from datetime import datetime, timezone
 from fastapi import BackgroundTasks
 import app.evaluation.main as evaluation_main
@@ -26,7 +26,7 @@ from app.evaluation.registry import (
     hash_payload_version,
 )
 
-REQUIRED_AUTO_FIXTURES = [patch_recaptcha]
+REQUIRED_AUTO_FIXTURES = [patch_turnstile]
 
 
 def test_document_id_public_numeric_string():

@@ -101,67 +101,42 @@ class VerifyToken:
 auth = VerifyToken()
 
 
-class VerifyRecaptcha:
-    """Verifies reCAPTCHA tokens"""
+async def _turnstile_siteverify(secret: str | None, token: str, ip: str | None) -> bool:
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+            data={"secret": secret, "response": token, "remoteip": ip},
+        )
+    return bool(response.json().get("success"))
+
+
+class VerifyTurnstile:
+    """Verifies Cloudflare Turnstile tokens from the comment-form widget"""
 
     def __init__(self):
         self.config = get_settings()
 
-    async def verify_recaptcha(self, token: str, host: str):
-        """
-        Verifies reCAPTCHA tokens
-
-        Args:
-            token (str): The reCAPTCHA token to verify
-            host (str): The host of the request
-
-        Raises:
-            HTTPException: If the reCAPTCHA verification fails
-
-        """
-        # Verify reCAPTCHA token
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://www.google.com/recaptcha/api/siteverify",
-                data={
-                    "secret": self.config.RECAPTCHA_SECRET_KEY,
-                    "response": token,
-                    "remoteip": host,
-                },
-            )
-        result = response.json()
-        if not result.get("success"):
-            raise HTTPException(status_code=400, detail="reCAPTCHA verification failed")
+    async def verify_turnstile(self, token: str, host: str):
+        """Raises HTTPException 400 when Turnstile rejects the token."""
+        if not await _turnstile_siteverify(
+            self.config.TURNSTILE_SECRET_KEY, token, host
+        ):
+            raise HTTPException(status_code=400, detail="captcha verification failed")
 
 
-recaptcha = VerifyRecaptcha()
+turnstile = VerifyTurnstile()
 
 
-async def verify_recaptcha_v3(token: str, ip: str | None) -> float:
-    """Verify a reCAPTCHA v3 token and return its score.
+async def verify_session_turnstile(token: str, ip: str | None) -> None:
+    """Verify a token from the invisible session Turnstile widget.
 
-    Raises HTTPException 400 if verification fails or the score is below
-    RECAPTCHA_V3_SCORE_THRESHOLD.
+    Separate widget/secret from the comment form, so a token minted for one
+    can't be replayed against the other. Raises HTTPException 400 on failure.
     """
-    settings = get_settings()
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "https://www.google.com/recaptcha/api/siteverify",
-            data={
-                "secret": settings.RECAPTCHA_V3_SECRET_KEY,
-                "response": token,
-                "remoteip": ip,
-            },
-        )
-    result = response.json()
-    score = result.get("score", 0.0)
-    if (
-        not result.get("success")
-        or result.get("action") != "session"
-        or score < settings.RECAPTCHA_V3_SCORE_THRESHOLD
+    if not await _turnstile_siteverify(
+        get_settings().TURNSTILE_SESSION_SECRET_KEY, token, ip
     ):
-        raise HTTPException(status_code=400, detail="reCAPTCHA verification failed")
-    return score
+        raise HTTPException(status_code=400, detail="captcha verification failed")
 
 
 # Audience claim distinguishing session tokens from other JWTs signed with

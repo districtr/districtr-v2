@@ -108,6 +108,9 @@ class CommenterCreate(BaseModel):
     zip_code: str | None = None
 
 
+# ponytail: the recaptcha_token wire field (and the *WithRecaptcha names that
+# mirror it) now carry Cloudflare Turnstile tokens; renaming would churn every
+# client and test for no behavior change.
 class CommenterCreateWithRecaptcha(BaseModel):
     commenter: CommenterCreate
     recaptcha_token: str

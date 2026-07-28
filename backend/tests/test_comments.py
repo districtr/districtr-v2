@@ -2,7 +2,7 @@ from sqlmodel import Session, select, insert
 from unittest.mock import patch
 from app.comments.models import Commenter, Comment, Tag, CommentTag, DocumentComment
 from tests.test_utils import (
-    patch_recaptcha,
+    patch_turnstile,
     override_auth_dependency,
     handle_approve_comment_entry,
     handle_full_submission_approve,
@@ -10,7 +10,7 @@ from tests.test_utils import (
 
 TEST_MODERATION_SCORE = 0.001
 REQUIRED_AUTO_FIXTURES = [
-    patch_recaptcha,
+    patch_turnstile,
     override_auth_dependency,
 ]
 
