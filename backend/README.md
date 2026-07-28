@@ -325,8 +325,9 @@ Forthcoming survey and form submissions will require captcha.
 
 To set up captcha (Cloudflare Turnstile):
 1. Go to the Cloudflare dashboard → Turnstile
-2. Create two widgets: a Managed widget for the comment form and an
-   Invisible widget for silent session tokens
+2. Create two Managed widgets: one for the comment form, one for silent
+   session tokens (rendered with appearance interaction-only, so it stays
+   hidden unless Cloudflare requires a manual challenge)
 3. Get each widget's Site Key and Secret Key
 4. Set `TURNSTILE_SECRET_KEY` (form) and `TURNSTILE_SESSION_SECRET_KEY`
    (session) here; the site keys go in the frontend env
