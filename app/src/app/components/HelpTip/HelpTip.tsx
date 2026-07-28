@@ -22,7 +22,7 @@ const VIDEO_MODAL_MAX_WIDTH = 720;
 const NEVER_MS = 2 ** 30;
 
 /** Delay (ms) before help opens on hover — the default for every trigger. */
-export const HELP_TIP_HOVER_DELAY = 1500;
+export const HELP_TIP_HOVER_DELAY = 1250;
 
 /** No delay: for a handful of dense, text-only stats explainers (e.g. ideal
  * population, top-to-bottom deviation) where the icon itself is the only thing
