@@ -1,21 +1,13 @@
-import {API_URL, RECAPTCHA_V3_SITE_KEY} from './constants';
+import {API_URL, TURNSTILE_SESSION_SITE_KEY} from './constants';
+import {loadTurnstile} from '../turnstile';
 
 /**
- * Silent reCAPTCHA v3 session tokens. The backend mints a session token from a
- * reCAPTCHA v3 token (POST /api/session) and gated endpoints require it in the
- * X-Districtr-Session header. Everything here is best-effort: any failure
- * (script blocked, Google down, backend error) yields null and the request
- * proceeds without the header.
+ * Silent captcha session tokens. The backend mints a session token from an
+ * invisible Cloudflare Turnstile token (POST /api/session) and gated endpoints
+ * require it in the X-Districtr-Session header. Everything here is
+ * best-effort: any failure (script blocked, Cloudflare down, backend error)
+ * yields null and the request proceeds without the header.
  */
-
-declare global {
-  interface Window {
-    grecaptcha?: {
-      ready: (cb: () => void) => void;
-      execute: (siteKey: string, options: {action: string}) => Promise<string>;
-    };
-  }
-}
 
 const STORAGE_KEY = 'districtr_session';
 // Refresh when within 5 minutes of expiry.
@@ -25,7 +17,6 @@ type CachedSession = {token: string; expiresAt: number};
 
 let cached: CachedSession | null = null;
 let inflight: Promise<string | null> | null = null;
-let scriptPromise: Promise<void> | null = null;
 
 const isFresh = (session: CachedSession | null): session is CachedSession =>
   !!session && session.expiresAt - EXPIRY_BUFFER_MS > Date.now();
@@ -52,35 +43,39 @@ const writeStorage = (session: CachedSession) => {
   }
 };
 
-const loadRecaptchaScript = (): Promise<void> => {
-  if (window.grecaptcha) return Promise.resolve();
-  if (!scriptPromise) {
-    scriptPromise = new Promise<void>((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = `https://www.google.com/recaptcha/api.js?render=${RECAPTCHA_V3_SITE_KEY}`;
-      script.async = true;
-      script.onload = () => resolve();
-      script.onerror = () => {
-        scriptPromise = null; // allow retry on a later call
-        reject(new Error('recaptcha script failed to load'));
-      };
-      document.head.appendChild(script);
-    });
-  }
-  return scriptPromise;
-};
+/** Render the invisible session widget off-DOM-flow and resolve its token. */
+const getTurnstileToken = (): Promise<string | null> =>
+  new Promise(resolve => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    let widgetId: string | undefined;
+    const finish = (token: string | null) => {
+      if (widgetId !== undefined) window.turnstile?.remove(widgetId);
+      container.remove();
+      resolve(token);
+    };
+    try {
+      widgetId = window.turnstile!.render(container, {
+        sitekey: TURNSTILE_SESSION_SITE_KEY,
+        callback: finish,
+        'error-callback': () => finish(null),
+      });
+    } catch {
+      finish(null);
+    }
+  });
 
 const mintSession = async (): Promise<string | null> => {
   try {
-    await loadRecaptchaScript();
-    const grecaptcha = window.grecaptcha;
-    if (!grecaptcha) return null;
-    await new Promise<void>(resolve => grecaptcha.ready(resolve));
-    const recaptchaToken = await grecaptcha.execute(RECAPTCHA_V3_SITE_KEY, {action: 'session'});
+    await loadTurnstile();
+    if (!window.turnstile) return null;
+    const captchaToken = await getTurnstileToken();
+    if (!captchaToken) return null;
     const response = await fetch(`${API_URL || ''}/api/session`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({recaptcha_token: recaptchaToken}),
+      // recaptcha_token: wire name kept from the reCAPTCHA era
+      body: JSON.stringify({recaptcha_token: captchaToken}),
     });
     if (!response.ok) return null;
     const data = await response.json();
@@ -96,11 +91,11 @@ const mintSession = async (): Promise<string | null> => {
 
 /**
  * Get a session token for the X-Districtr-Session header, minting one via
- * silent reCAPTCHA v3 if needed. Never throws; returns null on any failure,
+ * invisible Turnstile if needed. Never throws; returns null on any failure,
  * on the server, or when no site key is configured.
  */
 export async function getSessionToken(): Promise<string | null> {
-  if (typeof window === 'undefined' || !RECAPTCHA_V3_SITE_KEY) return null;
+  if (typeof window === 'undefined' || !TURNSTILE_SESSION_SITE_KEY) return null;
   if (isFresh(cached)) return cached.token;
   const stored = readStorage();
   if (isFresh(stored)) {

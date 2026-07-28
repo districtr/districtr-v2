@@ -32,8 +32,8 @@ export interface FormState {
   setAcknowledgement: (id: string, acknowledged: boolean) => void;
   showMapSelector: boolean;
   setShowMapSelector: (show: boolean) => void;
-  recaptchaToken: string;
-  setRecaptchaToken: (token: string) => void;
+  captchaToken: string;
+  setCaptchaToken: (token: string) => void;
   checkFormValidity: () => void;
 }
 
@@ -110,7 +110,7 @@ export const useFormState = create<FormState>()(
           commenter,
           tags,
           acknowledgement,
-          recaptchaToken,
+          captchaToken,
         } = get();
         if (isSubmitting) {
           return;
@@ -132,10 +132,10 @@ export const useFormState = create<FormState>()(
           } as CommentCreate,
           commenter: commenter as CommenterCreate,
           tags: Array.from(tags).map(tag => ({tag})),
-          recaptcha_token: recaptchaToken,
+          recaptcha_token: captchaToken,
         });
         set({
-          recaptchaToken: '',
+          captchaToken: '',
           isSubmitting: false,
           success: response.ok ? 'Comment submitted successfully' : undefined,
           error: response.ok ? undefined : response.error,
@@ -152,7 +152,7 @@ export const useFormState = create<FormState>()(
           acknowledgement: {},
           showMapSelector: false,
           formIsValid: false,
-          recaptchaToken: '',
+          captchaToken: '',
         });
       },
       setError: (error: string) => {
@@ -165,11 +165,11 @@ export const useFormState = create<FormState>()(
       setShowMapSelector: (show: boolean) => {
         set({showMapSelector: show});
       },
-      recaptchaToken: '',
-      setRecaptchaToken: (token: string) => {
+      captchaToken: '',
+      setCaptchaToken: (token: string) => {
         const {checkFormValidity} = get();
         set({
-          recaptchaToken: token,
+          captchaToken: token,
         });
         checkFormValidity();
       },
