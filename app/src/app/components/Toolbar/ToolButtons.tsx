@@ -14,8 +14,10 @@ const TOOLBAR_SIZE = 40;
 // tools name themselves instead of hiding labels in tooltips).
 const TOOLBAR_HEIGHT = 52;
 // Undo/redo are standalone, narrower buttons to the right of the tool group;
-// this is their minimum — they grow with the sidebar like the main tools.
+// this is their minimum — they grow with the sidebar at HISTORY_GROW_FACTOR
+// of the main tools' per-button rate.
 const HISTORY_BUTTON_WIDTH = 38;
+const HISTORY_GROW_FACTOR = 0.2;
 
 const HISTORY_TOOLS: ActiveTool[] = [ACTIVE_TOOLS.UNDO, ACTIVE_TOOLS.REDO];
 
@@ -133,8 +135,8 @@ export const ToolButtons: React.FC<{
       data-testid="toolbar"
     >
       {/* Container flexGrow tracks button count so extra sidebar width is
-          shared per-button — undo/redo scale at the same rate as the main
-          tools instead of staying fixed while the main buttons balloon. */}
+          shared per-button — undo/redo grow with the sidebar instead of
+          staying fixed, but at half rate so they stay visually secondary. */}
       <Flex direction="row" wrap="wrap" gap="1" style={{flexGrow: mainTools.length}}>
         {/* flexBasis 0 (not auto) so every tool gets the same width regardless
             of label length. Wraps because the sidebar resizes down to 140px,
@@ -143,7 +145,7 @@ export const ToolButtons: React.FC<{
           renderTool(tool, {minWidth: TOOLBAR_SIZE, flexGrow: 1, flexBasis: 0})
         )}
       </Flex>
-      <Flex direction="row" gapX="1" style={{flexGrow: historyTools.length}}>
+      <Flex direction="row" gapX="1" style={{flexGrow: historyTools.length * HISTORY_GROW_FACTOR}}>
         {historyTools.map(tool =>
           renderTool(tool, {minWidth: HISTORY_BUTTON_WIDTH, flexGrow: 1, flexBasis: 0})
         )}
