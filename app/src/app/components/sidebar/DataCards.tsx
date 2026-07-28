@@ -209,19 +209,12 @@ const AccordionSection: React.FC<{
   onToggle: () => void;
 }> = ({section, open, onToggle}) => {
   const Icon = section.icon;
-  // The row itself is the hover trigger — no separate icon — so its own onClick
-  // (toggling the accordion) has to survive being cloned by HelpTip below.
+  // A real <button>: the row holds only Icon/Text/ChevronDownIcon, no nested
+  // interactive content, and its own onClick (toggling the accordion) survives
+  // being cloned by HelpTip below the same way it would on a div.
   const headerRow = (
-    <div
-      role="button"
-      tabIndex={0}
+    <button
       onClick={onToggle}
-      onKeyDown={event => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          onToggle();
-        }
-      }}
       aria-expanded={open}
       className="w-full cursor-pointer text-left p-3 rounded-lg transition-colors hover:bg-blue-50"
     >
@@ -234,11 +227,11 @@ const AccordionSection: React.FC<{
           className={`shrink-0 transition-transform duration-200 ${open ? '' : '-rotate-90'}`}
         />
       </Flex>
-    </div>
+    </button>
   );
   return (
     <div
-      className="relative border border-gray-300 rounded-lg bg-white"
+      className="border border-gray-300 rounded-lg bg-white"
       data-testid={`data-panel-${section.key}`}
     >
       {section.helpTip ? (
