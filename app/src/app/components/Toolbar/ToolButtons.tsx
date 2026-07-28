@@ -13,7 +13,8 @@ const TOOLBAR_SIZE = 40;
 // Taller buttons fit the icon plus a visible label + hotkey (concept 1a:
 // tools name themselves instead of hiding labels in tooltips).
 const TOOLBAR_HEIGHT = 52;
-// Undo/redo are standalone, narrower buttons to the right of the tool group.
+// Undo/redo are standalone, narrower buttons to the right of the tool group;
+// this is their minimum — they grow with the sidebar like the main tools.
 const HISTORY_BUTTON_WIDTH = 38;
 
 const HISTORY_TOOLS: ActiveTool[] = [ACTIVE_TOOLS.UNDO, ACTIVE_TOOLS.REDO];
@@ -33,7 +34,9 @@ export const ToolButtons: React.FC<{
   const renderTool = (tool: ActiveToolConfig, buttonStyle: React.CSSProperties) => {
     const IconComponent = tool.icon;
     const isActive = activeTool === tool.mode;
-    const singleKey = tool.hotKeyLabel.length === 1;
+    // Main tools get a corner hotkey badge; history tools (chorded ⌘Z/⌘⇧Z
+    // shortcuts, too wide for a corner) get an alt-reveal tooltip instead.
+    const isHistoryTool = HISTORY_TOOLS.includes(tool.mode);
     const button = (
       <IconButton
         key={tool.mode}
@@ -63,8 +66,8 @@ export const ToolButtons: React.FC<{
         color={isActive ? undefined : 'gray'}
         disabled={tool.disabled}
       >
-        {/* Single-key shortcuts float in the button's top-right corner. */}
-        {singleKey && showHotkeyHints && (
+        {/* Main-tool shortcuts float in the button's top-right corner. */}
+        {!isHistoryTool && showHotkeyHints && (
           <Kbd
             size="1"
             style={{
@@ -92,9 +95,9 @@ export const ToolButtons: React.FC<{
         </Flex>
       </IconButton>
     );
-    // Buttons name themselves (label + corner hotkey), so only chorded shortcuts
-    // (⌘Z) need a tooltip — and only while Alt reveals shortcuts, never on hover.
-    if (singleKey || !showHotkeyHints) return button;
+    // Buttons name themselves (label + corner hotkey), so only history tools
+    // need a tooltip — and only while Alt reveals shortcuts, never on hover.
+    if (!isHistoryTool || !showHotkeyHints) return button;
     return (
       <Tooltip.Provider key={tool.mode}>
         <Tooltip.Root open={showShortcuts}>
@@ -129,7 +132,10 @@ export const ToolButtons: React.FC<{
       gap="4"
       data-testid="toolbar"
     >
-      <Flex direction="row" wrap="wrap" className="flex-grow" gap="1">
+      {/* Container flexGrow tracks button count so extra sidebar width is
+          shared per-button — undo/redo scale at the same rate as the main
+          tools instead of staying fixed while the main buttons balloon. */}
+      <Flex direction="row" wrap="wrap" gap="1" style={{flexGrow: mainTools.length}}>
         {/* flexBasis 0 (not auto) so every tool gets the same width regardless
             of label length. Wraps because the sidebar resizes down to 140px,
             below the five Super Draw tools' combined minimum. */}
@@ -137,8 +143,10 @@ export const ToolButtons: React.FC<{
           renderTool(tool, {minWidth: TOOLBAR_SIZE, flexGrow: 1, flexBasis: 0})
         )}
       </Flex>
-      <Flex direction="row" gapX="1">
-        {historyTools.map(tool => renderTool(tool, {width: HISTORY_BUTTON_WIDTH}))}
+      <Flex direction="row" gapX="1" style={{flexGrow: historyTools.length}}>
+        {historyTools.map(tool =>
+          renderTool(tool, {minWidth: HISTORY_BUTTON_WIDTH, flexGrow: 1, flexBasis: 0})
+        )}
       </Flex>
     </Flex>
   );
