@@ -40,8 +40,8 @@ export const config = {
   auth0ClientSecret: cfg.requireSecret("auth0ClientSecret"),
   auth0SessionSecret: cfg.requireSecret("auth0SessionSecret"),
   openaiApiKey: cfg.getSecret("openaiApiKey"),
-  recaptchaSecretKey: cfg.getSecret("recaptchaSecretKey"),
-  recaptchaV3SecretKey: cfg.getSecret("recaptchaV3SecretKey"),
+  turnstileSecretKey: cfg.getSecret("turnstileSecretKey"),
+  turnstileSessionSecretKey: cfg.getSecret("turnstileSessionSecretKey"),
   researchApiKey: cfg.getSecret("researchApiKey"),
 
   // Image tags. Deploy workflows write the current git SHA to
