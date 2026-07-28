@@ -13,12 +13,9 @@ const ToolControlsConfig: Record<
   {Component?: () => React.JSX.Element; focused?: boolean}
 > = {
   pan: {},
-  undo: {
-    Component: () => <React.Fragment />,
-  },
-  redo: {
-    Component: () => <React.Fragment />,
-  },
+  // Unreachable as activeTool (they fire onClick instead), listed for the type.
+  undo: {},
+  redo: {},
   brush: {
     Component: BrushControls,
   },
@@ -47,7 +44,7 @@ export const ToolControls: React.FC = () => {
     return null;
   }
   return (
-    <div className="bg-white w-full py-4">
+    <div className="bg-white w-full p-4">
       <Component />
       <ExitBlockViewButtons />
     </div>
