@@ -173,13 +173,7 @@ export const DistrictsZonePicker: React.FC = () => {
             </>
           )}
         </Flex>
-        <Flex align="start" gap="1">
-          <ColorPicker
-            onValueChange={handleRadioChange}
-            defaultValue={0}
-            value={selectedZone - 1}
-          />
-        </Flex>
+        <ColorPicker onValueChange={handleRadioChange} defaultValue={0} value={selectedZone - 1} />
       </Flex>
       <AlertDialog.Root
         open={pendingDecrease !== null}

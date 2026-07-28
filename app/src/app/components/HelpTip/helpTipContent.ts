@@ -114,6 +114,10 @@ export const helpTipContent = {
     videoFiles: ['completeness_check.webm', 'contiguity_check.webm'],
     guideAnchor: 'map-validation',
   },
+  boundariesAndAreas: {
+    title: 'Boundaries and areas',
+    text: 'Click here to see optional toggles for reference overlays relevant to redistricting, such as existing political boundaries.',
+  },
   // Text-only on purpose (no videoFile): this renders inside the Mode switcher's
   // DropdownMenu.Item, whose own pointer handling closes the hover card before the
   // cursor can reach an interactive link inside it. Without a video there's no

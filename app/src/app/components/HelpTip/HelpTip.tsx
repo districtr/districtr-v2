@@ -117,9 +117,29 @@ export const HelpTip: React.FC<{
   const [open, setOpen] = useState(false);
   const [videoOpen, setVideoOpen] = useState(false);
   const openTimerRef = useRef<number | undefined>(undefined);
+  // Where along the trigger's own edge the pointer actually is, in pixels from
+  // that edge's start — read directly into `alignOffset` below so the card
+  // anchors near the cursor instead of always at the trigger's start corner.
+  // Barely visible on a small icon trigger (little room for the offset to
+  // differ from 0), but on a wide one (e.g. a full-row accordion header) a
+  // fixed `align="start"` anchors the card at the far edge regardless of where
+  // along the row you actually hovered — this tracks that instead. A ref, not
+  // state: mutating it doesn't need its own re-render, since the timeout below
+  // already re-renders (via setOpen) once open actually happens, picking up
+  // whatever value was last recorded by then.
+  const pointerOffsetRef = useRef(0);
+  // alignOffset's axis is perpendicular to `side` — horizontal when the card
+  // opens above/below (the default), vertical when it opens beside a narrow
+  // column (side="right", e.g. Super Draw's row inside the Mode switcher).
+  const trackPointerOffset = (event: React.PointerEvent) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    pointerOffsetRef.current =
+      side === 'left' || side === 'right' ? event.clientY - rect.top : event.clientX - rect.left;
+  };
 
   const cancelOpenTimer = () => window.clearTimeout(openTimerRef.current);
-  const handlePointerEnter = () => {
+  const handlePointerEnter = (event: React.PointerEvent) => {
+    trackPointerOffset(event);
     cancelOpenTimer();
     openTimerRef.current = window.setTimeout(() => setOpen(true), openDelay);
   };
@@ -140,13 +160,21 @@ export const HelpTip: React.FC<{
   // node instead, anchoring the card at a zero-size rect at the document origin.
   type TriggerProps = {
     onPointerEnter?: (e: React.PointerEvent) => void;
+    onPointerMove?: (e: React.PointerEvent) => void;
     onPointerLeave?: (e: React.PointerEvent) => void;
   };
   const trigger = children ? (
     React.cloneElement(children as React.ReactElement<TriggerProps>, {
       onPointerEnter: (event: React.PointerEvent) => {
-        handlePointerEnter();
+        handlePointerEnter(event);
         (children as React.ReactElement<TriggerProps>).props.onPointerEnter?.(event);
+      },
+      // Keeps the tracked offset current if the pointer drifts along a wide
+      // trigger during the open delay, so it opens near wherever the cursor
+      // ended up, not just where it first entered.
+      onPointerMove: (event: React.PointerEvent) => {
+        trackPointerOffset(event);
+        (children as React.ReactElement<TriggerProps>).props.onPointerMove?.(event);
       },
       onPointerLeave: (event: React.PointerEvent) => {
         handlePointerLeave();
@@ -163,6 +191,7 @@ export const HelpTip: React.FC<{
       tabIndex={0}
       aria-label={entry.title}
       onPointerEnter={handlePointerEnter}
+      onPointerMove={trackPointerOffset}
       onPointerLeave={handlePointerLeave}
       className="cursor-help shrink-0 inline-flex items-center justify-center"
       style={{
@@ -189,6 +218,7 @@ export const HelpTip: React.FC<{
         <HoverCard.Content
           style={{width: COLLAPSED_WIDTH}}
           align="start"
+          alignOffset={pointerOffsetRef.current}
           side={side}
           avoidCollisions={!side}
           // Radix's own DismissableLayer, wrapping Content, dismisses on any

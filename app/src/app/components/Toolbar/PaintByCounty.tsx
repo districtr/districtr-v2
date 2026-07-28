@@ -1,10 +1,11 @@
-import {Card, Checkbox, Flex, Text, Tooltip} from '@radix-ui/themes';
+import {Card, Checkbox, Flex, Text} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 import {getFeaturesIntersectingCounties} from '@utils/map/getFeaturesIntersectingCounties';
 import {ACCESS_STATES} from '@constants/document/state';
+import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 
 export default function PaintByCounty() {
   const mapRef = useMapStore(state => state.getMapRef());
@@ -29,7 +30,7 @@ export default function PaintByCounty() {
   };
 
   return (
-    <Tooltip content="Paint whole counties at a time">
+    <HelpTip tip="countyBrush" openDelay={HELP_TIP_HOVER_DELAY}>
       <Card size="1" className={paintByCounty ? 'bg-indigo-50' : ''}>
         <Text as="label" size="2" className="cursor-pointer select-none">
           <Flex gap="2" align="center">
@@ -42,6 +43,6 @@ export default function PaintByCounty() {
           </Flex>
         </Text>
       </Card>
-    </Tooltip>
+    </HelpTip>
   );
 }

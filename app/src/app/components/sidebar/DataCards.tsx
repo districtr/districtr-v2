@@ -199,6 +199,7 @@ export const SECTIONS: SidebarSection[] = [
     label: 'Boundaries and areas',
     icon: LayersIcon,
     content: <OverlaysPanel />,
+    helpTip: 'boundariesAndAreas',
   },
 ];
 
