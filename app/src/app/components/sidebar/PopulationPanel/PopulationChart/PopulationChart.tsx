@@ -207,7 +207,6 @@ export const PopulationChart: React.FC<{
     [data.length, yMax]
   );
 
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [isHovered, setIsHovered] = useState(false);
 
   // Render helpers (not components) — they close over shared state (scales, hover, colors)
@@ -261,9 +260,6 @@ export const PopulationChart: React.FC<{
                 height={barHeight + 10}
                 className="opacity-0 hover:opacity-10 transition-opacity duration-300 cursor-pointer"
                 onClick={() => onBarSelect?.(entry.zone)}
-                onMouseEnter={() => setHoveredIndex(index)}
-                onMouseMove={() => setHoveredIndex(index)}
-                onMouseLeave={() => setHoveredIndex(null)}
               />
               <Bar
                 key={`bar-${entry.zone}`}
@@ -323,13 +319,10 @@ export const PopulationChart: React.FC<{
       height={height}
       style={{display: 'block'}}
       onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => {
-        setIsHovered(false);
-        setHoveredIndex(null);
-      }}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <OverageHatch />
-      <Group left={margins.left} top={margins.top} onMouseLeave={() => setHoveredIndex(null)}>
+      <Group left={margins.left} top={margins.top}>
         {renderIdealReference()}
         {renderBars()}
       </Group>
