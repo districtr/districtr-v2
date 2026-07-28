@@ -103,7 +103,7 @@ export default function ZoomToFeature({
   const finalFitOptions = () => ({
     duration: 700,
     linear: true,
-    padding: getFitBoundsPadding(mapRef, 150),
+    padding: getFitBoundsPadding(mapRef, 250),
   });
 
   // After the snap, wait for both map idle (tiles loaded) and the minimum
