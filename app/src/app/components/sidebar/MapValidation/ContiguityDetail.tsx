@@ -102,8 +102,8 @@ export default function ContiguityDetail({
 }
 
 /**
- * Every connected component is a zoom target, labelled "Area" with its size
- * when the payload carries one (components arrive sorted largest first).
+ * Every connected component is a zoom target, labelled "Component" with its
+ * size when the payload carries one (components arrive sorted largest first).
  * Older payloads without sizes fall back to 1-based numbering.
  */
 function ComponentZoomList({
@@ -121,14 +121,14 @@ function ComponentZoomList({
   const labels = hasSizes
     ? features.map(f => {
         const n = nGeos(f)!;
-        return `Area · ${n} unit${n === 1 ? '' : 's'}`;
+        return `Component · ${n} unit${n === 1 ? '' : 's'}`;
       })
     : undefined;
 
   return (
     <Flex direction="column" gap="1" justify="start" align="start" py="2">
       <Text color="gray" size="1">
-        Zoom to an area:
+        Zoom to a component:
       </Text>
       <ZoomToFeature
         features={features}

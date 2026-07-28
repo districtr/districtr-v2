@@ -7,18 +7,25 @@ import type {LngLatBoundsLike, Map as MapLibreMap, PaddingOptions} from 'maplibr
 import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerIds';
 
 /**
- * Clamp fitBounds padding to a quarter of each canvas dimension, so at least half the
- * canvas remains for the fitted bounds. Unclamped, a fixed padding can eat most of a
- * small canvas, forcing extreme zoom-outs or a no-op.
+ * Clamp fitBounds padding to a fraction of each canvas dimension (default a
+ * quarter, leaving half the canvas for the fitted bounds). Unclamped, a fixed
+ * padding can eat most of a small canvas, forcing extreme zoom-outs or a no-op.
  */
 export const getFitBoundsPadding = (
   map: MapLibreMap | null | undefined,
-  desiredPadding: number
+  desiredPadding: number,
+  maxFraction = 0.25
 ): PaddingOptions | number => {
   const canvas = map?.getCanvas();
   if (!canvas) return desiredPadding;
-  const horizontal = Math.max(0, Math.min(desiredPadding, Math.floor(canvas.clientWidth / 4)));
-  const vertical = Math.max(0, Math.min(desiredPadding, Math.floor(canvas.clientHeight / 4)));
+  const horizontal = Math.max(
+    0,
+    Math.min(desiredPadding, Math.floor(canvas.clientWidth * maxFraction))
+  );
+  const vertical = Math.max(
+    0,
+    Math.min(desiredPadding, Math.floor(canvas.clientHeight * maxFraction))
+  );
   return {top: vertical, bottom: vertical, left: horizontal, right: horizontal};
 };
 
@@ -98,12 +105,16 @@ export default function ZoomToFeature({
   };
 
   // Fixed duration (speed-based scales with distance), generous padding so the
-  // target lands with surrounding context to orient by (clamped to a quarter of
-  // the canvas per side), and linear to avoid flyTo's zoom-out-then-in swoop.
-  const finalFitOptions = () => ({
+  // target lands with surrounding context to orient by, and linear to avoid
+  // flyTo's zoom-out-then-in swoop. A single unit gets much heavier padding
+  // (up to 40% of the canvas per side) — its bounds are tiny, and framing it
+  // tight would land at street level with nothing around it to orient by.
+  const finalFitOptions = (singleUnit: boolean) => ({
     duration: 700,
     linear: true,
-    padding: getFitBoundsPadding(mapRef, 250),
+    padding: singleUnit
+      ? getFitBoundsPadding(mapRef, 1000, 0.4)
+      : getFitBoundsPadding(mapRef, 250),
   });
 
   // After the snap, wait for both map idle (tiles loaded) and the minimum
@@ -122,7 +133,7 @@ export default function ZoomToFeature({
       cancelPendingFly.current = null;
       mapRef.fitBounds(
         (geoIds?.length && queryRenderedBounds(geoIds)) || approxBounds,
-        finalFitOptions()
+        finalFitOptions(geoIds?.length === 1)
       );
     };
     const onIdle = () => {
