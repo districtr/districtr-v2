@@ -19,14 +19,12 @@ import {ColorChangeModal} from './ColorChangeModal';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {ACCESS_STATES} from '@constants/document/state';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
-import {SUMMARY_TYPES} from '@constants/demography/summary';
+import {SUMMARY_TYPES, type OverlayGroup} from '@constants/demography/summary';
 import {OVERLAY_OPACITY} from '@/app/constants/document/limits';
 import {
   activateOverlayGroup,
-  getOverlayVariable,
   overlayGroupVariables,
   overlayMemory,
-  type OverlayGroup,
 } from '@utils/demography/overlayMemory';
 
 /** Layers
@@ -56,7 +54,7 @@ export const ToolSettings: React.FC = () => {
   const overlayOn = mapOptions.demographicDisplayMode !== undefined;
   const allGroups: OverlayGroup[] = ['demography', 'election'];
   const overlayGroups: Array<{group: OverlayGroup; label: string}> = (
-    superDraw ? allGroups : allGroups.filter(group => getOverlayVariable(group))
+    superDraw ? allGroups : allGroups.filter(group => overlayMemory.variables[group])
   )
     .filter(group => overlayGroupVariables(group).length > 0)
     .map(group => ({

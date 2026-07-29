@@ -1,29 +1,13 @@
-import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
+import {OVERLAY_GROUP_SUMMARY_TYPES, type OverlayGroup} from '@constants/demography/summary';
 import type {DemographyVariable} from '@constants/demography/coalition';
 import {useDemographyStore} from '@store/demography/demographyStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useToolbarStore} from '@store/toolbarStore';
 import {DEMOGRAPHIC_MODES, type DemographicMode} from '@constants/map/demographicMode';
 
-/**
- * The two top-level choropleth overlay toggles. Coarser than SummaryType:
- * the population overlay spans both the TOTPOP and VAP statistical
- * universes as one merged control, not two.
- */
-export type OverlayGroup = 'demography' | 'election';
-
-const GROUP_SUMMARY_TYPES: Record<OverlayGroup, SummaryType[]> = {
-  demography: [SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP],
-  election: [SUMMARY_TYPES.VOTERHISTORY],
-};
-
-/** Which overlay group a statistical universe's variables belong to. */
-export const toOverlayGroup = (summaryType: SummaryType): OverlayGroup =>
-  summaryType === SUMMARY_TYPES.VOTERHISTORY ? 'election' : 'demography';
-
 /** Every variable available on this map for an overlay group's universe(s). */
 export const overlayGroupVariables = (group: OverlayGroup) =>
-  GROUP_SUMMARY_TYPES[group].flatMap(
+  OVERLAY_GROUP_SUMMARY_TYPES[group].flatMap(
     summaryType => useDemographyStore.getState().availableColumnSets.map[summaryType] ?? []
   );
 
@@ -49,13 +33,6 @@ export const overlayMemory: {
   displayMode: null,
 };
 
-export const getOverlayVariable = (group: OverlayGroup): DemographyVariable | null =>
-  overlayMemory.variables[group];
-
-export const setOverlayVariable = (group: OverlayGroup, variable: DemographyVariable): void => {
-  overlayMemory.variables[group] = variable;
-};
-
 /**
  * Turn the choropleth overlay on for an overlay group, restoring the
  * last-used variable (or defaulting to the group's first). The single
@@ -70,10 +47,10 @@ export const activateOverlayGroup = (group: OverlayGroup): boolean => {
   if (!variables.length) return false;
   let variable = demography.variable;
   if (!variables.some(v => v.value === variable)) {
-    variable = getOverlayVariable(group) ?? variables[0].value;
+    variable = overlayMemory.variables[group] ?? variables[0].value;
     demography.setVariable(variable);
   }
-  setOverlayVariable(group, variable);
+  overlayMemory.variables[group] = variable;
   // Reuse the last-used display mode; side-by-side is a Super Draw feature,
   // so plain Draw always falls back to the overlay.
   const displayMode =
