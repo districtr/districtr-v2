@@ -1,5 +1,5 @@
 'use client';
-import React, {useEffect} from 'react';
+import React, {Suspense, useEffect} from 'react';
 import {MapContextMenu} from '@components/ContextMenu';
 import {MainMap} from '@components/Map/MainMap';
 import {PublicMap} from '@components/Map/PublicMap';
@@ -161,7 +161,9 @@ export default function MapPage({isEditing, isEval, mapId}: MapPageProps) {
   if (queryClient) {
     return (
       <QueryClientProvider client={queryClient}>
-        <ChildMapPage isEditing={isEditing} isEval={isEval} mapId={mapId} />
+        <Suspense fallback={null}>
+          <ChildMapPage isEditing={isEditing} isEval={isEval} mapId={mapId} />
+        </Suspense>
       </QueryClientProvider>
     );
   }

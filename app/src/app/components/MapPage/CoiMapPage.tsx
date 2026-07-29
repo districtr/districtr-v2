@@ -1,5 +1,5 @@
 'use client';
-import React, {useEffect} from 'react';
+import React, {Suspense, useEffect} from 'react';
 import {MapContextMenu} from '@components/ContextMenu';
 import {CoiMap} from '@components/Map/CoiMap';
 import SidebarComponent from '@components/sidebar/Sidebar';
@@ -129,7 +129,9 @@ export default function CoiMapPage({isEditing, documentId}: CoiMapPageProps) {
   if (queryClient) {
     return (
       <QueryClientProvider client={queryClient}>
-        <ChildCoiMapPage isEditing={isEditing} documentId={documentId} />
+        <Suspense fallback={null}>
+          <ChildCoiMapPage isEditing={isEditing} documentId={documentId} />
+        </Suspense>
       </QueryClientProvider>
     );
   }
