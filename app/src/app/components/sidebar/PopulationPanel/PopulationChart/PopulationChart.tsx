@@ -71,8 +71,6 @@ const usePopulationXScale = (
   const effectiveIdealPopulation = isCommunityMode ? undefined : idealPopulation;
 
   const maxPop = Math.max(...data.map(r => r.total_pop_20));
-  // ponytail: with an ideal, the domain is pinned to 130% of it so one outsized district
-  // can't squash every other bar. Bars past the cap are clipped and hatched.
   const xMaxValue = scaleToCurrent
     ? maxPop * 1.05
     : effectiveIdealPopulation

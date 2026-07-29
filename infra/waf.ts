@@ -87,9 +87,6 @@ export function createWaf(alb: Alb) {
       visibilityConfig: visibility(`${name}-waf-known-bad-inputs`),
     },
     {
-      // ponytail: count mode — SizeRestrictions_BODY (8KB) would block large
-      // msgpack saves. Flip to {none: {}} with ruleActionOverrides excluding
-      // SizeRestrictions_BODY and CrossSiteScripting_BODY after CloudWatch soak.
       name: "aws-common",
       priority: 4,
       overrideAction: {count: {}},
