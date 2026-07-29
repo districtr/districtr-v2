@@ -152,7 +152,11 @@ export const HelpTip: React.FC<{
   const entry: HelpTipEntry = helpTipContent[tip];
   const displayText = text ?? entry.text;
   const videoFiles = entry.videoFiles ?? (entry.videoFile ? [entry.videoFile] : []);
-  const canExpand = videoFiles.length > 0;
+  // A caller-supplied `text` override describes a different situation than
+  // the dictionary entry's own demo video (e.g. "unavailable while breaking a
+  // unit into blocks" for County Brush) — suppress the link rather than
+  // demonstrating a feature that isn't what the override text is about.
+  const canExpand = videoFiles.length > 0 && !text;
 
   // Handlers are cloned directly onto the trigger element, never a wrapping span:
   // HoverCard's Popper positions the card against this element's own measured rect,
@@ -232,7 +236,12 @@ export const HelpTip: React.FC<{
           onPointerDownOutside={event => event.preventDefault()}
         >
           <Flex direction="column" gapY="2">
-            <Text size="2">{displayText}</Text>
+            {/* whiteSpace: 'pre-line' so a caller (e.g. Undo/Redo's shortcut
+                lines) can put each sentence on its own line via `\n` in the
+                override text — plain `Text` collapses newlines otherwise. */}
+            <Text size="2" style={{whiteSpace: 'pre-line'}}>
+              {displayText}
+            </Text>
             {canExpand && (
               <Link
                 size="2"

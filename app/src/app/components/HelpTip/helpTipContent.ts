@@ -37,6 +37,11 @@ export const helpTipContent = {
     videoFile: 'shatter.webm',
     guideAnchor: 'super-draw',
   },
+  // No video for this one — text-only, unlike the other tool tips.
+  inspector: {
+    title: 'Inspecting units',
+    text: 'Click to select the inspector tool. With this tool selected, hover over units on map to see its populations.',
+  },
   undoRedo: {
     title: 'Undo & redo',
     text: 'Click the undo/redo buttons to revert or reapply changes to your district plan.',

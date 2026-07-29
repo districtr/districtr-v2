@@ -35,12 +35,13 @@ export const ToolButtons: React.FC = () => {
   // badge (their shortcuts are chorded, too wide) — so their shortcuts ride
   // along in the hover card's own text instead of a second, Alt-revealed
   // tooltip. Composed from each tool's own hotKeyLabel (already OS-aware:
-  // ⌘ vs Ctrl), not hardcoded into the static copy.
+  // ⌘ vs Ctrl), not hardcoded into the static copy. Super Draw only, same
+  // gate as the corner hotkey badge — other tips never carry shortcut info.
   const undoTool = historyTools.find(tool => tool.mode === ACTIVE_TOOLS.UNDO);
   const redoTool = historyTools.find(tool => tool.mode === ACTIVE_TOOLS.REDO);
   const historyHelpText =
-    undoTool && redoTool
-      ? `${helpTipContent.undoRedo.text} Undo keyboard shortcut: ${undoTool.hotKeyLabel}. Redo keyboard shortcut: ${redoTool.hotKeyLabel}.`
+    showHotkeyHints && undoTool && redoTool
+      ? `${helpTipContent.undoRedo.text}\nUndo shortcut: ${undoTool.hotKeyLabel}.\nRedo shortcut: ${redoTool.hotKeyLabel}.`
       : undefined;
 
   const renderTool = (tool: ActiveToolConfig, buttonStyle: React.CSSProperties) => {
