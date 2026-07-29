@@ -1,5 +1,6 @@
 'use client';
 import {useMapControlsStore} from '@store/mapControlsStore';
+import {useMapStore} from '@/app/store/mapStore';
 import React from 'react';
 import {BrushControls} from '@/app/components/Toolbar/ToolControls/BrushControls';
 import {ActiveTool} from '@constants/map/tools';
@@ -23,10 +24,14 @@ const ToolControlsConfig: Record<
     Component: BrushControls,
   },
   // The break flow is guided by the on-map BlockModePill (which also hosts
-  // the exit control); the sidebar keeps the paint controls, since breaking
-  // leads straight into painting blocks.
+  // the exit control); once a unit is broken the sidebar shows the paint
+  // controls, since breaking leads straight into painting blocks. Before
+  // that there's nothing to paint, so no controls.
   shatter: {
-    Component: BrushControls,
+    Component: () => {
+      const inBlockView = useMapStore(state => state.captiveIds.size > 0);
+      return inBlockView ? <BrushControls /> : <React.Fragment />;
+    },
   },
   inspector: {
     Component: InspectorControls,

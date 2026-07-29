@@ -28,7 +28,7 @@ export const Toolbar: React.FC = () => {
       // Dispatch on keydown only — the keyup listener exists just to clear the
       // alt-shortcuts hint. Firing on both would run hotkeys like ⌘Z twice.
       if (event.type !== 'keydown') return;
-      const tool = activeToolsRef.current.find(f => f.hotKeyAccessor(event));
+      const tool = activeToolsRef.current.find(f => !f.disabled && f.hotKeyAccessor(event));
       if (tool) {
         event.preventDefault();
         tool.onClick ? tool.onClick() : setActiveTool(tool.mode);
