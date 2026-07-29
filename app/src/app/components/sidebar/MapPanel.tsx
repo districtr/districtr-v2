@@ -43,7 +43,7 @@ import {getCoalitionLabel, getSelectedCoalitionColumns} from '@/app/utils/demogr
 import {MAP_MODES} from '@constants/map/mode';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
-import {memoryKey, overlayMemory} from '@utils/demography/overlayMemory';
+import {overlayMemory, setOverlayVariable, toOverlayGroup} from '@utils/demography/overlayMemory';
 
 type MapPanelProps = {
   columnGroup: keyof typeof choroplethMapVariables;
@@ -171,13 +171,12 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   const handleSetMapMode = (newMode: MapControlsStore['mapOptions']['demographicDisplayMode']) => {
     setMapOptions({demographicDisplayMode: newMode});
     // Toggling a layer on registers it with the Visual settings toggle:
-    // remember the display mode (overlay vs. comparison), the group, and the
-    // variable it's showing.
+    // remember the display mode (overlay vs. comparison) and the variable
+    // it's showing.
     if (newMode) {
       overlayMemory.displayMode = newMode;
-      overlayMemory.lastGroup = columnGroup;
       const effectiveVariable = mapVariableConfig ? variable : currentVariableList[0]?.value;
-      if (effectiveVariable) overlayMemory.variables[memoryKey(columnGroup)] = effectiveVariable;
+      if (effectiveVariable) setOverlayVariable(toOverlayGroup(columnGroup), effectiveVariable);
     }
     if (!mapVariableConfig && currentVariableList.length) {
       setVariable(currentVariableList[0].value);
@@ -222,8 +221,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   const handleChangeVariable = (newVariable: DemographyVariable) => {
     setVariable(newVariable);
     // Remember the choice so the Visual settings overlay toggle restores it.
-    overlayMemory.variables[memoryKey(columnGroup)] = newVariable;
-    overlayMemory.lastGroup = columnGroup;
+    setOverlayVariable(toOverlayGroup(columnGroup), newVariable);
   };
 
   const handleChangePercent = (usePercent: boolean) => {
