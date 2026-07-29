@@ -1,4 +1,4 @@
-import type {SummaryType} from '@constants/demography/summary';
+import {isCoalitionUniverse, SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
 import type {DemographyVariable} from '@constants/demography/coalition';
 import {useDemographyStore} from '@store/demography/demographyStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
@@ -30,6 +30,16 @@ export const overlayMemory: {
 };
 
 /**
+ * TOTPOP and VAP present as one merged population choropleth (the Map Layer
+ * dropdown spans both universes), so they share one memory slot rather than
+ * two — otherwise a VAP pick is never restored, since only 'TOTPOP' ever
+ * gets reactivated (Visual settings' "Demographic" toggle has no separate
+ * VAP button).
+ */
+export const memoryKey = (group: SummaryType): SummaryType =>
+  isCoalitionUniverse(group) ? SUMMARY_TYPES.TOTPOP : group;
+
+/**
  * Turn the choropleth overlay on for a column group, restoring the last-used
  * variable (or defaulting to the group's first). The single writer of
  * overlayMemory's activation state — used by the Visual settings toggles and
@@ -43,11 +53,11 @@ export const activateOverlayGroup = (group: SummaryType): boolean => {
   if (!variables.length) return false;
   let variable = demography.variable;
   if (!variables.some(v => v.value === variable)) {
-    variable = overlayMemory.variables[group] ?? variables[0].value;
+    variable = overlayMemory.variables[memoryKey(group)] ?? variables[0].value;
     demography.setVariable(variable);
   }
   overlayMemory.lastGroup = group;
-  overlayMemory.variables[group] = variable;
+  overlayMemory.variables[memoryKey(group)] = variable;
   // Reuse the last-used display mode; side-by-side is a Super Draw feature,
   // so plain Draw always falls back to the overlay.
   const displayMode =

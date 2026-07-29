@@ -43,7 +43,7 @@ import {getCoalitionLabel, getSelectedCoalitionColumns} from '@/app/utils/demogr
 import {MAP_MODES} from '@constants/map/mode';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
-import {overlayMemory} from '@utils/demography/overlayMemory';
+import {memoryKey, overlayMemory} from '@utils/demography/overlayMemory';
 
 type MapPanelProps = {
   columnGroup: keyof typeof choroplethMapVariables;
@@ -177,7 +177,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
       overlayMemory.displayMode = newMode;
       overlayMemory.lastGroup = columnGroup;
       const effectiveVariable = mapVariableConfig ? variable : currentVariableList[0]?.value;
-      if (effectiveVariable) overlayMemory.variables[columnGroup] = effectiveVariable;
+      if (effectiveVariable) overlayMemory.variables[memoryKey(columnGroup)] = effectiveVariable;
     }
     if (!mapVariableConfig && currentVariableList.length) {
       setVariable(currentVariableList[0].value);
@@ -222,7 +222,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   const handleChangeVariable = (newVariable: DemographyVariable) => {
     setVariable(newVariable);
     // Remember the choice so the Visual settings overlay toggle restores it.
-    overlayMemory.variables[columnGroup] = newVariable;
+    overlayMemory.variables[memoryKey(columnGroup)] = newVariable;
     overlayMemory.lastGroup = columnGroup;
   };
 
