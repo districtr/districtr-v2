@@ -16,6 +16,7 @@ import {SizedCircleLayer} from './PointLayers/SizedCircleLayers';
 import {OverlayLayers} from './PolygonLayers/OverlayLayers';
 import {MapLayerAnchors} from './MapLayerAnchors';
 import {CoiMapContainer} from './CoiMapContainer';
+import {BlockModePill} from './BlockModePill';
 import {useMapRenderer} from '@/app/hooks/useMapRenderer';
 import {PointSource} from './GeoSources/PointSource';
 import {CoiBlockLayers} from './PolygonLayers/CoiBlockLayers';
@@ -108,6 +109,8 @@ export const CoiMap: React.FC = () => {
             <MetaLayers isDemographicMap={false} />
           </PointSource>
           <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
+          {/* COI breaks units too, and the pill is the only exit from block view. */}
+          <BlockModePill />
         </>
       )}
     </CoiMapContainer>

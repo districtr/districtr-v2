@@ -10,7 +10,7 @@ import {
 import React, {useEffect} from 'react'; // Import ParentSize
 import {Popover} from '@radix-ui/themes';
 import {GearIcon} from '@radix-ui/react-icons';
-import InfoTip from '@components/InfoTip';
+import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
 import {ChartStore} from '@store/chartStore';
 import {ColorChangeModal} from '../../Toolbar/ColorChangeModal';
 import {useMapStore} from '@/app/store/mapStore';
@@ -110,7 +110,7 @@ export const PopulationPanelOptions: React.FC<{
             <Flex direction="column" gap="1" py="2" mt="2">
               <Text size="2" weight="medium">
                 X-axis bar scaling
-                <InfoTip tips="barScaling" />
+                <HelpTip tip="barScaling" openDelay={HELP_TIP_FAST_DELAY} />
               </Text>
               <SegmentedControl.Root
                 size="1"
@@ -125,7 +125,7 @@ export const PopulationPanelOptions: React.FC<{
                 <Flex direction="column" align="start" gapX="2" pt="2">
                   <Text size="2" weight="medium" className="py-2">
                     Target deviation from ideal
-                    <InfoTip tips="maxDeviation" />
+                    <HelpTip tip="maxDeviation" openDelay={HELP_TIP_FAST_DELAY} />
                   </Text>
                   <Flex direction="row" align="center" gapX="2" flexGrow={'1'}>
                     <Flex direction="column" flexGrow={'1'}>

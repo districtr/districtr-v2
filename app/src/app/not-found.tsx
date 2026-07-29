@@ -40,7 +40,8 @@ export default function NotFound() {
               Looking for a page from the original Districtr? Try{' '}
               <Link href={legacyUrl} target="_blank" rel="noopener noreferrer">
                 {legacyUrl.replace('https://', '')}
-              </Link>.
+              </Link>
+              .
             </Text>
           )}
           <Link href="/">Back to the Districtr 2.0 home page</Link>
