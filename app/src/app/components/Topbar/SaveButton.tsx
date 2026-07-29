@@ -1,11 +1,12 @@
 'use client';
 import React, {useState} from 'react';
-import {IconButton, Spinner, Tooltip} from '@radix-ui/themes';
+import {IconButton, Spinner} from '@radix-ui/themes';
 import {CloudNotSavedIcon, CloudSavedIcon} from './Icons';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {ACCESS_STATES} from '@constants/document/state';
+import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
 
 const AUTOSAVE_TIP = 'Autosave is on: changes save automatically after 30 seconds of inactivity.';
 
@@ -33,8 +34,10 @@ export const SaveButton: React.FC = () => {
   };
 
   return (
-    <Tooltip
-      content={
+    <HelpTip
+      tip="saveStatus"
+      openDelay={HELP_TIP_FAST_DELAY}
+      text={
         isOutdated
           ? `You have unsaved changes — click to save now. ${AUTOSAVE_TIP}`
           : `All changes saved. ${AUTOSAVE_TIP}`
@@ -56,6 +59,6 @@ export const SaveButton: React.FC = () => {
           )}
         </span>
       </IconButton>
-    </Tooltip>
+    </HelpTip>
   );
 };

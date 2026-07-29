@@ -88,6 +88,14 @@ export const Topbar: React.FC = () => {
                 >
                   Catalog
                 </DropdownMenu.Item>
+                {/* New tab, not router.push: this menu lives on the editor, and
+                    navigating away in-place would lose the in-progress map. */}
+                <DropdownMenu.Item
+                  className="cursor-pointer"
+                  onSelect={() => window.open('/guide', '_blank', 'noopener,noreferrer')}
+                >
+                  Guide
+                </DropdownMenu.Item>
               </DropdownMenu.Content>
             </DropdownMenu.Root>
           </Flex>

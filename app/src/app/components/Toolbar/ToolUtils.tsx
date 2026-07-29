@@ -16,6 +16,7 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {ACCESS_STATES} from '@constants/document/state';
+import type {HelpTipKey} from '@/app/components/HelpTip/helpTipContent';
 
 export type ActiveToolConfig = {
   hotKeyAccessor: (event: KeyboardEvent) => boolean;
@@ -28,6 +29,7 @@ export type ActiveToolConfig = {
   icon: React.ForwardRefExoticComponent<IconProps & React.RefAttributes<SVGSVGElement>>;
   iconStyle?: React.CSSProperties;
   onClick?: () => void;
+  helpKey?: HelpTipKey;
 };
 
 export const useActiveTools = () => {
@@ -62,6 +64,7 @@ export const useActiveTools = () => {
       disabled: !mapDocument?.document_id,
       label: 'Move',
       icon: HandIcon,
+      helpKey: 'pan',
       hotKeyAccessor: e => {
         return e.code === 'KeyM';
       },
@@ -72,6 +75,7 @@ export const useActiveTools = () => {
       disabled: !mapDocument?.document_id || !isEditing,
       label: 'Paint',
       icon: Pencil2Icon,
+      helpKey: 'paint',
       hotKeyAccessor: e => {
         return e.code === 'KeyP';
       },
@@ -82,6 +86,7 @@ export const useActiveTools = () => {
       disabled: !mapDocument?.document_id || !isEditing,
       label: 'Erase',
       icon: EraserIcon,
+      helpKey: 'erase',
       hotKeyAccessor: e => {
         return e.code === 'KeyE';
       },
@@ -92,6 +97,8 @@ export const useActiveTools = () => {
       disabled: pastStates.length === 0 || !isEditing,
       label: 'Undo',
       icon: ResetIcon,
+      // Same helpKey as Redo: one explanation covers the pair.
+      helpKey: 'undoRedo',
       onClick: () => {
         handleUndo();
       },
@@ -107,6 +114,7 @@ export const useActiveTools = () => {
       label: 'Redo',
       icon: ResetIcon,
       iconStyle: {transform: 'rotateY(180deg)'},
+      helpKey: 'undoRedo',
       onClick: () => {
         handleRedo();
       },
@@ -123,6 +131,7 @@ export const useActiveTools = () => {
       disabled: !mapDocument?.child_layer || inBlockView,
       label: 'Break',
       icon: ViewGridIcon,
+      helpKey: 'break',
       hotKeyAccessor: e => {
         return e.code === 'KeyB';
       },
@@ -130,8 +139,9 @@ export const useActiveTools = () => {
     {
       hotKeyLabel: 'I',
       mode: ACTIVE_TOOLS.INSPECTOR,
-      label: 'Inspector',
+      label: 'Inspect',
       icon: MagnifyingGlassIcon,
+      helpKey: 'inspector',
       hotKeyAccessor: e => {
         return e.code === 'KeyI';
       },
