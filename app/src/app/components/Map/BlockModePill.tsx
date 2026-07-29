@@ -56,6 +56,11 @@ export const BlockModePill = () => {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
+      // Escape aimed at a focused field (e.g. closing the geocoder dropdown)
+      // shouldn't also exit block view.
+      const activeElement = document.activeElement;
+      if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement)
+        return;
       if (inBlockView) {
         exitBlockView();
       } else if (activeTool === ACTIVE_TOOLS.SHATTER) {
