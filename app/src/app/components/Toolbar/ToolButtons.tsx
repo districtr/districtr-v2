@@ -1,12 +1,13 @@
 'use client';
 import {Flex, IconButton, Kbd, Text} from '@radix-ui/themes';
-import * as Tooltip from '@radix-ui/react-tooltip';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useToolbarStore} from '@store/toolbarStore';
 import React from 'react';
 import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
 import {useActiveTools} from '@/app/components/Toolbar/ToolUtils';
 import type {ActiveToolConfig} from '@/app/components/Toolbar/ToolUtils';
+import {HelpTip, HELP_TIP_HOVER_DELAY} from '@/app/components/HelpTip/HelpTip';
+import {helpTipContent} from '@/app/components/HelpTip/helpTipContent';
 
 // Fixed button size; the old user-configurable size picker was removed.
 const TOOLBAR_SIZE = 40;
@@ -21,28 +22,40 @@ const HISTORY_GROW_FACTOR = 0.2;
 
 const HISTORY_TOOLS: ActiveTool[] = [ACTIVE_TOOLS.UNDO, ACTIVE_TOOLS.REDO];
 
-export const ToolButtons: React.FC<{
-  showShortcuts: boolean;
-}> = ({showShortcuts}) => {
+export const ToolButtons: React.FC = () => {
   const activeTool = useMapControlsStore(state => state.activeTool);
   const setActiveTool = useMapControlsStore(state => state.setActiveTool);
-  // Shortcut previews (corner hotkey + alt-reveal tooltips) are Super Draw
-  // only; the hotkeys themselves still work in plain Draw.
+  // Shortcut previews (the corner hotkey badge) are Super Draw only; the
+  // hotkeys themselves still work in plain Draw.
   const showHotkeyHints = useToolbarStore(state => state.superDraw);
   const activeTools = useActiveTools();
   const mainTools = activeTools.filter(tool => !HISTORY_TOOLS.includes(tool.mode));
   const historyTools = activeTools.filter(tool => HISTORY_TOOLS.includes(tool.mode));
+  // Undo/Redo share one HelpTip entry and have no room for a corner hotkey
+  // badge (their shortcuts are chorded, too wide) — so their shortcuts ride
+  // along in the hover card's own text instead of a second, Alt-revealed
+  // tooltip. Composed from each tool's own hotKeyLabel (already OS-aware:
+  // ⌘ vs Ctrl), not hardcoded into the static copy. Super Draw only, same
+  // gate as the corner hotkey badge — other tips never carry shortcut info.
+  const undoTool = historyTools.find(tool => tool.mode === ACTIVE_TOOLS.UNDO);
+  const redoTool = historyTools.find(tool => tool.mode === ACTIVE_TOOLS.REDO);
+  const historyHelpText =
+    showHotkeyHints && undoTool && redoTool
+      ? `${helpTipContent.undoRedo.text}\nUndo shortcut: ${undoTool.hotKeyLabel}.\nRedo shortcut: ${redoTool.hotKeyLabel}.`
+      : undefined;
 
   const renderTool = (tool: ActiveToolConfig, buttonStyle: React.CSSProperties) => {
     const IconComponent = tool.icon;
     const isActive = activeTool === tool.mode;
     // Main tools get a corner hotkey badge; history tools (chorded ⌘Z/⌘⇧Z
-    // shortcuts, too wide for a corner) get an alt-reveal tooltip instead.
+    // shortcuts, too wide for a corner) have their shortcut folded into the
+    // HelpTip text below instead — one hover mechanism for every tool.
     const isHistoryTool = HISTORY_TOOLS.includes(tool.mode);
     const button = (
       <IconButton
         key={tool.mode}
         data-testid={`${tool.mode}-tool`}
+        aria-label={tool.label}
         className="cursor-pointer tool-button"
         onClick={() => {
           if (tool.onClick) {
@@ -97,30 +110,17 @@ export const ToolButtons: React.FC<{
         </Flex>
       </IconButton>
     );
-    // Buttons name themselves (label + corner hotkey), so only history tools
-    // need a tooltip — and only while Alt reveals shortcuts, never on hover.
-    if (!isHistoryTool || !showHotkeyHints) return button;
-    return (
-      <Tooltip.Provider key={tool.mode}>
-        <Tooltip.Root open={showShortcuts}>
-          <Tooltip.Trigger asChild>{button}</Tooltip.Trigger>
-          <Tooltip.Portal>
-            <Tooltip.Content
-              side="top"
-              className="select-none rounded bg-gray-900 px-2 py-1 text-xs text-center text-white"
-              sideOffset={5}
-            >
-              {tool.hotKeyLabel.split(' + ').map((key, i) => (
-                <span key={i}>
-                  {key}
-                  <br />
-                </span>
-              ))}
-              <Tooltip.Arrow className="fill-gray-900" />
-            </Tooltip.Content>
-          </Tooltip.Portal>
-        </Tooltip.Root>
-      </Tooltip.Provider>
+    return tool.helpKey ? (
+      <HelpTip
+        key={tool.mode}
+        tip={tool.helpKey}
+        openDelay={HELP_TIP_HOVER_DELAY}
+        text={isHistoryTool ? historyHelpText : undefined}
+      >
+        {button}
+      </HelpTip>
+    ) : (
+      button
     );
   };
 
