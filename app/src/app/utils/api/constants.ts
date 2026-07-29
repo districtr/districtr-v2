@@ -11,6 +11,7 @@ export const PARQUET_URL =
   process.env.NEXT_PUBLIC_S3_BUCKET_URL_MIRROR2 ?? process.env.NEXT_PUBLIC_S3_BUCKET_URL;
 
 export const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY ?? '';
+export const RECAPTCHA_V3_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY ?? '';
 
 /** MapTiler API key for basemaps (Streets/Satellite) and geocoding. */
 export const MAPTILER_API_KEY = process.env.NEXT_PUBLIC_MAPTILER_API_KEY ?? '';

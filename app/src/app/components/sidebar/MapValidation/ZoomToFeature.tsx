@@ -1,9 +1,10 @@
 import {ChevronLeftIcon, ChevronRightIcon} from '@radix-ui/react-icons';
 import {Button, Flex, Select} from '@radix-ui/themes';
-import {useEffect, useLayoutEffect, useState, Dispatch, SetStateAction} from 'react';
+import {useEffect, useLayoutEffect, useRef, useState, Dispatch, SetStateAction} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
 import {Feature, Polygon} from 'geojson';
-import type {Map as MapLibreMap, PaddingOptions} from 'maplibre-gl';
+import type {LngLatBoundsLike, Map as MapLibreMap, PaddingOptions} from 'maplibre-gl';
+import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerIds';
 
 /**
  * Clamp fitBounds padding to a quarter of each canvas dimension, so at least half the
@@ -21,11 +22,17 @@ export const getFitBoundsPadding = (
   return {top: vertical, bottom: vertical, left: horizontal, right: horizontal};
 };
 
+/** Minimum hold at the general-area snap before the fly-in, so the orienting
+ * pause is perceptible even when tiles are cached and 'idle' fires at once. */
+const MIN_DWELL_MS = 400;
+
 interface ZoomToFeatureProps {
   selectedIndex: number | null;
   setSelectedIndex: (index: number) => void | Dispatch<SetStateAction<number | null>>;
-  features: GeoJSON.Feature[] | GeoJSON.Polygon[];
+  features: Array<GeoJSON.Feature | GeoJSON.Polygon>;
   padding?: number;
+  /** Optional display labels per feature; falls back to 1-based numbering. */
+  labels?: string[];
 }
 
 export default function ZoomToFeature({
@@ -33,8 +40,21 @@ export default function ZoomToFeature({
   setSelectedIndex,
   features,
   padding,
+  labels,
 }: ZoomToFeatureProps) {
   const mapRef = useMapStore(state => state.getMapRef());
+  const mapDocument = useMapStore(state => state.mapDocument);
+  // Cancels the in-flight zoom's pending fly (idle listener + dwell timer);
+  // called when a new zoom starts — or the component unmounts — so a stale
+  // handler can't yank the camera later.
+  const cancelPendingFly = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    return () => {
+      cancelPendingFly.current?.();
+      cancelPendingFly.current = null;
+    };
+  }, []);
 
   // on repeat visit, prevent zooming to bounds on first render
   const [hasMounted, setHasMounted] = useState(false);
@@ -45,20 +65,116 @@ export default function ZoomToFeature({
     setHasMounted(true);
   }, []);
 
-  const changeSelectedIndex = (amount: number) => {
-    const prevIndex = selectedIndex || 0;
-    const newIndex = prevIndex + amount;
-    if (newIndex < 0 || newIndex >= features.length) return;
-    setSelectedIndex(newIndex);
-  };
-
   function isFeature(feature: any): feature is Feature {
     return feature && typeof feature === 'object' && feature.type === 'Feature';
   }
 
+  const nextIndex = selectedIndex === null ? 0 : selectedIndex + 1;
+  const prevIndex = selectedIndex === null ? null : selectedIndex - 1;
+
   function isPolygon(feature: any): feature is Polygon {
     return feature && typeof feature === 'object' && feature.type === 'Polygon';
   }
+
+  const getFeatureBounds = (feature: Feature | Polygon): LngLatBoundsLike | null => {
+    if (isFeature(feature) && feature.properties?.bbox) {
+      return feature.properties.bbox;
+    }
+    // Assumes the Polygon is a bbox ring à la PostGIS `ST_Envelope`:
+    // ((MINX, MINY), (MAXX, MINY), (MAXX, MAXY), (MINX, MAXY), (MINX, MINY)),
+    // so corners 0 and 2 are SW/NE. An arbitrary polygon won't work here.
+    const polygon = isPolygon(feature)
+      ? feature
+      : isFeature(feature) && isPolygon(feature.geometry)
+        ? feature.geometry
+        : null;
+    if (polygon) {
+      return [
+        {lng: polygon.coordinates[0][0][0], lat: polygon.coordinates[0][0][1]},
+        {lng: polygon.coordinates[0][2][0], lat: polygon.coordinates[0][2][1]},
+      ];
+    }
+    return null;
+  };
+
+  // Fixed duration (speed-based scales with distance), tight padding (the
+  // `padding` prop only frames the snap), and linear to avoid flyTo's
+  // zoom-out-then-in swoop.
+  const finalFitOptions = () => ({
+    duration: 700,
+    linear: true,
+    padding: getFitBoundsPadding(mapRef, 40),
+  });
+
+  // After the snap, wait for both map idle (tiles loaded) and the minimum
+  // dwell, then fly in. With geoIds, the fly targets the union bbox of the
+  // geometries' rendered pieces — approxBounds is centroid-derived, so it
+  // understates the true extent and collapses to a point for a single unit.
+  // Without geoIds the fly targets approxBounds directly, waiting anyway so
+  // both paths share the same pacing.
+  const flyInAfterIdle = (approxBounds: LngLatBoundsLike, geoIds?: string[]) => {
+    if (!mapRef) return;
+    let idleDone = false;
+    let dwellDone = false;
+    let cancelled = false;
+    const maybeFly = () => {
+      if (cancelled || !idleDone || !dwellDone) return;
+      cancelPendingFly.current = null;
+      mapRef.fitBounds(
+        (geoIds?.length && queryRenderedBounds(geoIds)) || approxBounds,
+        finalFitOptions()
+      );
+    };
+    const onIdle = () => {
+      idleDone = true;
+      maybeFly();
+    };
+    const dwellTimer = setTimeout(() => {
+      dwellDone = true;
+      maybeFly();
+    }, MIN_DWELL_MS);
+    cancelPendingFly.current = () => {
+      cancelled = true;
+      clearTimeout(dwellTimer);
+      mapRef.off('idle', onIdle);
+    };
+    mapRef.once('idle', onIdle);
+  };
+
+  // Union bbox of the geometries' rendered tile pieces, or null if none are in
+  // the loaded tiles (a feature can be split across tiles).
+  const queryRenderedBounds = (geoIds: string[]): LngLatBoundsLike | null => {
+    if (!mapRef) return null;
+    const sourceLayers = [mapDocument?.parent_layer, mapDocument?.child_layer].filter(
+      (l): l is string => !!l
+    );
+    const pieces = sourceLayers.flatMap(sourceLayer =>
+      mapRef.querySourceFeatures(BLOCK_SOURCE_ID, {
+        sourceLayer,
+        filter: ['in', ['get', 'path'], ['literal', geoIds]],
+      })
+    );
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    const eat = (coords: any) => {
+      if (typeof coords[0] === 'number') {
+        if (coords[0] < minX) minX = coords[0];
+        if (coords[0] > maxX) maxX = coords[0];
+        if (coords[1] < minY) minY = coords[1];
+        if (coords[1] > maxY) maxY = coords[1];
+      } else {
+        coords.forEach(eat);
+      }
+    };
+    pieces.forEach(p => 'coordinates' in p.geometry && eat(p.geometry.coordinates));
+    if (minX > maxX) return null;
+    return [
+      [minX, minY],
+      [maxX, maxY],
+    ];
+  };
 
   const zoomToFeature = (selectedIndex: number | null) => {
     let feature;
@@ -67,36 +183,35 @@ export default function ZoomToFeature({
     } else {
       return;
     }
-    // Bboxes are centroid-derived, so a single-unit component collapses to a point and
-    // would zoom to street level without the cap.
-    // TODO: the cap also blocks legitimate street-level zooms; remove it once the points
-    // parquets carry per-unit bbox/size columns.
-    const fitOptions = {
-      maxZoom: 10,
-      ...(padding ? {padding: getFitBoundsPadding(mapRef, padding)} : {}),
-    };
-    if (isFeature(feature) && feature.properties?.bbox) {
-      mapRef?.fitBounds(feature.properties.bbox, fitOptions);
+    cancelPendingFly.current?.();
+    cancelPendingFly.current = null;
+    const bounds = getFeatureBounds(feature);
+    if (!bounds) {
+      console.error('Invalid feature type');
       return;
     }
-
-    // This is just assuming that the Polygon is the valid BBOX output from
-    // `ST_Envelope` function in PostGIS, which:
-    // ```
-    // Returns the double-precision (float8) minimum bounding box for the supplied geometry, as a geometry.
-    // The polygon is defined by the corner points of the bounding box
-    // ((MINX, MINY), (MINX, MAXY), (MAXX, MAXY), (MAXX, MINY), (MINX, MINY)).
-    // (PostGIS will add a ZMIN/ZMAX coordinate as well).
-    // ```
-    // If an arbitrary polygon is provided, this won't work.
-    if (isPolygon(feature)) {
-      let SW = {lng: feature.coordinates[0][0][0], lat: feature.coordinates[0][0][1]};
-      let NE = {lng: feature.coordinates[0][2][0], lat: feature.coordinates[0][2][1]};
-      mapRef?.fitBounds([SW, NE], fitOptions);
-      return;
+    // Snap (no animation) to the general area, then fly in to the precise bounds.
+    if (mapRef) {
+      const camera = mapRef.cameraForBounds(bounds, {
+        ...(padding ? {padding: getFitBoundsPadding(mapRef, padding)} : {}),
+      });
+      if (camera) {
+        // Two levels out, not more: a bigger gap means a faster zoom rush
+        // during the fly-in, which amplifies motion sickness.
+        let snapZoom = Math.min((camera.zoom ?? 10) - 2, 10);
+        // But never wider than the map document's own extent.
+        if (mapDocument?.extent) {
+          const extentZoom = mapRef.cameraForBounds(mapDocument.extent)?.zoom;
+          if (extentZoom !== undefined) snapZoom = Math.max(snapZoom, extentZoom);
+        }
+        mapRef.jumpTo({
+          center: camera.center,
+          zoom: Math.max(0, snapZoom),
+        });
+      }
     }
-
-    console.error('Invalid feature type');
+    const geoIds = isFeature(feature) ? feature.properties?.geo_ids : undefined;
+    flyInAfterIdle(bounds, geoIds);
   };
 
   useEffect(() => {
@@ -128,7 +243,7 @@ export default function ZoomToFeature({
               onClick={() => selectFeature(index)}
               className="cursor-pointer"
             >
-              {index + 1}
+              {labels?.[index] ?? index + 1}
             </Button>
           ))}
         </Flex>
@@ -138,7 +253,7 @@ export default function ZoomToFeature({
           <Select.Content>
             {features.map((_, index) => (
               <Select.Item key={index} value={`${index}`} onMouseDown={() => selectFeature(index)}>
-                {index + 1}
+                {labels?.[index] ?? index + 1}
               </Select.Item>
             ))}
           </Select.Content>
@@ -149,17 +264,17 @@ export default function ZoomToFeature({
           <Button
             size="1"
             variant="outline"
-            onClick={() => changeSelectedIndex(-1)}
-            disabled={!selectedIndex || selectedIndex === 0}
+            onClick={() => prevIndex !== null && prevIndex >= 0 && setSelectedIndex(prevIndex)}
+            disabled={prevIndex === null || prevIndex < 0}
             className="cursor-pointer"
           >
             <ChevronLeftIcon /> Previous
           </Button>
           <Button
             size="1"
-            variant="outline"
-            onClick={() => changeSelectedIndex(1)}
-            disabled={selectedIndex === features.length - 1}
+            variant="solid"
+            onClick={() => nextIndex < features.length && setSelectedIndex(nextIndex)}
+            disabled={nextIndex >= features.length}
             className="cursor-pointer"
           >
             Next <ChevronRightIcon />

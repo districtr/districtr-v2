@@ -309,7 +309,9 @@ export const PopulationPanel = () => {
       {!!idealPopulation && !isCommunityMode && (
         <Flex direction={'row'} justify={'between'} align={'start'} wrap="wrap">
           <Flex direction="column" gapX="2" minWidth={'10rem'}>
-            <Text size="2">Ideal population</Text>
+            <Text size="2">
+              Ideal population <InfoTip tips="idealPopulation" />
+            </Text>
             <Text weight={'bold'} className="mb-2">
               {formatNumber(idealPopulation, NUMBER_FORMATS.STRING)}
             </Text>

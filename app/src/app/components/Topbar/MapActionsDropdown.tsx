@@ -7,6 +7,7 @@ import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
 import {ACCESS_STATES} from '@constants/document/state';
 import {DocumentMetadata} from '@utils/api/apiHandlers/types';
 import {SaveShareModal} from '../Toolbar/SaveShareModal/SaveShareModal';
+import {fetchWithSession} from '@utils/api/session';
 
 /** Consolidated "Map actions" menu for the editor topbar: share, export,
  * and reset in one dropdown. Saving lives in the topbar SaveButton;
@@ -18,6 +19,15 @@ export const MapActionsDropdown: React.FC<{
   const mapDocument = useMapStore(state => state.mapDocument);
   const access = useMapStore(state => state.mapStatus?.access);
   const handleReset = useMapStore(state => state.handleReset);
+  const setNotification = useMapStore(state => state.setNotification);
+
+  const notifyExportFailed = (reason: string) =>
+    setNotification({
+      importance: 2,
+      type: 'error',
+      message: 'Exporting this map failed. Please try again in a moment.',
+      id: `export-failed-${exportId}-${reason}`,
+    });
 
   // Defer past the dropdown's close so Radix doesn't leave pointer-events:none
   // stuck on the body when a dialog opens from onSelect.
@@ -31,15 +41,34 @@ export const MapActionsDropdown: React.FC<{
       ? mapDocument.document_id
       : mapDocument?.public_id;
 
-  const downloadExport = (exportType: string) => {
+  const downloadExport = async (exportType: string) => {
     if (!exportId) return;
-    // Trigger via a transient anchor — a DropdownMenu.Item swallows a child anchor's
-    // click. The download filename comes from the backend's Content-Disposition.
-    const a = document.createElement('a');
-    a.href = `${process.env.NEXT_PUBLIC_API_URL}/api/document/${exportId}/export?export_type=${exportType}`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    // Fetch via the session-aware client (plain anchor navigation can't attach
+    // the X-Districtr-Session header) and save the blob through a transient
+    // anchor. Filename comes from the backend's Content-Disposition.
+    try {
+      const response = await fetchWithSession(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/document/${exportId}/export?export_type=${exportType}`
+      );
+      if (!response.ok) {
+        notifyExportFailed(`${response.status}`);
+        return;
+      }
+      const filename =
+        response.headers.get('Content-Disposition')?.match(/filename="?([^";]+)"?/)?.[1] ??
+        `districtr-export-${exportId}.${exportType.toLowerCase()}`;
+      const url = URL.createObjectURL(await response.blob());
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Export failed', e);
+      notifyExportFailed('network');
+    }
   };
 
   return (

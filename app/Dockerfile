@@ -16,6 +16,7 @@ ENV NODE_ENV="production"
 FROM base as build
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_S3_BUCKET_URL
+ARG NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY
 
 # Install packages needed to build node modules
 RUN apt-get update -qq && \
@@ -30,7 +31,8 @@ RUN bun install --include=dev
 
 RUN echo NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL && \
     echo "NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL" > .env.production && \
-    echo "NEXT_PUBLIC_S3_BUCKET_URL=$NEXT_PUBLIC_S3_BUCKET_URL" >> .env.production
+    echo "NEXT_PUBLIC_S3_BUCKET_URL=$NEXT_PUBLIC_S3_BUCKET_URL" >> .env.production && \
+    echo "NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY=$NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY" >> .env.production
 
 # Copy application code
 COPY --link . .

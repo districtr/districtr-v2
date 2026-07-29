@@ -80,10 +80,17 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
       setStateFp(publicDistrictsQuery.data.statefp);
     }
 
-    // Feed demographic data into demographyService for sidebar stats
-    const {columns, demographicData, assignments} = publicDistrictsQuery.data;
+    // Feed demographic data into demographyService for sidebar stats. The backend
+    // already aggregates demography per district (document.district_unions), so
+    // this goes through the assignments-free public path — see demographyService.ts.
+    const {columns, demographicData} = publicDistrictsQuery.data;
     const hash = `anonymous|${mapDocument?.public_id}`;
-    demographyService.update(Array.from(columns), demographicData, hash, [], assignments);
+    demographyService.updatePublicDemography(
+      Array.from(columns),
+      demographicData,
+      hash,
+      useDemographyStore.getState().coalitionGroups
+    );
     setDemographyHash(hash);
 
     // Set available column sets so sidebar knows which columns are available

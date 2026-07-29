@@ -80,7 +80,7 @@ export const Topbar: React.FC = () => {
                   Home
                 </DropdownMenu.Item>
                 <DropdownMenu.Item className="cursor-pointer" onSelect={() => router.push('/draw')}>
-                  Main Map
+                  Draw (Main Map)
                 </DropdownMenu.Item>
                 <DropdownMenu.Item
                   className="cursor-pointer"

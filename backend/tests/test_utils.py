@@ -245,6 +245,30 @@ def test_add_districtr_map_already_in_group_to_group(
     assert result == 2
 
 
+def test_add_extent_to_districtrmap_antimeridian(
+    session: Session, antimeridian_geos_gerrydb
+):
+    """Regression test for the Alaska bbox bug: geometry straddling the antimeridian
+    (vertices on both the -179.x and +179.x side) must not produce a bogus
+    ~360-degree-wide extent -- the true angular width here is ~1 degree."""
+    inserted_districtr_map = create_districtr_map(
+        session,
+        name="Antimeridian layer",
+        districtr_map_slug="antimeridian_geos_test",
+        gerrydb_table_name="antimeridian_geos",
+        parent_layer="antimeridian_geos",
+    )
+    add_extent_to_districtrmap(
+        session=session, districtr_map_uuid=inserted_districtr_map
+    )
+    extent = session.execute(
+        text("SELECT extent FROM districtrmap WHERE uuid = :uuid"),
+        {"uuid": inserted_districtr_map},
+    ).scalar_one()
+    x_min, y_min, x_max, y_max = extent
+    assert x_max - x_min < 10, f"Expected a narrow bbox, got extent={extent}"
+
+
 def test_add_extent_to_districtrmap_manual_bounds(
     session: Session, simple_parent_geos_gerrydb
 ):

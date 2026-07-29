@@ -39,6 +39,8 @@ export function createBackendTaskConfig(repos: Repos, database: Database) {
   addSecret("SECRET_KEY", config.secretKey);
   addSecret("OPENAI_API_KEY", config.openaiApiKey);
   addSecret("RECAPTCHA_SECRET_KEY", config.recaptchaSecretKey);
+  addSecret("RECAPTCHA_V3_SECRET_KEY", config.recaptchaV3SecretKey);
+  addSecret("RESEARCH_API_KEY", config.researchApiKey);
 
   // --- IAM ---
   const executionRole = new aws.iam.Role(`${name}-backend-exec-role`, {
@@ -73,6 +75,8 @@ export function createBackendTaskConfig(repos: Repos, database: Database) {
     {name: "AUTH0_API_AUDIENCE", value: config.auth0ApiAudience},
     {name: "AUTH0_ISSUER", value: config.auth0Issuer},
     {name: "AUTH0_ALGORITHMS", value: config.auth0Algorithms},
+    // Session tokens issued but not yet required; flip to "true" after rollout.
+    {name: "SESSION_ENFORCE", value: "false"},
     // Auth via the task role (default boto3 chain), not static keys.
     {name: "AWS_USE_DEFAULT_CREDENTIALS", value: "true"},
     // Keep boto3 on the regional S3 endpoint (and the free gateway path).

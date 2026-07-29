@@ -12,6 +12,7 @@ import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {MAP_MODES} from '@constants/map/mode';
 import {NUMBER_FORMATS} from '@constants/demography/format';
+import InfoTip from '@components/InfoTip';
 
 type ChartMargins = {left: number; right: number; top: number; bottom: number};
 /** Margins shared by the chart body, the label strip, and the axis strip. */
@@ -95,13 +96,21 @@ export const PopulationChartIdealLabel: React.FC<{
   const text = `Ideal ${formatNumber(effectiveIdealPopulation, NUMBER_FORMATS.STRING)}`;
   // ~8px/char at 14px font
   const halfWidth = (text.length * 8) / 2;
-  const x = Math.min(Math.max(idealX, halfWidth), xMax - halfWidth);
+  const infoTipWidth = 24;
+  const x = Math.min(Math.max(idealX, halfWidth), xMax - halfWidth - infoTipWidth);
   return (
-    <svg width={width} height={POP_CHART_LABEL_HEIGHT} style={{display: 'block'}}>
+    <svg
+      width={width}
+      height={POP_CHART_LABEL_HEIGHT}
+      style={{display: 'block', overflow: 'visible'}}
+    >
       <Group left={margins.left}>
         <text x={x} y={POP_CHART_LABEL_HEIGHT - 6} textAnchor="middle" fontSize="14px">
           {text}
         </text>
+        <foreignObject x={x + halfWidth} y={0} width={infoTipWidth} height={POP_CHART_LABEL_HEIGHT}>
+          <InfoTip tips="idealPopulation" />
+        </foreignObject>
       </Group>
     </svg>
   );

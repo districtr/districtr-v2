@@ -325,6 +325,50 @@ def test_population_deviation(
     assert result["maximal_absolute_deviation"] == 350
 
 
+def test_population_deviation_uses_document_num_districts_override(
+    client, session: Session, simple_child_geos_nonshatterable_districtr_map
+):
+    """A document-level num_districts override (modifiable map) must change
+    population_deviation, not just ideal_population in isolation.
+
+    Same assignments/populations as test_population_deviation (zone 1=1400,
+    zone 2=700, total=2100) but the document overrides num_districts to 3
+    (map default is 2). ideal = 2100 // 3 = 700, so:
+        top_to_bottom_deviation = (1400-700)/700 = 1.0   (was 2/3 with ideal=1050)
+        maximal_absolute_deviation = max(|1400-700|, |700-700|) = 700  (was 350)
+    """
+    resp = client.post(
+        "/api/create_document", json={"districtr_map_slug": "simple_child_ns"}
+    )
+    assert resp.status_code == 201
+    document_id = resp.json()["document_id"]
+
+    _put_assignments(
+        client,
+        document_id,
+        [
+            ["000010000000001", 1],
+            ["000010000000002", 1],
+            ["000010000000003", 2],
+            ["000010000000004", 2],
+            ["000010000000005", 1],
+            ["000010000000006", 1],
+        ],
+    )
+
+    resp = client.put(f"/api/document/{document_id}/num_districts?num_districts=3")
+    assert resp.status_code == 200
+    session.expire_all()
+
+    ctx = DocumentEvaluationContext(
+        background_tasks=BackgroundTasks(), session=session, document_id=document_id
+    )
+    result = population_deviation(ctx)
+
+    assert result["top_to_bottom_deviation"] == pytest.approx(1.0, abs=1e-6)
+    assert result["maximal_absolute_deviation"] == 700
+
+
 # ── ideal_population ──────────────────────────────────────────────────────────
 
 
@@ -357,6 +401,36 @@ def test_ideal_population_uses_map_num_districts_not_assigned_count(
         background_tasks=BackgroundTasks(), session=session, document_id=document_id
     )
     assert ideal_population(ctx) == 1050
+
+
+def test_ideal_population_uses_document_override_on_modifiable_map(
+    client, session: Session, simple_child_geos_nonshatterable_districtr_map
+):
+    """On a num_districts_modifiable map, a document-level override must win over
+    the map's default num_districts (2) — total_pop=2100 // 3 = 700, not // 2 = 1050."""
+    resp = client.post(
+        "/api/create_document", json={"districtr_map_slug": "simple_child_ns"}
+    )
+    assert resp.status_code == 201
+    document_id = resp.json()["document_id"]
+    _put_assignments(
+        client,
+        document_id,
+        [
+            ["000010000000001", 1],
+            ["000010000000002", 1],
+            ["000010000000003", 1],
+        ],
+    )
+
+    resp = client.put(f"/api/document/{document_id}/num_districts?num_districts=3")
+    assert resp.status_code == 200
+    session.expire_all()
+
+    ctx = DocumentEvaluationContext(
+        background_tasks=BackgroundTasks(), session=session, document_id=document_id
+    )
+    assert ideal_population(ctx) == 700
 
 
 # ── malformed state: parent and children coexist in assignments ───────────────

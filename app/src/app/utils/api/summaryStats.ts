@@ -12,10 +12,13 @@ export interface ColumnSet {
   sumColumn?: string;
 }
 
-export type EvalColumnConfiguration<T extends ColumnSet> = Array<{
+export type DemographyTableColumnConfiguration<T extends ColumnSet> = Array<{
   label: string;
   column: T['columns'][number];
   sourceCol?: T['columns'][number];
+  /** Denominator column (e.g. total_pop_20/total_vap_20): always rendered as a raw
+   *  count, never a share of itself, and never color-shaded. */
+  isTotal?: boolean;
 }>;
 
 export type MapColumnConfiguration<T extends ColumnSet> = Array<{
@@ -141,7 +144,9 @@ export const possibleDerivedColumns = Object.values(derivedColumnsConfig).flat()
 // DERIVED TYPES
 export type SummaryStatConfig = typeof summaryStatsConfig;
 export type AllTabularColumns = SummaryStatConfig[SummaryType]['columns'];
-export type AllEvaluationConfigs = EvalColumnConfiguration<SummaryStatConfig[SummaryType]>;
+export type AllDemographyTableConfigs = DemographyTableColumnConfiguration<
+  SummaryStatConfig[SummaryType]
+>;
 export type AllMapConfigs = MapColumnConfiguration<SummaryStatConfig[SummaryType]>;
 export type DemographyRow = {
   [key in AllTabularColumns[number]]: number;

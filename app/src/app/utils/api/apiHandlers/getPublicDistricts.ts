@@ -44,7 +44,6 @@ export const getPublicDistricts = async (mapDocument?: DocumentObject | null) =>
     path: [],
     sourceLayer: [],
   };
-  const assignments: Map<string, NullableZone> = new Map();
   let statefp = '';
   const features = response.response?.features ?? [];
   features.forEach(feature => {
@@ -82,14 +81,12 @@ export const getPublicDistricts = async (mapDocument?: DocumentObject | null) =>
       if (!(typedColumn in demographicData)) demographicData[typedColumn] = [];
       demographicData[typedColumn]!.push(numericValue);
     });
-    assignments.set(path, zone);
   });
 
   return {
     geojsonFeatures,
     columns,
     demographicData,
-    assignments,
     statefp,
   };
 };

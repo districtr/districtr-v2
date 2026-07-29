@@ -193,7 +193,7 @@ async def list_cms_content(
 
     if author is not None:
         logger.info("filtering by author")
-        query = query.where(CMSModel.auth == author)
+        query = query.where(CMSModel.author == author)
 
     query = query.offset(offset).limit(limit)
     results = session.exec(query).all()

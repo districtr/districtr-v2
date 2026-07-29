@@ -1,4 +1,5 @@
 import {API_URL} from './constants';
+import {fetchWithSession} from './session';
 import {HTTP_METHOD} from 'next/dist/server/web/http';
 import {ClientSession} from '@/app/lib/auth0';
 export type QueryParams = Record<string, string | number | boolean | (string | number)[]>;
@@ -67,7 +68,7 @@ export const make = (path: string) => {
       }
 
       try {
-        const response = await fetch(fullPath, fetchOptions);
+        const response = await fetchWithSession(fullPath, fetchOptions);
 
         if (!response.ok) {
           const error = await response.json();

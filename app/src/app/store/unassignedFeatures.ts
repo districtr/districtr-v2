@@ -41,7 +41,9 @@ export const useUnassignFeaturesStore = create<UnassignedFeatureStore>((set, get
       documentIdParam,
       Array.from(shatterIds.parents)
     );
-
+    // Unassigned areas have no stable identity — they merge, split, and can be
+    // undone — so show the live set on each refresh rather than tracking
+    // per-row resolved state the data can't actually promise.
     set({
       hasFoundUnassigned: true,
       selectedIndex: null,
