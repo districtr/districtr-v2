@@ -33,8 +33,7 @@ export const overlayGroupVariables = (group: OverlayGroup) =>
  * state: survives panel unmounts and mode switches, resets on page load.
  */
 export const overlayMemory: {
-  demographyVariable: DemographyVariable | null;
-  electionVariable: DemographyVariable | null;
+  variables: Record<OverlayGroup, DemographyVariable | null>;
   /** Overlay-mode preset captured when the overlay is toggled off from Visual
    * settings, restored on the next activation — so the toggles round-trip the
    * same opacity/painted-districts state the panel controls set. */
@@ -44,19 +43,17 @@ export const overlayMemory: {
    * so activating a choropleth layer reuses the user's last choice. */
   displayMode: DemographicMode | null;
 } = {
-  demographyVariable: null,
-  electionVariable: null,
+  variables: {demography: null, election: null},
   overlayOpacity: null,
   showPaintedDistricts: null,
   displayMode: null,
 };
 
 export const getOverlayVariable = (group: OverlayGroup): DemographyVariable | null =>
-  group === 'election' ? overlayMemory.electionVariable : overlayMemory.demographyVariable;
+  overlayMemory.variables[group];
 
 export const setOverlayVariable = (group: OverlayGroup, variable: DemographyVariable): void => {
-  if (group === 'election') overlayMemory.electionVariable = variable;
-  else overlayMemory.demographyVariable = variable;
+  overlayMemory.variables[group] = variable;
 };
 
 /**
