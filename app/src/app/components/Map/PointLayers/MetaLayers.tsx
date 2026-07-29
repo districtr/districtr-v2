@@ -4,6 +4,7 @@ import {
   SELECTION_POINTS_SOURCE_ID_CHILD,
   ZONE_LABEL_SOURCE_ID,
   ZONE_LABEL_LAYER_IDS,
+  MAP_LAYER_ANCHOR_IDS,
 } from '@/app/constants/map/layerIds';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useMapStore} from '@/app/store/mapStore';
@@ -84,6 +85,7 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
       id={`POPULATION_TEXT_${child ? 'CHILD' : 'PARENT'}`}
       type="symbol"
       source={child ? SELECTION_POINTS_SOURCE_ID_CHILD : SELECTION_POINTS_SOURCE_ID}
+      beforeId={MAP_LAYER_ANCHOR_IDS.reference}
       filter={populationFilter}
       layout={{
         'text-field': ['get', 'total_pop_20'],
@@ -246,7 +248,7 @@ const ZoneNumbersLayer = () => {
         paint={{
           'circle-color': '#fff',
           'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 10, 10, 15, 15, 18],
-          'circle-opacity': 0.8,
+          'circle-opacity': 0.9,
           'circle-stroke-color': ZONE_LABEL_STYLE(colorScheme) || '#000',
           'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 5, 1.5, 15, 2.5],
         }}
