@@ -60,8 +60,7 @@ export default function ContiguityDetail({
     } else if (contiguity === 1) {
       setShowZoom(false);
     }
-  }),
-    [data, contiguity];
+  }, [data, contiguity]);
 
   if (contiguity === null) {
     return <DashIcon color="gray" />;
