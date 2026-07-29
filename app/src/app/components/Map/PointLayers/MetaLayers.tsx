@@ -44,7 +44,7 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
     if (child) {
       if (showPopulationNumbers) {
         return ['literal', true] as FilterSpecification;
-      } else {
+      } else if (captiveIds.size) {
         // match captiveIds
         return [
           'match',
@@ -53,6 +53,11 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
           true,
           false,
         ] as FilterSpecification;
+      } else {
+        // An empty label list would fail match-expression validation
+        // ("Expected at least one branch label"), leaving the previous
+        // filter stuck in place after exiting block view.
+        return ['literal', false] as FilterSpecification;
       }
     } else {
       if (shatterIds.parents.size) {
