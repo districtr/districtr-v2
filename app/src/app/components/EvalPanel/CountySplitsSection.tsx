@@ -150,7 +150,7 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
             districts. The <em>districts&apos; worth</em> column shows how many ideal-sized
             districts the county&apos;s population would fill. A county is{' '}
             <strong>unnecessarily split</strong> if its current number of pieces is larger than the
-            minimal possible number, a number determined by its population and the preexisting
+            minimal possible number, a number determined by its districts-worth and the preexisting
             number of disconnected parts.
           </Text>
 
