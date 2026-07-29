@@ -1225,13 +1225,14 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       }
 
       const featureBbox = features[0].geometry && bbox(features[0].geometry);
-      // Pad the unit's bbox so the fitted block view has breathing room
-      // around the broken unit instead of pinning its edges to the viewport.
+      // Pad the unit's bbox so the fitted block view has breathing room around
+      // the broken unit. Generous: the geometry is a queried tile feature, so
+      // it's clipped at tile boundaries and the bbox can undershoot the unit.
       let mapBbox: maplibregl.LngLatBoundsLike | undefined = undefined;
       if (featureBbox?.length && featureBbox.length >= 4) {
         const [west, south, east, north] = featureBbox as [number, number, number, number];
-        const padX = (east - west) * 0.15;
-        const padY = (north - south) * 0.15;
+        const padX = (east - west) * 0.3;
+        const padY = (north - south) * 0.3;
         mapBbox = [west - padX, south - padY, east + padX, north + padY];
       }
 
