@@ -148,7 +148,10 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
           <Text size="2" mb="3" as="p">
             A county is <strong>split</strong> when its population is divided across two or more
             districts. The <em>districts&apos; worth</em> column shows how many ideal-sized
-            districts the county&apos;s population would fill.
+            districts the county&apos;s population would fill. A county is{' '}
+            <strong>unnecessarily split</strong> if its current number of pieces is larger than the
+            minimal possible number, a number determined by its population and the preexisting
+            number of disconnected parts.
           </Text>
 
           <Flex align="center" gap="2" mb="3" justify="end">
@@ -277,6 +280,11 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                         <br />
                         Districts&apos; Worth
                       </Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell justify="center">
+                        Disconnected
+                        <br />
+                        Parts
+                      </Table.ColumnHeaderCell>
                       <Table.ColumnHeaderCell
                         justify="center"
                         style={{paddingRight: 'calc(var(--table-cell-padding) + 8px)'}}
@@ -290,15 +298,8 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                   <Table.Body>
                     {displayedEntries.map(({geoid, pop, actual, name, componentPopulations}) => {
                       const worth = idealPop !== null ? pop / idealPop : null;
-                      // For counties with more than one inherent connected component,
-                      // show the per-component fractional breakdown (e.g.
-                      // "0.04 + 0.06 + 1.32") instead of one number, so it's visible
-                      // the county is physically several disconnected pieces rather
-                      // than one uniform mass.
-                      const worthDisplay =
-                        idealPop !== null && componentPopulations.length > 1
-                          ? componentPopulations.map(p => (p / idealPop).toFixed(2)).join(' + ')
-                          : (worth?.toFixed(2) ?? '—');
+                      const disconnectedParts =
+                        componentPopulations.length > 0 ? componentPopulations.length : null;
                       const isOverlySplit = overlySplitSet.has(geoid);
                       return (
                         <Table.Row
@@ -317,7 +318,10 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                             <Text size="2">{pop.toLocaleString()}</Text>
                           </Table.Cell>
                           <Table.Cell justify="center">
-                            <Text size="2">{worthDisplay}</Text>
+                            <Text size="2">{worth !== null ? worth.toFixed(2) : '—'}</Text>
+                          </Table.Cell>
+                          <Table.Cell justify="center">
+                            <Text size="2">{disconnectedParts ?? '—'}</Text>
                           </Table.Cell>
                           <Table.Cell
                             justify="center"
