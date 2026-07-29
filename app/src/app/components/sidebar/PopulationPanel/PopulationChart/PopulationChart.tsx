@@ -246,6 +246,7 @@ export const PopulationChart: React.FC<{
       // Bars are clipped to the fixed domain; anything past it keeps the hatch running to the edge.
       const barEnd = Math.min(xScale(entry.total_pop_20), xMax);
       const overIdealStart = effectiveIdealPopulation ? xScale(effectiveIdealPopulation) : 0;
+      const barColor = getZoneColor(entry.zone, colorScheme[entry.zone - 1] ?? '#000000');
       return (
         <React.Fragment key={`pop-bar-group-${index}`}>
           {entry.total_pop_20 > 0 && (
@@ -265,7 +266,7 @@ export const PopulationChart: React.FC<{
                 y={yScale(index) + 5}
                 width={barEnd}
                 height={barHeight}
-                fill={getZoneColor(entry.zone, colorScheme[entry.zone - 1] ?? '#000000')}
+                fill={barColor}
                 fillOpacity={0.9}
                 style={{
                   pointerEvents: 'none',
@@ -299,6 +300,7 @@ export const PopulationChart: React.FC<{
                 showTopBottomDeviation: effectiveShowTopBottomDeviation,
                 width,
                 xMax,
+                barColor,
               }}
             />
           )}
