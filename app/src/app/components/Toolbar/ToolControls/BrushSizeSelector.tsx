@@ -77,9 +77,6 @@ export function BrushSizeSelector() {
               {'--gray-a3': 'var(--gray-a6)', '--gray-a5': 'var(--gray-a8)'} as React.CSSProperties
             }
           />
-          <Text size="2" as="span" color="gray">
-            {brushSize}
-          </Text>
         </Flex>
       </Flex>
     </Flex>

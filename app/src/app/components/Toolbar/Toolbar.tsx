@@ -8,7 +8,6 @@ import {ToolButtons} from './ToolButtons';
 export const Toolbar: React.FC = () => {
   const isEditing = useMapControlsStore(state => state.isEditing);
   const setActiveTool = useMapControlsStore(state => state.setActiveTool);
-  const toolbarItemsRef = useRef<HTMLDivElement | null>(null);
   const activeTools = useActiveTools();
   // The handler reads the latest tools through a ref so the document listener
   // mounts once instead of re-binding on every render (painting re-renders the
@@ -23,7 +22,7 @@ export const Toolbar: React.FC = () => {
       // if active element is an input, don't do anything
       if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement)
         return;
-      const tool = activeToolsRef.current.find(f => f.hotKeyAccessor(event));
+      const tool = activeToolsRef.current.find(f => !f.disabled && f.hotKeyAccessor(event));
       if (tool) {
         event.preventDefault();
         tool.onClick ? tool.onClick() : setActiveTool(tool.mode);
@@ -40,7 +39,7 @@ export const Toolbar: React.FC = () => {
   if (!isEditing) return null;
   return (
     <>
-      <ToolButtons toolbarItemsRef={toolbarItemsRef} />
+      <ToolButtons />
       <ToolControls />
     </>
   );
