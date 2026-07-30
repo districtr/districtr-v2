@@ -49,18 +49,8 @@ export const MapActionsDropdown: React.FC<{
     // Fetch via the session-aware client (plain anchor navigation can't attach
     // the X-Districtr-Session header) and save the blob through a transient
     // anchor. Filename comes from the backend's Content-Disposition.
-
-    if (isOutdated && access === ACCESS_STATES.EDIT) {
-      try {
-        await save();
-      } catch (e) {
-        notifyExportFailed(
-          `Failed during save: ${e}`,
-          'Exporting this map failed while saving. Please try saving your map manually and then try exporting again.'
-        );
-        return;
-      }
-    }
+    const saveResponse = await save();
+    if (!saveResponse.ok) return;
     try {
       const response = await fetchWithSession(
         `${process.env.NEXT_PUBLIC_API_URL}/api/document/${exportId}/export?export_type=${exportType}`
