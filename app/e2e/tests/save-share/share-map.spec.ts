@@ -73,10 +73,10 @@ test.describe('Share Map', () => {
 
     // The current URL should be a shareable link
     const currentUrl = page.url();
-    expect(currentUrl).toMatch(/\/map\/edit\/[a-zA-Z0-9-]+/);
+    expect(currentUrl).toMatch(/\/map\/[a-zA-Z0-9-]+\/edit/);
 
     // The document ID from the URL should be valid
-    const documentId = currentUrl.split('/').pop();
+    const documentId = currentUrl.match(/\/map\/([a-zA-Z0-9-]+)\/edit/)?.[1];
     expect(documentId).toBeTruthy();
     expect(documentId?.length).toBeGreaterThan(5);
   });

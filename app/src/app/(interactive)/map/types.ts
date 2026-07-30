@@ -1,5 +1,5 @@
 export interface MapPageProps {
   params: Promise<{
-    map_id: string;
+    public_id: string;
   }>;
 }

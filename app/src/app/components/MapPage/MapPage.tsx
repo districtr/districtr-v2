@@ -1,5 +1,5 @@
 'use client';
-import React, {useEffect} from 'react';
+import React, {Suspense, useEffect} from 'react';
 import {MapContextMenu} from '@components/ContextMenu';
 import {MainMap} from '@components/Map/MainMap';
 import {PublicMap} from '@components/Map/PublicMap';
@@ -22,8 +22,11 @@ import {SaveConflictModal} from '../SaveConflictModal';
 import {ZoneDescriptionModal} from '@components/Map/Tooltip/ZoneDescriptionModal';
 import {migrateUserMapsFromLocalStorage} from '@/app/utils/idb/migrateUserMaps';
 import {isUUID} from '@/app/utils/metadata/isUUID';
+import {expandUUID, PRIVATE_EDIT_ID_PARAM} from '@/app/utils/map/editUrl';
+import {useRouter, useSearchParams} from 'next/navigation';
 import {useInitializeMapMode} from '@/app/hooks/useInitializeMapMode';
 import {MAP_MODES} from '@constants/map/mode';
+import {MAP_ROUTES} from '@constants/document/routes';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 import {BASEMAP_IDS} from '@constants/map/layerStyle';
 
@@ -34,11 +37,11 @@ interface MapPageProps {
 }
 
 function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
+  const router = useRouter();
   const isMapModeReady = useInitializeMapMode(MAP_MODES.DISTRICTS);
   const showDemographicMap = useMapControlsStore(
     state => state.mapOptions.demographicDisplayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE
   );
-  const isPublicPage = !isEditing && !!mapId && !isUUID(mapId);
   const setIsEditing = useMapControlsStore(state => state.setIsEditing);
   const setIsEval = useMapControlsStore(state => state.setIsEval);
   const setEditableDocId = useMapControlsStore(state => state.setEditableDocId);
@@ -53,11 +56,26 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
     migrateUserMapsFromLocalStorage();
   }, []);
 
+  // Edit URLs show the public id in the path; the editable UUID travels in the
+  // private_edit_id query param (treat it like a password). An edit route
+  // visited without a valid token (e.g. a share link with the param
+  // stripped) carries no real edit capability — bounce to the plain display
+  // route rather than rendering the editor against a document we can't edit.
+  const privateEditId = useSearchParams().get(PRIVATE_EDIT_ID_PARAM);
+  const documentId = (isEditing && privateEditId && expandUUID(privateEditId)) || mapId;
+  const hasEditCapability = isEditing && !!documentId && isUUID(documentId);
+  const needsRedirect = isEditing && !!mapId && !hasEditCapability;
+  const isPublicPage = !isEditing && !!mapId && !isUUID(mapId);
+
+  useEffect(() => {
+    if (needsRedirect) router.replace(`/${MAP_ROUTES.DISTRICTS}/${mapId}`);
+  }, [needsRedirect, mapId, router]);
+
   // Load document with sync support
   const {error: documentError, conflictModal} = useDocumentWithSync({
-    document_id: mapId || undefined,
+    document_id: documentId || undefined,
     isPublicPage,
-    enabled: isMapModeReady && !!mapId,
+    enabled: isMapModeReady && !!documentId && !needsRedirect,
   });
 
   // Handle document loading errors
@@ -81,8 +99,8 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
   // back to edit mode after navigating to a read-only display/eval view (which
   // loads the doc by public_id and surfaces document_id as "anonymous").
   useEffect(() => {
-    if (isEditing && mapId && isUUID(mapId)) setEditableDocId(mapId);
-  }, [isEditing, mapId, setEditableDocId]);
+    if (hasEditCapability) setEditableDocId(documentId);
+  }, [hasEditCapability, documentId, setEditableDocId]);
 
   useEffect(() => {
     setIsEval(isEval ?? false);
@@ -103,7 +121,7 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
     };
   }, [isPublicPage]);
 
-  if (!isMapModeReady) {
+  if (!isMapModeReady || needsRedirect) {
     return null;
   }
 
@@ -143,7 +161,9 @@ export default function MapPage({isEditing, isEval, mapId}: MapPageProps) {
   if (queryClient) {
     return (
       <QueryClientProvider client={queryClient}>
-        <ChildMapPage isEditing={isEditing} isEval={isEval} mapId={mapId} />
+        <Suspense fallback={null}>
+          <ChildMapPage isEditing={isEditing} isEval={isEval} mapId={mapId} />
+        </Suspense>
       </QueryClientProvider>
     );
   }
