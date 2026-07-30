@@ -9,6 +9,7 @@ import {MapSelector} from './MapSelector';
 import {useTurnstile} from '@/app/hooks/useTurnstile';
 import {VALID_STATES_LABELS} from '@/app/constants/meta/usStates';
 import {useLayoutEffect, useRef} from 'react';
+import {usePathname} from 'next/navigation';
 
 export const CommentSubmissionForm: React.FC<{
   disabled?: boolean;
@@ -16,6 +17,8 @@ export const CommentSubmissionForm: React.FC<{
   allowListModules: string[];
 }> = ({disabled, mandatoryTags, allowListModules}) => {
   const formRef = useRef<HTMLFormElement>(null);
+  const pathname = usePathname();
+  const resetTagsForPage = useFormState(state => state.resetTagsForPage);
   const setFormRef = useFormState(state => state.setFormRef);
   const formIsValid = useFormState(state => state.formIsValid);
 
@@ -37,6 +40,11 @@ export const CommentSubmissionForm: React.FC<{
   useLayoutEffect(() => {
     setFormRef(formRef);
   }, [formRef]);
+
+  // drop tags carried over from a form on a different page
+  useLayoutEffect(() => {
+    resetTagsForPage(pathname);
+  }, [pathname]);
 
   return (
     <Box py="4" className="relative">
