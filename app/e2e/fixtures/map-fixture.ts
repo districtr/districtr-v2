@@ -168,14 +168,14 @@ export async function navigateToNewMap(
 
   // Wait for navigation to edit page
   try {
-    await page.waitForURL(/\/map\/edit\//, {timeout: testTimeouts.long});
+    await page.waitForURL(/\/map\/[a-zA-Z0-9-]+\/edit/, {timeout: testTimeouts.long});
   } catch {
     return {success: false, skipReason: 'Failed to navigate to map edit page'};
   }
 
   // Extract document ID from URL
   const url = page.url();
-  const match = url.match(/\/map\/edit\/([a-zA-Z0-9-]+)/);
+  const match = url.match(/\/map\/([a-zA-Z0-9-]+)\/edit/);
   const documentId = match ? match[1] : undefined;
 
   // Wait for map canvas to be visible

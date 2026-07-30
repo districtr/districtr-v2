@@ -20,6 +20,7 @@ import {QueryClientProvider, useMutation} from '@tanstack/react-query';
 import {idb} from '@/app/utils/idb/idb';
 import {useUserMaps} from '@/app/hooks/useUserMaps';
 import {routeManager} from '@/app/utils/map/mapUrlRoute';
+import {editPath} from '@/app/utils/map/editUrl';
 import {DRAFT_STATUSES} from '@constants/document/draftStatus';
 
 interface MapSelectorProps {
@@ -214,7 +215,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
                     onMouseDown={e => {
                       e.preventDefault();
                       const mapUrl = new URL(
-                        `/${routeManager.mapUrlRoute}/edit/${map.document_id}`,
+                        editPath(routeManager.mapUrlRoute, map.document_id, map.public_id),
                         window.location.href
                       );
                       setFormState('comment', 'document_id', mapUrl.toString());

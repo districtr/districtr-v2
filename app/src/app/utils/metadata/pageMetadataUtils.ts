@@ -9,12 +9,22 @@ export const DISTRICTR_LOGO = {
 };
 
 export type MetadataProps = {
-  searchParams: Promise<{document_id?: string | string[] | undefined}>;
+  params?: Promise<{public_id?: string}>;
+  searchParams?: Promise<{document_id?: string | string[] | undefined}>;
 };
 
-export async function generateMapPageMetadata({searchParams}: MetadataProps): Promise<Metadata> {
-  const resolvedParams = await searchParams;
-  const document_id = resolvedParams?.document_id ?? '';
+/**
+ * Every id-bearing map/coi route carries its id as a path segment
+ * (`params.public_id`) — only the bare `/map` landing page (which redirects
+ * based on a `?document_id=` query) still needs the searchParams fallback.
+ */
+export async function generateMapPageMetadata({
+  params,
+  searchParams,
+}: MetadataProps): Promise<Metadata> {
+  const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
+  const document_id = resolvedParams?.public_id ?? resolvedSearchParams?.document_id ?? '';
   const singularDocumentId = Array.isArray(document_id) ? document_id[0] : document_id;
   let mapDocument: DocumentObject | null = null;
   if (singularDocumentId) {

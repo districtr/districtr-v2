@@ -5,6 +5,6 @@ import {MapPageProps} from '../../types';
 export const generateMetadata = generateMapPageMetadata;
 
 export default async function EditPage({params}: MapPageProps) {
-  const {map_id} = await params;
-  return <MapPage isEditing={true} mapId={map_id} />;
+  const {public_id} = await params;
+  return <MapPage isEditing={true} mapId={public_id} />;
 }

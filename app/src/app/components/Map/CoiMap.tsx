@@ -27,7 +27,7 @@ import {RENDERER_TYPES} from '@constants/map/rendererType';
 
 /**
  * COI (Community of Interest) map component. Mirrors MainMap layout and layers;
- * used on /coi/{document_id} and /coi/edit/{document_id}.
+ * used on /coi/{public_id} and /coi/{public_id}/edit.
  */
 export const CoiMap: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);

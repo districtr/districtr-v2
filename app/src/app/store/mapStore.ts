@@ -317,7 +317,7 @@ export interface MapStore {
 const initialLoadingState =
   typeof window !== 'undefined' &&
   (window.location.pathname.startsWith(`/${MAP_ROUTES.DISTRICTS}/`) ||
-    window.location.pathname.startsWith(`/${MAP_ROUTES.DISTRICTS}/edit/`))
+    window.location.pathname.startsWith(`/${MAP_ROUTES.COI}/`))
     ? APP_LOADING_STATES.LOADING
     : APP_LOADING_STATES.INITIALIZING;
 
