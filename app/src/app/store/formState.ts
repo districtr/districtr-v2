@@ -20,6 +20,9 @@ export interface FormState {
   setIsSubmitting: (isSubmitting: boolean) => void;
   tags: string[];
   setTags: (tag: string, action: 'add' | 'remove') => void;
+  // pathname the current tags belong to; tags reset when the form mounts on a different page
+  tagsPageKey: string;
+  resetTagsForPage: (pageKey: string) => void;
   submitForm: () => Promise<void>;
   clear: () => void;
   error: string;
@@ -99,6 +102,12 @@ export const useFormState = create<FormState>()(
         set({tags: Array.from(new Set(newTags))});
       },
       tags: new Array<string>(),
+      tagsPageKey: '',
+      resetTagsForPage: (pageKey: string) => {
+        if (get().tagsPageKey !== pageKey) {
+          set({tagsPageKey: pageKey, tags: []});
+        }
+      },
       error: '',
       success: '',
       submitForm: async () => {
@@ -185,6 +194,7 @@ export const useFormState = create<FormState>()(
         comment: state.comment,
         commenter: state.commenter,
         tags: state.tags,
+        tagsPageKey: state.tagsPageKey,
         acknowledgement: state.acknowledgement,
         showMapSelector: state.showMapSelector,
       }),
