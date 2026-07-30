@@ -2,6 +2,8 @@ import {Metadata} from 'next';
 import {DocumentObject} from '@/app/utils/api/apiHandlers/types';
 import {API_URL} from '@/app/utils/api/constants';
 import {routeForType} from '@constants/document/routes';
+import {expandUUID} from '@/app/utils/map/editUrl';
+import {isUUID} from './isUUID';
 
 export const DISTRICTR_LOGO = {
   url: '/districtr_logo.jpg',
@@ -11,27 +13,28 @@ export const DISTRICTR_LOGO = {
 
 export const OG_IMAGE_SIZE = {width: 1200, height: 630};
 
-// document_id UUIDs are the edit capability ("password"); public share links use numeric public_id
-export const isEditUuid = (id: string) =>
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-
 export const publicShareUrl = (doc: DocumentObject | null) =>
   doc?.public_id ? `districtr.org/${routeForType(doc.map_type)}/${doc.public_id}` : null;
 
 export type MetadataProps = {
-  params?: Promise<{map_id?: string}>;
-  searchParams?: Promise<{document_id?: string | string[] | undefined}>;
+  params?: Promise<{public_id?: string}>;
+  searchParams?: Promise<{[key: string]: string | string[] | undefined}>;
 };
+
+const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 export async function generateMapPageMetadata({
   params,
   searchParams,
 }: MetadataProps): Promise<Metadata> {
-  const mapId = (await params)?.map_id;
-  const docParam = (await searchParams)?.document_id;
-  const id = mapId ?? (Array.isArray(docParam) ? docParam[0] : docParam) ?? '';
+  const publicId = (await params)?.public_id;
+  const search = await searchParams;
+  const id = publicId ?? first(search?.document_id) ?? '';
+  // The URL leaks the edit capability if the path id is a raw document UUID
+  // (legacy links) or it carries a valid private_edit_id token (current links)
+  const isPasswordLink = isUUID(id) || !!expandUUID(first(search?.private_edit_id) ?? '');
 
-  if (isEditUuid(id)) {
+  if (isPasswordLink) {
     // Never advertise map details on a link that grants edit access
     const doc = await fetch(`${API_URL}/api/document/${id}`, {next: {revalidate: 300}})
       .then(res => (res.ok ? (res.json() as Promise<NonNullable<DocumentObject>>) : null))
@@ -43,7 +46,7 @@ export async function generateMapPageMetadata({
       (shareUrl
         ? `To share publicly, use ${shareUrl} instead.`
         : 'Only send it to people you trust.');
-    const ogImageUrl = `/api/og/${id}`;
+    const ogImageUrl = `/api/og/${id}?warn=1`;
     return {
       title,
       description,

@@ -1,6 +1,7 @@
 import {API_URL} from '@/app/utils/api/constants';
 import {DRAFT_STATUS_TEXT, DraftStatus} from '@constants/document/draftStatus';
-import {isEditUuid, OG_IMAGE_SIZE, publicShareUrl} from '@/app/utils/metadata/pageMetadataUtils';
+import {OG_IMAGE_SIZE, publicShareUrl} from '@/app/utils/metadata/pageMetadataUtils';
+import {isUUID} from '@/app/utils/metadata/isUUID';
 import {ImageResponse} from 'next/og';
 import fs from 'fs';
 import {DocumentObject} from '@/app/utils/api/apiHandlers/types';
@@ -51,10 +52,11 @@ const PasswordWarningBanner = ({publicUrl}: {publicUrl: string | null}) => (
   </div>
 );
 
-export async function GET(_: Request, {params}: {params: Promise<{id: string}>}) {
+export async function GET(request: Request, {params}: {params: Promise<{id: string}>}) {
   const {id} = await params;
-  // Edit UUIDs grant write access — flag them instead of quietly advertising the map
-  const isPasswordLink = isEditUuid(id);
+  // Edit links leak write access — the metadata layer flags them with ?warn=1
+  // (legacy UUID-in-path links are caught here directly)
+  const isPasswordLink = isUUID(id) || new URL(request.url).searchParams.has('warn');
 
   const mapDocument = await fetch(`${API_URL}/api/document/${id}`, {
     next: {revalidate: 300},
