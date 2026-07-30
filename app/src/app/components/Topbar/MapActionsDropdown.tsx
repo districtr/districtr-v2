@@ -24,11 +24,11 @@ export const MapActionsDropdown: React.FC<{
   const setNotification = useMapStore(state => state.setNotification);
   const {isOutdated, save} = useMapSaveStatus();
 
-  const notifyExportFailed = (reason: string) =>
+  const notifyExportFailed = (reason: string, message?: string) =>
     setNotification({
       importance: 2,
       type: 'error',
-      message: 'Exporting this map failed. Please try again in a moment.',
+      message: message ?? 'Exporting this map failed. Please try again in a moment.',
       id: `export-failed-${exportId}-${reason}`,
     });
 
@@ -49,10 +49,18 @@ export const MapActionsDropdown: React.FC<{
     // Fetch via the session-aware client (plain anchor navigation can't attach
     // the X-Districtr-Session header) and save the blob through a transient
     // anchor. Filename comes from the backend's Content-Disposition.
+
+    if (isOutdated && access === ACCESS_STATES.EDIT) {
+      try {
+        await save();
+      } catch (e) {
+        notifyExportFailed(
+          `Failed during save: ${e}`,
+          'Exporting this map failed while saving. Please try saving your map manually and then try exporting again.'
+        );
+      }
+    }
     try {
-      // The backend exports the last saved state, so flush unsaved changes first
-      // or the download lags one save behind (issue #613).
-      if (isOutdated && access === ACCESS_STATES.EDIT) await save();
       const response = await fetchWithSession(
         `${process.env.NEXT_PUBLIC_API_URL}/api/document/${exportId}/export?export_type=${exportType}`
       );
