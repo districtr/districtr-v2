@@ -35,6 +35,7 @@ import {demographyService} from '@/app/utils/demography/demographyService';
 import {
   isCoalitionUniverse,
   CoalitionUniverse,
+  SUMMARY_TYPES,
   type SummaryType,
 } from '@constants/demography/summary';
 import {COALITION_VARIABLE_BY_UNIVERSE, DemographyVariable} from '@constants/demography/coalition';
@@ -123,32 +124,48 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   const setNumberOfBins = useDemographyStore(state => state.setNumberOfBins);
   const dataHash = useDemographyStore(state => state.dataHash);
   const availableMapVariables = useDemographyStore(state => state.availableColumnSets.map);
-  const coalitionOption = useMemo(() => {
-    if (!isCoalitionUniverse(columnGroup)) return undefined;
+  // The population choropleth spans both universes: shading by VAP shouldn't
+  // require switching the evaluation table's summary type first. Elections stay
+  // on their own group. Labels already disambiguate ("Black" vs "VAP Black").
+  const variableGroups = useMemo<SummaryType[]>(
+    () =>
+      isCoalitionUniverse(columnGroup) ? [SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP] : [columnGroup],
+    [columnGroup]
+  );
+  const coalitionOptionFor = (universe: SummaryType) => {
+    if (!isCoalitionUniverse(universe)) return [];
     const coalitionColumns = getSelectedCoalitionColumns({
       selectedGroups: coalitionGroups,
       availableColumns: demographyService.availableColumns,
-      universe: columnGroup as CoalitionUniverse,
+      universe: universe as CoalitionUniverse,
     });
-    if (!coalitionColumns.length) return undefined;
-    return {
-      label: getCoalitionLabel({
-        selectedGroups: coalitionGroups,
-        availableColumns: demographyService.availableColumns,
-        universe: columnGroup,
+    if (!coalitionColumns.length) return [];
+    const label = getCoalitionLabel({
+      selectedGroups: coalitionGroups,
+      availableColumns: demographyService.availableColumns,
+      universe,
+    });
+    return [
+      {
+        // Both universes produce the same coalition label, so mark the VAP one.
+        label: universe === SUMMARY_TYPES.VAP ? `VAP ${label}` : label,
+        value: COALITION_VARIABLE_BY_UNIVERSE[universe],
+        variants: ['percent', 'raw'] as Array<'percent' | 'raw'>,
+        fixedScale: undefined,
+        customLegendLabels: undefined,
+        expression: undefined,
+      },
+    ];
+  };
+  const currentVariableList = useMemo(
+    () =>
+      variableGroups.flatMap(group => {
+        const baseList = availableMapVariables[group] ?? [];
+        // Skip the coalition entry for a group with no data on this map.
+        return baseList.length ? [...baseList, ...coalitionOptionFor(group)] : [];
       }),
-      value: COALITION_VARIABLE_BY_UNIVERSE[columnGroup],
-      variants: ['percent', 'raw'] as Array<'percent' | 'raw'>,
-      fixedScale: undefined,
-      customLegendLabels: undefined,
-      expression: undefined,
-    };
-  }, [columnGroup, coalitionGroups, dataHash]);
-  const currentVariableList = useMemo(() => {
-    const baseList = availableMapVariables[columnGroup] ?? [];
-    if (!coalitionOption) return baseList;
-    return [...baseList, coalitionOption];
-  }, [availableMapVariables, columnGroup, coalitionOption]);
+    [availableMapVariables, variableGroups, coalitionGroups, dataHash]
+  );
   const mapVariableConfig = currentVariableList.find(f => f.value === variable);
 
   const handleSetMapMode = (newMode: MapControlsStore['mapOptions']['demographicDisplayMode']) => {

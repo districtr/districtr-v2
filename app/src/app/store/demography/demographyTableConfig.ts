@@ -56,15 +56,37 @@ export const VAPColumnConfig: DemographyTableColumnConfiguration<
 export const VoterColumnConfig: DemographyTableColumnConfiguration<
   SummaryStatConfig[typeof SUMMARY_TYPES.VOTERHISTORY]
 > = [
+  {column: 'pres_24_dem', label: '2024 Pres'},
+  {column: 'sen_24_dem', label: '2024 Sen'},
+  {column: 'gov_24_dem', label: '2024 Gov'},
+  {column: 'ag_24_dem', label: '2024 AG'},
+  {column: 'gov_23_dem', label: '2023 Gov'},
+  {column: 'ag_23_dem', label: '2023 AG'},
   {column: 'sen_22_dem', label: '2022 Sen'},
   {column: 'gov_22_dem', label: '2022 Gov'},
   {column: 'ag_22_dem', label: '2022 AG'},
+  {column: 'gov_21_dem', label: '2021 Gov'},
+  {column: 'ag_21_dem', label: '2021 AG'},
   {column: 'pres_20_dem', label: '2020 Pres'},
+  {column: 'sen_20_dem', label: '2020 Sen'},
+  {column: 'gov_20_dem', label: '2020 Gov'},
+  {column: 'ag_20_dem', label: '2020 AG'},
+  {column: 'gov_19_dem', label: '2019 Gov'},
+  {column: 'ag_19_dem', label: '2019 AG'},
   {column: 'sen_18_dem', label: '2018 Sen'},
   {column: 'gov_18_dem', label: '2018 Gov'},
   {column: 'ag_18_dem', label: '2018 AG'},
+  {column: 'gov_17_dem', label: '2017 Gov'},
+  {column: 'ag_17_dem', label: '2017 AG'},
   {column: 'pres_16_dem', label: '2016 Pres'},
   {column: 'sen_16_dem', label: '2016 Sen'},
+  {column: 'gov_16_dem', label: '2016 Gov'},
+  {column: 'ag_16_dem', label: '2016 AG'},
+  {column: 'sen_14_dem', label: '2014 Sen'},
+  {column: 'gov_14_dem', label: '2014 Gov'},
+  {column: 'ag_14_dem', label: '2014 AG'},
+  {column: 'pres_12_dem', label: '2012 Pres'},
+  {column: 'pres_08_dem', label: '2008 Pres'},
 ];
 
 export const CONFIG_BY_COLUMN_SET: Record<
