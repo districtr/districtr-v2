@@ -8,6 +8,7 @@ from app.thumbnails.main import (
     generate_thumbnail,
     generate_blank,
     get_thumbnail_file_path,
+    get_thumbnail_environment_folder,
     THUMBNAIL_BUCKET,
 )
 
@@ -105,7 +106,7 @@ def test_thumbnail_cdn_redirect(client, document_id):
         )
         assert response.status_code == 307
         assert (
-            f"/thumbnails/{settings.ENVIRONMENT}/{document_id}.png"
+            f"/thumbnails/{get_thumbnail_environment_folder()}/{document_id}.png"
             in response.headers["location"]
         )
 
@@ -120,6 +121,14 @@ def test_thumbnail_file_path_is_environment_scoped(monkeypatch):
     assert dev_path != prod_path
     assert "/development/" in dev_path
     assert "/production/" in prod_path
+
+
+@pytest.mark.parametrize("environment", ["local", "development", "qa", "test"])
+def test_non_production_environments_share_one_thumbnail_folder(
+    monkeypatch, environment
+):
+    monkeypatch.setattr(settings, "ENVIRONMENT", environment)
+    assert get_thumbnail_environment_folder() == "development"
 
 
 def test_thumbnail_generic_redirect(client, document_id):

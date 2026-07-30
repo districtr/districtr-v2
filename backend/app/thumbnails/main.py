@@ -8,7 +8,7 @@ import random
 from sqlalchemy import text
 from sqlmodel import Session
 from uuid import UUID
-from app.core.config import settings
+from app.core.config import settings, Environment
 from fastapi import APIRouter, Security, status, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from app.core.security import auth, TokenScope
@@ -68,8 +68,18 @@ DISTRICT_COLORS = [
 ]
 
 
+def get_thumbnail_environment_folder() -> str:
+    # Only production gets its own S3 folder; every other settings.ENVIRONMENT
+    # value (local, development, qa, test) collapses into "development" so
+    # non-prod thumbnails don't spread across more S3 folders than needed —
+    # colliding with each other is fine, only production needs isolation.
+    if settings.ENVIRONMENT == Environment.production:
+        return Environment.production.value
+    return Environment.development.value
+
+
 def get_thumbnail_file_path(public_id: str | int) -> str:
-    return f"s3://{THUMBNAIL_BUCKET}/thumbnails/{settings.ENVIRONMENT}/{public_id}.png"
+    return f"s3://{THUMBNAIL_BUCKET}/thumbnails/{get_thumbnail_environment_folder()}/{public_id}.png"
 
 
 def get_blank_thumbnail_file_path(districtr_map_slug: str) -> str:
@@ -225,7 +235,7 @@ async def get_thumbnail(*, public_id: str, session: Session = Depends(get_sessio
     thumbail_file_path = get_thumbnail_file_path(public_id)
     if file_exists(thumbail_file_path):
         return RedirectResponse(
-            url=f"{settings.cnd_url}/thumbnails/{settings.ENVIRONMENT}/{public_id}.png"
+            url=f"{settings.cnd_url}/thumbnails/{get_thumbnail_environment_folder()}/{public_id}.png"
         )
 
     return RedirectResponse(url="/home-megaphone.png")
