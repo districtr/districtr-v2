@@ -95,8 +95,7 @@ const mintSession = async (): Promise<string | null> => {
     const response = await fetch(`${API_URL || ''}/api/session`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      // recaptcha_token: wire name kept from the reCAPTCHA era
-      body: JSON.stringify({recaptcha_token: captchaToken}),
+      body: JSON.stringify({turnstile_token: captchaToken}),
     });
     if (!response.ok) return null;
     const data = await response.json();

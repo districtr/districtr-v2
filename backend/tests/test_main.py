@@ -1402,7 +1402,7 @@ def test_document_list(
             "document_id": document_id_total_vap,
         },
         "tags": [{"tag": "test"}],
-        "recaptcha_token": "test_token",
+        "turnstile_token": "test_token",
     }
     response = client.post("/api/comments/submit", json=comment_data)
     assert response.status_code == 201

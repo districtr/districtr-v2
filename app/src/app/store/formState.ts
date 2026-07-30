@@ -132,7 +132,7 @@ export const useFormState = create<FormState>()(
           } as CommentCreate,
           commenter: commenter as CommenterCreate,
           tags: Array.from(tags).map(tag => ({tag})),
-          recaptcha_token: captchaToken,
+          turnstile_token: captchaToken,
         });
         set({
           captchaToken: '',

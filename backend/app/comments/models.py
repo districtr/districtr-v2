@@ -108,12 +108,9 @@ class CommenterCreate(BaseModel):
     zip_code: str | None = None
 
 
-# ponytail: the recaptcha_token wire field (and the *WithRecaptcha names that
-# mirror it) now carry Cloudflare Turnstile tokens; renaming would churn every
-# client and test for no behavior change.
-class CommenterCreateWithRecaptcha(BaseModel):
+class CommenterCreateWithTurnstile(BaseModel):
     commenter: CommenterCreate
-    recaptcha_token: str
+    turnstile_token: str
 
 
 class CommenterPublic(CommenterCreate):
@@ -175,9 +172,9 @@ class CommentCreate(BaseModel):
     document_id: str | None = None
 
 
-class CommentCreateWithRecaptcha(BaseModel):
+class CommentCreateWithTurnstile(BaseModel):
     comment: CommentCreate
-    recaptcha_token: str
+    turnstile_token: str
 
 
 class CommentPublic(CommentCreate):
@@ -231,9 +228,9 @@ class TagCreate(BaseModel):
         return value
 
 
-class TagCreateWithRecaptcha(BaseModel):
+class TagCreateWithTurnstile(BaseModel):
     tag: TagCreate
-    recaptcha_token: str
+    turnstile_token: str
 
 
 class TagPublic(BaseModel):
@@ -289,7 +286,7 @@ class FullCommentFormCreate(BaseModel):
     comment: CommentCreate
     commenter: CommenterCreate
     tags: list[TagCreate]
-    recaptcha_token: str
+    turnstile_token: str
 
 
 class FullCommentForm(BaseModel):

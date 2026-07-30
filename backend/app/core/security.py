@@ -3,7 +3,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 import jwt
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import SecurityScopes, HTTPAuthorizationCredentials, HTTPBearer
 import httpx
 
@@ -101,6 +101,20 @@ class VerifyToken:
 auth = VerifyToken()
 
 
+def client_ip_from_request(request: Request) -> str | None:
+    """Best-effort real client IP for use as Turnstile's `remoteip`.
+
+    Behind the ALB, request.client is the LB node. The ALB appends the IP it
+    saw at the TCP layer to the END of X-Forwarded-For; earlier entries are
+    client-supplied and spoofable, so trust only the last one. (Revisit if a
+    CDN/proxy is ever added in front of the ALB.)
+    """
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.rsplit(",", 1)[-1].strip()
+    return request.client.host if request.client else None
+
+
 async def _turnstile_siteverify(secret: str | None, token: str, ip: str | None) -> bool:
     async with httpx.AsyncClient() as client:
         response = await client.post(
@@ -116,7 +130,7 @@ class VerifyTurnstile:
     def __init__(self):
         self.config = get_settings()
 
-    async def verify_turnstile(self, token: str, host: str):
+    async def verify_turnstile(self, token: str, host: str | None):
         """Raises HTTPException 400 when Turnstile rejects the token."""
         if not await _turnstile_siteverify(
             self.config.TURNSTILE_SECRET_KEY, token, host
