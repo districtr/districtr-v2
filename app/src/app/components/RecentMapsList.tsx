@@ -464,8 +464,8 @@ const RecentMapCard: React.FC<{
           <CopyLinkDropdown editUrl={editUrl} publicUrl={publicUrl} />
           {!active && (
             <AlertDialog.Root>
-              <AlertDialog.Trigger>
-                <Tooltip content="Remove from list">
+              <Tooltip content="Remove from list">
+                <AlertDialog.Trigger>
                   <IconButton
                     variant="ghost"
                     color="gray"
@@ -475,9 +475,9 @@ const RecentMapCard: React.FC<{
                   >
                     <TrashIcon />
                   </IconButton>
-                </Tooltip>
-              </AlertDialog.Trigger>
-              <AlertDialog.Content maxWidth="400px">
+                </AlertDialog.Trigger>
+              </Tooltip>
+              <AlertDialog.Content maxWidth="400px" onClick={e => e.stopPropagation()}>
                 <AlertDialog.Title>Remove map</AlertDialog.Title>
                 <AlertDialog.Description>
                   This will remove the map from your recent list. This cannot be undone.

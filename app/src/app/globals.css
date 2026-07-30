@@ -68,6 +68,33 @@ body {
   cursor: crosshair;
 }
 
+/* Bottom-center map pills (break flow): accent ring, strong shadow, and a
+   slide-up entrance so they register over the basemap. */
+@keyframes map-pill-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 16px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+.map-pill {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  background: white;
+  border: 1.5px solid var(--accent-8);
+  border-radius: 99px;
+  box-shadow: 0 6px 24px rgba(0, 0, 20, 0.35);
+  pointer-events: auto;
+  white-space: nowrap;
+  animation: map-pill-in 0.25s ease-out;
+}
+
 /* Never let the browser treat map touches as page scroll/zoom gestures.
    Maplibre relaxes its own touch-action to `pan-x pan-y` whenever dragPan is
    disabled (i.e. exactly while painting), which let vertical brush strokes
@@ -142,12 +169,6 @@ body {
   }
 }
 
-/* Segmented tool groups: transparent track, buttons float on the sidebar.
-   No padding — the group's outer edges align with neighboring components. */
-.segmented-track {
-  border-radius: 10px;
-  gap: 2px;
-}
 .tool-button {
   transition:
     background-color 120ms ease,
@@ -157,33 +178,6 @@ body {
 }
 .tool-button:active:not(:disabled) {
   transform: scale(0.96);
-}
-
-/* Bottom-center map pills (first-paint hint, break flow): accent ring, strong
-   shadow, and a slide-up entrance so they register over the basemap. */
-@keyframes map-pill-in {
-  from {
-    opacity: 0;
-    transform: translate(-50%, 16px);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-}
-.map-pill {
-  position: absolute;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-  background: white;
-  border: 1.5px solid var(--accent-8);
-  border-radius: 99px;
-  box-shadow: 0 6px 24px rgba(0, 0, 20, 0.35);
-  pointer-events: auto;
-  white-space: nowrap;
-  animation: map-pill-in 0.25s ease-out;
 }
 
 /* Brief attention flash for controls targeted by Getting Started hints. */

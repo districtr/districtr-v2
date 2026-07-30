@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError, DataError
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import text, func, select, String, Select, update, delete
 
-from app.core.security import auth, require_session, TokenScope
+from app.core.security import auth, client_ip_from_request, require_session, TokenScope
 from sqlalchemy.sql import or_, and_, exists, literal, cast, case
 
 from app.core.dependencies import get_protected_document, validate_document_exists
@@ -23,15 +23,15 @@ from app.core.models import DocumentID
 from app.comments.models import (
     Commenter,
     CommenterCreate,
-    CommenterCreateWithRecaptcha,
+    CommenterCreateWithTurnstile,
     CommenterPublic,
     Comment,
     CommentCreate,
-    CommentCreateWithRecaptcha,
+    CommentCreateWithTurnstile,
     CommentPublic,
     Tag,
     TagCreate,
-    TagCreateWithRecaptcha,
+    TagCreateWithTurnstile,
     TagWithId,
     CommentTag,
     FullCommentForm,
@@ -56,7 +56,7 @@ from app.comments.moderation import (
     MODERATION_THRESHOLD,
 )
 from app.models import Document, DistrictrMap
-from app.core.security import recaptcha
+from app.core.security import turnstile
 
 from app.comments.settings import (
     DEFAULT_MAX_COMMENT_LENGTH,
@@ -449,14 +449,15 @@ def create_full_comment_submission(
     "/commenter", response_model=CommenterPublic, status_code=status.HTTP_201_CREATED
 )
 async def create_commenter(
-    commenter_data: CommenterCreateWithRecaptcha,
+    commenter_data: CommenterCreateWithTurnstile,
     background_tasks: BackgroundTasks,
     request: Request,
     session: Session = Depends(get_session),
 ):
     """Create a new commenter with upsert on conflict for name + email."""
-    client_host = request.client.host if request.client else ""
-    await recaptcha.verify_recaptcha(commenter_data.recaptcha_token, client_host)
+    await turnstile.verify_turnstile(
+        commenter_data.turnstile_token, client_ip_from_request(request)
+    )
     try:
         commenter = create_commenter_db(commenter_data.commenter, session)
     except IntegrityError as e:
@@ -473,14 +474,15 @@ async def create_commenter(
     "/comment", response_model=CommentPublic, status_code=status.HTTP_201_CREATED
 )
 async def create_comment(
-    comment_data: CommentCreateWithRecaptcha,
+    comment_data: CommentCreateWithTurnstile,
     background_tasks: BackgroundTasks,
     request: Request,
     session: Session = Depends(get_session),
 ):
     """Create a new comment without commenter foreign key."""
-    client_host = request.client.host if request.client else ""
-    await recaptcha.verify_recaptcha(comment_data.recaptcha_token, client_host)
+    await turnstile.verify_turnstile(
+        comment_data.turnstile_token, client_ip_from_request(request)
+    )
     try:
         comment = create_comment_db(comment_data.comment, session)
     except (DataError, IntegrityError) as e:
@@ -495,14 +497,15 @@ async def create_comment(
 
 @router.post("/tag", response_model=TagWithId, status_code=status.HTTP_201_CREATED)
 async def create_tag(
-    tag_data: TagCreateWithRecaptcha,
+    tag_data: TagCreateWithTurnstile,
     background_tasks: BackgroundTasks,
     request: Request,
     session: Session = Depends(get_session),
 ):
     """Create a new tag using the slugify_tag SQL function."""
-    client_host = request.client.host if request.client else ""
-    await recaptcha.verify_recaptcha(tag_data.recaptcha_token, client_host)
+    await turnstile.verify_turnstile(
+        tag_data.turnstile_token, client_ip_from_request(request)
+    )
     try:
         tag = create_tag_db(tag_data.tag, session)
     except IntegrityError as e:
@@ -527,8 +530,9 @@ async def submit_full_comment(
     session: Session = Depends(get_session),
 ):
     """Submit a complete comment with commenter, comment, and tags."""
-    client_host = request.client.host if request.client else ""
-    await recaptcha.verify_recaptcha(form_data.recaptcha_token, client_host)
+    await turnstile.verify_turnstile(
+        form_data.turnstile_token, client_ip_from_request(request)
+    )
     try:
         response = create_full_comment_submission(form_data, session)
     except (DataError, IntegrityError) as e:

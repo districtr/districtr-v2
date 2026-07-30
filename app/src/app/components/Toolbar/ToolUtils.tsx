@@ -16,6 +16,7 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {ACCESS_STATES} from '@constants/document/state';
+import type {HelpTipKey} from '@/app/components/HelpTip/helpTipContent';
 
 export type ActiveToolConfig = {
   hotKeyAccessor: (event: KeyboardEvent) => boolean;
@@ -26,10 +27,12 @@ export type ActiveToolConfig = {
   icon: React.ForwardRefExoticComponent<IconProps & React.RefAttributes<SVGSVGElement>>;
   iconStyle?: React.CSSProperties;
   onClick?: () => void;
+  helpKey?: HelpTipKey;
 };
 
 export const useActiveTools = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
+  const inBlockView = useMapStore(state => state.captiveIds.size > 0);
   const access = useMapStore(state => state.mapStatus?.access);
   const isEditing = access === ACCESS_STATES.EDIT;
   const mapMode = useMapControlsStore(state => state.mapMode);
@@ -59,6 +62,7 @@ export const useActiveTools = () => {
       disabled: !mapDocument?.document_id,
       label: 'Move',
       icon: HandIcon,
+      helpKey: 'pan',
       hotKeyAccessor: e => {
         return e.code === 'KeyM';
       },
@@ -69,6 +73,7 @@ export const useActiveTools = () => {
       disabled: !mapDocument?.document_id || !isEditing,
       label: 'Paint',
       icon: Pencil2Icon,
+      helpKey: 'paint',
       hotKeyAccessor: e => {
         return e.code === 'KeyP';
       },
@@ -79,6 +84,7 @@ export const useActiveTools = () => {
       disabled: !mapDocument?.document_id || !isEditing,
       label: 'Erase',
       icon: EraserIcon,
+      helpKey: 'erase',
       hotKeyAccessor: e => {
         return e.code === 'KeyE';
       },
@@ -89,6 +95,8 @@ export const useActiveTools = () => {
       disabled: pastStates.length === 0 || !isEditing,
       label: 'Undo',
       icon: ResetIcon,
+      // Same helpKey as Redo: one explanation covers the pair.
+      helpKey: 'undoRedo',
       onClick: () => {
         handleUndo();
       },
@@ -104,6 +112,7 @@ export const useActiveTools = () => {
       label: 'Redo',
       icon: ResetIcon,
       iconStyle: {transform: 'rotateY(180deg)'},
+      helpKey: 'undoRedo',
       onClick: () => {
         handleRedo();
       },
@@ -115,9 +124,12 @@ export const useActiveTools = () => {
     {
       hotKeyLabel: 'B',
       mode: ACTIVE_TOOLS.SHATTER,
-      disabled: !mapDocument?.child_layer,
+      // Also disabled inside block view: you're already in the one unit
+      // you'd be breaking, so the click would do nothing.
+      disabled: !mapDocument?.child_layer || inBlockView,
       label: 'Break',
       icon: ViewGridIcon,
+      helpKey: 'break',
       hotKeyAccessor: e => {
         return e.code === 'KeyB';
       },
@@ -127,6 +139,7 @@ export const useActiveTools = () => {
       mode: ACTIVE_TOOLS.INSPECTOR,
       label: 'Inspect',
       icon: MagnifyingGlassIcon,
+      helpKey: 'inspector',
       hotKeyAccessor: e => {
         return e.code === 'KeyI';
       },

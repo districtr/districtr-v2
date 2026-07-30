@@ -6,7 +6,7 @@ import {AcknowledgementField} from './AcknowledgementField';
 import {FormField} from './FormField';
 import {CommentFormTagSelector} from './CommentFormTagSelector';
 import {MapSelector} from './MapSelector';
-import {useRecaptcha} from '@/app/hooks/useRecaptcha';
+import {useTurnstile} from '@/app/hooks/useTurnstile';
 import {VALID_STATES_LABELS} from '@/app/constants/meta/usStates';
 import {useLayoutEffect, useRef} from 'react';
 
@@ -20,7 +20,7 @@ export const CommentSubmissionForm: React.FC<{
   const formIsValid = useFormState(state => state.formIsValid);
 
   const submitForm = useFormState(state => state.submitForm);
-  const {RecaptchaComponent, recaptchaToken} = useRecaptcha();
+  const {TurnstileComponent, captchaToken} = useTurnstile();
 
   const isSubmitting = useFormState(state => state.isSubmitting);
 
@@ -72,7 +72,7 @@ export const CommentSubmissionForm: React.FC<{
       <form
         onSubmit={e => {
           e.preventDefault();
-          if (recaptchaToken && formIsValid) {
+          if (captchaToken && formIsValid) {
             submitForm();
           }
         }}
@@ -225,13 +225,13 @@ export const CommentSubmissionForm: React.FC<{
               />
             </Box>
           </Flex>
-          {RecaptchaComponent}
+          {TurnstileComponent}
           <Flex direction="row" gap="4" justify="between" align="center">
             <Button
               type="submit"
               size="4"
-              color={!recaptchaToken || !formIsValid ? 'gray' : 'green'}
-              className={`${!recaptchaToken || !formIsValid ? 'cursor-not-allowed opacity-50' : ''} w-min`}
+              color={!captchaToken || !formIsValid ? 'gray' : 'green'}
+              className={`${!captchaToken || !formIsValid ? 'cursor-not-allowed opacity-50' : ''} w-min`}
               onMouseEnter={() => setHighlightErrors(true)}
               onMouseLeave={() => setHighlightErrors(false)}
             >

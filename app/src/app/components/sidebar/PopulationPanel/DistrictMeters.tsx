@@ -19,7 +19,7 @@ import {ZoneDescriptionPopover} from './ZoneDescriptionPopover';
 import {ConditionalScrollArea} from '../ConditionalScrollArea';
 import {ShowAllDistrictsButton} from '../ShowAllDistrictsButton';
 import {formatNumber} from '@utils/numbers';
-import InfoTip from '@components/InfoTip';
+import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
 import {useUiHintStore} from '@store/uiHintStore';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {ACCESS_STATES} from '@constants/document/state';
@@ -345,7 +345,7 @@ export const DistrictMeters = () => {
             <Text color="gray" style={STAT_LABEL_STYLE}>
               Max deviation
             </Text>
-            <InfoTip tips="maxDeviation" />
+            <HelpTip tip="maxDeviation" openDelay={HELP_TIP_FAST_DELAY} />
           </Flex>
           <Text
             size="4"

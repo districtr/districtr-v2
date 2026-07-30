@@ -9,6 +9,22 @@ if (stack !== "dev" && stack !== "prod") {
 
 const isProd = stack === "prod";
 
+// Turnstile migration guard: the old reCAPTCHA secrets are useless for
+// Turnstile verification, so a stack that still carries them without the
+// replacements would silently deploy captcha-less comment endpoints and
+// unverified session minting. Fail the deploy instead.
+for (const [oldKey, newKey] of [
+  ["recaptchaSecretKey", "turnstileSecretKey"],
+  ["recaptchaV3SecretKey", "turnstileSessionSecretKey"],
+] as const) {
+  if (cfg.getSecret(oldKey) && !cfg.getSecret(newKey)) {
+    throw new Error(
+      `Stack config still has ${oldKey} but ${newKey} is unset — run ` +
+        `"pulumi config set --secret ${newKey} <value>" then "pulumi config rm ${oldKey}"`
+    );
+  }
+}
+
 export const config = {
   stack,
   isProd,
@@ -40,8 +56,8 @@ export const config = {
   auth0ClientSecret: cfg.requireSecret("auth0ClientSecret"),
   auth0SessionSecret: cfg.requireSecret("auth0SessionSecret"),
   openaiApiKey: cfg.getSecret("openaiApiKey"),
-  recaptchaSecretKey: cfg.getSecret("recaptchaSecretKey"),
-  recaptchaV3SecretKey: cfg.getSecret("recaptchaV3SecretKey"),
+  turnstileSecretKey: cfg.getSecret("turnstileSecretKey"),
+  turnstileSessionSecretKey: cfg.getSecret("turnstileSessionSecretKey"),
   researchApiKey: cfg.getSecret("researchApiKey"),
 
   // Image tags. Deploy workflows write the current git SHA to

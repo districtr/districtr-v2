@@ -114,7 +114,7 @@ Agents should read the relevant guide(s) before making changes:
 - [`learn-map-lifecycle`](./skills/project/learn-map-lifecycle/SKILL.md) - map data lifecycle: imports, shatter setup, edges, graph linkage
 - [`learn-pipelines`](./skills/project/learn-pipelines/SKILL.md) - tiles/tabular/transforms pipeline contracts and toolchain requirements
 - [`learn-cms-moderation`](./skills/project/learn-cms-moderation/SKILL.md) - CMS editing/review and moderation workflows
-- [`learn-auth-share`](./skills/project/learn-auth-share/SKILL.md) - Auth0 scopes, recaptcha, and share/edit token security
+- [`learn-auth-share`](./skills/project/learn-auth-share/SKILL.md) - Auth0 scopes, Turnstile captcha, and share/edit token security
 
 ### Guide Selection Rules
 

@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import {Button, DropdownMenu, Flex, Spinner, Text, Tooltip} from '@radix-ui/themes';
+import {Button, DropdownMenu, Flex, Spinner, Text} from '@radix-ui/themes';
 import {
   BarChartIcon,
   CaretDownIcon,
@@ -22,6 +22,7 @@ import {useUiHintStore, visitedEvalStorageKey} from '@/app/store/uiHintStore';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {patchSharePlan} from '@/app/utils/api/apiHandlers/patchSharePlan';
 import {idb} from '@/app/utils/idb/idb';
+import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 
 type ViewMode = 'draw' | 'superdraw' | 'display' | 'evaluate';
 
@@ -30,15 +31,10 @@ export const MODE_SWITCHER_FLASH_ID = 'mode-switcher';
 
 const MODE_META: Record<
   ViewMode,
-  {label: string; Icon: React.ComponentType<{className?: string}>; tooltip?: string}
+  {label: string; Icon: React.ComponentType<{className?: string}>}
 > = {
   draw: {label: 'Draw', Icon: Pencil1Icon},
-  superdraw: {
-    label: 'Super Draw',
-    Icon: MagicWandIcon,
-    tooltip:
-      'Advanced drawing for power users: break units into census blocks, inspect map data, and access extra options.',
-  },
+  superdraw: {label: 'Super Draw', Icon: MagicWandIcon},
   display: {label: 'View', Icon: EyeOpenIcon},
   evaluate: {label: 'Evaluate', Icon: BarChartIcon},
 };
@@ -47,7 +43,11 @@ const isDrawMode = (mode: ViewMode): mode is 'draw' | 'superdraw' =>
   mode === 'draw' || mode === 'superdraw';
 
 /** A single mode option in the switcher menu. Owns its own icon/description so the
- * switcher template stays declarative. `locked` is the password-gated edit state. */
+ * switcher template stays declarative. `locked` is the password-gated edit state.
+ *
+ * Super Draw's explanation is a text-only HelpTip: this row is a DropdownMenu.Item,
+ * whose own pointer handling closes the hover card before the cursor can reach any
+ * interactive content inside it (see the superDraw entry in helpTipContent). */
 const ModeSwitcherItem: React.FC<{
   mode: ViewMode;
   isCurrent: boolean;
@@ -58,27 +58,29 @@ const ModeSwitcherItem: React.FC<{
 }> = ({mode, isCurrent, disabled, disabledReason, locked, onSelect}) => {
   const meta = MODE_META[mode];
   const Icon = locked ? LockClosedIcon : meta.Icon;
-  const item = (
-    <DropdownMenu.Item disabled={disabled} onSelect={onSelect}>
-      <Flex align="center" justify="between" gap="4" width="100%" py="1">
-        <Flex align="center" gap="3">
-          <Icon className="size-4 shrink-0" />
-          <Flex direction="column" gap="1">
-            <Text size="2" weight="medium">
-              {meta.label}
-            </Text>
-          </Flex>
+  const row = (
+    <Flex align="center" justify="between" gap="4" width="100%" py="1">
+      <Flex align="center" gap="3">
+        <Icon className="size-4 shrink-0" />
+        <Flex direction="column" gap="1">
+          <Text size="2" weight="medium">
+            {meta.label}
+          </Text>
         </Flex>
-        {isCurrent && <CheckIcon className="shrink-0" />}
       </Flex>
-    </DropdownMenu.Item>
+      {isCurrent && <CheckIcon className="shrink-0" />}
+    </Flex>
   );
-  return meta.tooltip ? (
-    <Tooltip content={meta.tooltip} side="right" maxWidth="260px">
-      {item}
-    </Tooltip>
-  ) : (
-    item
+  return (
+    <DropdownMenu.Item disabled={disabled} onSelect={onSelect}>
+      {mode === 'superdraw' ? (
+        <HelpTip tip="superDraw" openDelay={HELP_TIP_HOVER_DELAY} side="right">
+          {row}
+        </HelpTip>
+      ) : (
+        row
+      )}
+    </DropdownMenu.Item>
   );
 };
 
@@ -259,23 +261,29 @@ export const ModeSwitcher: React.FC = () => {
 
   return (
     <DropdownMenu.Root>
-      <DropdownMenu.Trigger>
-        <Button
-          variant="surface"
-          color="gray"
-          size="2"
-          className={`cursor-pointer transition-shadow hover:shadow-md ${
-            flashTarget === MODE_SWITCHER_FLASH_ID ? 'flash-target' : ''
-          }`}
-          disabled={isMinting}
-          aria-label="Switch view"
-        >
-          {isMinting ? <Spinner size="1" /> : <CurrentIcon />}
-          {/* Icon-only on phones; the dropdown spells out the modes. */}
-          <span className="hidden md:inline">Mode: {MODE_META[currentMode].label}</span>
-          <CaretDownIcon />
-        </Button>
-      </DropdownMenu.Trigger>
+      {/* HelpTip wraps DropdownMenu.Trigger (not the reverse): HelpTip's own
+          HoverCard.Trigger and DropdownMenu.Trigger both need asChild to reach the
+          real Button underneath — chained asChild forwarding handles that (each
+          layer forwards props it doesn't own down to its child), but only in this
+          order. Reversed, DropdownMenu.Trigger's click-to-open props would land on
+          HelpTip itself, which doesn't know to forward them anywhere. */}
+      <HelpTip tip="modeSwitcher" openDelay={HELP_TIP_HOVER_DELAY}>
+        <DropdownMenu.Trigger>
+          <Button
+            variant="surface"
+            color="gray"
+            size="2"
+            className="cursor-pointer transition-shadow hover:shadow-md"
+            disabled={isMinting}
+            aria-label="Switch view"
+          >
+            {isMinting ? <Spinner size="1" /> : <CurrentIcon />}
+            {/* Icon-only on phones; the dropdown spells out the modes. */}
+            <span className="hidden md:inline">Mode: {MODE_META[currentMode].label}</span>
+            <CaretDownIcon />
+          </Button>
+        </DropdownMenu.Trigger>
+      </HelpTip>
       <DropdownMenu.Content
         sideOffset={6}
         className="min-w-[var(--radix-dropdown-menu-trigger-width)]"

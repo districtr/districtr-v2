@@ -15,9 +15,9 @@ name: Fly Preview
 # Required repo VARS:    FLY_ORG, DEV_PG_APP, R2_BUCKET_NAME
 # Required repo SECRETS: FLY_PREVIEW_API_TOKEN (org-scoped: `fly tokens create org`),
 #   AUTH0_SECRET, AUTH0_CLIENT_ID, AUTH0_CLIENT_SECRET, AUTH0_DOMAIN, AUTH0_API_AUDIENCE,
-#   RECAPTCHA_SITE_KEY, NEXT_PUBLIC_MAPTILER_API_KEY, SENTRY_AUTH_TOKEN (optional);
+#   TURNSTILE_SITE_KEY, NEXT_PUBLIC_MAPTILER_API_KEY, SENTRY_AUTH_TOKEN (optional);
 #   fullstack also needs: PREVIEW_DB_USER/PASSWORD/NAME, BE_SECRET_KEY, AUTH0_ISSUER,
-#   AUTH0_ALGORITHMS, and optionally RECAPTCHA_SECRET_KEY, AWS_ACCESS_KEY_ID/SECRET, R2_ACCOUNT_ID.
+#   AUTH0_ALGORITHMS, and optionally TURNSTILE_SECRET_KEY, AWS_ACCESS_KEY_ID/SECRET, R2_ACCOUNT_ID.
 # One-time: create the two labels, and set BACKEND_CORS_ORIGIN_REGEX on the dev backend
 #   so FE-only previews are allowed cross-origin (see PR description / config.py).
 
@@ -114,7 +114,7 @@ jobs:
           AUTH0_API_AUDIENCE: ${{ secrets.AUTH0_API_AUDIENCE }}
           AUTH0_ISSUER: ${{ secrets.AUTH0_ISSUER }}
           AUTH0_ALGORITHMS: RS256
-          RECAPTCHA_SECRET_KEY: ${{ secrets.RECAPTCHA_SECRET_KEY }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
@@ -175,7 +175,7 @@ jobs:
             AUTH0_ALGORITHMS="$AUTH0_ALGORITHMS"
           )
           # Optional secrets — only set when provided.
-          if [ -n "${RECAPTCHA_SECRET_KEY:-}" ];   then args+=( RECAPTCHA_SECRET_KEY="$RECAPTCHA_SECRET_KEY" ); fi
+          if [ -n "${TURNSTILE_SECRET_KEY:-}" ];   then args+=( TURNSTILE_SECRET_KEY="$TURNSTILE_SECRET_KEY" ); fi
           if [ -n "${AWS_ACCESS_KEY_ID:-}" ];      then args+=( AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" ); fi
           if [ -n "${AWS_SECRET_ACCESS_KEY:-}" ];  then args+=( AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" ); fi
           if [ -n "${R2_ACCOUNT_ID:-}" ];          then args+=( ACCOUNT_ID="$R2_ACCOUNT_ID" ); fi
@@ -212,7 +212,7 @@ jobs:
           FE_URL: ${{ steps.setup.outputs.fe_url }}
           API_URL: ${{ steps.setup.outputs.api_url }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          RECAPTCHA_SITE_KEY: ${{ secrets.RECAPTCHA_SITE_KEY }}
+          TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY }}
           NEXT_PUBLIC_MAPTILER_API_KEY: ${{ secrets.NEXT_PUBLIC_MAPTILER_API_KEY }}
           AUTH0_SECRET: ${{ secrets.AUTH0_SECRET }}
           AUTH0_CLIENT_ID: ${{ secrets.AUTH0_CLIENT_ID }}
@@ -226,7 +226,7 @@ jobs:
 
           # Build-time public env (baked into the image; Dockerfile COPYs this in).
           cat > app/.env.production <<EOF
-          NEXT_PUBLIC_RECAPTCHA_SITE_KEY=${RECAPTCHA_SITE_KEY}
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY}
           NEXT_PUBLIC_MAPTILER_API_KEY=${NEXT_PUBLIC_MAPTILER_API_KEY}
           NEXT_PUBLIC_S3_BUCKET_URL=https://tilesets1.cdn.districtr.org
           NEXT_PUBLIC_S3_BUCKET_URL_MIRROR1=https://tilesets2.cdn.districtr.org

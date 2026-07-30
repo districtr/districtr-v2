@@ -28,9 +28,13 @@ export const BlockModePill = () => {
     if (!inBlockView || !map) return;
     if (Array.isArray(bounds) && bounds.length === 4 && bounds.every(n => typeof n === 'number')) {
       const [west, south, east, north] = bounds as [number, number, number, number];
-      // Half-bbox padding: room to nudge, not to leave.
-      const padX = (east - west) / 2;
-      const padY = (north - south) / 2;
+      // Full-bbox padding on each side. Generous because the bbox comes from a
+      // tile-clipped geometry (handleShatter) and can underestimate the unit's
+      // true extent; the padded box also sets the minZoom floor below.
+      // ponytail: padding over correctness — the real fix is an unclipped bbox
+      // from source data if units ever span enough tiles that 1x isn't enough.
+      const padX = east - west;
+      const padY = north - south;
       const maxBounds: [number, number, number, number] = [
         west - padX,
         south - padY,
@@ -56,6 +60,11 @@ export const BlockModePill = () => {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
+      // Escape aimed at a focused field (e.g. closing the geocoder dropdown)
+      // shouldn't also exit block view.
+      const activeElement = document.activeElement;
+      if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement)
+        return;
       if (inBlockView) {
         exitBlockView();
       } else if (activeTool === ACTIVE_TOOLS.SHATTER) {

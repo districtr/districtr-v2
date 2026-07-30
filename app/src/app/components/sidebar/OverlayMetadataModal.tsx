@@ -145,6 +145,10 @@ export const OverlayMetadataModal: React.FC = () => {
 
   return (
     <Dialog.Root open={open} onOpenChange={handleOpenChange}>
+      {/* A labeled button, not a bare info-circle icon: a bare (i) is the app's
+          shorthand for "hover me for a quick explainer" (HelpTip), while this is a
+          click-triggered modal of data provenance — a different affordance that
+          shouldn't share the same visual. */}
       <Dialog.Trigger>
         <Button
           variant="surface"
