@@ -46,10 +46,8 @@ export const MapActionsDropdown: React.FC<{
 
   const downloadExport = async (exportType: string) => {
     if (!exportId) return;
-    // Save first so the export reflects local edits — but only for editors, like
-    // every other save() call site. View-only viewers have nothing to save, and a
-    // stale updated_at would pop the save-conflict modal at someone who never
-    // asked to save. On failure just abort: handlePutAssignments already surfaced
+    // Save first so the export reflects local edits — but only for editors.
+    // On failure just abort: handlePutAssignments already surfaced
     // it (conflict modal or error toast), so a toast here would double-notify.
     if (access === ACCESS_STATES.EDIT) {
       const saveResponse = await save();

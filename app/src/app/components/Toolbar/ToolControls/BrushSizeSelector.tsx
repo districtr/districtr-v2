@@ -72,7 +72,6 @@ export function BrushSizeSelector() {
             min={BRUSH_MIN_SIZE}
             max={BRUSH_MAX_SIZE}
             disabled={access === ACCESS_STATES.READ}
-            // ponytail: rail uses --gray-a3/a5; bump locally for a more visible passive state
             style={
               {'--gray-a3': 'var(--gray-a6)', '--gray-a5': 'var(--gray-a8)'} as React.CSSProperties
             }
