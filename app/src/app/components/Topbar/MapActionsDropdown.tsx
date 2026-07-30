@@ -9,6 +9,7 @@ import {DocumentMetadata} from '@utils/api/apiHandlers/types';
 import {SaveShareModal} from '../Toolbar/SaveShareModal/SaveShareModal';
 import {fetchWithSession} from '@utils/api/session';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
+import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 
 /** Consolidated "Map actions" menu for the editor topbar: share, export,
  * and reset in one dropdown. Saving lives in the topbar SaveButton;
@@ -21,6 +22,7 @@ export const MapActionsDropdown: React.FC<{
   const access = useMapStore(state => state.mapStatus?.access);
   const handleReset = useMapStore(state => state.handleReset);
   const setNotification = useMapStore(state => state.setNotification);
+  const {isOutdated, save} = useMapSaveStatus();
 
   const notifyExportFailed = (reason: string) =>
     setNotification({
@@ -48,6 +50,9 @@ export const MapActionsDropdown: React.FC<{
     // the X-Districtr-Session header) and save the blob through a transient
     // anchor. Filename comes from the backend's Content-Disposition.
     try {
+      // The backend exports the last saved state, so flush unsaved changes first
+      // or the download lags one save behind (issue #613).
+      if (isOutdated && access === ACCESS_STATES.EDIT) await save();
       const response = await fetchWithSession(
         `${process.env.NEXT_PUBLIC_API_URL}/api/document/${exportId}/export?export_type=${exportType}`
       );
