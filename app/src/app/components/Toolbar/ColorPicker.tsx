@@ -21,8 +21,6 @@ export type ColorPickerProps<T extends boolean = false> = T extends true
       multiple: true;
       disabledValues?: NullableZone[];
       _colorScheme?: string[];
-      /** Bigger swatches with no number labels (plain Draw's picker). */
-      pipsOnly?: boolean;
     }
   : {
       defaultValue: number;
@@ -31,7 +29,6 @@ export type ColorPickerProps<T extends boolean = false> = T extends true
       multiple?: false;
       disabledValues?: NullableZone[];
       _colorScheme?: string[];
-      pipsOnly?: boolean;
     };
 
 export const ColorPicker = <T extends boolean>({
@@ -41,7 +38,6 @@ export const ColorPicker = <T extends boolean>({
   multiple,
   disabledValues,
   _colorScheme,
-  pipsOnly,
 }: ColorPickerProps<T>) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const _stateColorScheme = useColorScheme();
@@ -149,7 +145,6 @@ export const ColorPicker = <T extends boolean>({
         value={value}
         defaultValue={defaultValue}
         disabledValues={disabledValues}
-        pipsOnly={pipsOnly}
       />
     );
   }

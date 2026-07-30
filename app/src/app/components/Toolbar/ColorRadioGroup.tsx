@@ -32,9 +32,7 @@ export const ColorRadioGroup: React.FC<{
   value: ColorPickerProps['value'];
   defaultValue: ColorPickerProps['defaultValue'];
   disabledValues: ColorPickerProps['disabledValues'];
-  /** Bigger swatches with no number labels (plain Draw's picker). */
-  pipsOnly?: boolean;
-}> = ({colorScheme, mapDocument, onValueChange, defaultValue, value, disabledValues, pipsOnly}) => {
+}> = ({colorScheme, mapDocument, onValueChange, defaultValue, value, disabledValues}) => {
   if (!mapDocument?.num_districts) return null;
   const numDistricts = mapDocument.num_districts;
   return (
@@ -47,24 +45,20 @@ export const ColorRadioGroup: React.FC<{
         value={value !== undefined ? colorScheme[value] : undefined}
         defaultValue={colorScheme[defaultValue]}
       >
-        <Flex direction="row" wrap="wrap" gapX="2" gapY={pipsOnly ? '2' : '0'}>
+        <Flex direction="row" wrap="wrap" gapX="2" gapY="0">
           {!!mapDocument &&
             colorScheme.slice(0, numDistricts).map((color, i) => (
-              <Flex direction="column" align="center" key={i} pb={pipsOnly ? '0' : '2'}>
+              <Flex direction="column" align="center" key={i} pb="2">
                 <StyledRadioGroupItem
                   key={i}
                   data-testid={`zone-${i + 1}`}
-                  style={{
-                    backgroundColor: color,
-                    // Bigger touch targets when the pip is the whole control.
-                    ...(pipsOnly ? {'--pip-size': '2rem'} : {}),
-                  }}
+                  style={{backgroundColor: color}}
                   value={color}
                   disabled={disabledValues?.includes(i)}
                   className={disabledValues?.includes(i) ? 'opacity-25' : ''}
                   aria-label={`District ${i + 1}`}
                 ></StyledRadioGroupItem>
-                {!pipsOnly && <Text size="1">{i + 1}</Text>}
+                <Text size="1">{i + 1}</Text>
               </Flex>
             ))}
         </Flex>

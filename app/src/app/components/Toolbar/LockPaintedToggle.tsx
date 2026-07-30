@@ -6,9 +6,9 @@ import {useMapStore} from '@store/mapStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {ACCESS_STATES} from '@constants/document/state';
 
-/** Freeze switch for everything already drawn: while on, no assigned area can
- * be re-assigned (painted over or erased), whatever district it belongs to.
- * Unassigned areas stay paintable. */
+/** Freeze switch for everything already drawn: while on, the brush only lands
+ * on unassigned areas — nothing painted can be painted over, whatever district
+ * it belongs to. Erasing still works, so mistakes stay fixable. */
 export const LockPaintedToggle = () => {
   const locked = useMapControlsStore(state => state.mapOptions.lockAssignedAreas ?? false);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
@@ -18,7 +18,7 @@ export const LockPaintedToggle = () => {
 
   if (mapMode !== MAP_MODES.DISTRICTS || !isEditing) return null;
   return (
-    <Tooltip content="Protect all assigned areas from being repainted; only unassigned areas accept paint">
+    <Tooltip content="Protect all assigned areas from being painted over; only unassigned areas accept paint. Erasing still works.">
       <Button
         size="1"
         variant={locked ? 'solid' : 'surface'}

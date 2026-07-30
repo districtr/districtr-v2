@@ -53,9 +53,9 @@ const signedNumber = (value: number) =>
 
 /**
  * District overview as a set of population meters: each district's colored bar
- * fills toward a shared ideal line, turning red past it. Bars are identified
- * by color alone; district number and exact deviation live in the hover
- * tooltip. Two plan-wide lines (unassigned, max deviation) sit at the bottom.
+ * fills toward a shared ideal line, turning red past it. Rows lead with their
+ * district number; exact deviation lives in the hover tooltip. Two plan-wide
+ * lines (unassigned, max deviation) sit at the bottom.
  */
 export const DistrictMeters = () => {
   const {populationData} = useZonePopulations();
@@ -117,11 +117,18 @@ export const DistrictMeters = () => {
     requestSidebarTab('evaluation');
   };
 
+  // Fixed number column sized to the widest district number so every bar
+  // starts at the same x.
+  const numColWidth = `${String(populationData.length).length + 1}ch`;
+
   return (
     <Flex direction="column" gap="0" mt="2">
       {/* The ideal population, labeled where its line crosses the bars. */}
       {!!idealPopulation && (
         <Flex gap="1" px="1" pb="1">
+          {/* Mirrors the rows' leading number column so the label's x-scale
+              matches the bars' tick. */}
+          <Box style={{width: numColWidth, flexShrink: 0}} />
           <Box flexGrow="1" style={{position: 'relative', height: 16}}>
             <Text
               size="1"
@@ -176,9 +183,22 @@ export const DistrictMeters = () => {
                 }`}
                 data-testid={`district-meter-row-${d.zone}`}
               >
+                <Text
+                  size="1"
+                  color="gray"
+                  weight={selectedZone === d.zone ? 'bold' : 'regular'}
+                  style={{
+                    width: numColWidth,
+                    flexShrink: 0,
+                    textAlign: 'right',
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
+                  {d.zone}
+                </Text>
                 {/* Comment and per-district lock are Super Draw features; plain
-                    Draw rows are just the bar and its total. Icons manage their
-                    own interactions; don't let clicks re-select the row. */}
+                    Draw rows are just the number, bar, and total. Icons manage
+                    their own interactions; don't let clicks re-select the row. */}
                 {superDraw && isEditing && (
                   <Flex align="center" gap="1" flexShrink="0" onClick={e => e.stopPropagation()}>
                     <ZoneDescriptionPopover zone={d.zone} color={color} />
@@ -203,8 +223,8 @@ export const DistrictMeters = () => {
                     </Tooltip>
                   </Flex>
                 )}
-                {/* District number and exact deviation live in the hover
-                    tooltip; the bar's color and tick carry the story. */}
+                {/* Exact deviation lives in the hover tooltip; the bar's color
+                    and tick carry the story. */}
                 <Tooltip content={tooltip}>
                   <Box flexGrow="1" style={{height: 16, position: 'relative'}}>
                     {/* Track clips the fills; the tick renders outside it so it

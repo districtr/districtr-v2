@@ -6,6 +6,7 @@ import {useOverlayStore} from '@/app/store/overlayStore';
 import {BrushSizeSelector} from '@components/Toolbar/ToolControls/BrushSizeSelector';
 import PaintByCounty from '@components/Toolbar/PaintByCounty';
 import {ZonePicker} from '@components/Toolbar/ZonePicker';
+import {LockPaintedToggle} from '@components/Toolbar/LockPaintedToggle';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {MAP_MODES} from '@constants/map/mode';
 
@@ -36,9 +37,16 @@ export const BrushControls = () => {
         )}
       </Flex>
       {showZonePicker ? (
-        <Flex direction="row" flexGrow={'0'} maxWidth={'100%'} p="0" m="0">
-          <ZonePicker />
-        </Flex>
+        <>
+          <Flex direction="row" flexGrow={'0'} maxWidth={'100%'} p="0" m="0">
+            <ZonePicker />
+          </Flex>
+          {/* Only shown with the paint controls: the lock only filters actual
+              painting (erasing works regardless), so it rides with the brush. */}
+          <Flex justify="start">
+            <LockPaintedToggle />
+          </Flex>
+        </>
       ) : null}
 
       {paintConstraint && (
