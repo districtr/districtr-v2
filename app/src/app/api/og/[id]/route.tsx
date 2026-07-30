@@ -42,8 +42,12 @@ const PasswordWarningBanner = ({publicUrl}: {publicUrl: string | null}) => (
     </div>
     <p style={{fontSize: '26px', margin: '10px 0 0', opacity: 0.95}}>
       Treat it like a password — anyone who has it can change this map.
-      {publicUrl ? ` To share publicly, use ${publicUrl}` : ''}
     </p>
+    {!!publicUrl && (
+      <p style={{fontSize: '26px', margin: '6px 0 0', opacity: 0.95}}>
+        To share publicly, use <span style={{fontWeight: 700, marginLeft: '8px'}}>{publicUrl}</span>
+      </p>
+    )}
   </div>
 );
 
