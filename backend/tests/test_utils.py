@@ -16,9 +16,9 @@ from app.models import DistrictrMap, GeoUnitType
 from tests.constants import OGR2OGR_PG_CONNECTION_STRING, FIXTURES_PATH
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
-from app.core.security import recaptcha, auth
+from app.core.security import turnstile, auth
 from pytest import MonkeyPatch, fixture
-from tests.utils import fake_verify_recaptcha
+from tests.utils import fake_verify_turnstile
 from fastapi.security import SecurityScopes
 from app.main import app
 from app.comments.models import FullCommentFormResponse
@@ -347,9 +347,9 @@ def test_get_edges(client, session: Session, document_id):
 
 
 @fixture(autouse=True)
-def patch_recaptcha():
+def patch_turnstile():
     monkeypatch = MonkeyPatch()
-    monkeypatch.setattr(recaptcha, "verify_recaptcha", fake_verify_recaptcha)
+    monkeypatch.setattr(turnstile, "verify_turnstile", fake_verify_turnstile)
     yield
     monkeypatch.undo()
 

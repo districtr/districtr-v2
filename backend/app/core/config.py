@@ -79,12 +79,12 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = ""
     DATABASE_URL: str
 
-    # reCAPTCHA
-    RECAPTCHA_SECRET_KEY: str | None = None
+    # Cloudflare Turnstile (comment-form widget)
+    TURNSTILE_SECRET_KEY: str | None = None
 
-    # Silent-captcha session tokens (reCAPTCHA v3 + stateless HMAC session JWTs)
-    RECAPTCHA_V3_SECRET_KEY: str | None = None
-    RECAPTCHA_V3_SCORE_THRESHOLD: float = 0.5
+    # Silent-captcha session tokens (invisible Turnstile widget + stateless
+    # HMAC session JWTs)
+    TURNSTILE_SESSION_SECRET_KEY: str | None = None
     SESSION_TOKEN_TTL_HOURS: int = 4
     SESSION_ENFORCE: bool = False
     RESEARCH_API_KEY: str | None = None
