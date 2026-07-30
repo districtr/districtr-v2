@@ -93,7 +93,8 @@ export async function GET(request: Request, {params}: {params: Promise<{id: stri
           </div>
         </div>
       ),
-      {...OG_IMAGE_SIZE, fonts}
+      // 404 + no-store so a transient API failure isn't cached as the permanent card
+      {...OG_IMAGE_SIZE, fonts, status: 404, headers: {'cache-control': 'no-store'}}
     );
   }
 
@@ -237,6 +238,12 @@ export async function GET(request: Request, {params}: {params: Promise<{id: stri
         </div>
       </div>
     ),
-    {...OG_IMAGE_SIZE, fonts}
+    {
+      ...OG_IMAGE_SIZE,
+      fonts,
+      // Override ImageResponse's default year-long immutable cache-control so
+      // renames/status changes reach the card within the data-cache window
+      headers: {'cache-control': 'public, s-maxage=300, stale-while-revalidate=86400'},
+    }
   );
 }
