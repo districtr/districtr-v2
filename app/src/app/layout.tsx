@@ -14,15 +14,8 @@ const nunito = Nunito({
   display: 'swap',
 });
 
-const DISTRICTR_LOGO = [
-  {
-    url: 'https://districtr-v2-frontend.fly.dev/_next/image?url=%2Fdistrictr_logo.jpg&w=1920&q=75',
-    width: 1136,
-    height: 423,
-  },
-];
-
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://beta.districtr.org'),
   title: 'Districtr 2.0',
   description: 'Create districting maps',
   openGraph: {
@@ -31,7 +24,7 @@ export const metadata: Metadata = {
     siteName: 'Districtr 2.0',
     images: [
       {
-        url: 'https://beta.districtr.org/_next/image?url=%2Fdistrictr_logo.jpg&w=1920&q=75',
+        url: '/districtr_logo.jpg',
         width: 1136,
         height: 423,
       },

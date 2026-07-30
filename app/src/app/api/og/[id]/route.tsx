@@ -6,7 +6,9 @@ import {DocumentObject} from '@/app/utils/api/apiHandlers/types';
 
 export async function GET(_: Request, {params}: {params: Promise<{id: string}>}) {
   const {id} = await params;
-  const mapDocument = await fetch(`${API_URL}/api/document/${id}`).then(res =>
+  const mapDocument = await fetch(`${API_URL}/api/document/${id}`, {
+    next: {revalidate: 300},
+  }).then(res =>
     res.ok ? (res.json() as Promise<NonNullable<DocumentObject>>) : null
   );
   if (!mapDocument) {
@@ -17,7 +19,9 @@ export async function GET(_: Request, {params}: {params: Promise<{id: string}>})
   const base64Image = Buffer.from(logoImage).toString('base64');
   const dataURI = 'data:image/jpeg;base64,' + base64Image;
 
-  const thumbnail = await fetch(`${API_URL}/api/document/${id}/thumbnail`).then(res =>
+  const thumbnail = await fetch(`${API_URL}/api/document/${id}/thumbnail`, {
+    next: {revalidate: 300},
+  }).then(res =>
     res.ok ? res.arrayBuffer() : (fs.readFileSync('./public/home-megaphone-square.png') as any)
   );
   const thumbnailURI = 'data:image/png;base64,' + Buffer.from(thumbnail).toString('base64');
@@ -62,7 +66,7 @@ export async function GET(_: Request, {params}: {params: Promise<{id: string}>})
                   fontSize: '72px',
                   fontFamily: "'Nunito', sans-serif",
                   fontWeight: '700',
-                  textAlign: 'center',
+                  textAlign: 'left',
                   padding: '0',
                   margin: '0',
                 }}
@@ -79,6 +83,9 @@ export async function GET(_: Request, {params}: {params: Promise<{id: string}>})
                 ) : null}
                 <p>{mapDocument.num_districts} districts</p>
               </div>
+              {!!mapDocument.map_module && (
+                <p style={{fontSize: '28px', margin: '0'}}>{mapDocument.map_module}</p>
+              )}
               {!!mapDocument?.map_metadata?.description?.length && (
                 <p style={{fontSize: '24px', fontWeight: 'bold'}}>
                   {mapDocument.map_metadata.description}
