@@ -58,6 +58,7 @@ export const MapActionsDropdown: React.FC<{
           `Failed during save: ${e}`,
           'Exporting this map failed while saving. Please try saving your map manually and then try exporting again.'
         );
+        return;
       }
     }
     try {
