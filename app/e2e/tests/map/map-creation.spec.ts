@@ -48,8 +48,8 @@ test.describe('Map Creation', () => {
     await createButtons.first().click();
 
     // Wait for the route to actually change instead of a blanket 5s sleep.
-    await page.waitForURL(/\/map\/edit\/[a-zA-Z0-9-]+/, {timeout: 15_000});
-    expect(page.url()).toMatch(/\/map\/edit\/[a-zA-Z0-9-]+/);
+    await page.waitForURL(/\/map\/[a-zA-Z0-9-]+\/edit/, {timeout: 15_000});
+    expect(page.url()).toMatch(/\/map\/[a-zA-Z0-9-]+\/edit/);
   });
 });
 
