@@ -1,7 +1,4 @@
-import {Metadata} from 'next';
-import {DocumentObject} from '@/app/utils/api/apiHandlers/types';
 import MapPage from '@/app/components/MapPage/MapPage';
-import {API_URL} from '@/app/utils/api/constants';
 import {redirect} from 'next/navigation';
 import {generateMapPageMetadata} from '@/app/utils/metadata/pageMetadataUtils';
 import {routeManager} from '@/app/utils/map/mapUrlRoute';
