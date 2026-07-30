@@ -3,7 +3,7 @@
 
 * @name confirmMapDocumentUrlParameter
 * @param {object} mapDocument - The document to confirm (document_id and public_id)
-* @param {string} basePath - The edit route base path
+* @param {string} routePrefix - The edit route prefix ('map' or 'coi')
 * @returns {boolean} - True if the URL parameter is correct, false otherwise
 * @description
 * This function confirms that the URL parameter matches the given document. Useful
@@ -12,11 +12,11 @@
 */
 export const confirmMapDocumentUrlParameter = (
   mapDocument: {document_id: string; public_id?: number | null},
-  basePath: string = '/map/edit'
+  routePrefix: string = 'map'
 ) => {
   const {pathname} = new URL(window.location.href);
   return (
-    pathname === `${basePath}/${mapDocument.document_id}` ||
-    (mapDocument.public_id != null && pathname === `${basePath}/${mapDocument.public_id}`)
+    pathname === `/${routePrefix}/${mapDocument.document_id}/edit` ||
+    (mapDocument.public_id != null && pathname === `/${routePrefix}/${mapDocument.public_id}/edit`)
   );
 };

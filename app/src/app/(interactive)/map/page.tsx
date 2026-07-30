@@ -14,9 +14,9 @@ export default async function Map({
   searchParams: Promise<{document_id?: string | string[] | undefined}>;
 }) {
   const params = await searchParams;
-  // if params.document_id is not undefined, redirect to edit/{document_id}
+  // if params.document_id is not undefined, redirect to {document_id}/edit
   if (params.document_id) {
-    return redirect(`/${routeManager.mapUrlRoute}/edit/${params.document_id}`);
+    return redirect(`/${routeManager.mapUrlRoute}/${params.document_id}/edit`);
   }
 
   return <MapPage isEditing={false} mapId="" />;

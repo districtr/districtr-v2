@@ -1529,7 +1529,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
   },
 
   handleRevert: async (mapDocument: DocumentObject) => {
-    const confirmedMapDocument = confirmMapDocumentUrlParameter(mapDocument, '/coi/edit');
+    const confirmedMapDocument = confirmMapDocumentUrlParameter(mapDocument, 'coi');
     const {setNotification, setMapLock, initiateFlushMapState} = useMapStore.getState();
     await initiateFlushMapState();
     if (!confirmedMapDocument) {

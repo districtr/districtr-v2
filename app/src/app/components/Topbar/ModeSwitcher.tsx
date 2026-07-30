@@ -20,7 +20,7 @@ import {useEditableDocId} from '@/app/hooks/useEditableDocId';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {patchSharePlan} from '@/app/utils/api/apiHandlers/patchSharePlan';
-import {editPath} from '@/app/utils/map/editUrl';
+import {editPath, evalPath} from '@/app/utils/map/editUrl';
 import {idb} from '@/app/utils/idb/idb';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 
@@ -153,7 +153,7 @@ export const ModeSwitcher: React.FC = () => {
       case 'display':
         return publicId ? `/${prefix}/${publicId}` : null;
       case 'evaluate':
-        return publicId ? `/map/eval/${publicId}` : null;
+        return publicId ? evalPath(prefix, publicId) : null;
     }
   };
 
@@ -189,7 +189,7 @@ export const ModeSwitcher: React.FC = () => {
       // Persist so reloads and the My-Maps list reflect the new public_id.
       const nextDoc = useMapStore.getState().mapDocument;
       if (nextDoc) idb.updateIdbDocumentMetadata(nextDoc);
-      return mode === 'evaluate' ? `/map/eval/${newPublicId}` : `/${prefix}/${newPublicId}`;
+      return mode === 'evaluate' ? evalPath(prefix, newPublicId) : `/${prefix}/${newPublicId}`;
     } finally {
       setIsMinting(false);
     }

@@ -35,7 +35,7 @@ export const expandUUID = (token: string): string | null => {
 };
 
 /**
- * Path (+query) for a document's edit page: `/{route}/edit/{public_id}?private_edit_id=…`.
+ * Path (+query) for a document's edit page: `/{route}/{public_id}/edit?private_edit_id=…`.
  * Falls back to the bare UUID path for documents without a public id.
  */
 export const editPath = (
@@ -44,5 +44,13 @@ export const editPath = (
   public_id?: number | null
 ): string =>
   public_id != null
-    ? `/${routePrefix}/edit/${public_id}?${PRIVATE_EDIT_ID_PARAM}=${shortenUUID(document_id)}`
-    : `/${routePrefix}/edit/${document_id}`;
+    ? `/${routePrefix}/${public_id}/edit?${PRIVATE_EDIT_ID_PARAM}=${shortenUUID(document_id)}`
+    : `/${routePrefix}/${document_id}/edit`;
+
+/**
+ * Path for a document's eval page: `/{route}/{public_id}/eval`. Eval is
+ * always a read-only display of a shared map, so unlike editPath there's no
+ * private-id query param and no bare-UUID fallback — public_id is required.
+ */
+export const evalPath = (routePrefix: string, public_id: number): string =>
+  `/${routePrefix}/${public_id}/eval`;
