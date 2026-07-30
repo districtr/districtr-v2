@@ -5,7 +5,6 @@ import {EditorStateReset} from '@components/Static/EditorStateReset';
 import {Box, Flex} from '@radix-ui/themes';
 
 export const metadata: Metadata = {
-  title: 'Districtr 2.0',
   description: 'Districtr reboot',
 };
 
