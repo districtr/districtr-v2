@@ -5,19 +5,8 @@ import {getDocument} from '@/app/utils/api/apiHandlers/getDocument';
 import {DocumentObject} from '@/app/utils/api/apiHandlers/types';
 import {TILESET_URL} from '@/app/utils/api/constants';
 import {queryClient} from '@/app/utils/api/queryClient';
-import {
-  Blockquote,
-  Box,
-  Button,
-  Flex,
-  ScrollArea,
-  Spinner,
-  Switch,
-  Text,
-  TextField,
-} from '@radix-ui/themes';
+import {Blockquote, Flex, Select, Spinner, Switch, Text, TextField} from '@radix-ui/themes';
 import {QueryClientProvider, useMutation} from '@tanstack/react-query';
-import {idb} from '@/app/utils/idb/idb';
 import {useUserMaps} from '@/app/hooks/useUserMaps';
 import {routeManager} from '@/app/utils/map/mapUrlRoute';
 import {DRAFT_STATUSES} from '@constants/document/draftStatus';
@@ -38,7 +27,6 @@ interface ValidationResponse {
 
 const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [showMapOptions, setShowMapOptions] = useState(false);
   const [dataResponse, setDataResponse] = useState<ValidationResponse | null>(null);
 
   const showMapSelector = useFormState(state => state.showMapSelector);
@@ -49,7 +37,14 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
   const setShowMapSelector = useFormState(state => state.setShowMapSelector);
   const setFormState = useFormState(state => state.setFormState);
   // TODO Support community maps
-  const {districtMaps} = useUserMaps();
+  const {districtMaps: allDistrictMaps} = useUserMaps();
+  // only offer maps that would pass module validation
+  const districtMaps = allDistrictMaps.filter(map =>
+    allowListModules.includes(map.districtr_map_slug ?? '')
+  );
+  // which of the user's maps the current link points to, if any
+  const selectedMapId =
+    districtMaps.find(map => mapId.includes(map.document_id))?.document_id ?? '';
 
   const [notification, setNotification] = useState<null | {
     type: 'error' | 'success' | 'warning';
@@ -165,84 +160,69 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
     }
   }, [mapId]);
 
+  const selectMap = (documentId: string) => {
+    const mapUrl = new URL(
+      `/${routeManager.mapUrlRoute}/edit/${documentId}`,
+      window.location.href
+    ).toString();
+    setFormState('comment', 'document_id', mapUrl);
+    mutate(mapUrl);
+  };
+
   return (
-    <Flex direction="column" gap="2" position="relative" width="100%">
+    <Flex direction="column" gap="2" width="100%">
       <Flex direction="row" gap="2" align="center">
-        <Switch checked={showMapSelector} onCheckedChange={setShowMapSelector} />
-        <Text as="label" size="2" weight="medium" id="map-selector">
+        <Switch
+          id="map-selector-toggle"
+          checked={showMapSelector}
+          onCheckedChange={setShowMapSelector}
+        />
+        <Text as="label" size="2" weight="medium" htmlFor="map-selector-toggle">
           Include a link to your map?
         </Text>
       </Flex>
-      <Flex direction="row" gap="2" align="center" onClick={() => setShowMapSelector(true)}>
-        <Box position="relative" flexGrow="1">
+      {showMapSelector && (
+        <>
+          {districtMaps.length > 0 && (
+            <Select.Root value={selectedMapId} onValueChange={selectMap}>
+              <Select.Trigger placeholder="Choose one of your recent maps" />
+              <Select.Content position="popper">
+                {districtMaps.map(map => (
+                  <Select.Item key={map.document_id} value={map.document_id}>
+                    {[
+                      map.map_metadata?.name,
+                      map.map_module,
+                      map.updated_at && `updated ${new Date(map.updated_at).toLocaleDateString()}`,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </Select.Item>
+                ))}
+              </Select.Content>
+            </Select.Root>
+          )}
           <TextField.Root
             ref={inputRef}
             type="url"
-            disabled={!showMapSelector}
             required={showMapSelector}
             value={mapId}
             color={dataResponse?.mapInfo?.document_id === mapId ? 'green' : 'gray'}
             onChange={e => setFormState('comment', 'document_id', e.target.value)}
-            onFocus={() => setShowMapOptions(true)}
-            onClick={() => setShowMapOptions(true)}
-            onBlur={() => {
-              setTimeout(() => {
-                setShowMapOptions(false);
-              }, 100);
-              mutate(mapId);
-            }}
+            onBlur={() => mapId && mutate(mapId)}
             aria-invalid={showMapSelector && dataResponse?.type === 'error'}
-            placeholder="Include a link to your map"
-          />
-          {showMapOptions && (
-            <Box
-              position="absolute"
-              top="100%"
-              right="0"
-              bottom="0"
-              className="bg-white shadow-md"
-              maxHeight="max(140px, 30vh)"
-              height="min-content"
-              width="100%"
-            >
-              <ScrollArea size="1" type="auto" scrollbars="vertical" style={{height: '100%'}}>
-                {districtMaps.map(map => (
-                  <Button
-                    key={map.document_id}
-                    variant="outline"
-                    size="3"
-                    onMouseDown={e => {
-                      e.preventDefault();
-                      const mapUrl = new URL(
-                        `/${routeManager.mapUrlRoute}/edit/${map.document_id}`,
-                        window.location.href
-                      );
-                      setFormState('comment', 'document_id', mapUrl.toString());
-                      setShowMapOptions(false);
-                      mutate(mapUrl.toString());
-                    }}
-                    onClick={e => {
-                      e.preventDefault();
-                    }}
-                    className="w-full rounded-none h-auto p-2 justify-start"
-                  >
-                    <Flex direction="column" gap="0" className="text-left py-2" align="start">
-                      <Text>{map.map_metadata?.name ?? 'Plan'}</Text>
-                      <Text>{map.map_module}</Text>
-                      {map.updated_at && (
-                        <Text size="1">
-                          Updated: {new Date(map.updated_at).toLocaleDateString()}
-                        </Text>
-                      )}
-                    </Flex>
-                  </Button>
-                ))}
-              </ScrollArea>
-            </Box>
-          )}
-        </Box>
-      </Flex>
-      {notification && (
+            placeholder={
+              districtMaps.length ? 'or paste a link to your map' : 'Paste a link to your map'
+            }
+          >
+            {isPending && (
+              <TextField.Slot side="right">
+                <Spinner size="1" />
+              </TextField.Slot>
+            )}
+          </TextField.Root>
+        </>
+      )}
+      {showMapSelector && notification && (
         <Blockquote
           color={
             notification.type === 'error'
@@ -255,13 +235,14 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
           {notification.message}
         </Blockquote>
       )}
-      {notification?.type === 'success' && (
-        <object data="/home-megaphone-square.png" type="image/png" className="size-32">
-          <img
-            src={`${TILESET_URL}/thumbnails/${dataResponse?.mapInfo?.public_id}.png`}
-            alt="Map thumbnail"
-            className="size-32"
-          />
+      {showMapSelector && notification?.type === 'success' && dataResponse?.mapInfo?.public_id && (
+        <object
+          data={`${TILESET_URL}/thumbnails/${dataResponse.mapInfo.public_id}.png`}
+          type="image/png"
+          className="size-32"
+          aria-label="Map thumbnail"
+        >
+          <img src="/home-megaphone-square.png" alt="Map thumbnail" className="size-32" />
         </object>
       )}
     </Flex>
