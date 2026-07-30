@@ -1,5 +1,10 @@
 import {Flex, Heading, Text} from '@radix-ui/themes';
 
+export const metadata = {
+  title: 'Updates',
+  description: 'News and updates from the Districtr team',
+};
+
 export default function UpdatesPage() {
   return (
     <Flex direction="column" gapY="4">

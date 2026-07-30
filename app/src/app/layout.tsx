@@ -16,7 +16,7 @@ const nunito = Nunito({
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://beta.districtr.org'),
-  title: 'Districtr 2.0',
+  title: {template: '%s | Districtr', default: 'Districtr 2.0'},
   description: 'Create districting maps',
   openGraph: {
     title: 'Get Started',

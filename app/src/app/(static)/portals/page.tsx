@@ -5,6 +5,11 @@ import {Card, Flex, Grid, Heading, Text, Link} from '@radix-ui/themes';
 export const dynamic = 'force-dynamic';
 export const revalidate = 3600;
 
+export const metadata = {
+  title: 'Portals',
+  description: 'Organization and event portals on Districtr',
+};
+
 export default async function PortalsPage() {
   const cmsContent = await listCMSContent('tags');
   const cmsContentWithPublishedContent = cmsContent?.filter(content => content.published_content);

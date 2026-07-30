@@ -28,23 +28,20 @@ export async function generateMapPageMetadata({
   }
   if (!mapDocument) {
     // No document: fall back to the site-wide metadata from the root layout
-    return {title: 'Districtr 2.0'};
+    return {};
   }
 
-  const title = mapDocument.map_metadata?.name || 'Districtr Map';
-  const details = [
-    mapDocument.map_module,
-    mapDocument.num_districts ? `${mapDocument.num_districts} districts` : null,
-  ]
+  const title = [mapDocument.map_metadata?.name || 'Districtr Map', mapDocument.map_module]
     .filter(Boolean)
-    .join(' · ');
+    .join(' | ');
+  const details = mapDocument.num_districts ? `${mapDocument.num_districts} districts` : null;
   const description =
     [mapDocument.map_metadata?.description, details].filter(Boolean).join(' — ') ||
     'Create districting maps';
   const ogImageUrl = `/api/og/${id}`;
 
   return {
-    title: `${title} | Districtr 2.0`,
+    title,
     description,
     openGraph: {
       title,
