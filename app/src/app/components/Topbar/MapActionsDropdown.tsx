@@ -22,13 +22,13 @@ export const MapActionsDropdown: React.FC<{
   const access = useMapStore(state => state.mapStatus?.access);
   const handleReset = useMapStore(state => state.handleReset);
   const setNotification = useMapStore(state => state.setNotification);
-  const {isOutdated, save} = useMapSaveStatus();
+  const {save} = useMapSaveStatus();
 
-  const notifyExportFailed = (reason: string, message?: string) =>
+  const notifyExportFailed = (reason: string) =>
     setNotification({
       importance: 2,
       type: 'error',
-      message: message ?? 'Exporting this map failed. Please try again in a moment.',
+      message: 'Exporting this map failed. Please try again in a moment.',
       id: `export-failed-${exportId}-${reason}`,
     });
 
@@ -46,11 +46,18 @@ export const MapActionsDropdown: React.FC<{
 
   const downloadExport = async (exportType: string) => {
     if (!exportId) return;
+    // Save first so the export reflects local edits — but only for editors, like
+    // every other save() call site. View-only viewers have nothing to save, and a
+    // stale updated_at would pop the save-conflict modal at someone who never
+    // asked to save. On failure just abort: handlePutAssignments already surfaced
+    // it (conflict modal or error toast), so a toast here would double-notify.
+    if (access === ACCESS_STATES.EDIT) {
+      const saveResponse = await save();
+      if (!saveResponse.ok) return;
+    }
     // Fetch via the session-aware client (plain anchor navigation can't attach
     // the X-Districtr-Session header) and save the blob through a transient
     // anchor. Filename comes from the backend's Content-Disposition.
-    const saveResponse = await save();
-    if (!saveResponse.ok) return;
     try {
       const response = await fetchWithSession(
         `${process.env.NEXT_PUBLIC_API_URL}/api/document/${exportId}/export?export_type=${exportType}`
