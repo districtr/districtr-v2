@@ -42,7 +42,11 @@ export const Uploader: React.FC<{
       // GEOIDs or remapped zone labels both require a manual "Continue" click.
       const needsReview = mapLink.skipped_geo_ids?.length || mapLink.zone_label_remapping;
       if (!needsReview) {
-        window.location.href = editPath(routePrefix, mapLink.document_id, mapLink.public_id);
+        window.location.href = editPath(
+          routePrefix,
+          mapLink.document_id,
+          mapLink.public_id ?? null
+        );
         onFinish?.();
       }
     }
@@ -170,7 +174,7 @@ export const Uploader: React.FC<{
             </Callout.Root>
           )}
           <Link
-            href={editPath(routePrefix, mapLink.document_id, mapLink.public_id)}
+            href={editPath(routePrefix, mapLink.document_id, mapLink.public_id ?? null)}
             target={newTab ? '_blank' : undefined}
             className="self-start"
           >

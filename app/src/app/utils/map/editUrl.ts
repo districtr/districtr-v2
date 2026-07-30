@@ -41,7 +41,7 @@ export const expandUUID = (token: string): string | null => {
 export const editPath = (
   routePrefix: string,
   document_id: string,
-  public_id?: number | null
+  public_id: number | null
 ): string =>
   public_id != null
     ? `/${routePrefix}/${public_id}/edit?${PRIVATE_EDIT_ID_PARAM}=${shortenUUID(document_id)}`
