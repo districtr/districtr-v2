@@ -1460,6 +1460,11 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     const {mapDocument, setMapLock, setNotification, setShowSaveConflictModal, updated} =
       useMapStore.getState();
     if (!mapDocument?.document_id || !mapDocument.updated_at) {
+      setNotification({
+        message: 'Unable to save: no map document loaded.',
+        importance: 2,
+        type: 'error',
+      });
       return {
         ok: false,
         error: {
@@ -1469,6 +1474,11 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     }
     const idbDocument = await idb.getDocument(mapDocument.document_id);
     if (!idbDocument) {
+      setNotification({
+        message: 'Unable to save: local copy of this map is missing. Please refresh and try again.',
+        importance: 2,
+        type: 'error',
+      });
       return {
         ok: false,
         error: {
@@ -1546,6 +1556,11 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     } finally {
       setMapLock(null);
     }
+    setNotification({
+      message: 'Saving this map failed. Please try again in a moment.',
+      importance: 2,
+      type: 'error',
+    });
     return {
       ok: false,
       error: {
