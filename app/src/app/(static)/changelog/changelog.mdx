@@ -1,4 +1,76 @@
 
+## v2.3.0
+
+**August 2026**
+
+**Districtr v2 is now live at districtr.org!** The original Districtr remains available at [legacy.districtr.org](https://legacy.districtr.org).
+
+**New features**
+
+- Map modules for all 52 geographies: 50 states, DC, and Puerto Rico
+- Draw and Super Draw edit modes
+- Continuous choropleth scales for demographic and election shading
+- City boundaries as an optional overlay layer
+- Check for unassigned units while zoomed out
+- Site architecture revamp with a surfaced guide page and contextual help across the map editor
+
+**Reliability and bug fixes**
+
+- CSV importer now infers map modules correctly and prefers customizable-district maps
+- Hotkeys no longer allow assigning district 0
+- Fixed a memory issue with voting age population overlays
+- Gentler zoom animations
+
+**Security**
+
+- Cloudflare Turnstile integration to protect map creation
+- Completed a security audit
+
+## v2.2.6
+
+**July 8, 2026**
+
+**UI polish**
+
+- Population panel scrolls with many districts
+- Users stay on their current tool after break/shatter
+- Draggable toolbar keeps its position across sessions
+- Improved county boundary layer styling and visibility
+
+**Reliability and bug fixes**
+
+- District labels now update when erasing disconnected components
+- Fixed local caching when a user's last action is an undo
+- Improved undo/redo interaction with map sync
+
+**Developer and ops**
+
+- Production stress-testing harness and fixed a race condition in concurrent map evaluation
+
+## v2.2.5
+
+**June 30, 2026**
+
+**New features**
+
+- Export overhaul
+- Simplified CSV and block assignment imports: automatic map inference and string zone label remapping
+- Dedicated manage maps page and better saved maps
+- Improved uploader workflow
+- Navigation and UX enhancements, with user flows centralized on the main site
+- Under-construction page manageable from the CMS
+
+**Reliability and bug fixes**
+
+- Undoing a paint on broken geometries now triggers healing correctly
+
+**Developer and ops**
+
+- Migrated hosting to AWS with infrastructure as code and automated deploy workflows
+- Daily audits of map graph data completeness
+- New test suites for data pipeline graph transforms
+- Per-PR preview deployments
+
 ## v2.2.4
 
 **June 3, 2026**
