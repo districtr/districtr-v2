@@ -3,7 +3,13 @@ import pytest
 from tests.constants import FIXTURES_PATH
 from unittest.mock import patch
 from datetime import datetime
-from app.thumbnails.main import generate_thumbnail, generate_blank, THUMBNAIL_BUCKET
+from app.core.config import settings
+from app.thumbnails.main import (
+    generate_thumbnail,
+    generate_blank,
+    get_thumbnail_file_path,
+    THUMBNAIL_BUCKET,
+)
 
 
 @pytest.fixture
@@ -30,7 +36,7 @@ def test_thumbnail_generator(client, document_id_with_assignments, session):
     document_id = document_id_with_assignments
     out_path = f"{FIXTURES_PATH}/{document_id}.png"
     with patch(
-        "app.thumbnails.main.get_document_thumbnail_file_path",
+        "app.thumbnails.main.get_thumbnail_file_path",
         return_value=out_path,
     ):
         # generate_thumbnail now owns its own session when run as a background task,
@@ -63,7 +69,7 @@ def test_blank_thumbnail_generator(client, document_id, session):
     districtrmap_slug = response.json().get("districtr_map_slug")
     out_path = f"{FIXTURES_PATH}/{districtrmap_slug}.png"
     with patch(
-        "app.thumbnails.main.get_document_thumbnail_file_path",
+        "app.thumbnails.main.get_blank_thumbnail_file_path",
         return_value=out_path,
     ):
         generate_blank(
@@ -98,7 +104,22 @@ def test_thumbnail_cdn_redirect(client, document_id):
             follow_redirects=False,
         )
         assert response.status_code == 307
-        assert f"/thumbnails/{document_id}.png" in response.headers["location"]
+        assert (
+            f"/thumbnails/{settings.ENVIRONMENT}/{document_id}.png"
+            in response.headers["location"]
+        )
+
+
+def test_thumbnail_file_path_is_environment_scoped(monkeypatch):
+    monkeypatch.setattr(settings, "ENVIRONMENT", "development")
+    dev_path = get_thumbnail_file_path("123")
+
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+    prod_path = get_thumbnail_file_path("123")
+
+    assert dev_path != prod_path
+    assert "/development/" in dev_path
+    assert "/production/" in prod_path
 
 
 def test_thumbnail_generic_redirect(client, document_id):

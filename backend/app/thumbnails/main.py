@@ -68,8 +68,14 @@ DISTRICT_COLORS = [
 ]
 
 
-def get_document_thumbnail_file_path(document_id: str) -> str:
-    return f"s3://{THUMBNAIL_BUCKET}/thumbnails/{document_id}.png"
+def get_thumbnail_file_path(public_id: str | int) -> str:
+    return f"s3://{THUMBNAIL_BUCKET}/thumbnails/{settings.ENVIRONMENT}/{public_id}.png"
+
+
+def get_blank_thumbnail_file_path(districtr_map_slug: str) -> str:
+    # districtr_map_slug is the same string in every environment (shared map
+    # catalog), unlike public_id, so this one is intentionally unprefixed.
+    return f"s3://{THUMBNAIL_BUCKET}/thumbnails/{districtr_map_slug}.png"
 
 
 def write_image(out_path: str | Path, pic_IObytes: io.BytesIO) -> None:
@@ -201,7 +207,7 @@ def _generate_thumbnail(
     plt.close(geoplt.figure)
     pic_IObytes.seek(0)
 
-    out_file = get_document_thumbnail_file_path(str(public_id))
+    out_file = get_thumbnail_file_path(str(public_id))
     try:
         write_image(out_file, pic_IObytes)
     except (ValueError, S3UploadFailedError) as e:
@@ -214,11 +220,13 @@ def _generate_thumbnail(
     return out_file
 
 
-@router.get("/api/document/{document_id}/thumbnail", status_code=status.HTTP_200_OK)
-async def get_thumbnail(*, document_id: str, session: Session = Depends(get_session)):
-    thumbail_file_path = get_document_thumbnail_file_path(document_id)
+@router.get("/api/document/{public_id}/thumbnail", status_code=status.HTTP_200_OK)
+async def get_thumbnail(*, public_id: str, session: Session = Depends(get_session)):
+    thumbail_file_path = get_thumbnail_file_path(public_id)
     if file_exists(thumbail_file_path):
-        return RedirectResponse(url=f"{settings.cnd_url}/thumbnails/{document_id}.png")
+        return RedirectResponse(
+            url=f"{settings.cnd_url}/thumbnails/{settings.ENVIRONMENT}/{public_id}.png"
+        )
 
     return RedirectResponse(url="/home-megaphone.png")
 
@@ -311,7 +319,7 @@ def _generate_blank(
     plt.close(geoplt.figure)
     pic_IObytes.seek(0)
 
-    out_file = get_document_thumbnail_file_path(districtr_map_slug)
+    out_file = get_blank_thumbnail_file_path(districtr_map_slug)
     try:
         write_image(out_file, pic_IObytes)
     except (ValueError, S3UploadFailedError) as e:

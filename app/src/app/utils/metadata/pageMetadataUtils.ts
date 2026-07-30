@@ -1,17 +1,21 @@
 import {Metadata} from 'next';
+import {headers} from 'next/headers';
 import {DocumentObject} from '@/app/utils/api/apiHandlers/types';
 import {API_URL} from '@/app/utils/api/constants';
-
-export const DISTRICTR_LOGO = {
-  url: 'https://beta.districtr.org/districtr_logo.jpg',
-  width: 1136,
-  height: 423,
-};
 
 export type MetadataProps = {
   params?: Promise<{public_id?: string}>;
   searchParams?: Promise<{document_id?: string | string[] | undefined}>;
 };
+
+/** The serving environment's own origin — never a hardcoded domain, so OG
+ * images/logo resolve correctly on dev/preview, not just production. */
+async function getRequestOrigin(): Promise<string> {
+  const requestHeaders = await headers();
+  const protocol = requestHeaders.get('x-forwarded-proto') ?? 'https';
+  const host = requestHeaders.get('host') ?? 'beta.districtr.org';
+  return `${protocol}://${host}`;
+}
 
 /**
  * Every id-bearing map/coi route carries its id as a path segment
@@ -26,6 +30,7 @@ export async function generateMapPageMetadata({
   const resolvedSearchParams = await searchParams;
   const document_id = resolvedParams?.public_id ?? resolvedSearchParams?.document_id ?? '';
   const singularDocumentId = Array.isArray(document_id) ? document_id[0] : document_id;
+  const origin = await getRequestOrigin();
   let mapDocument: DocumentObject | null = null;
   if (singularDocumentId) {
     mapDocument = await fetch(`${API_URL}/api/document/${singularDocumentId}`).then(res =>
@@ -43,11 +48,15 @@ export async function generateMapPageMetadata({
       siteName: 'Districtr 2.0',
       images: [
         {
-          url: `https://beta.districtr.org/api/og/${singularDocumentId}`,
+          url: `${origin}/api/og/${singularDocumentId}`,
           width: 1128,
           height: 600,
         },
-        DISTRICTR_LOGO,
+        {
+          url: `${origin}/districtr_logo.jpg`,
+          width: 1136,
+          height: 423,
+        },
       ],
     },
   };
