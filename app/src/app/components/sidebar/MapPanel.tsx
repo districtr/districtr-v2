@@ -37,6 +37,7 @@ import {
   isCoalitionUniverse,
   CoalitionUniverse,
   SUMMARY_TYPES,
+  toOverlayGroup,
   type SummaryType,
 } from '@constants/demography/summary';
 import {COALITION_VARIABLE_BY_UNIVERSE, DemographyVariable} from '@constants/demography/coalition';
@@ -172,13 +173,13 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   const handleSetMapMode = (newMode: MapControlsStore['mapOptions']['demographicDisplayMode']) => {
     setMapOptions({demographicDisplayMode: newMode});
     // Toggling a layer on registers it with the Visual settings toggle:
-    // remember the display mode (overlay vs. comparison), the group, and the
-    // variable it's showing.
+    // remember the display mode (overlay vs. comparison) and the variable
+    // it's showing.
     if (newMode) {
       overlayMemory.displayMode = newMode;
-      overlayMemory.lastGroup = columnGroup;
       const effectiveVariable = mapVariableConfig ? variable : currentVariableList[0]?.value;
-      if (effectiveVariable) overlayMemory.variables[columnGroup] = effectiveVariable;
+      if (effectiveVariable)
+        overlayMemory.variables[toOverlayGroup(columnGroup)] = effectiveVariable;
     }
     if (!mapVariableConfig && currentVariableList.length) {
       setVariable(currentVariableList[0].value);
@@ -223,8 +224,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   const handleChangeVariable = (newVariable: DemographyVariable) => {
     setVariable(newVariable);
     // Remember the choice so the Visual settings overlay toggle restores it.
-    overlayMemory.variables[columnGroup] = newVariable;
-    overlayMemory.lastGroup = columnGroup;
+    overlayMemory.variables[toOverlayGroup(columnGroup)] = newVariable;
   };
 
   const handleChangePercent = (usePercent: boolean) => {

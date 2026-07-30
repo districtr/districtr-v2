@@ -19,13 +19,16 @@ import {ColorChangeModal} from './ColorChangeModal';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {ACCESS_STATES} from '@constants/document/state';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
-import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
+import {SUMMARY_TYPES, type OverlayGroup} from '@constants/demography/summary';
 import {OVERLAY_OPACITY} from '@/app/constants/document/limits';
-import {activateOverlayGroup, overlayMemory} from '@utils/demography/overlayMemory';
 import {useUiHintStore} from '@store/uiHintStore';
+import {
+  activateOverlayGroup,
+  overlayGroupVariables,
+  overlayMemory,
+} from '@utils/demography/overlayMemory';
 
 export const POPULATION_TOOLTIP_FLASH_ID = 'population-tooltip-toggle';
-
 /** Layers
  * This component is responsible for rendering the layers that can be toggled
  * on and off in the map.
@@ -47,30 +50,21 @@ export const ToolSettings: React.FC = () => {
   // Overlay layer: one selection among none / demographic / election (the
   // groups are mutually exclusive, so this is a mode picker, not independent
   // checkboxes). Super Draw offers every group with data on this map; Draw
-  // offers each group the user has toggled on so far — either alone is
-  // enough, both appear once both have been used.
+  // offers each group once it's actually been used.
   const electionVariables = availableMapVariables[SUMMARY_TYPES.VOTERHISTORY] ?? [];
   const isElectionVariable = electionVariables.some(v => v.value === variable);
   // "On" means either display mode — overlay or the side-by-side comparison.
   const overlayOn = mapOptions.demographicDisplayMode !== undefined;
-  const allGroups = [SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VOTERHISTORY] as SummaryType[];
-  const overlayGroups: Array<{group: SummaryType; label: string}> = (
-    superDraw
-      ? allGroups
-      : allGroups.filter(
-          group => overlayMemory.variables[group] || overlayMemory.lastGroup === group
-        )
+  const allGroups: OverlayGroup[] = ['demography', 'election'];
+  const overlayGroups: Array<{group: OverlayGroup; label: string}> = (
+    superDraw ? allGroups : allGroups.filter(group => overlayMemory.variables[group])
   )
-    .filter(group => (availableMapVariables[group] ?? []).length > 0)
+    .filter(group => overlayGroupVariables(group).length > 0)
     .map(group => ({
       group,
-      label: group === SUMMARY_TYPES.VOTERHISTORY ? 'Election' : 'Demographic',
+      label: group === 'election' ? 'Election' : 'Demographic',
     }));
-  const overlayValue = !overlayOn
-    ? 'none'
-    : isElectionVariable
-      ? SUMMARY_TYPES.VOTERHISTORY
-      : SUMMARY_TYPES.TOTPOP;
+  const overlayValue = !overlayOn ? 'none' : isElectionVariable ? 'election' : 'demography';
 
   const handleOverlayChange = (value: string) => {
     if (value === 'none') {
@@ -89,7 +83,7 @@ export const ToolSettings: React.FC = () => {
       });
       return;
     }
-    activateOverlayGroup(value as SummaryType);
+    activateOverlayGroup(value as OverlayGroup);
   };
 
   return (
