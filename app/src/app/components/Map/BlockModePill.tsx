@@ -31,8 +31,6 @@ export const BlockModePill = () => {
       // Full-bbox padding on each side. Generous because the bbox comes from a
       // tile-clipped geometry (handleShatter) and can underestimate the unit's
       // true extent; the padded box also sets the minZoom floor below.
-      // ponytail: padding over correctness — the real fix is an unclipped bbox
-      // from source data if units ever span enough tiles that 1x isn't enough.
       const padX = east - west;
       const padY = north - south;
       const maxBounds: [number, number, number, number] = [
@@ -46,8 +44,6 @@ export const BlockModePill = () => {
       // accumulating its target below that floor, so zooming back in must pay
       // off the invisible overshoot first and feels stuck. An explicit minZoom
       // clamps the scroll target too.
-      // ponytail: contain-fit zoom sits a bit below the implicit floor when the
-      // bbox and viewport aspects differ; residual overshoot is <1 zoom level.
       const fitZoom = map.cameraForBounds(maxBounds)?.zoom;
       if (fitZoom !== undefined) map.setMinZoom(Math.max(0, fitZoom));
     }
