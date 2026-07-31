@@ -25,6 +25,7 @@ import {InProgressIcon, ReadyIcon, ScratchWorkIcon} from './Icons';
 import {SegmentedControl} from '@radix-ui/themes';
 import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
+import {useDraftStatusCriteria} from '@/app/hooks/useDraftStatusCriteria';
 
 const statusIcons: Record<DraftStatus, React.FC> = {
   [DRAFT_STATUSES.SCRATCH]: ScratchWorkIcon,
@@ -42,6 +43,8 @@ export const MapTitleDisplay: React.FC<{
   const [mapStatusInner, setMapStatusInner] = useState<DraftStatus>(DRAFT_STATUSES.SCRATCH);
   const [open, setOpen] = useState(false);
   const {moduleName, unitsSentence, dataSourceSentence} = useMapModuleInfo();
+  // Forward status moves are earned (same criteria as the helper box).
+  const {statusLocked} = useDraftStatusCriteria();
 
   const _mapName = mapMetadata?.name ?? mapDocument?.map_metadata?.name ?? '';
   const _mapDescription = mapMetadata?.description ?? mapDocument?.map_metadata?.description ?? '';
@@ -161,25 +164,46 @@ export const MapTitleDisplay: React.FC<{
               </Text>
               <SegmentedControl.Root
                 value={mapStatusInner}
-                onValueChange={e => setMapStatusInner(e as DraftStatus)}
+                // Locked selections are ignored (no Item disabled prop in this
+                // Radix version) — forward status moves are earned.
+                onValueChange={e => {
+                  if (!statusLocked(e as DraftStatus)) setMapStatusInner(e as DraftStatus);
+                }}
                 size="1"
                 className="w-full h-full mb-4"
                 style={{width: '100%', maxWidth: '100%'}}
               >
-                {DRAFT_STATUS_ORDER.map(status => (
-                  <SegmentedControl.Item key={status} value={status}>
-                    <Flex
-                      direction="column"
-                      gap="0"
-                      align="center"
-                      justify="start"
-                      className="py-1"
+                {DRAFT_STATUS_ORDER.map(status => {
+                  const locked = statusLocked(status);
+                  const item = (
+                    <SegmentedControl.Item
+                      key={status}
+                      value={status}
+                      className={locked ? 'opacity-50 !cursor-not-allowed' : ''}
                     >
-                      {statusIcons[status]({})}
-                      <Text>{DRAFT_STATUS_TEXT[status]}</Text>
-                    </Flex>
-                  </SegmentedControl.Item>
-                ))}
+                      <Flex
+                        direction="column"
+                        gap="0"
+                        align="center"
+                        justify="start"
+                        className="py-1"
+                      >
+                        {statusIcons[status]({})}
+                        <Text>{DRAFT_STATUS_TEXT[status]}</Text>
+                      </Flex>
+                    </SegmentedControl.Item>
+                  );
+                  return locked ? (
+                    <Tooltip
+                      key={status}
+                      content="Complete the helper checklist to unlock this status"
+                    >
+                      {item}
+                    </Tooltip>
+                  ) : (
+                    item
+                  );
+                })}
               </SegmentedControl.Root>
               <Flex direction="row" gap="2" justify="end">
                 <Button
