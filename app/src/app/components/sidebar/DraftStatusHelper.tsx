@@ -34,7 +34,8 @@ type ChecklistItem = {
 };
 
 /** Link-styled action that flows inline with the checklist text instead of
- * occupying its own row. */
+ * occupying its own row. `back` renders the quiet variant: gray, no arrow —
+ * step-backs shouldn't compete with the forward hints. */
 const InlineHintButton: React.FC<{
   onClick: () => void;
   back?: boolean;
@@ -43,9 +44,11 @@ const InlineHintButton: React.FC<{
   <button
     type="button"
     onClick={onClick}
-    className="inline cursor-pointer whitespace-nowrap font-semibold text-districtrBlue hover:underline underline-offset-2"
+    className={`inline cursor-pointer whitespace-nowrap hover:underline underline-offset-2 ${
+      back ? 'text-gray-500 hover:text-gray-700' : 'font-semibold text-districtrBlue'
+    }`}
   >
-    {back ? <>← {children}</> : <>{children} →</>}
+    {back ? children : <>{children} →</>}
   </button>
 );
 
