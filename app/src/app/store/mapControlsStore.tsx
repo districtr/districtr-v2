@@ -93,7 +93,10 @@ export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
   higlightUnassigned: false,
   lockPaintedAreas: [],
   mode: 'default',
-  paintByCounty: true,
+  // Real default is computed per-document in useDocumentWithSync (multi-county
+  // unless the map is DC or already has assignments) — this is just the
+  // pre-load fallback before that runs.
+  paintByCounty: false,
   prominentCountyNames: true,
   showCountyBoundaries: true,
   showPaintedDistricts: true,

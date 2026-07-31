@@ -14,6 +14,19 @@ import {MAP_MODES} from '@constants/map/mode';
 import {MAP_TYPES} from '@constants/document/types';
 import {APP_LOADING_STATES} from '@constants/document/state';
 
+// DC is the only one of districtr's 52 map-module jurisdictions (50 states + DC + PR)
+// that's a single county-equivalent (itself) — every other state/PR has multiple
+// counties/municipios, so "multi-county" is the correct default everywhere else.
+const DC_STATEFP = '11';
+
+/** County brush defaults on for a blank multi-county map, off for DC (nothing to
+ * multi-select) and off for a map the user has already started painting — flipping
+ * it out from under an in-progress edit would be surprising, not helpful. */
+function defaultPaintByCounty(statefps: string[] | undefined, hasAssignments: boolean): boolean {
+  if (hasAssignments) return false;
+  return !statefps?.includes(DC_STATEFP);
+}
+
 interface UseDocumentWithSyncOptions {
   document_id: string | null | undefined;
   enabled?: boolean;
@@ -37,6 +50,7 @@ export function useDocumentWithSync({
   const setAppLoadingState = useMapStore(state => state.setAppLoadingState);
   const setLoadingState = useMapStore(state => state.setLoadingState);
   const mapMode = useMapControlsStore(state => state.mapMode);
+  const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const ingestDistrictFromDocument = useAssignmentsStore(state => state.ingestFromDocument);
   const ingestCoiFromDocument = useCoiAssignmentsStore(state => state.ingestFromDocument);
   const districtResolveConflict = useAssignmentsStore(state => state.resolveConflict);
@@ -139,9 +153,21 @@ export function useDocumentWithSync({
         if (isCommunityDocument) {
           const data = formatCoiAssignmentsFromDocument(result.response.assignments);
           ingestCoiFromDocument(data, result.response.document, result.response.hasLocalEdits);
+          setMapOptions({
+            paintByCounty: defaultPaintByCounty(
+              result.response.document.statefps,
+              data.communityAssignments.size > 0
+            ),
+          });
         } else {
           const data = formatAssignmentsFromDocument(result.response.assignments);
           ingestDistrictFromDocument(data, result.response.document, result.response.hasLocalEdits);
+          setMapOptions({
+            paintByCounty: defaultPaintByCounty(
+              result.response.document.statefps,
+              data.zoneAssignments.size > 0
+            ),
+          });
         }
         // Set overlays from document response
         setMapDocument(result.response.document);
