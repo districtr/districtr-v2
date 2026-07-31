@@ -242,7 +242,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
           <Flex direction="column" gap="2">
             <Flex direction="row" gap="3" align="center" wrap="wrap">
               <Text size="2" weight="medium">
-                {columnGroup === 'VOTERHISTORY' ? 'Choose Election' : 'Choose Population'}
+                {columnGroup === 'VOTERHISTORY' ? 'Map layer election' : 'Map layer population'}
               </Text>
               <Select.Root value={variable} onValueChange={handleChangeVariable}>
                 <Select.Trigger>
