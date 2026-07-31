@@ -63,7 +63,7 @@ export const helpTipContent = {
   // No video for this one yet — text-only, unlike the other brush tips.
   disallowPaintOver: {
     title: 'Disallow paint over',
-    text: 'Toggle this to protect every district you\'ve already drawn — the brush will only add unassigned units, leaving painted areas untouched. Erasing still works.',
+    text: 'When toggled on, the brush will only add unassigned units, leaving painted areas untouched.',
     guideAnchor: 'drawing-the-districts',
   },
   switchDistrict: {
