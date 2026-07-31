@@ -169,6 +169,7 @@ export const WorkflowTabs: React.FC<{layoutToggle: React.ReactNode}> = ({layoutT
   // them instead of firing a surprise jump.
   const sidebarTabRequest = useUiHintStore(state => state.requests.sidebarTab);
   const clearRequest = useUiHintStore(state => state.clear);
+  const flashTarget = useUiHintStore(state => state.flashTarget);
   const tabRequestsLive = useRef(false);
   useEffect(() => {
     const live = tabRequestsLive.current;
@@ -197,6 +198,9 @@ export const WorkflowTabs: React.FC<{layoutToggle: React.ReactNode}> = ({layoutT
             <div className="flex gap-5 text-sm tracking-wider">
               {visibleTabs.map(t => {
                 const active = t.key === activeKey;
+                // Helper jumps pulse the destination tab label first (see
+                // jumpToSection) so the cut to another tab reads as a path.
+                const flashing = flashTarget === `tab:${t.key}`;
                 return (
                   <button
                     key={t.key}
@@ -208,7 +212,7 @@ export const WorkflowTabs: React.FC<{layoutToggle: React.ReactNode}> = ({layoutT
                       active
                         ? 'text-districtrBlue font-bold border-districtrBlue'
                         : 'text-gray-600 border-transparent'
-                    }`}
+                    } ${flashing ? 'ui-flash' : ''}`}
                   >
                     {/* Invisible bold twin reserves bold width so tabs don't
                         shift when the active weight changes. */}

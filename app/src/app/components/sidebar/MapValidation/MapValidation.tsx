@@ -10,6 +10,7 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useUiHintStore} from '@/app/store/uiHintStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {MAP_TYPES} from '@constants/document/types';
+import {ACCESS_STATES} from '@constants/document/state';
 
 const mapValidationPanel = [
   {
@@ -41,7 +42,12 @@ export const MapValidation = () => {
   const Component = mapValidationPanel.find(panel => panel.label === activePanel)?.component;
   const mapDocument = useMapStore(state => state.mapDocument);
   const idbDocument = useIdbDocument(mapDocument?.document_id);
-  const isOutdated = idbDocument?.clientLastUpdated !== idbDocument?.document_metadata.updated_at;
+  const access = useMapStore(state => state.mapStatus?.access);
+  // Only editors save (or are told to): a read-only viewer with a stale local
+  // timestamp must not fire writes — or conflict UI — on their behalf.
+  const canSave = access === ACCESS_STATES.EDIT;
+  const isOutdated =
+    canSave && idbDocument?.clientLastUpdated !== idbDocument?.document_metadata.updated_at;
   const handlePutAssignments = useAssignmentsStore(state => state.handlePutAssignments);
 
   // Opening the check (or swapping panels) silently saves pending edits so

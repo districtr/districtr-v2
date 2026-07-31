@@ -25,6 +25,7 @@ import {InProgressIcon, ReadyIcon, ScratchWorkIcon} from './Icons';
 import {SegmentedControl} from '@radix-ui/themes';
 import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
+import {useUiHintStore} from '@store/uiHintStore';
 
 const statusIcons: Record<DraftStatus, React.FC> = {
   [DRAFT_STATUSES.SCRATCH]: ScratchWorkIcon,
@@ -76,6 +77,13 @@ export const MapTitleDisplay: React.FC<{
 
   const draftStatus = mapMetadata?.draft_status ?? DRAFT_STATUSES.SCRATCH;
   const DraftStatusIcon = statusIcons[draftStatus];
+  // Pulses when the helper box just changed the status (see its changeStatus).
+  const statusFlashing = useUiHintStore(state => state.flashTarget === 'map-status-icon');
+  const statusIcon = (
+    <span className={`inline-flex rounded-full ${statusFlashing ? 'ui-flash' : ''}`}>
+      <DraftStatusIcon />
+    </span>
+  );
 
   // The module shows inline until the map is named, then moves into the
   // hover — one condensed tooltip instead of stacked popover + tooltip.
@@ -104,7 +112,7 @@ export const MapTitleDisplay: React.FC<{
   if (!editing) {
     const display = (
       <Flex align="center" gapX="1" direction="row">
-        <DraftStatusIcon />
+        {statusIcon}
         <Text size="2" className={mapName ? '' : 'text-gray-500'}>
           {displayTitle}
         </Text>
@@ -127,7 +135,7 @@ export const MapTitleDisplay: React.FC<{
             aria-label="Edit map name and information"
           >
             <Flex align="center" gapX="1" direction="row">
-              <DraftStatusIcon />
+              {statusIcon}
               <Text size="2" className={mapName ? 'font-bold text-black' : 'text-gray-500'}>
                 {displayTitle || '(Edit map name)'}
               </Text>
