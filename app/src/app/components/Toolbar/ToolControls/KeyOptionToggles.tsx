@@ -15,7 +15,7 @@ export const KeyOptionToggles: React.FC = () => {
 
   return (
     <Flex direction="column" gap="2">
-      <Text as="label" size="2" className="cursor-pointer select-none">
+      <Text as="label" size="1" className="cursor-pointer select-none">
         <Flex gap="2" align="center">
           <Checkbox
             checked={mapOptions.showZoneNumbers === true}
@@ -26,7 +26,7 @@ export const KeyOptionToggles: React.FC = () => {
           District numbers
         </Flex>
       </Text>
-      <Text as="label" size="2" className="cursor-pointer select-none">
+      <Text as="label" size="1" className="cursor-pointer select-none">
         <Flex gap="2" align="center">
           <Checkbox
             checked={mapOptions.showPopulationTooltip === true}
@@ -41,7 +41,7 @@ export const KeyOptionToggles: React.FC = () => {
       {/* Placeholder for issue #677's "Disallow paint over" toggle — this branch's
           MapOptions has no disallowPaintOver field yet, so the control is rendered
           inert (no checked state, no handler) until that field lands. */}
-      <Text as="label" size="2" className="select-none" style={{opacity: 0.5}}>
+      <Text as="label" size="1" className="select-none" style={{opacity: 0.5}}>
         <Flex gap="2" align="center">
           <Checkbox checked={false} disabled />
           Disallow paint over
