@@ -44,12 +44,14 @@ export const MapValidation = () => {
   const isOutdated = idbDocument?.clientLastUpdated !== idbDocument?.document_metadata.updated_at;
   const handlePutAssignments = useAssignmentsStore(state => state.handlePutAssignments);
 
-  // Opening the check (or swapping panels) saves pending edits so the results
-  // reflect the current map — helper-box jumps land on fresh numbers.
-  // Deliberately keyed on the panel, not isOutdated: painting while the panel
-  // is open must not trigger a save per stroke.
+  // Opening the check (or swapping panels) silently saves pending edits so
+  // the results reflect the current map — helper-box jumps land on fresh
+  // numbers, without the map-lock overlay or saved toast (this also runs when
+  // the Stats tab merely opens with the section expanded). Deliberately keyed
+  // on the panel, not isOutdated: painting while the panel is open must not
+  // trigger a save per stroke.
   useEffect(() => {
-    if (isOutdated) handlePutAssignments();
+    if (isOutdated) handlePutAssignments(false, {silent: true});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePanel]);
 
@@ -87,7 +89,8 @@ export const MapValidation = () => {
           <Text size="2">
             Results are from your last save.{' '}
             <button
-              onClick={() => handlePutAssignments()}
+              type="button"
+              onClick={() => handlePutAssignments(false, {silent: true})}
               className="inline cursor-pointer whitespace-nowrap font-semibold text-districtrBlue hover:underline underline-offset-2"
             >
               Save now →

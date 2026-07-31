@@ -41,30 +41,7 @@ export function useDraftStatusCriteria() {
   const idealPopulation = summaryStats?.idealpop;
   const unassigned = summaryStats?.unassigned;
 
-  // Same query key as the map-validation Contiguity panel, so the two share a
-  // cache entry; keying on updated_at refetches contiguity on each save.
-  const {data: contiguityData} = useQuery({
-    queryKey: ['Contiguity', mapDocument?.document_id, mapDocument?.updated_at],
-    queryFn: async () => await getContiguity(mapDocument),
-    enabled: !!mapDocument?.document_id && isEditing && !isCommunity,
-    staleTime: 0,
-    retry: false,
-    placeholderData: previousData => previousData,
-    refetchOnWindowFocus: false,
-  });
-
   const paintedZones = populationData.filter(d => (d.total_pop_20 ?? 0) > 0).length;
-  const contiguousZones =
-    contiguityData?.ok === true
-      ? Object.values(contiguityData.response).filter(pieces => pieces === 1).length
-      : 0;
-  const anyDiscontiguous =
-    contiguityData?.ok === true &&
-    Object.values(contiguityData.response).some(pieces => pieces > 1);
-  // Contiguity isn't computable for every map (e.g. uploaded LOCAL layers);
-  // an erroring endpoint must not lock advancement forever.
-  const contiguityUnavailable = contiguityData?.ok === false;
-
   // Unstarted districts count as 100% deviation, so balance implies started.
   const maxDeviation =
     idealPopulation && populationData.length
@@ -72,11 +49,41 @@ export function useDraftStatusCriteria() {
         idealPopulation
       : undefined;
   const balanced = maxDeviation !== undefined && maxDeviation <= BALANCE_DEVIATION;
-
   const scratchDone = paintedZones >= numDistricts && unassigned === 0;
-  const inProgressDone = balanced && (contiguityUnavailable || contiguousZones >= numDistricts);
-
   const currentStatus: DraftStatus = mapMetadata?.draft_status ?? DRAFT_STATUSES.SCRATCH;
+
+  // Same query key as the map-validation Contiguity panel, so the two share a
+  // cache entry; keying on updated_at refetches contiguity on each save.
+  // staleTime Infinity because the key already encodes freshness — observer
+  // mounts (share modal, status popover) must not re-hit the expensive
+  // endpoint. Off entirely for untouched scratch plans (no criterion needs it
+  // until the scratch checklist is complete) and for docs without a public_id
+  // (the endpoint resolves by public_id).
+  const {data: contiguityData, isFetching: contiguityFetching} = useQuery({
+    queryKey: ['Contiguity', mapDocument?.document_id, mapDocument?.updated_at],
+    queryFn: async () => await getContiguity(mapDocument),
+    enabled:
+      !!mapDocument?.document_id &&
+      !!mapDocument?.public_id &&
+      isEditing &&
+      !isCommunity &&
+      (scratchDone || currentStatus !== DRAFT_STATUSES.SCRATCH),
+    staleTime: Infinity,
+    retry: false,
+    placeholderData: previousData => previousData,
+    refetchOnWindowFocus: false,
+  });
+
+  const contiguousZones =
+    contiguityData?.ok === true
+      ? Object.values(contiguityData.response).filter(pieces => pieces === 1).length
+      : 0;
+  // Contiguity isn't computable for every map (erroring endpoint on uploaded
+  // LOCAL layers, or no public_id to query by); it must not lock advancement
+  // forever, but the UI should say "not checked" rather than show a pass.
+  const contiguityUnavailable = contiguityData?.ok === false || !mapDocument?.public_id;
+
+  const inProgressDone = balanced && (contiguityUnavailable || contiguousZones >= numDistricts);
   const currentIndex = DRAFT_STATUS_ORDER.indexOf(currentStatus);
 
   /** True when the status can't be selected: a forward move whose (cumulative)
@@ -94,9 +101,10 @@ export function useDraftStatusCriteria() {
     scratchDone,
     inProgressDone,
     statusLocked,
-    contiguityStale: isOutdated,
+    // Stale while edits are unsaved OR while the post-save refetch is in
+    // flight — placeholderData shows the previous save's counts until then.
+    contiguityStale: isOutdated || contiguityFetching,
     contiguityUnavailable,
-    anyDiscontiguous,
     counts: {
       paintedZones,
       numDistricts,

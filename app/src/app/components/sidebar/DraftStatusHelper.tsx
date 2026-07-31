@@ -1,6 +1,6 @@
 'use client';
 import React, {useEffect, useState} from 'react';
-import {Button, Flex, IconButton, Text} from '@radix-ui/themes';
+import {Button, Flex, Text} from '@radix-ui/themes';
 import {CheckIcon, ChevronDownIcon, MinusIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
@@ -24,7 +24,14 @@ const COLLAPSE_KEY = 'districtr-draft-helper-collapsed';
 const ROUGH_DRAW_UNASSIGNED_RATIO = 0.25;
 
 type Hint = {label: string; onClick: () => void};
-type ChecklistItem = {label: string; done: boolean; stale?: boolean; hints?: Hint[]};
+type ChecklistItem = {
+  label: string;
+  done: boolean;
+  /** Gray the row and show the pending dash even if done — the value is
+   * stale or uncheckable, not a confirmed pass. */
+  muted?: boolean;
+  hints?: Hint[];
+};
 
 /** Link-styled action that flows inline with the checklist text instead of
  * occupying its own row. */
@@ -33,6 +40,7 @@ const InlineHintButton: React.FC<{onClick: () => void; children: React.ReactNode
   children,
 }) => (
   <button
+    type="button"
     onClick={onClick}
     className="inline cursor-pointer whitespace-nowrap font-semibold text-districtrBlue hover:underline underline-offset-2"
   >
@@ -62,6 +70,9 @@ export const DraftStatusHelper = () => {
   const mapMode = useMapControlsStore(state => state.mapMode);
   const superDraw = useToolbarStore(state => state.superDraw);
   const mapDocument = useMapStore(state => state.mapDocument);
+  // The county brush is invalid while broken into blocks (PaintByCounty
+  // disables itself there); the hint must not force it on.
+  const inBlockView = useMapStore(state => state.captiveIds.size > 0);
   const setActiveTool = useMapControlsStore(state => state.setActiveTool);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const setPaintFunction = useMapControlsStore(state => state.setPaintFunction);
@@ -148,7 +159,9 @@ export const DraftStatusHelper = () => {
       hints:
         unassigned !== undefined && unassigned > 0
           ? [
-              unassignedRatio !== undefined && unassignedRatio > ROUGH_DRAW_UNASSIGNED_RATIO
+              !inBlockView &&
+              unassignedRatio !== undefined &&
+              unassignedRatio > ROUGH_DRAW_UNASSIGNED_RATIO
                 ? {
                     label: 'Paint by counties to roughly draw districts',
                     onClick: handleCountyBrushHint,
@@ -192,11 +205,15 @@ export const DraftStatusHelper = () => {
         : undefined,
     },
     {
+      // Uncheckable/stale contiguity passes the gate (see the criteria hook)
+      // but must not display as a confirmed pass.
       label: contiguityUnavailable
-        ? 'Keep districts contiguous'
-        : `Keep districts contiguous (${contiguityStale ? '?' : contiguousZones}/${numDistricts})`,
+        ? 'Keep districts contiguous (not checked for this map)'
+        : contiguityStale
+          ? `Keep districts contiguous (?/${numDistricts}) — updates on save`
+          : `Keep districts contiguous (${contiguousZones}/${numDistricts})`,
       done: contiguityUnavailable || contiguousZones >= numDistricts,
-      stale: contiguityStale && !contiguityUnavailable,
+      muted: contiguityUnavailable || contiguityStale,
       hints:
         !contiguityStale && !contiguityUnavailable && contiguousZones < numDistricts
           ? [
@@ -276,31 +293,31 @@ export const DraftStatusHelper = () => {
       }}
       data-testid="draft-status-helper"
     >
-      <Flex align="center" justify="between" onClick={toggleCollapsed} style={{cursor: 'pointer'}}>
-        <Text size="3" weight="bold">
-          {title}
-        </Text>
-        <Flex align="center" gap="2">
-          {!showPointers && !collapsed && (
-            <Text size="1" color="gray">
-              {doneCount} of {items.length} done
-            </Text>
-          )}
-          <IconButton
-            variant="ghost"
-            color="gray"
-            size="1"
-            aria-label={collapsed ? `Expand ${title} checklist` : `Collapse ${title} checklist`}
-          >
+      <button
+        type="button"
+        onClick={toggleCollapsed}
+        aria-expanded={!collapsed}
+        className="w-full cursor-pointer text-left"
+      >
+        <Flex align="center" justify="between">
+          <Text size="3" weight="bold">
+            {title}
+          </Text>
+          <Flex align="center" gap="2">
+            {!showPointers && !collapsed && (
+              <Text size="1" color="gray">
+                {doneCount} of {items.length} done
+              </Text>
+            )}
             <ChevronDownIcon
               style={{
                 transform: collapsed ? 'rotate(-90deg)' : undefined,
                 transition: 'transform 0.15s',
               }}
             />
-          </IconButton>
+          </Flex>
         </Flex>
-      </Flex>
+      </button>
       {!collapsed && regressed && (
         <Flex
           direction="column"
@@ -338,11 +355,10 @@ export const DraftStatusHelper = () => {
         items.map(step => (
           <Flex key={step.label} align="start" gap="2">
             <span className="pt-[3px]">
-              <ItemMarker done={step.done && !step.stale} />
+              <ItemMarker done={step.done && !step.muted} />
             </span>
-            <Text size="2" color={step.done || step.stale ? 'gray' : undefined}>
+            <Text size="2" color={step.done || step.muted ? 'gray' : undefined}>
               {step.label}
-              {step.stale ? ' — updates on save' : ''}
               {!step.done &&
                 step.hints?.map(hint => (
                   <React.Fragment key={hint.label}>

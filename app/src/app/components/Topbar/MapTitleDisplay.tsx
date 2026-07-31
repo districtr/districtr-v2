@@ -33,6 +33,53 @@ const statusIcons: Record<DraftStatus, React.FC> = {
   [DRAFT_STATUSES.READY_TO_SHARE]: ReadyIcon,
 };
 
+/** Draft-status picker for the edit dialog. Its own component so the
+ * criteria hook (which subscribes to per-stroke demography updates) only
+ * runs while the dialog is open — not in the always-mounted topbar. Locked
+ * selections are ignored (no Item disabled prop in this Radix version);
+ * forward status moves are earned. */
+const GatedStatusPicker: React.FC<{
+  value: DraftStatus;
+  onChange: (status: DraftStatus) => void;
+}> = ({value, onChange}) => {
+  const {statusLocked} = useDraftStatusCriteria();
+  return (
+    <SegmentedControl.Root
+      value={value}
+      onValueChange={e => {
+        if (!statusLocked(e as DraftStatus)) onChange(e as DraftStatus);
+      }}
+      size="1"
+      className="w-full h-full mb-4"
+      style={{width: '100%', maxWidth: '100%'}}
+    >
+      {DRAFT_STATUS_ORDER.map(status => {
+        const locked = statusLocked(status);
+        const item = (
+          <SegmentedControl.Item
+            key={status}
+            value={status}
+            aria-disabled={locked}
+            className={locked ? 'opacity-50 !cursor-not-allowed' : ''}
+          >
+            <Flex direction="column" gap="0" align="center" justify="start" className="py-1">
+              {statusIcons[status]({})}
+              <Text>{DRAFT_STATUS_TEXT[status]}</Text>
+            </Flex>
+          </SegmentedControl.Item>
+        );
+        return locked ? (
+          <Tooltip key={status} content="Complete the helper checklist to unlock this status">
+            {item}
+          </Tooltip>
+        ) : (
+          item
+        );
+      })}
+    </SegmentedControl.Root>
+  );
+};
+
 export const MapTitleDisplay: React.FC<{
   mapMetadata: DocumentMetadata | null;
   mapDocument: DocumentObject | null;
@@ -43,7 +90,6 @@ export const MapTitleDisplay: React.FC<{
   const [mapStatusInner, setMapStatusInner] = useState<DraftStatus>(DRAFT_STATUSES.SCRATCH);
   const [open, setOpen] = useState(false);
   const {moduleName, unitsSentence, dataSourceSentence} = useMapModuleInfo();
-  const {statusLocked} = useDraftStatusCriteria();
 
   const _mapName = mapMetadata?.name ?? mapDocument?.map_metadata?.name ?? '';
   const _mapDescription = mapMetadata?.description ?? mapDocument?.map_metadata?.description ?? '';
@@ -161,49 +207,7 @@ export const MapTitleDisplay: React.FC<{
               <Text as="label" size="2" htmlFor="map-desc" mb="1">
                 Draft status
               </Text>
-              <SegmentedControl.Root
-                value={mapStatusInner}
-                // Locked selections are ignored (no Item disabled prop in this
-                // Radix version) — forward status moves are earned.
-                onValueChange={e => {
-                  if (!statusLocked(e as DraftStatus)) setMapStatusInner(e as DraftStatus);
-                }}
-                size="1"
-                className="w-full h-full mb-4"
-                style={{width: '100%', maxWidth: '100%'}}
-              >
-                {DRAFT_STATUS_ORDER.map(status => {
-                  const locked = statusLocked(status);
-                  const item = (
-                    <SegmentedControl.Item
-                      key={status}
-                      value={status}
-                      className={locked ? 'opacity-50 !cursor-not-allowed' : ''}
-                    >
-                      <Flex
-                        direction="column"
-                        gap="0"
-                        align="center"
-                        justify="start"
-                        className="py-1"
-                      >
-                        {statusIcons[status]({})}
-                        <Text>{DRAFT_STATUS_TEXT[status]}</Text>
-                      </Flex>
-                    </SegmentedControl.Item>
-                  );
-                  return locked ? (
-                    <Tooltip
-                      key={status}
-                      content="Complete the helper checklist to unlock this status"
-                    >
-                      {item}
-                    </Tooltip>
-                  ) : (
-                    item
-                  );
-                })}
-              </SegmentedControl.Root>
+              <GatedStatusPicker value={mapStatusInner} onChange={setMapStatusInner} />
               <Flex direction="row" gap="2" justify="end">
                 <Button
                   size="1"

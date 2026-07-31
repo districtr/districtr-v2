@@ -20,6 +20,11 @@ type UiHintRequests = {
 };
 
 const FLASH_DURATION_MS = 3000;
+// Restart delay + sequence token: re-flashing the same target must clear it
+// for a beat (so the CSS animation restarts) and invalidate the previous
+// flash's clear timer.
+const FLASH_RESTART_MS = 30;
+let flashSeq = 0;
 
 interface UiHintStore {
   requests: Partial<UiHintRequests>;
@@ -42,9 +47,13 @@ export const useUiHintStore = create<UiHintStore>((set, get) => ({
     }),
   flashTarget: null,
   flash: id => {
-    set({flashTarget: id});
+    const seq = ++flashSeq;
+    set({flashTarget: null});
     setTimeout(() => {
-      if (get().flashTarget === id) set({flashTarget: null});
+      if (seq === flashSeq) set({flashTarget: id});
+    }, FLASH_RESTART_MS);
+    setTimeout(() => {
+      if (seq === flashSeq) set({flashTarget: null});
     }, FLASH_DURATION_MS);
   },
 }));

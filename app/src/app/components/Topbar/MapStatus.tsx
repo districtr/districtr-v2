@@ -81,6 +81,7 @@ export const MapStatusButtons: React.FC<{
           <SegmentedControl.Item
             key={status}
             value={status}
+            aria-disabled={locked}
             className={locked ? 'opacity-50 !cursor-not-allowed' : ''}
           >
             <Flex direction="row" gap="2" align="center" justify="start">
