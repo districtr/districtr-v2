@@ -16,28 +16,23 @@ import {SUMMARY_TYPES} from '@constants/demography/summary';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 import type {HelpTipKey} from '@components/HelpTip/helpTipContent';
 
-// Collapse state lives here because tab content unmounts on switch; keyed by
-// `id` since labels repeat across tabs (e.g. Demographics).
-const sectionOpenState: Record<string, boolean> = {};
-
 /** A quiet section header inside a workflow tab: no card chrome, just a
- * heading row in the shared plane. Collapsible but open by default. */
+ * heading row in the shared plane. Collapsible but open by default; collapse
+ * state lives in mapControlsStore (tab content unmounts on switch), keyed by
+ * `id` since labels repeat across tabs (e.g. Demographics). */
 const TabSection: React.FC<{
   id: string;
   label: string;
   helpTip?: HelpTipKey;
   children: React.ReactNode;
 }> = ({id, label, helpTip, children}) => {
-  const [open, _setOpen] = useState(sectionOpenState[id] ?? true);
-  const setOpen = (next: boolean) => {
-    sectionOpenState[id] = next;
-    _setOpen(next);
-  };
+  const open = useMapControlsStore(state => !state.collapsedTabSections.includes(id));
+  const toggleTabSection = useMapControlsStore(state => state.toggleTabSection);
   // -mx-2 + px-2 (matching the panels' px="2"): the hover wash spans the full
   // panel while the label shares the content's left edge.
   const headerRow = (
     <button
-      onClick={() => setOpen(!open)}
+      onClick={() => toggleTabSection(id)}
       aria-expanded={open}
       className="w-auto cursor-pointer text-left -mx-2 px-2 py-3 rounded transition-colors hover:bg-[var(--gray-2)]"
     >
