@@ -9,10 +9,7 @@ import {InspectorControls} from '@components/Toolbar/ToolControls/InspectorContr
 // ToolControlsScaffold regardless of which is active — the scaffold itself
 // decides what's interactive per tool. Inspector is the one exception, kept
 // on its own separate layout (see InspectorControls).
-const ToolControlsConfig: Record<
-  Partial<ActiveTool>,
-  {Component?: () => React.JSX.Element}
-> = {
+const ToolControlsConfig: Record<Partial<ActiveTool>, {Component?: () => React.JSX.Element}> = {
   pan: {Component: ToolControlsScaffold},
   // Unreachable as activeTool (they fire onClick instead), listed for the type.
   undo: {},

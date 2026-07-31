@@ -16,7 +16,8 @@ export const KeyOptionToggles: React.FC = () => {
   // The population tooltip only shows on hover while actively painting —
   // it's a no-op during Pan, so the toggle is disabled there too (District
   // numbers stays enabled; that display doesn't depend on the active tool).
-  const populationTooltipDisabled = access === ACCESS_STATES.READ || activeTool === ACTIVE_TOOLS.PAN;
+  const populationTooltipDisabled =
+    access === ACCESS_STATES.READ || activeTool === ACTIVE_TOOLS.PAN;
 
   return (
     <Flex direction="column" gap="2">
@@ -24,9 +25,7 @@ export const KeyOptionToggles: React.FC = () => {
         <Flex gap="2" align="center">
           <Checkbox
             checked={mapOptions.showZoneNumbers === true}
-            onCheckedChange={() =>
-              setMapOptions({showZoneNumbers: !mapOptions.showZoneNumbers})
-            }
+            onCheckedChange={() => setMapOptions({showZoneNumbers: !mapOptions.showZoneNumbers})}
           />
           District numbers
         </Flex>

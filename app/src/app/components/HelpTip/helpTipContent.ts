@@ -72,7 +72,8 @@ export const helpTipContent = {
     text: 'Click to see a list of controls for what the map shows',
     videoFile: 'visual_settings.webm',
     guideAnchor: 'visual-settings',
-    linkSuffix: 'on how to hide painted districts, toggle county boundaries, or highlight unassigned areas that still need a district.',
+    linkSuffix:
+      'on how to hide painted districts, toggle county boundaries, or highlight unassigned areas that still need a district.',
   },
   districtOverview: {
     title: 'District overview',
