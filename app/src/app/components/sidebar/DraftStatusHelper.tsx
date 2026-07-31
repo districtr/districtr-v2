@@ -69,6 +69,16 @@ const ItemMarker: React.FC<{done: boolean}> = ({done}) =>
     <MinusIcon width={14} height={14} style={{color: 'var(--gray-8)', flexShrink: 0}} />
   );
 
+/** The helper's own render gate, exported so the mobile "View map guide"
+ * button can hide alongside it. */
+export const useDraftStatusHelperVisible = () => {
+  const isEditing = useMapControlsStore(state => state.isEditing);
+  const mapMode = useMapControlsStore(state => state.mapMode);
+  const superDraw = useToolbarStore(state => state.superDraw);
+  const documentId = useMapStore(state => state.mapDocument?.document_id);
+  return !superDraw && isEditing && mapMode === MAP_MODES.DISTRICTS && !!documentId;
+};
+
 /**
  * Helper card at the top of the sidebar: Get started (scratch) → Refine and
  * validate (in progress) → Advanced (ready to share). The stage follows the
@@ -77,13 +87,19 @@ const ItemMarker: React.FC<{done: boolean}> = ({done}) =>
  * move — it appears only when the stage's criteria are met — while the status
  * controls (and the box's own step-back links) stay free choice. Collapsible,
  * not dismissible.
+ *
+ * `onNavigate` fires after any hint that points somewhere else in the app —
+ * the mobile modal closes itself so the hint's target isn't buried under it.
+ * The modal instance sets `collapsible` false: its dialog already opens and
+ * closes, so an inner collapse (persisted from the sidebar) would just show
+ * a bare header.
  */
-export const DraftStatusHelper = () => {
+export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?: boolean}> = ({
+  onNavigate,
+  collapsible = true,
+}) => {
   const isDesktop = useIsDesktop();
-  const isEditing = useMapControlsStore(state => state.isEditing);
-  const mapMode = useMapControlsStore(state => state.mapMode);
-  const superDraw = useToolbarStore(state => state.superDraw);
-  const mapDocument = useMapStore(state => state.mapDocument);
+  const visible = useDraftStatusHelperVisible();
   // The county brush is invalid while broken into blocks (PaintByCounty
   // disables itself there); the hint must not force it on.
   const inBlockView = useMapStore(state => state.captiveIds.size > 0);
@@ -104,17 +120,17 @@ export const DraftStatusHelper = () => {
     counts,
   } = useDraftStatusCriteria();
 
-  const [collapsed, setCollapsed] = useState(false);
+  const [storedCollapsed, setStoredCollapsed] = useState(false);
   useEffect(() => {
-    setCollapsed(localStorage.getItem(COLLAPSE_KEY) === '1');
+    setStoredCollapsed(localStorage.getItem(COLLAPSE_KEY) === '1');
   }, []);
+  const collapsed = collapsible && storedCollapsed;
   const toggleCollapsed = () => {
     localStorage.setItem(COLLAPSE_KEY, collapsed ? '0' : '1');
-    setCollapsed(!collapsed);
+    setStoredCollapsed(!collapsed);
   };
 
-  if (superDraw || !isEditing || mapMode !== MAP_MODES.DISTRICTS || !mapDocument?.document_id)
-    return null;
+  if (!visible) return null;
 
   const {paintedZones, numDistricts, unassigned, contiguousZones, maxDeviation, idealPopulation} =
     counts;
@@ -316,9 +332,9 @@ export const DraftStatusHelper = () => {
     >
       <button
         type="button"
-        onClick={toggleCollapsed}
+        onClick={collapsible ? toggleCollapsed : undefined}
         aria-expanded={!collapsed}
-        className="w-full cursor-pointer text-left"
+        className={`w-full text-left ${collapsible ? 'cursor-pointer' : 'cursor-default'}`}
       >
         <Flex align="center" justify="between">
           <Text size="3" weight="bold">
@@ -330,12 +346,14 @@ export const DraftStatusHelper = () => {
                 {doneCount} of {items.length} done
               </Text>
             )}
-            <ChevronDownIcon
-              style={{
-                transform: collapsed ? 'rotate(-90deg)' : undefined,
-                transition: 'transform 0.15s',
-              }}
-            />
+            {collapsible && (
+              <ChevronDownIcon
+                style={{
+                  transform: collapsed ? 'rotate(-90deg)' : undefined,
+                  transition: 'transform 0.15s',
+                }}
+              />
+            )}
           </Flex>
         </Flex>
       </button>
@@ -369,7 +387,14 @@ export const DraftStatusHelper = () => {
           <Flex wrap="wrap" gapX="3" gapY="1">
             {advancedPointers.map(pointer => (
               <Text size="2" key={pointer.label}>
-                <InlineHintButton onClick={pointer.onClick}>{pointer.label}</InlineHintButton>
+                <InlineHintButton
+                  onClick={() => {
+                    pointer.onClick();
+                    onNavigate?.();
+                  }}
+                >
+                  {pointer.label}
+                </InlineHintButton>
               </Text>
             ))}
           </Flex>
@@ -387,7 +412,14 @@ export const DraftStatusHelper = () => {
                 step.hints?.map(hint => (
                   <React.Fragment key={hint.label}>
                     {' '}
-                    <InlineHintButton onClick={hint.onClick}>{hint.label}</InlineHintButton>
+                    <InlineHintButton
+                      onClick={() => {
+                        hint.onClick();
+                        onNavigate?.();
+                      }}
+                    >
+                      {hint.label}
+                    </InlineHintButton>
                   </React.Fragment>
                 ))}
             </Text>
