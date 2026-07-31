@@ -43,10 +43,10 @@ const ROW_HEIGHT = 40;
 const TICK_OVERHANG = (ROW_HEIGHT - BAR_HEIGHT) / 2;
 // A playful spring so bars visibly *land* when population changes.
 const BAR_SPRING = 'width 350ms cubic-bezier(0.34, 1.56, 0.64, 1)';
-// Off-the-scale arrow: shaft ends in a triangular head that's taller than the
-// bar, signaling the bar extends beyond the chart.
-const ARROW_HEAD_WIDTH = 16;
-const ARROW_HEAD_OVERHANG = 6;
+// Off-the-scale arrow: shaft ends in a long, slim triangular head just proud
+// of the bar's height, signaling the bar extends beyond the chart.
+const ARROW_HEAD_WIDTH = 28;
+const ARROW_HEAD_OVERHANG = 3;
 
 // Scoreboard-style stat labels: small caps, wide tracking.
 const STAT_LABEL_STYLE: React.CSSProperties = {
