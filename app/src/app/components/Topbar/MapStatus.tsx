@@ -10,7 +10,6 @@ import {
 } from '@constants/document/draftStatus';
 import {InProgressIcon, ScratchWorkIcon, ReadyIcon} from './Icons';
 import {ACCESS_STATES} from '@constants/document/state';
-import {useDraftStatusCriteria} from '@/app/hooks/useDraftStatusCriteria';
 
 const statusIcons: Record<DraftStatus, React.FC> = {
   [DRAFT_STATUSES.SCRATCH]: ScratchWorkIcon,
@@ -58,46 +57,22 @@ export const MapStatus: React.FC<{
   );
 };
 
+/** Free choice by design: the draft status is the user's own label for their
+ * plan. The only earned move is the helper box's advance button. */
 export const MapStatusButtons: React.FC<{
   draftStatus: DraftStatus | null;
   onChange: (draftStatus: DraftStatus) => Promise<void>;
 }> = ({draftStatus, onChange}) => {
-  // Forward moves are earned: statuses whose criteria aren't met can't be
-  // selected (backward moves always can). This Radix version's
-  // SegmentedControl.Item has no disabled prop, so lock by ignoring the
-  // selection and dimming the item.
-  const {statusLocked} = useDraftStatusCriteria();
   return (
-    <SegmentedControl.Root
-      value={draftStatus as string}
-      onValueChange={value => {
-        if (!statusLocked(value as DraftStatus)) onChange(value as DraftStatus);
-      }}
-      size="2"
-    >
-      {DRAFT_STATUS_ORDER.map(status => {
-        const locked = statusLocked(status);
-        const item = (
-          <SegmentedControl.Item
-            key={status}
-            value={status}
-            aria-disabled={locked}
-            className={locked ? 'opacity-50 !cursor-not-allowed' : ''}
-          >
-            <Flex direction="row" gap="2" align="center" justify="start">
-              {statusIcons[status]({})}
-              <Text>{DRAFT_STATUS_TEXT[status]}</Text>
-            </Flex>
-          </SegmentedControl.Item>
-        );
-        return locked ? (
-          <Tooltip key={status} content="Complete the helper checklist to unlock this status">
-            {item}
-          </Tooltip>
-        ) : (
-          item
-        );
-      })}
+    <SegmentedControl.Root value={draftStatus as string} onValueChange={onChange} size="2">
+      {DRAFT_STATUS_ORDER.map(status => (
+        <SegmentedControl.Item key={status} value={status}>
+          <Flex direction="row" gap="2" align="center" justify="start">
+            {statusIcons[status]({})}
+            <Text>{DRAFT_STATUS_TEXT[status]}</Text>
+          </Flex>
+        </SegmentedControl.Item>
+      ))}
     </SegmentedControl.Root>
   );
 };

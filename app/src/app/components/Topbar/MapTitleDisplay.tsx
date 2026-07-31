@@ -25,7 +25,6 @@ import {InProgressIcon, ReadyIcon, ScratchWorkIcon} from './Icons';
 import {SegmentedControl} from '@radix-ui/themes';
 import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
-import {useDraftStatusCriteria} from '@/app/hooks/useDraftStatusCriteria';
 
 const statusIcons: Record<DraftStatus, React.FC> = {
   [DRAFT_STATUSES.SCRATCH]: ScratchWorkIcon,
@@ -33,52 +32,29 @@ const statusIcons: Record<DraftStatus, React.FC> = {
   [DRAFT_STATUSES.READY_TO_SHARE]: ReadyIcon,
 };
 
-/** Draft-status picker for the edit dialog. Its own component so the
- * criteria hook (which subscribes to per-stroke demography updates) only
- * runs while the dialog is open — not in the always-mounted topbar. Locked
- * selections are ignored (no Item disabled prop in this Radix version);
- * forward status moves are earned. */
-const GatedStatusPicker: React.FC<{
+/** Draft-status picker for the edit dialog. Free choice by design — the
+ * only earned move is the helper box's advance button. */
+const StatusPicker: React.FC<{
   value: DraftStatus;
   onChange: (status: DraftStatus) => void;
-}> = ({value, onChange}) => {
-  const {statusLocked} = useDraftStatusCriteria();
-  return (
-    <SegmentedControl.Root
-      value={value}
-      onValueChange={e => {
-        if (!statusLocked(e as DraftStatus)) onChange(e as DraftStatus);
-      }}
-      size="1"
-      className="w-full h-full mb-4"
-      style={{width: '100%', maxWidth: '100%'}}
-    >
-      {DRAFT_STATUS_ORDER.map(status => {
-        const locked = statusLocked(status);
-        const item = (
-          <SegmentedControl.Item
-            key={status}
-            value={status}
-            aria-disabled={locked}
-            className={locked ? 'opacity-50 !cursor-not-allowed' : ''}
-          >
-            <Flex direction="column" gap="0" align="center" justify="start" className="py-1">
-              {statusIcons[status]({})}
-              <Text>{DRAFT_STATUS_TEXT[status]}</Text>
-            </Flex>
-          </SegmentedControl.Item>
-        );
-        return locked ? (
-          <Tooltip key={status} content="Complete the helper checklist to unlock this status">
-            {item}
-          </Tooltip>
-        ) : (
-          item
-        );
-      })}
-    </SegmentedControl.Root>
-  );
-};
+}> = ({value, onChange}) => (
+  <SegmentedControl.Root
+    value={value}
+    onValueChange={e => onChange(e as DraftStatus)}
+    size="1"
+    className="w-full h-full mb-4"
+    style={{width: '100%', maxWidth: '100%'}}
+  >
+    {DRAFT_STATUS_ORDER.map(status => (
+      <SegmentedControl.Item key={status} value={status}>
+        <Flex direction="column" gap="0" align="center" justify="start" className="py-1">
+          {statusIcons[status]({})}
+          <Text>{DRAFT_STATUS_TEXT[status]}</Text>
+        </Flex>
+      </SegmentedControl.Item>
+    ))}
+  </SegmentedControl.Root>
+);
 
 export const MapTitleDisplay: React.FC<{
   mapMetadata: DocumentMetadata | null;
@@ -207,7 +183,7 @@ export const MapTitleDisplay: React.FC<{
               <Text as="label" size="2" htmlFor="map-desc" mb="1">
                 Draft status
               </Text>
-              <GatedStatusPicker value={mapStatusInner} onChange={setMapStatusInner} />
+              <StatusPicker value={mapStatusInner} onChange={setMapStatusInner} />
               <Flex direction="row" gap="2" justify="end">
                 <Button
                   size="1"

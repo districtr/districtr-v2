@@ -35,16 +35,17 @@ type ChecklistItem = {
 
 /** Link-styled action that flows inline with the checklist text instead of
  * occupying its own row. */
-const InlineHintButton: React.FC<{onClick: () => void; children: React.ReactNode}> = ({
-  onClick,
-  children,
-}) => (
+const InlineHintButton: React.FC<{
+  onClick: () => void;
+  back?: boolean;
+  children: React.ReactNode;
+}> = ({onClick, back, children}) => (
   <button
     type="button"
     onClick={onClick}
     className="inline cursor-pointer whitespace-nowrap font-semibold text-districtrBlue hover:underline underline-offset-2"
   >
-    {children} →
+    {back ? <>← {children}</> : <>{children} →</>}
   </button>
 );
 
@@ -61,9 +62,10 @@ const ItemMarker: React.FC<{done: boolean}> = ({done}) =>
  * Helper card at the top of the sidebar: Get started (scratch) → Refine and
  * validate (in progress) → Advanced (ready to share). The stage follows the
  * draft status, except a regressed plan falls back to the earliest failing
- * checklist (see displayStage). Advancing is opt-in via the earned advance
- * button, on the same criteria that gate the status controls
- * (useDraftStatusCriteria). Collapsible, not dismissible.
+ * checklist (see displayStage). The advance button is the app's one earned
+ * move — it appears only when the stage's criteria are met — while the status
+ * controls (and the box's own step-back links) stay free choice. Collapsible,
+ * not dismissible.
  */
 export const DraftStatusHelper = () => {
   const isEditing = useMapControlsStore(state => state.isEditing);
@@ -85,7 +87,6 @@ export const DraftStatusHelper = () => {
     currentStatus,
     scratchDone,
     inProgressDone,
-    statusLocked,
     contiguityStale,
     contiguityUnavailable,
     counts,
@@ -263,20 +264,19 @@ export const DraftStatusHelper = () => {
   const items = displayStage === 0 ? scratchItems : displayStage === 1 ? refineItems : [];
   const showPointers = displayStage === 2;
   const doneCount = items.filter(s => s.done).length;
-  // Advance only from the un-regressed flow; statusLocked encodes the
-  // cumulative criteria, and a stale contiguity result additionally
-  // suppresses the advance until the next save verifies it.
+  // The box's advance button is the one earned move in the app (the status
+  // controls are free choice): only from the un-regressed flow, only with the
+  // shown stage's items done, and not while a stale contiguity result awaits
+  // the next save. Un-regressed at stage 1 implies the scratch criteria hold.
   const nextStatus: DraftStatus | null =
     statusStage === 0
       ? DRAFT_STATUSES.IN_PROGRESS
       : statusStage === 1
         ? DRAFT_STATUSES.READY_TO_SHARE
         : null;
+  const stageDone = displayStage === 0 ? scratchDone : displayStage === 1 ? inProgressDone : false;
   const canAdvance =
-    !regressed &&
-    !!nextStatus &&
-    !statusLocked(nextStatus) &&
-    !(statusStage === 1 && contiguityStale);
+    !regressed && !!nextStatus && stageDone && !(statusStage === 1 && contiguityStale);
 
   return (
     <Flex
@@ -331,7 +331,10 @@ export const DraftStatusHelper = () => {
         >
           <Text size="2">
             Your plan no longer meets the checks for its current status.{' '}
-            <InlineHintButton onClick={() => handleMetadataChange({draft_status: previousStatus})}>
+            <InlineHintButton
+              back
+              onClick={() => handleMetadataChange({draft_status: previousStatus})}
+            >
               Move back to {DRAFT_STATUS_TEXT[previousStatus]}
             </InlineHintButton>
           </Text>
@@ -379,6 +382,18 @@ export const DraftStatusHelper = () => {
         >
           Mark as {DRAFT_STATUS_TEXT[nextStatus]} →
         </Button>
+      )}
+      {/* Backward moves are always free; the regressed note above carries its
+          own step-back, so skip the duplicate there. */}
+      {!collapsed && statusStage > 0 && !regressed && (
+        <Text size="1" color="gray">
+          <InlineHintButton
+            back
+            onClick={() => handleMetadataChange({draft_status: previousStatus})}
+          >
+            Move back to {DRAFT_STATUS_TEXT[previousStatus]}
+          </InlineHintButton>
+        </Text>
       )}
     </Flex>
   );

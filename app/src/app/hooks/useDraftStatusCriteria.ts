@@ -6,11 +6,7 @@ import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {useMapMetadata} from '@/app/hooks/useMapMetadata';
 import {getContiguity} from '@utils/api/apiHandlers/getContiguity';
-import {
-  DRAFT_STATUSES,
-  DRAFT_STATUS_ORDER,
-  type DraftStatus,
-} from '@constants/document/draftStatus';
+import {DRAFT_STATUSES, type DraftStatus} from '@constants/document/draftStatus';
 import {FALLBACK_NUM_DISTRICTS} from '@constants/document/limits';
 import {MAP_MODES} from '@constants/map/mode';
 import {MAP_TYPES} from '@constants/document/types';
@@ -19,13 +15,12 @@ import {MAP_TYPES} from '@constants/document/types';
 export const BALANCE_DEVIATION = 0.1;
 
 /**
- * Live criteria for advancing a plan's draft status, shared by the helper box
- * and every status control so they agree on what's earned:
+ * Live criteria for the draft-status helper box:
  * - scratch → in_progress: every district started and no unassigned population
  * - in_progress → ready_to_share: every district within 10% of ideal and contiguous
  *
- * Forward moves are gated on criteria (cumulatively); backward moves are always
- * allowed, as are community maps (no district criteria to measure).
+ * These gate only the box's own advance button — the status controls are free
+ * choice; users label their plan however they like.
  */
 export function useDraftStatusCriteria() {
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -84,23 +79,11 @@ export function useDraftStatusCriteria() {
   const contiguityUnavailable = contiguityData?.ok === false || !mapDocument?.public_id;
 
   const inProgressDone = balanced && (contiguityUnavailable || contiguousZones >= numDistricts);
-  const currentIndex = DRAFT_STATUS_ORDER.indexOf(currentStatus);
-
-  /** True when the status can't be selected: a forward move whose (cumulative)
-   * criteria aren't met. Current and backward statuses are never locked. */
-  const statusLocked = (status: DraftStatus): boolean => {
-    if (isCommunity) return false;
-    if (DRAFT_STATUS_ORDER.indexOf(status) <= currentIndex) return false;
-    if (status === DRAFT_STATUSES.IN_PROGRESS) return !scratchDone;
-    if (status === DRAFT_STATUSES.READY_TO_SHARE) return !(scratchDone && inProgressDone);
-    return false;
-  };
 
   return {
     currentStatus,
     scratchDone,
     inProgressDone,
-    statusLocked,
     // Stale while edits are unsaved OR while the post-save refetch is in
     // flight — placeholderData shows the previous save's counts until then.
     contiguityStale: isOutdated || contiguityFetching,
