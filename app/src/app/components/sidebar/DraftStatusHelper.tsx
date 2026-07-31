@@ -379,6 +379,16 @@ export const DraftStatusHelper = () => {
           own step-back, so skip the duplicate there. */}
       {!collapsed && (canAdvance || (statusStage > 0 && !regressed)) && (
         <Flex align="center" gap="3">
+          {statusStage > 0 && !regressed && (
+            <Text size="1">
+              <InlineHintButton
+                back
+                onClick={() => handleMetadataChange({draft_status: previousStatus})}
+              >
+                Move back to {DRAFT_STATUS_TEXT[previousStatus]}
+              </InlineHintButton>
+            </Text>
+          )}
           {canAdvance && nextStatus && (
             <Button
               variant="solid"
@@ -389,16 +399,6 @@ export const DraftStatusHelper = () => {
             >
               Mark as {DRAFT_STATUS_TEXT[nextStatus]}
             </Button>
-          )}
-          {statusStage > 0 && !regressed && (
-            <Text size="1">
-              <InlineHintButton
-                back
-                onClick={() => handleMetadataChange({draft_status: previousStatus})}
-              >
-                Move back to {DRAFT_STATUS_TEXT[previousStatus]}
-              </InlineHintButton>
-            </Text>
           )}
         </Flex>
       )}
