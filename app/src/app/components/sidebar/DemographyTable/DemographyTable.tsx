@@ -6,6 +6,7 @@ import {
   Heading,
   IconButton,
   Popover,
+  RadioGroup,
   SegmentedControl,
   Spinner,
   Table,
@@ -258,17 +259,19 @@ const DemographyTable: React.FC<DemographyTableProps> = ({
               <Text size="2" weight="medium">
                 Summary type
               </Text>
-              <SegmentedControl.Root
+              <RadioGroup.Root
                 size="1"
                 value={summaryType}
                 onValueChange={value => setSummaryType(value as SummaryType)}
               >
-                {displayedStatLabels.map(({value, label}) => (
-                  <SegmentedControl.Item key={value} value={value}>
-                    {label}
-                  </SegmentedControl.Item>
-                ))}
-              </SegmentedControl.Root>
+                <Flex direction="row" align="center" gapX="3" gapY="1" wrap="wrap">
+                  {displayedStatLabels.map(({value, label}) => (
+                    <RadioGroup.Item key={value} value={value}>
+                      {label}
+                    </RadioGroup.Item>
+                  ))}
+                </Flex>
+              </RadioGroup.Root>
             </Flex>
           )}
         </Flex>

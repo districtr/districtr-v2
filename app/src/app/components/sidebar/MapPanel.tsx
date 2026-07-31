@@ -210,14 +210,14 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   }
   return (
     <Flex direction="column" gap="2">
-      <Flex direction="column" gap="1">
+      <Flex direction="row" align="center" gap="3" wrap="wrap">
         <Text size="2" weight="medium">
           Display mode
         </Text>
         <RadioCards.Root
           size="1"
           gap="2"
-          columns={{initial: '2', sm: `${displayModes.length}`}}
+          columns={`${displayModes.length}`}
           value={displayedMode ?? 'none'}
           onValueChange={v =>
             handleSetMapMode(

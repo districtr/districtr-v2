@@ -1,13 +1,5 @@
 import React from 'react';
-import {
-  Heading,
-  CheckboxGroup,
-  Flex,
-  Button,
-  Text,
-  Select,
-  SegmentedControl,
-} from '@radix-ui/themes';
+import {Heading, CheckboxGroup, Flex, Button, Text, Select, RadioCards} from '@radix-ui/themes';
 import {type BasemapId, BASEMAP_IDS} from '@/app/constants/map/layerStyle';
 import {useFeatureFlagStore} from '@store/featureFlagStore';
 import {useMapStore} from '@store/mapStore';
@@ -31,9 +23,11 @@ import {
  * This component is responsible for rendering the layers that can be toggled
  * on and off in the map.
  */
-/** hideTitle: the sidebar's Map Layers tab renders its own "Map options"
- * section header above this component; the popover context keeps the title. */
-export const ToolSettings: React.FC<{hideTitle?: boolean}> = ({hideTitle}) => {
+/** inWorkflowTab: the sidebar's Map Layers tab renders its own section header
+ * and per-section display-mode controls, so this component drops its "Map
+ * Options" title and the overlay-layer picker there; popover contexts (stacked
+ * layout, mobile dock) keep both. */
+export const ToolSettings: React.FC<{inWorkflowTab?: boolean}> = ({inWorkflowTab}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const parentsAreBroken = useAssignmentsStore(state => state.shatterIds.parents.size);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
@@ -113,7 +107,7 @@ export const ToolSettings: React.FC<{hideTitle?: boolean}> = ({hideTitle}) => {
               : '',
           ]}
         >
-          {!hideTitle && (
+          {!inWorkflowTab && (
             <Heading as="h3" weight="bold" size="3">
               Map Options
             </Heading>
@@ -230,26 +224,30 @@ export const ToolSettings: React.FC<{hideTitle?: boolean}> = ({hideTitle}) => {
             </Button>
           )}
         </CheckboxGroup.Root>
-        {overlayGroups.length > 0 && (
-          <>
+        {!inWorkflowTab && overlayGroups.length > 0 && (
+          <Flex direction="row" align="center" gap="3" wrap="wrap">
             <Heading as="h3" weight="bold" size="3">
               {/* Super Draw can show the choropleth as overlay OR comparison,
                   so "overlay" would be a misnomer there. */}
               {superDraw ? 'Map choropleth layer' : 'Map overlay layer'}
             </Heading>
-            <SegmentedControl.Root
+            <RadioCards.Root
               size="1"
+              gap="2"
+              columns={`${overlayGroups.length + 1}`}
               value={overlayValue}
               onValueChange={handleOverlayChange}
             >
-              <SegmentedControl.Item value="none">None</SegmentedControl.Item>
+              <RadioCards.Item value="none" className="cursor-pointer">
+                <Text size="2">None</Text>
+              </RadioCards.Item>
               {overlayGroups.map(entry => (
-                <SegmentedControl.Item key={entry.group} value={entry.group}>
-                  {entry.label}
-                </SegmentedControl.Item>
+                <RadioCards.Item key={entry.group} value={entry.group} className="cursor-pointer">
+                  <Text size="2">{entry.label}</Text>
+                </RadioCards.Item>
               ))}
-            </SegmentedControl.Root>
-          </>
+            </RadioCards.Root>
+          </Flex>
         )}
         {boundarySettings && (
           <>

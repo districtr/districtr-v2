@@ -1,4 +1,4 @@
-import {Button, Callout, Flex, SegmentedControl} from '@radix-ui/themes';
+import {Button, Callout, Flex, RadioCards} from '@radix-ui/themes';
 import {ExclamationTriangleIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@/app/store/mapStore';
 import {Contiguity} from './Contiguity';
@@ -62,14 +62,19 @@ export const MapValidation = () => {
           </Button>
         </Callout.Root>
       )}
-      {/* Segmented control to match the Table | Map sub-section tabs. */}
-      <SegmentedControl.Root size="2" value={activePanel} onValueChange={setActivePanel}>
+      <RadioCards.Root
+        size="1"
+        gap="2"
+        columns="2"
+        value={activePanel}
+        onValueChange={setActivePanel}
+      >
         {mapValidationPanel.map((panel, index) => (
-          <SegmentedControl.Item key={index} value={panel.label}>
+          <RadioCards.Item key={index} value={panel.label} className="cursor-pointer">
             {panel.label}
-          </SegmentedControl.Item>
+          </RadioCards.Item>
         ))}
-      </SegmentedControl.Root>
+      </RadioCards.Root>
 
       {!!Component && Component}
     </Flex>

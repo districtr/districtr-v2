@@ -22,7 +22,7 @@ import {
 import {Cross2Icon, Pencil1Icon} from '@radix-ui/react-icons';
 import {useMapModuleInfo} from './MapContextModuleAndUnits';
 import {InProgressIcon, ReadyIcon, ScratchWorkIcon} from './Icons';
-import {SegmentedControl} from '@radix-ui/themes';
+import {RadioCards} from '@radix-ui/themes';
 import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
 
@@ -159,28 +159,29 @@ export const MapTitleDisplay: React.FC<{
               <Text as="label" size="2" htmlFor="map-desc" mb="1">
                 Draft status
               </Text>
-              <SegmentedControl.Root
+              <RadioCards.Root
                 value={mapStatusInner}
                 onValueChange={e => setMapStatusInner(e as DraftStatus)}
                 size="1"
-                className="w-full h-full mb-4"
-                style={{width: '100%', maxWidth: '100%'}}
+                gap="2"
+                columns="3"
+                className="w-full mb-4"
               >
                 {DRAFT_STATUS_ORDER.map(status => (
-                  <SegmentedControl.Item key={status} value={status}>
+                  <RadioCards.Item key={status} value={status} className="cursor-pointer">
                     <Flex
                       direction="column"
                       gap="0"
                       align="center"
                       justify="start"
-                      className="py-1"
+                      className="py-1 w-full"
                     >
                       {statusIcons[status]({})}
-                      <Text>{DRAFT_STATUS_TEXT[status]}</Text>
+                      <Text align="center">{DRAFT_STATUS_TEXT[status]}</Text>
                     </Flex>
-                  </SegmentedControl.Item>
+                  </RadioCards.Item>
                 ))}
-              </SegmentedControl.Root>
+              </RadioCards.Root>
               <Flex direction="row" gap="2" justify="end">
                 <Button
                   size="1"

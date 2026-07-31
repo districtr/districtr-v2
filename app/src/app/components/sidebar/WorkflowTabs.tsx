@@ -91,7 +91,7 @@ const MapLayersPanel: React.FC = () => {
         </TabSection>
       )}
       <TabSection id="layers-options" label="Map options">
-        <ToolSettings hideTitle />
+        <ToolSettings inWorkflowTab />
       </TabSection>
     </Flex>
   );
