@@ -5,6 +5,7 @@ import {useFeatureFlagStore} from '@store/featureFlagStore';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {BrushSizeSelector} from '@components/Toolbar/ToolControls/BrushSizeSelector';
 import PaintByCounty from '@components/Toolbar/PaintByCounty';
+import DisallowPaintOver from '@components/Toolbar/DisallowPaintOver';
 import {ZonePicker} from '@components/Toolbar/ZonePicker';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {MAP_MODES} from '@constants/map/mode';
@@ -36,9 +37,14 @@ export const BrushControls = () => {
         )}
       </Flex>
       {showZonePicker ? (
-        <Flex direction="row" flexGrow={'0'} maxWidth={'100%'} p="0" m="0">
-          <ZonePicker />
-        </Flex>
+        <>
+          <Flex direction="row" flexGrow={'0'} maxWidth={'100%'} p="0" m="0">
+            <ZonePicker />
+          </Flex>
+          <Flex direction="row" justify="start">
+            <DisallowPaintOver />
+          </Flex>
+        </>
       ) : null}
 
       {paintConstraint && (

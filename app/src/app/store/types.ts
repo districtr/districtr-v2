@@ -11,6 +11,10 @@ export type DistrictrMapOptions = {
   highlightBrokenDistricts?: boolean;
   higlightUnassigned?: boolean;
   lockPaintedAreas: Array<NullableZone>;
+  /** When on, the brush can only paint unassigned areas — no district's area
+   * can be repainted, regardless of which one. Brush-tool and districts-mode
+   * only; the eraser and block-painting inside broken units are unaffected. */
+  disallowPaintOver?: boolean;
   mode: 'default' | 'break';
   showZoneNumbers?: boolean;
   paintByCounty?: boolean;

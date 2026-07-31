@@ -55,6 +55,18 @@ export const filterFeatures = ({
     filterFunctions.push(f => captiveIds.has(f.id?.toString() || ''));
   }
   if (filterLocked) {
+    // "Disallow paint over": the brush can't repaint anything already
+    // assigned to a district, whichever one — separate from (and composes
+    // with) the per-district lockPaintedAreas list below. Brush-tool and
+    // districts-mode only, so the eraser and break/shatter's block-painting
+    // are untouched.
+    if (
+      activeTool === ACTIVE_TOOLS.BRUSH &&
+      mapMode === MAP_MODES.DISTRICTS &&
+      mapOptions.disallowPaintOver
+    ) {
+      filterFunctions.push(f => !zoneAssignments.get(f.id?.toString() || ''));
+    }
     if (activeTool === ACTIVE_TOOLS.BRUSH && mapOptions.lockPaintedAreas.includes(selectedZone)) {
       return [];
     } else if (mapOptions.lockPaintedAreas.length) {

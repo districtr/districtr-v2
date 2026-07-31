@@ -92,6 +92,7 @@ export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
   highlightBrokenDistricts: false,
   higlightUnassigned: false,
   lockPaintedAreas: [],
+  disallowPaintOver: false,
   mode: 'default',
   paintByCounty: false,
   prominentCountyNames: true,
