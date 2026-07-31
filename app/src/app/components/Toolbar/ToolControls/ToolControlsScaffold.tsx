@@ -28,10 +28,6 @@ const TwoColumnGrid = styled('div', {
     // never wrap, regardless of container width or font metrics. The left
     // column (zone picker) absorbs whatever space is left.
     gridTemplateColumns: '1fr max-content',
-    // The zone picker (left) usually runs taller than the three toggles
-    // (right) — bottom-align the toggles instead of leaving them stranded
-    // at the top of the row.
-    alignItems: 'end',
   },
 });
 
