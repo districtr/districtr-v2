@@ -186,19 +186,24 @@ export const DistrictMeters = () => {
             {showRowIcons && <Box style={{width: ICONS_WIDTH, flexShrink: 0}} />}
             <Box flexGrow="1" style={{position: 'relative', alignSelf: 'stretch'}}>
               {!!idealPopulation && tickFraction !== undefined && (
-                <Text
-                  size="1"
-                  color="gray"
-                  style={{
-                    position: 'absolute',
-                    left: `${tickFraction * 100}%`,
-                    bottom: 0,
-                    transform: 'translateX(-50%)',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  Ideal {formatNumber(idealPopulation, NUMBER_FORMATS.STRING)}
-                </Text>
+                /* The label itself is the help trigger — an extra info icon
+                   would crowd the header strip. */
+                <HelpTip tip="idealPopulation" openDelay={HELP_TIP_FAST_DELAY}>
+                  <Text
+                    size="1"
+                    color="gray"
+                    className="cursor-help"
+                    style={{
+                      position: 'absolute',
+                      left: `${tickFraction * 100}%`,
+                      bottom: 0,
+                      transform: 'translateX(-50%)',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Ideal {formatNumber(idealPopulation, NUMBER_FORMATS.STRING)}
+                  </Text>
+                </HelpTip>
               )}
             </Box>
             {showPopNumbers && (

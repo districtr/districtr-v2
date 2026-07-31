@@ -49,7 +49,7 @@ export const PopulationPanelOptions: React.FC<{
     <>
       <Popover.Root>
         <Popover.Trigger>
-          <Button variant="ghost" size="1" aria-label="Open population chart settings">
+          <Button variant="outline" size="1" ml="2" aria-label="Open population chart settings">
             Population chart settings
           </Button>
         </Popover.Trigger>
