@@ -66,6 +66,10 @@ export const helpTipContent = {
     videoFile: 'drawing_another_district.webm',
     guideAnchor: 'drawing-the-districts',
   },
+  sidebarLayoutToggle: {
+    title: 'Sidebar layout',
+    text: 'Switch the sidebar between the tabbed layout (Population, Stats, and Map Layers) and the classic stacked panels.',
+  },
   visualSettings: {
     title: 'Visual settings',
     text: 'Click "Visual settings" above to control what the map shows: hide painted districts, toggle county boundaries, or highlight unassigned areas that still need a district.',

@@ -70,6 +70,11 @@ export interface MapControlsStore {
   setSpatialUnit: (unit: SpatialUnit) => void;
   sidebarPanels: SidebarPanel[];
   setSidebarPanels: (panels: SidebarPanel[]) => void;
+  /** Workflow-tab sections a user collapsed (sections default open, so absent
+   * = open). Lives here rather than in TabSection state because tab content
+   * unmounts on switch. */
+  collapsedTabSections: string[];
+  toggleTabSection: (id: string) => void;
   mapMode: MapMode;
   setMapMode: (mode: MapMode) => void;
 }
@@ -196,6 +201,13 @@ export const useMapControlsStore = create<MapControlsStore>()(
     setSpatialUnit: spatialUnit => set({spatialUnit}),
     sidebarPanels: ['population'],
     setSidebarPanels: sidebarPanels => set({sidebarPanels}),
+    collapsedTabSections: [],
+    toggleTabSection: id =>
+      set(state => ({
+        collapsedTabSections: state.collapsedTabSections.includes(id)
+          ? state.collapsedTabSections.filter(k => k !== id)
+          : [...state.collapsedTabSections, id],
+      })),
   }))
 );
 

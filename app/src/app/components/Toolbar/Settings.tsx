@@ -31,7 +31,9 @@ import {
  * This component is responsible for rendering the layers that can be toggled
  * on and off in the map.
  */
-export const ToolSettings: React.FC = () => {
+/** hideTitle: the sidebar's Map Layers tab renders its own "Map options"
+ * section header above this component; the popover context keeps the title. */
+export const ToolSettings: React.FC<{hideTitle?: boolean}> = ({hideTitle}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const parentsAreBroken = useAssignmentsStore(state => state.shatterIds.parents.size);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
@@ -111,9 +113,11 @@ export const ToolSettings: React.FC = () => {
               : '',
           ]}
         >
-          <Heading as="h3" weight="bold" size="3">
-            Map Options
-          </Heading>
+          {!hideTitle && (
+            <Heading as="h3" weight="bold" size="3">
+              Map Options
+            </Heading>
+          )}
 
           {superDraw && (
             <Flex direction="row" gapX="2" align="center">
