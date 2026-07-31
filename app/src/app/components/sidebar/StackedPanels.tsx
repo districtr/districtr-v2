@@ -38,18 +38,18 @@ const TabbedSummaryPanel: React.FC<{
         displayedColumnSets={displayedColumnSets}
       />
     )}
-    <Expander label="Table" defaultOpen>
-      <SummaryPanel
-        defaultColumnSet={defaultColumnSet}
-        displayedColumnSets={displayedColumnSets}
-        sections={['evaluation']}
-      />
-    </Expander>
-    <Expander label="Map Layer">
+    <Expander label="Visualize Map Layer">
       <SummaryPanel
         defaultColumnSet={defaultColumnSet}
         displayedColumnSets={displayedColumnSets}
         sections={['map']}
+      />
+    </Expander>
+    <Expander label="View Table" defaultOpen>
+      <SummaryPanel
+        defaultColumnSet={defaultColumnSet}
+        displayedColumnSets={displayedColumnSets}
+        sections={['evaluation']}
       />
     </Expander>
   </Flex>
