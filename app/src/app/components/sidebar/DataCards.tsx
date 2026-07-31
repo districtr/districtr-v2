@@ -35,9 +35,8 @@ export const DataCards: React.FC = () => {
     <Flex direction="column" gap="2" data-testid="data-panels">
       {stacked ? (
         <>
-          {/* Visual settings sits with the layout toggle at the right edge —
-              the same spot the toggle occupies in the tab strip — so the
-              header row's controls stay put when switching layouts. */}
+          {/* Right-aligned to match the toggle's spot in the tab strip, so
+              the controls stay put when switching layouts. */}
           <Flex
             align="center"
             justify="end"

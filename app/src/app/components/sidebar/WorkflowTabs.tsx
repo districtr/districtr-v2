@@ -16,10 +16,8 @@ import {SUMMARY_TYPES} from '@constants/demography/summary';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 import type {HelpTipKey} from '@components/HelpTip/helpTipContent';
 
-// Only the active tab's content mounts, so section collapse state would reset
-// on every tab round-trip if it lived in component state alone. Write-through
-// to this session-scoped record; keys are the `id` props (labels repeat across
-// tabs, e.g. Demographics).
+// Collapse state lives here because tab content unmounts on switch; keyed by
+// `id` since labels repeat across tabs (e.g. Demographics).
 const sectionOpenState: Record<string, boolean> = {};
 
 /** A quiet section header inside a workflow tab: no card chrome, just a
@@ -35,9 +33,8 @@ const TabSection: React.FC<{
     sectionOpenState[id] = next;
     _setOpen(next);
   };
-  // Negative margin + matching padding (the panels' px="2"): the button and
-  // its hover wash run the full panel width while the label stays on the same
-  // left edge as the section content below it.
+  // -mx-2 + px-2 (matching the panels' px="2"): the hover wash spans the full
+  // panel while the label shares the content's left edge.
   const headerRow = (
     <button
       onClick={() => setOpen(!open)}
@@ -170,10 +167,9 @@ export const WorkflowTabs: React.FC<{layoutToggle: React.ReactNode}> = ({layoutT
   // Mode switches can hide the current tab; fall back to the first visible one.
   const activeKey = visibleTabs.some(t => t.key === tab) ? tab : visibleTabs[0].key;
   const activeTab = visibleTabs.find(t => t.key === activeKey);
-  // One-shot tab request from other panels (e.g. "Find unassigned" jumps to
-  // the Stats tab's completeness check). A request that arrived while the tabs
-  // were unmounted (stacked layout, eval view) is stale: the first effect run
-  // after mount discards it instead of firing a surprise jump.
+  // One-shot tab request (see uiHintStore). Requests that arrived while the
+  // tabs were unmounted are stale: the first effect run after mount discards
+  // them instead of firing a surprise jump.
   const sidebarTabRequest = useUiHintStore(state => state.sidebarTabRequest);
   const clearSidebarTabRequest = useUiHintStore(state => state.clearSidebarTabRequest);
   const tabRequestsLive = useRef(false);
@@ -185,8 +181,7 @@ export const WorkflowTabs: React.FC<{layoutToggle: React.ReactNode}> = ({layoutT
     if (live) setTab(sidebarTabRequest);
   }, [sidebarTabRequest, clearSidebarTabRequest]);
 
-  // COI mode can leave a single visible tab; a one-tab strip is noise, but the
-  // Super Draw layout toggle must stay reachable.
+  // A one-tab strip (COI) is noise; the Super Draw toggle must stay reachable.
   const showStrip = visibleTabs.length > 1;
 
   return (
@@ -194,14 +189,12 @@ export const WorkflowTabs: React.FC<{layoutToggle: React.ReactNode}> = ({layoutT
       {showStrip ? (
         <nav
           aria-label="Sidebar panels"
-          // Sticky within the sidebar's scroll area (like the static site's
-          // SecondaryNav) so long panels — the Stats tables — can't push the
-          // tab strip out of reach.
+          // Sticky so long panels (the Stats tables) can't scroll the strip
+          // out of reach.
           className="sticky top-0 z-10 border-b border-gray-200 py-2 bg-white overflow-x-auto"
         >
-          {/* flex-1 spacers keep the tabs truly centered while pinning the
-              layout toggle to the right edge — the same spot it occupies in
-              the stacked layout's header row, so it doesn't move on switch. */}
+          {/* flex-1 spacers center the tabs while pinning the toggle right —
+              the same spot it holds in the stacked header row. */}
           <Flex direction="row" align="center" className="w-full">
             <div className="flex-1" />
             <div className="flex gap-5 text-sm tracking-wider">
@@ -212,17 +205,16 @@ export const WorkflowTabs: React.FC<{layoutToggle: React.ReactNode}> = ({layoutT
                     key={t.key}
                     aria-current={active || undefined}
                     onClick={() => setTab(t.key)}
-                    // pb-2/-mb-2 extend the button down through the nav's own
-                    // bottom padding so the active border-b sits flush on the
-                    // nav's border, underlining the top of the tab panel area.
+                    // pb-2/-mb-2 extend the button through the nav's padding
+                    // so the active border-b sits flush on the nav's border.
                     className={`whitespace-nowrap cursor-pointer pb-2 -mb-2 border-b-2 hover:text-districtrBlue ${
                       active
                         ? 'text-districtrBlue font-bold border-districtrBlue'
                         : 'text-gray-600 border-transparent'
                     }`}
                   >
-                    {/* Invisible bold twin reserves the bold width so the row
-                        doesn't reflow when the active tab's weight changes. */}
+                    {/* Invisible bold twin reserves bold width so tabs don't
+                        shift when the active weight changes. */}
                     <span aria-hidden className="invisible block h-0 overflow-hidden font-bold">
                       {t.label}
                     </span>
@@ -231,9 +223,8 @@ export const WorkflowTabs: React.FC<{layoutToggle: React.ReactNode}> = ({layoutT
                 );
               })}
             </div>
-            {/* pr-1 absorbs the ghost IconButton's -4px margin overhang,
-                which would otherwise trip this scroll container into showing
-                a horizontal scrollbar. */}
+            {/* pr-1 absorbs the ghost IconButton's -4px margin, which would
+                otherwise give this scroll container a horizontal scrollbar. */}
             <div className="flex-1 flex justify-end pr-1">{layoutToggle}</div>
           </Flex>
         </nav>

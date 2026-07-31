@@ -8,9 +8,8 @@ import {useIsDesktop} from '@/app/hooks/useIsDesktop';
 
 // The toolbar is fixed to the sidebar; it can no longer be moved to the map area.
 // Tool buttons wrap on narrow sidebars, so no horizontal scrolling here.
-// Visual settings lives with the panels below: in the Map Layers tab (tabbed
-// layout) or the stacked header row (DataCards). Mobile keeps its own popover
-// in the dock.
+// Visual settings lives below in DataCards (Map Layers tab / stacked header
+// row); mobile keeps its own popover in the dock.
 export const ToolbarInSidebar = () => {
   const activeTool = useMapControlsStore(store => store.activeTool);
   // Below lg the MobileToolbar dock owns the (single) Toolbar instance — its

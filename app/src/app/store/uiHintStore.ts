@@ -1,9 +1,10 @@
 import {create} from 'zustand';
 import type {WorkflowTabKey} from '@components/sidebar/WorkflowTabs';
 
-/** One-shot cross-component UI requests: a panel elsewhere in the app asks the
- * sidebar to jump to a tab (e.g. "Find unassigned" → Stats). The consumer
- * clears the request after honoring it. */
+/** One-shot request for the sidebar to jump to a tab (e.g. "Find unassigned"
+ * → Stats). Honored only while the workflow tabs are mounted; requests from
+ * the stacked layout or eval view are discarded at the next mount, so callers
+ * there must switch layouts first. */
 interface UiHintStore {
   sidebarTabRequest: WorkflowTabKey | null;
   requestSidebarTab: (tab: WorkflowTabKey) => void;
