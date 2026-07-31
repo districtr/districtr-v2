@@ -179,3 +179,20 @@ body {
 .tool-button:active:not(:disabled) {
   transform: scale(0.96);
 }
+
+/* Pulse-highlight for elements a helper hint just pointed at
+   (uiHintStore.flashTarget). */
+@keyframes ui-flash-pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--accent-a7);
+    background-color: var(--accent-a4);
+  }
+  100% {
+    box-shadow: 0 0 0 8px transparent;
+    background-color: transparent;
+  }
+}
+.ui-flash {
+  animation: ui-flash-pulse 1.4s ease-out 2;
+  border-radius: 6px;
+}

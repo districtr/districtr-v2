@@ -28,6 +28,8 @@ const TabSection: React.FC<{
 }> = ({id, label, helpTip, children}) => {
   const open = useMapControlsStore(state => !state.collapsedTabSections.includes(id));
   const toggleTabSection = useMapControlsStore(state => state.toggleTabSection);
+  // Helper hints pulse the section they just pointed the user at.
+  const flashing = useUiHintStore(state => state.flashTarget === `section:${id}`);
   // -mx-2 + px-2 (matching the panels' px="2"): the hover wash spans the full
   // panel while the label shares the content's left edge.
   const headerRow = (
@@ -49,7 +51,7 @@ const TabSection: React.FC<{
     </button>
   );
   return (
-    <Flex direction="column">
+    <Flex direction="column" className={flashing ? 'ui-flash' : ''} data-section-id={id}>
       {helpTip ? (
         <HelpTip tip={helpTip} openDelay={HELP_TIP_HOVER_DELAY}>
           {headerRow}

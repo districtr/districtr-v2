@@ -75,6 +75,9 @@ export interface MapControlsStore {
    * unmounts on switch. */
   collapsedTabSections: string[];
   toggleTabSection: (id: string) => void;
+  /** Un-collapse a section (helper-box hints jump to sections and must land
+   * them expanded). */
+  openTabSection: (id: string) => void;
   mapMode: MapMode;
   setMapMode: (mode: MapMode) => void;
 }
@@ -202,6 +205,8 @@ export const useMapControlsStore = create<MapControlsStore>()(
     sidebarPanels: ['population'],
     setSidebarPanels: sidebarPanels => set({sidebarPanels}),
     collapsedTabSections: [],
+    openTabSection: id =>
+      set(state => ({collapsedTabSections: state.collapsedTabSections.filter(k => k !== id)})),
     toggleTabSection: id =>
       set(state => ({
         collapsedTabSections: state.collapsedTabSections.includes(id)

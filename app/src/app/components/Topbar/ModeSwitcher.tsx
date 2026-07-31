@@ -22,6 +22,7 @@ import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {patchSharePlan} from '@/app/utils/api/apiHandlers/patchSharePlan';
 import {editPath, evalPath} from '@/app/utils/map/editUrl';
 import {idb} from '@/app/utils/idb/idb';
+import {useUiHintStore} from '@/app/store/uiHintStore';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 
 type ViewMode = 'draw' | 'superdraw' | 'display' | 'evaluate';
@@ -120,6 +121,18 @@ export const ModeSwitcher: React.FC = () => {
   React.useEffect(() => {
     if (pwParam || passwordRequired) setPasswordUnlockable(true);
   }, [pwParam, passwordRequired, publicIdForLookup, setPasswordUnlockable]);
+
+  // The draft-status helper's Super Draw / Evaluate pointers open this menu so
+  // the user sees the options in place — they don't switch modes themselves.
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  const modeMenuRequest = useUiHintStore(state => state.modeMenuRequest);
+  const clearModeMenuRequest = useUiHintStore(state => state.clearModeMenuRequest);
+  React.useEffect(() => {
+    if (modeMenuRequest) {
+      clearModeMenuRequest();
+      setMenuOpen(true);
+    }
+  }, [modeMenuRequest, clearModeMenuRequest]);
 
   // No map loaded yet (e.g. the empty "start here" landing) — nothing to switch.
   if (!mapDocument) return null;
@@ -251,7 +264,7 @@ export const ModeSwitcher: React.FC = () => {
   const CurrentIcon = MODE_META[currentMode].Icon;
 
   return (
-    <DropdownMenu.Root>
+    <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
       {/* HelpTip wraps DropdownMenu.Trigger (not the reverse): HelpTip's own
           HoverCard.Trigger and DropdownMenu.Trigger both need asChild to reach the
           real Button underneath — chained asChild forwarding handles that (each

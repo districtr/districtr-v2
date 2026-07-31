@@ -1,8 +1,9 @@
 'use client';
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {Button, DropdownMenu, Text} from '@radix-ui/themes';
 import {CaretDownIcon, MixIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
+import {useUiHintStore} from '@store/uiHintStore';
 import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
 import {ACCESS_STATES} from '@constants/document/state';
 import {DocumentMetadata} from '@utils/api/apiHandlers/types';
@@ -35,6 +36,17 @@ export const MapActionsDropdown: React.FC<{
   // Defer past the dropdown's close so Radix doesn't leave pointer-events:none
   // stuck on the body when a dialog opens from onSelect.
   const openModal = (which: 'share') => setTimeout(() => setModal(which), 0);
+
+  // The draft-status helper's "Share your map" pointer opens the modal from
+  // outside this dropdown.
+  const shareModalRequest = useUiHintStore(state => state.shareModalRequest);
+  const clearShareModalRequest = useUiHintStore(state => state.clearShareModalRequest);
+  useEffect(() => {
+    if (shareModalRequest) {
+      clearShareModalRequest();
+      setModal('share');
+    }
+  }, [shareModalRequest, clearShareModalRequest]);
 
   // Export works for view-only users too: the backend resolves a public_id the same
   // as a document UUID, so fall back to the public_id when the loaded doc is the
