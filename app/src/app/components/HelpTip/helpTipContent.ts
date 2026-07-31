@@ -7,6 +7,9 @@ export interface HelpTipEntry {
   /** Multiple clips, shown one after another when expanded (e.g. two related checks). */
   videoFiles?: string[];
   guideAnchor?: string;
+  /** Overrides the default "Quick demonstration ▸" link label — for an entry
+   * whose hover card is the link itself (no separate description above it). */
+  linkText?: string;
 }
 
 // Not annotated as `Record<string, HelpTipEntry>` on purpose: that annotation would widen
@@ -15,14 +18,16 @@ export interface HelpTipEntry {
 export const helpTipContent = {
   // Draw mode's three tools (pan, paint, erase) share this one entry: each
   // tool button renders its own HelpTip instance (like undoRedo below) but
-  // passes text="" to suppress this entry's `text`, leaving only the "See
-  // demonstration" link — so title/videoFile still need to exist here even
-  // though the hover card itself never shows this `text`.
+  // passes text="" to suppress this entry's `text` in the hover card, leaving
+  // only the linkText link — so title/videoFile/text still need to exist here
+  // even though the hover card itself never shows `text` (the video modal's
+  // description still does).
   drawToolsCombination: {
     title: 'Draw tools',
     text: 'Pan, paint, and erase are the tools you use to draw your districts.',
     videoFile: 'draw_tools_combination.webm',
     guideAnchor: 'drawing-the-districts',
+    linkText: 'Quick demonstration on how to combine tools efficiently ▸',
   },
   // Super Draw's five tools (pan, paint, erase, break, inspect) share this one
   // entry, same pattern as drawToolsCombination above.
@@ -31,12 +36,18 @@ export const helpTipContent = {
     text: 'Pan, paint, erase, break, and inspect are the tools available in Super Draw.',
     videoFile: 'superdraw_tools_combination.webm',
     guideAnchor: 'super-draw',
+    linkText: 'Quick demonstration on how to combine tools efficiently ▸',
   },
+  // Same text-suppression pattern as the combos above: ToolButtons.tsx passes
+  // text="" in plain Draw mode, so only the linkText link shows; Super Draw
+  // mode passes the chorded shortcuts as an override instead (no video link
+  // in that mode — no room for both, and the shortcuts matter more there).
   undoRedo: {
     title: 'Undo & redo',
-    text: 'See demonstrations for undo/redo.',
+    text: 'Click the undo/redo buttons to revert or reapply changes to your district plan.',
     videoFile: 'undo_redo.webm',
     guideAnchor: 'drawing-the-districts',
+    linkText: 'Quick demonstration on how to undo/redo ▸',
   },
   brushSize: {
     title: 'Brush size',

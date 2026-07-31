@@ -238,10 +238,15 @@ export const HelpTip: React.FC<{
           <Flex direction="column" gapY="2">
             {/* whiteSpace: 'pre-line' so a caller (e.g. Undo/Redo's shortcut
                 lines) can put each sentence on its own line via `\n` in the
-                override text — plain `Text` collapses newlines otherwise. */}
-            <Text size="2" style={{whiteSpace: 'pre-line'}}>
-              {displayText}
-            </Text>
+                override text — plain `Text` collapses newlines otherwise.
+                Omitted entirely when there's no text to show (e.g. the tool-
+                group combos, whose hover card is the link itself, no separate
+                description above it). */}
+            {displayText && (
+              <Text size="2" style={{whiteSpace: 'pre-line'}}>
+                {displayText}
+              </Text>
+            )}
             {canExpand && (
               <Link
                 size="2"
@@ -251,7 +256,7 @@ export const HelpTip: React.FC<{
                   setVideoOpen(true);
                 }}
               >
-                See demonstration ▸
+                {entry.linkText ?? 'Quick demonstration ▸'}
               </Link>
             )}
           </Flex>
