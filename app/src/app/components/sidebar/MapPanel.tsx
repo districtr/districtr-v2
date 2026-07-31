@@ -12,7 +12,7 @@ import {
   Heading,
   IconButton,
   Popover,
-  RadioGroup,
+  RadioCards,
   Slider,
   Text,
 } from '@radix-ui/themes';
@@ -134,6 +134,12 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
     [availableMapVariables, variableGroups, coalitionGroups, dataHash, superDraw, variable]
   );
   const mapVariableConfig = currentVariableList.find(f => f.value === variable);
+  // Each group's control is independent: it reports the display mode only
+  // while its own variable drives the map, and shows None otherwise. Picking
+  // a mode here takes the map over for this group (handleSetMapMode swaps the
+  // variable), flipping the other group's control back to None.
+  const ownsMapLayer = !!mapVariableConfig;
+  const displayedMode = ownsMapLayer ? demographicDisplayMode : undefined;
 
   const handleSetMapMode = (newMode: MapControlsStore['mapOptions']['demographicDisplayMode']) => {
     setMapOptions({demographicDisplayMode: newMode});
@@ -204,13 +210,15 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   }
   return (
     <Flex direction="column" gap="2">
-      <Flex direction="row" gap="3" align="start" className="rounded-md" wrap="wrap">
-        <Text size="2" weight="medium" className="pt-[2px]">
+      <Flex direction="column" gap="1">
+        <Text size="2" weight="medium">
           Display mode
         </Text>
-        <RadioGroup.Root
+        <RadioCards.Root
           size="1"
-          value={demographicDisplayMode ?? 'none'}
+          gap="2"
+          columns={{initial: '2', sm: `${displayModes.length}`}}
+          value={displayedMode ?? 'none'}
           onValueChange={v =>
             handleSetMapMode(
               v === 'none'
@@ -219,16 +227,14 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
             )
           }
         >
-          <Flex direction="row" gapX="3" gapY="1" wrap="wrap">
-            {displayModes.map((option, i) => (
-              <RadioGroup.Item key={i} value={option.value ?? 'none'}>
-                {option.label}
-              </RadioGroup.Item>
-            ))}
-          </Flex>
-        </RadioGroup.Root>
+          {displayModes.map((option, i) => (
+            <RadioCards.Item key={i} value={option.value ?? 'none'} className="cursor-pointer">
+              <Text size="2">{option.label}</Text>
+            </RadioCards.Item>
+          ))}
+        </RadioCards.Root>
       </Flex>
-      {demographicDisplayMode !== undefined && (
+      {displayedMode !== undefined && (
         <>
           <Flex direction="column" gap="2">
             <Flex direction="row" gap="3" align="center" wrap="wrap">
