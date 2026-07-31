@@ -15,9 +15,8 @@ import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {MAP_MODES} from '@constants/map/mode';
 
 // Sidebar container width (it defaults to 35vw and is user-resizable) at which
-// the left/right columns stop stacking. Picked by eye, not measurement — the
-// human will tune this visually once the layout is in front of them.
-const TWO_COLUMN_BREAKPOINT = 380;
+// the left/right columns stop stacking.
+const TWO_COLUMN_BREAKPOINT = 500;
 
 const TwoColumnGrid = styled('div', {
   display: 'grid',
@@ -25,7 +24,10 @@ const TwoColumnGrid = styled('div', {
   gap: 'var(--space-4)',
   width: '100%',
   [`@container (min-width: ${TWO_COLUMN_BREAKPOINT}px)`]: {
-    gridTemplateColumns: '2fr 1fr',
+    // max-content, not a fraction: the right column's toggle labels must
+    // never wrap, regardless of container width or font metrics. The left
+    // column (zone picker) absorbs whatever space is left.
+    gridTemplateColumns: '1fr max-content',
   },
 });
 
