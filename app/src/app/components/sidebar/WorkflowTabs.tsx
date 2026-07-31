@@ -145,10 +145,10 @@ const WORKFLOW_TABS: Array<{
   districtsOnly?: boolean;
 }> = [
   {key: 'population', label: 'Population', content: <PopulationPanel />, districtsOnly: true},
-  {key: 'mapLayers', label: 'Map Layers', content: <MapLayersPanel />},
   // Stats stays visible in COI for the demographics table; its districts-only
   // sections (validity, elections) are filtered inside StatsPanel.
   {key: 'stats', label: 'Stats', content: <StatsPanel />},
+  {key: 'mapLayers', label: 'Map Layers', content: <MapLayersPanel />},
 ];
 
 /** Tab strip + active panel, styled after the static site's SecondaryNav. */
