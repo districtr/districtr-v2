@@ -3,7 +3,7 @@ import {useEffect, useRef, useState} from 'react';
 import {useFormState} from '@/app/store/formState';
 import {getDocument} from '@/app/utils/api/apiHandlers/getDocument';
 import {DocumentObject} from '@/app/utils/api/apiHandlers/types';
-import {TILESET_URL} from '@/app/utils/api/constants';
+import {thumbnailUrl} from '@/app/utils/api/thumbnailUrl';
 import {queryClient} from '@/app/utils/api/queryClient';
 import {
   Blockquote,
@@ -259,7 +259,11 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
       {notification?.type === 'success' && (
         <object data="/home-megaphone-square.png" type="image/png" className="size-32">
           <img
-            src={`${TILESET_URL}/thumbnails/${dataResponse?.mapInfo?.public_id}.png`}
+            src={
+              dataResponse?.mapInfo?.public_id != null
+                ? thumbnailUrl(dataResponse.mapInfo.public_id)
+                : undefined
+            }
             alt="Map thumbnail"
             className="size-32"
           />

@@ -27,7 +27,7 @@ from app.models import (
     GeoUnitType,
 )
 from app.thumbnails.main import generate_thumbnail, THUMBNAIL_BUCKET
-from app.core.config import settings
+from app.core.config import settings, s3_environment_folder
 from app.core.db import engine
 
 metadata = MetaData()
@@ -972,7 +972,8 @@ def district_stats_to_feature_collection(
 
 
 def _stats_object_key(public_id: int | str) -> str:
-    return f"plans/display/{public_id}.geojson"
+    folder = s3_environment_folder(settings.ENVIRONMENT)
+    return f"plans/display/{folder}/{public_id}.geojson"
 
 
 def publish_district_stats_to_s3(
