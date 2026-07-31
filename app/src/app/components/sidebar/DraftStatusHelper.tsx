@@ -416,9 +416,11 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
             <Text size="2" color={step.done || step.muted ? 'gray' : undefined}>
               {step.label}
               {!step.done &&
-                step.hints?.map(hint => (
+                step.hints?.map((hint, i) => (
                   <React.Fragment key={hint.label}>
-                    {' '}
+                    {/* Dot-separate consecutive hints so adjacent links don't
+                        read as one phrase. */}
+                    {i > 0 ? <span className="text-gray-400"> · </span> : ' '}
                     <InlineHintButton
                       onClick={() => {
                         hint.onClick();
