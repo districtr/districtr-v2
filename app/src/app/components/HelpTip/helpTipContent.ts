@@ -25,7 +25,7 @@ export const helpTipContent = {
   // (the video modal's description still does).
   drawToolsCombination: {
     title: 'Draw tools',
-    text: 'Pan, paint, erase, and county brush are the tools you use to draw your districts.',
+    text: 'Use county brush to paint the basic outline, and use smaller brushes/erasers to refine the edges:',
     videoFile: 'draw_tools_combination.webm',
     guideAnchor: 'drawing-the-districts',
     linkSuffix: 'on how to combine tools efficiently',
@@ -34,7 +34,7 @@ export const helpTipContent = {
   // share this one entry, same pattern as drawToolsCombination above.
   superdrawToolsCombination: {
     title: 'Super Draw tools',
-    text: 'Pan, paint, erase, county brush, break, and inspect are the tools available in Super Draw.',
+    text: 'After drawing a district in approximation, break units on the edge into smaller units to fine-tune a district’s population balance:',
     videoFile: 'superdraw_tools_combination.webm',
     guideAnchor: 'super-draw',
     linkSuffix: 'on how to combine tools efficiently',
@@ -69,19 +69,18 @@ export const helpTipContent = {
   },
   visualSettings: {
     title: 'Visual settings',
-    text: 'Click "Visual settings" above to control what the map shows: hide painted districts, toggle county boundaries, or highlight unassigned areas that still need a district.',
+    text: 'Click to see a list of controls for what the map shows',
     videoFile: 'visual_settings.webm',
     guideAnchor: 'visual-settings',
+    linkSuffix: 'on how to hide painted districts, toggle county boundaries, or highlight unassigned areas that still need a district.',
   },
   districtOverview: {
     title: 'District overview',
-    text: 'Click here to expand the district overview, listing each drawn district — click a number there to select it and switch the brush to that color, and see each district’s population against the ideal target.',
-    videoFile: 'district_overview.webm',
-    guideAnchor: 'district-overview',
+    text: 'Expand here to monitor the district populations as you draw.',
   },
   districtLock: {
     title: 'Locking districts',
-    text: 'Toggle the lock icon next to a district to protect it from being painted over while you work on other districts.',
+    text: 'Toggle it protect this district from being painted over or erased.',
     videoFile: 'district_lock.webm',
     guideAnchor: 'district-overview',
   },
