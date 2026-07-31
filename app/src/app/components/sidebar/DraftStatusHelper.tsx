@@ -220,32 +220,46 @@ export const DraftStatusHelper = () => {
       onClick: () => jumpToSection('stats', 'stats-elections'),
     },
     // These two point at the mode switcher rather than switching modes — the
-    // user stays where they are and sees the options in place.
-    {label: 'Fine-tune in Super Draw', onClick: () => request('modeMenu', true)},
-    {label: 'Evaluate your plan', onClick: () => request('modeMenu', true)},
+    // user stays where they are; the opened menu pulses the meant mode.
+    {label: 'Fine-tune in Super Draw', onClick: () => request('modeMenu', 'superdraw')},
+    {label: 'Evaluate your plan', onClick: () => request('modeMenu', 'evaluate')},
   ];
 
-  const isScratch = currentStatus === DRAFT_STATUSES.SCRATCH;
-  const isInProgress = currentStatus === DRAFT_STATUSES.IN_PROGRESS;
-  const isReady = currentStatus === DRAFT_STATUSES.READY_TO_SHARE;
-  const title = isScratch ? 'Get started' : isInProgress ? 'Refine and validate' : 'Advanced';
-  const items = isScratch ? scratchItems : isInProgress ? refineItems : [];
-  const doneCount = items.filter(s => s.done).length;
-  const nextStatus: DraftStatus | null = isScratch
-    ? DRAFT_STATUSES.IN_PROGRESS
-    : isInProgress
-      ? DRAFT_STATUSES.READY_TO_SHARE
-      : null;
-  // statusLocked encodes the cumulative criteria (ready requires the scratch
-  // criteria too); a stale contiguity result additionally suppresses the
-  // advance until the next save verifies it.
-  const canAdvance =
-    !!nextStatus && !statusLocked(nextStatus) && !(isInProgress && contiguityStale);
+  // The stage shown is the earliest one whose criteria aren't met, capped at
+  // the current status's stage — a regressed plan (e.g. population unassigned
+  // while marked In Progress) jumps back to the checklist that needs fixing,
+  // with a note offering the voluntary status step-back. Completing that
+  // checklist returns the box to the current status's stage automatically.
+  const statusStage =
+    currentStatus === DRAFT_STATUSES.SCRATCH
+      ? 0
+      : currentStatus === DRAFT_STATUSES.IN_PROGRESS
+        ? 1
+        : 2;
+  const criteriaStage = !scratchDone ? 0 : !inProgressDone ? 1 : 2;
+  const displayStage = Math.min(statusStage, criteriaStage);
+  const regressed = displayStage < statusStage;
+  const previousStatus: DraftStatus =
+    statusStage === 2 ? DRAFT_STATUSES.IN_PROGRESS : DRAFT_STATUSES.SCRATCH;
 
-  // The plan regressed below its current status (e.g. population unassigned
-  // while marked In Progress): prompt a voluntary step back.
-  const regressed = (isInProgress && !scratchDone) || (isReady && !(scratchDone && inProgressDone));
-  const previousStatus: DraftStatus = isReady ? DRAFT_STATUSES.IN_PROGRESS : DRAFT_STATUSES.SCRATCH;
+  const title = ['Get started', 'Refine and validate', 'Advanced'][displayStage];
+  const items = displayStage === 0 ? scratchItems : displayStage === 1 ? refineItems : [];
+  const showPointers = displayStage === 2;
+  const doneCount = items.filter(s => s.done).length;
+  // Advance only from the un-regressed flow; statusLocked encodes the
+  // cumulative criteria, and a stale contiguity result additionally
+  // suppresses the advance until the next save verifies it.
+  const nextStatus: DraftStatus | null =
+    statusStage === 0
+      ? DRAFT_STATUSES.IN_PROGRESS
+      : statusStage === 1
+        ? DRAFT_STATUSES.READY_TO_SHARE
+        : null;
+  const canAdvance =
+    !regressed &&
+    !!nextStatus &&
+    !statusLocked(nextStatus) &&
+    !(statusStage === 1 && contiguityStale);
 
   return (
     <Flex
@@ -267,7 +281,7 @@ export const DraftStatusHelper = () => {
           {title}
         </Text>
         <Flex align="center" gap="2">
-          {!isReady && !collapsed && (
+          {!showPointers && !collapsed && (
             <Text size="1" color="gray">
               {doneCount} of {items.length} done
             </Text>
@@ -299,15 +313,14 @@ export const DraftStatusHelper = () => {
           }}
         >
           <Text size="2">
-            Your plan no longer meets the checks for its current status
-            {isReady && !scratchDone ? ' (population is unassigned)' : ''}.{' '}
+            Your plan no longer meets the checks for its current status.{' '}
             <InlineHintButton onClick={() => handleMetadataChange({draft_status: previousStatus})}>
               Move back to {DRAFT_STATUS_TEXT[previousStatus]}
             </InlineHintButton>
           </Text>
         </Flex>
       )}
-      {!collapsed && isReady && (
+      {!collapsed && showPointers && (
         <>
           <Text size="2" color="gray">
             Your plan is ready to share. Keep going:

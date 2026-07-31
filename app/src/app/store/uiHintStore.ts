@@ -15,7 +15,8 @@ type UiHintRequests = {
   sidebarTab: WorkflowTabKey;
   validationTab: ValidationTab;
   shareModal: true;
-  modeMenu: true;
+  /** Which mode item the opened dropdown should pulse. */
+  modeMenu: 'superdraw' | 'evaluate';
 };
 
 const FLASH_DURATION_MS = 3000;

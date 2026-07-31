@@ -56,8 +56,17 @@ const ModeSwitcherItem: React.FC<{
 }> = ({mode, isCurrent, disabled, disabledReason, locked, onSelect}) => {
   const meta = MODE_META[mode];
   const Icon = locked ? LockClosedIcon : meta.Icon;
+  // The helper's pointers open this menu and pulse the mode they meant.
+  const flashing = useUiHintStore(state => state.flashTarget === `mode-${mode}`);
   const row = (
-    <Flex align="center" justify="between" gap="4" width="100%" py="1">
+    <Flex
+      align="center"
+      justify="between"
+      gap="4"
+      width="100%"
+      py="1"
+      className={flashing ? 'ui-flash' : ''}
+    >
       <Flex align="center" gap="3">
         <Icon className="size-4 shrink-0" />
         <Flex direction="column" gap="1">
@@ -122,17 +131,19 @@ export const ModeSwitcher: React.FC = () => {
     if (pwParam || passwordRequired) setPasswordUnlockable(true);
   }, [pwParam, passwordRequired, publicIdForLookup, setPasswordUnlockable]);
 
-  // The draft-status helper's Super Draw / Evaluate pointers open this menu so
-  // the user sees the options in place — they don't switch modes themselves.
+  // The draft-status helper's Super Draw / Evaluate pointers open this menu
+  // and pulse the mode they meant — they don't switch modes themselves.
   const [menuOpen, setMenuOpen] = React.useState(false);
   const modeMenuRequest = useUiHintStore(state => state.requests.modeMenu);
   const clearRequest = useUiHintStore(state => state.clear);
+  const flash = useUiHintStore(state => state.flash);
   React.useEffect(() => {
     if (modeMenuRequest) {
       clearRequest('modeMenu');
       setMenuOpen(true);
+      flash(`mode-${modeMenuRequest}`);
     }
-  }, [modeMenuRequest, clearRequest]);
+  }, [modeMenuRequest, clearRequest, flash]);
 
   // No map loaded yet (e.g. the empty "start here" landing) — nothing to switch.
   if (!mapDocument) return null;
