@@ -27,7 +27,10 @@ export default function PaintByCounty() {
   // the county one, so the next break click would shatter the whole county.
   // handleShatter turns the brush off on entry; this keeps it off until exit.
   const lockedForBreak = activeTool === ACTIVE_TOOLS.SHATTER || inBlockView;
-  const disabled = access === ACCESS_STATES.READ || lockedForBreak;
+  // Pan doesn't paint at all — same as the brush-size slider and zone picker,
+  // just visually/functionally inert, no explanatory tooltip needed.
+  const disabledForPan = activeTool === ACTIVE_TOOLS.PAN;
+  const disabled = access === ACCESS_STATES.READ || lockedForBreak || disabledForPan;
 
   const handleToggle = () => {
     if (!mapRef) return;
@@ -53,7 +56,7 @@ export default function PaintByCounty() {
       <Card
         size="1"
         className={paintByCounty ? 'bg-indigo-50' : ''}
-        style={lockedForBreak ? {opacity: 0.5} : undefined}
+        style={lockedForBreak || disabledForPan ? {opacity: 0.5} : undefined}
       >
         <Text as="label" size="2" className="cursor-pointer select-none">
           <Flex gap="2" align="center">
