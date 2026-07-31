@@ -256,16 +256,19 @@ export const HelpTip: React.FC<{
               </Text>
             )}
             {canExpand && (
-              <Link
-                size="2"
-                href="#"
-                onClick={event => {
-                  event.preventDefault();
-                  setVideoOpen(true);
-                }}
-              >
-                {entry.linkText ?? 'Quick demonstration ▸'}
-              </Link>
+              <Text size="2">
+                <Link
+                  size="2"
+                  href="#"
+                  onClick={event => {
+                    event.preventDefault();
+                    setVideoOpen(true);
+                  }}
+                >
+                  Quick demonstration ▸
+                </Link>
+                {entry.linkSuffix && ` ${entry.linkSuffix}`}
+              </Text>
             )}
           </Flex>
         </HoverCard.Content>
