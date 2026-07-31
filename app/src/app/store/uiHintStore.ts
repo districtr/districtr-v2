@@ -1,5 +1,5 @@
 import {create} from 'zustand';
-import type {WorkflowTabKey} from '@components/sidebar/DataCards';
+import type {WorkflowTabKey} from '@components/sidebar/WorkflowTabs';
 
 /** One-shot cross-component UI requests: a panel elsewhere in the app asks the
  * sidebar to jump to a tab (e.g. "Find unassigned" → Stats). The consumer
