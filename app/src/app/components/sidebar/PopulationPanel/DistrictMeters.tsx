@@ -509,7 +509,11 @@ export const DistrictMeters = () => {
             <Text color="gray" style={STAT_LABEL_STYLE}>
               Top-to-bottom
             </Text>
-            <HelpTip tip="topToBottomDeviation" openDelay={HELP_TIP_FAST_DELAY} />
+            {/* Counters the trigger icon's built-in baseline nudge (made for
+                body text) so it centers on the small-caps label line. */}
+            <Flex align="center" style={{transform: 'translateY(-1.5px)'}}>
+              <HelpTip tip="topToBottomDeviation" openDelay={HELP_TIP_FAST_DELAY} />
+            </Flex>
           </Flex>
           <Flex align="baseline" gap="1">
             <Text size="4" weight="bold" style={{fontVariantNumeric: 'tabular-nums'}}>
@@ -527,7 +531,9 @@ export const DistrictMeters = () => {
             <Text color="gray" style={STAT_LABEL_STYLE}>
               Max deviation
             </Text>
-            <HelpTip tip="maxDeviation" openDelay={HELP_TIP_FAST_DELAY} />
+            <Flex align="center" style={{transform: 'translateY(-1.5px)'}}>
+              <HelpTip tip="maxDeviation" openDelay={HELP_TIP_FAST_DELAY} />
+            </Flex>
           </Flex>
           <Flex align="baseline" gap="1">
             <Text size="4" weight="bold" style={{fontVariantNumeric: 'tabular-nums'}}>
