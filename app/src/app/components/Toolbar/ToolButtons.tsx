@@ -110,12 +110,18 @@ export const ToolButtons: React.FC = () => {
         </Flex>
       </IconButton>
     );
+    // Every main tool shares one of the two combination entries (see
+    // ToolUtils' combinationHelpKey / 'superdrawToolsCombination'), so its
+    // hover card would describe every tool in the group rather than just
+    // this button — text="" suppresses that description, leaving only the
+    // "See demonstration" link. History tools (undo/redo) get their own,
+    // pair-specific text instead.
     return tool.helpKey ? (
       <HelpTip
         key={tool.mode}
         tip={tool.helpKey}
         openDelay={HELP_TIP_HOVER_DELAY}
-        text={isHistoryTool ? historyHelpText : undefined}
+        text={isHistoryTool ? historyHelpText : ''}
       >
         {button}
       </HelpTip>

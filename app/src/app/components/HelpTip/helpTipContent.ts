@@ -13,34 +13,24 @@ export interface HelpTipEntry {
 // `keyof typeof helpTipContent` to `string | number`, defeating HelpTipKey as a literal-key
 // safety net for callers (e.g. the `helpKey` field on toolbar tool configs).
 export const helpTipContent = {
-  pan: {
-    title: 'Moving around the map',
-    text: 'Click to select the pan tool. With this tool selected, click and drag to pan across the map. Use the plus/minus buttons, or your mouse scroll wheel or trackpad, to zoom in and out.',
-    videoFile: 'moving_in_map.webm',
-    guideAnchor: 'moving-across-the-map',
-  },
-  paint: {
-    title: 'Drawing districts',
-    text: 'Click to select the paintbrush tool. With this tool selected, click and drag on the map to add units to your district.',
-    videoFile: 'drawing_on_map.webm',
+  // Draw mode's three tools (pan, paint, erase) share this one entry: each
+  // tool button renders its own HelpTip instance (like undoRedo below) but
+  // passes text="" to suppress this entry's `text`, leaving only the "See
+  // demonstration" link — so title/videoFile still need to exist here even
+  // though the hover card itself never shows this `text`.
+  drawToolsCombination: {
+    title: 'Draw tools',
+    text: 'Pan, paint, and erase are the tools you use to draw your districts.',
+    videoFile: 'draw_tools_combination.webm',
     guideAnchor: 'drawing-the-districts',
   },
-  erase: {
-    title: 'Erasing',
-    text: 'Click to select the eraser tool. With this tool selected, click and drag to remove units from a district. Adjust the eraser size with the slider.',
-    videoFile: 'eraser.webm',
-    guideAnchor: 'drawing-the-districts',
-  },
-  break: {
-    title: 'Breaking a unit into blocks',
-    text: 'Click to select the break tool. With this tool selected, click a unit to "break" it into smaller pieces, so you can paint subsets of it — useful for fine-tuning population balance. Only available in Super Draw mode.',
-    videoFile: 'shatter.webm',
+  // Super Draw's five tools (pan, paint, erase, break, inspect) share this one
+  // entry, same pattern as drawToolsCombination above.
+  superdrawToolsCombination: {
+    title: 'Super Draw tools',
+    text: 'Pan, paint, erase, break, and inspect are the tools available in Super Draw.',
+    videoFile: 'superdraw_tools_combination.webm',
     guideAnchor: 'super-draw',
-  },
-  // No video for this one — text-only, unlike the other tool tips.
-  inspector: {
-    title: 'Inspecting units',
-    text: 'Click to select the inspector tool. With this tool selected, hover over units on map to see its populations.',
   },
   undoRedo: {
     title: 'Undo & redo',

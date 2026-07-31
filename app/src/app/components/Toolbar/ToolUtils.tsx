@@ -57,6 +57,11 @@ export const useActiveTools = () => {
   const metaKey =
     typeof navigator !== 'undefined' && navigator.platform.includes('Mac') ? '⌘' : 'Ctrl';
 
+  // Pan, paint, and erase exist in both Draw and Super Draw, so their shared
+  // help entry flips with the mode — the same combination key Break and
+  // Inspector always use, since those two only ever exist in Super Draw.
+  const combinationHelpKey = superDraw ? 'superdrawToolsCombination' : 'drawToolsCombination';
+
   const config: ActiveToolConfig[] = [
     {
       hotKeyLabel: 'M',
@@ -64,7 +69,7 @@ export const useActiveTools = () => {
       disabled: !mapDocument?.document_id,
       label: 'Move',
       icon: HandIcon,
-      helpKey: 'pan',
+      helpKey: combinationHelpKey,
       hotKeyAccessor: e => {
         return e.code === 'KeyM';
       },
@@ -75,7 +80,7 @@ export const useActiveTools = () => {
       disabled: !mapDocument?.document_id || !isEditing,
       label: 'Paint',
       icon: Pencil2Icon,
-      helpKey: 'paint',
+      helpKey: combinationHelpKey,
       hotKeyAccessor: e => {
         return e.code === 'KeyP';
       },
@@ -86,7 +91,7 @@ export const useActiveTools = () => {
       disabled: !mapDocument?.document_id || !isEditing,
       label: 'Erase',
       icon: EraserIcon,
-      helpKey: 'erase',
+      helpKey: combinationHelpKey,
       hotKeyAccessor: e => {
         return e.code === 'KeyE';
       },
@@ -131,7 +136,8 @@ export const useActiveTools = () => {
       disabled: !mapDocument?.child_layer || inBlockView,
       label: 'Break',
       icon: ViewGridIcon,
-      helpKey: 'break',
+      // Only ever rendered in Super Draw (filtered below), so no mode branch needed.
+      helpKey: 'superdrawToolsCombination',
       hotKeyAccessor: e => {
         return e.code === 'KeyB';
       },
@@ -141,7 +147,8 @@ export const useActiveTools = () => {
       mode: ACTIVE_TOOLS.INSPECTOR,
       label: 'Inspect',
       icon: MagnifyingGlassIcon,
-      helpKey: 'inspector',
+      // Only ever rendered in Super Draw (filtered below), so no mode branch needed.
+      helpKey: 'superdrawToolsCombination',
       hotKeyAccessor: e => {
         return e.code === 'KeyI';
       },
