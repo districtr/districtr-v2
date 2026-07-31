@@ -9,6 +9,7 @@ import {DocumentMetadata} from '@utils/api/apiHandlers/types';
 import {SaveShareModal} from '../Toolbar/SaveShareModal/SaveShareModal';
 import {fetchWithSession} from '@utils/api/session';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
+import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 
 /** Consolidated "Map actions" menu for the editor topbar: share, export,
  * and reset in one dropdown. Saving lives in the topbar SaveButton;
@@ -21,6 +22,7 @@ export const MapActionsDropdown: React.FC<{
   const access = useMapStore(state => state.mapStatus?.access);
   const handleReset = useMapStore(state => state.handleReset);
   const setNotification = useMapStore(state => state.setNotification);
+  const {save} = useMapSaveStatus();
 
   const notifyExportFailed = (reason: string) =>
     setNotification({
@@ -44,6 +46,13 @@ export const MapActionsDropdown: React.FC<{
 
   const downloadExport = async (exportType: string) => {
     if (!exportId) return;
+    // Save first so the export reflects local edits — but only for editors.
+    // On failure just abort: handlePutAssignments already surfaced
+    // it (conflict modal or error toast), so a toast here would double-notify.
+    if (access === ACCESS_STATES.EDIT) {
+      const saveResponse = await save();
+      if (!saveResponse.ok) return;
+    }
     // Fetch via the session-aware client (plain anchor navigation can't attach
     // the X-Districtr-Session header) and save the blob through a transient
     // anchor. Filename comes from the backend's Content-Disposition.

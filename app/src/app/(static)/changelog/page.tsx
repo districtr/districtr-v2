@@ -3,7 +3,7 @@ import packageJson from '../../../../package.json';
 import Changelog from './changelog.mdx';
 
 export const metadata = {
-  title: 'Changelog | Districtr',
+  title: 'Changelog',
   description: 'View the latest updates and changes to Districtr',
 };
 

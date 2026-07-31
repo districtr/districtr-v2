@@ -2,6 +2,11 @@ import {CTA} from '@/app/components/Static/Content/CTA';
 import {Flex, Heading, Text, Link, Box} from '@radix-ui/themes';
 import {LearnSubNav} from '@/app/components/Static/LearnSubNav';
 
+export const metadata = {
+  title: 'Data',
+  description: 'The data sources behind Districtr maps',
+};
+
 export default function DataPage() {
   return (
     <Flex direction="column" gapY="4">

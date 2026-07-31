@@ -95,7 +95,10 @@ export interface AssignmentsStore {
 
   /** Clears all shatter state */
   resetShatterState: () => void;
-  handlePutAssignments: (overwrite?: boolean, opts?: {silent?: boolean}) => Promise<void>;
+  handlePutAssignments: (
+    overwrite?: boolean,
+    opts?: {silent?: boolean}
+  ) => Promise<{ok: true; response: string} | {ok: false; error: {detail: string}}>;
   handleRevert: (mapDocument: DocumentObject) => Promise<void>;
   handlePutAssignmentsConflict: (
     resolution: SyncConflictResolution,
@@ -800,9 +803,33 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
 
     const {mapDocument, setMapLock, setNotification, setShowSaveConflictModal, updated} =
       useMapStore.getState();
-    if (!mapDocument?.document_id || !mapDocument.updated_at) return;
+    if (!mapDocument?.document_id || !mapDocument.updated_at) {
+      setNotification({
+        message: 'Unable to save: no map document loaded.',
+        importance: 2,
+        type: 'error',
+      });
+      return {
+        ok: false,
+        error: {
+          detail: 'No map document loaded.',
+        },
+      };
+    }
     const idbDocument = await idb.getDocument(mapDocument?.document_id);
-    if (!idbDocument) return;
+    if (!idbDocument) {
+      setNotification({
+        message: 'Unable to save: local copy of this map is missing. Please refresh and try again.',
+        importance: 2,
+        type: 'error',
+      });
+      return {
+        ok: false,
+        error: {
+          detail: 'Unable to find IDB document.',
+        },
+      };
+    }
     // Whether this save carries real local edits (paints, comments, metadata).
     // Mode switches trigger a defensive save even when nothing changed, and a
     // "Map saved" toast there misleads — so only announce saves with a delta.
@@ -837,21 +864,52 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         assignmentsPostResponse.error === 'Document has been updated since the last update'
       ) {
         setShowSaveConflictModal(true);
+        return {
+          ok: false,
+          error: {
+            detail: 'Backend conflict',
+          },
+        };
       } else if (!assignmentsPostResponse.ok) {
         setNotification({
           message: assignmentsPostResponse.error,
           importance: 2,
           type: 'error',
         });
+        return {
+          ok: false,
+          error: {
+            detail: assignmentsPostResponse.error,
+          },
+        };
       } else if (assignmentsPostResponse.ok) {
         setShowSaveConflictModal(false);
         if (hasPendingChanges && !silent) {
           setNotification({message: 'Map saved', importance: 2, type: 'success'});
+          return {
+            ok: true,
+            response: 'Assignments PUT successfully.',
+          };
         }
+        return {
+          ok: true,
+          response: 'No assignments to PUT.',
+        };
       }
     } finally {
       setMapLock(null);
     }
+    setNotification({
+      message: 'Saving this map failed. Please try again in a moment.',
+      importance: 2,
+      type: 'error',
+    });
+    return {
+      ok: false,
+      error: {
+        detail: 'An unknown error occured during PUT assignments.',
+      },
+    };
   },
   handleRevert: async (mapDocument: DocumentObject) => {
     const confirmedMapDocument = confirmMapDocumentUrlParameter(mapDocument);
