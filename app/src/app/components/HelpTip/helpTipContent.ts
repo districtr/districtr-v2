@@ -34,7 +34,7 @@ export const helpTipContent = {
   },
   undoRedo: {
     title: 'Undo & redo',
-    text: 'Click the undo/redo buttons to revert or reapply changes to your district plan.',
+    text: 'See demonstrations for undo/redo.',
     videoFile: 'undo_redo.webm',
     guideAnchor: 'drawing-the-districts',
   },
