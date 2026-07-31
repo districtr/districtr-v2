@@ -1,11 +1,12 @@
 'use client';
 import React from 'react';
-import {Flex, IconButton, Tooltip} from '@radix-ui/themes';
+import {Flex, IconButton} from '@radix-ui/themes';
 import {LayoutIcon, RowsIcon} from '@radix-ui/react-icons';
 import {StackedPanels} from './StackedPanels';
 import {WorkflowTabs} from './WorkflowTabs';
 import {VisualSettingsPopover} from '../Toolbar/VisualSettingsPopover';
 import {useToolbarStore} from '@store/toolbarStore';
+import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 
 export const DataCards: React.FC = () => {
   const superDraw = useToolbarStore(state => state.superDraw);
@@ -16,7 +17,7 @@ export const DataCards: React.FC = () => {
   const stacked = superDraw && stackedSidebar;
 
   const layoutToggle = superDraw ? (
-    <Tooltip content={stacked ? 'Switch to tabbed layout' : 'Switch to stacked panels'}>
+    <HelpTip tip="sidebarLayoutToggle" openDelay={HELP_TIP_HOVER_DELAY}>
       <IconButton
         variant="ghost"
         color="gray"
@@ -27,16 +28,20 @@ export const DataCards: React.FC = () => {
       >
         {stacked ? <LayoutIcon /> : <RowsIcon />}
       </IconButton>
-    </Tooltip>
+    </HelpTip>
   ) : null;
 
   return (
     <Flex direction="column" gap="2" data-testid="data-panels">
       {stacked ? (
         <>
+          {/* Visual settings sits with the layout toggle at the right edge —
+              the same spot the toggle occupies in the tab strip — so the
+              header row's controls stay put when switching layouts. */}
           <Flex
             align="center"
-            justify="between"
+            justify="end"
+            gap="3"
             className="sticky top-0 z-10 border-b border-gray-200 py-2 pr-1 bg-white"
           >
             <VisualSettingsPopover />
