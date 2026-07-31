@@ -43,7 +43,6 @@ export const MapTitleDisplay: React.FC<{
   const [mapStatusInner, setMapStatusInner] = useState<DraftStatus>(DRAFT_STATUSES.SCRATCH);
   const [open, setOpen] = useState(false);
   const {moduleName, unitsSentence, dataSourceSentence} = useMapModuleInfo();
-  // Forward status moves are earned (same criteria as the helper box).
   const {statusLocked} = useDraftStatusCriteria();
 
   const _mapName = mapMetadata?.name ?? mapDocument?.map_metadata?.name ?? '';

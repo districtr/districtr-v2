@@ -50,11 +50,11 @@ const ItemMarker: React.FC<{done: boolean}> = ({done}) =>
   );
 
 /**
- * Helper card at the top of the sidebar, staged by the document's draft
- * status: Get started (scratch) → Refine and validate (in progress) →
- * Advanced (ready to share). Stages advance only by the user clicking the
- * advance button, which appears once the stage's (cumulative) criteria are
- * met — the same criteria that gate the status controls
+ * Helper card at the top of the sidebar: Get started (scratch) → Refine and
+ * validate (in progress) → Advanced (ready to share). The stage follows the
+ * draft status, except a regressed plan falls back to the earliest failing
+ * checklist (see displayStage). Advancing is opt-in via the earned advance
+ * button, on the same criteria that gate the status controls
  * (useDraftStatusCriteria). Collapsible, not dismissible.
  */
 export const DraftStatusHelper = () => {

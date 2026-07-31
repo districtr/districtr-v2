@@ -56,7 +56,7 @@ const ModeSwitcherItem: React.FC<{
 }> = ({mode, isCurrent, disabled, disabledReason, locked, onSelect}) => {
   const meta = MODE_META[mode];
   const Icon = locked ? LockClosedIcon : meta.Icon;
-  // The helper's pointers open this menu and pulse the mode they meant.
+  // Pulse target for the helper's mode pointers.
   const flashing = useUiHintStore(state => state.flashTarget === `mode-${mode}`);
   const row = (
     <Flex

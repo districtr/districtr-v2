@@ -62,10 +62,10 @@ export const MapStatusButtons: React.FC<{
   draftStatus: DraftStatus | null;
   onChange: (draftStatus: DraftStatus) => Promise<void>;
 }> = ({draftStatus, onChange}) => {
-  // Forward moves are earned: statuses whose criteria aren't met yet can't be
-  // selected (backward moves always can). Same criteria the helper box shows.
-  // This Radix version's SegmentedControl.Item has no disabled prop, so lock
-  // by ignoring the selection and dimming the item.
+  // Forward moves are earned: statuses whose criteria aren't met can't be
+  // selected (backward moves always can). This Radix version's
+  // SegmentedControl.Item has no disabled prop, so lock by ignoring the
+  // selection and dimming the item.
   const {statusLocked} = useDraftStatusCriteria();
   return (
     <SegmentedControl.Root
