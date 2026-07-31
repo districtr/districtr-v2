@@ -26,7 +26,6 @@ import {
   overlayGroupVariables,
   overlayMemory,
 } from '@utils/demography/overlayMemory';
-import {KeyOptionToggles} from '@components/Toolbar/ToolControls/KeyOptionToggles';
 
 /** Layers
  * This component is responsible for rendering the layers that can be toggled
@@ -208,10 +207,6 @@ export const ToolSettings: React.FC<{hideTitle?: boolean}> = ({hideTitle}) => {
             </Button>
           )}
         </CheckboxGroup.Root>
-        {/* Shared with the right column of ToolControlsScaffold — kept out of the
-            CheckboxGroup above so the two render sites don't have to agree on a
-            single controlled `value` list. */}
-        <KeyOptionToggles />
         {overlayGroups.length > 0 && (
           <>
             <Heading as="h3" weight="bold" size="3">
