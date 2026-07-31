@@ -23,7 +23,7 @@ import {ACCESS_STATES} from '@constants/document/state';
 import {temporalManager} from '@/app/utils/temporal';
 import {MAP_MODES} from '@constants/map/mode';
 
-export const DistrictsZonePicker: React.FC = () => {
+export const DistrictsZonePicker: React.FC<{disabled?: boolean}> = ({disabled}) => {
   const [showNumDistrictEditor, setShowNumDistrictEditor] = useState(false);
   const selectedZone = useMapControlsStore(state => state.selectedZone);
   const setSelectedZone = useMapControlsStore(state => state.setSelectedZone);
@@ -103,7 +103,7 @@ export const DistrictsZonePicker: React.FC = () => {
 
   return (
     <Box
-      className={isReadOnly ? 'pointer-events-none opacity-50' : ''}
+      className={isReadOnly || disabled ? 'pointer-events-none opacity-50' : ''}
       data-testid="zone-picker"
       width="100%"
     >
@@ -173,7 +173,12 @@ export const DistrictsZonePicker: React.FC = () => {
             </>
           )}
         </Flex>
-        <ColorPicker onValueChange={handleRadioChange} defaultValue={0} value={selectedZone - 1} />
+        <ColorPicker
+          onValueChange={handleRadioChange}
+          defaultValue={0}
+          value={selectedZone - 1}
+          disabled={disabled}
+        />
       </Flex>
       <AlertDialog.Root
         open={pendingDecrease !== null}
