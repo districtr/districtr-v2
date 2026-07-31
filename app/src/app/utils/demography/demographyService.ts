@@ -176,6 +176,16 @@ class DemographyService {
   universeTotals: SummaryRecord | null = null;
 
   colorScale?: AnyD3Scale;
+
+  /**
+   * Cache of `getFiltered()` results keyed by county/VTD id, so repeatedly
+   * re-entering the same county under the brush (e.g. dragging back and
+   * forth across a border) doesn't re-scan `table`. Invalidated wherever
+   * `table` is reassigned — see `update()`, `updatePublicDemography()`, and
+   * `clear()`.
+   */
+  private filteredCache: Map<string, MapGeoJSONFeature[]> = new Map();
+
   /**
    * Updates the cache with freshly loaded demographic columns/results.
    *
@@ -192,6 +202,7 @@ class DemographyService {
     if (hash === this.hash) return;
     this.isPublicSource = false;
     this.availableColumns = columns;
+    this.filteredCache.clear();
     this.table = table(data).derive(getColumnDerives(columns)).dedupe('path');
     const popsOk = this.updatePopulations({
       zoneAssignments: getActivePopulationAssignments(),
@@ -216,6 +227,7 @@ class DemographyService {
     if (hash === this.hash) return;
     this.isPublicSource = true;
     this.availableColumns = columns;
+    this.filteredCache.clear();
     this.table = table(data).derive(getColumnDerives(columns)).dedupe('path');
     const popsOk = this.updatePopulations({coalitionGroups});
     if (!popsOk) return;
@@ -276,6 +288,7 @@ class DemographyService {
     this.hash = '';
     this.colorScale = undefined;
     this.zoneStats = {};
+    this.filteredCache.clear();
   }
 
   private getCoalitionColumns(
@@ -341,6 +354,10 @@ class DemographyService {
     if (!this.table) {
       return [];
     }
+    const cached = this.filteredCache.get(id);
+    if (cached) {
+      return cached;
+    }
     const ids = this.table
       .select(this.id_col, 'sourceLayer', 'total_pop_20')
       .params({
@@ -358,6 +375,7 @@ class DemographyService {
         source: BLOCK_SOURCE_ID,
         properties,
       })) as MapGeoJSONFeature[];
+    this.filteredCache.set(id, ids);
     return ids;
   }
 
