@@ -1,11 +1,11 @@
 'use client';
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {Box, Button, Flex, IconButton, Text, Tooltip} from '@radix-ui/themes';
 import {EyeNoneIcon, EyeOpenIcon, LockClosedIcon, LockOpen2Icon} from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useToolbarStore} from '@store/toolbarStore';
-import {useChartStore} from '@store/chartStore';
+import {DEFAULT_CHART_OPTIONS, useChartStore} from '@store/chartStore';
 import {useZonePopulations} from '@/app/hooks/useDemography';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
@@ -98,6 +98,14 @@ export const DistrictMeters = () => {
   const superDraw = useToolbarStore(state => state.superDraw);
   const access = useMapStore(state => state.mapStatus?.access);
   const chartOptions = useChartStore(state => state.chartOptions);
+  const setChartOptions = useChartStore(state => state.setChartOptions);
+
+  // Plain Draw has no chart-settings UI, so leaving Super Draw resets the
+  // options — otherwise hidden columns or alternate scaling would be stranded
+  // with no way to undo them.
+  useEffect(() => {
+    if (!superDraw) setChartOptions(DEFAULT_CHART_OPTIONS);
+  }, [superDraw, setChartOptions]);
   const getZoneColor = useZoneColorGetter();
   const selectCommunity = useSelectCommunity();
 
@@ -241,10 +249,12 @@ export const DistrictMeters = () => {
               {visibleData.map(d => {
                 const population = d.total_pop_20 ?? 0;
                 const fill = scaleTotal ? population / scaleTotal : 0;
-                // Off the scale: the bar is pinned at the track's end (only
-                // possible in zero-to-ideal scaling, at >=125% of ideal). The
-                // row goes red and the bar becomes an arrow off the chart.
-                const offScale = !!scaleTotal && !scaleToCurrent && fill >= 1;
+                // Off the scale: 125% of ideal and beyond. The row goes red
+                // and the bar becomes an arrow — in zero-to-ideal scaling it's
+                // pinned at the track's end, in current-range scaling the
+                // arrow ends wherever the bar does.
+                const offScale = !!idealPopulation && population >= idealPopulation / IDEAL_TICK;
+                const barEnd = Math.min(fill, 1);
                 const color = getZoneColor(d.zone);
                 // Population past ideal renders as a darker shade of the
                 // district's own color.
@@ -338,14 +348,14 @@ export const DistrictMeters = () => {
                               top: 0,
                               bottom: 0,
                               left: `${tickFraction * 100}%`,
-                              right: ARROW_HEAD_WIDTH - 1,
+                              right: `calc(${(1 - barEnd) * 100}% + ${ARROW_HEAD_WIDTH - 1}px)`,
                               background: overflowColor,
                             }}
                           />
                           <Box
                             style={{
                               position: 'absolute',
-                              right: 0,
+                              left: `calc(${barEnd * 100}% - ${ARROW_HEAD_WIDTH}px)`,
                               top: -ARROW_HEAD_OVERHANG,
                               bottom: -ARROW_HEAD_OVERHANG,
                               width: ARROW_HEAD_WIDTH,
