@@ -2,6 +2,7 @@
 import React from 'react';
 import {Toolbar} from './Toolbar';
 import {VisualSettingsPopover} from './VisualSettingsPopover';
+import {DraftStatusHelper} from '@components/sidebar/DraftStatusHelper';
 import {useIsDesktop} from '@/app/hooks/useIsDesktop';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 
@@ -24,6 +25,11 @@ export const MobileToolbar: React.FC = () => {
       {/* col-reverse: this row sits above the tool buttons/controls. */}
       <div className="flex justify-start px-2 py-1 border-b border-gray-200">
         <VisualSettingsPopover />
+      </div>
+      {/* Topmost in the dock (col-reverse). empty:hidden drops the wrapper's
+          padding when the helper renders null (not editing, COI, Super Draw). */}
+      <div className="p-2 border-b border-gray-200 empty:hidden">
+        <DraftStatusHelper />
       </div>
     </div>
   );

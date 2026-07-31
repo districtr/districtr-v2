@@ -13,6 +13,7 @@ import {useMetadataChange} from '@/app/hooks/useMetadataChange';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {useIsDesktop} from '@/app/hooks/useIsDesktop';
+import {useUiHintStore} from '@store/uiHintStore';
 import {ModeSwitcher} from './ModeSwitcher';
 import {MapActionsDropdown} from './MapActionsDropdown';
 import {SaveButton} from './SaveButton';
@@ -138,6 +139,15 @@ export const MobileDataTabs: React.FC = () => {
   React.useEffect(() => {
     if (isDesktop) setActiveTab('map');
   }, [isDesktop]);
+  // Helper-box jumps: below lg the sidebar sections don't exist, so hints
+  // open the matching full-screen panel here instead (see uiHintStore).
+  const mobileTabRequest = useUiHintStore(state => state.requests.mobileTab);
+  const clearRequest = useUiHintStore(state => state.clear);
+  React.useEffect(() => {
+    if (!mobileTabRequest) return;
+    clearRequest('mobileTab');
+    if (!isDesktop) setActiveTab(mobileTabRequest);
+  }, [mobileTabRequest, clearRequest, isDesktop]);
   // Same panel filter as the desktop sidebar: districts-only panels
   // (elections, validity, ...) don't apply to community (COI) maps.
   const visiblePanels = mobileTabPanels.filter(

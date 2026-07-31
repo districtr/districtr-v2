@@ -1,5 +1,6 @@
 import {create} from 'zustand';
 import type {WorkflowTabKey} from '@components/sidebar/WorkflowTabs';
+import type {MapControlsStore} from '@store/mapControlsStore';
 
 export type ValidationTab = 'Contiguity' | 'Completeness';
 
@@ -13,6 +14,9 @@ export type ValidationTab = 'Contiguity' | 'Completeness';
  * (stacked layout, eval view) must switch there first. */
 type UiHintRequests = {
   sidebarTab: WorkflowTabKey;
+  /** Below lg the sidebar is hidden; helper jumps open the matching
+   * full-screen mobile panel instead. Consumed by MobileDataTabs. */
+  mobileTab: MapControlsStore['sidebarPanels'][number];
   validationTab: ValidationTab;
   shareModal: true;
   /** Which mode item the opened dropdown should pulse. */

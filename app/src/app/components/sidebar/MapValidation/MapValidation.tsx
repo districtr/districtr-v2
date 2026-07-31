@@ -47,13 +47,16 @@ export const MapValidation = () => {
   // Opening the check (or swapping panels) silently saves pending edits so
   // the results reflect the current map — helper-box jumps land on fresh
   // numbers, without the map-lock overlay or saved toast (this also runs when
-  // the Stats tab merely opens with the section expanded). Deliberately keyed
-  // on the panel, not isOutdated: painting while the panel is open must not
+  // the Stats tab merely opens with the section expanded). Also keyed on the
+  // IDB document's arrival: it loads async, so the mount-time run sees
+  // isOutdated=false and would otherwise miss the opening save. Deliberately
+  // not keyed on isOutdated itself: painting while the panel is open must not
   // trigger a save per stroke.
+  const idbLoaded = !!idbDocument;
   useEffect(() => {
     if (isOutdated) handlePutAssignments(false, {silent: true});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePanel]);
+  }, [activePanel, idbLoaded]);
 
   useEffect(() => {
     if (mapDocument?.map_type === MAP_TYPES.COMMUNITY || mapMode === MAP_MODES.COI) {

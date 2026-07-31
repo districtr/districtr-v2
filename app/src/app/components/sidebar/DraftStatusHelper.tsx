@@ -3,7 +3,8 @@ import React, {useEffect, useState} from 'react';
 import {Button, Flex, Text} from '@radix-ui/themes';
 import {CheckIcon, ChevronDownIcon, MinusIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@/app/store/mapStore';
-import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useMapControlsStore, type MapControlsStore} from '@/app/store/mapControlsStore';
+import {useIsDesktop} from '@/app/hooks/useIsDesktop';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {useUiHintStore} from '@/app/store/uiHintStore';
@@ -22,6 +23,13 @@ const COLLAPSE_KEY = 'districtr-draft-helper-collapsed';
 // Above this share of unassigned population, suggest the county brush for
 // rough drawing; below it, point at the unassigned-areas finder.
 const ROUGH_DRAW_UNASSIGNED_RATIO = 0.25;
+
+// Sidebar sections → the mobile full-screen panel holding the same content.
+const MOBILE_TAB_FOR_SECTION: Record<string, MapControlsStore['sidebarPanels'][number]> = {
+  'stats-validity': 'mapValidation',
+  'stats-demographics': 'demography',
+  'stats-elections': 'election',
+};
 
 type Hint = {label: string; onClick: () => void};
 type ChecklistItem = {
@@ -71,6 +79,7 @@ const ItemMarker: React.FC<{done: boolean}> = ({done}) =>
  * not dismissible.
  */
 export const DraftStatusHelper = () => {
+  const isDesktop = useIsDesktop();
   const isEditing = useMapControlsStore(state => state.isEditing);
   const mapMode = useMapControlsStore(state => state.mapMode);
   const superDraw = useToolbarStore(state => state.superDraw);
@@ -127,6 +136,15 @@ export const DraftStatusHelper = () => {
     el?.scrollIntoView({behavior: 'smooth', block: 'start'});
   };
   const jumpToSection = (tab: 'stats' | 'mapLayers', sectionId: string) => {
+    if (!isDesktop) {
+      // Below lg the sidebar (and its sections) is hidden; open the matching
+      // full-screen mobile panel instead. Sections without one (map options,
+      // the demographic map layer) skip the jump — the hint's store change
+      // (tooltip on, overlay active) already took effect on the visible map.
+      const mobileTab = MOBILE_TAB_FOR_SECTION[sectionId];
+      if (mobileTab) request('mobileTab', mobileTab);
+      return;
+    }
     openTabSection(sectionId);
     request('sidebarTab', tab);
     flash(`section:${sectionId}`);
