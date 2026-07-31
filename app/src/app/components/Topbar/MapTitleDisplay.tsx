@@ -80,7 +80,7 @@ export const MapTitleDisplay: React.FC<{
   // Pulses when the helper box just changed the status (see its changeStatus).
   const statusFlashing = useUiHintStore(state => state.flashTarget === 'map-status-icon');
   const statusIcon = (
-    <span className={`inline-flex rounded-full ${statusFlashing ? 'ui-flash' : ''}`}>
+    <span className={`inline-flex rounded-full ${statusFlashing ? 'ui-flash-pop' : ''}`}>
       <DraftStatusIcon />
     </span>
   );

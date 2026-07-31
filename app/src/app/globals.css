@@ -196,3 +196,21 @@ body {
   animation: ui-flash-pulse 1.4s ease-out 2;
   border-radius: 6px;
 }
+
+/* Stronger variant for tiny targets like the topbar status icon, where the
+   standard wash is easy to miss. A saturated wash blink, fully inside the
+   element's own box — the truncating title header's overflow rules clip
+   anything that grows or glows outward. */
+@keyframes ui-flash-pop {
+  0%,
+  100% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: var(--accent-a7);
+  }
+}
+.ui-flash-pop {
+  animation: ui-flash-pop 0.55s ease-in-out 5;
+  border-radius: 9999px;
+}

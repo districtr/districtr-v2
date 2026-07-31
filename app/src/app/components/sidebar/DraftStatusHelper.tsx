@@ -167,13 +167,14 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
     }
     openTabSection(sectionId);
     // Sequence the jump so the instant cut reads as a path: pulse the
-    // destination tab label first, then switch and pulse the section itself.
+    // destination tab label long enough to register, then switch and pulse
+    // the section itself.
     flash(`tab:${tab}`);
     setTimeout(() => {
       request('sidebarTab', tab);
       flash(`section:${sectionId}`);
       setTimeout(() => scrollSectionIntoView(sectionId), 300);
-    }, 500);
+    }, 1000);
   };
 
   const openValidation = (tab: 'Contiguity' | 'Completeness') => {
