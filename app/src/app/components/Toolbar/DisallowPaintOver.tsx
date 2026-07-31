@@ -1,4 +1,4 @@
-import {Card, Checkbox, Flex, Text} from '@radix-ui/themes';
+import {Checkbox, Flex, Text} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {ACCESS_STATES} from '@constants/document/state';
@@ -23,14 +23,17 @@ export default function DisallowPaintOver() {
 
   return (
     <HelpTip tip="disallowPaintOver" openDelay={HELP_TIP_HOVER_DELAY}>
-      <Card size="1" className={disallowPaintOver ? 'bg-indigo-50' : ''}>
-        <Text as="label" size="2" className="cursor-pointer select-none">
-          <Flex gap="2" align="center">
-            <Checkbox checked={!!disallowPaintOver} onCheckedChange={handleToggle} disabled={disabled} />
-            Disallow Paint-over
-          </Flex>
-        </Text>
-      </Card>
+      <Text as="label" size="1" className="cursor-pointer select-none">
+        <Flex gap="1" align="center">
+          <Checkbox
+            size="1"
+            checked={!!disallowPaintOver}
+            onCheckedChange={handleToggle}
+            disabled={disabled}
+          />
+          Disallow Paint-over
+        </Flex>
+      </Text>
     </HelpTip>
   );
 }
