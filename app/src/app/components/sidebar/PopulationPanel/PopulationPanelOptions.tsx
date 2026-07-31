@@ -9,7 +9,6 @@ import {
 } from '@radix-ui/themes';
 import React, {useEffect} from 'react'; // Import ParentSize
 import {Popover} from '@radix-ui/themes';
-import {GearIcon} from '@radix-ui/react-icons';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
 import {ChartStore} from '@store/chartStore';
 import {ColorChangeModal} from '../../Toolbar/ColorChangeModal';
@@ -50,9 +49,9 @@ export const PopulationPanelOptions: React.FC<{
     <>
       <Popover.Root>
         <Popover.Trigger>
-          <IconButton variant="ghost" size="3" aria-label="Open population panel options">
-            <GearIcon />
-          </IconButton>
+          <Button variant="ghost" size="1" aria-label="Open population chart settings">
+            Population chart settings
+          </Button>
         </Popover.Trigger>
         <Popover.Content>
           <CheckboxGroup.Root
