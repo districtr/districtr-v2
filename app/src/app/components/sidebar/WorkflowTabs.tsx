@@ -1,5 +1,5 @@
 'use client';
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {Flex, Text} from '@radix-ui/themes';
 import {ChevronDownIcon} from '@radix-ui/react-icons';
 import PopulationPanel from './PopulationPanel';
@@ -16,20 +16,31 @@ import {SUMMARY_TYPES} from '@constants/demography/summary';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 import type {HelpTipKey} from '@components/HelpTip/helpTipContent';
 
+// Only the active tab's content mounts, so section collapse state would reset
+// on every tab round-trip if it lived in component state alone. Write-through
+// to this session-scoped record; keys are the `id` props (labels repeat across
+// tabs, e.g. Demographics).
+const sectionOpenState: Record<string, boolean> = {};
+
 /** A quiet section header inside a workflow tab: no card chrome, just a
  * heading row in the shared plane. Collapsible but open by default. */
-const TabSection: React.FC<{label: string; helpTip?: HelpTipKey; children: React.ReactNode}> = ({
-  label,
-  helpTip,
-  children,
-}) => {
-  const [open, setOpen] = useState(true);
+const TabSection: React.FC<{
+  id: string;
+  label: string;
+  helpTip?: HelpTipKey;
+  children: React.ReactNode;
+}> = ({id, label, helpTip, children}) => {
+  const [open, _setOpen] = useState(sectionOpenState[id] ?? true);
+  const setOpen = (next: boolean) => {
+    sectionOpenState[id] = next;
+    _setOpen(next);
+  };
   // Negative margin + matching padding (the panels' px="2"): the button and
   // its hover wash run the full panel width while the label stays on the same
   // left edge as the section content below it.
   const headerRow = (
     <button
-      onClick={() => setOpen(o => !o)}
+      onClick={() => setOpen(!open)}
       aria-expanded={open}
       className="w-auto cursor-pointer text-left -mx-2 px-2 py-3 rounded transition-colors hover:bg-[var(--gray-2)]"
     >
@@ -68,10 +79,10 @@ const MapLayersPanel: React.FC = () => {
   const mapMode = useMapControlsStore(state => state.mapMode);
   return (
     <Flex direction="column" px="2">
-      <TabSection label="Boundaries and areas" helpTip="boundariesAndAreas">
+      <TabSection id="layers-boundaries" label="Boundaries and areas" helpTip="boundariesAndAreas">
         <OverlaysPanel />
       </TabSection>
-      <TabSection label="Demographics" helpTip="demographics">
+      <TabSection id="layers-demographics" label="Demographics" helpTip="demographics">
         <SummaryPanel
           defaultColumnSet={SUMMARY_TYPES.TOTPOP}
           displayedColumnSets={[SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP]}
@@ -79,7 +90,7 @@ const MapLayersPanel: React.FC = () => {
         />
       </TabSection>
       {mapMode !== MAP_MODES.COI && (
-        <TabSection label="Elections" helpTip="elections">
+        <TabSection id="layers-elections" label="Elections" helpTip="elections">
           <SummaryPanel
             defaultColumnSet={SUMMARY_TYPES.VOTERHISTORY}
             displayedColumnSets={[SUMMARY_TYPES.VOTERHISTORY]}
@@ -87,7 +98,7 @@ const MapLayersPanel: React.FC = () => {
           />
         </TabSection>
       )}
-      <TabSection label="Map options">
+      <TabSection id="layers-options" label="Map options">
         <ToolSettings hideTitle />
       </TabSection>
     </Flex>
@@ -103,11 +114,11 @@ const StatsPanel: React.FC = () => {
   return (
     <Flex direction="column" px="2">
       {!isCoi && (
-        <TabSection label="Validity check" helpTip="mapValidation">
+        <TabSection id="stats-validity" label="Validity check" helpTip="mapValidation">
           <MapValidation />
         </TabSection>
       )}
-      <TabSection label="Demographics" helpTip="demographics">
+      <TabSection id="stats-demographics" label="Demographics" helpTip="demographics">
         <Flex direction="column" gap="2">
           <CoalitionExpander
             defaultColumnSet={SUMMARY_TYPES.TOTPOP}
@@ -121,7 +132,7 @@ const StatsPanel: React.FC = () => {
         </Flex>
       </TabSection>
       {!isCoi && (
-        <TabSection label="Elections" helpTip="elections">
+        <TabSection id="stats-elections" label="Elections" helpTip="elections">
           <SummaryPanel
             defaultColumnSet={SUMMARY_TYPES.VOTERHISTORY}
             displayedColumnSets={[SUMMARY_TYPES.VOTERHISTORY]}
@@ -160,18 +171,19 @@ export const WorkflowTabs: React.FC<{layoutToggle: React.ReactNode}> = ({layoutT
   const activeKey = visibleTabs.some(t => t.key === tab) ? tab : visibleTabs[0].key;
   const activeTab = visibleTabs.find(t => t.key === activeKey);
   // One-shot tab request from other panels (e.g. "Find unassigned" jumps to
-  // the Stats tab's completeness check).
+  // the Stats tab's completeness check). A request that arrived while the tabs
+  // were unmounted (stacked layout, eval view) is stale: the first effect run
+  // after mount discards it instead of firing a surprise jump.
   const sidebarTabRequest = useUiHintStore(state => state.sidebarTabRequest);
   const clearSidebarTabRequest = useUiHintStore(state => state.clearSidebarTabRequest);
+  const tabRequestsLive = useRef(false);
   useEffect(() => {
-    if (sidebarTabRequest) {
-      setTab(sidebarTabRequest);
-      clearSidebarTabRequest();
-    }
+    const live = tabRequestsLive.current;
+    tabRequestsLive.current = true;
+    if (!sidebarTabRequest) return;
+    clearSidebarTabRequest();
+    if (live) setTab(sidebarTabRequest);
   }, [sidebarTabRequest, clearSidebarTabRequest]);
-  // A request issued while the tabs are unmounted (stacked layout, eval view)
-  // must not linger and fire a surprise jump on a later mount.
-  useEffect(() => clearSidebarTabRequest, [clearSidebarTabRequest]);
 
   // COI mode can leave a single visible tab; a one-tab strip is noise, but the
   // Super Draw layout toggle must stay reachable.
@@ -182,10 +194,17 @@ export const WorkflowTabs: React.FC<{layoutToggle: React.ReactNode}> = ({layoutT
       {showStrip ? (
         <nav
           aria-label="Sidebar panels"
-          className="border-b border-gray-200 py-2 bg-white overflow-x-auto"
+          // Sticky within the sidebar's scroll area (like the static site's
+          // SecondaryNav) so long panels — the Stats tables — can't push the
+          // tab strip out of reach.
+          className="sticky top-0 z-10 border-b border-gray-200 py-2 bg-white overflow-x-auto"
         >
-          <Flex direction="row" gapX="5" align="center" justify="center" position="relative">
-            <div className="contents text-sm tracking-wider">
+          {/* flex-1 spacers keep the tabs truly centered while pinning the
+              layout toggle to the right edge — the same spot it occupies in
+              the stacked layout's header row, so it doesn't move on switch. */}
+          <Flex direction="row" align="center" className="w-full">
+            <div className="flex-1" />
+            <div className="flex gap-5 text-sm tracking-wider">
               {visibleTabs.map(t => {
                 const active = t.key === activeKey;
                 return (
@@ -212,11 +231,21 @@ export const WorkflowTabs: React.FC<{layoutToggle: React.ReactNode}> = ({layoutT
                 );
               })}
             </div>
-            {layoutToggle && <Flex flexShrink="0">{layoutToggle}</Flex>}
+            {/* pr-1 absorbs the ghost IconButton's -4px margin overhang,
+                which would otherwise trip this scroll container into showing
+                a horizontal scrollbar. */}
+            <div className="flex-1 flex justify-end pr-1">{layoutToggle}</div>
           </Flex>
         </nav>
       ) : (
-        layoutToggle && <Flex justify="end">{layoutToggle}</Flex>
+        layoutToggle && (
+          <Flex
+            justify="end"
+            className="sticky top-0 z-10 border-b border-gray-200 py-2 pr-1 bg-white"
+          >
+            {layoutToggle}
+          </Flex>
+        )
       )}
       <div data-testid={`data-panel-${activeKey}`}>{activeTab?.content}</div>
     </Flex>
