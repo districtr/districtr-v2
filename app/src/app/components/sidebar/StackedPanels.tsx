@@ -13,7 +13,7 @@ import PopulationPanel from './PopulationPanel';
 import OverlaysPanel from './OverlaysPanel';
 import {MapValidation} from './MapValidation/MapValidation';
 import {SummaryPanel} from './SummaryPanel';
-import {AnimatedCollapse, Expander} from './AnimatedCollapse';
+import {AnimatedCollapse} from './AnimatedCollapse';
 import {CoalitionExpander} from './CoalitionExpander';
 import {MapControlsStore, useMapControlsStore} from '@store/mapControlsStore';
 import {MAP_MODES} from '@constants/map/mode';
@@ -21,12 +21,12 @@ import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 import type {HelpTipKey} from '@components/HelpTip/helpTipContent';
 
-/** Table and Map Layer as independent coalition-style expanders (table open
- * by default) over single SummaryPanel sections. Used by the legacy stacked
- * layout only; the workflow tabs split table and map across Stats/Map Layers.
- * Opening the Map Layer expander shows the choropleth controls but doesn't
- * turn the overlay on — the user enables it from the display-mode control. */
-const TabbedSummaryPanel: React.FC<{
+/** Card content for the stacked demographics/elections cards: coalition
+ * expander (the one collapsible), then the map-layer controls rendered flat —
+ * the display-mode cards are their own progressive-disclosure trigger — then
+ * the table, always visible. Used by the legacy stacked layout only; the
+ * workflow tabs split map and table across Map Layers/Stats. */
+const SummaryCardContent: React.FC<{
   defaultColumnSet: SummaryType;
   displayedColumnSets: Array<SummaryType>;
   withCoalition?: boolean;
@@ -38,20 +38,16 @@ const TabbedSummaryPanel: React.FC<{
         displayedColumnSets={displayedColumnSets}
       />
     )}
-    <Expander label="Visualize Map Layer">
-      <SummaryPanel
-        defaultColumnSet={defaultColumnSet}
-        displayedColumnSets={displayedColumnSets}
-        sections={['map']}
-      />
-    </Expander>
-    <Expander label="View Table" defaultOpen>
-      <SummaryPanel
-        defaultColumnSet={defaultColumnSet}
-        displayedColumnSets={displayedColumnSets}
-        sections={['evaluation']}
-      />
-    </Expander>
+    <SummaryPanel
+      defaultColumnSet={defaultColumnSet}
+      displayedColumnSets={displayedColumnSets}
+      sections={['map']}
+    />
+    <SummaryPanel
+      defaultColumnSet={defaultColumnSet}
+      displayedColumnSets={displayedColumnSets}
+      sections={['evaluation']}
+    />
   </Flex>
 );
 
@@ -87,7 +83,7 @@ export const SECTIONS: SidebarSection[] = [
     label: 'Demographics',
     icon: PersonIcon,
     content: (
-      <TabbedSummaryPanel
+      <SummaryCardContent
         defaultColumnSet={SUMMARY_TYPES.TOTPOP}
         displayedColumnSets={[SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP]}
         withCoalition
@@ -100,7 +96,7 @@ export const SECTIONS: SidebarSection[] = [
     label: 'Elections',
     icon: PieChartIcon,
     content: (
-      <TabbedSummaryPanel
+      <SummaryCardContent
         defaultColumnSet={SUMMARY_TYPES.VOTERHISTORY}
         displayedColumnSets={[SUMMARY_TYPES.VOTERHISTORY]}
       />
