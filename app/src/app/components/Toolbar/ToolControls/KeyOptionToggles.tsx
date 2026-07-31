@@ -4,10 +4,9 @@ import {useMapControlsStore} from '@store/mapControlsStore';
 import {useMapStore} from '@store/mapStore';
 import {ACCESS_STATES} from '@constants/document/state';
 
-/** The map-display toggles surfaced next to the active tool's controls (right
- * column of ToolControlsScaffold) and, identically, inside the Visual
- * Settings popover — one definition shared between both call sites so the
- * two can never drift out of sync. */
+/** The map-display toggles surfaced in the right column of
+ * ToolControlsScaffold — the toolbar's only home for these now, not
+ * duplicated in the Visual Settings popover or the Map Layers tab. */
 export const KeyOptionToggles: React.FC = () => {
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
@@ -15,7 +14,7 @@ export const KeyOptionToggles: React.FC = () => {
 
   return (
     <Flex direction="column" gap="2">
-      <Text as="label" size="1" className="cursor-pointer select-none">
+      <Text as="label" size="2" className="cursor-pointer select-none">
         <Flex gap="2" align="center">
           <Checkbox
             checked={mapOptions.showZoneNumbers === true}
@@ -26,7 +25,7 @@ export const KeyOptionToggles: React.FC = () => {
           District numbers
         </Flex>
       </Text>
-      <Text as="label" size="1" className="cursor-pointer select-none">
+      <Text as="label" size="2" className="cursor-pointer select-none">
         <Flex gap="2" align="center">
           <Checkbox
             checked={mapOptions.showPopulationTooltip === true}
@@ -41,7 +40,7 @@ export const KeyOptionToggles: React.FC = () => {
       {/* Placeholder for issue #677's "Disallow paint over" toggle — this branch's
           MapOptions has no disallowPaintOver field yet, so the control is rendered
           inert (no checked state, no handler) until that field lands. */}
-      <Text as="label" size="1" className="select-none" style={{opacity: 0.5}}>
+      <Text as="label" size="2" className="select-none" style={{opacity: 0.5}}>
         <Flex gap="2" align="center">
           <Checkbox checked={false} disabled />
           Disallow paint over
