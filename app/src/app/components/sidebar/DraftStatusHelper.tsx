@@ -34,8 +34,8 @@ type ChecklistItem = {
 };
 
 /** Link-styled action that flows inline with the checklist text instead of
- * occupying its own row. `back` renders the quiet variant: gray, no arrow —
- * step-backs shouldn't compete with the forward hints. */
+ * occupying its own row. `back` renders the quiet gray variant — step-backs
+ * shouldn't compete with the forward hints. */
 const InlineHintButton: React.FC<{
   onClick: () => void;
   back?: boolean;
@@ -48,7 +48,7 @@ const InlineHintButton: React.FC<{
       back ? 'text-gray-500 hover:text-gray-700' : 'font-semibold text-districtrBlue'
     }`}
   >
-    {back ? children : <>{children} →</>}
+    {children}
   </button>
 );
 
@@ -375,28 +375,32 @@ export const DraftStatusHelper = () => {
             </Text>
           </Flex>
         ))}
-      {!collapsed && canAdvance && nextStatus && (
-        <Button
-          variant="solid"
-          size="1"
-          onClick={() => handleMetadataChange({draft_status: nextStatus})}
-          style={{alignSelf: 'start', fontWeight: 600}}
-          data-testid="advance-draft-status"
-        >
-          Mark as {DRAFT_STATUS_TEXT[nextStatus]} →
-        </Button>
-      )}
       {/* Backward moves are always free; the regressed note above carries its
           own step-back, so skip the duplicate there. */}
-      {!collapsed && statusStage > 0 && !regressed && (
-        <Text size="1" color="gray">
-          <InlineHintButton
-            back
-            onClick={() => handleMetadataChange({draft_status: previousStatus})}
-          >
-            Move back to {DRAFT_STATUS_TEXT[previousStatus]}
-          </InlineHintButton>
-        </Text>
+      {!collapsed && (canAdvance || (statusStage > 0 && !regressed)) && (
+        <Flex align="center" gap="3">
+          {canAdvance && nextStatus && (
+            <Button
+              variant="solid"
+              size="1"
+              onClick={() => handleMetadataChange({draft_status: nextStatus})}
+              style={{fontWeight: 600}}
+              data-testid="advance-draft-status"
+            >
+              Mark as {DRAFT_STATUS_TEXT[nextStatus]}
+            </Button>
+          )}
+          {statusStage > 0 && !regressed && (
+            <Text size="1">
+              <InlineHintButton
+                back
+                onClick={() => handleMetadataChange({draft_status: previousStatus})}
+              >
+                Move back to {DRAFT_STATUS_TEXT[previousStatus]}
+              </InlineHintButton>
+            </Text>
+          )}
+        </Flex>
       )}
     </Flex>
   );
