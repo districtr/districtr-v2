@@ -4,6 +4,7 @@ import {Flex, IconButton, Tooltip} from '@radix-ui/themes';
 import {LayoutIcon, RowsIcon} from '@radix-ui/react-icons';
 import {StackedPanels} from './StackedPanels';
 import {WorkflowTabs} from './WorkflowTabs';
+import {VisualSettingsPopover} from '../Toolbar/VisualSettingsPopover';
 import {useToolbarStore} from '@store/toolbarStore';
 
 export const DataCards: React.FC = () => {
@@ -33,7 +34,14 @@ export const DataCards: React.FC = () => {
     <Flex direction="column" gap="2" data-testid="data-panels">
       {stacked ? (
         <>
-          <Flex justify="end">{layoutToggle}</Flex>
+          <Flex
+            align="center"
+            justify="between"
+            className="sticky top-0 z-10 border-b border-gray-200 py-2 pr-1 bg-white"
+          >
+            <VisualSettingsPopover />
+            {layoutToggle}
+          </Flex>
           <StackedPanels />
         </>
       ) : (
