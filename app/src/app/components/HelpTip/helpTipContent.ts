@@ -16,32 +16,33 @@ export interface HelpTipEntry {
 // `keyof typeof helpTipContent` to `string | number`, defeating HelpTipKey as a literal-key
 // safety net for callers (e.g. the `helpKey` field on toolbar tool configs).
 export const helpTipContent = {
-  // Draw mode's three tools (pan, paint, erase) share this one entry: each
-  // tool button renders its own HelpTip instance (like undoRedo below) but
-  // passes text="" to suppress this entry's `text` in the hover card, leaving
-  // only the linkText link — so title/videoFile/text still need to exist here
-  // even though the hover card itself never shows `text` (the video modal's
-  // description still does).
+  // Draw mode's basic tools (pan, paint, erase, county brush) share this one
+  // entry: each button/toggle renders its own HelpTip instance (like undoRedo
+  // below) but passes text="" to suppress this entry's `text` in the hover
+  // card, leaving only the linkText link — so title/videoFile/text still need
+  // to exist here even though the hover card itself never shows `text` (the
+  // video modal's description still does).
   drawToolsCombination: {
     title: 'Draw tools',
-    text: 'Pan, paint, and erase are the tools you use to draw your districts.',
+    text: 'Pan, paint, erase, and county brush are the tools you use to draw your districts.',
     videoFile: 'draw_tools_combination.webm',
     guideAnchor: 'drawing-the-districts',
     linkText: 'Quick demonstration on how to combine tools efficiently ▸',
   },
-  // Super Draw's five tools (pan, paint, erase, break, inspect) share this one
-  // entry, same pattern as drawToolsCombination above.
+  // Super Draw's basic tools (pan, paint, erase, county brush, break, inspect)
+  // share this one entry, same pattern as drawToolsCombination above.
   superdrawToolsCombination: {
     title: 'Super Draw tools',
-    text: 'Pan, paint, erase, break, and inspect are the tools available in Super Draw.',
+    text: 'Pan, paint, erase, county brush, break, and inspect are the tools available in Super Draw.',
     videoFile: 'superdraw_tools_combination.webm',
     guideAnchor: 'super-draw',
     linkText: 'Quick demonstration on how to combine tools efficiently ▸',
   },
-  // Same text-suppression pattern as the combos above: ToolButtons.tsx passes
-  // text="" in plain Draw mode, so only the linkText link shows; Super Draw
-  // mode passes the chorded shortcuts as an override instead (no video link
-  // in that mode — no room for both, and the shortcuts matter more there).
+  // Same text-suppression pattern as the combos above in plain Draw mode
+  // (ToolButtons.tsx passes text=""). Super Draw mode passes the chorded
+  // shortcuts as an override instead — that override supplements this entry's
+  // own video rather than describing a different situation, so the link still
+  // shows alongside it (see HelpTip's `hideLink`).
   undoRedo: {
     title: 'Undo & redo',
     text: 'Click the undo/redo buttons to revert or reapply changes to your district plan.',
@@ -53,12 +54,6 @@ export const helpTipContent = {
     title: 'Brush size',
     text: 'Drag this slider to change how many units the paintbrush or eraser affects at once.',
     videoFile: 'brush_size.webm',
-    guideAnchor: 'drawing-the-districts',
-  },
-  countyBrush: {
-    title: 'Painting by county',
-    text: 'Toggle this to paint whole counties at once instead of individual units.',
-    videoFile: 'county_brush.webm',
     guideAnchor: 'drawing-the-districts',
   },
   switchDistrict: {

@@ -2,6 +2,7 @@ import {Card, Checkbox, Flex, Text} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useOverlayStore} from '@/app/store/overlayStore';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 import {getFeaturesIntersectingCounties} from '@utils/map/getFeaturesIntersectingCounties';
 import {ACCESS_STATES} from '@constants/document/state';
@@ -17,6 +18,10 @@ export default function PaintByCounty() {
   const clearPaintConstraint = useOverlayStore(state => state.clearPaintConstraint);
   const activeTool = useMapControlsStore(state => state.activeTool);
   const inBlockView = useMapStore(state => state.captiveIds.size > 0);
+  // County Brush is one of the "basic tools" now — it shares the same combined
+  // demonstration as pan/paint/erase(/break/inspector) instead of its own.
+  const superDraw = useToolbarStore(state => state.superDraw);
+  const combinationHelpKey = superDraw ? 'superdrawToolsCombination' : 'drawToolsCombination';
   // Break picks one unit and block-scale painting has no counties to paint by.
   // Toggling here would also swap the break tool's single-feature selector for
   // the county one, so the next break click would shatter the whole county.
@@ -40,9 +45,10 @@ export default function PaintByCounty() {
 
   return (
     <HelpTip
-      tip="countyBrush"
+      tip={combinationHelpKey}
       openDelay={HELP_TIP_HOVER_DELAY}
-      text={lockedForBreak ? 'Unavailable while breaking a unit into blocks' : undefined}
+      text={lockedForBreak ? 'Unavailable while breaking a unit into blocks' : ''}
+      hideLink={lockedForBreak}
     >
       <Card
         size="1"
