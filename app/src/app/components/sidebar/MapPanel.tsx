@@ -146,14 +146,19 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
     // Toggling a layer on registers it with the Visual settings toggle:
     // remember the display mode (overlay vs. comparison) and the variable
     // it's showing.
+    // Reactivating an inactive group restores its remembered variable (like
+    // activateOverlayGroup), falling back to the group's first.
+    const group = toOverlayGroup(columnGroup);
+    const remembered = overlayMemory.variables[group];
+    const effectiveVariable = mapVariableConfig
+      ? variable
+      : (currentVariableList.find(f => f.value === remembered) ?? currentVariableList[0])?.value;
     if (newMode) {
       overlayMemory.displayMode = newMode;
-      const effectiveVariable = mapVariableConfig ? variable : currentVariableList[0]?.value;
-      if (effectiveVariable)
-        overlayMemory.variables[toOverlayGroup(columnGroup)] = effectiveVariable;
+      if (effectiveVariable) overlayMemory.variables[group] = effectiveVariable;
     }
-    if (!mapVariableConfig && currentVariableList.length) {
-      setVariable(currentVariableList[0].value);
+    if (!mapVariableConfig && effectiveVariable) {
+      setVariable(effectiveVariable);
     }
     // Sized circles encode the count in the circle size; shade by share
     if (
