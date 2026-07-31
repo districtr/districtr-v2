@@ -32,6 +32,11 @@ const TOC_ENTRIES: GuideTocEntry[] = [
 /** Anchor id + scroll-offset props for a subheading, so it lines up with its GuideToc link. */
 const subheadingAnchor = (title: string) => ({id: slugify(title), className: 'scroll-mt-28'});
 
+export const metadata = {
+  title: 'Guide',
+  description: 'How to draw districting and community maps with Districtr',
+};
+
 export default function GuidePage() {
   return (
     <Flex direction="row" gapX="6" align="start">

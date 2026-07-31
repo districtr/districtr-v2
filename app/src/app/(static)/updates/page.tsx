@@ -1,6 +1,11 @@
 import {Flex, Heading, Link, Text} from '@radix-ui/themes';
 import {LEGACY_DISTRICTR_URL} from '../../constants/legacy';
 
+export const metadata = {
+  title: 'Updates',
+  description: 'News and updates from the Districtr team',
+};
+
 export default function UpdatesPage() {
   return (
     <Flex direction="column" gapY="4">

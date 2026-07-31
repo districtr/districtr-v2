@@ -6,7 +6,6 @@ import {LaunchBanner} from '@components/Static/LaunchBanner';
 import {Box, Flex} from '@radix-ui/themes';
 
 export const metadata: Metadata = {
-  title: 'Districtr 2.0',
   description: 'Districtr reboot',
 };
 

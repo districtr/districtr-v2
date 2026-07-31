@@ -1,5 +1,10 @@
 import {Flex, Heading, Text, Link, Box} from '@radix-ui/themes';
 
+export const metadata = {
+  title: 'Contact',
+  description: 'Get in touch with the Districtr team',
+};
+
 export default function GuidePage() {
   return (
     <Flex direction="column" gapY="4">

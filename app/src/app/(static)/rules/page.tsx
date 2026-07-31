@@ -20,6 +20,11 @@ const RuleSection: React.FC<{
   );
 };
 
+export const metadata = {
+  title: 'Rules of Redistricting',
+  description: 'The rules and criteria that shape redistricting',
+};
+
 export default function RulesPage() {
   return (
     <Flex direction="column" gapY="4">
