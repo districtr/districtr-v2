@@ -17,6 +17,8 @@ import {demographyService} from '@/app/utils/demography/demographyService';
 import {CoalitionBuilder} from './CoalitionBuilder';
 import {ChevronDownIcon} from '@radix-ui/react-icons';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useToolbarStore} from '@/app/store/toolbarStore';
+import {DataSourceCitation} from './DataSourceCitation';
 import {useMapStore} from '@/app/store/mapStore';
 import {sortCommunitiesByRenderOrder} from '@/app/utils/communities';
 import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
@@ -65,6 +67,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
   const selectedZone = useMapControlsStore(state => state.selectedZone);
   const setSelectedZone = useMapControlsStore(state => state.setSelectedZone);
   const communities = useMapStore(state => state.communities);
+  const superDraw = useToolbarStore(state => state.superDraw);
 
   const [summaryType, setSummaryType] = useState<SummaryType | undefined>(
     !availableColumnSets.length
@@ -186,20 +189,23 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
             </Flex>
           )}
           {sectionOpen('evaluation') && (
-            <DemographyTable
-              summaryType={summaryType}
-              setSummaryType={setSummaryType}
-              columnConfigs={columnConfigs}
-              displayedColumnSets={displayedColumnSets}
-              singleZone={
-                isCommunityMode && orderedCommunities.length > 0 ? selectedZone : undefined
-              }
-              universeTotals={
-                isCommunityMode && orderedCommunities.length > 0
-                  ? demographyService.universeTotals
-                  : undefined
-              }
-            />
+            <>
+              <DemographyTable
+                summaryType={summaryType}
+                setSummaryType={setSummaryType}
+                columnConfigs={columnConfigs}
+                displayedColumnSets={displayedColumnSets}
+                singleZone={
+                  isCommunityMode && orderedCommunities.length > 0 ? selectedZone : undefined
+                }
+                universeTotals={
+                  isCommunityMode && orderedCommunities.length > 0
+                    ? demographyService.universeTotals
+                    : undefined
+                }
+              />
+              <DataSourceCitation elections={summaryType === SUMMARY_TYPES.VOTERHISTORY} />
+            </>
           )}
         </>
       )}
@@ -217,7 +223,8 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
           )}
         </>
       )}
-      {shownSections.includes('coalition') && canShowCoalition && (
+      {/* Coalitions are a Super Draw feature. */}
+      {shownSections.includes('coalition') && canShowCoalition && superDraw && (
         <>
           {!isSingle && (
             <SectionHeader
