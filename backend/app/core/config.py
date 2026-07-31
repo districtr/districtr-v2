@@ -35,6 +35,16 @@ class Environment(str, Enum):
     test = "test"
 
 
+def s3_environment_folder(environment: "Environment") -> str:
+    """Only production gets its own S3 folder; every other value (local,
+    development, qa, test) collapses into "development" so non-prod objects
+    don't spread across more S3 folders than needed — colliding with each
+    other is fine, only production needs isolation."""
+    if environment == Environment.production:
+        return Environment.production.value
+    return Environment.development.value
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env", env_ignore_empty=True, extra="ignore"

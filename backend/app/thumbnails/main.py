@@ -8,7 +8,7 @@ import random
 from sqlalchemy import text
 from sqlmodel import Session
 from uuid import UUID
-from app.core.config import settings, Environment
+from app.core.config import settings, s3_environment_folder
 from fastapi import APIRouter, Security, status, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from app.core.security import auth, TokenScope
@@ -69,13 +69,7 @@ DISTRICT_COLORS = [
 
 
 def get_thumbnail_environment_folder() -> str:
-    # Only production gets its own S3 folder; every other settings.ENVIRONMENT
-    # value (local, development, qa, test) collapses into "development" so
-    # non-prod thumbnails don't spread across more S3 folders than needed —
-    # colliding with each other is fine, only production needs isolation.
-    if settings.ENVIRONMENT == Environment.production:
-        return Environment.production.value
-    return Environment.development.value
+    return s3_environment_folder(settings.ENVIRONMENT)
 
 
 def get_thumbnail_file_path(public_id: str | int) -> str:

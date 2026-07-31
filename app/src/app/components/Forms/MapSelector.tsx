@@ -259,7 +259,11 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
       {notification?.type === 'success' && (
         <object data="/home-megaphone-square.png" type="image/png" className="size-32">
           <img
-            src={thumbnailUrl(dataResponse?.mapInfo?.public_id ?? '')}
+            src={
+              dataResponse?.mapInfo?.public_id != null
+                ? thumbnailUrl(dataResponse.mapInfo.public_id)
+                : undefined
+            }
             alt="Map thumbnail"
             className="size-32"
           />

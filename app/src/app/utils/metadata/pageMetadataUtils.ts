@@ -12,7 +12,10 @@ export type MetadataProps = {
  * images/logo resolve correctly on dev/preview, not just production. */
 async function getRequestOrigin(): Promise<string> {
   const requestHeaders = await headers();
-  const protocol = requestHeaders.get('x-forwarded-proto') ?? 'https';
+  // x-forwarded-proto can be a comma-separated list when multiple proxies
+  // are in the chain, each appending its own value — the first entry is
+  // what the original client actually used.
+  const protocol = requestHeaders.get('x-forwarded-proto')?.split(',')[0]?.trim() ?? 'https';
   const host = requestHeaders.get('host') ?? 'beta.districtr.org';
   return `${protocol}://${host}`;
 }
