@@ -275,7 +275,10 @@ export const ModeSwitcher: React.FC = () => {
   const CurrentIcon = MODE_META[currentMode].Icon;
 
   return (
-    <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
+    // Non-modal so a click on another helper pointer while the menu is open
+    // reaches that pointer (re-requesting the menu with a new flash) instead
+    // of being swallowed by the modal dismiss layer.
+    <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen} modal={false}>
       {/* HelpTip wraps DropdownMenu.Trigger (not the reverse): HelpTip's own
           HoverCard.Trigger and DropdownMenu.Trigger both need asChild to reach the
           real Button underneath — chained asChild forwarding handles that (each
