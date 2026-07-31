@@ -81,7 +81,7 @@ export const useDraftStatusHelperVisible = () => {
 
 /**
  * Helper card at the top of the sidebar: Get started (scratch) → Refine and
- * validate (in progress) → Helpful links (ready to share). The stage follows the
+ * validate (in progress) → Advanced plan evaluation (ready to share). The stage follows the
  * draft status, except a regressed plan falls back to the earliest failing
  * checklist (see displayStage). The advance button is the app's one earned
  * move — it appears only when the stage's criteria are met — while the status
@@ -306,7 +306,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
   const previousStatus: DraftStatus =
     statusStage === 2 ? DRAFT_STATUSES.IN_PROGRESS : DRAFT_STATUSES.SCRATCH;
 
-  const title = ['Get started', 'Refine and validate', 'Helpful links'][displayStage];
+  const title = ['Get started', 'Refine and validate', 'Advanced plan evaluation'][displayStage];
   const items = displayStage === 0 ? scratchItems : displayStage === 1 ? refineItems : [];
   const showPointers = displayStage === 2;
   const doneCount = items.filter(s => s.done).length;
