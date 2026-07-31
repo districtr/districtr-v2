@@ -211,9 +211,20 @@ export const DistrictMeters = () => {
           <Flex gap="2" px="1" pb="1" align="end">
             {showDistrictNumbers && <Box style={{width: numColWidth, flexShrink: 0}} />}
             {showRowIcons && (
-              /* justify-end aligns the lock-all over the rows' lock icons
-                 (second of the two icons in the cluster). */
-              <Flex align="center" justify="end" style={{width: ICONS_WIDTH, flexShrink: 0}}>
+              /* Mirrors the rows' icon cluster exactly — an invisible twin of
+                 the comment button, then the lock — so the lock-all lands
+                 directly above the rows' lock icons (ghost-margin quirks
+                 included). */
+              <Flex align="center" gap="1" style={{width: ICONS_WIDTH, flexShrink: 0}}>
+                <IconButton
+                  variant="ghost"
+                  size="1"
+                  aria-hidden
+                  tabIndex={-1}
+                  style={{visibility: 'hidden'}}
+                >
+                  <LockOpen2Icon />
+                </IconButton>
                 <HelpTip tip="districtLock" openDelay={HELP_TIP_FAST_DELAY}>
                   <IconButton
                     onClick={toggleLockAllAreas}
