@@ -1,7 +1,6 @@
 import {Flex, Heading, IconButton, Spinner, Text} from '@radix-ui/themes';
 import React, {useMemo, useState} from 'react';
 import {ParentSize} from '@visx/responsive'; // Import ParentSize
-import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 import {useChartStore} from '@store/chartStore';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
@@ -18,7 +17,7 @@ import {
 } from './PopulationChart/PopulationChart';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
 import {DistrictMeters} from './DistrictMeters';
-import {LockClosedIcon, LockOpen2Icon, Pencil1Icon} from '@radix-ui/react-icons';
+import {Pencil1Icon} from '@radix-ui/react-icons';
 import {useZonePopulations} from '@/app/hooks/useDemography';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {ZoneDescriptionPopover} from './ZoneDescriptionPopover';
@@ -51,13 +50,9 @@ export const PopulationPanel = () => {
   const isCommunityMode = mapMode === MAP_MODES.COI;
   const effectiveIdealPopulation = isCommunityMode ? undefined : idealPopulation;
 
-  const lockPaintedAreas = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);
   const chartOptions = useChartStore(state => state.chartOptions);
   const showDistrictNumbers = chartOptions.popShowDistrictNumbers;
   const setChartOptions = useChartStore(state => state.setChartOptions);
-  const setLockedZones = useMapControlsStore(state => state.setLockedZones);
-  const toggleLockAllAreas = useMapControlsStore(state => state.toggleLockAllAreas);
-  const allAreLocked = populationData.every((d: any) => lockPaintedAreas?.includes(d.zone));
   const selectedZone = useMapControlsStore(state => state.selectedZone);
   const access = useMapStore(state => state.mapStatus?.access);
   const communities = useMapStore(state => state.communities);
@@ -79,13 +74,6 @@ export const PopulationPanel = () => {
       new Set([editingCommunity.color, ...getUnusedCommunityColors(communities, colorScheme)])
     );
   }, [communities, colorScheme, editingCommunity]);
-  const handleLockChange = (zone: number) => {
-    if (lockPaintedAreas.includes(zone)) {
-      setLockedZones(lockPaintedAreas.filter(f => f !== zone));
-    } else {
-      setLockedZones([...(lockPaintedAreas || []), zone]);
-    }
-  };
   const handleEditCommunity = (zone: number) => {
     selectCommunity(zone);
     setEditingCommunityId(zone);
@@ -167,22 +155,7 @@ export const PopulationPanel = () => {
           instead of the icon's natural size, centering the lock-all icon at a
           different height than the per-district rows' own lock icons. */}
           <Flex direction="row" width={'100%'} gap="1" mt="2" align="center">
-            <Flex justify="end" align="center" style={{width: POP_LEFT_COL_WIDTH, flexShrink: 0}}>
-              {!isCommunityMode && (
-                <HelpTip tip="districtLock" openDelay={HELP_TIP_HOVER_DELAY}>
-                  <IconButton
-                    onClick={toggleLockAllAreas}
-                    variant="ghost"
-                    size="1"
-                    disabled={access === ACCESS_STATES.READ}
-                    style={{opacity: isEditing ? 1 : 0}}
-                    aria-label={allAreLocked ? 'Unlock all districts' : 'Lock all districts'}
-                  >
-                    {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
-                  </IconButton>
-                </HelpTip>
-              )}
-            </Flex>
+            <Flex justify="end" align="center" style={{width: POP_LEFT_COL_WIDTH, flexShrink: 0}} />
             <ParentSize style={{height: `${POP_CHART_LABEL_HEIGHT}px`, width: '100%'}}>
               {({width}) => (
                 <PopulationChartIdealLabel
@@ -235,39 +208,15 @@ export const PopulationPanel = () => {
                       <Flex gap="0" align="center">
                         <ZoneDescriptionPopover zone={d.zone} color={getZoneColor(d.zone)} />
                         {!!isEditing && (
-                          <>
-                            {isCommunityMode ? (
-                              <IconButton
-                                onClick={() => handleEditCommunity(d.zone)}
-                                variant="ghost"
-                                size="1"
-                                disabled={access === ACCESS_STATES.READ}
-                                aria-label={`Edit community ${d.zone}`}
-                              >
-                                <Pencil1Icon />
-                              </IconButton>
-                            ) : (
-                              <HelpTip tip="districtLock" openDelay={HELP_TIP_HOVER_DELAY}>
-                                <IconButton
-                                  onClick={() => handleLockChange(d.zone)}
-                                  variant="ghost"
-                                  size="1"
-                                  disabled={access === ACCESS_STATES.READ}
-                                  aria-label={
-                                    lockPaintedAreas.includes(d.zone)
-                                      ? `Unlock district ${d.zone}`
-                                      : `Lock district ${d.zone}`
-                                  }
-                                >
-                                  {lockPaintedAreas.includes(d.zone) ? (
-                                    <LockClosedIcon />
-                                  ) : (
-                                    <LockOpen2Icon />
-                                  )}
-                                </IconButton>
-                              </HelpTip>
-                            )}
-                          </>
+                          <IconButton
+                            onClick={() => handleEditCommunity(d.zone)}
+                            variant="ghost"
+                            size="1"
+                            disabled={access === ACCESS_STATES.READ}
+                            aria-label={`Edit community ${d.zone}`}
+                          >
+                            <Pencil1Icon />
+                          </IconButton>
                         )}
                       </Flex>
                     </Flex>

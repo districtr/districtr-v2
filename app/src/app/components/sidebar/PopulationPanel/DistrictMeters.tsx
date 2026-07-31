@@ -89,11 +89,15 @@ export const DistrictMeters = () => {
   const selectedZone = useMapControlsStore(state => state.selectedZone);
   const lockPaintedAreas = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);
   const setLockedZones = useMapControlsStore(state => state.setLockedZones);
+  const toggleLockAllAreas = useMapControlsStore(state => state.toggleLockAllAreas);
   const higlightUnassigned = useMapControlsStore(
     state => state.mapOptions.higlightUnassigned ?? false
   );
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const requestSidebarTab = useUiHintStore(state => state.requestSidebarTab);
+  const stackedSidebar = useToolbarStore(state => state.stackedSidebar);
+  const sidebarPanels = useMapControlsStore(state => state.sidebarPanels);
+  const setSidebarPanels = useMapControlsStore(state => state.setSidebarPanels);
   const isEditing = useMapControlsStore(state => state.isEditing);
   const superDraw = useToolbarStore(state => state.superDraw);
   const access = useMapStore(state => state.mapStatus?.access);
@@ -152,6 +156,8 @@ export const DistrictMeters = () => {
   const unassigned = summaryStats?.unassigned;
   const allAssigned = unassigned === 0;
 
+  const allLocked =
+    populationData.length > 0 && populationData.every(d => lockPaintedAreas.includes(d.zone));
   const handleLockChange = (zone: number) => {
     if (lockPaintedAreas.includes(zone)) {
       setLockedZones(lockPaintedAreas.filter(f => f !== zone));
@@ -161,6 +167,19 @@ export const DistrictMeters = () => {
   };
 
   const handleFindUnassigned = () => {
+    // Super Draw's stacked layout has no workflow tabs mounted (their request
+    // would be discarded); open the validity accordion card directly instead.
+    if (superDraw && stackedSidebar) {
+      if (!sidebarPanels.includes('mapValidation')) {
+        setSidebarPanels([...sidebarPanels, 'mapValidation']);
+      }
+      setTimeout(() => {
+        document
+          .querySelector('[data-testid="data-panel-mapValidation"]')
+          ?.scrollIntoView({behavior: 'smooth', block: 'start'});
+      }, 100);
+      return;
+    }
     requestSidebarTab('stats');
   };
 
@@ -191,7 +210,23 @@ export const DistrictMeters = () => {
               labeled where its line crosses the bars. */}
           <Flex gap="2" px="1" pb="1" align="end">
             {showDistrictNumbers && <Box style={{width: numColWidth, flexShrink: 0}} />}
-            {showRowIcons && <Box style={{width: ICONS_WIDTH, flexShrink: 0}} />}
+            {showRowIcons && (
+              /* justify-end aligns the lock-all over the rows' lock icons
+                 (second of the two icons in the cluster). */
+              <Flex align="center" justify="end" style={{width: ICONS_WIDTH, flexShrink: 0}}>
+                <HelpTip tip="districtLock" openDelay={HELP_TIP_FAST_DELAY}>
+                  <IconButton
+                    onClick={toggleLockAllAreas}
+                    variant="ghost"
+                    size="1"
+                    disabled={isReadOnly}
+                    aria-label={allLocked ? 'Unlock all districts' : 'Lock all districts'}
+                  >
+                    {allLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
+                  </IconButton>
+                </HelpTip>
+              </Flex>
+            )}
             <Box flexGrow="1" style={{position: 'relative', alignSelf: 'stretch'}}>
               {!!idealPopulation && tickFraction !== undefined && (
                 /* The label itself is the help trigger — an extra info icon
@@ -269,8 +304,20 @@ export const DistrictMeters = () => {
                     align="center"
                     gap="2"
                     px="1"
+                    // Row-as-button keeps keyboard selection reachable (the
+                    // old per-row IconButton was focusable); a real <button>
+                    // can't wrap the nested lock/comment controls.
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Select district ${d.zone}`}
                     onClick={() => selectCommunity(d.zone)}
-                    className={`cursor-pointer rounded-md transition-colors duration-150 ${
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        selectCommunity(d.zone);
+                      }
+                    }}
+                    className={`cursor-pointer rounded-md transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-8)] ${
                       selectedZone === d.zone ? 'bg-[var(--accent-3)]' : 'hover:bg-[var(--gray-2)]'
                     }`}
                     style={{height: ROW_HEIGHT}}
@@ -490,7 +537,7 @@ export const DistrictMeters = () => {
             {unassigned !== undefined ? formatNumber(unassigned, NUMBER_FORMATS.STRING) : '—'}
           </Text>
           {!allAssigned && isEditing && (
-            <Flex gap="2" mt="1">
+            <Flex gap="3" mt="1" align="center">
               {/* Same toggle-button treatment as Lock painted. */}
               <Button
                 size="1"
@@ -507,7 +554,9 @@ export const DistrictMeters = () => {
                 size="1"
                 variant="ghost"
                 onClick={handleFindUnassigned}
-                style={{fontWeight: 600}}
+                // Neutralize the ghost variant's optical negative margins so
+                // the two buttons sit on one line at matching heights.
+                style={{fontWeight: 600, margin: 0}}
               >
                 Find areas →
               </Button>
