@@ -40,7 +40,7 @@ const disabledSectionStyle = (disabled: boolean): React.CSSProperties =>
  * by tool — the structure never does, so nothing mounts or unmounts as the
  * active tool changes. Inspector is the one tool exempt from this: it keeps
  * its own, separate layout (see InspectorControls). */
-export const ToolControlsScaffold: React.FC = () => {
+export const ToolControlsScaffold = () => {
   const activeTool = useMapControlsStore(state => state.activeTool);
   const mapMode = useMapControlsStore(state => state.mapMode);
   const paintCounties = useFeatureFlagStore(state => state.paintCounties);
