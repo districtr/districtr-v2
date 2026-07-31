@@ -55,10 +55,9 @@ const STAT_LABEL_STYLE: React.CSSProperties = {
   fontSize: 11,
 };
 
-// Column headers read bottom-to-top over the number columns.
+// Column headers over the number columns; kept terse ("Pop") so they fit the
+// column width horizontally.
 const COL_LABEL_STYLE: React.CSSProperties = {
-  writingMode: 'vertical-rl',
-  transform: 'rotate(180deg)',
   textTransform: 'uppercase',
   letterSpacing: '0.06em',
   fontSize: 10,
@@ -203,18 +202,30 @@ export const DistrictMeters = () => {
               )}
             </Box>
             {showPopNumbers && (
-              <Flex justify="center" style={{width: POP_COL_WIDTH, flexShrink: 0}}>
-                <Text color="gray" style={COL_LABEL_STYLE}>
-                  Population
-                </Text>
-              </Flex>
+              <Text
+                color="gray"
+                style={{
+                  ...COL_LABEL_STYLE,
+                  width: POP_COL_WIDTH,
+                  flexShrink: 0,
+                  textAlign: 'right',
+                }}
+              >
+                Pop
+              </Text>
             )}
             {showDeviations && (
-              <Flex justify="center" style={{width: DEV_COL_WIDTH, flexShrink: 0}}>
-                <Text color="gray" style={COL_LABEL_STYLE}>
-                  Deviation
-                </Text>
-              </Flex>
+              <Text
+                color="gray"
+                style={{
+                  ...COL_LABEL_STYLE,
+                  width: DEV_COL_WIDTH,
+                  flexShrink: 0,
+                  textAlign: 'right',
+                }}
+              >
+                Deviation
+              </Text>
             )}
           </Flex>
           <ConditionalScrollArea
