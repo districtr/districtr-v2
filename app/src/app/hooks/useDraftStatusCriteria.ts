@@ -6,7 +6,11 @@ import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {useMapMetadata} from '@/app/hooks/useMapMetadata';
 import {getContiguity} from '@utils/api/apiHandlers/getContiguity';
-import {DRAFT_STATUSES, DRAFT_STATUS_ORDER, type DraftStatus} from '@constants/document/draftStatus';
+import {
+  DRAFT_STATUSES,
+  DRAFT_STATUS_ORDER,
+  type DraftStatus,
+} from '@constants/document/draftStatus';
 import {FALLBACK_NUM_DISTRICTS} from '@constants/document/limits';
 import {MAP_MODES} from '@constants/map/mode';
 import {MAP_TYPES} from '@constants/document/types';
@@ -70,8 +74,7 @@ export function useDraftStatusCriteria() {
   const balanced = maxDeviation !== undefined && maxDeviation <= BALANCE_DEVIATION;
 
   const scratchDone = paintedZones >= numDistricts && unassigned === 0;
-  const inProgressDone =
-    balanced && (contiguityUnavailable || contiguousZones >= numDistricts);
+  const inProgressDone = balanced && (contiguityUnavailable || contiguousZones >= numDistricts);
 
   const currentStatus: DraftStatus = mapMetadata?.draft_status ?? DRAFT_STATUSES.SCRATCH;
   const currentIndex = DRAFT_STATUS_ORDER.indexOf(currentStatus);

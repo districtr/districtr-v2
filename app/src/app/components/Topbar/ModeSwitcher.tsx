@@ -125,14 +125,14 @@ export const ModeSwitcher: React.FC = () => {
   // The draft-status helper's Super Draw / Evaluate pointers open this menu so
   // the user sees the options in place — they don't switch modes themselves.
   const [menuOpen, setMenuOpen] = React.useState(false);
-  const modeMenuRequest = useUiHintStore(state => state.modeMenuRequest);
-  const clearModeMenuRequest = useUiHintStore(state => state.clearModeMenuRequest);
+  const modeMenuRequest = useUiHintStore(state => state.requests.modeMenu);
+  const clearRequest = useUiHintStore(state => state.clear);
   React.useEffect(() => {
     if (modeMenuRequest) {
-      clearModeMenuRequest();
+      clearRequest('modeMenu');
       setMenuOpen(true);
     }
-  }, [modeMenuRequest, clearModeMenuRequest]);
+  }, [modeMenuRequest, clearRequest]);
 
   // No map loaded yet (e.g. the empty "start here" landing) — nothing to switch.
   if (!mapDocument) return null;

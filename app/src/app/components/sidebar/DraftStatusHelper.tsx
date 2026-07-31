@@ -14,11 +14,7 @@ import {activateOverlayGroup} from '@utils/demography/overlayMemory';
 import {formatNumber} from '@utils/numbers';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {SUMMARY_TYPES, toOverlayGroup} from '@constants/demography/summary';
-import {
-  DRAFT_STATUSES,
-  DRAFT_STATUS_TEXT,
-  type DraftStatus,
-} from '@constants/document/draftStatus';
+import {DRAFT_STATUSES, DRAFT_STATUS_TEXT, type DraftStatus} from '@constants/document/draftStatus';
 import {MAP_MODES} from '@constants/map/mode';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
 
@@ -71,10 +67,7 @@ export const DraftStatusHelper = () => {
   const setPaintFunction = useMapControlsStore(state => state.setPaintFunction);
   const clearPaintConstraint = useOverlayStore(state => state.clearPaintConstraint);
   const openTabSection = useMapControlsStore(state => state.openTabSection);
-  const requestSidebarTab = useUiHintStore(state => state.requestSidebarTab);
-  const requestValidationTab = useUiHintStore(state => state.requestValidationTab);
-  const requestShareModal = useUiHintStore(state => state.requestShareModal);
-  const requestModeMenu = useUiHintStore(state => state.requestModeMenu);
+  const request = useUiHintStore(state => state.request);
   const flash = useUiHintStore(state => state.flash);
   const handleMetadataChange = useMetadataChange();
   const {
@@ -120,13 +113,13 @@ export const DraftStatusHelper = () => {
   };
   const jumpToSection = (tab: 'stats' | 'mapLayers', sectionId: string) => {
     openTabSection(sectionId);
-    requestSidebarTab(tab);
+    request('sidebarTab', tab);
     flash(`section:${sectionId}`);
     setTimeout(() => scrollSectionIntoView(sectionId), 300);
   };
 
   const openValidation = (tab: 'Contiguity' | 'Completeness') => {
-    requestValidationTab(tab);
+    request('validationTab', tab);
     jumpToSection('stats', 'stats-validity');
   };
 
@@ -217,7 +210,7 @@ export const DraftStatusHelper = () => {
   ];
 
   const advancedPointers: Hint[] = [
-    {label: 'Share your map', onClick: requestShareModal},
+    {label: 'Share your map', onClick: () => request('shareModal', true)},
     {
       label: 'Explore demographics',
       onClick: () => jumpToSection('stats', 'stats-demographics'),
@@ -228,8 +221,8 @@ export const DraftStatusHelper = () => {
     },
     // These two point at the mode switcher rather than switching modes — the
     // user stays where they are and sees the options in place.
-    {label: 'Fine-tune in Super Draw', onClick: requestModeMenu},
-    {label: 'Evaluate your plan', onClick: requestModeMenu},
+    {label: 'Fine-tune in Super Draw', onClick: () => request('modeMenu', true)},
+    {label: 'Evaluate your plan', onClick: () => request('modeMenu', true)},
   ];
 
   const isScratch = currentStatus === DRAFT_STATUSES.SCRATCH;
@@ -251,11 +244,8 @@ export const DraftStatusHelper = () => {
 
   // The plan regressed below its current status (e.g. population unassigned
   // while marked In Progress): prompt a voluntary step back.
-  const regressed =
-    (isInProgress && !scratchDone) || (isReady && !(scratchDone && inProgressDone));
-  const previousStatus: DraftStatus = isReady
-    ? DRAFT_STATUSES.IN_PROGRESS
-    : DRAFT_STATUSES.SCRATCH;
+  const regressed = (isInProgress && !scratchDone) || (isReady && !(scratchDone && inProgressDone));
+  const previousStatus: DraftStatus = isReady ? DRAFT_STATUSES.IN_PROGRESS : DRAFT_STATUSES.SCRATCH;
 
   return (
     <Flex

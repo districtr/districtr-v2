@@ -39,14 +39,14 @@ export const MapActionsDropdown: React.FC<{
 
   // The draft-status helper's "Share your map" pointer opens the modal from
   // outside this dropdown.
-  const shareModalRequest = useUiHintStore(state => state.shareModalRequest);
-  const clearShareModalRequest = useUiHintStore(state => state.clearShareModalRequest);
+  const shareModalRequest = useUiHintStore(state => state.requests.shareModal);
+  const clearRequest = useUiHintStore(state => state.clear);
   useEffect(() => {
     if (shareModalRequest) {
-      clearShareModalRequest();
+      clearRequest('shareModal');
       setModal('share');
     }
-  }, [shareModalRequest, clearShareModalRequest]);
+  }, [shareModalRequest, clearRequest]);
 
   // Export works for view-only users too: the backend resolves a public_id the same
   // as a document UUID, so fall back to the public_id when the loaded doc is the

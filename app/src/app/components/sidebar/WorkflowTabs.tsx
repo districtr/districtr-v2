@@ -167,16 +167,16 @@ export const WorkflowTabs: React.FC<{layoutToggle: React.ReactNode}> = ({layoutT
   // One-shot tab request (see uiHintStore). Requests that arrived while the
   // tabs were unmounted are stale: the first effect run after mount discards
   // them instead of firing a surprise jump.
-  const sidebarTabRequest = useUiHintStore(state => state.sidebarTabRequest);
-  const clearSidebarTabRequest = useUiHintStore(state => state.clearSidebarTabRequest);
+  const sidebarTabRequest = useUiHintStore(state => state.requests.sidebarTab);
+  const clearRequest = useUiHintStore(state => state.clear);
   const tabRequestsLive = useRef(false);
   useEffect(() => {
     const live = tabRequestsLive.current;
     tabRequestsLive.current = true;
     if (!sidebarTabRequest) return;
-    clearSidebarTabRequest();
+    clearRequest('sidebarTab');
     if (live) setTab(sidebarTabRequest);
-  }, [sidebarTabRequest, clearSidebarTabRequest]);
+  }, [sidebarTabRequest, clearRequest]);
 
   // A one-tab strip (COI) is noise; the Super Draw toggle must stay reachable.
   const showStrip = visibleTabs.length > 1;

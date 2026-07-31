@@ -30,14 +30,14 @@ export const MapValidation = () => {
   );
   // Helper-box hints jump straight to a validation panel; consuming at mount
   // is deliberate here — the jump usually mounts this component.
-  const validationTabRequest = useUiHintStore(state => state.validationTabRequest);
-  const clearValidationTabRequest = useUiHintStore(state => state.clearValidationTabRequest);
+  const validationTabRequest = useUiHintStore(state => state.requests.validationTab);
+  const clearRequest = useUiHintStore(state => state.clear);
   useEffect(() => {
     if (validationTabRequest) {
       setActivePanel(validationTabRequest);
-      clearValidationTabRequest();
+      clearRequest('validationTab');
     }
-  }, [validationTabRequest, clearValidationTabRequest]);
+  }, [validationTabRequest, clearRequest]);
   const Component = mapValidationPanel.find(panel => panel.label === activePanel)?.component;
   const mapDocument = useMapStore(state => state.mapDocument);
   const idbDocument = useIdbDocument(mapDocument?.document_id);
