@@ -257,7 +257,7 @@ const DemographyTable: React.FC<DemographyTableProps> = ({
           {showSummaryTypeSelect && (
             <Flex direction="row" gap="2" align="center" wrap="wrap">
               <Text size="2" weight="medium">
-                Summary type
+                Table summary type
               </Text>
               <RadioGroup.Root
                 size="1"

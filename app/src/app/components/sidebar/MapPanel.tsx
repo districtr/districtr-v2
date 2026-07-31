@@ -212,12 +212,15 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
     <Flex direction="column" gap="2">
       <Flex direction="row" align="center" gap="3" wrap="wrap">
         <Text size="2" weight="medium">
-          Display mode
+          Map display mode
         </Text>
         <RadioCards.Root
           size="1"
           gap="2"
-          columns={`${displayModes.length}`}
+          // Flex-wrap instead of grid columns: grid tracks floor at
+          // min-content and overflow narrow sidebars, stretching sibling
+          // controls past the clip edge; wrapped cards fit any width.
+          style={{display: 'flex', flexWrap: 'wrap'}}
           value={displayedMode ?? 'none'}
           onValueChange={v =>
             handleSetMapMode(

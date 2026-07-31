@@ -31,7 +31,7 @@ const SummaryCardContent: React.FC<{
   displayedColumnSets: Array<SummaryType>;
   withCoalition?: boolean;
 }> = ({defaultColumnSet, displayedColumnSets, withCoalition}) => (
-  <Flex direction="column" gap="2">
+  <Flex direction="column" gap="4">
     {withCoalition && (
       <CoalitionExpander
         defaultColumnSet={defaultColumnSet}

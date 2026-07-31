@@ -234,7 +234,7 @@ export const ToolSettings: React.FC<{inWorkflowTab?: boolean}> = ({inWorkflowTab
             <RadioCards.Root
               size="1"
               gap="2"
-              columns={`${overlayGroups.length + 1}`}
+              style={{display: 'flex', flexWrap: 'wrap'}}
               value={overlayValue}
               onValueChange={handleOverlayChange}
             >
