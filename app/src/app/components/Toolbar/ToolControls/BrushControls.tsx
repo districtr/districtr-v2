@@ -24,9 +24,6 @@ export const BrushControls = () => {
   return (
     <Flex direction="column" gapY="2" justify="between" wrap="wrap">
       <Flex direction="row" gapX="4" wrap="wrap" align="center">
-        <Box className="flex-grow" style={{flexGrow: 1}}>
-          <BrushSizeSelector />
-        </Box>
         {paintCounties && (
           // mt centers the card on the slider track, offsetting the "Brush Size"
           // label above it (flex centering shifts content by half the margin)
@@ -34,6 +31,9 @@ export const BrushControls = () => {
             <PaintByCounty />
           </Box>
         )}
+        <Box className="flex-grow" style={{flexGrow: 1}}>
+          <BrushSizeSelector />
+        </Box>
       </Flex>
       {showZonePicker ? (
         <Flex direction="row" flexGrow={'0'} maxWidth={'100%'} p="0" m="0">

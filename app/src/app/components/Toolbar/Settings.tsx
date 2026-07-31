@@ -26,6 +26,7 @@ import {
   overlayGroupVariables,
   overlayMemory,
 } from '@utils/demography/overlayMemory';
+import {KeyOptionToggles} from '@components/Toolbar/ToolControls/KeyOptionToggles';
 
 /** Layers
  * This component is responsible for rendering the layers that can be toggled
@@ -94,7 +95,6 @@ export const ToolSettings: React.FC<{hideTitle?: boolean}> = ({hideTitle}) => {
           value={[
             mapOptions.showPaintedDistricts === true ? 'showPaintedDistricts' : '',
             mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : '',
-            mapOptions.showPopulationTooltip === true ? 'showPopulationTooltip' : '',
             mapDocument?.child_layer && mapOptions.showBlockPopulationNumbers === true
               ? 'showBlockPopulationNumbers'
               : '',
@@ -107,7 +107,6 @@ export const ToolSettings: React.FC<{hideTitle?: boolean}> = ({hideTitle}) => {
               ? 'showDemographicMap'
               : '',
             mapOptions.showCountyBoundaries === true ? 'showCountyBoundaries' : '',
-            mapOptions.showZoneNumbers === true ? 'showZoneNumbers' : '',
             parentsAreBroken && mapOptions.highlightBrokenDistricts === true
               ? 'highlightBrokenDistricts'
               : '',
@@ -147,27 +146,6 @@ export const ToolSettings: React.FC<{hideTitle?: boolean}> = ({hideTitle}) => {
             disabled={mapDocument === null}
           >
             Painted districts
-          </CheckboxGroup.Item>
-          <CheckboxGroup.Item
-            value="showZoneNumbers"
-            onClick={() =>
-              setMapOptions({
-                showZoneNumbers: !mapOptions.showZoneNumbers,
-              })
-            }
-          >
-            District numbers
-          </CheckboxGroup.Item>
-          <CheckboxGroup.Item
-            value="showPopulationTooltip"
-            onClick={() =>
-              setMapOptions({
-                showPopulationTooltip: !mapOptions.showPopulationTooltip,
-              })
-            }
-            disabled={access === ACCESS_STATES.READ}
-          >
-            Population tooltip
           </CheckboxGroup.Item>
           {superDraw && (
             <CheckboxGroup.Item
@@ -230,6 +208,10 @@ export const ToolSettings: React.FC<{hideTitle?: boolean}> = ({hideTitle}) => {
             </Button>
           )}
         </CheckboxGroup.Root>
+        {/* Shared with the right column of ToolControlsScaffold — kept out of the
+            CheckboxGroup above so the two render sites don't have to agree on a
+            single controlled `value` list. */}
+        <KeyOptionToggles />
         {overlayGroups.length > 0 && (
           <>
             <Heading as="h3" weight="bold" size="3">
