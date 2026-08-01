@@ -15,9 +15,9 @@ import {
 } from '@/app/utils/demography/coalition';
 import {demographyService} from '@/app/utils/demography/demographyService';
 import {CoalitionBuilder} from './CoalitionBuilder';
+import {useCoalitionsEnabled} from '@/app/hooks/useCoalitionsEnabled';
 import {ChevronDownIcon} from '@radix-ui/react-icons';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import {useToolbarStore} from '@/app/store/toolbarStore';
 import {DataSourceCitation} from './DataSourceCitation';
 import {useMapStore} from '@/app/store/mapStore';
 import {sortCommunitiesByRenderOrder} from '@/app/utils/communities';
@@ -67,7 +67,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
   const selectedZone = useMapControlsStore(state => state.selectedZone);
   const setSelectedZone = useMapControlsStore(state => state.setSelectedZone);
   const communities = useMapStore(state => state.communities);
-  const superDraw = useToolbarStore(state => state.superDraw);
+  const coalitionsEnabled = useCoalitionsEnabled();
 
   const [summaryType, setSummaryType] = useState<SummaryType | undefined>(
     !availableColumnSets.length
@@ -223,8 +223,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
           )}
         </>
       )}
-      {/* Coalitions are a Super Draw feature. */}
-      {shownSections.includes('coalition') && canShowCoalition && superDraw && (
+      {shownSections.includes('coalition') && canShowCoalition && coalitionsEnabled && (
         <>
           {!isSingle && (
             <SectionHeader

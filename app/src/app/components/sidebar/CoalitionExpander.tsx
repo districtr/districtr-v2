@@ -2,18 +2,18 @@
 import React from 'react';
 import {SummaryPanel} from './SummaryPanel';
 import {Expander} from './AnimatedCollapse';
-import {useToolbarStore} from '@store/toolbarStore';
+import {useCoalitionsEnabled} from '@/app/hooks/useCoalitionsEnabled';
 import type {SummaryType} from '@constants/demography/summary';
 
 /** Collapsible, opt-in coalition builder attached above the demographics
- * table/map instead of floating as its own tab. Super Draw only — self-gated
- * so every render site inherits the rule. */
+ * table/map instead of floating as its own tab. Self-gated (see
+ * useCoalitionsEnabled) so every render site inherits the rule. */
 export const CoalitionExpander: React.FC<{
   defaultColumnSet: SummaryType;
   displayedColumnSets: Array<SummaryType>;
 }> = ({defaultColumnSet, displayedColumnSets}) => {
-  const superDraw = useToolbarStore(state => state.superDraw);
-  if (!superDraw) return null;
+  const coalitionsEnabled = useCoalitionsEnabled();
+  if (!coalitionsEnabled) return null;
   return (
     <Expander label="Create a coalition (optional)">
       <SummaryPanel

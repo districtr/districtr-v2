@@ -29,6 +29,7 @@ import {
   type SummaryType,
 } from '@constants/demography/summary';
 import {COALITION_VARIABLE_BY_UNIVERSE, DemographyVariable} from '@constants/demography/coalition';
+import {useCoalitionsEnabled} from '@/app/hooks/useCoalitionsEnabled';
 import {getCoalitionLabel, getSelectedCoalitionColumns} from '@/app/utils/demography/coalition';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
@@ -69,6 +70,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const superDraw = useToolbarStore(state => state.superDraw);
+  const coalitionsEnabled = useCoalitionsEnabled();
   const isOverlay = demographicDisplayMode === DEMOGRAPHIC_MODES.OVERLAY;
   // Draw mode keeps the choropleth simple: overlay only, no side-by-side view.
   const displayModes = superDraw
@@ -97,10 +99,10 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   );
   const coalitionOptionFor = (universe: SummaryType) => {
     if (!isCoalitionUniverse(universe)) return [];
-    // Coalitions are a Super Draw feature. Plain Draw only keeps the entry
-    // when it's the active variable (a coalition set up in Super Draw must
-    // not leave a dangling selection behind).
-    if (!superDraw && variable !== COALITION_VARIABLE_BY_UNIVERSE[universe]) return [];
+    // Coalition entries only where coalitions are on (Super Draw / COI maps);
+    // plain Draw keeps the entry when it's the active variable (a coalition
+    // set up in Super Draw must not leave a dangling selection behind).
+    if (!coalitionsEnabled && variable !== COALITION_VARIABLE_BY_UNIVERSE[universe]) return [];
     const coalitionColumns = getSelectedCoalitionColumns({
       selectedGroups: coalitionGroups,
       availableColumns: demographyService.availableColumns,
@@ -131,7 +133,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
         // Skip the coalition entry for a group with no data on this map.
         return baseList.length ? [...baseList, ...coalitionOptionFor(group)] : [];
       }),
-    [availableMapVariables, variableGroups, coalitionGroups, dataHash, superDraw, variable]
+    [availableMapVariables, variableGroups, coalitionGroups, dataHash, coalitionsEnabled, variable]
   );
   const mapVariableConfig = currentVariableList.find(f => f.value === variable);
   // Each group's control is independent: it reports the display mode only
@@ -270,7 +272,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                   <Popover.Content>
                     <Flex direction={'column'} gapY="2">
                       <Heading as="h3" size="3">
-                        Choropleth Map Settings
+                        Additional Layer Settings
                       </Heading>
                       {usesBins && (
                         <Flex direction="row" gapX="3" align="center">

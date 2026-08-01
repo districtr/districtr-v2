@@ -7,7 +7,6 @@ import {
   IconButton,
   Popover,
   RadioGroup,
-  SegmentedControl,
   Spinner,
   Table,
   Tooltip,
@@ -288,17 +287,19 @@ const DemographyTable: React.FC<DemographyTableProps> = ({
               </Heading>
               {showModeButtons && (
                 <Flex align="center" gap="3" my="2" wrap="wrap">
-                  <SegmentedControl.Root
+                  <RadioGroup.Root
                     size="1"
                     value={evalMode}
                     onValueChange={v => setEvalMode(v as TableDisplayMode)}
                   >
-                    {modeButtonConfig.map((mode, i) => (
-                      <SegmentedControl.Item key={i} value={mode.value}>
-                        {mode.label}
-                      </SegmentedControl.Item>
-                    ))}
-                  </SegmentedControl.Root>
+                    <Flex direction="row" gap="3" wrap="wrap">
+                      {modeButtonConfig.map((mode, i) => (
+                        <RadioGroup.Item key={i} value={mode.value} className="cursor-pointer">
+                          {mode.label}
+                        </RadioGroup.Item>
+                      ))}
+                    </Flex>
+                  </RadioGroup.Root>
                 </Flex>
               )}
               <Flex align="center" gap="3" mt="1">
