@@ -40,29 +40,37 @@ export const AnimatedCollapse: React.FC<{open: boolean; children: React.ReactNod
  * coalition" pattern, shared by the stacked panels' Table / Map Layer
  * expanders. */
 export const Expander: React.FC<{
-  label: string;
+  label: React.ReactNode;
   defaultOpen?: boolean;
+  /** Controlled mode: pass both to own the open state (e.g. so UI hints can
+   * open a specific expander). Omit both for internal state. */
+  open?: boolean;
+  onToggle?: () => void;
+  /** Extra classes for the header button (e.g. h-auto for multi-line labels). */
+  buttonClassName?: string;
   children: React.ReactNode;
-}> = ({label, defaultOpen = false, children}) => {
-  const [open, setOpen] = useState(defaultOpen);
+}> = ({label, defaultOpen = false, open, onToggle, buttonClassName = '', children}) => {
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
+  const isOpen = open ?? uncontrolledOpen;
+  const toggle = onToggle ?? (() => setUncontrolledOpen(o => !o));
   return (
     <Flex direction="column" gap="2">
       <Button
         variant="surface"
         color="gray"
         size="2"
-        onClick={() => setOpen(o => !o)}
-        aria-expanded={open}
-        className="w-full cursor-pointer"
+        onClick={toggle}
+        aria-expanded={isOpen}
+        className={`w-full cursor-pointer ${buttonClassName}`}
       >
         <Flex align="center" justify="between" width="100%">
           {label}
           <ChevronDownIcon
-            className={`transition-transform duration-200 ${open ? '' : '-rotate-90'}`}
+            className={`flex-shrink-0 transition-transform duration-200 ${isOpen ? '' : '-rotate-90'}`}
           />
         </Flex>
       </Button>
-      <AnimatedCollapse open={open}>{children}</AnimatedCollapse>
+      <AnimatedCollapse open={isOpen}>{children}</AnimatedCollapse>
     </Flex>
   );
 };
