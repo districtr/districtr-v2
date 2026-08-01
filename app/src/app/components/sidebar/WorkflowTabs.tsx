@@ -39,7 +39,7 @@ const TabSection: React.FC<{
       className="w-auto cursor-pointer text-left -mx-2 px-2 py-3 rounded transition-colors hover:bg-[var(--gray-2)]"
     >
       <Flex align="center" justify="between">
-        <Text size="3" weight="medium">
+        <Text size="3" className="font-semibold">
           {label}
         </Text>
         <ChevronDownIcon

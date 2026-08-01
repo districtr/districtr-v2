@@ -1,6 +1,6 @@
 'use client';
 import React, {useEffect, useState} from 'react';
-import {Button, Flex} from '@radix-ui/themes';
+import {Box, Button, Flex} from '@radix-ui/themes';
 import {ChevronDownIcon} from '@radix-ui/react-icons';
 
 // One constant drives both the CSS transition and the delayed unmount so the
@@ -53,15 +53,18 @@ export const Expander: React.FC<{
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
   const isOpen = open ?? uncontrolledOpen;
   const toggle = onToggle ?? (() => setUncontrolledOpen(o => !o));
+  // One bordered container around header + content so the pair reads as a
+  // unit; the header is a flat soft bar (its own surface border would double
+  // up inside the outline).
   return (
-    <Flex direction="column" gap="2">
+    <Flex direction="column" className="rounded-md border border-[var(--gray-6)] overflow-hidden">
       <Button
-        variant="surface"
+        variant="soft"
         color="gray"
         size="2"
         onClick={toggle}
         aria-expanded={isOpen}
-        className={`w-full cursor-pointer ${buttonClassName}`}
+        className={`w-full cursor-pointer rounded-none !bg-transparent hover:!bg-[var(--gray-a3)] ${buttonClassName}`}
       >
         <Flex align="center" justify="between" width="100%">
           {label}
@@ -70,7 +73,9 @@ export const Expander: React.FC<{
           />
         </Flex>
       </Button>
-      <AnimatedCollapse open={isOpen}>{children}</AnimatedCollapse>
+      <AnimatedCollapse open={isOpen}>
+        <Box p="2">{children}</Box>
+      </AnimatedCollapse>
     </Flex>
   );
 };
