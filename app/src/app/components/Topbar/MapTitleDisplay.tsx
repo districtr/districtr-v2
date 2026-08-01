@@ -22,7 +22,7 @@ import {
 import {Cross2Icon, Pencil1Icon} from '@radix-ui/react-icons';
 import {useMapModuleInfo} from './MapContextModuleAndUnits';
 import {InProgressIcon, ReadyIcon, ScratchWorkIcon} from './Icons';
-import {SegmentedControl} from '@radix-ui/themes';
+import {RadioCards} from '@radix-ui/themes';
 import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
 import {useUiHintStore} from '@store/uiHintStore';
@@ -39,22 +39,23 @@ const StatusPicker: React.FC<{
   value: DraftStatus;
   onChange: (status: DraftStatus) => void;
 }> = ({value, onChange}) => (
-  <SegmentedControl.Root
+  <RadioCards.Root
     value={value}
     onValueChange={e => onChange(e as DraftStatus)}
     size="1"
-    className="w-full h-full mb-4"
-    style={{width: '100%', maxWidth: '100%'}}
+    gap="2"
+    columns="3"
+    className="w-full mb-4"
   >
     {DRAFT_STATUS_ORDER.map(status => (
-      <SegmentedControl.Item key={status} value={status}>
-        <Flex direction="column" gap="0" align="center" justify="start" className="py-1">
+      <RadioCards.Item key={status} value={status} className="cursor-pointer">
+        <Flex direction="column" gap="0" align="center" justify="start" className="py-1 w-full">
           {statusIcons[status]({})}
-          <Text>{DRAFT_STATUS_TEXT[status]}</Text>
+          <Text align="center">{DRAFT_STATUS_TEXT[status]}</Text>
         </Flex>
-      </SegmentedControl.Item>
+      </RadioCards.Item>
     ))}
-  </SegmentedControl.Root>
+  </RadioCards.Root>
 );
 
 export const MapTitleDisplay: React.FC<{
