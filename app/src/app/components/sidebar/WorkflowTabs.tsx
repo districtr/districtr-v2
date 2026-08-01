@@ -28,6 +28,8 @@ const TabSection: React.FC<{
 }> = ({id, label, helpTip, children}) => {
   const open = useMapControlsStore(state => !state.collapsedTabSections.includes(id));
   const toggleTabSection = useMapControlsStore(state => state.toggleTabSection);
+  // Helper hints pulse the section they just pointed the user at.
+  const flashing = useUiHintStore(state => state.flashTarget === `section:${id}`);
   // -mx-2 + px-2 (matching the panels' px="2"): the hover wash spans the full
   // panel while the label shares the content's left edge.
   const headerRow = (
@@ -49,7 +51,7 @@ const TabSection: React.FC<{
     </button>
   );
   return (
-    <Flex direction="column">
+    <Flex direction="column" className={flashing ? 'ui-flash' : ''} data-section-id={id}>
       {helpTip ? (
         <HelpTip tip={helpTip} openDelay={HELP_TIP_HOVER_DELAY}>
           {headerRow}
@@ -165,16 +167,17 @@ export const WorkflowTabs: React.FC<{layoutToggle: React.ReactNode}> = ({layoutT
   // One-shot tab request (see uiHintStore). Requests that arrived while the
   // tabs were unmounted are stale: the first effect run after mount discards
   // them instead of firing a surprise jump.
-  const sidebarTabRequest = useUiHintStore(state => state.sidebarTabRequest);
-  const clearSidebarTabRequest = useUiHintStore(state => state.clearSidebarTabRequest);
+  const sidebarTabRequest = useUiHintStore(state => state.requests.sidebarTab);
+  const clearRequest = useUiHintStore(state => state.clear);
+  const flashTarget = useUiHintStore(state => state.flashTarget);
   const tabRequestsLive = useRef(false);
   useEffect(() => {
     const live = tabRequestsLive.current;
     tabRequestsLive.current = true;
     if (!sidebarTabRequest) return;
-    clearSidebarTabRequest();
+    clearRequest('sidebarTab');
     if (live) setTab(sidebarTabRequest);
-  }, [sidebarTabRequest, clearSidebarTabRequest]);
+  }, [sidebarTabRequest, clearRequest]);
 
   // A one-tab strip (COI) is noise; the Super Draw toggle must stay reachable.
   const showStrip = visibleTabs.length > 1;
@@ -195,6 +198,9 @@ export const WorkflowTabs: React.FC<{layoutToggle: React.ReactNode}> = ({layoutT
             <div className="flex gap-5 text-sm tracking-wider">
               {visibleTabs.map(t => {
                 const active = t.key === activeKey;
+                // Helper jumps pulse the destination tab label first (see
+                // jumpToSection) so the cut to another tab reads as a path.
+                const flashing = flashTarget === `tab:${t.key}`;
                 return (
                   <button
                     key={t.key}
@@ -206,7 +212,7 @@ export const WorkflowTabs: React.FC<{layoutToggle: React.ReactNode}> = ({layoutT
                       active
                         ? 'text-districtrBlue font-bold border-districtrBlue'
                         : 'text-gray-600 border-transparent'
-                    }`}
+                    } ${flashing ? 'ui-flash' : ''}`}
                   >
                     {/* Invisible bold twin reserves bold width so tabs don't
                         shift when the active weight changes. */}
