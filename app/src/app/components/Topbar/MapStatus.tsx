@@ -57,6 +57,8 @@ export const MapStatus: React.FC<{
   );
 };
 
+/** Free choice by design: the draft status is the user's own label for their
+ * plan. The only earned move is the helper box's advance button. */
 export const MapStatusButtons: React.FC<{
   draftStatus: DraftStatus | null;
   onChange: (draftStatus: DraftStatus) => Promise<void>;
