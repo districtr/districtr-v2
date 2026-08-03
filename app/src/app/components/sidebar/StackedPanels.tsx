@@ -1,6 +1,6 @@
 'use client';
-import React, {useState} from 'react';
-import {Flex, SegmentedControl, Text} from '@radix-ui/themes';
+import React from 'react';
+import {Flex, Text} from '@radix-ui/themes';
 import {
   CheckCircledIcon,
   ChevronDownIcon,
@@ -12,7 +12,7 @@ import {
 import PopulationPanel from './PopulationPanel';
 import OverlaysPanel from './OverlaysPanel';
 import {MapValidation} from './MapValidation/MapValidation';
-import {SummaryPanel, type SectionKey} from './SummaryPanel';
+import {SummaryPanel} from './SummaryPanel';
 import {AnimatedCollapse} from './AnimatedCollapse';
 import {CoalitionExpander} from './CoalitionExpander';
 import {MapControlsStore, useMapControlsStore} from '@store/mapControlsStore';
@@ -21,41 +21,35 @@ import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 import type {HelpTipKey} from '@components/HelpTip/helpTipContent';
 
-/** Table / Map tabs over a single SummaryPanel section, so the table and map
- * live in one accordion section instead of two. Used by the legacy stacked
- * layout only; the workflow tabs split table and map across Stats/Map Layers. */
-const TabbedSummaryPanel: React.FC<{
+/** Card content for the stacked demographics/elections cards: coalition
+ * expander (the one collapsible), then the map-layer controls rendered flat —
+ * the display-mode cards are their own progressive-disclosure trigger — then
+ * the table, always visible. Used by the legacy stacked layout only; the
+ * workflow tabs split map and table across Map Layers/Stats. */
+const SummaryCardContent: React.FC<{
   defaultColumnSet: SummaryType;
   displayedColumnSets: Array<SummaryType>;
-  tabs: Array<{value: SectionKey; label: string}>;
   withCoalition?: boolean;
-}> = ({defaultColumnSet, displayedColumnSets, tabs, withCoalition}) => {
-  const [tab, setTab] = useState<SectionKey>(tabs[0].value);
-  // Opening the Map Layer tab shows the choropleth controls but doesn't turn
-  // the overlay on — the user enables it from the display-mode control.
-  return (
-    <Flex direction="column" gap="2">
-      {withCoalition && (
-        <CoalitionExpander
-          defaultColumnSet={defaultColumnSet}
-          displayedColumnSets={displayedColumnSets}
-        />
-      )}
-      <SegmentedControl.Root size="2" value={tab} onValueChange={v => setTab(v as SectionKey)}>
-        {tabs.map(t => (
-          <SegmentedControl.Item key={t.value} value={t.value}>
-            {t.label}
-          </SegmentedControl.Item>
-        ))}
-      </SegmentedControl.Root>
-      <SummaryPanel
+}> = ({defaultColumnSet, displayedColumnSets, withCoalition}) => (
+  <Flex direction="column" gap="4">
+    {withCoalition && (
+      <CoalitionExpander
         defaultColumnSet={defaultColumnSet}
         displayedColumnSets={displayedColumnSets}
-        sections={[tab]}
       />
-    </Flex>
-  );
-};
+    )}
+    <SummaryPanel
+      defaultColumnSet={defaultColumnSet}
+      displayedColumnSets={displayedColumnSets}
+      sections={['map']}
+    />
+    <SummaryPanel
+      defaultColumnSet={defaultColumnSet}
+      displayedColumnSets={displayedColumnSets}
+      sections={['evaluation']}
+    />
+  </Flex>
+);
 
 type SidebarSectionKey = MapControlsStore['sidebarPanels'][number];
 
@@ -89,13 +83,9 @@ export const SECTIONS: SidebarSection[] = [
     label: 'Demographics',
     icon: PersonIcon,
     content: (
-      <TabbedSummaryPanel
+      <SummaryCardContent
         defaultColumnSet={SUMMARY_TYPES.TOTPOP}
         displayedColumnSets={[SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP]}
-        tabs={[
-          {value: 'evaluation', label: 'Table'},
-          {value: 'map', label: 'Map Layer'},
-        ]}
         withCoalition
       />
     ),
@@ -106,13 +96,9 @@ export const SECTIONS: SidebarSection[] = [
     label: 'Elections',
     icon: PieChartIcon,
     content: (
-      <TabbedSummaryPanel
+      <SummaryCardContent
         defaultColumnSet={SUMMARY_TYPES.VOTERHISTORY}
         displayedColumnSets={[SUMMARY_TYPES.VOTERHISTORY]}
-        tabs={[
-          {value: 'evaluation', label: 'Table'},
-          {value: 'map', label: 'Map Layer'},
-        ]}
       />
     ),
     districtsOnly: true,

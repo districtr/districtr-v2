@@ -3,6 +3,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
+import {useUiHintStore} from '@/app/store/uiHintStore';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 import {getFeaturesIntersectingCounties} from '@utils/map/getFeaturesIntersectingCounties';
 import {ACCESS_STATES} from '@constants/document/state';
@@ -31,6 +32,8 @@ export default function PaintByCounty() {
   // just visually/functionally inert, no explanatory tooltip needed.
   const disabledForPan = activeTool === ACTIVE_TOOLS.PAN;
   const disabled = access === ACCESS_STATES.READ || lockedForBreak || disabledForPan;
+  // The helper's "paint by counties" hint pulses this control.
+  const flashing = useUiHintStore(state => state.flashTarget === 'county-brush');
 
   const handleToggle = () => {
     if (!mapRef) return;
@@ -55,7 +58,7 @@ export default function PaintByCounty() {
     >
       <Card
         size="1"
-        className={paintByCounty ? 'bg-indigo-50' : ''}
+        className={`${paintByCounty ? 'bg-indigo-50' : ''} ${flashing ? 'ui-flash' : ''}`}
         style={lockedForBreak || disabledForPan ? {opacity: 0.5} : undefined}
       >
         <Text as="label" size="2" className="cursor-pointer select-none">

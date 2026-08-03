@@ -29,6 +29,10 @@ let coalitionVersion = 0;
 // the late resolver would otherwise win and leave the demographyService singleton
 // out of sync with the store's dataHash.
 let updateDataRequestId = 0;
+// Which document's county-brush default has already been set, so a later
+// re-hash (shatter/unshatter changes brokenIds, re-triggering this function
+// for the same document) never recomputes and overrides a session choice.
+let countyBrushDefaultAppliedFor: string | null = null;
 
 const getActiveBrokenIds = () => {
   const mapMode = useMapControlsStore.getState().mapMode;
@@ -215,6 +219,24 @@ export var useDemographyStore = create(
         demographyService.updateOverlay(result.columns, result.results, dataHash);
       } else {
         demographyService.update(result.columns, result.results, dataHash, get().coalitionGroups);
+        // County brush's default (on for a blank multi-county map, off for a
+        // single-county map or one the user has already started painting) needs
+        // the full unit universe, which only exists once demography data has
+        // loaded — set once per document, not on every re-hash a shatter/unshatter
+        // triggers, so it never overrides a choice made mid-session.
+        if (
+          mapDocument.access === ACCESS_STATES.EDIT &&
+          countyBrushDefaultAppliedFor !== mapDocument.document_id
+        ) {
+          countyBrushDefaultAppliedFor = mapDocument.document_id;
+          const hasAssignments =
+            mapDocument.map_type === MAP_TYPES.COMMUNITY
+              ? useCoiAssignmentsStore.getState().communityAssignments.size > 0
+              : useAssignmentsStore.getState().zoneAssignments.size > 0;
+          useMapControlsStore.getState().setMapOptions({
+            paintByCounty: !hasAssignments && demographyService.spansMultipleCounties(),
+          });
+        }
       }
 
       set({

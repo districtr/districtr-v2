@@ -57,6 +57,18 @@ export const helpTipContent = {
     videoFile: 'brush_size.webm',
     guideAnchor: 'drawing-the-districts',
   },
+  countyBrush: {
+    title: 'Painting by county',
+    text: 'Toggle this to paint whole counties at once instead of individual units.',
+    videoFile: 'county_brush.webm',
+    guideAnchor: 'drawing-the-districts',
+  },
+  // No video for this one yet — text-only, unlike the other brush tips.
+  disallowPaintOver: {
+    title: 'Disallow paint over',
+    text: 'When enabled, the brush will only add unassigned units, leaving painted areas untouched.',
+    guideAnchor: 'drawing-the-districts',
+  },
   switchDistrict: {
     title: 'Switching districts',
     text: 'Click a color to switch which district you’re painting. For plans with many districts, use the dropdown to find the one you want.',
