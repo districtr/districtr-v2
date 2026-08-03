@@ -224,7 +224,10 @@ export var useDemographyStore = create(
         // the full unit universe, which only exists once demography data has
         // loaded — set once per document, not on every re-hash a shatter/unshatter
         // triggers, so it never overrides a choice made mid-session.
-        if (mapDocument.access === ACCESS_STATES.EDIT && countyBrushDefaultAppliedFor !== mapDocument.document_id) {
+        if (
+          mapDocument.access === ACCESS_STATES.EDIT &&
+          countyBrushDefaultAppliedFor !== mapDocument.document_id
+        ) {
           countyBrushDefaultAppliedFor = mapDocument.document_id;
           const hasAssignments =
             mapDocument.map_type === MAP_TYPES.COMMUNITY

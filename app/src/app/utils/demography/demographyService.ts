@@ -391,7 +391,8 @@ class DemographyService {
     if (!this.table) return false;
     const paths = this.table.array(this.id_col) as string[];
     if (!paths.length) return false;
-    const toGeoid = (path: string) => (path.includes(':') ? path.slice(path.indexOf(':') + 1) : path);
+    const toGeoid = (path: string) =>
+      path.includes(':') ? path.slice(path.indexOf(':') + 1) : path;
     const firstCountyFips = toGeoid(paths[0]).slice(0, 5);
     for (let i = 1; i < paths.length; i++) {
       if (!toGeoid(paths[i]).startsWith(firstCountyFips)) return true;
