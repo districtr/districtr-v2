@@ -2,12 +2,8 @@ import React from 'react';
 import {Checkbox, Flex, Text} from '@radix-ui/themes';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useMapStore} from '@store/mapStore';
-import {useToolbarStore} from '@store/toolbarStore';
 import {ACCESS_STATES} from '@constants/document/state';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
-import DisallowPaintOver from '@components/Toolbar/DisallowPaintOver';
-import {VisualSettingsPopover} from '@components/Toolbar/VisualSettingsPopover';
-import {SidebarLayoutToggle} from '@components/sidebar/SidebarLayoutToggle';
 
 /** The map-display toggles surfaced in the right column of
  * ToolControlsScaffold — the toolbar's only home for these now, not
@@ -22,8 +18,6 @@ export const KeyOptionToggles: React.FC = () => {
   // numbers stays enabled; that display doesn't depend on the active tool).
   const populationTooltipDisabled =
     access === ACCESS_STATES.READ || activeTool === ACTIVE_TOOLS.PAN;
-  const superDraw = useToolbarStore(state => state.superDraw);
-  const stackedSidebar = useToolbarStore(state => state.stackedSidebar);
 
   return (
     <Flex direction="column" gap="2">
@@ -53,13 +47,15 @@ export const KeyOptionToggles: React.FC = () => {
           Population tooltip
         </Flex>
       </Text>
-      <DisallowPaintOver />
-      {superDraw && stackedSidebar && (
-        <Flex gap="3" align="center" justify="end" mt="2">
-          <VisualSettingsPopover />
-          <SidebarLayoutToggle />
+      {/* Placeholder for issue #677's "Disallow paint over" toggle — this branch's
+          MapOptions has no disallowPaintOver field yet, so the control is rendered
+          inert (no checked state, no handler) until that field lands. */}
+      <Text as="label" size="2" className="select-none" style={{opacity: 0.5}}>
+        <Flex gap="2" align="center">
+          <Checkbox checked={false} disabled />
+          Disallow paint over
         </Flex>
-      )}
+      </Text>
     </Flex>
   );
 };
