@@ -58,7 +58,11 @@ const InlineHintButton: React.FC<{
   <button
     type="button"
     onClick={onClick}
-    className={`inline cursor-pointer whitespace-nowrap hover:underline underline-offset-2 ${
+    // Wraps with the sentence it sits in. It used to be nowrap so a link
+    // couldn't break across lines, but these labels are long enough
+    // ("Paint by counties to roughly draw districts") that nowrap pushed the
+    // card wider than the sidebar instead.
+    className={`inline cursor-pointer text-left hover:underline underline-offset-2 ${
       back ? 'text-gray-500 hover:text-gray-700' : 'font-semibold text-districtrBlue'
     }`}
   >
@@ -370,12 +374,20 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
       gap="2"
       p="3"
       flexShrink="0"
+      className="max-w-full"
       // Accent-tinted chrome so the helper reads as its own layer, distinct
       // from the white data panels below it.
+      //
+      // minWidth 0 lets the card shrink inside its flex parent instead of
+      // being held open by its widest line; overflowWrap is inherited, so
+      // declaring it once here covers every string in the card — including
+      // ones with no space to break at, like a long map name.
       style={{
         background: 'var(--accent-2)',
         border: '1px solid var(--accent-6)',
         borderRadius: 10,
+        minWidth: 0,
+        overflowWrap: 'anywhere',
       }}
       data-testid="draft-status-helper"
     >
@@ -385,11 +397,12 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
         aria-expanded={!collapsed}
         className={`w-full text-left ${collapsible ? 'cursor-pointer' : 'cursor-default'}`}
       >
-        <Flex align="center" justify="between">
-          <Text size="3" weight="bold">
+        <Flex align="center" justify="between" gap="2">
+          <Text size="3" weight="bold" style={{minWidth: 0}}>
             {title}
           </Text>
-          <Flex align="center" gap="2">
+          {/* The count and chevron keep their width; the title wraps. */}
+          <Flex align="center" gap="2" flexShrink="0">
             {!showPointers && !collapsed && (
               <Text size="1" color="gray">
                 {doneCount} of {items.length} done
@@ -411,13 +424,14 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
           direction="column"
           gap="1"
           p="2"
+          className="max-w-full"
           style={{
             background: 'var(--amber-2)',
             border: '1px solid var(--amber-6)',
             borderRadius: 6,
           }}
         >
-          <Text size="2">
+          <Text size="2" className="max-w-full">
             Your plan no longer meets the checks for its current status.{' '}
             <InlineHintButton back onClick={() => changeStatus(previousStatus)}>
               <StatusGlyph status={previousStatus} inline />
@@ -449,11 +463,15 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
       )}
       {!collapsed &&
         items.map(step => (
-          <Flex key={step.label} align="start" gap="2">
-            <span className="pt-[3px]">
+          <Flex key={step.label} align="start" gap="2" minWidth="0">
+            <span className="pt-[3px] shrink-0">
               <ItemMarker done={step.done && !step.muted} />
             </span>
-            <Text size="2" color={step.done || step.muted ? 'gray' : undefined}>
+            <Text
+              size="2"
+              color={step.done || step.muted ? 'gray' : undefined}
+              style={{minWidth: 0}}
+            >
               {step.label}
               {/* Muted counts as unfinished here: a stale contiguity result
                   displays as done but still needs its save. */}
@@ -503,6 +521,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
               variant="solid"
               size="2"
               onClick={() => changeStatus(nextStatus)}
+              className="max-w-full"
               // The label wraps rather than running off a narrow sidebar, so
               // the button grows instead of holding its fixed size-2 height.
               style={{
