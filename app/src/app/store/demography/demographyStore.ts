@@ -9,6 +9,7 @@ import {useCoiAssignmentsStore} from '../coiAssignmentsStore';
 import {getDemography} from '@/app/utils/api/apiHandlers/getDemography';
 import {demographyService} from '@/app/utils/demography/demographyService';
 import {getAvailableColumnSets} from '@/app/utils/demography/getAvailableColumnSets';
+import {getFeaturesIntersectingCounties} from '@/app/utils/map/getFeaturesIntersectingCounties';
 import {DEFAULT_CHOROPLETH_BIN_COUNT} from './constants';
 import {idb} from '@/app/utils/idb/idb';
 import {type CoalitionGroupKey} from '@constants/demography/coalition';
@@ -242,9 +243,6 @@ export var useDemographyStore = create(
           // checked box — fixed by toggling the checkbox off and back on, since
           // that's the only other place this pairing gets applied.
           if (paintByCounty) {
-            const {getFeaturesIntersectingCounties} = await import(
-              '@utils/map/getFeaturesIntersectingCounties'
-            );
             useMapControlsStore.getState().setPaintFunction(getFeaturesIntersectingCounties);
           }
         }
