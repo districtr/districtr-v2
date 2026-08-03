@@ -24,9 +24,8 @@ export default function DisallowPaintOver() {
   return (
     <HelpTip tip="disallowPaintOver" openDelay={HELP_TIP_HOVER_DELAY}>
       <Text as="label" size="2" className="cursor-pointer select-none">
-        <Flex gap="1" align="center">
+        <Flex gap="2" align="center">
           <Checkbox
-            size="2"
             checked={!!disallowPaintOver}
             onCheckedChange={handleToggle}
             disabled={disabled}
