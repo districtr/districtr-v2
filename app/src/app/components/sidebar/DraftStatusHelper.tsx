@@ -17,7 +17,12 @@ import {activateOverlayGroup} from '@utils/demography/overlayMemory';
 import {formatNumber} from '@utils/numbers';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {SUMMARY_TYPES, toOverlayGroup} from '@constants/demography/summary';
-import {DRAFT_STATUSES, DRAFT_STATUS_TEXT, type DraftStatus} from '@constants/document/draftStatus';
+import {
+  DRAFT_STATUSES,
+  DRAFT_STATUS_COLORS,
+  DRAFT_STATUS_TEXT,
+  type DraftStatus,
+} from '@constants/document/draftStatus';
 import {MAP_MODES} from '@constants/map/mode';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
 
@@ -477,6 +482,10 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
             <Button
               variant="solid"
               size="2"
+              // The status's own color, the same one its badge carries
+              // elsewhere — so the button reads as the status it produces
+              // rather than as another blue action.
+              color={DRAFT_STATUS_COLORS[nextStatus]}
               onClick={() => changeStatus(nextStatus)}
               style={{fontWeight: 600}}
               data-testid="advance-draft-status"
