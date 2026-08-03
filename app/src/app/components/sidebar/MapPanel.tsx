@@ -315,7 +315,9 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                 every mode. Painted-district visibility stays a Map options
                 checkbox. */}
             {isOverlay && !!mapVariableConfig && (
-              <Flex direction="column" gapY="2">
+              // pr: the thumb at 100% sits half outside the track's own box and
+              // was being clipped by the panel's edge.
+              <Flex direction="column" gapY="2" pr="2">
                 <Text size="2" weight="medium">
                   Overlay layer opacity
                 </Text>

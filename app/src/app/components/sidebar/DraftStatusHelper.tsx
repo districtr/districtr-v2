@@ -10,12 +10,19 @@ import {useOverlayStore} from '@/app/store/overlayStore';
 import {useUiHintStore} from '@/app/store/uiHintStore';
 import {useDraftStatusCriteria, BALANCE_DEVIATION} from '@/app/hooks/useDraftStatusCriteria';
 import {useMetadataChange} from '@/app/hooks/useMetadataChange';
+import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
+import {statusIcons} from '@components/Topbar/MapStatus';
 import {getFeaturesIntersectingCounties} from '@utils/map/getFeaturesIntersectingCounties';
 import {activateOverlayGroup} from '@utils/demography/overlayMemory';
 import {formatNumber} from '@utils/numbers';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {SUMMARY_TYPES, toOverlayGroup} from '@constants/demography/summary';
-import {DRAFT_STATUSES, DRAFT_STATUS_TEXT, type DraftStatus} from '@constants/document/draftStatus';
+import {
+  DRAFT_STATUSES,
+  DRAFT_STATUS_COLORS,
+  DRAFT_STATUS_TEXT,
+  type DraftStatus,
+} from '@constants/document/draftStatus';
 import {MAP_MODES} from '@constants/map/mode';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
 
@@ -39,6 +46,10 @@ type ChecklistItem = {
    * stale or uncheckable, not a confirmed pass. */
   muted?: boolean;
   hints?: Hint[];
+  /** Hints are alternatives by default, dot-separated. `and` joins them into
+   * one sentence instead, for hints that are steps of a single operation —
+   * so the first doesn't read as the whole job. */
+  hintsJoin?: 'and';
 };
 
 /** Link-styled action that flows inline with the checklist text instead of
@@ -58,6 +69,22 @@ const InlineHintButton: React.FC<{
   >
     {children}
   </button>
+);
+
+/** The topbar's own status glyph, wherever a control names a status to move to.
+ * Those icons hardcode a 24px size and their own indicator fill, so both are
+ * overridden here to inherit from whatever the glyph sits in. */
+const StatusGlyph: React.FC<{status: DraftStatus; inline?: boolean}> = ({status, inline}) => (
+  <span
+    // One size for every status move, forward or back. The inline (link) glyph
+    // spaces itself; inside a Button, Radix's own gap already does.
+    className={`inline-flex align-middle [&_svg]:size-[18px] [&_svg]:!fill-current ${
+      inline ? 'mr-1' : ''
+    }`}
+    aria-hidden
+  >
+    {React.createElement(statusIcons[status])}
+  </span>
 );
 
 /** Plain status glyphs (check / dash), deliberately without circular chrome so
@@ -111,6 +138,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
   const request = useUiHintStore(state => state.request);
   const flash = useUiHintStore(state => state.flash);
   const handleMetadataChange = useMetadataChange();
+  const {save} = useMapSaveStatus();
   // Status changes land silently in the topbar otherwise; the pulse both
   // confirms the change and teaches that the title icon is the status.
   const changeStatus = (status: DraftStatus) =>
@@ -258,12 +286,25 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
       label: contiguityUnavailable
         ? 'Keep districts contiguous (not checked for this map)'
         : contiguityStale
-          ? `Keep districts contiguous (?/${numDistricts}) — updates on save`
+          ? // No "— updates on save" here: the Save now hint below says it, and
+            // says it as something to click.
+            `Keep districts contiguous (?/${numDistricts})`
           : `Keep districts contiguous (${contiguousZones}/${numDistricts})`,
       done: contiguityUnavailable || contiguousZones >= numDistricts,
       muted: contiguityUnavailable || contiguityStale,
-      hints:
-        !contiguityStale && !contiguityUnavailable && contiguousZones < numDistricts
+      // A stale result is waiting on a save, and the advance button stays
+      // blocked until it lands — so offer the save right here rather than
+      // leaving "updates on save" as the only clue. The save alone settles
+      // nothing visible, so it's phrased as the first of two steps.
+      hints: contiguityStale
+        ? [
+            {label: 'Save now', onClick: () => save(false, {silent: true})},
+            {
+              label: 'find disconnected fragments',
+              onClick: () => openValidation('Contiguity'),
+            },
+          ]
+        : !contiguityUnavailable && contiguousZones < numDistricts
           ? [
               {
                 label: 'Find disconnected fragments',
@@ -271,6 +312,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
               },
             ]
           : undefined,
+      hintsJoin: contiguityStale ? 'and' : undefined,
     },
   ];
 
@@ -381,6 +423,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
           <Text size="2">
             Your plan no longer meets the checks for its current status.{' '}
             <InlineHintButton back onClick={() => changeStatus(previousStatus)}>
+              <StatusGlyph status={previousStatus} inline />
               Move back to {DRAFT_STATUS_TEXT[previousStatus]}
             </InlineHintButton>
           </Text>
@@ -415,12 +458,21 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
             </span>
             <Text size="2" color={step.done || step.muted ? 'gray' : undefined}>
               {step.label}
-              {!step.done &&
+              {/* Muted counts as unfinished here: a stale contiguity result
+                  displays as done but still needs its save. */}
+              {(!step.done || step.muted) &&
                 step.hints?.map((hint, i) => (
                   <React.Fragment key={hint.label}>
-                    {/* Dot-separate consecutive hints so adjacent links don't
-                        read as one phrase. */}
-                    {i > 0 ? <span className="text-gray-400"> · </span> : ' '}
+                    {/* Alternatives are dot-separated so adjacent links don't
+                        read as one phrase; steps of one operation are joined
+                        into a sentence instead. */}
+                    {i === 0 ? (
+                      ' '
+                    ) : step.hintsJoin === 'and' ? (
+                      ' and '
+                    ) : (
+                      <span className="text-gray-400"> · </span>
+                    )}
                     <InlineHintButton
                       onClick={() => {
                         hint.onClick();
@@ -439,8 +491,10 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
       {!collapsed && (canAdvance || (statusStage > 0 && !regressed)) && (
         <Flex align="center" gap="3">
           {statusStage > 0 && !regressed && (
-            <Text size="1">
+            // size 2 to match the advance Button's own text beside it.
+            <Text size="2">
               <InlineHintButton back onClick={() => changeStatus(previousStatus)}>
+                <StatusGlyph status={previousStatus} inline />
                 Move back to {DRAFT_STATUS_TEXT[previousStatus]}
               </InlineHintButton>
             </Text>
@@ -448,12 +502,19 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
           {canAdvance && nextStatus && (
             <Button
               variant="solid"
-              size="1"
+              size="2"
+              // The status's own color, the same one its badge carries
+              // elsewhere — so the button reads as the status it produces
+              // rather than as another blue action.
+              color={DRAFT_STATUS_COLORS[nextStatus]}
               onClick={() => changeStatus(nextStatus)}
               style={{fontWeight: 600}}
               data-testid="advance-draft-status"
             >
-              Mark as {DRAFT_STATUS_TEXT[nextStatus]}
+              {/* The status it's moving to, shown as the same glyph the topbar
+                  will then display. */}
+              <StatusGlyph status={nextStatus} />
+              Mark your plan as “{DRAFT_STATUS_TEXT[nextStatus]}”
             </Button>
           )}
         </Flex>

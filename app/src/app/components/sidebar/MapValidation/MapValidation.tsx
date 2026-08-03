@@ -104,7 +104,11 @@ export const MapValidation = () => {
   const numUnassignedAreas = useUnassignFeaturesStore(
     state => state.unassignedFeatureBboxes.length
   );
-  const areasSuffix = ` · ${numUnassignedAreas} unassigned area${numUnassignedAreas === 1 ? '' : 's'}`;
+  // Areas lead: the count of places to go fix is the actionable half, the
+  // population the detail.
+  const areasPrefix = `${numUnassignedAreas} unassigned area${
+    numUnassignedAreas === 1 ? '' : 's'
+  } · `;
   const completenessStatus: CheckStatus =
     unassigned === undefined ? 'unknown' : unassigned === 0 ? 'pass' : 'fail';
   // The area count is omitted on a failing check unless areas were actually
@@ -114,10 +118,10 @@ export const MapValidation = () => {
     unassigned === undefined
       ? 'Not checked yet'
       : unassigned === 0
-        ? `All population assigned${hasFoundUnassigned ? areasSuffix : ''}`
-        : `${formatNumber(unassigned, NUMBER_FORMATS.STRING)} population unassigned${
-            hasFoundUnassigned && numUnassignedAreas > 0 ? areasSuffix : ''
-          }`;
+        ? `${hasFoundUnassigned ? areasPrefix : ''}All population assigned`
+        : `${
+            hasFoundUnassigned && numUnassignedAreas > 0 ? areasPrefix : ''
+          }${formatNumber(unassigned, NUMBER_FORMATS.STRING)} population unassigned`;
 
   // Contiguity preview: shares the cache entry of the Contiguity panel and
   // the draft-status helper (same key), so no extra requests once either has
