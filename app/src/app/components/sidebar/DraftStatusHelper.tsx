@@ -65,12 +65,12 @@ const InlineHintButton: React.FC<{
 /** The topbar's own status glyph, wherever a control names a status to move to.
  * Those icons hardcode a 24px size and their own indicator fill, so both are
  * overridden here to inherit from whatever the glyph sits in. */
-const StatusGlyph: React.FC<{status: DraftStatus; small?: boolean}> = ({status, small}) => (
+const StatusGlyph: React.FC<{status: DraftStatus; inline?: boolean}> = ({status, inline}) => (
   <span
-    // The inline (link) glyph spaces itself; inside a Button, Radix's own gap
-    // already does it.
-    className={`inline-flex align-middle [&_svg]:!fill-current ${
-      small ? 'mr-1 [&_svg]:size-3' : '[&_svg]:size-4'
+    // One size for every status move, forward or back. The inline (link) glyph
+    // spaces itself; inside a Button, Radix's own gap already does.
+    className={`inline-flex align-middle [&_svg]:size-[18px] [&_svg]:!fill-current ${
+      inline ? 'mr-1' : ''
     }`}
     aria-hidden
   >
@@ -404,7 +404,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
           <Text size="2">
             Your plan no longer meets the checks for its current status.{' '}
             <InlineHintButton back onClick={() => changeStatus(previousStatus)}>
-              <StatusGlyph status={previousStatus} small />
+              <StatusGlyph status={previousStatus} inline />
               Move back to {DRAFT_STATUS_TEXT[previousStatus]}
             </InlineHintButton>
           </Text>
@@ -465,9 +465,10 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
       {!collapsed && (canAdvance || (statusStage > 0 && !regressed)) && (
         <Flex align="center" gap="3">
           {statusStage > 0 && !regressed && (
-            <Text size="1">
+            // size 2 to match the advance Button's own text beside it.
+            <Text size="2">
               <InlineHintButton back onClick={() => changeStatus(previousStatus)}>
-                <StatusGlyph status={previousStatus} small />
+                <StatusGlyph status={previousStatus} inline />
                 Move back to {DRAFT_STATUS_TEXT[previousStatus]}
               </InlineHintButton>
             </Text>
