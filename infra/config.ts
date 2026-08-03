@@ -38,6 +38,7 @@ export const config = {
   appDomain: cfg.require("appDomain"),
   apiDomain: cfg.require("apiDomain"),
   extraDomains: cfg.getObject<string[]>("extraDomains") ?? [],
+  legacyApiDomains: cfg.getObject<string[]>("legacyApiDomains") ?? [],
   corsOrigins: cfg.require("corsOrigins"),
 
   // Existing object storage / CDN — not managed by this project.

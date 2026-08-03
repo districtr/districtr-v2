@@ -8,7 +8,10 @@ config:
   districtr-infra:apiDomain: api.beta.districtr.org
   districtr-infra:extraDomains:
     - www.beta.districtr.org
-  districtr-infra:corsOrigins: https://beta.districtr.org,https://www.beta.districtr.org
+    - districtr.org
+    - www.districtr.org
+    - api.districtr.org
+  districtr-infra:corsOrigins: https://beta.districtr.org,https://www.beta.districtr.org,https://districtr.org,https://www.districtr.org
   districtr-infra:s3BucketName:
     secure: v1:MS8AzWKQiTmtjfkB:oz6SV4+k43qsx7zvx/cdwVO4Be+fhIJd1wMaghY7OLAHbWwTV3gzHrTg
   districtr-infra:cdnUrl: https://tilesets1.cdn.districtr.org
