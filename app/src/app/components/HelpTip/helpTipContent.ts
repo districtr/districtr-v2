@@ -116,13 +116,13 @@ export const helpTipContent = {
   },
   demographics: {
     title: 'Demographics',
-    text: 'Click here to view demographic information of your districts and configure demographic visualization options on the map.',
+    text: 'Click here to view demographic information of your districts.',
     videoFile: 'demographics_panel.webm',
     guideAnchor: 'demographics',
   },
   elections: {
     title: 'Elections',
-    text: 'Click here to view election information of your districts and configure election visualization options on the map.',
+    text: 'Click here to view election information of your districts.',
     videoFile: 'election_panel.webm',
     guideAnchor: 'elections',
   },
