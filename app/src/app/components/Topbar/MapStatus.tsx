@@ -11,7 +11,9 @@ import {
 import {InProgressIcon, ScratchWorkIcon, ReadyIcon} from './Icons';
 import {ACCESS_STATES} from '@constants/document/state';
 
-const statusIcons: Record<DraftStatus, React.FC> = {
+/** The topbar's status glyphs, exported so anything that moves the status
+ * (the draft helper's advance button) can show the same icon it's moving to. */
+export const statusIcons: Record<DraftStatus, React.FC> = {
   [DRAFT_STATUSES.SCRATCH]: ScratchWorkIcon,
   [DRAFT_STATUSES.IN_PROGRESS]: InProgressIcon,
   [DRAFT_STATUSES.READY_TO_SHARE]: ReadyIcon,

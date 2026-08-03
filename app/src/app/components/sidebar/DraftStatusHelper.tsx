@@ -10,6 +10,8 @@ import {useOverlayStore} from '@/app/store/overlayStore';
 import {useUiHintStore} from '@/app/store/uiHintStore';
 import {useDraftStatusCriteria, BALANCE_DEVIATION} from '@/app/hooks/useDraftStatusCriteria';
 import {useMetadataChange} from '@/app/hooks/useMetadataChange';
+import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
+import {statusIcons} from '@components/Topbar/MapStatus';
 import {getFeaturesIntersectingCounties} from '@utils/map/getFeaturesIntersectingCounties';
 import {activateOverlayGroup} from '@utils/demography/overlayMemory';
 import {formatNumber} from '@utils/numbers';
@@ -111,6 +113,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
   const request = useUiHintStore(state => state.request);
   const flash = useUiHintStore(state => state.flash);
   const handleMetadataChange = useMetadataChange();
+  const {save} = useMapSaveStatus();
   // Status changes land silently in the topbar otherwise; the pulse both
   // confirms the change and teaches that the title icon is the status.
   const changeStatus = (status: DraftStatus) =>
@@ -262,8 +265,12 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
           : `Keep districts contiguous (${contiguousZones}/${numDistricts})`,
       done: contiguityUnavailable || contiguousZones >= numDistricts,
       muted: contiguityUnavailable || contiguityStale,
-      hints:
-        !contiguityStale && !contiguityUnavailable && contiguousZones < numDistricts
+      // A stale result is waiting on a save, and the advance button stays
+      // blocked until it lands — so offer the save right here rather than
+      // leaving "updates on save" as the only clue.
+      hints: contiguityStale
+        ? [{label: 'Save now', onClick: () => save(false, {silent: true})}]
+        : !contiguityUnavailable && contiguousZones < numDistricts
           ? [
               {
                 label: 'Find disconnected fragments',
@@ -415,7 +422,9 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
             </span>
             <Text size="2" color={step.done || step.muted ? 'gray' : undefined}>
               {step.label}
-              {!step.done &&
+              {/* Muted counts as unfinished here: a stale contiguity result
+                  displays as done but still needs its save. */}
+              {(!step.done || step.muted) &&
                 step.hints?.map((hint, i) => (
                   <React.Fragment key={hint.label}>
                     {/* Dot-separate consecutive hints so adjacent links don't
@@ -448,12 +457,19 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
           {canAdvance && nextStatus && (
             <Button
               variant="solid"
-              size="1"
+              size="2"
               onClick={() => changeStatus(nextStatus)}
               style={{fontWeight: 600}}
               data-testid="advance-draft-status"
             >
-              Mark as {DRAFT_STATUS_TEXT[nextStatus]}
+              {/* The status glyph it's moving to — the same one the topbar
+                  shows, so the button and its result read as one thing. The
+                  topbar icons hardcode their own size and indicator fill;
+                  on a solid button they have to take the button's own. */}
+              <span className="[&_svg]:size-4 [&_svg]:!fill-current" aria-hidden>
+                {React.createElement(statusIcons[nextStatus])}
+              </span>
+              Move to {DRAFT_STATUS_TEXT[nextStatus]}
             </Button>
           )}
         </Flex>
