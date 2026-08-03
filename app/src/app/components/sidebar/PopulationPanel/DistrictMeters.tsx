@@ -229,7 +229,14 @@ export const DistrictMeters = () => {
       : undefined;
 
   return (
-    <Flex direction="column" gap="0" mt="2" style={{maxWidth: MAX_METERS_WIDTH, width: '100%'}}>
+    <Flex
+      direction="column"
+      gap="0"
+      mt="2"
+      // Centered once the sidebar is wider than the cap, rather than left-hugging
+      // with all the slack on one side.
+      style={{maxWidth: MAX_METERS_WIDTH, width: '100%', marginInline: 'auto'}}
+    >
       {nothingStarted ? (
         <Text color="gray" size="2" my="4" style={{textAlign: 'center'}}>
           Start painting to see population bars
