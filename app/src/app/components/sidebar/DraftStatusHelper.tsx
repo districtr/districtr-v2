@@ -17,12 +17,7 @@ import {activateOverlayGroup} from '@utils/demography/overlayMemory';
 import {formatNumber} from '@utils/numbers';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {SUMMARY_TYPES, toOverlayGroup} from '@constants/demography/summary';
-import {
-  DRAFT_STATUSES,
-  DRAFT_STATUS_COLORS,
-  DRAFT_STATUS_TEXT,
-  type DraftStatus,
-} from '@constants/document/draftStatus';
+import {DRAFT_STATUSES, DRAFT_STATUS_TEXT, type DraftStatus} from '@constants/document/draftStatus';
 import {MAP_MODES} from '@constants/map/mode';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
 
@@ -491,7 +486,9 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
       {/* Backward moves are always free; the regressed note above carries its
           own step-back, so skip the duplicate there. */}
       {!collapsed && (canAdvance || (statusStage > 0 && !regressed)) && (
-        <Flex align="center" gap="3">
+        // Wraps: "Mark your plan as “Ready to Share”" outruns a narrow
+        // sidebar, and the step-back link beside it is nowrap.
+        <Flex align="center" gap="3" wrap="wrap">
           {statusStage > 0 && !regressed && (
             // size 2 to match the advance Button's own text beside it.
             <Text size="2">
@@ -505,12 +502,17 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
             <Button
               variant="solid"
               size="2"
-              // The status's own color, the same one its badge carries
-              // elsewhere — so the button reads as the status it produces
-              // rather than as another blue action.
-              color={DRAFT_STATUS_COLORS[nextStatus]}
               onClick={() => changeStatus(nextStatus)}
-              style={{fontWeight: 600}}
+              // The label wraps rather than running off a narrow sidebar, so
+              // the button grows instead of holding its fixed size-2 height.
+              style={{
+                fontWeight: 600,
+                whiteSpace: 'normal',
+                textAlign: 'left',
+                height: 'auto',
+                minHeight: 'var(--base-button-height)',
+                paddingBlock: 'var(--space-1)',
+              }}
               data-testid="advance-draft-status"
             >
               {/* The status it's moving to, shown as the same glyph the topbar
