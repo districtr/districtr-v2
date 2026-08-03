@@ -1,14 +1,10 @@
-import {Box, Flex, Button, Text} from '@radix-ui/themes';
-import {MaskOffIcon} from '@radix-ui/react-icons';
+import {Box, Flex} from '@radix-ui/themes';
 import {useFeatureFlagStore} from '@store/featureFlagStore';
-import {useOverlayStore} from '@/app/store/overlayStore';
 import {BrushSizeSelector} from '@components/Toolbar/ToolControls/BrushSizeSelector';
 import PaintByCounty from '@components/Toolbar/PaintByCounty';
 
 export const BrushControls = () => {
   const paintCounties = useFeatureFlagStore(state => state.paintCounties);
-  const paintConstraint = useOverlayStore(state => state.paintConstraint);
-  const clearPaintConstraint = useOverlayStore(state => state.clearPaintConstraint);
 
   return (
     <Flex direction="column" gapY="2" justify="between" wrap="wrap">
@@ -24,15 +20,6 @@ export const BrushControls = () => {
           <BrushSizeSelector />
         </Box>
       </Flex>
-
-      {paintConstraint && (
-        <Button variant="outline" color="orange" onClick={clearPaintConstraint}>
-          <Flex justify="between" align="center" gap="2">
-            <Text size="2">Release paint mask</Text>
-            <MaskOffIcon />
-          </Flex>
-        </Button>
-      )}
     </Flex>
   );
 };
