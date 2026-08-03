@@ -46,6 +46,10 @@ type ChecklistItem = {
    * stale or uncheckable, not a confirmed pass. */
   muted?: boolean;
   hints?: Hint[];
+  /** Hints are alternatives by default, dot-separated. `and` joins them into
+   * one sentence instead, for hints that are steps of a single operation —
+   * so the first doesn't read as the whole job. */
+  hintsJoin?: 'and';
 };
 
 /** Link-styled action that flows inline with the checklist text instead of
@@ -282,15 +286,24 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
       label: contiguityUnavailable
         ? 'Keep districts contiguous (not checked for this map)'
         : contiguityStale
-          ? `Keep districts contiguous (?/${numDistricts}) — updates on save`
+          ? // No "— updates on save" here: the Save now hint below says it, and
+            // says it as something to click.
+            `Keep districts contiguous (?/${numDistricts})`
           : `Keep districts contiguous (${contiguousZones}/${numDistricts})`,
       done: contiguityUnavailable || contiguousZones >= numDistricts,
       muted: contiguityUnavailable || contiguityStale,
       // A stale result is waiting on a save, and the advance button stays
       // blocked until it lands — so offer the save right here rather than
-      // leaving "updates on save" as the only clue.
+      // leaving "updates on save" as the only clue. The save alone settles
+      // nothing visible, so it's phrased as the first of two steps.
       hints: contiguityStale
-        ? [{label: 'Save now', onClick: () => save(false, {silent: true})}]
+        ? [
+            {label: 'Save now', onClick: () => save(false, {silent: true})},
+            {
+              label: 'find disconnected fragments',
+              onClick: () => openValidation('Contiguity'),
+            },
+          ]
         : !contiguityUnavailable && contiguousZones < numDistricts
           ? [
               {
@@ -299,6 +312,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
               },
             ]
           : undefined,
+      hintsJoin: contiguityStale ? 'and' : undefined,
     },
   ];
 
@@ -449,9 +463,16 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
               {(!step.done || step.muted) &&
                 step.hints?.map((hint, i) => (
                   <React.Fragment key={hint.label}>
-                    {/* Dot-separate consecutive hints so adjacent links don't
-                        read as one phrase. */}
-                    {i > 0 ? <span className="text-gray-400"> · </span> : ' '}
+                    {/* Alternatives are dot-separated so adjacent links don't
+                        read as one phrase; steps of one operation are joined
+                        into a sentence instead. */}
+                    {i === 0 ? (
+                      ' '
+                    ) : step.hintsJoin === 'and' ? (
+                      ' and '
+                    ) : (
+                      <span className="text-gray-400"> · </span>
+                    )}
                     <InlineHintButton
                       onClick={() => {
                         hint.onClick();
@@ -493,7 +514,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
               {/* The status it's moving to, shown as the same glyph the topbar
                   will then display. */}
               <StatusGlyph status={nextStatus} />
-              Move to {DRAFT_STATUS_TEXT[nextStatus]}
+              Mark the plan as “{DRAFT_STATUS_TEXT[nextStatus]}”
             </Button>
           )}
         </Flex>
