@@ -13,26 +13,37 @@ import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {MAP_MODES} from '@constants/map/mode';
 
 // Sidebar container width (it defaults to 35vw and is user-resizable) at which
-// the left/right columns stop stacking.
+// the left/right columns stop stacking. The breakpoint is a fixed pixel value
+// (container queries can't measure a column's own content), so it has to be
+// picked per how wide the left column's content actually runs: Districts'
+// zone picker is a compact grid of color swatches; Community's CoiZonePicker
+// rows (name, description, three icon buttons) need much more room before
+// two-column is worth it — sharing one breakpoint meant Community mode's rows
+// got squeezed unreadable at widths where Districts mode looked fine.
 const TWO_COLUMN_BREAKPOINT = 400;
+const COI_TWO_COLUMN_BREAKPOINT = 640;
 
-const TwoColumnGrid = styled('div', {
-  display: 'grid',
-  gridTemplateColumns: '1fr',
-  gap: 'var(--space-4)',
-  width: '100%',
-  [`@container (min-width: ${TWO_COLUMN_BREAKPOINT}px)`]: {
-    // max-content, not a fraction: the right column's toggle labels must
-    // never wrap, regardless of container width or font metrics. The left
-    // column (zone picker) absorbs whatever space is left. minmax(0, 1fr),
-    // not a bare 1fr (which is minmax(auto, 1fr) by spec): a bare 1fr can't
-    // shrink below its content's min-content width, so a wide left column
-    // (e.g. CoiZonePicker's name/description/icon rows) pushes the whole
-    // grid past the sidebar's edge instead of letting its own text-truncate
-    // kick in — clipping both columns rather than wrapping or eliding.
-    gridTemplateColumns: 'minmax(0, 1fr) max-content',
-  },
-});
+const makeTwoColumnGrid = (breakpoint: number) =>
+  styled('div', {
+    display: 'grid',
+    gridTemplateColumns: '1fr',
+    gap: 'var(--space-4)',
+    width: '100%',
+    [`@container (min-width: ${breakpoint}px)`]: {
+      // max-content, not a fraction: the right column's toggle labels must
+      // never wrap, regardless of container width or font metrics. The left
+      // column (zone picker) absorbs whatever space is left. minmax(0, 1fr),
+      // not a bare 1fr (which is minmax(auto, 1fr) by spec): a bare 1fr can't
+      // shrink below its content's min-content width, so a wide left column
+      // pushes the whole grid past the sidebar's edge instead of letting its
+      // own text-truncate kick in — clipping both columns rather than
+      // wrapping or eliding.
+      gridTemplateColumns: 'minmax(0, 1fr) max-content',
+    },
+  });
+
+const TwoColumnGrid = makeTwoColumnGrid(TWO_COLUMN_BREAKPOINT);
+const CoiTwoColumnGrid = makeTwoColumnGrid(COI_TWO_COLUMN_BREAKPOINT);
 
 const disabledSectionStyle = (disabled: boolean): React.CSSProperties =>
   disabled ? {opacity: 0.5, pointerEvents: 'none'} : {};
@@ -58,6 +69,7 @@ export const ToolControlsScaffold = () => {
     activeTool === ACTIVE_TOOLS.PAN ||
     breakBeforeBlockView ||
     (activeTool === ACTIVE_TOOLS.ERASER && mapMode === MAP_MODES.DISTRICTS);
+  const Grid = mapMode === MAP_MODES.COI ? CoiTwoColumnGrid : TwoColumnGrid;
 
   return (
     <Flex direction="column" gapY="4" width="100%">
@@ -76,12 +88,12 @@ export const ToolControlsScaffold = () => {
         </Box>
       </Flex>
 
-      <TwoColumnGrid>
+      <Grid>
         <Box style={disabledSectionStyle(zonePickerDisabled)}>
           <ZonePicker disabled={zonePickerDisabled} />
         </Box>
         <KeyOptionToggles />
-      </TwoColumnGrid>
+      </Grid>
     </Flex>
   );
 };
