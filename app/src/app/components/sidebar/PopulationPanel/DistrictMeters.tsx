@@ -34,7 +34,7 @@ const ICONS_WIDTH = 56;
 // margin eats half of it: measured against the rendered rows, its real trailing
 // space is 4px, not 8. The header's invisible twin uses the measured value —
 // copying the mr-2 class instead puts the lock-all 4px right of the rows'.
-const TWIN_TRAIL = 4;
+const TWIN_TRAIL = 6;
 // Bars stop growing on wide sidebars; everything (label strip, rows,
 // scoreboard) shares the cap so columns stay aligned.
 const MAX_METERS_WIDTH = 560;
