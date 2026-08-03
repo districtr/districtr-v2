@@ -93,7 +93,7 @@ export const helpTipContent = {
   },
   districtLock: {
     title: 'Locking districts',
-    text: 'Toggle it protect this district from being painted over or erased.',
+    text: 'Toggle it to protect this district from being painted over or erased.',
     videoFile: 'district_lock.webm',
     guideAnchor: 'district-overview',
   },
