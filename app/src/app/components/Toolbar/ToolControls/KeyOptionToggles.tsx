@@ -5,7 +5,8 @@ import {useMapStore} from '@store/mapStore';
 import {useUiHintStore} from '@store/uiHintStore';
 import {ACCESS_STATES} from '@constants/document/state';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
-import DisallowPaintOver from '@components/Toolbar/DisallowPaintOver';
+import {MAP_MODES} from '@constants/map/mode';
+import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 
 /** The map-display toggles surfaced in the right column of
  * ToolControlsScaffold — the toolbar's only home for these now, not
@@ -15,6 +16,8 @@ export const KeyOptionToggles: React.FC = () => {
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const access = useMapStore(state => state.mapStatus?.access);
   const activeTool = useMapControlsStore(state => state.activeTool);
+  const mapMode = useMapControlsStore(state => state.mapMode);
+  const disallowPaintOverDisabled = access === ACCESS_STATES.READ;
   // The population tooltip only shows on hover while actively painting —
   // it's a no-op during Pan, so the toggle is disabled there too (District
   // numbers stays enabled; that display doesn't depend on the active tool).
@@ -26,7 +29,22 @@ export const KeyOptionToggles: React.FC = () => {
 
   return (
     <Flex direction="column" gap="2">
-      <DisallowPaintOver />
+      {mapMode !== MAP_MODES.COI && (
+        <HelpTip tip="disallowPaintOver" openDelay={HELP_TIP_HOVER_DELAY}>
+          <Text as="label" size="2" className="cursor-pointer select-none">
+            <Flex gap="2" align="center">
+              <Checkbox
+                checked={!!mapOptions.disallowPaintOver}
+                onCheckedChange={() =>
+                  setMapOptions({disallowPaintOver: !mapOptions.disallowPaintOver})
+                }
+                disabled={disallowPaintOverDisabled}
+              />
+              Disallow paint-over
+            </Flex>
+          </Text>
+        </HelpTip>
+      )}
       <Text as="label" size="2" className="cursor-pointer select-none">
         <Flex gap="2" align="center">
           <Checkbox
