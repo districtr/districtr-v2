@@ -21,7 +21,7 @@ import {MAP_MODES} from '@constants/map/mode';
 // two-column is worth it — sharing one breakpoint meant Community mode's rows
 // got squeezed unreadable at widths where Districts mode looked fine.
 const TWO_COLUMN_BREAKPOINT = 400;
-const COI_TWO_COLUMN_BREAKPOINT = 640;
+const COI_TWO_COLUMN_BREAKPOINT = 550;
 
 const makeTwoColumnGrid = (breakpoint: number) =>
   styled('div', {
