@@ -237,9 +237,11 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
             {
               label: 'Show population tooltips as you paint',
               onClick: () => {
-                // Enable it, then show where the setting lives.
+                // The toggle lives in ToolControlsScaffold's right column, not
+                // inside any sidebar tab — pulse it directly instead of
+                // jumping to a tab section.
                 setMapOptions({showPopulationTooltip: true});
-                jumpToSection('mapLayers', 'layers-options');
+                flash('population-tooltip');
               },
             },
             {
