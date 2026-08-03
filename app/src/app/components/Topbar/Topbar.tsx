@@ -1,5 +1,5 @@
 'use client';
-import {Text, DropdownMenu, Flex, Heading, IconButton, Spinner, Tabs} from '@radix-ui/themes';
+import {Text, DropdownMenu, Flex, Heading, IconButton, Tabs} from '@radix-ui/themes';
 import React, {useRef} from 'react';
 import {useRouter} from 'next/navigation';
 import {useMapStore} from '@store/mapStore';
@@ -9,14 +9,14 @@ import {defaultPanels} from '@components/sidebar/DataPanelUtils';
 import {PasswordPromptModal} from '../Toolbar/PasswordPromptModal';
 import {UploaderModal} from '../Toolbar/UploaderModal';
 import {MapHeader} from './MapHeader';
-import {saveMapDocumentMetadata} from '@/app/utils/api/apiHandlers/saveMapDocumentMetadata';
-import {idb} from '@/app/utils/idb/idb';
+import {useMetadataChange} from '@/app/hooks/useMetadataChange';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {useIsDesktop} from '@/app/hooks/useIsDesktop';
+import {useUiHintStore} from '@store/uiHintStore';
 import {ModeSwitcher} from './ModeSwitcher';
 import {MapActionsDropdown} from './MapActionsDropdown';
-import {SaveButton} from './SaveButton';
+import {SaveButton, SavingPill} from './SaveButton';
 import {useAutoSave} from '@/app/hooks/useAutoSave';
 
 export const Topbar: React.FC = () => {
@@ -25,26 +25,7 @@ export const Topbar: React.FC = () => {
   const [modalOpen, setModalOpen] = React.useState<'upload' | null>(null);
   const mapDocument = useMapStore(state => state.mapDocument);
   const isEval = useMapControlsStore(state => state.isEval);
-  const setNotification = useMapStore(state => state.setNotification);
-  const updateMetadata = useMapStore(state => state.updateMetadata);
-
-  const handleMetadataChange = async (updates: Partial<DocumentMetadata>) => {
-    if (!mapDocument?.document_id) return;
-    const response = await saveMapDocumentMetadata({
-      document_id: mapDocument?.document_id,
-      metadata: updates,
-    });
-    if (response.ok) {
-      idb.updateIdbMetadata(mapDocument?.document_id, updates);
-      updateMetadata(updates);
-    } else {
-      setNotification({
-        message: 'Failed to save metadata',
-        importance: 2,
-        type: 'error',
-      });
-    }
-  };
+  const handleMetadataChange = useMetadataChange();
 
   return (
     <>
@@ -118,16 +99,7 @@ export const Topbar: React.FC = () => {
         {/* Editor panel tabs don't apply to the eval report view. */}
         {!isEval && <MobileDataTabs />}
       </Flex>
-      {isAutoSaving && (
-        <Flex
-          align="center"
-          gap="2"
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[10000] rounded-full bg-gray-900/90 px-4 py-2 text-white shadow-lg"
-        >
-          <Spinner size="1" />
-          <Text size="2">Auto-saving your map…</Text>
-        </Flex>
-      )}
+      {isAutoSaving && <SavingPill message="Auto-saving your map…" />}
       <UploaderModal open={modalOpen === 'upload'} onClose={() => setModalOpen(null)} />
       <PasswordPromptModal />
     </>
@@ -158,6 +130,15 @@ export const MobileDataTabs: React.FC = () => {
   React.useEffect(() => {
     if (isDesktop) setActiveTab('map');
   }, [isDesktop]);
+  // Helper-box jumps: below lg the sidebar sections don't exist, so hints
+  // open the matching full-screen panel here instead (see uiHintStore).
+  const mobileTabRequest = useUiHintStore(state => state.requests.mobileTab);
+  const clearRequest = useUiHintStore(state => state.clear);
+  React.useEffect(() => {
+    if (!mobileTabRequest) return;
+    clearRequest('mobileTab');
+    if (!isDesktop) setActiveTab(mobileTabRequest);
+  }, [mobileTabRequest, clearRequest, isDesktop]);
   // Same panel filter as the desktop sidebar: districts-only panels
   // (elections, validity, ...) don't apply to community (COI) maps.
   const visiblePanels = mobileTabPanels.filter(

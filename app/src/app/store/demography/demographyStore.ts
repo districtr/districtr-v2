@@ -9,6 +9,7 @@ import {useCoiAssignmentsStore} from '../coiAssignmentsStore';
 import {getDemography} from '@/app/utils/api/apiHandlers/getDemography';
 import {demographyService} from '@/app/utils/demography/demographyService';
 import {getAvailableColumnSets} from '@/app/utils/demography/getAvailableColumnSets';
+import {getFeaturesIntersectingCounties} from '@/app/utils/map/getFeaturesIntersectingCounties';
 import {DEFAULT_CHOROPLETH_BIN_COUNT} from './constants';
 import {idb} from '@/app/utils/idb/idb';
 import {type CoalitionGroupKey} from '@constants/demography/coalition';
@@ -22,6 +23,14 @@ import {MAP_MODES} from '@constants/map/mode';
 import {ACCESS_STATES} from '@constants/document/state';
 import {MAP_TYPES} from '@constants/document/types';
 
+// Connecticut's TIGER county layer (tl_2023_us_county) reflects its 2022
+// switch to planning regions as county-equivalents, but districtr's own block
+// geoids still carry the legacy county FIPS codes — the two never match, so
+// county brush can never find any blocks under a "county" queried from that
+// layer there. Excluded from the default-on check below rather than left to
+// spansMultipleCounties(), which has no way to see this mismatch.
+const CONNECTICUT_STATE_FIPS = '09';
+
 let coalitionHydrationRequestId = 0;
 let coalitionVersion = 0;
 // Request-id for updateData so rapid successive calls don't clobber each other:
@@ -29,6 +38,10 @@ let coalitionVersion = 0;
 // the late resolver would otherwise win and leave the demographyService singleton
 // out of sync with the store's dataHash.
 let updateDataRequestId = 0;
+// Which document's county-brush default has already been set, so a later
+// re-hash (shatter/unshatter changes brokenIds, re-triggering this function
+// for the same document) never recomputes and overrides a session choice.
+let countyBrushDefaultAppliedFor: string | null = null;
 
 const getActiveBrokenIds = () => {
   const mapMode = useMapControlsStore.getState().mapMode;
@@ -215,6 +228,29 @@ export var useDemographyStore = create(
         demographyService.updateOverlay(result.columns, result.results, dataHash);
       } else {
         demographyService.update(result.columns, result.results, dataHash, get().coalitionGroups);
+        // County brush's default (on for a blank multi-county map, off for a
+        // single-county map or one the user has already started painting) needs
+        // the full unit universe, which only exists once demography data has
+        // loaded — set once per document, not on every re-hash a shatter/unshatter
+        // triggers, so it never overrides a choice made mid-session.
+        if (
+          mapDocument.access === ACCESS_STATES.EDIT &&
+          countyBrushDefaultAppliedFor !== mapDocument.document_id
+        ) {
+          countyBrushDefaultAppliedFor = mapDocument.document_id;
+          const hasAssignments =
+            mapDocument.map_type === MAP_TYPES.COMMUNITY
+              ? useCoiAssignmentsStore.getState().communityAssignments.size > 0
+              : useAssignmentsStore.getState().zoneAssignments.size > 0;
+          const isConnecticut =
+            mapDocument.statefps.length === 1 && mapDocument.statefps[0] === CONNECTICUT_STATE_FIPS;
+          const paintByCounty =
+            !isConnecticut && !hasAssignments && demographyService.spansMultipleCounties();
+          useMapControlsStore.getState().setMapOptions({paintByCounty});
+          if (paintByCounty) {
+            useMapControlsStore.getState().setPaintFunction(getFeaturesIntersectingCounties);
+          }
+        }
       }
 
       set({

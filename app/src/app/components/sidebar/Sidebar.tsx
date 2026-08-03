@@ -9,6 +9,7 @@ import {styled} from '@stitches/react';
 import {MapContextComment} from './MapContextComment';
 import {CoiCommunityViewer} from './CoiCommunityViewer';
 import {DataCards} from './DataCards';
+import {DraftStatusHelper} from './DraftStatusHelper';
 
 const StyledScrollArea = styled(ScrollArea, {
   maxWidth: '100%',
@@ -103,6 +104,7 @@ export default function SidebarComponent() {
       </div>
       <Flex direction="column" gap="3" className="size-full">
         <div className="flex flex-col gap-3 pr-3">
+          <DraftStatusHelper />
           <ToolbarInSidebar />
           <CoiCommunityViewer />
           <MapContextComment />

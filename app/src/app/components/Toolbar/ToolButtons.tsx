@@ -7,7 +7,6 @@ import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
 import {useActiveTools} from '@/app/components/Toolbar/ToolUtils';
 import type {ActiveToolConfig} from '@/app/components/Toolbar/ToolUtils';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@/app/components/HelpTip/HelpTip';
-import {helpTipContent} from '@/app/components/HelpTip/helpTipContent';
 
 // Fixed button size; the old user-configurable size picker was removed.
 const TOOLBAR_SIZE = 40;
@@ -32,17 +31,20 @@ export const ToolButtons: React.FC = () => {
   const mainTools = activeTools.filter(tool => !HISTORY_TOOLS.includes(tool.mode));
   const historyTools = activeTools.filter(tool => HISTORY_TOOLS.includes(tool.mode));
   // Undo/Redo share one HelpTip entry and have no room for a corner hotkey
-  // badge (their shortcuts are chorded, too wide) — so their shortcuts ride
-  // along in the hover card's own text instead of a second, Alt-revealed
-  // tooltip. Composed from each tool's own hotKeyLabel (already OS-aware:
-  // ⌘ vs Ctrl), not hardcoded into the static copy. Super Draw only, same
-  // gate as the corner hotkey badge — other tips never carry shortcut info.
+  // badge (their shortcuts are chorded, too wide) — so in Super Draw, their
+  // shortcuts ride along in the hover card's own text instead of a second,
+  // Alt-revealed tooltip (this override hides the demonstration link for that
+  // mode — no room for both, and the shortcuts matter more there). Outside
+  // Super Draw, '' suppresses the dictionary entry's own text the same way
+  // the tool-group combos do, leaving just the demonstration link. Composed
+  // from each tool's own hotKeyLabel (already OS-aware: ⌘ vs Ctrl), not
+  // hardcoded into the static copy.
   const undoTool = historyTools.find(tool => tool.mode === ACTIVE_TOOLS.UNDO);
   const redoTool = historyTools.find(tool => tool.mode === ACTIVE_TOOLS.REDO);
   const historyHelpText =
     showHotkeyHints && undoTool && redoTool
-      ? `${helpTipContent.undoRedo.text}\nUndo shortcut: ${undoTool.hotKeyLabel}.\nRedo shortcut: ${redoTool.hotKeyLabel}.`
-      : undefined;
+      ? `Undo shortcut: ${undoTool.hotKeyLabel}.\nRedo shortcut: ${redoTool.hotKeyLabel}.`
+      : '';
 
   const renderTool = (tool: ActiveToolConfig, buttonStyle: React.CSSProperties) => {
     const IconComponent = tool.icon;
@@ -110,12 +112,18 @@ export const ToolButtons: React.FC = () => {
         </Flex>
       </IconButton>
     );
+    // Every main tool shares one of the two combination entries (see
+    // ToolUtils' combinationHelpKey / 'superdrawToolsCombination'), so its
+    // hover card would describe every tool in the group rather than just
+    // this button — text="" suppresses that description, leaving only the
+    // demonstration link. History tools (undo/redo) get their own,
+    // pair-specific text/link instead.
     return tool.helpKey ? (
       <HelpTip
         key={tool.mode}
         tip={tool.helpKey}
         openDelay={HELP_TIP_HOVER_DELAY}
-        text={isHistoryTool ? historyHelpText : undefined}
+        text={isHistoryTool ? historyHelpText : ''}
       >
         {button}
       </HelpTip>

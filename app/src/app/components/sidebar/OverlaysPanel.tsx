@@ -1,15 +1,6 @@
 'use client';
-import {
-  Flex,
-  Text,
-  Switch,
-  Button,
-  Callout,
-  IconButton,
-  Tooltip,
-  Separator,
-} from '@radix-ui/themes';
-import {MaskOffIcon, MaskOnIcon, TargetIcon} from '@radix-ui/react-icons';
+import {Flex, Text, Switch, IconButton, Tooltip, Separator} from '@radix-ui/themes';
+import {MaskOffIcon, MaskOnIcon} from '@radix-ui/react-icons';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
@@ -27,7 +18,6 @@ export const OverlaysPanel = () => {
   const paintConstraint = useOverlayStore(state => state.paintConstraint);
   const selectOverlayFeature = useOverlayStore(state => state.selectOverlayFeature);
   const clearPaintConstraint = useOverlayStore(state => state.clearPaintConstraint);
-  const selectingLayerId = useOverlayStore(state => state.selectingLayerId);
   const handleLocateClick = (overlayId: string) => {
     selectOverlayFeature(overlayId);
   };
@@ -98,30 +88,6 @@ export const OverlaysPanel = () => {
       <Flex justify="end" align="center">
         <OverlayMetadataModal />
       </Flex>
-      {paintConstraint && (
-        <Button variant="outline" color="orange" onClick={clearPaintConstraint}>
-          <Flex justify="between" align="center" gap="2">
-            <Text size="2">Release paint mask</Text>
-            <MaskOffIcon />
-          </Flex>
-        </Button>
-      )}
-      {!!(superDraw && !paintConstraint && selectingLayerId) && (
-        <Callout.Root color="violet" size="1" className="flex">
-          <Flex justify="between" align="center" gap="2" className="mx-auto">
-            <Callout.Icon>
-              <TargetIcon className="animate-pulse" />
-            </Callout.Icon>
-            <Callout.Text>
-              <Text size="2">
-                You are selecting an area on the map to paint within.
-                <br /> Click the map to select an area.
-              </Text>
-            </Callout.Text>
-          </Flex>
-        </Callout.Root>
-      )}
-
       {/* Congressional + state legislative districts, grouped under a heading */}
       {legislativeOverlays.length > 0 && (
         <>
