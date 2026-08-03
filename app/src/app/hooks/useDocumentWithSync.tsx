@@ -143,6 +143,10 @@ export function useDocumentWithSync({
           const data = formatAssignmentsFromDocument(result.response.assignments);
           ingestDistrictFromDocument(data, result.response.document, result.response.hasLocalEdits);
         }
+        // County brush's own default (on for a blank multi-county map) is set
+        // once demography data loads — see demographyStore.ts's updateData —
+        // since deciding "multi-county" needs the full unit universe, which
+        // isn't available yet at this point in the load sequence.
         // Set overlays from document response
         setMapDocument(result.response.document);
         if (result.response.hasLocalEdits) {

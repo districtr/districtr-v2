@@ -97,6 +97,9 @@ export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
   lockPaintedAreas: [],
   disallowPaintOver: false,
   mode: 'default',
+  // Real default is computed per-document in useDocumentWithSync (multi-county
+  // unless the map is DC or already has assignments) — this is just the
+  // pre-load fallback before that runs.
   paintByCounty: false,
   prominentCountyNames: true,
   showCountyBoundaries: true,
