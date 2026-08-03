@@ -77,7 +77,7 @@ export const helpTipContent = {
   },
   sidebarLayoutToggle: {
     title: 'Sidebar layout',
-    text: 'Switch the sidebar between the tabbed layout (Population, Stats, and Map Layers) and the classic stacked panels.',
+    text: 'Switch the sidebar between the tabbed and the stacked layouts.',
   },
   visualSettings: {
     title: 'Visual settings',
@@ -116,19 +116,19 @@ export const helpTipContent = {
   },
   demographics: {
     title: 'Demographics',
-    text: 'Click here to expand demographics and view the makeup of your districts by total population or voting age population, as a map overlay or as sized circles.',
+    text: 'Click here to view demographic information of your districts and configure demographic visualization options on the map.',
     videoFile: 'demographics_panel.webm',
     guideAnchor: 'demographics',
   },
   elections: {
     title: 'Elections',
-    text: 'Click here to expand elections and see how your districts would have behaved under past election results, as a map overlay or as sized circles.',
+    text: 'Click here to view election information of your districts and configure election visualization options on the map.',
     videoFile: 'election_panel.webm',
     guideAnchor: 'elections',
   },
   mapValidation: {
     title: 'Validity check',
-    text: 'Click here to expand the validity check and see whether your map is missing any geographic units, and whether each district forms a single, connected shape.',
+    text: 'Click here to see whether your map is missing any geographic units, and whether each district forms a single, connected shape.',
     videoFiles: ['completeness_check.webm', 'contiguity_check.webm'],
     guideAnchor: 'map-validation',
   },
