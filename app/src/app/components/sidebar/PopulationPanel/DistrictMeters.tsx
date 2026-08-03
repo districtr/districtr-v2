@@ -32,7 +32,7 @@ const DEV_COL_WIDTH = 76;
 const ICONS_WIDTH = 56;
 // ZoneDescriptionPopover's trigger carries mr-2, but its ghost-variant negative
 // margin eats half of it: measured against the rendered rows, its real trailing
-// space is 4px, not 8. The header's invisible twin uses the measured value —
+// space is 6px, not 8. The header's invisible twin uses the measured value —
 // copying the mr-2 class instead puts the lock-all 4px right of the rows'.
 const TWIN_TRAIL = 6;
 // Bars stop growing on wide sidebars; everything (label strip, rows,
