@@ -13,6 +13,33 @@ export interface HelpTipEntry {
   linkSuffix?: string;
 }
 
+// Map Layers' Demographics/Elections sections are live lists of map-display
+// toggles — self-explanatory, but worth a demonstration link. Declared ahead
+// of helpTipContent so the stacked layout's combined tips (below) can compose
+// from these instead of duplicating videoFile/guideAnchor in a second literal.
+const demographicsMapLayerTip = {
+  title: 'Demographics',
+  text: '',
+  videoFile: 'demographics_panel.webm',
+  guideAnchor: 'demographics',
+};
+const electionsMapLayerTip = {
+  title: 'Elections',
+  text: '',
+  videoFile: 'election_panel.webm',
+  guideAnchor: 'elections',
+};
+// Stats' Demographics/Elections sections are data tables — worth explaining
+// what they show, but with nothing to demonstrate.
+const demographicsStatsTip = {
+  title: 'Demographics',
+  text: 'Click here to view the racial makeup of your districts.',
+};
+const electionsStatsTip = {
+  title: 'Elections',
+  text: 'Click here to view how your districts would have performed in past elections.',
+};
+
 // Not annotated as `Record<string, HelpTipEntry>` on purpose: that annotation would widen
 // `keyof typeof helpTipContent` to `string | number`, defeating HelpTipKey as a literal-key
 // safety net for callers (e.g. the `helpKey` field on toolbar tool configs).
@@ -114,18 +141,22 @@ export const helpTipContent = {
     title: 'Maximum deviation',
     text: 'The maximum deviation is the largest deviation from the ideal population. You can use either a percentage of the ideal population, or a fixed number of people.',
   },
+  // Stacked layout's Demographics accordion combines the Map Layers and Stats
+  // tabs' content into one section, so its tip carries both the text and the
+  // demonstration link those two tabs otherwise split between them below —
+  // composed from those two tips rather than duplicating either.
   demographics: {
-    title: 'Demographics',
-    text: 'Click here to view demographic information of your districts and configure demographic visualization options on the map.',
-    videoFile: 'demographics_panel.webm',
-    guideAnchor: 'demographics',
+    ...demographicsMapLayerTip,
+    text: demographicsStatsTip.text,
   },
+  demographicsMapLayer: demographicsMapLayerTip,
+  demographicsStats: demographicsStatsTip,
   elections: {
-    title: 'Elections',
-    text: 'Click here to view election information of your districts and configure election visualization options on the map.',
-    videoFile: 'election_panel.webm',
-    guideAnchor: 'elections',
+    ...electionsMapLayerTip,
+    text: electionsStatsTip.text,
   },
+  electionsMapLayer: electionsMapLayerTip,
+  electionsStats: electionsStatsTip,
   mapValidation: {
     title: 'Validity check',
     text: 'Click here to see whether your map is missing any geographic units, and whether each district forms a single, connected shape.',

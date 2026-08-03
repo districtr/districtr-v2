@@ -76,7 +76,7 @@ const MapLayersPanel: React.FC = () => {
       <TabSection id="layers-boundaries" label="Boundaries and areas" helpTip="boundariesAndAreas">
         <OverlaysPanel />
       </TabSection>
-      <TabSection id="layers-demographics" label="Demographics" helpTip="demographics">
+      <TabSection id="layers-demographics" label="Demographics" helpTip="demographicsMapLayer">
         <SummaryPanel
           defaultColumnSet={SUMMARY_TYPES.TOTPOP}
           displayedColumnSets={[SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP]}
@@ -84,7 +84,7 @@ const MapLayersPanel: React.FC = () => {
         />
       </TabSection>
       {mapMode !== MAP_MODES.COI && (
-        <TabSection id="layers-elections" label="Elections" helpTip="elections">
+        <TabSection id="layers-elections" label="Elections" helpTip="electionsMapLayer">
           <SummaryPanel
             defaultColumnSet={SUMMARY_TYPES.VOTERHISTORY}
             displayedColumnSets={[SUMMARY_TYPES.VOTERHISTORY]}
@@ -112,7 +112,7 @@ const StatsPanel: React.FC = () => {
           <MapValidation />
         </TabSection>
       )}
-      <TabSection id="stats-demographics" label="Demographics" helpTip="demographics">
+      <TabSection id="stats-demographics" label="Demographics" helpTip="demographicsStats">
         <Flex direction="column" gap="2">
           <CoalitionExpander
             defaultColumnSet={SUMMARY_TYPES.TOTPOP}
@@ -126,7 +126,7 @@ const StatsPanel: React.FC = () => {
         </Flex>
       </TabSection>
       {!isCoi && (
-        <TabSection id="stats-elections" label="Elections" helpTip="elections">
+        <TabSection id="stats-elections" label="Elections" helpTip="electionsStats">
           <SummaryPanel
             defaultColumnSet={SUMMARY_TYPES.VOTERHISTORY}
             displayedColumnSets={[SUMMARY_TYPES.VOTERHISTORY]}

@@ -9,6 +9,7 @@ import {useCoiAssignmentsStore} from '../coiAssignmentsStore';
 import {getDemography} from '@/app/utils/api/apiHandlers/getDemography';
 import {demographyService} from '@/app/utils/demography/demographyService';
 import {getAvailableColumnSets} from '@/app/utils/demography/getAvailableColumnSets';
+import {getFeaturesIntersectingCounties} from '@/app/utils/map/getFeaturesIntersectingCounties';
 import {DEFAULT_CHOROPLETH_BIN_COUNT} from './constants';
 import {idb} from '@/app/utils/idb/idb';
 import {type CoalitionGroupKey} from '@constants/demography/coalition';
@@ -21,6 +22,14 @@ import {COALITION_UNIVERSES, SUMMARY_TYPES} from '@constants/demography/summary'
 import {MAP_MODES} from '@constants/map/mode';
 import {ACCESS_STATES} from '@constants/document/state';
 import {MAP_TYPES} from '@constants/document/types';
+
+// Connecticut's TIGER county layer (tl_2023_us_county) reflects its 2022
+// switch to planning regions as county-equivalents, but districtr's own block
+// geoids still carry the legacy county FIPS codes — the two never match, so
+// county brush can never find any blocks under a "county" queried from that
+// layer there. Excluded from the default-on check below rather than left to
+// spansMultipleCounties(), which has no way to see this mismatch.
+const CONNECTICUT_STATE_FIPS = '09';
 
 let coalitionHydrationRequestId = 0;
 let coalitionVersion = 0;
@@ -233,9 +242,14 @@ export var useDemographyStore = create(
             mapDocument.map_type === MAP_TYPES.COMMUNITY
               ? useCoiAssignmentsStore.getState().communityAssignments.size > 0
               : useAssignmentsStore.getState().zoneAssignments.size > 0;
-          useMapControlsStore.getState().setMapOptions({
-            paintByCounty: !hasAssignments && demographyService.spansMultipleCounties(),
-          });
+          const isConnecticut =
+            mapDocument.statefps.length === 1 && mapDocument.statefps[0] === CONNECTICUT_STATE_FIPS;
+          const paintByCounty =
+            !isConnecticut && !hasAssignments && demographyService.spansMultipleCounties();
+          useMapControlsStore.getState().setMapOptions({paintByCounty});
+          if (paintByCounty) {
+            useMapControlsStore.getState().setPaintFunction(getFeaturesIntersectingCounties);
+          }
         }
       }
 
