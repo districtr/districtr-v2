@@ -380,6 +380,26 @@ class DemographyService {
   }
 
   /**
+   * Whether the currently loaded units span more than one county. Early-exits
+   * on the second distinct county FIPS found — callers only need "more than
+   * one," never the actual count or the list, so there's no reason to scan
+   * past that. `path` values look like `vtd:48001000001` (or without a type
+   * prefix for some geography levels) — the state+county FIPS is always the
+   * 5 digits right after any `<type>:` prefix.
+   */
+  spansMultipleCounties(): boolean {
+    if (!this.table) return false;
+    const paths = this.table.array(this.id_col) as string[];
+    if (!paths.length) return false;
+    const toGeoid = (path: string) => (path.includes(':') ? path.slice(path.indexOf(':') + 1) : path);
+    const firstCountyFips = toGeoid(paths[0]).slice(0, 5);
+    for (let i = 1; i < paths.length; i++) {
+      if (!toGeoid(paths[i]).startsWith(firstCountyFips)) return true;
+    }
+    return false;
+  }
+
+  /**
    * Calculates the populations based on zone assignments.
    *
    * @param zoneAssignments - The zone assignments to use for calculation.
