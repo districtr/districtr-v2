@@ -14,7 +14,7 @@ import {useIdbDocument} from '@/app/hooks/useIdbDocument';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import {useUnassignFeaturesStore} from '@/app/store/unassignedFeatures';
+import {useUnassignedFeatures} from '@/app/hooks/useUnassignedFeatures';
 import {useUiHintStore, type ValidationTab} from '@/app/store/uiHintStore';
 import {getContiguity} from '@utils/api/apiHandlers/getContiguity';
 import {formatNumber} from '@utils/numbers';
@@ -100,10 +100,12 @@ export const MapValidation = () => {
   // count appears once the (mount- or save-triggered) area search has run.
   const {summaryStats} = useSummaryStats();
   const unassigned = summaryStats?.unassigned;
-  const hasFoundUnassigned = useUnassignFeaturesStore(state => state.hasFoundUnassigned);
-  const numUnassignedAreas = useUnassignFeaturesStore(
-    state => state.unassignedFeatureBboxes.length
-  );
+  // Observe-only: the preview reports whatever the Completeness panel's search
+  // found, without kicking off geometry work of its own just to render a line.
+  const {features: unassignedFeatures, hasResult: hasFoundUnassigned} = useUnassignedFeatures({
+    observeOnly: true,
+  });
+  const numUnassignedAreas = unassignedFeatures.length;
   // Areas lead: the count of places to go fix is the actionable half, the
   // population the detail.
   const areasPrefix = `${numUnassignedAreas} unassigned area${

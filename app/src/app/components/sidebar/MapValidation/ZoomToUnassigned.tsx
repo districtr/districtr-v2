@@ -1,49 +1,24 @@
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
-import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useUnassignFeaturesStore} from '@/app/store/unassignedFeatures';
-import GeometryWorker from '@/app/utils/GeometryWorker';
+import {useUnassignedFeatures} from '@/app/hooks/useUnassignedFeatures';
 import {formatNumber} from '@/app/utils/numbers';
 import {Checkbox, Flex, Text} from '@radix-ui/themes';
-import {useQuery} from '@tanstack/react-query';
 import React from 'react';
 import ZoomToFeature from './ZoomToFeature';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {ConditionalScrollArea} from '../ConditionalScrollArea';
-import {ACCESS_STATES} from '@constants/document/state';
 
 export const ZoomToUnassigned = () => {
   const {selectedIndex, setSelectedIndex} = useUnassignFeaturesStore(state => state);
-  const mapDocument = useMapStore(state => state.mapDocument);
-  const shatterIds = useAssignmentsStore(state => state.shatterIds);
   const higlightUnassigned = useMapControlsStore(state => state.mapOptions.higlightUnassigned);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const {summaryStats} = useSummaryStats();
   const unassigned = summaryStats?.unassigned;
 
-  // Read access resolves to the public_id (same convention as the rest of the
-  // app's read-only sharing); edit access uses the document_id directly.
-  const documentIdParam =
-    mapDocument?.access === ACCESS_STATES.READ && mapDocument?.public_id
-      ? String(mapDocument.public_id)
-      : mapDocument?.document_id;
-
-  // Keyed on document_id + updated_at (same pattern as Contiguity.tsx):
-  // refetches whenever a save lands, regardless of whether this component
-  // stayed mounted the whole time — fixes stale results on remount that a
-  // component-lifetime ref/flag couldn't detect.
-  const {data, isLoading} = useQuery({
-    queryKey: ['UnassignedFeatures', documentIdParam, mapDocument?.updated_at],
-    queryFn: () =>
-      GeometryWorker!.getUnassignedGeometries(documentIdParam, Array.from(shatterIds.parents)),
-    enabled: !!documentIdParam && !!GeometryWorker,
-    staleTime: 0,
-    retry: false,
-    placeholderData: previousData => previousData,
-    refetchOnWindowFocus: false,
-  });
-  const unassignedFeatureBboxes = data?.dissolved?.features || [];
+  // This panel is what runs the search; the validity section's preview
+  // observes the same query (see useUnassignedFeatures).
+  const {features: unassignedFeatureBboxes, isLoading} = useUnassignedFeatures();
   const hasFoundUnassigned = !isLoading;
 
   return (
