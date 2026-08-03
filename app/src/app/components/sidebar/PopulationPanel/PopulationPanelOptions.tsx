@@ -1,15 +1,6 @@
-import {
-  Button,
-  CheckboxGroup,
-  Flex,
-  IconButton,
-  SegmentedControl,
-  Text,
-  TextField,
-} from '@radix-ui/themes';
+import {Button, CheckboxGroup, Flex, IconButton, Text, TextField} from '@radix-ui/themes';
 import React, {useEffect} from 'react'; // Import ParentSize
 import {Popover} from '@radix-ui/themes';
-import {GearIcon} from '@radix-ui/react-icons';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
 import {ChartStore} from '@store/chartStore';
 import {ColorChangeModal} from '../../Toolbar/ColorChangeModal';
@@ -50,16 +41,15 @@ export const PopulationPanelOptions: React.FC<{
     <>
       <Popover.Root>
         <Popover.Trigger>
-          <IconButton variant="ghost" size="3" aria-label="Open population panel options">
-            <GearIcon />
-          </IconButton>
+          <Button variant="outline" size="1" ml="2" aria-label="Open population chart settings">
+            Population chart settings
+          </Button>
         </Popover.Trigger>
         <Popover.Content>
           <CheckboxGroup.Root
             defaultValue={[]}
             name="districts"
             value={[
-              chartOptions.popBarScaleToCurrent ? 'scaleToCurrent' : '',
               chartOptions.popShowDistrictNumbers ? 'numbers' : '',
               chartOptions.popShowPopNumbers ? 'pops' : '',
               chartOptions.popShowTopBottomDeviation ? 'topBottomDeviation' : '',
@@ -108,19 +98,6 @@ export const PopulationPanelOptions: React.FC<{
           )}
           {!isCommunityMode && (
             <Flex direction="column" gap="1" py="2" mt="2">
-              <Text size="2" weight="medium">
-                X-axis bar scaling
-                <HelpTip tip="barScaling" openDelay={HELP_TIP_FAST_DELAY} />
-              </Text>
-              <SegmentedControl.Root
-                size="1"
-                value={chartOptions.popBarScaleToCurrent ? 'current' : 'ideal'}
-                onValueChange={v => setChartOptions({popBarScaleToCurrent: v === 'current'})}
-              >
-                <SegmentedControl.Item value="ideal">Zero to ideal</SegmentedControl.Item>
-                <SegmentedControl.Item value="current">Current range</SegmentedControl.Item>
-              </SegmentedControl.Root>
-
               {!!idealPopulation && (
                 <Flex direction="column" align="start" gapX="2" pt="2">
                   <Text size="2" weight="medium" className="py-2">
