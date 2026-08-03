@@ -236,12 +236,6 @@ export var useDemographyStore = create(
               : useAssignmentsStore.getState().zoneAssignments.size > 0;
           const paintByCounty = !hasAssignments && demographyService.spansMultipleCounties();
           useMapControlsStore.getState().setMapOptions({paintByCounty});
-          // paintByCounty is a checkbox flag; the brush's actual paint function
-          // is separate state that PaintByCounty.tsx's own click handler keeps
-          // in sync with it. Defaulting the flag on here without also setting
-          // the paint function left the brush painting single units under a
-          // checked box — fixed by toggling the checkbox off and back on, since
-          // that's the only other place this pairing gets applied.
           if (paintByCounty) {
             useMapControlsStore.getState().setPaintFunction(getFeaturesIntersectingCounties);
           }
