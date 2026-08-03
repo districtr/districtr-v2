@@ -31,10 +31,9 @@ export const KeyOptionToggles: React.FC = () => {
     <Flex direction="column" gap="2">
       {mapMode !== MAP_MODES.COI && (
         <HelpTip tip="disallowPaintOver" openDelay={HELP_TIP_HOVER_DELAY}>
-          <Text as="label" size="3" className="cursor-pointer select-none">
-            <Flex gap="3" align="center">
+          <Text as="label" size="2" className="cursor-pointer select-none">
+            <Flex gap="2" align="center">
               <Checkbox
-                size="3"
                 checked={!!mapOptions.disallowPaintOver}
                 onCheckedChange={() =>
                   setMapOptions({disallowPaintOver: !mapOptions.disallowPaintOver})
@@ -46,10 +45,9 @@ export const KeyOptionToggles: React.FC = () => {
           </Text>
         </HelpTip>
       )}
-      <Text as="label" size="3" className="cursor-pointer select-none">
-        <Flex gap="3" align="center">
+      <Text as="label" size="2" className="cursor-pointer select-none">
+        <Flex gap="2" align="center">
           <Checkbox
-            size="3"
             checked={mapOptions.showZoneNumbers === true}
             onCheckedChange={() => setMapOptions({showZoneNumbers: !mapOptions.showZoneNumbers})}
           />
@@ -58,13 +56,12 @@ export const KeyOptionToggles: React.FC = () => {
       </Text>
       <Text
         as="label"
-        size="3"
+        size="2"
         className={`${populationTooltipDisabled ? 'select-none' : 'cursor-pointer select-none'} ${flashing ? 'ui-flash' : ''}`}
         style={populationTooltipDisabled ? {opacity: 0.5} : undefined}
       >
-        <Flex gap="3" align="center">
+        <Flex gap="2" align="center">
           <Checkbox
-            size="3"
             checked={mapOptions.showPopulationTooltip === true}
             onCheckedChange={() =>
               setMapOptions({showPopulationTooltip: !mapOptions.showPopulationTooltip})
