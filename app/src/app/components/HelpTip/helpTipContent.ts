@@ -114,17 +114,44 @@ export const helpTipContent = {
     title: 'Maximum deviation',
     text: 'The maximum deviation is the largest deviation from the ideal population. You can use either a percentage of the ideal population, or a fixed number of people.',
   },
+  // Stacked layout's Demographics accordion combines the Map Layers and Stats
+  // tabs' content into one section, so its tip carries both the text and the
+  // demonstration link those two tabs otherwise split between them below.
   demographics: {
     title: 'Demographics',
     text: 'Click here to view demographic information of your districts.',
     videoFile: 'demographics_panel.webm',
     guideAnchor: 'demographics',
   },
+  // Map Layers' Demographics section is a live list of map-display toggles —
+  // self-explanatory, but worth a demonstration link.
+  demographicsMapLayer: {
+    title: 'Demographics',
+    text: '',
+    videoFile: 'demographics_panel.webm',
+    guideAnchor: 'demographics',
+  },
+  // Stats' Demographics section is a data table — worth explaining what it
+  // shows, but there's nothing to demonstrate.
+  demographicsStats: {
+    title: 'Demographics',
+    text: 'Click here to view demographic information of your districts.',
+  },
   elections: {
     title: 'Elections',
     text: 'Click here to view election information of your districts.',
     videoFile: 'election_panel.webm',
     guideAnchor: 'elections',
+  },
+  electionsMapLayer: {
+    title: 'Elections',
+    text: '',
+    videoFile: 'election_panel.webm',
+    guideAnchor: 'elections',
+  },
+  electionsStats: {
+    title: 'Elections',
+    text: 'Click here to view election information of your districts.',
   },
   mapValidation: {
     title: 'Validity check',
