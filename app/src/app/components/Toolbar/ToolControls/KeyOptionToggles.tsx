@@ -22,6 +22,7 @@ export const KeyOptionToggles: React.FC = () => {
 
   return (
     <Flex direction="column" gap="2">
+      <DisallowPaintOver />
       <Text as="label" size="2" className="cursor-pointer select-none">
         <Flex gap="2" align="center">
           <Checkbox
@@ -48,7 +49,6 @@ export const KeyOptionToggles: React.FC = () => {
           Population tooltip
         </Flex>
       </Text>
-      <DisallowPaintOver />
     </Flex>
   );
 };
