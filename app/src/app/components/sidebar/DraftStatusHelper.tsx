@@ -514,7 +514,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
               {/* The status it's moving to, shown as the same glyph the topbar
                   will then display. */}
               <StatusGlyph status={nextStatus} />
-              Mark the plan as “{DRAFT_STATUS_TEXT[nextStatus]}”
+              Mark your plan as “{DRAFT_STATUS_TEXT[nextStatus]}”
             </Button>
           )}
         </Flex>
