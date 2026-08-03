@@ -5,7 +5,7 @@ import {ACCESS_STATES} from '@constants/document/state';
 import {MAP_MODES} from '@constants/map/mode';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 
-export default function DisallowPaintOver({size = '2'}: {size?: '2' | '3'}) {
+export default function DisallowPaintOver() {
   const disallowPaintOver = useMapControlsStore(state => state.mapOptions.disallowPaintOver);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const mapMode = useMapControlsStore(state => state.mapMode);
@@ -23,8 +23,8 @@ export default function DisallowPaintOver({size = '2'}: {size?: '2' | '3'}) {
 
   return (
     <HelpTip tip="disallowPaintOver" openDelay={HELP_TIP_HOVER_DELAY}>
-      <Text as="label" size={size} className="cursor-pointer select-none">
-        <Flex gap="2" align="center">
+      <Text as="label" size="2" className="cursor-pointer select-none">
+        <Flex gap="1" align="center">
           <Checkbox
             size="2"
             checked={!!disallowPaintOver}

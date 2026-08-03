@@ -21,14 +21,19 @@ export const KeyOptionToggles: React.FC = () => {
     access === ACCESS_STATES.READ || activeTool === ACTIVE_TOOLS.PAN;
 
   return (
-    /* Labelled as actions ("Show …", "Disallow …") rather than nouns, so each
-       row states what checking it does. Ordered by how consequential the
-       setting is: painting behavior first, then display. */
     <Flex direction="column" gap="2">
-      <DisallowPaintOver size="3" />
+      <Text as="label" size="2" className="cursor-pointer select-none">
+        <Flex gap="2" align="center">
+          <Checkbox
+            checked={mapOptions.showZoneNumbers === true}
+            onCheckedChange={() => setMapOptions({showZoneNumbers: !mapOptions.showZoneNumbers})}
+          />
+          District numbers
+        </Flex>
+      </Text>
       <Text
         as="label"
-        size="3"
+        size="2"
         className={populationTooltipDisabled ? 'select-none' : 'cursor-pointer select-none'}
         style={populationTooltipDisabled ? {opacity: 0.5} : undefined}
       >
@@ -40,18 +45,10 @@ export const KeyOptionToggles: React.FC = () => {
             }
             disabled={populationTooltipDisabled}
           />
-          Show pop on hover
+          Population tooltip
         </Flex>
       </Text>
-      <Text as="label" size="3" className="cursor-pointer select-none">
-        <Flex gap="2" align="center">
-          <Checkbox
-            checked={mapOptions.showZoneNumbers === true}
-            onCheckedChange={() => setMapOptions({showZoneNumbers: !mapOptions.showZoneNumbers})}
-          />
-          Show district numbers
-        </Flex>
-      </Text>
+      <DisallowPaintOver />
     </Flex>
   );
 };
