@@ -1,12 +1,10 @@
 'use client';
 import React from 'react';
-import {Box, Button, Flex, Text} from '@radix-ui/themes';
-import {MaskOffIcon} from '@radix-ui/react-icons';
+import {Box, Flex} from '@radix-ui/themes';
 import {styled} from '@stitches/react';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useFeatureFlagStore} from '@store/featureFlagStore';
-import {useOverlayStore} from '@/app/store/overlayStore';
 import {BrushSizeSelector} from '@components/Toolbar/ToolControls/BrushSizeSelector';
 import PaintByCounty from '@components/Toolbar/PaintByCounty';
 import {ZonePicker} from '@components/Toolbar/ZonePicker';
@@ -44,8 +42,6 @@ export const ToolControlsScaffold = () => {
   const activeTool = useMapControlsStore(state => state.activeTool);
   const mapMode = useMapControlsStore(state => state.mapMode);
   const paintCounties = useFeatureFlagStore(state => state.paintCounties);
-  const paintConstraint = useOverlayStore(state => state.paintConstraint);
-  const clearPaintConstraint = useOverlayStore(state => state.clearPaintConstraint);
   const inBlockView = useMapStore(state => state.captiveIds.size > 0);
 
   // Before a unit is broken there's nothing to paint yet, so the whole
@@ -81,18 +77,6 @@ export const ToolControlsScaffold = () => {
         </Box>
         <KeyOptionToggles />
       </TwoColumnGrid>
-
-      {paintConstraint && (
-        <Flex align="center" gap="3" px="4" py="3" className="tool-pill">
-          <MaskOffIcon width={18} height={18} style={{color: 'var(--orange-9)', flexShrink: 0}} />
-          <Text size="2" style={{flexGrow: 1}}>
-            Paint mask active
-          </Text>
-          <Button size="2" variant="soft" color="orange" onClick={clearPaintConstraint}>
-            Release
-          </Button>
-        </Flex>
-      )}
     </Flex>
   );
 };
