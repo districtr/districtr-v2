@@ -4,6 +4,7 @@ import {useMapControlsStore} from '@store/mapControlsStore';
 import {useMapStore} from '@store/mapStore';
 import {ACCESS_STATES} from '@constants/document/state';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
+import DisallowPaintOver from '@components/Toolbar/DisallowPaintOver';
 
 /** The map-display toggles surfaced in the right column of
  * ToolControlsScaffold — the toolbar's only home for these now, not
@@ -47,15 +48,7 @@ export const KeyOptionToggles: React.FC = () => {
           Population tooltip
         </Flex>
       </Text>
-      {/* Placeholder for issue #677's "Disallow paint over" toggle — this branch's
-          MapOptions has no disallowPaintOver field yet, so the control is rendered
-          inert (no checked state, no handler) until that field lands. */}
-      <Text as="label" size="2" className="select-none" style={{opacity: 0.5}}>
-        <Flex gap="2" align="center">
-          <Checkbox checked={false} disabled />
-          Disallow paint over
-        </Flex>
-      </Text>
+      <DisallowPaintOver />
     </Flex>
   );
 };
