@@ -24,8 +24,13 @@ const TwoColumnGrid = styled('div', {
   [`@container (min-width: ${TWO_COLUMN_BREAKPOINT}px)`]: {
     // max-content, not a fraction: the right column's toggle labels must
     // never wrap, regardless of container width or font metrics. The left
-    // column (zone picker) absorbs whatever space is left.
-    gridTemplateColumns: '1fr max-content',
+    // column (zone picker) absorbs whatever space is left. minmax(0, 1fr),
+    // not a bare 1fr (which is minmax(auto, 1fr) by spec): a bare 1fr can't
+    // shrink below its content's min-content width, so a wide left column
+    // (e.g. CoiZonePicker's name/description/icon rows) pushes the whole
+    // grid past the sidebar's edge instead of letting its own text-truncate
+    // kick in — clipping both columns rather than wrapping or eliding.
+    gridTemplateColumns: 'minmax(0, 1fr) max-content',
   },
 });
 
