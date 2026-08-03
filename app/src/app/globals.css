@@ -95,6 +95,15 @@ body {
   animation: map-pill-in 0.25s ease-out;
 }
 
+/* Same pill chrome as .map-pill, for a constraint/status banner embedded
+   inline in the tool controls sidebar rather than floating over the map —
+   no absolute positioning or entrance animation. */
+.tool-pill {
+  background: var(--orange-2);
+  border: 1.5px solid var(--orange-8);
+  border-radius: 99px;
+}
+
 /* Never let the browser treat map touches as page scroll/zoom gestures.
    Maplibre relaxes its own touch-action to `pan-x pan-y` whenever dragPan is
    disabled (i.e. exactly while painting), which let vertical brush strokes

@@ -83,12 +83,15 @@ export const ToolControlsScaffold = () => {
       </TwoColumnGrid>
 
       {paintConstraint && (
-        <Button variant="outline" color="orange" onClick={clearPaintConstraint}>
-          <Flex justify="between" align="center" gap="2">
-            <Text size="2">Release paint mask</Text>
-            <MaskOffIcon />
-          </Flex>
-        </Button>
+        <Flex align="center" gap="3" px="4" py="3" className="tool-pill">
+          <MaskOffIcon width={18} height={18} style={{color: 'var(--orange-9)', flexShrink: 0}} />
+          <Text size="2" style={{flexGrow: 1}}>
+            Paint mask active
+          </Text>
+          <Button size="2" variant="soft" color="orange" onClick={clearPaintConstraint}>
+            Release
+          </Button>
+        </Flex>
       )}
     </Flex>
   );
