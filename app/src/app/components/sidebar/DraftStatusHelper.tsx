@@ -62,6 +62,22 @@ const InlineHintButton: React.FC<{
   </button>
 );
 
+/** The topbar's own status glyph, wherever a control names a status to move to.
+ * Those icons hardcode a 24px size and their own indicator fill, so both are
+ * overridden here to inherit from whatever the glyph sits in. */
+const StatusGlyph: React.FC<{status: DraftStatus; small?: boolean}> = ({status, small}) => (
+  <span
+    // The inline (link) glyph spaces itself; inside a Button, Radix's own gap
+    // already does it.
+    className={`inline-flex align-middle [&_svg]:!fill-current ${
+      small ? 'mr-1 [&_svg]:size-3' : '[&_svg]:size-4'
+    }`}
+    aria-hidden
+  >
+    {React.createElement(statusIcons[status])}
+  </span>
+);
+
 /** Plain status glyphs (check / dash), deliberately without circular chrome so
  * the read-only rows can't be mistaken for radio buttons or checkboxes. */
 const ItemMarker: React.FC<{done: boolean}> = ({done}) =>
@@ -388,6 +404,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
           <Text size="2">
             Your plan no longer meets the checks for its current status.{' '}
             <InlineHintButton back onClick={() => changeStatus(previousStatus)}>
+              <StatusGlyph status={previousStatus} small />
               Move back to {DRAFT_STATUS_TEXT[previousStatus]}
             </InlineHintButton>
           </Text>
@@ -450,6 +467,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
           {statusStage > 0 && !regressed && (
             <Text size="1">
               <InlineHintButton back onClick={() => changeStatus(previousStatus)}>
+                <StatusGlyph status={previousStatus} small />
                 Move back to {DRAFT_STATUS_TEXT[previousStatus]}
               </InlineHintButton>
             </Text>
@@ -462,13 +480,9 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
               style={{fontWeight: 600}}
               data-testid="advance-draft-status"
             >
-              {/* The status glyph it's moving to — the same one the topbar
-                  shows, so the button and its result read as one thing. The
-                  topbar icons hardcode their own size and indicator fill;
-                  on a solid button they have to take the button's own. */}
-              <span className="[&_svg]:size-4 [&_svg]:!fill-current" aria-hidden>
-                {React.createElement(statusIcons[nextStatus])}
-              </span>
+              {/* The status it's moving to, shown as the same glyph the topbar
+                  will then display. */}
+              <StatusGlyph status={nextStatus} />
               Move to {DRAFT_STATUS_TEXT[nextStatus]}
             </Button>
           )}
