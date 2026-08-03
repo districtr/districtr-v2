@@ -88,7 +88,6 @@ export const ToolSettings: React.FC<{inWorkflowTab?: boolean}> = ({inWorkflowTab
           value={[
             mapOptions.showPaintedDistricts === true ? 'showPaintedDistricts' : '',
             mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : '',
-            mapOptions.showPopulationTooltip === true ? 'showPopulationTooltip' : '',
             mapDocument?.child_layer && mapOptions.showBlockPopulationNumbers === true
               ? 'showBlockPopulationNumbers'
               : '',
@@ -101,7 +100,6 @@ export const ToolSettings: React.FC<{inWorkflowTab?: boolean}> = ({inWorkflowTab
               ? 'showDemographicMap'
               : '',
             mapOptions.showCountyBoundaries === true ? 'showCountyBoundaries' : '',
-            mapOptions.showZoneNumbers === true ? 'showZoneNumbers' : '',
             parentsAreBroken && mapOptions.highlightBrokenDistricts === true
               ? 'highlightBrokenDistricts'
               : '',
@@ -141,27 +139,6 @@ export const ToolSettings: React.FC<{inWorkflowTab?: boolean}> = ({inWorkflowTab
             disabled={mapDocument === null}
           >
             Painted districts
-          </CheckboxGroup.Item>
-          <CheckboxGroup.Item
-            value="showZoneNumbers"
-            onClick={() =>
-              setMapOptions({
-                showZoneNumbers: !mapOptions.showZoneNumbers,
-              })
-            }
-          >
-            District numbers
-          </CheckboxGroup.Item>
-          <CheckboxGroup.Item
-            value="showPopulationTooltip"
-            onClick={() =>
-              setMapOptions({
-                showPopulationTooltip: !mapOptions.showPopulationTooltip,
-              })
-            }
-            disabled={access === ACCESS_STATES.READ}
-          >
-            Population tooltip
           </CheckboxGroup.Item>
           {superDraw && (
             <CheckboxGroup.Item

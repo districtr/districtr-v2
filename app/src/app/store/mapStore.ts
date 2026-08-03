@@ -502,10 +502,14 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           bounds: preservedBounds,
           stateFipsSet: newStateFipsSet,
         },
+        // A fresh map (not just switching edit/display/eval views of the same
+        // one) defaults to painting — that's what a user opens a map to do.
         activeTool:
-          mapDocument.access === ACCESS_STATES.EDIT
-            ? mapControlsState.activeTool
-            : ACTIVE_TOOLS.PAN,
+          mapDocument.access !== ACCESS_STATES.EDIT
+            ? ACTIVE_TOOLS.PAN
+            : sameMapAcrossViews
+              ? mapControlsState.activeTool
+              : ACTIVE_TOOLS.BRUSH,
         selectedZone: communities[0]?.id ?? mapControlsState.selectedZone,
         sidebarPanels: ['population'],
         isPainting: false,

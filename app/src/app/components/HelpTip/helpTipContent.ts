@@ -7,46 +7,49 @@ export interface HelpTipEntry {
   /** Multiple clips, shown one after another when expanded (e.g. two related checks). */
   videoFiles?: string[];
   guideAnchor?: string;
+  /** Plain (non-clickable) text trailing after the "Quick demonstration ▸" link,
+   * on the same line — e.g. "Quick demonstration ▸ on how to undo/redo". The
+   * link label itself and its arrow stay fixed; this only adds context after. */
+  linkSuffix?: string;
 }
 
 // Not annotated as `Record<string, HelpTipEntry>` on purpose: that annotation would widen
 // `keyof typeof helpTipContent` to `string | number`, defeating HelpTipKey as a literal-key
 // safety net for callers (e.g. the `helpKey` field on toolbar tool configs).
 export const helpTipContent = {
-  pan: {
-    title: 'Moving around the map',
-    text: 'Click to select the pan tool. With this tool selected, click and drag to pan across the map. Use the plus/minus buttons, or your mouse scroll wheel or trackpad, to zoom in and out.',
-    videoFile: 'moving_in_map.webm',
-    guideAnchor: 'moving-across-the-map',
-  },
-  paint: {
-    title: 'Drawing districts',
-    text: 'Click to select the paintbrush tool. With this tool selected, click and drag on the map to add units to your district.',
-    videoFile: 'drawing_on_map.webm',
+  // Draw mode's basic tools (pan, paint, erase, county brush) share this one
+  // entry: each button/toggle renders its own HelpTip instance (like undoRedo
+  // below) but passes text="" to suppress this entry's `text` in the hover
+  // card, leaving only the demonstration link — so title/videoFile/text still
+  // need to exist here even though the hover card itself never shows `text`
+  // (the video modal's description still does).
+  drawToolsCombination: {
+    title: 'Draw tools',
+    text: 'Use county brush to paint the basic outline, and use smaller brushes/erasers to refine the edges:',
+    videoFile: 'draw_tools_combination.webm',
     guideAnchor: 'drawing-the-districts',
+    linkSuffix: 'on how to combine tools efficiently',
   },
-  erase: {
-    title: 'Erasing',
-    text: 'Click to select the eraser tool. With this tool selected, click and drag to remove units from a district. Adjust the eraser size with the slider.',
-    videoFile: 'eraser.webm',
-    guideAnchor: 'drawing-the-districts',
-  },
-  break: {
-    title: 'Breaking a unit into blocks',
-    text: 'Click to select the break tool. With this tool selected, click a unit to "break" it into smaller pieces, so you can paint subsets of it — useful for fine-tuning population balance. Only available in Super Draw mode.',
-    videoFile: 'shatter.webm',
+  // Super Draw's basic tools (pan, paint, erase, county brush, break, inspect)
+  // share this one entry, same pattern as drawToolsCombination above.
+  superdrawToolsCombination: {
+    title: 'Super Draw tools',
+    text: 'After drawing a district in approximation, break units on the edge into smaller units to fine-tune a district’s population balance:',
+    videoFile: 'superdraw_tools_combination.webm',
     guideAnchor: 'super-draw',
+    linkSuffix: 'on how to combine tools efficiently',
   },
-  // No video for this one — text-only, unlike the other tool tips.
-  inspector: {
-    title: 'Inspecting units',
-    text: 'Click to select the inspector tool. With this tool selected, hover over units on map to see its populations.',
-  },
+  // Same text-suppression pattern as the combos above in plain Draw mode
+  // (ToolButtons.tsx passes text=""). Super Draw mode passes the chorded
+  // shortcuts as an override instead — that override supplements this entry's
+  // own video rather than describing a different situation, so the link still
+  // shows alongside it (see HelpTip's `hideLink`).
   undoRedo: {
     title: 'Undo & redo',
     text: 'Click the undo/redo buttons to revert or reapply changes to your district plan.',
     videoFile: 'undo_redo.webm',
     guideAnchor: 'drawing-the-districts',
+    linkSuffix: 'on how to undo/redo',
   },
   brushSize: {
     title: 'Brush size',
@@ -74,23 +77,23 @@ export const helpTipContent = {
   },
   sidebarLayoutToggle: {
     title: 'Sidebar layout',
-    text: 'Switch the sidebar between the tabbed layout (Population, Stats, and Map Layers) and the classic stacked panels.',
+    text: 'Switch the sidebar between the tabbed and the stacked layouts.',
   },
   visualSettings: {
     title: 'Visual settings',
-    text: 'Click "Visual settings" above to control what the map shows: hide painted districts, toggle county boundaries, or highlight unassigned areas that still need a district.',
+    text: 'Click to see a list of controls for what the map shows',
     videoFile: 'visual_settings.webm',
     guideAnchor: 'visual-settings',
+    linkSuffix:
+      'on how to hide painted districts, toggle county boundaries, or highlight unassigned areas that still need a district.',
   },
   districtOverview: {
     title: 'District overview',
-    text: 'Click here to expand the district overview, listing each drawn district — click a number there to select it and switch the brush to that color, and see each district’s population against the ideal target.',
-    videoFile: 'district_overview.webm',
-    guideAnchor: 'district-overview',
+    text: 'Expand here to monitor the district populations as you draw.',
   },
   districtLock: {
     title: 'Locking districts',
-    text: 'Toggle the lock icon next to a district to protect it from being painted over while you work on other districts.',
+    text: 'Toggle it to protect this district from being painted over or erased.',
     videoFile: 'district_lock.webm',
     guideAnchor: 'district-overview',
   },
@@ -113,19 +116,19 @@ export const helpTipContent = {
   },
   demographics: {
     title: 'Demographics',
-    text: 'Click here to expand demographics and view the makeup of your districts by total population or voting age population, as a map overlay or as sized circles.',
+    text: 'Click here to view demographic information of your districts and configure demographic visualization options on the map.',
     videoFile: 'demographics_panel.webm',
     guideAnchor: 'demographics',
   },
   elections: {
     title: 'Elections',
-    text: 'Click here to expand elections and see how your districts would have behaved under past election results, as a map overlay or as sized circles.',
+    text: 'Click here to view election information of your districts and configure election visualization options on the map.',
     videoFile: 'election_panel.webm',
     guideAnchor: 'elections',
   },
   mapValidation: {
     title: 'Validity check',
-    text: 'Click here to expand the validity check and see whether your map is missing any geographic units, and whether each district forms a single, connected shape.',
+    text: 'Click here to see whether your map is missing any geographic units, and whether each district forms a single, connected shape.',
     videoFiles: ['completeness_check.webm', 'contiguity_check.webm'],
     guideAnchor: 'map-validation',
   },
