@@ -10,6 +10,13 @@ const nextConfig = {
     return [
       {source: '/tag/:slug', destination: '/portal/:slug', permanent: true},
       {source: '/tags', destination: '/portals', permanent: true},
+      // Legacy API calls (planRead, planWrite, ...) still hit the old Netlify functions.
+      // Next forwards the query string automatically. Keep in sync with constants/legacy.ts.
+      {
+        source: '/.netlify/:path*',
+        destination: 'https://legacy.districtr.org/.netlify/:path*',
+        permanent: false,
+      },
     ];
   },
   // Path aliases are configured in tsconfig.json and automatically used by Next.js
