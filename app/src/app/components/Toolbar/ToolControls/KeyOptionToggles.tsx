@@ -23,9 +23,11 @@ export const KeyOptionToggles: React.FC = () => {
   // numbers stays enabled; that display doesn't depend on the active tool).
   const populationTooltipDisabled =
     access === ACCESS_STATES.READ || activeTool === ACTIVE_TOOLS.PAN;
-  // DraftStatusHelper's "Show population tooltips as you paint" hint pulses
-  // this row directly — it lives here, not inside any jump-able sidebar tab.
-  const flashing = useUiHintStore(state => state.flashTarget === 'population-tooltip');
+  // Guided step (see uiHintStore.guideTargets): DraftStatusHelper's "Show
+  // population tooltips as you paint" hint pulses this row until the user
+  // flips the checkbox themselves — the hint points, it never toggles.
+  const guiding = useUiHintStore(state => state.guideTargets[0] === 'population-tooltip');
+  const advanceGuide = useUiHintStore(state => state.advanceGuide);
 
   return (
     <Flex direction="column" gap="2">
@@ -40,7 +42,7 @@ export const KeyOptionToggles: React.FC = () => {
                 }
                 disabled={disallowPaintOverDisabled}
               />
-              Only paint unassigned areas
+              Forbid paint-over
             </Flex>
           </Text>
         </HelpTip>
@@ -57,15 +59,16 @@ export const KeyOptionToggles: React.FC = () => {
       <Text
         as="label"
         size="2"
-        className={`${populationTooltipDisabled ? 'select-none' : 'cursor-pointer select-none'} ${flashing ? 'ui-flash' : ''}`}
+        className={`${populationTooltipDisabled ? 'select-none' : 'cursor-pointer select-none'} ${guiding ? 'ui-guide' : ''}`}
         style={populationTooltipDisabled ? {opacity: 0.5} : undefined}
       >
         <Flex gap="2" align="center">
           <Checkbox
             checked={mapOptions.showPopulationTooltip === true}
-            onCheckedChange={() =>
-              setMapOptions({showPopulationTooltip: !mapOptions.showPopulationTooltip})
-            }
+            onCheckedChange={() => {
+              advanceGuide('population-tooltip');
+              setMapOptions({showPopulationTooltip: !mapOptions.showPopulationTooltip});
+            }}
             disabled={populationTooltipDisabled}
           />
           Show population on hover

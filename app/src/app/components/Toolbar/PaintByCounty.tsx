@@ -52,10 +52,13 @@ export default function PaintByCounty() {
   const disabledForGeography = isConnecticut || isSingleCounty;
   const disabled =
     access === ACCESS_STATES.READ || lockedForBreak || disabledForPan || disabledForGeography;
-  // The helper's "paint by counties" hint pulses this control.
-  const flashing = useUiHintStore(state => state.flashTarget === 'county-brush');
+  // Guided step (see uiHintStore.guideTargets): the helper's "paint by
+  // counties" hint pulses this control until the user flips it themselves.
+  const guiding = useUiHintStore(state => state.guideTargets[0] === 'county-brush');
+  const advanceGuide = useUiHintStore(state => state.advanceGuide);
 
   const handleToggle = () => {
+    advanceGuide('county-brush');
     if (!mapRef) return;
     setMapOptions({
       paintByCounty: !paintByCounty,
@@ -84,7 +87,7 @@ export default function PaintByCounty() {
     >
       <Card
         size="1"
-        className={`${paintByCounty ? 'bg-indigo-50' : ''} ${flashing ? 'ui-flash' : ''}`}
+        className={`${paintByCounty ? 'bg-indigo-50' : ''} ${guiding ? 'ui-guide' : ''}`}
         style={
           lockedForBreak || disabledForPan || disabledForGeography ? {opacity: 0.5} : undefined
         }
@@ -92,7 +95,7 @@ export default function PaintByCounty() {
         <Text as="label" size="2" className="cursor-pointer select-none">
           <Flex gap="2" align="center">
             <Checkbox checked={paintByCounty} onCheckedChange={handleToggle} disabled={disabled} />
-            County Brush
+            Paint by county
           </Flex>
         </Text>
       </Card>

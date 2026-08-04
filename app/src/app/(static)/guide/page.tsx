@@ -113,7 +113,7 @@ export default function GuidePage() {
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/brush_size.webm`}
             />
             <Text size="3">
-              To paint whole counties at once, toggle the “County Brush” box next to the slider.
+              To paint whole counties at once, toggle the “Paint by county” box next to the slider.
             </Text>
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/county_brush.webm`}

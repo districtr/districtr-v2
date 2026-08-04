@@ -52,7 +52,7 @@ export const helpTipContent = {
   // (the video modal's description still does).
   drawToolsCombination: {
     title: 'Draw tools',
-    text: 'Use county brush to paint the basic outline, and use smaller brushes/erasers to refine the edges:',
+    text: 'Use Paint by county to paint the basic outline, and use smaller brushes/erasers to refine the edges:',
     videoFile: 'draw_tools_combination.webm',
     guideAnchor: 'drawing-the-districts',
     linkSuffix: 'on how to combine tools efficiently',
