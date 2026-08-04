@@ -77,8 +77,8 @@ export function BrushSizeSelector() {
             }
           />
           {/* Fixed width so the slider doesn't resize as digits change. */}
-          <Text size="1" color="gray" align="right" style={{width: '3.2em', flexShrink: 0}}>
-            {brushSize} px
+          <Text size="1" color="gray" align="right" style={{width: '2.2em', flexShrink: 0}}>
+            {brushSize}
           </Text>
         </Flex>
       </Flex>
