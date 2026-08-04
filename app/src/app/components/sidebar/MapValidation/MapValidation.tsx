@@ -202,7 +202,8 @@ export const MapValidation = () => {
       <Expander
         open={openPanels.Completeness}
         onToggle={() => togglePanel('Completeness')}
-        buttonClassName={`h-auto ${panelHintClass('Completeness')}`}
+        buttonClassName="h-auto"
+        className={panelHintClass('Completeness')}
         label={
           <CheckHeader
             title="Completeness"
@@ -216,7 +217,8 @@ export const MapValidation = () => {
       <Expander
         open={openPanels.Contiguity}
         onToggle={() => togglePanel('Contiguity')}
-        buttonClassName={`h-auto ${panelHintClass('Contiguity')}`}
+        buttonClassName="h-auto"
+        className={panelHintClass('Contiguity')}
         label={
           <CheckHeader title="Contiguity" status={contiguityStatus} detail={contiguityDetail} />
         }

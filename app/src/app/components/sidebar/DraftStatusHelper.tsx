@@ -160,8 +160,8 @@ export const useDraftStatusHelperDismissal = () => {
  * it themselves — nothing toggles, saves, or opens on the user's behalf.
  *
  * Collapsible and dismissible. Super Draw starts collapsed — experts asked
- * for the map, not the tutorial — and reaching the final stage auto-collapses
- * it. Dismissal persistence is mode-dependent (see useHelperDismissal).
+ * for the map, not the tutorial. Dismissal persistence is mode-dependent
+ * (see useHelperDismissal).
  *
  * `onNavigate` fires after any hint that points somewhere else in the app —
  * the mobile modal closes itself so the hint's target isn't buried under it.
@@ -226,16 +226,8 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
     const stored = localStorage.getItem(COLLAPSE_KEY);
     setStoredCollapsed(stored === null ? null : stored === '1');
   }, []);
-  // Final stage auto-collapses — unless the plan has regressed, so the
-  // step-back bubble stays visible instead of hiding behind the collapse.
-  const [autoCollapsed, setAutoCollapsed] = useState(false);
-  const atFinalStage = statusStage === 2;
-  useEffect(() => {
-    if (atFinalStage) setAutoCollapsed(!regressed);
-  }, [atFinalStage, regressed]);
-  const collapsed = collapsible && (autoCollapsed || (storedCollapsed ?? superDraw));
+  const collapsed = collapsible && (storedCollapsed ?? superDraw);
   const toggleCollapsed = () => {
-    setAutoCollapsed(false);
     localStorage.setItem(COLLAPSE_KEY, collapsed ? '0' : '1');
     setStoredCollapsed(!collapsed);
   };
