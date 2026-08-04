@@ -328,11 +328,11 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
 
   const scratchItems: ChecklistItem[] = [
     {
-      label: `All districts started? (${paintedZones}/${numDistricts})`,
+      label: `Are all districts started? (${paintedZones}/${numDistricts})`,
       done: paintedZones >= numDistricts,
     },
     {
-      label: `All population assigned?${
+      label: `Has all population been assigned to a district?${
         unassigned !== undefined && unassigned > 0
           ? ` (${formatNumber(unassigned, NUMBER_FORMATS.STRING)} left)`
           : ''
@@ -364,7 +364,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
   const balanced = maxDeviation !== undefined && maxDeviation <= BALANCE_DEVIATION;
   const refineItems: ChecklistItem[] = [
     {
-      label: `Districts balanced? (${
+      label: `Are districts roughly balanced? (${
         maxDeviation !== undefined
           ? `max ${formatNumber(maxDeviation, NUMBER_FORMATS.PERCENT)}, `
           : ''
@@ -393,10 +393,10 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
       // Uncheckable/stale contiguity passes the gate (see the criteria hook)
       // but must not display as a confirmed pass.
       label: contiguityUnavailable
-        ? 'Districts contiguous? (not checked)'
+        ? 'Are districts contiguous? (not checked)'
         : contiguityStale
-          ? `Districts contiguous? (?/${numDistricts})`
-          : `Districts contiguous? (${contiguousZones}/${numDistricts})`,
+          ? `Are districts contiguous? (?/${numDistricts})`
+          : `Are districts contiguous? (${contiguousZones}/${numDistricts})`,
       done: contiguityUnavailable || contiguousZones >= numDistricts,
       muted: contiguityUnavailable || contiguityStale,
       // Stale result waits on a save; point at the save button as step one.
