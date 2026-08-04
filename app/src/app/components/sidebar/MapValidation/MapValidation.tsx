@@ -167,7 +167,7 @@ export const MapValidation = () => {
     : brokenDistricts > 0
       ? `${brokenDistricts} district${brokenDistricts === 1 ? '' : 's'} split into components`
       : contiguousDistricts >= numDistricts
-        ? 'All districts in one component'
+        ? 'Each district is one connected component'
         : `${unstartedDistricts} district${unstartedDistricts === 1 ? '' : 's'} not started`;
 
   useEffect(() => {

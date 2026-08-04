@@ -42,7 +42,7 @@ export const MobileToolbar: React.FC = () => {
         )}
       </div>
       <Dialog.Root open={guideOpen} onOpenChange={setGuideOpen}>
-        <Dialog.Content size="1" maxWidth="400px">
+        <Dialog.Content size="1" maxWidth="400px" aria-describedby={undefined}>
           <Dialog.Title className="sr-only">Map guide</Dialog.Title>
           <DraftStatusHelper onNavigate={() => setGuideOpen(false)} collapsible={false} />
         </Dialog.Content>

@@ -150,8 +150,9 @@ export const useDraftStatusHelperDismissal = () => {
  * that one stage's question checklist — the stage follows the status alone
  * and never moves on its own when the stats change. Across the bottom, the
  * three draft statuses lay out as a stepper row — the current one lit in its
- * status color, the others muted — and clicking a segment sets that status
- * (free choice, as everywhere else). The stats only ever suggest: earned
+ * status color, the others muted. Forward moves lock until the criteria are
+ * earned (the topbar status popover stays a free choice, so nobody can get
+ * stuck); moving back is always allowed. The stats only ever suggest: earned
  * criteria raise a dismissible bubble over the next status, and a plan that
  * no longer meets its status's checks raises one over the status to step
  * back to.
@@ -227,12 +228,13 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
     const stored = localStorage.getItem(COLLAPSE_KEY);
     setStoredCollapsed(stored === null ? null : stored === '1');
   }, []);
-  // Final stage auto-collapses; re-expanding sticks until the next mount.
+  // Final stage auto-collapses — unless the plan has regressed, so the
+  // step-back bubble stays visible instead of hiding behind the collapse.
   const [autoCollapsed, setAutoCollapsed] = useState(false);
   const atFinalStage = statusStage === 2;
   useEffect(() => {
-    if (atFinalStage) setAutoCollapsed(true);
-  }, [atFinalStage]);
+    if (atFinalStage) setAutoCollapsed(!regressed);
+  }, [atFinalStage, regressed]);
   const collapsed = collapsible && (autoCollapsed || (storedCollapsed ?? superDraw));
   const toggleCollapsed = () => {
     setAutoCollapsed(false);
