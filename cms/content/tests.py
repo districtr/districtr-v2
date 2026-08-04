@@ -669,9 +669,7 @@ class ContentApiTests(TestCase):
 
     def test_static_list(self):
         rows = self.client.get("/api/content/static/list").json()
-        self.assertEqual(
-            rows, [{"slug": "rules", "title": "Rules", "language": "en"}]
-        )
+        self.assertEqual(rows, [{"slug": "rules", "title": "Rules", "language": "en"}])
 
     def test_list_negative_pagination_clamped(self):
         # Negative offset/limit must clamp to 0, not 500 on a negative slice.

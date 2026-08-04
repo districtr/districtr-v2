@@ -29,7 +29,7 @@ from django.conf import settings
 from django.views.decorators.http import require_GET
 
 from content.models import PlacePage, StaticPage, TagPage
-from core.api import MAX_PAGE_SIZE, _json, pagination
+from core.api import _json, pagination
 
 CONTENT_TYPE_PAGES = {
     "tags": TagPage,

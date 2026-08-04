@@ -19,7 +19,6 @@ from functools import cached_property
 
 from django import forms
 from django.conf import settings
-from django.http import Http404
 from django.urls import path, reverse
 from wagtail import hooks
 from wagtail.admin.menu import MenuItem

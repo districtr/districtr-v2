@@ -54,9 +54,9 @@ def scope_content_pages_in_explorer(parent_page, pages, request):
     if not user_is_team_scoped(request.user):
         return pages
     scoped = list(districtr_map_slugs_for_user(request.user))
-    out_of_scope = TagPage.objects.exclude(
-        districtr_map_slug__in=scoped
-    ).values_list("pk", flat=True)
+    out_of_scope = TagPage.objects.exclude(districtr_map_slug__in=scoped).values_list(
+        "pk", flat=True
+    )
     out_of_scope_places = PlacePage.objects.exclude(
         districtr_map_slugs__overlap=scoped
     ).values_list("pk", flat=True)
@@ -84,7 +84,6 @@ def deny_out_of_team_bulk_action(request, action_type, objects, action):
     # never the per-page ones. Fires for snippet bulk actions too, so guard on
     # Page — snippets are covered by their own hooks.
     if any(
-        isinstance(obj, Page) and _is_out_of_scope_page(request, obj)
-        for obj in objects
+        isinstance(obj, Page) and _is_out_of_scope_page(request, obj) for obj in objects
     ):
         return permission_denied(request)

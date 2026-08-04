@@ -186,13 +186,23 @@ export const getGallery = (slug: string, accessToken?: string): Promise<CMSGalle
  * only pages live in that language; when omitted, the CMS returns pages across
  * ALL languages (consumers dedupe by slug where needed).
  */
-export const listCMSContent = (
+export const listCMSContent = async (
   type: CmsContentTypes,
-  params: {language?: string; offset?: number; limit?: number} = {}
+  params: {language?: string} = {}
 ): Promise<CMSContentListItem[] | null> => {
-  const searchParams = new URLSearchParams();
-  if (params.language) searchParams.set('language', params.language);
-  if (params.offset !== undefined) searchParams.set('offset', String(params.offset));
-  if (params.limit !== undefined) searchParams.set('limit', String(params.limit));
-  return cmsFetch<CMSContentListItem[]>(`/api/content/${type}/list?${searchParams.toString()}`);
+  // The server caps each page at 100 rows spanning ALL languages; page
+  // through so listings don't silently truncate once slug × language rows
+  // exceed one page.
+  const PAGE = 100;
+  const all: CMSContentListItem[] = [];
+  for (let offset = 0; ; offset += PAGE) {
+    const searchParams = new URLSearchParams({offset: String(offset), limit: String(PAGE)});
+    if (params.language) searchParams.set('language', params.language);
+    const rows = await cmsFetch<CMSContentListItem[]>(
+      `/api/content/${type}/list?${searchParams.toString()}`
+    );
+    if (rows === null) return offset === 0 ? null : all;
+    all.push(...rows);
+    if (rows.length < PAGE) return all;
+  }
 };

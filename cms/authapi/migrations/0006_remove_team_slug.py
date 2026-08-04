@@ -4,14 +4,13 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('authapi', '0005_grant_admin_team_permissions'),
+        ("authapi", "0005_grant_admin_team_permissions"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='team',
-            name='slug',
+            model_name="team",
+            name="slug",
         ),
     ]

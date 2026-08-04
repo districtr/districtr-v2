@@ -130,6 +130,7 @@ class GalleryViewSet(TeamScopedViewSetMixin, SnippetViewSet):
         InlinePanel("entries", heading="Plans", label="Plan"),
     ]
 
+
 register_snippet(GalleryViewSet)
 
 
