@@ -11,6 +11,7 @@ import {useUiHintStore, type ValidationTab} from '@/app/store/uiHintStore';
 import {useDraftStatusCriteria, BALANCE_DEVIATION} from '@/app/hooks/useDraftStatusCriteria';
 import {useMetadataChange} from '@/app/hooks/useMetadataChange';
 import {statusIcons} from '@components/Topbar/MapStatus';
+import {useCountyPaintAvailable} from '@components/Toolbar/PaintByCounty';
 import {formatNumber} from '@utils/numbers';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {
@@ -29,11 +30,15 @@ const DISMISS_KEY = 'districtr-draft-helper-dismissed';
 // rough drawing; below it, point at the unassigned-areas finder.
 const ROUGH_DRAW_UNASSIGNED_RATIO = 0.25;
 
-// Sidebar sections → the mobile full-screen panel holding the same content.
-const MOBILE_TAB_FOR_SECTION: Record<string, MapControlsStore['sidebarPanels'][number]> = {
+// Sidebar sections → the panel holding the same content in the other layouts:
+// the mobile full-screen tabs and Super Draw's stacked accordion share these
+// keys (sidebarPanels). The demographic map-layer controls render flat inside
+// the Demographics card in both, hence the layers-demographics entry.
+const PANEL_FOR_SECTION: Record<string, MapControlsStore['sidebarPanels'][number]> = {
   'stats-validity': 'mapValidation',
   'stats-demographics': 'demography',
   'stats-elections': 'election',
+  'layers-demographics': 'demography',
 };
 
 /** Dismissing in Super Draw persists (localStorage); in plain Draw it lasts
@@ -173,8 +178,20 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
   const isDesktop = useIsDesktop();
   const visible = useDraftStatusHelperVisible();
   const superDraw = useToolbarStore(state => state.superDraw);
-  // County brush is disabled in block view; don't point the hint at a dead end.
+  // Super Draw can swap the workflow tabs for the stacked accordion; guides
+  // must target whichever layout is actually mounted (see DataCards).
+  const stackedSidebar = useToolbarStore(state => state.stackedSidebar);
+  const stacked = superDraw && stackedSidebar;
+  // County brush is disabled in block view (and unavailable on some maps —
+  // see useCountyPaintAvailable); don't point the hint at a dead end.
   const inBlockView = useMapStore(state => state.captiveIds.size > 0);
+  const countyPaintAvailable = useCountyPaintAvailable();
+  // Hints that point at a toggle are suppressed once it's already on —
+  // guiding the user to a checked checkbox invites turning it off.
+  const paintByCounty = useMapControlsStore(state => !!state.mapOptions.paintByCounty);
+  const showPopulationTooltip = useMapControlsStore(
+    state => state.mapOptions.showPopulationTooltip === true
+  );
   const request = useUiHintStore(state => state.request);
   const startGuide = useUiHintStore(state => state.startGuide);
   const flash = useUiHintStore(state => state.flash);
@@ -260,11 +277,18 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
 
   /** Guide to a sidebar section: tab, then section header, each on the user's
    * click. Below lg the sidebar is hidden — open the matching mobile panel
-   * instead (sections without one skip the jump). */
+   * instead (sections without one skip the jump). In Super Draw's stacked
+   * layout the tabs/sections don't exist; the guide points at the stacked
+   * panel holding the same content (see StackedPanels' AccordionSection). */
   const guideToSection = (tab: 'stats' | 'mapLayers', sectionId: string) => {
     if (!isDesktop) {
-      const mobileTab = MOBILE_TAB_FOR_SECTION[sectionId];
+      const mobileTab = PANEL_FOR_SECTION[sectionId];
       if (mobileTab) request('mobileTab', mobileTab);
+      return;
+    }
+    if (stacked) {
+      const panel = PANEL_FOR_SECTION[sectionId];
+      if (panel) startGuide([`panel:${panel}`]);
       return;
     }
     startGuide([`tab:${tab}`, `section:${sectionId}`]);
@@ -272,11 +296,16 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
 
   /** Guide to a validation panel: tab → Validity section → the panel itself,
    * each step waiting on the user's own click. The mobile panel holds the
-   * validation checks directly, so only the last step applies there. */
+   * validation checks directly, so only the last step applies there; the
+   * stacked layout goes via its Validity accordion panel instead of the tab. */
   const guideToValidation = (tab: ValidationTab) => {
     if (!isDesktop) {
       request('mobileTab', 'mapValidation');
       startGuide([`validation:${tab}`]);
+      return;
+    }
+    if (stacked) {
+      startGuide(['panel:mapValidation', `validation:${tab}`]);
       return;
     }
     startGuide(['tab:stats', 'section:stats-validity', `validation:${tab}`]);
@@ -306,7 +335,13 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
       hints:
         unassigned !== undefined && unassigned > 0
           ? [
+              // The rough-draw shortcut only when county painting is actually
+              // usable here (available on this map, not in block view, not
+              // already on) — otherwise the guide would point at a disabled,
+              // missing, or already-checked control.
               !inBlockView &&
+              countyPaintAvailable &&
+              !paintByCounty &&
               unassignedRatio !== undefined &&
               unassignedRatio > ROUGH_DRAW_UNASSIGNED_RATIO
                 ? {
@@ -336,11 +371,16 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
       done: balanced,
       hints: !balanced
         ? [
-            {
-              // The toggle lives in ToolControlsScaffold, outside any sidebar tab.
-              label: 'Show population tooltips as you paint',
-              onClick: () => guideToBrushControl('population-tooltip'),
-            },
+            // The toggle lives in ToolControlsScaffold, outside any sidebar
+            // tab. Skipped once it's already on — nothing left to point at.
+            ...(showPopulationTooltip
+              ? []
+              : [
+                  {
+                    label: 'Show population tooltips as you paint',
+                    onClick: () => guideToBrushControl('population-tooltip'),
+                  },
+                ]),
             {
               label: 'Show the demographic map',
               onClick: () => guideToSection('mapLayers', 'layers-demographics'),
