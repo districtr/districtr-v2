@@ -585,6 +585,9 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
             const isCurrentStatus = status === currentStatus;
             const color = DRAFT_STATUS_COLORS[status];
             const suggested = showSuggestion && suggestion?.status === status;
+            // Forward moves must be earned; moving back is always allowed.
+            const unlockedStage = !scratchDone ? 0 : !inProgressDone || contiguityStale ? 1 : 2;
+            const locked = idx > statusStage && idx > unlockedStage;
             return (
               // relative anchors the bubble; no overflow-hidden on the row
               // (it would clip the bubble), so end segments round themselves.
@@ -653,10 +656,16 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
                 <button
                   type="button"
                   onClick={() => changeStatus(status)}
+                  disabled={locked}
+                  title={locked ? 'Complete the current checklist first' : undefined}
                   aria-current={isCurrentStatus || undefined}
-                  className={`w-full cursor-pointer px-1 py-2 flex flex-col items-center gap-1 transition-colors ${
+                  className={`w-full px-1 py-2 flex flex-col items-center gap-1 transition-colors ${
                     idx > 0 ? 'border-l border-[var(--accent-6)]' : ''
-                  } ${isCurrentStatus ? '' : 'hover:bg-[var(--gray-a2)]'}`}
+                  } ${
+                    locked
+                      ? 'cursor-not-allowed opacity-50'
+                      : `cursor-pointer ${isCurrentStatus ? '' : 'hover:bg-[var(--gray-a2)]'}`
+                  }`}
                   style={{
                     borderRadius:
                       idx === 0
