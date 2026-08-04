@@ -36,11 +36,8 @@ const MOBILE_TAB_FOR_SECTION: Record<string, MapControlsStore['sidebarPanels'][n
   'stats-elections': 'election',
 };
 
-/** Dismissal is mode-dependent by design: dismissing in Super Draw sticks
- * across sessions (localStorage — an expert opted out for good), while
- * dismissing in plain Draw lasts only this session; the box returns on the
- * next visit. One store so every instance (map overlay, mobile guide button)
- * sees the same answer. */
+/** Dismissing in Super Draw persists (localStorage); in plain Draw it lasts
+ * only the session. One store so every instance sees the same answer. */
 const useHelperDismissal = create<{
   sessionDismissed: boolean;
   superDrawDismissed: boolean;
@@ -60,8 +57,7 @@ const useHelperDismissal = create<{
       set({sessionDismissed: true});
     }
   },
-  // Restore clears both variants: the user asked for the guide back, so no
-  // stale dismissal from the other draw mode should keep it hidden.
+  // Clears both variants so the other mode's dismissal can't keep it hidden.
   restore: () => {
     localStorage.removeItem(DISMISS_KEY);
     set({sessionDismissed: false, superDrawDismissed: false});
@@ -76,9 +72,8 @@ type ChecklistItem = {
    * stale or uncheckable, not a confirmed pass. */
   muted?: boolean;
   hints?: Hint[];
-  /** Hints are alternatives by default, dot-separated. `and` joins them into
-   * one sentence instead, for hints that are steps of a single operation —
-   * so the first doesn't read as the whole job. */
+  /** Hints are dot-separated alternatives; `and` joins steps of one operation
+   * into a sentence. */
   hintsJoin?: 'and';
 };
 
@@ -91,19 +86,15 @@ const InlineHintButton: React.FC<{
   <button
     type="button"
     onClick={onClick}
-    // Wraps with the sentence it sits in. It used to be nowrap so a link
-    // couldn't break across lines, but these labels are long enough
-    // ("Paint by counties to roughly draw districts") that nowrap pushed the
-    // card wider than the box instead.
+    // Wraps with its sentence — nowrap pushed the card wider than the box.
     className="inline cursor-pointer text-left hover:underline underline-offset-2 font-semibold text-districtrBlue"
   >
     {children}
   </button>
 );
 
-/** The topbar's own status glyph, wherever a control names a draft status.
- * Those icons hardcode a 24px size and their own indicator fill, so both are
- * overridden here to inherit from whatever the glyph sits in. */
+/** Topbar status glyph with its hardcoded 24px size and indicator fill
+ * overridden to inherit. */
 const StatusGlyph: React.FC<{status: DraftStatus}> = ({status}) => (
   <span className="inline-flex align-middle [&_svg]:size-[18px] [&_svg]:!fill-current" aria-hidden>
     {React.createElement(statusIcons[status])}
@@ -134,10 +125,9 @@ export const useDraftStatusHelperVisible = () => {
   return !dismissed && isEditing && mapMode === MAP_MODES.DISTRICTS && !!documentId;
 };
 
-/** Dismissal state + restore, for controls living outside the box itself
- * (the Map actions menu's "Show map guide" item). `dismissed` reflects the
- * current draw mode's variant; `restore` clears both, so the guide comes back
- * no matter which mode hid it. */
+/** Dismissal state + restore for controls outside the box (Map actions'
+ * "Show map guide"). `dismissed` is the current mode's variant; `restore`
+ * clears both. */
 export const useDraftStatusHelperDismissal = () => {
   const superDraw = useToolbarStore(state => state.superDraw);
   const sessionDismissed = useHelperDismissal(state => state.sessionDismissed);
@@ -183,16 +173,14 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
   const isDesktop = useIsDesktop();
   const visible = useDraftStatusHelperVisible();
   const superDraw = useToolbarStore(state => state.superDraw);
-  // The county brush is unavailable while broken into blocks (PaintByCounty
-  // disables itself there); the hint must not point at a dead end.
+  // County brush is disabled in block view; don't point the hint at a dead end.
   const inBlockView = useMapStore(state => state.captiveIds.size > 0);
   const request = useUiHintStore(state => state.request);
   const startGuide = useUiHintStore(state => state.startGuide);
   const flash = useUiHintStore(state => state.flash);
   const dismiss = useHelperDismissal(state => state.dismiss);
   const handleMetadataChange = useMetadataChange();
-  // Status changes land silently in the topbar otherwise; the pulse both
-  // confirms the change and teaches that the title icon is the status.
+  // Pulse the topbar status icon so the change doesn't land silently.
   const changeStatus = (status: DraftStatus) =>
     handleMetadataChange({draft_status: status}).then(() => flash('map-status-icon'));
   const {
@@ -204,11 +192,8 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
     counts,
   } = useDraftStatusCriteria();
 
-  // The shown stage follows the user-chosen status alone — it never regresses
-  // on its own when the stats fall below the bar. A plan whose criteria sit
-  // below its status (e.g. population unassigned while marked In Progress)
-  // keeps its stage; the only response is the dismissible step-back bubble
-  // over the status row.
+  // The shown stage follows the user-chosen status alone — unmet criteria only
+  // raise the step-back bubble, they never regress the stage.
   const statusStage =
     currentStatus === DRAFT_STATUSES.SCRATCH
       ? 0
@@ -225,9 +210,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
     const stored = localStorage.getItem(COLLAPSE_KEY);
     setStoredCollapsed(stored === null ? null : stored === '1');
   }, []);
-  // Reaching the final stage auto-collapses the box — the plan is done and the
-  // checklists no longer need map real estate; re-expanding is one click and
-  // sticks until the next mount at that stage.
+  // Final stage auto-collapses; re-expanding sticks until the next mount.
   const [autoCollapsed, setAutoCollapsed] = useState(false);
   const atFinalStage = statusStage === 2;
   useEffect(() => {
@@ -242,9 +225,8 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
 
   const previousStatus: DraftStatus =
     statusStage === 2 ? DRAFT_STATUSES.IN_PROGRESS : DRAFT_STATUSES.SCRATCH;
-  // A move forward is earned: only with the current stage's items done, not
-  // while its earlier criteria have regressed (the back-suggestion wins), and
-  // not while a stale contiguity result awaits the next save.
+  // Forward is earned: stage items done, nothing regressed, no stale
+  // contiguity result pending.
   const nextStatus: DraftStatus | null =
     statusStage === 0
       ? DRAFT_STATUSES.IN_PROGRESS
@@ -255,10 +237,8 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
   const canAdvance =
     !regressed && !!nextStatus && stageDone && !(statusStage === 1 && contiguityStale);
 
-  // What the stats say about the status row: earned criteria suggest the next
-  // status forward; a regressed plan suggests stepping back. The bubble is
-  // dismissible per suggestion — keyed on target and direction, so dismissing
-  // "mark it In Progress" doesn't also swallow a later "mark it Ready".
+  // Earned criteria suggest the next status; a regressed plan suggests
+  // stepping back. Bubble dismissal is keyed per suggestion.
   const suggestion: {status: DraftStatus; direction: 'forward' | 'back'} | null =
     canAdvance && nextStatus
       ? {status: nextStatus, direction: 'forward'}
@@ -278,12 +258,9 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
       ? unassigned / (idealPopulation * numDistricts)
       : undefined;
 
-  /** Guide the user to a sidebar section: pulse the destination tab until
-   * they click it, then the section header (skipped automatically when
-   * already active/open — see the guide consumers in WorkflowTabs). Below lg
-   * the sidebar is hidden, so open the matching full-screen mobile panel
-   * instead; sections without one skip the jump — the hint's store change
-   * (tooltip on, overlay active) already took effect on the visible map. */
+  /** Guide to a sidebar section: tab, then section header, each on the user's
+   * click. Below lg the sidebar is hidden — open the matching mobile panel
+   * instead (sections without one skip the jump). */
   const guideToSection = (tab: 'stats' | 'mapLayers', sectionId: string) => {
     if (!isDesktop) {
       const mobileTab = MOBILE_TAB_FOR_SECTION[sectionId];
@@ -305,11 +282,9 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
     startGuide(['tab:stats', 'section:stats-validity', `validation:${tab}`]);
   };
 
-  /** Guide to a checkbox in the paint scaffold's tool controls (the county
-   * brush, the population tooltip). Those checkboxes disable themselves while
-   * no painting tool is armed (Pan, pre-break Shatter), so the guide starts
-   * one step earlier — at the brush button — unless a paint-capable tool is
-   * already active. */
+  /** Guide to a tool-controls checkbox. Those disable themselves while no
+   * painting tool is armed, so the guide starts at the brush button unless a
+   * paint-capable tool is already active. */
   const guideToBrushControl = (target: string) => {
     const {activeTool} = useMapControlsStore.getState();
     const paintCapable = activeTool === ACTIVE_TOOLS.BRUSH || activeTool === ACTIVE_TOOLS.ERASER;
@@ -362,8 +337,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
       hints: !balanced
         ? [
             {
-              // The toggle lives in ToolControlsScaffold's right column, not
-              // inside any sidebar tab — the guide points there directly.
+              // The toggle lives in ToolControlsScaffold, outside any sidebar tab.
               label: 'Show population tooltips as you paint',
               onClick: () => guideToBrushControl('population-tooltip'),
             },
@@ -380,17 +354,11 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
       label: contiguityUnavailable
         ? 'Are districts contiguous? (not checked for this map)'
         : contiguityStale
-          ? // No "— updates on save" here: the Save now hint below says it, and
-            // says it as something to click.
-            `Are districts contiguous? (?/${numDistricts})`
+          ? `Are districts contiguous? (?/${numDistricts})`
           : `Are districts contiguous? (${contiguousZones}/${numDistricts})`,
       done: contiguityUnavailable || contiguousZones >= numDistricts,
       muted: contiguityUnavailable || contiguityStale,
-      // A stale result is waiting on a save, and the forward suggestion stays
-      // withheld until it lands — so point at the save button right here
-      // rather than leaving "updates on save" as the only clue. The save
-      // alone settles nothing visible, so it's phrased as the first of two
-      // steps.
+      // Stale result waits on a save; point at the save button as step one.
       hints: contiguityStale
         ? [
             {label: 'Save now', onClick: () => startGuide(['save-button'])},
@@ -412,8 +380,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
   ];
 
   const advancedPointers: Hint[] = [
-    // Guides only: pulse the real control (topbar dropdowns) and let the user
-    // do the clicking — nothing opens on their behalf.
+    // Guides only: nothing opens on the user's behalf.
     {label: 'Share your map', onClick: () => startGuide(['map-actions', 'map-actions-share'])},
     {
       label: 'Explore demographics',
@@ -449,21 +416,15 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
       gap="2"
       p="3"
       flexShrink="0"
-      // Fixed width only while expanded; collapsed the card shrinks to its
-      // header so the right-anchored overlay hugs the map's top-right corner
-      // instead of holding a 360px slab open.
+      // Fixed width only while expanded so the collapsed header hugs the corner.
       className={`max-w-full ${collapsed ? '' : 'w-[360px]'}`}
-      // Accent-tinted chrome so the helper reads as its own layer over the
-      // map, distinct from the map pills and the white panels around it.
-      //
-      // minWidth 0 lets the card shrink inside its flex parent instead of
-      // being held open by its widest line; overflowWrap is inherited, so
-      // declaring it once here covers every string in the card — including
-      // ones with no space to break at, like a long map name.
+      // minWidth 0 lets the card shrink in its flex parent; overflowWrap here
+      // covers every string in the card, including ones with no break point.
       style={{
-        background: 'var(--accent-2)',
-        border: '1px solid var(--accent-6)',
+        background: 'white',
+        border: '1px solid var(--accent-8)',
         borderRadius: 10,
+        boxShadow: '0 4px 12px var(--gray-a6)',
         minWidth: 0,
         overflowWrap: 'anywhere',
       }}
@@ -478,9 +439,6 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
           style={{minWidth: 0}}
         >
           <Flex align="center" gap="2">
-            {/* The header names the current stage — the box shows one stage
-                at a time, so the title is the place the user reads where
-                they are. */}
             <Text size="3" weight="bold" style={{minWidth: 0}}>
               {stages[statusStage].title}
             </Text>
@@ -510,8 +468,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
             </IconButton>
           )}
           {collapsible && (
-            // Confirmation first: dismissal can be persistent (Super Draw),
-            // so the dialog names the way back before anything disappears.
+            // Confirm first — dismissal can be persistent (Super Draw).
             <AlertDialog.Root>
               <AlertDialog.Trigger>
                 <IconButton
@@ -539,8 +496,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
                   <AlertDialog.Action>
                     <Button
                       variant="solid"
-                      // Persistent in Super Draw, per-session in plain Draw
-                      // (see useHelperDismissal).
+                      // Persistent in Super Draw, per-session in plain Draw.
                       onClick={() => dismiss(superDraw)}
                       data-testid="confirm-dismiss-draft-status"
                     >
@@ -591,9 +547,6 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
               {(!step.done || step.muted) &&
                 step.hints?.map((hint, i) => (
                   <React.Fragment key={hint.label}>
-                    {/* Alternatives are dot-separated so adjacent links don't
-                        read as one phrase; steps of one operation are joined
-                        into a sentence instead. */}
                     {i === 0 ? (
                       ' '
                     ) : step.hintsJoin === 'and' ? (
@@ -614,12 +567,8 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
             </Text>
           </Flex>
         ))}
-      {/* The status stepper: all three draft statuses across the bottom, the
-          current one lit in its own status color. Every segment is a free
-          choice — clicking sets that status — and the stats-earned nudge
-          (forward when the stage's criteria pass, backward when the plan has
-          regressed) arrives as a dismissible bubble anchored over the segment
-          it recommends. */}
+      {/* Status stepper: clicking any segment sets that status; the nudge
+          arrives as a dismissible bubble over the recommended segment. */}
       {!collapsed && (
         <Flex
           className="w-full"
@@ -637,9 +586,8 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
             const color = DRAFT_STATUS_COLORS[status];
             const suggested = showSuggestion && suggestion?.status === status;
             return (
-              // relative so the suggestion bubble can anchor over the exact
-              // segment it recommends. No overflow-hidden on the row (it
-              // would clip the bubble), so the end segments round themselves.
+              // relative anchors the bubble; no overflow-hidden on the row
+              // (it would clip the bubble), so end segments round themselves.
               <div key={status} className="relative flex-1 min-w-0">
                 {suggested && suggestion && (
                   <>
@@ -648,9 +596,8 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
                       align="start"
                       gap="1"
                       p="2"
-                      // Edge segments anchor the bubble to the card's own edge
-                      // instead of centering it, so it can't spill past the
-                      // card and hand the overlay a horizontal scrollbar.
+                      // Edge segments anchor to the card edge so the bubble
+                      // can't spill and cause a horizontal scrollbar.
                       className={`absolute bottom-full mb-2 w-max max-w-[200px] z-10 ${
                         idx === 0
                           ? 'left-0'
@@ -685,11 +632,8 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
                         <Cross2Icon width={12} height={12} />
                       </IconButton>
                     </Flex>
-                    {/* Caret pointing down at the recommended segment — a
-                        sibling of the bubble (not a child), so it stays
-                        centered on the segment even when the bubble is
-                        edge-anchored. Border only on the two lower edges;
-                        the upper half hides under the bubble's body. */}
+                    {/* Caret: a sibling of the bubble so it stays centered on
+                        the segment even when the bubble is edge-anchored. */}
                     <span
                       aria-hidden
                       className="absolute bottom-full left-1/2 -translate-x-1/2 mb-[3px] size-[10px] rotate-45 z-[11]"
