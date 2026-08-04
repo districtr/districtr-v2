@@ -197,11 +197,10 @@ body {
   border-radius: 6px;
 }
 
-/* Persistent variant for guided sequences (uiHintStore.guideTargets): the
-   target keeps pulsing until the user clicks it themselves — the guide
-   points, it never clicks — so this loops instead of playing twice. */
+/* Guided-sequence variant (uiHintStore.guideTargets): ~10s of pulsing,
+   matching GUIDE_STEP_TIMEOUT_MS. */
 .ui-guide {
-  animation: ui-flash-pulse 1.4s ease-out infinite;
+  animation: ui-flash-pulse 1.4s ease-out 7;
   border-radius: 6px;
 }
 

@@ -22,9 +22,9 @@ const FLASH_DURATION_MS = 3000;
 const FLASH_RESTART_MS = 30;
 let flashSeq = 0;
 
-// An abandoned guide must not pulse its target forever; each step re-arms the
-// clock so a slow walk through a multi-step guide isn't cut off mid-way.
-const GUIDE_STEP_TIMEOUT_MS = 45000;
+// Per-step expiry, re-armed on each advance; keep in sync with .ui-guide's
+// animation length.
+const GUIDE_STEP_TIMEOUT_MS = 10000;
 let guideSeq = 0;
 
 interface UiHintStore {
@@ -36,13 +36,9 @@ interface UiHintStore {
    * are component-specific. Self-clears. */
   flashTarget: string | null;
   flash: (id: string) => void;
-  /** Guided sequences: an ordered list of highlight targets the user walks
-   * through by clicking each one themselves — the guide points, it never
-   * clicks on the user's behalf. The head of the list is the active target;
-   * its host component marks itself `.ui-guide` and calls `advanceGuide` on
-   * the user's own click, or immediately when the target is already satisfied
-   * (the pointed-at tab already active, the section already open). Each step
-   * self-expires so an abandoned guide can't pulse forever. */
+  /** Ordered highlight targets the user clicks through themselves. The head
+   * is active: its host marks itself `.ui-guide` and calls `advanceGuide` on
+   * the user's click (or immediately if already satisfied). Steps self-expire. */
   guideTargets: string[];
   startGuide: (targets: string[]) => void;
   /** Advance past `id` — a no-op unless `id` is the current head, so hosts
