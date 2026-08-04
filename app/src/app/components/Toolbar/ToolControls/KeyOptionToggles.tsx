@@ -2,7 +2,7 @@ import React from 'react';
 import {Checkbox, Flex, Text} from '@radix-ui/themes';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useMapStore} from '@store/mapStore';
-import {useUiHintStore} from '@store/uiHintStore';
+import {useUiHintStore, useGuideTarget} from '@store/uiHintStore';
 import {ACCESS_STATES} from '@constants/document/state';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {MAP_MODES} from '@constants/map/mode';
@@ -23,9 +23,10 @@ export const KeyOptionToggles: React.FC = () => {
   // numbers stays enabled; that display doesn't depend on the active tool).
   const populationTooltipDisabled =
     access === ACCESS_STATES.READ || activeTool === ACTIVE_TOOLS.PAN;
-  // DraftStatusHelper's "Show population tooltips as you paint" hint pulses
-  // this row directly — it lives here, not inside any jump-able sidebar tab.
-  const flashing = useUiHintStore(state => state.flashTarget === 'population-tooltip');
+  const showPopulationTooltip = mapOptions.showPopulationTooltip === true;
+  // Already on counts as satisfied — a click would turn it off.
+  const {guiding, flashing} = useGuideTarget('population-tooltip', showPopulationTooltip);
+  const advanceGuide = useUiHintStore(state => state.advanceGuide);
 
   return (
     <Flex direction="column" gap="2">
@@ -40,7 +41,7 @@ export const KeyOptionToggles: React.FC = () => {
                 }
                 disabled={disallowPaintOverDisabled}
               />
-              Only paint unassigned areas
+              Forbid paint-over
             </Flex>
           </Text>
         </HelpTip>
@@ -57,15 +58,18 @@ export const KeyOptionToggles: React.FC = () => {
       <Text
         as="label"
         size="2"
-        className={`${populationTooltipDisabled ? 'select-none' : 'cursor-pointer select-none'} ${flashing ? 'ui-flash' : ''}`}
+        className={`${populationTooltipDisabled ? 'select-none' : 'cursor-pointer select-none'} ${
+          guiding ? 'ui-guide' : flashing ? 'ui-flash' : ''
+        }`}
         style={populationTooltipDisabled ? {opacity: 0.5} : undefined}
       >
         <Flex gap="2" align="center">
           <Checkbox
             checked={mapOptions.showPopulationTooltip === true}
-            onCheckedChange={() =>
-              setMapOptions({showPopulationTooltip: !mapOptions.showPopulationTooltip})
-            }
+            onCheckedChange={() => {
+              advanceGuide('population-tooltip');
+              setMapOptions({showPopulationTooltip: !mapOptions.showPopulationTooltip});
+            }}
             disabled={populationTooltipDisabled}
           />
           Show population on hover

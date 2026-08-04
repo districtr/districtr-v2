@@ -76,7 +76,7 @@ export default function RulesPage() {
           />
           <RuleSection
             title="Contiguity"
-            description="Each district should be one connected piece"
+            description="Each district should be one connected component"
             image="/nesting - contiguity.png"
             imageAlt="Contiguity"
           />

@@ -4,6 +4,7 @@ import {InfoCircledIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
+import {GEO_UNIT_SINGULAR_NAMES} from '@constants/document/geoUnits';
 import {MapPill} from './MapPill';
 
 /**
@@ -17,6 +18,8 @@ export const BlockModePill = () => {
   const setActiveTool = useMapControlsStore(state => state.setActiveTool);
   const bounds = useMapControlsStore(state => state.mapOptions.bounds);
   const captiveIds = useMapStore(state => state.captiveIds);
+  const parentGeoUnitType = useMapStore(state => state.mapDocument?.parent_geo_unit_type);
+  const unitName = (parentGeoUnitType && GEO_UNIT_SINGULAR_NAMES[parentGeoUnitType]) || 'precinct';
   const exitBlockView = useMapStore(state => state.exitBlockView);
   const getMapRef = useMapStore(state => state.getMapRef);
   const inBlockView = captiveIds.size > 0;
@@ -77,7 +80,7 @@ export const BlockModePill = () => {
         }
         onEscape={() => setActiveTool(ACTIVE_TOOLS.BRUSH)}
       >
-        <b>Choose a unit</b> to break into blocks
+        <b>Choose a {unitName}</b> to break down into blocks
       </MapPill>
     );
   }
