@@ -27,6 +27,15 @@ export const Topbar: React.FC = () => {
   const isEval = useMapControlsStore(state => state.isEval);
   const handleMetadataChange = useMetadataChange();
 
+  // The statically rendered title on edit links is the password warning (for
+  // link unfurls); once the map loads in the editor, show the real title.
+  React.useEffect(() => {
+    if (!mapDocument?.document_id) return;
+    document.title = [mapDocument.map_metadata?.name || 'Districtr Map', mapDocument.map_module]
+      .filter(Boolean)
+      .join(' | ');
+  }, [mapDocument]);
+
   return (
     <>
       <Flex direction="column" className="h-auto">
