@@ -191,6 +191,7 @@ export const fetchDocument = async (
         // always override with remote
         overlays: remoteMetadata.response.overlays,
         statefps: remoteMetadata.response.statefps,
+        county_filter: remoteMetadata.response.county_filter,
       },
       assignments: idbDocument.assignments,
       hasLocalEdits: !clientHasNoEdits,

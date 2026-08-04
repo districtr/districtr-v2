@@ -23,13 +23,15 @@ import {PointSource} from './GeoSources/PointSource';
 import {BlockLayers} from './PolygonLayers/BlockLayers';
 import {MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';
+import {combineWithCountyFilter, useCountyLayerFilter} from '@/app/hooks/useCountyFilter';
 import {useAnchorLayersReady} from '@/app/hooks/useAnchorLayersReady';
 import {RENDERER_TYPES} from '@constants/map/rendererType';
 
 export const MainMap: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
-  const parentOutlineFilter = useLayerFilter(false);
-  const childLayerFilter = useLayerFilter(true);
+  const countyLayerFilter = useCountyLayerFilter();
+  const parentOutlineFilter = combineWithCountyFilter(useLayerFilter(false), countyLayerFilter);
+  const childLayerFilter = combineWithCountyFilter(useLayerFilter(true), countyLayerFilter);
   const setMapRef = useMapStore(state => state.setMapRef);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const {mapRef, onLoad} = useMapRenderer(RENDERER_TYPES.MAIN);
@@ -83,7 +85,7 @@ export const MainMap: React.FC = () => {
             {!!mapDocument?.parent_layer && (
               <BlockLayers
                 scope="PARENT"
-                layerFilter={['literal', true] as FilterSpecification}
+                layerFilter={countyLayerFilter ?? (['literal', true] as FilterSpecification)}
                 outlineFilter={parentOutlineFilter}
                 sourceLayerId={mapDocument.parent_layer}
               />

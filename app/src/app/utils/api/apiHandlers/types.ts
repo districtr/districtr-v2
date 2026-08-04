@@ -102,6 +102,9 @@ export interface DocumentObject extends StatusObject {
   updated_at: string;
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
   map_metadata: DocumentMetadata;
+  /** 5-char county FIPS the plan is restricted to; null/empty = no filter.
+   * Set once at creation; lives on the document table in the DB. */
+  county_filter?: string[] | null;
   color_scheme: string[] | null;
   map_type: MapType;
   comment: string | null;
