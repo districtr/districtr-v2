@@ -404,14 +404,14 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
         ? [
             {label: 'Save now', onClick: () => startGuide(['save-button'])},
             {
-              label: 'find fragments',
+              label: 'find components',
               onClick: () => guideToValidation('Contiguity'),
             },
           ]
         : !contiguityUnavailable && contiguousZones < numDistricts
           ? [
               {
-                label: 'Find fragments',
+                label: 'Find components',
                 onClick: () => guideToValidation('Contiguity'),
               },
             ]
@@ -580,7 +580,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
               style={{minWidth: 0}}
             >
               {step.label}
-              <span className="inline-flex align-text-bottom ml-1">
+              <span className="inline-flex align-[-2px] mx-1">
                 <ItemMarker done={step.done && !step.muted} />
               </span>
               {/* Muted counts as unfinished here: a stale contiguity result

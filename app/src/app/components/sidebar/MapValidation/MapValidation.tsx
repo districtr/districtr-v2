@@ -151,7 +151,7 @@ export const MapValidation = () => {
   const contiguityDetail = !pieceCounts
     ? 'Not checked yet'
     : brokenDistricts > 0
-      ? `${brokenDistricts} district${brokenDistricts === 1 ? '' : 's'} split into components`
+      ? `${brokenDistricts} district${brokenDistricts === 1 ? '' : 's'} split into multiple components`
       : contiguousDistricts >= numDistricts
         ? 'Each district is one connected component'
         : `${unstartedDistricts} district${unstartedDistricts === 1 ? '' : 's'} not started`;
