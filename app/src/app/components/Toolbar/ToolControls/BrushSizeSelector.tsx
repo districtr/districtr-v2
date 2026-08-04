@@ -76,6 +76,10 @@ export function BrushSizeSelector() {
               {'--gray-a3': 'var(--gray-a6)', '--gray-a5': 'var(--gray-a8)'} as React.CSSProperties
             }
           />
+          {/* Fixed width so the slider doesn't resize as digits change. */}
+          <Text size="1" color="gray" align="right" style={{width: '3.2em', flexShrink: 0}}>
+            {brushSize} px
+          </Text>
         </Flex>
       </Flex>
     </Flex>
