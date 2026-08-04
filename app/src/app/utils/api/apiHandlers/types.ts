@@ -52,6 +52,7 @@ export interface DistrictrMap {
   tiles_s3_path: string | null;
   num_districts: number | null;
   map_type: MapType;
+  statefps?: string[];
 }
 
 export interface StatusObject {
@@ -141,6 +142,8 @@ export interface DocumentCreate {
   map_type?: MapType;
   metadata?: DocumentMetadata;
   copy_from_doc?: string | number;
+  /** 5-char county FIPS to restrict the plan to; set once at creation */
+  county_filter?: string[];
 }
 
 export type ShatterResult = Array<{
