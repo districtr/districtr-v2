@@ -1764,10 +1764,17 @@ async def update_districtrmap_metadata(
     session: Session = Depends(get_session),
 ):
     try:
+        # Merge with the stored metadata: callers send partial updates (e.g.
+        # just draft_status), and a plain replace would silently drop the
+        # other fields (name, county_filter, ...).
+        merged = {
+            **dict(document.map_metadata or {}),
+            **metadata.model_dump(exclude_unset=True),
+        }
         stmt = (
             update(Document)
             .where(Document.document_id == document.document_id)  # type: ignore
-            .values(map_metadata=metadata.model_dump(exclude_unset=True))
+            .values(map_metadata=merged)
         )
         session.connection().execute(stmt)
         session.commit()

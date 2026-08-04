@@ -2191,3 +2191,21 @@ def test_put_empty_assignments_deletes_existing(client, document_id: str):
     assert (
         len(assignments) == 0
     ), f"Expected 0 assignments after empty save, got {len(assignments)}"
+
+
+def test_metadata_partial_update_merges(client, document_id):
+    """A partial metadata PUT merges with stored fields instead of clobbering."""
+    response = client.put(
+        f"/api/document/{document_id}/metadata",
+        json={"name": "Original", "tags": ["keep-me"]},
+    )
+    assert response.status_code == 200
+    response = client.put(
+        f"/api/document/{document_id}/metadata", json={"name": "Renamed"}
+    )
+    assert response.status_code == 200
+    metadata = client.get(f"/api/document/{document_id}").json()["map_metadata"]
+    assert metadata["name"] == "Renamed"
+    assert metadata["tags"] == ["keep-me"]
+
+
