@@ -420,7 +420,7 @@ export const DistrictMeters = () => {
                     <button
                       type="button"
                       aria-label={`Select district ${d.zone}`}
-                      className="rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-8)]"
+                      className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-8)]"
                       style={{
                         flexGrow: 1,
                         height: BAR_HEIGHT,
@@ -433,10 +433,10 @@ export const DistrictMeters = () => {
                       }}
                     >
                       {offScale && tickFraction !== undefined ? (
-                        /* Off the scale: no pill track — the bar runs to the
-                           track's end and stops flat. Rounded cap on the left,
-                           darker shaft past the ideal line, and chevrons on the
-                           end: this district is off the chart. */
+                        /* Off the scale: the bar runs to the track's end and
+                           stops flat. Rounded cap on the left, darker shaft
+                           past the ideal line, and chevrons on the end: this
+                           district is off the chart. */
                         <>
                           <Box
                             style={{
@@ -462,25 +462,34 @@ export const DistrictMeters = () => {
                           <OffScaleChevrons count={chevrons} />
                         </>
                       ) : (
-                        <Box
-                          style={{
-                            position: 'absolute',
-                            inset: 0,
-                            borderRadius: 99,
-                            background: 'var(--gray-a4)',
-                            overflow: 'hidden',
-                          }}
-                        >
+                        <>
+                          {/* The track runs from the bar's start to the ideal
+                              line: rounded cap on the left, squared off exactly
+                              at ideal. */}
                           <Box
                             style={{
-                              width: `${Math.min(fill, tickFraction ?? 1) * 100}%`,
-                              height: '100%',
-                              background: color,
-                              transition: BAR_SPRING,
+                              position: 'absolute',
+                              top: 0,
+                              bottom: 0,
+                              left: 0,
+                              width: `${(tickFraction ?? 1) * 100}%`,
+                              borderRadius: '99px 0 0 99px',
+                              background: 'var(--gray-a4)',
+                              overflow: 'hidden',
                             }}
-                          />
-                          {/* Population past ideal crosses the tick in a darker
-                              shade of the district color. */}
+                          >
+                            <Box
+                              style={{
+                                width: `${Math.min(fill / (tickFraction ?? 1), 1) * 100}%`,
+                                height: '100%',
+                                background: color,
+                                transition: BAR_SPRING,
+                              }}
+                            />
+                          </Box>
+                          {/* Population past ideal extends beyond the track's
+                              square end in a darker shade of the district
+                              color. */}
                           {overflowsIdeal && tickFraction !== undefined && (
                             <Box
                               style={{
@@ -494,7 +503,7 @@ export const DistrictMeters = () => {
                               }}
                             />
                           )}
-                        </Box>
+                        </>
                       )}
                       {/* Target-deviation band bracketing the ideal line. */}
                       {band && (

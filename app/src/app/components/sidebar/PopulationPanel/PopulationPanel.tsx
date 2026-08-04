@@ -127,20 +127,11 @@ export const PopulationPanel = () => {
     >
       {/* The Population tab already names the panel; only COI mode (with its
           different zone label) keeps a heading. */}
-      {(isCommunityMode || superDraw) && (
+      {isCommunityMode && (
         <Flex direction="row" gap={'2'} align="center">
-          {isCommunityMode && (
-            <Heading as="h3" size="3">
-              {`Total population by ${zoneLabel}`}
-            </Heading>
-          )}
-          {superDraw && (
-            <PopulationPanelOptions
-              chartOptions={chartOptions}
-              setChartOptions={setChartOptions}
-              idealPopulation={effectiveIdealPopulation}
-            />
-          )}
+          <Heading as="h3" size="3">
+            {`Total population by ${zoneLabel}`}
+          </Heading>
         </Flex>
       )}
       {/* Districts render as population meters; the visx bar chart remains for
@@ -255,6 +246,17 @@ export const PopulationPanel = () => {
             </ParentSize>
           </Flex>
         </>
+      )}
+      {/* Super Draw's advanced chart settings sit below the chart so the bars
+          stay the first thing in the panel. */}
+      {superDraw && (
+        <Flex direction="row" gap={'2'} align="center" mt="2">
+          <PopulationPanelOptions
+            chartOptions={chartOptions}
+            setChartOptions={setChartOptions}
+            idealPopulation={effectiveIdealPopulation}
+          />
+        </Flex>
       )}
       {editingCommunity && (
         <EditCommunityDialog
