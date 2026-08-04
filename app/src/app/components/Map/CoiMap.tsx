@@ -16,6 +16,8 @@ import {SizedCircleLayer} from './PointLayers/SizedCircleLayers';
 import {OverlayLayers} from './PolygonLayers/OverlayLayers';
 import {MapLayerAnchors} from './MapLayerAnchors';
 import {CoiMapContainer} from './CoiMapContainer';
+import {BlockModePill} from './BlockModePill';
+import {PaintConstraintPill} from './PaintConstraintPill';
 import {useMapRenderer} from '@/app/hooks/useMapRenderer';
 import {PointSource} from './GeoSources/PointSource';
 import {CoiBlockLayers} from './PolygonLayers/CoiBlockLayers';
@@ -26,7 +28,7 @@ import {RENDERER_TYPES} from '@constants/map/rendererType';
 
 /**
  * COI (Community of Interest) map component. Mirrors MainMap layout and layers;
- * used on /coi/{document_id} and /coi/edit/{document_id}.
+ * used on /coi/{public_id} and /coi/{public_id}/edit.
  */
 export const CoiMap: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -108,6 +110,9 @@ export const CoiMap: React.FC = () => {
             <MetaLayers isDemographicMap={false} />
           </PointSource>
           <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
+          {/* COI breaks units too, and the pill is the only exit from block view. */}
+          <BlockModePill />
+          <PaintConstraintPill />
         </>
       )}
     </CoiMapContainer>

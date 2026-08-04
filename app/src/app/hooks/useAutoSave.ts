@@ -39,7 +39,9 @@ export function useAutoSave() {
       if (!ref.current.enabled || saving) return;
       saving = true;
       try {
-        await ref.current.save();
+        // Silent: autosave shouldn't toast "Map saved" or flash the lock overlay
+        // — the topbar cloud icon and "Auto-saving…" popup are enough.
+        await ref.current.save(false, {silent: true});
       } finally {
         saving = false;
       }

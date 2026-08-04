@@ -12,15 +12,19 @@ export interface ChartStore {
   setDataUpdateHash: (hash: string) => void;
 }
 
+export const DEFAULT_CHART_OPTIONS: DistrictrChartOptions = {
+  popShowPopNumbers: true,
+  popShowTopBottomDeviation: true,
+  popShowDistrictNumbers: true,
+  popBarScaleToCurrent: false,
+  popTargetPopDeviation: undefined,
+  popTargetPopDeviationPct: undefined,
+};
+
 export const useChartStore = create(
   devwrapper(
     subscribeWithSelector<ChartStore>((set, get) => ({
-      chartOptions: {
-        popShowPopNumbers: true,
-        popShowTopBottomDeviation: true,
-        popShowDistrictNumbers: true,
-        popBarScaleToCurrent: false,
-      },
+      chartOptions: {...DEFAULT_CHART_OPTIONS},
       setChartOptions: options => set({chartOptions: {...get().chartOptions, ...options}}),
       dataUpdateHash: '',
       paintedChanges: {},

@@ -67,9 +67,9 @@ def test_research_api_key_accepted(monkeypatch):
     require_session("research-key")  # should not raise
 
 
-def test_post_session_mints_without_v3_key(monkeypatch):
-    monkeypatch.setattr(settings, "RECAPTCHA_V3_SECRET_KEY", None)
-    response = TestClient(app).post("/api/session", json={"recaptcha_token": ""})
+def test_post_session_mints_without_turnstile_key(monkeypatch):
+    monkeypatch.setattr(settings, "TURNSTILE_SESSION_SECRET_KEY", None)
+    response = TestClient(app).post("/api/session", json={"turnstile_token": ""})
     assert response.status_code == 200
     body = response.json()
     require_session(body["token"])  # minted token is valid

@@ -35,6 +35,16 @@ class Environment(str, Enum):
     test = "test"
 
 
+def s3_environment_folder(environment: "Environment") -> str:
+    """Only production gets its own S3 folder; every other value (local,
+    development, qa, test) collapses into "development" so non-prod objects
+    don't spread across more S3 folders than needed — colliding with each
+    other is fine, only production needs isolation."""
+    if environment == Environment.production:
+        return Environment.production.value
+    return Environment.development.value
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env", env_ignore_empty=True, extra="ignore"
@@ -79,12 +89,12 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = ""
     DATABASE_URL: str
 
-    # reCAPTCHA
-    RECAPTCHA_SECRET_KEY: str | None = None
+    # Cloudflare Turnstile (comment-form widget)
+    TURNSTILE_SECRET_KEY: str | None = None
 
-    # Silent-captcha session tokens (reCAPTCHA v3 + stateless HMAC session JWTs)
-    RECAPTCHA_V3_SECRET_KEY: str | None = None
-    RECAPTCHA_V3_SCORE_THRESHOLD: float = 0.5
+    # Silent-captcha session tokens (invisible Turnstile widget + stateless
+    # HMAC session JWTs)
+    TURNSTILE_SESSION_SECRET_KEY: str | None = None
     SESSION_TOKEN_TTL_HOURS: int = 4
     SESSION_ENFORCE: bool = False
     RESEARCH_API_KEY: str | None = None

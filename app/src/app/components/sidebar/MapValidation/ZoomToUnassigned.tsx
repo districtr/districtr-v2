@@ -1,56 +1,25 @@
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
-import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useUnassignFeaturesStore} from '@/app/store/unassignedFeatures';
+import {useUnassignedFeatures} from '@/app/hooks/useUnassignedFeatures';
 import {formatNumber} from '@/app/utils/numbers';
 import {Checkbox, Flex, Text} from '@radix-ui/themes';
-import React, {useEffect, useRef} from 'react';
+import React from 'react';
 import ZoomToFeature from './ZoomToFeature';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {ConditionalScrollArea} from '../ConditionalScrollArea';
 
 export const ZoomToUnassigned = () => {
-  const {
-    updateUnassignedFeatures,
-    selectedIndex,
-    setSelectedIndex,
-    unassignedFeatureBboxes,
-    hasFoundUnassigned,
-    reset,
-  } = useUnassignFeaturesStore(state => state);
-  const mapDocument = useMapStore(state => state.mapDocument);
+  const {selectedIndex, setSelectedIndex} = useUnassignFeaturesStore(state => state);
   const higlightUnassigned = useMapControlsStore(state => state.mapOptions.higlightUnassigned);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const {summaryStats} = useSummaryStats();
-  // prevent duplicate requests to get unassigned features
-  const initialMapDocument = useRef(mapDocument);
-  const lastSavedAt = useRef(mapDocument?.updated_at);
   const unassigned = summaryStats?.unassigned;
 
-  useEffect(() => {
-    if (!unassignedFeatureBboxes.length && !hasFoundUnassigned) {
-      updateUnassignedFeatures();
-    }
-  }, []);
-
-  useEffect(() => {
-    if (initialMapDocument?.current?.document_id !== mapDocument?.document_id) {
-      initialMapDocument.current = mapDocument;
-      reset();
-      setTimeout(() => {
-        updateUnassignedFeatures();
-      }, 3000);
-    }
-  }, [mapDocument?.document_id]);
-
-  // Auto-refresh after a save lands while this panel is open (updated_at moves
-  // when assignments are persisted to the cloud).
-  useEffect(() => {
-    if (mapDocument?.updated_at && lastSavedAt.current !== mapDocument.updated_at) {
-      lastSavedAt.current = mapDocument.updated_at;
-      updateUnassignedFeatures();
-    }
-  }, [mapDocument?.updated_at]);
+  // This panel is what runs the search; the validity section's preview
+  // observes the same query (see useUnassignedFeatures).
+  const {features: unassignedFeatureBboxes, isLoading} = useUnassignedFeatures();
+  const hasFoundUnassigned = !isLoading;
 
   return (
     <Flex direction="column">
@@ -87,7 +56,11 @@ export const ZoomToUnassigned = () => {
             features={unassignedFeatureBboxes}
             selectedIndex={selectedIndex}
             setSelectedIndex={setSelectedIndex}
-            padding={240}
+            padding={100}
+            labels={unassignedFeatureBboxes.map(feature => {
+              const n = feature.properties?.geo_ids?.length;
+              return n ? `Area · ${n} unit${n === 1 ? '' : 's'}` : 'Area';
+            })}
           />
         </Flex>
       </ConditionalScrollArea>

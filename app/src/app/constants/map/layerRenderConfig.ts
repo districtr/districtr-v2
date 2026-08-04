@@ -23,7 +23,9 @@ export const MAP_LAYER_ANCHOR_ORDER = [
   MAP_LAYER_ANCHOR_IDS.counties,
 ] as const;
 
+// Same value for both so unassigned broken blocks match unassigned parents;
+// the broken parent's own background is hidden underneath (GeometryBackgroundLayer).
 export const UNASSIGNED_BACKGROUND_OPACITY = {
   parent: 0.18,
-  child: 0.22,
+  child: 0.18,
 } as const;

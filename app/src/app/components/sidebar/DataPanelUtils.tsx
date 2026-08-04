@@ -1,5 +1,5 @@
 import {MapControlsStore} from '@/app/store/mapControlsStore';
-import {SECTIONS} from './DataCards';
+import {SECTIONS} from './StackedPanels';
 
 export interface DataPanelSpec {
   title: MapControlsStore['sidebarPanels'][number];

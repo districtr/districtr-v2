@@ -1,6 +1,6 @@
 'use client';
-import {Text, DropdownMenu, Flex, Heading, IconButton, Spinner, Tabs} from '@radix-ui/themes';
-import React, {useRef} from 'react';
+import {Text, DropdownMenu, Flex, Heading, IconButton, Tabs} from '@radix-ui/themes';
+import React, {useEffect, useRef, useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {useMapStore} from '@store/mapStore';
 import {ArrowLeftIcon, HamburgerMenuIcon} from '@radix-ui/react-icons';
@@ -9,42 +9,32 @@ import {defaultPanels} from '@components/sidebar/DataPanelUtils';
 import {PasswordPromptModal} from '../Toolbar/PasswordPromptModal';
 import {UploaderModal} from '../Toolbar/UploaderModal';
 import {MapHeader} from './MapHeader';
-import {saveMapDocumentMetadata} from '@/app/utils/api/apiHandlers/saveMapDocumentMetadata';
-import {idb} from '@/app/utils/idb/idb';
+import {useMetadataChange} from '@/app/hooks/useMetadataChange';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {useIsDesktop} from '@/app/hooks/useIsDesktop';
+import {useUiHintStore} from '@store/uiHintStore';
 import {ModeSwitcher} from './ModeSwitcher';
 import {MapActionsDropdown} from './MapActionsDropdown';
-import {SaveButton} from './SaveButton';
+import {SaveButton, SavingPill} from './SaveButton';
 import {useAutoSave} from '@/app/hooks/useAutoSave';
 
 export const Topbar: React.FC = () => {
   const router = useRouter();
   const {isAutoSaving} = useAutoSave();
-  const [modalOpen, setModalOpen] = React.useState<'upload' | null>(null);
+  const [modalOpen, setModalOpen] = useState<'upload' | null>(null);
   const mapDocument = useMapStore(state => state.mapDocument);
   const isEval = useMapControlsStore(state => state.isEval);
-  const setNotification = useMapStore(state => state.setNotification);
-  const updateMetadata = useMapStore(state => state.updateMetadata);
+  const handleMetadataChange = useMetadataChange();
 
-  const handleMetadataChange = async (updates: Partial<DocumentMetadata>) => {
+  // The static title on edit links is the password warning; swap in the real
+  // title once the map loads.
+  useEffect(() => {
     if (!mapDocument?.document_id) return;
-    const response = await saveMapDocumentMetadata({
-      document_id: mapDocument?.document_id,
-      metadata: updates,
-    });
-    if (response.ok) {
-      idb.updateIdbMetadata(mapDocument?.document_id, updates);
-      updateMetadata(updates);
-    } else {
-      setNotification({
-        message: 'Failed to save metadata',
-        importance: 2,
-        type: 'error',
-      });
-    }
-  };
+    document.title = [mapDocument.map_metadata?.name || 'Districtr Map', mapDocument.map_module]
+      .filter(Boolean)
+      .join(' | ');
+  }, [mapDocument]);
 
   return (
     <>
@@ -80,13 +70,21 @@ export const Topbar: React.FC = () => {
                   Home
                 </DropdownMenu.Item>
                 <DropdownMenu.Item className="cursor-pointer" onSelect={() => router.push('/draw')}>
-                  Main Map
+                  Draw (Main Map)
                 </DropdownMenu.Item>
                 <DropdownMenu.Item
                   className="cursor-pointer"
                   onSelect={() => router.push('/catalog')}
                 >
                   Catalog
+                </DropdownMenu.Item>
+                {/* New tab, not router.push: this menu lives on the editor, and
+                    navigating away in-place would lose the in-progress map. */}
+                <DropdownMenu.Item
+                  className="cursor-pointer"
+                  onSelect={() => window.open('/guide', '_blank', 'noopener,noreferrer')}
+                >
+                  Guide
                 </DropdownMenu.Item>
               </DropdownMenu.Content>
             </DropdownMenu.Root>
@@ -110,16 +108,7 @@ export const Topbar: React.FC = () => {
         {/* Editor panel tabs don't apply to the eval report view. */}
         {!isEval && <MobileDataTabs />}
       </Flex>
-      {isAutoSaving && (
-        <Flex
-          align="center"
-          gap="2"
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[10000] rounded-full bg-gray-900/90 px-4 py-2 text-white shadow-lg"
-        >
-          <Spinner size="1" />
-          <Text size="2">Auto-saving your map…</Text>
-        </Flex>
-      )}
+      {isAutoSaving && <SavingPill message="Auto-saving your map…" />}
       <UploaderModal open={modalOpen === 'upload'} onClose={() => setModalOpen(null)} />
       <PasswordPromptModal />
     </>
@@ -141,15 +130,24 @@ const mobileTabPanels: Array<{
 ];
 
 export const MobileDataTabs: React.FC = () => {
-  const [activeTab, setActiveTab] = React.useState(mobileTabPanels[0].title);
+  const [activeTab, setActiveTab] = useState(mobileTabPanels[0].title);
   const mapMode = useMapControlsStore(state => state.mapMode);
   // Snap back to the Map tab when the viewport grows past lg — otherwise a
   // panel opened at mobile width lingers over the map on desktop, where the
   // tab strip that could dismiss it is hidden.
   const isDesktop = useIsDesktop();
-  React.useEffect(() => {
+  useEffect(() => {
     if (isDesktop) setActiveTab('map');
   }, [isDesktop]);
+  // Helper-box jumps: below lg the sidebar sections don't exist, so hints
+  // open the matching full-screen panel here instead (see uiHintStore).
+  const mobileTabRequest = useUiHintStore(state => state.requests.mobileTab);
+  const clearRequest = useUiHintStore(state => state.clear);
+  useEffect(() => {
+    if (!mobileTabRequest) return;
+    clearRequest('mobileTab');
+    if (!isDesktop) setActiveTab(mobileTabRequest);
+  }, [mobileTabRequest, clearRequest, isDesktop]);
   // Same panel filter as the desktop sidebar: districts-only panels
   // (elections, validity, ...) don't apply to community (COI) maps.
   const visiblePanels = mobileTabPanels.filter(

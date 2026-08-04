@@ -21,6 +21,11 @@ export type CoiPickerProps = {
     communityId: number,
     updates: {name?: string; description?: string; color?: string}
   ) => void;
+  /** Suppresses the digit-key hotkey alongside the caller's own visual
+   * disabling (e.g. pointer-events/opacity) — the two must travel together,
+   * or a keyboard digit can still reassign the selection through a picker
+   * that reads as inert. */
+  disabled?: boolean;
 };
 
 export const CoiPicker = ({
@@ -34,6 +39,7 @@ export const CoiPicker = ({
   availableColors,
   onRemoveCommunity,
   onUpdateCommunity,
+  disabled,
 }: CoiPickerProps) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const stateCommunities = useMapStore(state => state.communities);
@@ -55,6 +61,7 @@ export const CoiPicker = ({
   useEffect(() => {
     // add a listener for option or alt key press and release
     const handleKeyPress = (event: KeyboardEvent) => {
+      if (disabled) return;
       const activeElement = document.activeElement;
       // if active element is an input, don't do anything
       if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement)
@@ -73,7 +80,7 @@ export const CoiPicker = ({
     return () => {
       document.removeEventListener('keydown', handleKeyPress);
     };
-  }, [communities, onValueChange]);
+  }, [communities, onValueChange, disabled]);
 
   const handleSelect = (value: string) => {
     const communityId = Number(value);

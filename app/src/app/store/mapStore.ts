@@ -194,6 +194,8 @@ export interface MapStore {
   mapLock: {
     isLocked: boolean;
     reason: string;
+    // Silent locks (background autosave) still block edits but skip the overlay.
+    silent?: boolean;
   } | null;
   setMapLock: (lock: MapStore['mapLock']) => void;
   notification: {
@@ -315,7 +317,7 @@ export interface MapStore {
 const initialLoadingState =
   typeof window !== 'undefined' &&
   (window.location.pathname.startsWith(`/${MAP_ROUTES.DISTRICTS}/`) ||
-    window.location.pathname.startsWith(`/${MAP_ROUTES.DISTRICTS}/edit/`))
+    window.location.pathname.startsWith(`/${MAP_ROUTES.COI}/`))
     ? APP_LOADING_STATES.LOADING
     : APP_LOADING_STATES.INITIALIZING;
 
@@ -500,10 +502,14 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           bounds: preservedBounds,
           stateFipsSet: newStateFipsSet,
         },
+        // A fresh map (not just switching edit/display/eval views of the same
+        // one) defaults to painting — that's what a user opens a map to do.
         activeTool:
-          mapDocument.access === ACCESS_STATES.EDIT
-            ? mapControlsState.activeTool
-            : ACTIVE_TOOLS.PAN,
+          mapDocument.access !== ACCESS_STATES.EDIT
+            ? ACTIVE_TOOLS.PAN
+            : sameMapAcrossViews
+              ? mapControlsState.activeTool
+              : ACTIVE_TOOLS.BRUSH,
         selectedZone: communities[0]?.id ?? mapControlsState.selectedZone,
         sidebarPanels: ['population'],
         isPainting: false,
@@ -1223,10 +1229,16 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       }
 
       const featureBbox = features[0].geometry && bbox(features[0].geometry);
-      const mapBbox =
-        featureBbox?.length && featureBbox?.length >= 4
-          ? (featureBbox.slice(0, 4) as maplibregl.LngLatBoundsLike)
-          : undefined;
+      // Pad the unit's bbox so the fitted block view has breathing room around
+      // the broken unit. Generous: the geometry is a queried tile feature, so
+      // it's clipped at tile boundaries and the bbox can undershoot the unit.
+      let mapBbox: maplibregl.LngLatBoundsLike | undefined = undefined;
+      if (featureBbox?.length && featureBbox.length >= 4) {
+        const [west, south, east, north] = featureBbox as [number, number, number, number];
+        const padX = (east - west) * 0.3;
+        const padY = (north - south) * 0.3;
+        mapBbox = [west - padX, south - padY, east + padX, north + padY];
+      }
 
       set({
         mapLock: null,
@@ -1240,6 +1252,13 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         ],
       });
       useMapControlsStore.setState({activeTool: ACTIVE_TOOLS.BRUSH});
+      // County painting makes no sense inside a broken unit. Dynamic import:
+      // getFeaturesInBbox imports this store, so a static import would cycle.
+      if (useMapControlsStore.getState().mapOptions.paintByCounty) {
+        const {getFeaturesInBbox} = await import('@utils/map/getFeaturesInBbox');
+        useMapControlsStore.getState().setPaintFunction(getFeaturesInBbox);
+        setMapOptions({paintByCounty: false});
+      }
       setMapOptions({
         mode: 'break',
         bounds: mapBbox,

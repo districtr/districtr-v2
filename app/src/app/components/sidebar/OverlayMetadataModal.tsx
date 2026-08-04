@@ -1,15 +1,6 @@
 'use client';
 import React, {useState} from 'react';
-import {
-  Dialog,
-  Flex,
-  Text,
-  Heading,
-  Separator,
-  Spinner,
-  Callout,
-  IconButton,
-} from '@radix-ui/themes';
+import {Button, Dialog, Flex, Text, Heading, Separator, Spinner, Callout} from '@radix-ui/themes';
 import {InfoCircledIcon, Cross2Icon} from '@radix-ui/react-icons';
 import {useMapStore} from '@/app/store/mapStore';
 import {fastUniqBy} from '@/app/utils/arrays';
@@ -154,17 +145,15 @@ export const OverlayMetadataModal: React.FC = () => {
 
   return (
     <Dialog.Root open={open} onOpenChange={handleOpenChange}>
+      {/* A labeled button, not a bare info-circle icon: a bare (i) is the app's
+          shorthand for "hover me for a quick explainer" (HelpTip), while this is a
+          click-triggered modal of data provenance — a different affordance that
+          shouldn't share the same visual. */}
       <Dialog.Trigger>
-        <IconButton
-          variant="ghost"
-          color="gray"
-          size="1"
-          className="cursor-pointer"
-          title="About these boundaries"
-          aria-label="About these boundaries"
-        >
+        <Button variant="soft" color="gray" size="1" className="cursor-pointer">
           <InfoCircledIcon />
-        </IconButton>
+          Data info
+        </Button>
       </Dialog.Trigger>
       <Dialog.Content className="max-w-[500px]">
         <Flex align="start" justify="between">

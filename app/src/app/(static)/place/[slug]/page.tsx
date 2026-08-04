@@ -5,10 +5,17 @@ import {PlaceMapGrid} from '@/app/components/Static/Interactions/PlaceMapGrid';
 import {getAvailableDistrictrMaps} from '@/app/utils/api/apiHandlers/getAvailableDistrictrMaps';
 import {getCMSContent} from '@/app/utils/api/cms';
 import {Flex, Heading} from '@radix-ui/themes';
-import {ImportBlockAssignments} from '@/app/components/Static/Interactions/ImportBlockAssignments';
 import {cookies} from 'next/headers';
 
 export const revalidate = 3600;
+
+export async function generateMetadata({params}: {params: Promise<{slug: string}>}) {
+  const [{slug}, userCookies] = await Promise.all([params, cookies()]);
+  const language = userCookies.get('language')?.value ?? 'en';
+  const cmsData = await getCMSContent(slug, language, 'places').catch(() => null);
+  const title = cmsData?.content?.published_content?.title;
+  return title ? {title, description: `Draw and explore districting maps for ${title}`} : {};
+}
 
 export default async function Page({params}: {params: Promise<{slug: string}>}) {
   const [{slug}, userCookies] = await Promise.all([params, cookies()]);
@@ -34,7 +41,7 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
     : null;
 
   return (
-    <Flex direction="column" width="100%">
+    <Flex direction="column" width="100%" pt="4">
       <Heading as="h1" size="6" mb="4">
         {cmsData.content.published_content.title}
       </Heading>
@@ -44,9 +51,6 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
       />
       <ContentSection title="Draw a plan from scratch">
         {Boolean(availableMaps?.length) && <PlaceMapGrid maps={availableMaps!} />}
-        <Flex direction="column" align="start" pt="3">
-          <ImportBlockAssignments />
-        </Flex>
       </ContentSection>
 
       <RichTextRenderer content={cmsData.content.published_content.body} className="my-4" />

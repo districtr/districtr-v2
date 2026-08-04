@@ -1,13 +1,5 @@
 import React from 'react';
-import {
-  Heading,
-  CheckboxGroup,
-  Flex,
-  Button,
-  Text,
-  Select,
-  SegmentedControl,
-} from '@radix-ui/themes';
+import {Heading, CheckboxGroup, Flex, Button, Text, Select, RadioCards} from '@radix-ui/themes';
 import {type BasemapId, BASEMAP_IDS} from '@/app/constants/map/layerStyle';
 import {useFeatureFlagStore} from '@store/featureFlagStore';
 import {useMapStore} from '@store/mapStore';
@@ -19,15 +11,23 @@ import {ColorChangeModal} from './ColorChangeModal';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {ACCESS_STATES} from '@constants/document/state';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
-import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
+import {SUMMARY_TYPES, type OverlayGroup} from '@constants/demography/summary';
 import {OVERLAY_OPACITY} from '@/app/constants/document/limits';
-import {activateOverlayGroup, overlayMemory} from '@utils/demography/overlayMemory';
+import {
+  activateOverlayGroup,
+  overlayGroupVariables,
+  overlayMemory,
+} from '@utils/demography/overlayMemory';
 
 /** Layers
  * This component is responsible for rendering the layers that can be toggled
  * on and off in the map.
  */
-export const ToolSettings: React.FC = () => {
+/** inWorkflowTab: the sidebar's Map Layers tab renders its own section header
+ * and per-section display-mode controls, so this component drops its "Map
+ * Options" title and the overlay-layer picker there; popover contexts (stacked
+ * layout, mobile dock) keep both. */
+export const ToolSettings: React.FC<{inWorkflowTab?: boolean}> = ({inWorkflowTab}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const parentsAreBroken = useAssignmentsStore(state => state.shatterIds.parents.size);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
@@ -43,30 +43,21 @@ export const ToolSettings: React.FC = () => {
   // Overlay layer: one selection among none / demographic / election (the
   // groups are mutually exclusive, so this is a mode picker, not independent
   // checkboxes). Super Draw offers every group with data on this map; Draw
-  // offers each group the user has toggled on so far — either alone is
-  // enough, both appear once both have been used.
+  // offers each group once it's actually been used.
   const electionVariables = availableMapVariables[SUMMARY_TYPES.VOTERHISTORY] ?? [];
   const isElectionVariable = electionVariables.some(v => v.value === variable);
   // "On" means either display mode — overlay or the side-by-side comparison.
   const overlayOn = mapOptions.demographicDisplayMode !== undefined;
-  const allGroups = [SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VOTERHISTORY] as SummaryType[];
-  const overlayGroups: Array<{group: SummaryType; label: string}> = (
-    superDraw
-      ? allGroups
-      : allGroups.filter(
-          group => overlayMemory.variables[group] || overlayMemory.lastGroup === group
-        )
+  const allGroups: OverlayGroup[] = ['demography', 'election'];
+  const overlayGroups: Array<{group: OverlayGroup; label: string}> = (
+    superDraw ? allGroups : allGroups.filter(group => overlayMemory.variables[group])
   )
-    .filter(group => (availableMapVariables[group] ?? []).length > 0)
+    .filter(group => overlayGroupVariables(group).length > 0)
     .map(group => ({
       group,
-      label: group === SUMMARY_TYPES.VOTERHISTORY ? 'Election' : 'Demographic',
+      label: group === 'election' ? 'Election' : 'Demographic',
     }));
-  const overlayValue = !overlayOn
-    ? 'none'
-    : isElectionVariable
-      ? SUMMARY_TYPES.VOTERHISTORY
-      : SUMMARY_TYPES.TOTPOP;
+  const overlayValue = !overlayOn ? 'none' : isElectionVariable ? 'election' : 'demography';
 
   const handleOverlayChange = (value: string) => {
     if (value === 'none') {
@@ -85,7 +76,7 @@ export const ToolSettings: React.FC = () => {
       });
       return;
     }
-    activateOverlayGroup(value as SummaryType);
+    activateOverlayGroup(value as OverlayGroup);
   };
 
   return (
@@ -97,7 +88,6 @@ export const ToolSettings: React.FC = () => {
           value={[
             mapOptions.showPaintedDistricts === true ? 'showPaintedDistricts' : '',
             mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : '',
-            mapOptions.showPopulationTooltip === true ? 'showPopulationTooltip' : '',
             mapDocument?.child_layer && mapOptions.showBlockPopulationNumbers === true
               ? 'showBlockPopulationNumbers'
               : '',
@@ -110,15 +100,16 @@ export const ToolSettings: React.FC = () => {
               ? 'showDemographicMap'
               : '',
             mapOptions.showCountyBoundaries === true ? 'showCountyBoundaries' : '',
-            mapOptions.showZoneNumbers === true ? 'showZoneNumbers' : '',
             parentsAreBroken && mapOptions.highlightBrokenDistricts === true
               ? 'highlightBrokenDistricts'
               : '',
           ]}
         >
-          <Heading as="h3" weight="bold" size="3">
-            Map Options
-          </Heading>
+          {!inWorkflowTab && (
+            <Heading as="h3" weight="bold" size="3">
+              Map Options
+            </Heading>
+          )}
 
           {superDraw && (
             <Flex direction="row" gapX="2" align="center">
@@ -148,27 +139,6 @@ export const ToolSettings: React.FC = () => {
             disabled={mapDocument === null}
           >
             Painted districts
-          </CheckboxGroup.Item>
-          <CheckboxGroup.Item
-            value="showZoneNumbers"
-            onClick={() =>
-              setMapOptions({
-                showZoneNumbers: !mapOptions.showZoneNumbers,
-              })
-            }
-          >
-            District numbers
-          </CheckboxGroup.Item>
-          <CheckboxGroup.Item
-            value="showPopulationTooltip"
-            onClick={() =>
-              setMapOptions({
-                showPopulationTooltip: !mapOptions.showPopulationTooltip,
-              })
-            }
-            disabled={access === ACCESS_STATES.READ}
-          >
-            Population tooltip
           </CheckboxGroup.Item>
           {superDraw && (
             <CheckboxGroup.Item
@@ -231,26 +201,30 @@ export const ToolSettings: React.FC = () => {
             </Button>
           )}
         </CheckboxGroup.Root>
-        {overlayGroups.length > 0 && (
-          <>
+        {!inWorkflowTab && overlayGroups.length > 0 && (
+          <Flex direction="row" align="center" gap="3" wrap="wrap">
             <Heading as="h3" weight="bold" size="3">
               {/* Super Draw can show the choropleth as overlay OR comparison,
                   so "overlay" would be a misnomer there. */}
               {superDraw ? 'Map choropleth layer' : 'Map overlay layer'}
             </Heading>
-            <SegmentedControl.Root
+            <RadioCards.Root
               size="1"
+              gap="2"
+              style={{display: 'flex', flexWrap: 'wrap'}}
               value={overlayValue}
               onValueChange={handleOverlayChange}
             >
-              <SegmentedControl.Item value="none">None</SegmentedControl.Item>
+              <RadioCards.Item value="none" className="cursor-pointer">
+                <Text size="2">None</Text>
+              </RadioCards.Item>
               {overlayGroups.map(entry => (
-                <SegmentedControl.Item key={entry.group} value={entry.group}>
-                  {entry.label}
-                </SegmentedControl.Item>
+                <RadioCards.Item key={entry.group} value={entry.group} className="cursor-pointer">
+                  <Text size="2">{entry.label}</Text>
+                </RadioCards.Item>
               ))}
-            </SegmentedControl.Root>
-          </>
+            </RadioCards.Root>
+          </Flex>
         )}
         {boundarySettings && (
           <>

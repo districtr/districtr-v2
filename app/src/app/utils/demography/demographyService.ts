@@ -41,7 +41,7 @@ import {
 } from '@/app/store/demography/constants';
 import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
-import {evalColumnConfigs} from '@/app/store/demography/evaluationConfig';
+import {evalColumnConfigs} from '@/app/store/demography/demographyTableConfig';
 import {
   SUMMARY_TYPES,
   COALITION_UNIVERSES,
@@ -176,6 +176,16 @@ class DemographyService {
   universeTotals: SummaryRecord | null = null;
 
   colorScale?: AnyD3Scale;
+
+  /**
+   * Cache of `getFiltered()` results keyed by county/VTD id, so repeatedly
+   * re-entering the same county under the brush (e.g. dragging back and
+   * forth across a border) doesn't re-scan `table`. Invalidated wherever
+   * `table` is reassigned — see `update()`, `updatePublicDemography()`, and
+   * `clear()`.
+   */
+  private filteredCache: Map<string, MapGeoJSONFeature[]> = new Map();
+
   /**
    * Updates the cache with freshly loaded demographic columns/results.
    *
@@ -192,6 +202,7 @@ class DemographyService {
     if (hash === this.hash) return;
     this.isPublicSource = false;
     this.availableColumns = columns;
+    this.filteredCache.clear();
     this.table = table(data).derive(getColumnDerives(columns)).dedupe('path');
     const popsOk = this.updatePopulations({
       zoneAssignments: getActivePopulationAssignments(),
@@ -216,6 +227,7 @@ class DemographyService {
     if (hash === this.hash) return;
     this.isPublicSource = true;
     this.availableColumns = columns;
+    this.filteredCache.clear();
     this.table = table(data).derive(getColumnDerives(columns)).dedupe('path');
     const popsOk = this.updatePopulations({coalitionGroups});
     if (!popsOk) return;
@@ -276,6 +288,7 @@ class DemographyService {
     this.hash = '';
     this.colorScale = undefined;
     this.zoneStats = {};
+    this.filteredCache.clear();
   }
 
   private getCoalitionColumns(
@@ -341,6 +354,10 @@ class DemographyService {
     if (!this.table) {
       return [];
     }
+    const cached = this.filteredCache.get(id);
+    if (cached) {
+      return cached;
+    }
     const ids = this.table
       .select(this.id_col, 'sourceLayer', 'total_pop_20')
       .params({
@@ -358,7 +375,29 @@ class DemographyService {
         source: BLOCK_SOURCE_ID,
         properties,
       })) as MapGeoJSONFeature[];
+    this.filteredCache.set(id, ids);
     return ids;
+  }
+
+  /**
+   * Whether the currently loaded units span more than one county. Early-exits
+   * on the second distinct county FIPS found — callers only need "more than
+   * one," never the actual count or the list, so there's no reason to scan
+   * past that. `path` values look like `vtd:48001000001` (or without a type
+   * prefix for some geography levels) — the state+county FIPS is always the
+   * 5 digits right after any `<type>:` prefix.
+   */
+  spansMultipleCounties(): boolean {
+    if (!this.table) return false;
+    const paths = this.table.array(this.id_col) as string[];
+    if (!paths.length) return false;
+    const toGeoid = (path: string) =>
+      path.includes(':') ? path.slice(path.indexOf(':') + 1) : path;
+    const firstCountyFips = toGeoid(paths[0]).slice(0, 5);
+    for (let i = 1; i < paths.length; i++) {
+      if (!toGeoid(paths[i]).startsWith(firstCountyFips)) return true;
+    }
+    return false;
   }
 
   /**

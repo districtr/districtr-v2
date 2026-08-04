@@ -5,6 +5,7 @@ import {Button, Flex, Text, Dialog, Box, TextField, Progress, Blockquote} from '
 import {useRouter, useSearchParams} from 'next/navigation';
 import {postGrantEditAccess} from '@/app/utils/api/apiHandlers/postGrantEditAccess';
 import {routeManager} from '@/app/utils/map/mapUrlRoute';
+import {editPath} from '@/app/utils/map/editUrl';
 import {useEditableDocId} from '@/app/hooks/useEditableDocId';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 
@@ -35,8 +36,10 @@ export const PasswordPromptModal = () => {
       setPasswordPrompt(false);
       // A cancelled unlock abandons any requested draw mode.
       useToolbarStore.getState().setPendingSuperDraw(null);
-      // remove pw from url
-      router.replace(window.location.pathname);
+      // remove pw from url, keeping other params (e.g. private_edit_id)
+      const url = new URL(window.location.href);
+      url.searchParams.delete('pw');
+      router.replace(url.pathname + url.search);
     } else if (mapDocument?.public_id && password) {
       setIsLoading(true);
       setError(null);
@@ -52,7 +55,9 @@ export const PasswordPromptModal = () => {
             setSuperDraw(pendingSuperDraw);
             setPendingSuperDraw(null);
           }
-          router.push(`/${routeManager.mapUrlRoute}/edit/${res.response.document_id}`);
+          router.push(
+            editPath(routeManager.mapUrlRoute, res.response.document_id, mapDocument.public_id)
+          );
         } else {
           setError(res.error?.detail ?? 'An unknown error occurred');
         }

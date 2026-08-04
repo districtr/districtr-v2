@@ -1,13 +1,17 @@
 'use client';
 import React, {useState} from 'react';
-import {Button, DropdownMenu, Text, Tooltip} from '@radix-ui/themes';
+import {Button, DropdownMenu, Text} from '@radix-ui/themes';
 import {CaretDownIcon, MixIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
+import {useUiHintStore} from '@store/uiHintStore';
 import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
 import {ACCESS_STATES} from '@constants/document/state';
 import {DocumentMetadata} from '@utils/api/apiHandlers/types';
 import {SaveShareModal} from '../Toolbar/SaveShareModal/SaveShareModal';
+import {useDraftStatusHelperDismissal} from '@components/sidebar/DraftStatusHelper';
 import {fetchWithSession} from '@utils/api/session';
+import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
+import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 
 /** Consolidated "Map actions" menu for the editor topbar: share, export,
  * and reset in one dropdown. Saving lives in the topbar SaveButton;
@@ -20,6 +24,7 @@ export const MapActionsDropdown: React.FC<{
   const access = useMapStore(state => state.mapStatus?.access);
   const handleReset = useMapStore(state => state.handleReset);
   const setNotification = useMapStore(state => state.setNotification);
+  const {save} = useMapSaveStatus();
 
   const notifyExportFailed = (reason: string) =>
     setNotification({
@@ -33,6 +38,20 @@ export const MapActionsDropdown: React.FC<{
   // stuck on the body when a dialog opens from onSelect.
   const openModal = (which: 'share') => setTimeout(() => setModal(which), 0);
 
+  // "Share your map" guide: pulses this trigger, then the Share item.
+  const guideTarget = useUiHintStore(state => state.guideTargets[0]);
+  const advanceGuide = useUiHintStore(state => state.advanceGuide);
+  const cancelGuide = useUiHintStore(state => state.cancelGuide);
+  const {dismissed: guideDismissed, restore: restoreGuide} = useDraftStatusHelperDismissal();
+  const handleMenuOpenChange = (open: boolean) => {
+    if (open) {
+      advanceGuide('map-actions');
+    } else if (guideTarget === 'map-actions-share') {
+      // Closed without selecting: end the guide rather than pulse an unmounted item.
+      cancelGuide();
+    }
+  };
+
   // Export works for view-only users too: the backend resolves a public_id the same
   // as a document UUID, so fall back to the public_id when the loaded doc is the
   // anonymous read-only copy.
@@ -43,6 +62,13 @@ export const MapActionsDropdown: React.FC<{
 
   const downloadExport = async (exportType: string) => {
     if (!exportId) return;
+    // Save first so the export reflects local edits — but only for editors.
+    // On failure just abort: handlePutAssignments already surfaced
+    // it (conflict modal or error toast), so a toast here would double-notify.
+    if (access === ACCESS_STATES.EDIT) {
+      const saveResponse = await save();
+      if (!saveResponse.ok) return;
+    }
     // Fetch via the session-aware client (plain anchor navigation can't attach
     // the X-Districtr-Session header) and save the blob through a transient
     // anchor. Filename comes from the backend's Content-Disposition.
@@ -73,30 +99,39 @@ export const MapActionsDropdown: React.FC<{
 
   return (
     <>
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger>
-          <Button
-            variant="surface"
-            color="gray"
-            size="2"
-            className="cursor-pointer relative transition-shadow hover:shadow-md"
-            data-testid="map-actions-trigger"
-          >
-            <MixIcon />
-            {/* Icon-only on phones to keep the topbar to one row. */}
-            <span className="hidden md:inline">Map actions</span>
-            <CaretDownIcon />
-          </Button>
-        </DropdownMenu.Trigger>
+      <DropdownMenu.Root onOpenChange={handleMenuOpenChange}>
+        {/* HelpTip wraps DropdownMenu.Trigger (not the reverse) — see ModeSwitcher.tsx
+            for why the order matters (chained asChild forwarding). */}
+        <HelpTip tip="mapActions" openDelay={HELP_TIP_HOVER_DELAY}>
+          <DropdownMenu.Trigger>
+            <Button
+              variant="surface"
+              color="gray"
+              size="2"
+              className={`cursor-pointer relative transition-shadow hover:shadow-md ${
+                guideTarget === 'map-actions' ? 'ui-guide' : ''
+              }`}
+              data-testid="map-actions-trigger"
+            >
+              <MixIcon />
+              {/* Icon-only on phones to keep the topbar to one row. */}
+              <span className="hidden md:inline">Map actions</span>
+              <CaretDownIcon />
+            </Button>
+          </DropdownMenu.Trigger>
+        </HelpTip>
         <DropdownMenu.Content
           sideOffset={6}
           className="min-w-[var(--radix-dropdown-menu-trigger-width)]"
         >
           <DropdownMenu.Item
-            className="cursor-pointer"
+            className={`cursor-pointer ${guideTarget === 'map-actions-share' ? 'ui-guide' : ''}`}
             disabled={!mapDocument?.document_id}
             data-testid="share-button"
-            onSelect={() => openModal('share')}
+            onSelect={() => {
+              advanceGuide('map-actions-share');
+              openModal('share');
+            }}
           >
             Share map
           </DropdownMenu.Item>
@@ -109,36 +144,37 @@ export const MapActionsDropdown: React.FC<{
                 className="cursor-pointer"
                 onSelect={() => downloadExport('BlockAssignmentsCSV')}
               >
-                <Tooltip content="Download a CSV of GEOIDs and zone IDs">
-                  <span>Unit assignments (CSV)</span>
-                </Tooltip>
+                Unit assignments (CSV)
               </DropdownMenu.Item>
               <DropdownMenu.Item
                 className="cursor-pointer"
                 onSelect={() => downloadExport('DistrictsGeoJSON')}
               >
-                <Tooltip content="Download a GeoJSON of dissolved district boundary polygons">
-                  <span>District boundaries (GeoJSON)</span>
-                </Tooltip>
+                District boundaries (GeoJSON)
               </DropdownMenu.Item>
               <DropdownMenu.Item
                 className="cursor-pointer"
                 onSelect={() => downloadExport('DistrictsShapefile')}
               >
-                <Tooltip content="Download a zipped Shapefile of dissolved district boundary polygons">
-                  <span>District boundaries (Shapefile)</span>
-                </Tooltip>
+                District boundaries (Shapefile)
               </DropdownMenu.Item>
               <DropdownMenu.Item
                 className="cursor-pointer"
                 onSelect={() => downloadExport('EvaluationJSON')}
               >
-                <Tooltip content="Download a JSON of evaluation metrics for this map">
-                  <span>Evaluation metrics (JSON)</span>
-                </Tooltip>
+                Evaluation metrics (JSON)
               </DropdownMenu.Item>
             </DropdownMenu.SubContent>
           </DropdownMenu.Sub>
+          {guideDismissed && (
+            <DropdownMenu.Item
+              className="cursor-pointer"
+              onSelect={restoreGuide}
+              data-testid="show-map-guide"
+            >
+              Show map guide
+            </DropdownMenu.Item>
+          )}
           <DropdownMenu.Separator />
           <DropdownMenu.Sub>
             <DropdownMenu.SubTrigger
