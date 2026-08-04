@@ -52,7 +52,7 @@ export const helpTipContent = {
   // (the video modal's description still does).
   drawToolsCombination: {
     title: 'Draw tools',
-    text: 'Use county brush to paint the basic outline, and use smaller brushes/erasers to refine the edges:',
+    text: 'Use Paint by county to paint the basic outline, and use smaller brushes/erasers to refine the edges:',
     videoFile: 'draw_tools_combination.webm',
     guideAnchor: 'drawing-the-districts',
     linkSuffix: 'on how to combine tools efficiently',
@@ -184,13 +184,13 @@ export const helpTipContent = {
   },
   mapActions: {
     title: 'Map actions',
-    text: 'Click "Map actions" above to share a link to your map, or export it as a CSV of unit assignments, a GeoJSON or Shapefile of district boundaries, or a JSON of evaluation metrics.',
+    text: 'Share a link to your map, or export it as a CSV, GeoJSON, Shapefile, or JSON.',
     videoFiles: ['share_map.webm', 'export.webm'],
     guideAnchor: 'saving-sharing-importing-and-exporting',
   },
   modeSwitcher: {
     title: 'Switching modes',
-    text: 'Click the mode switcher above to move between Draw (build your plan), View (a clean read-only display), and Evaluate (a dashboard of stats about it).',
+    text: 'Switch between Draw, View, and Evaluate modes.',
     videoFiles: ['view_mode.webm', 'evaluation_mode.webm'],
     guideAnchor: 'map-modes',
   },

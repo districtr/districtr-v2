@@ -1,6 +1,6 @@
 'use client';
 import {Text, DropdownMenu, Flex, Heading, IconButton, Tabs} from '@radix-ui/themes';
-import React, {useRef} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {useMapStore} from '@store/mapStore';
 import {ArrowLeftIcon, HamburgerMenuIcon} from '@radix-ui/react-icons';
@@ -22,10 +22,19 @@ import {useAutoSave} from '@/app/hooks/useAutoSave';
 export const Topbar: React.FC = () => {
   const router = useRouter();
   const {isAutoSaving} = useAutoSave();
-  const [modalOpen, setModalOpen] = React.useState<'upload' | null>(null);
+  const [modalOpen, setModalOpen] = useState<'upload' | null>(null);
   const mapDocument = useMapStore(state => state.mapDocument);
   const isEval = useMapControlsStore(state => state.isEval);
   const handleMetadataChange = useMetadataChange();
+
+  // The static title on edit links is the password warning; swap in the real
+  // title once the map loads.
+  useEffect(() => {
+    if (!mapDocument?.document_id) return;
+    document.title = [mapDocument.map_metadata?.name || 'Districtr Map', mapDocument.map_module]
+      .filter(Boolean)
+      .join(' | ');
+  }, [mapDocument]);
 
   return (
     <>
@@ -121,20 +130,20 @@ const mobileTabPanels: Array<{
 ];
 
 export const MobileDataTabs: React.FC = () => {
-  const [activeTab, setActiveTab] = React.useState(mobileTabPanels[0].title);
+  const [activeTab, setActiveTab] = useState(mobileTabPanels[0].title);
   const mapMode = useMapControlsStore(state => state.mapMode);
   // Snap back to the Map tab when the viewport grows past lg — otherwise a
   // panel opened at mobile width lingers over the map on desktop, where the
   // tab strip that could dismiss it is hidden.
   const isDesktop = useIsDesktop();
-  React.useEffect(() => {
+  useEffect(() => {
     if (isDesktop) setActiveTab('map');
   }, [isDesktop]);
   // Helper-box jumps: below lg the sidebar sections don't exist, so hints
   // open the matching full-screen panel here instead (see uiHintStore).
   const mobileTabRequest = useUiHintStore(state => state.requests.mobileTab);
   const clearRequest = useUiHintStore(state => state.clear);
-  React.useEffect(() => {
+  useEffect(() => {
     if (!mobileTabRequest) return;
     clearRequest('mobileTab');
     if (!isDesktop) setActiveTab(mobileTabRequest);

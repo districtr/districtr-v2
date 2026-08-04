@@ -3,7 +3,8 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
-import {useUiHintStore} from '@/app/store/uiHintStore';
+import {useUiHintStore, useGuideTarget} from '@/app/store/uiHintStore';
+import {useFeatureFlagStore} from '@/app/store/featureFlagStore';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {demographyService} from '@/app/utils/demography/demographyService';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
@@ -20,13 +21,25 @@ import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 // which has no way to see this mismatch.
 const CONNECTICUT_STATE_FIPS = '09';
 
+/** Whether county painting can work on this map at all: LOCAL maps (flag
+ * off), Connecticut (see above), and single-county maps can't. Exported for
+ * DraftStatusHelper's rough-draw hint. */
+export const useCountyPaintAvailable = (): boolean => {
+  const paintCounties = useFeatureFlagStore(state => state.paintCounties);
+  const statefps = useMapStore(state => state.mapDocument?.statefps);
+  // Re-render when demography data (re)loads.
+  const dataHash = useDemographyStore(state => state.dataHash);
+  const isConnecticut = statefps?.length === 1 && statefps[0] === CONNECTICUT_STATE_FIPS;
+  const isSingleCounty = !isConnecticut && !!dataHash && !demographyService.spansMultipleCounties();
+  return paintCounties && !isConnecticut && !isSingleCounty;
+};
+
 export default function PaintByCounty() {
   const mapRef = useMapStore(state => state.getMapRef());
   const setPaintFunction = useMapControlsStore(state => state.setPaintFunction);
   const paintByCounty = useMapControlsStore(state => state.mapOptions.paintByCounty);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const access = useMapStore(state => state.mapStatus?.access);
-  const statefps = useMapStore(state => state.mapDocument?.statefps);
   const clearPaintConstraint = useOverlayStore(state => state.clearPaintConstraint);
   const activeTool = useMapControlsStore(state => state.activeTool);
   const inBlockView = useMapStore(state => state.captiveIds.size > 0);
@@ -42,20 +55,15 @@ export default function PaintByCounty() {
   // Pan doesn't paint at all — same as the brush-size slider and zone picker,
   // just visually/functionally inert, no explanatory tooltip needed.
   const disabledForPan = activeTool === ACTIVE_TOOLS.PAN;
-  // Re-render when demography data (re)loads, so this always reflects the
-  // currently loaded unit universe rather than a stale render.
-  const dataHash = useDemographyStore(state => state.dataHash);
-  const isConnecticut = statefps?.length === 1 && statefps[0] === CONNECTICUT_STATE_FIPS;
-  const isSingleCounty = !isConnecticut && !!dataHash && !demographyService.spansMultipleCounties();
-  // A single-county map or local map has no second county to paint by; toggling
-  // wouldn't do anything, so the control itself is disabled, not just unchecked.
-  const disabledForGeography = isConnecticut || isSingleCounty;
+  const disabledForGeography = !useCountyPaintAvailable();
   const disabled =
     access === ACCESS_STATES.READ || lockedForBreak || disabledForPan || disabledForGeography;
-  // The helper's "paint by counties" hint pulses this control.
-  const flashing = useUiHintStore(state => state.flashTarget === 'county-brush');
+  // Already on counts as satisfied — a click would turn it off.
+  const {guiding, flashing} = useGuideTarget('county-brush', paintByCounty);
+  const advanceGuide = useUiHintStore(state => state.advanceGuide);
 
   const handleToggle = () => {
+    advanceGuide('county-brush');
     if (!mapRef) return;
     setMapOptions({
       paintByCounty: !paintByCounty,
@@ -84,7 +92,9 @@ export default function PaintByCounty() {
     >
       <Card
         size="1"
-        className={`${paintByCounty ? 'bg-indigo-50' : ''} ${flashing ? 'ui-flash' : ''}`}
+        className={`${paintByCounty ? 'bg-indigo-50' : ''} ${
+          guiding ? 'ui-guide' : flashing ? 'ui-flash' : ''
+        }`}
         style={
           lockedForBreak || disabledForPan || disabledForGeography ? {opacity: 0.5} : undefined
         }
@@ -92,7 +102,7 @@ export default function PaintByCounty() {
         <Text as="label" size="2" className="cursor-pointer select-none">
           <Flex gap="2" align="center">
             <Checkbox checked={paintByCounty} onCheckedChange={handleToggle} disabled={disabled} />
-            County Brush
+            Paint by county
           </Flex>
         </Text>
       </Card>

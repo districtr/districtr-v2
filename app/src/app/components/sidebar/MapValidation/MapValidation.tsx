@@ -15,7 +15,7 @@ import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useUnassignedFeatures} from '@/app/hooks/useUnassignedFeatures';
-import {useUiHintStore, type ValidationTab} from '@/app/store/uiHintStore';
+import {useGuideTarget, type ValidationTab} from '@/app/store/uiHintStore';
 import {getContiguity} from '@utils/api/apiHandlers/getContiguity';
 import {formatNumber} from '@utils/numbers';
 import {NUMBER_FORMATS} from '@constants/demography/format';
@@ -62,16 +62,12 @@ export const MapValidation = () => {
   });
   const togglePanel = (panel: ValidationTab) =>
     setOpenPanels(prev => ({...prev, [panel]: !prev[panel]}));
-  // Helper-box hints jump straight to a validation panel; consuming at mount
-  // is deliberate here — the jump usually mounts this component.
-  const validationTabRequest = useUiHintStore(state => state.requests.validationTab);
-  const clearRequest = useUiHintStore(state => state.clear);
-  useEffect(() => {
-    if (validationTabRequest) {
-      setOpenPanels(prev => ({...prev, [validationTabRequest]: true}));
-      clearRequest('validationTab');
-    }
-  }, [validationTabRequest, clearRequest]);
+  const panelGuides = {
+    Contiguity: useGuideTarget('validation:Contiguity', openPanels.Contiguity),
+    Completeness: useGuideTarget('validation:Completeness', openPanels.Completeness),
+  };
+  const panelHintClass = (panel: ValidationTab) =>
+    panelGuides[panel].guiding ? 'ui-guide' : panelGuides[panel].flashing ? 'ui-flash' : '';
   const mapDocument = useMapStore(state => state.mapDocument);
   const idbDocument = useIdbDocument(mapDocument?.document_id);
   const access = useMapStore(state => state.mapStatus?.access);
@@ -155,9 +151,9 @@ export const MapValidation = () => {
   const contiguityDetail = !pieceCounts
     ? 'Not checked yet'
     : brokenDistricts > 0
-      ? `${brokenDistricts} district${brokenDistricts === 1 ? '' : 's'} split into pieces`
+      ? `${brokenDistricts} district${brokenDistricts === 1 ? '' : 's'} split into multiple components`
       : contiguousDistricts >= numDistricts
-        ? 'All districts in one piece'
+        ? 'Each district is one connected component'
         : `${unstartedDistricts} district${unstartedDistricts === 1 ? '' : 's'} not started`;
 
   useEffect(() => {
@@ -207,6 +203,7 @@ export const MapValidation = () => {
         open={openPanels.Completeness}
         onToggle={() => togglePanel('Completeness')}
         buttonClassName="h-auto"
+        className={panelHintClass('Completeness')}
         label={
           <CheckHeader
             title="Completeness"
@@ -221,6 +218,7 @@ export const MapValidation = () => {
         open={openPanels.Contiguity}
         onToggle={() => togglePanel('Contiguity')}
         buttonClassName="h-auto"
+        className={panelHintClass('Contiguity')}
         label={
           <CheckHeader title="Contiguity" status={contiguityStatus} detail={contiguityDetail} />
         }
