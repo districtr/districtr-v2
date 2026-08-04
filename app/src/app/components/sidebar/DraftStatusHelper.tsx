@@ -328,13 +328,13 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
 
   const scratchItems: ChecklistItem[] = [
     {
-      label: `Are all districts started? (${paintedZones}/${numDistricts})`,
+      label: `All districts started? (${paintedZones}/${numDistricts})`,
       done: paintedZones >= numDistricts,
     },
     {
-      label: `Has all population been assigned to a district?${
+      label: `All population assigned?${
         unassigned !== undefined && unassigned > 0
-          ? ` (${formatNumber(unassigned, NUMBER_FORMATS.STRING)} remaining)`
+          ? ` (${formatNumber(unassigned, NUMBER_FORMATS.STRING)} left)`
           : ''
       }`,
       done: unassigned === 0,
@@ -349,7 +349,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
               unassignedRatio !== undefined &&
               unassignedRatio > ROUGH_DRAW_UNASSIGNED_RATIO
                 ? {
-                    label: 'Paint by counties to roughly draw districts',
+                    label: 'Paint by counties',
                     onClick: () => guideToBrushControl('county-brush'),
                   }
                 : {
@@ -364,14 +364,11 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
   const balanced = maxDeviation !== undefined && maxDeviation <= BALANCE_DEVIATION;
   const refineItems: ChecklistItem[] = [
     {
-      label: `Are districts roughly balanced? (within ${formatNumber(
-        BALANCE_DEVIATION,
-        NUMBER_FORMATS.PERCENT
-      )} of ideal${
+      label: `Districts balanced? (${
         maxDeviation !== undefined
-          ? `; largest deviation ${formatNumber(maxDeviation, NUMBER_FORMATS.PERCENT)}`
+          ? `max ${formatNumber(maxDeviation, NUMBER_FORMATS.PERCENT)}, `
           : ''
-      })`,
+      }target ≤${formatNumber(BALANCE_DEVIATION, NUMBER_FORMATS.PERCENT)})`,
       done: balanced,
       hints: !balanced
         ? [
@@ -381,12 +378,12 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
               ? []
               : [
                   {
-                    label: 'Show population tooltips as you paint',
+                    label: 'Show population tooltips',
                     onClick: () => guideToBrushControl('population-tooltip'),
                   },
                 ]),
             {
-              label: 'Show the demographic map',
+              label: 'Show demographic map',
               onClick: () => guideToSection('mapLayers', 'layers-demographics'),
             },
           ]
@@ -396,10 +393,10 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
       // Uncheckable/stale contiguity passes the gate (see the criteria hook)
       // but must not display as a confirmed pass.
       label: contiguityUnavailable
-        ? 'Are districts contiguous? (not checked for this map)'
+        ? 'Districts contiguous? (not checked)'
         : contiguityStale
-          ? `Are districts contiguous? (?/${numDistricts})`
-          : `Are districts contiguous? (${contiguousZones}/${numDistricts})`,
+          ? `Districts contiguous? (?/${numDistricts})`
+          : `Districts contiguous? (${contiguousZones}/${numDistricts})`,
       done: contiguityUnavailable || contiguousZones >= numDistricts,
       muted: contiguityUnavailable || contiguityStale,
       // Stale result waits on a save; point at the save button as step one.
@@ -407,14 +404,14 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
         ? [
             {label: 'Save now', onClick: () => startGuide(['save-button'])},
             {
-              label: 'find disconnected fragments',
+              label: 'find fragments',
               onClick: () => guideToValidation('Contiguity'),
             },
           ]
         : !contiguityUnavailable && contiguousZones < numDistricts
           ? [
               {
-                label: 'Find disconnected fragments',
+                label: 'Find fragments',
                 onClick: () => guideToValidation('Contiguity'),
               },
             ]
@@ -577,15 +574,15 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
       {!collapsed &&
         currentItems.map(step => (
           <Flex key={step.label} align="start" gap="2" minWidth="0">
-            <span className="pt-[3px] shrink-0">
-              <ItemMarker done={step.done && !step.muted} />
-            </span>
             <Text
               size="2"
               color={step.done || step.muted ? 'gray' : undefined}
               style={{minWidth: 0}}
             >
               {step.label}
+              <span className="inline-flex align-text-bottom ml-1">
+                <ItemMarker done={step.done && !step.muted} />
+              </span>
               {/* Muted counts as unfinished here: a stale contiguity result
                   displays as done but still needs its save. */}
               {(!step.done || step.muted) &&
