@@ -10,12 +10,6 @@ import {Button} from '@radix-ui/themes';
 import {PlusIcon} from '@radix-ui/react-icons';
 import {useRouter} from 'next/navigation';
 import {useEffect, useState} from 'react';
-import {CreatePlanCountyDialog} from './CreatePlanCountyDialog';
-
-/** Whether county-scoped creation is offered: it needs the state FIPS to
- * list counties, and community maps don't support the filter. */
-export const canFilterByCounty = (view: Partial<DistrictrMap>, isCommunity: boolean) =>
-  !isCommunity && !!view.statefps?.length;
 
 /**
  * Creates a new map document from a DistrictrMap and routes to the editor.
@@ -68,30 +62,17 @@ export const CreateButton: React.FC<{
   extraClasses?: string;
   isCommunity?: boolean;
 }> = ({view, extraClasses, isCommunity}) => {
-  const {createPlan, isCreating, shouldMakeCommunity} = useCreateMapDocument(isCommunity);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const offerCounties = canFilterByCounty(view, shouldMakeCommunity);
+  const {createPlan, isCreating} = useCreateMapDocument(isCommunity);
 
   return (
-    <>
-      <Button
-        onClick={() => (offerCounties ? setDialogOpen(true) : createPlan(view))}
-        loading={isCreating}
-        className={`w-fit h-auto px-2 py-1 ${extraClasses}`}
-        aria-label={`Create ${view.name} map`}
-      >
-        <PlusIcon />
-        {view.name}
-      </Button>
-      {offerCounties && (
-        <CreatePlanCountyDialog
-          view={view}
-          open={dialogOpen}
-          onOpenChange={setDialogOpen}
-          createPlan={countyFilter => createPlan(view, countyFilter)}
-          isCreating={isCreating}
-        />
-      )}
-    </>
+    <Button
+      onClick={() => createPlan(view)}
+      loading={isCreating}
+      className={`w-fit h-auto px-2 py-1 ${extraClasses}`}
+      aria-label={`Create ${view.name} map`}
+    >
+      <PlusIcon />
+      {view.name}
+    </Button>
   );
 };

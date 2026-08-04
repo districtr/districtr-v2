@@ -1,11 +1,9 @@
 'use client';
-import {useState} from 'react';
 import {Card, Flex, Grid, Heading, Spinner, Text} from '@radix-ui/themes';
 import {ArrowRightIcon, Component1Icon, LayersIcon, PersonIcon} from '@radix-ui/react-icons';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 import {sanitizeCommunityMaps} from '@/app/utils/communities';
-import {canFilterByCounty, useCreateMapDocument} from './CreateButton';
-import {CreatePlanCountyDialog} from './CreatePlanCountyDialog';
+import {useCreateMapDocument} from './CreateButton';
 import {CountyPlanMenu} from './CountyPlanMenu';
 import {ImportBlockAssignments} from './ImportBlockAssignments';
 
@@ -14,8 +12,6 @@ const MapStartCard: React.FC<{
   isCommunity: boolean;
 }> = ({view, isCommunity}) => {
   const {createPlan, isCreating} = useCreateMapDocument(isCommunity);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const offerCounties = canFilterByCounty(view, isCommunity);
   const outcome = isCommunity
     ? 'Draw and describe your communities'
     : view.num_districts
@@ -30,10 +26,10 @@ const MapStartCard: React.FC<{
     ? 'bg-emerald-50 hover:bg-emerald-100'
     : 'bg-indigo-50 hover:bg-indigo-100';
 
-  const card = (
+  return (
     <Card asChild>
       <button
-        onClick={() => (offerCounties ? setDialogOpen(true) : createPlan(view))}
+        onClick={() => createPlan(view)}
         disabled={isCreating}
         aria-label={`Start a new ${isCommunity ? 'community map' : 'district plan'}: ${view.name}`}
         className={`cursor-pointer text-left transition-shadow hover:shadow-md disabled:cursor-wait ${surfaceClasses}`}
@@ -63,20 +59,6 @@ const MapStartCard: React.FC<{
         </Flex>
       </button>
     </Card>
-  );
-
-  if (!offerCounties) return card;
-  return (
-    <>
-      {card}
-      <CreatePlanCountyDialog
-        view={view}
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        createPlan={countyFilter => createPlan(view, countyFilter)}
-        isCreating={isCreating}
-      />
-    </>
   );
 };
 
