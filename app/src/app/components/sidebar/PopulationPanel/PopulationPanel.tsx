@@ -4,7 +4,6 @@ import {ParentSize} from '@visx/responsive'; // Import ParentSize
 import {useChartStore} from '@store/chartStore';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
-import {useToolbarStore} from '@store/toolbarStore';
 import {
   PopulationChart,
   PopulationChartAxis,
@@ -15,7 +14,6 @@ import {
   getBarCenterY,
   getChartHeight,
 } from './PopulationChart/PopulationChart';
-import {PopulationPanelOptions} from './PopulationPanelOptions';
 import {DistrictMeters} from './DistrictMeters';
 import {Pencil1Icon} from '@radix-ui/react-icons';
 import {useZonePopulations} from '@/app/hooks/useDemography';
@@ -52,14 +50,12 @@ export const PopulationPanel = () => {
 
   const chartOptions = useChartStore(state => state.chartOptions);
   const showDistrictNumbers = chartOptions.popShowDistrictNumbers;
-  const setChartOptions = useChartStore(state => state.setChartOptions);
   const selectedZone = useMapControlsStore(state => state.selectedZone);
   const access = useMapStore(state => state.mapStatus?.access);
   const communities = useMapStore(state => state.communities);
   const updateCommunity = useMapStore(state => state.updateCommunity);
   const getZoneColor = useZoneColorGetter();
   const isEditing = useMapControlsStore(state => state.isEditing);
-  const superDraw = useToolbarStore(state => state.superDraw);
   const shouldUseScrollableRows = populationData.length > 10;
   const selectCommunity = useSelectCommunity();
   const colorScheme = useColorScheme();
@@ -246,17 +242,6 @@ export const PopulationPanel = () => {
             </ParentSize>
           </Flex>
         </>
-      )}
-      {/* Super Draw's advanced chart settings sit below the chart so the bars
-          stay the first thing in the panel. */}
-      {superDraw && (
-        <Flex direction="row" gap={'2'} align="center" mt="2">
-          <PopulationPanelOptions
-            chartOptions={chartOptions}
-            setChartOptions={setChartOptions}
-            idealPopulation={effectiveIdealPopulation}
-          />
-        </Flex>
       )}
       {editingCommunity && (
         <EditCommunityDialog

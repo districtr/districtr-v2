@@ -19,6 +19,7 @@ import {useSelectCommunity} from '@/app/hooks/useSelectCommunity';
 import {ZoneDescriptionPopover} from './ZoneDescriptionPopover';
 import {ConditionalScrollArea, SCROLL_RESERVED_WIDTH} from '../ConditionalScrollArea';
 import {ShowAllDistrictsButton} from '../ShowAllDistrictsButton';
+import {PopulationPanelOptions} from './PopulationPanelOptions';
 import {formatNumber} from '@utils/numbers';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
 import {NUMBER_FORMATS} from '@constants/demography/format';
@@ -562,12 +563,23 @@ export const DistrictMeters = () => {
               })}
             </Flex>
           </ConditionalScrollArea>
-          <ShowAllDistrictsButton
-            showAll={showAll}
-            onToggle={() => setShowAllOverride(!showAll)}
-            total={populationData.length}
-            hiddenCount={hiddenCount}
-          />
+          <Flex align="center" justify="between" mt="1">
+            <ShowAllDistrictsButton
+              showAll={showAll}
+              onToggle={() => setShowAllOverride(!showAll)}
+              total={populationData.length}
+              hiddenCount={hiddenCount}
+            />
+            {superDraw && (
+              <span style={{marginLeft: 'auto'}}>
+                <PopulationPanelOptions
+                  chartOptions={chartOptions}
+                  setChartOptions={setChartOptions}
+                  idealPopulation={idealPopulation}
+                />
+              </span>
+            )}
+          </Flex>
         </>
       )}
       {/* Plan-wide scoreboard: always visible, even with unstarted districts. */}
