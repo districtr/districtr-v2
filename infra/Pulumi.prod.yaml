@@ -4,18 +4,22 @@
 secretsprovider: awskms://alias/districtr-pulumi-secrets?region=us-east-2
 config:
   aws:region: us-east-2
-  districtr-infra:appDomain: beta.districtr.org
-  districtr-infra:apiDomain: api.beta.districtr.org
+  # The apex is the canonical host. appDomain also sets APP_BASE_URL — the
+  # Auth0 callback base and metadataBase — so until this flipped, pages served
+  # at districtr.org still sent sign-ins and canonical URLs to beta.
+  districtr-infra:appDomain: districtr.org
+  districtr-infra:apiDomain: api.districtr.org
+  # Same six names as before the flip, just re-sorted around the new
+  # domainName — the cert covers old and new until beta is retired.
   districtr-infra:extraDomains:
-    - www.beta.districtr.org
-    - districtr.org
     - www.districtr.org
-    - api.districtr.org
-  # Routes api.districtr.org to the backend before apiDomain flips to it, so
-  # the name works the moment DNS points here. Becomes api.beta.districtr.org
-  # on flip day (cached bundles keep calling the old one).
+    - beta.districtr.org
+    - www.beta.districtr.org
+    - api.beta.districtr.org
+  # Bundles built before the API URL flip still call the beta host; this keeps
+  # them reaching the backend (and under the API rate limit) until they age out.
   districtr-infra:extraApiDomains:
-    - api.districtr.org
+    - api.beta.districtr.org
   districtr-infra:corsOrigins: https://beta.districtr.org,https://www.beta.districtr.org,https://districtr.org,https://www.districtr.org
   districtr-infra:s3BucketName:
     secure: v1:MS8AzWKQiTmtjfkB:oz6SV4+k43qsx7zvx/cdwVO4Be+fhIJd1wMaghY7OLAHbWwTV3gzHrTg
