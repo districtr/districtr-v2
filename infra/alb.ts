@@ -147,7 +147,7 @@ export function createAlb(network: Network) {
   new aws.lb.ListenerRule(`${name}-api-host`, {
     listenerArn: httpsListener.arn,
     priority: 10,
-    conditions: [{hostHeader: {values: [config.apiDomain]}}],
+    conditions: [{hostHeader: {values: config.apiHosts}}],
     actions: [{type: "forward", targetGroupArn: backendTargetGroup.arn}],
   });
 

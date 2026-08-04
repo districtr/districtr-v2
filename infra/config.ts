@@ -25,6 +25,11 @@ for (const [oldKey, newKey] of [
   }
 }
 
+// Hoisted: the listener rule and the WAF rate limit must scope to the *same*
+// set of API hostnames, so it's computed once rather than derived twice.
+const apiDomain = cfg.require("apiDomain");
+const extraApiDomains = cfg.getObject<string[]>("extraApiDomains") ?? [];
+
 export const config = {
   stack,
   isProd,
@@ -36,8 +41,18 @@ export const config = {
   // Domains. The ALB serves the app on appDomain (+ extraDomains) and the
   // API on apiDomain via a host-header listener rule.
   appDomain: cfg.require("appDomain"),
-  apiDomain: cfg.require("apiDomain"),
+  apiDomain,
   extraDomains: cfg.getObject<string[]>("extraDomains") ?? [],
+  // Additional hostnames that must reach the backend, in either direction of a
+  // domain cutover: the incoming name before apiDomain flips, the outgoing one
+  // after (NEXT_PUBLIC_API_URL is baked in at build time, so loaded clients go
+  // on calling it). Names here still need a cert — list them in extraDomains
+  // too. Empty outside a cutover.
+  extraApiDomains,
+  /** Every hostname routed to the backend. Anything answering on one of these
+   * bypasses the frontend target group *and* falls under the API rate limit;
+   * the two must not disagree. */
+  apiHosts: Array.from(new Set([apiDomain, ...extraApiDomains])),
   corsOrigins: cfg.require("corsOrigins"),
 
   // Existing object storage / CDN — not managed by this project.

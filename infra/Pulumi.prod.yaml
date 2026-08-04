@@ -8,7 +8,15 @@ config:
   districtr-infra:apiDomain: api.beta.districtr.org
   districtr-infra:extraDomains:
     - www.beta.districtr.org
-  districtr-infra:corsOrigins: https://beta.districtr.org,https://www.beta.districtr.org
+    - districtr.org
+    - www.districtr.org
+    - api.districtr.org
+  # Routes api.districtr.org to the backend before apiDomain flips to it, so
+  # the name works the moment DNS points here. Becomes api.beta.districtr.org
+  # on flip day (cached bundles keep calling the old one).
+  districtr-infra:extraApiDomains:
+    - api.districtr.org
+  districtr-infra:corsOrigins: https://beta.districtr.org,https://www.beta.districtr.org,https://districtr.org,https://www.districtr.org
   districtr-infra:s3BucketName:
     secure: v1:MS8AzWKQiTmtjfkB:oz6SV4+k43qsx7zvx/cdwVO4Be+fhIJd1wMaghY7OLAHbWwTV3gzHrTg
   districtr-infra:cdnUrl: https://tilesets1.cdn.districtr.org
