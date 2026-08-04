@@ -229,6 +229,12 @@ class GalleryListApiTests(TestCase):
         response = self.client.get("/api/galleries/?section=nope")
         self.assertEqual(response.status_code, 400)
 
+    def test_negative_pagination_clamped(self):
+        # Negative offset/limit must clamp to 0, not 500 on a negative slice.
+        response = self.client.get("/api/galleries/?limit=-1&offset=-5")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), [])
+
 
 class GalleryPermissionTests(TestCase):
     """Partner curates drafts; editor/admin publish (migration 0002)."""

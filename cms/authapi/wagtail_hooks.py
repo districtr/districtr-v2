@@ -113,13 +113,12 @@ class TeamViewSet(SnippetViewSet):
     menu_label = "Teams"
     menu_order = 260  # after "Review tag scopes" (250)
     add_to_admin_menu = True
-    list_display = ["name", "slug"]
-    search_fields = ["name", "slug"]
+    list_display = ["name"]
+    search_fields = ["name"]
     list_per_page = 50
 
     panels = [
         FieldPanel("name"),
-        FieldPanel("slug"),
         InlinePanel(
             "memberships",
             heading="Members",

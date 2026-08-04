@@ -17,6 +17,9 @@ so the per-resource queryset filters live with each resource's wagtail_hooks;
 this module only answers "is this user scoped, and to which group slugs".
 """
 
+from functools import cached_property
+
+from django.http import Http404
 from wagtail.permission_policies.base import ModelPermissionPolicy
 
 from authapi.models import TeamMapGroup, TeamMembership
@@ -59,6 +62,14 @@ def districtr_map_slugs_for_user(user) -> set[str]:
             group_links__group_id__in=map_group_slugs_for_user(user)
         ).values_list("districtr_map_slug", flat=True)
     )
+
+
+def instance_in_scope(user, model, group_filter_field, pk) -> bool:
+    """False exactly when a team-scoped ``user`` may not act on ``model`` row
+    ``pk``. Unscoped users (admins, superusers, team-less) always pass."""
+    if not user_is_team_scoped(user):
+        return True
+    return scoped_queryset(model, group_filter_field, user).filter(pk=pk).exists()
 
 
 def scoped_queryset(model, group_filter_field, user):
@@ -137,3 +148,40 @@ class TeamScopedViewGrantPermissionPolicy(TeamScopedModelPermissionPolicy):
                 .exists()
             )
         return super().user_has_permission_for_instance(user, action, instance)
+
+
+class TeamScopedViewSetMixin:
+    """SnippetViewSet mixin: index queryset and permission policy scoped to the
+    user's teams. Set ``group_filter_field``; override
+    ``permission_policy_class`` for view-grant behaviour."""
+
+    group_filter_field: str
+    permission_policy_class = TeamScopedModelPermissionPolicy
+
+    def get_queryset(self, request):
+        if user_is_team_scoped(request.user):
+            return scoped_queryset(self.model, self.group_filter_field, request.user)
+        return None
+
+    @cached_property
+    def permission_policy(self):
+        return self.permission_policy_class(
+            self.model, group_filter_field=self.group_filter_field
+        )
+
+
+class TeamScopedGetObjectMixin:
+    """For snippet object views that fetch straight from the model with no
+    instance permission check (Inspect/History/Usage/Copy): 404 when a
+    team-scoped member addresses an out-of-scope object by URL. Set
+    ``group_filter_field`` on the view subclass."""
+
+    group_filter_field: str
+
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset)
+        if not instance_in_scope(
+            self.request.user, self.model, self.group_filter_field, obj.pk
+        ):
+            raise Http404
+        return obj

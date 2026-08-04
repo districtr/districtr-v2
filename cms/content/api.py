@@ -29,7 +29,7 @@ from django.conf import settings
 from django.views.decorators.http import require_GET
 
 from content.models import PlacePage, TagPage
-from core.api import _json
+from core.api import MAX_PAGE_SIZE, _json, pagination
 
 CONTENT_TYPE_PAGES = {
     "tags": TagPage,
@@ -37,7 +37,6 @@ CONTENT_TYPE_PAGES = {
 }
 
 DEFAULT_LANGUAGE = "en"
-MAX_PAGE_SIZE = 100
 
 # Stable ordering for available_languages / list endpoints.
 _LANGUAGE_ORDER = {
@@ -79,7 +78,7 @@ def content_detail(request, content_type, slug):
     # than loading every language's StreamField body just to pick one.
     live_pages = model.objects.live().filter(slug=slug)
     available_languages = sorted(
-        live_pages.values_list("locale__language_code", flat=True),
+        live_pages.values_list("locale__language_code", flat=True).distinct(),
         key=_language_sort_key,
     )
 
@@ -124,8 +123,7 @@ def content_list(request, content_type):
         return _json({"detail": f"Unknown content type '{content_type}'"}, status=404)
 
     try:
-        offset = max(int(request.GET.get("offset", 0)), 0)
-        limit = min(int(request.GET.get("limit", MAX_PAGE_SIZE)), MAX_PAGE_SIZE)
+        offset, limit = pagination(request)
     except ValueError:
         return _json({"detail": "offset and limit must be integers"}, status=400)
 

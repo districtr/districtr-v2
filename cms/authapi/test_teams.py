@@ -45,8 +45,8 @@ def make_user(group_name, email):
     return user
 
 
-def make_team(name, slug, *, members=(), group_slugs=()):
-    team = Team.objects.create(name=name, slug=slug)
+def make_team(name, *, members=(), group_slugs=()):
+    team = Team.objects.create(name=name)
     for user in members:
         TeamMembership.objects.create(team=team, user=user)
     for group_slug in group_slugs:
@@ -104,12 +104,12 @@ class TeamHelperTests(TestCase):
         root = get_user_model().objects.create_superuser(
             username="root@d.org", email="root@d.org", password=PASSWORD
         )
-        make_team("Team", "team", members=[root], group_slugs=["ga"])
+        make_team("Team", members=[root], group_slugs=["ga"])
         self.assertFalse(user_is_team_scoped(root))
 
     def test_admin_group_never_scoped(self):
         admin = make_user("admin", "admin@d.org")
-        make_team("Team", "team", members=[admin], group_slugs=["ga"])
+        make_team("Team", members=[admin], group_slugs=["ga"])
         self.assertFalse(user_is_team_scoped(admin))
 
     def test_editor_without_team_not_scoped(self):
@@ -117,14 +117,14 @@ class TeamHelperTests(TestCase):
 
     def test_editor_with_team_is_scoped(self):
         editor = make_user("editor", "e@d.org")
-        make_team("Team A", "team-a", members=[editor], group_slugs=["ga", "gb"])
+        make_team("Team A", members=[editor], group_slugs=["ga", "gb"])
         self.assertTrue(user_is_team_scoped(editor))
         self.assertEqual(map_group_slugs_for_user(editor), {"ga", "gb"})
 
     def test_slugs_union_across_teams(self):
         editor = make_user("editor", "e@d.org")
-        make_team("T1", "t1", members=[editor], group_slugs=["ga"])
-        make_team("T2", "t2", members=[editor], group_slugs=["gb", "gc"])
+        make_team("T1", members=[editor], group_slugs=["ga"])
+        make_team("T2", members=[editor], group_slugs=["gb", "gc"])
         self.assertEqual(map_group_slugs_for_user(editor), {"ga", "gb", "gc"})
 
 
@@ -136,7 +136,7 @@ class GalleryScopingPolicyTests(TestCase):
             Gallery, group_filter_field="map_group_id"
         )
         cls.member = make_user("editor", "member@d.org")
-        make_team("Team A", "team-a", members=[cls.member], group_slugs=["ga"])
+        make_team("Team A", members=[cls.member], group_slugs=["ga"])
         cls.mine = make_gallery("mine", group_slug="ga")
         cls.theirs = make_gallery("theirs", group_slug="gb")
 
@@ -176,7 +176,7 @@ class GalleryAdminScopingViewTests(TestCase):
     def setUpTestData(cls):
         ensure_map_group_table()
         cls.member = make_user("editor", "member@d.org")
-        make_team("Team A", "team-a", members=[cls.member], group_slugs=["ga"])
+        make_team("Team A", members=[cls.member], group_slugs=["ga"])
         cls.mine = make_gallery("scoped-visible", group_slug="ga")
         cls.theirs = make_gallery("scoped-hidden", group_slug="gb")
 
@@ -208,6 +208,29 @@ class GalleryAdminScopingViewTests(TestCase):
         self.assertEqual(set(field.queryset.values_list("slug", flat=True)), {"ga"})
         self.assertTrue(field.required)
 
+    def test_unpublish_out_of_scope_denied(self):
+        # UnpublishView checks only the model-level publish permission; the
+        # generic before_unpublish hook is the instance-level gate.
+        url = reverse(
+            "wagtailsnippets_galleries_gallery:unpublish", args=[self.theirs.pk]
+        )
+        self.client.post(url)
+        self.theirs.refresh_from_db()
+        self.assertTrue(self.theirs.live)
+
+    def test_copy_out_of_scope_404(self):
+        # The stock CopyView prefills from a bare get_object_or_404 — the
+        # scoped copy view must 404 out-of-scope sources.
+        url = reverse("wagtailsnippets_galleries_gallery:copy", args=[self.theirs.pk])
+        self.assertEqual(self.client.get(url).status_code, 404)
+
+    def test_copy_in_scope_restricts_map_group(self):
+        url = reverse("wagtailsnippets_galleries_gallery:copy", args=[self.mine.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        field = response.context["form"].fields["map_group"]
+        self.assertEqual(set(field.queryset.values_list("slug", flat=True)), {"ga"})
+
 
 class MapModuleScopingTests(TestCase):
     """DistrictrMap modules: members get scoped, view-only access (admins keep
@@ -233,7 +256,7 @@ class MapModuleScopingTests(TestCase):
         DistrictrMapsToGroups.objects.create(districtrmap=cls.map_a, group=group_a)
         DistrictrMapsToGroups.objects.create(districtrmap=cls.map_b, group=group_b)
         cls.member = make_user("editor", "mm-member@d.org")
-        make_team("Map Team A", "mm-team-a", members=[cls.member], group_slugs=["ga"])
+        make_team("Map Team A", members=[cls.member], group_slugs=["ga"])
 
     def test_member_view_instances_scoped(self):
         qs = self.policy.instances_user_has_permission_for(self.member, "view")
@@ -320,7 +343,7 @@ class ContentPageScopingTests(TestCase):
         cls.places_index.add_child(instance=cls.place_out)
 
         cls.member = make_user("editor", "tp-member@d.org")
-        make_team("Tag Team A", "tp-team-a", members=[cls.member], group_slugs=["ga"])
+        make_team("Tag Team A", members=[cls.member], group_slugs=["ga"])
         cls.admin = make_user("admin", "tp-admin@d.org")
 
     def _request(self, user):
@@ -382,6 +405,31 @@ class ContentPageScopingTests(TestCase):
             _is_out_of_scope_page(self._request(self.admin), self.place_out)
         )
 
+    def test_all_page_mutation_hooks_registered(self):
+        # Wagtail's unpublish/copy/move/bulk paths never fire the edit/delete
+        # hooks — each needs its own registration or it defaults to open.
+        from wagtail import hooks as wagtail_hooks
+
+        for name in (
+            "before_edit_page",
+            "before_delete_page",
+            "before_unpublish_page",
+            "before_copy_page",
+            "before_move_page",
+            "before_bulk_action",
+        ):
+            modules = [fn.__module__ for fn in wagtail_hooks.get_hooks(name)]
+            self.assertIn("content.wagtail_hooks", modules, name)
+
+    def test_member_cannot_unpublish_out_of_scope_page_via_admin(self):
+        self.client.force_login(self.member)
+        response = self.client.post(
+            reverse("wagtailadmin_pages:unpublish", args=[self.tag_out.id])
+        )
+        self.assertNotEqual(response.status_code, 200)
+        self.tag_out.refresh_from_db()
+        self.assertTrue(self.tag_out.live)
+
 
 class ContentPageFormScopingTests(TestCase):
     """The team-aware page forms only offer a member their own teams' map slugs
@@ -402,7 +450,7 @@ class ContentPageFormScopingTests(TestCase):
             )
             DistrictrMapsToGroups.objects.create(districtrmap=dmap, group=group)
         cls.member = make_user("editor", "form-member@d.org")
-        make_team("Form Team", "form-team", members=[cls.member], group_slugs=["ga"])
+        make_team("Form Team", members=[cls.member], group_slugs=["ga"])
         cls.admin = make_user("admin", "form-admin@d.org")
 
     @staticmethod
@@ -451,3 +499,27 @@ class ContentPageFormScopingTests(TestCase):
         # Admin keeps the plain free-text CharField (no scoped choices).
         form = self._bound(TagPage, user=self.admin)
         self.assertFalse(hasattr(form.fields["districtr_map_slug"], "choices"))
+
+    def test_placepage_form_preserves_other_teams_slugs_and_order(self):
+        # A shared PlacePage carries another team's map; saving must keep it,
+        # in its original position, even though the member can't select it.
+        page = PlacePage(
+            title="P", slug="p", districtr_map_slugs=["tx_other", "chi_wards"]
+        )
+        form = self._form_class(PlacePage)(
+            data={
+                "title": "P",
+                "slug": "p",
+                "districtr_map_slugs": ["chi_wards"],
+                "body-count": "0",
+            },
+            instance=page,
+            for_user=self.member,
+        )
+        # full_clean rather than is_valid: the bare instance lacks Wagtail's
+        # tree fields (path/depth/...), which aren't what's under test here.
+        form.full_clean()
+        self.assertNotIn("districtr_map_slugs", form.errors)
+        self.assertEqual(
+            form.cleaned_data["districtr_map_slugs"], ["tx_other", "chi_wards"]
+        )

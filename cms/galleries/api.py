@@ -29,12 +29,8 @@ from rest_framework_simplejwt.exceptions import TokenError
 from wagtail.rich_text import expand_db_html
 
 from authapi.tokens import KidAccessToken
-from core.api import _json
+from core.api import _json, pagination
 from galleries.models import Gallery, GallerySection, GalleryVisibility
-
-# Mirror content/api.py: clamp the list endpoint so a future caller can't ask
-# for an unbounded page while no client depends on "returns everything".
-MAX_PAGE_SIZE = 100
 
 
 def _has_valid_token(request) -> bool:
@@ -88,8 +84,7 @@ def gallery_detail(request, slug):
 def gallery_list(request):
     """GET /api/galleries/?section=public_gallery&offset=n&limit=n"""
     try:
-        offset = max(int(request.GET.get("offset", 0)), 0)
-        limit = min(int(request.GET.get("limit", MAX_PAGE_SIZE)), MAX_PAGE_SIZE)
+        offset, limit = pagination(request)
     except ValueError:
         return _json({"detail": "offset and limit must be integers"}, status=400)
 

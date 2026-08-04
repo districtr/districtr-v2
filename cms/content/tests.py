@@ -625,6 +625,12 @@ class ContentApiTests(TestCase):
         en_rows = self.client.get("/api/content/tags/list?language=en").json()
         self.assertNotIn("solo-es", [r["slug"] for r in en_rows])
 
+    def test_list_negative_pagination_clamped(self):
+        # Negative offset/limit must clamp to 0, not 500 on a negative slice.
+        response = self.client.get("/api/content/tags/list?limit=-1&offset=-5")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), [])
+
     def test_list_language_filter(self):
         rows = self.client.get("/api/content/tags/list?language=es").json()
         self.assertEqual(

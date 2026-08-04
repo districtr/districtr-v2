@@ -8,6 +8,11 @@ groups (which they'd immediately lose sight of via the explorer scoping in
 content/wagtail_hooks.py). Admins and team-less users keep the unrestricted
 free-text field.
 
+Shared PlacePages (in scope on *any* overlap) may also carry other teams' maps.
+Those out-of-scope slugs are not offered — or removable — in the member's
+field; clean() re-merges them in their original positions so saving a shared
+page never drops another team's association.
+
 `for_user` is supplied by Wagtail's page create/edit views to the page form.
 """
 
@@ -16,54 +21,53 @@ from wagtail.admin.forms import WagtailAdminPageForm
 
 from authapi.teams import districtr_map_slugs_for_user, user_is_team_scoped
 
-
-def _scoped_slug_choices(user):
-    return [(slug, slug) for slug in sorted(districtr_map_slugs_for_user(user))]
+_HELP_TEXT = "Only Districtr maps your team owns are listed."
 
 
-class TagPageForm(WagtailAdminPageForm):
+class _TeamScopedSlugFormBase(WagtailAdminPageForm):
+    """Swaps the free-text map-slug field for a choice field limited to the
+    team-scoped member's maps. The choice field itself is the guard —
+    out-of-choices submissions fail validation."""
+
+    slug_field: str
+    field_class = forms.ChoiceField
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.for_user and user_is_team_scoped(self.for_user):
-            field = self.fields["districtr_map_slug"]
-            self.fields["districtr_map_slug"] = forms.ChoiceField(
-                choices=_scoped_slug_choices(self.for_user),
+            self._scoped_slugs = districtr_map_slugs_for_user(self.for_user)
+            original = self.fields[self.slug_field]
+            self.fields[self.slug_field] = self.field_class(
+                choices=[(slug, slug) for slug in sorted(self._scoped_slugs)],
                 required=True,
-                label=field.label,
-                help_text="Only Districtr maps your team owns are listed.",
+                label=original.label,
+                help_text=_HELP_TEXT,
             )
+        else:
+            self._scoped_slugs = None
+
+
+class TagPageForm(_TeamScopedSlugFormBase):
+    slug_field = "districtr_map_slug"
+
+
+class PlacePageForm(_TeamScopedSlugFormBase):
+    slug_field = "districtr_map_slugs"
+    field_class = forms.MultipleChoiceField
 
     def clean(self):
         cleaned_data = super().clean()
-        if self.for_user and user_is_team_scoped(self.for_user):
-            slug = cleaned_data.get("districtr_map_slug")
-            if slug and slug not in districtr_map_slugs_for_user(self.for_user):
-                self.add_error(
-                    "districtr_map_slug", "Choose a Districtr map your team owns."
-                )
-        return cleaned_data
-
-
-class PlacePageForm(WagtailAdminPageForm):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if self.for_user and user_is_team_scoped(self.for_user):
-            field = self.fields["districtr_map_slugs"]
-            self.fields["districtr_map_slugs"] = forms.MultipleChoiceField(
-                choices=_scoped_slug_choices(self.for_user),
-                required=True,
-                label=field.label,
-                help_text="Only Districtr maps your team owns are listed.",
-            )
-
-    def clean(self):
-        cleaned_data = super().clean()
-        if self.for_user and user_is_team_scoped(self.for_user):
-            chosen = set(cleaned_data.get("districtr_map_slugs") or [])
-            out_of_scope = chosen - districtr_map_slugs_for_user(self.for_user)
-            if out_of_scope:
-                self.add_error(
-                    "districtr_map_slugs",
-                    "Not your team's maps: " + ", ".join(sorted(out_of_scope)) + ".",
-                )
+        if self._scoped_slugs is not None:
+            # Preserve the curated order and other teams' maps: keep the
+            # original sequence minus this member's deselections, then append
+            # their additions.
+            original = list(self.instance.districtr_map_slugs or [])
+            chosen = cleaned_data.get(self.slug_field) or []
+            merged = [
+                slug
+                for slug in original
+                if slug in chosen or slug not in self._scoped_slugs
+            ]
+            merged += [slug for slug in chosen if slug not in original]
+            cleaned_data[self.slug_field] = merged
         return cleaned_data
