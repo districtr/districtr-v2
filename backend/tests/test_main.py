@@ -2209,3 +2209,73 @@ def test_metadata_partial_update_merges(client, document_id):
     assert metadata["tags"] == ["keep-me"]
 
 
+def test_county_filter_lives_on_document(
+    client, ks_demo_view_census_total_vap_blocks_districtrmap, monkeypatch
+):
+    """county_filter is set at creation, stored on document.document, and the
+    backend derives /stats totals and /unassigned completeness from it.
+    Fixture data spans counties 20209 and 20097."""
+    filtered = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
+            "county_filter": ["20209"],
+        },
+    )
+    assert filtered.status_code == 201
+    assert filtered.json()["county_filter"] == ["20209"]
+    filtered_id = filtered.json()["document_id"]
+
+    unfiltered = client.post(
+        "/api/create_document",
+        json={"districtr_map_slug": GERRY_DB_TOTAL_VAP_FIXTURE_NAME},
+    )
+    unfiltered_id = unfiltered.json()["document_id"]
+    assert unfiltered.json()["county_filter"] is None
+
+    # Round-trips on GET
+    assert client.get(f"/api/document/{filtered_id}").json()["county_filter"] == [
+        "20209"
+    ]
+
+    def unassigned_total(document_id):
+        client.put(
+            "/api/assignments",
+            json={
+                "document_id": document_id,
+                "assignments": [["202090441022004", 1]],
+                "last_updated_at": datetime.now().astimezone().isoformat(),
+            },
+        )
+        response = client.get(f"/api/document/{document_id}/stats")
+        assert response.status_code == 200
+        unassigned = next(
+            f for f in response.json()["features"] if f["properties"]["zone"] is None
+        )
+        return unassigned["properties"]["demographic_data"]
+
+    filtered_demo = unassigned_total(filtered_id)
+    unfiltered_demo = unassigned_total(unfiltered_id)
+    # County 20097's population is excluded from the filtered universe.
+    assert filtered_demo.keys() == unfiltered_demo.keys()
+    assert all(filtered_demo[k] <= unfiltered_demo[k] for k in filtered_demo)
+    assert any(filtered_demo[k] < unfiltered_demo[k] for k in filtered_demo)
+
+    # Completeness check: /unassigned only owes the filtered counties.
+    # Force the graph-less singleton fallback; grouping is tested elsewhere.
+    import fastapi
+    import app.main as main_module
+
+    def _raise(_name):
+        raise fastapi.HTTPException(status_code=404, detail="Graph unavailable")
+
+    monkeypatch.setattr(main_module, "get_graph", _raise)
+    for document_id, in_filter_only in ((filtered_id, True), (unfiltered_id, False)):
+        response = client.get(f"/api/document/{document_id}/unassigned")
+        assert response.status_code == 200
+        geo_ids = [g for component in response.json()["components"] for g in component]
+        assert geo_ids, "expected unassigned units"
+        outside = [g for g in geo_ids if not g.startswith("20209")]
+        assert (not outside) == in_filter_only
+
+

@@ -156,6 +156,7 @@ def get_document_public(
         ).label("comment_count_limit"),
         # get metadata as a json object
         col(Document.map_metadata).label("map_metadata"),
+        col(Document.county_filter).label("county_filter"),
         coalesce(
             access_type,
         ).label("access"),
@@ -279,6 +280,7 @@ def get_document_public(
         updated_at=result.updated_at,
         extent=result.extent,
         map_metadata=result.map_metadata,
+        county_filter=result.county_filter,
         access=result.access,
         password_required=password_required,
         color_scheme=result.color_scheme,

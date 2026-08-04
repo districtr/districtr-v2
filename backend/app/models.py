@@ -280,6 +280,12 @@ class Document(TimeStampMixin, SQLModel, table=True):
     color_scheme: list[str] | None = Field(
         sa_column=Column(ARRAY(String), nullable=True)
     )
+    # 5-char county FIPS (STATEFP+COUNTYFP) the plan is restricted to;
+    # None/empty means no filter. Set once at creation; stats/evaluation/
+    # unassigned queries filter the geographic universe by it.
+    county_filter: list[str] | None = Field(
+        sa_column=Column(ARRAY(String), nullable=True)
+    )
     community_metadata_list: list[CommunityMetadata] | None = Field(
         sa_column=Column(JSON, nullable=True)
     )
@@ -321,6 +327,8 @@ class DocumentCreate(BaseModel):
     metadata: DocumentMetadata | None = None
     copy_from_doc: str | int | None = None  # document_id to copy from
     assignments: list[list[str]] | None = None  # Option to load block assignments
+    # 5-char county FIPS to restrict the plan to; set once at creation
+    county_filter: list[str] | None = None
 
 
 # TODO: Remove this table
@@ -373,6 +381,7 @@ class DocumentPublic(BaseModel):
     updated_at: datetime
     extent: list[float] | None = None
     map_metadata: DocumentMetadata | None
+    county_filter: list[str] | None = None
     access: DocumentShareStatus = DocumentShareStatus.edit
     # True when an edit password is set, so read-only viewers can be offered an
     # "unlock to edit" affordance. The hash itself is never exposed.

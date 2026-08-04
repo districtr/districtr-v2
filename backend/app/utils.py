@@ -686,6 +686,7 @@ def update_or_select_district_stats(
                 DistrictrMap.gerrydb_table_name.label("gerrydb_table_name"),
                 DistrictrMap.parent_layer.label("parent_layer"),
                 Document.public_id.label("public_id"),
+                Document.county_filter.label("county_filter"),
             )
             .join(
                 DistrictrMap,
@@ -861,7 +862,21 @@ def update_or_select_district_stats(
                 f"SELECT {total_json} AS demographic_data "
                 f"FROM gerrydb.{safe_parent_layer}"
             )
-            total_result = session.execute(text(total_sql)).mappings().first()
+            county_filter = doc_row.county_filter or []
+            total_params: dict = {}
+            if county_filter:
+                # Restrict the "total universe" to the plan's selected counties
+                # (county FIPS = first 5 chars of the bare path, after any
+                # "vtd:"-style prefix). Same idiom as evaluation county splits.
+                total_sql += (
+                    " WHERE LEFT(CASE WHEN path LIKE '%:%' "
+                    "THEN SPLIT_PART(path, ':', 2) ELSE path END, 5) "
+                    "= ANY(:county_filter)"
+                )
+                total_params["county_filter"] = county_filter
+            total_result = (
+                session.execute(text(total_sql), total_params).mappings().first()
+            )
 
             if total_result and total_result["demographic_data"]:
                 total_demo = total_result["demographic_data"]
