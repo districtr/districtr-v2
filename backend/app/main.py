@@ -425,6 +425,11 @@ async def create_document(
             num_communities = copied_document.num_communities
             community_metadata_list = copied_document.community_metadata_list
 
+    # County-scoped plans start at 2 districts regardless of the map's
+    # default; the count is editable in the editor.
+    if data.county_filter and copied_document is None:
+        num_districts = 2
+
     document_type = data.document_type or (
         copied_document.document_type if copied_document is not None else None
     )

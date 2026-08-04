@@ -129,14 +129,16 @@ export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
             }
           />
         )}
-        {maskedCountyIds && (
+        {/* Selected outline only for the county paint mask — the persistent
+            document filter shows the dim mask alone, no outline. */}
+        {countyMaskId && (
           <Layer
             id={CANONICAL_LAYER_IDS.COUNTIES.SELECTED}
             beforeId={MAP_LAYER_ANCHOR_IDS.hover}
             type="line"
             source-layer="tl_2023_us_county"
             paint={SELECTED_LINE_STYLE}
-            filter={['match', ['get', 'GEOID'], maskedCountyIds, true, false]}
+            filter={['==', ['get', 'GEOID'], countyMaskId]}
           />
         )}
         <Layer

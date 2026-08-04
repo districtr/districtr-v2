@@ -2233,10 +2233,14 @@ def test_county_filter_lives_on_document(
     unfiltered_id = unfiltered.json()["document_id"]
     assert unfiltered.json()["county_filter"] is None
 
-    # Round-trips on GET
-    assert client.get(f"/api/document/{filtered_id}").json()["county_filter"] == [
-        "20209"
-    ]
+    # Round-trips on GET; county plans default to 2 districts and zoom to
+    # the filtered counties (extent = bbox of the filtered universe).
+    doc = client.get(f"/api/document/{filtered_id}").json()
+    assert doc["county_filter"] == ["20209"]
+    assert doc["num_districts"] == 2
+    extent = doc["extent"]
+    assert extent and len(extent) == 4
+    assert extent[0] < extent[2] and extent[1] < extent[3]
 
     def unassigned_total(document_id):
         client.put(
