@@ -52,8 +52,7 @@ export default function PaintByCounty() {
   const disabledForGeography = isConnecticut || isSingleCounty;
   const disabled =
     access === ACCESS_STATES.READ || lockedForBreak || disabledForPan || disabledForGeography;
-  // Guided step (see uiHintStore.guideTargets): the helper's "paint by
-  // counties" hint pulses this control until the user flips it themselves.
+  // Guide target for the "paint by counties" hint (see uiHintStore).
   const guiding = useUiHintStore(state => state.guideTargets[0] === 'county-brush');
   const advanceGuide = useUiHintStore(state => state.advanceGuide);
 

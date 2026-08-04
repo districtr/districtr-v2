@@ -38,20 +38,16 @@ export const MapActionsDropdown: React.FC<{
   // stuck on the body when a dialog opens from onSelect.
   const openModal = (which: 'share') => setTimeout(() => setModal(which), 0);
 
-  // The draft-status helper's "Share your map" pointer guides rather than
-  // clicks: it pulses this trigger until the user opens the menu themselves,
-  // then pulses the Share item until they select it (see uiHintStore).
+  // "Share your map" guide: pulses this trigger, then the Share item.
   const guideTarget = useUiHintStore(state => state.guideTargets[0]);
   const advanceGuide = useUiHintStore(state => state.advanceGuide);
   const cancelGuide = useUiHintStore(state => state.cancelGuide);
-  // Way back from the guide's dismiss: only offered while it's hidden.
   const {dismissed: guideDismissed, restore: restoreGuide} = useDraftStatusHelperDismissal();
   const handleMenuOpenChange = (open: boolean) => {
     if (open) {
       advanceGuide('map-actions');
     } else if (guideTarget === 'map-actions-share') {
-      // Closed without picking the guided item — the highlight would linger
-      // invisibly inside an unmounted menu, so end the guide instead.
+      // Closed without selecting: end the guide rather than pulse an unmounted item.
       cancelGuide();
     }
   };

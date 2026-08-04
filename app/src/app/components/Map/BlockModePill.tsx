@@ -18,12 +18,8 @@ export const BlockModePill = () => {
   const setActiveTool = useMapControlsStore(state => state.setActiveTool);
   const bounds = useMapControlsStore(state => state.mapOptions.bounds);
   const captiveIds = useMapStore(state => state.captiveIds);
-  // Name the map's paintable unit ("precinct" for VTD maps, "block group" for
-  // block-group maps) in the break prompt; fall back to "precinct" when the
-  // document hasn't loaded yet.
   const parentGeoUnitType = useMapStore(state => state.mapDocument?.parent_geo_unit_type);
-  const unitName =
-    (parentGeoUnitType && GEO_UNIT_SINGULAR_NAMES[parentGeoUnitType]) || 'precinct';
+  const unitName = (parentGeoUnitType && GEO_UNIT_SINGULAR_NAMES[parentGeoUnitType]) || 'precinct';
   const exitBlockView = useMapStore(state => state.exitBlockView);
   const getMapRef = useMapStore(state => state.getMapRef);
   const inBlockView = captiveIds.size > 0;

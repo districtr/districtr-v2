@@ -56,8 +56,7 @@ const ModeSwitcherItem: React.FC<{
 }> = ({mode, isCurrent, disabled, disabledReason, locked, onSelect}) => {
   const meta = MODE_META[mode];
   const Icon = locked ? LockClosedIcon : meta.Icon;
-  // Guided-step target for the helper's mode pointers: keeps pulsing until
-  // the user picks the mode themselves.
+  // Guide target for the helper's mode pointers (see uiHintStore).
   const guiding = useUiHintStore(state => state.guideTargets[0] === `mode-${mode}`);
   const row = (
     <Flex
@@ -132,9 +131,7 @@ export const ModeSwitcher: React.FC = () => {
     if (pwParam || passwordRequired) setPasswordUnlockable(true);
   }, [pwParam, passwordRequired, publicIdForLookup, setPasswordUnlockable]);
 
-  // The draft-status helper's Super Draw / Evaluate pointers guide rather
-  // than click: they pulse this trigger until the user opens the menu
-  // themselves, then pulse the mode they meant (see uiHintStore).
+  // Mode-pointer guide: pulses this trigger, then the meant mode item.
   const [menuOpen, setMenuOpen] = React.useState(false);
   const guideTarget = useUiHintStore(state => state.guideTargets[0]);
   const advanceGuide = useUiHintStore(state => state.advanceGuide);
@@ -144,8 +141,7 @@ export const ModeSwitcher: React.FC = () => {
     if (open) {
       advanceGuide('mode-switcher');
     } else if (guideTarget?.startsWith('mode-') && guideTarget !== 'mode-switcher') {
-      // Closed without picking the guided mode — the highlight would linger
-      // invisibly inside an unmounted menu, so end the guide instead.
+      // Closed without selecting: end the guide rather than pulse an unmounted item.
       cancelGuide();
     }
   };
@@ -280,9 +276,8 @@ export const ModeSwitcher: React.FC = () => {
   const CurrentIcon = MODE_META[currentMode].Icon;
 
   return (
-    // Non-modal so a click on another helper pointer while the menu is open
-    // reaches that pointer (starting a fresh guided sequence) instead of
-    // being swallowed by the modal dismiss layer.
+    // Non-modal so clicks on other helper pointers aren't swallowed by the
+    // modal dismiss layer.
     <DropdownMenu.Root open={menuOpen} onOpenChange={handleMenuOpenChange} modal={false}>
       {/* HelpTip wraps DropdownMenu.Trigger (not the reverse): HelpTip's own
           HoverCard.Trigger and DropdownMenu.Trigger both need asChild to reach the

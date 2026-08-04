@@ -37,9 +37,7 @@ export const SaveButton: React.FC = () => {
   const access = useMapStore(state => state.mapStatus?.access);
   const isEditing = useMapControlsStore(state => state.isEditing);
   const [saving, setSaving] = useState(false);
-  // Guided step (see uiHintStore.guideTargets): the draft helper's "Save now"
-  // hint pulses this button until the user clicks it themselves. Nothing to
-  // save means nothing to point at, so the guide skips ahead then.
+  // Guide target for the "Save now" hint; skips when there's nothing to save.
   const guiding = useUiHintStore(state => state.guideTargets[0] === 'save-button');
   const advanceGuide = useUiHintStore(state => state.advanceGuide);
   useEffect(() => {

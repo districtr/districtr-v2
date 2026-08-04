@@ -145,12 +145,9 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
         <Flex direction="row" className="flex-1 min-h-0 relative">
           {isPublicPage ? <PublicMap /> : <MainMap />}
           {showDemographicMap && (isPublicPage ? <PublicDemographicMap /> : <DemographicMap />)}
-          {/* Draft-status helper overlays the map's top-right (the geocode bar
-              holds top-left, zoom bottom-right). Hidden below lg, where the
-              MobileToolbar's "View map guide" modal serves it instead; scrolls
-              within itself rather than outgrowing the map. No fixed width
-              here: the card sizes itself (360px expanded, shrink-to-fit
-              collapsed) and the right anchor keeps it hugging the corner. */}
+          {/* Draft-status helper, top-right of the map. Hidden below lg (the
+              mobile "View map guide" modal serves it); the card sizes itself
+              so the right anchor keeps the collapsed header in the corner. */}
           <div className="absolute top-3 right-3 z-10 hidden lg:flex justify-end max-w-[calc(100%-24px)] max-h-[calc(100%-24px)] overflow-y-auto rounded-[10px]">
             <DraftStatusHelper />
           </div>

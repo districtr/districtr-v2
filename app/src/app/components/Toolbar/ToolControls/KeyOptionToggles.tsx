@@ -23,9 +23,7 @@ export const KeyOptionToggles: React.FC = () => {
   // numbers stays enabled; that display doesn't depend on the active tool).
   const populationTooltipDisabled =
     access === ACCESS_STATES.READ || activeTool === ACTIVE_TOOLS.PAN;
-  // Guided step (see uiHintStore.guideTargets): DraftStatusHelper's "Show
-  // population tooltips as you paint" hint pulses this row until the user
-  // flips the checkbox themselves — the hint points, it never toggles.
+  // Guide target for the population-tooltip hint (see uiHintStore).
   const guiding = useUiHintStore(state => state.guideTargets[0] === 'population-tooltip');
   const advanceGuide = useUiHintStore(state => state.advanceGuide);
 

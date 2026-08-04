@@ -30,9 +30,8 @@ const TabSection: React.FC<{
   const toggleTabSection = useMapControlsStore(state => state.toggleTabSection);
   // Helper hints pulse the section they just pointed the user at.
   const flashing = useUiHintStore(state => state.flashTarget === `section:${id}`);
-  // Guided step: pulse the header until the user expands the section
-  // themselves. An already-open section needs no click — advance past it (and
-  // pulse it once as the landing confirmation when it ends the guide).
+  // Guide target: pulses until the user expands the section; already-open
+  // sections advance immediately (with a confirmation flash if guide-final).
   const guideId = `section:${id}`;
   const guiding = useUiHintStore(state => state.guideTargets[0] === guideId);
   const advanceGuide = useUiHintStore(state => state.advanceGuide);
@@ -189,9 +188,7 @@ export const WorkflowTabs: React.FC<{layoutToggle: React.ReactNode}> = ({layoutT
   const activeKey = visibleTabs.some(t => t.key === tab) ? tab : visibleTabs[0].key;
   const activeTab = visibleTabs.find(t => t.key === activeKey);
   const flashTarget = useUiHintStore(state => state.flashTarget);
-  // Guided step (see uiHintStore.guideTargets): pulse the destination tab
-  // until the user clicks it; a guide pointing at the already-active tab
-  // advances straight to its next step.
+  // Guide target: pulses the destination tab; already-active tabs advance.
   const guideTarget = useUiHintStore(state => state.guideTargets[0]);
   const advanceGuide = useUiHintStore(state => state.advanceGuide);
   useEffect(() => {

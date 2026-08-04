@@ -62,10 +62,8 @@ export const MapValidation = () => {
   });
   const togglePanel = (panel: ValidationTab) =>
     setOpenPanels(prev => ({...prev, [panel]: !prev[panel]}));
-  // Guided step (see uiHintStore.guideTargets): helper-box hints point at a
-  // validation panel and pulse its header until the user opens it themselves.
-  // A panel that's already open needs no click — advance past it with a
-  // one-shot confirmation pulse instead.
+  // Guide target: pulses the panel header; already-open panels advance with
+  // a one-shot confirmation pulse.
   const guideTarget = useUiHintStore(state => state.guideTargets[0]);
   const advanceGuide = useUiHintStore(state => state.advanceGuide);
   const flash = useUiHintStore(state => state.flash);
