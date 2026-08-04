@@ -408,6 +408,13 @@ class CountyContext:
             self._name_cache = self._load_county_names()
         return self._name_cache[geoid]
 
+    def county_names_for_states(self, statefps: list[str]) -> dict[CountyGeoid, str]:
+        """Return {county_geoid: name} for every county in the given state FIPS."""
+        if not self._name_cache:
+            self._name_cache = self._load_county_names()
+        prefixes = tuple(statefps)
+        return {g: n for g, n in self._name_cache.items() if g.startswith(prefixes)}
+
     def county_populations(
         self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
     ) -> dict[CountyGeoid, int]:

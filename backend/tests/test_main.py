@@ -2279,3 +2279,24 @@ def test_county_filter_lives_on_document(
         assert (not outside) == in_filter_only
 
 
+def test_get_counties(client, monkeypatch):
+    from app.evaluation.context import COUNTY_CONTEXT
+
+    monkeypatch.setattr(
+        COUNTY_CONTEXT,
+        "_name_cache",
+        {
+            "20097": "Kingman County",
+            "20209": "Wyandotte County",
+            "40001": "Adair County",
+        },
+    )
+    response = client.get("/api/counties", params={"statefps": ["20"]})
+    assert response.status_code == 200
+    assert response.json() == [
+        {"geoid": "20097", "name": "Kingman County"},
+        {"geoid": "20209", "name": "Wyandotte County"},
+    ]
+
+    response = client.get("/api/counties")
+    assert response.status_code == 422

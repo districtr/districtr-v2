@@ -65,6 +65,7 @@ from app.comments.settings import (
 )
 import app.contiguity.main as contiguity
 import app.evaluation.main as evaluation
+from app.evaluation.context import COUNTY_CONTEXT
 from app.evaluation.types import MetricsEnvelope
 import app.save_share.main as save_share
 import app.thumbnails.main as thumbnails
@@ -373,6 +374,13 @@ def get_document_evaluation(
     return evaluation.update_or_select_document_evaluation(
         background_tasks, session, document
     )
+
+
+@app.get("/api/counties")
+async def get_counties(statefps: Annotated[list[str], Query(min_length=1)]):
+    """List counties ({geoid, name}) for the given 2-digit state FIPS codes."""
+    names = COUNTY_CONTEXT.county_names_for_states(statefps)
+    return [{"geoid": g, "name": n} for g, n in sorted(names.items())]
 
 
 # matches createMapObject in apiHandlers.ts
