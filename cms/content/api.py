@@ -28,12 +28,13 @@ list -> plain list, rich_text -> HTML string).
 from django.conf import settings
 from django.views.decorators.http import require_GET
 
-from content.models import PlacePage, TagPage
+from content.models import PlacePage, StaticPage, TagPage
 from core.api import MAX_PAGE_SIZE, _json, pagination
 
 CONTENT_TYPE_PAGES = {
     "tags": TagPage,
     "places": PlacePage,
+    "static": StaticPage,
 }
 
 DEFAULT_LANGUAGE = "en"
@@ -60,7 +61,7 @@ def _serialize_page(page, content_type):
     }
     if content_type == "tags":
         content["districtr_map_slug"] = page.districtr_map_slug or None
-    else:
+    elif content_type == "places":
         content["districtr_map_slugs"] = page.districtr_map_slugs or None
     return content
 
@@ -146,7 +147,7 @@ def content_list(request, content_type):
         # modules per place without fetching each page.
         if content_type == "tags":
             item["districtr_map_slug"] = page.districtr_map_slug or None
-        else:
+        elif content_type == "places":
             item["districtr_map_slugs"] = page.districtr_map_slugs or None
         results.append(item)
     return _json(results)

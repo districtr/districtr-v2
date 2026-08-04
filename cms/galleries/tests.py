@@ -17,6 +17,7 @@ from django.urls import reverse
 from wagtail.permission_policies.base import ModelPermissionPolicy
 from wagtail.snippets.models import get_snippet_models
 
+from authapi.models import Team, TeamMapGroup, TeamMembership
 from authapi.serializers import DistrictrTokenObtainPairSerializer
 from galleries.models import Gallery, GalleryEntry, GallerySection, GalleryVisibility
 
@@ -149,35 +150,58 @@ class GalleryDetailApiTests(TestCase):
 
 
 class GroupOnlyGalleryApiTests(TestCase):
+    """group_only enforcement: the token must carry the gallery's map_group
+    slug in its `map_groups` claim (minted from the user's teams) or the
+    `admin` role — a merely-valid login is no longer enough."""
+
     @classmethod
     def setUpTestData(cls):
-        make_gallery("partners-only", visibility=GalleryVisibility.GROUP_ONLY)
-        cls.user = make_user("partner", "partner@districtr.org")
+        with connection.cursor() as cursor:
+            # The map_group mirror is Alembic-owned and absent from the test
+            # DB (mirrors test_map_group_scoped_gallery_publishes).
+            cursor.execute(
+                "CREATE TABLE IF NOT EXISTS map_group "
+                "(slug varchar PRIMARY KEY, name varchar)"
+            )
+            cursor.execute("INSERT INTO map_group VALUES ('ga', 'Group A')")
+        make_gallery(
+            "partners-only",
+            visibility=GalleryVisibility.GROUP_ONLY,
+            map_group_id="ga",
+        )
+        cls.member = make_user("partner", "partner@districtr.org")
+        team = Team.objects.create(name="Team A")
+        TeamMembership.objects.create(team=team, user=cls.member)
+        TeamMapGroup.objects.create(team=team, map_group_id="ga")
+        cls.outsider = make_user("partner", "outsider@districtr.org")
+        cls.admin = make_user("admin", "admin@districtr.org")
 
-    def _token(self):
-        return str(DistrictrTokenObtainPairSerializer.get_token(self.user).access_token)
+    def _get(self, user=None, raw_token=None):
+        token = raw_token or (
+            user
+            and str(DistrictrTokenObtainPairSerializer.get_token(user).access_token)
+        )
+        headers = {"authorization": f"Bearer {token}"} if token else {}
+        return self.client.get("/api/galleries/partners-only", headers=headers)
 
     def test_anonymous_403(self):
-        response = self.client.get("/api/galleries/partners-only")
+        response = self._get()
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response["Access-Control-Allow-Origin"], "*")
 
     def test_garbage_token_403(self):
-        response = self.client.get(
-            "/api/galleries/partners-only",
-            headers={"authorization": "Bearer not-a-jwt"},
-        )
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(self._get(raw_token="not-a-jwt").status_code, 403)
 
-    def test_valid_token_200(self):
-        # Simplification (galleries/api.py): ANY valid Districtr-issued token
-        # passes — roles are not yet matched against gallery.map_group.
-        response = self.client.get(
-            "/api/galleries/partners-only",
-            headers={"authorization": f"Bearer {self._token()}"},
-        )
+    def test_valid_token_without_team_403(self):
+        self.assertEqual(self._get(self.outsider).status_code, 403)
+
+    def test_team_member_200(self):
+        response = self._get(self.member)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["slug"], "partners-only")
+
+    def test_admin_200(self):
+        self.assertEqual(self._get(self.admin).status_code, 200)
 
 
 class GalleryListApiTests(TestCase):

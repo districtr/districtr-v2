@@ -70,6 +70,28 @@ class PlacesIndexPage(Page):
         verbose_name = "places index page"
 
 
+class StaticIndexPage(Page):
+    """Parent for all StaticPages (one per locale)."""
+
+    subpage_types = ["content.StaticPage"]
+
+    class Meta:
+        verbose_name = "static pages index"
+
+
+class StaticPage(ContentPageBase):
+    """A site static page (about, rules, contact, ...): subtitle + StreamField
+    body, no map association. Served by the Next.js catch-all route via
+    /api/content/static/slug/<slug>; a hardcoded Next.js route with the same
+    path takes precedence, so pages can migrate into the CMS one at a time."""
+
+    parent_page_types = ["content.StaticIndexPage"]
+    subpage_types: list[str] = []
+
+    class Meta:
+        verbose_name = "static page"
+
+
 class TagPage(ContentPageBase):
     """Replaces a cms.tags_content row (one page per slug+locale)."""
 

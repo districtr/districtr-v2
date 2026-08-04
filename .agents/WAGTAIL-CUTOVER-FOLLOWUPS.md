@@ -20,34 +20,24 @@ replaced with real `Model(**row._asdict())` instances.
 
 ---
 
-## 1. Product decisions needed (blockers for *deciding*, not for shipping)
+## 1. Product decisions — RESOLVED 2026-08-04 (session with Dylan)
 
-### 1.1 Editor scope: all pages vs. own-content-only
-The legacy FastAPI CMS let editors modify only content they authored
-(`update:content` vs `update:update-all` scope split). The Wagtail replacement
-grants editor/admin **full-tree** add/change/publish on the page root
-([cms/content/migrations/0002_grant_page_permissions.py](../cms/content/migrations/0002_grant_page_permissions.py)
-— docstring records this decision as deferred).
+### 1.1 ✅ Editor scope: **own-content-only** (+ teams for manual control)
+Shipped: `content/0004_editor_own_content_only` revokes the editor group's
+tree-wide `change_page`; editors keep `add_page` (Wagtail's owner model grants
+edit on owned pages) + `publish_page` (applies only to editable, i.e. own,
+pages). `migrate_tiptap --owners "auth0|xx=email,..."` sets `Page.owner` from
+the legacy `author` column (Auth0 subjects — the sub→email mapping must be
+supplied at cutover; there are two distinct authors in the data).
 
-- Wagtail-native way to restore own-content-only: grant `add_page` **without**
-  `change_page` — owners get implicit edit rights on pages they created.
-- If chosen, `migrate_tiptap` should also set `Page.owner` from the legacy
-  `author` column during import (currently dropped).
+### 1.2 ✅ group_only galleries: **enforced via Teams**
+Shipped: the JWT carries a `map_groups` claim (slugs across the user's teams,
+minted in [cms/authapi/serializers.py](../cms/authapi/serializers.py));
+[cms/galleries/api.py](../cms/galleries/api.py) requires the gallery's
+`map_group` slug in that claim, or the `admin` role. A merely-valid login no
+longer opens group_only galleries. Scoping unit confirmed as `MapGroup`.
 
-### 1.2 group_only galleries: who actually gets access?
-Today any **valid Districtr token** opens a `group_only` gallery — the
-`Gallery.map_group` FK is an unenforced placeholder
-([cms/galleries/api.py](../cms/galleries/api.py), documented simplification).
-Real enforcement needs:
-- a user→MapGroup assignment model in `authapi` (mirror `ReviewTagAssignment`),
-- a claim in the JWT (e.g. `map_groups`) minted in
-  [cms/authapi/serializers.py](../cms/authapi/serializers.py),
-- the gallery API checking claim ∩ `gallery.map_group`.
-Also decide whether the unit of scoping is `MapGroup` at all, or the Django
-auth group (the `roles` claim already exists) — if the latter, repoint the FK
-before anyone stores data against it.
-
-### 1.3 Refresh-token security posture
+### 1.3 Refresh-token security posture (still open, low priority)
 `BLACKLIST_AFTER_ROTATION` was turned **off**
 ([cms/config/settings/base.py](../cms/config/settings/base.py)) because Next.js
 RSCs cannot persist rotated cookies — single-use tokens deterministically
@@ -62,7 +52,7 @@ or make middleware the *only* refresher and re-enable blacklisting.
 
 | Item | Where | Notes |
 |---|---|---|
-| ⏳ **NEEDS DECISION** — District comments for tag-scoped reviewers | [backend/app/comments/main.py](../backend/app/comments/main.py) | Blanket 403 today (district comments are tag-less). Either tag district comments at sync time or add per-document scoping. Menu link already hidden for scoped reviewers. |
+| ✅ **DECIDED 2026-08-04: leave as-is** — District comments for tag-scoped reviewers | [backend/app/comments/main.py](../backend/app/comments/main.py) | Blanket 403 stays: scoped reviewers moderate community comments only; full reviewers/admins handle district comments. Menu link already hidden for scoped reviewers. |
 | ✅ **DONE** — `/places` "N map modules" count | [app/src/app/(static)/places/page.tsx](../app/src/app/(static)/places/page.tsx) | Restored: card shows `N map module(s)` from the `districtr_map_slugs` the list endpoint returns. |
 | ✅ **DONE** — GET `/auth/logout` CSRF | [app/src/app/auth/logout/route.ts](../app/src/app/auth/logout/route.ts) | Guarded with the Fetch-Metadata `Sec-Fetch-Site` header — an explicit `cross-site` GET bounces home WITHOUT signing out; same-origin/same-site/direct nav still log out. Chose this over the auto-submit-form approach: lower risk, no coupling to NextAuth CSRF internals, no redirect flash. |
 | ⏳ **DEFERRED** (long-term) — PermissionGuard reads raw JWT client-side | [app/src/app/admin/components/PermissionGuard.tsx](../app/src/app/admin/components/PermissionGuard.tsx) | Now base64url-safe via shared `decodeJwtPayload`, but long-term the access token shouldn't need to reach the client at all — pass roles/scopes as typed session fields and keep the token server-side. Larger auth-session refactor; left as-is. |
@@ -137,7 +127,13 @@ or make middleware the *only* refresher and re-enable blacklisting.
 3. Staging rehearsal on the `-dev` Fly apps first (full sequence below, plus a
    backend `alembic revision --autogenerate` afterward proving an empty diff).
 4. Merge → CI deploys api/app/cms (release commands run both migration systems).
-5. `manage.py migrate_tiptap --dry-run` → review report → real run.
+5. `manage.py migrate_tiptap --dry-run` → review report → real run **with
+   `--owners "auth0|<sub>=<email>,..."`** (map the two legacy author subjects
+   to provisioned users so their pages stay editable under own-content-only).
+5b. In the Wagtail admin, add a "Static pages" index page under Home
+   (StaticPage type, new 2026-08-04): static site pages migrate into the CMS
+   one at a time — delete the hardcoded Next.js route, publish a StaticPage
+   with the same slug (the `/[slug]` catch-all serves it).
 6. `manage.py provision_users users.csv` (CSV: email,name,group) — sends
    password-setup emails.
 7. Smoke: Wagtail login, edit+publish a page, comment moderation at

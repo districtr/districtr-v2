@@ -4,6 +4,7 @@ from rest_framework_simplejwt.serializers import (
 )
 
 from authapi.scopes import scopes_for_user
+from authapi.teams import map_group_slugs_for_user
 from authapi.tokens import KidRefreshToken
 
 
@@ -42,6 +43,12 @@ class DistrictrTokenObtainPairSerializer(TokenObtainPairSerializer):
         token["roles"] = group_names
         if review_tags:
             token["review_tags"] = review_tags
+        # MapGroup slugs across the user's teams: the galleries API matches
+        # this claim against Gallery.map_group for group_only galleries
+        # (admins bypass via the roles claim). Absent when team-less.
+        map_groups = sorted(map_group_slugs_for_user(user))
+        if map_groups:
+            token["map_groups"] = map_groups
         return token
 
 

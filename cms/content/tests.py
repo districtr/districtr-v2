@@ -18,10 +18,17 @@ from django.core.management import call_command as django_call_command
 from django.core.management.base import CommandError
 from django.db import connection
 from django.test import SimpleTestCase, TestCase
-from wagtail.models import Locale, Page, Revision, Site
+from wagtail.models import GroupPagePermission, Locale, Page, Revision, Site
 from wagtail.permission_policies.pages import PagePermissionPolicy
 
-from content.models import PlacePage, PlacesIndexPage, TagPage, TagsIndexPage
+from content.models import (
+    PlacePage,
+    PlacesIndexPage,
+    StaticIndexPage,
+    StaticPage,
+    TagPage,
+    TagsIndexPage,
+)
 from content.tiptap import (
     extract_prosemirror_text,
     extract_stream_text,
@@ -399,16 +406,34 @@ class PagePermissionGrantTests(TestCase):
         return user
 
     def test_editor_passes_page_permission_checks(self):
+        # Editors are own-content-only (content.0004): add + publish, but no
+        # tree-wide change — Wagtail's owner model grants edit on owned pages.
         user = self.user_in_group("editor")
         policy = PagePermissionPolicy()
-        for action in ("add", "change", "publish"):
+        for action in ("add", "publish"):
             self.assertTrue(
                 policy.user_has_permission(user, action),
                 f"editor should have '{action}' page permission",
             )
+        # Policy-level "change" stays True (add-permission holders may change
+        # their OWN pages) — the tree-wide grant row is what must be gone.
+        self.assertFalse(
+            GroupPagePermission.objects.filter(
+                group__name="editor", permission__codename="change_page"
+            ).exists(),
+            "editors must not hold tree-wide change_page",
+        )
         root = Page.get_first_root_node()
         perms = root.permissions_for_user(user)
         self.assertTrue(perms.can_add_subpage())
+
+    def test_editor_edits_own_pages_only(self):
+        user = self.user_in_group("editor")
+        root = Page.get_first_root_node()
+        own = root.add_child(instance=Page(title="Mine", slug="mine-own", owner=user))
+        other = root.add_child(instance=Page(title="Other", slug="not-mine"))
+        self.assertTrue(own.permissions_for_user(user).can_edit())
+        self.assertFalse(other.permissions_for_user(user).can_edit())
 
     def test_admin_passes_page_permission_checks(self):
         user = self.user_in_group("admin")
@@ -495,6 +520,16 @@ class ContentApiTests(TestCase):
         )
         cls.places_index.add_child(instance=place)
         place.save_revision(clean=False).publish()
+
+        static_index = StaticIndexPage(title="Static pages", slug="static-pages")
+        home.add_child(instance=static_index)
+        rules = StaticPage(
+            title="Rules",
+            slug="rules",
+            body=[{"type": "rich_text", "value": "<p>The rules</p>"}],
+        )
+        static_index.add_child(instance=rules)
+        rules.save_revision(clean=False).publish()
 
     def test_detail_serves_requested_language(self):
         response = self.client.get("/api/content/tags/slug/fair-maps?language=es")
@@ -624,6 +659,19 @@ class ContentApiTests(TestCase):
         # ... and explicit filtering still excludes it.
         en_rows = self.client.get("/api/content/tags/list?language=en").json()
         self.assertNotIn("solo-es", [r["slug"] for r in en_rows])
+
+    def test_static_detail_has_no_map_fields(self):
+        payload = self.client.get("/api/content/static/slug/rules").json()
+        self.assertEqual(payload["type"], "static")
+        self.assertEqual(payload["content"]["title"], "Rules")
+        self.assertNotIn("districtr_map_slug", payload["content"])
+        self.assertNotIn("districtr_map_slugs", payload["content"])
+
+    def test_static_list(self):
+        rows = self.client.get("/api/content/static/list").json()
+        self.assertEqual(
+            rows, [{"slug": "rules", "title": "Rules", "language": "en"}]
+        )
 
     def test_list_negative_pagination_clamped(self):
         # Negative offset/limit must clamp to 0, not 500 on a negative slice.

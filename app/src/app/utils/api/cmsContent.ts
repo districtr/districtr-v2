@@ -15,7 +15,7 @@ export const CMS_API_URL =
     ? (process.env.CMS_URL ?? process.env.NEXT_PUBLIC_CMS_URL)
     : process.env.NEXT_PUBLIC_CMS_URL;
 
-export type CmsContentTypes = 'tags' | 'places';
+export type CmsContentTypes = 'tags' | 'places' | 'static';
 
 /** StreamField blocks returned in `content.body` */
 export interface RichTextBlock {
@@ -87,10 +87,13 @@ export interface TagsCMSContent extends CMSContent {
 export interface PlacesCMSContent extends CMSContent {
   districtr_map_slugs: string[] | null;
 }
+/** Static site pages (about, rules, ...) carry no map association. */
+export type StaticCMSContent = CMSContent;
 
 interface CmsContentTypesEnum {
   tags: TagsCMSContent;
   places: PlacesCMSContent;
+  static: StaticCMSContent;
 }
 
 export interface CMSContentResponseWithLanguages<

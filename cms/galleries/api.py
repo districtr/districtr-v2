@@ -15,12 +15,11 @@ objects only, `Access-Control-Allow-Origin: *`.
         Live PUBLIC galleries only: [{"slug", "title", "section",
         "entry_count"}, ...]. group_only galleries never appear here.
 
-Auth simplification: a group_only gallery accepts ANY valid token issued by
-this service (signature/audience/issuer/expiry verified with our own
-verifying key via the same SimpleJWT token class the issuer uses — see
-authapi.tokens.KidAccessToken). The token's roles/groups are NOT matched
-against gallery.map_group yet; that hook exists on the model for when
-per-group scoping is needed.
+group_only enforcement (decided 2026-08-04): the bearer token must be valid
+(signature/audience/issuer/expiry verified with our own verifying key via
+the same SimpleJWT token class the issuer uses — authapi.tokens
+.KidAccessToken) AND either carry the gallery's map_group slug in its
+`map_groups` claim (minted from the user's teams) or the `admin` role.
 """
 
 from django.db.models import Count
@@ -33,8 +32,8 @@ from core.api import _json, pagination
 from galleries.models import Gallery, GallerySection, GalleryVisibility
 
 
-def _has_valid_token(request) -> bool:
-    """True when the request bears a valid Districtr-issued access token.
+def _token_claims(request):
+    """Decoded claims of a valid Districtr-issued access token, else None.
 
     KidAccessToken decodes with our own SIMPLE_JWT verifying key and enforces
     signature, expiry, audience and issuer — the same checks the FastAPI
@@ -42,12 +41,21 @@ def _has_valid_token(request) -> bool:
     """
     authorization = request.headers.get("Authorization", "")
     if not authorization.startswith("Bearer "):
-        return False
+        return None
     try:
-        KidAccessToken(authorization.removeprefix("Bearer ").strip())
+        return KidAccessToken(authorization.removeprefix("Bearer ").strip()).payload
     except TokenError:
+        return None
+
+
+def _may_view_group_only(request, gallery) -> bool:
+    """Admins, and members whose teams own the gallery's map group."""
+    claims = _token_claims(request)
+    if claims is None:
         return False
-    return True
+    if "admin" in (claims.get("roles") or []):
+        return True
+    return gallery.map_group_id in (claims.get("map_groups") or [])
 
 
 @require_GET
@@ -57,10 +65,13 @@ def gallery_detail(request, slug):
     if gallery is None:
         return _json({"detail": f"Gallery '{slug}' not found"}, status=404)
 
-    if gallery.visibility == GalleryVisibility.GROUP_ONLY and not _has_valid_token(
-        request
+    if gallery.visibility == GalleryVisibility.GROUP_ONLY and not _may_view_group_only(
+        request, gallery
     ):
-        return _json({"detail": "A valid bearer token is required"}, status=403)
+        return _json(
+            {"detail": "This gallery is restricted to its map group's teams"},
+            status=403,
+        )
 
     return _json(
         {

@@ -16,9 +16,11 @@ Mapping:
 - Re-running upserts by (type, slug, locale): existing pages are updated in
   place (and skipped entirely when already identical), never duplicated.
 
-Not carried over: legacy `author` (an Auth0 subject string with no Django
-user to map to) and created_at/updated_at (Wagtail manages its own
-first/last_published_at via publish()).
+Legacy `author` is an Auth0 subject string with no automatic Django user
+mapping; pass --owners "auth0|xx=email@x.org,..." to set Page.owner (which
+is what keeps pre-cutover content editable by its authors under the
+editors-own-content-only permission model). created_at/updated_at are not
+carried (Wagtail manages its own first/last_published_at via publish()).
 
 --dry-run converts everything without writing and emits a per-row report:
 input node-type counts, output block-type counts, and a
@@ -29,6 +31,7 @@ run (non-zero exit). --json-report PATH writes the full report as JSON.
 import json
 from collections import Counter, defaultdict
 
+from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection, transaction
 from wagtail.models import Locale, Page, Site
@@ -103,9 +106,38 @@ class Command(BaseCommand):
             metavar="PATH",
             help="Write the full per-row report to PATH as JSON.",
         )
+        parser.add_argument(
+            "--owners",
+            metavar="SUB=EMAIL[,SUB=EMAIL...]",
+            help=(
+                "Map legacy author Auth0 subjects to provisioned users by "
+                "email; matched pages get that user as Page.owner (editors "
+                "hold add-only page permission, so ownership is what keeps "
+                "pre-cutover content editable by its authors). Unmapped or "
+                "unknown authors are warned and left ownerless."
+            ),
+        )
+
+    def _parse_owners(self, spec):
+        """``sub=email,...`` -> {sub: User}; warns on unknown emails."""
+        owners = {}
+        if not spec:
+            return owners
+        User = get_user_model()
+        for pair in spec.split(","):
+            sub, _, email = pair.partition("=")
+            user = User.objects.filter(email=email.strip()).first()
+            if user is None:
+                self.stderr.write(
+                    self.style.WARNING(f"--owners: no user with email '{email}'")
+                )
+            else:
+                owners[sub.strip()] = user
+        return owners
 
     def handle(self, *args, **options):
         dry_run = options["dry_run"]
+        self.owners = self._parse_owners(options.get("owners"))
         report = []
         failed_rows = 0
         pages_created = 0
@@ -308,6 +340,12 @@ class Command(BaseCommand):
             created = True
 
         changed = self._apply_row(config, page, row, entry)
+        owner = self.owners.get(row.get("author") or "")
+        if owner is not None and page.owner_id != owner.pk:
+            page.owner = owner
+            page.save(update_fields=["owner"])
+            changed = True
+
         if created:
             return page, "created"
         return page, ("updated" if changed else "unchanged")
