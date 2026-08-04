@@ -54,7 +54,6 @@ def test_get_s3_client_static_keys_take_precedence(monkeypatch):
     monkeypatch.setattr(settings, "AWS_ACCESS_KEY_ID", "test-key")
     monkeypatch.setattr(settings, "AWS_SECRET_ACCESS_KEY", "test-secret")
     monkeypatch.setattr(settings, "AWS_USE_DEFAULT_CREDENTIALS", True)
-    monkeypatch.setattr(settings, "ACCOUNT_ID", None)
 
     client = settings.get_s3_client()
 

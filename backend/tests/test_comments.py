@@ -1441,7 +1441,7 @@ class TestReviewTagScoping:
             "commenter": {"first_name": "Scoped", "email": "scoped@example.com"},
             "comment": {"title": title, "comment": f"{title} body."},
             "tags": [{"tag": tag} for tag in tags],
-            "recaptcha_token": "test_token",
+            "turnstile_token": "test_token",
         }
         response = client.post("/api/comments/submit", json=form_data)
         assert response.status_code == 201

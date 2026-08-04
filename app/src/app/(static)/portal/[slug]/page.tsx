@@ -11,8 +11,8 @@ export const revalidate = 3600;
 export async function generateMetadata({params}: {params: Promise<{slug: string}>}) {
   const [{slug}, userCookies] = await Promise.all([params, cookies()]);
   const language = userCookies.get('language')?.value ?? 'en';
-  const cmsData = await getCMSContent(slug, language, 'tags').catch(() => null);
-  const title = cmsData?.content?.published_content?.title;
+  const cmsData = await getCMSContent('tags', slug, language).catch(() => null);
+  const title = cmsData?.content?.title;
   return title ? {title} : {};
 }
 
