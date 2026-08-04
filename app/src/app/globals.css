@@ -197,6 +197,14 @@ body {
   border-radius: 6px;
 }
 
+/* Persistent variant for guided sequences (uiHintStore.guideTargets): the
+   target keeps pulsing until the user clicks it themselves — the guide
+   points, it never clicks — so this loops instead of playing twice. */
+.ui-guide {
+  animation: ui-flash-pulse 1.4s ease-out infinite;
+  border-radius: 6px;
+}
+
 /* Stronger variant for tiny targets like the topbar status icon, where the
    standard wash is easy to miss. A saturated wash blink, fully inside the
    element's own box — the truncating title header's overflow rules clip

@@ -6,6 +6,7 @@ import {PublicMap} from '@components/Map/PublicMap';
 import {DemographicMap} from '@components/Map/DemographicMap';
 import {PublicDemographicMap} from '@components/Map/PublicDemographicMap';
 import SidebarComponent from '@components/sidebar/Sidebar';
+import {DraftStatusHelper} from '@components/sidebar/DraftStatusHelper';
 import {EvalPanel} from '@components/EvalPanel/EvalPanel';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
@@ -141,9 +142,18 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
         ) : (
           <Topbar />
         )}
-        <Flex direction="row" className="flex-1 min-h-0">
+        <Flex direction="row" className="flex-1 min-h-0 relative">
           {isPublicPage ? <PublicMap /> : <MainMap />}
           {showDemographicMap && (isPublicPage ? <PublicDemographicMap /> : <DemographicMap />)}
+          {/* Draft-status helper overlays the map's top-right (the geocode bar
+              holds top-left, zoom bottom-right). Hidden below lg, where the
+              MobileToolbar's "View map guide" modal serves it instead; scrolls
+              within itself rather than outgrowing the map. No fixed width
+              here: the card sizes itself (360px expanded, shrink-to-fit
+              collapsed) and the right anchor keeps it hugging the corner. */}
+          <div className="absolute top-3 right-3 z-10 hidden lg:flex justify-end max-w-[calc(100%-24px)] max-h-[calc(100%-24px)] overflow-y-auto rounded-[10px]">
+            <DraftStatusHelper />
+          </div>
         </Flex>
         <MobileToolbar />
         <MapTooltip />
