@@ -1,12 +1,13 @@
 'use client';
 import {Flex, IconButton, Kbd, Text} from '@radix-ui/themes';
 import {useMapControlsStore} from '@store/mapControlsStore';
-import {useToolbarStore} from '@store/toolbarStore';
-import React from 'react';
+import {useUiHintStore} from '@store/uiHintStore';
+import React, {useEffect} from 'react';
 import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
 import {useActiveTools} from '@/app/components/Toolbar/ToolUtils';
 import type {ActiveToolConfig} from '@/app/components/Toolbar/ToolUtils';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@/app/components/HelpTip/HelpTip';
+import {useAltHeld} from '@/app/hooks/useAltHeld';
 
 // Fixed button size; the old user-configurable size picker was removed.
 const TOOLBAR_SIZE = 40;
@@ -21,44 +22,44 @@ const HISTORY_GROW_FACTOR = 0.2;
 
 const HISTORY_TOOLS: ActiveTool[] = [ACTIVE_TOOLS.UNDO, ACTIVE_TOOLS.REDO];
 
+// Chorded labels ('⌘ + Shift + Z') are too wide for a corner badge; condense
+// them to symbol form ('⌘⇧Z' / 'Ctrl⇧Z'). Single-letter labels pass through.
+const compactHotkeyLabel = (label: string) => label.replace(/Shift/g, '⇧').replace(/\s*\+\s*/g, '');
+
 export const ToolButtons: React.FC = () => {
   const activeTool = useMapControlsStore(state => state.activeTool);
   const setActiveTool = useMapControlsStore(state => state.setActiveTool);
-  // Shortcut previews (the corner hotkey badge) are Super Draw only; the
-  // hotkeys themselves still work in plain Draw.
-  const showHotkeyHints = useToolbarStore(state => state.superDraw);
+  // Shortcut previews (the corner hotkey badge) appear only while Alt/Option
+  // is held — the buttons are too cramped for always-on badges. This component
+  // only mounts in draw mode, so the Alt listener doesn't outlive it; mobile
+  // has no Alt key, so the held state is effectively desktop-only. The hotkeys
+  // themselves always work without the badges.
+  const showHotkeyHints = useAltHeld();
   const activeTools = useActiveTools();
+  // Guided step (see uiHintStore.guideTargets): the draft helper points at a
+  // tool button (`tool:<mode>`) and pulses it until the user arms that tool
+  // themselves; a guide pointing at the already-active tool skips ahead.
+  const guideTarget = useUiHintStore(state => state.guideTargets[0]);
+  const advanceGuide = useUiHintStore(state => state.advanceGuide);
+  useEffect(() => {
+    if (guideTarget === `tool:${activeTool}`) advanceGuide(guideTarget);
+  }, [guideTarget, activeTool, advanceGuide]);
   const mainTools = activeTools.filter(tool => !HISTORY_TOOLS.includes(tool.mode));
   const historyTools = activeTools.filter(tool => HISTORY_TOOLS.includes(tool.mode));
-  // Undo/Redo share one HelpTip entry and have no room for a corner hotkey
-  // badge (their shortcuts are chorded, too wide) — so in Super Draw, their
-  // shortcuts ride along in the hover card's own text instead of a second,
-  // Alt-revealed tooltip (this override hides the demonstration link for that
-  // mode — no room for both, and the shortcuts matter more there). Outside
-  // Super Draw, '' suppresses the dictionary entry's own text the same way
-  // the tool-group combos do, leaving just the demonstration link. Composed
-  // from each tool's own hotKeyLabel (already OS-aware: ⌘ vs Ctrl), not
-  // hardcoded into the static copy.
-  const undoTool = historyTools.find(tool => tool.mode === ACTIVE_TOOLS.UNDO);
-  const redoTool = historyTools.find(tool => tool.mode === ACTIVE_TOOLS.REDO);
-  const historyHelpText =
-    showHotkeyHints && undoTool && redoTool
-      ? `Undo shortcut: ${undoTool.hotKeyLabel}.\nRedo shortcut: ${redoTool.hotKeyLabel}.`
-      : '';
-
   const renderTool = (tool: ActiveToolConfig, buttonStyle: React.CSSProperties) => {
     const IconComponent = tool.icon;
     const isActive = activeTool === tool.mode;
-    // Main tools get a corner hotkey badge; history tools (chorded ⌘Z/⌘⇧Z
-    // shortcuts, too wide for a corner) have their shortcut folded into the
-    // HelpTip text below instead — one hover mechanism for every tool.
+    // History tools' chorded shortcuts get a compact badge (⌘⇧Z) — the full
+    // '⌘ + Shift + Z' form is too wide for their narrow buttons.
     const isHistoryTool = HISTORY_TOOLS.includes(tool.mode);
     const button = (
       <IconButton
         key={tool.mode}
         data-testid={`${tool.mode}-tool`}
         aria-label={tool.label}
-        className="cursor-pointer tool-button"
+        className={`cursor-pointer tool-button ${
+          guideTarget === `tool:${tool.mode}` ? 'ui-guide' : ''
+        }`}
         onClick={() => {
           if (tool.onClick) {
             tool.onClick();
@@ -83,8 +84,8 @@ export const ToolButtons: React.FC = () => {
         color={isActive ? undefined : 'gray'}
         disabled={tool.disabled}
       >
-        {/* Main-tool shortcuts float in the button's top-right corner. */}
-        {!isHistoryTool && showHotkeyHints && (
+        {/* Shortcuts float in the button's top-right corner while Alt is held. */}
+        {showHotkeyHints && (
           <Kbd
             size="1"
             style={{
@@ -95,9 +96,11 @@ export const ToolButtons: React.FC = () => {
               boxShadow: 'none',
               color: 'inherit',
               opacity: 0.7,
+              whiteSpace: 'nowrap',
+              ...(isHistoryTool ? {fontSize: 9, letterSpacing: 0} : {}),
             }}
           >
-            {tool.hotKeyLabel}
+            {isHistoryTool ? compactHotkeyLabel(tool.hotKeyLabel) : tool.hotKeyLabel}
           </Kbd>
         )}
         <Flex direction="column" align="center" gap="1">
@@ -116,15 +119,10 @@ export const ToolButtons: React.FC = () => {
     // ToolUtils' combinationHelpKey / 'superdrawToolsCombination'), so its
     // hover card would describe every tool in the group rather than just
     // this button — text="" suppresses that description, leaving only the
-    // demonstration link. History tools (undo/redo) get their own,
-    // pair-specific text/link instead.
+    // demonstration link. Shortcuts no longer ride along in the hover card;
+    // they're revealed by holding Alt/Option instead (corner badges above).
     return tool.helpKey ? (
-      <HelpTip
-        key={tool.mode}
-        tip={tool.helpKey}
-        openDelay={HELP_TIP_HOVER_DELAY}
-        text={isHistoryTool ? historyHelpText : ''}
-      >
+      <HelpTip key={tool.mode} tip={tool.helpKey} openDelay={HELP_TIP_HOVER_DELAY} text="">
         {button}
       </HelpTip>
     ) : (
