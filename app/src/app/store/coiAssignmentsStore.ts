@@ -29,6 +29,7 @@ import {fetchDocument, SyncConflictInfo} from '../utils/api/apiHandlers/fetchDoc
 import {getAssignments} from '../utils/api/apiHandlers/getAssignments';
 import {createMapDocument} from '../utils/api/apiHandlers/createMapDocument';
 import {confirmMapDocumentUrlParameter} from '../utils/map/confirmMapDocumentUrlParameter';
+import {editPath} from '../utils/map/editUrl';
 
 import {createWithFullMiddlewares} from './middlewares';
 import {coiAssignmentsTemporalConfig} from './middlewareConfig';
@@ -124,7 +125,11 @@ export interface CoiAssignmentsStore {
   healParentsIfAllChildrenInSameCommunities: (parentIds?: Set<string>) => void;
 
   /** Ingests COI assignments and shatter state from document payload. */
-  ingestFromDocument: (data: CoiAssignmentsPayload, mapDocument?: DocumentObject) => void;
+  ingestFromDocument: (
+    data: CoiAssignmentsPayload,
+    mapDocument?: DocumentObject,
+    hasLocalEdits?: boolean
+  ) => void;
 
   replaceCommunityAssignments: (assignments: CommunityAssignmentsMap) => void;
   resetCommunityAssignments: () => void;
@@ -147,7 +152,10 @@ export interface CoiAssignmentsStore {
   removeCommunitiesAbove: (maxCommunity: number) => void;
   removeCommunity: (removedCommunity: Zone) => void;
 
-  handlePutAssignments: (overwrite?: boolean) => Promise<void>;
+  handlePutAssignments: (
+    overwrite?: boolean,
+    opts?: {silent?: boolean}
+  ) => Promise<{ok: true; response: string} | {ok: false; error: {detail: string}}>;
   handleRevert: (mapDocument: DocumentObject) => Promise<void>;
   resolveConflict: (
     resolution: SyncConflictResolution,
@@ -158,7 +166,7 @@ export interface CoiAssignmentsStore {
     resolution: SyncConflictResolution,
     syncConflictInfo: SyncConflictInfo,
     options?: {
-      onNavigate?: (documentId: string) => void;
+      onNavigate?: (document: DocumentObject) => void;
       onComplete?: () => void;
       context?: ConflictContext;
     }
@@ -523,7 +531,7 @@ type CoiConflictDependencies = {
   store: CoiAssignmentsStore;
   setMapDocument: (doc: DocumentObject) => void;
   setMapLock: (lock: {isLocked: boolean; reason: string} | null) => void;
-  onNavigate?: (documentId: string) => void;
+  onNavigate?: (document: DocumentObject) => void;
   onComplete?: () => void;
 };
 
@@ -692,9 +700,10 @@ const coiResolveFork = async ({
     store.setClientLastUpdated(response.response.updated_at);
     store.ingestFromDocument(data, updatedDocument);
     if (onNavigate) {
-      onNavigate(createMapDocumentResponse.response.document_id);
+      onNavigate(createMapDocumentResponse.response);
     } else {
-      history.pushState(null, '', `/coi/edit/${createMapDocumentResponse.response.document_id}`);
+      const {document_id, public_id} = createMapDocumentResponse.response;
+      history.pushState(null, '', editPath('coi', document_id, public_id));
     }
   } finally {
     setMapLock(null);
@@ -1091,6 +1100,11 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     if (!healed) return;
 
     const currentTime = new Date().toISOString();
+    // Healing is an automatic consequence of the gesture that triggered it (paint or
+    // exiting block view), not a user edit — suppress its undo snapshot so it coalesces
+    // into that gesture's history entry instead of adding a transient pre-heal step.
+    const {isTracking, pause, resume} = useCoiAssignmentsStore.temporal.getState();
+    isTracking && pause();
     set({
       communityAssignments,
       accumulatedAssignments: new Map<string, CoiAccumulatedMutation>(),
@@ -1100,6 +1114,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       childToParent,
       clientLastUpdated: currentTime,
     });
+    isTracking && resume();
 
     if (mapDocument) {
       idb.updateIdbCoiAssignments(mapDocument, communityAssignments, currentTime, true);
@@ -1131,10 +1146,17 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     }
   },
 
-  ingestFromDocument: (data: CoiAssignmentsPayload, mapDocument?: DocumentObject) => {
+  ingestFromDocument: (
+    data: CoiAssignmentsPayload,
+    mapDocument?: DocumentObject,
+    hasLocalEdits = false
+  ) => {
     const currentTime = new Date().toISOString();
     const baselineUpdatedAt =
       mapDocument?.updated_at ?? useMapStore.getState().mapDocument?.updated_at ?? currentTime;
+    // Keep unsaved local edits marked dirty (clientLastUpdated !== updated_at) so the
+    // save indicator stays correct on its own instead of being reset to in-sync.
+    const nextClientLastUpdated = hasLocalEdits ? currentTime : baselineUpdatedAt;
 
     // console.log('[hydration] ingestFromDocument called', {
     //   hasMapDocument: !!mapDocument,
@@ -1213,7 +1235,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       },
       parentToChild: new Map<string, Set<string>>(data.parentToChild),
       childToParent: new Map<string, string>(data.childToParent),
-      clientLastUpdated: baselineUpdatedAt,
+      clientLastUpdated: nextClientLastUpdated,
     });
 
     // console.log('[hydration] COI store updated, final state:', {
@@ -1222,7 +1244,12 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     // });
 
     if (mapDocument) {
-      idb.updateIdbCoiAssignments(mapDocument, data.communityAssignments, baselineUpdatedAt, true);
+      idb.updateIdbCoiAssignments(
+        mapDocument,
+        data.communityAssignments,
+        nextClientLastUpdated,
+        true
+      );
     }
   },
 
@@ -1428,28 +1455,46 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     temporalManager.purgeZone(MAP_MODES.COI, removedCommunity);
   },
 
-  handlePutAssignments: async (overwrite = false) => {
+  handlePutAssignments: async (overwrite = false, {silent = false} = {}) => {
     // console.log('[COI save] handlePutAssignments called, overwrite:', overwrite);
     await idb.flushPendingUpdate();
 
-    const {mapDocument, setMapLock, setErrorNotification, setShowSaveConflictModal} =
+    const {mapDocument, setMapLock, setNotification, setShowSaveConflictModal, updated} =
       useMapStore.getState();
     if (!mapDocument?.document_id || !mapDocument.updated_at) {
-      // console.error('[COI save] Aborting save: missing document_id or updated_at', {
-      //   document_id: mapDocument?.document_id,
-      //   updated_at: mapDocument?.updated_at,
-      // });
-      return;
+      setNotification({
+        message: 'Unable to save: no map document loaded.',
+        importance: 2,
+        type: 'error',
+      });
+      return {
+        ok: false,
+        error: {
+          detail: 'No map document loaded.',
+        },
+      };
     }
     const idbDocument = await idb.getDocument(mapDocument.document_id);
     if (!idbDocument) {
-      // console.error(
-      //   '[COI save] Aborting save: IDB document not found for',
-      //   mapDocument.document_id
-      // );
-      return;
+      setNotification({
+        message: 'Unable to save: local copy of this map is missing. Please refresh and try again.',
+        importance: 2,
+        type: 'error',
+      });
+      return {
+        ok: false,
+        error: {
+          detail: 'Unable to find IDB document.',
+        },
+      };
     }
-    setMapLock({isLocked: true, reason: 'Saving Coi assignment plan'});
+    // Whether this save carries real local edits (paints, comments, metadata).
+    // Mode switches trigger a defensive save even when nothing changed, and a
+    // "Map saved" toast there misleads — so only announce saves with a delta.
+    const hasPendingChanges =
+      Object.values(updated).some(Boolean) ||
+      (get().clientLastUpdated !== '' && get().clientLastUpdated !== mapDocument.updated_at);
+    setMapLock({isLocked: true, reason: 'Saving Coi assignment plan', silent});
     try {
       const documentForSave: DocumentObject = {
         ...idbDocument.document_metadata,
@@ -1477,35 +1522,65 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
         !assignmntsPostResponse.ok &&
         assignmntsPostResponse.error === 'Document has been updated since the last update'
       ) {
-        // console.warn('[COI save] Conflict detected:', assignmntsPostResponse.error);
         setShowSaveConflictModal(true);
+        return {
+          ok: false,
+          error: {
+            detail: 'Backend conflict',
+          },
+        };
       } else if (!assignmntsPostResponse.ok) {
-        // console.error('[COI save] Save failed:', assignmntsPostResponse.error);
-        setErrorNotification({
+        setNotification({
           message: assignmntsPostResponse.error,
-          severity: 2,
+          importance: 2,
+          type: 'error',
         });
+        return {
+          ok: false,
+          error: {
+            detail: assignmntsPostResponse.error,
+          },
+        };
       } else if (assignmntsPostResponse.ok) {
-        // console.log('[COI save] Save succeeded:', assignmntsPostResponse.response);
         setShowSaveConflictModal(false);
+        if (hasPendingChanges && !silent) {
+          setNotification({message: 'Map saved', importance: 2, type: 'success'});
+          return {
+            ok: true,
+            response: 'Assignments PUT successfully.',
+          };
+        }
+        return {
+          ok: true,
+          response: 'No assignments to PUT.',
+        };
       }
     } finally {
       setMapLock(null);
     }
+    setNotification({
+      message: 'Saving this map failed. Please try again in a moment.',
+      importance: 2,
+      type: 'error',
+    });
+    return {
+      ok: false,
+      error: {
+        detail: 'An unknown error occured during PUT assignments.',
+      },
+    };
   },
 
   handleRevert: async (mapDocument: DocumentObject) => {
-    const confirmedMapDocument = confirmMapDocumentUrlParameter(
-      mapDocument.document_id,
-      '/coi/edit'
-    );
-    const {setErrorNotification, setMapLock, initiateFlushMapState} = useMapStore.getState();
+    const confirmedMapDocument = confirmMapDocumentUrlParameter(mapDocument, 'coi');
+    const {setNotification, setMapLock, initiateFlushMapState} = useMapStore.getState();
     await initiateFlushMapState();
     if (!confirmedMapDocument) {
-      setErrorNotification({
+      setNotification({
         message:
           'The map you are trying to revert to is not the current map. Please refresh your page and try again.',
-        severity: 2,
+        importance: 2,
+        type: 'error',
       });
       return;
     }
@@ -1513,9 +1588,10 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     try {
       const documentResult = await fetchDocument(mapDocument.document_id, 'remote');
       if (!documentResult.ok) {
-        setErrorNotification({
+        setNotification({
           message: 'Failed to fetch document. Please refresh your page and try again.',
-          severity: 2,
+          importance: 2,
+          type: 'error',
         });
         return;
       }

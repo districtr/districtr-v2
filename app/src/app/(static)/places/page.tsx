@@ -5,6 +5,11 @@ import {Card, Flex, Grid, Heading, Text, Link} from '@radix-ui/themes';
 export const dynamic = 'force-dynamic';
 export const revalidate = 3600;
 
+export const metadata = {
+  title: 'Places',
+  description: 'Find your state or place to start drawing',
+};
+
 export default async function TagsPage() {
   const cmsContent = await listCMSContent('places');
   if (!cmsContent) return null;

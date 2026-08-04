@@ -80,6 +80,9 @@ export const MapContainer: React.FC<{
           <GeocodeSearchBar mapRef={mapRef} mapBounds={mapBounds} />
         </div>
       )}
+      {/* pointer-events-none on the container kills hover, so the not-allowed
+          cursor while locked needs this event-catching overlay. */}
+      {mapLock && <div className="absolute inset-0 z-20 pointer-events-auto cursor-not-allowed" />}
       <GlMap
         ref={mapRef}
         mapStyle={mapStyle}
@@ -101,6 +104,10 @@ export const MapContainer: React.FC<{
         onMouseLeave={mapEventHandlers.onMouseLeave}
         onMouseOut={mapEventHandlers.onMouseOut}
         onMouseUp={mapEventHandlers.onMouseUp}
+        onTouchStart={mapEventHandlers.onTouchStart}
+        onTouchMove={mapEventHandlers.onTouchMove}
+        onTouchEnd={mapEventHandlers.onTouchEnd}
+        onTouchCancel={mapEventHandlers.onTouchCancel}
         onZoomStart={mapEventHandlers.onZoom}
         onIdle={mapEventHandlers.onIdle}
         onMoveEnd={mapEventHandlers.onMoveEnd}

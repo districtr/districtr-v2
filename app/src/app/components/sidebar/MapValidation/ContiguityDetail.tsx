@@ -60,8 +60,7 @@ export default function ContiguityDetail({
     } else if (contiguity === 1) {
       setShowZoom(false);
     }
-  }),
-    [data, contiguity];
+  }, [data, contiguity]);
 
   if (contiguity === null) {
     return <DashIcon color="gray" />;
@@ -91,15 +90,51 @@ export default function ContiguityDetail({
       {showZoom && !data && !error && <Spinner />}
       {showZoom && error && <Blockquote color="red">Error fetching components</Blockquote>}
       {!!(showZoom && !isLoading && !isFetching && data) && (
-        <Flex direction="column" gap="1" justify="start" align="start" py="2">
-          <Text color="gray">Zoom to components</Text>
-          <ZoomToFeature
-            features={data.features}
-            selectedIndex={selectedFeature}
-            setSelectedIndex={setSelectedFeature}
-          />
-        </Flex>
+        <ComponentZoomList
+          features={data.features}
+          selectedFeature={selectedFeature}
+          setSelectedFeature={setSelectedFeature}
+        />
       )}
     </div>
+  );
+}
+
+/**
+ * Every connected component is a zoom target, labelled "Component" with its
+ * size when the payload carries one (components arrive sorted largest first).
+ * Older payloads without sizes fall back to 1-based numbering.
+ */
+function ComponentZoomList({
+  features,
+  selectedFeature,
+  setSelectedFeature,
+}: {
+  features: Array<GeoJSON.Feature<GeoJSON.Polygon> | GeoJSON.Polygon>;
+  selectedFeature: number | null;
+  setSelectedFeature: (index: number | null) => void;
+}) {
+  const nGeos = (f: (typeof features)[number]) =>
+    'properties' in f ? (f.properties?.n_geos as number | undefined) : undefined;
+  const hasSizes = features.length > 0 && features.every(f => nGeos(f) !== undefined);
+  const labels = hasSizes
+    ? features.map(f => {
+        const n = nGeos(f)!;
+        return `Component · ${n} unit${n === 1 ? '' : 's'}`;
+      })
+    : undefined;
+
+  return (
+    <Flex direction="column" gap="1" justify="start" align="start" py="2">
+      <Text color="gray" size="1">
+        Zoom to a component:
+      </Text>
+      <ZoomToFeature
+        features={features}
+        selectedIndex={selectedFeature}
+        setSelectedIndex={setSelectedFeature}
+        labels={labels}
+      />
+    </Flex>
   );
 }

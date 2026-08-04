@@ -7,17 +7,20 @@ from app.utils import (
     create_parent_child_edges,
     add_extent_to_districtrmap,
     update_districtrmap,
+    GEOID_PREDICATES,
+    _stats_object_key,
 )
+from app.core.config import settings
 from sqlmodel import Session
 import subprocess
 from app.constants import GERRY_DB_SCHEMA
-from app.models import DistrictrMap
+from app.models import DistrictrMap, GeoUnitType
 from tests.constants import OGR2OGR_PG_CONNECTION_STRING, FIXTURES_PATH
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
-from app.core.security import recaptcha, auth
+from app.core.security import turnstile, auth
 from pytest import MonkeyPatch, fixture
-from tests.utils import fake_verify_recaptcha
+from tests.utils import fake_verify_turnstile
 from fastapi.security import SecurityScopes
 from app.main import app
 from app.comments.models import FullCommentFormResponse
@@ -244,6 +247,30 @@ def test_add_districtr_map_already_in_group_to_group(
     assert result == 2
 
 
+def test_add_extent_to_districtrmap_antimeridian(
+    session: Session, antimeridian_geos_gerrydb
+):
+    """Regression test for the Alaska bbox bug: geometry straddling the antimeridian
+    (vertices on both the -179.x and +179.x side) must not produce a bogus
+    ~360-degree-wide extent -- the true angular width here is ~1 degree."""
+    inserted_districtr_map = create_districtr_map(
+        session,
+        name="Antimeridian layer",
+        districtr_map_slug="antimeridian_geos_test",
+        gerrydb_table_name="antimeridian_geos",
+        parent_layer="antimeridian_geos",
+    )
+    add_extent_to_districtrmap(
+        session=session, districtr_map_uuid=inserted_districtr_map
+    )
+    extent = session.execute(
+        text("SELECT extent FROM districtrmap WHERE uuid = :uuid"),
+        {"uuid": inserted_districtr_map},
+    ).scalar_one()
+    x_min, y_min, x_max, y_max = extent
+    assert x_max - x_min < 10, f"Expected a narrow bbox, got extent={extent}"
+
+
 def test_add_extent_to_districtrmap_manual_bounds(
     session: Session, simple_parent_geos_gerrydb
 ):
@@ -322,9 +349,9 @@ def test_get_edges(client, session: Session, document_id):
 
 
 @fixture(autouse=True)
-def patch_recaptcha():
+def patch_turnstile():
     monkeypatch = MonkeyPatch()
-    monkeypatch.setattr(recaptcha, "verify_recaptcha", fake_verify_recaptcha)
+    monkeypatch.setattr(turnstile, "verify_turnstile", fake_verify_turnstile)
     yield
     monkeypatch.undo()
 
@@ -373,3 +400,43 @@ def handle_full_submission_approve(client, form_response: FullCommentFormRespons
         )
     if "id" in form_response["comment"] and form_response["comment"]["id"] is not None:
         handle_approve_comment_entry(client, "comment", form_response["comment"]["id"])
+
+
+# GEOID_PREDICATES — pure unit tests, no DB fixtures.
+@pytest.mark.parametrize(
+    "unit_type,geo_id,expected",
+    [
+        # VTD ids are prefixed; the prefix check accepts split parts too.
+        (GeoUnitType.VTD, "vtd:15009-980000", True),
+        (GeoUnitType.VTD, "vtd:15009-980000-datadem-1", True),
+        (GeoUnitType.VTD, "150099800001", False),
+        # Block groups: bare 12-digit ids, or split parts with a
+        # `-datadem-N` suffix.
+        (GeoUnitType.BLOCK_GROUP, "150099800001", True),
+        (GeoUnitType.BLOCK_GROUP, "150099800001-datadem-1", True),
+        (GeoUnitType.BLOCK_GROUP, "150099800001-datadem-12", True),
+        (GeoUnitType.BLOCK_GROUP, "150099800001-datadem-", False),
+        (GeoUnitType.BLOCK_GROUP, "150099800001-other-1", False),
+        (GeoUnitType.BLOCK_GROUP, "15009980000", False),
+        (GeoUnitType.BLOCK_GROUP, "150099800001999", False),
+        (GeoUnitType.BLOCK_GROUP, "vtd:15009-980000", False),
+        # Blocks are atomic census units and are never split: 15 digits, strict.
+        (GeoUnitType.BLOCK, "150099800001999", True),
+        (GeoUnitType.BLOCK, "150099800001", False),
+        (GeoUnitType.BLOCK, "150099800001999-datadem-1", False),
+    ],
+)
+def test_geoid_predicates(unit_type, geo_id, expected):
+    assert GEOID_PREDICATES[unit_type](geo_id) is expected
+
+
+def test_stats_object_key_is_environment_scoped(monkeypatch):
+    monkeypatch.setattr(settings, "ENVIRONMENT", "development")
+    dev_key = _stats_object_key("123")
+
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+    prod_key = _stats_object_key("123")
+
+    assert dev_key != prod_key
+    assert "/development/" in dev_key
+    assert "/production/" in prod_key

@@ -2,6 +2,8 @@ import type {Metadata} from 'next';
 import {Nunito} from 'next/font/google';
 import {Theme} from '@radix-ui/themes';
 import {FeedbackForm} from './components/FeedbackForm';
+import {VersionCheck} from './components/VersionCheck';
+import {LoadingOverlay} from './components/Topbar/LoadingOverlay';
 import '@radix-ui/themes/styles.css';
 import './globals.css';
 
@@ -12,16 +14,9 @@ const nunito = Nunito({
   display: 'swap',
 });
 
-const DISTRICTR_LOGO = [
-  {
-    url: 'https://districtr-v2-frontend.fly.dev/_next/image?url=%2Fdistrictr_logo.jpg&w=1920&q=75',
-    width: 1136,
-    height: 423,
-  },
-];
-
 export const metadata: Metadata = {
-  title: 'Districtr 2.0',
+  metadataBase: new URL(process.env.APP_BASE_URL ?? 'https://districtr.org'),
+  title: {template: '%s | Districtr', default: 'Districtr 2.0'},
   description: 'Create districting maps',
   openGraph: {
     title: 'Get Started',
@@ -29,7 +24,7 @@ export const metadata: Metadata = {
     siteName: 'Districtr 2.0',
     images: [
       {
-        url: 'https://beta.districtr.org/_next/image?url=%2Fdistrictr_logo.jpg&w=1920&q=75',
+        url: '/districtr_logo.jpg',
         width: 1136,
         height: 423,
       },
@@ -55,6 +50,8 @@ export default function RootLayout({
         <Theme accentColor="indigo" grayColor="gray" radius="large" scaling="95%">
           <main>{children}</main>
           <FeedbackForm />
+          <VersionCheck />
+          <LoadingOverlay />
         </Theme>
       </body>
     </html>

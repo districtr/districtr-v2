@@ -11,10 +11,11 @@ export const DEFAULT_BLOCK_LAYER_ORDER = {
 
 /**
  * Canonical anchor layers from top -> bottom:
- * hover -> overlays -> demography -> assignments -> geometryOutline -> counties.
+ * hover -> reference -> overlays -> demography -> assignments -> geometryOutline -> counties.
  */
 export const MAP_LAYER_ANCHOR_ORDER = [
   MAP_LAYER_ANCHOR_IDS.hover,
+  MAP_LAYER_ANCHOR_IDS.reference,
   MAP_LAYER_ANCHOR_IDS.overlays,
   MAP_LAYER_ANCHOR_IDS.demography,
   MAP_LAYER_ANCHOR_IDS.assignments,
@@ -22,7 +23,9 @@ export const MAP_LAYER_ANCHOR_ORDER = [
   MAP_LAYER_ANCHOR_IDS.counties,
 ] as const;
 
+// Same value for both so unassigned broken blocks match unassigned parents;
+// the broken parent's own background is hidden underneath (GeometryBackgroundLayer).
 export const UNASSIGNED_BACKGROUND_OPACITY = {
   parent: 0.18,
-  child: 0.22,
+  child: 0.18,
 } as const;

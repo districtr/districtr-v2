@@ -1,12 +1,8 @@
 from enum import Enum
 
 
-class DocumentExportFormat(Enum):
-    csv = "CSV"
-    geojson = "GeoJSON"
-
-
 class DocumentExportType(Enum):
-    zone_assignments = "ZoneAssignments"
-    block_zone_assignments = "BlockZoneAssignments"
-    districts = "Districts"
+    block_assignments_csv = "BlockAssignmentsCSV"
+    districts_geojson = "DistrictsGeoJSON"
+    districts_shapefile = "DistrictsShapefile"
+    evaluation_json = "EvaluationJSON"

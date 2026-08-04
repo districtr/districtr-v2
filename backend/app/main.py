@@ -8,6 +8,7 @@ from fastapi import (
 )
 from fastapi.responses import JSONResponse, Response
 from typing import Annotated, Any
+import anyio
 import msgpack
 import psutil
 import time
@@ -16,24 +17,26 @@ from sqlalchemy.exc import (
     MultipleResultsFound,
     NoResultFound,
     DataError,
-    IntegrityError,
     OperationalError,
 )
 from sqlalchemy import text
 from sqlalchemy.types import Integer
 from sqlmodel import Session, String, select, true, update, col, literal
+from starlette.concurrency import run_in_threadpool
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 import logging
 from sqlalchemy import bindparam
 from sqlmodel import ARRAY
 from datetime import datetime
-from uuid import UUID, uuid4
+from uuid import uuid4
 import sentry_sdk
 from prometheus_fastapi_instrumentator import Instrumentator
 from app.assignments import (
     duplicate_document_assignments,
     duplicate_document_community_assignments,
     batch_insert_assignments,
+    DuplicateGeoIdError,
 )
 from app.core.db import get_session
 from app.core.dependencies import (
@@ -45,7 +48,14 @@ from app.core.dependencies import (
 )
 from app.core.models import DocumentID
 from app.core.config import settings
+from app.core.security import (
+    client_ip_from_request,
+    mint_session_token,
+    require_session,
+    verify_session_turnstile,
+)
 import app.admin_ops.main as admin_ops
+import app.cms.main as cms
 import app.exports.main as exports
 import app.comments.main as comments
 from app.comments.main import sync_district_comments, sync_community_comments
@@ -87,15 +97,23 @@ from app.comments.models import (
     Tag,
     CommentTag,
 )
-from pydantic import ValidationError
-from pydantic_geojson import PolygonModel
+from pydantic_geojson import FeatureModel, PolygonModel
+from pydantic import BaseModel, ValidationError
 from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
 from sqlalchemy.sql.functions import coalesce
-from app.utils import RowFormat, package_rows, update_or_select_district_stats
+from app.utils import (
+    update_or_select_district_stats,
+    district_stats_to_feature_collection,
+    publish_district_stats_to_s3,
+    stats_cdn_url,
+    RowFormat,
+    package_rows,
+)
 from app.evaluation.graph import get_graph
 from contextlib import asynccontextmanager
 from fiona.transform import transform
+from fastapi.responses import RedirectResponse
 from fastapi import BackgroundTasks
 from ._sanitize import (
     CommentDict,
@@ -106,7 +124,8 @@ from ._sanitize import (
 if settings.ENVIRONMENT in ("production", "qa"):
     sentry_sdk.init(
         dsn="https://b14aae02017e3a9c425de4b22af7dd0c@o4507623009091584.ingest.us.sentry.io/4507623009746944",
-        traces_sample_rate=1.0,
+        traces_sample_rate=settings.SENTRY_TRACES_SAMPLE_RATE,
+        # relative to traces_sample_rate, so one knob scales both
         profiles_sample_rate=1.0,
         environment=settings.ENVIRONMENT.value,
     )
@@ -114,11 +133,15 @@ if settings.ENVIRONMENT in ("production", "qa"):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Sync-route concurrency; default 40 would cap below the DB pool
+    # (60/task, app/core/db.py). Needs a running event loop, hence lifespan.
+    anyio.to_thread.current_default_thread_limiter().total_tokens = 80
     yield
 
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(admin_ops.router)
+app.include_router(cms.router)
 app.include_router(exports.router)
 app.include_router(comments.router)
 app.include_router(save_share.router)
@@ -134,15 +157,32 @@ VERBOSE_LOGGING = settings.VERBOSE_LOGGING
 
 
 # Set all CORS enabled origins
-if settings.BACKEND_CORS_ORIGINS:
+if settings.BACKEND_CORS_ORIGINS or settings.BACKEND_CORS_ORIGIN_REGEX:
     allow_origins = [str(origin).strip("/") for origin in settings.BACKEND_CORS_ORIGINS]
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allow_origins,
+        allow_origin_regex=settings.BACKEND_CORS_ORIGIN_REGEX,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        # Let the browser read export filenames cross-origin.
+        expose_headers=["Content-Disposition"],
     )
+
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Strict-Transport-Security"] = (
+        "max-age=63072000; includeSubDomains"
+    )
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
 
 
 @app.middleware("http")
@@ -185,67 +225,6 @@ def update_timestamp(
     )
     updated_at = session.connection().execute(update_stmt).scalar_one()
     return updated_at
-
-
-_PARTITION_TABLES = ("assignments", "community_assignments")
-
-
-def _validate_partition_identifiers(document_id: str, table_name: str) -> None:
-    if table_name not in _PARTITION_TABLES:
-        raise ValueError(
-            f"Unsupported partition table: {table_name!r}. "
-            f"Expected one of {_PARTITION_TABLES}."
-        )
-    try:
-        UUID(document_id)
-    except (ValueError, TypeError, AttributeError) as exc:
-        raise ValueError(f"document_id must be a UUID; got {document_id!r}") from exc
-
-
-def create_document_partition(
-    session: Session, document_id: str, table_name: str
-) -> None:
-    """
-    Create a partition for a document in the specified table (assignments or community_assignments).
-
-    Args:
-        session (Session): The database session to use for executing the SQL statement.
-        document_id (str): The ID of the document for which to create the partition.
-        table_name (str): Must be one of "assignments" or "community_assignments".
-    """
-    _validate_partition_identifiers(document_id, table_name)
-    partition_name = f"document.{table_name}_{document_id}"
-    stmt = text(f"""
-        CREATE TABLE "{partition_name}"
-        PARTITION OF document.{table_name}
-        FOR VALUES IN ('{document_id}')
-    """)
-    session.connection().execute(stmt)
-
-
-def reset_document_partition(
-    session: Session, document_id: str, table_name: str
-) -> None:
-    """
-    Drop and recreate a partition for a document in the specified table
-    (assignments or community_assignments).
-
-    Args:
-        session (Session): The database session to use for executing the SQL statements.
-        document_id (str): The ID of the document for which to reset the partition.
-        table_name (str): Must be one of "assignments" or "community_assignments".
-    """
-    _validate_partition_identifiers(document_id, table_name)
-    partition_name = f"document.{table_name}_{document_id}"
-    session.connection().execute(
-        text(f'DROP TABLE IF EXISTS "{partition_name}" CASCADE;')
-    )
-    stmt = text(f"""
-        CREATE TABLE "{partition_name}"
-        PARTITION OF document.{table_name}
-        FOR VALUES IN ('{document_id}')
-    """)
-    session.connection().execute(stmt)
 
 
 def duplicate_document_comments(
@@ -314,19 +293,80 @@ async def db_is_alive(session: Session = Depends(get_session)):
         )
 
 
-@app.get("/api/document/{document_id}/stats")
+class SessionCreate(BaseModel):
+    turnstile_token: str
+
+
+@app.post("/api/session")
+async def create_session(data: SessionCreate, request: Request):
+    """Mint a stateless session token, verifying Turnstile when configured."""
+    if settings.TURNSTILE_SESSION_SECRET_KEY:
+        await verify_session_turnstile(
+            data.turnstile_token, client_ip_from_request(request)
+        )
+    token, expires_at = mint_session_token()
+    return {"token": token, "expires_at": expires_at.isoformat()}
+
+
+@app.get("/api/document/{document_id}/stats", dependencies=[Depends(require_session)])
 async def get_document_stats(
     background_tasks: BackgroundTasks,
     document: Annotated[Document, Depends(get_protected_document)],
+    document_id: DocumentID = Depends(parse_document_id),
     session: Session = Depends(get_session),
 ):
-    return update_or_select_district_stats(
+    """Per-zone district stats as a GeoJSON FeatureCollection.
+
+    For public (public_id) reads, redirects to the S3-hosted
+    `plans/display/{public_id}.geojson` when it's at least as fresh as the
+    document's assignments. Otherwise computes inline and enqueues a
+    background republish so the next viewer is served from the CDN.
+
+    Edit-mode reads always compute inline so the editor never sees stale
+    data, but still trigger a background republish for downstream viewers.
+    """
+    public_id = document.public_id
+    is_public_read = document_id.is_public
+    cdn_fresh = (
+        document.stats_published_at is not None
+        and document.stats_published_at >= document.assignments_updated_at
+    )
+
+    if is_public_read and cdn_fresh and public_id is not None:
+        cdn = stats_cdn_url(
+            public_id, cache_buster=str(int(document.stats_published_at.timestamp()))
+        )
+        if cdn:
+            return RedirectResponse(
+                url=cdn, status_code=status.HTTP_307_TEMPORARY_REDIRECT
+            )
+
+    rows = update_or_select_district_stats(
         session, document.document_id, background_tasks
     )
 
+    # Always (re)publish in the background when S3 is configured and the
+    # object is stale relative to the latest assignments. Skipped silently if
+    # there's no S3 client or no public_id.
+    if settings.get_s3_client() is not None and public_id is not None and not cdn_fresh:
+        background_tasks.add_task(
+            publish_district_stats_to_s3,
+            document_id=document.document_id,
+            public_id=public_id,
+        )
 
-@app.get("/api/document/{document_id}/evaluation", response_model=MetricsEnvelope)
-async def get_document_evaluation(
+    return district_stats_to_feature_collection(rows)
+
+
+# Sync def: a cold get_graph (S3 fetch + unpickle) inside compute_metrics
+# runs for seconds; a plain def hands the whole request to FastAPI's
+# threadpool so it never blocks the event loop (or ALB health checks).
+@app.get(
+    "/api/document/{document_id}/evaluation",
+    response_model=MetricsEnvelope,
+    dependencies=[Depends(require_session)],
+)
+def get_document_evaluation(
     background_tasks: BackgroundTasks,
     document: Annotated[Document, Depends(get_protected_document)],
     # TODO: consider using Annotated more consistently across dependencies.
@@ -342,9 +382,12 @@ async def get_document_evaluation(
     "/api/create_document",
     response_model=DocumentCreatePublic,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_session)],
 )
 async def create_document(
-    data: DocumentCreate, session: Session = Depends(get_session)
+    data: DocumentCreate,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
 ):
     # Get DistrictrMap to inherit num_districts and other fields
     districtr_map_stmt = select(DistrictrMap).where(
@@ -447,13 +490,10 @@ async def create_document(
     )
     session.add(new_document)
     session.flush()  # Flush to get the public_id assigned
-    # Under most circumstances, we DO NOT want to use f-strings in SQL statements.
-    # However, in this case, we are using a dynamic table name, and SQLAlchemy / Postgres do not
-    # support bind params for identifiers or partition values, so we need to use f-strings.
-    create_document_partition(session, document_id, "assignments")
-    create_document_partition(session, document_id, "community_assignments")
 
     total_assignments = 0
+    skipped_geo_ids: list[str] = []
+    zone_label_remapping: dict[str, int] = {}
 
     if copied_document is not None:
         logger.info(
@@ -499,23 +539,61 @@ async def create_document(
             )
 
         try:
-            total_assignments = batch_insert_assignments(
+            insert_result = batch_insert_assignments(
                 document_id=document_id,
                 assignments=data.assignments,
                 districtr_map_slug=data.districtr_map_slug,
                 session=session,
             )
+            total_assignments = insert_result.inserted
+            skipped_geo_ids = insert_result.skipped_geo_ids
+            zone_label_remapping = insert_result.zone_label_remapping
+            # On modifiable maps the uploaded plan can grow the district count
+            # beyond the map's default, but never shrink it — a partial plan
+            # keeps the default and the user can still lower it manually.
+            if (
+                districtr_map.num_districts_modifiable
+                and insert_result.max_assigned_zone is not None
+                and insert_result.max_assigned_zone > (districtr_map.num_districts or 2)
+            ):
+                new_document.num_districts = insert_result.max_assigned_zone
+                session.add(new_document)
+                # The response select below reads through session.connection(),
+                # which does not autoflush.
+                session.flush()
+            for original_label, new_zone in zone_label_remapping.items():
+                display_label = original_label if original_label else "(blank)"
+                label_comment = Comment(
+                    title=display_label,
+                    comment=f"Originally labeled as {display_label}",
+                )
+                session.add(label_comment)
+                session.flush()
+                session.add(
+                    FormDocumentComment(
+                        comment_id=label_comment.id,
+                        document_id=document_id,
+                        zone=new_zone,
+                    )
+                )
         except NoResultFound:
+            session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="No districtr map found matching requested map",
             )
-        except IntegrityError as e:
-            if "psycopg.errors.UniqueViolation" in str(e):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Duplicate geoids found in input data. Ensure all geoids are unique",
-                )
+        except DuplicateGeoIdError:
+            session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Duplicate geoids found in input data. Ensure all geoids are unique",
+            )
+        except ValueError as exc:
+            session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(exc),
+            )
 
     if data.metadata is not None:
         # Inline (without an inner commit) so that the session.rollback() checks below
@@ -602,10 +680,20 @@ async def create_document(
 
     session.commit()
 
-    return doc
+    if doc.public_id and (total_assignments > 0 or copied_document is not None):
+        background_tasks.add_task(
+            publish_district_stats_to_s3,
+            document_id=document_id,
+            public_id=doc.public_id,
+        )
+
+    doc_dict = dict(doc._mapping)
+    doc_dict["skipped_geo_ids"] = skipped_geo_ids
+    doc_dict["zone_label_remapping"] = zone_label_remapping
+    return doc_dict
 
 
-@app.put("/api/assignments")
+@app.put("/api/assignments", dependencies=[Depends(require_session)])
 async def update_assignments(
     request: Request,
     background_tasks: BackgroundTasks,
@@ -779,6 +867,30 @@ async def update_assignments(
     # true no-op requests (which would otherwise break optimistic concurrency for
     # other clients).
     mutated = False
+
+    # Snapshot pre-existing district-mode assignments so we can compute the
+    # set of zones whose geometry/demographics changed in this request. Used
+    # below to drop only the affected rows from document.district_unions
+    # rather than wiping the cache for the whole document. Community maps
+    # don't feed into district_unions, so we skip the snapshot there.
+    diff_load_id: str | None = None
+    if not is_community_map:
+        diff_load_id, _ = str(uuid4()).split("-", maxsplit=1)
+        old_snapshot_table = f"old_assignments_{diff_load_id}"
+        session.connection().execute(
+            text(
+                f"CREATE TEMP TABLE {old_snapshot_table} "
+                f"(geo_id TEXT, zone INT) ON COMMIT DROP"
+            )
+        )
+        session.connection().execute(
+            text(
+                f"INSERT INTO {old_snapshot_table} (geo_id, zone) "
+                f"SELECT geo_id, zone FROM {assignment_table} "
+                f"WHERE document_id = :document_id"
+            ),
+            {"document_id": document_id},
+        )
 
     # The assignments field is always a full replacement set:
     #   [] means "delete all assignments" (user cleared everything)
@@ -990,6 +1102,49 @@ async def update_assignments(
         # sync_fn always hits the DB (delete/insert/update), so count it.
         mutated = True
 
+    # For district maps, figure out which zones actually changed membership
+    # and evict only those rows from district_unions. The unassigned (NULL
+    # zone) row is always dropped when any zone changed, because its
+    # demographic totals depend on the sum across all assigned zones.
+    dirty_zones: list[int] = []
+    if diff_load_id is not None:
+        old_snapshot_table = f"old_assignments_{diff_load_id}"
+        dirty_rows = (
+            session.connection()
+            .execute(
+                text(
+                    f"""
+                SELECT DISTINCT z FROM (
+                    SELECT o.zone AS z
+                    FROM {old_snapshot_table} o
+                    LEFT JOIN {assignment_table} n
+                        ON n.document_id = :document_id AND n.geo_id = o.geo_id
+                    WHERE n.zone IS DISTINCT FROM o.zone
+                    UNION
+                    SELECT n.zone AS z
+                    FROM {assignment_table} n
+                    LEFT JOIN {old_snapshot_table} o ON o.geo_id = n.geo_id
+                    WHERE n.document_id = :document_id
+                      AND n.zone IS DISTINCT FROM o.zone
+                ) d
+                WHERE z IS NOT NULL
+                """
+                ),
+                {"document_id": document_id},
+            )
+            .all()
+        )
+        dirty_zones = [int(r[0]) for r in dirty_rows]
+        if dirty_zones:
+            session.connection().execute(
+                text(
+                    "DELETE FROM document.district_unions "
+                    "WHERE document_id = :document_id "
+                    "AND (zone = ANY(:dirty) OR zone IS NULL)"
+                ),
+                {"document_id": document_id, "dirty": dirty_zones},
+            )
+
     if mutated:
         updated_at = update_timestamp(session, document_id)
     else:
@@ -999,7 +1154,27 @@ async def update_assignments(
         updated_at = session.exec(
             select(Document.updated_at).where(Document.document_id == document_id)
         ).one()
+    if dirty_zones:
+        # Bump assignments_updated_at so /stats can tell that the CDN object
+        # is stale and republish, even on the path that doesn't otherwise
+        # change document.updated_at.
+        session.connection().execute(
+            text(
+                "UPDATE document.document SET assignments_updated_at = NOW() "
+                "WHERE document_id = :document_id"
+            ),
+            {"document_id": document_id},
+        )
+    public_id = session.exec(
+        select(Document.public_id).where(Document.document_id == document_id)
+    ).one_or_none()
     session.commit()
+    if mutated and not is_community_map and public_id is not None:
+        background_tasks.add_task(
+            publish_district_stats_to_s3,
+            document_id=document_id,
+            public_id=public_id,
+        )
     if VERBOSE_LOGGING:
         logger.info(
             f"PUT /api/assignments complete: document_id={document_id}, "
@@ -1047,27 +1222,42 @@ async def get_children(
     return results
 
 
-@app.patch("/api/assignments/{document_id}/reset", status_code=status.HTTP_200_OK)
+@app.patch(
+    "/api/assignments/{document_id}/reset",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_session)],
+)
 async def reset_map(
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
 ):
-    reset_document_partition(session, document.document_id, "assignments")
-    reset_document_partition(session, document.document_id, "community_assignments")
+    for table in ("document.assignments", "document.community_assignments"):
+        session.connection().execute(
+            text(f"DELETE FROM {table} WHERE document_id = :document_id").bindparams(
+                bindparam(key="document_id", type_=UUIDType)
+            ),
+            {"document_id": document.document_id},
+        )
 
-    # Reset color scheme
-    stmt = text(
-        "UPDATE document.document SET color_scheme = NULL WHERE document_id = :document_id"
-    ).bindparams(bindparam(key="document_id", type_=UUIDType))
     session.connection().execute(
-        stmt,
+        text(
+            "DELETE FROM document.district_unions WHERE document_id = :document_id"
+        ).bindparams(bindparam(key="document_id", type_=UUIDType)),
+        {"document_id": document.document_id},
+    )
+    session.connection().execute(
+        text(
+            "UPDATE document.document "
+            "SET color_scheme = NULL, assignments_updated_at = NOW() "
+            "WHERE document_id = :document_id"
+        ).bindparams(bindparam(key="document_id", type_=UUIDType)),
         {"document_id": document.document_id},
     )
 
     session.commit()
 
     return {
-        "message": "Assignments partition reset",
+        "message": "Assignments reset",
         "document_id": document.document_id,
     }
 
@@ -1075,6 +1265,7 @@ async def reset_map(
 @app.patch(
     "/api/document/{document_id}/update_colors",
     response_model=ColorsSetResult,
+    dependencies=[Depends(require_session)],
 )
 async def update_colors(
     colors: list[str],
@@ -1112,6 +1303,7 @@ async def update_colors(
 @app.put(
     "/api/document/{document_id}/num_districts",
     response_model=NumDistrictsSetResult,
+    dependencies=[Depends(require_session)],
 )
 async def update_num_districts(
     num_districts: int,
@@ -1319,7 +1511,10 @@ async def get_document_list(
     ]
 
 
-@app.get("/api/document/{document_id}/unassigned")
+@app.get(
+    "/api/document/{document_id}/unassigned",
+    dependencies=[Depends(require_session)],
+)
 async def get_unassigned_geoids(
     document: Annotated[Document, Depends(get_protected_document)],
     exclude_ids: list[str] = Query(default=[]),
@@ -1387,7 +1582,9 @@ async def get_unassigned_geoids(
     components: list[list[str]] = []
     if unassigned_ids:
         try:
-            G = get_graph(districtr_map.gerrydb_table_name)
+            # Threadpool: a cold load (S3 fetch + unpickle) takes seconds and
+            # must not block the event loop (or ALB health checks).
+            G = await run_in_threadpool(get_graph, districtr_map.gerrydb_table_name)
             # Non-contiguous unassigned parents are intentionally NOT expanded
             present = [gid for gid in unassigned_ids if gid in G.nodes]
             components = [
@@ -1405,7 +1602,10 @@ async def get_unassigned_geoids(
     return Response(content=payload, media_type="application/msgpack")
 
 
-@app.get("/api/document/{document_id}/contiguity")
+@app.get(
+    "/api/document/{document_id}/contiguity",
+    dependencies=[Depends(require_session)],
+)
 async def check_document_contiguity(
     document: Annotated[Document, Depends(get_protected_document)],
     zone: list[int] = Query(default=[]),
@@ -1423,7 +1623,7 @@ async def check_document_contiguity(
 
     gerrydb_name = districtr_map.gerrydb_table_name
     kwargs = {"zones": zone} if len(zone) > 0 else {}
-    G = get_graph(gerrydb_name)
+    G = await run_in_threadpool(get_graph, gerrydb_name)
     zone_assignments = contiguity.get_assigned_nodes(
         session, document.document_id, districtr_map, G=G, **kwargs
     )
@@ -1438,7 +1638,10 @@ async def check_document_contiguity(
     return results
 
 
-@app.get("/api/document/{document_id}/contiguity/{zone}/connected_component_bboxes")
+@app.get(
+    "/api/document/{document_id}/contiguity/{zone}/connected_component_bboxes",
+    dependencies=[Depends(require_session)],
+)
 async def get_connected_component_bboxes(
     zone: int,
     document: Annotated[Document, Depends(get_protected_document)],
@@ -1450,10 +1653,15 @@ async def get_connected_component_bboxes(
 
     Response (msgpack, Content-Type application/msgpack; no FastAPI
     `response_model`, so this docstring is the wire contract):
-        `BBoxGeoJSONs.model_dump()` -> {"features": [<GeoJSON Polygon>, ...]}
-    Each feature is a GeoJSON Polygon (5-point closed ring) giving the bbox of
-    one connected component, with coordinates reprojected to EPSG:4326
-    (lon/lat). A single connected zone yields one feature; N fragments yield N.
+        `BBoxGeoJSONs.model_dump()` -> {"features": [<GeoJSON Feature>, ...]}
+    Each feature is a GeoJSON Feature wrapping a bbox Polygon (5-point closed
+    ring) for one connected component, with coordinates reprojected to
+    EPSG:4326 (lon/lat) and properties {"bbox": [minx, miny, maxx, maxy],
+    "n_geos": <component size>}; single-geometry components also carry
+    "geo_ids": [geo_id] so the client can zoom to the exact rendered geometry.
+    Features are sorted largest component first, so features[0] is the zone's
+    main body and the rest are fragments. A single connected zone yields one
+    feature; N pieces yield N.
 
     Only supported for district maps — community maps return 400.
     """
@@ -1467,7 +1675,7 @@ async def get_connected_component_bboxes(
         document_id=DocumentID(document_id=document.document_id), session=session
     )
     gerrydb_name = districtr_map.gerrydb_table_name
-    G = get_graph(gerrydb_name)
+    G = await run_in_threadpool(get_graph, gerrydb_name)
     node_bboxes = contiguity.get_assigned_nodes_bboxes(
         session,
         document.document_id,
@@ -1497,6 +1705,8 @@ async def get_connected_component_bboxes(
     )
 
     bboxes = []
+    # Largest first: features[0] is the main body, the rest are fragments.
+    zone_connected_components = sorted(zone_connected_components, key=len, reverse=True)
     for zone_connected_component in zone_connected_components:
         minx, miny, maxx, maxy = (
             float("inf"),
@@ -1518,19 +1728,26 @@ async def get_connected_component_bboxes(
             dst_crs="EPSG:4326",
         )
 
-        bboxes.append(
-            PolygonModel(
-                coordinates=[
-                    [
-                        Coordinates(lon=_minx, lat=_miny),
-                        Coordinates(lon=_maxx, lat=_miny),
-                        Coordinates(lon=_maxx, lat=_maxy),
-                        Coordinates(lon=_minx, lat=_maxy),
-                        Coordinates(lon=_minx, lat=_miny),
-                    ]
+        polygon = PolygonModel(
+            coordinates=[
+                [
+                    Coordinates(lon=_minx, lat=_miny),
+                    Coordinates(lon=_maxx, lat=_miny),
+                    Coordinates(lon=_maxx, lat=_maxy),
+                    Coordinates(lon=_minx, lat=_maxy),
+                    Coordinates(lon=_minx, lat=_miny),
                 ]
-            )
+            ]
         )
+        properties: dict = {
+            "bbox": [_minx, _miny, _maxx, _maxy],
+            "n_geos": len(zone_connected_component),
+        }
+        if len(zone_connected_component) == 1:
+            # Single-geometry components carry their geo_id so the client can
+            # snap to the area, then zoom to the rendered geometry's true bbox.
+            properties["geo_ids"] = [str(n) for n in zone_connected_component]
+        bboxes.append(FeatureModel(properties=properties, geometry=polygon))
 
     payload = msgpack.packb(
         BBoxGeoJSONs(features=bboxes).model_dump(), use_bin_type=True
@@ -1538,7 +1755,11 @@ async def get_connected_component_bboxes(
     return Response(content=payload, media_type="application/msgpack")
 
 
-@app.put("/api/document/{document_id}/metadata", status_code=status.HTTP_200_OK)
+@app.put(
+    "/api/document/{document_id}/metadata",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_session)],
+)
 async def update_districtrmap_metadata(
     metadata: DocumentMetadata,
     document: Document = Depends(get_document),

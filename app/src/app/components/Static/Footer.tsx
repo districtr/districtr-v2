@@ -35,8 +35,8 @@ export const Footer: React.FC = () => (
             <Link href="/places" className=" !cursor-pointer !text-districtrLightBlue">
               List
             </Link>
-            <Link href="/tags" className=" !cursor-pointer !text-districtrLightBlue">
-              Tags
+            <Link href="/portals" className=" !cursor-pointer !text-districtrLightBlue">
+              Portals
             </Link>
             <PlaceMapModal>
               <Link className=" !cursor-pointer !text-districtrLightBlue">Map</Link>
@@ -61,6 +61,9 @@ export const Footer: React.FC = () => (
             </Link>
             <Link href="/updates" className=" !cursor-pointer !text-districtrLightBlue">
               Updates
+            </Link>
+            <Link href="/changelog" className=" !cursor-pointer !text-districtrLightBlue">
+              Changelog
             </Link>
           </Flex>
 

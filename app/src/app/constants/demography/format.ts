@@ -3,7 +3,6 @@ export const NUMBER_FORMATS = {
   STRING: 'string',
   COMPACT: 'compact',
   COMPACT3: 'compact3',
-  PARTISAN: 'partisan',
   STANDARD: 'standard',
   SIGNED_PCT: 'signed_pct',
   DECIMAL_3: 'decimal_3',

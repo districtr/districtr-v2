@@ -1,10 +1,10 @@
 import {EMPTY_FT_COLLECTION, ZONE_LABEL_STYLE} from '@/app/constants/map/layerStyle';
-import {HIDE_ALL_FILTER} from '@/app/constants/map/layerFilters';
 import {
   SELECTION_POINTS_SOURCE_ID,
   SELECTION_POINTS_SOURCE_ID_CHILD,
   ZONE_LABEL_SOURCE_ID,
   ZONE_LABEL_LAYER_IDS,
+  MAP_LAYER_ANCHOR_IDS,
 } from '@/app/constants/map/layerIds';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useMapStore} from '@/app/store/mapStore';
@@ -44,7 +44,7 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
     if (child) {
       if (showPopulationNumbers) {
         return ['literal', true] as FilterSpecification;
-      } else {
+      } else if (captiveIds.size) {
         // match captiveIds
         return [
           'match',
@@ -53,6 +53,11 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
           true,
           false,
         ] as FilterSpecification;
+      } else {
+        // An empty label list would fail match-expression validation
+        // ("Expected at least one branch label"), leaving the previous
+        // filter stuck in place after exiting block view.
+        return ['literal', false] as FilterSpecification;
       }
     } else {
       if (shatterIds.parents.size) {
@@ -61,10 +66,11 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
           ['match', ['get', 'path'], Array.from(shatterIds.parents), true, false],
         ] as FilterSpecification;
       } else {
-        return HIDE_ALL_FILTER;
+        // No broken precincts: show labels on all whole units.
+        return ['literal', true] as FilterSpecification;
       }
     }
-  }, [child, !child && shatterIds, child && captiveIds]);
+  }, [child, showPopulationNumbers, !child && shatterIds, child && captiveIds]);
 
   // Use the shared source from PointSelectionLayer (parent layer)
   if (!child && !showPopulationNumbers) {
@@ -79,6 +85,7 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
       id={`POPULATION_TEXT_${child ? 'CHILD' : 'PARENT'}`}
       type="symbol"
       source={child ? SELECTION_POINTS_SOURCE_ID_CHILD : SELECTION_POINTS_SOURCE_ID}
+      beforeId={MAP_LAYER_ANCHOR_IDS.reference}
       filter={populationFilter}
       layout={{
         'text-field': ['get', 'total_pop_20'],
@@ -89,12 +96,12 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
           ['zoom'],
           0,
           0,
-          10, // z 10 font 8
-          8,
-          12,
-          12,
+          10, // readable as soon as the labels appear
           14,
-          14,
+          13,
+          20,
+          16, // keeps growing at block-level zooms
+          28,
         ],
         'text-anchor': 'center',
         'text-offset': [0, 0],
@@ -105,7 +112,8 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
       paint={{
         'text-color': '#000',
         'text-halo-color': '#fff',
-        'text-halo-width': 2,
+        // Scales with the larger text so the numbers stay legible over color.
+        'text-halo-width': 2.5,
       }}
     />
   );
@@ -197,7 +205,14 @@ const ZoneNumbersLayer = () => {
   useEffect(() => {
     const map = getMapRef();
     if (map && !map.hasImage('lock')) {
-      map.loadImage('/lock.png').then(image => map.addImage('lock', image.data));
+      map.loadImage('/lock.png').then(image => {
+        // Re-check before adding: loadImage is async, so another run of this effect
+        // (or another layer) may have added 'lock' before this resolves, which would
+        // otherwise throw "An image named 'lock' already exists".
+        if (image?.data && !map.hasImage('lock')) {
+          map.addImage('lock', image.data);
+        }
+      });
       map.on('moveend', handleUpdate);
       map.on('zoomend', handleUpdate);
       map.on('resize', handleUpdate);
@@ -233,7 +248,7 @@ const ZoneNumbersLayer = () => {
         paint={{
           'circle-color': '#fff',
           'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 10, 10, 15, 15, 18],
-          'circle-opacity': 0.8,
+          'circle-opacity': 0.9,
           'circle-stroke-color': ZONE_LABEL_STYLE(colorScheme) || '#000',
           'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 5, 1.5, 15, 2.5],
         }}

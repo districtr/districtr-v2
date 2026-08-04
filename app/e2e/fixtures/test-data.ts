@@ -56,7 +56,7 @@ export const testUrls = {
 
   // Map URLs - need valid document IDs
   mapCreate: '/map',
-  mapEdit: (documentId: string) => `/map/edit/${documentId}`,
+  mapEdit: (documentId: string) => `/map/${documentId}/edit`,
   mapView: (documentId: string) => `/map/${documentId}`,
 
   // Place pages

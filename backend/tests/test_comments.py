@@ -5,7 +5,7 @@ from app.main import app
 from app.core.security import auth
 from app.comments.models import Commenter, Comment, Tag, CommentTag, DocumentComment
 from tests.test_utils import (
-    patch_recaptcha,
+    patch_turnstile,
     override_auth_dependency,
     handle_approve_comment_entry,
     handle_full_submission_approve,
@@ -13,7 +13,7 @@ from tests.test_utils import (
 
 TEST_MODERATION_SCORE = 0.001
 REQUIRED_AUTO_FIXTURES = [
-    patch_recaptcha,
+    patch_turnstile,
     override_auth_dependency,
 ]
 
@@ -36,7 +36,7 @@ class TestCommenterEndpoint:
 
         response = client.post(
             "/api/comments/commenter",
-            json={"commenter": commenter_data, "recaptcha_token": "test_token"},
+            json={"commenter": commenter_data, "turnstile_token": "test_token"},
         )
 
         assert response.status_code == 201
@@ -70,7 +70,7 @@ class TestCommenterEndpoint:
 
         response = client.post(
             "/api/comments/commenter",
-            json={"commenter": commenter_data, "recaptcha_token": "test_token"},
+            json={"commenter": commenter_data, "turnstile_token": "test_token"},
         )
 
         assert response.status_code == 201
@@ -97,7 +97,7 @@ class TestCommenterEndpoint:
         }
         response1 = client.post(
             "/api/comments/commenter",
-            json={"commenter": commenter_data, "recaptcha_token": "test_token"},
+            json={"commenter": commenter_data, "turnstile_token": "test_token"},
         )
         assert response1.status_code == 201
 
@@ -110,7 +110,7 @@ class TestCommenterEndpoint:
         }
         response2 = client.post(
             "/api/comments/commenter",
-            json={"commenter": updated_data, "recaptcha_token": "test_token"},
+            json={"commenter": updated_data, "turnstile_token": "test_token"},
         )
         assert response2.status_code == 201
 
@@ -138,7 +138,7 @@ class TestCommenterEndpoint:
 
         response = client.post(
             "/api/comments/commenter",
-            json={"commenter": commenter_data, "recaptcha_token": "test_token"},
+            json={"commenter": commenter_data, "turnstile_token": "test_token"},
         )
         # Should fail due to database email validation constraint
         assert response.status_code in [400, 422, 500]  # Various possible error codes
@@ -159,7 +159,7 @@ class TestCommenterEndpoint:
         for commenter_data in test_cases:
             response = client.post(
                 "/api/comments/commenter",
-                json={"commenter": commenter_data, "recaptcha_token": "test_token"},
+                json={"commenter": commenter_data, "turnstile_token": "test_token"},
             )
             assert response.status_code in [400, 422, 500]
 
@@ -179,7 +179,7 @@ class TestCommenterEndpoint:
         for commenter_data in test_cases:
             response = client.post(
                 "/api/comments/commenter",
-                json={"commenter": commenter_data, "recaptcha_token": "test_token"},
+                json={"commenter": commenter_data, "turnstile_token": "test_token"},
             )
             assert response.status_code == 422
 
@@ -195,7 +195,7 @@ class TestCommentEndpoint:
                 "title": "Test Comment",
                 "comment": "This is a test comment with some content.",
             },
-            "recaptcha_token": "test_token",
+            "turnstile_token": "test_token",
         }
 
         response = client.post("/api/comments/comment", json=comment_data)
@@ -228,7 +228,7 @@ class TestCommentEndpoint:
 
         response = client.post(
             "/api/comments/comment",
-            json={"comment": comment_data, "recaptcha_token": "test_token"},
+            json={"comment": comment_data, "turnstile_token": "test_token"},
         )
 
         assert response.status_code == 201, response.json()
@@ -261,7 +261,7 @@ class TestCommentEndpoint:
 
         response = client.post(
             "/api/comments/comment",
-            json={"comment": comment_data, "recaptcha_token": "test_token"},
+            json={"comment": comment_data, "turnstile_token": "test_token"},
         )
 
         assert response.status_code == 201
@@ -280,7 +280,7 @@ class TestCommentEndpoint:
 
         response = client.post(
             "/api/comments/comment",
-            json={"comment": comment_data, "recaptcha_token": "test_token"},
+            json={"comment": comment_data, "turnstile_token": "test_token"},
         )
         # Should fail due to database constraint
         assert response.status_code in [400, 422, 500]
@@ -301,7 +301,7 @@ class TestCommentEndpoint:
         for comment_data in test_cases:
             response = client.post(
                 "/api/comments/comment",
-                json={"comment": comment_data, "recaptcha_token": "test_token"},
+                json={"comment": comment_data, "turnstile_token": "test_token"},
             )
             assert response.status_code == 422
 
@@ -326,7 +326,7 @@ class TestCommentEndpoint:
                         "zone": 1,
                     }
                 ],
-                "recaptcha_token": "test_token",
+                "turnstile_token": "test_token",
                 "last_updated_at": document_info["updated_at"],
             },
         )
@@ -353,7 +353,7 @@ class TestCommentEndpoint:
         for comment_data in test_cases:
             response = client.post(
                 "/api/comments/comment",
-                json={"comment": comment_data, "recaptcha_token": "test_token"},
+                json={"comment": comment_data, "turnstile_token": "test_token"},
             )
             assert response.status_code in [400, 422, 500]
 
@@ -367,7 +367,7 @@ class TestTagEndpoint:
         tag_data = {"tag": "Important Issue"}
 
         response = client.post(
-            "/api/comments/tag", json={"tag": tag_data, "recaptcha_token": "test_token"}
+            "/api/comments/tag", json={"tag": tag_data, "turnstile_token": "test_token"}
         )
 
         assert response.status_code == 201, response.json()
@@ -390,7 +390,7 @@ class TestTagEndpoint:
 
         # First time inserted
         response = client.post(
-            "/api/comments/tag", json={"tag": tag_data, "recaptcha_token": "test_token"}
+            "/api/comments/tag", json={"tag": tag_data, "turnstile_token": "test_token"}
         )
         assert response.status_code == 201, response.json()
         data = response.json()
@@ -398,7 +398,7 @@ class TestTagEndpoint:
 
         # Second time inserted
         response = client.post(
-            "/api/comments/tag", json={"tag": tag_data, "recaptcha_token": "test_token"}
+            "/api/comments/tag", json={"tag": tag_data, "turnstile_token": "test_token"}
         )
         assert response.status_code == 201, response.json()
         data = response.json()
@@ -417,7 +417,7 @@ class TestTagEndpoint:
         tag_data = {"tag": "Budget & Finance!!! @#$"}
 
         response = client.post(
-            "/api/comments/tag", json={"tag": tag_data, "recaptcha_token": "test_token"}
+            "/api/comments/tag", json={"tag": tag_data, "turnstile_token": "test_token"}
         )
 
         assert response.status_code == 201
@@ -434,7 +434,7 @@ class TestTagEndpoint:
         tag_data = {"tag": "Housing    and     Development"}
 
         response = client.post(
-            "/api/comments/tag", json={"tag": tag_data, "recaptcha_token": "test_token"}
+            "/api/comments/tag", json={"tag": tag_data, "turnstile_token": "test_token"}
         )
 
         assert response.status_code == 201
@@ -452,7 +452,7 @@ class TestTagEndpoint:
 
         # Create first tag
         response1 = client.post(
-            "/api/comments/tag", json={"tag": tag_data, "recaptcha_token": "test_token"}
+            "/api/comments/tag", json={"tag": tag_data, "turnstile_token": "test_token"}
         )
         assert response1.status_code == 201
         data1 = response1.json()
@@ -462,7 +462,7 @@ class TestTagEndpoint:
         duplicate_data = {"tag": "EDUCATION"}
         response2 = client.post(
             "/api/comments/tag",
-            json={"tag": duplicate_data, "recaptcha_token": "test_token"},
+            json={"tag": duplicate_data, "turnstile_token": "test_token"},
         )
         assert response2.status_code == 201
         data2 = response2.json()
@@ -481,7 +481,7 @@ class TestTagEndpoint:
         tag_data = {"tag": "  Public SAFETY & Security  "}
 
         response = client.post(
-            "/api/comments/tag", json={"tag": tag_data, "recaptcha_token": "test_token"}
+            "/api/comments/tag", json={"tag": tag_data, "turnstile_token": "test_token"}
         )
 
         assert response.status_code == 201
@@ -506,7 +506,7 @@ class TestTagEndpoint:
         for tag_data in test_cases:
             response = client.post(
                 "/api/comments/tag",
-                json={"tag": tag_data, "recaptcha_token": "test_token"},
+                json={"tag": tag_data, "turnstile_token": "test_token"},
             )
             # Should fail because slugify returns null/empty for invalid input
             assert response.status_code in [400, 422, 500], response.json()
@@ -519,7 +519,7 @@ class TestTagEndpoint:
     ):
         """Test tag creation with missing required field"""
         response = client.post(
-            "/api/comments/tag", json={"tag": {}, "recaptcha_token": "test_token"}
+            "/api/comments/tag", json={"tag": {}, "turnstile_token": "test_token"}
         )
         assert response.status_code == 422
 
@@ -531,7 +531,7 @@ class TestTagEndpoint:
         tag_data = {"tag": "COVID-19 Response 2024"}
 
         response = client.post(
-            "/api/comments/tag", json={"tag": tag_data, "recaptcha_token": "test_token"}
+            "/api/comments/tag", json={"tag": tag_data, "turnstile_token": "test_token"}
         )
 
         assert response.status_code == 201
@@ -557,7 +557,7 @@ class TestIntegrationTests:
         }
         commenter_response = client.post(
             "/api/comments/commenter",
-            json={"commenter": commenter_data, "recaptcha_token": "test_token"},
+            json={"commenter": commenter_data, "turnstile_token": "test_token"},
         )
         assert commenter_response.status_code == 201
 
@@ -568,7 +568,7 @@ class TestIntegrationTests:
         }
         comment_response = client.post(
             "/api/comments/comment",
-            json={"comment": comment_data, "recaptcha_token": "test_token"},
+            json={"comment": comment_data, "turnstile_token": "test_token"},
         )
         assert comment_response.status_code == 201
 
@@ -578,11 +578,11 @@ class TestIntegrationTests:
 
         tag_response_1 = client.post(
             "/api/comments/tag",
-            json={"tag": tag_data_1, "recaptcha_token": "test_token"},
+            json={"tag": tag_data_1, "turnstile_token": "test_token"},
         )
         tag_response_2 = client.post(
             "/api/comments/tag",
-            json={"tag": tag_data_2, "recaptcha_token": "test_token"},
+            json={"tag": tag_data_2, "turnstile_token": "test_token"},
         )
 
         assert tag_response_1.status_code == 201
@@ -630,7 +630,7 @@ class TestFullCommentSubmissionEndpoint:
                 {"tag": "Budget"},
                 {"tag": "Community Input"},
             ],
-            "recaptcha_token": "test_token",
+            "turnstile_token": "test_token",
         }
 
         response = client.post("/api/comments/submit", json=form_data)
@@ -683,7 +683,7 @@ class TestFullCommentSubmissionEndpoint:
                 "comment": "This is a simple comment.",
             },
             "tags": [{"tag": "General"}],
-            "recaptcha_token": "test_token",
+            "turnstile_token": "test_token",
         }
 
         response = client.post("/api/comments/submit", json=form_data)
@@ -708,7 +708,7 @@ class TestFullCommentSubmissionEndpoint:
                 "comment": "This comment has no tags.",
             },
             "tags": [],
-            "recaptcha_token": "test_token",
+            "turnstile_token": "test_token",
         }
 
         response = client.post("/api/comments/submit", json=form_data)
@@ -737,7 +737,7 @@ class TestFullCommentSubmissionEndpoint:
                 "comment": "This is my first comment.",
             },
             "tags": [{"tag": "First"}],
-            "recaptcha_token": "test_token",
+            "turnstile_token": "test_token",
         }
 
         response1 = client.post("/api/comments/submit", json=form_data_1)
@@ -756,7 +756,7 @@ class TestFullCommentSubmissionEndpoint:
                 "comment": "This is my second comment.",
             },
             "tags": [{"tag": "Second"}],
-            "recaptcha_token": "test_token",
+            "turnstile_token": "test_token",
         }
 
         response2 = client.post("/api/comments/submit", json=form_data_2)
@@ -789,7 +789,7 @@ class TestFullCommentSubmissionEndpoint:
                 {"tag": "ENVIRONMENT"},  # Same slug when processed
                 {"tag": "Environment & Climate"},  # Different but similar
             ],
-            "recaptcha_token": "test_token",
+            "turnstile_token": "test_token",
         }
 
         response = client.post("/api/comments/submit", json=form_data)
@@ -814,7 +814,7 @@ class TestFullCommentSubmissionEndpoint:
             "commenter": {"first_name": "Invalid", "email": "not-an-email"},
             "comment": {"title": "Test Comment", "comment": "This should fail."},
             "tags": [{"tag": "Test"}],
-            "recaptcha_token": "test_token",
+            "turnstile_token": "test_token",
         }
 
         response = client.post("/api/comments/submit", json=form_data)
@@ -832,20 +832,20 @@ class TestFullCommentSubmissionEndpoint:
                 # Missing commenter
                 "comment": {"title": "Test", "comment": "Test"},
                 "tags": [],
-                "recaptcha_token": "test_token",
+                "turnstile_token": "test_token",
             },
             {
                 # Missing comment
                 "commenter": {"first_name": "Test", "email": "test@example.com"},
                 "tags": [],
-                "recaptcha_token": "test_token",
+                "turnstile_token": "test_token",
             },
             {
                 # Missing comment title
                 "commenter": {"first_name": "Test", "email": "test@example.com"},
                 "comment": {"comment": "Test"},
                 "tags": [],
-                "recaptcha_token": "test_token",
+                "turnstile_token": "test_token",
             },
         ]
 
@@ -868,7 +868,7 @@ class TestFullCommentSubmissionEndpoint:
                 "comment": "A" * 5001,  # Exceeds 5000 char limit
             },
             "tags": [{"tag": "Long"}],
-            "recaptcha_token": "test_token",
+            "turnstile_token": "test_token",
         }
 
         response = client.post("/api/comments/submit", json=form_data)
@@ -897,7 +897,7 @@ class TestCommentListEndpoints:
                 "document_id": document_id,
             },
             "tags": [{"tag": "Public Safety"}],
-            "recaptcha_token": "test_token",
+            "turnstile_token": "test_token",
         }
 
         response = client.post("/api/comments/submit", json=clean_form_data)
@@ -934,7 +934,7 @@ class TestCommentListEndpoints:
                 "document_id": document_id,
             },
             "tags": [{"tag": "Budget"}],
-            "recaptcha_token": "test_token",
+            "turnstile_token": "test_token",
         }
         response = client.post("/api/comments/submit", json=profane_form_data)
         assert response.status_code == 201
@@ -954,7 +954,7 @@ class TestCommentListEndpoints:
                 "document_id": document_id,
             },
             "tags": [{"tag": "Education"}],
-            "recaptcha_token": "test_token",
+            "turnstile_token": "test_token",
         }
         response = client.post("/api/comments/submit", json=clean_form_data)
         handle_full_submission_approve(client, response.json())
@@ -998,7 +998,7 @@ class TestCommentListEndpoints:
                 "document_id": document_id,
             },
             "tags": [{"tag": "Education"}, {"tag": "Budget"}],
-            "recaptcha_token": "test_token",
+            "turnstile_token": "test_token",
         }
 
         form_data_2 = {
@@ -1015,7 +1015,7 @@ class TestCommentListEndpoints:
                 "document_id": document_id,
             },
             "tags": [{"tag": "Transportation"}],
-            "recaptcha_token": "test_token",
+            "turnstile_token": "test_token",
         }
 
         # Submit both comments
@@ -1072,7 +1072,7 @@ class TestCommentListEndpoints:
                 "document_id": document_id,
             },
             "tags": [{"tag": "Policy"}],
-            "recaptcha_token": "test_token",
+            "turnstile_token": "test_token",
         }
 
         response = client.post("/api/comments/submit", json=form_data)
@@ -1104,7 +1104,7 @@ class TestCommentListEndpoints:
                 "document_id": document_id,
             },
             "tags": [{"tag": "General"}],
-            "recaptcha_token": "test_token",
+            "turnstile_token": "test_token",
         }
         response = client.post("/api/comments/submit", json=moderate_form_data)
         assert response.status_code == 201
@@ -1122,7 +1122,7 @@ class TestCommentListEndpoints:
                 "document_id": document_id,
             },
             "tags": [{"tag": "Issues"}],
-            "recaptcha_token": "test_token",
+            "turnstile_token": "test_token",
         }
         response = client.post("/api/comments/submit", json=high_form_data)
         assert response.status_code == 201
@@ -1180,7 +1180,7 @@ class TestCommentListEndpoints:
                 "document_id": document_id,
             },
             "tags": [{"tag": "Testing"}, {"tag": "Admin"}],
-            "recaptcha_token": "test_token",
+            "turnstile_token": "test_token",
         }
 
         response = client.post("/api/comments/submit", json=form_data)
@@ -1225,7 +1225,7 @@ class TestCommentListEndpoints:
                 "document_id": document_id,
             },
             "tags": [{"tag": "Testing"}],
-            "recaptcha_token": "test_token",
+            "turnstile_token": "test_token",
         }
 
         response = client.post("/api/comments/submit", json=form_data)
@@ -1251,11 +1251,11 @@ class TestListingComments:
         # do tagging in Python / SQL
         tag1 = client.post(
             "/api/comments/tag",
-            json={"tag": {"tag": "hello"}, "recaptcha_token": "test_token"},
+            json={"tag": {"tag": "hello"}, "turnstile_token": "test_token"},
         ).json()
         tag2 = client.post(
             "/api/comments/tag",
-            json={"tag": {"tag": "world"}, "recaptcha_token": "test_token"},
+            json={"tag": {"tag": "world"}, "turnstile_token": "test_token"},
         ).json()
         handle_approve_comment_entry(client, "tag", tag1["id"])
         handle_approve_comment_entry(client, "tag", tag2["id"])
@@ -1282,7 +1282,7 @@ class TestListingComments:
                 "comment": "This is a test comment with some content.",
                 "document_id": document_id,
             },
-            "recaptcha_token": "test_token",
+            "turnstile_token": "test_token",
         }
         post_response = client.post("/api/comments/comment", json=comment_data)
         handle_approve_comment_entry(client, "comment", post_response.json()["id"])
@@ -1302,7 +1302,7 @@ class TestListingComments:
                 "comment": "This is a test comment with some tags.",
                 "document_id": document_id,
             },
-            "recaptcha_token": "test_token",
+            "turnstile_token": "test_token",
         }
 
         comment = client.post("/api/comments/comment", json=comment_data).json()
@@ -1327,7 +1327,7 @@ class TestListingComments:
                 "document_id": document_id,
                 "tags": ["hello", "world"],
             },
-            "recaptcha_token": "test_token",
+            "turnstile_token": "test_token",
         }
         comment = client.post("/api/comments/comment", json=comment_data).json()
         handle_approve_comment_entry(client, "comment", comment["id"])
@@ -1347,7 +1347,7 @@ class TestListingComments:
                 "comment": "This is a test comment with some tags.",
                 "document_id": document_id,
             },
-            "recaptcha_token": "test_token",
+            "turnstile_token": "test_token",
         }
         comment = client.post("/api/comments/comment", json=comment_data).json()
         self._add_tags(client, session, comment["id"])

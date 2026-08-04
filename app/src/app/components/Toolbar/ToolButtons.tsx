@@ -1,110 +1,151 @@
 'use client';
-import {Flex, IconButton} from '@radix-ui/themes';
-import * as Tooltip from '@radix-ui/react-tooltip';
+import {Flex, IconButton, Kbd, Text} from '@radix-ui/themes';
 import {useMapControlsStore} from '@store/mapControlsStore';
-import React, {useState} from 'react';
+import {useUiHintStore} from '@store/uiHintStore';
+import React, {useEffect} from 'react';
 import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
-import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useActiveTools} from '@/app/components/Toolbar/ToolUtils';
+import type {ActiveToolConfig} from '@/app/components/Toolbar/ToolUtils';
+import {HelpTip, HELP_TIP_HOVER_DELAY} from '@/app/components/HelpTip/HelpTip';
+import {useAltHeld} from '@/app/hooks/useAltHeld';
 
-export const ToolButtons: React.FC<{
-  showShortcuts: boolean;
-  toolbarItemsRef: React.RefObject<HTMLDivElement>;
-  isMobile?: boolean;
-}> = ({showShortcuts, isMobile, toolbarItemsRef}) => {
+// Fixed button size; the old user-configurable size picker was removed.
+const TOOLBAR_SIZE = 40;
+// Taller buttons fit the icon plus a visible label + hotkey (concept 1a:
+// tools name themselves instead of hiding labels in tooltips).
+const TOOLBAR_HEIGHT = 52;
+// Undo/redo are standalone, narrower buttons to the right of the tool group;
+// this is their minimum — they grow with the sidebar at HISTORY_GROW_FACTOR
+// of the main tools' per-button rate.
+const HISTORY_BUTTON_WIDTH = 38;
+const HISTORY_GROW_FACTOR = 0.2;
+
+const HISTORY_TOOLS: ActiveTool[] = [ACTIVE_TOOLS.UNDO, ACTIVE_TOOLS.REDO];
+
+// '⌘ + Shift + Z' → '⌘⇧Z': chorded labels are too wide for a corner badge.
+const compactHotkeyLabel = (label: string) => label.replace(/Shift/g, '⇧').replace(/\s*\+\s*/g, '');
+
+export const ToolButtons: React.FC = () => {
   const activeTool = useMapControlsStore(state => state.activeTool);
   const setActiveTool = useMapControlsStore(state => state.setActiveTool);
-  const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
-  const [activeTooltip, setActiveTooltip] = useState<ActiveTool | null>(null);
-  const {rotation: userRotation, customizeToolbar, toolbarSize} = useToolbarStore(state => state);
+  // Hotkey badges show only while Alt/Option is held; the hotkeys themselves
+  // always work.
+  const showHotkeyHints = useAltHeld();
   const activeTools = useActiveTools();
-  const rotation =
-    customizeToolbar && !isMobile && toolbarLocation === 'map' ? userRotation : 'horizontal';
-  const isSidebar = toolbarLocation === 'sidebar';
+  // Guide target `tool:<mode>` (see uiHintStore); skips if already armed.
+  const guideTarget = useUiHintStore(state => state.guideTargets[0]);
+  const advanceGuide = useUiHintStore(state => state.advanceGuide);
+  useEffect(() => {
+    if (guideTarget === `tool:${activeTool}`) advanceGuide(guideTarget);
+  }, [guideTarget, activeTool, advanceGuide]);
+  const mainTools = activeTools.filter(tool => !HISTORY_TOOLS.includes(tool.mode));
+  const historyTools = activeTools.filter(tool => HISTORY_TOOLS.includes(tool.mode));
+  const renderTool = (tool: ActiveToolConfig, buttonStyle: React.CSSProperties) => {
+    const IconComponent = tool.icon;
+    const isActive = activeTool === tool.mode;
+    const isHistoryTool = HISTORY_TOOLS.includes(tool.mode);
+    const button = (
+      <IconButton
+        key={tool.mode}
+        data-testid={`${tool.mode}-tool`}
+        aria-label={tool.label}
+        className={`cursor-pointer tool-button ${
+          guideTarget === `tool:${tool.mode}` ? 'ui-guide' : ''
+        }`}
+        onClick={() => {
+          if (tool.onClick) {
+            tool.onClick();
+          } else {
+            setActiveTool(isActive ? ACTIVE_TOOLS.PAN : tool.mode);
+          }
+        }}
+        style={{
+          position: 'relative',
+          height: TOOLBAR_HEIGHT,
+          // Radix ghost buttons use content-box sizing, their own padding, and
+          // negative alignment margins; neutralize all three so ghost and solid
+          // render the same size (content is centered, so padding can be 0).
+          boxSizing: 'border-box',
+          padding: 0,
+          margin: 0,
+          borderRadius: 7,
+          boxShadow: isActive ? '0 1px 3px var(--gray-a7)' : 'inset 0 0 0 1px var(--gray-a6)',
+          ...buttonStyle,
+        }}
+        variant={isActive ? 'solid' : 'ghost'}
+        color={isActive ? undefined : 'gray'}
+        disabled={tool.disabled}
+      >
+        {showHotkeyHints && (
+          <Kbd
+            size="1"
+            style={{
+              position: 'absolute',
+              top: 2,
+              right: 4,
+              background: 'transparent',
+              boxShadow: 'none',
+              color: 'inherit',
+              opacity: 0.7,
+              whiteSpace: 'nowrap',
+              ...(isHistoryTool ? {fontSize: 9, letterSpacing: 0} : {}),
+            }}
+          >
+            {isHistoryTool ? compactHotkeyLabel(tool.hotKeyLabel) : tool.hotKeyLabel}
+          </Kbd>
+        )}
+        <Flex direction="column" align="center" gap="1">
+          {/* iconStyle (e.g. redo's mirror transform) applies to the icon only —
+              on the button it would mirror the corner rounding too. */}
+          <IconComponent
+            width={TOOLBAR_SIZE * 0.4}
+            height={TOOLBAR_SIZE * 0.4}
+            style={tool.iconStyle}
+          />
+          <Text size="1">{tool.label}</Text>
+        </Flex>
+      </IconButton>
+    );
+    // Every main tool shares one of the two combination entries (see
+    // ToolUtils' combinationHelpKey / 'superdrawToolsCombination'), so its
+    // hover card would describe every tool in the group rather than just
+    // this button — text="" suppresses that description, leaving only the
+    // demonstration link.
+    return tool.helpKey ? (
+      <HelpTip key={tool.mode} tip={tool.helpKey} openDelay={HELP_TIP_HOVER_DELAY} text="">
+        {button}
+      </HelpTip>
+    ) : (
+      button
+    );
+  };
+
   return (
     <Flex
-      justify={toolbarLocation === 'map' ? 'center' : 'start'}
-      align={toolbarLocation === 'map' ? 'center' : 'start'}
-      ref={toolbarItemsRef}
-      direction={rotation === 'horizontal' ? 'row' : 'column'}
-      className={`${toolbarLocation === 'map' ? 'shadow-md overflow-hidden bg-white rounded-lg' : ''}`}
+      justify="start"
+      align="start"
+      direction="row"
       width="100%"
-      wrap={isSidebar ? 'wrap' : 'nowrap'}
+      wrap="wrap"
+      gap="4"
       data-testid="toolbar"
     >
-      {activeTools.map((tool, i) => {
-        const IconComponent = tool.icon;
-        return (
-          <Tooltip.Provider key={`toolbar-tooltip-${i}`}>
-            <Tooltip.Root open={showShortcuts || activeTooltip === tool.mode || undefined}>
-              <Tooltip.Trigger
-                asChild
-                style={{
-                  flexGrow: isMobile || isSidebar ? 1 : undefined,
-                }}
-              >
-                <IconButton
-                  key={`${tool.mode}-flex`}
-                  data-testid={`${tool.mode}-tool`}
-                  className={`cursor-pointer ${i === 0 ? (rotation === 'horizontal' ? 'rounded-l-lg' : 'rounded-t-lg') : ''} ${
-                    i === activeTools.length - 1
-                      ? rotation === 'horizontal'
-                        ? 'rounded-r-lg'
-                        : 'rounded-b-lg'
-                      : ''
-                  } ${toolbarLocation === 'map' ? '' : 'flex-grow'}
-                  `}
-                  onMouseEnter={() => setActiveTooltip(tool.mode)}
-                  onMouseLeave={() => setActiveTooltip(null)}
-                  onClick={() => {
-                    if (tool.onClick) {
-                      tool.onClick();
-                    } else {
-                      setActiveTool(activeTool === tool.mode ? ACTIVE_TOOLS.PAN : tool.mode);
-                    }
-                  }}
-                  style={{
-                    width: toolbarSize,
-                    height: toolbarSize,
-                    ...(tool?.iconStyle || {}),
-                  }}
-                  variant={tool.variant || activeTool === tool.mode ? 'solid' : 'surface'}
-                  color={tool.color}
-                  radius="none"
-                  disabled={tool.disabled}
-                >
-                  <IconComponent width={toolbarSize * 0.4} height={toolbarSize * 0.4} />
-                </IconButton>
-              </Tooltip.Trigger>
-              <Tooltip.Portal>
-                <Tooltip.Content
-                  side={rotation === 'horizontal' ? 'top' : 'right'}
-                  className="select-none rounded bg-gray-900 px-2 py-1 text-xs text-center text-white"
-                  sideOffset={5}
-                >
-                  {!showShortcuts && (
-                    <>
-                      {tool.label}
-                      <br />
-                    </>
-                  )}{' '}
-                  {rotation === 'horizontal' ? (
-                    tool.hotKeyLabel.split(' + ').map((key, i) => (
-                      <span key={i} className="text-xs">
-                        {key}
-                        <br />
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-xs">{tool.hotKeyLabel}</span>
-                  )}
-                  <Tooltip.Arrow className="fill-gray-900" />
-                </Tooltip.Content>
-              </Tooltip.Portal>
-            </Tooltip.Root>
-          </Tooltip.Provider>
-        );
-      })}
+      {/* Container flexGrow tracks button count so extra sidebar width is
+          shared per-button — undo/redo grow with the sidebar instead of
+          staying fixed, but at half rate so they stay visually secondary. */}
+      <Flex direction="row" wrap="wrap" gap="1" style={{flexGrow: mainTools.length}}>
+        {/* flexBasis 0 (not auto) so every tool gets the same width regardless
+            of label length. Wraps because the sidebar resizes down to 140px,
+            below the five Super Draw tools' combined minimum. */}
+        {mainTools.map(tool =>
+          renderTool(tool, {minWidth: TOOLBAR_SIZE, flexGrow: 1, flexBasis: 0})
+        )}
+      </Flex>
+      <Flex direction="row" gapX="1" style={{flexGrow: historyTools.length * HISTORY_GROW_FACTOR}}>
+        {historyTools.map(tool =>
+          renderTool(tool, {minWidth: HISTORY_BUTTON_WIDTH, flexGrow: 1, flexBasis: 0})
+        )}
+      </Flex>
     </Flex>
   );
 };

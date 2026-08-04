@@ -60,20 +60,70 @@ body {
 
 .cursor-pan {
 }
-.cursor-brush canvas {
-  cursor:
-    url(/paintbrush.png) 20 20,
-    none;
-}
+.cursor-brush canvas,
 .cursor-eraser canvas {
-  cursor:
-    url(/eraser.png) 16 16,
-    pointer;
+  cursor: pointer;
 }
 .cursor-shatter canvas {
-  cursor:
-    url(/break.png) 12 12,
-    pointer;
+  cursor: crosshair;
+}
+
+/* Bottom-center map pills (break flow): accent ring, strong shadow, and a
+   slide-up entrance so they register over the basemap. */
+@keyframes map-pill-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 16px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+.map-pill {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  background: white;
+  border: 1.5px solid var(--accent-8);
+  border-radius: 99px;
+  box-shadow: 0 6px 24px rgba(0, 0, 20, 0.35);
+  pointer-events: auto;
+  white-space: nowrap;
+  animation: map-pill-in 0.25s ease-out;
+}
+
+/* Never let the browser treat map touches as page scroll/zoom gestures.
+   Maplibre relaxes its own touch-action to `pan-x pan-y` whenever dragPan is
+   disabled (i.e. exactly while painting), which let vertical brush strokes
+   scroll and rubber-band the whole page on mobile. */
+.maplibregl-canvas-container {
+  touch-action: none;
+}
+
+/* The canvas is focusable, so every tap/paint drew a focus ring around the
+   whole map. */
+.maplibregl-canvas {
+  outline: none;
+}
+
+/* Small screens (portrait): the eval report stacks — the page root is already
+   column-reverse below lg, so cap the map at the top and let the report take
+   the rest, scrolling within itself. Landscape and lg+ keep side-by-side. */
+@media (max-width: 1023px) and (orientation: portrait) {
+  .eval-map-wrapper {
+    height: 35vh !important;
+    height: 35dvh !important;
+    flex: none !important;
+  }
+  .eval-panel {
+    width: 100% !important;
+    flex: 1 1 0px;
+    min-height: 0;
+    border-left: none !important;
+  }
 }
 
 @media print {
@@ -101,9 +151,8 @@ body {
     display: none !important;
   }
 
-  /* Hide map UI controls and draggable toolbar */
-  .eval-map-wrapper .maplibregl-control-container,
-  .eval-map-wrapper [class*="DraggableToolbar"] {
+  /* Hide map UI controls */
+  .eval-map-wrapper .maplibregl-control-container {
     display: none !important;
   }
 
@@ -118,4 +167,95 @@ body {
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }
+}
+
+.tool-button {
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    box-shadow 120ms ease,
+    transform 80ms ease;
+}
+.tool-button:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+/* Pulse-highlight for elements a helper hint just pointed at
+   (uiHintStore.flashTarget). */
+@keyframes ui-flash-pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--accent-a7);
+    background-color: var(--accent-a4);
+  }
+  100% {
+    box-shadow: 0 0 0 8px transparent;
+    background-color: transparent;
+  }
+}
+.ui-flash {
+  animation: ui-flash-pulse 1.4s ease-out 2;
+  border-radius: 6px;
+}
+
+/* Guided-sequence variant (uiHintStore.guideTargets): ~10s of pulsing,
+   matching GUIDE_STEP_TIMEOUT_MS. */
+.ui-guide {
+  animation: ui-flash-pulse 1.4s ease-out 7;
+  border-radius: 6px;
+}
+
+/* A highlighted Radix menu item keeps its white text while the pulse
+   animation replaces its dark background with the pale wash — force a
+   readable color for the pulse's duration. */
+.ui-flash[data-highlighted],
+.ui-guide[data-highlighted] {
+  color: var(--gray-12);
+}
+
+/* Stronger variant for tiny targets like the topbar status icon, where the
+   standard wash is easy to miss. A saturated wash blink, fully inside the
+   element's own box — the truncating title header's overflow rules clip
+   anything that grows or glows outward. */
+@keyframes ui-flash-pop {
+  0%,
+  100% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: var(--accent-a7);
+  }
+}
+.ui-flash-pop {
+  animation: ui-flash-pop 0.55s ease-in-out 5;
+  border-radius: 9999px;
+}
+
+/* Softer radio cards: quiet gray tiles with a soft accent fill when selected,
+   replacing Radix's white cards + hard 2px accent outline, which read too
+   sharp next to the site's tab selectors. globals.css loads after the Radix
+   stylesheet, so equal-specificity overrides here win by cascade order. */
+.rt-RadioCardsItem {
+  background: var(--color-surface);
+  color: var(--gray-11);
+}
+.rt-RadioCardsItem:where(:hover) {
+  background: var(--gray-a2);
+}
+.rt-RadioCardsItem::before {
+  background: transparent;
+}
+.rt-RadioCardsItem::after {
+  box-shadow: inset 0 0 0 1px var(--gray-a5);
+}
+.rt-RadioCardsItem[data-state='checked'] {
+  background: var(--accent-a4);
+  color: var(--accent-11);
+}
+.rt-RadioCardsItem[data-state='checked']::after {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--accent-a8);
+}
+/* Higher specificity above would clobber Radix's focus ring; re-assert it. */
+.rt-RadioCardsItem:focus-visible::after {
+  outline: 2px solid var(--focus-8);
 }

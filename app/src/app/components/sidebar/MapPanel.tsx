@@ -1,44 +1,40 @@
 'use client';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {MapControlsStore, useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 import {formatNumber} from '@/app/utils/numbers';
-import {
-  GearIcon,
-  InfoCircledIcon,
-  MinusIcon,
-  PlusIcon,
-  ShadowInnerIcon,
-  ViewVerticalIcon,
-} from '@radix-ui/react-icons';
+import {GearIcon, MinusIcon, PlusIcon} from '@radix-ui/react-icons';
 import {
   Blockquote,
   Box,
-  Button,
   Checkbox,
   Flex,
   Heading,
   IconButton,
   Popover,
+  RadioCards,
   Slider,
   Text,
-  Tooltip,
 } from '@radix-ui/themes';
 import {Select} from '@radix-ui/themes';
 import {LegendLabel, LegendThreshold} from '@visx/legend';
-import React, {useEffect, useMemo} from 'react';
+import React, {useMemo} from 'react';
 import {choroplethMapVariables} from '@/app/store/demography/constants';
-import {OVERLAY_OPACITY} from '@constants/map/layerStyle';
 import {demographyService} from '@/app/utils/demography/demographyService';
 import {
   isCoalitionUniverse,
   CoalitionUniverse,
+  SUMMARY_TYPES,
+  toOverlayGroup,
   type SummaryType,
 } from '@constants/demography/summary';
 import {COALITION_VARIABLE_BY_UNIVERSE, DemographyVariable} from '@constants/demography/coalition';
+import {useCoalitionsEnabled} from '@/app/hooks/useCoalitionsEnabled';
 import {getCoalitionLabel, getSelectedCoalitionColumns} from '@/app/utils/demography/coalition';
-import {MAP_MODES} from '@constants/map/mode';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
+import {overlayMemory} from '@utils/demography/overlayMemory';
+import {DataSourceCitation} from './DataSourceCitation';
 
 type MapPanelProps = {
   columnGroup: keyof typeof choroplethMapVariables;
@@ -48,7 +44,6 @@ type MapPanelProps = {
 const mapDisplayModes: Array<{
   label: string;
   value: MapControlsStore['mapOptions']['demographicDisplayMode'];
-  icon?: React.ReactNode;
 }> = [
   {
     label: 'None',
@@ -57,34 +52,14 @@ const mapDisplayModes: Array<{
   {
     label: 'Comparison',
     value: DEMOGRAPHIC_MODES.SIDE_BY_SIDE,
-    icon: <ViewVerticalIcon />,
   },
   {
     label: 'Overlay',
     value: DEMOGRAPHIC_MODES.OVERLAY,
-    icon: <ShadowInnerIcon />,
-  },
-];
-
-const getOpacityStates = (
-  mapOptions: MapControlsStore['mapOptions'],
-  setMapOptions: MapControlsStore['setMapOptions'],
-  mapMode: MapControlsStore['mapMode']
-) => [
-  {
-    selected: mapOptions.showPaintedDistricts && mapOptions.overlayOpacity > 0,
-    label: 'Overlay',
-    onClick: () => setMapOptions({showPaintedDistricts: true, overlayOpacity: OVERLAY_OPACITY}),
   },
   {
-    selected: !mapOptions.showPaintedDistricts,
-    label: 'Show Thematic Map',
-    onClick: () => setMapOptions({showPaintedDistricts: false, overlayOpacity: 1}),
-  },
-  {
-    selected: mapOptions.showPaintedDistricts && mapOptions.overlayOpacity === 0,
-    label: mapMode === MAP_MODES.COI ? 'Show Communities' : 'Show Districts',
-    onClick: () => setMapOptions({showPaintedDistricts: true, overlayOpacity: 0}),
+    label: 'Sized circles',
+    value: DEMOGRAPHIC_MODES.SIZED_CIRCLES,
   },
 ];
 
@@ -92,10 +67,15 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   const demographicDisplayMode = useMapControlsStore(
     state => state.mapOptions.demographicDisplayMode
   );
-  const mapMode = useMapControlsStore(state => state.mapMode);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
+  const superDraw = useToolbarStore(state => state.superDraw);
+  const coalitionsEnabled = useCoalitionsEnabled();
   const isOverlay = demographicDisplayMode === DEMOGRAPHIC_MODES.OVERLAY;
+  // Draw mode keeps the choropleth simple: overlay only, no side-by-side view.
+  const displayModes = superDraw
+    ? mapDisplayModes
+    : mapDisplayModes.filter(m => m.value !== DEMOGRAPHIC_MODES.SIDE_BY_SIDE);
 
   const variable = useDemographyStore(state => state.variable);
   const variant = useDemographyStore(state => state.variant);
@@ -109,89 +89,124 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   const setNumberOfBins = useDemographyStore(state => state.setNumberOfBins);
   const dataHash = useDemographyStore(state => state.dataHash);
   const availableMapVariables = useDemographyStore(state => state.availableColumnSets.map);
-  const coalitionOption = useMemo(() => {
-    if (!isCoalitionUniverse(columnGroup)) return undefined;
+  // The population choropleth spans both universes: shading by VAP shouldn't
+  // require switching the evaluation table's summary type first. Elections stay
+  // on their own group. Labels already disambiguate ("Black" vs "VAP Black").
+  const variableGroups = useMemo<SummaryType[]>(
+    () =>
+      isCoalitionUniverse(columnGroup) ? [SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP] : [columnGroup],
+    [columnGroup]
+  );
+  const coalitionOptionFor = (universe: SummaryType) => {
+    if (!isCoalitionUniverse(universe)) return [];
+    // Coalition entries only where coalitions are on (Super Draw / COI maps);
+    // plain Draw keeps the entry when it's the active variable (a coalition
+    // set up in Super Draw must not leave a dangling selection behind).
+    if (!coalitionsEnabled && variable !== COALITION_VARIABLE_BY_UNIVERSE[universe]) return [];
     const coalitionColumns = getSelectedCoalitionColumns({
       selectedGroups: coalitionGroups,
       availableColumns: demographyService.availableColumns,
-      universe: columnGroup as CoalitionUniverse,
+      universe: universe as CoalitionUniverse,
     });
-    if (!coalitionColumns.length) return undefined;
-    return {
-      label: getCoalitionLabel({
-        selectedGroups: coalitionGroups,
-        availableColumns: demographyService.availableColumns,
-        universe: columnGroup,
+    if (!coalitionColumns.length) return [];
+    const label = getCoalitionLabel({
+      selectedGroups: coalitionGroups,
+      availableColumns: demographyService.availableColumns,
+      universe,
+    });
+    return [
+      {
+        // Both universes produce the same coalition label, so mark the VAP one.
+        label: universe === SUMMARY_TYPES.VAP ? `VAP ${label}` : label,
+        value: COALITION_VARIABLE_BY_UNIVERSE[universe],
+        variants: ['percent', 'raw'] as Array<'percent' | 'raw'>,
+        fixedScale: undefined,
+        customLegendLabels: undefined,
+        expression: undefined,
+      },
+    ];
+  };
+  const currentVariableList = useMemo(
+    () =>
+      variableGroups.flatMap(group => {
+        const baseList = availableMapVariables[group] ?? [];
+        // Skip the coalition entry for a group with no data on this map.
+        return baseList.length ? [...baseList, ...coalitionOptionFor(group)] : [];
       }),
-      value: COALITION_VARIABLE_BY_UNIVERSE[columnGroup],
-      variants: ['percent', 'raw'] as Array<'percent' | 'raw'>,
-      fixedScale: undefined,
-      customLegendLabels: undefined,
-      expression: undefined,
-    };
-  }, [columnGroup, coalitionGroups, dataHash]);
-  const currentVariableList = useMemo(() => {
-    const baseList = availableMapVariables[columnGroup] ?? [];
-    if (!coalitionOption) return baseList;
-    return [...baseList, coalitionOption];
-  }, [availableMapVariables, columnGroup, coalitionOption]);
+    [availableMapVariables, variableGroups, coalitionGroups, dataHash, coalitionsEnabled, variable]
+  );
   const mapVariableConfig = currentVariableList.find(f => f.value === variable);
+  // Each group's control is independent: it reports the display mode only
+  // while its own variable drives the map, and shows None otherwise. Picking
+  // a mode here takes the map over for this group (handleSetMapMode swaps the
+  // variable), flipping the other group's control back to None.
+  const ownsMapLayer = !!mapVariableConfig;
+  const displayedMode = ownsMapLayer ? demographicDisplayMode : undefined;
 
   const handleSetMapMode = (newMode: MapControlsStore['mapOptions']['demographicDisplayMode']) => {
     setMapOptions({demographicDisplayMode: newMode});
-    if (!mapVariableConfig && currentVariableList.length) {
-      setVariable(currentVariableList[0].value);
+    // Toggling a layer on registers it with the Visual settings toggle:
+    // remember the display mode (overlay vs. comparison) and the variable
+    // it's showing.
+    // Reactivating an inactive group restores its remembered variable (like
+    // activateOverlayGroup), falling back to the group's first.
+    const group = toOverlayGroup(columnGroup);
+    const remembered = overlayMemory.variables[group];
+    const effectiveVariable = mapVariableConfig
+      ? variable
+      : (currentVariableList.find(f => f.value === remembered) ?? currentVariableList[0])?.value;
+    if (newMode) {
+      overlayMemory.displayMode = newMode;
+      if (effectiveVariable) overlayMemory.variables[group] = effectiveVariable;
+    }
+    if (!mapVariableConfig && effectiveVariable) {
+      setVariable(effectiveVariable);
+    }
+    // Sized circles encode the count in the circle size; shade by share
+    if (
+      newMode === DEMOGRAPHIC_MODES.SIZED_CIRCLES &&
+      mapVariableConfig?.variants?.includes('percent')
+    ) {
+      setVariant('percent');
     }
   };
 
   const canBePercent = mapVariableConfig?.variants?.includes('percent');
+  // Continuous (fixed partisan, unclassed percent, or total) scales ignore binning;
+  // only raw-count variants of demographic groups use quantile bins
+  const usesBins =
+    !mapVariableConfig?.fixedScale &&
+    !!mapVariableConfig?.variants &&
+    !(canBePercent && variant === 'percent');
   const labelFormat =
     canBePercent && variant === 'percent' ? NUMBER_FORMATS.PERCENT : NUMBER_FORMATS.COMPACT;
-  const colors = scale?.range() || [];
+  const isContinuousScale = !!scale && !('invertExtent' in scale);
+  const colors = scale && !isContinuousScale ? scale.range() : [];
+  const scaleDomain = isContinuousScale && scale ? scale.domain() : [0, 1];
+  const [domainMin, domainMax] = [scaleDomain[0], scaleDomain[scaleDomain.length - 1]];
+  const continuousLegendLabels =
+    mapVariableConfig?.customLegendLabels ??
+    Array.from(
+      {length: 5},
+      (_, i) => formatNumber(domainMin + ((domainMax - domainMin) * i) / 4, labelFormat) ?? ''
+    );
+  const continuousLegendColors = useMemo(() => {
+    if (!isContinuousScale || !scale) return [];
+    return Array.from(
+      {length: 11},
+      (_, i) => scale(domainMin + ((domainMax - domainMin) * i) / 10) as string
+    );
+  }, [isContinuousScale, scale, domainMin, domainMax]);
 
   const handleChangeVariable = (newVariable: DemographyVariable) => {
     setVariable(newVariable);
+    // Remember the choice so the Visual settings overlay toggle restores it.
+    overlayMemory.variables[toOverlayGroup(columnGroup)] = newVariable;
   };
 
   const handleChangePercent = (usePercent: boolean) => {
     setVariant(usePercent ? 'percent' : 'raw');
   };
-
-  useEffect(() => {
-    // add a listener for option or alt key press and release
-    const handleKeyPress = (event: KeyboardEvent) => {
-      const {mapOptions, setMapOptions} = useMapControlsStore.getState();
-      const isOverlayMode = mapOptions.demographicDisplayMode === DEMOGRAPHIC_MODES.OVERLAY;
-      const activeElement = document.activeElement;
-      // if active element is an input, don't do anything
-      if (
-        !isOverlayMode ||
-        activeElement instanceof HTMLInputElement ||
-        activeElement instanceof HTMLTextAreaElement
-      )
-        return;
-      // if command/control held down, don't do anything
-      if (event.metaKey || event.ctrlKey) return;
-      // if key is digit, set selected zone to that digit
-      let value = event.key;
-      // if x, set showDemographicMap to undefined
-      const opacityStates = getOpacityStates(mapOptions, setMapOptions, mapMode);
-      if (value === 'x') {
-        const currentState = opacityStates.findIndex(f => f.selected);
-        const nextState = (currentState + 1) % opacityStates.length;
-        opacityStates[nextState].onClick();
-      }
-    };
-    if (mapVariableConfig) {
-      document.addEventListener('keydown', handleKeyPress);
-    } else {
-      document.removeEventListener('keydown', handleKeyPress);
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyPress);
-    };
-  }, [mapMode, mapVariableConfig]);
 
   if (!Object.keys(availableMapVariables).length) {
     return (
@@ -201,49 +216,65 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
     );
   }
   return (
-    <Flex direction="column">
-      <Flex direction="row" gap="3" align="center" className="rounded-md" wrap="wrap">
-        <Text>Display mode</Text>
-        {mapDisplayModes.map((option, i) => (
-          <Button
-            key={i}
-            variant={demographicDisplayMode === option.value ? 'solid' : 'outline'}
-            onClick={() => handleSetMapMode(option.value)}
-          >
-            {!!option.icon && option.icon}
-            {option.label}
-          </Button>
-        ))}
+    <Flex direction="column" gap="2">
+      <Flex direction="row" align="center" gap="3" wrap="wrap">
+        <Text size="2" weight="medium">
+          Map display mode
+        </Text>
+        <RadioCards.Root
+          size="1"
+          gap="2"
+          // Flex-wrap instead of grid columns: grid tracks floor at
+          // min-content and overflow narrow sidebars, stretching sibling
+          // controls past the clip edge; wrapped cards fit any width.
+          style={{display: 'flex', flexWrap: 'wrap'}}
+          value={displayedMode ?? 'none'}
+          onValueChange={v =>
+            handleSetMapMode(
+              v === 'none'
+                ? undefined
+                : (v as MapControlsStore['mapOptions']['demographicDisplayMode'])
+            )
+          }
+        >
+          {displayModes.map((option, i) => (
+            <RadioCards.Item key={i} value={option.value ?? 'none'} className="cursor-pointer">
+              <Text size="2">{option.label}</Text>
+            </RadioCards.Item>
+          ))}
+        </RadioCards.Root>
       </Flex>
-      {demographicDisplayMode !== undefined && (
+      {displayedMode !== undefined && (
         <>
-          <Flex direction="column" pt="2">
-            <Flex direction="row" gap="3" align="start" py="2" wrap="wrap">
-              <Flex direction="row" gap="3" align="center" wrap="wrap">
-                <Text>Map variable</Text>
-                <Select.Root value={variable} onValueChange={handleChangeVariable}>
-                  <Select.Trigger>
-                    <Text>{mapVariableConfig?.label ?? 'Select a variable'}</Text>
-                  </Select.Trigger>
-                  <Select.Content>
-                    {currentVariableList.map(f => (
-                      <Select.Item key={f.value} value={f.value}>
-                        {f.label}
-                      </Select.Item>
-                    ))}
-                  </Select.Content>
-                </Select.Root>
+          <Flex direction="column" gap="2">
+            <Flex direction="row" gap="3" align="center" wrap="wrap">
+              <Text size="2" weight="medium">
+                {columnGroup === 'VOTERHISTORY' ? 'Map layer election' : 'Map layer population'}
+              </Text>
+              <Select.Root value={variable} onValueChange={handleChangeVariable}>
+                <Select.Trigger>
+                  <Text>{mapVariableConfig?.label ?? 'Select a variable'}</Text>
+                </Select.Trigger>
+                <Select.Content>
+                  {currentVariableList.map(f => (
+                    <Select.Item key={f.value} value={f.value}>
+                      {f.label}
+                    </Select.Item>
+                  ))}
+                </Select.Content>
+              </Select.Root>
 
-                {!!mapVariableConfig && (
-                  <Popover.Root>
-                    <Popover.Trigger>
-                      <GearIcon />
-                    </Popover.Trigger>
-                    <Popover.Content>
-                      <Flex direction={'column'} gapY="2">
-                        <Heading as="h3" size="3">
-                          Choropleth Map Settings
-                        </Heading>
+              {!!mapVariableConfig && superDraw && (
+                <Popover.Root>
+                  <Popover.Trigger>
+                    <GearIcon />
+                  </Popover.Trigger>
+                  <Popover.Content>
+                    <Flex direction={'column'} gapY="2">
+                      <Heading as="h3" size="3">
+                        Additional Layer Settings
+                      </Heading>
+                      {usesBins && (
                         <Flex direction="row" gapX="3" align="center">
                           <Text>Max number of bins: {numberOfbins}</Text>
                           <IconButton
@@ -261,64 +292,58 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                             <PlusIcon />
                           </IconButton>
                         </Flex>
-                        <Text
-                          as="label"
-                          className={`${canBePercent ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
-                        >
-                          <Flex gap="2" align="center">
-                            <Checkbox
-                              checked={canBePercent && variant === 'percent'}
-                              disabled={!canBePercent}
-                              onCheckedChange={handleChangePercent}
-                            />
-                            Show data as percent
-                          </Flex>
-                        </Text>
-                        {isOverlay && (
-                          <Flex direction="column" gapY="2">
-                            <Text>Overlay Opacity</Text>
-                            <Slider
-                              value={[mapOptions.overlayOpacity]}
-                              onValueChange={value => setMapOptions({overlayOpacity: value[0]})}
-                              min={0}
-                              max={1}
-                              step={0.01}
-                            />
-                          </Flex>
-                        )}
-
-                        {demographicDisplayMode === DEMOGRAPHIC_MODES.OVERLAY && (
-                          <Flex direction="column" gapY="1">
-                            <Flex direction="row" gapX="1" align="center">
-                              <Text>Overlay mode</Text>
-                              <Tooltip content="Press 'x' to cycle through the overlay modes.">
-                                <IconButton variant="ghost">
-                                  <InfoCircledIcon />
-                                </IconButton>
-                              </Tooltip>
-                            </Flex>
-                            <Flex direction="row" gapX="0" align="center" wrap="wrap">
-                              {getOpacityStates(mapOptions, setMapOptions, mapMode).map(
-                                (option, i) => (
-                                  <Button
-                                    key={i}
-                                    className="!rounded-none mr-[-2px]"
-                                    variant={option.selected ? 'solid' : 'outline'}
-                                    onClick={option.onClick}
-                                  >
-                                    {option.label}
-                                  </Button>
-                                )
-                              )}
-                            </Flex>
-                          </Flex>
-                        )}
-                      </Flex>
-                    </Popover.Content>
-                  </Popover.Root>
+                      )}
+                      <Text
+                        as="label"
+                        className={`${canBePercent ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+                      >
+                        <Flex gap="2" align="center">
+                          <Checkbox
+                            checked={canBePercent && variant === 'percent'}
+                            disabled={!canBePercent}
+                            onCheckedChange={handleChangePercent}
+                          />
+                          Show data as percent
+                        </Flex>
+                      </Text>
+                    </Flex>
+                  </Popover.Content>
+                </Popover.Root>
+              )}
+            </Flex>
+            {/* The old overlay presets are gone; opacity is slider-driven in
+                every mode. Painted-district visibility stays a Map options
+                checkbox. */}
+            {isOverlay && !!mapVariableConfig && (
+              // pr: the thumb at 100% sits half outside the track's own box and
+              // was being clipped by the panel's edge.
+              <Flex direction="column" gapY="2" pr="2">
+                <Text size="2" weight="medium">
+                  Overlay layer opacity
+                </Text>
+                <Slider
+                  value={[mapOptions.overlayOpacity]}
+                  onValueChange={value => setMapOptions({overlayOpacity: value[0]})}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                />
+                {superDraw && (
+                  <>
+                    <Text size="2" weight="medium">
+                      Districts layer opacity
+                    </Text>
+                    <Slider
+                      value={[mapOptions.zonesOpacity ?? 1]}
+                      onValueChange={value => setMapOptions({zonesOpacity: value[0]})}
+                      min={0}
+                      max={1}
+                      step={0.01}
+                    />
+                  </>
                 )}
               </Flex>
-            </Flex>
+            )}
           </Flex>
 
           {!!mapVariableConfig && scale && 'invertExtent' in scale ? (
@@ -362,28 +387,31 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                 }}
               </LegendThreshold>
             </Flex>
-          ) : !!mapVariableConfig &&
-            scale &&
-            mapVariableConfig?.fixedScale &&
-            mapVariableConfig.customLegendLabels ? (
+          ) : !!mapVariableConfig && isContinuousScale ? (
             <Flex direction={'column'} justify="center" gapX="2" width="100%">
               <LinearGradient
-                colors={mapVariableConfig.fixedScale
-                  .domain()
-                  .map((d: number) => mapVariableConfig.fixedScale!(d))}
-                numTicks={mapVariableConfig.customLegendLabels.length}
+                colors={continuousLegendColors}
+                numTicks={continuousLegendLabels.length}
               />
               <Flex direction={'row'} width="100%" justify="between">
-                {mapVariableConfig.customLegendLabels.map((label: string, i: number) => (
+                {continuousLegendLabels.map((label: string, i: number) => (
                   <Text key={`legend-label-${i}`}>{label}</Text>
                 ))}
               </Flex>
             </Flex>
           ) : null}
           {!!mapVariableConfig && demographicDisplayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE && (
-            <Text size="2" align="center">
+            <Text size="1" color="gray" align="center">
               Gray = zero population
             </Text>
+          )}
+          {!!mapVariableConfig && demographicDisplayMode === DEMOGRAPHIC_MODES.SIZED_CIRCLES && (
+            <Text size="2" align="center">
+              Circle area scales with total population
+            </Text>
+          )}
+          {!!mapVariableConfig && (
+            <DataSourceCitation elections={columnGroup === SUMMARY_TYPES.VOTERHISTORY} />
           )}
         </>
       )}

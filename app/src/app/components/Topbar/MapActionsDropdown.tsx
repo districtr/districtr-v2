@@ -1,0 +1,204 @@
+'use client';
+import React, {useState} from 'react';
+import {Button, DropdownMenu, Text} from '@radix-ui/themes';
+import {CaretDownIcon, MixIcon} from '@radix-ui/react-icons';
+import {useMapStore} from '@store/mapStore';
+import {useUiHintStore} from '@store/uiHintStore';
+import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
+import {ACCESS_STATES} from '@constants/document/state';
+import {DocumentMetadata} from '@utils/api/apiHandlers/types';
+import {SaveShareModal} from '../Toolbar/SaveShareModal/SaveShareModal';
+import {useDraftStatusHelperDismissal} from '@components/sidebar/DraftStatusHelper';
+import {fetchWithSession} from '@utils/api/session';
+import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
+import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
+
+/** Consolidated "Map actions" menu for the editor topbar: share, export,
+ * and reset in one dropdown. Saving lives in the topbar SaveButton;
+ * Visual settings sit next to the toolbar (sidebar or mobile dock). */
+export const MapActionsDropdown: React.FC<{
+  handleMetadataChange: (updates: Partial<DocumentMetadata>) => Promise<void>;
+}> = ({handleMetadataChange}) => {
+  const [modal, setModal] = useState<'share' | null>(null);
+  const mapDocument = useMapStore(state => state.mapDocument);
+  const access = useMapStore(state => state.mapStatus?.access);
+  const handleReset = useMapStore(state => state.handleReset);
+  const setNotification = useMapStore(state => state.setNotification);
+  const {save} = useMapSaveStatus();
+
+  const notifyExportFailed = (reason: string) =>
+    setNotification({
+      importance: 2,
+      type: 'error',
+      message: 'Exporting this map failed. Please try again in a moment.',
+      id: `export-failed-${exportId}-${reason}`,
+    });
+
+  // Defer past the dropdown's close so Radix doesn't leave pointer-events:none
+  // stuck on the body when a dialog opens from onSelect.
+  const openModal = (which: 'share') => setTimeout(() => setModal(which), 0);
+
+  // "Share your map" guide: pulses this trigger, then the Share item.
+  const guideTarget = useUiHintStore(state => state.guideTargets[0]);
+  const advanceGuide = useUiHintStore(state => state.advanceGuide);
+  const cancelGuide = useUiHintStore(state => state.cancelGuide);
+  const {dismissed: guideDismissed, restore: restoreGuide} = useDraftStatusHelperDismissal();
+  const handleMenuOpenChange = (open: boolean) => {
+    if (open) {
+      advanceGuide('map-actions');
+    } else if (guideTarget === 'map-actions-share') {
+      // Closed without selecting: end the guide rather than pulse an unmounted item.
+      cancelGuide();
+    }
+  };
+
+  // Export works for view-only users too: the backend resolves a public_id the same
+  // as a document UUID, so fall back to the public_id when the loaded doc is the
+  // anonymous read-only copy.
+  const exportId =
+    mapDocument?.document_id && mapDocument.document_id !== ANONYMOUS_DOCUMENT_ID
+      ? mapDocument.document_id
+      : mapDocument?.public_id;
+
+  const downloadExport = async (exportType: string) => {
+    if (!exportId) return;
+    // Save first so the export reflects local edits — but only for editors.
+    // On failure just abort: handlePutAssignments already surfaced
+    // it (conflict modal or error toast), so a toast here would double-notify.
+    if (access === ACCESS_STATES.EDIT) {
+      const saveResponse = await save();
+      if (!saveResponse.ok) return;
+    }
+    // Fetch via the session-aware client (plain anchor navigation can't attach
+    // the X-Districtr-Session header) and save the blob through a transient
+    // anchor. Filename comes from the backend's Content-Disposition.
+    try {
+      const response = await fetchWithSession(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/document/${exportId}/export?export_type=${exportType}`
+      );
+      if (!response.ok) {
+        notifyExportFailed(`${response.status}`);
+        return;
+      }
+      const filename =
+        response.headers.get('Content-Disposition')?.match(/filename="?([^";]+)"?/)?.[1] ??
+        `districtr-export-${exportId}.${exportType.toLowerCase()}`;
+      const url = URL.createObjectURL(await response.blob());
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Export failed', e);
+      notifyExportFailed('network');
+    }
+  };
+
+  return (
+    <>
+      <DropdownMenu.Root onOpenChange={handleMenuOpenChange}>
+        {/* HelpTip wraps DropdownMenu.Trigger (not the reverse) — see ModeSwitcher.tsx
+            for why the order matters (chained asChild forwarding). */}
+        <HelpTip tip="mapActions" openDelay={HELP_TIP_HOVER_DELAY}>
+          <DropdownMenu.Trigger>
+            <Button
+              variant="surface"
+              color="gray"
+              size="2"
+              className={`cursor-pointer relative transition-shadow hover:shadow-md ${
+                guideTarget === 'map-actions' ? 'ui-guide' : ''
+              }`}
+              data-testid="map-actions-trigger"
+            >
+              <MixIcon />
+              {/* Icon-only on phones to keep the topbar to one row. */}
+              <span className="hidden md:inline">Map actions</span>
+              <CaretDownIcon />
+            </Button>
+          </DropdownMenu.Trigger>
+        </HelpTip>
+        <DropdownMenu.Content
+          sideOffset={6}
+          className="min-w-[var(--radix-dropdown-menu-trigger-width)]"
+        >
+          <DropdownMenu.Item
+            className={`cursor-pointer ${guideTarget === 'map-actions-share' ? 'ui-guide' : ''}`}
+            disabled={!mapDocument?.document_id}
+            data-testid="share-button"
+            onSelect={() => {
+              advanceGuide('map-actions-share');
+              openModal('share');
+            }}
+          >
+            Share map
+          </DropdownMenu.Item>
+          <DropdownMenu.Sub>
+            <DropdownMenu.SubTrigger disabled={!exportId}>
+              Export assignments
+            </DropdownMenu.SubTrigger>
+            <DropdownMenu.SubContent>
+              <DropdownMenu.Item
+                className="cursor-pointer"
+                onSelect={() => downloadExport('BlockAssignmentsCSV')}
+              >
+                Unit assignments (CSV)
+              </DropdownMenu.Item>
+              <DropdownMenu.Item
+                className="cursor-pointer"
+                onSelect={() => downloadExport('DistrictsGeoJSON')}
+              >
+                District boundaries (GeoJSON)
+              </DropdownMenu.Item>
+              <DropdownMenu.Item
+                className="cursor-pointer"
+                onSelect={() => downloadExport('DistrictsShapefile')}
+              >
+                District boundaries (Shapefile)
+              </DropdownMenu.Item>
+              <DropdownMenu.Item
+                className="cursor-pointer"
+                onSelect={() => downloadExport('EvaluationJSON')}
+              >
+                Evaluation metrics (JSON)
+              </DropdownMenu.Item>
+            </DropdownMenu.SubContent>
+          </DropdownMenu.Sub>
+          {guideDismissed && (
+            <DropdownMenu.Item
+              className="cursor-pointer"
+              onSelect={restoreGuide}
+              data-testid="show-map-guide"
+            >
+              Show map guide
+            </DropdownMenu.Item>
+          )}
+          <DropdownMenu.Separator />
+          <DropdownMenu.Sub>
+            <DropdownMenu.SubTrigger
+              disabled={!mapDocument?.document_id || access === ACCESS_STATES.READ}
+            >
+              Reset map
+            </DropdownMenu.SubTrigger>
+            <DropdownMenu.SubContent>
+              <Text size="2" className="w-[50vw] max-w-60 p-3">
+                Are you sure? This will reset all zone assignments and broken geographies.{' '}
+                <b>Resetting your map cannot be undone.</b>
+              </Text>
+              <DropdownMenu.Item onClick={handleReset} color="red">
+                Reset map
+              </DropdownMenu.Item>
+            </DropdownMenu.SubContent>
+          </DropdownMenu.Sub>
+        </DropdownMenu.Content>
+      </DropdownMenu.Root>
+      <SaveShareModal
+        open={modal === 'share'}
+        onClose={() => setModal(null)}
+        handleMetadataChange={handleMetadataChange}
+      />
+    </>
+  );
+};

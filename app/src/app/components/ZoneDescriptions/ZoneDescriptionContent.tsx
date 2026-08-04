@@ -3,6 +3,7 @@ import {Flex, Text, Button, TextArea, IconButton, Box} from '@radix-ui/themes';
 import {PlusIcon, Pencil1Icon, Cross2Icon, CheckIcon} from '@radix-ui/react-icons';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useMapStore} from '@/app/store/mapStore';
+import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {useState} from 'react';
 import {getCommunityDisplayNumber} from '@/app/utils/communities';
 import {MAP_MODES} from '@constants/map/mode';
@@ -138,6 +139,7 @@ export const ZoneDescriptionContent: React.FC<ZoneDescriptionContentProps> = ({
   const commentLengthLimit = useMapStore(state => state.mapDocument?.comment_length_limit);
   const mapMode = useMapControlsStore(state => state.mapMode);
   const communities = useMapStore(state => state.communities);
+  const {save} = useMapSaveStatus();
 
   if (!commentLengthLimit) {
     return null;
@@ -150,6 +152,9 @@ export const ZoneDescriptionContent: React.FC<ZoneDescriptionContentProps> = ({
   const handleSaveDescription = (text: string) => {
     setZoneDescription(zone, text);
     setIsEditing(false);
+    // "Save" here reads as "save my map" — persist right away rather than waiting
+    // for the autosave timer; the delta is just this comment.
+    save();
   };
 
   const handleClearDescription = () => {

@@ -9,6 +9,14 @@ import {cookies} from 'next/headers';
 
 export const revalidate = 3600;
 
+export async function generateMetadata({params}: {params: Promise<{slug: string}>}) {
+  const [{slug}, userCookies] = await Promise.all([params, cookies()]);
+  const language = userCookies.get('language')?.value ?? 'en';
+  const cmsData = await getCMSContent(slug, language, 'places').catch(() => null);
+  const title = cmsData?.content?.published_content?.title;
+  return title ? {title, description: `Draw and explore districting maps for ${title}`} : {};
+}
+
 export default async function Page({params}: {params: Promise<{slug: string}>}) {
   const [{slug}, userCookies] = await Promise.all([params, cookies()]);
   const language = userCookies.get('language')?.value ?? 'en';
@@ -25,13 +33,15 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
     );
   }
 
-  const districtrMapSlugs = cmsData.content.districtr_map_slugs ?? [];
+  // Preserve the order saved in the CMS, not the order of the available-maps list.
   const availableMaps = maps.ok
-    ? maps.response.filter(m => districtrMapSlugs.includes(m.districtr_map_slug))
+    ? (cmsData.content.districtr_map_slugs ?? [])
+        .map(slug => maps.response.find(m => m.districtr_map_slug === slug))
+        .filter((m): m is NonNullable<typeof m> => m !== undefined)
     : null;
 
   return (
-    <Flex direction="column" width="100%">
+    <Flex direction="column" width="100%" pt="4">
       <Heading as="h1" size="6" mb="4">
         {cmsData.content.title}
       </Heading>

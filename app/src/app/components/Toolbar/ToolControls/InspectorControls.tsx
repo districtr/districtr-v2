@@ -1,5 +1,5 @@
 import {useTooltipStore} from '@store/tooltipStore';
-import {CONFIG_BY_COLUMN_SET} from '@store/demography/evaluationConfig';
+import {CONFIG_BY_COLUMN_SET} from '@store/demography/demographyTableConfig';
 import {demographyService} from '@/app/utils/demography/demographyService';
 import {useEffect} from 'react';
 import {Flex, Heading, Button} from '@radix-ui/themes';

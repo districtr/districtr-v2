@@ -78,7 +78,7 @@ class DocumentEvaluationContext:
             d for d in self.district_stats if d.zone is not None and d.geometry
         ]
         shapes = np.array(
-            [shapely.from_geojson(d.geometry) for d in districts], dtype=object
+            [shapely.geometry.shape(d.geometry) for d in districts], dtype=object
         )
         projected = shapely.transform(shapes, _reproject)
         return {
@@ -209,13 +209,29 @@ class DocumentEvaluationContext:
 
     @cached_property
     def ideal_population(self) -> int:
-        """Ideal population per district (total population ÷ map's number of districts)."""
-        num_districts = self._districtr_map.num_districts
+        """Ideal population per district (total population ÷ document's number of districts).
+
+        Falls back to the map's default when the document has not set its own
+        (e.g. `num_districts_modifiable` maps let the document override the map default).
+        """
+        num_districts = (
+            self._document.num_districts or self._districtr_map.num_districts
+        )
         if not num_districts:
-            raise ValueError(
-                f"DistrictrMap for document '{self.document_id}' has no num_districts set."
-            )
+            raise ValueError(f"Document '{self.document_id}' has no num_districts set.")
         return self.total_population // num_districts
+
+    @cached_property
+    def _document(self) -> Document:
+        """The Document row associated with this evaluation context."""
+        d = self.session.exec(
+            sqlmodel.select(Document).where(
+                sqlmodel.col(Document.document_id) == self.document_id
+            )
+        ).one_or_none()
+        if d is None:
+            raise ValueError(f"No Document found for document_id '{self.document_id}'.")
+        return d
 
     @cached_property
     def _districtr_map(self) -> DistrictrMap:
@@ -279,6 +295,17 @@ class DocumentEvaluationContext:
         return self.session.execute(
             sqlalchemy.text(
                 f"SELECT count(*) FROM gerrydb.{assert_safe_ident(self.parent_layer)}"
+            )
+        ).scalar()
+
+    @cached_property
+    def num_child_units(self) -> int | None:
+        """Total number of child (block) units, or None for non-shatterable maps."""
+        if not self.is_shatterable:
+            return None
+        return self.session.execute(
+            sqlalchemy.text(
+                f"SELECT count(*) FROM gerrydb.{assert_safe_ident(self.child_layer)}"
             )
         ).scalar()
 
@@ -361,6 +388,7 @@ class CountyContext:
 
     def _fetch_county_names_file(self) -> None:
         """Download county names CSV from S3 and cache locally."""
+        # TODO Make this consistent with s3 streaming now that s3 reads have no cost
         logger.info("Downloading county names from S3 to %s", self._COUNTY_NAMES_FILE)
         self._DATA_DIR.mkdir(parents=True, exist_ok=True)
         s3 = settings.get_s3_client()

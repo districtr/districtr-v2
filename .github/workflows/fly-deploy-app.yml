@@ -21,15 +21,17 @@ jobs:
             echo "app_name=districtr-v2-frontend-dev" >> $GITHUB_OUTPUT
             echo "api_url=https://districtr-v2-api-dev.fly.dev" >> $GITHUB_OUTPUT
             echo "cms_url=https://districtr-v2-cms-dev.fly.dev" >> $GITHUB_OUTPUT
+            echo "environment=development" >> $GITHUB_OUTPUT
           else
             echo "app_name=districtr-v2-frontend" >> $GITHUB_OUTPUT
             echo "api_url=https://districtr-v2-api.fly.dev" >> $GITHUB_OUTPUT
             echo "cms_url=https://districtr-v2-cms.fly.dev" >> $GITHUB_OUTPUT
+            echo "environment=production" >> $GITHUB_OUTPUT
           fi
       - name: Write .env.production
         run: |
           cat <<EOF > .env.production
-            NEXT_PUBLIC_RECAPTCHA_SITE_KEY=${{ secrets.RECAPTCHA_SITE_KEY }}
+            NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ secrets.TURNSTILE_SITE_KEY }}
             NEXT_PUBLIC_MAPTILER_API_KEY=${{ secrets.NEXT_PUBLIC_MAPTILER_API_KEY }}
             NEXT_PUBLIC_S3_BUCKET_URL=https://tilesets1.cdn.districtr.org
             NEXT_PUBLIC_S3_BUCKET_URL_MIRROR1=https://tilesets2.cdn.districtr.org
@@ -37,6 +39,8 @@ jobs:
             NEXT_PUBLIC_API_URL=${{ steps.deploy-env.outputs.api_url }}
             NEXT_PUBLIC_CMS_URL=${{ steps.deploy-env.outputs.cms_url }}
             CMS_URL=${{ steps.deploy-env.outputs.cms_url }}
+            NEXT_PUBLIC_ENVIRONMENT=${{ steps.deploy-env.outputs.environment }}
+            NEXT_PUBLIC_BUILD_TAG=${{ github.sha }}
             EOF
         working-directory: app
       - uses: superfly/flyctl-actions/setup-flyctl@1.5

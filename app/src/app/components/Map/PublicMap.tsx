@@ -14,7 +14,7 @@ import {OverlayLayers} from './PolygonLayers/OverlayLayers';
 import {MapLayerAnchors} from './MapLayerAnchors';
 import {MapContainer} from './MapContainer';
 import {useMapRenderer} from '@/app/hooks/useMapRenderer';
-import {PointSource} from './GeoSources/PointSource';
+
 import {MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
 import {PublicSource} from './GeoSources/PublicSource';
 import {PublicDistrictLayers} from './PolygonLayers/PublicDistrictLayers';
@@ -50,6 +50,7 @@ export const PublicMap: React.FC = () => {
     if (!mapRef.current || !mapOptions.bounds) return;
     mapRef.current.fitBounds(mapOptions.bounds, {
       padding: 20,
+      animate: false,
     });
   }, [mapRef, mapOptions.bounds]);
 
@@ -69,7 +70,7 @@ export const PublicMap: React.FC = () => {
       }}
     >
       <MapLayerAnchors />
-      <CountyLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.counties} />
+      <CountyLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.reference} />
       <PublicSource>
         <PublicDistrictLayers />
       </PublicSource>
@@ -86,9 +87,7 @@ export const PublicMap: React.FC = () => {
         </BlockSource>
       )}
       <OverlayLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.overlays} />
-      <PointSource>
-        <MetaLayers isDemographicMap={false} />
-      </PointSource>
+      <MetaLayers isDemographicMap={false} />
       <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
     </MapContainer>
   );

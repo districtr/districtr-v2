@@ -9,6 +9,7 @@ import {SyncConflictResolution} from '@constants/document/sync';
 import {formatAssignmentsFromDocument} from '../utils/map/formatAssignments';
 import {formatCoiAssignmentsFromDocument} from '../utils/map/formatCoiAssignments';
 import {useRouter} from 'next/navigation';
+import {editPath} from '@/app/utils/map/editUrl';
 import {MAP_MODES} from '@constants/map/mode';
 import {MAP_TYPES} from '@constants/document/types';
 import {APP_LOADING_STATES} from '@constants/document/state';
@@ -34,6 +35,7 @@ export function useDocumentWithSync({
   const [showConflictModal, setShowConflictModal] = useState(false);
   const setMapDocument = useMapStore(state => state.setMapDocument);
   const setAppLoadingState = useMapStore(state => state.setAppLoadingState);
+  const setLoadingState = useMapStore(state => state.setLoadingState);
   const mapMode = useMapControlsStore(state => state.mapMode);
   const ingestDistrictFromDocument = useAssignmentsStore(state => state.ingestFromDocument);
   const ingestCoiFromDocument = useCoiAssignmentsStore(state => state.ingestFromDocument);
@@ -56,8 +58,10 @@ export function useDocumentWithSync({
       const resolveConflict = isCommunityDocument ? coiResolveConflict : districtResolveConflict;
       await resolveConflict(resolution, conflictInfo, {
         context: 'load',
-        onNavigate: documentId => {
-          router.push(isCommunityDocument ? `/coi/edit/${documentId}` : `/map/edit/${documentId}`);
+        onNavigate: document => {
+          router.push(
+            editPath(isCommunityDocument ? 'coi' : 'map', document.document_id, document.public_id)
+          );
         },
         onComplete: () => {
           setIsLoading(false);
@@ -134,11 +138,15 @@ export function useDocumentWithSync({
         setMapDocument(result.response.document);
         if (isCommunityDocument) {
           const data = formatCoiAssignmentsFromDocument(result.response.assignments);
-          ingestCoiFromDocument(data, result.response.document);
+          ingestCoiFromDocument(data, result.response.document, result.response.hasLocalEdits);
         } else {
           const data = formatAssignmentsFromDocument(result.response.assignments);
-          ingestDistrictFromDocument(data, result.response.document);
+          ingestDistrictFromDocument(data, result.response.document, result.response.hasLocalEdits);
         }
+        // County brush's own default (on for a blank multi-county map) is set
+        // once demography data loads — see demographyStore.ts's updateData —
+        // since deciding "multi-county" needs the full unit universe, which
+        // isn't available yet at this point in the load sequence.
         // Set overlays from document response
         setMapDocument(result.response.document);
         if (result.response.hasLocalEdits) {
@@ -155,6 +163,15 @@ export function useDocumentWithSync({
       cancelled = true;
     };
   }, [document_id, enabled, isPublicPage, isCoiRoute, isDistrictRoute]);
+
+  // Mirror the fetch state into the store so the global loading overlay can show a
+  // loading state; clear it when this view unmounts.
+  useEffect(() => {
+    setLoadingState('documentLoading', isLoading);
+  }, [isLoading, setLoadingState]);
+  useEffect(() => {
+    return () => setLoadingState('documentLoading', false);
+  }, [setLoadingState]);
 
   return {
     isLoading,

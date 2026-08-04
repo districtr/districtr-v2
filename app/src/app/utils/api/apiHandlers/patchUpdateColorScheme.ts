@@ -41,10 +41,11 @@ export const patchUpdateColorScheme = async ({
   });
 
   if (!response.ok) {
-    const setErrorNotification = useMapStore.getState().setErrorNotification;
-    setErrorNotification({
+    const setNotification = useMapStore.getState().setNotification;
+    setNotification({
       message: response.error.detail,
-      severity: 2,
+      importance: 2,
+      type: 'error',
       id: `change-colors-${document_id}-${colors.join('-')}`,
     });
   }

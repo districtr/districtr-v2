@@ -1,0 +1,34 @@
+name: Test pipelines
+
+on:
+  push:
+    paths:
+      - "pipelines/**"
+      - ".github/workflows/test-pipelines.yml"
+
+jobs:
+  test:
+    name: Run pipeline tests
+    runs-on: ubuntu-latest
+
+    container: python:3.12.6
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GDAL and system dependencies
+        run: |
+          apt-get update
+          apt-get install -y gdal-bin libgdal-dev libsqlite3-dev
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt pytest
+        working-directory: pipelines
+
+      - name: Run tests
+        run: pytest tests/ -v
+        working-directory: pipelines
+        env:
+          PYTHONPATH: .

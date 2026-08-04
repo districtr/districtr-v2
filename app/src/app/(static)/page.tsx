@@ -3,6 +3,7 @@ import {Flex, Heading, Text, Link, Box} from '@radix-ui/themes';
 import Image from 'next/image';
 import {ContentSection} from '../components/Static/ContentSection';
 import {ResponsivePlaceMap} from '../components/Static/PlaceMap/PlaceMap';
+import {ImportBlockAssignments} from '../components/Static/Interactions/ImportBlockAssignments';
 import {DevTeam} from '../components/Static/Content/DevTeam';
 import {CTA} from '../components/Static/Content/CTA';
 
@@ -16,11 +17,6 @@ const Main: React.FC = () => {
         </Heading>
         <Text size="4">
           Districtr is a free browser-based tool for drawing districts and mapping your community.
-        </Text>
-        <Text size="4" className="py-4 text-center">
-          This is a beta release of Districtr 2.0. We have a limited selection of states available
-          for mapping, and are accepting user feedback via the green &quot;Feedback&quot; button in
-          the bottom right corner.
         </Text>
       </Flex>
       <ContentSection
@@ -61,7 +57,7 @@ const Main: React.FC = () => {
           >
             <Flex direction={'column'}>
               <Heading size="6" as="h3" className="text-purple-700 mb-4">
-                You can draw districts (in limited states)
+                You can draw districts
               </Heading>
               <Text size="5">
                 In the U.S., there&apos;s a big redistricting cycle every 10 years after new Census
@@ -97,7 +93,7 @@ const Main: React.FC = () => {
           >
             <Flex direction={'column'} gapY="4">
               <Heading size="6" as="h3" className="text-orange-700 mb-4">
-                You can draw your community (coming soon)
+                You can draw your community
               </Heading>
               <Text size="5">
                 Communities of Interest (known as “COIs”) are groups or neighborhoods with
@@ -125,10 +121,27 @@ const Main: React.FC = () => {
           </Flex>
         </Flex>
       </ContentSection>
+      <ContentSection title="Already have saved maps?">
+        <Flex direction="column" gapY="3">
+          <Text size="5">
+            Open the <Link href="/catalog">Catalog page</Link> to view, filter, reopen, and remove
+            maps saved in your local browser storage.
+          </Text>
+          <Text size="3" color="gray">
+            Local maps can be removed if browser data is cleared.
+          </Text>
+        </Flex>
+      </ContentSection>
       <ContentSection title="Where would you like to start?">
-        <Box className="w-full aspect-square mx-auto lg:aspect-video">
-          <ResponsivePlaceMap />
-        </Box>
+        <Flex direction="column" gapY="3">
+          <Text size="5">
+            Pick a state on the map, or upload a block-assignment file from another tool.
+          </Text>
+          <ImportBlockAssignments />
+          <Box className="w-full aspect-square mx-auto lg:aspect-video">
+            <ResponsivePlaceMap />
+          </Box>
+        </Flex>
       </ContentSection>
       <ContentSection title="About Districtr">
         <Flex direction="column" gapY="4" py="4">

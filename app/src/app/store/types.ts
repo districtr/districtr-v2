@@ -11,6 +11,7 @@ export type DistrictrMapOptions = {
   highlightBrokenDistricts?: boolean;
   higlightUnassigned?: boolean;
   lockPaintedAreas: Array<NullableZone>;
+  disallowPaintOver?: boolean;
   mode: 'default' | 'break';
   showZoneNumbers?: boolean;
   paintByCounty?: boolean;
@@ -23,6 +24,8 @@ export type DistrictrMapOptions = {
   demographicDisplayMode?: undefined | DemographicMode;
   showPaintedDistricts?: boolean;
   overlayOpacity: number;
+  /** Opacity multiplier for the painted-districts (zones) layer. */
+  zonesOpacity?: number;
   basemap?: BasemapId;
 };
 

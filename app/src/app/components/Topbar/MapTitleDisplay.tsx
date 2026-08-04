@@ -9,7 +9,6 @@ import {
   TextArea,
   Box,
   IconButton,
-  Popover,
 } from '@radix-ui/themes';
 import {useEffect, useState} from 'react';
 import {MAX_TITLE_LENGTH} from '@/app/utils/language';
@@ -21,10 +20,12 @@ import {
   DRAFT_STATUS_ORDER,
 } from '@constants/document/draftStatus';
 import {Cross2Icon, Pencil1Icon} from '@radix-ui/react-icons';
-import {MapContextModuleAndUnits} from './MapContextModuleAndUnits';
+import {useMapModuleInfo} from './MapContextModuleAndUnits';
 import {InProgressIcon, ReadyIcon, ScratchWorkIcon} from './Icons';
-import {SegmentedControl} from '@radix-ui/themes';
+import {RadioCards} from '@radix-ui/themes';
 import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
+import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
+import {useUiHintStore} from '@store/uiHintStore';
 
 const statusIcons: Record<DraftStatus, React.FC> = {
   [DRAFT_STATUSES.SCRATCH]: ScratchWorkIcon,
@@ -32,16 +33,41 @@ const statusIcons: Record<DraftStatus, React.FC> = {
   [DRAFT_STATUSES.READY_TO_SHARE]: ReadyIcon,
 };
 
+/** Draft-status picker for the edit dialog. Free choice by design — the
+ * only earned move is the helper box's advance button. */
+const StatusPicker: React.FC<{
+  value: DraftStatus;
+  onChange: (status: DraftStatus) => void;
+}> = ({value, onChange}) => (
+  <RadioCards.Root
+    value={value}
+    onValueChange={e => onChange(e as DraftStatus)}
+    size="1"
+    gap="2"
+    columns="3"
+    className="w-full mb-4"
+  >
+    {DRAFT_STATUS_ORDER.map(status => (
+      <RadioCards.Item key={status} value={status} className="cursor-pointer">
+        <Flex direction="column" gap="0" align="center" justify="start" className="py-1 w-full">
+          {statusIcons[status]({})}
+          <Text align="center">{DRAFT_STATUS_TEXT[status]}</Text>
+        </Flex>
+      </RadioCards.Item>
+    ))}
+  </RadioCards.Root>
+);
+
 export const MapTitleDisplay: React.FC<{
   mapMetadata: DocumentMetadata | null;
   mapDocument: DocumentObject | null;
   handleMetadataChange: (updates: Partial<DocumentMetadata>) => Promise<void>;
 }> = ({mapMetadata, mapDocument, handleMetadataChange}) => {
   const [mapTitleInner, setMapTitleInner] = useState<string>('');
-  const [hovered, setHovered] = useState(false);
   const [mapDescriptionInner, setMapDescriptionInner] = useState<string>('');
   const [mapStatusInner, setMapStatusInner] = useState<DraftStatus>(DRAFT_STATUSES.SCRATCH);
   const [open, setOpen] = useState(false);
+  const {moduleName, unitsSentence, dataSourceSentence} = useMapModuleInfo();
 
   const _mapName = mapMetadata?.name ?? mapDocument?.map_metadata?.name ?? '';
   const _mapDescription = mapMetadata?.description ?? mapDocument?.map_metadata?.description ?? '';
@@ -52,6 +78,26 @@ export const MapTitleDisplay: React.FC<{
 
   const draftStatus = mapMetadata?.draft_status ?? DRAFT_STATUSES.SCRATCH;
   const DraftStatusIcon = statusIcons[draftStatus];
+  // Pulses when the helper box just changed the status (see its changeStatus).
+  const statusFlashing = useUiHintStore(state => state.flashTarget === 'map-status-icon');
+  const statusIcon = (
+    <span className={`inline-flex rounded-full ${statusFlashing ? 'ui-flash-pop' : ''}`}>
+      <DraftStatusIcon />
+    </span>
+  );
+
+  // The module shows inline until the map is named, then moves into the
+  // hover — one condensed tooltip instead of stacked popover + tooltip.
+  const displayTitle = mapName || moduleName;
+  const tooltipContent = [
+    isTruncated ? _mapName + '.' : null,
+    mapName ? moduleName + '.' : null,
+    dataSourceSentence,
+    unitsSentence,
+    editing ? 'Click to edit the map name and details.' : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   useEffect(() => {
     setMapTitleInner(_mapName);
@@ -63,68 +109,41 @@ export const MapTitleDisplay: React.FC<{
     return null;
   }
 
-  // If not editing, just show text or truncated text with tooltip
+  // If not editing, just show the name (or module) with one combined tooltip
   if (!editing) {
-    return (
+    const display = (
       <Flex align="center" gapX="1" direction="row">
-        <Flex direction="row" align="center" gapX="1">
-          <DraftStatusIcon />
-          {isTruncated ? (
-            <Tooltip content={_mapName}>
-              <Flex align="center" gapX="1" direction="row">
-                <Text size="2">{mapName}</Text>
-                <MapContextModuleAndUnits />
-              </Flex>
-            </Tooltip>
-          ) : (
-            <Text size="2">{mapName}</Text>
-          )}
-          <MapContextModuleAndUnits />
-        </Flex>
+        {statusIcon}
+        <Text size="2" className={mapName ? '' : 'text-gray-500'}>
+          {displayTitle}
+        </Text>
       </Flex>
     );
+    return tooltipContent ? <Tooltip content={tooltipContent}>{display}</Tooltip> : display;
   }
 
-  // If editing, show popover hint, open dialog for editing on click
+  // If editing, HelpTip explains what clicking does (with a demo video); click
+  // opens the edit dialog.
   if (editing) {
     return (
       <>
-        <Popover.Root open={hovered}>
-          <Popover.Trigger
+        <HelpTip tip="editMapDetails" openDelay={HELP_TIP_FAST_DELAY}>
+          <Button
+            variant="ghost"
+            color="gray"
+            className="cursor-pointer"
             onClick={() => setOpen(true)}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
+            aria-label="Edit map name and information"
           >
-            <Button variant="ghost" color="gray" className="cursor-pointer">
-              <Flex
-                align="center"
-                gapX="1"
-                direction="row"
-                className="cursor-pointer"
-                onClick={() => setOpen(true)}
-                tabIndex={0}
-                style={{outline: 'none'}}
-                aria-label="Edit map name and metadata"
-              >
-                <DraftStatusIcon />
-                {!!mapName && (
-                  <Text size="2" className="font-bold text-black">
-                    {mapName || '(Edit map name)'}
-                  </Text>
-                )}
-                <MapContextModuleAndUnits />
-                {editing ? <Pencil1Icon /> : null}
-              </Flex>
-            </Button>
-          </Popover.Trigger>
-          <Popover.Content align="center" className="w-full">
-            <Flex direction="row" gap="2" align="center" justify="center">
-              <Text size="1" className="text-center">
-                Click to edit map name and metadata
+            <Flex align="center" gapX="1" direction="row">
+              {statusIcon}
+              <Text size="2" className={mapName ? 'font-bold text-black' : 'text-gray-500'}>
+                {displayTitle || '(Edit map name)'}
               </Text>
+              <Pencil1Icon />
             </Flex>
-          </Popover.Content>
-        </Popover.Root>
+          </Button>
+        </HelpTip>
 
         <Dialog.Root open={open} onOpenChange={setOpen}>
           <Dialog.Content style={{maxWidth: 400}}>
@@ -133,10 +152,11 @@ export const MapTitleDisplay: React.FC<{
                 className="!absolute !top-0 !right-0"
                 variant="ghost"
                 onClick={() => setOpen(false)}
+                aria-label="Close"
               >
                 <Cross2Icon />
               </IconButton>
-              <Dialog.Title>Edit Map Name & Metadata</Dialog.Title>
+              <Dialog.Title>Edit Map Name and Information</Dialog.Title>
               <Box mb="3">
                 <Text as="label" size="2" htmlFor="map-title" mb="1">
                   Map Name
@@ -169,28 +189,10 @@ export const MapTitleDisplay: React.FC<{
                 />
               </Box>
 
-              <SegmentedControl.Root
-                value={mapStatusInner}
-                onValueChange={e => setMapStatusInner(e as DraftStatus)}
-                size="1"
-                className="w-full h-full mb-4"
-                style={{width: '100%', maxWidth: '100%'}}
-              >
-                {DRAFT_STATUS_ORDER.map(status => (
-                  <SegmentedControl.Item key={status} value={status}>
-                    <Flex
-                      direction="column"
-                      gap="0"
-                      align="center"
-                      justify="start"
-                      className="py-1"
-                    >
-                      {statusIcons[status]({})}
-                      <Text>{DRAFT_STATUS_TEXT[status]}</Text>
-                    </Flex>
-                  </SegmentedControl.Item>
-                ))}
-              </SegmentedControl.Root>
+              <Text as="label" size="2" htmlFor="map-desc" mb="1">
+                Draft status
+              </Text>
+              <StatusPicker value={mapStatusInner} onChange={setMapStatusInner} />
               <Flex direction="row" gap="2" justify="end">
                 <Button
                   size="1"

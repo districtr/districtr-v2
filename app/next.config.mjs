@@ -5,6 +5,13 @@ import createMDX from '@next/mdx';
 const nextConfig = {
   // Configure pageExtensions to include MDX files
   pageExtensions: ['js', 'jsx', 'md', 'mdx', 'ts', 'tsx'],
+  // "Tag" pages were renamed to "portal" pages; keep old links working.
+  async redirects() {
+    return [
+      {source: '/tag/:slug', destination: '/portal/:slug', permanent: true},
+      {source: '/tags', destination: '/portals', permanent: true},
+    ];
+  },
   // Path aliases are configured in tsconfig.json and automatically used by Next.js
   webpack: (config, {isServer, webpack}) => {
     // Exclude Node.js modules from client-side bundles

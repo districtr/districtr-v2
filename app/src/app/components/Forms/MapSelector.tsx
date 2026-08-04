@@ -1,10 +1,9 @@
 'use client';
 import {useEffect, useRef, useState} from 'react';
 import {useFormState} from '@/app/store/formState';
-import {useMapStore} from '@/app/store/mapStore';
 import {getDocument} from '@/app/utils/api/apiHandlers/getDocument';
 import {DocumentObject} from '@/app/utils/api/apiHandlers/types';
-import {TILESET_URL} from '@/app/utils/api/constants';
+import {thumbnailUrl} from '@/app/utils/api/thumbnailUrl';
 import {queryClient} from '@/app/utils/api/queryClient';
 import {
   Blockquote,
@@ -21,6 +20,7 @@ import {QueryClientProvider, useMutation} from '@tanstack/react-query';
 import {idb} from '@/app/utils/idb/idb';
 import {useUserMaps} from '@/app/hooks/useUserMaps';
 import {routeManager} from '@/app/utils/map/mapUrlRoute';
+import {editPath} from '@/app/utils/map/editUrl';
 import {DRAFT_STATUSES} from '@constants/document/draftStatus';
 
 interface MapSelectorProps {
@@ -43,7 +43,6 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
   const [dataResponse, setDataResponse] = useState<ValidationResponse | null>(null);
 
   const showMapSelector = useFormState(state => state.showMapSelector);
-  const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const comment = useFormState(state => state.comment);
   const mapId = comment?.document_id ?? '';
   const [savedMapId, setSavedMapId] = useState<string | null>(null);
@@ -216,7 +215,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
                     onMouseDown={e => {
                       e.preventDefault();
                       const mapUrl = new URL(
-                        `/${routeManager.mapUrlRoute}/edit/${map.document_id}`,
+                        editPath(routeManager.mapUrlRoute, map.document_id, map.public_id),
                         window.location.href
                       );
                       setFormState('comment', 'document_id', mapUrl.toString());
@@ -260,7 +259,11 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
       {notification?.type === 'success' && (
         <object data="/home-megaphone-square.png" type="image/png" className="size-32">
           <img
-            src={`${TILESET_URL}/thumbnails/${dataResponse?.mapInfo?.public_id}.png`}
+            src={
+              dataResponse?.mapInfo?.public_id != null
+                ? thumbnailUrl(dataResponse.mapInfo.public_id)
+                : undefined
+            }
             alt="Map thumbnail"
             className="size-32"
           />

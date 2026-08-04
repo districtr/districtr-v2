@@ -3,7 +3,11 @@ import {op, table, escape} from 'arquero';
 import type {ColumnTable} from 'arquero';
 import {FALLBACK_NUM_DISTRICTS} from '../../constants/map/layerStyle';
 import {FALLBACK_NUM_COMMUNITIES} from '../../constants/document/limits';
-import {BLOCK_SOURCE_ID} from '../../constants/map/layerIds';
+import {
+  BLOCK_SOURCE_ID,
+  SELECTION_POINTS_SOURCE_ID,
+  SELECTION_POINTS_SOURCE_ID_CHILD,
+} from '../../constants/map/layerIds';
 import {MapGeoJSONFeature} from 'maplibre-gl';
 import {MapStore, useMapStore} from '../../store/mapStore';
 import {useAssignmentsStore, ZoneAssignmentsMap} from '../../store/assignmentsStore';
@@ -22,6 +26,7 @@ import {
   TabularDataWithPercent,
   AllMapConfigs,
   possibleRollups,
+  possibleDerivedColumns,
 } from '../api/summaryStats';
 import {getColumnDerives, getPctDerives, getRollups} from './arquero';
 import * as scale from 'd3-scale';
@@ -30,10 +35,13 @@ import {
   choroplethMapVariables,
   DEFAULT_COLOR_SCHEME,
   DEFAULT_COLOR_SCHEME_GRAY,
+  DEFAULT_CONTINUOUS_COLOR_SCHEME,
+  DEFAULT_CONTINUOUS_COLOR_SCHEME_GRAY,
+  SIZED_CIRCLE_COLOR_SCHEME,
 } from '@/app/store/demography/constants';
 import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
-import {evalColumnConfigs} from '@/app/store/demography/evaluationConfig';
+import {evalColumnConfigs} from '@/app/store/demography/demographyTableConfig';
 import {
   SUMMARY_TYPES,
   COALITION_UNIVERSES,
@@ -62,7 +70,11 @@ type MapVariableConfig = {
   fixedScale?: any; // eslint-disable-line @typescript-eslint/no-explicit-any -- visx AnyD3Scale is broader than our local AnyD3Scale
   variants?: Array<'percent' | 'raw'>;
   customLegendLabels?: string[];
+  /** Column driving circle size in sized-circles mode; resolved from rollup config if unset */
+  sizeColumn?: string;
 };
+
+const MAX_SIZED_CIRCLE_RADIUS_PX = 20;
 
 const asNumericRecord = (row: SummaryRecord | Record<string, unknown>): Record<string, number> =>
   row as unknown as Record<string, number>;
@@ -114,6 +126,15 @@ class DemographyService {
   zoneTable?: ColumnTable;
 
   /**
+   * True once `updatePublicDemography()` (public/read-only views) has loaded data.
+   * `this.table` is then already one row per zone — see document.district_unions —
+   * so population calculation must skip the block/zone join and assignment stores
+   * entirely, which are never populated in view mode. Reset by `update()` (edit/COI
+   * path) and `clear()` so edit and view sessions can't leak state into each other.
+   */
+  private isPublicSource: boolean = false;
+
+  /**
    * The summary of populations.
    */
   populations: SummaryTable = [];
@@ -155,6 +176,16 @@ class DemographyService {
   universeTotals: SummaryRecord | null = null;
 
   colorScale?: AnyD3Scale;
+
+  /**
+   * Cache of `getFiltered()` results keyed by county/VTD id, so repeatedly
+   * re-entering the same county under the brush (e.g. dragging back and
+   * forth across a border) doesn't re-scan `table`. Invalidated wherever
+   * `table` is reassigned — see `update()`, `updatePublicDemography()`, and
+   * `clear()`.
+   */
+  private filteredCache: Map<string, MapGeoJSONFeature[]> = new Map();
+
   /**
    * Updates the cache with freshly loaded demographic columns/results.
    *
@@ -166,17 +197,39 @@ class DemographyService {
     columns: AllTabularColumns[number][],
     data: ColumnarTableData,
     hash: string,
-    coalitionGroups: CoalitionGroupKey[] = [],
-    _zoneAssignments?: ZoneAssignmentsMap
+    coalitionGroups: CoalitionGroupKey[] = []
   ): void {
     if (hash === this.hash) return;
+    this.isPublicSource = false;
     this.availableColumns = columns;
+    this.filteredCache.clear();
     this.table = table(data).derive(getColumnDerives(columns)).dedupe('path');
-    const populationAssignments = _zoneAssignments ?? getActivePopulationAssignments();
     const popsOk = this.updatePopulations({
-      zoneAssignments: populationAssignments,
+      zoneAssignments: getActivePopulationAssignments(),
       coalitionGroups,
     });
+    if (!popsOk) return;
+    this.updateSummaryStats();
+    this.hash = hash;
+  }
+
+  /**
+   * View-mode counterpart to `update()`: loads demography that the backend has
+   * already aggregated per district (document.district_unions), so there is no
+   * assignments concept to thread through — see calculatePopulationsFromZoneTable.
+   */
+  updatePublicDemography(
+    columns: AllTabularColumns[number][],
+    data: ColumnarTableData,
+    hash: string,
+    coalitionGroups: CoalitionGroupKey[] = []
+  ): void {
+    if (hash === this.hash) return;
+    this.isPublicSource = true;
+    this.availableColumns = columns;
+    this.filteredCache.clear();
+    this.table = table(data).derive(getColumnDerives(columns)).dedupe('path');
+    const popsOk = this.updatePopulations({coalitionGroups});
     if (!popsOk) return;
     this.updateSummaryStats();
     this.hash = hash;
@@ -228,12 +281,14 @@ class DemographyService {
     this.overlayTable = undefined;
     this.overlayHash = '';
     this.zoneTable = undefined;
+    this.isPublicSource = false;
     this.populations = [];
     this.summaryStats = {};
     this.universeTotals = null;
     this.hash = '';
     this.colorScale = undefined;
     this.zoneStats = {};
+    this.filteredCache.clear();
   }
 
   private getCoalitionColumns(
@@ -299,6 +354,10 @@ class DemographyService {
     if (!this.table) {
       return [];
     }
+    const cached = this.filteredCache.get(id);
+    if (cached) {
+      return cached;
+    }
     const ids = this.table
       .select(this.id_col, 'sourceLayer', 'total_pop_20')
       .params({
@@ -316,7 +375,29 @@ class DemographyService {
         source: BLOCK_SOURCE_ID,
         properties,
       })) as MapGeoJSONFeature[];
+    this.filteredCache.set(id, ids);
     return ids;
+  }
+
+  /**
+   * Whether the currently loaded units span more than one county. Early-exits
+   * on the second distinct county FIPS found — callers only need "more than
+   * one," never the actual count or the list, so there's no reason to scan
+   * past that. `path` values look like `vtd:48001000001` (or without a type
+   * prefix for some geography levels) — the state+county FIPS is always the
+   * 5 digits right after any `<type>:` prefix.
+   */
+  spansMultipleCounties(): boolean {
+    if (!this.table) return false;
+    const paths = this.table.array(this.id_col) as string[];
+    if (!paths.length) return false;
+    const toGeoid = (path: string) =>
+      path.includes(':') ? path.slice(path.indexOf(':') + 1) : path;
+    const firstCountyFips = toGeoid(paths[0]).slice(0, 5);
+    for (let i = 1; i < paths.length; i++) {
+      if (!toGeoid(paths[i]).startsWith(firstCountyFips)) return true;
+    }
+    return false;
   }
 
   /**
@@ -329,15 +410,9 @@ class DemographyService {
     zoneAssignments?: PopulationAssignments,
     coalitionGroups: CoalitionGroupKey[] = []
   ): {ok: true; table: SummaryTable} | {ok: false} {
-    const mapState = useMapStore.getState();
-    const mapMode = useMapControlsStore.getState().mapMode;
-    const zoneIds =
-      mapMode === MAP_MODES.COI
-        ? sortCommunitiesByRenderOrder(mapState.communities).map(community => community.id)
-        : Array.from(
-            {length: mapState.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS},
-            (_, i) => i + 1
-          );
+    if (this.isPublicSource) {
+      return this.calculatePopulationsFromZoneTable(coalitionGroups);
+    }
     this.updateZoneTable(zoneAssignments ?? getActivePopulationAssignments());
 
     if (!this.table || !this.zoneTable) {
@@ -358,7 +433,6 @@ class DemographyService {
       };
     }
     const columns = this.table.columnNames();
-    // if any tot
     const populationsTable = joinedTable
       .groupby('zone')
       .rollup(getRollups(columns, 'sum'))
@@ -368,10 +442,66 @@ class DemographyService {
       .rollup(getRollups(columns, 'max'))
       .objects()[0] as MaxValues;
 
+    return this.finalizePopulations(
+      populationsTable.objects() as SummaryTable,
+      maxRollups,
+      coalitionGroups
+    );
+  }
+
+  /**
+   * View-mode counterpart to the block-join path above. `this.table` is already
+   * one row per zone (the backend pre-aggregates demography per district — see
+   * document.district_unions), so population calculation is just deriving `zone`
+   * from `path` and percent columns; no assignments/join concept applies.
+   */
+  private calculatePopulationsFromZoneTable(
+    coalitionGroups: CoalitionGroupKey[]
+  ): {ok: true; table: SummaryTable} | {ok: false} {
+    if (!this.table) {
+      return {ok: false};
+    }
+    const columns = this.table.columnNames();
+    const populationsTable = this.table
+      .derive({
+        zone: escape((row: TableRow) => (row.path === '__unassigned__' ? null : +row.path)),
+      })
+      .derive(getPctDerives(columns));
+
+    const maxRollups = populationsTable
+      .rollup(getRollups(columns, 'max'))
+      .objects()[0] as MaxValues;
+
+    return this.finalizePopulations(
+      populationsTable.objects() as SummaryTable,
+      maxRollups,
+      coalitionGroups
+    );
+  }
+
+  /**
+   * Shared tail of both population-calculation paths: fills in zero rows for
+   * unpainted/unassigned zones, applies coalition columns, sorts, and updates
+   * zoneStats/summaryStats derived from the final per-zone table.
+   */
+  private finalizePopulations(
+    zonePopulationsTable: SummaryTable,
+    maxRollups: MaxValues | undefined,
+    coalitionGroups: CoalitionGroupKey[]
+  ): {ok: true; table: SummaryTable} {
+    const mapState = useMapStore.getState();
+    const mapMode = useMapControlsStore.getState().mapMode;
+    const zoneIds =
+      mapMode === MAP_MODES.COI
+        ? sortCommunitiesByRenderOrder(mapState.communities).map(community => community.id)
+        : Array.from(
+            {length: mapState.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS},
+            (_, i) => i + 1
+          );
+
     if (maxRollups) {
       this.zoneStats.maxValues = maxRollups as MaxValues & Record<string, number>;
     }
-    const zonePopulationsTable = populationsTable.objects() as SummaryTable;
     const populatedZoneIds = new Set(
       zonePopulationsTable
         .map(row => row.zone)
@@ -576,6 +706,63 @@ class DemographyService {
   }
 
   /**
+   * Paints the sized-circles mode: circles at unit centroids on the selection
+   * point sources, sized by the universe total population and shaded by the
+   * current color scale (typically the percent share).
+   */
+  paintSizedCircles({
+    config,
+    variableName,
+    mapRef,
+  }: {
+    config: MapVariableConfig;
+    variableName: string;
+    mapRef: maplibregl.Map;
+  }) {
+    const dataTable = this.overlayTable ?? this.table;
+    if (!dataTable || !this.colorScale) return;
+    const colorScale = this.colorScale;
+    // Universe total for the selected variable: race groups and totals resolve via
+    // rollup config; voter history via its derived `*_total` column.
+    const sizeColumn =
+      config.sizeColumn ??
+      possibleRollups.find(r => r.col === config.value)?.total ??
+      possibleDerivedColumns.find(d => d.column === config.value && d.label.endsWith('_total'))
+        ?.label;
+    if (!sizeColumn) return;
+    const derives = {
+      colorValue: config.expression
+        ? escape(config.expression)
+        : escape((row: Record<string, number>) => row[variableName]),
+      sizeValue: escape((row: Record<string, number>) => row[sizeColumn]),
+    };
+    const rows = dataTable
+      .derive(derives)
+      .select('path', 'sourceLayer', 'colorValue', 'sizeValue')
+      .objects() as Array<TableRow & {colorValue: number; sizeValue: number}>;
+    const maxSize = rows.reduce((max, row) => Math.max(max, row.sizeValue || 0), 0);
+    if (!maxSize) return;
+    const parentLayer = useMapStore.getState().mapDocument?.parent_layer;
+    rows.forEach(row => {
+      if (!row.path) return;
+      const color = isNaN(+row.colorValue) ? '#CCCCCC' : colorScale(+row.colorValue);
+      // sqrt so circle AREA is proportional to population
+      const radius =
+        row.sizeValue > 0 ? MAX_SIZED_CIRCLE_RADIUS_PX * Math.sqrt(row.sizeValue / maxSize) : 0;
+      mapRef.setFeatureState(
+        {
+          source:
+            row.sourceLayer === parentLayer
+              ? SELECTION_POINTS_SOURCE_ID
+              : SELECTION_POINTS_SOURCE_ID_CHILD,
+          id: row.path,
+        },
+        {color, radius, hasColor: true}
+      );
+    });
+  }
+
+  /**
    * Generates a color scale for demographic data and applies it to the map.
    *
    * @param {Object} params - The parameters for generating the color scale.
@@ -621,6 +808,7 @@ class DemographyService {
       config = {
         value: variable,
         variants: ['percent', 'raw'],
+        sizeColumn: totalColumn,
         expression: (row: Record<string, number>) => {
           const coalitionTotal = coalitionColumns.reduce((sum, column) => {
             const value = row[column];
@@ -638,8 +826,33 @@ class DemographyService {
         ? `${config.value}_pct`
         : config.value
     ) as string;
+    const isTotal = !config.variants;
     if (config.fixedScale) {
       this.colorScale = config.fixedScale as AnyD3Scale;
+    } else if (isTotal || (variant === 'percent' && config.variants?.includes('percent'))) {
+      // Unclassed continuous scale: 0-100% for share-of-population maps,
+      // 0-max for total population maps
+      const displayMode = useMapControlsStore.getState().mapOptions.demographicDisplayMode;
+      // Grayscale only for the polygon overlay atop colored districts;
+      // circles shade transparent-to-black so district colors show through
+      const interpolator =
+        displayMode === DEMOGRAPHIC_MODES.SIZED_CIRCLES
+          ? SIZED_CIRCLE_COLOR_SCHEME
+          : displayMode === DEMOGRAPHIC_MODES.OVERLAY
+            ? DEFAULT_CONTINUOUS_COLOR_SCHEME_GRAY
+            : DEFAULT_CONTINUOUS_COLOR_SCHEME;
+      let domainMax = 1;
+      if (isTotal) {
+        const dataTable = (this.overlayTable ?? this.table)!;
+        const stats = dataTable.rollup({maxValue: op.max(variableName)}).objects()[0] as {
+          maxValue?: number;
+        };
+        domainMax = stats?.maxValue || 1;
+      }
+      this.colorScale = scale
+        .scaleSequential(interpolator)
+        .domain([0, domainMax])
+        .clamp(true) as AnyD3Scale;
     } else {
       const quantiles = this.calculateQuantiles(config, variableName, numberOfBins);
       if (!quantiles) return;
@@ -648,9 +861,9 @@ class DemographyService {
 
       const displayMode = useMapControlsStore.getState().mapOptions.demographicDisplayMode;
       const defaultColor =
-        displayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE
-          ? DEFAULT_COLOR_SCHEME
-          : DEFAULT_COLOR_SCHEME_GRAY;
+        displayMode === DEMOGRAPHIC_MODES.OVERLAY
+          ? DEFAULT_COLOR_SCHEME_GRAY
+          : DEFAULT_COLOR_SCHEME;
       let colorscheme = defaultColor[Math.max(3, actualBinsLength)];
 
       if (actualBinsLength < 3) {
@@ -662,11 +875,16 @@ class DemographyService {
         .range(colorscheme);
     }
     if (paintMap) {
-      this.paintDemography({
-        config,
-        variableName,
-        mapRef,
-      });
+      const displayMode = useMapControlsStore.getState().mapOptions.demographicDisplayMode;
+      if (displayMode === DEMOGRAPHIC_MODES.SIZED_CIRCLES) {
+        this.paintSizedCircles({config, variableName, mapRef});
+      } else {
+        this.paintDemography({
+          config,
+          variableName,
+          mapRef,
+        });
+      }
     }
     return this.colorScale;
   }

@@ -1,8 +1,8 @@
 'use client';
+import {useEffect} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {Flex, Heading, Spinner, Text} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
-import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {getEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {BasicsSection} from './BasicsSection';
 import {PartisanSection} from './PartisanSection';
@@ -11,6 +11,7 @@ import {CompactnessSection} from './CompactnessSection';
 
 export const EvalPanel: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
+  const setLoadingState = useMapStore(state => state.setLoadingState);
 
   const publicId = mapDocument?.public_id;
 
@@ -29,10 +30,18 @@ export const EvalPanel: React.FC = () => {
     enabled: !!publicId,
   });
 
-  const evaluation = envelope?.metrics;
+  // Signal the view-transition overlay, which holds the "Preparing evaluation"
+  // preloader until metricsLoaded is true (see useViewTransition). Reset on mount,
+  // mark loaded once the query settles. Without this the overlay hangs for the full
+  // 15s safety timeout on every eval navigation.
+  useEffect(() => {
+    setLoadingState('metricsLoaded', false);
+  }, [setLoadingState]);
+  useEffect(() => {
+    if (!isLoading) setLoadingState('metricsLoaded', true);
+  }, [isLoading, setLoadingState]);
 
-  const evalTablesOnly = useMapControlsStore(state => state.evalTablesOnly);
-  const setEvalTablesOnly = useMapControlsStore(state => state.setEvalTablesOnly);
+  const evaluation = envelope?.metrics;
 
   const planName = mapDocument?.map_metadata?.name ?? 'Untitled Plan';
   const snapshotDate = mapDocument?.updated_at
@@ -42,21 +51,9 @@ export const EvalPanel: React.FC = () => {
   return (
     <div className="eval-panel h-full overflow-y-auto flex-shrink-0 border-l border-gray-200 bg-white w-1/2">
       <Flex direction="column" p="5" gap="1">
-        <Flex justify="between" align="center">
-          <Text size="1" className="uppercase tracking-widest">
-            Districtr · Evaluation Report
-          </Text>
-          <label>
-            <Flex align="center" gap="1">
-              <input
-                type="checkbox"
-                checked={evalTablesOnly}
-                onChange={e => setEvalTablesOnly(e.target.checked)}
-              />
-              <Text size="1">Tables only</Text>
-            </Flex>
-          </label>
-        </Flex>
+        <Text size="1" className="uppercase tracking-widest">
+          Districtr · Evaluation Report
+        </Text>
         <Heading size="5" mt="1">
           Districting Plan Metrics
         </Heading>
@@ -82,8 +79,17 @@ export const EvalPanel: React.FC = () => {
         </Flex>
       )}
 
-      {evaluation && (
-        <Flex direction="column" gap="5" px="5" pb="5">
+      {evaluation && Object.keys(evaluation).length === 0 && (
+        <Flex p="5">
+          <Text size="3">
+            This plan is empty. Please add at least one district in the draw mode to see its
+            evaluation metrics.
+          </Text>
+        </Flex>
+      )}
+
+      {evaluation && Object.keys(evaluation).length > 0 && (
+        <Flex direction="column" gap="5" pl="2" pr="5" pb="5">
           <BasicsSection evaluation={evaluation} />
           <PartisanSection evaluation={evaluation} />
           <CountySplitsSection evaluation={evaluation} />

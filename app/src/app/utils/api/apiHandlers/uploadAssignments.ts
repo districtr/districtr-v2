@@ -24,7 +24,12 @@ export const uploadAssignments = async ({
       districtr_map_slug: string;
       map_type?: MapType;
     },
-    {document_id: string}
+    {
+      document_id: string;
+      public_id: number;
+      skipped_geo_ids: string[];
+      zone_label_remapping: Record<string, number>;
+    }
   >('create_document')({
     body: {
       assignments,

@@ -1,5 +1,6 @@
 import {decode, encode} from '@msgpack/msgpack';
 import {API_URL} from './constants';
+import {fetchWithSession} from './session';
 
 type ApiResult<T> = {ok: true; response: T} | {ok: false; error: {detail: string}};
 
@@ -27,19 +28,24 @@ async function readError(response: Response): Promise<{detail: string}> {
   return await response.json().catch(() => ({detail: response.statusText}));
 }
 
+// JSON.stringify(new Error(...)) is "{}" — surface the message instead.
+function errorDetail(error: unknown): {detail: string} {
+  return {detail: error instanceof Error ? error.message : String(error)};
+}
+
 export async function getMsgpack<T>(
   path: string,
   queryParams?: QueryParams
 ): Promise<ApiResult<T>> {
   try {
-    const response = await fetch(buildUrl(path, queryParams), {
+    const response = await fetchWithSession(buildUrl(path, queryParams), {
       headers: {Accept: 'application/msgpack'},
     });
     if (!response.ok) return {ok: false, error: await readError(response)};
     const buffer = await response.arrayBuffer();
     return {ok: true, response: decode(new Uint8Array(buffer)) as T};
   } catch (error) {
-    return {ok: false, error: {detail: JSON.stringify(error)}};
+    return {ok: false, error: errorDetail(error)};
   }
 }
 
@@ -49,7 +55,7 @@ export async function putMsgpack<TBody, TResponse>(
 ): Promise<ApiResult<TResponse>> {
   try {
     const encoded = encode(body);
-    const response = await fetch(buildUrl(path), {
+    const response = await fetchWithSession(buildUrl(path), {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/msgpack',
@@ -60,6 +66,6 @@ export async function putMsgpack<TBody, TResponse>(
     if (!response.ok) return {ok: false, error: await readError(response)};
     return {ok: true, response: (await response.json()) as TResponse};
   } catch (error) {
-    return {ok: false, error: {detail: JSON.stringify(error)}};
+    return {ok: false, error: errorDetail(error)};
   }
 }

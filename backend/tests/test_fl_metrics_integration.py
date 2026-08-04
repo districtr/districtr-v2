@@ -96,7 +96,7 @@ from pathlib import Path
 
 import pytest
 from fastapi import BackgroundTasks
-from fastapi.testclient import TestClient
+from tests.conftest import MsgpackAwareTestClient
 from sqlalchemy import text
 from sqlmodel import Session
 
@@ -367,7 +367,9 @@ def fl_client(integration_engine):
 
     app.dependency_overrides[get_session] = _get_session
     app.dependency_overrides[auth.verify] = _get_auth
-    with TestClient(app, headers={"origin": "http://localhost:5173"}) as client:
+    with MsgpackAwareTestClient(
+        app, headers={"origin": "http://localhost:5173"}
+    ) as client:
         yield client
     app.dependency_overrides.clear()
 
@@ -527,15 +529,12 @@ def fl_map(integration_engine, fl_view) -> str:
 
 
 def _count_document_assignments(engine, document_id: str) -> int:
-    """Count rows in the per-document assignment partition table."""
-    partition = f"document.assignments_{document_id}"
+    """Count rows in the document assignments table."""
     with Session(engine) as session:
-        try:
-            return session.execute(
-                text(f'SELECT COUNT(*) FROM public."{partition}"')
-            ).scalar_one()
-        except Exception:
-            return 0
+        return session.execute(
+            text("SELECT COUNT(*) FROM document.assignments WHERE document_id = :d"),
+            {"d": document_id},
+        ).scalar_one()
 
 
 @pytest.fixture(scope="module")

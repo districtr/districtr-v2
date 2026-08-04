@@ -6,6 +6,10 @@ from app.core.config import settings
 engine = create_engine(
     str(settings.SQLALCHEMY_DATABASE_URI),
     echo=settings.ECHO_DB,
+    # 60/task; RDS max_connections ~900 caps us at ~14 tasks. Keep in step
+    # with the anyio threadpool limiter (app/main.py lifespan).
+    pool_size=40,
+    max_overflow=20,
     pool_pre_ping=True,
     pool_recycle=3600,
 )

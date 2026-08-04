@@ -1,6 +1,5 @@
 'use client';
 import React, {useRef, useEffect} from 'react';
-import DataPanels from './DataPanels';
 import {Box, Flex, IconButton, ScrollArea} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import Draggable from 'react-draggable';
@@ -9,6 +8,7 @@ import {ToolbarInSidebar} from './ToolbarInSidebar';
 import {styled} from '@stitches/react';
 import {MapContextComment} from './MapContextComment';
 import {CoiCommunityViewer} from './CoiCommunityViewer';
+import {DataCards} from './DataCards';
 
 const StyledScrollArea = styled(ScrollArea, {
   maxWidth: '100%',
@@ -32,7 +32,7 @@ export default function SidebarComponent() {
   return (
     <div
       className="
-      p-3
+      pt-3 pb-3 pl-3
       z-10 flex-none
       border-t lg:border-t-0
       lg:h-screen
@@ -68,7 +68,11 @@ export default function SidebarComponent() {
           }}
           onDrag={(e: any) => {
             if (e.clientX) {
-              setWidth(window.innerWidth - e.clientX);
+              // Clamp so the sidebar can't be dragged wider than the window — otherwise
+              // its handle slides off-screen-left and gets stuck until a refresh — or
+              // collapsed too small to use.
+              const next = window.innerWidth - e.clientX;
+              setWidth(Math.min(Math.max(next, 140), window.innerWidth - 50));
             }
           }}
           onStop={() => {
@@ -98,14 +102,26 @@ export default function SidebarComponent() {
         </Draggable>
       </div>
       <Flex direction="column" gap="3" className="size-full">
-        <ToolbarInSidebar />
-        <CoiCommunityViewer />
-        <MapContextComment />
+        <div className="flex flex-col gap-3 pr-3">
+          <ToolbarInSidebar />
+          <CoiCommunityViewer />
+          <MapContextComment />
+        </div>
+        {/* The sidebar's outer padding (above) deliberately excludes the right
+            side, so this ScrollArea's own box — and the Radix scrollbar
+            rendered at its edge, a sibling of the scrolled content, not a
+            descendant — extends all the way to the sidebar's true right edge:
+            flush against the browser window, the easiest possible target to
+            grab. `--scrollarea-scrollbar-vertical-margin-right` is zeroed too
+            so Radix's own built-in scrollbar margin doesn't reintroduce a
+            gap. The inner padding-right on DataCards' wrapper below keeps its
+            visual inset the same as before; only the scrollbar moved. */}
         <StyledScrollArea
           className="size-full overflow-y-auto flex-grow-1 max-w-full"
           scrollbars="vertical"
+          style={{'--scrollarea-scrollbar-vertical-margin-right': '0px'} as React.CSSProperties}
         >
-          <Flex direction="column" gap="3" className="w-full">
+          <Flex direction="column" gap="3" className="w-full" style={{paddingRight: '0.75rem'}}>
             <Box
               display={{
                 initial: 'none',
@@ -115,7 +131,7 @@ export default function SidebarComponent() {
                 opacity: document_id ? 1 : 0.25,
               }}
             >
-              <DataPanels />
+              <DataCards />
             </Box>
           </Flex>
         </StyledScrollArea>

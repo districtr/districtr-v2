@@ -46,8 +46,6 @@ async def share_districtr_plan(
     data: DocumentShareRequest,
     session: Session = Depends(get_session),
 ):
-    print(f"Setting share for document {document.document_id} to {data.password}")
-    print(f"Hashed password: {hash_password(data.password)}")
     existing_token = session.execute(
         text(
             """

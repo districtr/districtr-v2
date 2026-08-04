@@ -12,9 +12,12 @@ import {CountyLayers} from './PolygonLayers/CountyLayers';
 import {BlockSource} from './GeoSources/BlockSource';
 import {MetaLayers} from './PointLayers/MetaLayers';
 import {PointSelectionLayer} from './PointLayers/PointSelectionLayer';
+import {SizedCircleLayer} from './PointLayers/SizedCircleLayers';
 import {OverlayLayers} from './PolygonLayers/OverlayLayers';
 import {MapLayerAnchors} from './MapLayerAnchors';
 import {CoiMapContainer} from './CoiMapContainer';
+import {BlockModePill} from './BlockModePill';
+import {PaintConstraintPill} from './PaintConstraintPill';
 import {useMapRenderer} from '@/app/hooks/useMapRenderer';
 import {PointSource} from './GeoSources/PointSource';
 import {CoiBlockLayers} from './PolygonLayers/CoiBlockLayers';
@@ -25,7 +28,7 @@ import {RENDERER_TYPES} from '@constants/map/rendererType';
 
 /**
  * COI (Community of Interest) map component. Mirrors MainMap layout and layers;
- * used on /coi/{document_id} and /coi/edit/{document_id}.
+ * used on /coi/{public_id} and /coi/{public_id}/edit.
  */
 export const CoiMap: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -56,6 +59,7 @@ export const CoiMap: React.FC = () => {
     if (!mapRef.current || !mapOptions.bounds) return;
     mapRef.current.fitBounds(mapOptions.bounds, {
       padding: 20,
+      animate: false,
     });
   }, [mapRef, mapOptions.bounds]);
 
@@ -78,7 +82,7 @@ export const CoiMap: React.FC = () => {
       {isMapLoaded && <MapLayerAnchors />}
       {areAnchorLayersReady && (
         <>
-          <CountyLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.counties} />
+          <CountyLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.reference} />
           <BlockSource>
             {!!mapDocument?.parent_layer && (
               <CoiBlockLayers
@@ -101,9 +105,14 @@ export const CoiMap: React.FC = () => {
           <PointSource>
             <PointSelectionLayer />
             <PointSelectionLayer child />
+            <SizedCircleLayer />
+            <SizedCircleLayer child />
             <MetaLayers isDemographicMap={false} />
           </PointSource>
           <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
+          {/* COI breaks units too, and the pill is the only exit from block view. */}
+          <BlockModePill />
+          <PaintConstraintPill />
         </>
       )}
     </CoiMapContainer>

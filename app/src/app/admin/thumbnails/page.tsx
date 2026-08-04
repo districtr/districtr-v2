@@ -2,6 +2,7 @@
 
 import {useCmsFormStore} from '@/app/store/cmsFormStore';
 import {generateThumbnail} from '@/app/utils/api/apiHandlers/generateThumbnail';
+import {thumbnailUrl} from '@/app/utils/api/thumbnailUrl';
 import {Cross2Icon, ReloadIcon} from '@radix-ui/react-icons';
 import {
   Blockquote,
@@ -92,7 +93,7 @@ const ThumbnailImage: React.FC<{
   documentId: string;
   onDismiss: () => void;
 }> = ({documentId, onDismiss}) => {
-  const baseUrl = `${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/thumbnails/${documentId}.png`;
+  const baseUrl = thumbnailUrl(documentId);
   const [url, setUrl] = useState(baseUrl);
   const handleRefresh = () => {
     setUrl(`${baseUrl}?${Date.now()}`);
