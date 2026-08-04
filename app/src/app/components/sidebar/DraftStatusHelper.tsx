@@ -640,7 +640,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
                       p="2"
                       // Edge segments anchor to the card edge so the bubble
                       // can't spill and cause a horizontal scrollbar.
-                      className={`absolute bottom-full mb-2 w-max max-w-[200px] z-10 ${
+                      className={`absolute top-full mt-2 w-max max-w-[200px] z-10 ${
                         idx === 0
                           ? 'left-0'
                           : idx === DRAFT_STATUS_ORDER.length - 1
@@ -675,11 +675,11 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
                         the segment even when the bubble is edge-anchored. */}
                     <span
                       aria-hidden
-                      className="absolute bottom-full left-1/2 -translate-x-1/2 mb-[3px] size-[10px] rotate-45 z-[11]"
+                      className="absolute top-full left-1/2 -translate-x-1/2 mt-[3px] size-[10px] rotate-45 z-[11]"
                       style={{
                         background: suggestionBg,
-                        borderRight: suggestionBorder,
-                        borderBottom: suggestionBorder,
+                        borderLeft: suggestionBorder,
+                        borderTop: suggestionBorder,
                       }}
                     />
                   </>
