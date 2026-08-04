@@ -1,3 +1,4 @@
+import {useEffect} from 'react';
 import {create} from 'zustand';
 import type {MapControlsStore} from '@store/mapControlsStore';
 
@@ -88,3 +89,20 @@ export const useUiHintStore = create<UiHintStore>((set, get) => ({
     set({guideTargets: []});
   },
 }));
+
+/** Guide-consumer hook: `guiding` while `id` is the active guide head (mark
+ * the host `.ui-guide`), `flashing` for the one-shot `.ui-flash` pulse. When
+ * `satisfied` (target already open/on/active), the step advances itself,
+ * flashing as confirmation if it ended the guide. */
+export const useGuideTarget = (id: string, satisfied = false) => {
+  const guiding = useUiHintStore(state => state.guideTargets[0] === id);
+  const flashing = useUiHintStore(state => state.flashTarget === id);
+  useEffect(() => {
+    if (!guiding || !satisfied) return;
+    const {guideTargets, advanceGuide, flash} = useUiHintStore.getState();
+    const lastStep = guideTargets.length === 1;
+    advanceGuide(id);
+    if (lastStep) flash(id);
+  }, [guiding, satisfied, id]);
+  return {guiding, flashing};
+};

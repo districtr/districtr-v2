@@ -30,10 +30,8 @@ const DISMISS_KEY = 'districtr-draft-helper-dismissed';
 // rough drawing; below it, point at the unassigned-areas finder.
 const ROUGH_DRAW_UNASSIGNED_RATIO = 0.25;
 
-// Sidebar sections → the panel holding the same content in the other layouts:
-// the mobile full-screen tabs and Super Draw's stacked accordion share these
-// keys (sidebarPanels). The demographic map-layer controls render flat inside
-// the Demographics card in both, hence the layers-demographics entry.
+// Sidebar sections → the sidebarPanels key holding the same content in the
+// mobile tabs and Super Draw's stacked accordion.
 const PANEL_FOR_SECTION: Record<string, MapControlsStore['sidebarPanels'][number]> = {
   'stats-validity': 'mapValidation',
   'stats-demographics': 'demography',
@@ -267,6 +265,12 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
   const suggestionKey = suggestion ? `${suggestion.direction}:${suggestion.status}` : null;
   const [dismissedSuggestion, setDismissedSuggestion] = useState<string | null>(null);
   const showSuggestion = !!suggestionKey && dismissedSuggestion !== suggestionKey;
+  const suggestionBg = suggestion?.direction === 'forward' ? 'var(--accent-3)' : 'var(--amber-3)';
+  const suggestionBorder = `1px solid ${
+    suggestion?.direction === 'forward' ? 'var(--accent-7)' : 'var(--amber-7)'
+  }`;
+  // Forward moves must be earned; moving back is always allowed.
+  const unlockedStage = !scratchDone ? 0 : !inProgressDone || contiguityStale ? 1 : 2;
 
   if (!visible) return null;
 
@@ -337,10 +341,8 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
       hints:
         unassigned !== undefined && unassigned > 0
           ? [
-              // The rough-draw shortcut only when county painting is actually
-              // usable here (available on this map, not in block view, not
-              // already on) — otherwise the guide would point at a disabled,
-              // missing, or already-checked control.
+              // Rough-draw shortcut only when county painting is usable
+              // here — never point at a disabled/missing/checked control.
               !inBlockView &&
               countyPaintAvailable &&
               !paintByCounty &&
@@ -627,8 +629,6 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
             const isCurrentStatus = status === currentStatus;
             const color = DRAFT_STATUS_COLORS[status];
             const suggested = showSuggestion && suggestion?.status === status;
-            // Forward moves must be earned; moving back is always allowed.
-            const unlockedStage = !scratchDone ? 0 : !inProgressDone || contiguityStale ? 1 : 2;
             const locked = idx > statusStage && idx > unlockedStage;
             return (
               // relative anchors the bubble; no overflow-hidden on the row
@@ -651,11 +651,8 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
                             : 'left-1/2 -translate-x-1/2'
                       }`}
                       style={{
-                        background:
-                          suggestion.direction === 'forward' ? 'var(--accent-3)' : 'var(--amber-3)',
-                        border: `1px solid ${
-                          suggestion.direction === 'forward' ? 'var(--accent-7)' : 'var(--amber-7)'
-                        }`,
+                        background: suggestionBg,
+                        border: suggestionBorder,
                         borderRadius: 6,
                         boxShadow: 'var(--shadow-3)',
                       }}
@@ -683,14 +680,9 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
                       aria-hidden
                       className="absolute bottom-full left-1/2 -translate-x-1/2 mb-[3px] size-[10px] rotate-45 z-[11]"
                       style={{
-                        background:
-                          suggestion.direction === 'forward' ? 'var(--accent-3)' : 'var(--amber-3)',
-                        borderRight: `1px solid ${
-                          suggestion.direction === 'forward' ? 'var(--accent-7)' : 'var(--amber-7)'
-                        }`,
-                        borderBottom: `1px solid ${
-                          suggestion.direction === 'forward' ? 'var(--accent-7)' : 'var(--amber-7)'
-                        }`,
+                        background: suggestionBg,
+                        borderRight: suggestionBorder,
+                        borderBottom: suggestionBorder,
                       }}
                     />
                   </>

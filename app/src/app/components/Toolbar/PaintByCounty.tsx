@@ -1,10 +1,9 @@
-import {useEffect} from 'react';
 import {Card, Checkbox, Flex, Text} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
-import {useUiHintStore} from '@/app/store/uiHintStore';
+import {useUiHintStore, useGuideTarget} from '@/app/store/uiHintStore';
 import {useFeatureFlagStore} from '@/app/store/featureFlagStore';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {demographyService} from '@/app/utils/demography/demographyService';
@@ -22,17 +21,13 @@ import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 // which has no way to see this mismatch.
 const CONNECTICUT_STATE_FIPS = '09';
 
-/** Whether county painting can work on this map at all: the feature flag is
- * off for LOCAL maps (the control isn't even rendered then), Connecticut's
- * county layer can't match districtr's block geoids (see above), and a
- * single-county map has no second county to paint by. Exported for
- * DraftStatusHelper, whose rough-draw hint must not guide the user to a
- * disabled — or missing — control. */
+/** Whether county painting can work on this map at all: LOCAL maps (flag
+ * off), Connecticut (see above), and single-county maps can't. Exported for
+ * DraftStatusHelper's rough-draw hint. */
 export const useCountyPaintAvailable = (): boolean => {
   const paintCounties = useFeatureFlagStore(state => state.paintCounties);
   const statefps = useMapStore(state => state.mapDocument?.statefps);
-  // Re-render when demography data (re)loads, so this always reflects the
-  // currently loaded unit universe rather than a stale render.
+  // Re-render when demography data (re)loads.
   const dataHash = useDemographyStore(state => state.dataHash);
   const isConnecticut = statefps?.length === 1 && statefps[0] === CONNECTICUT_STATE_FIPS;
   const isSingleCounty = !isConnecticut && !!dataHash && !demographyService.spansMultipleCounties();
@@ -60,25 +55,12 @@ export default function PaintByCounty() {
   // Pan doesn't paint at all — same as the brush-size slider and zone picker,
   // just visually/functionally inert, no explanatory tooltip needed.
   const disabledForPan = activeTool === ACTIVE_TOOLS.PAN;
-  // A single-county map (or Connecticut, or a LOCAL map) has no county pair
-  // to paint by; toggling wouldn't do anything, so the control itself is
-  // disabled, not just unchecked. See useCountyPaintAvailable above.
   const disabledForGeography = !useCountyPaintAvailable();
   const disabled =
     access === ACCESS_STATES.READ || lockedForBreak || disabledForPan || disabledForGeography;
-  // Guide target for the "paint by counties" hint (see uiHintStore). Already
-  // on means nothing to click — skip ahead with a confirmation pulse instead
-  // of inviting a click that would turn it off.
-  const guiding = useUiHintStore(state => state.guideTargets[0] === 'county-brush');
+  // Already on counts as satisfied — a click would turn it off.
+  const {guiding, flashing} = useGuideTarget('county-brush', paintByCounty);
   const advanceGuide = useUiHintStore(state => state.advanceGuide);
-  const flash = useUiHintStore(state => state.flash);
-  const flashing = useUiHintStore(state => state.flashTarget === 'county-brush');
-  useEffect(() => {
-    if (guiding && paintByCounty) {
-      advanceGuide('county-brush');
-      flash('county-brush');
-    }
-  }, [guiding, paintByCounty, advanceGuide, flash]);
 
   const handleToggle = () => {
     advanceGuide('county-brush');

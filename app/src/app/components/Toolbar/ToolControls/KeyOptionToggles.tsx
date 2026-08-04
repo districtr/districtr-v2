@@ -1,8 +1,8 @@
-import React, {useEffect} from 'react';
+import React from 'react';
 import {Checkbox, Flex, Text} from '@radix-ui/themes';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useMapStore} from '@store/mapStore';
-import {useUiHintStore} from '@store/uiHintStore';
+import {useUiHintStore, useGuideTarget} from '@store/uiHintStore';
 import {ACCESS_STATES} from '@constants/document/state';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {MAP_MODES} from '@constants/map/mode';
@@ -23,20 +23,10 @@ export const KeyOptionToggles: React.FC = () => {
   // numbers stays enabled; that display doesn't depend on the active tool).
   const populationTooltipDisabled =
     access === ACCESS_STATES.READ || activeTool === ACTIVE_TOOLS.PAN;
-  // Guide target for the population-tooltip hint (see uiHintStore). Already
-  // on means nothing to click — skip ahead with a confirmation pulse instead
-  // of inviting a click that would turn it off.
-  const guiding = useUiHintStore(state => state.guideTargets[0] === 'population-tooltip');
-  const advanceGuide = useUiHintStore(state => state.advanceGuide);
-  const flash = useUiHintStore(state => state.flash);
-  const flashing = useUiHintStore(state => state.flashTarget === 'population-tooltip');
   const showPopulationTooltip = mapOptions.showPopulationTooltip === true;
-  useEffect(() => {
-    if (guiding && showPopulationTooltip) {
-      advanceGuide('population-tooltip');
-      flash('population-tooltip');
-    }
-  }, [guiding, showPopulationTooltip, advanceGuide, flash]);
+  // Already on counts as satisfied — a click would turn it off.
+  const {guiding, flashing} = useGuideTarget('population-tooltip', showPopulationTooltip);
+  const advanceGuide = useUiHintStore(state => state.advanceGuide);
 
   return (
     <Flex direction="column" gap="2">

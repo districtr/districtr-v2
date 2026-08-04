@@ -5,7 +5,7 @@ import {CloudNotSavedIcon, CloudSavedIcon} from './Icons';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
-import {useUiHintStore} from '@store/uiHintStore';
+import {useUiHintStore, useGuideTarget} from '@store/uiHintStore';
 import {ACCESS_STATES} from '@constants/document/state';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
 
@@ -38,11 +38,8 @@ export const SaveButton: React.FC = () => {
   const isEditing = useMapControlsStore(state => state.isEditing);
   const [saving, setSaving] = useState(false);
   // Guide target for the "Save now" hint; skips when there's nothing to save.
-  const guiding = useUiHintStore(state => state.guideTargets[0] === 'save-button');
+  const {guiding} = useGuideTarget('save-button', !isOutdated);
   const advanceGuide = useUiHintStore(state => state.advanceGuide);
-  useEffect(() => {
-    if (guiding && !isOutdated) advanceGuide('save-button');
-  }, [guiding, isOutdated, advanceGuide]);
 
   if (!mapDocument || !isEditing || access !== ACCESS_STATES.EDIT) return null;
 

@@ -15,7 +15,7 @@ import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useUnassignedFeatures} from '@/app/hooks/useUnassignedFeatures';
-import {useUiHintStore, type ValidationTab} from '@/app/store/uiHintStore';
+import {useGuideTarget, type ValidationTab} from '@/app/store/uiHintStore';
 import {getContiguity} from '@utils/api/apiHandlers/getContiguity';
 import {formatNumber} from '@utils/numbers';
 import {NUMBER_FORMATS} from '@constants/demography/format';
@@ -62,26 +62,12 @@ export const MapValidation = () => {
   });
   const togglePanel = (panel: ValidationTab) =>
     setOpenPanels(prev => ({...prev, [panel]: !prev[panel]}));
-  // Guide target: pulses the panel header; already-open panels advance with
-  // a one-shot confirmation pulse.
-  const guideTarget = useUiHintStore(state => state.guideTargets[0]);
-  const advanceGuide = useUiHintStore(state => state.advanceGuide);
-  const flash = useUiHintStore(state => state.flash);
-  const flashTarget = useUiHintStore(state => state.flashTarget);
-  const guidedPanel: ValidationTab | null =
-    guideTarget === 'validation:Contiguity'
-      ? 'Contiguity'
-      : guideTarget === 'validation:Completeness'
-        ? 'Completeness'
-        : null;
-  useEffect(() => {
-    if (guidedPanel && openPanels[guidedPanel]) {
-      advanceGuide(`validation:${guidedPanel}`);
-      flash(`validation:${guidedPanel}`);
-    }
-  }, [guidedPanel, openPanels, advanceGuide, flash]);
+  const panelGuides = {
+    Contiguity: useGuideTarget('validation:Contiguity', openPanels.Contiguity),
+    Completeness: useGuideTarget('validation:Completeness', openPanels.Completeness),
+  };
   const panelHintClass = (panel: ValidationTab) =>
-    guidedPanel === panel ? 'ui-guide' : flashTarget === `validation:${panel}` ? 'ui-flash' : '';
+    panelGuides[panel].guiding ? 'ui-guide' : panelGuides[panel].flashing ? 'ui-flash' : '';
   const mapDocument = useMapStore(state => state.mapDocument);
   const idbDocument = useIdbDocument(mapDocument?.document_id);
   const access = useMapStore(state => state.mapStatus?.access);

@@ -10,7 +10,7 @@ import {AnimatedCollapse} from './AnimatedCollapse';
 import {CoalitionExpander} from './CoalitionExpander';
 import {ToolSettings} from '../Toolbar/Settings';
 import {useMapControlsStore} from '@store/mapControlsStore';
-import {useUiHintStore} from '@store/uiHintStore';
+import {useUiHintStore, useGuideTarget} from '@store/uiHintStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {SUMMARY_TYPES} from '@constants/demography/summary';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
@@ -28,24 +28,11 @@ const TabSection: React.FC<{
 }> = ({id, label, helpTip, children}) => {
   const open = useMapControlsStore(state => !state.collapsedTabSections.includes(id));
   const toggleTabSection = useMapControlsStore(state => state.toggleTabSection);
-  // Helper hints pulse the section they just pointed the user at.
-  const flashing = useUiHintStore(state => state.flashTarget === `section:${id}`);
-  // Guide target: pulses until the user expands the section; already-open
-  // sections advance immediately (with a confirmation flash if guide-final).
-  const guideId = `section:${id}`;
-  const guiding = useUiHintStore(state => state.guideTargets[0] === guideId);
-  const advanceGuide = useUiHintStore(state => state.advanceGuide);
-  const flash = useUiHintStore(state => state.flash);
+  const {guiding, flashing} = useGuideTarget(`section:${id}`, open);
   const sectionRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!guiding) return;
-    sectionRef.current?.scrollIntoView({behavior: 'smooth', block: 'start'});
-    if (open) {
-      const lastStep = useUiHintStore.getState().guideTargets.length === 1;
-      advanceGuide(guideId);
-      if (lastStep) flash(guideId);
-    }
-  }, [guiding, open, guideId, advanceGuide, flash]);
+    if (guiding) sectionRef.current?.scrollIntoView({behavior: 'smooth', block: 'start'});
+  }, [guiding]);
   // -mx-2 + px-2 (matching the panels' px="2"): the hover wash spans the full
   // panel while the label shares the content's left edge.
   const headerRow = (

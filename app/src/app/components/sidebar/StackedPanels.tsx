@@ -16,7 +16,7 @@ import {SummaryPanel} from './SummaryPanel';
 import {AnimatedCollapse} from './AnimatedCollapse';
 import {CoalitionExpander} from './CoalitionExpander';
 import {MapControlsStore, useMapControlsStore} from '@store/mapControlsStore';
-import {useUiHintStore} from '@store/uiHintStore';
+import {useGuideTarget} from '@store/uiHintStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
@@ -128,26 +128,12 @@ const AccordionSection: React.FC<{
   onToggle: () => void;
 }> = ({section, open, onToggle}) => {
   const Icon = section.icon;
-  // Guided step (see uiHintStore.guideTargets): in the stacked layout the
-  // draft helper points at whole panels (`panel:<key>`), pulsing the header
-  // until the user opens the section themselves. An already-open section
-  // needs no click — advance past it (and pulse it once as the landing
-  // confirmation when it ends the guide). Mirrors WorkflowTabs' TabSection.
-  const guideId = `panel:${section.key}`;
-  const guiding = useUiHintStore(state => state.guideTargets[0] === guideId);
-  const advanceGuide = useUiHintStore(state => state.advanceGuide);
-  const flash = useUiHintStore(state => state.flash);
-  const flashing = useUiHintStore(state => state.flashTarget === guideId);
+  // Stacked-layout twin of WorkflowTabs' TabSection guide consumer.
+  const {guiding, flashing} = useGuideTarget(`panel:${section.key}`, open);
   const sectionRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!guiding) return;
-    sectionRef.current?.scrollIntoView({behavior: 'smooth', block: 'start'});
-    if (open) {
-      const lastStep = useUiHintStore.getState().guideTargets.length === 1;
-      advanceGuide(guideId);
-      if (lastStep) flash(guideId);
-    }
-  }, [guiding, open, guideId, advanceGuide, flash]);
+    if (guiding) sectionRef.current?.scrollIntoView({behavior: 'smooth', block: 'start'});
+  }, [guiding]);
   // A real <button>: the row holds only Icon/Text/ChevronDownIcon, no nested
   // interactive content, and its own onClick (toggling the accordion) survives
   // being cloned by HelpTip below the same way it would on a div.

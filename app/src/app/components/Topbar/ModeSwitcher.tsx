@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, {useEffect, useState} from 'react';
 import {Button, DropdownMenu, Flex, Spinner, Text} from '@radix-ui/themes';
 import {
   BarChartIcon,
@@ -121,18 +121,18 @@ export const ModeSwitcher: React.FC = () => {
   const setLoadingState = useMapStore(state => state.setLoadingState);
   const publicIdForLookup = useMapStore(state => state.mapDocument?.public_id ?? null);
   const pwParam = useSearchParams().get('pw');
-  const [isMinting, setIsMinting] = React.useState(false);
+  const [isMinting, setIsMinting] = useState(false);
 
   // A map is unlockable if the share link carries `?pw=true` or the document itself
   // reports an edit password (so a viewer who landed on the bare public URL still gets
   // the affordance). Remember it so it survives dismissing the prompt or switching views.
   const passwordRequired = mapDocument?.password_required;
-  React.useEffect(() => {
+  useEffect(() => {
     if (pwParam || passwordRequired) setPasswordUnlockable(true);
   }, [pwParam, passwordRequired, publicIdForLookup, setPasswordUnlockable]);
 
   // Mode-pointer guide: pulses this trigger, then the meant mode item.
-  const [menuOpen, setMenuOpen] = React.useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const guideTarget = useUiHintStore(state => state.guideTargets[0]);
   const advanceGuide = useUiHintStore(state => state.advanceGuide);
   const cancelGuide = useUiHintStore(state => state.cancelGuide);
