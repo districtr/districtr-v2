@@ -1,7 +1,6 @@
 'use client';
-import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import {Protocol} from 'pmtiles';
+import {registerPmtilesProtocol} from '@/app/utils/map/pmtilesProtocol';
 import React, {useCallback, useEffect, useMemo} from 'react';
 import {MAP_OPTIONS} from '@constants/map/viewDefaults';
 import {handleWheelOrPinch} from '@utils/events/mapEvents';
@@ -41,9 +40,7 @@ export const PublicMap: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const protocol = new Protocol();
-    maplibregl.addProtocol('pmtiles', protocol.tile);
-    return () => maplibregl.removeProtocol('pmtiles');
+    registerPmtilesProtocol();
   }, []);
 
   const fitMapToBounds = useCallback(() => {
