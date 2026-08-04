@@ -625,65 +625,9 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
           {DRAFT_STATUS_ORDER.map((status, idx) => {
             const isCurrentStatus = status === currentStatus;
             const color = DRAFT_STATUS_COLORS[status];
-            const suggested = showSuggestion && suggestion?.status === status;
             const locked = idx > statusStage && idx > unlockedStage;
             return (
-              // relative anchors the bubble; no overflow-hidden on the row
-              // (it would clip the bubble), so end segments round themselves.
               <div key={status} className="relative flex-1 min-w-0">
-                {suggested && suggestion && (
-                  <>
-                    <Flex
-                      role="status"
-                      align="start"
-                      gap="1"
-                      p="2"
-                      // Edge segments anchor to the card edge so the bubble
-                      // can't spill and cause a horizontal scrollbar.
-                      className={`absolute top-full mt-2 w-max max-w-[200px] z-10 ${
-                        idx === 0
-                          ? 'left-0'
-                          : idx === DRAFT_STATUS_ORDER.length - 1
-                            ? 'right-0'
-                            : 'left-1/2 -translate-x-1/2'
-                      }`}
-                      style={{
-                        background: suggestionBg,
-                        border: suggestionBorder,
-                        borderRadius: 6,
-                        boxShadow: 'var(--shadow-3)',
-                      }}
-                      data-testid="draft-status-suggestion"
-                    >
-                      <Text size="1">
-                        {suggestion.direction === 'forward'
-                          ? `Your plan looks ready — mark it “${DRAFT_STATUS_TEXT[status]}”.`
-                          : `Your plan no longer meets the checks for “${DRAFT_STATUS_TEXT[currentStatus]}” — consider moving back.`}
-                      </Text>
-                      <IconButton
-                        variant="ghost"
-                        color="gray"
-                        size="1"
-                        onClick={() => setDismissedSuggestion(suggestionKey)}
-                        aria-label="Dismiss suggestion"
-                        className="cursor-pointer shrink-0"
-                      >
-                        <Cross2Icon width={12} height={12} />
-                      </IconButton>
-                    </Flex>
-                    {/* Caret: a sibling of the bubble so it stays centered on
-                        the segment even when the bubble is edge-anchored. */}
-                    <span
-                      aria-hidden
-                      className="absolute top-full left-1/2 -translate-x-1/2 mt-[3px] size-[10px] rotate-45 z-[11]"
-                      style={{
-                        background: suggestionBg,
-                        borderLeft: suggestionBorder,
-                        borderTop: suggestionBorder,
-                      }}
-                    />
-                  </>
-                )}
                 <button
                   type="button"
                   onClick={() => changeStatus(status)}
@@ -723,6 +667,60 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
             );
           })}
         </Flex>
+      )}
+      {/* Suggestion bubble in normal flow below the row (the overlay wrapper
+          scrolls, so an absolutely-hung bubble would be clipped). The caret
+          points up at the recommended segment's center. */}
+      {!collapsed && showSuggestion && suggestion && (
+        <div className="relative">
+          <span
+            aria-hidden
+            className="absolute -top-[3px] size-[10px] rotate-45 z-[1]"
+            style={{
+              left: `${((DRAFT_STATUS_ORDER.indexOf(suggestion.status) + 0.5) / DRAFT_STATUS_ORDER.length) * 100}%`,
+              transform: 'translateX(-50%) rotate(45deg)',
+              background: suggestionBg,
+              borderLeft: suggestionBorder,
+              borderTop: suggestionBorder,
+            }}
+          />
+          <Flex
+            role="status"
+            align="start"
+            gap="1"
+            p="2"
+            className={`w-max max-w-full ${
+              suggestion.status === DRAFT_STATUS_ORDER[0]
+                ? 'mr-auto'
+                : suggestion.status === DRAFT_STATUS_ORDER[DRAFT_STATUS_ORDER.length - 1]
+                  ? 'ml-auto'
+                  : 'mx-auto'
+            }`}
+            style={{
+              background: suggestionBg,
+              border: suggestionBorder,
+              borderRadius: 6,
+              boxShadow: 'var(--shadow-3)',
+            }}
+            data-testid="draft-status-suggestion"
+          >
+            <Text size="1">
+              {suggestion.direction === 'forward'
+                ? `Your plan looks ready — mark it “${DRAFT_STATUS_TEXT[suggestion.status]}”.`
+                : `Your plan no longer meets the checks for “${DRAFT_STATUS_TEXT[currentStatus]}” — consider moving back.`}
+            </Text>
+            <IconButton
+              variant="ghost"
+              color="gray"
+              size="1"
+              onClick={() => setDismissedSuggestion(suggestionKey)}
+              aria-label="Dismiss suggestion"
+              className="cursor-pointer shrink-0"
+            >
+              <Cross2Icon width={12} height={12} />
+            </IconButton>
+          </Flex>
+        </div>
       )}
     </Flex>
   );
