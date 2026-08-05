@@ -1,5 +1,34 @@
 # Wagtail Cutover — Remaining Work & Follow-ups
 
+### Session 2026-08-05 — all administration moved into the Wagtail UI
+
+Shipped (branch commits `0836caa7`, `5e283044`, + this one), reviewed against
+the Districtr Management System requirements:
+
+- **`cms/moderation` app**: comment review, district-comment review, map
+  submissions (comments with an attached plan; approve into team galleries as
+  draft revisions), and the under-construction toggle are now Wagtail views
+  calling the FastAPI admin endpoints with a per-user minted JWT
+  (`authapi.serializers.mint_user_access_token`). The Next.js `/admin` tree
+  and the external "Comment review" menu link (`FRONTEND_URL`) are gone.
+- **Groups consolidated** (authapi.0007): `partner` (pages own-content,
+  galleries drafts, comment/submission moderation), `super_partner`
+  (+ compose map, upload overlay, module/overlay editing; GPKG import stays
+  admin-only via `datastore.add_gerrydbtable`), `admin`. `editor`/`reviewer`
+  deleted; members migrated to partner.
+- **Review//approve** (content.0007): "Admin approval" Workflow +
+  GroupApprovalTask(admin) on the page tree and Gallery snippets — partners
+  submit for moderation; publish permissions removed from non-admins.
+- **Locales** pre-provisioned (content.0006).
+- Backend: `has_document` filter on `GET /api/comments/admin/list`.
+
+**⏳ DEFERRED — Partner report generation** (decided 2026-08-05: spec later).
+The feature list's "Generate a report" has no implementation anywhere. Open
+questions before building: CSV export vs formatted summary; scope (per
+portal/tag? per team?); which fields (comments, commenters, attached plan
+ids, counts). `bd` is still broken locally (`issue_prefix` missing), so this
+note is the tracking record.
+
 Status as of 2026-06-11, branch `wagtail-cutover` (20 commits ahead of `dev`, all
 quality gates green: backend 306 passed, cms 175 tests, frontend build clean).
 All 13 cutover workstreams and all 10 verified code-review findings are fixed

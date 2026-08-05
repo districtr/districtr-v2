@@ -1097,6 +1097,11 @@ async def list_comments_admin(
         default=None,
         description="When True, filter to comments flagged for review",
     ),
+    has_document: bool | None = Query(
+        default=None,
+        description="When True, filter to comments with an attached plan "
+        "(map submissions)",
+    ),
     max_moderation_score: float = Query(default=1.0),
     offset: int = Query(default=0),
     limit: int = Query(default=100),
@@ -1130,6 +1135,8 @@ async def list_comments_admin(
         max_moderation_score=max_moderation_score,
         review_status=review_status,
     )
+    if has_document:
+        stmt = stmt.where(col(DocumentComment.document_id).is_not(None))
     if allowed_tags is not None:
         stmt = apply_allowed_tags_filter(stmt, allowed_tags)
     results = session.exec(stmt).all()  # type: ignore[no-matching-overload]

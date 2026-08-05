@@ -18,8 +18,14 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from requests import RequestException
 from wagtail.admin import messages
-from wagtail.admin.auth import user_passes_test
+from wagtail.admin.auth import permission_denied, user_passes_test
 
+from authapi.teams import (
+    instance_in_scope,
+    map_group_slugs_for_user,
+    user_is_team_scoped,
+)
+from galleries.models import Gallery, GalleryEntry
 from moderation import services
 from moderation.forms import CommentFilterForm, DistrictCommentFilterForm
 from moderation.services import BackendAPIError
@@ -62,7 +68,7 @@ def _prep_entry(entry: dict) -> dict:
     return entry
 
 
-def _list_view(request, form, fetch, template, title):
+def _list_view(request, form, fetch, template, title, extra_context=None):
     try:
         page = max(int(request.GET.get("p", 1)), 1)
     except ValueError:
@@ -98,6 +104,7 @@ def _list_view(request, form, fetch, template, title):
             "has_next": has_next,
             "base_qs": querystring.urlencode(),
             "title": title,
+            **(extra_context or {}),
         },
     )
 
@@ -125,6 +132,82 @@ def district_comments(request):
         "moderation/district_comments.html",
         "District comment review",
     )
+
+
+def _galleries_for_user(user):
+    """Galleries the user may curate submissions into: change_gallery
+    holders, narrowed to their teams' map groups when team-scoped."""
+    if not user.has_perm("galleries.change_gallery"):
+        return Gallery.objects.none()
+    queryset = Gallery.objects.all()
+    if user_is_team_scoped(user):
+        queryset = queryset.filter(map_group_id__in=map_group_slugs_for_user(user))
+    return queryset.order_by("title")
+
+
+@group_required(COMMENT_REVIEW_GROUPS)
+def map_submissions(request):
+    """Map submissions = form comments arriving with an attached plan
+    (has_document). Approve/reject uses the same review action; approving a
+    plan INTO a gallery goes through add_to_gallery below."""
+    form = CommentFilterForm(request.GET or {})
+
+    def fetch(user, **params):
+        return services.list_form_comments(user, has_document="true", **params)
+
+    return _list_view(
+        request,
+        form,
+        fetch,
+        "moderation/map_submissions.html",
+        "Map submissions",
+        extra_context={"galleries": _galleries_for_user(request.user)},
+    )
+
+
+@group_required(COMMENT_REVIEW_GROUPS)
+def add_to_gallery(request):
+    """Append a submitted plan to a gallery as a DRAFT revision.
+
+    Gallery entries live in revision content (DraftState + RevisionMixin), so
+    this mirrors the edit view — modify the latest-revision object and
+    save_revision — rather than inserting a live GalleryEntry row that the
+    next publish would clobber. Publishing stays with admins (or a workflow).
+    """
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+    if not request.user.has_perm("galleries.change_gallery"):
+        return permission_denied(request)
+    try:
+        gallery_id = int(request.POST["gallery"])
+        public_id = int(request.POST["public_id"])
+    except (KeyError, ValueError):
+        return HttpResponseBadRequest("Invalid gallery submission")
+
+    gallery = Gallery.objects.filter(pk=gallery_id).first()
+    if gallery is None or not instance_in_scope(
+        request.user, Gallery, "map_group_id", gallery.pk
+    ):
+        return permission_denied(request)
+
+    latest = gallery.get_latest_revision_as_object()
+    if any(e.document_public_id == public_id for e in latest.entries.all()):
+        messages.warning(request, f"Plan {public_id} is already in “{gallery.title}”.")
+    else:
+        latest.entries.add(GalleryEntry(document_public_id=public_id))
+        latest.save_revision(user=request.user)
+        messages.success(
+            request,
+            f"Plan {public_id} added to “{gallery.title}” as a draft — "
+            "publish the gallery to make it public.",
+        )
+
+    next_url = request.POST.get("next")
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}
+    ):
+        return redirect(next_url)
+    return redirect(reverse("moderation_map_submissions"))
 
 
 def _int_list(csv: str) -> list[int]:

@@ -16,6 +16,8 @@ from django.test import RequestFactory, TestCase
 from django.urls import reverse
 
 from authapi.models import ReviewTagAssignment
+from authapi.test_teams import make_team
+from galleries.models import Gallery
 from authapi.serializers import (
     DistrictrTokenObtainPairSerializer,
     mint_user_access_token,
@@ -372,6 +374,100 @@ class ReviewActionTests(TestCase):
         )
         self.assertRedirects(response, reverse("wagtailadmin_home"))
         request.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Map submissions
+# ---------------------------------------------------------------------------
+
+
+class MapSubmissionsViewTests(TestCase):
+    def setUp(self):
+        self.url = reverse("moderation_map_submissions")
+        self.partner = make_admin_user(
+            email="partner@districtr.org", group_name="partner"
+        )
+        self.client.login(username="partner@districtr.org", password=PASSWORD)
+
+    def test_always_sends_has_document_param(self):
+        with mock.patch("moderation.services.requests.request") as request:
+            request.return_value = mock_response(json_body=[])
+            self.client.get(self.url)
+        _, kwargs = request.call_args
+        self.assertEqual(kwargs["params"].get("has_document"), "true")
+
+    def test_gallery_choices_are_team_scoped(self):
+        Gallery.objects.create(title="Ours", slug="ours", map_group_id="ga")
+        Gallery.objects.create(title="Theirs", slug="theirs", map_group_id="gb")
+        make_team("Team A", members=[self.partner], group_slugs=["ga"])
+        with mock.patch("moderation.services.requests.request") as request:
+            request.return_value = mock_response(json_body=[make_entry(public_id=42)])
+            response = self.client.get(self.url)
+        self.assertContains(response, "Submitted plan: #42")
+        self.assertContains(response, "Ours")
+        self.assertNotContains(response, "Theirs")
+
+    def test_unscoped_partner_sees_all_galleries(self):
+        Gallery.objects.create(title="Ours", slug="ours", map_group_id="ga")
+        Gallery.objects.create(title="Theirs", slug="theirs", map_group_id="gb")
+        with mock.patch("moderation.services.requests.request") as request:
+            request.return_value = mock_response(json_body=[make_entry(public_id=42)])
+            response = self.client.get(self.url)
+        self.assertContains(response, "Ours")
+        self.assertContains(response, "Theirs")
+
+
+class AddToGalleryTests(TestCase):
+    def setUp(self):
+        self.url = reverse("moderation_add_to_gallery")
+        self.partner = make_admin_user(
+            email="partner@districtr.org", group_name="partner"
+        )
+        self.client.login(username="partner@districtr.org", password=PASSWORD)
+        self.gallery = Gallery.objects.create(title="Drafts", slug="drafts")
+
+    def add(self, **overrides):
+        data = {"gallery": str(self.gallery.pk), "public_id": "42"}
+        data.update(overrides)
+        return self.client.post(self.url, data)
+
+    def test_adds_entry_as_draft_revision_not_live(self):
+        response = self.add()
+        self.assertRedirects(
+            response,
+            reverse("moderation_map_submissions"),
+            fetch_redirect_response=False,
+        )
+        self.gallery.refresh_from_db()
+        latest = self.gallery.get_latest_revision_as_object()
+        self.assertEqual([e.document_public_id for e in latest.entries.all()], [42])
+        # The live gallery is untouched — an admin publishes the draft.
+        self.assertEqual(self.gallery.entries.count(), 0)
+
+    def test_duplicate_plan_not_added_twice(self):
+        self.add()
+        self.add()
+        self.gallery.refresh_from_db()
+        latest = self.gallery.get_latest_revision_as_object()
+        self.assertEqual(latest.entries.count(), 1)
+
+    def test_out_of_scope_gallery_denied_for_team_scoped_user(self):
+        make_team("Team A", members=[self.partner], group_slugs=["ga"])
+        outside = Gallery.objects.create(
+            title="Outside", slug="outside", map_group_id="gb"
+        )
+        response = self.add(gallery=str(outside.pk))
+        self.assertRedirects(response, reverse("wagtailadmin_home"))
+        self.assertIsNone(outside.latest_revision_id)
+
+    def test_invalid_input_is_400(self):
+        self.assertEqual(self.add(public_id="not-a-number").status_code, 400)
+        self.assertEqual(self.add(gallery="999999").status_code, 302)  # denied
+        response = self.client.post(self.url, {"public_id": "42"})
+        self.assertEqual(response.status_code, 400)
+
+    def test_get_not_allowed(self):
+        self.assertEqual(self.client.get(self.url).status_code, 405)
 
 
 # ---------------------------------------------------------------------------

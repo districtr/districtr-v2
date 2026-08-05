@@ -1085,6 +1085,43 @@ class TestCommentListEndpoints:
         assert len(comments) == 1
         assert comments[0]["title"] == "Admin Test Comment"
 
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
+    def test_admin_list_has_document_filter(
+        self, mock_score_text, client, session: Session, document_id
+    ):
+        """has_document=true keeps only comments with an attached plan (map
+        submissions) and returns the plan's public_id."""
+        base = {
+            "commenter": {"first_name": "Sub", "email": "sub@example.com"},
+            "tags": [{"tag": "Policy"}],
+            "turnstile_token": "test_token",
+        }
+        with_plan = {
+            **base,
+            "comment": {
+                "title": "With plan",
+                "comment": "Look at my map.",
+                "document_id": document_id,
+            },
+        }
+        without_plan = {
+            **base,
+            "comment": {"title": "Without plan", "comment": "Just words."},
+        }
+        assert client.post("/api/comments/submit", json=with_plan).status_code == 201
+        assert client.post("/api/comments/submit", json=without_plan).status_code == 201
+
+        response = client.get("/api/comments/admin/list?has_document=true")
+        assert response.status_code == 200
+        comments = response.json()
+        assert [c["title"] for c in comments] == ["With plan"]
+        assert comments[0]["document_id"] == document_id
+        assert comments[0]["public_id"] is not None
+
+        # Unfiltered list still returns both.
+        response = client.get("/api/comments/admin/list")
+        assert len(response.json()) == 2
+
     @patch("app.comments.moderation.score_text")
     def test_admin_list_comments_custom_moderation_threshold(
         self, mock_score_text, client, session: Session, document_id

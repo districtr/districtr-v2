@@ -43,6 +43,16 @@ def register_moderation_admin_urls():
             "moderation/review/", views.review_action, name="moderation_review_action"
         ),
         path(
+            "moderation/map-submissions/",
+            views.map_submissions,
+            name="moderation_map_submissions",
+        ),
+        path(
+            "moderation/add-to-gallery/",
+            views.add_to_gallery,
+            name="moderation_add_to_gallery",
+        ),
+        path(
             "moderation/site-settings/",
             views.site_settings,
             name="moderation_site_settings",
@@ -58,6 +68,17 @@ def register_comment_review_menu_item():
         reverse("moderation_comments"),
         icon_name="comment",
         order=220,
+        groups=COMMENT_REVIEW_GROUPS,
+    )
+
+
+@hooks.register("register_admin_menu_item")
+def register_map_submissions_menu_item():
+    return GroupMenuItem(
+        "Map submissions",
+        reverse("moderation_map_submissions"),
+        icon_name="clipboard-list",
+        order=221,
         groups=COMMENT_REVIEW_GROUPS,
     )
 

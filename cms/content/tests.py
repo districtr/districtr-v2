@@ -454,6 +454,38 @@ class PagePermissionGrantTests(TestCase):
 
 
 # ---------------------------------------------------------------------------
+# Provisioning migrations (locales 0006, admin approval workflow 0007)
+# ---------------------------------------------------------------------------
+
+
+class ProvisioningMigrationTests(TestCase):
+    def test_all_content_languages_have_locales(self):
+        from django.conf import settings
+
+        existing = set(Locale.objects.values_list("language_code", flat=True))
+        expected = {code for code, _ in settings.WAGTAIL_CONTENT_LANGUAGES}
+        self.assertTrue(expected <= existing, expected - existing)
+
+    def test_admin_approval_workflow_wired_up(self):
+        from wagtail.models import GroupApprovalTask, Workflow, WorkflowContentType
+
+        workflow = Workflow.objects.get(name="Admin approval")
+        self.assertTrue(workflow.active)
+        task = GroupApprovalTask.objects.get(name="Admin approval")
+        self.assertEqual([g.name for g in task.groups.all()], ["admin"])
+        self.assertEqual([t.task_id for t in workflow.workflow_tasks.all()], [task.pk])
+        # Assigned to the whole page tree and to Gallery snippets.
+        self.assertTrue(workflow.workflow_pages.filter(page_id=1).exists())
+        self.assertTrue(
+            WorkflowContentType.objects.filter(
+                workflow=workflow,
+                content_type__app_label="galleries",
+                content_type__model="gallery",
+            ).exists()
+        )
+
+
+# ---------------------------------------------------------------------------
 # Public compat API
 # ---------------------------------------------------------------------------
 
@@ -463,7 +495,7 @@ class ContentApiTests(TestCase):
     def setUpTestData(cls):
         home = Site.objects.get(is_default_site=True).root_page
         cls.en = Locale.objects.get(language_code="en")
-        cls.es = Locale.objects.create(language_code="es")
+        cls.es = Locale.objects.get(language_code="es")
 
         cls.tags_index = TagsIndexPage(title="Tags", slug="tags")
         home.add_child(instance=cls.tags_index)

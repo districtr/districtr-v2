@@ -17,13 +17,11 @@ The draft/publish UI comes for free: Gallery uses DraftStateMixin +
 RevisionMixin, so SnippetViewSet renders the Save draft / Publish split
 button and the live/draft status column automatically.
 
-Moderation workflows (optional): Gallery also mixes in WorkflowMixin, so a
-full approval flow needs no code — in the admin, create a Workflow with a
-"group approval" task for the admin group (Settings -> Workflows) and
-assign it to the Gallery snippet type. Partners then get "Submit for
-moderation" instead of publishing directly. Workflows stay enabled by
-default via the WAGTAIL_WORKFLOW_ENABLED setting (unset = True); we do not
-pre-provision one.
+Moderation workflow: Gallery mixes in WorkflowMixin, and content.0007
+provisions the "Admin approval" workflow wired to the Gallery snippet type
+(and the page tree), so partners get "Submit for moderation" and admins
+approve/publish. Workflows stay enabled by default via the
+WAGTAIL_WORKFLOW_ENABLED setting (unset = True).
 """
 
 from django import forms
