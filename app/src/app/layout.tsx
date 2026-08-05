@@ -4,6 +4,7 @@ import {Theme} from '@radix-ui/themes';
 import {FeedbackForm} from './components/FeedbackForm';
 import {VersionCheck} from './components/VersionCheck';
 import {LoadingOverlay} from './components/Topbar/LoadingOverlay';
+import {SessionChallenge} from './components/SessionChallenge';
 import '@radix-ui/themes/styles.css';
 import './globals.css';
 
@@ -15,7 +16,7 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.APP_BASE_URL ?? 'https://beta.districtr.org'),
+  metadataBase: new URL(process.env.APP_BASE_URL ?? 'https://districtr.org'),
   title: {template: '%s | Districtr', default: 'Districtr 2.0'},
   description: 'Create districting maps',
   openGraph: {
@@ -52,6 +53,7 @@ export default function RootLayout({
           <FeedbackForm />
           <VersionCheck />
           <LoadingOverlay />
+          <SessionChallenge />
         </Theme>
       </body>
     </html>

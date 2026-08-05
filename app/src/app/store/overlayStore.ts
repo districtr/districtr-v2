@@ -27,6 +27,7 @@ export interface OverlayStore {
   setPaintConstraint: (overlayId: string, featureId: string) => void;
   selectOverlayFeature: (overlayId: string) => void;
   clearPaintConstraint: () => void;
+  reset: () => void;
 }
 
 export const useOverlayStore = create(
@@ -124,6 +125,15 @@ export const useOverlayStore = create(
 
     selectOverlayFeature: overlayId => {
       set({selectingLayerId: overlayId});
+    },
+
+    reset: () => {
+      set({
+        _idCache: new Map<string, boolean>(),
+        enabledOverlayIds: new Set<string>(),
+        paintConstraint: null,
+        selectingLayerId: null,
+      });
     },
   }))
 );

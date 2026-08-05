@@ -48,8 +48,20 @@ export const Expander: React.FC<{
   onToggle?: () => void;
   /** Extra classes for the header button (e.g. h-auto for multi-line labels). */
   buttonClassName?: string;
+  /** Extra classes for the outer container. Pulse-highlight classes go here:
+   * the header's !bg-transparent and the container's overflow-hidden defeat
+   * the animation on the button itself. */
+  className?: string;
   children: React.ReactNode;
-}> = ({label, defaultOpen = false, open, onToggle, buttonClassName = '', children}) => {
+}> = ({
+  label,
+  defaultOpen = false,
+  open,
+  onToggle,
+  buttonClassName = '',
+  className = '',
+  children,
+}) => {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
   const isOpen = open ?? uncontrolledOpen;
   const toggle = onToggle ?? (() => setUncontrolledOpen(o => !o));
@@ -57,7 +69,10 @@ export const Expander: React.FC<{
   // unit; the header is a flat soft bar (its own surface border would double
   // up inside the outline).
   return (
-    <Flex direction="column" className="rounded-md border border-[var(--gray-6)] overflow-hidden">
+    <Flex
+      direction="column"
+      className={`rounded-md border border-[var(--gray-6)] overflow-hidden ${className}`}
+    >
       <Button
         variant="soft"
         color="gray"

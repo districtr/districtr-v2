@@ -10,7 +10,7 @@ import {AnimatedCollapse} from './AnimatedCollapse';
 import {CoalitionExpander} from './CoalitionExpander';
 import {ToolSettings} from '../Toolbar/Settings';
 import {useMapControlsStore} from '@store/mapControlsStore';
-import {useUiHintStore} from '@store/uiHintStore';
+import {useUiHintStore, useGuideTarget} from '@store/uiHintStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {SUMMARY_TYPES} from '@constants/demography/summary';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
@@ -28,15 +28,20 @@ const TabSection: React.FC<{
 }> = ({id, label, helpTip, children}) => {
   const open = useMapControlsStore(state => !state.collapsedTabSections.includes(id));
   const toggleTabSection = useMapControlsStore(state => state.toggleTabSection);
-  // Helper hints pulse the section they just pointed the user at.
-  const flashing = useUiHintStore(state => state.flashTarget === `section:${id}`);
+  const {guiding, flashing} = useGuideTarget(`section:${id}`, open);
+  const sectionRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (guiding) sectionRef.current?.scrollIntoView({behavior: 'smooth', block: 'start'});
+  }, [guiding]);
   // -mx-2 + px-2 (matching the panels' px="2"): the hover wash spans the full
   // panel while the label shares the content's left edge.
   const headerRow = (
     <button
       onClick={() => toggleTabSection(id)}
       aria-expanded={open}
-      className="w-auto cursor-pointer text-left -mx-2 px-2 py-3 rounded transition-colors hover:bg-[var(--gray-2)]"
+      className={`w-auto cursor-pointer text-left -mx-2 px-2 py-3 rounded transition-colors hover:bg-[var(--gray-2)] ${
+        guiding ? 'ui-guide' : ''
+      }`}
     >
       <Flex align="center" justify="between">
         <Text size="3" className="font-semibold">
@@ -51,7 +56,12 @@ const TabSection: React.FC<{
     </button>
   );
   return (
-    <Flex direction="column" className={flashing ? 'ui-flash' : ''} data-section-id={id}>
+    <Flex
+      direction="column"
+      className={flashing ? 'ui-flash' : ''}
+      data-section-id={id}
+      ref={sectionRef}
+    >
       {helpTip ? (
         <HelpTip tip={helpTip} openDelay={HELP_TIP_HOVER_DELAY}>
           {headerRow}
@@ -164,20 +174,13 @@ export const WorkflowTabs: React.FC<{layoutToggle: React.ReactNode}> = ({layoutT
   // Mode switches can hide the current tab; fall back to the first visible one.
   const activeKey = visibleTabs.some(t => t.key === tab) ? tab : visibleTabs[0].key;
   const activeTab = visibleTabs.find(t => t.key === activeKey);
-  // One-shot tab request (see uiHintStore). Requests that arrived while the
-  // tabs were unmounted are stale: the first effect run after mount discards
-  // them instead of firing a surprise jump.
-  const sidebarTabRequest = useUiHintStore(state => state.requests.sidebarTab);
-  const clearRequest = useUiHintStore(state => state.clear);
   const flashTarget = useUiHintStore(state => state.flashTarget);
-  const tabRequestsLive = useRef(false);
+  // Guide target: pulses the destination tab; already-active tabs advance.
+  const guideTarget = useUiHintStore(state => state.guideTargets[0]);
+  const advanceGuide = useUiHintStore(state => state.advanceGuide);
   useEffect(() => {
-    const live = tabRequestsLive.current;
-    tabRequestsLive.current = true;
-    if (!sidebarTabRequest) return;
-    clearRequest('sidebarTab');
-    if (live) setTab(sidebarTabRequest);
-  }, [sidebarTabRequest, clearRequest]);
+    if (guideTarget === `tab:${activeKey}`) advanceGuide(guideTarget);
+  }, [guideTarget, activeKey, advanceGuide]);
 
   // A one-tab strip (COI) is noise; the Super Draw toggle must stay reachable.
   const showStrip = visibleTabs.length > 1;
@@ -198,9 +201,10 @@ export const WorkflowTabs: React.FC<{layoutToggle: React.ReactNode}> = ({layoutT
             <div className="flex gap-5 text-sm tracking-wider">
               {visibleTabs.map(t => {
                 const active = t.key === activeKey;
-                // Helper jumps pulse the destination tab label first (see
-                // jumpToSection) so the cut to another tab reads as a path.
+                // Flash is the one-shot confirmation pulse; guide keeps
+                // pulsing until the user clicks the tab themselves.
                 const flashing = flashTarget === `tab:${t.key}`;
+                const guiding = guideTarget === `tab:${t.key}`;
                 return (
                   <button
                     key={t.key}
@@ -212,7 +216,7 @@ export const WorkflowTabs: React.FC<{layoutToggle: React.ReactNode}> = ({layoutT
                       active
                         ? 'text-districtrBlue font-bold border-districtrBlue'
                         : 'text-gray-600 border-transparent'
-                    } ${flashing ? 'ui-flash' : ''}`}
+                    } ${flashing ? 'ui-flash' : ''} ${guiding ? 'ui-guide' : ''}`}
                   >
                     {/* Invisible bold twin reserves bold width so tabs don't
                         shift when the active weight changes. */}

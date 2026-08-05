@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, {useEffect, useRef} from 'react';
 import {Flex, Text} from '@radix-ui/themes';
 import {
   CheckCircledIcon,
@@ -16,6 +16,7 @@ import {SummaryPanel} from './SummaryPanel';
 import {AnimatedCollapse} from './AnimatedCollapse';
 import {CoalitionExpander} from './CoalitionExpander';
 import {MapControlsStore, useMapControlsStore} from '@store/mapControlsStore';
+import {useGuideTarget} from '@store/uiHintStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
@@ -127,6 +128,12 @@ const AccordionSection: React.FC<{
   onToggle: () => void;
 }> = ({section, open, onToggle}) => {
   const Icon = section.icon;
+  // Stacked-layout twin of WorkflowTabs' TabSection guide consumer.
+  const {guiding, flashing} = useGuideTarget(`panel:${section.key}`, open);
+  const sectionRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (guiding) sectionRef.current?.scrollIntoView({behavior: 'smooth', block: 'start'});
+  }, [guiding]);
   // A real <button>: the row holds only Icon/Text/ChevronDownIcon, no nested
   // interactive content, and its own onClick (toggling the accordion) survives
   // being cloned by HelpTip below the same way it would on a div.
@@ -134,7 +141,9 @@ const AccordionSection: React.FC<{
     <button
       onClick={onToggle}
       aria-expanded={open}
-      className="w-full cursor-pointer text-left p-3 rounded-lg transition-colors hover:bg-blue-50"
+      className={`w-full cursor-pointer text-left p-3 rounded-lg transition-colors hover:bg-blue-50 ${
+        guiding ? 'ui-guide' : ''
+      }`}
     >
       <Flex gap="2" align="center">
         <Icon className="shrink-0" />
@@ -149,8 +158,9 @@ const AccordionSection: React.FC<{
   );
   return (
     <div
-      className="border border-gray-300 rounded-lg bg-white"
+      className={`border border-gray-300 rounded-lg bg-white ${flashing ? 'ui-flash' : ''}`}
       data-testid={`data-panel-${section.key}`}
+      ref={sectionRef}
     >
       {section.helpTip ? (
         <HelpTip tip={section.helpTip} openDelay={HELP_TIP_HOVER_DELAY}>

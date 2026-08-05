@@ -1,10 +1,11 @@
 'use client';
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {Flex, IconButton, Spinner, Text} from '@radix-ui/themes';
 import {CloudNotSavedIcon, CloudSavedIcon} from './Icons';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
+import {useUiHintStore, useGuideTarget} from '@store/uiHintStore';
 import {ACCESS_STATES} from '@constants/document/state';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
 
@@ -36,6 +37,9 @@ export const SaveButton: React.FC = () => {
   const access = useMapStore(state => state.mapStatus?.access);
   const isEditing = useMapControlsStore(state => state.isEditing);
   const [saving, setSaving] = useState(false);
+  // Guide target for the "Save now" hint; skips when there's nothing to save.
+  const {guiding} = useGuideTarget('save-button', !isOutdated);
+  const advanceGuide = useUiHintStore(state => state.advanceGuide);
 
   if (!mapDocument || !isEditing || access !== ACCESS_STATES.EDIT) return null;
 
@@ -43,6 +47,7 @@ export const SaveButton: React.FC = () => {
   // same bottom-center notice rather than the full-screen lock overlay and
   // saved toast — only the wording differs.
   const handleSave = async () => {
+    advanceGuide('save-button');
     if (!isOutdated || saving) return;
     setSaving(true);
     try {
@@ -72,7 +77,7 @@ export const SaveButton: React.FC = () => {
           variant="surface"
           color="gray"
           onClick={handleSave}
-          className={isOutdated ? 'cursor-pointer' : ''}
+          className={`${isOutdated ? 'cursor-pointer' : ''} ${guiding ? 'ui-guide' : ''}`}
           aria-label={isOutdated ? 'Save changes' : 'All changes saved'}
           data-testid="save-button"
         >
