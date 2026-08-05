@@ -1,6 +1,7 @@
-{# Recursive same-name extends: resolves to Wagtail's own base.html (this app
-   precedes wagtail.admin in INSTALLED_APPS), overriding only the logo — the
-   Wagtail-documented branding approach, immune to upstream template drift. #}
+{# Recursive same-name extends: resolves to Wagtail's own base.html (this app #}
+{# precedes wagtail.admin in INSTALLED_APPS), overriding only the logo — the #}
+{# Wagtail-documented branding approach, immune to upstream template drift. #}
+{# NB: {# comments #} are single-line; a multi-line one renders as text. #}
 {% extends "wagtailadmin/base.html" %}
 
 {% block branding_logo %}{% include "wagtailadmin/shared/districtr_logo.html" %}{% endblock %}

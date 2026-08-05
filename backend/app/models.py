@@ -188,7 +188,7 @@ class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
     districtr_map: str = Field(
         sa_column=Column(
             UUIDType,
-            ForeignKey("districtrmap.uuid"),
+            ForeignKey("districtrmap.uuid", ondelete="CASCADE"),
             nullable=False,
             primary_key=True,
         )
@@ -485,12 +485,16 @@ class DistrictrMapsToGroups(SQLModel, table=True):
     # the (districtrmap_uuid, group_slug) pair remains unique.
     id: int | None = Field(default=None, primary_key=True)
     districtrmap_uuid: str = Field(
-        sa_column=Column(UUIDType, ForeignKey("districtrmap.uuid"), nullable=False)
+        sa_column=Column(
+            UUIDType,
+            ForeignKey("districtrmap.uuid", ondelete="CASCADE"),
+            nullable=False,
+        )
     )
     group_slug: str = Field(
         sa_column=Column(
             String,
-            ForeignKey("map_group.slug"),
+            ForeignKey("map_group.slug", ondelete="CASCADE"),
             nullable=False,
         )
     )

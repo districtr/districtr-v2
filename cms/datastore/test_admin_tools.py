@@ -302,6 +302,61 @@ class SuperPartnerToolAccessTests(TestCase):
         self.assertRedirects(response, reverse("wagtailadmin_home"))
 
 
+class MapDeleteGuardTests(TestCase):
+    """Deleting a DistrictrMap that has saved plans is denied with a
+    friendly message — the document.document FK would otherwise hard-block
+    the delete as an unhandled IntegrityError (500)."""
+
+    def setUp(self):
+        with connection.schema_editor() as editor:
+            editor.create_model(GerryDBTable)
+            editor.create_model(DistrictrMap)
+        with connection.cursor() as cursor:
+            cursor.execute("CREATE SCHEMA IF NOT EXISTS document")
+            cursor.execute(
+                "CREATE TABLE document.document "
+                "(document_id uuid, districtr_map_slug varchar)"
+            )
+        table = GerryDBTable.objects.create(name="co_blocks")
+        self.with_plans = DistrictrMap.objects.create(
+            name="Alaska", districtr_map_slug="with_plans", parent_layer=table
+        )
+        self.without_plans = DistrictrMap.objects.create(
+            name="Kansas", districtr_map_slug="no_plans", parent_layer=table
+        )
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO document.document "
+                "VALUES (gen_random_uuid(), 'with_plans')"
+            )
+        make_admin_user()
+        self.client.login(username="dataops@districtr.org", password=PASSWORD)
+
+    def delete_url(self, instance):
+        return reverse(
+            "wagtailsnippets_datastore_districtrmap:delete", args=[instance.pk]
+        )
+
+    def test_single_delete_with_plans_denied(self):
+        response = self.client.post(self.delete_url(self.with_plans), follow=True)
+        self.assertContains(response, "with_plans (1 plan)")
+        self.assertTrue(DistrictrMap.objects.filter(pk=self.with_plans.pk).exists())
+
+    def test_bulk_delete_with_plans_denied(self):
+        response = self.client.post(
+            "/admin/bulk/datastore/districtrmap/delete/"
+            f"?id={self.with_plans.pk}&id={self.without_plans.pk}",
+            follow=True,
+        )
+        self.assertContains(response, "with_plans (1 plan)")
+        self.assertEqual(DistrictrMap.objects.count(), 2)
+
+    def test_delete_without_plans_proceeds(self):
+        response = self.client.post(self.delete_url(self.without_plans))
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(DistrictrMap.objects.filter(pk=self.without_plans.pk).exists())
+
+
 class ImportViewPostTests(TestCase):
     def setUp(self):
         make_admin_user()

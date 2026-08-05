@@ -18,8 +18,11 @@ panels force a plain Django select instead.
 from functools import cached_property
 
 from django import forms
+from django.db import ProgrammingError, connection
+from django.shortcuts import redirect
 from django.urls import path, reverse
 from wagtail import hooks
+from wagtail.admin import messages
 from wagtail.admin.menu import MenuItem
 from wagtail.admin.panels import FieldPanel, MultiFieldPanel, ObjectList
 from wagtail.permission_policies.base import ModelPermissionPolicy
@@ -315,6 +318,60 @@ class DataViewSetGroup(SnippetViewSetGroup):
 
 
 register_snippet(DataViewSetGroup)
+
+
+def _map_slugs_with_documents(slugs):
+    """Saved-plan counts per map slug, read straight from the shared database.
+
+    document.document is deliberately not mirrored (datastore/models.py), so
+    this is a raw read. Purely UX: its FK to districtrmap has NO ACTION, so
+    the database still hard-blocks such deletes if this check misses.
+    """
+    if not slugs:
+        return {}
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT districtr_map_slug, count(*) FROM document.document "
+                "WHERE districtr_map_slug = ANY(%s) GROUP BY districtr_map_slug",
+                [list(slugs)],
+            )
+            return dict(cursor.fetchall())
+    except ProgrammingError:
+        # Table absent (cms-only database): let the FK decide.
+        return {}
+
+
+def _deny_map_delete_with_documents(request, maps):
+    counts = _map_slugs_with_documents([m.districtr_map_slug for m in maps])
+    if not counts:
+        return None
+    summary = ", ".join(
+        f"{slug} ({count} plan{'s' if count != 1 else ''})"
+        for slug, count in sorted(counts.items())
+    )
+    messages.error(
+        request,
+        f"Cannot delete maps that have saved plans: {summary}. "
+        "Hide a retired map by unsetting its visible flag instead.",
+    )
+    return redirect("wagtailsnippets_datastore_districtrmap:list")
+
+
+@hooks.register("before_delete_snippet")
+def deny_districtrmap_delete_with_documents(request, instances):
+    maps = [obj for obj in instances if isinstance(obj, DistrictrMap)]
+    if maps:
+        return _deny_map_delete_with_documents(request, maps)
+
+
+@hooks.register("before_bulk_action")
+def deny_districtrmap_bulk_delete_with_documents(request, action_type, objects, action):
+    if action_type != "delete":
+        return None
+    maps = [obj for obj in objects if isinstance(obj, DistrictrMap)]
+    if maps:
+        return _deny_map_delete_with_documents(request, maps)
 
 
 @hooks.register("register_admin_urls")
