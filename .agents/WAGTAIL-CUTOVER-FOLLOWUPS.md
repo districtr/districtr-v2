@@ -149,10 +149,14 @@ or make middleware the *only* refresher and re-enable blacklisting.
    (StaticPage type, new 2026-08-04): static site pages migrate into the CMS
    one at a time — delete the hardcoded Next.js route, publish a StaticPage
    with the same slug (the `/[slug]` catch-all serves it).
-6. `manage.py provision_users users.csv` (CSV: email,name,group) — sends
-   password-setup emails.
-7. Smoke: Wagtail login, edit+publish a page, comment moderation at
-   `/admin/review`, thumbnail regen, gallery publish, compose-map dry call.
+6. `manage.py provision_users users.csv` (CSV: email,name,group — groups are
+   now `admin`/`partner`/`super_partner`, consolidated 2026-08-05 by
+   authapi.0007) — sends password-setup emails.
+7. Smoke: Wagtail login, edit+publish a page, comment moderation in the
+   Wagtail admin (Comment review menu → /admin/moderation/comments/, moved
+   in-CMS 2026-08-05; the Next.js /admin pages are gone), under-construction
+   toggle (Settings → Frontend settings), thumbnail regen, gallery publish,
+   compose-map dry call.
 8. **Disable** (don't delete) the Auth0 tenant; delete after two quiet weeks.
 9. One month post-cutover: ship the migration renaming `cms.tags_content` /
    `cms.places_content` → `*_legacy` (they must survive until then —

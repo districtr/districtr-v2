@@ -390,10 +390,10 @@ class TiptapToStreamDataTests(SimpleTestCase):
 
 class PagePermissionGrantTests(TestCase):
     """Wagtail's PagePermissionPolicy ignores Django model permissions — it
-    only looks at tree-scoped GroupPagePermission rows. The content.0002 data
-    migration grants them on the root page for editor/admin; without those
-    rows the Pages explorer is hidden entirely and editors cannot edit ANY
-    content pages."""
+    only looks at tree-scoped GroupPagePermission rows. content.0002 grants
+    them on the root page and authapi.0007 re-points them at the consolidated
+    groups; without those rows the Pages explorer is hidden entirely and
+    partners cannot edit ANY content pages."""
 
     @staticmethod
     def user_in_group(group_name):
@@ -405,35 +405,43 @@ class PagePermissionGrantTests(TestCase):
         user.groups.add(Group.objects.get(name=group_name))
         return user
 
-    def test_editor_passes_page_permission_checks(self):
-        # Editors are own-content-only (content.0004): add + publish, but no
-        # tree-wide change — Wagtail's owner model grants edit on owned pages.
-        user = self.user_in_group("editor")
+    def test_partner_passes_page_permission_checks(self):
+        # Partners are own-content-only: add, but no tree-wide change —
+        # Wagtail's owner model grants edit on owned pages. No publish
+        # either: publishing goes through admin review.
+        user = self.user_in_group("partner")
         policy = PagePermissionPolicy()
-        for action in ("add", "publish"):
-            self.assertTrue(
-                policy.user_has_permission(user, action),
-                f"editor should have '{action}' page permission",
-            )
+        self.assertTrue(policy.user_has_permission(user, "add"))
+        self.assertFalse(
+            policy.user_has_permission(user, "publish"),
+            "partner publishes go through admin review",
+        )
         # Policy-level "change" stays True (add-permission holders may change
         # their OWN pages) — the tree-wide grant row is what must be gone.
         self.assertFalse(
             GroupPagePermission.objects.filter(
-                group__name="editor", permission__codename="change_page"
+                group__name__in=["partner", "super_partner"],
+                permission__codename="change_page",
             ).exists(),
-            "editors must not hold tree-wide change_page",
+            "partners must not hold tree-wide change_page",
         )
         root = Page.get_first_root_node()
         perms = root.permissions_for_user(user)
         self.assertTrue(perms.can_add_subpage())
 
-    def test_editor_edits_own_pages_only(self):
-        user = self.user_in_group("editor")
+    def test_partner_edits_own_pages_only(self):
+        user = self.user_in_group("partner")
         root = Page.get_first_root_node()
         own = root.add_child(instance=Page(title="Mine", slug="mine-own", owner=user))
         other = root.add_child(instance=Page(title="Other", slug="not-mine"))
         self.assertTrue(own.permissions_for_user(user).can_edit())
         self.assertFalse(other.permissions_for_user(user).can_edit())
+
+    def test_super_partner_matches_partner_on_pages(self):
+        user = self.user_in_group("super_partner")
+        policy = PagePermissionPolicy()
+        self.assertTrue(policy.user_has_permission(user, "add"))
+        self.assertFalse(policy.user_has_permission(user, "publish"))
 
     def test_admin_passes_page_permission_checks(self):
         user = self.user_in_group("admin")
@@ -443,17 +451,6 @@ class PagePermissionGrantTests(TestCase):
                 policy.user_has_permission(user, action),
                 f"admin should have '{action}' page permission",
             )
-
-    def test_partner_lacks_page_permissions(self):
-        user = self.user_in_group("partner")
-        policy = PagePermissionPolicy()
-        for action in ("add", "change", "publish"):
-            self.assertFalse(
-                policy.user_has_permission(user, action),
-                f"partner should NOT have '{action}' page permission",
-            )
-        root = Page.get_first_root_node()
-        self.assertFalse(root.permissions_for_user(user).can_add_subpage())
 
 
 # ---------------------------------------------------------------------------

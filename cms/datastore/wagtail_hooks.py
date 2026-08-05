@@ -3,9 +3,9 @@ Wagtail admin registration for the datastore mirrors.
 
 Everything is grouped under a single "Data" menu item (database icon) via a
 SnippetViewSetGroup. Snippets respect Django model permissions: the `admin`
-group is granted all datastore permissions by the 0002 data migration;
-editors/reviewers/partners get none by default, so the menu simply does not
-appear for them.
+group is granted all datastore permissions by the 0002 data migration and
+`super_partner` gets the map-module/overlay subset by authapi.0007; partners
+get none, so the menu simply does not appear for them.
 
 FK widgets: because the target models are registered as snippets, ForeignKeys
 to them automatically render as snippet choosers (search + pagination, 10 per
@@ -46,7 +46,11 @@ from datastore.models import (
     MapGroup,
     Overlay,
 )
-from datastore.views import DATASTORE_ADMIN_PERMISSION, OVERLAY_ADMIN_PERMISSION
+from datastore.views import (
+    DATASTORE_ADMIN_PERMISSION,
+    GPKG_IMPORT_PERMISSION,
+    OVERLAY_ADMIN_PERMISSION,
+)
 
 # DistrictrMap reaches a MapGroup through the DistrictrMapsToGroups link table
 # (related_name "group_links"); group_id is the MapGroup slug (its pk).
@@ -279,6 +283,7 @@ class DataViewSetGroup(SnippetViewSetGroup):
                 reverse("datastore_import_gpkg"),
                 icon_name="upload",
                 order=order,
+                permission=GPKG_IMPORT_PERMISSION,
             )
         )
         menu_items.append(

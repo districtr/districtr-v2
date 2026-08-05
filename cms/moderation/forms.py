@@ -29,7 +29,9 @@ class CommentFilterForm(forms.Form):
         required=False,
         label="Review status",
     )
-    flagged = forms.ChoiceField(choices=FLAGGED_CHOICES, required=False, label="Flagged")
+    flagged = forms.ChoiceField(
+        choices=FLAGGED_CHOICES, required=False, label="Flagged"
+    )
     tags = forms.CharField(
         required=False,
         help_text="Tag slugs, comma or space separated",
@@ -59,7 +61,9 @@ class DistrictCommentFilterForm(forms.Form):
     document_id = forms.CharField(required=False, label="Document ID (UUID)")
     public_id = forms.IntegerField(required=False, label="Public map ID")
     comment_id = forms.IntegerField(required=False, label="Comment ID")
-    flagged = forms.ChoiceField(choices=FLAGGED_CHOICES, required=False, label="Flagged")
+    flagged = forms.ChoiceField(
+        choices=FLAGGED_CHOICES, required=False, label="Flagged"
+    )
     review_status = forms.ChoiceField(
         choices=REVIEW_STATUS_CHOICES,
         required=False,

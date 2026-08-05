@@ -2,15 +2,15 @@
 Wagtail admin registration for galleries.
 
 Galleries get their own top-level "Galleries" menu item rather than joining
-the datastore "Data" SnippetViewSetGroup: the Data group is admin-only
-(editors/reviewers/partners hold no datastore permissions, so that menu never
+the datastore "Data" SnippetViewSetGroup: the Data group is for admins and
+super partners (partners hold no datastore permissions, so that menu never
 renders for them), while galleries are exactly the thing partners curate.
 
-Permission model (galleries/migrations/0002):
-- partner: add/change Gallery -> sees the menu, creates and edits DRAFTS.
-  Without `publish_gallery` the editor shows "Save draft" but no "Publish"
-  action, so partner work stays unpublished.
-- editor/admin: full model perms + `publish_gallery` -> the same edit view
+Permission model (galleries/migrations/0002 + authapi.0007):
+- partner/super_partner: add/change Gallery -> sees the menu, creates and
+  edits DRAFTS. Without `publish_gallery` the edit view shows "Save draft"
+  but no "Publish" action, so partner work stays unpublished.
+- admin: full model perms + `publish_gallery` -> the same edit view
   additionally offers Publish/Unpublish.
 
 The draft/publish UI comes for free: Gallery uses DraftStateMixin +
@@ -19,7 +19,7 @@ button and the live/draft status column automatically.
 
 Moderation workflows (optional): Gallery also mixes in WorkflowMixin, so a
 full approval flow needs no code — in the admin, create a Workflow with a
-"group approval" task for the editor group (Settings -> Workflows) and
+"group approval" task for the admin group (Settings -> Workflows) and
 assign it to the Gallery snippet type. Partners then get "Submit for
 moderation" instead of publishing directly. Workflows stay enabled by
 default via the WAGTAIL_WORKFLOW_ENABLED setting (unset = True); we do not

@@ -113,16 +113,16 @@ class TeamHelperTests(TestCase):
         self.assertFalse(user_is_team_scoped(admin))
 
     def test_editor_without_team_not_scoped(self):
-        self.assertFalse(user_is_team_scoped(make_user("editor", "e@d.org")))
+        self.assertFalse(user_is_team_scoped(make_user("partner", "e@d.org")))
 
     def test_editor_with_team_is_scoped(self):
-        editor = make_user("editor", "e@d.org")
+        editor = make_user("partner", "e@d.org")
         make_team("Team A", members=[editor], group_slugs=["ga", "gb"])
         self.assertTrue(user_is_team_scoped(editor))
         self.assertEqual(map_group_slugs_for_user(editor), {"ga", "gb"})
 
     def test_slugs_union_across_teams(self):
-        editor = make_user("editor", "e@d.org")
+        editor = make_user("partner", "e@d.org")
         make_team("T1", members=[editor], group_slugs=["ga"])
         make_team("T2", members=[editor], group_slugs=["gb", "gc"])
         self.assertEqual(map_group_slugs_for_user(editor), {"ga", "gb", "gc"})
@@ -135,7 +135,7 @@ class GalleryScopingPolicyTests(TestCase):
         cls.policy = TeamScopedModelPermissionPolicy(
             Gallery, group_filter_field="map_group_id"
         )
-        cls.member = make_user("editor", "member@d.org")
+        cls.member = make_user("partner", "member@d.org")
         make_team("Team A", members=[cls.member], group_slugs=["ga"])
         cls.mine = make_gallery("mine", group_slug="ga")
         cls.theirs = make_gallery("theirs", group_slug="gb")
@@ -164,7 +164,7 @@ class GalleryScopingPolicyTests(TestCase):
         self.assertEqual(set(qs.values_list("slug", flat=True)), {"mine", "theirs"})
 
     def test_teamless_editor_unscoped(self):
-        loner = make_user("editor", "loner@d.org")
+        loner = make_user("partner", "loner@d.org")
         qs = self.policy.instances_user_has_permission_for(loner, "change")
         self.assertEqual(set(qs.values_list("slug", flat=True)), {"mine", "theirs"})
 
@@ -175,7 +175,7 @@ class GalleryAdminScopingViewTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         ensure_map_group_table()
-        cls.member = make_user("editor", "member@d.org")
+        cls.member = make_user("partner", "member@d.org")
         make_team("Team A", members=[cls.member], group_slugs=["ga"])
         cls.mine = make_gallery("scoped-visible", group_slug="ga")
         cls.theirs = make_gallery("scoped-hidden", group_slug="gb")
@@ -255,7 +255,7 @@ class MapModuleScopingTests(TestCase):
         )
         DistrictrMapsToGroups.objects.create(districtrmap=cls.map_a, group=group_a)
         DistrictrMapsToGroups.objects.create(districtrmap=cls.map_b, group=group_b)
-        cls.member = make_user("editor", "mm-member@d.org")
+        cls.member = make_user("partner", "mm-member@d.org")
         make_team("Map Team A", members=[cls.member], group_slugs=["ga"])
 
     def test_member_view_instances_scoped(self):
@@ -290,7 +290,7 @@ class MapModuleScopingTests(TestCase):
         self.assertTrue(self.policy.user_has_permission(admin, "change"))
 
     def test_teamless_editor_gets_no_view(self):
-        loner = make_user("editor", "mm-loner@d.org")
+        loner = make_user("partner", "mm-loner@d.org")
         self.assertFalse(self.policy.user_has_permission(loner, "view"))
 
 
@@ -342,7 +342,7 @@ class ContentPageScopingTests(TestCase):
         )
         cls.places_index.add_child(instance=cls.place_out)
 
-        cls.member = make_user("editor", "tp-member@d.org")
+        cls.member = make_user("partner", "tp-member@d.org")
         make_team("Tag Team A", members=[cls.member], group_slugs=["ga"])
         cls.admin = make_user("admin", "tp-admin@d.org")
 
@@ -449,7 +449,7 @@ class ContentPageFormScopingTests(TestCase):
                 name=slug, districtr_map_slug=slug, parent_layer=layer
             )
             DistrictrMapsToGroups.objects.create(districtrmap=dmap, group=group)
-        cls.member = make_user("editor", "form-member@d.org")
+        cls.member = make_user("partner", "form-member@d.org")
         make_team("Form Team", members=[cls.member], group_slugs=["ga"])
         cls.admin = make_user("admin", "form-admin@d.org")
 

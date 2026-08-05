@@ -86,7 +86,11 @@ def review_item(user, content_type: str, item_id: int, review_status: str) -> di
         user,
         "POST",
         "/api/comments/admin/review",
-        json={"content_type": content_type, "id": item_id, "review_status": review_status},
+        json={
+            "content_type": content_type,
+            "id": item_id,
+            "review_status": review_status,
+        },
         what="review update",
     )
 

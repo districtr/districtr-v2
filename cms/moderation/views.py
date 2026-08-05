@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 # Group gates matching the FastAPI scopes the pages need (authapi/scopes.py):
 # create:content_review for the review queues, update:update-all (admin only)
 # for site settings.
-COMMENT_REVIEW_GROUPS = frozenset({"admin", "reviewer"})
+COMMENT_REVIEW_GROUPS = frozenset({"admin", "partner", "super_partner"})
 SITE_SETTINGS_GROUPS = frozenset({"admin"})
 
 PAGE_SIZE = 20

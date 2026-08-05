@@ -34,8 +34,11 @@ from datastore.models import DistrictrMapOverlays, Overlay
 logger = logging.getLogger(__name__)
 
 # The mirrors are read-mostly; the add permissions mark "may run data ops".
+# add_districtrmap/add_overlay: admin + super_partner (authapi.0007);
+# add_gerrydbtable (GPKG import, which creates raw tables): admin only.
 DATASTORE_ADMIN_PERMISSION = "datastore.add_districtrmap"
 OVERLAY_ADMIN_PERMISSION = "datastore.add_overlay"
+GPKG_IMPORT_PERMISSION = "datastore.add_gerrydbtable"
 
 
 def _upload_key(filename: str) -> str:
@@ -43,7 +46,7 @@ def _upload_key(filename: str) -> str:
     return f"{timezone.now():%Y%m%d-%H%M%S}-{get_valid_filename(filename)}"
 
 
-@permission_required(DATASTORE_ADMIN_PERMISSION)
+@permission_required(GPKG_IMPORT_PERMISSION)
 def import_gpkg(request):
     form = GeoPackageImportForm()
     if request.method == "POST":

@@ -39,22 +39,19 @@ ALL_SCOPES = [
     REVIEW_CONTENT,
 ]
 
+# Page editing, galleries, and the datastore tools are all Wagtail-side
+# permissions (or service-token calls); the only FastAPI scopes a user token
+# needs are for comment moderation. super_partner's extra powers are Django
+# model permissions (authapi.0007), not scopes.
+PARTNER_SCOPES = [
+    REVIEW_CONTENT,
+    READ_ALL_CONTENT,
+]
+
 GROUP_SCOPES = {
     "admin": ALL_SCOPES,
-    "editor": [
-        CREATE_CONTENT,
-        READ_CONTENT,
-        UPDATE_CONTENT,
-        DELETE_CONTENT,
-        PUBLISH_CONTENT,
-    ],
-    "reviewer": [
-        REVIEW_CONTENT,
-        READ_ALL_CONTENT,
-    ],
-    # Partners get Wagtail-side permissions (galleries, drafts) but no
-    # FastAPI scopes.
-    "partner": [],
+    "partner": PARTNER_SCOPES,
+    "super_partner": PARTNER_SCOPES,
 }
 
 

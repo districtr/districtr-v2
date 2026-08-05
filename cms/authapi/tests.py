@@ -56,22 +56,21 @@ def fastapi_style_verify(token: str) -> dict:
 
 
 class ScopeMappingTests(TestCase):
-    def test_editor_scopes(self):
-        user = make_user("editor")
-        scopes = scopes_for_user(user).split()
-        self.assertIn("create:content", scopes)
-        self.assertIn("update:publish", scopes)
-        self.assertNotIn("create:districtr_maps", scopes)
-        self.assertNotIn("create:content_review", scopes)
-
-    def test_reviewer_scopes(self):
-        user = make_user("reviewer")
+    def test_partner_scopes(self):
+        # Comment moderation only: everything else partners do (pages,
+        # galleries) is Wagtail-side permissions, not FastAPI scopes.
+        user = make_user("partner")
         scopes = scopes_for_user(user).split()
         self.assertEqual(sorted(scopes), ["create:content_review", "read:read-all"])
 
-    def test_partner_has_no_api_scopes(self):
-        user = make_user("partner")
-        self.assertEqual(scopes_for_user(user), "")
+    def test_super_partner_scopes_match_partner(self):
+        # super_partner's extra powers are Django model permissions
+        # (authapi.0007), not scopes.
+        user = make_user("super_partner")
+        self.assertEqual(
+            scopes_for_user(user), scopes_for_user(make_user("partner", "p@d.org"))
+        )
+        self.assertNotIn("create:districtr_maps", scopes_for_user(user).split())
 
     def test_admin_gets_all_scopes(self):
         user = make_user("admin")
@@ -86,17 +85,17 @@ class ScopeMappingTests(TestCase):
 
 class TokenContractTests(TestCase):
     def test_access_token_round_trips_through_fastapi_verifier(self):
-        user = make_user("editor")
+        user = make_user("partner")
         refresh = DistrictrTokenObtainPairSerializer.get_token(user)
         payload = fastapi_style_verify(str(refresh.access_token))
 
         self.assertEqual(payload["sub"], str(user.pk))
         self.assertEqual(payload["email"], user.email)
-        self.assertIn("create:content", payload["scope"].split())
-        self.assertEqual(payload["roles"], ["editor"])
+        self.assertIn("create:content_review", payload["scope"].split())
+        self.assertEqual(payload["roles"], ["partner"])
 
     def test_kid_header_matches_jwks(self):
-        user = make_user("editor")
+        user = make_user("partner")
         token = str(DistrictrTokenObtainPairSerializer.get_token(user).access_token)
         header = pyjwt.get_unverified_header(token)
         self.assertEqual(header["kid"], current_kid())
@@ -123,7 +122,7 @@ class ReviewTagScopingTests(TestCase):
     """
 
     def test_assignments_mint_sorted_review_tags_claim(self):
-        user = make_user("reviewer")
+        user = make_user("partner")
         ReviewTagAssignment.objects.create(user=user, tag_slug="schools")
         ReviewTagAssignment.objects.create(user=user, tag_slug="environment")
 
@@ -133,13 +132,13 @@ class ReviewTagScopingTests(TestCase):
         self.assertEqual(payload["review_tags"], ["environment", "schools"])
 
     def test_claim_absent_without_assignments(self):
-        user = make_user("reviewer")
+        user = make_user("partner")
         refresh = DistrictrTokenObtainPairSerializer.get_token(user)
         payload = fastapi_style_verify(str(refresh.access_token))
         self.assertNotIn("review_tags", payload)
 
     def test_read_all_stripped_when_assigned(self):
-        user = make_user("reviewer")
+        user = make_user("partner")
         ReviewTagAssignment.objects.create(user=user, tag_slug="schools")
 
         scopes = scopes_for_user(user).split()
@@ -160,7 +159,7 @@ class ReviewTagScopingTests(TestCase):
         self.assertEqual(scopes_for_user(user).split(), ALL_SCOPES)
 
     def test_refresh_propagates_review_tags(self):
-        user = make_user("reviewer", email="scoped@districtr.org")
+        user = make_user("partner", email="scoped@districtr.org")
         ReviewTagAssignment.objects.create(user=user, tag_slug="schools")
 
         response = self.client.post(
@@ -186,7 +185,7 @@ class ReviewTagScopingTests(TestCase):
 
 class TokenEndpointTests(TestCase):
     def test_obtain_and_refresh_flow(self):
-        make_user("editor", email="flow@districtr.org")
+        make_user("partner", email="flow@districtr.org")
 
         response = self.client.post(
             "/api/token/",
@@ -198,7 +197,7 @@ class TokenEndpointTests(TestCase):
         self.assertIn("refresh", data)
 
         payload = fastapi_style_verify(data["access"])
-        self.assertIn("create:content", payload["scope"].split())
+        self.assertIn("create:content_review", payload["scope"].split())
 
         # Refresh must preserve the scope claim and kid header (the Next.js
         # session refreshes silently; FastAPI keeps seeing valid scopes).
@@ -220,7 +219,7 @@ class TokenEndpointTests(TestCase):
         self.assertEqual(reuse.status_code, 200)
 
     def test_bad_credentials_rejected(self):
-        make_user("editor", email="bad@districtr.org")
+        make_user("partner", email="bad@districtr.org")
         response = self.client.post(
             "/api/token/",
             {"username": "bad@districtr.org", "password": "wrong-password"},
@@ -228,7 +227,7 @@ class TokenEndpointTests(TestCase):
         self.assertEqual(response.status_code, 401)
 
     def test_audience_and_issuer_enforced(self):
-        user = make_user("editor", email="aud@districtr.org")
+        user = make_user("partner", email="aud@districtr.org")
         token = str(DistrictrTokenObtainPairSerializer.get_token(user).access_token)
         keys = {k["kid"]: k for k in all_jwks()}
         signing_key = pyjwt.algorithms.RSAAlgorithm.from_jwk(
@@ -251,14 +250,14 @@ class ProvisionUsersTests(TestCase):
         # filter, and derive the link domain from WAGTAILADMIN_BASE_URL
         # (there is no request, and django.contrib.sites is not installed).
         with tempfile.NamedTemporaryFile("w", suffix=".csv") as csv_file:
-            csv_file.write("email,name,group\nnew@districtr.org,New User,editor\n")
+            csv_file.write("email,name,group\nnew@districtr.org,New User,partner\n")
             csv_file.flush()
             with override_settings(WAGTAILADMIN_BASE_URL="https://cms.districtr.org"):
                 call_command("provision_users", csv_file.name)
 
         user = get_user_model().objects.get(username="new@districtr.org")
         self.assertFalse(user.has_usable_password())
-        self.assertEqual([g.name for g in user.groups.all()], ["editor"])
+        self.assertEqual([g.name for g in user.groups.all()], ["partner"])
 
         self.assertEqual(len(mail.outbox), 1)
         message = mail.outbox[0]

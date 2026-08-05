@@ -16,7 +16,10 @@ from django.test import RequestFactory, TestCase
 from django.urls import reverse
 
 from authapi.models import ReviewTagAssignment
-from authapi.serializers import DistrictrTokenObtainPairSerializer, mint_user_access_token
+from authapi.serializers import (
+    DistrictrTokenObtainPairSerializer,
+    mint_user_access_token,
+)
 from authapi.tests import fastapi_style_verify
 from datastore.test_admin_tools import PASSWORD, make_admin_user
 from moderation import wagtail_hooks
@@ -78,7 +81,7 @@ class MintUserAccessTokenTests(TestCase):
     def test_kid_header_and_algorithm(self):
         from authapi.jwks import current_kid
 
-        token = mint_user_access_token(make_admin_user(group_name="reviewer"))
+        token = mint_user_access_token(make_admin_user(group_name="partner"))
         header = pyjwt.get_unverified_header(token)
         self.assertEqual(header["kid"], current_kid())
         self.assertEqual(header["alg"], "RS256")
@@ -86,7 +89,7 @@ class MintUserAccessTokenTests(TestCase):
     def test_tag_scoped_reviewer_claims(self):
         # The whole scoping contract: assignments emit a sorted review_tags
         # claim and strip read:read-all so the backend enforces it.
-        user = make_admin_user(email="scoped@districtr.org", group_name="reviewer")
+        user = make_admin_user(email="scoped@districtr.org", group_name="partner")
         ReviewTagAssignment.objects.create(user=user, tag_slug="b-tour")
         ReviewTagAssignment.objects.create(user=user, tag_slug="a-tour")
         payload = fastapi_style_verify(mint_user_access_token(user))
@@ -97,7 +100,7 @@ class MintUserAccessTokenTests(TestCase):
     def test_login_path_claims_unchanged_by_refactor(self):
         # Guard the set_user_claims extraction: the login-issued access token
         # carries the same claims as the in-process mint.
-        user = make_admin_user(email="both@districtr.org", group_name="reviewer")
+        user = make_admin_user(email="both@districtr.org", group_name="partner")
         login_payload = fastapi_style_verify(
             str(DistrictrTokenObtainPairSerializer.get_token(user).access_token)
         )
@@ -115,18 +118,16 @@ class CommentListViewTests(TestCase):
     def setUp(self):
         self.url = reverse("moderation_comments")
         self.reviewer = make_admin_user(
-            email="reviewer@districtr.org", group_name="reviewer"
+            email="reviewer@districtr.org", group_name="partner"
         )
         self.client.login(username="reviewer@districtr.org", password=PASSWORD)
 
-    def test_editor_and_partner_denied(self):
-        for group in ("editor", "partner"):
-            user = make_admin_user(email=f"{group}@districtr.org", group_name=group)
-            self.client.force_login(user)
-            response = self.client.get(self.url)
-            self.assertRedirects(
-                response, reverse("wagtailadmin_home"), msg_prefix=group
-            )
+    def test_groupless_user_denied(self):
+        user = make_admin_user(email="lone@districtr.org", group_name="partner")
+        user.groups.clear()
+        self.client.force_login(user)
+        response = self.client.get(self.url)
+        self.assertRedirects(response, reverse("wagtailadmin_home"))
 
     def test_filters_map_to_backend_params(self):
         with mock.patch("moderation.services.requests.request") as request:
@@ -204,7 +205,7 @@ class CommentListViewTests(TestCase):
 class DistrictCommentListViewTests(TestCase):
     def setUp(self):
         self.url = reverse("moderation_district_comments")
-        make_admin_user(email="reviewer@districtr.org", group_name="reviewer")
+        make_admin_user(email="reviewer@districtr.org", group_name="partner")
         self.client.login(username="reviewer@districtr.org", password=PASSWORD)
 
     def test_defaults_to_flagged_queue(self):
@@ -243,14 +244,12 @@ class DistrictCommentListViewTests(TestCase):
 class ReviewActionTests(TestCase):
     def setUp(self):
         self.url = reverse("moderation_review_action")
-        make_admin_user(email="reviewer@districtr.org", group_name="reviewer")
+        make_admin_user(email="reviewer@districtr.org", group_name="partner")
         self.client.login(username="reviewer@districtr.org", password=PASSWORD)
 
     def post(self, data, **kwargs):
         with mock.patch("moderation.services.requests.request") as request:
-            request.return_value = mock_response(
-                json_body={"message": "ok", "id": 1}
-            )
+            request.return_value = mock_response(json_body={"message": "ok", "id": 1})
             response = self.client.post(self.url, data, **kwargs)
         return response, request
 
@@ -309,7 +308,11 @@ class ReviewActionTests(TestCase):
         for data in (
             {"content_type": "comment", "id": "11", "review_status": "BOGUS"},
             {"content_type": "bogus", "id": "11", "review_status": "APPROVED"},
-            {"content_type": "comment", "id": "not-a-number", "review_status": "APPROVED"},
+            {
+                "content_type": "comment",
+                "id": "not-a-number",
+                "review_status": "APPROVED",
+            },
             {"content_type": "comment", "review_status": "APPROVED"},
         ):
             response, _ = self.post(data)
@@ -360,8 +363,9 @@ class ReviewActionTests(TestCase):
             fetch_redirect_response=False,
         )
 
-    def test_editor_denied(self):
-        user = make_admin_user(email="editor@districtr.org", group_name="editor")
+    def test_groupless_user_denied(self):
+        user = make_admin_user(email="lone@districtr.org", group_name="partner")
+        user.groups.clear()
         self.client.force_login(user)
         response, request = self.post(
             {"content_type": "comment", "id": "11", "review_status": "APPROVED"}
@@ -382,16 +386,14 @@ class SiteSettingsViewTests(TestCase):
         self.client.login(username="admin@districtr.org", password=PASSWORD)
 
     def test_non_admin_denied(self):
-        user = make_admin_user(email="reviewer@districtr.org", group_name="reviewer")
+        user = make_admin_user(email="partner@districtr.org", group_name="partner")
         self.client.force_login(user)
         response = self.client.get(self.url)
         self.assertRedirects(response, reverse("wagtailadmin_home"))
 
     def test_get_renders_current_value(self):
         with mock.patch("moderation.services.requests.request") as request:
-            request.return_value = mock_response(
-                json_body={"under_construction": True}
-            )
+            request.return_value = mock_response(json_body={"under_construction": True})
             response = self.client.get(self.url)
         self.assertContains(response, "checked")
         # The public GET goes out unauthenticated.
@@ -400,9 +402,7 @@ class SiteSettingsViewTests(TestCase):
 
     def test_post_patches_with_admin_token(self):
         with mock.patch("moderation.services.requests.request") as request:
-            request.return_value = mock_response(
-                json_body={"under_construction": True}
-            )
+            request.return_value = mock_response(json_body={"under_construction": True})
             response = self.client.post(self.url, {"under_construction": "on"})
         self.assertRedirects(response, self.url, fetch_redirect_response=False)
         args, kwargs = request.call_args
@@ -444,9 +444,8 @@ class ModerationMenuItemTests(TestCase):
         settings_item = wagtail_hooks.register_site_settings_menu_item()
         expected = {
             "admin": {"Comment review", "Frontend settings"},
-            "reviewer": {"Comment review"},
-            "editor": set(),
-            "partner": set(),
+            "partner": {"Comment review"},
+            "super_partner": {"Comment review"},
         }
         for group, visible_labels in expected.items():
             user = make_admin_user(email=f"{group}@districtr.org", group_name=group)

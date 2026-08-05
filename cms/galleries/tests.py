@@ -261,36 +261,30 @@ class GalleryListApiTests(TestCase):
 
 
 class GalleryPermissionTests(TestCase):
-    """Partner curates drafts; editor/admin publish (migration 0002)."""
+    """Partners curate drafts; admin publishes (migration 0002 + authapi.0007)."""
 
-    def test_partner_can_draft_but_not_publish(self):
-        partner = make_user("partner", "partner@districtr.org")
+    def test_partners_can_draft_but_not_publish(self):
         # ModelPermissionPolicy is what SnippetViewSet consults; "publish" is
         # the extra action DraftStateMixin snippets gate the Publish button on.
         policy = ModelPermissionPolicy(Gallery)
-        self.assertTrue(policy.user_has_permission(partner, "add"))
-        self.assertTrue(policy.user_has_permission(partner, "change"))
-        self.assertFalse(policy.user_has_permission(partner, "publish"))
-        self.assertFalse(policy.user_has_permission(partner, "delete"))
-
-    def test_editor_and_admin_can_publish(self):
-        policy = ModelPermissionPolicy(Gallery)
-        for group in ("editor", "admin"):
+        for group in ("partner", "super_partner"):
             user = make_user(group, f"{group}@districtr.org")
-            for action in ("add", "change", "delete", "publish"):
-                self.assertTrue(
-                    policy.user_has_permission(user, action),
-                    f"{group} should have {action}",
-                )
+            self.assertTrue(policy.user_has_permission(user, "add"))
+            self.assertTrue(policy.user_has_permission(user, "change"))
+            self.assertFalse(policy.user_has_permission(user, "publish"))
+            self.assertFalse(policy.user_has_permission(user, "delete"))
 
-    def test_reviewer_gets_no_gallery_permissions(self):
-        reviewer = make_user("reviewer", "reviewer@districtr.org")
+    def test_admin_can_publish(self):
         policy = ModelPermissionPolicy(Gallery)
+        user = make_user("admin", "admin@districtr.org")
         for action in ("add", "change", "delete", "publish"):
-            self.assertFalse(policy.user_has_permission(reviewer, action))
+            self.assertTrue(
+                policy.user_has_permission(user, action),
+                f"admin should have {action}",
+            )
 
     def test_all_groups_can_enter_wagtail_admin(self):
-        for group in ("admin", "editor", "reviewer", "partner"):
+        for group in ("admin", "partner", "super_partner"):
             user = make_user(group, f"{group}-access@districtr.org")
             self.assertTrue(
                 user.has_perm("wagtailadmin.access_admin"),

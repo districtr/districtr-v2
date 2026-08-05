@@ -39,7 +39,9 @@ def register_moderation_admin_urls():
             views.district_comments,
             name="moderation_district_comments",
         ),
-        path("moderation/review/", views.review_action, name="moderation_review_action"),
+        path(
+            "moderation/review/", views.review_action, name="moderation_review_action"
+        ),
         path(
             "moderation/site-settings/",
             views.site_settings,

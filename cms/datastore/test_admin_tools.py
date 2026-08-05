@@ -27,7 +27,7 @@ from django.urls import reverse
 from authapi.tests import fastapi_style_verify
 from datastore import services
 from datastore.forms import MAX_GPKG_BYTES, GeoPackageImportForm
-from datastore.models import DistrictrMap, GerryDBTable
+from datastore.models import DistrictrMap, GerryDBTable, MapGroup
 from datastore.services import BackendAPIError
 
 PASSWORD = "correct-horse-battery-staple"
@@ -275,6 +275,31 @@ class ImportViewPermissionTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Import GeoPackage")
         self.assertContains(response, "Schedule import")
+
+
+class SuperPartnerToolAccessTests(TestCase):
+    """authapi.0007: super_partner runs the map-module tools (compose,
+    upload overlay) but NOT the raw GPKG import, which stays admin-only via
+    its distinct add_gerrydbtable gate."""
+
+    def setUp(self):
+        # The tool forms' dropdowns query the managed=False mirrors, which
+        # need real tables inside the test transaction.
+        with connection.schema_editor() as editor:
+            editor.create_model(GerryDBTable)
+            editor.create_model(DistrictrMap)
+            editor.create_model(MapGroup)
+        make_admin_user(email="super@districtr.org", group_name="super_partner")
+        self.client.login(username="super@districtr.org", password=PASSWORD)
+
+    def test_compose_and_overlay_tools_allowed(self):
+        for name in ("datastore_compose_map", "datastore_upload_overlay"):
+            response = self.client.get(reverse(name))
+            self.assertEqual(response.status_code, 200, name)
+
+    def test_gpkg_import_denied(self):
+        response = self.client.get(reverse("datastore_import_gpkg"))
+        self.assertRedirects(response, reverse("wagtailadmin_home"))
 
 
 class ImportViewPostTests(TestCase):
