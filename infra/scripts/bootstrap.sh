@@ -13,6 +13,10 @@ KMS_ALIAS="${KMS_ALIAS:-alias/districtr-pulumi-secrets}"
 ROLE_NAME="${ROLE_NAME:-districtr-gha-deploy}"
 GITHUB_REPO="${GITHUB_REPO:?Set GITHUB_REPO, e.g. GITHUB_REPO=districtr/districtr-v2}"
 
+# Regional calls below (KMS, etc.) don't all pass --region explicitly; export
+# it so they inherit the same region regardless of the caller's AWS CLI config.
+export AWS_DEFAULT_REGION="$REGION"
+
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 echo "Bootstrapping account ${ACCOUNT_ID} in ${REGION} for repo ${GITHUB_REPO}"
 
