@@ -16,6 +16,7 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {ACCESS_STATES} from '@constants/document/state';
+import type {HelpTipKey} from '@/app/components/HelpTip/helpTipContent';
 
 export type ActiveToolConfig = {
   hotKeyAccessor: (event: KeyboardEvent) => boolean;
@@ -28,10 +29,12 @@ export type ActiveToolConfig = {
   icon: React.ForwardRefExoticComponent<IconProps & React.RefAttributes<SVGSVGElement>>;
   iconStyle?: React.CSSProperties;
   onClick?: () => void;
+  helpKey?: HelpTipKey;
 };
 
 export const useActiveTools = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
+  const inBlockView = useMapStore(state => state.captiveIds.size > 0);
   const access = useMapStore(state => state.mapStatus?.access);
   const isEditing = access === ACCESS_STATES.EDIT;
   const mapMode = useMapControlsStore(state => state.mapMode);
@@ -54,6 +57,11 @@ export const useActiveTools = () => {
   const metaKey =
     typeof navigator !== 'undefined' && navigator.platform.includes('Mac') ? '⌘' : 'Ctrl';
 
+  // Pan, paint, and erase exist in both Draw and Super Draw, so their shared
+  // help entry flips with the mode — the same combination key Break and
+  // Inspector always use, since those two only ever exist in Super Draw.
+  const combinationHelpKey = superDraw ? 'superdrawToolsCombination' : 'drawToolsCombination';
+
   const config: ActiveToolConfig[] = [
     {
       hotKeyLabel: 'M',
@@ -61,6 +69,7 @@ export const useActiveTools = () => {
       disabled: !mapDocument?.document_id,
       label: 'Move',
       icon: HandIcon,
+      helpKey: combinationHelpKey,
       hotKeyAccessor: e => {
         return e.code === 'KeyM';
       },
@@ -71,6 +80,7 @@ export const useActiveTools = () => {
       disabled: !mapDocument?.document_id || !isEditing,
       label: 'Paint',
       icon: Pencil2Icon,
+      helpKey: combinationHelpKey,
       hotKeyAccessor: e => {
         return e.code === 'KeyP';
       },
@@ -81,6 +91,7 @@ export const useActiveTools = () => {
       disabled: !mapDocument?.document_id || !isEditing,
       label: 'Erase',
       icon: EraserIcon,
+      helpKey: combinationHelpKey,
       hotKeyAccessor: e => {
         return e.code === 'KeyE';
       },
@@ -91,6 +102,8 @@ export const useActiveTools = () => {
       disabled: pastStates.length === 0 || !isEditing,
       label: 'Undo',
       icon: ResetIcon,
+      // Same helpKey as Redo: one explanation covers the pair.
+      helpKey: 'undoRedo',
       onClick: () => {
         handleUndo();
       },
@@ -106,6 +119,7 @@ export const useActiveTools = () => {
       label: 'Redo',
       icon: ResetIcon,
       iconStyle: {transform: 'rotateY(180deg)'},
+      helpKey: 'undoRedo',
       onClick: () => {
         handleRedo();
       },
@@ -117,9 +131,13 @@ export const useActiveTools = () => {
     {
       hotKeyLabel: 'B',
       mode: ACTIVE_TOOLS.SHATTER,
-      disabled: !mapDocument?.child_layer,
+      // Also disabled inside block view: you're already in the one unit
+      // you'd be breaking, so the click would do nothing.
+      disabled: !mapDocument?.child_layer || inBlockView,
       label: 'Break',
       icon: ViewGridIcon,
+      // Only ever rendered in Super Draw (filtered below), so no mode branch needed.
+      helpKey: 'superdrawToolsCombination',
       hotKeyAccessor: e => {
         return e.code === 'KeyB';
       },
@@ -127,8 +145,10 @@ export const useActiveTools = () => {
     {
       hotKeyLabel: 'I',
       mode: ACTIVE_TOOLS.INSPECTOR,
-      label: 'Inspector',
+      label: 'Inspect',
       icon: MagnifyingGlassIcon,
+      // Only ever rendered in Super Draw (filtered below), so no mode branch needed.
+      helpKey: 'superdrawToolsCombination',
       hotKeyAccessor: e => {
         return e.code === 'KeyI';
       },

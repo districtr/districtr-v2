@@ -3,6 +3,11 @@ import {DevTeam} from '@/app/components/Static/Content/DevTeam';
 import {Flex, Heading, Text, Link, Box} from '@radix-ui/themes';
 import {LearnSubNav} from '@/app/components/Static/LearnSubNav';
 
+export const metadata = {
+  title: 'About',
+  description: 'Who builds Districtr and why',
+};
+
 export default function AboutPage() {
   return (
     <Flex direction="column" gapY="4">

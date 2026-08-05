@@ -19,13 +19,23 @@ const TOC_ENTRIES: GuideTocEntry[] = [
   {title: 'Map Modes'},
   {
     title: 'Saving, Sharing, Importing & Exporting',
-    subsections: ['Saving your Map', 'Sharing your Map', 'Importing Maps', 'Exporting Maps'],
+    subsections: [
+      'Edit map names and details',
+      'Sharing your Map',
+      'Importing Maps',
+      'Exporting Maps',
+    ],
   },
   {title: 'Super Draw'},
 ];
 
 /** Anchor id + scroll-offset props for a subheading, so it lines up with its GuideToc link. */
 const subheadingAnchor = (title: string) => ({id: slugify(title), className: 'scroll-mt-28'});
+
+export const metadata = {
+  title: 'Guide',
+  description: 'How to draw districting and community maps with Districtr',
+};
 
 export default function GuidePage() {
   return (
@@ -103,7 +113,7 @@ export default function GuidePage() {
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/brush_size.webm`}
             />
             <Text size="3">
-              To paint whole counties at once, toggle the “County Brush” box next to the slider.
+              To paint whole counties at once, toggle the “Paint by county” box next to the slider.
             </Text>
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/county_brush.webm`}
@@ -251,8 +261,8 @@ export default function GuidePage() {
 
         <ContentSection title="Saving, Sharing, Importing & Exporting">
           <Flex direction="column" gapY="4">
-            <Heading as="h3" size="4" {...subheadingAnchor('Saving your Map')}>
-              Saving your Map
+            <Heading as="h3" size="4" {...subheadingAnchor('Edit map names and details')}>
+              Edit map names and details
             </Heading>
             <Text size="3">
               Your map automatically saves as you work, right in your browser's local storage — no

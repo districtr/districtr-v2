@@ -102,7 +102,7 @@ DNS hosting, Auth0, Sentry.
 
 Per-stack config lives in `Pulumi.{dev,prod}.yaml`. Non-secret values
 (domains, CORS origins, Auth0 identifiers, task sizing) are plain text;
-secrets (`secretKey`, Auth0 client/session secrets, optional OpenAI/reCAPTCHA)
+secrets (`secretKey`, Auth0 client/session secrets, optional OpenAI/Turnstile)
 are KMS-encrypted in the same file and safe to commit. Defaults per stack
 (DB class, counts, log retention, etc.) live in `config.ts` and can be
 overridden by setting the corresponding key.
@@ -209,7 +209,7 @@ One-time, with admin credentials:
    `AWS_DEPLOY_DEV` / `AWS_DEPLOY_PROD` (`true` to enable auto-deploy on push),
    optional `AWS_REGION` (defaults to `us-east-2`; must match the state bucket
    and stack region). Repo **secrets**: `SENTRY_AUTH_TOKEN`,
-   `RECAPTCHA_SITE_KEY`, `NEXT_PUBLIC_MAPTILER_API_KEY`.
+   `TURNSTILE_SITE_KEY`, `NEXT_PUBLIC_MAPTILER_API_KEY`.
 3. Initialize stacks and set secrets:
    ```bash
    pulumi login 's3://districtr-v2-pulumi-state?region=us-east-2'
@@ -220,7 +220,7 @@ One-time, with admin credentials:
    pulumi config set --secret auth0SessionSecret "$(openssl rand -hex 32)"
    pulumi config set --secret auth0ClientId <...>
    pulumi config set --secret auth0ClientSecret <...>
-   # optional: openaiApiKey, recaptchaSecretKey
+   # optional: openaiApiKey, turnstileSecretKey
    ```
    Fill the non-secret `Pulumi.{dev,prod}.yaml` values (domains, Auth0
    domain/audience/issuer, bucket, CDN URL).

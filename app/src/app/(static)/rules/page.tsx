@@ -20,6 +20,11 @@ const RuleSection: React.FC<{
   );
 };
 
+export const metadata = {
+  title: 'Rules of Redistricting',
+  description: 'The rules and criteria that shape redistricting',
+};
+
 export default function RulesPage() {
   return (
     <Flex direction="column" gapY="4">
@@ -71,7 +76,7 @@ export default function RulesPage() {
           />
           <RuleSection
             title="Contiguity"
-            description="Each district should be one connected piece"
+            description="Each district should be one connected component"
             image="/nesting - contiguity.png"
             imageAlt="Contiguity"
           />

@@ -8,7 +8,9 @@ from app.utils import (
     add_extent_to_districtrmap,
     update_districtrmap,
     GEOID_PREDICATES,
+    _stats_object_key,
 )
+from app.core.config import settings
 from sqlmodel import Session
 import subprocess
 from app.constants import GERRY_DB_SCHEMA
@@ -16,9 +18,9 @@ from app.models import DistrictrMap, GeoUnitType
 from tests.constants import OGR2OGR_PG_CONNECTION_STRING, FIXTURES_PATH
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
-from app.core.security import recaptcha, auth
+from app.core.security import turnstile, auth
 from pytest import MonkeyPatch, fixture
-from tests.utils import fake_verify_recaptcha
+from tests.utils import fake_verify_turnstile
 from fastapi.security import SecurityScopes
 from app.main import app
 from app.comments.models import FullCommentFormResponse
@@ -347,9 +349,9 @@ def test_get_edges(client, session: Session, document_id):
 
 
 @fixture(autouse=True)
-def patch_recaptcha():
+def patch_turnstile():
     monkeypatch = MonkeyPatch()
-    monkeypatch.setattr(recaptcha, "verify_recaptcha", fake_verify_recaptcha)
+    monkeypatch.setattr(turnstile, "verify_turnstile", fake_verify_turnstile)
     yield
     monkeypatch.undo()
 
@@ -426,3 +428,15 @@ def handle_full_submission_approve(client, form_response: FullCommentFormRespons
 )
 def test_geoid_predicates(unit_type, geo_id, expected):
     assert GEOID_PREDICATES[unit_type](geo_id) is expected
+
+
+def test_stats_object_key_is_environment_scoped(monkeypatch):
+    monkeypatch.setattr(settings, "ENVIRONMENT", "development")
+    dev_key = _stats_object_key("123")
+
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+    prod_key = _stats_object_key("123")
+
+    assert dev_key != prod_key
+    assert "/development/" in dev_key
+    assert "/production/" in prod_key

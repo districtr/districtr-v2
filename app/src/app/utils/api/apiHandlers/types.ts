@@ -206,7 +206,7 @@ export interface FullCommentForm {
   comment: CommentCreate;
   commenter: CommenterCreate;
   tags: TagCreate[];
-  recaptcha_token: string;
+  turnstile_token: string;
 }
 
 export interface FullCommentFormResponse {

@@ -1,12 +1,12 @@
 ---
 name: learn-auth-share
-description: Auth0 scopes, recaptcha verification, and share/edit token security patterns
+description: Auth0 scopes, Turnstile captcha verification, and share/edit token security patterns
 user-invocable: false
 ---
 
 # Auth & Share Security
 
-Authentication/authorization and share-security behavior across Auth0 scopes, recaptcha verification, and map share/edit-access tokens.
+Authentication/authorization and share-security behavior across Auth0 scopes, Turnstile captcha verification, and map share/edit-access tokens.
 
 ## When To Use
 - You are changing protected endpoints, scopes, or role behavior.
@@ -26,7 +26,7 @@ Authentication/authorization and share-security behavior across Auth0 scopes, re
 ## Hard Invariants
 - Protected backend routes must enforce required scopes via `auth.verify`.
 - Auth0 token validation must preserve audience/issuer/algorithm constraints.
-- Recaptcha-gated flows must verify token server-side.
+- Captcha-gated flows must verify token server-side.
 - Share-token payload and password behavior must remain compatible with frontend share/edit flows.
 - Public document access must not expose private document identifiers.
 
@@ -38,14 +38,14 @@ Authentication/authorization and share-security behavior across Auth0 scopes, re
 
 ## Anti-Patterns
 - Broadening scopes or bypassing route security checks for convenience.
-- Performing recaptcha checks only in frontend.
+- Performing captcha checks only in frontend.
 - Logging sensitive token/password data.
 - Returning internal IDs/secrets in public route responses.
 
 ## Change Checklist
 1. Verify scope enforcement on all touched protected routes.
 2. Verify token verification config (audience/issuer/algorithms) is unchanged or intentionally updated.
-3. Verify recaptcha validation still runs for relevant form endpoints.
+3. Verify captcha validation still runs for relevant form endpoints.
 4. Verify share/password flow works for read/edit transitions.
 5. Verify no sensitive data is exposed in logs/responses.
 
@@ -57,4 +57,4 @@ Authentication/authorization and share-security behavior across Auth0 scopes, re
 - 401/403 regressions from missing scopes in frontend-acquired tokens.
 - Broken admin pages from session/token wiring drift.
 - Password-protected map edit failures due to token/payload mismatch.
-- False recaptcha failures from env/config mistakes.
+- False captcha failures from env/config mistakes.

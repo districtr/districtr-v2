@@ -128,7 +128,7 @@ IndexedDB serves as offline cache and conflict resolution source. Debounced writ
 - **Bulk assignments**: `PUT /api/assignments` uses PostgreSQL COPY for performance with optimistic concurrency
 - **Shatter operations**: `PATCH /api/assignments/{doc_id}/shatter` handles parent → child decomposition
 - **Contiguity**: Graph-based checking via NetworkX
-- **Auth**: Auth0 JWT with scopes (default/editor/admin), reCAPTCHA for public forms
+- **Auth**: Auth0 JWT with scopes (default/editor/admin), Cloudflare Turnstile for public forms
 
 ### Database Design
 

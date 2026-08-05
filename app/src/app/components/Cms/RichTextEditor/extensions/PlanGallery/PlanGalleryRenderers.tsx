@@ -1,6 +1,6 @@
 'use client';
 import {Box, Flex, Table, Text} from '@radix-ui/themes';
-import {CDN_URL} from '@/app/utils/api/constants';
+import {thumbnailUrl} from '@/app/utils/api/thumbnailUrl';
 import {MinPublicDocument} from '@utils/api/apiHandlers/types';
 import {useRouter} from 'next/navigation';
 
@@ -30,7 +30,7 @@ export const PlanCard = ({plan, ...flags}: {plan: MinPublicDocument} & PlanFlags
           <Box
             className="w-full relative overflow-hidden aspect-video border-2 border-b-0 border-gray-50 bg-white"
             style={{
-              backgroundImage: `url(${CDN_URL}/thumbnails/${plan.public_id}.png), url(${FALLBACK_IMAGE_URL})`,
+              backgroundImage: `url(${thumbnailUrl(plan.public_id)}), url(${FALLBACK_IMAGE_URL})`,
               backgroundSize: 'contain',
               backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat',
@@ -80,7 +80,7 @@ export const PlanTableRow = ({plan, ...flags}: {plan: MinPublicDocument} & PlanF
           <Box
             className="w-full relative overflow-hidden aspect-video border-2 border-gray-50 bg-white size-8"
             style={{
-              backgroundImage: `url(${CDN_URL}/thumbnails/${plan.public_id}.png), url(${FALLBACK_IMAGE_URL})`,
+              backgroundImage: `url(${thumbnailUrl(plan.public_id)}), url(${FALLBACK_IMAGE_URL})`,
               backgroundSize: 'contain',
               backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat',

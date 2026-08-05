@@ -9,6 +9,27 @@ if (stack !== "dev" && stack !== "prod") {
 
 const isProd = stack === "prod";
 
+// Turnstile migration guard: the old reCAPTCHA secrets are useless for
+// Turnstile verification, so a stack that still carries them without the
+// replacements would silently deploy captcha-less comment endpoints and
+// unverified session minting. Fail the deploy instead.
+for (const [oldKey, newKey] of [
+  ["recaptchaSecretKey", "turnstileSecretKey"],
+  ["recaptchaV3SecretKey", "turnstileSessionSecretKey"],
+] as const) {
+  if (cfg.getSecret(oldKey) && !cfg.getSecret(newKey)) {
+    throw new Error(
+      `Stack config still has ${oldKey} but ${newKey} is unset — run ` +
+        `"pulumi config set --secret ${newKey} <value>" then "pulumi config rm ${oldKey}"`
+    );
+  }
+}
+
+// Hoisted: the listener rule and the WAF rate limit must scope to the *same*
+// set of API hostnames, so it's computed once rather than derived twice.
+const apiDomain = cfg.require("apiDomain");
+const extraApiDomains = cfg.getObject<string[]>("extraApiDomains") ?? [];
+
 export const config = {
   stack,
   isProd,
@@ -20,8 +41,18 @@ export const config = {
   // Domains. The ALB serves the app on appDomain (+ extraDomains) and the
   // API on apiDomain via a host-header listener rule.
   appDomain: cfg.require("appDomain"),
-  apiDomain: cfg.require("apiDomain"),
+  apiDomain,
   extraDomains: cfg.getObject<string[]>("extraDomains") ?? [],
+  // Additional hostnames that must reach the backend, in either direction of a
+  // domain cutover: the incoming name before apiDomain flips, the outgoing one
+  // after (NEXT_PUBLIC_API_URL is baked in at build time, so loaded clients go
+  // on calling it). Names here still need a cert — list them in extraDomains
+  // too. Empty outside a cutover.
+  extraApiDomains,
+  /** Every hostname routed to the backend. Anything answering on one of these
+   * bypasses the frontend target group *and* falls under the API rate limit;
+   * the two must not disagree. */
+  apiHosts: Array.from(new Set([apiDomain, ...extraApiDomains])),
   corsOrigins: cfg.require("corsOrigins"),
   // Regex of additional allowed CORS origins, so label-based PR previews
   // (pr-<N>.dev.districtr.org) can call the shared dev API. Dev only.
@@ -43,8 +74,8 @@ export const config = {
   auth0ClientSecret: cfg.requireSecret("auth0ClientSecret"),
   auth0SessionSecret: cfg.requireSecret("auth0SessionSecret"),
   openaiApiKey: cfg.getSecret("openaiApiKey"),
-  recaptchaSecretKey: cfg.getSecret("recaptchaSecretKey"),
-  recaptchaV3SecretKey: cfg.getSecret("recaptchaV3SecretKey"),
+  turnstileSecretKey: cfg.getSecret("turnstileSecretKey"),
+  turnstileSessionSecretKey: cfg.getSecret("turnstileSessionSecretKey"),
   researchApiKey: cfg.getSecret("researchApiKey"),
 
   // Image tags. Deploy workflows write the current git SHA to

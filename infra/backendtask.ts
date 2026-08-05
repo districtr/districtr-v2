@@ -38,8 +38,8 @@ export function createBackendTaskConfig(repos: Repos, database: Database) {
   addSecret("DATABASE_URL", database.databaseUrl);
   addSecret("SECRET_KEY", config.secretKey);
   addSecret("OPENAI_API_KEY", config.openaiApiKey);
-  addSecret("RECAPTCHA_SECRET_KEY", config.recaptchaSecretKey);
-  addSecret("RECAPTCHA_V3_SECRET_KEY", config.recaptchaV3SecretKey);
+  addSecret("TURNSTILE_SECRET_KEY", config.turnstileSecretKey);
+  addSecret("TURNSTILE_SESSION_SECRET_KEY", config.turnstileSessionSecretKey);
   addSecret("RESEARCH_API_KEY", config.researchApiKey);
 
   // --- IAM ---

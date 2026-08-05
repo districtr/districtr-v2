@@ -12,10 +12,13 @@ export interface ColumnSet {
   sumColumn?: string;
 }
 
-export type EvalColumnConfiguration<T extends ColumnSet> = Array<{
+export type DemographyTableColumnConfiguration<T extends ColumnSet> = Array<{
   label: string;
   column: T['columns'][number];
   sourceCol?: T['columns'][number];
+  /** Denominator column (e.g. total_pop_20/total_vap_20): always rendered as a raw
+   *  count, never a share of itself, and never color-shaded. */
+  isTotal?: boolean;
 }>;
 
 export type MapColumnConfiguration<T extends ColumnSet> = Array<{
@@ -28,18 +31,39 @@ export type MapColumnConfiguration<T extends ColumnSet> = Array<{
   customLegendLabels?: Array<string>;
 }>;
 
+// Comprehensive set of political columns available in gerrydb tables.
 export const ALL_VOTER_COLUMN_GROUPINGS = {
-  'Attorney General 2022': {
-    columns: ['ag_22_dem', 'ag_22_rep'],
-  },
-  'Attorney General 2018': {columns: ['ag_18_dem', 'ag_18_rep']},
-  'Governor 2022': {columns: ['gov_22_dem', 'gov_22_rep']},
-  'Governor 2018': {columns: ['gov_18_dem', 'gov_18_rep']},
-  'Senate 2022': {columns: ['sen_22_dem', 'sen_22_rep']},
-  'Senate 2018': {columns: ['sen_18_dem', 'sen_18_rep']},
-  'Senate 2016': {columns: ['sen_16_dem', 'sen_16_rep']},
+  'Presidential 2024': {columns: ['pres_24_dem', 'pres_24_rep']},
   'Presidential 2020': {columns: ['pres_20_dem', 'pres_20_rep']},
   'Presidential 2016': {columns: ['pres_16_dem', 'pres_16_rep']},
+  'Presidential 2012': {columns: ['pres_12_dem', 'pres_12_rep']},
+  'Presidential 2008': {columns: ['pres_08_dem', 'pres_08_rep']},
+  'Senate 2024': {columns: ['sen_24_dem', 'sen_24_rep']},
+  'Senate 2022': {columns: ['sen_22_dem', 'sen_22_rep']},
+  'Senate 2020': {columns: ['sen_20_dem', 'sen_20_rep']},
+  'Senate 2018': {columns: ['sen_18_dem', 'sen_18_rep']},
+  'Senate 2016': {columns: ['sen_16_dem', 'sen_16_rep']},
+  'Senate 2014': {columns: ['sen_14_dem', 'sen_14_rep']},
+  'Governor 2024': {columns: ['gov_24_dem', 'gov_24_rep']},
+  'Governor 2023': {columns: ['gov_23_dem', 'gov_23_rep']},
+  'Governor 2022': {columns: ['gov_22_dem', 'gov_22_rep']},
+  'Governor 2021': {columns: ['gov_21_dem', 'gov_21_rep']},
+  'Governor 2020': {columns: ['gov_20_dem', 'gov_20_rep']},
+  'Governor 2019': {columns: ['gov_19_dem', 'gov_19_rep']},
+  'Governor 2018': {columns: ['gov_18_dem', 'gov_18_rep']},
+  'Governor 2017': {columns: ['gov_17_dem', 'gov_17_rep']},
+  'Governor 2016': {columns: ['gov_16_dem', 'gov_16_rep']},
+  'Governor 2014': {columns: ['gov_14_dem', 'gov_14_rep']},
+  'Attorney General 2024': {columns: ['ag_24_dem', 'ag_24_rep']},
+  'Attorney General 2023': {columns: ['ag_23_dem', 'ag_23_rep']},
+  'Attorney General 2022': {columns: ['ag_22_dem', 'ag_22_rep']},
+  'Attorney General 2021': {columns: ['ag_21_dem', 'ag_21_rep']},
+  'Attorney General 2020': {columns: ['ag_20_dem', 'ag_20_rep']},
+  'Attorney General 2019': {columns: ['ag_19_dem', 'ag_19_rep']},
+  'Attorney General 2018': {columns: ['ag_18_dem', 'ag_18_rep']},
+  'Attorney General 2017': {columns: ['ag_17_dem', 'ag_17_rep']},
+  'Attorney General 2016': {columns: ['ag_16_dem', 'ag_16_rep']},
+  'Attorney General 2014': {columns: ['ag_14_dem', 'ag_14_rep']},
 } as const;
 
 export const derivedColumnsConfig = {
@@ -100,26 +124,8 @@ export const summaryStatsConfig = {
     sumColumn: 'total_vap_20',
   },
   VOTERHISTORY: {
-    columns: [
-      'ag_22_rep',
-      'ag_22_dem',
-      'ag_18_rep',
-      'ag_18_dem',
-      'gov_22_rep',
-      'gov_22_dem',
-      'gov_18_rep',
-      'gov_18_dem',
-      'sen_22_rep',
-      'sen_22_dem',
-      'sen_18_rep',
-      'sen_18_dem',
-      'sen_16_rep',
-      'sen_16_dem',
-      'pres_20_rep',
-      'pres_20_dem',
-      'pres_16_rep',
-      'pres_16_dem',
-    ],
+    // Derived from the groupings above so the two lists can't drift.
+    columns: Object.values(ALL_VOTER_COLUMN_GROUPINGS).flatMap(grouping => grouping.columns),
   },
 } as const satisfies {[K in SummaryType]: ColumnSet};
 
@@ -141,7 +147,9 @@ export const possibleDerivedColumns = Object.values(derivedColumnsConfig).flat()
 // DERIVED TYPES
 export type SummaryStatConfig = typeof summaryStatsConfig;
 export type AllTabularColumns = SummaryStatConfig[SummaryType]['columns'];
-export type AllEvaluationConfigs = EvalColumnConfiguration<SummaryStatConfig[SummaryType]>;
+export type AllDemographyTableConfigs = DemographyTableColumnConfiguration<
+  SummaryStatConfig[SummaryType]
+>;
 export type AllMapConfigs = MapColumnConfiguration<SummaryStatConfig[SummaryType]>;
 export type DemographyRow = {
   [key in AllTabularColumns[number]]: number;

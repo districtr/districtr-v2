@@ -49,6 +49,10 @@ export const Contiguity = () => {
         });
       }
     }
+    // Most components first; unchecked (null) districts sort last.
+    cleanData.sort(
+      (a: any, b: any) => (b.contiguity ?? 0) - (a.contiguity ?? 0) || a.zone - b.zone
+    );
     return cleanData;
   }, [data]);
 
@@ -72,7 +76,7 @@ export const Contiguity = () => {
               <Table.ColumnHeaderCell>
                 <Text>District</Text>
               </Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Number of pieces</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Number of components</Table.ColumnHeaderCell>
             </Table.Row>
           </Table.Header>
 

@@ -11,6 +11,7 @@ import {SyncConflictModal} from './SyncConflictModal';
 import {MAP_MODES} from '@constants/map/mode';
 import {MAP_TYPES} from '@constants/document/types';
 import {MAP_ROUTES} from '@constants/document/routes';
+import {editPath} from '../utils/map/editUrl';
 import {APP_LOADING_STATES} from '@constants/document/state';
 import {RENDERING_STATES} from '@constants/map/renderingState';
 
@@ -64,11 +65,13 @@ export const SaveConflictModal: React.FC = ({}) => {
       conflict={conflict}
       onResolve={resolution =>
         handlePutAssignmentsConflict(resolution, conflict, {
-          onNavigate: documentId => {
+          onNavigate: document => {
             router.push(
-              isCommunity
-                ? `/${MAP_ROUTES.COI}/edit/${documentId}`
-                : `/${MAP_ROUTES.DISTRICTS}/edit/${documentId}`
+              editPath(
+                isCommunity ? MAP_ROUTES.COI : MAP_ROUTES.DISTRICTS,
+                document.document_id,
+                document.public_id
+              )
             );
           },
           onComplete: () => {

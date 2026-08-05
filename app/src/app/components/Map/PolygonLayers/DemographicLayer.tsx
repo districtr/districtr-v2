@@ -24,6 +24,8 @@ export const DemographicLayer: React.FC<{
     type: 'fill',
     layout: {visibility: 'visible'},
     paint: {
+      // No antialiased per-polygon edges — they read as white outlines between units
+      'fill-antialias': false,
       'fill-opacity': isOverlay ? overlayOpacity : 0.9,
       'fill-color': [
         'case',

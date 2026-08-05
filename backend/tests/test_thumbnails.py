@@ -1,9 +1,18 @@
 import os
 import pytest
 from tests.constants import FIXTURES_PATH
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from datetime import datetime
-from app.thumbnails.main import generate_thumbnail, generate_blank, THUMBNAIL_BUCKET
+from botocore.exceptions import ClientError
+from app.core.config import settings
+from app.core.io import file_exists
+from app.thumbnails.main import (
+    generate_thumbnail,
+    generate_blank,
+    get_thumbnail_file_path,
+    get_thumbnail_environment_folder,
+    THUMBNAIL_BUCKET,
+)
 
 
 @pytest.fixture
@@ -30,7 +39,7 @@ def test_thumbnail_generator(client, document_id_with_assignments, session):
     document_id = document_id_with_assignments
     out_path = f"{FIXTURES_PATH}/{document_id}.png"
     with patch(
-        "app.thumbnails.main.get_document_thumbnail_file_path",
+        "app.thumbnails.main.get_thumbnail_file_path",
         return_value=out_path,
     ):
         # generate_thumbnail now owns its own session when run as a background task,
@@ -63,7 +72,7 @@ def test_blank_thumbnail_generator(client, document_id, session):
     districtrmap_slug = response.json().get("districtr_map_slug")
     out_path = f"{FIXTURES_PATH}/{districtrmap_slug}.png"
     with patch(
-        "app.thumbnails.main.get_document_thumbnail_file_path",
+        "app.thumbnails.main.get_blank_thumbnail_file_path",
         return_value=out_path,
     ):
         generate_blank(
@@ -92,13 +101,63 @@ def test_make_districtrmap_thumbnail_endpoint_schedules_task(client, document_id
 
 
 def test_thumbnail_cdn_redirect(client, document_id):
+    public_id = client.get(f"/api/document/{document_id}").json()["public_id"]
+    with patch("app.thumbnails.main.file_exists", return_value=True):
+        response = client.get(
+            f"/api/document/{public_id}/thumbnail",
+            follow_redirects=False,
+        )
+        assert response.status_code == 307
+        assert (
+            f"/thumbnails/{get_thumbnail_environment_folder()}/{public_id}.png"
+            in response.headers["location"]
+        )
+
+
+def test_thumbnail_cdn_redirect_resolves_raw_document_id(client, document_id):
+    """Edit/password links carry the raw document UUID (not public_id) in
+    their OG image URL — the endpoint must resolve it to the same thumbnail
+    a public_id lookup would find, not miss because of a mismatched key."""
+    public_id = client.get(f"/api/document/{document_id}").json()["public_id"]
     with patch("app.thumbnails.main.file_exists", return_value=True):
         response = client.get(
             f"/api/document/{document_id}/thumbnail",
             follow_redirects=False,
         )
         assert response.status_code == 307
-        assert f"/thumbnails/{document_id}.png" in response.headers["location"]
+        assert (
+            f"/thumbnails/{get_thumbnail_environment_folder()}/{public_id}.png"
+            in response.headers["location"]
+        )
+
+
+def test_thumbnail_unresolvable_id_falls_back_to_placeholder(client):
+    response = client.get(
+        "/api/document/not-a-real-id/thumbnail",
+        follow_redirects=False,
+    )
+    assert response.status_code == 307
+    assert response.headers["location"] == "/home-megaphone.png"
+
+
+def test_thumbnail_file_path_is_environment_scoped(monkeypatch):
+    monkeypatch.setattr(settings, "ENVIRONMENT", "development")
+    dev_path = get_thumbnail_file_path("123")
+
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+    prod_path = get_thumbnail_file_path("123")
+
+    assert dev_path != prod_path
+    assert "/development/" in dev_path
+    assert "/production/" in prod_path
+
+
+@pytest.mark.parametrize("environment", ["local", "development", "qa", "test"])
+def test_non_production_environments_share_one_thumbnail_folder(
+    monkeypatch, environment
+):
+    monkeypatch.setattr(settings, "ENVIRONMENT", environment)
+    assert get_thumbnail_environment_folder() == "development"
 
 
 def test_thumbnail_generic_redirect(client, document_id):
@@ -109,3 +168,24 @@ def test_thumbnail_generic_redirect(client, document_id):
         )
         assert response.status_code == 307
         assert response.headers["location"] == "/home-megaphone.png"
+
+
+def test_file_exists_returns_false_on_s3_404_instead_of_raising():
+    """A HeadObject 404 (object genuinely doesn't exist) must fall back to
+    the placeholder image, not surface as an unhandled ClientError/500."""
+    mock_s3 = MagicMock()
+    mock_s3.head_object.side_effect = ClientError(
+        {"Error": {"Code": "404", "Message": "Not Found"}}, "HeadObject"
+    )
+    with patch.object(type(settings), "get_s3_client", return_value=mock_s3):
+        assert file_exists("s3://some-bucket/thumbnails/production/999999.png") is False
+
+
+def test_file_exists_reraises_non_404_s3_errors():
+    mock_s3 = MagicMock()
+    mock_s3.head_object.side_effect = ClientError(
+        {"Error": {"Code": "403", "Message": "Forbidden"}}, "HeadObject"
+    )
+    with patch.object(type(settings), "get_s3_client", return_value=mock_s3):
+        with pytest.raises(ClientError):
+            file_exists("s3://some-bucket/thumbnails/production/999999.png")
