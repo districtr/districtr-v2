@@ -1,6 +1,5 @@
 """
-Tests for the overlay upload and map module composition admin tools, plus
-the admin-menu cross-links to the legacy frontend review pages.
+Tests for the overlay upload and map module composition admin tools.
 
 The backend and object storage are never touched: requests/boto3 are mocked.
 The datastore mirrors are managed=False so their tables do not exist in the
@@ -11,16 +10,14 @@ and galleries/tests.py do the equivalent for their mirrors).
 
 from unittest import mock
 
-from django.conf import settings
-from django.contrib.auth import get_user_model
 from django.core.exceptions import ImproperlyConfigured
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
-from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
 from authapi.tests import fastapi_style_verify
-from datastore import services, wagtail_hooks
+from datastore import services
 from datastore.forms import MAX_OVERLAY_BYTES, ComposeMapForm, OverlayUploadForm
 from datastore.models import (
     DistrictrMap,
@@ -628,65 +625,3 @@ class ComposeMapViewTests(TestCase):
         schedule.assert_not_called()
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "must differ from the parent layer")
-
-
-# ---------------------------------------------------------------------------
-# Review-site menu items
-# ---------------------------------------------------------------------------
-
-
-class ReviewSiteMenuItemTests(TestCase):
-    def request_for(self, user):
-        request = RequestFactory().get("/admin/")
-        request.user = user
-        return request
-
-    def items(self):
-        return [
-            wagtail_hooks.register_comment_review_menu_item(),
-        ]
-
-    def test_urls_built_from_frontend_url(self):
-        items = self.items()
-        self.assertEqual(
-            [(item.label, item.url) for item in items],
-            [
-                ("Comment review", f"{settings.FRONTEND_URL}/admin/review"),
-            ],
-        )
-
-    def test_ordered_after_galleries(self):
-        # Galleries sits at 210; the cross-link follows it.
-        self.assertEqual([item.order for item in self.items()], [220])
-
-    def test_visibility_matches_group_scopes(self):
-        # The Comment review gate mirrors the FastAPI scope the page needs:
-        # create:content_review (admin + reviewer). Editors lack it, so the
-        # link that could only 403 for them must not be shown.
-        expected = {
-            "admin": {"Comment review"},
-            "reviewer": {"Comment review"},
-            "editor": set(),
-        }
-        for group, visible_labels in expected.items():
-            user = make_admin_user(email=f"{group}@districtr.org", group_name=group)
-            request = self.request_for(user)
-            shown = {item.label for item in self.items() if item.is_shown(request)}
-            self.assertEqual(shown, visible_labels, f"wrong menu links for {group}")
-
-    def test_shown_for_superuser_without_groups(self):
-        user = get_user_model().objects.create_superuser(
-            username="root@districtr.org",
-            email="root@districtr.org",
-            password=PASSWORD,
-        )
-        for item in self.items():
-            self.assertTrue(item.is_shown(self.request_for(user)))
-
-    def test_hidden_for_partner(self):
-        user = make_admin_user(email="partner@districtr.org", group_name="partner")
-        for item in self.items():
-            self.assertFalse(
-                item.is_shown(self.request_for(user)),
-                f"{item.label} shown for partner",
-            )

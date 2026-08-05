@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     "datastore",
     "content",
     "galleries",
+    "moderation",
     "wagtail_localize",
     "wagtail_localize.locales",
     "wagtail.contrib.forms",
@@ -181,17 +182,15 @@ AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
 GPKG_BUCKET = os.environ.get("R2_BUCKET_NAME") or os.environ.get("AWS_S3_BUCKET", "")
 AWS_S3_ENDPOINT = os.environ.get("AWS_S3_ENDPOINT", "")
 # On ECS: no static keys; the task role authenticates via the default chain.
-AWS_USE_DEFAULT_CREDENTIALS = os.environ.get("AWS_USE_DEFAULT_CREDENTIALS", "") == "true"
+AWS_USE_DEFAULT_CREDENTIALS = (
+    os.environ.get("AWS_USE_DEFAULT_CREDENTIALS", "") == "true"
+)
 
 # Public base URL for uploaded overlay sources (Overlay.source). When the
 # bucket is fronted by a CDN (e.g. https://tilesets1.cdn.districtr.org in
 # prod), set this so the stored source is a browser-loadable URL; when unset,
 # the raw s3://bucket/key path is stored instead.
 OVERLAY_PUBLIC_URL_BASE = os.environ.get("OVERLAY_PUBLIC_URL_BASE", "")
-
-# Next.js frontend — used for admin-menu cross-links to the legacy review
-# pages (/admin/review, /admin/review/district-comments, /admin/thumbnails).
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
 
 # JWT issuance. This service replaces Auth0 as the token issuer for both the

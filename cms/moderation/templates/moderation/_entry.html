@@ -1,0 +1,69 @@
+{# One AdminCommentResponse row (form or district comment). District entries
+   simply have no tags and usually no commenter, so those sections vanish. #}
+<article style="border: 1px solid var(--w-color-border-furniture); border-radius: 5px; padding: 1rem; margin-bottom: 1rem;">
+    <header style="display:flex; justify-content:space-between; align-items:start; gap:1rem;">
+        <div>
+            <h3 style="margin: 0 0 0.25rem;">
+                #{{ entry.comment_id }}
+                {% if entry.zone != None %}<small>(District {{ entry.zone }})</small>{% endif %}
+                {% if entry.public_id %}<small>· Map {{ entry.public_id }}</small>{% endif %}
+                {% if entry.comment_review_flagged %}<span class="w-status">Flagged</span>{% endif %}
+            </h3>
+            <p style="margin:0"><small>
+                Moderation score (comment / commenter):
+                {{ entry.comment_moderation_score|floatformat:2|default:"–" }} /
+                {{ entry.commenter_moderation_score|floatformat:2|default:"–" }}
+                {% if entry.created_at %}· {{ entry.created_at }}{% endif %}
+            </small></p>
+        </div>
+        <div style="text-align:right">
+            <strong>Full entry:</strong>
+            {% include "moderation/_review_buttons.html" with ct="entry" %}
+        </div>
+    </header>
+
+    <section style="margin-top:0.75rem;">
+        <h4 style="margin:0 0 0.25rem;">
+            {{ entry.title|default:"(no title)" }}
+            {% if entry.comment_review_status %}<span class="w-status w-status--primary">{{ entry.comment_review_status }}</span>{% endif %}
+        </h4>
+        <p style="white-space:pre-wrap; margin:0 0 0.5rem;">{{ entry.comment }}</p>
+        {% include "moderation/_review_buttons.html" with ct="comment" target_id=entry.comment_id %}
+    </section>
+
+    {% if entry.commenter_id %}
+        <section style="margin-top:0.75rem; border-top:1px solid var(--w-color-border-furniture); padding-top:0.5rem;">
+            <h4 style="margin:0 0 0.25rem;">
+                Commenter
+                {% if entry.commenter_review_status %}<span class="w-status w-status--primary">{{ entry.commenter_review_status }}</span>{% endif %}
+            </h4>
+            <p style="margin:0 0 0.5rem;">
+                {{ entry.first_name|default:"" }} {{ entry.last_name|default:"" }}
+                {% if entry.place %}· {{ entry.place }}{% endif %}
+                {% if entry.state %}· {{ entry.state }}{% endif %}
+                {% if entry.zip_code %}· {{ entry.zip_code }}{% endif %}
+            </p>
+            {% include "moderation/_review_buttons.html" with ct="commenter" target_id=entry.commenter_id %}
+        </section>
+    {% endif %}
+
+    {% if entry.tag_rows %}
+        <section style="margin-top:0.75rem; border-top:1px solid var(--w-color-border-furniture); padding-top:0.5rem;">
+            <h4 style="margin:0 0 0.25rem;">
+                Tags
+                {% if entry.tag_rows|length > 1 %}
+                    — all: {% include "moderation/_review_buttons.html" with ct="tags" %}
+                {% endif %}
+            </h4>
+            <ul style="list-style:none; padding:0; margin:0;">
+                {% for tag in entry.tag_rows %}
+                    <li style="margin-bottom:0.25rem;">
+                        <code>{{ tag.slug }}</code>
+                        {% if tag.status %}<span class="w-status w-status--primary">{{ tag.status }}</span>{% endif %}
+                        {% include "moderation/_review_buttons.html" with ct="tag" target_id=tag.id %}
+                    </li>
+                {% endfor %}
+            </ul>
+        </section>
+    {% endif %}
+</article>

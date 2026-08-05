@@ -1,6 +1,5 @@
 import {NextResponse} from 'next/server';
 import type {NextRequest} from 'next/server';
-import {auth} from '@/auth';
 
 const UNDER_CONSTRUCTION_TTL_MS = 60_000;
 let underConstructionCache = {value: false, fetchedAt: 0};
@@ -30,33 +29,8 @@ async function isUnderConstruction(): Promise<boolean> {
   return underConstructionCache.value;
 }
 
-const adminProxy = auth(request => {
-  const {pathname, search, origin} = request.nextUrl;
-
-  const session = request.auth;
-  // No session, or the silent token refresh failed — force re-login
-  if (!session?.user || session.error === 'RefreshTokenError') {
-    const loginUrl = new URL('/auth/login', origin);
-    loginUrl.searchParams.set('returnTo', `${pathname}${search}`);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  return NextResponse.next();
-});
-
-export async function proxy(request: NextRequest, event: unknown) {
+export async function proxy(request: NextRequest) {
   const {pathname, origin} = request.nextUrl;
-
-  /*
-   * Only run the auth() middleware where the session is actually used: /admin
-   * is the only gated surface. Running auth() on every public page would
-   * invoke the jwt callback — and a token refresh — on anonymous traffic for
-   * no benefit; the /auth routes are route handlers and do not depend on
-   * middleware. Admin stays reachable during under-construction mode.
-   */
-  if (pathname.startsWith('/admin')) {
-    return (adminProxy as any)(request, event);
-  }
 
   if (pathname !== '/under-construction' && (await isUnderConstruction())) {
     return NextResponse.redirect(`${origin}/under-construction`, 302);

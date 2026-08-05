@@ -104,7 +104,9 @@ export const Footer: React.FC = () => (
         <Text className="text-center my-1" size="3">
           Copyright 2025, Data and Democracy Lab. All rights reserved.
         </Text>
-        <Link href="/admin">Admin Login</Link>
+        <Link href={`${process.env.NEXT_PUBLIC_CMS_URL ?? 'http://localhost:8001'}/admin/`}>
+          Admin Login
+        </Link>
       </Flex>
     </Box>
   </>

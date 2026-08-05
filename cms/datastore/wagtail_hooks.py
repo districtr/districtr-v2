@@ -18,7 +18,6 @@ panels force a plain Django select instead.
 from functools import cached_property
 
 from django import forms
-from django.conf import settings
 from django.urls import path, reverse
 from wagtail import hooks
 from wagtail.admin.menu import MenuItem
@@ -327,42 +326,3 @@ def register_datastore_admin_urls():
         path("data/compose-map/", views.compose_map, name="datastore_compose_map"),
         path("data/thumbnails/", views.thumbnails, name="datastore_thumbnails"),
     ]
-
-
-# ---------------------------------------------------------------------------
-# Cross-links to the legacy review pages on the Next.js frontend
-# ---------------------------------------------------------------------------
-
-# Group gate for the Comment review cross-link, matching the FastAPI scope the
-# page needs (authapi/scopes.py): create:content_review (admin + reviewer;
-# editors lack it). The page enforces auth itself, so this only controls menu
-# visibility — but a link the user's token can only 403 on must not be shown.
-# Partners never see it.
-COMMENT_REVIEW_GROUPS = frozenset({"admin", "reviewer"})
-
-
-class ReviewSiteMenuItem(MenuItem):
-    """Top-level external link to a legacy review page on the frontend,
-    shown only to superusers and members of ``groups``."""
-
-    def __init__(self, *args, groups=COMMENT_REVIEW_GROUPS, **kwargs):
-        self.groups = groups
-        super().__init__(*args, **kwargs)
-
-    def is_shown(self, request):
-        user = request.user
-        if user.is_superuser:
-            return True
-        return user.groups.filter(name__in=self.groups).exists()
-
-
-@hooks.register("register_admin_menu_item")
-def register_comment_review_menu_item():
-    # Ordered right after Galleries (210).
-    return ReviewSiteMenuItem(
-        "Comment review",
-        f"{settings.FRONTEND_URL}/admin/review",
-        icon_name="link-external",
-        order=220,
-        groups=COMMENT_REVIEW_GROUPS,
-    )
