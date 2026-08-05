@@ -1,5 +1,5 @@
 import {API_URL, TURNSTILE_SESSION_SITE_KEY} from './constants';
-import {loadTurnstile} from '../turnstile';
+import {requestTurnstileToken} from '../../store/sessionChallengeStore';
 
 /**
  * Silent captcha session tokens. The backend mints a session token from a
@@ -45,52 +45,9 @@ const writeStorage = (session: CachedSession) => {
   }
 };
 
-// Bounded wait for the silent path; once a visible challenge is up, give the
-// user time to complete it instead.
-const SILENT_TIMEOUT_MS = 20 * 1000;
-const INTERACTIVE_TIMEOUT_MS = 2 * 60 * 1000;
-
-/**
- * Render the session widget (Managed, interaction-only) and resolve its token.
- * Normally silent and off-screen; if Cloudflare requires interaction, the
- * widget surfaces bottom-right so the user can complete it manually.
- */
-const getTurnstileToken = (): Promise<string | null> =>
-  new Promise(resolve => {
-    const container = document.createElement('div');
-    container.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:9999;display:none;';
-    document.body.appendChild(container);
-    let widgetId: string | undefined;
-    let timer: ReturnType<typeof setTimeout>;
-    const finish = (token: string | null) => {
-      clearTimeout(timer);
-      if (widgetId !== undefined) window.turnstile?.remove(widgetId);
-      container.remove();
-      resolve(token);
-    };
-    timer = setTimeout(() => finish(null), SILENT_TIMEOUT_MS);
-    try {
-      widgetId = window.turnstile!.render(container, {
-        sitekey: TURNSTILE_SESSION_SITE_KEY,
-        appearance: 'interaction-only',
-        'before-interactive-callback': () => {
-          container.style.display = 'block';
-          clearTimeout(timer);
-          timer = setTimeout(() => finish(null), INTERACTIVE_TIMEOUT_MS);
-        },
-        callback: finish,
-        'error-callback': () => finish(null),
-      });
-    } catch {
-      finish(null);
-    }
-  });
-
 const mintSession = async (): Promise<string | null> => {
   try {
-    await loadTurnstile();
-    if (!window.turnstile) return null;
-    const captchaToken = await getTurnstileToken();
+    const captchaToken = await requestTurnstileToken();
     if (!captchaToken) return null;
     const response = await fetch(`${API_URL || ''}/api/session`, {
       method: 'POST',
