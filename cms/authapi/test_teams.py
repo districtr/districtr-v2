@@ -11,14 +11,15 @@ from django.contrib.auth.models import Group
 from django.db import connection
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
+from django.utils.text import slugify
 from wagtail.models import Site
 
-from authapi.models import Team, TeamMapGroup, TeamMembership
+from authapi.models import Team, TeamDistrictrMap, TeamMembership
 from authapi.teams import (
     TeamScopedModelPermissionPolicy,
     TeamScopedViewGrantPermissionPolicy,
     districtr_map_slugs_for_user,
-    map_group_slugs_for_user,
+    team_slugs_for_user,
     user_is_team_scoped,
 )
 from content.models import PlacePage, PlacesIndexPage, TagPage, TagsIndexPage
@@ -26,12 +27,7 @@ from content.wagtail_hooks import (
     _is_out_of_scope_page,
     scope_content_pages_in_explorer,
 )
-from datastore.models import (
-    DistrictrMap,
-    DistrictrMapsToGroups,
-    GerryDBTable,
-    MapGroup,
-)
+from datastore.models import DistrictrMap, GerryDBTable
 from galleries.models import Gallery, GallerySection
 
 PASSWORD = "correct-horse-battery-staple"
@@ -45,14 +41,18 @@ def make_user(group_name, email):
     return user
 
 
-def make_team(name, *, members=(), group_slugs=()):
-    team = Team.objects.create(name=name)
+def make_team(name, *, members=(), maps=()):
+    team = Team.objects.create(name=name, slug=slugify(name))
     for user in members:
         TeamMembership.objects.create(team=team, user=user)
-    for group_slug in group_slugs:
-        # map_group is a db_constraint=False FK to the managed=False MapGroup
-        # mirror, so a slug can be stored without the public.map_group table.
-        TeamMapGroup.objects.create(team=team, map_group_id=group_slug)
+    for districtr_map in maps:
+        # districtr_map is a db_constraint=False FK to the managed=False
+        # DistrictrMap mirror, so passing a bare uuid also works when the
+        # mirror table is absent.
+        if isinstance(districtr_map, DistrictrMap):
+            TeamDistrictrMap.objects.create(team=team, districtr_map=districtr_map)
+        else:
+            TeamDistrictrMap.objects.create(team=team, districtr_map_id=districtr_map)
     return team
 
 
@@ -64,37 +64,16 @@ def create_mirror_tables(*models):
             editor.create_model(model)
 
 
-def ensure_map_group_table():
-    """Create the managed=False map_group mirror in the test DB.
-
-    Publishing a Gallery whose map_group_id is set touches this Alembic-owned
-    table, which the Django test DB doesn't build (mirrors galleries/tests.py).
-    Lives in the class transaction, so it rolls back after the class.
-    """
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "CREATE TABLE IF NOT EXISTS map_group "
-            "(slug varchar PRIMARY KEY, name varchar)"
-        )
-        cursor.execute(
-            "INSERT INTO map_group VALUES "
-            "('ga', 'Group A'), ('gb', 'Group B'), ('gc', 'Group C') "
-            "ON CONFLICT DO NOTHING"
-        )
-
-
-def make_gallery(slug, *, group_slug):
+def make_gallery(slug, *, team):
     gallery = Gallery(
         slug=slug,
         title=slug.replace("-", " ").title(),
         section=GallerySection.PUBLIC_GALLERY,
-        map_group_id=group_slug,
+        team=team,
         live=False,
     )
     gallery.save()
-    # clean=False: full_clean would validate the map_group FK against the
-    # absent mirror table (mirrors galleries/tests.py::make_gallery).
-    gallery.save_revision(clean=False).publish()
+    gallery.save_revision().publish()
     gallery.refresh_from_db()
     return gallery
 
@@ -104,41 +83,41 @@ class TeamHelperTests(TestCase):
         root = get_user_model().objects.create_superuser(
             username="root@d.org", email="root@d.org", password=PASSWORD
         )
-        make_team("Team", members=[root], group_slugs=["ga"])
+        make_team("Team", members=[root])
         self.assertFalse(user_is_team_scoped(root))
 
     def test_admin_group_never_scoped(self):
         admin = make_user("admin", "admin@d.org")
-        make_team("Team", members=[admin], group_slugs=["ga"])
+        make_team("Team", members=[admin])
         self.assertFalse(user_is_team_scoped(admin))
 
-    def test_editor_without_team_not_scoped(self):
+    def test_partner_without_team_not_scoped(self):
         self.assertFalse(user_is_team_scoped(make_user("partner", "e@d.org")))
 
-    def test_editor_with_team_is_scoped(self):
-        editor = make_user("partner", "e@d.org")
-        make_team("Team A", members=[editor], group_slugs=["ga", "gb"])
-        self.assertTrue(user_is_team_scoped(editor))
-        self.assertEqual(map_group_slugs_for_user(editor), {"ga", "gb"})
+    def test_partner_with_team_is_scoped(self):
+        partner = make_user("partner", "e@d.org")
+        make_team("Team A", members=[partner])
+        self.assertTrue(user_is_team_scoped(partner))
+        self.assertEqual(team_slugs_for_user(partner), {"team-a"})
 
     def test_slugs_union_across_teams(self):
-        editor = make_user("partner", "e@d.org")
-        make_team("T1", members=[editor], group_slugs=["ga"])
-        make_team("T2", members=[editor], group_slugs=["gb", "gc"])
-        self.assertEqual(map_group_slugs_for_user(editor), {"ga", "gb", "gc"})
+        partner = make_user("partner", "e@d.org")
+        make_team("T1", members=[partner])
+        make_team("T2", members=[partner])
+        self.assertEqual(team_slugs_for_user(partner), {"t1", "t2"})
 
 
 class GalleryScopingPolicyTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        ensure_map_group_table()
         cls.policy = TeamScopedModelPermissionPolicy(
-            Gallery, group_filter_field="map_group_id"
+            Gallery, team_filter_field="team_id"
         )
         cls.member = make_user("partner", "member@d.org")
-        make_team("Team A", members=[cls.member], group_slugs=["ga"])
-        cls.mine = make_gallery("mine", group_slug="ga")
-        cls.theirs = make_gallery("theirs", group_slug="gb")
+        cls.team_a = make_team("Team A", members=[cls.member])
+        cls.team_b = make_team("Team B")
+        cls.mine = make_gallery("mine", team=cls.team_a)
+        cls.theirs = make_gallery("theirs", team=cls.team_b)
 
     def test_member_instances_scoped_to_team(self):
         qs = self.policy.instances_user_has_permission_for(self.member, "change")
@@ -163,7 +142,7 @@ class GalleryScopingPolicyTests(TestCase):
         qs = self.policy.instances_user_has_permission_for(admin, "change")
         self.assertEqual(set(qs.values_list("slug", flat=True)), {"mine", "theirs"})
 
-    def test_teamless_editor_unscoped(self):
+    def test_teamless_partner_unscoped(self):
         loner = make_user("partner", "loner@d.org")
         qs = self.policy.instances_user_has_permission_for(loner, "change")
         self.assertEqual(set(qs.values_list("slug", flat=True)), {"mine", "theirs"})
@@ -174,11 +153,11 @@ class GalleryAdminScopingViewTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        ensure_map_group_table()
         cls.member = make_user("partner", "member@d.org")
-        make_team("Team A", members=[cls.member], group_slugs=["ga"])
-        cls.mine = make_gallery("scoped-visible", group_slug="ga")
-        cls.theirs = make_gallery("scoped-hidden", group_slug="gb")
+        cls.team_a = make_team("Team A", members=[cls.member])
+        cls.team_b = make_team("Team B")
+        cls.mine = make_gallery("scoped-visible", team=cls.team_a)
+        cls.theirs = make_gallery("scoped-hidden", team=cls.team_b)
 
     def setUp(self):
         self.client.force_login(self.member)
@@ -201,11 +180,11 @@ class GalleryAdminScopingViewTests(TestCase):
         url = reverse("wagtailsnippets_galleries_gallery:delete", args=[self.theirs.pk])
         self.assertNotEqual(self.client.get(url).status_code, 200)
 
-    def test_create_view_restricts_map_group_to_team(self):
+    def test_create_view_restricts_team_choices(self):
         response = self.client.get(reverse("wagtailsnippets_galleries_gallery:add"))
         self.assertEqual(response.status_code, 200)
-        field = response.context["form"].fields["map_group"]
-        self.assertEqual(set(field.queryset.values_list("slug", flat=True)), {"ga"})
+        field = response.context["form"].fields["team"]
+        self.assertEqual(set(field.queryset), {self.team_a})
         self.assertTrue(field.required)
 
     def test_unpublish_out_of_scope_denied(self):
@@ -224,46 +203,40 @@ class GalleryAdminScopingViewTests(TestCase):
         url = reverse("wagtailsnippets_galleries_gallery:copy", args=[self.theirs.pk])
         self.assertEqual(self.client.get(url).status_code, 404)
 
-    def test_copy_in_scope_restricts_map_group(self):
+    def test_copy_in_scope_restricts_team(self):
         url = reverse("wagtailsnippets_galleries_gallery:copy", args=[self.mine.pk])
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
-        field = response.context["form"].fields["map_group"]
-        self.assertEqual(set(field.queryset.values_list("slug", flat=True)), {"ga"})
+        field = response.context["form"].fields["team"]
+        self.assertEqual(set(field.queryset), {self.team_a})
 
 
 class MapModuleScopingTests(TestCase):
     """DistrictrMap modules: members get scoped, view-only access (admins keep
-    full edit). DistrictrMap reaches MapGroup via DistrictrMapsToGroups."""
+    full edit). DistrictrMap reaches its Teams via TeamDistrictrMap."""
 
     @classmethod
     def setUpTestData(cls):
-        create_mirror_tables(
-            GerryDBTable, MapGroup, DistrictrMap, DistrictrMapsToGroups
-        )
+        create_mirror_tables(GerryDBTable, DistrictrMap)
         cls.policy = TeamScopedViewGrantPermissionPolicy(
-            DistrictrMap, group_filter_field="group_links__group_id"
+            DistrictrMap, team_filter_field="team_links__team_id"
         )
         layer = GerryDBTable.objects.create(name="blocks")
-        group_a = MapGroup.objects.create(slug="ga", name="Group A")
-        group_b = MapGroup.objects.create(slug="gb", name="Group B")
         cls.map_a = DistrictrMap.objects.create(
             name="Map A", districtr_map_slug="ma", parent_layer=layer
         )
         cls.map_b = DistrictrMap.objects.create(
             name="Map B", districtr_map_slug="mb", parent_layer=layer
         )
-        DistrictrMapsToGroups.objects.create(districtrmap=cls.map_a, group=group_a)
-        DistrictrMapsToGroups.objects.create(districtrmap=cls.map_b, group=group_b)
         cls.member = make_user("partner", "mm-member@d.org")
-        make_team("Map Team A", members=[cls.member], group_slugs=["ga"])
+        make_team("Map Team A", members=[cls.member], maps=[cls.map_a])
 
     def test_member_view_instances_scoped(self):
         qs = self.policy.instances_user_has_permission_for(self.member, "view")
         self.assertEqual(set(qs.values_list("districtr_map_slug", flat=True)), {"ma"})
 
     def test_member_granted_view_without_django_permission(self):
-        # An editor holds no datastore.view_districtrmap; membership grants it.
+        # A partner holds no datastore.view_districtrmap; membership grants it.
         self.assertTrue(self.policy.user_has_permission(self.member, "view"))
 
     def test_member_cannot_change(self):
@@ -289,32 +262,26 @@ class MapModuleScopingTests(TestCase):
         )
         self.assertTrue(self.policy.user_has_permission(admin, "change"))
 
-    def test_teamless_editor_gets_no_view(self):
+    def test_teamless_partner_gets_no_view(self):
         loner = make_user("partner", "mm-loner@d.org")
         self.assertFalse(self.policy.user_has_permission(loner, "view"))
 
 
 class ContentPageScopingTests(TestCase):
     """TagPages and PlacePages are scoped through their districtr map slug(s) ->
-    DistrictrMap -> MapGroup, enforced by the content/wagtail_hooks page hooks.
-    A PlacePage is in scope when it features at least one map the team owns."""
+    DistrictrMap -> TeamDistrictrMap, enforced by the content/wagtail_hooks page
+    hooks. A PlacePage is in scope when it features at least one team map."""
 
     @classmethod
     def setUpTestData(cls):
-        create_mirror_tables(
-            GerryDBTable, MapGroup, DistrictrMap, DistrictrMapsToGroups
-        )
+        create_mirror_tables(GerryDBTable, DistrictrMap)
         layer = GerryDBTable.objects.create(name="blocks")
-        group_a = MapGroup.objects.create(slug="ga", name="Group A")
-        group_b = MapGroup.objects.create(slug="gb", name="Group B")
         map_in = DistrictrMap.objects.create(
             name="In", districtr_map_slug="chi_wards", parent_layer=layer
         )
-        map_out = DistrictrMap.objects.create(
+        DistrictrMap.objects.create(
             name="Out", districtr_map_slug="tx_other", parent_layer=layer
         )
-        DistrictrMapsToGroups.objects.create(districtrmap=map_in, group=group_a)
-        DistrictrMapsToGroups.objects.create(districtrmap=map_out, group=group_b)
 
         home = Site.objects.get(is_default_site=True).root_page
         cls.tags_index = TagsIndexPage(title="Tags", slug="tags")
@@ -343,7 +310,7 @@ class ContentPageScopingTests(TestCase):
         cls.places_index.add_child(instance=cls.place_out)
 
         cls.member = make_user("partner", "tp-member@d.org")
-        make_team("Tag Team A", members=[cls.member], group_slugs=["ga"])
+        make_team("Tag Team A", members=[cls.member], maps=[map_in])
         cls.admin = make_user("admin", "tp-admin@d.org")
 
     def _request(self, user):
@@ -438,19 +405,16 @@ class ContentPageFormScopingTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        create_mirror_tables(
-            GerryDBTable, MapGroup, DistrictrMap, DistrictrMapsToGroups
-        )
+        create_mirror_tables(GerryDBTable, DistrictrMap)
         layer = GerryDBTable.objects.create(name="blocks")
-        group_a = MapGroup.objects.create(slug="ga", name="Group A")
-        group_b = MapGroup.objects.create(slug="gb", name="Group B")
-        for slug, group in (("chi_wards", group_a), ("tx_other", group_b)):
+        team_maps = []
+        for slug in ("chi_wards", "tx_other"):
             dmap = DistrictrMap.objects.create(
                 name=slug, districtr_map_slug=slug, parent_layer=layer
             )
-            DistrictrMapsToGroups.objects.create(districtrmap=dmap, group=group)
+            team_maps.append(dmap)
         cls.member = make_user("partner", "form-member@d.org")
-        make_team("Form Team", members=[cls.member], group_slugs=["ga"])
+        make_team("Form Team", members=[cls.member], maps=[team_maps[0]])
         cls.admin = make_user("admin", "form-admin@d.org")
 
     @staticmethod

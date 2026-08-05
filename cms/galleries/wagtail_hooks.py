@@ -37,49 +37,46 @@ from wagtail.snippets.views.snippets import (
     SnippetViewSet,
 )
 
+from authapi.models import Team
 from authapi.teams import (
     TeamScopedGetObjectMixin,
     TeamScopedViewSetMixin,
     instance_in_scope,
-    map_group_slugs_for_user,
+    team_ids_for_user,
     user_is_team_scoped,
 )
-from datastore.models import MapGroup
 from galleries.models import Gallery
 
-# Galleries reach a MapGroup through their direct map_group FK.
-GALLERY_GROUP_FIELD = "map_group_id"
+# Galleries reach their Team through the direct team FK.
+GALLERY_TEAM_FIELD = "team_id"
 
 
-def _restrict_map_group_field(form, user):
-    """For a team-scoped member, narrow the gallery's map_group field to the
-    groups their teams own (a required dropdown, not the all-groups chooser) so
-    they can't create a gallery outside their scope. Admins keep the chooser.
+def _restrict_team_field(form, user):
+    """For a team-scoped member, narrow the gallery's team field to their own
+    teams so they can't create a gallery outside their scope. Admins keep the
+    full chooser.
 
     Snippet create/edit views don't pass ``for_user`` to the form, so this runs
     from the view where ``request.user`` is available. Setting the queryset is
     the hard guard — ModelChoiceField rejects an out-of-scope submitted pk.
     """
-    field = form.fields.get("map_group")
+    field = form.fields.get("team")
     if field is not None and user_is_team_scoped(user):
-        field.queryset = MapGroup.objects.filter(
-            slug__in=map_group_slugs_for_user(user)
-        )
-        field.required = True
+        field.queryset = Team.objects.filter(pk__in=team_ids_for_user(user))
         field.widget = forms.Select()
     return form
 
 
 class TeamScopedGalleryCreateView(CreateView):
     def get_form(self, *args, **kwargs):
-        return _restrict_map_group_field(
+        return _restrict_team_field(
             super().get_form(*args, **kwargs), self.request.user
         )
 
 
 class TeamScopedGalleryEditView(EditView):
     def get_form(self, *args, **kwargs):
-        return _restrict_map_group_field(
+        return _restrict_team_field(
             super().get_form(*args, **kwargs), self.request.user
         )
 
@@ -87,12 +84,12 @@ class TeamScopedGalleryEditView(EditView):
 class TeamScopedGalleryCopyView(TeamScopedGetObjectMixin, CopyView):
     """Copy prefills from the source object with only a bare get_object_or_404
     upstream — the mixin 404s out-of-scope sources, and the form restriction
-    keeps the copy's map_group inside the member's teams."""
+    keeps the copy's team inside the member's teams."""
 
-    group_filter_field = GALLERY_GROUP_FIELD
+    team_filter_field = GALLERY_TEAM_FIELD
 
     def get_form(self, *args, **kwargs):
-        return _restrict_map_group_field(
+        return _restrict_team_field(
             super().get_form(*args, **kwargs), self.request.user
         )
 
@@ -107,6 +104,7 @@ class GalleryViewSet(TeamScopedViewSetMixin, SnippetViewSet):
         "title",
         "slug",
         "section",
+        "team",
         "visibility",
         LiveStatusTagColumn(),
     ]
@@ -116,13 +114,13 @@ class GalleryViewSet(TeamScopedViewSetMixin, SnippetViewSet):
     add_view_class = TeamScopedGalleryCreateView
     edit_view_class = TeamScopedGalleryEditView
     copy_view_class = TeamScopedGalleryCopyView
-    group_filter_field = GALLERY_GROUP_FIELD
+    team_filter_field = GALLERY_TEAM_FIELD
 
     panels = [
         FieldPanel("title"),
         FieldPanel("slug"),
         FieldPanel("section"),
-        FieldPanel("map_group"),
+        FieldPanel("team"),
         FieldPanel("visibility"),
         FieldPanel("description"),
         InlinePanel("entries", heading="Plans", label="Plan"),
@@ -133,14 +131,14 @@ register_snippet(GalleryViewSet)
 
 
 def _gallery_out_of_scope(request, instance):
-    """True when a team-scoped user is acting on a gallery outside their groups.
+    """True when a team-scoped user is acting on a gallery outside their teams.
 
     The snippet object views fetch from the unscoped manager and only check
     model-level permission, so the index `get_queryset` filter is not enough —
     these hooks are the hard gate against direct-URL access.
     """
     return isinstance(instance, Gallery) and not instance_in_scope(
-        request.user, Gallery, GALLERY_GROUP_FIELD, instance.pk
+        request.user, Gallery, GALLERY_TEAM_FIELD, instance.pk
     )
 
 

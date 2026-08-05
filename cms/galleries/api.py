@@ -15,11 +15,11 @@ objects only, `Access-Control-Allow-Origin: *`.
         Live PUBLIC galleries only: [{"slug", "title", "section",
         "entry_count"}, ...]. group_only galleries never appear here.
 
-group_only enforcement (decided 2026-08-04): the bearer token must be valid
-(signature/audience/issuer/expiry verified with our own verifying key via
-the same SimpleJWT token class the issuer uses — authapi.tokens
-.KidAccessToken) AND either carry the gallery's map_group slug in its
-`map_groups` claim (minted from the user's teams) or the `admin` role.
+group_only enforcement (decided 2026-08-04; reworked 2026-08-05 to Teams):
+the bearer token must be valid (signature/audience/issuer/expiry verified
+with our own verifying key via the same SimpleJWT token class the issuer
+uses — authapi.tokens.KidAccessToken) AND either carry the gallery's team
+slug in its `teams` claim or the `admin` role.
 """
 
 from django.db.models import Count
@@ -49,19 +49,21 @@ def _token_claims(request):
 
 
 def _may_view_group_only(request, gallery) -> bool:
-    """Admins, and members whose teams own the gallery's map group."""
+    """Admins, and members of the gallery's owning team."""
     claims = _token_claims(request)
     if claims is None:
         return False
     if "admin" in (claims.get("roles") or []):
         return True
-    return gallery.map_group_id in (claims.get("map_groups") or [])
+    return gallery.team.slug in (claims.get("teams") or [])
 
 
 @require_GET
 def gallery_detail(request, slug):
     """GET /api/galleries/<slug>"""
-    gallery = Gallery.objects.filter(live=True, slug=slug).first()
+    gallery = (
+        Gallery.objects.select_related("team").filter(live=True, slug=slug).first()
+    )
     if gallery is None:
         return _json({"detail": f"Gallery '{slug}' not found"}, status=404)
 
@@ -69,7 +71,7 @@ def gallery_detail(request, slug):
         request, gallery
     ):
         return _json(
-            {"detail": "This gallery is restricted to its map group's teams"},
+            {"detail": "This gallery is restricted to its owning team"},
             status=403,
         )
 

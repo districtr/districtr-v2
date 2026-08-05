@@ -66,6 +66,15 @@ minted in [cms/authapi/serializers.py](../cms/authapi/serializers.py));
 `map_group` slug in that claim, or the `admin` role. A merely-valid login no
 longer opens group_only galleries. Scoping unit confirmed as `MapGroup`.
 
+> **Superseded 2026-08-05 (districtr_v2-i06): Team is the tenant now.**
+> MapGroup reverted to a pure listing facet. Team gained a `slug`
+> (authapi.0008), the JWT claim is `teams` (team slugs), Gallery has a
+> required real `team` FK (galleries.0003 — also closes the
+> silently-inaccessible NULL-group gallery bug, districtr_v2-rqz), and
+> teams own map modules directly via TeamDistrictrMap (existing
+> TeamMapGroup ownership auto-expanded per map at migration). Scoping
+> engine: authapi/teams.py (`team_ids_for_user` / `team_slugs_for_user`).
+
 ### 1.3 Refresh-token security posture (still open, low priority)
 `BLACKLIST_AFTER_ROTATION` was turned **off**
 ([cms/config/settings/base.py](../cms/config/settings/base.py)) because Next.js

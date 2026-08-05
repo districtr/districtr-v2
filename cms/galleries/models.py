@@ -4,8 +4,9 @@ Curated galleries of saved Districtr plans ("documents").
 NEW capability (no legacy FastAPI equivalent): replicates the gallery
 sections a power user (Redistricting Partners) built in his fork —
 consultant drafts, public gallery, works in progress, COI gallery — where
-partner staff curate lists of plans and editors/admins approve what goes
-public.
+partner staff curate lists of plans and admins approve what goes public.
+Every gallery belongs to a Team (authapi) — the org boundary that team
+scoping and group_only visibility key on.
 
 Plans live in the FastAPI backend; a gallery entry references one by its
 integer ``public_id`` only (no FK — the document tables are not mirrored in
@@ -60,18 +61,16 @@ class Gallery(
         choices=GallerySection.choices,
         default=GallerySection.PUBLIC_GALLERY,
     )
-    # Group-scoping hook: which map group this gallery belongs to. Mirrors the
-    # managed=False datastore pattern (db_constraint=False because Alembic owns
-    # the map_group table; DO_NOTHING because Django must never cascade into
-    # it). Not yet enforced by the API — see GalleryVisibility note below.
-    map_group = models.ForeignKey(
-        "datastore.MapGroup",
-        on_delete=models.DO_NOTHING,
-        db_constraint=False,
-        null=True,
-        blank=True,
-        related_name="+",
-        help_text="Optional map group this gallery is scoped to.",
+    # The owning partner organization. A real FK (both tables are
+    # Django-owned, in the `admin` schema) and required: every gallery
+    # belongs to a team, which is what team scoping and group_only
+    # visibility key on. PROTECT: deleting a team with galleries must be a
+    # deliberate two-step.
+    team = models.ForeignKey(
+        "authapi.Team",
+        on_delete=models.PROTECT,
+        related_name="galleries",
+        help_text="Owning team; group_only galleries are visible to its members.",
     )
     # group_only galleries require a valid Districtr bearer token on the
     # public API; public ones are anonymous.

@@ -100,7 +100,7 @@ register_snippet(ReviewTagAssignmentViewSet)
 
 class TeamViewSet(SnippetViewSet):
     """Admin-only "Teams" snippet: name a team, add member users, and assign
-    the MapGroups it owns. Only the `admin` group holds Team permissions
+    the Districtr map modules it owns. Only the `admin` group holds Team permissions
     (authapi/migrations/0005), so the menu item never renders for other roles.
 
     Membership/ownership take effect immediately for the Wagtail admin scoping
@@ -113,12 +113,13 @@ class TeamViewSet(SnippetViewSet):
     menu_label = "Teams"
     menu_order = 260  # after "Review tag scopes" (250)
     add_to_admin_menu = True
-    list_display = ["name"]
-    search_fields = ["name"]
+    list_display = ["name", "slug"]
+    search_fields = ["name", "slug"]
     list_per_page = 50
 
     panels = [
         FieldPanel("name"),
+        FieldPanel("slug"),
         InlinePanel(
             "memberships",
             heading="Members",
@@ -126,10 +127,10 @@ class TeamViewSet(SnippetViewSet):
             panels=[FieldPanel("user", widget=user_chooser_viewset.widget_class)],
         ),
         InlinePanel(
-            "map_groups",
-            heading="Map groups owned",
-            label="Map group",
-            panels=[FieldPanel("map_group")],
+            "districtr_maps",
+            heading="Map modules assigned",
+            label="Map module",
+            panels=[FieldPanel("districtr_map")],
         ),
     ]
 

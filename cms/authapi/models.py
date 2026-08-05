@@ -57,16 +57,29 @@ class ReviewTagAssignment(models.Model):
 
 
 class Team(ClusterableModel):
-    """A group of CMS users that owns one or more MapGroups.
+    """A partner organization — the access-control boundary of the CMS.
 
     Team membership scopes a non-admin user's Wagtail admin to their teams'
-    map groups: they see/edit only the galleries, tag pages, and Districtr map
-    modules tied to those groups (authapi/teams.py). Admins and superusers are
-    never scoped, nor are non-admin users with no team. Managed by admins in
-    the "Teams" snippet (authapi/wagtail_hooks.py).
+    resources: the galleries a team owns (Gallery.team), the Districtr map
+    modules assigned to it (TeamDistrictrMap), and the tag/place pages tied
+    to those modules (authapi/teams.py). Admins and superusers are never
+    scoped, nor are non-admin users with no team. Managed by admins in the
+    "Teams" snippet (authapi/wagtail_hooks.py).
+
+    The slug is minted into the JWT `teams` claim at login and matched by
+    the galleries API for group_only galleries — renaming a team is safe,
+    changing its slug invalidates members' access until re-login.
     """
 
     name = models.CharField(max_length=255, unique=True)
+    slug = models.SlugField(
+        max_length=255,
+        unique=True,
+        help_text=(
+            "Stable identifier, minted into members' JWT `teams` claim. "
+            "Changing it revokes group_only gallery access until re-login."
+        ),
+    )
 
     class Meta:
         ordering = ["name"]
@@ -92,24 +105,24 @@ class TeamMembership(models.Model):
         return f"{self.user.get_username()} ∈ {self.team.name}"
 
 
-class TeamMapGroup(models.Model):
-    """A MapGroup owned by a Team (InlinePanel child of Team).
+class TeamDistrictrMap(models.Model):
+    """A Districtr map module assigned to a Team (InlinePanel child of Team).
 
-    db_constraint=False because MapGroup is a managed=False mirror of a
-    backend-owned table in the public schema — mirrors
-    datastore.DistrictrMapsToGroups.group.
+    Direct assignment — MapGroup is a listing facet, not an access boundary.
+    db_constraint=False because DistrictrMap is a managed=False mirror of a
+    backend-owned table in the public schema.
     """
 
-    team = ParentalKey(Team, on_delete=models.CASCADE, related_name="map_groups")
-    map_group = models.ForeignKey(
-        "datastore.MapGroup",
+    team = ParentalKey(Team, on_delete=models.CASCADE, related_name="districtr_maps")
+    districtr_map = models.ForeignKey(
+        "datastore.DistrictrMap",
         on_delete=models.DO_NOTHING,
         db_constraint=False,
-        related_name="+",
+        related_name="team_links",
     )
 
     class Meta:
-        unique_together = [("team", "map_group")]
+        unique_together = [("team", "districtr_map")]
 
     def __str__(self):
-        return f"{self.team.name} → {self.map_group_id}"
+        return f"{self.team.name} → {self.districtr_map_id}"

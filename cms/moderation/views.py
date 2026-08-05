@@ -22,7 +22,7 @@ from wagtail.admin.auth import permission_denied, user_passes_test
 
 from authapi.teams import (
     instance_in_scope,
-    map_group_slugs_for_user,
+    team_ids_for_user,
     user_is_team_scoped,
 )
 from galleries.models import Gallery, GalleryEntry
@@ -136,12 +136,12 @@ def district_comments(request):
 
 def _galleries_for_user(user):
     """Galleries the user may curate submissions into: change_gallery
-    holders, narrowed to their teams' map groups when team-scoped."""
+    holders, narrowed to their own teams' galleries when team-scoped."""
     if not user.has_perm("galleries.change_gallery"):
         return Gallery.objects.none()
     queryset = Gallery.objects.all()
     if user_is_team_scoped(user):
-        queryset = queryset.filter(map_group_id__in=map_group_slugs_for_user(user))
+        queryset = queryset.filter(team_id__in=team_ids_for_user(user))
     return queryset.order_by("title")
 
 
@@ -186,7 +186,7 @@ def add_to_gallery(request):
 
     gallery = Gallery.objects.filter(pk=gallery_id).first()
     if gallery is None or not instance_in_scope(
-        request.user, Gallery, "map_group_id", gallery.pk
+        request.user, Gallery, "team_id", gallery.pk
     ):
         return permission_denied(request)
 

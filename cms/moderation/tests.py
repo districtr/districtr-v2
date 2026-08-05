@@ -397,9 +397,10 @@ class MapSubmissionsViewTests(TestCase):
         self.assertEqual(kwargs["params"].get("has_document"), "true")
 
     def test_gallery_choices_are_team_scoped(self):
-        Gallery.objects.create(title="Ours", slug="ours", map_group_id="ga")
-        Gallery.objects.create(title="Theirs", slug="theirs", map_group_id="gb")
-        make_team("Team A", members=[self.partner], group_slugs=["ga"])
+        team_a = make_team("Team A", members=[self.partner])
+        team_b = make_team("Team B")
+        Gallery.objects.create(title="Ours", slug="ours", team=team_a)
+        Gallery.objects.create(title="Theirs", slug="theirs", team=team_b)
         with mock.patch("moderation.services.requests.request") as request:
             request.return_value = mock_response(json_body=[make_entry(public_id=42)])
             response = self.client.get(self.url)
@@ -408,8 +409,8 @@ class MapSubmissionsViewTests(TestCase):
         self.assertNotContains(response, "Theirs")
 
     def test_unscoped_partner_sees_all_galleries(self):
-        Gallery.objects.create(title="Ours", slug="ours", map_group_id="ga")
-        Gallery.objects.create(title="Theirs", slug="theirs", map_group_id="gb")
+        Gallery.objects.create(title="Ours", slug="ours", team=make_team("Team A"))
+        Gallery.objects.create(title="Theirs", slug="theirs", team=make_team("Team B"))
         with mock.patch("moderation.services.requests.request") as request:
             request.return_value = mock_response(json_body=[make_entry(public_id=42)])
             response = self.client.get(self.url)
@@ -424,7 +425,9 @@ class AddToGalleryTests(TestCase):
             email="partner@districtr.org", group_name="partner"
         )
         self.client.login(username="partner@districtr.org", password=PASSWORD)
-        self.gallery = Gallery.objects.create(title="Drafts", slug="drafts")
+        self.gallery = Gallery.objects.create(
+            title="Drafts", slug="drafts", team=make_team("House Team")
+        )
 
     def add(self, **overrides):
         data = {"gallery": str(self.gallery.pk), "public_id": "42"}
@@ -452,9 +455,9 @@ class AddToGalleryTests(TestCase):
         self.assertEqual(latest.entries.count(), 1)
 
     def test_out_of_scope_gallery_denied_for_team_scoped_user(self):
-        make_team("Team A", members=[self.partner], group_slugs=["ga"])
+        make_team("Team A", members=[self.partner])
         outside = Gallery.objects.create(
-            title="Outside", slug="outside", map_group_id="gb"
+            title="Outside", slug="outside", team=make_team("Team B")
         )
         response = self.add(gallery=str(outside.pk))
         self.assertRedirects(response, reverse("wagtailadmin_home"))

@@ -55,9 +55,9 @@ from datastore.views import (
     OVERLAY_ADMIN_PERMISSION,
 )
 
-# DistrictrMap reaches a MapGroup through the DistrictrMapsToGroups link table
-# (related_name "group_links"); group_id is the MapGroup slug (its pk).
-DISTRICTRMAP_GROUP_FIELD = "group_links__group_id"
+# DistrictrMap reaches its Teams through the TeamDistrictrMap link table
+# (authapi, related_name "team_links").
+DISTRICTRMAP_TEAM_FIELD = "team_links__team_id"
 
 
 @hooks.register("register_icons")
@@ -79,7 +79,7 @@ class _MapScoped(TeamScopedGetObjectMixin):
     from the model (inspect/history/usage) — the index get_queryset filter
     alone wouldn't stop a guessed UUID."""
 
-    group_filter_field = DISTRICTRMAP_GROUP_FIELD
+    team_filter_field = DISTRICTRMAP_TEAM_FIELD
 
 
 class TeamScopedMapInspectView(_MapScoped, InspectView):
@@ -113,9 +113,9 @@ class DistrictrMapViewSet(TeamScopedViewSetMixin, SnippetViewSet):
     history_view_class = TeamScopedMapHistoryView
     usage_view_class = TeamScopedMapUsageView
 
-    # Team-scoped members may browse (view/inspect) only the Districtr maps in
-    # their teams' groups; admins keep full edit access (authapi/teams.py).
-    group_filter_field = DISTRICTRMAP_GROUP_FIELD
+    # Team-scoped members may browse (view/inspect) only the Districtr maps
+    # assigned to their teams; admins keep full edit access (authapi/teams.py).
+    team_filter_field = DISTRICTRMAP_TEAM_FIELD
     permission_policy_class = TeamScopedViewGrantPermissionPolicy
 
     # created_at/updated_at are auto-managed (auto_now_add/auto_now) and thus

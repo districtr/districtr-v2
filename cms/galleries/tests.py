@@ -11,13 +11,12 @@ the Next.js frontend would send.
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
-from django.db import connection
 from django.test import TestCase
 from django.urls import reverse
 from wagtail.permission_policies.base import ModelPermissionPolicy
 from wagtail.snippets.models import get_snippet_models
 
-from authapi.models import Team, TeamMapGroup, TeamMembership
+from authapi.models import Team, TeamMembership
 from authapi.serializers import DistrictrTokenObtainPairSerializer
 from galleries.models import Gallery, GalleryEntry, GallerySection, GalleryVisibility
 
@@ -32,10 +31,18 @@ def make_user(group_name, email):
     return user
 
 
+def default_team():
+    team, _ = Team.objects.get_or_create(
+        slug="districtr", defaults={"name": "Districtr"}
+    )
+    return team
+
+
 def make_gallery(slug, *, live=True, entries=(), **kwargs):
     """A published (or draft) gallery whose live state matches its revision."""
     kwargs.setdefault("title", slug.replace("-", " ").title())
     kwargs.setdefault("section", GallerySection.PUBLIC_GALLERY)
+    kwargs.setdefault("team", default_team())
     gallery = Gallery(
         slug=slug,
         live=False,
@@ -43,10 +50,7 @@ def make_gallery(slug, *, live=True, entries=(), **kwargs):
         **kwargs,
     )
     gallery.save()
-    # clean=False mirrors content/tests.py: full_clean would validate the
-    # map_group FK against the managed=False mirror table, which does not
-    # exist in the test database.
-    revision = gallery.save_revision(clean=False)
+    revision = gallery.save_revision()
     if live:
         revision.publish()
         gallery.refresh_from_db()
@@ -122,7 +126,7 @@ class GalleryDetailApiTests(TestCase):
     def test_live_content_served_while_new_draft_pending(self):
         gallery = make_gallery("drafty", title="Published title")
         gallery.title = "Unpublished draft title"
-        gallery.save_revision(clean=False)
+        gallery.save_revision()
         payload = self.client.get("/api/galleries/drafty").json()
         self.assertEqual(payload["title"], "Published title")
 
@@ -130,49 +134,28 @@ class GalleryDetailApiTests(TestCase):
         response = self.client.get("/api/galleries/missing")
         self.assertEqual(response.status_code, 404)
 
-    def test_map_group_scoped_gallery_publishes(self):
-        # The map_group mirror is Alembic-owned and absent from the test
-        # database; create it inside the per-test transaction (same pattern
-        # as content/tests.py creating the legacy cms schema). publish()
-        # re-checks FKs when deserializing the revision, so the row must
-        # exist — but the gallery table itself has no FK constraint
-        # (db_constraint=False).
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "CREATE TABLE map_group (slug varchar PRIMARY KEY, name varchar)"
-            )
-            cursor.execute(
-                "INSERT INTO map_group VALUES ('rp', 'Redistricting Partners')"
-            )
-        gallery = make_gallery("scoped", map_group_id="rp")
-        self.assertEqual(gallery.map_group_id, "rp")
+    def test_team_owned_gallery_publishes(self):
+        team = Team.objects.create(name="Redistricting Partners", slug="rp")
+        gallery = make_gallery("scoped", team=team)
+        self.assertEqual(gallery.team.slug, "rp")
         self.assertEqual(self.client.get("/api/galleries/scoped").status_code, 200)
 
 
 class GroupOnlyGalleryApiTests(TestCase):
-    """group_only enforcement: the token must carry the gallery's map_group
-    slug in its `map_groups` claim (minted from the user's teams) or the
-    `admin` role — a merely-valid login is no longer enough."""
+    """group_only enforcement: the token must carry the owning team's slug
+    in its `teams` claim (minted from the user's teams) or the `admin`
+    role — a merely-valid login is no longer enough."""
 
     @classmethod
     def setUpTestData(cls):
-        with connection.cursor() as cursor:
-            # The map_group mirror is Alembic-owned and absent from the test
-            # DB (mirrors test_map_group_scoped_gallery_publishes).
-            cursor.execute(
-                "CREATE TABLE IF NOT EXISTS map_group "
-                "(slug varchar PRIMARY KEY, name varchar)"
-            )
-            cursor.execute("INSERT INTO map_group VALUES ('ga', 'Group A')")
+        team = Team.objects.create(name="Team A", slug="team-a")
         make_gallery(
             "partners-only",
             visibility=GalleryVisibility.GROUP_ONLY,
-            map_group_id="ga",
+            team=team,
         )
         cls.member = make_user("partner", "partner@districtr.org")
-        team = Team.objects.create(name="Team A")
         TeamMembership.objects.create(team=team, user=cls.member)
-        TeamMapGroup.objects.create(team=team, map_group_id="ga")
         cls.outsider = make_user("partner", "outsider@districtr.org")
         cls.admin = make_user("admin", "admin@districtr.org")
 

@@ -3,18 +3,18 @@ Team-based Wagtail admin scoping (see authapi.models.Team).
 
 A non-admin user who belongs to one or more Teams is "team-scoped": the admin
 listings/editing for galleries, tag pages, and Districtr map modules are
-narrowed to the MapGroups their teams own. Superusers and members of the
-`admin` group are never scoped; a non-admin user with no team keeps their
-role's default (unscoped) access.
+narrowed to their teams' resources. Superusers and members of the `admin`
+group are never scoped; a non-admin user with no team keeps their role's
+default (unscoped) access.
 
-Each resource reaches a MapGroup differently:
-- Gallery.map_group is a direct FK;
-- DistrictrMap relates through DistrictrMapsToGroups (group_links);
+Each resource reaches a Team differently:
+- Gallery.team is a direct FK;
+- DistrictrMap relates through TeamDistrictrMap (team_links);
 - TagPage relates indirectly through districtr_map_slug -> DistrictrMap ->
-  DistrictrMapsToGroups.
+  TeamDistrictrMap.
 
 so the per-resource queryset filters live with each resource's wagtail_hooks;
-this module only answers "is this user scoped, and to which group slugs".
+this module only answers "is this user scoped, and to which teams".
 """
 
 from functools import cached_property
@@ -22,7 +22,7 @@ from functools import cached_property
 from django.http import Http404
 from wagtail.permission_policies.base import ModelPermissionPolicy
 
-from authapi.models import TeamMapGroup, TeamMembership
+from authapi.models import Team, TeamMembership
 
 
 def user_is_team_scoped(user) -> bool:
@@ -35,70 +35,74 @@ def user_is_team_scoped(user) -> bool:
     return TeamMembership.objects.filter(user=user).exists()
 
 
-def map_group_slugs_for_user(user) -> set[str]:
-    """The set of MapGroup slugs across every Team ``user`` belongs to."""
+def team_ids_for_user(user) -> set[int]:
+    """The pks of every Team ``user`` belongs to (the ORM scoping unit)."""
     return set(
-        TeamMapGroup.objects.filter(team__memberships__user=user).values_list(
-            "map_group_id", flat=True
-        )
+        TeamMembership.objects.filter(user=user).values_list("team_id", flat=True)
+    )
+
+
+def team_slugs_for_user(user) -> set[str]:
+    """Team slugs for the JWT `teams` claim (and the galleries API match)."""
+    return set(
+        Team.objects.filter(memberships__user=user).values_list("slug", flat=True)
     )
 
 
 def districtr_map_slugs_for_user(user) -> set[str]:
-    """districtr_map_slugs of the DistrictrMaps in the user's teams' groups.
+    """districtr_map_slugs of the DistrictrMaps assigned to the user's teams.
 
     A TagPage is in the user's scope exactly when its ``districtr_map_slug`` is
-    in this set (TagPage -> DistrictrMap by slug -> DistrictrMapsToGroups ->
-    MapGroup). Imported lazily to keep authapi free of a load-time dependency on
-    datastore.
+    in this set (TagPage -> DistrictrMap by slug -> TeamDistrictrMap). Imported
+    lazily to keep authapi free of a load-time dependency on datastore.
     """
     from datastore.models import DistrictrMap
 
     return set(
         DistrictrMap.objects.filter(
-            group_links__group_id__in=map_group_slugs_for_user(user)
+            team_links__team__memberships__user=user
         ).values_list("districtr_map_slug", flat=True)
     )
 
 
-def instance_in_scope(user, model, group_filter_field, pk) -> bool:
+def instance_in_scope(user, model, team_filter_field, pk) -> bool:
     """False exactly when a team-scoped ``user`` may not act on ``model`` row
     ``pk``. Unscoped users (admins, superusers, team-less) always pass."""
     if not user_is_team_scoped(user):
         return True
-    return scoped_queryset(model, group_filter_field, user).filter(pk=pk).exists()
+    return scoped_queryset(model, team_filter_field, user).filter(pk=pk).exists()
 
 
-def scoped_queryset(model, group_filter_field, user):
-    """``model`` rows whose MapGroup one of ``user``'s teams owns.
+def scoped_queryset(model, team_filter_field, user):
+    """``model`` rows belonging to one of ``user``'s teams.
 
-    ``group_filter_field`` is the ORM lookup from the model to MapGroup's pk
-    (a slug), e.g. ``map_group_id`` (Gallery, direct FK) or
-    ``group_links__group_id`` (DistrictrMap, via DistrictrMapsToGroups).
+    ``team_filter_field`` is the ORM lookup from the model to Team's pk,
+    e.g. ``team_id`` (Gallery, direct FK) or ``team_links__team_id``
+    (DistrictrMap, via TeamDistrictrMap).
     """
-    slugs = map_group_slugs_for_user(user)
+    team_ids = team_ids_for_user(user)
     return model._default_manager.filter(
-        **{f"{group_filter_field}__in": slugs}
+        **{f"{team_filter_field}__in": team_ids}
     ).distinct()
 
 
 class TeamScopedModelPermissionPolicy(ModelPermissionPolicy):
     """Model permissions, plus: a team-scoped user may only act on instances
-    whose MapGroup their teams own. Admins / superusers / team-less users are
+    belonging to their teams. Admins / superusers / team-less users are
     unaffected (full model-permission behaviour).
 
-    Used for resources a member may *edit* (e.g. Gallery). ``group_filter_field``
+    Used for resources a member may *edit* (e.g. Gallery). ``team_filter_field``
     is the lookup passed to :func:`scoped_queryset`.
     """
 
-    def __init__(self, model, *, group_filter_field):
+    def __init__(self, model, *, team_filter_field):
         super().__init__(model)
-        self.group_filter_field = group_filter_field
+        self.team_filter_field = team_filter_field
 
     def instances_user_has_permission_for(self, user, action):
         instances = super().instances_user_has_permission_for(user, action)
         if user_is_team_scoped(user):
-            scoped = scoped_queryset(self.model, self.group_filter_field, user)
+            scoped = scoped_queryset(self.model, self.team_filter_field, user)
             return instances.filter(pk__in=scoped.values("pk"))
         return instances
 
@@ -107,7 +111,7 @@ class TeamScopedModelPermissionPolicy(ModelPermissionPolicy):
             return False
         if user_is_team_scoped(user):
             return (
-                scoped_queryset(self.model, self.group_filter_field, user)
+                scoped_queryset(self.model, self.team_filter_field, user)
                 .filter(pk=instance.pk)
                 .exists()
             )
@@ -116,13 +120,13 @@ class TeamScopedModelPermissionPolicy(ModelPermissionPolicy):
 
 class TeamScopedViewGrantPermissionPolicy(TeamScopedModelPermissionPolicy):
     """Like :class:`TeamScopedModelPermissionPolicy`, but additionally grants
-    *view*/*inspect* to team members — scoped to their groups — even without a
+    *view*/*inspect* to team members — scoped to their teams — even without a
     Django view permission. Write actions (add/change/delete) still require the
     Django permission, so admins keep editing and members cannot.
 
     Used for resources a member may *see* but not edit (e.g. DistrictrMap
-    modules, which only admins manage but each team should be able to browse
-    for its own groups).
+    modules, which admins/super partners manage but each team should be able
+    to browse for its own assignments).
     """
 
     _VIEW_ACTIONS = {"view", "inspect"}
@@ -134,13 +138,13 @@ class TeamScopedViewGrantPermissionPolicy(TeamScopedModelPermissionPolicy):
 
     def instances_user_has_permission_for(self, user, action):
         if action in self._VIEW_ACTIONS and user_is_team_scoped(user):
-            return scoped_queryset(self.model, self.group_filter_field, user)
+            return scoped_queryset(self.model, self.team_filter_field, user)
         return super().instances_user_has_permission_for(user, action)
 
     def user_has_permission_for_instance(self, user, action, instance):
         if action in self._VIEW_ACTIONS and user_is_team_scoped(user):
             return (
-                scoped_queryset(self.model, self.group_filter_field, user)
+                scoped_queryset(self.model, self.team_filter_field, user)
                 .filter(pk=instance.pk)
                 .exists()
             )
@@ -149,21 +153,21 @@ class TeamScopedViewGrantPermissionPolicy(TeamScopedModelPermissionPolicy):
 
 class TeamScopedViewSetMixin:
     """SnippetViewSet mixin: index queryset and permission policy scoped to the
-    user's teams. Set ``group_filter_field``; override
+    user's teams. Set ``team_filter_field``; override
     ``permission_policy_class`` for view-grant behaviour."""
 
-    group_filter_field: str
+    team_filter_field: str
     permission_policy_class = TeamScopedModelPermissionPolicy
 
     def get_queryset(self, request):
         if user_is_team_scoped(request.user):
-            return scoped_queryset(self.model, self.group_filter_field, request.user)
+            return scoped_queryset(self.model, self.team_filter_field, request.user)
         return None
 
     @cached_property
     def permission_policy(self):
         return self.permission_policy_class(
-            self.model, group_filter_field=self.group_filter_field
+            self.model, team_filter_field=self.team_filter_field
         )
 
 
@@ -171,14 +175,14 @@ class TeamScopedGetObjectMixin:
     """For snippet object views that fetch straight from the model with no
     instance permission check (Inspect/History/Usage/Copy): 404 when a
     team-scoped member addresses an out-of-scope object by URL. Set
-    ``group_filter_field`` on the view subclass."""
+    ``team_filter_field`` on the view subclass."""
 
-    group_filter_field: str
+    team_filter_field: str
 
     def get_object(self, queryset=None):
         obj = super().get_object(queryset)
         if not instance_in_scope(
-            self.request.user, self.model, self.group_filter_field, obj.pk
+            self.request.user, self.model, self.team_filter_field, obj.pk
         ):
             raise Http404
         return obj
