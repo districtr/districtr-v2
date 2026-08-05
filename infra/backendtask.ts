@@ -58,7 +58,18 @@ export function createBackendTaskConfig(repos: Repos, database: Database) {
         {
           Effect: "Allow",
           Action: ["ssm:GetParameters"],
-          Resource: secretParams.map(s => s.param.arn),
+          Resource: [
+            ...secretParams.map(s => s.param.arn as pulumi.Input<string>),
+            // PR previews clone this task definition with DATABASE_URL
+            // re-pointed at /districtr/dev/preview/pr<N>/* (see preview.yml).
+            ...(config.isProd
+              ? []
+              : [
+                  pulumi.interpolate`arn:aws:ssm:${region}:${
+                    aws.getCallerIdentityOutput().accountId
+                  }:parameter/districtr/${config.stack}/preview/*`,
+                ]),
+          ],
         },
       ],
     }),
@@ -82,6 +93,9 @@ export function createBackendTaskConfig(repos: Repos, database: Database) {
     // Keep boto3 on the regional S3 endpoint (and the free gateway path).
     {name: "AWS_DEFAULT_REGION", value: region},
   ];
+  if (config.corsOriginRegex) {
+    environment.push({name: "BACKEND_CORS_ORIGIN_REGEX", value: config.corsOriginRegex});
+  }
   const secrets = secretParams.map(s => ({name: s.envName, valueFrom: s.param.arn}));
 
   function logConfiguration(logGroup: aws.cloudwatch.LogGroup) {
