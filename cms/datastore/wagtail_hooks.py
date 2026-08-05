@@ -191,7 +191,6 @@ class OverlayViewSet(SnippetViewSet):
         FieldPanel("description"),
         FieldPanel("data_type"),
         FieldPanel("layer_type"),
-        # JSONField renders as a plain JSON textarea by default.
         FieldPanel("custom_style", widget=forms.Textarea),
         FieldPanel("source"),
         FieldPanel("source_layer"),
@@ -206,7 +205,6 @@ class DistrictrMapsToGroupsViewSet(SnippetViewSet):
     list_display = ["districtrmap", "group"]
     list_filter = ["group"]
     list_per_page = 50
-    # Both FKs render as snippet choosers (paginated), not giant dropdowns.
     panels = [
         FieldPanel("districtrmap"),
         FieldPanel("group"),
@@ -219,7 +217,6 @@ class DistrictrMapOverlaysViewSet(SnippetViewSet):
     menu_label = "Map \N{LEFT RIGHT ARROW} overlay links"
     list_display = ["districtr_map", "overlay"]
     list_per_page = 50
-    # Both FKs render as snippet choosers (paginated), not giant dropdowns.
     panels = [
         FieldPanel("districtr_map"),
         FieldPanel("overlay"),

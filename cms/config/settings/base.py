@@ -86,10 +86,8 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 
-# Database: same env contract as the FastAPI backend (POSTGRES_* vars; see
-# backend/app/alembic/env.py::get_url). All Django-owned tables go to the
-# `admin` schema via search_path; `public` tables are reachable for
-# managed=False mirrors.
+# Same POSTGRES_* env contract as the FastAPI backend; schema split per the
+# module docstring above.
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",

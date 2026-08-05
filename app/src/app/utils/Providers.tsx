@@ -21,7 +21,6 @@ export const Providers: React.FC<{
 
   // Keep the store's access token fresh: /auth/token re-runs the NextAuth jwt
   // callback (refreshing + persisting rotated tokens) and returns the session.
-  // Only poll when the server rendered an authenticated session to begin with.
   useEffect(() => {
     if (!session) return;
     const interval = setInterval(async () => {

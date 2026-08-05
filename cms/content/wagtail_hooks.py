@@ -5,25 +5,18 @@ explorer.
 A team-scoped member sees and edits only the content pages tied to a Districtr
 map their teams own (TagPage.districtr_map_slug / any of
 PlacePage.districtr_map_slugs -> DistrictrMap -> DistrictrMapsToGroups ->
-MapGroup). Admins, superusers, and team-less users are unaffected. Structural
-pages (index/home) carry no map association and are left to Wagtail's normal,
-tree-based page permissions.
+MapGroup). Structural pages (index/home) carry no map association and are left
+to Wagtail's normal, tree-based page permissions.
 
 Pages use tree-based GroupPagePermission rather than per-object querysets, so
-this overlays hooks:
-- construct_explorer_page_queryset hides out-of-scope content pages from the
-  explorer listing;
-- before_{edit,delete,unpublish,copy,move}_page and before_bulk_action
-  hard-block every direct-URL mutation path, since the explorer filter alone
-  would not stop a guessed page id.
-
-Creation is constrained instead by the team-aware page forms (content/forms.py),
-which only offer a member their own teams' map slugs.
+this overlays hooks: construct_explorer_page_queryset hides out-of-scope pages
+from the explorer, and before_{edit,delete,unpublish,copy,move}_page +
+before_bulk_action hard-block every direct-URL mutation path. Creation is
+constrained by the team-aware page forms (content/forms.py) instead.
 
 Known ceiling: /admin/pages/search/ runs no queryset hook, so a team-scoped
-member can still SEE out-of-scope page titles there — but every action on them
-is blocked by the hooks above. Blocking the listing itself would mean replacing
-Wagtail's search view; not worth it for a read-only title list.
+member can still SEE out-of-scope page titles there — every action on them is
+blocked by the hooks above.
 """
 
 from wagtail import hooks

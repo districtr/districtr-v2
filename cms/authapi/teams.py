@@ -26,11 +26,8 @@ from authapi.models import TeamMapGroup, TeamMembership
 
 
 def user_is_team_scoped(user) -> bool:
-    """True when ``user``'s Wagtail admin should be narrowed to their teams.
-
-    Superusers and the ``admin`` group are never scoped. A non-admin user is
-    scoped exactly when they belong to at least one Team.
-    """
+    """True when ``user``'s Wagtail admin should be narrowed to their teams
+    (see module docstring for who is exempt)."""
     if not user.is_authenticated or user.is_superuser:
         return False
     if user.groups.filter(name="admin").exists():

@@ -1,19 +1,12 @@
 """
-Team-aware admin forms for content pages.
+Team-aware admin forms for content pages: for a team-scoped member
+(authapi/teams.py) the Districtr-map-slug field is narrowed to their teams'
+maps, with at least one required. Admins and team-less users keep the
+unrestricted free-text field.
 
-When a team-scoped member (authapi/teams.py) creates or edits a TagPage or
-PlacePage, the Districtr-map-slug field is narrowed to the maps their teams own
-and at least one is required — so a member can't attach a map outside their
-groups (which they'd immediately lose sight of via the explorer scoping in
-content/wagtail_hooks.py). Admins and team-less users keep the unrestricted
-free-text field.
-
-Shared PlacePages (in scope on *any* overlap) may also carry other teams' maps.
-Those out-of-scope slugs are not offered — or removable — in the member's
-field; clean() re-merges them in their original positions so saving a shared
-page never drops another team's association.
-
-`for_user` is supplied by Wagtail's page create/edit views to the page form.
+Shared PlacePages (in scope on *any* overlap) may also carry other teams' maps;
+those slugs are neither offered nor removable, and clean() re-merges them in
+their original positions so saving never drops another team's association.
 """
 
 from django import forms

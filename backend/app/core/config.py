@@ -173,8 +173,7 @@ class Settings(BaseSettings):
 
     @property
     def s3_bucket(self) -> str | None:
-        """The S3 bucket name from either env var (legacy R2_BUCKET_NAME wins,
-        matching cms/config/settings GPKG_BUCKET resolution)."""
+        """Matches cms/config/settings GPKG_BUCKET resolution."""
         return self.R2_BUCKET_NAME or self.AWS_S3_BUCKET
 
     def get_s3_client(self):
