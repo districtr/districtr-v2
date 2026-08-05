@@ -53,6 +53,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # First: answers ALB health probes (sent to the task IP, which
+    # ALLOWED_HOSTS rightly rejects) before any host validation runs.
+    "core.middleware.HealthCheckMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -177,6 +180,8 @@ AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID", "")
 AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
 GPKG_BUCKET = os.environ.get("R2_BUCKET_NAME") or os.environ.get("AWS_S3_BUCKET", "")
 AWS_S3_ENDPOINT = os.environ.get("AWS_S3_ENDPOINT", "")
+# On ECS: no static keys; the task role authenticates via the default chain.
+AWS_USE_DEFAULT_CREDENTIALS = os.environ.get("AWS_USE_DEFAULT_CREDENTIALS", "") == "true"
 
 # Public base URL for uploaded overlay sources (Overlay.source). When the
 # bucket is fronted by a CDN (e.g. https://tilesets1.cdn.districtr.org in

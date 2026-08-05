@@ -9,6 +9,7 @@ import {createWaf} from "./waf";
 import {createBackendTaskConfig} from "./backendtask";
 import {createBackend} from "./backend";
 import {createFrontend} from "./frontend";
+import {createCms} from "./cms";
 import {createMonitoring} from "./monitoring";
 import {createGraphCheck} from "./graphcheck";
 
@@ -21,6 +22,7 @@ const waf = createWaf(alb);
 const backendTaskConfig = createBackendTaskConfig(repos, database);
 const backend = createBackend(network, clusterResources, alb, backendTaskConfig);
 const frontend = createFrontend(network, clusterResources, alb, repos);
+createCms(network, clusterResources, alb, repos, database);
 const {topic} = createMonitoring(alb, database, clusterResources, backend, frontend, waf);
 createGraphCheck(clusterResources, network, backendTaskConfig, topic.arn);
 
@@ -28,6 +30,7 @@ createGraphCheck(clusterResources, network, backendTaskConfig, topic.arn);
 export const clusterName = clusterResources.cluster.name;
 export const publicSubnetIds = pulumi.all(network.publicSubnetIds);
 export const backendSecurityGroupId = network.backendSecurityGroup.id;
+export const cmsSecurityGroupId = network.cmsSecurityGroup.id;
 
 // --- Outputs for humans ---
 export const albDnsName = alb.alb.dnsName;
@@ -36,6 +39,7 @@ export const albLogsBucket = alb.accessLogsBucket.bucket;
 export const dbAddress = database.db.address;
 export const backendRepoUrl = repos.backendRepo.repositoryUrl;
 export const frontendRepoUrl = repos.frontendRepo.repositoryUrl;
+export const cmsRepoUrl = repos.cmsRepo.repositoryUrl;
 
 // Every DNS record to create at the external DNS provider. The ACM
 // validation records must exist before the first `pulumi up` can finish
@@ -44,7 +48,7 @@ export const dnsRecords = pulumi
   .all([alb.alb.dnsName, alb.certificate.domainValidationOptions])
   .apply(([albDns, validationOptions]) => {
     const records: {name: string; type: string; value: string; purpose: string}[] = [
-      ...[config.appDomain, config.apiDomain, ...config.extraDomains].map(domain => ({
+      ...[config.appDomain, config.apiDomain, config.cmsDomain, ...config.extraDomains].map(domain => ({
         name: domain,
         type: "CNAME",
         value: albDns,

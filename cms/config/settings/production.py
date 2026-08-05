@@ -4,7 +4,7 @@ from .base import *  # noqa: F403
 
 DEBUG = False
 
-# Fly terminates TLS at the edge and forwards X-Forwarded-Proto.
+# The ALB terminates TLS and forwards X-Forwarded-Proto.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True

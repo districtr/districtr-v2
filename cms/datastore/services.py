@@ -73,16 +73,19 @@ def _post_backend(
 # AWS S3; keep the two clients in lockstep.
 def get_s3_client():
     """boto3 S3 client, mirroring the backend's get_s3_client."""
-    if not settings.AWS_ACCESS_KEY_ID or not settings.AWS_SECRET_ACCESS_KEY:
-        raise ImproperlyConfigured(
-            "AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY are not configured"
-        )
-
     # AWS S3; AWS_S3_ENDPOINT overrides the host only for an S3-compatible
     # endpoint.
     kwargs = {}
     if settings.AWS_S3_ENDPOINT:
         kwargs["endpoint_url"] = settings.AWS_S3_ENDPOINT
+
+    if not settings.AWS_ACCESS_KEY_ID or not settings.AWS_SECRET_ACCESS_KEY:
+        # On ECS: the task role via the default boto3 credential chain.
+        if settings.AWS_USE_DEFAULT_CREDENTIALS:
+            return boto3.client("s3", **kwargs)
+        raise ImproperlyConfigured(
+            "AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY are not configured"
+        )
 
     return boto3.client(
         service_name="s3",

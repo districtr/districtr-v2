@@ -116,12 +116,27 @@ or make middleware the *only* refresher and re-enable blacklisting.
 
 ---
 
-## 5. Cutover-day checklist (operational, unchanged from the plan)
+## 5. Cutover-day checklist (operational)
+
+> **AWS-first (2026-08-05, Fly is being deprecated):** the CMS now has a full
+> AWS home — `infra/cms.ts` (Fargate service + cms-migrate release task, host
+> rule `cms.districtr.org` / `cms.dev.districtr.org`, cert SAN + DNS record in
+> the `dnsRecords` output) and `.github/workflows/deploy-cms.yml`. The backend
+> and frontend task envs are already pointed at the CMS issuer (no Auth0 config
+> remains in `infra/`). S3 auth uses the task role
+> (`AWS_USE_DEFAULT_CREDENTIALS`); ALB health checks hit `/healthz`
+> (host-validation-exempt middleware). If cutover happens on AWS, step 2 below
+> replaces Fly secrets with Pulumi config.
 
 1. DB snapshot.
-2. Fly secrets — **cms**: `JWT_SIGNING_KEY`/`JWT_VERIFYING_KEY`
-   (`manage.py generate_jwt_keys`), `DJANGO_SECRET_KEY`, `RESEND_API_KEY`
-   (+ verify the Resend sending domain), DB + storage creds;
+2. Secrets. **AWS**: `pulumi config set --secret` per stack —
+   `djangoSecretKey`, `jwtSigningKey`/`jwtVerifyingKey`
+   (`manage.py generate_jwt_keys`), `authSecret`, `resendApiKey`
+   (+ verify the Resend sending domain); create the `cms.*.districtr.org`
+   DNS records from the `dnsRecords` output.
+   **Fly (only if cutover precedes the AWS migration)** — **cms**:
+   `JWT_SIGNING_KEY`/`JWT_VERIFYING_KEY`, `DJANGO_SECRET_KEY`,
+   `RESEND_API_KEY`, DB + storage creds;
    **api**: `AUTH_JWKS_URL=https://districtr-v2-cms.fly.dev/.well-known/jwks.json`,
    `AUTH_ISSUER`, `AUTH_AUDIENCE`; **frontend**: `AUTH_SECRET`, `CMS_URL`.
 3. Staging rehearsal on the `-dev` Fly apps first (full sequence below, plus a

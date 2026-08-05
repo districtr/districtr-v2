@@ -49,3 +49,10 @@ class PasswordResetEmailTests(TestCase):
         # The {% comment %} block must not leak into the rendered body.
         self.assertNotIn("{%", body)
         self.assertNotIn("PasswordResetForm", body)
+
+
+class HealthzMiddlewareTests(TestCase):
+    def test_healthz_ignores_host_validation(self):
+        """ALB probes hit the task IP; /healthz must answer before ALLOWED_HOSTS."""
+        response = self.client.get("/healthz", HTTP_HOST="10.0.0.1:8080")
+        self.assertEqual(response.status_code, 200)
