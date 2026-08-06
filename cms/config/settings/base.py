@@ -159,6 +159,12 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Wagtail
 WAGTAIL_SITE_NAME = "Districtr CMS"
 WAGTAILADMIN_BASE_URL = os.environ.get("WAGTAILADMIN_BASE_URL", "http://localhost:8001")
+# The admin dashboard's upgrade nag is noise for ~20 internal users.
+WAGTAIL_ENABLE_UPDATE_CHECK = False
+
+# Public Next.js site — used for "View live" links on content pages (which
+# Wagtail never serves itself; the frontend renders them via /api/content/).
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 WAGTAILSEARCH_BACKENDS = {
     "default": {
         "BACKEND": "wagtail.search.backends.database",

@@ -17,7 +17,7 @@ from django.contrib.auth.models import Group
 from django.core.management import call_command as django_call_command
 from django.core.management.base import CommandError
 from django.db import connection
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 from wagtail.models import GroupPagePermission, Locale, Page, Revision, Site
 from wagtail.permission_policies.pages import PagePermissionPolicy
 
@@ -34,6 +34,7 @@ from content.tiptap import (
     extract_stream_text,
     prosemirror_to_html,
     tiptap_to_stream_data,
+    unwrap_legacy_content,
 )
 
 # ---------------------------------------------------------------------------
@@ -253,7 +254,12 @@ class TiptapToStreamDataTests(SimpleTestCase):
         result = tiptap_to_stream_data(
             doc({"type": "planGalleryNode", "attrs": dict(PLAN_GALLERY_ATTRS)})
         )
-        self.assertEqual(result.stream_data[0]["value"], PLAN_GALLERY_ATTRS)
+        # gallerySlug has no TipTap equivalent: legacy nodes convert with the
+        # block default (None, i.e. "use the ids/tags filters").
+        self.assertEqual(
+            result.stream_data[0]["value"],
+            {**PLAN_GALLERY_ATTRS, "gallerySlug": None},
+        )
 
     def test_plan_gallery_null_attrs_use_block_defaults(self):
         result = tiptap_to_stream_data(
@@ -382,6 +388,43 @@ class TiptapToStreamDataTests(SimpleTestCase):
             stream_value[2].value["views"][0]["districtr_map_slug"], "chi_wards"
         )
 
+    def test_rejects_non_doc_shapes(self):
+        # A shape the converter does not recognise must abort loudly, never
+        # convert to an empty stream (that silently drops the whole page).
+        with self.assertRaises(ValueError):
+            tiptap_to_stream_data({"body": doc(paragraph(text("wrapped")))})
+        with self.assertRaises(ValueError):
+            tiptap_to_stream_data({"type": "paragraph"})
+
+
+class UnwrapLegacyContentTests(SimpleTestCase):
+    """Legacy columns store {"title", "subtitle", "body": <doc>}."""
+
+    def test_wrapper_shape(self):
+        body = doc(paragraph(text("hi")))
+        value = {"title": "Colorado", "subtitle": "The state", "body": body}
+        self.assertEqual(unwrap_legacy_content(value), (body, "Colorado", "The state"))
+
+    def test_bare_doc_accepted(self):
+        body = doc(paragraph(text("hi")))
+        self.assertEqual(unwrap_legacy_content(body), (body, None, None))
+
+    def test_none_passthrough(self):
+        self.assertEqual(unwrap_legacy_content(None), (None, None, None))
+
+    def test_empty_strings_become_none(self):
+        body = doc()
+        self.assertEqual(
+            unwrap_legacy_content({"title": "", "subtitle": "", "body": body}),
+            (body, None, None),
+        )
+
+    def test_garbage_raises(self):
+        with self.assertRaises(ValueError):
+            unwrap_legacy_content({"unexpected": "shape"})
+        with self.assertRaises(ValueError):
+            unwrap_legacy_content(["not", "a", "dict"])
+
 
 # ---------------------------------------------------------------------------
 # Page permission grants (content.0002 data migration)
@@ -484,6 +527,99 @@ class ProvisioningMigrationTests(TestCase):
             ).exists()
         )
 
+    def test_index_pages_provisioned_under_home(self):
+        # content.0008 creates all three index pages (default locale, live).
+        home = Site.objects.get(is_default_site=True).root_page
+        for model in (TagsIndexPage, PlacesIndexPage, StaticIndexPage):
+            index = model.objects.get(locale__language_code="en")
+            self.assertTrue(index.live)
+            self.assertEqual(index.get_parent().pk, home.pk)
+
+    def test_index_provisioning_is_idempotent(self):
+        from content.provision import ensure_default_index_pages
+
+        before = Page.objects.count()
+        ensure_default_index_pages()
+        self.assertEqual(Page.objects.count(), before)
+
+    def test_index_pages_are_singletons(self):
+        # max_count=1: with the provisioned instance in place, the admin can
+        # never offer creating a duplicate index under Home (or anywhere).
+        home = Site.objects.get(is_default_site=True).root_page
+        for model in (TagsIndexPage, PlacesIndexPage, StaticIndexPage):
+            self.assertFalse(model.can_create_at(home))
+
+
+# ---------------------------------------------------------------------------
+# Frontend URL overrides / preview (pages are served by Next.js, not Wagtail)
+# ---------------------------------------------------------------------------
+
+
+@override_settings(FRONTEND_URL="https://beta.districtr.org")
+class FrontendUrlTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        en = Locale.objects.get(language_code="en")
+        cls.tags_index = TagsIndexPage.objects.get(locale=en)
+        cls.places_index = PlacesIndexPage.objects.get(locale=en)
+        cls.static_index = StaticIndexPage.objects.get(locale=en)
+
+        cls.tag = TagPage(title="Fair Maps", slug="fair-maps")
+        cls.tags_index.add_child(instance=cls.tag)
+        cls.place = PlacePage(title="Chicago", slug="chicago")
+        cls.places_index.add_child(instance=cls.place)
+        cls.static = StaticPage(title="Rules", slug="rules")
+        cls.static_index.add_child(instance=cls.static)
+
+    def test_content_page_urls_point_at_frontend(self):
+        # Both .url (used by the admin "View live" button and flash message)
+        # and .full_url must be the absolute frontend URL — the base .url
+        # returns a relative path on single-site setups, which would resolve
+        # against the Wagtail admin domain.
+        self.assertEqual(self.tag.url, "https://beta.districtr.org/portal/fair-maps")
+        self.assertEqual(
+            self.tag.full_url, "https://beta.districtr.org/portal/fair-maps"
+        )
+        self.assertEqual(self.place.url, "https://beta.districtr.org/place/chicago")
+        self.assertEqual(self.static.url, "https://beta.districtr.org/rules")
+
+    def test_index_page_urls(self):
+        self.assertEqual(self.tags_index.url, "https://beta.districtr.org/portals")
+        self.assertEqual(self.places_index.url, "https://beta.districtr.org/places")
+        # No frontend listing for static pages: not routable, no "View live".
+        self.assertIsNone(self.static_index.url)
+
+    def test_preview_disabled(self):
+        # No Wagtail template exists; previewing raised TemplateDoesNotExist.
+        for page in (
+            self.tag,
+            self.place,
+            self.static,
+            self.tags_index,
+            self.places_index,
+            self.static_index,
+        ):
+            self.assertEqual(page.preview_modes, [])
+            self.assertFalse(page.is_previewable())
+
+    def test_admin_editor_shows_frontend_live_url(self):
+        # The page editor (where Preview/"View live" 500'd) renders, offers
+        # no preview panel, and links "View live" at the frontend URL.
+        self.tag.save_revision(clean=False).publish()
+        get_user_model().objects.create_superuser(
+            username="root@districtr.org",
+            email="root@districtr.org",
+            password="correct-horse-battery-staple",
+        )
+        self.client.login(
+            username="root@districtr.org", password="correct-horse-battery-staple"
+        )
+        response = self.client.get(f"/admin/pages/{self.tag.pk}/edit/")
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        self.assertIn("https://beta.districtr.org/portal/fair-maps", html)
+        self.assertNotIn('data-side-panel-toggle="preview"', html)
+
 
 # ---------------------------------------------------------------------------
 # Public compat API
@@ -493,14 +629,12 @@ class ProvisioningMigrationTests(TestCase):
 class ContentApiTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        home = Site.objects.get(is_default_site=True).root_page
         cls.en = Locale.objects.get(language_code="en")
         cls.es = Locale.objects.get(language_code="es")
 
-        cls.tags_index = TagsIndexPage(title="Tags", slug="tags")
-        home.add_child(instance=cls.tags_index)
-        cls.places_index = PlacesIndexPage(title="Places", slug="places")
-        home.add_child(instance=cls.places_index)
+        # Provisioned by content.0008 (see content/provision.py).
+        cls.tags_index = TagsIndexPage.objects.get(locale=cls.en)
+        cls.places_index = PlacesIndexPage.objects.get(locale=cls.en)
 
         cls.tag_en = TagPage(
             title="Fair Maps",
@@ -550,8 +684,7 @@ class ContentApiTests(TestCase):
         cls.places_index.add_child(instance=place)
         place.save_revision(clean=False).publish()
 
-        static_index = StaticIndexPage(title="Static pages", slug="static-pages")
-        home.add_child(instance=static_index)
+        static_index = StaticIndexPage.objects.get(locale=cls.en)
         rules = StaticPage(
             title="Rules",
             slug="rules",
@@ -591,8 +724,27 @@ class ContentApiTests(TestCase):
         # Empty list filters are served as null, matching the legacy attrs.
         self.assertIsNone(gallery["ids"])
         self.assertIsNone(gallery["tags"])
+        # gallerySlug is new (no TipTap equivalent); absent -> null too.
+        self.assertIsNone(gallery["gallerySlug"])
         self.assertEqual(gallery["limit"], 12)
         self.assertTrue(gallery["showListView"])
+
+    def test_plan_gallery_serves_gallery_slug(self):
+        page = TagPage(
+            title="Curated",
+            slug="curated",
+            body=[
+                {
+                    "type": "plan_gallery",
+                    "value": {"gallerySlug": "demo-plans", "ids": [], "tags": []},
+                }
+            ],
+        )
+        self.tags_index.add_child(instance=page)
+        page.save_revision(clean=False).publish()
+        payload = self.client.get("/api/content/tags/slug/curated").json()
+        value = payload["content"]["body"][0]["value"]
+        self.assertEqual(value["gallerySlug"], "demo-plans")
 
     def test_detail_places_shape(self):
         payload = self.client.get("/api/content/places/slug/chicago").json()
@@ -896,6 +1048,50 @@ class MigrateTiptapCommandTests(TestCase):
         tag_es = TagPage.objects.get(slug="fair-maps", locale__language_code="es")
         self.assertIn("Texto corregido", str(tag_es.body))
         self.assertEqual(TagPage.objects.filter(slug="fair-maps").count(), 2)
+
+    def test_wrapper_title_subtitle_and_body(self):
+        # Real legacy rows wrap the doc: {"title", "subtitle", "body": <doc>}.
+        # The wrapper title/subtitle win over section-header/slug derivation.
+        self._insert(
+            "places_content",
+            "dc",
+            "en",
+            published={
+                "title": "Washington, DC",
+                "subtitle": "The district",
+                "body": doc(paragraph(text("DC prose"))),
+            },
+        )
+        call_command("migrate_tiptap")
+        page = PlacePage.objects.get(slug="dc")
+        self.assertTrue(page.live)
+        self.assertEqual(page.title, "Washington, DC")
+        self.assertEqual(page.subtitle, "The district")
+        self.assertIn("DC prose", str(page.body))
+
+    def test_wrapper_rows_are_idempotent(self):
+        self._insert(
+            "places_content",
+            "dc",
+            "en",
+            published={
+                "title": "Washington, DC",
+                "subtitle": "",
+                "body": doc(paragraph(text("DC prose"))),
+            },
+        )
+        call_command("migrate_tiptap")
+        revisions = Revision.objects.count()
+        call_command("migrate_tiptap")
+        self.assertEqual(Revision.objects.count(), revisions)
+        self.assertEqual(PlacePage.objects.filter(slug="dc").count(), 1)
+
+    def test_unrecognized_content_shape_aborts(self):
+        # Garbage shapes must abort loudly (with the row named), never
+        # silently migrate as an empty page.
+        self._insert("tags_content", "garbage", "en", published={"nodes": []})
+        with self.assertRaisesMessage(CommandError, "tags/garbage/en"):
+            call_command("migrate_tiptap", "--dry-run")
 
     def test_dry_run_writes_nothing(self):
         self._seed_fixtures()

@@ -184,15 +184,44 @@ def _struct_value_from_attrs(block_name: str, attrs: dict, warnings: list[str]) 
 # --------------------------------------------------------------------------
 
 
+def unwrap_legacy_content(
+    value: dict | None,
+) -> tuple[dict | None, str | None, str | None]:
+    """Split a legacy content column into ``(doc, title, subtitle)``.
+
+    The legacy FastAPI CMS stored ``{"title", "subtitle", "body": <doc>}``
+    in draft_content/published_content; accept a bare ProseMirror doc too
+    (the shape the earliest rows and the test fixtures use). Any other shape
+    raises ValueError — a wrapper the converter does not recognise must
+    abort the migration loudly, never silently become an empty page.
+    """
+    if value is None:
+        return None, None, None
+    if not isinstance(value, dict):
+        raise ValueError(f"unrecognized legacy content shape: {type(value).__name__}")
+    if value.get("type") == "doc":
+        return value, None, None
+    if isinstance(value.get("body"), dict):
+        return value["body"], value.get("title") or None, value.get("subtitle") or None
+    raise ValueError(f"unrecognized legacy content shape: keys={sorted(value)}")
+
+
 def tiptap_to_stream_data(doc: dict | None) -> ConversionResult:
     """Convert a full TipTap doc into raw StreamField data.
 
     Consecutive standard prose nodes collapse into one `rich_text` block;
-    each custom node becomes its own struct block.
+    each custom node becomes its own struct block. Raises ValueError when
+    ``doc`` is not a ProseMirror doc (e.g. a still-wrapped legacy column):
+    treating an unrecognised shape as empty would drop content silently.
     """
     result = ConversionResult()
     if not doc:
         return result
+    if doc.get("type") != "doc":
+        raise ValueError(
+            f"expected a ProseMirror doc, got type={doc.get('type')!r} "
+            f"(keys={sorted(doc)})"
+        )
 
     pending_html: list[str] = []
 

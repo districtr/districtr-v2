@@ -284,8 +284,12 @@ class ContentPageScopingTests(TestCase):
         )
 
         home = Site.objects.get(is_default_site=True).root_page
-        cls.tags_index = TagsIndexPage(title="Tags", slug="tags")
-        home.add_child(instance=cls.tags_index)
+        # content.0008 provisions the index pages; fall back to creating them
+        # for databases migrated before it.
+        cls.tags_index = TagsIndexPage.objects.first()
+        if cls.tags_index is None:
+            cls.tags_index = TagsIndexPage(title="Tags", slug="tags")
+            home.add_child(instance=cls.tags_index)
         cls.tag_in = TagPage(
             title="In Tag", slug="in-tag", districtr_map_slug="chi_wards"
         )
@@ -295,8 +299,10 @@ class ContentPageScopingTests(TestCase):
         )
         cls.tags_index.add_child(instance=cls.tag_out)
 
-        cls.places_index = PlacesIndexPage(title="Places", slug="places")
-        home.add_child(instance=cls.places_index)
+        cls.places_index = PlacesIndexPage.objects.first()
+        if cls.places_index is None:
+            cls.places_index = PlacesIndexPage(title="Places", slug="places")
+            home.add_child(instance=cls.places_index)
         # Features chi_wards (team's) + tx_other (not) -> in scope (any overlap).
         cls.place_in = PlacePage(
             title="In Place",
@@ -487,3 +493,43 @@ class ContentPageFormScopingTests(TestCase):
         self.assertEqual(
             form.cleaned_data["districtr_map_slugs"], ["tx_other", "chi_wards"]
         )
+
+
+class TeamDeleteGuardTests(TestCase):
+    """Deleting a Team that still owns galleries is denied with a friendly
+    message — Gallery.team is PROTECT, so the delete would otherwise surface
+    as an unhandled ProtectedError (500). Mirrors the maps-with-plans guard
+    (datastore/wagtail_hooks.py)."""
+
+    def setUp(self):
+        from datastore.test_admin_tools import make_admin_user
+
+        make_admin_user()
+        self.client.login(username="dataops@districtr.org", password=PASSWORD)
+        self.team_with_gallery = make_team("Team A")
+        self.team_without = make_team("Team B")
+        make_gallery("ours", team=self.team_with_gallery)
+
+    def delete_url(self, team):
+        return reverse("wagtailsnippets_authapi_team:delete", args=[team.pk])
+
+    def test_delete_with_galleries_denied(self):
+        response = self.client.post(
+            self.delete_url(self.team_with_gallery), follow=True
+        )
+        self.assertContains(response, "Team A (1 gallery)")
+        self.assertTrue(Team.objects.filter(pk=self.team_with_gallery.pk).exists())
+
+    def test_bulk_delete_with_galleries_denied(self):
+        response = self.client.post(
+            "/admin/bulk/authapi/team/delete/"
+            f"?id={self.team_with_gallery.pk}&id={self.team_without.pk}",
+            follow=True,
+        )
+        self.assertContains(response, "Team A (1 gallery)")
+        self.assertEqual(Team.objects.count(), 2)
+
+    def test_delete_without_galleries_proceeds(self):
+        response = self.client.post(self.delete_url(self.team_without))
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Team.objects.filter(pk=self.team_without.pk).exists())

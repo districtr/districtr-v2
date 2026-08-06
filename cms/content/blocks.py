@@ -60,20 +60,48 @@ RICH_TEXT_FEATURES = [
 ]
 
 
+def gallery_slug_choices():
+    """Lazy ChoiceBlock feed of curated galleries (galleries app).
+
+    Imported inside the function: galleries.models imports this module for
+    RICH_TEXT_FEATURES, so a top-level import would be circular. Includes
+    drafts (partners wire up a page while the gallery awaits publication);
+    the public API only ever serves live galleries.
+    """
+    from galleries.models import Gallery
+
+    return [
+        (slug, f"{title} ({slug})")
+        for slug, title in Gallery.objects.order_by("title").values_list(
+            "slug", "title"
+        )
+    ]
+
+
 def districtr_map_slug_choices():
     """Lazy ChoiceBlock feed from the managed=False mirror of districtrmap.
 
     Imported inside the function to avoid app-loading-order issues and to
-    keep database access strictly lazy (form render/validation only).
+    keep database access strictly lazy (form render/validation only). The
+    mirror table does not exist in test databases — degrade to no choices
+    rather than 500ing the whole page editor (same tolerance as
+    TagPage.clean; the savepoint keeps a failed query from aborting an
+    outer transaction).
     """
+    from django.db import DatabaseError, transaction
+
     from datastore.models import DistrictrMap
 
-    return [
-        (slug, f"{name} ({slug})")
-        for slug, name in DistrictrMap.objects.order_by("name").values_list(
-            "districtr_map_slug", "name"
-        )
-    ]
+    try:
+        with transaction.atomic():
+            return [
+                (slug, f"{name} ({slug})")
+                for slug, name in DistrictrMap.objects.order_by("name").values_list(
+                    "districtr_map_slug", "name"
+                )
+            ]
+    except DatabaseError:
+        return []
 
 
 class FrontendRichTextBlock(blocks.RichTextBlock):
@@ -135,8 +163,24 @@ class SectionHeaderBlock(blocks.StructBlock):
 
 
 class PlanGalleryBlock(CompatStructBlock):
-    """TipTap ``planGalleryNode``; mirrors PLAN_GALLERY_ATTRIBUTES."""
+    """TipTap ``planGalleryNode``; mirrors PLAN_GALLERY_ATTRIBUTES.
 
+    ``gallerySlug`` is NEW (no TipTap equivalent): it points the gallery at a
+    curated galleries.Gallery, whose entries the frontend fetches from
+    /api/galleries/<slug> and uses as the plan-id filter instead of ids/tags.
+    Only public galleries render for anonymous visitors (the block fetch is
+    client-side and unauthenticated).
+    """
+
+    gallerySlug = blocks.ChoiceBlock(
+        choices=gallery_slug_choices,
+        required=False,
+        label="Curated gallery",
+        help_text=(
+            "Show the plans curated in this gallery "
+            "(overrides the ids/tags filters below)."
+        ),
+    )
     ids = blocks.ListBlock(
         blocks.IntegerBlock(),
         default=[],
@@ -163,7 +207,7 @@ class PlanGalleryBlock(CompatStructBlock):
     class Meta:
         icon = "table"
         label = "Plan gallery"
-        nullable_if_empty = ("ids", "tags")
+        nullable_if_empty = ("ids", "tags", "gallerySlug")
 
 
 class CommentGalleryBlock(CompatStructBlock):

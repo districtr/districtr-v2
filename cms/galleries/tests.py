@@ -61,6 +61,19 @@ class GalleryRegistrationTests(TestCase):
     def test_gallery_is_a_registered_snippet(self):
         self.assertIn(Gallery, get_snippet_models())
 
+    def test_plan_gallery_block_choices_include_galleries(self):
+        # content.blocks.PlanGalleryBlock.gallerySlug feeds from Gallery
+        # lazily (galleries.models imports content.blocks, so the reverse
+        # import must stay deferred). Drafts are offered too: partners wire
+        # up a page while the gallery awaits publication.
+        from content.blocks import gallery_slug_choices
+
+        make_gallery("published-picks")
+        make_gallery("draft-picks", live=False)
+        slugs = [slug for slug, _label in gallery_slug_choices()]
+        self.assertIn("published-picks", slugs)
+        self.assertIn("draft-picks", slugs)
+
     def test_viewset_admin_urls_exist(self):
         # register_snippet(GalleryViewSet) wires the admin listing/add/edit
         # views; reverse() failing here means the viewset never registered.

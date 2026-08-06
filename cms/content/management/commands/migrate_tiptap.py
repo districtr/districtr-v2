@@ -6,6 +6,9 @@ Alembic-owned and have no Django models) into Wagtail pages
 
 Mapping:
 - one legacy (slug, language) row -> one page in that locale;
+- each content column stores ``{"title", "subtitle", "body": <ProseMirror
+  doc>}``; title/subtitle map to Page.title / subtitle (bare docs are also
+  accepted; any other shape aborts loudly);
 - the English row is the canonical page (created under the per-type index
   page); other languages become Wagtail translations sharing its
   translation_key via copy_for_translation. If a slug has no English row,
@@ -34,13 +37,15 @@ from collections import Counter, defaultdict
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection, transaction
-from wagtail.models import Locale, Page, Site
+from wagtail.models import Locale
 
 from content.models import PlacePage, PlacesIndexPage, TagPage, TagsIndexPage
+from content.provision import ensure_index
 from content.tiptap import (
     extract_prosemirror_text,
     extract_stream_text,
     tiptap_to_stream_data,
+    unwrap_legacy_content,
 )
 
 CONTENT_TYPES = {
@@ -249,17 +254,33 @@ class Command(BaseCommand):
     # ------------------------------------------------------------------
 
     def _convert_row(self, content_type, row):
-        published_doc = row["published_content"]
-        draft_doc = row["draft_content"]
+        row_key = f"{content_type}/{row['slug']}/{row['language']}"
+        try:
+            published_doc, published_title, published_subtitle = unwrap_legacy_content(
+                row["published_content"]
+            )
+            draft_doc, draft_title, draft_subtitle = unwrap_legacy_content(
+                row["draft_content"]
+            )
+        except ValueError as error:
+            # Garbage shapes must abort the migration, never become an
+            # empty page.
+            raise CommandError(f"{row_key}: {error}") from error
         # Legacy publishing nulled draft_content; ignore drafts identical to
         # the published doc.
-        if draft_doc is not None and draft_doc == published_doc:
+        if draft_doc is not None and row["draft_content"] == row["published_content"]:
             draft_doc = None
 
         entry = {
             "content_type": content_type,
             "slug": row["slug"],
             "language": row["language"],
+            # Legacy wrapper fields ({"title", "subtitle", "body": <doc>}).
+            "legacy_title": published_title or draft_title or None,
+            "legacy_subtitle": (
+                published_subtitle if published_doc is not None else draft_subtitle
+            )
+            or "",
             "input_nodes": Counter(),
             "output_blocks": Counter(),
             "warnings": [],
@@ -351,7 +372,10 @@ class Command(BaseCommand):
         return page, ("updated" if changed else "unchanged")
 
     def _derive_title(self, row, entry):
-        """First section-header title in the doc, else the humanised slug."""
+        """Legacy wrapper title, else the first section-header title in the
+        doc, else the humanised slug."""
+        if entry.get("legacy_title"):
+            return entry["legacy_title"]
         for kind in ("published", "draft"):
             doc = entry["docs"].get(kind)
             if not doc:
@@ -363,6 +387,7 @@ class Command(BaseCommand):
 
     def _set_fields(self, config, page, row, stream_data, entry):
         page.title = self._derive_title(row, entry)
+        page.subtitle = entry.get("legacy_subtitle") or ""
         page.body = stream_data
         if config["map_column"] == "districtr_map_slug":
             page.districtr_map_slug = row["districtr_map_slug"] or ""
@@ -371,6 +396,8 @@ class Command(BaseCommand):
 
     def _fields_match(self, config, page, row, stream_data, entry):
         if page.title != self._derive_title(row, entry):
+            return False
+        if page.subtitle != (entry.get("legacy_subtitle") or ""):
             return False
         if config["map_column"] == "districtr_map_slug":
             if page.districtr_map_slug != (row["districtr_map_slug"] or ""):
@@ -413,38 +440,14 @@ class Command(BaseCommand):
         return changed
 
     def _ensure_index(self, config, locale):
-        """Get or create the per-type index page in the given locale."""
-        index_model = config["index_model"]
-        default_locale = Locale.objects.get_or_create(language_code=DEFAULT_LANGUAGE)[0]
-
-        index = index_model.objects.filter(locale=default_locale).first()
-        if index is None:
-            home = self._home_page()
-            index = index_model(
-                title=config["index_title"],
-                slug=config["index_slug"],
-                locale=default_locale,
+        """Get or create the per-type index page in the given locale (shared
+        provisioning logic in content/provision.py)."""
+        try:
+            return ensure_index(
+                config["index_model"],
+                config["index_title"],
+                config["index_slug"],
+                locale=locale,
             )
-            home.add_child(instance=index)
-            index.save_revision().publish()
-
-        if locale == default_locale:
-            return index
-        translated = index.get_translation_or_none(locale)
-        if translated is None:
-            translated = index.copy_for_translation(
-                locale, copy_parents=True, alias=True
-            )
-        return translated
-
-    def _home_page(self):
-        site = Site.objects.filter(is_default_site=True).first() or Site.objects.first()
-        if site is not None:
-            return site.root_page
-        # Bare tree (e.g. minimal test fixtures): fall back to the first
-        # page under the root.
-        root = Page.get_first_root_node()
-        home = root.get_children().first()
-        if home is None:
-            raise CommandError("No site/home page to attach index pages to.")
-        return home
+        except RuntimeError as error:
+            raise CommandError(str(error)) from error
