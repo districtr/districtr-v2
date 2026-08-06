@@ -44,9 +44,7 @@ def assigned_units(context: DocumentEvaluationContext) -> AssignedUnitsResult:
     G = get_graph(context.gerrydb_table)
 
     parent_covered_children = sum(
-        len(G.nodes[p]["children"])
-        for p in parent_unit_to_zone
-        if "children" in G.nodes[p]
+        len(G.children_of(p)) for p in parent_unit_to_zone
     )
     assigned_child_count = len(unit_to_zone) + parent_covered_children
 
@@ -61,8 +59,9 @@ def assigned_units(context: DocumentEvaluationContext) -> AssignedUnitsResult:
             total_child_count=context.num_child_units,
         )
 
+    unit_ids = list(unit_to_zone)
     partially_assigned_parents = {
-        parent for unit in unit_to_zone if (parent := G.nodes[unit].get("parent"))
+        parent for parent in G.parents_of(unit_ids) if parent is not None
     }
 
     conflicting = partially_assigned_parents & parent_unit_to_zone.keys()
@@ -76,7 +75,7 @@ def assigned_units(context: DocumentEvaluationContext) -> AssignedUnitsResult:
     fully_shattered_one: set[str] = set()
     fully_shattered_split: set[str] = set()
     for parent in partially_assigned_parents:
-        children = G.nodes[parent].get("children", set())
+        children = G.children_of(parent)
         if not all(child in unit_to_zone for child in children):
             continue
         zones = {unit_to_zone[child] for child in children if child in unit_to_zone}
@@ -138,21 +137,17 @@ def unassigned_population(context: DocumentEvaluationContext) -> UnassignedPopul
 def contiguous(context: DocumentEvaluationContext) -> dict[DistrictId, bool]:
     """Returns whether the submitted plan is contiguous.
 
-    Parent units listed in G.graph["non_contiguous_parents"] are expanded to
-    their block children so that precincts with disconnected geographic parts
-    (e.g. island VTDs) are not falsely reported as contiguous.
+    Non-contiguous parent units (e.g. island VTDs with disconnected
+    geographic parts) are expanded to their block children before the
+    contiguity check, via ``G.expand_non_contiguous`` — a no-op fast path
+    for the common case where a gerrydb view has no non-contiguous parents.
     """
     assignment_rows = context.zone_assignments
     G = get_graph(context.gerrydb_table)
-    non_contiguous_parents: set[str] = G.graph.get("non_contiguous_parents", set())
     zone_to_nodes: dict[DistrictId, set[str]] = {}
     for geoid, zone in assignment_rows:
-        nodes = zone_to_nodes.setdefault(zone, set())
-        if geoid in non_contiguous_parents:
-            nodes.update(G.nodes[geoid]["children"])
-        else:
-            nodes.add(geoid)
+        zone_to_nodes.setdefault(zone, set()).add(geoid)
     return {
-        zone: check_subgraph_contiguity(G, nodes)
+        zone: check_subgraph_contiguity(G, G.expand_non_contiguous(nodes))
         for zone, nodes in zone_to_nodes.items()
     }
