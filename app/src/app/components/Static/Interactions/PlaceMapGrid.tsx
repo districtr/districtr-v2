@@ -6,7 +6,7 @@ import {sanitizeCommunityMaps} from '@/app/utils/communities';
 import {useCreateMapDocument} from './CreateButton';
 import {ImportBlockAssignments} from './ImportBlockAssignments';
 
-const MapStartCard: React.FC<{
+export const MapStartCard: React.FC<{
   view: Partial<DistrictrMap>;
   isCommunity: boolean;
 }> = ({view, isCommunity}) => {
@@ -61,7 +61,7 @@ const MapStartCard: React.FC<{
   );
 };
 
-const CardGrid: React.FC<{children: React.ReactNode}> = ({children}) => (
+export const CardGrid: React.FC<{children: React.ReactNode}> = ({children}) => (
   <Grid
     gap="2"
     columns={{

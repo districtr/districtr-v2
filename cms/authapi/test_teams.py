@@ -435,6 +435,7 @@ class ContentPageFormScopingTests(TestCase):
     def test_tagpage_form_offers_only_team_slugs(self):
         form = self._bound(TagPage, user=self.member)
         choices = dict(form.fields["districtr_map_slug"].choices)
+        choices.pop("", None)  # placeholder
         self.assertEqual(set(choices), {"chi_wards"})
 
     def test_tagpage_form_rejects_out_of_scope_slug(self):
@@ -466,9 +467,11 @@ class ContentPageFormScopingTests(TestCase):
         self.assertIn("districtr_map_slugs", form.errors)
 
     def test_admin_form_unrestricted(self):
-        # Admin keeps the plain free-text CharField (no scoped choices).
+        # Admins get a dropdown of ALL map modules (not just one team's).
         form = self._bound(TagPage, user=self.admin)
-        self.assertFalse(hasattr(form.fields["districtr_map_slug"], "choices"))
+        choices = dict(form.fields["districtr_map_slug"].choices)
+        choices.pop("", None)  # placeholder
+        self.assertEqual(set(choices), {"chi_wards", "tx_other"})
 
     def test_placepage_form_preserves_other_teams_slugs_and_order(self):
         # A shared PlacePage carries another team's map; saving must keep it,
