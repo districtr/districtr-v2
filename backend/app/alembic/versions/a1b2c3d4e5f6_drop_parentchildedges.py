@@ -12,7 +12,7 @@ Downgrade recreates the empty partitioned table, its index, and the UDFs
 restored; they would need to be rebuilt from the pre-deprecation code.
 
 Revision ID: a1b2c3d4e5f6
-Revises: a30db9686b7c
+Revises: 7e57b49573e0
 Create Date: 2026-07-17
 
 """
@@ -27,7 +27,7 @@ import app.models
 
 # revision identifiers, used by Alembic.
 revision: str = "a1b2c3d4e5f6"
-down_revision: Union[str, None] = "a30db9686b7c"
+down_revision: Union[str, None] = "7e57b49573e0"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
