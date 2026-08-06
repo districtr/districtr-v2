@@ -43,9 +43,7 @@ def assigned_units(context: DocumentEvaluationContext) -> AssignedUnitsResult:
     whole_assigned_count = len(parent_unit_to_zone)
     G = get_graph(context.gerrydb_table)
 
-    parent_covered_children = sum(
-        len(G.children_of(p)) for p in parent_unit_to_zone
-    )
+    parent_covered_children = sum(len(G.children_of(p)) for p in parent_unit_to_zone)
     assigned_child_count = len(unit_to_zone) + parent_covered_children
 
     if not unit_to_zone:

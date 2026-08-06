@@ -245,6 +245,7 @@ def test_cut_edges_empty_assignment():
 
 # -- from_npz ---------------------------------------------------------------
 
+
 # npz fixtures are generated from the pkl fixtures by the pipelines writer
 # (transforms/graph.py graph_to_npz_arrays), so these tests also verify
 # writer/reader schema compatibility across the two components.

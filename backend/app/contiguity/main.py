@@ -65,9 +65,7 @@ def get_assigned_nodes(
     return [
         ZoneContiguousNodes(
             zone=row.zone,
-            nodes=(
-                sorted(G.expand_non_contiguous(set(row.nodes))) if G else row.nodes
-            ),
+            nodes=(sorted(G.expand_non_contiguous(set(row.nodes))) if G else row.nodes),
         )
         for row in session.execute(sql, params)
     ]

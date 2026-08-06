@@ -364,7 +364,7 @@ class DualLevelDualGraph:
         if i is None:
             return False
         as_parent = self._as_parent[i]
-        return as_parent >= 0 and int(as_parent) in self._children_slices
+        return bool(as_parent >= 0) and int(as_parent) in self._children_slices
 
     def expand_non_contiguous(self, geo_ids: set[str]) -> set[str]:
         """Replace any non-contiguous-parent id in ``geo_ids`` with its
