@@ -13,32 +13,12 @@ export interface HelpTipEntry {
   linkSuffix?: string;
 }
 
-// Map Layers' Demographics/Elections sections are live lists of map-display
-// toggles — self-explanatory, but worth a demonstration link. Declared ahead
-// of helpTipContent so the stacked layout's combined tips (below) can compose
-// from these instead of duplicating videoFile/guideAnchor in a second literal.
-const demographicsMapLayerTip = {
-  title: 'Demographics',
-  text: '',
-  videoFile: 'demographics_panel.webm',
-  guideAnchor: 'demographics',
-};
-const electionsMapLayerTip = {
-  title: 'Elections',
-  text: '',
-  videoFile: 'election_panel.webm',
-  guideAnchor: 'elections',
-};
-// Stats' Demographics/Elections sections are data tables — worth explaining
-// what they show, but with nothing to demonstrate.
-const demographicsStatsTip = {
-  title: 'Demographics',
-  text: 'Click here to view the racial makeup of your districts.',
-};
-const electionsStatsTip = {
-  title: 'Elections',
-  text: 'Click here to view how your districts would have performed in past elections.',
-};
+// Stats' Demographics/Elections text — declared ahead of helpTipContent so
+// the stacked layout's combined tips (below) can reuse it instead of
+// duplicating it.
+const demographicsStatsText = 'Click here to view the racial makeup of your districts.';
+const electionsStatsText =
+  'Click here to view how your districts would have performed in past elections.';
 
 // Not annotated as `Record<string, HelpTipEntry>` on purpose: that annotation would widen
 // `keyof typeof helpTipContent` to `string | number`, defeating HelpTipKey as a literal-key
@@ -110,7 +90,7 @@ export const helpTipContent = {
     title: 'Visual settings',
     text: 'Click to see a list of controls for what the map shows',
     videoFile: 'visual_settings.webm',
-    guideAnchor: 'visual-settings',
+    guideAnchor: 'map-layers',
     linkSuffix:
       'on how to hide painted districts, toggle county boundaries, or highlight unassigned areas that still need a district.',
   },
@@ -122,12 +102,12 @@ export const helpTipContent = {
     title: 'Locking districts',
     text: 'Toggle it to protect this district from being painted over or erased.',
     videoFile: 'district_lock.webm',
-    guideAnchor: 'district-overview',
+    guideAnchor: 'population',
   },
   idealPopulation: {
     title: 'Ideal population',
     text: 'The ideal population is the total population divided by the number of districts. Each district should be as close to this number as possible so everyone has equal representation.',
-    guideAnchor: 'district-overview',
+    guideAnchor: 'population',
   },
   topToBottomDeviation: {
     title: 'Top-to-bottom deviation',
@@ -142,26 +122,51 @@ export const helpTipContent = {
     text: 'The maximum deviation is the largest deviation from the ideal population. You can use either a percentage of the ideal population, or a fixed number of people.',
   },
   // Stacked layout's Demographics accordion combines the Map Layers and Stats
-  // tabs' content into one section, so its tip carries both the text and the
-  // demonstration link those two tabs otherwise split between them below —
-  // composed from those two tips rather than duplicating either.
+  // tabs' content into one section, and keeps the original panel clip (which
+  // shows both halves together) rather than either tab's own split-out clip.
+  // Text is still shared with demographicsStats, since that description
+  // holds regardless.
   demographics: {
-    ...demographicsMapLayerTip,
-    text: demographicsStatsTip.text,
+    title: 'Demographics',
+    text: demographicsStatsText,
+    videoFile: 'demographics_panel.webm',
+    // Covers both the Map Layers and Stats tabs' content at once here, so
+    // neither sub-anchor alone represents it — points at the section itself.
+    guideAnchor: 'data-tabs',
   },
-  demographicsMapLayer: demographicsMapLayerTip,
-  demographicsStats: demographicsStatsTip,
+  // Map Layers' Demographics section is a live list of map-display toggles —
+  // self-explanatory, but worth a demonstration link.
+  demographicsMapLayer: {
+    title: 'Demographics',
+    text: '',
+    videoFile: 'demographics_display.webm',
+    guideAnchor: 'map-layers',
+  },
+  demographicsStats: {
+    title: 'Demographics',
+    text: demographicsStatsText,
+  },
   elections: {
-    ...electionsMapLayerTip,
-    text: electionsStatsTip.text,
+    title: 'Elections',
+    text: electionsStatsText,
+    videoFile: 'election_panel.webm',
+    guideAnchor: 'data-tabs',
   },
-  electionsMapLayer: electionsMapLayerTip,
-  electionsStats: electionsStatsTip,
+  electionsMapLayer: {
+    title: 'Elections',
+    text: '',
+    videoFile: 'election_display.webm',
+    guideAnchor: 'map-layers',
+  },
+  electionsStats: {
+    title: 'Elections',
+    text: electionsStatsText,
+  },
   mapValidation: {
     title: 'Validity check',
     text: 'Click here to see whether your map is missing any geographic units, and whether each district forms a single, connected shape.',
     videoFiles: ['completeness_check.webm', 'contiguity_check.webm'],
-    guideAnchor: 'map-validation',
+    guideAnchor: 'stats',
   },
   boundariesAndAreas: {
     title: 'Boundaries and areas',

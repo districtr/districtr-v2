@@ -101,11 +101,11 @@ bun run test:e2e
 **Against a preview/staging environment:**
 
 ```bash
-# Test against a Fly.io preview deployment
-BASE_URL=https://districtr-v2-pr-123.fly.dev bun run test:e2e
+# Test against a preview deployment
+BASE_URL=https://pr-123.dev.districtr.org bun run test:e2e
 
 # Or use the convenience script
-PREVIEW_URL=https://districtr-v2-pr-123.fly.dev bun run test:e2e:preview
+PREVIEW_URL=https://pr-123.dev.districtr.org bun run test:e2e:preview
 ```
 
 ### Test Structure

@@ -82,7 +82,7 @@ export const CoiMap: React.FC = () => {
       {isMapLoaded && <MapLayerAnchors />}
       {areAnchorLayersReady && (
         <>
-          <CountyLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.reference} />
+          <CountyLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.countyBoundaries} />
           <BlockSource>
             {!!mapDocument?.parent_layer && (
               <CoiBlockLayers

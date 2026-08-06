@@ -182,7 +182,8 @@ Docker Compose with 5 services: `db` (PostGIS), `backend` (Uvicorn), `frontend` 
 
 ### CI/CD (GitHub Actions)
 
-- `fly-deploy-app.yml` / `fly-deploy-api.yml` - Deploy on push to `main`/`dev`
+- `deploy-app.yml` / `deploy-api.yml` - Deploy to AWS (ECS via Pulumi) on push to `main`/`dev`
+- `preview.yml` - Label-driven ephemeral PR previews on the dev AWS stack
 - `test-backend.yml` - pytest against PostGIS on backend changes
 
 ## Key Architectural Decisions

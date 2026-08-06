@@ -149,9 +149,12 @@ When reviewing a PR, use the "HIPPO" method to provide feedback:
 | **PP** - Personal preference | Possible changes requested. Something the reviewer would do but is non-blocking. |
 | **O** - Opinion | Comment for discussion. Non-blocking. Could be a bigger idea that's relevant to the PR. |
 
-Open PRs will spin up a set of test apps for review, following the convention `pr-<pr number>-districtr-districtr-v2-<sub app>`, and would be available for testing at e.g. `https://pr-116-districtr-districtr-v2-app.fly.dev/map`. This behavior can be tweaks via `.github/workflows/fly-deploy-pr.yml`
+PRs get an ephemeral preview when labeled (`.github/workflows/preview.yml`):
 
-Updates to PRs will trigger updates to staging apps, including re-running of migrations on the testing db.
+- `Preview: FE` — frontend at `https://pr-<pr number>.dev.districtr.org`, pointed at the shared dev backend
+- `Preview: Fullstack` — also a backend at `https://api-pr-<pr number>.dev.districtr.org` with a database restored from the latest dev snapshot
+
+New commits update the preview; closing the PR (or removing the label) tears it down.
 
 ### CI/CD
 

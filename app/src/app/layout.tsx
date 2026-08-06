@@ -4,6 +4,7 @@ import {Theme} from '@radix-ui/themes';
 import {FeedbackForm} from './components/FeedbackForm';
 import {VersionCheck} from './components/VersionCheck';
 import {LoadingOverlay} from './components/Topbar/LoadingOverlay';
+import {SessionChallenge} from './components/SessionChallenge';
 import '@radix-ui/themes/styles.css';
 import './globals.css';
 
@@ -52,6 +53,7 @@ export default function RootLayout({
           <FeedbackForm />
           <VersionCheck />
           <LoadingOverlay />
+          <SessionChallenge />
         </Theme>
       </body>
     </html>

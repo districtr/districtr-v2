@@ -54,6 +54,9 @@ export const config = {
    * the two must not disagree. */
   apiHosts: Array.from(new Set([apiDomain, ...extraApiDomains])),
   corsOrigins: cfg.require("corsOrigins"),
+  // Regex of additional allowed CORS origins, so label-based PR previews
+  // (pr-<N>.dev.districtr.org) can call the shared dev API. Dev only.
+  corsOriginRegex: cfg.get("corsOriginRegex"),
 
   // Existing object storage / CDN — not managed by this project.
   s3BucketName: cfg.requireSecret("s3BucketName"),
