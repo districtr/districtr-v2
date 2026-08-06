@@ -229,22 +229,22 @@ def _heal_or_fill(
     Returns a dict mapping geo_id → zone (int) or None.
     """
     children_assignments_by_parent: dict[str, dict[str, int]] = {}
-    for geo_id, zone in zone_by_geo.items():
-        node_data = G.nodes.get(geo_id)
-        # Only import geoid in our map
-        if node_data is None:
+    geo_ids = list(zone_by_geo)
+    parents = G.parents_of(geo_ids)
+    for geo_id, parent in zip(geo_ids, parents):
+        # Unknown ids and ids without a parent both map to None (mirrors the
+        # old "skip if node_data is None or 'parent' not in node_data" check).
+        if parent is None:
             continue
-        # Only process child nodes
-        if "parent" not in node_data:
-            continue
-        parent = node_data["parent"]
-        children_assignments_by_parent.setdefault(parent, {})[geo_id] = zone
+        children_assignments_by_parent.setdefault(parent, {})[geo_id] = zone_by_geo[
+            geo_id
+        ]
 
     to_remove: set[str] = set()
     healed: dict[str, int] = {}
     filled: dict[str, None] = {}
     for parent, children_assignments in children_assignments_by_parent.items():
-        all_children: set[str] = G.nodes[parent]["children"]
+        all_children: frozenset[str] = G.children_of(parent)
         if children_assignments.keys() == all_children:
             zones = set(children_assignments.values())
             if len(zones) == 1:

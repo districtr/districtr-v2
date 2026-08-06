@@ -60,8 +60,8 @@ def build_block_assignments_csv(
         writer = csv.writer(f, lineterminator="\n")
         writer.writerow(["geo_id", "zone"])
         for geo_id, zone in rows:
-            if "children" in G.nodes[geo_id]:
-                for child in G.nodes[geo_id]["children"]:
+            if G.is_shattered_parent(geo_id):
+                for child in G.children_of(geo_id):
                     writer.writerow([child, zone])
             else:
                 writer.writerow([geo_id, zone])
