@@ -3,7 +3,7 @@ from pytest import fixture
 from networkx import Graph
 
 import pickle
-from app.evaluation.district_graph import DistrictGraph
+from app.evaluation.dual_level_dual_graph import DualLevelDualGraph
 from app.contiguity.main import (
     check_subgraph_contiguity,
     subgraph_number_connected_components,
@@ -31,7 +31,7 @@ def connected_nx_graph():
 
 @fixture
 def connected_graph(connected_nx_graph):
-    return DistrictGraph.from_networkx(connected_nx_graph)
+    return DualLevelDualGraph.from_networkx(connected_nx_graph)
 
 
 def test_check_subgraph_contiguity(connected_graph):

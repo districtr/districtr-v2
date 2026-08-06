@@ -1,7 +1,7 @@
 """Drop parentchildedges and its UDFs — the graph now serves parent-child data
 
 Parent-child relationships are read from the pipeline-built graph files
-(see app/evaluation/district_graph.py); the parentchildedges table, its
+(see app/evaluation/dual_level_dual_graph.py); the parentchildedges table, its
 per-map partitions, and the UDFs that depended on it are unused.
 
 Run `python cli.py verify-graph-edges` against the target database BEFORE

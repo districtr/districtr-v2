@@ -1,12 +1,16 @@
-"""Equivalence tests: DistrictGraph must behave like the networkx graph it replaces."""
+"""Equivalence tests: DualLevelDualGraph must behave like the networkx graph it
+replaces, for the slice of behavior it still exposes (``.nodes``/``.graph``
+dict-mimicry is dropped by design — see the class docstring — so there is
+nothing to test-for-equivalence there)."""
 
 import pickle
 import random
 
 import networkx as nx
+import numpy as np
 import pytest
 
-from app.evaluation.district_graph import DistrictGraph
+from app.evaluation.dual_level_dual_graph import DualLevelDualGraph
 from tests.constants import FIXTURES_PATH
 
 
@@ -22,44 +26,43 @@ def nx_graph(request) -> nx.Graph:
 
 
 @pytest.fixture(scope="module")
-def dg(nx_graph) -> DistrictGraph:
-    return DistrictGraph.from_networkx(nx_graph)
+def dg(nx_graph) -> DualLevelDualGraph:
+    return DualLevelDualGraph.from_networkx(nx_graph)
 
 
 def test_membership_and_len(nx_graph, dg):
     assert len(dg) == nx_graph.number_of_nodes()
     for node in nx_graph.nodes():
         assert node in dg
-        assert node in dg.nodes
     assert "not_a_node" not in dg
-    assert dg.nodes.get("not_a_node") is None
-    with pytest.raises(KeyError):
-        dg.nodes["not_a_node"]
     # Longer than any stored id: must not false-positive via dtype truncation
     assert ("x" * 64) not in dg
 
 
-def test_node_attrs_match(nx_graph, dg):
+def test_parents_of_matches_nx(nx_graph, dg):
+    nodes = list(nx_graph.nodes())
+    expected = [nx_graph.nodes[n].get("parent") for n in nodes]
+    assert dg.parents_of(nodes) == expected
+    # Unknown ids map to None, same as a LEFT JOIN miss
+    assert dg.parents_of(["not_a_node"]) == [None]
+    assert dg.parents_of([]) == []
+
+
+def test_children_of_matches_nx(nx_graph, dg):
     for node, data in nx_graph.nodes(data=True):
-        attrs = dg.nodes[node]
-        assert attrs.get("parent") == data.get("parent")
-        if "children" in data:
-            assert attrs["children"] == frozenset(data["children"])
-            assert isinstance(attrs["children"], frozenset)
-        else:
-            assert "children" not in attrs
-        if "parent" in attrs:
-            assert attrs["parent"].__class__ is str
+        expected = frozenset(data["children"]) if "children" in data else frozenset()
+        got = dg.children_of(node)
+        assert got == expected
+        assert isinstance(got, frozenset)
+    with pytest.raises(KeyError):
+        dg.children_of("not_a_node")
 
 
-def test_graph_attrs_match(nx_graph, dg):
-    assert set(dg.graph.keys()) == set(nx_graph.graph.keys())
-    if "weighted_edges" in nx_graph.graph:
-        assert dg.graph["weighted_edges"] == nx_graph.graph["weighted_edges"]
-    if "non_contiguous_parents" in nx_graph.graph:
-        assert dg.graph["non_contiguous_parents"] == set(
-            nx_graph.graph["non_contiguous_parents"]
-        )
+def test_is_shattered_parent_matches_nx(nx_graph, dg):
+    for node, data in nx_graph.nodes(data=True):
+        assert dg.is_shattered_parent(node) == bool(data.get("children"))
+    # Unknown ids are not shattered parents (predicate, doesn't raise)
+    assert dg.is_shattered_parent("not_a_node") is False
 
 
 def test_neighbors_match(nx_graph, dg):
@@ -85,7 +88,7 @@ def test_connected_components_match(nx_graph, dg):
 
 
 def test_unknown_ids_silently_dropped(nx_graph, dg):
-    """nx G.subgraph(...) drops unknown ids; DistrictGraph must match."""
+    """nx G.subgraph(...) drops unknown ids; DualLevelDualGraph must match."""
     subset = list(nx_graph.nodes())[:5] + ["missing_1", "missing_2"]
     expected = {
         frozenset(c) for c in nx.connected_components(nx_graph.subgraph(subset))
@@ -100,8 +103,8 @@ def test_empty_subgraph_raises(dg):
         dg.is_connected([])
 
 
-def test_component_ids_are_native_str(dg):
-    subset = list(dg.nodes)[:20]
+def test_component_ids_are_native_str(dg, nx_graph):
+    subset = list(nx_graph.nodes())[:20]
     for component in dg.connected_components(subset):
         for node in component:
             assert node.__class__ is str
@@ -110,12 +113,10 @@ def test_component_ids_are_native_str(dg):
 def test_non_shatterable_graph():
     """Plain edge graphs (no parents / weighted_edges / ncp) keep nx semantics."""
     G = nx.Graph([("a", "b"), ("b", "c"), ("d", "e")])
-    dg = DistrictGraph.from_networkx(G)
-    assert dg.nodes["a"] == {}
-    assert dg.nodes["a"].get("parent") is None
-    assert "children" not in dg.nodes["a"]
-    assert "weighted_edges" not in dg.graph
-    assert dg.graph.get("non_contiguous_parents", set()) == set()
+    dg = DualLevelDualGraph.from_networkx(G)
+    assert dg.parents_of(["a"]) == [None]
+    assert dg.children_of("a") == frozenset()
+    assert dg.is_shattered_parent("a") is False
     assert dg.number_connected_components(["a", "b", "c", "d", "e"]) == 2
     assert dg.is_connected(["a", "b", "c"])
     assert not dg.is_connected(["a", "c"])
@@ -124,11 +125,125 @@ def test_non_shatterable_graph():
 def test_single_node_no_edges():
     G = nx.Graph()
     G.add_node("only")
-    dg = DistrictGraph.from_networkx(G)
+    dg = DualLevelDualGraph.from_networkx(G)
     assert "only" in dg
     assert dg.neighbors("only") == []
     assert dg.is_connected(["only"])
 
+
+# -- is_shattered_parent --------------------------------------------------
+
+
+def test_is_shattered_parent_direct_construction():
+    G = nx.Graph()
+    G.add_edge("a", "b")
+    G.add_node("p1", children={"a", "b"})
+    G.nodes["a"]["parent"] = "p1"
+    G.nodes["b"]["parent"] = "p1"
+    G.add_node("p2")  # parent-shaped id, but never shattered (no children)
+    dg = DualLevelDualGraph.from_networkx(G)
+
+    assert dg.is_shattered_parent("p1") is True
+    assert dg.is_shattered_parent("p2") is False
+    assert dg.is_shattered_parent("a") is False  # a child, not a parent
+    assert dg.is_shattered_parent("nope") is False
+
+
+# -- expand_non_contiguous -------------------------------------------------
+
+
+def _ncp_graph() -> DualLevelDualGraph:
+    G = nx.Graph()
+    G.add_edge("a", "b")
+    G.add_edge("c", "d")
+    G.add_node("p1", children={"a", "b"})
+    G.nodes["a"]["parent"] = "p1"
+    G.nodes["b"]["parent"] = "p1"
+    G.graph["non_contiguous_parents"] = {"p1"}
+    return DualLevelDualGraph.from_networkx(G)
+
+
+def test_expand_non_contiguous_mutates_and_returns_in_place():
+    dg = _ncp_graph()
+    geo_ids = {"p1", "c"}
+    result = dg.expand_non_contiguous(geo_ids)
+    assert result is geo_ids  # same object, not a copy
+    assert result == {"a", "b", "c"}
+
+
+def test_expand_non_contiguous_noop_when_no_match(dg):
+    """The common case (51/52 states have zero non-contiguous parents):
+    nothing in geo_ids intersects _non_contiguous_parents, so the set comes
+    back unchanged and untouched."""
+    geo_ids = {"missing_1", "missing_2"}
+    result = dg.expand_non_contiguous(geo_ids)
+    assert result is geo_ids
+    assert result == {"missing_1", "missing_2"}
+
+
+def test_expand_non_contiguous_empty_ncp_is_cheap_regardless_of_geo_ids_size():
+    """O(len(non_contiguous_parents)), never O(len(geo_ids)): a huge geo_ids
+    set with an empty (or non-matching) NCP set must not be scanned element
+    by element. Not a timing assertion (flaky) — asserts the actual
+    mechanism: CPython's set `&` iterates the smaller operand, so this
+    intersection touches _non_contiguous_parents' elements, not geo_ids'."""
+    dg = _ncp_graph()
+    huge = {str(i) for i in range(200_000)}
+    result = dg.expand_non_contiguous(huge)
+    assert result is huge
+    assert len(result) == 200_000  # untouched: no id in `huge` is "p1"
+
+
+# -- cut_edges --------------------------------------------------------------
+
+
+def test_cut_edges_hand_computed():
+    """simple_geos: 3 vtds (p1/p2/p3), each with 2-3 child blocks, plus
+    weighted parent-parent edges. Assignment mixes a shattered parent
+    (blocks 1 and 5 of vtd 1 individually assigned to different zones) with
+    two whole-parent assignments (vtd 2, vtd 3).
+
+    Hand-computed expected cut count:
+    - Step 1 (parent pass): only (vtd2, vtd3) has both sides whole-assigned
+      (zone 1 vs zone 2) -> +1 (that edge's weight).
+    - Step 2 (unit pass): block 1 (zone 1) vs block 5 (zone 2) are neighbors,
+      seen from both sides -> +1 after halving. block 5 (zone 2) is also
+      adjacent to block 2, whose parent (vtd2) is zone 1 -> +1.
+    Total: 1 (step 1) + 1 (step 2 direct) + 1 (halved mutual edge) = 3.
+    """
+    with open(FIXTURES_PATH / "graph" / "simple_geos.pkl", "rb") as f:
+        nx_graph = pickle.load(f)
+    dg = DualLevelDualGraph.from_networkx(nx_graph)
+
+    zone_by_geo = {
+        "000010000000001": 1,
+        "000010000000005": 2,
+        "vtd:000010000002": 1,
+        "vtd:000010000003": 2,
+    }
+    assert dg.cut_edges(zone_by_geo) == 3
+
+
+def test_cut_edges_no_weighted_edges_falls_back_to_unit_pass_only():
+    """Non-shatterable maps (no weighted_edges) skip Step 1 entirely — every
+    assignment is a plain unit, exactly like the pre-refactor algorithm's
+    non-shatterable branch."""
+    G = nx.Graph([("a", "b"), ("b", "c"), ("c", "d")])
+    dg = DualLevelDualGraph.from_networkx(G)
+
+    # a-b cut, b-c not cut, c-d cut
+    zone_by_geo = {"a": 1, "b": 1, "c": 2, "d": 1}
+    assert dg.cut_edges(zone_by_geo) == 2
+
+
+def test_cut_edges_empty_assignment():
+    with open(FIXTURES_PATH / "graph" / "simple_geos.pkl", "rb") as f:
+        nx_graph = pickle.load(f)
+    dg = DualLevelDualGraph.from_networkx(nx_graph)
+    assert dg.cut_edges({}) == 0
+
+
+# -- from_npz ---------------------------------------------------------------
 
 # npz fixtures are generated from the pkl fixtures by the pipelines writer
 # (transforms/graph.py graph_to_npz_arrays), so these tests also verify
@@ -136,50 +251,51 @@ def test_single_node_no_edges():
 @pytest.mark.parametrize("name", ["simple_geos", "ks_ellis_county_block"])
 def test_from_npz_matches_from_networkx(name):
     with open(FIXTURES_PATH / "graph" / f"{name}.pkl", "rb") as f:
-        via_pkl = DistrictGraph.from_networkx(pickle.load(f))
-    via_npz = DistrictGraph.from_npz(FIXTURES_PATH / "graph" / f"{name}.npz")
+        via_pkl = DualLevelDualGraph.from_networkx(pickle.load(f))
+    via_npz = DualLevelDualGraph.from_npz(FIXTURES_PATH / "graph" / f"{name}.npz")
 
-    assert list(via_npz.nodes) == list(via_pkl.nodes)
-    for node in via_pkl.nodes:
-        assert via_npz.nodes[node] == via_pkl.nodes[node]
+    assert via_npz._node_ids.tolist() == via_pkl._node_ids.tolist()
+    for node in via_pkl._node_ids.tolist():
+        assert via_npz.parents_of([node]) == via_pkl.parents_of([node])
+        assert via_npz.children_of(node) == via_pkl.children_of(node)
         assert set(via_npz.neighbors(node)) == set(via_pkl.neighbors(node))
-    assert via_npz.graph == via_pkl.graph
+    assert via_npz._weighted_edges == via_pkl._weighted_edges
+    assert via_npz._non_contiguous_parents == via_pkl._non_contiguous_parents
 
-    subset = list(via_pkl.nodes)[: len(via_pkl.nodes) // 2]
+    subset = via_pkl._node_ids.tolist()[: len(via_pkl) // 2]
     expected = {frozenset(c) for c in via_pkl.connected_components(subset)}
     assert {frozenset(c) for c in via_npz.connected_components(subset)} == expected
 
 
 def test_from_npz_rejects_unknown_version(tmp_path):
-    import numpy as np
-
     bad = tmp_path / "bad.npz"
     np.savez(bad, format_version=np.int32(999))
     with pytest.raises(ValueError, match="format_version"):
-        DistrictGraph.from_npz(bad)
+        DualLevelDualGraph.from_npz(bad)
 
 
 # -- shared mmap disk cache ---------------------------------------------------
 
 
 def test_save_load_cache_round_trip(nx_graph, dg, tmp_path):
-    import numpy as np
-
     cache_dir = tmp_path / "cached"
     dg.save_cache(cache_dir)
-    loaded = DistrictGraph.load_cache(cache_dir)
+    loaded = DualLevelDualGraph.load_cache(cache_dir)
 
     # Arrays are memory-mapped (shared across worker processes by the OS)
     assert isinstance(loaded._node_ids, np.memmap)
     assert isinstance(loaded._adj, np.memmap)
 
-    assert list(loaded.nodes) == list(dg.nodes)
-    for node in dg.nodes:
-        assert loaded.nodes[node] == dg.nodes[node]
+    node_ids = loaded._node_ids.tolist()
+    assert node_ids == dg._node_ids.tolist()
+    for node in node_ids:
+        assert loaded.parents_of([node]) == dg.parents_of([node])
+        assert loaded.children_of(node) == dg.children_of(node)
         assert set(loaded.neighbors(node)) == set(dg.neighbors(node))
-    assert loaded.graph == dg.graph
+    assert loaded._weighted_edges == dg._weighted_edges
+    assert loaded._non_contiguous_parents == dg._non_contiguous_parents
 
-    subset = list(dg.nodes)[: max(1, len(dg) // 2)]
+    subset = node_ids[: max(1, len(dg) // 2)]
     expected = {frozenset(c) for c in dg.connected_components(subset)}
     assert {frozenset(c) for c in loaded.connected_components(subset)} == expected
 
@@ -189,8 +305,8 @@ def test_save_cache_race_first_writer_wins(dg, tmp_path):
     dg.save_cache(cache_dir)
     # A second (racing) writer must not fail or corrupt the existing cache
     dg.save_cache(cache_dir)
-    loaded = DistrictGraph.load_cache(cache_dir)
-    assert list(loaded.nodes) == list(dg.nodes)
+    loaded = DualLevelDualGraph.load_cache(cache_dir)
+    assert loaded._node_ids.tolist() == dg._node_ids.tolist()
 
 
 def test_load_cache_rejects_unknown_version(dg, tmp_path):
@@ -202,4 +318,19 @@ def test_load_cache_rejects_unknown_version(dg, tmp_path):
     meta["cache_version"] = 999
     (cache_dir / "meta.json").write_text(json.dumps(meta))
     with pytest.raises(ValueError, match="cache_version"):
-        DistrictGraph.load_cache(cache_dir)
+        DualLevelDualGraph.load_cache(cache_dir)
+
+
+def test_load_cache_csr_shares_memory_with_mmap_arrays(dg, tmp_path):
+    """The dtype-mismatch footgun this refactor exists to avoid: adj_offsets
+    must be saved as int32 (matching adj's int32) or scipy.sparse.csr_array
+    silently upcasts-and-copies one of the two arrays instead of aliasing
+    them, defeating cross-worker mmap sharing. Confirmed here via
+    np.shares_memory rather than assumed."""
+    cache_dir = tmp_path / "cached"
+    dg.save_cache(cache_dir)
+    loaded = DualLevelDualGraph.load_cache(cache_dir)
+
+    assert loaded._adj.dtype == loaded._adj_offsets.dtype == np.int32
+    assert np.shares_memory(loaded._csr.indices, loaded._adj)
+    assert np.shares_memory(loaded._csr.indptr, loaded._adj_offsets)

@@ -1,5 +1,5 @@
 from typing import Iterable, Hashable, Any
-from app.evaluation.district_graph import DistrictGraph
+from app.evaluation.dual_level_dual_graph import DualLevelDualGraph
 from app.models import UUIDType, DistrictrMap
 from app.utils import assert_safe_ident
 from sqlmodel import Session, Integer, ARRAY
@@ -13,18 +13,18 @@ logging.basicConfig(level=logging.INFO)
 
 
 def check_subgraph_contiguity(
-    G: DistrictGraph, subgraph_nodes: Iterable[Hashable]
+    G: DualLevelDualGraph, subgraph_nodes: Iterable[Hashable]
 ) -> bool:
     return G.is_connected(subgraph_nodes)
 
 
 def subgraph_number_connected_components(
-    G: DistrictGraph, subgraph_nodes: Iterable[Hashable]
+    G: DualLevelDualGraph, subgraph_nodes: Iterable[Hashable]
 ) -> int:
     return G.number_connected_components(subgraph_nodes)
 
 
-def expand_non_contiguous_parents(G: DistrictGraph, nodes: Iterable[str]) -> set[str]:
+def expand_non_contiguous_parents(G: DualLevelDualGraph, nodes: Iterable[str]) -> set[str]:
     """Replace non-contiguous parent nodes with their block children.
 
     Parent units whose blocks are geographically disconnected are stored in
@@ -55,7 +55,7 @@ def get_assigned_nodes(
     document_id: str,
     districtr_map: DistrictrMap,
     zones: list[int] | None = None,
-    G: DistrictGraph | None = None,
+    G: DualLevelDualGraph | None = None,
 ) -> list[ZoneContiguousNodes]:
     """Return assigned nodes that are individually contiguous.
     Parent nodes that are not contiguous will be expanded to block-level children.
@@ -104,7 +104,7 @@ def get_assigned_nodes_bboxes(
     document_id: str,
     districtr_map: DistrictrMap,
     zone: int,
-    G: DistrictGraph | None = None,
+    G: DualLevelDualGraph | None = None,
 ) -> list[NodeWithBBoxes] | None:
     """Return contiguous assigned nodes with bounding boxes for a specific zone.
 
