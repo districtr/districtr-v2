@@ -160,7 +160,13 @@ class Overlay(models.Model):
         db_table = "overlay"
 
     def __str__(self):
-        return self.name
+        # Rich enough to tell apart the line/text/fill overlays that share a
+        # data source (the common case) in every dropdown they appear in.
+        source_tail = (self.source or "").rstrip("/").rsplit("/", 1)[-1]
+        parts = [self.layer_type or "?", self.data_type or "?"]
+        if source_tail:
+            parts.append(source_tail)
+        return f"{self.name} — {' · '.join(parts)}"
 
 
 class DistrictrMapsToGroups(models.Model):

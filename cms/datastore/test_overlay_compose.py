@@ -181,7 +181,7 @@ class ScheduleComposeTests(SimpleTestCase):
 
 
 class OverlayUploadFormTests(TestCase):
-    BASE = {"name": "Cities", "layer_type": "fill"}
+    BASE = {"name": "Cities", "layer_types": ["fill"]}
 
     def setUp(self):
         # The districtr_maps multi-select queries the DistrictrMap mirror.
@@ -395,7 +395,7 @@ class UploadOverlayViewTests(TestCase):
                     "overlay_file": SimpleUploadedFile("city labels.pmtiles", b"pm"),
                     "name": "City labels",
                     "description": "Place names",
-                    "layer_type": "text",
+                    "layer_types": ["text"],
                     "source_layer": "cities",
                     "id_property": "NAME",
                     "custom_style": '{"text-size": 12}',
@@ -440,7 +440,7 @@ class UploadOverlayViewTests(TestCase):
                 {
                     "overlay_file": SimpleUploadedFile("parks.geojson", b"{}"),
                     "name": "Parks",
-                    "layer_type": "fill",
+                    "layer_types": ["fill"],
                 },
                 follow=True,
             )
@@ -457,7 +457,7 @@ class UploadOverlayViewTests(TestCase):
                 {
                     "overlay_path": "https://example.com/data/parks.geojson",
                     "name": "Parks",
-                    "layer_type": "fill",
+                    "layer_types": ["fill"],
                 },
                 follow=True,
             )
@@ -472,12 +472,38 @@ class UploadOverlayViewTests(TestCase):
     def test_invalid_form_creates_nothing(self):
         with mock.patch("datastore.services.upload_overlay") as upload:
             response = self.client.post(
-                self.url, {"name": "Parks", "layer_type": "fill"}
+                self.url, {"name": "Parks", "layer_types": ["fill"]}
             )
         upload.assert_not_called()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(Overlay.objects.count(), 0)
         self.assertContains(response, "Provide an overlay file")
+
+    def test_line_and_text_pair_created_in_one_upload(self):
+        # The frequent case: one boundaries source needs a line overlay AND a
+        # text-label overlay. One submission creates both, names suffixed,
+        # each attached to the selected maps.
+        with mock.patch(
+            "datastore.services.upload_overlay",
+            return_value="s3://test-bucket/overlays/cities.pmtiles",
+        ):
+            response = self.client.post(
+                self.url,
+                {
+                    "name": "Cities",
+                    "layer_types": ["line", "text"],
+                    "source_layer": "cities",
+                    "districtr_maps": [str(self.map_a.pk)],
+                    "overlay_file": SimpleUploadedFile("cities.pmtiles", b"pm"),
+                },
+                follow=True,
+            )
+        self.assertContains(response, "Created 2 overlay(s)")
+        names = sorted(Overlay.objects.values_list("name", "layer_type"))
+        self.assertEqual(names, [("Cities (line)", "line"), ("Cities (text)", "text")])
+        self.assertEqual(
+            DistrictrMapOverlays.objects.filter(districtr_map=self.map_a).count(), 2
+        )
 
     def test_upload_error_is_surfaced_and_nothing_created(self):
         with mock.patch(
@@ -489,7 +515,7 @@ class UploadOverlayViewTests(TestCase):
                 {
                     "overlay_file": SimpleUploadedFile("parks.geojson", b"{}"),
                     "name": "Parks",
-                    "layer_type": "fill",
+                    "layer_types": ["fill"],
                 },
                 follow=True,
             )

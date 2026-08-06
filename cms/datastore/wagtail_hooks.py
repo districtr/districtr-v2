@@ -92,10 +92,14 @@ class TeamScopedMapUsageView(_MapScoped, UsageView):
 
 def _name_ordered_formfield(db_field, **kwargs):
     """Order the link-table FK dropdowns by target name (the mirrors have no
-    Meta.ordering)."""
+    Meta.ordering); overlays additionally by layer type, so the line/text
+    overlays of one data source sit adjacent."""
     formfield = db_field.formfield(**kwargs)
     if hasattr(formfield, "queryset"):
-        formfield.queryset = formfield.queryset.order_by("name")
+        if db_field.related_model is Overlay:
+            formfield.queryset = formfield.queryset.order_by("name", "layer_type")
+        else:
+            formfield.queryset = formfield.queryset.order_by("name")
     return formfield
 
 
@@ -273,9 +277,10 @@ class OverlayViewSet(SnippetViewSet):
     model = Overlay
     icon = "sliders"
     menu_label = "Edit overlays"
-    list_display = ["name", "data_type", "layer_type", "source"]
+    list_display = ["name", "layer_type", "data_type", "source"]
     list_filter = ["data_type", "layer_type"]
     search_fields = ["name", "description"]
+    ordering = ["name", "layer_type"]
     list_per_page = 50
     panels = [
         FieldPanel("overlay_id", read_only=True),

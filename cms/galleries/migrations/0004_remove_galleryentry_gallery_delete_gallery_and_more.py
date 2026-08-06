@@ -4,23 +4,22 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         # The gallerySlug->ids block conversion reads these tables; it must
         # run before they drop.
         ("content", "0012_alter_placepage_body_alter_staticpage_body_and_more"),
-        ('galleries', '0003_gallery_team'),
+        ("galleries", "0003_gallery_team"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='galleryentry',
-            name='gallery',
+            model_name="galleryentry",
+            name="gallery",
         ),
         migrations.DeleteModel(
-            name='Gallery',
+            name="Gallery",
         ),
         migrations.DeleteModel(
-            name='GalleryEntry',
+            name="GalleryEntry",
         ),
     ]

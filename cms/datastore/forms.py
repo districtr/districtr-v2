@@ -77,11 +77,14 @@ class OverlayUploadForm(forms.Form):
         required=False,
         widget=forms.Textarea(attrs={"rows": 2}),
     )
-    layer_type = forms.ChoiceField(
-        label="Layer type",
+    layer_types = forms.MultipleChoiceField(
+        label="Layer types",
         choices=OverlayLayerType.choices,
-        initial=OverlayLayerType.FILL,
-        help_text="How the overlay renders on the map.",
+        initial=[OverlayLayerType.FILL],
+        widget=forms.CheckboxSelectMultiple,
+        help_text="One overlay is created per selected type, all from this "
+        "same source — pick line + text to label the same boundaries file, "
+        "the frequent case. Names get a type suffix when several are made.",
     )
     source_layer = forms.CharField(
         label="Source layer",

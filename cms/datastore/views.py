@@ -56,6 +56,7 @@ def upload_overlay(request):
             name = form.cleaned_data["name"]
             source = form.cleaned_data["overlay_path"]
             districtr_maps = form.cleaned_data["districtr_maps"]
+            layer_types = form.cleaned_data["layer_types"]
             try:
                 if form.cleaned_data["overlay_file"]:
                     overlay_file = form.cleaned_data["overlay_file"]
@@ -63,21 +64,28 @@ def upload_overlay(request):
                         overlay_file, _upload_key(overlay_file.name)
                     )
                 with transaction.atomic():
-                    overlay = Overlay.objects.create(
-                        overlay_id=uuid.uuid4(),
-                        name=name,
-                        description=form.cleaned_data["description"] or None,
-                        data_type=form.cleaned_data["data_type"],
-                        layer_type=form.cleaned_data["layer_type"],
-                        custom_style=form.cleaned_data["custom_style"],
-                        source=source,
-                        source_layer=form.cleaned_data["source_layer"] or None,
-                        id_property=form.cleaned_data["id_property"] or None,
-                    )
-                    for districtr_map in districtr_maps:
-                        DistrictrMapOverlays.objects.create(
-                            districtr_map=districtr_map, overlay=overlay
+                    for layer_type in layer_types:
+                        overlay = Overlay.objects.create(
+                            overlay_id=uuid.uuid4(),
+                            # Suffix disambiguates siblings sharing a source;
+                            # a single-type upload keeps the plain name.
+                            name=(
+                                f"{name} ({layer_type})"
+                                if len(layer_types) > 1
+                                else name
+                            ),
+                            description=form.cleaned_data["description"] or None,
+                            data_type=form.cleaned_data["data_type"],
+                            layer_type=layer_type,
+                            custom_style=form.cleaned_data["custom_style"],
+                            source=source,
+                            source_layer=form.cleaned_data["source_layer"] or None,
+                            id_property=form.cleaned_data["id_property"] or None,
                         )
+                        for districtr_map in districtr_maps:
+                            DistrictrMapOverlays.objects.create(
+                                districtr_map=districtr_map, overlay=overlay
+                            )
             except (
                 ImproperlyConfigured,
                 BotoCoreError,
@@ -87,9 +95,11 @@ def upload_overlay(request):
                 logger.exception("Overlay upload failed for %s", name)
                 messages.error(request, f"Overlay upload failed: {exc}")
             else:
+                created = ", ".join(sorted(layer_types))
                 messages.success(
                     request,
-                    f"Overlay “{name}” created from {source} and attached to "
+                    f"Created {len(layer_types)} overlay(s) ({created}) for "
+                    f"“{name}” from {source}, each attached to "
                     f"{len(districtr_maps)} map(s).",
                 )
                 return redirect("datastore_upload_overlay")

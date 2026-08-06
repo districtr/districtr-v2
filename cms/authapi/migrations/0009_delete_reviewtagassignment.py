@@ -4,13 +4,12 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('authapi', '0008_team_slug_and_districtr_maps'),
+        ("authapi", "0008_team_slug_and_districtr_maps"),
     ]
 
     operations = [
         migrations.DeleteModel(
-            name='ReviewTagAssignment',
+            name="ReviewTagAssignment",
         ),
     ]
