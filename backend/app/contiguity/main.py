@@ -24,24 +24,6 @@ def subgraph_number_connected_components(
     return G.number_connected_components(subgraph_nodes)
 
 
-def expand_non_contiguous_parents(G: DualLevelDualGraph, nodes: Iterable[str]) -> set[str]:
-    """Replace non-contiguous parent nodes with their block children.
-
-    Parent units whose blocks are geographically disconnected are stored in
-    G.graph["non_contiguous_parents"]. Treating them as single nodes hides the
-    disconnection, so they must be expanded to their block children before any
-    connectivity check.
-    """
-    non_contiguous: set[str] = G.graph.get("non_contiguous_parents", set())
-    expanded: set[str] = set()
-    for node in nodes:
-        if node in non_contiguous:
-            expanded.update(G.nodes[node]["children"])
-        else:
-            expanded.add(node)
-    return expanded
-
-
 # db
 
 
@@ -84,7 +66,7 @@ def get_assigned_nodes(
         ZoneContiguousNodes(
             zone=row.zone,
             nodes=(
-                sorted(expand_non_contiguous_parents(G, row.nodes)) if G else row.nodes
+                sorted(G.expand_non_contiguous(set(row.nodes))) if G else row.nodes
             ),
         )
         for row in session.execute(sql, params)
@@ -132,9 +114,7 @@ def get_assigned_nodes_bboxes(
         ),
         {"document_id": document_id, "zone": zone},
     ).scalars()
-    geo_ids = (
-        sorted(expand_non_contiguous_parents(G, assigned)) if G else list(assigned)
-    )
+    geo_ids = sorted(G.expand_non_contiguous(set(assigned))) if G else list(assigned)
     if not geo_ids:
         return None
 
