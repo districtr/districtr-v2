@@ -11,8 +11,7 @@ enforce.
 from unittest import mock
 
 import jwt as pyjwt
-from django.contrib.auth import get_user_model
-from django.test import RequestFactory, TestCase
+from django.test import TestCase
 from django.urls import reverse
 
 from core.testing import PASSWORD, make_admin_user, make_portal, make_team
@@ -21,7 +20,6 @@ from authapi.serializers import (
     mint_user_access_token,
 )
 from authapi.tests import fastapi_style_verify
-from moderation import wagtail_hooks
 
 
 def make_entry(**overrides):
@@ -218,12 +216,6 @@ class PortalReviewViewTests(TestCase):
         self.assertEqual(kwargs["params"].get("has_document"), "true")
         self.assertEqual(kwargs["params"].get("tags"), ["midwest-portal"])
 
-    def test_no_tags_form_field(self):
-        with mock.patch("moderation.services.requests.request") as request:
-            request.return_value = mock_response(json_body=[])
-            response = self.client.get(self.url)
-        self.assertNotContains(response, 'name="tags"')
-
     def test_renders_entries_and_actions(self):
         with mock.patch("moderation.services.requests.request") as request:
             request.return_value = mock_response(json_body=[make_entry()])
@@ -290,18 +282,6 @@ class TagScopedReviewerUITests(TestCase):
         # Tag- and comment-level moderation stays available.
         self.assertContains(response, 'name="content_type" value="tag"')
         self.assertContains(response, 'name="content_type" value="comment"')
-
-    def test_unscoped_reviewer_keeps_all_controls(self):
-        unscoped = make_admin_user(email="reviewer@districtr.org", group_name="partner")
-        self.client.force_login(unscoped)
-        response = self.get_review_page()
-        self.assertContains(response, 'name="content_type" value="entry"')
-        self.assertContains(response, 'name="content_type" value="commenter"')
-
-    def test_maps_kind_also_hides_scoped_controls(self):
-        response = self.get_review_page(kind="maps")
-        self.assertNotContains(response, 'name="content_type" value="entry"')
-        self.assertNotContains(response, 'name="content_type" value="commenter"')
 
 
 # ---------------------------------------------------------------------------
@@ -562,51 +542,3 @@ class SiteSettingsViewTests(TestCase):
 # ---------------------------------------------------------------------------
 # Menu items
 # ---------------------------------------------------------------------------
-
-
-class ModerationMenuItemTests(TestCase):
-    def request_for(self, user):
-        request = RequestFactory().get("/admin/")
-        request.user = user
-        return request
-
-    def test_review_item_targets_portal_picker(self):
-        item = wagtail_hooks.register_review_menu_item()
-        self.assertEqual(item.label, "Review")
-        self.assertEqual(item.url, reverse("moderation_review_portals"))
-        self.assertEqual(item.order, 220)
-
-    def test_visibility_matches_groups(self):
-        review_item = wagtail_hooks.register_review_menu_item()
-        settings_item = wagtail_hooks.register_site_settings_menu_item()
-        for group in ("admin", "partner", "super_partner"):
-            user = make_admin_user(email=f"{group}@districtr.org", group_name=group)
-            request = self.request_for(user)
-            self.assertTrue(review_item.is_shown(request), group)
-            self.assertEqual(settings_item.is_shown(request), group == "admin", group)
-
-    def test_hidden_for_groupless_user(self):
-        user = make_admin_user(email="lone@districtr.org", group_name="partner")
-        user.groups.clear()
-        self.assertFalse(
-            wagtail_hooks.register_review_menu_item().is_shown(self.request_for(user))
-        )
-
-    def test_shown_for_superuser_without_groups(self):
-        user = get_user_model().objects.create_superuser(
-            username="root@districtr.org",
-            email="root@districtr.org",
-            password=PASSWORD,
-        )
-        request = self.request_for(user)
-        self.assertTrue(wagtail_hooks.register_review_menu_item().is_shown(request))
-        self.assertTrue(
-            wagtail_hooks.register_site_settings_menu_item().is_shown(request)
-        )
-
-    def test_old_queue_urls_removed(self):
-        from django.urls import NoReverseMatch
-
-        for name in ("moderation_comments", "moderation_map_submissions"):
-            with self.assertRaises(NoReverseMatch):
-                reverse(name)

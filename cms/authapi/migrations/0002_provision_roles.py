@@ -23,7 +23,13 @@ from core.migration_utils import ensure_permissions, model_permissions
 
 GROUPS = ["admin", "partner", "super_partner"]
 
-ADMIN_PAGE_PERMS = ["add_page", "change_page", "publish_page", "lock_page", "unlock_page"]
+ADMIN_PAGE_PERMS = [
+    "add_page",
+    "change_page",
+    "publish_page",
+    "lock_page",
+    "unlock_page",
+]
 PARTNER_PAGE_PERMS = ["add_page"]
 
 SUPER_PARTNER_DATASTORE_GRANTS = {

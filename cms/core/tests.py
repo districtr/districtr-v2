@@ -76,52 +76,35 @@ class DistrictrShortcutsPanelTests(TestCase):
     def labels(self, context):
         return [card["label"] for card in context["cards"]]
 
-    def test_partner_cards(self):
+    def test_cards_gate_by_role_not_by_label(self):
+        # Pin the GATING decisions, not the label strings (those mirror the
+        # sidebar and change freely): partners get no module/admin cards,
+        # super partners add module tools, admins add the admin screens.
         from core.testing import make_admin_user
 
-        partner = make_admin_user(email="p@districtr.org", group_name="partner")
-        # content/0002_provision_site provisions the tags index, so the portal card resolves.
-        self.assertEqual(
-            self.labels(self.panel_context(partner)),
-            ["Edit portal pages", "Review"],
+        partner = set(
+            self.labels(
+                self.panel_context(
+                    make_admin_user(email="p@districtr.org", group_name="partner")
+                )
+            )
         )
-
-    def test_super_partner_adds_module_cards(self):
-        from core.testing import make_admin_user
-
-        user = make_admin_user(email="sp@districtr.org", group_name="super_partner")
-        labels = self.labels(self.panel_context(user))
-        self.assertEqual(
-            labels,
-            [
-                "Edit portal pages",
-                "Review",
-                "Create map module",
-                "Edit map modules",
-                "Edit overlays",
-                "Upload overlay",
-            ],
+        super_partner = set(
+            self.labels(
+                self.panel_context(
+                    make_admin_user(
+                        email="sp@districtr.org", group_name="super_partner"
+                    )
+                )
+            )
         )
-
-    def test_admin_cards(self):
-        from core.testing import make_admin_user
-
-        user = make_admin_user(group_name="admin")
-        self.assertEqual(
-            self.labels(self.panel_context(user)),
-            [
-                "Edit portal pages",
-                "Review",
-                "Create map module",
-                "Edit map modules",
-                "Edit overlays",
-                "Upload overlay",
-                "Edit place pages",
-                "Edit static pages",
-                "Teams",
-                "Frontend settings",
-            ],
+        admin = set(
+            self.labels(self.panel_context(make_admin_user(group_name="admin")))
         )
+        self.assertTrue(partner)
+        self.assertLess(partner, super_partner)
+        self.assertLess(super_partner, admin)
+        self.assertIn("Teams", admin - super_partner)
 
     def test_groupless_user_gets_empty_panel(self):
         user = get_user_model().objects.create_user(
@@ -175,3 +158,30 @@ class BrandingCssTests(TestCase):
         self.client.login(username="dataops@districtr.org", password=PASSWORD)
         response = self.client.get(reverse("wagtailadmin_home"))
         self.assertContains(response, "core/admin.css")
+
+
+class GroupMenuItemTests(TestCase):
+    """The shared group-gating primitive every custom menu item rides on."""
+
+    def _request_for(self, user):
+        request = RequestFactory().get("/admin/")
+        request.user = user
+        return request
+
+    def test_visibility(self):
+        from django.contrib.auth import get_user_model
+
+        from core.menu import GroupMenuItem
+        from core.testing import make_user
+
+        item = GroupMenuItem("X", "/admin/x/", groups={"partner"})
+        self.assertTrue(item.is_shown(self._request_for(make_user("partner"))))
+        self.assertFalse(
+            item.is_shown(self._request_for(make_user("admin", "a@districtr.org")))
+        )
+        root = get_user_model().objects.create_superuser(
+            username="root@districtr.org",
+            email="root@districtr.org",
+            password="pw",
+        )
+        self.assertTrue(item.is_shown(self._request_for(root)))

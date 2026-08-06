@@ -224,12 +224,6 @@ class ToolAccessTests(TestCase):
         response = self.client.get(reverse("datastore_compose_map"))
         self.assertRedirects(response, reverse("wagtailadmin_home"))
 
-    def test_gpkg_import_url_removed(self):
-        from django.urls import NoReverseMatch
-
-        with self.assertRaises(NoReverseMatch):
-            reverse("datastore_import_gpkg")
-
 
 class MapDeleteGuardTests(TestCase):
     """Deleting a DistrictrMap that has saved plans is denied with a

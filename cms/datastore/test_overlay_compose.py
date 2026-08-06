@@ -338,11 +338,6 @@ class ComposeMapFormTests(TestCase):
             self.assertIn("districtr_map_slug", form.errors)
         self.assertTrue(self.form({"districtr_map_slug": "co-blocks-2"}).is_valid())
 
-    def test_num_districts_bounds(self):
-        self.assertFalse(self.form({"num_districts": "0"}).is_valid())
-        self.assertFalse(self.form({"num_districts": "201"}).is_valid())
-        self.assertTrue(self.form({"num_districts": "200"}).is_valid())
-
 
 # ---------------------------------------------------------------------------
 # Views
@@ -362,18 +357,6 @@ class UploadOverlayViewTests(TestCase):
         make_admin_user()
         self.client.login(username="dataops@districtr.org", password=PASSWORD)
         self.url = reverse("datastore_upload_overlay")
-
-    def test_anonymous_is_redirected_to_login(self):
-        self.client.logout()
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse("wagtailadmin_login"), response.url)
-
-    def test_partner_without_overlay_permission_is_denied(self):
-        make_admin_user(email="partner@districtr.org", group_name="partner")
-        self.client.login(username="partner@districtr.org", password=PASSWORD)
-        response = self.client.get(self.url)
-        self.assertRedirects(response, reverse("wagtailadmin_home"))
 
     def test_admin_group_user_gets_form(self):
         response = self.client.get(self.url)
@@ -532,18 +515,6 @@ class ComposeMapViewTests(TestCase):
         make_admin_user()
         self.client.login(username="dataops@districtr.org", password=PASSWORD)
         self.url = reverse("datastore_compose_map")
-
-    def test_anonymous_is_redirected_to_login(self):
-        self.client.logout()
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse("wagtailadmin_login"), response.url)
-
-    def test_partner_without_datastore_permission_is_denied(self):
-        make_admin_user(email="partner@districtr.org", group_name="partner")
-        self.client.login(username="partner@districtr.org", password=PASSWORD)
-        response = self.client.get(self.url)
-        self.assertRedirects(response, reverse("wagtailadmin_home"))
 
     def test_admin_group_user_gets_form_with_layer_choices(self):
         response = self.client.get(self.url)

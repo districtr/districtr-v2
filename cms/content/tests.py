@@ -518,33 +518,19 @@ class SiteContentMenuTests(TestCase):
         user.groups.add(Group.objects.get(name=group_name))
         return user
 
-    def test_items_resolve_to_index_explorers(self):
-        from content.wagtail_hooks import register_site_content_menu_item
-
-        submenu = register_site_content_menu_item()
-        self.assertEqual(submenu.label, "Site content")
-        request = self._request_for(self._user("admin"))
-        items = submenu.menu.registered_menu_items
-        self.assertEqual(
-            [item.label for item in items],
-            ["Edit portal pages", "Edit place pages", "Edit static pages"],
-        )
-        for item in items:
-            self.assertTrue(item.is_shown(request), item.label)
-            # Resolved to a real explorer URL (indexes exist via content/0002_provision_site).
-            self.assertRegex(item.url, r"^/admin/pages/\d+/$")
-
-    def test_partner_sees_only_portal_entry(self):
+    def test_partner_sees_only_portal_entry_with_resolved_url(self):
         from content.wagtail_hooks import register_site_content_menu_item
 
         submenu = register_site_content_menu_item()
         request = self._request_for(self._user("partner"))
         shown = [
-            item.label
+            item
             for item in submenu.menu.registered_menu_items
             if item.is_shown(request)
         ]
-        self.assertEqual(shown, ["Edit portal pages"])
+        self.assertEqual([item.label for item in shown], ["Edit portal pages"])
+        # is_shown resolves the index's explorer URL lazily (our logic).
+        self.assertRegex(shown[0].url, r"^/admin/pages/\d+/$")
         self.assertTrue(submenu.is_shown(request))
 
 
