@@ -204,6 +204,49 @@ class CommentListViewTests(TestCase):
         self.assertNotContains(response, "?p=2")
 
 
+class TagScopedReviewerUITests(TestCase):
+    """A reviewer with ReviewTagAssignment rows may only act on tags — the
+    backend 403s whole-entry/commenter actions and the (untagged) district
+    comment queue, so the templates hide those controls for them."""
+
+    def setUp(self):
+        self.url = reverse("moderation_comments")
+        self.reviewer = make_admin_user(
+            email="scoped@districtr.org", group_name="partner"
+        )
+        ReviewTagAssignment.objects.create(user=self.reviewer, tag_slug="midwest-tour")
+        self.client.force_login(self.reviewer)
+
+    def get_comments(self):
+        with mock.patch("moderation.services.requests.request") as request:
+            request.return_value = mock_response(json_body=[make_entry()])
+            return self.client.get(self.url)
+
+    def test_scoped_reviewer_loses_entry_commenter_and_district_controls(self):
+        response = self.get_comments()
+        self.assertNotContains(response, "Review district comments")
+        self.assertNotContains(response, 'name="content_type" value="entry"')
+        self.assertNotContains(response, 'name="content_type" value="commenter"')
+        # Tag- and comment-level moderation stays available.
+        self.assertContains(response, 'name="content_type" value="tag"')
+        self.assertContains(response, 'name="content_type" value="comment"')
+
+    def test_unscoped_reviewer_keeps_all_controls(self):
+        unscoped = make_admin_user(email="reviewer@districtr.org", group_name="partner")
+        self.client.force_login(unscoped)
+        response = self.get_comments()
+        self.assertContains(response, "Review district comments")
+        self.assertContains(response, 'name="content_type" value="entry"')
+        self.assertContains(response, 'name="content_type" value="commenter"')
+
+    def test_map_submissions_also_hides_scoped_controls(self):
+        with mock.patch("moderation.services.requests.request") as request:
+            request.return_value = mock_response(json_body=[make_entry(public_id=42)])
+            response = self.client.get(reverse("moderation_map_submissions"))
+        self.assertNotContains(response, 'name="content_type" value="entry"')
+        self.assertNotContains(response, 'name="content_type" value="commenter"')
+
+
 class DistrictCommentListViewTests(TestCase):
     def setUp(self):
         self.url = reverse("moderation_district_comments")
@@ -537,6 +580,14 @@ class ModerationMenuItemTests(TestCase):
         self.assertEqual(item.url, reverse("moderation_comments"))
         # Ordered right after Galleries (210).
         self.assertEqual(item.order, 220)
+
+    def test_flagged_comments_item_prefilters_the_queue(self):
+        item = wagtail_hooks.register_flagged_comments_menu_item()
+        self.assertEqual(item.label, "Flagged comments")
+        self.assertEqual(item.url, reverse("moderation_comments") + "?flagged=1")
+        self.assertEqual(item.order, 222)
+        # Same audience as Comment review.
+        self.assertEqual(item.groups, wagtail_hooks.COMMENT_REVIEW_GROUPS)
 
     def test_visibility_matches_group_scopes(self):
         review_item = wagtail_hooks.register_comment_review_menu_item()

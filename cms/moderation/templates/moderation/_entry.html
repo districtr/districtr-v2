@@ -16,10 +16,13 @@
                 {% if entry.created_at %}· {{ entry.created_at }}{% endif %}
             </small></p>
         </div>
-        <div style="text-align:right">
-            <strong>Full entry:</strong>
-            {% include "moderation/_review_buttons.html" with ct="entry" %}
-        </div>
+        {% if not tag_scoped %}
+            {# Whole-entry fan-out touches the comment and commenter, which the backend 403s for tag-scoped reviewers. #}
+            <div style="text-align:right">
+                <strong>Full entry:</strong>
+                {% include "moderation/_review_buttons.html" with ct="entry" %}
+            </div>
+        {% endif %}
     </header>
 
     <section style="margin-top:0.75rem;">
@@ -43,7 +46,9 @@
                 {% if entry.state %}· {{ entry.state }}{% endif %}
                 {% if entry.zip_code %}· {{ entry.zip_code }}{% endif %}
             </p>
-            {% include "moderation/_review_buttons.html" with ct="commenter" target_id=entry.commenter_id %}
+            {% if not tag_scoped %}
+                {% include "moderation/_review_buttons.html" with ct="commenter" target_id=entry.commenter_id %}
+            {% endif %}
         </section>
     {% endif %}
 

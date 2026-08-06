@@ -14,7 +14,8 @@ import uuid
 from botocore.exceptions import BotoCoreError, ClientError
 from django.core.exceptions import ImproperlyConfigured
 from django.db import DatabaseError, transaction
-from django.shortcuts import redirect, render
+from django.http import HttpResponseNotAllowed
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.text import get_valid_filename
 from requests import RequestException
@@ -26,10 +27,9 @@ from datastore.forms import (
     ComposeMapForm,
     DocumentThumbnailForm,
     GeoPackageImportForm,
-    MapThumbnailForm,
     OverlayUploadForm,
 )
-from datastore.models import DistrictrMapOverlays, Overlay
+from datastore.models import DistrictrMap, DistrictrMapOverlays, Overlay
 
 logger = logging.getLogger(__name__)
 
@@ -186,46 +186,49 @@ def compose_map(request):
 
 @permission_required(DATASTORE_ADMIN_PERMISSION)
 def thumbnails(request):
-    map_form = MapThumbnailForm(prefix="map")
-    document_form = DocumentThumbnailForm(prefix="document")
+    """Plan (document) thumbnails only — map thumbnails regenerate from the
+    map's own edit page (regenerate_map_thumbnail below)."""
+    form = DocumentThumbnailForm()
 
     if request.method == "POST":
-        if "map_submit" in request.POST:
-            map_form = MapThumbnailForm(request.POST, prefix="map")
-            if map_form.is_valid():
-                slug = map_form.cleaned_data["districtr_map"].districtr_map_slug
-                try:
-                    services.regenerate_map_thumbnail(slug)
-                except (services.BackendAPIError, RequestException) as exc:
-                    logger.exception("Map thumbnail regeneration failed for %s", slug)
-                    messages.error(request, f"Thumbnail regeneration failed: {exc}")
-                else:
-                    messages.success(
-                        request,
-                        f"Thumbnail regeneration scheduled for “{slug}”.",
-                    )
-                    return redirect("datastore_thumbnails")
-        elif "document_submit" in request.POST:
-            document_form = DocumentThumbnailForm(request.POST, prefix="document")
-            if document_form.is_valid():
-                document_id = document_form.cleaned_data["document_id"].strip()
-                try:
-                    services.regenerate_document_thumbnail(document_id)
-                except (services.BackendAPIError, RequestException) as exc:
-                    logger.exception(
-                        "Document thumbnail regeneration failed for %s", document_id
-                    )
-                    messages.error(request, f"Thumbnail regeneration failed: {exc}")
-                else:
-                    messages.success(
-                        request,
-                        f"Thumbnail regeneration scheduled for document "
-                        f"“{document_id}”.",
-                    )
-                    return redirect("datastore_thumbnails")
+        form = DocumentThumbnailForm(request.POST)
+        if form.is_valid():
+            document_id = form.cleaned_data["document_id"].strip()
+            try:
+                services.regenerate_document_thumbnail(document_id)
+            except (services.BackendAPIError, RequestException) as exc:
+                logger.exception(
+                    "Document thumbnail regeneration failed for %s", document_id
+                )
+                messages.error(request, f"Thumbnail regeneration failed: {exc}")
+            else:
+                messages.success(
+                    request,
+                    f"Thumbnail regeneration scheduled for document "
+                    f"“{document_id}”.",
+                )
+                return redirect("datastore_thumbnails")
 
     return render(
         request,
         "datastore/thumbnails.html",
-        {"map_form": map_form, "document_form": document_form},
+        {"form": form},
     )
+
+
+@permission_required(DATASTORE_ADMIN_PERMISSION)
+def regenerate_map_thumbnail(request, pk):
+    """POST target for the "Regenerate thumbnail" button on the DistrictrMap
+    edit page."""
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+    districtr_map = get_object_or_404(DistrictrMap, pk=pk)
+    slug = districtr_map.districtr_map_slug
+    try:
+        services.regenerate_map_thumbnail(slug)
+    except (services.BackendAPIError, RequestException) as exc:
+        logger.exception("Map thumbnail regeneration failed for %s", slug)
+        messages.error(request, f"Thumbnail regeneration failed: {exc}")
+    else:
+        messages.success(request, f"Thumbnail regeneration scheduled for “{slug}”.")
+    return redirect("wagtailsnippets_datastore_districtrmap:edit", districtr_map.pk)

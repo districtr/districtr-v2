@@ -13,12 +13,21 @@ page) rather than unbounded <select> dropdowns. The exception is
 DistrictrMap.parent_layer/child_layer, which reference GerryDBTable.name
 (a non-pk to_field) — Wagtail's chooser resolves values by pk, so those two
 panels force a plain Django select instead.
+
+The DistrictrMap edit page is the single place to manage a map module: the
+mapped fields plus three inline-formset sections (attached overlays, map-group
+listings, team assignments) and a "Regenerate thumbnail" button. The link
+tables (DistrictrMapOverlays, DistrictrMapsToGroups, authapi.TeamDistrictrMap)
+have no snippet listings of their own. Plain Django inline formsets are used
+because the mirrors are managed=False models — ParentalKey/InlinePanel is not
+available on them.
 """
 
 from functools import cached_property
 
 from django import forms
 from django.db import ProgrammingError, connection
+from django.forms.models import inlineformset_factory
 from django.shortcuts import redirect
 from django.urls import path, reverse
 from wagtail import hooks
@@ -28,6 +37,7 @@ from wagtail.admin.panels import FieldPanel, MultiFieldPanel, ObjectList
 from wagtail.permission_policies.base import ModelPermissionPolicy
 from wagtail.snippets.models import register_snippet
 from wagtail.snippets.views.snippets import (
+    EditView,
     HistoryView,
     InspectView,
     SnippetViewSet,
@@ -35,6 +45,7 @@ from wagtail.snippets.views.snippets import (
     UsageView,
 )
 
+from authapi.models import TeamDistrictrMap
 from authapi.teams import (
     TeamScopedGetObjectMixin,
     TeamScopedViewGrantPermissionPolicy,
@@ -94,6 +105,108 @@ class TeamScopedMapUsageView(_MapScoped, UsageView):
     pass
 
 
+def _name_ordered_formfield(db_field, **kwargs):
+    """Order the link-table FK dropdowns by target name (the mirrors have no
+    Meta.ordering)."""
+    formfield = db_field.formfield(**kwargs)
+    if hasattr(formfield, "queryset"):
+        formfield.queryset = formfield.queryset.order_by("name")
+    return formfield
+
+
+# The three link tables managed from the DistrictrMap edit page. The mirrors
+# are managed=False plain models, so these are plain Django inline formsets
+# (no ParentalKey/InlinePanel); one blank extra row per save adds one link.
+OverlayLinkFormSet = inlineformset_factory(
+    DistrictrMap,
+    DistrictrMapOverlays,
+    fk_name="districtr_map",
+    fields=["overlay"],
+    extra=1,
+    can_delete=True,
+    formfield_callback=_name_ordered_formfield,
+)
+GroupLinkFormSet = inlineformset_factory(
+    DistrictrMap,
+    DistrictrMapsToGroups,
+    fk_name="districtrmap",
+    fields=["group"],
+    extra=1,
+    can_delete=True,
+    formfield_callback=_name_ordered_formfield,
+)
+TeamLinkFormSet = inlineformset_factory(
+    DistrictrMap,
+    TeamDistrictrMap,
+    fk_name="districtr_map",
+    fields=["team"],
+    extra=1,
+    can_delete=True,
+    formfield_callback=_name_ordered_formfield,
+)
+
+
+class DistrictrMapEditView(EditView):
+    """The map edit form plus the module's relational sections.
+
+    Overlays and map-group listings are editable by whoever may change the
+    map (admin + super_partner — the view's own "change" permission gate).
+    Team assignments are admin-only (Teams are admin-managed), so that
+    formset is only built — and its POST data only honoured — for users
+    holding authapi Team permissions.
+    """
+
+    def user_may_assign_teams(self):
+        return self.request.user.has_perm("authapi.change_team")
+
+    def get_link_formsets(self, data=None):
+        formsets = {
+            "overlays_formset": OverlayLinkFormSet(
+                data, instance=self.object, prefix="overlay_links"
+            ),
+            "groups_formset": GroupLinkFormSet(
+                data, instance=self.object, prefix="group_links"
+            ),
+        }
+        if self.user_may_assign_teams():
+            formsets["teams_formset"] = TeamLinkFormSet(
+                data, instance=self.object, prefix="team_links"
+            )
+        return formsets
+
+    def form_valid(self, form):
+        self.link_formsets = self.get_link_formsets(self.request.POST)
+        if not all(formset.is_valid() for formset in self.link_formsets.values()):
+            self.form = form
+            messages.error(self.request, self.get_error_message())
+            return self.render_to_response(self.get_context_data(form=form))
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        # Bind the formsets so user input survives the error re-render.
+        self.link_formsets = self.get_link_formsets(self.request.POST)
+        return super().form_invalid(form)
+
+    def save_instance(self):
+        # Called inside form_valid's transaction.atomic() — the map row and
+        # its link rows commit or roll back together.
+        instance = super().save_instance()
+        for formset in self.link_formsets.values():
+            formset.save()
+        return instance
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if not hasattr(self, "link_formsets"):
+            self.link_formsets = self.get_link_formsets()
+        context.update(self.link_formsets)
+        if self.request.user.has_perm(DATASTORE_ADMIN_PERMISSION):
+            context["regenerate_thumbnail_url"] = reverse(
+                "datastore_map_regenerate_thumbnail", args=[self.object.pk]
+            )
+        return context
+
+
 class DistrictrMapViewSet(TeamScopedViewSetMixin, SnippetViewSet):
     model = DistrictrMap
     icon = "globe"
@@ -112,6 +225,7 @@ class DistrictrMapViewSet(TeamScopedViewSetMixin, SnippetViewSet):
     inspect_view_class = TeamScopedMapInspectView
     history_view_class = TeamScopedMapHistoryView
     usage_view_class = TeamScopedMapUsageView
+    edit_view_class = DistrictrMapEditView
 
     # Team-scoped members may browse (view/inspect) only the Districtr maps
     # assigned to their teams; admins keep full edit access (authapi/teams.py).
@@ -204,31 +318,6 @@ class OverlayViewSet(SnippetViewSet):
     ]
 
 
-class DistrictrMapsToGroupsViewSet(SnippetViewSet):
-    model = DistrictrMapsToGroups
-    icon = "link"
-    menu_label = "Map \N{LEFT RIGHT ARROW} group links"
-    list_display = ["districtrmap", "group"]
-    list_filter = ["group"]
-    list_per_page = 50
-    panels = [
-        FieldPanel("districtrmap"),
-        FieldPanel("group"),
-    ]
-
-
-class DistrictrMapOverlaysViewSet(SnippetViewSet):
-    model = DistrictrMapOverlays
-    icon = "link"
-    menu_label = "Map \N{LEFT RIGHT ARROW} overlay links"
-    list_display = ["districtr_map", "overlay"]
-    list_per_page = 50
-    panels = [
-        FieldPanel("districtr_map"),
-        FieldPanel("overlay"),
-    ]
-
-
 class GerryDBTableViewSet(SnippetViewSet):
     """Read-only: GerryDB tables come from the import pipeline, not the CMS."""
 
@@ -270,8 +359,6 @@ class DataViewSetGroup(SnippetViewSetGroup):
         DistrictrMapViewSet,
         MapGroupViewSet,
         OverlayViewSet,
-        DistrictrMapsToGroupsViewSet,
-        DistrictrMapOverlaysViewSet,
         GerryDBTableViewSet,
     )
 
@@ -308,7 +395,9 @@ class DataViewSetGroup(SnippetViewSetGroup):
         )
         menu_items.append(
             DataToolMenuItem(
-                "Thumbnails",
+                # Plan (document) previews only — map thumbnails regenerate
+                # from the map's own edit page.
+                "Plan thumbnails",
                 reverse("datastore_thumbnails"),
                 icon_name="image",
                 order=order + 3,
@@ -387,4 +476,9 @@ def register_datastore_admin_urls():
         ),
         path("data/compose-map/", views.compose_map, name="datastore_compose_map"),
         path("data/thumbnails/", views.thumbnails, name="datastore_thumbnails"),
+        path(
+            "data/maps/<uuid:pk>/regenerate-thumbnail/",
+            views.regenerate_map_thumbnail,
+            name="datastore_map_regenerate_thumbnail",
+        ),
     ]

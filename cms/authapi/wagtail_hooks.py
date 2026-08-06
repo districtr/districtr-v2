@@ -17,7 +17,9 @@ admin are unaffected.
 from django import forms
 from django.contrib.auth import get_user_model
 from django.db.models import Q
+from django.shortcuts import redirect
 from wagtail import hooks
+from wagtail.admin import messages
 from wagtail.admin.forms.choosers import BaseFilterForm
 from wagtail.admin.panels import FieldPanel, InlinePanel
 from wagtail.admin.viewsets.chooser import ChooserViewSet
@@ -136,3 +138,44 @@ class TeamViewSet(SnippetViewSet):
 
 
 register_snippet(TeamViewSet)
+
+
+def _deny_team_delete_with_galleries(request, teams):
+    """Gallery.team is PROTECT: deleting a team that still owns galleries
+    would otherwise surface as an unhandled ProtectedError (500). Mirrors the
+    maps-with-plans guard in datastore/wagtail_hooks.py."""
+    from galleries.models import Gallery
+
+    counts = {
+        team: Gallery.objects.filter(team=team).count()
+        for team in sorted(teams, key=lambda team: team.name)
+    }
+    counts = {team: count for team, count in counts.items() if count}
+    if not counts:
+        return None
+    summary = ", ".join(
+        f"{team.name} ({count} galler{'ies' if count != 1 else 'y'})"
+        for team, count in counts.items()
+    )
+    messages.error(
+        request,
+        f"Cannot delete teams that still own galleries: {summary}. "
+        "Reassign or delete their galleries first.",
+    )
+    return redirect("wagtailsnippets_authapi_team:list")
+
+
+@hooks.register("before_delete_snippet")
+def deny_team_delete_with_galleries(request, instances):
+    teams = [obj for obj in instances if isinstance(obj, Team)]
+    if teams:
+        return _deny_team_delete_with_galleries(request, teams)
+
+
+@hooks.register("before_bulk_action")
+def deny_team_bulk_delete_with_galleries(request, action_type, objects, action):
+    if action_type != "delete":
+        return None
+    teams = [obj for obj in objects if isinstance(obj, Team)]
+    if teams:
+        return _deny_team_delete_with_galleries(request, teams)

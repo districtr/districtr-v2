@@ -83,6 +83,18 @@ def register_map_submissions_menu_item():
     )
 
 
+@hooks.register("register_admin_menu_item")
+def register_flagged_comments_menu_item():
+    # Direct jump to the flagged queue — the same comments view, pre-filtered.
+    return GroupMenuItem(
+        "Flagged comments",
+        reverse("moderation_comments") + "?flagged=1",
+        icon_name="warning",
+        order=222,
+        groups=COMMENT_REVIEW_GROUPS,
+    )
+
+
 @hooks.register("register_settings_menu_item")
 def register_site_settings_menu_item():
     return GroupMenuItem(

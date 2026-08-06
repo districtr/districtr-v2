@@ -303,14 +303,6 @@ class ComposeMapForm(forms.Form):
         return cleaned_data
 
 
-class MapThumbnailForm(forms.Form):
-    districtr_map = forms.ModelChoiceField(
-        label="Districtr map",
-        queryset=DistrictrMap.objects.order_by("name"),
-        help_text="Regenerates the blank-map thumbnail from the parent layer.",
-    )
-
-
 class DocumentThumbnailForm(forms.Form):
     document_id = forms.CharField(
         label="Document ID",

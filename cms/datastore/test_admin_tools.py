@@ -24,10 +24,18 @@ from django.db import connection
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
+from authapi.models import Team, TeamDistrictrMap
 from authapi.tests import fastapi_style_verify
 from datastore import services
 from datastore.forms import MAX_GPKG_BYTES, GeoPackageImportForm
-from datastore.models import DistrictrMap, GerryDBTable, MapGroup
+from datastore.models import (
+    DistrictrMap,
+    DistrictrMapOverlays,
+    DistrictrMapsToGroups,
+    GerryDBTable,
+    MapGroup,
+    Overlay,
+)
 from datastore.services import BackendAPIError
 
 PASSWORD = "correct-horse-battery-staple"
@@ -455,18 +463,11 @@ class ImportViewPostTests(TestCase):
 
 
 class ThumbnailViewTests(TestCase):
+    """The Thumbnails tool page handles plan (document) previews only — map
+    thumbnails regenerate from the map's own edit page
+    (RegenerateMapThumbnailViewTests)."""
+
     def setUp(self):
-        # The mirrored public tables do not exist in the test database;
-        # create them inside the per-test transaction (rolled back after).
-        with connection.schema_editor() as editor:
-            editor.create_model(GerryDBTable)
-            editor.create_model(DistrictrMap)
-        table = GerryDBTable.objects.create(name="co_blocks")
-        self.districtr_map = DistrictrMap.objects.create(
-            name="Colorado",
-            districtr_map_slug="co_demo",
-            parent_layer=table,
-        )
         make_admin_user()
         self.client.login(username="dataops@districtr.org", password=PASSWORD)
         self.url = reverse("datastore_thumbnails")
@@ -477,24 +478,11 @@ class ThumbnailViewTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("wagtailadmin_login"), response.url)
 
-    def test_page_lists_maps_in_dropdown(self):
+    def test_page_is_document_only(self):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Colorado")
-        self.assertContains(response, "Regenerate map thumbnail")
-
-    def test_map_thumbnail_posts_slug_to_service(self):
-        with mock.patch(
-            "datastore.services.regenerate_map_thumbnail",
-            return_value={"message": "ok"},
-        ) as regenerate:
-            response = self.client.post(
-                self.url,
-                {"map-districtr_map": str(self.districtr_map.pk), "map_submit": "1"},
-                follow=True,
-            )
-        regenerate.assert_called_once_with("co_demo")
-        self.assertContains(response, "Thumbnail regeneration scheduled")
+        self.assertContains(response, "Regenerate document thumbnail")
+        self.assertNotContains(response, "Regenerate map thumbnail")
 
     def test_document_thumbnail_posts_id_to_service(self):
         with mock.patch(
@@ -503,7 +491,7 @@ class ThumbnailViewTests(TestCase):
         ) as regenerate:
             response = self.client.post(
                 self.url,
-                {"document-document_id": " abc123 ", "document_submit": "1"},
+                {"document_id": " abc123 "},
                 follow=True,
             )
         regenerate.assert_called_once_with("abc123")
@@ -511,12 +499,261 @@ class ThumbnailViewTests(TestCase):
 
     def test_backend_error_is_surfaced(self):
         with mock.patch(
-            "datastore.services.regenerate_map_thumbnail",
+            "datastore.services.regenerate_document_thumbnail",
             side_effect=BackendAPIError("Backend rejected the thumbnail request"),
         ):
             response = self.client.post(
                 self.url,
-                {"map-districtr_map": str(self.districtr_map.pk), "map_submit": "1"},
+                {"document_id": "abc123"},
                 follow=True,
             )
         self.assertContains(response, "Thumbnail regeneration failed")
+
+
+def create_map_mirrors():
+    """The DistrictrMap mirror tables the edit page touches, created inside
+    the per-test transaction."""
+    with connection.schema_editor() as editor:
+        for model in (
+            GerryDBTable,
+            DistrictrMap,
+            MapGroup,
+            Overlay,
+            DistrictrMapsToGroups,
+            DistrictrMapOverlays,
+        ):
+            editor.create_model(model)
+
+
+class RegenerateMapThumbnailViewTests(TestCase):
+    """The per-map "Regenerate thumbnail" button on the map edit page."""
+
+    def setUp(self):
+        create_map_mirrors()
+        table = GerryDBTable.objects.create(name="co_blocks")
+        self.districtr_map = DistrictrMap.objects.create(
+            name="Colorado",
+            districtr_map_slug="co_demo",
+            parent_layer=table,
+        )
+        make_admin_user()
+        self.client.login(username="dataops@districtr.org", password=PASSWORD)
+        self.url = reverse(
+            "datastore_map_regenerate_thumbnail", args=[self.districtr_map.pk]
+        )
+        self.edit_url = reverse(
+            "wagtailsnippets_datastore_districtrmap:edit", args=[self.districtr_map.pk]
+        )
+
+    def test_get_not_allowed(self):
+        self.assertEqual(self.client.get(self.url).status_code, 405)
+
+    def test_post_schedules_and_redirects_to_edit_page(self):
+        with mock.patch(
+            "datastore.services.regenerate_map_thumbnail",
+            return_value={"message": "ok"},
+        ) as regenerate:
+            response = self.client.post(self.url, follow=True)
+        regenerate.assert_called_once_with("co_demo")
+        self.assertRedirects(response, self.edit_url)
+        self.assertContains(response, "Thumbnail regeneration scheduled")
+
+    def test_partner_denied(self):
+        make_admin_user(email="partner@districtr.org", group_name="partner")
+        self.client.login(username="partner@districtr.org", password=PASSWORD)
+        with mock.patch("datastore.services.regenerate_map_thumbnail") as regenerate:
+            response = self.client.post(self.url)
+        regenerate.assert_not_called()
+        self.assertRedirects(response, reverse("wagtailadmin_home"))
+
+    def test_super_partner_allowed(self):
+        make_admin_user(email="super@districtr.org", group_name="super_partner")
+        self.client.login(username="super@districtr.org", password=PASSWORD)
+        with mock.patch(
+            "datastore.services.regenerate_map_thumbnail",
+            return_value={"message": "ok"},
+        ) as regenerate:
+            self.client.post(self.url)
+        regenerate.assert_called_once_with("co_demo")
+
+    def test_missing_map_is_404(self):
+        url = reverse(
+            "datastore_map_regenerate_thumbnail",
+            args=["00000000-0000-0000-0000-000000000000"],
+        )
+        self.assertEqual(self.client.post(url).status_code, 404)
+
+    def test_backend_error_is_surfaced(self):
+        with mock.patch(
+            "datastore.services.regenerate_map_thumbnail",
+            side_effect=BackendAPIError("Backend rejected the thumbnail request"),
+        ):
+            response = self.client.post(self.url, follow=True)
+        self.assertRedirects(response, self.edit_url)
+        self.assertContains(response, "Thumbnail regeneration failed")
+
+
+class DistrictrMapEditViewTests(TestCase):
+    """The single-view map management page: the map form plus the overlay /
+    map-group / team link formsets (datastore/wagtail_hooks.py)."""
+
+    def setUp(self):
+        create_map_mirrors()
+        self.table = GerryDBTable.objects.create(name="co_blocks")
+        self.districtr_map = DistrictrMap.objects.create(
+            name="Colorado",
+            districtr_map_slug="co_demo",
+            parent_layer=self.table,
+        )
+        self.overlay = Overlay.objects.create(
+            name="Cities", data_type="geojson", layer_type="fill"
+        )
+        self.group = MapGroup.objects.create(slug="states", name="States")
+        self.team = Team.objects.create(name="League", slug="league")
+        make_admin_user()
+        self.client.login(username="dataops@districtr.org", password=PASSWORD)
+        self.url = reverse(
+            "wagtailsnippets_datastore_districtrmap:edit", args=[self.districtr_map.pk]
+        )
+
+    def form_data(self, **overrides):
+        """A valid edit POST: the mapped fields plus empty link formsets."""
+        data = {
+            "name": "Colorado",
+            "districtr_map_slug": "co_demo",
+            "map_type": "default",
+            # parent_layer is a to_field="name" FK, so the form value is the
+            # GerryDBTable name, not a pk.
+            "parent_layer": "co_blocks",
+            "num_districts_modifiable": "on",
+            "visible": "on",
+        }
+        for prefix in ("overlay_links", "group_links", "team_links"):
+            data.update(
+                {
+                    f"{prefix}-TOTAL_FORMS": "1",
+                    f"{prefix}-INITIAL_FORMS": "0",
+                    f"{prefix}-MIN_NUM_FORMS": "0",
+                    f"{prefix}-MAX_NUM_FORMS": "1000",
+                }
+            )
+        data.update(overrides)
+        return data
+
+    def test_admin_sees_all_manage_sections_and_thumbnail_button(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Attached overlays")
+        self.assertContains(response, "Map-group listings")
+        self.assertContains(response, "Team assignments")
+        self.assertContains(response, "Regenerate thumbnail")
+        self.assertContains(
+            response,
+            reverse("datastore_map_regenerate_thumbnail", args=[self.districtr_map.pk]),
+        )
+
+    def test_super_partner_does_not_see_team_section(self):
+        make_admin_user(email="super@districtr.org", group_name="super_partner")
+        self.client.login(username="super@districtr.org", password=PASSWORD)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Attached overlays")
+        self.assertNotContains(response, "Team assignments")
+
+    def test_save_adds_overlay_group_and_team_links(self):
+        response = self.client.post(
+            self.url,
+            self.form_data(
+                **{
+                    "overlay_links-0-overlay": str(self.overlay.pk),
+                    "group_links-0-group": self.group.pk,
+                    "team_links-0-team": str(self.team.pk),
+                }
+            ),
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            DistrictrMapOverlays.objects.filter(
+                districtr_map=self.districtr_map, overlay=self.overlay
+            ).exists()
+        )
+        self.assertTrue(
+            DistrictrMapsToGroups.objects.filter(
+                districtrmap=self.districtr_map, group=self.group
+            ).exists()
+        )
+        self.assertTrue(
+            TeamDistrictrMap.objects.filter(
+                districtr_map=self.districtr_map, team=self.team
+            ).exists()
+        )
+
+    def test_super_partner_team_data_is_ignored(self):
+        make_admin_user(email="super@districtr.org", group_name="super_partner")
+        self.client.login(username="super@districtr.org", password=PASSWORD)
+        response = self.client.post(
+            self.url,
+            self.form_data(
+                **{
+                    "overlay_links-0-overlay": str(self.overlay.pk),
+                    "team_links-0-team": str(self.team.pk),
+                }
+            ),
+        )
+        self.assertEqual(response.status_code, 302)
+        # The overlay section saved; the admin-only team formset never ran.
+        self.assertTrue(
+            DistrictrMapOverlays.objects.filter(overlay=self.overlay).exists()
+        )
+        self.assertFalse(TeamDistrictrMap.objects.exists())
+
+    def test_delete_checkbox_removes_link(self):
+        link = DistrictrMapOverlays.objects.create(
+            districtr_map=self.districtr_map, overlay=self.overlay
+        )
+        response = self.client.post(
+            self.url,
+            self.form_data(
+                **{
+                    "overlay_links-TOTAL_FORMS": "2",
+                    "overlay_links-INITIAL_FORMS": "1",
+                    "overlay_links-0-id": str(link.pk),
+                    "overlay_links-0-overlay": str(self.overlay.pk),
+                    "overlay_links-0-DELETE": "on",
+                }
+            ),
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(DistrictrMapOverlays.objects.exists())
+
+    def test_duplicate_link_is_a_form_error_not_a_500(self):
+        link = DistrictrMapOverlays.objects.create(
+            districtr_map=self.districtr_map, overlay=self.overlay
+        )
+        response = self.client.post(
+            self.url,
+            self.form_data(
+                **{
+                    "overlay_links-TOTAL_FORMS": "2",
+                    "overlay_links-INITIAL_FORMS": "1",
+                    "overlay_links-0-id": str(link.pk),
+                    "overlay_links-0-overlay": str(self.overlay.pk),
+                    "overlay_links-1-overlay": str(self.overlay.pk),
+                }
+            ),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "could not be saved")
+        self.assertEqual(DistrictrMapOverlays.objects.count(), 1)
+
+    def test_invalid_formset_choice_does_not_save_map_changes(self):
+        response = self.client.post(
+            self.url,
+            self.form_data(
+                name="Renamed",
+                **{"overlay_links-0-overlay": "bogus-not-a-uuid"},
+            ),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.districtr_map.refresh_from_db()
+        self.assertEqual(self.districtr_map.name, "Colorado")

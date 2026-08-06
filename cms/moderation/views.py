@@ -104,6 +104,11 @@ def _list_view(request, form, fetch, template, title, extra_context=None):
             "has_next": has_next,
             "base_qs": querystring.urlencode(),
             "title": title,
+            # A tag-scoped reviewer (ReviewTagAssignment rows) may only act on
+            # tags: the backend 403s whole-entry/commenter actions and the
+            # untagged district-comment queue by design, so the templates hide
+            # those controls instead of offering doomed buttons.
+            "tag_scoped": request.user.review_tag_assignments.exists(),
             **(extra_context or {}),
         },
     )

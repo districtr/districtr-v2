@@ -1,0 +1,43 @@
+{% load i18n wagtailadmin_tags %}
+{# Role-aware quick links panel (core/wagtail_hooks.py). Mirrors the stock
+   dashboard panels' behaviour of rendering nothing when there is nothing
+   to show (e.g. a groupless account). #}
+{% if links or galleries or maps %}
+    {% panel id="districtr-shortcuts" heading="Districtr shortcuts" classname="w-panel--dashboard" %}
+        <div style="display: flex; flex-wrap: wrap; gap: 2rem;">
+            <div>
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                    {% for link in links %}
+                        <li style="margin-bottom: 0.5rem;">
+                            <a href="{{ link.url }}">{% icon name=link.icon classname="initial" %} {{ link.label }}</a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% if galleries %}
+                <div>
+                    <h3 style="margin-top: 0;">{% trans "Your team's galleries" %}</h3>
+                    <ul style="list-style: none; padding: 0; margin: 0;">
+                        {% for gallery in galleries %}
+                            <li style="margin-bottom: 0.5rem;">
+                                <a href="{{ gallery.url }}">{% icon name="folder-open-inverse" classname="initial" %} {{ gallery.label }}</a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+            {% if maps %}
+                <div>
+                    <h3 style="margin-top: 0;">{% trans "Your team's map modules" %}</h3>
+                    <ul style="list-style: none; padding: 0; margin: 0;">
+                        {% for map in maps %}
+                            <li style="margin-bottom: 0.5rem;">
+                                <a href="{{ map.url }}">{% icon name="globe" classname="initial" %} {{ map.label }}</a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+        </div>
+    {% endpanel %}
+{% endif %}
