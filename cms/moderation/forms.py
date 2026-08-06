@@ -55,27 +55,3 @@ class CommentFilterForm(forms.Form):
             "state": d["state"],
             "zip_code": d["zip_code"],
         }
-
-
-class DistrictCommentFilterForm(forms.Form):
-    document_id = forms.CharField(required=False, label="Document ID (UUID)")
-    public_id = forms.IntegerField(required=False, label="Public map ID")
-    comment_id = forms.IntegerField(required=False, label="Comment ID")
-    flagged = forms.ChoiceField(
-        choices=FLAGGED_CHOICES, required=False, label="Flagged"
-    )
-    review_status = forms.ChoiceField(
-        choices=REVIEW_STATUS_CHOICES,
-        required=False,
-        label="Review status",
-    )
-
-    def backend_params(self) -> dict:
-        d = self.cleaned_data
-        return {
-            "document_id": d["document_id"],
-            "public_id": d["public_id"],
-            "comment_id": d["comment_id"],
-            "review_flagged": "true" if d["flagged"] == "1" else None,
-            "review_status": d["review_status"],
-        }

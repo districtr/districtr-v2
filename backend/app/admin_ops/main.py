@@ -124,6 +124,9 @@ class DistrictrMapComposeRequest(BaseModel):
     group_slug: str | None = None
     map_type: Literal["default", "local", "community"] = "default"
     visible: bool = False
+    # Overlay UUIDs to attach to the new module (districtrmap_overlays rows),
+    # so the CMS compose form is a one-page setup.
+    overlay_ids: list[str] | None = None
 
     @field_validator("districtr_map_slug")
     @classmethod
@@ -167,6 +170,7 @@ def _compose_districtr_map(
     group_slug: str | None,
     map_type: str,
     visible: bool,
+    overlay_ids: list[str] | None = None,
 ) -> None:
     """Run the compose steps in CLI order on the given session, without committing."""
     # For unshatterable maps the districtr map points straight at the parent
@@ -222,6 +226,16 @@ def _compose_districtr_map(
             autocommit=False,
         )
 
+    for overlay_id in overlay_ids or []:
+        logger.info("Attaching overlay %s to %s", overlay_id, districtr_map_slug)
+        session.execute(
+            text(
+                "INSERT INTO districtrmap_overlays (districtr_map_id, overlay_id) "
+                "VALUES (:map_uuid, :overlay_id) ON CONFLICT DO NOTHING"
+            ),
+            {"map_uuid": districtr_map_uuid, "overlay_id": overlay_id},
+        )
+
 
 def run_districtr_map_compose(
     *,
@@ -234,6 +248,7 @@ def run_districtr_map_compose(
     group_slug: str | None = None,
     map_type: str = "default",
     visible: bool = False,
+    overlay_ids: list[str] | None = None,
     session: Session | None = None,
 ) -> None:
     """Compose a DistrictrMap module, owning the DB session unless one is given.
@@ -265,6 +280,7 @@ def run_districtr_map_compose(
                 group_slug=group_slug,
                 map_type=map_type,
                 visible=visible,
+                overlay_ids=overlay_ids,
             )
             if owns_session:
                 db_session.commit()
@@ -330,6 +346,17 @@ async def schedule_districtr_map_compose(
                 detail=f"Map group '{data.group_slug}' does not exist",
             )
 
+    for overlay_id in data.overlay_ids or []:
+        overlay_exists = session.execute(
+            text("SELECT 1 FROM overlay WHERE overlay_id = :overlay_id LIMIT 1"),
+            {"overlay_id": overlay_id},
+        ).scalar()
+        if not overlay_exists:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Overlay '{overlay_id}' does not exist",
+            )
+
     background_tasks.add_task(
         run_districtr_map_compose,
         name=data.name,
@@ -341,5 +368,6 @@ async def schedule_districtr_map_compose(
         group_slug=data.group_slug,
         map_type=data.map_type,
         visible=data.visible,
+        overlay_ids=data.overlay_ids,
     )
     return {"status": "scheduled", "districtr_map_slug": data.districtr_map_slug}

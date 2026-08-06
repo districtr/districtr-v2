@@ -19,7 +19,6 @@ import jwt as pyjwt
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import ImproperlyConfigured
-from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
@@ -27,7 +26,6 @@ from django.urls import reverse
 from authapi.models import Team, TeamDistrictrMap
 from authapi.tests import fastapi_style_verify
 from datastore import services
-from datastore.forms import MAX_GPKG_BYTES, GeoPackageImportForm
 from datastore.models import (
     DistrictrMap,
     DistrictrMapOverlays,
@@ -204,91 +202,16 @@ class ScheduleImportTests(SimpleTestCase):
 # ---------------------------------------------------------------------------
 
 
-class GeoPackageImportFormTests(SimpleTestCase):
-    BASE = {"layer": "co_blocks"}
-
-    def form(self, data=None, files=None):
-        return GeoPackageImportForm(data={**self.BASE, **(data or {})}, files=files)
-
-    def test_valid_with_file(self):
-        upload = SimpleUploadedFile("co.gpkg", b"not-really-a-gpkg")
-        self.assertTrue(self.form(files={"gpkg_file": upload}).is_valid())
-
-    def test_valid_with_s3_path(self):
-        self.assertTrue(self.form({"gpkg_path": "s3://bucket/co.gpkg"}).is_valid())
-
-    def test_rejects_wrong_extension(self):
-        upload = SimpleUploadedFile("co.zip", b"zip")
-        form = self.form(files={"gpkg_file": upload})
-        self.assertFalse(form.is_valid())
-        self.assertIn("gpkg_file", form.errors)
-
-    def test_rejects_oversized_file(self):
-        upload = SimpleUploadedFile("co.gpkg", b"x")
-        upload.size = MAX_GPKG_BYTES + 1
-        form = self.form(files={"gpkg_file": upload})
-        self.assertFalse(form.is_valid())
-        self.assertIn("2 GB", str(form.errors["gpkg_file"]))
-
-    def test_rejects_non_s3_path(self):
-        form = self.form({"gpkg_path": "https://example.com/co.gpkg"})
-        self.assertFalse(form.is_valid())
-        self.assertIn("gpkg_path", form.errors)
-
-    def test_rejects_path_without_gpkg_extension(self):
-        form = self.form({"gpkg_path": "s3://bucket/co.zip"})
-        self.assertFalse(form.is_valid())
-
-    def test_requires_exactly_one_source(self):
-        self.assertFalse(self.form().is_valid())
-        both = self.form(
-            {"gpkg_path": "s3://bucket/co.gpkg"},
-            files={"gpkg_file": SimpleUploadedFile("co.gpkg", b"x")},
-        )
-        self.assertFalse(both.is_valid())
-        self.assertIn("not both", str(both.non_field_errors()))
-
-    def test_rejects_bad_layer_name(self):
-        form = self.form(
-            {"layer": "co-blocks; drop table", "gpkg_path": "s3://b/co.gpkg"}
-        )
-        self.assertFalse(form.is_valid())
-        self.assertIn("layer", form.errors)
-
-
 # ---------------------------------------------------------------------------
 # Views
 # ---------------------------------------------------------------------------
 
 
-class ImportViewPermissionTests(TestCase):
-    def setUp(self):
-        self.url = reverse("datastore_import_gpkg")
-
-    def test_anonymous_is_redirected_to_login(self):
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse("wagtailadmin_login"), response.url)
-
-    def test_partner_without_datastore_permission_is_denied(self):
-        make_admin_user(email="partner@districtr.org", group_name="partner")
-        self.client.login(username="partner@districtr.org", password=PASSWORD)
-        response = self.client.get(self.url)
-        self.assertRedirects(response, reverse("wagtailadmin_home"))
-
-    def test_admin_group_user_gets_form(self):
-        make_admin_user()
-        self.client.login(username="dataops@districtr.org", password=PASSWORD)
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Import GeoPackage")
-        self.assertContains(response, "Schedule import")
-
-
-class SuperPartnerToolAccessTests(TestCase):
-    """authapi.0007: super_partner runs the map-module tools (compose,
-    upload overlay) but NOT the raw GPKG import, which stays admin-only via
-    its distinct add_gerrydbtable gate."""
+class ToolAccessTests(TestCase):
+    """super_partner runs the map-module tools (create/compose, upload
+    overlay); partners hold no datastore permissions and are denied; anonymous
+    users bounce to login. (GPKG import was removed from the admin UI
+    2026-08-06 — raw data uploads are deferred.)"""
 
     def setUp(self):
         # The tool forms' dropdowns query the managed=False mirrors, which
@@ -297,6 +220,7 @@ class SuperPartnerToolAccessTests(TestCase):
             editor.create_model(GerryDBTable)
             editor.create_model(DistrictrMap)
             editor.create_model(MapGroup)
+            editor.create_model(Overlay)
         make_admin_user(email="super@districtr.org", group_name="super_partner")
         self.client.login(username="super@districtr.org", password=PASSWORD)
 
@@ -305,9 +229,23 @@ class SuperPartnerToolAccessTests(TestCase):
             response = self.client.get(reverse(name))
             self.assertEqual(response.status_code, 200, name)
 
-    def test_gpkg_import_denied(self):
-        response = self.client.get(reverse("datastore_import_gpkg"))
+    def test_anonymous_is_redirected_to_login(self):
+        self.client.logout()
+        response = self.client.get(reverse("datastore_compose_map"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("wagtailadmin_login"), response.url)
+
+    def test_partner_without_datastore_permission_is_denied(self):
+        make_admin_user(email="partner@districtr.org", group_name="partner")
+        self.client.login(username="partner@districtr.org", password=PASSWORD)
+        response = self.client.get(reverse("datastore_compose_map"))
         self.assertRedirects(response, reverse("wagtailadmin_home"))
+
+    def test_gpkg_import_url_removed(self):
+        from django.urls import NoReverseMatch
+
+        with self.assertRaises(NoReverseMatch):
+            reverse("datastore_import_gpkg")
 
 
 class MapDeleteGuardTests(TestCase):
@@ -363,103 +301,6 @@ class MapDeleteGuardTests(TestCase):
         response = self.client.post(self.delete_url(self.without_plans))
         self.assertEqual(response.status_code, 302)
         self.assertFalse(DistrictrMap.objects.filter(pk=self.without_plans.pk).exists())
-
-
-class ImportViewPostTests(TestCase):
-    def setUp(self):
-        make_admin_user()
-        self.client.login(username="dataops@districtr.org", password=PASSWORD)
-        self.url = reverse("datastore_import_gpkg")
-
-    def test_upload_then_schedule_in_order(self):
-        manager = mock.Mock()
-        with (
-            mock.patch(
-                "datastore.services.upload_gpkg",
-                return_value="s3://test-bucket/gerrydb-uploads/co.gpkg",
-            ) as upload,
-            mock.patch(
-                "datastore.services.schedule_import",
-                return_value={"status": "scheduled", "layer": "co_blocks"},
-            ) as schedule,
-        ):
-            manager.attach_mock(upload, "upload")
-            manager.attach_mock(schedule, "schedule")
-            response = self.client.post(
-                self.url,
-                {
-                    "gpkg_file": SimpleUploadedFile("co blocks.gpkg", b"gpkg-bytes"),
-                    "layer": "co_blocks",
-                    "rm": "on",
-                },
-                follow=True,
-            )
-
-        call_names = [name for name, *_ in manager.mock_calls]
-        self.assertEqual(call_names, ["upload", "schedule"])
-
-        upload_file, upload_key = upload.call_args.args
-        self.assertEqual(upload_file.name, "co blocks.gpkg")
-        self.assertTrue(upload_key.endswith("co_blocks.gpkg"))  # sanitized
-
-        schedule.assert_called_once_with(
-            gpkg_path="s3://test-bucket/gerrydb-uploads/co.gpkg",
-            layer="co_blocks",
-            table_name=None,
-            rm=True,
-        )
-        self.assertContains(response, "Import scheduled for layer")
-
-    def test_existing_s3_path_skips_upload(self):
-        with (
-            mock.patch("datastore.services.upload_gpkg") as upload,
-            mock.patch(
-                "datastore.services.schedule_import",
-                return_value={"status": "scheduled", "layer": "tx_vtds"},
-            ) as schedule,
-        ):
-            response = self.client.post(
-                self.url,
-                {
-                    "gpkg_path": "s3://test-bucket/gerrydb-uploads/tx.gpkg",
-                    "layer": "tx_vtds",
-                    "table_name": "tx_vtds_v2",
-                },
-                follow=True,
-            )
-
-        upload.assert_not_called()
-        schedule.assert_called_once_with(
-            gpkg_path="s3://test-bucket/gerrydb-uploads/tx.gpkg",
-            layer="tx_vtds",
-            table_name="tx_vtds_v2",
-            rm=False,
-        )
-        self.assertContains(response, "Import scheduled for layer")
-
-    def test_backend_error_is_surfaced(self):
-        with mock.patch(
-            "datastore.services.schedule_import",
-            side_effect=BackendAPIError("Backend rejected the import (HTTP 401)"),
-        ):
-            response = self.client.post(
-                self.url,
-                {"gpkg_path": "s3://b/co.gpkg", "layer": "co_blocks"},
-                follow=True,
-            )
-        self.assertContains(response, "Import failed")
-        self.assertContains(response, "HTTP 401")
-
-    def test_invalid_form_does_not_call_services(self):
-        with (
-            mock.patch("datastore.services.upload_gpkg") as upload,
-            mock.patch("datastore.services.schedule_import") as schedule,
-        ):
-            response = self.client.post(self.url, {"layer": "co_blocks"})
-        upload.assert_not_called()
-        schedule.assert_not_called()
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Provide a GeoPackage file")
 
 
 class ThumbnailViewTests(TestCase):

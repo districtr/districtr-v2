@@ -1,14 +1,19 @@
 """
-Admin tool views: GeoPackage import, thumbnail regeneration, overlay upload,
-and map module composition.
+Admin tool views: map module composition, overlay upload, and thumbnail
+regeneration.
 
 Registered under /admin/ via the register_admin_urls hook in
 datastore/wagtail_hooks.py, so Wagtail's require_admin_access already gates
 anonymous users; on top of that, every tool requires a datastore add
-permission that only the admin group holds (0002 data migration).
+permission (admin + super_partner via authapi.0007).
+
+GPKG import was removed from the admin UI 2026-08-06 (raw data uploads are
+deferred); the service plumbing (services.upload_gpkg/schedule_import and the
+backend endpoint) is kept for its return.
 """
 
 import logging
+import time
 import uuid
 
 from botocore.exceptions import BotoCoreError, ClientError
@@ -26,7 +31,6 @@ from datastore import services
 from datastore.forms import (
     ComposeMapForm,
     DocumentThumbnailForm,
-    GeoPackageImportForm,
     OverlayUploadForm,
 )
 from datastore.models import DistrictrMap, DistrictrMapOverlays, Overlay
@@ -34,61 +38,14 @@ from datastore.models import DistrictrMap, DistrictrMapOverlays, Overlay
 logger = logging.getLogger(__name__)
 
 # The mirrors are read-mostly; the add permissions mark "may run data ops".
-# add_districtrmap/add_overlay: admin + super_partner (authapi.0007);
-# add_gerrydbtable (GPKG import, which creates raw tables): admin only.
+# add_districtrmap/add_overlay: admin + super_partner (authapi.0007).
 DATASTORE_ADMIN_PERMISSION = "datastore.add_districtrmap"
 OVERLAY_ADMIN_PERMISSION = "datastore.add_overlay"
-GPKG_IMPORT_PERMISSION = "datastore.add_gerrydbtable"
 
 
 def _upload_key(filename: str) -> str:
     """Timestamped object key so re-uploads never clobber each other."""
     return f"{timezone.now():%Y%m%d-%H%M%S}-{get_valid_filename(filename)}"
-
-
-@permission_required(GPKG_IMPORT_PERMISSION)
-def import_gpkg(request):
-    form = GeoPackageImportForm()
-    if request.method == "POST":
-        form = GeoPackageImportForm(request.POST, request.FILES)
-        if form.is_valid():
-            layer = form.cleaned_data["layer"]
-            gpkg_path = form.cleaned_data["gpkg_path"]
-            try:
-                if form.cleaned_data["gpkg_file"]:
-                    gpkg_file = form.cleaned_data["gpkg_file"]
-                    gpkg_path = services.upload_gpkg(
-                        gpkg_file, _upload_key(gpkg_file.name)
-                    )
-                result = services.schedule_import(
-                    gpkg_path=gpkg_path,
-                    layer=layer,
-                    table_name=form.cleaned_data["table_name"] or None,
-                    rm=form.cleaned_data["rm"],
-                )
-            except (
-                services.BackendAPIError,
-                ImproperlyConfigured,
-                BotoCoreError,
-                ClientError,
-                RequestException,
-            ) as exc:
-                logger.exception("GeoPackage import failed for layer %s", layer)
-                messages.error(request, f"Import failed: {exc}")
-            else:
-                messages.success(
-                    request,
-                    f"Import scheduled for layer “{result.get('layer', layer)}” "
-                    f"from {gpkg_path}. The backend processes it in the "
-                    "background; check the GerryDB tables listing shortly.",
-                )
-                return redirect("datastore_import_gpkg")
-
-    return render(
-        request,
-        "datastore/import_gpkg.html",
-        {"form": form},
-    )
 
 
 @permission_required(OVERLAY_ADMIN_PERMISSION)
@@ -145,6 +102,40 @@ def upload_overlay(request):
     )
 
 
+def _assign_composed_map_to_teams(user, slug, timeout_seconds=10):
+    """Assign a freshly composed module to the composer's teams.
+
+    The backend composes asynchronously, so the DistrictrMap row appears a
+    moment after the 202. For team-scoped composers (super partners) the
+    module would otherwise be invisible to its own creator until an admin
+    assigns it. Returns the team names on success, "" when the user is
+    unscoped (nothing to do), or None when the module did not appear in time.
+    # ponytail: short in-request poll; move to a background assign if compose
+    # ever becomes slow.
+    """
+    from authapi.models import TeamDistrictrMap
+    from authapi.teams import team_ids_for_user, user_is_team_scoped
+
+    if not user_is_team_scoped(user):
+        return ""
+    deadline = time.monotonic() + timeout_seconds
+    districtr_map = None
+    while time.monotonic() < deadline:
+        districtr_map = DistrictrMap.objects.filter(districtr_map_slug=slug).first()
+        if districtr_map is not None:
+            break
+        time.sleep(0.5)
+    if districtr_map is None:
+        return None
+    names = []
+    from authapi.models import Team
+
+    for team in Team.objects.filter(pk__in=team_ids_for_user(user)):
+        TeamDistrictrMap.objects.get_or_create(team=team, districtr_map=districtr_map)
+        names.append(team.name)
+    return ", ".join(sorted(names))
+
+
 @permission_required(DATASTORE_ADMIN_PERMISSION)
 def compose_map(request):
     form = ComposeMapForm()
@@ -154,6 +145,7 @@ def compose_map(request):
             slug = form.cleaned_data["districtr_map_slug"]
             child_layer = form.cleaned_data["child_layer"]
             map_group = form.cleaned_data["map_group"]
+            overlays = form.cleaned_data["overlays"]
             try:
                 services.schedule_compose(
                     name=form.cleaned_data["name"],
@@ -164,16 +156,29 @@ def compose_map(request):
                     tiles_s3_path=form.cleaned_data["tiles_s3_path"] or None,
                     group_slug=map_group.slug if map_group else None,
                     map_type=form.cleaned_data["map_type"],
+                    overlay_ids=[str(o.overlay_id) for o in overlays],
                 )
             except (services.BackendAPIError, RequestException) as exc:
                 logger.exception("Map module composition failed for %s", slug)
                 messages.error(request, f"Composition failed: {exc}")
             else:
+                assigned = _assign_composed_map_to_teams(request.user, slug)
+                extras = []
+                if overlays:
+                    extras.append(f"{len(overlays)} overlay(s) attached")
+                if assigned:
+                    extras.append(f"assigned to your team(s): {assigned}")
+                elif assigned is None:
+                    extras.append(
+                        "team assignment pending — once the module appears, "
+                        "an admin can assign it on its edit page"
+                    )
+                suffix = f" ({'; '.join(extras)})" if extras else ""
                 messages.success(
                     request,
                     "Module composition scheduled — it will appear in "
-                    "Districtr maps shortly; it is created hidden until you "
-                    "flip visible.",
+                    "Edit map modules shortly; it is created hidden until "
+                    f"you flip visible{suffix}.",
                 )
                 return redirect("datastore_compose_map")
 

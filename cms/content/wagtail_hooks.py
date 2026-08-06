@@ -19,12 +19,20 @@ member can still SEE out-of-scope page titles there — every action on them is
 blocked by the hooks above.
 """
 
+from django.urls import reverse
 from wagtail import hooks
 from wagtail.admin.auth import permission_denied
-from wagtail.models import Page
+from wagtail.admin.menu import Menu, MenuItem, SubmenuMenuItem
+from wagtail.models import Locale, Page
 
 from authapi.teams import districtr_map_slugs_for_user, user_is_team_scoped
-from content.models import PlacePage, TagPage
+from content.models import (
+    PlacePage,
+    PlacesIndexPage,
+    StaticIndexPage,
+    TagPage,
+    TagsIndexPage,
+)
 
 
 def _is_out_of_scope_page(request, page):
@@ -80,3 +88,78 @@ def deny_out_of_team_bulk_action(request, action_type, objects, action):
         isinstance(obj, Page) and _is_out_of_scope_page(request, obj) for obj in objects
     ):
         return permission_denied(request)
+
+
+# ---------------------------------------------------------------------------
+# "Site content" menu: direct entry points into each content index's listing
+# (the raw Pages tree buries them — "how do I edit /place/colorado?").
+# ---------------------------------------------------------------------------
+
+PORTAL_EDITOR_GROUPS = frozenset({"admin", "partner", "super_partner"})
+ADMIN_ONLY_GROUPS = frozenset({"admin"})
+
+
+class ContentIndexMenuItem(MenuItem):
+    """Explorer listing of a content index, gated by group.
+
+    The index page pk is resolved lazily (indexes exist after content/0008;
+    Wagtail builds registered menu items on first render, when the DB is
+    available). Falls back to the pages root if the index is missing.
+    """
+
+    def __init__(self, label, index_model, *, groups, **kwargs):
+        self.index_model = index_model
+        self.groups = groups
+        super().__init__(label, url="", **kwargs)
+
+    def is_shown(self, request):
+        # Resolve the URL here — per-request, after migrations, never at
+        # import time.
+        index = (
+            self.index_model.objects.filter(locale=Locale.get_default()).first()
+            or self.index_model.objects.first()
+        )
+        self.url = (
+            reverse("wagtailadmin_explore", args=[index.pk])
+            if index
+            else reverse("wagtailadmin_explore_root")
+        )
+        user = request.user
+        if user.is_superuser:
+            return True
+        return user.groups.filter(name__in=self.groups).exists()
+
+
+@hooks.register("register_admin_menu_item")
+def register_site_content_menu_item():
+    # Right after Pages; SubmenuMenuItem self-hides when no child is shown.
+    return SubmenuMenuItem(
+        "Site content",
+        Menu(
+            items=[
+                ContentIndexMenuItem(
+                    "Edit portal pages",
+                    TagsIndexPage,
+                    groups=PORTAL_EDITOR_GROUPS,
+                    icon_name="tag",
+                    order=1,
+                ),
+                ContentIndexMenuItem(
+                    "Edit place pages",
+                    PlacesIndexPage,
+                    groups=ADMIN_ONLY_GROUPS,
+                    icon_name="site",
+                    order=2,
+                ),
+                ContentIndexMenuItem(
+                    "Edit static pages",
+                    StaticIndexPage,
+                    groups=ADMIN_ONLY_GROUPS,
+                    icon_name="doc-full",
+                    order=3,
+                ),
+            ]
+        ),
+        icon_name="doc-full-inverse",
+        order=110,
+    )

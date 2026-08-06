@@ -152,6 +152,7 @@ def schedule_compose(
     tiles_s3_path: str | None,
     group_slug: str | None,
     map_type: str,
+    overlay_ids: list[str] | None = None,
 ) -> dict:
     """POST /api/admin/districtr-map/compose; returns the 202 response body.
 
@@ -173,6 +174,7 @@ def schedule_compose(
             "group_slug": group_slug,
             "map_type": map_type,
             "visible": False,
+            "overlay_ids": overlay_ids or [],
         },
         ok_status=202,
         what="compose request",

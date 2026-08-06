@@ -206,8 +206,8 @@ class CommentListViewTests(TestCase):
 
 class TagScopedReviewerUITests(TestCase):
     """A reviewer with ReviewTagAssignment rows may only act on tags — the
-    backend 403s whole-entry/commenter actions and the (untagged) district
-    comment queue, so the templates hide those controls for them."""
+    backend 403s whole-entry/commenter actions, so the templates hide those
+    controls for them."""
 
     def setUp(self):
         self.url = reverse("moderation_comments")
@@ -222,9 +222,8 @@ class TagScopedReviewerUITests(TestCase):
             request.return_value = mock_response(json_body=[make_entry()])
             return self.client.get(self.url)
 
-    def test_scoped_reviewer_loses_entry_commenter_and_district_controls(self):
+    def test_scoped_reviewer_loses_entry_and_commenter_controls(self):
         response = self.get_comments()
-        self.assertNotContains(response, "Review district comments")
         self.assertNotContains(response, 'name="content_type" value="entry"')
         self.assertNotContains(response, 'name="content_type" value="commenter"')
         # Tag- and comment-level moderation stays available.
@@ -235,7 +234,6 @@ class TagScopedReviewerUITests(TestCase):
         unscoped = make_admin_user(email="reviewer@districtr.org", group_name="partner")
         self.client.force_login(unscoped)
         response = self.get_comments()
-        self.assertContains(response, "Review district comments")
         self.assertContains(response, 'name="content_type" value="entry"')
         self.assertContains(response, 'name="content_type" value="commenter"')
 
@@ -245,40 +243,6 @@ class TagScopedReviewerUITests(TestCase):
             response = self.client.get(reverse("moderation_map_submissions"))
         self.assertNotContains(response, 'name="content_type" value="entry"')
         self.assertNotContains(response, 'name="content_type" value="commenter"')
-
-
-class DistrictCommentListViewTests(TestCase):
-    def setUp(self):
-        self.url = reverse("moderation_district_comments")
-        make_admin_user(email="reviewer@districtr.org", group_name="partner")
-        self.client.login(username="reviewer@districtr.org", password=PASSWORD)
-
-    def test_defaults_to_flagged_queue(self):
-        with mock.patch("moderation.services.requests.request") as request:
-            request.return_value = mock_response(json_body=[])
-            self.client.get(self.url)
-        _, kwargs = request.call_args
-        self.assertEqual(
-            kwargs["params"], {"review_flagged": "true", "offset": 0, "limit": 21}
-        )
-
-    def test_explicit_filters_override_default(self):
-        with mock.patch("moderation.services.requests.request") as request:
-            request.return_value = mock_response(json_body=[])
-            self.client.get(self.url, {"document_id": "abc-uuid", "flagged": ""})
-        _, kwargs = request.call_args
-        self.assertEqual(
-            kwargs["params"], {"document_id": "abc-uuid", "offset": 0, "limit": 21}
-        )
-
-    def test_tag_scoped_403_banner(self):
-        detail = "district comments are not tagged"
-        with mock.patch("moderation.services.requests.request") as request:
-            request.return_value = mock_response(
-                status_code=403, json_body={"detail": detail}
-            )
-            response = self.client.get(self.url)
-        self.assertContains(response, detail)
 
 
 # ---------------------------------------------------------------------------
@@ -574,38 +538,49 @@ class ModerationMenuItemTests(TestCase):
         request.user = user
         return request
 
-    def test_comment_review_item_targets_the_wagtail_view(self):
-        item = wagtail_hooks.register_comment_review_menu_item()
-        self.assertEqual(item.label, "Comment review")
-        self.assertEqual(item.url, reverse("moderation_comments"))
-        # Ordered right after Galleries (210).
-        self.assertEqual(item.order, 220)
+    def submenu(self):
+        return wagtail_hooks.register_review_menu_item()
 
-    def test_flagged_comments_item_prefilters_the_queue(self):
-        item = wagtail_hooks.register_flagged_comments_menu_item()
-        self.assertEqual(item.label, "Flagged comments")
-        self.assertEqual(item.url, reverse("moderation_comments") + "?flagged=1")
-        self.assertEqual(item.order, 222)
-        # Same audience as Comment review.
-        self.assertEqual(item.groups, wagtail_hooks.COMMENT_REVIEW_GROUPS)
+    def test_review_submenu_contains_the_three_queues(self):
+        submenu = self.submenu()
+        self.assertEqual(submenu.label, "Review")
+        self.assertEqual(submenu.order, 220)
+        labels_urls = [
+            (item.label, item.url) for item in submenu.menu.registered_menu_items
+        ]
+        self.assertEqual(
+            labels_urls,
+            [
+                ("Review comments", reverse("moderation_comments")),
+                (
+                    "Flagged comments",
+                    reverse("moderation_comments") + "?flagged=1",
+                ),
+                (
+                    "Review map submissions",
+                    reverse("moderation_map_submissions"),
+                ),
+            ],
+        )
 
-    def test_visibility_matches_group_scopes(self):
-        review_item = wagtail_hooks.register_comment_review_menu_item()
+    def test_submenu_visibility_matches_groups(self):
+        submenu = self.submenu()
         settings_item = wagtail_hooks.register_site_settings_menu_item()
         expected = {
-            "admin": {"Comment review", "Frontend settings"},
-            "partner": {"Comment review"},
-            "super_partner": {"Comment review"},
+            "admin": True,
+            "partner": True,
+            "super_partner": True,
         }
-        for group, visible_labels in expected.items():
+        for group, visible in expected.items():
             user = make_admin_user(email=f"{group}@districtr.org", group_name=group)
             request = self.request_for(user)
-            shown = {
-                item.label
-                for item in (review_item, settings_item)
-                if item.is_shown(request)
-            }
-            self.assertEqual(shown, visible_labels, f"wrong menu links for {group}")
+            self.assertEqual(submenu.is_shown(request), visible, group)
+            self.assertEqual(settings_item.is_shown(request), group == "admin", group)
+
+    def test_submenu_hidden_for_groupless_user(self):
+        user = make_admin_user(email="lone@districtr.org", group_name="partner")
+        user.groups.clear()
+        self.assertFalse(self.submenu().is_shown(self.request_for(user)))
 
     def test_shown_for_superuser_without_groups(self):
         user = get_user_model().objects.create_superuser(
@@ -613,8 +588,14 @@ class ModerationMenuItemTests(TestCase):
             email="root@districtr.org",
             password=PASSWORD,
         )
-        for item in (
-            wagtail_hooks.register_comment_review_menu_item(),
-            wagtail_hooks.register_site_settings_menu_item(),
-        ):
-            self.assertTrue(item.is_shown(self.request_for(user)))
+        request = self.request_for(user)
+        self.assertTrue(self.submenu().is_shown(request))
+        self.assertTrue(
+            wagtail_hooks.register_site_settings_menu_item().is_shown(request)
+        )
+
+    def test_district_comments_url_removed(self):
+        from django.urls import NoReverseMatch
+
+        with self.assertRaises(NoReverseMatch):
+            reverse("moderation_district_comments")

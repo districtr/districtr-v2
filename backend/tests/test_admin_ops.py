@@ -292,6 +292,69 @@ def test_compose_409_duplicate_slug(client, compose_existing_districtr_map):
     assert manager.mock_calls == []
 
 
+def test_compose_404_unknown_overlay(client, compose_layers):
+    with patch_compose_steps() as manager:
+        response = client.post(
+            COMPOSE_URL,
+            json={
+                **COMPOSE_PAYLOAD,
+                "overlay_ids": ["00000000-0000-0000-0000-000000000000"],
+            },
+        )
+
+    assert response.status_code == 404
+    assert "Overlay" in response.json()["detail"]
+    assert manager.mock_calls == []
+
+
+def test_compose_attaches_requested_overlays(session: Session, compose_layers):
+    """overlay_ids create districtrmap_overlays rows for the new module."""
+    import uuid as uuid_module
+
+    map_uuid = str(uuid_module.uuid4())
+    overlay_id = str(uuid_module.uuid4())
+    session.execute(
+        text(
+            "INSERT INTO districtrmap (uuid, name, districtr_map_slug, parent_layer, visible) "
+            "VALUES (:uuid, 'Overlay target', 'compose-overlay-target', 'compose_parent', false)"
+        ),
+        {"uuid": map_uuid},
+    )
+    session.execute(
+        text(
+            "INSERT INTO overlay (overlay_id, name, data_type, layer_type, source, created_at, updated_at) "
+            "VALUES (:oid, 'Compose overlay', 'geojson', 'fill', 's3://b/o.geojson', now(), now())"
+        ),
+        {"oid": overlay_id},
+    )
+    session.flush()
+
+    with patch_compose_steps() as manager:
+        manager.create_districtr_map.return_value = map_uuid
+        admin_ops._compose_districtr_map(
+            session,
+            name="Overlay target",
+            districtr_map_slug="compose-overlay-target",
+            parent_layer="compose_parent",
+            child_layer=None,
+            num_districts=4,
+            tiles_s3_path=None,
+            group_slug=None,
+            map_type="default",
+            visible=False,
+            overlay_ids=[overlay_id],
+        )
+
+    count = session.execute(
+        text(
+            "SELECT count(*) FROM districtrmap_overlays "
+            "WHERE districtr_map_id = :uuid AND overlay_id = :oid"
+        ),
+        {"uuid": map_uuid, "oid": overlay_id},
+    ).scalar()
+    assert count == 1
+
+
 def test_compose_404_unknown_group(client, compose_layers):
     with patch_compose_steps() as manager:
         response = client.post(

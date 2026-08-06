@@ -497,6 +497,60 @@ class PagePermissionGrantTests(TestCase):
 
 
 # ---------------------------------------------------------------------------
+# "Site content" menu
+# ---------------------------------------------------------------------------
+
+
+class SiteContentMenuTests(TestCase):
+    @staticmethod
+    def _request_for(user):
+        from django.test import RequestFactory
+
+        request = RequestFactory().get("/admin/")
+        request.user = user
+        return request
+
+    @staticmethod
+    def _user(group_name):
+        user = get_user_model().objects.create_user(
+            username=f"{group_name}-menu@districtr.org",
+            email=f"{group_name}-menu@districtr.org",
+            password="correct-horse-battery-staple",
+        )
+        user.groups.add(Group.objects.get(name=group_name))
+        return user
+
+    def test_items_resolve_to_index_explorers(self):
+        from content.wagtail_hooks import register_site_content_menu_item
+
+        submenu = register_site_content_menu_item()
+        self.assertEqual(submenu.label, "Site content")
+        request = self._request_for(self._user("admin"))
+        items = submenu.menu.registered_menu_items
+        self.assertEqual(
+            [item.label for item in items],
+            ["Edit portal pages", "Edit place pages", "Edit static pages"],
+        )
+        for item in items:
+            self.assertTrue(item.is_shown(request), item.label)
+            # Resolved to a real explorer URL (indexes exist via content/0008).
+            self.assertRegex(item.url, r"^/admin/pages/\d+/$")
+
+    def test_partner_sees_only_portal_entry(self):
+        from content.wagtail_hooks import register_site_content_menu_item
+
+        submenu = register_site_content_menu_item()
+        request = self._request_for(self._user("partner"))
+        shown = [
+            item.label
+            for item in submenu.menu.registered_menu_items
+            if item.is_shown(request)
+        ]
+        self.assertEqual(shown, ["Edit portal pages"])
+        self.assertTrue(submenu.is_shown(request))
+
+
+# ---------------------------------------------------------------------------
 # Provisioning migrations (locales 0006, admin approval workflow 0007)
 # ---------------------------------------------------------------------------
 

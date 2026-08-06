@@ -27,7 +27,7 @@ from authapi.teams import (
 )
 from galleries.models import Gallery, GalleryEntry
 from moderation import services
-from moderation.forms import CommentFilterForm, DistrictCommentFilterForm
+from moderation.forms import CommentFilterForm
 from moderation.services import BackendAPIError
 
 logger = logging.getLogger(__name__)
@@ -123,19 +123,6 @@ def comments(request):
         services.list_form_comments,
         "moderation/comments.html",
         "Comment review",
-    )
-
-
-@group_required(COMMENT_REVIEW_GROUPS)
-def district_comments(request):
-    # First render defaults to the flagged queue, matching the legacy UI.
-    form = DistrictCommentFilterForm(request.GET or {"flagged": "1"})
-    return _list_view(
-        request,
-        form,
-        services.list_district_comments,
-        "moderation/district_comments.html",
-        "District comment review",
     )
 
 

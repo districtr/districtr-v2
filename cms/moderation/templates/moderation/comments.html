@@ -5,11 +5,6 @@
     {% include "wagtailadmin/shared/header.html" with title="Comment review" subtitle="Moderate form comments, commenters, and tags" icon="comment" %}
 
     <div class="nice-padding">
-        {% if not tag_scoped %}
-            {# District comments carry no tags, so the backend rejects tag-scoped reviewers there. #}
-            <p><a href="{% url 'moderation_district_comments' %}">Review district comments →</a></p>
-        {% endif %}
-
         <form method="get" novalidate>
             <ul class="fields" style="display:flex; flex-wrap:wrap; gap:0 1.5rem;">
                 {% for field in form %}

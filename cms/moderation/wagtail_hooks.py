@@ -1,10 +1,10 @@
 """Admin registration for the moderation views: URLs under /admin/moderation/,
-a top-level "Comment review" menu item (replacing the old external link to the
-retired Next.js review pages), and a Settings-menu entry for site settings."""
+one top-level "Review" submenu (portal comments, flagged queue, map
+submissions), and a Settings-menu entry for site settings."""
 
 from django.urls import path, reverse
 from wagtail import hooks
-from wagtail.admin.menu import MenuItem
+from wagtail.admin.menu import Menu, MenuItem, SubmenuMenuItem
 
 from moderation import views
 from moderation.views import COMMENT_REVIEW_GROUPS, SITE_SETTINGS_GROUPS
@@ -35,11 +35,6 @@ def register_moderation_admin_urls():
     return [
         path("moderation/comments/", views.comments, name="moderation_comments"),
         path(
-            "moderation/district-comments/",
-            views.district_comments,
-            name="moderation_district_comments",
-        ),
-        path(
             "moderation/review/", views.review_action, name="moderation_review_action"
         ),
         path(
@@ -61,37 +56,40 @@ def register_moderation_admin_urls():
 
 
 @hooks.register("register_admin_menu_item")
-def register_comment_review_menu_item():
-    # Ordered right after Galleries (210).
-    return GroupMenuItem(
-        "Comment review",
-        reverse("moderation_comments"),
-        icon_name="comment",
+def register_review_menu_item():
+    # One action-oriented "Review" group right after Galleries (210).
+    # SubmenuMenuItem self-hides when no child is shown for the request.
+    return SubmenuMenuItem(
+        "Review",
+        Menu(
+            items=[
+                GroupMenuItem(
+                    "Review comments",
+                    reverse("moderation_comments"),
+                    icon_name="comment",
+                    order=1,
+                    groups=COMMENT_REVIEW_GROUPS,
+                ),
+                GroupMenuItem(
+                    # Direct jump to the flagged queue — the same comments
+                    # view, pre-filtered.
+                    "Flagged comments",
+                    reverse("moderation_comments") + "?flagged=1",
+                    icon_name="warning",
+                    order=2,
+                    groups=COMMENT_REVIEW_GROUPS,
+                ),
+                GroupMenuItem(
+                    "Review map submissions",
+                    reverse("moderation_map_submissions"),
+                    icon_name="clipboard-list",
+                    order=3,
+                    groups=COMMENT_REVIEW_GROUPS,
+                ),
+            ]
+        ),
+        icon_name="glasses",
         order=220,
-        groups=COMMENT_REVIEW_GROUPS,
-    )
-
-
-@hooks.register("register_admin_menu_item")
-def register_map_submissions_menu_item():
-    return GroupMenuItem(
-        "Map submissions",
-        reverse("moderation_map_submissions"),
-        icon_name="clipboard-list",
-        order=221,
-        groups=COMMENT_REVIEW_GROUPS,
-    )
-
-
-@hooks.register("register_admin_menu_item")
-def register_flagged_comments_menu_item():
-    # Direct jump to the flagged queue — the same comments view, pre-filtered.
-    return GroupMenuItem(
-        "Flagged comments",
-        reverse("moderation_comments") + "?flagged=1",
-        icon_name="warning",
-        order=222,
-        groups=COMMENT_REVIEW_GROUPS,
     )
 
 

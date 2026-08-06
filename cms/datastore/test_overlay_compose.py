@@ -105,6 +105,7 @@ class ScheduleComposeTests(SimpleTestCase):
                 child_layer="co_vtds",
                 tiles_s3_path="tilesets/co.pmtiles",
                 group_slug="states",
+                overlay_ids=["11111111-1111-1111-1111-111111111111"],
             )
         )
 
@@ -126,6 +127,7 @@ class ScheduleComposeTests(SimpleTestCase):
                 "group_slug": "states",
                 "map_type": "default",
                 "visible": False,
+                "overlay_ids": ["11111111-1111-1111-1111-111111111111"],
             },
         )
         authorization = kwargs["headers"]["Authorization"]
@@ -296,7 +298,7 @@ class OverlayUploadFormTests(TestCase):
 
 class ComposeMapFormTests(TestCase):
     def setUp(self):
-        create_mirror_tables(GerryDBTable, MapGroup)
+        create_mirror_tables(GerryDBTable, MapGroup, DistrictrMap, Overlay)
         self.parent = GerryDBTable.objects.create(name="co_blocks")
         self.child = GerryDBTable.objects.create(name="co_vtds")
         self.group = MapGroup.objects.create(slug="states", name="States")
@@ -497,7 +499,7 @@ class UploadOverlayViewTests(TestCase):
 
 class ComposeMapViewTests(TestCase):
     def setUp(self):
-        create_mirror_tables(GerryDBTable, MapGroup)
+        create_mirror_tables(GerryDBTable, MapGroup, DistrictrMap, Overlay)
         self.parent = GerryDBTable.objects.create(name="co_blocks")
         self.child = GerryDBTable.objects.create(name="co_vtds")
         self.group = MapGroup.objects.create(slug="states", name="States")
@@ -556,6 +558,7 @@ class ComposeMapViewTests(TestCase):
             tiles_s3_path="tilesets/co.pmtiles",
             group_slug="states",
             map_type="default",
+            overlay_ids=[],
         )
         self.assertContains(response, "Module composition scheduled")
         self.assertContains(response, "created hidden")
@@ -585,6 +588,94 @@ class ComposeMapViewTests(TestCase):
             tiles_s3_path=None,
             group_slug=None,
             map_type="local",
+            overlay_ids=[],
+        )
+
+    def test_overlay_selection_passes_overlay_ids(self):
+        overlay = Overlay.objects.create(
+            overlay_id="22222222-2222-2222-2222-222222222222",
+            name="Cities",
+            data_type="geojson",
+            layer_type="fill",
+            source="s3://b/cities.geojson",
+        )
+        with mock.patch(
+            "datastore.services.schedule_compose",
+            return_value={"status": "scheduled", "districtr_map_slug": "co-ov"},
+        ) as schedule:
+            self.client.post(
+                self.url,
+                {
+                    "name": "Colorado overlays",
+                    "districtr_map_slug": "co-ov",
+                    "parent_layer": str(self.parent.pk),
+                    "num_districts": "5",
+                    "map_type": "default",
+                    "overlays": [str(overlay.pk)],
+                },
+                follow=True,
+            )
+        self.assertEqual(
+            schedule.call_args.kwargs["overlay_ids"],
+            ["22222222-2222-2222-2222-222222222222"],
+        )
+
+    def test_existing_slug_rejected_before_backend_call(self):
+        DistrictrMap.objects.create(
+            name="Taken", districtr_map_slug="co-taken", parent_layer=self.parent
+        )
+        with mock.patch("datastore.services.schedule_compose") as schedule:
+            response = self.client.post(
+                self.url,
+                {
+                    "name": "Dup",
+                    "districtr_map_slug": "co-taken",
+                    "parent_layer": str(self.parent.pk),
+                    "num_districts": "5",
+                    "map_type": "default",
+                },
+            )
+        schedule.assert_not_called()
+        self.assertContains(response, "already exists")
+
+    def test_team_scoped_composer_gets_module_assigned(self):
+        from authapi.models import TeamDistrictrMap
+        from authapi.test_teams import make_team
+
+        user = make_admin_user(email="super@districtr.org", group_name="super_partner")
+        team = make_team("Compose Team", members=[user])
+        self.client.login(username="super@districtr.org", password=PASSWORD)
+
+        # The module row appears once the backend's background task runs; the
+        # view polls for it — the mock creates it as its side effect, so the
+        # poll finds it immediately (and the slug is free at validation time).
+        def fake_compose(**kwargs):
+            DistrictrMap.objects.create(
+                name="Composed",
+                districtr_map_slug="co-assigned",
+                parent_layer=self.parent,
+            )
+            return {"status": "scheduled", "districtr_map_slug": "co-assigned"}
+
+        with mock.patch(
+            "datastore.services.schedule_compose", side_effect=fake_compose
+        ):
+            response = self.client.post(
+                self.url,
+                {
+                    "name": "Composed",
+                    "districtr_map_slug": "co-assigned",
+                    "parent_layer": str(self.parent.pk),
+                    "num_districts": "5",
+                    "map_type": "default",
+                },
+                follow=True,
+            )
+        self.assertContains(response, "assigned to your team(s): Compose Team")
+        self.assertTrue(
+            TeamDistrictrMap.objects.filter(
+                team=team, districtr_map__districtr_map_slug="co-assigned"
+            ).exists()
         )
 
     def test_backend_error_is_surfaced(self):

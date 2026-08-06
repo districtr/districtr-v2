@@ -23,8 +23,6 @@ because the mirrors are managed=False models — ParentalKey/InlinePanel is not
 available on them.
 """
 
-from functools import cached_property
-
 from django import forms
 from django.db import ProgrammingError, connection
 from django.forms.models import inlineformset_factory
@@ -34,7 +32,6 @@ from wagtail import hooks
 from wagtail.admin import messages
 from wagtail.admin.menu import MenuItem
 from wagtail.admin.panels import FieldPanel, MultiFieldPanel, ObjectList
-from wagtail.permission_policies.base import ModelPermissionPolicy
 from wagtail.snippets.models import register_snippet
 from wagtail.snippets.views.snippets import (
     EditView,
@@ -56,13 +53,11 @@ from datastore.models import (
     DistrictrMap,
     DistrictrMapOverlays,
     DistrictrMapsToGroups,
-    GerryDBTable,
     MapGroup,
     Overlay,
 )
 from datastore.views import (
     DATASTORE_ADMIN_PERMISSION,
-    GPKG_IMPORT_PERMISSION,
     OVERLAY_ADMIN_PERMISSION,
 )
 
@@ -74,15 +69,6 @@ DISTRICTRMAP_TEAM_FIELD = "team_links__team_id"
 @hooks.register("register_icons")
 def register_icons(icons):
     return icons + ["datastore/icons/database.svg"]
-
-
-class ReadOnlyModelPermissionPolicy(ModelPermissionPolicy):
-    """Deny all writes — even for superusers — while keeping view access."""
-
-    def user_has_permission(self, user, action):
-        if action in {"add", "change", "delete"}:
-            return False
-        return super().user_has_permission(user, action)
 
 
 class _MapScoped(TeamScopedGetObjectMixin):
@@ -210,7 +196,7 @@ class DistrictrMapEditView(EditView):
 class DistrictrMapViewSet(TeamScopedViewSetMixin, SnippetViewSet):
     model = DistrictrMap
     icon = "globe"
-    menu_label = "Districtr maps"
+    menu_label = "Edit map modules"
     list_display = [
         "name",
         "districtr_map_slug",
@@ -300,7 +286,7 @@ class MapGroupViewSet(SnippetViewSet):
 class OverlayViewSet(SnippetViewSet):
     model = Overlay
     icon = "sliders"
-    menu_label = "Overlays"
+    menu_label = "Edit overlays"
     list_display = ["name", "data_type", "layer_type", "source"]
     list_filter = ["data_type", "layer_type"]
     search_fields = ["name", "description"]
@@ -316,22 +302,6 @@ class OverlayViewSet(SnippetViewSet):
         FieldPanel("source_layer"),
         FieldPanel("id_property"),
     ]
-
-
-class GerryDBTableViewSet(SnippetViewSet):
-    """Read-only: GerryDB tables come from the import pipeline, not the CMS."""
-
-    model = GerryDBTable
-    icon = "table"
-    menu_label = "GerryDB tables"
-    list_display = ["name", "uuid", "created_at", "updated_at"]
-    search_fields = ["name"]
-    list_per_page = 50
-    inspect_view_enabled = True
-
-    @cached_property
-    def permission_policy(self):
-        return ReadOnlyModelPermissionPolicy(self.model)
 
 
 class DataToolMenuItem(MenuItem):
@@ -352,58 +322,47 @@ class DataToolMenuItem(MenuItem):
 
 
 class DataViewSetGroup(SnippetViewSetGroup):
-    menu_label = "Data"
+    """Action-oriented "Map modules" menu: Create map module (one-page compose
+    with overlays + team assignment), Edit map modules / Edit overlays
+    (listings), Upload overlay, Map groups, Plan thumbnails."""
+
+    menu_label = "Map modules"
     menu_icon = "database"
     menu_order = 200
     items = (
         DistrictrMapViewSet,
-        MapGroupViewSet,
         OverlayViewSet,
-        GerryDBTableViewSet,
+        MapGroupViewSet,
     )
 
     def get_submenu_items(self):
-        # Append the tool pages after the snippet listings, inside the same
-        # "Data" group menu.
-        menu_items = super().get_submenu_items()
-        order = len(menu_items) + 1
-        menu_items.append(
+        listings = super().get_submenu_items()
+        for offset, item in enumerate(listings):
+            item.order = 10 + offset
+        return [
             DataToolMenuItem(
-                "Import GeoPackage",
-                reverse("datastore_import_gpkg"),
-                icon_name="upload",
-                order=order,
-                permission=GPKG_IMPORT_PERMISSION,
-            )
-        )
-        menu_items.append(
+                "Create map module",
+                reverse("datastore_compose_map"),
+                icon_name="plus",
+                order=1,
+            ),
+            *listings,
             DataToolMenuItem(
                 "Upload overlay",
                 reverse("datastore_upload_overlay"),
-                icon_name="sliders",
-                order=order + 1,
+                icon_name="upload",
+                order=20,
                 permission=OVERLAY_ADMIN_PERMISSION,
-            )
-        )
-        menu_items.append(
-            DataToolMenuItem(
-                "Compose map module",
-                reverse("datastore_compose_map"),
-                icon_name="cogs",
-                order=order + 2,
-            )
-        )
-        menu_items.append(
+            ),
             DataToolMenuItem(
                 # Plan (document) previews only — map thumbnails regenerate
                 # from the map's own edit page.
                 "Plan thumbnails",
                 reverse("datastore_thumbnails"),
                 icon_name="image",
-                order=order + 3,
-            )
-        )
-        return menu_items
+                order=21,
+            ),
+        ]
 
 
 register_snippet(DataViewSetGroup)
@@ -468,7 +427,6 @@ def register_datastore_admin_urls():
     # Mounted under /admin/ and wrapped in require_admin_access by Wagtail;
     # the views additionally require their datastore add permission.
     return [
-        path("data/import-gpkg/", views.import_gpkg, name="datastore_import_gpkg"),
         path(
             "data/upload-overlay/",
             views.upload_overlay,

@@ -1,7 +1,8 @@
 {# Recursive same-name extends: resolves to Wagtail's own base.html (this app #}
 {# precedes wagtail.admin in INSTALLED_APPS), overriding only the logo — the #}
 {# Wagtail-documented branding approach, immune to upstream template drift. #}
-{# NB: {# comments #} are single-line; a multi-line one renders as text. #}
+{# NB: Django template comments are single-line and cannot nest — a #}
+{# multi-line or nested comment renders as literal text. #}
 {% extends "wagtailadmin/base.html" %}
 
 {% block branding_logo %}{% include "wagtailadmin/shared/districtr_logo.html" %}{% endblock %}
