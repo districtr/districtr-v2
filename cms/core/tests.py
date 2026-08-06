@@ -86,7 +86,7 @@ class DistrictrShortcutsPanelTests(TestCase):
         # is always available.
         self.assertEqual(
             labels,
-            {"Comment review", "Map submissions", "Add a portal page", "Galleries"},
+            {"Review portal submissions", "Add a portal page", "Galleries"},
         )
 
     def test_super_partner_adds_data_tools(self):
@@ -163,7 +163,7 @@ class DistrictrShortcutsPanelTests(TestCase):
         self.client.login(username="dataops@districtr.org", password=PASSWORD)
         response = self.client.get(reverse("wagtailadmin_home"))
         self.assertContains(response, "Districtr shortcuts")
-        self.assertContains(response, reverse("moderation_comments"))
+        self.assertContains(response, reverse("moderation_review_portals"))
 
 
 class MenuTrimTests(TestCase):

@@ -29,7 +29,7 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
   }
 
   return (
-    <Flex direction="column" width="100%">
+    <Flex direction="column" width="100%" py="6">
       <Heading as="h1" size="6" mb="4">
         {cmsData.content.title}
       </Heading>

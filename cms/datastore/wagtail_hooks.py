@@ -53,7 +53,6 @@ from datastore.models import (
     DistrictrMap,
     DistrictrMapOverlays,
     DistrictrMapsToGroups,
-    MapGroup,
     Overlay,
 )
 from datastore.views import (
@@ -270,19 +269,6 @@ class DistrictrMapViewSet(TeamScopedViewSetMixin, SnippetViewSet):
     )
 
 
-class MapGroupViewSet(SnippetViewSet):
-    model = MapGroup
-    icon = "folder-open-inverse"
-    menu_label = "Map groups"
-    list_display = ["name", "slug"]
-    search_fields = ["name", "slug"]
-    list_per_page = 50
-    panels = [
-        FieldPanel("slug"),
-        FieldPanel("name"),
-    ]
-
-
 class OverlayViewSet(SnippetViewSet):
     model = Overlay
     icon = "sliders"
@@ -324,7 +310,7 @@ class DataToolMenuItem(MenuItem):
 class DataViewSetGroup(SnippetViewSetGroup):
     """Action-oriented "Map modules" menu: Create map module (one-page compose
     with overlays + team assignment), Edit map modules / Edit overlays
-    (listings), Upload overlay, Map groups, Plan thumbnails."""
+    (listings), Upload overlay."""
 
     menu_label = "Map modules"
     menu_icon = "database"
@@ -332,7 +318,6 @@ class DataViewSetGroup(SnippetViewSetGroup):
     items = (
         DistrictrMapViewSet,
         OverlayViewSet,
-        MapGroupViewSet,
     )
 
     def get_submenu_items(self):
@@ -353,14 +338,6 @@ class DataViewSetGroup(SnippetViewSetGroup):
                 icon_name="upload",
                 order=20,
                 permission=OVERLAY_ADMIN_PERMISSION,
-            ),
-            DataToolMenuItem(
-                # Plan (document) previews only — map thumbnails regenerate
-                # from the map's own edit page.
-                "Plan thumbnails",
-                reverse("datastore_thumbnails"),
-                icon_name="image",
-                order=21,
             ),
         ]
 
@@ -433,7 +410,6 @@ def register_datastore_admin_urls():
             name="datastore_upload_overlay",
         ),
         path("data/compose-map/", views.compose_map, name="datastore_compose_map"),
-        path("data/thumbnails/", views.thumbnails, name="datastore_thumbnails"),
         path(
             "data/maps/<uuid:pk>/regenerate-thumbnail/",
             views.regenerate_map_thumbnail,

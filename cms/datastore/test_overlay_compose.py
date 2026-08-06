@@ -4,7 +4,7 @@ Tests for the overlay upload and map module composition admin tools.
 The backend and object storage are never touched: requests/boto3 are mocked.
 The datastore mirrors are managed=False so their tables do not exist in the
 Django test database — setUp creates them inside the per-test transaction
-(same pattern as ThumbnailViewTests in test_admin_tools.py; content/tests.py
+(same pattern as RegenerateMapThumbnailViewTests in test_admin_tools.py; content/tests.py
 and galleries/tests.py do the equivalent for their mirrors).
 """
 

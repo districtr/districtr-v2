@@ -21,6 +21,7 @@ from wagtail.admin import messages
 from wagtail.admin.auth import permission_denied, user_passes_test
 
 from authapi.teams import (
+    districtr_map_slugs_for_user,
     instance_in_scope,
     team_ids_for_user,
     user_is_team_scoped,
@@ -114,18 +115,6 @@ def _list_view(request, form, fetch, template, title, extra_context=None):
     )
 
 
-@group_required(COMMENT_REVIEW_GROUPS)
-def comments(request):
-    form = CommentFilterForm(request.GET or {})
-    return _list_view(
-        request,
-        form,
-        services.list_form_comments,
-        "moderation/comments.html",
-        "Comment review",
-    )
-
-
 def _galleries_for_user(user):
     """Galleries the user may curate submissions into: change_gallery
     holders, narrowed to their own teams' galleries when team-scoped."""
@@ -137,23 +126,68 @@ def _galleries_for_user(user):
     return queryset.order_by("title")
 
 
+def _accessible_portals(user):
+    """TagPages whose submissions the user may review: all portals for admins
+    and unscoped reviewers, the team's portals for team-scoped members,
+    further narrowed by ReviewTagAssignment rows (a portal's page slug is its
+    comment tag slug)."""
+    from wagtail.models import Locale
+
+    from content.models import TagPage
+
+    portals = TagPage.objects.filter(locale=Locale.get_default()).order_by("title")
+    if user_is_team_scoped(user):
+        portals = portals.filter(
+            districtr_map_slug__in=districtr_map_slugs_for_user(user)
+        )
+    assigned = set(user.review_tag_assignments.values_list("tag_slug", flat=True))
+    if assigned:
+        portals = portals.filter(slug__in=assigned)
+    return portals
+
+
 @group_required(COMMENT_REVIEW_GROUPS)
-def map_submissions(request):
-    """Map submissions = form comments arriving with an attached plan
-    (has_document). Approve/reject uses the same review action; approving a
-    plan INTO a gallery goes through add_to_gallery below."""
+def review_portals(request):
+    """Entry point of the review flow: pick one of your portals."""
+    return render(
+        request,
+        "moderation/portals.html",
+        {"portals": _accessible_portals(request.user)},
+    )
+
+
+@group_required(COMMENT_REVIEW_GROUPS)
+def portal_review(request, slug):
+    """One portal's submission queue: comments or map submissions (comments
+    arriving with an attached plan), switched by ?kind=. The portal supplies
+    the tag filter; approving a plan into a gallery goes through
+    add_to_gallery below."""
+    portal = _accessible_portals(request.user).filter(slug=slug).first()
+    if portal is None:
+        return permission_denied(request)
+    kind = request.GET.get("kind", "comments")
+    if kind not in ("comments", "maps"):
+        kind = "comments"
+
     form = CommentFilterForm(request.GET or {})
+    form.fields.pop("tags")  # the portal IS the tag filter
 
     def fetch(user, **params):
-        return services.list_form_comments(user, has_document="true", **params)
+        params["tags"] = [portal.slug]
+        if kind == "maps":
+            params["has_document"] = "true"
+        return services.list_form_comments(user, **params)
 
+    extra = {"portal": portal, "kind": kind}
+    if kind == "maps":
+        extra["galleries"] = _galleries_for_user(request.user)
     return _list_view(
         request,
         form,
         fetch,
-        "moderation/map_submissions.html",
-        "Map submissions",
-        extra_context={"galleries": _galleries_for_user(request.user)},
+        "moderation/portal_review.html",
+        f"Review: {portal.title}",
+        extra_context=extra,
     )
 
 
@@ -199,7 +233,7 @@ def add_to_gallery(request):
         next_url, allowed_hosts={request.get_host()}
     ):
         return redirect(next_url)
-    return redirect(reverse("moderation_map_submissions"))
+    return redirect(reverse("moderation_review_portals"))
 
 
 def _int_list(csv: str) -> list[int]:
@@ -258,7 +292,7 @@ def review_action(request):
         next_url, allowed_hosts={request.get_host()}
     ):
         return redirect(next_url)
-    return redirect(reverse("moderation_comments"))
+    return redirect(reverse("moderation_review_portals"))
 
 
 @group_required(SITE_SETTINGS_GROUPS)

@@ -1,10 +1,10 @@
 """Admin registration for the moderation views: URLs under /admin/moderation/,
-one top-level "Review" submenu (portal comments, flagged queue, map
+one top-level "Review" item (pick a portal, review its comment and map
 submissions), and a Settings-menu entry for site settings."""
 
 from django.urls import path, reverse
 from wagtail import hooks
-from wagtail.admin.menu import Menu, MenuItem, SubmenuMenuItem
+from wagtail.admin.menu import MenuItem
 
 from moderation import views
 from moderation.views import COMMENT_REVIEW_GROUPS, SITE_SETTINGS_GROUPS
@@ -33,14 +33,18 @@ def register_moderation_admin_urls():
     # Mounted under /admin/ and wrapped in require_admin_access by Wagtail;
     # the views additionally require their moderation group.
     return [
-        path("moderation/comments/", views.comments, name="moderation_comments"),
         path(
-            "moderation/review/", views.review_action, name="moderation_review_action"
+            "moderation/portals/",
+            views.review_portals,
+            name="moderation_review_portals",
         ),
         path(
-            "moderation/map-submissions/",
-            views.map_submissions,
-            name="moderation_map_submissions",
+            "moderation/portals/<slug:slug>/",
+            views.portal_review,
+            name="moderation_portal_review",
+        ),
+        path(
+            "moderation/review/", views.review_action, name="moderation_review_action"
         ),
         path(
             "moderation/add-to-gallery/",
@@ -57,39 +61,14 @@ def register_moderation_admin_urls():
 
 @hooks.register("register_admin_menu_item")
 def register_review_menu_item():
-    # One action-oriented "Review" group right after Galleries (210).
-    # SubmenuMenuItem self-hides when no child is shown for the request.
-    return SubmenuMenuItem(
+    # One action: pick a portal, review its submissions (comments or maps).
+    # Ordered right after Galleries (210).
+    return GroupMenuItem(
         "Review",
-        Menu(
-            items=[
-                GroupMenuItem(
-                    "Review comments",
-                    reverse("moderation_comments"),
-                    icon_name="comment",
-                    order=1,
-                    groups=COMMENT_REVIEW_GROUPS,
-                ),
-                GroupMenuItem(
-                    # Direct jump to the flagged queue — the same comments
-                    # view, pre-filtered.
-                    "Flagged comments",
-                    reverse("moderation_comments") + "?flagged=1",
-                    icon_name="warning",
-                    order=2,
-                    groups=COMMENT_REVIEW_GROUPS,
-                ),
-                GroupMenuItem(
-                    "Review map submissions",
-                    reverse("moderation_map_submissions"),
-                    icon_name="clipboard-list",
-                    order=3,
-                    groups=COMMENT_REVIEW_GROUPS,
-                ),
-            ]
-        ),
+        reverse("moderation_review_portals"),
         icon_name="glasses",
         order=220,
+        groups=COMMENT_REVIEW_GROUPS,
     )
 
 

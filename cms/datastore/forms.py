@@ -248,11 +248,3 @@ class ComposeMapForm(forms.Form):
                 "child_layer", "Child layer must differ from the parent layer."
             )
         return cleaned_data
-
-
-class DocumentThumbnailForm(forms.Form):
-    document_id = forms.CharField(
-        label="Document ID",
-        help_text="Private or public document ID; regenerates that plan's "
-        "thumbnail from its assignments.",
-    )

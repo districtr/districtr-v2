@@ -49,7 +49,7 @@ class CommentFilterForm(forms.Form):
         return {
             "review_status": d["review_status"],
             "review_flagged": "true" if d["flagged"] == "1" else None,
-            "tags": d["tags"],
+            "tags": d.get("tags") or [],
             "comment_id": d["comment_id"],
             "place": d["place"],
             "state": d["state"],

@@ -303,54 +303,6 @@ class MapDeleteGuardTests(TestCase):
         self.assertFalse(DistrictrMap.objects.filter(pk=self.without_plans.pk).exists())
 
 
-class ThumbnailViewTests(TestCase):
-    """The Thumbnails tool page handles plan (document) previews only — map
-    thumbnails regenerate from the map's own edit page
-    (RegenerateMapThumbnailViewTests)."""
-
-    def setUp(self):
-        make_admin_user()
-        self.client.login(username="dataops@districtr.org", password=PASSWORD)
-        self.url = reverse("datastore_thumbnails")
-
-    def test_anonymous_is_redirected_to_login(self):
-        self.client.logout()
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse("wagtailadmin_login"), response.url)
-
-    def test_page_is_document_only(self):
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Regenerate document thumbnail")
-        self.assertNotContains(response, "Regenerate map thumbnail")
-
-    def test_document_thumbnail_posts_id_to_service(self):
-        with mock.patch(
-            "datastore.services.regenerate_document_thumbnail",
-            return_value={"message": "ok"},
-        ) as regenerate:
-            response = self.client.post(
-                self.url,
-                {"document_id": " abc123 "},
-                follow=True,
-            )
-        regenerate.assert_called_once_with("abc123")
-        self.assertContains(response, "Thumbnail regeneration scheduled")
-
-    def test_backend_error_is_surfaced(self):
-        with mock.patch(
-            "datastore.services.regenerate_document_thumbnail",
-            side_effect=BackendAPIError("Backend rejected the thumbnail request"),
-        ):
-            response = self.client.post(
-                self.url,
-                {"document_id": "abc123"},
-                follow=True,
-            )
-        self.assertContains(response, "Thumbnail regeneration failed")
-
-
 def create_map_mirrors():
     """The DistrictrMap mirror tables the edit page touches, created inside
     the per-test transaction."""

@@ -1,6 +1,6 @@
 """
-Admin tool views: map module composition, overlay upload, and thumbnail
-regeneration.
+Admin tool views: map module composition, overlay upload, and map thumbnail
+regeneration (from the module edit page).
 
 Registered under /admin/ via the register_admin_urls hook in
 datastore/wagtail_hooks.py, so Wagtail's require_admin_access already gates
@@ -30,7 +30,6 @@ from wagtail.admin.auth import permission_required
 from datastore import services
 from datastore.forms import (
     ComposeMapForm,
-    DocumentThumbnailForm,
     OverlayUploadForm,
 )
 from datastore.models import DistrictrMap, DistrictrMapOverlays, Overlay
@@ -185,38 +184,6 @@ def compose_map(request):
     return render(
         request,
         "datastore/compose_map.html",
-        {"form": form},
-    )
-
-
-@permission_required(DATASTORE_ADMIN_PERMISSION)
-def thumbnails(request):
-    """Plan (document) thumbnails only — map thumbnails regenerate from the
-    map's own edit page (regenerate_map_thumbnail below)."""
-    form = DocumentThumbnailForm()
-
-    if request.method == "POST":
-        form = DocumentThumbnailForm(request.POST)
-        if form.is_valid():
-            document_id = form.cleaned_data["document_id"].strip()
-            try:
-                services.regenerate_document_thumbnail(document_id)
-            except (services.BackendAPIError, RequestException) as exc:
-                logger.exception(
-                    "Document thumbnail regeneration failed for %s", document_id
-                )
-                messages.error(request, f"Thumbnail regeneration failed: {exc}")
-            else:
-                messages.success(
-                    request,
-                    f"Thumbnail regeneration scheduled for document "
-                    f"“{document_id}”.",
-                )
-                return redirect("datastore_thumbnails")
-
-    return render(
-        request,
-        "datastore/thumbnails.html",
         {"form": form},
     )
 

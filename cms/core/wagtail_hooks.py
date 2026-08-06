@@ -5,7 +5,8 @@ Site-wide Wagtail admin customisations:
   surfacing each role's day-to-day pages — partners get review queues, portal
   page creation, and their teams' galleries/map modules; super partners add the
   data tools; admins add the admin-only screens;
-- main-menu trimming (construct_main_menu): Reports is hidden for non-admins.
+- main-menu trimming (construct_main_menu): Reports is hidden for
+  non-admins and relabelled "Admin analytics" for admins.
   Images/Documents stay for everyone because RICH_TEXT_FEATURES
   (content/blocks.py) includes image, embed, and document-link;
 - Districtr branding CSS (insert_global_admin_css, core/static/core/admin.css).
@@ -114,16 +115,9 @@ class DistrictrShortcutsPanel(Component):
         if _in_shortcut_groups(user):
             links.append(
                 {
-                    "label": "Comment review",
-                    "url": reverse("moderation_comments"),
-                    "icon": "comment",
-                }
-            )
-            links.append(
-                {
-                    "label": "Map submissions",
-                    "url": reverse("moderation_map_submissions"),
-                    "icon": "clipboard-list",
+                    "label": "Review portal submissions",
+                    "url": reverse("moderation_review_portals"),
+                    "icon": "glasses",
                 }
             )
             add_portal_url = _add_portal_page_url()
@@ -212,9 +206,14 @@ def add_districtr_shortcuts_panel(request, panels):
 @hooks.register("construct_main_menu")
 def trim_main_menu(request, menu_items):
     # Reports (locked pages, workflows, site history …) is admin housekeeping;
-    # partners and super partners never need it.
+    # partners and super partners never need it. For admins it reads better
+    # as "Admin analytics".
     if not _is_admin(request.user):
         menu_items[:] = [item for item in menu_items if item.name != "reports"]
+    else:
+        for item in menu_items:
+            if item.name == "reports":
+                item.label = "Admin analytics"
 
 
 @hooks.register("insert_global_admin_css")

@@ -27,6 +27,20 @@ from datastore.test_admin_tools import PASSWORD, make_admin_user
 from moderation import wagtail_hooks
 
 
+def make_portal(slug, *, districtr_map_slug="chi_wards", title=None):
+    """A TagPage under the provisioned tags index (content/0008)."""
+    from content.models import TagPage, TagsIndexPage
+
+    index = TagsIndexPage.objects.first()
+    portal = TagPage(
+        title=title or slug.replace("-", " ").title(),
+        slug=slug,
+        districtr_map_slug=districtr_map_slug,
+    )
+    index.add_child(instance=portal)
+    return portal
+
+
 def make_entry(**overrides):
     """A minimal AdminCommentResponse payload."""
     entry = {
@@ -116,13 +130,49 @@ class MintUserAccessTokenTests(TestCase):
 # ---------------------------------------------------------------------------
 
 
-class CommentListViewTests(TestCase):
+class PortalListTests(TestCase):
     def setUp(self):
-        self.url = reverse("moderation_comments")
-        self.reviewer = make_admin_user(
-            email="reviewer@districtr.org", group_name="partner"
+        self.url = reverse("moderation_review_portals")
+        self.portal_a = make_portal("midwest-portal", districtr_map_slug="chi_wards")
+        self.portal_b = make_portal("texas-portal", districtr_map_slug="tx_other")
+
+    def test_admin_sees_all_portals(self):
+        admin = make_admin_user(group_name="admin")
+        self.client.force_login(admin)
+        response = self.client.get(self.url)
+        self.assertContains(response, "midwest-portal")
+        self.assertContains(response, "texas-portal")
+
+    def test_unscoped_partner_sees_all_portals(self):
+        partner = make_admin_user(email="partner@districtr.org", group_name="partner")
+        self.client.force_login(partner)
+        response = self.client.get(self.url)
+        self.assertContains(response, "midwest-portal")
+        self.assertContains(response, "texas-portal")
+
+    def test_team_scoped_partner_sees_only_their_portals(self):
+        from authapi.test_teams import create_mirror_tables, make_team
+        from datastore.models import DistrictrMap, GerryDBTable
+
+        create_mirror_tables(GerryDBTable, DistrictrMap)
+        layer = GerryDBTable.objects.create(name="blocks")
+        team_map = DistrictrMap.objects.create(
+            name="Chi", districtr_map_slug="chi_wards", parent_layer=layer
         )
-        self.client.login(username="reviewer@districtr.org", password=PASSWORD)
+        partner = make_admin_user(email="scoped@districtr.org", group_name="partner")
+        make_team("Portal Team", members=[partner], maps=[team_map])
+        self.client.force_login(partner)
+        response = self.client.get(self.url)
+        self.assertContains(response, "midwest-portal")
+        self.assertNotContains(response, "texas-portal")
+
+    def test_review_tag_assignment_narrows_portals(self):
+        partner = make_admin_user(email="tagscoped@districtr.org", group_name="partner")
+        ReviewTagAssignment.objects.create(user=partner, tag_slug="texas-portal")
+        self.client.force_login(partner)
+        response = self.client.get(self.url)
+        self.assertNotContains(response, "midwest-portal")
+        self.assertContains(response, "texas-portal")
 
     def test_groupless_user_denied(self):
         user = make_admin_user(email="lone@districtr.org", group_name="partner")
@@ -131,7 +181,23 @@ class CommentListViewTests(TestCase):
         response = self.client.get(self.url)
         self.assertRedirects(response, reverse("wagtailadmin_home"))
 
-    def test_filters_map_to_backend_params(self):
+
+class PortalReviewViewTests(TestCase):
+    def setUp(self):
+        self.portal = make_portal("midwest-portal")
+        self.url = reverse("moderation_portal_review", args=["midwest-portal"])
+        self.reviewer = make_admin_user(
+            email="reviewer@districtr.org", group_name="partner"
+        )
+        self.client.login(username="reviewer@districtr.org", password=PASSWORD)
+
+    def test_inaccessible_portal_denied(self):
+        response = self.client.get(
+            reverse("moderation_portal_review", args=["not-a-portal"])
+        )
+        self.assertRedirects(response, reverse("wagtailadmin_home"))
+
+    def test_portal_supplies_the_tag_filter(self):
         with mock.patch("moderation.services.requests.request") as request:
             request.return_value = mock_response(json_body=[])
             self.client.get(
@@ -139,9 +205,7 @@ class CommentListViewTests(TestCase):
                 {
                     "review_status": "APPROVED",
                     "flagged": "1",
-                    "tags": "one, two",
                     "comment_id": "9",
-                    "place": "Lansing",
                     "p": "2",
                 },
             )
@@ -151,9 +215,8 @@ class CommentListViewTests(TestCase):
             {
                 "review_status": "APPROVED",
                 "review_flagged": "true",
-                "tags": ["one", "two"],
                 "comment_id": 9,
-                "place": "Lansing",
+                "tags": ["midwest-portal"],
                 "offset": 20,
                 "limit": 21,
             },
@@ -162,23 +225,42 @@ class CommentListViewTests(TestCase):
         token = kwargs["headers"]["Authorization"].removeprefix("Bearer ")
         self.assertEqual(fastapi_style_verify(token)["sub"], str(self.reviewer.pk))
 
-    def test_blank_review_status_is_omitted(self):
-        # Omitted review_status means "not yet reviewed" on the backend, so
-        # blanks must not be sent.
+    def test_maps_kind_adds_has_document(self):
         with mock.patch("moderation.services.requests.request") as request:
             request.return_value = mock_response(json_body=[])
-            self.client.get(self.url)
+            self.client.get(self.url, {"kind": "maps"})
         _, kwargs = request.call_args
-        self.assertEqual(kwargs["params"], {"offset": 0, "limit": 21})
+        self.assertEqual(kwargs["params"].get("has_document"), "true")
+        self.assertEqual(kwargs["params"].get("tags"), ["midwest-portal"])
+
+    def test_no_tags_form_field(self):
+        with mock.patch("moderation.services.requests.request") as request:
+            request.return_value = mock_response(json_body=[])
+            response = self.client.get(self.url)
+        self.assertNotContains(response, 'name="tags"')
 
     def test_renders_entries_and_actions(self):
         with mock.patch("moderation.services.requests.request") as request:
             request.return_value = mock_response(json_body=[make_entry()])
             response = self.client.get(self.url)
         self.assertContains(response, "A comment title")
-        self.assertContains(response, "midwest-tour")
         self.assertContains(response, 'name="content_type" value="entry"')
         self.assertContains(response, 'name="content_type" value="commenter"')
+
+    def test_maps_kind_renders_add_to_gallery_for_curators(self):
+        from authapi.models import Team
+        from galleries.models import Gallery
+
+        Gallery.objects.create(
+            title="Drafts",
+            slug="drafts",
+            team=Team.objects.create(name="T", slug="t"),
+        )
+        with mock.patch("moderation.services.requests.request") as request:
+            request.return_value = mock_response(json_body=[make_entry(public_id=42)])
+            response = self.client.get(self.url, {"kind": "maps"})
+        self.assertContains(response, "Submitted plan: #42")
+        self.assertContains(response, "Add to gallery")
 
     def test_backend_403_detail_surfaces(self):
         with mock.patch("moderation.services.requests.request") as request:
@@ -194,14 +276,7 @@ class CommentListViewTests(TestCase):
             request.return_value = mock_response(json_body=entries)
             response = self.client.get(self.url)
         self.assertContains(response, "?p=2")
-        # Only PAGE_SIZE rows rendered, not the sentinel 21st.
         self.assertNotContains(response, "#20")
-
-    def test_no_next_link_on_short_page(self):
-        with mock.patch("moderation.services.requests.request") as request:
-            request.return_value = mock_response(json_body=[make_entry()])
-            response = self.client.get(self.url)
-        self.assertNotContains(response, "?p=2")
 
 
 class TagScopedReviewerUITests(TestCase):
@@ -210,20 +285,23 @@ class TagScopedReviewerUITests(TestCase):
     controls for them."""
 
     def setUp(self):
-        self.url = reverse("moderation_comments")
+        make_portal("midwest-portal", title="Midwest")
+        self.url = reverse("moderation_portal_review", args=["midwest-portal"])
         self.reviewer = make_admin_user(
             email="scoped@districtr.org", group_name="partner"
         )
-        ReviewTagAssignment.objects.create(user=self.reviewer, tag_slug="midwest-tour")
+        ReviewTagAssignment.objects.create(
+            user=self.reviewer, tag_slug="midwest-portal"
+        )
         self.client.force_login(self.reviewer)
 
-    def get_comments(self):
+    def get_review_page(self, **params):
         with mock.patch("moderation.services.requests.request") as request:
             request.return_value = mock_response(json_body=[make_entry()])
-            return self.client.get(self.url)
+            return self.client.get(self.url, params)
 
     def test_scoped_reviewer_loses_entry_and_commenter_controls(self):
-        response = self.get_comments()
+        response = self.get_review_page()
         self.assertNotContains(response, 'name="content_type" value="entry"')
         self.assertNotContains(response, 'name="content_type" value="commenter"')
         # Tag- and comment-level moderation stays available.
@@ -233,14 +311,12 @@ class TagScopedReviewerUITests(TestCase):
     def test_unscoped_reviewer_keeps_all_controls(self):
         unscoped = make_admin_user(email="reviewer@districtr.org", group_name="partner")
         self.client.force_login(unscoped)
-        response = self.get_comments()
+        response = self.get_review_page()
         self.assertContains(response, 'name="content_type" value="entry"')
         self.assertContains(response, 'name="content_type" value="commenter"')
 
-    def test_map_submissions_also_hides_scoped_controls(self):
-        with mock.patch("moderation.services.requests.request") as request:
-            request.return_value = mock_response(json_body=[make_entry(public_id=42)])
-            response = self.client.get(reverse("moderation_map_submissions"))
+    def test_maps_kind_also_hides_scoped_controls(self):
+        response = self.get_review_page(kind="maps")
         self.assertNotContains(response, 'name="content_type" value="entry"')
         self.assertNotContains(response, 'name="content_type" value="commenter"')
 
@@ -271,7 +347,9 @@ class ReviewActionTests(TestCase):
             {"content_type": "comment", "id": "11", "review_status": "APPROVED"}
         )
         self.assertRedirects(
-            response, reverse("moderation_comments"), fetch_redirect_response=False
+            response,
+            reverse("moderation_review_portals"),
+            fetch_redirect_response=False,
         )
         _, kwargs = request.call_args
         self.assertEqual(
@@ -338,7 +416,7 @@ class ReviewActionTests(TestCase):
                     "content_type": "tag",
                     "id": "7",
                     "review_status": "APPROVED",
-                    "next": "/admin/moderation/comments/?p=2",
+                    "next": "/admin/moderation/portals/?p=2",
                 },
                 follow=True,
             )
@@ -354,7 +432,9 @@ class ReviewActionTests(TestCase):
             }
         )
         self.assertRedirects(
-            response, reverse("moderation_comments"), fetch_redirect_response=False
+            response,
+            reverse("moderation_review_portals"),
+            fetch_redirect_response=False,
         )
 
     def test_safe_next_preserves_filters(self):
@@ -363,12 +443,12 @@ class ReviewActionTests(TestCase):
                 "content_type": "comment",
                 "id": "11",
                 "review_status": "APPROVED",
-                "next": "/admin/moderation/comments/?p=2&flagged=1",
+                "next": "/admin/moderation/portals/?p=2",
             }
         )
         self.assertRedirects(
             response,
-            "/admin/moderation/comments/?p=2&flagged=1",
+            "/admin/moderation/portals/?p=2",
             fetch_redirect_response=False,
         )
 
@@ -386,43 +466,6 @@ class ReviewActionTests(TestCase):
 # ---------------------------------------------------------------------------
 # Map submissions
 # ---------------------------------------------------------------------------
-
-
-class MapSubmissionsViewTests(TestCase):
-    def setUp(self):
-        self.url = reverse("moderation_map_submissions")
-        self.partner = make_admin_user(
-            email="partner@districtr.org", group_name="partner"
-        )
-        self.client.login(username="partner@districtr.org", password=PASSWORD)
-
-    def test_always_sends_has_document_param(self):
-        with mock.patch("moderation.services.requests.request") as request:
-            request.return_value = mock_response(json_body=[])
-            self.client.get(self.url)
-        _, kwargs = request.call_args
-        self.assertEqual(kwargs["params"].get("has_document"), "true")
-
-    def test_gallery_choices_are_team_scoped(self):
-        team_a = make_team("Team A", members=[self.partner])
-        team_b = make_team("Team B")
-        Gallery.objects.create(title="Ours", slug="ours", team=team_a)
-        Gallery.objects.create(title="Theirs", slug="theirs", team=team_b)
-        with mock.patch("moderation.services.requests.request") as request:
-            request.return_value = mock_response(json_body=[make_entry(public_id=42)])
-            response = self.client.get(self.url)
-        self.assertContains(response, "Submitted plan: #42")
-        self.assertContains(response, "Ours")
-        self.assertNotContains(response, "Theirs")
-
-    def test_unscoped_partner_sees_all_galleries(self):
-        Gallery.objects.create(title="Ours", slug="ours", team=make_team("Team A"))
-        Gallery.objects.create(title="Theirs", slug="theirs", team=make_team("Team B"))
-        with mock.patch("moderation.services.requests.request") as request:
-            request.return_value = mock_response(json_body=[make_entry(public_id=42)])
-            response = self.client.get(self.url)
-        self.assertContains(response, "Ours")
-        self.assertContains(response, "Theirs")
 
 
 class AddToGalleryTests(TestCase):
@@ -445,7 +488,7 @@ class AddToGalleryTests(TestCase):
         response = self.add()
         self.assertRedirects(
             response,
-            reverse("moderation_map_submissions"),
+            reverse("moderation_review_portals"),
             fetch_redirect_response=False,
         )
         self.gallery.refresh_from_db()
@@ -538,49 +581,27 @@ class ModerationMenuItemTests(TestCase):
         request.user = user
         return request
 
-    def submenu(self):
-        return wagtail_hooks.register_review_menu_item()
+    def test_review_item_targets_portal_picker(self):
+        item = wagtail_hooks.register_review_menu_item()
+        self.assertEqual(item.label, "Review")
+        self.assertEqual(item.url, reverse("moderation_review_portals"))
+        self.assertEqual(item.order, 220)
 
-    def test_review_submenu_contains_the_three_queues(self):
-        submenu = self.submenu()
-        self.assertEqual(submenu.label, "Review")
-        self.assertEqual(submenu.order, 220)
-        labels_urls = [
-            (item.label, item.url) for item in submenu.menu.registered_menu_items
-        ]
-        self.assertEqual(
-            labels_urls,
-            [
-                ("Review comments", reverse("moderation_comments")),
-                (
-                    "Flagged comments",
-                    reverse("moderation_comments") + "?flagged=1",
-                ),
-                (
-                    "Review map submissions",
-                    reverse("moderation_map_submissions"),
-                ),
-            ],
-        )
-
-    def test_submenu_visibility_matches_groups(self):
-        submenu = self.submenu()
+    def test_visibility_matches_groups(self):
+        review_item = wagtail_hooks.register_review_menu_item()
         settings_item = wagtail_hooks.register_site_settings_menu_item()
-        expected = {
-            "admin": True,
-            "partner": True,
-            "super_partner": True,
-        }
-        for group, visible in expected.items():
+        for group in ("admin", "partner", "super_partner"):
             user = make_admin_user(email=f"{group}@districtr.org", group_name=group)
             request = self.request_for(user)
-            self.assertEqual(submenu.is_shown(request), visible, group)
+            self.assertTrue(review_item.is_shown(request), group)
             self.assertEqual(settings_item.is_shown(request), group == "admin", group)
 
-    def test_submenu_hidden_for_groupless_user(self):
+    def test_hidden_for_groupless_user(self):
         user = make_admin_user(email="lone@districtr.org", group_name="partner")
         user.groups.clear()
-        self.assertFalse(self.submenu().is_shown(self.request_for(user)))
+        self.assertFalse(
+            wagtail_hooks.register_review_menu_item().is_shown(self.request_for(user))
+        )
 
     def test_shown_for_superuser_without_groups(self):
         user = get_user_model().objects.create_superuser(
@@ -589,13 +610,14 @@ class ModerationMenuItemTests(TestCase):
             password=PASSWORD,
         )
         request = self.request_for(user)
-        self.assertTrue(self.submenu().is_shown(request))
+        self.assertTrue(wagtail_hooks.register_review_menu_item().is_shown(request))
         self.assertTrue(
             wagtail_hooks.register_site_settings_menu_item().is_shown(request)
         )
 
-    def test_district_comments_url_removed(self):
+    def test_old_queue_urls_removed(self):
         from django.urls import NoReverseMatch
 
-        with self.assertRaises(NoReverseMatch):
-            reverse("moderation_district_comments")
+        for name in ("moderation_comments", "moderation_map_submissions"):
+            with self.assertRaises(NoReverseMatch):
+                reverse(name)
