@@ -35,7 +35,7 @@ def _in_shortcut_groups(user):
 
 
 def _index_explorer_url(index_model):
-    """Explorer listing of a content index (provisioned by content/0008)."""
+    """Explorer listing of a content index (provisioned by content/0002_provision_site)."""
     from wagtail.models import Locale
 
     index = (

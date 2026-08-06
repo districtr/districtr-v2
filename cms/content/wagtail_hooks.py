@@ -22,8 +22,10 @@ blocked by the hooks above.
 from django.urls import reverse
 from wagtail import hooks
 from wagtail.admin.auth import permission_denied
-from wagtail.admin.menu import Menu, MenuItem, SubmenuMenuItem
+from wagtail.admin.menu import Menu, SubmenuMenuItem
 from wagtail.models import Locale, Page
+
+from core.menu import GroupMenuItem
 
 from authapi.teams import districtr_map_slugs_for_user, user_is_team_scoped
 from content.models import (
@@ -99,18 +101,18 @@ PORTAL_EDITOR_GROUPS = frozenset({"admin", "partner", "super_partner"})
 ADMIN_ONLY_GROUPS = frozenset({"admin"})
 
 
-class ContentIndexMenuItem(MenuItem):
+class ContentIndexMenuItem(GroupMenuItem):
     """Explorer listing of a content index, gated by group.
 
-    The index page pk is resolved lazily (indexes exist after content/0008;
-    Wagtail builds registered menu items on first render, when the DB is
-    available). Falls back to the pages root if the index is missing.
+    The index page pk is resolved lazily (indexes exist after
+    content/0002_provision_site; Wagtail builds registered menu items on
+    first render, when the DB is available). Falls back to the pages root
+    if the index is missing.
     """
 
     def __init__(self, label, index_model, *, groups, **kwargs):
         self.index_model = index_model
-        self.groups = groups
-        super().__init__(label, url="", **kwargs)
+        super().__init__(label, url="", groups=groups, **kwargs)
 
     def is_shown(self, request):
         # Resolve the URL here — per-request, after migrations, never at
@@ -124,10 +126,7 @@ class ContentIndexMenuItem(MenuItem):
             if index
             else reverse("wagtailadmin_explore_root")
         )
-        user = request.user
-        if user.is_superuser:
-            return True
-        return user.groups.filter(name__in=self.groups).exists()
+        return super().is_shown(request)
 
 
 @hooks.register("register_admin_menu_item")

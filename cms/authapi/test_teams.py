@@ -7,14 +7,11 @@ only their team's galleries while admins and team-less users are unaffected.
 """
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group
-from django.db import connection
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
-from django.utils.text import slugify
 from wagtail.models import Site
 
-from authapi.models import Team, TeamDistrictrMap, TeamMembership
+from core.testing import PASSWORD, create_mirror_tables, make_team, make_user
 from authapi.teams import (
     TeamScopedViewGrantPermissionPolicy,
     districtr_map_slugs_for_user,
@@ -27,39 +24,6 @@ from content.wagtail_hooks import (
     scope_content_pages_in_explorer,
 )
 from datastore.models import DistrictrMap, GerryDBTable
-
-PASSWORD = "correct-horse-battery-staple"
-
-
-def make_user(group_name, email):
-    user = get_user_model().objects.create_user(
-        username=email, email=email, password=PASSWORD
-    )
-    user.groups.add(Group.objects.get(name=group_name))
-    return user
-
-
-def make_team(name, *, members=(), maps=()):
-    team = Team.objects.create(name=name, slug=slugify(name))
-    for user in members:
-        TeamMembership.objects.create(team=team, user=user)
-    for districtr_map in maps:
-        # districtr_map is a db_constraint=False FK to the managed=False
-        # DistrictrMap mirror, so passing a bare uuid also works when the
-        # mirror table is absent.
-        if isinstance(districtr_map, DistrictrMap):
-            TeamDistrictrMap.objects.create(team=team, districtr_map=districtr_map)
-        else:
-            TeamDistrictrMap.objects.create(team=team, districtr_map_id=districtr_map)
-    return team
-
-
-def create_mirror_tables(*models):
-    """Build the managed=False datastore mirrors inside the test transaction
-    (mirrors datastore/test_overlay_compose.py)."""
-    with connection.schema_editor() as editor:
-        for model in models:
-            editor.create_model(model)
 
 
 class TeamHelperTests(TestCase):
@@ -164,7 +128,7 @@ class ContentPageScopingTests(TestCase):
         )
 
         home = Site.objects.get(is_default_site=True).root_page
-        # content.0008 provisions the index pages; fall back to creating them
+        # content/0002_provision_site provisions the index pages; fall back to creating them
         # for databases migrated before it.
         cls.tags_index = TagsIndexPage.objects.first()
         if cls.tags_index is None:

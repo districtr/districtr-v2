@@ -77,17 +77,17 @@ class DistrictrShortcutsPanelTests(TestCase):
         return [card["label"] for card in context["cards"]]
 
     def test_partner_cards(self):
-        from datastore.test_admin_tools import make_admin_user
+        from core.testing import make_admin_user
 
         partner = make_admin_user(email="p@districtr.org", group_name="partner")
-        # content.0008 provisions the tags index, so the portal card resolves.
+        # content/0002_provision_site provisions the tags index, so the portal card resolves.
         self.assertEqual(
             self.labels(self.panel_context(partner)),
             ["Edit portal pages", "Review"],
         )
 
     def test_super_partner_adds_module_cards(self):
-        from datastore.test_admin_tools import make_admin_user
+        from core.testing import make_admin_user
 
         user = make_admin_user(email="sp@districtr.org", group_name="super_partner")
         labels = self.labels(self.panel_context(user))
@@ -104,7 +104,7 @@ class DistrictrShortcutsPanelTests(TestCase):
         )
 
     def test_admin_cards(self):
-        from datastore.test_admin_tools import make_admin_user
+        from core.testing import make_admin_user
 
         user = make_admin_user(group_name="admin")
         self.assertEqual(
@@ -149,7 +149,7 @@ class MenuTrimTests(TestCase):
         ]
 
     def test_reports_hidden_for_partner(self):
-        from datastore.test_admin_tools import make_admin_user
+        from core.testing import make_admin_user
 
         for group in ("partner", "super_partner"):
             items = self.menu()
@@ -158,7 +158,7 @@ class MenuTrimTests(TestCase):
             self.assertEqual([item.name for item in items], ["images", "documents"])
 
     def test_reports_kept_for_admin(self):
-        from datastore.test_admin_tools import make_admin_user
+        from core.testing import make_admin_user
 
         items = self.menu()
         trim_main_menu(self.request_for(make_admin_user(group_name="admin")), items)
@@ -169,7 +169,7 @@ class MenuTrimTests(TestCase):
 
 class BrandingCssTests(TestCase):
     def test_admin_pages_link_the_districtr_stylesheet(self):
-        from datastore.test_admin_tools import PASSWORD, make_admin_user
+        from core.testing import PASSWORD, make_admin_user
 
         make_admin_user()
         self.client.login(username="dataops@districtr.org", password=PASSWORD)

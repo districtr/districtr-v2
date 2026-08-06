@@ -16,25 +16,14 @@ import tempfile
 import jwt as pyjwt
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group
 from django.core import mail
 from django.core.management import call_command
 from django.test import TestCase, override_settings
 
 from authapi.jwks import all_jwks, current_kid
+from core.testing import PASSWORD, make_user
 from authapi.scopes import ALL_SCOPES, scopes_for_user
 from authapi.serializers import DistrictrTokenObtainPairSerializer
-
-PASSWORD = "correct-horse-battery-staple"
-
-
-def make_user(group_name: str | None, email="user@districtr.org"):
-    user = get_user_model().objects.create_user(
-        username=email, email=email, password=PASSWORD, first_name="Test"
-    )
-    if group_name:
-        user.groups.add(Group.objects.get(name=group_name))
-    return user
 
 
 def fastapi_style_verify(token: str) -> dict:
@@ -63,7 +52,7 @@ class ScopeMappingTests(TestCase):
 
     def test_super_partner_scopes_match_partner(self):
         # super_partner's extra powers are Django model permissions
-        # (authapi.0007), not scopes.
+        # (authapi/0002_provision_roles), not scopes.
         user = make_user("super_partner")
         self.assertEqual(
             scopes_for_user(user), scopes_for_user(make_user("partner", "p@d.org"))
@@ -137,7 +126,7 @@ class ReviewScopingClaimTests(TestCase):
         return fastapi_style_verify(str(refresh.access_token))
 
     def test_team_scoped_user_gets_portal_slugs(self):
-        from authapi.test_teams import create_mirror_tables, make_team
+        from core.testing import create_mirror_tables, make_team
         from datastore.models import DistrictrMap, GerryDBTable
 
         create_mirror_tables(GerryDBTable, DistrictrMap)

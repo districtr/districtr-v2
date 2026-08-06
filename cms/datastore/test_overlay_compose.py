@@ -27,7 +27,7 @@ from datastore.models import (
     Overlay,
 )
 from datastore.services import BackendAPIError
-from datastore.test_admin_tools import PASSWORD, make_admin_user
+from core.testing import PASSWORD, make_admin_user
 
 
 def create_mirror_tables(*models):
@@ -666,7 +666,7 @@ class ComposeMapViewTests(TestCase):
 
     def test_team_scoped_composer_gets_module_assigned(self):
         from authapi.models import TeamDistrictrMap
-        from authapi.test_teams import make_team
+        from core.testing import make_team
 
         user = make_admin_user(email="super@districtr.org", group_name="super_partner")
         team = make_team("Compose Team", members=[user])

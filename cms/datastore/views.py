@@ -5,7 +5,7 @@ regeneration (from the module edit page).
 Registered under /admin/ via the register_admin_urls hook in
 datastore/wagtail_hooks.py, so Wagtail's require_admin_access already gates
 anonymous users; on top of that, every tool requires a datastore add
-permission (admin + super_partner via authapi.0007).
+permission (admin + super_partner via authapi/0002_provision_roles).
 
 GPKG import was removed from the admin UI 2026-08-06 (raw data uploads are
 deferred); the service plumbing (services.upload_gpkg/schedule_import and the
@@ -37,7 +37,7 @@ from datastore.models import DistrictrMap, DistrictrMapOverlays, Overlay
 logger = logging.getLogger(__name__)
 
 # The mirrors are read-mostly; the add permissions mark "may run data ops".
-# add_districtrmap/add_overlay: admin + super_partner (authapi.0007).
+# add_districtrmap/add_overlay: admin + super_partner (authapi/0002_provision_roles).
 DATASTORE_ADMIN_PERMISSION = "datastore.add_districtrmap"
 OVERLAY_ADMIN_PERMISSION = "datastore.add_overlay"
 

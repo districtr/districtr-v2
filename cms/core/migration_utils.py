@@ -1,8 +1,6 @@
 """
-Shared helpers for the data migrations that grant Django **model** permissions
-to the auth Groups created by authapi.0001_create_groups (datastore.0002,
-galleries.0002, authapi.0003 — extracted here before a fourth app copies the
-pattern).
+Shared helpers for data migrations that grant Django **model** permissions
+to the auth Groups (authapi/0002_provision_roles).
 
 The footgun these hide: on a FRESH database the post_migrate signal that
 normally creates Permission rows has not fired when a data migration runs, so

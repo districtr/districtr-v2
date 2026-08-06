@@ -425,16 +425,16 @@ class UnwrapLegacyContentTests(SimpleTestCase):
 
 
 # ---------------------------------------------------------------------------
-# Page permission grants (content.0002 data migration)
+# Page permission grants (authapi/0002_provision_roles)
 # ---------------------------------------------------------------------------
 
 
 class PagePermissionGrantTests(TestCase):
     """Wagtail's PagePermissionPolicy ignores Django model permissions — it
     only looks at tree-scoped GroupPagePermission rows. content.0002 grants
-    them on the root page and authapi.0007 re-points them at the consolidated
-    groups; without those rows the Pages explorer is hidden entirely and
-    partners cannot edit ANY content pages."""
+    them on the root page (authapi/0002_provision_roles); without those rows
+    the Pages explorer is hidden entirely and partners cannot edit ANY
+    content pages."""
 
     @staticmethod
     def user_in_group(group_name):
@@ -531,7 +531,7 @@ class SiteContentMenuTests(TestCase):
         )
         for item in items:
             self.assertTrue(item.is_shown(request), item.label)
-            # Resolved to a real explorer URL (indexes exist via content/0008).
+            # Resolved to a real explorer URL (indexes exist via content/0002_provision_site).
             self.assertRegex(item.url, r"^/admin/pages/\d+/$")
 
     def test_partner_sees_only_portal_entry(self):
@@ -562,25 +562,18 @@ class ProvisioningMigrationTests(TestCase):
         self.assertTrue(expected <= existing, expected - existing)
 
     def test_admin_approval_workflow_wired_up(self):
-        from wagtail.models import GroupApprovalTask, Workflow, WorkflowContentType
+        from wagtail.models import GroupApprovalTask, Workflow
 
         workflow = Workflow.objects.get(name="Admin approval")
         self.assertTrue(workflow.active)
         task = GroupApprovalTask.objects.get(name="Admin approval")
         self.assertEqual([g.name for g in task.groups.all()], ["admin"])
         self.assertEqual([t.task_id for t in workflow.workflow_tasks.all()], [task.pk])
-        # Assigned to the whole page tree and to Gallery snippets.
+        # Assigned to the whole page tree (galleries live in page content).
         self.assertTrue(workflow.workflow_pages.filter(page_id=1).exists())
-        self.assertTrue(
-            WorkflowContentType.objects.filter(
-                workflow=workflow,
-                content_type__app_label="galleries",
-                content_type__model="gallery",
-            ).exists()
-        )
 
     def test_index_pages_provisioned_under_home(self):
-        # content.0008 creates all three index pages (default locale, live).
+        # content/0002_provision_site creates all three index pages (default locale, live).
         home = Site.objects.get(is_default_site=True).root_page
         for model in (TagsIndexPage, PlacesIndexPage, StaticIndexPage):
             index = model.objects.get(locale__language_code="en")
@@ -684,7 +677,7 @@ class ContentApiTests(TestCase):
         cls.en = Locale.objects.get(language_code="en")
         cls.es = Locale.objects.get(language_code="es")
 
-        # Provisioned by content.0008 (see content/provision.py).
+        # Provisioned by content/0002_provision_site (see content/provision.py).
         cls.tags_index = TagsIndexPage.objects.get(locale=cls.en)
         cls.places_index = PlacesIndexPage.objects.get(locale=cls.en)
 

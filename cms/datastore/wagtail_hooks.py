@@ -3,8 +3,8 @@ Wagtail admin registration for the datastore mirrors.
 
 Everything is grouped under a single "Data" menu item (database icon) via a
 SnippetViewSetGroup. Snippets respect Django model permissions: the `admin`
-group is granted all datastore permissions by the 0002 data migration and
-`super_partner` gets the map-module/overlay subset by authapi.0007; partners
+group is granted all datastore permissions by the authapi/0002_provision_roles data migration and
+`super_partner` gets the map-module/overlay subset by authapi/0002_provision_roles; partners
 get none, so the menu simply does not appear for them.
 
 FK widgets: because the target models are registered as snippets, ForeignKeys

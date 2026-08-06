@@ -144,13 +144,6 @@ class SectionHeaderBlock(blocks.StructBlock):
         label = "Section header"
 
 
-def gallery_slug_choices():
-    """Dead: galleries were folded into pages (plan_gallery.ids). Kept only
-    because migration content/0009 serialized a reference to this callable;
-    it must stay importable for the migration history to load."""
-    return []
-
-
 class PlanGalleryBlock(CompatStructBlock):
     """TipTap ``planGalleryNode``; mirrors PLAN_GALLERY_ATTRIBUTES.
 

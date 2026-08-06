@@ -16,8 +16,6 @@ uses for the legacy cms schema).
 from unittest import mock
 
 import jwt as pyjwt
-from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import ImproperlyConfigured
 from django.db import connection
 from django.test import SimpleTestCase, TestCase, override_settings
@@ -25,6 +23,7 @@ from django.urls import reverse
 
 from authapi.models import Team, TeamDistrictrMap
 from authapi.tests import fastapi_style_verify
+from core.testing import PASSWORD, make_admin_user
 from datastore import services
 from datastore.models import (
     DistrictrMap,
@@ -35,22 +34,6 @@ from datastore.models import (
     Overlay,
 )
 from datastore.services import BackendAPIError
-
-PASSWORD = "correct-horse-battery-staple"
-
-
-def make_admin_user(email="dataops@districtr.org", group_name="admin"):
-    """A user who can enter the Wagtail admin, in the given group."""
-    user = get_user_model().objects.create_user(
-        username=email, email=email, password=PASSWORD
-    )
-    user.groups.add(Group.objects.get(name=group_name))
-    user.user_permissions.add(
-        Permission.objects.get(
-            content_type__app_label="wagtailadmin", codename="access_admin"
-        )
-    )
-    return user
 
 
 # ---------------------------------------------------------------------------

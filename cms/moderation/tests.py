@@ -15,28 +15,13 @@ from django.contrib.auth import get_user_model
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 
-from authapi.test_teams import make_team  # noqa: F401  (used across classes)
+from core.testing import PASSWORD, make_admin_user, make_portal, make_team
 from authapi.serializers import (
     DistrictrTokenObtainPairSerializer,
     mint_user_access_token,
 )
 from authapi.tests import fastapi_style_verify
-from datastore.test_admin_tools import PASSWORD, make_admin_user
 from moderation import wagtail_hooks
-
-
-def make_portal(slug, *, districtr_map_slug="chi_wards", title=None):
-    """A TagPage under the provisioned tags index (content/0008)."""
-    from content.models import TagPage, TagsIndexPage
-
-    index = TagsIndexPage.objects.first()
-    portal = TagPage(
-        title=title or slug.replace("-", " ").title(),
-        slug=slug,
-        districtr_map_slug=districtr_map_slug,
-    )
-    index.add_child(instance=portal)
-    return portal
 
 
 def make_entry(**overrides):
@@ -104,7 +89,7 @@ class MintUserAccessTokenTests(TestCase):
         # The whole scoping contract: the claim is the user's teams' portal
         # slugs, and partner scopes carry no read:read-all, so the backend
         # enforces it. (Claim derivation itself is pinned in authapi/tests.)
-        from authapi.test_teams import create_mirror_tables
+        from core.testing import create_mirror_tables
         from datastore.models import DistrictrMap, GerryDBTable
 
         create_mirror_tables(GerryDBTable, DistrictrMap)
@@ -159,7 +144,7 @@ class PortalListTests(TestCase):
         self.assertContains(response, "texas-portal")
 
     def test_team_scoped_partner_sees_only_their_portals(self):
-        from authapi.test_teams import create_mirror_tables
+        from core.testing import create_mirror_tables
         from datastore.models import DistrictrMap, GerryDBTable
 
         create_mirror_tables(GerryDBTable, DistrictrMap)
@@ -277,7 +262,7 @@ class TagScopedReviewerUITests(TestCase):
     hide those controls."""
 
     def setUp(self):
-        from authapi.test_teams import create_mirror_tables
+        from core.testing import create_mirror_tables
         from datastore.models import DistrictrMap, GerryDBTable
 
         create_mirror_tables(GerryDBTable, DistrictrMap)

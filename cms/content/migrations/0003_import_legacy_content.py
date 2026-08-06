@@ -63,7 +63,7 @@ def remove_imported_content(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("content", "0009_alter_placepage_body_alter_staticpage_body_and_more"),
+        ("content", "0002_provision_site"),
     ]
 
     operations = [

@@ -4,28 +4,10 @@ submissions), and a Settings-menu entry for site settings."""
 
 from django.urls import path, reverse
 from wagtail import hooks
-from wagtail.admin.menu import MenuItem
 
+from core.menu import GroupMenuItem
 from moderation import views
 from moderation.views import COMMENT_REVIEW_GROUPS, SITE_SETTINGS_GROUPS
-
-
-class GroupMenuItem(MenuItem):
-    """Menu item shown only to superusers and members of ``groups``.
-
-    The views enforce the same gate server-side; this only keeps links a
-    user's token could only 403 on out of their menu.
-    """
-
-    def __init__(self, *args, groups, **kwargs):
-        self.groups = groups
-        super().__init__(*args, **kwargs)
-
-    def is_shown(self, request):
-        user = request.user
-        if user.is_superuser:
-            return True
-        return user.groups.filter(name__in=self.groups).exists()
 
 
 @hooks.register("register_admin_urls")
