@@ -13,7 +13,7 @@ import botocore.exceptions
 import fastapi
 
 from app.core.config import settings
-from app.evaluation.district_graph import DistrictGraph
+from app.evaluation.dual_level_dual_graph import DualLevelDualGraph
 
 logger = logging.getLogger(__name__)
 
@@ -41,16 +41,16 @@ def get_gerrydb_graph_file(
     return f"s3://{settings.R2_BUCKET_NAME}/{S3_GRAPH_PREFIX}/{gerrydb_name}.npz"
 
 
-def _parse_graph_bytes(data: bytes, file_path: str) -> DistrictGraph:
+def _parse_graph_bytes(data: bytes, file_path: str) -> DualLevelDualGraph:
     if file_path.endswith(".npz"):
-        return DistrictGraph.from_npz(io.BytesIO(data))
-    # Legacy pickled networkx graph: convert to a compact DistrictGraph
+        return DualLevelDualGraph.from_npz(io.BytesIO(data))
+    # Legacy pickled networkx graph: convert to a compact DualLevelDualGraph
     # (~10x less resident memory); the transient nx object is freed on return.
     logger.warning("Loading legacy pkl graph %s — rebuild as npz", file_path)
-    return DistrictGraph.from_networkx(pickle.loads(data))
+    return DualLevelDualGraph.from_networkx(pickle.loads(data))
 
 
-def get_gerrydb_graph(file_path: str) -> DistrictGraph:
+def get_gerrydb_graph(file_path: str) -> DualLevelDualGraph:
     """Load a GerryDB graph (npz, or legacy nx pkl) from a local path or S3 URI.
 
     S3 objects are streamed straight into memory — the lru_cache on
@@ -83,7 +83,7 @@ def get_gerrydb_graph(file_path: str) -> DistrictGraph:
 _GRAPH_CACHE_MAX_SIZE = 15
 
 
-def _load_via_disk_cache(gerrydb_name: str) -> DistrictGraph:
+def _load_via_disk_cache(gerrydb_name: str) -> DualLevelDualGraph:
     """Load through the shared mmap disk cache (one physical copy per
     container across all uvicorn workers); degrade to a private in-memory
     copy if the cache directory is unusable."""
@@ -91,7 +91,7 @@ def _load_via_disk_cache(gerrydb_name: str) -> DistrictGraph:
     if (cache_dir / "meta.json").exists():
         try:
             logger.info("Loading graph %s from disk cache", gerrydb_name)
-            return DistrictGraph.load_cache(cache_dir)
+            return DualLevelDualGraph.load_cache(cache_dir)
         except Exception:
             logger.warning(
                 "Corrupt graph disk cache %s — rebuilding", cache_dir, exc_info=True
@@ -102,7 +102,7 @@ def _load_via_disk_cache(gerrydb_name: str) -> DistrictGraph:
     try:
         G.save_cache(cache_dir)
         # Reload memory-mapped so this worker shares pages too.
-        return DistrictGraph.load_cache(cache_dir)
+        return DualLevelDualGraph.load_cache(cache_dir)
     except OSError:
         logger.warning(
             "Could not write graph disk cache %s — using a private copy",
@@ -113,7 +113,7 @@ def _load_via_disk_cache(gerrydb_name: str) -> DistrictGraph:
 
 
 @lru_cache(maxsize=_GRAPH_CACHE_MAX_SIZE)
-def _load_graph(gerrydb_name: str) -> DistrictGraph:
+def _load_graph(gerrydb_name: str) -> DualLevelDualGraph:
     try:
         logger.info("Graph cache miss, loading %s", gerrydb_name)
         return _load_via_disk_cache(gerrydb_name)
@@ -137,7 +137,7 @@ _graph_locks: dict[str, threading.Lock] = {}
 _graph_locks_guard = threading.Lock()
 
 
-def get_graph(gerrydb_name: str) -> DistrictGraph:
+def get_graph(gerrydb_name: str) -> DualLevelDualGraph:
     """Load a graph from local disk or S3, LRU-cached by gerrydb_name.
 
     Raises HTTPException (404 or 500) if the graph is unavailable.
