@@ -114,27 +114,6 @@ export interface CMSContentListItem {
   districtr_map_slugs?: string[] | null;
 }
 
-export type GallerySection =
-  | 'consultant_drafts'
-  | 'public_gallery'
-  | 'works_in_progress'
-  | 'coi_gallery';
-
-export interface CMSGalleryEntry {
-  /** Public id of the saved Districtr plan (document) in the FastAPI backend */
-  document_public_id: number;
-  caption: string;
-}
-
-export interface CMSGallery {
-  title: string;
-  slug: string;
-  section: GallerySection;
-  /** Rich-text HTML */
-  description: string;
-  entries: CMSGalleryEntry[];
-}
-
 /**
  * Shared fetch for the public CMS endpoints: resolves `path` against
  * CMS_API_URL, logs and returns null on a network error or non-2xx response,
@@ -175,17 +154,7 @@ export const getCMSContent = <T extends CmsContentTypes>(
  * Pass `accessToken` to authenticate for group_only galleries; authorized
  * responses are fetched with no-store so they never enter a shared cache.
  */
-export const getGallery = (slug: string, accessToken?: string): Promise<CMSGallery | null> =>
-  cmsFetch<CMSGallery>(
-    `/api/galleries/${slug}`,
-    accessToken ? {headers: {Authorization: `Bearer ${accessToken}`}, cache: 'no-store'} : undefined
-  );
 
-/**
- * List live CMS pages of a given type. When `language` is provided, returns
- * only pages live in that language; when omitted, the CMS returns pages across
- * ALL languages (consumers dedupe by slug where needed).
- */
 export const listCMSContent = async (
   type: CmsContentTypes,
   params: {language?: string} = {}

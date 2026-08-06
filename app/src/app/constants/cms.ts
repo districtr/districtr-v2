@@ -45,11 +45,9 @@ type AnyPlanGalleryAttrSpec = {
 }[keyof PlanGalleryProps];
 
 export const PLAN_GALLERY_ATTRIBUTES = [
+  // `ids` is the curated gallery: ordered plan ids maintained on the page.
   {name: 'ids', default: null},
   {name: 'tags', default: null},
-  // NEW with the Wagtail CMS (no legacy TipTap equivalent): slug of a curated
-  // galleries.Gallery whose entries replace the ids/tags filters.
-  {name: 'gallerySlug', default: null},
   {name: 'title', default: null},
   {name: 'description', default: null},
   {name: 'paginate', default: true},

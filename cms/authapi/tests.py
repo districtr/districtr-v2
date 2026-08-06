@@ -22,7 +22,6 @@ from django.core.management import call_command
 from django.test import TestCase, override_settings
 
 from authapi.jwks import all_jwks, current_kid
-from authapi.models import ReviewTagAssignment
 from authapi.scopes import ALL_SCOPES, scopes_for_user
 from authapi.serializers import DistrictrTokenObtainPairSerializer
 
@@ -57,11 +56,10 @@ def fastapi_style_verify(token: str) -> dict:
 
 class ScopeMappingTests(TestCase):
     def test_partner_scopes(self):
-        # Comment moderation only: everything else partners do (pages,
-        # galleries) is Wagtail-side permissions, not FastAPI scopes.
+        # Comment moderation only — and no read:read-all, which would make
+        # the backend treat the token as unrestricted and ignore review_tags.
         user = make_user("partner")
-        scopes = scopes_for_user(user).split()
-        self.assertEqual(sorted(scopes), ["create:content_review", "read:read-all"])
+        self.assertEqual(scopes_for_user(user), "create:content_review")
 
     def test_super_partner_scopes_match_partner(self):
         # super_partner's extra powers are Django model permissions
@@ -112,75 +110,74 @@ class TokenContractTests(TestCase):
         self.assertEqual(keys[0]["kid"], current_kid())
 
 
-class ReviewTagScopingTests(TestCase):
-    """Per-user review scoping: ReviewTagAssignment → `review_tags` claim.
+class ReviewScopingClaimTests(TestCase):
+    """Portal-derived review scoping: the `review_tags` claim is minted from
+    the user's teams' portals (a portal's page slug is its comment tag slug).
 
     The FastAPI backend (backend/app/comments/main.py::allowed_review_tags)
     treats an ABSENT claim — or a token carrying `read:read-all` — as
-    unrestricted, so these tests pin both the claim layout and the
-    read:read-all stripping in scopes_for_user.
+    unrestricted, and an EMPTY list as "allows nothing", so these tests pin:
+    admins get no claim; team-scoped users get their portal slugs; team-less
+    non-admins get [] (fail closed until they join a team).
     """
 
-    def test_assignments_mint_sorted_review_tags_claim(self):
-        user = make_user("partner")
-        ReviewTagAssignment.objects.create(user=user, tag_slug="schools")
-        ReviewTagAssignment.objects.create(user=user, tag_slug="environment")
+    @staticmethod
+    def _portal(slug, districtr_map_slug):
+        from content.models import TagPage, TagsIndexPage
 
+        index = TagsIndexPage.objects.first()
+        page = TagPage(
+            title=slug.title(), slug=slug, districtr_map_slug=districtr_map_slug
+        )
+        index.add_child(instance=page)
+        return page
+
+    def _claim_for(self, user):
         refresh = DistrictrTokenObtainPairSerializer.get_token(user)
-        payload = fastapi_style_verify(str(refresh.access_token))
+        return fastapi_style_verify(str(refresh.access_token))
 
+    def test_team_scoped_user_gets_portal_slugs(self):
+        from authapi.test_teams import create_mirror_tables, make_team
+        from datastore.models import DistrictrMap, GerryDBTable
+
+        create_mirror_tables(GerryDBTable, DistrictrMap)
+        layer = GerryDBTable.objects.create(name="blocks")
+        team_map = DistrictrMap.objects.create(
+            name="Chi", districtr_map_slug="chi_wards", parent_layer=layer
+        )
+        DistrictrMap.objects.create(
+            name="Tx", districtr_map_slug="tx_other", parent_layer=layer
+        )
+        self._portal("schools", "chi_wards")
+        self._portal("environment", "chi_wards")
+        self._portal("texas", "tx_other")
+
+        user = make_user("partner")
+        make_team("Claim Team", members=[user], maps=[team_map])
+
+        payload = self._claim_for(user)
         self.assertEqual(payload["review_tags"], ["environment", "schools"])
+        self.assertNotIn("read:read-all", payload["scope"].split())
 
-    def test_claim_absent_without_assignments(self):
-        user = make_user("partner")
-        refresh = DistrictrTokenObtainPairSerializer.get_token(user)
-        payload = fastapi_style_verify(str(refresh.access_token))
+    def test_team_less_partner_fails_closed(self):
+        payload = self._claim_for(make_user("partner"))
+        self.assertEqual(payload["review_tags"], [])
+
+    def test_admin_gets_no_claim(self):
+        payload = self._claim_for(make_user("admin"))
         self.assertNotIn("review_tags", payload)
+        self.assertIn("read:read-all", payload["scope"].split())
 
-    def test_read_all_stripped_when_assigned(self):
-        user = make_user("partner")
-        ReviewTagAssignment.objects.create(user=user, tag_slug="schools")
-
-        scopes = scopes_for_user(user).split()
-
-        self.assertNotIn("read:read-all", scopes)
-        self.assertIn("create:content_review", scopes)
-
-    def test_admin_group_keeps_read_all_despite_assignments(self):
-        user = make_user("admin")
-        ReviewTagAssignment.objects.create(user=user, tag_slug="schools")
-        self.assertIn("read:read-all", scopes_for_user(user).split())
-
-    def test_superuser_keeps_all_scopes_despite_assignments(self):
+    def test_superuser_gets_no_claim(self):
         user = make_user(None)
         user.is_superuser = True
         user.save()
-        ReviewTagAssignment.objects.create(user=user, tag_slug="schools")
-        self.assertEqual(scopes_for_user(user).split(), ALL_SCOPES)
+        payload = self._claim_for(user)
+        self.assertNotIn("review_tags", payload)
 
-    def test_refresh_propagates_review_tags(self):
-        user = make_user("partner", email="scoped@districtr.org")
-        ReviewTagAssignment.objects.create(user=user, tag_slug="schools")
-
-        response = self.client.post(
-            "/api/token/",
-            {"username": "scoped@districtr.org", "password": PASSWORD},
-        )
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        payload = fastapi_style_verify(data["access"])
-        self.assertEqual(payload["review_tags"], ["schools"])
-        self.assertNotIn("read:read-all", payload["scope"].split())
-
-        # Claims set on the refresh token propagate to refreshed access
-        # tokens unchanged — the restriction survives silent refresh.
-        refresh_response = self.client.post(
-            "/api/token/refresh/", {"refresh": data["refresh"]}
-        )
-        self.assertEqual(refresh_response.status_code, 200)
-        refreshed_payload = fastapi_style_verify(refresh_response.json()["access"])
-        self.assertEqual(refreshed_payload["review_tags"], ["schools"])
-        self.assertEqual(refreshed_payload["scope"], payload["scope"])
+    def test_partner_scope_has_no_read_all(self):
+        # read:read-all would make the backend ignore review_tags entirely.
+        self.assertNotIn("read:read-all", scopes_for_user(make_user("partner")))
 
 
 class TokenEndpointTests(TestCase):

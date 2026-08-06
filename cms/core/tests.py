@@ -65,7 +65,7 @@ class HealthzMiddlewareTests(TestCase):
 
 
 class DistrictrShortcutsPanelTests(TestCase):
-    """The role-aware dashboard panel (construct_homepage_panels)."""
+    """The dashboard action cards mirror the sidebar action labels exactly."""
 
     def panel_context(self, user):
         request = RequestFactory().get("/admin/")
@@ -74,76 +74,54 @@ class DistrictrShortcutsPanelTests(TestCase):
         return panel.get_context_data({"request": request})
 
     def labels(self, context):
-        return {link["label"] for link in context["links"]}
+        return [card["label"] for card in context["cards"]]
 
-    def test_partner_links(self):
+    def test_partner_cards(self):
         from datastore.test_admin_tools import make_admin_user
 
         partner = make_admin_user(email="p@districtr.org", group_name="partner")
-        context = self.panel_context(partner)
-        labels = self.labels(context)
-        # content.0008 provisions the tags index, so the portal-page add link
-        # is always available.
+        # content.0008 provisions the tags index, so the portal card resolves.
         self.assertEqual(
-            labels,
-            {"Review portal submissions", "Add a portal page", "Galleries"},
+            self.labels(self.panel_context(partner)),
+            ["Edit portal pages", "Review"],
         )
 
-    def test_super_partner_adds_data_tools(self):
+    def test_super_partner_adds_module_cards(self):
         from datastore.test_admin_tools import make_admin_user
 
         user = make_admin_user(email="sp@districtr.org", group_name="super_partner")
         labels = self.labels(self.panel_context(user))
-        self.assertIn("Compose map module", labels)
-        self.assertIn("Upload overlay", labels)
-        self.assertNotIn("Teams", labels)
-        self.assertNotIn("Frontend settings", labels)
+        self.assertEqual(
+            labels,
+            [
+                "Edit portal pages",
+                "Review",
+                "Create map module",
+                "Edit map modules",
+                "Edit overlays",
+                "Upload overlay",
+            ],
+        )
 
-    def test_admin_adds_admin_screens(self):
+    def test_admin_cards(self):
         from datastore.test_admin_tools import make_admin_user
 
         user = make_admin_user(group_name="admin")
-        labels = self.labels(self.panel_context(user))
-        for label in (
-            "Teams",
-            "Review tag scopes",
-            "Frontend settings",
-            "Awaiting your review",
-            "Compose map module",
-            "Upload overlay",
-        ):
-            self.assertIn(label, labels)
-
-    def test_team_scoped_partner_sees_own_galleries_and_maps(self):
-        from authapi.test_teams import create_mirror_tables, make_gallery, make_team
-        from datastore.models import DistrictrMap, GerryDBTable
-        from datastore.test_admin_tools import make_admin_user
-
-        create_mirror_tables(GerryDBTable, DistrictrMap)
-        layer = GerryDBTable.objects.create(name="blocks")
-        map_in = DistrictrMap.objects.create(
-            name="Chicago", districtr_map_slug="chi", parent_layer=layer
-        )
-        DistrictrMap.objects.create(
-            name="Texas", districtr_map_slug="tx", parent_layer=layer
-        )
-        partner = make_admin_user(email="p@districtr.org", group_name="partner")
-        team = make_team("Team A", members=[partner], maps=[map_in])
-        make_gallery("ours", team=team)
-        make_gallery("theirs", team=make_team("Team B"))
-
-        context = self.panel_context(partner)
         self.assertEqual(
-            [gallery["label"] for gallery in context["galleries"]], ["Ours"]
+            self.labels(self.panel_context(user)),
+            [
+                "Edit portal pages",
+                "Review",
+                "Create map module",
+                "Edit map modules",
+                "Edit overlays",
+                "Upload overlay",
+                "Edit place pages",
+                "Edit static pages",
+                "Teams",
+                "Frontend settings",
+            ],
         )
-        self.assertEqual([m["label"] for m in context["maps"]], ["Chicago"])
-        # Partners may only inspect map modules, not edit them.
-        self.assertIn(
-            reverse("wagtailsnippets_datastore_districtrmap:inspect", args=[map_in.pk]),
-            context["maps"][0]["url"],
-        )
-        # Team-scoped users get their galleries enumerated, not the index link.
-        self.assertNotIn("Galleries", self.labels(context))
 
     def test_groupless_user_gets_empty_panel(self):
         user = get_user_model().objects.create_user(
@@ -151,19 +129,7 @@ class DistrictrShortcutsPanelTests(TestCase):
             email="lone@districtr.org",
             password="correct-horse-battery-staple",
         )
-        context = self.panel_context(user)
-        self.assertEqual(context["links"], [])
-        self.assertEqual(context["galleries"], [])
-        self.assertEqual(context["maps"], [])
-
-    def test_panel_renders_on_the_admin_home(self):
-        from datastore.test_admin_tools import PASSWORD, make_admin_user
-
-        make_admin_user()
-        self.client.login(username="dataops@districtr.org", password=PASSWORD)
-        response = self.client.get(reverse("wagtailadmin_home"))
-        self.assertContains(response, "Districtr shortcuts")
-        self.assertContains(response, reverse("moderation_review_portals"))
+        self.assertEqual(self.panel_context(user)["cards"], [])
 
 
 class MenuTrimTests(TestCase):

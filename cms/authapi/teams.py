@@ -22,7 +22,7 @@ from functools import cached_property
 from django.http import Http404
 from wagtail.permission_policies.base import ModelPermissionPolicy
 
-from authapi.models import Team, TeamMembership
+from authapi.models import TeamMembership
 
 
 def user_is_team_scoped(user) -> bool:
@@ -42,13 +42,6 @@ def team_ids_for_user(user) -> set[int]:
     )
 
 
-def team_slugs_for_user(user) -> set[str]:
-    """Team slugs for the JWT `teams` claim (and the galleries API match)."""
-    return set(
-        Team.objects.filter(memberships__user=user).values_list("slug", flat=True)
-    )
-
-
 def districtr_map_slugs_for_user(user) -> set[str]:
     """districtr_map_slugs of the DistrictrMaps assigned to the user's teams.
 
@@ -62,6 +55,21 @@ def districtr_map_slugs_for_user(user) -> set[str]:
         DistrictrMap.objects.filter(
             team_links__team__memberships__user=user
         ).values_list("districtr_map_slug", flat=True)
+    )
+
+
+def review_portal_slugs_for_user(user) -> list[str]:
+    """Portal (TagPage) slugs whose submissions the user may review — minted
+    as the JWT `review_tags` claim (a portal's page slug is its comment tag
+    slug). Imported lazily to avoid a load-time dependency on content."""
+    from content.models import TagPage
+
+    return sorted(
+        set(
+            TagPage.objects.filter(
+                districtr_map_slug__in=districtr_map_slugs_for_user(user)
+            ).values_list("slug", flat=True)
+        )
     )
 
 

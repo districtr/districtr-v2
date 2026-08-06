@@ -6,7 +6,7 @@ from rest_framework_simplejwt.serializers import (
 )
 
 from authapi.scopes import scopes_for_user
-from authapi.teams import team_slugs_for_user
+from authapi.teams import review_portal_slugs_for_user, user_is_team_scoped
 from authapi.tokens import KidAccessToken, KidRefreshToken
 
 
@@ -19,34 +19,21 @@ def set_user_claims(token, user) -> None:
     effect at next login, not next refresh — same semantics as the Auth0
     setup this replaces.
     """
-    # Query groups and review-tag assignments once and reuse them for the
-    # roles claim, the scope claim, and the review_tags claim — rather than
-    # re-querying each inside scopes_for_user / the claim builders.
     group_names = sorted(g.name for g in user.groups.all())
-    # Tag-scoped review (authapi/models.py:ReviewTagAssignment): the
-    # backend's comment-moderation endpoints limit the holder to comments
-    # carrying these tag slugs. The claim is ABSENT when the user has no
-    # assignments — absent means unrestricted (back-compat for internal
-    # reviewers). scopes_for_user strips `read:read-all` for assigned
-    # users so the claim is actually enforced.
-    review_tags = sorted(user.review_tag_assignments.values_list("tag_slug", flat=True))
     token["sub"] = str(user.pk)
-    token["scope"] = scopes_for_user(
-        user,
-        group_names=group_names,
-        has_review_assignments=bool(review_tags),
-    )
+    token["scope"] = scopes_for_user(user, group_names=group_names)
     token["email"] = user.email
     token["name"] = user.get_full_name() or user.get_username()
     token["roles"] = group_names
-    if review_tags:
-        token["review_tags"] = review_tags
-    # Slugs of the user's teams: the galleries API matches this claim
-    # against Gallery.team for group_only galleries (admins bypass via the
-    # roles claim). Absent when team-less.
-    teams = sorted(team_slugs_for_user(user))
-    if teams:
-        token["teams"] = teams
+    # Review scoping rides the portals: the backend's comment-moderation
+    # endpoints limit the holder to comments carrying these tag slugs (a
+    # portal's page slug is its comment tag slug). Admins/superusers get no
+    # claim (unrestricted); team-scoped users get their teams' portal slugs;
+    # team-less non-admins get [] — fail closed until they join a team.
+    if not (user.is_superuser or "admin" in group_names):
+        token["review_tags"] = (
+            review_portal_slugs_for_user(user) if user_is_team_scoped(user) else []
+        )
 
 
 def mint_user_access_token(user, lifetime_minutes: int = 5) -> str:

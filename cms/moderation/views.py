@@ -22,11 +22,8 @@ from wagtail.admin.auth import permission_denied, user_passes_test
 
 from authapi.teams import (
     districtr_map_slugs_for_user,
-    instance_in_scope,
-    team_ids_for_user,
     user_is_team_scoped,
 )
-from galleries.models import Gallery, GalleryEntry
 from moderation import services
 from moderation.forms import CommentFilterForm
 from moderation.services import BackendAPIError
@@ -105,32 +102,21 @@ def _list_view(request, form, fetch, template, title, extra_context=None):
             "has_next": has_next,
             "base_qs": querystring.urlencode(),
             "title": title,
-            # A tag-scoped reviewer (ReviewTagAssignment rows) may only act on
-            # tags: the backend 403s whole-entry/commenter actions and the
-            # untagged district-comment queue by design, so the templates hide
-            # those controls instead of offering doomed buttons.
-            "tag_scoped": request.user.review_tag_assignments.exists(),
+            # Team-scoped reviewers carry a portal-derived review_tags claim:
+            # the backend 403s whole-entry/commenter actions for them by
+            # design, so the templates hide those controls instead of
+            # offering doomed buttons. Admins stay unrestricted.
+            "tag_scoped": user_is_team_scoped(request.user),
             **(extra_context or {}),
         },
     )
 
 
-def _galleries_for_user(user):
-    """Galleries the user may curate submissions into: change_gallery
-    holders, narrowed to their own teams' galleries when team-scoped."""
-    if not user.has_perm("galleries.change_gallery"):
-        return Gallery.objects.none()
-    queryset = Gallery.objects.all()
-    if user_is_team_scoped(user):
-        queryset = queryset.filter(team_id__in=team_ids_for_user(user))
-    return queryset.order_by("title")
-
-
 def _accessible_portals(user):
     """TagPages whose submissions the user may review: all portals for admins
-    and unscoped reviewers, the team's portals for team-scoped members,
-    further narrowed by ReviewTagAssignment rows (a portal's page slug is its
-    comment tag slug)."""
+    and unscoped reviewers, the team's portals for team-scoped members (a
+    portal's page slug is its comment tag slug — the same rule the JWT
+    review_tags claim is minted from)."""
     from wagtail.models import Locale
 
     from content.models import TagPage
@@ -140,9 +126,6 @@ def _accessible_portals(user):
         portals = portals.filter(
             districtr_map_slug__in=districtr_map_slugs_for_user(user)
         )
-    assigned = set(user.review_tag_assignments.values_list("tag_slug", flat=True))
-    if assigned:
-        portals = portals.filter(slug__in=assigned)
     return portals
 
 
@@ -179,8 +162,6 @@ def portal_review(request, slug):
         return services.list_form_comments(user, **params)
 
     extra = {"portal": portal, "kind": kind}
-    if kind == "maps":
-        extra["galleries"] = _galleries_for_user(request.user)
     return _list_view(
         request,
         form,
@@ -191,49 +172,82 @@ def portal_review(request, slug):
     )
 
 
-@group_required(COMMENT_REVIEW_GROUPS)
-def add_to_gallery(request):
-    """Append a submitted plan to a gallery as a DRAFT revision.
+def _default_gallery_block(public_id):
+    """A fresh plan_gallery block for a portal that has none yet, matching
+    PlanGalleryBlock's schema/defaults (content/blocks.py)."""
+    return {
+        "type": "plan_gallery",
+        "value": {
+            "ids": [public_id],
+            "tags": [],
+            "title": "Community submissions",
+            "description": "",
+            "paginate": True,
+            "showListView": True,
+            "showThumbnails": True,
+            "showTitles": True,
+            "showDescriptions": True,
+            "showUpdatedAt": True,
+            "showTags": True,
+            "showModule": True,
+            "limit": 12,
+        },
+    }
 
-    Gallery entries live in revision content (DraftState + RevisionMixin), so
-    this mirrors the edit view — modify the latest-revision object and
-    save_revision — rather than inserting a live GalleryEntry row that the
-    next publish would clobber. Publishing stays with admins (or a workflow).
+
+@group_required(COMMENT_REVIEW_GROUPS)
+def add_to_portal_gallery(request):
+    """Append an approved plan to the portal page's own gallery block.
+
+    The gallery lives IN the portal page (the plan_gallery block's curated
+    ids), so this mutates the page's latest revision as a draft: appends the
+    id to the first plan_gallery block (creating one at the end of the body
+    when the page has none). Publishing still goes through the page's
+    normal admin-approval workflow.
     """
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
-    if not request.user.has_perm("galleries.change_gallery"):
-        return permission_denied(request)
     try:
-        gallery_id = int(request.POST["gallery"])
+        portal_slug = request.POST["portal"]
         public_id = int(request.POST["public_id"])
     except (KeyError, ValueError):
         return HttpResponseBadRequest("Invalid gallery submission")
 
-    gallery = Gallery.objects.filter(pk=gallery_id).first()
-    if gallery is None or not instance_in_scope(
-        request.user, Gallery, "team_id", gallery.pk
-    ):
+    portal = _accessible_portals(request.user).filter(slug=portal_slug).first()
+    if portal is None:
         return permission_denied(request)
 
-    latest = gallery.get_latest_revision_as_object()
-    if any(e.document_public_id == public_id for e in latest.entries.all()):
-        messages.warning(request, f"Plan {public_id} is already in “{gallery.title}”.")
+    page = portal.get_latest_revision_as_object()
+    body_data = page.body.get_prep_value()
+    gallery_blocks = [b for b in body_data if b.get("type") == "plan_gallery"]
+    if gallery_blocks:
+        ids = list(gallery_blocks[0]["value"].get("ids") or [])
+        if public_id in ids:
+            messages.warning(
+                request,
+                f"Plan {public_id} is already in this portal's gallery.",
+            )
+            return redirect(_next_url(request))
+        gallery_blocks[0]["value"]["ids"] = [*ids, public_id]
     else:
-        latest.entries.add(GalleryEntry(document_public_id=public_id))
-        latest.save_revision(user=request.user)
-        messages.success(
-            request,
-            f"Plan {public_id} added to “{gallery.title}” as a draft — "
-            "publish the gallery to make it public.",
-        )
+        body_data.append(_default_gallery_block(public_id))
+    page.body = page.body.stream_block.to_python(body_data)
+    page.save_revision(user=request.user)
+    messages.success(
+        request,
+        f"Plan {public_id} added to the portal page's gallery as a draft — "
+        "publish the page (via moderation) to make it public.",
+    )
+    return redirect(_next_url(request))
 
+
+def _next_url(request):
     next_url = request.POST.get("next")
     if next_url and url_has_allowed_host_and_scheme(
         next_url, allowed_hosts={request.get_host()}
     ):
-        return redirect(next_url)
-    return redirect(reverse("moderation_review_portals"))
+        return next_url
+    return reverse("moderation_review_portals")
 
 
 def _int_list(csv: str) -> list[int]:
@@ -287,12 +301,7 @@ def review_action(request):
     else:
         messages.success(request, f"Marked {content_type} as {review_status}.")
 
-    next_url = request.POST.get("next")
-    if next_url and url_has_allowed_host_and_scheme(
-        next_url, allowed_hosts={request.get_host()}
-    ):
-        return redirect(next_url)
-    return redirect(reverse("moderation_review_portals"))
+    return redirect(_next_url(request))
 
 
 @group_required(SITE_SETTINGS_GROUPS)

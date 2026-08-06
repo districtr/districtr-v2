@@ -15,9 +15,7 @@ from django.contrib.auth import get_user_model
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 
-from authapi.models import ReviewTagAssignment
-from authapi.test_teams import make_team
-from galleries.models import Gallery
+from authapi.test_teams import make_team  # noqa: F401  (used across classes)
 from authapi.serializers import (
     DistrictrTokenObtainPairSerializer,
     mint_user_access_token,
@@ -102,12 +100,22 @@ class MintUserAccessTokenTests(TestCase):
         self.assertEqual(header["kid"], current_kid())
         self.assertEqual(header["alg"], "RS256")
 
-    def test_tag_scoped_reviewer_claims(self):
-        # The whole scoping contract: assignments emit a sorted review_tags
-        # claim and strip read:read-all so the backend enforces it.
+    def test_team_scoped_reviewer_claims(self):
+        # The whole scoping contract: the claim is the user's teams' portal
+        # slugs, and partner scopes carry no read:read-all, so the backend
+        # enforces it. (Claim derivation itself is pinned in authapi/tests.)
+        from authapi.test_teams import create_mirror_tables
+        from datastore.models import DistrictrMap, GerryDBTable
+
+        create_mirror_tables(GerryDBTable, DistrictrMap)
+        layer = GerryDBTable.objects.create(name="blocks")
+        team_map = DistrictrMap.objects.create(
+            name="Chi", districtr_map_slug="chi_wards", parent_layer=layer
+        )
+        make_portal("b-tour", districtr_map_slug="chi_wards")
+        make_portal("a-tour", districtr_map_slug="chi_wards")
         user = make_admin_user(email="scoped@districtr.org", group_name="partner")
-        ReviewTagAssignment.objects.create(user=user, tag_slug="b-tour")
-        ReviewTagAssignment.objects.create(user=user, tag_slug="a-tour")
+        make_team("Mint Team", members=[user], maps=[team_map])
         payload = fastapi_style_verify(mint_user_access_token(user))
         self.assertEqual(payload["review_tags"], ["a-tour", "b-tour"])
         self.assertNotIn("read:read-all", payload["scope"].split())
@@ -151,7 +159,7 @@ class PortalListTests(TestCase):
         self.assertContains(response, "texas-portal")
 
     def test_team_scoped_partner_sees_only_their_portals(self):
-        from authapi.test_teams import create_mirror_tables, make_team
+        from authapi.test_teams import create_mirror_tables
         from datastore.models import DistrictrMap, GerryDBTable
 
         create_mirror_tables(GerryDBTable, DistrictrMap)
@@ -165,14 +173,6 @@ class PortalListTests(TestCase):
         response = self.client.get(self.url)
         self.assertContains(response, "midwest-portal")
         self.assertNotContains(response, "texas-portal")
-
-    def test_review_tag_assignment_narrows_portals(self):
-        partner = make_admin_user(email="tagscoped@districtr.org", group_name="partner")
-        ReviewTagAssignment.objects.create(user=partner, tag_slug="texas-portal")
-        self.client.force_login(partner)
-        response = self.client.get(self.url)
-        self.assertNotContains(response, "midwest-portal")
-        self.assertContains(response, "texas-portal")
 
     def test_groupless_user_denied(self):
         user = make_admin_user(email="lone@districtr.org", group_name="partner")
@@ -247,20 +247,12 @@ class PortalReviewViewTests(TestCase):
         self.assertContains(response, 'name="content_type" value="entry"')
         self.assertContains(response, 'name="content_type" value="commenter"')
 
-    def test_maps_kind_renders_add_to_gallery_for_curators(self):
-        from authapi.models import Team
-        from galleries.models import Gallery
-
-        Gallery.objects.create(
-            title="Drafts",
-            slug="drafts",
-            team=Team.objects.create(name="T", slug="t"),
-        )
+    def test_maps_kind_renders_add_to_portal_gallery(self):
         with mock.patch("moderation.services.requests.request") as request:
             request.return_value = mock_response(json_body=[make_entry(public_id=42)])
             response = self.client.get(self.url, {"kind": "maps"})
         self.assertContains(response, "Submitted plan: #42")
-        self.assertContains(response, "Add to gallery")
+        self.assertContains(response, "Add to portal gallery")
 
     def test_backend_403_detail_surfaces(self):
         with mock.patch("moderation.services.requests.request") as request:
@@ -280,19 +272,25 @@ class PortalReviewViewTests(TestCase):
 
 
 class TagScopedReviewerUITests(TestCase):
-    """A reviewer with ReviewTagAssignment rows may only act on tags — the
-    backend 403s whole-entry/commenter actions, so the templates hide those
-    controls for them."""
+    """A team-scoped reviewer carries a portal-derived review_tags claim —
+    the backend 403s whole-entry/commenter actions for them, so the templates
+    hide those controls."""
 
     def setUp(self):
+        from authapi.test_teams import create_mirror_tables
+        from datastore.models import DistrictrMap, GerryDBTable
+
+        create_mirror_tables(GerryDBTable, DistrictrMap)
+        layer = GerryDBTable.objects.create(name="blocks")
+        team_map = DistrictrMap.objects.create(
+            name="Chi", districtr_map_slug="chi_wards", parent_layer=layer
+        )
         make_portal("midwest-portal", title="Midwest")
         self.url = reverse("moderation_portal_review", args=["midwest-portal"])
         self.reviewer = make_admin_user(
             email="scoped@districtr.org", group_name="partner"
         )
-        ReviewTagAssignment.objects.create(
-            user=self.reviewer, tag_slug="midwest-portal"
-        )
+        make_team("Scoped Team", members=[self.reviewer], maps=[team_map])
         self.client.force_login(self.reviewer)
 
     def get_review_page(self, **params):
@@ -468,54 +466,60 @@ class ReviewActionTests(TestCase):
 # ---------------------------------------------------------------------------
 
 
-class AddToGalleryTests(TestCase):
+class AddToPortalGalleryTests(TestCase):
     def setUp(self):
-        self.url = reverse("moderation_add_to_gallery")
+        self.url = reverse("moderation_add_to_portal_gallery")
+        self.portal = make_portal("midwest-portal")
         self.partner = make_admin_user(
             email="partner@districtr.org", group_name="partner"
         )
         self.client.login(username="partner@districtr.org", password=PASSWORD)
-        self.gallery = Gallery.objects.create(
-            title="Drafts", slug="drafts", team=make_team("House Team")
-        )
 
     def add(self, **overrides):
-        data = {"gallery": str(self.gallery.pk), "public_id": "42"}
+        data = {"portal": "midwest-portal", "public_id": "42"}
         data.update(overrides)
         return self.client.post(self.url, data)
 
-    def test_adds_entry_as_draft_revision_not_live(self):
+    def _gallery_ids(self):
+        page = self.portal.get_latest_revision_as_object()
+        return [
+            list(block.value["ids"])
+            for block in page.body
+            if block.block_type == "plan_gallery"
+        ]
+
+    def test_appends_to_new_gallery_block_as_draft(self):
         response = self.add()
         self.assertRedirects(
             response,
             reverse("moderation_review_portals"),
             fetch_redirect_response=False,
         )
-        self.gallery.refresh_from_db()
-        latest = self.gallery.get_latest_revision_as_object()
-        self.assertEqual([e.document_public_id for e in latest.entries.all()], [42])
-        # The live gallery is untouched — an admin publishes the draft.
-        self.assertEqual(self.gallery.entries.count(), 0)
+        self.portal.refresh_from_db()
+        self.assertEqual(self._gallery_ids(), [[42]])
+        # Draft revision only: the live page body is untouched.
+        self.assertEqual(
+            [b for b in self.portal.body if b.block_type == "plan_gallery"], []
+        )
+
+    def test_appends_to_existing_gallery_block_in_order(self):
+        self.add()
+        self.add(public_id="7")
+        self.portal.refresh_from_db()
+        self.assertEqual(self._gallery_ids(), [[42, 7]])
 
     def test_duplicate_plan_not_added_twice(self):
         self.add()
         self.add()
-        self.gallery.refresh_from_db()
-        latest = self.gallery.get_latest_revision_as_object()
-        self.assertEqual(latest.entries.count(), 1)
+        self.portal.refresh_from_db()
+        self.assertEqual(self._gallery_ids(), [[42]])
 
-    def test_out_of_scope_gallery_denied_for_team_scoped_user(self):
-        make_team("Team A", members=[self.partner])
-        outside = Gallery.objects.create(
-            title="Outside", slug="outside", team=make_team("Team B")
-        )
-        response = self.add(gallery=str(outside.pk))
+    def test_inaccessible_portal_denied(self):
+        response = self.add(portal="not-a-portal")
         self.assertRedirects(response, reverse("wagtailadmin_home"))
-        self.assertIsNone(outside.latest_revision_id)
 
     def test_invalid_input_is_400(self):
         self.assertEqual(self.add(public_id="not-a-number").status_code, 400)
-        self.assertEqual(self.add(gallery="999999").status_code, 302)  # denied
         response = self.client.post(self.url, {"public_id": "42"})
         self.assertEqual(response.status_code, 400)
 

@@ -49,14 +49,30 @@ def _language_sort_key(code):
     return (_LANGUAGE_ORDER.get(code, len(_LANGUAGE_ORDER)), code)
 
 
+def _inject_portal_tag(body_data, portal_slug):
+    """Guarantee comment-form blocks tag their submissions with the portal's
+    slug — the slug IS the portal's comment tag (review scoping and the
+    moderation queues key on it), so it must not depend on authors remembering
+    to add it to mandatoryTags."""
+    for block in body_data:
+        if block.get("type") == "form":
+            tags = list(block.get("value", {}).get("mandatoryTags") or [])
+            if portal_slug not in tags:
+                block["value"]["mandatoryTags"] = [portal_slug, *tags]
+    return body_data
+
+
 def _serialize_page(page, content_type):
     body = page.body
+    body_data = body.stream_block.get_api_representation(body)
+    if content_type == "tags":
+        body_data = _inject_portal_tag(body_data, page.slug)
     content = {
         "title": page.title,
         "subtitle": page.subtitle,
         "slug": page.slug,
         "language": page.locale.language_code,
-        "body": body.stream_block.get_api_representation(body),
+        "body": body_data,
         "updated_at": (page.last_published_at and page.last_published_at.isoformat()),
     }
     if content_type == "tags":

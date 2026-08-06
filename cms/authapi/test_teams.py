@@ -16,10 +16,9 @@ from wagtail.models import Site
 
 from authapi.models import Team, TeamDistrictrMap, TeamMembership
 from authapi.teams import (
-    TeamScopedModelPermissionPolicy,
     TeamScopedViewGrantPermissionPolicy,
     districtr_map_slugs_for_user,
-    team_slugs_for_user,
+    team_ids_for_user,
     user_is_team_scoped,
 )
 from content.models import PlacePage, PlacesIndexPage, TagPage, TagsIndexPage
@@ -28,7 +27,6 @@ from content.wagtail_hooks import (
     scope_content_pages_in_explorer,
 )
 from datastore.models import DistrictrMap, GerryDBTable
-from galleries.models import Gallery, GallerySection
 
 PASSWORD = "correct-horse-battery-staple"
 
@@ -64,20 +62,6 @@ def create_mirror_tables(*models):
             editor.create_model(model)
 
 
-def make_gallery(slug, *, team):
-    gallery = Gallery(
-        slug=slug,
-        title=slug.replace("-", " ").title(),
-        section=GallerySection.PUBLIC_GALLERY,
-        team=team,
-        live=False,
-    )
-    gallery.save()
-    gallery.save_revision().publish()
-    gallery.refresh_from_db()
-    return gallery
-
-
 class TeamHelperTests(TestCase):
     def test_superuser_never_scoped(self):
         root = get_user_model().objects.create_superuser(
@@ -96,119 +80,15 @@ class TeamHelperTests(TestCase):
 
     def test_partner_with_team_is_scoped(self):
         partner = make_user("partner", "e@d.org")
-        make_team("Team A", members=[partner])
+        team = make_team("Team A", members=[partner])
         self.assertTrue(user_is_team_scoped(partner))
-        self.assertEqual(team_slugs_for_user(partner), {"team-a"})
+        self.assertEqual(team_ids_for_user(partner), {team.pk})
 
-    def test_slugs_union_across_teams(self):
+    def test_team_ids_union_across_teams(self):
         partner = make_user("partner", "e@d.org")
-        make_team("T1", members=[partner])
-        make_team("T2", members=[partner])
-        self.assertEqual(team_slugs_for_user(partner), {"t1", "t2"})
-
-
-class GalleryScopingPolicyTests(TestCase):
-    @classmethod
-    def setUpTestData(cls):
-        cls.policy = TeamScopedModelPermissionPolicy(
-            Gallery, team_filter_field="team_id"
-        )
-        cls.member = make_user("partner", "member@d.org")
-        cls.team_a = make_team("Team A", members=[cls.member])
-        cls.team_b = make_team("Team B")
-        cls.mine = make_gallery("mine", team=cls.team_a)
-        cls.theirs = make_gallery("theirs", team=cls.team_b)
-
-    def test_member_instances_scoped_to_team(self):
-        qs = self.policy.instances_user_has_permission_for(self.member, "change")
-        self.assertEqual(set(qs.values_list("slug", flat=True)), {"mine"})
-
-    def test_member_can_change_in_scope(self):
-        self.assertTrue(
-            self.policy.user_has_permission_for_instance(
-                self.member, "change", self.mine
-            )
-        )
-
-    def test_member_cannot_change_out_of_scope(self):
-        self.assertFalse(
-            self.policy.user_has_permission_for_instance(
-                self.member, "change", self.theirs
-            )
-        )
-
-    def test_admin_unscoped(self):
-        admin = make_user("admin", "admin@d.org")
-        qs = self.policy.instances_user_has_permission_for(admin, "change")
-        self.assertEqual(set(qs.values_list("slug", flat=True)), {"mine", "theirs"})
-
-    def test_teamless_partner_unscoped(self):
-        loner = make_user("partner", "loner@d.org")
-        qs = self.policy.instances_user_has_permission_for(loner, "change")
-        self.assertEqual(set(qs.values_list("slug", flat=True)), {"mine", "theirs"})
-
-
-class GalleryAdminScopingViewTests(TestCase):
-    """End-to-end through the Wagtail snippet views."""
-
-    @classmethod
-    def setUpTestData(cls):
-        cls.member = make_user("partner", "member@d.org")
-        cls.team_a = make_team("Team A", members=[cls.member])
-        cls.team_b = make_team("Team B")
-        cls.mine = make_gallery("scoped-visible", team=cls.team_a)
-        cls.theirs = make_gallery("scoped-hidden", team=cls.team_b)
-
-    def setUp(self):
-        self.client.force_login(self.member)
-
-    def test_list_shows_only_team_galleries(self):
-        response = self.client.get(reverse("wagtailsnippets_galleries_gallery:list"))
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Scoped Visible")
-        self.assertNotContains(response, "Scoped Hidden")
-
-    def test_edit_in_scope_allowed(self):
-        url = reverse("wagtailsnippets_galleries_gallery:edit", args=[self.mine.pk])
-        self.assertEqual(self.client.get(url).status_code, 200)
-
-    def test_edit_out_of_scope_denied(self):
-        url = reverse("wagtailsnippets_galleries_gallery:edit", args=[self.theirs.pk])
-        self.assertNotEqual(self.client.get(url).status_code, 200)
-
-    def test_delete_out_of_scope_denied(self):
-        url = reverse("wagtailsnippets_galleries_gallery:delete", args=[self.theirs.pk])
-        self.assertNotEqual(self.client.get(url).status_code, 200)
-
-    def test_create_view_restricts_team_choices(self):
-        response = self.client.get(reverse("wagtailsnippets_galleries_gallery:add"))
-        self.assertEqual(response.status_code, 200)
-        field = response.context["form"].fields["team"]
-        self.assertEqual(set(field.queryset), {self.team_a})
-        self.assertTrue(field.required)
-
-    def test_unpublish_out_of_scope_denied(self):
-        # UnpublishView checks only the model-level publish permission; the
-        # generic before_unpublish hook is the instance-level gate.
-        url = reverse(
-            "wagtailsnippets_galleries_gallery:unpublish", args=[self.theirs.pk]
-        )
-        self.client.post(url)
-        self.theirs.refresh_from_db()
-        self.assertTrue(self.theirs.live)
-
-    def test_copy_out_of_scope_404(self):
-        # The stock CopyView prefills from a bare get_object_or_404 — the
-        # scoped copy view must 404 out-of-scope sources.
-        url = reverse("wagtailsnippets_galleries_gallery:copy", args=[self.theirs.pk])
-        self.assertEqual(self.client.get(url).status_code, 404)
-
-    def test_copy_in_scope_restricts_team(self):
-        url = reverse("wagtailsnippets_galleries_gallery:copy", args=[self.mine.pk])
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        field = response.context["form"].fields["team"]
-        self.assertEqual(set(field.queryset), {self.team_a})
+        t1 = make_team("T1", members=[partner])
+        t2 = make_team("T2", members=[partner])
+        self.assertEqual(team_ids_for_user(partner), {t1.pk, t2.pk})
 
 
 class MapModuleScopingTests(TestCase):
@@ -496,43 +376,3 @@ class ContentPageFormScopingTests(TestCase):
         self.assertEqual(
             form.cleaned_data["districtr_map_slugs"], ["tx_other", "chi_wards"]
         )
-
-
-class TeamDeleteGuardTests(TestCase):
-    """Deleting a Team that still owns galleries is denied with a friendly
-    message — Gallery.team is PROTECT, so the delete would otherwise surface
-    as an unhandled ProtectedError (500). Mirrors the maps-with-plans guard
-    (datastore/wagtail_hooks.py)."""
-
-    def setUp(self):
-        from datastore.test_admin_tools import make_admin_user
-
-        make_admin_user()
-        self.client.login(username="dataops@districtr.org", password=PASSWORD)
-        self.team_with_gallery = make_team("Team A")
-        self.team_without = make_team("Team B")
-        make_gallery("ours", team=self.team_with_gallery)
-
-    def delete_url(self, team):
-        return reverse("wagtailsnippets_authapi_team:delete", args=[team.pk])
-
-    def test_delete_with_galleries_denied(self):
-        response = self.client.post(
-            self.delete_url(self.team_with_gallery), follow=True
-        )
-        self.assertContains(response, "Team A (1 gallery)")
-        self.assertTrue(Team.objects.filter(pk=self.team_with_gallery.pk).exists())
-
-    def test_bulk_delete_with_galleries_denied(self):
-        response = self.client.post(
-            "/admin/bulk/authapi/team/delete/"
-            f"?id={self.team_with_gallery.pk}&id={self.team_without.pk}",
-            follow=True,
-        )
-        self.assertContains(response, "Team A (1 gallery)")
-        self.assertEqual(Team.objects.count(), 2)
-
-    def test_delete_without_galleries_proceeds(self):
-        response = self.client.post(self.delete_url(self.team_without))
-        self.assertEqual(response.status_code, 302)
-        self.assertFalse(Team.objects.filter(pk=self.team_without.pk).exists())

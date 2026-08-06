@@ -36,17 +36,13 @@
                 <div style="border:1px solid var(--w-color-border-furniture); border-radius:5px; margin-bottom:1.5rem;">
                     <div style="padding: 0.75rem 1rem; background: var(--w-color-surface-header); display:flex; justify-content:space-between; align-items:center; gap:1rem;">
                         <strong>Submitted plan: #{{ entry.public_id|default:entry.document_id }}</strong>
-                        {% if galleries and entry.public_id %}
-                            <form method="post" action="{% url 'moderation_add_to_gallery' %}" style="display:flex; gap:0.5rem; align-items:center;">
+                        {% if entry.public_id %}
+                            <form method="post" action="{% url 'moderation_add_to_portal_gallery' %}">
                                 {% csrf_token %}
+                                <input type="hidden" name="portal" value="{{ portal.slug }}">
                                 <input type="hidden" name="public_id" value="{{ entry.public_id }}">
                                 <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                <select name="gallery">
-                                    {% for gallery in galleries %}
-                                        <option value="{{ gallery.pk }}">{{ gallery.title }}</option>
-                                    {% endfor %}
-                                </select>
-                                <button type="submit" class="button button-small">Add to gallery</button>
+                                <button type="submit" class="button button-small">Add to portal gallery</button>
                             </form>
                         {% endif %}
                     </div>

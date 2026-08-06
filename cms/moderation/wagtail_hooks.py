@@ -47,9 +47,9 @@ def register_moderation_admin_urls():
             "moderation/review/", views.review_action, name="moderation_review_action"
         ),
         path(
-            "moderation/add-to-gallery/",
-            views.add_to_gallery,
-            name="moderation_add_to_gallery",
+            "moderation/add-to-portal-gallery/",
+            views.add_to_portal_gallery,
+            name="moderation_add_to_portal_gallery",
         ),
         path(
             "moderation/site-settings/",

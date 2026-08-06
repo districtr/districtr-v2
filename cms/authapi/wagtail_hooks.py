@@ -1,7 +1,6 @@
 """
 Wagtail admin registration for per-user review scoping.
 
-"Review tag scopes" is a top-level menu item visible to the admin group
 only: snippets respect Django model permissions, and only `admin` holds the
 ReviewTagAssignment permissions (granted by authapi/migrations/0003).
 Assignments take effect at the assignee's next login — claims are minted on
@@ -17,16 +16,14 @@ admin are unaffected.
 from django import forms
 from django.contrib.auth import get_user_model
 from django.db.models import Q
-from django.shortcuts import redirect
 from wagtail import hooks
-from wagtail.admin import messages
 from wagtail.admin.forms.choosers import BaseFilterForm
 from wagtail.admin.panels import FieldPanel, InlinePanel
 from wagtail.admin.viewsets.chooser import ChooserViewSet
 from wagtail.snippets.models import register_snippet
 from wagtail.snippets.views.snippets import SnippetViewSet
 
-from authapi.models import ReviewTagAssignment, Team
+from authapi.models import Team
 
 
 class UserSearchFilterForm(BaseFilterForm):
@@ -81,25 +78,6 @@ def register_user_chooser_viewset():
     return user_chooser_viewset
 
 
-class ReviewTagAssignmentViewSet(SnippetViewSet):
-    model = ReviewTagAssignment
-    icon = "tag"
-    menu_label = "Review tag scopes"
-    menu_order = 250  # after the frontend review cross-links (220-240)
-    add_to_admin_menu = True
-    list_display = ["user", "tag_slug"]
-    search_fields = ["user__username", "user__email", "tag_slug"]
-    list_per_page = 50
-
-    panels = [
-        FieldPanel("user", widget=user_chooser_viewset.widget_class),
-        FieldPanel("tag_slug"),
-    ]
-
-
-register_snippet(ReviewTagAssignmentViewSet)
-
-
 class TeamViewSet(SnippetViewSet):
     """Admin-only "Teams" snippet: name a team, add member users, and assign
     the Districtr map modules it owns. Only the `admin` group holds Team permissions
@@ -113,7 +91,7 @@ class TeamViewSet(SnippetViewSet):
     model = Team
     icon = "group"
     menu_label = "Teams"
-    menu_order = 260  # after "Review tag scopes" (250)
+    menu_order = 260
     add_to_admin_menu = True
     list_display = ["name", "slug"]
     search_fields = ["name", "slug"]
@@ -138,44 +116,3 @@ class TeamViewSet(SnippetViewSet):
 
 
 register_snippet(TeamViewSet)
-
-
-def _deny_team_delete_with_galleries(request, teams):
-    """Gallery.team is PROTECT: deleting a team that still owns galleries
-    would otherwise surface as an unhandled ProtectedError (500). Mirrors the
-    maps-with-plans guard in datastore/wagtail_hooks.py."""
-    from galleries.models import Gallery
-
-    counts = {
-        team: Gallery.objects.filter(team=team).count()
-        for team in sorted(teams, key=lambda team: team.name)
-    }
-    counts = {team: count for team, count in counts.items() if count}
-    if not counts:
-        return None
-    summary = ", ".join(
-        f"{team.name} ({count} galler{'ies' if count != 1 else 'y'})"
-        for team, count in counts.items()
-    )
-    messages.error(
-        request,
-        f"Cannot delete teams that still own galleries: {summary}. "
-        "Reassign or delete their galleries first.",
-    )
-    return redirect("wagtailsnippets_authapi_team:list")
-
-
-@hooks.register("before_delete_snippet")
-def deny_team_delete_with_galleries(request, instances):
-    teams = [obj for obj in instances if isinstance(obj, Team)]
-    if teams:
-        return _deny_team_delete_with_galleries(request, teams)
-
-
-@hooks.register("before_bulk_action")
-def deny_team_bulk_delete_with_galleries(request, action_type, objects, action):
-    if action_type != "delete":
-        return None
-    teams = [obj for obj in objects if isinstance(obj, Team)]
-    if teams:
-        return _deny_team_delete_with_galleries(request, teams)

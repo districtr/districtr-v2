@@ -254,11 +254,9 @@ class TiptapToStreamDataTests(SimpleTestCase):
         result = tiptap_to_stream_data(
             doc({"type": "planGalleryNode", "attrs": dict(PLAN_GALLERY_ATTRS)})
         )
-        # gallerySlug has no TipTap equivalent: legacy nodes convert with the
-        # block default (None, i.e. "use the ids/tags filters").
         self.assertEqual(
             result.stream_data[0]["value"],
-            {**PLAN_GALLERY_ATTRS, "gallerySlug": None},
+            PLAN_GALLERY_ATTRS,
         )
 
     def test_plan_gallery_null_attrs_use_block_defaults(self):
@@ -778,27 +776,8 @@ class ContentApiTests(TestCase):
         # Empty list filters are served as null, matching the legacy attrs.
         self.assertIsNone(gallery["ids"])
         self.assertIsNone(gallery["tags"])
-        # gallerySlug is new (no TipTap equivalent); absent -> null too.
-        self.assertIsNone(gallery["gallerySlug"])
         self.assertEqual(gallery["limit"], 12)
         self.assertTrue(gallery["showListView"])
-
-    def test_plan_gallery_serves_gallery_slug(self):
-        page = TagPage(
-            title="Curated",
-            slug="curated",
-            body=[
-                {
-                    "type": "plan_gallery",
-                    "value": {"gallerySlug": "demo-plans", "ids": [], "tags": []},
-                }
-            ],
-        )
-        self.tags_index.add_child(instance=page)
-        page.save_revision(clean=False).publish()
-        payload = self.client.get("/api/content/tags/slug/curated").json()
-        value = payload["content"]["body"][0]["value"]
-        self.assertEqual(value["gallerySlug"], "demo-plans")
 
     def test_detail_places_shape(self):
         payload = self.client.get("/api/content/places/slug/chicago").json()

@@ -1,43 +1,18 @@
-{% load i18n wagtailadmin_tags %}
-{# Role-aware quick links panel (core/wagtail_hooks.py). Mirrors the stock
-   dashboard panels' behaviour of rendering nothing when there is nothing
-   to show (e.g. a groupless account). #}
-{% if links or galleries or maps %}
+{% load wagtailadmin_tags %}
+{# Action cards mirroring the sidebar's action labels (core/wagtail_hooks.py). #}
+{# Renders nothing when there is nothing to show (e.g. a groupless account). #}
+{% if cards %}
     {% panel id="districtr-shortcuts" heading="Districtr shortcuts" classname="w-panel--dashboard" %}
-        <div style="display: flex; flex-wrap: wrap; gap: 2rem;">
-            <div>
-                <ul style="list-style: none; padding: 0; margin: 0;">
-                    {% for link in links %}
-                        <li style="margin-bottom: 0.5rem;">
-                            <a href="{{ link.url }}">{% icon name=link.icon classname="initial" %} {{ link.label }}</a>
-                        </li>
-                    {% endfor %}
-                </ul>
-            </div>
-            {% if galleries %}
-                <div>
-                    <h3 style="margin-top: 0;">{% trans "Your team's galleries" %}</h3>
-                    <ul style="list-style: none; padding: 0; margin: 0;">
-                        {% for gallery in galleries %}
-                            <li style="margin-bottom: 0.5rem;">
-                                <a href="{{ gallery.url }}">{% icon name="folder-open-inverse" classname="initial" %} {{ gallery.label }}</a>
-                            </li>
-                        {% endfor %}
-                    </ul>
-                </div>
-            {% endif %}
-            {% if maps %}
-                <div>
-                    <h3 style="margin-top: 0;">{% trans "Your team's map modules" %}</h3>
-                    <ul style="list-style: none; padding: 0; margin: 0;">
-                        {% for map in maps %}
-                            <li style="margin-bottom: 0.5rem;">
-                                <a href="{{ map.url }}">{% icon name="globe" classname="initial" %} {{ map.label }}</a>
-                            </li>
-                        {% endfor %}
-                    </ul>
-                </div>
-            {% endif %}
-        </div>
+        <ul style="list-style:none; margin:0; padding:1rem; display:grid; grid-template-columns:repeat(auto-fill, minmax(14rem, 1fr)); gap:0.75rem;">
+            {% for card in cards %}
+                <li>
+                    <a href="{{ card.url }}"
+                       style="display:flex; align-items:center; gap:0.75rem; padding:0.9rem 1rem; border:1px solid var(--w-color-border-furniture); border-radius:6px; text-decoration:none; background:var(--w-color-surface-page);">
+                        {% icon name=card.icon classname="initial" %}
+                        <span style="font-weight:600;">{{ card.label }}</span>
+                    </a>
+                </li>
+            {% endfor %}
+        </ul>
     {% endpanel %}
 {% endif %}

@@ -40,12 +40,13 @@ ALL_SCOPES = [
 ]
 
 # Page editing, galleries, and the datastore tools are all Wagtail-side
-# permissions (or service-token calls); the only FastAPI scopes a user token
-# needs are for comment moderation. super_partner's extra powers are Django
-# model permissions (authapi.0007), not scopes.
+# permissions (or service-token calls); the only FastAPI scope a user token
+# needs is comment moderation. No read:read-all: the backend treats that
+# scope as "unrestricted, ignore review_tags", and partner moderation is
+# always scoped by the portal-derived review_tags claim (serializers.py).
+# super_partner's extra powers are Django model permissions, not scopes.
 PARTNER_SCOPES = [
     REVIEW_CONTENT,
-    READ_ALL_CONTENT,
 ]
 
 GROUP_SCOPES = {
@@ -55,23 +56,11 @@ GROUP_SCOPES = {
 }
 
 
-def scopes_for_user(user, *, group_names=None, has_review_assignments=None) -> str:
+def scopes_for_user(user, *, group_names=None) -> str:
     """Space-delimited scope claim for a Django user, from group membership.
 
-    Superusers get every scope regardless of groups.
-
-    Tag-scoped reviewers: when the user has ReviewTagAssignments (see
-    authapi/models.py), the blanket `read:read-all` scope is stripped from
-    the computed scopes — the FastAPI backend treats `read:read-all` as
-    "unrestricted read" and would otherwise ignore the `review_tags` claim
-    minted alongside it. `create:content_review` is kept so the moderation
-    endpoints stay reachable (the backend then enforces the tag limits).
-    Superusers and members of the admin group are unaffected: their
-    assignments, if any, do not narrow their access.
-
-    `group_names` / `has_review_assignments` let a caller that already has
-    these (the token serializer) pass them in to avoid re-querying groups and
-    assignments; when omitted they are loaded here.
+    Superusers get every scope regardless of groups. `group_names` lets a
+    caller that already has them (the token serializer) avoid re-querying.
     """
     if user.is_superuser:
         return " ".join(ALL_SCOPES)
@@ -82,9 +71,4 @@ def scopes_for_user(user, *, group_names=None, has_review_assignments=None) -> s
         for scope in GROUP_SCOPES.get(name, []):
             if scope not in scopes:
                 scopes.append(scope)
-    if READ_ALL_CONTENT in scopes and "admin" not in group_names:
-        if has_review_assignments is None:
-            has_review_assignments = user.review_tag_assignments.exists()
-        if has_review_assignments:
-            scopes.remove(READ_ALL_CONTENT)
     return " ".join(scopes)
