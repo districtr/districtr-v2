@@ -62,30 +62,14 @@ export const config = {
   s3BucketName: cfg.requireSecret("s3BucketName"),
   cdnUrl: cfg.require("cdnUrl"),
 
-  // Auth0 (non-secret identifiers) — still the live issuer until cutover.
-  auth0Domain: cfg.require("auth0Domain"),
-  auth0ApiAudience: cfg.require("auth0ApiAudience"),
-  auth0Issuer: cfg.require("auth0Issuer"),
-  auth0Algorithms: cfg.get("auth0Algorithms") ?? "RS256",
-
-  // Backend JWT verification (AUTH_* on the api task). Points at Auth0 until
-  // cutover, when pr7b derives these from cmsDomain.
-  authJwksUrl: cfg.require("authJwksUrl"),
-  authAudience: cfg.require("authAudience"),
-  authIssuer: cfg.require("authIssuer"),
-  authAlgorithms: cfg.get("authAlgorithms") ?? "RS256",
-
-  // Districtr CMS (Wagtail) — the future JWT issuer. After cutover the backend
-  // verifies tokens against https://{cmsDomain}/.well-known/jwks.json.
+  // Districtr CMS (Wagtail) — the JWT issuer. The backend verifies tokens
+  // against https://{cmsDomain}/.well-known/jwks.json.
   cmsDomain: cfg.require("cmsDomain"),
   /** `aud` claim minted by the CMS and required by the backend verifier. */
   jwtAudience: cfg.get("jwtAudience") ?? `https://${apiDomain}/`,
 
   // Secrets (KMS-encrypted in the stack file; land in SSM SecureStrings)
   secretKey: cfg.requireSecret("secretKey"),
-  auth0ClientId: cfg.requireSecret("auth0ClientId"),
-  auth0ClientSecret: cfg.requireSecret("auth0ClientSecret"),
-  auth0SessionSecret: cfg.requireSecret("auth0SessionSecret"),
   djangoSecretKey: cfg.requireSecret("djangoSecretKey"),
   // RS256 PEM pair from `manage.py generate_jwt_keys`.
   jwtSigningKey: cfg.requireSecret("jwtSigningKey"),

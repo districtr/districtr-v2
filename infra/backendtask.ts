@@ -80,12 +80,13 @@ export function createBackendTaskConfig(repos: Repos, database: Database) {
     {name: "DOMAIN", value: config.apiDomain},
     {name: "PROJECT_NAME", value: "Districtr v2 backend"},
     {name: "BACKEND_CORS_ORIGINS", value: config.corsOrigins},
-    {name: "AWS_S3_BUCKET", value: config.s3BucketName},
+    {name: "R2_BUCKET_NAME", value: config.s3BucketName},
     {name: "CDN_URL", value: config.cdnUrl},
-    {name: "AUTH_JWKS_URL", value: config.authJwksUrl},
-    {name: "AUTH_AUDIENCE", value: config.authAudience},
-    {name: "AUTH_ISSUER", value: config.authIssuer},
-    {name: "AUTH_ALGORITHMS", value: config.authAlgorithms},
+    // JWT verification against the CMS issuer (see infra/cms.ts).
+    {name: "AUTH_JWKS_URL", value: `https://${config.cmsDomain}/.well-known/jwks.json`},
+    {name: "AUTH_ISSUER", value: `https://${config.cmsDomain}`},
+    {name: "AUTH_AUDIENCE", value: config.jwtAudience},
+    {name: "AUTH_ALGORITHMS", value: "RS256"},
     // Session tokens issued but not yet required; flip to "true" after rollout.
     {name: "SESSION_ENFORCE", value: "false"},
     // Auth via the task role (default boto3 chain), not static keys.
