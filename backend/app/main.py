@@ -54,8 +54,9 @@ from app.core.security import (
     require_session,
     verify_session_turnstile,
 )
-import app.exports.main as exports
+import app.admin_ops.main as admin_ops
 import app.cms.main as cms
+import app.exports.main as exports
 import app.comments.main as comments
 from app.comments.main import sync_district_comments, sync_community_comments
 from app.comments.models import DistrictCommentInput
@@ -139,8 +140,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-app.include_router(exports.router)
+app.include_router(admin_ops.router)
 app.include_router(cms.router)
+app.include_router(exports.router)
 app.include_router(comments.router)
 app.include_router(save_share.router)
 app.include_router(thumbnails.router)
