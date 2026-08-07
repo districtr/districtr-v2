@@ -26,14 +26,11 @@ export function createFrontend(
   const image = pulumi.interpolate`${repos.frontendRepo.repositoryUrl}:${imageTag}`;
 
   // --- Secrets: Pulumi config -> SSM SecureString -> task definition ---
-  // NEXT_PUBLIC_* values are baked at image build time; only Auth0 session
-  // material is needed at runtime.
+  // NEXT_PUBLIC_* values are baked at image build time; only the NextAuth
+  // session secret is needed at runtime.
   const ssmPrefix = `/districtr/${config.stack}/frontend`;
-  const secretParams = [
-    {envName: "AUTH0_CLIENT_ID", value: config.auth0ClientId},
-    {envName: "AUTH0_CLIENT_SECRET", value: config.auth0ClientSecret},
-    {envName: "AUTH0_SECRET", value: config.auth0SessionSecret},
-  ].map(({envName, value}) => ({
+  const secretParams = [{envName: "AUTH_SECRET", value: config.authSecret}].map(
+    ({envName, value}) => ({
     envName,
     param: new aws.ssm.Parameter(`${name}-frontend-${envName}`, {
       name: `${ssmPrefix}/${envName}`,
@@ -80,10 +77,8 @@ export function createFrontend(
         environment: [
           {name: "APP_BASE_URL", value: `https://${config.appDomain}`},
           {name: "NEXT_SERVER_API_URL", value: `https://${config.apiDomain}`},
-          {name: "AUTH0_DOMAIN", value: config.auth0Domain},
-          {name: "AUTH0_ISSUER", value: config.auth0Issuer},
-          {name: "AUTH0_AUDIENCE", value: config.auth0ApiAudience},
-          {name: "AUTH0_ALGORITHMS", value: config.auth0Algorithms},
+          // Server-side CMS calls (NextAuth credentials flow, content reads).
+          {name: "CMS_URL", value: `https://${config.cmsDomain}`},
           {name: "UNDER_CONSTRUCTION", value: String(config.underConstruction)},
         ],
         secrets: secretParams.map(s => ({name: s.envName, valueFrom: s.param.arn})),

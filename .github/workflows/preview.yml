@@ -47,6 +47,9 @@ env:
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
   CLUSTER: districtr-dev
   DEV_API_URL: https://api.dev.districtr.org
+  # Previews share the dev CMS (a preview does not get its own CMS service),
+  # so editor login and content fetches resolve there.
+  DEV_CMS_URL: https://cms.dev.districtr.org
 
 jobs:
   preview:
@@ -341,6 +344,7 @@ jobs:
           FE_HOST: ${{ steps.setup.outputs.fe_host }}
           FE_URL: ${{ steps.setup.outputs.fe_url }}
           API_URL: ${{ steps.setup.outputs.api_url }}
+          CMS_URL: ${{ env.DEV_CMS_URL }}
           FE_TG: ${{ steps.setup.outputs.fe_tg }}
           FE_SERVICE: ${{ steps.setup.outputs.fe_service }}
           FE_PRIORITY: ${{ steps.setup.outputs.fe_priority }}
@@ -370,6 +374,7 @@ jobs:
           NEXT_PUBLIC_S3_BUCKET_URL_MIRROR1=https://tilesets2.cdn.districtr.org
           NEXT_PUBLIC_S3_BUCKET_URL_MIRROR2=https://tilesets3.cdn.districtr.org
           NEXT_PUBLIC_API_URL=${API_URL}
+          NEXT_PUBLIC_CMS_URL=${CMS_URL}
           NEXT_PUBLIC_BUILD_TAG=${GITHUB_SHA}
           EOF
             docker build --secret id=SENTRY_AUTH_TOKEN,env=SENTRY_AUTH_TOKEN -t "$IMAGE" app

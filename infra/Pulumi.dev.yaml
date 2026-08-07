@@ -16,15 +16,6 @@ config:
   districtr-infra:s3BucketName:
     secure: v1:NvATpjb2PUlKwXAz:1KdAv/sq7vkzINPAPM9twpRm7+/8c1GwvnlYKYsB7gr/DyMSjT5dsDZL
   districtr-infra:cdnUrl: https://tilesets1.cdn.districtr.org
-  districtr-infra:auth0Domain: districtr-qa.us.auth0.com
-  districtr-infra:auth0ApiAudience: https://districtr-v2-*-api.fly.dev/
-  districtr-infra:auth0Issuer: https://districtr-qa.us.auth0.com/
-  districtr-infra:auth0SessionSecret:
-    secure: v1:preJBiBl2u/24nkE:d9j76lvR+mP2fmQiEsQlhjdkJYVIxHBq84DK/t5Z1Ov1o/5yL9q6BhbxOmfcU+fpH0iamE2m+lmlED+/ScpIlU0uqcenjzTYqkVwwhhW4oY=
-  districtr-infra:auth0ClientId:
-    secure: v1:VDwek9uKayIIqIra:6ygtVjRwKFxx7zPZZ08eizMqwVLwjNmoaSlcTOmY+YwvngQi/3yFnI75jAzkHH9S
-  districtr-infra:auth0ClientSecret:
-    secure: v1:UZUFBXR8ZGYIkyWx:8qzA9fCBlKFLohv3LhSsRCARVp+lEeVDWp2ONjwA7nx2coasvzB7bR+BECDr4x2OkSwXkCrpYaeTPFjYGZDBcnWd4eDm5Cz9lo/+26HJCuQ=
   districtr-infra:cmsDomain: cms.dev.districtr.org
   # Tokens minted before the AWS cutover carry the Fly audience; keep it as
   # the `aud` until cutover, then remove to default to https://{apiDomain}/.
