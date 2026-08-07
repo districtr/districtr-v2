@@ -1,4 +1,3 @@
-import {listCMSContent, PlacesCMSContent} from '@/app/utils/api/cms';
 import {GEODATA_URL} from '@/app/utils/api/constants';
 import * as topojson from 'topojson-client';
 import {create} from 'zustand';
