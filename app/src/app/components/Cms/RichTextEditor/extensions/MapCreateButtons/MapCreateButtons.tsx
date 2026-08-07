@@ -29,11 +29,11 @@ export const MapCreateButtons = ({views, type, createTag}: MapCreateButtonsProps
       );
     case 'simple':
       return (
-        <Flex direction="row" gap="2">
+        <CardGrid>
           {views.map(view => (
             <CreateButton key={view.districtr_map_slug} view={view} createTag={createTag} />
           ))}
-        </Flex>
+        </CardGrid>
       );
     case 'megaphone':
       return (

@@ -11,9 +11,16 @@ import {
 } from '@constants/document/draftStatus';
 import {PlanCard, PlanFlags, PlanTableRow} from './PlanGalleryRenderers';
 
+type PlanGalleryFilters = {
+  ids?: number[] | null;
+  tags?: string[] | null;
+  draftStatuses?: DraftStatus[];
+};
+
 export type PlanGalleryProps = {
-  ids?: Array<number>;
-  tags?: string[];
+  /** The curated gallery: ordered plan ids maintained on the CMS page. */
+  ids?: Array<number> | null;
+  tags?: string[] | null;
   title: string;
   description: string;
   paginate?: boolean;
@@ -41,11 +48,7 @@ export const PlanGallery: React.FC<PlanGalleryProps> = ({
   // are uniform, so a badge would be noise.
   const showStatus = isTagBased && includeInProgress;
   return (
-    <Gallery<
-      MinPublicDocument,
-      {ids?: number[]; tags?: string[]; draftStatuses?: DraftStatus[]},
-      MinPublicDocument[] | null
-    >
+    <Gallery<MinPublicDocument, PlanGalleryFilters, MinPublicDocument[] | null>
       title={title}
       description={description}
       paginate={paginate}
@@ -53,15 +56,16 @@ export const PlanGallery: React.FC<PlanGalleryProps> = ({
       showListView={showListView}
       filters={{ids, tags, draftStatuses: isTagBased ? draftStatuses : undefined}}
       queryKey={['plans']}
-      queryFunction={({filters, limit, offset}) =>
-        getPlans({
-          ids: filters.ids,
-          tags: filters.tags,
+      queryFunction={async ({filters, limit, offset}) => {
+        const result = await getPlans({
+          ids: filters.ids ?? undefined,
+          tags: filters.tags ?? undefined,
           draftStatuses: filters.draftStatuses,
           limit,
           offset,
-        }).then(result => (result?.ok ? result.response : null))
-      }
+        });
+        return result?.ok ? result.response : null;
+      }}
       selectItems={data => (data || []) as MinPublicDocument[]}
       gridRenderer={(plan, i) => (
         <PlanCard key={i} plan={plan} {...flags} showStatus={showStatus} />
