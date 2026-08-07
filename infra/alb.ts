@@ -95,9 +95,28 @@ export function createAlb(network: Network) {
     },
   });
 
+  const cmsTargetGroup = new aws.lb.TargetGroup(`${name}-cms-tg`, {
+    name: `${name}-cms`,
+    vpcId: network.vpc.id,
+    port: 8080,
+    protocol: "HTTP",
+    targetType: "ip",
+    deregistrationDelay: 30,
+    healthCheck: {
+      // /healthz is answered by middleware before host validation (the ALB
+      // probes by task IP, which ALLOWED_HOSTS rejects) and — like the
+      // backend's — is DB-free so a DB blip doesn't cycle tasks.
+      path: "/healthz",
+      matcher: "200",
+      interval: 30,
+      healthyThreshold: 2,
+      unhealthyThreshold: 3,
+    },
+  });
+
   const certificate = new aws.acm.Certificate(`${name}-cert`, {
     domainName: config.appDomain,
-    subjectAlternativeNames: [config.apiDomain, ...config.extraDomains],
+    subjectAlternativeNames: [config.apiDomain, config.cmsDomain, ...config.extraDomains],
     validationMethod: "DNS",
   });
 
@@ -151,11 +170,19 @@ export function createAlb(network: Network) {
     actions: [{type: "forward", targetGroupArn: backendTargetGroup.arn}],
   });
 
+  new aws.lb.ListenerRule(`${name}-cms-host`, {
+    listenerArn: httpsListener.arn,
+    priority: 20,
+    conditions: [{hostHeader: {values: [config.cmsDomain]}}],
+    actions: [{type: "forward", targetGroupArn: cmsTargetGroup.arn}],
+  });
+
   return {
     alb,
     accessLogsBucket,
     backendTargetGroup,
     frontendTargetGroup,
+    cmsTargetGroup,
     certificate,
     httpsListener,
   };
