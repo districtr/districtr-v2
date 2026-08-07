@@ -54,7 +54,8 @@ export function createDatabase(network: Network) {
   // Matches Settings.DATABASE_URL in backend/app/core/config.py.
   const databaseUrl = pulumi.interpolate`postgresql+psycopg://${DB_USER}:${password.result}@${db.address}:5432/${DB_NAME}`;
 
-  return {db, databaseUrl};
+  // The CMS (Django) reads discrete POSTGRES_* vars instead of a URL.
+  return {db, databaseUrl, dbName: DB_NAME, dbUser: DB_USER, dbPassword: password.result};
 }
 
 export type Database = ReturnType<typeof createDatabase>;
