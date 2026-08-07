@@ -48,7 +48,7 @@ def get_gerrydb_graph_file(
         if possible_local_path.exists():
             return str(possible_local_path)
 
-    return f"s3://{settings.R2_BUCKET_NAME}/{S3_GRAPH_PREFIX}/{gerrydb_name}.npz"
+    return f"s3://{settings.s3_bucket}/{S3_GRAPH_PREFIX}/{gerrydb_name}.npz"
 
 
 def from_networkx(G: Graph) -> DualLevelGraph:
