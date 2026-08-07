@@ -1,4 +1,4 @@
-import {listCMSContent, PlacesCMSContent} from '@/app/utils/api/cms';
+import {listCMSContent} from '@/app/utils/api/cmsContent';
 import {fastUniqBy} from '@/app/utils/arrays';
 import {Card, Flex, Grid, Heading, Text, Link} from '@radix-ui/themes';
 
@@ -12,14 +12,9 @@ export const metadata = {
 
 export default async function PortalsPage() {
   const cmsContent = await listCMSContent('tags');
-  const cmsContentWithPublishedContent = cmsContent?.filter(content => content.published_content);
-  if (!cmsContentWithPublishedContent) return null;
+  if (!cmsContent) return null;
 
-  const entries = fastUniqBy(cmsContentWithPublishedContent, 'slug').sort((a, b) =>
-    a.published_content!.title.localeCompare(b.published_content!.title)
-  ) as PlacesCMSContent[];
-
-  if (!entries) return null;
+  const entries = fastUniqBy(cmsContent, 'slug').sort((a, b) => a.title.localeCompare(b.title));
 
   return (
     <Flex direction={'column'}>
@@ -38,7 +33,7 @@ export default async function PortalsPage() {
         {entries.map(content => (
           <Card key={content.slug}>
             <Heading as="h3" size="4">
-              {content.published_content!.title}
+              {content.title}
             </Heading>
             <Link href={`/portal/${content.slug}`}>Go to portal</Link>
           </Card>

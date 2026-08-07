@@ -1,21 +1,24 @@
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 import {Box, Flex} from '@radix-ui/themes';
-import {CreateButton} from '@/app/components/Static/Interactions/CreateButton';
+import {CardGrid, MapStartCard} from '@/app/components/Static/Interactions/PlaceMapGrid';
 import Image from 'next/image';
 
 export interface MapCreateButtonsProps {
   views: Array<Pick<DistrictrMap, 'name' | 'districtr_map_slug'>>;
   type: 'simple' | 'megaphone';
 }
+
+// Both variants render the same MapStartCard used on place pages, so map
+// entry points look identical wherever they appear.
 export const MapCreateButtons = ({views, type}: MapCreateButtonsProps) => {
   switch (type) {
     case 'simple':
       return (
-        <Flex direction="row" gap="2">
+        <CardGrid>
           {views.map(view => (
-            <CreateButton key={view.districtr_map_slug} view={view} />
+            <MapStartCard key={view.districtr_map_slug} view={view} isCommunity={false} />
           ))}
-        </Flex>
+        </CardGrid>
       );
     case 'megaphone':
       return (
@@ -34,14 +37,12 @@ export const MapCreateButtons = ({views, type}: MapCreateButtonsProps) => {
             />
           </Box>
 
-          <Box className="relative z-10 text-center max-w-2xl mx-auto px-4">
-            {views.map(view => (
-              <CreateButton
-                key={view.districtr_map_slug}
-                view={view}
-                extraClasses="bg-districtrBlue text-white text-xl px-8 py-3 rounded-md font-bold hover:bg-blue-700 transition-colors cursor-pointer m-2"
-              />
-            ))}
+          <Box className="relative z-10 w-full max-w-2xl mx-auto px-4">
+            <Flex direction="column" gap="2">
+              {views.map(view => (
+                <MapStartCard key={view.districtr_map_slug} view={view} isCommunity={false} />
+              ))}
+            </Flex>
           </Box>
         </Flex>
       );

@@ -6,9 +6,15 @@ import {getPlans} from '@/app/utils/api/apiHandlers/getPlans';
 import {MinPublicDocument} from '@utils/api/apiHandlers/types';
 import {PlanCard, PlanFlags, PlanTableRow} from './PlanGalleryRenderers';
 
+type PlanGalleryFilters = {
+  ids?: number[] | null;
+  tags?: string[] | null;
+};
+
 export type PlanGalleryProps = {
-  ids?: Array<number>;
-  tags?: string[];
+  /** The curated gallery: ordered plan ids maintained on the CMS page. */
+  ids?: Array<number> | null;
+  tags?: string[] | null;
   title: string;
   description: string;
   paginate?: boolean;
@@ -27,7 +33,7 @@ export const PlanGallery: React.FC<PlanGalleryProps> = ({
   ...flags
 }: PlanGalleryProps) => {
   return (
-    <Gallery<MinPublicDocument, {ids?: number[]; tags?: string[]}, MinPublicDocument[] | null>
+    <Gallery<MinPublicDocument, PlanGalleryFilters, MinPublicDocument[] | null>
       title={title}
       description={description}
       paginate={paginate}
@@ -35,11 +41,15 @@ export const PlanGallery: React.FC<PlanGalleryProps> = ({
       showListView={showListView}
       filters={{ids, tags}}
       queryKey={['plans']}
-      queryFunction={({filters, limit, offset}) =>
-        getPlans({ids: filters.ids, tags: filters.tags, limit, offset}).then(result =>
-          result?.ok ? result.response : null
-        )
-      }
+      queryFunction={async ({filters, limit, offset}) => {
+        const result = await getPlans({
+          ids: filters.ids ?? undefined,
+          tags: filters.tags ?? undefined,
+          limit,
+          offset,
+        });
+        return result?.ok ? result.response : null;
+      }}
       selectItems={data => (data || []) as MinPublicDocument[]}
       gridRenderer={(plan, i) => <PlanCard key={i} plan={plan} {...flags} />}
       tableHeader={

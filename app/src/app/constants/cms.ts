@@ -45,6 +45,7 @@ type AnyPlanGalleryAttrSpec = {
 }[keyof PlanGalleryProps];
 
 export const PLAN_GALLERY_ATTRIBUTES = [
+  // `ids` is the curated gallery: ordered plan ids maintained on the page.
   {name: 'ids', default: null},
   {name: 'tags', default: null},
   {name: 'title', default: null},

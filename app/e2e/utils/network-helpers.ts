@@ -18,7 +18,6 @@ export const API_ENDPOINTS = {
   patchUnshatter: '**/api/unshatter/*',
   root: '**/', // Returns {"message":"Hello World"}
   districtrMaps: '**/api/districtr_maps',
-  cmsContent: '**/api/cms/*',
 } as const;
 
 function globToRegExp(glob: string): RegExp {
