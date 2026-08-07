@@ -62,12 +62,6 @@ export const config = {
   s3BucketName: cfg.requireSecret("s3BucketName"),
   cdnUrl: cfg.require("cdnUrl"),
 
-  // Auth0 (non-secret identifiers) — still the live issuer until cutover.
-  auth0Domain: cfg.require("auth0Domain"),
-  auth0ApiAudience: cfg.require("auth0ApiAudience"),
-  auth0Issuer: cfg.require("auth0Issuer"),
-  auth0Algorithms: cfg.get("auth0Algorithms") ?? "RS256",
-
   // Districtr CMS (Wagtail) — the JWT issuer. The backend verifies tokens
   // against https://{cmsDomain}/.well-known/jwks.json.
   cmsDomain: cfg.require("cmsDomain"),
@@ -76,9 +70,6 @@ export const config = {
 
   // Secrets (KMS-encrypted in the stack file; land in SSM SecureStrings)
   secretKey: cfg.requireSecret("secretKey"),
-  auth0ClientId: cfg.requireSecret("auth0ClientId"),
-  auth0ClientSecret: cfg.requireSecret("auth0ClientSecret"),
-  auth0SessionSecret: cfg.requireSecret("auth0SessionSecret"),
   djangoSecretKey: cfg.requireSecret("djangoSecretKey"),
   // RS256 PEM pair from `manage.py generate_jwt_keys`.
   jwtSigningKey: cfg.requireSecret("jwtSigningKey"),
