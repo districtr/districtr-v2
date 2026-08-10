@@ -19,10 +19,15 @@ child model: it round-trips the legacy ``varchar[]`` column verbatim, needs
 no extra join table, and the slugs are not translatable content.
 """
 
+import uuid
+from datetime import timedelta
+
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.db import DatabaseError, models, transaction
+from django.shortcuts import redirect
+from django.utils import timezone
 from wagtail.admin.panels import FieldPanel
 from wagtail.fields import StreamField
 from wagtail.models import Page
@@ -39,7 +44,8 @@ class FrontendPageMixin:
 
     - ``preview_modes = []`` disables the editor Preview panel and the "View
       draft" button; there is no Django template, so previewing raised
-      TemplateDoesNotExist 500s.
+      TemplateDoesNotExist 500s. ContentPageBase re-enables it headlessly
+      via snapshot + frontend redirect (serve_preview below).
     - URL generation is redirected at the single choke point Wagtail
       documents for custom routing, ``get_url_parts``, so every derived link
       ("View live" in the editor header/listings/flash messages, usage
@@ -77,11 +83,55 @@ class FrontendPageMixin:
         return self.get_url()
 
 
+class PreviewSnapshot(models.Model):
+    """A draft page serialized exactly as the content API would serve it,
+    parked for the frontend preview route. The row IS the capability: the
+    unguessable pk is the whole grant (short TTL, pruned on write), so the
+    fetch endpoint needs no auth."""
+
+    TTL = timedelta(hours=1)
+
+    token = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    data = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @classmethod
+    def fresh(cls):
+        return cls.objects.filter(created_at__gte=timezone.now() - cls.TTL)
+
+    @classmethod
+    def prune(cls):
+        cls.objects.filter(created_at__lt=timezone.now() - cls.TTL).delete()
+
+
 class ContentPageBase(FrontendPageMixin, Page):
     """Shared shape of tag/place pages: subtitle + StreamField body."""
 
     subtitle = models.CharField(max_length=255, blank=True, default="")
     body = StreamField(ContentStreamBlock(), blank=True)
+
+    # Content type key in the public API (content/api.py CONTENT_TYPE_PAGES).
+    api_content_type: str
+
+    # Re-enable the Preview panel / "View draft" button the mixin disables:
+    # previews are headless too — serve_preview parks a serialized snapshot
+    # and hands the editor's iframe/tab to the frontend, which fetches it
+    # back by token (GET /api/content/preview/<token>).
+    preview_modes = [("frontend", "Preview on site")]
+
+    def serve_preview(self, request, mode_name):
+        # Local import: content.api imports these models.
+        from content.api import _serialize_page
+
+        PreviewSnapshot.prune()
+        snapshot = PreviewSnapshot.objects.create(
+            data={
+                "content": _serialize_page(self, self.api_content_type),
+                "available_languages": [self.locale.language_code],
+                "type": self.api_content_type,
+            }
+        )
+        return redirect(f"{settings.FRONTEND_URL}/preview/{snapshot.token}")
 
     content_panels = Page.content_panels + [
         FieldPanel("subtitle"),
@@ -154,6 +204,7 @@ class StaticPage(ContentPageBase):
     /api/content/static/slug/<slug>; a hardcoded Next.js route with the same
     path takes precedence, so pages can migrate into the CMS one at a time."""
 
+    api_content_type = "static"
     parent_page_types = ["content.StaticIndexPage"]
     subpage_types: list[str] = []
 
@@ -174,6 +225,7 @@ class TagPage(ContentPageBase):
         help_text="Slug of the Districtr map module this tag page features.",
     )
 
+    api_content_type = "tags"
     parent_page_types = ["content.TagsIndexPage"]
     subpage_types: list[str] = []
 
@@ -230,6 +282,7 @@ class PlacePage(ContentPageBase):
         help_text="Slugs of the Districtr map modules this place page features.",
     )
 
+    api_content_type = "places"
     parent_page_types = ["content.PlacesIndexPage"]
     subpage_types: list[str] = []
 
