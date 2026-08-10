@@ -7,7 +7,7 @@ import shapely
 from shapely import geometry
 
 from app.evaluation.context import DocumentEvaluationContext
-from app.evaluation.graph import get_graph
+from app.evaluation.graph_loader import get_graph
 from app.evaluation.types import CutEdgesResult, DistrictId
 
 logger = logging.getLogger(__name__)
@@ -33,8 +33,7 @@ def block_cut_edges(context: DocumentEvaluationContext) -> CutEdgesResult:
     unit_to_zone, parent_unit_to_zone = context.split_zone_assignments
 
     G = get_graph(context.gerrydb_table)
-    zone_by_geo: dict[str, int] = {**parent_unit_to_zone, **unit_to_zone}
-    cut_count = G.cut_edges(zone_by_geo)
+    cut_count = G.cut_edges(unit_to_zone, parent_unit_to_zone)
     return {"cut_count": cut_count, "unit_type": unit_type}
 
 

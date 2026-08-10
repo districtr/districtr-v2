@@ -21,7 +21,7 @@ from app.utils import (
     create_spatial_index as _create_spatial_index,
 )
 from app.core.io import get_local_or_s3_path
-from app.evaluation.graph import S3_GRAPH_PREFIX
+from app.evaluation.graph_loader import S3_GRAPH_PREFIX
 from app.constants import GERRY_DB_SCHEMA
 from functools import wraps
 from contextlib import contextmanager

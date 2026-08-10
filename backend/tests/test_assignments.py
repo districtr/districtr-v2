@@ -2,7 +2,7 @@ import networkx as nx
 import pytest
 
 from app.assignments.assignments import _detect_outlier_labels, _heal_or_fill
-from app.evaluation.dual_level_dual_graph import DualLevelDualGraph
+from app.evaluation.graph_loader import from_networkx
 
 
 @pytest.fixture
@@ -22,7 +22,7 @@ def two_parent_nx_graph():
 
 @pytest.fixture
 def two_parent_graph(two_parent_nx_graph):
-    return DualLevelDualGraph.from_networkx(two_parent_nx_graph)
+    return from_networkx(two_parent_nx_graph)
 
 
 # --- heal behaviour ---
@@ -80,7 +80,7 @@ def test_fill_does_not_overwrite_assigned(two_parent_graph):
 def test_no_child_nodes_unaffected(two_parent_nx_graph):
     # Nodes without a "parent" key pass through unchanged
     two_parent_nx_graph.add_node("standalone")
-    G = DualLevelDualGraph.from_networkx(two_parent_nx_graph)
+    G = from_networkx(two_parent_nx_graph)
     result = _heal_or_fill({"standalone": 3}, G)
     assert result == {"standalone": 3}
 

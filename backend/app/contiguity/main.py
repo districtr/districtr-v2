@@ -1,5 +1,5 @@
 from typing import Iterable, Hashable, Any
-from app.evaluation.dual_level_dual_graph import DualLevelDualGraph
+from app.evaluation.graph import DualLevelDualGraph
 from app.models import UUIDType, DistrictrMap
 from app.utils import assert_safe_ident
 from sqlmodel import Session, Integer, ARRAY
@@ -62,13 +62,16 @@ def get_assigned_nodes(
             {zone_filter}
         GROUP BY a.zone""").bindparams(*binds)
 
-    return [
-        ZoneContiguousNodes(
-            zone=row.zone,
-            nodes=(sorted(G.expand_non_contiguous(set(row.nodes))) if G else row.nodes),
-        )
-        for row in session.execute(sql, params)
-    ]
+    zones = []
+    for row in session.execute(sql, params):
+        if G:
+            nodes = set(row.nodes)
+            G.expand_non_contiguous(nodes)
+            nodes = sorted(nodes)
+        else:
+            nodes = row.nodes
+        zones.append(ZoneContiguousNodes(zone=row.zone, nodes=nodes))
+    return zones
 
 
 class NodeWithBBoxes(BaseModel):
@@ -112,7 +115,12 @@ def get_assigned_nodes_bboxes(
         ),
         {"document_id": document_id, "zone": zone},
     ).scalars()
-    geo_ids = sorted(G.expand_non_contiguous(set(assigned))) if G else list(assigned)
+    if G:
+        geo_ids_set = set(assigned)
+        G.expand_non_contiguous(geo_ids_set)
+        geo_ids = sorted(geo_ids_set)
+    else:
+        geo_ids = list(assigned)
     if not geo_ids:
         return None
 

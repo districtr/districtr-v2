@@ -11,8 +11,8 @@ from sqlmodel import create_engine, Session
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError, ProgrammingError
 import subprocess
-import app.evaluation.graph as eval_graph_module
-from app.evaluation.graph import get_graph as _get_graph_cached
+import app.evaluation.graph_loader as eval_graph_module
+from app.evaluation.graph_loader import get_graph as _get_graph_cached
 from app.evaluation.context import GerrydbTableName
 from app.evaluation.types import Election
 from tests.constants import (
@@ -824,10 +824,12 @@ def _vtd_geoid(pr: int, pc: int) -> str:
 # ---------------------------------------------------------------------------
 #
 # def _build_grid_block_graph() -> Graph:
+#     """Plain block graph, no parent hierarchy — mirrors graph_from_gpkg's
+#     non-shatterable-map output (no annotate step run)."""
 #     G = Graph()
 #     for r in range(8):
 #         for c in range(8):
-#             G.add_node(_block_geoid(r, c), parent=_vtd_geoid(r // 2, c // 2))
+#             G.add_node(_block_geoid(r, c))
 #     for r in range(8):
 #         for c in range(7):
 #             G.add_edge(_block_geoid(r, c), _block_geoid(r, c + 1))
@@ -850,8 +852,12 @@ def _vtd_geoid(pr: int, pc: int) -> str:
 #     return G
 #
 # def _build_grid_combined_graph() -> Graph:
-#     """Inline of pipelines/transforms/graph.py:_build_combined_graph."""
+#     """Inline of pipelines/transforms/graph.py:_build_combined_graph, with the
+#     annotate step (_annotate_graph_with_parents_from_gpkg) also inlined."""
 #     G = _build_grid_block_graph()
+#     for r in range(8):
+#         for c in range(8):
+#             G.nodes[_block_geoid(r, c)]["parent"] = _vtd_geoid(r // 2, c // 2)
 #     G.graph["weighted_edges"] = {}
 #     for u, v in list(G.edges()):
 #         p_u = G.nodes[u]["parent"]

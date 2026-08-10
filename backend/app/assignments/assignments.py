@@ -7,14 +7,14 @@ from sqlalchemy import cast, literal, text, Column, String, Integer, MetaData, T
 from sqlmodel import Session, select
 from sqlalchemy.dialects.postgresql import insert, UUID as PG_UUID
 import logging
-from app.evaluation.dual_level_dual_graph import DualLevelDualGraph
+from app.evaluation.graph import DualLevelDualGraph
 from app.models import (
     Assignments,
     CommunityAssignments,
     DistrictrMap,
 )
 from app.core.config import settings
-from app.evaluation.graph import get_graph
+from app.evaluation.graph_loader import get_graph
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -232,8 +232,7 @@ def _heal_or_fill(
     geo_ids = list(zone_by_geo)
     parents = G.parents_of(geo_ids)
     for geo_id, parent in zip(geo_ids, parents):
-        # Unknown ids and ids without a parent both map to None (mirrors the
-        # old "skip if node_data is None or 'parent' not in node_data" check).
+        # Unknown ids and ids without a parent both map to None.
         if parent is None:
             continue
         children_assignments_by_parent.setdefault(parent, {})[geo_id] = zone_by_geo[

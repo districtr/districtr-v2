@@ -7,7 +7,7 @@ import logging
 
 from app.contiguity.main import check_subgraph_contiguity
 from app.evaluation.context import DocumentEvaluationContext, TOTAL_POP_COL
-from app.evaluation.graph import get_graph
+from app.evaluation.graph_loader import get_graph
 from app.evaluation.types import (
     AssignedUnitsResult,
     PopulationDeviationResults,
@@ -43,7 +43,7 @@ def assigned_units(context: DocumentEvaluationContext) -> AssignedUnitsResult:
     whole_assigned_count = len(parent_unit_to_zone)
     G = get_graph(context.gerrydb_table)
 
-    parent_covered_children = sum(len(G.children_of(p)) for p in parent_unit_to_zone)
+    parent_covered_children = sum(G.num_children_of(p) for p in parent_unit_to_zone)
     assigned_child_count = len(unit_to_zone) + parent_covered_children
 
     if not unit_to_zone:
@@ -145,7 +145,8 @@ def contiguous(context: DocumentEvaluationContext) -> dict[DistrictId, bool]:
     zone_to_nodes: dict[DistrictId, set[str]] = {}
     for geoid, zone in assignment_rows:
         zone_to_nodes.setdefault(zone, set()).add(geoid)
-    return {
-        zone: check_subgraph_contiguity(G, G.expand_non_contiguous(nodes))
-        for zone, nodes in zone_to_nodes.items()
-    }
+    result: dict[DistrictId, bool] = {}
+    for zone, nodes in zone_to_nodes.items():
+        G.expand_non_contiguous(nodes)
+        result[zone] = check_subgraph_contiguity(G, nodes)
+    return result

@@ -342,17 +342,15 @@ def test_npz_write_read_round_trip(tmp_path):
             tuple(sorted((node_ids[u], node_ids[v]))) for u, v in d["edges"].tolist()
         }
         assert edges == {tuple(sorted(e)) for e in G.edges()}
-        parent_ids = d["parent_ids"].tolist()
-        assert parent_ids == ["p1", "p2"]
         parents = {
-            node_ids[i]: parent_ids[p]
+            node_ids[i]: node_ids[p]
             for i, p in enumerate(d["parent_of"].tolist())
             if p >= 0
         }
         assert parents == {"b1": "p1", "b2": "p1", "b3": "p2"}
         assert bool(d["has_weighted_edges"])
         we = {
-            (parent_ids[a], parent_ids[b]): int(w)
+            (node_ids[a], node_ids[b]): int(w)
             for (a, b), w in zip(d["we_keys"].tolist(), d["we_vals"].tolist())
         }
         assert we == {("p1", "p2"): 1}
@@ -370,7 +368,6 @@ def test_npz_plain_graph_has_no_attr_flags(tmp_path):
     with np.load(out, allow_pickle=False) as d:
         assert not bool(d["has_weighted_edges"])
         assert not bool(d["has_non_contiguous_parents"])
-        assert d["parent_ids"].size == 0
         assert (d["parent_of"] == -1).all()
 
 

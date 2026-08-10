@@ -65,18 +65,22 @@ def graph_to_npz_arrays(G: Graph) -> dict:
         for node, data in G.nodes(data=True)
         if (p := data.get("parent")) is not None
     }
-    parent_ids = np.unique(np.asarray(list(node_parents.values()), dtype=str))
-    ppos = {p: i for i, p in enumerate(parent_ids.tolist())}
     parent_of = np.full(len(node_ids), -1, dtype=np.int32)
     for node, p in node_parents.items():
-        parent_of[idx[node]] = ppos[p]
+        if p not in idx:
+            raise ValueError(
+                f"Parent {p!r} of node {node!r} is not itself a node in the "
+                "graph — the combined-graph build must add every referenced "
+                "parent as a node."
+            )
+        parent_of[idx[node]] = idx[p]
 
     # "Absent attr" (plain graphs) and "empty attr" (combined graphs) are
     # distinct in nx — preserve that with has_* flags.
     we = G.graph.get("weighted_edges")
     ncp = G.graph.get("non_contiguous_parents")
     if we:
-        we_keys = np.asarray([(ppos[a], ppos[b]) for a, b in we], dtype=np.int32)
+        we_keys = np.asarray([(idx[a], idx[b]) for a, b in we], dtype=np.int32)
         we_vals = np.asarray(list(we.values()), dtype=np.int32)
     else:
         we_keys = np.empty((0, 2), dtype=np.int32)
@@ -86,7 +90,6 @@ def graph_to_npz_arrays(G: Graph) -> dict:
         "format_version": np.int32(GRAPH_NPZ_FORMAT_VERSION),
         "node_ids": node_ids,
         "edges": edges,
-        "parent_ids": parent_ids,
         "parent_of": parent_of,
         "has_weighted_edges": np.bool_(we is not None),
         "we_keys": we_keys,

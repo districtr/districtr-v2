@@ -107,7 +107,7 @@ from app.utils import (
     RowFormat,
     package_rows,
 )
-from app.evaluation.graph import get_graph
+from app.evaluation.graph_loader import get_graph
 from contextlib import asynccontextmanager
 from fiona.transform import transform
 from fastapi.responses import RedirectResponse
