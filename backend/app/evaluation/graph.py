@@ -30,7 +30,7 @@ def get_gerrydb_graph_file(
     if possible_local_path.exists():
         return str(possible_local_path)
 
-    return f"s3://{settings.R2_BUCKET_NAME}/{S3_GRAPH_PREFIX}/{gerrydb_name}.pkl"
+    return f"s3://{settings.s3_bucket}/{S3_GRAPH_PREFIX}/{gerrydb_name}.pkl"
 
 
 def get_gerrydb_graph(file_path: str) -> Graph:
