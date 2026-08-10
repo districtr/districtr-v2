@@ -82,8 +82,12 @@ pipelines/build_client_rects/output/*
 data/**/*
 backend/.env.docker
 app/.env.docker
+cms/.env.docker
+cms/staticfiles/
+cms/media/
 !pre-commit/Dockerfile.dev
 !pipelines/Dockerfile.dev
+!cms/Dockerfile.dev
 pipelines/districtr_pipelines.egg*
 docker-compose.override.yml
 app/.env.docker
@@ -175,3 +179,6 @@ codex.md
 # misc
 docker-compose.mac.yml
 app/public/*-basemap-style.json
+
+# Beads / Dolt files (added by bd init)
+.beads/proxieddb/
