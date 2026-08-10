@@ -148,13 +148,6 @@ export const getCMSContent = <T extends CmsContentTypes>(
     `/api/content/${type}/slug/${slug}?language=${language}`
   );
 
-/**
- * Fetch a single live (published) curated plan gallery by slug. Returns null on
- * 404 (no live gallery) and on 403 (group_only gallery, no/insufficient token).
- * Pass `accessToken` to authenticate for group_only galleries; authorized
- * responses are fetched with no-store so they never enter a shared cache.
- */
-
 export const listCMSContent = async (
   type: CmsContentTypes,
   params: {language?: string} = {}
