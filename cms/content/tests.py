@@ -20,13 +20,15 @@ from django.contrib.auth.models import Group
 from django.core.management import call_command as django_call_command
 from django.core.management.base import CommandError
 from django.db import connection
-from django.test import SimpleTestCase, TestCase, override_settings
+from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
+from django.utils import timezone
 from wagtail.models import GroupPagePermission, Locale, Page, Revision, Site
 from wagtail.permission_policies.pages import PagePermissionPolicy
 
 from content.models import (
     PlacePage,
     PlacesIndexPage,
+    PreviewSnapshot,
     StaticIndexPage,
     StaticPage,
     TagPage,
@@ -623,22 +625,22 @@ class FrontendUrlTests(TestCase):
         # No frontend listing for static pages: not routable, no "View live".
         self.assertIsNone(self.static_index.url)
 
-    def test_preview_disabled(self):
+    def test_index_preview_disabled(self):
         # No Wagtail template exists; previewing raised TemplateDoesNotExist.
-        for page in (
-            self.tag,
-            self.place,
-            self.static,
-            self.tags_index,
-            self.places_index,
-            self.static_index,
-        ):
+        # Content pages preview headlessly instead (PreviewTests); index
+        # pages have nothing to preview.
+        for page in (self.tags_index, self.places_index, self.static_index):
             self.assertEqual(page.preview_modes, [])
             self.assertFalse(page.is_previewable())
 
+    def test_content_pages_are_previewable(self):
+        for page in (self.tag, self.place, self.static):
+            self.assertTrue(page.is_previewable())
+
     def test_admin_editor_shows_frontend_live_url(self):
         # The page editor (where Preview/"View live" 500'd) renders, offers
-        # no preview panel, and links "View live" at the frontend URL.
+        # the headless preview panel, and links "View live" at the frontend
+        # URL.
         self.tag.save_revision(clean=False).publish()
         get_user_model().objects.create_superuser(
             username="root@districtr.org",
@@ -652,7 +654,7 @@ class FrontendUrlTests(TestCase):
         self.assertEqual(response.status_code, 200)
         html = response.content.decode()
         self.assertIn("https://beta.districtr.org/portal/fair-maps", html)
-        self.assertNotIn('data-side-panel-toggle="preview"', html)
+        self.assertIn('data-side-panel-toggle="preview"', html)
 
 
 # ---------------------------------------------------------------------------
@@ -1175,3 +1177,49 @@ class MigrateTiptapCommandTests(TestCase):
         )
         self.assertTrue(entry["text_ok"])
         self.assertEqual(entry["docs"]["published"]["output_blocks"]["plan_gallery"], 1)
+
+
+@override_settings(FRONTEND_URL="https://beta.districtr.org")
+class PreviewTests(TestCase):
+    """Headless preview: serve_preview parks a serialized snapshot and
+    redirects to the frontend, which fetches it back by token."""
+
+    @classmethod
+    def setUpTestData(cls):
+        en = Locale.objects.get(language_code="en")
+        static_index = StaticIndexPage.objects.get(locale=en)
+        cls.draft = StaticPage(title="Draft About", slug="about-draft", live=False)
+        static_index.add_child(instance=cls.draft)
+
+    def test_serve_preview_snapshots_and_redirects(self):
+        response = self.draft.serve_preview(RequestFactory().get("/"), "frontend")
+        self.assertEqual(response.status_code, 302)
+        prefix = "https://beta.districtr.org/preview/"
+        self.assertTrue(response["Location"].startswith(prefix))
+
+        token = response["Location"].removeprefix(prefix)
+        snapshot = PreviewSnapshot.objects.get(token=token)
+        self.assertEqual(snapshot.data["type"], "static")
+        self.assertEqual(snapshot.data["content"]["title"], "Draft About")
+        self.assertEqual(snapshot.data["available_languages"], ["en"])
+
+    def test_preview_endpoint_serves_fresh_and_404s_expired(self):
+        response = self.draft.serve_preview(RequestFactory().get("/"), "frontend")
+        token = response["Location"].rsplit("/", 1)[-1]
+        url = f"/api/content/preview/{token}"
+
+        payload = self.client.get(url).json()
+        self.assertEqual(payload["content"]["slug"], "about-draft")
+
+        PreviewSnapshot.objects.filter(token=token).update(
+            created_at=timezone.now() - PreviewSnapshot.TTL * 2
+        )
+        self.assertEqual(self.client.get(url).status_code, 404)
+
+    def test_prune_on_mint_drops_stale_snapshots(self):
+        stale = PreviewSnapshot.objects.create(data={})
+        PreviewSnapshot.objects.filter(token=stale.token).update(
+            created_at=timezone.now() - PreviewSnapshot.TTL * 2
+        )
+        self.draft.serve_preview(RequestFactory().get("/"), "frontend")
+        self.assertFalse(PreviewSnapshot.objects.filter(token=stale.token).exists())
