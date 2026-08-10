@@ -148,6 +148,18 @@ export const getCMSContent = <T extends CmsContentTypes>(
     `/api/content/${type}/slug/${slug}?language=${language}`
   );
 
+/**
+ * Fetch a draft snapshot minted by the Wagtail editor's "Preview on site"
+ * button. Tokens are single-purpose uuids with a short server-side TTL;
+ * no-store keeps drafts out of every cache.
+ */
+export const getCMSPreview = (token: string): Promise<CMSContentResponseWithLanguages | null> =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(token)
+    ? cmsFetch<CMSContentResponseWithLanguages>(`/api/content/preview/${token}`, {
+        cache: 'no-store',
+      })
+    : Promise.resolve(null);
+
 export const listCMSContent = async (
   type: CmsContentTypes,
   params: {language?: string} = {}
