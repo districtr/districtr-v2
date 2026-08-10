@@ -5,8 +5,10 @@ from functools import lru_cache
 from typing import Annotated, Any
 
 from pydantic import (
+    AliasChoices,
     AnyUrl,
     BeforeValidator,
+    Field,
     PostgresDsn,
     computed_field,
     model_validator,
@@ -157,13 +159,13 @@ class Settings(BaseSettings):
     # in-process LRU; a redeploy or task restart starts fresh.
     GRAPH_CACHE_PATH: str = "/tmp/districtr-graph-cache"
 
-    # Object storage is AWS S3. R2_BUCKET_NAME keeps its legacy env-var name —
-    # it is a live deployment secret — but despite the prefix it holds the S3
-    # bucket; AWS_S3_BUCKET is accepted as a forward-looking alias. Read the
-    # bucket through `s3_bucket`, never the raw field.
-    R2_BUCKET_NAME: str | None = None
+    # Object storage is AWS S3. R2_BUCKET_NAME is accepted as a legacy env-var
+    # alias — it is still the bucket secret's name in existing deployments.
+    AWS_S3_BUCKET: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("AWS_S3_BUCKET", "R2_BUCKET_NAME"),
+    )
     CDN_URL: str | None = None
-    AWS_S3_BUCKET: str | None = None
     # Optional custom S3 endpoint (e.g. an S3-compatible host); unset = real AWS.
     AWS_S3_ENDPOINT: str | None = None
     AWS_ACCESS_KEY_ID: str | None = None
@@ -176,11 +178,6 @@ class Settings(BaseSettings):
     # SNS topic ARN for operational alerts (e.g. missing graph pkl files).
     # Populated by the ECS task definition; absent in local dev.
     ALARM_SNS_TOPIC_ARN: str | None = None
-
-    @property
-    def s3_bucket(self) -> str | None:
-        """Matches cms/config/settings GPKG_BUCKET resolution."""
-        return self.R2_BUCKET_NAME or self.AWS_S3_BUCKET
 
     def get_s3_client(self):
         if not self.AWS_ACCESS_KEY_ID or not self.AWS_SECRET_ACCESS_KEY:
@@ -207,7 +204,7 @@ class Settings(BaseSettings):
         if self.CDN_URL is not None:
             return self.CDN_URL
 
-        return f"https://{self.s3_bucket}.s3.amazonaws.com"
+        return f"https://{self.AWS_S3_BUCKET}.s3.amazonaws.com"
 
     # Auth — tokens are issued by the Districtr CMS (cms/authapi) and
     # verified against its JWKS endpoint.

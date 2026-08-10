@@ -322,7 +322,7 @@ def load_sample_data(
 
         if not Path(gpkg).exists():
             logger.info(f"File {gpkg} does not exist.")
-            gpkg = f"s3://{settings.R2_BUCKET_NAME}/gerrydb/{view.gpkg}"
+            gpkg = f"s3://{settings.AWS_S3_BUCKET}/gerrydb/{view.gpkg}"
 
         try:
             table_exists = session.execute(
