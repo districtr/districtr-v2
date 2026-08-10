@@ -82,10 +82,10 @@ export function createBackendTaskConfig(repos: Repos, database: Database) {
     {name: "BACKEND_CORS_ORIGINS", value: config.corsOrigins},
     {name: "R2_BUCKET_NAME", value: config.s3BucketName},
     {name: "CDN_URL", value: config.cdnUrl},
-    {name: "AUTH0_DOMAIN", value: config.auth0Domain},
-    {name: "AUTH0_API_AUDIENCE", value: config.auth0ApiAudience},
-    {name: "AUTH0_ISSUER", value: config.auth0Issuer},
-    {name: "AUTH0_ALGORITHMS", value: config.auth0Algorithms},
+    {name: "AUTH_JWKS_URL", value: config.authJwksUrl},
+    {name: "AUTH_AUDIENCE", value: config.authAudience},
+    {name: "AUTH_ISSUER", value: config.authIssuer},
+    {name: "AUTH_ALGORITHMS", value: config.authAlgorithms},
     // Session tokens issued but not yet required; flip to "true" after rollout.
     {name: "SESSION_ENFORCE", value: "false"},
     // Auth via the task role (default boto3 chain), not static keys.

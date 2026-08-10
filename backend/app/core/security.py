@@ -75,7 +75,7 @@ class VerifyToken:
             payload = jwt.decode(
                 token.credentials,
                 signing_key,
-                algorithms=self.config.AUTH_ALGORITHMS,  # type: ignore
+                algorithms=self.config.AUTH_ALGORITHMS.split(","),
                 audience=self.config.AUTH_AUDIENCE,
                 issuer=self.config.AUTH_ISSUER,
             )

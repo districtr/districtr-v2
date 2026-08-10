@@ -20,10 +20,9 @@ def test_settings_validate_with_only_database_url(monkeypatch):
         _env_file=None,
         DATABASE_URL=url,
         PROJECT_NAME="Districtr v2 backend",
-        AUTH0_DOMAIN="my-tenant.us.auth0.com",
-        AUTH0_API_AUDIENCE="http://localhost:8000/",
-        AUTH0_ISSUER="https://my-tenant.us.auth0.com",
-        AUTH0_ALGORITHMS="RS256",
+        AUTH_JWKS_URL="http://localhost:8001/.well-known/jwks.json",
+        AUTH_AUDIENCE="http://localhost:8000/",
+        AUTH_ISSUER="http://localhost:8001",
     )
 
     assert str(s.SQLALCHEMY_DATABASE_URI) == url
