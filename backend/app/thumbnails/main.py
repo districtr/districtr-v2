@@ -24,7 +24,7 @@ from app.core.io import file_exists, UnsupportedFileScheme
 router = APIRouter(tags=["thumbnails"])
 logger = logging.getLogger(__name__)
 
-THUMBNAIL_BUCKET = settings.s3_bucket
+THUMBNAIL_BUCKET = settings.AWS_S3_BUCKET
 
 DISTRICT_COLORS = [
     "#0099cd",

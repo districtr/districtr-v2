@@ -80,7 +80,7 @@ export function createBackendTaskConfig(repos: Repos, database: Database) {
     {name: "DOMAIN", value: config.apiDomain},
     {name: "PROJECT_NAME", value: "Districtr v2 backend"},
     {name: "BACKEND_CORS_ORIGINS", value: config.corsOrigins},
-    {name: "R2_BUCKET_NAME", value: config.s3BucketName},
+    {name: "AWS_S3_BUCKET", value: config.s3BucketName},
     {name: "CDN_URL", value: config.cdnUrl},
     {name: "AUTH_JWKS_URL", value: config.authJwksUrl},
     {name: "AUTH_AUDIENCE", value: config.authAudience},

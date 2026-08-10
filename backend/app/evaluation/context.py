@@ -395,7 +395,7 @@ class CountyContext:
         s3 = settings.get_s3_client()
         assert s3, "S3 client is not available"
         s3.download_file(
-            settings.s3_bucket,
+            settings.AWS_S3_BUCKET,
             self._COUNTY_NAMES_S3_KEY,
             str(self._COUNTY_NAMES_FILE),
         )

@@ -160,7 +160,7 @@ aws ecs execute-command --cluster "$CLUSTER" --task "$TASK" \
     --container backend --interactive \
     --command "bash -c 'cd /app && python cli.py stress-test-seed \
         --run-id $RUN_ID --base-url http://localhost:8080 \
-        --manifest s3://\$R2_BUCKET_NAME/stress-test/stress_test_manifest_$RUN_ID.json'"
+        --manifest s3://\$AWS_S3_BUCKET/stress-test/stress_test_manifest_$RUN_ID.json'"
 ```
 
 After the run (runtime manifest uploaded to S3 by the runner's run.sh):
@@ -169,12 +169,12 @@ After the run (runtime manifest uploaded to S3 by the runner's run.sh):
 aws ecs execute-command --cluster "$CLUSTER" --task "$TASK" \
     --container backend --interactive \
     --command "bash -c 'cd /app && python cli.py stress-test-cleanup \
-        -m s3://\$R2_BUCKET_NAME/stress-test/stress_test_manifest_$RUN_ID.json \
-        -m s3://\$R2_BUCKET_NAME/stress-test/stress_test_runtime_manifest_$RUN_ID.json \
+        -m s3://\$AWS_S3_BUCKET/stress-test/stress_test_manifest_$RUN_ID.json \
+        -m s3://\$AWS_S3_BUCKET/stress-test/stress_test_runtime_manifest_$RUN_ID.json \
         --yes'"
 ```
 
-(`\$R2_BUCKET_NAME` resolves inside the task — it's the backend bucket env
+(`\$AWS_S3_BUCKET` resolves inside the task — it's the backend bucket env
 var. `stress-test-seed` uses no CDN override, so it reads the real
 `stress-test/config.json`; it aborts before creating anything if any config
 slug is missing from the prod `districtrmap` table.)
@@ -185,7 +185,7 @@ Scripts in `runner/`. `provision.sh`/`teardown.sh` run on the operator's
 machine with prod AWS credentials; `run.sh` runs on the instance. Everything
 is discovered from the prod stack's `Name` tags (`districtr-prod-vpc`,
 `-public-0`, `-backend-sg`) — nothing is hard-coded. `RESULTS_BUCKET` is the
-backend S3 bucket (Pulumi `s3BucketName` / task env `R2_BUCKET_NAME`).
+backend S3 bucket (Pulumi `s3BucketName` / task env `AWS_S3_BUCKET`).
 
 **1. Provision** — one c7i.4xlarge (AL2023) in a prod public subnet;
 egress-only SG, no SSH keys (SSM Session Manager only), instance profile =
