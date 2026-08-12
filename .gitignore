@@ -50,8 +50,6 @@ db/*
 assets/
 # FL integration test fixtures (large, stored in R2 — see test_fl_metrics_integration.py)
 backend/tests/fixtures/fl/
-# Sampled production data for graph-refactor validation — never committed
-backend/tests/fixtures/graph-validation/
 **/public/**/*.parquet
 **/public/**/*.geojson
 **/public/**/*.pmtiles

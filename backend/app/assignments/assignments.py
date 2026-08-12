@@ -7,7 +7,7 @@ from sqlalchemy import cast, literal, text, Column, String, Integer, MetaData, T
 from sqlmodel import Session, select
 from sqlalchemy.dialects.postgresql import insert, UUID as PG_UUID
 import logging
-from app.evaluation.graph import DualLevelDualGraph
+from app.evaluation.dual_graph import DualLevelDualGraph
 from app.models import (
     Assignments,
     CommunityAssignments,

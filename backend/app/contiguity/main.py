@@ -1,5 +1,5 @@
 from typing import Iterable, Hashable, Any
-from app.evaluation.graph import DualLevelDualGraph
+from app.evaluation.dual_graph import DualLevelDualGraph
 from app.models import UUIDType, DistrictrMap
 from app.utils import assert_safe_ident
 from sqlmodel import Session, Integer, ARRAY

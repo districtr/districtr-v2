@@ -10,7 +10,7 @@ import networkx as nx
 import numpy as np
 import pytest
 
-from app.evaluation.graph import DualLevelDualGraph
+from app.evaluation.dual_graph import DualLevelDualGraph
 from app.evaluation.graph_loader import from_networkx, from_npz
 from tests.constants import FIXTURES_PATH
 

@@ -3,7 +3,7 @@
 Owns every path by which a ``DualLevelDualGraph`` gets built from external
 storage — the pipeline's npz format, a legacy pickled networkx graph, S3 vs.
 local resolution, the shared mmap disk cache, and the per-process LRU. The
-graph class itself (``app.evaluation.graph``) has no knowledge of any of
+graph class itself (``app.evaluation.dual_graph``) has no knowledge of any of
 these formats; it only knows how to build itself from validated arrays.
 """
 
@@ -22,7 +22,7 @@ import numpy as np
 from networkx import Graph
 
 from app.core.config import settings
-from app.evaluation.graph import DualLevelDualGraph
+from app.evaluation.dual_graph import DualLevelDualGraph
 
 logger = logging.getLogger(__name__)
 
