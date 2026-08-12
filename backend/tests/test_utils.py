@@ -96,6 +96,72 @@ def test_create_districtr_map_some_nulls(session: Session, simple_parent_geos_ge
     session.commit()
 
 
+def _stored_statefps(session: Session, districtr_map_slug: str) -> list[str] | None:
+    return session.execute(
+        text("SELECT statefps FROM districtrmap WHERE districtr_map_slug = :slug"),
+        {"slug": districtr_map_slug},
+    ).scalar_one()
+
+
+def test_create_districtr_map_infers_statefps_from_block_paths(
+    session: Session, ks_demo_view_census_blocks_districtrmap
+):
+    _ = create_districtr_map(
+        session,
+        name="Kansas blocks, inferred statefps",
+        districtr_map_slug="ks_blocks_inferred_statefps",
+        gerrydb_table_name="ks_demo_view_census_blocks",
+        parent_layer="ks_demo_view_census_blocks",
+    )
+    session.commit()
+    assert _stored_statefps(session, "ks_blocks_inferred_statefps") == ["20"]
+
+
+def test_create_districtr_map_infers_statefps_from_vtd_paths(
+    session: Session, ks_ellis_county_vtd_gerrydb
+):
+    # VTD paths carry the state FIPS code behind a `vtd:` prefix
+    _ = create_districtr_map(
+        session,
+        name="Ellis county VTDs, inferred statefps",
+        districtr_map_slug="ks_ellis_vtd_inferred_statefps",
+        gerrydb_table_name="ks_ellis_county_vtd",
+        parent_layer="ks_ellis_county_vtd",
+    )
+    session.commit()
+    assert _stored_statefps(session, "ks_ellis_vtd_inferred_statefps") == ["20"]
+
+
+def test_create_districtr_map_keeps_passed_statefps(
+    session: Session, ks_demo_view_census_blocks_districtrmap
+):
+    _ = create_districtr_map(
+        session,
+        name="Kansas blocks, statefps passed in",
+        districtr_map_slug="ks_blocks_passed_statefps",
+        gerrydb_table_name="ks_demo_view_census_blocks",
+        parent_layer="ks_demo_view_census_blocks",
+        statefps=["29"],
+    )
+    session.commit()
+    assert _stored_statefps(session, "ks_blocks_passed_statefps") == ["29"]
+
+
+def test_create_districtr_map_leaves_statefps_null_for_non_census_paths(
+    session: Session, simple_parent_geos_gerrydb
+):
+    # The synthetic fixture's paths open with `00`, which is no state's FIPS code
+    _ = create_districtr_map(
+        session,
+        name="Simple parent geos, no statefps",
+        districtr_map_slug="simple_parent_geos_no_statefps",
+        gerrydb_table_name="simple_parent_geos",
+        parent_layer="simple_parent_geos",
+    )
+    session.commit()
+    assert _stored_statefps(session, "simple_parent_geos_no_statefps") is None
+
+
 @pytest.fixture(name="simple_parent_geos_districtrmap")
 def simple_parent_geos_districtrmap_fixture(
     session: Session, simple_parent_geos_gerrydb, simple_child_geos_gerrydb

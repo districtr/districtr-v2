@@ -194,7 +194,7 @@ def delete_parent_child_edges(session: Session, districtr_map: str):
 )
 @click.option(
     "--statefps",
-    help="State FIPS codes (can be specified multiple times)",
+    help="State FIPS codes (can be specified multiple times). Omit to infer them from the parent layer's geo_ids",
     required=False,
     type=str,
     multiple=True,
