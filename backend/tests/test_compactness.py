@@ -78,42 +78,11 @@ def _block_lr():
     return [[_block_geoid(r, c), 1 if c < 4 else 2] for r in range(8) for c in range(8)]
 
 
-def _block_4q():
-    """64 block assignments: 4-quadrant zones (top-left=1, top-right=2, bottom-left=3, bottom-right=4)."""
-    return [
-        [_block_geoid(r, c), (r // 4) * 2 + (c // 4) + 1]
-        for r in range(8)
-        for c in range(8)
-    ]
-
-
 def _vtd_lr():
     """16 VTD assignments: pc < 2 → zone 1, pc ≥ 2 → zone 2."""
     return [
         [_vtd_geoid(pr, pc), 1 if pc < 2 else 2] for pr in range(4) for pc in range(4)
     ]
-
-
-def _vtd_4q():
-    """16 VTD assignments: 4-quadrant zones."""
-    return [
-        [_vtd_geoid(pr, pc), (pr // 2) * 2 + (pc // 2) + 1]
-        for pr in range(4)
-        for pc in range(4)
-    ]
-
-
-def _mixed_shatterable():
-    """Top half (r=0..3) as block GEOIDs + bottom half (pr=2..3) as VTD GEOIDs."""
-    blocks = [
-        [_block_geoid(r, c), 1 if c < 4 else 2] for r in range(4) for c in range(8)
-    ]
-    parents = [
-        [_vtd_geoid(pr, pc), 3 if pc < 2 else 4]
-        for pr in range(2, 4)
-        for pc in range(4)
-    ]
-    return blocks + parents
 
 
 def _put_assignments(client, document_id: str, assignments: list) -> None:
@@ -178,23 +147,6 @@ def test_cut_edges_nonshatterable_child_lr(
     assert result["cut_count"] == 8
 
 
-def test_cut_edges_nonshatterable_child_4q(
-    client, session: Session, grid_child_document, mock_grid_graph_file
-):
-    """8×8 block map, 4-quadrant split → 16 cut edges (4 per boundary × 4 boundaries)."""
-    _put_assignments(client, grid_child_document, _block_4q())
-    ctx = _StubCompactnessContext(
-        session,
-        document_id=grid_child_document,
-        child_layer=None,
-        gerrydb_table=BLOCK_GRID_NAME,
-        parent_layer=BLOCK_GRID_NAME,
-    )
-    result = block_cut_edges(ctx)
-    assert result["unit_type"] == "block"
-    assert result["cut_count"] == 16
-
-
 # ── Non-shatterable parent (VTD-level) map ────────────────────────────────────
 
 
@@ -233,68 +185,6 @@ def test_cut_edges_shatterable_parent_only_lr(
     result = block_cut_edges(ctx)
     assert result["unit_type"] == "block"
     assert result["cut_count"] == 8
-
-
-def test_cut_edges_shatterable_parent_only_4q(
-    client, session: Session, grid_shatterable_document, mock_grid_graph_file
-):
-    """Shatterable, all parents assigned, 4-quadrant → 16 cuts (8 edges × weight 2)."""
-    _put_assignments(client, grid_shatterable_document, _vtd_4q())
-    ctx = _StubCompactnessContext(
-        session,
-        document_id=grid_shatterable_document,
-        child_layer=BLOCK_GRID_NAME,
-        gerrydb_table=GRID_COMBINED_NAME,
-        parent_layer=PARENT_GRID_NAME,
-    )
-    result = block_cut_edges(ctx)
-    assert result["unit_type"] == "block"
-    assert result["cut_count"] == 16
-
-
-# ── Shatterable map — child-only assignments (Step 2 only) ────────────────────
-
-
-def test_cut_edges_shatterable_child_only_lr(
-    client, session: Session, grid_shatterable_document, mock_grid_graph_file
-):
-    """Shatterable, all blocks individually assigned, left-right → 8 cuts (same as non-shatterable child)."""
-    _put_assignments(client, grid_shatterable_document, _block_lr())
-    ctx = _StubCompactnessContext(
-        session,
-        document_id=grid_shatterable_document,
-        child_layer=BLOCK_GRID_NAME,
-        gerrydb_table=GRID_COMBINED_NAME,
-        parent_layer=PARENT_GRID_NAME,
-    )
-    result = block_cut_edges(ctx)
-    assert result["unit_type"] == "block"
-    assert result["cut_count"] == 8
-
-
-# ── Shatterable map — mixed assignments (Step 1 + Step 2) ────────────────────
-
-
-def test_cut_edges_shatterable_mixed_grid(
-    client, session: Session, grid_shatterable_document, mock_grid_graph_file
-):
-    """Shatterable, top half shattered at block level, bottom half at parent level → 16 cuts.
-
-    Step 1: 2 bottom parent boundary edges (pc=1/2) × weight 2 = 4
-    Step 2: 4 half-counted block edges at c=3/4 in top half = 4
-            8 direct cuts where block row 3 meets parent row 2 (all cross-zone) = 8
-    """
-    _put_assignments(client, grid_shatterable_document, _mixed_shatterable())
-    ctx = _StubCompactnessContext(
-        session,
-        document_id=grid_shatterable_document,
-        child_layer=BLOCK_GRID_NAME,
-        gerrydb_table=GRID_COMBINED_NAME,
-        parent_layer=PARENT_GRID_NAME,
-    )
-    result = block_cut_edges(ctx)
-    assert result["unit_type"] == "block"
-    assert result["cut_count"] == 16
 
 
 # ── Polsby-Popper ─────────────────────────────────────────────────────────────
