@@ -27,6 +27,17 @@ May 2026 report on Florida Congressional Redistricting.  It is intentionally
 excluded from CI because it requires large geodata files not stored in the
 repository (see the test module for setup instructions).
 
+Any change to one of that suite's ``METRICS_TO_TEST`` (splits, cut edges, and
+the partisan metrics) should also be accompanied by a manual run of the
+gerrytools cross-validation suite::
+
+    pytest backend/tests/test_metrics_gerrytools_validation.py -v
+
+That suite compares those metrics against gerrytools, an independent
+reference implementation, across a 152-document sample of real production
+plans. Also excluded from CI for the same reason (see the test module for
+setup instructions).
+
 """
 
 import hashlib

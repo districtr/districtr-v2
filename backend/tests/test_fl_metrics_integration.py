@@ -91,10 +91,9 @@ child layer.
 
 Performance note
 ----------------
-The first run loads 576 MB of block data via ogr2ogr and runs a PostGIS spatial join
-to build parent–child edges.  This may take some time.  Subsequent runs on a
-**persistent** integration database (``districtr_integration_test``) detect existing
-tables and skip the setup entirely.
+The first run loads 576 MB of block data via ogr2ogr, which may take some time.
+Uses the local dev database directly.
+Subsequent runs detect existing tables/map/document and skip the setup entirely.
 """
 
 import pickle
@@ -112,7 +111,8 @@ from sqlmodel import Session
 import app.evaluation.graph_loader as eval_graph_module
 from app.evaluation.graph_loader import from_networkx
 from app.constants import GERRY_DB_SCHEMA
-from app.core.db import get_session
+from app.core.config import settings
+from app.core.db import engine as app_engine, get_session
 from app.core.security import auth
 from app.evaluation.validity import population_deviation
 from app.evaluation.compactness import polsby_popper, reock, block_cut_edges
@@ -129,10 +129,17 @@ from app.evaluation.splits import county_pieces
 from app.main import app
 from app.utils import (
     create_districtr_map,
-    create_parent_child_edges,
     create_shatterable_gerrydb_view,
 )
-from tests.constants import ACCOUNT_AUTH0_ID, INTEGRATION_OGR2OGR_PG_CONNECTION_STRING
+from tests.constants import ACCOUNT_AUTH0_ID
+
+# cli.py's own ogr2ogr step builds its connection string the same way (from
+# discrete POSTGRES_* settings, not DATABASE_URL) -- see management/load_data.py.
+LOCAL_OGR2OGR_PG_CONNECTION_STRING = (
+    f"PG:host={settings.POSTGRES_SERVER} port={settings.POSTGRES_PORT} "
+    f"dbname={settings.POSTGRES_DB} user={settings.POSTGRES_USER} "
+    f"password={settings.POSTGRES_PASSWORD}"
+)
 
 # ── file paths ────────────────────────────────────────────────────────────────
 
@@ -365,11 +372,11 @@ def fl_assignments() -> list[list]:
 
 
 @pytest.fixture(scope="module")
-def fl_client(integration_engine):
+def fl_client():
     """Module-scoped test client backed by per-request sessions."""
 
     def _get_session():
-        with Session(integration_engine, expire_on_commit=True) as s:
+        with Session(app_engine, expire_on_commit=True) as s:
             yield s
 
     def _get_auth():
@@ -430,7 +437,7 @@ def _ogr2ogr_load(gpkg: Path, layer: str, table: str) -> None:
             "ogr2ogr",
             "-f",
             "PostgreSQL",
-            INTEGRATION_OGR2OGR_PG_CONNECTION_STRING,
+            LOCAL_OGR2OGR_PG_CONNECTION_STRING,
             str(gpkg),
             layer,
             "-lco",
@@ -448,15 +455,15 @@ def _ogr2ogr_load(gpkg: Path, layer: str, table: str) -> None:
 
 
 @pytest.fixture(scope="module")
-def fl_in_gerrydb(integration_engine):
-    """Load FL parent (VTD) and child (block) layers into the test gerrydb schema.
+def fl_in_gerrydb():
+    """Load FL parent (VTD) and child (block) layers into the local gerrydb schema.
 
-    First checks whether the layers are already present (fast path for the persistent
-    integration database).  If absent, runs ogr2ogr — slow (~10–30 minutes for the
-    576 MB block file) but only needed once.
+    First checks whether the layers are already present (fast path once loaded
+    into the local dev database).  If absent, runs ogr2ogr — slow (~10–30 minutes
+    for the 576 MB block file) but only needed once.
     """
-    vtd_loaded = _table_exists(integration_engine, GERRY_DB_SCHEMA, FL_VTD_TABLE)
-    block_loaded = _table_exists(integration_engine, GERRY_DB_SCHEMA, FL_BLOCK_TABLE)
+    vtd_loaded = _table_exists(app_engine, GERRY_DB_SCHEMA, FL_VTD_TABLE)
+    block_loaded = _table_exists(app_engine, GERRY_DB_SCHEMA, FL_BLOCK_TABLE)
 
     if vtd_loaded and block_loaded:
         return  # already set up from a previous run
@@ -467,7 +474,7 @@ def fl_in_gerrydb(integration_engine):
     if not block_loaded:
         _ogr2ogr_load(BLOCK_GPKG, FL_BLOCK_TABLE, FL_BLOCK_TABLE)
 
-    with Session(integration_engine) as session:
+    with Session(app_engine) as session:
         for name in (FL_VTD_TABLE, FL_BLOCK_TABLE):
             session.execute(
                 text(
@@ -481,23 +488,23 @@ def fl_in_gerrydb(integration_engine):
 
 
 @pytest.fixture(scope="module")
-def fl_view(integration_engine, fl_in_gerrydb):
+def fl_view(fl_in_gerrydb):
     """Create the shatterable UNION ALL view combining VTDs and blocks.
 
     Guards against a stale ``gerrydbtable`` entry left by a previous crashed run
     where the stored procedure inserted the entry but the overall transaction was
     rolled back before the view was committed.
     """
-    if _view_exists(integration_engine, GERRY_DB_SCHEMA, FL_VIEW_NAME):
+    if _view_exists(app_engine, GERRY_DB_SCHEMA, FL_VIEW_NAME):
         return
     # Remove any orphaned gerrydbtable entry so the stored procedure can insert cleanly.
-    with Session(integration_engine) as session:
+    with Session(app_engine) as session:
         session.execute(
             text("DELETE FROM public.gerrydbtable WHERE name = :name"),
             {"name": FL_VIEW_NAME},
         )
         session.commit()
-    with Session(integration_engine) as session:
+    with Session(app_engine) as session:
         create_shatterable_gerrydb_view(
             session,
             parent_layer=FL_VTD_TABLE,
@@ -508,16 +515,18 @@ def fl_view(integration_engine, fl_in_gerrydb):
 
 
 @pytest.fixture(scope="module")
-def fl_map(integration_engine, fl_view) -> str:
-    """Create the shatterable DistrictrMap and populate parent–child edges.
+def fl_map(fl_view) -> str:
+    """Create the shatterable DistrictrMap.
 
-    Returns the map UUID.  Skipped if the map already exists.
+    Returns the map UUID.  Skipped if the map already exists.  Parent-child
+    relationships are served from the graph (DualLevelDualGraph), not a
+    database table, so none are populated here.
     """
-    existing_uuid = _map_exists(integration_engine, FL_MAP_SLUG)
+    existing_uuid = _map_exists(app_engine, FL_MAP_SLUG)
     if existing_uuid:
         return existing_uuid
 
-    with Session(integration_engine) as session:
+    with Session(app_engine) as session:
         map_uuid = create_districtr_map(
             session,
             name="Florida Congressional 2026",
@@ -527,12 +536,6 @@ def fl_map(integration_engine, fl_view) -> str:
             child_layer=FL_BLOCK_TABLE,
             num_districts=28,
         )
-        session.commit()
-
-    # Spatial join to build parent–child edges (PostGIS ST_Contains).
-    # This is slow for 390 K blocks but only runs once per database.
-    with Session(integration_engine) as session:
-        create_parent_child_edges(session, map_uuid)
         session.commit()
 
     return map_uuid
@@ -548,7 +551,7 @@ def _count_document_assignments(engine, document_id: str) -> int:
 
 
 @pytest.fixture(scope="module")
-def fl_document_id(integration_engine, fl_client, fl_map, fl_assignments) -> str:
+def fl_document_id(fl_client, fl_map, fl_assignments) -> str:
     """Create a document and submit all Cong2026 assignments.
 
     If a document for this map already exists with a full assignment load it is
@@ -560,10 +563,10 @@ def fl_document_id(integration_engine, fl_client, fl_map, fl_assignments) -> str
     existing = fl_client.get(f"/api/document?districtr_map_slug={FL_MAP_SLUG}")
     if existing.status_code == 200 and existing.json():
         doc_id = existing.json()[0]["document_id"]
-        if _count_document_assignments(integration_engine, doc_id) >= expected_count:
+        if _count_document_assignments(app_engine, doc_id) >= expected_count:
             return doc_id
         # Stale/partial document — purge it so we can start fresh.
-        with Session(integration_engine) as session:
+        with Session(app_engine) as session:
             session.execute(
                 text("DELETE FROM document.district_unions WHERE document_id = :id"),
                 {"id": doc_id},
@@ -594,7 +597,7 @@ def fl_document_id(integration_engine, fl_client, fl_map, fl_assignments) -> str
 
 
 @pytest.fixture(scope="module")
-def fl_ctx(integration_engine, fl_document_id, fl_graph):
+def fl_ctx(fl_document_id, fl_graph):
     """DocumentEvaluationContext for the FL Cong2026 document.
 
     ``get_graph`` is patched to serve the pre-loaded pickle so that
@@ -605,7 +608,7 @@ def fl_ctx(integration_engine, fl_document_id, fl_graph):
     original = eval_graph_module.get_graph
     eval_graph_module.get_graph = lambda _name: fl_graph  # type: ignore
     try:
-        with Session(integration_engine, expire_on_commit=True) as session:
+        with Session(app_engine, expire_on_commit=True) as session:
             ctx = DocumentEvaluationContext(
                 background_tasks=BackgroundTasks(),
                 session=session,

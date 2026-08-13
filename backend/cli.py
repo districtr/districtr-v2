@@ -5,6 +5,7 @@ import uuid
 import json
 import boto3
 import botocore.exceptions
+from pathlib import Path
 
 from app.core.db import engine
 from app.core.config import settings
@@ -31,6 +32,9 @@ from management.load_data import (
     load_sample_data,
     Config,
     import_gerrydb_view as _import_gerrydb_view,
+)
+from management.load_metrics_validation_documents import (
+    load_metrics_validation_documents as _load_metrics_validation_documents,
 )
 from os import environ
 from app.models import DistrictrMap, Overlay
@@ -462,6 +466,20 @@ def batch_create_districtr_maps(
     )
 
     logger.info("Successfully loaded new data")
+
+
+@cli.command("load-metrics-validation-documents")
+@click.option(
+    "--data-dir",
+    "-d",
+    help="Directory containing prod_sample_documents.csv and prod_sample_assignments.csv",
+    required=True,
+)
+@with_session
+def load_metrics_validation_documents(session: Session, data_dir: str):
+    """Load tests/test_metrics_gerrytools_validation.py's sample documents.
+    Idempotent -- see that module's docstring."""
+    _load_metrics_validation_documents(session=session, data_dir=Path(data_dir))
 
 
 @cli.command("create-spatial-index")
