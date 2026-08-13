@@ -59,6 +59,15 @@ type CountyPiecesInfo = {
   name: string;
 };
 
+type CountyPartsInfo = {
+  total_pop: number;
+  parts: number;
+  name: string;
+  // Population of each of the county's own connected components, independent of
+  // any document/plan (e.g. islands, exclaves). Empty when unavailable.
+  component_populations: number[];
+};
+
 type UnassignedPopulation = {
   unassigned_population: number;
   total_population: number;
@@ -75,6 +84,7 @@ export interface DocumentEvaluation {
   disproportionality?: Record<ElectionKey, number>;
   competitiveness?: CompetitivenessResult;
   county_pieces?: Record<CountyFIPS, CountyPiecesInfo>;
+  county_parts?: Record<CountyFIPS, CountyPartsInfo>;
   ideal_population?: number;
   district_county_membership?: Record<string, string[]>; // zone → sorted list of county FIPS geoids
   cut_edges?: CutEdgesResult;

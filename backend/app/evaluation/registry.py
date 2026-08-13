@@ -37,6 +37,7 @@ from app.evaluation.context import DocumentEvaluationContext
 from app.evaluation.types import (
     CompetitiveMetrics,
     CountyGeoid,
+    CountyPartsInfo,
     CountyPiecesInfo,
     CutEdgesResult,
     DistrictId,
@@ -90,6 +91,9 @@ METRICS: tuple[Metric[Any], ...] = (
     Metric[int](key="ideal_population", version=2, compute=validity.ideal_population),
     Metric[dict[CountyGeoid, CountyPiecesInfo]](
         key="county_pieces", version=1, compute=splits.county_pieces
+    ),
+    Metric[dict[CountyGeoid, CountyPartsInfo]](
+        key="county_parts", version=1, compute=splits.county_parts
     ),
     Metric[dict[DistrictId, list[CountyGeoid]]](
         key="district_county_membership",

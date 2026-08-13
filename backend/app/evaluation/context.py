@@ -23,6 +23,7 @@ import shapely
 import sqlalchemy
 import sqlmodel
 from app.core.config import settings
+from app.evaluation.graph_loader import get_graph
 from app.evaluation.models import CountyDemographics
 from app.evaluation.types import Election, CountyGeoid, DistrictId
 from app.models import Assignments, DistrictUnionsResponse, DistrictrMap, Document
@@ -49,6 +50,16 @@ _transformer = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:5070", always_xy=T
 def _reproject(coords: np.ndarray) -> np.ndarray:
     x, y = _transformer.transform(coords[:, 0], coords[:, 1])
     return np.stack([x, y], axis=1)
+
+
+def component_populations_for_nodes(G, population_by_node: dict) -> list[int]:
+    """Partition population_by_node's keys into connected components on G and
+    return each component's total population, one entry per component.
+    """
+    components = G.connected_components(population_by_node.keys())
+    return [
+        sum(population_by_node[node] for node in component) for component in components
+    ]
 
 
 @dataclasses.dataclass
@@ -373,6 +384,9 @@ class CountyContext:
     _pop_cache: dict[GerrydbTableName, dict[CountyGeoid, int]] = dataclasses.field(
         default_factory=dict
     )
+    _component_pop_cache: dict[GerrydbTableName, dict[CountyGeoid, list[int]]] = (
+        dataclasses.field(default_factory=dict)
+    )
     _name_cache: dict[CountyGeoid, str] = dataclasses.field(default_factory=dict)
     _attempts: dict[GerrydbTableName, int] = dataclasses.field(default_factory=dict)
 
@@ -437,6 +451,47 @@ class CountyContext:
         }
         self._pop_cache[gerrydb_table] = pops
         return pops
+
+    def component_populations(
+        self,
+        gerrydb_table: GerrydbTableName,
+        graph_gerrydb_table: GerrydbTableName,
+        session: sqlmodel.Session,
+    ) -> dict[CountyGeoid, list[int]]:
+        """Return each county's own connected-component populations for
+        `gerrydb_table` — VTD/parent-unit adjacency only, ignoring any
+        document/assignment. Document-independent: a county that's already
+        several disconnected land pieces (e.g. islands, exclaves) forces at
+        least that many districts regardless of how any plan draws lines.
+
+        `gerrydb_table` is the same table `county_populations` aggregates and
+        caches by (the parent layer); `graph_gerrydb_table` is the map's own
+        gerrydb_table_name, needed separately to fetch the adjacency graph
+        (graphs are keyed by the map's own identifier, which can differ from
+        the parent layer for shatterable maps). Both are cheap for callers to
+        supply, since DocumentEvaluationContext already exposes both.
+
+        A county missing from the returned dict (or with an empty list) means
+        this hasn't been computed for it (e.g. no graph available); callers
+        should fall back to the single-total ceil(total_pop/ideal_pop) bound.
+
+        Cached after first load.
+        """
+        if gerrydb_table in self._component_pop_cache:
+            return self._component_pop_cache[gerrydb_table]
+        self._ensure_component_populations(gerrydb_table, graph_gerrydb_table, session)
+        rows = session.exec(
+            sqlmodel.select(
+                CountyDemographics.geoid, CountyDemographics.component_populations
+            ).where(CountyDemographics.gerrydb_table_name == gerrydb_table)
+        ).all()
+        result = {
+            CountyGeoid(geoid): list(component_pops)
+            for geoid, component_pops in rows
+            if geoid and component_pops is not None
+        }
+        self._component_pop_cache[gerrydb_table] = result
+        return result
 
     def ideals_for_eguia(
         self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
@@ -541,6 +596,88 @@ class CountyContext:
             ON CONFLICT (geoid, gerrydb_table_name) DO NOTHING
         """
         session.execute(sqlalchemy.text(insert_sql), {"gerrydb_table": gerrydb_table})
+        session.commit()
+
+    def _ensure_component_populations(
+        self,
+        gerrydb_table: GerrydbTableName,
+        graph_gerrydb_table: GerrydbTableName,
+        session: sqlmodel.Session,
+    ) -> None:
+        """Populate component_populations for `gerrydb_table` unless at least one
+        row with a non-null component_populations already exists.
+        """
+        exists = session.exec(
+            sqlmodel.select(CountyDemographics)
+            .where(sqlmodel.col(CountyDemographics.gerrydb_table_name) == gerrydb_table)
+            .where(sqlmodel.col(CountyDemographics.component_populations).isnot(None))
+            .limit(1)
+        ).first()
+        if not exists:
+            self._populate_component_populations(
+                gerrydb_table, graph_gerrydb_table, session
+            )
+
+    def _populate_component_populations(
+        self,
+        gerrydb_table: GerrydbTableName,
+        graph_gerrydb_table: GerrydbTableName,
+        session: sqlmodel.Session,
+    ) -> None:
+        """Populate component_populations: each county's own connected components
+        (VTD/parent-unit adjacency only, ignoring any document/assignment) and the
+        population of each, on the same rows `_populate_county_data` writes.
+
+        Graphs are expected to already exist in S3 by the time a gerrydb table is
+        ingested, same as every other caller of get_graph in this codebase (e.g.
+        validity.contiguous, splits.county_parts) — a missing graph here is a real
+        data problem, not a normal runtime condition, so it raises rather than
+        silently leaving component_populations NULL. Does not expand non-contiguous
+        parents to block children — this is VTD/parent-unit-level connectivity,
+        not the finer sub-VTD connectivity `county_parts` uses.
+        """
+        safe_table = assert_safe_ident(gerrydb_table)
+        G = get_graph(graph_gerrydb_table)
+
+        rows = session.execute(
+            sqlalchemy.text(
+                f"""
+                SELECT
+                    CASE
+                        WHEN path LIKE '%:%' THEN LEFT(SPLIT_PART(path, ':', 2), 5)
+                        ELSE LEFT(path, 5)
+                    END AS geoid,
+                    path,
+                    total_pop_20
+                FROM gerrydb.{safe_table}
+                """
+            )
+        ).all()
+
+        county_nodes: dict[str, dict[str, int]] = {}
+        for geoid, path, pop in rows:
+            # total_pop_20 isn't reliably an integer column across all gerrydb
+            # tables (some store it numeric/float) -- coerce so component sums
+            # stay a uniform int, since psycopg's array adapter rejects a mixed
+            # float/int Python list for an ARRAY(Integer) column.
+            county_nodes.setdefault(geoid, {})[path] = int(pop or 0)
+
+        for geoid, population_by_path in county_nodes.items():
+            component_populations = component_populations_for_nodes(
+                G, population_by_path
+            )
+            session.execute(
+                sqlalchemy.text(
+                    "UPDATE evaluation.county_demographics "
+                    "SET component_populations = :component_populations "
+                    "WHERE geoid = :geoid AND gerrydb_table_name = :gerrydb_table"
+                ),
+                {
+                    "component_populations": component_populations,
+                    "geoid": geoid,
+                    "gerrydb_table": gerrydb_table,
+                },
+            )
         session.commit()
 
     def _compute_ideal(

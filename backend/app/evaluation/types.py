@@ -60,6 +60,17 @@ class CountyPiecesInfo(TypedDict):
     name: str
 
 
+class CountyPartsInfo(TypedDict):
+    total_pop: int
+    parts: int
+    name: str
+    # Population of each of the county's own connected components, independent of
+    # any document/plan (e.g. islands, exclaves). Empty when unavailable (no graph
+    # for this gerrydb table). Used by the frontend to compute the forced-minimum
+    # split count as sum(ceil(p/ideal_pop) for p in component_populations).
+    component_populations: list[int]
+
+
 # ── Validity ──────────────────────────────────────────────────────────────────
 
 

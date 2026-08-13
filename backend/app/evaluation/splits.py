@@ -9,7 +9,8 @@ from app.evaluation.context import (
     DocumentEvaluationContext,
     CountyGeoid,
 )
-from app.evaluation.types import CountyPiecesInfo, DistrictId
+from app.evaluation.graph_loader import get_graph
+from app.evaluation.types import CountyPartsInfo, CountyPiecesInfo, DistrictId
 
 
 def _geo_id_to_county_geoid(geo_id: str) -> CountyGeoid:
@@ -44,6 +45,60 @@ def county_pieces(
             total_pop=pop,
             pieces=len(county_zones.get(county_geoid, set())),
             name=COUNTY_CONTEXT.county_name(county_geoid),
+        )
+        for county_geoid, pop in county_pops.items()
+    }
+
+
+def county_parts(
+    context: DocumentEvaluationContext,
+) -> dict[CountyGeoid, CountyPartsInfo]:
+    """Returns a mapping from county geoid to a tuple of
+    (population, actual_split_parts, county_name, component_populations).
+
+    A "split" occurs when a county is divided across multiple districts. The "actual"
+    split parts are the number of geographically connected components formed by
+    intersecting each district with the county — a district split into two
+    disconnected areas within a county counts as 2 parts, not 1. For unfinished
+    districting plans, the actual split parts does not treat the unassigned area as
+    a zone, and completely unassigned counties will thus have a part-count of 0.
+
+    component_populations is the population of each of the county's own connected
+    components, independent of any document/plan (e.g. islands, exclaves) — used to
+    compute a forced-minimum split count tighter than ceil(total_pop/ideal_pop) for
+    counties that are themselves already multiple disconnected land pieces.
+
+    The number of counties split into two or more parts can be easily derived from this
+    mapping by counting the number of counties where `actual_split_parts` is 2 or more.
+    """
+    county_pops = COUNTY_CONTEXT.county_populations(
+        context.parent_layer, context.session
+    )
+    if not county_pops:
+        return {}
+
+    component_pops = COUNTY_CONTEXT.component_populations(
+        context.parent_layer, context.gerrydb_table, context.session
+    )
+
+    G = get_graph(context.gerrydb_table)
+    county_zone_nodes: dict[tuple[CountyGeoid, int], set[str]] = {}
+    for geo_id, zone in context.zone_assignments:
+        county_geoid = _geo_id_to_county_geoid(geo_id)
+        county_zone_nodes.setdefault((county_geoid, zone), set()).add(geo_id)
+
+    county_parts_count: dict[CountyGeoid, int] = dict.fromkeys(county_pops, 0)
+    for (county_geoid, _zone), nodes in county_zone_nodes.items():
+        G.expand_non_contiguous(nodes)
+        components = G.connected_components(nodes)
+        county_parts_count[county_geoid] += len(components)
+
+    return {
+        county_geoid: CountyPartsInfo(
+            total_pop=pop,
+            parts=county_parts_count[county_geoid],
+            name=COUNTY_CONTEXT.county_name(county_geoid),
+            component_populations=component_pops.get(county_geoid, []),
         )
         for county_geoid, pop in county_pops.items()
     }
