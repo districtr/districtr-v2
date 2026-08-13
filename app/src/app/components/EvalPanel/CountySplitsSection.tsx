@@ -29,6 +29,7 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
   const [showMode, setShowMode] = useState<'overly-split-only' | 'all'>('overly-split-only');
 
   const countyPieces = evaluation.county_pieces;
+  const countyParts = evaluation.county_parts;
   const idealPop = evaluation.ideal_population ?? null;
   const assignedUnits = evaluation.assigned_units;
 
@@ -39,14 +40,43 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
   if (!countyPieces) return null;
 
   const allEntries = Object.entries(countyPieces)
-    .map(([geoid, {total_pop: pop, pieces: actual, name}]) => ({geoid, pop, actual, name}))
+    .map(([geoid, {total_pop: pop, pieces: actual, name}]) => {
+      const partsInfo = countyParts?.[geoid];
+      // The forced-minimum bound: sum(ceil(component_pop / idealPop)) over the
+      // county's own connected components is tighter than ceil(total_pop / idealPop)
+      // for counties that are themselves multiple disconnected land pieces (islands,
+      // exclaves). Fall back to the total-population bound when component data isn't
+      // available (no graph for this gerrydb table) rather than reporting zero.
+      const minimalParts =
+        idealPop === null
+          ? null
+          : partsInfo && partsInfo.component_populations.length > 0
+            ? partsInfo.component_populations.reduce(
+                (sum, componentPop) => sum + Math.ceil(componentPop / idealPop),
+                0
+              )
+            : Math.ceil(pop / idealPop);
+      const actualParts = partsInfo?.parts ?? null;
+      return {geoid, pop, actual, name, minimalParts, actualParts};
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const splitCounties = allEntries.filter(e => e.actual >= 2).length;
-  const overlySplitSet =
+  const overlySplitByPiecesSet =
     idealPop !== null
       ? new Set(allEntries.filter(e => e.actual > Math.ceil(e.pop / idealPop)).map(e => e.geoid))
       : new Set<string>();
+  const overlySplitByPartsSet = new Set(
+    allEntries
+      .filter(
+        e => e.minimalParts !== null && e.actualParts !== null && e.actualParts > e.minimalParts
+      )
+      .map(e => e.geoid)
+  );
+  // "Unnecessarily split" covers either sense: more district-pieces than the
+  // population alone requires, or more geographically-connected parts than the
+  // county's own disconnected components force.
+  const overlySplitSet = new Set([...overlySplitByPiecesSet, ...overlySplitByPartsSet]);
   const unnecessarySplits = idealPop !== null ? overlySplitSet.size : null;
 
   const displayedEntries =
@@ -133,7 +163,10 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
           <Text size="2" mb="3" as="p">
             A county is <strong>split</strong> when its population is divided across two or more
             districts. The <em>districts&apos; worth</em> column shows how many ideal-sized
-            districts the county&apos;s population would fill.
+            districts the county&apos;s population would fill. <em>Pieces</em> counts distinct
+            district zones touching the county; <em>parts</em> counts geographically connected
+            subcomponents of pieces, so a district that wraps around the county in two disconnected
+            areas counts as one piece but two parts.
           </Text>
 
           <Flex align="center" gap="2" mb="3" justify="end">
@@ -262,50 +295,71 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                         <br />
                         Districts&apos; Worth
                       </Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell
-                        justify="center"
-                        style={{paddingRight: 'calc(var(--table-cell-padding) + 8px)'}}
-                      >
+                      <Table.ColumnHeaderCell justify="center">
                         Pieces in
                         <br />
                         This Plan
                       </Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell justify="center">
+                        Minimal Parts
+                        <br />
+                        Possible
+                      </Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell
+                        justify="center"
+                        style={{paddingRight: 'calc(var(--table-cell-padding) + 8px)'}}
+                      >
+                        Parts
+                        <br />
+                        in This Plan
+                      </Table.ColumnHeaderCell>
                     </Table.Row>
                   </Table.Header>
                   <Table.Body>
-                    {displayedEntries.map(({geoid, pop, actual, name}) => {
-                      const worth = idealPop !== null ? pop / idealPop : null;
-                      const isOverlySplit = overlySplitSet.has(geoid);
-                      return (
-                        <Table.Row
-                          key={geoid}
-                          tabIndex={0}
-                          onMouseEnter={() => setHoveredCountyGeoid(geoid)}
-                          onMouseLeave={() => setHoveredCountyGeoid(null)}
-                          onFocus={() => setHoveredCountyGeoid(geoid)}
-                          onBlur={() => setHoveredCountyGeoid(null)}
-                          style={{cursor: 'default'}}
-                        >
-                          <Table.Cell justify="center">
-                            <Text size="2">{name}</Text>
-                          </Table.Cell>
-                          <Table.Cell justify="center">
-                            <Text size="2">{pop.toLocaleString()}</Text>
-                          </Table.Cell>
-                          <Table.Cell justify="center">
-                            <Text size="2">{worth !== null ? worth.toFixed(2) : '—'}</Text>
-                          </Table.Cell>
-                          <Table.Cell
-                            justify="center"
-                            style={{paddingRight: 'calc(var(--table-cell-padding) + 8px)'}}
+                    {displayedEntries.map(
+                      ({geoid, pop, actual, name, minimalParts, actualParts}) => {
+                        const worth = idealPop !== null ? pop / idealPop : null;
+                        const isOverlySplitByPieces = overlySplitByPiecesSet.has(geoid);
+                        const isOverlySplitByParts = overlySplitByPartsSet.has(geoid);
+                        return (
+                          <Table.Row
+                            key={geoid}
+                            tabIndex={0}
+                            onMouseEnter={() => setHoveredCountyGeoid(geoid)}
+                            onMouseLeave={() => setHoveredCountyGeoid(null)}
+                            onFocus={() => setHoveredCountyGeoid(geoid)}
+                            onBlur={() => setHoveredCountyGeoid(null)}
+                            style={{cursor: 'default'}}
                           >
-                            <Text size="2" color={isOverlySplit ? 'red' : undefined}>
-                              {actual}
-                            </Text>
-                          </Table.Cell>
-                        </Table.Row>
-                      );
-                    })}
+                            <Table.Cell justify="center">
+                              <Text size="2">{name}</Text>
+                            </Table.Cell>
+                            <Table.Cell justify="center">
+                              <Text size="2">{pop.toLocaleString()}</Text>
+                            </Table.Cell>
+                            <Table.Cell justify="center">
+                              <Text size="2">{worth !== null ? worth.toFixed(2) : '—'}</Text>
+                            </Table.Cell>
+                            <Table.Cell justify="center">
+                              <Text size="2" color={isOverlySplitByPieces ? 'red' : undefined}>
+                                {actual}
+                              </Text>
+                            </Table.Cell>
+                            <Table.Cell justify="center">
+                              <Text size="2">{minimalParts !== null ? minimalParts : '—'}</Text>
+                            </Table.Cell>
+                            <Table.Cell
+                              justify="center"
+                              style={{paddingRight: 'calc(var(--table-cell-padding) + 8px)'}}
+                            >
+                              <Text size="2" color={isOverlySplitByParts ? 'red' : undefined}>
+                                {actualParts !== null ? actualParts : '—'}
+                              </Text>
+                            </Table.Cell>
+                          </Table.Row>
+                        );
+                      }
+                    )}
                   </Table.Body>
                 </table>
               </div>
