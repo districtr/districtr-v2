@@ -39,15 +39,6 @@ const METRIC_CUTOFF = {
 
 const MAX_ALPHA = 0.6;
 
-// Overrides the browser default button style (inline-block, nowrap) so a
-// multi-word trigger like "the 4 recent statewide elections" wraps with the
-// surrounding paragraph instead of staying on one line.
-const WRAPPING_HOVER_BTN_STYLE: React.CSSProperties = {
-  ...HOVER_BTN_STYLE,
-  display: 'inline',
-  whiteSpace: 'normal',
-};
-
 // Highlights a Disproportionality cell in either table above/below while the "4 recent
 // statewide elections" trigger is hovered, so the reader can see exactly which rows the
 // FTV verdict sentence is talking about.
@@ -128,6 +119,16 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
   const ftvKeySet = ftv ? new Set([...ftv.pres, ...ftv.sen]) : null;
   const isFtvHighlighted = (key: string) =>
     (ftvHover && !!ftvKeySet?.has(key)) || (ftvPassHover && !!ftvPassingKeys?.has(key));
+
+  // Shared between both branches of the FTV sentence below (scored and
+  // not-enough-data) so the HelpTip trigger isn't duplicated.
+  const ftvHelpTipTrigger = (
+    <HelpTip tip="freedomToVoteTest" openDelay={HELP_TIP_FAST_DELAY}>
+      <button type="button" style={HOVER_BTN_STYLE}>
+        Freedom-To-Vote test
+      </button>
+    </HelpTip>
+  );
 
   const avgSeatSkew =
     n > 0 && evaluation.disproportionality && numDistricts !== null
@@ -315,29 +316,19 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
               <Text size="2" mb="3" as="p">
                 The following scores can all be found in the political science literature, but are
                 not necessarily endorsed by leading scholars at this time.{' '}
-                {ftvPassCount === null ? (
+                {ftvPassCount === null && (
                   <>
                     Not enough recent Presidential and Senate election data is available to score
-                    this plan against the{' '}
-                    <HelpTip tip="freedomToVoteTest" openDelay={HELP_TIP_FAST_DELAY}>
-                      <button type="button" style={HOVER_BTN_STYLE}>
-                        Freedom-To-Vote test
-                      </button>
-                    </HelpTip>
-                    .
+                    this plan against the {ftvHelpTipTrigger}.
                   </>
-                ) : (
+                )}
+                {ftvPassCount !== null && (
                   <>
                     This plan <strong>{ftvOverallPass ? 'passes' : 'does not pass'}</strong> the{' '}
-                    <HelpTip tip="freedomToVoteTest" openDelay={HELP_TIP_FAST_DELAY}>
-                      <button type="button" style={HOVER_BTN_STYLE}>
-                        Freedom-To-Vote test
-                      </button>
-                    </HelpTip>
-                    : among{' '}
+                    {ftvHelpTipTrigger}: among{' '}
                     <button
                       type="button"
-                      style={WRAPPING_HOVER_BTN_STYLE}
+                      style={HOVER_BTN_STYLE}
                       onMouseEnter={() => setFtvHover(true)}
                       onMouseLeave={() => setFtvHover(false)}
                       onFocus={() => setFtvHover(true)}
