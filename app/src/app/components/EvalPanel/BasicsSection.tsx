@@ -8,7 +8,7 @@ import {useMapStore} from '@store/mapStore';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {useDistrictHover} from '@/app/hooks/useDistrictHover';
 import {useZoomToDistrict} from '@/app/hooks/useZoomToDistrict';
-import {HOVER_TRIGGER_BASE_STYLE} from './hoverTriggerStyle';
+import {HOVER_BTN_STYLE} from './hoverTriggerStyle';
 
 type DeviationView = 'top_to_bottom' | 'max_absolute' | 'both';
 
@@ -22,12 +22,6 @@ function formatDeviation(value: number): string {
 interface BasicsSectionProps {
   evaluation: DocumentEvaluation;
 }
-
-const HOVER_BTN_STYLE: React.CSSProperties = {
-  ...HOVER_TRIGGER_BASE_STYLE,
-  fontWeight: 'bold',
-  cursor: 'default',
-};
 
 export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -189,7 +183,7 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
                 Your plan&apos;s most populous district is{' '}
                 <button
                   type="button"
-                  style={HOVER_BTN_STYLE}
+                  style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}
                   onMouseEnter={() => onDistrictEnter(population_deviation.most_populous_district)}
                   onMouseLeave={onDistrictLeave}
                   onFocus={() => onDistrictEnter(population_deviation.most_populous_district)}
@@ -200,7 +194,7 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
                 and least populous district is{' '}
                 <button
                   type="button"
-                  style={HOVER_BTN_STYLE}
+                  style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}
                   onMouseEnter={() => onDistrictEnter(population_deviation.least_populous_district)}
                   onMouseLeave={onDistrictLeave}
                   onFocus={() => onDistrictEnter(population_deviation.least_populous_district)}

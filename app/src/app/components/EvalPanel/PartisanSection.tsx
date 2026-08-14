@@ -10,7 +10,7 @@ import {NUMBER_FORMATS} from '@/app/constants/demography/format';
 import {PovSwitcher, type Pov} from '@components/Shared/PovSwitcher';
 import {getReadableTextColor} from '@/app/utils/colors';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
-import {HOVER_TRIGGER_BASE_STYLE} from './hoverTriggerStyle';
+import {HOVER_BTN_STYLE} from './hoverTriggerStyle';
 
 interface PartisanSectionProps {
   evaluation: DocumentEvaluation;
@@ -39,14 +39,11 @@ const METRIC_CUTOFF = {
 
 const MAX_ALPHA = 0.6;
 
-// Used for both the FTV HelpTip trigger and the "4 recent statewide elections"
-// cross-table highlight trigger.
-const HOVER_BTN_STYLE: React.CSSProperties = {
-  ...HOVER_TRIGGER_BASE_STYLE,
-  cursor: 'help',
-  // Overrides the browser default button style (inline-block, nowrap) so a
-  // multi-word trigger like "the 4 recent statewide elections" wraps with the
-  // surrounding paragraph instead of staying on one line.
+// Overrides the browser default button style (inline-block, nowrap) so a
+// multi-word trigger like "the 4 recent statewide elections" wraps with the
+// surrounding paragraph instead of staying on one line.
+const WRAPPING_HOVER_BTN_STYLE: React.CSSProperties = {
+  ...HOVER_BTN_STYLE,
   display: 'inline',
   whiteSpace: 'normal',
 };
@@ -340,7 +337,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                     : among{' '}
                     <button
                       type="button"
-                      style={HOVER_BTN_STYLE}
+                      style={WRAPPING_HOVER_BTN_STYLE}
                       onMouseEnter={() => setFtvHover(true)}
                       onMouseLeave={() => setFtvHover(false)}
                       onFocus={() => setFtvHover(true)}
@@ -352,7 +349,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                     out of {numDistricts} seats for{' '}
                     <button
                       type="button"
-                      style={HOVER_BTN_STYLE}
+                      style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}
                       onMouseEnter={() => setFtvPassHover(true)}
                       onMouseLeave={() => setFtvPassHover(false)}
                       onFocus={() => setFtvPassHover(true)}
