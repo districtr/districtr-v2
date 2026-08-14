@@ -38,6 +38,25 @@ const METRIC_CUTOFF = {
 
 const MAX_ALPHA = 0.6;
 
+// Matches BasicsSection's HOVER_BTN_STYLE: an inline, underlined-dotted trigger that
+// reads as plain bold text until hovered, used here for both the FTV HelpTip trigger
+// and the "4 recent statewide elections" cross-table highlight trigger.
+const HOVER_BTN_STYLE: React.CSSProperties = {
+  background: 'none',
+  border: 'none',
+  padding: 0,
+  font: 'inherit',
+  fontWeight: 'bold',
+  cursor: 'help',
+  textDecoration: 'underline dotted',
+};
+
+// Highlights a Disproportionality cell in either table above/below while the "4 recent
+// statewide elections" trigger is hovered, so the reader can see exactly which rows the
+// FTV verdict sentence is talking about.
+const ftvCellHighlight = (isFtvElection: boolean): React.CSSProperties =>
+  isFtvElection ? {boxShadow: 'inset 0 0 0 2px var(--accent-9)'} : {};
+
 // All metrics are dem-POV: positive = dem advantage (blue), negative = rep advantage (red).
 const scaledBg = (value: number | undefined, cutoff: number) => {
   if (value == null) return undefined;
@@ -81,6 +100,7 @@ function sortElections(keys: string[]): string[] {
 
 export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) => {
   const [pov, setPov] = useState<Pov>('dem');
+  const [ftvHover, setFtvHover] = useState(false);
   const elections = sortElections(Object.keys(evaluation.seats ?? {}));
   const n = elections.length;
   const competitiveness = evaluation.competitiveness;
@@ -104,6 +124,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
         }).length
       : null;
   const ftvOverallPass = ftvPassCount !== null ? ftvPassCount >= 3 : null;
+  const ftvKeySet = ftv ? new Set([...ftv.pres, ...ftv.sen]) : null;
 
   const avgSeatSkew =
     n > 0 && evaluation.disproportionality && numDistricts !== null
@@ -264,6 +285,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                             style={{
                               backgroundColor: scaledBg(rawDisp ?? undefined, METRIC_CUTOFF.disp),
                               color: scaledTextColor(rawDisp ?? undefined, METRIC_CUTOFF.disp),
+                              ...ftvCellHighlight(ftvHover && !!ftvKeySet?.has(key)),
                             }}
                           >
                             <Text size="2">
@@ -293,20 +315,37 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                 {ftvPassCount === null ? (
                   <>
                     Not enough recent Presidential and Senate election data is available to score
-                    this plan against the Freedom-to-Vote test
-                    <HelpTip tip="freedomToVoteTest" openDelay={HELP_TIP_FAST_DELAY} />.
+                    this plan against the{' '}
+                    <HelpTip tip="freedomToVoteTest" openDelay={HELP_TIP_FAST_DELAY}>
+                      <button type="button" style={HOVER_BTN_STYLE}>
+                        Freedom-To-Vote test
+                      </button>
+                    </HelpTip>
+                    .
                   </>
                 ) : (
                   <>
-                    This plan <strong>{ftvOverallPass ? 'passes' : 'does not pass'}</strong> the
-                    Freedom-To-Vote test
-                    <HelpTip tip="freedomToVoteTest" openDelay={HELP_TIP_FAST_DELAY} />: among 4
-                    recent statewide elections, two most recent Presidential and two most recent
-                    Senate elections, this plan's absolute value of disproportionality stays either
-                    within 7% or within one out of {numDistricts} seats for{' '}
-                    <strong>{ftvPassCount} of the 4</strong> elections,{' '}
-                    {ftvOverallPass ? 'passing' : 'failing'} the test because this number is{' '}
-                    {ftvOverallPass ? '' : 'not '}larger than or equal to 3.
+                    This plan <strong>{ftvOverallPass ? 'passes' : 'does not pass'}</strong> the{' '}
+                    <HelpTip tip="freedomToVoteTest" openDelay={HELP_TIP_FAST_DELAY}>
+                      <button type="button" style={HOVER_BTN_STYLE}>
+                        Freedom-To-Vote test
+                      </button>
+                    </HelpTip>
+                    : among{' '}
+                    <button
+                      type="button"
+                      style={HOVER_BTN_STYLE}
+                      onMouseEnter={() => setFtvHover(true)}
+                      onMouseLeave={() => setFtvHover(false)}
+                      onFocus={() => setFtvHover(true)}
+                      onBlur={() => setFtvHover(false)}
+                    >
+                      the 4 recent statewide elections
+                    </button>
+                    , this plan's absolute value of disproportionality stays either within 7% or
+                    within one out of {numDistricts} seats for <strong>{ftvPassCount} </strong>{' '}
+                    elections, {ftvOverallPass ? 'passing' : 'failing'} the test because this number
+                    is {ftvOverallPass ? '' : 'not '}larger than or equal to 3.
                   </>
                 )}
               </Text>
@@ -371,6 +410,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                               evaluation.disproportionality?.[key],
                               METRIC_CUTOFF.disp
                             ),
+                            ...ftvCellHighlight(ftvHover && !!ftvKeySet?.has(key)),
                           }}
                         >
                           <Text size="2">
