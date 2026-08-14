@@ -46,7 +46,6 @@ const HOVER_BTN_STYLE: React.CSSProperties = {
   border: 'none',
   padding: 0,
   font: 'inherit',
-  fontWeight: 'bold',
   cursor: 'help',
   textDecoration: 'underline dotted',
   // Overrides the browser default button style (inline-block, nowrap) so a
@@ -106,6 +105,7 @@ function sortElections(keys: string[]): string[] {
 export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) => {
   const [pov, setPov] = useState<Pov>('dem');
   const [ftvHover, setFtvHover] = useState(false);
+  const [ftvPassHover, setFtvPassHover] = useState(false);
   const elections = sortElections(Object.keys(evaluation.seats ?? {}));
   const n = elections.length;
   const competitiveness = evaluation.competitiveness;
@@ -121,15 +121,20 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
 
   const ftv = selectFtvElections(Object.keys(evaluation.seats ?? {}));
   const ftvThreshold = ftv && numDistricts ? Math.max(0.07, 1 / numDistricts) : null;
-  const ftvPassCount =
+  const ftvPassingKeys =
     ftv && ftvThreshold !== null
-      ? [...ftv.pres, ...ftv.sen].filter(key => {
-          const disprop = evaluation.disproportionality?.[key];
-          return disprop !== undefined && Math.abs(disprop) <= ftvThreshold;
-        }).length
+      ? new Set(
+          [...ftv.pres, ...ftv.sen].filter(key => {
+            const disprop = evaluation.disproportionality?.[key];
+            return disprop !== undefined && Math.abs(disprop) <= ftvThreshold;
+          })
+        )
       : null;
+  const ftvPassCount = ftvPassingKeys ? ftvPassingKeys.size : null;
   const ftvOverallPass = ftvPassCount !== null ? ftvPassCount >= 3 : null;
   const ftvKeySet = ftv ? new Set([...ftv.pres, ...ftv.sen]) : null;
+  const isFtvHighlighted = (key: string) =>
+    (ftvHover && !!ftvKeySet?.has(key)) || (ftvPassHover && !!ftvPassingKeys?.has(key));
 
   const avgSeatSkew =
     n > 0 && evaluation.disproportionality && numDistricts !== null
@@ -290,7 +295,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                             style={{
                               backgroundColor: scaledBg(rawDisp ?? undefined, METRIC_CUTOFF.disp),
                               color: scaledTextColor(rawDisp ?? undefined, METRIC_CUTOFF.disp),
-                              ...ftvCellHighlight(ftvHover && !!ftvKeySet?.has(key)),
+                              ...ftvCellHighlight(isFtvHighlighted(key)),
                             }}
                           >
                             <Text size="2">
@@ -348,8 +353,18 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                       the 4 recent statewide elections
                     </button>
                     , this plan's absolute disproportionality stays either within 7% or within one
-                    out of {numDistricts} seats for <strong>{ftvPassCount} </strong> elections,
-                    while 3 is required to pass the test.
+                    out of {numDistricts} seats for{' '}
+                    <button
+                      type="button"
+                      style={HOVER_BTN_STYLE}
+                      onMouseEnter={() => setFtvPassHover(true)}
+                      onMouseLeave={() => setFtvPassHover(false)}
+                      onFocus={() => setFtvPassHover(true)}
+                      onBlur={() => setFtvPassHover(false)}
+                    >
+                      {ftvPassCount} election{ftvPassCount === 1 ? '' : 's'}
+                    </button>
+                    , while 3 is required to pass the test.
                   </>
                 )}
               </Text>
@@ -414,7 +429,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                               evaluation.disproportionality?.[key],
                               METRIC_CUTOFF.disp
                             ),
-                            ...ftvCellHighlight(ftvHover && !!ftvKeySet?.has(key)),
+                            ...ftvCellHighlight(isFtvHighlighted(key)),
                           }}
                         >
                           <Text size="2">
