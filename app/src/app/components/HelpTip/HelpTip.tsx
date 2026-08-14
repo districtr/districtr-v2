@@ -30,6 +30,12 @@ export const HELP_TIP_HOVER_DELAY = 1250;
  * clicking something else, so it should feel as immediate as a plain tooltip. */
 export const HELP_TIP_FAST_DELAY = 0;
 
+/** Grace period (ms) after the pointer leaves the trigger or the card before it
+ * actually closes — lets the cursor travel from one to the other. Matches what
+ * used to be Radix's own `closeDelay`; now enforced by this component's own
+ * timer instead (see the doc comment on `HelpTip` for why). */
+const HELP_TIP_CLOSE_DELAY = 300;
+
 /** The video modal, split out of `HelpTip` so a caller that needs its own trigger
  * for the video (rather than the in-card link) can still reuse it directly. */
 export const HelpTipVideoDialog: React.FC<{
@@ -87,15 +93,24 @@ export const HelpTipVideoDialog: React.FC<{
  * Small hover-triggered help affordance: short text, optionally a "Watch video" link
  * opening a full-window modal with the clip and a guide link.
  *
- * Responsibility is split with Radix's HoverCard: OPENING is owned entirely by this
- * component (its own pointerenter-started timer, cancelled by pointerleave), with
- * Radix's internal open timer disabled via a huge openDelay — that timer can't be
- * cancelled from outside, so it would otherwise fire stale opens after the pointer
- * has already left (help popping open with no pointer event left to ever close
- * it). CLOSING stays Radix's: its closeDelay grace period lets the cursor travel
- * from the trigger into the card, and only actually leaving both — not clicking —
- * closes the card, so a click that does real work (selecting a tool, opening a
- * dropdown item) doesn't fight the hover that got the user there.
+ * Both OPENING and CLOSING are owned entirely by this component's own pointerenter/
+ * pointerleave timers, with Radix's internal open/close timers disabled or
+ * duplicated rather than relied on:
+ * - Opening: Radix's own open timer can't be cancelled from outside, so it would
+ *   otherwise fire a stale open after the pointer has already left (help popping
+ *   open with no pointer event left to ever close it) — disabled via a huge
+ *   `openDelay`.
+ * - Closing: Radix's own close timer refuses to even schedule once any text
+ *   inside the card has been selected (`hasSelectionRef` in its source), and that
+ *   flag only clears on a fresh pointerdown inside the content — so copying the
+ *   card's text and moving the pointer away left it stuck open forever, with our
+ *   own `onPointerDownOutside` preventDefault below blocking the other escape
+ *   hatch too. This component's own close timer, attached to both the trigger and
+ *   the content, closes deterministically regardless of Radix's internal
+ *   selection-tracking state. A click never closes the card on its own — only the
+ *   pointer actually leaving both the trigger and the card (and the grace period
+ *   elapsing) does — so a click that does real work (selecting a tool, opening a
+ *   dropdown item) doesn't fight the hover that got the user there.
  */
 export const HelpTip: React.FC<{
   tip: HelpTipKey;
@@ -124,6 +139,7 @@ export const HelpTip: React.FC<{
   const [open, setOpen] = useState(false);
   const [videoOpen, setVideoOpen] = useState(false);
   const openTimerRef = useRef<number | undefined>(undefined);
+  const closeTimerRef = useRef<number | undefined>(undefined);
   // Where along the trigger's own edge the pointer actually is, in pixels from
   // that edge's start — read directly into `alignOffset` below so the card
   // anchors near the cursor instead of always at the trigger's start corner.
@@ -145,13 +161,27 @@ export const HelpTip: React.FC<{
   };
 
   const cancelOpenTimer = () => window.clearTimeout(openTimerRef.current);
+  const cancelCloseTimer = () => window.clearTimeout(closeTimerRef.current);
+  const scheduleClose = () => {
+    cancelCloseTimer();
+    closeTimerRef.current = window.setTimeout(() => setOpen(false), HELP_TIP_CLOSE_DELAY);
+  };
   const handlePointerEnter = (event: React.PointerEvent) => {
     trackPointerOffset(event);
     cancelOpenTimer();
+    cancelCloseTimer();
     openTimerRef.current = window.setTimeout(() => setOpen(true), openDelay);
   };
-  const handlePointerLeave = () => cancelOpenTimer();
-  useEffect(() => cancelOpenTimer, []);
+  const handlePointerLeave = () => {
+    cancelOpenTimer();
+    scheduleClose();
+  };
+  useEffect(() => {
+    return () => {
+      cancelOpenTimer();
+      cancelCloseTimer();
+    };
+  }, []);
 
   // Widened to the interface: `helpTipContent`'s `satisfies` (see helpTipContent.ts)
   // preserves each entry's own literal shape for HelpTipKey's sake, so indexing by a
@@ -222,9 +252,9 @@ export const HelpTip: React.FC<{
 
   return (
     <>
-      {/* openDelay={NEVER_MS} deliberately benches Radix's own open path — see the
-          component doc comment. closeDelay is real: it's the grace period for
-          moving the cursor from the trigger into the card. */}
+      {/* openDelay={NEVER_MS} deliberately benches Radix's own open path, and
+          closeDelay is now redundant with our own close timer — both kept only
+          as an inert fallback. See the component doc comment. */}
       <HoverCard.Root open={open} onOpenChange={setOpen} openDelay={NEVER_MS} closeDelay={300}>
         <HoverCard.Trigger>{trigger}</HoverCard.Trigger>
         <HoverCard.Content
@@ -242,6 +272,11 @@ export const HelpTip: React.FC<{
           // leaving both the trigger and the card does — so this default adds an
           // unwanted second dismissal path on top of that.
           onPointerDownOutside={event => event.preventDefault()}
+          // Own close timer, not Radix's: see the HelpTip doc comment above for
+          // why relying on Radix's here leaves the card stuck open after a text
+          // selection inside it.
+          onPointerEnter={cancelCloseTimer}
+          onPointerLeave={scheduleClose}
         >
           <Flex direction="column" gapY="2">
             {/* whiteSpace: 'pre-line' so a caller (e.g. Undo/Redo's shortcut
