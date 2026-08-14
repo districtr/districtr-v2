@@ -299,13 +299,14 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                 ) : (
                   <>
                     This plan <strong>{ftvOverallPass ? 'passes' : 'does not pass'}</strong> the
-                    Freedom-to-Vote test
-                    <HelpTip tip="freedomToVoteTest" openDelay={HELP_TIP_FAST_DELAY} />: among the 2
-                    most recent Presidential and 2 most recent Senate elections, its
-                    disproportionality stays within {(ftvThreshold! * 100).toFixed(1)}% (the greater
-                    of 7%, or 1 of this plan's {numDistricts} seats) in{' '}
-                    <strong>{ftvPassCount} of 4</strong> elections — at least 3 are required to
-                    pass.
+                    Freedom-To-Vote test
+                    <HelpTip tip="freedomToVoteTest" openDelay={HELP_TIP_FAST_DELAY} />: among 4
+                    recent statewide elections, two most recent Presidential and two most recent
+                    Senate elections, this plan's absolute value of disproportionality stays either
+                    within 7% or within one out of {numDistricts} seats for{' '}
+                    <strong>{ftvPassCount} of the 4</strong> elections,{' '}
+                    {ftvOverallPass ? 'passing' : 'failing'} the test because this number is{' '}
+                    {ftvOverallPass ? '' : 'not '}larger than or equal to 3.
                   </>
                 )}
               </Text>
