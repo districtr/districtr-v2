@@ -4,7 +4,7 @@ import * as Accordion from '@radix-ui/react-accordion';
 import {Flex, Text, Table, Heading} from '@radix-ui/themes';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
-import {formatElectionKey} from '@/app/utils/elections';
+import {formatElectionKey, selectFtvElections} from '@/app/utils/elections';
 import {formatNumber} from '@/app/utils/numbers';
 import {NUMBER_FORMATS} from '@/app/constants/demography/format';
 import {PovSwitcher, type Pov} from '@components/Shared/PovSwitcher';
@@ -92,6 +92,20 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
 
   const firstSeats = n > 0 ? evaluation.seats?.[elections[0]] : null;
   const numDistricts = firstSeats?.total ?? null;
+
+  const ftv = selectFtvElections(Object.keys(evaluation.seats ?? {}));
+  const ftvThreshold = ftv && numDistricts ? Math.max(0.07, 1 / numDistricts) : null;
+  const ftvElections = ftv ? [...ftv.pres, ...ftv.sen] : [];
+  const ftvResults =
+    ftvThreshold !== null
+      ? ftvElections.map(key => {
+          const disprop = evaluation.disproportionality?.[key] ?? null;
+          const passes = disprop !== null ? Math.abs(disprop) <= ftvThreshold : null;
+          return {key, disprop, passes};
+        })
+      : [];
+  const ftvPassCount = ftvResults.filter(r => r.passes).length;
+  const ftvOverallPass = ftvThreshold !== null ? ftvPassCount >= 3 : null;
 
   const avgSeatSkew =
     n > 0 && evaluation.disproportionality && numDistricts !== null
@@ -266,6 +280,79 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                   </Table.Body>
                 </Table.Root>
               </div>
+            </>
+          )}
+
+          {/* Freedom to Vote Test */}
+          {n > 0 && (
+            <>
+              <Heading size="3" align="center" mb="2" mt="4">
+                Freedom to Vote Test
+              </Heading>
+              {ftvThreshold === null ? (
+                <Text size="2" mb="3" as="p">
+                  <strong>Not applicable</strong> — this state doesn't have both 2 recent
+                  Presidential and 2 recent Senate elections in our dataset.
+                </Text>
+              ) : (
+                <>
+                  <Text size="2" mb="3" as="p">
+                    Based on the Freedom to Vote Act's redistricting test (S.2747): a plan is
+                    presumed to fairly represent both major parties if disproportionality stays
+                    within <strong>{(ftvThreshold * 100).toFixed(1)}%</strong> (the greater of 7% or
+                    1 seat) for at least 3 of the 2 most recent Presidential and 2 most recent
+                    Senate elections. This plan{' '}
+                    <strong>{ftvOverallPass ? 'passes' : 'fails'}</strong> the test, meeting the
+                    threshold in <strong>{ftvPassCount} of 4</strong> elections.
+                  </Text>
+                  <div style={{width: 'fit-content', overflowX: 'auto', maxWidth: '100%'}}>
+                    <Table.Root size="1" mb="3" variant="surface">
+                      <Table.Header>
+                        <Table.Row>
+                          <Table.ColumnHeaderCell justify="center">Election</Table.ColumnHeaderCell>
+                          <Table.ColumnHeaderCell justify="center">
+                            Dispropor-
+                            <br />
+                            tionality
+                          </Table.ColumnHeaderCell>
+                          <Table.ColumnHeaderCell justify="center">Result</Table.ColumnHeaderCell>
+                        </Table.Row>
+                      </Table.Header>
+                      <Table.Body>
+                        {ftvResults.map(({key, disprop, passes}) => (
+                          <Table.Row key={key}>
+                            <Table.Cell justify="center">
+                              <Text size="2" weight="bold">
+                                {formatElectionKey(key)}
+                              </Text>
+                            </Table.Cell>
+                            <Table.Cell
+                              justify="center"
+                              style={{
+                                backgroundColor: scaledBg(disprop ?? undefined, METRIC_CUTOFF.disp),
+                                color: scaledTextColor(disprop ?? undefined, METRIC_CUTOFF.disp),
+                              }}
+                            >
+                              <Text size="2">
+                                {formatNumber(disprop ?? undefined, NUMBER_FORMATS.SIGNED_PCT)}
+                              </Text>
+                            </Table.Cell>
+                            <Table.Cell justify="center">
+                              <Text size="2">
+                                {passes === null
+                                  ? '—'
+                                  : passes
+                                    ? 'Within threshold'
+                                    : 'Exceeds threshold'}
+                              </Text>
+                            </Table.Cell>
+                          </Table.Row>
+                        ))}
+                      </Table.Body>
+                    </Table.Root>
+                  </div>
+                </>
+              )}
             </>
           )}
 
