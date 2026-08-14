@@ -8,6 +8,7 @@ import {useMapStore} from '@store/mapStore';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {useDistrictHover} from '@/app/hooks/useDistrictHover';
 import {useZoomToDistrict} from '@/app/hooks/useZoomToDistrict';
+import {HOVER_TRIGGER_BASE_STYLE} from './hoverTriggerStyle';
 
 type DeviationView = 'top_to_bottom' | 'max_absolute' | 'both';
 
@@ -23,13 +24,9 @@ interface BasicsSectionProps {
 }
 
 const HOVER_BTN_STYLE: React.CSSProperties = {
-  background: 'none',
-  border: 'none',
-  padding: 0,
-  font: 'inherit',
+  ...HOVER_TRIGGER_BASE_STYLE,
   fontWeight: 'bold',
   cursor: 'default',
-  textDecoration: 'underline dotted',
 };
 
 export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {

@@ -10,6 +10,7 @@ import {NUMBER_FORMATS} from '@/app/constants/demography/format';
 import {PovSwitcher, type Pov} from '@components/Shared/PovSwitcher';
 import {getReadableTextColor} from '@/app/utils/colors';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
+import {HOVER_TRIGGER_BASE_STYLE} from './hoverTriggerStyle';
 
 interface PartisanSectionProps {
   evaluation: DocumentEvaluation;
@@ -38,16 +39,11 @@ const METRIC_CUTOFF = {
 
 const MAX_ALPHA = 0.6;
 
-// Matches BasicsSection's HOVER_BTN_STYLE: an inline, underlined-dotted trigger that
-// reads as plain bold text until hovered, used here for both the FTV HelpTip trigger
-// and the "4 recent statewide elections" cross-table highlight trigger.
+// Used for both the FTV HelpTip trigger and the "4 recent statewide elections"
+// cross-table highlight trigger.
 const HOVER_BTN_STYLE: React.CSSProperties = {
-  background: 'none',
-  border: 'none',
-  padding: 0,
-  font: 'inherit',
+  ...HOVER_TRIGGER_BASE_STYLE,
   cursor: 'help',
-  textDecoration: 'underline dotted',
   // Overrides the browser default button style (inline-block, nowrap) so a
   // multi-word trigger like "the 4 recent statewide elections" wraps with the
   // surrounding paragraph instead of staying on one line.
