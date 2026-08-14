@@ -49,6 +49,11 @@ const HOVER_BTN_STYLE: React.CSSProperties = {
   fontWeight: 'bold',
   cursor: 'help',
   textDecoration: 'underline dotted',
+  // Overrides the browser default button style (inline-block, nowrap) so a
+  // multi-word trigger like "the 4 recent statewide elections" wraps with the
+  // surrounding paragraph instead of staying on one line.
+  display: 'inline',
+  whiteSpace: 'normal',
 };
 
 // Highlights a Disproportionality cell in either table above/below while the "4 recent
@@ -342,10 +347,9 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                     >
                       the 4 recent statewide elections
                     </button>
-                    , this plan's absolute value of disproportionality stays either within 7% or
-                    within one out of {numDistricts} seats for <strong>{ftvPassCount} </strong>{' '}
-                    elections, {ftvOverallPass ? 'passing' : 'failing'} the test because this number
-                    is {ftvOverallPass ? '' : 'not '}larger than or equal to 3.
+                    , this plan's absolute disproportionality stays either within 7% or within one
+                    out of {numDistricts} seats for <strong>{ftvPassCount} </strong> elections,
+                    while 3 is required to pass the test.
                   </>
                 )}
               </Text>

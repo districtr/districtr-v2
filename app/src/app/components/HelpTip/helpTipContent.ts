@@ -204,7 +204,7 @@ export const helpTipContent = {
   // fallback (kept only so the entry satisfies HelpTipEntry's required `text`).
   freedomToVoteTest: {
     title: 'Freedom-to-Vote test',
-    text: 'Proposed in the Freedom to Vote Act (S.2747, 117th Congress, 2021). See Duchin & Schoenbach, "Redistricting for Proportionality" (2022). It tests whether a plan\'s seat share is reliably proportional to its vote share among the two most recent presidential elections and two most recent Senate elections.',
+    text: 'Proposed in the Freedom to Vote Act (S.2747, 117th Congress, 2021). See Duchin & Schoenbach, "Redistricting for Proportionality" (2022). It tests whether a plan\'s seat share is reliably proportional to its vote share among the two most recent Presidential elections and two most recent Senate elections.',
   },
   saveStatus: {
     title: 'Autosave',
