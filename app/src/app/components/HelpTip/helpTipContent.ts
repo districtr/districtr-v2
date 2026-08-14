@@ -202,6 +202,10 @@ export const helpTipContent = {
   // No video for either of these — they're live status indicators, not features to
   // demo, so `text` is always supplied via HelpTip's override prop instead of this
   // fallback (kept only so the entry satisfies HelpTipEntry's required `text`).
+  freedomToVoteTest: {
+    title: 'Freedom-to-Vote test',
+    text: 'A plan is presumed fair if its disproportionality (seat share minus vote share) stays within 7% — or 1 seat, whichever is larger — in at least 3 of the last 2 Presidential and 2 Senate elections. Proposed in the Freedom to Vote Act (S.2747, 117th Congress, 2021), introduced but not enacted. See Duchin & Schoenbach, "Redistricting for Proportionality" (2022).',
+  },
   saveStatus: {
     title: 'Autosave',
     text: 'Autosave is on: changes save automatically after 30 seconds of inactivity.',

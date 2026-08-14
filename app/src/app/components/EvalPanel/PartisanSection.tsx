@@ -9,6 +9,7 @@ import {formatNumber} from '@/app/utils/numbers';
 import {NUMBER_FORMATS} from '@/app/constants/demography/format';
 import {PovSwitcher, type Pov} from '@components/Shared/PovSwitcher';
 import {getReadableTextColor} from '@/app/utils/colors';
+import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
 
 interface PartisanSectionProps {
   evaluation: DocumentEvaluation;
@@ -95,17 +96,14 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
 
   const ftv = selectFtvElections(Object.keys(evaluation.seats ?? {}));
   const ftvThreshold = ftv && numDistricts ? Math.max(0.07, 1 / numDistricts) : null;
-  const ftvElections = ftv ? [...ftv.pres, ...ftv.sen] : [];
-  const ftvResults =
-    ftvThreshold !== null
-      ? ftvElections.map(key => {
-          const disprop = evaluation.disproportionality?.[key] ?? null;
-          const passes = disprop !== null ? Math.abs(disprop) <= ftvThreshold : null;
-          return {key, disprop, passes};
-        })
-      : [];
-  const ftvPassCount = ftvResults.filter(r => r.passes).length;
-  const ftvOverallPass = ftvThreshold !== null ? ftvPassCount >= 3 : null;
+  const ftvPassCount =
+    ftv && ftvThreshold !== null
+      ? [...ftv.pres, ...ftv.sen].filter(key => {
+          const disprop = evaluation.disproportionality?.[key];
+          return disprop !== undefined && Math.abs(disprop) <= ftvThreshold;
+        }).length
+      : null;
+  const ftvOverallPass = ftvPassCount !== null ? ftvPassCount >= 3 : null;
 
   const avgSeatSkew =
     n > 0 && evaluation.disproportionality && numDistricts !== null
@@ -283,79 +281,6 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
             </>
           )}
 
-          {/* Freedom to Vote Test */}
-          {n > 0 && (
-            <>
-              <Heading size="3" align="center" mb="2" mt="4">
-                Freedom to Vote Test
-              </Heading>
-              {ftvThreshold === null ? (
-                <Text size="2" mb="3" as="p">
-                  <strong>Not applicable</strong> — this state doesn't have both 2 recent
-                  Presidential and 2 recent Senate elections in our dataset.
-                </Text>
-              ) : (
-                <>
-                  <Text size="2" mb="3" as="p">
-                    Based on the Freedom to Vote Act's redistricting test (S.2747): a plan is
-                    presumed to fairly represent both major parties if disproportionality stays
-                    within <strong>{(ftvThreshold * 100).toFixed(1)}%</strong> (the greater of 7% or
-                    1 seat) for at least 3 of the 2 most recent Presidential and 2 most recent
-                    Senate elections. This plan{' '}
-                    <strong>{ftvOverallPass ? 'passes' : 'fails'}</strong> the test, meeting the
-                    threshold in <strong>{ftvPassCount} of 4</strong> elections.
-                  </Text>
-                  <div style={{width: 'fit-content', overflowX: 'auto', maxWidth: '100%'}}>
-                    <Table.Root size="1" mb="3" variant="surface">
-                      <Table.Header>
-                        <Table.Row>
-                          <Table.ColumnHeaderCell justify="center">Election</Table.ColumnHeaderCell>
-                          <Table.ColumnHeaderCell justify="center">
-                            Dispropor-
-                            <br />
-                            tionality
-                          </Table.ColumnHeaderCell>
-                          <Table.ColumnHeaderCell justify="center">Result</Table.ColumnHeaderCell>
-                        </Table.Row>
-                      </Table.Header>
-                      <Table.Body>
-                        {ftvResults.map(({key, disprop, passes}) => (
-                          <Table.Row key={key}>
-                            <Table.Cell justify="center">
-                              <Text size="2" weight="bold">
-                                {formatElectionKey(key)}
-                              </Text>
-                            </Table.Cell>
-                            <Table.Cell
-                              justify="center"
-                              style={{
-                                backgroundColor: scaledBg(disprop ?? undefined, METRIC_CUTOFF.disp),
-                                color: scaledTextColor(disprop ?? undefined, METRIC_CUTOFF.disp),
-                              }}
-                            >
-                              <Text size="2">
-                                {formatNumber(disprop ?? undefined, NUMBER_FORMATS.SIGNED_PCT)}
-                              </Text>
-                            </Table.Cell>
-                            <Table.Cell justify="center">
-                              <Text size="2">
-                                {passes === null
-                                  ? '—'
-                                  : passes
-                                    ? 'Within threshold'
-                                    : 'Exceeds threshold'}
-                              </Text>
-                            </Table.Cell>
-                          </Table.Row>
-                        ))}
-                      </Table.Body>
-                    </Table.Root>
-                  </div>
-                </>
-              )}
-            </>
-          )}
-
           {/* Other Partisanship Metrics */}
           {n > 0 && (
             <>
@@ -364,7 +289,25 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
               </Heading>
               <Text size="2" mb="3" as="p">
                 The following scores can all be found in the political science literature, but are
-                not necessarily endorsed by leading scholars at this time.
+                not necessarily endorsed by leading scholars at this time.{' '}
+                {ftvPassCount === null ? (
+                  <>
+                    Not enough recent Presidential and Senate election data is available to score
+                    this plan against the Freedom-to-Vote test
+                    <HelpTip tip="freedomToVoteTest" openDelay={HELP_TIP_FAST_DELAY} />.
+                  </>
+                ) : (
+                  <>
+                    This plan <strong>{ftvOverallPass ? 'passes' : 'does not pass'}</strong> the
+                    Freedom-to-Vote test
+                    <HelpTip tip="freedomToVoteTest" openDelay={HELP_TIP_FAST_DELAY} />: among the 2
+                    most recent Presidential and 2 most recent Senate elections, its
+                    disproportionality stays within {(ftvThreshold! * 100).toFixed(1)}% (the greater
+                    of 7%, or 1 of this plan's {numDistricts} seats) in{' '}
+                    <strong>{ftvPassCount} of 4</strong> elections — at least 3 are required to
+                    pass.
+                  </>
+                )}
               </Text>
               <Flex mb="2">
                 <PovSwitcher pov={pov} setPov={setPov} />
