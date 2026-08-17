@@ -1,10 +1,27 @@
 import {NextRequest, NextResponse} from 'next/server';
 import {LEGACY_DISTRICTR_URL} from '@/app/constants/legacy';
 
+// Runs server-side because the legacy site doesn't send CORS headers.
 // `path` may carry a query string; the id capture stops at `?` so it survives.
 const PLAN_ROUTE = /^\/(edit|plan|coi)\/([^/?#]+)/i;
+// /embedded carries its id as a query param instead of a path segment (e.g.
+// /embedded?id=47448, used by third-party iframe embeds), so it needs its own
+// extraction rather than joining PLAN_ROUTE's alternation.
+const EMBEDDED_ROUTE = /^\/embedded(?:[/?]|$)/i;
 const HEAD = (url: string, ms = 5000) =>
   fetch(url, {method: 'HEAD', signal: AbortSignal.timeout(ms)});
+
+// /edit|/plan|/coi|/embedded are all blind-200 rewrites (static files; legacy's
+// server never inspects the id) — the real answer is the data API (200 = found,
+// 500 = not). Returns null for every other route shape.
+function planIdFor(path: string): string | null {
+  const planMatch = path.match(PLAN_ROUTE);
+  if (planMatch) return planMatch[2];
+  if (EMBEDDED_ROUTE.test(path)) {
+    return new URLSearchParams(path.split('?')[1] ?? '').get('id');
+  }
+  return null;
+}
 
 export const GET = async (req: NextRequest) => {
   const path = req.nextUrl.searchParams.get('path') ?? '';
@@ -13,11 +30,10 @@ export const GET = async (req: NextRequest) => {
   }
   let exists = false;
   try {
-    const plan = path.match(PLAN_ROUTE);
-    if (plan) {
-      // /edit|/plan|/coi are blind-200 rewrites; the data API is the real check (200 = found, 500 = not).
+    const id = planIdFor(path);
+    if (id) {
       const res = await HEAD(
-        `${LEGACY_DISTRICTR_URL}/.netlify/functions/planRead?id=${encodeURIComponent(plan[2])}`,
+        `${LEGACY_DISTRICTR_URL}/.netlify/functions/planRead?id=${encodeURIComponent(id)}`,
         10_000 // cold start + Mongo connect
       );
       exists = res.ok;

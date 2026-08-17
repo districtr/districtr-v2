@@ -1,4 +1,5 @@
 'use client';
+import {useEffect, useState} from 'react';
 import {usePathname} from 'next/navigation';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {Box, Flex, Heading, Link, Spinner, Text} from '@radix-ui/themes';
@@ -10,6 +11,22 @@ import {useLegacyCheck} from '@/app/hooks/useLegacyCheck';
 function NotFoundInner() {
   const pathname = usePathname();
   const {legacyUrl, exists, isChecking} = useLegacyCheck(pathname);
+  const [seconds, setSeconds] = useState(5);
+
+  useEffect(() => {
+    if (!exists) return;
+    if (seconds <= 0) {
+      // window.location.replace, not a router push: this must navigate the
+      // actual browsing context, including when this page is itself loaded
+      // inside a third-party site's <iframe> (e.g. an embedded map preview
+      // pointing at a legacy-only id) — replacing that frame's location is
+      // the correct behavior there, not a parent-page navigation.
+      window.location.replace(legacyUrl);
+      return;
+    }
+    const timer = setTimeout(() => setSeconds(s => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [exists, seconds, legacyUrl]);
 
   return (
     <Flex direction="column" className="min-h-[100vh]" justify="center">
@@ -28,11 +45,9 @@ function NotFoundInner() {
           )}
           {exists && (
             <Text size="3" align="center">
-              Looking for a page from the original Districtr? Try{' '}
-              <Link href={legacyUrl} target="_blank" rel="noopener noreferrer">
-                {legacyUrl.replace('https://', '')}
-              </Link>
-              .
+              Looking for a page from the original Districtr? Redirecting you to{' '}
+              <Link href={legacyUrl}>{legacyUrl.replace('https://', '')}</Link> in {seconds} second
+              {seconds === 1 ? '' : 's'}&hellip;
             </Text>
           )}
           <Link href="/">Back to the Districtr 2.0 home page</Link>
