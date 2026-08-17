@@ -21,6 +21,11 @@ export type ColorPickerProps<T extends boolean = false> = T extends true
       multiple: true;
       disabledValues?: NullableZone[];
       _colorScheme?: string[];
+      /** Suppresses the digit-key hotkey alongside the caller's own visual
+       * disabling (e.g. pointer-events/opacity) — the two must travel
+       * together, or a keyboard digit can still reassign the selection
+       * through a picker that reads as inert. */
+      disabled?: boolean;
     }
   : {
       defaultValue: number;
@@ -29,6 +34,7 @@ export type ColorPickerProps<T extends boolean = false> = T extends true
       multiple?: false;
       disabledValues?: NullableZone[];
       _colorScheme?: string[];
+      disabled?: boolean;
     };
 
 export const ColorPicker = <T extends boolean>({
@@ -38,6 +44,7 @@ export const ColorPicker = <T extends boolean>({
   multiple,
   disabledValues,
   _colorScheme,
+  disabled,
 }: ColorPickerProps<T>) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const _stateColorScheme = useColorScheme();
@@ -64,6 +71,7 @@ export const ColorPicker = <T extends boolean>({
   useEffect(() => {
     // add a listener for option or alt key press and release
     const handleKeyPress = (event: KeyboardEvent) => {
+      if (disabled) return;
       const activeElement = document.activeElement;
       // if active element is an input, don't do anything
       if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement)
@@ -97,7 +105,7 @@ export const ColorPicker = <T extends boolean>({
     return () => {
       document.removeEventListener('keydown', handleKeyPress);
     };
-  }, []);
+  }, [disabled]);
 
   if (multiple) {
     if (mapDocument?.num_districts! > maxInlinePips) {

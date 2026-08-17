@@ -107,13 +107,20 @@ export const HelpTip: React.FC<{
   openDelay?: number;
   /** Replaces `helpTipContent[tip].text` for callers whose explanation depends on live
    * state (e.g. SaveButton's "unsaved changes" vs "all changes saved") — the dictionary
-   * entry still supplies title/video/guideAnchor, just not the hover text itself. */
+   * entry still supplies title/video/guideAnchor, just not the hover text itself. An
+   * override doesn't by itself hide the demonstration link (e.g. Undo/Redo's Super Draw
+   * shortcut text supplements the same video, it isn't a different situation) — use
+   * `hideLink` for overrides that genuinely aren't about the entry's own video. */
   text?: string;
+  /** Suppresses the demonstration link even though a video exists — for a `text`
+   * override that describes a different situation than the entry's own demo (e.g.
+   * County Brush's "unavailable while breaking a unit into blocks"). */
+  hideLink?: boolean;
   /** Which side of the trigger the card opens on — Radix's own default (bottom) unless
    * overridden. Also disables Popper's auto-flip-on-collision: a caller that asks for
    * a specific side wants that side, not to have it silently overridden. */
   side?: 'top' | 'right' | 'bottom' | 'left';
-}> = ({tip, children, openDelay = HELP_TIP_HOVER_DELAY, text, side}) => {
+}> = ({tip, children, openDelay = HELP_TIP_HOVER_DELAY, text, hideLink, side}) => {
   const [open, setOpen] = useState(false);
   const [videoOpen, setVideoOpen] = useState(false);
   const openTimerRef = useRef<number | undefined>(undefined);
@@ -152,11 +159,12 @@ export const HelpTip: React.FC<{
   const entry: HelpTipEntry = helpTipContent[tip];
   const displayText = text ?? entry.text;
   const videoFiles = entry.videoFiles ?? (entry.videoFile ? [entry.videoFile] : []);
-  // A caller-supplied `text` override describes a different situation than
-  // the dictionary entry's own demo video (e.g. "unavailable while breaking a
-  // unit into blocks" for County Brush) — suppress the link rather than
-  // demonstrating a feature that isn't what the override text is about.
-  const canExpand = videoFiles.length > 0 && !text;
+  // Link visibility is independent of whether `text` is overridden — an override
+  // can supplement the entry's own video (Undo/Redo's Super Draw shortcut lines)
+  // just as easily as it can describe an unrelated situation (County Brush's
+  // "unavailable while breaking a unit"); callers in the latter case pass
+  // `hideLink` explicitly instead of relying on `text` alone to imply it.
+  const canExpand = videoFiles.length > 0 && !hideLink;
 
   // Handlers are cloned directly onto the trigger element, never a wrapping span:
   // HoverCard's Popper positions the card against this element's own measured rect,
@@ -238,21 +246,29 @@ export const HelpTip: React.FC<{
           <Flex direction="column" gapY="2">
             {/* whiteSpace: 'pre-line' so a caller (e.g. Undo/Redo's shortcut
                 lines) can put each sentence on its own line via `\n` in the
-                override text — plain `Text` collapses newlines otherwise. */}
-            <Text size="2" style={{whiteSpace: 'pre-line'}}>
-              {displayText}
-            </Text>
+                override text — plain `Text` collapses newlines otherwise.
+                Omitted entirely when there's no text to show (e.g. the tool-
+                group combos, whose hover card is the link itself, no separate
+                description above it). */}
+            {displayText && (
+              <Text size="2" style={{whiteSpace: 'pre-line'}}>
+                {displayText}
+              </Text>
+            )}
             {canExpand && (
-              <Link
-                size="2"
-                href="#"
-                onClick={event => {
-                  event.preventDefault();
-                  setVideoOpen(true);
-                }}
-              >
-                See demonstration ▸
-              </Link>
+              <Text size="2">
+                <Link
+                  size="2"
+                  href="#"
+                  onClick={event => {
+                    event.preventDefault();
+                    setVideoOpen(true);
+                  }}
+                >
+                  Quick demonstration ▸
+                </Link>
+                {entry.linkSuffix && ` ${entry.linkSuffix}`}
+              </Text>
             )}
           </Flex>
         </HoverCard.Content>

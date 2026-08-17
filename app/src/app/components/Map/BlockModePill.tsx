@@ -1,10 +1,11 @@
 'use client';
 import React, {useEffect} from 'react';
-import {Button, Flex, Text} from '@radix-ui/themes';
 import {InfoCircledIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
+import {GEO_UNIT_SINGULAR_NAMES} from '@constants/document/geoUnits';
+import {MapPill} from './MapPill';
 
 /**
  * Guides the break-into-blocks flow: prompts for a unit while the break tool
@@ -17,6 +18,8 @@ export const BlockModePill = () => {
   const setActiveTool = useMapControlsStore(state => state.setActiveTool);
   const bounds = useMapControlsStore(state => state.mapOptions.bounds);
   const captiveIds = useMapStore(state => state.captiveIds);
+  const parentGeoUnitType = useMapStore(state => state.mapDocument?.parent_geo_unit_type);
+  const unitName = (parentGeoUnitType && GEO_UNIT_SINGULAR_NAMES[parentGeoUnitType]) || 'precinct';
   const exitBlockView = useMapStore(state => state.exitBlockView);
   const getMapRef = useMapStore(state => state.getMapRef);
   const inBlockView = captiveIds.size > 0;
@@ -53,42 +56,32 @@ export const BlockModePill = () => {
     };
   }, [inBlockView, bounds, getMapRef]);
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      // Escape aimed at a focused field (e.g. closing the geocoder dropdown)
-      // shouldn't also exit block view.
-      const activeElement = document.activeElement;
-      if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement)
-        return;
-      if (inBlockView) {
-        exitBlockView();
-      } else if (activeTool === ACTIVE_TOOLS.SHATTER) {
-        setActiveTool(ACTIVE_TOOLS.BRUSH);
-      }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [inBlockView, activeTool, exitBlockView, setActiveTool]);
-
   if (inBlockView) {
     return (
-      <Flex align="center" gap="3" px="4" py="3" className="map-pill" data-testid="block-mode-pill">
-        <Text size="3">Painting blocks</Text>
-        <Button size="2" variant="solid" onClick={() => exitBlockView()}>
-          Exit block view (Esc)
-        </Button>
-      </Flex>
+      <MapPill
+        testId="block-mode-pill"
+        onEscape={exitBlockView}
+        action={{label: 'Exit block view (Esc)', onClick: exitBlockView}}
+      >
+        Painting blocks
+      </MapPill>
     );
   }
   if (activeTool === ACTIVE_TOOLS.SHATTER) {
     return (
-      <Flex align="center" gap="3" px="4" py="3" className="map-pill" data-testid="block-mode-pill">
-        <InfoCircledIcon width={18} height={18} style={{color: 'var(--accent-9)', flexShrink: 0}} />
-        <Text size="3">
-          <b>Choose a unit</b> to break into blocks
-        </Text>
-      </Flex>
+      <MapPill
+        testId="block-mode-pill"
+        icon={
+          <InfoCircledIcon
+            width={18}
+            height={18}
+            style={{color: 'var(--accent-9)', flexShrink: 0}}
+          />
+        }
+        onEscape={() => setActiveTool(ACTIVE_TOOLS.BRUSH)}
+      >
+        <b>Choose a {unitName}</b> to break down into blocks
+      </MapPill>
     );
   }
   return null;

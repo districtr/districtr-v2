@@ -1,5 +1,5 @@
 'use client';
-import {Flex, SegmentedControl, Text} from '@radix-ui/themes';
+import {Flex, RadioGroup, Text} from '@radix-ui/themes';
 
 /** Partisan point of view for election tables/metrics. */
 export type Pov = 'dem' | 'rep';
@@ -14,9 +14,11 @@ export const PovSwitcher: React.FC<{
     <Text size={labelSize} color="gray">
       Point of view
     </Text>
-    <SegmentedControl.Root size="1" value={pov} onValueChange={v => setPov(v as Pov)}>
-      <SegmentedControl.Item value="dem">Democratic</SegmentedControl.Item>
-      <SegmentedControl.Item value="rep">Republican</SegmentedControl.Item>
-    </SegmentedControl.Root>
+    <RadioGroup.Root size="1" value={pov} onValueChange={v => setPov(v as Pov)}>
+      <Flex direction="row" align="center" gapX="3" wrap="wrap">
+        <RadioGroup.Item value="dem">Democratic</RadioGroup.Item>
+        <RadioGroup.Item value="rep">Republican</RadioGroup.Item>
+      </Flex>
+    </RadioGroup.Root>
   </Flex>
 );

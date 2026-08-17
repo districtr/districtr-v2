@@ -15,6 +15,11 @@ import {ScrollArea} from '@radix-ui/themes';
 const DATA_GUTTER = '0.75rem';
 const OUTER_SCROLLBAR_GAP = '0.75rem';
 
+// Total width the scrollbar treatment takes off the content's right edge (box
+// shrink + inner gutter). Header/axis strips rendered outside the ScrollArea
+// must reserve the same amount to stay column-aligned with the rows.
+export const SCROLL_RESERVED_WIDTH = `calc(${DATA_GUTTER} + ${OUTER_SCROLLBAR_GAP})`;
+
 export const ConditionalScrollArea: React.FC<{
   children: React.ReactNode;
   shouldUseScrollableRows: boolean;

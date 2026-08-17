@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, {useEffect, useState} from 'react';
 import {Button, DropdownMenu, Flex, Spinner, Text} from '@radix-ui/themes';
 import {
   BarChartIcon,
@@ -22,6 +22,7 @@ import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {patchSharePlan} from '@/app/utils/api/apiHandlers/patchSharePlan';
 import {editPath, evalPath} from '@/app/utils/map/editUrl';
 import {idb} from '@/app/utils/idb/idb';
+import {useUiHintStore} from '@/app/store/uiHintStore';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 
 type ViewMode = 'draw' | 'superdraw' | 'display' | 'evaluate';
@@ -55,8 +56,17 @@ const ModeSwitcherItem: React.FC<{
 }> = ({mode, isCurrent, disabled, disabledReason, locked, onSelect}) => {
   const meta = MODE_META[mode];
   const Icon = locked ? LockClosedIcon : meta.Icon;
+  // Guide target for the helper's mode pointers (see uiHintStore).
+  const guiding = useUiHintStore(state => state.guideTargets[0] === `mode-${mode}`);
   const row = (
-    <Flex align="center" justify="between" gap="4" width="100%" py="1">
+    <Flex
+      align="center"
+      justify="between"
+      gap="4"
+      width="100%"
+      py="1"
+      className={guiding ? 'ui-guide' : ''}
+    >
       <Flex align="center" gap="3">
         <Icon className="size-4 shrink-0" />
         <Flex direction="column" gap="1">
@@ -111,15 +121,30 @@ export const ModeSwitcher: React.FC = () => {
   const setLoadingState = useMapStore(state => state.setLoadingState);
   const publicIdForLookup = useMapStore(state => state.mapDocument?.public_id ?? null);
   const pwParam = useSearchParams().get('pw');
-  const [isMinting, setIsMinting] = React.useState(false);
+  const [isMinting, setIsMinting] = useState(false);
 
   // A map is unlockable if the share link carries `?pw=true` or the document itself
   // reports an edit password (so a viewer who landed on the bare public URL still gets
   // the affordance). Remember it so it survives dismissing the prompt or switching views.
   const passwordRequired = mapDocument?.password_required;
-  React.useEffect(() => {
+  useEffect(() => {
     if (pwParam || passwordRequired) setPasswordUnlockable(true);
   }, [pwParam, passwordRequired, publicIdForLookup, setPasswordUnlockable]);
+
+  // Mode-pointer guide: pulses this trigger, then the meant mode item.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const guideTarget = useUiHintStore(state => state.guideTargets[0]);
+  const advanceGuide = useUiHintStore(state => state.advanceGuide);
+  const cancelGuide = useUiHintStore(state => state.cancelGuide);
+  const handleMenuOpenChange = (open: boolean) => {
+    setMenuOpen(open);
+    if (open) {
+      advanceGuide('mode-switcher');
+    } else if (guideTarget?.startsWith('mode-') && guideTarget !== 'mode-switcher') {
+      // Closed without selecting: end the guide rather than pulse an unmounted item.
+      cancelGuide();
+    }
+  };
 
   // No map loaded yet (e.g. the empty "start here" landing) — nothing to switch.
   if (!mapDocument) return null;
@@ -251,7 +276,9 @@ export const ModeSwitcher: React.FC = () => {
   const CurrentIcon = MODE_META[currentMode].Icon;
 
   return (
-    <DropdownMenu.Root>
+    // Non-modal so clicks on other helper pointers aren't swallowed by the
+    // modal dismiss layer.
+    <DropdownMenu.Root open={menuOpen} onOpenChange={handleMenuOpenChange} modal={false}>
       {/* HelpTip wraps DropdownMenu.Trigger (not the reverse): HelpTip's own
           HoverCard.Trigger and DropdownMenu.Trigger both need asChild to reach the
           real Button underneath — chained asChild forwarding handles that (each
@@ -264,7 +291,9 @@ export const ModeSwitcher: React.FC = () => {
             variant="surface"
             color="gray"
             size="2"
-            className="cursor-pointer transition-shadow hover:shadow-md"
+            className={`cursor-pointer transition-shadow hover:shadow-md ${
+              guideTarget === 'mode-switcher' ? 'ui-guide' : ''
+            }`}
             disabled={isMinting}
             aria-label="Switch view"
           >
@@ -287,7 +316,10 @@ export const ModeSwitcher: React.FC = () => {
             disabled={isDisabled(mode)}
             disabledReason={disabledReasonFor(mode)}
             locked={isDrawMode(mode) && editLocked}
-            onSelect={() => handleSelect(mode)}
+            onSelect={() => {
+              advanceGuide(`mode-${mode}`);
+              handleSelect(mode);
+            }}
           />
         ))}
       </DropdownMenu.Content>

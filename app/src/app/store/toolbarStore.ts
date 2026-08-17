@@ -10,6 +10,10 @@ export type ToolbarState = {
   // tools/settings. Persisted so a user's choice sticks across sessions.
   superDraw: boolean;
   setSuperDraw: (superDraw: boolean) => void;
+  // Super Draw can opt out of the workflow tabs back into the legacy stacked
+  // sidebar panels. Only honored while superDraw is on; persisted alongside it.
+  stackedSidebar: boolean;
+  setStackedSidebar: (stackedSidebar: boolean) => void;
   /** Draw mode requested from the view switcher while an edit-password unlock
    * is pending — applied by the password modal on success, cleared on cancel.
    * Never persisted, so a cancelled prompt can't flip the saved mode. */
@@ -22,6 +26,8 @@ export const useToolbarStore = create(
     set => ({
       pendingSuperDraw: null,
       setPendingSuperDraw: pendingSuperDraw => set({pendingSuperDraw}),
+      stackedSidebar: false,
+      setStackedSidebar: stackedSidebar => set({stackedSidebar}),
       superDraw: false,
       setSuperDraw: superDraw => {
         set({superDraw});
@@ -55,10 +61,13 @@ export const useToolbarStore = create(
       // @ts-ignore - legacy persisted state had extra fields
       migrate: persistedState => {
         const prev = (persistedState ?? {}) as Partial<ToolbarState>;
-        return {superDraw: prev.superDraw ?? false} as ToolbarState;
+        return {
+          superDraw: prev.superDraw ?? false,
+          stackedSidebar: prev.stackedSidebar ?? false,
+        } as ToolbarState;
       },
       // @ts-ignore - persisted state is a partial of ToolbarState
-      partialize: state => ({superDraw: state.superDraw}),
+      partialize: state => ({superDraw: state.superDraw, stackedSidebar: state.stackedSidebar}),
     }
   )
 );

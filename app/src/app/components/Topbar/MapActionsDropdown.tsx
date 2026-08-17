@@ -3,10 +3,12 @@ import React, {useState} from 'react';
 import {Button, DropdownMenu, Text} from '@radix-ui/themes';
 import {CaretDownIcon, MixIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
+import {useUiHintStore} from '@store/uiHintStore';
 import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
 import {ACCESS_STATES} from '@constants/document/state';
 import {DocumentMetadata} from '@utils/api/apiHandlers/types';
 import {SaveShareModal} from '../Toolbar/SaveShareModal/SaveShareModal';
+import {useDraftStatusHelperDismissal} from '@components/sidebar/DraftStatusHelper';
 import {fetchWithSession} from '@utils/api/session';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
@@ -35,6 +37,20 @@ export const MapActionsDropdown: React.FC<{
   // Defer past the dropdown's close so Radix doesn't leave pointer-events:none
   // stuck on the body when a dialog opens from onSelect.
   const openModal = (which: 'share') => setTimeout(() => setModal(which), 0);
+
+  // "Share your map" guide: pulses this trigger, then the Share item.
+  const guideTarget = useUiHintStore(state => state.guideTargets[0]);
+  const advanceGuide = useUiHintStore(state => state.advanceGuide);
+  const cancelGuide = useUiHintStore(state => state.cancelGuide);
+  const {dismissed: guideDismissed, restore: restoreGuide} = useDraftStatusHelperDismissal();
+  const handleMenuOpenChange = (open: boolean) => {
+    if (open) {
+      advanceGuide('map-actions');
+    } else if (guideTarget === 'map-actions-share') {
+      // Closed without selecting: end the guide rather than pulse an unmounted item.
+      cancelGuide();
+    }
+  };
 
   // Export works for view-only users too: the backend resolves a public_id the same
   // as a document UUID, so fall back to the public_id when the loaded doc is the
@@ -83,7 +99,7 @@ export const MapActionsDropdown: React.FC<{
 
   return (
     <>
-      <DropdownMenu.Root>
+      <DropdownMenu.Root onOpenChange={handleMenuOpenChange}>
         {/* HelpTip wraps DropdownMenu.Trigger (not the reverse) — see ModeSwitcher.tsx
             for why the order matters (chained asChild forwarding). */}
         <HelpTip tip="mapActions" openDelay={HELP_TIP_HOVER_DELAY}>
@@ -92,7 +108,9 @@ export const MapActionsDropdown: React.FC<{
               variant="surface"
               color="gray"
               size="2"
-              className="cursor-pointer relative transition-shadow hover:shadow-md"
+              className={`cursor-pointer relative transition-shadow hover:shadow-md ${
+                guideTarget === 'map-actions' ? 'ui-guide' : ''
+              }`}
               data-testid="map-actions-trigger"
             >
               <MixIcon />
@@ -107,10 +125,13 @@ export const MapActionsDropdown: React.FC<{
           className="min-w-[var(--radix-dropdown-menu-trigger-width)]"
         >
           <DropdownMenu.Item
-            className="cursor-pointer"
+            className={`cursor-pointer ${guideTarget === 'map-actions-share' ? 'ui-guide' : ''}`}
             disabled={!mapDocument?.document_id}
             data-testid="share-button"
-            onSelect={() => openModal('share')}
+            onSelect={() => {
+              advanceGuide('map-actions-share');
+              openModal('share');
+            }}
           >
             Share map
           </DropdownMenu.Item>
@@ -145,6 +166,15 @@ export const MapActionsDropdown: React.FC<{
               </DropdownMenu.Item>
             </DropdownMenu.SubContent>
           </DropdownMenu.Sub>
+          {guideDismissed && (
+            <DropdownMenu.Item
+              className="cursor-pointer"
+              onSelect={restoreGuide}
+              data-testid="show-map-guide"
+            >
+              Show map guide
+            </DropdownMenu.Item>
+          )}
           <DropdownMenu.Separator />
           <DropdownMenu.Sub>
             <DropdownMenu.SubTrigger

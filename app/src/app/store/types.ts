@@ -11,6 +11,7 @@ export type DistrictrMapOptions = {
   highlightBrokenDistricts?: boolean;
   higlightUnassigned?: boolean;
   lockPaintedAreas: Array<NullableZone>;
+  disallowPaintOver?: boolean;
   mode: 'default' | 'break';
   showZoneNumbers?: boolean;
   paintByCounty?: boolean;

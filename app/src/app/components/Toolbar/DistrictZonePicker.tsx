@@ -22,8 +22,10 @@ import {MinusIcon, PlusIcon, Pencil1Icon} from '@radix-ui/react-icons';
 import {ACCESS_STATES} from '@constants/document/state';
 import {temporalManager} from '@/app/utils/temporal';
 import {MAP_MODES} from '@constants/map/mode';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 
-export const DistrictsZonePicker: React.FC = () => {
+export const DistrictsZonePicker: React.FC<{disabled?: boolean}> = ({disabled}) => {
+  const superDraw = useToolbarStore(state => state.superDraw);
   const [showNumDistrictEditor, setShowNumDistrictEditor] = useState(false);
   const selectedZone = useMapControlsStore(state => state.selectedZone);
   const setSelectedZone = useMapControlsStore(state => state.setSelectedZone);
@@ -103,77 +105,84 @@ export const DistrictsZonePicker: React.FC = () => {
 
   return (
     <Box
-      className={isReadOnly ? 'pointer-events-none opacity-50' : ''}
+      className={isReadOnly || disabled ? 'pointer-events-none opacity-50' : ''}
       data-testid="zone-picker"
       width="100%"
     >
       <Flex direction="column" gap="2">
-        <Flex align="center" gap="2">
-          <Text size="2" weight="medium">
-            Districts:
-          </Text>
-          {canEditNumDistricts && showNumDistrictEditor ? (
-            <>
-              <Button
-                variant="ghost"
-                size="1"
-                onClick={() => requestNumDistricts(numDistricts - 1)}
-                disabled={numDistricts <= MIN_NUM_DISTRICTS}
-              >
-                <MinusIcon />
-              </Button>
-              <TextField.Root
-                type="number"
-                min={MIN_NUM_DISTRICTS}
-                max={MAX_NUM_DISTRICTS}
-                value={draftCount}
-                variant="soft"
-                size="1"
-                onChange={e => setDraftCount(e.target.value)}
-                // Only Enter commits; clicking away abandons the edit.
-                onBlur={() => setDraftCount(String(numDistricts))}
-                // Commit on keyup, not keydown: keydown fires on OS key-repeat,
-                // and once the confirm dialog opens (auto-focusing Cancel) a
-                // repeated Enter would land on Cancel and silently dismiss it.
-                onKeyUp={e => {
-                  if (e.key === 'Enter') {
-                    handleCommitDraft();
-                  } else if (e.key === 'Escape') {
-                    e.currentTarget.blur();
-                  }
-                }}
-                mx={'1'}
-                className="text-center min-w-12 pr-2"
-              ></TextField.Root>
-              <Button
-                variant="ghost"
-                size="1"
-                onClick={() => requestNumDistricts(numDistricts + 1)}
-                disabled={numDistricts >= MAX_NUM_DISTRICTS}
-              >
-                <PlusIcon />
-              </Button>
-            </>
-          ) : (
-            <>
-              <Text size="2" weight="bold">
-                {numDistricts}
-              </Text>
-              {canEditNumDistricts && (
-                <Tooltip content="Edit the number of districts in your plan">
-                  <IconButton
-                    variant="ghost"
-                    onClick={() => setShowNumDistrictEditor(true)}
-                    aria-label="Edit the number of districts in your plan"
-                  >
-                    <Pencil1Icon />
-                  </IconButton>
-                </Tooltip>
-              )}
-            </>
-          )}
-        </Flex>
-        <ColorPicker onValueChange={handleRadioChange} defaultValue={0} value={selectedZone - 1} />
+        {superDraw && (
+          <Flex align="center" gap="2">
+            <Text size="2" weight="medium">
+              Districts:
+            </Text>
+            {canEditNumDistricts && showNumDistrictEditor ? (
+              <>
+                <Button
+                  variant="ghost"
+                  size="1"
+                  onClick={() => requestNumDistricts(numDistricts - 1)}
+                  disabled={numDistricts <= MIN_NUM_DISTRICTS}
+                >
+                  <MinusIcon />
+                </Button>
+                <TextField.Root
+                  type="number"
+                  min={MIN_NUM_DISTRICTS}
+                  max={MAX_NUM_DISTRICTS}
+                  value={draftCount}
+                  variant="soft"
+                  size="1"
+                  onChange={e => setDraftCount(e.target.value)}
+                  // Only Enter commits; clicking away abandons the edit.
+                  onBlur={() => setDraftCount(String(numDistricts))}
+                  // Commit on keyup, not keydown: keydown fires on OS key-repeat,
+                  // and once the confirm dialog opens (auto-focusing Cancel) a
+                  // repeated Enter would land on Cancel and silently dismiss it.
+                  onKeyUp={e => {
+                    if (e.key === 'Enter') {
+                      handleCommitDraft();
+                    } else if (e.key === 'Escape') {
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  mx={'1'}
+                  className="text-center min-w-12 pr-2"
+                ></TextField.Root>
+                <Button
+                  variant="ghost"
+                  size="1"
+                  onClick={() => requestNumDistricts(numDistricts + 1)}
+                  disabled={numDistricts >= MAX_NUM_DISTRICTS}
+                >
+                  <PlusIcon />
+                </Button>
+              </>
+            ) : (
+              <>
+                <Text size="2" weight="bold">
+                  {numDistricts}
+                </Text>
+                {canEditNumDistricts && (
+                  <Tooltip content="Edit the number of districts in your plan">
+                    <IconButton
+                      variant="ghost"
+                      onClick={() => setShowNumDistrictEditor(true)}
+                      aria-label="Edit the number of districts in your plan"
+                    >
+                      <Pencil1Icon />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </>
+            )}
+          </Flex>
+        )}
+        <ColorPicker
+          onValueChange={handleRadioChange}
+          defaultValue={0}
+          value={selectedZone - 1}
+          disabled={disabled}
+        />
       </Flex>
       <AlertDialog.Root
         open={pendingDecrease !== null}

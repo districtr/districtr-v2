@@ -17,6 +17,7 @@ import {OverlayLayers} from './PolygonLayers/OverlayLayers';
 import {MapLayerAnchors} from './MapLayerAnchors';
 import {CoiMapContainer} from './CoiMapContainer';
 import {BlockModePill} from './BlockModePill';
+import {PaintConstraintPill} from './PaintConstraintPill';
 import {useMapRenderer} from '@/app/hooks/useMapRenderer';
 import {PointSource} from './GeoSources/PointSource';
 import {CoiBlockLayers} from './PolygonLayers/CoiBlockLayers';
@@ -81,7 +82,7 @@ export const CoiMap: React.FC = () => {
       {isMapLoaded && <MapLayerAnchors />}
       {areAnchorLayersReady && (
         <>
-          <CountyLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.reference} />
+          <CountyLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.countyBoundaries} />
           <BlockSource>
             {!!mapDocument?.parent_layer && (
               <CoiBlockLayers
@@ -111,6 +112,7 @@ export const CoiMap: React.FC = () => {
           <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
           {/* COI breaks units too, and the pill is the only exit from block view. */}
           <BlockModePill />
+          <PaintConstraintPill />
         </>
       )}
     </CoiMapContainer>
