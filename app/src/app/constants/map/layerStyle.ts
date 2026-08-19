@@ -11,7 +11,10 @@ export const EMPTY_FT_COLLECTION = {
 export const SENTINEL_EMPTY_VALUE: string = '-999';
 export const SENTINEL_EMPTY_ARRAY: string[] = [SENTINEL_EMPTY_VALUE];
 
-export const HIGHLIGHT_LINE_COLOR = '#666666';
+// A saturated amber, not another gray: the surrounding outline/basemap are
+// already grayscale, so a same-family gray highlight (the previous #666666)
+// barely reads as a highlight at all.
+export const HIGHLIGHT_LINE_COLOR = '#f59e0b';
 export const HIGHLIGHT_LINE_WIDTH = 3.5;
 
 export const COMMUNITY_ASSIGNMENT_STYLE = (colorScheme: string[]) => {

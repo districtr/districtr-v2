@@ -698,7 +698,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
           >
             <Text size="1">
               {suggestion.direction === 'forward'
-                ? `Your plan looks ready — mark it “${DRAFT_STATUS_TEXT[suggestion.status]}”.`
+                ? `Your plan looks ready — mark it “${DRAFT_STATUS_TEXT[suggestion.status]}.”`
                 : `Your plan no longer meets the checks for “${DRAFT_STATUS_TEXT[currentStatus]}” — consider moving back.`}
             </Text>
             <IconButton

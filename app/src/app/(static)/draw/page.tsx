@@ -1,12 +1,12 @@
 'use client';
-import React, {useState} from 'react';
+import React, {Suspense, useState} from 'react';
 import {useSearchParams} from 'next/navigation';
 import {Box, Button, Flex, Heading, Text} from '@radix-ui/themes';
 import {UploadIcon} from '@radix-ui/react-icons';
 import {ResponsivePlaceMap} from '@/app/components/Static/PlaceMap/PlaceMap';
 import {UploaderModal} from '@/app/components/Toolbar/UploaderModal';
 
-export default function DrawPage() {
+function DrawPageInner() {
   // ?upload=1 auto-opens the uploader — used by links (e.g. a place page's
   // "Upload block assignments") that want to land here with the prompt open,
   // since import doesn't depend on which state you started from.
@@ -33,5 +33,13 @@ export default function DrawPage() {
 
       <UploaderModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
     </Flex>
+  );
+}
+
+export default function DrawPage() {
+  return (
+    <Suspense>
+      <DrawPageInner />
+    </Suspense>
   );
 }

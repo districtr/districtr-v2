@@ -71,7 +71,10 @@ export const MapActionsDropdown: React.FC<{
     }
     // Fetch via the session-aware client (plain anchor navigation can't attach
     // the X-Districtr-Session header) and save the blob through a transient
-    // anchor. Filename comes from the backend's Content-Disposition.
+    // anchor. The backend's Content-Disposition filename is UUID-based; keep
+    // its extension (it knows the real one per export type — CSV, GeoJSON,
+    // a shapefile zip, etc.) but swap the base name for the user's own plan
+    // name, which we already have locally with no extra request.
     try {
       const response = await fetchWithSession(
         `${process.env.NEXT_PUBLIC_API_URL}/api/document/${exportId}/export?export_type=${exportType}`
@@ -80,9 +83,18 @@ export const MapActionsDropdown: React.FC<{
         notifyExportFailed(`${response.status}`);
         return;
       }
-      const filename =
-        response.headers.get('Content-Disposition')?.match(/filename="?([^";]+)"?/)?.[1] ??
-        `districtr-export-${exportId}.${exportType.toLowerCase()}`;
+      const backendFilename = response.headers
+        .get('Content-Disposition')
+        ?.match(/filename="?([^";]+)"?/)?.[1];
+      const extension = backendFilename?.split('.').pop() ?? exportType.toLowerCase();
+      const planName = mapDocument?.map_metadata?.name?.trim();
+      const safeName = planName
+        ? planName
+            .replace(/[^a-zA-Z0-9-_ ]/g, '')
+            .trim()
+            .replace(/\s+/g, '-')
+        : '';
+      const filename = `${safeName || `districtr-export-${exportId}`}.${extension}`;
       const url = URL.createObjectURL(await response.blob());
       const a = document.createElement('a');
       a.href = url;
@@ -144,7 +156,7 @@ export const MapActionsDropdown: React.FC<{
                 className="cursor-pointer"
                 onSelect={() => downloadExport('BlockAssignmentsCSV')}
               >
-                Unit assignments (CSV)
+                Block assignments (CSV)
               </DropdownMenu.Item>
               <DropdownMenu.Item
                 className="cursor-pointer"

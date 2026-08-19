@@ -154,7 +154,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                     <Table.Row>
                       <Table.ColumnHeaderCell justify="center">Election</Table.ColumnHeaderCell>
                       <Table.ColumnHeaderCell justify="center">
-                        Total
+                        Total (D+R)
                         <br />
                         Votes
                       </Table.ColumnHeaderCell>
@@ -162,7 +162,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                         justify="center"
                         style={{color: povColor, width: '8ch'}}
                       >
-                        {pov === 'dem' ? 'Dem' : 'Rep'} Vote
+                        {pov === 'dem' ? 'Dem' : 'Repub'} Vote
                         <br />
                         Share
                       </Table.ColumnHeaderCell>
@@ -170,7 +170,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                         justify="center"
                         style={{color: povColor, width: '8ch'}}
                       >
-                        {pov === 'dem' ? 'Dem' : 'Rep'}
+                        {pov === 'dem' ? 'Dem' : 'Repub'}
                         <br />
                         Districts
                       </Table.ColumnHeaderCell>
@@ -178,7 +178,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                         justify="center"
                         style={{color: povColor, width: '8ch'}}
                       >
-                        {pov === 'dem' ? 'Dem' : 'Rep'} Seat
+                        {pov === 'dem' ? 'Dem' : 'Repub'} Seat
                         <br />
                         Share
                       </Table.ColumnHeaderCell>
@@ -438,9 +438,15 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                 Competitiveness
               </Heading>
               <Text size="2" mb="3" as="p">
-                Competitiveness measures how many districts are closely contested. A swing district
-                is one where the result could plausibly change with a small shift in the statewide
-                vote.
+                A district is considered <strong>competitive</strong> in a particular vote pattern
+                if it&apos;s close to 50-50 within the major parties. A contest needs to be within
+                47-53 to count as competitive.
+              </Text>
+              <Text size="2" mb="3" as="p">
+                We call a district a <strong>swing</strong> district if each major party won it at
+                least once over the elections in our dataset. If it was always won by the same party
+                across those contests, we label it as <strong>Dem Sweep</strong> or{' '}
+                <strong>Repub Sweep</strong>.
               </Text>
               <div style={{width: 'fit-content'}}>
                 <Table.Root size="1" variant="surface">
@@ -478,7 +484,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                     </Table.Row>
                     <Table.Row>
                       <Table.Cell justify="center">
-                        <Text size="2">Safe Dem districts</Text>
+                        <Text size="2">Dem Sweep districts</Text>
                       </Table.Cell>
                       <Table.Cell justify="center">
                         <Text size="2" weight="bold">
@@ -488,7 +494,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                     </Table.Row>
                     <Table.Row>
                       <Table.Cell justify="center">
-                        <Text size="2">Safe Rep districts</Text>
+                        <Text size="2">Repub sweep districts</Text>
                       </Table.Cell>
                       <Table.Cell justify="center">
                         <Text size="2" weight="bold">

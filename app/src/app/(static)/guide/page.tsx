@@ -204,7 +204,7 @@ export default function GuidePage() {
 
             <Text size="3">
               Viewing elections gives you the same display options of “Shaded regions” and “Sized
-              circles”.
+              circles.”
             </Text>
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/election_display.webm`}
@@ -356,7 +356,7 @@ export default function GuidePage() {
             </Text>
             {/* TODO: no video recorded yet for district locking (lock_district.webm) */}
             <Text size="3">
-              Under “Map Layers/Boundaries and areas”, Super Draw allows you to restrict your
+              Under “Map Layers/Boundaries and areas,” Super Draw allows you to restrict your
               painting to a county, a metro area, or any other area type available for the map.
               Similar to the break tool's workflow, you mask an area by clicking the mask button
               next to the toggle for its area type and selecting that area on the map.

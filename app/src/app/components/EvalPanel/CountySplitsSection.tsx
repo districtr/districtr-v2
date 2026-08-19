@@ -47,7 +47,18 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
     idealPop !== null
       ? new Set(allEntries.filter(e => e.actual > Math.ceil(e.pop / idealPop)).map(e => e.geoid))
       : new Set<string>();
-  const unnecessarySplits = idealPop !== null ? overlySplitSet.size : null;
+  // Excessively split counties come in two flavors, shown separately in the
+  // summary: a small county (population under one ideal district) split at
+  // all, vs. a large county split into more pieces than its own size
+  // requires. Same combined set as before drives the table/dropdown filter.
+  const smallSplitCount =
+    idealPop !== null
+      ? allEntries.filter(e => overlySplitSet.has(e.geoid) && e.pop < idealPop).length
+      : null;
+  const largeExcessiveSplitCount =
+    idealPop !== null
+      ? allEntries.filter(e => overlySplitSet.has(e.geoid) && e.pop >= idealPop).length
+      : null;
 
   const displayedEntries =
     showMode === 'overly-split-only'
@@ -96,7 +107,7 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                 return (
                   <>
                     Out of the total <strong>{unitTotalCount.toLocaleString()}</strong> {label},{' '}
-                    <strong>{fullyAssigned.toLocaleString()}</strong> are fully assigned
+                    <strong>{fullyAssigned.toLocaleString()}</strong> are kept whole in this plan
                     {unitSplitCount > 0 && (
                       <>
                         {' '}
@@ -132,13 +143,13 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
           </Heading>
           <Text size="2" mb="3" as="p">
             A county is <strong>split</strong> when its population is divided across two or more
-            districts. The <em>districts&apos; worth</em> column shows how many ideal-sized
-            districts the county&apos;s population would fill.
+            districts. Let&apos;s say a county is a <strong>small county</strong> (with respect to a
+            districting plan) if its population is smaller than the ideal size of a district.
           </Text>
 
           <Flex align="center" gap="2" mb="3" justify="end">
             <Text size="1" color="gray">
-              County boundaries
+              County boundaries (zoom in for county names)
             </Text>
             <Switch
               size="1"
@@ -175,14 +186,26 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                     </Text>
                   </Table.Cell>
                 </Table.Row>
-                {unnecessarySplits !== null && (
+                {smallSplitCount !== null && (
                   <Table.Row>
                     <Table.Cell justify="center">
-                      <Text size="2">Unnecessarily split counties</Text>
+                      <Text size="2">Small counties that are split</Text>
                     </Table.Cell>
                     <Table.Cell justify="center">
                       <Text size="2" weight="bold">
-                        {unnecessarySplits}
+                        {smallSplitCount}
+                      </Text>
+                    </Table.Cell>
+                  </Table.Row>
+                )}
+                {largeExcessiveSplitCount !== null && (
+                  <Table.Row>
+                    <Table.Cell justify="center">
+                      <Text size="2">Large counties that are excessively split</Text>
+                    </Table.Cell>
+                    <Table.Cell justify="center">
+                      <Text size="2" weight="bold">
+                        {largeExcessiveSplitCount}
                       </Text>
                     </Table.Cell>
                   </Table.Row>
@@ -206,7 +229,7 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
               >
                 <Select.Trigger />
                 <Select.Content>
-                  <Select.Item value="overly-split-only">unnecessarily split counties</Select.Item>
+                  <Select.Item value="overly-split-only">excessively split counties</Select.Item>
                   <Select.Item value="all">all counties</Select.Item>
                 </Select.Content>
               </Select.Root>
