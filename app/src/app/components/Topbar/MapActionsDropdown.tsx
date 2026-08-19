@@ -71,10 +71,11 @@ export const MapActionsDropdown: React.FC<{
     }
     // Fetch via the session-aware client (plain anchor navigation can't attach
     // the X-Districtr-Session header) and save the blob through a transient
-    // anchor. The backend's Content-Disposition filename is UUID-based; keep
-    // its extension (it knows the real one per export type — CSV, GeoJSON,
-    // a shapefile zip, etc.) but swap the base name for the user's own plan
-    // name, which we already have locally with no extra request.
+    // anchor. The backend names the file "{document_id}_{ExportType}_{timestamp}.{ext}"
+    // (exports/main.py) — document_id is a UUID (no underscores), so splitting
+    // on the first "_" cleanly separates it from the "{ExportType}_{timestamp}.{ext}"
+    // suffix, which is always kept as-is. The UUID prefix is swapped for the
+    // user's own plan name when set; dropped entirely (not replaced) when not.
     try {
       const response = await fetchWithSession(
         `${process.env.NEXT_PUBLIC_API_URL}/api/document/${exportId}/export?export_type=${exportType}`
@@ -86,7 +87,11 @@ export const MapActionsDropdown: React.FC<{
       const backendFilename = response.headers
         .get('Content-Disposition')
         ?.match(/filename="?([^";]+)"?/)?.[1];
-      const extension = backendFilename?.split('.').pop() ?? exportType.toLowerCase();
+      const underscoreIndex = backendFilename?.indexOf('_') ?? -1;
+      const suffix =
+        backendFilename && underscoreIndex >= 0
+          ? backendFilename.slice(underscoreIndex + 1)
+          : (backendFilename ?? `${exportType}.${exportType.toLowerCase()}`);
       const planName = mapDocument?.map_metadata?.name?.trim();
       const safeName = planName
         ? planName
@@ -94,7 +99,7 @@ export const MapActionsDropdown: React.FC<{
             .trim()
             .replace(/\s+/g, '-')
         : '';
-      const filename = `${safeName || `districtr-export-${exportId}`}.${extension}`;
+      const filename = safeName ? `${safeName}_${suffix}` : suffix;
       const url = URL.createObjectURL(await response.blob());
       const a = document.createElement('a');
       a.href = url;
