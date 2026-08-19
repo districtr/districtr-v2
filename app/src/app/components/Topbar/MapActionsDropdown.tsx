@@ -172,7 +172,7 @@ export const MapActionsDropdown: React.FC<{
               onSelect={restoreGuide}
               data-testid="show-map-guide"
             >
-              Show map guide
+              Show hints
             </DropdownMenu.Item>
           )}
           <DropdownMenu.Separator />

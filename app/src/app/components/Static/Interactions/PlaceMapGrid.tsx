@@ -1,10 +1,16 @@
 'use client';
-import {Card, Flex, Grid, Heading, Spinner, Text} from '@radix-ui/themes';
-import {ArrowRightIcon, Component1Icon, LayersIcon, PersonIcon} from '@radix-ui/react-icons';
+import {Button, Card, Flex, Grid, Heading, Spinner, Text} from '@radix-ui/themes';
+import {
+  ArrowRightIcon,
+  Component1Icon,
+  LayersIcon,
+  PersonIcon,
+  UploadIcon,
+} from '@radix-ui/react-icons';
+import Link from 'next/link';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 import {sanitizeCommunityMaps} from '@/app/utils/communities';
 import {useCreateMapDocument} from './CreateButton';
-import {ImportBlockAssignments} from './ImportBlockAssignments';
 
 const MapStartCard: React.FC<{
   view: Partial<DistrictrMap>;
@@ -89,7 +95,13 @@ export const PlaceMapGrid: React.FC<{maps: Partial<DistrictrMap>[]}> = ({maps}) 
               Start from a blank map and divide it into districts.
             </Text>
           </Flex>
-          <ImportBlockAssignments />
+          {/* Import doesn't depend on which state you're viewing, so this sends
+              you to the whole-US map instead of implying it's scoped here. */}
+          <Button asChild variant="soft" className="cursor-pointer self-start">
+            <Link href="/draw?upload=1">
+              <UploadIcon /> Upload block assignments
+            </Link>
+          </Button>
         </Flex>
         <CardGrid>
           {maps.map((view, i) => (

@@ -110,9 +110,25 @@ export const Uploader: React.FC<{
         onDrop={handleDrop}
       >
         <Text size="2" color="gray">
-          Upload a CSV with 2020 census block GEOIDs in the first column and District zone numbers
-          in the second column.
+          Upload a CSV with 2020 census block GEOIDs in the first column and District numbers in the
+          second column. Not sure of the format?{' '}
+          <Link
+            href="https://tilesets1.cdn.districtr.org/reference/example-block-assignments-RI.csv"
+            target="_blank"
+          >
+            Download an example
+          </Link>
+          .
         </Text>
+        <Flex direction="column" className="bg-gray-50 rounded p-2 font-mono text-xs text-gray-600">
+          <Text as="p">GEOID20,District</Text>
+          <Text as="p">440070112002000,1</Text>
+          <Text as="p">440070112002001,1</Text>
+          <Text as="p">440070112002002,1</Text>
+          <Text as="p" color="gray">
+            ...
+          </Text>
+        </Flex>
         <input
           type="file"
           name="uploader"

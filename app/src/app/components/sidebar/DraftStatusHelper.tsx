@@ -606,7 +606,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
         <Flex
           className="w-full"
           role="group"
-          aria-label="Draft status"
+          aria-label="Map status"
           style={{
             border: '1px solid var(--accent-6)',
             borderRadius: 8,

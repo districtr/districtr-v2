@@ -183,7 +183,7 @@ export const helpTipContent = {
   },
   editMapDetails: {
     title: 'Edit map names and details',
-    text: 'Click here to rename your map, add a description, or update its draft status.',
+    text: 'Click here to rename your map, add a description, or update its map status.',
     videoFile: 'edit_metadata.webm',
     guideAnchor: 'edit-map-names-and-details',
   },

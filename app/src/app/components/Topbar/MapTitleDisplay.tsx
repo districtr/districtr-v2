@@ -190,7 +190,7 @@ export const MapTitleDisplay: React.FC<{
               </Box>
 
               <Text as="label" size="2" htmlFor="map-desc" mb="1">
-                Draft status
+                Map status
               </Text>
               <StatusPicker value={mapStatusInner} onChange={setMapStatusInner} />
               <Flex direction="row" gap="2" justify="end">
