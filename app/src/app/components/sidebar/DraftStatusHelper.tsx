@@ -113,7 +113,7 @@ const ItemMarker: React.FC<{done: boolean}> = ({done}) =>
     <MinusIcon width={14} height={14} style={{color: 'var(--gray-8)', flexShrink: 0}} />
   );
 
-/** The helper's own render gate, exported so the mobile "View map guide"
+/** The helper's own render gate, exported so the mobile "View hints"
  * button can hide alongside it. */
 export const useDraftStatusHelperVisible = () => {
   const isEditing = useMapControlsStore(state => state.isEditing);
@@ -129,7 +129,7 @@ export const useDraftStatusHelperVisible = () => {
 };
 
 /** Dismissal state + restore for controls outside the box (Map actions'
- * "Show map guide"). `dismissed` is the current mode's variant; `restore`
+ * "Show hints"). `dismissed` is the current mode's variant; `restore`
  * clears both. */
 export const useDraftStatusHelperDismissal = () => {
   const superDraw = useToolbarStore(state => state.superDraw);
@@ -489,7 +489,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
               color="gray"
               size="1"
               onClick={toggleCollapsed}
-              aria-label={collapsed ? 'Expand map guide' : 'Collapse map guide'}
+              aria-label={collapsed ? 'Expand map hints' : 'Collapse map hints'}
               className="cursor-pointer"
             >
               <ChevronDownIcon
@@ -508,7 +508,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
                   variant="ghost"
                   color="gray"
                   size="1"
-                  aria-label="Dismiss map guide"
+                  aria-label="Dismiss map hints"
                   data-testid="dismiss-draft-status"
                   className="cursor-pointer"
                 >
@@ -516,9 +516,9 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
                 </IconButton>
               </AlertDialog.Trigger>
               <AlertDialog.Content maxWidth="450px">
-                <AlertDialog.Title>Hide the map guide?</AlertDialog.Title>
+                <AlertDialog.Title>Dismiss the map hints?</AlertDialog.Title>
                 <AlertDialog.Description size="2">
-                  You can restore the map guide anytime from the Map actions menu in the top bar.
+                  You can restore the map hints anytime from the Map actions menu in the top bar.
                 </AlertDialog.Description>
                 <Flex gap="3" mt="4" justify="end">
                   <AlertDialog.Cancel>
@@ -533,7 +533,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
                       onClick={() => dismiss(superDraw)}
                       data-testid="confirm-dismiss-draft-status"
                     >
-                      Hide guide
+                      Dismiss hints
                     </Button>
                   </AlertDialog.Action>
                 </Flex>

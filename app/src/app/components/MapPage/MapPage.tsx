@@ -146,7 +146,7 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
           {isPublicPage ? <PublicMap /> : <MainMap />}
           {showDemographicMap && (isPublicPage ? <PublicDemographicMap /> : <DemographicMap />)}
           {/* Draft-status helper, top-right of the map. Hidden below lg (the
-              mobile "View map guide" modal serves it); the card sizes itself
+              mobile "View hints" modal serves it); the card sizes itself
               so the right anchor keeps the collapsed header in the corner. */}
           <div className="absolute top-3 right-3 z-10 hidden lg:flex justify-end max-w-[calc(100%-24px)] max-h-[calc(100%-24px)] overflow-y-auto rounded-[10px]">
             <DraftStatusHelper />
