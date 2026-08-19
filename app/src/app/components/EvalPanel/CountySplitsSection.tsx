@@ -102,17 +102,16 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
           {assignedUnits && unitTotalCount !== null && (
             <Text size="2" as="p" mb="2">
               {(() => {
-                const fullyAssigned = unitAssignedCount + unitSplitCount;
                 const label = unitLabel ?? 'units';
                 return (
                   <>
                     Out of the total <strong>{unitTotalCount.toLocaleString()}</strong> {label},{' '}
-                    <strong>{fullyAssigned.toLocaleString()}</strong> are kept whole in this plan
+                    <strong>{unitAssignedCount.toLocaleString()}</strong> are kept whole in this
+                    plan
                     {unitSplitCount > 0 && (
                       <>
                         {' '}
-                        (<strong>{unitAssignedCount.toLocaleString()}</strong> whole and{' '}
-                        <strong>{unitSplitCount.toLocaleString()}</strong> split)
+                        and <strong>{unitSplitCount.toLocaleString()}</strong> are split
                       </>
                     )}
                     {unitPartialCount > 0 && (
