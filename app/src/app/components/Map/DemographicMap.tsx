@@ -20,14 +20,16 @@ import {PointSource} from './GeoSources/PointSource';
 import {BlockDemographicLayers} from './PolygonLayers/BlockDemographicLayers';
 import {MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';
+import {combineWithCountyFilter, useCountyLayerFilter} from '@/app/hooks/useCountyFilter';
 import {useAnchorLayersReady} from '@/app/hooks/useAnchorLayersReady';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {RENDERER_TYPES} from '@constants/map/rendererType';
 
 export const DemographicMap: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
-  const parentOutlineFilter = useLayerFilter(false);
-  const childLayerFilter = useLayerFilter(true);
+  const countyLayerFilter = useCountyLayerFilter();
+  const parentOutlineFilter = combineWithCountyFilter(useLayerFilter(false), countyLayerFilter);
+  const childLayerFilter = combineWithCountyFilter(useLayerFilter(true), countyLayerFilter);
   const getStateMapRef = useMapStore(state => state.getMapRef);
   const synced = useRef<false | (() => void)>(false);
   const {mapRef, onLoad} = useMapRenderer(RENDERER_TYPES.DEMOGRAPHIC);
@@ -88,7 +90,7 @@ export const DemographicMap: React.FC = () => {
             {!!mapDocument?.parent_layer && (
               <BlockDemographicLayers
                 scope="PARENT"
-                layerFilter={['literal', true] as FilterSpecification}
+                layerFilter={countyLayerFilter ?? (['literal', true] as FilterSpecification)}
                 outlineFilter={parentOutlineFilter}
                 sourceLayerId={mapDocument.parent_layer}
               />

@@ -110,7 +110,10 @@ export const DistrictsZonePicker: React.FC<{disabled?: boolean}> = ({disabled}) 
       width="100%"
     >
       <Flex direction="column" gap="2">
-        {superDraw && (
+        {/* Count editor: always available on modifiable ("custom") maps —
+            county plans need a variable district count — and shown
+            display-only under Super Draw for fixed maps. */}
+        {(superDraw || canEditNumDistricts) && (
           <Flex align="center" gap="2">
             <Text size="2" weight="medium">
               Districts:

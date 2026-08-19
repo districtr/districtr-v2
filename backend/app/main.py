@@ -65,6 +65,7 @@ from app.comments.settings import (
 )
 import app.contiguity.main as contiguity
 import app.evaluation.main as evaluation
+from app.evaluation.context import COUNTY_CONTEXT
 from app.evaluation.types import MetricsEnvelope
 import app.save_share.main as save_share
 import app.thumbnails.main as thumbnails
@@ -375,6 +376,13 @@ def get_document_evaluation(
     )
 
 
+@app.get("/api/counties")
+async def get_counties(statefps: Annotated[list[str], Query(min_length=1)]):
+    """List counties ({geoid, name}) for the given 2-digit state FIPS codes."""
+    names = COUNTY_CONTEXT.county_names_for_states(statefps)
+    return [{"geoid": g, "name": n} for g, n in sorted(names.items())]
+
+
 # matches createMapObject in apiHandlers.ts
 @app.post(
     "/api/create_document",
@@ -416,6 +424,11 @@ async def create_document(
         if copied_document.map_type == "community":
             num_communities = copied_document.num_communities
             community_metadata_list = copied_document.community_metadata_list
+
+    # County-scoped plans start at 2 districts regardless of the map's
+    # default; the count is editable in the editor.
+    if data.county_filter and copied_document is None:
+        num_districts = 2
 
     document_type = data.document_type or (
         copied_document.document_type if copied_document is not None else None
@@ -485,6 +498,8 @@ async def create_document(
         num_districts=num_districts,
         num_communities=num_communities,
         community_metadata_list=community_metadata_list,
+        county_filter=data.county_filter
+        or (copied_document.county_filter if copied_document is not None else None),
     )
     session.add(new_document)
     session.flush()  # Flush to get the public_id assigned
@@ -629,6 +644,7 @@ async def create_document(
             col(DistrictrMap.extent).label("extent"),
             col(Document.map_type).label("map_type"),
             col(Document.document_type).label("document_type"),
+            col(Document.county_filter),
             col(DistrictrMap.statefps).label("statefps"),
             literal(MAX_COMMUNITY_NAME_LENGTH).label("community_name_length_limit"),
             coalesce(
@@ -1549,12 +1565,21 @@ async def get_unassigned_geoids(
     # to know which parent units are shattered without joining on the parent/child edges.
     # When we shatter a unit, we populate all blocks in the document, so we always have those
     # fully listed.
+    # A county-filtered plan only owes completeness for its selected counties
+    # (county FIPS = first 5 chars of the bare path, after any "vtd:" prefix).
+    county_where = (
+        "WHERE LEFT(CASE WHEN path LIKE '%:%' "
+        "THEN SPLIT_PART(path, ':', 2) ELSE path END, 5) = ANY(:county_filter)"
+        if document.county_filter
+        else ""
+    )
     stmt = text(
         f"""
         WITH possible_ids AS (
             SELECT DISTINCT geo_id FROM document.assignments WHERE document_id = :doc_uuid
             UNION
             SELECT path AS geo_id FROM gerrydb.{parent_layer}
+            {county_where}
         )
         SELECT possible_ids.geo_id
         FROM possible_ids
@@ -1568,10 +1593,11 @@ async def get_unassigned_geoids(
         bindparam(key="doc_uuid", type_=UUIDType),
         bindparam(key="exclude_ids", type_=ARRAY(String)),
     )
+    params: dict = {"doc_uuid": document.document_id, "exclude_ids": exclude_ids}
+    if document.county_filter:
+        params["county_filter"] = document.county_filter
     try:
-        result = session.execute(
-            stmt, {"doc_uuid": document.document_id, "exclude_ids": exclude_ids}
-        )
+        result = session.execute(stmt, params)
         unassigned_ids = [row[0] for row in result.fetchall()]
     except DataError:
         logger.warning("No results found for unassigned geoids")
@@ -1764,10 +1790,17 @@ async def update_districtrmap_metadata(
     session: Session = Depends(get_session),
 ):
     try:
+        # Merge with the stored metadata: callers send partial updates (e.g.
+        # just draft_status), and a plain replace would silently drop the
+        # other fields (name, county_filter, ...).
+        merged = {
+            **dict(document.map_metadata or {}),
+            **metadata.model_dump(exclude_unset=True),
+        }
         stmt = (
             update(Document)
             .where(Document.document_id == document.document_id)  # type: ignore
-            .values(map_metadata=metadata.model_dump(exclude_unset=True))
+            .values(map_metadata=merged)
         )
         session.connection().execute(stmt)
         session.commit()

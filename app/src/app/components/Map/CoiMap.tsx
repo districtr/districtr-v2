@@ -1,7 +1,7 @@
 'use client';
-import maplibregl, {FilterSpecification} from 'maplibre-gl';
+import {FilterSpecification} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import {Protocol} from 'pmtiles';
+import {registerPmtilesProtocol} from '@/app/utils/map/pmtilesProtocol';
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {MAP_OPTIONS} from '@constants/map/viewDefaults';
 import {handleWheelOrPinch} from '@utils/events/mapEvents';
@@ -50,9 +50,7 @@ export const CoiMap: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const protocol = new Protocol();
-    maplibregl.addProtocol('pmtiles', protocol.tile);
-    return () => maplibregl.removeProtocol('pmtiles');
+    registerPmtilesProtocol();
   }, []);
 
   const fitMapToBounds = useCallback(() => {

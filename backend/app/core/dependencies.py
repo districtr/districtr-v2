@@ -24,7 +24,7 @@ from app.comments.settings import (
     DEFAULT_MAX_COMMENTS_PER_DISTRICT,
 )
 from sqlalchemy.sql.functions import coalesce
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, text
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound
 from app.core.db import get_session
 import logging
@@ -102,6 +102,33 @@ def validate_document_exists(document_id: DocumentID, session: Session) -> bool:
     return True
 
 
+def county_filter_extent(
+    session: Session, parent_layer: str, county_filter: list[str]
+) -> list[float] | None:
+    """Lon/lat bbox of a plan's selected counties (county FIPS = first 5 chars
+    of the bare path). Lets the frontend zoom to the filtered area instead of
+    the whole state."""
+    row = session.execute(
+        text(
+            f"""
+            WITH ext AS (
+                SELECT ST_Extent(geometry) AS b, MIN(ST_SRID(geometry)) AS srid
+                FROM gerrydb.{parent_layer}
+                WHERE LEFT(CASE WHEN path LIKE '%:%'
+                    THEN SPLIT_PART(path, ':', 2) ELSE path END, 5) = ANY(:county_filter)
+            )
+            SELECT ST_XMin(g), ST_YMin(g), ST_XMax(g), ST_YMax(g)
+            FROM (
+                SELECT ST_Transform(ST_SetSRID(b::geometry, srid), 4326) AS g
+                FROM ext WHERE b IS NOT NULL
+            ) t
+            """
+        ),
+        {"county_filter": county_filter},
+    ).first()
+    return [float(v) for v in row] if row else None
+
+
 def get_document_public(
     session: Session,
     document_id: DocumentID = Depends(parse_document_id),
@@ -156,6 +183,7 @@ def get_document_public(
         ).label("comment_count_limit"),
         # get metadata as a json object
         col(Document.map_metadata).label("map_metadata"),
+        col(Document.county_filter).label("county_filter"),
         coalesce(
             access_type,
         ).label("access"),
@@ -262,6 +290,14 @@ def get_document_public(
                     )
                 )
 
+    # County-filtered plans zoom to the filtered area, not the whole state.
+    extent = result.extent
+    if result.county_filter and result.parent_layer:
+        extent = (
+            county_filter_extent(session, result.parent_layer, result.county_filter)
+            or extent
+        )
+
     # Convert result to DocumentPublic with overlays and document comments
     return DocumentPublic(
         document_id=result.document_id,
@@ -277,8 +313,9 @@ def get_document_public(
         num_districts_modifiable=getattr(result, "num_districts_modifiable", True),
         created_at=result.created_at,
         updated_at=result.updated_at,
-        extent=result.extent,
+        extent=extent,
         map_metadata=result.map_metadata,
+        county_filter=result.county_filter,
         access=result.access,
         password_required=password_required,
         color_scheme=result.color_scheme,

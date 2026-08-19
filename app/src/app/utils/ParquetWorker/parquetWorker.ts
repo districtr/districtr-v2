@@ -223,6 +223,8 @@ const ParquetWorker: ParquetWorkerClass = {
 
   parseDemographyData(data, mapDocument, brokenIds) {
     const brokenIdsSet = new Set(brokenIds);
+    const countyFilter = mapDocument.county_filter;
+    const countySet = countyFilter?.length ? new Set(countyFilter) : null;
     // Optimize: single pass to build columnarData directly, avoid intermediate wideDataDict and double iteration
     const columnarData: ColumnarTableData = {
       path: [],
@@ -240,6 +242,16 @@ const ParquetWorker: ParquetWorkerClass = {
       // Skip rows based on the original logic
       if ((isParent && idInSet) || (!isParent && !idInSet)) {
         continue;
+      }
+      // Drop rows outside the plan's county filter before they ever reach the
+      // main thread: county FIPS = first 5 chars of the bare path (after any
+      // "vtd:"-style prefix).
+      if (countySet) {
+        const sep = path.indexOf(':');
+        const fips = sep === -1 ? path.slice(0, 5) : path.slice(sep + 1, sep + 6);
+        if (!countySet.has(fips)) {
+          continue;
+        }
       }
       // Add path and sourceLayer only once per unique path
       if (

@@ -1,5 +1,6 @@
 'use client';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useMapStore} from '@/app/store/mapStore';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {GEODATA_URL} from '@/app/utils/api/constants';
 import {FilterSpecification} from 'maplibre-gl';
@@ -22,8 +23,16 @@ export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const hoveredCountyGeoid = useMapControlsStore(state => state.hoveredCountyGeoid);
   const paintConstraint = useOverlayStore(state => state.paintConstraint);
+  const documentCountyFilter = useMapStore(state => state.mapDocument?.county_filter);
   const countyMaskId =
     paintConstraint?.overlayId === COUNTY_SOURCE_ID ? paintConstraint.featureId : null;
+  // Counties kept visible: an active county paint mask wins; otherwise the
+  // document's persisted county filter.
+  const maskedCountyIds: string[] | null = countyMaskId
+    ? [countyMaskId]
+    : documentCountyFilter?.length
+      ? documentCountyFilter
+      : null;
 
   const countyFilter = useMemo(() => {
     // If stateFipsSet is set and not empty, match any of its values
@@ -101,7 +110,7 @@ export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
         {/* Dim everything outside the active county paint mask.
             NOTE: must be direct children of <Source> (no fragment) so
             react-map-gl can inject the source prop. */}
-        {countyMaskId && (
+        {maskedCountyIds && (
           <Layer
             id={CANONICAL_LAYER_IDS.COUNTIES.MASK}
             beforeId={MAP_LAYER_ANCHOR_IDS.hover}
@@ -115,11 +124,13 @@ export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
               [
                 'all',
                 countyFilter,
-                ['!', ['==', ['get', 'GEOID'], countyMaskId]],
+                ['!', ['match', ['get', 'GEOID'], maskedCountyIds, true, false]],
               ] as FilterSpecification
             }
           />
         )}
+        {/* Selected outline only for the county paint mask — the persistent
+            document filter shows the dim mask alone, no outline. */}
         {countyMaskId && (
           <Layer
             id={CANONICAL_LAYER_IDS.COUNTIES.SELECTED}

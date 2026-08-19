@@ -13,9 +13,10 @@ import {useEffect, useState} from 'react';
 
 /**
  * Creates a new map document from a DistrictrMap and routes to the editor.
- * Shared by CreateButton and PlaceMapGrid's cards.
+ * Shared by CreateButton, PlaceMapGrid's cards, and CountyPlanMenu. The view
+ * is passed per call so one hook instance can create plans for any view.
  */
-export const useCreateMapDocument = (view: Partial<DistrictrMap>, isCommunity?: boolean) => {
+export const useCreateMapDocument = (isCommunity?: boolean) => {
   const router = useRouter();
   const userID = useMapStore(stat => stat.userID);
   const setUserID = useMapStore(stat => stat.setUserID);
@@ -27,12 +28,13 @@ export const useCreateMapDocument = (view: Partial<DistrictrMap>, isCommunity?: 
     !userID && setUserID();
   }, [userID, setUserID]);
 
-  const createPlan = async () => {
+  const createPlan = async (view: Partial<DistrictrMap>, countyFilter?: string[]) => {
     if (!view.districtr_map_slug || isCreating) return;
     setIsCreating(true);
     const r = await createMapDocument({
       districtr_map_slug: view.districtr_map_slug,
       map_type: shouldMakeCommunity ? MAP_TYPES.COMMUNITY : view.map_type,
+      county_filter: countyFilter?.length ? countyFilter : undefined,
     });
     if (r.ok) {
       router.push(
@@ -52,7 +54,7 @@ export const useCreateMapDocument = (view: Partial<DistrictrMap>, isCommunity?: 
     }
   };
 
-  return {createPlan, isCreating};
+  return {createPlan, isCreating, shouldMakeCommunity};
 };
 
 export const CreateButton: React.FC<{
@@ -60,11 +62,11 @@ export const CreateButton: React.FC<{
   extraClasses?: string;
   isCommunity?: boolean;
 }> = ({view, extraClasses, isCommunity}) => {
-  const {createPlan, isCreating} = useCreateMapDocument(view, isCommunity);
+  const {createPlan, isCreating} = useCreateMapDocument(isCommunity);
 
   return (
     <Button
-      onClick={createPlan}
+      onClick={() => createPlan(view)}
       loading={isCreating}
       className={`w-fit h-auto px-2 py-1 ${extraClasses}`}
       aria-label={`Create ${view.name} map`}

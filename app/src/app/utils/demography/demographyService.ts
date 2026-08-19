@@ -29,6 +29,7 @@ import {
   possibleDerivedColumns,
 } from '../api/summaryStats';
 import {getColumnDerives, getPctDerives, getRollups} from './arquero';
+import {countyFipsOfPath} from '../map/countyFips';
 import * as scale from 'd3-scale';
 import {type AnyD3Scale} from '@/app/store/demography/types';
 import {
@@ -258,8 +259,19 @@ class DemographyService {
       zoneAssignments instanceof Map
         ? Array.from(zoneAssignments.entries()).map(([path, zone]) => ({path, zone}))
         : zoneAssignments;
+    // On a county-filtered plan, `table` only holds in-filter units, so any
+    // stray out-of-county assignment (painted before the filter existed, or
+    // imported) would otherwise trip calculatePopulations' missing-population
+    // guard and blank the whole population panel. Those units aren't part of
+    // the plan's universe — exclude them from population accounting.
+    const countyFilter = useMapStore.getState().mapDocument?.county_filter;
+    const countySet = countyFilter?.length ? new Set(countyFilter) : null;
     const normalizedAssignmentRows = assignmentRows.filter(
-      ({path, zone}) => Boolean(path) && zone !== undefined && zone !== null
+      ({path, zone}) =>
+        Boolean(path) &&
+        zone !== undefined &&
+        zone !== null &&
+        (!countySet || countySet.has(countyFipsOfPath(path)))
     );
     const rows = normalizedAssignmentRows.length;
     const zoneColumns = {

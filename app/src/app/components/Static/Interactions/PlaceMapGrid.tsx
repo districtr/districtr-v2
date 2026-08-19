@@ -4,13 +4,14 @@ import {ArrowRightIcon, Component1Icon, LayersIcon, PersonIcon} from '@radix-ui/
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 import {sanitizeCommunityMaps} from '@/app/utils/communities';
 import {useCreateMapDocument} from './CreateButton';
+import {CountyPlanMenu} from './CountyPlanMenu';
 import {ImportBlockAssignments} from './ImportBlockAssignments';
 
 const MapStartCard: React.FC<{
   view: Partial<DistrictrMap>;
   isCommunity: boolean;
 }> = ({view, isCommunity}) => {
-  const {createPlan, isCreating} = useCreateMapDocument(view, isCommunity);
+  const {createPlan, isCreating} = useCreateMapDocument(isCommunity);
   const outcome = isCommunity
     ? 'Draw and describe your communities'
     : view.num_districts
@@ -28,7 +29,7 @@ const MapStartCard: React.FC<{
   return (
     <Card asChild>
       <button
-        onClick={createPlan}
+        onClick={() => createPlan(view)}
         disabled={isCreating}
         aria-label={`Start a new ${isCommunity ? 'community map' : 'district plan'}: ${view.name}`}
         className={`cursor-pointer text-left transition-shadow hover:shadow-md disabled:cursor-wait ${surfaceClasses}`}
@@ -89,7 +90,10 @@ export const PlaceMapGrid: React.FC<{maps: Partial<DistrictrMap>[]}> = ({maps}) 
               Start from a blank map and divide it into districts.
             </Text>
           </Flex>
-          <ImportBlockAssignments />
+          <Flex gap="2" align="center">
+            <CountyPlanMenu maps={maps} />
+            <ImportBlockAssignments />
+          </Flex>
         </Flex>
         <CardGrid>
           {maps.map((view, i) => (

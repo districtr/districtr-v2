@@ -2191,3 +2191,116 @@ def test_put_empty_assignments_deletes_existing(client, document_id: str):
     assert (
         len(assignments) == 0
     ), f"Expected 0 assignments after empty save, got {len(assignments)}"
+
+
+def test_metadata_partial_update_merges(client, document_id):
+    """A partial metadata PUT merges with stored fields instead of clobbering."""
+    response = client.put(
+        f"/api/document/{document_id}/metadata",
+        json={"name": "Original", "tags": ["keep-me"]},
+    )
+    assert response.status_code == 200
+    response = client.put(
+        f"/api/document/{document_id}/metadata", json={"name": "Renamed"}
+    )
+    assert response.status_code == 200
+    metadata = client.get(f"/api/document/{document_id}").json()["map_metadata"]
+    assert metadata["name"] == "Renamed"
+    assert metadata["tags"] == ["keep-me"]
+
+
+def test_county_filter_lives_on_document(
+    client, ks_demo_view_census_total_vap_blocks_districtrmap, monkeypatch
+):
+    """county_filter is set at creation, stored on document.document, and the
+    backend derives /stats totals and /unassigned completeness from it.
+    Fixture data spans counties 20209 and 20097."""
+    filtered = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
+            "county_filter": ["20209"],
+        },
+    )
+    assert filtered.status_code == 201
+    assert filtered.json()["county_filter"] == ["20209"]
+    filtered_id = filtered.json()["document_id"]
+
+    unfiltered = client.post(
+        "/api/create_document",
+        json={"districtr_map_slug": GERRY_DB_TOTAL_VAP_FIXTURE_NAME},
+    )
+    unfiltered_id = unfiltered.json()["document_id"]
+    assert unfiltered.json()["county_filter"] is None
+
+    # Round-trips on GET; county plans default to 2 districts and zoom to
+    # the filtered counties (extent = bbox of the filtered universe).
+    doc = client.get(f"/api/document/{filtered_id}").json()
+    assert doc["county_filter"] == ["20209"]
+    assert doc["num_districts"] == 2
+    extent = doc["extent"]
+    assert extent and len(extent) == 4
+    assert extent[0] < extent[2] and extent[1] < extent[3]
+
+    def unassigned_total(document_id):
+        client.put(
+            "/api/assignments",
+            json={
+                "document_id": document_id,
+                "assignments": [["202090441022004", 1]],
+                "last_updated_at": datetime.now().astimezone().isoformat(),
+            },
+        )
+        response = client.get(f"/api/document/{document_id}/stats")
+        assert response.status_code == 200
+        unassigned = next(
+            f for f in response.json()["features"] if f["properties"]["zone"] is None
+        )
+        return unassigned["properties"]["demographic_data"]
+
+    filtered_demo = unassigned_total(filtered_id)
+    unfiltered_demo = unassigned_total(unfiltered_id)
+    # County 20097's population is excluded from the filtered universe.
+    assert filtered_demo.keys() == unfiltered_demo.keys()
+    assert all(filtered_demo[k] <= unfiltered_demo[k] for k in filtered_demo)
+    assert any(filtered_demo[k] < unfiltered_demo[k] for k in filtered_demo)
+
+    # Completeness check: /unassigned only owes the filtered counties.
+    # Force the graph-less singleton fallback; grouping is tested elsewhere.
+    import fastapi
+    import app.main as main_module
+
+    def _raise(_name):
+        raise fastapi.HTTPException(status_code=404, detail="Graph unavailable")
+
+    monkeypatch.setattr(main_module, "get_graph", _raise)
+    for document_id, in_filter_only in ((filtered_id, True), (unfiltered_id, False)):
+        response = client.get(f"/api/document/{document_id}/unassigned")
+        assert response.status_code == 200
+        geo_ids = [g for component in response.json()["components"] for g in component]
+        assert geo_ids, "expected unassigned units"
+        outside = [g for g in geo_ids if not g.startswith("20209")]
+        assert (not outside) == in_filter_only
+
+
+def test_get_counties(client, monkeypatch):
+    from app.evaluation.context import COUNTY_CONTEXT
+
+    monkeypatch.setattr(
+        COUNTY_CONTEXT,
+        "_name_cache",
+        {
+            "20097": "Kingman County",
+            "20209": "Wyandotte County",
+            "40001": "Adair County",
+        },
+    )
+    response = client.get("/api/counties", params={"statefps": ["20"]})
+    assert response.status_code == 200
+    assert response.json() == [
+        {"geoid": "20097", "name": "Kingman County"},
+        {"geoid": "20209", "name": "Wyandotte County"},
+    ]
+
+    response = client.get("/api/counties")
+    assert response.status_code == 422

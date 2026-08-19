@@ -9,6 +9,7 @@ import {useOverlayStore} from '@/app/store/overlayStore';
 import {booleanIntersects, area, intersect} from '@turf/turf';
 import {MultiPolygon, Polygon} from 'geojson';
 import {MAP_MODES} from '@constants/map/mode';
+import {countyFipsOfPath} from './countyFips';
 
 const MINIMUM_INTERSECTION_AREA_RATIO = 0.25;
 /**
@@ -51,6 +52,16 @@ export const filterFeatures = ({
   const shatterIds = mapMode === MAP_MODES.COI ? coiShatterIds : districtShatterIds;
   const {paintConstraint, _idCache} = useOverlayStore.getState();
   const filterFunctions: Array<(f: MapGeoJSONFeature) => boolean> = [...additionalFilters];
+  // Never select units outside a county-filtered plan's counties. The tile
+  // layers are filtered too, but the county brush resolves features through
+  // the demography table, and a stale/unfiltered table would let boundary
+  // units from neighboring counties slip into assignments — which then
+  // persist and poison every population calculation.
+  const countyFilter = mapDocument?.county_filter;
+  if (countyFilter?.length) {
+    const countySet = new Set(countyFilter);
+    filterFunctions.push(f => countySet.has(countyFipsOfPath(f.id?.toString() || '')));
+  }
   if (captiveIds.size && !allowOutsideCaptiveIds) {
     filterFunctions.push(f => captiveIds.has(f.id?.toString() || ''));
   }
