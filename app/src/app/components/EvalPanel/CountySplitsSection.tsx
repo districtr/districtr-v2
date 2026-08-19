@@ -103,33 +103,35 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
             <Text size="2" as="p" mb="2">
               {(() => {
                 const label = unitLabel ?? 'units';
+                const fullyPainted = unitAssignedCount + unitSplitCount;
                 return (
                   <>
-                    Out of the total <strong>{unitTotalCount.toLocaleString()}</strong> {label},{' '}
-                    <strong>{unitAssignedCount.toLocaleString()}</strong> are kept whole in this
-                    plan
+                    There are <strong>{unitTotalCount.toLocaleString()}</strong> {label} in total.
+                    Out of the <strong>{fullyPainted.toLocaleString()}</strong> {label} that are
+                    fully painted, <strong>{unitAssignedCount.toLocaleString()}</strong> are kept
+                    whole (in one district)
                     {unitSplitCount > 0 && (
                       <>
                         {' '}
                         and <strong>{unitSplitCount.toLocaleString()}</strong> are split
                       </>
                     )}
+                    .
                     {unitPartialCount > 0 && (
                       <>
-                        , with{' '}
+                        {' '}
                         <Text as="span" color="orange" weight="bold">
                           {unitPartialCount.toLocaleString()}
                         </Text>{' '}
-                        partially assigned
+                        are partially painted.
                       </>
                     )}
                     {unitUnassignedCount !== null && unitUnassignedCount > 0 && (
                       <>
                         {' '}
-                        and <strong>{unitUnassignedCount.toLocaleString()}</strong> unassigned
+                        <strong>{unitUnassignedCount.toLocaleString()}</strong> are unassigned.
                       </>
                     )}
-                    .
                   </>
                 );
               })()}
