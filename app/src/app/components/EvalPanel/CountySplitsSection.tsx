@@ -178,7 +178,7 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                 </Table.Row>
                 <Table.Row>
                   <Table.Cell justify="center">
-                    <Text size="2">Split counties (2+ pieces)</Text>
+                    <Text size="2">Number of counties that are split</Text>
                   </Table.Cell>
                   <Table.Cell justify="center">
                     <Text size="2" weight="bold">
@@ -189,7 +189,7 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                 {smallSplitCount !== null && (
                   <Table.Row>
                     <Table.Cell justify="center">
-                      <Text size="2">Small counties that are split</Text>
+                      <Text size="2">Number of small counties that are split</Text>
                     </Table.Cell>
                     <Table.Cell justify="center">
                       <Text size="2" weight="bold">
@@ -201,7 +201,7 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                 {largeExcessiveSplitCount !== null && (
                   <Table.Row>
                     <Table.Cell justify="center">
-                      <Text size="2">Large counties that are excessively split</Text>
+                      <Text size="2">Number of large counties that are excessively split</Text>
                     </Table.Cell>
                     <Table.Cell justify="center">
                       <Text size="2" weight="bold">
