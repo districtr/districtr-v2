@@ -103,13 +103,13 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
             <Text size="2" as="p" mb="2">
               {(() => {
                 const label = unitLabel ?? 'units';
-                const fullyPainted = unitAssignedCount + unitSplitCount;
+                const completelyAssigned = unitAssignedCount + unitSplitCount;
                 return (
                   <>
                     There are <strong>{unitTotalCount.toLocaleString()}</strong> {label} in total.
-                    Out of the <strong>{fullyPainted.toLocaleString()}</strong> {label} that are
-                    fully painted, <strong>{unitAssignedCount.toLocaleString()}</strong> are kept
-                    whole (in one district)
+                    Out of the <strong>{completelyAssigned.toLocaleString()}</strong> {label} that
+                    are completely assigned, <strong>{unitAssignedCount.toLocaleString()}</strong>{' '}
+                    are kept whole (in one district)
                     {unitSplitCount > 0 && (
                       <>
                         {' '}
@@ -123,7 +123,7 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                         <Text as="span" color="orange" weight="bold">
                           {unitPartialCount.toLocaleString()}
                         </Text>{' '}
-                        are partially painted.
+                        are partially assigned.
                       </>
                     )}
                     {unitUnassignedCount !== null && unitUnassignedCount > 0 && (
