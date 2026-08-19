@@ -97,6 +97,13 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
             <Text size="2" as="p" mb="2">
               This map uses <strong>{unitLabel}</strong> as the default unit of drawing.
               {unitDescription && <> {unitDescription}</>}
+              {unitTotalCount !== null && (
+                <>
+                  {' '}
+                  This map has <strong>{unitTotalCount.toLocaleString()}</strong> {unitLabel} in
+                  total.
+                </>
+              )}
             </Text>
           )}
           {assignedUnits && unitTotalCount !== null && (
@@ -106,7 +113,6 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                 const completelyAssigned = unitAssignedCount + unitSplitCount;
                 return (
                   <>
-                    There are <strong>{unitTotalCount.toLocaleString()}</strong> {label} in total.
                     Out of the <strong>{completelyAssigned.toLocaleString()}</strong> {label} that
                     are completely assigned, <strong>{unitAssignedCount.toLocaleString()}</strong>{' '}
                     are kept whole (in one district)
