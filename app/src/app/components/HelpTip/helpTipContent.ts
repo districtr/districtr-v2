@@ -101,7 +101,7 @@ export const helpTipContent = {
   districtLock: {
     title: 'Locking districts',
     text: 'Toggle it to protect this district from being painted over or erased.',
-    videoFile: 'district_lock.webm',
+    videoFile: 'lock_district.webm',
     guideAnchor: 'population',
   },
   idealPopulation: {

@@ -26,7 +26,10 @@ const TOC_ENTRIES: GuideTocEntry[] = [
       'Exporting Maps',
     ],
   },
-  {title: 'Super Draw'},
+  {
+    title: 'Super Draw',
+    subsections: ['Additional tools', 'Additional controls', 'Additional display options'],
+  },
 ];
 
 /** Anchor id + scroll-offset props for a subheading, so it lines up with its GuideToc link. */
@@ -125,7 +128,7 @@ export default function GuidePage() {
               the district selector.
             </Text>
             <LoopVideoPlayer
-              videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/district_lock.webm`}
+              videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/district_forbid_paintover.webm`}
             />
             <Text size="3">
               To correct the boundaries of your districts, click the erase icon on the toolbar at
@@ -332,6 +335,9 @@ export default function GuidePage() {
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/switch_mode.webm`}
             />
+            <Heading as="h3" size="4" {...subheadingAnchor('Additional tools')}>
+              Additional tools
+            </Heading>
             <Text size="3">
               If you need to use smaller units of geography to balance the population of your
               districts, click the break icon on the toolbar. Then click on a unit you want to break
@@ -349,19 +355,38 @@ export default function GuidePage() {
               ethnic groups, or voter history information for a range of elections. Simply hover
               your mouse over the unit to see its associated demographic or election data.
             </Text>
-            {/* TODO: no video recorded yet for the Inspect tool (inspect.webm) */}
+            <LoopVideoPlayer
+              videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/inspect.webm`}
+            />
+            <Heading as="h3" size="4" {...subheadingAnchor('Additional controls')}>
+              Additional controls
+            </Heading>
             <Text size="3">
               Under the “Population” tab, Super Draw allows you to lock districts, which prevents
               them from being painted over or erased.
             </Text>
-            {/* TODO: no video recorded yet for district locking (lock_district.webm) */}
+            <LoopVideoPlayer
+              videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/lock_district.webm`}
+            />
             <Text size="3">
               Under “Map Layers/Boundaries and areas,” Super Draw allows you to restrict your
               painting to a county, a metro area, or any other area type available for the map.
               Similar to the break tool's workflow, you mask an area by clicking the mask button
               next to the toggle for its area type and selecting that area on the map.
             </Text>
-            {/* TODO: no video recorded yet for area masking (mask_area.webm) */}
+            <LoopVideoPlayer
+              videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/mask_area.webm`}
+            />
+            <Text size="3">
+              In Super Draw mode, you may switch the layout of the side panel itself between a
+              stacked layout and the default layout consisting of three tabs.
+            </Text>
+            <LoopVideoPlayer
+              videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/super_draw_stacked_layout.webm`}
+            />
+            <Heading as="h3" size="4" {...subheadingAnchor('Additional display options')}>
+              Additional display options
+            </Heading>
             <Text size="3">
               Super Draw mode allows you to change whether the population statistic is displayed by
               share or by count: under the “Stats” tab, click the gear icon to the right of “Summary
@@ -369,7 +394,6 @@ export default function GuidePage() {
               table, you may choose a customized coalition (for instance, Black plus Hispanic
               people) to be displayed as an additional column in the table.
             </Text>
-            {/* NOTE: super_draw_number_format.webm needs to be re-recorded to match this updated text */}
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/super_draw_number_format.webm`}
             />
@@ -379,7 +403,6 @@ export default function GuidePage() {
               of the district layer. Given a specific variable, you now have the option of showing
               absolute population number, in addition to the default option of population share.
             </Text>
-            {/* NOTE: super_draw_side_by_side.webm needs to be re-recorded to match this updated text */}
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/super_draw_side_by_side.webm`}
             />
@@ -389,12 +412,9 @@ export default function GuidePage() {
               layer, the option to show population labels on all units, and the option to highlight
               broken precincts. You can also customize your color palette for districts.
             </Text>
-            {/* TODO: no video recorded yet for these visual options (super_draw_visual_options.webm) */}
-            <Text size="3">
-              In Super Draw mode, you may switch the layout of the side panel itself between a
-              stacked layout and the default layout consisting of three tabs.
-            </Text>
-            {/* TODO: no video recorded yet for the stacked layout (super_draw_stacked_layout.webm) */}
+            <LoopVideoPlayer
+              videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/super_draw_visual_options.webm`}
+            />
           </Flex>
         </ContentSection>
       </Flex>
