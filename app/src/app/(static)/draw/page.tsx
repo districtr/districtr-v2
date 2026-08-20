@@ -1,5 +1,5 @@
 'use client';
-import React, {Suspense, useState} from 'react';
+import React, {Suspense, useEffect, useState} from 'react';
 import {useSearchParams} from 'next/navigation';
 import {Box, Button, Flex, Heading, Text} from '@radix-ui/themes';
 import {UploadIcon} from '@radix-ui/react-icons';
@@ -12,6 +12,13 @@ function DrawPageInner() {
   // since import doesn't depend on which state you started from.
   const searchParams = useSearchParams();
   const [uploadOpen, setUploadOpen] = useState(searchParams.get('upload') === '1');
+
+  // A nav click while already on /draw updates the search param without
+  // remounting this component, so the useState initializer above never
+  // re-runs — this effect catches that case too.
+  useEffect(() => {
+    if (searchParams.get('upload') === '1') setUploadOpen(true);
+  }, [searchParams]);
 
   return (
     <Flex direction="column" gapY="4" pt="4">
