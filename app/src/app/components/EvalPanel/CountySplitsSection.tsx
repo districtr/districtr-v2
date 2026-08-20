@@ -154,22 +154,17 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
             districting plan) if its population is smaller than the ideal size of a district.
           </Text>
 
-          <Flex direction="column" align="end" gap="1" mb="3">
-            <Flex align="center" gap="2">
-              <Text size="1" color="gray">
-                County boundaries
-              </Text>
-              <Switch
-                size="1"
-                checked={mapOptions.showCountyBoundaries ?? false}
-                onCheckedChange={checked =>
-                  setMapOptions({showCountyBoundaries: checked, prominentCountyNames: checked})
-                }
-              />
-            </Flex>
+          <Flex align="center" gap="2" mb="3" justify="end">
             <Text size="1" color="gray">
-              (zoom in for county names)
+              County boundaries
             </Text>
+            <Switch
+              size="1"
+              checked={mapOptions.showCountyBoundaries ?? false}
+              onCheckedChange={checked =>
+                setMapOptions({showCountyBoundaries: checked, prominentCountyNames: checked})
+              }
+            />
           </Flex>
 
           <Text size="2" weight="bold" mb="2" mt="4" as="p">
