@@ -145,16 +145,20 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
     </HelpTip>
   );
 
-  // FTV table always shows the Republican share — independent of the pov
-  // toggle above, since the "Repub tilt"/"Dem tilt" verdict wording already
-  // names the party, leaving nothing for pov to flip.
-  const repVoteShare = (key: string) => {
+  // FTV table's vote/seat share rows follow the pov toggle above, same as the
+  // Proportionality table. The "Repub tilt"/"Dem tilt" verdict wording stays
+  // fixed either way — it names whichever party is actually favored, not a
+  // POV-relative framing.
+  const povVoteShare = (key: string) => {
     const dem = evaluation.vote_shares?.[key]?.dem;
-    return dem !== undefined ? 1 - dem : null;
+    if (dem === undefined) return null;
+    return pov === 'dem' ? dem : 1 - dem;
   };
-  const repSeatShare = (key: string) => {
+  const povSeatShare = (key: string) => {
     const s = evaluation.seats?.[key];
-    return s && s.total ? 1 - s.dem / s.total : null;
+    if (!s || !s.total) return null;
+    const demShare = s.dem / s.total;
+    return pov === 'dem' ? demShare : 1 - demShare;
   };
   const ftvVerdict = (key: string): 'pass' | 'dem' | 'rep' | null => {
     const disprop = evaluation.disproportionality?.[key];
@@ -430,14 +434,14 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                         <Table.Row>
                           <Table.Cell>
                             <Text size="2" weight="bold">
-                              R vote share
+                              {pov === 'dem' ? 'D' : 'R'} vote share
                             </Text>
                           </Table.Cell>
                           {ftvElections.map(key => (
                             <Table.Cell key={key} justify="center">
                               <Text size="2">
-                                {repVoteShare(key) !== null
-                                  ? `${(repVoteShare(key)! * 100).toFixed(1)}%`
+                                {povVoteShare(key) !== null
+                                  ? `${(povVoteShare(key)! * 100).toFixed(1)}%`
                                   : '—'}
                               </Text>
                             </Table.Cell>
@@ -446,14 +450,14 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                         <Table.Row>
                           <Table.Cell>
                             <Text size="2" weight="bold">
-                              R seat share
+                              {pov === 'dem' ? 'D' : 'R'} seat share
                             </Text>
                           </Table.Cell>
                           {ftvElections.map(key => (
                             <Table.Cell key={key} justify="center">
                               <Text size="2">
-                                {repSeatShare(key) !== null
-                                  ? `${(repSeatShare(key)! * 100).toFixed(1)}%`
+                                {povSeatShare(key) !== null
+                                  ? `${(povSeatShare(key)! * 100).toFixed(1)}%`
                                   : '—'}
                               </Text>
                             </Table.Cell>
