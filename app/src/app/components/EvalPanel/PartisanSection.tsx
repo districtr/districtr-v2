@@ -304,6 +304,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                                     ? povBg((voteShare - 0.5) * 1.5)
                                     : NEUTRAL
                                   : undefined,
+                              ...ftvCellHighlight(isFtvHighlighted(key)),
                             }}
                           >
                             <Text size="2">
@@ -319,14 +320,15 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                           </Table.Cell>
                           <Table.Cell
                             justify="center"
-                            style={
-                              seatPct !== null
+                            style={{
+                              ...(seatPct !== null
                                 ? {
                                     backgroundColor:
                                       seatPct > 0.5 ? povBg((seatPct - 0.5) * 1.5) : NEUTRAL,
                                   }
-                                : {}
-                            }
+                                : {}),
+                              ...ftvCellHighlight(isFtvHighlighted(key)),
+                            }}
                           >
                             <Text size="2">
                               {seatPct !== null ? `${(seatPct * 100).toFixed(1)}%` : '—'}
@@ -407,11 +409,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                             </Text>
                           </Table.Cell>
                           {ftvElections.map(key => (
-                            <Table.Cell
-                              key={key}
-                              justify="center"
-                              style={ftvCellHighlight(isFtvHighlighted(key))}
-                            >
+                            <Table.Cell key={key} justify="center">
                               <Text size="2">
                                 {repVoteShare(key) !== null
                                   ? `${(repVoteShare(key)! * 100).toFixed(1)}%`
@@ -427,11 +425,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                             </Text>
                           </Table.Cell>
                           {ftvElections.map(key => (
-                            <Table.Cell
-                              key={key}
-                              justify="center"
-                              style={ftvCellHighlight(isFtvHighlighted(key))}
-                            >
+                            <Table.Cell key={key} justify="center">
                               <Text size="2">
                                 {repSeatShare(key) !== null
                                   ? `${(repSeatShare(key)! * 100).toFixed(1)}%`
@@ -449,11 +443,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                           {ftvElections.map(key => {
                             const verdict = ftvVerdict(key);
                             return (
-                              <Table.Cell
-                                key={key}
-                                justify="center"
-                                style={ftvCellHighlight(isFtvHighlighted(key))}
-                              >
+                              <Table.Cell key={key} justify="center">
                                 <Text
                                   size="2"
                                   style={{
