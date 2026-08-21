@@ -174,8 +174,12 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
   const repSweepDistricts = competitiveness?.rep_sweep_districts ?? [];
   const swingDistricts = competitiveness?.swing_districts ?? [];
   const contestDemVoteShares = competitiveness?.contest_dem_vote_shares ?? [];
-  const nDistrictsTotal =
-    demSweepDistricts.length + repSweepDistricts.length + swingDistricts.length;
+  // Read directly from the metric rather than summing the three lists, so this
+  // stays correct even when there's no election data (n_districts can be > 0
+  // while every list above is empty) and doesn't assume this metric's election
+  // count agrees with any other metric's.
+  const nDistrictsTotal = competitiveness?.n_districts ?? 0;
+  const nElectionsAnalyzed = competitiveness?.n_elections ?? 0;
   const competitiveBandFraction = Number(competitiveBand) / 100;
   const nCompetitiveContests = contestDemVoteShares.filter(
     s => Math.abs(s - 0.5) <= competitiveBandFraction
@@ -695,7 +699,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                       </Table.Cell>
                       <Table.Cell justify="center">
                         <Text size="2" weight="bold">
-                          {n}
+                          {nElectionsAnalyzed}
                         </Text>
                       </Table.Cell>
                     </Table.Row>

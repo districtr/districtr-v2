@@ -256,12 +256,16 @@ def competitive_metrics(context: DocumentEvaluationContext) -> CompetitiveMetric
     classify "competitive contests" at whatever band the user chooses without
     duplicating that logic here.
     """
+    n_districts = context.num_nonempty_districts
+    n_elections = len(context.elections)
     if not context.elections:
         return CompetitiveMetrics(
             dem_sweep_districts=[],
             rep_sweep_districts=[],
             swing_districts=[],
             contest_dem_vote_shares=[],
+            n_districts=n_districts,
+            n_elections=n_elections,
         )
     zones = context.demographic_data.index
     dem_sweep = pd.Series(True, index=zones)
@@ -281,4 +285,6 @@ def competitive_metrics(context: DocumentEvaluationContext) -> CompetitiveMetric
         rep_sweep_districts=[cast(DistrictId, z) for z in zones[rep_sweep]],
         swing_districts=[cast(DistrictId, z) for z in zones[swing]],
         contest_dem_vote_shares=sorted(contest_shares),
+        n_districts=n_districts,
+        n_elections=n_elections,
     )

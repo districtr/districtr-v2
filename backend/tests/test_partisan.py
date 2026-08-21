@@ -437,6 +437,8 @@ def _assert_competitiveness_matches(result, expected):
     per-district identities aren't part of that recorded ground truth."""
     n_districts = expected["n_districts"]
     n_elections = expected["n_elections"]
+    assert result["n_districts"] == n_districts
+    assert result["n_elections"] == n_elections
     assert (
         len(result["dem_sweep_districts"])
         + len(result["rep_sweep_districts"])
@@ -459,6 +461,29 @@ def _assert_competitiveness_matches(result, expected):
 def test_competitiveness_matches_gerrychain(grid_context):
     result = competitive_metrics(grid_context)
     _assert_competitiveness_matches(result, _EXPECTED_COMPETITIVENESS)
+
+
+def test_competitive_metrics_reports_n_districts_with_no_elections():
+    """n_districts must reflect the real district count even when there's no
+    election data to compute sweep/swing over — the zero-elections branch
+    must not conflate "no districts" with "no elections"."""
+    district_stats = [
+        DistrictUnionsResponse(
+            zone=zone,
+            geometry=None,
+            demographic_data={"total_pop_20": 10000},
+            updated_at=_now,
+        )
+        for zone in range(1, 6)
+    ]
+    ctx = _StubEvaluationContext(district_stats)
+    result = competitive_metrics(ctx)
+    assert result["n_districts"] == 5
+    assert result["n_elections"] == 0
+    assert result["dem_sweep_districts"] == []
+    assert result["rep_sweep_districts"] == []
+    assert result["swing_districts"] == []
+    assert result["contest_dem_vote_shares"] == []
 
 
 # ---------------------------------------------------------------------------
@@ -985,6 +1010,8 @@ def test_fuzz_competitive_metrics_invariants(district_stats):
     result = competitive_metrics(ctx)
     n = len(district_stats)
     n_e = len(_FUZZ_ELECTIONS)
+    assert result["n_districts"] == n
+    assert result["n_elections"] == n_e
     assert (
         len(result["dem_sweep_districts"])
         + len(result["rep_sweep_districts"])

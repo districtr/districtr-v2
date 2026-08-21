@@ -39,12 +39,22 @@ class CompetitiveMetrics(TypedDict):
     every (district, election) Dem vote share, so the frontend can apply any
     competitiveness band to the same data instead of one fixed band computed
     server-side.
+
+    n_districts/n_elections are included even though they're derivable from
+    the lists in the common case (n_districts = sum of the three list
+    lengths) — carried explicitly so this metric stays self-describing and
+    correct in edge cases the derived form loses, e.g. n_districts would
+    read 0 rather than the real district count when there's no election
+    data (n_elections == 0), and a consumer doesn't have to trust that some
+    *other* metric's own election-column filtering agrees with this one's.
     """
 
     dem_sweep_districts: list[DistrictId]
     rep_sweep_districts: list[DistrictId]
     swing_districts: list[DistrictId]
     contest_dem_vote_shares: list[float]
+    n_districts: int
+    n_elections: int
 
 
 # ── Compactness ───────────────────────────────────────────────────────────────

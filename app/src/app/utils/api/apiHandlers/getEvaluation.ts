@@ -27,6 +27,8 @@ type CompetitivenessResult = {
   rep_sweep_districts: number[];
   swing_districts: number[];
   contest_dem_vote_shares: number[]; // sorted ascending, one entry per (district, election) pair
+  n_districts: number;
+  n_elections: number;
 };
 
 type CutEdgesResult = {
