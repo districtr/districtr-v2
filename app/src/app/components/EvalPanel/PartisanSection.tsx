@@ -1,7 +1,7 @@
 'use client';
 import {useState} from 'react';
 import * as Accordion from '@radix-ui/react-accordion';
-import {Flex, Text, Table, Heading} from '@radix-ui/themes';
+import {Flex, Text, Table, Heading, Select} from '@radix-ui/themes';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {formatElectionKey, selectFtvElections} from '@/app/utils/elections';
@@ -11,6 +11,7 @@ import {PovSwitcher, type Pov} from '@components/Shared/PovSwitcher';
 import {getReadableTextColor} from '@/app/utils/colors';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
 import {HOVER_BTN_STYLE} from './hoverTriggerStyle';
+import {useDistrictHover} from '@/app/hooks/useDistrictHover';
 
 interface PartisanSectionProps {
   evaluation: DocumentEvaluation;
@@ -90,6 +91,8 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
   const [pov, setPov] = useState<Pov>('dem');
   const [ftvHover, setFtvHover] = useState(false);
   const [ftvPassHover, setFtvPassHover] = useState(false);
+  const [competitiveBand, setCompetitiveBand] = useState('3');
+  const {onDistrictEnter, onDistrictLeave} = useDistrictHover();
   const elections = sortElections(Object.keys(evaluation.seats ?? {}));
   const n = elections.length;
   const competitiveness = evaluation.competitiveness;
@@ -116,19 +119,46 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
       : null;
   const ftvPassCount = ftvPassingKeys ? ftvPassingKeys.size : null;
   const ftvOverallPass = ftvPassCount !== null ? ftvPassCount >= 3 : null;
-  const ftvKeySet = ftv ? new Set([...ftv.pres, ...ftv.sen]) : null;
+  const ftvElections = ftv ? [...ftv.pres, ...ftv.sen] : [];
+  const ftvKeySet = ftv ? new Set(ftvElections) : null;
   const isFtvHighlighted = (key: string) =>
     (ftvHover && !!ftvKeySet?.has(key)) || (ftvPassHover && !!ftvPassingKeys?.has(key));
+  // The bound is 1/k seats when that's looser than the flat 7% floor — state it
+  // in whichever form is actually binding, rather than always the raw percentage.
+  const ftvBoundPhrase =
+    ftvThreshold !== null && numDistricts !== null
+      ? 1 / numDistricts > 0.07
+        ? `one out of ${numDistricts} seats (${(ftvThreshold * 100).toFixed(1)}%)`
+        : '7%'
+      : null;
 
   // Shared between both branches of the FTV sentence below (scored and
   // not-enough-data) so the HelpTip trigger isn't duplicated.
   const ftvHelpTipTrigger = (
     <HelpTip tip="freedomToVoteTest" openDelay={HELP_TIP_FAST_DELAY}>
-      <button type="button" style={HOVER_BTN_STYLE}>
-        Freedom-To-Vote test
-      </button>
+      <span role="button" tabIndex={0} style={HOVER_BTN_STYLE}>
+        Freedom-To-Vote Test
+      </span>
     </HelpTip>
   );
+
+  // FTV table always shows the Republican share — independent of the pov
+  // toggle above, since the "Repub tilt"/"Dem tilt" verdict wording already
+  // names the party, leaving nothing for pov to flip.
+  const repVoteShare = (key: string) => {
+    const dem = evaluation.vote_shares?.[key]?.dem;
+    return dem !== undefined ? 1 - dem : null;
+  };
+  const repSeatShare = (key: string) => {
+    const s = evaluation.seats?.[key];
+    return s && s.total ? 1 - s.dem / s.total : null;
+  };
+  const ftvVerdict = (key: string): 'pass' | 'dem' | 'rep' | null => {
+    const disprop = evaluation.disproportionality?.[key];
+    if (disprop === undefined || ftvThreshold === null) return null;
+    if (Math.abs(disprop) <= ftvThreshold) return 'pass';
+    return disprop > 0 ? 'dem' : 'rep';
+  };
 
   const avgSeatSkew =
     n > 0 && evaluation.disproportionality && numDistricts !== null
@@ -136,6 +166,20 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
           return sum + (evaluation.disproportionality![key] ?? 0) * numDistricts;
         }, 0) / n
       : null;
+
+  // Sweep/swing status doesn't depend on the band (plain-majority win/loss per
+  // election); only which contests count as "competitive" does, so that's the
+  // one thing the band dropdown re-filters client-side.
+  const demSweepDistricts = competitiveness?.dem_sweep_districts ?? [];
+  const repSweepDistricts = competitiveness?.rep_sweep_districts ?? [];
+  const swingDistricts = competitiveness?.swing_districts ?? [];
+  const contestDemVoteShares = competitiveness?.contest_dem_vote_shares ?? [];
+  const nDistrictsTotal =
+    demSweepDistricts.length + repSweepDistricts.length + swingDistricts.length;
+  const competitiveBandFraction = Number(competitiveBand) / 100;
+  const nCompetitiveContests = contestDemVoteShares.filter(
+    s => Math.abs(s - 0.5) <= competitiveBandFraction
+  ).length;
 
   return (
     <Accordion.Root type="single" collapsible>
@@ -315,19 +359,22 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
               </Heading>
               <Text size="2" mb="3" as="p">
                 The following scores can all be found in the political science literature, but are
-                not necessarily endorsed by leading scholars at this time.{' '}
-                {ftvPassCount === null && (
-                  <>
-                    Not enough recent Presidential and Senate election data is available to score
-                    this plan against the {ftvHelpTipTrigger}.
-                  </>
-                )}
-                {ftvPassCount !== null && (
-                  <>
+                not necessarily endorsed by leading scholars at this time.
+              </Text>
+              {ftvPassCount === null && (
+                <Text size="2" mb="3" as="p">
+                  Not enough recent Presidential and Senate election data is available to score this
+                  plan against the {ftvHelpTipTrigger}.
+                </Text>
+              )}
+              {ftvPassCount !== null && (
+                <>
+                  <Text size="2" mb="2" as="p">
                     This plan <strong>{ftvOverallPass ? 'passes' : 'does not pass'}</strong> the{' '}
-                    {ftvHelpTipTrigger}: among{' '}
-                    <button
-                      type="button"
+                    {ftvHelpTipTrigger} for partisan balance. To see why, we use{' '}
+                    <span
+                      role="button"
+                      tabIndex={0}
                       style={HOVER_BTN_STYLE}
                       onMouseEnter={() => setFtvHover(true)}
                       onMouseLeave={() => setFtvHover(false)}
@@ -335,11 +382,109 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                       onBlur={() => setFtvHover(false)}
                     >
                       the 4 recent statewide elections
-                    </button>
-                    , this plan's absolute disproportionality stays either within 7% or within one
-                    out of {numDistricts} seats for{' '}
-                    <button
-                      type="button"
+                    </span>{' '}
+                    — the two most recent Presidential races and two most recent Senate races — as
+                    our test contests, checking whether the seat share would have been proportional
+                    to the vote share up to an allowed bound of <strong>{ftvBoundPhrase}</strong>.
+                  </Text>
+                  <div style={{width: 'fit-content', overflowX: 'auto', maxWidth: '100%'}}>
+                    <Table.Root size="1" mb="2" variant="surface">
+                      <Table.Header>
+                        <Table.Row>
+                          <Table.ColumnHeaderCell justify="center" />
+                          {ftvElections.map(key => (
+                            <Table.ColumnHeaderCell key={key} justify="center">
+                              {formatElectionKey(key)}
+                            </Table.ColumnHeaderCell>
+                          ))}
+                        </Table.Row>
+                      </Table.Header>
+                      <Table.Body>
+                        <Table.Row>
+                          <Table.Cell>
+                            <Text size="2" weight="bold">
+                              R vote share
+                            </Text>
+                          </Table.Cell>
+                          {ftvElections.map(key => (
+                            <Table.Cell
+                              key={key}
+                              justify="center"
+                              style={ftvCellHighlight(isFtvHighlighted(key))}
+                            >
+                              <Text size="2">
+                                {repVoteShare(key) !== null
+                                  ? `${(repVoteShare(key)! * 100).toFixed(1)}%`
+                                  : '—'}
+                              </Text>
+                            </Table.Cell>
+                          ))}
+                        </Table.Row>
+                        <Table.Row>
+                          <Table.Cell>
+                            <Text size="2" weight="bold">
+                              R seat share
+                            </Text>
+                          </Table.Cell>
+                          {ftvElections.map(key => (
+                            <Table.Cell
+                              key={key}
+                              justify="center"
+                              style={ftvCellHighlight(isFtvHighlighted(key))}
+                            >
+                              <Text size="2">
+                                {repSeatShare(key) !== null
+                                  ? `${(repSeatShare(key)! * 100).toFixed(1)}%`
+                                  : '—'}
+                              </Text>
+                            </Table.Cell>
+                          ))}
+                        </Table.Row>
+                        <Table.Row>
+                          <Table.Cell>
+                            <Text size="2" weight="bold">
+                              Close enough?
+                            </Text>
+                          </Table.Cell>
+                          {ftvElections.map(key => {
+                            const verdict = ftvVerdict(key);
+                            return (
+                              <Table.Cell
+                                key={key}
+                                justify="center"
+                                style={ftvCellHighlight(isFtvHighlighted(key))}
+                              >
+                                <Text
+                                  size="2"
+                                  style={{
+                                    color:
+                                      verdict === 'dem'
+                                        ? DEM
+                                        : verdict === 'rep'
+                                          ? REP
+                                          : 'var(--green-9)',
+                                  }}
+                                >
+                                  {verdict === 'pass'
+                                    ? '✓'
+                                    : verdict === 'dem'
+                                      ? 'Dem tilt'
+                                      : verdict === 'rep'
+                                        ? 'Repub tilt'
+                                        : '—'}
+                                </Text>
+                              </Table.Cell>
+                            );
+                          })}
+                        </Table.Row>
+                      </Table.Body>
+                    </Table.Root>
+                  </div>
+                  <Text size="2" mb="3" as="p">
+                    This is close enough in{' '}
+                    <span
+                      role="button"
+                      tabIndex={0}
                       style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}
                       onMouseEnter={() => setFtvPassHover(true)}
                       onMouseLeave={() => setFtvPassHover(false)}
@@ -347,11 +492,12 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                       onBlur={() => setFtvPassHover(false)}
                     >
                       {ftvPassCount} election{ftvPassCount === 1 ? '' : 's'}
-                    </button>
-                    , while 3 is required to pass the test.
-                  </>
-                )}
-              </Text>
+                    </span>
+                    , {ftvOverallPass ? 'meeting' : 'falling short of'} the bar of at least 3 out of
+                    4 needed to pass.
+                  </Text>
+                </>
+              )}
               <Flex mb="2">
                 <PovSwitcher pov={pov} setPov={setPov} />
               </Flex>
@@ -522,6 +668,24 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                 across those contests, we label it as <strong>Dem Sweep</strong> or{' '}
                 <strong>Repub Sweep</strong>.
               </Text>
+              <Flex align="center" gap="2" mb="2">
+                <Text size="1" color="gray">
+                  Count a contest as competitive within
+                </Text>
+                <Select.Root value={competitiveBand} onValueChange={setCompetitiveBand} size="1">
+                  <Select.Trigger />
+                  <Select.Content>
+                    <Select.Item value="2">±2 points</Select.Item>
+                    <Select.Item value="3">±3 points</Select.Item>
+                    <Select.Item value="5">±5 points</Select.Item>
+                    <Select.Item value="7">±7 points</Select.Item>
+                    <Select.Item value="10">±10 points</Select.Item>
+                  </Select.Content>
+                </Select.Root>
+                <Text size="1" color="gray">
+                  of an even vote share
+                </Text>
+              </Flex>
               <div style={{width: 'fit-content'}}>
                 <Table.Root size="1" variant="surface">
                   <Table.Body>
@@ -531,7 +695,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                       </Table.Cell>
                       <Table.Cell justify="center">
                         <Text size="2" weight="bold">
-                          {competitiveness.n_elections}
+                          {n}
                         </Text>
                       </Table.Cell>
                     </Table.Row>
@@ -541,38 +705,58 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                       </Table.Cell>
                       <Table.Cell justify="center">
                         <Text size="2" weight="bold">
-                          {competitiveness.n_competitive_districts} /{' '}
-                          {competitiveness.n_districts * competitiveness.n_elections}
+                          {nCompetitiveContests} / {contestDemVoteShares.length}
                         </Text>
                       </Table.Cell>
                     </Table.Row>
-                    <Table.Row>
+                    <Table.Row
+                      tabIndex={0}
+                      style={{cursor: 'pointer'}}
+                      onMouseEnter={() => onDistrictEnter(swingDistricts)}
+                      onMouseLeave={onDistrictLeave}
+                      onFocus={() => onDistrictEnter(swingDistricts)}
+                      onBlur={onDistrictLeave}
+                    >
                       <Table.Cell justify="center">
                         <Text size="2">Swing districts</Text>
                       </Table.Cell>
                       <Table.Cell justify="center">
-                        <Text size="2" weight="bold">
-                          {competitiveness.n_swing_districts} / {competitiveness.n_districts}
+                        <Text size="2" weight="bold" style={HOVER_BTN_STYLE}>
+                          {swingDistricts.length} / {nDistrictsTotal}
                         </Text>
                       </Table.Cell>
                     </Table.Row>
-                    <Table.Row>
+                    <Table.Row
+                      tabIndex={0}
+                      style={{cursor: 'pointer'}}
+                      onMouseEnter={() => onDistrictEnter(demSweepDistricts)}
+                      onMouseLeave={onDistrictLeave}
+                      onFocus={() => onDistrictEnter(demSweepDistricts)}
+                      onBlur={onDistrictLeave}
+                    >
                       <Table.Cell justify="center">
                         <Text size="2">Dem Sweep districts</Text>
                       </Table.Cell>
                       <Table.Cell justify="center">
-                        <Text size="2" weight="bold">
-                          {competitiveness.n_dem_districts} / {competitiveness.n_districts}
+                        <Text size="2" weight="bold" style={HOVER_BTN_STYLE}>
+                          {demSweepDistricts.length} / {nDistrictsTotal}
                         </Text>
                       </Table.Cell>
                     </Table.Row>
-                    <Table.Row>
+                    <Table.Row
+                      tabIndex={0}
+                      style={{cursor: 'pointer'}}
+                      onMouseEnter={() => onDistrictEnter(repSweepDistricts)}
+                      onMouseLeave={onDistrictLeave}
+                      onFocus={() => onDistrictEnter(repSweepDistricts)}
+                      onBlur={onDistrictLeave}
+                    >
                       <Table.Cell justify="center">
                         <Text size="2">Repub sweep districts</Text>
                       </Table.Cell>
                       <Table.Cell justify="center">
-                        <Text size="2" weight="bold">
-                          {competitiveness.n_rep_districts} / {competitiveness.n_districts}
+                        <Text size="2" weight="bold" style={HOVER_BTN_STYLE}>
+                          {repSweepDistricts.length} / {nDistrictsTotal}
                         </Text>
                       </Table.Cell>
                     </Table.Row>
