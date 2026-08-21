@@ -357,12 +357,8 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
             </>
           )}
 
-          {/* Other Partisanship Metrics */}
           {n > 0 && (
             <>
-              <Heading size="3" align="center" mb="2" mt="4">
-                Other Partisanship Metrics
-              </Heading>
               {ftvPassCount === null && (
                 <Text size="2" mb="3" as="p">
                   Not enough recent Presidential and Senate election data is available to score this
@@ -488,6 +484,11 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                   </Text>
                 </>
               )}
+
+              {/* Other Partisanship Metrics */}
+              <Heading size="3" align="center" mb="2" mt="4">
+                Other Partisanship Metrics
+              </Heading>
               <Flex mb="2">
                 <PovSwitcher pov={pov} setPov={setPov} />
               </Flex>
@@ -649,19 +650,8 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
               </Heading>
               <Text size="2" mb="3" as="p">
                 A district is considered <strong>competitive</strong> in a particular vote pattern
-                if it&apos;s close to 50-50 within the major parties — how close counts as
-                competitive is set below.
-              </Text>
-              <Text size="2" mb="3" as="p">
-                We call a district a <strong>swing</strong> district if each major party won it at
-                least once over the elections in our dataset. If it was always won by the same party
-                across those contests, we label it as <strong>Dem Sweep</strong> or{' '}
-                <strong>Repub Sweep</strong>.
-              </Text>
-              <Flex align="center" gap="2" mb="2">
-                <Text size="1" color="gray">
-                  Count a contest as competitive within
-                </Text>
+                if it&apos;s close to 50-50 within the major parties — more specifically, a contest
+                is competitive if the vote share would deviate from an even vote share by{' '}
                 <Select.Root value={competitiveBand} onValueChange={setCompetitiveBand} size="1">
                   <Select.Trigger />
                   <Select.Content>
@@ -672,10 +662,11 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                     <Select.Item value="10">±10 points</Select.Item>
                   </Select.Content>
                 </Select.Root>
-                <Text size="1" color="gray">
-                  of an even vote share
-                </Text>
-              </Flex>
+                . We call a district a <strong>swing</strong> district if each major party won it at
+                least once over the elections in our dataset. If it was always won by the same party
+                across those contests, we label it as <strong>Dem Sweep</strong> or{' '}
+                <strong>Repub Sweep</strong>.
+              </Text>
               <div style={{width: 'fit-content'}}>
                 <Table.Root size="1" variant="surface">
                   <Table.Body>
