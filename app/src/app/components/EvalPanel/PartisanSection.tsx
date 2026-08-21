@@ -128,7 +128,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
   const ftvBoundPhrase =
     ftvThreshold !== null && numDistricts !== null
       ? 1 / numDistricts > 0.07
-        ? `one out of ${numDistricts} seats (${(ftvThreshold * 100).toFixed(1)}%)`
+        ? `1 out of ${numDistricts} seats (${(ftvThreshold * 100).toFixed(1)}% of the seat share)`
         : '7%'
       : null;
 
@@ -361,10 +361,6 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
               <Heading size="3" align="center" mb="2" mt="4">
                 Other Partisanship Metrics
               </Heading>
-              <Text size="2" mb="3" as="p">
-                The following scores can all be found in the political science literature, but are
-                not necessarily endorsed by leading scholars at this time.
-              </Text>
               {ftvPassCount === null && (
                 <Text size="2" mb="3" as="p">
                   Not enough recent Presidential and Senate election data is available to score this
@@ -374,7 +370,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
               {ftvPassCount !== null && (
                 <>
                   <Text size="2" mb="2" as="p">
-                    This plan <strong>{ftvOverallPass ? 'passes' : 'does not pass'}</strong> the{' '}
+                    This plan <strong>{ftvOverallPass ? 'PASSES' : 'DOES NOT PASS'}</strong> the{' '}
                     {ftvHelpTipTrigger} for partisan balance. To see why, we use{' '}
                     <span
                       role="button"
@@ -385,11 +381,11 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                       onFocus={() => setFtvHover(true)}
                       onBlur={() => setFtvHover(false)}
                     >
-                      the 4 recent statewide elections
+                      the last two Senate races and the last two Presidential races
                     </span>{' '}
-                    — the two most recent Presidential races and two most recent Senate races — as
-                    our test contests, checking whether the seat share would have been proportional
-                    to the vote share up to an allowed bound of <strong>{ftvBoundPhrase}</strong>.
+                    as our test contests ({ftvElections.map(formatElectionKey).join(', ')}). We
+                    check if the seat share would have been proportional to the vote share in those
+                    contests, up to an allowed bound of <strong>{ftvBoundPhrase}</strong>.
                   </Text>
                   <div style={{width: 'fit-content', overflowX: 'auto', maxWidth: '100%'}}>
                     <Table.Root size="1" mb="2" variant="surface">
