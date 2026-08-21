@@ -35,6 +35,7 @@ from typing import Any, Callable, Generic, TypeVar
 
 from app.evaluation.context import DocumentEvaluationContext
 from app.evaluation.types import (
+    CompetitiveDistricts,
     CompetitiveMetrics,
     CountyGeoid,
     CountyPiecesInfo,
@@ -86,6 +87,9 @@ METRICS: tuple[Metric[Any], ...] = (
     ),
     Metric[CompetitiveMetrics](
         key="competitiveness", version=1, compute=partisans.competitive_metrics
+    ),
+    Metric[CompetitiveDistricts](
+        key="competitive_districts", version=1, compute=partisans.competitive_districts
     ),
     Metric[int](key="ideal_population", version=2, compute=validity.ideal_population),
     Metric[dict[CountyGeoid, CountyPiecesInfo]](

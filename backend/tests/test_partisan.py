@@ -81,6 +81,7 @@ from app.evaluation.types import Election, CompetitiveMetrics
 from app.evaluation.models import CountyDemographics
 from tests.conftest import PARENT_GRID_NAME, _GRID_BLOCK_ROWS, _GRID_ELEC_COLS
 from app.evaluation.partisans import (
+    competitive_districts,
     competitive_metrics,
     eguia_county,
     efficiency_gap,
@@ -433,6 +434,41 @@ def test_proportionality_matches_gerrychain(grid_context):
 def test_competitiveness_matches_gerrychain(grid_context):
     result = competitive_metrics(grid_context)
     assert result == _EXPECTED_COMPETITIVENESS
+
+
+def test_competitive_districts_matches_gerrychain(grid_context):
+    """Cross-checks competitive_districts against the same ground truth
+    competitive_metrics is validated against, above."""
+    result = competitive_districts(grid_context)
+    n_districts = _EXPECTED_COMPETITIVENESS["n_districts"]
+    n_elections = _EXPECTED_COMPETITIVENESS["n_elections"]
+    assert (
+        len(result["dem_sweep_districts"])
+        + len(result["rep_sweep_districts"])
+        + len(result["swing_districts"])
+        == n_districts
+    )
+    assert (
+        len(result["swing_districts"]) == _EXPECTED_COMPETITIVENESS["n_swing_districts"]
+    )
+    assert (
+        len(result["dem_sweep_districts"])
+        == _EXPECTED_COMPETITIVENESS["n_dem_districts"]
+    )
+    assert (
+        len(result["rep_sweep_districts"])
+        == _EXPECTED_COMPETITIVENESS["n_rep_districts"]
+    )
+    assert len(result["contest_dem_vote_shares"]) == n_districts * n_elections
+    assert result["contest_dem_vote_shares"] == sorted(
+        result["contest_dem_vote_shares"]
+    )
+    n_competitive_at_47_53 = sum(
+        1 for s in result["contest_dem_vote_shares"] if 0.47 <= s <= 0.53
+    )
+    assert (
+        n_competitive_at_47_53 == _EXPECTED_COMPETITIVENESS["n_competitive_districts"]
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -977,3 +1013,30 @@ def test_fuzz_competitive_metrics_invariants(district_stats):
     )
     # competitive contests counted per (district, election) pair
     assert result["n_competitive_districts"] <= n * n_e
+
+
+@given(_partisan_district_stats())
+@settings(max_examples=100)
+def test_fuzz_competitive_districts_invariants(district_stats):
+    ctx = _StubEvaluationContext(district_stats)
+    result = competitive_districts(ctx)
+    n = len(district_stats)
+    n_e = len(_FUZZ_ELECTIONS)
+    assert (
+        len(result["dem_sweep_districts"])
+        + len(result["rep_sweep_districts"])
+        + len(result["swing_districts"])
+        == n
+    )
+    # sweep and swing lists are disjoint
+    assert not (set(result["dem_sweep_districts"]) & set(result["rep_sweep_districts"]))
+    assert not (set(result["dem_sweep_districts"]) & set(result["swing_districts"]))
+    assert not (set(result["rep_sweep_districts"]) & set(result["swing_districts"]))
+    # a (district, election) pair with zero total votes is excluded, so this is
+    # an upper bound, not always exact
+    assert len(result["contest_dem_vote_shares"]) <= n * n_e
+    assert result["contest_dem_vote_shares"] == sorted(
+        result["contest_dem_vote_shares"]
+    )
+    for s in result["contest_dem_vote_shares"]:
+        assert 0.0 <= s <= 1.0, f"vote share {s} outside [0, 1]"

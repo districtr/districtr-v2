@@ -5,8 +5,9 @@ plan-wide scores. All signed metrics are reported from the **Democratic** party'
 of view: positive values indicate a Dem advantage, negative values a Rep advantage.
 """
 
-from typing import Tuple
+from typing import Tuple, cast
 import numpy as np
+import pandas as pd
 from app.evaluation.context import (
     DocumentEvaluationContext,
     Election,
@@ -14,7 +15,9 @@ from app.evaluation.context import (
     COUNTY_CONTEXT,
 )
 from app.evaluation.types import (
+    CompetitiveDistricts,
     CompetitiveMetrics,
+    DistrictId,
     SeatCounts,
     VoteShares,
     VoteCounts,
@@ -299,4 +302,42 @@ def competitive_metrics(context: DocumentEvaluationContext) -> CompetitiveMetric
         n_competitive_districts=int(n_competitive_districts),
         n_districts=n_districts,
         n_elections=n_elections,
+    )
+
+
+def competitive_districts(context: DocumentEvaluationContext) -> CompetitiveDistricts:
+    """District-level sweep/swing classification and a flat sorted list of every
+    (district, election) Dem vote share.
+
+    Unlike competitive_metrics (which applies one fixed 47-53% band server-side),
+    this returns raw data so the frontend can apply any user-chosen band to
+    contest_dem_vote_shares without duplicating classification logic. Sweep/swing
+    status doesn't depend on any band — a district is either won by one party in
+    every election or it isn't — so those three lists are returned as-is.
+    """
+    if not context.elections:
+        return CompetitiveDistricts(
+            dem_sweep_districts=[],
+            rep_sweep_districts=[],
+            swing_districts=[],
+            contest_dem_vote_shares=[],
+        )
+    zones = context.demographic_data.index
+    dem_sweep = pd.Series(True, index=zones)
+    rep_sweep = pd.Series(True, index=zones)
+    contest_shares: list[float] = []
+    for election in context.elections:
+        dem_sweep &= context.dem_wins[election]
+        rep_sweep &= context.rep_wins[election]
+        valid = context.total_votes[election] > 0
+        shares = (
+            context.dem_votes[election][valid] / context.total_votes[election][valid]
+        )
+        contest_shares.extend(float(s) for s in shares)
+    swing = ~(dem_sweep | rep_sweep)
+    return CompetitiveDistricts(
+        dem_sweep_districts=[cast(DistrictId, z) for z in zones[dem_sweep]],
+        rep_sweep_districts=[cast(DistrictId, z) for z in zones[rep_sweep]],
+        swing_districts=[cast(DistrictId, z) for z in zones[swing]],
+        contest_dem_vote_shares=sorted(contest_shares),
     )
