@@ -649,8 +649,8 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
               </Heading>
               <Text size="2" mb="3" as="p">
                 A district is considered <strong>competitive</strong> in a particular vote pattern
-                if it&apos;s close to 50-50 within the major parties. A contest needs to be within
-                47-53 to count as competitive.
+                if it&apos;s close to 50-50 within the major parties — how close counts as
+                competitive is set below.
               </Text>
               <Text size="2" mb="3" as="p">
                 We call a district a <strong>swing</strong> district if each major party won it at
