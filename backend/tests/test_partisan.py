@@ -77,11 +77,10 @@ from app.evaluation.context import (
     COUNTY_CONTEXT,
     CountyContext,
 )
-from app.evaluation.types import Election, CompetitiveMetrics
+from app.evaluation.types import Election
 from app.evaluation.models import CountyDemographics
 from tests.conftest import PARENT_GRID_NAME, _GRID_BLOCK_ROWS, _GRID_ELEC_COLS
 from app.evaluation.partisans import (
-    competitive_districts,
     competitive_metrics,
     eguia_county,
     efficiency_gap,
@@ -375,14 +374,14 @@ _EXPECTED_PROPORTIONALITY = _elec(
     }
 )
 
-_EXPECTED_COMPETITIVENESS = CompetitiveMetrics(
-    n_dem_districts=0,
-    n_rep_districts=0,
-    n_swing_districts=8,
-    n_competitive_districts=6,
-    n_districts=8,
-    n_elections=7,
-)
+_EXPECTED_COMPETITIVENESS = {
+    "n_dem_districts": 0,
+    "n_rep_districts": 0,
+    "n_swing_districts": 8,
+    "n_competitive_districts": 6,
+    "n_districts": 8,
+    "n_elections": 7,
+}
 
 
 # ---------------------------------------------------------------------------
@@ -431,34 +430,22 @@ def test_proportionality_matches_gerrychain(grid_context):
         assert result[col] == pytest.approx(expected), f"{col}"
 
 
-def test_competitiveness_matches_gerrychain(grid_context):
-    result = competitive_metrics(grid_context)
-    assert result == _EXPECTED_COMPETITIVENESS
-
-
-def test_competitive_districts_matches_gerrychain(grid_context):
-    """Cross-checks competitive_districts against the same ground truth
-    competitive_metrics is validated against, above."""
-    result = competitive_districts(grid_context)
-    n_districts = _EXPECTED_COMPETITIVENESS["n_districts"]
-    n_elections = _EXPECTED_COMPETITIVENESS["n_elections"]
+def _assert_competitiveness_matches(result, expected):
+    """Cross-checks the district-level lists against the same ground truth the
+    old fixed-band aggregate was validated against (see the module docstring's
+    regen script) — cardinalities and the ±3% contest count, since the raw
+    per-district identities aren't part of that recorded ground truth."""
+    n_districts = expected["n_districts"]
+    n_elections = expected["n_elections"]
     assert (
         len(result["dem_sweep_districts"])
         + len(result["rep_sweep_districts"])
         + len(result["swing_districts"])
         == n_districts
     )
-    assert (
-        len(result["swing_districts"]) == _EXPECTED_COMPETITIVENESS["n_swing_districts"]
-    )
-    assert (
-        len(result["dem_sweep_districts"])
-        == _EXPECTED_COMPETITIVENESS["n_dem_districts"]
-    )
-    assert (
-        len(result["rep_sweep_districts"])
-        == _EXPECTED_COMPETITIVENESS["n_rep_districts"]
-    )
+    assert len(result["swing_districts"]) == expected["n_swing_districts"]
+    assert len(result["dem_sweep_districts"]) == expected["n_dem_districts"]
+    assert len(result["rep_sweep_districts"]) == expected["n_rep_districts"]
     assert len(result["contest_dem_vote_shares"]) == n_districts * n_elections
     assert result["contest_dem_vote_shares"] == sorted(
         result["contest_dem_vote_shares"]
@@ -466,9 +453,12 @@ def test_competitive_districts_matches_gerrychain(grid_context):
     n_competitive_at_47_53 = sum(
         1 for s in result["contest_dem_vote_shares"] if 0.47 <= s <= 0.53
     )
-    assert (
-        n_competitive_at_47_53 == _EXPECTED_COMPETITIVENESS["n_competitive_districts"]
-    )
+    assert n_competitive_at_47_53 == expected["n_competitive_districts"]
+
+
+def test_competitiveness_matches_gerrychain(grid_context):
+    result = competitive_metrics(grid_context)
+    _assert_competitiveness_matches(result, _EXPECTED_COMPETITIVENESS)
 
 
 # ---------------------------------------------------------------------------
@@ -587,14 +577,14 @@ _GRID_EXPECTED_PROPORTIONALITY = _elec(
     }
 )
 
-_GRID_EXPECTED_COMPETITIVENESS = CompetitiveMetrics(
-    n_dem_districts=0,
-    n_rep_districts=0,
-    n_swing_districts=8,
-    n_competitive_districts=29,
-    n_districts=8,
-    n_elections=7,
-)
+_GRID_EXPECTED_COMPETITIVENESS = {
+    "n_dem_districts": 0,
+    "n_rep_districts": 0,
+    "n_swing_districts": 8,
+    "n_competitive_districts": 29,
+    "n_districts": 8,
+    "n_elections": 7,
+}
 
 
 @pytest.fixture
@@ -768,7 +758,7 @@ def test_ensure_county_data_skips_populate_when_valid_rows_exist():
 
 def test_grid_competitiveness_matches_gerrychain(grid_district_context):
     result = competitive_metrics(grid_district_context)
-    assert result == _GRID_EXPECTED_COMPETITIVENESS
+    _assert_competitiveness_matches(result, _GRID_EXPECTED_COMPETITIVENESS)
 
 
 # ---------------------------------------------------------------------------
@@ -993,33 +983,6 @@ def test_fuzz_disproportionality_invariants(district_stats):
 def test_fuzz_competitive_metrics_invariants(district_stats):
     ctx = _StubEvaluationContext(district_stats)
     result = competitive_metrics(ctx)
-    n = len(district_stats)
-    n_e = len(_FUZZ_ELECTIONS)
-    assert result["n_districts"] == n
-    assert result["n_elections"] == n_e
-    for key in (
-        "n_dem_districts",
-        "n_rep_districts",
-        "n_swing_districts",
-        "n_competitive_districts",
-    ):
-        assert result[key] >= 0, f"{key} is negative"
-    # every district must be dem, rep, or swing
-    assert (
-        result["n_dem_districts"]
-        + result["n_rep_districts"]
-        + result["n_swing_districts"]
-        == n
-    )
-    # competitive contests counted per (district, election) pair
-    assert result["n_competitive_districts"] <= n * n_e
-
-
-@given(_partisan_district_stats())
-@settings(max_examples=100)
-def test_fuzz_competitive_districts_invariants(district_stats):
-    ctx = _StubEvaluationContext(district_stats)
-    result = competitive_districts(ctx)
     n = len(district_stats)
     n_e = len(_FUZZ_ELECTIONS)
     assert (

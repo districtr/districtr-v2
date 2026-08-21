@@ -35,19 +35,10 @@ class VoteShares(TypedDict):
 
 
 class CompetitiveMetrics(TypedDict):
-    n_dem_districts: int
-    n_rep_districts: int
-    n_swing_districts: int
-    n_competitive_districts: int
-    n_districts: int
-    n_elections: int
-
-
-class CompetitiveDistricts(TypedDict):
     """District-level sweep/swing classification plus a flat sorted list of
     every (district, election) Dem vote share, so the frontend can apply any
-    competitiveness band to the same data without duplicating classification
-    logic (see competitive_metrics, which applies one fixed band server-side).
+    competitiveness band to the same data instead of one fixed band computed
+    server-side.
     """
 
     dem_sweep_districts: list[DistrictId]

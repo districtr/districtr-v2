@@ -6,7 +6,6 @@ of view: positive values indicate a Dem advantage, negative values a Rep advanta
 """
 
 from typing import Tuple, cast
-import numpy as np
 import pandas as pd
 from app.evaluation.context import (
     DocumentEvaluationContext,
@@ -15,7 +14,6 @@ from app.evaluation.context import (
     COUNTY_CONTEXT,
 )
 from app.evaluation.types import (
-    CompetitiveDistricts,
     CompetitiveMetrics,
     DistrictId,
     SeatCounts,
@@ -248,75 +246,18 @@ def eguia_county(context: DocumentEvaluationContext) -> dict[Election, float]:
 
 
 def competitive_metrics(context: DocumentEvaluationContext) -> CompetitiveMetrics:
-    """Plan-wide partisan competitiveness metrics across all elections.
-
-    Formulas (over the set D of districts and E of elections):
-        n_dem_districts        = |{ d in D : Dem won d in every e in E }|
-        n_rep_districts        = |{ d in D : Rep won d in every e in E }|
-        n_swing_districts      = |D| - n_dem_districts - n_rep_districts
-        n_competitive_districts = sum over (d, e) in D x E of
-                                  1{ 0.47 <= v_{d,e} <= 0.53 }
-        n_districts            = |D|
-        n_elections            = |E|
-
-    where v_{d,e} is the Dem two-party vote share in district d under election e. The
-    47-53% band is a practitioner threshold (a vote is "competitive" if neither party
-    clears 53%); academic work uses a range of bands (typically 5-10 points) and the
-    choice is a convention rather than a derived constant.
-    """
-
-    n_districts = context.num_nonempty_districts
-    n_elections = len(context.elections)
-    if n_elections == 0:
-        return CompetitiveMetrics(
-            n_dem_districts=0,
-            n_rep_districts=0,
-            n_swing_districts=0,
-            n_competitive_districts=0,
-            n_districts=n_districts,
-            n_elections=0,
-        )
-    dem_districts = np.ones(n_districts, dtype=bool)
-    rep_districts = np.ones(n_districts, dtype=bool)
-    n_competitive_districts = 0
-    for election in context.elections:
-        dem_districts = np.logical_and(dem_districts, context.dem_wins[election])
-        rep_districts = np.logical_and(rep_districts, context.rep_wins[election])
-        valid = context.total_votes[election] > 0
-        dem_vote_shares = (
-            context.dem_votes[election][valid] / context.total_votes[election][valid]
-        )
-        competitive_districts = np.logical_and(
-            dem_vote_shares >= 0.47, dem_vote_shares <= 0.53
-        )
-        n_competitive_districts += sum(competitive_districts)
-    n_dem_districts = int(sum(dem_districts))
-    n_rep_districts = int(sum(rep_districts))
-    n_swing_districts = (
-        context.num_nonempty_districts - n_dem_districts - n_rep_districts
-    )
-    return CompetitiveMetrics(
-        n_dem_districts=n_dem_districts,
-        n_rep_districts=n_rep_districts,
-        n_swing_districts=n_swing_districts,
-        n_competitive_districts=int(n_competitive_districts),
-        n_districts=n_districts,
-        n_elections=n_elections,
-    )
-
-
-def competitive_districts(context: DocumentEvaluationContext) -> CompetitiveDistricts:
     """District-level sweep/swing classification and a flat sorted list of every
     (district, election) Dem vote share.
 
-    Unlike competitive_metrics (which applies one fixed 47-53% band server-side),
-    this returns raw data so the frontend can apply any user-chosen band to
-    contest_dem_vote_shares without duplicating classification logic. Sweep/swing
-    status doesn't depend on any band — a district is either won by one party in
-    every election or it isn't — so those three lists are returned as-is.
+    dem_sweep_districts / rep_sweep_districts: districts won by one party in every
+    election (plain-majority win, share > 0.5) — independent of any competitiveness
+    band. swing_districts is everything else. contest_dem_vote_shares is sorted
+    ascending, one entry per (district, election) pair, so the frontend can
+    classify "competitive contests" at whatever band the user chooses without
+    duplicating that logic here.
     """
     if not context.elections:
-        return CompetitiveDistricts(
+        return CompetitiveMetrics(
             dem_sweep_districts=[],
             rep_sweep_districts=[],
             swing_districts=[],
@@ -335,7 +276,7 @@ def competitive_districts(context: DocumentEvaluationContext) -> CompetitiveDist
         )
         contest_shares.extend(float(s) for s in shares)
     swing = ~(dem_sweep | rep_sweep)
-    return CompetitiveDistricts(
+    return CompetitiveMetrics(
         dem_sweep_districts=[cast(DistrictId, z) for z in zones[dem_sweep]],
         rep_sweep_districts=[cast(DistrictId, z) for z in zones[rep_sweep]],
         swing_districts=[cast(DistrictId, z) for z in zones[swing]],
