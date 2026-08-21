@@ -9,7 +9,7 @@ import {Blockquote, Flex, Select, Spinner, Switch, Text, TextField} from '@radix
 import {QueryClientProvider, useMutation} from '@tanstack/react-query';
 import {useUserMaps} from '@/app/hooks/useUserMaps';
 import {routeManager} from '@/app/utils/map/mapUrlRoute';
-import {editPath} from '@/app/utils/map/editUrl';
+import {viewPath, parseDocumentIdFromMapUrl} from '@/app/utils/map/editUrl';
 import {DRAFT_STATUSES} from '@constants/document/draftStatus';
 
 interface MapSelectorProps {
@@ -44,8 +44,11 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
     allowListModules.includes(map.districtr_map_slug ?? '')
   );
   // which of the user's maps the current link points to, if any
+  const parsedMapId = parseDocumentIdFromMapUrl(mapId);
   const selectedMapId =
-    districtMaps.find(map => mapId.includes(map.document_id))?.document_id ?? '';
+    districtMaps.find(
+      map => map.document_id === parsedMapId || String(map.public_id) === parsedMapId
+    )?.document_id ?? '';
 
   const [notification, setNotification] = useState<null | {
     type: 'error' | 'success' | 'warning';
@@ -84,8 +87,10 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
     }
 
     // take the slash and then the last characters after the slash
-    const urlStrippedId = mapId.split('/').pop()?.replace('?pw=true', '');
-    const userMap = districtMaps?.find(map => map.document_id === urlStrippedId);
+    const urlStrippedId = parseDocumentIdFromMapUrl(mapId) ?? undefined;
+    const userMap = districtMaps?.find(
+      map => map.document_id === urlStrippedId || String(map.public_id) === urlStrippedId
+    );
     const document = await getDocument(urlStrippedId);
     if (document.ok) {
       response.mapInfo = document.response;
@@ -163,8 +168,10 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
 
   const selectMap = (documentId: string) => {
     const publicId = districtMaps.find(map => map.document_id === documentId)?.public_id ?? null;
+    // eval requires a public id; maps without one (pre-#636) can't be linked this way
+    if (publicId == null) return;
     const mapUrl = new URL(
-      editPath(routeManager.mapUrlRoute, documentId, publicId),
+      viewPath(routeManager.mapUrlRoute, publicId),
       window.location.href
     ).toString();
     setFormState('comment', 'document_id', mapUrl);

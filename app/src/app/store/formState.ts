@@ -2,6 +2,7 @@ import {create} from 'zustand';
 import {CommentCreate, CommenterCreate} from '../utils/api/apiHandlers/types';
 import {postComment} from '../utils/api/mutations/postComment';
 import {createJSONStorage, persist} from 'zustand/middleware';
+import {parseDocumentIdFromMapUrl} from '../utils/map/editUrl';
 
 export interface FormState {
   formRef: React.RefObject<HTMLFormElement> | null;
@@ -131,7 +132,7 @@ export const useFormState = create<FormState>()(
         }
         // clean up to just document ID
         const cleanDocumentId = comment.document_id?.trim()?.length
-          ? comment.document_id.split('/').pop()?.replace('?pw=true', '')
+          ? parseDocumentIdFromMapUrl(comment.document_id)
           : null;
         //  todo, some validation
         const response = await postComment.mutate({
