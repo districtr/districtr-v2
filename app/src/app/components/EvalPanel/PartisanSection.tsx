@@ -1,5 +1,5 @@
 'use client';
-import {useState} from 'react';
+import {Fragment, useState} from 'react';
 import * as Accordion from '@radix-ui/react-accordion';
 import {Flex, Text, Table, Heading, Select} from '@radix-ui/themes';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
@@ -91,6 +91,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
   const [pov, setPov] = useState<Pov>('dem');
   const [ftvHover, setFtvHover] = useState(false);
   const [ftvPassHover, setFtvPassHover] = useState(false);
+  const [hoveredFtvKey, setHoveredFtvKey] = useState<string | null>(null);
   const [competitiveBand, setCompetitiveBand] = useState('3');
   const {onDistrictEnter, onDistrictLeave} = useDistrictHover();
   const elections = sortElections(Object.keys(evaluation.seats ?? {}));
@@ -122,7 +123,9 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
   const ftvElections = ftv ? [...ftv.pres, ...ftv.sen] : [];
   const ftvKeySet = ftv ? new Set(ftvElections) : null;
   const isFtvHighlighted = (key: string) =>
-    (ftvHover && !!ftvKeySet?.has(key)) || (ftvPassHover && !!ftvPassingKeys?.has(key));
+    (ftvHover && !!ftvKeySet?.has(key)) ||
+    (ftvPassHover && !!ftvPassingKeys?.has(key)) ||
+    hoveredFtvKey === key;
   // The bound is 1/k seats when that's looser than the flat 7% floor — state it
   // in whichever form is actually binding, rather than always the raw percentage.
   const ftvBoundPhrase =
@@ -381,9 +384,25 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                     >
                       the last two Senate races and the last two Presidential races
                     </span>{' '}
-                    as our test contests ({ftvElections.map(formatElectionKey).join(', ')}). We
-                    check if the seat share would have been proportional to the vote share in those
-                    contests, up to an allowed bound of <strong>{ftvBoundPhrase}</strong>.
+                    as our test contests (
+                    {ftvElections.map((key, i) => (
+                      <Fragment key={key}>
+                        {i > 0 && (i === ftvElections.length - 1 ? ', and ' : ', ')}
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          style={HOVER_BTN_STYLE}
+                          onMouseEnter={() => setHoveredFtvKey(key)}
+                          onMouseLeave={() => setHoveredFtvKey(null)}
+                          onFocus={() => setHoveredFtvKey(key)}
+                          onBlur={() => setHoveredFtvKey(null)}
+                        >
+                          {formatElectionKey(key)}
+                        </span>
+                      </Fragment>
+                    ))}
+                    ). We check if the seat share would have been proportional to the vote share in
+                    those contests, up to an allowed bound of <strong>{ftvBoundPhrase}</strong>.
                   </Text>
                   <div style={{width: 'fit-content', overflowX: 'auto', maxWidth: '100%'}}>
                     <Table.Root size="1" mb="2" variant="surface">
@@ -650,8 +669,8 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
               </Heading>
               <Text size="2" mb="3" as="p">
                 A district is considered <strong>competitive</strong> in a particular vote pattern
-                if it&apos;s close to 50-50 within the major parties — more specifically, a contest
-                is competitive if the vote share would deviate from an even vote share by{' '}
+                if it&apos;s close to 50-50 within the major parties — more specifically, if its
+                vote shares deviate from even by an amount within{' '}
                 <Select.Root value={competitiveBand} onValueChange={setCompetitiveBand} size="1">
                   <Select.Trigger />
                   <Select.Content>
