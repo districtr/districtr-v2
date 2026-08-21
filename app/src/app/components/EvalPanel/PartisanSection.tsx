@@ -471,7 +471,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                     </Table.Root>
                   </div>
                   <Text size="2" mb="3" as="p">
-                    This is close enough in{' '}
+                    This is close enough{' '}
                     <span
                       role="button"
                       tabIndex={0}
@@ -481,10 +481,10 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                       onFocus={() => setFtvPassHover(true)}
                       onBlur={() => setFtvPassHover(false)}
                     >
-                      {ftvPassCount} election{ftvPassCount === 1 ? '' : 's'}
+                      {ftvPassCount} out of 4 times
                     </span>
-                    , {ftvOverallPass ? 'meeting' : 'falling short of'} the bar of at least 3 out of
-                    4 needed to pass.
+                    , so it {ftvOverallPass ? 'passes' : 'does not pass'} the test. (3 out of 4 are
+                    needed to pass.)
                   </Text>
                 </>
               )}
