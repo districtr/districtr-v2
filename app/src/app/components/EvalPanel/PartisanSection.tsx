@@ -411,7 +411,17 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                           <Table.ColumnHeaderCell justify="center" />
                           {ftvElections.map(key => (
                             <Table.ColumnHeaderCell key={key} justify="center">
-                              {formatElectionKey(key)}
+                              <span
+                                role="button"
+                                tabIndex={0}
+                                style={HOVER_BTN_STYLE}
+                                onMouseEnter={() => setHoveredFtvKey(key)}
+                                onMouseLeave={() => setHoveredFtvKey(null)}
+                                onFocus={() => setHoveredFtvKey(key)}
+                                onBlur={() => setHoveredFtvKey(null)}
+                              >
+                                {formatElectionKey(key)}
+                              </span>
                             </Table.ColumnHeaderCell>
                           ))}
                         </Table.Row>
