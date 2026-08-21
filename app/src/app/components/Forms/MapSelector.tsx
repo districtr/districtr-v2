@@ -3,12 +3,13 @@ import {useEffect, useRef, useState} from 'react';
 import {useFormState} from '@/app/store/formState';
 import {getDocument} from '@/app/utils/api/apiHandlers/getDocument';
 import {DocumentObject} from '@/app/utils/api/apiHandlers/types';
-import {TILESET_URL} from '@/app/utils/api/constants';
+import {thumbnailUrl} from '@/app/utils/api/thumbnailUrl';
 import {queryClient} from '@/app/utils/api/queryClient';
 import {Blockquote, Flex, Select, Spinner, Switch, Text, TextField} from '@radix-ui/themes';
 import {QueryClientProvider, useMutation} from '@tanstack/react-query';
 import {useUserMaps} from '@/app/hooks/useUserMaps';
 import {routeManager} from '@/app/utils/map/mapUrlRoute';
+import {editPath} from '@/app/utils/map/editUrl';
 import {DRAFT_STATUSES} from '@constants/document/draftStatus';
 
 interface MapSelectorProps {
@@ -161,8 +162,9 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
   }, [mapId]);
 
   const selectMap = (documentId: string) => {
+    const publicId = districtMaps.find(map => map.document_id === documentId)?.public_id ?? null;
     const mapUrl = new URL(
-      `/${routeManager.mapUrlRoute}/edit/${documentId}`,
+      editPath(routeManager.mapUrlRoute, documentId, publicId),
       window.location.href
     ).toString();
     setFormState('comment', 'document_id', mapUrl);
@@ -237,7 +239,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
       )}
       {showMapSelector && notification?.type === 'success' && dataResponse?.mapInfo?.public_id && (
         <object
-          data={`${TILESET_URL}/thumbnails/${dataResponse.mapInfo.public_id}.png`}
+          data={thumbnailUrl(dataResponse.mapInfo.public_id)}
           type="image/png"
           className="size-32"
           aria-label="Map thumbnail"

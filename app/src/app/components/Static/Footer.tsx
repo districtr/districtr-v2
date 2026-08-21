@@ -62,6 +62,9 @@ export const Footer: React.FC = () => (
             <Link href="/updates" className=" !cursor-pointer !text-districtrLightBlue">
               Updates
             </Link>
+            <Link href="/changelog" className=" !cursor-pointer !text-districtrLightBlue">
+              Changelog
+            </Link>
           </Flex>
 
           <Flex direction="column" className="text-white">

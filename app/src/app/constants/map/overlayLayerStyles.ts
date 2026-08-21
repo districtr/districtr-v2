@@ -12,7 +12,7 @@ export const DEFAULT_FILL_STYLE: Partial<FillLayerSpecification['paint']> = {
 
 export const DEFAULT_LINE_STYLE: Partial<LineLayerSpecification['paint']> = {
   'line-color': '#627BC1',
-  'line-width': 2,
+  'line-width': 3,
   'line-opacity': 0.8,
 };
 

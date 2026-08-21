@@ -35,6 +35,16 @@ class Environment(str, Enum):
     test = "test"
 
 
+def s3_environment_folder(environment: "Environment") -> str:
+    """Only production gets its own S3 folder; every other value (local,
+    development, qa, test) collapses into "development" so non-prod objects
+    don't spread across more S3 folders than needed — colliding with each
+    other is fine, only production needs isolation."""
+    if environment == Environment.production:
+        return Environment.production.value
+    return Environment.development.value
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env", env_ignore_empty=True, extra="ignore"
@@ -62,8 +72,8 @@ class Settings(BaseSettings):
     ] = []
 
     # Regex of additional allowed CORS origins. Used so ephemeral preview
-    # frontends (e.g. https://districtr-v2-123-frontend-dev.fly.dev) can call a
-    # shared backend without re-listing every origin. See .github/PREVIEW_DEPLOYS.md.
+    # frontends (e.g. https://pr-123.dev.districtr.org) can call a shared
+    # backend without re-listing every origin. See .github/workflows/preview.yml.
     BACKEND_CORS_ORIGIN_REGEX: str | None = None
 
     PROJECT_NAME: str

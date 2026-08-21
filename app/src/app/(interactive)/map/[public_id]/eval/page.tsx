@@ -1,11 +1,11 @@
 import React from 'react';
 import MapPage from '@/app/components/MapPage/MapPage';
 import {generateMapPageMetadata} from '@/app/utils/metadata/pageMetadataUtils';
-import {MapPageProps} from '../types';
+import {MapPageProps} from '../../types';
 
 export const generateMetadata = generateMapPageMetadata;
 
-export default async function ViewPage({params}: MapPageProps) {
-  const {map_id} = await params;
-  return <MapPage isEditing={false} isEval={false} mapId={map_id} />;
+export default async function EvalPage({params}: MapPageProps) {
+  const {public_id} = await params;
+  return <MapPage isEditing={false} isEval={true} mapId={public_id} />;
 }

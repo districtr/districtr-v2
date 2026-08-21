@@ -13,6 +13,22 @@ export function createWaf(alb: Alb) {
 
   const rules: aws.types.input.wafv2.WebAclRule[] = [];
 
+  // Host-header match per API hostname. WAF byte-match takes one string, so
+  // several hosts have to be OR'd — and a one-element orStatement is invalid,
+  // hence the single-host special case.
+  const hostMatch = (host: string): aws.types.input.wafv2.WebAclRuleStatement => ({
+    byteMatchStatement: {
+      searchString: host,
+      fieldToMatch: {singleHeader: {name: "host"}},
+      positionalConstraint: "EXACTLY",
+      textTransformations: [{priority: 0, type: "LOWERCASE"}],
+    },
+  });
+  const apiHostScopeDown: aws.types.input.wafv2.WebAclRuleStatement =
+    config.apiHosts.length === 1
+      ? hostMatch(config.apiHosts[0])
+      : {orStatement: {statements: config.apiHosts.map(hostMatch)}};
+
   if (config.wafAllowlistIps.length > 0) {
     const allowlist = new aws.wafv2.IpSet(`${name}-waf-allowlist`, {
       name: `${name}-waf-allowlist`,
@@ -41,14 +57,11 @@ export function createWaf(alb: Alb) {
         rateBasedStatement: {
           limit: 2000,
           aggregateKeyType: "IP",
-          scopeDownStatement: {
-            byteMatchStatement: {
-              searchString: config.apiDomain,
-              fieldToMatch: {singleHeader: {name: "host"}},
-              positionalConstraint: "EXACTLY",
-              textTransformations: [{priority: 0, type: "LOWERCASE"}],
-            },
-          },
+          // Every host the listener forwards to the backend, not just
+          // apiDomain: an alias that routes to FastAPI but misses this scope
+          // would only meet the 10k backstop, i.e. the API limit could be
+          // sidestepped by calling the other name.
+          scopeDownStatement: apiHostScopeDown,
         },
       },
       visibilityConfig: visibility(`${name}-waf-rate-limit-api`),
@@ -87,9 +100,6 @@ export function createWaf(alb: Alb) {
       visibilityConfig: visibility(`${name}-waf-known-bad-inputs`),
     },
     {
-      // ponytail: count mode — SizeRestrictions_BODY (8KB) would block large
-      // msgpack saves. Flip to {none: {}} with ruleActionOverrides excluding
-      // SizeRestrictions_BODY and CrossSiteScripting_BODY after CloudWatch soak.
       name: "aws-common",
       priority: 4,
       overrideAction: {count: {}},

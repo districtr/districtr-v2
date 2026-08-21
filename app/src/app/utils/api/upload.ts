@@ -12,6 +12,7 @@ const MAX_FILE_SIZE = 2_000_000_000; // 20mb
 
 export type MapLink = DistrictrMap & {
   document_id: string;
+  public_id?: number | null;
   filename: string;
   skipped_geo_ids?: string[];
   zone_label_remapping?: Record<string, number>;
@@ -198,6 +199,7 @@ export const processFile = ({
           setMapLink({
             ...districtrMap,
             document_id: uploadResult.response.document_id,
+            public_id: uploadResult.response.public_id,
             filename: file.name,
             skipped_geo_ids: allSkipped.length > 0 ? allSkipped : undefined,
             zone_label_remapping:

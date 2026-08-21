@@ -6,14 +6,15 @@ import math
 import matplotlib.pyplot as plt
 import random
 from sqlalchemy import text
-from sqlmodel import Session
+from sqlmodel import Session, select
 from uuid import UUID
-from app.core.config import settings
+from app.core.config import settings, s3_environment_folder
 from fastapi import APIRouter, Security, status, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from app.core.security import auth, TokenScope
 from app.core.db import get_session, engine
 from app.core.dependencies import get_document
+from app.core.models import DocumentID
 from app.models import Document
 from urllib.parse import urlparse
 from pathlib import Path
@@ -68,8 +69,18 @@ DISTRICT_COLORS = [
 ]
 
 
-def get_document_thumbnail_file_path(document_id: str) -> str:
-    return f"s3://{THUMBNAIL_BUCKET}/thumbnails/{document_id}.png"
+def get_thumbnail_environment_folder() -> str:
+    return s3_environment_folder(settings.ENVIRONMENT)
+
+
+def get_thumbnail_file_path(public_id: str | int) -> str:
+    return f"s3://{THUMBNAIL_BUCKET}/thumbnails/{get_thumbnail_environment_folder()}/{public_id}.png"
+
+
+def get_blank_thumbnail_file_path(districtr_map_slug: str) -> str:
+    # districtr_map_slug is the same string in every environment (shared map
+    # catalog), unlike public_id, so this one is intentionally unprefixed.
+    return f"s3://{THUMBNAIL_BUCKET}/thumbnails/{districtr_map_slug}.png"
 
 
 def write_image(out_path: str | Path, pic_IObytes: io.BytesIO) -> None:
@@ -201,7 +212,7 @@ def _generate_thumbnail(
     plt.close(geoplt.figure)
     pic_IObytes.seek(0)
 
-    out_file = get_document_thumbnail_file_path(str(public_id))
+    out_file = get_thumbnail_file_path(str(public_id))
     try:
         write_image(out_file, pic_IObytes)
     except (ValueError, S3UploadFailedError) as e:
@@ -214,11 +225,30 @@ def _generate_thumbnail(
     return out_file
 
 
-@router.get("/api/document/{document_id}/thumbnail", status_code=status.HTTP_200_OK)
-async def get_thumbnail(*, document_id: str, session: Session = Depends(get_session)):
-    thumbail_file_path = get_document_thumbnail_file_path(document_id)
-    if file_exists(thumbail_file_path):
-        return RedirectResponse(url=f"{settings.cnd_url}/thumbnails/{document_id}.png")
+def _resolve_public_id(raw_id: str, session: Session) -> int | None:
+    """Thumbnails are always stored keyed by public_id, but this endpoint is
+    also hit with a raw document_id (edit/password links carry the UUID in
+    their OG image URL) — resolve to the real public_id in that case."""
+    try:
+        parsed = DocumentID(document_id=raw_id)
+    except ValueError:
+        return None
+    if parsed.is_public:
+        return int(parsed.value)
+    return session.exec(
+        select(Document.public_id).where(Document.document_id == parsed.value)
+    ).first()
+
+
+@router.get("/api/document/{public_id}/thumbnail", status_code=status.HTTP_200_OK)
+async def get_thumbnail(*, public_id: str, session: Session = Depends(get_session)):
+    resolved_public_id = _resolve_public_id(public_id, session)
+    if resolved_public_id is not None:
+        thumbail_file_path = get_thumbnail_file_path(resolved_public_id)
+        if file_exists(thumbail_file_path):
+            return RedirectResponse(
+                url=f"{settings.cnd_url}/thumbnails/{get_thumbnail_environment_folder()}/{resolved_public_id}.png"
+            )
 
     return RedirectResponse(url="/home-megaphone.png")
 
@@ -311,7 +341,7 @@ def _generate_blank(
     plt.close(geoplt.figure)
     pic_IObytes.seek(0)
 
-    out_file = get_document_thumbnail_file_path(districtr_map_slug)
+    out_file = get_blank_thumbnail_file_path(districtr_map_slug)
     try:
         write_image(out_file, pic_IObytes)
     except (ValueError, S3UploadFailedError) as e:

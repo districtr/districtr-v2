@@ -10,11 +10,11 @@ const TOC_ENTRIES: GuideTocEntry[] = [
   {title: 'Getting Started With Districts'},
   {
     title: 'Main Tools',
-    subsections: ['Moving across the map', 'Drawing the districts', 'Visual settings'],
+    subsections: ['Moving across the map', 'Drawing the districts'],
   },
   {
-    title: 'Data Panels',
-    subsections: ['District overview', 'Demographics', 'Elections', 'Map Validation'],
+    title: 'Data Tabs',
+    subsections: ['Population', 'Stats', 'Map Layers'],
   },
   {title: 'Map Modes'},
   {
@@ -31,6 +31,11 @@ const TOC_ENTRIES: GuideTocEntry[] = [
 
 /** Anchor id + scroll-offset props for a subheading, so it lines up with its GuideToc link. */
 const subheadingAnchor = (title: string) => ({id: slugify(title), className: 'scroll-mt-28'});
+
+export const metadata = {
+  title: 'Guide',
+  description: 'How to draw districting and community maps with Districtr',
+};
 
 export default function GuidePage() {
   return (
@@ -108,15 +113,15 @@ export default function GuidePage() {
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/brush_size.webm`}
             />
             <Text size="3">
-              To paint whole counties at once, toggle the “County Brush” box next to the slider.
+              To paint units smaller than counties, uncheck the “Paint by county” box next to the
+              slider.
             </Text>
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/county_brush.webm`}
             />
             <Text size="3">
-              To inspect districts without altering them, or to avoid painting over already-drawn
-              areas, toggle the lock icon next to the district number in the “District overview”
-              panel.
+              To avoid painting over already-drawn areas, check the “Forbid paint-over” box next to
+              the district selector.
             </Text>
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/district_lock.webm`}
@@ -136,83 +141,31 @@ export default function GuidePage() {
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/undo_redo.webm`}
             />
-
-            <Heading as="h3" size="4" {...subheadingAnchor('Visual settings')}>
-              Visual settings
-            </Heading>
-            <Text size="3">
-              Click the gear icon (“Visual settings”) at the top of the side panel to control what
-              the map shows. From here, you can uncheck “Painted districts” to hide the districts
-              from the map, toggle “County Boundaries” to show or remove county boundaries, and
-              check “Highlight unassigned areas” to see which units you still need to color.
-            </Text>
-            <LoopVideoPlayer
-              videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/visual_settings.webm`}
-            />
           </Flex>
         </ContentSection>
 
-        <ContentSection title="Data Panels">
+        <ContentSection title="Data Tabs">
           <Flex direction="column" gapY="4">
-            <Heading as="h3" size="4" {...subheadingAnchor('District overview')}>
-              District overview
+            <Heading as="h3" size="4" {...subheadingAnchor('Population')}>
+              Population
             </Heading>
 
             <Text size="3">
-              The “District overview” panel lists each drawn district — click a district number to
-              select it and switch the brush to that district's color. It also shows the population
-              of each district; to balance your population evenly between districts, make reference
-              to the ideal population count and vertical bar provided in this panel. You may also
-              add comments to each district by clicking the comment icon next to the district
-              number.
+              The “Population” tab lists each drawn district — click a district number to select it
+              and switch the brush to that district's color. It also shows the population of each
+              district; to balance your population evenly between districts, make reference to the
+              ideal population count and vertical bar provided in this panel.
             </Text>
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/district_overview.webm`}
             />
 
-            <Heading as="h3" size="4" {...subheadingAnchor('Demographics')}>
-              Demographics
+            <Heading as="h3" size="4" {...subheadingAnchor('Stats')}>
+              Stats
             </Heading>
             <Text size="3">
-              Under this panel, you can study the demographic make up of your districts:
-            </Text>
-            <ul className="list-disc pl-6">
-              <li>
-                <Text size="3">
-                  Choose total population or voting age population as the statistic.
-                </Text>
-              </li>
-              <li>
-                <Text size="3">
-                  Under the “Map Layer” tab, view the demographic data as a choropleth on top of the
-                  map by selecting “Overlay” under “Display Modes”, or as sized circles by selecting
-                  “Sized Circles”.
-                </Text>
-              </li>
-            </ul>
-            <LoopVideoPlayer
-              videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/demographics_panel.webm`}
-            />
-
-            <Heading as="h3" size="4" {...subheadingAnchor('Elections')}>
-              Elections
-            </Heading>
-            <Text size="3">
-              In the elections panel you can view how your districts would have behaved under past
-              election data. Just like the demographics panel, you can choose to view the election
-              data as a choropleth on top of the map by selecting “Overlay” under “Display Modes”,
-              or view it as sized circles by selecting “Sized Circles”.
-            </Text>
-            <LoopVideoPlayer
-              videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/election_panel.webm`}
-            />
-
-            <Heading as="h3" size="4" {...subheadingAnchor('Map Validation')}>
-              Map Validation
-            </Heading>
-            <Text size="3">
-              Under the map validation panel, you can check whether your map is missing any
-              geographic units.
+              The “Stats” tab starts with a map validation panel, with which you can check whether
+              your map is missing any geographic units.
             </Text>
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/completeness_check.webm`}
@@ -220,6 +173,45 @@ export default function GuidePage() {
             <Text size="3">You can also check whether your districts are contiguous.</Text>
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/contiguity_check.webm`}
+            />
+            <Text size="3">
+              The “Stats” tab also contains the demographic and election tables. The former allows
+              you to study the demographic makeup of your districts. The latter lets you see how
+              your districts would have behaved under past election data.
+            </Text>
+            <LoopVideoPlayer
+              videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/tables_under_stats.webm`}
+            />
+
+            <Heading as="h3" size="4" {...subheadingAnchor('Map Layers')}>
+              Map Layers
+            </Heading>
+            <Text size="3">
+              The “Map Layer” tab allows you to display additional data on the map. At the
+              demographics section, you may choose “Overlay” to show a selected demographic variable
+              as a choropleth on top of the map, or choose “Sized Circles” to show the same variable
+              as such.
+            </Text>
+            <LoopVideoPlayer
+              videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/demographics_display.webm`}
+            />
+
+            <Text size="3">
+              Similarly, at the election section, you have the same display options between
+              “Overlay” and “Sized Circles”.
+            </Text>
+            <LoopVideoPlayer
+              videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/election_display.webm`}
+            />
+
+            <Text size="3">
+              The last section of the “Map Layer” tab lists a number of helpful controls. For
+              instance, you can uncheck “Painted districts” to hide the districts from the map,
+              toggle “County Boundaries” to show or remove county boundaries, and check “Highlight
+              unassigned areas” to see which units you still need to color.
+            </Text>
+            <LoopVideoPlayer
+              videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/visual_settings.webm`}
             />
           </Flex>
         </ContentSection>
@@ -344,9 +336,15 @@ export default function GuidePage() {
             />
             <Text size="3">
               Super Draw allows you to change whether the population statistic is displayed by share
-              or by count: click the gear icon to the right of “Summary Type” and choose “Population
-              by Share” or “Population by Count”. The Super Draw mode also allows you to switch on a
-              side-by-side demographic and elections choropleth instead of an overlay.
+              or by count: under the “Stats” tab, click the gear icon to the right of “Summary Type”
+              and choose “Population by Share” or “Population by Count”.
+            </Text>
+            <LoopVideoPlayer
+              videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/super_draw_number_format.webm`}
+            />
+            <Text size="3">
+              The Super Draw mode also allows you to switch on a side-by-side demographic and
+              elections choropleth instead of an overlay.
             </Text>
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/super_draw_side_by_side.webm`}

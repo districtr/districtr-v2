@@ -1,6 +1,6 @@
 {
   "name": "districtr-reboot",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "private": true,
   "scripts": {
     "predev": "bash scripts/fetch-basemap-styles.sh",

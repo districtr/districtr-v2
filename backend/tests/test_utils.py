@@ -8,7 +8,9 @@ from app.utils import (
     add_extent_to_districtrmap,
     update_districtrmap,
     GEOID_PREDICATES,
+    _stats_object_key,
 )
+from app.core.config import settings
 from sqlmodel import Session
 import subprocess
 from app.constants import GERRY_DB_SCHEMA
@@ -426,3 +428,15 @@ def handle_full_submission_approve(client, form_response: FullCommentFormRespons
 )
 def test_geoid_predicates(unit_type, geo_id, expected):
     assert GEOID_PREDICATES[unit_type](geo_id) is expected
+
+
+def test_stats_object_key_is_environment_scoped(monkeypatch):
+    monkeypatch.setattr(settings, "ENVIRONMENT", "development")
+    dev_key = _stats_object_key("123")
+
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+    prod_key = _stats_object_key("123")
+
+    assert dev_key != prod_key
+    assert "/development/" in dev_key
+    assert "/production/" in prod_key

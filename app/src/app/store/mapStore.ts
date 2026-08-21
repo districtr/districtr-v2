@@ -27,6 +27,7 @@ import {createWithDevWrapperAndSubscribe} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
 import {nanoid} from 'nanoid';
 import {useUnassignFeaturesStore} from './unassignedFeatures';
+import {useOverlayStore} from './overlayStore';
 import {demographyService} from '../utils/demography/demographyService';
 import {useDemographyStore} from './demography/demographyStore';
 import {extendColorArray} from '../utils/colors';
@@ -317,7 +318,7 @@ export interface MapStore {
 const initialLoadingState =
   typeof window !== 'undefined' &&
   (window.location.pathname.startsWith(`/${MAP_ROUTES.DISTRICTS}/`) ||
-    window.location.pathname.startsWith(`/${MAP_ROUTES.DISTRICTS}/edit/`))
+    window.location.pathname.startsWith(`/${MAP_ROUTES.COI}/`))
     ? APP_LOADING_STATES.LOADING
     : APP_LOADING_STATES.INITIALIZING;
 
@@ -502,10 +503,14 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           bounds: preservedBounds,
           stateFipsSet: newStateFipsSet,
         },
+        // A fresh map (not just switching edit/display/eval views of the same
+        // one) defaults to painting — that's what a user opens a map to do.
         activeTool:
-          mapDocument.access === ACCESS_STATES.EDIT
-            ? mapControlsState.activeTool
-            : ACTIVE_TOOLS.PAN,
+          mapDocument.access !== ACCESS_STATES.EDIT
+            ? ACTIVE_TOOLS.PAN
+            : sameMapAcrossViews
+              ? mapControlsState.activeTool
+              : ACTIVE_TOOLS.BRUSH,
         selectedZone: communities[0]?.id ?? mapControlsState.selectedZone,
         sidebarPanels: ['population'],
         isPainting: false,
@@ -629,6 +634,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       resetZoneAssignments();
       useDemographyStore.getState().clear();
       useUnassignFeaturesStore.getState().reset();
+      useOverlayStore.getState().reset();
       set({
         mapDocument: null,
         updated: {metadata: false, comments: false},

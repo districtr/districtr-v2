@@ -3,34 +3,23 @@ import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {MapControlsStore, useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {formatNumber} from '@/app/utils/numbers';
-import {
-  CircleIcon,
-  GearIcon,
-  InfoCircledIcon,
-  MinusIcon,
-  PlusIcon,
-  ShadowInnerIcon,
-  ViewVerticalIcon,
-} from '@radix-ui/react-icons';
+import {GearIcon, MinusIcon, PlusIcon} from '@radix-ui/react-icons';
 import {
   Blockquote,
   Box,
-  Button,
   Checkbox,
   Flex,
   Heading,
   IconButton,
   Popover,
-  SegmentedControl,
+  RadioCards,
   Slider,
   Text,
-  Tooltip,
 } from '@radix-ui/themes';
 import {Select} from '@radix-ui/themes';
 import {LegendLabel, LegendThreshold} from '@visx/legend';
-import React, {useEffect, useMemo} from 'react';
+import React, {useMemo} from 'react';
 import {choroplethMapVariables} from '@/app/store/demography/constants';
-import {OVERLAY_OPACITY} from '@constants/map/layerStyle';
 import {demographyService} from '@/app/utils/demography/demographyService';
 import {
   isCoalitionUniverse,
@@ -40,11 +29,12 @@ import {
   type SummaryType,
 } from '@constants/demography/summary';
 import {COALITION_VARIABLE_BY_UNIVERSE, DemographyVariable} from '@constants/demography/coalition';
+import {useCoalitionsEnabled} from '@/app/hooks/useCoalitionsEnabled';
 import {getCoalitionLabel, getSelectedCoalitionColumns} from '@/app/utils/demography/coalition';
-import {MAP_MODES} from '@constants/map/mode';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 import {overlayMemory} from '@utils/demography/overlayMemory';
+import {DataSourceCitation} from './DataSourceCitation';
 
 type MapPanelProps = {
   columnGroup: keyof typeof choroplethMapVariables;
@@ -54,7 +44,6 @@ type MapPanelProps = {
 const mapDisplayModes: Array<{
   label: string;
   value: MapControlsStore['mapOptions']['demographicDisplayMode'];
-  icon?: React.ReactNode;
 }> = [
   {
     label: 'None',
@@ -63,39 +52,14 @@ const mapDisplayModes: Array<{
   {
     label: 'Comparison',
     value: DEMOGRAPHIC_MODES.SIDE_BY_SIDE,
-    icon: <ViewVerticalIcon />,
   },
   {
     label: 'Overlay',
     value: DEMOGRAPHIC_MODES.OVERLAY,
-    icon: <ShadowInnerIcon />,
   },
   {
     label: 'Sized circles',
     value: DEMOGRAPHIC_MODES.SIZED_CIRCLES,
-    icon: <CircleIcon />,
-  },
-];
-
-const getOpacityStates = (
-  mapOptions: MapControlsStore['mapOptions'],
-  setMapOptions: MapControlsStore['setMapOptions'],
-  mapMode: MapControlsStore['mapMode']
-) => [
-  {
-    selected: mapOptions.showPaintedDistricts && mapOptions.overlayOpacity > 0,
-    label: 'Overlay',
-    onClick: () => setMapOptions({showPaintedDistricts: true, overlayOpacity: OVERLAY_OPACITY}),
-  },
-  {
-    selected: !mapOptions.showPaintedDistricts,
-    label: 'Show Thematic Map',
-    onClick: () => setMapOptions({showPaintedDistricts: false, overlayOpacity: 1}),
-  },
-  {
-    selected: mapOptions.showPaintedDistricts && mapOptions.overlayOpacity === 0,
-    label: mapMode === MAP_MODES.COI ? 'Show Communities' : 'Show Districts',
-    onClick: () => setMapOptions({showPaintedDistricts: true, overlayOpacity: 0}),
   },
 ];
 
@@ -103,10 +67,10 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   const demographicDisplayMode = useMapControlsStore(
     state => state.mapOptions.demographicDisplayMode
   );
-  const mapMode = useMapControlsStore(state => state.mapMode);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const superDraw = useToolbarStore(state => state.superDraw);
+  const coalitionsEnabled = useCoalitionsEnabled();
   const isOverlay = demographicDisplayMode === DEMOGRAPHIC_MODES.OVERLAY;
   // Draw mode keeps the choropleth simple: overlay only, no side-by-side view.
   const displayModes = superDraw
@@ -135,6 +99,10 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   );
   const coalitionOptionFor = (universe: SummaryType) => {
     if (!isCoalitionUniverse(universe)) return [];
+    // Coalition entries only where coalitions are on (Super Draw / COI maps);
+    // plain Draw keeps the entry when it's the active variable (a coalition
+    // set up in Super Draw must not leave a dangling selection behind).
+    if (!coalitionsEnabled && variable !== COALITION_VARIABLE_BY_UNIVERSE[universe]) return [];
     const coalitionColumns = getSelectedCoalitionColumns({
       selectedGroups: coalitionGroups,
       availableColumns: demographyService.availableColumns,
@@ -165,23 +133,34 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
         // Skip the coalition entry for a group with no data on this map.
         return baseList.length ? [...baseList, ...coalitionOptionFor(group)] : [];
       }),
-    [availableMapVariables, variableGroups, coalitionGroups, dataHash]
+    [availableMapVariables, variableGroups, coalitionGroups, dataHash, coalitionsEnabled, variable]
   );
   const mapVariableConfig = currentVariableList.find(f => f.value === variable);
+  // Each group's control is independent: it reports the display mode only
+  // while its own variable drives the map, and shows None otherwise. Picking
+  // a mode here takes the map over for this group (handleSetMapMode swaps the
+  // variable), flipping the other group's control back to None.
+  const ownsMapLayer = !!mapVariableConfig;
+  const displayedMode = ownsMapLayer ? demographicDisplayMode : undefined;
 
   const handleSetMapMode = (newMode: MapControlsStore['mapOptions']['demographicDisplayMode']) => {
     setMapOptions({demographicDisplayMode: newMode});
     // Toggling a layer on registers it with the Visual settings toggle:
     // remember the display mode (overlay vs. comparison) and the variable
     // it's showing.
+    // Reactivating an inactive group restores its remembered variable (like
+    // activateOverlayGroup), falling back to the group's first.
+    const group = toOverlayGroup(columnGroup);
+    const remembered = overlayMemory.variables[group];
+    const effectiveVariable = mapVariableConfig
+      ? variable
+      : (currentVariableList.find(f => f.value === remembered) ?? currentVariableList[0])?.value;
     if (newMode) {
       overlayMemory.displayMode = newMode;
-      const effectiveVariable = mapVariableConfig ? variable : currentVariableList[0]?.value;
-      if (effectiveVariable)
-        overlayMemory.variables[toOverlayGroup(columnGroup)] = effectiveVariable;
+      if (effectiveVariable) overlayMemory.variables[group] = effectiveVariable;
     }
-    if (!mapVariableConfig && currentVariableList.length) {
-      setVariable(currentVariableList[0].value);
+    if (!mapVariableConfig && effectiveVariable) {
+      setVariable(effectiveVariable);
     }
     // Sized circles encode the count in the circle size; shade by share
     if (
@@ -192,7 +171,6 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
     }
   };
 
-  const opacityStates = getOpacityStates(mapOptions, setMapOptions, mapMode);
   const canBePercent = mapVariableConfig?.variants?.includes('percent');
   // Continuous (fixed partisan, unclassed percent, or total) scales ignore binning;
   // only raw-count variants of demographic groups use quantile bins
@@ -230,42 +208,6 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
     setVariant(usePercent ? 'percent' : 'raw');
   };
 
-  useEffect(() => {
-    // add a listener for option or alt key press and release
-    const handleKeyPress = (event: KeyboardEvent) => {
-      const {mapOptions, setMapOptions} = useMapControlsStore.getState();
-      const isOverlayMode = mapOptions.demographicDisplayMode === DEMOGRAPHIC_MODES.OVERLAY;
-      const activeElement = document.activeElement;
-      // if active element is an input, don't do anything
-      if (
-        !isOverlayMode ||
-        activeElement instanceof HTMLInputElement ||
-        activeElement instanceof HTMLTextAreaElement
-      )
-        return;
-      // if command/control held down, don't do anything
-      if (event.metaKey || event.ctrlKey) return;
-      // if key is digit, set selected zone to that digit
-      let value = event.key;
-      // if x, set showDemographicMap to undefined
-      const opacityStates = getOpacityStates(mapOptions, setMapOptions, mapMode);
-      if (value === 'x') {
-        const currentState = opacityStates.findIndex(f => f.selected);
-        const nextState = (currentState + 1) % opacityStates.length;
-        opacityStates[nextState].onClick();
-      }
-    };
-    if (mapVariableConfig) {
-      document.addEventListener('keydown', handleKeyPress);
-    } else {
-      document.removeEventListener('keydown', handleKeyPress);
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyPress);
-    };
-  }, [mapMode, mapVariableConfig]);
-
   if (!Object.keys(availableMapVariables).length) {
     return (
       <Blockquote color="crimson">
@@ -274,14 +216,19 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
     );
   }
   return (
-    <Flex direction="column">
-      <Flex direction="row" gap="3" align="center" className="rounded-md" wrap="wrap">
+    <Flex direction="column" gap="2">
+      <Flex direction="row" align="center" gap="3" wrap="wrap">
         <Text size="2" weight="medium">
-          Display mode
+          Map display mode
         </Text>
-        <SegmentedControl.Root
+        <RadioCards.Root
           size="1"
-          value={demographicDisplayMode ?? 'none'}
+          gap="2"
+          // Flex-wrap instead of grid columns: grid tracks floor at
+          // min-content and overflow narrow sidebars, stretching sibling
+          // controls past the clip edge; wrapped cards fit any width.
+          style={{display: 'flex', flexWrap: 'wrap'}}
+          value={displayedMode ?? 'none'}
           onValueChange={v =>
             handleSetMapMode(
               v === 'none'
@@ -291,118 +238,86 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
           }
         >
           {displayModes.map((option, i) => (
-            <SegmentedControl.Item key={i} value={option.value ?? 'none'}>
-              <Flex align="center" gap="1">
-                {!!option.icon && option.icon}
-                {option.label}
-              </Flex>
-            </SegmentedControl.Item>
+            <RadioCards.Item key={i} value={option.value ?? 'none'} className="cursor-pointer">
+              <Text size="2">{option.label}</Text>
+            </RadioCards.Item>
           ))}
-        </SegmentedControl.Root>
+        </RadioCards.Root>
       </Flex>
-      {demographicDisplayMode !== undefined && (
+      {displayedMode !== undefined && (
         <>
-          <Flex direction="column" pt="2">
-            <Flex direction="row" gap="3" align="start" py="2" wrap="wrap">
-              <Flex direction="row" gap="3" align="center" wrap="wrap">
-                <Text size="2" weight="medium">
-                  {columnGroup === 'VOTERHISTORY' ? 'Choose Election' : 'Choose Population'}
-                </Text>
-                <Select.Root value={variable} onValueChange={handleChangeVariable}>
-                  <Select.Trigger>
-                    <Text>{mapVariableConfig?.label ?? 'Select a variable'}</Text>
-                  </Select.Trigger>
-                  <Select.Content>
-                    {currentVariableList.map(f => (
-                      <Select.Item key={f.value} value={f.value}>
-                        {f.label}
-                      </Select.Item>
-                    ))}
-                  </Select.Content>
-                </Select.Root>
-
-                {!!mapVariableConfig && superDraw && (
-                  <Popover.Root>
-                    <Popover.Trigger>
-                      <GearIcon />
-                    </Popover.Trigger>
-                    <Popover.Content>
-                      <Flex direction={'column'} gapY="2">
-                        <Heading as="h3" size="3">
-                          Choropleth Map Settings
-                        </Heading>
-                        {usesBins && (
-                          <Flex direction="row" gapX="3" align="center">
-                            <Text>Max number of bins: {numberOfbins}</Text>
-                            <IconButton
-                              variant="ghost"
-                              onClick={() => setNumberOfBins(numberOfbins - 1)}
-                              disabled={numberOfbins < 4}
-                            >
-                              <MinusIcon />
-                            </IconButton>
-                            <IconButton
-                              variant="ghost"
-                              onClick={() => setNumberOfBins(numberOfbins + 1)}
-                              disabled={numberOfbins > 8}
-                            >
-                              <PlusIcon />
-                            </IconButton>
-                          </Flex>
-                        )}
-                        <Text
-                          as="label"
-                          className={`${canBePercent ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
-                        >
-                          <Flex gap="2" align="center">
-                            <Checkbox
-                              checked={canBePercent && variant === 'percent'}
-                              disabled={!canBePercent}
-                              onCheckedChange={handleChangePercent}
-                            />
-                            Show data as percent
-                          </Flex>
-                        </Text>
-                      </Flex>
-                    </Popover.Content>
-                  </Popover.Root>
-                )}
-              </Flex>
-            </Flex>
-            {/* Painted-district visibility belongs with the choropleth controls,
-                so the overlay-mode presets live here rather than in map settings. */}
-            {isOverlay && !!mapVariableConfig && (
-              <Flex direction="column" gapY="1" pb="2">
-                <Flex direction="row" gapX="1" align="center">
-                  <Text size="2" weight="medium">
-                    Overlay mode
-                  </Text>
-                  <Tooltip content="Press 'x' to cycle through the overlay modes.">
-                    <IconButton variant="ghost">
-                      <InfoCircledIcon />
-                    </IconButton>
-                  </Tooltip>
-                </Flex>
-                <SegmentedControl.Root
-                  size="1"
-                  value={`${Math.max(
-                    opacityStates.findIndex(o => o.selected),
-                    0
-                  )}`}
-                  onValueChange={v => opacityStates[Number(v)]?.onClick()}
-                >
-                  {opacityStates.map((option, i) => (
-                    <SegmentedControl.Item key={i} value={`${i}`}>
-                      {option.label}
-                    </SegmentedControl.Item>
+          <Flex direction="column" gap="2">
+            <Flex direction="row" gap="3" align="center" wrap="wrap">
+              <Text size="2" weight="medium">
+                {columnGroup === 'VOTERHISTORY' ? 'Map layer election' : 'Map layer population'}
+              </Text>
+              <Select.Root value={variable} onValueChange={handleChangeVariable}>
+                <Select.Trigger>
+                  <Text>{mapVariableConfig?.label ?? 'Select a variable'}</Text>
+                </Select.Trigger>
+                <Select.Content>
+                  {currentVariableList.map(f => (
+                    <Select.Item key={f.value} value={f.value}>
+                      {f.label}
+                    </Select.Item>
                   ))}
-                </SegmentedControl.Root>
-              </Flex>
-            )}
-            {/* Fine-grained per-layer opacity is a Super Draw control; Draw
-                relies on the overlay-mode presets alone. */}
-            {isOverlay && !!mapVariableConfig && superDraw && (
-              <Flex direction="column" gapY="2" pb="2">
+                </Select.Content>
+              </Select.Root>
+
+              {!!mapVariableConfig && superDraw && (
+                <Popover.Root>
+                  <Popover.Trigger>
+                    <GearIcon />
+                  </Popover.Trigger>
+                  <Popover.Content>
+                    <Flex direction={'column'} gapY="2">
+                      <Heading as="h3" size="3">
+                        Additional Layer Settings
+                      </Heading>
+                      {usesBins && (
+                        <Flex direction="row" gapX="3" align="center">
+                          <Text>Max number of bins: {numberOfbins}</Text>
+                          <IconButton
+                            variant="ghost"
+                            onClick={() => setNumberOfBins(numberOfbins - 1)}
+                            disabled={numberOfbins < 4}
+                          >
+                            <MinusIcon />
+                          </IconButton>
+                          <IconButton
+                            variant="ghost"
+                            onClick={() => setNumberOfBins(numberOfbins + 1)}
+                            disabled={numberOfbins > 8}
+                          >
+                            <PlusIcon />
+                          </IconButton>
+                        </Flex>
+                      )}
+                      <Text
+                        as="label"
+                        className={`${canBePercent ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+                      >
+                        <Flex gap="2" align="center">
+                          <Checkbox
+                            checked={canBePercent && variant === 'percent'}
+                            disabled={!canBePercent}
+                            onCheckedChange={handleChangePercent}
+                          />
+                          Show data as percent
+                        </Flex>
+                      </Text>
+                    </Flex>
+                  </Popover.Content>
+                </Popover.Root>
+              )}
+            </Flex>
+            {/* The old overlay presets are gone; opacity is slider-driven in
+                every mode. Painted-district visibility stays a Map options
+                checkbox. */}
+            {isOverlay && !!mapVariableConfig && (
+              // pr: the thumb at 100% sits half outside the track's own box and
+              // was being clipped by the panel's edge.
+              <Flex direction="column" gapY="2" pr="2">
                 <Text size="2" weight="medium">
                   Overlay layer opacity
                 </Text>
@@ -413,16 +328,20 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                   max={1}
                   step={0.01}
                 />
-                <Text size="2" weight="medium">
-                  Districts layer opacity
-                </Text>
-                <Slider
-                  value={[mapOptions.zonesOpacity ?? 1]}
-                  onValueChange={value => setMapOptions({zonesOpacity: value[0]})}
-                  min={0}
-                  max={1}
-                  step={0.01}
-                />
+                {superDraw && (
+                  <>
+                    <Text size="2" weight="medium">
+                      Districts layer opacity
+                    </Text>
+                    <Slider
+                      value={[mapOptions.zonesOpacity ?? 1]}
+                      onValueChange={value => setMapOptions({zonesOpacity: value[0]})}
+                      min={0}
+                      max={1}
+                      step={0.01}
+                    />
+                  </>
+                )}
               </Flex>
             )}
           </Flex>
@@ -490,6 +409,9 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
             <Text size="2" align="center">
               Circle area scales with total population
             </Text>
+          )}
+          {!!mapVariableConfig && (
+            <DataSourceCitation elections={columnGroup === SUMMARY_TYPES.VOTERHISTORY} />
           )}
         </>
       )}

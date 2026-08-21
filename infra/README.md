@@ -109,8 +109,7 @@ overridden by setting the corresponding key.
 
 ## Deploys
 
-Three GitHub Actions workflows (`.github/workflows/`), all AWS-OIDC
-authenticated via the `districtr-gha-deploy` role:
+Four GitHub Actions workflows (`.github/workflows/`):
 
 - **AWS Infrastructure (Pulumi)** — `infra.yml`: `pulumi up` for the stack.
 - **AWS Deploy API (Pulumi)** — `deploy-api.yml`: build → ECR → run alembic
@@ -118,6 +117,14 @@ authenticated via the `districtr-gha-deploy` role:
   on the new image (a circuit-breaker rollback fails the run).
 - **AWS Deploy App (Pulumi)** — `deploy-app.yml`: build → ECR → `pulumi up` →
   verify.
+- **AWS Preview** — `preview.yml`: label-driven ephemeral PR previews (`Preview:
+  FE` / `Preview: Fullstack`), described below.
+
+`infra.yml`/`deploy-api.yml`/`deploy-app.yml` are AWS-OIDC authenticated via
+the `districtr-gha-deploy` role (admin-scoped). `preview.yml` deliberately
+uses a separate, narrowly-scoped `districtr-gha-preview` role instead —
+`pull_request` runs execute the PR's own code, which must never hold the
+admin deploy role.
 
 Mechanics:
 
@@ -125,14 +132,28 @@ Mechanics:
   writes the SHA to `/districtr/{stack}/meta/{backend,frontend}-image-tag`,
   then `pulumi up` reads it. Set `backendImageTag` / `frontendImageTag` in
   stack config to pin or roll back (config overrides SSM).
-- **Gating**: workflows run only on `dev` / `main`. On push they require the
-  repo variable `AWS_DEPLOY_DEV` / `AWS_DEPLOY_PROD` = `true`;
-  `workflow_dispatch` runs on those branches without it. Other branches never
-  run (and could not assume the deploy role regardless).
-- **No PR preview**: a preview would execute PR code while holding the admin
-  deploy role. Preview locally instead (below).
+- **Gating**: `infra.yml`/`deploy-*.yml` run only on `dev` / `main`. On push
+  they require the repo variable `AWS_DEPLOY_DEV` / `AWS_DEPLOY_PROD` =
+  `true`; `workflow_dispatch` runs on those branches without it. Other
+  branches never run (and could not assume the deploy role regardless).
 - Per-workflow concurrency groups + state-lock retry let a push touching
   backend + app + infra run all three, serialized on the S3 state lock.
+
+### PR previews
+
+`preview.yml` piggybacks on the **dev** stack rather than provisioning new
+infrastructure per PR: images go to dev's ECR repos, task definitions are
+clones of the live dev ones (image + env swapped), services run in the dev
+ECS cluster, and traffic routes through the dev ALB via host-header rules —
+`https://pr-<N>.dev.districtr.org` (frontend) and
+`https://api-pr-<N>.dev.districtr.org` (Fullstack API). `Preview: FE` points
+the frontend at the shared dev backend/DB; `Preview: Fullstack` also spins up
+a dedicated backend behind its own target group, with a database restored
+from dev's latest automated RDS snapshot. Labeling/unlabeling/closing the PR
+drives deploy and teardown through the same workflow. One-time prerequisites
+(wildcard DNS + cert SAN, `corsOriginRegex`, the `districtr-gha-preview` role,
+Auth0 qa-tenant callback URLs, the two labels) are listed in `preview.yml`'s
+header comment.
 
 ## Local development
 

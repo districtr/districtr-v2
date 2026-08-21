@@ -1,0 +1,552 @@
+name: AWS Preview
+
+# Ephemeral previews on the dev AWS stack, driven by PR labels. One workflow
+# owns the whole lifecycle (deploy + teardown) so a single PR-scoped
+# concurrency group can serialize them — a close/unlabel mid-deploy cancels
+# the in-flight deploy before destroying anything.
+#
+#   "Preview: FE"        -> frontend only, pointed at the shared dev backend/db
+#   "Preview: Fullstack" -> frontend + backend, with a DB restored from the
+#                           latest automated dev RDS snapshot
+#
+# Previews piggyback on the dev stack rather than creating their own: images
+# go to the dev ECR repos (tag pr-<N>-<sha>-<mode>), task definitions are
+# clones of the live dev ones with the image/env swapped, services run in the
+# dev cluster, and traffic routes through the dev ALB via host-header rules:
+#
+#   https://pr-123.dev.districtr.org        (frontend)
+#   https://api-pr-123.dev.districtr.org    (fullstack API)
+#
+# One-time prerequisites (all already scripted/configured, listed for repair):
+#   - infra: `*.dev.districtr.org` in extraDomains (cert SAN) + a wildcard
+#     CNAME `*.dev.districtr.org` -> dev ALB at the DNS provider
+#   - infra: corsOriginRegex on the dev stack (dev API accepts preview FE origins)
+#   - bootstrap.sh: `districtr-gha-preview` role (scoped; the main deploy role
+#     deliberately refuses pull_request tokens) + repo var AWS_PREVIEW_ROLE_ARN
+#   - Auth0 qa tenant: `https://*.dev.districtr.org` in Allowed Callback /
+#     Logout / Web Origins
+#   - the two PR labels
+#
+# Required repo SECRETS (frontend build): RECAPTCHA_SITE_KEY,
+#   RECAPTCHA_V3_SITE_KEY, NEXT_PUBLIC_MAPTILER_API_KEY, SENTRY_AUTH_TOKEN.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled, closed]
+
+concurrency:
+  group: aws-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
+  CLUSTER: districtr-dev
+  DEV_API_URL: https://api.dev.districtr.org
+
+jobs:
+  preview:
+    name: AWS preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # Act when a preview label is present (deploy; also covers close/merge
+    # while still labeled -> teardown), or when a preview label was just
+    # removed (teardown, or Fullstack->FE downgrade). Never for fork PRs
+    # (no OIDC role). Unrelated label changes and non-preview PRs are skipped.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (contains(github.event.pull_request.labels.*.name, 'Preview: FE') ||
+       contains(github.event.pull_request.labels.*.name, 'Preview: Fullstack') ||
+       (github.event.action == 'unlabeled' &&
+        startsWith(github.event.label.name, 'Preview:')))
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve preview config
+        id: setup
+        env:
+          PR: ${{ github.event.pull_request.number }}
+          ACTION: ${{ github.event.action }}
+          HAS_FULLSTACK: "${{ contains(github.event.pull_request.labels.*.name, 'Preview: Fullstack') }}"
+          HAS_FE: "${{ contains(github.event.pull_request.labels.*.name, 'Preview: FE') }}"
+        run: |
+          set -euo pipefail
+          # op = deploy | teardown ; mode = fullstack | fe | none
+          if [ "$ACTION" = "closed" ]; then
+            op=teardown; mode=none
+          elif [ "$HAS_FULLSTACK" = "true" ]; then
+            op=deploy; mode=fullstack
+          elif [ "$HAS_FE" = "true" ]; then
+            op=deploy; mode=fe
+          else
+            # last preview label was removed -> tear the whole preview down
+            op=teardown; mode=none
+          fi
+
+          fe_host="pr-${PR}.dev.districtr.org"
+          api_host="api-pr-${PR}.dev.districtr.org"
+          fe_url="https://${fe_host}"
+          if [ "$mode" = "fullstack" ]; then
+            api_url="https://${api_host}"
+          else
+            api_url="${DEV_API_URL}"
+          fi
+
+          {
+            echo "op=$op"
+            echo "mode=$mode"
+            echo "fe_host=$fe_host"
+            echo "api_host=$api_host"
+            echo "fe_url=$fe_url"
+            echo "api_url=$api_url"
+            echo "fe_tg=districtr-dev-pr${PR}-fe"
+            echo "api_tg=districtr-dev-pr${PR}-api"
+            echo "fe_service=pr-${PR}-frontend"
+            echo "api_service=pr-${PR}-api"
+            echo "db_id=districtr-dev-pr${PR}-db"
+            echo "db_param=/districtr/dev/preview/pr${PR}/DATABASE_URL"
+            # ALB rule priorities must be unique; PR-number-derived keeps them
+            # deterministic and collision-free (ALB max is 50000 -> PR <= 24949).
+            echo "fe_priority=$((100 + 2 * PR))"
+            echo "api_priority=$((101 + 2 * PR))"
+          } >> "$GITHUB_OUTPUT"
+          echo "Resolved op=$op mode=$mode fe_url=$fe_url api_url=$api_url"
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_PREVIEW_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 7200
+
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr
+        if: steps.setup.outputs.op == 'deploy'
+
+      # Everything routes through the dev ALB's 443 listener; previews attach
+      # host-header rules to it.
+      - name: Locate dev ALB listener
+        id: alb
+        run: |
+          set -euo pipefail
+          ALB=$(aws elbv2 describe-load-balancers --names districtr-dev-alb \
+            --query 'LoadBalancers[0]')
+          {
+            echo "vpc_id=$(echo "$ALB" | jq -r .VpcId)"
+            echo "listener_arn=$(aws elbv2 describe-listeners \
+              --load-balancer-arn "$(echo "$ALB" | jq -r .LoadBalancerArn)" \
+              --query 'Listeners[?Port==`443`] | [0].ListenerArn' --output text)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Deploy preview backend + restored database
+        if: steps.setup.outputs.op == 'deploy' && steps.setup.outputs.mode == 'fullstack'
+        env:
+          PR: ${{ github.event.pull_request.number }}
+          DB_ID: ${{ steps.setup.outputs.db_id }}
+          DB_PARAM: ${{ steps.setup.outputs.db_param }}
+          API_TG: ${{ steps.setup.outputs.api_tg }}
+          API_SERVICE: ${{ steps.setup.outputs.api_service }}
+          API_HOST: ${{ steps.setup.outputs.api_host }}
+          API_PRIORITY: ${{ steps.setup.outputs.api_priority }}
+          FE_URL: ${{ steps.setup.outputs.fe_url }}
+          VPC_ID: ${{ steps.alb.outputs.vpc_id }}
+          LISTENER_ARN: ${{ steps.alb.outputs.listener_arn }}
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          set -euo pipefail
+
+          # 1) Kick off the DB restore first (async) so it runs while the
+          #    image builds. Latest automated snapshot of the dev instance;
+          #    same subnets/SGs as dev so the backend SG can already reach it.
+          if ! aws rds describe-db-instances --db-instance-identifier "$DB_ID" >/dev/null 2>&1; then
+            SNAPSHOT=$(aws rds describe-db-snapshots \
+              --db-instance-identifier districtr-dev-db --snapshot-type automated \
+              --query 'reverse(sort_by(DBSnapshots,&SnapshotCreateTime))[0].DBSnapshotIdentifier' \
+              --output text)
+            [ "$SNAPSHOT" != "None" ] || { echo "::error::No automated snapshot of districtr-dev-db found"; exit 1; }
+            DEV_DB=$(aws rds describe-db-instances --db-instance-identifier districtr-dev-db \
+              --query 'DBInstances[0]')
+            echo "Restoring $SNAPSHOT -> $DB_ID ..."
+            aws rds restore-db-instance-from-db-snapshot \
+              --db-instance-identifier "$DB_ID" \
+              --db-snapshot-identifier "$SNAPSHOT" \
+              --db-instance-class db.t4g.small \
+              --db-subnet-group-name "$(echo "$DEV_DB" | jq -r .DBSubnetGroup.DBSubnetGroupName)" \
+              --vpc-security-group-ids $(echo "$DEV_DB" | jq -r '.VpcSecurityGroups[].VpcSecurityGroupId') \
+              --no-multi-az --no-publicly-accessible \
+              --tags Key=districtr-preview,Value="pr-${PR}" >/dev/null
+          else
+            echo "DB $DB_ID already exists, reusing."
+          fi
+
+          # 2) Build and push the backend image while the DB restores. Tags
+          #    are immutable; skip if this sha was already pushed.
+          IMAGE="${REGISTRY}/districtr-dev-backend:pr-${PR}-${GITHUB_SHA}"
+          if aws ecr describe-images --repository-name districtr-dev-backend \
+              --image-ids imageTag="pr-${PR}-${GITHUB_SHA}" >/dev/null 2>&1; then
+            echo "Backend image already pushed for this sha; skipping build"
+          else
+            docker build -t "$IMAGE" backend
+            docker push "$IMAGE"
+          fi
+
+          # 3) Wait for the DB, then point a preview SSM param at it: dev's
+          #    DATABASE_URL with the host swapped (the restored instance keeps
+          #    dev's credentials). The cloned task defs reference this param.
+          echo "Waiting for $DB_ID to become available..."
+          aws rds wait db-instance-available --db-instance-identifier "$DB_ID" ||
+            aws rds wait db-instance-available --db-instance-identifier "$DB_ID"
+          ENDPOINT=$(aws rds describe-db-instances --db-instance-identifier "$DB_ID" \
+            --query 'DBInstances[0].Endpoint.Address' --output text)
+          DEV_URL=$(aws ssm get-parameter --name /districtr/dev/backend/DATABASE_URL \
+            --with-decryption --query Parameter.Value --output text)
+          PREVIEW_URL=$(echo "$DEV_URL" | sed -E "s#(.*)@[^@/]+:5432#\1@${ENDPOINT}:5432#")
+          aws ssm put-parameter --name "$DB_PARAM" --type SecureString \
+            --value "$PREVIEW_URL" --overwrite >/dev/null
+          PARAM_ARN="arn:aws:ssm:${AWS_REGION}:$(aws sts get-caller-identity --query Account --output text):parameter${DB_PARAM}"
+
+          # 4) Run migrations against the restored DB (clone of the dev
+          #    migrate task def with the PR image + preview DATABASE_URL).
+          MIGRATE_DEF=$(aws ecs describe-task-definition --task-definition districtr-dev-migrate \
+              --query taskDefinition |
+            jq --arg IMAGE "$IMAGE" --arg FAMILY "districtr-dev-pr${PR}-migrate" \
+               --arg PARAM "$PARAM_ARN" --arg PREFIX "pr-${PR}" \
+              '.family = $FAMILY
+               | .containerDefinitions[0].image = $IMAGE
+               | (.containerDefinitions[0].secrets[] | select(.name == "DATABASE_URL") | .valueFrom) = $PARAM
+               | .containerDefinitions[0].logConfiguration.options["awslogs-stream-prefix"] = $PREFIX
+               | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+                     .compatibilities, .registeredAt, .registeredBy)')
+          MIGRATE_TD=$(aws ecs register-task-definition --cli-input-json "$MIGRATE_DEF" \
+            --query taskDefinition.taskDefinitionArn --output text)
+
+          NETCFG=$(aws ecs describe-services --cluster "$CLUSTER" --services backend \
+            --query 'services[0].networkConfiguration')
+          TASK_ARN=$(aws ecs run-task --cluster "$CLUSTER" --launch-type FARGATE \
+            --task-definition "$MIGRATE_TD" \
+            --network-configuration "$NETCFG" \
+            --query 'tasks[0].taskArn' --output text)
+          if [ -z "$TASK_ARN" ] || [ "$TASK_ARN" = "None" ]; then
+            echo "::error::Failed to place migration task"
+            exit 1
+          fi
+          echo "Migration task: $TASK_ARN"
+          DEADLINE=$((SECONDS + 1800))
+          STATUS=""
+          while [ "$SECONDS" -lt "$DEADLINE" ]; do
+            STATUS=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" \
+              --query 'tasks[0].lastStatus' --output text)
+            [ "$STATUS" = "STOPPED" ] && break
+            sleep 15
+          done
+          [ "$STATUS" = "STOPPED" ] || { echo "::error::Migration task still running after 30 minutes"; exit 1; }
+          EXIT_CODE=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" \
+            --query 'tasks[0].containers[0].exitCode' --output text)
+          if [ "$EXIT_CODE" != "0" ]; then
+            aws logs tail "/districtr/dev/migrate" --since 35m || true
+            echo "::error::Migration failed (exit=$EXIT_CODE)"
+            exit 1
+          fi
+
+          # 5) Preview API: cloned dev backend task def behind its own target
+          #    group + host rule on the dev ALB.
+          API_DEF=$(aws ecs describe-task-definition \
+              --task-definition "$(aws ecs describe-services --cluster "$CLUSTER" --services backend \
+                --query 'services[0].taskDefinition' --output text)" \
+              --query taskDefinition |
+            jq --arg IMAGE "$IMAGE" --arg FAMILY "districtr-dev-pr${PR}-api" \
+               --arg PARAM "$PARAM_ARN" --arg HOST "$API_HOST" --arg CORS "$FE_URL" \
+               --arg PREFIX "pr-${PR}" \
+              '.family = $FAMILY
+               | .containerDefinitions[0].image = $IMAGE
+               | (.containerDefinitions[0].secrets[] | select(.name == "DATABASE_URL") | .valueFrom) = $PARAM
+               | (.containerDefinitions[0].environment[] | select(.name == "DOMAIN") | .value) = $HOST
+               | (.containerDefinitions[0].environment[] | select(.name == "BACKEND_CORS_ORIGINS") | .value) = $CORS
+               | .containerDefinitions[0].logConfiguration.options["awslogs-stream-prefix"] = $PREFIX
+               | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+                     .compatibilities, .registeredAt, .registeredBy)')
+          API_TD=$(aws ecs register-task-definition --cli-input-json "$API_DEF" \
+            --query taskDefinition.taskDefinitionArn --output text)
+
+          TG_ARN=$(aws elbv2 describe-target-groups --names "$API_TG" \
+            --query 'TargetGroups[0].TargetGroupArn' --output text 2>/dev/null) ||
+          TG_ARN=$(aws elbv2 create-target-group --name "$API_TG" --vpc-id "$VPC_ID" \
+            --port 8080 --protocol HTTP --target-type ip \
+            --health-check-path / --matcher HttpCode=200 \
+            --query 'TargetGroups[0].TargetGroupArn' --output text)
+          aws elbv2 modify-target-group-attributes --target-group-arn "$TG_ARN" \
+            --attributes Key=deregistration_delay.timeout_seconds,Value=30 >/dev/null
+
+          EXISTING=$(aws elbv2 describe-rules --listener-arn "$LISTENER_ARN" \
+            --query "Rules[?Priority=='${API_PRIORITY}'].RuleArn" --output text)
+          if [ -z "$EXISTING" ]; then
+            aws elbv2 create-rule --listener-arn "$LISTENER_ARN" --priority "$API_PRIORITY" \
+              --conditions Field=host-header,Values="$API_HOST" \
+              --actions Type=forward,TargetGroupArn="$TG_ARN" >/dev/null
+          fi
+
+          SVC_STATUS=$(aws ecs describe-services --cluster "$CLUSTER" --services "$API_SERVICE" \
+            --query 'services[0].status' --output text 2>/dev/null || echo NONE)
+          if [ "$SVC_STATUS" = "ACTIVE" ]; then
+            aws ecs update-service --cluster "$CLUSTER" --service "$API_SERVICE" \
+              --task-definition "$API_TD" --force-new-deployment >/dev/null
+          else
+            # A just-deleted service lingers in DRAINING; wait it out.
+            if [ "$SVC_STATUS" = "DRAINING" ]; then
+              aws ecs wait services-inactive --cluster "$CLUSTER" --services "$API_SERVICE"
+            fi
+            aws ecs create-service --cluster "$CLUSTER" --service-name "$API_SERVICE" \
+              --task-definition "$API_TD" --desired-count 1 --launch-type FARGATE \
+              --network-configuration "$NETCFG" \
+              --load-balancers "targetGroupArn=$TG_ARN,containerName=backend,containerPort=8080" \
+              --health-check-grace-period-seconds 60 >/dev/null
+          fi
+
+      - name: Tear down stale preview backend (Fullstack -> FE downgrade)
+        # When the Fullstack label is dropped but FE remains, destroy the
+        # now-unused API + restored DB; the frontend step below re-points at
+        # the shared dev backend.
+        if: steps.setup.outputs.op == 'deploy' && steps.setup.outputs.mode == 'fe'
+        env:
+          API_SERVICE: ${{ steps.setup.outputs.api_service }}
+          API_TG: ${{ steps.setup.outputs.api_tg }}
+          API_PRIORITY: ${{ steps.setup.outputs.api_priority }}
+          DB_ID: ${{ steps.setup.outputs.db_id }}
+          DB_PARAM: ${{ steps.setup.outputs.db_param }}
+          LISTENER_ARN: ${{ steps.alb.outputs.listener_arn }}
+        run: |
+          set -euo pipefail
+          if [ "$(aws ecs describe-services --cluster "$CLUSTER" --services "$API_SERVICE" \
+              --query 'services[0].status' --output text 2>/dev/null)" = "ACTIVE" ]; then
+            aws ecs delete-service --cluster "$CLUSTER" --service "$API_SERVICE" --force >/dev/null
+          fi
+          RULE=$(aws elbv2 describe-rules --listener-arn "$LISTENER_ARN" \
+            --query "Rules[?Priority=='${API_PRIORITY}'].RuleArn" --output text)
+          if [ -n "$RULE" ]; then aws elbv2 delete-rule --rule-arn "$RULE"; fi
+          TG=$(aws elbv2 describe-target-groups --names "$API_TG" \
+            --query 'TargetGroups[0].TargetGroupArn' --output text 2>/dev/null) || TG=""
+          if [ -n "$TG" ]; then aws elbv2 delete-target-group --target-group-arn "$TG"; fi
+          aws rds delete-db-instance --db-instance-identifier "$DB_ID" \
+            --skip-final-snapshot --delete-automated-backups >/dev/null 2>&1 || true
+          aws ssm delete-parameter --name "$DB_PARAM" 2>/dev/null || true
+
+      - name: Deploy preview frontend
+        if: steps.setup.outputs.op == 'deploy'
+        env:
+          PR: ${{ github.event.pull_request.number }}
+          MODE: ${{ steps.setup.outputs.mode }}
+          FE_HOST: ${{ steps.setup.outputs.fe_host }}
+          FE_URL: ${{ steps.setup.outputs.fe_url }}
+          API_URL: ${{ steps.setup.outputs.api_url }}
+          FE_TG: ${{ steps.setup.outputs.fe_tg }}
+          FE_SERVICE: ${{ steps.setup.outputs.fe_service }}
+          FE_PRIORITY: ${{ steps.setup.outputs.fe_priority }}
+          VPC_ID: ${{ steps.alb.outputs.vpc_id }}
+          LISTENER_ARN: ${{ steps.alb.outputs.listener_arn }}
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          RECAPTCHA_SITE_KEY: ${{ secrets.RECAPTCHA_SITE_KEY }}
+          RECAPTCHA_V3_SITE_KEY: ${{ secrets.RECAPTCHA_V3_SITE_KEY }}
+          NEXT_PUBLIC_MAPTILER_API_KEY: ${{ secrets.NEXT_PUBLIC_MAPTILER_API_KEY }}
+        run: |
+          set -euo pipefail
+
+          # NEXT_PUBLIC_* is baked at build time and the API URL differs by
+          # mode, so the mode is part of the immutable tag.
+          TAG="pr-${PR}-${GITHUB_SHA}-${MODE}"
+          IMAGE="${REGISTRY}/districtr-dev-frontend:${TAG}"
+          if aws ecr describe-images --repository-name districtr-dev-frontend \
+              --image-ids imageTag="$TAG" >/dev/null 2>&1; then
+            echo "Frontend image already pushed for this sha+mode; skipping build"
+          else
+            cat > app/.env.production <<EOF
+          NEXT_PUBLIC_RECAPTCHA_SITE_KEY=${RECAPTCHA_SITE_KEY}
+          NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY=${RECAPTCHA_V3_SITE_KEY}
+          NEXT_PUBLIC_MAPTILER_API_KEY=${NEXT_PUBLIC_MAPTILER_API_KEY}
+          NEXT_PUBLIC_S3_BUCKET_URL=https://tilesets1.cdn.districtr.org
+          NEXT_PUBLIC_S3_BUCKET_URL_MIRROR1=https://tilesets2.cdn.districtr.org
+          NEXT_PUBLIC_S3_BUCKET_URL_MIRROR2=https://tilesets3.cdn.districtr.org
+          NEXT_PUBLIC_API_URL=${API_URL}
+          NEXT_PUBLIC_BUILD_TAG=${GITHUB_SHA}
+          EOF
+            docker build --secret id=SENTRY_AUTH_TOKEN,env=SENTRY_AUTH_TOKEN -t "$IMAGE" app
+            docker push "$IMAGE"
+          fi
+
+          # Cloned dev frontend task def: PR image, preview base URL, and the
+          # mode's API for server-side fetches. Auth0/session secrets stay
+          # pointed at the same dev SSM params.
+          FE_DEF=$(aws ecs describe-task-definition \
+              --task-definition "$(aws ecs describe-services --cluster "$CLUSTER" --services frontend \
+                --query 'services[0].taskDefinition' --output text)" \
+              --query taskDefinition |
+            jq --arg IMAGE "$IMAGE" --arg FAMILY "districtr-dev-pr${PR}-frontend" \
+               --arg BASE "$FE_URL" --arg API "$API_URL" --arg PREFIX "pr-${PR}" \
+              '.family = $FAMILY
+               | .containerDefinitions[0].image = $IMAGE
+               | (.containerDefinitions[0].environment[] | select(.name == "APP_BASE_URL") | .value) = $BASE
+               | (.containerDefinitions[0].environment[] | select(.name == "NEXT_SERVER_API_URL") | .value) = $API
+               | .containerDefinitions[0].logConfiguration.options["awslogs-stream-prefix"] = $PREFIX
+               | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+                     .compatibilities, .registeredAt, .registeredBy)')
+          FE_TD=$(aws ecs register-task-definition --cli-input-json "$FE_DEF" \
+            --query taskDefinition.taskDefinitionArn --output text)
+
+          TG_ARN=$(aws elbv2 describe-target-groups --names "$FE_TG" \
+            --query 'TargetGroups[0].TargetGroupArn' --output text 2>/dev/null) ||
+          TG_ARN=$(aws elbv2 create-target-group --name "$FE_TG" --vpc-id "$VPC_ID" \
+            --port 3000 --protocol HTTP --target-type ip \
+            --health-check-path / --matcher HttpCode=200-399 \
+            --query 'TargetGroups[0].TargetGroupArn' --output text)
+          aws elbv2 modify-target-group-attributes --target-group-arn "$TG_ARN" \
+            --attributes Key=deregistration_delay.timeout_seconds,Value=30 >/dev/null
+
+          EXISTING=$(aws elbv2 describe-rules --listener-arn "$LISTENER_ARN" \
+            --query "Rules[?Priority=='${FE_PRIORITY}'].RuleArn" --output text)
+          if [ -z "$EXISTING" ]; then
+            aws elbv2 create-rule --listener-arn "$LISTENER_ARN" --priority "$FE_PRIORITY" \
+              --conditions Field=host-header,Values="$FE_HOST" \
+              --actions Type=forward,TargetGroupArn="$TG_ARN" >/dev/null
+          fi
+
+          NETCFG=$(aws ecs describe-services --cluster "$CLUSTER" --services frontend \
+            --query 'services[0].networkConfiguration')
+          SVC_STATUS=$(aws ecs describe-services --cluster "$CLUSTER" --services "$FE_SERVICE" \
+            --query 'services[0].status' --output text 2>/dev/null || echo NONE)
+          if [ "$SVC_STATUS" = "ACTIVE" ]; then
+            aws ecs update-service --cluster "$CLUSTER" --service "$FE_SERVICE" \
+              --task-definition "$FE_TD" --force-new-deployment >/dev/null
+          else
+            if [ "$SVC_STATUS" = "DRAINING" ]; then
+              aws ecs wait services-inactive --cluster "$CLUSTER" --services "$FE_SERVICE"
+            fi
+            aws ecs create-service --cluster "$CLUSTER" --service-name "$FE_SERVICE" \
+              --task-definition "$FE_TD" --desired-count 1 --launch-type FARGATE \
+              --network-configuration "$NETCFG" \
+              --load-balancers "targetGroupArn=$TG_ARN,containerName=frontend,containerPort=3000" \
+              --health-check-grace-period-seconds 60 >/dev/null
+          fi
+
+      - name: Wait for preview to stabilize
+        if: steps.setup.outputs.op == 'deploy'
+        env:
+          MODE: ${{ steps.setup.outputs.mode }}
+          FE_SERVICE: ${{ steps.setup.outputs.fe_service }}
+          API_SERVICE: ${{ steps.setup.outputs.api_service }}
+        run: |
+          set -euo pipefail
+          SERVICES="$FE_SERVICE"
+          if [ "$MODE" = "fullstack" ]; then SERVICES="$SERVICES $API_SERVICE"; fi
+          # No circuit breaker on CLI-created services: a crashlooping PR task
+          # surfaces here as a red run instead of silently flapping.
+          aws ecs wait services-stable --cluster "$CLUSTER" --services $SERVICES
+
+      - name: Tear down preview
+        if: steps.setup.outputs.op == 'teardown'
+        env:
+          PR: ${{ github.event.pull_request.number }}
+          FE_SERVICE: ${{ steps.setup.outputs.fe_service }}
+          API_SERVICE: ${{ steps.setup.outputs.api_service }}
+          FE_TG: ${{ steps.setup.outputs.fe_tg }}
+          API_TG: ${{ steps.setup.outputs.api_tg }}
+          FE_PRIORITY: ${{ steps.setup.outputs.fe_priority }}
+          API_PRIORITY: ${{ steps.setup.outputs.api_priority }}
+          DB_ID: ${{ steps.setup.outputs.db_id }}
+          DB_PARAM: ${{ steps.setup.outputs.db_param }}
+          LISTENER_ARN: ${{ steps.alb.outputs.listener_arn }}
+        run: |
+          set -euo pipefail
+          # Only ever touches resources named after this PR; missing ones are
+          # skipped. Stale task-definition revisions are left registered —
+          # they are inert and cost nothing.
+          for SVC in "$FE_SERVICE" "$API_SERVICE"; do
+            if [ "$(aws ecs describe-services --cluster "$CLUSTER" --services "$SVC" \
+                --query 'services[0].status' --output text 2>/dev/null)" = "ACTIVE" ]; then
+              echo "Deleting service $SVC ..."
+              aws ecs delete-service --cluster "$CLUSTER" --service "$SVC" --force >/dev/null
+            fi
+          done
+          for PRI in "$FE_PRIORITY" "$API_PRIORITY"; do
+            RULE=$(aws elbv2 describe-rules --listener-arn "$LISTENER_ARN" \
+              --query "Rules[?Priority=='${PRI}'].RuleArn" --output text)
+            if [ -n "$RULE" ]; then
+              aws elbv2 delete-rule --rule-arn "$RULE"
+              echo "Deleted rule $PRI"
+            fi
+          done
+          for TG_NAME in "$FE_TG" "$API_TG"; do
+            TG=$(aws elbv2 describe-target-groups --names "$TG_NAME" \
+              --query 'TargetGroups[0].TargetGroupArn' --output text 2>/dev/null) || TG=""
+            if [ -n "$TG" ]; then
+              aws elbv2 delete-target-group --target-group-arn "$TG"
+              echo "Deleted TG $TG_NAME"
+            fi
+          done
+          aws rds delete-db-instance --db-instance-identifier "$DB_ID" \
+            --skip-final-snapshot --delete-automated-backups >/dev/null 2>&1 &&
+            echo "Deleting DB $DB_ID" || true
+          aws ssm delete-parameter --name "$DB_PARAM" 2>/dev/null || true
+          for REPO in districtr-dev-frontend districtr-dev-backend; do
+            # jq, not JMESPath: untagged image ids have no imageTag key and
+            # starts_with(null, ...) is a query error.
+            IDS=$(aws ecr list-images --repository-name "$REPO" --output json |
+              jq -c --arg P "pr-${PR}-" '[.imageIds[] | select(.imageTag // "" | startswith($P))]')
+            if [ "$IDS" != "[]" ]; then
+              aws ecr batch-delete-image --repository-name "$REPO" --image-ids "$IDS" >/dev/null
+              echo "Deleted preview images from $REPO"
+            fi
+          done
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        env:
+          OP: ${{ steps.setup.outputs.op }}
+          MODE: ${{ steps.setup.outputs.mode }}
+          FE_URL: ${{ steps.setup.outputs.fe_url }}
+          API_URL: ${{ steps.setup.outputs.api_url }}
+        with:
+          script: |
+            const { OP, MODE, FE_URL, API_URL } = process.env;
+            const marker = '<!-- aws-preview -->';
+            let body;
+            if (OP === 'deploy') {
+              const sharedNote = MODE === 'fe' ? ' _(shared dev backend)_' : '';
+              body = [
+                marker,
+                '### 🚀 Preview deployed',
+                '',
+                '**Mode:** `' + MODE + '`',
+                '',
+                '| Service | URL |',
+                '| --- | --- |',
+                '| Frontend | ' + FE_URL + ' |',
+                '| API | ' + API_URL + sharedNote + ' |',
+                '',
+                '_Updated for commit `' + context.sha.slice(0, 7) + '`. Tears down automatically when this PR is closed._',
+              ].join('\n');
+            } else {
+              const reason = context.payload.action === 'closed'
+                ? (context.payload.pull_request.merged ? 'PR merged' : 'PR closed')
+                : 'preview label removed';
+              body = [
+                marker,
+                '### 🧹 Preview torn down',
+                '',
+                'Preview resources for this PR have been destroyed (' + reason + ').',
+              ].join('\n');
+            }
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number,
+            });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }

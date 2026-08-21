@@ -70,6 +70,14 @@ export interface MapControlsStore {
   setSpatialUnit: (unit: SpatialUnit) => void;
   sidebarPanels: SidebarPanel[];
   setSidebarPanels: (panels: SidebarPanel[]) => void;
+  /** Workflow-tab sections a user collapsed (sections default open, so absent
+   * = open). Lives here rather than in TabSection state because tab content
+   * unmounts on switch. */
+  collapsedTabSections: string[];
+  toggleTabSection: (id: string) => void;
+  /** Un-collapse a section (helper-box hints jump to sections and must land
+   * them expanded). */
+  openTabSection: (id: string) => void;
   mapMode: MapMode;
   setMapMode: (mode: MapMode) => void;
 }
@@ -87,7 +95,11 @@ export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
   highlightBrokenDistricts: false,
   higlightUnassigned: false,
   lockPaintedAreas: [],
+  disallowPaintOver: false,
   mode: 'default',
+  // Real default is computed per-document in useDocumentWithSync (multi-county
+  // unless the map is DC or already has assignments) — this is just the
+  // pre-load fallback before that runs.
   paintByCounty: false,
   prominentCountyNames: true,
   showCountyBoundaries: true,
@@ -196,6 +208,15 @@ export const useMapControlsStore = create<MapControlsStore>()(
     setSpatialUnit: spatialUnit => set({spatialUnit}),
     sidebarPanels: ['population'],
     setSidebarPanels: sidebarPanels => set({sidebarPanels}),
+    collapsedTabSections: [],
+    openTabSection: id =>
+      set(state => ({collapsedTabSections: state.collapsedTabSections.filter(k => k !== id)})),
+    toggleTabSection: id =>
+      set(state => ({
+        collapsedTabSections: state.collapsedTabSections.includes(id)
+          ? state.collapsedTabSections.filter(k => k !== id)
+          : [...state.collapsedTabSections, id],
+      })),
   }))
 );
 
