@@ -11,10 +11,11 @@ export const EMPTY_FT_COLLECTION = {
 export const SENTINEL_EMPTY_VALUE: string = '-999';
 export const SENTINEL_EMPTY_ARRAY: string[] = [SENTINEL_EMPTY_VALUE];
 
-// A saturated amber, not another gray: the surrounding outline/basemap are
-// already grayscale, so a same-family gray highlight (the previous #666666)
-// barely reads as a highlight at all.
-export const HIGHLIGHT_LINE_COLOR = '#f59e0b';
+// A light neon magenta, not another gray or a warm amber: the surrounding
+// outline/basemap are already grayscale, and amber (#f59e0b) still read as
+// too muted against them in testing — a fully saturated, high-lightness
+// color reads at a glance instead.
+export const HIGHLIGHT_LINE_COLOR = '#ff66ff';
 export const HIGHLIGHT_LINE_WIDTH = 3.5;
 
 export const COMMUNITY_ASSIGNMENT_STYLE = (colorScheme: string[]) => {
