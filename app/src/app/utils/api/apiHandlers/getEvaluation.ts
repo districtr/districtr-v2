@@ -31,6 +31,13 @@ type CompetitivenessResult = {
   n_elections: number;
 };
 
+type CompetitiveDistrictsResult = {
+  dem_sweep_districts: number[];
+  rep_sweep_districts: number[];
+  swing_districts: number[];
+  contest_dem_vote_shares: number[]; // sorted ascending
+};
+
 type CutEdgesResult = {
   cut_count: number;
   unit_type: string;
@@ -74,6 +81,7 @@ export interface DocumentEvaluation {
   eguia?: Record<ElectionKey, number>;
   disproportionality?: Record<ElectionKey, number>;
   competitiveness?: CompetitivenessResult;
+  competitive_districts?: CompetitiveDistrictsResult;
   county_pieces?: Record<CountyFIPS, CountyPiecesInfo>;
   ideal_population?: number;
   district_county_membership?: Record<string, string[]>; // zone → sorted list of county FIPS geoids

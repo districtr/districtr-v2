@@ -138,9 +138,9 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
                     key={d}
                     zone={Number(d)}
                     onClick={() => zoomToDistrict(Number(d))}
-                    onMouseEnter={() => onDistrictEnter(d)}
+                    onMouseEnter={() => onDistrictEnter([d])}
                     onMouseLeave={onDistrictLeave}
-                    onFocus={() => onDistrictEnter(d)}
+                    onFocus={() => onDistrictEnter([d])}
                     onBlur={onDistrictLeave}
                   />
                 ))}
@@ -184,9 +184,11 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
                 <button
                   type="button"
                   style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}
-                  onMouseEnter={() => onDistrictEnter(population_deviation.most_populous_district)}
+                  onMouseEnter={() =>
+                    onDistrictEnter([population_deviation.most_populous_district])
+                  }
                   onMouseLeave={onDistrictLeave}
-                  onFocus={() => onDistrictEnter(population_deviation.most_populous_district)}
+                  onFocus={() => onDistrictEnter([population_deviation.most_populous_district])}
                   onBlur={onDistrictLeave}
                 >
                   District {population_deviation.most_populous_district}
@@ -195,9 +197,11 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
                 <button
                   type="button"
                   style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}
-                  onMouseEnter={() => onDistrictEnter(population_deviation.least_populous_district)}
+                  onMouseEnter={() =>
+                    onDistrictEnter([population_deviation.least_populous_district])
+                  }
                   onMouseLeave={onDistrictLeave}
-                  onFocus={() => onDistrictEnter(population_deviation.least_populous_district)}
+                  onFocus={() => onDistrictEnter([population_deviation.least_populous_district])}
                   onBlur={onDistrictLeave}
                 >
                   District {population_deviation.least_populous_district}
