@@ -1501,7 +1501,7 @@ def get_document_list(
     "/api/document/{document_id}/unassigned",
     dependencies=[Depends(require_session)],
 )
-async def get_unassigned_geoids(
+def get_unassigned_geoids(
     document: Annotated[Document, Depends(get_protected_document)],
     exclude_ids: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
@@ -1572,9 +1572,7 @@ async def get_unassigned_geoids(
     components: list[list[str]] = []
     if unassigned_ids:
         try:
-            # Threadpool: a cold load (S3 fetch + unpickle) takes seconds and
-            # must not block the event loop (or ALB health checks).
-            G = await run_in_threadpool(get_graph, districtr_map.gerrydb_table_name)
+            G = get_graph(districtr_map.gerrydb_table_name)
             # Non-contiguous unassigned parents are intentionally NOT expanded.
             # Ids not in the graph are silently dropped by connected_components
             # (matches nx subgraph() semantics) -- gerrydb/graph node counts
@@ -1595,7 +1593,7 @@ async def get_unassigned_geoids(
     "/api/document/{document_id}/contiguity",
     dependencies=[Depends(require_session)],
 )
-async def check_document_contiguity(
+def check_document_contiguity(
     document: Annotated[Document, Depends(get_protected_document)],
     zone: list[int] = Query(default=[]),
     session: Session = Depends(get_session),
@@ -1612,7 +1610,7 @@ async def check_document_contiguity(
 
     gerrydb_name = districtr_map.gerrydb_table_name
     kwargs = {"zones": zone} if len(zone) > 0 else {}
-    G = await run_in_threadpool(get_graph, gerrydb_name)
+    G = get_graph(gerrydb_name)
     zone_assignments = contiguity.get_assigned_nodes(
         session, document.document_id, districtr_map, G=G, **kwargs
     )
@@ -1631,7 +1629,7 @@ async def check_document_contiguity(
     "/api/document/{document_id}/contiguity/{zone}/connected_component_bboxes",
     dependencies=[Depends(require_session)],
 )
-async def get_connected_component_bboxes(
+def get_connected_component_bboxes(
     zone: int,
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
@@ -1664,7 +1662,7 @@ async def get_connected_component_bboxes(
         document_id=DocumentID(document_id=document.document_id), session=session
     )
     gerrydb_name = districtr_map.gerrydb_table_name
-    G = await run_in_threadpool(get_graph, gerrydb_name)
+    G = get_graph(gerrydb_name)
     node_bboxes = contiguity.get_assigned_nodes_bboxes(
         session,
         document.document_id,
