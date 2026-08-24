@@ -83,7 +83,7 @@ export const Header: React.FC = () => {
         className="mx-auto max-w-screen-lg w-full"
       >
         <Link asChild size="5" weight="bold" className="site-title !text-districtrBlue">
-          <a href="/">Districtr</a>
+          <NextLink href="/">Districtr</NextLink>
         </Link>
         <Flex direction="row" gapX="2" align="center" className="tracking-wider !hidden md:!flex">
           {NAV_ITEMS.map(item => (

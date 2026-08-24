@@ -7,7 +7,7 @@
     "dev": "npm run predev && next dev --webpack",
     "build": "next build --webpack",
     "start": "next start --keepAliveTimeout 130000",
-    "lint": "next lint",
+    "lint": "eslint .",
     "prettier": "prettier --write \"src/**/*.{ts,tsx}\" --config .prettierrc.js",
     "ts": "tsc --noEmit --incremental",
     "ts:watch": "yarn ts --watch",

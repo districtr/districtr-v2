@@ -1,4 +1,6 @@
 'use client';
+import Link from 'next/link';
+
 export default function CmsHome() {
   return (
     <div className="space-y-6">
@@ -15,12 +17,12 @@ export default function CmsHome() {
               Pages for specific problems, like Cook County Redistricting or Detroit School Board
               Districts.
             </p>
-            <a
+            <Link
               href="/admin/cms/tags"
               className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               Go to Portals
-            </a>
+            </Link>
           </div>
         </div>
       </div>
@@ -31,12 +33,12 @@ export default function CmsHome() {
             <p className="mt-2 text-sm text-gray-500">
               General pages for places, like states or counties.
             </p>
-            <a
+            <Link
               href="/admin/cms/places"
               className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               Go to Places
-            </a>
+            </Link>
           </div>
         </div>
       </div>

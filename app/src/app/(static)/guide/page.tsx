@@ -155,8 +155,8 @@ export default function GuidePage() {
 
             <Text size="3">
               The “Population” tab lists the districts — click a district number to select it and
-              switch the brush to that district's color (or type the number of the district on your
-              keyboard as a shortcut). The tab also shows the population of each district; to
+              switch the brush to that district&apos;s color (or type the number of the district on
+              your keyboard as a shortcut). The tab also shows the population of each district; to
               balance your population evenly between districts, refer to the ideal population count
               provided in this panel (shown visually with a vertical bar).
             </Text>
@@ -261,8 +261,8 @@ export default function GuidePage() {
               Edit map names and details
             </Heading>
             <Text size="3">
-              Your map automatically saves as you work, right in your browser's local storage — no
-              account or login needed. Clicking the map title at the middle of the top bar allows
+              Your map automatically saves as you work, right in your browser&apos;s local storage —
+              no account or login needed. Clicking the map title at the middle of the top bar allows
               you to edit the map name and put comments on the map. There is also a Map Status field
               where you can designate your map as Scratch Work, In Progress, or Ready to Share.
             </Text>
@@ -271,10 +271,10 @@ export default function GuidePage() {
             />
             <Text size="3">
               The “Catalog” from the main page stores all your maps, which allows you to switch
-              between different maps you have worked on. These maps are stored in your browser's
-              local storage — no account or login needed. They will be removed when you clear your
-              browser data. You can go there at any time from the navigational menu of the
-              “Districtr” icon.
+              between different maps you have worked on. These maps are stored in your
+              browser&apos;s local storage — no account or login needed. They will be removed when
+              you clear your browser data. You can go there at any time from the navigational menu
+              of the “Districtr” icon.
             </Text>
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/map_catalog.webm`}

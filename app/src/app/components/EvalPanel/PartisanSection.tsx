@@ -315,7 +315,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                         Bias
                       </Table.ColumnHeaderCell>
                       <Table.ColumnHeaderCell justify="center" style={{width: '9ch'}}>
-                        Eguia's
+                        Eguia&apos;s
                         <br />
                         Metric
                       </Table.ColumnHeaderCell>
