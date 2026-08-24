@@ -231,9 +231,9 @@ export default function GuidePage() {
               The “Mode” switcher in the top bar lets you move between different ways of working
               with your map: <b>Draw</b>, <b>Super Draw</b>, <b>View</b>, and <b>Evaluate</b>.
               Switching from Draw or Super Draw to View or Evaluate will result in the creation of a
-              shareable link. Draw is the most accessible mode for building maps, and it's explained
-              above. (Super Draw is largely for advanced users and we'll expand on its features
-              below.)
+              shareable link. Draw is the most accessible mode for building maps, and it&apos;s
+              explained above. (Super Draw is largely for advanced users and we&apos;ll expand on
+              its features below.)
             </Text>
             <Text size="3">
               <b>View mode</b> shows your map without any of the editing tools. This is the mode
@@ -300,8 +300,8 @@ export default function GuidePage() {
               is basically a spreadsheet format where one column contains an identifier for each
               geographic unit, and the other column says what district that unit is assigned to.
               This is a standard format available in other mapping software, like Maptitude and DRA.
-              From either the Draw or Catalog/My District Plans, you'll find a link at the upper
-              right to “Upload block assignments.”
+              From either the Draw or Catalog/My District Plans, you&apos;ll find a link at the
+              upper right to “Upload block assignments.”
             </Text>
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/import.webm`}
@@ -371,8 +371,8 @@ export default function GuidePage() {
             <Text size="3">
               Under “Map Layers/Boundaries and areas,” Super Draw allows you to restrict your
               painting to a county, a metro area, or any other area type available for the map.
-              Similar to the break tool's workflow, you mask an area by clicking the mask button
-              next to the toggle for its area type and selecting that area on the map.
+              Similar to the break tool&apos;s workflow, you mask an area by clicking the mask
+              button next to the toggle for its area type and selecting that area on the map.
             </Text>
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/mask_area.webm`}
