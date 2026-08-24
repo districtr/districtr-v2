@@ -27,14 +27,14 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("/site_settings")
-async def get_site_settings(session: Session = Depends(get_session)):
+def get_site_settings(session: Session = Depends(get_session)):
     """Get site-wide settings (public)"""
     settings = session.get(SiteSettings, 1)
     return {"under_construction": bool(settings and settings.under_construction)}
 
 
 @router.patch("/site_settings")
-async def update_site_settings(
+def update_site_settings(
     data: SiteSettingsUpdate,
     session: Session = Depends(get_session),
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.update_all_content]),
@@ -52,7 +52,7 @@ async def update_site_settings(
     response_model=ContentUpdateResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def create_cms_content(
+def create_cms_content(
     data: CMSContentCreate,
     session: Session = Depends(get_session),
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
@@ -85,7 +85,7 @@ async def create_cms_content(
 
 
 @router.patch("/content", response_model=ContentUpdateResponse)
-async def update_cms_content(
+def update_cms_content(
     data: CmsContentUpdate,
     content: Annotated[CmsContent, Depends(content_update)],
     session: Session = Depends(get_session),
@@ -123,7 +123,7 @@ async def update_cms_content(
 
 
 @router.post("/content/publish", response_model=ContentUpdateResponse)
-async def publish_cms_content(
+def publish_cms_content(
     content: Annotated[CmsContent, Depends(content_update)],
     session: Session = Depends(get_session),
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.publish_content]),
@@ -147,7 +147,7 @@ async def publish_cms_content(
 @router.delete(
     "/content/{content_type}/{content_id}", status_code=status.HTTP_204_NO_CONTENT
 )
-async def delete_cms_content(
+def delete_cms_content(
     content_type: CMSContentTypesEnum,
     content_id: str,
     session: Session = Depends(get_session),
@@ -175,7 +175,7 @@ async def delete_cms_content(
 
 
 @router.get("/content/{content_type}/list")
-async def list_cms_content(
+def list_cms_content(
     content_type: CMSContentTypesEnum,
     language: LanguageEnum | None = None,
     session: Session = Depends(get_session),
@@ -201,7 +201,7 @@ async def list_cms_content(
 
 
 @router.get("/content/{content_type}/list/authored")
-async def list_editor_cms_content(
+def list_editor_cms_content(
     content_type: CMSContentTypesEnum,
     language: LanguageEnum | None = None,
     session: Session = Depends(get_session),
@@ -231,7 +231,7 @@ async def list_editor_cms_content(
 @router.get(
     "/content/{content_type}/slug/{slug}",
 )
-async def get_cms_content(
+def get_cms_content(
     content_type: CMSContentTypesEnum,
     slug: str,
     language: LanguageEnum = LanguageEnum.ENGLISH,
