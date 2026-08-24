@@ -1,6 +1,6 @@
 'use client';
 import {useEffect, useRef, useState} from 'react';
-import {Card, Flex, Text} from '@radix-ui/themes';
+import {Card, Flex, Portal, Text, Theme} from '@radix-ui/themes';
 import {TURNSTILE_SESSION_SITE_KEY} from '../utils/api/constants';
 import {loadTurnstile} from '../utils/turnstile';
 import {useSessionChallengeStore} from '../store/sessionChallengeStore';
@@ -53,23 +53,36 @@ export const SessionChallenge: React.FC = () => {
   if (!active) return null;
   // Not a Radix Dialog: the widget container must stay mounted (and unmoved)
   // while the challenge runs silently, and Dialog unmounts closed content.
+  //
+  // Portal + nested Theme: the root <Theme> in layout.tsx gets
+  // data-is-root-theme="true", which Radix's own CSS turns into
+  // position:relative;z-index:0 — a stacking context that would otherwise
+  // trap this overlay behind any open Dialog (Dialog.Content escapes the
+  // same way, via its own Portal). pointerEvents:'auto' is needed too:
+  // Dialog's DismissableLayer sets document.body.style.pointerEvents='none'
+  // while open, and only its own Overlay/Content opt back in — this overlay
+  // must opt in for itself or clicks pass through it while a dialog is open.
   return (
-    <Flex
-      position="fixed"
-      inset="0"
-      align="center"
-      justify="center"
-      display={visible ? 'flex' : 'none'}
-      style={{zIndex: 100000, background: 'var(--color-overlay)'}}
-    >
-      <Card size="3" m="4" style={{maxWidth: 400, textAlign: 'center'}}>
-        <Text as="p" size="2" weight="medium" mb="4">
-          Please verify you are a human.
-          <br />
-          This helps us keep Districtr free and open.
-        </Text>
-        <div ref={containerRef} />
-      </Card>
-    </Flex>
+    <Portal>
+      <Theme asChild>
+        <Flex
+          position="fixed"
+          inset="0"
+          align="center"
+          justify="center"
+          display={visible ? 'flex' : 'none'}
+          style={{zIndex: 100000, background: 'var(--color-overlay)', pointerEvents: 'auto'}}
+        >
+          <Card size="3" m="4" style={{maxWidth: 400, textAlign: 'center'}}>
+            <Text as="p" size="2" weight="medium" mb="4">
+              Please verify you are a human.
+              <br />
+              This helps us keep Districtr free and open.
+            </Text>
+            <div ref={containerRef} />
+          </Card>
+        </Flex>
+      </Theme>
+    </Portal>
   );
 };
