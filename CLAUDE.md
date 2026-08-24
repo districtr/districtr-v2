@@ -17,23 +17,11 @@ Read [`.agents/AGENTS.md`](.agents/AGENTS.md) for full project context, guide se
 
 ## Quality Gates
 
-Cheap checks (seconds — run on every relevant change):
 ```bash
-docker-compose up pre-commit                    # ruff + Prettier formatting (Python + JS)
-cd app && bun run ts                            # TS typecheck (~2-3s)
+docker-compose up pre-commit                    # Lint (Python + JS)
+docker-compose exec frontend bun run build      # FE build
+docker-compose exec backend pytest -v           # BE tests
 ```
-
-Expensive checks (~80-95s each — once per PR before push, only when the diff touches
-the relevant side, run concurrently rather than serially when both are needed):
-```bash
-docker-compose exec frontend bun run build      # FE build (app/ changes)
-docker-compose exec backend pytest -v           # BE tests (backend/ changes)
-```
-
-`cd app && bun run lint` (ESLint) also runs (~7-9s) — available for manual use, not part of
-the routine gates above or wired into pre-commit. The team has decided not to lean on
-linting for this codebase; this fixes the script (it was broken, not disabled by choice)
-without making it a gate.
 
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
