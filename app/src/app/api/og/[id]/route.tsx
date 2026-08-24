@@ -228,6 +228,7 @@ export async function GET(request: Request, {params}: {params: Promise<{id: stri
           >
             <img
               src={thumbnailURI}
+              alt=""
               style={{
                 width: `${thumbSize - 4}px`,
                 height: `${thumbSize - 4}px`,

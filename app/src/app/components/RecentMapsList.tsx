@@ -139,13 +139,13 @@ export const RecentMapsList: React.FC<RecentMapsListProps> = ({
     const normalizedText = debouncedTextFilter.trim().toLowerCase();
     return recentMaps.filter(map => {
       const name = (map.map_metadata?.name || map.districtr_map_slug || '').toLowerCase();
-      const module = getMapModule(map);
-      const moduleMatches = moduleFilter === 'all' || module === moduleFilter;
+      const mapModule = getMapModule(map);
+      const moduleMatches = moduleFilter === 'all' || mapModule === moduleFilter;
       const textMatches =
         !normalizedText ||
         name.includes(normalizedText) ||
         map.districtr_map_slug.toLowerCase().includes(normalizedText) ||
-        module.toLowerCase().includes(normalizedText);
+        mapModule.toLowerCase().includes(normalizedText);
       return moduleMatches && textMatches;
     });
   }, [recentMaps, debouncedTextFilter, moduleFilter, showFilters]);
