@@ -33,7 +33,8 @@ type AnyMapCreateButtonsAttrSpec = {
 export const MAP_CREATE_BUTTONS_ATTRIBUTES = [
   {name: 'views', default: []},
   {name: 'type', default: 'simple'},
-  {name: 'createTag', default: null},
+  // Injected by the CMS content API on portal pages.
+  {name: 'portalId', default: null},
 ] as const satisfies readonly AnyMapCreateButtonsAttrSpec[];
 
 type PlanGalleryAttrSpec<K extends keyof PlanGalleryProps> = {
