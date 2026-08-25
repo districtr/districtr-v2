@@ -1221,6 +1221,24 @@ class FormConfigInjectionTests(TestCase):
         # Bug fix: an empty allow-list serves null ("all modules"), not [].
         self.assertIsNone(value["allowListModules"])
 
+    def test_map_create_buttons_carry_portal_id(self):
+        self.portal.body = [
+            {"type": "form", "value": {}},
+            {
+                "type": "map_create_buttons",
+                "value": {"views": [], "type": "simple"},
+            },
+        ]
+        self.portal.save_revision(clean=False).publish()
+        payload = self.client.get("/api/content/tags/slug/configured").json()
+        buttons = next(
+            block["value"]
+            for block in payload["content"]["body"]
+            if block["type"] == "map_create_buttons"
+        )
+        # Maps started from this portal get a draft submission for it.
+        self.assertEqual(buttons["portalId"], "configured")
+
     def test_portal_without_config_serves_null_fields(self):
         from core.testing import make_portal
 

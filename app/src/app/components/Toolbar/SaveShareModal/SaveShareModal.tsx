@@ -14,6 +14,8 @@ import {editPath} from '@/app/utils/map/editUrl';
 import {useRouter} from 'next/navigation';
 import {createMapDocument} from '@/app/utils/api/apiHandlers/createMapDocument';
 import {ACCESS_STATES} from '@constants/document/state';
+import {getDraftSubmission} from '@/app/utils/draftSubmissions';
+import {useDraftSubmissionStore} from '@/app/store/draftSubmissionStore';
 
 export const SaveShareModal: React.FC<{
   open: boolean;
@@ -36,6 +38,8 @@ export const SaveShareModal: React.FC<{
   // view-only users).
   const canShareAsOwner = !isEditing && !!editableDocId;
   const generateLink = useSaveShareStore(state => state.generateLink);
+  const openSubmitPrompt = useDraftSubmissionStore(state => state.openPrompt);
+  const draftSubmission = getDraftSubmission(mapDocument?.document_id);
   const sharingMode = useSaveShareStore(state => state.sharingMode);
   const sharePassword = useSaveShareStore(state => state.password);
   // Without a password, the editable share link contains the secret UUID.
@@ -112,6 +116,22 @@ export const SaveShareModal: React.FC<{
           />
           <hr className="my-4" />
           <ShareMapSection isEditing={isEditing} />
+          {isEditing && draftSubmission && !draftSubmission.submitted && (
+            <Button
+              variant="soft"
+              color="violet"
+              size="3"
+              className="mt-2"
+              onClick={() => {
+                if (mapDocument?.document_id) {
+                  onClose();
+                  openSubmitPrompt(mapDocument.document_id);
+                }
+              }}
+            >
+              Submit to the {draftSubmission.portalId} portal
+            </Button>
+          )}
           {isEditing ? (
             <Flex direction="column" gap="2" className="mt-4">
               <Flex direction="row" gap="2" justify="between">
