@@ -1,8 +1,7 @@
 """Text scoring and submission moderation.
 
 The scorer (OpenAI moderation endpoint with a local profanity-list fallback)
-is the single source of truth for the whole app; app.comments.moderation
-re-exports it for the legacy comment tables until they are dropped.
+is the single source of truth for the whole app.
 
 Moderation is automatic-only: a score at/above MODERATION_THRESHOLD sets
 `nsfw`, which the frontend renders blurred with an opt-in reveal. Reviewers

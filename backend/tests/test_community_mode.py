@@ -112,7 +112,7 @@ def test_non_community_document_rejects_community_save(client, document_id: str)
     assert get_assignments_by_geoid(client, document_id) == {}
 
 
-@patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
+@patch("app.submissions.moderation.score_text", return_value=TEST_MODERATION_SCORE)
 def test_put_community_assignments_round_trip_with_metadata_and_comments(
     _mock_score_text, client, community_document_id: str, session: Session
 ):
@@ -178,7 +178,7 @@ def test_put_community_assignments_round_trip_with_metadata_and_comments(
     assert {row[0] for row in comment_rows} == {1, 2}
 
 
-@patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
+@patch("app.submissions.moderation.score_text", return_value=TEST_MODERATION_SCORE)
 def test_copy_community_document_duplicates_assignments_and_metadata(
     _mock_score_text, client, community_document_id: str, community_map_slug: str
 ):
@@ -233,7 +233,7 @@ def test_copy_community_document_duplicates_assignments_and_metadata(
     assert copied_assignments == original_assignments
 
 
-@patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
+@patch("app.submissions.moderation.score_text", return_value=TEST_MODERATION_SCORE)
 def test_put_community_assignments_conflict_requires_overwrite(
     _mock_score_text, client, community_document_id: str
 ):
@@ -304,7 +304,7 @@ def test_put_community_assignments_conflict_requires_overwrite(
     assert updated_document["community_metadata_list"] == full_metadata
 
 
-@patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
+@patch("app.submissions.moderation.score_text", return_value=TEST_MODERATION_SCORE)
 def test_reset_community_assignments_preserves_metadata_and_comments(
     _mock_score_text, client, community_document_id: str, session: Session
 ):
@@ -377,7 +377,7 @@ def test_reset_community_assignments_preserves_metadata_and_comments(
     assert comment_count == 2
 
 
-@patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
+@patch("app.submissions.moderation.score_text", return_value=TEST_MODERATION_SCORE)
 def test_community_name_is_sanitized_before_save(
     _mock_score_text, client, community_document_id: str
 ):
@@ -416,7 +416,7 @@ def test_community_name_is_sanitized_before_save(
     )
 
 
-@patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
+@patch("app.submissions.moderation.score_text", return_value=TEST_MODERATION_SCORE)
 def test_community_name_longer_than_40_chars_is_rejected_before_mutation(
     _mock_score_text, client, community_document_id: str
 ):
@@ -470,7 +470,7 @@ def test_community_name_longer_than_40_chars_is_rejected_before_mutation(
     assert final_document["community_metadata_list"] == initial_metadata
 
 
-@patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
+@patch("app.submissions.moderation.score_text", return_value=TEST_MODERATION_SCORE)
 def test_community_save_allows_partial_comment_coverage(
     _mock_score_text, client, community_document_id: str
 ):
@@ -508,7 +508,7 @@ def test_community_save_allows_partial_comment_coverage(
     } == {1: "Only one community comment"}
 
 
-@patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
+@patch("app.submissions.moderation.score_text", return_value=TEST_MODERATION_SCORE)
 def test_community_save_allows_draw_without_any_comments(
     _mock_score_text, client, community_document_id: str
 ):
@@ -533,7 +533,7 @@ def test_community_save_allows_draw_without_any_comments(
     assert final_document["community_metadata_list"] == metadata
 
 
-@patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
+@patch("app.submissions.moderation.score_text", return_value=TEST_MODERATION_SCORE)
 def test_sync_community_comments_updates_and_deletes_existing_rows(
     _mock_score_text, client, community_document_id: str, session: Session
 ):
