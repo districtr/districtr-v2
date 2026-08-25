@@ -18,7 +18,13 @@ export const SECTION_HEADER_ATTRIBUTE_NAME = 'data-title';
 
 export const FORM_ATTRIBUTES = [
   {name: 'mandatoryTags', default: []},
-  {name: 'allowListModules', default: []},
+  {name: 'allowListModules', default: null},
+  // Injected by the CMS content API from the portal's FormConfig
+  // (cms/content/api.py::_inject_form_config).
+  {name: 'portalId', default: null},
+  {name: 'fields', default: null},
+  {name: 'requiredFields', default: null},
+  {name: 'requireEmailConfirm', default: false},
 ] as const;
 
 type MapCreateButtonsAttrSpec<K extends keyof MapCreateButtonsProps> = {

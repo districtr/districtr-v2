@@ -20,11 +20,12 @@ import {QueryClientProvider, useMutation} from '@tanstack/react-query';
 import {idb} from '@/app/utils/idb/idb';
 import {useUserMaps} from '@/app/hooks/useUserMaps';
 import {routeManager} from '@/app/utils/map/mapUrlRoute';
-import {editPath} from '@/app/utils/map/editUrl';
+import {editPath, parseMapRef} from '@/app/utils/map/editUrl';
 import {DRAFT_STATUSES} from '@constants/document/draftStatus';
 
 interface MapSelectorProps {
-  allowListModules: string[];
+  /** Modules submitters may attach; null/empty = all modules allowed. */
+  allowListModules: string[] | null;
 }
 interface ValidationResponse {
   input: string;
@@ -43,12 +44,11 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
   const [dataResponse, setDataResponse] = useState<ValidationResponse | null>(null);
 
   const showMapSelector = useFormState(state => state.showMapSelector);
-  const comment = useFormState(state => state.comment);
-  const mapId = comment?.document_id ?? '';
+  const mapId = useFormState(state => state.mapRef);
   const [savedMapId, setSavedMapId] = useState<string | null>(null);
 
   const setShowMapSelector = useFormState(state => state.setShowMapSelector);
-  const setFormState = useFormState(state => state.setFormState);
+  const setMapRef = useFormState(state => state.setMapRef);
   // TODO Support community maps
   const {districtMaps} = useUserMaps();
 
@@ -60,9 +60,9 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
   useEffect(() => {
     if (!showMapSelector) {
       setSavedMapId(mapId);
-      setFormState('comment', 'document_id', '');
+      setMapRef('');
     } else if (showMapSelector && savedMapId && !mapId) {
-      setFormState('comment', 'document_id', savedMapId);
+      setMapRef(savedMapId);
     }
     setDataResponse(null);
     setNotification(null);
@@ -88,16 +88,22 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
       throw new Error('Not a valid url');
     }
 
-    // take the slash and then the last characters after the slash
-    const urlStrippedId = mapId.split('/').pop()?.replace('?pw=true', '');
-    const userMap = districtMaps?.find(map => map.document_id === urlStrippedId);
-    const document = await getDocument(urlStrippedId);
+    // Extract the document reference (edit links carry it in
+    // private_edit_id; read links end in the public id).
+    const mapDocumentRef = parseMapRef(mapId);
+    if (!mapDocumentRef) {
+      throw new Error('Could not find a map ID in that link');
+    }
+    const userMap = districtMaps?.find(
+      map => map.document_id === mapDocumentRef || String(map.public_id) === mapDocumentRef
+    );
+    const document = await getDocument(mapDocumentRef);
     if (document.ok) {
       response.mapInfo = document.response;
     } else {
       throw new Error('Map not found');
     }
-    response.isPublicId = !isNaN(Number(urlStrippedId));
+    response.isPublicId = !isNaN(Number(mapDocumentRef));
     response.mayNotBeUserMap = response.isPublicId && !userMap;
     if (response.isForeignLink) {
       throw new Error('Please use a link to a Districtr map.');
@@ -109,7 +115,9 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
         'Please make sure your map is marked as "ready to share" in the map editor. You can update this in the "Save and share" menu or using the button next to the map title on the top of the map editor.'
       );
     } else if (
+      // An empty/null allow-list means every module is allowed.
       response.mapInfo &&
+      allowListModules?.length &&
       !allowListModules.includes(response.mapInfo?.districtr_map_slug ?? '')
     ) {
       throw new Error(
@@ -183,7 +191,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
             required={showMapSelector}
             value={mapId}
             color={dataResponse?.mapInfo?.document_id === mapId ? 'green' : 'gray'}
-            onChange={e => setFormState('comment', 'document_id', e.target.value)}
+            onChange={e => setMapRef(e.target.value)}
             onFocus={() => setShowMapOptions(true)}
             onClick={() => setShowMapOptions(true)}
             onBlur={() => {
@@ -218,7 +226,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
                         editPath(routeManager.mapUrlRoute, map.document_id, map.public_id),
                         window.location.href
                       );
-                      setFormState('comment', 'document_id', mapUrl.toString());
+                      setMapRef(mapUrl.toString());
                       setShowMapOptions(false);
                       mutate(mapUrl.toString());
                     }}

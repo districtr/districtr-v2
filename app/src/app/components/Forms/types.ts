@@ -1,11 +1,8 @@
-import {FormState} from '@/app/store/formState';
 import {Select, TextArea, TextField} from '@radix-ui/themes';
 
-export type FormPart = 'comment' | 'commenter';
-
-export type FormFieldProps<T extends FormPart> = {
-  formPart: T;
-  formProperty: keyof FormState[T];
+export type FormFieldProps = {
+  /** Registry field name (fieldRegistry.tsx) — the store key. */
+  name: string;
   label: string;
   placeholder?: string;
   type: TextField.RootProps['type'];
@@ -19,5 +16,8 @@ export type FormFieldProps<T extends FormPart> = {
   }>;
   pattern?: string;
   invalidMessage?: string;
-  validator?: (value: FormState[T][keyof FormState[T]]) => boolean;
+  validator?: (value: string) => boolean;
+  /** Override the store read/write (e.g. the email-confirm stub field). */
+  value?: string;
+  onChangeValue?: (value: string) => void;
 };

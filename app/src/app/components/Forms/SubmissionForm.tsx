@@ -1,20 +1,41 @@
 'use client';
 import {ContentHeader} from '@/app/components/Static/ContentHeader';
 import {useFormState} from '@/app/store/formState';
-import {Blockquote, Box, Button, Dialog, Flex, Select, Spinner, TextArea} from '@radix-ui/themes';
+import {Blockquote, Box, Button, Dialog, Flex, Spinner} from '@radix-ui/themes';
 import {AcknowledgementField} from './AcknowledgementField';
 import {FormField} from './FormField';
 import {CommentFormTagSelector} from './CommentFormTagSelector';
 import {MapSelector} from './MapSelector';
 import {useTurnstile} from '@/app/hooks/useTurnstile';
-import {VALID_STATES_LABELS} from '@/app/constants/meta/usStates';
 import {useLayoutEffect, useRef} from 'react';
+import {FIELD_ORDER, FIELD_REGISTRY} from './fieldRegistry';
 
-export const CommentSubmissionForm: React.FC<{
+export interface SubmissionFormProps {
   disabled?: boolean;
+  /** The portal this form submits to (injected by the CMS content API). */
+  portalId?: string | null;
+  /** Registry field names this portal's form shows; null = no form config. */
+  fields?: string[] | null;
+  requiredFields?: string[] | null;
+  requireEmailConfirm?: boolean;
   mandatoryTags: string[];
-  allowListModules: string[];
-}> = ({disabled, mandatoryTags, allowListModules}) => {
+  allowListModules: string[] | null;
+}
+
+/**
+ * The portal submission form, rendered from the portal's form config
+ * (fieldRegistry.tsx is the field vocabulary). A portal without a config
+ * renders nothing — the wizard always creates one.
+ */
+export const SubmissionForm: React.FC<SubmissionFormProps> = ({
+  disabled,
+  portalId,
+  fields,
+  requiredFields,
+  requireEmailConfirm,
+  mandatoryTags,
+  allowListModules,
+}) => {
   const formRef = useRef<HTMLFormElement>(null);
   const setFormRef = useFormState(state => state.setFormRef);
   const formIsValid = useFormState(state => state.formIsValid);
@@ -33,10 +54,59 @@ export const CommentSubmissionForm: React.FC<{
   const clearForm = useFormState(state => state.clear);
 
   const setHighlightErrors = useFormState(state => state.setHighlightErrors);
+  const emailValue = useFormState(state => state.fields['email'] ?? '');
+  const emailConfirm = useFormState(state => state.emailConfirm);
+  const setEmailConfirm = useFormState(state => state.setEmailConfirm);
 
   useLayoutEffect(() => {
     setFormRef(formRef);
   }, [formRef]);
+
+  if (!portalId || !fields) {
+    // No form config for this portal (or a form block on a non-portal page).
+    return null;
+  }
+
+  const required = new Set(requiredFields ?? []);
+  const shown = FIELD_ORDER.filter(name => fields.includes(name));
+  const submissionFields = shown.filter(name => FIELD_REGISTRY[name].section === 'submission');
+  const aboutFields = shown.filter(name => FIELD_REGISTRY[name].section === 'about');
+
+  const renderField = (name: string) => {
+    const spec = FIELD_REGISTRY[name];
+    return (
+      <Box key={name} flexGrow="1">
+        <FormField
+          disabled={disabled}
+          name={name}
+          label={`${spec.label}${required.has(name) ? ' *' : ''}`}
+          type={spec.type}
+          component={spec.component}
+          options={spec.options}
+          autoComplete={spec.autoComplete}
+          pattern={spec.pattern}
+          validator={spec.validator}
+          required={required.has(name)}
+          invalidMessage={spec.invalidMessage}
+        />
+        {name === 'email' && requireEmailConfirm && (
+          <Box mt="2">
+            <FormField
+              disabled={disabled}
+              name="email_confirm"
+              label="Confirm Email *"
+              type="email"
+              required={true}
+              value={emailConfirm}
+              onChangeValue={setEmailConfirm}
+              validator={value => value === emailValue}
+              invalidMessage="Email addresses must match"
+            />
+          </Box>
+        )}
+      </Box>
+    );
+  };
 
   return (
     <Box py="4" className="relative">
@@ -73,32 +143,14 @@ export const CommentSubmissionForm: React.FC<{
         onSubmit={e => {
           e.preventDefault();
           if (captchaToken && formIsValid) {
-            submitForm();
+            submitForm(portalId);
           }
         }}
         ref={formRef}
       >
         <Flex direction="column" gap="4">
           <ContentHeader title="Add Your Comment" />
-          <FormField
-            disabled={disabled}
-            formPart="comment"
-            formProperty="title"
-            label="Submission Title *"
-            type="text"
-            required={true}
-            invalidMessage="Enter a submission title"
-          />
-          <FormField
-            disabled={disabled}
-            formPart="comment"
-            formProperty="comment"
-            label="Testimony *"
-            type="text"
-            component={TextArea}
-            required={true}
-            invalidMessage="Enter your testimony"
-          />
+          {submissionFields.map(renderField)}
           <Flex
             direction={{
               initial: 'column',
@@ -109,107 +161,9 @@ export const CommentSubmissionForm: React.FC<{
             <CommentFormTagSelector mandatoryTags={mandatoryTags} />
             <MapSelector allowListModules={allowListModules} />
           </Flex>
-          <ContentHeader title="Tell us about yourself" />
-          <Flex
-            direction={{
-              initial: 'column',
-              md: 'row',
-            }}
-            gap="4"
-            width="100%"
-          >
-            <Box flexGrow="1" flexBasis="20%">
-              <FormField
-                disabled={disabled}
-                formPart="commenter"
-                formProperty="salutation"
-                label="Salutation"
-                type="text"
-                autoComplete="honorific-prefix"
-                required={false}
-                invalidMessage="Enter a salutation"
-              />
-            </Box>
-            <Box flexGrow="1" flexBasis="40%">
-              <FormField
-                disabled={disabled}
-                formPart="commenter"
-                formProperty="first_name"
-                label="First Name (or identifier) *"
-                type="text"
-                autoComplete="given-name"
-                required={true}
-                invalidMessage="Enter your first name or identifier"
-              />
-            </Box>
-            <Box flexGrow="1" flexBasis="40%">
-              <FormField
-                disabled={disabled}
-                formPart="commenter"
-                formProperty="last_name"
-                label="Last Name"
-                type="text"
-                autoComplete="family-name"
-              />
-            </Box>
-          </Flex>
-          <FormField
-            disabled={disabled}
-            formPart="commenter"
-            formProperty="email"
-            label="Email *"
-            type="email"
-            autoComplete="email"
-            required={true}
-            invalidMessage="Enter a valid email address"
-          />
-          <Flex
-            direction={{
-              initial: 'column',
-              md: 'row',
-            }}
-            gap="4"
-            width="100%"
-          >
-            <Box flexGrow="1" flexBasis="60%">
-              <FormField
-                disabled={disabled}
-                formPart="commenter"
-                formProperty="place"
-                label="City/County (optional but encouraged)"
-                type="text"
-                autoComplete="address-level2"
-                invalidMessage="Enter a city or county"
-              />
-            </Box>
-            <Box flexGrow="1" flexBasis="20%">
-              <FormField
-                disabled={disabled}
-                formPart="commenter"
-                formProperty="state"
-                label="State"
-                type="text"
-                autoComplete="address-level1"
-                required={false}
-                component={Select.Root}
-                options={VALID_STATES_LABELS}
-                invalidMessage="Select a state"
-              />
-            </Box>
-            <Box flexGrow="1" flexBasis="20%">
-              <FormField
-                disabled={disabled}
-                formPart="commenter"
-                formProperty="zip_code"
-                label="Zip Code"
-                type="text"
-                autoComplete="postal-code"
-                required={false}
-                pattern="[0-9]{5}"
-                validator={value => /[0-9]{5}/.test(value ?? '')}
-                invalidMessage="Please enter a valid 5-digit zip code"
-              />
-            </Box>
+          {aboutFields.length > 0 && <ContentHeader title="Tell us about yourself" />}
+          <Flex direction="column" gap="4" width="100%">
+            {aboutFields.map(renderField)}
           </Flex>
           <Flex direction="column" gap="4">
             <Box flexGrow="1" flexBasis="60%">

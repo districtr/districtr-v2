@@ -358,7 +358,8 @@ async def finalize_submission(
 
 @router.get("", response_model=list[SubmissionPublic])
 async def list_submissions(
-    portal_id: str,
+    portal_id: str | None = Query(default=None),
+    ids: list[int] | None = Query(default=None),
     tags: list[str] | None = Query(default=None),
     place: str | None = Query(default=None),
     state: str | None = Query(default=None),
@@ -369,13 +370,13 @@ async def list_submissions(
     limit: int = Query(default=100, ge=1, le=100),
     session: Session = Depends(get_session),
 ):
-    """List a portal's visible submissions. nsfw rows are included — the
-    frontend blurs them with an opt-in reveal."""
+    """List visible submissions. nsfw rows are included — the frontend blurs
+    them with an opt-in reveal. Everything here is public data, so portal_id
+    is optional: gallery blocks filter by tags or curated ids instead."""
     stmt = (
         select(Submission)
         .where(
             and_(
-                col(Submission.portal_id) == portal_id,
                 col(Submission.status) == SubmissionStatus.submitted,
                 col(Submission.hidden).is_(False),
             )
@@ -389,6 +390,10 @@ async def list_submissions(
         .offset(offset)
         .limit(limit)
     )
+    if portal_id is not None:
+        stmt = stmt.where(col(Submission.portal_id) == portal_id)
+    if ids:
+        stmt = stmt.where(col(Submission.id).in_(ids))
     if tags:
         stmt = stmt.where(col(Submission.tags).overlap(tags))
     for field, value in (("place", place), ("state", state), ("zip_code", zip_code)):

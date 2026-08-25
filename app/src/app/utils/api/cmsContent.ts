@@ -53,7 +53,17 @@ export interface CommentGalleryBlock {
 
 export interface FormBlock {
   type: 'form';
-  value: {mandatoryTags: string[]; allowListModules: string[]};
+  value: {
+    mandatoryTags: string[];
+    /** null = all modules allowed */
+    allowListModules: string[] | null;
+    /** The following are injected from the portal's FormConfig by the CMS
+     * content API; null on pages without a form config. */
+    portalId?: string | null;
+    fields?: string[] | null;
+    requiredFields?: string[] | null;
+    requireEmailConfirm?: boolean;
+  };
   id: string;
 }
 
