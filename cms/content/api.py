@@ -62,11 +62,47 @@ def _inject_portal_tag(body_data, portal_slug):
     return body_data
 
 
+def _inject_form_config(body_data, portal_slug):
+    """Attach the portal's FormConfig (which fields the form shows, camelCase
+    per the constants/cms.ts contract) to every form block.
+
+    Translations share their source page's slug, so the default-locale slug
+    IS this page's slug — one lookup covers every locale. Tolerates a missing
+    mirror table the same way districtr_map_slug_choices does (test
+    databases); a portal with no config serves ``fields: null`` and the
+    frontend renders no form.
+    """
+    from django.db import DatabaseError, transaction
+
+    from datastore.models import FormConfig
+
+    config = None
+    try:
+        with transaction.atomic():
+            config = FormConfig.objects.filter(portal_id=portal_slug).first()
+    except DatabaseError:
+        pass
+    for block in body_data:
+        if block.get("type") == "form":
+            block["value"].update(
+                {
+                    "portalId": portal_slug,
+                    "fields": list(config.fields) if config else None,
+                    "requiredFields": list(config.required_fields) if config else None,
+                    "requireEmailConfirm": bool(config.require_email_confirm)
+                    if config
+                    else False,
+                }
+            )
+    return body_data
+
+
 def _serialize_page(page, content_type):
     body = page.body
     body_data = body.stream_block.get_api_representation(body)
     if content_type == "tags":
         body_data = _inject_portal_tag(body_data, page.slug)
+        body_data = _inject_form_config(body_data, page.slug)
     content = {
         "title": page.title,
         "subtitle": page.subtitle,

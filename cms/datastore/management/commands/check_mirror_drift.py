@@ -6,12 +6,13 @@ from datastore.drift import (
     compare_columns,
     mirrored_models,
     model_column_spec,
+    parse_db_table,
 )
 
 COLUMNS_QUERY = """
     SELECT column_name, is_nullable = 'YES'
     FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = %s
+    WHERE table_schema = %s AND table_name = %s
 """
 
 
@@ -28,11 +29,12 @@ class Command(BaseCommand):
         with connection.cursor() as cursor:
             for model in mirrored_models():
                 table = model._meta.db_table
-                cursor.execute(COLUMNS_QUERY, [table])
+                schema, table_name = parse_db_table(table)
+                cursor.execute(COLUMNS_QUERY, [schema, table_name])
                 db_spec = dict(cursor.fetchall())
                 if not db_spec:
                     problems.append(
-                        f"{table}: not found in the `public` schema "
+                        f"{table}: not found in the `{schema}` schema "
                         "(have the backend Alembic migrations run?)"
                     )
                     continue
