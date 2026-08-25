@@ -3,7 +3,7 @@ import parse from 'html-react-parser';
 import {domNodeReplacers} from './CustomRenderers/DomNodeRenderers';
 import BoilerplateNodeRenderer from '@/app/components/Cms/RichTextEditor/extensions/Boilerplate/BoilerplateNodeRenderer';
 import {ContentHeader} from '../Static/ContentHeader';
-import {CommentSubmissionForm} from '../Forms/CommentSubmissionForm';
+import {SubmissionForm} from '../Forms/SubmissionForm';
 import {PlanGallery} from '../Cms/RichTextEditor/extensions/PlanGallery/PlanGallery';
 import {MapCreateButtons} from '../Cms/RichTextEditor/extensions/MapCreateButtons/MapCreateButtons';
 import {CommentGallery} from '../Cms/RichTextEditor/extensions/CommentGallery/CommentGallery';
@@ -45,14 +45,7 @@ const StreamRenderer: React.FC<StreamRendererProps> = ({
       case 'comment_gallery':
         return <CommentGallery key={block.id} {...block.value} />;
       case 'form':
-        return (
-          <CommentSubmissionForm
-            key={block.id}
-            disabled={disabled}
-            mandatoryTags={block.value.mandatoryTags}
-            allowListModules={block.value.allowListModules}
-          />
-        );
+        return <SubmissionForm key={block.id} disabled={disabled} {...block.value} />;
       case 'map_create_buttons':
         return <MapCreateButtons key={block.id} {...block.value} />;
       default:
