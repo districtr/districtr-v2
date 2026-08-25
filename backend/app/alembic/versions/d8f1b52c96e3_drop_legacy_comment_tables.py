@@ -6,8 +6,8 @@ served them (app/comments) is deleted in the same change. Zone rows were
 copied into district_notes by b3d9f47a25c1; form comments/commenters/tags are
 dropped without migration by decision.
 
-Irreversible: downgrade raises. Restore from a backup if this ever needs
-undoing.
+Downgrade recreates the tables (final shape as of 0db008690d60 + da39a3ee5e6b)
+empty — the data is gone; restore from a backup if it's needed.
 
 Revision ID: d8f1b52c96e3
 Revises: c7e2a94d81f5
@@ -19,12 +19,44 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
+import app.core.models
+from app.constants import SQL_DIR
 
 # revision identifiers, used by Alembic.
 revision: str = "d8f1b52c96e3"
 down_revision: Union[str, None] = "c7e2a94d81f5"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
+
+# Inlined (the app-side ReviewStatus enum was deleted with the legacy
+# comment tables; this migration must stay runnable). create_type=False so
+# create_table doesn't re-emit CREATE TYPE; downgrade creates it explicitly.
+review_status_enum = postgresql.ENUM(
+    "REVIEWED",
+    "APPROVED",
+    "REJECTED",
+    name="review_status_enum",
+    schema="comments",
+    create_type=False,
+)
+
+
+def _timestamps():
+    return (
+        sa.Column(
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.TIMESTAMP(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
+    )
 
 
 def upgrade() -> None:
@@ -40,6 +72,143 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    raise NotImplementedError(
-        "The legacy comment tables are gone for good — restore from a backup."
+    # Recreates the schema only; rows are unrecoverable without a backup.
+    op.execute(
+        sa.text(
+            "CREATE TYPE comments.review_status_enum AS ENUM "
+            "('REVIEWED', 'APPROVED', 'REJECTED')"
+        )
     )
+
+    op.create_table(
+        "commenter",
+        *_timestamps(),
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("first_name", sa.String(length=255), nullable=False),
+        sa.Column("email", sa.String(length=320), nullable=False),
+        sa.Column("salutation", sa.String(length=255), nullable=True),
+        sa.Column("last_name", sa.String(length=255), nullable=True),
+        sa.Column("place", sa.String(length=255), nullable=True),
+        sa.Column("state", sa.String(length=255), nullable=True),
+        sa.Column("zip_code", sa.String(length=255), nullable=True),
+        sa.Column("moderation_score", sa.Float(), nullable=True),
+        sa.Column("review_status", review_status_enum, nullable=True),
+        sa.CheckConstraint(
+            "email ~* '^[a-zA-Z0-9.!#$%%&''*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$'",
+            name="valid_email_format",
+        ),
+        sa.CheckConstraint("LENGTH(TRIM(email)) > 0", name="email_not_empty"),
+        sa.CheckConstraint("LENGTH(TRIM(first_name)) > 0", name="first_name_not_empty"),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint(
+            "first_name", "email", name="commenter_unique_on_first_name_and_email"
+        ),
+        schema="comments",
+    )
+    op.create_index(
+        "idx_commenter_first_name_and_email",
+        "commenter",
+        [sa.text("lower(trim(first_name))"), sa.text("lower(trim(email))")],
+        unique=False,
+        schema="comments",
+    )
+    op.create_index(
+        op.f("ix_comments_commenter_id"),
+        "commenter",
+        ["id"],
+        unique=True,
+        schema="comments",
+    )
+
+    op.create_table(
+        "comment",
+        *_timestamps(),
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("title", sa.String(length=255), nullable=False),
+        sa.Column("comment", sa.String(length=5000), nullable=False),
+        sa.Column("commenter_id", sa.Integer(), nullable=True),
+        sa.Column("moderation_score", sa.Float(), nullable=True),
+        sa.Column("review_status", review_status_enum, nullable=True),
+        sa.Column(
+            "review_flagged", sa.Boolean(), nullable=False, server_default="false"
+        ),
+        sa.ForeignKeyConstraint(["commenter_id"], ["comments.commenter.id"]),
+        sa.PrimaryKeyConstraint("id"),
+        sa.CheckConstraint("LENGTH(TRIM(title)) > 0", name="title_not_empty"),
+        sa.CheckConstraint("LENGTH(TRIM(comment)) > 0", name="comment_not_empty"),
+        schema="comments",
+    )
+    op.create_index(
+        op.f("ix_comments_comment_commenter_id"),
+        "comment",
+        ["commenter_id"],
+        unique=False,
+        schema="comments",
+    )
+    op.create_index(
+        op.f("ix_comments_comment_id"),
+        "comment",
+        ["id"],
+        unique=True,
+        schema="comments",
+    )
+
+    op.create_table(
+        "tag",
+        *_timestamps(),
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("slug", sa.String(length=255), nullable=False),
+        sa.Column("moderation_score", sa.Float(), nullable=True),
+        sa.Column("review_status", review_status_enum, nullable=True),
+        sa.PrimaryKeyConstraint("id"),
+        sa.CheckConstraint("LENGTH(slug) > 0", name="slug_not_empty"),
+        schema="comments",
+    )
+    op.create_index(
+        op.f("ix_comments_tag_id"), "tag", ["id"], unique=True, schema="comments"
+    )
+    op.create_index(
+        op.f("ix_comments_tag_slug"), "tag", ["slug"], unique=True, schema="comments"
+    )
+
+    op.create_table(
+        "comment_tag",
+        sa.Column("comment_id", sa.Integer(), nullable=False),
+        sa.Column("tag_id", sa.Integer(), nullable=False),
+        sa.ForeignKeyConstraint(["comment_id"], ["comments.comment.id"]),
+        sa.ForeignKeyConstraint(["tag_id"], ["comments.tag.id"]),
+        sa.PrimaryKeyConstraint("comment_id", "tag_id"),
+        sa.UniqueConstraint("comment_id", "tag_id", name="unique_comment_tag_link"),
+        schema="comments",
+    )
+
+    op.create_table(
+        "document_comment",
+        sa.Column("comment_id", sa.Integer(), nullable=False),
+        sa.Column("document_id", app.core.models.UUIDType(), nullable=False),
+        sa.Column("zone", sa.Integer(), nullable=True),
+        sa.ForeignKeyConstraint(["comment_id"], ["comments.comment.id"]),
+        sa.ForeignKeyConstraint(["document_id"], ["document.document.document_id"]),
+        sa.PrimaryKeyConstraint("comment_id"),
+        sa.UniqueConstraint("comment_id"),
+        schema="comments",
+    )
+    op.create_index(
+        op.f("ix_comments_document_comment_document_id"),
+        "document_comment",
+        ["document_id"],
+        unique=False,
+        schema="comments",
+    )
+
+    with open(SQL_DIR / "normalize_email.sql", "r") as f:
+        op.execute(sa.text(f.read()))
+    op.execute(
+        sa.text("""
+        CREATE TRIGGER normalize_email_trigger
+            BEFORE INSERT OR UPDATE ON comments.commenter
+            FOR EACH ROW EXECUTE FUNCTION normalize_email();
+    """)
+    )
+    with open(SQL_DIR / "slugify_tag.sql", "r") as f:
+        op.execute(sa.text(f.read()))
