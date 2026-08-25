@@ -127,6 +127,29 @@ export const summaryStatsConfig = {
     // Derived from the groupings above so the two lists can't drift.
     columns: Object.values(ALL_VOTER_COLUMN_GROUPINGS).flatMap(grouping => grouping.columns),
   },
+  // ACS 2019-2023 socioeconomic universes (counts + their own denominator).
+  AGE: {
+    columns: ['under_18_pop_23', 'over_65_pop_23', 'total_pop_23'],
+    sumColumn: 'total_pop_23',
+  },
+  INCOME: {
+    columns: [
+      'hh_inc_under_35k_23',
+      'hh_inc_35k_75k_23',
+      'hh_inc_75k_125k_23',
+      'hh_inc_125k_plus_23',
+      'total_hh_23',
+    ],
+    sumColumn: 'total_hh_23',
+  },
+  EDUCATION: {
+    columns: ['bachelors_plus_23', 'total_pop_25plus_23'],
+    sumColumn: 'total_pop_25plus_23',
+  },
+  VEHICLES: {
+    columns: ['hh_no_vehicle_23', 'total_occ_hh_23'],
+    sumColumn: 'total_occ_hh_23',
+  },
 } as const satisfies {[K in SummaryType]: ColumnSet};
 
 export const possibleRollups = [

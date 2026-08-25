@@ -89,6 +89,39 @@ export const VoterColumnConfig: DemographyTableColumnConfiguration<
   {column: 'pres_08_dem', label: '2008 Pres'},
 ];
 
+// ACS 2019-2023 socioeconomic universes (each with its own denominator).
+export const AGEColumnConfig: DemographyTableColumnConfiguration<
+  SummaryStatConfig[typeof SUMMARY_TYPES.AGE]
+> = [
+  {column: 'under_18_pop_23', label: 'Under 18'},
+  {column: 'over_65_pop_23', label: '65 and older'},
+  {column: 'total_pop_23', label: 'Total (ACS)', isTotal: true},
+];
+
+export const INCOMEColumnConfig: DemographyTableColumnConfiguration<
+  SummaryStatConfig[typeof SUMMARY_TYPES.INCOME]
+> = [
+  {column: 'hh_inc_under_35k_23', label: 'Under $35k'},
+  {column: 'hh_inc_35k_75k_23', label: '$35k–$75k'},
+  {column: 'hh_inc_75k_125k_23', label: '$75k–$125k'},
+  {column: 'hh_inc_125k_plus_23', label: '$125k+'},
+  {column: 'total_hh_23', label: 'Total households', isTotal: true},
+];
+
+export const EDUCATIONColumnConfig: DemographyTableColumnConfiguration<
+  SummaryStatConfig[typeof SUMMARY_TYPES.EDUCATION]
+> = [
+  {column: 'bachelors_plus_23', label: "Bachelor's or higher"},
+  {column: 'total_pop_25plus_23', label: 'Total 25 and older', isTotal: true},
+];
+
+export const VEHICLESColumnConfig: DemographyTableColumnConfiguration<
+  SummaryStatConfig[typeof SUMMARY_TYPES.VEHICLES]
+> = [
+  {column: 'hh_no_vehicle_23', label: 'No vehicle'},
+  {column: 'total_occ_hh_23', label: 'Total households', isTotal: true},
+];
+
 export const CONFIG_BY_COLUMN_SET: Record<
   SummaryType,
   DemographyTableColumnConfiguration<SummaryStatConfig[SummaryType]>
@@ -96,6 +129,10 @@ export const CONFIG_BY_COLUMN_SET: Record<
   TOTPOP: TOTPOPColumnConfig,
   VAP: VAPColumnConfig,
   VOTERHISTORY: VoterColumnConfig,
+  AGE: AGEColumnConfig,
+  INCOME: INCOMEColumnConfig,
+  EDUCATION: EDUCATIONColumnConfig,
+  VEHICLES: VEHICLESColumnConfig,
 };
 
 export const evalColumnConfigs: Partial<
@@ -104,6 +141,10 @@ export const evalColumnConfigs: Partial<
   TOTPOP: TOTPOPColumnConfig,
   VAP: VAPColumnConfig,
   VOTERHISTORY: VoterColumnConfig,
+  AGE: AGEColumnConfig,
+  INCOME: INCOMEColumnConfig,
+  EDUCATION: EDUCATIONColumnConfig,
+  VEHICLES: VEHICLESColumnConfig,
 };
 
 export const modeButtonConfig: Array<{label: string; value: TableDisplayMode}> = [
@@ -141,5 +182,25 @@ export const summaryStatLabels: Array<{
     value: SUMMARY_TYPES.VOTERHISTORY,
     label: 'Voter history',
     supportedModes: [TABLE_DISPLAY_MODES.SHARE],
+  },
+  {
+    value: SUMMARY_TYPES.AGE,
+    label: 'Age',
+    supportedModes: [TABLE_DISPLAY_MODES.SHARE, TABLE_DISPLAY_MODES.COUNT],
+  },
+  {
+    value: SUMMARY_TYPES.INCOME,
+    label: 'Household income',
+    supportedModes: [TABLE_DISPLAY_MODES.SHARE, TABLE_DISPLAY_MODES.COUNT],
+  },
+  {
+    value: SUMMARY_TYPES.EDUCATION,
+    label: 'Education',
+    supportedModes: [TABLE_DISPLAY_MODES.SHARE, TABLE_DISPLAY_MODES.COUNT],
+  },
+  {
+    value: SUMMARY_TYPES.VEHICLES,
+    label: 'Vehicle access',
+    supportedModes: [TABLE_DISPLAY_MODES.SHARE, TABLE_DISPLAY_MODES.COUNT],
   },
 ];

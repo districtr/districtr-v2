@@ -23,7 +23,9 @@ import {choroplethMapVariables} from '@/app/store/demography/constants';
 import {demographyService} from '@/app/utils/demography/demographyService';
 import {
   isCoalitionUniverse,
+  isSocioeconomicUniverse,
   CoalitionUniverse,
+  SOCIOECONOMIC_UNIVERSES,
   SUMMARY_TYPES,
   toOverlayGroup,
   type SummaryType,
@@ -94,7 +96,12 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   // on their own group. Labels already disambiguate ("Black" vs "VAP Black").
   const variableGroups = useMemo<SummaryType[]>(
     () =>
-      isCoalitionUniverse(columnGroup) ? [SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP] : [columnGroup],
+      isCoalitionUniverse(columnGroup)
+        ? [SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP]
+        : // The socioeconomic universes share one dropdown the same way.
+          isSocioeconomicUniverse(columnGroup)
+          ? [...SOCIOECONOMIC_UNIVERSES]
+          : [columnGroup],
     [columnGroup]
   );
   const coalitionOptionFor = (universe: SummaryType) => {
@@ -249,7 +256,11 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
           <Flex direction="column" gap="2">
             <Flex direction="row" gap="3" align="center" wrap="wrap">
               <Text size="2" weight="medium">
-                {columnGroup === 'VOTERHISTORY' ? 'Map layer election' : 'Map layer population'}
+                {columnGroup === 'VOTERHISTORY'
+                  ? 'Map layer election'
+                  : isSocioeconomicUniverse(columnGroup)
+                    ? 'Map layer variable'
+                    : 'Map layer population'}
               </Text>
               <Select.Root value={variable} onValueChange={handleChangeVariable}>
                 <Select.Trigger>
@@ -411,7 +422,10 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
             </Text>
           )}
           {!!mapVariableConfig && (
-            <DataSourceCitation elections={columnGroup === SUMMARY_TYPES.VOTERHISTORY} />
+            <DataSourceCitation
+              elections={columnGroup === SUMMARY_TYPES.VOTERHISTORY}
+              acs={isSocioeconomicUniverse(columnGroup)}
+            />
           )}
         </>
       )}
