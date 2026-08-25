@@ -27,7 +27,9 @@ class GerryDBTileset(BaseModel):
     gpkg: str
     layer_name: str
     new_layer_name: str | None
-    columns: Iterable[str] = [
+    # list, not Iterable: pydantic v2 validates Iterable[str] into a one-shot
+    # lazy iterable, so generate_tiles consumed it and generate_points saw []
+    columns: list[str] = [
         "path",
         "geography",
         "total_pop_20",
