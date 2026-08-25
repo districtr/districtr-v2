@@ -4,8 +4,8 @@ Tests for the in-Wagtail moderation views and the per-user token bridge.
 The backend is never called: moderation.services' HTTP layer is mocked. Token
 tests reuse authapi.tests.fastapi_style_verify so a passing test means the
 backend's PyJWKClient-based verifier accepts tokens minted for the acting
-user — including the review_tags claim contract the moderation endpoints
-enforce.
+user — including the teams claim contract the submission endpoints enforce
+against form_configs.admin_teams.
 """
 
 from unittest import mock
@@ -14,7 +14,14 @@ import jwt as pyjwt
 from django.test import TestCase
 from django.urls import reverse
 
-from core.testing import PASSWORD, make_admin_user, make_portal, make_team
+from core.testing import (
+    PASSWORD,
+    create_mirror_tables,
+    make_admin_user,
+    make_form_config,
+    make_portal,
+    make_team,
+)
 from authapi.serializers import (
     DistrictrTokenObtainPairSerializer,
     mint_user_access_token,
@@ -23,30 +30,29 @@ from authapi.tests import fastapi_style_verify
 
 
 def make_entry(**overrides):
-    """A minimal AdminCommentResponse payload."""
+    """A minimal SubmissionAdmin payload."""
     entry = {
-        "comment_id": 11,
-        "title": "A comment title",
-        "comment": "Comment body",
-        "first_name": "Pat",
-        "last_name": "Lee",
-        "place": "Lansing",
-        "state": "MI",
-        "zip_code": "48901",
-        "tags": ["midwest-tour"],
-        "tag_ids": [7],
-        "tag_review_status": [None],
-        "tag_moderation_score": [0.1],
-        "comment_review_status": None,
-        "comment_moderation_score": 0.2,
-        "comment_review_flagged": True,
-        "commenter_id": 5,
-        "commenter_review_status": None,
-        "commenter_moderation_score": 0.3,
-        "zone": None,
-        "public_id": None,
-        "document_id": None,
+        "id": 11,
+        "portal_id": "midwest-portal",
+        "tags": ["midwest-portal", "midwest-tour"],
+        "nsfw": False,
+        "map_public_id": None,
         "created_at": "2026-08-01T00:00:00",
+        "submitted_at": "2026-08-01T00:00:00",
+        "status": "submitted",
+        "hidden": False,
+        "flagged": True,
+        "moderation_score": 0.02,
+        "fields": {
+            "title": "A comment title",
+            "comment": "Comment body",
+            "first_name": "Pat",
+            "last_name": "Lee",
+            "email": "pat@example.com",
+            "place": "Lansing",
+            "state": "MI",
+            "zip_code": "48901",
+        },
     }
     entry.update(overrides)
     return entry
@@ -84,23 +90,14 @@ class MintUserAccessTokenTests(TestCase):
         self.assertEqual(header["alg"], "RS256")
 
     def test_team_scoped_reviewer_claims(self):
-        # The whole scoping contract: the claim is the user's teams' portal
-        # slugs, and partner scopes carry no read:read-all, so the backend
-        # enforces it. (Claim derivation itself is pinned in authapi/tests.)
-        from core.testing import create_mirror_tables
-        from datastore.models import DistrictrMap, GerryDBTable
-
-        create_mirror_tables(GerryDBTable, DistrictrMap)
-        layer = GerryDBTable.objects.create(name="blocks")
-        team_map = DistrictrMap.objects.create(
-            name="Chi", districtr_map_slug="chi_wards", parent_layer=layer
-        )
-        make_portal("b-tour", districtr_map_slug="chi_wards")
-        make_portal("a-tour", districtr_map_slug="chi_wards")
+        # The whole scoping contract: the claim is the user's team slugs, and
+        # partner scopes carry no read:read-all, so the backend enforces it
+        # against form_configs.admin_teams. (Claim derivation itself is
+        # pinned in authapi/tests.)
         user = make_admin_user(email="scoped@districtr.org", group_name="partner")
-        make_team("Mint Team", members=[user], maps=[team_map])
+        make_team("Mint Team", members=[user])
         payload = fastapi_style_verify(mint_user_access_token(user))
-        self.assertEqual(payload["review_tags"], ["a-tour", "b-tour"])
+        self.assertEqual(payload["teams"], ["mint-team"])
         self.assertNotIn("read:read-all", payload["scope"].split())
         self.assertIn("create:content_review", payload["scope"].split())
 
@@ -142,16 +139,13 @@ class PortalListTests(TestCase):
         self.assertContains(response, "texas-portal")
 
     def test_team_scoped_partner_sees_only_their_portals(self):
-        from core.testing import create_mirror_tables
-        from datastore.models import DistrictrMap, GerryDBTable
+        from datastore.models import FormConfig
 
-        create_mirror_tables(GerryDBTable, DistrictrMap)
-        layer = GerryDBTable.objects.create(name="blocks")
-        team_map = DistrictrMap.objects.create(
-            name="Chi", districtr_map_slug="chi_wards", parent_layer=layer
-        )
+        create_mirror_tables(FormConfig)
+        make_form_config("midwest-portal", admin_teams=["portal-team"])
+        make_form_config("texas-portal", admin_teams=["other-team"])
         partner = make_admin_user(email="scoped@districtr.org", group_name="partner")
-        make_team("Portal Team", members=[partner], maps=[team_map])
+        make_team("Portal Team", members=[partner])
         self.client.force_login(partner)
         response = self.client.get(self.url)
         self.assertContains(response, "midwest-portal")
@@ -180,15 +174,15 @@ class PortalReviewViewTests(TestCase):
         )
         self.assertRedirects(response, reverse("wagtailadmin_home"))
 
-    def test_portal_supplies_the_tag_filter(self):
+    def test_portal_supplies_the_portal_filter(self):
         with mock.patch("moderation.services.requests.request") as request:
             request.return_value = mock_response(json_body=[])
             self.client.get(
                 self.url,
                 {
-                    "review_status": "APPROVED",
+                    "status": "submitted",
                     "flagged": "1",
-                    "comment_id": "9",
+                    "nsfw": "1",
                     "p": "2",
                 },
             )
@@ -196,10 +190,10 @@ class PortalReviewViewTests(TestCase):
         self.assertEqual(
             kwargs["params"],
             {
-                "review_status": "APPROVED",
-                "review_flagged": "true",
-                "comment_id": 9,
-                "tags": ["midwest-portal"],
+                "status": "submitted",
+                "flagged": "true",
+                "nsfw": "true",
+                "portal_id": "midwest-portal",
                 "offset": 20,
                 "limit": 21,
             },
@@ -208,28 +202,42 @@ class PortalReviewViewTests(TestCase):
         token = kwargs["headers"]["Authorization"].removeprefix("Bearer ")
         self.assertEqual(fastapi_style_verify(token)["sub"], str(self.reviewer.pk))
 
-    def test_maps_kind_adds_has_document(self):
+    def test_maps_kind_adds_has_map(self):
         with mock.patch("moderation.services.requests.request") as request:
             request.return_value = mock_response(json_body=[])
             self.client.get(self.url, {"kind": "maps"})
         _, kwargs = request.call_args
-        self.assertEqual(kwargs["params"].get("has_document"), "true")
-        self.assertEqual(kwargs["params"].get("tags"), ["midwest-portal"])
+        self.assertEqual(kwargs["params"].get("has_map"), "true")
+        self.assertEqual(kwargs["params"].get("portal_id"), "midwest-portal")
 
     def test_renders_entries_and_actions(self):
         with mock.patch("moderation.services.requests.request") as request:
             request.return_value = mock_response(json_body=[make_entry()])
             response = self.client.get(self.url)
         self.assertContains(response, "A comment title")
-        self.assertContains(response, 'name="content_type" value="entry"')
-        self.assertContains(response, 'name="content_type" value="commenter"')
+        # A clean, visible entry offers Blur and Hide.
+        self.assertContains(response, 'name="action" value="nsfw"')
+        self.assertContains(response, 'name="value" value="1"')
+        self.assertContains(response, 'name="action" value="hidden"')
+        # Private fields reach reviewers.
+        self.assertContains(response, "pat@example.com")
 
     def test_maps_kind_renders_add_to_portal_gallery(self):
         with mock.patch("moderation.services.requests.request") as request:
-            request.return_value = mock_response(json_body=[make_entry(public_id=42)])
+            request.return_value = mock_response(
+                json_body=[make_entry(map_public_id=42)]
+            )
             response = self.client.get(self.url, {"kind": "maps"})
         self.assertContains(response, "Submitted plan: #42")
         self.assertContains(response, "Add to portal gallery")
+
+    def test_draft_map_submission_cannot_be_added_to_gallery(self):
+        with mock.patch("moderation.services.requests.request") as request:
+            request.return_value = mock_response(
+                json_body=[make_entry(map_public_id=42, status="draft")]
+            )
+            response = self.client.get(self.url, {"kind": "maps"})
+        self.assertNotContains(response, "Add to portal gallery")
 
     def test_backend_403_detail_surfaces(self):
         with mock.patch("moderation.services.requests.request") as request:
@@ -240,7 +248,7 @@ class PortalReviewViewTests(TestCase):
         self.assertContains(response, "restricted to specific tags")
 
     def test_pagination_next_link_from_extra_row(self):
-        entries = [make_entry(comment_id=i) for i in range(21)]
+        entries = [make_entry(id=i) for i in range(21)]
         with mock.patch("moderation.services.requests.request") as request:
             request.return_value = mock_response(json_body=entries)
             response = self.client.get(self.url)
@@ -248,58 +256,20 @@ class PortalReviewViewTests(TestCase):
         self.assertNotContains(response, "#20")
 
 
-class TagScopedReviewerUITests(TestCase):
-    """A team-scoped reviewer carries a portal-derived review_tags claim —
-    the backend 403s whole-entry/commenter actions for them, so the templates
-    hide those controls."""
-
-    def setUp(self):
-        from core.testing import create_mirror_tables
-        from datastore.models import DistrictrMap, GerryDBTable
-
-        create_mirror_tables(GerryDBTable, DistrictrMap)
-        layer = GerryDBTable.objects.create(name="blocks")
-        team_map = DistrictrMap.objects.create(
-            name="Chi", districtr_map_slug="chi_wards", parent_layer=layer
-        )
-        make_portal("midwest-portal", title="Midwest")
-        self.url = reverse("moderation_portal_review", args=["midwest-portal"])
-        self.reviewer = make_admin_user(
-            email="scoped@districtr.org", group_name="partner"
-        )
-        make_team("Scoped Team", members=[self.reviewer], maps=[team_map])
-        self.client.force_login(self.reviewer)
-
-    def get_review_page(self, **params):
-        with mock.patch("moderation.services.requests.request") as request:
-            request.return_value = mock_response(json_body=[make_entry()])
-            return self.client.get(self.url, params)
-
-    def test_scoped_reviewer_loses_entry_and_commenter_controls(self):
-        response = self.get_review_page()
-        self.assertNotContains(response, 'name="content_type" value="entry"')
-        self.assertNotContains(response, 'name="content_type" value="commenter"')
-        # Tag- and comment-level moderation stays available.
-        # Tags render read-only: their review status is global.
-        self.assertNotContains(response, 'name="content_type" value="tag"')
-        self.assertContains(response, "midwest-tour")
-        self.assertContains(response, 'name="content_type" value="comment"')
-
-
 # ---------------------------------------------------------------------------
-# Review action
+# Submission actions (nsfw / hidden)
 # ---------------------------------------------------------------------------
 
 
-class ReviewActionTests(TestCase):
+class SubmissionActionTests(TestCase):
     def setUp(self):
-        self.url = reverse("moderation_review_action")
+        self.url = reverse("moderation_submission_action")
         make_admin_user(email="reviewer@districtr.org", group_name="partner")
         self.client.login(username="reviewer@districtr.org", password=PASSWORD)
 
     def post(self, data, **kwargs):
         with mock.patch("moderation.services.requests.request") as request:
-            request.return_value = mock_response(json_body={"message": "ok", "id": 1})
+            request.return_value = mock_response(json_body={"id": 11})
             response = self.client.post(self.url, data, **kwargs)
         return response, request
 
@@ -307,88 +277,58 @@ class ReviewActionTests(TestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 405)
 
-    def test_single_comment_action(self):
-        response, request = self.post(
-            {"content_type": "comment", "id": "11", "review_status": "APPROVED"}
-        )
+    def test_nsfw_action_posts_to_backend(self):
+        response, request = self.post({"id": "11", "action": "nsfw", "value": "1"})
         self.assertRedirects(
             response,
             reverse("moderation_review_portals"),
             fetch_redirect_response=False,
         )
-        _, kwargs = request.call_args
-        self.assertEqual(
-            kwargs["json"],
-            {"content_type": "comment", "id": 11, "review_status": "APPROVED"},
-        )
+        args, kwargs = request.call_args
+        self.assertEqual(args[0], "POST")
+        self.assertIn("/api/submissions/admin/11/nsfw", args[1])
+        self.assertEqual(kwargs["json"], {"nsfw": True})
 
-    def test_entry_reviews_comment_and_commenter_only(self):
-        # Tags are deliberately excluded: Tag.review_status is global, so an
-        # entry-level action must not touch the portal's shared tag.
-        _, request = self.post(
-            {
-                "content_type": "entry",
-                "comment_id": "11",
-                "commenter_id": "5",
-                "review_status": "REJECTED",
-            }
-        )
-        bodies = [call.kwargs["json"] for call in request.call_args_list]
-        self.assertEqual(
-            bodies,
-            [
-                {"content_type": "comment", "id": 11, "review_status": "REJECTED"},
-                {"content_type": "commenter", "id": 5, "review_status": "REJECTED"},
-            ],
-        )
+    def test_hidden_action_posts_to_backend(self):
+        _, request = self.post({"id": "11", "action": "hidden", "value": "0"})
+        args, kwargs = request.call_args
+        self.assertIn("/api/submissions/admin/11/hidden", args[1])
+        self.assertEqual(kwargs["json"], {"hidden": False})
 
-    def test_tag_content_types_are_rejected(self):
-        # The global-tag actions were removed from this surface entirely.
+    def test_invalid_inputs_are_400(self):
         for data in (
-            {"content_type": "tag", "id": "7", "review_status": "APPROVED"},
-            {"content_type": "tags", "ids": "7,8", "review_status": "APPROVED"},
+            {"id": "11", "action": "bogus", "value": "1"},
+            {"id": "11", "action": "nsfw", "value": "maybe"},
+            {"id": "not-a-number", "action": "nsfw", "value": "1"},
+            {"action": "nsfw", "value": "1"},
         ):
             response, request = self.post(data)
             self.assertEqual(response.status_code, 400, data)
             request.assert_not_called()
 
-    def test_invalid_inputs_are_400(self):
-        for data in (
-            {"content_type": "comment", "id": "11", "review_status": "BOGUS"},
-            {"content_type": "bogus", "id": "11", "review_status": "APPROVED"},
-            {
-                "content_type": "comment",
-                "id": "not-a-number",
-                "review_status": "APPROVED",
-            },
-            {"content_type": "comment", "review_status": "APPROVED"},
-        ):
-            response, _ = self.post(data)
-            self.assertEqual(response.status_code, 400, data)
-
     def test_backend_error_message_and_redirect(self):
         with mock.patch("moderation.services.requests.request") as request:
             request.return_value = mock_response(
-                status_code=403, json_body={"detail": "outside that scope"}
+                status_code=403, json_body={"detail": "do not administer"}
             )
             response = self.client.post(
                 self.url,
                 {
-                    "content_type": "comment",
                     "id": "11",
-                    "review_status": "APPROVED",
+                    "action": "hidden",
+                    "value": "1",
                     "next": "/admin/moderation/portals/?p=2",
                 },
                 follow=True,
             )
-        self.assertContains(response, "outside that scope")
+        self.assertContains(response, "do not administer")
 
     def test_open_redirect_falls_back_to_index(self):
         response, _ = self.post(
             {
-                "content_type": "comment",
                 "id": "11",
-                "review_status": "APPROVED",
+                "action": "nsfw",
+                "value": "1",
                 "next": "https://evil.example/phish",
             }
         )
@@ -401,9 +341,9 @@ class ReviewActionTests(TestCase):
     def test_safe_next_preserves_filters(self):
         response, _ = self.post(
             {
-                "content_type": "comment",
                 "id": "11",
-                "review_status": "APPROVED",
+                "action": "nsfw",
+                "value": "1",
                 "next": "/admin/moderation/portals/?p=2",
             }
         )
@@ -417,9 +357,7 @@ class ReviewActionTests(TestCase):
         user = make_admin_user(email="lone@districtr.org", group_name="partner")
         user.groups.clear()
         self.client.force_login(user)
-        response, request = self.post(
-            {"content_type": "comment", "id": "11", "review_status": "APPROVED"}
-        )
+        response, request = self.post({"id": "11", "action": "nsfw", "value": "1"})
         self.assertRedirects(response, reverse("wagtailadmin_home"))
         request.assert_not_called()
 

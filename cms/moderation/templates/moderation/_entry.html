@@ -1,70 +1,52 @@
-{# One AdminCommentResponse row. #}
+{# One SubmissionAdmin row. #}
 <article style="border: 1px solid var(--w-color-border-furniture); border-radius: 5px; padding: 1rem; margin-bottom: 1rem;">
     <header style="display:flex; justify-content:space-between; align-items:start; gap:1rem;">
         <div>
             <h3 style="margin: 0 0 0.25rem;">
-                #{{ entry.comment_id }}
-                {% if entry.zone != None %}<small>(District {{ entry.zone }})</small>{% endif %}
-                {% if entry.public_id %}<small>· Map {{ entry.public_id }}</small>{% endif %}
-                {% if entry.comment_review_flagged %}<span class="w-status">Flagged</span>{% endif %}
+                #{{ entry.id }}
+                {% if entry.map_public_id %}<small>· Map {{ entry.map_public_id }}</small>{% endif %}
+                {% if entry.status == "draft" %}<span class="w-status">Draft</span>{% endif %}
+                {% if entry.flagged %}<span class="w-status">Flagged by a user</span>{% endif %}
+                {% if entry.nsfw %}<span class="w-status w-status--primary">NSFW (blurred)</span>{% endif %}
+                {% if entry.hidden %}<span class="w-status">Hidden</span>{% endif %}
             </h3>
             <p style="margin:0"><small>
-                Moderation score (comment / commenter):
-                {{ entry.comment_moderation_score|floatformat:2|default:"–" }} /
-                {{ entry.commenter_moderation_score|floatformat:2|default:"–" }}
-                {% if entry.created_at %}· {{ entry.created_at }}{% endif %}
+                Moderation score: {{ entry.moderation_score|floatformat:2|default:"–" }}
+                {% if entry.submitted_at %}· submitted {{ entry.submitted_at }}{% elif entry.created_at %}· started {{ entry.created_at }}{% endif %}
             </small></p>
         </div>
-        {% if not tag_scoped %}
-            {# Whole-entry fan-out touches the comment and commenter, which the backend 403s for tag-scoped reviewers. #}
-            <div style="text-align:right">
-                <strong>Full entry:</strong>
-                {% include "moderation/_review_buttons.html" with ct="entry" %}
-            </div>
-        {% endif %}
+        <div style="text-align:right; display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
+            {% if entry.nsfw %}
+                {% include "moderation/_action_button.html" with action="nsfw" value="0" label="Unblur" %}
+            {% else %}
+                {% include "moderation/_action_button.html" with action="nsfw" value="1" label="Blur (NSFW)" %}
+            {% endif %}
+            {% if entry.hidden %}
+                {% include "moderation/_action_button.html" with action="hidden" value="0" label="Restore" %}
+            {% else %}
+                {% include "moderation/_action_button.html" with action="hidden" value="1" label="Hide" danger=True %}
+            {% endif %}
+        </div>
     </header>
 
     <section style="margin-top:0.75rem;">
-        <h4 style="margin:0 0 0.25rem;">
-            {{ entry.title|default:"(no title)" }}
-            {% if entry.comment_review_status %}<span class="w-status w-status--primary">{{ entry.comment_review_status }}</span>{% endif %}
-        </h4>
-        <p style="white-space:pre-wrap; margin:0 0 0.5rem;">{{ entry.comment }}</p>
-        {% include "moderation/_review_buttons.html" with ct="comment" target_id=entry.comment_id %}
-    </section>
-
-    {% if entry.commenter_id %}
-        <section style="margin-top:0.75rem; border-top:1px solid var(--w-color-border-furniture); padding-top:0.5rem;">
-            <h4 style="margin:0 0 0.25rem;">
-                Commenter
-                {% if entry.commenter_review_status %}<span class="w-status w-status--primary">{{ entry.commenter_review_status }}</span>{% endif %}
-            </h4>
-            <p style="margin:0 0 0.5rem;">
-                {{ entry.first_name|default:"" }} {{ entry.last_name|default:"" }}
-                {% if entry.place %}· {{ entry.place }}{% endif %}
-                {% if entry.state %}· {{ entry.state }}{% endif %}
-                {% if entry.zip_code %}· {{ entry.zip_code }}{% endif %}
-            </p>
-            {% if not tag_scoped %}
-                {% include "moderation/_review_buttons.html" with ct="commenter" target_id=entry.commenter_id %}
-            {% endif %}
-        </section>
-    {% endif %}
-
-    {% if entry.tag_rows %}
-        {# Read-only: a tag's review status is GLOBAL (rejecting one hides every
-           comment carrying it, site-wide), so it is not an action offered from
-           a single submission's row. #}
-        <section style="margin-top:0.75rem; border-top:1px solid var(--w-color-border-furniture); padding-top:0.5rem;">
-            <h4 style="margin:0 0 0.25rem;">Tags</h4>
+        <h4 style="margin:0 0 0.25rem;">{{ entry.field_title|default:"(no title)" }}</h4>
+        <p style="white-space:pre-wrap; margin:0 0 0.5rem;">{{ entry.field_comment }}</p>
+        {% if entry.field_name %}
+            <p style="margin:0 0 0.25rem;"><strong>{{ entry.field_name }}</strong></p>
+        {% endif %}
+        {% if entry.field_rows %}
             <ul style="list-style:none; padding:0; margin:0;">
-                {% for tag in entry.tag_rows %}
-                    <li style="margin-bottom:0.25rem;">
-                        <code>{{ tag.slug }}</code>
-                        {% if tag.status %}<span class="w-status w-status--primary">{{ tag.status }}</span>{% endif %}
-                    </li>
+                {% for name, value in entry.field_rows %}
+                    <li style="margin-bottom:0.25rem;"><code>{{ name }}</code>: {{ value }}</li>
                 {% endfor %}
             </ul>
+        {% endif %}
+    </section>
+
+    {% if entry.tags %}
+        <section style="margin-top:0.75rem; border-top:1px solid var(--w-color-border-furniture); padding-top:0.5rem;">
+            {% for tag in entry.tags %}<code style="margin-right:0.5rem;">{{ tag }}</code>{% endfor %}
         </section>
     {% endif %}
 </article>

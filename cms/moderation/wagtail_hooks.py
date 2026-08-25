@@ -26,7 +26,9 @@ def register_moderation_admin_urls():
             name="moderation_portal_review",
         ),
         path(
-            "moderation/review/", views.review_action, name="moderation_review_action"
+            "moderation/action/",
+            views.submission_action,
+            name="moderation_submission_action",
         ),
         path(
             "moderation/add-to-portal-gallery/",

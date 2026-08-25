@@ -45,10 +45,11 @@ ALL_SCOPES = [
 
 # Page editing, galleries, and the datastore tools are all Wagtail-side
 # permissions (or service-token calls); the only FastAPI scope a user token
-# needs is comment moderation. No review:review-all: the backend treats that
-# scope as "unrestricted, ignore review_tags", and partner moderation is
-# always scoped by the portal-derived review_tags claim (serializers.py).
-# super_partner's extra powers are Django model permissions, not scopes.
+# needs is submission moderation. No review:review-all: the backend treats
+# that scope as "unrestricted, ignore the teams claim", and partner
+# moderation is always scoped by the teams claim x form_configs.admin_teams
+# (serializers.py). super_partner's extra powers are Django model
+# permissions, not scopes.
 PARTNER_SCOPES = [
     REVIEW_CONTENT,
 ]

@@ -6,7 +6,7 @@ from rest_framework_simplejwt.serializers import (
 )
 
 from authapi.scopes import scopes_for_user
-from authapi.teams import review_portal_slugs_for_user, user_is_team_scoped
+from authapi.teams import team_slugs_for_user, user_is_team_scoped
 from authapi.tokens import KidAccessToken, KidRefreshToken
 
 
@@ -25,15 +25,15 @@ def set_user_claims(token, user) -> None:
     token["email"] = user.email
     token["name"] = user.get_full_name() or user.get_username()
     token["roles"] = group_names
-    # Review scoping rides the portals: the backend's comment-moderation
-    # endpoints limit the holder to comments carrying these tag slugs (a
-    # portal's page slug is its comment tag slug). Admins/superusers get no
-    # claim (unrestricted); team-scoped users get their teams' portal slugs;
-    # team-less non-admins get [] — fail closed until they join a team.
+    # Submission-moderation scoping rides the teams: the backend intersects
+    # this claim with form_configs.admin_teams per portal
+    # (backend/app/submissions/main.py::require_portal_admin).
+    # Admins/superusers get no claim (unrestricted — their scopes also carry
+    # read:read-all, the backend's escape hatch); team-scoped users get their
+    # team slugs; team-less non-admins get [] — fail closed until they join
+    # a team.
     if not (user.is_superuser or "admin" in group_names):
-        token["review_tags"] = (
-            review_portal_slugs_for_user(user) if user_is_team_scoped(user) else []
-        )
+        token["teams"] = team_slugs_for_user(user) if user_is_team_scoped(user) else []
 
 
 def mint_user_access_token(user, lifetime_minutes: int = 5) -> str:
@@ -41,7 +41,7 @@ def mint_user_access_token(user, lifetime_minutes: int = 5) -> str:
 
     Used by Wagtail admin views (moderation) that call the FastAPI backend
     on the acting user's behalf, so the backend enforces the caller's own
-    scopes and review_tags claim exactly as for a normal login. Builds a
+    scopes and teams claim exactly as for a normal login. Builds a
     bare KidAccessToken rather than going through the refresh-token path,
     which would write an OutstandingToken row per mint.
     """

@@ -23,6 +23,8 @@ because the mirrors are managed=False models — ParentalKey/InlinePanel is not
 available on them.
 """
 
+from functools import cached_property
+
 from django import forms
 from django.db import ProgrammingError, connection
 from django.forms.models import inlineformset_factory
@@ -30,8 +32,10 @@ from django.shortcuts import redirect
 from django.urls import path, reverse
 from wagtail import hooks
 from wagtail.admin import messages
+from wagtail.admin.forms.models import WagtailAdminModelForm
 from wagtail.admin.menu import MenuItem
 from wagtail.admin.panels import FieldPanel, MultiFieldPanel, ObjectList
+from wagtail.permission_policies.base import ModelPermissionPolicy
 from wagtail.snippets.models import register_snippet
 from wagtail.snippets.views.snippets import (
     EditView,
@@ -42,17 +46,21 @@ from wagtail.snippets.views.snippets import (
     UsageView,
 )
 
-from authapi.models import TeamDistrictrMap
+from authapi.models import Team, TeamDistrictrMap
 from authapi.teams import (
     TeamScopedGetObjectMixin,
     TeamScopedViewGrantPermissionPolicy,
     TeamScopedViewSetMixin,
+    team_slugs_for_user,
+    user_is_team_scoped,
 )
 from datastore import views
 from datastore.models import (
+    SUBMISSION_FIELD_CHOICES,
     DistrictrMap,
     DistrictrMapOverlays,
     DistrictrMapsToGroups,
+    FormConfig,
     Overlay,
 )
 from datastore.views import (
@@ -421,3 +429,168 @@ def register_datastore_admin_urls():
             name="datastore_map_regenerate_thumbnail",
         ),
     ]
+
+
+# ---------------------------------------------------------------------------
+# Portal forms (FormConfig — the comments.form_configs mirror)
+# ---------------------------------------------------------------------------
+
+
+class FormConfigAdminForm(WagtailAdminModelForm):
+    """Checkbox multi-selects over the fixed field registry and team slugs —
+    the ArrayFields' default comma-separated text inputs invite typos the
+    backend would then reject at submission time."""
+
+    fields = forms.MultipleChoiceField(
+        choices=SUBMISSION_FIELD_CHOICES,
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        help_text="Which fields the portal's submission form shows.",
+    )
+    required_fields = forms.MultipleChoiceField(
+        choices=SUBMISSION_FIELD_CHOICES,
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        help_text="Must be a subset of the fields above.",
+    )
+    admin_teams = forms.MultipleChoiceField(
+        choices=lambda: [
+            (team.slug, team.name) for team in Team.objects.order_by("name")
+        ],
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        help_text="Teams whose members moderate this portal's submissions.",
+    )
+
+    class Meta:
+        model = FormConfig
+        fields = [
+            "portal_id",
+            "name",
+            "fields",
+            "required_fields",
+            "require_email_confirm",
+            "admin_teams",
+        ]
+
+    def clean(self):
+        cleaned = super().clean()
+        extra = set(cleaned.get("required_fields") or []) - set(
+            cleaned.get("fields") or []
+        )
+        if extra:
+            self.add_error(
+                "required_fields",
+                f"Required fields must also be shown: {', '.join(sorted(extra))}",
+            )
+        return cleaned
+
+
+class FormConfigPermissionPolicy(ModelPermissionPolicy):
+    """Model permissions, narrowed for team-scoped users to configs whose
+    admin_teams intersect their team slugs (the same rule the backend
+    enforces on the moderation endpoints)."""
+
+    def instances_user_has_permission_for(self, user, action):
+        instances = super().instances_user_has_permission_for(user, action)
+        if user_is_team_scoped(user):
+            return instances.filter(admin_teams__overlap=team_slugs_for_user(user))
+        return instances
+
+    def user_has_permission_for_instance(self, user, action, instance):
+        if not super().user_has_permission_for_instance(user, action, instance):
+            return False
+        if user_is_team_scoped(user):
+            return bool(set(instance.admin_teams) & set(team_slugs_for_user(user)))
+        return True
+
+
+class FormConfigViewSet(SnippetViewSet):
+    model = FormConfig
+    icon = "form"
+    menu_label = "Portal forms"
+    list_display = ["name", "portal_id", "admin_teams"]
+    search_fields = ["name", "portal_id"]
+    list_per_page = 50
+    edit_handler = ObjectList(
+        [
+            FieldPanel(
+                "portal_id",
+                help_text="Must equal the portal page's slug — the wizard "
+                "sets this; change it only when renaming the page slug too.",
+            ),
+            FieldPanel("name"),
+            FieldPanel("fields"),
+            FieldPanel("required_fields"),
+            FieldPanel("require_email_confirm"),
+            FieldPanel("admin_teams"),
+        ],
+        base_form_class=FormConfigAdminForm,
+    )
+
+    def get_queryset(self, request):
+        if user_is_team_scoped(request.user):
+            return FormConfig.objects.filter(
+                admin_teams__overlap=team_slugs_for_user(request.user)
+            )
+        return None
+
+    @cached_property
+    def permission_policy(self):
+        return FormConfigPermissionPolicy(self.model)
+
+
+register_snippet(FormConfigViewSet)
+
+
+def _portals_with_submissions(portal_ids):
+    """Submission counts per portal, read straight from the shared database.
+
+    comments.submissions is not mirrored; purely UX — the backend FK is
+    ON DELETE RESTRICT, so the database hard-blocks these deletes anyway.
+    """
+    if not portal_ids:
+        return {}
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT portal_id, count(*) FROM comments.submissions "
+                "WHERE portal_id = ANY(%s) GROUP BY portal_id",
+                [list(portal_ids)],
+            )
+            return dict(cursor.fetchall())
+    except ProgrammingError:
+        return {}
+
+
+def _deny_form_config_delete_with_submissions(request, configs):
+    counts = _portals_with_submissions([c.portal_id for c in configs])
+    if not counts:
+        return None
+    summary = ", ".join(
+        f"{portal} ({count} submission{'s' if count != 1 else ''})"
+        for portal, count in sorted(counts.items())
+    )
+    messages.error(
+        request,
+        f"Cannot delete portal forms that have submissions: {summary}.",
+    )
+    return redirect("wagtailsnippets_datastore_formconfig:list")
+
+
+@hooks.register("before_delete_snippet")
+def deny_form_config_delete_with_submissions(request, instances):
+    configs = [obj for obj in instances if isinstance(obj, FormConfig)]
+    if configs:
+        return _deny_form_config_delete_with_submissions(request, configs)
+
+
+@hooks.register("before_bulk_action")
+def deny_form_config_bulk_delete_with_submissions(
+    request, action_type, objects, action
+):
+    if action_type != "delete":
+        return None
+    configs = [obj for obj in objects if isinstance(obj, FormConfig)]
+    if configs:
+        return _deny_form_config_delete_with_submissions(request, configs)

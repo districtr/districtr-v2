@@ -22,7 +22,21 @@ EXCLUDED_COLUMNS: dict[str, frozenset[str]] = {
     "districtrmaps_to_groups": frozenset(),
     "districtrmap_overlays": frozenset(),
     "overlay": frozenset(),
+    'comments"."form_configs': frozenset(),
 }
+
+
+def parse_db_table(db_table: str) -> tuple[str, str]:
+    """Split a Django db_table into (schema, table).
+
+    Mirrors default to the search-path-resolved `public` schema; the
+    schema-qualification quoting trick ('comments"."form_configs') carries
+    the schema explicitly.
+    """
+    if '"."' in db_table:
+        schema, table = db_table.split('"."', 1)
+        return schema, table
+    return "public", db_table
 
 
 def mirrored_models():

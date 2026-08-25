@@ -1,13 +1,15 @@
 """
-Comment moderation and site-settings views inside the Wagtail admin.
+Submission moderation and site-settings views inside the Wagtail admin.
 
 Thin HTML over the FastAPI backend's moderation endpoints (moderation/
-services.py): listing, filtering, and review actions all round-trip through
-the backend with a token minted for the acting user, so scope and tag-scope
-enforcement stays there. Registered under /admin/ via register_admin_urls
-(moderation/wagtail_hooks.py), so Wagtail's require_admin_access gates
-anonymous users; the group gates below only control access to the pages —
-the backend re-checks everything.
+services.py): listing, filtering, and the two reviewer actions (nsfw
+blur/unblur, hide/restore) all round-trip through the backend with a token
+minted for the acting user, so scope and teams x admin_teams enforcement
+stays there. There is no approval gate: submissions are public on arrival,
+moderation only blurs (nsfw) or removes (hidden). Registered under /admin/
+via register_admin_urls (moderation/wagtail_hooks.py), so Wagtail's
+require_admin_access gates anonymous users; the group gates below only
+control access to the pages — the backend re-checks everything.
 """
 
 import logging
@@ -20,12 +22,9 @@ from requests import RequestException
 from wagtail.admin import messages
 from wagtail.admin.auth import permission_denied, user_passes_test
 
-from authapi.teams import (
-    districtr_map_slugs_for_user,
-    user_is_team_scoped,
-)
+from authapi.teams import team_slugs_for_user, user_is_team_scoped
 from moderation import services
-from moderation.forms import CommentFilterForm
+from moderation.forms import SubmissionFilterForm
 from moderation.services import BackendAPIError
 
 logger = logging.getLogger(__name__)
@@ -38,8 +37,8 @@ SITE_SETTINGS_GROUPS = frozenset({"admin"})
 
 PAGE_SIZE = 20
 
-REVIEW_STATUSES = {"APPROVED", "REJECTED", "REVIEWED"}
-REVIEWABLE_CONTENT_TYPES = {"comment", "commenter"}
+# The two reviewer actions; anything else in a POST is rejected.
+SUBMISSION_ACTIONS = {"nsfw", "hidden"}
 
 
 def group_required(groups):
@@ -51,15 +50,22 @@ def group_required(groups):
 
 
 def _prep_entry(entry: dict) -> dict:
-    """Reshape an AdminCommentResponse dict for the template: zip the parallel
-    tags/tag_review_status arrays into display rows. The backend aggregates
-    them in one shared order (build_tag_subquery), which is what makes the zip
-    correct. Tags are display-only here — their review status is global."""
-    tags = entry.get("tags") or []
-    statuses = entry.get("tag_review_status") or []
-    entry["tag_rows"] = [
-        {"slug": slug, "status": status} for slug, status in zip(tags, statuses)
-    ]
+    """Reshape a SubmissionAdmin dict for the template: pull the headline
+    fields out of the sparse `fields` dict and keep the rest as rows."""
+    fields = dict(entry.get("fields") or {})
+    entry["field_title"] = fields.pop("title", "")
+    entry["field_comment"] = fields.pop("comment", "")
+    name = " ".join(
+        part
+        for part in (
+            fields.pop("salutation", ""),
+            fields.pop("first_name", ""),
+            fields.pop("last_name", ""),
+        )
+        if part
+    )
+    entry["field_name"] = name
+    entry["field_rows"] = sorted(fields.items())
     return entry
 
 
@@ -99,30 +105,27 @@ def _list_view(request, form, fetch, template, title, extra_context=None):
             "has_next": has_next,
             "base_qs": querystring.urlencode(),
             "title": title,
-            # Team-scoped reviewers carry a portal-derived review_tags claim:
-            # the backend 403s whole-entry/commenter actions for them by
-            # design, so the templates hide those controls instead of
-            # offering doomed buttons. Admins stay unrestricted.
-            "tag_scoped": user_is_team_scoped(request.user),
             **(extra_context or {}),
         },
     )
 
 
 def _accessible_portals(user):
-    """TagPages whose submissions the user may review: all portals for admins
-    and unscoped reviewers, the team's portals for team-scoped members (a
-    portal's page slug is its comment tag slug — the same rule the JWT
-    review_tags claim is minted from)."""
+    """TagPages whose submissions the user may moderate: all portals for
+    admins and unscoped reviewers; for team-scoped members, the portals whose
+    FormConfig.admin_teams intersects their team slugs — the same rule the
+    backend enforces via the JWT teams claim."""
     from wagtail.models import Locale
 
     from content.models import TagPage
+    from datastore.models import FormConfig
 
     portals = TagPage.objects.filter(locale=Locale.get_default()).order_by("title")
     if user_is_team_scoped(user):
-        portals = portals.filter(
-            districtr_map_slug__in=districtr_map_slugs_for_user(user)
-        )
+        team_portals = FormConfig.objects.filter(
+            admin_teams__overlap=team_slugs_for_user(user)
+        ).values_list("portal_id", flat=True)
+        portals = portals.filter(slug__in=list(team_portals))
     return portals
 
 
@@ -138,10 +141,9 @@ def review_portals(request):
 
 @group_required(COMMENT_REVIEW_GROUPS)
 def portal_review(request, slug):
-    """One portal's submission queue: comments or map submissions (comments
-    arriving with an attached plan), switched by ?kind=. The portal supplies
-    the tag filter; approving a plan into a gallery goes through
-    add_to_gallery below."""
+    """One portal's submission queue: written submissions or map submissions
+    (those arriving with an attached plan), switched by ?kind=. Adding an
+    approved plan to a gallery goes through add_to_gallery below."""
     portal = _accessible_portals(request.user).filter(slug=slug).first()
     if portal is None:
         return permission_denied(request)
@@ -149,14 +151,13 @@ def portal_review(request, slug):
     if kind not in ("comments", "maps"):
         kind = "comments"
 
-    form = CommentFilterForm(request.GET or {})
-    form.fields.pop("tags")  # the portal IS the tag filter
+    form = SubmissionFilterForm(request.GET or {})
 
     def fetch(user, **params):
-        params["tags"] = [portal.slug]
+        params["portal_id"] = portal.slug
         if kind == "maps":
-            params["has_document"] = "true"
-        return services.list_form_comments(user, **params)
+            params["has_map"] = "true"
+        return services.list_submissions(user, **params)
 
     extra = {"portal": portal, "kind": kind}
     return _list_view(
@@ -194,7 +195,7 @@ def _default_gallery_block(public_id):
 
 @group_required(COMMENT_REVIEW_GROUPS)
 def add_to_portal_gallery(request):
-    """Append an approved plan to the portal page's own gallery block.
+    """Append a submitted plan to the portal page's own gallery block.
 
     The gallery lives IN the portal page (the plan_gallery block's curated
     ids), so this mutates the page's latest revision as a draft: appends the
@@ -248,46 +249,42 @@ def _next_url(request):
 
 
 @group_required(COMMENT_REVIEW_GROUPS)
-def review_action(request):
-    """Apply a review status to a comment, a commenter, or both.
+def submission_action(request):
+    """Apply a reviewer action to one submission.
 
-    content_type: comment | commenter (single `id`), or entry (`comment_id`
-    plus optional `commenter_id`). Tags are deliberately NOT reviewable here:
-    Tag.review_status is global (rejecting one hides every comment carrying
-    that tag, site-wide), so it must not be a per-submission action.
+    action: nsfw (blur/unblur) or hidden (takedown/restore); value: 1|0.
+    Both resolve the user's flag report on the backend.
     """
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
-    content_type = request.POST.get("content_type", "")
-    review_status = request.POST.get("review_status", "")
-    if review_status not in REVIEW_STATUSES or content_type not in (
-        REVIEWABLE_CONTENT_TYPES | {"entry"}
-    ):
-        return HttpResponseBadRequest("Invalid review action")
+    action = request.POST.get("action", "")
+    value = request.POST.get("value", "")
+    if action not in SUBMISSION_ACTIONS or value not in ("0", "1"):
+        return HttpResponseBadRequest("Invalid submission action")
 
     try:
-        if content_type in REVIEWABLE_CONTENT_TYPES:
-            services.review_item(
-                request.user, content_type, int(request.POST["id"]), review_status
-            )
-        else:  # entry: the comment, plus its commenter when there is one
-            services.review_item(
-                request.user, "comment", int(request.POST["comment_id"]), review_status
-            )
-            if request.POST.get("commenter_id"):
-                services.review_item(
-                    request.user,
-                    "commenter",
-                    int(request.POST["commenter_id"]),
-                    review_status,
-                )
+        submission_id = int(request.POST["id"])
     except (KeyError, ValueError):
-        return HttpResponseBadRequest("Invalid review action")
+        return HttpResponseBadRequest("Invalid submission action")
+
+    setter = (
+        services.set_submission_nsfw
+        if action == "nsfw"
+        else services.set_submission_hidden
+    )
+    try:
+        setter(request.user, submission_id, value == "1")
     except (BackendAPIError, RequestException) as exc:
-        logger.exception("Review update failed")
-        messages.error(request, f"Review update failed: {exc}")
+        logger.exception("Submission update failed")
+        messages.error(request, f"Update failed: {exc}")
     else:
-        messages.success(request, f"Marked {content_type} as {review_status}.")
+        described = {
+            ("nsfw", "1"): "marked sensitive (blurred)",
+            ("nsfw", "0"): "unblurred",
+            ("hidden", "1"): "hidden from the public site",
+            ("hidden", "0"): "restored",
+        }[(action, value)]
+        messages.success(request, f"Submission #{submission_id} {described}.")
 
     return redirect(_next_url(request))
 

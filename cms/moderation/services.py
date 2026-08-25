@@ -4,9 +4,9 @@ endpoints.
 
 Unlike datastore/services.py (service tokens), these calls mint a short-lived
 access token for the ACTING USER (authapi.serializers.mint_user_access_token),
-so the backend enforces the caller's own scopes and `review_tags` claim
-exactly as it does for a normal login — the tag-scoping logic stays in one
-place (backend/app/comments/main.py).
+so the backend enforces the caller's own scopes and `teams` claim exactly as
+it does for a normal login — the teams x admin_teams scoping logic stays in
+one place (backend/app/submissions/main.py).
 """
 
 import requests
@@ -51,37 +51,44 @@ def _call(user, method, path, *, params=None, json=None, what="request"):
 def _clean(params: dict) -> dict:
     """Drop empty filter values before sending.
 
-    An OMITTED review_status means "not yet reviewed" on the backend
-    (review_status IS NULL), so blanks must not be sent at all; empty
-    strings/lists would likewise 422 or mis-filter.
+    An OMITTED filter means "don't filter on this" on the backend (e.g. no
+    `status` param returns drafts and submissions alike); blank strings/lists
+    would 422 or mis-filter.
     """
     return {k: v for k, v in params.items() if v not in (None, "", [])}
 
 
-def list_form_comments(user, **params) -> list:
-    """GET /api/comments/admin/list (scope create:content_review)."""
+def list_submissions(user, **params) -> list:
+    """GET /api/submissions/admin (scope create:content_review; the backend
+    checks the teams claim against the portal's admin_teams)."""
     return _call(
         user,
         "GET",
-        "/api/comments/admin/list",
+        "/api/submissions/admin",
         params=_clean(params),
-        what="comment list",
+        what="submission list",
     )
 
 
-
-def review_item(user, content_type: str, item_id: int, review_status: str) -> dict:
-    """POST /api/comments/admin/review for one comment/commenter/tag."""
+def set_submission_nsfw(user, submission_id: int, nsfw: bool) -> dict:
+    """POST /api/submissions/admin/{id}/nsfw — blur/unblur."""
     return _call(
         user,
         "POST",
-        "/api/comments/admin/review",
-        json={
-            "content_type": content_type,
-            "id": item_id,
-            "review_status": review_status,
-        },
-        what="review update",
+        f"/api/submissions/admin/{submission_id}/nsfw",
+        json={"nsfw": nsfw},
+        what="nsfw update",
+    )
+
+
+def set_submission_hidden(user, submission_id: int, hidden: bool) -> dict:
+    """POST /api/submissions/admin/{id}/hidden — takedown/restore."""
+    return _call(
+        user,
+        "POST",
+        f"/api/submissions/admin/{submission_id}/hidden",
+        json={"hidden": hidden},
+        what="visibility update",
     )
 
 

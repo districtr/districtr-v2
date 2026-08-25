@@ -24,7 +24,6 @@ from authapi.jwks import all_jwks, current_kid
 from core.testing import PASSWORD, make_user
 from authapi.scopes import ALL_SCOPES, scopes_for_user
 from authapi.serializers import DistrictrTokenObtainPairSerializer
-from content.models import TagPage
 
 
 def fastapi_style_verify(token: str) -> dict:
@@ -46,9 +45,9 @@ def fastapi_style_verify(token: str) -> dict:
 
 class ScopeMappingTests(TestCase):
     def test_partner_scopes(self):
-        # Comment moderation only — and no review:review-all, which would
-        # make the backend treat the token as unrestricted and ignore
-        # review_tags.
+        # Submission moderation only — and no review:review-all, which
+        # would make the backend treat the token as unrestricted and ignore
+        # the teams claim.
         user = make_user("partner")
         self.assertEqual(scopes_for_user(user), "create:content_review")
 
@@ -101,98 +100,40 @@ class TokenContractTests(TestCase):
         self.assertEqual(keys[0]["kid"], current_kid())
 
 
-class ReviewScopingClaimTests(TestCase):
-    """Portal-derived review scoping: the `review_tags` claim is minted from
-    the user's teams' portals (a portal's page slug is its comment tag slug).
+class TeamsClaimTests(TestCase):
+    """Team-based moderation scoping: the `teams` claim is minted from the
+    user's team slugs; the backend intersects it with a portal's
+    form_configs.admin_teams (backend/app/submissions/main.py).
 
-    The FastAPI backend (backend/app/comments/main.py::allowed_review_tags)
-    treats an ABSENT claim — or a token carrying `review:review-all` — as
-    unrestricted, and an EMPTY list as "allows nothing", so these tests pin:
-    admins get no claim; team-scoped users get their portal slugs; team-less
-    non-admins get [] (fail closed until they join a team).
+    The backend treats an ABSENT claim — or a token carrying
+    `review:review-all` — as unrestricted, and an EMPTY list as "allows
+    nothing", so these tests pin: admins get no claim; team-scoped users get
+    their team slugs; team-less non-admins get [] (fail closed until they
+    join a team).
     """
-
-    @staticmethod
-    def _portal(slug, districtr_map_slug):
-        from content.models import TagPage, TagsIndexPage
-
-        index = TagsIndexPage.objects.first()
-        page = TagPage(
-            title=slug.title(), slug=slug, districtr_map_slug=districtr_map_slug
-        )
-        index.add_child(instance=page)
-        return page
 
     def _claim_for(self, user):
         refresh = DistrictrTokenObtainPairSerializer.get_token(user)
         return fastapi_style_verify(str(refresh.access_token))
 
-    def test_team_scoped_user_gets_portal_slugs(self):
-        from core.testing import create_mirror_tables, make_team
-        from datastore.models import DistrictrMap, GerryDBTable
-
-        create_mirror_tables(GerryDBTable, DistrictrMap)
-        layer = GerryDBTable.objects.create(name="blocks")
-        team_map = DistrictrMap.objects.create(
-            name="Chi", districtr_map_slug="chi_wards", parent_layer=layer
-        )
-        DistrictrMap.objects.create(
-            name="Tx", districtr_map_slug="tx_other", parent_layer=layer
-        )
-        self._portal("schools", "chi_wards")
-        self._portal("environment", "chi_wards")
-        self._portal("texas", "tx_other")
+    def test_team_scoped_user_gets_team_slugs(self):
+        from core.testing import make_team
 
         user = make_user("partner")
-        make_team("Claim Team", members=[user], maps=[team_map])
+        make_team("Claim Team", members=[user])
+        make_team("Other Team")  # not a member — must not appear
 
         payload = self._claim_for(user)
-        self.assertEqual(payload["review_tags"], ["environment", "schools"])
+        self.assertEqual(payload["teams"], ["claim-team"])
         self.assertNotIn("review:review-all", payload["scope"].split())
-
-    def test_non_default_locale_portal_cannot_mint_scope(self):
-        # Page slugs are unique only per parent and each locale has its own
-        # tags index, so without a default-locale filter a member could create
-        # a page in a translated index carrying another team's portal slug and
-        # mint that team's review scope.
-        from wagtail.models import Locale
-
-        from content.models import TagsIndexPage
-        from core.testing import create_mirror_tables, make_team
-        from datastore.models import DistrictrMap, GerryDBTable
-
-        create_mirror_tables(GerryDBTable, DistrictrMap)
-        layer = GerryDBTable.objects.create(name="blocks")
-        mine = DistrictrMap.objects.create(
-            name="Mine", districtr_map_slug="chi_wards", parent_layer=layer
-        )
-        self._portal("my-portal", "chi_wards")
-
-        # Same map (so it is in the member's scope), another team's portal
-        # slug, non-default locale.
-        index = TagsIndexPage.objects.get(locale=Locale.get_default())
-        index.add_child(
-            instance=TagPage(
-                title="Impostor",
-                slug="other-teams-portal",
-                districtr_map_slug="chi_wards",
-                locale=Locale.objects.get(language_code="es"),
-            )
-        )
-
-        user = make_user("partner")
-        make_team("Impostor Team", members=[user], maps=[mine])
-
-        payload = self._claim_for(user)
-        self.assertEqual(payload["review_tags"], ["my-portal"])
 
     def test_team_less_partner_fails_closed(self):
         payload = self._claim_for(make_user("partner"))
-        self.assertEqual(payload["review_tags"], [])
+        self.assertEqual(payload["teams"], [])
 
     def test_admin_gets_no_claim(self):
         payload = self._claim_for(make_user("admin"))
-        self.assertNotIn("review_tags", payload)
+        self.assertNotIn("teams", payload)
         self.assertIn("review:review-all", payload["scope"].split())
 
     def test_superuser_gets_no_claim(self):
@@ -200,11 +141,10 @@ class ReviewScopingClaimTests(TestCase):
         user.is_superuser = True
         user.save()
         payload = self._claim_for(user)
-        self.assertNotIn("review_tags", payload)
+        self.assertNotIn("teams", payload)
 
     def test_partner_scope_has_no_review_all(self):
-        # review:review-all would make the backend ignore review_tags
-        # entirely.
+        # review:review-all would make the backend ignore the teams claim.
         self.assertNotIn("review:review-all", scopes_for_user(make_user("partner")))
 
 

@@ -2,16 +2,16 @@
 Team-based Wagtail admin scoping (see authapi.models.Team).
 
 A non-admin user who belongs to one or more Teams is "team-scoped": the admin
-listings/editing for galleries, tag pages, and Districtr map modules are
+listings/editing for portal forms, tag pages, and Districtr map modules are
 narrowed to their teams' resources. Superusers and members of the `admin`
 group are never scoped; a non-admin user with no team keeps their role's
 default (unscoped) access.
 
 Each resource reaches a Team differently:
-- Gallery.team is a direct FK;
 - DistrictrMap relates through TeamDistrictrMap (team_links);
 - TagPage relates indirectly through districtr_map_slug -> DistrictrMap ->
-  TeamDistrictrMap.
+  TeamDistrictrMap;
+- FormConfig (submission moderation) carries team slugs in admin_teams.
 
 so the per-resource queryset filters live with each resource's wagtail_hooks;
 this module only answers "is this user scoped, and to which teams".
@@ -42,6 +42,21 @@ def team_ids_for_user(user) -> set[int]:
     )
 
 
+def team_slugs_for_user(user) -> list[str]:
+    """Slugs of every Team ``user`` belongs to, sorted.
+
+    Minted into the JWT `teams` claim and matched by the backend against
+    form_configs.admin_teams to scope submission moderation per portal
+    (backend/app/submissions/main.py::require_portal_admin). Renaming a team
+    is safe; changing its slug invalidates members' access until re-login.
+    """
+    from authapi.models import Team
+
+    return sorted(
+        Team.objects.filter(memberships__user=user).values_list("slug", flat=True)
+    )
+
+
 def districtr_map_slugs_for_user(user) -> set[str]:
     """districtr_map_slugs of the DistrictrMaps assigned to the user's teams.
 
@@ -58,34 +73,6 @@ def districtr_map_slugs_for_user(user) -> set[str]:
     )
 
 
-def review_portal_slugs_for_user(user) -> list[str]:
-    """Portal (TagPage) slugs whose submissions the user may review — minted
-    as the JWT `review_tags` claim (a portal's page slug is its comment tag
-    slug).
-
-    DEFAULT LOCALE ONLY, for two reasons: translations legitimately share a
-    slug with their source (so per-locale rows would be duplicates), and page
-    slugs are unique only per parent — each locale has its own tags index, so
-    without this filter a member could create a page in a translated index
-    carrying ANOTHER team's portal slug and mint themselves that team's
-    review scope. This matches moderation's _accessible_portals filter.
-
-    Imported lazily to avoid a load-time dependency on content.
-    """
-    from wagtail.models import Locale
-
-    from content.models import TagPage
-
-    return sorted(
-        set(
-            TagPage.objects.filter(
-                locale=Locale.get_default(),
-                districtr_map_slug__in=districtr_map_slugs_for_user(user),
-            ).values_list("slug", flat=True)
-        )
-    )
-
-
 def instance_in_scope(user, model, team_filter_field, pk) -> bool:
     """False exactly when a team-scoped ``user`` may not act on ``model`` row
     ``pk``. Unscoped users (admins, superusers, team-less) always pass."""
@@ -98,7 +85,7 @@ def scoped_queryset(model, team_filter_field, user):
     """``model`` rows belonging to one of ``user``'s teams.
 
     ``team_filter_field`` is the ORM lookup from the model to Team's pk,
-    e.g. ``team_id`` (Gallery, direct FK) or ``team_links__team_id``
+    e.g. ``team_links__team_id``
     (DistrictrMap, via TeamDistrictrMap).
     """
     team_ids = team_ids_for_user(user)
@@ -112,7 +99,7 @@ class TeamScopedModelPermissionPolicy(ModelPermissionPolicy):
     belonging to their teams. Admins / superusers / team-less users are
     unaffected (full model-permission behaviour).
 
-    Used for resources a member may *edit* (e.g. Gallery). ``team_filter_field``
+    Used for resources a member may *edit*. ``team_filter_field``
     is the lookup passed to :func:`scoped_queryset`.
     """
 

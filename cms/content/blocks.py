@@ -220,8 +220,16 @@ class CommentGalleryBlock(CompatStructBlock):
         nullable_if_empty = ("ids", "tags", "place", "state", "zipCode")
 
 
-class FormBlock(blocks.StructBlock):
-    """TipTap ``formNode`` (comment submission form); mirrors FORM_ATTRIBUTES."""
+class FormBlock(CompatStructBlock):
+    """The submission-form placement marker; mirrors FORM_ATTRIBUTES.
+
+    Which fields the form shows lives portal-level in the FormConfig mirror
+    (datastore.models.FormConfig), injected into the API representation by
+    content/api.py::_inject_form_config — the block itself only carries the
+    placement-specific knobs. nullable_if_empty on allowListModules restores
+    the "empty = all" contract: served as ``[]`` the frontend's
+    ``allowListModules.includes(slug)`` rejects every module.
+    """
 
     mandatoryTags = blocks.ListBlock(
         blocks.CharBlock(),
@@ -238,7 +246,8 @@ class FormBlock(blocks.StructBlock):
 
     class Meta:
         icon = "form"
-        label = "Comment submission form"
+        label = "Submission form"
+        nullable_if_empty = ("allowListModules",)
 
 
 class MapCreateButtonsViewBlock(blocks.StructBlock):

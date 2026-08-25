@@ -9,7 +9,7 @@
 
         <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
             <a class="button {% if kind != 'maps' %}{% else %}button-secondary{% endif %}"
-               href="{% url 'moderation_portal_review' portal.slug %}?kind=comments">Comments</a>
+               href="{% url 'moderation_portal_review' portal.slug %}?kind=comments">Submissions</a>
             <a class="button {% if kind == 'maps' %}{% else %}button-secondary{% endif %}"
                href="{% url 'moderation_portal_review' portal.slug %}?kind=maps">Map submissions</a>
         </div>
@@ -35,12 +35,12 @@
             {% if kind == 'maps' %}
                 <div style="border:1px solid var(--w-color-border-furniture); border-radius:5px; margin-bottom:1.5rem;">
                     <div style="padding: 0.75rem 1rem; background: var(--w-color-surface-header); display:flex; justify-content:space-between; align-items:center; gap:1rem;">
-                        <strong>Submitted plan: #{{ entry.public_id|default:entry.document_id }}</strong>
-                        {% if entry.public_id %}
+                        <strong>Submitted plan: #{{ entry.map_public_id }}</strong>
+                        {% if entry.map_public_id and entry.status == "submitted" %}
                             <form method="post" action="{% url 'moderation_add_to_portal_gallery' %}">
                                 {% csrf_token %}
                                 <input type="hidden" name="portal" value="{{ portal.slug }}">
-                                <input type="hidden" name="public_id" value="{{ entry.public_id }}">
+                                <input type="hidden" name="public_id" value="{{ entry.map_public_id }}">
                                 <input type="hidden" name="next" value="{{ request.get_full_path }}">
                                 <button type="submit" class="button button-small">Add to portal gallery</button>
                             </form>
@@ -53,7 +53,7 @@
             {% endif %}
         {% empty %}
             {% if not error %}
-                <p>No {% if kind == 'maps' %}map submissions{% else %}comments{% endif %} match the current filters.</p>
+                <p>No {% if kind == 'maps' %}map submissions{% else %}submissions{% endif %} match the current filters.</p>
             {% endif %}
         {% endfor %}
 

@@ -12,14 +12,14 @@ class Team(ClusterableModel):
     """A partner organization — the access-control boundary of the CMS.
 
     Team membership scopes a non-admin user's Wagtail admin to their teams'
-    resources: the galleries a team owns (Gallery.team), the Districtr map
+    resources: the portal forms a team administers (FormConfig.admin_teams), the Districtr map
     modules assigned to it (TeamDistrictrMap), and the tag/place pages tied
     to those modules (authapi/teams.py). Admins and superusers are never
     scoped, nor are non-admin users with no team. Managed by admins in the
     "Teams" snippet (authapi/wagtail_hooks.py).
 
     The slug is minted into the JWT `teams` claim at login and matched by
-    the galleries API for group_only galleries — renaming a team is safe,
+    the backend against form_configs.admin_teams — renaming a team is safe,
     changing its slug invalidates members' access until re-login.
     """
 
