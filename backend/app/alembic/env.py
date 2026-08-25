@@ -18,13 +18,6 @@ from app.models import (
     DistrictUnions,
 )
 from app.save_share.models import MapDocumentToken
-from app.comments.models import (
-    Comment,
-    Commenter,
-    Tag,
-    CommentTag,
-    DocumentComment,
-)
 from app.district_notes import DistrictNote
 from app.evaluation.models import Evaluation
 from app.submissions.models import FormConfig, Submission, SubmissionContent
@@ -48,11 +41,6 @@ tables = [
     Document,
     MapDocumentUserSession,
     MapDocumentToken,
-    Comment,
-    Commenter,
-    Tag,
-    CommentTag,
-    DocumentComment,
     DistrictNote,
     FormConfig,
     Submission,
