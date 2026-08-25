@@ -1,7 +1,7 @@
 import {DOMNode} from 'html-react-parser';
 import BoilerplateNodeRenderer from '../../Cms/RichTextEditor/extensions/Boilerplate/BoilerplateNodeRenderer';
 import {ContentHeader} from '../../Static/ContentHeader';
-import {CommentSubmissionForm} from '../../Forms/CommentSubmissionForm';
+import {SubmissionForm} from '../../Forms/SubmissionForm';
 import {
   PlanGallery,
   PlanGalleryProps,
@@ -55,13 +55,9 @@ export const domNodeReplacers = (disabled: boolean) => {
               JSON.parse(domNode.attribs[attr.name] ?? 'null'),
             ])
           );
-          return (
-            <CommentSubmissionForm
-              disabled={disabled}
-              mandatoryTags={props.mandatoryTags}
-              allowListModules={props.allowListModules}
-            />
-          );
+          // Legacy embedded form nodes carry no form config; SubmissionForm
+          // renders nothing without one (converted pages use stream blocks).
+          return <SubmissionForm disabled={disabled} {...(props as any)} />;
         }
         case RICH_TEXT_NODE_TYPES.MAP_CREATE_BUTTONS: {
           const props = Object.fromEntries(

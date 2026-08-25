@@ -1,12 +1,11 @@
 'use client';
-import {FormState, useFormState} from '@/app/store/formState';
-import {Box, Flex, Select, Text, TextField, Tooltip} from '@radix-ui/themes';
+import {useFormState} from '@/app/store/formState';
+import {Flex, Select, Text, TextField, Tooltip} from '@radix-ui/themes';
 import {useEffect, useState} from 'react';
-import {FormFieldProps, FormPart} from './types';
+import {FormFieldProps} from './types';
 
-export function FormField<T extends FormPart>({
-  formPart,
-  formProperty,
+export function FormField({
+  name,
   label,
   type,
   placeholder,
@@ -18,9 +17,12 @@ export function FormField<T extends FormPart>({
   validator,
   pattern,
   invalidMessage,
-}: FormFieldProps<T>) {
-  const value = useFormState(state => state[formPart][formProperty] as string);
-  const setFormState = useFormState(state => state.setFormState);
+  value: valueOverride,
+  onChangeValue,
+}: FormFieldProps) {
+  const storeValue = useFormState(state => state.fields[name] ?? '');
+  const setField = useFormState(state => state.setField);
+  const value = valueOverride ?? storeValue;
   const Component = component ?? TextField.Root;
   const highlightErrors = useFormState(state => state.highlightErrors);
 
@@ -28,13 +30,13 @@ export function FormField<T extends FormPart>({
 
   const validate = (_value: string) => {
     const v = _value ?? value;
-    return v?.trim().length && (!validator || validator(v as FormState[T][keyof FormState[T]]));
+    return v?.trim().length && (!validator || validator(v));
   };
 
   const updateFormState = (component: HTMLInputElement | string) => {
-    const value = typeof component === 'string' ? component : component.value;
-    setInvalid(!validate(value));
-    setFormState(formPart, formProperty as keyof FormState[T], value);
+    const next = typeof component === 'string' ? component : component.value;
+    setInvalid(!validate(next));
+    (onChangeValue ?? (v => setField(name, v)))(next);
   };
 
   useEffect(() => {
@@ -47,8 +49,8 @@ export function FormField<T extends FormPart>({
     required,
     placeholder: placeholder ?? label,
     type,
-    name: `${formPart}-${formProperty as string}`,
-    'aria-label': `${formPart}-${formProperty as string}`,
+    name,
+    'aria-label': name,
     value: disabled ? '' : (value ?? ''),
     autoComplete: disabled ? 'off' : autoComplete,
     onBlur: () => required && !validate(value) && setInvalid(true),
@@ -65,7 +67,7 @@ export function FormField<T extends FormPart>({
       alignOffset={0}
     >
       <Flex direction="column" gap="1">
-        <Text as="label" size="2" weight="medium" id={`${formPart}-${formProperty as string}`}>
+        <Text as="label" size="2" weight="medium" id={name}>
           {label}
         </Text>
         {component !== Select.Root ? (
