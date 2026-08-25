@@ -100,6 +100,11 @@ def _inject_form_config(body_data, portal_slug):
                     else False,
                 }
             )
+        elif block.get("type") == "map_create_buttons" and config is not None:
+            # Maps started from a portal page get a draft submission for the
+            # portal (the auto-submit pathway) — only meaningful when the
+            # portal has a form config for the backend to validate against.
+            block["value"]["portalId"] = portal_slug
     return body_data
 
 
