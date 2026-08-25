@@ -58,11 +58,12 @@ import app.admin_ops.main as admin_ops
 import app.cms.main as cms
 import app.exports.main as exports
 import app.comments.main as comments
-from app.comments.main import sync_district_comments, sync_community_comments
-from app.comments.models import DistrictCommentInput
-from app.comments.settings import (
+from app.district_notes import (
     DEFAULT_MAX_COMMENT_LENGTH,
     DEFAULT_MAX_COMMENTS_PER_DISTRICT,
+    DistrictNote,
+    duplicate_district_notes,
+    sync_district_notes,
 )
 import app.contiguity.main as contiguity
 import app.evaluation.main as evaluation
@@ -90,7 +91,6 @@ from app.models import (
     NumDistrictsSetResult,
 )
 from app.comments.models import (
-    Comment,
     DocumentComment as FormDocumentComment,
     Tag,
     CommentTag,
@@ -220,55 +220,6 @@ def update_timestamp(
     )
     updated_at = session.connection().execute(update_stmt).scalar_one()
     return updated_at
-
-
-def duplicate_document_comments(
-    *,
-    from_document_id: str,
-    to_document_id: str,
-    session: Session,
-) -> int:
-    """
-    Deep-copy DocumentComment associations (and their backing Comment rows) from one
-    document to another. New Comment rows are inserted with title/comment/commenter
-    inherited from the source; moderation_score / review_status are intentionally left
-    unset so the target document re-moderates on next save.
-
-    Called from create_document when copying a map so that coverage validation on the
-    first subsequent save can succeed.
-    """
-    source_rows = session.exec(
-        select(
-            Comment.title,
-            Comment.comment,
-            Comment.commenter_id,
-            col(FormDocumentComment.zone).label("zone"),
-        )
-        .join(
-            FormDocumentComment,
-            col(FormDocumentComment.comment_id) == col(Comment.id),
-        )
-        .where(col(FormDocumentComment.document_id) == from_document_id)
-    ).all()
-
-    duplicated = 0
-    for row in source_rows:
-        new_comment = Comment(
-            title=row.title,
-            comment=row.comment,
-            commenter_id=row.commenter_id,
-        )
-        session.add(new_comment)
-        session.flush()
-        session.add(
-            FormDocumentComment(
-                comment_id=new_comment.id,
-                document_id=to_document_id,
-                zone=row.zone,
-            )
-        )
-        duplicated += 1
-    return duplicated
 
 
 @app.get("/")
@@ -509,16 +460,17 @@ async def create_document(
                 session=session,
             )
             total_assignments = total_assignments or 0
-        # Carry the source document's comments/descriptions to the new document so the
-        # first save against the copy can satisfy coverage validation.
-        duplicated_comments = duplicate_document_comments(
+        # Carry the source document's zone notes/descriptions to the new document so
+        # the first save against the copy can satisfy coverage validation. Form
+        # comments (written testimony) deliberately stay with the original.
+        duplicated_notes = duplicate_district_notes(
             from_document_id=copied_document.document_id,
             to_document_id=document_id,
             session=session,
         )
-        if VERBOSE_LOGGING and duplicated_comments:
+        if VERBOSE_LOGGING and duplicated_notes:
             logger.info(
-                f"Duplicated {duplicated_comments} comment(s) from "
+                f"Duplicated {duplicated_notes} zone note(s) from "
                 f"{copied_document.document_id} to {document_id}"
             )
 
@@ -563,17 +515,11 @@ async def create_document(
                 session.flush()
             for original_label, new_zone in zone_label_remapping.items():
                 display_label = original_label if original_label else "(blank)"
-                label_comment = Comment(
-                    title=display_label,
-                    comment=f"Originally labeled as {display_label}",
-                )
-                session.add(label_comment)
-                session.flush()
                 session.add(
-                    FormDocumentComment(
-                        comment_id=label_comment.id,
+                    DistrictNote(
                         document_id=document_id,
                         zone=new_zone,
+                        note=f"Originally labeled as {display_label}",
                     )
                 )
         except NoResultFound:
@@ -1073,33 +1019,26 @@ async def update_assignments(
     ):
         mutated = True
 
-    # Sync scoped comments via comments schema (None = no change, [] = delete all)
+    # Sync zone notes (None = no change, [] = delete all)
     if data.comments is not None:
-        comment_inputs: list[DistrictCommentInput] = []
         for c in data.comments:
             if c.zone is None:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Each comment must specify a zone (int).",
                 )
-            comment_inputs.append(
-                DistrictCommentInput(comment_id=c.comment_id, zone=c.zone, text=c.text)
-            )
         if VERBOSE_LOGGING:
             logger.info(
-                f"Syncing {'community' if is_community_map else 'district'} comments "
-                f"for document {document_id}: {len(comment_inputs)} comments"
+                f"Syncing zone notes for document {document_id}: "
+                f"{len(data.comments)} notes"
             )
-        sync_fn = (
-            sync_community_comments if is_community_map else sync_district_comments
-        )
-        sync_fn(
+        sync_district_notes(
             document_id=document_id,
-            comments=comment_inputs if len(data.comments) > 0 else [],
+            notes=data.comments,
             session=session,
             background_tasks=background_tasks,
         )
-        # sync_fn always hits the DB (delete/insert/update), so count it.
+        # The sync always hits the DB (delete/insert/update), so count it.
         mutated = True
 
     # For district maps, figure out which zones actually changed membership
