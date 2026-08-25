@@ -321,6 +321,9 @@ class DocumentCreate(BaseModel):
     metadata: DocumentMetadata | None = None
     copy_from_doc: str | int | None = None  # document_id to copy from
     assignments: list[list[str]] | None = None  # Option to load block assignments
+    # Portal slug: when set, a draft submission is created alongside the
+    # document (the map-from-portal auto-submit pathway).
+    portal_id: str | None = None
 
 
 # TODO: Remove this table
@@ -399,6 +402,8 @@ class DocumentCreatePublic(DocumentPublic):
     inserted_assignments: int
     skipped_geo_ids: list[str] = []
     zone_label_remapping: dict[str, int] = {}
+    # Draft-submission write capability, present when portal_id was given.
+    submission_id: str | None = None
 
 
 class Assignments(SQLModel, table=True):

@@ -79,7 +79,9 @@ class DistrictNote(TimeStampMixin, SQLModel, table=True):
     )
 
 
-def _get_note_limits_for_document(document_id: str, session: Session) -> tuple[int, int]:
+def _get_note_limits_for_document(
+    document_id: str, session: Session
+) -> tuple[int, int]:
     """Per-map note length/count limits from the document's DistrictrMap."""
     row = session.exec(  # type: ignore[no-matching-overload]
         select(
@@ -99,14 +101,16 @@ def _get_note_limits_for_document(document_id: str, session: Session) -> tuple[i
     return (max_length, max_count)
 
 
-def moderate_note_by_id(note_id: int, text: str, session: Session | None = None) -> None:
+def moderate_note_by_id(
+    note_id: int, text: str, session: Session | None = None
+) -> None:
     """Background task: score a note's text and persist score + nsfw.
 
     When ``session`` is None (the background-task case) a dedicated session is
     opened — the request-scoped session is closed by the time background tasks
     run (see app.comments.moderation._moderate).
     """
-    from app.comments.moderation import MODERATION_THRESHOLD, score_text
+    from app.submissions.moderation import MODERATION_THRESHOLD, score_text
 
     score = score_text(text)
 
@@ -197,9 +201,7 @@ def sync_district_notes(
 
     to_delete = existing_ids - kept_ids
     if to_delete:
-        session.execute(
-            delete(DistrictNote).where(col(DistrictNote.id).in_(to_delete))
-        )
+        session.execute(delete(DistrictNote).where(col(DistrictNote.id).in_(to_delete)))
 
 
 def duplicate_district_notes(

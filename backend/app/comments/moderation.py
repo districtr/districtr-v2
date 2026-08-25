@@ -1,81 +1,27 @@
-"""Profanity detection and scoring for comments system."""
+"""Moderation for the legacy comment tables.
+
+The scorer itself lives in app.submissions.moderation (this module and the
+tables it moderates are slated for deletion once the submissions system
+replaces them); score_text/MODERATION_THRESHOLD are re-exported here so
+existing patch targets keep working.
+"""
 
 import logging
 from sqlmodel import Session, Table, update
 
 from app.core.db import engine
-from safetext import SafeText
 
 from app.comments.models import (
     Comment,
     Commenter,
     Tag,
     FullCommentForm,
-    ModerationScore,
 )
-from app.core.config import settings
+from app.submissions.moderation import MODERATION_THRESHOLD, score_text
 
-st = SafeText(language="en")
+__all__ = ["MODERATION_THRESHOLD", "score_text"]
 
 logger = logging.getLogger(__name__)
-
-
-MODERATION_THRESHOLD: float = 0.2
-
-
-def rate_offensive_text_ai(text: str) -> ModerationScore | None:
-    """
-    Rates how offensive or inappropriate the given text is.
-    Returns a float between 0 (not offensive) and 1 (certainly offensive).
-    """
-    openai_client = settings.get_openai_client()
-    if not openai_client:
-        return
-
-    try:
-        response = openai_client.moderations.create(
-            input=text, model="omni-moderation-latest"
-        )
-        scores = response.results[0].category_scores
-        # get all score values
-        score_values = list(scores.__dict__.values())
-        return ModerationScore(ok=True, score=max(score_values))
-    except Exception as e:
-        logger.info(f"Error during moderation: {e}")
-        return ModerationScore(ok=False, score=1.0, error=str(e))
-
-
-def check_profanity(text: str) -> ModerationScore:
-    """
-    Rates how offensive or inappropriate the given text is.
-    Returns a float between 0 (not offensive) and 1 (certainly offensive).
-    """
-    try:
-        profanity = st.check_profanity(text.strip())
-        return ModerationScore(ok=True, score=1.0 if len(profanity) > 0 else 0.0)
-    except Exception as e:
-        return ModerationScore(ok=False, score=1.0, error=str(e))
-
-
-def score_text(text: str) -> float:
-    """
-    Check profanity score for a given text using better-profanity library.
-    Returns 1.0 if profane, 0.0 if clean.
-    """
-    # TODO: add AI check and use this as a fallback
-    if not text or not text.strip():
-        return 0.0
-
-    if settings.OPENAI_API_KEY:
-        result = rate_offensive_text_ai(text)
-        if result and result.ok:
-            return result.score
-
-    result = check_profanity(text)
-    if result.ok:
-        return result.score
-
-    return 1.0
 
 
 def moderate_text(cls: Table, key: int, text: str, session: Session) -> float:

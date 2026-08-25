@@ -301,12 +301,6 @@ class FullCommentFormResponse(BaseModel):
     tags: list[TagWithId]
 
 
-class ModerationScore(BaseModel):
-    ok: bool
-    score: float
-    error: str | None = None
-
-
 class PublicCommentResponse(BaseModel):
     title: str
     comment: str

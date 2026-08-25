@@ -27,6 +27,7 @@ from app.comments.models import (
 )
 from app.district_notes import DistrictNote
 from app.evaluation.models import Evaluation
+from app.submissions.models import FormConfig, Submission, SubmissionContent
 
 dotenv.load_dotenv()
 
@@ -53,6 +54,9 @@ tables = [
     CommentTag,
     DocumentComment,
     DistrictNote,
+    FormConfig,
+    Submission,
+    SubmissionContent,
     DistrictUnions,
     CommunityAssignments,
     Evaluation,

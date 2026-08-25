@@ -1422,36 +1422,63 @@ def test_document_list(
     assert data[0].get("public_id") == public_id
 
 
-def test_document_list_metadata_tags_and_draft_status(client, document_id_total_vap):
-    # A scratch map with a metadata tag is not yet "submitted" to tag galleries.
+def test_document_list_metadata_tags_are_not_a_gallery_mechanism(
+    client, document_id_total_vap
+):
+    # Design decision: submissions (and, until they are dropped, legacy
+    # tagged comments) are the ONLY ways a map enters a tag gallery. A map
+    # carrying matching metadata tags — even past scratch — must not appear
+    # (metadata tags remain display-only annotations).
     response = client.put(
         f"/api/document/{document_id_total_vap}/metadata",
-        json={"tags": ["workshop"], "draft_status": "scratch"},
+        json={"tags": ["workshop"], "draft_status": "in_progress"},
     )
     assert response.status_code == 200
     response = client.get("/api/documents/list?tags=workshop")
     assert response.status_code == 200
     assert response.json() == []
 
-    # Moving to in_progress submits it; the partial update must not wipe tags.
+    # The partial metadata update must not wipe sibling keys (dev's merge
+    # semantics, which the draft-status flows depend on).
+    response = client.put(
+        f"/api/document/{document_id_total_vap}/metadata",
+        json={"draft_status": "ready_to_share"},
+    )
+    assert response.status_code == 200
+    listed = client.get(
+        f"/api/documents/list?ids={_public_id_of(client, document_id_total_vap)}"
+    ).json()
+    assert listed[0]["map_metadata"]["tags"] == ["workshop"]
+    assert listed[0]["map_metadata"]["draft_status"] == "ready_to_share"
+
+
+def _public_id_of(client, document_id):
+    return client.get(f"/api/document/{document_id}").json()["public_id"]
+
+
+def test_document_list_draft_status_filter(client, document_id_total_vap):
+    # The explicit draft_status filter narrows any listing by the map's own
+    # metadata status.
+    public_id = _public_id_of(client, document_id_total_vap)
     response = client.put(
         f"/api/document/{document_id_total_vap}/metadata",
         json={"draft_status": "in_progress"},
     )
     assert response.status_code == 200
-    response = client.get("/api/documents/list?tags=workshop")
-    data = response.json()
-    assert len(data) == 1
-    assert data[0]["map_metadata"]["tags"] == ["workshop"]
-    assert data[0]["map_metadata"]["draft_status"] == "in_progress"
-
-    # Explicit completion-status filter narrows the listing.
-    response = client.get(
-        "/api/documents/list?tags=workshop&draft_status=ready_to_share"
+    assert (
+        client.get(
+            f"/api/documents/list?ids={public_id}&draft_status=ready_to_share"
+        ).json()
+        == []
     )
-    assert response.json() == []
-    response = client.get("/api/documents/list?tags=workshop&draft_status=in_progress")
-    assert len(response.json()) == 1
+    assert (
+        len(
+            client.get(
+                f"/api/documents/list?ids={public_id}&draft_status=in_progress"
+            ).json()
+        )
+        == 1
+    )
 
 
 def test_document_list_comment_tags(client, document_id_total_vap):

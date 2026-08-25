@@ -30,7 +30,7 @@ def _put_note(client, document_id, note_text, zone=1, comment_id=None):
     return client.put("/api/assignments", json=body)
 
 
-@patch("app.comments.moderation.score_text", return_value=CLEAN_SCORE)
+@patch("app.submissions.moderation.score_text", return_value=CLEAN_SCORE)
 def test_note_truncated_to_map_length_limit(_mock, client, document_id, session):
     response = _put_note(client, document_id, "x" * 500)
     assert response.status_code == 200, response.json()
@@ -40,7 +40,7 @@ def test_note_truncated_to_map_length_limit(_mock, client, document_id, session)
     assert len(note.note) == 240  # DEFAULT_MAX_COMMENT_LENGTH
 
 
-@patch("app.comments.moderation.score_text", return_value=CLEAN_SCORE)
+@patch("app.submissions.moderation.score_text", return_value=CLEAN_SCORE)
 def test_per_zone_note_limit_enforced(_mock, client, document_id):
     document_info = client.get(f"/api/document/{document_id}").json()
     response = client.put(
@@ -59,7 +59,7 @@ def test_per_zone_note_limit_enforced(_mock, client, document_id):
     assert "per zone" in response.json()["detail"]
 
 
-@patch("app.comments.moderation.score_text", return_value=NSFW_SCORE)
+@patch("app.submissions.moderation.score_text", return_value=NSFW_SCORE)
 def test_nsfw_note_hidden_publicly_visible_to_editor(
     _mock, client, document_id, session
 ):
@@ -90,7 +90,7 @@ def test_nsfw_note_hidden_publicly_visible_to_editor(
     )
 
 
-@patch("app.comments.moderation.score_text", return_value=CLEAN_SCORE)
+@patch("app.submissions.moderation.score_text", return_value=CLEAN_SCORE)
 def test_copy_carries_notes_and_moderation_verdict(_mock, client, document_id, session):
     response = _put_note(client, document_id, "carry me over")
     assert response.status_code == 200, response.json()
@@ -127,7 +127,7 @@ def test_copy_carries_notes_and_moderation_verdict(_mock, client, document_id, s
     assert copied.id != source_note.id
 
 
-@patch("app.comments.moderation.score_text", return_value=CLEAN_SCORE)
+@patch("app.submissions.moderation.score_text", return_value=CLEAN_SCORE)
 def test_notes_cascade_on_document_delete(_mock, client, document_id, session):
     response = _put_note(client, document_id, "doomed note")
     assert response.status_code == 200, response.json()
@@ -143,7 +143,7 @@ def test_notes_cascade_on_document_delete(_mock, client, document_id, session):
     assert remaining == []
 
 
-@patch("app.comments.moderation.score_text", return_value=CLEAN_SCORE)
+@patch("app.submissions.moderation.score_text", return_value=CLEAN_SCORE)
 def test_negative_zone_is_rejected_as_validation_error(_mock, client, document_id):
     # Mirrors the zone_non_negative CHECK: bad input must 422, never surface
     # as an IntegrityError 500 that rolls back the whole assignments save.
@@ -151,7 +151,7 @@ def test_negative_zone_is_rejected_as_validation_error(_mock, client, document_i
     assert response.status_code == 422
 
 
-@patch("app.comments.moderation.score_text", return_value=CLEAN_SCORE)
+@patch("app.submissions.moderation.score_text", return_value=CLEAN_SCORE)
 def test_empty_note_is_treated_as_deletion(_mock, client, document_id, session):
     response = _put_note(client, document_id, "real note")
     assert response.status_code == 200, response.json()

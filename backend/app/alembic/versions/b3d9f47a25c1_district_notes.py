@@ -56,9 +56,7 @@ def upgrade() -> None:
         sa.Column("document_id", app.core.models.UUIDType(), nullable=False),
         sa.Column("zone", sa.Integer(), nullable=False),
         sa.Column("note", sa.String(length=5000), nullable=False),
-        sa.Column(
-            "nsfw", sa.Boolean(), server_default="false", nullable=False
-        ),
+        sa.Column("nsfw", sa.Boolean(), server_default="false", nullable=False),
         sa.Column("moderation_score", sa.Float(), nullable=True),
         sa.CheckConstraint("zone >= 0", name="zone_non_negative"),
         sa.CheckConstraint("LENGTH(TRIM(note)) > 0", name="note_not_empty"),
