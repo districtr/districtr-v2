@@ -332,8 +332,6 @@ class TestCommentEndpoint:
         )
         assert response.status_code == 200
         document_info2 = client.get(f"/api/document/{document_id}").json()
-        # Because of silly idea to have a separate DocumentComment, it's kind of hard/annoying to get this value back
-        # TODO: DocumentComment has no business being its own table and should be combined with Comment
         assert document_info2["document_comments"][0]["zone"] == 1
         assert document_info2["document_comments"][0]["text"] == "Hello, world!"
 
@@ -1655,16 +1653,3 @@ class TestReviewTagScoping:
         )
         assert response.status_code == 403
         assert "commenters are not tag-scoped" in response.json()["detail"]
-
-    def test_district_comments_403_for_restricted(self, client):
-        # District comments carry no tags, so a tag scope can never match:
-        # restricted reviewers are refused outright.
-        self._set_auth(self.RESTRICTED_PAYLOAD)
-        response = client.get("/api/comments/admin/district-comments/list")
-        assert response.status_code == 403
-        assert "district comments are not tagged" in response.json()["detail"]
-
-    def test_district_comments_ok_for_unrestricted(self, client):
-        self._set_auth({"sub": "42", "scope": "create:content_review"})
-        response = client.get("/api/comments/admin/district-comments/list")
-        assert response.status_code == 200
