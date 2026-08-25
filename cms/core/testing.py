@@ -69,8 +69,26 @@ def make_portal(slug, *, districtr_map_slug="chi_wards", title=None):
 
 def create_mirror_tables(*models):
     """Build the managed=False datastore mirrors inside the test transaction
-    (their tables live in the Alembic-owned public schema in real databases,
-    so the Django test database never creates them)."""
+    (their tables live in Alembic-owned schemas in real databases, so the
+    Django test database never creates them). Schema-qualified mirrors
+    (db_table 'schema"."table') get their schema created first."""
     with connection.schema_editor() as editor:
         for model in models:
+            db_table = model._meta.db_table
+            if '"."' in db_table:
+                schema = db_table.split('"."', 1)[0]
+                editor.execute(f'CREATE SCHEMA IF NOT EXISTS "{schema}"')
             editor.create_model(model)
+
+
+def make_form_config(portal_id, *, admin_teams=(), fields=None, required=None):
+    """A FormConfig row (create_mirror_tables(FormConfig) must have run)."""
+    from datastore.models import FormConfig
+
+    return FormConfig.objects.create(
+        portal_id=portal_id,
+        name=portal_id.replace("-", " ").title(),
+        fields=list(fields or ["first_name", "email", "title", "comment"]),
+        required_fields=list(required or ["title", "comment"]),
+        admin_teams=list(admin_teams),
+    )

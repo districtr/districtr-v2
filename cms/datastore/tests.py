@@ -16,12 +16,14 @@ from datastore.drift import (
     compare_columns,
     mirrored_models,
     model_column_spec,
+    parse_db_table,
 )
 from datastore.models import (
     DistrictrMap,
     DistrictrMapOverlays,
     DistrictrMapsToGroups,
     GeoUnitType,
+    FormConfig,
     GerryDBTable,
     MapGroup,
     MapType,
@@ -38,6 +40,7 @@ EXPECTED_TABLES = {
     DistrictrMapsToGroups: "districtrmaps_to_groups",
     DistrictrMapOverlays: "districtrmap_overlays",
     Overlay: "overlay",
+    FormConfig: 'comments"."form_configs',
 }
 
 EXPECTED_COLUMNS = {
@@ -81,6 +84,17 @@ EXPECTED_COLUMNS = {
         "created_at",
         "updated_at",
     },
+    FormConfig: {
+        "id",
+        "portal_id",
+        "name",
+        "fields",
+        "required_fields",
+        "require_email_confirm",
+        "admin_teams",
+        "created_at",
+        "updated_at",
+    },
 }
 
 
@@ -105,6 +119,13 @@ class MirrorMetaTests(SimpleTestCase):
 
     def test_every_excluded_columns_table_is_mirrored(self):
         self.assertEqual(set(EXCLUDED_COLUMNS), set(EXPECTED_TABLES.values()))
+
+    def test_parse_db_table(self):
+        self.assertEqual(parse_db_table("districtrmap"), ("public", "districtrmap"))
+        self.assertEqual(
+            parse_db_table('comments"."form_configs'),
+            ("comments", "form_configs"),
+        )
 
     def test_foreign_keys_do_nothing_and_unconstrained(self):
         for model in EXPECTED_TABLES:

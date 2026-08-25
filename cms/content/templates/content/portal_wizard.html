@@ -1,0 +1,27 @@
+{% extends "wagtailadmin/base.html" %}
+{% block titletag %}New portal{% endblock %}
+
+{% block content %}
+    {% include "wagtailadmin/shared/header.html" with title="New portal" subtitle="Create a portal page and its submission form in one step" icon="tag" %}
+
+    <div class="nice-padding">
+        <p>
+            This creates a <strong>draft</strong> portal page from a starter
+            template plus the portal's form configuration. Everything can be
+            adjusted afterwards — the page in the page editor, the form in
+            <em>Portal forms</em>.
+        </p>
+        <form action="" method="POST" novalidate>
+            {% csrf_token %}
+            {% include "wagtailadmin/shared/non_field_errors.html" %}
+            <ul class="fields">
+                {% for field in form %}
+                    <li>
+                        {% include "wagtailadmin/shared/field.html" with field=field %}
+                    </li>
+                {% endfor %}
+            </ul>
+            <button type="submit" class="button">Create portal</button>
+        </form>
+    </div>
+{% endblock %}

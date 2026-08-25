@@ -235,3 +235,59 @@ class DistrictrMapOverlays(models.Model):
 
     def __str__(self):
         return f"{self.districtr_map_id} \N{RIGHTWARDS ARROW} {self.overlay_id}"
+
+
+# ---------------------------------------------------------------------------
+# comments-schema mirror
+# ---------------------------------------------------------------------------
+
+# The submission field registry — the fixed vocabulary a portal's form may
+# draw from. LOCKSTEP CONTRACT with backend/app/submissions/fields.py
+# (validation) and app/src/app/components/Forms/fieldRegistry.tsx
+# (rendering): adding a field means touching all three.
+SUBMISSION_FIELD_CHOICES = [
+    ("salutation", "Salutation"),
+    ("first_name", "First name"),
+    ("last_name", "Last name"),
+    ("email", "Email (never shown publicly)"),
+    ("title", "Title"),
+    ("comment", "Comment"),
+    ("place", "Place"),
+    ("state", "State"),
+    ("zip_code", "Zip code"),
+]
+
+
+class FormConfig(models.Model):
+    """Mirror of comments.form_configs (backend/app/submissions/models.py).
+
+    One row per portal: which registry fields its submission form shows,
+    which are required, and which teams administer its submissions. The
+    backend validates submissions against this row; the CMS edits it here
+    and injects it into the portal page's form blocks (content/api.py).
+
+    Unlike the other mirrors this table lives in the `comments` schema, which
+    is NOT on the connection search_path — the db_table quoting trick below
+    schema-qualifies it. Deliberately not added to the search_path: that
+    would expose every legacy comment table to ORM name collisions during
+    the transition.
+    """
+
+    id = models.AutoField(primary_key=True)
+    portal_id = models.CharField(unique=True)
+    name = models.CharField()
+    fields = ArrayField(models.CharField(max_length=64), default=list)
+    required_fields = ArrayField(models.CharField(max_length=64), default=list)
+    require_email_confirm = models.BooleanField(default=False)
+    admin_teams = ArrayField(models.CharField(max_length=255), default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        managed = False
+        db_table = 'comments"."form_configs'
+        verbose_name = "portal form"
+        verbose_name_plural = "portal forms"
+
+    def __str__(self):
+        return f"{self.name} ({self.portal_id})"
