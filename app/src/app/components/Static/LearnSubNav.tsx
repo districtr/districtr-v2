@@ -5,7 +5,7 @@ export const LEARN_ITEMS: SecondaryNavItem[] = [
   {label: 'Guide', href: '/guide'},
   {label: 'About', href: '/about'},
   {label: 'Data', href: '/data'},
-  {label: 'Rules of Redistricting', href: '/rules'},
+  {label: 'Rules of redistricting', href: '/rules'},
 ];
 
 /** Second-order nav bar shown across the Learn content pages. */

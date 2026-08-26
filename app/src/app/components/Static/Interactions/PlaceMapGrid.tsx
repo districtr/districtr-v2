@@ -4,7 +4,6 @@ import {ArrowRightIcon, Component1Icon, LayersIcon, PersonIcon} from '@radix-ui/
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 import {sanitizeCommunityMaps} from '@/app/utils/communities';
 import {useCreateMapDocument} from './CreateButton';
-import {ImportBlockAssignments} from './ImportBlockAssignments';
 
 export const MapStartCard: React.FC<{
   view: Partial<DistrictrMap>;
@@ -85,16 +84,13 @@ export const PlaceMapGrid: React.FC<{maps: Partial<DistrictrMap>[]}> = ({maps}) 
   return (
     <Flex direction="column" gap="5">
       <section>
-        <Flex justify="between" align="start" gap="3" wrap="wrap" mb="2">
-          <Flex direction="column">
-            <Heading as="h3" size="3" mb="1">
-              District plans
-            </Heading>
-            <Text as="p" size="2" color="gray">
-              Start from a blank map and divide it into districts.
-            </Text>
-          </Flex>
-          <ImportBlockAssignments />
+        <Flex direction="column" mb="2">
+          <Heading as="h3" size="3" mb="1">
+            District plans
+          </Heading>
+          <Text as="p" size="2" color="gray">
+            Start from a blank map and divide it into districts.
+          </Text>
         </Flex>
         <CardGrid>
           {maps.map((view, i) => (

@@ -57,7 +57,7 @@ const mapDisplayModes: Array<{
     value: DEMOGRAPHIC_MODES.SIDE_BY_SIDE,
   },
   {
-    label: 'Overlay',
+    label: 'Shaded regions',
     value: DEMOGRAPHIC_MODES.OVERLAY,
   },
   {
@@ -329,7 +329,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
               // was being clipped by the panel's edge.
               <Flex direction="column" gapY="2" pr="2">
                 <Text size="2" weight="medium">
-                  Overlay layer opacity
+                  Shaded region opacity
                 </Text>
                 <Slider
                   value={[mapOptions.overlayOpacity]}

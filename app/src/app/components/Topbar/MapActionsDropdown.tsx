@@ -71,7 +71,11 @@ export const MapActionsDropdown: React.FC<{
     }
     // Fetch via the session-aware client (plain anchor navigation can't attach
     // the X-Districtr-Session header) and save the blob through a transient
-    // anchor. Filename comes from the backend's Content-Disposition.
+    // anchor. The backend names the file "{document_id}_{ExportType}_{timestamp}.{ext}"
+    // (exports/main.py) — document_id is a UUID (no underscores), so splitting
+    // on the first "_" cleanly separates it from the "{ExportType}_{timestamp}.{ext}"
+    // suffix, which is always kept as-is. The UUID prefix is swapped for the
+    // user's own plan name when set; dropped entirely (not replaced) when not.
     try {
       const response = await fetchWithSession(
         `${process.env.NEXT_PUBLIC_API_URL}/api/document/${exportId}/export?export_type=${exportType}`
@@ -80,9 +84,22 @@ export const MapActionsDropdown: React.FC<{
         notifyExportFailed(`${response.status}`);
         return;
       }
-      const filename =
-        response.headers.get('Content-Disposition')?.match(/filename="?([^";]+)"?/)?.[1] ??
-        `districtr-export-${exportId}.${exportType.toLowerCase()}`;
+      const backendFilename = response.headers
+        .get('Content-Disposition')
+        ?.match(/filename="?([^";]+)"?/)?.[1];
+      const underscoreIndex = backendFilename?.indexOf('_') ?? -1;
+      const suffix =
+        backendFilename && underscoreIndex >= 0
+          ? backendFilename.slice(underscoreIndex + 1)
+          : (backendFilename ?? `${exportType}.${exportType.toLowerCase()}`);
+      const planName = mapDocument?.map_metadata?.name?.trim();
+      const safeName = planName
+        ? planName
+            .replace(/[^a-zA-Z0-9-_ ]/g, '')
+            .trim()
+            .replace(/\s+/g, '-')
+        : '';
+      const filename = safeName ? `${safeName}_${suffix}` : suffix;
       const url = URL.createObjectURL(await response.blob());
       const a = document.createElement('a');
       a.href = url;
@@ -144,7 +161,7 @@ export const MapActionsDropdown: React.FC<{
                 className="cursor-pointer"
                 onSelect={() => downloadExport('BlockAssignmentsCSV')}
               >
-                Unit assignments (CSV)
+                Block assignments (CSV)
               </DropdownMenu.Item>
               <DropdownMenu.Item
                 className="cursor-pointer"
@@ -172,7 +189,7 @@ export const MapActionsDropdown: React.FC<{
               onSelect={restoreGuide}
               data-testid="show-map-guide"
             >
-              Show map guide
+              Show hints
             </DropdownMenu.Item>
           )}
           <DropdownMenu.Separator />

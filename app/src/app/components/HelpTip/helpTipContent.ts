@@ -101,7 +101,7 @@ export const helpTipContent = {
   districtLock: {
     title: 'Locking districts',
     text: 'Toggle it to protect this district from being painted over or erased.',
-    videoFile: 'district_lock.webm',
+    videoFile: 'lock_district.webm',
     guideAnchor: 'population',
   },
   idealPopulation: {
@@ -183,7 +183,7 @@ export const helpTipContent = {
   },
   editMapDetails: {
     title: 'Edit map names and details',
-    text: 'Click here to rename your map, add a description, or update its draft status.',
+    text: 'Click here to rename your map, add a description, or update its map status.',
     videoFile: 'edit_metadata.webm',
     guideAnchor: 'edit-map-names-and-details',
   },

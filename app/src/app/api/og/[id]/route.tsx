@@ -42,7 +42,7 @@ const PasswordWarningBanner = ({publicUrl}: {publicUrl: string | null}) => (
       <p style={{fontSize: '40px', fontWeight: 700, margin: 0}}>This link grants edit access</p>
     </div>
     <p style={{fontSize: '26px', margin: '10px 0 0', opacity: 0.95}}>
-      Treat it like a password — anyone who has it can change this map.
+      Share this link with care: anyone who has it can edit the map.
     </p>
     {!!publicUrl && (
       <p style={{fontSize: '26px', margin: '6px 0 0', opacity: 0.95}}>

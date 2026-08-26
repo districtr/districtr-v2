@@ -10,7 +10,12 @@ import {CATALOG_ITEMS} from './CatalogSubNav';
 
 // Draw has no in-page subnav; this exists so its hover dropdown is parallel
 // with the other top-level items.
-const DRAW_ITEMS: SecondaryNavItem[] = [{label: 'Jump to the map', href: '/draw'}];
+const DRAW_ITEMS: SecondaryNavItem[] = [
+  {label: 'Jump to the map', href: '/draw'},
+  // ?upload=1 auto-opens the uploader on /draw (see draw/page.tsx) — import
+  // doesn't depend on which state you start from.
+  {label: 'Upload block assignments', href: '/draw?upload=1'},
+];
 
 const NAV_ITEMS: {
   label: string;
