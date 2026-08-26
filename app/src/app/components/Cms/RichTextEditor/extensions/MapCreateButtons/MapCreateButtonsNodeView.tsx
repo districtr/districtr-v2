@@ -17,7 +17,7 @@ const MapCreateButtonsNodeView: React.FC<NodeViewProps> = ({
   const parentRef = useRef<HTMLDivElement>(null);
   // Use a nested editor for the custom content
   const views: Array<Pick<DistrictrMap, 'name' | 'districtr_map_slug'>> = node.attrs.views || [];
-  const type: 'simple' | 'megaphone' = node.attrs.type || 'simple';
+  const type: MapCreateButtonsProps['type'] = node.attrs.type || 'simple';
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const handleUpdate = (updates: Partial<MapCreateButtonsProps>) => {
@@ -84,12 +84,15 @@ const MapCreateButtonsNodeView: React.FC<NodeViewProps> = ({
                   <Text>Type</Text>
                   <Select.Root
                     value={type}
-                    onValueChange={value => handleUpdate({type: value as 'simple' | 'megaphone'})}
+                    onValueChange={value =>
+                      handleUpdate({type: value as MapCreateButtonsProps['type']})
+                    }
                   >
                     <Select.Trigger placeholder="Select a type" />
                     <Select.Content>
                       <Select.Item value="simple">Simple</Select.Item>
                       <Select.Item value="megaphone">Megaphone</Select.Item>
+                      <Select.Item value="cards">Cards</Select.Item>
                     </Select.Content>
                   </Select.Root>
                 </Flex>

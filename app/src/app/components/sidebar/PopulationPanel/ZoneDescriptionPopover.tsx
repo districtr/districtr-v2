@@ -4,7 +4,10 @@ import {ChatBubbleIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@/app/store/mapStore';
 import {useState} from 'react';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import {ZoneDescriptionContent} from '@/app/components/ZoneDescriptions/ZoneDescriptionContent';
+import {
+  ZoneDescriptionContent,
+  ZONE_DESCRIPTION_CARD_WIDTH,
+} from '@/app/components/ZoneDescriptions/ZoneDescriptionContent';
 
 interface ZoneDescriptionPopoverProps {
   zone: number;
@@ -35,7 +38,7 @@ export const ZoneDescriptionPopover: React.FC<ZoneDescriptionPopoverProps> = ({
           size="1"
           className={`relative mr-2
             ${shouldShowPublic || shouldShowEditing ? 'opacity-100' : 'opacity-0'}
-            ${isEditing && 'hover:opacity-100'}
+            ${isEditing && 'hover:opacity-100 group-hover:opacity-100'}
             transition-opacity duration-200
           `}
           disabled={disabled}
@@ -53,7 +56,7 @@ export const ZoneDescriptionPopover: React.FC<ZoneDescriptionPopoverProps> = ({
           )}
         </IconButton>
       </Popover.Trigger>
-      <Popover.Content style={{width: 300}} align="start">
+      <Popover.Content style={{width: ZONE_DESCRIPTION_CARD_WIDTH}} align="start">
         <ZoneDescriptionContent zone={zone} color={color} showEditingControls={isEditing} />
       </Popover.Content>
     </Popover.Root>

@@ -21,7 +21,7 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {DataSourceCitation} from './DataSourceCitation';
 import {useMapStore} from '@/app/store/mapStore';
 import {sortCommunitiesByRenderOrder} from '@/app/utils/communities';
-import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
+import {isAcsUniverse, SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
 import {MAP_MODES} from '@constants/map/mode';
 
 type SummaryPanelProps = {
@@ -204,7 +204,10 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
                     : undefined
                 }
               />
-              <DataSourceCitation elections={summaryType === SUMMARY_TYPES.VOTERHISTORY} />
+              <DataSourceCitation
+                elections={summaryType === SUMMARY_TYPES.VOTERHISTORY}
+                acs={isAcsUniverse(summaryType)}
+              />
             </>
           )}
         </>

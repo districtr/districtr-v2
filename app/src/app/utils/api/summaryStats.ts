@@ -1,5 +1,5 @@
 import {AnyD3Scale} from '@visx/scale';
-import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
+import {ACS_UNIVERSES, SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
 import * as chromatic from 'd3-scale-chromatic';
 export interface ColumnSet {
   /**
@@ -127,7 +127,37 @@ export const summaryStatsConfig = {
     // Derived from the groupings above so the two lists can't drift.
     columns: Object.values(ALL_VOTER_COLUMN_GROUPINGS).flatMap(grouping => grouping.columns),
   },
+  // ACS 2020-2024 socioeconomic universes (counts + their own denominator).
+  AGE: {
+    columns: ['under_18_pop_24', 'over_65_pop_24', 'total_pop_24'],
+    sumColumn: 'total_pop_24',
+  },
+  INCOME: {
+    columns: [
+      'hh_inc_under_35k_24',
+      'hh_inc_35k_75k_24',
+      'hh_inc_75k_125k_24',
+      'hh_inc_125k_plus_24',
+      'total_hh_24',
+    ],
+    sumColumn: 'total_hh_24',
+  },
+  EDUCATION: {
+    columns: ['bachelors_plus_24', 'total_pop_25plus_24'],
+    sumColumn: 'total_pop_25plus_24',
+  },
+  VEHICLES: {
+    columns: ['hh_no_vehicle_24', 'total_occ_hh_24'],
+    sumColumn: 'total_occ_hh_24',
+  },
 } as const satisfies {[K in SummaryType]: ColumnSet};
+
+/** True when the column belongs to an ACS-sourced universe — drives the ACS
+ * data-source citation; every other column is decennial-census or elections. */
+export const isAcsColumn = (column: string): boolean =>
+  ACS_UNIVERSES.some(universe =>
+    (summaryStatsConfig[universe].columns as readonly string[]).includes(column)
+  );
 
 export const possibleRollups = [
   ...Object.values(summaryStatsConfig)
