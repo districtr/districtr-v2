@@ -16,17 +16,22 @@ import {handleCreateBlankMetadataObject} from '@/app/utils/metadata/handleCreate
  * Creates a new map document from a DistrictrMap and routes to the editor.
  * Shared by CreateButton and PlaceMapGrid's cards.
  */
-export const useCreateMapDocument = (view: Partial<DistrictrMap>, isCommunity?: boolean) => {
+export const useCreateMapDocument = (
+  view: Partial<DistrictrMap>,
+  isCommunity?: boolean,
+  createTag?: string | null
+) => {
   const router = useRouter();
   const userID = useMapStore(stat => stat.userID);
   const setUserID = useMapStore(stat => stat.setUserID);
   const setNotification = useMapStore(stat => stat.setNotification);
   const [isCreating, setIsCreating] = useState(false);
   const shouldMakeCommunity = isCommunity ?? routeManager.mapUrlRoute === MAP_ROUTES.COI;
-  // A ?tag=... on the hosting page (e.g. a workshop portal) is stored in the
-  // map's metadata so tag-filtered galleries pick the map up once its draft
-  // status moves past scratch.
-  const tag = useSearchParams().get('tag');
+  // The tag is stored in the map's metadata so tag-filtered galleries pick the
+  // map up once its draft status moves past scratch. A CMS-configured tag wins;
+  // otherwise a ?tag=... on the hosting page (e.g. a workshop portal) applies.
+  const urlTag = useSearchParams().get('tag');
+  const tag = createTag ?? urlTag;
 
   useEffect(() => {
     !userID && setUserID();
@@ -65,8 +70,9 @@ export const CreateButton: React.FC<{
   view: Partial<DistrictrMap>;
   extraClasses?: string;
   isCommunity?: boolean;
-}> = ({view, extraClasses, isCommunity}) => {
-  const {createPlan, isCreating} = useCreateMapDocument(view, isCommunity);
+  createTag?: string | null;
+}> = ({view, extraClasses, isCommunity, createTag}) => {
+  const {createPlan, isCreating} = useCreateMapDocument(view, isCommunity, createTag);
 
   return (
     <Button

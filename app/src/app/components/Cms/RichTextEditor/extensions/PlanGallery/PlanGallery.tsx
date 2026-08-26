@@ -15,6 +15,10 @@ export type PlanGalleryProps = {
   paginate?: boolean;
   limit?: number;
   showListView?: boolean;
+  /** Show the viewer-facing completion-status control on tag-based galleries. */
+  showStatusFilter?: boolean;
+  /** Initial completion-status selection ('all' = in progress + ready to share). */
+  defaultStatus?: 'all' | DraftStatus;
 } & PlanFlags;
 
 // Tagged galleries list maps that were "submitted" by moving past scratch.
@@ -31,12 +35,15 @@ export const PlanGallery: React.FC<PlanGalleryProps> = ({
   paginate,
   limit = 12,
   showListView = false,
+  showStatusFilter: showStatusFilterAttr = true,
+  defaultStatus = 'all',
   ...flags
 }: PlanGalleryProps) => {
   // Completion-status filter for tag-based galleries; 'all' means any
   // submitted map (in progress or ready to share).
-  const [statusFilter, setStatusFilter] = useState<'all' | DraftStatus>('all');
-  const showStatusFilter = Boolean(tags?.length && !ids?.length);
+  const [statusFilter, setStatusFilter] = useState<'all' | DraftStatus>(defaultStatus ?? 'all');
+  const isTagBased = Boolean(tags?.length && !ids?.length);
+  const showStatusFilter = isTagBased && showStatusFilterAttr;
   const draftStatuses = statusFilter === 'all' ? SUBMITTED_STATUSES : [statusFilter];
   return (
     <Gallery<
@@ -49,7 +56,7 @@ export const PlanGallery: React.FC<PlanGalleryProps> = ({
       paginate={paginate}
       limit={limit}
       showListView={showListView}
-      filters={{ids, tags, draftStatuses: showStatusFilter ? draftStatuses : undefined}}
+      filters={{ids, tags, draftStatuses: isTagBased ? draftStatuses : undefined}}
       queryKey={['plans']}
       header={
         showStatusFilter ? (

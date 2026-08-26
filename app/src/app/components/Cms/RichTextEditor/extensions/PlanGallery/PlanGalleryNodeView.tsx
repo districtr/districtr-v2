@@ -9,12 +9,14 @@ import {
   Dialog,
   Flex,
   Heading,
+  Select,
   Switch,
   Tabs,
   Text,
   TextArea,
   TextField,
 } from '@radix-ui/themes';
+import {DRAFT_STATUSES, DRAFT_STATUS_TEXT} from '@constants/document/draftStatus';
 import {PlanGallery, PlanGalleryProps} from './PlanGallery';
 import {GearIcon, TrashIcon} from '@radix-ui/react-icons';
 import {NoFocusBoundary} from '../NoFocusBoundary';
@@ -36,6 +38,8 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
   const showUpdatedAt: boolean | undefined = node.attrs.showUpdatedAt || undefined;
   const showTags: boolean | undefined = node.attrs.showTags || undefined;
   const showModule: boolean | undefined = node.attrs.showModule || undefined;
+  const showStatusFilter: boolean | undefined = node.attrs.showStatusFilter || undefined;
+  const defaultStatus: PlanGalleryProps['defaultStatus'] = node.attrs.defaultStatus || 'all';
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const handleUpdate = (updates: Partial<PlanGalleryProps>) => {
@@ -67,6 +71,8 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
           showUpdatedAt={showUpdatedAt}
           showTags={showTags}
           showModule={showModule}
+          showStatusFilter={showStatusFilter}
+          defaultStatus={defaultStatus}
         />
       </NoFocusBoundary>
       <Box position="absolute" top="2" right="2">
@@ -114,6 +120,7 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
                       showUpdatedAt ? 'showUpdatedAt' : '',
                       showTags ? 'showTags' : '',
                       showModule ? 'showModule' : '',
+                      showStatusFilter ? 'showStatusFilter' : '',
                     ]}
                     onValueChange={value => {
                       handleUpdate({
@@ -125,6 +132,7 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
                         showUpdatedAt: value.includes('showUpdatedAt'),
                         showTags: value.includes('showTags'),
                         showModule: value.includes('showModule'),
+                        showStatusFilter: value.includes('showStatusFilter'),
                       });
                     }}
                   >
@@ -138,7 +146,31 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
                     <CheckboxCards.Item value="showUpdatedAt">Show Updated At</CheckboxCards.Item>
                     <CheckboxCards.Item value="showTags">Show Tags</CheckboxCards.Item>
                     <CheckboxCards.Item value="showModule">Show Module</CheckboxCards.Item>
+                    <CheckboxCards.Item value="showStatusFilter">
+                      Show Status Filter
+                    </CheckboxCards.Item>
                   </CheckboxCards.Root>
+                </Flex>
+
+                <Flex direction="column" gap="2">
+                  <Text>Default Completion Status (tag-based galleries)</Text>
+                  <Select.Root
+                    value={defaultStatus ?? 'all'}
+                    onValueChange={value =>
+                      handleUpdate({defaultStatus: value as PlanGalleryProps['defaultStatus']})
+                    }
+                  >
+                    <Select.Trigger />
+                    <Select.Content>
+                      <Select.Item value="all">All submitted</Select.Item>
+                      <Select.Item value={DRAFT_STATUSES.IN_PROGRESS}>
+                        {DRAFT_STATUS_TEXT[DRAFT_STATUSES.IN_PROGRESS]}
+                      </Select.Item>
+                      <Select.Item value={DRAFT_STATUSES.READY_TO_SHARE}>
+                        {DRAFT_STATUS_TEXT[DRAFT_STATUSES.READY_TO_SHARE]}
+                      </Select.Item>
+                    </Select.Content>
+                  </Select.Root>
                 </Flex>
 
                 <Tabs.Root

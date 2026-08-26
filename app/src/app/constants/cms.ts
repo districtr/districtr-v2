@@ -33,6 +33,7 @@ type AnyMapCreateButtonsAttrSpec = {
 export const MAP_CREATE_BUTTONS_ATTRIBUTES = [
   {name: 'views', default: []},
   {name: 'type', default: 'simple'},
+  {name: 'createTag', default: null},
 ] as const satisfies readonly AnyMapCreateButtonsAttrSpec[];
 
 type PlanGalleryAttrSpec<K extends keyof PlanGalleryProps> = {
@@ -51,6 +52,8 @@ export const PLAN_GALLERY_ATTRIBUTES = [
   {name: 'description', default: null},
   {name: 'paginate', default: true},
   {name: 'showListView', default: true},
+  {name: 'showStatusFilter', default: true},
+  {name: 'defaultStatus', default: 'all'},
   {name: 'showThumbnails', default: true},
   {name: 'showTitles', default: true},
   {name: 'showDescriptions', default: true},
