@@ -9,8 +9,8 @@ import {ImportBlockAssignments} from './ImportBlockAssignments';
 export const MapStartCard: React.FC<{
   view: Partial<DistrictrMap>;
   isCommunity: boolean;
-  /** Hide the "Draw N districts" line — e.g. a portal grid of same-kind maps
-   * where it would repeat on every card. */
+  /** When false, omits the "Draw N districts" line — e.g. a portal grid of
+   * same-kind maps where it would repeat on every card. */
   showOutcome?: boolean;
 }> = ({view, isCommunity, showOutcome = true}) => {
   const {createPlan, isCreating} = useCreateMapDocument(view, isCommunity);

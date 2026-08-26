@@ -12,25 +12,8 @@ import {ToolSettings} from '../Toolbar/Settings';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useUiHintStore, useGuideTarget} from '@store/uiHintStore';
 import {MAP_MODES} from '@constants/map/mode';
-import {
-  SOCIOECONOMIC_UNIVERSES,
-  SUMMARY_TYPES,
-  type SummaryType,
-} from '@constants/demography/summary';
-import {useDemographyStore} from '@store/demography/demographyStore';
-
-/** The Demographics sections span population plus whichever ACS socioeconomic
- * universes this map's layers actually carry (e.g. the TN workshop counties).
- * Filtered here because DemographyTable's universe select doesn't check
- * availability itself — an unavailable set would render as an error. */
-const useDemographicsColumnSets = (): SummaryType[] => {
-  const availableEval = useDemographyStore(state => state.availableColumnSets.evaluation);
-  return [
-    SUMMARY_TYPES.TOTPOP,
-    SUMMARY_TYPES.VAP,
-    ...SOCIOECONOMIC_UNIVERSES.filter(universe => availableEval[universe]),
-  ];
-};
+import {SUMMARY_TYPES} from '@constants/demography/summary';
+import {useDemographicsColumnSets} from '@/app/hooks/useDemographicsColumnSets';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 import type {HelpTipKey} from '@components/HelpTip/helpTipContent';
 

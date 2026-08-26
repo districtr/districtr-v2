@@ -1,5 +1,5 @@
 import {AnyD3Scale} from '@visx/scale';
-import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
+import {ACS_UNIVERSES, SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
 import * as chromatic from 'd3-scale-chromatic';
 export interface ColumnSet {
   /**
@@ -45,7 +45,7 @@ export const ALL_VOTER_COLUMN_GROUPINGS = {
   'Senate 2016': {columns: ['sen_16_dem', 'sen_16_rep']},
   'Senate 2014': {columns: ['sen_14_dem', 'sen_14_rep']},
   'Governor 2024': {columns: ['gov_24_dem', 'gov_24_rep']},
-  'Governor 2023': {columns: ['gov_24_dem', 'gov_24_rep']},
+  'Governor 2023': {columns: ['gov_23_dem', 'gov_23_rep']},
   'Governor 2022': {columns: ['gov_22_dem', 'gov_22_rep']},
   'Governor 2021': {columns: ['gov_21_dem', 'gov_21_rep']},
   'Governor 2020': {columns: ['gov_20_dem', 'gov_20_rep']},
@@ -55,7 +55,7 @@ export const ALL_VOTER_COLUMN_GROUPINGS = {
   'Governor 2016': {columns: ['gov_16_dem', 'gov_16_rep']},
   'Governor 2014': {columns: ['gov_14_dem', 'gov_14_rep']},
   'Attorney General 2024': {columns: ['ag_24_dem', 'ag_24_rep']},
-  'Attorney General 2023': {columns: ['ag_24_dem', 'ag_24_rep']},
+  'Attorney General 2023': {columns: ['ag_23_dem', 'ag_23_rep']},
   'Attorney General 2022': {columns: ['ag_22_dem', 'ag_22_rep']},
   'Attorney General 2021': {columns: ['ag_21_dem', 'ag_21_rep']},
   'Attorney General 2020': {columns: ['ag_20_dem', 'ag_20_rep']},
@@ -151,6 +151,13 @@ export const summaryStatsConfig = {
     sumColumn: 'total_occ_hh_24',
   },
 } as const satisfies {[K in SummaryType]: ColumnSet};
+
+/** True when the column belongs to an ACS-sourced universe — drives the ACS
+ * data-source citation; every other column is decennial-census or elections. */
+export const isAcsColumn = (column: string): boolean =>
+  ACS_UNIVERSES.some(universe =>
+    (summaryStatsConfig[universe].columns as readonly string[]).includes(column)
+  );
 
 export const possibleRollups = [
   ...Object.values(summaryStatsConfig)

@@ -20,13 +20,13 @@ import {Select} from '@radix-ui/themes';
 import {LegendLabel, LegendThreshold} from '@visx/legend';
 import React, {useMemo} from 'react';
 import {choroplethMapVariables} from '@/app/store/demography/constants';
-import {summaryStatsConfig} from '@utils/api/summaryStats';
+import {isAcsColumn} from '@utils/api/summaryStats';
 import {demographyService} from '@/app/utils/demography/demographyService';
 import {
+  ACS_UNIVERSES,
+  isAcsUniverse,
   isCoalitionUniverse,
-  isSocioeconomicUniverse,
   CoalitionUniverse,
-  SOCIOECONOMIC_UNIVERSES,
   SUMMARY_TYPES,
   toOverlayGroup,
   type SummaryType,
@@ -92,15 +92,14 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   const setNumberOfBins = useDemographyStore(state => state.setNumberOfBins);
   const dataHash = useDemographyStore(state => state.dataHash);
   const availableMapVariables = useDemographyStore(state => state.availableColumnSets.map);
-  // The population choropleth spans both universes: shading by VAP shouldn't
-  // require switching the evaluation table's summary type first. Elections stay
-  // on their own group. Labels already disambiguate ("Black" vs "VAP Black").
+  // One demographics dropdown spans TOTPOP, VAP, and the ACS universes, so
+  // shading by another universe never requires switching the panel's summary
+  // type first; universes with no data on this map drop out below. Elections
+  // stay on their own group. Labels disambiguate ("Black" vs "VAP Black").
   const variableGroups = useMemo<SummaryType[]>(
     () =>
-      // One demographics dropdown spans population and the ACS socioeconomic
-      // universes; groups with no data on this map drop out below.
-      isCoalitionUniverse(columnGroup) || isSocioeconomicUniverse(columnGroup)
-        ? [SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP, ...SOCIOECONOMIC_UNIVERSES]
+      isCoalitionUniverse(columnGroup) || isAcsUniverse(columnGroup)
+        ? [SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP, ...ACS_UNIVERSES]
         : [columnGroup],
     [columnGroup]
   );
@@ -258,7 +257,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
               <Text size="2" weight="medium">
                 {columnGroup === 'VOTERHISTORY'
                   ? 'Map layer election'
-                  : isSocioeconomicUniverse(columnGroup)
+                  : isAcsUniverse(columnGroup)
                     ? 'Map layer variable'
                     : 'Map layer population'}
               </Text>
@@ -424,11 +423,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
           {!!mapVariableConfig && (
             <DataSourceCitation
               elections={columnGroup === SUMMARY_TYPES.VOTERHISTORY}
-              // The demographics dropdown mixes decennial and ACS variables;
-              // cite whichever the selected variable comes from.
-              acs={SOCIOECONOMIC_UNIVERSES.some(universe =>
-                (summaryStatsConfig[universe].columns as readonly string[]).includes(variable)
-              )}
+              acs={isAcsColumn(variable)}
             />
           )}
         </>

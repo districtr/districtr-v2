@@ -17,7 +17,10 @@ import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {useSelectCommunity} from '@/app/hooks/useSelectCommunity';
 import {ZoneDescriptionPopover} from './ZoneDescriptionPopover';
-import {ZoneDescriptionContent} from '@/app/components/ZoneDescriptions/ZoneDescriptionContent';
+import {
+  ZoneDescriptionContent,
+  ZONE_DESCRIPTION_CARD_WIDTH,
+} from '@/app/components/ZoneDescriptions/ZoneDescriptionContent';
 import {ConditionalScrollArea, SCROLL_RESERVED_WIDTH} from '../ConditionalScrollArea';
 import {ShowAllDistrictsButton} from '../ShowAllDistrictsButton';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
@@ -38,32 +41,6 @@ const ICONS_WIDTH = 56;
 // copying the mr-2 class instead puts the lock-all 4px right of the rows'.
 const TWIN_TRAIL = 6;
 
-// Deliberate beat before the description card opens, so ordinary mousing
-// across the meters doesn't flash cards.
-const DESCRIPTION_HOVER_DELAY = 1250;
-
-/** Plain-Draw description surface: hovering a row for a beat opens the same
- * description card Super Draw shows in its popover — read-only for viewers,
- * add (+) / edit controls for editors. Bars with nothing to show (no
- * description and not editing) render bare. */
-const MaybeDescriptionHoverCard: React.FC<{
-  zone: number;
-  color: string;
-  hasDescription: boolean;
-  isEditing: boolean;
-  enabled: boolean;
-  children: React.ReactElement;
-}> = ({zone, color, hasDescription, isEditing, enabled, children}) =>
-  enabled && (hasDescription || isEditing) ? (
-    <HoverCard.Root openDelay={DESCRIPTION_HOVER_DELAY}>
-      <HoverCard.Trigger>{children}</HoverCard.Trigger>
-      <HoverCard.Content style={{width: 300}} onClick={e => e.stopPropagation()}>
-        <ZoneDescriptionContent zone={zone} color={color} showEditingControls={isEditing} />
-      </HoverCard.Content>
-    </HoverCard.Root>
-  ) : (
-    children
-  );
 // Bars stop growing on wide sidebars; everything (label strip, rows,
 // scoreboard) shares the cap so columns stay aligned.
 const MAX_METERS_WIDTH = 560;
@@ -130,6 +107,36 @@ const overflowColorFor = (color: string, population: number, ideal?: number) => 
 const chevronCount = (population: number, ideal: number) =>
   Math.min(MAX_CHEVRONS, Math.floor((population - ideal) / ideal / CHEVRON_STEP));
 
+// Deliberate beat so mousing across the meters doesn't flash description cards.
+const DESCRIPTION_HOVER_DELAY = 1250;
+
+/** Plain Draw's description surface: hovering a row for a beat opens the same
+ * card Super Draw shows in its popover. Inactive renders the row bare. */
+const ZoneDescriptionHoverCard: React.FC<{
+  zone: number;
+  color: string;
+  active: boolean;
+  showEditingControls: boolean;
+  children: React.ReactElement;
+}> = ({zone, color, active, showEditingControls, children}) =>
+  active ? (
+    <HoverCard.Root openDelay={DESCRIPTION_HOVER_DELAY}>
+      <HoverCard.Trigger>{children}</HoverCard.Trigger>
+      <HoverCard.Content
+        style={{width: ZONE_DESCRIPTION_CARD_WIDTH}}
+        onClick={e => e.stopPropagation()}
+      >
+        <ZoneDescriptionContent
+          zone={zone}
+          color={color}
+          showEditingControls={showEditingControls}
+        />
+      </HoverCard.Content>
+    </HoverCard.Root>
+  ) : (
+    children
+  );
+
 /** "Keeps going" marker on an off-the-scale bar's end. */
 const OffScaleChevrons: React.FC<{count: number}> = ({count}) => (
   <Flex
@@ -172,6 +179,12 @@ export const DistrictMeters = () => {
   const isEditing = useMapControlsStore(state => state.isEditing);
   const superDraw = useToolbarStore(state => state.superDraw);
   const access = useMapStore(state => state.mapStatus?.access);
+  // Plain Draw surfaces descriptions as a row hover card; Super Draw uses the
+  // icon popover.
+  const documentComments = useMapStore(state => state.mapDocument?.document_comments);
+  // comment_length_limit 0/null disables descriptions — gate the card so it
+  // can't open empty.
+  const descriptionsEnabled = !!useMapStore(state => state.mapDocument?.comment_length_limit);
   const chartOptions = useChartStore(state => state.chartOptions);
   const setChartOptions = useChartStore(state => state.setChartOptions);
 
@@ -245,9 +258,6 @@ export const DistrictMeters = () => {
   // starts at the same x.
   const numColWidth = `${String(populationData.length).length + 1}ch`;
   const showRowIcons = superDraw && isEditing;
-  // Plain Draw has no description icon; a described district's bar carries a
-  // hover tooltip instead. Super Draw keeps the popover (with edit controls).
-  const documentComments = useMapStore(state => state.mapDocument?.document_comments);
   const rowsScroll = visibleData.length > ROW_SCROLL_THRESHOLD;
 
   // The target-deviation band brackets the ideal line; rendered per row (like
@@ -384,14 +394,14 @@ export const DistrictMeters = () => {
                 const deviation = idealPopulation ? population - idealPopulation : undefined;
                 const overflowsIdeal =
                   tickFraction !== undefined && !!idealPopulation && population > idealPopulation;
+                const hasDescription = documentComments?.some(c => c.zone === d.zone) ?? false;
                 return (
-                  <MaybeDescriptionHoverCard
+                  <ZoneDescriptionHoverCard
                     key={d.zone}
                     zone={d.zone}
                     color={color}
-                    hasDescription={documentComments?.some(c => c.zone === d.zone) ?? false}
-                    isEditing={isEditing}
-                    enabled={!superDraw}
+                    active={descriptionsEnabled && !superDraw && (hasDescription || isEditing)}
+                    showEditingControls={isEditing}
                   >
                     <Flex
                       align="center"
@@ -402,8 +412,7 @@ export const DistrictMeters = () => {
                       // lock/comment controls is invalid ARIA and hides them
                       // from assistive tech. The bar carries the real <button>.
                       onClick={() => selectCommunity(d.zone)}
-                      // `group` lets the description bubble fade in on row hover
-                      // (see ZoneDescriptionPopover's group-hover).
+                      // `group`: ZoneDescriptionPopover's bubble fades in on row hover
                       className={`group cursor-pointer rounded-md transition-colors duration-150 ${
                         selectedZone === d.zone
                           ? 'bg-[var(--accent-3)]'
@@ -422,10 +431,9 @@ export const DistrictMeters = () => {
                           {d.zone}
                         </Text>
                       )}
-                      {/* Comment and per-district lock are Super Draw features; in
-                        plain Draw the description surfaces as a hover card on the
-                        row instead (see MaybeDescriptionHoverCard). Icons manage
-                        their own interactions; don't let clicks re-select the row. */}
+                      {/* Comment and per-district lock are Super Draw features.
+                        Icons manage their own interactions; don't let clicks
+                        re-select the row. */}
                       {showRowIcons && (
                         <Flex
                           align="center"
@@ -604,7 +612,7 @@ export const DistrictMeters = () => {
                         </Text>
                       )}
                     </Flex>
-                  </MaybeDescriptionHoverCard>
+                  </ZoneDescriptionHoverCard>
                 );
               })}
             </Flex>
