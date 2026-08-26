@@ -1,9 +1,10 @@
 'use client';
-import React from 'react';
-import {Table} from '@radix-ui/themes';
+import React, {useState} from 'react';
+import {Flex, SegmentedControl, Table, Text} from '@radix-ui/themes';
 import {Gallery} from '@/app/components/Static/Gallery';
 import {getPlans} from '@/app/utils/api/apiHandlers/getPlans';
 import {MinPublicDocument} from '@utils/api/apiHandlers/types';
+import {DRAFT_STATUSES, DRAFT_STATUS_TEXT, type DraftStatus} from '@constants/document/draftStatus';
 import {PlanCard, PlanFlags, PlanTableRow} from './PlanGalleryRenderers';
 
 export type PlanGalleryProps = {
@@ -16,6 +17,12 @@ export type PlanGalleryProps = {
   showListView?: boolean;
 } & PlanFlags;
 
+// Tagged galleries list maps that were "submitted" by moving past scratch.
+const SUBMITTED_STATUSES: DraftStatus[] = [
+  DRAFT_STATUSES.IN_PROGRESS,
+  DRAFT_STATUSES.READY_TO_SHARE,
+];
+
 export const PlanGallery: React.FC<PlanGalleryProps> = ({
   ids,
   tags,
@@ -26,19 +33,53 @@ export const PlanGallery: React.FC<PlanGalleryProps> = ({
   showListView = false,
   ...flags
 }: PlanGalleryProps) => {
+  // Completion-status filter for tag-based galleries; 'all' means any
+  // submitted map (in progress or ready to share).
+  const [statusFilter, setStatusFilter] = useState<'all' | DraftStatus>('all');
+  const showStatusFilter = Boolean(tags?.length && !ids?.length);
+  const draftStatuses = statusFilter === 'all' ? SUBMITTED_STATUSES : [statusFilter];
   return (
-    <Gallery<MinPublicDocument, {ids?: number[]; tags?: string[]}, MinPublicDocument[] | null>
+    <Gallery<
+      MinPublicDocument,
+      {ids?: number[]; tags?: string[]; draftStatuses?: DraftStatus[]},
+      MinPublicDocument[] | null
+    >
       title={title}
       description={description}
       paginate={paginate}
       limit={limit}
       showListView={showListView}
-      filters={{ids, tags}}
+      filters={{ids, tags, draftStatuses: showStatusFilter ? draftStatuses : undefined}}
       queryKey={['plans']}
+      header={
+        showStatusFilter ? (
+          <Flex direction="row" gap="2" align="center" pt="2">
+            <Text size="2" color="gray">
+              Status:
+            </Text>
+            <SegmentedControl.Root
+              value={statusFilter}
+              onValueChange={value => setStatusFilter(value as 'all' | DraftStatus)}
+              size="1"
+            >
+              <SegmentedControl.Item value="all">All</SegmentedControl.Item>
+              {SUBMITTED_STATUSES.map(status => (
+                <SegmentedControl.Item key={status} value={status}>
+                  {DRAFT_STATUS_TEXT[status]}
+                </SegmentedControl.Item>
+              ))}
+            </SegmentedControl.Root>
+          </Flex>
+        ) : undefined
+      }
       queryFunction={({filters, limit, offset}) =>
-        getPlans({ids: filters.ids, tags: filters.tags, limit, offset}).then(result =>
-          result?.ok ? result.response : null
-        )
+        getPlans({
+          ids: filters.ids,
+          tags: filters.tags,
+          draftStatuses: filters.draftStatuses,
+          limit,
+          offset,
+        }).then(result => (result?.ok ? result.response : null))
       }
       selectItems={data => (data || []) as MinPublicDocument[]}
       gridRenderer={(plan, i) => <PlanCard key={i} plan={plan} {...flags} />}

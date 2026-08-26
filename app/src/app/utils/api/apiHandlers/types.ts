@@ -64,7 +64,7 @@ export interface StatusObject {
 export interface DocumentMetadata {
   name: string | null;
   group: string | null;
-  tags: string | null;
+  tags: string[] | null;
   description: string | null;
   eventId: string | null;
   draft_status: DraftStatus | null;

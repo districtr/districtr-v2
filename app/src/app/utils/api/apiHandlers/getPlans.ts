@@ -1,14 +1,17 @@
 import {MinPublicDocument} from './types';
 import {get} from '../factory';
+import type {DraftStatus} from '@constants/document/draftStatus';
 
 export const getPlans = async ({
   ids,
   tags,
+  draftStatuses,
   limit,
   offset,
 }: {
   ids?: number[];
   tags?: string[];
+  draftStatuses?: DraftStatus[];
   limit?: number;
   offset?: number;
 }) => {
@@ -18,6 +21,10 @@ export const getPlans = async ({
     queryParams.ids = ids;
   } else if (tags) {
     queryParams.tags = tags;
+  }
+
+  if (draftStatuses?.length) {
+    queryParams.draft_status = draftStatuses;
   }
 
   if (limit !== undefined) {

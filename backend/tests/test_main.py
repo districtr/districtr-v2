@@ -1422,6 +1422,40 @@ def test_document_list(
     assert data[0].get("public_id") == public_id
 
 
+def test_document_list_metadata_tags_and_draft_status(client, document_id_total_vap):
+    # A scratch map with a metadata tag is not yet "submitted" to tag galleries.
+    response = client.put(
+        f"/api/document/{document_id_total_vap}/metadata",
+        json={"tags": ["workshop"], "draft_status": "scratch"},
+    )
+    assert response.status_code == 200
+    response = client.get("/api/documents/list?tags=workshop")
+    assert response.status_code == 200
+    assert response.json() == []
+
+    # Moving to in_progress submits it; the partial update must not wipe tags.
+    response = client.put(
+        f"/api/document/{document_id_total_vap}/metadata",
+        json={"draft_status": "in_progress"},
+    )
+    assert response.status_code == 200
+    response = client.get("/api/documents/list?tags=workshop")
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["map_metadata"]["tags"] == ["workshop"]
+    assert data[0]["map_metadata"]["draft_status"] == "in_progress"
+
+    # Explicit completion-status filter narrows the listing.
+    response = client.get(
+        "/api/documents/list?tags=workshop&draft_status=ready_to_share"
+    )
+    assert response.json() == []
+    response = client.get(
+        "/api/documents/list?tags=workshop&draft_status=in_progress"
+    )
+    assert len(response.json()) == 1
+
+
 def test_get_district_unions(client, document_id_total_vap):
     response = client.put(
         "/api/assignments",

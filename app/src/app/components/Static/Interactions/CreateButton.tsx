@@ -8,8 +8,9 @@ import {MAP_TYPES} from '@constants/document/types';
 import {MAP_ROUTES} from '@constants/document/routes';
 import {Button} from '@radix-ui/themes';
 import {PlusIcon} from '@radix-ui/react-icons';
-import {useRouter} from 'next/navigation';
+import {useRouter, useSearchParams} from 'next/navigation';
 import {useEffect, useState} from 'react';
+import {handleCreateBlankMetadataObject} from '@/app/utils/metadata/handleCreateBlankMetadataObject';
 
 /**
  * Creates a new map document from a DistrictrMap and routes to the editor.
@@ -22,6 +23,10 @@ export const useCreateMapDocument = (view: Partial<DistrictrMap>, isCommunity?: 
   const setNotification = useMapStore(stat => stat.setNotification);
   const [isCreating, setIsCreating] = useState(false);
   const shouldMakeCommunity = isCommunity ?? routeManager.mapUrlRoute === MAP_ROUTES.COI;
+  // A ?tag=... on the hosting page (e.g. a workshop portal) is stored in the
+  // map's metadata so tag-filtered galleries pick the map up once its draft
+  // status moves past scratch.
+  const tag = useSearchParams().get('tag');
 
   useEffect(() => {
     !userID && setUserID();
@@ -33,6 +38,7 @@ export const useCreateMapDocument = (view: Partial<DistrictrMap>, isCommunity?: 
     const r = await createMapDocument({
       districtr_map_slug: view.districtr_map_slug,
       map_type: shouldMakeCommunity ? MAP_TYPES.COMMUNITY : view.map_type,
+      ...(tag ? {metadata: {...handleCreateBlankMetadataObject(), tags: [tag]}} : {}),
     });
     if (r.ok) {
       router.push(

@@ -53,9 +53,9 @@ export const PlanCard = ({plan, ...flags}: {plan: MinPublicDocument} & PlanFlags
                 {plan.map_metadata?.description}
               </Text>
             )}
-            {!!flags.showTags && plan.map_metadata?.tags && (
+            {!!flags.showTags && !!plan.map_metadata?.tags?.length && (
               <Text size="2" color="gray">
-                {plan.map_metadata?.tags}
+                {plan.map_metadata.tags.join(', ')}
               </Text>
             )}
             {!!flags.showUpdatedAt && plan.updated_at && (
@@ -91,7 +91,7 @@ export const PlanTableRow = ({plan, ...flags}: {plan: MinPublicDocument} & PlanF
       {!!flags.showTitles && <Table.Cell>{plan.map_metadata?.name ?? ''}</Table.Cell>}
       {!!flags.showModule && <Table.Cell>{plan.map_module ?? ''}</Table.Cell>}
       {!!flags.showDescriptions && <Table.Cell>{plan.map_metadata?.description ?? ''}</Table.Cell>}
-      {!!flags.showTags && <Table.Cell>{plan.map_metadata?.tags ?? ''}</Table.Cell>}
+      {!!flags.showTags && <Table.Cell>{plan.map_metadata?.tags?.join(', ') ?? ''}</Table.Cell>}
       {!!flags.showUpdatedAt && (
         <Table.Cell>{new Date(plan.updated_at).toLocaleDateString() ?? ''}</Table.Cell>
       )}
