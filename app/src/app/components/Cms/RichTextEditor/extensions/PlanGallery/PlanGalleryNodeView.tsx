@@ -16,7 +16,7 @@ import {
   TextArea,
   TextField,
 } from '@radix-ui/themes';
-import {DRAFT_STATUSES, DRAFT_STATUS_TEXT} from '@constants/document/draftStatus';
+import {DRAFT_STATUS_TEXT, SUBMITTED_STATUSES} from '@constants/document/draftStatus';
 import {PlanGallery, PlanGalleryProps} from './PlanGallery';
 import {GearIcon, TrashIcon} from '@radix-ui/react-icons';
 import {NoFocusBoundary} from '../NoFocusBoundary';
@@ -163,12 +163,11 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
                     <Select.Trigger />
                     <Select.Content>
                       <Select.Item value="all">All submitted</Select.Item>
-                      <Select.Item value={DRAFT_STATUSES.IN_PROGRESS}>
-                        {DRAFT_STATUS_TEXT[DRAFT_STATUSES.IN_PROGRESS]}
-                      </Select.Item>
-                      <Select.Item value={DRAFT_STATUSES.READY_TO_SHARE}>
-                        {DRAFT_STATUS_TEXT[DRAFT_STATUSES.READY_TO_SHARE]}
-                      </Select.Item>
+                      {SUBMITTED_STATUSES.map(status => (
+                        <Select.Item key={status} value={status}>
+                          {DRAFT_STATUS_TEXT[status]}
+                        </Select.Item>
+                      ))}
                     </Select.Content>
                   </Select.Root>
                 </Flex>

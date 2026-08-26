@@ -4,7 +4,11 @@ import {Flex, SegmentedControl, Table, Text} from '@radix-ui/themes';
 import {Gallery} from '@/app/components/Static/Gallery';
 import {getPlans} from '@/app/utils/api/apiHandlers/getPlans';
 import {MinPublicDocument} from '@utils/api/apiHandlers/types';
-import {DRAFT_STATUSES, DRAFT_STATUS_TEXT, type DraftStatus} from '@constants/document/draftStatus';
+import {
+  DRAFT_STATUS_TEXT,
+  SUBMITTED_STATUSES,
+  type DraftStatus,
+} from '@constants/document/draftStatus';
 import {PlanCard, PlanFlags, PlanTableRow} from './PlanGalleryRenderers';
 
 export type PlanGalleryProps = {
@@ -20,12 +24,6 @@ export type PlanGalleryProps = {
   /** Initial completion-status selection ('all' = in progress + ready to share). */
   defaultStatus?: 'all' | DraftStatus;
 } & PlanFlags;
-
-// Tagged galleries list maps that were "submitted" by moving past scratch.
-const SUBMITTED_STATUSES: DraftStatus[] = [
-  DRAFT_STATUSES.IN_PROGRESS,
-  DRAFT_STATUSES.READY_TO_SHARE,
-];
 
 export const PlanGallery: React.FC<PlanGalleryProps> = ({
   ids,
@@ -51,6 +49,9 @@ export const PlanGallery: React.FC<PlanGalleryProps> = ({
       {ids?: number[]; tags?: string[]; draftStatuses?: DraftStatus[]},
       MinPublicDocument[] | null
     >
+      // Remount on filter change: Gallery keeps its page in state, and a stale
+      // offset against a narrower result set would show a false "No items found".
+      key={statusFilter}
       title={title}
       description={description}
       paginate={paginate}
