@@ -1,3 +1,12 @@
+# TN "Create Your Own Map" workshop: 10 county modules (VTD parent / block
+# child), 4 districts each, drawn from gpkgs in <data-dir>/workshop-tn.
+#
+# Load: python cli.py batch-create-districtr-maps --config-file management/configs/tn_workshop.yaml --data-dir /data
+#
+# The batch schema (DistrictrMapPublic) can't set these — run after loading:
+#   UPDATE districtrmap SET statefps='{47}', map_type='local', comment_length_limit=240
+#   WHERE districtr_map_slug LIKE 'tn_%workshop';
+# (comment_length_limit gates district descriptions; NULL disables them.)
 gerrydb_views:
 - gpkg: workshop-tn/tn_davidson_vtd_view.gpkg
   layer: tn_davidson_vtd_view
