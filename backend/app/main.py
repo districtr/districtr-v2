@@ -792,6 +792,9 @@ def _sync_update_assignments(
         )
     mutated = False
 
+    # Snapshot pre-existing district-mode assignments to compute which zones
+    # changed, so only those rows are evicted from district_unions rather than
+    # wiping the whole document's cache. Community maps don't feed district_unions.
     diff_load_id: str | None = None
     if not is_community_map:
         diff_load_id, _ = str(uuid4()).split("-", maxsplit=1)
@@ -1032,6 +1035,9 @@ def _sync_update_assignments(
         )
         dirty_zones = [int(r[0]) for r in dirty_rows]
         if dirty_zones:
+            # Always include zone IS NULL (the unassigned row): its demographic
+            # totals are derived from all assigned zones, so any zone change
+            # invalidates it.
             session.connection().execute(
                 text(
                     "DELETE FROM document.district_unions "
