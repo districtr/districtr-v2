@@ -45,7 +45,7 @@ export const ALL_VOTER_COLUMN_GROUPINGS = {
   'Senate 2016': {columns: ['sen_16_dem', 'sen_16_rep']},
   'Senate 2014': {columns: ['sen_14_dem', 'sen_14_rep']},
   'Governor 2024': {columns: ['gov_24_dem', 'gov_24_rep']},
-  'Governor 2023': {columns: ['gov_23_dem', 'gov_23_rep']},
+  'Governor 2023': {columns: ['gov_24_dem', 'gov_24_rep']},
   'Governor 2022': {columns: ['gov_22_dem', 'gov_22_rep']},
   'Governor 2021': {columns: ['gov_21_dem', 'gov_21_rep']},
   'Governor 2020': {columns: ['gov_20_dem', 'gov_20_rep']},
@@ -55,7 +55,7 @@ export const ALL_VOTER_COLUMN_GROUPINGS = {
   'Governor 2016': {columns: ['gov_16_dem', 'gov_16_rep']},
   'Governor 2014': {columns: ['gov_14_dem', 'gov_14_rep']},
   'Attorney General 2024': {columns: ['ag_24_dem', 'ag_24_rep']},
-  'Attorney General 2023': {columns: ['ag_23_dem', 'ag_23_rep']},
+  'Attorney General 2023': {columns: ['ag_24_dem', 'ag_24_rep']},
   'Attorney General 2022': {columns: ['ag_22_dem', 'ag_22_rep']},
   'Attorney General 2021': {columns: ['ag_21_dem', 'ag_21_rep']},
   'Attorney General 2020': {columns: ['ag_20_dem', 'ag_20_rep']},
@@ -127,28 +127,28 @@ export const summaryStatsConfig = {
     // Derived from the groupings above so the two lists can't drift.
     columns: Object.values(ALL_VOTER_COLUMN_GROUPINGS).flatMap(grouping => grouping.columns),
   },
-  // ACS 2019-2023 socioeconomic universes (counts + their own denominator).
+  // ACS 2020-2024 socioeconomic universes (counts + their own denominator).
   AGE: {
-    columns: ['under_18_pop_23', 'over_65_pop_23', 'total_pop_23'],
-    sumColumn: 'total_pop_23',
+    columns: ['under_18_pop_24', 'over_65_pop_24', 'total_pop_24'],
+    sumColumn: 'total_pop_24',
   },
   INCOME: {
     columns: [
-      'hh_inc_under_35k_23',
-      'hh_inc_35k_75k_23',
-      'hh_inc_75k_125k_23',
-      'hh_inc_125k_plus_23',
-      'total_hh_23',
+      'hh_inc_under_35k_24',
+      'hh_inc_35k_75k_24',
+      'hh_inc_75k_125k_24',
+      'hh_inc_125k_plus_24',
+      'total_hh_24',
     ],
-    sumColumn: 'total_hh_23',
+    sumColumn: 'total_hh_24',
   },
   EDUCATION: {
-    columns: ['bachelors_plus_23', 'total_pop_25plus_23'],
-    sumColumn: 'total_pop_25plus_23',
+    columns: ['bachelors_plus_24', 'total_pop_25plus_24'],
+    sumColumn: 'total_pop_25plus_24',
   },
   VEHICLES: {
-    columns: ['hh_no_vehicle_23', 'total_occ_hh_23'],
-    sumColumn: 'total_occ_hh_23',
+    columns: ['hh_no_vehicle_24', 'total_occ_hh_24'],
+    sumColumn: 'total_occ_hh_24',
   },
 } as const satisfies {[K in SummaryType]: ColumnSet};
 

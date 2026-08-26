@@ -1,14 +1,29 @@
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 import {Box, Flex} from '@radix-ui/themes';
 import {CreateButton} from '@/app/components/Static/Interactions/CreateButton';
+import {CardGrid, MapStartCard} from '@/app/components/Static/Interactions/PlaceMapGrid';
 import Image from 'next/image';
 
 export interface MapCreateButtonsProps {
   views: Array<Pick<DistrictrMap, 'name' | 'districtr_map_slug'>>;
-  type: 'simple' | 'megaphone';
+  type: 'simple' | 'megaphone' | 'cards';
 }
 export const MapCreateButtons = ({views, type}: MapCreateButtonsProps) => {
   switch (type) {
+    // Same start cards the place pages render, for visual consistency.
+    case 'cards':
+      return (
+        <CardGrid>
+          {views.map(view => (
+            <MapStartCard
+              key={view.districtr_map_slug}
+              view={view}
+              isCommunity={false}
+              showOutcome={false}
+            />
+          ))}
+        </CardGrid>
+      );
     case 'simple':
       return (
         <Flex direction="row" gap="2">

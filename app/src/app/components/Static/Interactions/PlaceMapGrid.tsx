@@ -6,10 +6,13 @@ import {sanitizeCommunityMaps} from '@/app/utils/communities';
 import {useCreateMapDocument} from './CreateButton';
 import {ImportBlockAssignments} from './ImportBlockAssignments';
 
-const MapStartCard: React.FC<{
+export const MapStartCard: React.FC<{
   view: Partial<DistrictrMap>;
   isCommunity: boolean;
-}> = ({view, isCommunity}) => {
+  /** Hide the "Draw N districts" line — e.g. a portal grid of same-kind maps
+   * where it would repeat on every card. */
+  showOutcome?: boolean;
+}> = ({view, isCommunity, showOutcome = true}) => {
   const {createPlan, isCreating} = useCreateMapDocument(view, isCommunity);
   const outcome = isCommunity
     ? 'Draw and describe your communities'
@@ -46,9 +49,11 @@ const MapStartCard: React.FC<{
             <Text weight="medium" className="capitalize" truncate>
               {view.name}
             </Text>
-            <Text size="1" color="gray">
-              {outcome}
-            </Text>
+            {showOutcome && (
+              <Text size="1" color="gray">
+                {outcome}
+              </Text>
+            )}
           </Flex>
           {isCreating ? (
             <Spinner size="1" className="shrink-0" />
@@ -61,7 +66,7 @@ const MapStartCard: React.FC<{
   );
 };
 
-const CardGrid: React.FC<{children: React.ReactNode}> = ({children}) => (
+export const CardGrid: React.FC<{children: React.ReactNode}> = ({children}) => (
   <Grid
     gap="2"
     columns={{

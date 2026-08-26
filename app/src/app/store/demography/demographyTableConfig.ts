@@ -60,8 +60,8 @@ export const VoterColumnConfig: DemographyTableColumnConfiguration<
   {column: 'sen_24_dem', label: '2024 Sen'},
   {column: 'gov_24_dem', label: '2024 Gov'},
   {column: 'ag_24_dem', label: '2024 AG'},
-  {column: 'gov_23_dem', label: '2023 Gov'},
-  {column: 'ag_23_dem', label: '2023 AG'},
+  {column: 'gov_24_dem', label: '2023 Gov'},
+  {column: 'ag_24_dem', label: '2023 AG'},
   {column: 'sen_22_dem', label: '2022 Sen'},
   {column: 'gov_22_dem', label: '2022 Gov'},
   {column: 'ag_22_dem', label: '2022 AG'},
@@ -89,37 +89,37 @@ export const VoterColumnConfig: DemographyTableColumnConfiguration<
   {column: 'pres_08_dem', label: '2008 Pres'},
 ];
 
-// ACS 2019-2023 socioeconomic universes (each with its own denominator).
+// ACS 2020-2024 socioeconomic universes (each with its own denominator).
 export const AGEColumnConfig: DemographyTableColumnConfiguration<
   SummaryStatConfig[typeof SUMMARY_TYPES.AGE]
 > = [
-  {column: 'under_18_pop_23', label: 'Under 18'},
-  {column: 'over_65_pop_23', label: '65 and older'},
-  {column: 'total_pop_23', label: 'Total (ACS)', isTotal: true},
+  {column: 'under_18_pop_24', label: 'Under 18'},
+  {column: 'over_65_pop_24', label: '65 and older'},
+  {column: 'total_pop_24', label: 'Total (ACS)', isTotal: true},
 ];
 
 export const INCOMEColumnConfig: DemographyTableColumnConfiguration<
   SummaryStatConfig[typeof SUMMARY_TYPES.INCOME]
 > = [
-  {column: 'hh_inc_under_35k_23', label: 'Under $35k'},
-  {column: 'hh_inc_35k_75k_23', label: '$35k–$75k'},
-  {column: 'hh_inc_75k_125k_23', label: '$75k–$125k'},
-  {column: 'hh_inc_125k_plus_23', label: '$125k+'},
-  {column: 'total_hh_23', label: 'Total households', isTotal: true},
+  {column: 'hh_inc_under_35k_24', label: 'Under $35k'},
+  {column: 'hh_inc_35k_75k_24', label: '$35k–$75k'},
+  {column: 'hh_inc_75k_125k_24', label: '$75k–$125k'},
+  {column: 'hh_inc_125k_plus_24', label: '$125k+'},
+  {column: 'total_hh_24', label: 'Total households', isTotal: true},
 ];
 
 export const EDUCATIONColumnConfig: DemographyTableColumnConfiguration<
   SummaryStatConfig[typeof SUMMARY_TYPES.EDUCATION]
 > = [
-  {column: 'bachelors_plus_23', label: "Bachelor's or higher"},
-  {column: 'total_pop_25plus_23', label: 'Total 25 and older', isTotal: true},
+  {column: 'bachelors_plus_24', label: "Bachelor's or higher"},
+  {column: 'total_pop_25plus_24', label: 'Total 25 and older', isTotal: true},
 ];
 
 export const VEHICLESColumnConfig: DemographyTableColumnConfiguration<
   SummaryStatConfig[typeof SUMMARY_TYPES.VEHICLES]
 > = [
-  {column: 'hh_no_vehicle_23', label: 'No vehicle'},
-  {column: 'total_occ_hh_23', label: 'Total households', isTotal: true},
+  {column: 'hh_no_vehicle_24', label: 'No vehicle'},
+  {column: 'total_occ_hh_24', label: 'Total households', isTotal: true},
 ];
 
 export const CONFIG_BY_COLUMN_SET: Record<

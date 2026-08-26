@@ -107,13 +107,13 @@ export const choroplethMapVariables: {
   AGE: [
     {
       label: 'Under 18',
-      value: 'under_18_pop_23',
+      value: 'under_18_pop_24',
       variants: ['percent', 'raw'],
       colorScheme: chromatic.schemePuBu,
     },
     {
       label: '65 and older',
-      value: 'over_65_pop_23',
+      value: 'over_65_pop_24',
       variants: ['percent', 'raw'],
       colorScheme: chromatic.schemePuBu,
     },
@@ -121,25 +121,25 @@ export const choroplethMapVariables: {
   INCOME: [
     {
       label: 'Household income under $35k',
-      value: 'hh_inc_under_35k_23',
+      value: 'hh_inc_under_35k_24',
       variants: ['percent', 'raw'],
       colorScheme: chromatic.schemeYlGnBu,
     },
     {
       label: 'Household income $35k–$75k',
-      value: 'hh_inc_35k_75k_23',
+      value: 'hh_inc_35k_75k_24',
       variants: ['percent', 'raw'],
       colorScheme: chromatic.schemeYlGnBu,
     },
     {
       label: 'Household income $75k–$125k',
-      value: 'hh_inc_75k_125k_23',
+      value: 'hh_inc_75k_125k_24',
       variants: ['percent', 'raw'],
       colorScheme: chromatic.schemeYlGnBu,
     },
     {
       label: 'Household income $125k+',
-      value: 'hh_inc_125k_plus_23',
+      value: 'hh_inc_125k_plus_24',
       variants: ['percent', 'raw'],
       colorScheme: chromatic.schemeYlGnBu,
     },
@@ -147,7 +147,7 @@ export const choroplethMapVariables: {
   EDUCATION: [
     {
       label: "Bachelor's degree or higher",
-      value: 'bachelors_plus_23',
+      value: 'bachelors_plus_24',
       variants: ['percent', 'raw'],
       colorScheme: chromatic.schemeGnBu,
     },
@@ -155,7 +155,7 @@ export const choroplethMapVariables: {
   VEHICLES: [
     {
       label: 'Households with no vehicle',
-      value: 'hh_no_vehicle_23',
+      value: 'hh_no_vehicle_24',
       variants: ['percent', 'raw'],
       colorScheme: chromatic.schemeOrRd,
     },

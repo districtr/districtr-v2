@@ -20,6 +20,7 @@ import {Select} from '@radix-ui/themes';
 import {LegendLabel, LegendThreshold} from '@visx/legend';
 import React, {useMemo} from 'react';
 import {choroplethMapVariables} from '@/app/store/demography/constants';
+import {summaryStatsConfig} from '@utils/api/summaryStats';
 import {demographyService} from '@/app/utils/demography/demographyService';
 import {
   isCoalitionUniverse,
@@ -96,12 +97,11 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   // on their own group. Labels already disambiguate ("Black" vs "VAP Black").
   const variableGroups = useMemo<SummaryType[]>(
     () =>
-      isCoalitionUniverse(columnGroup)
-        ? [SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP]
-        : // The socioeconomic universes share one dropdown the same way.
-          isSocioeconomicUniverse(columnGroup)
-          ? [...SOCIOECONOMIC_UNIVERSES]
-          : [columnGroup],
+      // One demographics dropdown spans population and the ACS socioeconomic
+      // universes; groups with no data on this map drop out below.
+      isCoalitionUniverse(columnGroup) || isSocioeconomicUniverse(columnGroup)
+        ? [SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP, ...SOCIOECONOMIC_UNIVERSES]
+        : [columnGroup],
     [columnGroup]
   );
   const coalitionOptionFor = (universe: SummaryType) => {
@@ -424,7 +424,11 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
           {!!mapVariableConfig && (
             <DataSourceCitation
               elections={columnGroup === SUMMARY_TYPES.VOTERHISTORY}
-              acs={isSocioeconomicUniverse(columnGroup)}
+              // The demographics dropdown mixes decennial and ACS variables;
+              // cite whichever the selected variable comes from.
+              acs={SOCIOECONOMIC_UNIVERSES.some(universe =>
+                (summaryStatsConfig[universe].columns as readonly string[]).includes(variable)
+              )}
             />
           )}
         </>

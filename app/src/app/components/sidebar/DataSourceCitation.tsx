@@ -4,7 +4,7 @@ import {Text} from '@radix-ui/themes';
 const DEMOGRAPHICS_CITATION = 'Source: U.S. Census Bureau, 2020 Decennial Census (P.L. 94-171)';
 const ELECTIONS_CITATION = "Source: Dave's Redistricting App";
 const ACS_CITATION =
-  'Source: U.S. Census Bureau, American Community Survey 2019–2023 (5-year), disaggregated from tracts';
+  'Source: U.S. Census Bureau, American Community Survey 2020–2024 (5-year), disaggregated from tracts';
 
 /** Small gray data-source line under demographic/election tables and legends. */
 export const DataSourceCitation: React.FC<{elections?: boolean; acs?: boolean}> = ({

@@ -35,7 +35,7 @@ export const ZoneDescriptionPopover: React.FC<ZoneDescriptionPopoverProps> = ({
           size="1"
           className={`relative mr-2
             ${shouldShowPublic || shouldShowEditing ? 'opacity-100' : 'opacity-0'}
-            ${isEditing && 'hover:opacity-100'}
+            ${isEditing && 'hover:opacity-100 group-hover:opacity-100'}
             transition-opacity duration-200
           `}
           disabled={disabled}

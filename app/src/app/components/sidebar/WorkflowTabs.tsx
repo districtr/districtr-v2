@@ -12,14 +12,24 @@ import {ToolSettings} from '../Toolbar/Settings';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useUiHintStore, useGuideTarget} from '@store/uiHintStore';
 import {MAP_MODES} from '@constants/map/mode';
-import {SOCIOECONOMIC_UNIVERSES, SUMMARY_TYPES} from '@constants/demography/summary';
+import {
+  SOCIOECONOMIC_UNIVERSES,
+  SUMMARY_TYPES,
+  type SummaryType,
+} from '@constants/demography/summary';
 import {useDemographyStore} from '@store/demography/demographyStore';
 
-/** ACS socioeconomic columns exist only on maps whose layers carry them (e.g.
- * the TN workshop counties); hide the section entirely elsewhere. */
-const useHasSocioeconomicData = () => {
+/** The Demographics sections span population plus whichever ACS socioeconomic
+ * universes this map's layers actually carry (e.g. the TN workshop counties).
+ * Filtered here because DemographyTable's universe select doesn't check
+ * availability itself — an unavailable set would render as an error. */
+const useDemographicsColumnSets = (): SummaryType[] => {
   const availableEval = useDemographyStore(state => state.availableColumnSets.evaluation);
-  return SOCIOECONOMIC_UNIVERSES.some(universe => availableEval[universe]);
+  return [
+    SUMMARY_TYPES.TOTPOP,
+    SUMMARY_TYPES.VAP,
+    ...SOCIOECONOMIC_UNIVERSES.filter(universe => availableEval[universe]),
+  ];
 };
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 import type {HelpTipKey} from '@components/HelpTip/helpTipContent';
@@ -89,7 +99,7 @@ const TabSection: React.FC<{
  * (choropleth) controls; their tables live in the Stats tab. */
 const MapLayersPanel: React.FC = () => {
   const mapMode = useMapControlsStore(state => state.mapMode);
-  const hasSocioeconomic = useHasSocioeconomicData();
+  const demographicsColumnSets = useDemographicsColumnSets();
   return (
     <Flex direction="column" px="2">
       <TabSection id="layers-boundaries" label="Boundaries and areas" helpTip="boundariesAndAreas">
@@ -98,19 +108,10 @@ const MapLayersPanel: React.FC = () => {
       <TabSection id="layers-demographics" label="Demographics" helpTip="demographicsMapLayer">
         <SummaryPanel
           defaultColumnSet={SUMMARY_TYPES.TOTPOP}
-          displayedColumnSets={[SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP]}
+          displayedColumnSets={demographicsColumnSets}
           sections={['map']}
         />
       </TabSection>
-      {hasSocioeconomic && (
-        <TabSection id="layers-socioeconomic" label="Socioeconomic">
-          <SummaryPanel
-            defaultColumnSet={SUMMARY_TYPES.AGE}
-            displayedColumnSets={[...SOCIOECONOMIC_UNIVERSES]}
-            sections={['map']}
-          />
-        </TabSection>
-      )}
       {mapMode !== MAP_MODES.COI && (
         <TabSection id="layers-elections" label="Elections" helpTip="electionsMapLayer">
           <SummaryPanel
@@ -133,7 +134,7 @@ const MapLayersPanel: React.FC = () => {
 const StatsPanel: React.FC = () => {
   const mapMode = useMapControlsStore(state => state.mapMode);
   const isCoi = mapMode === MAP_MODES.COI;
-  const hasSocioeconomic = useHasSocioeconomicData();
+  const demographicsColumnSets = useDemographicsColumnSets();
   return (
     <Flex direction="column" px="2">
       {!isCoi && (
@@ -149,20 +150,11 @@ const StatsPanel: React.FC = () => {
           />
           <SummaryPanel
             defaultColumnSet={SUMMARY_TYPES.TOTPOP}
-            displayedColumnSets={[SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP]}
+            displayedColumnSets={demographicsColumnSets}
             sections={['evaluation']}
           />
         </Flex>
       </TabSection>
-      {hasSocioeconomic && (
-        <TabSection id="stats-socioeconomic" label="Socioeconomic">
-          <SummaryPanel
-            defaultColumnSet={SUMMARY_TYPES.AGE}
-            displayedColumnSets={[...SOCIOECONOMIC_UNIVERSES]}
-            sections={['evaluation']}
-          />
-        </TabSection>
-      )}
       {!isCoi && (
         <TabSection id="stats-elections" label="Elections" helpTip="electionsStats">
           <SummaryPanel

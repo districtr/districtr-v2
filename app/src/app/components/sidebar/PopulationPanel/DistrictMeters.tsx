@@ -1,6 +1,6 @@
 'use client';
 import React, {useEffect, useState} from 'react';
-import {Box, Button, Flex, IconButton, Text, Tooltip} from '@radix-ui/themes';
+import {Box, Button, Flex, HoverCard, IconButton, Text, Tooltip} from '@radix-ui/themes';
 import {
   ChevronRightIcon,
   EyeNoneIcon,
@@ -17,6 +17,7 @@ import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {useSelectCommunity} from '@/app/hooks/useSelectCommunity';
 import {ZoneDescriptionPopover} from './ZoneDescriptionPopover';
+import {ZoneDescriptionContent} from '@/app/components/ZoneDescriptions/ZoneDescriptionContent';
 import {ConditionalScrollArea, SCROLL_RESERVED_WIDTH} from '../ConditionalScrollArea';
 import {ShowAllDistrictsButton} from '../ShowAllDistrictsButton';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
@@ -36,6 +37,33 @@ const ICONS_WIDTH = 56;
 // space is 6px, not 8. The header's invisible twin uses the measured value —
 // copying the mr-2 class instead puts the lock-all 4px right of the rows'.
 const TWIN_TRAIL = 6;
+
+// Deliberate beat before the description card opens, so ordinary mousing
+// across the meters doesn't flash cards.
+const DESCRIPTION_HOVER_DELAY = 1250;
+
+/** Plain-Draw description surface: hovering a row for a beat opens the same
+ * description card Super Draw shows in its popover — read-only for viewers,
+ * add (+) / edit controls for editors. Bars with nothing to show (no
+ * description and not editing) render bare. */
+const MaybeDescriptionHoverCard: React.FC<{
+  zone: number;
+  color: string;
+  hasDescription: boolean;
+  isEditing: boolean;
+  enabled: boolean;
+  children: React.ReactElement;
+}> = ({zone, color, hasDescription, isEditing, enabled, children}) =>
+  enabled && (hasDescription || isEditing) ? (
+    <HoverCard.Root openDelay={DESCRIPTION_HOVER_DELAY}>
+      <HoverCard.Trigger>{children}</HoverCard.Trigger>
+      <HoverCard.Content style={{width: 300}} onClick={e => e.stopPropagation()}>
+        <ZoneDescriptionContent zone={zone} color={color} showEditingControls={isEditing} />
+      </HoverCard.Content>
+    </HoverCard.Root>
+  ) : (
+    children
+  );
 // Bars stop growing on wide sidebars; everything (label strip, rows,
 // scoreboard) shares the cap so columns stay aligned.
 const MAX_METERS_WIDTH = 560;
@@ -217,6 +245,9 @@ export const DistrictMeters = () => {
   // starts at the same x.
   const numColWidth = `${String(populationData.length).length + 1}ch`;
   const showRowIcons = superDraw && isEditing;
+  // Plain Draw has no description icon; a described district's bar carries a
+  // hover tooltip instead. Super Draw keeps the popover (with edit controls).
+  const documentComments = useMapStore(state => state.mapDocument?.document_comments);
   const rowsScroll = visibleData.length > ROW_SCROLL_THRESHOLD;
 
   // The target-deviation band brackets the ideal line; rendered per row (like
@@ -354,211 +385,226 @@ export const DistrictMeters = () => {
                 const overflowsIdeal =
                   tickFraction !== undefined && !!idealPopulation && population > idealPopulation;
                 return (
-                  <Flex
+                  <MaybeDescriptionHoverCard
                     key={d.zone}
-                    align="center"
-                    gap="2"
-                    px="1"
-                    // Clicking anywhere on the row selects it, but the row
-                    // itself stays a plain div: a role="button" wrapping the
-                    // lock/comment controls is invalid ARIA and hides them
-                    // from assistive tech. The bar carries the real <button>.
-                    onClick={() => selectCommunity(d.zone)}
-                    className={`cursor-pointer rounded-md transition-colors duration-150 ${
-                      selectedZone === d.zone ? 'bg-[var(--accent-3)]' : 'hover:bg-[var(--gray-2)]'
-                    }`}
-                    style={{height: ROW_HEIGHT}}
-                    data-testid={`district-meter-row-${d.zone}`}
+                    zone={d.zone}
+                    color={color}
+                    hasDescription={documentComments?.some(c => c.zone === d.zone) ?? false}
+                    isEditing={isEditing}
+                    enabled={!superDraw}
                   >
-                    {showDistrictNumbers && (
-                      <Text
-                        size="2"
-                        color={offScale ? 'red' : 'gray'}
-                        weight={selectedZone === d.zone ? 'bold' : 'regular'}
-                        style={{...NUM_CELL_STYLE, width: numColWidth}}
-                      >
-                        {d.zone}
-                      </Text>
-                    )}
-                    {/* Comment and per-district lock are Super Draw features; plain
-                        Draw rows are just the number, bar, and totals. Icons manage
-                        their own interactions; don't let clicks re-select the row. */}
-                    {showRowIcons && (
-                      <Flex
-                        align="center"
-                        gap="1"
-                        flexShrink="0"
-                        style={{width: ICONS_WIDTH}}
-                        onClick={e => e.stopPropagation()}
-                      >
-                        <ZoneDescriptionPopover zone={d.zone} color={color} />
-                        <Tooltip
-                          content={
-                            locked
-                              ? 'Unlock this district to allow painting over it'
-                              : "Lock this district so it can't be painted over"
-                          }
+                    <Flex
+                      align="center"
+                      gap="2"
+                      px="1"
+                      // Clicking anywhere on the row selects it, but the row
+                      // itself stays a plain div: a role="button" wrapping the
+                      // lock/comment controls is invalid ARIA and hides them
+                      // from assistive tech. The bar carries the real <button>.
+                      onClick={() => selectCommunity(d.zone)}
+                      // `group` lets the description bubble fade in on row hover
+                      // (see ZoneDescriptionPopover's group-hover).
+                      className={`group cursor-pointer rounded-md transition-colors duration-150 ${
+                        selectedZone === d.zone
+                          ? 'bg-[var(--accent-3)]'
+                          : 'hover:bg-[var(--gray-2)]'
+                      }`}
+                      style={{height: ROW_HEIGHT}}
+                      data-testid={`district-meter-row-${d.zone}`}
+                    >
+                      {showDistrictNumbers && (
+                        <Text
+                          size="2"
+                          color={offScale ? 'red' : 'gray'}
+                          weight={selectedZone === d.zone ? 'bold' : 'regular'}
+                          style={{...NUM_CELL_STYLE, width: numColWidth}}
                         >
-                          <IconButton
-                            onClick={() => handleLockChange(d.zone)}
-                            variant="ghost"
-                            size="1"
-                            disabled={isReadOnly}
-                            aria-label={
-                              locked ? `Unlock district ${d.zone}` : `Lock district ${d.zone}`
+                          {d.zone}
+                        </Text>
+                      )}
+                      {/* Comment and per-district lock are Super Draw features; in
+                        plain Draw the description surfaces as a hover card on the
+                        row instead (see MaybeDescriptionHoverCard). Icons manage
+                        their own interactions; don't let clicks re-select the row. */}
+                      {showRowIcons && (
+                        <Flex
+                          align="center"
+                          gap="1"
+                          flexShrink="0"
+                          style={{width: ICONS_WIDTH}}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <ZoneDescriptionPopover zone={d.zone} color={color} />
+                          <Tooltip
+                            content={
+                              locked
+                                ? 'Unlock this district to allow painting over it'
+                                : "Lock this district so it can't be painted over"
                             }
                           >
-                            {locked ? <LockClosedIcon /> : <LockOpen2Icon />}
-                          </IconButton>
-                        </Tooltip>
-                      </Flex>
-                    )}
-                    {/* The bar is the row's keyboard/AT control — a real
+                            <IconButton
+                              onClick={() => handleLockChange(d.zone)}
+                              variant="ghost"
+                              size="1"
+                              disabled={isReadOnly}
+                              aria-label={
+                                locked ? `Unlock district ${d.zone}` : `Lock district ${d.zone}`
+                              }
+                            >
+                              {locked ? <LockClosedIcon /> : <LockOpen2Icon />}
+                            </IconButton>
+                          </Tooltip>
+                        </Flex>
+                      )}
+                      {/* The bar is the row's keyboard/AT control — a real
                         <button>, unlike the row, which has to wrap the
                         lock/comment buttons. Its clicks (including the one
                         Enter/Space synthesizes) bubble to the row's handler,
                         so it needs no onClick of its own. */}
-                    <button
-                      type="button"
-                      aria-label={`Select district ${d.zone}`}
-                      className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-8)]"
-                      style={{
-                        flexGrow: 1,
-                        height: BAR_HEIGHT,
-                        position: 'relative',
-                        padding: 0,
-                        border: 'none',
-                        background: 'none',
-                        cursor: 'pointer',
-                        outlineOffset: 2,
-                      }}
-                    >
-                      {offScale && tickFraction !== undefined ? (
-                        /* Off the scale: the bar runs to the track's end and
+                      <button
+                        type="button"
+                        aria-label={`Select district ${d.zone}`}
+                        className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-8)]"
+                        style={{
+                          flexGrow: 1,
+                          height: BAR_HEIGHT,
+                          position: 'relative',
+                          padding: 0,
+                          border: 'none',
+                          background: 'none',
+                          cursor: 'pointer',
+                          outlineOffset: 2,
+                        }}
+                      >
+                        {offScale && tickFraction !== undefined ? (
+                          /* Off the scale: the bar runs to the track's end and
                            stops flat. Rounded cap on the left, darker shaft
                            past the ideal line, and chevrons on the end: this
                            district is off the chart. */
-                        <>
-                          <Box
-                            style={{
-                              position: 'absolute',
-                              top: 0,
-                              bottom: 0,
-                              left: 0,
-                              width: `${tickFraction * 100}%`,
-                              background: color,
-                              borderRadius: '99px 0 0 99px',
-                            }}
-                          />
-                          <Box
-                            style={{
-                              position: 'absolute',
-                              top: 0,
-                              bottom: 0,
-                              left: `${tickFraction * 100}%`,
-                              right: 0,
-                              background: overflowColor,
-                            }}
-                          />
-                          <OffScaleChevrons count={chevrons} />
-                        </>
-                      ) : (
-                        <>
-                          {/* The track runs from the bar's start to the ideal
-                              line: rounded cap on the left, squared off exactly
-                              at ideal. */}
-                          <Box
-                            style={{
-                              position: 'absolute',
-                              top: 0,
-                              bottom: 0,
-                              left: 0,
-                              width: `${(tickFraction ?? 1) * 100}%`,
-                              borderRadius: '99px 0 0 99px',
-                              background: 'var(--gray-a4)',
-                              overflow: 'hidden',
-                            }}
-                          >
-                            <Box
-                              style={{
-                                width: `${Math.min(fill / (tickFraction ?? 1), 1) * 100}%`,
-                                height: '100%',
-                                background: color,
-                                transition: BAR_SPRING,
-                              }}
-                            />
-                          </Box>
-                          {/* Population past ideal extends beyond the track's
-                              square end in a darker shade of the district
-                              color. */}
-                          {overflowsIdeal && tickFraction !== undefined && (
+                          <>
                             <Box
                               style={{
                                 position: 'absolute',
-                                left: `${tickFraction * 100}%`,
                                 top: 0,
                                 bottom: 0,
-                                width: `${(Math.min(fill, 1) - tickFraction) * 100}%`,
-                                background: overflowColor,
-                                transition: BAR_SPRING,
+                                left: 0,
+                                width: `${tickFraction * 100}%`,
+                                background: color,
+                                borderRadius: '99px 0 0 99px',
                               }}
                             />
-                          )}
-                        </>
-                      )}
-                      {/* Target-deviation band bracketing the ideal line. */}
-                      {band && (
-                        <Box
-                          style={{
-                            position: 'absolute',
-                            left: `${band.left * 100}%`,
-                            width: `${(band.right - band.left) * 100}%`,
-                            top: -TICK_OVERHANG,
-                            bottom: -TICK_OVERHANG,
-                            background: 'var(--gray-a3)',
-                            pointerEvents: 'none',
-                          }}
-                        />
-                      )}
-                      {/* Per-row segment of the shared ideal line; the overhang
+                            <Box
+                              style={{
+                                position: 'absolute',
+                                top: 0,
+                                bottom: 0,
+                                left: `${tickFraction * 100}%`,
+                                right: 0,
+                                background: overflowColor,
+                              }}
+                            />
+                            <OffScaleChevrons count={chevrons} />
+                          </>
+                        ) : (
+                          <>
+                            {/* The track runs from the bar's start to the ideal
+                              line: rounded cap on the left, squared off exactly
+                              at ideal. */}
+                            <Box
+                              style={{
+                                position: 'absolute',
+                                top: 0,
+                                bottom: 0,
+                                left: 0,
+                                width: `${(tickFraction ?? 1) * 100}%`,
+                                borderRadius: '99px 0 0 99px',
+                                background: 'var(--gray-a4)',
+                                overflow: 'hidden',
+                              }}
+                            >
+                              <Box
+                                style={{
+                                  width: `${Math.min(fill / (tickFraction ?? 1), 1) * 100}%`,
+                                  height: '100%',
+                                  background: color,
+                                  transition: BAR_SPRING,
+                                }}
+                              />
+                            </Box>
+                            {/* Population past ideal extends beyond the track's
+                              square end in a darker shade of the district
+                              color. */}
+                            {overflowsIdeal && tickFraction !== undefined && (
+                              <Box
+                                style={{
+                                  position: 'absolute',
+                                  left: `${tickFraction * 100}%`,
+                                  top: 0,
+                                  bottom: 0,
+                                  width: `${(Math.min(fill, 1) - tickFraction) * 100}%`,
+                                  background: overflowColor,
+                                  transition: BAR_SPRING,
+                                }}
+                              />
+                            )}
+                          </>
+                        )}
+                        {/* Target-deviation band bracketing the ideal line. */}
+                        {band && (
+                          <Box
+                            style={{
+                              position: 'absolute',
+                              left: `${band.left * 100}%`,
+                              width: `${(band.right - band.left) * 100}%`,
+                              top: -TICK_OVERHANG,
+                              bottom: -TICK_OVERHANG,
+                              background: 'var(--gray-a3)',
+                              pointerEvents: 'none',
+                            }}
+                          />
+                        )}
+                        {/* Per-row segment of the shared ideal line; the overhang
                           bridges the gap to the neighboring rows' bars so the
                           line reads as continuous. */}
-                      {tickFraction !== undefined && (
-                        <Box
-                          style={{
-                            position: 'absolute',
-                            left: `${tickFraction * 100}%`,
-                            top: -TICK_OVERHANG,
-                            bottom: -TICK_OVERHANG,
-                            width: 2,
-                            marginLeft: -1,
-                            background: 'var(--gray-a6)',
-                          }}
-                        />
+                        {tickFraction !== undefined && (
+                          <Box
+                            style={{
+                              position: 'absolute',
+                              left: `${tickFraction * 100}%`,
+                              top: -TICK_OVERHANG,
+                              bottom: -TICK_OVERHANG,
+                              width: 2,
+                              marginLeft: -1,
+                              background: 'var(--gray-a6)',
+                            }}
+                          />
+                        )}
+                      </button>
+                      {showPopNumbers && (
+                        <Text
+                          size="2"
+                          weight="medium"
+                          color={offScale ? 'red' : undefined}
+                          style={{...NUM_CELL_STYLE, width: POP_COL_WIDTH}}
+                        >
+                          {formatNumber(population, NUMBER_FORMATS.STRING)}
+                        </Text>
                       )}
-                    </button>
-                    {showPopNumbers && (
-                      <Text
-                        size="2"
-                        weight="medium"
-                        color={offScale ? 'red' : undefined}
-                        style={{...NUM_CELL_STYLE, width: POP_COL_WIDTH}}
-                      >
-                        {formatNumber(population, NUMBER_FORMATS.STRING)}
-                      </Text>
-                    )}
-                    {showDeviations && (
-                      <Text
-                        size="2"
-                        color={offScale ? 'red' : 'gray'}
-                        style={{...NUM_CELL_STYLE, width: DEV_COL_WIDTH}}
-                      >
-                        {/* An unstarted district's "deviation" is just the
+                      {showDeviations && (
+                        <Text
+                          size="2"
+                          color={offScale ? 'red' : 'gray'}
+                          style={{...NUM_CELL_STYLE, width: DEV_COL_WIDTH}}
+                        >
+                          {/* An unstarted district's "deviation" is just the
                             ideal restated as a negative; leave it blank. */}
-                        {population > 0 && deviation !== undefined ? signedNumber(deviation) : '—'}
-                      </Text>
-                    )}
-                  </Flex>
+                          {population > 0 && deviation !== undefined
+                            ? signedNumber(deviation)
+                            : '—'}
+                        </Text>
+                      )}
+                    </Flex>
+                  </MaybeDescriptionHoverCard>
                 );
               })}
             </Flex>

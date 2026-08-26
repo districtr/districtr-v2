@@ -36,10 +36,10 @@ export const TOTAL_COLUMN: Record<SummaryType, string | undefined> = {
   VAP: 'total_vap_20',
   TOTPOP: 'total_pop_20',
   VOTERHISTORY: undefined,
-  AGE: 'total_pop_23',
-  INCOME: 'total_hh_23',
-  EDUCATION: 'total_pop_25plus_23',
-  VEHICLES: 'total_occ_hh_23',
+  AGE: 'total_pop_24',
+  INCOME: 'total_hh_24',
+  EDUCATION: 'total_pop_25plus_24',
+  VEHICLES: 'total_occ_hh_24',
 } as const;
 
 /**
