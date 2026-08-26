@@ -78,7 +78,7 @@ districtr_maps:
   child_layer: tn_davidson_block_view
   tiles_s3_path: tilesets/tn_davidson_view.pmtiles
   num_districts: 4
-  num_districts_modifiable: false
+  num_districts_modifiable: true
   visible: true
 - name: Shelby County, TN
   districtr_map_slug: tn_shelby_workshop
@@ -87,7 +87,7 @@ districtr_maps:
   child_layer: tn_shelby_block_view
   tiles_s3_path: tilesets/tn_shelby_view.pmtiles
   num_districts: 4
-  num_districts_modifiable: false
+  num_districts_modifiable: true
   visible: true
 - name: Hamilton County, TN
   districtr_map_slug: tn_hamilton_workshop
@@ -96,7 +96,7 @@ districtr_maps:
   child_layer: tn_hamilton_block_view
   tiles_s3_path: tilesets/tn_hamilton_view.pmtiles
   num_districts: 4
-  num_districts_modifiable: false
+  num_districts_modifiable: true
   visible: true
 - name: Knox County, TN
   districtr_map_slug: tn_knox_workshop
@@ -105,7 +105,7 @@ districtr_maps:
   child_layer: tn_knox_block_view
   tiles_s3_path: tilesets/tn_knox_view.pmtiles
   num_districts: 4
-  num_districts_modifiable: false
+  num_districts_modifiable: true
   visible: true
 - name: Williamson County, TN
   districtr_map_slug: tn_williamson_workshop
@@ -114,7 +114,7 @@ districtr_maps:
   child_layer: tn_williamson_block_view
   tiles_s3_path: tilesets/tn_williamson_view.pmtiles
   num_districts: 4
-  num_districts_modifiable: false
+  num_districts_modifiable: true
   visible: true
 - name: Rutherford County, TN
   districtr_map_slug: tn_rutherford_workshop
@@ -123,7 +123,7 @@ districtr_maps:
   child_layer: tn_rutherford_block_view
   tiles_s3_path: tilesets/tn_rutherford_view.pmtiles
   num_districts: 4
-  num_districts_modifiable: false
+  num_districts_modifiable: true
   visible: true
 - name: Montgomery County, TN
   districtr_map_slug: tn_montgomery_workshop
@@ -132,7 +132,7 @@ districtr_maps:
   child_layer: tn_montgomery_block_view
   tiles_s3_path: tilesets/tn_montgomery_view.pmtiles
   num_districts: 4
-  num_districts_modifiable: false
+  num_districts_modifiable: true
   visible: true
 - name: Maury County, TN
   districtr_map_slug: tn_maury_workshop
@@ -141,7 +141,7 @@ districtr_maps:
   child_layer: tn_maury_block_view
   tiles_s3_path: tilesets/tn_maury_view.pmtiles
   num_districts: 4
-  num_districts_modifiable: false
+  num_districts_modifiable: true
   visible: true
 - name: Wilson County, TN
   districtr_map_slug: tn_wilson_workshop
@@ -150,7 +150,7 @@ districtr_maps:
   child_layer: tn_wilson_block_view
   tiles_s3_path: tilesets/tn_wilson_view.pmtiles
   num_districts: 4
-  num_districts_modifiable: false
+  num_districts_modifiable: true
   visible: true
 - name: Sumner County, TN
   districtr_map_slug: tn_sumner_workshop
@@ -159,7 +159,7 @@ districtr_maps:
   child_layer: tn_sumner_block_view
   tiles_s3_path: tilesets/tn_sumner_view.pmtiles
   num_districts: 4
-  num_districts_modifiable: false
+  num_districts_modifiable: true
   visible: true
 map_group_definitions:
 - slug: tn-workshop
