@@ -1,4 +1,4 @@
-# TN "Create Your Own Map" workshop: 10 county modules (VTD parent / block
+# TN "Create Your Own Map" workshop: 10 county modules (block-group parent / block
 # child), 4 districts each, drawn from gpkgs in <data-dir>/workshop-tn.
 #
 # Load: python cli.py batch-create-districtr-maps --config-file management/configs/tn_workshop.yaml --data-dir /data
@@ -8,82 +8,82 @@
 #   WHERE districtr_map_slug LIKE 'tn_%workshop';
 # (comment_length_limit gates district descriptions; NULL disables them.)
 gerrydb_views:
-- gpkg: workshop-tn/tn_davidson_vtd_view.gpkg
-  layer: tn_davidson_vtd_view
+- gpkg: workshop-tn/tn_davidson_bg_view.gpkg
+  layer: tn_davidson_bg_view
 - gpkg: workshop-tn/tn_davidson_block_view.gpkg
   layer: tn_davidson_block_view
-- gpkg: workshop-tn/tn_shelby_vtd_view.gpkg
-  layer: tn_shelby_vtd_view
+- gpkg: workshop-tn/tn_shelby_bg_view.gpkg
+  layer: tn_shelby_bg_view
 - gpkg: workshop-tn/tn_shelby_block_view.gpkg
   layer: tn_shelby_block_view
-- gpkg: workshop-tn/tn_hamilton_vtd_view.gpkg
-  layer: tn_hamilton_vtd_view
+- gpkg: workshop-tn/tn_hamilton_bg_view.gpkg
+  layer: tn_hamilton_bg_view
 - gpkg: workshop-tn/tn_hamilton_block_view.gpkg
   layer: tn_hamilton_block_view
-- gpkg: workshop-tn/tn_knox_vtd_view.gpkg
-  layer: tn_knox_vtd_view
+- gpkg: workshop-tn/tn_knox_bg_view.gpkg
+  layer: tn_knox_bg_view
 - gpkg: workshop-tn/tn_knox_block_view.gpkg
   layer: tn_knox_block_view
-- gpkg: workshop-tn/tn_williamson_vtd_view.gpkg
-  layer: tn_williamson_vtd_view
+- gpkg: workshop-tn/tn_williamson_bg_view.gpkg
+  layer: tn_williamson_bg_view
 - gpkg: workshop-tn/tn_williamson_block_view.gpkg
   layer: tn_williamson_block_view
-- gpkg: workshop-tn/tn_rutherford_vtd_view.gpkg
-  layer: tn_rutherford_vtd_view
+- gpkg: workshop-tn/tn_rutherford_bg_view.gpkg
+  layer: tn_rutherford_bg_view
 - gpkg: workshop-tn/tn_rutherford_block_view.gpkg
   layer: tn_rutherford_block_view
-- gpkg: workshop-tn/tn_montgomery_vtd_view.gpkg
-  layer: tn_montgomery_vtd_view
+- gpkg: workshop-tn/tn_montgomery_bg_view.gpkg
+  layer: tn_montgomery_bg_view
 - gpkg: workshop-tn/tn_montgomery_block_view.gpkg
   layer: tn_montgomery_block_view
-- gpkg: workshop-tn/tn_maury_vtd_view.gpkg
-  layer: tn_maury_vtd_view
+- gpkg: workshop-tn/tn_maury_bg_view.gpkg
+  layer: tn_maury_bg_view
 - gpkg: workshop-tn/tn_maury_block_view.gpkg
   layer: tn_maury_block_view
-- gpkg: workshop-tn/tn_wilson_vtd_view.gpkg
-  layer: tn_wilson_vtd_view
+- gpkg: workshop-tn/tn_wilson_bg_view.gpkg
+  layer: tn_wilson_bg_view
 - gpkg: workshop-tn/tn_wilson_block_view.gpkg
   layer: tn_wilson_block_view
-- gpkg: workshop-tn/tn_sumner_vtd_view.gpkg
-  layer: tn_sumner_vtd_view
+- gpkg: workshop-tn/tn_sumner_bg_view.gpkg
+  layer: tn_sumner_bg_view
 - gpkg: workshop-tn/tn_sumner_block_view.gpkg
   layer: tn_sumner_block_view
 shatterable_views:
 - gerrydb_table_name: tn_davidson_view
-  parent_layer: tn_davidson_vtd_view
+  parent_layer: tn_davidson_bg_view
   child_layer: tn_davidson_block_view
 - gerrydb_table_name: tn_shelby_view
-  parent_layer: tn_shelby_vtd_view
+  parent_layer: tn_shelby_bg_view
   child_layer: tn_shelby_block_view
 - gerrydb_table_name: tn_hamilton_view
-  parent_layer: tn_hamilton_vtd_view
+  parent_layer: tn_hamilton_bg_view
   child_layer: tn_hamilton_block_view
 - gerrydb_table_name: tn_knox_view
-  parent_layer: tn_knox_vtd_view
+  parent_layer: tn_knox_bg_view
   child_layer: tn_knox_block_view
 - gerrydb_table_name: tn_williamson_view
-  parent_layer: tn_williamson_vtd_view
+  parent_layer: tn_williamson_bg_view
   child_layer: tn_williamson_block_view
 - gerrydb_table_name: tn_rutherford_view
-  parent_layer: tn_rutherford_vtd_view
+  parent_layer: tn_rutherford_bg_view
   child_layer: tn_rutherford_block_view
 - gerrydb_table_name: tn_montgomery_view
-  parent_layer: tn_montgomery_vtd_view
+  parent_layer: tn_montgomery_bg_view
   child_layer: tn_montgomery_block_view
 - gerrydb_table_name: tn_maury_view
-  parent_layer: tn_maury_vtd_view
+  parent_layer: tn_maury_bg_view
   child_layer: tn_maury_block_view
 - gerrydb_table_name: tn_wilson_view
-  parent_layer: tn_wilson_vtd_view
+  parent_layer: tn_wilson_bg_view
   child_layer: tn_wilson_block_view
 - gerrydb_table_name: tn_sumner_view
-  parent_layer: tn_sumner_vtd_view
+  parent_layer: tn_sumner_bg_view
   child_layer: tn_sumner_block_view
 districtr_maps:
 - name: Davidson County, TN
   districtr_map_slug: tn_davidson_workshop
   gerrydb_table_name: tn_davidson_view
-  parent_layer: tn_davidson_vtd_view
+  parent_layer: tn_davidson_bg_view
   child_layer: tn_davidson_block_view
   tiles_s3_path: tilesets/tn_davidson_view.pmtiles
   num_districts: 4
@@ -92,7 +92,7 @@ districtr_maps:
 - name: Shelby County, TN
   districtr_map_slug: tn_shelby_workshop
   gerrydb_table_name: tn_shelby_view
-  parent_layer: tn_shelby_vtd_view
+  parent_layer: tn_shelby_bg_view
   child_layer: tn_shelby_block_view
   tiles_s3_path: tilesets/tn_shelby_view.pmtiles
   num_districts: 4
@@ -101,7 +101,7 @@ districtr_maps:
 - name: Hamilton County, TN
   districtr_map_slug: tn_hamilton_workshop
   gerrydb_table_name: tn_hamilton_view
-  parent_layer: tn_hamilton_vtd_view
+  parent_layer: tn_hamilton_bg_view
   child_layer: tn_hamilton_block_view
   tiles_s3_path: tilesets/tn_hamilton_view.pmtiles
   num_districts: 4
@@ -110,7 +110,7 @@ districtr_maps:
 - name: Knox County, TN
   districtr_map_slug: tn_knox_workshop
   gerrydb_table_name: tn_knox_view
-  parent_layer: tn_knox_vtd_view
+  parent_layer: tn_knox_bg_view
   child_layer: tn_knox_block_view
   tiles_s3_path: tilesets/tn_knox_view.pmtiles
   num_districts: 4
@@ -119,7 +119,7 @@ districtr_maps:
 - name: Williamson County, TN
   districtr_map_slug: tn_williamson_workshop
   gerrydb_table_name: tn_williamson_view
-  parent_layer: tn_williamson_vtd_view
+  parent_layer: tn_williamson_bg_view
   child_layer: tn_williamson_block_view
   tiles_s3_path: tilesets/tn_williamson_view.pmtiles
   num_districts: 4
@@ -128,7 +128,7 @@ districtr_maps:
 - name: Rutherford County, TN
   districtr_map_slug: tn_rutherford_workshop
   gerrydb_table_name: tn_rutherford_view
-  parent_layer: tn_rutherford_vtd_view
+  parent_layer: tn_rutherford_bg_view
   child_layer: tn_rutherford_block_view
   tiles_s3_path: tilesets/tn_rutherford_view.pmtiles
   num_districts: 4
@@ -137,7 +137,7 @@ districtr_maps:
 - name: Montgomery County, TN
   districtr_map_slug: tn_montgomery_workshop
   gerrydb_table_name: tn_montgomery_view
-  parent_layer: tn_montgomery_vtd_view
+  parent_layer: tn_montgomery_bg_view
   child_layer: tn_montgomery_block_view
   tiles_s3_path: tilesets/tn_montgomery_view.pmtiles
   num_districts: 4
@@ -146,7 +146,7 @@ districtr_maps:
 - name: Maury County, TN
   districtr_map_slug: tn_maury_workshop
   gerrydb_table_name: tn_maury_view
-  parent_layer: tn_maury_vtd_view
+  parent_layer: tn_maury_bg_view
   child_layer: tn_maury_block_view
   tiles_s3_path: tilesets/tn_maury_view.pmtiles
   num_districts: 4
@@ -155,7 +155,7 @@ districtr_maps:
 - name: Wilson County, TN
   districtr_map_slug: tn_wilson_workshop
   gerrydb_table_name: tn_wilson_view
-  parent_layer: tn_wilson_vtd_view
+  parent_layer: tn_wilson_bg_view
   child_layer: tn_wilson_block_view
   tiles_s3_path: tilesets/tn_wilson_view.pmtiles
   num_districts: 4
@@ -164,7 +164,7 @@ districtr_maps:
 - name: Sumner County, TN
   districtr_map_slug: tn_sumner_workshop
   gerrydb_table_name: tn_sumner_view
-  parent_layer: tn_sumner_vtd_view
+  parent_layer: tn_sumner_bg_view
   child_layer: tn_sumner_block_view
   tiles_s3_path: tilesets/tn_sumner_view.pmtiles
   num_districts: 4
