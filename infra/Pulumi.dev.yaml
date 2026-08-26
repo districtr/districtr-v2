@@ -17,7 +17,7 @@ config:
     secure: v1:NvATpjb2PUlKwXAz:1KdAv/sq7vkzINPAPM9twpRm7+/8c1GwvnlYKYsB7gr/DyMSjT5dsDZL
   districtr-infra:cdnUrl: https://tilesets1.cdn.districtr.org
   districtr-infra:auth0Domain: districtr-qa.us.auth0.com
-  districtr-infra:auth0ApiAudience: https://districtr-v2-api-dev.fly.dev
+  districtr-infra:auth0ApiAudience: https://districtr-v2-*-api.fly.dev/
   districtr-infra:auth0Issuer: https://districtr-qa.us.auth0.com
   districtr-infra:alarmEmails:
     - dhalpern@uchicago.edu
