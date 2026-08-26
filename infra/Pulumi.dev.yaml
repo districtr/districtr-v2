@@ -18,7 +18,7 @@ config:
   districtr-infra:cdnUrl: https://tilesets1.cdn.districtr.org
   districtr-infra:auth0Domain: districtr-qa.us.auth0.com
   districtr-infra:auth0ApiAudience: https://districtr-v2-*-api.fly.dev/
-  districtr-infra:auth0Issuer: https://districtr-qa.us.auth0.com
+  districtr-infra:auth0Issuer: https://districtr-qa.us.auth0.com/
   districtr-infra:alarmEmails:
     - dhalpern@uchicago.edu
     - gfang@uchicago.edu
