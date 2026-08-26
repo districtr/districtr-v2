@@ -154,6 +154,12 @@ export const OverlaysPanel = () => {
 
       {/* Remaining boundaries (metro areas, school districts, tribal areas) */}
       {otherOverlays.map(renderOverlayRow)}
+
+      {isSingleCounty && !legislativeOverlays.length && !otherOverlays.length && (
+        <Text size="2" color="gray">
+          No boundaries available for this map
+        </Text>
+      )}
     </Flex>
   );
 };
