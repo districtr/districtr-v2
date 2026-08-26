@@ -3,7 +3,6 @@ import os
 import logging
 from subprocess import run
 from urllib.parse import urlparse
-from typing import Iterable
 from core.models import Config
 from core.settings import settings
 from core.io import download_file_from_s3
@@ -28,7 +27,8 @@ class GerryDBTileset(BaseModel):
     layer_name: str
     new_layer_name: str | None
     # list, not Iterable: pydantic v2 validates Iterable[str] into a one-shot
-    # lazy iterable, so generate_tiles consumed it and generate_points saw []
+    # lazy iterable, so the first consumer (generate_tiles) drains it and
+    # later consumers (generate_points) see no columns
     columns: list[str] = [
         "path",
         "geography",
