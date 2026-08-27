@@ -6,6 +6,7 @@ export const SUMMARY_TYPES = {
   INCOME: 'INCOME',
   EDUCATION: 'EDUCATION',
   VEHICLES: 'VEHICLES',
+  TENURE: 'TENURE',
 } as const;
 
 export type SummaryType = (typeof SUMMARY_TYPES)[keyof typeof SUMMARY_TYPES];
@@ -27,6 +28,7 @@ export const ACS_UNIVERSES = [
   SUMMARY_TYPES.INCOME,
   SUMMARY_TYPES.EDUCATION,
   SUMMARY_TYPES.VEHICLES,
+  SUMMARY_TYPES.TENURE,
 ] as const;
 export type AcsUniverse = (typeof ACS_UNIVERSES)[number];
 
@@ -41,6 +43,7 @@ export const TOTAL_COLUMN: Record<SummaryType, string | undefined> = {
   INCOME: 'total_hh_24',
   EDUCATION: 'total_pop_25plus_24',
   VEHICLES: 'total_occ_hh_24',
+  TENURE: 'total_occ_hh_24',
 } as const;
 
 /**
