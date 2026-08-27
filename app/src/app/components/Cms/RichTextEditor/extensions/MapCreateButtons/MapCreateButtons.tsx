@@ -7,8 +7,10 @@ import Image from 'next/image';
 export interface MapCreateButtonsProps {
   views: Array<Pick<DistrictrMap, 'name' | 'districtr_map_slug'>>;
   type: 'simple' | 'megaphone' | 'cards';
+  /** Stored in created maps' metadata so tag-filtered galleries pick them up. */
+  createTag?: string | null;
 }
-export const MapCreateButtons = ({views, type}: MapCreateButtonsProps) => {
+export const MapCreateButtons = ({views, type, createTag}: MapCreateButtonsProps) => {
   switch (type) {
     // Same start cards the place pages render, for visual consistency.
     case 'cards':
@@ -20,6 +22,7 @@ export const MapCreateButtons = ({views, type}: MapCreateButtonsProps) => {
               view={view}
               isCommunity={false}
               showOutcome={false}
+              createTag={createTag}
             />
           ))}
         </CardGrid>
@@ -28,7 +31,7 @@ export const MapCreateButtons = ({views, type}: MapCreateButtonsProps) => {
       return (
         <Flex direction="row" gap="2">
           {views.map(view => (
-            <CreateButton key={view.districtr_map_slug} view={view} />
+            <CreateButton key={view.districtr_map_slug} view={view} createTag={createTag} />
           ))}
         </Flex>
       );
@@ -54,6 +57,7 @@ export const MapCreateButtons = ({views, type}: MapCreateButtonsProps) => {
               <CreateButton
                 key={view.districtr_map_slug}
                 view={view}
+                createTag={createTag}
                 extraClasses="bg-districtrBlue text-white text-xl px-8 py-3 rounded-md font-bold hover:bg-blue-700 transition-colors cursor-pointer m-2"
               />
             ))}
