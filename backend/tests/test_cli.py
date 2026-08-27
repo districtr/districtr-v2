@@ -60,6 +60,70 @@ def cleanup_overlay(session: Session, overlay_name: str):
         session.commit()
 
 
+def upsert_gerrydbtable(session: Session, name: str) -> None:
+    """Upsert a gerrydbtable catalog row, on the caller's session/transaction."""
+    session.execute(
+        text(
+            """INSERT INTO gerrydbtable (uuid, name, updated_at)
+            VALUES (gen_random_uuid(), :name, now())
+            ON CONFLICT (name)
+            DO UPDATE SET updated_at = now()"""
+        ),
+        {"name": name},
+    )
+
+
+def make_districtr_map(**overrides) -> DistrictrMap:
+    """A DistrictrMap with the fields nearly every CLI test fixture sets the
+    same way (a fresh uuid, visible, default map type, modifiable district
+    count) -- pass anything else, or override these, as keyword arguments."""
+    fields = dict(
+        uuid=str(uuid4()),
+        visible=True,
+        map_type="default",
+        num_districts_modifiable=True,
+    )
+    fields.update(overrides)
+    return DistrictrMap(**fields)
+
+
+def purge_test_rows(
+    session: Session,
+    *,
+    map_slug: str | None = None,
+    map_slugs: tuple[str, ...] = (),
+    gerrydbtable_name: str | None = None,
+    map_group_slugs: tuple[str, ...] = (),
+    extra_statements: tuple[tuple[str, dict], ...] = (),
+):
+    """Delete test rows from the tables CLI tests commonly touch, by slug or
+    name. extra_statements run first, for anything this doesn't cover
+    directly -- a junction-table cleanup, an overlay delete, a DROP TABLE/VIEW."""
+    for stmt, params in extra_statements:
+        session.execute(text(stmt), params)
+    if map_slug is not None:
+        session.execute(
+            text("DELETE FROM districtrmap WHERE districtr_map_slug = :slug"),
+            {"slug": map_slug},
+        )
+    if map_slugs:
+        session.execute(
+            text("DELETE FROM districtrmap WHERE districtr_map_slug = ANY(:slugs)"),
+            {"slugs": list(map_slugs)},
+        )
+    if gerrydbtable_name is not None:
+        session.execute(
+            text("DELETE FROM gerrydbtable WHERE name = :name"),
+            {"name": gerrydbtable_name},
+        )
+    if map_group_slugs:
+        session.execute(
+            text("DELETE FROM map_group WHERE slug = ANY(:group_slugs)"),
+            {"group_slugs": list(map_group_slugs)},
+        )
+    session.commit()
+
+
 def test_create_overlay(session: Session):
     """Test creating an overlay via CLI"""
     result_proc = run_cli(
@@ -255,25 +319,24 @@ LINK_TEST_MAP_SLUGS = ("link_overlays_test_map_ks", "link_overlays_test_map_mo")
 
 def purge_link_test_rows(session: Session):
     """Delete committed rows from the link-overlays tests, including leftovers from killed runs."""
-    session.execute(
-        text(
-            """DELETE FROM districtrmap_overlays
-            WHERE overlay_id IN (SELECT overlay_id FROM overlay WHERE name = :name)
-            OR districtr_map_id IN (
-                SELECT uuid FROM districtrmap WHERE districtr_map_slug = ANY(:slugs)
-            )"""
+    purge_test_rows(
+        session,
+        map_slugs=LINK_TEST_MAP_SLUGS,
+        extra_statements=(
+            (
+                """DELETE FROM districtrmap_overlays
+                WHERE overlay_id IN (SELECT overlay_id FROM overlay WHERE name = :name)
+                OR districtr_map_id IN (
+                    SELECT uuid FROM districtrmap WHERE districtr_map_slug = ANY(:slugs)
+                )""",
+                {"name": LINK_TEST_OVERLAY_NAME, "slugs": list(LINK_TEST_MAP_SLUGS)},
+            ),
+            (
+                "DELETE FROM overlay WHERE name = :name",
+                {"name": LINK_TEST_OVERLAY_NAME},
+            ),
         ),
-        {"name": LINK_TEST_OVERLAY_NAME, "slugs": list(LINK_TEST_MAP_SLUGS)},
     )
-    session.execute(
-        text("DELETE FROM overlay WHERE name = :name"),
-        {"name": LINK_TEST_OVERLAY_NAME},
-    )
-    session.execute(
-        text("DELETE FROM districtrmap WHERE districtr_map_slug = ANY(:slugs)"),
-        {"slugs": list(LINK_TEST_MAP_SLUGS)},
-    )
-    session.commit()
 
 
 @pytest.fixture(name="link_test_maps")
@@ -287,26 +350,13 @@ def link_test_maps_fixture(engine):
     """
     with Session(engine) as setup_session:
         purge_link_test_rows(setup_session)
-        setup_session.execute(
-            text(
-                """INSERT INTO gerrydbtable (uuid, name, updated_at)
-                VALUES (gen_random_uuid(), :name, now())
-                ON CONFLICT (name)
-                DO UPDATE SET
-                    updated_at = now()"""
-            ),
-            {"name": LINK_TEST_PARENT_LAYER},
-        )
+        upsert_gerrydbtable(setup_session, LINK_TEST_PARENT_LAYER)
         map_uuids: dict[str, str] = {}
         for statefp, districtr_map_slug in zip(("20", "29"), LINK_TEST_MAP_SLUGS):
-            districtr_map = DistrictrMap(
-                uuid=str(uuid4()),
+            districtr_map = make_districtr_map(
                 name=f"Link overlays test map {statefp}",
                 districtr_map_slug=districtr_map_slug,
                 parent_layer=LINK_TEST_PARENT_LAYER,
-                visible=True,
-                map_type="default",
-                num_districts_modifiable=True,
                 statefps=[statefp],
             )
             setup_session.add(districtr_map)
@@ -476,11 +526,15 @@ SYNC_TEST_ABSENT_SOURCE = "https://x/overlays/zz_none.geojson"
 
 def purge_sync_test_rows(session: Session):
     """Delete committed overlays created by the sync-overlay-metadata tests."""
-    session.execute(
-        text("DELETE FROM overlay WHERE source = ANY(:sources)"),
-        {"sources": [SYNC_TEST_SOURCE, SYNC_TEST_ABSENT_SOURCE]},
+    purge_test_rows(
+        session,
+        extra_statements=(
+            (
+                "DELETE FROM overlay WHERE source = ANY(:sources)",
+                {"sources": [SYNC_TEST_SOURCE, SYNC_TEST_ABSENT_SOURCE]},
+            ),
+        ),
     )
-    session.commit()
 
 
 def create_sync_test_overlay(
@@ -640,29 +694,28 @@ ADD_OVERLAY_TEST_PARENT_LAYER = "cli_add_overlay_to_map_test_layer"
 
 
 def purge_add_overlay_test_rows(session: Session):
-    session.execute(
-        text(
-            """DELETE FROM districtrmap_overlays
-            WHERE overlay_id IN (SELECT overlay_id FROM overlay WHERE name = :name)
-            OR districtr_map_id IN (
-                SELECT uuid FROM districtrmap WHERE districtr_map_slug = :slug
-            )"""
+    purge_test_rows(
+        session,
+        map_slug=ADD_OVERLAY_TEST_MAP_SLUG,
+        gerrydbtable_name=ADD_OVERLAY_TEST_PARENT_LAYER,
+        extra_statements=(
+            (
+                """DELETE FROM districtrmap_overlays
+                WHERE overlay_id IN (SELECT overlay_id FROM overlay WHERE name = :name)
+                OR districtr_map_id IN (
+                    SELECT uuid FROM districtrmap WHERE districtr_map_slug = :slug
+                )""",
+                {
+                    "name": ADD_OVERLAY_TEST_OVERLAY_NAME,
+                    "slug": ADD_OVERLAY_TEST_MAP_SLUG,
+                },
+            ),
+            (
+                "DELETE FROM overlay WHERE name = :name",
+                {"name": ADD_OVERLAY_TEST_OVERLAY_NAME},
+            ),
         ),
-        {"name": ADD_OVERLAY_TEST_OVERLAY_NAME, "slug": ADD_OVERLAY_TEST_MAP_SLUG},
     )
-    session.execute(
-        text("DELETE FROM overlay WHERE name = :name"),
-        {"name": ADD_OVERLAY_TEST_OVERLAY_NAME},
-    )
-    session.execute(
-        text("DELETE FROM districtrmap WHERE districtr_map_slug = :slug"),
-        {"slug": ADD_OVERLAY_TEST_MAP_SLUG},
-    )
-    session.execute(
-        text("DELETE FROM gerrydbtable WHERE name = :name"),
-        {"name": ADD_OVERLAY_TEST_PARENT_LAYER},
-    )
-    session.commit()
 
 
 @pytest.fixture(name="add_overlay_test_setup")
@@ -670,25 +723,14 @@ def add_overlay_test_setup_fixture(engine):
     """A committed Overlay + DistrictrMap, unlinked."""
     with Session(engine) as setup_session:
         purge_add_overlay_test_rows(setup_session)
-        setup_session.execute(
-            text(
-                """INSERT INTO gerrydbtable (uuid, name, updated_at)
-                VALUES (gen_random_uuid(), :name, now())
-                ON CONFLICT (name)
-                DO UPDATE SET updated_at = now()"""
-            ),
-            {"name": ADD_OVERLAY_TEST_PARENT_LAYER},
-        )
+        upsert_gerrydbtable(setup_session, ADD_OVERLAY_TEST_PARENT_LAYER)
         map_uuid = str(uuid4())
         setup_session.add(
-            DistrictrMap(
+            make_districtr_map(
                 uuid=map_uuid,
                 name="Add overlay to map test map",
                 districtr_map_slug=ADD_OVERLAY_TEST_MAP_SLUG,
                 parent_layer=ADD_OVERLAY_TEST_PARENT_LAYER,
-                visible=True,
-                map_type="default",
-                num_districts_modifiable=True,
             )
         )
         overlay_id = str(uuid4())
@@ -800,11 +842,7 @@ CREATE_GROUP_TEST_SLUG = "clitestgroup"
 
 
 def purge_create_group_test_rows(session: Session):
-    session.execute(
-        text("DELETE FROM map_group WHERE slug = :slug"),
-        {"slug": CREATE_GROUP_TEST_SLUG},
-    )
-    session.commit()
+    purge_test_rows(session, map_group_slugs=(CREATE_GROUP_TEST_SLUG,))
 
 
 @pytest.fixture(name="create_group_test_cleanup")
@@ -843,57 +881,39 @@ ADD_MAP_TO_GROUP_TEST_GROUP_SLUGS = (
 
 
 def purge_add_map_to_group_test_rows(session: Session):
-    session.execute(
-        text(
-            """DELETE FROM districtrmaps_to_groups
-            WHERE districtrmap_uuid IN (
-                SELECT uuid FROM districtrmap WHERE districtr_map_slug = :slug
-            )
-            OR group_slug = ANY(:group_slugs)"""
+    purge_test_rows(
+        session,
+        map_slug=ADD_MAP_TO_GROUP_TEST_MAP_SLUG,
+        gerrydbtable_name=ADD_MAP_TO_GROUP_TEST_PARENT_LAYER,
+        map_group_slugs=ADD_MAP_TO_GROUP_TEST_GROUP_SLUGS,
+        extra_statements=(
+            (
+                """DELETE FROM districtrmaps_to_groups
+                WHERE districtrmap_uuid IN (
+                    SELECT uuid FROM districtrmap WHERE districtr_map_slug = :slug
+                )
+                OR group_slug = ANY(:group_slugs)""",
+                {
+                    "slug": ADD_MAP_TO_GROUP_TEST_MAP_SLUG,
+                    "group_slugs": list(ADD_MAP_TO_GROUP_TEST_GROUP_SLUGS),
+                },
+            ),
         ),
-        {
-            "slug": ADD_MAP_TO_GROUP_TEST_MAP_SLUG,
-            "group_slugs": list(ADD_MAP_TO_GROUP_TEST_GROUP_SLUGS),
-        },
     )
-    session.execute(
-        text("DELETE FROM districtrmap WHERE districtr_map_slug = :slug"),
-        {"slug": ADD_MAP_TO_GROUP_TEST_MAP_SLUG},
-    )
-    session.execute(
-        text("DELETE FROM map_group WHERE slug = ANY(:group_slugs)"),
-        {"group_slugs": list(ADD_MAP_TO_GROUP_TEST_GROUP_SLUGS)},
-    )
-    session.execute(
-        text("DELETE FROM gerrydbtable WHERE name = :name"),
-        {"name": ADD_MAP_TO_GROUP_TEST_PARENT_LAYER},
-    )
-    session.commit()
 
 
 @pytest.fixture(name="add_map_to_group_test_setup")
 def add_map_to_group_test_setup_fixture(engine):
     with Session(engine) as setup_session:
         purge_add_map_to_group_test_rows(setup_session)
-        setup_session.execute(
-            text(
-                """INSERT INTO gerrydbtable (uuid, name, updated_at)
-                VALUES (gen_random_uuid(), :name, now())
-                ON CONFLICT (name)
-                DO UPDATE SET updated_at = now()"""
-            ),
-            {"name": ADD_MAP_TO_GROUP_TEST_PARENT_LAYER},
-        )
+        upsert_gerrydbtable(setup_session, ADD_MAP_TO_GROUP_TEST_PARENT_LAYER)
         map_uuid = str(uuid4())
         setup_session.add(
-            DistrictrMap(
+            make_districtr_map(
                 uuid=map_uuid,
                 name="Add map to group test map",
                 districtr_map_slug=ADD_MAP_TO_GROUP_TEST_MAP_SLUG,
                 parent_layer=ADD_MAP_TO_GROUP_TEST_PARENT_LAYER,
-                visible=True,
-                map_type="default",
-                num_districts_modifiable=True,
             )
         )
         for group_slug in ADD_MAP_TO_GROUP_TEST_GROUP_SLUGS:
@@ -997,39 +1017,23 @@ ADD_EXTENT_TEST_PARENT_LAYER = "cli_add_extent_test_layer"
 
 
 def purge_add_extent_test_rows(session: Session):
-    session.execute(
-        text("DELETE FROM districtrmap WHERE districtr_map_slug = :slug"),
-        {"slug": ADD_EXTENT_TEST_MAP_SLUG},
+    purge_test_rows(
+        session,
+        map_slug=ADD_EXTENT_TEST_MAP_SLUG,
+        gerrydbtable_name=ADD_EXTENT_TEST_PARENT_LAYER,
     )
-    session.execute(
-        text("DELETE FROM gerrydbtable WHERE name = :name"),
-        {"name": ADD_EXTENT_TEST_PARENT_LAYER},
-    )
-    session.commit()
 
 
 @pytest.fixture(name="add_extent_test_setup")
 def add_extent_test_setup_fixture(engine):
     with Session(engine) as setup_session:
         purge_add_extent_test_rows(setup_session)
-        setup_session.execute(
-            text(
-                """INSERT INTO gerrydbtable (uuid, name, updated_at)
-                VALUES (gen_random_uuid(), :name, now())
-                ON CONFLICT (name)
-                DO UPDATE SET updated_at = now()"""
-            ),
-            {"name": ADD_EXTENT_TEST_PARENT_LAYER},
-        )
+        upsert_gerrydbtable(setup_session, ADD_EXTENT_TEST_PARENT_LAYER)
         setup_session.add(
-            DistrictrMap(
-                uuid=str(uuid4()),
+            make_districtr_map(
                 name="Add extent test map",
                 districtr_map_slug=ADD_EXTENT_TEST_MAP_SLUG,
                 parent_layer=ADD_EXTENT_TEST_PARENT_LAYER,
-                visible=True,
-                map_type="default",
-                num_districts_modifiable=True,
             )
         )
         setup_session.commit()
@@ -1073,15 +1077,11 @@ BATCH_CREATE_TEST_MAP_SLUG = "cli_batch_create_test_map"
 
 
 def purge_batch_create_test_rows(session: Session):
-    session.execute(
-        text("DELETE FROM districtrmap WHERE districtr_map_slug = :slug"),
-        {"slug": BATCH_CREATE_TEST_MAP_SLUG},
+    purge_test_rows(
+        session,
+        map_slug=BATCH_CREATE_TEST_MAP_SLUG,
+        gerrydbtable_name="simple_parent_geos",
     )
-    session.execute(
-        text("DELETE FROM gerrydbtable WHERE name = :name"),
-        {"name": "simple_parent_geos"},
-    )
-    session.commit()
 
 
 @pytest.fixture(name="batch_create_test_cleanup")
@@ -1102,15 +1102,7 @@ def test_batch_create_districtr_maps(
     # latter's gerrydbtable insert rides the rollback-session transaction and holds a
     # row lock the CLI's own real commit below would deadlock against.
     with Session(engine) as setup_session:
-        setup_session.execute(
-            text(
-                """INSERT INTO gerrydbtable (uuid, name, updated_at)
-                VALUES (gen_random_uuid(), :name, now())
-                ON CONFLICT (name)
-                DO UPDATE SET updated_at = now()"""
-            ),
-            {"name": "simple_parent_geos"},
-        )
+        upsert_gerrydbtable(setup_session, "simple_parent_geos")
         setup_session.commit()
 
     config_path = tmp_path / "batch_config.yaml"
@@ -1156,12 +1148,13 @@ IMPORT_GERRYDB_VIEW_LAYER = "ks_ellis_county_vap_data_vtd"
 
 
 def purge_import_gerrydb_view_test_rows(session: Session):
-    session.execute(text("DROP TABLE IF EXISTS gerrydb.ks_ellis_county_vap_data_vtd"))
-    session.execute(
-        text("DELETE FROM gerrydbtable WHERE name = :name"),
-        {"name": IMPORT_GERRYDB_VIEW_LAYER},
+    purge_test_rows(
+        session,
+        gerrydbtable_name=IMPORT_GERRYDB_VIEW_LAYER,
+        extra_statements=(
+            ("DROP TABLE IF EXISTS gerrydb.ks_ellis_county_vap_data_vtd", {}),
+        ),
     )
-    session.commit()
 
 
 @pytest.fixture(name="import_gerrydb_view_test_cleanup")
@@ -1210,15 +1203,11 @@ CREATE_MAP_TEST_SLUG = "cli_create_districtr_map_test_map"
 
 
 def purge_create_map_test_rows(session: Session):
-    session.execute(
-        text("DELETE FROM districtrmap WHERE districtr_map_slug = :slug"),
-        {"slug": CREATE_MAP_TEST_SLUG},
+    purge_test_rows(
+        session,
+        map_slug=CREATE_MAP_TEST_SLUG,
+        gerrydbtable_name="simple_parent_geos",
     )
-    session.execute(
-        text("DELETE FROM gerrydbtable WHERE name = :name"),
-        {"name": "simple_parent_geos"},
-    )
-    session.commit()
 
 
 @pytest.fixture(name="create_map_test_cleanup")
@@ -1237,15 +1226,7 @@ def test_create_districtr_map(engine, simple_parent_geos, create_map_test_cleanu
     # latter's gerrydbtable insert rides the rollback-session transaction and holds a
     # row lock the CLI's own real commit below would deadlock against.
     with Session(engine) as setup_session:
-        setup_session.execute(
-            text(
-                """INSERT INTO gerrydbtable (uuid, name, updated_at)
-                VALUES (gen_random_uuid(), :name, now())
-                ON CONFLICT (name)
-                DO UPDATE SET updated_at = now()"""
-            ),
-            {"name": "simple_parent_geos"},
-        )
+        upsert_gerrydbtable(setup_session, "simple_parent_geos")
         setup_session.commit()
 
     result_proc = run_cli(
@@ -1282,40 +1263,24 @@ UPDATE_MAP_TEST_PARENT_LAYER = "cli_update_districtr_map_test_layer"
 
 
 def purge_update_map_test_rows(session: Session):
-    session.execute(
-        text("DELETE FROM districtrmap WHERE districtr_map_slug = :slug"),
-        {"slug": UPDATE_MAP_TEST_SLUG},
+    purge_test_rows(
+        session,
+        map_slug=UPDATE_MAP_TEST_SLUG,
+        gerrydbtable_name=UPDATE_MAP_TEST_PARENT_LAYER,
     )
-    session.execute(
-        text("DELETE FROM gerrydbtable WHERE name = :name"),
-        {"name": UPDATE_MAP_TEST_PARENT_LAYER},
-    )
-    session.commit()
 
 
 @pytest.fixture(name="update_map_test_setup")
 def update_map_test_setup_fixture(engine):
     with Session(engine) as setup_session:
         purge_update_map_test_rows(setup_session)
-        setup_session.execute(
-            text(
-                """INSERT INTO gerrydbtable (uuid, name, updated_at)
-                VALUES (gen_random_uuid(), :name, now())
-                ON CONFLICT (name)
-                DO UPDATE SET updated_at = now()"""
-            ),
-            {"name": UPDATE_MAP_TEST_PARENT_LAYER},
-        )
+        upsert_gerrydbtable(setup_session, UPDATE_MAP_TEST_PARENT_LAYER)
         setup_session.add(
-            DistrictrMap(
-                uuid=str(uuid4()),
+            make_districtr_map(
                 name="Update districtr map test map",
                 districtr_map_slug=UPDATE_MAP_TEST_SLUG,
                 gerrydb_table_name=UPDATE_MAP_TEST_PARENT_LAYER,
                 parent_layer=UPDATE_MAP_TEST_PARENT_LAYER,
-                visible=True,
-                map_type="default",
-                num_districts_modifiable=True,
                 comment="Original comment",
             )
         )
@@ -1359,16 +1324,16 @@ SHATTERABLE_VIEW_TEST_TABLE_NAME = "cli_shatterable_view_test_table"
 
 
 def purge_shatterable_view_test_rows(session: Session):
-    session.execute(
-        text(
-            f"DROP MATERIALIZED VIEW IF EXISTS gerrydb.{SHATTERABLE_VIEW_TEST_TABLE_NAME}"
-        )
+    purge_test_rows(
+        session,
+        gerrydbtable_name=SHATTERABLE_VIEW_TEST_TABLE_NAME,
+        extra_statements=(
+            (
+                f"DROP MATERIALIZED VIEW IF EXISTS gerrydb.{SHATTERABLE_VIEW_TEST_TABLE_NAME}",
+                {},
+            ),
+        ),
     )
-    session.execute(
-        text("DELETE FROM gerrydbtable WHERE name = :name"),
-        {"name": SHATTERABLE_VIEW_TEST_TABLE_NAME},
-    )
-    session.commit()
 
 
 @pytest.fixture(name="shatterable_view_test_cleanup")
