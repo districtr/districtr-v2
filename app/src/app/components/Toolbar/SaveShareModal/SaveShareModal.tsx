@@ -131,7 +131,7 @@ export const SaveShareModal: React.FC<{
               </Flex>
               {isSecretEditLink && (
                 <Text size="1" color="orange">
-                  Treat this link like a password — anyone who has it can edit this map.
+                  Share this link with care: anyone who has it can edit the map.
                 </Text>
               )}
             </Flex>
@@ -155,7 +155,7 @@ export const SaveShareModal: React.FC<{
               </Button>
               {isSecretEditLink && (
                 <Text size="1" color="orange">
-                  Treat this link like a password — anyone who has it can edit this map.
+                  Share this link with care: anyone who has it can edit the map.
                 </Text>
               )}
             </Flex>

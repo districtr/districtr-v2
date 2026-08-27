@@ -42,7 +42,7 @@ export async function generateMapPageMetadata({
     const shareUrl = publicShareUrl(doc);
     const title = '🔒 This link grants edit access';
     const description =
-      'Treat it like a password — anyone who has it can change this map. ' +
+      'Share this link with care: anyone who has it can edit the map. ' +
       (shareUrl
         ? `To share publicly, use ${shareUrl} instead.`
         : 'Only send it to people you trust.');

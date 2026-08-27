@@ -6,6 +6,9 @@ interface MapPillProps {
   icon?: React.ReactNode;
   children: React.ReactNode;
   action?: {label: string; onClick: () => void};
+  // Extra inline content between the label and the action button — e.g. a
+  // checkbox for a setting that's directly relevant to this pill's flow.
+  extra?: React.ReactNode;
   // Fires on Escape whenever this pill is mounted; omit for pills with no
   // exit/cancel behavior of their own.
   onEscape?: () => void;
@@ -19,7 +22,14 @@ interface MapPillProps {
  * Escape aimed at a focused field (e.g. closing the geocoder dropdown)
  * doesn't also trigger it.
  */
-export const MapPill: React.FC<MapPillProps> = ({icon, children, action, onEscape, testId}) => {
+export const MapPill: React.FC<MapPillProps> = ({
+  icon,
+  children,
+  action,
+  extra,
+  onEscape,
+  testId,
+}) => {
   useEffect(() => {
     if (!onEscape) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -37,6 +47,7 @@ export const MapPill: React.FC<MapPillProps> = ({icon, children, action, onEscap
     <Flex align="center" gap="3" px="4" py="3" className="map-pill" data-testid={testId}>
       {icon}
       <Text size="3">{children}</Text>
+      {extra}
       {action && (
         <Button size="2" variant="solid" onClick={action.onClick}>
           {action.label}

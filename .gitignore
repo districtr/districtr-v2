@@ -175,3 +175,4 @@ codex.md
 # misc
 docker-compose.mac.yml
 app/public/*-basemap-style.json
+/workshop-tn

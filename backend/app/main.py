@@ -19,7 +19,8 @@ from sqlalchemy.exc import (
     DataError,
     OperationalError,
 )
-from sqlalchemy import text
+from sqlalchemy import text, or_, cast as sa_cast
+from sqlalchemy.dialects.postgresql import JSONB, array as pg_array
 from sqlalchemy.types import Integer
 from sqlmodel import Session, String, select, true, update, col, literal
 from starlette.concurrency import run_in_threadpool
@@ -96,6 +97,7 @@ from app.comments.models import (
     Tag,
     CommentTag,
 )
+from app.save_share.models import DocumentDraftStatus
 from pydantic_geojson import FeatureModel, PolygonModel
 from pydantic import BaseModel, ValidationError
 from pydantic_geojson._base import Coordinates
@@ -1449,6 +1451,7 @@ async def get_document_list(
     limit: int = Query(default=100, le=100),
     ids: list[int] = Query(default=[]),
     tags: list[str] = Query(default=[]),
+    draft_status: list[DocumentDraftStatus] = Query(default=[]),
 ):
     stmt = (
         select(  # type: ignore[no-matching-overload]
@@ -1471,25 +1474,36 @@ async def get_document_list(
     )
 
     if len(tags) > 0:
-        stmt = (
-            stmt.join(
-                FormDocumentComment,
-                FormDocumentComment.document_id == Document.document_id,
-            )
+        # A document matches a tag either via a comment-form submission or via
+        # its own metadata tags (set at creation, e.g. workshop modules).
+        comment_tagged = (
+            select(FormDocumentComment.document_id)
             .join(
                 CommentTag,
-                CommentTag.comment_id == FormDocumentComment.comment_id,
+                col(CommentTag.comment_id) == col(FormDocumentComment.comment_id),
             )
-            .join(
-                Tag,
-                Tag.id == CommentTag.tag_id,
-            )
-            .where(
-                col(Tag.slug).in_(tags),
-            )
-            .where(
-                # this is fine to keep as ->> because you're comparing to text
-                col(Document.map_metadata)["draft_status"].astext == "ready_to_share"
+            .join(Tag, col(Tag.id) == col(CommentTag.tag_id))
+            .where(col(Tag.slug).in_(tags))
+        )
+        metadata_tagged = sa_cast(col(Document.map_metadata)["tags"], JSONB).op("?|")(
+            pg_array(tags)
+        )
+        stmt = stmt.where(
+            or_(col(Document.document_id).in_(comment_tagged), metadata_tagged)
+        )
+        # Tagged listings only surface maps past scratch: moving a map to
+        # in_progress or ready_to_share is what "submits" it to the gallery.
+        if len(draft_status) == 0:
+            draft_status = [
+                DocumentDraftStatus.in_progress,
+                DocumentDraftStatus.ready_to_share,
+            ]
+
+    if len(draft_status) > 0:
+        # this is fine to keep as ->> because you're comparing to text
+        stmt = stmt.where(
+            col(Document.map_metadata)["draft_status"].astext.in_(
+                [s.value for s in draft_status]
             )
         )
 
@@ -1764,10 +1778,17 @@ async def update_districtrmap_metadata(
     session: Session = Depends(get_session),
 ):
     try:
+        # Merge into the existing metadata: the frontend sends partial updates
+        # (e.g. just draft_status), and replacing the whole JSON would wipe the
+        # other fields (name, tags set at creation, ...).
+        merged = {
+            **(document.map_metadata or {}),
+            **metadata.model_dump(exclude_unset=True),
+        }
         stmt = (
             update(Document)
             .where(Document.document_id == document.document_id)  # type: ignore
-            .values(map_metadata=metadata.model_dump(exclude_unset=True))
+            .values(map_metadata=merged)
         )
         session.connection().execute(stmt)
         session.commit()

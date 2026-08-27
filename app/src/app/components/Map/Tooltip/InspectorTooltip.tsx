@@ -44,7 +44,12 @@ export const InspectorTooltip = () => {
   const ids = hoverFeatures.map(f => f.id as string);
   const stableIds = useMemo(() => ids, [ids.join(',')]);
   const [inspectorData, setInspectorData] = useState<Record<string, number>>({});
-  const config = CONFIG_BY_COLUMN_SET[inspectorMode].sort((a, b) => a.label.localeCompare(b.label));
+  // Total is pinned above; order by universe totals, voter history stays chronological.
+  const universeTotals = demographyService.universeTotals;
+  const config = CONFIG_BY_COLUMN_SET[inspectorMode].filter(f => !f.isTotal);
+  if (inspectorMode !== SUMMARY_TYPES.VOTERHISTORY) {
+    config.sort((a, b) => (universeTotals?.[b.column] ?? 0) - (universeTotals?.[a.column] ?? 0));
+  }
   const title = INSPECTOR_TITLE[inspectorMode];
   const totalColumn = TOTAL_COLUMN[inspectorMode];
   const totalValue = totalColumn && inspectorData[totalColumn];

@@ -12,6 +12,20 @@ const nextConfig = {
       {source: '/tags', destination: '/portals', permanent: true},
     ];
   },
+  // Legacy API calls (planRead, planWrite, ...) still hit the old Netlify functions.
+  // A rewrite proxies the request through this server instead of redirecting the
+  // browser, so a same-origin caller's fetch() stays same-origin — a redirect would
+  // send the browser to a genuinely cross-origin URL, which legacy's lack of CORS
+  // headers would then block from the client's own fetch() call. Next forwards the
+  // query string automatically. Keep in sync with constants/legacy.ts.
+  async rewrites() {
+    return [
+      {
+        source: '/.netlify/:path*',
+        destination: 'https://legacy.districtr.org/.netlify/:path*',
+      },
+    ];
+  },
   // Path aliases are configured in tsconfig.json and automatically used by Next.js
   webpack: (config, {isServer, webpack}) => {
     // Exclude Node.js modules from client-side bundles

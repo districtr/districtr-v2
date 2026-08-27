@@ -4,13 +4,16 @@ import {ArrowRightIcon, Component1Icon, LayersIcon, PersonIcon} from '@radix-ui/
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 import {sanitizeCommunityMaps} from '@/app/utils/communities';
 import {useCreateMapDocument} from './CreateButton';
-import {ImportBlockAssignments} from './ImportBlockAssignments';
 
-const MapStartCard: React.FC<{
+export const MapStartCard: React.FC<{
   view: Partial<DistrictrMap>;
   isCommunity: boolean;
-}> = ({view, isCommunity}) => {
-  const {createPlan, isCreating} = useCreateMapDocument(view, isCommunity);
+  /** When false, omits the "Draw N districts" line — e.g. a portal grid of
+   * same-kind maps where it would repeat on every card. */
+  showOutcome?: boolean;
+  createTag?: string | null;
+}> = ({view, isCommunity, showOutcome = true, createTag}) => {
+  const {createPlan, isCreating} = useCreateMapDocument(view, isCommunity, createTag);
   const outcome = isCommunity
     ? 'Draw and describe your communities'
     : view.num_districts
@@ -46,9 +49,11 @@ const MapStartCard: React.FC<{
             <Text weight="medium" className="capitalize" truncate>
               {view.name}
             </Text>
-            <Text size="1" color="gray">
-              {outcome}
-            </Text>
+            {showOutcome && (
+              <Text size="1" color="gray">
+                {outcome}
+              </Text>
+            )}
           </Flex>
           {isCreating ? (
             <Spinner size="1" className="shrink-0" />
@@ -61,7 +66,7 @@ const MapStartCard: React.FC<{
   );
 };
 
-const CardGrid: React.FC<{children: React.ReactNode}> = ({children}) => (
+export const CardGrid: React.FC<{children: React.ReactNode}> = ({children}) => (
   <Grid
     gap="2"
     columns={{
@@ -80,16 +85,13 @@ export const PlaceMapGrid: React.FC<{maps: Partial<DistrictrMap>[]}> = ({maps}) 
   return (
     <Flex direction="column" gap="5">
       <section>
-        <Flex justify="between" align="start" gap="3" wrap="wrap" mb="2">
-          <Flex direction="column">
-            <Heading as="h3" size="3" mb="1">
-              District plans
-            </Heading>
-            <Text as="p" size="2" color="gray">
-              Start from a blank map and divide it into districts.
-            </Text>
-          </Flex>
-          <ImportBlockAssignments />
+        <Flex direction="column" mb="2">
+          <Heading as="h3" size="3" mb="1">
+            District plans
+          </Heading>
+          <Text as="p" size="2" color="gray">
+            Start from a blank map and divide it into districts.
+          </Text>
         </Flex>
         <CardGrid>
           {maps.map((view, i) => (

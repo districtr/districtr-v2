@@ -13,6 +13,7 @@ import {useMapControlsStore} from '@store/mapControlsStore';
 import {useUiHintStore, useGuideTarget} from '@store/uiHintStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {SUMMARY_TYPES} from '@constants/demography/summary';
+import {useDemographicsColumnSets} from '@/app/hooks/useDemographicsColumnSets';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 import type {HelpTipKey} from '@components/HelpTip/helpTipContent';
 
@@ -81,6 +82,7 @@ const TabSection: React.FC<{
  * (choropleth) controls; their tables live in the Stats tab. */
 const MapLayersPanel: React.FC = () => {
   const mapMode = useMapControlsStore(state => state.mapMode);
+  const demographicsColumnSets = useDemographicsColumnSets();
   return (
     <Flex direction="column" px="2">
       <TabSection id="layers-boundaries" label="Boundaries and areas" helpTip="boundariesAndAreas">
@@ -89,7 +91,7 @@ const MapLayersPanel: React.FC = () => {
       <TabSection id="layers-demographics" label="Demographics" helpTip="demographicsMapLayer">
         <SummaryPanel
           defaultColumnSet={SUMMARY_TYPES.TOTPOP}
-          displayedColumnSets={[SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP]}
+          displayedColumnSets={demographicsColumnSets}
           sections={['map']}
         />
       </TabSection>
@@ -115,6 +117,7 @@ const MapLayersPanel: React.FC = () => {
 const StatsPanel: React.FC = () => {
   const mapMode = useMapControlsStore(state => state.mapMode);
   const isCoi = mapMode === MAP_MODES.COI;
+  const demographicsColumnSets = useDemographicsColumnSets();
   return (
     <Flex direction="column" px="2">
       {!isCoi && (
@@ -130,7 +133,7 @@ const StatsPanel: React.FC = () => {
           />
           <SummaryPanel
             defaultColumnSet={SUMMARY_TYPES.TOTPOP}
-            displayedColumnSets={[SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP]}
+            displayedColumnSets={demographicsColumnSets}
             sections={['evaluation']}
           />
         </Flex>

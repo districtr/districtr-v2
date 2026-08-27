@@ -6,6 +6,7 @@ import {ResponsivePlaceMap} from '../components/Static/PlaceMap/PlaceMap';
 import {ImportBlockAssignments} from '../components/Static/Interactions/ImportBlockAssignments';
 import {DevTeam} from '../components/Static/Content/DevTeam';
 import {CTA} from '../components/Static/Content/CTA';
+import {AboutContent} from '../components/Static/Content/AboutContent';
 
 const Main: React.FC = () => {
   return (
@@ -25,7 +26,7 @@ const Main: React.FC = () => {
       >
         <Text size="5">
           Districtr is a project of the{' '}
-          <Link href="https://mggg.org/" target="_blank">
+          <Link href="https://data-democracy.org/" target="_blank">
             Data and Democracy Lab
           </Link>
           , intended to promote public participation in redistricting around the United States.
@@ -61,12 +62,12 @@ const Main: React.FC = () => {
               </Heading>
               <Text size="5">
                 In the U.S., there&apos;s a big redistricting cycle every 10 years after new Census
-                data is released. In most states, elected representatives in the state legislature
-                are responsible for drawing the lines—including the districts for their own
-                re-election. Following the 2020 Census, many states, cities, and counties
-                experimented with collecting more public mapping input than ever before, and the
-                Districtr team{' '}
-                <Link href="https://mggg.org/cois" target="_blank">
+                data is released... and lately, redistricting happens constantly, even mid-decade.
+                In most states, elected representatives in the state legislature are responsible for
+                drawing the lines—including the districts for their own re-election. Following the
+                2020 Census, many states, cities, and counties experimented with collecting more
+                public mapping input than ever before, and the Districtr team{' '}
+                <Link href="https://data-democracy.org/cois" target="_blank">
                   was there to help
                 </Link>
                 .
@@ -96,21 +97,22 @@ const Main: React.FC = () => {
                 You can draw your community
               </Heading>
               <Text size="5">
-                Communities of Interest (known as “COIs”) are groups or neighborhoods with
+                Communities of Interest (known as “COIs”) are areas or neighborhoods with
                 significant shared interests that deserve consideration by representatives. Many
                 states have rules that indicate that COIs should be kept whole by districting plans
-                whenever possible.{' '}
+                whenever possible; others just say that they should be “taken into account.”{' '}
               </Text>
               <Text size="5">
-                But this has been one of the hardest to handle of all the priorities in the
+                This has been one of the hardest to handle of all the priorities in the
                 redistricting world—if you show up at a meeting to say your community matters, how
                 does that information make its way to the line-drawers?
               </Text>
               <Text size="5">
                 Districtr lets you put your community on the map (literally!) by marking places that
                 matter to make your shared interests visible. If you are interested in learning more
-                about best practices for COI map collection email us at{' '}
-                <Link href="mailto:Districtr@mggg.org">Districtr@mggg.org</Link>.
+                about best practices for COI map collection, email us at{' '}
+                <Link href="mailto:Districtr@data-democracy.org">Districtr@data-democracy.org</Link>
+                .
               </Text>
               <Text size="5">
                 For a detailed walkthrough of Districtr, visit our{' '}
@@ -125,10 +127,10 @@ const Main: React.FC = () => {
         <Flex direction="column" gapY="3">
           <Text size="5">
             Open the <Link href="/catalog">Catalog page</Link> to view, filter, reopen, and remove
-            maps saved in your local browser storage.
+            maps that are saved in your local browser storage.
           </Text>
           <Text size="3" color="gray">
-            Local maps can be removed if browser data is cleared.
+            These locally stored maps can be expunged if browser data is cleared.
           </Text>
         </Flex>
       </ContentSection>
@@ -145,83 +147,7 @@ const Main: React.FC = () => {
       </ContentSection>
       <ContentSection title="About Districtr">
         <Flex direction="column" gapY="4" py="4">
-          <Heading>Origin Story</Heading>
-
-          <Text size="5">
-            The goal of Districtr is to put the tools of redistricting in the hands of the public,
-            with an emphasis on meeting the needs of civil rights organizations, community groups,
-            and redistricting commissions.
-          </Text>
-
-          <Text size="5">
-            Districtr came about from a conversation with Lawyers for Civil Rights (LCR), the Boston
-            arm of the national Lawyers&apos; Committee for Civil Rights Under Law. LCR was
-            describing their work with community members in Lowell, MA, who were frustrated about
-            not having a voice in the city council. In those conversations, a few places kept coming
-            up...
-          </Text>
-
-          <Text size="5">
-            Like <b>Clemente Park</b>, a much-loved meeting point for the city&apos;s Asian and
-            Latinx populations, which felt unsafe at night because the city had not provided
-            lighting...
-          </Text>
-
-          <Text size="5">
-            And <b>Lowell High School</b>, the city&apos;s only public high school, which serves
-            over 3000 students. The city announced plans to move it from its traditional downtown
-            location, but without sufficient outreach to communities around the city about possible
-            new sites.
-          </Text>
-
-          <Text size="5">
-            Our idea was to create a mapping tool whose fundamental principle is to{' '}
-            <b>ask the community what matters</b>. With maps that build COIs around relevant zones
-            and landmarks, paired with community narratives, we can start to see local interests
-            come to life.
-          </Text>
-          <Heading>Our Values</Heading>
-
-          <Text size="5">
-            <b>Accessibility.</b> Participating in the redistricting process should be approachable
-            for everyone. Districtr is engineered for maximum accessibility. It&apos;s entirely
-            in-browser with no login and no downloads, it works on tablets as well as computers, and
-            we assign each plan its own web address for easy sharing.
-          </Text>
-
-          <Text size="5">
-            <b>Openness and transparency.</b> The entire project is open source, with permissive
-            licenses. We respect your privacy, and only collect anonymized usage data like page
-            views, how you found Districtr, and what size screen you are using.
-          </Text>
-
-          <Text size="5">
-            <b>Maps not metrics.</b> We don&apos;t think that good maps can be measured in
-            one-size-fits-all metrics, so we&apos;ve built a more lightweight mapping experience
-            that doesn&apos;t put scores front and center. You can export maps from Districtr in
-            forms that can be read in the other major redistricting software.
-          </Text>
-
-          <Text size="5">
-            <b>All politics is local.</b> We&apos;ve got 760,000-person congressional districts and
-            13,000-person city council districts, and every scale in between: county commissions,
-            school zones, library boards—you name it, we map it.
-          </Text>
-
-          <Text size="5">
-            <b>Responsiveness to the community.</b> We aim to highlight specific local rules,
-            principles, and priorities whenever possible. We also build event pages for organizers
-            so they can see an overview of maps from the group at a glance.
-          </Text>
-          <Heading className="text-districtrIndigo pt-6">Still have questions?</Heading>
-
-          <Text size="5">
-            If you are interested in partnering with us or sponsoring a voting rights project, reach
-            out to us at <Link href="mailto:Districtr@mggg.org">Districtr@mggg.org</Link>.
-          </Text>
-
-          <Text size="5">Our team aims to respond to requests for new modules within a week.</Text>
-
+          <AboutContent textSize="5" />
           <DevTeam />
         </Flex>
       </ContentSection>

@@ -2,9 +2,9 @@ import React from 'react';
 import {SecondaryNav, SecondaryNavItem} from './SecondaryNav';
 
 export const CATALOG_ITEMS: SecondaryNavItem[] = [
-  {label: 'My District Plans', href: '/catalog'},
-  {label: 'My Community Maps', href: '/catalog/communities'},
-  {label: 'General Plan Directory', href: '/catalog/directory'},
+  {label: 'My district plans', href: '/catalog'},
+  {label: 'My community maps', href: '/catalog/communities'},
+  {label: 'General plan directory', href: '/catalog/directory'},
 ];
 
 /** Second-order nav bar shown across the Catalog pages. */

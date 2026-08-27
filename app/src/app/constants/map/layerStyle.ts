@@ -11,7 +11,11 @@ export const EMPTY_FT_COLLECTION = {
 export const SENTINEL_EMPTY_VALUE: string = '-999';
 export const SENTINEL_EMPTY_ARRAY: string[] = [SENTINEL_EMPTY_VALUE];
 
-export const HIGHLIGHT_LINE_COLOR = '#666666';
+// A light neon magenta, not another gray or a warm amber: the surrounding
+// outline/basemap are already grayscale, and amber (#f59e0b) still read as
+// too muted against them in testing — a fully saturated, high-lightness
+// color reads at a glance instead.
+export const HIGHLIGHT_LINE_COLOR = '#ff66ff';
 export const HIGHLIGHT_LINE_WIDTH = 3.5;
 
 export const COMMUNITY_ASSIGNMENT_STYLE = (colorScheme: string[]) => {

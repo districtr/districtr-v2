@@ -2,6 +2,11 @@ export const SUMMARY_TYPES = {
   TOTPOP: 'TOTPOP',
   VAP: 'VAP',
   VOTERHISTORY: 'VOTERHISTORY',
+  AGE: 'AGE',
+  INCOME: 'INCOME',
+  EDUCATION: 'EDUCATION',
+  VEHICLES: 'VEHICLES',
+  TENURE: 'TENURE',
 } as const;
 
 export type SummaryType = (typeof SUMMARY_TYPES)[keyof typeof SUMMARY_TYPES];
@@ -15,10 +20,30 @@ export type CoalitionUniverse = (typeof COALITION_UNIVERSES)[keyof typeof COALIT
 export const isCoalitionUniverse = (universe: SummaryType): universe is CoalitionUniverse =>
   Object.values(COALITION_UNIVERSES as Record<string, SummaryType>).includes(universe);
 
+// ACS-sourced universes (vs the decennial census): one universe per
+// denominator, and every column is a count, so the shared sum-then-divide
+// percent machinery holds. They exist only on maps whose layers carry them.
+export const ACS_UNIVERSES = [
+  SUMMARY_TYPES.AGE,
+  SUMMARY_TYPES.INCOME,
+  SUMMARY_TYPES.EDUCATION,
+  SUMMARY_TYPES.VEHICLES,
+  SUMMARY_TYPES.TENURE,
+] as const;
+export type AcsUniverse = (typeof ACS_UNIVERSES)[number];
+
+export const isAcsUniverse = (universe: SummaryType): universe is AcsUniverse =>
+  (ACS_UNIVERSES as readonly SummaryType[]).includes(universe);
+
 export const TOTAL_COLUMN: Record<SummaryType, string | undefined> = {
   VAP: 'total_vap_20',
   TOTPOP: 'total_pop_20',
   VOTERHISTORY: undefined,
+  AGE: 'total_pop_24',
+  INCOME: 'total_hh_24',
+  EDUCATION: 'total_pop_25plus_24',
+  VEHICLES: 'total_occ_hh_24',
+  TENURE: 'total_occ_hh_24',
 } as const;
 
 /**
@@ -29,7 +54,7 @@ export const TOTAL_COLUMN: Record<SummaryType, string | undefined> = {
 export type OverlayGroup = 'demography' | 'election';
 
 export const OVERLAY_GROUP_SUMMARY_TYPES: Record<OverlayGroup, SummaryType[]> = {
-  demography: [SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP],
+  demography: [SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP, ...ACS_UNIVERSES],
   election: [SUMMARY_TYPES.VOTERHISTORY],
 };
 

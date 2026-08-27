@@ -48,13 +48,13 @@ export default function RulesPage() {
         >
           <RuleSection
             title="Population balance"
-            description="Districts should have very close to the same population"
+            description="Districts should have very close to the same total population"
             image="/equalpop.png"
             imageAlt="Equal Population"
           />
           <RuleSection
             title="Voting Rights Act compliance"
-            description="Districts cannot block minority groups from electing candidates of choice"
+            description="Since 1965, districts cannot block qualifying minority groups from electing candidates of choice -- this has been greatly weakened since 2013, and especially in the last few years!"
             image="/vra.png"
             imageAlt="Voting Rights"
           />
@@ -70,7 +70,7 @@ export default function RulesPage() {
         >
           <RuleSection
             title="Communities of Interest"
-            description="Groups with significant shared interests should be kept together"
+            description="Groups with significant shared interests should have a voice in redistricting"
             image="/farmers - coi.png"
             imageAlt="Communities of Interest"
           />
@@ -96,10 +96,11 @@ export default function RulesPage() {
       </ContentSection>
       <Blockquote className="my-12" size="3">
         For a slightly more detailed discussion, here&apos;s a{' '}
-        <Link href="https://districtr.org/assets/the-rules-for-districtr.pdf" target="_blank">
+        <Link href="/the-rules-for-districtr.pdf" target="_blank">
           handout
         </Link>
-        . Friend of the Lab Doug Spencer maintains a guide to state-by-state rules at{' '}
+        . Friends of the Lab Doug Spencer and Justin Levitt are responsible for a guide to
+        state-by-state rules at{' '}
         <Link href="https://redistricting.lls.edu/" target="_blank">
           All About Redistricting
         </Link>

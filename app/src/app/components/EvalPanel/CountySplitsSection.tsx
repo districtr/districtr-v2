@@ -7,6 +7,7 @@ import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {type GeoUnit, GEO_UNITS, GEO_UNIT_LABELS} from '@constants/document/geoUnits';
+import {useIsSingleCounty} from '@/app/hooks/useIsSingleCounty';
 
 const GEO_UNIT_DESCRIPTIONS: Record<GeoUnit, string> = {
   [GEO_UNITS.VTD]:
@@ -26,6 +27,7 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const setHoveredCountyGeoid = useMapControlsStore(state => state.setHoveredCountyGeoid);
+  const isSingleCounty = useIsSingleCounty();
   const [showMode, setShowMode] = useState<'overly-split-only' | 'all'>('overly-split-only');
 
   const countyPieces = evaluation.county_pieces;
@@ -47,7 +49,18 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
     idealPop !== null
       ? new Set(allEntries.filter(e => e.actual > Math.ceil(e.pop / idealPop)).map(e => e.geoid))
       : new Set<string>();
-  const unnecessarySplits = idealPop !== null ? overlySplitSet.size : null;
+  // Excessively split counties come in two flavors, shown separately in the
+  // summary: a small county (population under one ideal district) split at
+  // all, vs. a large county split into more pieces than its own size
+  // requires. Same combined set as before drives the table/dropdown filter.
+  const smallSplitCount =
+    idealPop !== null
+      ? allEntries.filter(e => overlySplitSet.has(e.geoid) && e.pop < idealPop).length
+      : null;
+  const largeExcessiveSplitCount =
+    idealPop !== null
+      ? allEntries.filter(e => overlySplitSet.has(e.geoid) && e.pop >= idealPop).length
+      : null;
 
   const displayedEntries =
     showMode === 'overly-split-only'
@@ -86,40 +99,47 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
             <Text size="2" as="p" mb="2">
               This map uses <strong>{unitLabel}</strong> as the default unit of drawing.
               {unitDescription && <> {unitDescription}</>}
+              {unitTotalCount !== null && (
+                <>
+                  {' '}
+                  This map has <strong>{unitTotalCount.toLocaleString()}</strong> {unitLabel} in
+                  total.
+                </>
+              )}
             </Text>
           )}
           {assignedUnits && unitTotalCount !== null && (
             <Text size="2" as="p" mb="2">
               {(() => {
-                const fullyAssigned = unitAssignedCount + unitSplitCount;
                 const label = unitLabel ?? 'units';
+                const completelyAssigned = unitAssignedCount + unitSplitCount;
                 return (
                   <>
-                    Out of the total <strong>{unitTotalCount.toLocaleString()}</strong> {label},{' '}
-                    <strong>{fullyAssigned.toLocaleString()}</strong> are fully assigned
+                    Out of the <strong>{completelyAssigned.toLocaleString()}</strong> {label} that
+                    are completely assigned, <strong>{unitAssignedCount.toLocaleString()}</strong>{' '}
+                    are kept whole (in one district)
                     {unitSplitCount > 0 && (
                       <>
                         {' '}
-                        (<strong>{unitAssignedCount.toLocaleString()}</strong> whole and{' '}
-                        <strong>{unitSplitCount.toLocaleString()}</strong> split)
+                        and <strong>{unitSplitCount.toLocaleString()}</strong> are split
                       </>
                     )}
+                    .
                     {unitPartialCount > 0 && (
                       <>
-                        , with{' '}
+                        {' '}
                         <Text as="span" color="orange" weight="bold">
                           {unitPartialCount.toLocaleString()}
                         </Text>{' '}
-                        partially assigned
+                        are partially assigned.
                       </>
                     )}
                     {unitUnassignedCount !== null && unitUnassignedCount > 0 && (
                       <>
                         {' '}
-                        and <strong>{unitUnassignedCount.toLocaleString()}</strong> unassigned
+                        <strong>{unitUnassignedCount.toLocaleString()}</strong> are unassigned.
                       </>
                     )}
-                    .
                   </>
                 );
               })()}
@@ -132,22 +152,24 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
           </Heading>
           <Text size="2" mb="3" as="p">
             A county is <strong>split</strong> when its population is divided across two or more
-            districts. The <em>districts&apos; worth</em> column shows how many ideal-sized
-            districts the county&apos;s population would fill.
+            districts. Let&apos;s say a county is a <strong>small county</strong> (with respect to a
+            districting plan) if its population is smaller than the ideal size of a district.
           </Text>
 
-          <Flex align="center" gap="2" mb="3" justify="end">
-            <Text size="1" color="gray">
-              County boundaries
-            </Text>
-            <Switch
-              size="1"
-              checked={mapOptions.showCountyBoundaries ?? false}
-              onCheckedChange={checked =>
-                setMapOptions({showCountyBoundaries: checked, prominentCountyNames: checked})
-              }
-            />
-          </Flex>
+          {!isSingleCounty && (
+            <Flex align="center" gap="2" mb="3" justify="end">
+              <Text size="1" color="gray">
+                County boundaries
+              </Text>
+              <Switch
+                size="1"
+                checked={mapOptions.showCountyBoundaries ?? false}
+                onCheckedChange={checked =>
+                  setMapOptions({showCountyBoundaries: checked, prominentCountyNames: checked})
+                }
+              />
+            </Flex>
+          )}
 
           <Text size="2" weight="bold" mb="2" mt="4" as="p">
             Summary
@@ -167,7 +189,7 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                 </Table.Row>
                 <Table.Row>
                   <Table.Cell justify="center">
-                    <Text size="2">Split counties (2+ pieces)</Text>
+                    <Text size="2">Number of counties that are split</Text>
                   </Table.Cell>
                   <Table.Cell justify="center">
                     <Text size="2" weight="bold">
@@ -175,14 +197,26 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                     </Text>
                   </Table.Cell>
                 </Table.Row>
-                {unnecessarySplits !== null && (
+                {smallSplitCount !== null && (
                   <Table.Row>
                     <Table.Cell justify="center">
-                      <Text size="2">Unnecessarily split counties</Text>
+                      <Text size="2">Number of small counties that are split</Text>
                     </Table.Cell>
                     <Table.Cell justify="center">
                       <Text size="2" weight="bold">
-                        {unnecessarySplits}
+                        {smallSplitCount}
+                      </Text>
+                    </Table.Cell>
+                  </Table.Row>
+                )}
+                {largeExcessiveSplitCount !== null && (
+                  <Table.Row>
+                    <Table.Cell justify="center">
+                      <Text size="2">Number of large counties that are excessively split</Text>
+                    </Table.Cell>
+                    <Table.Cell justify="center">
+                      <Text size="2" weight="bold">
+                        {largeExcessiveSplitCount}
                       </Text>
                     </Table.Cell>
                   </Table.Row>
@@ -206,7 +240,7 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
               >
                 <Select.Trigger />
                 <Select.Content>
-                  <Select.Item value="overly-split-only">unnecessarily split counties</Select.Item>
+                  <Select.Item value="overly-split-only">excessively split counties</Select.Item>
                   <Select.Item value="all">all counties</Select.Item>
                 </Select.Content>
               </Select.Root>
