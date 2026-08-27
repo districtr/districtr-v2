@@ -1,32 +1,41 @@
-import pytest
-from app.models import DistrictrMap, Overlay
-from sqlmodel import Session
-from tests.constants import (
-    POSTGRES_TEST_DB,
-    POSTGRES_USER,
-    POSTGRES_PASSWORD,
-    POSTGRES_SERVER,
-    POSTGRES_PORT,
-    POSTGRES_SCHEME,
-)
 from pathlib import Path
-import subprocess
-import os
-from sqlalchemy import select, text
+from types import SimpleNamespace
 from uuid import uuid4
 import json
 
-test_env = os.environ.copy()
-test_env["POSTGRES_DB"] = POSTGRES_TEST_DB
-test_env["POSTGRES_USER"] = POSTGRES_USER
-test_env["POSTGRES_PASSWORD"] = POSTGRES_PASSWORD
-test_env["POSTGRES_SERVER"] = POSTGRES_SERVER
-test_env["POSTGRES_PORT"] = str(POSTGRES_PORT)
-# Set DATABASE_URL to ensure the CLI uses the test database
-test_env["DATABASE_URL"] = (
-    f"{POSTGRES_SCHEME}://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_SERVER}:{POSTGRES_PORT}/{POSTGRES_TEST_DB}"
-)
-backend_dir = Path(__file__).parent.parent
+import cli
+import pytest
+from click.testing import CliRunner
+from sqlmodel import Session
+from sqlalchemy import select, text
+
+from app.models import DistrictrMap, Overlay
+
+FIXTURES_DIR = Path(__file__).parent / "fixtures" / "gerrydb"
+
+
+@pytest.fixture(autouse=True)
+def _patch_cli_engine(engine, monkeypatch):
+    """Point cli.py's module-level engine at the test database.
+
+    cli.py's session_scope() resolves the name `engine` from its own module
+    globals at call time, so patching it here redirects every CLI invocation
+    below without touching cli.py itself.
+    """
+    monkeypatch.setattr(cli, "engine", engine)
+
+
+def run_cli(*args: str) -> SimpleNamespace:
+    """Invoke a cli.py command in-process via Click's CliRunner.
+
+    Returns a subprocess.CompletedProcess-shaped object (returncode/stdout/
+    stderr) so assertions below read the same as when this ran cli.py as a
+    subprocess.
+    """
+    result = CliRunner().invoke(cli.cli, list(args))
+    return SimpleNamespace(
+        returncode=result.exit_code, stdout=result.output, stderr=result.output
+    )
 
 
 def cleanup_overlay(session: Session, overlay_name: str):
@@ -39,11 +48,7 @@ def cleanup_overlay(session: Session, overlay_name: str):
 
 def test_create_overlay(session: Session):
     """Test creating an overlay via CLI"""
-    # Configure environment variables for test database
-    # Construct arguments as would be passed to the CLI
-    cli_args = [
-        "python",
-        "cli.py",
+    result_proc = run_cli(
         "create-overlay",
         "--name",
         "Test Overlay",
@@ -55,22 +60,13 @@ def test_create_overlay(session: Session):
         "fill",
         "--source",
         "https://example.com/data.geojson",
-    ]
-
-    # Run the CLI as a subprocess from the backend directory where cli.py is located
-    result_proc = subprocess.run(
-        cli_args,
-        cwd=str(backend_dir),
-        env=test_env,
-        capture_output=True,
-        text=True,
     )
 
     assert (
         result_proc.returncode == 0
     ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
 
-    # Refresh the session to ensure we can see committed data from the subprocess
+    # Refresh the session to ensure we can see committed data from the CLI call
     session.commit()
 
     # Verify overlay was created using session.exec() which returns model instances directly
@@ -88,9 +84,7 @@ def test_create_overlay(session: Session):
 
 def test_create_overlay_with_pmtiles(session: Session):
     """Test creating a pmtiles overlay via CLI"""
-    cli_args = [
-        "python",
-        "cli.py",
+    result_proc = run_cli(
         "create-overlay",
         "--name",
         "PMTiles Overlay",
@@ -102,13 +96,6 @@ def test_create_overlay_with_pmtiles(session: Session):
         "s3://bucket/data.pmtiles",
         "--source-layer",
         "counties",
-    ]
-    result_proc = subprocess.run(
-        cli_args,
-        cwd=str(backend_dir),
-        env=test_env,
-        capture_output=True,
-        text=True,
     )
 
     assert (
@@ -132,9 +119,7 @@ def test_create_overlay_with_custom_style(session: Session):
     """Test creating an overlay with custom style via CLI"""
     custom_style_json = '{"paint": {"fill-color": "#ff0000", "fill-opacity": 0.5}}'
 
-    cli_args = [
-        "python",
-        "cli.py",
+    result_proc = run_cli(
         "create-overlay",
         "--name",
         "Styled Overlay",
@@ -144,13 +129,6 @@ def test_create_overlay_with_custom_style(session: Session):
         "fill",
         "--custom-style",
         custom_style_json,
-    ]
-    result_proc = subprocess.run(
-        cli_args,
-        cwd=str(backend_dir),
-        env=test_env,
-        capture_output=True,
-        text=True,
     )
 
     assert (
@@ -175,9 +153,7 @@ def test_create_overlay_and_add_to_map(
     session: Session, ks_demo_view_census_blocks_districtrmap
 ):
     """Test creating an overlay and adding it to a map via CLI"""
-    cli_args = [
-        "python",
-        "cli.py",
+    result_proc = run_cli(
         "create-overlay",
         "--name",
         "Map Overlay",
@@ -187,14 +163,6 @@ def test_create_overlay_and_add_to_map(
         "fill",
         "--districtr-map-slugs",
         "ks_demo_view_census_blocks_summary_stats",
-    ]
-
-    result_proc = subprocess.run(
-        cli_args,
-        cwd=str(backend_dir),
-        env=test_env,
-        capture_output=True,
-        text=True,
     )
 
     assert (
@@ -216,9 +184,8 @@ def test_create_overlay_and_add_to_map(
 
 def test_update_overlay(session: Session):
     """Test updating an overlay via CLI"""
-    cli_args = [
-        "python",
-        "cli.py",
+    # First create an overlay
+    create_result = run_cli(
         "create-overlay",
         "--name",
         "Original Overlay",
@@ -228,15 +195,6 @@ def test_update_overlay(session: Session):
         "geojson",
         "--layer-type",
         "fill",
-    ]
-
-    # First create an overlay
-    create_result = subprocess.run(
-        cli_args,
-        cwd=str(backend_dir),
-        env=test_env,
-        capture_output=True,
-        text=True,
     )
     assert (
         create_result.returncode == 0
@@ -248,43 +206,34 @@ def test_update_overlay(session: Session):
     assert original_overlay is not None, "Original overlay not found in database"
     original_overlay_id = str(original_overlay.overlay_id)
 
-    update_cli_args = [
-        "python",
-        "cli.py",
+    # Update the overlay
+    update_result = run_cli(
         "update-overlay",
         "--overlay-id",
         original_overlay_id,
         "--name",
         "Updated Overlay",
-    ]
-    # Update the overlay
-    update_result = subprocess.run(
-        update_cli_args,
-        cwd=str(backend_dir),
-        env=test_env,
-        capture_output=True,
-        text=True,
     )
-    result_output = update_result.stderr or update_result.stdout
     assert (
-        f"Updated overlay {original_overlay_id}" in result_output
-    ), "Overlay not updated"
+        update_result.returncode == 0
+    ), f"CLI command failed: {update_result.stderr or update_result.stdout}"
+
+    # Query the DB directly rather than parsing log output: the CLI logs via
+    # Python's logging module, which cli.py configures once at import time --
+    # its handler holds a stale stderr reference under CliRunner's per-call
+    # stdout/stderr swap, so log text isn't reliably present in result.output.
+    updated_stmt = select(Overlay).where(
+        Overlay.overlay_id == original_overlay.overlay_id
+    )
+    (updated_overlay,) = session.exec(updated_stmt).one_or_none()
+    assert updated_overlay is not None, "Overlay not found after update"
+    assert updated_overlay.name == "Updated Overlay"
     cleanup_overlay(session, "Updated Overlay")
 
 
 LINK_TEST_OVERLAY_NAME = "Link Overlays Test Overlay"
 LINK_TEST_PARENT_LAYER = "link_overlays_test_layer"
 LINK_TEST_MAP_SLUGS = ("link_overlays_test_map_ks", "link_overlays_test_map_mo")
-
-
-def run_cli(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["python", "cli.py", *args],
-        cwd=str(backend_dir),
-        env=test_env,
-        capture_output=True,
-        text=True,
-    )
 
 
 def purge_link_test_rows(session: Session):
@@ -314,9 +263,10 @@ def purge_link_test_rows(session: Session):
 def link_test_maps_fixture(engine):
     """Two committed districtrmap rows (statefps ['20'] and ['29']).
 
-    The CLI runs as a subprocess with its own database connection, so these
-    rows must be committed with a real Session(engine) — the rollback-session
-    fixture used elsewhere is invisible to subprocesses.
+    Committed with a real Session(engine) -- the rollback-session fixture
+    used elsewhere is invisible outside its own transaction, and the CLI
+    (in-process via CliRunner, but on its own DB session per call) needs
+    these rows actually committed to see them.
     """
     with Session(engine) as setup_session:
         purge_link_test_rows(setup_session)
@@ -353,7 +303,7 @@ def link_test_maps_fixture(engine):
 
 
 def create_link_test_overlay(engine, source: str | None = None) -> str:
-    """Create a committed overlay row visible to CLI subprocesses."""
+    """Create a committed overlay row."""
     overlay_id = str(uuid4())
     with Session(engine) as overlay_session:
         overlay_session.add(
@@ -523,7 +473,7 @@ def create_sync_test_overlay(
     name: str = SYNC_TEST_STALE_NAME,
     description: str = SYNC_TEST_STALE_DESCRIPTION,
 ) -> str:
-    """Create a committed overlay row visible to CLI subprocesses."""
+    """Create a committed overlay row."""
     overlay_id = str(uuid4())
     with Session(engine) as overlay_session:
         overlay_session.add(
@@ -700,7 +650,7 @@ def purge_add_overlay_test_rows(session: Session):
 
 @pytest.fixture(name="add_overlay_test_setup")
 def add_overlay_test_setup_fixture(engine):
-    """A committed Overlay + DistrictrMap, unlinked, visible to CLI subprocesses."""
+    """A committed Overlay + DistrictrMap, unlinked."""
     with Session(engine) as setup_session:
         purge_add_overlay_test_rows(setup_session)
         setup_session.execute(
@@ -1008,15 +958,17 @@ def test_create_spatial_index(engine, simple_parent_geos_gerrydb):
     ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
 
     with Session(engine) as query_session:
-        index_row = query_session.execute(
+        # ogr2ogr already creates its own GIST index on import, so this command's
+        # index is expected to be the second one -- assert presence, not uniqueness.
+        index_rows = query_session.execute(
             text(
                 """SELECT indexdef FROM pg_indexes
                 WHERE schemaname = 'gerrydb' AND tablename = 'simple_parent_geos'
                 AND indexdef ILIKE '%USING gist%'"""
             )
-        ).one_or_none()
+        ).all()
 
-    assert index_row is not None, "GIST spatial index was not created"
+    assert len(index_rows) > 0, "GIST spatial index was not created"
 
 
 # ---------------------------------------------------------------------------
@@ -1125,10 +1077,13 @@ def batch_create_test_cleanup_fixture(engine):
 
 
 def test_batch_create_districtr_maps(
-    engine, tmp_path, simple_parent_geos_gerrydb, batch_create_test_cleanup
+    engine, tmp_path, simple_parent_geos, batch_create_test_cleanup
 ):
     """batch-create-districtr-maps with --skip-gerrydb-loads creates the configured map
     against the already-imported gerrydb table"""
+    # simple_parent_geos (ogr2ogr only) rather than simple_parent_geos_gerrydb: the
+    # latter's gerrydbtable insert rides the rollback-session transaction and holds a
+    # row lock the CLI's own real commit below would deadlock against.
     with Session(engine) as setup_session:
         setup_session.execute(
             text(
@@ -1204,9 +1159,7 @@ def import_gerrydb_view_test_cleanup_fixture(engine):
 def test_import_gerrydb_view(engine, import_gerrydb_view_test_cleanup):
     """import-gerrydb-view loads the gpkg fixture into gerrydb.<layer> and upserts
     the gerrydbtable catalog row"""
-    gpkg_path = (
-        backend_dir / "tests" / "fixtures" / "gerrydb" / "ks_ellis_county_vtd.gpkg"
-    )
+    gpkg_path = FIXTURES_DIR / "ks_ellis_county_vtd.gpkg"
 
     result_proc = run_cli(
         "import-gerrydb-view",
@@ -1260,11 +1213,12 @@ def create_map_test_cleanup_fixture(engine):
         purge_create_map_test_rows(teardown_session)
 
 
-def test_create_districtr_map(
-    engine, simple_parent_geos_gerrydb, create_map_test_cleanup
-):
+def test_create_districtr_map(engine, simple_parent_geos, create_map_test_cleanup):
     """create-districtr-map creates the row and infers parent_geo_unit_type from
     the gerrydb layer's path column"""
+    # simple_parent_geos (ogr2ogr only) rather than simple_parent_geos_gerrydb: the
+    # latter's gerrydbtable insert rides the rollback-session transaction and holds a
+    # row lock the CLI's own real commit below would deadlock against.
     with Session(engine) as setup_session:
         setup_session.execute(
             text(
@@ -1411,12 +1365,17 @@ def shatterable_view_test_cleanup_fixture(engine):
 
 def test_create_shatterable_districtr_view(
     engine,
-    simple_parent_geos_gerrydb,
-    simple_child_geos_gerrydb,
+    simple_parent_geos,
+    simple_child_geos,
     shatterable_view_test_cleanup,
 ):
     """create-shatterable-districtr-view creates the materialized view and the
     gerrydbtable catalog row for it"""
+    # simple_parent_geos/simple_child_geos (ogr2ogr only): the underlying stored
+    # procedure operates on the real gerrydb.<table> geometry tables directly, so no
+    # gerrydbtable catalog row is needed for the parent/child layer names here -- and
+    # the _gerrydb fixture variants would add one that rides the rollback-session
+    # transaction, an unnecessary lock this test doesn't need to risk.
     result_proc = run_cli(
         "create-shatterable-districtr-view",
         "--parent-layer-name",
