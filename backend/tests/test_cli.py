@@ -816,9 +816,7 @@ def test_delete_overlay(engine, add_overlay_test_setup):
             {"overlay_id": add_overlay_test_setup["overlay_id"]},
         ).one_or_none()
         junction_row = query_session.execute(
-            text(
-                "SELECT 1 FROM districtrmap_overlays WHERE overlay_id = :overlay_id"
-            ),
+            text("SELECT 1 FROM districtrmap_overlays WHERE overlay_id = :overlay_id"),
             {"overlay_id": add_overlay_test_setup["overlay_id"]},
         ).one_or_none()
 
@@ -1004,9 +1002,7 @@ def test_add_districtr_map_to_map_group(engine, add_map_to_group_test_setup):
 
 def test_create_spatial_index(engine, simple_parent_geos_gerrydb):
     """create-spatial-index creates a GIST index on the given gerrydb table"""
-    result_proc = run_cli(
-        "create-spatial-index", "--table-name", "simple_parent_geos"
-    )
+    result_proc = run_cli("create-spatial-index", "--table-name", "simple_parent_geos")
     assert (
         result_proc.returncode == 0
     ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
@@ -1093,9 +1089,7 @@ def test_add_extent_to_districtr_map_manual_bounds(engine, add_extent_test_setup
 
     with Session(engine) as query_session:
         extent = query_session.execute(
-            text(
-                "SELECT extent FROM districtrmap WHERE districtr_map_slug = :slug"
-            ),
+            text("SELECT extent FROM districtrmap WHERE districtr_map_slug = :slug"),
             {"slug": ADD_EXTENT_TEST_MAP_SLUG},
         ).scalar_one()
 
@@ -1190,9 +1184,7 @@ IMPORT_GERRYDB_VIEW_LAYER = "ks_ellis_county_vap_data_vtd"
 
 
 def purge_import_gerrydb_view_test_rows(session: Session):
-    session.execute(
-        text("DROP TABLE IF EXISTS gerrydb.ks_ellis_county_vap_data_vtd")
-    )
+    session.execute(text("DROP TABLE IF EXISTS gerrydb.ks_ellis_county_vap_data_vtd"))
     session.execute(
         text("DELETE FROM gerrydbtable WHERE name = :name"),
         {"name": IMPORT_GERRYDB_VIEW_LAYER},
@@ -1212,7 +1204,9 @@ def import_gerrydb_view_test_cleanup_fixture(engine):
 def test_import_gerrydb_view(engine, import_gerrydb_view_test_cleanup):
     """import-gerrydb-view loads the gpkg fixture into gerrydb.<layer> and upserts
     the gerrydbtable catalog row"""
-    gpkg_path = backend_dir / "tests" / "fixtures" / "gerrydb" / "ks_ellis_county_vtd.gpkg"
+    gpkg_path = (
+        backend_dir / "tests" / "fixtures" / "gerrydb" / "ks_ellis_county_vtd.gpkg"
+    )
 
     result_proc = run_cli(
         "import-gerrydb-view",
@@ -1379,9 +1373,7 @@ def test_update_districtr_map(engine, update_map_test_setup):
 
     with Session(engine) as query_session:
         comment = query_session.execute(
-            text(
-                "SELECT comment FROM districtrmap WHERE districtr_map_slug = :slug"
-            ),
+            text("SELECT comment FROM districtrmap WHERE districtr_map_slug = :slug"),
             {"slug": UPDATE_MAP_TEST_SLUG},
         ).scalar_one()
 
