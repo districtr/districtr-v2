@@ -52,6 +52,26 @@ def run_cli(*args: str) -> SimpleNamespace:
     )
 
 
+def assert_ok(result: SimpleNamespace) -> None:
+    assert (
+        result.returncode == 0
+    ), f"CLI command failed: {result.stderr or result.stdout}"
+
+
+def purge_only_fixture(purge_fn):
+    """A pytest fixture factory for the common case of purging rows before
+    and after a test, with no setup data to insert in between."""
+
+    def _fixture(engine):
+        with Session(engine) as setup_session:
+            purge_fn(setup_session)
+        yield
+        with Session(engine) as teardown_session:
+            purge_fn(teardown_session)
+
+    return _fixture
+
+
 def cleanup_overlay(session: Session, overlay_name: str):
     stmt = select(Overlay).where(Overlay.name == overlay_name)
     (overlay,) = session.exec(stmt).one_or_none()
@@ -140,9 +160,7 @@ def test_create_overlay(session: Session):
         "https://example.com/data.geojson",
     )
 
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     # Refresh the session to ensure we can see committed data from the CLI call
     session.commit()
@@ -176,9 +194,7 @@ def test_create_overlay_with_pmtiles(session: Session):
         "counties",
     )
 
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     # Verify overlay was created
     stmt = select(Overlay).where(Overlay.name == "PMTiles Overlay")
@@ -209,9 +225,7 @@ def test_create_overlay_with_custom_style(session: Session):
         custom_style_json,
     )
 
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     # Verify overlay was created with custom style
     stmt = select(Overlay).where(Overlay.name == "Styled Overlay")
@@ -243,9 +257,7 @@ def test_create_overlay_and_add_to_map(
         "ks_demo_view_census_blocks_summary_stats",
     )
 
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     # Verify overlay was created
     stmt = select(Overlay).where(Overlay.name == "Map Overlay")
@@ -274,9 +286,7 @@ def test_update_overlay(session: Session):
         "--layer-type",
         "fill",
     )
-    assert (
-        create_result.returncode == 0
-    ), f"CLI command failed: {create_result.stderr or create_result.stdout}"
+    assert_ok(create_result)
 
     # Get the overlay ID
     original_overlay_stmt = select(Overlay).where(Overlay.name == "Original Overlay")
@@ -292,9 +302,7 @@ def test_update_overlay(session: Session):
         "--name",
         "Updated Overlay",
     )
-    assert (
-        update_result.returncode == 0
-    ), f"CLI command failed: {update_result.stderr or update_result.stdout}"
+    assert_ok(update_result)
 
     # Query the DB directly rather than parsing log output: the CLI logs via
     # Python's logging module, which cli.py configures once at import time --
@@ -404,9 +412,7 @@ def test_link_overlays_to_maps_by_name(engine, link_test_maps):
     result_proc = run_cli(
         "link-overlays-to-maps", "--overlay-name", LINK_TEST_OVERLAY_NAME
     )
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     linked_map_ids = get_linked_map_ids(engine, overlay_id)
     assert link_test_maps["20"] in linked_map_ids, "Overlay not linked to KS map"
@@ -424,9 +430,7 @@ def test_link_overlays_to_maps_statefps_filter(engine, link_test_maps):
         "--statefps",
         "20",
     )
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     linked_map_ids = get_linked_map_ids(engine, overlay_id)
     assert link_test_maps["20"] in linked_map_ids, "Overlay not linked to KS map"
@@ -451,9 +455,7 @@ def test_link_overlays_to_maps_by_source(engine, link_test_maps):
         "--statefps",
         "20",
     )
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     ks_linked_map_ids = get_linked_map_ids(engine, ks_overlay_id)
     assert (
@@ -474,17 +476,13 @@ def test_link_overlays_to_maps_idempotent(engine, link_test_maps):
     first_proc = run_cli(
         "link-overlays-to-maps", "--overlay-name", LINK_TEST_OVERLAY_NAME
     )
-    assert (
-        first_proc.returncode == 0
-    ), f"CLI command failed: {first_proc.stderr or first_proc.stdout}"
+    assert_ok(first_proc)
     first_linked_map_ids = get_linked_map_ids(engine, overlay_id)
 
     second_proc = run_cli(
         "link-overlays-to-maps", "--overlay-name", LINK_TEST_OVERLAY_NAME
     )
-    assert (
-        second_proc.returncode == 0
-    ), f"CLI command failed: {second_proc.stderr or second_proc.stdout}"
+    assert_ok(second_proc)
     second_linked_map_ids = get_linked_map_ids(engine, overlay_id)
 
     assert (
@@ -572,14 +570,9 @@ def get_overlay_name_description(engine, overlay_id: str) -> tuple[str, str]:
     return row.name, row.description
 
 
-@pytest.fixture(name="sync_test_cleanup")
-def sync_test_cleanup_fixture(engine):
-    """Purge sync-overlay-metadata test overlays before and after each test."""
-    with Session(engine) as setup_session:
-        purge_sync_test_rows(setup_session)
-    yield
-    with Session(engine) as teardown_session:
-        purge_sync_test_rows(teardown_session)
+sync_test_cleanup = pytest.fixture(name="sync_test_cleanup")(
+    purge_only_fixture(purge_sync_test_rows)
+)
 
 
 def test_sync_overlay_metadata_updates_all_matching(
@@ -605,9 +598,7 @@ def test_sync_overlay_metadata_updates_all_matching(
     )
 
     result_proc = run_cli("sync-overlay-metadata", "--metadata", str(metadata_path))
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     for overlay_id in (line_overlay_id, text_overlay_id):
         name, description = get_overlay_name_description(engine, overlay_id)
@@ -636,9 +627,7 @@ def test_sync_overlay_metadata_dry_run_no_changes(engine, tmp_path, sync_test_cl
     result_proc = run_cli(
         "sync-overlay-metadata", "--metadata", str(metadata_path), "--dry-run"
     )
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     name, description = get_overlay_name_description(engine, overlay_id)
     assert name == SYNC_TEST_STALE_NAME, "Dry run changed overlay name"
@@ -666,9 +655,7 @@ def test_sync_overlay_metadata_absent_key_unchanged(
     )
 
     result_proc = run_cli("sync-overlay-metadata", "--metadata", str(metadata_path))
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     name, description = get_overlay_name_description(engine, overlay_id)
     assert name == SYNC_TEST_STALE_NAME, "Absent-key overlay name changed"
@@ -759,9 +746,7 @@ def test_add_overlay_to_map(engine, add_overlay_test_setup):
         "--overlay-id",
         add_overlay_test_setup["overlay_id"],
     )
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     linked_map_ids = get_linked_map_ids(engine, add_overlay_test_setup["overlay_id"])
     assert add_overlay_test_setup["map_uuid"] in linked_map_ids
@@ -789,9 +774,7 @@ def test_remove_overlay_from_map(engine, add_overlay_test_setup):
         "--overlay-id",
         add_overlay_test_setup["overlay_id"],
     )
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     linked_map_ids = get_linked_map_ids(engine, add_overlay_test_setup["overlay_id"])
     assert add_overlay_test_setup["map_uuid"] not in linked_map_ids
@@ -815,9 +798,7 @@ def test_delete_overlay(engine, add_overlay_test_setup):
     result_proc = run_cli(
         "delete-overlay", "--overlay-id", add_overlay_test_setup["overlay_id"]
     )
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     with Session(engine) as query_session:
         overlay_row = query_session.execute(
@@ -845,21 +826,15 @@ def purge_create_group_test_rows(session: Session):
     purge_test_rows(session, map_group_slugs=(CREATE_GROUP_TEST_SLUG,))
 
 
-@pytest.fixture(name="create_group_test_cleanup")
-def create_group_test_cleanup_fixture(engine):
-    with Session(engine) as setup_session:
-        purge_create_group_test_rows(setup_session)
-    yield
-    with Session(engine) as teardown_session:
-        purge_create_group_test_rows(teardown_session)
+create_group_test_cleanup = pytest.fixture(name="create_group_test_cleanup")(
+    purge_only_fixture(purge_create_group_test_rows)
+)
 
 
 def test_create_group_auto_slug(engine, create_group_test_cleanup):
     """create-group without --map-group-slug slugifies the name to lowercase a-z"""
     result_proc = run_cli("create-group", "--name", CREATE_GROUP_TEST_NAME)
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     with Session(engine) as query_session:
         row = query_session.execute(
@@ -951,9 +926,7 @@ def test_add_districtr_map_to_map_group(engine, add_map_to_group_test_setup):
         "--map-group-slug",
         group_one,
     )
-    assert (
-        first_proc.returncode == 0
-    ), f"CLI command failed: {first_proc.stderr or first_proc.stdout}"
+    assert_ok(first_proc)
     assert group_membership_count(engine, map_uuid) == 1
 
     # Already-in-group re-run is a no-op, not an error
@@ -964,9 +937,7 @@ def test_add_districtr_map_to_map_group(engine, add_map_to_group_test_setup):
         "--map-group-slug",
         group_one,
     )
-    assert (
-        second_proc.returncode == 0
-    ), f"CLI command failed: {second_proc.stderr or second_proc.stdout}"
+    assert_ok(second_proc)
     assert group_membership_count(engine, map_uuid) == 1
 
     third_proc = run_cli(
@@ -976,9 +947,7 @@ def test_add_districtr_map_to_map_group(engine, add_map_to_group_test_setup):
         "--map-group-slug",
         group_two,
     )
-    assert (
-        third_proc.returncode == 0
-    ), f"CLI command failed: {third_proc.stderr or third_proc.stdout}"
+    assert_ok(third_proc)
     assert group_membership_count(engine, map_uuid) == 2
 
 
@@ -990,9 +959,7 @@ def test_add_districtr_map_to_map_group(engine, add_map_to_group_test_setup):
 def test_create_spatial_index(engine, simple_parent_geos_gerrydb):
     """create-spatial-index creates a GIST index on the given gerrydb table"""
     result_proc = run_cli("create-spatial-index", "--table-name", "simple_parent_geos")
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     with Session(engine) as query_session:
         # ogr2ogr already creates its own GIST index on import, so this command's
@@ -1056,9 +1023,7 @@ def test_add_extent_to_districtr_map_manual_bounds(engine, add_extent_test_setup
         "-90.0",
         "40.0",
     )
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     with Session(engine) as query_session:
         extent = query_session.execute(
@@ -1084,13 +1049,9 @@ def purge_batch_create_test_rows(session: Session):
     )
 
 
-@pytest.fixture(name="batch_create_test_cleanup")
-def batch_create_test_cleanup_fixture(engine):
-    with Session(engine) as setup_session:
-        purge_batch_create_test_rows(setup_session)
-    yield
-    with Session(engine) as teardown_session:
-        purge_batch_create_test_rows(teardown_session)
+batch_create_test_cleanup = pytest.fixture(name="batch_create_test_cleanup")(
+    purge_only_fixture(purge_batch_create_test_rows)
+)
 
 
 def test_batch_create_districtr_maps(
@@ -1122,9 +1083,7 @@ districtr_maps:
         str(config_path),
         "--skip-gerrydb-loads",
     )
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     with Session(engine) as query_session:
         row = query_session.execute(
@@ -1157,13 +1116,9 @@ def purge_import_gerrydb_view_test_rows(session: Session):
     )
 
 
-@pytest.fixture(name="import_gerrydb_view_test_cleanup")
-def import_gerrydb_view_test_cleanup_fixture(engine):
-    with Session(engine) as setup_session:
-        purge_import_gerrydb_view_test_rows(setup_session)
-    yield
-    with Session(engine) as teardown_session:
-        purge_import_gerrydb_view_test_rows(teardown_session)
+import_gerrydb_view_test_cleanup = pytest.fixture(
+    name="import_gerrydb_view_test_cleanup"
+)(purge_only_fixture(purge_import_gerrydb_view_test_rows))
 
 
 def test_import_gerrydb_view(engine, import_gerrydb_view_test_cleanup):
@@ -1178,9 +1133,7 @@ def test_import_gerrydb_view(engine, import_gerrydb_view_test_cleanup):
         "--gpkg",
         str(gpkg_path),
     )
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     with Session(engine) as query_session:
         table_row = query_session.execute(
@@ -1210,13 +1163,9 @@ def purge_create_map_test_rows(session: Session):
     )
 
 
-@pytest.fixture(name="create_map_test_cleanup")
-def create_map_test_cleanup_fixture(engine):
-    with Session(engine) as setup_session:
-        purge_create_map_test_rows(setup_session)
-    yield
-    with Session(engine) as teardown_session:
-        purge_create_map_test_rows(teardown_session)
+create_map_test_cleanup = pytest.fixture(name="create_map_test_cleanup")(
+    purge_only_fixture(purge_create_map_test_rows)
+)
 
 
 def test_create_districtr_map(engine, simple_parent_geos, create_map_test_cleanup):
@@ -1241,9 +1190,7 @@ def test_create_districtr_map(engine, simple_parent_geos, create_map_test_cleanu
         "simple_parent_geos",
         "--no-extent",
     )
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     with Session(engine) as query_session:
         row = query_session.execute(
@@ -1303,9 +1250,7 @@ def test_update_districtr_map(engine, update_map_test_setup):
         "--comment",
         "Updated comment",
     )
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     with Session(engine) as query_session:
         comment = query_session.execute(
@@ -1336,13 +1281,9 @@ def purge_shatterable_view_test_rows(session: Session):
     )
 
 
-@pytest.fixture(name="shatterable_view_test_cleanup")
-def shatterable_view_test_cleanup_fixture(engine):
-    with Session(engine) as setup_session:
-        purge_shatterable_view_test_rows(setup_session)
-    yield
-    with Session(engine) as teardown_session:
-        purge_shatterable_view_test_rows(teardown_session)
+shatterable_view_test_cleanup = pytest.fixture(name="shatterable_view_test_cleanup")(
+    purge_only_fixture(purge_shatterable_view_test_rows)
+)
 
 
 def test_create_shatterable_districtr_view(
@@ -1367,9 +1308,7 @@ def test_create_shatterable_districtr_view(
         "--gerrydb-table-name",
         SHATTERABLE_VIEW_TEST_TABLE_NAME,
     )
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     with Session(engine) as query_session:
         matview_row = query_session.execute(
