@@ -86,7 +86,10 @@ bd sync               # Sync with git
 `.agents/skills/` is the **canonical, git-tracked** source for all agent skills.
 The synced outputs (`.claude/`, `.cursor/`, `codex.md`) are **gitignored** — they are
 local-only build artifacts and must never be committed. Always edit skills in
-`.agents/skills/`, then run the sync script to distribute them.
+`.agents/skills/`, then run the sync script to distribute them. Read
+[`skills/AUTHORING.md`](./skills/AUTHORING.md) before writing or revising a skill —
+it covers how skills load, how they're individuated (one skill per concern, not per
+file surface), and what content works.
 
 ```bash
 ./scripts/sync-skills.sh              # Sync to all agents (Claude, Cursor, Codex)
@@ -96,36 +99,40 @@ local-only build artifacts and must never be committed. Always edit skills in
 ./scripts/sync-skills.sh --clean      # Remove all synced files
 ```
 
-Run this after adding or editing skills in `.agents/skills/`.
+Run this after adding or editing skills in `.agents/skills/`. The Claude output is
+flat (`.claude/skills/<name>/`) regardless of source grouping — Claude Code discovers
+skills one level deep only, and routes to them by their frontmatter `description`.
 
-## Project Guides (Read Before Editing)
+## Project Skills
 
-Domain-specific implementation guides live in `.agents/skills/project/` as skills.
-Agents should read the relevant guide(s) before making changes:
+Project skills live in `.agents/skills/project/`, in two kinds:
 
-- [`learn-docker`](./skills/project/learn-docker/SKILL.md) - docker-compose topology, env files, local container workflows, quality-gate commands
-- [`learn-frontend`](./skills/project/learn-frontend/SKILL.md) - frontend architecture and map-first FE conventions
-- [`learn-map-layers`](./skills/project/learn-map-layers/SKILL.md) - layer stack, sources, map types (district vs COI), style expressions, shatter filters
-- [`learn-map-runtime`](./skills/project/learn-map-runtime/SKILL.md) - MapLibre interaction model, feature-state, paint/shatter behavior
-- [`learn-state-sync`](./skills/project/learn-state-sync/SKILL.md) - IDB/server sync, optimistic concurrency, conflict resolution
-- [`learn-workers`](./skills/project/learn-workers/SKILL.md) - GeometryWorker/ParquetWorker contracts and performance guardrails
-- [`learn-backend`](./skills/project/learn-backend/SKILL.md) - FastAPI + SQLModel conventions and backend architecture
-- [`learn-db-query`](./skills/project/learn-db-query/SKILL.md) - SQLAlchemy-first DB patterns, migrations, UDF policy
-- [`learn-map-lifecycle`](./skills/project/learn-map-lifecycle/SKILL.md) - map data lifecycle: imports, shatter setup, edges, graph linkage
-- [`learn-pipelines`](./skills/project/learn-pipelines/SKILL.md) - tiles/tabular/transforms pipeline contracts and toolchain requirements
-- [`learn-cms-moderation`](./skills/project/learn-cms-moderation/SKILL.md) - CMS editing/review and moderation workflows
-- [`learn-auth-share`](./skills/project/learn-auth-share/SKILL.md) - Auth0 scopes, Turnstile captcha, and share/edit token security
+**Knowledge skills** (`learn-*`) — load one before working within its concern, whether
+editing or debugging. Each covers a concern (a question the agent needs answered, or a
+risk it must not trip), not a file surface; the same file can fall under different
+skills depending on why it's being edited.
 
-### Guide Selection Rules
+- [`learn-map-frontend`](./skills/project/learn-map-frontend/SKILL.md) - how the interactive map renders and responds: stores/subscriptions, feature-state, paint/shatter, web workers
+- [`learn-map-data`](./skills/project/learn-map-data/SKILL.md) - how a map module comes to exist: GerryDB import, pipelines, shatter edges, graph linkage
+- [`learn-state-sync`](./skills/project/learn-state-sync/SKILL.md) - whether user work is saved, lost, or conflicted: IDB/server sync, optimistic concurrency
+- [`learn-backend`](./skills/project/learn-backend/SKILL.md) - server endpoints and the data model: FastAPI/SQLModel conventions, DB patterns, UDF policy
+- [`learn-performance`](./skills/project/learn-performance/SKILL.md) - the memory/perf constraints this system has hit, and their history (cross-cutting)
+- [`learn-auth-share`](./skills/project/learn-auth-share/SKILL.md) - who can do what: Auth0 scopes, share/edit tokens, Turnstile
+- [`learn-cms`](./skills/project/learn-cms/SKILL.md) - editorial content flows: CMS, TipTap nodes, comment moderation
+- [`learn-infra`](./skills/project/learn-infra/SKILL.md) - how the system is built, wired, and run: compose topology, env files, CI
 
-- Docker/config/startup/test commands → [`learn-docker`](./skills/project/learn-docker/SKILL.md)
-- Interactive map behavior or rendering changes → [`learn-frontend`](./skills/project/learn-frontend/SKILL.md) + [`learn-map-runtime`](./skills/project/learn-map-runtime/SKILL.md) + [`learn-map-layers`](./skills/project/learn-map-layers/SKILL.md)
-- Layer rendering, styling, map types (district vs COI), basemaps, overlays → [`learn-map-layers`](./skills/project/learn-map-layers/SKILL.md)
-- Worker or large-data FE processing changes → [`learn-workers`](./skills/project/learn-workers/SKILL.md)
-- Sync/conflict/local persistence changes → [`learn-state-sync`](./skills/project/learn-state-sync/SKILL.md)
-- Backend endpoint/model/query changes → [`learn-backend`](./skills/project/learn-backend/SKILL.md) + [`learn-db-query`](./skills/project/learn-db-query/SKILL.md)
-- Map onboarding/import/shatter/edge/graph changes → [`learn-map-lifecycle`](./skills/project/learn-map-lifecycle/SKILL.md) (+ [`learn-pipelines`](./skills/project/learn-pipelines/SKILL.md) if artifact generation changes)
-- CMS/comment/review changes → [`learn-cms-moderation`](./skills/project/learn-cms-moderation/SKILL.md) (+ [`learn-auth-share`](./skills/project/learn-auth-share/SKILL.md) if protected)
+**Runbooks** — invoke to perform a procedure:
+
+- [`quality-gate`](./skills/project/quality-gate/SKILL.md) - run the verification suite, scoped to the diff, expensive gates concurrent
+- [`map-onboarding`](./skills/project/map-onboarding/SKILL.md) - onboard a new geographic layer end to end
+- [`migration-author`](./skills/project/migration-author/SKILL.md) - author and validate an Alembic migration
+- [`api-contract-audit`](./skills/project/api-contract-audit/SKILL.md) - detect drift between frontend API types and backend schemas
+- [`pr-review`](./skills/project/pr-review/SKILL.md) - this repo's project-specific review checkpoints
+- [`dependency-audit`](./skills/project/dependency-audit/SKILL.md) - survey outdated/vulnerable dependencies
+
+In Claude Code, routing is automatic — each skill's description states its concern and
+the model loads it when relevant. The listing above is the map for humans and for
+agents (Cursor, Codex) without native skill routing.
 
 ### Backend DB Policy Reminder
 

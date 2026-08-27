@@ -241,15 +241,35 @@ def resolve_ts_inheritance(types: dict[str, FrontendType]) -> None:
 def match_pairs(
     backend: dict[str, BackendClass], frontend: dict[str, FrontendType]
 ) -> list[tuple[BackendClass, FrontendType]]:
+    """Exact (case-insensitive) name matches first; suffix-stripped matching
+    only as a fallback for names with no exact counterpart, and only when it
+    resolves to a single candidate on each side. Pairing every suffix-stripped
+    collision (Assignments x AssignmentsCreate x AssignmentsCreateResponse ...)
+    buries real drift under cross-product noise.
+    """
+    by_exact_fe = {t.name.lower(): t for t in frontend.values()}
+    pairs: list[tuple[BackendClass, FrontendType]] = []
+    matched_fe: set[str] = set()
+    unmatched_be: list[BackendClass] = []
+    for cls in backend.values():
+        candidate = by_exact_fe.get(cls.name.lower())
+        if candidate is not None:
+            pairs.append((cls, candidate))
+            matched_fe.add(candidate.name)
+        else:
+            unmatched_be.append(cls)
+
     by_norm_fe: dict[str, list[FrontendType]] = {}
     for t in frontend.values():
-        by_norm_fe.setdefault(normalize(t.name), []).append(t)
-
-    pairs: list[tuple[BackendClass, FrontendType]] = []
-    for cls in backend.values():
-        candidates = by_norm_fe.get(normalize(cls.name), [])
-        for candidate in candidates:
-            pairs.append((cls, candidate))
+        if t.name not in matched_fe:
+            by_norm_fe.setdefault(normalize(t.name), []).append(t)
+    by_norm_be: dict[str, list[BackendClass]] = {}
+    for cls in unmatched_be:
+        by_norm_be.setdefault(normalize(cls.name), []).append(cls)
+    for norm, fe_candidates in by_norm_fe.items():
+        be_candidates = by_norm_be.get(norm, [])
+        if len(fe_candidates) == 1 and len(be_candidates) == 1:
+            pairs.append((be_candidates[0], fe_candidates[0]))
     return pairs
 
 
