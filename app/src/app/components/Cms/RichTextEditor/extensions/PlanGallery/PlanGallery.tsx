@@ -1,11 +1,11 @@
 'use client';
-import React, {useState} from 'react';
-import {Flex, SegmentedControl, Table, Text} from '@radix-ui/themes';
+import React from 'react';
+import {Table} from '@radix-ui/themes';
 import {Gallery} from '@/app/components/Static/Gallery';
 import {getPlans} from '@/app/utils/api/apiHandlers/getPlans';
 import {MinPublicDocument} from '@utils/api/apiHandlers/types';
 import {
-  DRAFT_STATUS_TEXT,
+  DRAFT_STATUSES,
   SUBMITTED_STATUSES,
   type DraftStatus,
 } from '@constants/document/draftStatus';
@@ -19,10 +19,9 @@ export type PlanGalleryProps = {
   paginate?: boolean;
   limit?: number;
   showListView?: boolean;
-  /** Show the viewer-facing completion-status control on tag-based galleries. */
-  showStatusFilter?: boolean;
-  /** Initial completion-status selection ('all' = in progress + ready to share). */
-  defaultStatus?: 'all' | DraftStatus;
+  /** Tag-based galleries show ready-to-share maps only; opt in to
+   * in-progress maps as well. */
+  includeInProgress?: boolean;
 } & PlanFlags;
 
 export const PlanGallery: React.FC<PlanGalleryProps> = ({
@@ -33,25 +32,20 @@ export const PlanGallery: React.FC<PlanGalleryProps> = ({
   paginate,
   limit = 12,
   showListView = false,
-  showStatusFilter: showStatusFilterAttr = true,
-  defaultStatus = 'all',
+  includeInProgress = false,
   ...flags
 }: PlanGalleryProps) => {
-  // Completion-status filter for tag-based galleries; 'all' means any
-  // submitted map (in progress or ready to share).
-  const [statusFilter, setStatusFilter] = useState<'all' | DraftStatus>(defaultStatus ?? 'all');
   const isTagBased = Boolean(tags?.length && !ids?.length);
-  const showStatusFilter = isTagBased && showStatusFilterAttr;
-  const draftStatuses = statusFilter === 'all' ? SUBMITTED_STATUSES : [statusFilter];
+  const draftStatuses = includeInProgress ? SUBMITTED_STATUSES : [DRAFT_STATUSES.READY_TO_SHARE];
+  // Mixed-status lists annotate each plan with its status; ready-only lists
+  // are uniform, so a badge would be noise.
+  const showStatus = isTagBased && includeInProgress;
   return (
     <Gallery<
       MinPublicDocument,
       {ids?: number[]; tags?: string[]; draftStatuses?: DraftStatus[]},
       MinPublicDocument[] | null
     >
-      // Remount on filter change: Gallery keeps its page in state, and a stale
-      // offset against a narrower result set would show a false "No items found".
-      key={statusFilter}
       title={title}
       description={description}
       paginate={paginate}
@@ -59,27 +53,6 @@ export const PlanGallery: React.FC<PlanGalleryProps> = ({
       showListView={showListView}
       filters={{ids, tags, draftStatuses: isTagBased ? draftStatuses : undefined}}
       queryKey={['plans']}
-      header={
-        showStatusFilter ? (
-          <Flex direction="row" gap="2" align="center" pt="2">
-            <Text size="2" color="gray">
-              Status:
-            </Text>
-            <SegmentedControl.Root
-              value={statusFilter}
-              onValueChange={value => setStatusFilter(value as 'all' | DraftStatus)}
-              size="1"
-            >
-              <SegmentedControl.Item value="all">All</SegmentedControl.Item>
-              {SUBMITTED_STATUSES.map(status => (
-                <SegmentedControl.Item key={status} value={status}>
-                  {DRAFT_STATUS_TEXT[status]}
-                </SegmentedControl.Item>
-              ))}
-            </SegmentedControl.Root>
-          </Flex>
-        ) : undefined
-      }
       queryFunction={({filters, limit, offset}) =>
         getPlans({
           ids: filters.ids,
@@ -90,7 +63,9 @@ export const PlanGallery: React.FC<PlanGalleryProps> = ({
         }).then(result => (result?.ok ? result.response : null))
       }
       selectItems={data => (data || []) as MinPublicDocument[]}
-      gridRenderer={(plan, i) => <PlanCard key={i} plan={plan} {...flags} />}
+      gridRenderer={(plan, i) => (
+        <PlanCard key={i} plan={plan} {...flags} showStatus={showStatus} />
+      )}
       tableHeader={
         <>
           <Table.ColumnHeaderCell>ID</Table.ColumnHeaderCell>
@@ -100,9 +75,12 @@ export const PlanGallery: React.FC<PlanGalleryProps> = ({
           {flags.showDescriptions && <Table.ColumnHeaderCell>Description</Table.ColumnHeaderCell>}
           {flags.showTags && <Table.ColumnHeaderCell>Tags</Table.ColumnHeaderCell>}
           {flags.showUpdatedAt && <Table.ColumnHeaderCell>Updated At</Table.ColumnHeaderCell>}
+          {showStatus && <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>}
         </>
       }
-      tableRowRenderer={(plan, i) => <PlanTableRow key={i} plan={plan} {...flags} />}
+      tableRowRenderer={(plan, i) => (
+        <PlanTableRow key={i} plan={plan} {...flags} showStatus={showStatus} />
+      )}
     />
   );
 };
