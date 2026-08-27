@@ -1,6 +1,7 @@
 'use client';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useOverlayStore} from '@/app/store/overlayStore';
+import {useIsSingleCounty} from '@/app/hooks/useIsSingleCounty';
 import {GEODATA_URL} from '@/app/utils/api/constants';
 import {FilterSpecification} from 'maplibre-gl';
 import {useMemo} from 'react';
@@ -22,6 +23,7 @@ export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const hoveredCountyGeoid = useMapControlsStore(state => state.hoveredCountyGeoid);
   const paintConstraint = useOverlayStore(state => state.paintConstraint);
+  const isSingleCounty = useIsSingleCounty();
   const countyMaskId =
     paintConstraint?.overlayId === COUNTY_SOURCE_ID ? paintConstraint.featureId : null;
 
@@ -39,6 +41,10 @@ export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
       false,
     ] as FilterSpecification;
   }, [mapOptions.stateFipsSet]);
+
+  // Single-county maps have no county lines worth drawing (and county paint
+  // is already unavailable there).
+  if (isSingleCounty) return null;
 
   return (
     <>
