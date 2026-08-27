@@ -9,20 +9,34 @@ from click.testing import CliRunner
 from sqlmodel import Session
 from sqlalchemy import select, text
 
+import app.core.db
+from app.core.config import settings
 from app.models import DistrictrMap, Overlay
+from tests.constants import POSTGRES_TEST_DB
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures" / "gerrydb"
 
 
 @pytest.fixture(autouse=True)
 def _patch_cli_engine(engine, monkeypatch):
-    """Point cli.py's module-level engine at the test database.
+    """Point every DB reference cli.py's commands can reach at the test database.
 
-    cli.py's session_scope() resolves the name `engine` from its own module
-    globals at call time, so patching it here redirects every CLI invocation
-    below without touching cli.py itself.
+    cli.py's session_scope() resolves `engine` from cli.py's own module
+    globals at call time, so patching that redirects commands using the
+    @with_session decorator. Commands that shell out to management/load_data.py
+    (e.g. batch-create-districtr-maps) instead call app.core.db.get_session(),
+    which resolves its own `engine` from app.core.db's globals -- a separate
+    frozen reference `cli.py`'s `from app.core.db import engine` doesn't cover,
+    so that needs patching too. A third path (import-gerrydb-view's ogr2ogr
+    call) builds its Postgres connection string directly from settings.POSTGRES_*
+    rather than through any SQLAlchemy engine, so that needs its own patch --
+    under the old subprocess-per-test design this came from process env vars
+    at cli.py's startup; in-process, `settings` is a session-wide singleton
+    already loaded from the container's real (non-test) config.
     """
     monkeypatch.setattr(cli, "engine", engine)
+    monkeypatch.setattr(app.core.db, "engine", engine)
+    monkeypatch.setattr(settings, "POSTGRES_DB", POSTGRES_TEST_DB)
 
 
 def run_cli(*args: str) -> SimpleNamespace:
@@ -222,6 +236,9 @@ def test_update_overlay(session: Session):
     # Python's logging module, which cli.py configures once at import time --
     # its handler holds a stale stderr reference under CliRunner's per-call
     # stdout/stderr swap, so log text isn't reliably present in result.output.
+    # expire_all() clears the identity map so this re-fetches the row's
+    # current data rather than returning the already-loaded original_overlay.
+    session.expire_all()
     updated_stmt = select(Overlay).where(
         Overlay.overlay_id == original_overlay.overlay_id
     )

@@ -351,7 +351,10 @@ def update_districtr_map(
     if bounds and len(bounds) == 4:
         _bounds = bounds
 
-    result = _update_districtrmap(
+    # map_type is omitted rather than passed as None: DistrictrMapUpdate.map_type
+    # is non-optional (default "default"), unlike every other field here, so an
+    # explicit None fails pydantic validation instead of falling back to unset.
+    update_kwargs = dict(
         session=session,
         districtr_map_slug=districtr_map_slug,
         gerrydb_table_name=gerrydb_table_name,
@@ -362,13 +365,16 @@ def update_districtr_map(
         num_districts_modifiable=num_districts_modifiable,
         tiles_s3_path=tiles_s3_path,
         visible=visibility,
-        map_type=map_type,
         comment=comment,
         parent_geo_unit_type=parent_geo_unit_type,
         child_geo_unit_type=child_geo_unit_type,
         data_source_name=data_source_name,
         bounds=_bounds,
     )
+    if map_type is not None:
+        update_kwargs["map_type"] = map_type
+
+    result = _update_districtrmap(**update_kwargs)
     logger.info(f"Districtr map updated successfully {result}")
 
 
