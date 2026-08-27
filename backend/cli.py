@@ -354,7 +354,7 @@ def update_districtr_map(
     # map_type is omitted rather than passed as None: DistrictrMapUpdate.map_type
     # is non-optional (default "default"), unlike every other field here, so an
     # explicit None fails pydantic validation instead of falling back to unset.
-    update_kwargs = dict(
+    update_kwargs: dict[str, Any] = dict(
         session=session,
         districtr_map_slug=districtr_map_slug,
         gerrydb_table_name=gerrydb_table_name,
