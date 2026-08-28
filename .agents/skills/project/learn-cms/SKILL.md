@@ -53,11 +53,13 @@ without publish authority.
   round-trip.
 - `parseHTML`/`renderHTML` at the node level (not just per-attribute) define how the node
   itself maps to a DOM tag (`div[data-node-type="boilerplateNode"]`) — this is what lets
-  content saved from the editor be read back into it later, and what a static render pass
-  (`RichTextView`, for public pages) matches against without needing the editor loaded.
+  content saved from the editor be read back into it later, and what the public-page
+  render pass (`RichTextRenderer`, via its `domNodeReplacers`) matches against without
+  needing the editor loaded. (The in-code comments on these node files say "RichTextView"
+  — no such component exists; `RichTextRenderer` is the actual name, confirmed 2026-08-28.)
 - `addNodeView` is conditional on `typeof window === 'undefined'`: server-side, it's left
   undefined so no interactive editor chrome renders during SSR; DOM replacement for the
-  static/public view is handled separately in `RichTextView`, not by this node's own
+  static/public view is handled separately by `RichTextRenderer`, not by this node's own
   view. A node that unconditionally registers a `NodeView` would either break SSR or ship
   editor-only interactivity to public readers.
 
@@ -70,10 +72,8 @@ round-trip, a `NodeView` for the editor-only interactive rendering, and an SSR g
 OpenAI's moderation endpoint when `OPENAI_API_KEY` is configured, falling back to a
 local profanity check (`safetext`) otherwise. `moderate_submission` is invoked as a
 background task after a comment is submitted, scoring the comment, its commenter name,
-and its tags independently (each gets its own DB session when running as a detached
-background task, since the request-scoped session is already closed by the time a
-background task runs — reusing it would leak a connection that's never returned to the
-pool). `MODERATION_THRESHOLD = 0.2` (`moderation.py`) is the score above which a comment
+and its tags independently, each on its own DB session (`_moderate` in `moderation.py`).
+`MODERATION_THRESHOLD = 0.2` (`moderation.py`) is the score above which a comment
 fails automatic moderation; a human reviewer can still override via `ReviewStatus.APPROVED`
 even above threshold, or `REJECTED` even below it — the score is a signal into review,
 not the final word.
@@ -98,6 +98,8 @@ merge with what's already stored.
   UI.
 - `app/src/app/components/Cms/*` — `RichTextEditor` and its `extensions/` (one directory
   per custom TipTap node).
+- `app/src/app/components/RichTextRenderer/*` — public-page render pass; `domNodeReplacers`
+  is where each custom node's static DOM replacement lives.
 - `app/src/app/store/cmsFormStore.ts` — admin CMS form state.
 
 ## See also

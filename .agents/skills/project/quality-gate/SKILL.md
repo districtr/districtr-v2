@@ -19,11 +19,7 @@ stack already running (`docker-compose up -d db`; `pre-commit`, `frontend`,
 `docker-compose exec`).
 
 The script always runs `pre-commit`. It adds `bun run ts` and `bun run build`
-when `app/` is touched, and `pytest` when `backend/` is touched. `build` and
-`pytest` run as background jobs and are waited on together, since they are the
-two slow gates and live in separate containers. It prints a pass/fail/skip
-line per gate, tees each gate's output to its own log file under a temp
-directory named in the final summary, and exits nonzero if anything failed.
+when `app/` is touched, and `pytest` when `backend/` is touched.
 
 ## Cadence
 
@@ -37,9 +33,11 @@ touches — running them on every edit buys nothing for two gates that together
 take over two minutes.
 
 A re-run is unnecessary after merging in an unrelated `dev` update (no file
-overlap with the current diff) — GitHub Actions re-validates every push
-regardless, so a local re-run before that push adds a second wait for the same
-answer.
+overlap with the current diff), for the backend: `test-backend.yml` reruns
+pytest on every push touching `backend/**`, on any branch, so a local re-run
+before that push adds a second wait for the same answer. No equivalent CI job
+exists for the frontend outside a PR preview or a deploy to `main`/`dev`, so
+this shortcut doesn't apply to `bun run build`.
 
 ## ESLint is deliberately not a gate
 

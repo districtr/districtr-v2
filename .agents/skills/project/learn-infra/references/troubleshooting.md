@@ -1,7 +1,7 @@
 # Troubleshooting
 
 Symptom → root cause → fix for the failure modes the local compose topology is prone to,
-verified against the current `docker-compose.yml` (2026-08-27). Read this when the stack
+verified against the current `docker-compose.yml` (2026-08-28). Read this when the stack
 won't boot, boots into a broken state, or behaves differently than expected after an
 env/compose change.
 
@@ -18,36 +18,27 @@ env/compose change.
 **Symptom**: `backend` container exits or logs connection-refused errors against `db`
 shortly after starting.
 
-**Root cause**: `backend`'s `depends_on: db: condition: service_healthy` is what
-sequences container start against Postgres actually being ready — `db`'s healthcheck
-runs `pg_isready` every 10s, up to 5 retries, before compose considers it healthy. If
-this `condition` is ever weakened to a bare service-start dependency (or removed
-entirely), `backend` can start against a `db` container that accepts TCP connections
-before Postgres has finished initializing, and `alembic upgrade head` — the first thing
-`backend`'s command runs — fails.
+**Root cause**: the SKILL.md invariant on `condition: service_healthy` has been weakened
+or removed — `backend` started against a `db` container that accepts TCP connections
+before Postgres finished initializing, and `alembic upgrade head` failed.
 
-**Fix**: keep the `condition: service_healthy` dependency on `db` intact. If the
-symptom persists with that dependency present, the healthcheck itself is passing too
-early for the actual workload — increase `interval`/`retries` rather than removing the
-dependency.
+**Fix**: restore the `condition: service_healthy` dependency on `db`. If the symptom
+persists with it present, the healthcheck itself is passing too early for the actual
+workload — increase `interval`/`retries` rather than removing the dependency.
 
 ## Backend boots against a stale schema
 
 **Symptom**: API requests fail with column/table errors that a recent migration should
 have fixed.
 
-**Root cause**: `backend`'s command is `alembic upgrade head && ... && uvicorn ...` — one
-shell command chained with `&&`, so a migration failure should abort the whole command
-rather than letting uvicorn start anyway. If this ever gets split (e.g. migrations moved
-to a separate init container or a `command:` override that drops the `alembic upgrade
-head &&` prefix), the ordering guarantee is gone and uvicorn can start against
-whatever schema state happened to exist at container start.
+**Root cause**: `backend`'s single-command `alembic upgrade head && ... && uvicorn`
+ordering (SKILL.md invariant) was bypassed — e.g. a `command:` override that drops the
+`alembic upgrade head &&` prefix, or migrations run manually against a container that
+was already up (uvicorn keeps running against the pre-migration schema until restarted).
 
-**Fix**: confirm the `command:` for `backend` in `docker-compose.yml` still runs
-`alembic upgrade head` before `uvicorn`. If migrations were run manually against a
-container that's already up, restart the container so the full command sequence,
-including the migration step, runs again — a stale schema from a partial manual fix is
-easy to end up in.
+**Fix**: confirm `backend`'s `command:` in `docker-compose.yml` still runs `alembic
+upgrade head` before `uvicorn`; if migrations were applied manually, restart the
+container so the full command sequence runs again.
 
 ## Frontend never becomes reachable
 
@@ -70,10 +61,9 @@ volume resolves a corrupted install.
 **Symptom**: the stack is up and the schema is migrated, but no districtr maps are
 available to open.
 
-**Root cause**: this is the default, not a failure — `backend`'s command only runs
-`python cli.py batch-create-districtr-maps` when `LOAD_DATA` is set to the literal
-string `"true"` (`if [ "${LOAD_DATA:-false}" = "true" ]; then ...; fi`). Any other value,
-including an unset `LOAD_DATA`, skips data loading.
+**Root cause**: this is the default, not a failure — see the `LOAD_DATA` invariant in
+SKILL.md. Any value other than the literal string `"true"`, including an unset
+`LOAD_DATA`, skips data loading.
 
 **Fix**: set `LOAD_DATA=true` in the environment compose reads (root `.env` or however
 the shell invoking `docker-compose up` is configured) before bringing the stack up, or
