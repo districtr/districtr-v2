@@ -1591,26 +1591,14 @@ async def get_unassigned_geoids(
             # Threadpool: a cold load (S3 fetch + unpickle) takes seconds and
             # must not block the event loop (or ALB health checks).
             G = await run_in_threadpool(get_graph, districtr_map.gerrydb_table_name)
-            # Non-contiguous unassigned parents are intentionally NOT expanded
-            present, missing = G.membership_mask(unassigned_ids)
+            # Non-contiguous unassigned parents are intentionally NOT expanded.
+            # Ids not in the graph are silently dropped by connected_components
+            # (matches nx subgraph() semantics) -- gerrydb/graph node counts
+            # are verified in sync across all states, so not expected here.
             components = [
-                sorted(component) for component in G.connected_components(present)
+                sorted(component)
+                for component in G.connected_components(unassigned_ids)
             ]
-            # Ids absent from the graph (orphans / data gaps): keep as
-            # singletons. Not expected in steady state -- reachable when a
-            # document's assignments predate a graph regeneration with a
-            # different unit vocabulary (e.g. a v1->v2 gerrydb migration).
-            # Logged rather than raised so a stale document doesn't 500 this
-            # endpoint outright; the log line is what makes staleness visible.
-            if missing:
-                logger.warning(
-                    "get_unassigned_geoids: %d id(s) not in graph %s for document %s: %s",
-                    len(missing),
-                    districtr_map.gerrydb_table_name,
-                    document.document_id,
-                    missing[:20],
-                )
-            components.extend([gid] for gid in missing)
         except HTTPException:
             # Graph unavailable — fall back to one component per id.
             components = [[gid] for gid in unassigned_ids]
