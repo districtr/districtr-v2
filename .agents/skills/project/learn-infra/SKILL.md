@@ -38,12 +38,6 @@ diagram, per-service table, deploy mechanics, preview model, operations (rollbac
 secrets, DB access), and first-time account setup. Read it before editing anything in
 `infra/`; this section carries only what it doesn't.
 
-- **README drift (verified 2026-08-28)**: the README's service table and "Known
-  follow-ups" predate three later additions and understate the stack — `graphcheck.ts`
-  (daily S3 graph comprehensiveness check task, PR #595), `infra/athena/` (ALB
-  access-log queries + `OBSERVABILITY.md`, PR #607), and `waf.ts` (WAF on the API
-  hosts, PR #619, which the follow-ups list still names as unbuilt). Trust the code and
-  `infra/index.ts`'s wiring over the README's inventory.
 - **Causal history**: hosting moved off Fly during 2026 — PR #649 (2026-08-05) was the
   final step, cutting PR previews over to AWS and deleting every Fly config and workflow
   from the repo; PRs #698/#701 then made the apex domain canonical. The Fly setup is
