@@ -23,6 +23,14 @@ that are easy to miss or span files:
   the container's `bun install && bun run dev` command installs into the mounted host
   directory on every start, so a `package.json` change needs no image rebuild. (AWS is
   the opposite: the production image bakes dependencies in and mounts nothing.)
+- **Local Postgres is the version outlier.** Local compose runs
+  `postgis/postgis:15-3.3-alpine`, while CI's `test-backend.yml` tests against
+  `16-3.5-alpine` and production RDS runs Postgres 16 (`dbEngineVersion` in
+  `infra/config.ts`). A migration or query with behavior that differs across the
+  Postgres 15→16 or PostGIS 3.3→3.5 boundary can pass in one environment and fail in
+  another. Known gap, deliberately left in place until it causes a real problem
+  (decision 2026-08-28) — aligning local means every developer wipes and reseeds their
+  `db` volume, since a Postgres major version can't reuse the old data directory.
 - **Env files are per-service and gitignored**: `backend/.env.docker`, `app/.env.docker`,
   `pipelines/.env`, each with a checked-in `*.example` template. `backend/.env.dev`,
   `.env.test`, `.env.production` and their `app/` counterparts serve non-Docker runs.
@@ -51,11 +59,8 @@ secrets, DB access), and first-time account setup. Read it before editing anythi
 
 ## CI
 
-`.github/workflows/test-backend.yml` runs the backend suite in its own
-`postgis/postgis:16-3.5-alpine` GitHub Actions service container — a different Postgres/
-PostGIS minor version than local compose's `15-3.3-alpine`. This is a real, current gap:
-a migration or query that behaves differently across a Postgres 15→16 or PostGIS
-3.3→3.5 boundary could pass one environment and fail the other. `test-pipelines.yml`
+`.github/workflows/test-backend.yml` runs the backend suite in its own PostGIS service
+container (version skew vs. local — see the Local stack bullet); `test-pipelines.yml`
 covers the pipelines package; `deploy-api.yml`, `deploy-app.yml`, `infra.yml`, and
 `preview.yml` are the deploy workflows described above.
 
