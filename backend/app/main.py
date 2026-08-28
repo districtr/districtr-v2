@@ -1197,7 +1197,12 @@ async def get_children(
         )
         .scalar_one()
     )
-    G = await run_in_threadpool(get_graph, gerrydb_table_name)
+    try:
+        G = await run_in_threadpool(get_graph, gerrydb_table_name)
+    except HTTPException:
+        # Graph unavailable — no shatter children to report rather than a
+        # hard failure on what may otherwise be a working document load.
+        return []
     return [
         ShatterResult(parent_path=parent, child_path=child)
         for parent in parent_geoid
@@ -1383,14 +1388,21 @@ async def get_assignments(
 
     # parent_path marks shattered children so the client can rebuild shatter
     # state. Non-shatterable maps have no parents — skip the graph entirely.
+    rows = None
     if child_layer is not None and assignment_rows:
-        G = await run_in_threadpool(get_graph, gerrydb_table_name)
-        parents = G.parents_of([row.geo_id for row in assignment_rows])
-        rows = [
-            (row.geo_id, row.zone, parent)
-            for row, parent in zip(assignment_rows, parents)
-        ]
-    else:
+        try:
+            G = await run_in_threadpool(get_graph, gerrydb_table_name)
+        except HTTPException:
+            # Graph unavailable — still serve the assignment data itself,
+            # just without shatter-reconstruction metadata.
+            pass
+        else:
+            parents = G.parents_of([row.geo_id for row in assignment_rows])
+            rows = [
+                (row.geo_id, row.zone, parent)
+                for row, parent in zip(assignment_rows, parents)
+            ]
+    if rows is None:
         rows = [(row.geo_id, row.zone, None) for row in assignment_rows]
 
     return package_rows(
