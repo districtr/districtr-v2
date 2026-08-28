@@ -118,16 +118,23 @@ def get_assigned_nodes_bboxes(
         geo_source = f"gerrydb.{safe_table} g"
 
     if not G or not G._non_contiguous_parents:
+        # Same single-join shape as the pre-graph-refactor code (no NCPs to
+        # expand, so no Python round trip needed) -- kept identical to that
+        # query text on purpose, not just equivalent to it.
         sql = sa.text(f"""SELECT
-            g.path AS geo_id,
+            ids.geo_id,
             st_xmin(Box2D(g.geometry)) AS xmin,
             st_xmax(Box2D(g.geometry)) AS xmax,
             st_ymin(Box2D(g.geometry)) AS ymin,
             st_ymax(Box2D(g.geometry)) AS ymax
-        FROM document.assignments a
-        JOIN {geo_source} ON g.path = a.geo_id
-        WHERE a.document_id = :document_id
-            AND a.zone = :zone""").bindparams(
+        FROM (
+            SELECT a.geo_id
+            FROM document.assignments a
+            WHERE a.document_id = :document_id
+                AND a.zone IS NOT NULL
+                AND a.zone = :zone
+        ) ids
+        JOIN {geo_source} ON g.path = ids.geo_id""").bindparams(
             sa.bindparam(key="document_id", type_=UUIDType),
             sa.bindparam(key="zone", type_=Integer),
         )
