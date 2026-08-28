@@ -85,6 +85,19 @@ def _vtd_lr():
     ]
 
 
+def _mixed_shatterable():
+    """Top half (r=0..3) as block GEOIDs + bottom half (pr=2..3) as VTD GEOIDs."""
+    blocks = [
+        [_block_geoid(r, c), 1 if c < 4 else 2] for r in range(4) for c in range(8)
+    ]
+    parents = [
+        [_vtd_geoid(pr, pc), 3 if pc < 2 else 4]
+        for pr in range(2, 4)
+        for pc in range(4)
+    ]
+    return blocks + parents
+
+
 def _put_assignments(client, document_id: str, assignments: list) -> None:
     resp = client.put(
         "/api/assignments",
@@ -185,6 +198,31 @@ def test_cut_edges_shatterable_parent_only_lr(
     result = block_cut_edges(ctx)
     assert result["unit_type"] == "block"
     assert result["cut_count"] == 8
+
+
+# ── Shatterable map — mixed assignments (Step 1 + Step 2) ────────────────────
+
+
+def test_cut_edges_shatterable_mixed_grid(
+    client, session: Session, grid_shatterable_document, mock_grid_graph_file
+):
+    """Shatterable, top half shattered at block level, bottom half at parent level → 16 cuts.
+
+    Step 1: 2 bottom parent boundary edges (pc=1/2) × weight 2 = 4
+    Step 2: 4 half-counted block edges at c=3/4 in top half = 4
+            8 direct cuts where block row 3 meets parent row 2 (all cross-zone) = 8
+    """
+    _put_assignments(client, grid_shatterable_document, _mixed_shatterable())
+    ctx = _StubCompactnessContext(
+        session,
+        document_id=grid_shatterable_document,
+        child_layer=BLOCK_GRID_NAME,
+        gerrydb_table=GRID_COMBINED_NAME,
+        parent_layer=PARENT_GRID_NAME,
+    )
+    result = block_cut_edges(ctx)
+    assert result["unit_type"] == "block"
+    assert result["cut_count"] == 16
 
 
 # ── Polsby-Popper ─────────────────────────────────────────────────────────────

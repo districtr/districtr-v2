@@ -18,8 +18,12 @@ from tests.constants import FIXTURES_PATH
 # ks_ellis_county_block: plain block adjacency graph (no attrs, larger)
 # simple_geos: dual-level graph with parent/children/weighted_edges/ncp
 # grid_child: plain block adjacency graph, smaller (8x8 grid)
+# grid_shatterable: larger (80-node) dual-level graph, full attrs, mixed
+#   bare-block/vtd:-prefixed id vocabulary — exercises searchsorted/dtype-width
+#   behavior at a size the 9-node simple_geos fixture can't.
 @pytest.fixture(
-    scope="module", params=["ks_ellis_county_block", "simple_geos", "grid_child"]
+    scope="module",
+    params=["ks_ellis_county_block", "simple_geos", "grid_child", "grid_shatterable"],
 )
 def nx_graph(request) -> nx.Graph:
     with open(FIXTURES_PATH / "graph" / f"{request.param}.pkl", "rb") as f:
