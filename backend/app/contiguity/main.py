@@ -105,6 +105,11 @@ def get_assigned_nodes_bboxes(
     gerrydb_table_name = districtr_map.gerrydb_table_name
     child_layer = districtr_map.child_layer
     parent_layer = districtr_map.parent_layer
+    binds: list[sa.BindParameter] = [
+        sa.bindparam(key="document_id", type_=UUIDType),
+        sa.bindparam(key="zone", type_=Integer),
+    ]
+    params: dict[str, Any] = {"document_id": document_id, "zone": zone}
 
     if child_layer:
         safe_child = assert_safe_ident(child_layer)
@@ -124,11 +129,8 @@ def get_assigned_nodes_bboxes(
                 FROM document.assignments a
                 WHERE a.document_id = :document_id
                     AND a.zone = :zone
-            """).bindparams(
-                sa.bindparam(key="document_id", type_=UUIDType),
-                sa.bindparam(key="zone", type_=Integer),
-            ),
-            {"document_id": document_id, "zone": zone},
+            """).bindparams(*binds),
+            params,
         ).scalars()
         geo_ids_set = set(assigned)
         G.expand_non_contiguous(geo_ids_set)
@@ -163,13 +165,8 @@ def get_assigned_nodes_bboxes(
                 AND a.zone IS NOT NULL
                 AND a.zone = :zone
         ) ids
-        JOIN {geo_source} ON g.path = ids.geo_id""").bindparams(
-            sa.bindparam(key="document_id", type_=UUIDType),
-            sa.bindparam(key="zone", type_=Integer),
-        )
-        rows = session.execute(
-            sql, {"document_id": document_id, "zone": zone}
-        ).fetchall()
+        JOIN {geo_source} ON g.path = ids.geo_id""").bindparams(*binds)
+        rows = session.execute(sql, params).fetchall()
         if not rows:
             return None
 
