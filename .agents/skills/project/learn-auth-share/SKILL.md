@@ -20,16 +20,13 @@ user-invocable: false
   would trust the client to grade its own captcha.
 - **The comment-form Turnstile secret and the session Turnstile secret are different
   keys** (`TURNSTILE_SECRET_KEY` vs. `TURNSTILE_SESSION_SECRET_KEY`) — a token minted for
-  one widget cannot be replayed against the other's verification call, because the two
-  calls are checked against different secrets on Cloudflare's side.
+  one widget can't be replayed against the other's verification call.
 - **Share tokens and session tokens are both HMAC JWTs signed with the same
   `SECRET_KEY`, distinguished only by an `aud` claim.** Session tokens carry
   `aud: "districtr:session"` (`SESSION_AUDIENCE` in `security.py`) and an expiry; share
-  tokens (minted in `save_share/main.py`) carry neither — no audience claim, no
-  expiration. `require_session`'s decode call explicitly requires `aud` and `exp` to be
-  present (`options={"require": ["exp", "aud"]}`), which is what stops a share token
-  (missing both) from ever validating as a session token, even though both are signed
-  with the same key.
+  tokens (minted in `save_share/main.py`) carry neither. A change to either minting path
+  that starts adding `aud`/`exp` to share tokens, or drops `require_session`'s
+  `options={"require": ["exp", "aud"]}`, breaks this separation.
 - **Public document access must never return the true `document_id`.** The
   public/private ID split (`learn-backend`'s `get_document` vs. `get_protected_document`)
   is the mechanism; a public-facing response that leaks `document_id` defeats it
