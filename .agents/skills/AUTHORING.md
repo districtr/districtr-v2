@@ -123,6 +123,29 @@ For runbooks the official procedural patterns apply directly:
 - `references/` (plural) and `scripts/` are the bundled-directory conventions the sync
   script understands; Cursor sync inlines `references/*.md` and skips `scripts/`.
 
+## Review checklist
+
+Four failure modes recur in skill drafts (all four were found and cut from the first
+`learn-backend` draft, 2026-08-28). Check each before committing a new or revised skill:
+
+1. **Invented rationale.** Where the code doesn't state a *why*, don't supply a
+   plausible one — it reads as authoritative and, when wrong, plants a false belief no
+   agent would have formed from the code alone. A stated rationale must trace to a PR,
+   commit, code comment, or verified structural fact. If none exists, state the fact
+   without a why — or mark the rationale as unconfirmed and ask a maintainer; many
+   design decisions have no written record, and a human answer is the only source.
+2. **Sentence-level derivability.** For each sentence ask: would an agent standing at
+   the relevant code already see this? A paraphrase of a docstring or inline comment is
+   worse than the source — it says the same thing, away from the code, and can drift.
+   Cut at the sentence level, not just the section level.
+3. **Description where a decision rule is needed.** If the point is a rule, state the
+   rule; describing the parts and letting the reader induce the rule invites a wrong
+   induction. The descriptions are evidence for the rule, not a substitute for it.
+4. **Structure inflation.** A one-payload fact doesn't earn a `##` section — the section
+   form pressures padding, and the padding restates context that lives elsewhere in the
+   file. A dense bullet in an existing section usually carries it. Check that Territory
+   / See-also pointers aren't duplicated into body prose.
+
 ## Maintenance
 
 Skills are normative and versioned: when practice and skill diverge, either the change
