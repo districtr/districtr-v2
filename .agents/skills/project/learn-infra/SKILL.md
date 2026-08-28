@@ -17,11 +17,12 @@ that are easy to miss or span files:
   chained command `alembic upgrade head && ... && uvicorn`. Weakening either one
   reintroduces a boot race — [references/troubleshooting.md](references/troubleshooting.md)
   covers the resulting symptoms.
-- **`frontend`'s `node_modules` is the host's, not the image's.** The image runs
-  `bun install` at build time, but the `./app/node_modules:/app/node_modules` bind mount
-  shadows it; the container's `bun install && bun run dev` command reinstalls into the
-  mounted directory on every start. A `package.json` change therefore needs no rebuild,
-  at the cost of slower cold starts.
+- **In the local compose stack, `frontend`'s `node_modules` is the host's, not the
+  image's.** The dev image contains a `node_modules` from its build-time `bun install`,
+  but at runtime the `./app/node_modules:/app/node_modules` bind mount hides that copy —
+  the container's `bun install && bun run dev` command installs into the mounted host
+  directory on every start, so a `package.json` change needs no image rebuild. (AWS is
+  the opposite: the production image bakes dependencies in and mounts nothing.)
 - **Env files are per-service and gitignored**: `backend/.env.docker`, `app/.env.docker`,
   `pipelines/.env`, each with a checked-in `*.example` template. `backend/.env.dev`,
   `.env.test`, `.env.production` and their `app/` counterparts serve non-Docker runs.
