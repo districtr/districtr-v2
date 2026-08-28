@@ -31,12 +31,15 @@ to point at — the territory is the history itself.
 ## Server-process memory: the graph cache
 
 **PR #540, "API server memory fix" (merged 2026-05-06).** The API server's memory usage
-climbed to ~7GB in production. Root cause: `backend/app/main.py`'s `_get_graph()` cached
+climbed to ~7GB in production. Root cause: `backend/app/main.py`'s `_get_graph()` (since
+moved and renamed — it's now `get_graph()` in `backend/app/evaluation/graph.py`) cached
 every state's dual graph with no eviction — worst case, one process held every state's
 graph simultaneously, and the on-disk pickles alone totaled >1GB. Fix: bound the cache to
-an LRU of size 10, plus a debug endpoint exposing cache hit/miss stats and memory usage
-so the next time this creeps up, it's visible before it's a production incident rather
-than after.
+an LRU (`_GRAPH_CACHE_MAX_SIZE`), plus a debug endpoint exposing cache hit/miss stats and
+memory usage. The cap started at 10 and was raised to 15 by PR #623 (merged 2026-07-15) —
+too small a cap forces multi-second cold S3 reloads once the working set of distinct maps
+exceeds it (`_GRAPH_CACHE_MAX_SIZE`'s own comment in `graph.py`); verify the live value
+in `graph.py` rather than trusting either number to still hold.
 
 An LRU cap bounds memory *per cache*, not per process — it doesn't touch the deeper
 problem that each uvicorn worker held its own private cache. That's what PR #721 (below)
@@ -68,10 +71,10 @@ An `igraph`-backed alternative was measured and set aside: it beat `networkx` on
 per-process memory (~122–132 MB at PA-scale) but its cross-process sharing depends on
 `fork()`-based copy-on-write surviving sustained traffic, which degrades in practice —
 weaker and less predictable than mmap's guarantee of exactly one physical copy. The PR's
-own numbers (155 documents recomputed against production assignment data, checked exactly
-against old-code output) are the worked example for how a graph-representation change
-gets validated in this codebase — not by trusting the new code, but by running both
-implementations against the same real inputs and diffing.
+own validation (152 sampled production documents; old and new code agreed exactly on all
+147 with a locally loaded module) is the worked example for how a graph-representation
+change gets validated in this codebase — not by trusting the new code, but by running
+both implementations against the same real inputs and diffing.
 
 The narrow API this PR introduces (`parents_of`, `children_of`, `cut_edges`,
 `expand_non_contiguous`, connectivity via `scipy.sparse.csgraph`) deliberately does not
@@ -106,8 +109,7 @@ the parent-layer graph the server already had cached in memory, so the SQL side 
 enumerating unassigned `geo_id`s with no geometry ops at all; the client then computed
 per-component bounding boxes from centroid points it already held, replacing a Turf
 `dissolve` over polygons. Same PR also swapped assignment-heavy endpoints from
-JSON+Pydantic-validated payloads to msgpack, since the serialization overhead on
-thousands of `{geo_id, zone}` rows was itself measurable.
+JSON+Pydantic-validated payloads to msgpack.
 
 The general lesson this PR is the instance of: a slow endpoint's cost is not always in
 the database. Here the database was doing real geometric work it didn't need to; the
@@ -120,32 +122,26 @@ it.
 (merged 2026-01-29)** is the browser-side counterpart: geometry-worker memory pressure
 (duplicate tile-geometry copies held in the worker) and excessive per-tile parquet
 requests were both fixed by reducing what got duplicated or re-requested, not by making
-either side individually faster. Consistent with the invariant above — heavy geometry
-and tabular work already lives in a worker off the main thread; the fix here was reducing
-what that worker held, not moving the work elsewhere.
+either side individually faster.
 
-## Query-cost triage: EXPLAIN ANALYZE
+## Query-cost triage
 
-When a specific query (not a whole endpoint) is suspected of being slow, the diagnostic
-step is `EXPLAIN (ANALYZE, BUFFERS)` run against the query directly on the PostGIS
-database — it reports actual row counts and timing per plan node, not just the planner's
-estimate, and `BUFFERS` shows whether time is going to disk I/O or CPU. Look for: a
-sequential scan where an index was expected, a nested-loop join whose inner side wasn't
-estimated to be as large as it turned out to be, or a spatial predicate
-(`ST_Intersects`, `ST_Contains`) running before a cheaper non-spatial filter that could
-have shrunk the row count first. This skill does not run the query for you — the
-containerized DB is a separate access path (see `learn-infra`); use this section as the
-method once you have a session against it.
+For a single suspect query (not a whole endpoint), run `EXPLAIN (ANALYZE, BUFFERS)`
+directly against it — actual row counts and timing per plan node, not the planner's
+estimate. Getting a session against the containerized PostGIS DB to run it is a separate
+concern; see `learn-infra`.
 
 ## Territory
 
-- `backend/app/main.py` (`_get_graph`, its LRU cache) and the graph loader/cache layer
-  PR #721 introduces (`dual_graph.py`, `graph_loader.py`) — the server-memory story.
+- `backend/app/evaluation/graph.py` (`get_graph`, `_GRAPH_CACHE_MAX_SIZE`) and the graph
+  loader/cache layer PR #721 introduces (`dual_graph.py`, `graph_loader.py`) — the
+  server-memory story.
 - `backend/app/contiguity/*`, `backend/app/evaluation/*`, `backend/app/exports/*`,
   `backend/app/assignments/assignments.py` — every graph-touching call site migrated in
   PR #721.
-- `app/src/app/workers/GeometryWorker*`, `ParquetWorker*` — see `learn-map-frontend` for
-  the worker contracts; this skill covers why the work is placed there.
+- `app/src/app/utils/GeometryWorker/*`, `app/src/app/utils/ParquetWorker/*` — see
+  `learn-map-frontend` for the worker contracts; this skill covers why the work is placed
+  there.
 - `backend/app/sql/get_unassigned_bboxes_udf*.sql` — the PostGIS path PR #550 moved off
   of; retained (see `learn-backend`'s legacy-UDF handling) but not the live path.
 
