@@ -19,13 +19,14 @@ user-invocable: false
   which block IDs are interactive; a missing row means the frontend can't tell the child
   exists. Verified current against `backend/app/sql/shatter_parent.sql` and
   `_heal_or_fill` in `backend/app/assignments/assignments.py` (2026-08-27).
-- **`get_document` vs `get_protected_document`**: the two dependencies differ only in
-  which ID they accept, but that difference is the access boundary. `get_document`
-  requires the true `document_id` (UUID) — only someone with edit access has it.
-  `get_protected_document` also accepts the numeric `public_id`, so it resolves for
-  anonymous viewers too. Returning `get_protected_document`'s result from a public
-  endpoint would hand back the real `document_id`, defeating the public/private split —
-  use it to *guard* an endpoint, not to answer it.
+- **`get_protected_document` vs `get_document_public`**: this, not `get_document`, is
+  the choice a route serving `public_id` callers actually faces. `get_protected_document`
+  returns the raw `Document` row unredacted — fine to read from internally, wrong to
+  return, since a public-id caller would get the real `document_id` back with it. A route
+  that needs to include the document in its response calls `get_document_public` instead,
+  which builds that response by hand and redacts the id for public-id callers.
+  `get_document` is a different axis entirely — the write path, gated on holding the true
+  UUID — and never enters this choice at all.
 
 ## The document/assignments split
 
