@@ -28,9 +28,7 @@ that are easy to miss or span files:
   `16-3.5-alpine` and production RDS runs Postgres 16 (`dbEngineVersion` in
   `infra/config.ts`). A migration or query with behavior that differs across the
   Postgres 15→16 or PostGIS 3.3→3.5 boundary can pass in one environment and fail in
-  another. Known gap, deliberately left in place until it causes a real problem
-  (decision 2026-08-28) — aligning local means every developer wipes and reseeds their
-  `db` volume, since a Postgres major version can't reuse the old data directory.
+  another.
 - **Env files are per-service and gitignored**: `backend/.env.docker`, `app/.env.docker`,
   `pipelines/.env`, each with a checked-in `*.example` template. `backend/.env.dev`,
   `.env.test`, `.env.production` and their `app/` counterparts serve non-Docker runs.
@@ -56,13 +54,6 @@ secrets, DB access), and first-time account setup. Read it before editing anythi
   README's "Local development").
 - Backend task sizing (`backendMemory` in `infra/config.ts`) and the graph LRU cache are
   coupled — see `learn-performance` before resizing either.
-
-## CI
-
-`.github/workflows/test-backend.yml` runs the backend suite in its own PostGIS service
-container (version skew vs. local — see the Local stack bullet); `test-pipelines.yml`
-covers the pipelines package; `deploy-api.yml`, `deploy-app.yml`, `infra.yml`, and
-`preview.yml` are the deploy workflows described above.
 
 ## Territory
 
