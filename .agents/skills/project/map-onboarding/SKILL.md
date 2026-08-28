@@ -137,7 +137,7 @@ nonzero and roughly matches the expected child-row count.
 
 For repeatable multi-map setup (e.g. onboarding every state at once), use
 `batch-create-districtr-maps --config-file <yaml>` against a config matching
-`backend/management/configs/*` — it wraps steps 1, 2, and 5 (not tileset or
+`backend/management/configs/*` — it wraps steps 1, 2, 5, and 6 (not tileset or
 graph generation, which stay separate pipeline runs) and supports `--hidden`
 to force every created map to `visible=false` so a later `update-districtr-map`
 call is what launches them.
