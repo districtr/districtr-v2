@@ -26,10 +26,9 @@ express one concern: *how the map renders and responds*.
   composed once, in `middlewares.ts`.** It's a coordination point: every store that
   needs persistence or undo goes through the same factory so behavior stays uniform.
 - **Painting and shatter/heal must stay synchronous-feeling despite being
-  feature-state-driven.** `MapRenderSubscriber` (`mapRenderSubs.ts`) applies
-  `mapRef.setFeatureState(...)` directly from store subscriptions rather than
-  re-rendering layers, because a full layer re-render per paint gesture would be
-  visibly slow.
+  feature-state-driven.** `MapRenderSubscriber` (`mapRenderSubs.ts`) is the only place
+  that calls `mapRef.setFeatureState(...)`, applied directly from store subscriptions
+  rather than through a layer re-render.
 - **Map load-state gating (`mapRenderingState` / `appLoadingState` — see
   `RENDERING_STATES`/`APP_LOADING_STATES`) must be preserved before any render call.**
   Every render method in `mapRenderSubs.ts` checks these first; skipping the check
@@ -48,7 +47,7 @@ end, trading a brief window of buffered-but-unpersisted state for one coalesced 
 and one undo/redo entry per gesture instead of one per mouse event. When automatic
 side effects (auto-heal after a shatter-adjacent paint) run inside that same gesture,
 they must fold into the gesture's single undo entry rather than opening their own — see
-the #634/#a02f866 history below for the regression this produced.
+the causal history below for the regression this produced.
 
 ## Territory map
 
