@@ -1596,7 +1596,20 @@ async def get_unassigned_geoids(
             components = [
                 sorted(component) for component in G.connected_components(present)
             ]
-            # Ids absent from the graph (orphans / data gaps): keep as singletons.
+            # Ids absent from the graph (orphans / data gaps): keep as
+            # singletons. Not expected in steady state -- reachable when a
+            # document's assignments predate a graph regeneration with a
+            # different unit vocabulary (e.g. a v1->v2 gerrydb migration).
+            # Logged rather than raised so a stale document doesn't 500 this
+            # endpoint outright; the log line is what makes staleness visible.
+            if missing:
+                logger.warning(
+                    "get_unassigned_geoids: %d id(s) not in graph %s for document %s: %s",
+                    len(missing),
+                    districtr_map.gerrydb_table_name,
+                    document.document_id,
+                    missing[:20],
+                )
             components.extend([gid] for gid in missing)
         except HTTPException:
             # Graph unavailable — fall back to one component per id.
