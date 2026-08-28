@@ -136,9 +136,6 @@ platformdirs==4.3.6
 pluggy==1.5.0
     # via pytest
 pre-commit==4.1.0
-prometheus-client==0.21.1
-    # via prometheus-fastapi-instrumentator
-prometheus-fastapi-instrumentator==7.0.0
 psutil==5.9.8
     # via fastapi-utils
 psycopg==3.1.18
@@ -209,9 +206,7 @@ sqlalchemy==2.0.29
     #   sqlmodel
 sqlmodel==0.0.16
 starlette==0.41.2
-    # via
-    #   fastapi
-    #   prometheus-fastapi-instrumentator
+    # via fastapi
 text-unidecode==1.3
 tqdm==4.67.3
     # via openai

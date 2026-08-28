@@ -31,7 +31,6 @@ from sqlmodel import ARRAY
 from datetime import datetime
 from uuid import uuid4
 import sentry_sdk
-from prometheus_fastapi_instrumentator import Instrumentator
 from app.assignments import (
     duplicate_document_assignments,
     duplicate_document_community_assignments,
@@ -142,10 +141,6 @@ app.include_router(cms.router)
 app.include_router(comments.router)
 app.include_router(save_share.router)
 app.include_router(thumbnails.router)
-
-Instrumentator(
-    excluded_handlers=["/metrics", "/_debug/cache"],
-).instrument(app).expose(app, include_in_schema=False)
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
