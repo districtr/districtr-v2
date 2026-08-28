@@ -23,6 +23,7 @@ from networkx import Graph
 
 from app.core.config import settings
 from app.evaluation.dual_graph import DualLevelGraph
+from app.utils import assert_safe_ident
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +151,10 @@ def get_gerrydb_graph(file_path: str) -> DualLevelGraph:
             logger.info("Streaming graph from s3://%s/%s", url.netloc, key)
             response = s3.get_object(Bucket=url.netloc, Key=key)
         except botocore.exceptions.ClientError as e:
-            if e.response["Error"]["Code"] != "NoSuchKey" or not key.endswith(".npz"):
+            code = e.response.get("Error", {}).get("Code")
+            if code not in ("NoSuchKey", "404", "AccessDenied") or not key.endswith(
+                ".npz"
+            ):
                 raise
             key = key.removesuffix(".npz") + ".pkl"
             logger.info("npz missing, falling back to s3://%s/%s", url.netloc, key)
@@ -170,6 +174,7 @@ def _load_via_disk_cache(gerrydb_name: str) -> DualLevelGraph:
     """Load through the shared mmap disk cache (one physical copy per
     container across all uvicorn workers); degrade to a private in-memory
     copy if the cache directory is unusable."""
+    assert_safe_ident(gerrydb_name)
     cache_dir = Path(settings.GRAPH_CACHE_PATH) / gerrydb_name
     if (cache_dir / "meta.json").exists():
         try:
@@ -206,10 +211,10 @@ def _load_graph(gerrydb_name: str) -> DualLevelGraph:
             status_code=404,
             detail="Graph unavailable. Unable to complete this operation.",
         )
-    except Exception as e:
-        logger.error("Unexpected error loading graph: %s", e)
+    except Exception:
+        logger.error("Unexpected error loading graph %s", gerrydb_name, exc_info=True)
         raise fastapi.HTTPException(
-            status_code=500, detail=f"Something went wrong: {e}"
+            status_code=500, detail="Something went wrong loading the graph."
         )
 
 
@@ -220,15 +225,32 @@ _graph_locks: dict[str, threading.Lock] = {}
 _graph_locks_guard = threading.Lock()
 
 
+# lru_cache doesn't cache exceptions, so a persistent S3 outage would
+# otherwise serialize every request for the same graph behind one lock,
+# each waiting out the full botocore timeout in turn. A bounded wait lets
+# pile-up fail fast (503) instead of accumulating in the threadpool; normal
+# cold loads (well under a second, even on the legacy pkl path) never get
+# close to it.
+_GRAPH_LOCK_TIMEOUT_SECONDS = 30
+
+
 def get_graph(gerrydb_name: str) -> DualLevelGraph:
     """Load a graph from local disk or S3, LRU-cached by gerrydb_name.
 
-    Raises HTTPException (404 or 500) if the graph is unavailable.
+    Raises HTTPException (404 or 500) if the graph is unavailable, or 503
+    if it's still being (re)loaded by another request past the wait budget.
     """
     with _graph_locks_guard:
         lock = _graph_locks.setdefault(gerrydb_name, threading.Lock())
-    with lock:
+    if not lock.acquire(timeout=_GRAPH_LOCK_TIMEOUT_SECONDS):
+        raise fastapi.HTTPException(
+            status_code=503,
+            detail="Graph is taking too long to load — try again shortly.",
+        )
+    try:
         return _load_graph(gerrydb_name)
+    finally:
+        lock.release()
 
 
 # Delegate for /_debug/cache and test teardown.
