@@ -17,8 +17,13 @@ user-invocable: false
   children has a row in `document.assignments` — `zone = NULL` for a child that hasn't
   been painted. The frontend uses the presence of a child row (not its zone) to decide
   which block IDs are interactive; a missing row means the frontend can't tell the child
-  exists. Verified current against `backend/app/sql/shatter_parent.sql` and
-  `_heal_or_fill` in `backend/app/assignments/assignments.py` (2026-08-27).
+  exists. Two independent write paths uphold this and never reference each other:
+  interactive shattering (`backend/app/sql/shatter_parent.sql`, a UDF fired when a user
+  shatters a unit in the map UI) and CSV import (`_heal_or_fill` in
+  `backend/app/assignments/assignments.py`, invoked during `batch_insert_assignments` —
+  an uploaded CSV may list only some of a shattered parent's children, and the unlisted
+  siblings must still end up with rows). A change to one path without checking the other
+  is how this contract silently breaks. Verified current 2026-08-27.
 - **`get_protected_document` vs `get_document_public`**: `get_protected_document` returns
   the raw `Document` row, every column included — safe to read from inside a handler,
   unsafe to return, since a `public_id` caller would get the real `document_id` back
@@ -40,19 +45,6 @@ can hold more than one assignment. Endpoints that touch both (e.g. `update_assig
 in `backend/app/main.py`) update
 metadata's `updated_at` deliberately, since the frontend's optimistic-concurrency check
 (`learn-state-sync`) keys off that single timestamp for the whole document.
-
-## Shattered Parent Assignment Data Contract
-
-The invariant above is upheld by two independent write paths that never reference each
-other and must agree:
-
-- **Interactive shattering** — `shatter_parent.sql`, a UDF invoked when a user shatters
-  a unit in the map UI.
-- **CSV import** — `_heal_or_fill` in `backend/app/assignments/assignments.py`, invoked
-  during `batch_insert_assignments`. An uploaded CSV may list only some of a shattered
-  parent's children; the unlisted siblings must still end up with rows.
-
-A change to one path without checking the other is how this contract silently breaks.
 
 ## Transaction and write-path shape
 
