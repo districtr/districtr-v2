@@ -117,33 +117,7 @@ def get_assigned_nodes_bboxes(
         safe_table = assert_safe_ident(gerrydb_table_name)
         geo_source = f"gerrydb.{safe_table} g"
 
-    if not G or not G._non_contiguous_parents:
-        # Same single-join shape as the pre-graph-refactor code (no NCPs to
-        # expand, so no Python round trip needed) -- kept identical to that
-        # query text on purpose, not just equivalent to it.
-        sql = sa.text(f"""SELECT
-            ids.geo_id,
-            st_xmin(Box2D(g.geometry)) AS xmin,
-            st_xmax(Box2D(g.geometry)) AS xmax,
-            st_ymin(Box2D(g.geometry)) AS ymin,
-            st_ymax(Box2D(g.geometry)) AS ymax
-        FROM (
-            SELECT a.geo_id
-            FROM document.assignments a
-            WHERE a.document_id = :document_id
-                AND a.zone IS NOT NULL
-                AND a.zone = :zone
-        ) ids
-        JOIN {geo_source} ON g.path = ids.geo_id""").bindparams(
-            sa.bindparam(key="document_id", type_=UUIDType),
-            sa.bindparam(key="zone", type_=Integer),
-        )
-        rows = session.execute(
-            sql, {"document_id": document_id, "zone": zone}
-        ).fetchall()
-        if not rows:
-            return None
-    else:
+    if G and G._non_contiguous_parents:
         assigned = session.execute(
             sa.text("""
                 SELECT a.geo_id
@@ -173,6 +147,29 @@ def get_assigned_nodes_bboxes(
             sa.bindparam(key="geo_ids", type_=ARRAY(sa.String))
         )
         rows = session.execute(sql, {"geo_ids": geo_ids}).fetchall()
+        if not rows:
+            return None
+    else:
+        sql = sa.text(f"""SELECT
+            ids.geo_id,
+            st_xmin(Box2D(g.geometry)) AS xmin,
+            st_xmax(Box2D(g.geometry)) AS xmax,
+            st_ymin(Box2D(g.geometry)) AS ymin,
+            st_ymax(Box2D(g.geometry)) AS ymax
+        FROM (
+            SELECT a.geo_id
+            FROM document.assignments a
+            WHERE a.document_id = :document_id
+                AND a.zone IS NOT NULL
+                AND a.zone = :zone
+        ) ids
+        JOIN {geo_source} ON g.path = ids.geo_id""").bindparams(
+            sa.bindparam(key="document_id", type_=UUIDType),
+            sa.bindparam(key="zone", type_=Integer),
+        )
+        rows = session.execute(
+            sql, {"document_id": document_id, "zone": zone}
+        ).fetchall()
         if not rows:
             return None
 
