@@ -15,8 +15,7 @@ that are easy to miss or span files:
 - **The backend's boot ordering is two guarantees in one place**: `depends_on: db:
   condition: service_healthy` (waits for `pg_isready`, not just the port) and the single
   chained command `alembic upgrade head && ... && uvicorn`. Weakening either one
-  reintroduces a boot race — [references/troubleshooting.md](references/troubleshooting.md)
-  covers the resulting symptoms.
+  reintroduces a boot race.
 - **In the local compose stack, `frontend`'s `node_modules` is the host's, not the
   image's.** The dev image contains a `node_modules` from its build-time `bun install`,
   but at runtime the `./app/node_modules:/app/node_modules` bind mount hides that copy —
@@ -74,5 +73,3 @@ secrets, DB access), and first-time account setup. Read it before editing anythi
   validate a change against it.
 - `learn-performance` — the memory-limit history behind the graph cache and
   `backendMemory` sizing; this skill covers wiring, that one covers the incidents.
-- [references/troubleshooting.md](references/troubleshooting.md) — symptom → root cause
-  → fix for the local boot/env failure modes.
