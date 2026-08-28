@@ -179,9 +179,20 @@ class DualLevelGraph:
             (tmp_dir / "meta.json").write_text(json.dumps(meta))
             os.rename(tmp_dir, cache_dir)
         except OSError:
-            shutil.rmtree(tmp_dir, ignore_errors=True)
             if not (cache_dir / "meta.json").exists():
-                raise
+                # cache_dir exists (rename raised ENOTEMPTY) but holds no
+                # valid cache — e.g. a prior writer got killed mid-rmtree on
+                # the corrupt-cache path. Left alone, the rename fails the
+                # same way forever and every worker falls back to a private
+                # copy for the container's life. Clear it and retry once.
+                shutil.rmtree(cache_dir, ignore_errors=True)
+                try:
+                    os.rename(tmp_dir, cache_dir)
+                    return
+                except OSError:
+                    shutil.rmtree(tmp_dir, ignore_errors=True)
+                    raise
+            shutil.rmtree(tmp_dir, ignore_errors=True)
 
     @classmethod
     def load_cache(cls, cache_dir: Path) -> "DualLevelGraph":
