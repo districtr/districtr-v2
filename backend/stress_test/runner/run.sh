@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # One stress-test run, executed ON the runner instance (via SSM). Pulls the
-# seed manifest from S3, runs Locust headless with the /metrics scrape loop
-# (infra/athena/OBSERVABILITY.md), then uploads everything to
+# seed manifest from S3, runs Locust headless with before/after
+# `/_debug/cache` snapshots (infra/athena/OBSERVABILITY.md), then uploads
+# everything to
 # s3://$RESULTS_BUCKET/stress-test/<RUN_ID>/ and prints the prefix. An abort
 # (pkill -TERM -f locust) still uploads: Locust flushes the runtime manifest
 # on SIGTERM and this script keeps going after Locust exits.
@@ -31,7 +32,7 @@ PY=venv/bin/python
 S3_PREFIX="s3://${RESULTS_BUCKET}/stress-test"
 RUN_PREFIX="${S3_PREFIX}/${RUN_ID}"
 ART="artifacts/${RUN_ID}"
-mkdir -p "$ART/metrics"
+mkdir -p "$ART"
 
 export STRESS_RUN_ID="$RUN_ID" STRESS_SCALE="$SCALE" \
   STRESS_WINDOW_SECONDS="$WINDOW_SECONDS" STRESS_BASE_URL="$BASE_URL"
@@ -51,7 +52,7 @@ SPAWN_RATE=$(( TOTAL < 2000 ? TOTAL : 2000 ))
 DURATION=$(( WINDOW_SECONDS + 180 ))  # tail for in-flight sessions
 echo "run_id=$RUN_ID scale=$SCALE window=${WINDOW_SECONDS}s users=$TOTAL -> $RUN_PREFIX/"
 
-# --- /metrics scrapes straight off backend task IPs (requires the temp 8080
+# --- Cache snapshots straight off backend task IPs (requires the temp 8080
 # SG rule from provision.sh output); IPs re-resolved every pass because
 # autoscaling adds tasks mid-run. Failures are non-fatal.
 task_ips() {
@@ -71,25 +72,10 @@ snapshot_cache() {  # $1 = before|after
   done
 }
 
-scrape_metrics() {
-  while true; do
-    local ts
-    ts=$(date +%s)
-    for ip in $(task_ips); do
-      curl -s --max-time 5 "http://${ip}:8080/metrics" \
-        -o "$ART/metrics/${ts}_${ip}.prom" || true
-    done
-    sleep 15
-  done
-}
-
 snapshot_cache before
 if ! ls "$ART"/cache_before_*.json >/dev/null 2>&1; then
   echo "WARNING: no /_debug/cache snapshot — is the temp 8080 SG rule authorized?" >&2
 fi
-scrape_metrics &
-SCRAPE_PID=$!
-trap 'kill "$SCRAPE_PID" 2>/dev/null || true' EXIT
 
 set +e
 venv/bin/locust --headless -f locustfile.py \
@@ -98,8 +84,6 @@ venv/bin/locust --headless -f locustfile.py \
 LOCUST_EXIT=${PIPESTATUS[0]}
 set -e
 
-kill "$SCRAPE_PID" 2>/dev/null || true
-wait "$SCRAPE_PID" 2>/dev/null || true
 snapshot_cache after
 
 # --- Upload artifacts; runtime manifest also goes to the top-level prefix
