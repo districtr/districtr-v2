@@ -15,16 +15,9 @@ two can drift silently whenever one side changes without the other.
 python3 ${CLAUDE_SKILL_DIR}/scripts/audit_contracts.py
 ```
 
-Defaults to `backend/app` and
-`app/src/app/utils/api/apiHandlers/types.ts` (this repo's actual layout);
-override with `--backend-dir` / `--ts-file` if auditing a different pair.
-Run it from the repo root. It does static analysis only — `ast.parse` on the
-Python, regex on the TypeScript — and never imports or executes either
-codebase, so it needs no environment setup and is safe to run against
-mid-edit, broken code.
-
-It exits nonzero when it finds field-name drift, so it's suitable as a
-pre-push check as well as an interactive one.
+Run it from the repo root; see the script's own `--help` for the default
+paths and override flags. It exits nonzero when it finds field-name drift,
+so it's suitable as a pre-push check as well as an interactive one.
 
 ## Reading the report
 
