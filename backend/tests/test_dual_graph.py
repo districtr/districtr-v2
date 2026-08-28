@@ -44,6 +44,19 @@ def test_membership_and_len(nx_graph, dg):
     assert ("x" * 64) not in dg
 
 
+def test_membership_mask_matches_per_id_contains(nx_graph, dg):
+    real = list(nx_graph.nodes())
+    ids = real[:3] + ["not_a_node", "x" * 64] + real[3:5]
+    present, missing = dg.membership_mask(ids)
+    assert present == [gid for gid in ids if gid in dg]
+    assert missing == [gid for gid in ids if gid not in dg]
+
+
+def test_membership_mask_empty_input():
+    empty_dg = from_networkx(nx.Graph())
+    assert empty_dg.membership_mask([]) == ([], [])
+
+
 def test_parents_of_matches_nx(nx_graph, dg):
     nodes = list(nx_graph.nodes())
     expected = [nx_graph.nodes[n].get("parent") for n in nodes]

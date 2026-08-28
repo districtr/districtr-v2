@@ -247,6 +247,18 @@ class DualLevelGraph:
     def __len__(self) -> int:
         return len(self._node_ids)
 
+    def membership_mask(self, ids: Iterable[str]) -> tuple[list[str], list[str]]:
+        """Vectorized split of `ids` into (present, missing) — one
+        ``searchsorted`` pass over all ids, instead of a per-id ``in`` check.
+        Order and duplicates are preserved (unlike ``_subset_indices``, which
+        is index-shaped and dedupes)."""
+        arr = np.asarray(list(ids), dtype=str)
+        if arr.size == 0:
+            return [], []
+        pos = np.minimum(np.searchsorted(self._node_ids, arr), len(self._node_ids) - 1)
+        is_present = self._node_ids[pos] == arr
+        return arr[is_present].tolist(), arr[~is_present].tolist()
+
     def parents_of(self, geo_ids: Iterable[str]) -> list[str | None]:
         """Vectorized parent lookup: one searchsorted pass over all ids.
 

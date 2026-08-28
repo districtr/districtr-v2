@@ -62,7 +62,7 @@ def get_assigned_nodes(
             {zone_filter}
         GROUP BY a.zone""").bindparams(*binds)
 
-    zones = []
+    results = []
     for row in session.execute(sql, params):
         if G:
             nodes = set(row.nodes)
@@ -70,8 +70,8 @@ def get_assigned_nodes(
             nodes = sorted(nodes)
         else:
             nodes = row.nodes
-        zones.append(ZoneContiguousNodes(zone=row.zone, nodes=nodes))
-    return zones
+        results.append(ZoneContiguousNodes(zone=row.zone, nodes=nodes))
+    return results
 
 
 class NodeWithBBoxes(BaseModel):
@@ -97,32 +97,14 @@ def get_assigned_nodes_bboxes(
 
     When G is provided, non-contiguous parent nodes are expanded to their block
     children via the graph, so the result already contains block-level nodes
-    and bboxes.
+    and bboxes. Most views have no non-contiguous parents at all, so that case
+    skips the Python round trip entirely and joins in one query — the two-step
+    fetch-then-expand-then-requery shape only pays for itself when there's
+    actually something to expand.
     """
     gerrydb_table_name = districtr_map.gerrydb_table_name
     child_layer = districtr_map.child_layer
     parent_layer = districtr_map.parent_layer
-
-    assigned = session.execute(
-        sa.text("""
-            SELECT a.geo_id
-            FROM document.assignments a
-            WHERE a.document_id = :document_id
-                AND a.zone = :zone
-        """).bindparams(
-            sa.bindparam(key="document_id", type_=UUIDType),
-            sa.bindparam(key="zone", type_=Integer),
-        ),
-        {"document_id": document_id, "zone": zone},
-    ).scalars()
-    if G:
-        geo_ids_set = set(assigned)
-        G.expand_non_contiguous(geo_ids_set)
-        geo_ids = sorted(geo_ids_set)
-    else:
-        geo_ids = list(assigned)
-    if not geo_ids:
-        return None
 
     if child_layer:
         safe_child = assert_safe_ident(child_layer)
@@ -135,20 +117,57 @@ def get_assigned_nodes_bboxes(
         safe_table = assert_safe_ident(gerrydb_table_name)
         geo_source = f"gerrydb.{safe_table} g"
 
-    sql = sa.text(f"""SELECT
-        g.path AS geo_id,
-        st_xmin(Box2D(g.geometry)) AS xmin,
-        st_xmax(Box2D(g.geometry)) AS xmax,
-        st_ymin(Box2D(g.geometry)) AS ymin,
-        st_ymax(Box2D(g.geometry)) AS ymax
-    FROM {geo_source}
-    WHERE g.path = ANY(:geo_ids)""").bindparams(
-        sa.bindparam(key="geo_ids", type_=ARRAY(sa.String))
-    )
+    if not G or not G._non_contiguous_parents:
+        sql = sa.text(f"""SELECT
+            g.path AS geo_id,
+            st_xmin(Box2D(g.geometry)) AS xmin,
+            st_xmax(Box2D(g.geometry)) AS xmax,
+            st_ymin(Box2D(g.geometry)) AS ymin,
+            st_ymax(Box2D(g.geometry)) AS ymax
+        FROM document.assignments a
+        JOIN {geo_source} ON g.path = a.geo_id
+        WHERE a.document_id = :document_id
+            AND a.zone = :zone""").bindparams(
+            sa.bindparam(key="document_id", type_=UUIDType),
+            sa.bindparam(key="zone", type_=Integer),
+        )
+        rows = session.execute(
+            sql, {"document_id": document_id, "zone": zone}
+        ).fetchall()
+        if not rows:
+            return None
+    else:
+        assigned = session.execute(
+            sa.text("""
+                SELECT a.geo_id
+                FROM document.assignments a
+                WHERE a.document_id = :document_id
+                    AND a.zone = :zone
+            """).bindparams(
+                sa.bindparam(key="document_id", type_=UUIDType),
+                sa.bindparam(key="zone", type_=Integer),
+            ),
+            {"document_id": document_id, "zone": zone},
+        ).scalars()
+        geo_ids_set = set(assigned)
+        G.expand_non_contiguous(geo_ids_set)
+        geo_ids = sorted(geo_ids_set)
+        if not geo_ids:
+            return None
 
-    rows = session.execute(sql, {"geo_ids": geo_ids}).fetchall()
-    if not rows:
-        return None
+        sql = sa.text(f"""SELECT
+            g.path AS geo_id,
+            st_xmin(Box2D(g.geometry)) AS xmin,
+            st_xmax(Box2D(g.geometry)) AS xmax,
+            st_ymin(Box2D(g.geometry)) AS ymin,
+            st_ymax(Box2D(g.geometry)) AS ymax
+        FROM {geo_source}
+        WHERE g.path = ANY(:geo_ids)""").bindparams(
+            sa.bindparam(key="geo_ids", type_=ARRAY(sa.String))
+        )
+        rows = session.execute(sql, {"geo_ids": geo_ids}).fetchall()
+        if not rows:
+            return None
 
     return [
         NodeWithBBoxes(

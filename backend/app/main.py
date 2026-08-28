@@ -1578,12 +1578,11 @@ async def get_unassigned_geoids(
             # must not block the event loop (or ALB health checks).
             G = await run_in_threadpool(get_graph, districtr_map.gerrydb_table_name)
             # Non-contiguous unassigned parents are intentionally NOT expanded
-            present = [gid for gid in unassigned_ids if gid in G]
+            present, missing = G.membership_mask(unassigned_ids)
             components = [
                 sorted(component) for component in G.connected_components(present)
             ]
             # Ids absent from the graph (orphans / data gaps): keep as singletons.
-            missing = [gid for gid in unassigned_ids if gid not in G]
             components.extend([gid] for gid in missing)
         except HTTPException:
             # Graph unavailable — fall back to one component per id.
