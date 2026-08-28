@@ -1,55 +1,61 @@
 ---
 name: learn-infra
-description: How the system is built, wired, and run — docker-compose service topology, env-file wiring, Dockerfiles, and CI workflows. Use when changing docker-compose.yml, a Dockerfile, an env-file reference, or a GitHub Actions workflow, or when bringing up the local stack.
+description: How the system is built, wired, run, and deployed — the local docker-compose stack, env-file wiring, CI workflows, and the AWS hosting (Pulumi/ECS/RDS), including deploys, rollbacks, and PR preview environments. Use when changing docker-compose.yml, a Dockerfile, an env-file reference, a GitHub Actions workflow, or anything under infra/, or when bringing up the local stack, deploying, rolling back, or debugging a preview environment.
 user-invocable: false
 ---
 
 # Infra
 
-## Invariants
+## Local stack
 
-- **The backend container runs migrations before serving traffic, in the same
-  command.** `docker-compose.yml`'s `backend` service command is
-  `alembic upgrade head && ... && uvicorn ...` — one shell command, not separate
-  lifecycle steps, so there is no window where uvicorn is up against a schema the
-  migrations haven't reached yet.
-- **The backend container waits on the DB's healthcheck, not just its port.**
-  `depends_on: db: condition: service_healthy`, with `db`'s healthcheck running
-  `pg_isready`. Removing this condition (downgrading it to a bare `depends_on: [db]`)
-  reintroduces a race where `alembic upgrade head` runs against a Postgres process that
-  accepts TCP connections before it's actually ready to serve queries.
-- **Compose build contexts are the monorepo boundaries**: `./app` (frontend),
-  `./backend` (backend), `./pre-commit`, `./pipelines`. A Dockerfile referencing a path
-  outside its own context won't build — this isn't a style preference, it's what the
-  `context:` key in each service enforces.
-- **Data loading is opt-in via `LOAD_DATA`.** The backend command's conditional
-  (`if [ "${LOAD_DATA:-false}" = "true" ]; then python cli.py batch-create-districtr-maps
-  ...; fi`) means an empty `.env` boots a schema with no map data — not a bug, the
-  default.
+Almost everything about the local stack is readable directly from
+`docker-compose.yml` and the `Dockerfile.dev` files — read those first. The few facts
+that are easy to miss or span files:
 
-## Topology
+- **Data loading is opt-in via `LOAD_DATA`.** The backend command only runs
+  `batch-create-districtr-maps` when `LOAD_DATA` is the literal string `"true"` — an
+  empty `.env` boots a migrated schema with zero maps. That is the default, not a bug.
+- **The backend's boot ordering is two guarantees in one place**: `depends_on: db:
+  condition: service_healthy` (waits for `pg_isready`, not just the port) and the single
+  chained command `alembic upgrade head && ... && uvicorn`. Weakening either one
+  reintroduces a boot race — [references/troubleshooting.md](references/troubleshooting.md)
+  covers the resulting symptoms.
+- **`frontend`'s `node_modules` is the host's, not the image's.** The image runs
+  `bun install` at build time, but the `./app/node_modules:/app/node_modules` bind mount
+  shadows it; the container's `bun install && bun run dev` command reinstalls into the
+  mounted directory on every start. A `package.json` change therefore needs no rebuild,
+  at the cost of slower cold starts.
+- **Env files are per-service and gitignored**: `backend/.env.docker`, `app/.env.docker`,
+  `pipelines/.env`, each with a checked-in `*.example` template. `backend/.env.dev`,
+  `.env.test`, `.env.production` and their `app/` counterparts serve non-Docker runs.
 
-`docker-compose.yml` defines six services. `db` (`postgis/postgis:15-3.3-alpine`) is the
-only one `backend` declares a `depends_on` for — `frontend`, `frontend-prod`, `pre-commit`,
-and `pipelines` have none. `backend` builds from `./backend/Dockerfile.dev` (Python
-3.12.7, GDAL + PostGIS client libs installed at image-build time — so Python dependency
-changes require a rebuild, not just a bind-mount refresh) and mounts the repo's
-`backend/`, `sample_data/`, `data/`, and `tmp/` directories for hot reload
-(`--reload --reload-exclude '.venv/**/*.py'`). `frontend` builds from
-`./app/Dockerfile.dev` (Node 24 + Bun; the image itself also runs `bun install` at build
-time, but `frontend`'s `./app/node_modules:/app/node_modules` bind mount overrides that
-with the host's `node_modules`, so the container's `bun install && bun run dev` command
-reinstalls into the bind-mounted directory on every start) — no rebuild needed for a
-`package.json` change, at the cost of a slower cold start. `frontend-prod` is the same
-image built for a production-mode preview (`bun run build && bun run start`, port 3001,
-gated behind the `prod` compose profile — it doesn't start with a bare `docker-compose
-up`). `pre-commit` and `pipelines` are profile-gated utility services
-(`profiles: ["pre-commit"]`, `["pipelines"]`) — they don't start by default either.
+## AWS deployment
 
-Env files are per-service: `backend/.env.docker`, `app/.env.docker`,
-`pipelines/.env` — each gitignored, with a checked-in `.env.docker.example` /
-`.env.example` template. `backend/.env.dev`, `.env.test`, `.env.production` and their
-`app/` counterparts are the non-Docker equivalents used when running services directly.
+Hosting is two fully isolated Pulumi stacks — `dev` (deployed from the `dev` branch) and
+`prod` (from `main`): ECS Fargate services behind an ALB, RDS PostGIS, images in ECR,
+secrets in SSM. **`infra/README.md` is the authoritative deep reference** — architecture
+diagram, per-service table, deploy mechanics, preview model, operations (rollback,
+secrets, DB access), and first-time account setup. Read it before editing anything in
+`infra/`; this section carries only what it doesn't.
+
+- **README drift (verified 2026-08-28)**: the README's service table and "Known
+  follow-ups" predate three later additions and understate the stack — `graphcheck.ts`
+  (daily S3 graph comprehensiveness check task, PR #595), `infra/athena/` (ALB
+  access-log queries + `OBSERVABILITY.md`, PR #607), and `waf.ts` (WAF on the API
+  hosts, PR #619, which the follow-ups list still names as unbuilt). Trust the code and
+  `infra/index.ts`'s wiring over the README's inventory.
+- **Causal history**: hosting moved off Fly during 2026 — PR #649 (2026-08-05) was the
+  final step, cutting PR previews over to AWS and deleting every Fly config and workflow
+  from the repo; PRs #698/#701 then made the apex domain canonical. The Fly setup is
+  fully gone in-repo — a reference to it anywhere is stale documentation.
+- **Two deploy roles is a security boundary, not redundancy**: `preview.yml` runs a PR's
+  own code under the narrow `districtr-gha-preview` role; the admin-scoped
+  `districtr-gha-deploy` role is reserved for `dev`/`main` workflows. Keep any new
+  `pull_request`-triggered workflow on the narrow role.
+- **CI owns `pulumi up`**; local work is `pulumi preview` only (setup steps in the
+  README's "Local development").
+- Backend task sizing (`backendMemory` in `infra/config.ts`) and the graph LRU cache are
+  coupled — see `learn-performance` before resizing either.
 
 ## CI
 
@@ -59,26 +65,26 @@ PostGIS minor version than local compose's `15-3.3-alpine`. This is a real, curr
 a migration or query that behaves differently across a Postgres 15→16 or PostGIS
 3.3→3.5 boundary could pass one environment and fail the other. `test-pipelines.yml`
 covers the pipelines package; `deploy-api.yml`, `deploy-app.yml`, `infra.yml`, and
-`preview.yml` handle deployment and preview-environment provisioning, outside this
-skill's scope.
+`preview.yml` are the deploy workflows described above.
 
 ## Territory
 
-- `docker-compose.yml` — service definitions, build contexts, healthchecks, profiles.
-- `app/Dockerfile.dev`, `backend/Dockerfile.dev`, `pre-commit/Dockerfile.dev` — per-service
-  build steps.
+- `docker-compose.yml`; `app/Dockerfile.dev`, `backend/Dockerfile.dev`,
+  `pre-commit/Dockerfile.dev` — the local stack.
+- `infra/*.ts`, `infra/Pulumi.{dev,prod}.yaml`, `infra/config.ts` — the Pulumi program
+  and per-stack config; `infra/README.md` — its reference docs;
+  `infra/scripts/bootstrap.sh` — one-time account setup.
+- `infra/athena/` — ALB access-log SQL and `OBSERVABILITY.md`.
+- `.github/workflows/*.yml` — test workflows and the four deploy/preview workflows.
 - `app/.env.docker.example`, `backend/.env.docker.example`, `pipelines/.env.example` —
-  env-file templates; the real `.env.docker`/`.env` files are gitignored.
-- `.github/workflows/*.yml` — CI and deploy workflows.
-- `README.md` — human-facing setup instructions.
+  env-file templates.
 
 ## See also
 
 - Quality-gate commands (lint/build/test invocations and their measured timings) live in
   a separate runbook, not here — this skill covers what the stack *is*, not how to
   validate a change against it.
-- `learn-performance` — the memory-limit and lock-contention history that has shown up
-  against this same compose topology (graph cache sizing, assignment-table locking under
-  load); this skill covers wiring, that one covers the incidents.
+- `learn-performance` — the memory-limit history behind the graph cache and
+  `backendMemory` sizing; this skill covers wiring, that one covers the incidents.
 - [references/troubleshooting.md](references/troubleshooting.md) — symptom → root cause
-  → fix for the boot/env failure modes this topology is prone to.
+  → fix for the local boot/env failure modes.

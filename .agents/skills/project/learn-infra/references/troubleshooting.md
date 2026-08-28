@@ -18,7 +18,7 @@ env/compose change.
 **Symptom**: `backend` container exits or logs connection-refused errors against `db`
 shortly after starting.
 
-**Root cause**: the SKILL.md invariant on `condition: service_healthy` has been weakened
+**Root cause**: the `condition: service_healthy` guarantee (SKILL.md, Local stack) has been weakened
 or removed — `backend` started against a `db` container that accepts TCP connections
 before Postgres finished initializing, and `alembic upgrade head` failed.
 
@@ -32,7 +32,7 @@ workload — increase `interval`/`retries` rather than removing the dependency.
 have fixed.
 
 **Root cause**: `backend`'s single-command `alembic upgrade head && ... && uvicorn`
-ordering (SKILL.md invariant) was bypassed — e.g. a `command:` override that drops the
+ordering (SKILL.md, Local stack) was bypassed — e.g. a `command:` override that drops the
 `alembic upgrade head &&` prefix, or migrations run manually against a container that
 was already up (uvicorn keeps running against the pre-migration schema until restarted).
 
@@ -61,7 +61,7 @@ volume resolves a corrupted install.
 **Symptom**: the stack is up and the schema is migrated, but no districtr maps are
 available to open.
 
-**Root cause**: this is the default, not a failure — see the `LOAD_DATA` invariant in
+**Root cause**: this is the default, not a failure — see the `LOAD_DATA` bullet in
 SKILL.md. Any value other than the literal string `"true"`, including an unset
 `LOAD_DATA`, skips data loading.
 
