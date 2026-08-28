@@ -43,24 +43,16 @@ metadata's `updated_at` deliberately, since the frontend's optimistic-concurrenc
 
 ## Shattered Parent Assignment Data Contract
 
-When a parent geography (a VTD, say) is shattered into its children (blocks), the
-invariant above is upheld by two independent write paths that must agree:
+The invariant above is upheld by two independent write paths that never reference each
+other and must agree:
 
-- **Interactive shattering** — `shatter_parent.sql`, a UDF invoked when a user clicks to
-  shatter a unit in the map UI. It inserts one row per child, inheriting the parent's
-  current zone (so an unpainted parent produces `zone = NULL` children, and a painted
-  parent produces children pre-filled with its zone), then deletes the parent's own row.
+- **Interactive shattering** — `shatter_parent.sql`, a UDF invoked when a user shatters
+  a unit in the map UI.
 - **CSV import** — `_heal_or_fill` in `backend/app/assignments/assignments.py`, invoked
-  during `batch_insert_assignments`. An uploaded CSV may cover only some of a shattered
-  parent's children (e.g. the file only lists blocks the uploader painted). `_heal_or_fill`
-  fills every unlisted sibling with `zone = None` so the contract holds even for partial
-  uploads — a separate pass ("heal") also collapses children back into their parent when
-  every child in the upload shares one zone, since a shattered unit with a uniform zone
-  carries no more information than its parent would.
+  during `batch_insert_assignments`. An uploaded CSV may list only some of a shattered
+  parent's children; the unlisted siblings must still end up with rows.
 
-Both paths exist because interactive shattering and CSV import are different entry
-points into the same invariant; a change to one without checking the other is how this
-contract silently breaks.
+A change to one path without checking the other is how this contract silently breaks.
 
 ## Transaction and write-path shape
 
