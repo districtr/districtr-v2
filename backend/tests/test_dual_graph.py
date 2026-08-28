@@ -269,7 +269,18 @@ def test_cut_edges_empty_assignment():
 
 # npz fixtures are generated from the pkl fixtures by the pipelines writer
 # (transforms/graph.py graph_to_npz_arrays), so these tests also verify
-# writer/reader schema compatibility across the two components.
+# writer/reader schema compatibility across the two components. There's no
+# automatic check that a fixture's npz was actually regenerated after a
+# writer schema bump (GRAPH_NPZ_FORMAT_VERSION in transforms/graph.py) --
+# only convention. To regenerate ks_ellis_county_block.npz/simple_geos.npz
+# after a schema change:
+#
+#   import pickle, numpy as np
+#   from pipelines.transforms.graph import graph_to_npz_arrays
+#   for name in ("ks_ellis_county_block", "simple_geos"):
+#       with open(f"tests/fixtures/graph/{name}.pkl", "rb") as f:
+#           G = pickle.load(f)
+#       np.savez_compressed(f"tests/fixtures/graph/{name}.npz", **graph_to_npz_arrays(G))
 @pytest.mark.parametrize("name", ["simple_geos", "ks_ellis_county_block"])
 def test_from_npz_matches_from_networkx(name):
     with open(FIXTURES_PATH / "graph" / f"{name}.pkl", "rb") as f:
@@ -320,13 +331,20 @@ def test_save_load_cache_round_trip(nx_graph, dg, tmp_path):
     assert {frozenset(c) for c in loaded.connected_components(subset)} == expected
 
 
-def test_save_cache_race_first_writer_wins(dg, tmp_path):
+def test_save_cache_second_write_is_a_noop_not_a_race(dg, tmp_path):
+    """Not an actual concurrent race (single thread, sequential calls) --
+    exercises the loser-writer branch of the OSError handler: a second
+    save_cache against an already-populated cache_dir must not fail or
+    corrupt the existing cache, and must not leave its own tmp dir behind."""
     cache_dir = tmp_path / "cached"
     dg.save_cache(cache_dir)
-    # A second (racing) writer must not fail or corrupt the existing cache
+    # Second write hits the same cache_dir, already populated with valid
+    # content -- the rename fails ENOTEMPTY and the handler takes the
+    # loser path (meta.json exists, so it cleans up and returns quietly).
     dg.save_cache(cache_dir)
     loaded = DualLevelGraph.load_cache(cache_dir)
     assert loaded._node_ids.tolist() == dg._node_ids.tolist()
+    assert not list(tmp_path.glob("cached.tmp-*"))
 
 
 def test_load_cache_rejects_unknown_version(dg, tmp_path):

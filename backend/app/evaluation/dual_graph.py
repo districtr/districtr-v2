@@ -412,6 +412,16 @@ class DualLevelGraph:
         index space (``_adj``/``_adj_offsets``/``_parent_of`` read directly),
         never resolving a neighbour's id back to a string until the final
         result.
+
+        Ids in either dict that aren't in this graph are silently excluded
+        from both passes rather than raising — same convention as
+        ``num_children_of``/``is_shattered_parent`` (unknown ids are just
+        not there), and matches nx ``subgraph()`` semantics. Deliberate:
+        reachable whenever a document's assignments predate a graph
+        regeneration with a different unit vocabulary (this branch's own
+        v1->v2 gerrydb migration is exactly that case), and the alternative
+        — raising — would turn a stale assignment into a hard failure on
+        every read instead of a quietly-partial count.
         """
         unit_ids = list(unit_to_zone)
         unit_idx_to_zone: dict[int, int] = {}
