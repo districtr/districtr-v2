@@ -12,9 +12,6 @@ Almost everything about the local stack is readable directly from
 `docker-compose.yml` and the `Dockerfile.dev` files — read those first. The few facts
 that are easy to miss or span files:
 
-- **Data loading is opt-in via `LOAD_DATA`.** The backend command only runs
-  `batch-create-districtr-maps` when `LOAD_DATA` is the literal string `"true"` — an
-  empty `.env` boots a migrated schema with zero maps. That is the default, not a bug.
 - **The backend's boot ordering is two guarantees in one place**: `depends_on: db:
   condition: service_healthy` (waits for `pg_isready`, not just the port) and the single
   chained command `alembic upgrade head && ... && uvicorn`. Weakening either one

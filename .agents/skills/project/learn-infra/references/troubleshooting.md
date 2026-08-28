@@ -10,7 +10,6 @@ env/compose change.
 - [Backend can't reach the database](#backend-cant-reach-the-database)
 - [Backend boots against a stale schema](#backend-boots-against-a-stale-schema)
 - [Frontend never becomes reachable](#frontend-never-becomes-reachable)
-- [No map data after a fresh boot](#no-map-data-after-a-fresh-boot)
 - [Frontend native-dependency errors](#frontend-native-dependency-errors)
 
 ## Backend can't reach the database
@@ -55,20 +54,6 @@ the tail of the log (a hung or failed install produces no further output, which 
 like a silent hang rather than a failure). A `bun.lock` conflict after a branch switch is
 the most common trigger — rebuilding the image or clearing the mounted `node_modules`
 volume resolves a corrupted install.
-
-## No map data after a fresh boot
-
-**Symptom**: the stack is up and the schema is migrated, but no districtr maps are
-available to open.
-
-**Root cause**: this is the default, not a failure — see the `LOAD_DATA` bullet in
-SKILL.md. Any value other than the literal string `"true"`, including an unset
-`LOAD_DATA`, skips data loading.
-
-**Fix**: set `LOAD_DATA=true` in the environment compose reads (root `.env` or however
-the shell invoking `docker-compose up` is configured) before bringing the stack up, or
-run the `batch-create-districtr-maps` CLI command manually against the running backend
-container afterward.
 
 ## Frontend native-dependency errors
 
