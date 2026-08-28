@@ -29,16 +29,18 @@ user-invocable: false
 
 ## Topology
 
-`docker-compose.yml` defines five services. `db` (`postgis/postgis:15-3.3-alpine`) is the
-only one every other service depends on. `backend` builds from `./backend/Dockerfile.dev`
-(Python 3.12.7, GDAL + PostGIS client libs installed at image-build time — so Python
-dependency changes require a rebuild, not just a bind-mount refresh) and mounts the repo's
+`docker-compose.yml` defines six services. `db` (`postgis/postgis:15-3.3-alpine`) is the
+only one `backend` declares a `depends_on` for — `frontend`, `frontend-prod`, `pre-commit`,
+and `pipelines` have none. `backend` builds from `./backend/Dockerfile.dev` (Python
+3.12.7, GDAL + PostGIS client libs installed at image-build time — so Python dependency
+changes require a rebuild, not just a bind-mount refresh) and mounts the repo's
 `backend/`, `sample_data/`, `data/`, and `tmp/` directories for hot reload
 (`--reload --reload-exclude '.venv/**/*.py'`). `frontend` builds from
-`./app/Dockerfile.dev` (Node 24 + Bun) and runs `bun install && bun run dev` as its
-command — dependencies install fresh on every container start rather than being baked
-into the image, which is a deliberate hot-reload tradeoff (no rebuild needed for a
-`package.json` change) traded against slower cold starts. `frontend-prod` is the same
+`./app/Dockerfile.dev` (Node 24 + Bun; the image itself also runs `bun install` at build
+time, but `frontend`'s `./app/node_modules:/app/node_modules` bind mount overrides that
+with the host's `node_modules`, so the container's `bun install && bun run dev` command
+reinstalls into the bind-mounted directory on every start) — no rebuild needed for a
+`package.json` change, at the cost of a slower cold start. `frontend-prod` is the same
 image built for a production-mode preview (`bun run build && bun run start`, port 3001,
 gated behind the `prod` compose profile — it doesn't start with a bare `docker-compose
 up`). `pre-commit` and `pipelines` are profile-gated utility services
