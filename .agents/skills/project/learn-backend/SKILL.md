@@ -25,9 +25,9 @@ user-invocable: false
   along with everything else. `get_document_public` exists for routes that do need to
   return document data: it assembles the response field by field and substitutes a
   masked placeholder for `document_id` whenever the caller only supplied the public id.
-  A route reachable by `public_id` whose response includes document fields should build
-  that response through `get_document_public`, not by returning what
-  `get_protected_document` resolved.
+  Pick the dependency by what the handler returns, not what it reads — a response that
+  grows to include document fields needs a switch to `get_document_public`, not a wider
+  response.
 
 ## The document/assignments split
 
@@ -40,13 +40,6 @@ can hold more than one assignment. Endpoints that touch both (e.g. `update_assig
 in `backend/app/main.py`) update
 metadata's `updated_at` deliberately, since the frontend's optimistic-concurrency check
 (`learn-state-sync`) keys off that single timestamp for the whole document.
-
-`get_protected_document` and `get_document` are both request dependencies
-(`backend/app/core/dependencies.py`), composed via FastAPI's `Depends()` — `parse_document_id`
-sits upstream of both, turning the raw path parameter into a `DocumentID` value object
-that already knows whether it's a public or private ID. Endpoint handlers stay thin: the
-ID-resolution and access-boundary logic lives once in the dependency, not copied into
-every handler that needs a document.
 
 ## Shattered Parent Assignment Data Contract
 
