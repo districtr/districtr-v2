@@ -32,11 +32,12 @@ user-invocable: false
 ## The document/assignments split
 
 A `Document` row (`backend/app/models.py`) carries plan metadata — slug, map type, zone
-count, timestamps. Its assignments live in a separate table, `document.assignments`
-(`geo_id`, `zone`, `document_id`), keyed by geography rather than by district. This
-split exists because assignments are the hot path — painted one geography at a time,
-diffed and conflict-checked on every save — while document metadata changes rarely.
-Endpoints that touch both (e.g. `update_assignments` in `backend/app/main.py`) update
+count, timestamps — one row per document. A document's assignments live in a separate
+table, `document.assignments` (`document_id`, `geo_id`, `zone`), one row per geography
+unit — a single map can assign tens of thousands of geo_ids, so this data has no single-row
+representation on `Document` to begin with; it needs its own table the moment a document
+can hold more than one assignment. Endpoints that touch both (e.g. `update_assignments`
+in `backend/app/main.py`) update
 metadata's `updated_at` deliberately, since the frontend's optimistic-concurrency check
 (`learn-state-sync`) keys off that single timestamp for the whole document.
 
