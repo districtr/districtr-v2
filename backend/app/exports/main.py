@@ -111,7 +111,7 @@ def build_districts_shapefile(
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(require_session)],
 )
-async def export_document(
+def export_document(
     *,
     document_id: str,
     document: Annotated[Document, Depends(get_protected_document)],
