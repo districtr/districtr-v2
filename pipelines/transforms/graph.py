@@ -50,7 +50,7 @@ GRAPH_NPZ_FORMAT_VERSION = 1
 def graph_to_npz_arrays(G: Graph) -> dict:
     """Flatten a graph into the npz array schema (format_version 1).
 
-    Read by the backend's DistrictGraph.from_npz — keep the two in sync.
+    Read by the backend's app.evaluation.graph_loader.from_npz — keep the two in sync.
     ~14x smaller on disk and ~10x faster to load than the pickled nx graph.
     """
     node_ids = np.sort(np.asarray(list(G.nodes()), dtype=str))

@@ -311,7 +311,7 @@ def test_build_combined_graph_from_gpkg_non_contiguous(non_contiguous_gpkgs):
 
 
 # ---------------------------------------------------------------------------
-# npz serialization (read by the backend's DistrictGraph.from_npz)
+# npz serialization (read by the backend's app.evaluation.graph_loader.from_npz)
 # ---------------------------------------------------------------------------
 
 

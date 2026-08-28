@@ -67,6 +67,8 @@ fonttools==4.62.1
     # via matplotlib
 geoalchemy2==0.15.2
 geopandas==1.0.1
+greenlet==3.5.4
+    # via sqlalchemy
 h11==0.14.0
     # via
     #   httpcore
@@ -114,6 +116,7 @@ numpy==1.26.4
     #   pandas
     #   pyarrow
     #   pyogrio
+    #   scipy
     #   shapely
 openai==1.93.0
 packaging==24.0
@@ -206,7 +209,9 @@ sqlalchemy==2.0.29
     #   sqlmodel
 sqlmodel==0.0.16
 starlette==0.41.2
-    # via fastapi
+    # via
+    #   fastapi
+    #   prometheus-fastapi-instrumentator
 text-unidecode==1.3
 tqdm==4.67.3
     # via openai

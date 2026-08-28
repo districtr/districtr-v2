@@ -127,7 +127,7 @@ IndexedDB serves as offline cache and conflict resolution source. Debounced writ
 
 - **Bulk assignments**: `PUT /api/assignments` uses PostgreSQL COPY for performance with optimistic concurrency
 - **Shatter operations**: `PATCH /api/assignments/{doc_id}/shatter` handles parent → child decomposition
-- **Contiguity**: Graph-based checking via NetworkX
+- **Contiguity**: Graph-based checking via `DualLevelDualGraph` (numpy/scipy `csgraph`, not NetworkX at runtime)
 - **Auth**: Auth0 JWT with scopes (default/editor/admin), Cloudflare Turnstile for public forms
 
 ### Database Design
@@ -153,10 +153,13 @@ Alembic with 50+ versions. UDF handling stores previous definitions under `sql/v
 1. **Input**: GeoPackage files (from GerryDB or external sources)
 2. **Tileset generation**: `ogr2ogr` → `tippecanoe` → PMTiles
 3. **Tabular data**: GeoPackage → DuckDB → Parquet
-4. **Graph build**: child + parent GeoPackage → dual-level NetworkX graph pkl
+4. **Graph build**: child + parent GeoPackage → dual-level NetworkX graph, written as both a
+   pickle (legacy) and a compact `.npz` array format
 5. **Upload**: Artifacts pushed to S3/Cloudflare S3
 6. **Consumption**: Frontend loads PMTiles (map tiles) and Parquet (demographics)
-   directly from R2; backend loads graph pkls for contiguity checks and store locally
+   directly from R2; backend loads graph files into a `DualLevelDualGraph` (numpy/scipy-backed,
+   mmap-shareable across workers) for contiguity checks and other graph-touching metrics, cached
+   locally
 
 ### CLI Commands
 
