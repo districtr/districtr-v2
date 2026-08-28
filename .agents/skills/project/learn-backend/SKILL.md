@@ -46,18 +46,6 @@ in `backend/app/main.py`) update
 metadata's `updated_at` deliberately, since the frontend's optimistic-concurrency check
 (`learn-state-sync`) keys off that single timestamp for the whole document.
 
-## Transaction and write-path shape
-
-Write endpoints commit only after the full operation succeeds — a document update that
-touches assignments, `updated_at`, and (for community maps) comment counts does all of
-it inside one transaction, so a mid-operation failure leaves nothing partially applied.
-`update_assignments` (`backend/app/main.py`) is the fullest example: it compares the
-client's `last_updated_at` against the current `Document.updated_at` before writing
-(409 unless `overwrite=True` — the server half of the optimistic-concurrency contract
-`learn-state-sync` documents from the client side), and only bumps `updated_at` when
-something in the payload actually changed, since an unmoved bump would falsely tell
-other clients the document diverged.
-
 ## Territory
 
 - `backend/app/main.py` — endpoint definitions; `update_assignments` is the conflict/write
