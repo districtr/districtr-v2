@@ -177,6 +177,14 @@ class DualLevelGraph:
                 "has_non_contiguous_parents": bool(ncp),
             }
             (tmp_dir / "meta.json").write_text(json.dumps(meta))
+        except OSError:
+            # Failed before tmp_dir was complete (e.g. ENOSPC mid-write) --
+            # nothing safe to install. Clean up and propagate; the caller
+            # falls back to a private in-memory copy.
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+            raise
+
+        try:
             os.rename(tmp_dir, cache_dir)
         except OSError:
             if not (cache_dir / "meta.json").exists():
@@ -185,6 +193,7 @@ class DualLevelGraph:
                 # the corrupt-cache path. Left alone, the rename fails the
                 # same way forever and every worker falls back to a private
                 # copy for the container's life. Clear it and retry once.
+                # tmp_dir is known-complete here (the write above succeeded).
                 shutil.rmtree(cache_dir, ignore_errors=True)
                 try:
                     os.rename(tmp_dir, cache_dir)

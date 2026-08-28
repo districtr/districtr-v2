@@ -1537,9 +1537,13 @@ async def get_unassigned_geoids(
     (geo_id strings). Adjacency is computed on the hybrid dual graph, which
     carries both parent-unit and child-block nodes, so unassigned parents and
     unassigned shattered blocks are grouped by true geographic adjacency rather
-    than by collapsing children up to their parent. Units with no adjacency
-    info (or when the graph is unavailable) come back as singletons. An empty
-    `components` list means nothing is unassigned.
+    than by collapsing children up to their parent. Units with no adjacent
+    neighbors come back as singletons; if the graph itself is unavailable,
+    every unassigned id comes back as its own singleton instead. Ids the
+    graph doesn't recognize (e.g. a document predating a graph regeneration)
+    are silently omitted, matching networkx's `subgraph()` convention — not
+    expected in steady state. An empty `components` list means nothing is
+    unassigned.
 
     `exclude_ids` is a client-supplied set of already-shattered parent geo_ids
     (see the SQL comment below) and is filtered out of the result.

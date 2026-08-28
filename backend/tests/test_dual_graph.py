@@ -334,6 +334,32 @@ def test_save_cache_second_write_is_a_noop_not_a_race(dg, tmp_path):
     assert not list(tmp_path.glob("cached.tmp-*"))
 
 
+def test_save_cache_mid_write_failure_installs_nothing(dg, tmp_path, monkeypatch):
+    """A failure while writing tmp_dir (e.g. ENOSPC) must propagate and leave
+    no trace -- not get silently treated as an ENOTEMPTY self-heal case and
+    have the incomplete tmp_dir installed as cache_dir. Regression test: an
+    earlier version of the self-heal fix wrapped the whole write in the same
+    except OSError that also handles the rename-failed case, so a write
+    failure with no prior cache present looked identical to "stale cache_dir
+    blocking the rename" and got renamed into place anyway, missing files."""
+    cache_dir = tmp_path / "cached"
+    real_save = np.save
+    calls = {"n": 0}
+
+    def flaky_save(*args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise OSError("simulated ENOSPC")
+        return real_save(*args, **kwargs)
+
+    monkeypatch.setattr(np, "save", flaky_save)
+    with pytest.raises(OSError, match="simulated ENOSPC"):
+        dg.save_cache(cache_dir)
+
+    assert not cache_dir.exists()
+    assert not list(tmp_path.glob("cached.tmp-*"))
+
+
 def test_load_cache_rejects_unknown_version(dg, tmp_path):
     import json
 
