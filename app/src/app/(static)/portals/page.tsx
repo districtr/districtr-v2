@@ -22,7 +22,7 @@ export default async function PortalsPage() {
   if (!entries) return null;
 
   return (
-    <Flex direction={'column'}>
+    <Flex direction={'column'} pt="6">
       <Heading as="h1" size="6" mb="4">
         Portals
       </Heading>

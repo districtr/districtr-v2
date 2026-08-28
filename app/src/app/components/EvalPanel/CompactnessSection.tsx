@@ -12,35 +12,40 @@ import {NUMBER_FORMATS} from '@/app/constants/demography/format';
 import {useZoomToDistrict} from '@/app/hooks/useZoomToDistrict';
 
 // Scores computed on EPSG:5070 (NAD83 / Conus Albers) via gerrytools.
-// All three districts are from the 2020 redistricting cycle.
+// All three districts are from the 2020 redistricting cycle: Alabama's and
+// Oklahoma's maps enacted November 2021, Colorado's approved by its Supreme
+// Court November 1, 2021. Alabama's map shown here (used for the 2022
+// election) was later redrawn under court order for a VRA violation,
+// effective for the 2024 election — the year below reflects this exemplar's
+// original enactment, not the state's current map.
 const AL1 = {
-  name: "Alabama's 1st Congressional District",
+  name: "Alabama's 1st Congressional District (2021)",
   polsby_popper: 0.1536,
   image: '/al_district1.png',
 };
 const OK5 = {
-  name: "Oklahoma's 5th Congressional District",
+  name: "Oklahoma's 5th Congressional District (2021)",
   polsby_popper: 0.3419,
   image: '/ok_district5.png',
 };
 const CO5 = {
-  name: "Colorado's 5th Congressional District",
+  name: "Colorado's 5th Congressional District (2021)",
   polsby_popper: 0.5589,
   image: '/co_district5.png',
 };
 
 const AL2 = {
-  name: "Alabama's 2nd Congressional District",
+  name: "Alabama's 2nd Congressional District (2021)",
   reock: 0.2238,
   image: '/al_district2.png',
 };
 const OK2 = {
-  name: "Oklahoma's 2nd Congressional District",
+  name: "Oklahoma's 2nd Congressional District (2021)",
   reock: 0.4371,
   image: '/ok_district2.png',
 };
 const CO2 = {
-  name: "Colorado's 2nd Congressional District",
+  name: "Colorado's 2nd Congressional District (2021)",
   reock: 0.6577,
   image: '/co_district2.png',
 };

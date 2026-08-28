@@ -1,7 +1,7 @@
 'use client';
 import {NodeViewProps, NodeViewWrapper} from '@tiptap/react';
 import React, {useRef} from 'react';
-import {Box, Button, Dialog, Flex, Heading, Select, Text} from '@radix-ui/themes';
+import {Box, Button, Dialog, Flex, Heading, Select, Text, TextField} from '@radix-ui/themes';
 import {MapCreateButtons, MapCreateButtonsProps} from './MapCreateButtons';
 import {GearIcon, TrashIcon} from '@radix-ui/react-icons';
 import {NoFocusBoundary} from '../NoFocusBoundary';
@@ -17,7 +17,8 @@ const MapCreateButtonsNodeView: React.FC<NodeViewProps> = ({
   const parentRef = useRef<HTMLDivElement>(null);
   // Use a nested editor for the custom content
   const views: Array<Pick<DistrictrMap, 'name' | 'districtr_map_slug'>> = node.attrs.views || [];
-  const type: 'simple' | 'megaphone' = node.attrs.type || 'simple';
+  const type: MapCreateButtonsProps['type'] = node.attrs.type || 'simple';
+  const createTag: string | null = node.attrs.createTag || null;
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const handleUpdate = (updates: Partial<MapCreateButtonsProps>) => {
@@ -33,7 +34,7 @@ const MapCreateButtonsNodeView: React.FC<NodeViewProps> = ({
   return (
     <NodeViewWrapper className="relative" ref={parentRef} contentEditable={false}>
       <NoFocusBoundary parentRef={parentRef}>
-        <MapCreateButtons views={views} type={type} />
+        <MapCreateButtons views={views} type={type} createTag={createTag} />
       </NoFocusBoundary>
       <Box position="absolute" top="2" right="2">
         <Flex direction="column" gap="2">
@@ -84,14 +85,29 @@ const MapCreateButtonsNodeView: React.FC<NodeViewProps> = ({
                   <Text>Type</Text>
                   <Select.Root
                     value={type}
-                    onValueChange={value => handleUpdate({type: value as 'simple' | 'megaphone'})}
+                    onValueChange={value =>
+                      handleUpdate({type: value as MapCreateButtonsProps['type']})
+                    }
                   >
                     <Select.Trigger placeholder="Select a type" />
                     <Select.Content>
                       <Select.Item value="simple">Simple</Select.Item>
                       <Select.Item value="megaphone">Megaphone</Select.Item>
+                      <Select.Item value="cards">Cards</Select.Item>
                     </Select.Content>
                   </Select.Root>
+                </Flex>
+                <Flex direction="column" gap="2">
+                  <Text>Creation Tag</Text>
+                  <Text size="1" color="gray">
+                    Stored in the metadata of maps created here, so tag-filtered galleries pick them
+                    up once they move past scratch.
+                  </Text>
+                  <TextField.Root
+                    placeholder="e.g. tn-workshop"
+                    value={createTag ?? ''}
+                    onChange={e => handleUpdate({createTag: e.target.value || null})}
+                  />
                 </Flex>
                 <Flex direction="row" gap="2">
                   <Button onClick={() => setDialogOpen(false)}>Close</Button>

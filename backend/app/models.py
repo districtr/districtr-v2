@@ -568,5 +568,7 @@ class DistrictUnionsResponse(BaseModel):
     # Native GeoJSON object (Postgres ST_AsGeoJSON(...)::json) — avoids the
     # client-side double-parse of a JSON-encoded string inside the outer JSON.
     geometry: dict | None
-    demographic_data: dict[str, int] | None
+    # float, not int: ACS-derived columns are prorated tract counts, so the
+    # per-district sums carry fractional parts (decennial columns stay whole).
+    demographic_data: dict[str, float] | None
     updated_at: datetime

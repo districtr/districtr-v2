@@ -19,6 +19,7 @@ import {MapControlsStore, useMapControlsStore} from '@store/mapControlsStore';
 import {useGuideTarget} from '@store/uiHintStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
+import {useDemographicsColumnSets} from '@/app/hooks/useDemographicsColumnSets';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 import type {HelpTipKey} from '@components/HelpTip/helpTipContent';
 
@@ -52,6 +53,15 @@ const SummaryCardContent: React.FC<{
   </Flex>
 );
 
+/** Availability resolves in here — SECTIONS is a module-level constant. */
+const DemographicsCardContent: React.FC = () => (
+  <SummaryCardContent
+    defaultColumnSet={SUMMARY_TYPES.TOTPOP}
+    displayedColumnSets={useDemographicsColumnSets()}
+    withCoalition
+  />
+);
+
 type SidebarSectionKey = MapControlsStore['sidebarPanels'][number];
 
 export type SidebarSection = {
@@ -83,13 +93,7 @@ export const SECTIONS: SidebarSection[] = [
     key: 'demography',
     label: 'Demographics',
     icon: PersonIcon,
-    content: (
-      <SummaryCardContent
-        defaultColumnSet={SUMMARY_TYPES.TOTPOP}
-        displayedColumnSets={[SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP]}
-        withCoalition
-      />
-    ),
+    content: <DemographicsCardContent />,
     helpTip: 'demographics',
   },
   {

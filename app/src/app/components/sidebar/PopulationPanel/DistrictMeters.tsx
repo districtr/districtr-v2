@@ -36,6 +36,7 @@ const ICONS_WIDTH = 56;
 // space is 6px, not 8. The header's invisible twin uses the measured value —
 // copying the mr-2 class instead puts the lock-all 4px right of the rows'.
 const TWIN_TRAIL = 6;
+
 // Bars stop growing on wide sidebars; everything (label strip, rows,
 // scoreboard) shares the cap so columns stay aligned.
 const MAX_METERS_WIDTH = 560;
@@ -102,6 +103,9 @@ const overflowColorFor = (color: string, population: number, ideal?: number) => 
 const chevronCount = (population: number, ideal: number) =>
   Math.min(MAX_CHEVRONS, Math.floor((population - ideal) / ideal / CHEVRON_STEP));
 
+// The Super Draw icon cluster minus the lock button (24px) and cluster gap (4px).
+const COMMENT_COL_WIDTH = ICONS_WIDTH - 28;
+
 /** "Keeps going" marker on an off-the-scale bar's end. */
 const OffScaleChevrons: React.FC<{count: number}> = ({count}) => (
   <Flex
@@ -144,6 +148,10 @@ export const DistrictMeters = () => {
   const isEditing = useMapControlsStore(state => state.isEditing);
   const superDraw = useToolbarStore(state => state.superDraw);
   const access = useMapStore(state => state.mapStatus?.access);
+  const documentComments = useMapStore(state => state.mapDocument?.document_comments);
+  // comment_length_limit 0/null disables descriptions — gate the icon so it
+  // can't open empty.
+  const descriptionsEnabled = !!useMapStore(state => state.mapDocument?.comment_length_limit);
   const chartOptions = useChartStore(state => state.chartOptions);
   const setChartOptions = useChartStore(state => state.setChartOptions);
 
@@ -217,6 +225,8 @@ export const DistrictMeters = () => {
   // starts at the same x.
   const numColWidth = `${String(populationData.length).length + 1}ch`;
   const showRowIcons = superDraw && isEditing;
+  const showCommentCol =
+    !showRowIcons && descriptionsEnabled && (isEditing || (documentComments?.length ?? 0) > 0);
   const rowsScroll = visibleData.length > ROW_SCROLL_THRESHOLD;
 
   // The target-deviation band brackets the ideal line; rendered per row (like
@@ -289,6 +299,7 @@ export const DistrictMeters = () => {
                 </HelpTip>
               </Flex>
             )}
+            {showCommentCol && <Box style={{width: COMMENT_COL_WIDTH, flexShrink: 0}} />}
             <Box flexGrow="1" style={{position: 'relative', alignSelf: 'stretch'}}>
               {!!idealPopulation && tickFraction !== undefined && (
                 /* The label itself is the help trigger — an extra info icon
@@ -364,7 +375,8 @@ export const DistrictMeters = () => {
                     // lock/comment controls is invalid ARIA and hides them
                     // from assistive tech. The bar carries the real <button>.
                     onClick={() => selectCommunity(d.zone)}
-                    className={`cursor-pointer rounded-md transition-colors duration-150 ${
+                    // `group`: ZoneDescriptionPopover's bubble fades in on row hover
+                    className={`group cursor-pointer rounded-md transition-colors duration-150 ${
                       selectedZone === d.zone ? 'bg-[var(--accent-3)]' : 'hover:bg-[var(--gray-2)]'
                     }`}
                     style={{height: ROW_HEIGHT}}
@@ -380,9 +392,9 @@ export const DistrictMeters = () => {
                         {d.zone}
                       </Text>
                     )}
-                    {/* Comment and per-district lock are Super Draw features; plain
-                        Draw rows are just the number, bar, and totals. Icons manage
-                        their own interactions; don't let clicks re-select the row. */}
+                    {/* Comment and per-district lock are Super Draw features.
+                        Icons manage their own interactions; don't let clicks
+                        re-select the row. */}
                     {showRowIcons && (
                       <Flex
                         align="center"
@@ -411,6 +423,16 @@ export const DistrictMeters = () => {
                             {locked ? <LockClosedIcon /> : <LockOpen2Icon />}
                           </IconButton>
                         </Tooltip>
+                      </Flex>
+                    )}
+                    {showCommentCol && (
+                      <Flex
+                        align="center"
+                        flexShrink="0"
+                        style={{width: COMMENT_COL_WIDTH}}
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <ZoneDescriptionPopover zone={d.zone} color={color} />
                       </Flex>
                     )}
                     {/* The bar is the row's keyboard/AT control — a real

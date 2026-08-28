@@ -8,6 +8,10 @@ import {useState} from 'react';
 import {getCommunityDisplayNumber} from '@/app/utils/communities';
 import {MAP_MODES} from '@constants/map/mode';
 
+// Shared by the Super Draw popover and the plain-Draw hover card so the two
+// description surfaces render at the same size.
+export const ZONE_DESCRIPTION_CARD_WIDTH = 300;
+
 interface DescriptionEditorProps {
   existingText?: string;
   maxLength: number;

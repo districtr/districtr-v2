@@ -10,7 +10,12 @@ import {CATALOG_ITEMS} from './CatalogSubNav';
 
 // Draw has no in-page subnav; this exists so its hover dropdown is parallel
 // with the other top-level items.
-const DRAW_ITEMS: SecondaryNavItem[] = [{label: 'Jump to the map', href: '/draw'}];
+const DRAW_ITEMS: SecondaryNavItem[] = [
+  {label: 'Jump to the map', href: '/draw'},
+  // ?upload=1 auto-opens the uploader on /draw (see draw/page.tsx) — import
+  // doesn't depend on which state you start from.
+  {label: 'Upload block assignments', href: '/draw?upload=1'},
+];
 
 const NAV_ITEMS: {
   label: string;
@@ -78,7 +83,7 @@ export const Header: React.FC = () => {
         className="mx-auto max-w-screen-lg w-full"
       >
         <Link asChild size="5" weight="bold" className="site-title !text-districtrBlue">
-          <a href="/">Districtr</a>
+          <NextLink href="/">Districtr</NextLink>
         </Link>
         <Flex direction="row" gapX="2" align="center" className="tracking-wider !hidden md:!flex">
           {NAV_ITEMS.map(item => (

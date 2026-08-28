@@ -20,7 +20,7 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
  * returns null when not editing.
  *
  * The draft-status helper doesn't render inline here — it would eat most of
- * the dock's height. Instead a "View map guide" button opens it in a modal,
+ * the dock's height. Instead a "View hints" button opens it in a modal,
  * which closes itself when a hint navigates elsewhere.
  */
 export const MobileToolbar: React.FC = () => {
@@ -37,13 +37,13 @@ export const MobileToolbar: React.FC = () => {
         <VisualSettingsPopover />
         {helperVisible && (
           <Button variant="outline" size="1" onClick={() => setGuideOpen(true)}>
-            View map guide
+            View hints
           </Button>
         )}
       </div>
       <Dialog.Root open={guideOpen} onOpenChange={setGuideOpen}>
         <Dialog.Content size="1" maxWidth="400px" aria-describedby={undefined}>
-          <Dialog.Title className="sr-only">Map guide</Dialog.Title>
+          <Dialog.Title className="sr-only">Map hints</Dialog.Title>
           <DraftStatusHelper onNavigate={() => setGuideOpen(false)} collapsible={false} />
         </Dialog.Content>
       </Dialog.Root>

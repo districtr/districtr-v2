@@ -8,6 +8,7 @@ from app.utils import (
     add_extent_to_districtrmap,
     update_districtrmap,
     GEOID_PREDICATES,
+    _json_build_object_sql,
     _stats_object_key,
 )
 from app.core.config import settings
@@ -440,3 +441,15 @@ def test_stats_object_key_is_environment_scoped(monkeypatch):
     assert dev_key != prod_key
     assert "/development/" in dev_key
     assert "/production/" in prod_key
+
+
+def test_json_build_object_sql_survives_postgres_100_arg_cap(session: Session):
+    # 60 columns = 120 variadic args; a single json_build_object() would fail
+    # with "cannot pass more than 100 arguments to a function".
+    pairs = [f"'c{i}', {i}" for i in range(60)]
+    result = session.execute(
+        text(f"SELECT {_json_build_object_sql(pairs)}")
+    ).scalar_one()
+    assert len(result) == 60
+    assert result["c0"] == 0
+    assert result["c59"] == 59
