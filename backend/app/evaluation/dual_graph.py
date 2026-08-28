@@ -41,7 +41,7 @@ import scipy.sparse
 from scipy.sparse import csgraph
 
 
-class DualLevelDualGraph:
+class DualLevelGraph:
     def __init__(
         self,
         node_ids: np.ndarray,
@@ -184,7 +184,7 @@ class DualLevelDualGraph:
                 raise
 
     @classmethod
-    def load_cache(cls, cache_dir: Path) -> "DualLevelDualGraph":
+    def load_cache(cls, cache_dir: Path) -> "DualLevelGraph":
         """Load a graph from save_cache output, memory-mapping the arrays."""
         cache_dir = Path(cache_dir)
         meta = json.loads((cache_dir / "meta.json").read_text())

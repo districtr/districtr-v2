@@ -19,7 +19,7 @@ def block_cut_edges(context: DocumentEvaluationContext) -> CutEdgesResult:
 
     The cut-edge count itself (mixing whole-parent and individual-unit
     assignments, and handling shatterable vs. non-shatterable maps) is
-    computed by ``DualLevelDualGraph.cut_edges`` — see that method's
+    computed by ``DualLevelGraph.cut_edges`` — see that method's
     docstring for the two-pass algorithm. This function only resolves the
     unit type, which doesn't touch the graph.
 

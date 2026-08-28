@@ -1,4 +1,4 @@
-"""Equivalence tests: DualLevelDualGraph must behave like the networkx graph it
+"""Equivalence tests: DualLevelGraph must behave like the networkx graph it
 replaces, for the slice of behavior it still exposes (``.nodes``/``.graph``
 dict-mimicry is dropped by design — see the class docstring — so there is
 nothing to test-for-equivalence there)."""
@@ -10,7 +10,7 @@ import networkx as nx
 import numpy as np
 import pytest
 
-from app.evaluation.dual_graph import DualLevelDualGraph
+from app.evaluation.dual_graph import DualLevelGraph
 from app.evaluation.graph_loader import from_networkx, from_npz
 from tests.constants import FIXTURES_PATH
 
@@ -27,7 +27,7 @@ def nx_graph(request) -> nx.Graph:
 
 
 @pytest.fixture(scope="module")
-def dg(nx_graph) -> DualLevelDualGraph:
+def dg(nx_graph) -> DualLevelGraph:
     return from_networkx(nx_graph)
 
 
@@ -100,7 +100,7 @@ def test_connected_components_match(nx_graph, dg):
 
 
 def test_unknown_ids_silently_dropped(nx_graph, dg):
-    """nx G.subgraph(...) drops unknown ids; DualLevelDualGraph must match."""
+    """nx G.subgraph(...) drops unknown ids; DualLevelGraph must match."""
     subset = list(nx_graph.nodes())[:5] + ["missing_1", "missing_2"]
     expected = {
         frozenset(c) for c in nx.connected_components(nx_graph.subgraph(subset))
@@ -163,7 +163,7 @@ def test_is_shattered_parent_direct_construction():
 # -- expand_non_contiguous -------------------------------------------------
 
 
-def _ncp_graph() -> DualLevelDualGraph:
+def _ncp_graph() -> DualLevelGraph:
     G = nx.Graph()
     G.add_edge("a", "b")
     G.add_edge("c", "d")
@@ -284,7 +284,7 @@ def test_from_npz_rejects_unknown_version(tmp_path):
 def test_save_load_cache_round_trip(nx_graph, dg, tmp_path):
     cache_dir = tmp_path / "cached"
     dg.save_cache(cache_dir)
-    loaded = DualLevelDualGraph.load_cache(cache_dir)
+    loaded = DualLevelGraph.load_cache(cache_dir)
 
     # Arrays are memory-mapped (shared across worker processes by the OS)
     assert isinstance(loaded._node_ids, np.memmap)
@@ -308,7 +308,7 @@ def test_save_cache_race_first_writer_wins(dg, tmp_path):
     dg.save_cache(cache_dir)
     # A second (racing) writer must not fail or corrupt the existing cache
     dg.save_cache(cache_dir)
-    loaded = DualLevelDualGraph.load_cache(cache_dir)
+    loaded = DualLevelGraph.load_cache(cache_dir)
     assert loaded._node_ids.tolist() == dg._node_ids.tolist()
 
 
@@ -321,7 +321,7 @@ def test_load_cache_rejects_unknown_version(dg, tmp_path):
     meta["cache_version"] = 999
     (cache_dir / "meta.json").write_text(json.dumps(meta))
     with pytest.raises(ValueError, match="cache_version"):
-        DualLevelDualGraph.load_cache(cache_dir)
+        DualLevelGraph.load_cache(cache_dir)
 
 
 def test_load_cache_csr_shares_memory_with_mmap_arrays(dg, tmp_path):
@@ -332,7 +332,7 @@ def test_load_cache_csr_shares_memory_with_mmap_arrays(dg, tmp_path):
     np.shares_memory rather than assumed."""
     cache_dir = tmp_path / "cached"
     dg.save_cache(cache_dir)
-    loaded = DualLevelDualGraph.load_cache(cache_dir)
+    loaded = DualLevelGraph.load_cache(cache_dir)
 
     assert loaded._adj.dtype == loaded._adj_offsets.dtype == np.int32
     assert np.shares_memory(loaded._csr.indices, loaded._adj)

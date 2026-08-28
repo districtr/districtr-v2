@@ -1,5 +1,5 @@
 from typing import Iterable, Hashable, Any
-from app.evaluation.dual_graph import DualLevelDualGraph
+from app.evaluation.dual_graph import DualLevelGraph
 from app.models import UUIDType, DistrictrMap
 from app.utils import assert_safe_ident
 from sqlmodel import Session, Integer, ARRAY
@@ -13,13 +13,13 @@ logging.basicConfig(level=logging.INFO)
 
 
 def check_subgraph_contiguity(
-    G: DualLevelDualGraph, subgraph_nodes: Iterable[Hashable]
+    G: DualLevelGraph, subgraph_nodes: Iterable[Hashable]
 ) -> bool:
     return G.is_connected(subgraph_nodes)
 
 
 def subgraph_number_connected_components(
-    G: DualLevelDualGraph, subgraph_nodes: Iterable[Hashable]
+    G: DualLevelGraph, subgraph_nodes: Iterable[Hashable]
 ) -> int:
     return G.number_connected_components(subgraph_nodes)
 
@@ -37,7 +37,7 @@ def get_assigned_nodes(
     document_id: str,
     districtr_map: DistrictrMap,
     zones: list[int] | None = None,
-    G: DualLevelDualGraph | None = None,
+    G: DualLevelGraph | None = None,
 ) -> list[ZoneContiguousNodes]:
     """Return assigned nodes that are individually contiguous.
     Parent nodes that are not contiguous will be expanded to block-level children.
@@ -87,7 +87,7 @@ def get_assigned_nodes_bboxes(
     document_id: str,
     districtr_map: DistrictrMap,
     zone: int,
-    G: DualLevelDualGraph | None = None,
+    G: DualLevelGraph | None = None,
 ) -> list[NodeWithBBoxes] | None:
     """Return contiguous assigned nodes with bounding boxes for a specific zone.
 

@@ -1,6 +1,6 @@
 """Graph I/O and runtime utilities for contiguity evaluation.
 
-Owns every path by which a ``DualLevelDualGraph`` gets built from external
+Owns every path by which a ``DualLevelGraph`` gets built from external
 storage — the pipeline's npz format, a legacy pickled networkx graph, S3 vs.
 local resolution, the shared mmap disk cache, and the per-process LRU. The
 graph class itself (``app.evaluation.dual_graph``) has no knowledge of any of
@@ -22,7 +22,7 @@ import numpy as np
 from networkx import Graph
 
 from app.core.config import settings
-from app.evaluation.dual_graph import DualLevelDualGraph
+from app.evaluation.dual_graph import DualLevelGraph
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ def get_gerrydb_graph_file(
     return f"s3://{settings.R2_BUCKET_NAME}/{S3_GRAPH_PREFIX}/{gerrydb_name}.npz"
 
 
-def from_networkx(G: Graph) -> DualLevelDualGraph:
+def from_networkx(G: Graph) -> DualLevelGraph:
     """Convert a pipeline-built networkx graph (pkl fallback and tests).
 
     Uses a plain dict for node-label-to-index translation, not vectorized
@@ -84,7 +84,7 @@ def from_networkx(G: Graph) -> DualLevelDualGraph:
 
     we = G.graph.get("weighted_edges")
     ncp = G.graph.get("non_contiguous_parents")
-    return DualLevelDualGraph(
+    return DualLevelGraph(
         node_ids=node_ids,
         edges=edges,
         parent_of=parent_of,
@@ -97,7 +97,7 @@ def from_networkx(G: Graph) -> DualLevelDualGraph:
     )
 
 
-def from_npz(file) -> DualLevelDualGraph:
+def from_npz(file) -> DualLevelGraph:
     """Load from an npz file path or file-like object (see pipelines
     ``graph_to_npz_arrays`` for the writer — keep the two in sync)."""
     with np.load(file, allow_pickle=False) as data:
@@ -115,7 +115,7 @@ def from_npz(file) -> DualLevelDualGraph:
         non_contiguous_parents = None
         if bool(data["has_non_contiguous_parents"]):
             non_contiguous_parents = set(data["non_contiguous_parents"].tolist())
-        return DualLevelDualGraph(
+        return DualLevelGraph(
             node_ids=node_ids,
             edges=data["edges"],
             parent_of=data["parent_of"],
@@ -124,16 +124,16 @@ def from_npz(file) -> DualLevelDualGraph:
         )
 
 
-def _parse_graph_bytes(data: bytes, file_path: str) -> DualLevelDualGraph:
+def _parse_graph_bytes(data: bytes, file_path: str) -> DualLevelGraph:
     if file_path.endswith(".npz"):
         return from_npz(io.BytesIO(data))
-    # Legacy pickled networkx graph: convert to a compact DualLevelDualGraph
+    # Legacy pickled networkx graph: convert to a compact DualLevelGraph
     # (~10x less resident memory); the transient nx object is freed on return.
     logger.warning("Loading legacy pkl graph %s — rebuild as npz", file_path)
     return from_networkx(pickle.loads(data))
 
 
-def get_gerrydb_graph(file_path: str) -> DualLevelDualGraph:
+def get_gerrydb_graph(file_path: str) -> DualLevelGraph:
     """Load a GerryDB graph (npz, or legacy nx pkl) from a local path or S3 URI.
 
     S3 objects are streamed straight into memory — the lru_cache on
@@ -166,7 +166,7 @@ def get_gerrydb_graph(file_path: str) -> DualLevelDualGraph:
 _GRAPH_CACHE_MAX_SIZE = 15
 
 
-def _load_via_disk_cache(gerrydb_name: str) -> DualLevelDualGraph:
+def _load_via_disk_cache(gerrydb_name: str) -> DualLevelGraph:
     """Load through the shared mmap disk cache (one physical copy per
     container across all uvicorn workers); degrade to a private in-memory
     copy if the cache directory is unusable."""
@@ -174,7 +174,7 @@ def _load_via_disk_cache(gerrydb_name: str) -> DualLevelDualGraph:
     if (cache_dir / "meta.json").exists():
         try:
             logger.info("Loading graph %s from disk cache", gerrydb_name)
-            return DualLevelDualGraph.load_cache(cache_dir)
+            return DualLevelGraph.load_cache(cache_dir)
         except Exception:
             logger.warning(
                 "Corrupt graph disk cache %s — rebuilding", cache_dir, exc_info=True
@@ -185,7 +185,7 @@ def _load_via_disk_cache(gerrydb_name: str) -> DualLevelDualGraph:
     try:
         G.save_cache(cache_dir)
         # Reload memory-mapped so this worker shares pages too.
-        return DualLevelDualGraph.load_cache(cache_dir)
+        return DualLevelGraph.load_cache(cache_dir)
     except OSError:
         logger.warning(
             "Could not write graph disk cache %s — using a private copy",
@@ -196,7 +196,7 @@ def _load_via_disk_cache(gerrydb_name: str) -> DualLevelDualGraph:
 
 
 @lru_cache(maxsize=_GRAPH_CACHE_MAX_SIZE)
-def _load_graph(gerrydb_name: str) -> DualLevelDualGraph:
+def _load_graph(gerrydb_name: str) -> DualLevelGraph:
     try:
         logger.info("Graph cache miss, loading %s", gerrydb_name)
         return _load_via_disk_cache(gerrydb_name)
@@ -220,7 +220,7 @@ _graph_locks: dict[str, threading.Lock] = {}
 _graph_locks_guard = threading.Lock()
 
 
-def get_graph(gerrydb_name: str) -> DualLevelDualGraph:
+def get_graph(gerrydb_name: str) -> DualLevelGraph:
     """Load a graph from local disk or S3, LRU-cached by gerrydb_name.
 
     Raises HTTPException (404 or 500) if the graph is unavailable.
