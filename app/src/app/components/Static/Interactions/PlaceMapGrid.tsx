@@ -13,8 +13,14 @@ export const MapStartCard: React.FC<{
   showOutcome?: boolean;
   /** Portal slug: new maps get a draft submission for this portal. */
   portalId?: string | null;
-}> = ({view, isCommunity, showOutcome = true, portalId}) => {
-  const {createPlan, isCreating} = useCreateMapDocument(view, isCommunity, portalId);
+  collectionMode?: string | null;
+}> = ({view, isCommunity, showOutcome = true, portalId, collectionMode}) => {
+  const {createPlan, isCreating} = useCreateMapDocument(
+    view,
+    isCommunity,
+    portalId,
+    collectionMode
+  );
   const outcome = isCommunity
     ? 'Draw and describe your communities'
     : view.num_districts
