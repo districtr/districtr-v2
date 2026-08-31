@@ -1,0 +1,11 @@
+{% extends "wagtailsnippets/snippets/edit.html" %}
+{# The portal-form management page: the mapped fields (panels) plus the
+   custom-questions formset inside the same form — one Save applies both. #}
+
+{% block form_content %}
+    {{ block.super }}
+
+    <div class="nice-padding">
+        {% include "datastore/_link_formset.html" with formset=custom_fields_formset heading="Custom questions" description="Extra questions this portal's form asks beyond the standard fields (short answer or paragraph). Answers are PUBLIC. Leave a row's label blank to skip it; tick Delete to remove. Saving the form applies the changes." %}
+    </div>
+{% endblock %}

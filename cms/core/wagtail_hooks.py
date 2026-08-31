@@ -56,22 +56,20 @@ class DistrictrShortcutsPanel(Component):
         self.request = request
 
     def get_context_data(self, parent_context):
-        from content.models import PlacesIndexPage, StaticIndexPage, TagsIndexPage
+        from content.models import PlacesIndexPage, StaticIndexPage
 
         user = self.request.user
         cards = []
 
         if _in_shortcut_groups(user):
-            portal_url = _index_explorer_url(TagsIndexPage)
-            if portal_url:
-                cards.append(
-                    {"label": "Edit portal pages", "url": portal_url, "icon": "tag"}
-                )
+            cards.append(
+                {"label": "Portals", "url": reverse("portals_index"), "icon": "tag"}
+            )
             cards.append(
                 {
-                    "label": "Review",
-                    "url": reverse("moderation_review_portals"),
-                    "icon": "glasses",
+                    "label": "New portal",
+                    "url": reverse("content_portal_wizard"),
+                    "icon": "plus",
                 }
             )
 
