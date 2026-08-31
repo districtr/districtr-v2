@@ -71,6 +71,12 @@ export const helpTipContent = {
     guideAnchor: 'drawing-the-districts',
   },
   // No video for this one yet — text-only, unlike the other brush tips.
+  showPopulationTooltip: {
+    title: 'Show population of paintable areas',
+    text: "Shows the total population of areas the brush can paint. Locked areas aren't counted.",
+    guideAnchor: 'drawing-the-districts',
+  },
+  // No video for this one yet — text-only, unlike the other brush tips.
   disallowPaintOver: {
     title: 'Disallow paint over',
     text: 'When enabled, the brush will only add unassigned units, leaving painted areas untouched.',

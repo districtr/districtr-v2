@@ -55,26 +55,28 @@ export const KeyOptionToggles: React.FC = () => {
           Show district numbers
         </Flex>
       </Text>
-      <Text
-        as="label"
-        size="2"
-        className={`${populationTooltipDisabled ? 'select-none' : 'cursor-pointer select-none'} ${
-          guiding ? 'ui-guide' : flashing ? 'ui-flash' : ''
-        }`}
-        style={populationTooltipDisabled ? {opacity: 0.5} : undefined}
-      >
-        <Flex gap="2" align="center">
-          <Checkbox
-            checked={mapOptions.showPopulationTooltip === true}
-            onCheckedChange={() => {
-              advanceGuide('population-tooltip');
-              setMapOptions({showPopulationTooltip: !mapOptions.showPopulationTooltip});
-            }}
-            disabled={populationTooltipDisabled}
-          />
-          Show population on hover
-        </Flex>
-      </Text>
+      <HelpTip tip="showPopulationTooltip" openDelay={HELP_TIP_HOVER_DELAY}>
+        <Text
+          as="label"
+          size="2"
+          className={`${populationTooltipDisabled ? 'select-none' : 'cursor-pointer select-none'} ${
+            guiding ? 'ui-guide' : flashing ? 'ui-flash' : ''
+          }`}
+          style={populationTooltipDisabled ? {opacity: 0.5} : undefined}
+        >
+          <Flex gap="2" align="center">
+            <Checkbox
+              checked={mapOptions.showPopulationTooltip === true}
+              onCheckedChange={() => {
+                advanceGuide('population-tooltip');
+                setMapOptions({showPopulationTooltip: !mapOptions.showPopulationTooltip});
+              }}
+              disabled={populationTooltipDisabled}
+            />
+            Show population of paintable areas
+          </Flex>
+        </Text>
+      </HelpTip>
     </Flex>
   );
 };
