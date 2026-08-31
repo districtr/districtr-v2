@@ -144,6 +144,31 @@ def infer_geo_unit_type(session: Session, layer_name: str) -> GeoUnitType:
     raise ValueError(f"Unrecognised path format {path!r} in layer {layer_name!r}")
 
 
+def infer_statefps(session: Session, layer_name: str) -> list[str] | None:
+    """Infer the state FIPS codes covered by a GerryDB layer from its path values.
+
+    Census geo_ids open with the two-digit state FIPS code, bare for blocks and
+    block groups and behind the `vtd:` prefix for VTDs (see GEOID_PREDICATES).
+    Returns the sorted distinct codes, or None when a code isn't in the census
+    range for states, DC and the territories (01-78) -- a layer keyed on
+    something other than census geo_ids leaves the column NULL rather than
+    holding a guess.
+    """
+    safe = assert_safe_ident(layer_name)
+    rows = session.execute(
+        text(
+            f"SELECT DISTINCT left(regexp_replace(path, '^vtd:', ''), 2) AS statefp FROM gerrydb.{safe}"
+        )
+    ).fetchall()
+    statefps = sorted(row.statefp for row in rows if row.statefp)
+    if not statefps or not all(
+        len(statefp) == 2 and statefp.isdigit() and 1 <= int(statefp) <= 78
+        for statefp in statefps
+    ):
+        return None
+    return statefps
+
+
 def get_gerrydb_numeric_cols(session: Session, gerrydb_table: str) -> list[str]:
     """Return validated numeric column names for a gerrydb table, excluding geometry columns."""
     rows = session.execute(
@@ -215,7 +240,8 @@ def create_districtr_map(
         group_slug: The slug of the map group.
         map_type: The type of map.
         visibility: The visibility of the map.
-        statefps: The state FIPS codes associated with the map.
+        statefps: The state FIPS codes associated with the map. Inferred from the
+            parent layer's geo_ids when omitted.
         num_districts_modifiable: If False, users cannot change the number of districts on the frontend.
         comment_length_limit: Max characters per comment (optional).
         comment_count_limit: Max comments per district (optional).
@@ -224,6 +250,8 @@ def create_districtr_map(
         The UUID of the inserted map.
     """
     map_uuid = str(uuid4())
+    if statefps is None:
+        statefps = infer_statefps(session, parent_layer)
     districtr_map = DistrictrMap(
         uuid=map_uuid,
         name=name,
