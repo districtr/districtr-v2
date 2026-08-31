@@ -26,9 +26,13 @@ export function useMetadataChange() {
       // Map-from-portal pathway: flipping to ready-to-share offers
       // submitting the plan to the portal's gallery (once — "Not now"
       // suppresses the prompt; the Save & Share menu keeps a manual button).
+      // Only 'prompt'-mode portals ask; auto modes are flipped server-side
+      // and 'form' portals never create drafts. Legacy records without a
+      // stored mode predate the modes and were all prompt-flow.
       if (updates.draft_status === DRAFT_STATUSES.READY_TO_SHARE) {
         const draft = getDraftSubmission(mapDocument.document_id);
-        if (draft && !draft.submitted && !draft.suppressed) {
+        const isPromptMode = (draft?.collectionMode ?? 'prompt') === 'prompt';
+        if (draft && isPromptMode && !draft.submitted && !draft.suppressed) {
           openPrompt(mapDocument.document_id);
         }
       }

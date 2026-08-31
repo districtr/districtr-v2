@@ -122,7 +122,9 @@ export const SaveShareModal: React.FC<{
             !draftSubmission.submitted &&
             // Finalize hard-requires ready_to_share server-side; offering the
             // modal earlier guarantees a 409 (and burns a captcha token).
-            mapMetadata?.draft_status === DRAFT_STATUSES.READY_TO_SHARE && (
+            mapMetadata?.draft_status === DRAFT_STATUSES.READY_TO_SHARE &&
+            // Auto modes finalize server-side; only prompt-mode portals ask.
+            (draftSubmission.collectionMode ?? 'prompt') === 'prompt' && (
               <Button
                 variant="soft"
                 color="violet"

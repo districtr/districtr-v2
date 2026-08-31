@@ -1,6 +1,6 @@
 'use client';
 import {useEffect, useMemo, useState} from 'react';
-import {Blockquote, Button, Checkbox, Dialog, Flex, Text} from '@radix-ui/themes';
+import {Blockquote, Button, Checkbox, Dialog, Flex, Text, TextArea} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {useFormState} from '@/app/store/formState';
 import {useDraftSubmissionStore} from '@/app/store/draftSubmissionStore';
@@ -63,6 +63,7 @@ export const SubmitToPortalModal: React.FC = () => {
 
   const requiredFields = FIELD_ORDER.filter(name => config?.required_fields?.includes(name));
   const needsEmailConfirm = !!config?.require_email_confirm && requiredFields.includes('email');
+  const requiredCustoms = (config?.custom_fields ?? []).filter(c => c.required);
   const fieldIsValid = (name: string) => {
     const value = (values[name] ?? '').trim();
     if (!value) return false;
@@ -76,7 +77,8 @@ export const SubmitToPortalModal: React.FC = () => {
     acknowledged &&
     !!captchaToken &&
     requiredFields.every(fieldIsValid) &&
-    (!needsEmailConfirm || emailConfirm === values['email']);
+    (!needsEmailConfirm || emailConfirm === values['email']) &&
+    requiredCustoms.every(c => (values[c.key] ?? '').trim().length > 0);
 
   const dismiss = () => {
     updateDraftSubmission(promptDocumentId, {suppressed: true});
@@ -158,6 +160,28 @@ export const SubmitToPortalModal: React.FC = () => {
               </Flex>
             );
           })}
+          {requiredCustoms.map(custom => (
+            <Flex key={custom.key} direction="column" gap="1">
+              <Text as="label" size="2" weight="medium">
+                {custom.label} *
+              </Text>
+              {custom.field_type === 'textarea' ? (
+                <TextArea
+                  value={values[custom.key] ?? ''}
+                  placeholder={custom.label}
+                  onChange={e => setValues(v => ({...v, [custom.key]: e.target.value}))}
+                />
+              ) : (
+                <input
+                  className="rt-TextFieldInput rt-r-size-2 border border-slate-300 rounded p-2"
+                  type="text"
+                  value={values[custom.key] ?? ''}
+                  placeholder={custom.label}
+                  onChange={e => setValues(v => ({...v, [custom.key]: e.target.value}))}
+                />
+              )}
+            </Flex>
+          ))}
           <Text as="label" size="2">
             <Flex gap="2" align="center">
               <Checkbox
