@@ -196,7 +196,14 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
     selectedFeatures = paintFunction(mapRef, e, 0, [BLOCK_HOVER_LAYER_ID]);
   } else if (AREA_SELECT_TOOLS.includes(activeTool)) {
     const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer, activeTool);
-    selectedFeatures = paintFunction(mapRef, e, brushSize, paintLayers);
+    // The inspector reads data everywhere, including locked areas.
+    selectedFeatures = paintFunction(
+      mapRef,
+      e,
+      brushSize,
+      paintLayers,
+      activeTool !== ACTIVE_TOOLS.INSPECTOR
+    );
   } else {
     // tbd, for pan mode - is there an info mode on click?
   }
@@ -380,7 +387,14 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
     return;
   }
 
-  const selectedFeatures = paintFunction(mapRef, e, brushSize, paintLayers);
+  // The inspector reads data everywhere, including locked areas.
+  const selectedFeatures = paintFunction(
+    mapRef,
+    e,
+    brushSize,
+    paintLayers,
+    activeTool !== ACTIVE_TOOLS.INSPECTOR
+  );
   // sourceCapabilities exists on the UIEvent constructor, which does not appear
   // properly tpyed in the default map events
   // https://developer.mozilla.org/en-US/docs/Web/API/UIEvent/sourceCapabilities
@@ -421,11 +435,10 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
         ? [
             {
               label: 'Total Pop',
-              value:
-                selectedFeatures?.reduce(
-                  (acc, curr) => acc + parseInt(curr.properties.total_pop_20),
-                  0
-                ) ?? 'N/A',
+              value: selectedFeatures.reduce(
+                (acc, curr) => acc + parseInt(curr.properties.total_pop_20),
+                0
+              ),
             },
           ]
         : [],
