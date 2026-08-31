@@ -73,7 +73,7 @@ export const helpTipContent = {
   // No video for this one yet — text-only, unlike the other brush tips.
   showPopulationTooltip: {
     title: 'Show population of paintable areas',
-    text: "Shows the total population of areas the brush can paint. Locked areas aren't counted.",
+    text: "Shows the total population of areas the brush can paint. Forbid paint-over areas or locked districts aren't counted.",
     guideAnchor: 'drawing-the-districts',
   },
   // No video for this one yet — text-only, unlike the other brush tips.
