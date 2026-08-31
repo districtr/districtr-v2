@@ -92,6 +92,7 @@ EXPECTED_COLUMNS = {
         "required_fields",
         "require_email_confirm",
         "admin_teams",
+        "collection_mode",
         "created_at",
         "updated_at",
     },
