@@ -650,3 +650,232 @@ class TestPublicListParams:
             select(Submission.id).where(col(Submission.portal_id) == PORTAL)
         ).one()
         assert client.get(f"/api/submissions?ids={draft_pk}").json() == []
+
+
+# ---------------------------------------------------------------------------
+# Collection modes: server-side auto-finalize + internal exclusion
+# ---------------------------------------------------------------------------
+
+AUTO_PORTAL = "auto-portal"
+INTERNAL_PORTAL = "internal-portal"
+
+
+@pytest.fixture(name="mode_portals")
+def mode_portals_fixture(session: Session, form_config):
+    """One portal per auto mode, next to the prompt-mode `form_config`."""
+    for portal_id, mode in (
+        (AUTO_PORTAL, "auto_public"),
+        (INTERNAL_PORTAL, "internal"),
+    ):
+        session.add(
+            FormConfig(
+                portal_id=portal_id,
+                name=portal_id,
+                fields=[],
+                required_fields=[],
+                admin_teams=["team-a"],
+                collection_mode=mode,
+            )
+        )
+    session.commit()
+
+
+class TestAutoFinalize:
+    @pytest.fixture(autouse=True)
+    def _map_module(self, ks_demo_view_census_blocks_districtrmap, mode_portals):
+        """create_document needs the map module; portals need configs."""
+
+    def _create_draft(self, client, portal_id):
+        response = client.post(
+            "/api/create_document",
+            json={"districtr_map_slug": GERRY_DB_FIXTURE_NAME, "portal_id": portal_id},
+        )
+        assert response.status_code == 201, response.json()
+        return response.json()
+
+    def _set_status(self, client, document_id, draft_status):
+        return client.put(
+            f"/api/document/{document_id}/metadata", json={"draft_status": draft_status}
+        )
+
+    def test_ready_to_share_flips_auto_draft_live_no_clone(self, client, session):
+        doc = self._create_draft(client, AUTO_PORTAL)
+        documents_before = len(session.exec(select(Document)).all())
+
+        assert (
+            self._set_status(client, doc["document_id"], "ready_to_share").status_code
+            == 200
+        )
+
+        submission = session.exec(
+            select(Submission).where(
+                col(Submission.submission_id) == doc["submission_id"]
+            )
+        ).one()
+        assert submission.status == "submitted"
+        # The live map, not a clone — and no new Document row exists.
+        assert submission.map_public_id == doc["public_id"]
+        assert len(session.exec(select(Document)).all()) == documents_before
+
+        # Idempotent: a second submitted-tier PUT is a no-op.
+        first_submitted_at = submission.submitted_at
+        assert (
+            self._set_status(client, doc["document_id"], "in_progress").status_code
+            == 200
+        )
+        session.refresh(submission)
+        assert submission.submitted_at == first_submitted_at
+
+    def test_in_progress_also_triggers(self, client, session):
+        doc = self._create_draft(client, INTERNAL_PORTAL)
+        assert (
+            self._set_status(client, doc["document_id"], "in_progress").status_code
+            == 200
+        )
+        submission = session.exec(
+            select(Submission).where(
+                col(Submission.submission_id) == doc["submission_id"]
+            )
+        ).one()
+        assert submission.status == "submitted"
+
+    def test_scratch_does_not_trigger(self, client, session):
+        doc = self._create_draft(client, AUTO_PORTAL)
+        assert (
+            self._set_status(client, doc["document_id"], "scratch").status_code == 200
+        )
+        submission = session.exec(
+            select(Submission).where(
+                col(Submission.submission_id) == doc["submission_id"]
+            )
+        ).one()
+        assert submission.status == "draft"
+
+    def test_prompt_portal_draft_is_not_flipped(self, client, session):
+        # Deliberate-submission portals keep the modal/clone flow: the
+        # backend must not auto-submit their drafts.
+        doc = self._create_draft(client, PORTAL)
+        assert (
+            self._set_status(client, doc["document_id"], "ready_to_share").status_code
+            == 200
+        )
+        submission = session.exec(
+            select(Submission).where(
+                col(Submission.submission_id) == doc["submission_id"]
+            )
+        ).one()
+        assert submission.status == "draft"
+
+
+class TestInternalExclusion:
+    @pytest.fixture(autouse=True)
+    def _map_module(self, ks_demo_view_census_blocks_districtrmap, mode_portals):
+        pass
+
+    def _submitted_internal(self, client, session):
+        response = client.post(
+            "/api/create_document",
+            json={
+                "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+                "portal_id": INTERNAL_PORTAL,
+            },
+        )
+        doc = response.json()
+        client.put(
+            f"/api/document/{doc['document_id']}/metadata",
+            json={"draft_status": "ready_to_share"},
+        )
+        return doc
+
+    def test_internal_submissions_hidden_from_public_surfaces(self, client, session):
+        doc = self._submitted_internal(client, session)
+
+        # Public submissions list: absent (with or without portal filter).
+        assert client.get("/api/submissions?portal_id=internal-portal").json() == []
+        assert all(
+            s["portal_id"] != INTERNAL_PORTAL
+            for s in client.get("/api/submissions").json()
+        )
+        # Tag gallery: absent (the auto-applied portal tag would match).
+        assert client.get(f"/api/documents/list?tags={INTERNAL_PORTAL}").json() == []
+
+        # Admin list: present.
+        _set_auth(TEAM_A_PAYLOAD)
+        admin = client.get(f"/api/submissions/admin?portal_id={INTERNAL_PORTAL}").json()
+        assert [s["map_public_id"] for s in admin] == [doc["public_id"]]
+        assert admin[0]["status"] == "submitted"
+
+
+# ---------------------------------------------------------------------------
+# Custom fields
+# ---------------------------------------------------------------------------
+
+
+class TestCustomFields:
+    @pytest.fixture(autouse=True)
+    def _customs(self, session: Session, form_config):
+        from app.submissions.models import FormFieldCustom
+
+        session.add(
+            FormFieldCustom(
+                portal_id=PORTAL,
+                key="custom_neighborhood",
+                label="What neighborhood do you live in?",
+                field_type="text",
+                required=True,
+                sort_order=0,
+            )
+        )
+        session.add(
+            FormFieldCustom(
+                portal_id=PORTAL,
+                key="custom_story",
+                label="Tell us your story",
+                field_type="textarea",
+                required=False,
+                sort_order=1,
+            )
+        )
+        session.commit()
+
+    def test_form_config_read_includes_mode_and_customs(self, client):
+        config = client.get(f"/api/submissions/form_config?portal_id={PORTAL}").json()
+        assert config["collection_mode"] == "prompt"
+        assert [c["key"] for c in config["custom_fields"]] == [
+            "custom_neighborhood",
+            "custom_story",
+        ]
+        assert config["custom_fields"][0]["required"] is True
+        assert config["custom_fields"][1]["field_type"] == "textarea"
+
+    def test_missing_required_custom_reported_with_other_errors(self, client):
+        response = _submit(client, fields={"bogus": "x"})
+        assert response.status_code == 422
+        errors = response.json()["detail"]
+        assert any("custom_neighborhood" in e for e in errors)
+        assert any("bogus" in e for e in errors)
+
+    def test_custom_values_stored_and_public(self, client):
+        response = _submit(
+            client,
+            fields={
+                **VALID_FIELDS,
+                "custom_neighborhood": "Hyde Park",
+                "custom_story": "We moved here in 1998.",
+            },
+        )
+        assert response.status_code == 201, response.json()
+        listed = client.get(f"/api/submissions?portal_id={PORTAL}").json()
+        assert listed[0]["fields"]["custom_neighborhood"] == "Hyde Park"
+        assert listed[0]["fields"]["custom_story"] == "We moved here in 1998."
+
+    def test_custom_text_length_cap(self, client):
+        response = _submit(
+            client,
+            fields={
+                **VALID_FIELDS,
+                "custom_neighborhood": "x" * 300,  # text caps at 255
+            },
+        )
+        assert response.status_code == 422
+        assert any("custom_neighborhood" in e for e in response.json()["detail"])

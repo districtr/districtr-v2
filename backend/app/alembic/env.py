@@ -20,7 +20,12 @@ from app.models import (
 from app.save_share.models import MapDocumentToken
 from app.district_notes import DistrictNote
 from app.evaluation.models import Evaluation
-from app.submissions.models import FormConfig, Submission, SubmissionContent
+from app.submissions.models import (
+    FormConfig,
+    FormFieldCustom,
+    Submission,
+    SubmissionContent,
+)
 
 dotenv.load_dotenv()
 
@@ -43,6 +48,7 @@ tables = [
     MapDocumentToken,
     DistrictNote,
     FormConfig,
+    FormFieldCustom,
     Submission,
     SubmissionContent,
     DistrictUnions,

@@ -45,12 +45,35 @@ from app.core.models import SQLModel, TimeStampMixin
 from app.models import Document
 
 
+class CollectionMode:
+    """How a portal collects map submissions.
+
+    internal    — auto-collected, visible only in the admin gallery
+    auto_public — auto-collected into the public gallery (live references)
+    prompt      — SubmitToPortalModal on ready-to-share (clone-at-submission)
+    form        — manual form block only
+    """
+
+    internal = "internal"
+    auto_public = "auto_public"
+    prompt = "prompt"
+    form = "form"
+
+    # Modes where the backend auto-finalizes the draft on a submitted-tier
+    # draft_status; entries keep their LIVE map reference (no clone).
+    auto_modes = (internal, auto_public)
+
+
 class FormConfig(TimeStampMixin, SQLModel, table=True):
     metadata = MetaData(schema=COMMENTS_SCHEMA)
     __tablename__ = "form_configs"
     __table_args__ = (
         CheckConstraint("LENGTH(TRIM(portal_id)) > 0", name="portal_not_empty"),
         CheckConstraint("required_fields <@ fields", name="required_subset_of_fields"),
+        CheckConstraint(
+            "collection_mode IN ('internal', 'auto_public', 'prompt', 'form')",
+            name="collection_mode_valid",
+        ),
     )
 
     id: int = Field(
@@ -83,6 +106,56 @@ class FormConfig(TimeStampMixin, SQLModel, table=True):
         sa_column=Column(
             ARRAY(String(255)), nullable=False, server_default=text("'{}'")
         ),
+    )
+    collection_mode: str = Field(
+        default=CollectionMode.prompt,
+        sa_column=Column(
+            String(16), nullable=False, server_default=CollectionMode.prompt
+        ),
+    )
+
+
+class FormFieldCustom(TimeStampMixin, SQLModel, table=True):
+    """An admin-defined question beyond the fixed field registry.
+
+    Keys are 'custom_'-prefixed (slugified from the label by the CMS) so they
+    can never collide with registry field names; values are stored in
+    submissions_content like any other field and are PUBLIC.
+    """
+
+    metadata = MetaData(schema=COMMENTS_SCHEMA)
+    __tablename__ = "form_fields_custom"
+    __table_args__ = (
+        UniqueConstraint("portal_id", "key", name="custom_field_unique_per_portal"),
+        CheckConstraint("key LIKE 'custom\\_%'", name="key_prefixed"),
+        CheckConstraint("LENGTH(TRIM(label)) > 0", name="label_not_empty"),
+        CheckConstraint("field_type IN ('text', 'textarea')", name="field_type_valid"),
+    )
+
+    id: int = Field(
+        sa_column=Column(
+            BigInteger, nullable=False, autoincrement=True, primary_key=True
+        )
+    )
+    portal_id: str = Field(
+        sa_column=Column(
+            ForeignKey(FormConfig.portal_id, onupdate="CASCADE", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        )
+    )
+    key: str = Field(sa_column=Column(String(64), nullable=False))
+    label: str = Field(sa_column=Column(String(255), nullable=False))
+    field_type: str = Field(sa_column=Column(String(16), nullable=False))
+    required: bool = Field(
+        default=False,
+        sa_column=Column(
+            Boolean, nullable=False, default=False, server_default="false"
+        ),
+    )
+    sort_order: int = Field(
+        default=0,
+        sa_column=Column(Integer, nullable=False, default=0, server_default="0"),
     )
 
 
@@ -271,12 +344,22 @@ class SubmissionAdmin(SubmissionPublic):
     moderation_score: float | None = None
 
 
+class CustomFieldPublic(BaseModel):
+    key: str
+    label: str
+    field_type: str
+    required: bool
+    sort_order: int
+
+
 class FormConfigPublic(BaseModel):
     portal_id: str
     name: str
     fields: list[str]
     required_fields: list[str]
     require_email_confirm: bool
+    collection_mode: str
+    custom_fields: list[CustomFieldPublic] = []
 
 
 class FlagSubmissionRequest(BaseModel):

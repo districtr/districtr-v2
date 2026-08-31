@@ -69,7 +69,13 @@ import app.evaluation.main as evaluation
 from app.evaluation.types import MetricsEnvelope
 import app.save_share.main as save_share
 import app.submissions.main as submissions
-from app.submissions.models import Submission, SubmissionStatus
+from app.submissions.main import auto_finalize_draft_submissions
+from app.submissions.models import (
+    CollectionMode,
+    FormConfig,
+    Submission,
+    SubmissionStatus,
+)
 import app.thumbnails.main as thumbnails
 from app.models import (
     Assignments,
@@ -575,6 +581,13 @@ async def create_document(
             .where(Document.document_id == document_id)  # type: ignore
             .values(map_metadata=data.metadata.model_dump(exclude_unset=True))
         )
+        if data.portal_id is not None:
+            # A creation payload can already carry a submitted-tier status
+            # (e.g. copies); apply the same auto-collect flip as the
+            # metadata endpoint.
+            auto_finalize_draft_submissions(
+                session, new_document.public_id, data.metadata.draft_status
+            )
 
     stmt = (
         select(  # type: ignore[no-matching-overload] # ty: ignore[no-matching-overload]
@@ -1438,6 +1451,7 @@ async def get_document_list(
         submission_tagged = exists(
             select(literal(1))
             .select_from(Submission)
+            .join(FormConfig, col(FormConfig.portal_id) == Submission.portal_id)
             .where(
                 and_(
                     Submission.map_public_id == Document.public_id,
@@ -1450,6 +1464,8 @@ async def get_document_list(
                     col(Submission.status) == SubmissionStatus.submitted,
                     col(Submission.hidden).is_(False),
                     col(Submission.nsfw).is_(False),
+                    # Internal-mode portals never surface publicly.
+                    col(FormConfig.collection_mode) != CollectionMode.internal,
                 )
             )
             .correlate(Document)
@@ -1759,6 +1775,11 @@ async def update_districtrmap_metadata(
             .values(map_metadata=merged)
         )
         session.connection().execute(stmt)
+        # Auto-collect portals: reaching a submitted-tier status flips this
+        # map's draft submission to submitted (live reference, no clone).
+        auto_finalize_draft_submissions(
+            session, document.public_id, merged.get("draft_status")
+        )
         session.commit()
 
     except Exception as e:

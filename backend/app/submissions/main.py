@@ -49,7 +49,7 @@ from app.core.security import (
 )
 from app.district_notes import duplicate_district_notes
 from app.models import Document
-from app.save_share.models import DocumentDraftStatus
+from app.save_share.models import SUBMITTED_DRAFT_STATUSES, DocumentDraftStatus
 from app.submissions.fields import (
     PRIVATE_FIELDS,
     slugify,
@@ -57,9 +57,12 @@ from app.submissions.fields import (
 )
 from app.submissions.moderation import moderate_submission_by_id
 from app.submissions.models import (
+    CollectionMode,
+    CustomFieldPublic,
     FlagSubmissionRequest,
     FormConfig,
     FormConfigPublic,
+    FormFieldCustom,
     HiddenUpdate,
     NsfwUpdate,
     Submission,
@@ -92,6 +95,51 @@ def get_form_config(portal_id: str, session: Session) -> FormConfig:
             detail=f"No form config for portal {portal_id!r}",
         )
     return config
+
+
+def auto_finalize_draft_submissions(
+    session: Session, public_id: int | None, draft_status: str | None
+) -> int:
+    """Flip auto-mode draft submissions to submitted when their map reaches a
+    submitted-tier draft_status (in_progress / ready_to_share).
+
+    The auto-collect contract: entries keep their LIVE map reference — no
+    clone, no form, no moderation task (there is no text content). Idempotent
+    (only drafts match) and one-way (regressing to scratch does not
+    un-submit; the gallery's draft_status filter hides scratch maps anyway).
+    Called inside the caller's transaction; does not commit.
+    """
+    if public_id is None or draft_status not in [
+        s.value for s in SUBMITTED_DRAFT_STATUSES
+    ]:
+        return 0
+    drafts = session.exec(
+        select(Submission)
+        .join(FormConfig, col(FormConfig.portal_id) == Submission.portal_id)
+        .where(
+            and_(
+                col(Submission.map_public_id) == public_id,
+                col(Submission.status) == SubmissionStatus.draft,
+                col(FormConfig.collection_mode).in_(CollectionMode.auto_modes),
+            )
+        )
+    ).all()
+    for draft in drafts:
+        draft.status = SubmissionStatus.submitted
+        draft.submitted_at = datetime.now(timezone.utc)
+        session.add(draft)
+    return len(drafts)
+
+
+def get_custom_fields(portal_id: str, session: Session) -> list[FormFieldCustom]:
+    """A portal's admin-defined questions, in display order."""
+    return list(
+        session.exec(
+            select(FormFieldCustom)
+            .where(col(FormFieldCustom.portal_id) == portal_id)
+            .order_by(col(FormFieldCustom.sort_order), col(FormFieldCustom.id))
+        ).all()
+    )
 
 
 def require_portal_admin(auth_result: dict, config: FormConfig) -> None:
@@ -215,8 +263,14 @@ def _insert_content(
         )
 
 
-def _validate_or_422(config: FormConfig, values: dict[str, str]) -> None:
-    errors = validate_submission_fields(config.fields, config.required_fields, values)
+def _validate_or_422(
+    config: FormConfig,
+    values: dict[str, str],
+    custom_specs: list[FormFieldCustom],
+) -> None:
+    errors = validate_submission_fields(
+        config.fields, config.required_fields, values, custom_specs
+    )
     if errors:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=errors
@@ -275,7 +329,7 @@ async def create_submission(
         data.turnstile_token, client_ip_from_request(request)
     )
     config = get_form_config(data.portal_id, session)
-    _validate_or_422(config, data.fields)
+    _validate_or_422(config, data.fields, get_custom_fields(config.portal_id, session))
 
     map_public_id = None
     if data.map_ref is not None:
@@ -335,7 +389,7 @@ async def finalize_submission(
         )
 
     config = get_form_config(submission.portal_id, session)
-    _validate_or_422(config, data.fields)
+    _validate_or_422(config, data.fields, get_custom_fields(config.portal_id, session))
 
     if submission.map_public_id is None:
         raise HTTPException(
@@ -377,10 +431,14 @@ async def list_submissions(
     is optional: gallery blocks filter by tags or curated ids instead."""
     stmt = (
         select(Submission)
+        # Internal-mode portals collect maps for the admin gallery only —
+        # their submissions never appear in any public listing.
+        .join(FormConfig, col(FormConfig.portal_id) == Submission.portal_id)
         .where(
             and_(
                 col(Submission.status) == SubmissionStatus.submitted,
                 col(Submission.hidden).is_(False),
+                col(FormConfig.collection_mode) != CollectionMode.internal,
             )
         )
         .order_by(
@@ -452,7 +510,25 @@ async def get_form_config_public(
 ):
     """Public read of a portal's form shape (used by the abbreviated
     map-submission form; the CMS injects the same data into portal pages)."""
-    return get_form_config(portal_id, session)
+    config = get_form_config(portal_id, session)
+    return FormConfigPublic(
+        portal_id=config.portal_id,
+        name=config.name,
+        fields=config.fields,
+        required_fields=config.required_fields,
+        require_email_confirm=config.require_email_confirm,
+        collection_mode=config.collection_mode,
+        custom_fields=[
+            CustomFieldPublic(
+                key=c.key,
+                label=c.label,
+                field_type=c.field_type,
+                required=c.required,
+                sort_order=c.sort_order,
+            )
+            for c in get_custom_fields(portal_id, session)
+        ],
+    )
 
 
 @router.post(
