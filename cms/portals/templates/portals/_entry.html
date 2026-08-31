@@ -1,0 +1,75 @@
+{# One SubmissionAdmin row in the portal gallery (the takedown surface). #}
+<article style="border: 1px solid var(--w-color-border-furniture); border-radius: 5px; padding: 1rem; margin-bottom: 1rem; display: flex; gap: 1rem;">
+    {% if entry.map_public_id %}
+        <a href="{{ backend_url }}/api/document/{{ entry.map_public_id }}/thumbnail"
+           target="_blank" rel="noreferrer" style="flex-shrink: 0;">
+            <img src="{{ backend_url }}/api/document/{{ entry.map_public_id }}/thumbnail"
+                 alt="Map {{ entry.map_public_id }} thumbnail"
+                 width="128" height="128"
+                 style="object-fit: cover; border-radius: 4px; background: var(--w-color-surface-header);"
+                 loading="lazy">
+        </a>
+    {% endif %}
+    <div style="flex-grow: 1; min-width: 0;">
+        <header style="display:flex; justify-content:space-between; align-items:start; gap:1rem;">
+            <div>
+                <h3 style="margin: 0 0 0.25rem;">
+                    {% if entry.document.map_metadata.name %}{{ entry.document.map_metadata.name }}{% elif entry.field_title %}{{ entry.field_title }}{% else %}#{{ entry.id }}{% endif %}
+                    {% if entry.map_public_id %}<small>· Map {{ entry.map_public_id }}</small>{% endif %}
+                    {% if entry.status == "draft" %}<span class="w-status">Draft (not yet submitted)</span>{% endif %}
+                    {% if entry.document.map_metadata.draft_status %}<span class="w-status">{{ entry.document.map_metadata.draft_status }}</span>{% endif %}
+                    {% if entry.flagged %}<span class="w-status" style="background: var(--w-color-critical-100);">Reported by a visitor</span>{% endif %}
+                    {% if entry.nsfw %}<span class="w-status w-status--primary">Blurred (nsfw)</span>{% endif %}
+                    {% if entry.hidden %}<span class="w-status">Hidden</span>{% endif %}
+                </h3>
+                <p style="margin:0"><small>
+                    {% if entry.document.map_module %}{{ entry.document.map_module }} · {% endif %}
+                    Moderation score: {{ entry.moderation_score|floatformat:2|default:"–" }}
+                    {% if entry.submitted_at %}· submitted {{ entry.submitted_at }}{% elif entry.created_at %}· started {{ entry.created_at }}{% endif %}
+                </small></p>
+            </div>
+            <div style="text-align:right; display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
+                {% if entry.nsfw %}
+                    {% include "portals/_action_button.html" with action="nsfw" value="0" label="Unblur" %}
+                {% else %}
+                    {% include "portals/_action_button.html" with action="nsfw" value="1" label="Blur (nsfw)" %}
+                {% endif %}
+                {% if entry.hidden %}
+                    {% include "portals/_action_button.html" with action="hidden" value="0" label="Restore" %}
+                {% else %}
+                    {% include "portals/_action_button.html" with action="hidden" value="1" label="Hide" danger=True %}
+                {% endif %}
+                {% if entry.map_public_id and entry.status == "submitted" %}
+                    <form method="post" action="{% url 'portals_add_to_gallery' %}" style="display:inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="portal" value="{{ portal.slug }}">
+                        <input type="hidden" name="public_id" value="{{ entry.map_public_id }}">
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <button type="submit" class="button button-small button-secondary" title="Optional curation: pin this plan in the page's curated gallery block (draft page revision)">Pin to page gallery</button>
+                    </form>
+                {% endif %}
+            </div>
+        </header>
+
+        {% if entry.field_title or entry.field_comment or entry.field_name or entry.field_rows %}
+            <section style="margin-top:0.75rem;">
+                {% if entry.field_title %}<h4 style="margin:0 0 0.25rem;">{{ entry.field_title }}</h4>{% endif %}
+                {% if entry.field_comment %}<p style="white-space:pre-wrap; margin:0 0 0.5rem;">{{ entry.field_comment }}</p>{% endif %}
+                {% if entry.field_name %}<p style="margin:0 0 0.25rem;"><strong>{{ entry.field_name }}</strong></p>{% endif %}
+                {% if entry.field_rows %}
+                    <ul style="list-style:none; padding:0; margin:0;">
+                        {% for name, value in entry.field_rows %}
+                            <li style="margin-bottom:0.25rem;"><code>{{ name }}</code>: {{ value }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </section>
+        {% endif %}
+
+        {% if entry.tags %}
+            <section style="margin-top:0.5rem;">
+                {% for tag in entry.tags %}<code style="margin-right:0.5rem;">{{ tag }}</code>{% endfor %}
+            </section>
+        {% endif %}
+    </div>
+</article>

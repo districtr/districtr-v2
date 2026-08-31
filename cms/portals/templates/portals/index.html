@@ -1,0 +1,48 @@
+{% extends "wagtailadmin/base.html" %}
+{% block titletag %}Portals{% endblock %}
+
+{% block content %}
+    {% include "wagtailadmin/shared/header.html" with title="Portals" subtitle="Every portal you administer" icon="tag" action_url="/admin/portals/new/" action_text="New portal" %}
+
+    <div class="nice-padding">
+        {% if not rows %}
+            <p>No portals yet — <a href="/admin/portals/new/">make one</a>.</p>
+        {% endif %}
+        <table class="listing">
+            <thead>
+                <tr>
+                    <th>Portal</th>
+                    <th>Collection</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                    <tr>
+                        <td>
+                            <strong>{{ row.page.title }}</strong><br>
+                            <code>/portal/{{ row.page.slug }}</code>
+                        </td>
+                        <td>{{ row.config.collection_mode|default:"—" }}</td>
+                        <td>
+                            {% if row.page.live %}<span class="w-status w-status--primary">Live</span>
+                            {% else %}<span class="w-status">Draft</span>{% endif %}
+                        </td>
+                        <td style="white-space: nowrap;">
+                            <a class="button button-small" href="{{ row.gallery_url }}">Gallery</a>
+                            <a class="button button-small" href="{{ row.metrics_url }}">Metrics</a>
+                            <a class="button button-small button-secondary" href="{{ row.edit_page_url }}">Edit page</a>
+                            {% if row.edit_form_url %}
+                                <a class="button button-small button-secondary" href="{{ row.edit_form_url }}">Edit form</a>
+                            {% endif %}
+                            {% if row.page.live %}
+                                <a class="button button-small button-secondary" href="{{ row.page.url }}" target="_blank" rel="noreferrer">View live</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

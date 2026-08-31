@@ -19,9 +19,9 @@ member can still SEE out-of-scope page titles there — every action on them is
 blocked by the hooks above.
 """
 
-from django.urls import path, reverse
+from django.urls import reverse
 from wagtail import hooks
-from wagtail.admin.auth import permission_denied, user_passes_test
+from wagtail.admin.auth import permission_denied
 from wagtail.admin.menu import Menu, SubmenuMenuItem
 from wagtail.models import Locale, Page
 
@@ -33,9 +33,7 @@ from content.models import (
     PlacesIndexPage,
     StaticIndexPage,
     TagPage,
-    TagsIndexPage,
 )
-from content.portal_wizard import portal_wizard
 
 
 def _is_out_of_scope_page(request, page):
@@ -98,7 +96,6 @@ def deny_out_of_team_bulk_action(request, action_type, objects, action):
 # (the raw Pages tree buries them — "how do I edit /place/colorado?").
 # ---------------------------------------------------------------------------
 
-PORTAL_EDITOR_GROUPS = frozenset({"admin", "partner", "super_partner"})
 ADMIN_ONLY_GROUPS = frozenset({"admin"})
 
 
@@ -130,54 +127,15 @@ class ContentIndexMenuItem(GroupMenuItem):
         return super().is_shown(request)
 
 
-def _is_portal_editor(user):
-    return (
-        user.is_superuser or user.groups.filter(name__in=PORTAL_EDITOR_GROUPS).exists()
-    )
-
-
-@hooks.register("register_admin_urls")
-def register_content_admin_urls():
-    # Mounted under /admin/ and wrapped in require_admin_access by Wagtail;
-    # the wizard additionally requires a portal-editor group.
-    return [
-        path(
-            "portals/new/",
-            user_passes_test(_is_portal_editor)(portal_wizard),
-            name="content_portal_wizard",
-        ),
-    ]
-
-
-class PortalWizardMenuItem(GroupMenuItem):
-    """Resolves the wizard URL lazily, at first menu render."""
-
-    def is_shown(self, request):
-        self.url = reverse("content_portal_wizard")
-        return super().is_shown(request)
-
-
 @hooks.register("register_admin_menu_item")
 def register_site_content_menu_item():
-    # Right after Pages; SubmenuMenuItem self-hides when no child is shown.
+    # Places and static pages only — portals moved to the Portals hub
+    # (portals/wagtail_hooks.py). SubmenuMenuItem self-hides when no child
+    # is shown.
     return SubmenuMenuItem(
         "Site content",
         Menu(
             items=[
-                PortalWizardMenuItem(
-                    "New portal",
-                    url="",
-                    groups=PORTAL_EDITOR_GROUPS,
-                    icon_name="plus",
-                    order=0,
-                ),
-                ContentIndexMenuItem(
-                    "Edit portal pages",
-                    TagsIndexPage,
-                    groups=PORTAL_EDITOR_GROUPS,
-                    icon_name="tag",
-                    order=1,
-                ),
                 ContentIndexMenuItem(
                     "Edit place pages",
                     PlacesIndexPage,
