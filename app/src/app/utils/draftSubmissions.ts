@@ -9,6 +9,9 @@ const STORAGE_KEY = 'draft-submissions';
 export interface DraftSubmission {
   submissionId: string;
   portalId: string;
+  /** The portal's collection mode at creation time; 'prompt' opens the
+   * submit modal on ready-to-share. Absent on legacy records. */
+  collectionMode?: string | null;
   /** User declined the ready-to-share prompt; keep the manual button only. */
   suppressed?: boolean;
   /** Finalized — nothing left to prompt for. */

@@ -54,12 +54,24 @@ export const finalizeSubmission = async (
   return {ok: true, data: response.response};
 };
 
+export interface CustomFieldPublic {
+  key: string;
+  label: string;
+  field_type: 'text' | 'textarea';
+  required: boolean;
+  sort_order: number;
+}
+
+export type CollectionMode = 'internal' | 'auto_public' | 'prompt' | 'form';
+
 export interface FormConfigPublic {
   portal_id: string;
   name: string;
   fields: string[];
   required_fields: string[];
   require_email_confirm: boolean;
+  collection_mode: CollectionMode;
+  custom_fields: CustomFieldPublic[];
 }
 
 /** Public read of a portal's form shape (the abbreviated map-submission form). */

@@ -1,7 +1,7 @@
 'use client';
 import {ContentHeader} from '@/app/components/Static/ContentHeader';
 import {useFormState} from '@/app/store/formState';
-import {Blockquote, Box, Button, Dialog, Flex, Spinner} from '@radix-ui/themes';
+import {Blockquote, Box, Button, Dialog, Flex, Spinner, TextArea} from '@radix-ui/themes';
 import {AcknowledgementField} from './AcknowledgementField';
 import {FormField} from './FormField';
 import {CommentFormTagSelector} from './CommentFormTagSelector';
@@ -10,14 +10,26 @@ import {useTurnstile} from '@/app/hooks/useTurnstile';
 import {useLayoutEffect, useRef} from 'react';
 import {FIELD_ORDER, FIELD_REGISTRY} from './fieldRegistry';
 
+export interface CustomFieldSpec {
+  key: string;
+  label: string;
+  fieldType: 'text' | 'textarea';
+  required: boolean;
+}
+
 export interface SubmissionFormProps {
   disabled?: boolean;
   /** The portal this form submits to (injected by the CMS content API). */
   portalId?: string | null;
+  /** The portal's collection mode (informational here; the form block only
+   * appears on prompt/form portals in practice). */
+  collectionMode?: string | null;
   /** Registry field names this portal's form shows; null = no form config. */
   fields?: string[] | null;
   requiredFields?: string[] | null;
   requireEmailConfirm?: boolean;
+  /** Admin-defined questions beyond the registry (answers are public). */
+  customFields?: CustomFieldSpec[] | null;
   mandatoryTags: string[];
   allowListModules: string[] | null;
 }
@@ -33,6 +45,7 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
   fields,
   requiredFields,
   requireEmailConfirm,
+  customFields,
   mandatoryTags,
   allowListModules,
 }) => {
@@ -82,6 +95,19 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
   }
   const submissionFields = shown.filter(name => FIELD_REGISTRY[name].section === 'submission');
   const aboutFields = shown.filter(name => FIELD_REGISTRY[name].section === 'about');
+
+  const renderCustomField = (spec: CustomFieldSpec) => (
+    <Box key={spec.key} flexGrow="1">
+      <FormField
+        disabled={disabled}
+        name={spec.key}
+        label={`${spec.label}${spec.required ? ' *' : ''}`}
+        type="text"
+        component={spec.fieldType === 'textarea' ? TextArea : undefined}
+        required={spec.required}
+      />
+    </Box>
+  );
 
   const renderField = (name: string) => {
     const spec = FIELD_REGISTRY[name];
@@ -181,6 +207,11 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
           <Flex direction="column" gap="4" width="100%">
             {aboutFields.map(renderField)}
           </Flex>
+          {(customFields?.length ?? 0) > 0 && (
+            <Flex direction="column" gap="4" width="100%">
+              {customFields!.map(renderCustomField)}
+            </Flex>
+          )}
           <Flex direction="column" gap="4">
             <Box flexGrow="1" flexBasis="60%">
               <AcknowledgementField

@@ -60,9 +60,16 @@ export interface FormBlock {
     /** The following are injected from the portal's FormConfig by the CMS
      * content API; null on pages without a form config. */
     portalId?: string | null;
+    collectionMode?: string | null;
     fields?: string[] | null;
     requiredFields?: string[] | null;
     requireEmailConfirm?: boolean;
+    customFields?: Array<{
+      key: string;
+      label: string;
+      fieldType: 'text' | 'textarea';
+      required: boolean;
+    }> | null;
   };
   id: string;
 }
