@@ -282,6 +282,9 @@ class FormConfig(models.Model):
     required_fields = ArrayField(models.CharField(max_length=64), default=list)
     require_email_confirm = models.BooleanField(default=False)
     admin_teams = ArrayField(models.CharField(max_length=255), default=list)
+    # How the portal collects map submissions; see backend
+    # app/submissions/models.py::CollectionMode for the vocabulary.
+    collection_mode = models.CharField(max_length=16, default="prompt")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
