@@ -1,0 +1,103 @@
+{% extends "wagtailadmin/base.html" %}
+{% block titletag %}Metrics: {{ portal.title }}{% endblock %}
+
+{% block content %}
+    {% include "wagtailadmin/shared/header.html" with title=portal.title subtitle="Map metrics for submitted plans" icon="tag" %}
+
+    <div class="nice-padding">
+        <p>
+            <a href="{% url 'portals_index' %}">← All portals</a>
+            · <a href="{% url 'portals_gallery' portal.slug %}">Gallery</a>
+        </p>
+
+        {% if error %}
+            <div class="help-block help-critical"><p>{{ error }}</p></div>
+        {% endif %}
+
+        {% if not rows and not error %}
+            <p>No submitted maps yet.</p>
+        {% else %}
+            <p class="help">
+                Metric cells fill in as each plan's evaluation loads — a plan
+                nobody has viewed since its last edit can take several seconds
+                to compute.
+            </p>
+            <table class="listing" id="metrics-table">
+                <thead>
+                    <tr>
+                        <th>Map</th>
+                        <th>Module</th>
+                        <th>Status</th>
+                        <th>Updated</th>
+                        <th>Complete</th>
+                        <th>Districts drawn</th>
+                        <th>Pop. deviation (top-to-bottom)</th>
+                        <th>Unassigned pop.</th>
+                        <th>Contiguous</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        <tr data-public-id="{{ row.public_id }}">
+                            <td>
+                                <a href="{{ backend_url }}/api/document/{{ row.public_id }}/thumbnail" target="_blank" rel="noreferrer">
+                                    {% if row.document.map_metadata.name %}{{ row.document.map_metadata.name }}{% else %}#{{ row.public_id }}{% endif %}
+                                </a>
+                            </td>
+                            <td>{{ row.document.map_module|default:"—" }}</td>
+                            <td>{{ row.document.map_metadata.draft_status|default:"—" }}</td>
+                            <td>{{ row.document.updated_at|default:"—" }}</td>
+                            <td data-cell="complete" aria-busy="true">…</td>
+                            <td data-cell="drawn" aria-busy="true">…</td>
+                            <td data-cell="deviation" aria-busy="true">…</td>
+                            <td data-cell="unassigned" aria-busy="true">…</td>
+                            <td data-cell="contiguous" aria-busy="true">…</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </div>
+
+    <script>
+        // Lazy per-row metric loads with bounded concurrency: a cold
+        // evaluation recomputes district unions + loads a graph from S3 and
+        // can take many seconds, so the page never blocks on it.
+        (function () {
+            const rows = Array.from(document.querySelectorAll('#metrics-table tbody tr[data-public-id]'));
+            const queue = rows.slice();
+            const fmt = (v, digits) => (v === null || v === undefined) ? '—'
+                : (typeof v === 'number' ? v.toLocaleString(undefined, {maximumFractionDigits: digits ?? 0}) : String(v));
+            const fill = (row, data) => {
+                const set = (cell, text) => {
+                    const el = row.querySelector(`[data-cell="${cell}"]`);
+                    el.textContent = text;
+                    el.removeAttribute('aria-busy');
+                };
+                if (data.error) {
+                    ['complete', 'drawn', 'deviation', 'unassigned', 'contiguous'].forEach(c => set(c, '⚠'));
+                    row.title = data.error;
+                    return;
+                }
+                set('complete', data.complete === null ? '—' : (data.complete ? 'Yes' : 'No'));
+                set('drawn', data.total_count ? `${fmt(data.assigned_count)} / ${fmt(data.total_count)}` : fmt(data.districts_drawn));
+                set('deviation', fmt(data.top_to_bottom_deviation));
+                set('unassigned', fmt(data.unassigned_population));
+                set('contiguous', data.all_contiguous === null ? '—' : (data.all_contiguous ? 'Yes' : 'No'));
+            };
+            const next = () => {
+                const row = queue.shift();
+                if (!row) return;
+                const id = row.dataset.publicId;
+                fetch(`{% url 'portals_metrics' portal.slug %}${id}.json`)
+                    .then(r => r.json())
+                    .then(data => fill(row, data))
+                    .catch(() => fill(row, {error: 'Failed to load metrics'}))
+                    .finally(next);
+            };
+            // Concurrency 3: enough to keep the page lively, low enough not
+            // to pile recomputes onto the backend at once.
+            for (let i = 0; i < 3; i++) next();
+        })();
+    </script>
+{% endblock %}

@@ -1,5 +1,5 @@
-{# One submission action (nsfw/hidden toggle) as its own POST form. #}
-<form method="post" action="{% url 'moderation_submission_action' %}" style="display:inline">
+{# One takedown action (nsfw/hidden toggle) as its own POST form. #}
+<form method="post" action="{% url 'portals_submission_action' %}" style="display:inline">
     {% csrf_token %}
     <input type="hidden" name="id" value="{{ entry.id }}">
     <input type="hidden" name="action" value="{{ action }}">

@@ -80,12 +80,24 @@ def _inject_form_config(body_data, portal_slug):
     """
     from django.db import DatabaseError, transaction
 
-    from datastore.models import FormConfig
+    from datastore.models import FormConfig, FormFieldCustom
 
-    config = None
+    config, custom_fields = None, []
     try:
         with transaction.atomic():
             config = FormConfig.objects.filter(portal_id=portal_slug).first()
+            if config is not None:
+                custom_fields = [
+                    {
+                        "key": custom.key,
+                        "label": custom.label,
+                        "fieldType": custom.field_type,
+                        "required": custom.required,
+                    }
+                    for custom in FormFieldCustom.objects.filter(
+                        form_config_id=portal_slug
+                    )
+                ]
     except DatabaseError:
         pass
     for block in body_data:
@@ -93,18 +105,25 @@ def _inject_form_config(body_data, portal_slug):
             block["value"].update(
                 {
                     "portalId": portal_slug,
+                    "collectionMode": config.collection_mode if config else None,
                     "fields": list(config.fields) if config else None,
                     "requiredFields": list(config.required_fields) if config else None,
                     "requireEmailConfirm": bool(config.require_email_confirm)
                     if config
                     else False,
+                    "customFields": custom_fields if config else None,
                 }
             )
-        elif block.get("type") == "map_create_buttons" and config is not None:
+        elif (
+            block.get("type") == "map_create_buttons"
+            and config is not None
+            and config.collection_mode != "form"
+        ):
             # Maps started from a portal page get a draft submission for the
-            # portal (the auto-submit pathway) — only meaningful when the
-            # portal has a form config for the backend to validate against.
+            # portal (the auto-submit pathway). Manual-form portals collect
+            # only through the form, so their map buttons stay plain.
             block["value"]["portalId"] = portal_slug
+            block["value"]["collectionMode"] = config.collection_mode
     return body_data
 
 

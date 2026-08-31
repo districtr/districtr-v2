@@ -521,7 +521,9 @@ class SiteContentMenuTests(TestCase):
         user.groups.add(Group.objects.get(name=group_name))
         return user
 
-    def test_partner_sees_only_portal_entries_with_resolved_urls(self):
+    def test_partner_sees_no_site_content_entries(self):
+        # Portals moved to the Portals hub; Site content keeps only the
+        # admin-only places/static entries, so it self-hides for partners.
         from content.wagtail_hooks import register_site_content_menu_item
 
         submenu = register_site_content_menu_item()
@@ -531,13 +533,15 @@ class SiteContentMenuTests(TestCase):
             for item in submenu.menu.registered_menu_items
             if item.is_shown(request)
         ]
-        self.assertEqual(
-            [item.label for item in shown], ["New portal", "Edit portal pages"]
-        )
-        # is_shown resolves each URL lazily (our logic).
-        self.assertEqual(shown[0].url, "/admin/portals/new/")
-        self.assertRegex(shown[1].url, r"^/admin/pages/\d+/$")
-        self.assertTrue(submenu.is_shown(request))
+        self.assertEqual(shown, [])
+
+    def test_partner_sees_portals_hub_menu(self):
+        from portals.wagtail_hooks import register_portals_menu_item
+
+        item = register_portals_menu_item()
+        request = self._request_for(self._user("partner"))
+        self.assertTrue(item.is_shown(request))
+        self.assertEqual(item.url, "/admin/portals/")
 
 
 # ---------------------------------------------------------------------------
@@ -1214,6 +1218,8 @@ class FormConfigInjectionTests(TestCase):
     def test_form_block_carries_config_and_portal_tag(self):
         value = self._form_block("configured")
         self.assertEqual(value["portalId"], "configured")
+        self.assertEqual(value["collectionMode"], "prompt")
+        self.assertEqual(value["customFields"], [])
         self.assertEqual(value["fields"], ["first_name", "email", "title", "comment"])
         self.assertEqual(value["requiredFields"], ["title", "comment"])
         self.assertFalse(value["requireEmailConfirm"])
@@ -1281,9 +1287,14 @@ class PortalWizardTests(TestCase):
 
     def setUp(self):
         from core.testing import create_mirror_tables, make_admin_user
-        from datastore.models import DistrictrMap, FormConfig, GerryDBTable
+        from datastore.models import (
+            DistrictrMap,
+            FormConfig,
+            FormFieldCustom,
+            GerryDBTable,
+        )
 
-        create_mirror_tables(GerryDBTable, DistrictrMap, FormConfig)
+        create_mirror_tables(GerryDBTable, DistrictrMap, FormConfig, FormFieldCustom)
         layer = GerryDBTable.objects.create(name="blocks")
         self.map = DistrictrMap.objects.create(
             name="Chi", districtr_map_slug="chi_wards", parent_layer=layer
@@ -1294,12 +1305,21 @@ class PortalWizardTests(TestCase):
 
     def _payload(self, **overrides):
         data = {
+            "preset": "competition",
             "title": "River Portal",
             "slug": "river-portal",
             "districtr_map_slug": "chi_wards",
-            "template": "map_collection",
+            "collection_mode": "prompt",
             "fields": ["first_name", "email", "title", "comment"],
             "required_fields": ["title", "comment"],
+            # custom-questions formset management form (rows may be blank)
+            "questions-TOTAL_FORMS": "3",
+            "questions-INITIAL_FORMS": "0",
+            "questions-MIN_NUM_FORMS": "0",
+            "questions-MAX_NUM_FORMS": "1000",
+            "questions-0-label": "",
+            "questions-1-label": "",
+            "questions-2-label": "",
         }
         data.update(overrides)
         return data
@@ -1315,7 +1335,7 @@ class PortalWizardTests(TestCase):
             f"/admin/pages/{page.pk}/edit/",
             fetch_redirect_response=False,
         )
-        # Draft, not live; body follows the chosen starter template.
+        # Draft, not live (pages keep review); body follows the preset.
         self.assertFalse(page.live)
         body_types = [block.block_type for block in page.body]
         self.assertIn("form", body_types)
@@ -1324,7 +1344,70 @@ class PortalWizardTests(TestCase):
 
         config = FormConfig.objects.get(portal_id="river-portal")
         self.assertEqual(config.name, "River Portal")
+        self.assertEqual(config.collection_mode, "prompt")
         self.assertEqual(config.required_fields, ["title", "comment"])
+
+    def test_presets_shape_mode_and_body(self):
+        from content.models import TagPage
+        from datastore.models import FormConfig
+
+        cases = {
+            "educational": (
+                "internal",
+                {"map_create_buttons"},
+                {"form", "plan_gallery"},
+            ),
+            "public_engagement": (
+                "auto_public",
+                {"map_create_buttons", "plan_gallery"},
+                {"form"},
+            ),
+            "state_commission": (
+                "form",
+                {"form", "comment_gallery"},
+                {"map_create_buttons"},
+            ),
+        }
+        for preset, (mode, expected, absent) in cases.items():
+            slug = f"preset-{preset.replace('_', '-')}"
+            response = self.client.post(
+                self.url,
+                self._payload(
+                    preset=preset, slug=slug, title=slug, collection_mode=mode
+                ),
+            )
+            page = TagPage.objects.get(slug=slug)
+            self.assertEqual(response.status_code, 302, preset)
+            body_types = set(block.block_type for block in page.body)
+            self.assertTrue(expected <= body_types, (preset, body_types))
+            self.assertFalse(absent & body_types, (preset, body_types))
+            self.assertEqual(
+                FormConfig.objects.get(portal_id=slug).collection_mode, mode
+            )
+
+    def test_custom_questions_created_with_slugified_keys(self):
+        from datastore.models import FormFieldCustom
+
+        response = self.client.post(
+            self.url,
+            self._payload(
+                **{
+                    "questions-0-label": "What neighborhood do you live in?",
+                    "questions-0-field_type": "text",
+                    "questions-0-required": "on",
+                    "questions-1-label": "Tell us your story",
+                    "questions-1-field_type": "textarea",
+                }
+            ),
+        )
+        self.assertEqual(response.status_code, 302, response.content)
+        customs = list(FormFieldCustom.objects.filter(form_config_id="river-portal"))
+        self.assertEqual(
+            [c.key for c in customs],
+            ["custom_what_neighborhood_do_you_live_in", "custom_tell_us_your_story"],
+        )
+        self.assertTrue(customs[0].required)
+        self.assertEqual(customs[1].field_type, "textarea")
 
     def test_slug_collision_with_existing_page_creates_nothing(self):
         from core.testing import make_portal

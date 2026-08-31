@@ -2,14 +2,15 @@
 {% block titletag %}New portal{% endblock %}
 
 {% block content %}
-    {% include "wagtailadmin/shared/header.html" with title="New portal" subtitle="Create a portal page and its submission form in one step" icon="tag" %}
+    {% include "wagtailadmin/shared/header.html" with title="New portal" subtitle="Pick a preset, make two decisions, publish when ready" icon="tag" %}
 
     <div class="nice-padding">
         <p>
-            This creates a <strong>draft</strong> portal page from a starter
-            template plus the portal's form configuration. Everything can be
-            adjusted afterwards — the page in the page editor, the form in
-            <em>Portal forms</em>.
+            This creates a <strong>draft</strong> portal page from a preset
+            plus the portal's submission settings. Everything can be adjusted
+            afterwards — the page in the page editor, the form in
+            <em>Portal forms</em>. Staff review the page before it goes live;
+            submissions themselves are public on arrival.
         </p>
         <form action="" method="POST" novalidate>
             {% csrf_token %}
@@ -18,10 +19,69 @@
                 {% for field in form %}
                     <li>
                         {% include "wagtailadmin/shared/field.html" with field=field %}
+                        {% if field.name == "preset" %}
+                            <p class="help" id="preset-description" style="min-height: 2.5em;"></p>
+                        {% endif %}
                     </li>
                 {% endfor %}
+                <li>
+                    <h3>Custom questions</h3>
+                    <p class="help">
+                        Extra questions beyond the standard fields (short
+                        answer or paragraph). Answers are public. Only used by
+                        the prompt-to-submit and manual-form modes. Leave a
+                        row blank to skip it.
+                    </p>
+                    {{ question_formset.management_form }}
+                    <table class="listing" style="max-width: 48rem;">
+                        <thead><tr><th>Question</th><th>Type</th><th>Required</th></tr></thead>
+                        <tbody>
+                            {% for qform in question_formset %}
+                                <tr>
+                                    <td>{{ qform.label }}</td>
+                                    <td>{{ qform.field_type }}</td>
+                                    <td>{{ qform.required }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </li>
             </ul>
             <button type="submit" class="button">Create portal</button>
         </form>
     </div>
+
+    {{ preset_data_json|json_script:"preset-data" }}
+    <script>
+        // Preset prefill: selecting a preset sets the collection mode, field
+        // checkboxes, and email-confirm toggle, and shows its description.
+        // The server trusts the POSTed values — this is convenience only.
+        (function () {
+            const presets = JSON.parse(document.getElementById('preset-data').textContent);
+            const description = document.getElementById('preset-description');
+            const applyPreset = (name, prefill) => {
+                const spec = presets[name];
+                if (!spec) return;
+                description.textContent = spec.description;
+                if (!prefill) return;
+                document.querySelectorAll('input[name="collection_mode"]').forEach(el => {
+                    el.checked = el.value === spec.collection_mode;
+                });
+                document.querySelectorAll('input[name="fields"]').forEach(el => {
+                    el.checked = spec.fields.includes(el.value);
+                });
+                document.querySelectorAll('input[name="required_fields"]').forEach(el => {
+                    el.checked = spec.required_fields.includes(el.value);
+                });
+                const confirm = document.querySelector('input[name="require_email_confirm"]');
+                if (confirm) confirm.checked = spec.require_email_confirm;
+            };
+            const radios = document.querySelectorAll('input[name="preset"]');
+            radios.forEach(el => {
+                el.addEventListener('change', () => applyPreset(el.value, true));
+            });
+            const checked = document.querySelector('input[name="preset"]:checked');
+            if (checked) applyPreset(checked.value, false);
+        })();
+    </script>
 {% endblock %}

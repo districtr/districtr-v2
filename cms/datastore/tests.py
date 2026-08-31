@@ -24,6 +24,7 @@ from datastore.models import (
     DistrictrMapsToGroups,
     GeoUnitType,
     FormConfig,
+    FormFieldCustom,
     GerryDBTable,
     MapGroup,
     MapType,
@@ -41,6 +42,7 @@ EXPECTED_TABLES = {
     DistrictrMapOverlays: "districtrmap_overlays",
     Overlay: "overlay",
     FormConfig: 'comments"."form_configs',
+    FormFieldCustom: 'comments"."form_fields_custom',
 }
 
 EXPECTED_COLUMNS = {
@@ -93,6 +95,17 @@ EXPECTED_COLUMNS = {
         "require_email_confirm",
         "admin_teams",
         "collection_mode",
+        "created_at",
+        "updated_at",
+    },
+    FormFieldCustom: {
+        "id",
+        "portal_id",
+        "key",
+        "label",
+        "field_type",
+        "required",
+        "sort_order",
         "created_at",
         "updated_at",
     },

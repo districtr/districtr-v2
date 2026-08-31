@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     "datastore",
     "content",
     "moderation",
+    "portals",
     "wagtail_localize",
     "wagtail_localize.locales",
     "wagtail.contrib.forms",

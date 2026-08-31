@@ -59,11 +59,13 @@ from authapi.teams import (
 )
 from datastore import views
 from datastore.models import (
+    COLLECTION_MODE_CHOICES,
     SUBMISSION_FIELD_CHOICES,
     DistrictrMap,
     DistrictrMapOverlays,
     DistrictrMapsToGroups,
     FormConfig,
+    FormFieldCustom,
     Overlay,
 )
 from datastore.views import (
@@ -444,6 +446,13 @@ class FormConfigAdminForm(WagtailAdminModelForm):
     the ArrayFields' default comma-separated text inputs invite typos the
     backend would then reject at submission time."""
 
+    collection_mode = forms.ChoiceField(
+        choices=COLLECTION_MODE_CHOICES,
+        widget=forms.RadioSelect,
+        initial="prompt",
+        label="How are map submissions collected?",
+    )
+
     fields = forms.MultipleChoiceField(
         choices=SUBMISSION_FIELD_CHOICES,
         widget=forms.CheckboxSelectMultiple,
@@ -467,6 +476,7 @@ class FormConfigAdminForm(WagtailAdminModelForm):
         fields = [
             "portal_id",
             "name",
+            "collection_mode",
             "fields",
             "required_fields",
             "require_email_confirm",
@@ -575,10 +585,6 @@ class _FormConfigScoped:
         return obj
 
 
-class FormConfigEditView(_FormConfigScoped, EditView):
-    pass
-
-
 class FormConfigDeleteView(_FormConfigScoped, DeleteView):
     pass
 
@@ -591,11 +597,85 @@ class FormConfigUsageView(_FormConfigScoped, UsageView):
     pass
 
 
+class CustomFieldInlineFormSet(forms.BaseInlineFormSet):
+    """The portal's custom questions: keys are derived from labels
+    ('custom_' + slug) when blank, and must stay unique per portal."""
+
+    def clean(self):
+        super().clean()
+        seen = set()
+        for form in self.forms:
+            if not form.cleaned_data or form.cleaned_data.get("DELETE"):
+                continue
+            instance = form.instance
+            if not instance.key:
+                from django.utils.text import slugify as dj_slugify
+
+                slug = dj_slugify(form.cleaned_data.get("label", "")).replace("-", "_")
+                instance.key = f"custom_{slug}"[:64]
+            if instance.key in seen:
+                form.add_error(
+                    "label",
+                    "Two custom questions would share the key "
+                    f"'{instance.key}' — make the labels distinct.",
+                )
+            seen.add(instance.key)
+
+
+CustomFieldFormSet = forms.inlineformset_factory(
+    FormConfig,
+    FormFieldCustom,
+    formset=CustomFieldInlineFormSet,
+    fields=["label", "field_type", "required", "sort_order"],
+    extra=2,
+    can_delete=True,
+)
+
+
+class FormConfigEditView(_FormConfigScoped, EditView):
+    """FormConfig edit form plus the custom-questions formset — the same
+    link-formset pattern as DistrictrMapEditView above; the config row and
+    its question rows commit or roll back together. Out-of-scope configs
+    404 via _FormConfigScoped."""
+
+    def get_link_formsets(self, data=None):
+        return {
+            "custom_fields_formset": CustomFieldFormSet(
+                data, instance=self.object, prefix="custom_fields"
+            )
+        }
+
+    def form_valid(self, form):
+        self.link_formsets = self.get_link_formsets(self.request.POST)
+        if not all(formset.is_valid() for formset in self.link_formsets.values()):
+            self.form = form
+            messages.error(self.request, self.get_error_message())
+            return self.render_to_response(self.get_context_data(form=form))
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        self.link_formsets = self.get_link_formsets(self.request.POST)
+        return super().form_invalid(form)
+
+    def save_instance(self):
+        instance = super().save_instance()
+        for formset in self.link_formsets.values():
+            formset.save()
+        return instance
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if not hasattr(self, "link_formsets"):
+            self.link_formsets = self.get_link_formsets()
+        context.update(self.link_formsets)
+        return context
+
+
 class FormConfigViewSet(SnippetViewSet):
     model = FormConfig
     icon = "form"
     menu_label = "Portal forms"
-    list_display = ["name", "portal_id", "admin_teams"]
+    list_display = ["name", "portal_id", "collection_mode", "admin_teams"]
     search_fields = ["name", "portal_id"]
     list_per_page = 50
     edit_view_class = FormConfigEditView
@@ -611,6 +691,7 @@ class FormConfigViewSet(SnippetViewSet):
                 "slug too (the rename cascades to existing submissions).",
             ),
             FieldPanel("name"),
+            FieldPanel("collection_mode"),
             FieldPanel("fields"),
             FieldPanel("required_fields"),
             FieldPanel("require_email_confirm"),
