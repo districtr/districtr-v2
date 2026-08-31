@@ -221,6 +221,7 @@ export class MapRenderSubscriber {
       case ACTIVE_TOOLS.PAN:
       case ACTIVE_TOOLS.BRUSH:
       case ACTIVE_TOOLS.ERASER:
+      case ACTIVE_TOOLS.INSPECTOR:
         setPaintFunction(defaultPaintFunction);
         break;
       case ACTIVE_TOOLS.SHATTER:

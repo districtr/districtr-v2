@@ -24,7 +24,9 @@ export function BrushSizeSelector() {
     setBrushSize(value.length ? value[0] : 0);
   };
   const handlePlusMinus = (change: number) => {
-    let newValue = brushSize + change;
+    // Read fresh state: the keydown effect below binds once ([] deps), so a
+    // closure over the `brushSize` prop would be stale after the first press.
+    let newValue = useMapControlsStore.getState().brushSize + change;
     if (newValue > BRUSH_MAX_SIZE) {
       newValue = BRUSH_MAX_SIZE;
     } else if (newValue < BRUSH_MIN_SIZE) {
