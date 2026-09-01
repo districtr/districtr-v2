@@ -1,6 +1,15 @@
 'use client';
 import {useEffect, useMemo, useState} from 'react';
-import {Blockquote, Button, Checkbox, Dialog, Flex, Text, TextArea} from '@radix-ui/themes';
+import {
+  Blockquote,
+  Button,
+  Checkbox,
+  Dialog,
+  Flex,
+  Text,
+  TextArea,
+  TextField,
+} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {useFormState} from '@/app/store/formState';
 import {useDraftSubmissionStore} from '@/app/store/draftSubmissionStore';
@@ -48,8 +57,16 @@ export const SubmitToPortalModal: React.FC = () => {
     setError('');
     if (!draft) return;
     getFormConfig(draft.portalId).then(response => {
-      if (response.ok) setConfig(response.response);
-      else setError('Could not load the portal form. Please try again later.');
+      if (response.ok) {
+        setConfig(response.response);
+        // Self-heal stale/legacy records: the stored mode is a snapshot
+        // from draft creation; the config is the server truth.
+        if (draft.collectionMode !== response.response.collection_mode) {
+          updateDraftSubmission(promptDocumentId!, {
+            collectionMode: response.response.collection_mode,
+          });
+        }
+      } else setError('Could not load the portal form. Please try again later.');
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft?.portalId, promptDocumentId]);
@@ -58,6 +75,12 @@ export const SubmitToPortalModal: React.FC = () => {
   // so a stale id from a previous map would otherwise finalize (publish) a
   // map the user is no longer looking at.
   if (!promptDocumentId || promptDocumentId !== currentDocumentId || !draft || draft.submitted) {
+    return null;
+  }
+  // The config is server truth: a portal flipped to an auto mode after this
+  // draft was created has ALREADY auto-finalized the submission — prompting
+  // would ask consent for something published and 409 (burning a captcha).
+  if (config && config.collection_mode !== 'prompt') {
     return null;
   }
 
@@ -160,23 +183,28 @@ export const SubmitToPortalModal: React.FC = () => {
               </Flex>
             );
           })}
+          {/* Abbreviated by design: like the registry fields above, only
+              REQUIRED custom questions are asked here — optional ones are
+              full-form-only (SubmissionForm). */}
           {requiredCustoms.map(custom => (
             <Flex key={custom.key} direction="column" gap="1">
-              <Text as="label" size="2" weight="medium">
+              <Text as="label" size="2" weight="medium" htmlFor={custom.key}>
                 {custom.label} *
               </Text>
               {custom.field_type === 'textarea' ? (
                 <TextArea
+                  id={custom.key}
                   value={values[custom.key] ?? ''}
                   placeholder={custom.label}
+                  maxLength={5000}
                   onChange={e => setValues(v => ({...v, [custom.key]: e.target.value}))}
                 />
               ) : (
-                <input
-                  className="rt-TextFieldInput rt-r-size-2 border border-slate-300 rounded p-2"
-                  type="text"
+                <TextField.Root
+                  id={custom.key}
                   value={values[custom.key] ?? ''}
                   placeholder={custom.label}
+                  maxLength={255}
                   onChange={e => setValues(v => ({...v, [custom.key]: e.target.value}))}
                 />
               )}
