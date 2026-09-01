@@ -14,6 +14,13 @@ Revision ID: b3d9f47a25c1
 Revises: e5b7c2f81a93
 Create Date: 2026-08-25
 
+
+CONTRACT FOR THE LATER DROP MIGRATION: the source rows are intentionally left
+in place here (downgrade = drop the new table), so from this revision onward
+the legacy zone rows are frozen while district_notes diverges. Any later
+migration that converts comments.comment rows into another shape MUST exclude
+rows linked with document_comment.zone IS NOT NULL — they are zone notes,
+already migrated here, and stale.
 """
 
 from typing import Sequence, Union
@@ -94,7 +101,9 @@ def upgrade() -> None:
                 c.updated_at
             FROM comments.comment c
             JOIN comments.document_comment dc ON dc.comment_id = c.id
-            WHERE dc.zone IS NOT NULL
+            -- zone >= 0 mirrors the new CHECK: one historic bad row must not
+            -- abort the deploy (negative zones were never renderable).
+            WHERE dc.zone IS NOT NULL AND dc.zone >= 0
             """
         )
     )

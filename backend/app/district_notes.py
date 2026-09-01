@@ -154,10 +154,22 @@ def sync_district_notes(
         )
     )
 
-    zone_counts: dict[int, int] = {}
+    # Normalize first: a note that is empty after truncation (blank input, or
+    # a map with comment_length_limit=0 — the supported "descriptions
+    # disabled" config) is treated as a deletion, NOT sent to the DB where
+    # the note_not_empty CHECK would 500 the whole assignments save.
+    normalized: list[tuple[DocumentCommentCreate, str]] = []
     for n in notes:
-        if n.zone is not None:
-            zone_counts[n.zone] = zone_counts.get(n.zone, 0) + 1
+        if n.zone is None:
+            continue
+        text = (n.text or "")[:max_note_length]
+        if not text.strip():
+            continue
+        normalized.append((n, text))
+
+    zone_counts: dict[int, int] = {}
+    for n, _ in normalized:
+        zone_counts[n.zone] = zone_counts.get(n.zone, 0) + 1
     for zone_val, count in zone_counts.items():
         if count > max_notes_per_zone:
             raise HTTPException(
@@ -166,11 +178,7 @@ def sync_district_notes(
             )
 
     kept_ids: set[int] = set()
-    for n in notes:
-        if n.zone is None:
-            continue
-        text = (n.text or "")[:max_note_length]
-
+    for n, text in normalized:
         if n.comment_id is not None and n.comment_id in existing_ids:
             session.execute(
                 update(DistrictNote)
@@ -202,14 +210,22 @@ def duplicate_district_notes(
 ) -> int:
     """Copy a document's zone notes to another document (map duplication).
 
-    moderation_score/nsfw are intentionally reset so the copy re-moderates on
-    its next save — same semantics the comment-table copy had.
+    The moderation verdict is carried over: create_document only requires a
+    session token, so resetting nsfw on copy would let anyone launder a
+    moderated note into public view by copying the map and never saving
+    (copies still re-moderate on their next save).
     """
     source = session.exec(
         select(DistrictNote).where(col(DistrictNote.document_id) == from_document_id)
     ).all()
     for note in source:
         session.add(
-            DistrictNote(document_id=to_document_id, zone=note.zone, note=note.note)
+            DistrictNote(
+                document_id=to_document_id,
+                zone=note.zone,
+                note=note.note,
+                nsfw=note.nsfw,
+                moderation_score=note.moderation_score,
+            )
         )
     return len(source)
