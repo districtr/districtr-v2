@@ -36,7 +36,9 @@ from sqlmodel import (
     String,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy.dialects.postgresql import ARRAY
+
+from app.core.models import UUIDType
 
 from app.constants import COMMENTS_SCHEMA
 from app.core.models import SQLModel, TimeStampMixin
@@ -121,7 +123,7 @@ class Submission(TimeStampMixin, SQLModel, table=True):
     submission_id: str = Field(
         default=None,
         sa_column=Column(
-            UUID(as_uuid=False),
+            UUIDType,
             nullable=False,
             unique=True,
             server_default=text("gen_random_uuid()"),

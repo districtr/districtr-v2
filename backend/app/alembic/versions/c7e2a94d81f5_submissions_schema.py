@@ -24,7 +24,9 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy.dialects.postgresql import ARRAY
+
+from app.core.models import UUIDType
 
 # revision identifiers, used by Alembic.
 revision: str = "c7e2a94d81f5"
@@ -102,7 +104,7 @@ def upgrade() -> None:
         sa.Column("id", sa.BigInteger(), autoincrement=True, nullable=False),
         sa.Column(
             "submission_id",
-            UUID(as_uuid=False),
+            UUIDType,
             server_default=sa.text("gen_random_uuid()"),
             nullable=False,
         ),
