@@ -206,7 +206,9 @@ One-time, with admin credentials:
    provider, deploy role `districtr-gha-deploy`, and seed SSM image-tag params.
 2. GitHub repo **variables**: `AWS_DEPLOY_ROLE_ARN` (the role ARN the script
    prints), `API_URL_DEV` / `API_URL_PROD` (public API URLs),
-   `AWS_DEPLOY_DEV` / `AWS_DEPLOY_PROD` (`true` to enable auto-deploy on push),
+   `AWS_DEPLOY_DEV` / `AWS_DEPLOY_PROD` (`true` to enable auto-deploy on push;
+   the CMS prod deploy is gated separately by `AWS_DEPLOY_CMS_PROD` so it can
+   stay dev-only until cutover),
    optional `AWS_REGION` (defaults to `us-east-2`; must match the state bucket
    and stack region). Repo **secrets**: `SENTRY_AUTH_TOKEN`,
    `TURNSTILE_SITE_KEY`, `NEXT_PUBLIC_MAPTILER_API_KEY`.

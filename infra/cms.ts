@@ -103,6 +103,9 @@ export function createCms(
     {name: "JWT_ISSUER", value: `https://${config.cmsDomain}`},
     {name: "JWT_AUDIENCE", value: config.jwtAudience},
     {name: "BACKEND_API_URL", value: `https://${config.apiDomain}`},
+    // Wagtail's "View live" / FrontendPageMixin URLs point at the public
+    // site; without this the base.py localhost default leaks into prod.
+    {name: "FRONTEND_URL", value: `https://${config.appDomain}`},
     {name: "R2_BUCKET_NAME", value: config.s3BucketName},
     {name: "OVERLAY_PUBLIC_URL_BASE", value: config.cdnUrl},
     // Auth via the task role (default boto3 chain), not static keys.
