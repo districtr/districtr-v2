@@ -120,7 +120,10 @@ class FormFieldCustom(TimeStampMixin, SQLModel, table=True):
 
     Keys are 'custom_'-prefixed (slugified from the label by the CMS) so they
     can never collide with registry field names; values are stored in
-    submissions_content like any other field and are PUBLIC.
+    submissions_content like any other field and are PUBLIC — there is no
+    per-question private bit, so the CMS question editor warns admins not to
+    collect contact info through custom questions (the registry's email
+    field is the private channel).
     """
 
     metadata = MetaData(schema=COMMENTS_SCHEMA)
