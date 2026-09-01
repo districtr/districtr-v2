@@ -99,12 +99,14 @@ def require_portal_admin(auth_result: dict, config: FormConfig) -> None:
 
     Every admin handler MUST resolve the submission's portal config and call
     this before acting — the scope check alone does not carry the team
-    restriction. Semantics: `read:read-all` scope → unrestricted; absent
-    `teams` claim → unrestricted (service tokens); otherwise the claim must
-    intersect the portal's admin_teams.
+    restriction. Semantics: `review:review-all` scope → unrestricted (the
+    explicit moderation-reach bypass; read:read-all deliberately does NOT
+    widen moderation, see TokenScope); absent `teams` claim → unrestricted
+    (service tokens); otherwise the claim must intersect the portal's
+    admin_teams.
     """
     token_scopes = (auth_result.get("scope") or "").split()
-    if TokenScope.read_all_content in token_scopes:
+    if TokenScope.review_all_content in token_scopes:
         return
     teams = auth_result.get("teams")
     if teams is None:
@@ -122,7 +124,7 @@ def require_portal_admin(auth_result: dict, config: FormConfig) -> None:
 def _is_team_scoped(auth_result: dict) -> bool:
     token_scopes = (auth_result.get("scope") or "").split()
     return (
-        TokenScope.read_all_content not in token_scopes
+        TokenScope.review_all_content not in token_scopes
         and auth_result.get("teams") is not None
     )
 
