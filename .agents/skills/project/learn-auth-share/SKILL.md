@@ -1,6 +1,6 @@
 ---
 name: learn-auth-share
-description: Authentication, authorization, and share links in the backend and frontend — Auth0 scopes and admin roles, Cloudflare Turnstile captcha verification, share-link and password-protected edit-access tokens, and the public id vs private document_id boundary (get_document_public). Use when adding or changing a protected endpoint, admin role, share link, edit access, or any server-side check on a request before trusting it.
+description: Authentication, authorization, and share links in the backend and frontend — Auth0 scopes and admin roles, Cloudflare Turnstile captcha verification, share-link and password-protected edit-access tokens, and the public id vs private document_id boundary. Use when adding or changing a protected endpoint, admin role, share link, edit access, or any server-side check on a request before trusting it.
 user-invocable: false
 ---
 

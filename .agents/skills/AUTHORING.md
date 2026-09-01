@@ -40,10 +40,12 @@ across cells; differences of one trial in four are noise.
   triggered 0/12. Name and description are one line: words are interchangeable between
   them, the name is just one more phrase, and an opaque name costs nothing if the
   description carries the phrase.
-- **A description can veto but only weakly promote.** Wrong text (another skill's
+- **A description can veto but barely promote.** Wrong text (another skill's
   description under this name) blocked invocation 0/11; the best-tuned description beat
-  the original 4/4 vs 3/4. Naming the exact identifiers a task will need (e.g. the
-  dependency functions) helps code-phrased prompts and caused no false positives.
+  the original 4/4 vs 3/4 — one trial, noise. Naming exact identifiers (function names)
+  in a description caused no false positives but produced no measurable lift either:
+  humans and agents phrase tasks in domain nouns, not in the codebase's identifiers.
+  Spend description tokens on the nouns.
 - **Model choice dominates everything above.** Haiku invoked the skill in 3/72 runs
   regardless of description (it goes straight to Glob/Read); Sonnet 33/58 on direct
   tasks. Subagents almost never invoke skills (one invocation across the whole
@@ -65,7 +67,7 @@ across cells; differences of one trial in four are noise.
 Procedure for writing or tuning a description: run a few agents on representative tasks
 for the concern, read each one's first planning sentence, harvest the nouns, and write
 short grammatical phrases from them. Keep the "use when" clause — it carried the
-paraphrased-task cases — and add the exact identifiers a code-phrased task will name.
+paraphrased-task cases.
 
 Repo-specific delivery constraint: Claude Code discovers `.claude/skills/<name>/SKILL.md`
 exactly one level deep. `scripts/sync-skills.sh` therefore flattens this directory's

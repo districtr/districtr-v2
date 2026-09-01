@@ -1,6 +1,6 @@
 ---
 name: learn-backend
-description: Backend API endpoints and the data model — FastAPI routes, SQLModel models, the request dependencies get_document / get_protected_document / get_document_public, transactions, and SQLAlchemy query style. Use when adding or changing a backend route or endpoint, a model, a dependency, or a database query in backend/app.
+description: Backend API endpoints and the data model — FastAPI routes, SQLModel models, request dependencies for document access, transactions, and SQLAlchemy query style. Use when adding or changing a backend route or endpoint, a model, a dependency, or a database query in backend/app.
 user-invocable: false
 ---
 
