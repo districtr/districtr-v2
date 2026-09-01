@@ -99,36 +99,54 @@ def get_form_config(portal_id: str, session: Session) -> FormConfig:
 
 def auto_finalize_draft_submissions(
     session: Session, public_id: int | None, draft_status: str | None
-) -> int:
-    """Flip auto-mode draft submissions to submitted when their map reaches a
-    submitted-tier draft_status (in_progress / ready_to_share).
+) -> list[int]:
+    """Sync auto-mode submissions with their map's draft_status.
 
     The auto-collect contract: entries keep their LIVE map reference — no
-    clone, no form, no moderation task (there is no text content). Idempotent
-    (only drafts match) and one-way (regressing to scratch does not
-    un-submit; the gallery's draft_status filter hides scratch maps anyway).
-    Called inside the caller's transaction; does not commit.
+    clone, no form. Reaching a submitted-tier status (in_progress /
+    ready_to_share) flips drafts to submitted; REGRESSING below it flips a
+    live-referenced (map_is_clone=false) submission back to draft — the
+    author never filled a consent form, so withdrawing their map must
+    un-publish it everywhere (/api/submissions has no draft_status filter,
+    so one-way would strand the entry there). Clone-backed submissions stay
+    one-way: those were deliberate, consented submissions.
+
+    Idempotent; called inside the caller's transaction; does not commit.
+    Returns the ids of rows flipped to submitted — callers MUST enqueue
+    moderate_submission_by_id for each AFTER commit: the gallery card
+    renders the map's name/description, so an unscored auto entry would let
+    an abusive map title sail past the nsfw filter.
     """
-    if public_id is None or draft_status not in [
-        s.value for s in SUBMITTED_DRAFT_STATUSES
-    ]:
-        return 0
-    drafts = session.exec(
+    if public_id is None:
+        return []
+    submitted_tier = draft_status in [s.value for s in SUBMITTED_DRAFT_STATUSES]
+    rows = session.exec(
         select(Submission)
         .join(FormConfig, col(FormConfig.portal_id) == Submission.portal_id)
         .where(
             and_(
                 col(Submission.map_public_id) == public_id,
-                col(Submission.status) == SubmissionStatus.draft,
                 col(FormConfig.collection_mode).in_(CollectionMode.auto_modes),
             )
         )
+        .with_for_update(of=Submission)
     ).all()
-    for draft in drafts:
-        draft.status = SubmissionStatus.submitted
-        draft.submitted_at = datetime.now(timezone.utc)
-        session.add(draft)
-    return len(drafts)
+    flipped: list[int] = []
+    for row in rows:
+        if submitted_tier and row.status == SubmissionStatus.draft:
+            row.status = SubmissionStatus.submitted
+            row.submitted_at = datetime.now(timezone.utc)
+            session.add(row)
+            flipped.append(row.id)
+        elif (
+            not submitted_tier
+            and row.status == SubmissionStatus.submitted
+            and not row.map_is_clone
+        ):
+            row.status = SubmissionStatus.draft
+            row.submitted_at = None
+            session.add(row)
+    return flipped
 
 
 def get_custom_fields(portal_id: str, session: Session) -> list[FormFieldCustom]:
@@ -541,14 +559,20 @@ async def flag_submission(
     session: Session = Depends(get_session),
 ):
     """Report a submission for reviewer attention. Only publicly visible
-    submissions can be flagged — flagging hidden ones gives moderators no
-    signal and is a way to harass the queue."""
+    submissions can be flagged — flagging hidden or internal-portal ones
+    gives moderators no signal, is a way to harass the queue, and would
+    leak an existence oracle for staff-only galleries."""
     submission = session.get(Submission, body.id)
     if (
         submission is None
         or submission.hidden
         or submission.status != SubmissionStatus.submitted
     ):
+        raise HTTPException(status_code=404, detail="Submission not found")
+    config = session.exec(
+        select(FormConfig).where(col(FormConfig.portal_id) == submission.portal_id)
+    ).first()
+    if config is not None and config.collection_mode == CollectionMode.internal:
         raise HTTPException(status_code=404, detail="Submission not found")
     submission.flagged = True
     session.add(submission)

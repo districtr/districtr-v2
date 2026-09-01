@@ -69,7 +69,6 @@ import app.evaluation.main as evaluation
 from app.evaluation.types import MetricsEnvelope
 import app.save_share.main as save_share
 import app.submissions.main as submissions
-from app.submissions.main import auto_finalize_draft_submissions
 from app.submissions.models import (
     CollectionMode,
     FormConfig,
@@ -97,7 +96,7 @@ from app.models import (
     AssignmentsCreate,
     NumDistrictsSetResult,
 )
-from app.save_share.models import DocumentDraftStatus
+from app.save_share.models import SUBMITTED_DRAFT_STATUSES, DocumentDraftStatus
 from pydantic_geojson import FeatureModel, PolygonModel
 from pydantic import BaseModel, ValidationError
 from pydantic_geojson._base import Coordinates
@@ -584,10 +583,14 @@ async def create_document(
         if data.portal_id is not None:
             # A creation payload can already carry a submitted-tier status
             # (e.g. copies); apply the same auto-collect flip as the
-            # metadata endpoint.
-            auto_finalize_draft_submissions(
+            # metadata endpoint, with the same post-commit moderation pass
+            # (the gallery card renders the map's name/description).
+            for flipped_id in submissions.auto_finalize_draft_submissions(
                 session, new_document.public_id, data.metadata.draft_status
-            )
+            ):
+                background_tasks.add_task(
+                    submissions.moderate_submission_by_id, flipped_id
+                )
 
     stmt = (
         select(  # type: ignore[no-matching-overload] # ty: ignore[no-matching-overload]
@@ -1464,7 +1467,10 @@ async def get_document_list(
                     col(Submission.status) == SubmissionStatus.submitted,
                     col(Submission.hidden).is_(False),
                     col(Submission.nsfw).is_(False),
-                    # Internal-mode portals never surface publicly.
+                    # Internal-mode portals never surface in tag galleries
+                    # or the public submissions list. (This is a LISTING
+                    # guarantee: any map's metadata remains fetchable by its
+                    # sequential public_id, as it always has been.)
                     col(FormConfig.collection_mode) != CollectionMode.internal,
                 )
             )
@@ -1476,10 +1482,7 @@ async def get_document_list(
         # (deliberate submissions are frozen clones at ready_to_share;
         # auto-collected ones are live maps whose status this reflects).
         if len(draft_status) == 0:
-            draft_status = [
-                DocumentDraftStatus.in_progress,
-                DocumentDraftStatus.ready_to_share,
-            ]
+            draft_status = list(SUBMITTED_DRAFT_STATUSES)
 
     if len(draft_status) > 0:
         # this is fine to keep as ->> because you're comparing to text
@@ -1758,6 +1761,7 @@ async def get_connected_component_bboxes(
 )
 async def update_districtrmap_metadata(
     metadata: DocumentMetadata,
+    background_tasks: BackgroundTasks,
     document: Document = Depends(get_document),
     session: Session = Depends(get_session),
 ):
@@ -1776,11 +1780,32 @@ async def update_districtrmap_metadata(
         )
         session.connection().execute(stmt)
         # Auto-collect portals: reaching a submitted-tier status flips this
-        # map's draft submission to submitted (live reference, no clone).
-        auto_finalize_draft_submissions(
+        # map's draft submission to submitted (live reference, no clone);
+        # regressing withdraws it.
+        flipped = submissions.auto_finalize_draft_submissions(
             session, document.public_id, merged.get("draft_status")
         )
+        # Auto entries are live references, so the rendered card text (map
+        # name/description) can change AFTER the initial score — re-score
+        # submitted live-ref entries whenever those fields are touched.
+        rescore: set[int] = set(flipped)
+        if metadata.name is not None or metadata.description is not None:
+            rescore.update(
+                session.exec(
+                    select(Submission.id).where(
+                        and_(
+                            col(Submission.map_public_id) == document.public_id,
+                            col(Submission.status) == SubmissionStatus.submitted,
+                            col(Submission.map_is_clone).is_(False),
+                        )
+                    )
+                ).all()
+            )
         session.commit()
+        for submission_id in rescore:
+            background_tasks.add_task(
+                submissions.moderate_submission_by_id, submission_id
+            )
 
     except Exception as e:
         logger.error(f"Unexpected error: {e}")

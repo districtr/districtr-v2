@@ -85,7 +85,7 @@ def upgrade() -> None:
         schema="comments",
     )
     op.create_index(
-        "idx_form_fields_custom_portal",
+        "ix_comments_form_fields_custom_portal_id",
         "form_fields_custom",
         ["portal_id"],
         schema="comments",
