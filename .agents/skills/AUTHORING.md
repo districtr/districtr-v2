@@ -182,42 +182,38 @@ Four failure modes recur in skill drafts (all four were found and cut from the f
 
 ## Will a point earn its lines? (ablation-tested 2026-09-01)
 
-Point-ablation runs — 20 randomly sampled points across this directory, Sonnet forced to
-load the skill with and without the single point, round-two predictions registered in
-advance (8/10 correct) — reduce the value question to four checks, asked in order:
+Four checks, asked in order, decide whether a point belongs in a skill. (Grounded in
+point-ablation measurements over this directory, 2026-09-01: randomly sampled points,
+the skill force-loaded with and without the single point, behavior compared.)
 
 1. **Prior-derivable?** Would a competent engineer with no access to this repo say the
-   same thing? Generic accessibility, CSS-performance, and Postgres lore all tested
-   derivable: the model states them unprompted, rule present or absent. Cut.
+   same thing? Generic accessibility, CSS-performance, and database lore all behave this
+   way: the model states them unprompted, rule present or absent. Cut.
 2. **Path-derivable?** Does the agent's working path pass the evidence — code structure
-   that embodies the lesson, neighboring methods it will imitate, or the rest of this
-   same file? Both sampled causal-history bullets tested derivable because their own
-   file's surrounding sections already entailed the conclusion. Cut, or merge into what
-   carries it — but weigh what kind of evidence the path holds. *Structural* evidence (a
-   dedicated component existing is itself the answer) and a *normative statement at a
-   choke point* (a docstring on the function every caller touches — read every time,
-   where a skill loads only sometimes) justify the cut. *Conformity of instances*
-   (every existing method happens to open with the guard) does not: imitation is
-   descriptive, propagates drift instead of correcting it, and one noncompliant
-   instance starts teaching the opposite. There, keep the skill's line, or first move
-   the rule to a real choke point and then cut. And check provenance: path evidence
-   that descends from the skill itself (a copied comment) confirms nothing.
+   that embodies the lesson, neighboring code it will imitate, or the rest of this same
+   file? (A causal-history bullet whose conclusion the surrounding sections already
+   entail is the common case.) Cut, or merge into what carries it — but weigh what kind
+   of evidence the path holds. *Structural* evidence (a dedicated component existing is
+   itself the answer) and a *normative statement at a choke point* (a docstring on the
+   function every caller touches — read every time, where a skill loads only sometimes)
+   justify the cut. *Conformity of instances* (every existing method happens to open
+   with the guard) does not: imitation is descriptive, propagates drift instead of
+   correcting it, and one noncompliant instance starts teaching the opposite. There,
+   keep the skill's line, or first move the rule to a real choke point and then cut.
+   And check provenance: path evidence that descends from the skill itself (a copied
+   comment) confirms nothing.
 3. **What survives is arbitrary selection among defensible alternatives** — team policy,
-   style convention, design intent underdetermined by the code. Both load-bearing points
-   were this kind (a deploy-workflow policy; a punctuation convention): each flipped
-   behavior cleanly when ablated. A convention is incompressible — nothing else can
-   re-derive a choice that could have gone the other way — and that is precisely the
-   content a skill exists to carry.
+   style convention, design intent underdetermined by the code. A convention is
+   incompressible — nothing else can re-derive a choice that could have gone the other
+   way — and that is precisely the content a skill exists to carry.
 4. **Application gate, on every verdict**: will the model recognize the situation where
-   the point applies? A known rule that never fires behaves inert — the active-voice
-   rule went unapplied with a planted passive sentence in plain view, and one line
-   among ninety has no salience. A point kept under check 3 still needs a trigger the
-   model actually notices.
+   the point applies? A known rule that never fires behaves inert — a style rule buried
+   in a ninety-line list goes unapplied even with a violation in plain view. A point
+   kept under check 3 still needs a trigger the model actually notices.
 
-Caution from the same study: load-bearing means the point *changes behavior*, and says
-nothing about whether the behavior it produces is right — the study's strongest point
-flipped answers toward a rule later found overbroad and rewritten. Ablation measures
-leverage; review measures truth.
+One caution: changing behavior and being right are separate properties — a point can
+reliably steer agents toward a rule that is itself wrong. Ablation measures leverage;
+review measures truth.
 
 ## Maintenance
 
