@@ -57,10 +57,11 @@ few agents on such tasks, read each one's first planning sentence, and take the 
 from there.
 
 Repo-specific delivery constraint: Claude Code discovers `.claude/skills/<name>/SKILL.md`
-exactly one level deep. `scripts/sync-skills.sh` therefore flattens this directory's
-grouping (e.g. `project/`) when syncing — verified empirically here on 2026-08-27, when
-all 12 nested project skills turned out to have been invisible to native routing since
-their creation. Skill names must be unique across groups (the sync errors on collision).
+exactly one level deep. `scripts/sync-skills.sh` therefore flattens any source grouping
+when syncing — verified empirically here on 2026-08-27, when 12 skills nested under a
+`project/` subfolder turned out to have been invisible to native routing since their
+creation. (The source tree is itself flat now; the flattening guards any future
+grouping.) Skill names must stay unique (the sync errors on collision).
 
 ## Individuation: one skill per concern, not per surface
 
