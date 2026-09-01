@@ -26,7 +26,10 @@ matcher. Two consequences:
 An in-house experiment (~170 fresh `claude -p` runs against this repo, hooks disabled,
 `learn-backend` as the subject, Haiku and Sonnet, 2–4 trials per cell) replaced several
 assumptions about descriptions with observations. The large effects below were consistent
-across cells; differences of one trial in four are noise.
+across cells; differences of one trial in four are noise. Scope: these findings describe
+Claude Code's router with those two models. The other sync targets (Cursor, Codex) deliver
+skills through different mechanisms and models, and were not measured — treat the
+principles as untested hypotheses there.
 
 - **Matching runs against the model's own restatement of the task.** Before its first
   tool call the model writes a one-sentence restatement in standard engineering
@@ -40,34 +43,18 @@ across cells; differences of one trial in four are noise.
   triggered 0/12. Name and description are one line: words are interchangeable between
   them, the name is just one more phrase, and an opaque name costs nothing if the
   description carries the phrase.
-- **A description can veto but barely promote.** Wrong text (another skill's
-  description under this name) blocked invocation 0/11; the best-tuned description beat
-  the original 4/4 vs 3/4 — one trial, noise. Naming exact identifiers (function names)
-  in a description caused no false positives but produced no measurable lift either:
-  humans and agents phrase tasks in domain nouns, not in the codebase's identifiers.
-  Spend description tokens on the nouns.
-- **Model choice dominates everything above.** Haiku invoked the skill in 3/72 runs
-  regardless of description (it goes straight to Glob/Read); Sonnet 33/58 on direct
-  tasks. Subagents almost never invoke skills (one invocation across the whole
-  experiment). Anything delegated to a subagent gets its hard invariants stated in the
-  spawn prompt, not left to routing.
-- **Sibling skills compete, and the prompt's most salient noun wins.** "Share link" loaded
-  `learn-auth-share` every time and `learn-backend` never. A cross-reference pulled the
-  second skill in about half the time, and one miss produced a confident *backwards*
-  statement of the `get_document_public` rule. So a cross-cutting invariant is
-  duplicated verbatim in every skill whose trigger surface covers a situation where it
-  matters; a pointer is a coin flip.
-- **Descriptions cannot reach indirectly framed work.** Product-framed tasks that turn out
-  to need backend changes loaded `learn-backend` 0/20: the model reads code first and
-  names the domain only afterward, when the description has already been passed over.
-  The reachable moment is the code read itself — a path-scoped `PreToolUse` hook on
-  reads/edits under the concern's territory. A `UserPromptSubmit` keyword hook fires
-  only when the description would have matched anyway.
-
-Procedure for writing or tuning a description: run a few agents on representative tasks
-for the concern, read each one's first planning sentence, harvest the nouns, and write
-short grammatical phrases from them. Keep the "use when" clause — it carried the
-paraphrased-task cases.
+- **Model choice dominates everything above.** Haiku invoked the skill in 3/72
+  direct-task runs regardless of description, and in 0/20 indirectly framed runs even
+  though 19 of them read files under the skill's territory — it never consults the
+  skill listing, so for Haiku a skill exists only if something else injects it. Sonnet
+  33/58 on direct tasks. Subagents almost never invoke skills (one invocation across the
+  whole experiment). Anything delegated to a subagent gets its hard invariants stated
+  in the spawn prompt, not left to routing.
+Writing a description: use the plain engineering nouns a developer would say when
+restating a task in this concern — that's the vocabulary the model produces, and guessing
+it is normally enough. If a skill observably fails to load on tasks it should catch, then measure: run a
+few agents on such tasks, read each one's first planning sentence, and take the nouns
+from there.
 
 Repo-specific delivery constraint: Claude Code discovers `.claude/skills/<name>/SKILL.md`
 exactly one level deep. `scripts/sync-skills.sh` therefore flattens this directory's
@@ -95,14 +82,7 @@ cannot tell these apart; a description that names the concern lets the model rou
 - Skills that would always co-fire share one concern: merge them, and push sub-topic
   depth into `references/`.
 - A cross-cutting concern gets its own skill even with no dedicated surface
-  (`learn-performance` is the archetype) — and its load-bearing invariants are
-  *duplicated* into each sibling skill whose situations they govern, since siblings
-  compete and a cross-reference resolves only about half the time.
-- Path-scoped activation is the complement to description routing, not its rival: a
-  description reaches tasks the user already framed in the concern's terms; a hook on
-  reads/edits under the concern's files reaches the tasks that arrive at the concern
-  only after the model has read code. Individuate by concern; trigger by both.
-
+  (`learn-performance` is the archetype).
 Two trigger *types*, reflected in naming: **knowledge skills** (`learn-*`) load when
 working within a concern — editing or debugging; **runbooks** (imperative names,
 user-invocable) perform a procedure. Debugging guides attach to their concern's
@@ -199,6 +179,37 @@ Four failure modes recur in skill drafts (all four were found and cut from the f
    form pressures padding, and the padding restates context that lives elsewhere in the
    file. A dense bullet in an existing section usually carries it. Check that Territory
    / See-also pointers aren't duplicated into body prose.
+
+## Will a point earn its lines? (ablation-tested 2026-09-01)
+
+Point-ablation runs — 20 randomly sampled points across this directory, Sonnet forced to
+load the skill with and without the single point, round-two predictions registered in
+advance (8/10 correct) — reduce the value question to four checks, asked in order:
+
+1. **Prior-derivable?** Would a competent engineer with no access to this repo say the
+   same thing? Generic accessibility, CSS-performance, and Postgres lore all tested
+   derivable: the model states them unprompted, rule present or absent. Cut.
+2. **Path-derivable?** Does the agent's working path pass the evidence — code structure
+   that embodies the lesson, neighboring methods it will imitate, or the rest of this
+   same file? Both sampled causal-history bullets tested derivable because their own
+   file's surrounding sections already entailed the conclusion. Cut, or merge into what
+   carries it.
+3. **What survives is arbitrary selection among defensible alternatives** — team policy,
+   style convention, design intent underdetermined by the code. Both load-bearing points
+   were this kind (a deploy-workflow policy; a punctuation convention): each flipped
+   behavior cleanly when ablated. A convention is incompressible — nothing else can
+   re-derive a choice that could have gone the other way — and that is precisely the
+   content a skill exists to carry.
+4. **Application gate, on every verdict**: will the model recognize the situation where
+   the point applies? A known rule that never fires behaves inert — the active-voice
+   rule went unapplied with a planted passive sentence in plain view, and one line
+   among ninety has no salience. A point kept under check 3 still needs a trigger the
+   model actually notices.
+
+Caution from the same study: load-bearing means the point *changes behavior*, and says
+nothing about whether the behavior it produces is right — the study's strongest point
+flipped answers toward a rule later found overbroad and rewritten. Ablation measures
+leverage; review measures truth.
 
 ## Maintenance
 
