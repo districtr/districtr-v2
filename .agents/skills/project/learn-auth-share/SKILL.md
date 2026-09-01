@@ -1,6 +1,6 @@
 ---
 name: learn-auth-share
-description: Who can do what — Auth0 scopes for CMS/admin roles, Cloudflare Turnstile captcha verification, and the share/edit-link token model for map documents. Use when changing protected endpoints, admin roles, share-link or password-protected edit access, or anything that verifies a request server-side before trusting it.
+description: Authentication, authorization, and share links in the backend and frontend — Auth0 scopes and admin roles, Cloudflare Turnstile captcha verification, share-link and password-protected edit-access tokens, and the public id vs private document_id boundary (get_document_public). Use when adding or changing a protected endpoint, admin role, share link, edit access, or any server-side check on a request before trusting it.
 user-invocable: false
 ---
 
@@ -27,10 +27,20 @@ user-invocable: false
   tokens (minted in `save_share/main.py`) carry neither. A change to either minting path
   that starts adding `aud`/`exp` to share tokens, or drops `require_session`'s
   `options={"require": ["exp", "aud"]}`, breaks this separation.
-- **Public document access must never return the true `document_id`.** The
-  public/private ID split (`learn-backend`'s `get_document` vs. `get_protected_document`)
-  is the mechanism; a public-facing response that leaks `document_id` defeats it
-  regardless of how the value got there.
+- **Public document access must never return the true `document_id`.** A document is
+  reachable by its private `document_id` (UUID; possession grants edit rights) or its
+  `public_id` (small integer; read-only). The request dependencies in
+  `backend/app/core/dependencies.py` enforce the boundary, and the choice among them is
+  the same rule `learn-backend` states — repeated here because share-link work lands on
+  it directly: `get_protected_document` returns the raw `Document` row, every column
+  included — safe to read from inside a handler, unsafe to return, since a `public_id`
+  caller would get the real `document_id` back along with everything else.
+  `get_document_public` exists for routes that do need to return document data: it
+  assembles the response field by field and substitutes a masked placeholder for
+  `document_id` whenever the caller only supplied the public id. Pick the dependency by
+  what the handler returns, not what it reads — a response that grows to include
+  document fields needs a switch to `get_document_public`, not a wider response.
+  (`get_document` is the third option: private id only, for write paths.)
 
 ## The share/edit token model
 
@@ -66,8 +76,8 @@ requires a scope the frontend never asks Auth0 for).
 
 - `backend/app/core/security.py` — `VerifyToken`, `TokenScope`, Turnstile verification,
   session-token minting (`mint_session_token`) and enforcement (`require_session`).
-- `backend/app/core/dependencies.py` — `get_document` / `get_protected_document`, the
-  public/private ID boundary these auth checks sit in front of (see `learn-backend`).
+- `backend/app/core/dependencies.py` — `get_document`, `get_protected_document`,
+  `get_document_public`: the public/private ID boundary these auth checks sit in front of.
 - `backend/app/save_share/main.py`, `save_share/models.py` — share-token minting and
   password-protected edit-access grant.
 - `backend/app/core/config.py` — `AUTH0_DOMAIN`, `AUTH0_API_AUDIENCE`, `AUTH0_ISSUER`,
@@ -81,6 +91,6 @@ requires a scope the frontend never asks Auth0 for).
 
 ## See also
 
-- `learn-backend` — `get_document`/`get_protected_document` and the ID boundary this
-  skill's auth checks guard.
+- `learn-backend` — the same dependency rule in its endpoint/data-model context, plus
+  the rest of the backend conventions.
 - `learn-cms` — role-scoped CMS read/write/publish behavior built on the scopes here.
