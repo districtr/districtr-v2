@@ -173,6 +173,15 @@ class Submission(TimeStampMixin, SQLModel, table=True):
             Boolean, nullable=False, default=False, server_default="false"
         ),
     )
+    # True when the map is a submission-owned frozen clone; false for live
+    # references (drafts, converted legacy rows, auto-collect modes).
+    # Takedown may only demote the draft_status of clones.
+    map_is_clone: bool = Field(
+        default=False,
+        sa_column=Column(
+            Boolean, nullable=False, default=False, server_default="false"
+        ),
+    )
     flagged: bool = Field(
         default=False,
         sa_column=Column(
