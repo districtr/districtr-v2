@@ -25,7 +25,7 @@ import {
   PLAN_GALLERY_ATTRIBUTES,
 } from '@constants/cms';
 
-export const domNodeReplacers = (disabled: boolean) => {
+export const domNodeReplacers = (disabled: boolean, allowListModulesOverride?: string[]) => {
   const domNodeReplaceFn = (domNode: DOMNode) => {
     if (domNode.type === 'tag' && domNode.attribs?.[NODE_TYPE_ATTR_NAME]?.length) {
       switch (domNode.attribs[NODE_TYPE_ATTR_NAME]) {
@@ -59,7 +59,9 @@ export const domNodeReplacers = (disabled: boolean) => {
             <CommentSubmissionForm
               disabled={disabled}
               mandatoryTags={props.mandatoryTags}
-              allowListModules={props.allowListModules}
+              allowListModules={
+                allowListModulesOverride?.length ? allowListModulesOverride : props.allowListModules
+              }
             />
           );
         }
