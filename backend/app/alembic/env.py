@@ -82,11 +82,16 @@ def get_url():
 def include_object(object, name, type_, reflected, compare_to):
     # Schema-based exclusion is the contract for tables alembic must ignore:
     # - "gerrydb": imported GeoPackage layers, managed by the import pipeline.
-    # - "admin": ALL Django/Wagtail CMS tables. The CMS (cms/) pins
-    #   search_path=admin,public and bootstrap_schema creates the schema
-    #   before `migrate` runs, so Django/Wagtail tables can only ever be
-    #   created in `admin` — never in public. cms/ must NOT relax that
-    #   search_path pinning; it is what this exclusion relies on. Do not
+    # - "admin": ALL Django/Wagtail CMS tables — owned entirely by Django's
+    #   own migration system rather than Alembic. To change anything under
+    #   admin, edit the relevant model under cms/ and run Django's
+    #   `manage.py makemigrations`/`migrate`; without this exclusion,
+    #   autogenerate would emit DROPs for every table it doesn't model.
+    #   The CMS (cms/) pins search_path=admin,public and bootstrap_schema
+    #   creates the schema before `migrate` runs, so Django/Wagtail tables
+    #   can only ever be created in `admin` — never in public. cms/ must NOT
+    #   relax that search_path pinning; it is what this exclusion relies on.
+    #   Do not
     #   reintroduce name-prefix guards (django_*, content_*, ...) as a
     #   "belt and braces" here: public-schema SQLModel tables have
     #   schema=None, so a prefix regex would silently exclude any future
