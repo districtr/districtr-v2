@@ -8,6 +8,11 @@ DEBUG = False
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
+# HSTS: the ALB already redirects HTTP→HTTPS (infra/alb.ts); this makes
+# browsers skip the insecure hop entirely. The CMS lives on its own
+# subdomain, so include-subdomains is safe for this host.
+SECURE_HSTS_SECONDS = 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 
 CSRF_TRUSTED_ORIGINS = [
     o for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o

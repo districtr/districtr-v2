@@ -22,6 +22,9 @@ DELETE_CONTENT = "delete:content"
 DELETE_ALL_CONTENT = "delete:delete-all"
 
 REVIEW_CONTENT = "create:content_review"
+# Explicit bypass of per-reviewer tag scoping. Only admins/superusers get it;
+# see the PARTNER_SCOPES note below.
+REVIEW_ALL_CONTENT = "review:review-all"
 
 ALL_SCOPES = [
     CREATE_DISTRICTR_MAPS,
@@ -37,11 +40,12 @@ ALL_SCOPES = [
     DELETE_CONTENT,
     DELETE_ALL_CONTENT,
     REVIEW_CONTENT,
+    REVIEW_ALL_CONTENT,
 ]
 
 # Page editing, galleries, and the datastore tools are all Wagtail-side
 # permissions (or service-token calls); the only FastAPI scope a user token
-# needs is comment moderation. No read:read-all: the backend treats that
+# needs is comment moderation. No review:review-all: the backend treats that
 # scope as "unrestricted, ignore review_tags", and partner moderation is
 # always scoped by the portal-derived review_tags claim (serializers.py).
 # super_partner's extra powers are Django model permissions, not scopes.

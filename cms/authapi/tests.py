@@ -46,8 +46,9 @@ def fastapi_style_verify(token: str) -> dict:
 
 class ScopeMappingTests(TestCase):
     def test_partner_scopes(self):
-        # Comment moderation only — and no read:read-all, which would make
-        # the backend treat the token as unrestricted and ignore review_tags.
+        # Comment moderation only — and no review:review-all, which would
+        # make the backend treat the token as unrestricted and ignore
+        # review_tags.
         user = make_user("partner")
         self.assertEqual(scopes_for_user(user), "create:content_review")
 
@@ -105,7 +106,7 @@ class ReviewScopingClaimTests(TestCase):
     the user's teams' portals (a portal's page slug is its comment tag slug).
 
     The FastAPI backend (backend/app/comments/main.py::allowed_review_tags)
-    treats an ABSENT claim — or a token carrying `read:read-all` — as
+    treats an ABSENT claim — or a token carrying `review:review-all` — as
     unrestricted, and an EMPTY list as "allows nothing", so these tests pin:
     admins get no claim; team-scoped users get their portal slugs; team-less
     non-admins get [] (fail closed until they join a team).
@@ -147,7 +148,7 @@ class ReviewScopingClaimTests(TestCase):
 
         payload = self._claim_for(user)
         self.assertEqual(payload["review_tags"], ["environment", "schools"])
-        self.assertNotIn("read:read-all", payload["scope"].split())
+        self.assertNotIn("review:review-all", payload["scope"].split())
 
     def test_non_default_locale_portal_cannot_mint_scope(self):
         # Page slugs are unique only per parent and each locale has its own
@@ -192,7 +193,7 @@ class ReviewScopingClaimTests(TestCase):
     def test_admin_gets_no_claim(self):
         payload = self._claim_for(make_user("admin"))
         self.assertNotIn("review_tags", payload)
-        self.assertIn("read:read-all", payload["scope"].split())
+        self.assertIn("review:review-all", payload["scope"].split())
 
     def test_superuser_gets_no_claim(self):
         user = make_user(None)
@@ -201,9 +202,10 @@ class ReviewScopingClaimTests(TestCase):
         payload = self._claim_for(user)
         self.assertNotIn("review_tags", payload)
 
-    def test_partner_scope_has_no_read_all(self):
-        # read:read-all would make the backend ignore review_tags entirely.
-        self.assertNotIn("read:read-all", scopes_for_user(make_user("partner")))
+    def test_partner_scope_has_no_review_all(self):
+        # review:review-all would make the backend ignore review_tags
+        # entirely.
+        self.assertNotIn("review:review-all", scopes_for_user(make_user("partner")))
 
 
 class TokenEndpointTests(TestCase):

@@ -40,6 +40,19 @@ class Command(BaseCommand):
             help="Report what would happen without writing or emailing",
         )
 
+    def _send_setup_email(self, email):
+        # No request here, so derive the email's domain/protocol from
+        # WAGTAILADMIN_BASE_URL (django.contrib.sites isn't installed,
+        # making domain_override mandatory).
+        base_url = urlparse(settings.WAGTAILADMIN_BASE_URL)
+        form = AccountSetupForm(data={"email": email})
+        if form.is_valid():
+            form.save(
+                domain_override=base_url.netloc,
+                use_https=base_url.scheme == "https",
+                email_template_name="registration/password_reset_email.html",
+            )
+
     def handle(self, *args, **options):
         User = get_user_model()
         created, skipped = 0, 0
@@ -58,8 +71,21 @@ class Command(BaseCommand):
                         "one of admin/partner/super_partner"
                     )
 
-                if User.objects.filter(username=email).exists():
-                    self.stdout.write(f"skip (exists): {email}")
+                existing = User.objects.filter(username=email).first()
+                if existing is not None:
+                    if existing.has_usable_password():
+                        self.stdout.write(f"skip (exists): {email}")
+                        skipped += 1
+                        continue
+                    # Account created by a prior run whose setup email failed
+                    # to send (the user was already committed): resend so the
+                    # command is safely re-runnable instead of stranding the
+                    # account with an unusable password and no link.
+                    if options["dry_run"]:
+                        self.stdout.write(f"would resend setup email: {email}")
+                    else:
+                        self._send_setup_email(email)
+                        self.stdout.write(f"resent setup email: {email}")
                     skipped += 1
                     continue
 
@@ -82,17 +108,7 @@ class Command(BaseCommand):
                 user.save()
                 user.groups.add(group)
 
-                # No request here, so derive the email's domain/protocol from
-                # WAGTAILADMIN_BASE_URL (django.contrib.sites isn't installed,
-                # making domain_override mandatory).
-                base_url = urlparse(settings.WAGTAILADMIN_BASE_URL)
-                form = AccountSetupForm(data={"email": email})
-                if form.is_valid():
-                    form.save(
-                        domain_override=base_url.netloc,
-                        use_https=base_url.scheme == "https",
-                        email_template_name="registration/password_reset_email.html",
-                    )
+                self._send_setup_email(email)
                 self.stdout.write(f"created: {email} ({group_name})")
                 created += 1
 

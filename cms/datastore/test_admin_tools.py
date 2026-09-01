@@ -23,7 +23,7 @@ from django.urls import reverse
 
 from authapi.models import Team, TeamDistrictrMap
 from authapi.tests import fastapi_style_verify
-from core.testing import PASSWORD, make_admin_user
+from core.testing import PASSWORD, make_admin_user, make_team
 from datastore import services
 from datastore.models import (
     DistrictrMap,
@@ -527,3 +527,40 @@ class DistrictrMapEditViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.districtr_map.refresh_from_db()
         self.assertEqual(self.districtr_map.name, "Colorado")
+
+
+class ThumbnailTeamScopingTests(TestCase):
+    """Team-scoped super partners must not reach other teams' maps by URL —
+    the repo's historical bug class."""
+
+    def setUp(self):
+        create_map_mirrors()
+        table = GerryDBTable.objects.create(name="co_blocks")
+        self.my_map = DistrictrMap.objects.create(
+            name="Mine", districtr_map_slug="my_demo", parent_layer=table
+        )
+        self.other_map = DistrictrMap.objects.create(
+            name="Theirs", districtr_map_slug="their_demo", parent_layer=table
+        )
+        self.user = make_admin_user(
+            email="super@districtr.org", group_name="super_partner"
+        )
+        make_team("My Team", members=[self.user], maps=[self.my_map])
+        self.client.login(username="super@districtr.org", password=PASSWORD)
+
+    def _url(self, districtr_map):
+        return reverse("datastore_map_regenerate_thumbnail", args=[districtr_map.pk])
+
+    def test_out_of_scope_map_404s_and_schedules_nothing(self):
+        with mock.patch("datastore.services.regenerate_map_thumbnail") as regenerate:
+            response = self.client.post(self._url(self.other_map))
+        regenerate.assert_not_called()
+        self.assertEqual(response.status_code, 404)
+
+    def test_in_scope_map_allowed(self):
+        with mock.patch(
+            "datastore.services.regenerate_map_thumbnail",
+            return_value={"message": "ok"},
+        ) as regenerate:
+            self.client.post(self._url(self.my_map))
+        regenerate.assert_called_once_with("my_demo")

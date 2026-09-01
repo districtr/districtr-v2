@@ -27,7 +27,7 @@ from datastore.models import (
     Overlay,
 )
 from datastore.services import BackendAPIError
-from core.testing import PASSWORD, make_admin_user
+from core.testing import PASSWORD, make_admin_user, make_team, make_user
 
 
 def create_mirror_tables(*models):
@@ -126,7 +126,6 @@ class ScheduleComposeTests(SimpleTestCase):
                 "tiles_s3_path": "tilesets/co.pmtiles",
                 "group_slug": "states",
                 "map_type": "default",
-                "visible": False,
                 "overlay_ids": ["11111111-1111-1111-1111-111111111111"],
             },
         )
@@ -146,7 +145,6 @@ class ScheduleComposeTests(SimpleTestCase):
         self.assertIsNone(body["child_layer"])
         self.assertIsNone(body["tiles_s3_path"])
         self.assertIsNone(body["group_slug"])
-        self.assertIs(body["visible"], False)
 
     @mock.patch("datastore.services.requests.post")
     def test_non_202_surfaces_json_detail(self, post):
@@ -267,6 +265,19 @@ class OverlayUploadFormTests(TestCase):
         )
         self.assertFalse(form.is_valid())
         self.assertIn("Invalid JSON", str(form.errors["custom_style"]))
+
+    def test_rejects_non_object_custom_style(self):
+        # Valid JSON that is not an object would fail the backend's
+        # OverlayPublic response validation and 500 affected maps.
+        for value in ("[]", '"red"', "1"):
+            form = self.form(
+                {
+                    "overlay_path": "https://example.com/parks.geojson",
+                    "custom_style": value,
+                }
+            )
+            self.assertFalse(form.is_valid(), value)
+            self.assertIn("JSON object", str(form.errors["custom_style"]))
 
     def test_parses_custom_style_json(self):
         form = self.form(
@@ -713,3 +724,43 @@ class ComposeMapViewTests(TestCase):
         schedule.assert_not_called()
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "must differ from the parent layer")
+
+
+class OverlayFormTeamScopingTests(TestCase):
+    """A team-scoped user's map choices — and the POST validation queryset —
+    are limited to their teams' maps."""
+
+    def setUp(self):
+        create_mirror_tables(GerryDBTable, DistrictrMap)
+        table = GerryDBTable.objects.create(name="co_blocks")
+        self.my_map = DistrictrMap.objects.create(
+            name="Mine", districtr_map_slug="my_demo", parent_layer=table
+        )
+        self.other_map = DistrictrMap.objects.create(
+            name="Theirs", districtr_map_slug="their_demo", parent_layer=table
+        )
+        self.user = make_user("super_partner", "super@districtr.org")
+        make_team("My Team", members=[self.user], maps=[self.my_map])
+
+    def _data(self, districtr_maps):
+        return {
+            "name": "Rivers",
+            "layer_types": ["fill"],
+            "overlay_path": "s3://bucket/rivers.geojson",
+            "districtr_maps": [str(m.pk) for m in districtr_maps],
+        }
+
+    def test_scoped_user_cannot_submit_out_of_team_map(self):
+        form = OverlayUploadForm(self._data([self.other_map]), user=self.user)
+        self.assertFalse(form.is_valid())
+        self.assertIn("districtr_maps", form.errors)
+
+    def test_scoped_user_choices_narrowed_and_own_map_accepted(self):
+        form = OverlayUploadForm(self._data([self.my_map]), user=self.user)
+        self.assertEqual(list(form.fields["districtr_maps"].queryset), [self.my_map])
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_admin_unscoped(self):
+        admin = make_user("admin", "admin@districtr.org")
+        form = OverlayUploadForm(self._data([self.other_map]), user=admin)
+        self.assertTrue(form.is_valid(), form.errors)
