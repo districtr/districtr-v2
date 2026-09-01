@@ -5,7 +5,7 @@ Replaces /api/comments/*. Key decisions:
 - No approval gate. Everything visible unless a reviewer hides it; moderation
   sets `nsfw`, which the public list serves and the frontend blurs.
 - Admin scoping is the JWT `teams` claim intersected with the portal's
-  form_configs.admin_teams. `read:read-all` in the token scopes is the
+  form_configs.admin_teams. `review:review-all` in the token scopes is the
   admin/superuser escape hatch (same convention the old review_tags scoping
   used); an absent teams claim is unrestricted (service tokens), an empty one
   allows nothing.

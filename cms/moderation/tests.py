@@ -56,14 +56,14 @@ class MintUserAccessTokenTests(TestCase):
 
     def test_team_scoped_reviewer_claims(self):
         # The whole scoping contract: the claim is the user's team slugs, and
-        # partner scopes carry no read:read-all, so the backend enforces it
-        # against form_configs.admin_teams. (Claim derivation itself is
+        # partner scopes carry no review:review-all, so the backend enforces
+        # it against form_configs.admin_teams. (Claim derivation itself is
         # pinned in authapi/tests.)
         user = make_admin_user(email="scoped@districtr.org", group_name="partner")
         make_team("Mint Team", members=[user])
         payload = fastapi_style_verify(mint_user_access_token(user))
         self.assertEqual(payload["teams"], ["mint-team"])
-        self.assertNotIn("read:read-all", payload["scope"].split())
+        self.assertNotIn("review:review-all", payload["scope"].split())
         self.assertIn("create:content_review", payload["scope"].split())
 
     def test_login_path_claims_unchanged_by_refactor(self):
