@@ -1412,7 +1412,9 @@ def test_document_list(
         },
     )
     assert response.status_code == 201, response.json()
-    response = client.get("/api/documents/list?tags=test")
+    # Gallery membership is keyed on the submission's PORTAL, not its
+    # free-form tags (see get_document_list) — query by the portal id.
+    response = client.get("/api/documents/list?tags=test-portal")
     assert response.status_code == 200
     data = response.json()
     assert len(data) > 0
