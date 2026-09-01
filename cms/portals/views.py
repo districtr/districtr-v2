@@ -49,6 +49,37 @@ SUBMISSION_ACTIONS = {"nsfw", "hidden"}
 # not re-hit the (potentially expensive) evaluation endpoint.
 _METRICS_CACHE: dict[int, tuple[float, dict]] = {}
 _METRICS_CACHE_TTL = 60
+# Per-(portal, user) membership sets so a 100-row metrics page doesn't issue
+# 100 admin-list calls; same TTL as the metrics rows.
+_MEMBERSHIP_CACHE: dict[tuple[str, int], tuple[float, set]] = {}
+
+
+def _prune(cache: dict, ttl: float) -> None:
+    """Drop expired entries on insert — the caches are per-process dicts and
+    would otherwise grow for the worker's lifetime."""
+    now = time.monotonic()
+    for key in [k for k, (ts, _) in cache.items() if now - ts >= ttl]:
+        cache.pop(key, None)
+
+
+def _portal_member_ids(user, slug: str) -> set:
+    """public_ids of this portal's SUBMITTED map-bearing submissions.
+
+    status=submitted matters twice: it keeps the guard aligned with the
+    rows the metrics page renders, and it keeps draft submissions' LIVE,
+    pre-consent maps out of reach of a hand-edited row URL.
+    """
+    key = (slug, user.pk)
+    cached = _MEMBERSHIP_CACHE.get(key)
+    if cached and time.monotonic() - cached[0] < _METRICS_CACHE_TTL:
+        return cached[1]
+    member = services.list_submissions(
+        user, portal_id=slug, status="submitted", has_map="true", limit=100
+    )
+    ids = {e.get("map_public_id") for e in member}
+    _prune(_MEMBERSHIP_CACHE, _METRICS_CACHE_TTL)
+    _MEMBERSHIP_CACHE[key] = (time.monotonic(), ids)
+    return ids
 
 
 def group_required(groups):
@@ -168,14 +199,16 @@ def portal_gallery(request, slug):
         "offset": (page - 1) * PAGE_SIZE,
         "limit": PAGE_SIZE + 1,
     }
-    # Inline filters (blank = no filter). `status` accepts draft|submitted;
-    # hidden/flagged/nsfw/has_map accept 1|0.
-    for key in ("status", "hidden", "flagged", "nsfw", "has_map"):
+    # Inline filters (blank = no filter). Whitelisted: `status` accepts
+    # draft|submitted; hidden/flagged/nsfw/has_map accept 1|0. Anything else
+    # is dropped rather than forwarded (a junk value would 422 at the
+    # backend and paint the raw error banner).
+    for key in ("hidden", "flagged", "nsfw", "has_map"):
         value = request.GET.get(key, "")
         if value in ("1", "0"):
             params[key] = "true" if value == "1" else "false"
-        elif value:
-            params[key] = value
+    if request.GET.get("status") in ("draft", "submitted"):
+        params["status"] = request.GET["status"]
 
     entries, error = [], None
     try:
@@ -286,12 +319,10 @@ def portal_metrics_row(request, slug, public_id: int):
         return denied
 
     try:
-        member = services.list_submissions(
-            request.user, portal_id=slug, has_map="true", limit=100
-        )
+        member_ids = _portal_member_ids(request.user, slug)
     except (BackendAPIError, RequestException) as exc:
         return JsonResponse({"error": str(exc)}, status=502)
-    if public_id not in {e.get("map_public_id") for e in member}:
+    if public_id not in member_ids:
         raise Http404
 
     cached = _METRICS_CACHE.get(public_id)
@@ -311,11 +342,18 @@ def portal_metrics_row(request, slug, public_id: int):
     deviation = metrics.get("population_deviation") or {}
     unassigned = metrics.get("unassigned_population") or {}
     contiguous = metrics.get("contiguous") or {}
-    # Derivations mirror the frontend EvalPanel/BasicsSection.tsx.
+    # Derivations mirror the frontend EvalPanel/BasicsSection.tsx: complete
+    # counts fully-split units as assigned and requires zero partially
+    # assigned units.
     row = {
         "public_id": public_id,
         "complete": (
-            assigned.get("assigned_count") == assigned.get("total_count")
+            (
+                (assigned.get("assigned_count") or 0)
+                + (assigned.get("split_count") or 0)
+                == assigned.get("total_count")
+                and not assigned.get("partially_assigned_count")
+            )
             if assigned.get("total_count")
             else None
         ),
@@ -327,6 +365,7 @@ def portal_metrics_row(request, slug, public_id: int):
         "all_contiguous": (all(contiguous.values()) if contiguous else None),
         "failed": envelope.get("failed") or [],
     }
+    _prune(_METRICS_CACHE, _METRICS_CACHE_TTL)
     _METRICS_CACHE[public_id] = (time.monotonic(), row)
     return JsonResponse(row)
 

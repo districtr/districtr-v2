@@ -2,11 +2,12 @@
 {% block titletag %}Portals{% endblock %}
 
 {% block content %}
-    {% include "wagtailadmin/shared/header.html" with title="Portals" subtitle="Every portal you administer" icon="tag" action_url="/admin/portals/new/" action_text="New portal" %}
+    {% url 'content_portal_wizard' as wizard_url %}
+    {% include "wagtailadmin/shared/header.html" with title="Portals" subtitle="Every portal you administer" icon="tag" action_url=wizard_url action_text="New portal" %}
 
     <div class="nice-padding">
         {% if not rows %}
-            <p>No portals yet — <a href="/admin/portals/new/">make one</a>.</p>
+            <p>No portals yet — <a href="{% url 'content_portal_wizard' %}">make one</a>.</p>
         {% endif %}
         <table class="listing">
             <thead>

@@ -266,7 +266,7 @@ class MapCreateButtonsBlock(blocks.StructBlock):
 
     views = blocks.ListBlock(MapCreateButtonsViewBlock(), default=[])
     type = blocks.ChoiceBlock(
-        choices=[("simple", "Simple"), ("megaphone", "Megaphone")],
+        choices=[("simple", "Simple"), ("megaphone", "Megaphone"), ("cards", "Cards")],
         default="simple",
     )
 

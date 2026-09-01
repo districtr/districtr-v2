@@ -382,7 +382,14 @@ class MetricsProxyTests(TestCase):
     ENVELOPE = {
         "payload_version": 1,
         "metrics": {
-            "assigned_units": {"assigned_count": 4, "total_count": 4},
+            # split_count counts toward completeness (mirrors the frontend
+            # EvalPanel formula); partially_assigned_count breaks it.
+            "assigned_units": {
+                "assigned_count": 3,
+                "split_count": 1,
+                "partially_assigned_count": 0,
+                "total_count": 4,
+            },
             "population_deviation": {"top_to_bottom_deviation": 123.0},
             "unassigned_population": {"unassigned_population": 0},
             "contiguous": {"1": True, "2": True, "3": True, "4": False},
@@ -410,11 +417,57 @@ class MetricsProxyTests(TestCase):
             response = self.client.get(self._row_url(42))
         self.assertEqual(response.status_code, 200)
         row = response.json()
+        # 3 assigned + 1 fully-split == 4 total, none partially assigned:
+        # complete (the frontend EvalPanel formula).
         self.assertTrue(row["complete"])
-        self.assertEqual(row["assigned_count"], 4)
+        self.assertEqual(row["assigned_count"], 3)
         self.assertEqual(row["districts_drawn"], 4)
         self.assertEqual(row["top_to_bottom_deviation"], 123.0)
         self.assertFalse(row["all_contiguous"])
+
+    def test_partially_assigned_units_break_completeness(self):
+        envelope = {
+            **self.ENVELOPE,
+            "metrics": {
+                **self.ENVELOPE["metrics"],
+                "assigned_units": {
+                    "assigned_count": 3,
+                    "split_count": 1,
+                    "partially_assigned_count": 2,
+                    "total_count": 4,
+                },
+            },
+        }
+        with mock.patch("moderation.services.requests.request") as request:
+            request.side_effect = backend_router(
+                {
+                    "/api/submissions/admin": [make_entry(map_public_id=43)],
+                    "/evaluation": envelope,
+                    "/api/session": {"token": "session-token"},
+                }
+            )
+            response = self.client.get(self._row_url(43))
+        self.assertFalse(response.json()["complete"])
+
+    def test_draft_submissions_never_authorize_metric_rows(self):
+        # The guard must align with the page (status=submitted) — a draft's
+        # map_public_id is the author's LIVE, pre-consent map.
+        with mock.patch("moderation.services.requests.request") as request:
+            request.side_effect = backend_router(
+                {
+                    "/api/submissions/admin": [],
+                    "/api/session": {"token": "session-token"},
+                }
+            )
+            response = self.client.get(self._row_url(77))
+            self.assertEqual(response.status_code, 404)
+            # The membership call itself must filter to submitted rows.
+            list_call = next(
+                c
+                for c in request.call_args_list
+                if "/api/submissions/admin" in c.args[1]
+            )
+            self.assertEqual(list_call.kwargs["params"].get("status"), "submitted")
 
     def test_backend_failure_is_502_not_500(self):
         with mock.patch("moderation.services.requests.request") as request:
