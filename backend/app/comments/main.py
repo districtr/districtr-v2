@@ -569,15 +569,17 @@ def allowed_review_tags(auth_result: dict) -> list[str] | None:
     tags via ReviewTagAssignment rows, minted into the JWT as a `review_tags`
     claim (sorted list of tag slugs). Semantics:
 
-    - `read:read-all` in the token scopes → None (unrestricted): that scope
-      means unrestricted read everywhere, and the CMS strips it from
-      tag-scoped reviewers so it can act as the admin/superuser escape hatch.
+    - `review:review-all` in the token scopes → None (unrestricted): the
+      explicit tag-scoping bypass. The CMS never grants it to tag-scoped
+      reviewers, so it acts as the admin/superuser escape hatch. (read:read-all
+      deliberately does NOT bypass: the *-all read/update/delete scopes govern
+      CMS authorship boundaries, a different axis from moderation reach.)
     - `review_tags` claim absent → None (unrestricted): users with no
       assignments are unrestricted (back-compat for internal reviewers).
     - otherwise → the claim's list; an empty list allows nothing.
     """
     token_scopes = (auth_result.get("scope") or "").split()
-    if TokenScope.read_all_content in token_scopes:
+    if TokenScope.review_all_content in token_scopes:
         return None
     review_tags = auth_result.get("review_tags")
     if review_tags is None:

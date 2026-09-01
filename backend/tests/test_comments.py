@@ -1491,7 +1491,7 @@ class TestReviewTagScoping:
     """Per-user review scoping on the admin moderation endpoints.
 
     The CMS mints a `review_tags` claim for reviewers with
-    ReviewTagAssignments (and strips `read:read-all` from their scopes);
+    ReviewTagAssignments (and never grants them `review:review-all`);
     allowed_review_tags + apply_allowed_tags_filter in app/comments/main.py
     enforce it. The conftest client fixture overrides auth.verify with a
     payload dict, so each test injects the claim/scope combination it needs.
@@ -1560,11 +1560,25 @@ class TestReviewTagScoping:
         assert response.status_code == 200
         assert len(response.json()) == 3
 
-    def test_read_all_scope_overrides_claim(self, client, tagged_comments):
+    def test_read_all_scope_does_not_bypass_tag_scoping(self, client, tagged_comments):
+        # read:read-all governs authorship-boundary reads, not moderation
+        # reach — it must NOT widen a tag-scoped reviewer.
         self._set_auth(
             {
                 "sub": "42",
                 "scope": "create:content_review read:read-all",
+                "review_tags": ["environment"],
+            }
+        )
+        response = client.get("/api/comments/admin/list")
+        assert response.status_code == 200
+        assert [c["title"] for c in response.json()] == ["Environment Comment"]
+
+    def test_review_all_scope_lists_everything(self, client, tagged_comments):
+        self._set_auth(
+            {
+                "sub": "42",
+                "scope": "create:content_review review:review-all",
                 "review_tags": ["environment"],
             }
         )
