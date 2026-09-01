@@ -18,11 +18,17 @@ export type ClientSession = {
 };
 
 /**
- * Server-side session helper. Returns null when unauthenticated or when the
+ * Map an Auth.js session (from auth() or the /auth/session endpoint's JSON)
+ * to the serializable client shape. Null when unauthenticated or when the
  * silent token refresh has failed (forcing a re-login).
  */
-export const getServerSession = async (): Promise<ClientSession | null> => {
-  const session = await auth();
+export const toClientSession = (
+  session: {
+    user?: SessionUser;
+    accessToken?: string;
+    error?: string;
+  } | null
+): ClientSession | null => {
   if (!session?.user || session.error === 'RefreshTokenError') {
     return null;
   }
@@ -35,3 +41,14 @@ export const getServerSession = async (): Promise<ClientSession | null> => {
     tokenSet: session.accessToken ? {accessToken: session.accessToken} : undefined,
   };
 };
+
+/**
+ * Server-side session helper. Returns null when unauthenticated or when the
+ * silent token refresh has failed (forcing a re-login).
+ *
+ * NOTE: server components cannot write cookies, so a refresh that happens
+ * here is not persisted — that is fine for rendering, but polling endpoints
+ * must go through Auth.js's own handler instead (see app/auth/token/route.ts).
+ */
+export const getServerSession = async (): Promise<ClientSession | null> =>
+  toClientSession(await auth());
