@@ -189,7 +189,7 @@ def patch_compose_steps():
             manager.add_extent_to_districtrmap,
         ),
         patch(
-            "app.admin_ops.main.create_parent_child_edges",
+            "app.admin_ops.main.create_or_copy_parent_child_edges",
             manager.create_parent_child_edges,
         ),
         patch(
@@ -341,7 +341,6 @@ def test_compose_attaches_requested_overlays(session: Session, compose_layers):
             tiles_s3_path=None,
             group_slug=None,
             map_type="default",
-            visible=False,
             overlay_ids=[overlay_id],
         )
 
@@ -426,7 +425,6 @@ def test_compose_schedules_steps_without_child_layer(client, compose_layers):
                 **COMPOSE_PAYLOAD,
                 "tiles_s3_path": "tilesets/compose.pmtiles",
                 "map_type": "local",
-                "visible": True,
             },
         )
 
@@ -445,7 +443,8 @@ def test_compose_schedules_steps_without_child_layer(client, compose_layers):
     assert map_kwargs["gerrydb_table_name"] == "compose_parent"
     assert map_kwargs["tiles_s3_path"] == "tilesets/compose.pmtiles"
     assert map_kwargs["map_type"] == "local"
-    assert map_kwargs["visibility"] is True
+    # Compose can never publish: visibility is a deliberate second step.
+    assert map_kwargs["visibility"] is False
 
 
 def test_compose_propagates_group_slug(client, compose_layers, compose_map_group):
@@ -501,3 +500,57 @@ def test_compose_background_task_logs_success(session, caplog):
         )
 
     assert "Districtr map compose succeeded for ks-demo-compose" in caplog.text
+
+
+def test_compose_rejects_child_equal_to_parent(client):
+    with patch_compose_steps() as manager:
+        response = client.post(
+            COMPOSE_URL, json={**COMPOSE_PAYLOAD, "child_layer": "compose_parent"}
+        )
+    assert response.status_code == 422
+    assert manager.mock_calls == []
+
+
+def test_compose_rejects_slug_exceeding_identifier_limit(client):
+    # 52+ chars: slug + "_shatterable" would pass PostgreSQL's 63-byte limit
+    # and silently truncate the materialized view's catalog name.
+    long_slug = "a" * 52
+    with patch_compose_steps() as manager:
+        response = client.post(
+            COMPOSE_URL,
+            json={
+                **COMPOSE_CHILD_PAYLOAD,
+                "districtr_map_slug": long_slug,
+            },
+        )
+    assert response.status_code == 422
+    assert manager.mock_calls == []
+    # The same slug is fine when there is no derived view name.
+    with patch_compose_steps():
+        response = client.post(
+            COMPOSE_URL, json={**COMPOSE_PAYLOAD, "districtr_map_slug": long_slug}
+        )
+    assert response.status_code != 422
+
+
+def test_compose_rejects_malformed_overlay_id(client):
+    # Malformed UUIDs must 422 at validation, never reach PostgreSQL as a
+    # DataError-turned-500.
+    with patch_compose_steps() as manager:
+        response = client.post(
+            COMPOSE_URL, json={**COMPOSE_PAYLOAD, "overlay_ids": ["not-a-uuid"]}
+        )
+    assert response.status_code == 422
+    assert manager.mock_calls == []
+
+
+@pytest.mark.parametrize("bad_identifier", ["1st_layer", "9blocks"])
+def test_compose_rejects_leading_digit_identifiers(client, bad_identifier):
+    # PostgreSQL identifiers cannot start with a digit; assert_safe_ident is
+    # the repo-wide guard and admin_ops must use the same rule.
+    with patch_compose_steps() as manager:
+        response = client.post(
+            COMPOSE_URL, json={**COMPOSE_PAYLOAD, "parent_layer": bad_identifier}
+        )
+    assert response.status_code == 422
+    assert manager.mock_calls == []
