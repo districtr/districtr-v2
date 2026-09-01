@@ -1561,3 +1561,69 @@ class PortalWizardAtomicityTests(TestCase):
         # Re-rendered with a form error, page rolled back with the config.
         self.assertEqual(response.status_code, 200)
         self.assertFalse(TagPage.objects.filter(slug="river-portal").exists())
+
+
+class PortalWizardPresetPayloadTests(TestCase):
+    """The preset table drives the client-side prefill — the server saves
+    only posted values, so the payload IS the preset decision surface."""
+
+    def setUp(self):
+        from core.testing import create_mirror_tables, make_admin_user
+        from datastore.models import DistrictrMap, FormConfig, GerryDBTable
+
+        create_mirror_tables(GerryDBTable, DistrictrMap, FormConfig)
+        self.client.force_login(make_admin_user(group_name="admin"))
+
+    def test_preset_payload_is_a_parseable_dict_with_the_preset_decisions(self):
+        import json as json_module
+        import re
+
+        response = self.client.get("/admin/portals/new/")
+        match = re.search(
+            r'<script id="preset-data" type="application/json">(.*?)</script>',
+            response.content.decode(),
+            re.S,
+        )
+        assert match, "preset-data json_script tag missing"
+        payload = json_module.loads(match.group(1))
+        # A pre-serialized payload would double-encode into a STRING here,
+        # silently killing the prefill (every preset -> prompt mode).
+        self.assertIsInstance(payload, dict)
+        # The preset DECISIONS (not the full field lists): each preset's
+        # collection posture is the product promise its description makes.
+        self.assertEqual(payload["educational"]["collection_mode"], "internal")
+        self.assertEqual(payload["competition"]["collection_mode"], "prompt")
+        self.assertEqual(payload["public_engagement"]["collection_mode"], "auto_public")
+        self.assertEqual(payload["state_commission"]["collection_mode"], "form")
+        self.assertTrue(payload["state_commission"]["require_email_confirm"])
+
+
+class FormModeButtonSuppressionTests(TestCase):
+    """form-mode portals collect only through the form — their map-create
+    buttons must stay plain (no portalId => no auto-draft)."""
+
+    def test_form_mode_map_buttons_get_no_portal_id(self):
+        from core.testing import (
+            create_mirror_tables,
+            make_form_config,
+            make_portal,
+        )
+        from datastore.models import FormConfig, FormFieldCustom
+
+        create_mirror_tables(FormConfig, FormFieldCustom)
+        portal = make_portal("form-portal")
+        config = make_form_config("form-portal")
+        config.collection_mode = "form"
+        config.save()
+        portal.body = [
+            {"type": "map_create_buttons", "value": {"views": [], "type": "simple"}}
+        ]
+        portal.save_revision(clean=False).publish()
+
+        payload = self.client.get("/api/content/tags/slug/form-portal").json()
+        buttons = next(
+            block["value"]
+            for block in payload["content"]["body"]
+            if block["type"] == "map_create_buttons"
+        )
+        self.assertNotIn("portalId", buttons)

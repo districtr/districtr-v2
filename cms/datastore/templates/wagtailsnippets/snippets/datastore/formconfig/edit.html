@@ -6,6 +6,6 @@
     {{ block.super }}
 
     <div class="nice-padding">
-        {% include "datastore/_link_formset.html" with formset=custom_fields_formset heading="Custom questions" description="Extra questions this portal's form asks beyond the standard fields (short answer or paragraph). Answers are PUBLIC. Leave a row's label blank to skip it; tick Delete to remove. Saving the form applies the changes." %}
+        {% include "datastore/_link_formset.html" with formset=custom_fields_formset heading="Custom questions" description="Extra questions this portal's form asks beyond the standard fields (short answer or paragraph). Answers are PUBLIC and cannot be made private — do not ask for email, phone, or address here (the standard email field is the private channel, never shown publicly). Leave a row's label blank to skip it; tick Delete to remove. Saving the form applies the changes." %}
     </div>
 {% endblock %}

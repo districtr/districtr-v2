@@ -286,17 +286,87 @@ def _tags_index():
     return TagsIndexPage.objects.filter(locale=Locale.get_default()).first()
 
 
+def _question_rows(question_formset):
+    """Validated (key, label, field_type, required) rows from the formset.
+
+    Key derivation mirrors CustomFieldInlineFormSet: 'custom_' + slugified
+    label. Duplicate or empty-slug labels get a formset-level error HERE —
+    letting them reach the DB's UNIQUE/CHECK constraints would surface as a
+    misleading 'portal was just created' message (or a 500).
+    """
+    rows = []
+    seen: set[str] = set()
+    for question in question_formset.cleaned_data:
+        label = (question.get("label") or "").strip()
+        if not label:
+            continue
+        slug_part = slugify(label).replace("-", "_")
+        if not slug_part:
+            question_formset._non_form_errors = question_formset.non_form_errors()
+            question_formset._non_form_errors.append(
+                f"Question label '{label}' must contain letters or numbers."
+            )
+            continue
+        key = f"custom_{slug_part}"[:64]
+        if key in seen:
+            question_formset._non_form_errors = question_formset.non_form_errors()
+            question_formset._non_form_errors.append(
+                f"Two questions would share the key '{key}' — make the "
+                "labels distinct."
+            )
+            continue
+        seen.add(key)
+        rows.append(
+            (
+                key,
+                label,
+                question.get("field_type") or "text",
+                bool(question.get("required")),
+            )
+        )
+    return rows
+
+
 def portal_wizard(request):
     # Group gate applied at URL registration (portals/wagtail_hooks.py) to
     # keep the PORTAL_EDITOR_GROUPS constant in one place.
     form = PortalWizardForm(request.POST or None, user=request.user)
     question_formset = CustomQuestionFormSet(request.POST or None, prefix="questions")
+
+    def _render():
+        # data-* payload for the tiny prefill script in the template. Passed
+        # as a DICT: json_script does its own json.dumps, so pre-serializing
+        # would embed a JSON *string literal* and silently kill the prefill
+        # (every preset would fall back to prompt mode).
+        preset_data = {
+            key: {
+                "description": spec["description"],
+                "collection_mode": spec["collection_mode"],
+                "fields": spec["fields"],
+                "required_fields": spec["required_fields"],
+                "require_email_confirm": spec["require_email_confirm"],
+            }
+            for key, spec in PORTAL_PRESETS.items()
+        }
+        return render(
+            request,
+            "content/portal_wizard.html",
+            {
+                "form": form,
+                "question_formset": question_formset,
+                "preset_data": preset_data,
+            },
+        )
+
     if request.method == "POST" and form.is_valid() and question_formset.is_valid():
         from content.models import TagPage
 
         data = form.cleaned_data
         slug = data["slug"]
         preset = PORTAL_PRESETS[data["preset"]]
+        question_rows = _question_rows(question_formset)
+        if question_formset.non_form_errors():
+            return _render()
         # The display name, not the choice label ("Name (slug)") — the label
         # would leak into the starter page's visible button text.
         map_name = (
@@ -332,24 +402,22 @@ def portal_wizard(request):
                     require_email_confirm=data["require_email_confirm"],
                     admin_teams=data["admin_teams"],
                 )
-                for order, question in enumerate(question_formset.cleaned_data):
-                    label = (question.get("label") or "").strip()
-                    if not label:
-                        continue
-                    key = f"custom_{slugify(label).replace('-', '_')}"[:64]
+                for order, (key, label, field_type, required) in enumerate(
+                    question_rows
+                ):
                     FormFieldCustom.objects.create(
                         form_config_id=slug,
                         key=key,
                         label=label,
-                        field_type=question.get("field_type") or "text",
-                        required=bool(question.get("required")),
+                        field_type=field_type,
+                        required=required,
                         sort_order=order,
                     )
         except IntegrityError:
             # The clean() existence checks are advisory (TOCTOU against a
             # concurrent create); the loser gets a form error, not a 500.
             form.add_error("slug", f"A portal '{slug}' was just created.")
-            return render(request, "content/portal_wizard.html", {"form": form})
+            return _render()
         messages.success(
             request,
             f"Portal '{data['title']}' created as a draft with its form "
@@ -357,23 +425,4 @@ def portal_wizard(request):
         )
         return redirect(reverse("wagtailadmin_pages:edit", args=[page.id]))
 
-    # data-* payloads for the tiny prefill script in the template.
-    preset_data = {
-        key: {
-            "description": spec["description"],
-            "collection_mode": spec["collection_mode"],
-            "fields": spec["fields"],
-            "required_fields": spec["required_fields"],
-            "require_email_confirm": spec["require_email_confirm"],
-        }
-        for key, spec in PORTAL_PRESETS.items()
-    }
-    return render(
-        request,
-        "content/portal_wizard.html",
-        {
-            "form": form,
-            "question_formset": question_formset,
-            "preset_data_json": json.dumps(preset_data),
-        },
-    )
+    return _render()

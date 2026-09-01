@@ -28,7 +28,10 @@
                     <h3>Custom questions</h3>
                     <p class="help">
                         Extra questions beyond the standard fields (short
-                        answer or paragraph). Answers are public. Only used by
+                        answer or paragraph). Answers are PUBLIC and cannot
+                        be made private — do not ask for email, phone, or
+                        address here (the standard email field is the
+                        private channel, never shown publicly). Only used by
                         the prompt-to-submit and manual-form modes. Leave a
                         row blank to skip it.
                     </p>
@@ -51,7 +54,7 @@
         </form>
     </div>
 
-    {{ preset_data_json|json_script:"preset-data" }}
+    {{ preset_data|json_script:"preset-data" }}
     <script>
         // Preset prefill: selecting a preset sets the collection mode, field
         // checkboxes, and email-confirm toggle, and shows its description.
