@@ -136,11 +136,13 @@ class PortalGalleryViewTests(TestCase):
     def setUp(self):
         create_mirror_tables_for_form_config()
         self.portal = make_portal("midwest-portal", title="Midwest Portal")
-        make_form_config("midwest-portal")
         self.url = reverse("portals_gallery", args=["midwest-portal"])
         self.reviewer = make_admin_user(
             email="reviewer@districtr.org", group_name="partner"
         )
+        # Team-less partners fail closed; reach comes from admin_teams.
+        make_team("Review Team", members=[self.reviewer])
+        make_form_config("midwest-portal", admin_teams=["review-team"])
         self.client.login(username="reviewer@districtr.org", password=PASSWORD)
 
     def test_inaccessible_portal_denied(self):
@@ -225,6 +227,8 @@ class PortalGalleryViewTests(TestCase):
 
 class SubmissionActionTests(TestCase):
     def setUp(self):
+        # The redirect target (portals index) renders the FormConfig list.
+        create_mirror_tables_for_form_config()
         self.url = reverse("portals_submission_action")
         make_admin_user(email="reviewer@districtr.org", group_name="partner")
         self.client.login(username="reviewer@districtr.org", password=PASSWORD)
@@ -272,7 +276,12 @@ class SubmissionActionTests(TestCase):
             )
             response = self.client.post(
                 self.url,
-                {"id": "11", "action": "hidden", "value": "1", "next": "/admin/portals/"},
+                {
+                    "id": "11",
+                    "action": "hidden",
+                    "value": "1",
+                    "next": "/admin/portals/",
+                },
                 follow=True,
             )
         self.assertContains(response, "do not administer")
@@ -361,8 +370,10 @@ class MetricsProxyTests(TestCase):
         views._METRICS_CACHE.clear()
         create_mirror_tables_for_form_config()
         self.portal = make_portal("midwest-portal")
-        make_form_config("midwest-portal")
-        make_admin_user(email="reviewer@districtr.org", group_name="partner")
+        reviewer = make_admin_user(email="reviewer@districtr.org", group_name="partner")
+        # Team-less partners fail closed; reach comes from admin_teams.
+        make_team("Review Team", members=[reviewer])
+        make_form_config("midwest-portal", admin_teams=["review-team"])
         self.client.login(username="reviewer@districtr.org", password=PASSWORD)
 
     def _row_url(self, public_id):
@@ -407,6 +418,7 @@ class MetricsProxyTests(TestCase):
 
     def test_backend_failure_is_502_not_500(self):
         with mock.patch("moderation.services.requests.request") as request:
+
             def _route(method, url, **kwargs):
                 if "/api/submissions/admin" in url:
                     return mock_response(json_body=[make_entry(map_public_id=7)])
