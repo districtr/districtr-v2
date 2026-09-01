@@ -1,5 +1,6 @@
 import logging
 import re
+from uuid import UUID
 from contextlib import nullcontext
 from typing import Literal
 from urllib.parse import urlparse
@@ -12,7 +13,7 @@ from fastapi import (
     Security,
     status,
 )
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import text
 from sqlmodel import Session
 
@@ -21,18 +22,15 @@ from app.core.security import TokenScope, auth
 from app.utils import (
     add_districtr_map_to_map_group,
     add_extent_to_districtrmap,
+    assert_safe_ident,
     create_districtr_map,
-    create_parent_child_edges,
     create_shatterable_gerrydb_view,
 )
-from management.load_data import import_gerrydb_view
+from management.load_data import create_or_copy_parent_child_edges, import_gerrydb_view
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 logger = logging.getLogger(__name__)
 
-# The import code interpolates layer/table names into SQL identifiers and shell
-# args, so restrict them to word characters before anything is scheduled.
-SQL_IDENTIFIER_PATTERN = re.compile(r"^[a-zA-Z0-9_]+$")
 
 # Slugs appear in URLs and (with '-' mapped to '_') in the shatterable view
 # name, so keep them to lowercase letters, digits, and hyphens.
@@ -48,8 +46,11 @@ class GerryDBImportRequest(BaseModel):
     @field_validator("layer", "table_name")
     @classmethod
     def validate_sql_identifier(cls, value: str | None) -> str | None:
-        if value is not None and not SQL_IDENTIFIER_PATTERN.fullmatch(value):
-            raise ValueError("must contain only letters, numbers, and underscores")
+        # The import code interpolates these into SQL identifier positions;
+        # assert_safe_ident is the repo-wide guard (no leading digits, which
+        # PostgreSQL rejects unquoted).
+        if value is not None:
+            assert_safe_ident(value)
         return value
 
     @field_validator("gpkg")
@@ -76,14 +77,19 @@ def run_gerrydb_import(
     """
     logger.info("Starting GerryDB import for layer %s from %s", layer, gpkg)
     try:
-        # nullcontext leaves a caller-provided session open; an owned session
-        # is closed on exit. import_gerrydb_view commits internally, so no
-        # commit is needed here either way.
+        # nullcontext leaves a caller-provided session open (the caller owns
+        # the transaction); an owned session must commit here —
+        # import_gerrydb_view's internal commits do not cover its final
+        # gerrydbtable upsert, which would otherwise roll back on close and
+        # leave the imported layer unregistered.
+        owns_session = session is None
         ctx = nullcontext(session) if session is not None else Session(engine)
         with ctx as db_session:
             import_gerrydb_view(
                 session=db_session, layer=layer, gpkg=gpkg, table_name=table_name, rm=rm
             )
+            if owns_session:
+                db_session.commit()
     except Exception:
         logger.exception("GerryDB import failed for layer %s", layer)
         raise
@@ -123,10 +129,10 @@ class DistrictrMapComposeRequest(BaseModel):
     tiles_s3_path: str | None = None
     group_slug: str | None = None
     map_type: Literal["default", "local", "community"] = "default"
-    visible: bool = False
     # Overlay UUIDs to attach to the new module (districtrmap_overlays rows),
-    # so the CMS compose form is a one-page setup.
-    overlay_ids: list[str] | None = None
+    # so the CMS compose form is a one-page setup. Typed UUID so malformed
+    # admin input 422s instead of raising DataError in PostgreSQL.
+    overlay_ids: list[UUID] | None = None
 
     @field_validator("districtr_map_slug")
     @classmethod
@@ -140,9 +146,26 @@ class DistrictrMapComposeRequest(BaseModel):
     @field_validator("parent_layer", "child_layer")
     @classmethod
     def validate_sql_identifier(cls, value: str | None) -> str | None:
-        if value is not None and not SQL_IDENTIFIER_PATTERN.fullmatch(value):
-            raise ValueError("must contain only letters, numbers, and underscores")
+        if value is not None:
+            assert_safe_ident(value)
         return value
+
+    @model_validator(mode="after")
+    def validate_layer_pair(self) -> "DistrictrMapComposeRequest":
+        if self.child_layer is not None:
+            if self.child_layer == self.parent_layer:
+                raise ValueError("child_layer must differ from parent_layer")
+            # The derived view name must survive PostgreSQL's 63-byte
+            # identifier limit, or the catalog name silently truncates and
+            # diverges from gerrydb_table_name.
+            view_name = shatterable_view_name(self.districtr_map_slug)
+            if len(view_name) > 63:
+                raise ValueError(
+                    "districtr_map_slug is too long for a shatterable map: "
+                    f"the derived view name '{view_name}' exceeds "
+                    "PostgreSQL's 63-character identifier limit"
+                )
+        return self
 
 
 def shatterable_view_name(districtr_map_slug: str) -> str:
@@ -169,8 +192,7 @@ def _compose_districtr_map(
     tiles_s3_path: str | None,
     group_slug: str | None,
     map_type: str,
-    visible: bool,
-    overlay_ids: list[str] | None = None,
+    overlay_ids: list[UUID] | None = None,
 ) -> None:
     """Run the compose steps in CLI order on the given session, without committing."""
     # For unshatterable maps the districtr map points straight at the parent
@@ -202,8 +224,10 @@ def _compose_districtr_map(
         num_districts=num_districts,
         tiles_s3_path=tiles_s3_path,
         map_type=map_type,
-        # New modules stay hidden until reviewed unless explicitly requested.
-        visibility=visible,
+        # New modules ALWAYS compose hidden: publishing is a deliberate second
+        # step (edit the DistrictrMap after review), never a compose-time flag
+        # that could bypass the review stage.
+        visibility=False,
     )
 
     # cli.py create-districtr-map computes the extent (from the parent layer
@@ -213,7 +237,7 @@ def _compose_districtr_map(
 
     if child_layer is not None:
         logger.info("Creating parent-child edges for %s", districtr_map_slug)
-        create_parent_child_edges(
+        create_or_copy_parent_child_edges(
             session=session, districtr_map_uuid=districtr_map_uuid
         )
 
@@ -247,16 +271,15 @@ def run_districtr_map_compose(
     tiles_s3_path: str | None = None,
     group_slug: str | None = None,
     map_type: str = "default",
-    visible: bool = False,
-    overlay_ids: list[str] | None = None,
+    overlay_ids: list[UUID] | None = None,
     session: Session | None = None,
 ) -> None:
     """Compose a DistrictrMap module, owning the DB session unless one is given.
 
     Chains the same steps as the CLI commands create-shatterable-districtr-view
     (when there is a child layer), create-districtr-map (including its default
-    extent calculation), create-parent-child-edges, and
-    add-districtr-map-to-map-group. Background tasks must NOT receive the
+    extent calculation), create-parent-child-edges (copying a
+    compatible map's edges when possible), and add-districtr-map-to-map-group. Background tasks must NOT receive the
     request-scoped session (see ``run_gerrydb_import``); called with
     ``session=None`` this opens, commits, and closes its own session. Tests may
     pass a session to share their transaction.
@@ -279,7 +302,6 @@ def run_districtr_map_compose(
                 tiles_s3_path=tiles_s3_path,
                 group_slug=group_slug,
                 map_type=map_type,
-                visible=visible,
                 overlay_ids=overlay_ids,
             )
             if owns_session:
@@ -367,7 +389,6 @@ async def schedule_districtr_map_compose(
         tiles_s3_path=data.tiles_s3_path,
         group_slug=data.group_slug,
         map_type=data.map_type,
-        visible=data.visible,
         overlay_ids=data.overlay_ids,
     )
     return {"status": "scheduled", "districtr_map_slug": data.districtr_map_slug}
