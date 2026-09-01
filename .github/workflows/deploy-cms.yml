@@ -28,9 +28,12 @@ jobs:
   deploy:
     name: Deploy CMS
     runs-on: ubuntu-latest
+    # Prod is gated by its own variable (AWS_DEPLOY_CMS_PROD, not the shared
+    # AWS_DEPLOY_PROD): the CMS must stay dev-only until cutover without
+    # having to disable the existing production API/app deploys.
     if: >-
       (github.ref_name == 'dev'  && (github.event_name == 'workflow_dispatch' || vars.AWS_DEPLOY_DEV  == 'true')) ||
-      (github.ref_name == 'main' && (github.event_name == 'workflow_dispatch' || vars.AWS_DEPLOY_PROD == 'true'))
+      (github.ref_name == 'main' && (github.event_name == 'workflow_dispatch' || vars.AWS_DEPLOY_CMS_PROD == 'true'))
     steps:
       - uses: actions/checkout@v4
       - name: Set stack
