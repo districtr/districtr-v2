@@ -94,16 +94,14 @@ def mint_token(
     kid: str,
     scope: str = "create:content",
     expired: bool = False,
-    review_tags: list[str] | None = None,
     teams: list[str] | None = None,
     **extra_claims,
 ) -> str:
     """Replicates cms/authapi token output: claim layout and kid header.
 
-    `review_tags` mirrors the CMS's tag-scoped reviewer claim
-    (cms/authapi/serializers.py): present only for users with
-    ReviewTagAssignments — None omits the claim, matching the unrestricted
-    default.
+    `teams` mirrors the CMS's team-scoped reviewer claim
+    (cms/authapi/serializers.py): present only for non-admin users — None
+    omits the claim entirely, which the backend fails CLOSED on.
     """
     now = datetime.now(timezone.utc)
     payload = {
@@ -121,8 +119,6 @@ def mint_token(
         "iss": settings.AUTH_ISSUER,
         **extra_claims,
     }
-    if review_tags is not None:
-        payload["review_tags"] = review_tags
     if teams is not None:
         payload["teams"] = teams
     return jwt.encode(payload, private_pem, algorithm="RS256", headers={"kid": kid})
@@ -157,35 +153,6 @@ def test_multiple_required_scopes(verifier, keypair, jwks):
 
     payload = run_verify(verifier, token, ["create:content", "update:publish"])
     assert payload["scope"] == "create:content update:publish"
-
-
-def test_review_tags_claim_round_trips(verifier, keypair, jwks):
-    """Tag-scoped reviewer token: the CMS withholds review:review-all and
-    mints a sorted review_tags claim; the verifier must hand the claim through
-    unchanged for allowed_review_tags (app/comments/main.py) to enforce."""
-    private_pem, _ = keypair
-    kid = jwks["keys"][0]["kid"]
-    token = mint_token(
-        private_pem,
-        kid,
-        scope="create:content_review",
-        review_tags=["environment", "schools"],
-    )
-
-    payload = run_verify(verifier, token, ["create:content_review"])
-
-    assert payload["review_tags"] == ["environment", "schools"]
-    assert "review:review-all" not in payload["scope"].split()
-
-
-def test_review_tags_claim_absent_by_default(verifier, keypair, jwks):
-    private_pem, _ = keypair
-    kid = jwks["keys"][0]["kid"]
-    token = mint_token(private_pem, kid, scope="create:content_review")
-
-    payload = run_verify(verifier, token, ["create:content_review"])
-
-    assert "review_tags" not in payload
 
 
 def test_teams_claim_round_trips(verifier, keypair, jwks):
