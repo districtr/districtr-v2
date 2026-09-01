@@ -29,7 +29,7 @@ from fastapi import (
     Security,
     status,
 )
-from sqlalchemy import exists, literal
+from sqlalchemy import exists, func, literal, text
 from sqlalchemy.sql import and_
 from sqlmodel import Session, col, select
 
@@ -101,32 +101,30 @@ def require_portal_admin(auth_result: dict, config: FormConfig) -> None:
     this before acting — the scope check alone does not carry the team
     restriction. Semantics: `review:review-all` scope → unrestricted (the
     explicit moderation-reach bypass; read:read-all deliberately does NOT
-    widen moderation, see TokenScope); absent `teams` claim → unrestricted
-    (service tokens); otherwise the claim must intersect the portal's
-    admin_teams.
+    widen moderation, see TokenScope); otherwise the token MUST carry a
+    `teams` claim that intersects the portal's admin_teams. An ABSENT claim
+    fails closed: until the CMS mints `teams` for every reviewer, treating
+    absence as "service token, unrestricted" would make every partner token
+    unrestricted (they carry review scope but, pre-cutover, no claim) —
+    the exact fail-open bypass this repo's history warns about. Service
+    callers that need cross-portal access get review:review-all instead.
     """
     token_scopes = (auth_result.get("scope") or "").split()
     if TokenScope.review_all_content in token_scopes:
         return
     teams = auth_result.get("teams")
-    if teams is None:
-        return
-    if not set(str(t) for t in teams) & set(config.admin_teams):
+    if teams is None or not set(str(t) for t in teams) & set(config.admin_teams):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=(
-                f"Your teams {sorted(str(t) for t in teams)} do not administer "
-                f"portal {config.portal_id!r} (teams {sorted(config.admin_teams)})."
+                f"Your teams do not administer portal {config.portal_id!r}."
             ),
         )
 
 
 def _is_team_scoped(auth_result: dict) -> bool:
     token_scopes = (auth_result.get("scope") or "").split()
-    return (
-        TokenScope.review_all_content not in token_scopes
-        and auth_result.get("teams") is not None
-    )
+    return TokenScope.review_all_content not in token_scopes
 
 
 def clone_document_for_submission(session: Session, source: Document) -> Document:
@@ -147,6 +145,10 @@ def clone_document_for_submission(session: Session, source: Document) -> Documen
         num_communities=source.num_communities,
         community_metadata_list=source.community_metadata_list,
         map_metadata=source.map_metadata,
+        # The author's palette is part of the snapshot: the clone's edit
+        # UUID is unreachable, so a dropped color_scheme could never be
+        # fixed after the fact.
+        color_scheme=source.color_scheme,
     )
     session.add(clone)
     session.flush()  # assigns public_id
@@ -318,7 +320,12 @@ async def finalize_submission(
         data.turnstile_token, client_ip_from_request(request)
     )
     submission = session.exec(
-        select(Submission).where(col(Submission.submission_id) == submission_id)
+        # Row lock: two overlapping finalizes must serialize so the loser
+        # sees status=submitted (409) instead of racing into a duplicate
+        # clone + content-unique IntegrityError 500.
+        select(Submission)
+        .where(col(Submission.submission_id) == submission_id)
+        .with_for_update()
     ).first()
     if submission is None:
         raise HTTPException(status_code=404, detail="Submission not found")
@@ -361,7 +368,7 @@ async def list_submissions(
     search: str | None = Query(default=None),
     has_map: bool | None = Query(default=None),
     offset: int = Query(default=0, ge=0),
-    limit: int = Query(default=100, le=100),
+    limit: int = Query(default=100, ge=1, le=100),
     session: Session = Depends(get_session),
 ):
     """List a portal's visible submissions. nsfw rows are included — the
@@ -375,7 +382,12 @@ async def list_submissions(
                 col(Submission.hidden).is_(False),
             )
         )
-        .order_by(col(Submission.created_at).desc())
+        .order_by(
+            func.coalesce(
+                col(Submission.submitted_at), col(Submission.created_at)
+            ).desc(),
+            col(Submission.id).desc(),
+        )
         .offset(offset)
         .limit(limit)
     )
@@ -479,7 +491,7 @@ async def list_submissions_admin(
     hidden: bool | None = Query(default=None),
     has_map: bool | None = Query(default=None),
     offset: int = Query(default=0, ge=0),
-    limit: int = Query(default=100, le=100),
+    limit: int = Query(default=100, ge=1, le=100),
     session: Session = Depends(get_session),
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.review_content]),
 ):
@@ -497,7 +509,12 @@ async def list_submissions_admin(
 
     stmt = (
         select(Submission)
-        .order_by(col(Submission.created_at).desc())
+        .order_by(
+            func.coalesce(
+                col(Submission.submitted_at), col(Submission.created_at)
+            ).desc(),
+            col(Submission.id).desc(),
+        )
         .offset(offset)
         .limit(limit)
     )
@@ -576,10 +593,34 @@ async def set_submission_hidden(
     session: Session = Depends(get_session),
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.review_content]),
 ):
-    """Hard takedown/restore for spam and abuse. Resolves the flag report."""
+    """Hard takedown/restore for spam and abuse. Resolves the flag report.
+
+    For submitted entries the map is a frozen clone that exists ONLY as a
+    gallery entry, so takedown also demotes its draft_status: without that,
+    the abusive map stays fetchable at its enumerable public_id even while
+    hidden from every listing. Restore puts it back to ready_to_share (the
+    status every clone has by construction).
+    """
     submission = _get_submission_for_admin(submission_pk, auth_result, session)
     submission.hidden = body.hidden
     submission.flagged = False
     session.add(submission)
+    if submission.status == SubmissionStatus.submitted:
+        session.execute(
+            text(
+                """
+                UPDATE document.document
+                SET map_metadata = jsonb_set(
+                    COALESCE(map_metadata::jsonb, '{}'::jsonb),
+                    '{draft_status}', to_jsonb(CAST(:status AS text))
+                )::json
+                WHERE public_id = :public_id
+                """
+            ),
+            {
+                "status": "scratch" if body.hidden else "ready_to_share",
+                "public_id": submission.map_public_id,
+            },
+        )
     session.commit()
     return {"id": submission_pk, "hidden": body.hidden}

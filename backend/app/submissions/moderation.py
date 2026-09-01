@@ -79,15 +79,19 @@ def score_text(text: str) -> float:
 def moderate_submission_by_id(
     submission_id: int, session: Session | None = None
 ) -> None:
-    """Background task: score a submission's content + tags, persist score/nsfw.
+    """Background task: score a submission's content + tags + map card text.
 
-    Scores the concatenation of every content value and tag — the only
-    outcome is one blur bit, so per-field granularity buys nothing. Opens its
-    own session when none is given (the background-task case: the
+    Scores the concatenation of every content value, tag, and the attached
+    map's metadata name/description — the gallery card renders the map's
+    name/description, so leaving them unscored would let an abusive map
+    title sail past the nsfw filter under a clean one-word comment. The only
+    outcome is one blur bit, so per-field granularity buys nothing. Opens
+    its own session when none is given (the background-task case: the
     request-scoped session is closed by the time this runs).
     """
     # Local import: models imports nothing from here, but keeping the module
     # import-light avoids cycles with app.models consumers.
+    from app.models import Document
     from app.submissions.models import Submission, SubmissionContent
 
     def _run(sess: Session) -> None:
@@ -99,7 +103,19 @@ def moderate_submission_by_id(
                 col(SubmissionContent.submission_id) == submission_id
             )
         ).all()
-        text = " ".join([*values, *(submission.tags or [])])
+        map_texts: list[str] = []
+        if submission.map_public_id is not None:
+            metadata = sess.scalars(
+                select(Document.map_metadata).where(
+                    col(Document.public_id) == submission.map_public_id
+                )
+            ).first()
+            if metadata:
+                map_texts = [
+                    str(metadata.get(key) or "")
+                    for key in ("name", "description")
+                ]
+        text = " ".join([*values, *(submission.tags or []), *map_texts])
         score = score_text(text)
         sess.execute(
             update(Submission)

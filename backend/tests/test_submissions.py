@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 from app.core.security import auth
 from app.main import app
+from app.district_notes import DistrictNote
 from app.models import Assignments, Document
 from app.submissions.fields import slugify
 from app.submissions.models import FormConfig, Submission
@@ -256,10 +257,13 @@ class TestTeamScoping:
         response = client.get(f"/api/submissions/admin?portal_id={PORTAL}")
         assert response.status_code == 403
 
-    def test_absent_teams_claim_unrestricted(self, client, form_config):
+    def test_absent_teams_claim_fails_closed(self, client, form_config):
+        # Pre-cutover partner tokens carry the review scope but no teams
+        # claim; treating absence as unrestricted would fail open for every
+        # one of them. Cross-portal callers use review:review-all instead.
         _set_auth({"sub": "5", "scope": REVIEW_SCOPE})
         response = client.get(f"/api/submissions/admin?portal_id={PORTAL}")
-        assert response.status_code == 200
+        assert response.status_code == 403
 
     def test_actions_scoped_by_submission_portal(self, client, form_config):
         submission_id = _submit(client).json()["id"]
@@ -303,6 +307,15 @@ class TestCloneAtSubmission:
             },
         )
         assert put.status_code == 200
+        source = session.exec(
+            select(Document).where(col(Document.document_id) == document_id)
+        ).one()
+        source.color_scheme = ["#123456"]
+        session.add(source)
+        session.add(
+            DistrictNote(document_id=document_id, zone=1, note="source note")
+        )
+        session.commit()
         _mark_ready(session, document_id)
 
         response = _submit(client, map_ref=document_id)
@@ -318,6 +331,15 @@ class TestCloneAtSubmission:
         # The clone is frozen ready_to_share with the plan copied over...
         assert (clone.map_metadata or {}).get("draft_status") == "ready_to_share"
         assert _assignment_count(session, clone.document_id) == 1
+        # ...including snapshot fidelity that could never be fixed later
+        # (the clone's edit UUID is unreachable): palette and zone notes.
+        assert clone.color_scheme == ["#123456"]
+        clone_notes = session.exec(
+            select(DistrictNote).where(
+                col(DistrictNote.document_id) == clone.document_id
+            )
+        ).all()
+        assert [n.note for n in clone_notes] == ["source note"]
 
         # ...and later edits to the original leave it untouched.
         doc2 = client.get(f"/api/document/{document_id}").json()
@@ -425,3 +447,151 @@ class TestDraftFinalize:
         _mark_ready(session, doc["document_id"])
         response = self._finalize(client, doc["submission_id"], fields={})
         assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Gallery exclusion and moderation-authority alignment
+# ---------------------------------------------------------------------------
+
+
+class TestGalleryExclusion:
+    def _ready_map(self, client, session, document_id):
+        _mark_ready(session, document_id)
+        return client.get(f"/api/document/{document_id}").json()["public_id"]
+
+    def test_draft_map_stays_out_of_the_tag_gallery(
+        self, client, form_config, ks_demo_view_census_blocks_districtrmap, session
+    ):
+        # A draft's map_public_id points at the LIVE editable document; only
+        # status=submitted may surface it in /api/documents/list.
+        response = client.post(
+            "/api/create_document",
+            json={
+                "districtr_map_slug": "ks_demo_view_census_blocks",
+                "portal_id": PORTAL,
+            },
+        )
+        assert response.status_code == 201, response.json()
+        document_id = response.json()["document_id"]
+        _mark_ready(session, document_id)
+
+        listed = client.get(f"/api/documents/list?tags={PORTAL}").json()
+        assert listed == []
+
+    def test_hidden_and_nsfw_submissions_leave_the_tag_gallery(
+        self, client, form_config, document_id, session
+    ):
+        self._ready_map(client, session, document_id)
+        submission_id = _submit(client, map_ref=document_id).json()["id"]
+        assert len(client.get(f"/api/documents/list?tags={PORTAL}").json()) == 1
+
+        _set_auth(TEAM_A_PAYLOAD)
+        assert (
+            client.post(
+                f"/api/submissions/admin/{submission_id}/nsfw", json={"nsfw": True}
+            ).status_code
+            == 200
+        )
+        assert client.get(f"/api/documents/list?tags={PORTAL}").json() == []
+
+    def test_cross_portal_tags_cannot_inject_into_another_gallery(
+        self, client, form_config, document_id, session
+    ):
+        # Visibility and moderation authority share one key: a submission to
+        # OTHER_PORTAL tagged with PORTAL must NOT appear in PORTAL's
+        # gallery, where PORTAL's reviewers could never take it down.
+        self._ready_map(client, session, document_id)
+        response = _submit(
+            client,
+            fields={"title": "injected"},
+            tags=[PORTAL],
+            map_ref=document_id,
+            portal_id=OTHER_PORTAL,
+        )
+        assert response.status_code == 201, response.json()
+        assert client.get(f"/api/documents/list?tags={PORTAL}").json() == []
+        assert len(client.get(f"/api/documents/list?tags={OTHER_PORTAL}").json()) == 1
+
+    def test_takedown_demotes_the_frozen_clone(
+        self, client, form_config, document_id, session
+    ):
+        # hidden=True must remove the clone from direct public fetches too —
+        # public_ids are sequential, so listing-only takedown leaves the
+        # abusive map one enumeration away.
+        self._ready_map(client, session, document_id)
+        submission_id = _submit(client, map_ref=document_id).json()["id"]
+        submission = session.get(Submission, submission_id)
+        clone_public_id = submission.map_public_id
+
+        _set_auth(TEAM_A_PAYLOAD)
+        response = client.post(
+            f"/api/submissions/admin/{submission_id}/hidden", json={"hidden": True}
+        )
+        assert response.status_code == 200
+        session.expire_all()
+        clone_meta = client.get(f"/api/document/{clone_public_id}").json()[
+            "map_metadata"
+        ]
+        assert clone_meta["draft_status"] == "scratch"
+
+        response = client.post(
+            f"/api/submissions/admin/{submission_id}/hidden", json={"hidden": False}
+        )
+        assert response.status_code == 200
+        clone_meta = client.get(f"/api/document/{clone_public_id}").json()[
+            "map_metadata"
+        ]
+        assert clone_meta["draft_status"] == "ready_to_share"
+
+
+class TestModerationWiring:
+    def test_submit_schedules_the_moderation_task(
+        self, client, form_config, monkeypatch
+    ):
+        # The background-task wiring itself: deleting add_task from
+        # create_submission must fail this test. The task is invoked with
+        # the submission pk after the response is sent (TestClient runs
+        # background tasks synchronously).
+        calls = []
+        monkeypatch.setattr(
+            "app.submissions.main.moderate_submission_by_id",
+            lambda submission_id, session=None: calls.append(submission_id),
+        )
+        response = _submit(client)
+        assert response.status_code == 201, response.json()
+        assert calls == [response.json()["id"]]
+
+    def test_map_card_text_is_scored(self, client, form_config, document_id, session):
+        # The gallery card renders the map's name/description — they must be
+        # part of the scored text or an abusive title sails past the filter.
+        _mark_ready(session, document_id)
+        doc = session.exec(
+            select(Document).where(col(Document.document_id) == document_id)
+        ).one()
+        doc.map_metadata = {**(doc.map_metadata or {}), "name": "abusive title"}
+        session.add(doc)
+        session.commit()
+
+        submission_id = _submit(client, map_ref=document_id).json()["id"]
+        scored = {}
+        with patch(
+            "app.submissions.moderation.score_text",
+            side_effect=lambda text: scored.setdefault("text", text) and 0.0 or 0.0,
+        ):
+            moderate_submission_by_id(submission_id, session=session)
+        assert "abusive title" in scored["text"]
+
+
+class TestFormConfigContract:
+    def test_form_config_shape(self, client, form_config):
+        # Cross-service payload: the CMS and frontend both render forms from
+        # this response. admin_teams is an internal moderation detail and
+        # must never ship in it.
+        response = client.get(f"/api/submissions/form_config?portal_id={PORTAL}")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["portal_id"] == PORTAL
+        assert body["fields"] == form_config.fields
+        assert body["required_fields"] == form_config.required_fields
+        assert "admin_teams" not in body
+        assert "id" not in body

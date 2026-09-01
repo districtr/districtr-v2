@@ -22,7 +22,7 @@ from sqlalchemy.exc import (
 from sqlalchemy import text, or_
 from sqlalchemy.types import Integer
 from sqlmodel import Session, String, select, true, update, col, literal
-from sqlalchemy.sql import and_, exists, or_
+from sqlalchemy.sql import and_, exists
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -70,7 +70,7 @@ import app.evaluation.main as evaluation
 from app.evaluation.types import MetricsEnvelope
 import app.save_share.main as save_share
 import app.submissions.main as submissions
-from app.submissions.models import FormConfig, Submission, SubmissionStatus
+from app.submissions.models import Submission, SubmissionStatus
 import app.thumbnails.main as thumbnails
 from app.models import (
     Assignments,
@@ -445,14 +445,9 @@ async def create_document(
     # uses to finalize (submit to the portal's gallery).
     draft_submission_id: str | None = None
     if data.portal_id is not None:
-        form_config_exists = session.exec(
-            select(FormConfig.id).where(FormConfig.portal_id == data.portal_id)
-        ).first()
-        if form_config_exists is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"No form config for portal {data.portal_id!r}",
-            )
+        # Reuse the submissions module's resolver (single source of the
+        # portal-validity rule and its 404 message).
+        submissions.get_form_config(data.portal_id, session)
         draft = Submission(
             portal_id=data.portal_id,
             map_public_id=new_document.public_id,
@@ -1458,7 +1453,12 @@ async def get_document_list(
             .where(
                 and_(
                     Submission.map_public_id == Document.public_id,
-                    col(Submission.tags).overlap(tags),
+                    # Gallery membership is the submission's OWN portal, never
+                    # its free-form tags: visibility and moderation authority
+                    # must share a key, or an attacker submits to a portal
+                    # they choose (whose reviewers they picked) while tagging
+                    # a victim portal whose reviewers can't see the row.
+                    col(Submission.portal_id).in_(tags),
                     col(Submission.status) == SubmissionStatus.submitted,
                     col(Submission.hidden).is_(False),
                     col(Submission.nsfw).is_(False),
