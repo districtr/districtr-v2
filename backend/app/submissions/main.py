@@ -288,6 +288,7 @@ async def create_submission(
         tags=_normalized_tags(data.tags, config.portal_id),
         status=SubmissionStatus.submitted,
         submitted_at=datetime.now(timezone.utc),
+        map_is_clone=map_public_id is not None,
     )
     session.add(submission)
     session.flush()
@@ -344,6 +345,7 @@ async def finalize_submission(
     clone = clone_document_for_submission(session, source)
 
     submission.map_public_id = clone.public_id
+    submission.map_is_clone = True
     submission.tags = _normalized_tags(data.tags, config.portal_id)
     submission.status = SubmissionStatus.submitted
     submission.submitted_at = datetime.now(timezone.utc)
@@ -599,16 +601,18 @@ async def set_submission_hidden(
 
     Takedown removes the entry from the portal gallery and the submissions
     list; it does not delete the map, which stays reachable at its public_id
-    by design. For submitted entries the map is a frozen clone, and takedown
-    also sets the clone's draft_status to scratch; restore puts it back to
+    by design. For submitted clone-backed entries, takedown also sets the
+    clone's draft_status to scratch, and restore puts it back to
     ready_to_share (the status every clone has by construction). That label
-    is bookkeeping. The `hidden` filters are what remove the entry.
+    is bookkeeping; the `hidden` filters are what remove the entry.
+    Live-referenced maps (converted legacy rows, drafts, auto-collect modes)
+    are never demoted, since that would change a real user's working map.
     """
     submission = _get_submission_for_admin(submission_pk, auth_result, session)
     submission.hidden = body.hidden
     submission.flagged = False
     session.add(submission)
-    if submission.status == SubmissionStatus.submitted:
+    if submission.status == SubmissionStatus.submitted and submission.map_is_clone:
         session.execute(
             text(
                 """

@@ -19,7 +19,7 @@ from sqlalchemy.exc import (
     DataError,
     OperationalError,
 )
-from sqlalchemy import text, or_
+from sqlalchemy import text
 from sqlalchemy.types import Integer
 from sqlmodel import Session, String, select, true, update, col, literal
 from sqlalchemy.sql import and_, exists
