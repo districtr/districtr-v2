@@ -9,7 +9,7 @@ after the backend's Alembic migrations).
 """
 
 from django.db import models
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
 
 from datastore.drift import (
     EXCLUDED_COLUMNS,
@@ -222,3 +222,174 @@ class CompareColumnsTests(SimpleTestCase):
         db_spec = {"uuid": True, "name": False, "added": False}
         problems = compare_columns("t", self.MODEL_SPEC, db_spec)
         self.assertEqual(len(problems), 3)
+
+
+class FormConfigScopingTests(TestCase):
+    """Team scoping on the portal-form snippet — the ACL the backend's
+    require_portal_admin reads. Bypass-by-URL and fail-open-for-team-less
+    are the repo's historical bug class."""
+
+    def setUp(self):
+        from core.testing import (
+            create_mirror_tables,
+            make_form_config,
+            make_team,
+            make_user,
+        )
+        from datastore.models import FormConfig
+
+        create_mirror_tables(FormConfig)
+        self.partner = make_user("partner", "p@d.org", access_admin=True)
+        self.team = make_team("Mine Team", members=[self.partner])
+        make_team("Other Team")
+        self.mine = make_form_config("my-portal", admin_teams=["mine-team"])
+        self.theirs = make_form_config("their-portal", admin_teams=["other-team"])
+
+    def _policy(self):
+        from datastore.wagtail_hooks import FormConfigPermissionPolicy
+        from datastore.models import FormConfig
+
+        return FormConfigPermissionPolicy(FormConfig)
+
+    def test_scoped_partner_sees_only_own_configs(self):
+        instances = self._policy().instances_user_has_permission_for(
+            self.partner, "change"
+        )
+        self.assertEqual([c.portal_id for c in instances], ["my-portal"])
+        self.assertFalse(
+            self._policy().user_has_permission_for_instance(
+                self.partner, "change", self.theirs
+            )
+        )
+
+    def test_team_less_partner_fails_closed(self):
+        from core.testing import make_user
+
+        loner = make_user("partner", "loner@d.org", access_admin=True)
+        instances = self._policy().instances_user_has_permission_for(loner, "change")
+        self.assertEqual(list(instances), [])
+
+    def test_out_of_scope_edit_by_url_denied(self):
+        self.client.force_login(self.partner)
+        response = self.client.get(
+            f"/admin/snippets/datastore/formconfig/edit/{self.theirs.pk}/"
+        )
+        self.assertEqual(response.status_code, 404)
+        ok = self.client.get(
+            f"/admin/snippets/datastore/formconfig/edit/{self.mine.pk}/"
+        )
+        self.assertEqual(ok.status_code, 200)
+
+    def test_out_of_scope_history_by_url_404s(self):
+        self.client.force_login(self.partner)
+        response = self.client.get(
+            f"/admin/snippets/datastore/formconfig/history/{self.theirs.pk}/"
+        )
+        self.assertEqual(response.status_code, 404)
+
+
+class FormConfigAdminFormTests(TestCase):
+    """The form's own scoping: restricted editors only grant/revoke their
+    own teams, must keep one, and cannot re-point portal_id."""
+
+    def setUp(self):
+        from core.testing import (
+            create_mirror_tables,
+            make_form_config,
+            make_portal,
+            make_team,
+            make_user,
+        )
+        from datastore.models import DistrictrMap, FormConfig, GerryDBTable
+
+        create_mirror_tables(GerryDBTable, DistrictrMap, FormConfig)
+        # TagPage.full_clean validates districtr_map_slug once the mirror
+        # exists, so the referenced map row must too.
+        layer = GerryDBTable.objects.create(name="blocks")
+        DistrictrMap.objects.create(
+            name="Chi", districtr_map_slug="chi_wards", parent_layer=layer
+        )
+        self.partner = make_user("partner", "p@d.org", access_admin=True)
+        self.admin = make_user("admin", "a@d.org", access_admin=True)
+        self.team = make_team("Mine Team", members=[self.partner])
+        make_team("Other Team")
+        self.portal = make_portal("my-portal")
+        self.config = make_form_config("my-portal", admin_teams=["mine-team"])
+
+    def _form(self, user, **overrides):
+        from datastore.wagtail_hooks import FormConfigAdminForm
+
+        data = {
+            "portal_id": "my-portal",
+            "name": "My Portal",
+            "fields": ["title", "comment"],
+            "required_fields": ["title"],
+            "admin_teams": ["mine-team"],
+        }
+        data.update(overrides)
+        return FormConfigAdminForm(data, instance=self.config, for_user=user)
+
+    def test_partner_cannot_grant_other_team(self):
+        form = self._form(self.partner, admin_teams=["other-team"])
+        self.assertFalse(form.is_valid())
+        self.assertIn("admin_teams", form.errors)
+
+    def test_partner_cannot_drop_own_last_team(self):
+        form = self._form(self.partner, admin_teams=[])
+        self.assertFalse(form.is_valid())
+        self.assertIn("admin_teams", form.errors)
+
+    def test_admin_may_grant_any_team(self):
+        form = self._form(self.admin, admin_teams=["other-team"])
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_partner_cannot_repoint_portal_id(self):
+        from core.testing import make_portal
+
+        make_portal("other-portal")
+        form = self._form(self.partner, portal_id="other-portal")
+        self.assertFalse(form.is_valid())
+        self.assertIn("portal_id", form.errors)
+
+    def test_portal_id_must_name_a_real_portal_page(self):
+        form = self._form(self.admin, portal_id="ghost-portal")
+        self.assertFalse(form.is_valid())
+        self.assertIn("portal_id", form.errors)
+
+
+class FormConfigDeleteGuardTests(TestCase):
+    """Deleting a portal form with submissions is refused (data-loss guard;
+    the DB FK is ON DELETE RESTRICT, this is the friendly layer)."""
+
+    def setUp(self):
+        from core.testing import create_mirror_tables, make_admin_user, make_form_config
+        from datastore.models import FormConfig
+
+        create_mirror_tables(FormConfig)
+        self.config = make_form_config("busy-portal")
+        self.client.force_login(make_admin_user())
+        self.url = f"/admin/snippets/datastore/formconfig/delete/{self.config.pk}/"
+
+    def test_delete_with_submissions_refused(self):
+        from unittest import mock
+
+        from datastore.models import FormConfig
+
+        with mock.patch(
+            "datastore.wagtail_hooks._portals_with_submissions",
+            return_value={"busy-portal": 3},
+        ):
+            response = self.client.post(self.url, follow=True)
+        self.assertContains(response, "Cannot delete portal forms")
+        self.assertTrue(FormConfig.objects.filter(pk=self.config.pk).exists())
+
+    def test_delete_without_submissions_proceeds(self):
+        from unittest import mock
+
+        from datastore.models import FormConfig
+
+        with mock.patch(
+            "datastore.wagtail_hooks._portals_with_submissions", return_value={}
+        ):
+            self.client.post(self.url)
+        self.assertFalse(FormConfig.objects.filter(pk=self.config.pk).exists())

@@ -95,6 +95,7 @@ def mint_token(
     scope: str = "create:content",
     expired: bool = False,
     review_tags: list[str] | None = None,
+    teams: list[str] | None = None,
     **extra_claims,
 ) -> str:
     """Replicates cms/authapi token output: claim layout and kid header.
@@ -122,6 +123,8 @@ def mint_token(
     }
     if review_tags is not None:
         payload["review_tags"] = review_tags
+    if teams is not None:
+        payload["teams"] = teams
     return jwt.encode(payload, private_pem, algorithm="RS256", headers={"kid": kid})
 
 
@@ -183,6 +186,38 @@ def test_review_tags_claim_absent_by_default(verifier, keypair, jwks):
     payload = run_verify(verifier, token, ["create:content_review"])
 
     assert "review_tags" not in payload
+
+
+def test_teams_claim_round_trips(verifier, keypair, jwks):
+    """Team-scoped reviewer token: the CMS withholds review:review-all and
+    mints a sorted teams claim; the verifier must hand the claim through
+    unchanged for require_portal_admin (app/submissions/main.py) to intersect
+    with form_configs.admin_teams."""
+    private_pem, _ = keypair
+    kid = jwks["keys"][0]["kid"]
+    token = mint_token(
+        private_pem,
+        kid,
+        scope="create:content_review",
+        teams=["team-a", "team-b"],
+    )
+
+    payload = run_verify(verifier, token, ["create:content_review"])
+
+    assert payload["teams"] == ["team-a", "team-b"]
+    assert "review:review-all" not in payload["scope"].split()
+
+
+def test_teams_claim_absent_by_default(verifier, keypair, jwks):
+    # Absent claim FAILS CLOSED at require_portal_admin (only
+    # review:review-all bypasses) — the verifier must not invent one.
+    private_pem, _ = keypair
+    kid = jwks["keys"][0]["kid"]
+    token = mint_token(private_pem, kid, scope="create:content_review")
+
+    payload = run_verify(verifier, token, ["create:content_review"])
+
+    assert "teams" not in payload
 
 
 def test_missing_scope_rejected(verifier, keypair, jwks):

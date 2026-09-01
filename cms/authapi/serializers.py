@@ -28,8 +28,8 @@ def set_user_claims(token, user) -> None:
     # Submission-moderation scoping rides the teams: the backend intersects
     # this claim with form_configs.admin_teams per portal
     # (backend/app/submissions/main.py::require_portal_admin).
-    # Admins/superusers get no claim (unrestricted — their scopes also carry
-    # read:read-all, the backend's escape hatch); team-scoped users get their
+    # Admins/superusers get no claim (unrestricted — their scopes carry
+    # review:review-all, the backend's only escape hatch); team-scoped users get their
     # team slugs; team-less non-admins get [] — fail closed until they join
     # a team.
     if not (user.is_superuser or "admin" in group_names):

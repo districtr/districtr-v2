@@ -1332,3 +1332,110 @@ class PortalWizardTests(TestCase):
         self.client.force_login(user)
         response = self.client.get(self.url)
         self.assertRedirects(response, "/admin/")
+
+
+class PortalWizardScopingTests(TestCase):
+    """Non-admins fail closed: only their own teams/maps are offered, and a
+    portal they create must keep one of their teams as moderator."""
+
+    def setUp(self):
+        from core.testing import create_mirror_tables, make_team, make_user
+        from datastore.models import DistrictrMap, FormConfig, GerryDBTable
+
+        create_mirror_tables(GerryDBTable, DistrictrMap, FormConfig)
+        layer = GerryDBTable.objects.create(name="blocks")
+        self.my_map = DistrictrMap.objects.create(
+            name="Mine", districtr_map_slug="my_map", parent_layer=layer
+        )
+        DistrictrMap.objects.create(
+            name="Theirs", districtr_map_slug="their_map", parent_layer=layer
+        )
+        self.partner = make_user("partner", "p@d.org", access_admin=True)
+        self.my_team = make_team(
+            "Mine Team", members=[self.partner], maps=[self.my_map]
+        )
+        self.other_team = make_team("Other Team")
+
+    def _form(self, user, **data):
+        from content.portal_wizard import PortalWizardForm
+
+        base = {
+            "title": "P",
+            "slug": "p",
+            "districtr_map_slug": "my_map",
+            "template": "map_collection",
+            "fields": ["title", "comment"],
+            "required_fields": ["title"],
+            "admin_teams": ["mine-team"],
+        }
+        base.update(data)
+        return PortalWizardForm(base, user=user)
+
+    def test_scoped_partner_cannot_use_other_teams_map_or_team(self):
+        form = self._form(self.partner, districtr_map_slug="their_map")
+        self.assertFalse(form.is_valid())
+        self.assertIn("districtr_map_slug", form.errors)
+
+        form = self._form(self.partner, admin_teams=["other-team"])
+        self.assertFalse(form.is_valid())
+        self.assertIn("admin_teams", form.errors)
+
+    def test_scoped_partner_must_keep_own_team_as_moderator(self):
+        form = self._form(self.partner, admin_teams=[])
+        self.assertFalse(form.is_valid())
+        self.assertIn("admin_teams", form.errors)
+
+    def test_team_less_partner_fails_closed(self):
+        from core.testing import make_user
+
+        loner = make_user("partner", "loner@d.org", access_admin=True)
+        form = self._form(loner)
+        # No team -> no map choices, no team choices: nothing is grantable.
+        self.assertFalse(form.is_valid())
+
+    def test_own_team_and_map_accepted(self):
+        form = self._form(self.partner)
+        self.assertTrue(form.is_valid(), form.errors)
+
+
+class PortalWizardAtomicityTests(TestCase):
+    """A failure between the page write and the config write must roll BOTH
+    back — a half-created portal is the failure mode the wizard exists to
+    prevent, and the form-level collision checks are TOCTOU-advisory only."""
+
+    def setUp(self):
+        from core.testing import create_mirror_tables, make_admin_user
+        from datastore.models import DistrictrMap, FormConfig, GerryDBTable
+
+        create_mirror_tables(GerryDBTable, DistrictrMap, FormConfig)
+        layer = GerryDBTable.objects.create(name="blocks")
+        DistrictrMap.objects.create(
+            name="Chi", districtr_map_slug="chi_wards", parent_layer=layer
+        )
+        self.client.force_login(make_admin_user(group_name="admin"))
+
+    def test_config_failure_rolls_back_the_page(self):
+        from unittest import mock
+
+        from django.db import IntegrityError
+
+        from content.models import TagPage
+
+        with mock.patch(
+            "content.portal_wizard.FormConfig.objects.create",
+            side_effect=IntegrityError("duplicate key"),
+        ):
+            response = self.client.post(
+                "/admin/portals/new/",
+                {
+                    "title": "River Portal",
+                    "slug": "river-portal",
+                    "districtr_map_slug": "chi_wards",
+                    "template": "map_collection",
+                    "fields": ["title", "comment"],
+                    "required_fields": ["title"],
+                },
+            )
+        # Re-rendered with a form error, page rolled back with the config.
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(TagPage.objects.filter(slug="river-portal").exists())

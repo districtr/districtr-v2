@@ -120,7 +120,10 @@ class MintUserAccessTokenTests(TestCase):
 
 class PortalListTests(TestCase):
     def setUp(self):
+        from datastore.models import FormConfig
+
         self.url = reverse("moderation_review_portals")
+        create_mirror_tables(FormConfig)
         self.portal_a = make_portal("midwest-portal", districtr_map_slug="chi_wards")
         self.portal_b = make_portal("texas-portal", districtr_map_slug="tx_other")
 
@@ -131,17 +134,16 @@ class PortalListTests(TestCase):
         self.assertContains(response, "midwest-portal")
         self.assertContains(response, "texas-portal")
 
-    def test_unscoped_partner_sees_all_portals(self):
+    def test_team_less_partner_sees_nothing(self):
+        # Fail closed, matching the backend's teams: [] -> 403 — this list
+        # also gates add_to_portal_gallery, a pure CMS write.
         partner = make_admin_user(email="partner@districtr.org", group_name="partner")
         self.client.force_login(partner)
         response = self.client.get(self.url)
-        self.assertContains(response, "midwest-portal")
-        self.assertContains(response, "texas-portal")
+        self.assertNotContains(response, "midwest-portal")
+        self.assertNotContains(response, "texas-portal")
 
     def test_team_scoped_partner_sees_only_their_portals(self):
-        from datastore.models import FormConfig
-
-        create_mirror_tables(FormConfig)
         make_form_config("midwest-portal", admin_teams=["portal-team"])
         make_form_config("texas-portal", admin_teams=["other-team"])
         partner = make_admin_user(email="scoped@districtr.org", group_name="partner")
@@ -161,11 +163,17 @@ class PortalListTests(TestCase):
 
 class PortalReviewViewTests(TestCase):
     def setUp(self):
+        from datastore.models import FormConfig
+
+        create_mirror_tables(FormConfig)
         self.portal = make_portal("midwest-portal")
         self.url = reverse("moderation_portal_review", args=["midwest-portal"])
         self.reviewer = make_admin_user(
             email="reviewer@districtr.org", group_name="partner"
         )
+        # Reach comes from admin_teams (fail-closed for team-less partners).
+        make_team("Review Team", members=[self.reviewer])
+        make_form_config("midwest-portal", admin_teams=["review-team"])
         self.client.login(username="reviewer@districtr.org", password=PASSWORD)
 
     def test_inaccessible_portal_denied(self):
@@ -263,7 +271,12 @@ class PortalReviewViewTests(TestCase):
 
 class SubmissionActionTests(TestCase):
     def setUp(self):
+        from datastore.models import FormConfig
+
         self.url = reverse("moderation_submission_action")
+        # The action view proxies to the backend, which owns authorization,
+        # but its redirect target renders the portal list -> mirror needed.
+        create_mirror_tables(FormConfig)
         make_admin_user(email="reviewer@districtr.org", group_name="partner")
         self.client.login(username="reviewer@districtr.org", password=PASSWORD)
 
@@ -370,10 +383,17 @@ class SubmissionActionTests(TestCase):
 class AddToPortalGalleryTests(TestCase):
     def setUp(self):
         self.url = reverse("moderation_add_to_portal_gallery")
+        from datastore.models import FormConfig
+
+        create_mirror_tables(FormConfig)
         self.portal = make_portal("midwest-portal")
         self.partner = make_admin_user(
             email="partner@districtr.org", group_name="partner"
         )
+        # Moderation reach (admin_teams), not page ownership, is what
+        # authorizes gallery pinning.
+        make_team("Gallery Team", members=[self.partner])
+        make_form_config("midwest-portal", admin_teams=["gallery-team"])
         self.client.login(username="partner@districtr.org", password=PASSWORD)
 
     def add(self, **overrides):

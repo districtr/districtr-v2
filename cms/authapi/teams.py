@@ -25,12 +25,20 @@ from wagtail.permission_policies.base import ModelPermissionPolicy
 from authapi.models import TeamMembership
 
 
+def user_is_unscoped_admin(user) -> bool:
+    """True for superusers and admin-group members — the only users the
+    team-scoping machinery never narrows. Everyone else is restricted to
+    their teams; a non-admin with NO team must fail closed (see the
+    FormConfig policy), not inherit admin reach."""
+    if not user.is_authenticated:
+        return False
+    return user.is_superuser or user.groups.filter(name="admin").exists()
+
+
 def user_is_team_scoped(user) -> bool:
     """True when ``user``'s Wagtail admin should be narrowed to their teams
     (see module docstring for who is exempt)."""
-    if not user.is_authenticated or user.is_superuser:
-        return False
-    if user.groups.filter(name="admin").exists():
+    if not user.is_authenticated or user_is_unscoped_admin(user):
         return False
     return TeamMembership.objects.filter(user=user).exists()
 

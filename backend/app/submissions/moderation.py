@@ -112,8 +112,7 @@ def moderate_submission_by_id(
             ).first()
             if metadata:
                 map_texts = [
-                    str(metadata.get(key) or "")
-                    for key in ("name", "description")
+                    str(metadata.get(key) or "") for key in ("name", "description")
                 ]
         text = " ".join([*values, *(submission.tags or []), *map_texts])
         score = score_text(text)

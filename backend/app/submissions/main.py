@@ -116,9 +116,7 @@ def require_portal_admin(auth_result: dict, config: FormConfig) -> None:
     if teams is None or not set(str(t) for t in teams) & set(config.admin_teams):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                f"Your teams do not administer portal {config.portal_id!r}."
-            ),
+            detail=(f"Your teams do not administer portal {config.portal_id!r}."),
         )
 
 

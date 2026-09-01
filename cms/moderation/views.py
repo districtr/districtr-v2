@@ -22,7 +22,7 @@ from requests import RequestException
 from wagtail.admin import messages
 from wagtail.admin.auth import permission_denied, user_passes_test
 
-from authapi.teams import team_slugs_for_user, user_is_team_scoped
+from authapi.teams import team_slugs_for_user, user_is_unscoped_admin
 from moderation import services
 from moderation.forms import SubmissionFilterForm
 from moderation.services import BackendAPIError
@@ -112,16 +112,19 @@ def _list_view(request, form, fetch, template, title, extra_context=None):
 
 def _accessible_portals(user):
     """TagPages whose submissions the user may moderate: all portals for
-    admins and unscoped reviewers; for team-scoped members, the portals whose
+    admins/superusers; for everyone else, the portals whose
     FormConfig.admin_teams intersects their team slugs — the same rule the
-    backend enforces via the JWT teams claim."""
+    backend enforces via the JWT teams claim. A team-less non-admin gets
+    NOTHING (fail closed, matching the backend's teams: [] -> 403): this
+    list also gates add_to_portal_gallery, a pure CMS write the backend
+    never re-checks."""
     from wagtail.models import Locale
 
     from content.models import TagPage
     from datastore.models import FormConfig
 
     portals = TagPage.objects.filter(locale=Locale.get_default()).order_by("title")
-    if user_is_team_scoped(user):
+    if not user_is_unscoped_admin(user):
         team_portals = FormConfig.objects.filter(
             admin_teams__overlap=team_slugs_for_user(user)
         ).values_list("portal_id", flat=True)
@@ -214,6 +217,10 @@ def add_to_portal_gallery(request):
     portal = _accessible_portals(request.user).filter(slug=portal_slug).first()
     if portal is None:
         return permission_denied(request)
+    # Deliberate: moderation reach (admin_teams), not Wagtail page-edit
+    # permission, authorizes this write — curating the portal gallery is the
+    # moderator's job even on pages they don't own, the write is a DRAFT
+    # revision, and publishing still goes through page approval.
 
     page = portal.get_latest_revision_as_object()
     body_data = page.body.get_prep_value()
