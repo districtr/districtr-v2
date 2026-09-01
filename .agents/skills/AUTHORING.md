@@ -15,11 +15,57 @@ when the work demands them, and bundled scripts execute without their source ent
 context at all. The model itself is the router — there is no classifier or keyword
 matcher. Two consequences:
 
-- **The description is the entire triggering mechanism.** It must state what the skill
-  covers *and* when to use it; the model decides from that text alone.
+- **The `name: description` line is the entire triggering mechanism.** The model decides
+  from that text alone — see the next section for what that text has to look like.
 - **Skills hold task-conditional content only.** Diffusely-relevant context (project
   priorities, team norms, overall architecture) has no trigger condition and belongs in
   the eagerly-loaded files (CLAUDE.md, AGENTS.md), not in a skill.
+
+## How routing actually behaves (measured 2026-09-01)
+
+An in-house experiment (~170 fresh `claude -p` runs against this repo, hooks disabled,
+`learn-backend` as the subject, Haiku and Sonnet, 2–4 trials per cell) replaced several
+assumptions about descriptions with observations. The large effects below were consistent
+across cells; differences of one trial in four are noise.
+
+- **Matching runs against the model's own restatement of the task.** Before its first
+  tool call the model writes a one-sentence restatement in standard engineering
+  vocabulary ("explore the backend data model…") and matches *that* against the
+  `name: description` line. So the words that trigger are the model's nouns — backend,
+  endpoint/route, API, data model, server, share link, public id — and house terms
+  ("conventions", "notes", "invariants", "territory", "concern") match nothing.
+  Precision vs. vagueness is the wrong axis; *whose vocabulary* is the right one.
+- **Grammatical phrases, never keyword lists.** The same seven words as a readable phrase
+  triggered 4/4 in every split between name and description; the same words scrambled
+  triggered 0/12. Name and description are one line: words are interchangeable between
+  them, the name is just one more phrase, and an opaque name costs nothing if the
+  description carries the phrase.
+- **A description can veto but only weakly promote.** Wrong text (another skill's
+  description under this name) blocked invocation 0/11; the best-tuned description beat
+  the original 4/4 vs 3/4. Naming the exact identifiers a task will need (e.g. the
+  dependency functions) helps code-phrased prompts and caused no false positives.
+- **Model choice dominates everything above.** Haiku invoked the skill in 3/72 runs
+  regardless of description (it goes straight to Glob/Read); Sonnet 33/58 on direct
+  tasks. Subagents almost never invoke skills (one invocation across the whole
+  experiment). Anything delegated to a subagent gets its hard invariants stated in the
+  spawn prompt, not left to routing.
+- **Sibling skills compete, and the prompt's most salient noun wins.** "Share link" loaded
+  `learn-auth-share` every time and `learn-backend` never. A cross-reference pulled the
+  second skill in about half the time, and one miss produced a confident *backwards*
+  statement of the `get_document_public` rule. So a cross-cutting invariant is
+  duplicated verbatim in every skill whose trigger surface covers a situation where it
+  matters; a pointer is a coin flip.
+- **Descriptions cannot reach indirectly framed work.** Product-framed tasks that turn out
+  to need backend changes loaded `learn-backend` 0/20: the model reads code first and
+  names the domain only afterward, when the description has already been passed over.
+  The reachable moment is the code read itself — a path-scoped `PreToolUse` hook on
+  reads/edits under the concern's territory. A `UserPromptSubmit` keyword hook fires
+  only when the description would have matched anyway.
+
+Procedure for writing or tuning a description: run a few agents on representative tasks
+for the concern, read each one's first planning sentence, harvest the nouns, and write
+short grammatical phrases from them. Keep the "use when" clause — it carried the
+paraphrased-task cases — and add the exact identifiers a code-phrased task will name.
 
 Repo-specific delivery constraint: Claude Code discovers `.claude/skills/<name>/SKILL.md`
 exactly one level deep. `scripts/sync-skills.sh` therefore flattens this directory's
@@ -37,17 +83,23 @@ have bitten the server before (`learn-performance`). Path- or keyword-based rout
 cannot tell these apart; a description that names the concern lets the model route on
 *why* it is working, not *where*.
 
-- Descriptions state the concern abstractly enough to cover every route into it
-  ("use when a change could affect whether user work is saved, lost, or conflicted") —
-  the territory map inside the body names the files.
+- Descriptions cover every route into the concern, but in the model's own engineering
+  nouns, as readable phrases (previous section) — "saving and syncing map edits:
+  IndexedDB persistence, server sync, conflict resolution", with a "use when" clause
+  naming the situations. Abstract concern-language ("whether user work is saved, lost,
+  or conflicted") reads well to a human and matches nothing the model writes. The
+  territory map inside the body names the files.
 - Surfaces map many-to-many onto concerns, and that's expected.
 - Skills that would always co-fire share one concern: merge them, and push sub-topic
   depth into `references/`.
 - A cross-cutting concern gets its own skill even with no dedicated surface
-  (`learn-performance` is the archetype).
-- The `paths` frontmatter field (glob-scoped auto-activation) exists in Claude Code; use
-  it only where a concern and a surface genuinely coincide — for knowledge skills it
-  usually re-imports the path-routing failure this section exists to prevent.
+  (`learn-performance` is the archetype) — and its load-bearing invariants are
+  *duplicated* into each sibling skill whose situations they govern, since siblings
+  compete and a cross-reference resolves only about half the time.
+- Path-scoped activation is the complement to description routing, not its rival: a
+  description reaches tasks the user already framed in the concern's terms; a hook on
+  reads/edits under the concern's files reaches the tasks that arrive at the concern
+  only after the model has read code. Individuate by concern; trigger by both.
 
 Two trigger *types*, reflected in naming: **knowledge skills** (`learn-*`) load when
 working within a concern — editing or debugging; **runbooks** (imperative names,
