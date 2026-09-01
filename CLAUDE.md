@@ -9,7 +9,7 @@ Read [`.agents/AGENTS.md`](.agents/AGENTS.md) for full project context, guide se
 ## Quick Reference
 
 - **Architecture**: [`.agents/ARCHITECTURE.md`](.agents/ARCHITECTURE.md)
-- **Project skills**: `.agents/skills/project/` (8 concern guides + 6 runbooks; see `.agents/skills/AUTHORING.md`)
+- **Project skills**: `.agents/skills/project/` (8 concern guides + 7 runbooks; see `.agents/skills/AUTHORING.md`)
 - **Issue tracking**: `bd prime` or `bd ready` (beads CLI >=1.0.0, optional)
 - **Frontend**: `app/` (Next.js App Router, Bun, TypeScript)
 - **Backend**: `backend/` (FastAPI, Python 3.12, SQLModel)

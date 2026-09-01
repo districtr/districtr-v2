@@ -129,6 +129,7 @@ skills depending on why it's being edited.
 - [`api-contract-audit`](./skills/project/api-contract-audit/SKILL.md) - detect drift between frontend API types and backend schemas
 - [`pr-review`](./skills/project/pr-review/SKILL.md) - this repo's project-specific review checkpoints
 - [`dependency-audit`](./skills/project/dependency-audit/SKILL.md) - survey outdated/vulnerable dependencies
+- [`next-upgrade`](./skills/project/next-upgrade/SKILL.md) - upgrade Next.js following official guides and codemods
 
 In Claude Code, routing is automatic — each skill's description states its concern and
 the model loads it when relevant. The listing above is the map for humans and for
@@ -139,6 +140,13 @@ agents (Cursor, Codex) without native skill routing.
 - SQLAlchemy-first: prefer SQLAlchemy/SQLModel queries and set-based SQL for new backend logic.
 - No new UDFs by default; only introduce one with explicit documented justification.
 - Treat existing UDF-backed paths as legacy and prefer incremental migration away when touched.
+
+### Frontend Conventions (Next.js)
+
+- Use `React.FC<Props>` syntax for reusable component declarations (pages/layouts use `export default function` as required by Next.js).
+- Runtime is **Bun** (not Node.js); production builds use `output: 'standalone'` and deploy to AWS ECS (see `learn-infra`).
+- Map pages (`/map/*`) are almost entirely client-side — heavy `'use client'` usage is expected there.
+- Static content pages (tags, about, etc.) should be **statically rendered** at build time where possible.
 
 ## Landing the Plane (Session Completion)
 
