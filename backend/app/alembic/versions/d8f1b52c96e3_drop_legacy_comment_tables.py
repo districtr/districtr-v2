@@ -6,19 +6,33 @@ served them (app/comments) is deleted in the same change. Zone rows were
 copied into district_notes by b3d9f47a25c1.
 
 Form comments are real data (dev has live testimony, e.g. the TN workshop),
-so before dropping, every legacy form comment becomes a submission under a
-catch-all 'legacy' form config:
+so before dropping, every legacy form comment becomes a submission:
 
-- tags are preserved verbatim, so tag-filtered galleries keep showing them;
-  only the per-portal admin queue groups them under 'legacy' (portal_id is
-  ON UPDATE CASCADE — re-attribute later with a plain UPDATE if wanted).
+- PORTAL ATTRIBUTION: gallery membership and moderation authority both key
+  on portal_id, so each comment is attributed to its primary tag slug (the
+  earliest-created tag == the portal page's slug in the legacy flow); a
+  form config row is created per distinct slug. Untagged comments fall back
+  to a catch-all 'legacy' config. All created configs get admin_teams='{}'
+  (no team information exists here): they are moderatable only by
+  review:review-all holders until an admin grants teams in the CMS — and
+  they DO accept new public submissions (the portals are real pages), which
+  is intended.
+- tags follow the new-submission convention: [portal_id, *other slugs].
 - map attachments keep their LIVE document reference (legacy behavior);
-  clone-at-submission applies only to new submissions.
-- moderation maps to the new bits preserving what the old public gate
-  showed: hidden = anything REJECTED (comment, commenter, or a tag);
-  nsfw = any moderation score >= 0.2 without an APPROVED override.
+  map_is_clone=false marks them so takedown never demotes a real user's
+  working map (this migration also adds that column).
+- moderation preserves the OLD public gate exactly: hidden = anything
+  REJECTED (comment, commenter, or a tag) OR anything score-flagged
+  (>= 0.2) without an explicit APPROVED override — the old gate excluded
+  score-flagged rows from public view entirely, and converting them to
+  merely-blurred would retroactively publish testimony no human ever
+  approved. nsfw carries the score flag so an admin who un-hides one still
+  gets the blur. Reviewers can unhide false positives from the queue.
 - submission ids are the legacy comment ids offset past MAX(submissions.id),
   so a deploy where pr10..13 already collected new submissions can't collide.
+- negative-zone rows (skipped by b3d9f47a25c1 as never-renderable) are in
+  neither district_notes nor submissions and are dropped with the tables —
+  a deliberate one-way loss.
 
 Downgrade recreates the tables (final shape as of 0db008690d60 + da39a3ee5e6b)
 empty — it does NOT reverse the conversion (converted rows simply remain in
@@ -90,18 +104,30 @@ _ALL_FIELDS = (
 
 
 def _convert_legacy_form_comments(bind) -> None:
-    # Catch-all portal config, only when there is anything to migrate.
+    # One config per portal the legacy data references: the comment's primary
+    # (earliest) tag slug IS the portal page slug in the legacy flow, and
+    # gallery membership + moderation authority both key on portal_id — a
+    # catch-all portal would empty every legacy tag gallery. Untagged
+    # comments fall back to 'legacy'.
     bind.execute(
         sa.text(
             f"""
             INSERT INTO comments.form_configs
                 (portal_id, name, fields, required_fields,
                  require_email_confirm, admin_teams)
-            SELECT 'legacy', 'Legacy submissions', {_ALL_FIELDS},
-                   '{{}}', false, '{{}}'
-            WHERE EXISTS (
-                SELECT 1 FROM comments.comment c {_FORM_COMMENT_FILTER}
-            )
+            SELECT DISTINCT
+                   COALESCE(t.primary_slug, 'legacy'),
+                   COALESCE(t.primary_slug, 'Legacy submissions'),
+                   {_ALL_FIELDS}, '{{}}'::varchar(64)[], false,
+                   '{{}}'::varchar(255)[]
+            FROM comments.comment c
+            LEFT JOIN LATERAL (
+                SELECT (array_agg(tg.slug ORDER BY tg.id))[1] AS primary_slug
+                FROM comments.comment_tag ct
+                JOIN comments.tag tg ON tg.id = ct.tag_id
+                WHERE ct.comment_id = c.id
+            ) t ON true
+            {_FORM_COMMENT_FILTER}
             ON CONFLICT (portal_id) DO NOTHING
             """
         )
@@ -122,7 +148,8 @@ def _convert_legacy_form_comments(bind) -> None:
                     c.moderation_score AS c_score,
                     cm.review_status::text AS m_status,
                     cm.moderation_score AS m_score,
-                    t.slugs, t.rejected_tag, t.score_flagged_tag, t.max_tag_score
+                    t.slugs, t.rejected_tag, t.score_flagged_tag, t.max_tag_score,
+                    COALESCE((t.slugs)[1], 'legacy') AS portal
                 FROM comments.comment c
                 LEFT JOIN comments.document_comment dc ON dc.comment_id = c.id
                 LEFT JOIN comments.commenter cm ON cm.id = c.commenter_id
@@ -141,35 +168,46 @@ def _convert_legacy_form_comments(bind) -> None:
                 ) t ON true
                 LEFT JOIN document.document d ON d.document_id = dc.document_id
                 WHERE dc.zone IS NULL
+            ),
+            score_flags AS (
+                SELECT e.*,
+                    COALESCE(
+                        (e.c_score >= 0.2 AND e.c_status IS DISTINCT FROM 'APPROVED')
+                        OR (e.m_score >= 0.2 AND e.m_status IS DISTINCT FROM 'APPROVED')
+                        OR e.score_flagged_tag,
+                        false
+                    ) AS score_flagged,
+                    COALESCE(
+                        e.c_status = 'REJECTED'
+                        OR e.m_status = 'REJECTED'
+                        OR e.rejected_tag,
+                        false
+                    ) AS was_rejected
+                FROM enriched e
             )
             INSERT INTO comments.submissions
                 (id, portal_id, map_public_id, tags, status, submitted_at,
-                 nsfw, hidden, flagged, moderation_score,
+                 nsfw, hidden, flagged, moderation_score, map_is_clone,
                  created_at, updated_at)
             SELECT
                 e.id + :offset,
-                'legacy',
+                e.portal,
                 e.public_id,
-                COALESCE(e.slugs, '{}'),
+                ARRAY[e.portal]::varchar(255)[]
+                    || array_remove(COALESCE(e.slugs, '{}'), e.portal),
                 'submitted',
                 e.created_at,
-                COALESCE(
-                    (e.c_score >= 0.2 AND e.c_status IS DISTINCT FROM 'APPROVED')
-                    OR (e.m_score >= 0.2 AND e.m_status IS DISTINCT FROM 'APPROVED')
-                    OR e.score_flagged_tag,
-                    false
-                ),
-                COALESCE(
-                    e.c_status = 'REJECTED'
-                    OR e.m_status = 'REJECTED'
-                    OR e.rejected_tag,
-                    false
-                ),
+                e.score_flagged,
+                -- The OLD public gate fully excluded score-flagged rows that
+                -- no human APPROVED; blurred-but-fetchable would widen their
+                -- exposure retroactively, so they convert as hidden too.
+                e.was_rejected OR e.score_flagged,
                 e.review_flagged,
                 GREATEST(e.c_score, e.m_score, e.max_tag_score),
+                false,
                 e.created_at,
                 e.updated_at
-            FROM enriched e
+            FROM score_flags e
             """
         ),
         {"offset": offset},
@@ -179,7 +217,7 @@ def _convert_legacy_form_comments(bind) -> None:
         sa.text(
             f"""
             INSERT INTO comments.submissions_content (submission_id, field, value)
-            SELECT c.id + :offset, f.field, LEFT(f.value, 5000)
+            SELECT c.id + :offset, f.field, LEFT(BTRIM(f.value), 5000)
             FROM comments.comment c
             LEFT JOIN comments.commenter cm ON cm.id = c.commenter_id
             CROSS JOIN LATERAL (VALUES
@@ -214,6 +252,27 @@ def _convert_legacy_form_comments(bind) -> None:
 
 
 def upgrade() -> None:
+    # Whether the submission's map is a submission-owned frozen clone (new
+    # prompt/form submissions) or a live reference to the author's working
+    # document (drafts, converted legacy rows, later auto-collect modes).
+    # Takedown may only demote the draft_status of CLONES.
+    op.add_column(
+        "submissions",
+        sa.Column(
+            "map_is_clone",
+            sa.Boolean(),
+            nullable=False,
+            server_default="false",
+        ),
+        schema="comments",
+    )
+    # Every pre-existing submitted row was created by clone-at-submission.
+    op.execute(
+        sa.text(
+            "UPDATE comments.submissions SET map_is_clone = true "
+            "WHERE status = 'submitted'"
+        )
+    )
     _convert_legacy_form_comments(op.get_bind())
     op.drop_table("document_comment", schema="comments")
     op.drop_table("comment_tag", schema="comments")
@@ -227,6 +286,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.drop_column("submissions", "map_is_clone", schema="comments")
     # Recreates the schema only; rows are unrecoverable without a backup.
     op.execute(
         sa.text(

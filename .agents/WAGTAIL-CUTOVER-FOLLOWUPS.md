@@ -20,7 +20,7 @@ the Districtr Management System requirements:
   GroupApprovalTask(admin) on the page tree and Gallery snippets — partners
   submit for moderation; publish permissions removed from non-admins.
 - **Locales** pre-provisioned (content.0006).
-- Backend: `has_document` filter on `GET /api/comments/admin/list`.
+- Backend: `has_document` filter on `GET /api/comments/admin/list (module dropped later in the stack; submissions replaced it)`.
 
 **⏳ DEFERRED — Partner report generation** (decided 2026-08-05: spec later).
 The feature list's "Generate a report" has no implementation anywhere. Open

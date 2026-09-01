@@ -289,6 +289,7 @@ async def create_submission(
         tags=_normalized_tags(data.tags, config.portal_id),
         status=SubmissionStatus.submitted,
         submitted_at=datetime.now(timezone.utc),
+        map_is_clone=map_public_id is not None,
     )
     session.add(submission)
     session.flush()
@@ -345,6 +346,7 @@ async def finalize_submission(
     clone = clone_document_for_submission(session, source)
 
     submission.map_public_id = clone.public_id
+    submission.map_is_clone = True
     submission.tags = _normalized_tags(data.tags, config.portal_id)
     submission.status = SubmissionStatus.submitted
     submission.submitted_at = datetime.now(timezone.utc)
@@ -598,17 +600,19 @@ async def set_submission_hidden(
 ):
     """Hard takedown/restore for spam and abuse. Resolves the flag report.
 
-    For submitted entries the map is a frozen clone that exists ONLY as a
-    gallery entry, so takedown also demotes its draft_status: without that,
+    For submitted CLONE-backed entries the map exists ONLY as a gallery
+    entry, so takedown also demotes its draft_status: without that,
     the abusive map stays fetchable at its enumerable public_id even while
     hidden from every listing. Restore puts it back to ready_to_share (the
-    status every clone has by construction).
+    status every clone has by construction). Live-referenced maps (converted
+    legacy rows, drafts, auto-collect modes) are NEVER demoted — that would
+    mutate a real user's working document.
     """
     submission = _get_submission_for_admin(submission_pk, auth_result, session)
     submission.hidden = body.hidden
     submission.flagged = False
     session.add(submission)
-    if submission.status == SubmissionStatus.submitted:
+    if submission.status == SubmissionStatus.submitted and submission.map_is_clone:
         session.execute(
             text(
                 """

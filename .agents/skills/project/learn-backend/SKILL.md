@@ -24,7 +24,7 @@ Backend conventions for FastAPI + SQLModel/SQLAlchemy services, request dependen
 - `backend/app/core/models.py`
 - `backend/app/utils.py`
 - `backend/app/assignments/assignments.py`
-- `backend/app/comments/*`
+- `backend/app/submissions/* (public testimony; app/district_notes.py for zone notes)`
 - `backend/app/cms/*`
 - `backend/app/save_share/*`
 - `backend/app/exports/*`
