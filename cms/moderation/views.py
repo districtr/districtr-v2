@@ -154,7 +154,10 @@ def portal_review(request, slug):
     if kind not in ("comments", "maps"):
         kind = "comments"
 
-    form = SubmissionFilterForm(request.GET or {})
+    # Default to submitted: draft rows point at the author's LIVE working
+    # map, which no one has consented to share yet — reviewers opt in to
+    # seeing drafts explicitly.
+    form = SubmissionFilterForm(request.GET or {"status": "submitted"})
 
     def fetch(user, **params):
         params["portal_id"] = portal.slug
