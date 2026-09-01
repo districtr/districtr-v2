@@ -15,7 +15,7 @@ submission admins.
 import json
 
 from django import forms
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.text import slugify
@@ -26,10 +26,10 @@ from authapi.models import Team
 from authapi.teams import (
     districtr_map_slugs_for_user,
     team_slugs_for_user,
-    user_is_team_scoped,
+    user_is_unscoped_admin,
 )
 from content.forms import _map_choices
-from datastore.models import SUBMISSION_FIELD_CHOICES, FormConfig
+from datastore.models import SUBMISSION_FIELD_CHOICES, DistrictrMap, FormConfig
 
 DEFAULT_FIELDS = [
     "first_name",
@@ -63,9 +63,14 @@ INTRO_PLACEHOLDER = (
 )
 
 
-def _starter_body(template: str, *, title: str, slug: str, map_slug: str, map_name: str):
+def _starter_body(
+    template: str, *, title: str, slug: str, map_slug: str, map_name: str
+):
     """Starter StreamField body per template, as raw block data."""
-    form_block = {"type": "form", "value": {"mandatoryTags": [], "allowListModules": []}}
+    form_block = {
+        "type": "form",
+        "value": {"mandatoryTags": [], "allowListModules": []},
+    }
     if template == "minimal":
         return [form_block]
     header = {"type": "section_header", "value": {"title": title}}
@@ -139,12 +144,14 @@ class PortalWizardForm(forms.Form):
     def __init__(self, *args, user, **kwargs):
         super().__init__(*args, **kwargs)
         self.user = user
-        scoped = user_is_team_scoped(user)
-        self.fields["districtr_map_slug"].choices = [("", "---------")] + _map_choices(
-            limit_to=districtr_map_slugs_for_user(user) if scoped else None
-        )
+        # Restricted = every non-admin, INCLUDING team-less partners: they
+        # get empty map/team choices (fail closed) rather than admin reach.
+        restricted = not user_is_unscoped_admin(user)
         user_teams = team_slugs_for_user(user)
-        if scoped:
+        self.fields["districtr_map_slug"].choices = [("", "---------")] + _map_choices(
+            limit_to=districtr_map_slugs_for_user(user) if restricted else None
+        )
+        if restricted:
             team_choices = Team.objects.filter(slug__in=user_teams)
         else:
             team_choices = Team.objects.all()
@@ -170,9 +177,7 @@ class PortalWizardForm(forms.Form):
         if parent.get_children().filter(slug=slug).exists():
             self.add_error("slug", f"A portal with slug '{slug}' already exists.")
         if FormConfig.objects.filter(portal_id=slug).exists():
-            self.add_error(
-                "slug", f"A form config for portal '{slug}' already exists."
-            )
+            self.add_error("slug", f"A form config for portal '{slug}' already exists.")
 
         extra = set(cleaned.get("required_fields") or []) - set(
             cleaned.get("fields") or []
@@ -182,6 +187,14 @@ class PortalWizardForm(forms.Form):
                 "required_fields",
                 f"Required fields must also be shown: {', '.join(sorted(extra))}",
             )
+
+        if not user_is_unscoped_admin(self.user):
+            chosen = set(cleaned.get("admin_teams") or [])
+            if not chosen & set(team_slugs_for_user(self.user)):
+                self.add_error(
+                    "admin_teams",
+                    "Pick at least one of your own teams to moderate this " "portal.",
+                )
         return cleaned
 
 
@@ -200,34 +213,45 @@ def portal_wizard(request):
 
         data = form.cleaned_data
         slug = data["slug"]
-        map_labels = dict(form.fields["districtr_map_slug"].choices)
+        # The display name, not the choice label ("Name (slug)") — the label
+        # would leak into the starter page's visible button text.
+        map_name = (
+            DistrictrMap.objects.filter(districtr_map_slug=data["districtr_map_slug"])
+            .values_list("name", flat=True)
+            .first()
+            or data["districtr_map_slug"]
+        )
         body = _starter_body(
             data["template"],
             title=data["title"],
             slug=slug,
             map_slug=data["districtr_map_slug"],
-            map_name=map_labels.get(
-                data["districtr_map_slug"], data["districtr_map_slug"]
-            ),
+            map_name=map_name,
         )
-        with transaction.atomic():
-            page = TagPage(
-                title=data["title"],
-                slug=slug,
-                districtr_map_slug=data["districtr_map_slug"],
-                body=json.dumps(body),
-                live=False,
-            )
-            data["parent"].add_child(instance=page)
-            page.save_revision(user=request.user)
-            FormConfig.objects.create(
-                portal_id=slug,
-                name=data["title"],
-                fields=data["fields"],
-                required_fields=data["required_fields"],
-                require_email_confirm=data["require_email_confirm"],
-                admin_teams=data["admin_teams"],
-            )
+        try:
+            with transaction.atomic():
+                page = TagPage(
+                    title=data["title"],
+                    slug=slug,
+                    districtr_map_slug=data["districtr_map_slug"],
+                    body=json.dumps(body),
+                    live=False,
+                )
+                data["parent"].add_child(instance=page)
+                page.save_revision(user=request.user)
+                FormConfig.objects.create(
+                    portal_id=slug,
+                    name=data["title"],
+                    fields=data["fields"],
+                    required_fields=data["required_fields"],
+                    require_email_confirm=data["require_email_confirm"],
+                    admin_teams=data["admin_teams"],
+                )
+        except IntegrityError:
+            # The clean() existence checks are advisory (TOCTOU against a
+            # concurrent create); the loser gets a form error, not a 500.
+            form.add_error("slug", f"A portal '{slug}' was just created.")
+            return render(request, "content/portal_wizard.html", {"form": form})
         messages.success(
             request,
             f"Portal '{data['title']}' created as a draft with its form "
