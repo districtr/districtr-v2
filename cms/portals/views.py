@@ -163,7 +163,11 @@ def portal_gallery(request, slug):
         page = max(int(request.GET.get("p", 1)), 1)
     except ValueError:
         page = 1
-    params = {"portal_id": slug, "offset": (page - 1) * PAGE_SIZE, "limit": PAGE_SIZE + 1}
+    params = {
+        "portal_id": slug,
+        "offset": (page - 1) * PAGE_SIZE,
+        "limit": PAGE_SIZE + 1,
+    }
     # Inline filters (blank = no filter). `status` accepts draft|submitted;
     # hidden/flagged/nsfw/has_map accept 1|0.
     for key in ("status", "hidden", "flagged", "nsfw", "has_map"):
@@ -188,7 +192,9 @@ def portal_gallery(request, slug):
     map_ids = [e["map_public_id"] for e in entries if e.get("map_public_id")]
     if map_ids:
         try:
-            documents = {d["public_id"]: d for d in services.get_documents_list(map_ids)}
+            documents = {
+                d["public_id"]: d for d in services.get_documents_list(map_ids)
+            }
         except (BackendAPIError, RequestException):
             logger.exception("Document metadata fetch failed (gallery still renders)")
     for entry in entries:
@@ -240,7 +246,9 @@ def portal_metrics(request, slug):
     map_ids = [e["map_public_id"] for e in entries if e.get("map_public_id")]
     if map_ids:
         try:
-            documents = {d["public_id"]: d for d in services.get_documents_list(map_ids)}
+            documents = {
+                d["public_id"]: d for d in services.get_documents_list(map_ids)
+            }
         except (BackendAPIError, RequestException):
             logger.exception("Document metadata fetch failed (metrics still render)")
 
