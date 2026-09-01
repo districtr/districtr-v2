@@ -185,7 +185,10 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
           const emailConfirmed =
             !requireEmailConfirm || (shown.includes('email') && emailConfirm === emailValue);
           if (captchaToken && formIsValid && emailConfirmed) {
-            submitForm(portalId, shown);
+            // Custom keys must be in the allowlist too, or the store filter
+            // strips their answers before POST (silent loss for optional
+            // customs; an unrecoverable 422 for required ones).
+            submitForm(portalId, [...shown, ...(customFields ?? []).map(c => c.key)]);
           }
         }}
         ref={formRef}
