@@ -22,7 +22,7 @@ export interface FormState {
   /** The pasted/selected map link; parsed to a document ref at submit. */
   mapRef: string;
   setMapRef: (mapRef: string) => void;
-  submitForm: (portalId: string) => Promise<void>;
+  submitForm: (portalId: string, allowedFields: string[]) => Promise<void>;
   clear: () => void;
   error: string;
   setError: (error: string) => void;
@@ -106,7 +106,7 @@ export const useFormState = create<FormState>()(
       },
       error: '',
       success: '',
-      submitForm: async (portalId: string) => {
+      submitForm: async (portalId: string, allowedFields: string[]) => {
         const {
           clear,
           setIsSubmitting,
@@ -126,11 +126,27 @@ export const useFormState = create<FormState>()(
           set({error: 'Please acknowledge all statements', isSubmitting: false});
           return;
         }
+        // The persisted store is shared across portals, so it can hold keys
+        // this portal's config doesn't allow — posting them verbatim would
+        // 422 with an error about a field that has no input on the page,
+        // unrecoverably (clear() only runs on success).
+        const allowed = new Set(allowedFields);
+        const portalFields = Object.fromEntries(
+          Object.entries(fields).filter(([key]) => allowed.has(key))
+        );
+        const mapRefParsed = showMapSelector ? parseMapRef(mapRef) : null;
+        if (showMapSelector && mapRef.trim() && !mapRefParsed) {
+          set({
+            error: 'We could not read that map link — paste the share URL or map id.',
+            isSubmitting: false,
+          });
+          return;
+        }
         const response = await postSubmission({
           portal_id: portalId,
-          fields,
+          fields: portalFields,
           tags: Array.from(tags),
-          map_ref: showMapSelector ? parseMapRef(mapRef) : null,
+          map_ref: mapRefParsed,
           turnstile_token: captchaToken,
         });
         set({
@@ -182,7 +198,11 @@ export const useFormState = create<FormState>()(
       name: 'form-state',
       storage: createJSONStorage(() => localStorage),
       // v2: comment/commenter split replaced by the sparse fields record.
+      // migrate: dropping v0/v1 drafts is deliberate (the shape changed);
+      // without it zustand logs a scary console.error for returning
+      // visitors while doing the same thing.
       version: 2,
+      migrate: () => ({}),
       partialize: state => ({
         fields: state.fields,
         tags: state.tags,

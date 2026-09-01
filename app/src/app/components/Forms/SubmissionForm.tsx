@@ -69,6 +69,17 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
 
   const required = new Set(requiredFields ?? []);
   const shown = FIELD_ORDER.filter(name => fields.includes(name));
+  // Registry drift (a config field this frontend build doesn't know) would
+  // otherwise render no input while the backend keeps requiring it — an
+  // unsubmittable form with no visible cause.
+  const unknown = fields.filter(name => !(name in FIELD_REGISTRY));
+  if (unknown.length) {
+    console.warn(
+      `SubmissionForm: unknown field(s) in portal config: ${unknown.join(', ')} — ` +
+        'update fieldRegistry.tsx (3-file lockstep with backend fields.py and ' +
+        'the CMS SUBMISSION_FIELD_CHOICES).'
+    );
+  }
   const submissionFields = shown.filter(name => FIELD_REGISTRY[name].section === 'submission');
   const aboutFields = shown.filter(name => FIELD_REGISTRY[name].section === 'about');
 
@@ -142,8 +153,13 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
       <form
         onSubmit={e => {
           e.preventDefault();
-          if (captchaToken && formIsValid) {
-            submitForm(portalId);
+          // checkValidity() only sees native constraints, so the confirm
+          // field's match rule must be enforced here — otherwise
+          // require_email_confirm degrades to "type anything twice".
+          const emailConfirmed =
+            !requireEmailConfirm || (shown.includes('email') && emailConfirm === emailValue);
+          if (captchaToken && formIsValid && emailConfirmed) {
+            submitForm(portalId, shown);
           }
         }}
         ref={formRef}

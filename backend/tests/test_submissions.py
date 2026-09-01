@@ -593,3 +593,48 @@ class TestFormConfigContract:
         assert body["required_fields"] == form_config.required_fields
         assert "admin_teams" not in body
         assert "id" not in body
+
+
+class TestPublicListParams:
+    """The public list's newly-loosened boundary: portal_id optional (cross-
+    portal galleries) and an ids filter — neither may widen visibility past
+    submitted + not-hidden."""
+
+    def test_omitting_portal_id_spans_portals(self, client, form_config):
+        a = _submit(client).json()["id"]
+        b = _submit(client, fields={"title": "other"}, portal_id=OTHER_PORTAL).json()[
+            "id"
+        ]
+        listed = {s["id"] for s in client.get("/api/submissions").json()}
+        assert {a, b} <= listed
+
+    def test_ids_filter_narrows(self, client, form_config):
+        a = _submit(client).json()["id"]
+        _submit(client, fields={"title": "other"}, portal_id=OTHER_PORTAL)
+        listed = client.get(f"/api/submissions?ids={a}").json()
+        assert [s["id"] for s in listed] == [a]
+
+    def test_ids_cannot_fish_out_hidden_rows(self, client, form_config, session):
+        submission_id = _submit(client).json()["id"]
+        _set_auth(TEAM_A_PAYLOAD)
+        response = client.post(
+            f"/api/submissions/admin/{submission_id}/hidden", json={"hidden": True}
+        )
+        assert response.status_code == 200
+        assert client.get(f"/api/submissions?ids={submission_id}").json() == []
+
+    def test_ids_cannot_fish_out_drafts(
+        self, client, form_config, ks_demo_view_census_blocks_districtrmap, session
+    ):
+        response = client.post(
+            "/api/create_document",
+            json={
+                "districtr_map_slug": "ks_demo_view_census_blocks",
+                "portal_id": PORTAL,
+            },
+        )
+        assert response.status_code == 201
+        draft_pk = session.exec(
+            select(Submission.id).where(col(Submission.portal_id) == PORTAL)
+        ).one()
+        assert client.get(f"/api/submissions?ids={draft_pk}").json() == []

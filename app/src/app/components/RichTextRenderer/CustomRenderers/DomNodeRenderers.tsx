@@ -1,7 +1,6 @@
 import {DOMNode} from 'html-react-parser';
 import BoilerplateNodeRenderer from '../../Cms/RichTextEditor/extensions/Boilerplate/BoilerplateNodeRenderer';
 import {ContentHeader} from '../../Static/ContentHeader';
-import {SubmissionForm} from '../../Forms/SubmissionForm';
 import {
   PlanGallery,
   PlanGalleryProps,
@@ -19,7 +18,6 @@ import {
   RICH_TEXT_NODE_TYPES,
   BOILERPLATE_ATTRIBUTE_NAME,
   SECTION_HEADER_ATTRIBUTE_NAME,
-  FORM_ATTRIBUTES,
   MAP_CREATE_BUTTONS_ATTRIBUTES,
   COMMENT_GALLERY_ATTRIBUTES,
   PLAN_GALLERY_ATTRIBUTES,
@@ -47,17 +45,6 @@ export const domNodeReplacers = (disabled: boolean) => {
             ])
           ) as PlanGalleryProps;
           return <PlanGallery {...props} />;
-        }
-        case RICH_TEXT_NODE_TYPES.FORM: {
-          const props = Object.fromEntries(
-            FORM_ATTRIBUTES.map(attr => [
-              attr.name,
-              JSON.parse(domNode.attribs[attr.name] ?? 'null'),
-            ])
-          );
-          // Legacy embedded form nodes carry no form config; SubmissionForm
-          // renders nothing without one (converted pages use stream blocks).
-          return <SubmissionForm disabled={disabled} {...(props as any)} />;
         }
         case RICH_TEXT_NODE_TYPES.MAP_CREATE_BUTTONS: {
           const props = Object.fromEntries(

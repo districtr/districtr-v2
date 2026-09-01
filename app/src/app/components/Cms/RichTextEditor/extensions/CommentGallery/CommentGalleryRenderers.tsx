@@ -64,7 +64,7 @@ const ReportButton: React.FC<{submissionId: number}> = ({submissionId}) => {
 };
 
 /** Map link component for comments with associated maps */
-const MapLink: React.FC<{publicId: number; zone?: number | null}> = ({publicId, zone}) => (
+const MapLink: React.FC<{publicId: number}> = ({publicId}) => (
   <a
     href={`/map/${publicId}`}
     target="_blank"
@@ -74,11 +74,6 @@ const MapLink: React.FC<{publicId: number; zone?: number | null}> = ({publicId, 
   >
     <GlobeIcon className="w-4 h-4" />
     View Map
-    {zone !== null && zone !== undefined && (
-      <Badge size="1" color="blue" variant="soft">
-        Zone {zone}
-      </Badge>
-    )}
   </a>
 );
 
