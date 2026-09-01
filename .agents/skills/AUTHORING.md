@@ -193,7 +193,15 @@ advance (8/10 correct) — reduce the value question to four checks, asked in or
    that embodies the lesson, neighboring methods it will imitate, or the rest of this
    same file? Both sampled causal-history bullets tested derivable because their own
    file's surrounding sections already entailed the conclusion. Cut, or merge into what
-   carries it.
+   carries it — but weigh what kind of evidence the path holds. *Structural* evidence (a
+   dedicated component existing is itself the answer) and a *normative statement at a
+   choke point* (a docstring on the function every caller touches — read every time,
+   where a skill loads only sometimes) justify the cut. *Conformity of instances*
+   (every existing method happens to open with the guard) does not: imitation is
+   descriptive, propagates drift instead of correcting it, and one noncompliant
+   instance starts teaching the opposite. There, keep the skill's line, or first move
+   the rule to a real choke point and then cut. And check provenance: path evidence
+   that descends from the skill itself (a copied comment) confirms nothing.
 3. **What survives is arbitrary selection among defensible alternatives** — team policy,
    style convention, design intent underdetermined by the code. Both load-bearing points
    were this kind (a deploy-workflow policy; a punctuation convention): each flipped
