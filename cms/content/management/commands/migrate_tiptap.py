@@ -149,66 +149,81 @@ class Command(BaseCommand):
         pages_updated = 0
         pages_skipped = 0
 
-        for content_type, config in CONTENT_TYPES.items():
-            rows = self._fetch_rows(config)
-            by_slug = defaultdict(dict)
-            for row in rows:
-                by_slug[row["slug"]][row["language"]] = row
+        # One transaction around the whole pass: the fidelity-check
+        # CommandError below must roll back every page written this run,
+        # matching the all-or-nothing behaviour this command has when
+        # executed inside the atomic Django migration. (In dry-run no
+        # writes happen, so the wrapper is a no-op savepoint.)
+        try:
+            with transaction.atomic():
+                for content_type, config in CONTENT_TYPES.items():
+                    rows = self._fetch_rows(config)
+                    by_slug = defaultdict(dict)
+                    for row in rows:
+                        by_slug[row["slug"]][row["language"]] = row
 
-            for slug in sorted(by_slug):
-                lang_rows = by_slug[slug]
-                canonical_language = (
-                    DEFAULT_LANGUAGE
-                    if DEFAULT_LANGUAGE in lang_rows
-                    else sorted(lang_rows)[0]
-                )
-                if canonical_language != DEFAULT_LANGUAGE:
-                    self.stderr.write(
-                        self.style.WARNING(
-                            f"{content_type}/{slug}: no English row; using "
-                            f"'{canonical_language}' as canonical"
+                    for slug in sorted(by_slug):
+                        lang_rows = by_slug[slug]
+                        canonical_language = (
+                            DEFAULT_LANGUAGE
+                            if DEFAULT_LANGUAGE in lang_rows
+                            else sorted(lang_rows)[0]
                         )
+                        if canonical_language != DEFAULT_LANGUAGE:
+                            self.stderr.write(
+                                self.style.WARNING(
+                                    f"{content_type}/{slug}: no English row; using "
+                                    f"'{canonical_language}' as canonical"
+                                )
+                            )
+
+                        canonical_page = None
+                        # Canonical language first; translations need it to exist.
+                        ordered = [canonical_language] + [
+                            language
+                            for language in sorted(lang_rows)
+                            if language != canonical_language
+                        ]
+                        for language in ordered:
+                            row = lang_rows[language]
+                            entry = self._convert_row(content_type, row)
+                            report.append(entry)
+                            if not entry["text_ok"]:
+                                failed_rows += 1
+                            self._print_entry(entry)
+
+                            if dry_run:
+                                continue
+
+                            with transaction.atomic():
+                                page, action = self._upsert_page(
+                                    config,
+                                    row,
+                                    entry,
+                                    canonical_page=canonical_page,
+                                    is_canonical=(language == canonical_language),
+                                )
+                            if language == canonical_language:
+                                canonical_page = page
+                            if action == "created":
+                                pages_created += 1
+                            elif action == "updated":
+                                pages_updated += 1
+                            else:
+                                pages_skipped += 1
+
+                if failed_rows:
+                    raise CommandError(
+                        f"{failed_rows} row(s) failed the plain-text fidelity check "
+                        "(see report lines marked TEXT-LOSS)."
                     )
-
-                canonical_page = None
-                # Canonical language first; translations need it to exist.
-                ordered = [canonical_language] + [
-                    language
-                    for language in sorted(lang_rows)
-                    if language != canonical_language
-                ]
-                for language in ordered:
-                    row = lang_rows[language]
-                    entry = self._convert_row(content_type, row)
-                    report.append(entry)
-                    if not entry["text_ok"]:
-                        failed_rows += 1
-                    self._print_entry(entry)
-
-                    if dry_run:
-                        continue
-
-                    with transaction.atomic():
-                        page, action = self._upsert_page(
-                            config,
-                            row,
-                            entry,
-                            canonical_page=canonical_page,
-                            is_canonical=(language == canonical_language),
-                        )
-                    if language == canonical_language:
-                        canonical_page = page
-                    if action == "created":
-                        pages_created += 1
-                    elif action == "updated":
-                        pages_updated += 1
-                    else:
-                        pages_skipped += 1
-
-        if options["json_report"]:
-            with open(options["json_report"], "w") as f:
-                json.dump(report, f, indent=2)
-            self.stdout.write(f"Report written to {options['json_report']}")
+        finally:
+            # The JSON report is the diagnostic naming the failed rows —
+            # write it even when the fidelity check rolls the pass back.
+            if options["json_report"]:
+                with open(options["json_report"], "w") as f:
+                    json.dump(report, f, indent=2)
+                self.stdout.write(f"Report written to {options['json_report']}")
 
         if not dry_run:
             self.stdout.write(
@@ -218,11 +233,6 @@ class Command(BaseCommand):
                 )
             )
 
-        if failed_rows:
-            raise CommandError(
-                f"{failed_rows} row(s) failed the plain-text fidelity check "
-                "(see report lines marked TEXT-LOSS)."
-            )
         if dry_run:
             self.stdout.write(
                 self.style.SUCCESS(f"Dry run OK: {len(report)} row(s) converted.")

@@ -24,8 +24,11 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.text import get_valid_filename
 from requests import RequestException
+from django.http import Http404
 from wagtail.admin import messages
 from wagtail.admin.auth import permission_required
+
+from authapi.teams import instance_in_scope
 
 from datastore import services
 from datastore.forms import (
@@ -49,9 +52,9 @@ def _upload_key(filename: str) -> str:
 
 @permission_required(OVERLAY_ADMIN_PERMISSION)
 def upload_overlay(request):
-    form = OverlayUploadForm()
+    form = OverlayUploadForm(user=request.user)
     if request.method == "POST":
-        form = OverlayUploadForm(request.POST, request.FILES)
+        form = OverlayUploadForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
             name = form.cleaned_data["name"]
             source = form.cleaned_data["overlay_path"]
@@ -205,6 +208,10 @@ def regenerate_map_thumbnail(request, pk):
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
     districtr_map = get_object_or_404(DistrictrMap, pk=pk)
+    # A team-scoped super partner must not schedule backend work against
+    # another team's map by crafting the POST URL.
+    if not instance_in_scope(request.user, DistrictrMap, "team_links__team_id", pk):
+        raise Http404
     slug = districtr_map.districtr_map_slug
     try:
         services.regenerate_map_thumbnail(slug)

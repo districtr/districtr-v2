@@ -1,0 +1,74 @@
+# Exact-version constraints for cms/requirements.txt — the full transitive
+# tree, generated with `pip freeze` inside the built image. This service
+# signs every auth token in the system post-cutover; the constraint file
+# keeps a routine rebuild from silently pulling a different version of
+# anything in the crypto/JWT chain (PyJWT, cryptography, simplejwt).
+#
+# To refresh (deliberately, e.g. for a security bump):
+#   docker-compose build cms && docker-compose run --rm cms pip freeze > cms/requirements.lock
+annotated-types==0.7.0
+anyascii==0.3.3
+anyio==4.13.0
+asgiref==3.11.1
+attrs==26.1.0
+beautifulsoup4==4.15.0
+boto3==1.43.27
+botocore==1.43.27
+certifi==2026.5.20
+cffi==2.0.0
+charset-normalizer==3.4.7
+cryptography==48.0.1
+defusedxml==0.7.1
+Deprecated==1.3.1
+Django==5.2.15
+django-anymail==15.0
+django-filter==25.2
+django-modelcluster==6.5
+django-permissionedforms==0.1
+django-storages==1.14.6
+django-stubs-ext==6.0.5
+django-taggit==6.1.0
+django-tasks==0.7.0
+django-treebeard==4.8.0
+djangorestframework==3.17.1
+djangorestframework_simplejwt==5.5.1
+draftjs_exporter==5.2.0
+et_xmlfile==2.0.0
+filetype==1.2.0
+gunicorn==26.0.0
+h11==0.16.0
+httpcore==1.0.9
+httpx==0.28.1
+idna==3.18
+jmespath==1.1.0
+laces==0.1.2
+openpyxl==3.1.5
+packaging==26.2
+pillow==12.2.0
+pillow_heif==1.4.0
+polib==1.2.0
+psycopg==3.3.4
+psycopg-binary==3.3.4
+pycparser==3.0
+pydantic==2.13.4
+pydantic_core==2.46.4
+PyJWT==2.13.0
+python-dateutil==2.9.0.post0
+requests==2.34.2
+s3transfer==0.18.0
+six==1.17.0
+soupsieve==2.8.4
+sqlparse==0.5.5
+standardwebhooks==1.0.1
+svix==1.95.2
+telepath==0.3.1
+types-Deprecated==1.3.1.20260520
+types-python-dateutil==2.9.0.20260518
+typing-inspection==0.4.2
+typing_extensions==4.15.0
+urllib3==2.7.0
+wagtail==7.0.7
+wagtail-localize==1.13.1
+whitenoise==6.12.0
+Willow==1.12.0
+wrapt==2.2.1

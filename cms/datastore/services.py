@@ -156,7 +156,8 @@ def schedule_compose(
 ) -> dict:
     """POST /api/admin/districtr-map/compose; returns the 202 response body.
 
-    The module is always composed hidden (visible=false): flip it on in the
+    The module is always composed hidden (the backend accepts no compose-time
+    visibility flag): flip it on in the
     Districtr maps snippet once it has been checked. Non-202 responses carry
     a JSON `detail` (409 = slug already exists, 404 = unknown layer/group)
     which is surfaced verbatim.
@@ -173,7 +174,6 @@ def schedule_compose(
             "tiles_s3_path": tiles_s3_path,
             "group_slug": group_slug,
             "map_type": map_type,
-            "visible": False,
             "overlay_ids": overlay_ids or [],
         },
         ok_status=202,

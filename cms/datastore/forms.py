@@ -12,6 +12,7 @@ import json
 from django import forms
 from django.core.validators import RegexValidator
 
+from authapi.teams import scoped_queryset, user_is_team_scoped
 from datastore.models import (
     DistrictrMap,
     GerryDBTable,
@@ -112,6 +113,17 @@ class OverlayUploadForm(forms.Form):
         "(hold Ctrl/Cmd to select several; may be empty).",
     )
 
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Team-scoped users (super partners) may only attach overlays to
+        # their own teams' maps. ModelMultipleChoiceField validates submitted
+        # IDs against this queryset, so narrowing it closes the POST path,
+        # not just the visible choices.
+        if user is not None and user_is_team_scoped(user):
+            self.fields["districtr_maps"].queryset = scoped_queryset(
+                DistrictrMap, "team_links__team_id", user
+            ).order_by("name")
+
     def clean_overlay_file(self):
         overlay_file = self.cleaned_data.get("overlay_file")
         if overlay_file:
@@ -139,9 +151,17 @@ class OverlayUploadForm(forms.Form):
         if not custom_style:
             return None
         try:
-            return json.loads(custom_style)
+            decoded = json.loads(custom_style)
         except json.JSONDecodeError as exc:
             raise forms.ValidationError(f"Invalid JSON: {exc}")
+        # The backend contract (OverlayPublic.custom_style: dict | None)
+        # response-validates on every map load, so a stored non-object would
+        # 500 affected maps.
+        if not isinstance(decoded, dict):
+            raise forms.ValidationError(
+                "Custom style must be a JSON object of paint/layout overrides."
+            )
+        return decoded
 
     def clean(self):
         cleaned_data = super().clean()
