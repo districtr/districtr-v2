@@ -1,6 +1,6 @@
 ---
 name: learn-performance
-description: The memory and performance constraints this system has actually hit, and their history — server-process memory footprint, per-worker graph loading, lock contention under load, and where heavy computation is placed (DB vs. server process vs. browser worker). Use when a change could affect memory footprint, request latency under load, or where a computation should run.
+description: Memory and performance — backend server memory, the graph cache and graph loading per worker, database lock contention under load, slow endpoints, and where heavy computation runs (database vs. server vs. browser Web Worker), with the history of past incidents. Use when a change could affect memory usage, request latency, or where a computation runs, or when investigating a slow endpoint or high memory.
 user-invocable: false
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: pr-review
-description: Runs this repo's project-specific pre-merge checkpoints on a diff or PR — which concern skills the change falls under, migration safety, API contract drift, and quality-gate status — on top of, not instead of, the built-in code-review and security-review skills. Use when asked to review a PR or branch for this repo, or before merging a change that touches the backend schema, API surface, or auth/share flow.
+description: Runs this repo's project-specific pre-merge checkpoints on a diff or PR — which project skills the change falls under, migration safety, API contract drift, and quality-gate status — on top of, not instead of, the built-in code-review and security-review skills. Use when asked to review a PR or branch for this repo, or before merging a change that touches the backend schema, API surface, or auth/share flow.
 ---
 
 # PR review

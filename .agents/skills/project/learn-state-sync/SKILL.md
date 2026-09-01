@@ -1,6 +1,6 @@
 ---
 name: learn-state-sync
-description: Whether user work is saved, lost, or conflicted — the sync model between local IndexedDB, in-memory stores, and server state, including optimistic concurrency and conflict resolution. Use when a change could affect whether an edit survives a reload, a tab switch, or two clients editing the same document.
+description: Saving and syncing map edits — local IndexedDB persistence, in-memory stores, server sync of assignments and document metadata, optimistic concurrency via updated_at, and conflict resolution. Use when changing how edits are saved, loaded, or synced, or when a change could affect whether an edit survives a reload, a tab switch, or two clients editing the same document.
 user-invocable: false
 ---
 

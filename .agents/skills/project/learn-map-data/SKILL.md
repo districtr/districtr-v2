@@ -1,6 +1,6 @@
 ---
 name: learn-map-data
-description: How a map module comes to exist — from source GeoPackage through GerryDB import, tileset/tabular/graph pipeline artifacts, DistrictrMap record creation, parent-child (shatter) edges, and contiguity graph linkage. Use when adding or debugging map/module onboarding, editing pipelines/ CLIs, changing backend management commands or configs, or investigating why a map fails to load, shatter, or check contiguity.
+description: Map data pipeline and map onboarding — GeoPackage source data, GerryDB import, tileset / parquet / contiguity-graph pipeline outputs, the DistrictrMap record, parent-child (shatter) edges, and how the backend resolves them. Use when adding or debugging a map or module, editing the pipelines/ CLIs, changing backend management commands or configs, or investigating why a map fails to load, shatter, or pass a contiguity check.
 user-invocable: false
 ---
 

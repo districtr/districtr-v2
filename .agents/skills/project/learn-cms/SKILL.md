@@ -1,6 +1,6 @@
 ---
 name: learn-cms
-description: Editorial content flows — CMS page authoring and review, custom TipTap editor nodes, and comment moderation/review states. Use when editing CMS content or its admin UI, adding or changing a TipTap node, or touching moderation thresholds or review-state visibility for comments.
+description: CMS pages and comment moderation — CMS page authoring and publishing, the admin UI, custom TipTap rich-text editor nodes, and the comment moderation and review-status flow. Use when editing CMS content or its admin UI, adding or changing a TipTap node or the rich-text renderer, or changing moderation thresholds or comment review-status visibility.
 user-invocable: false
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: learn-map-frontend
-description: How the interactive map renders and responds to user input — Zustand store architecture, the subscription/middleware wiring that turns store changes into MapLibre paint and feature-state updates, shatter/heal transitions, and which work is pushed into Web Workers. Use when a change could affect what the map shows, how painting/shattering feels, or how map-related state is organized or synchronized across stores.
+description: Frontend map rendering and interaction — the MapLibre map component, Zustand stores and the subscription/middleware wiring that turns store changes into map paint and feature-state updates, painting and shatter/heal, map layers and styling, and the Web Workers that handle geometry and parquet. Use when changing what the map shows, how painting or shattering behaves, map layers or styles, or how map state is organized or synchronized across stores.
 user-invocable: false
 ---
 
