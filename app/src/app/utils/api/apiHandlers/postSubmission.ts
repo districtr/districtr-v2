@@ -17,7 +17,13 @@ export interface SubmissionCreated {
 type Result = {ok: true; data: SubmissionCreated} | {ok: false; error: string};
 
 const formatError = (detail: unknown): string =>
-  Array.isArray(detail) ? detail.join(' ') : String(detail);
+  // Aggregated validation errors are list[str]; FastAPI's own request
+  // validation is list[{msg,...}] — normalize both, never "[object Object]".
+  Array.isArray(detail)
+    ? detail
+        .map(d => (typeof d === 'string' ? d : ((d as {msg?: string})?.msg ?? JSON.stringify(d))))
+        .join('; ')
+    : String(detail);
 
 export const postSubmission = async (body: SubmissionCreate): Promise<Result> => {
   const response = await post<SubmissionCreate, SubmissionCreated>('submissions')({body});

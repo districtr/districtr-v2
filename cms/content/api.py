@@ -59,6 +59,12 @@ def _inject_portal_tag(body_data, portal_slug):
             tags = list(block.get("value", {}).get("mandatoryTags") or [])
             if portal_slug not in tags:
                 block["value"]["mandatoryTags"] = [portal_slug, *tags]
+        elif block.get("type") == "comment_gallery":
+            # A portal page's gallery lists ITS portal's submissions —
+            # without this, an empty editor `tags` field would list every
+            # portal's submissions, and user-added tag filters (OR
+            # semantics) would widen back across portals.
+            block["value"]["portalId"] = portal_slug
     return body_data
 
 
