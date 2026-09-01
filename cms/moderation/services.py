@@ -69,16 +69,6 @@ def list_form_comments(user, **params) -> list:
     )
 
 
-def list_district_comments(user, **params) -> list:
-    """GET /api/comments/admin/district-comments/list."""
-    return _call(
-        user,
-        "GET",
-        "/api/comments/admin/district-comments/list",
-        params=_clean(params),
-        what="district comment list",
-    )
-
 
 def review_item(user, content_type: str, item_id: int, review_status: str) -> dict:
     """POST /api/comments/admin/review for one comment/commenter/tag."""

@@ -353,7 +353,9 @@ class DocumentCommentCreate(BaseModel):
     """Create/update a document comment. If comment_id is provided, it's an update."""
 
     comment_id: int | None = None
-    zone: int | None = None
+    # ge=0 mirrors comments.district_notes' zone_non_negative CHECK so bad
+    # input 422s instead of surfacing as an IntegrityError 500.
+    zone: int | None = Field(default=None, ge=0)
     text: str
 
 

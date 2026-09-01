@@ -91,7 +91,7 @@ def test_nsfw_note_hidden_publicly_visible_to_editor(
 
 
 @patch("app.comments.moderation.score_text", return_value=CLEAN_SCORE)
-def test_copy_carries_notes_and_resets_moderation(_mock, client, document_id, session):
+def test_copy_carries_notes_and_moderation_verdict(_mock, client, document_id, session):
     response = _put_note(client, document_id, "carry me over")
     assert response.status_code == 200, response.json()
     # Simulate a prior nsfw verdict on the source note.
@@ -118,9 +118,11 @@ def test_copy_carries_notes_and_resets_moderation(_mock, client, document_id, se
     ).one()
     assert copied.note == "carry me over"
     assert copied.zone == 1
-    # Reset so the copy re-moderates on its next save.
-    assert copied.nsfw is False
-    assert copied.moderation_score is None
+    # The verdict travels with the copy: create_document needs only a session
+    # token, so a reset here would let anyone launder a moderated note into
+    # public view by copying the map and never saving.
+    assert copied.nsfw is True
+    assert copied.moderation_score == NSFW_SCORE
     # The source keeps its own row.
     assert copied.id != source_note.id
 
@@ -135,6 +137,32 @@ def test_notes_cascade_on_document_delete(_mock, client, document_id, session):
         {"doc": document_id},
     )
     session.commit()
+    remaining = session.exec(
+        select(DistrictNote).where(col(DistrictNote.document_id) == document_id)
+    ).all()
+    assert remaining == []
+
+
+@patch("app.comments.moderation.score_text", return_value=CLEAN_SCORE)
+def test_negative_zone_is_rejected_as_validation_error(_mock, client, document_id):
+    # Mirrors the zone_non_negative CHECK: bad input must 422, never surface
+    # as an IntegrityError 500 that rolls back the whole assignments save.
+    response = _put_note(client, document_id, "note", zone=-1)
+    assert response.status_code == 422
+
+
+@patch("app.comments.moderation.score_text", return_value=CLEAN_SCORE)
+def test_empty_note_is_treated_as_deletion(_mock, client, document_id, session):
+    response = _put_note(client, document_id, "real note")
+    assert response.status_code == 200, response.json()
+    note_id = session.exec(
+        select(DistrictNote.id).where(col(DistrictNote.document_id) == document_id)
+    ).one()
+
+    # Re-sync the same note with whitespace-only text: the row is deleted
+    # (not a note_not_empty CHECK violation 500).
+    response = _put_note(client, document_id, "   ", comment_id=note_id)
+    assert response.status_code == 200, response.json()
     remaining = session.exec(
         select(DistrictNote).where(col(DistrictNote.document_id) == document_id)
     ).all()
