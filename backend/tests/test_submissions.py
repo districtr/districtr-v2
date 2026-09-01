@@ -29,7 +29,7 @@ REVIEW_SCOPE = "create:content_review"
 TEAM_A_PAYLOAD = {"sub": "1", "scope": REVIEW_SCOPE, "teams": ["team-a"]}
 TEAM_B_PAYLOAD = {"sub": "2", "scope": REVIEW_SCOPE, "teams": ["team-b"]}
 NO_TEAMS_PAYLOAD = {"sub": "3", "scope": REVIEW_SCOPE, "teams": []}
-UNRESTRICTED_PAYLOAD = {"sub": "4", "scope": f"{REVIEW_SCOPE} read:read-all"}
+UNRESTRICTED_PAYLOAD = {"sub": "4", "scope": f"{REVIEW_SCOPE} review:review-all"}
 
 
 @pytest.fixture(name="form_config")
@@ -248,6 +248,13 @@ class TestTeamScoping:
         _set_auth(UNRESTRICTED_PAYLOAD)
         response = client.get("/api/submissions/admin")
         assert response.status_code == 200
+
+    def test_read_all_scope_does_not_bypass_team_scoping(self, client, form_config):
+        # read:read-all governs authorship-boundary reads, not moderation
+        # reach — only review:review-all lifts the teams restriction.
+        _set_auth({**TEAM_B_PAYLOAD, "scope": f"{REVIEW_SCOPE} read:read-all"})
+        response = client.get(f"/api/submissions/admin?portal_id={PORTAL}")
+        assert response.status_code == 403
 
     def test_absent_teams_claim_unrestricted(self, client, form_config):
         _set_auth({"sub": "5", "scope": REVIEW_SCOPE})
