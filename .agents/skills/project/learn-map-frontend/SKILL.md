@@ -15,9 +15,6 @@ express one concern: *how the map renders and responds*.
 
 ## Grounded invariants
 
-- **State is store-driven, not component-local.** Cross-store side effects only work if
-  each store is the single source of truth for its slice; ad hoc component state can't
-  be seen by the subscription layer that drives the map.
 - **Cross-store side effects wire through `subscriptions.tsx` / `mapEditSubs.ts` /
   `metricsSubs.ts`, not scattered component effects.** These files own subscription
   *ordering* — two stores reacting to the same change in an unpredictable order is a

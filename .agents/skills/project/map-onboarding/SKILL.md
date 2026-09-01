@@ -141,13 +141,3 @@ For repeatable multi-map setup (e.g. onboarding every state at once), use
 graph generation, which stay separate pipeline runs) and supports `--hidden`
 to force every created map to `visible=false` so a later `update-districtr-map`
 call is what launches them.
-
-## Common failure modes
-
-- **Contiguity check fails on an otherwise-working map**: usually a
-  `--gerrydb-name` (step 4) / `--gerrydb-table-name` (step 5) mismatch, or the
-  graph was never uploaded (`check-missing-graphs` catches this).
-- **Map loads but child geometries never shatter**: step 6 was skipped, or ran
-  against the wrong slug/UUID.
-- **Tiles don't render**: `--tiles-s3-path` in step 5 doesn't match where step
-  3's tileset was actually uploaded.

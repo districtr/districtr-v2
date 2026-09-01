@@ -41,10 +41,6 @@ diagram, per-service table, deploy mechanics, preview model, operations (rollbac
 secrets, DB access), and first-time account setup. Read it before editing anything in
 `infra/`; this section carries only what it doesn't.
 
-- **Causal history**: hosting moved off Fly during 2026 — PR #649 (2026-08-05) was the
-  final step, cutting PR previews over to AWS and deleting every Fly config and workflow
-  from the repo; PRs #698/#701 then made the apex domain canonical. The Fly setup is
-  fully gone in-repo — a reference to it anywhere is stale documentation.
 - **Two deploy roles is a security boundary, not redundancy**: `preview.yml` runs a PR's
   own code under the narrow `districtr-gha-preview` role; the admin-scoped
   `districtr-gha-deploy` role is reserved for `dev`/`main` workflows. Keep any new
