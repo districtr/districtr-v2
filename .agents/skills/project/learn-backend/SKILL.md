@@ -24,15 +24,11 @@ user-invocable: false
   an uploaded CSV may list only some of a shattered parent's children, and the unlisted
   siblings must still end up with rows). A change to one path without checking the other
   is how this contract silently breaks. Verified current 2026-08-27.
-- **`get_protected_document` vs `get_document_public`**: `get_protected_document` returns
-  the raw `Document` row, every column included — safe to read from inside a handler,
-  unsafe to return, since a `public_id` caller would get the real `document_id` back
-  along with everything else. `get_document_public` exists for routes that do need to
-  return document data: it assembles the response field by field and substitutes a
-  masked placeholder for `document_id` whenever the caller only supplied the public id.
-  Pick the dependency by what the handler returns, not what it reads — a response that
-  grows to include document fields needs a switch to `get_document_public`, not a wider
-  response.
+- **A response reachable by `public_id` must never contain the true `document_id`.**
+  The dependencies in `core/dependencies.py` sit on this boundary: `get_document`
+  resolves private ids only (write paths); `get_protected_document` resolves either id
+  and returns the raw `Document` row — the general read dependency: read fields,
+  compute, assemble the response by hand, and leave `document_id` out of it.
 
 ## The document/assignments split
 

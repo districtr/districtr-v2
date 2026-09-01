@@ -27,20 +27,13 @@ user-invocable: false
   tokens (minted in `save_share/main.py`) carry neither. A change to either minting path
   that starts adding `aud`/`exp` to share tokens, or drops `require_session`'s
   `options={"require": ["exp", "aud"]}`, breaks this separation.
-- **Public document access must never return the true `document_id`.** A document is
-  reachable by its private `document_id` (UUID; possession grants edit rights) or its
-  `public_id` (small integer; read-only). The request dependencies in
-  `backend/app/core/dependencies.py` enforce the boundary, and the choice among them is
-  the same rule `learn-backend` states — repeated here because share-link work lands on
-  it directly: `get_protected_document` returns the raw `Document` row, every column
-  included — safe to read from inside a handler, unsafe to return, since a `public_id`
-  caller would get the real `document_id` back along with everything else.
-  `get_document_public` exists for routes that do need to return document data: it
-  assembles the response field by field and substitutes a masked placeholder for
-  `document_id` whenever the caller only supplied the public id. Pick the dependency by
-  what the handler returns, not what it reads — a response that grows to include
-  document fields needs a switch to `get_document_public`, not a wider response.
-  (`get_document` is the third option: private id only, for write paths.)
+- **A response reachable by `public_id` must never contain the true `document_id`.** A
+  document is reachable by its private `document_id` (UUID; possession grants edit
+  rights) or its `public_id` (small integer; read-only). The request dependencies in
+  `backend/app/core/dependencies.py` enforce the boundary: `get_document` resolves
+  private ids only (write paths); `get_protected_document` resolves either id and
+  returns the raw `Document` row — read fields, compute, assemble the response by
+  hand, and leave `document_id` out of it.
 
 ## The share/edit token model
 
