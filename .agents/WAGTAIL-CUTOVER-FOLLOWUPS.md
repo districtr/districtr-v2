@@ -5,7 +5,7 @@
 Shipped (branch commits `0836caa7`, `5e283044`, + this one), reviewed against
 the Districtr Management System requirements:
 
-- **`cms/moderation` app**: comment review, district-comment review, map
+- **`cms/moderation` app**: comment review, map
   submissions (comments with an attached plan; approve into team galleries as
   draft revisions), and the under-construction toggle are now Wagtail views
   calling the FastAPI admin endpoints with a per-user minted JWT
@@ -91,6 +91,7 @@ or make middleware the *only* refresher and re-enable blacklisting.
 | Item | Where | Notes |
 |---|---|---|
 | ✅ **DECIDED 2026-08-04: leave as-is** — District comments for tag-scoped reviewers | [backend/app/comments/main.py](../backend/app/comments/main.py) | Blanket 403 stays: scoped reviewers moderate community comments only; full reviewers/admins handle district comments. Menu link already hidden for scoped reviewers. |
+| ⚠️ **OPEN** — District-comment review has NO admin UI | [cms/moderation/services.py](../cms/moderation/services.py) | `list_district_comments` has no production caller: the portal review queue only lists form comments, and the old Next.js /admin surface is gone. District comments are auto-moderated (nsfw scoring) but cannot be human-reviewed until a queue is built — do not treat district-comment review as shipped. |
 | ✅ **DONE** — `/places` "N map modules" count | [app/src/app/(static)/places/page.tsx](../app/src/app/(static)/places/page.tsx) | Restored: card shows `N map module(s)` from the `districtr_map_slugs` the list endpoint returns. |
 | ✅ **DONE** — GET `/auth/logout` CSRF | [app/src/app/auth/logout/route.ts](../app/src/app/auth/logout/route.ts) | Guarded with the Fetch-Metadata `Sec-Fetch-Site` header — an explicit `cross-site` GET bounces home WITHOUT signing out; same-origin/same-site/direct nav still log out. Chose this over the auto-submit-form approach: lower risk, no coupling to NextAuth CSRF internals, no redirect flash. |
 | ⏳ **DEFERRED** (long-term) — PermissionGuard reads raw JWT client-side | [app/src/app/admin/components/PermissionGuard.tsx](../app/src/app/admin/components/PermissionGuard.tsx) | Now base64url-safe via shared `decodeJwtPayload`, but long-term the access token shouldn't need to reach the client at all — pass roles/scopes as typed session fields and keep the token server-side. Larger auth-session refactor; left as-is. |
@@ -191,10 +192,10 @@ or make middleware the *only* refresher and re-enable blacklisting.
    now `admin`/`partner`/`super_partner`, consolidated 2026-08-05 by
    authapi.0007) — sends password-setup emails.
 7. Smoke: Wagtail login, edit+publish a page, comment moderation in the
-   Wagtail admin (Comment review menu → /admin/moderation/comments/, moved
-   in-CMS 2026-08-05; the Next.js /admin pages are gone), under-construction
-   toggle (Settings → Frontend settings), thumbnail regen, gallery publish,
-   compose-map dry call.
+   Wagtail admin (Review menu → /admin/moderation/portals/, pick a portal;
+   moved in-CMS 2026-08-05; the Next.js /admin pages are gone),
+   under-construction toggle (Settings → Frontend settings), thumbnail regen,
+   gallery publish, compose-map dry call.
 8. **Disable** (don't delete) the Auth0 tenant; delete after two quiet weeks.
 9. One month post-cutover: ship the migration renaming `cms.tags_content` /
    `cms.places_content` → `*_legacy` (they must survive until then —
