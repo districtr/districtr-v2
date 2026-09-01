@@ -1,7 +1,8 @@
 'use client';
 import {useEffect, useMemo, useState} from 'react';
-import {Blockquote, Box, Button, Checkbox, Dialog, Flex, Text, TextArea} from '@radix-ui/themes';
+import {Blockquote, Button, Checkbox, Dialog, Flex, Text} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
+import {useFormState} from '@/app/store/formState';
 import {useDraftSubmissionStore} from '@/app/store/draftSubmissionStore';
 import {getDraftSubmission, updateDraftSubmission} from '@/app/utils/draftSubmissions';
 import {
@@ -10,6 +11,7 @@ import {
   type FormConfigPublic,
 } from '@/app/utils/api/apiHandlers/postSubmission';
 import {FIELD_ORDER, FIELD_REGISTRY} from '@/app/components/Forms/fieldRegistry';
+import {FormField} from '@/app/components/Forms/FormField';
 import {useTurnstile} from '@/app/hooks/useTurnstile';
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -26,10 +28,13 @@ export const SubmitToPortalModal: React.FC = () => {
   const promptDocumentId = useDraftSubmissionStore(state => state.promptDocumentId);
   const closePrompt = useDraftSubmissionStore(state => state.closePrompt);
   const setNotification = useMapStore(state => state.setNotification);
+  const currentDocumentId = useMapStore(state => state.mapDocument?.document_id);
+  const setCaptchaToken = useFormState(state => state.setCaptchaToken);
 
   const draft = useMemo(() => getDraftSubmission(promptDocumentId), [promptDocumentId]);
   const [config, setConfig] = useState<FormConfigPublic | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
+  const [emailConfirm, setEmailConfirm] = useState('');
   const [acknowledged, setAcknowledged] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -38,6 +43,7 @@ export const SubmitToPortalModal: React.FC = () => {
   useEffect(() => {
     setConfig(null);
     setValues({});
+    setEmailConfirm('');
     setAcknowledged(false);
     setError('');
     if (!draft) return;
@@ -45,22 +51,32 @@ export const SubmitToPortalModal: React.FC = () => {
       if (response.ok) setConfig(response.response);
       else setError('Could not load the portal form. Please try again later.');
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft?.portalId, promptDocumentId]);
 
-  if (!promptDocumentId || !draft || draft.submitted) return null;
+  // The prompt id must match the map on screen: the store is module-global,
+  // so a stale id from a previous map would otherwise finalize (publish) a
+  // map the user is no longer looking at.
+  if (!promptDocumentId || promptDocumentId !== currentDocumentId || !draft || draft.submitted) {
+    return null;
+  }
 
   const requiredFields = FIELD_ORDER.filter(name => config?.required_fields?.includes(name));
+  const needsEmailConfirm = !!config?.require_email_confirm && requiredFields.includes('email');
+  const fieldIsValid = (name: string) => {
+    const value = (values[name] ?? '').trim();
+    if (!value) return false;
+    const spec = FIELD_REGISTRY[name];
+    if (name === 'email') return EMAIL_RE.test(value);
+    if (spec.pattern && !new RegExp(`^(?:${spec.pattern})$`).test(value)) return false;
+    return !spec.validator || spec.validator(value);
+  };
   const isValid =
     !!config &&
     acknowledged &&
     !!captchaToken &&
-    requiredFields.every(name => {
-      const value = (values[name] ?? '').trim();
-      if (!value) return false;
-      if (name === 'email') return EMAIL_RE.test(value);
-      const spec = FIELD_REGISTRY[name];
-      return !spec.validator || spec.validator(value);
-    });
+    requiredFields.every(fieldIsValid) &&
+    (!needsEmailConfirm || emailConfirm === values['email']);
 
   const dismiss = () => {
     updateDraftSubmission(promptDocumentId, {suppressed: true});
@@ -75,6 +91,11 @@ export const SubmitToPortalModal: React.FC = () => {
       tags: [],
       turnstile_token: captchaToken,
     });
+    // Turnstile tokens are single-use: the server verifies the captcha
+    // BEFORE any other check, so even a 409/422 consumed it. Clearing the
+    // token re-renders the widget; without this every retry fails at
+    // Cloudflare with the button still enabled.
+    setCaptchaToken('');
     setIsSubmitting(false);
     if (response.ok) {
       updateDraftSubmission(promptDocumentId, {submitted: true});
@@ -86,7 +107,7 @@ export const SubmitToPortalModal: React.FC = () => {
         type: 'success',
       });
     } else {
-      setError(response.error);
+      setError(response.error || 'Something went wrong — please try again.');
     }
   };
 
@@ -106,26 +127,32 @@ export const SubmitToPortalModal: React.FC = () => {
         <Flex direction="column" gap="3" mt="3">
           {requiredFields.map(name => {
             const spec = FIELD_REGISTRY[name];
-            const isTextArea = spec.component === TextArea;
             return (
               <Flex key={name} direction="column" gap="1">
-                <Text as="label" size="2" weight="medium">
-                  {spec.label} *
-                </Text>
-                {isTextArea ? (
-                  <TextArea
-                    value={values[name] ?? ''}
-                    placeholder={spec.label}
-                    onChange={e => setValues(v => ({...v, [name]: e.target.value}))}
-                  />
-                ) : (
-                  <input
-                    className="rt-TextFieldInput rt-r-size-2 border border-slate-300 rounded p-2"
-                    type={spec.type ?? 'text'}
-                    value={values[name] ?? ''}
-                    placeholder={spec.label}
-                    autoComplete={spec.autoComplete}
-                    onChange={e => setValues(v => ({...v, [name]: e.target.value}))}
+                <FormField
+                  name={`portal_${name}`}
+                  label={`${spec.label} *`}
+                  type={spec.type}
+                  component={spec.component}
+                  options={spec.options}
+                  autoComplete={spec.autoComplete}
+                  pattern={spec.pattern}
+                  validator={spec.validator}
+                  invalidMessage={spec.invalidMessage}
+                  required
+                  value={values[name] ?? ''}
+                  onChangeValue={value => setValues(v => ({...v, [name]: value}))}
+                />
+                {name === 'email' && needsEmailConfirm && (
+                  <FormField
+                    name="portal_email_confirm"
+                    label="Confirm Email *"
+                    type="email"
+                    required
+                    value={emailConfirm}
+                    onChangeValue={setEmailConfirm}
+                    validator={value => value === values['email']}
+                    invalidMessage="Email addresses must match"
                   />
                 )}
               </Flex>

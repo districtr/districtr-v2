@@ -7,6 +7,7 @@ import {ShareMapSection} from './ShareMapSection';
 import {useSaveShareStore} from '@/app/store/saveShareStore';
 import {Link1Icon} from '@radix-ui/react-icons';
 import {useMapMetadata} from '@/app/hooks/useMapMetadata';
+import {DRAFT_STATUSES} from '@/app/constants/document/draftStatus';
 import {useEditableDocId} from '@/app/hooks/useEditableDocId';
 import {DEFAULT_MAP_METADATA} from '@/app/utils/language';
 import {routeForType} from '@constants/document/routes';
@@ -116,22 +117,27 @@ export const SaveShareModal: React.FC<{
           />
           <hr className="my-4" />
           <ShareMapSection isEditing={isEditing} />
-          {isEditing && draftSubmission && !draftSubmission.submitted && (
-            <Button
-              variant="soft"
-              color="violet"
-              size="3"
-              className="mt-2"
-              onClick={() => {
-                if (mapDocument?.document_id) {
-                  onClose();
-                  openSubmitPrompt(mapDocument.document_id);
-                }
-              }}
-            >
-              Submit to the {draftSubmission.portalId} portal
-            </Button>
-          )}
+          {isEditing &&
+            draftSubmission &&
+            !draftSubmission.submitted &&
+            // Finalize hard-requires ready_to_share server-side; offering the
+            // modal earlier guarantees a 409 (and burns a captcha token).
+            mapMetadata?.draft_status === DRAFT_STATUSES.READY_TO_SHARE && (
+              <Button
+                variant="soft"
+                color="violet"
+                size="3"
+                className="mt-2"
+                onClick={() => {
+                  if (mapDocument?.document_id) {
+                    onClose();
+                    openSubmitPrompt(mapDocument.document_id);
+                  }
+                }}
+              >
+                Submit to the {draftSubmission.portalId} portal
+              </Button>
+            )}
           {isEditing ? (
             <Flex direction="column" gap="2" className="mt-4">
               <Flex direction="row" gap="2" justify="between">

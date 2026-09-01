@@ -403,12 +403,24 @@ class TestDraftFinalize:
         # Drafts are invisible publicly and never in the gallery.
         assert client.get(f"/api/submissions?portal_id={PORTAL}").json() == []
 
-    def test_create_document_with_unknown_portal_404(self, client, form_config):
+    def test_create_document_with_unknown_portal_degrades(
+        self, client, form_config, session
+    ):
+        # portal_id is advisory: a portal page can outlive its FormConfig, so
+        # a missing config must degrade to a normal map (no draft), never
+        # abort document creation on a live portal page.
         response = client.post(
             "/api/create_document",
             json={"districtr_map_slug": GERRY_DB_FIXTURE_NAME, "portal_id": "nope"},
         )
-        assert response.status_code == 404
+        assert response.status_code == 201, response.json()
+        assert response.json().get("submission_id") is None
+        assert (
+            session.exec(
+                select(Submission).where(col(Submission.portal_id) == "nope")
+            ).first()
+            is None
+        )
 
     def test_unknown_capability_404(self, client, form_config):
         response = self._finalize(client, "00000000-0000-0000-0000-000000000000")
