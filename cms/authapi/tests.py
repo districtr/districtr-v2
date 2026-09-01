@@ -105,11 +105,11 @@ class TeamsClaimTests(TestCase):
     user's team slugs; the backend intersects it with a portal's
     form_configs.admin_teams (backend/app/submissions/main.py).
 
-    The backend treats an ABSENT claim — or a token carrying
-    `review:review-all` — as unrestricted, and an EMPTY list as "allows
-    nothing", so these tests pin: admins get no claim; team-scoped users get
-    their team slugs; team-less non-admins get [] (fail closed until they
-    join a team).
+    The backend FAILS CLOSED on an absent claim (only `review:review-all`
+    bypasses the restriction — see require_portal_admin), and an EMPTY list
+    allows nothing, so these tests pin: admins get no claim plus the bypass
+    scope; team-scoped users get their team slugs; team-less non-admins get
+    [] (fail closed until they join a team).
     """
 
     def _claim_for(self, user):

@@ -20,7 +20,10 @@ class Team(ClusterableModel):
 
     The slug is minted into the JWT `teams` claim at login and matched by
     the backend against form_configs.admin_teams — renaming a team is safe,
-    changing its slug invalidates members' access until re-login.
+    but changing its slug PERMANENTLY revokes the team's moderation reach:
+    form_configs.admin_teams keeps the old string, re-login mints the new
+    one, and they never match again (an admin must re-edit every affected
+    portal form). Treat slugs as immutable after creation.
     """
 
     name = models.CharField(max_length=255, unique=True)
@@ -28,8 +31,9 @@ class Team(ClusterableModel):
         max_length=255,
         unique=True,
         help_text=(
-            "Stable identifier, minted into members' JWT `teams` claim. "
-            "Changing it revokes group_only gallery access until re-login."
+            "Stable identifier, minted into members' JWT `teams` claim and "
+            "stored in portal forms' admin_teams. Changing it permanently "
+            "orphans those grants — treat as immutable."
         ),
     )
 

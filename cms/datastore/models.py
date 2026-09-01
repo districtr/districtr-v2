@@ -274,8 +274,10 @@ class FormConfig(models.Model):
     """
 
     id = models.AutoField(primary_key=True)
-    portal_id = models.CharField(unique=True)
-    name = models.CharField()
+    # max_length mirrors the backend's String(255): without it Django puts
+    # no form-level cap while the column truncates at 255 via DataError.
+    portal_id = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
     fields = ArrayField(models.CharField(max_length=64), default=list)
     required_fields = ArrayField(models.CharField(max_length=64), default=list)
     require_email_confirm = models.BooleanField(default=False)
